@@ -108,21 +108,6 @@ interface TaskStats {
   byAssignee: Record<string, { total: number; open: number; resolved: number }>;
 }
 
-interface PipelineOverview {
-  phases: Record<string, { count: number; taskIds: string[] }>;
-  total: number;
-}
-
-interface OvernightResult {
-  taskId: string;
-  taskTitle: string;
-  phase: string;
-  status: string; // passed | failed | partial
-  summary?: string;
-  errors?: string[];
-  duration?: string;
-}
-
 interface Props {
   rootPath: string;
   theme: { bg: string; bgMuted: string; borderLight: string; accent: string; accentBg: string; text: string };
@@ -175,7 +160,7 @@ const PHASE_STATUS_ICONS: Record<string, string> = {
 const STATUS_FILTERS = ["all", "open", "in-progress", "resolved", "closed"];
 const TYPE_FILTERS = ["all", "requirement", "bug", "security", "chore"];
 
-type ViewMode = "list" | "pipeline" | "overnight";
+type ViewMode = "list";
 
 // ── Helper functions ──
 function getTaskSourceIcon(task: Task): string {
@@ -223,10 +208,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
   const [editForm, setEditForm] = useState<Partial<Task>>({ type: "chore" });
   const [noteInput, setNoteInput] = useState("");
   const [decomposeSubs, setDecomposeSubs] = useState([{ title: "", type: "", effort: "S", assignee: "", description: "" }]);
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const [pipelineOverview, setPipelineOverview] = useState<PipelineOverview | null>(null);
-  const [overnightQueue, setOvernightQueue] = useState<Task[]>([]);
-  const [overnightResults, setOvernightResults] = useState<OvernightResult[]>([]);
+  // viewMode, pipelineOverview, overnight state removed — list view only
   const [diffModal, setDiffModal] = useState<string | null>(null);
   const [commitMsg, setCommitMsg] = useState("");
   const [showSpecForm, setShowSpecForm] = useState(false);
@@ -262,42 +244,9 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
     } catch {}
   }, [pathParam]);
 
-  const fetchPipelineOverview = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-tasks/pipeline/overview?path=${pathParam}`);
-      if (res.ok) {
-        const data = await res.json();
-        setPipelineOverview(data);
-      }
-    } catch {}
-  }, [pathParam]);
-
-  const fetchOvernightQueue = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-tasks/overnight-queue?path=${pathParam}`);
-      if (res.ok) {
-        const data = await res.json();
-        setOvernightQueue(data.tasks || []);
-      }
-    } catch {}
-  }, [pathParam]);
-
-  const fetchOvernightResults = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-tasks/overnight-queue/results?path=${pathParam}`);
-      if (res.ok) {
-        const data = await res.json();
-        setOvernightResults(data.results || []);
-      }
-    } catch {}
-  }, [pathParam]);
-
+  // Pipeline/overnight fetch removed — list view only
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
   useEffect(() => { fetchStats(); }, [fetchStats]);
-  useEffect(() => {
-    if (viewMode === "pipeline") fetchPipelineOverview();
-    if (viewMode === "overnight") { fetchOvernightQueue(); fetchOvernightResults(); }
-  }, [viewMode, fetchPipelineOverview, fetchOvernightQueue, fetchOvernightResults]);
 
   const selected = tasks.find(t => t.id === selectedId);
   const childTasks = tasks.filter(t => t.parentId === selectedId);
@@ -322,7 +271,6 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
         setShowCreate(false);
         fetchTasks();
         fetchStats();
-        if (viewMode === "pipeline") fetchPipelineOverview();
       }
     } catch {}
   };
@@ -349,7 +297,6 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
       setSelectedId(null);
       fetchTasks();
       fetchStats();
-      if (viewMode === "pipeline") fetchPipelineOverview();
     } catch {}
   };
 
@@ -402,7 +349,6 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
       });
       if (res.ok) {
         fetchTasks();
-        fetchPipelineOverview();
       }
     } catch {}
   };
@@ -418,7 +364,6 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
       });
       if (res.ok) {
         fetchTasks();
-        fetchPipelineOverview();
       }
     } catch {}
   };
@@ -467,17 +412,6 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
     } catch {}
   };
 
-  // ── Overnight handlers ──
-  const handleStartOvernightRun = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-tasks/overnight-queue/run?path=${pathParam}`, { method: "POST" });
-      if (res.ok) {
-        fetchOvernightQueue();
-        fetchOvernightResults();
-      }
-    } catch {}
-  };
-
   const startEdit = (task: Task) => {
     setEditing(true);
     setEditForm({
@@ -486,27 +420,6 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
     });
   };
 
-  // ── View mode toggle ──
-  const renderViewToggle = () => (
-    <div className="flex items-center gap-0.5 px-1 py-1 rounded" style={{ background: theme.bgMuted }}>
-      {(["list", "pipeline", "overnight"] as ViewMode[]).map(mode => (
-        <button
-          key={mode}
-          onClick={() => setViewMode(mode)}
-          className="text-xs px-2.5 py-1 rounded font-medium transition-colors"
-          style={{
-            background: viewMode === mode ? theme.accentBg : "transparent",
-            color: viewMode === mode ? theme.accent : theme.text,
-            opacity: viewMode === mode ? 1 : 0.6,
-          }}
-        >
-          {mode === "list" && `📋 ${t("task.listView", "List")}`}
-          {mode === "pipeline" && `🔧 ${t("task.pipelineView", "Pipeline")}`}
-          {mode === "overnight" && `🌙 ${t("task.overnightView", "Overnight")}`}
-        </button>
-      ))}
-    </div>
-  );
 
   // ── Task card mini pipeline bar ──
   const renderPhaseMiniBar = (task: Task) => {
@@ -837,43 +750,6 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
   };
 
   // ── Task card for kanban ──
-  const renderKanbanCard = (task: Task) => {
-    const ty = TYPE_STYLES[task.type] || TYPE_STYLES.chore;
-    const sourceIcon = getTaskSourceIcon(task);
-    const currentPhase = getCurrentPhase(task);
-    const assignTo = currentPhase ? task.pipeline?.[currentPhase]?.assignTo : undefined;
-    return (
-      <div
-        key={task.id}
-        onClick={() => navigateTo(task.id)}
-        className="p-2 rounded cursor-pointer border mb-2 transition-colors"
-        style={{
-          borderColor: theme.borderLight,
-          background: theme.bg,
-        }}
-        onMouseEnter={e => { e.currentTarget.style.borderColor = theme.accent; }}
-        onMouseLeave={e => { e.currentTarget.style.borderColor = theme.borderLight; }}
-      >
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="text-xs">{sourceIcon}</span>
-          <span className="text-xs font-mono shrink-0" style={{ color: theme.text, opacity: 0.5 }}>{task.id}</span>
-          <span className="text-[10px] px-1 rounded" style={{ background: ty.bg, color: ty.text }}>{getAssigneeIcon(assignTo)}</span>
-        </div>
-        <div className="text-xs font-medium mb-1" style={{ color: theme.text }}>{task.title}</div>
-        <div className="flex items-center gap-1 flex-wrap">
-          {task.effort && (
-            <span className="text-[10px] px-1 py-0.5 rounded font-bold"
-              style={{ background: (EFFORT_STYLES[task.effort] || EFFORT_STYLES.S).color + "20", color: (EFFORT_STYLES[task.effort] || EFFORT_STYLES.S).color }}>
-              {task.effort}
-            </span>
-          )}
-          {task.executionResult && (
-            <span className="text-[10px]">{task.executionResult.success ? "⚡✅" : "⚡❌"}</span>
-          )}
-        </div>
-      </div>
-    );
-  };
 
   // ══════════════════════════════════════════════════════
   // RENDER
@@ -883,12 +759,11 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
     <div className="flex h-full" style={{ background: theme.bg }}>
       {/* Left: Task List / Pipeline / Overnight */}
       <div className="w-1/2 flex flex-col border-r" style={{ borderColor: theme.borderLight }}>
-        {/* Top bar with view toggle + stats */}
+        {/* Top bar with stats */}
         <div className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
-          {renderViewToggle()}
           <div className="flex-1" />
           <button
-            onClick={() => { fetchTasks(); fetchStats(); if (viewMode === "pipeline") fetchPipelineOverview(); if (viewMode === "overnight") { fetchOvernightQueue(); fetchOvernightResults(); } }}
+            onClick={() => { fetchTasks(); fetchStats(); }}
             className="text-xs px-1.5 py-1 rounded shrink-0"
             style={{ background: theme.bg, color: theme.text }}
           >
@@ -897,7 +772,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
         </div>
 
         {/* Stats bar (list mode only) */}
-        {viewMode === "list" && stats && (
+        {stats && (
           <div className="flex items-center gap-2 px-3 py-2 text-xs flex-wrap" style={{ background: theme.bgMuted, borderBottom: `1px solid ${theme.borderLight}` }}>
             <span style={{ color: theme.text, opacity: 0.6 }}>{t("task.tasks", "Tasks")}: <b>{stats.total}</b></span>
             <span className="px-1.5 py-0.5 rounded" style={{ background: STATUS_STYLES.open.bg, color: STATUS_STYLES.open.text }}>{t("task.open", "Open")}: {stats.open}</span>
@@ -907,7 +782,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
         )}
 
         {/* ─── LIST VIEW ─── */}
-        {viewMode === "list" && (
+        {(
           <>
             <div className="flex items-center gap-1.5 px-3 py-2" style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="text-xs px-1.5 py-1 rounded border" style={inputStyle}>
@@ -978,134 +853,6 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
           </>
         )}
 
-        {/* ─── PIPELINE VIEW (Kanban) ─── */}
-        {viewMode === "pipeline" && (
-          <div className="flex-1 overflow-x-auto">
-            {/* Summary bar */}
-            <div className="flex items-center gap-2 px-3 py-2 text-xs flex-wrap" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
-              {PIPELINE_PHASES.map(phase => {
-                const count = pipelineOverview?.phases?.[phase]?.count ?? tasks.filter(t => getCurrentPhase(t) === phase).length;
-                return (
-                  <span key={phase} className="flex items-center gap-1">
-                    {PIPELINE_PHASE_ICONS[phase]} <b style={{ color: theme.text }}>{count}</b>
-                  </span>
-                );
-              })}
-            </div>
-            {/* Kanban columns */}
-            <div className="flex gap-2 p-2 h-full" style={{ minWidth: "fit-content" }}>
-              {PIPELINE_PHASES.map(phase => {
-                const phaseTasks = tasks.filter(t => getCurrentPhase(t) === phase);
-                return (
-                  <div key={phase} className="flex flex-col rounded" style={{ width: 200, minWidth: 200, background: theme.bgMuted }}>
-                    <div className="px-2 py-2 text-xs font-bold sticky top-0" style={{ color: theme.text, borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
-                      {PIPELINE_PHASE_ICONS[phase]} {phase} <span style={{ opacity: 0.5 }}>({phaseTasks.length})</span>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-1.5">
-                      {phaseTasks.length === 0 ? (
-                        <div className="text-xs text-center py-4" style={{ opacity: 0.3 }}>—</div>
-                      ) : (
-                        phaseTasks.map(task => renderKanbanCard(task))
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ─── OVERNIGHT VIEW ─── */}
-        {viewMode === "overnight" && (
-          <div className="flex-1 overflow-y-auto">
-            {/* Tonight's Queue */}
-            <div className="px-3 py-2 sticky top-0" style={{ background: theme.bgMuted, borderBottom: `1px solid ${theme.borderLight}`, zIndex: 1 }}>
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase" style={{ color: theme.text, opacity: 0.7 }}>
-                  🌙 {t("task.tonightsQueue", "Tonight's Queue")} ({overnightQueue.length})
-                </h3>
-                <button
-                  onClick={handleStartOvernightRun}
-                  className="text-xs px-2.5 py-1 rounded font-medium"
-                  style={{ background: theme.accentBg, color: theme.accent }}
-                >
-                  ▶️ {t("task.startOvernightRun", "Start Overnight Run")}
-                </button>
-              </div>
-            </div>
-            {overnightQueue.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 gap-2 text-sm" style={{ color: theme.text, opacity: 0.4 }}>
-                <div className="text-3xl">🌙</div>
-                <div>{t("task.noOvernightTasks", "No tasks queued for overnight")}</div>
-              </div>
-            ) : (
-              <div className="p-2">
-                {/* Group by phase */}
-                {PIPELINE_PHASES.map(phase => {
-                  const phaseTasks = overnightQueue.filter(t => getCurrentPhase(t) === phase);
-                  if (phaseTasks.length === 0) return null;
-                  return (
-                    <div key={phase} className="mb-3">
-                      <div className="text-xs font-bold mb-1" style={{ color: theme.text, opacity: 0.6 }}>
-                        {PIPELINE_PHASE_ICONS[phase]} {phase}
-                      </div>
-                      {phaseTasks.map(task => (
-                        <div
-                          key={task.id}
-                          onClick={() => navigateTo(task.id)}
-                          className="px-2 py-1.5 rounded cursor-pointer border mb-1"
-                          style={{ borderColor: theme.borderLight, background: theme.bg }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs">{getTaskSourceIcon(task)}</span>
-                            <span className="text-xs font-mono" style={{ opacity: 0.5 }}>{task.id}</span>
-                            <span className="text-xs flex-1 truncate" style={{ color: theme.text }}>{task.title}</span>
-                            <span className="text-[10px]">🌙</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {/* Last Results */}
-            <div className="px-3 py-2 sticky" style={{ background: theme.bgMuted, borderTop: `1px solid ${theme.borderLight}`, borderBottom: `1px solid ${theme.borderLight}` }}>
-              <h3 className="text-xs font-semibold uppercase" style={{ color: theme.text, opacity: 0.7 }}>
-                ☀️ {t("task.lastResults", "Last Results")} ({overnightResults.length})
-              </h3>
-            </div>
-            {overnightResults.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 gap-2 text-sm" style={{ color: theme.text, opacity: 0.4 }}>
-                <div className="text-3xl">☀️</div>
-                <div>{t("task.noResults", "No overnight results yet")}</div>
-              </div>
-            ) : (
-              <div className="p-2">
-                {overnightResults.map((result, i) => (
-                  <div
-                    key={i}
-                    onClick={() => navigateTo(result.taskId)}
-                    className="px-2 py-1.5 rounded cursor-pointer border mb-1"
-                    style={{ borderColor: theme.borderLight, background: theme.bg }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">
-                        {result.status === "passed" ? "✅" : result.status === "failed" ? "❌" : "⚠️"}
-                      </span>
-                      <span className="text-xs font-mono" style={{ opacity: 0.5 }}>{result.taskId}</span>
-                      <span className="text-xs flex-1 truncate" style={{ color: theme.text }}>{result.taskTitle}</span>
-                      {result.duration && <span className="text-[10px]" style={{ opacity: 0.4 }}>{result.duration}</span>}
-                    </div>
-                    {result.summary && (
-                      <div className="text-xs mt-0.5" style={{ color: theme.text, opacity: 0.6 }}>{result.summary}</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Right: Detail */}
