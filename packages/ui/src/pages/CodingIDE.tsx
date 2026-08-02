@@ -443,7 +443,7 @@ export default function CodingIDE() {
     { id: "coding.developer", emoji: "💻", title: "Developer", mode: "chat" as const, agentId: "developer" },
     { id: "coding.tester", emoji: "🧪", title: "Tester", mode: "chat" as const, agentId: "tester" },
     { id: "coding.doc-writer", emoji: "📝", title: "Doc Writer", mode: "chat" as const, agentId: "doc-writer" },
-    { id: "coding.helpdesk", emoji: "🌸", title: "Helpdesk", mode: "chat" as const, agentId: "helpdesk" },
+    // Helpdesk hidden from sidebar
     { id: "coding.qa", emoji: "🔬", title: "QA", mode: "chat" as const, agentId: "qa" },
   ]);
 
