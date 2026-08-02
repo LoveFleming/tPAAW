@@ -762,10 +762,10 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
         </h3>
         {g && (
           <div className="text-xs mb-2 flex flex-col gap-0.5" style={{ color: theme.text, opacity: 0.7 }}>
-            <div>📌 {t("task.baseCommit", "Base")}: <code style={{ fontSize: 11 }}>{g.baseCommit.slice(0, 8)}</code></div>
+            <div>📌 {t("task.baseCommit", "Base")}: <code style={{ fontSize: 11 }}>{(g.baseCommit || "").slice(0, 8)}</code></div>
             <div>🌿 {t("task.branch", "Branch")}: {g.branch || "—"}</div>
             <div>{g.staged ? "📦" : "⬜"} {t("task.staged", "Staged")}: {g.staged ? "Yes" : "No"}</div>
-            {g.committedSha && <div>✅ {t("task.committed", "Committed")}: <code style={{ fontSize: 11 }}>{g.committedSha.slice(0, 8)}</code></div>}
+            {g.committedSha && <div>✅ {t("task.committed", "Committed")}: <code style={{ fontSize: 11 }}>{(g.committedSha || "").slice(0, 8)}</code></div>}
           </div>
         )}
         {/* Commit message preview */}
