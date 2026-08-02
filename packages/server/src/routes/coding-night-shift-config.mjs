@@ -16,6 +16,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { PORT } from './shared.mjs';
 
 const PROJECT_PHASES = {
   'bootstrap': { label: '🚀 Bootstrap — 初始搭建', desc: '專案剛起步，大量 vibe coding，功能優先' },
@@ -102,17 +103,64 @@ export default async function nightShiftConfigRoutes(req, res) {
 
       await saveConfig(rootDir, merged);
 
-      // If schedule enabled, register cron job
+      // If schedule enabled, register/update PAAW cron job
       if (merged.schedule.enabled && merged.schedule.time) {
         try {
-          const { cron } = await import('../../paaw-server.mjs');
-          // Defer to next tick to avoid circular import
-          setTimeout(async () => {
-            const [hour, minute] = merged.schedule.time.split(':');
-            const expr = `${minute || '0'} ${hour || '22'} * * *`;
-            // Use OpenClaw cron if available, otherwise just log
-            console.log(`[NightShift] Schedule: ${expr} ${merged.schedule.tz || ''}`);
-          }, 100);
+          const [hour, minute] = merged.schedule.time.split(':');
+          const expr = `${minute || '0'} ${hour || '22'} * * *`;
+          const cronJobId = `night-shift-${(rootDir || '').replace(/[^a-zA-Z0-9]/g, '-').slice(-40)}`;
+
+          // Check if cron job already exists
+          const listResp = await fetch(`http://127.0.0.1:${PORT}/api/cron-jobs`);
+          const existingJobs = listResp.ok ? await listResp.json() : [];
+          const existing = existingJobs.find(j => j.id === cronJobId);
+
+          const cronPayload = {
+            name: `Night Shift (${merged.projectPhase || 'bootstrap'})`,
+            type: 'report',
+            skillId: '',
+            schedule: expr,
+            prompt: `You are the Night Shift EM. Read the night shift config from .paaw/night-shift/config.json in the project root. Project phase: ${merged.projectPhase || 'bootstrap'}. Mode: ${merged.mode}. Execute the overnight runner by calling: POST http://127.0.0.1:${PORT}/api/coding-night-shift/start?path=${encodeURIComponent(rootDir)} with body {"mode":"${merged.mode}"}. Report the results.`,
+            params: { projectPath: rootDir, projectPhase: merged.projectPhase, mode: merged.mode },
+            outputTarget: 'chat',
+            chatId: '',
+          };
+
+          if (existing) {
+            // Update existing
+            await fetch(`http://127.0.0.1:${PORT}/api/cron-jobs/${cronJobId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...cronPayload, enabled: true }),
+            });
+            console.log(`[NightShift] Updated cron job: ${cronJobId} schedule=${expr}`);
+          } else {
+            // Create new
+            await fetch(`http://127.0.0.1:${PORT}/api/cron-jobs`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: cronJobId, ...cronPayload }),
+            });
+            console.log(`[NightShift] Created cron job: ${cronJobId} schedule=${expr}`);
+          }
+        } catch (err) {
+          console.error(`[NightShift] Failed to register cron job:`, err.message);
+        }
+      } else {
+        // Schedule disabled — disable the cron job if it exists
+        try {
+          const cronJobId = `night-shift-${(rootDir || '').replace(/[^a-zA-Z0-9]/g, '-').slice(-40)}`;
+          const listResp = await fetch(`http://127.0.0.1:${PORT}/api/cron-jobs`);
+          const existingJobs = listResp.ok ? await listResp.json() : [];
+          const existing = existingJobs.find(j => j.id === cronJobId);
+          if (existing && existing.enabled) {
+            await fetch(`http://127.0.0.1:${PORT}/api/cron-jobs/${cronJobId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enabled: false }),
+            });
+            console.log(`[NightShift] Disabled cron job: ${cronJobId}`);
+          }
         } catch {}
       }
 
