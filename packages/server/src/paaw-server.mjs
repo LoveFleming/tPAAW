@@ -267,13 +267,22 @@ server.listen(PORT, async () => {
   try {
     const { markInterruptedPlans } = await import('./lib/execution-plan.mjs');
     const { existsSync } = await import('fs');
-    // Check all known project paths from workspaces
-    const workspacesPath = join(PAAW_ROOT, 'data', 'workspaces.json');
-    const projectPaths = [PAAW_ROOT]; // Always check PAAW root
+    const projectPaths = new Set([PAAW_ROOT]); // Always check PAAW root
+    // From workspaces.json
     try {
+      const workspacesPath = join(PAAW_ROOT, 'data', 'workspaces.json');
       if (existsSync(workspacesPath)) {
         const ws = JSON.parse(await readFile(workspacesPath, 'utf-8'));
-        if (Array.isArray(ws)) ws.forEach(w => { if (w.path) projectPaths.push(w.path); });
+        if (Array.isArray(ws)) ws.forEach(w => { if (w.path) projectPaths.add(w.path); });
+        if (ws.directories) ws.directories.forEach((p) => projectPaths.add(p));
+      }
+    } catch {}
+    // From recent-projects.json
+    try {
+      const recentPath = join(PAAW_ROOT, 'data', 'config', 'recent-projects.json');
+      if (existsSync(recentPath)) {
+        const recent = JSON.parse(await readFile(recentPath, 'utf-8'));
+        if (Array.isArray(recent)) recent.forEach((r) => { if (r.path) projectPaths.add(r.path); });
       }
     } catch {}
     // Also check recent projects from .paaw/tasks/TASKS.json locations
