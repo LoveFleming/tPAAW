@@ -68,7 +68,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "nightshift" | "security" | "crew-manager";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "nightshift" | "security" | "crew-manager" | "subtask-detail";
 
 interface MainTab {
   id: string;
@@ -78,6 +78,7 @@ interface MainTab {
   closable: boolean;
   crewId?: string;
   filePath?: string;
+  data?: any;
 }
 
 interface ChatMessage {
