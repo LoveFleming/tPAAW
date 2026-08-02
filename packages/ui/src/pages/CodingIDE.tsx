@@ -2352,12 +2352,12 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:features") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:features" ? tk.toolbarActive : "transparent"; }}
           title={tt("feature.title")}>🗺️ Features</button>
-          <button onClick={() => openMainTab({ id: "tool:nightshift", type: "nightshift", label: "Night Shift", icon: "🌙", closable: true })}
+          <button onClick={() => openMainTab({ id: "tool:nightshift", type: "nightshift", label: "Auto Dispatch", icon: "🏭", closable: true })}
           className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
           style={{ backgroundColor: activeMainTab?.id === "tool:nightshift" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:nightshift") ? tk.toolbarText : tk.toolbarTextMuted }}
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:nightshift") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:nightshift" ? tk.toolbarActive : "transparent"; }}
-          title={tt("nightShift.title")}>🌙 Night Shift</button>
+          title={tt("autoDispatch.title")}>🏭 Auto Dispatch</button>
         <button onClick={() => openMainTab({ id: "tool:crew", type: "crew-manager", label: "AI Crew", icon: "👥", closable: true })}
           className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
           style={{ backgroundColor: activeMainTab?.id === "tool:crew" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:crew") ? tk.toolbarText : tk.toolbarTextMuted }}
@@ -3538,7 +3538,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   }
                 }}
                 onOpenNightShift={() => {
-                  openMainTab({ id: "tool:nightshift", type: "nightshift", label: "Night Shift", icon: "🌙", closable: true });
+                  openMainTab({ id: "tool:nightshift", type: "nightshift", label: "Auto Dispatch", icon: "🏭", closable: true });
                 }}
               />
             </div>

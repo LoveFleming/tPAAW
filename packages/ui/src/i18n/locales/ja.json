@@ -505,12 +505,12 @@
   "feature.byFile": "ファイル別",
   "feature.noFiles": "マッピングされたファイルなし",
   "feature.filesMapped": "マッピング済みファイル",
-  "nightShift.title": "ナイトシフト",
-  "nightShift.start": "ナイトシフト開始",
-  "nightShift.description": "EM が6人チームを率いて変更レビュー、ビルド、テスト、ドキュメント更新",
+  "nightShift.title": "自動ディスパッチ",
+  "nightShift.start": "ディスパッチ開始",
+  "nightShift.description": "EMが作業を自動計画し、エージェントに割り当て、実行プランを生成",
   "nightShift.lastRun": "前回実行",
-  "nightShift.noReport": "レポートなし",
-  "nightShift.noReportHint": "上のボタンをクリックして開始",
+  "nightShift.noReport": "実行プランなし",
+  "nightShift.noReportHint": "上のボタンで自動ディスパッチを開始",
   "notes.quickAddToSection": "このセクションに追加",
   "notes.moveToSection": "セクション変更",
   "skillBuilder.buildLogPlaceholder": "ビルド中の変更を記録：\n## v1 — 2026-07-22 (AI Generate)\n- 初期出力\n\n## v2 — 2026-07-22 (AI Build)\n- エラーハンドリング追加",
@@ -623,5 +623,12 @@
   "sidebar": {
     "llmLog": "LLM ログ",
     "agentLog": "📊 エージェント実行記録"
-  }
+  },
+  "autoDispatch.title": "自動ディスパッチ",
+  "autoDispatch.start": "開始",
+  "autoDispatch.projectPhase": "プロジェクトフェーズ",
+  "autoDispatch.schedule": "スケジュール",
+  "autoDispatch.dailyEnabled": "毎日自動実行",
+  "autoDispatch.noPlan": "実行プランなし",
+  "autoDispatch.noPlanHint": "開始ボタンで自動ディスパッチを起動"
 }

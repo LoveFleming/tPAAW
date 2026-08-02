@@ -1,11 +1,11 @@
 /**
- * NightShiftPanel — Night Shift 統一介面
+ * AutoDispatchPanel — 自動派工（原 Night Shift）
  *
- * 整合：
- * - Mode 切換（EM 智慧調度 / 全員平行）
- * - 即時狀態 + 報告
- * - 排程設定 + Model 設定
- * - 歷史報告列表（含 ReportsTab 功能）
+ * 以 Execution Plan 為主體：
+ * - Plan 進度（sub-task 狀態、token、成本、時間）
+ * - Plan 歷史列表
+ * - 排程設定
+ * - 觸發點：手動啟動 / cron job
  */
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useI18n } from "../i18n";
@@ -14,471 +14,246 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import ModelSelector from "./ModelSelector";
 
-interface AgentStatus {
-  status: "completed" | "failed" | "skipped" | "running";
-  codename?: string;
-  result?: string;
-  report?: string;
-  error?: string;
-}
-
-interface NightShiftStatus {
-  startedAt?: string;
+interface PlanListItem {
+  planId: string;
+  status: string;
+  createdAt: string;
   completedAt?: string;
-  duration?: number;
-  status: "running" | "completed" | "never" | "error";
-  mode?: string;
-  agents: Record<string, AgentStatus>;
-  totalAgents: number;
-  completedAgents: number;
-  report?: string;
-  message?: string;
+  summary: {
+    total: number;
+    completed: number;
+    failed: number;
+    timedOut: number;
+    skipped: number;
+    totalSubtasks: number;
+    totalTokens: number;
+    totalCostUsd: number;
+    totalDurationMs: number;
+  };
 }
 
-interface ReportListItem {
-  date: string;
-  filename: string;
-  size: number;
-  modified: string;
-  result: string;
-  summary: string;
-  mode: string;
+interface CronJobInfo {
+  id: string;
+  enabled: boolean;
+  schedule: string;
+  lastRun?: string;
+  lastStatus?: string;
 }
-
-const AGENT_INFO: Record<string, { icon: string; label: string }> = {
-  architect: { icon: "🏛️", label: "Architect" },
-  developer: { icon: "💻", label: "Developer" },
-  tester: { icon: "🧪", label: "Tester" },
-  "doc-writer": { icon: "📝", label: "Doc Writer" },
-  qa: { icon: "🔍", label: "QA" },
-  helpdesk: { icon: "🎫", label: "Helpdesk" },
-};
-
-const MODE_INFO = {
-  em: { icon: "🎖️", label: "EM 智慧調度", desc: "EM 先分析現況，再決定調度哪些 agent" },
-  parallel: { icon: "🌙", label: "全員平行", desc: "6 個 agent 同時出動，快速掃描" },
-};
 
 export default function NightShiftPanel({ theme, rootPath, model }: { theme: any; rootPath?: string; model?: string }) {
   const { t } = useI18n();
   const tk = theme;
 
   // ── State ──
-  const [nsStatus, setNsStatus] = useState<NightShiftStatus | null>(null);
-  const [report, setReport] = useState<string>("");
   const [starting, setStarting] = useState(false);
-  const [selectedMode, setSelectedMode] = useState<string>("em");
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Config
-  const [showConfig, setShowConfig] = useState(false);
   const [nsConfig, setNsConfig] = useState<any>(null);
+  const [showConfig, setShowConfig] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [saveResult, setSaveResult] = useState<"" | "ok" | "err">("");
 
   // Execution Plan
   const [execPlan, setExecPlan] = useState<any>(null);
-  const [saveResult, setSaveResult] = useState<"" | "ok" | "err">("");
-
-  // Cron job status
-  const [cronJob, setCronJob] = useState<any>(null);
-
-  // Reports list
-  const [reports, setReports] = useState<ReportListItem[]>([]);
-  const [selectedReportDate, setSelectedReportDate] = useState<string | null>(null);
-  const [reportContent, setReportContent] = useState<string>("");
-  const [loadingReport, setLoadingReport] = useState(false);
-  const [showReportsList, setShowReportsList] = useState(false);
+  const [planList, setPlanList] = useState<PlanListItem[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [cronJob, setCronJob] = useState<CronJobInfo | null>(null);
 
   // ── Fetch config ──
-  const fetchConfig = async () => {
+  const fetchConfig = useCallback(async () => {
     if (!rootPath) return;
     try {
       const res = await fetch(`${API_BASE}/api/coding-night-shift/config?path=${encodeURIComponent(rootPath)}`);
       const d = await res.json();
       setNsConfig(d);
-      setSelectedMode(d.mode || "em");
     } catch {}
-  };
+  }, [rootPath]);
 
-  useEffect(() => { fetchConfig(); }, [rootPath]);
+  useEffect(() => { fetchConfig(); }, [fetchConfig]);
 
-  // Fetch cron job status + execution plan
+  // ── Fetch plan list + latest plan + cron ──
+  const refreshPlans = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const [planRes, listRes] = await Promise.all([
+        fetch(`${API_BASE}/api/night-shift/plan/latest?path=${encodeURIComponent(rootPath)}`).then(r => r.ok ? r.json() : null),
+        fetch(`${API_BASE}/api/night-shift/plan/list?path=${encodeURIComponent(rootPath)}`).then(r => r.ok ? r.json() : null),
+      ]);
+      setExecPlan(planRes?.plan || null);
+      setPlanList(listRes?.plans || []);
+    } catch {}
+  }, [rootPath]);
+
+  useEffect(() => { refreshPlans(); }, [refreshPlans]);
+
+  // Fetch cron job status
   useEffect(() => {
     if (!rootPath) return;
-    const cronId = `night-shift-${Array.from(rootPath).map(c => c.charCodeAt(0).toString(16)).join('').slice(-20)}`;
     fetch(`${API_BASE}/api/cron-jobs`)
       .then(r => r.json())
       .then((jobs: any[]) => {
-        const found = jobs.find(j => j.id === cronId || (j.id.startsWith('night-shift-') && j.params?.projectPath === rootPath));
+        const found = jobs.find(j => j.id?.startsWith('night-shift-') && j.params?.projectPath === rootPath);
         setCronJob(found || null);
       })
       .catch(() => setCronJob(null));
-
-    // Fetch latest execution plan
-    fetch(`${API_BASE}/api/night-shift/plan/latest?path=${encodeURIComponent(rootPath)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => setExecPlan(d?.plan || null))
-      .catch(() => setExecPlan(null));
-  }, [rootPath, nsConfig, nsStatus]);
-
-  // ── Fetch status (memoized so polling interval uses stable reference) ──
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-night-shift/status${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`);
-      const data = await res.json();
-      setNsStatus(data);
-    } catch (err) {
-      console.error("[NightShift] status error:", err);
-    }
   }, [rootPath]);
 
-  // Initial fetch + cleanup on rootPath change
+  // Poll while plan is running
   useEffect(() => {
-    fetchStatus();
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [fetchStatus]);
-
-  // Poll while running — clean up when status leaves "running"
-  useEffect(() => {
-    if (nsStatus?.status === "running") {
-      // Guard: don't create duplicate intervals
-      if (pollRef.current) clearInterval(pollRef.current);
-      pollRef.current = setInterval(fetchStatus, 3000);
-    } else {
-      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-    }
-    // fetchStatus changes when rootPath changes, so this also cleans up on path change
-  }, [nsStatus?.status, fetchStatus]);
-
-  // Fetch report when completed
-  useEffect(() => {
-    if (nsStatus?.status === "completed") {
-      fetch(`${API_BASE}/api/coding-night-shift/report${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`)
-        .then(r => r.text()).then(setReport).catch(() => {});
-    }
-  }, [nsStatus?.status, nsStatus?.completedAt]);
-
-  // ── Fetch reports list ──
-  const fetchReports = useCallback(async () => {
-    if (!rootPath) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-reports/list?path=${encodeURIComponent(rootPath)}`);
-      const d = await res.json();
-      setReports(d.reports || []);
-    } catch {}
-  }, [rootPath]);
-
-  useEffect(() => { fetchReports(); }, [fetchReports]);
-
-  // Load report content when selected
-  useEffect(() => {
-    if (!selectedReportDate) return;
-    setLoadingReport(true);
-    fetch(`${API_BASE}/api/coding-reports/${selectedReportDate}?path=${encodeURIComponent(rootPath || "")}`)
-      .then(r => r.json())
-      .then(d => { setReportContent(d.content || ""); setLoadingReport(false); })
-      .catch(() => setLoadingReport(false));
-  }, [selectedReportDate, rootPath]);
+    if (execPlan?.status !== "running") return;
+    const interval = setInterval(refreshPlans, 5000);
+    return () => clearInterval(interval);
+  }, [execPlan?.status, refreshPlans]);
 
   // ── Actions ──
   const handleStart = async () => {
     setStarting(true);
-    setReport("");
-    setSelectedReportDate(null);
     try {
-      const res = await fetch(`${API_BASE}/api/coding-night-shift/start${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, {
+      await fetch(`${API_BASE}/api/coding-night-shift/start${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: selectedMode, model: model || undefined }),
+        body: JSON.stringify({ mode: "em", model: model || undefined }),
       });
-      const data = await res.json();
-      if (data.ok) {
-        await fetchStatus();
-      }
+      await refreshPlans();
     } catch (err: any) {
-      alert("Failed to start: " + err.message);
+      alert("啟動失敗: " + err.message);
     }
     setStarting(false);
   };
 
-  const deleteReport = async (date: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm(`刪除報告 ${date}？`)) return;
+  const handleResume = async (planId: string) => {
     try {
-      await fetch(`${API_BASE}/api/coding-reports/${date}?path=${encodeURIComponent(rootPath || "")}`, { method: "DELETE" });
-      setReports(prev => prev.filter(r => r.date !== date));
-      if (selectedReportDate === date) {
-        setSelectedReportDate(null);
-        setReportContent("");
-      }
+      await fetch(`${API_BASE}/api/night-shift/plan/${planId}/resume?path=${encodeURIComponent(rootPath || "")}`, { method: "POST" });
+      await refreshPlans();
     } catch {}
   };
 
-  // ── Render ──
-  const isRunning = nsStatus?.status === "running";
-  const progress = nsStatus ? `${nsStatus.completedAgents}/${nsStatus.totalAgents || (nsStatus.mode === "parallel" ? 6 : "?")}` : "0/?";
-  const currentMode = nsStatus?.mode || selectedMode;
-  const modeInfo = MODE_INFO[currentMode as keyof typeof MODE_INFO] || MODE_INFO.em;
-
-  // Determine which content to show
-  const displayContent = selectedReportDate ? reportContent : report;
-  const displayTitle = selectedReportDate
-    ? `${selectedReportDate} 報告`
-    : nsStatus?.status === "completed"
-      ? "最新報告"
-      : "";
-
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleString("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const loadPlan = async (planId: string) => {
+    if (!rootPath) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/night-shift/plan/${planId}?path=${encodeURIComponent(rootPath)}`);
+      const d = await res.json();
+      setExecPlan(d?.plan || null);
+      setSelectedPlanId(planId);
+    } catch {}
   };
 
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  // ── Helpers ──
+  const fmtDate = (iso?: string) => {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleString("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
   };
+  const fmtDuration = (ms: number) => {
+    if (!ms) return "—";
+    if (ms < 60000) return `${(ms / 1000).toFixed(0)}s`;
+    return `${(ms / 60000).toFixed(1)}min`;
+  };
+  const fmtCost = (usd: number) => usd > 0 ? `$${usd.toFixed(3)}` : "—";
+  const fmtTokens = (n: number) => n > 0 ? `${(n / 1000).toFixed(1)}K` : "—";
+
+  const statusBadge = (status: string) => {
+    const map: Record<string, { icon: string; color: string; label: string }> = {
+      completed: { icon: "✅", color: "#22c55e", label: "完成" },
+      running: { icon: "⏳", color: "#eab308", label: "執行中" },
+      failed: { icon: "❌", color: "#ef4444", label: "失敗" },
+      partial: { icon: "⚠️", color: "#f59e0b", label: "部分完成" },
+      interrupted: { icon: "⚡", color: "#f59e0b", label: "中斷" },
+      created: { icon: "⏸", color: "#9ca3af", label: "待執行" },
+    };
+    const s = map[status] || { icon: "❓", color: "#9ca3af", label: status };
+    return <span style={{ color: s.color, fontWeight: 600 }}>{s.icon} {s.label}</span>;
+  };
+
+  const subTaskIcon = (status: string) => {
+    const map: Record<string, string> = {
+      done: "✅", running: "⏳", fail: "❌", timeout: "⏰", interrupted: "⚡", pending: "⬜", skipped: "⏭️",
+    };
+    return map[status] || "❓";
+  };
+
+  const isRunning = execPlan?.status === "running";
+  const hasInterrupted = execPlan?.tasks?.some((task: any) =>
+    task.subtasks?.some((st: any) => st.status === "interrupted" || st.status === "pending")
+  ) && execPlan?.status !== "running";
 
   return (
     <div className="flex h-full" style={{ background: tk.bg }}>
-      {/* ═══ Left: Control + Status + Reports List ═══ */}
-      <div className="w-72 flex flex-col border-r shrink-0" style={{ borderColor: tk.borderLight }}>
-        {/* ── Mode Selector + Start ── */}
+      {/* ═══ Left: Plan List + Actions ═══ */}
+      <div className="w-64 flex flex-col border-r shrink-0" style={{ borderColor: tk.borderLight }}>
+        {/* ── Header ── */}
         <div className="px-3 py-2" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: tk.bgMuted }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold" style={{ color: tk.text }}>🌙 {t("nightShift.title")}</span>
-            <div className="flex items-center gap-1">
-              {isRunning && (
-                <button
-                  onClick={async () => {
-                    if (!confirm("強制重置狀態？（適用於 server 中斷後卡住的狀態）")) return;
-                    try {
-                      await fetch(`${API_BASE}/api/coding-night-shift/reset${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, { method: "POST" });
-                      await fetchStatus();
-                    } catch {}
-                  }}
-                  className="text-xs px-2 py-1 rounded font-medium"
-                  style={{ background: "rgba(239,68,68,0.1)", color: "#dc2626", border: "1px solid rgba(239,68,68,0.3)" }}
-                  title="強制重置卡住的狀態"
-                >🔄 重置</button>
+            <span className="text-sm font-semibold" style={{ color: tk.text }}>🏭 {t("autoDispatch.title")}</span>
+            <button
+              onClick={handleStart}
+              disabled={starting || isRunning}
+              className="text-xs px-2.5 py-1 rounded font-medium"
+              style={{
+                background: isRunning ? tk.bgMuted : tk.accentBg,
+                color: isRunning ? tk.text : tk.accent,
+                opacity: isRunning ? 0.5 : 1,
+              }}
+            >
+              {starting ? "⏳ 啟動中..." : isRunning ? "⏳ 執行中" : `🚀 ${t("autoDispatch.start")}`}
+            </button>
+          </div>
+          {hasInterrupted && (
+            <button
+              onClick={() => handleResume(execPlan.planId)}
+              className="w-full py-1 rounded text-xs font-medium"
+              style={{ background: "#f59e0b", color: "#fff" }}
+            >
+              ▶️ 恢復中斷的 Plan
+            </button>
+          )}
+        </div>
+
+        {/* ── Plan History List ── */}
+        <div className="flex-1 overflow-y-auto">
+          {planList.length === 0 && (
+            <div className="p-3 text-center text-xs" style={{ color: tk.text, opacity: 0.4 }}>
+              尚無執行記錄
+            </div>
+          )}
+          {planList.map((p, i) => (
+            <div
+              key={p.planId}
+              onClick={() => loadPlan(p.planId)}
+              className="px-3 py-2 cursor-pointer border-b transition-colors"
+              style={{
+                borderColor: tk.borderLight,
+                background: (selectedPlanId === p.planId || (i === 0 && !selectedPlanId)) ? tk.accentBg : "transparent",
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono" style={{ color: tk.text, fontWeight: 600 }}>
+                  {fmtDate(p.createdAt)}
+                </span>
+                <span className="text-xs">{statusBadge(p.status)}</span>
+              </div>
+              {p.summary && (
+                <div className="text-[10px] mt-0.5 flex items-center gap-2" style={{ color: tk.text, opacity: 0.5 }}>
+                  <span>{p.summary.completed}/{p.summary.totalSubtasks} subtasks</span>
+                  {p.summary.totalCostUsd > 0 && <span>{fmtCost(p.summary.totalCostUsd)}</span>}
+                  {p.summary.totalDurationMs > 0 && <span>{fmtDuration(p.summary.totalDurationMs)}</span>}
+                </div>
               )}
-              <button
-                onClick={handleStart}
-                disabled={starting || isRunning}
-                className="text-xs px-2 py-1 rounded font-medium"
-                style={{
-                  background: isRunning ? tk.bgMuted : tk.accentBg,
-                  color: isRunning ? tk.text : tk.accent,
-                  opacity: isRunning ? 0.5 : 1,
-                }}
-              >
-                {isRunning ? `⏳ ${progress}` : `🚀 ${t("nightShift.start")}`}
-              </button>
             </div>
-          </div>
-
-          {/* Mode toggle */}
-          {!isRunning && (
-            <div className="flex gap-1">
-              {(Object.keys(MODE_INFO) as (keyof typeof MODE_INFO)[]).map(m => (
-                <button
-                  key={m}
-                  onClick={() => setSelectedMode(m)}
-                  className="flex-1 text-xs px-2 py-1 rounded font-medium transition-colors"
-                  style={{
-                    background: selectedMode === m ? tk.accentBg : "transparent",
-                    color: selectedMode === m ? tk.accent : tk.text,
-                    opacity: selectedMode === m ? 1 : 0.5,
-                    border: `1px solid ${selectedMode === m ? tk.accent : tk.borderLight}`,
-                  }}
-                >
-                  {MODE_INFO[m].icon} {MODE_INFO[m].label}
-                </button>
-              ))}
-            </div>
-          )}
-          {isRunning && (
-            <div className="text-xs text-center" style={{ color: tk.text, opacity: 0.6 }}>
-              {modeInfo.icon} {modeInfo.label} 執行中...
-            </div>
-          )}
+          ))}
         </div>
 
-        {/* ── Agent status list (during/after run) ── */}
-        {nsStatus && nsStatus.agents && Object.keys(nsStatus.agents).length > 0 && (
-          <div className="flex-1 overflow-y-auto">
-            {Object.entries(AGENT_INFO).map(([role, info]) => {
-              const agentStatus = nsStatus.agents[role];
-              if (!agentStatus) return null;
-              const icon = agentStatus.status === "completed" ? "✅" : agentStatus.status === "failed" ? "❌" : agentStatus.status === "running" ? "⏳" : "⬜";
-              return (
-                <div key={role} className="px-3 py-2 border-b" style={{ borderColor: tk.borderLight }}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">{info.icon}</span>
-                    <span className="text-sm font-medium" style={{ color: tk.text }}>{agentStatus.codename || info.label}</span>
-                    <span className="ml-auto text-sm">{icon}</span>
-                  </div>
-                  {agentStatus.status === "failed" && agentStatus.error && (
-                    <div className="text-xs mt-1" style={{ color: "#dc2626" }}>{agentStatus.error}</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ── Last run info ── */}
-        {nsStatus?.completedAt && !showReportsList && (
-          <div className="px-3 py-2 text-[10px]" style={{ color: tk.text, opacity: 0.4, borderTop: `1px solid ${tk.borderLight}` }}>
-            {t("nightShift.lastRun")}: {new Date(nsStatus.completedAt).toLocaleString()}
-            {nsStatus.duration && ` · ${Math.round(nsStatus.duration / 1000)}s`}
-            {nsStatus.mode && ` · ${MODE_INFO[nsStatus.mode as keyof typeof MODE_INFO]?.label || nsStatus.mode}`}
-          </div>
-        )}
-
-        {/* ── Reports list toggle ── */}
-        <div className="px-3 py-2" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
-          <button
-            onClick={() => { setShowReportsList(!showReportsList); if (!showReportsList) fetchReports(); }}
-            className="text-xs flex items-center gap-1 w-full"
-            style={{ color: tk.text, opacity: 0.7 }}
-          >
-            {showReportsList ? "▼" : "▶"} 📋 歷史報告 ({reports.length})
-          </button>
-        </div>
-
-        {/* ── Reports list ── */}
-        {showReportsList && (
-          <div className="flex-1 overflow-y-auto" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
-            {reports.length === 0 && (
-              <div className="p-3 text-center text-xs" style={{ color: tk.text, opacity: 0.4 }}>
-                暫無報告
-              </div>
-            )}
-            {reports.map(r => (
-              <div
-                key={r.date}
-                onClick={() => { setSelectedReportDate(r.date); setReport(""); }}
-                className="px-3 py-2 cursor-pointer border-b transition-colors"
-                style={{
-                  borderColor: tk.borderLight,
-                  background: selectedReportDate === r.date ? tk.accentBg : "transparent",
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono font-bold" style={{ color: tk.text }}>
-                    {r.mode === "em" ? "🎖️" : "🌙"} {r.date}
-                  </span>
-                  <button
-                    onClick={(e) => deleteReport(r.date, e)}
-                    className="text-xs opacity-30 hover:opacity-100 hover:text-red-500"
-                    style={{ color: tk.text }}
-                    title="刪除"
-                  >✕</button>
-                </div>
-                {r.result && (
-                  <span className="text-[10px]" style={{ color: tk.text, opacity: 0.5 }}>{r.result}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── Cron job status ── */}
+        {/* ── Cron Status ── */}
         {cronJob && (
           <div className="px-3 py-2 text-xs space-y-1" style={{ borderTop: `1px solid ${tk.borderLight}`, color: tk.text }}>
             <div className="flex items-center justify-between">
-              <span style={{ opacity: 0.6 }}>📋 排程任務</span>
+              <span style={{ opacity: 0.6 }}>⏰ 排程</span>
               <span style={{ color: cronJob.enabled ? "#22c55e" : "#9ca3af", fontWeight: 600 }}>
-                {cronJob.enabled ? "● 已啟用" : "○ 已停用"}
+                {cronJob.enabled ? `● ${cronJob.schedule}` : "○ 停用"}
               </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span style={{ opacity: 0.6 }}>⏰ Cron</span>
-              <span style={{ fontFamily: "monospace" }}>{cronJob.schedule}</span>
             </div>
             {cronJob.lastRun && (
               <div className="flex items-center justify-between">
-                <span style={{ opacity: 0.6 }}>📅 上次執行</span>
-                <span style={{ color: cronJob.lastStatus === "done" ? "#22c55e" : cronJob.lastStatus === "error" ? "#ef4444" : "#eab308" }}>
-                  {cronJob.lastStatus === "done" ? "✅" : cronJob.lastStatus === "error" ? "❌" : "⏳"} {new Date(cronJob.lastRun).toLocaleString("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                </span>
+                <span style={{ opacity: 0.6 }}>📅 上次</span>
+                <span>{fmtDate(cronJob.lastRun)}</span>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Execution Plan ── */}
-        {execPlan && (
-          <div className="px-3 py-2 space-y-1.5" style={{ borderTop: `1px solid ${tk.borderLight}`, color: tk.text }}>
-            <div className="flex items-center justify-between text-xs font-bold">
-              <span>📋 Execution Plan</span>
-              <span style={{
-                color: execPlan.status === 'completed' ? '#22c55e' : execPlan.status === 'running' ? '#eab308' : execPlan.status === 'failed' ? '#ef4444' : '#9ca3af',
-                fontWeight: 600,
-              }}>
-                {execPlan.status === 'completed' ? '✅ 完成' : execPlan.status === 'running' ? '⏳ 執行中' : execPlan.status === 'partial' ? '⚠️ 部分' : execPlan.status === 'failed' ? '❌ 失敗' : execPlan.status === 'interrupted' ? '⚡ 中斷' : '⏸ 待執行'}
-              </span>
-            </div>
-            <div className="text-[10px]" style={{ opacity: 0.5 }}>
-              {execPlan.planId} · {execPlan.tasks?.length || 0} tasks · {execPlan.summary?.totalSubtasks || 0} subtasks
-            </div>
-
-            {/* Sub-task list */}
-            <div className="space-y-1 mt-1">
-              {execPlan.tasks?.flatMap((task: any) =>
-                task.subtasks?.map((st: any) => (
-                  <div key={st.subtaskId} className="flex items-center justify-between text-[11px] py-0.5">
-                    <span className="flex items-center gap-1" style={{ minWidth: 0, flex: 1 }}>
-                      <span style={{
-                        color: st.status === 'done' ? '#22c55e' : st.status === 'running' ? '#eab308' : st.status === 'fail' ? '#ef4444' : st.status === 'timeout' ? '#f97316' : '#9ca3af',
-                      }}>
-                        {st.status === 'done' ? '✅' : st.status === 'running' ? '⏳' : st.status === 'fail' ? '❌' : st.status === 'timeout' ? '⏰' : st.status === 'interrupted' ? '⚡' : '⬜'}
-                      </span>
-                      <span style={{ fontWeight: 500 }}>{st.assignee}</span>
-                      <span style={{ opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {st.title?.slice(0, 40)}
-                      </span>
-                    </span>
-                    <span className="flex items-center gap-2" style={{ opacity: 0.5, fontSize: '10px', flexShrink: 0 }}>
-                      {st.durationMs > 0 && <span>{(st.durationMs / 1000 / 60).toFixed(1)}m</span>}
-                      {st.tokenUsage?.total > 0 && <span>{(st.tokenUsage.total / 1000).toFixed(1)}K tok</span>}
-                      {st.costUsd > 0 && <span>${st.costUsd.toFixed(3)}</span>}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Summary bar */}
-            {execPlan.summary && (
-              <div className="flex items-center gap-3 text-[10px] pt-1 mt-1" style={{ borderTop: `1px solid ${tk.borderLight}`, opacity: 0.7 }}>
-                <span>✅ {execPlan.summary.completed}</span>
-                <span>❌ {execPlan.summary.failed}</span>
-                <span>⏰ {execPlan.summary.timedOut}</span>
-                {execPlan.summary.totalTokens > 0 && <span>📊 {(execPlan.summary.totalTokens / 1000).toFixed(1)}K</span>}
-                {execPlan.summary.totalCostUsd > 0 && <span>💰 ${execPlan.summary.totalCostUsd.toFixed(3)}</span>}
-                {execPlan.summary.totalDurationMs > 0 && <span>⏱ {(execPlan.summary.totalDurationMs / 1000 / 60).toFixed(0)}min</span>}
-              </div>
-            )}
-
-            {/* Resume button for interrupted plans */}
-            {execPlan.tasks?.some((t: any) => t.subtasks?.some((st: any) => st.status === 'interrupted' || st.status === 'pending')) && execPlan.status !== 'running' && (
-              <button
-                onClick={async () => {
-                  try {
-                    await fetch(`${API_BASE}/api/night-shift/plan/${execPlan.planId}/resume?path=${encodeURIComponent(rootPath || "")}`, { method: "POST" });
-                    // Refresh
-                    fetch(`${API_BASE}/api/night-shift/plan/latest?path=${encodeURIComponent(rootPath || "")}`)
-                      .then(r => r.json())
-                      .then(d => setExecPlan(d?.plan || null));
-                  } catch {}
-                }}
-                className="w-full py-1 rounded text-xs font-medium mt-1"
-                style={{ background: "#f59e0b", color: "#fff" }}
-              >
-                ▶️ 恢復執行
-              </button>
             )}
           </div>
         )}
@@ -494,98 +269,80 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
           </button>
         </div>
 
-        {/* ── Config panel ── */}
+        {/* ── Config Panel ── */}
         {showConfig && nsConfig && (
-          <div className="flex-1 flex flex-col px-3 py-2" style={{ borderTop: `1px solid ${tk.borderLight}`, background: tk.bgMuted }}>
+          <div className="flex-1 flex flex-col px-3 py-2 max-h-[50vh] overflow-y-auto" style={{ borderTop: `1px solid ${tk.borderLight}`, background: tk.bgMuted }}>
             <div className="space-y-3">
-            {/* Project Phase */}
-            <div>
-              <div className="text-xs font-bold mb-1" style={{ color: tk.text }}>🏗️ 專案階段</div>
-              <select
-                value={nsConfig.projectPhase || "bootstrap"}
-                onChange={e => setNsConfig({ ...nsConfig, projectPhase: e.target.value })}
-                className="text-xs px-2 py-1 rounded border w-full"
-                style={{ borderColor: tk.borderLight, background: tk.bg, color: tk.text }}
-              >
-                <option value="bootstrap">🚀 Bootstrap — 初始搭建</option>
-                <option value="mvp">📦 MVP — 最小可行產品</option>
-                <option value="growth">📈 Growth — 功能擴展</option>
-                <option value="stable">✅ Stable — 穩定維護</option>
-                <option value="refactor">🔧 Refactor — 重構期</option>
-              </select>
-              <div className="text-[10px] mt-1" style={{ color: tk.text, opacity: 0.5 }}>
-                {nsConfig._phases?.[nsConfig.projectPhase || "bootstrap"]?.desc || "決定夜間排班策略"}
+              {/* Project Phase */}
+              <div>
+                <div className="text-xs font-bold mb-1" style={{ color: tk.text }}>🏗️ {t("autoDispatch.projectPhase")}</div>
+                <select
+                  value={nsConfig.projectPhase || "bootstrap"}
+                  onChange={e => setNsConfig({ ...nsConfig, projectPhase: e.target.value })}
+                  className="text-xs px-2 py-1 rounded border w-full"
+                  style={{ borderColor: tk.borderLight, background: tk.bg, color: tk.text }}
+                >
+                  <option value="bootstrap">🚀 Bootstrap</option>
+                  <option value="mvp">📦 MVP</option>
+                  <option value="growth">📈 Growth</option>
+                  <option value="stable">✅ Stable</option>
+                  <option value="refactor">🔧 Refactor</option>
+                </select>
+              </div>
+
+              {/* Schedule */}
+              <div>
+                <div className="text-xs font-bold mb-1" style={{ color: tk.text }}>⏰ {t("autoDispatch.schedule")}</div>
+                <label className="flex items-center gap-2 text-xs" style={{ color: tk.text }}>
+                  <input
+                    type="checkbox"
+                    checked={nsConfig.schedule?.enabled || false}
+                    onChange={e => setNsConfig({ ...nsConfig, schedule: { ...nsConfig.schedule, enabled: e.target.checked } })}
+                  />
+                  {t("autoDispatch.dailyEnabled")}
+                </label>
+                {nsConfig.schedule?.enabled && (
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={nsConfig.schedule?.time || "22:00"}
+                      onChange={e => setNsConfig({ ...nsConfig, schedule: { ...nsConfig.schedule, time: e.target.value } })}
+                      className="text-xs px-2 py-1 rounded border"
+                      style={{ borderColor: tk.borderLight, background: tk.bg, color: tk.text }}
+                    />
+                    <select
+                      value={nsConfig.schedule?.tz || "Asia/Taipei"}
+                      onChange={e => setNsConfig({ ...nsConfig, schedule: { ...nsConfig.schedule, tz: e.target.value } })}
+                      className="text-xs px-2 py-1 rounded border"
+                      style={{ borderColor: tk.borderLight, background: tk.bg, color: tk.text }}
+                    >
+                      <option value="Asia/Taipei">台北</option>
+                      <option value="Asia/Shanghai">上海</option>
+                      <option value="Asia/Tokyo">東京</option>
+                      <option value="UTC">UTC</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Model */}
+              <div>
+                <div className="text-xs font-bold mb-1" style={{ color: tk.text }}>🤖 Primary Model</div>
+                <ModelSelector
+                  feature="nightShift"
+                  value={nsConfig.model?.primary || ""}
+                  onChange={(v: string) => setNsConfig({ ...nsConfig, model: { ...nsConfig.model, primary: v } })}
+                />
+                <div className="text-xs font-bold mt-2 mb-1" style={{ color: tk.text, opacity: 0.6 }}>Fallback</div>
+                <ModelSelector
+                  feature="nightShiftFallback"
+                  value={nsConfig.model?.fallbacks?.[0] || ""}
+                  onChange={(v: string) => setNsConfig({ ...nsConfig, model: { ...nsConfig.model, fallbacks: v ? [v] : [] } })}
+                />
               </div>
             </div>
 
-            {/* Default Mode */}
-            <div>
-              <div className="text-xs font-bold mb-1" style={{ color: tk.text }}>🎛️ 預設模式</div>
-              <select
-                value={nsConfig.mode || "em"}
-                onChange={e => setNsConfig({ ...nsConfig, mode: e.target.value })}
-                className="text-xs px-2 py-1 rounded border w-full"
-                style={{ borderColor: tk.borderLight, background: tk.bg, color: tk.text }}
-              >
-                <option value="em">🎖️ EM 智慧調度</option>
-                <option value="parallel">🌙 全員平行</option>
-              </select>
-            </div>
-
-            {/* Schedule */}
-            <div>
-              <div className="text-xs font-bold mb-1" style={{ color: tk.text }}>⏰ 排程</div>
-              <label className="flex items-center gap-2 text-xs" style={{ color: tk.text }}>
-                <input
-                  type="checkbox"
-                  checked={nsConfig.schedule?.enabled || false}
-                  onChange={e => setNsConfig({ ...nsConfig, schedule: { ...nsConfig.schedule, enabled: e.target.checked } })}
-                />
-                每日自動執行
-              </label>
-              {nsConfig.schedule?.enabled && (
-                <div className="mt-1 flex items-center gap-2">
-                  <input
-                    type="time"
-                    value={nsConfig.schedule?.time || "22:00"}
-                    onChange={e => setNsConfig({ ...nsConfig, schedule: { ...nsConfig.schedule, time: e.target.value } })}
-                    className="text-xs px-2 py-1 rounded border"
-                    style={{ borderColor: tk.borderLight, background: tk.bg, color: tk.text }}
-                  />
-                  <select
-                    value={nsConfig.schedule?.tz || "Asia/Taipei"}
-                    onChange={e => setNsConfig({ ...nsConfig, schedule: { ...nsConfig.schedule, tz: e.target.value } })}
-                    className="text-xs px-2 py-1 rounded border"
-                    style={{ borderColor: tk.borderLight, background: tk.bg, color: tk.text }}
-                  >
-                    <option value="Asia/Taipei">台北</option>
-                    <option value="Asia/Shanghai">上海</option>
-                    <option value="Asia/Tokyo">東京</option>
-                    <option value="America/Los_Angeles">太平洋</option>
-                    <option value="UTC">UTC</option>
-                  </select>
-                </div>
-              )}
-            </div>
-
-            {/* Model */}
-            <div>
-              <div className="text-xs font-bold mb-1" style={{ color: tk.text }}>🤖 Primary Model</div>
-              <ModelSelector
-                feature="nightShift"
-                value={nsConfig.model?.primary || ""}
-                onChange={(v: string) => setNsConfig({ ...nsConfig, model: { ...nsConfig.model, primary: v } })}
-              />
-              <div className="text-xs font-bold mt-2 mb-1" style={{ color: tk.text, opacity: 0.6 }}>Fallback Model</div>
-              <ModelSelector
-                feature="nightShiftFallback"
-                value={nsConfig.model?.fallbacks?.[0] || ""}
-                onChange={(v: string) => setNsConfig({ ...nsConfig, model: { ...nsConfig.model, fallbacks: v ? [v] : [] } })}
-              />
-            </div>
-
-            </div>
-            {/* Save — pinned to bottom */}
+            {/* Save */}
             <div className="mt-auto pt-2" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
               <button
                 onClick={async () => {
@@ -597,15 +354,9 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify(nsConfig),
                     });
-                    if (resp.ok) {
-                      setSaveResult("ok");
-                      setTimeout(() => setSaveResult(""), 3000);
-                    } else {
-                      setSaveResult("err");
-                    }
-                  } catch {
-                    setSaveResult("err");
-                  }
+                    if (resp.ok) { setSaveResult("ok"); setTimeout(() => setSaveResult(""), 3000); }
+                    else { setSaveResult("err"); }
+                  } catch { setSaveResult("err"); }
                   setSavingConfig(false);
                 }}
                 disabled={savingConfig}
@@ -614,47 +365,101 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
               >
                 {savingConfig ? "儲存中..." : "💾 儲存設定"}
               </button>
-              {saveResult === "ok" && (
-                <div className="text-center text-xs mt-1" style={{ color: "#22c55e" }}>✅ 設定已儲存</div>
-              )}
-              {saveResult === "err" && (
-                <div className="text-center text-xs mt-1" style={{ color: "#ef4444" }}>❌ 儲存失敗</div>
-              )}
+              {saveResult === "ok" && <div className="text-center text-xs mt-1" style={{ color: "#22c55e" }}>✅ 已儲存</div>}
+              {saveResult === "err" && <div className="text-center text-xs mt-1" style={{ color: "#ef4444" }}>❌ 失敗</div>}
             </div>
           </div>
         )}
       </div>
 
-      {/* ═══ Right: Report Content ═══ */}
+      {/* ═══ Right: Plan Detail ═══ */}
       <div className="flex-1 overflow-y-auto">
-        {loadingReport ? (
-          <div className="flex-1 flex items-center justify-center h-full">
-            <div className="text-sm" style={{ color: tk.text, opacity: 0.4 }}>載入中...</div>
+        {!execPlan ? (
+          <div className="flex-1 flex flex-col items-center justify-center h-full gap-2" style={{ color: tk.text, opacity: 0.4 }}>
+            <div className="text-4xl">🏭</div>
+            <div className="text-sm">{t("autoDispatch.noPlan")}</div>
+            <div className="text-xs">{t("autoDispatch.noPlanHint")}</div>
           </div>
-        ) : displayContent ? (
-          <>
-            {displayTitle && (
-              <div className="px-4 py-2 border-b flex items-center justify-between" style={{ borderColor: tk.borderLight, background: tk.bgMuted }}>
-                <span className="text-sm font-bold" style={{ color: tk.text }}>{displayTitle}</span>
-                {selectedReportDate && (
-                  <button
-                    onClick={() => { setSelectedReportDate(null); setReportContent(""); }}
-                    className="text-xs"
-                    style={{ color: tk.accent }}
-                  >← 回最新</button>
-                )}
+        ) : (
+          <div className="p-4">
+            {/* ── Plan Header ── */}
+            <div className="flex items-center justify-between mb-3 pb-3" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
+              <div>
+                <div className="text-sm font-bold" style={{ color: tk.text }}>
+                  📋 {execPlan.planId}
+                </div>
+                <div className="text-xs mt-0.5" style={{ color: tk.text, opacity: 0.5 }}>
+                  {fmtDate(execPlan.createdAt)} → {fmtDate(execPlan.completedAt)}
+                </div>
+              </div>
+              <div className="text-lg">{statusBadge(execPlan.status)}</div>
+            </div>
+
+            {/* ── Summary Bar ── */}
+            {execPlan.summary && (
+              <div className="flex items-center gap-4 mb-3 px-3 py-2 rounded text-xs" style={{ background: tk.bgMuted, color: tk.text }}>
+                <span>📊 {execPlan.summary.completed}/{execPlan.summary.totalSubtasks} done</span>
+                {execPlan.summary.failed > 0 && <span style={{ color: "#ef4444" }}>❌ {execPlan.summary.failed}</span>}
+                {execPlan.summary.timedOut > 0 && <span style={{ color: "#f97316" }}>⏰ {execPlan.summary.timedOut}</span>}
+                <span style={{ opacity: 0.5 }}>·</span>
+                <span>📝 {fmtTokens(execPlan.summary.totalTokens)}</span>
+                <span>💰 {fmtCost(execPlan.summary.totalCostUsd)}</span>
+                <span>⏱ {fmtDuration(execPlan.summary.totalDurationMs)}</span>
               </div>
             )}
-            <div className="p-4 prose prose-sm max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent}</ReactMarkdown>
+
+            {/* ── Tasks & Sub-tasks ── */}
+            <div className="space-y-3">
+              {execPlan.tasks?.map((task: any) => (
+                <div key={task.taskId}>
+                  {/* Task header */}
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-bold" style={{ color: tk.text }}>{task.title}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: tk.bgMuted, color: tk.text, opacity: 0.6 }}>
+                      {task.subtasks?.filter((s: any) => s.status === "done").length || 0}/{task.subtasks?.length || 0}
+                    </span>
+                  </div>
+
+                  {/* Sub-tasks */}
+                  <div className="ml-4 space-y-1">
+                    {task.subtasks?.map((st: any) => (
+                      <div key={st.subtaskId} className="flex items-start gap-2 py-1 px-2 rounded text-xs" style={{ background: tk.bgMuted }}>
+                        <span className="mt-0.5">{subTaskIcon(st.status)}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span style={{ fontWeight: 600, color: tk.text }}>{st.assignee}</span>
+                            <span style={{ color: tk.text, opacity: 0.7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {st.title}
+                            </span>
+                          </div>
+                          {(st.durationMs > 0 || st.tokenUsage?.total > 0 || st.costUsd > 0) && (
+                            <div className="flex items-center gap-3 mt-0.5 text-[10px]" style={{ opacity: 0.5 }}>
+                              {st.durationMs > 0 && <span>⏱ {fmtDuration(st.durationMs)}</span>}
+                              {st.tokenUsage?.total > 0 && <span>📝 {fmtTokens(st.tokenUsage.total)}</span>}
+                              {st.costUsd > 0 && <span>💰 {fmtCost(st.costUsd)}</span>}
+                              {st.model && <span>🤖 {st.model}</span>}
+                            </div>
+                          )}
+                          {st.error && (
+                            <div className="text-[10px] mt-0.5" style={{ color: "#ef4444" }}>{st.error}</div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center h-full gap-2" style={{ color: tk.text, opacity: 0.4 }}>
-            <div className="text-4xl">{modeInfo.icon}</div>
-            <div className="text-sm">{t("nightShift.noReport")}</div>
-            <div className="text-xs">{t("nightShift.noReportHint")}</div>
-            <div className="text-xs mt-2" style={{ opacity: 0.5 }}>{modeInfo.desc}</div>
+
+            {/* ── EM Report ── */}
+            {execPlan.emReport && (
+              <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
+                <div className="text-sm font-bold mb-2" style={{ color: tk.text }}>🎖️ EM 報告</div>
+                <div className="prose prose-sm max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{execPlan.emReport}</ReactMarkdown>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

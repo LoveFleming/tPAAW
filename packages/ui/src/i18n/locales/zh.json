@@ -506,12 +506,12 @@
   "feature.byFile": "按檔案",
   "feature.noFiles": "沒有已映射的檔案",
   "feature.filesMapped": "個已映射檔案",
-  "nightShift.title": "夜班",
-  "nightShift.start": "開始夜班",
-  "nightShift.description": "EM 帶領 6 人團隊 review 今天變更、跑 build、寫測試、更新文件",
+  "nightShift.title": "自動派工",
+  "nightShift.start": "開始派工",
+  "nightShift.description": "EM 自動規劃工作，分派給 agent 執行，產生 execution plan",
   "nightShift.lastRun": "上次執行",
-  "nightShift.noReport": "尚無報告",
-  "nightShift.noReportHint": "點上方按鈕開始夜班",
+  "nightShift.noReport": "尚無執行計畫",
+  "nightShift.noReportHint": "點上方按鈕啟動自動派工",
   "notes.quickAddToSection": "在此分類新增筆記",
   "notes.moveToSection": "切換分類",
   "llmLog.title": "LLM 日誌",
@@ -625,5 +625,12 @@
   "sidebar": {
     "llmLog": "LLM 日誌",
     "agentLog": "📊 Agent 執行記錄"
-  }
+  },
+  "autoDispatch.title": "自動派工",
+  "autoDispatch.start": "開始派工",
+  "autoDispatch.projectPhase": "專案階段",
+  "autoDispatch.schedule": "排程",
+  "autoDispatch.dailyEnabled": "每日自動執行",
+  "autoDispatch.noPlan": "尚無執行計畫",
+  "autoDispatch.noPlanHint": "點上方按鈕啟動自動派工"
 }
