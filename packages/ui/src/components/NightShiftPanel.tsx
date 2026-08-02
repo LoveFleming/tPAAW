@@ -371,7 +371,8 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
 
         {/* ── Config panel ── */}
         {showConfig && nsConfig && (
-          <div className="px-3 py-2 space-y-3" style={{ borderTop: `1px solid ${tk.borderLight}`, background: tk.bgMuted }}>
+          <div className="flex-1 flex flex-col px-3 py-2" style={{ borderTop: `1px solid ${tk.borderLight}`, background: tk.bgMuted }}>
+            <div className="space-y-3">
             {/* Project Phase */}
             <div>
               <div className="text-xs font-bold mb-1" style={{ color: tk.text }}>🏗️ 專案階段</div>
@@ -458,8 +459,9 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
               />
             </div>
 
-            {/* Save */}
-            <div className="pt-2" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
+            </div>
+            {/* Save — pinned to bottom */}
+            <div className="mt-auto pt-2" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
               <button
                 onClick={async () => {
                   setSavingConfig(true);
