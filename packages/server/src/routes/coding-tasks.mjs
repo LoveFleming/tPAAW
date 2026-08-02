@@ -5,14 +5,24 @@
  * Issues = problem/requirement records (記錄、分類、追蹤)
  *
  * Endpoints:
- *   GET    /api/coding-tasks?path=...                       — List tasks (filter: status, type, priority, assignee, parentId)
- *   GET    /api/coding-tasks/:id?path=...                   — Get single task
+ *   GET    /api/coding-tasks?path=...                       — List tasks (filter: status, type, priority, assignee, parentId, pipeline)
+ *   GET    /api/coding-tasks/stats?path=...                 — Summary stats
+ *   GET    /api/coding-tasks/pipeline/overview?path=...     — Pipeline summary for all tasks
+ *   GET    /api/coding-tasks/overnight-queue?path=...       — Tonight's overnight queue
+ *   GET    /api/coding-tasks/overnight-queue/results?path=... — Last overnight results
+ *   GET    /api/coding-tasks/:id?path=...                   — Get single task (ensurePipeline applied)
  *   POST   /api/coding-tasks?path=...                       — Create task
  *   PUT    /api/coding-tasks/:id?path=...                   — Update task
  *   DELETE /api/coding-tasks/:id?path=...                   — Delete task
  *   POST   /api/coding-tasks/decompose?path=...             — Decompose into sub-tasks
  *   POST   /api/coding-tasks/:id/notes?path=...             — Add note
- *   GET    /api/coding-tasks/stats?path=...                 — Summary stats
+ *   POST   /api/coding-tasks/:id/pipeline/advance?path=...  — Advance a pipeline phase
+ *   POST   /api/coding-tasks/:id/pipeline/reject?path=...   — Reject/return a pipeline phase
+ *   GET    /api/coding-tasks/:id/git/diff?path=...          — Get task diff
+ *   POST   /api/coding-tasks/:id/git/stage?path=...         — Git add task files
+ *   POST   /api/coding-tasks/:id/git/commit?path=...        — Git commit + optional push
+ *   POST   /api/coding-tasks/:id/git/restore?path=...       — Restore task files
+ *   POST   /api/coding-tasks/:id/dispatch?path=...          — EM dispatch
  */
 
 import { readFile, writeFile, mkdir } from "fs/promises";
@@ -20,10 +30,15 @@ import { existsSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readBody } from "./shared.mjs";
+import { TaskGit } from "../lib/task-git.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
+
+// ── Pipeline Constants ──
+
+const PIPELINE_PHASES = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
 
 // ── Helpers ──
 
@@ -48,32 +63,81 @@ function genId(existing) {
 
 function now() { return new Date().toISOString(); }
 
+// ── Pipeline Helpers ──
+
+function ensurePipeline(task) {
+  if (!task.pipeline) {
+    const isDone = task.status === "resolved" || task.status === "closed";
+    task.pipeline = {
+      spec:      { status: "done", by: "unknown" },
+      implement: { status: isDone ? "done" : (task.status === "in-progress" ? "done" : "pending") },
+      review:    { status: isDone ? "done" : "pending" },
+      test:      { status: isDone ? "done" : "pending" },
+      qa:        { status: isDone ? "done" : "pending" },
+      docs:      { status: isDone ? "done" : "pending" },
+      commit:    { status: isDone ? "done" : "pending" },
+    };
+  }
+  // Ensure all phases exist
+  for (const phase of PIPELINE_PHASES) {
+    if (!task.pipeline[phase]) task.pipeline[phase] = { status: "pending" };
+  }
+  return task;
+}
+
+function deriveStatus(task) {
+  const p = task.pipeline;
+  if (!p) return task.status || "open";
+  if (p.commit?.status === "done") return "resolved";
+  for (const phase of PIPELINE_PHASES) {
+    if (p[phase]?.status === "in_progress") return "in-progress";
+    if (p[phase]?.status === "failed" || p[phase]?.status === "needs_human") return "in-progress";
+    if (p[phase]?.status === "pending") return "in-progress";
+  }
+  if (p.spec?.status === "pending") return "open";
+  return task.status || "open";
+}
+
+// ── Task Storage ──
+
 async function loadTasks(projectPath) {
   const tasksFile = join(projectPath, ".paaw", "tasks", "TASKS.json");
   if (!existsSync(tasksFile)) return [];
   try {
     const data = JSON.parse(await readFile(tasksFile, "utf-8"));
     if (!Array.isArray(data.tasks)) return [];
-    return data.tasks.map(t => ({
-      id: t.id || "",
-      title: t.title || "",
-      type: t.type || "chore",          // requirement, bug, security, chore
-      parentId: t.parentId || null,
-      linkedIssueId: t.linkedIssueId || null,
-      status: t.status || "open",
-      priority: t.priority || "medium",
-      effort: t.effort || null,          // S, M, L, XL
-      labels: Array.isArray(t.labels) ? t.labels : [],
-      assignee: t.assignee || null,
-      description: t.description || "",
-      relatedFiles: Array.isArray(t.relatedFiles) ? t.relatedFiles : [],
-      notes: Array.isArray(t.notes) ? t.notes : [],
-      executionResult: t.executionResult || null,
-      createdAt: t.createdAt || now(),
-      updatedAt: t.updatedAt || now(),
-      resolvedAt: t.resolvedAt || null,
-      createdBy: t.createdBy || "agent",
-    }));
+    return data.tasks.map(t => {
+      const mapped = {
+        id: t.id || "",
+        title: t.title || "",
+        type: t.type || "chore",
+        parentId: t.parentId || null,
+        linkedIssueId: t.linkedIssueId || null,
+        status: t.status || "open",
+        priority: t.priority || "medium",
+        effort: t.effort || null,
+        labels: Array.isArray(t.labels) ? t.labels : [],
+        assignee: t.assignee || null,
+        description: t.description || "",
+        relatedFiles: Array.isArray(t.relatedFiles) ? t.relatedFiles : [],
+        notes: Array.isArray(t.notes) ? t.notes : [],
+        executionResult: t.executionResult || null,
+        createdAt: t.createdAt || now(),
+        updatedAt: t.updatedAt || now(),
+        resolvedAt: t.resolvedAt || null,
+        createdBy: t.createdBy || "agent",
+        // New pipeline fields
+        pipeline: t.pipeline || null,
+        source: t.source || null,
+        spec: t.spec || null,
+        changes: t.changes || null,
+        git: t.git || null,
+        testResult: t.testResult || null,
+        qaResult: t.qaResult || null,
+        overnight: t.overnight || null,
+      };
+      return ensurePipeline(mapped);
+    });
   } catch { return []; }
 }
 
@@ -103,6 +167,10 @@ export default async function codingTasksRoute(req, res) {
 
   const projRoot = resolve(projectPath);
 
+  // ════════════════════════════════════════════════
+  // STATIC ROUTES (must come before /:id routes)
+  // ════════════════════════════════════════════════
+
   // ── GET /api/coding-tasks/stats ──
   if (url === "/api/coding-tasks/stats" && method === "GET") {
     const tasks = await loadTasks(projRoot);
@@ -126,6 +194,7 @@ export default async function codingTasksRoute(req, res) {
         chore: tasks.filter(t => t.type === "chore").length,
       },
       byAssignee: {},
+      pipelineDistribution: {},
     };
     for (const t of tasks) {
       const a = t.assignee || "unassigned";
@@ -134,8 +203,130 @@ export default async function codingTasksRoute(req, res) {
       if (t.status === "open" || t.status === "in-progress") stats.byAssignee[a].open++;
       if (t.status === "resolved" || t.status === "closed") stats.byAssignee[a].resolved++;
     }
+    // Pipeline distribution
+    for (const t of tasks) {
+      for (const phase of PIPELINE_PHASES) {
+        const ph = t.pipeline?.[phase];
+        if (ph) {
+          const key = `${phase}:${ph.status}`;
+          stats.pipelineDistribution[key] = (stats.pipelineDistribution[key] || 0) + 1;
+        }
+      }
+    }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(stats));
+    return true;
+  }
+
+  // ── GET /api/coding-tasks/pipeline/overview ──
+  if (url === "/api/coding-tasks/pipeline/overview" && method === "GET") {
+    const tasks = await loadTasks(projRoot);
+    const overview = {
+      total: tasks.length,
+      phases: {},
+      phaseOrder: PIPELINE_PHASES,
+    };
+    for (const phase of PIPELINE_PHASES) {
+      overview.phases[phase] = {
+        pending: 0,
+        in_progress: 0,
+        done: 0,
+        failed: 0,
+        needs_human: 0,
+        skipped: 0,
+      };
+    }
+    for (const t of tasks) {
+      for (const phase of PIPELINE_PHASES) {
+        const ph = t.pipeline?.[phase];
+        if (ph && overview.phases[phase]) {
+          const st = ph.status || "pending";
+          if (overview.phases[phase][st] !== undefined) {
+            overview.phases[phase][st]++;
+          }
+        }
+      }
+    }
+    // Summary: how many tasks fully complete
+    overview.completed = tasks.filter(t => t.pipeline?.commit?.status === "done").length;
+    overview.inPipeline = tasks.filter(t => {
+      const p = t.pipeline;
+      if (!p) return false;
+      if (p.commit?.status === "done") return false;
+      return PIPELINE_PHASES.some(ph => {
+        const st = p[ph]?.status;
+        return st === "in_progress" || st === "pending" || st === "failed" || st === "needs_human";
+      });
+    }).length;
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(overview));
+    return true;
+  }
+
+  // ── GET /api/coding-tasks/overnight-queue ──
+  if (url === "/api/coding-tasks/overnight-queue" && method === "GET") {
+    const tasks = await loadTasks(projRoot);
+    // Tasks that are ready for overnight processing:
+    // - spec is done, implement is pending or in_progress
+    // - not yet fully resolved
+    const queue = tasks.filter(t => {
+      const p = t.pipeline;
+      if (!p) return false;
+      if (p.commit?.status === "done") return false;
+      // Spec must be done
+      if (p.spec?.status !== "done") return false;
+      // At least one remaining phase is pending or in_progress
+      const remaining = ["implement", "review", "test", "qa", "docs", "commit"];
+      return remaining.some(ph => {
+        const st = p[ph]?.status;
+        return st === "pending" || st === "in_progress" || st === "failed";
+      });
+    });
+    // Group by current phase
+    const grouped = {};
+    for (const phase of PIPELINE_PHASES) {
+      grouped[phase] = queue.filter(t => {
+        const statuses = PIPELINE_PHASES;
+        // Find the first phase that isn't done
+        for (const ph of statuses) {
+          const st = t.pipeline[ph]?.status;
+          if (st !== "done" && st !== "skipped") {
+            return ph === phase;
+          }
+        }
+        return false;
+      });
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      total: queue.length,
+      byCurrentPhase: grouped,
+      tasks: queue,
+    }));
+    return true;
+  }
+
+  // ── GET /api/coding-tasks/overnight-queue/results ──
+  if (url === "/api/coding-tasks/overnight-queue/results" && method === "GET") {
+    const tasks = await loadTasks(projRoot);
+    // Find tasks with overnight results (overnight field exists with results)
+    const results = tasks.filter(t => t.overnight && (t.overnight.lastRun || t.overnight.result));
+    const summary = {
+      total: results.length,
+      succeeded: results.filter(t => t.overnight?.result === "success").length,
+      failed: results.filter(t => t.overnight?.result === "failed").length,
+      partial: results.filter(t => t.overnight?.result === "partial").length,
+    };
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      summary,
+      tasks: results.map(t => ({
+        id: t.id,
+        title: t.title,
+        overnight: t.overnight,
+        pipeline: t.pipeline,
+      })),
+    }));
     return true;
   }
 
@@ -163,7 +354,8 @@ export default async function codingTasksRoute(req, res) {
     const created = [];
     for (const sub of subTasks) {
       if (!sub.title?.trim()) continue;
-      const newSub = {
+      const ts = now();
+      const newSub = ensurePipeline({
         id: genId(tasks.concat(created)),
         title: sub.title.trim(),
         type: sub.type || parent.type,
@@ -178,10 +370,27 @@ export default async function codingTasksRoute(req, res) {
         relatedFiles: sub.relatedFiles || [],
         notes: [],
         executionResult: null,
-        createdAt: now(),
-        updatedAt: now(),
+        createdAt: ts,
+        updatedAt: ts,
         resolvedAt: null,
         createdBy: body.createdBy || "agent",
+        source: sub.source || parent.source || null,
+        spec: sub.spec || parent.spec || null,
+        changes: sub.changes || null,
+        git: sub.git || null,
+        testResult: null,
+        qaResult: null,
+        overnight: null,
+      });
+      // New sub-tasks start with spec done, implement pending
+      newSub.pipeline = {
+        spec:      { status: "done", by: body.createdBy || "agent", at: ts },
+        implement: { status: "pending" },
+        review:    { status: "pending" },
+        test:      { status: "pending" },
+        qa:        { status: "pending" },
+        docs:      { status: "pending" },
+        commit:    { status: "pending" },
       };
       created.push(newSub);
     }
@@ -205,7 +414,11 @@ export default async function codingTasksRoute(req, res) {
     return true;
   }
 
-  // ── POST /api/coding-tasks/:id/notes ──
+  // ════════════════════════════════════════════════
+  // /:id ROUTES
+  // ════════════════════════════════════════════════
+
+  // ── :id/notes ──
   const notesMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/notes$/);
   if (notesMatch && method === "POST") {
     const id = decodeURIComponent(notesMatch[1]);
@@ -233,6 +446,252 @@ export default async function codingTasksRoute(req, res) {
     await saveTasks(projRoot, tasks);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(tasks[idx]));
+    return true;
+  }
+
+  // ── :id/pipeline/advance ──
+  const advanceMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/pipeline\/advance$/);
+  if (advanceMatch && method === "POST") {
+    const id = decodeURIComponent(advanceMatch[1]);
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    const { phase, result, by } = body;
+    if (!phase || !PIPELINE_PHASES.includes(phase)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `Invalid phase. Must be one of: ${PIPELINE_PHASES.join(", ")}` }));
+      return true;
+    }
+    const tasks = await loadTasks(projRoot);
+    const idx = tasks.findIndex(t => t.id === id);
+    if (idx < 0) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Task not found" }));
+      return true;
+    }
+    const task = ensurePipeline(tasks[idx]);
+    // Mark current phase done
+    task.pipeline[phase] = {
+      status: "done",
+      by: by || "agent",
+      at: now(),
+      result: result || undefined,
+    };
+    // Advance to next phase
+    const phaseIdx = PIPELINE_PHASES.indexOf(phase);
+    if (phaseIdx < PIPELINE_PHASES.length - 1) {
+      const nextPhase = PIPELINE_PHASES[phaseIdx + 1];
+      if (task.pipeline[nextPhase]?.status === "pending") {
+        task.pipeline[nextPhase] = { status: "in_progress", by: by || "agent", at: now() };
+      }
+    }
+    // Derive flat status
+    task.status = deriveStatus(task);
+    if (task.status === "resolved" && !task.resolvedAt) {
+      task.resolvedAt = now();
+    }
+    task.updatedAt = now();
+    tasks[idx] = task;
+    await saveTasks(projRoot, tasks);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(task));
+    return true;
+  }
+
+  // ── :id/pipeline/reject ──
+  const rejectMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/pipeline\/reject$/);
+  if (rejectMatch && method === "POST") {
+    const id = decodeURIComponent(rejectMatch[1]);
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    const { phase, reason, by, returnTo } = body;
+    if (!phase || !PIPELINE_PHASES.includes(phase)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `Invalid phase. Must be one of: ${PIPELINE_PHASES.join(", ")}` }));
+      return true;
+    }
+    const tasks = await loadTasks(projRoot);
+    const idx = tasks.findIndex(t => t.id === id);
+    if (idx < 0) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Task not found" }));
+      return true;
+    }
+    const task = ensurePipeline(tasks[idx]);
+    // Mark phase as needs_human or failed
+    task.pipeline[phase] = {
+      status: body.status || "needs_human",
+      by: by || "agent",
+      at: now(),
+      reason: reason || undefined,
+    };
+    // Optionally return to an earlier phase
+    if (returnTo && PIPELINE_PHASES.includes(returnTo)) {
+      task.pipeline[returnTo] = { status: "in_progress", by: by || "agent", at: now(), reason: reason || undefined };
+    }
+    task.status = deriveStatus(task);
+    task.updatedAt = now();
+    tasks[idx] = task;
+    await saveTasks(projRoot, tasks);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(task));
+    return true;
+  }
+
+  // ── :id/git/diff ──
+  const gitDiffMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/git\/diff$/);
+  if (gitDiffMatch && method === "GET") {
+    const id = decodeURIComponent(gitDiffMatch[1]);
+    const tasks = await loadTasks(projRoot);
+    const task = tasks.find(t => t.id === id);
+    if (!task) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Task not found" }));
+      return true;
+    }
+    const git = new TaskGit(projRoot);
+    const diff = await git.getDiff(task);
+    const headSha = await git.getHeadSha();
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ id, diff, headSha }));
+    return true;
+  }
+
+  // ── :id/git/stage ──
+  const gitStageMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/git\/stage$/);
+  if (gitStageMatch && method === "POST") {
+    const id = decodeURIComponent(gitStageMatch[1]);
+    const tasks = await loadTasks(projRoot);
+    const idx = tasks.findIndex(t => t.id === id);
+    if (idx < 0) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Task not found" }));
+      return true;
+    }
+    const task = ensurePipeline(tasks[idx]);
+    const git = new TaskGit(projRoot);
+    const result = await git.stage(task);
+    task.git = { ...task.git, staged: result.staged, stagedAt: now() };
+    task.updatedAt = now();
+    tasks[idx] = task;
+    await saveTasks(projRoot, tasks);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ id, ...result }));
+    return true;
+  }
+
+  // ── :id/git/commit ──
+  const gitCommitMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/git\/commit$/);
+  if (gitCommitMatch && method === "POST") {
+    const id = decodeURIComponent(gitCommitMatch[1]);
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
+    const tasks = await loadTasks(projRoot);
+    const idx = tasks.findIndex(t => t.id === id);
+    if (idx < 0) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Task not found" }));
+      return true;
+    }
+    const task = ensurePipeline(tasks[idx]);
+    const git = new TaskGit(projRoot);
+    const message = body.message || TaskGit.generateCommitMessage(task);
+    const result = await git.commit(task, message, body.push !== false);
+    // Update task git info
+    task.git = {
+      ...task.git,
+      commitSha: result.sha,
+      backupBranch: result.backupBranch,
+      pushed: result.pushed,
+      committedAt: now(),
+    };
+    // Mark commit phase done if pipeline is at that stage
+    if (task.pipeline?.commit?.status !== "done") {
+      task.pipeline.commit = { status: "done", by: body.by || "agent", at: now() };
+    }
+    task.status = deriveStatus(task);
+    if (task.status === "resolved" && !task.resolvedAt) {
+      task.resolvedAt = now();
+    }
+    task.updatedAt = now();
+    tasks[idx] = task;
+    await saveTasks(projRoot, tasks);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ id, ...result, message }));
+    return true;
+  }
+
+  // ── :id/git/restore ──
+  const gitRestoreMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/git\/restore$/);
+  if (gitRestoreMatch && method === "POST") {
+    const id = decodeURIComponent(gitRestoreMatch[1]);
+    const tasks = await loadTasks(projRoot);
+    const idx = tasks.findIndex(t => t.id === id);
+    if (idx < 0) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Task not found" }));
+      return true;
+    }
+    const task = ensurePipeline(tasks[idx]);
+    const git = new TaskGit(projRoot);
+    const result = await git.restore(task);
+    task.updatedAt = now();
+    tasks[idx] = task;
+    await saveTasks(projRoot, tasks);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ id, ...result }));
+    return true;
+  }
+
+  // ── :id/dispatch ──
+  const dispatchMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/dispatch$/);
+  if (dispatchMatch && method === "POST") {
+    const id = decodeURIComponent(dispatchMatch[1]);
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
+    const tasks = await loadTasks(projRoot);
+    const idx = tasks.findIndex(t => t.id === id);
+    if (idx < 0) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Task not found" }));
+      return true;
+    }
+    const task = ensurePipeline(tasks[idx]);
+    // Dispatch = mark phase as in_progress, set assignTo + assignee
+    const phase = body.phase || "implement";
+    const agent = body.agent || body.assignee || body.by || "agent";
+    if (PIPELINE_PHASES.includes(phase)) {
+      task.pipeline[phase] = {
+        ...task.pipeline[phase],
+        status: "in_progress",
+        assignTo: agent,
+        by: agent,
+        at: now(),
+      };
+    }
+    task.assignee = agent;
+    task.status = deriveStatus(task);
+    task.updatedAt = now();
+    if (!Array.isArray(task.notes)) task.notes = [];
+    const noteContent = body.instructions
+      ? `Dispatched to **${agent}** for **${phase}** phase: ${body.instructions}`
+      : body.note || `Dispatched to ${agent} for ${phase}`;
+    task.notes.push({
+      by: body.by || "dispatch",
+      at: now(),
+      content: noteContent,
+    });
+    tasks[idx] = task;
+    await saveTasks(projRoot, tasks);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(task));
     return true;
   }
 
@@ -268,12 +727,19 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: "Task not found" }));
       return true;
     }
+    const existing = ensurePipeline(tasks[idx]);
     const updated = {
-      ...tasks[idx],
+      ...existing,
       ...body,
-      id: tasks[idx].id,
+      id: existing.id, // never overwrite ID
       updatedAt: now(),
     };
+    // Handle pipeline field updates
+    if (body.pipeline) {
+      updated.pipeline = { ...existing.pipeline, ...body.pipeline };
+      // Re-derive status from updated pipeline
+      updated.status = deriveStatus(updated);
+    }
     if ((body.status === "resolved" || body.status === "closed") && !updated.resolvedAt) {
       updated.resolvedAt = now();
     }
@@ -304,6 +770,10 @@ export default async function codingTasksRoute(req, res) {
     return true;
   }
 
+  // ════════════════════════════════════════════════
+  // LIST & CREATE (catch-all for /api/coding-tasks)
+  // ════════════════════════════════════════════════
+
   // ── GET /api/coding-tasks (list) ──
   if (url === "/api/coding-tasks" && method === "GET") {
     let tasks = await loadTasks(projRoot);
@@ -313,6 +783,24 @@ export default async function codingTasksRoute(req, res) {
     if (q.assignee) { const s = q.assignee.split(","); tasks = tasks.filter(t => s.includes(t.assignee || "unassigned")); }
     if (q.parentId) { tasks = tasks.filter(t => t.parentId === q.parentId); }
     if (q.linkedIssueId) { tasks = tasks.filter(t => t.linkedIssueId === q.linkedIssueId); }
+    // Pipeline filter: ?pipeline=implement:pending or ?pipeline=commit:done
+    if (q.pipeline) {
+      const [phase, status] = q.pipeline.split(":");
+      if (phase && status) {
+        tasks = tasks.filter(t => t.pipeline?.[phase]?.status === status);
+      } else if (phase) {
+        // Filter tasks whose current active phase matches
+        tasks = tasks.filter(t => {
+          for (const ph of PIPELINE_PHASES) {
+            const st = t.pipeline?.[ph]?.status;
+            if (st && st !== "done" && st !== "skipped") {
+              return ph === phase;
+            }
+          }
+          return false;
+        });
+      }
+    }
     if (q.search) {
       const s = q.search.toLowerCase();
       tasks = tasks.filter(t =>
@@ -347,7 +835,8 @@ export default async function codingTasksRoute(req, res) {
       return true;
     }
     const tasks = await loadTasks(projRoot);
-    const newTask = {
+    const ts = now();
+    const newTask = ensurePipeline({
       id: genId(tasks),
       title: body.title.trim(),
       type: body.type || "chore",
@@ -362,11 +851,30 @@ export default async function codingTasksRoute(req, res) {
       relatedFiles: body.relatedFiles || [],
       notes: body.notes || [],
       executionResult: null,
-      createdAt: now(),
-      updatedAt: now(),
+      createdAt: ts,
+      updatedAt: ts,
       resolvedAt: null,
       createdBy: body.createdBy || "user",
-    };
+      // New pipeline fields
+      source: body.source || null,
+      spec: body.spec || (body.description ? { description: body.description } : null),
+      changes: body.changes || null,
+      git: body.git || null,
+      testResult: null,
+      qaResult: null,
+      overnight: null,
+      pipeline: body.pipeline || {
+        spec:      { status: "done", by: body.createdBy || "human", at: ts },
+        implement: { status: "pending" },
+        review:    { status: "pending" },
+        test:      { status: "pending" },
+        qa:        { status: "pending" },
+        docs:      { status: "pending" },
+        commit:    { status: "pending" },
+      },
+    });
+    // Derive status from pipeline
+    newTask.status = deriveStatus(newTask);
     tasks.push(newTask);
     await saveTasks(projRoot, tasks);
     res.writeHead(201, { "Content-Type": "application/json" });
