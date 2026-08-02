@@ -1097,6 +1097,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
     "/.git/",
     "/dist/",
     "/.next/",
+    "/data/knowledge/",  // knowledge is read-only for agents
   ];
   const WRITE_BLACKLIST_EXTS = new Set([
     // Never allow writing these file types to rootDir (but OK in cwd/data dirs)
@@ -2621,22 +2622,10 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   try {
     const refPaths = [];
 
-    // 1. Knowledge directory — list top-level files/dirs so agent knows what's available
+    // 1. Knowledge: just the directory path, don't expand contents
     const knowledgeDir = resolve(PAAW_R, "data/knowledge");
     if (existsSync(knowledgeDir)) {
-      try {
-        const entries = readdirSync(knowledgeDir).sort();
-        const knowledgeItems = entries.map(e => {
-          const fp = join(knowledgeDir, e);
-          try {
-            const isDir = statSync(fp).isDirectory();
-            return isDir ? `📁 ${e}/` : `📄 ${e}`;
-          } catch { return `📄 ${e}`; }
-        });
-        if (knowledgeItems.length > 0) {
-          refPaths.push(`📖 Knowledge (data/knowledge/) — 使用 reference_read(action="list|read|search", source="knowledge") 存取：\n${knowledgeItems.map(i => "  " + i).join("\n")}`);
-        }
-      } catch {}
+      refPaths.push(`📖 Knowledge (data/knowledge/) — 使用 reference_read(action="list|read|search", source="knowledge") 存取（唯讀）`);
     }
 
     // 2. Workspace: external dirs from workspaces.json (just the paths)

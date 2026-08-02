@@ -12,7 +12,7 @@
  */
 
 import { readFile } from "fs/promises";
-import { existsSync, readFileSync as readSync, readdirSync, statSync } from "fs";
+import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
@@ -403,21 +403,10 @@ export async function buildSystemPrompt(agentId, opts = {}) {
   try {
     const refPaths = [];
 
-    // Knowledge directory
+    // Knowledge: just the directory path, don't expand contents
     const knowledgeDir = resolve(PAAW_ROOT, "data/knowledge");
     if (existsSync(knowledgeDir)) {
-      try {
-        const entries = readdirSync(knowledgeDir).sort();
-        const items = entries.map(e => {
-          const fp = join(knowledgeDir, e);
-          try {
-            return statSync(fp).isDirectory() ? `📁 ${e}/` : `📄 ${e}`;
-          } catch { return `📄 ${e}`; }
-        });
-        if (items.length > 0) {
-          refPaths.push(`📖 Knowledge (data/knowledge/) — 使用 reference_read(action="list|read|search", source="knowledge") 存取：\n${items.map(i => "  " + i).join("\n")}`);
-        }
-      } catch {}
+      refPaths.push(`📖 Knowledge (data/knowledge/) — 使用 reference_read(action="list|read|search", source="knowledge") 存取（唯讀）`);
     }
 
     // Workspace: external dirs from workspaces.json (just the paths, don't expand contents)
