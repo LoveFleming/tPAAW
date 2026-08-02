@@ -1087,8 +1087,12 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
   } catch {}
 
   // Security: check path is within allowed dirs
-  // Read:  cwd + rootDir + workspaceDirs
-  // Write: cwd + rootDir + workspaceDirs (with blacklist for dangerous locations)
+  // Read:  cwd + rootDir + workspaceDirs + knowledge
+  // Write: ONLY cwd (project directory)
+  //        rootDir blacklist + knowledge + external workspace dirs = read-only
+  const externalReadOnlyDirs = workspaceDirs
+    .map(d => d.replace(/\\/g, "/"))
+    .filter(d => d.toLowerCase() !== cwd.replace(/\\/g, "/").toLowerCase());
   const WRITE_BLACKLIST = [
     // Never allow writing to these directories (relative to rootDir)
     "/packages/",
@@ -1105,9 +1109,9 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
   ]);
 
   const isPathAllowed = (p, write = false) => {
-    // Normalize to forward slashes for consistent comparison
     const norm = (s) => s.replace(/\\/g, "/");
     const abs = norm(resolvePath(p));
+    const normCwd = norm(cwd);
     const normRoot = norm(rootDir);
     const startsWith = (target, prefix) => {
       const t = target.split("/");
@@ -1116,15 +1120,18 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       return p.every((seg, i) => seg.toLowerCase() === t[i].toLowerCase());
     };
     if (write) {
-      // Write: cwd + rootDir + workspace directories
-      const allowed = startsWith(abs, norm(cwd)) || startsWith(abs, normRoot) || workspaceDirs.some((d) => startsWith(abs, norm(d)));
-      if (!allowed) return false;
-      // Blacklist: never write to dangerous directories under rootDir
+      // Write: must be inside cwd
+      if (!startsWith(abs, normCwd)) return false;
+      // Block writes to rootDir blacklist (packages, core, knowledge, etc.)
       const relToRoot = abs.startsWith(normRoot + "/") ? abs.slice(normRoot.length) : "";
       for (const bl of WRITE_BLACKLIST) {
         if (relToRoot.toLowerCase().startsWith(bl.toLowerCase())) return false;
       }
-      // Blacklist: never write dangerous file extensions directly in rootDir
+      // Block writes to external workspace dirs (read-only references)
+      for (const rd of externalReadOnlyDirs) {
+        if (startsWith(abs, rd)) return false;
+      }
+      // Block dangerous extensions in rootDir top-level
       const ext = (p.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || "";
       const inRootButNotSubdir = relToRoot.startsWith("/") && !relToRoot.slice(1).includes("/");
       if (inRootButNotSubdir && (ext === "js" || ext === "mjs" || ext === "cjs")) return false;
@@ -1132,7 +1139,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       return true;
     }
     // Read: cwd + rootDir + workspace directories
-    return startsWith(abs, norm(cwd)) || startsWith(abs, normRoot) || workspaceDirs.some((d) => startsWith(abs, norm(d)));
+    return startsWith(abs, normCwd) || startsWith(abs, normRoot) || workspaceDirs.some((d) => startsWith(abs, norm(d)));
   };
 
   // Emit tool event for SSE
