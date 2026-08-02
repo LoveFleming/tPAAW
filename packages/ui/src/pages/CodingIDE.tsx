@@ -41,7 +41,7 @@ import { ChatMessages, type ChatMessageItem } from "../components/ChatMessages";
 import IssueTracker from "../components/IssueTracker";
 import TaskBoard from "../components/TaskBoard";
 import FeatureMap from "../components/FeatureMap";
-import NightShiftPanel from "../components/NightShiftPanel";
+import NightShiftPanel, { SubTaskDetail } from "../components/NightShiftPanel";
 import CrewManager from "../components/CrewManager";
 // ReportsTab removed — merged into NightShiftPanel
 import SecurityTab from "../components/SecurityTab";
@@ -3624,6 +3624,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                   rootPath={rootPath}
                   model={emModel}
+                  openMainTab={openMainTab}
                 />
               </div>
             )}
@@ -3673,6 +3674,16 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   rootPath={rootPath}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, border: tk.borderInput, accent: tk.accent, accentLight: tk.accentLight, accentText: tk.accentText, text: tk.textPrimary }}
                   onCrewChanged={refreshCodingCrew}
+                />
+              </div>
+            )}
+
+            {/* === Sub-task Detail Tab === */}
+            {activeMainTab?.type === "subtask-detail" && (
+              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
+                <SubTaskDetail
+                  theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
+                  data={activeMainTab.data}
                 />
               </div>
             )}
