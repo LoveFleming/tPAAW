@@ -171,13 +171,20 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
 
   const handleResume = async (planId: string) => {
     try {
+      // Optimistic: immediately mark as running so UI hides resume button
+      setExecPlan((prev: any) => prev ? { ...prev, status: 'running' } : prev);
       // Trigger actual EM execution with existing plan
       await fetch(`${API_BASE}/api/coding-night-shift/start${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "em", planId }),
       });
+      // Poll after short delay to catch server update
+      setTimeout(() => refreshPlans(), 1000);
+      setTimeout(() => refreshPlans(), 3000);
+    } catch {
+      // Revert on error
       await refreshPlans();
-    } catch {}
+    }
   };
 
   const handleDelete = async (planId: string) => {
