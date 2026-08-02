@@ -75,6 +75,9 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
   const [nsConfig, setNsConfig] = useState<any>(null);
   const [savingConfig, setSavingConfig] = useState(false);
 
+  // Cron job status
+  const [cronJob, setCronJob] = useState<any>(null);
+
   // Reports list
   const [reports, setReports] = useState<ReportListItem[]>([]);
   const [selectedReportDate, setSelectedReportDate] = useState<string | null>(null);
@@ -94,6 +97,19 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
   };
 
   useEffect(() => { fetchConfig(); }, [rootPath]);
+
+  // Fetch cron job status
+  useEffect(() => {
+    if (!rootPath) return;
+    const cronId = `night-shift-${rootPath.replace(/[^a-zA-Z0-9]/g, '-').slice(-40)}`;
+    fetch(`${API_BASE}/api/cron-jobs`)
+      .then(r => r.json())
+      .then((jobs: any[]) => {
+        const found = jobs.find(j => j.id === cronId);
+        setCronJob(found || null);
+      })
+      .catch(() => setCronJob(null));
+  }, [rootPath, nsConfig]);
 
   // ── Fetch status (memoized so polling interval uses stable reference) ──
   const fetchStatus = useCallback(async () => {
@@ -355,6 +371,30 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ── Cron job status ── */}
+        {cronJob && (
+          <div className="px-3 py-2 text-xs space-y-1" style={{ borderTop: `1px solid ${tk.borderLight}`, color: tk.text }}>
+            <div className="flex items-center justify-between">
+              <span style={{ opacity: 0.6 }}>📋 排程任務</span>
+              <span style={{ color: cronJob.enabled ? "#22c55e" : "#9ca3af", fontWeight: 600 }}>
+                {cronJob.enabled ? "● 已啟用" : "○ 已停用"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span style={{ opacity: 0.6 }}>⏰ Cron</span>
+              <span style={{ fontFamily: "monospace" }}>{cronJob.schedule}</span>
+            </div>
+            {cronJob.lastRun && (
+              <div className="flex items-center justify-between">
+                <span style={{ opacity: 0.6 }}>📅 上次執行</span>
+                <span style={{ color: cronJob.lastStatus === "done" ? "#22c55e" : cronJob.lastStatus === "error" ? "#ef4444" : "#eab308" }}>
+                  {cronJob.lastStatus === "done" ? "✅" : cronJob.lastStatus === "error" ? "❌" : "⏳"} {new Date(cronJob.lastRun).toLocaleString("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
