@@ -74,6 +74,7 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
   const [showConfig, setShowConfig] = useState(false);
   const [nsConfig, setNsConfig] = useState<any>(null);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [saveResult, setSaveResult] = useState<"" | "ok" | "err">("");
 
   // Cron job status
   const [cronJob, setCronJob] = useState<any>(null);
@@ -505,13 +506,22 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
               <button
                 onClick={async () => {
                   setSavingConfig(true);
+                  setSaveResult("");
                   try {
-                    await fetch(`${API_BASE}/api/coding-night-shift/config?path=${encodeURIComponent(rootPath || "")}`, {
+                    const resp = await fetch(`${API_BASE}/api/coding-night-shift/config?path=${encodeURIComponent(rootPath || "")}`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify(nsConfig),
                     });
-                  } catch {}
+                    if (resp.ok) {
+                      setSaveResult("ok");
+                      setTimeout(() => setSaveResult(""), 3000);
+                    } else {
+                      setSaveResult("err");
+                    }
+                  } catch {
+                    setSaveResult("err");
+                  }
                   setSavingConfig(false);
                 }}
                 disabled={savingConfig}
@@ -520,6 +530,12 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
               >
                 {savingConfig ? "儲存中..." : "💾 儲存設定"}
               </button>
+              {saveResult === "ok" && (
+                <div className="text-center text-xs mt-1" style={{ color: "#22c55e" }}>✅ 設定已儲存</div>
+              )}
+              {saveResult === "err" && (
+                <div className="text-center text-xs mt-1" style={{ color: "#ef4444" }}>❌ 儲存失敗</div>
+              )}
             </div>
           </div>
         )}
