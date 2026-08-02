@@ -2639,25 +2639,11 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
       } catch {}
     }
 
-    // 2. Workspace: external dirs from workspaces.json (actual project directories)
+    // 2. Workspace: external dirs from workspaces.json (just the paths)
     try {
       const ws = JSON.parse(readSync(resolve(PAAW_R, "data/workspaces.json"), "utf-8"));
       if (ws.directories?.length) {
-        const wsList = ws.directories.map((d, i) => {
-          try {
-            const entries = readdirSync(d).sort();
-            const topItems = entries.filter(e => !e.startsWith(".")).slice(0, 15).map(e => {
-              const fp = join(d, e);
-              try {
-                return statSync(fp).isDirectory() ? `  📁 ${e}/` : `  📄 ${e}`;
-              } catch { return `  📄 ${e}`; }
-            });
-            return `📂 Workspace ${i + 1}: ${d} — 使用 reference_read(action="list|read|search", source="workspace", path="...") 存取：\n${topItems.join("\n")}${entries.length > 15 ? `\n  ... (${entries.length - 15} more)` : ""}`;
-          } catch {
-            return `📂 Workspace ${i + 1}: ${d}`;
-          }
-        });
-        refPaths.push(wsList.join("\n"));
+        refPaths.push(`📂 Workspace 目錄（使用 reference_read(action="list|read|search", source="workspace", path="...") 存取）：\n${ws.directories.map(d => "  - " + d).join("\n")}`);
       }
     } catch {}
 
