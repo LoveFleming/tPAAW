@@ -622,6 +622,23 @@ export const PAAW_TOOLS = [
   {
     type: "function",
     function: {
+      name: "reference_read",
+      description: "Browse and read reference files from workspace/ and knowledge/ directories (read-only). Use this to find existing code examples, architecture docs, templates, and reference materials. workspace/ has user documents, knowledge/ has project knowledge.",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["list", "read", "search"], description: "list: browse files in a directory, read: read a specific file, search: search file contents" },
+          source: { type: "string", enum: ["workspace", "knowledge"], description: "Which reference directory to access" },
+          path: { type: "string", description: "For list: subdirectory path (e.g. 'Pics' or ''). For read: file path. For search: search query." },
+          maxResults: { type: "number", description: "For search: max results (default 20)" },
+        },
+        required: ["action", "source"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "task_list",
       description: "List coding tasks. Can filter by pipeline phase, status, type, or priority. Also supports reading a single task by ID.",
       parameters: {
@@ -693,6 +710,7 @@ const TOOL_GROUP_MAP = {
   // Core: full file ops + shell + git
   read_file: "core", write_file: "core", edit_file: "core",
   glob: "core", grep: "core", diff: "core",
+  reference_read: "core",
   git: "core", bash: "core", ask_user: "core",
 
   // Browser testing
@@ -726,7 +744,7 @@ const TOOL_GROUP_MAP = {
 
 // ── core-read: read-only subset of core (no bash/write/edit/git) ──
 // For non-coding agents: architect, QA, helpdesk, EM
-const CORE_READ_TOOLS = new Set(["read_file", "glob", "grep", "diff", "ask_user"]);
+const CORE_READ_TOOLS = new Set(["read_file", "reference_read", "glob", "grep", "diff", "ask_user"]);
 
 // ── Fallback groups (used when crew.json has no toolGroups) ──
 const AGENT_FALLBACK_GROUPS = {
@@ -1125,6 +1143,104 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       // ══════════════════════════════════════════
       // ── File Operations ──
       // ══════════════════════════════════════════
+
+      // ── Reference Read Tool (workspace/ and knowledge/) ──
+      case "reference_read": {
+        const refBase = args.source === "knowledge"
+          ? resolve(rootDir, "data/knowledge")
+          : resolve(rootDir, "data/workspace");
+        if (!existsSync(refBase)) {
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${args.source}/ not found` });
+          return `(${args.source}/ directory does not exist yet)`;
+        }
+
+        if (args.action === "list") {
+          const subDir = args.path ? resolve(refBase, args.path) : refBase;
+          if (!isPathAllowed(subDir) && !subDir.startsWith(refBase)) {
+            return `Error: path '${args.path}' is outside ${args.source}/`;
+          }
+          try {
+            const { readdirSync, statSync } = await import("fs");
+            const entries = readdirSync(subDir).sort();
+            const lines = entries.map(e => {
+              const fp = join(subDir, e);
+              const stat = statSync(fp);
+              const rel = args.path ? `${args.path}/${e}` : e;
+              if (stat.isDirectory()) return `📁 ${rel}/`;
+              const sizeStr = stat.size > 1024 ? `${(stat.size/1024).toFixed(1)}KB` : `${stat.size}B`;
+              return `📄 ${rel} (${sizeStr})`;
+            });
+            const header = `${args.source}/${args.path ? args.path + "/" : ""} (${entries.length} items)`;
+            if (onEvent) onEvent({ type: "tool_end", name, result: `${entries.length} items` });
+            return `${header}\n${lines.join("\n")}`;
+          } catch (e) {
+            return `Error listing ${args.source}/${args.path || ""}: ${e.message}`;
+          }
+        }
+
+        if (args.action === "read") {
+          if (!args.path) return `Error: 'path' is required for read action.`;
+          const filePath = resolve(refBase, args.path);
+          if (!filePath.startsWith(refBase)) {
+            return `Error: path '${args.path}' is outside ${args.source}/`;
+          }
+          if (!existsSync(filePath)) {
+            return `Error: file not found: ${args.source}/${args.path}`;
+          }
+          try {
+            const content = await readFile(filePath, "utf-8");
+            const maxLen = 100_000;
+            const result = content.length > maxLen
+              ? content.slice(0, maxLen) + `\n... (truncated, ${content.length} bytes total)`
+              : content;
+            if (onEvent) onEvent({ type: "tool_end", name, result: `${args.source}/${args.path} (${content.length} bytes)` });
+            return result;
+          } catch (e) {
+            return `Error reading ${args.source}/${args.path}: ${e.message}`;
+          }
+        }
+
+        if (args.action === "search") {
+          if (!args.path) return `Error: 'path' (search query) is required for search action.`;
+          const query = args.path.toLowerCase();
+          const maxResults = args.maxResults || 20;
+          const results = [];
+          const { readdirSync, readFileSync: readSync2, statSync } = await import("fs");
+          const searchDir = (dir, relBase) => {
+            if (results.length >= maxResults) return;
+            let entries;
+            try { entries = readdirSync(dir); } catch { return; }
+            for (const e of entries) {
+              if (results.length >= maxResults) return;
+              const fp = join(dir, e);
+              const rel = relBase ? `${relBase}/${e}` : e;
+              let stat;
+              try { stat = statSync(fp); } catch { continue; }
+              if (stat.isDirectory()) {
+                searchDir(fp, rel);
+              } else {
+                const ext = (e.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || "";
+                if (["png", "jpg", "jpeg", "gif", "webp", "ico", "pdf", "zip"].includes(ext)) continue;
+                try {
+                  const content = readSync2(fp, "utf-8").toLowerCase();
+                  if (content.includes(query)) {
+                    const idx = content.indexOf(query);
+                    const start = Math.max(0, idx - 50);
+                    const snippet = content.slice(start, idx + query.length + 50).replace(/\n/g, " ");
+                    results.push(`${rel}: ...${snippet}...`);
+                  }
+                } catch {}
+              }
+            }
+          };
+          searchDir(refBase, "");
+          const header = `Search '${args.path}' in ${args.source}/ (${results.length} matches, max ${maxResults})`;
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${results.length} matches` });
+          return results.length > 0 ? `${header}\n${results.join("\n")}` : `${header}\n(No matches found)`;
+        }
+
+        return `Error: unknown action '${args.action}'. Use list, read, or search.`;
+      }
 
       case "read_file": {
         const filePath = resolvePath(args.path);
@@ -2505,7 +2621,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   }
 
   // Tool overview (compact — full schemas are sent via function-calling format)
-  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/decisions/standards/changelog/issues/features/feature_detail/runbook/faq/test_map/security/recent_changes\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_mapping\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\ntask_list(id?, status?, pipelinePhase?, type?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task with pipeline\ntask_update(id, action=update|advance|reject|note|assign, ...) → update task, advance/reject pipeline phase, add notes\ncu_refresh, record_decision, docs(action=...), action_log_add/list, agent_memory_save/load`);
+  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/decisions/standards/changelog/issues/features/feature_detail/runbook/faq/test_map/security/recent_changes\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_mapping\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\nreference_read(action=list|read|search, source=workspace|knowledge) → browse/read/search reference files in workspace/ and knowledge/ (read-only, for finding existing code examples and docs)\ntask_list(id?, status?, pipelinePhase?, type?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task with pipeline\ntask_update(id, action=update|advance|reject|note|assign, ...) → update task, advance/reject pipeline phase, add notes\ncu_refresh, record_decision, docs(action=...), action_log_add/list, agent_memory_save/load`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);
