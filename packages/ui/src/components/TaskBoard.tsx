@@ -171,7 +171,7 @@ function getTaskSourceIcon(task: Task): string {
 function getCurrentPhase(task: Task): PipelinePhaseName | null {
   if (!task.pipeline) return null;
   for (const phase of PIPELINE_PHASES) {
-    const p = task.pipeline[phase];
+    const p = task.pipeline[phase.toLowerCase()];
     if (p && p.status !== "done") return phase;
   }
   return "DONE";
@@ -181,7 +181,7 @@ function getPhaseMiniBar(task: Task): { phase: PipelinePhaseName; done: boolean 
   const pipeline = task.pipeline;
   if (!pipeline) return [];
   return PIPELINE_PHASES.map(phase => {
-    const p = pipeline[phase];
+    const p = pipeline[phase.toLowerCase()];
     return { phase, done: p?.status === "done" };
   });
 }
@@ -452,7 +452,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
         </h3>
         <div className="flex items-center gap-1 overflow-x-auto">
           {PIPELINE_PHASES.map((phase, i) => {
-            const p = task.pipeline![phase];
+            const p = task.pipeline![phase.toLowerCase()];
             const status = p?.status || "pending";
             const icon = PHASE_STATUS_ICONS[status] || "⏳";
             const isCurrent = phase === currentPhase;
