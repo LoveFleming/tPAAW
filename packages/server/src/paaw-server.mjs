@@ -60,6 +60,7 @@ const ROUTE_MODULES = [
   "./routes/coding-features.mjs",
   "./routes/coding-night-shift.mjs",
   "./routes/coding-night-shift-config.mjs",
+  "./routes/execution-plan-routes.mjs",
   "./routes/coding-night-shift-prompts.mjs",
   "./routes/coding-em-config.mjs",
   "./routes/coding-doc-coverage.mjs",

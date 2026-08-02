@@ -74,6 +74,9 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
   const [showConfig, setShowConfig] = useState(false);
   const [nsConfig, setNsConfig] = useState<any>(null);
   const [savingConfig, setSavingConfig] = useState(false);
+
+  // Execution Plan
+  const [execPlan, setExecPlan] = useState<any>(null);
   const [saveResult, setSaveResult] = useState<"" | "ok" | "err">("");
 
   // Cron job status
@@ -99,7 +102,7 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
 
   useEffect(() => { fetchConfig(); }, [rootPath]);
 
-  // Fetch cron job status
+  // Fetch cron job status + execution plan
   useEffect(() => {
     if (!rootPath) return;
     const cronId = `night-shift-${Array.from(rootPath).map(c => c.charCodeAt(0).toString(16)).join('').slice(-20)}`;
@@ -110,7 +113,13 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
         setCronJob(found || null);
       })
       .catch(() => setCronJob(null));
-  }, [rootPath, nsConfig]);
+
+    // Fetch latest execution plan
+    fetch(`${API_BASE}/api/night-shift/plan/latest?path=${encodeURIComponent(rootPath)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setExecPlan(d?.plan || null))
+      .catch(() => setExecPlan(null));
+  }, [rootPath, nsConfig, nsStatus]);
 
   // ── Fetch status (memoized so polling interval uses stable reference) ──
   const fetchStatus = useCallback(async () => {
@@ -394,6 +403,62 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
                 <span style={{ color: cronJob.lastStatus === "done" ? "#22c55e" : cronJob.lastStatus === "error" ? "#ef4444" : "#eab308" }}>
                   {cronJob.lastStatus === "done" ? "✅" : cronJob.lastStatus === "error" ? "❌" : "⏳"} {new Date(cronJob.lastRun).toLocaleString("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
                 </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Execution Plan ── */}
+        {execPlan && (
+          <div className="px-3 py-2 space-y-1.5" style={{ borderTop: `1px solid ${tk.borderLight}`, color: tk.text }}>
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span>📋 Execution Plan</span>
+              <span style={{
+                color: execPlan.status === 'completed' ? '#22c55e' : execPlan.status === 'running' ? '#eab308' : execPlan.status === 'failed' ? '#ef4444' : '#9ca3af',
+                fontWeight: 600,
+              }}>
+                {execPlan.status === 'completed' ? '✅ 完成' : execPlan.status === 'running' ? '⏳ 執行中' : execPlan.status === 'partial' ? '⚠️ 部分' : execPlan.status === 'failed' ? '❌ 失敗' : '⏸ 待執行'}
+              </span>
+            </div>
+            <div className="text-[10px]" style={{ opacity: 0.5 }}>
+              {execPlan.planId} · {execPlan.tasks?.length || 0} tasks · {execPlan.summary?.totalSubtasks || 0} subtasks
+            </div>
+
+            {/* Sub-task list */}
+            <div className="space-y-1 mt-1">
+              {execPlan.tasks?.flatMap((task: any) =>
+                task.subtasks?.map((st: any) => (
+                  <div key={st.subtaskId} className="flex items-center justify-between text-[11px] py-0.5">
+                    <span className="flex items-center gap-1" style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{
+                        color: st.status === 'done' ? '#22c55e' : st.status === 'running' ? '#eab308' : st.status === 'fail' ? '#ef4444' : st.status === 'timeout' ? '#f97316' : '#9ca3af',
+                      }}>
+                        {st.status === 'done' ? '✅' : st.status === 'running' ? '⏳' : st.status === 'fail' ? '❌' : st.status === 'timeout' ? '⏰' : '⬜'}
+                      </span>
+                      <span style={{ fontWeight: 500 }}>{st.assignee}</span>
+                      <span style={{ opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {st.title?.slice(0, 40)}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-2" style={{ opacity: 0.5, fontSize: '10px', flexShrink: 0 }}>
+                      {st.durationMs > 0 && <span>{(st.durationMs / 1000 / 60).toFixed(1)}m</span>}
+                      {st.tokenUsage?.total > 0 && <span>{(st.tokenUsage.total / 1000).toFixed(1)}K tok</span>}
+                      {st.costUsd > 0 && <span>${st.costUsd.toFixed(3)}</span>}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Summary bar */}
+            {execPlan.summary && (
+              <div className="flex items-center gap-3 text-[10px] pt-1 mt-1" style={{ borderTop: `1px solid ${tk.borderLight}`, opacity: 0.7 }}>
+                <span>✅ {execPlan.summary.completed}</span>
+                <span>❌ {execPlan.summary.failed}</span>
+                <span>⏰ {execPlan.summary.timedOut}</span>
+                {execPlan.summary.totalTokens > 0 && <span>📊 {(execPlan.summary.totalTokens / 1000).toFixed(1)}K</span>}
+                {execPlan.summary.totalCostUsd > 0 && <span>💰 ${execPlan.summary.totalCostUsd.toFixed(3)}</span>}
+                {execPlan.summary.totalDurationMs > 0 && <span>⏱ {(execPlan.summary.totalDurationMs / 1000 / 60).toFixed(0)}min</span>}
               </div>
             )}
           </div>

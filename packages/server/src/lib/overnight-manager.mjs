@@ -89,6 +89,23 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
   return { success: false, content: "", error: "Max retries exceeded" };
 }
 
+// ── Cost estimation (rough, for tracking purposes) ──
+const MODEL_PRICING = {
+  'zai/glm-5.1': { input: 0.6, output: 2.2 },      // per 1M tokens, USD
+  'glm-5.1': { input: 0.6, output: 2.2 },
+  'openrouter/z-ai/glm-5.1': { input: 1.0, output: 3.2 },
+  'openrouter/deepseek/deepseek-v4-flash': { input: 0.14, output: 0.28 },
+  'deepseek/deepseek-v4-flash': { input: 0.14, output: 0.28 },
+};
+
+function _estimateCost(tokens, model) {
+  if (!model || !tokens) return 0;
+  const pricing = MODEL_PRICING[model] || MODEL_PRICING[model.toLowerCase()] || { input: 0.6, output: 2.2 };
+  const inputCost = (tokens.prompt / 1_000_000) * pricing.input;
+  const outputCost = (tokens.completion / 1_000_000) * pricing.output;
+  return Math.round((inputCost + outputCost) * 10000) / 10000; // 4 decimal places
+}
+
 // ── LLM Work Planning（EM 模式用） ──
 
 async function planWorkList(situationReport, rootDir, modelOverride, fallbackModels = [], sendSSE = (() => {}), projectPhase = 'bootstrap') {
@@ -410,7 +427,7 @@ export async function planEMSession(opts = {}) {
 
 // ── EM Execute only (Phase 3-4): dispatch agents + report ──
 export async function executeEMSession(opts = {}) {
-  const { rootDir, workList, situationReport = "", baseUrl = `http://127.0.0.1:${process.env.PAAW_PORT || 4097}`, modelOverride, fallbackModels = [], sendSSE = (() => {}) } = opts;
+  const { rootDir, workList, situationReport = "", baseUrl = `http://127.0.0.1:${process.env.PAAW_PORT || 4097}`, modelOverride, fallbackModels = [], sendSSE = (() => {}), projectPhase = 'bootstrap' } = opts;
 
   // ── Read EM config for execution behavior ──
   let emConfig = null;
@@ -418,6 +435,31 @@ export async function executeEMSession(opts = {}) {
     const { readEMConfig } = await import("./em-config.mjs");
     emConfig = readEMConfig(rootDir);
   } catch { /* em-config not available */ }
+
+  // ── Create Execution Plan ──
+  let plan = null;
+  try {
+    const { createPlan, markPlanStarted, updateSubTask } = await import("./execution-plan.mjs");
+    const planItems = (workList || []).map((w, i) => ({
+      title: w.task || `Task ${i + 1}`,
+      assignee: w.agent || 'developer',
+      source: w.source || 'em_plan',
+      sourceRef: w.sourceRef || null,
+      priority: w.priority || 'medium',
+      subtasks: [{ title: w.task || `Task ${i + 1}`, assignee: w.agent || 'developer' }],
+    }));
+    plan = await createPlan({
+      projectPath: rootDir,
+      projectPhase,
+      mode: 'em',
+      items: planItems,
+    });
+    await markPlanStarted(rootDir, plan.planId);
+    sendSSE("plan_created", { planId: plan.planId, totalSubtasks: plan.summary.totalSubtasks });
+    console.log(`[NightShift] 📋 Execution Plan created: ${plan.planId} (${plan.summary.totalSubtasks} subtasks)`);
+  } catch (err) {
+    console.error(`[NightShift] Plan creation failed (non-fatal):`, err.message);
+  }
 
   // ── Per-agent model resolution ──
   const { resolveAgentModel, resolveAgentFallbacks } = await import("./project-crew.mjs");
@@ -479,32 +521,93 @@ export async function executeEMSession(opts = {}) {
   // ── Phase 3: Deterministic execution ──
   console.log(`[NightShift] ═══ Phase 3: Agent Dispatch (serial, ${execList.length}/${workList.length} tasks) ═══`);
   const results = [];
+
+  // ── Load plan helpers for sub-task tracking ──
+  let planHelpers = null;
+  try {
+    planHelpers = await import("./execution-plan.mjs");
+  } catch {}
+
   for (let i = 0; i < execList.length; i++) {
     const task = execList[i];
+    const subtaskId = plan ? `${plan.tasks[i]?.subtasks[0]?.subtaskId || ''}` : null;
+
     // Resolve per-agent EM model (falls back to global modelOverride or EM dispatch model)
     const crewId = task.crewId || `coding.${task.agent}`;
     const dispatchModel = emConfig?.model?.dispatch || modelOverride;
     const agentModel = resolveAgentModel(rootDir, crewId, "em", dispatchModel || "");
     const agentFallbacks = resolveAgentFallbacks(rootDir, crewId, fallbackModels);
 
-    console.log(`[NightShift] Phase 3: [${i + 1}/${execList.length}] → ${task.agent}${agentModel ? ` (model: ${agentModel})` : ""}: ${task.task.slice(0, 80)}...`);
-    sendSSE("task_start", { index: i + 1, total: execList.length, ...task });
+    console.log(`[NightShift] Phase 3: [${i + 1}/${execList.length}]${subtaskId ? ` ${subtaskId}` : ''} → ${task.agent}${agentModel ? ` (model: ${agentModel})` : ""}: ${task.task.slice(0, 80)}...`);
+    sendSSE("task_start", { index: i + 1, total: execList.length, subtaskId, ...task });
+
+    // ── Mark sub-task as running ──
+    const _startTime = Date.now();
+    if (plan && planHelpers && subtaskId) {
+      try {
+        await planHelpers.updateSubTask(rootDir, plan.planId, subtaskId, {
+          status: 'running',
+          startedAt: new Date().toISOString(),
+          model: agentModel || dispatchModel || null,
+        });
+      } catch {}
+    }
 
     const result = await a2aCallAgent(baseUrl, task.agent, task.task, {
       cwd: rootDir,
-      timeout: 1800000,
+      timeout: 7200000, // 2h per sub-task
       modelOverride: agentModel || dispatchModel,
       fallbackModels: agentFallbacks,
     });
 
-    results.push({ ...task, ...result });
+    const _endTime = Date.now();
+    const _durationMs = _endTime - _startTime;
+
+    // ── Extract token usage from result ──
+    const _tokens = {
+      prompt: result.usage?.prompt_tokens || result.tokenUsage?.prompt || 0,
+      completion: result.usage?.completion_tokens || result.tokenUsage?.completion || 0,
+      total: result.usage?.total_tokens || result.tokenUsage?.total || 0,
+    };
+    const _cost = result.costUsd || _estimateCost(_tokens, agentModel || dispatchModel);
+
+    results.push({ ...task, ...result, subtaskId, durationMs: _durationMs, tokenUsage: _tokens, costUsd: _cost });
 
     if (result.success) {
-      console.log(`[NightShift] Phase 3: [${i + 1}/${execList.length}] ✅ ${task.agent} done (${result.content.length} chars)`);
-      sendSSE("task_done", { index: i + 1, agent: task.agent, preview: result.content.slice(0, 200) });
+      console.log(`[NightShift] Phase 3: [${i + 1}/${execList.length}] ✅ ${task.agent} done (${result.content.length} chars, ${(_durationMs / 1000).toFixed(0)}s, ${_tokens.total} tokens)`);
+      sendSSE("task_done", { index: i + 1, agent: task.agent, subtaskId, preview: result.content.slice(0, 200), durationMs: _durationMs, tokens: _tokens, costUsd: _cost });
+
+      // ── Mark sub-task as done ──
+      if (plan && planHelpers && subtaskId) {
+        try {
+          await planHelpers.updateSubTask(rootDir, plan.planId, subtaskId, {
+            status: 'done',
+            completedAt: new Date().toISOString(),
+            durationMs: _durationMs,
+            tokenUsage: _tokens,
+            costUsd: _cost,
+            result: 'success',
+          });
+        } catch {}
+      }
     } else {
-      console.log(`[NightShift] Phase 3: [${i + 1}/${execList.length}] ❌ ${task.agent} failed: ${result.error}`);
-      sendSSE("task_error", { index: i + 1, agent: task.agent, error: result.error });
+      const timedOut = _durationMs >= 7200000; // 2h
+      const stStatus = timedOut ? 'timeout' : 'fail';
+      console.log(`[NightShift] Phase 3: [${i + 1}/${execList.length}] ❌ ${task.agent} ${stStatus}: ${result.error}`);
+      sendSSE("task_error", { index: i + 1, agent: task.agent, subtaskId, error: result.error, status: stStatus });
+
+      if (plan && planHelpers && subtaskId) {
+        try {
+          await planHelpers.updateSubTask(rootDir, plan.planId, subtaskId, {
+            status: stStatus,
+            completedAt: new Date().toISOString(),
+            durationMs: _durationMs,
+            tokenUsage: _tokens,
+            costUsd: _cost,
+            error: result.error,
+          });
+        } catch {}
+      }
     }
   }
 
@@ -537,8 +640,12 @@ export async function executeEMSession(opts = {}) {
 
   const succeeded = results.filter(r => r.success).length;
   const failed = results.filter(r => !r.success).length;
+  const _totalTokens = results.reduce((sum, r) => sum + (r.tokenUsage?.total || 0), 0);
+  const _totalCost = results.reduce((sum, r) => sum + (r.costUsd || 0), 0);
+  const _totalDuration = results.reduce((sum, r) => sum + (r.durationMs || 0), 0);
   console.log(`[NightShift] 🎖️ EM Session complete: ${succeeded}✅ ${failed}❌ / ${execList.length} executed, ${skippedTasks.length} skipped`);
-  sendSSE("done", { totalTasks: execList.length, succeeded, failed, skipped: skippedTasks.length });
+  console.log(`[NightShift] 📊 Tokens: ${_totalTokens} | Cost: $${_totalCost.toFixed(4)} | Duration: ${(_totalDuration / 1000 / 60).toFixed(1)}min`);
+  sendSSE("done", { totalTasks: execList.length, succeeded, failed, skipped: skippedTasks.length, totalTokens: _totalTokens, totalCostUsd: _totalCost, totalDurationMs: _totalDuration });
 
   return { report, workList, results };
 }
