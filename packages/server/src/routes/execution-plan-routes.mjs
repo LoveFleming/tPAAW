@@ -14,6 +14,7 @@ import {
   createPlan, getPlan, getLatestPlan, listPlans,
   getPlanSummary, updateSubTask, markPlanStarted, getNextPendingSubTask,
   findIncompletePlans, markInterruptedPlans, resumePlan,
+  deletePlan, updatePlanStatus,
 } from '../lib/execution-plan.mjs';
 
 export default async function executionPlanRoutes(req, res) {
@@ -168,6 +169,37 @@ export default async function executionPlanRoutes(req, res) {
       const { plan, resumedCount } = await resumePlan(rootDir, resumeMatch[1]);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, plan, resumedCount }));
+      return true;
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: err.message }));
+      return true;
+    }
+  }
+
+  // ── DELETE /api/night-shift/plan/:planId ──
+  const delMatch = urlObj.pathname.match(/^\/api\/night-shift\/plan\/([^/]+)$/);
+  if (req.method === 'DELETE' && delMatch) {
+    try {
+      await deletePlan(rootDir, delMatch[1]);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      return true;
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: err.message }));
+      return true;
+    }
+  }
+
+  // ── PATCH /api/night-shift/plan/:planId/status ──
+  const statusMatch = urlObj.pathname.match(/^\/api\/night-shift\/plan\/([^/]+)\/status$/);
+  if (req.method === 'PATCH' && statusMatch) {
+    try {
+      const body = await _readBody(req);
+      const plan = await updatePlanStatus(rootDir, statusMatch[1], body.status);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, plan }));
       return true;
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });

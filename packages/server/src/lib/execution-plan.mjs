@@ -411,3 +411,30 @@ export async function resumePlan(rootDir, planId) {
   console.log(`[ExecutionPlan] Resumed ${plan.planId}: ${resumed} subtasks back to pending`);
   return { plan, resumedCount: resumed };
 }
+
+/**
+ * 刪除 plan
+ */
+export async function deletePlan(rootDir, planId) {
+  const p = _planPath(rootDir, planId);
+  const { existsSync, unlinkSync } = await import('fs');
+  if (!existsSync(p)) throw new Error(`Plan not found: ${planId}`);
+  unlinkSync(p);
+  console.log(`[ExecutionPlan] Deleted: ${planId}`);
+  return true;
+}
+
+/**
+ * 更新 plan status（手動）
+ */
+export async function updatePlanStatus(rootDir, planId, status) {
+  const plan = await getPlan(rootDir, planId);
+  if (!plan) throw new Error(`Plan not found: ${planId}`);
+  const valid = ['created', 'running', 'completed', 'failed', 'partial', 'interrupted'];
+  if (!valid.includes(status)) throw new Error(`Invalid status: ${status}`);
+  plan.status = status;
+  if (status === 'completed') plan.completedAt = new Date().toISOString();
+  await writeFile(_planPath(rootDir, planId), JSON.stringify(plan, null, 2) + '\n', 'utf-8');
+  console.log(`[ExecutionPlan] Status updated: ${planId} → ${status}`);
+  return plan;
+}

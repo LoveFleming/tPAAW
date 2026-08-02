@@ -1,8 +1,8 @@
 /**
  * AutoDispatchPanel — 自動派工
  *
- * Master table (plan summary) + Detail table (task/sub-task)
- * Click "執行細節" → open new tab with full result
+ * Master table (plan summary) + Detail table (task → sub-task hierarchy)
+ * Actions: delete plan, change status, resume, view sub-task detail in new tab
  */
 import React, { useState, useEffect, useCallback } from "react";
 import { useI18n } from "../i18n";
@@ -32,7 +32,11 @@ const STATUS_BADGE: Record<string, { icon: string; color: string; label: string 
   failed:     { icon: "❌", color: "#ef4444", label: "失敗" },
   partial:    { icon: "⚠️", color: "#f59e0b", label: "部分完成" },
   interrupted:{ icon: "⚡", color: "#f59e0b", label: "中斷" },
-  created:    { icon: "⏸", color: "#9ca3af", label: "待執行" },
+  created:    { icon: "⏸",  color: "#9ca3af", label: "待執行" },
+};
+
+const SUB_ICON: Record<string, string> = {
+  done: "✅", running: "⏳", fail: "❌", timeout: "⏰", interrupted: "⚡", pending: "⬜", skipped: "⏭️",
 };
 
 function badge(status: string) {
@@ -40,20 +44,17 @@ function badge(status: string) {
   return <span style={{ color: s.color, fontWeight: 600 }}>{s.icon} {s.label}</span>;
 }
 
-const SUB_ICON: Record<string, string> = {
-  done: "✅", running: "⏳", fail: "❌", timeout: "⏰", interrupted: "⚡", pending: "⬜", skipped: "⏭️",
-};
-
-// ── Props from CodingIDE when opened as a sub-tab ──
+// ── Sub-task detail tab content ──
 export function SubTaskDetail({ theme, data }: { theme: any; data: any }) {
   const tk = theme;
   if (!data) return <div className="p-4 text-sm" style={{ color: tk.text, opacity: 0.4 }}>No data</div>;
 
+  const { subtaskId, title, assignee, status, model, startedAt, completedAt, durationMs, tokenUsage, result, error, taskTitle } = data;
 
-  const rows = [
-    { label: "Sub-task ID", value: subtaskId },
-    { label: "Status", value: status },
-    { label: "Agent", value: assignee },
+  const rows: { label: string; value: string }[] = [
+    { label: "Sub-task ID", value: subtaskId || "—" },
+    { label: "Status", value: status || "—" },
+    { label: "Agent", value: assignee || "—" },
     { label: "Model", value: model || "—" },
     { label: "Started", value: startedAt ? new Date(startedAt).toLocaleString("zh-TW") : "—" },
     { label: "Completed", value: completedAt ? new Date(completedAt).toLocaleString("zh-TW") : "—" },
@@ -67,8 +68,8 @@ export function SubTaskDetail({ theme, data }: { theme: any; data: any }) {
     <div className="p-4 overflow-y-auto h-full" style={{ background: tk.bg, color: tk.text }}>
       <div className="mb-3 pb-3" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
         <div className="text-sm font-bold mb-1">{badge(status)}</div>
-        <div className="text-xs" style={{ opacity: 0.6 }}>{taskTitle}</div>
-        <div className="text-sm mt-1" style={{ fontWeight: 500 }}>{title}</div>
+        {taskTitle && <div className="text-xs mb-1" style={{ opacity: 0.5 }}>Parent: {taskTitle.slice(0, 80)}</div>}
+        <div className="text-sm mt-1" style={{ fontWeight: 500 }}>{title?.slice(0, 120)}</div>
       </div>
       <table className="text-xs mb-4" style={{ borderCollapse: "collapse" }}>
         <tbody>
@@ -83,7 +84,7 @@ export function SubTaskDetail({ theme, data }: { theme: any; data: any }) {
       {error && (
         <div className="mb-3 p-3 rounded text-xs" style={{ background: "rgba(239,68,68,0.1)", color: "#dc2626" }}>
           <div className="font-bold mb-1">❌ Error</div>
-          <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit" }}>{error}</pre>
+          <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", margin: 0 }}>{error}</pre>
         </div>
       )}
       {result && (
@@ -149,7 +150,6 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
       .catch(() => setCronJob(null));
   }, [rootPath]);
 
-  // Poll while running
   useEffect(() => {
     if (execPlan?.status !== "running") return;
     const interval = setInterval(refreshPlans, 5000);
@@ -176,6 +176,25 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
     } catch {}
   };
 
+  const handleDelete = async (planId: string) => {
+    if (!confirm(`刪除 plan ${planId}？`)) return;
+    try {
+      await fetch(`${API_BASE}/api/night-shift/plan/${planId}?path=${encodeURIComponent(rootPath || "")}`, { method: "DELETE" });
+      setSelectedPlanId(null);
+      await refreshPlans();
+    } catch {}
+  };
+
+  const handleStatusChange = async (planId: string, newStatus: string) => {
+    try {
+      await fetch(`${API_BASE}/api/night-shift/plan/${planId}/status?path=${encodeURIComponent(rootPath || "")}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      await refreshPlans();
+    } catch {}
+  };
+
   const loadPlan = async (planId: string) => {
     if (!rootPath) return;
     try {
@@ -186,110 +205,73 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
     } catch {}
   };
 
+  const openSubTaskDetail = (st: any, taskTitle: string) => {
+    if (!openMainTab) return;
+    openMainTab({
+      id: `subtask:${st.subtaskId}`,
+      type: "subtask-detail",
+      label: `${st.subtaskId}`,
+      icon: "🔍",
+      closable: true,
+      data: { ...st, taskTitle },
+    });
+  };
+
   // ── Format helpers ──
   const fmtDate = (iso?: string) => iso ? new Date(iso).toLocaleString("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
   const fmtDur = (ms: number) => ms ? (ms < 60000 ? `${(ms/1000).toFixed(0)}s` : `${(ms/60000).toFixed(1)}min`) : "—";
   const fmtTok = (n: number) => n > 0 ? n.toLocaleString() : "—";
 
   const isRunning = execPlan?.status === "running";
-  const hasInterrupted = execPlan?.tasks?.some((task: any) =>
+  const hasPending = execPlan?.tasks?.some((task: any) =>
     task.subtasks?.some((st: any) => st.status === "interrupted" || st.status === "pending")
-  ) && execPlan?.status !== "running";
+  );
 
-  // Collect unique agents
+  // Unique agents
   const agents = new Set<string>();
   execPlan?.tasks?.forEach((task: any) => task.subtasks?.forEach((st: any) => agents.add(st.assignee)));
-
-  // Flatten sub-tasks for detail table
-  const allSubTasks: any[] = [];
-  execPlan?.tasks?.forEach((task: any) => {
-    task.subtasks?.forEach((st: any) => {
-      allSubTasks.push({ ...st, taskTitle: task.title });
-    });
-  });
-
-  // ── Open sub-task detail in new tab ──
-  const openSubTaskDetail = (st: any) => {
-    if (!openMainTab) return;
-    openMainTab({
-      id: `subtask:${st.subtaskId}`,
-      type: "subtask-detail",
-      label: `${st.subtaskId} Detail`,
-      icon: "🔍",
-      closable: true,
-      data: st,
-    });
-  };
 
   return (
     <div className="flex h-full" style={{ background: tk.bg }}>
       {/* ═══ Left: Plan List ═══ */}
       <div className="w-56 flex flex-col border-r shrink-0" style={{ borderColor: tk.borderLight }}>
-        {/* Header */}
         <div className="px-3 py-2" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: tk.bgMuted }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold" style={{ color: tk.text }}>🏭 {t("autoDispatch.title")}</span>
           </div>
-          <button
-            onClick={handleStart}
-            disabled={starting || isRunning}
+          <button onClick={handleStart} disabled={starting || isRunning}
             className="w-full py-1 rounded text-xs font-medium mb-1"
-            style={{
-              background: isRunning ? tk.bgMuted : tk.accentBg,
-              color: isRunning ? tk.text : tk.accent,
-              opacity: isRunning ? 0.5 : 1,
-            }}
-          >
+            style={{ background: isRunning ? tk.bgMuted : tk.accentBg, color: isRunning ? tk.text : tk.accent, opacity: isRunning ? 0.5 : 1 }}>
             {starting ? "⏳ 啟動中..." : isRunning ? "⏳ 執行中..." : `🚀 ${t("autoDispatch.start")}`}
           </button>
-          {hasInterrupted && (
-            <button
-              onClick={() => handleResume(execPlan.planId)}
-              className="w-full py-1 rounded text-xs font-medium"
-              style={{ background: "#f59e0b", color: "#fff" }}
-            >▶️ 恢復中斷</button>
-          )}
         </div>
 
-        {/* Plan list */}
         <div className="flex-1 overflow-y-auto">
-          {planList.length === 0 && (
-            <div className="p-3 text-center text-xs" style={{ color: tk.text, opacity: 0.4 }}>尚無執行記錄</div>
-          )}
+          {planList.length === 0 && <div className="p-3 text-center text-xs" style={{ color: tk.text, opacity: 0.4 }}>尚無執行記錄</div>}
           {planList.map((p, i) => (
-            <div
-              key={p.planId}
-              onClick={() => loadPlan(p.planId)}
+            <div key={p.planId} onClick={() => loadPlan(p.planId)}
               className="px-3 py-2 cursor-pointer border-b transition-colors"
-              style={{
-                borderColor: tk.borderLight,
-                background: (selectedPlanId === p.planId || (i === 0 && !selectedPlanId)) ? tk.accentBg : "transparent",
-              }}
-            >
+              style={{ borderColor: tk.borderLight, background: (selectedPlanId === p.planId || (i === 0 && !selectedPlanId)) ? tk.accentBg : "transparent" }}>
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-mono" style={{ color: tk.text, fontWeight: 600 }}>{fmtDate(p.createdAt)}</span>
                 <span className="text-[10px]">{badge(p.status)}</span>
               </div>
               {p.summary && (
-                <div className="text-[10px] mt-0.5 flex items-center gap-2" style={{ color: tk.text, opacity: 0.5 }}>
-                  <span>{p.summary.completed}/{p.summary.totalSubtasks}</span>
+                <div className="text-[10px] mt-0.5" style={{ color: tk.text, opacity: 0.5 }}>
+                  {p.summary.completed}/{p.summary.totalSubtasks} subtasks
                 </div>
               )}
             </div>
           ))}
         </div>
 
-        {/* Cron */}
         {cronJob && (
           <div className="px-3 py-1.5 text-[10px]" style={{ borderTop: `1px solid ${tk.borderLight}`, color: tk.text }}>
             <span style={{ opacity: 0.5 }}>⏰ </span>
-            <span style={{ color: cronJob.enabled ? "#22c55e" : "#9ca3af" }}>
-              {cronJob.enabled ? cronJob.schedule : "停用"}
-            </span>
+            <span style={{ color: cronJob.enabled ? "#22c55e" : "#9ca3af" }}>{cronJob.enabled ? cronJob.schedule : "停用"}</span>
           </div>
         )}
 
-        {/* Config */}
         <div className="px-3 py-1.5" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
           <button onClick={() => setShowConfig(!showConfig)} className="text-[11px]" style={{ color: tk.text, opacity: 0.5 }}>
             {showConfig ? "▼" : "▶"} ⚙️ 設定
@@ -300,12 +282,10 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
             <div className="space-y-2">
               <div>
                 <div className="text-[11px] font-bold mb-1" style={{ color: tk.text }}>🏗️ Phase</div>
-                <select
-                  value={nsConfig.projectPhase || "bootstrap"}
+                <select value={nsConfig.projectPhase || "bootstrap"}
                   onChange={e => setNsConfig({ ...nsConfig, projectPhase: e.target.value })}
                   className="text-[11px] px-2 py-1 rounded border w-full"
-                  style={{ borderColor: tk.borderLight, background: tk.bg, color: tk.text }}
-                >
+                  style={{ borderColor: tk.borderLight, background: tk.bg, color: tk.text }}>
                   <option value="bootstrap">🚀 Bootstrap</option>
                   <option value="mvp">📦 MVP</option>
                   <option value="growth">📈 Growth</option>
@@ -317,9 +297,7 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
                 <div className="text-[11px] font-bold mb-1" style={{ color: tk.text }}>⏰ Schedule</div>
                 <label className="flex items-center gap-1 text-[11px]" style={{ color: tk.text }}>
                   <input type="checkbox" checked={nsConfig.schedule?.enabled || false}
-                    onChange={e => setNsConfig({ ...nsConfig, schedule: { ...nsConfig.schedule, enabled: e.target.checked } })} />
-                  每日
-                </label>
+                    onChange={e => setNsConfig({ ...nsConfig, schedule: { ...nsConfig.schedule, enabled: e.target.checked } })} />每日</label>
                 {nsConfig.schedule?.enabled && (
                   <input type="time" value={nsConfig.schedule?.time || "22:00"}
                     onChange={e => setNsConfig({ ...nsConfig, schedule: { ...nsConfig.schedule, time: e.target.value } })}
@@ -334,8 +312,7 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
               </div>
             </div>
             <div className="mt-auto pt-2">
-              <button
-                onClick={async () => {
+              <button onClick={async () => {
                   setSavingConfig(true); setSaveResult("");
                   try {
                     const r = await fetch(`${API_BASE}/api/coding-night-shift/config?path=${encodeURIComponent(rootPath || "")}`, {
@@ -343,11 +320,11 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
                     setSaveResult(r.ok ? "ok" : "err"); if (r.ok) setTimeout(() => setSaveResult(""), 3000);
                   } catch { setSaveResult("err"); }
                   setSavingConfig(false);
-                }}
-                disabled={savingConfig}
+                }} disabled={savingConfig}
                 className="w-full py-1 rounded text-[11px] font-medium"
-                style={{ background: tk.accentBg, color: tk.accent }}
-              >{savingConfig ? "..." : "💾 儲存"}</button>
+                style={{ background: tk.accentBg, color: tk.accent }}>
+                {savingConfig ? "..." : "💾 儲存"}
+              </button>
               {saveResult === "ok" && <div className="text-center text-[10px] mt-1" style={{ color: "#22c55e" }}>✅</div>}
               {saveResult === "err" && <div className="text-center text-[10px] mt-1" style={{ color: "#ef4444" }}>❌</div>}
             </div>
@@ -355,7 +332,7 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
         )}
       </div>
 
-      {/* ═══ Right: Master + Detail Tables ═══ */}
+      {/* ═══ Right: Master + Detail ═══ */}
       <div className="flex-1 overflow-y-auto">
         {!execPlan ? (
           <div className="flex-1 flex flex-col items-center justify-center h-full gap-2" style={{ color: tk.text, opacity: 0.4 }}>
@@ -365,81 +342,107 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
           </div>
         ) : (
           <div className="p-4">
-            {/* ── Master Summary Table ── */}
-            <table className="w-full mb-4 text-xs" style={{ borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ background: tk.bgMuted }}>
-                  <th className="text-left py-1.5 px-2" style={{ color: tk.text, borderBottom: `2px solid ${tk.borderLight}` }}>Plan</th>
-                  <th className="text-left py-1.5 px-2" style={{ color: tk.text, borderBottom: `2px solid ${tk.borderLight}` }}>Status</th>
-                  <th className="text-left py-1.5 px-2" style={{ color: tk.text, borderBottom: `2px solid ${tk.borderLight}` }}>Duration</th>
-                  <th className="text-right py-1.5 px-2" style={{ color: tk.text, borderBottom: `2px solid ${tk.borderLight}` }}>Tokens</th>
-                  <th className="text-left py-1.5 px-2" style={{ color: tk.text, borderBottom: `2px solid ${tk.borderLight}` }}>Agents</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="py-1.5 px-2" style={{ color: tk.text }}>
-                    <div className="font-mono font-bold">{execPlan.planId}</div>
-                    <div style={{ opacity: 0.4, fontSize: 10 }}>{fmtDate(execPlan.createdAt)} → {fmtDate(execPlan.completedAt)}</div>
-                  </td>
-                  <td className="py-1.5 px-2">{badge(execPlan.status)}</td>
-                  <td className="py-1.5 px-2" style={{ color: tk.text }}>{fmtDur(execPlan.summary?.totalDurationMs || 0)}</td>
-                  <td className="py-1.5 px-2 text-right" style={{ color: tk.text }}>{fmtTok(execPlan.summary?.totalTokens || 0)}</td>
-                  <td className="py-1.5 px-2" style={{ color: tk.text }}>
-                    {[...agents].join(", ")}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            {/* ── Master Summary ── */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-4">
+                <div className="text-sm font-bold font-mono" style={{ color: tk.text }}>{execPlan.planId}</div>
+                {badge(execPlan.status)}
+                <span className="text-xs" style={{ color: tk.text, opacity: 0.5 }}>
+                  {fmtDate(execPlan.createdAt)} → {fmtDate(execPlan.completedAt)}
+                </span>
+                <span className="text-xs" style={{ color: tk.text, opacity: 0.5 }}>·</span>
+                <span className="text-xs" style={{ color: tk.text, opacity: 0.7 }}>⏱ {fmtDur(execPlan.summary?.totalDurationMs || 0)}</span>
+                <span className="text-xs" style={{ color: tk.text, opacity: 0.7 }}>📝 {fmtTok(execPlan.summary?.totalTokens || 0)}</span>
+                <span className="text-xs" style={{ color: tk.text, opacity: 0.7 }}>👥 {[...agents].join(", ")}</span>
+              </div>
+              {/* Action buttons */}
+              <div className="flex items-center gap-1">
+                {/* Resume */}
+                {hasPending && execPlan.status !== "running" && (
+                  <button onClick={() => handleResume(execPlan.planId)}
+                    className="text-[11px] px-2 py-1 rounded font-medium"
+                    style={{ background: "#f59e0b", color: "#fff" }} title="恢復執行">▶️ Resume</button>
+                )}
+                {/* Status dropdown */}
+                <select
+                  value={execPlan.status}
+                  onChange={e => handleStatusChange(execPlan.planId, e.target.value)}
+                  className="text-[10px] px-1 py-1 rounded border"
+                  style={{ borderColor: tk.borderLight, background: tk.bg, color: tk.text }}
+                  title="手動更改狀態"
+                >
+                  <option value="created">⏸ 待執行</option>
+                  <option value="running">⏳ 執行中</option>
+                  <option value="completed">✅ 完成</option>
+                  <option value="failed">❌ 失敗</option>
+                  <option value="partial">⚠️ 部分</option>
+                  <option value="interrupted">⚡ 中斷</option>
+                </select>
+                {/* Delete */}
+                <button onClick={() => handleDelete(execPlan.planId)}
+                  className="text-[11px] px-1.5 py-1 rounded"
+                  style={{ background: "rgba(239,68,68,0.1)", color: "#dc2626" }} title="刪除 Plan">🗑</button>
+              </div>
+            </div>
 
-            {/* ── Detail Table ── */}
+            {/* ── Detail Table: Task → Sub-task hierarchy ── */}
             <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: tk.bgMuted }}>
-                  <th className="text-left py-1.5 px-2" style={{ color: tk.text, borderBottom: `1px solid ${tk.borderLight}`, width: "70px" }}>ID</th>
+                  <th className="text-left py-1.5 px-2" style={{ color: tk.text, borderBottom: `1px solid ${tk.borderLight}`, width: "90px" }}>ID</th>
                   <th className="text-left py-1.5 px-2" style={{ color: tk.text, borderBottom: `1px solid ${tk.borderLight}`, width: "60px" }}>Agent</th>
                   <th className="text-left py-1.5 px-2" style={{ color: tk.text, borderBottom: `1px solid ${tk.borderLight}` }}>Description</th>
                   <th className="text-right py-1.5 px-2" style={{ color: tk.text, borderBottom: `1px solid ${tk.borderLight}`, width: "70px" }}>In tok</th>
                   <th className="text-right py-1.5 px-2" style={{ color: tk.text, borderBottom: `1px solid ${tk.borderLight}`, width: "70px" }}>Out tok</th>
-                  <th className="text-right py-1.5 px-2" style={{ color: tk.text, borderBottom: `1px solid ${tk.borderLight}`, width: "55px" }}>Time</th>
-                  <th className="text-center py-1.5 px-2" style={{ color: tk.text, borderBottom: `1px solid ${tk.borderLight}`, width: "40px" }}>Status</th>
-                  <th className="text-center py-1.5 px-2" style={{ color: tk.text, borderBottom: `1px solid ${tk.borderLight}`, width: "55px" }}></th>
+                  <th className="text-right py-1.5 px-2" style={{ color: tk.text, borderBottom: `1px solid ${tk.borderLight}`, width: "50px" }}>Time</th>
+                  <th className="text-center py-1.5 px-2" style={{ color: tk.text, borderBottom: `1px solid ${tk.borderLight}`, width: "35px" }}>St</th>
+                  <th className="text-center py-1.5 px-2" style={{ color: tk.text, borderBottom: `1px solid ${tk.borderLight}`, width: "35px" }}></th>
                 </tr>
               </thead>
               <tbody>
-                {allSubTasks.map((st) => (
-                  <tr key={st.subtaskId} style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-                    <td className="py-1.5 px-2" style={{ color: tk.text, fontFamily: "monospace", fontSize: 10 }}>{st.subtaskId}</td>
-                    <td className="py-1.5 px-2" style={{ color: tk.text, fontWeight: 500 }}>{st.assignee}</td>
-                    <td className="py-1.5 px-2" style={{ color: tk.text, opacity: 0.7, maxWidth: "300px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {st.title}
-                    </td>
-                    <td className="py-1.5 px-2 text-right" style={{ color: tk.text, opacity: 0.6 }}>{fmtTok(st.tokenUsage?.prompt || 0)}</td>
-                    <td className="py-1.5 px-2 text-right" style={{ color: tk.text, opacity: 0.6 }}>{fmtTok(st.tokenUsage?.completion || 0)}</td>
-                    <td className="py-1.5 px-2 text-right" style={{ color: tk.text, opacity: 0.6 }}>{fmtDur(st.durationMs || 0)}</td>
-                    <td className="py-1.5 px-2 text-center">{SUB_ICON[st.status] || "❓"}</td>
-                    <td className="py-1.5 px-2 text-center">
-                      <button
-                        onClick={() => openSubTaskDetail(st)}
-                        className="text-[10px] px-1.5 py-0.5 rounded"
-                        style={{ background: tk.accentBg, color: tk.accent, opacity: st.result || st.error ? 1 : 0.3 }}
-                        disabled={!st.result && !st.error}
-                        title="查看執行細節"
-                      >🔍</button>
-                    </td>
-                  </tr>
+                {execPlan.tasks?.map((task: any) => (
+                  <React.Fragment key={task.taskId}>
+                    {/* Task row */}
+                    <tr style={{ background: tk.bgMuted }}>
+                      <td className="py-1.5 px-2" style={{ color: tk.text }}>
+                        <span className="font-mono font-bold text-[11px]">{task.taskId}</span>
+                      </td>
+                      <td className="py-1.5 px-2" colSpan={6}>
+                        <span className="text-[11px] font-bold" style={{ color: tk.text }}>
+                          {task.title?.length > 100 ? task.title.slice(0, 100) + "..." : task.title}
+                        </span>
+                      </td>
+                      <td className="py-1.5 px-2 text-center text-[10px]" style={{ opacity: 0.4 }}>
+                        {task.subtasks?.filter((s: any) => s.status === "done").length || 0}/{task.subtasks?.length || 0}
+                      </td>
+                    </tr>
+                    {/* Sub-task rows */}
+                    {task.subtasks?.map((st: any) => (
+                      <tr key={st.subtaskId} style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
+                        <td className="py-1 px-2" style={{ color: tk.text, fontFamily: "monospace", fontSize: 10, paddingLeft: "20px" }}>
+                          └ {st.subtaskId}
+                        </td>
+                        <td className="py-1 px-2" style={{ color: tk.text, fontWeight: 500 }}>{st.assignee}</td>
+                        <td className="py-1 px-2" style={{ color: tk.text, opacity: 0.7, maxWidth: "350px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {st.title}
+                        </td>
+                        <td className="py-1 px-2 text-right" style={{ color: tk.text, opacity: 0.6 }}>{fmtTok(st.tokenUsage?.prompt || 0)}</td>
+                        <td className="py-1 px-2 text-right" style={{ color: tk.text, opacity: 0.6 }}>{fmtTok(st.tokenUsage?.completion || 0)}</td>
+                        <td className="py-1 px-2 text-right" style={{ color: tk.text, opacity: 0.6 }}>{fmtDur(st.durationMs || 0)}</td>
+                        <td className="py-1 px-2 text-center">{SUB_ICON[st.status] || "❓"}</td>
+                        <td className="py-1 px-2 text-center">
+                          <button onClick={() => openSubTaskDetail(st, task.title)}
+                            className="text-[10px] px-1 py-0.5 rounded"
+                            style={{ background: tk.accentBg, color: tk.accent, opacity: st.result || st.error ? 1 : 0.3 }}
+                            disabled={!st.result && !st.error}
+                            title="查看執行細節">🔍</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
-
-            {/* Footer summary */}
-            <div className="flex items-center gap-4 mt-3 text-[10px]" style={{ color: tk.text, opacity: 0.5 }}>
-              <span>{execPlan.summary?.completed || 0} ✅</span>
-              {(execPlan.summary?.failed || 0) > 0 && <span>{execPlan.summary.failed} ❌</span>}
-              {(execPlan.summary?.timedOut || 0) > 0 && <span>{execPlan.summary.timedOut} ⏰</span>}
-              <span>·</span>
-              <span>{allSubTasks.length} subtasks</span>
-            </div>
           </div>
         )}
       </div>
