@@ -17,8 +17,17 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
+const PROJECT_PHASES = {
+  'bootstrap': { label: '🚀 Bootstrap — 初始搭建', desc: '專案剛起步，大量 vibe coding，功能優先' },
+  'mvp': { label: '📦 MVP — 最小可行產品', desc: '核心功能開發中，快速迭代' },
+  'growth': { label: '📈 Growth — 功能擴展', desc: '功能穩定擴展中，開始補測試' },
+  'stable': { label: '✅ Stable — 穩定維護', desc: '功能穩定，重視品質和文件' },
+  'refactor': { label: '🔧 Refactor — 重構期', desc: '大規模重構，注意不要打壞舊功能' },
+};
+
 const DEFAULT_CONFIG = {
   mode: 'em',  // "em" = EM 智慧調度, "parallel" = 全員平行
+  projectPhase: 'bootstrap',  // 專案階段 — 決定夜間排班策略
   schedule: {
     enabled: false,
     time: '22:00',
@@ -66,7 +75,7 @@ export default async function nightShiftConfigRoutes(req, res) {
     try {
       const config = await getConfig(rootDir);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(config));
+      res.end(JSON.stringify({ ...config, _phases: PROJECT_PHASES }));
       return true;
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -85,6 +94,7 @@ export default async function nightShiftConfigRoutes(req, res) {
       const existing = await getConfig(rootDir);
       const merged = {
         mode: body.mode || existing.mode || 'em',
+        projectPhase: body.projectPhase || existing.projectPhase || 'bootstrap',
         schedule: { ...existing.schedule, ...(body.schedule || {}) },
         model: { ...existing.model, ...(body.model || {}) },
         tasks: body.tasks || existing.tasks,

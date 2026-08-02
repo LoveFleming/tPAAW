@@ -372,6 +372,26 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
         {/* ── Config panel ── */}
         {showConfig && nsConfig && (
           <div className="px-3 py-2 space-y-3 overflow-y-auto" style={{ borderTop: `1px solid ${tk.borderLight}`, background: tk.bgMuted, maxHeight: "300px" }}>
+            {/* Project Phase */}
+            <div>
+              <div className="text-xs font-bold mb-1" style={{ color: tk.text }}>🏗️ 專案階段</div>
+              <select
+                value={nsConfig.projectPhase || "bootstrap"}
+                onChange={e => setNsConfig({ ...nsConfig, projectPhase: e.target.value })}
+                className="text-xs px-2 py-1 rounded border w-full"
+                style={{ borderColor: tk.borderLight, background: tk.bg, color: tk.text }}
+              >
+                <option value="bootstrap">🚀 Bootstrap — 初始搭建</option>
+                <option value="mvp">📦 MVP — 最小可行產品</option>
+                <option value="growth">📈 Growth — 功能擴展</option>
+                <option value="stable">✅ Stable — 穩定維護</option>
+                <option value="refactor">🔧 Refactor — 重構期</option>
+              </select>
+              <div className="text-[10px] mt-1" style={{ color: tk.text, opacity: 0.5 }}>
+                {nsConfig._phases?.[nsConfig.projectPhase || "bootstrap"]?.desc || "決定夜間排班策略"}
+              </div>
+            </div>
+
             {/* Default Mode */}
             <div>
               <div className="text-xs font-bold mb-1" style={{ color: tk.text }}>🎛️ 預設模式</div>
