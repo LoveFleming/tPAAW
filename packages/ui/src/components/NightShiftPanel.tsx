@@ -371,7 +371,7 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
 
         {/* ── Config panel ── */}
         {showConfig && nsConfig && (
-          <div className="px-3 py-2 space-y-3 overflow-y-auto" style={{ borderTop: `1px solid ${tk.borderLight}`, background: tk.bgMuted, maxHeight: "300px" }}>
+          <div className="px-3 py-2 space-y-3" style={{ borderTop: `1px solid ${tk.borderLight}`, background: tk.bgMuted }}>
             {/* Project Phase */}
             <div>
               <div className="text-xs font-bold mb-1" style={{ color: tk.text }}>🏗️ 專案階段</div>
@@ -459,24 +459,26 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
             </div>
 
             {/* Save */}
-            <button
-              onClick={async () => {
-                setSavingConfig(true);
-                try {
-                  await fetch(`${API_BASE}/api/coding-night-shift/config?path=${encodeURIComponent(rootPath || "")}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(nsConfig),
-                  });
-                } catch {}
-                setSavingConfig(false);
-              }}
-              disabled={savingConfig}
-              className="w-full py-1.5 rounded text-xs font-medium"
-              style={{ background: tk.accentBg, color: tk.accent }}
-            >
-              {savingConfig ? "儲存中..." : "💾 儲存設定"}
-            </button>
+            <div className="pt-2" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
+              <button
+                onClick={async () => {
+                  setSavingConfig(true);
+                  try {
+                    await fetch(`${API_BASE}/api/coding-night-shift/config?path=${encodeURIComponent(rootPath || "")}`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(nsConfig),
+                    });
+                  } catch {}
+                  setSavingConfig(false);
+                }}
+                disabled={savingConfig}
+                className="w-full py-1.5 rounded text-xs font-medium"
+                style={{ background: tk.accentBg, color: tk.accent }}
+              >
+                {savingConfig ? "儲存中..." : "💾 儲存設定"}
+              </button>
+            </div>
           </div>
         )}
       </div>
