@@ -1138,8 +1138,10 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       if (WRITE_BLACKLIST_EXTS.has(ext)) return false;
       return true;
     }
-    // Read: cwd + rootDir + workspace directories
-    return startsWith(abs, normCwd) || startsWith(abs, normRoot) || workspaceDirs.some((d) => startsWith(abs, norm(d)));
+    // Read: cwd + rootDir + workspace directories + PAAW knowledge
+    const normPaaw = norm(_PAAW_ROOT);
+    const inPaawKnowledge = startsWith(abs, normPaaw + "/data/knowledge");
+    return startsWith(abs, normCwd) || startsWith(abs, normRoot) || workspaceDirs.some((d) => startsWith(abs, norm(d))) || inPaawKnowledge;
   };
 
   // Emit tool event for SSE
@@ -1154,18 +1156,19 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
 
       // ── Reference Read Tool (workspace/ and knowledge/) ──
       case "reference_read": {
-        // knowledge → data/knowledge/
-        // workspace → external dirs from workspaces.json (first one as primary)
+        // Always use PAAW_ROOT for knowledge/workspace — not cwd/rootDir
+        // because these directories live in the PAAW installation, not the project
+        const paawRoot = _PAAW_ROOT;
         let refBase;
         if (args.source === "knowledge") {
-          refBase = resolve(rootDir, "data/knowledge");
+          refBase = resolve(paawRoot, "data/knowledge");
         } else {
           // workspace: use first directory from workspaces.json
           try {
-            const ws = JSON.parse(readSync(resolve(rootDir, "data/workspaces.json"), "utf-8"));
-            refBase = ws.directories?.[0] || resolve(rootDir, "data/workspace");
+            const ws = JSON.parse(readSync(resolve(paawRoot, "data/workspaces.json"), "utf-8"));
+            refBase = ws.directories?.[0] || resolve(paawRoot, "data/workspace");
           } catch {
-            refBase = resolve(rootDir, "data/workspace");
+            refBase = resolve(paawRoot, "data/workspace");
           }
         }
         if (!existsSync(refBase)) {
