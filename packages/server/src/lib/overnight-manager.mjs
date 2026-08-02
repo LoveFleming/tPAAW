@@ -91,7 +91,7 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
 
 // ── LLM Work Planning（EM 模式用） ──
 
-async function planWorkList(situationReport, rootDir, modelOverride, fallbackModels = [], sendSSE = (() => {})) {
+async function planWorkList(situationReport, rootDir, modelOverride, fallbackModels = [], sendSSE = (() => {}), projectPhase = 'bootstrap') {
   const { resolveLLMConfig } = await import("./paaw-agent-loop.mjs");
   const { callLLMWithRetry } = await import("./llm-utils.mjs");
 
@@ -128,6 +128,32 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
     balanced: '【平衡模式】規劃完成後等待人工確認，確認後逐一執行。',
     aggressive: '【積極模式】規劃完成後直接執行，不需人工確認。盡量多做。',
   }[strategy] || '【平衡模式】規劃完成後等待人工確認。';
+
+  // ── Project phase constraints ──
+  const phaseConstraints = {
+    bootstrap: `【🏗️ Bootstrap 階段】
+- ✅ 只指派 developer 和 architect（寫碼、修 bug、評估架構）
+- ❌ 不要指派 tester、qa、doc-writer（初期先衝功能，測試文件之後再補）
+- 重點：快速推進功能開發，不追求測試覆蓋率和文檔完整性`,
+    mvp: `【📦 MVP 階段】
+- ✅ 主要指派 developer 和 architect
+- ✅ 如果有明確的安全隱患可指派 qa 做基本審查
+- ❌ 不要指派 tester、doc-writer（功能還在快速變動）
+- 重點：核心功能優先，品質靠人工把關`,
+    growth: `【📈 Growth 階段】
+- ✅ 全部 agent 都可以指派
+- ⚠️ tester 可以開始寫關鍵模組的測試
+- ⚠️ doc-writer 可以開始補核心 API 文件
+- 重點：開始建立品質基礎，但開發仍是主線`,
+    stable: `【✅ Stable 階段】
+- ✅ 全部 agent 都可以指派
+- ⚠️ 重視測試覆蓋率、文檔完整性、安全修復
+- 重點：品質維護和文檄建設與開發並重`,
+    refactor: `【🔧 Refactor 階段】
+- ✅ 全部 agent 都可以指派
+- ⚠️ 每個變更都需要 review 和回歸測試
+- 重點：不要打壞現有功能，每步都要謹慎`,
+  }[projectPhase] || phaseConstraints.bootstrap;
 
   // Planning scope sections (dynamic)
   const scopeSections = [];
@@ -167,6 +193,9 @@ ${agentListText}
 
 ## 調度策略
 ${strategyDesc}
+
+## 專案階段限制
+${phaseConstraints}
 
 ## 規劃範圍
 
@@ -359,7 +388,7 @@ export async function planEMSession(opts = {}) {
   // ── Phase 2: LLM planning ──
   console.log("[NightShift] ═══ Phase 2: LLM Work Planning ═══");
   sendSSE("info", { message: "🧠 規劃工作清單中..." });
-  const workList = await planWorkList(situationReport, rootDir, effectiveModel, fallbackModels, sendSSE);
+  const workList = await planWorkList(situationReport, rootDir, effectiveModel, fallbackModels, sendSSE, opts.projectPhase || 'bootstrap');
   console.log(`[NightShift] Phase 2: EM planned ${workList.length} tasks`);
 
   return { workList, situationReport };

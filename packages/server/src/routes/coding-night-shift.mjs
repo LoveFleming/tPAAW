@@ -114,7 +114,9 @@ export default async function codingNightShiftRoute(req, res) {
     sendJSON(res, 200, { ok: true, message: `Night shift started (mode: ${mode})`, startedAt: status.startedAt, mode });
 
     // ── Global timeout: 10 min ──
-    const NIGHT_SHIFT_TIMEOUT_MS = 10 * 60 * 1000;
+    const NIGHT_SHIFT_TIMEOUT_MS = (nsConfig?.projectPhase === 'bootstrap' || nsConfig?.projectPhase === 'mvp')
+      ? 30 * 60 * 1000  // 30 min for early stage (dev-heavy)
+      : 20 * 60 * 1000; // 20 min for stable/refactor
     const statusPath = join(nsDir, STATUS_FILE);
     const timeoutId = setTimeout(() => {
       const updated = updateStatusFile(statusPath, (current) => {
@@ -168,6 +170,7 @@ export default async function codingNightShiftRoute(req, res) {
         modelOverride,
         fallbackModels,
         sendSSE,
+        projectPhase: nsConfig?.projectPhase || 'bootstrap',
       });
 
       // Update final status (only if not interrupted by user)
