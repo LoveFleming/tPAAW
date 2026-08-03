@@ -1148,17 +1148,35 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                   )}
                   <span className={`text-xs font-medium ${(!emAction || emAction.includes("思考") || emAction.includes("規劃")) ? "opacity-70" : ""}`} style={{ color: "#8b5cf6" }}>{emAction || "思考中"}</span>
                 </div>
-                {/* Live tool badges */}
-                {emEvents.filter(e => e.type === "tool_start" || e.type === "tool_complete").length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pb-1">
-                    {emEvents.filter(e => e.type === "tool_start" || e.type === "tool_complete").map((evt, j) => (
-                      <span key={j} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                        style={{ background: evt.type === "tool_complete" ? "#dcfce7" : "#fef3c7", color: evt.type === "tool_complete" ? "#166534" : "#92400e" }}>
-                        {evt.type === "tool_complete" ? "✔️" : "⏳"} {evt.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                {/* Live tool badges — deduplicate by name, keep latest status */}
+                {(() => {
+                  const toolMap = new Map<string, { name: string; status: string; count: number }>();
+                  for (const evt of emEvents) {
+                    if (evt.type !== "tool_start" && evt.type !== "tool_complete") continue;
+                    const existing = toolMap.get(evt.name);
+                    if (existing) {
+                      existing.count++;
+                      if (evt.type === "tool_complete") existing.status = "done";
+                    } else {
+                      toolMap.set(evt.name, { name: evt.name, status: evt.type === "tool_complete" ? "done" : "running", count: 1 });
+                    }
+                  }
+                  const badges = Array.from(toolMap.values());
+                  if (badges.length === 0) return null;
+                  return (
+                    <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-stone-100">
+                      {badges.map((b, j) => (
+                        <div key={j} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                          b.status === "done" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" :
+                          "bg-amber-50 text-amber-600 border border-amber-200"
+                        }`}>
+                          {b.status === "done" ? <span>✅</span> : <span className="w-3 h-3 border-[1.5px] border-current border-t-transparent rounded-full animate-spin" />}
+                          <span>{b.name}{b.count > 1 ? ` ×${b.count}` : ""}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
                 {/* Thinking snippet */}
                 {emThinking && (
                   <div className="text-[10px] italic pb-1" style={{ color: "#8b5cf6", opacity: 0.6 }}>
