@@ -2818,8 +2818,8 @@ export async function runAgentLoop(config) {
     LOG(`[cleanup] .paaw/tmp/ cleared ${oldTempFiles.length} leftover temp files`);
   } catch {}
 
-  // Resolve LLM config
-  const llm = resolveLLMConfig(rootDir, modelOverride, fallbackModels);
+  // Resolve LLM config — mutable: fallback success updates active model for subsequent turns
+  let llm = resolveLLMConfig(rootDir, modelOverride, fallbackModels);
 
   if (onEvent) onEvent({ type: "start", model: llm.model, cwd, maxTurns: effectiveMaxTurns });
 
@@ -2905,7 +2905,9 @@ export async function runAgentLoop(config) {
             response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, (evt, data) => {
               if (onEvent) onEvent({ type: evt, ...data });
             }, agentId, fb.maxTokens || llm.maxTokens);
-            console.log(`[Agent Loop] Fallback to ${fb.providerId}/${fb.model} succeeded`);
+            console.log(`[Agent Loop] Fallback to ${fb.providerId}/${fb.model} succeeded — switching active model for subsequent turns`);
+            // Update active LLM config so next loop iteration uses the fallback model directly
+            llm = { ...llm, apiUrl: fb.apiUrl, headers: fb.headers, model: fb.model, providerId: fb.providerId, maxTokens: fb.maxTokens || llm.maxTokens, contextWindow: fb.contextWindow || llm.contextWindow };
             break;
           } catch (fbErr) {
             console.log(`[Agent Loop] Fallback ${fb.providerId}/${fb.model} also failed:`, fbErr.message);

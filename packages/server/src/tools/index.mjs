@@ -1457,6 +1457,27 @@ function buildHandlers(apps) {
     const agent = getAgentByCrewId(`coding.${agentId}`);
     if (!agent) return { text: `❌ 找不到 agent: ${agentId}` };
 
+    // ── Create or update execution plan for tracking ──
+    let planId = null;
+    let subtaskId = null;
+    try {
+      const { createPlan, markPlanStarted, updateSubTask, markPlanCompleted } = await import("../lib/execution-plan.mjs");
+      const workspaces = await loadWorkspaces();
+      const projRoot = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
+      const plan = await createPlan({
+        projectPath: projRoot,
+        projectPhase: 'em-chat',
+        mode: 'em',
+        items: [{ title: task.slice(0, 120), assignee: agentId, priority: 'high', subtasks: [{ title: task, assignee: agentId }] }],
+      });
+      await markPlanStarted(projRoot, plan.planId);
+      planId = plan.planId;
+      subtaskId = plan.tasks[0]?.subtasks[0]?.subtaskId;
+      console.log(`[dispatch_agent] 📋 Plan created: ${planId}, subtask: ${subtaskId}`);
+    } catch (err) {
+      console.error(`[dispatch_agent] Plan creation failed (non-fatal):`, err.message);
+    }
+
     // Check if agent is busy
     try {
       const busyResp = await fetch(`${API}/api/coding-crew/running?agentId=${agentId}`);
@@ -1523,10 +1544,27 @@ function buildHandlers(apps) {
 
       const agentNames = { architect: "林曉薇", developer: "Priya", tester: "Divya", "doc-writer": "Megan", qa: "武大安", helpdesk: "小春" };
       const name = agentNames[agentId] || agentId;
+
+      // ── Update execution plan ──
+      if (planId && subtaskId) {
+        try {
+          const { updateSubTask, markPlanCompleted } = await import("../lib/execution-plan.mjs");
+          const workspaces3 = await loadWorkspaces();
+          const projRoot3 = workspaces3.length > 0 ? workspaces3[0] : PAAW_ROOT;
+          await updateSubTask(projRoot3, planId, subtaskId, {
+            status: success ? "done" : "fail",
+            completedAt: new Date().toISOString(),
+            result: success ? preview.slice(0, 200) : `Agent ${agentId} failed`,
+            usage: result.usage || null,
+          });
+          await markPlanCompleted(projRoot3, planId);
+        } catch (err2) { console.error(`[dispatch_agent] Plan update failed:`, err2.message); }
+      }
+
       if (success) {
-        return { text: `✅ ${name} (${agentId}) 完成任務！\n\n${preview}`, taskId };
+        return { text: `✅ ${name} (${agentId}) 完成任務！\n\n${preview}`, taskId, planId };
       } else {
-        return { text: `❌ ${name} (${agentId}) 執行失敗：\n\n${preview}`, taskId, error: true };
+        return { text: `❌ ${name} (${agentId}) 執行失敗：\n\n${preview}`, taskId, planId, error: true };
       }
     } catch (err) {
       // Mark task as failed
@@ -1544,7 +1582,18 @@ function buildHandlers(apps) {
           });
         } catch {}
       }
-      return { text: `❌ 派工失敗：${err.message}`, error: true };
+      return { text: `❌ 派工失敗：${err.message}`, error: true, planId };
+    } finally {
+      // Ensure plan is always closed even on unexpected errors
+      if (planId && subtaskId) {
+        try {
+          const { updateSubTask, markPlanCompleted } = await import("../lib/execution-plan.mjs");
+          const ws = await loadWorkspaces();
+          const pr = ws.length > 0 ? ws[0] : PAAW_ROOT;
+          await updateSubTask(pr, planId, subtaskId, { status: "fail", completedAt: new Date().toISOString(), result: `Dispatch error` });
+          await markPlanCompleted(pr, planId);
+        } catch {}
+      }
     }
   };
 
