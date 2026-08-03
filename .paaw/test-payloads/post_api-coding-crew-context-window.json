@@ -1,0 +1,18 @@
+{
+  "method": "POST",
+  "path": "/api/coding-crew/context-window",
+  "description": "建立最佳化 context window",
+  "query": {},
+  "body": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "Hello"
+      }
+    ],
+    "maxTokens": 8000,
+    "systemPromptLength": 2000
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

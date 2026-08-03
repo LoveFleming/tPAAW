@@ -1,0 +1,14 @@
+{
+  "method": "POST",
+  "path": "/api/skills",
+  "description": "建立 skill",
+  "query": null,
+  "body": {
+    "kind": "physical-skill",
+    "id": "my-skill",
+    "name": "My Skill",
+    "description": "A custom skill"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

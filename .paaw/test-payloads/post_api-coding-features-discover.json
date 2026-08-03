@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/api/coding-features/discover",
+  "description": "AI 從孤兒檔案發現新 features",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": {},
+  "expectedStatus": 200,
+  "notes": "⚠️ AI 驅動，會建立新 features"
+}

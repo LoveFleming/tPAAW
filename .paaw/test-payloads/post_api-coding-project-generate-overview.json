@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/api/coding-project/generate-overview",
+  "description": "AI 自動生成 PROJECT.md",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": null,
+  "expectedStatus": 200,
+  "notes": "AI 驅動"
+}

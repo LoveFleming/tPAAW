@@ -1,0 +1,12 @@
+{
+  "method": "POST",
+  "path": "/api/cli-run",
+  "description": "執行 CLI command",
+  "query": null,
+  "body": {
+    "command": "git status",
+    "cwd": "/Users/steward/App/tPAAW"
+  },
+  "expectedStatus": 200,
+  "notes": "⚠️ 執行任意命令"
+}

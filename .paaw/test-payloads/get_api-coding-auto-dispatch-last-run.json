@@ -1,0 +1,11 @@
+{
+  "method": "GET",
+  "path": "/api/coding-auto-dispatch/last-run",
+  "description": "取得上次 auto dispatch 執行時間與模式",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": null,
+  "expectedStatus": 200,
+  "notes": "純讀取"
+}

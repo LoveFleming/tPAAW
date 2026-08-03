@@ -1,0 +1,12 @@
+{
+  "method": "POST",
+  "path": "/api/distill/record",
+  "description": "記錄蒸餾結果",
+  "query": null,
+  "body": {
+    "source": "chat_001",
+    "result": "distilled content"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

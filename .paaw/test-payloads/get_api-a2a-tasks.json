@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "path": "/api/a2a/tasks",
+  "description": "列出所有 A2A tasks（PAAW UI 用）",
+  "query": null,
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}

@@ -1,0 +1,14 @@
+{
+  "method": "POST",
+  "path": "/api/coding-tasks/:id/notes",
+  "description": "新增 task note",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": {
+    "content": "Started working on this",
+    "by": "developer"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

@@ -1,0 +1,11 @@
+{
+  "method": "PUT",
+  "path": "/api/projects/:id/categories/:catId",
+  "description": "更新分類",
+  "query": null,
+  "body": {
+    "name": "Renamed"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

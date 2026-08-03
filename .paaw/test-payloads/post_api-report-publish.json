@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/api/report-publish",
+  "description": "發布 report",
+  "query": null,
+  "body": {
+    "id": "my-app"
+  },
+  "expectedStatus": 200,
+  "notes": "⚠️ 發布"
+}

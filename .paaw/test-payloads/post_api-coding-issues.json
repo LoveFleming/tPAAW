@@ -1,0 +1,25 @@
+{
+  "method": "POST",
+  "path": "/api/coding-issues",
+  "description": "建立 issue",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": {
+    "title": "Login page crashes on Safari",
+    "type": "bug",
+    "priority": "high",
+    "severity": "major",
+    "labels": [
+      "browser",
+      "auth"
+    ],
+    "description": "Safari 17 throws TypeError",
+    "reproduction": "1. Open Safari\n2. Go to /login\n3. Click submit",
+    "relatedFiles": [
+      "packages/ui/src/Login.tsx"
+    ]
+  },
+  "expectedStatus": 201,
+  "notes": ""
+}

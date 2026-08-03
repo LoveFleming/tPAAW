@@ -1,0 +1,12 @@
+{
+  "method": "PUT",
+  "path": "/api/ai-settings/providers",
+  "description": "更新 providers 設定",
+  "query": null,
+  "body": {
+    "active": "zai",
+    "providers": {}
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/api/report-preview",
+  "description": "預覽 report",
+  "query": null,
+  "body": {
+    "html": "<h1>Preview</h1>"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

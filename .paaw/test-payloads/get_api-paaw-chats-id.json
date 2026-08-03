@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "path": "/api/paaw/chats/:id",
+  "description": "取得單一 chat",
+  "query": null,
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}

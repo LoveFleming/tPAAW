@@ -1,0 +1,14 @@
+{
+  "method": "PUT",
+  "path": "/api/notes/move",
+  "description": "搬移筆記",
+  "query": {
+    "id": "note_001"
+  },
+  "body": {
+    "notebook": "nb_002",
+    "section": "sec_002"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

@@ -1,0 +1,11 @@
+{
+  "method": "PUT",
+  "path": "/api/distill/config",
+  "description": "更新蒸餾器設定",
+  "query": null,
+  "body": {
+    "targetTokens": 1000
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

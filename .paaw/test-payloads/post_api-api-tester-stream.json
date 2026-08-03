@@ -1,0 +1,12 @@
+{
+  "method": "POST",
+  "path": "/api/api-tester/stream",
+  "description": "API tester streaming",
+  "query": null,
+  "body": {
+    "url": "https://api.example.com",
+    "method": "GET"
+  },
+  "expectedStatus": 200,
+  "notes": "SSE streaming"
+}

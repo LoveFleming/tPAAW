@@ -1,0 +1,11 @@
+{
+  "method": "PUT",
+  "path": "/api/paaw/providers",
+  "description": "更新 providers",
+  "query": null,
+  "body": {
+    "active": "zai"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

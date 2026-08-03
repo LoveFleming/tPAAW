@@ -1,0 +1,11 @@
+{
+  "method": "GET",
+  "path": "/api/coding-tasks/pipeline/overview",
+  "description": "Pipeline 概覽（所有 task 的 phase 分布）",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}

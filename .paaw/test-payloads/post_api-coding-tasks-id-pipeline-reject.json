@@ -1,0 +1,16 @@
+{
+  "method": "POST",
+  "path": "/api/coding-tasks/:id/pipeline/reject",
+  "description": "退回 pipeline phase",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": {
+    "phase": "review",
+    "reason": "Code quality issues found",
+    "status": "needs_human",
+    "by": "qa"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}
