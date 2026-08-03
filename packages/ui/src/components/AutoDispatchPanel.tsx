@@ -120,6 +120,29 @@ export default function AutoDispatchPanel({ theme, rootPath, model, openMainTab 
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [cronJob, setCronJob] = useState<any>(null);
 
+  // ── Prompts Editor state ──
+  const [showPrompts, setShowPrompts] = useState(false);
+  const [promptTab, setPromptTab] = useState<"em" | "agents">("em");
+  const [emPrompt, setEmPrompt] = useState("");
+  const [agentPrompts, setAgentPrompts] = useState<Record<string, any>>({});
+  const [promptSaving, setPromptSaving] = useState(false);
+  const [promptSaveResult, setPromptSaveResult] = useState<"" | "ok" | "err">>("");
+  const [editingRole, setEditingRole] = useState<string>("");
+
+  const fetchPrompts = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const [emRes, agentRes] = await Promise.all([
+        fetch(`${API_BASE}/api/coding-auto-dispatch/em-prompt?path=${encodeURIComponent(rootPath)}`).then(r => r.ok ? r.json() : null),
+        fetch(`${API_BASE}/api/coding-auto-dispatch/prompts?path=${encodeURIComponent(rootPath)}`).then(r => r.ok ? r.json() : null),
+      ]);
+      setEmPrompt(emRes?.content || "");
+      setAgentPrompts(agentRes || {});
+    } catch {}
+  }, [rootPath]);
+
+  useEffect(() => { if (showPrompts) fetchPrompts(); }, [showPrompts, fetchPrompts]);
+
   // ── Fetch helpers ──
   const fetchConfig = useCallback(async () => {
     if (!rootPath) return;
@@ -233,6 +256,41 @@ export default function AutoDispatchPanel({ theme, rootPath, model, openMainTab 
     });
   };
 
+  const handleSaveEmPrompt = async () => {
+    if (!rootPath) return;
+    setPromptSaving(true); setPromptSaveResult("");
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-auto-dispatch/em-prompt?path=${encodeURIComponent(rootPath)}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: emPrompt }),
+      });
+      setPromptSaveResult(r.ok ? "ok" : "err"); if (r.ok) setTimeout(() => setPromptSaveResult(""), 3000);
+    } catch { setPromptSaveResult("err"); }
+    setPromptSaving(false);
+  };
+
+  const handleSaveAgentPrompt = async (role: string, task: string) => {
+    if (!rootPath) return;
+    setPromptSaving(true); setPromptSaveResult("");
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-auto-dispatch/prompts?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, task }),
+      });
+      setPromptSaveResult(r.ok ? "ok" : "err"); if (r.ok) setTimeout(() => setPromptSaveResult(""), 3000);
+    } catch { setPromptSaveResult("err"); }
+    setPromptSaving(false);
+  };
+
+  const handleResetPrompts = async () => {
+    if (!rootPath) return;
+    if (!confirm("重置所有 agent prompts 為預設值？")) return;
+    try {
+      await fetch(`${API_BASE}/api/coding-auto-dispatch/prompts/reset?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+      await fetchPrompts();
+    } catch {}
+  };
+
   // ── Format helpers ──
   const fmtDate = (iso?: string) => iso ? new Date(iso).toLocaleString("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
   const fmtDur = (ms: number) => ms ? (ms < 60000 ? `${(ms/1000).toFixed(0)}s` : `${(ms/60000).toFixed(1)}min`) : "—";
@@ -289,9 +347,14 @@ export default function AutoDispatchPanel({ theme, rootPath, model, openMainTab 
         )}
 
         <div className="px-3 py-1.5" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
-          <button onClick={() => setShowConfig(!showConfig)} className="text-[11px]" style={{ color: tk.text, opacity: 0.5 }}>
-            {showConfig ? "▼" : "▶"} ⚙️ 設定
-          </button>
+          <div className="flex items-center justify-between">
+            <button onClick={() => { setShowConfig(!showConfig); if (!showConfig) setShowPrompts(false); }} className="text-[11px]" style={{ color: tk.text, opacity: 0.5 }}>
+              {showConfig ? "▼" : "▶"} ⚙️ 設定
+            </button>
+            <button onClick={() => { setShowPrompts(!showPrompts); if (!showPrompts) setShowConfig(false); }} className="text-[11px]" style={{ color: tk.text, opacity: 0.5 }}>
+              {showPrompts ? "▼" : "▶"} 📝 Prompts
+            </button>
+          </div>
         </div>
         {showConfig && nsConfig && (
           <div className="flex-1 flex flex-col px-3 py-2 max-h-[50vh] overflow-y-auto" style={{ borderTop: `1px solid ${tk.borderLight}`, background: tk.bgMuted }}>
@@ -346,8 +409,89 @@ export default function AutoDispatchPanel({ theme, rootPath, model, openMainTab 
             </div>
           </div>
         )}
-      </div>
+        {showPrompts && (
+          <div className="flex-1 flex flex-col px-3 py-2 max-h-[60vh] overflow-y-auto" style={{ borderTop: `1px solid ${tk.borderLight}`, background: tk.bgMuted }}>
+            {/* Tab switcher */}
+            <div className="flex gap-1 mb-2">
+              <button onClick={() => setPromptTab("em")}
+                className="text-[10px] px-2 py-0.5 rounded font-medium"
+                style={{ background: promptTab === "em" ? tk.accentBg : "transparent", color: promptTab === "em" ? tk.accent : tk.text, opacity: promptTab === "em" ? 1 : 0.5 }}>
+                🧠 EM Prompt
+              </button>
+              <button onClick={() => setPromptTab("agents")}
+                className="text-[10px] px-2 py-0.5 rounded font-medium"
+                style={{ background: promptTab === "agents" ? tk.accentBg : "transparent", color: promptTab === "agents" ? tk.accent : tk.text, opacity: promptTab === "agents" ? 1 : 0.5 }}>
+                👥 Agent Prompts
+              </button>
+            </div>
 
+            {promptTab === "em" ? (
+              <div className="flex-1 flex flex-col">
+                <div className="text-[10px] mb-1" style={{ color: tk.text, opacity: 0.5 }}>
+                  EM 決策 Prompt — 支援 placeholders: {'{{agentListText}}, {{strategyDesc}}, {{phaseConstraints}}, {{scopeText}}, {{exclusionText}}, {{maxSubs}}, {{reportFormat}}'}
+                </div>
+                <textarea
+                  value={emPrompt}
+                  onChange={e => setEmPrompt(e.target.value)}
+                  className="flex-1 w-full text-[11px] p-2 rounded border font-mono resize-none"
+                  style={{ borderColor: tk.borderLight, background: tk.bg, color: tk.text, minHeight: "200px" }}
+                  spellCheck={false}
+                />
+                <div className="flex gap-1 mt-1">
+                  <button onClick={handleSaveEmPrompt} disabled={promptSaving}
+                    className="flex-1 py-1 rounded text-[11px] font-medium"
+                    style={{ background: tk.accentBg, color: tk.accent }}>
+                    {promptSaving ? "..." : "💾 儲存 EM Prompt"}
+                  </button>
+                </div>
+                {promptSaveResult === "ok" && <div className="text-center text-[10px] mt-1" style={{ color: "#22c55e" }}>✅ 已儲存</div>}
+                {promptSaveResult === "err" && <div className="text-center text-[10px] mt-1" style={{ color: "#ef4444" }}>❌ 儲存失敗</div>}
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col">
+                {/* Agent role selector */}
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {Object.keys(agentPrompts).map(role => (
+                    <button key={role} onClick={() => setEditingRole(role)}
+                      className="text-[10px] px-2 py-0.5 rounded font-medium"
+                      style={{ background: editingRole === role ? tk.accentBg : "transparent", color: editingRole === role ? tk.accent : tk.text, opacity: editingRole === role ? 1 : 0.5, border: `1px solid ${tk.borderLight}` }}>
+                      {role}
+                    </button>
+                  ))}
+                </div>
+                {editingRole && agentPrompts[editingRole] ? (
+                  <>
+                    <div className="text-[10px] mb-1" style={{ color: tk.text, opacity: 0.5 }}>
+                      {editingRole} — Crew: {agentPrompts[editingRole]?.crewId || "?"}
+                    </div>
+                    <textarea
+                      value={agentPrompts[editingRole]?.task || ""}
+                      onChange={e => setAgentPrompts({ ...agentPrompts, [editingRole]: { ...agentPrompts[editingRole], task: e.target.value } })}
+                      className="flex-1 w-full text-[11px] p-2 rounded border font-mono resize-none"
+                      style={{ borderColor: tk.borderLight, background: tk.bg, color: tk.text, minHeight: "200px" }}
+                      spellCheck={false}
+                    />
+                    <div className="flex gap-1 mt-1">
+                      <button onClick={() => handleSaveAgentPrompt(editingRole, agentPrompts[editingRole]?.task || "")} disabled={promptSaving}
+                        className="flex-1 py-1 rounded text-[11px] font-medium"
+                        style={{ background: tk.accentBg, color: tk.accent }}>
+                        {promptSaving ? "..." : `💾 儲存 ${editingRole}`}
+                      </button>
+                      <button onClick={handleResetPrompts}
+                        className="py-1 px-2 rounded text-[11px]"
+                        style={{ background: "rgba(239,68,68,0.1)", color: "#dc2626" }}>
+                        ↺ Reset All
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-[11px]" style={{ color: tk.text, opacity: 0.4 }}>選擇一個 agent role</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       {/* ═══ Right: Master + Detail ═══ */}
       <div className="flex-1 overflow-y-auto">
         {!execPlan ? (

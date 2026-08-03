@@ -6,7 +6,7 @@
  */
 
 import { readFile, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { readBody } from './shared.mjs';
 
@@ -107,6 +107,48 @@ export default async function autoDispatchPromptsRoutes(req, res) {
       await writeFile(promptsPath, JSON.stringify(DEFAULT_PROMPTS, null, 2), 'utf-8');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, prompts: DEFAULT_PROMPTS }));
+      return true;
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+      return true;
+    }
+  }
+
+  // ── EM Prompt (decision-level prompt) ──
+
+  // GET /api/coding-auto-dispatch/em-prompt
+  if (req.method === 'GET' && urlObj.pathname === '/api/coding-auto-dispatch/em-prompt') {
+    try {
+      const emPromptPath = join(rootDir, '.paaw', 'auto-dispatch', 'em-prompt.md');
+      let content = '';
+      try { content = await readFile(emPromptPath, 'utf-8'); } catch {}
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ content }));
+      return true;
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+      return true;
+    }
+  }
+
+  // PUT /api/coding-auto-dispatch/em-prompt
+  if (req.method === 'PUT' && urlObj.pathname === '/api/coding-auto-dispatch/em-prompt') {
+    try {
+      const body = await readBody(req);
+      const { content } = JSON.parse(body);
+      if (typeof content !== 'string') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'content is required' }));
+        return true;
+      }
+      const dir = join(rootDir, '.paaw', 'auto-dispatch');
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      const emPromptPath = join(dir, 'em-prompt.md');
+      await writeFile(emPromptPath, content, 'utf-8');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
       return true;
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
