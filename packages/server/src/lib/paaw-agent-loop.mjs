@@ -700,6 +700,62 @@ export const PAAW_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "task_decompose",
+      description: "將一個大 Task 拆分成多個子任務。EM 收到大任務時，必須先用這個工具拆分，再逐個派工。",
+      parameters: {
+        type: "object",
+        properties: {
+          parentId: { type: "string", description: "要拆分的父 Task ID" },
+          subTasks: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string", description: "子任務標題" },
+                type: { type: "string", enum: ["requirement", "bug", "security", "chore"] },
+                priority: { type: "string", enum: ["critical", "high", "medium", "low"] },
+                effort: { type: "string", enum: ["S", "M", "L", "XL"] },
+                assignee: { type: "string", description: "指派對象" },
+                description: { type: "string", description: "子任務詳細說明" },
+              },
+              required: ["title"],
+            },
+            description: "拆分後的子任務列表",
+          },
+        },
+        required: ["parentId", "subTasks"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "dispatch_agent",
+      description: "派工給其他 agent 執行任務。一次只派一個 agent，等結果回來再派下一個。",
+      parameters: {
+        type: "object",
+        properties: {
+          agentId: {
+            type: "string",
+            enum: ["architect", "developer", "tester", "doc-writer", "qa", "helpdesk"],
+            description: "目標 agent",
+          },
+          task: {
+            type: "string",
+            description: "具體任務說明（要明確：哪個檔案、哪個函數、要做什麼）",
+          },
+          taskId: {
+            type: "string",
+            description: "對應的 TASK-XXX ID（如果有）",
+          },
+        },
+        required: ["agentId", "task"],
+      },
+    },
+  },
 
   ];
 
@@ -2365,8 +2421,33 @@ ${lines}`;
         return `\u2705 Task ${args.id} updated (${action}). Status: ${task.status}`;
       }
 
+      case "task_decompose": {
+        const { getHandlers } = await import("../tools/index.mjs");
+        const handlers = await getHandlers();
+        if (handlers.task_decompose) {
+          const result = await handlers.task_decompose(args);
+          const resultText = typeof result === "string" ? result : result.text || JSON.stringify(result);
+          if (onEvent) onEvent({ type: "tool_end", name, result: resultText });
+          return resultText;
+        }
+        return "Error: task_decompose handler not available";
+      }
+
+      case "dispatch_agent": {
+        const { getHandlers: getH2 } = await import("../tools/index.mjs");
+        const handlers2 = await getH2();
+        if (handlers2.dispatch_agent) {
+          if (onEvent) onEvent({ type: "tool_start", name, args: JSON.stringify(args) });
+          const result = await handlers2.dispatch_agent(args);
+          const resultText = typeof result === "string" ? result : result.text || JSON.stringify(result);
+          if (onEvent) onEvent({ type: "tool_end", name, result: resultText });
+          return resultText;
+        }
+        return "Error: dispatch_agent handler not available";
+      }
+
       default:
-        const unknownMsg = `Error: unknown tool '${name}'. Available tools: read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user, project_info, project_edit, staged_summary, record_decision, docs, action_log_add, action_log_list, task_list, task_create, task_update. Do NOT use chat tools like app_create/app_edit/app_list — use write_file to create files instead.`;
+        const unknownMsg = `Error: unknown tool '${name}'. Available tools: read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user, project_info, project_edit, staged_summary, record_decision, docs, action_log_add, action_log_list, task_list, task_create, task_update, task_decompose, dispatch_agent.`;
         if (onEvent) onEvent({ type: "tool_end", name, result: unknownMsg });
         return unknownMsg;
     }
@@ -2658,7 +2739,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   }
 
   // Tool overview (compact — full schemas are sent via function-calling format)
-  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/decisions/standards/changelog/issues/features/feature_detail/runbook/faq/test_map/security/recent_changes\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_mapping\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\nreference_read(action=list|read|search, source=workspace|knowledge) → browse/read/search reference files in workspace/ and knowledge/ (read-only, for finding existing code examples and docs)\ntask_list(id?, status?, pipelinePhase?, type?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task with pipeline\ntask_update(id, action=update|advance|reject|note|assign, ...) → update task, advance/reject pipeline phase, add notes\ncu_refresh, record_decision, docs(action=...), action_log_add/list, agent_memory_save/load`);
+  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/decisions/standards/changelog/issues/features/feature_detail/runbook/faq/test_map/security/recent_changes\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_mapping\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\nreference_read(action=list|read|search, source=workspace|knowledge) → browse/read/search reference files in workspace/ and knowledge/ (read-only, for finding existing code examples and docs)\ntask_list(id?, status?, pipelinePhase?, type?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task with pipeline\ntask_update(id, action=update|advance|reject|note|assign, ...) → update task, advance/reject pipeline phase, add notes\ntask_decompose(parentId, subTasks) → split a large task into sub-tasks\ndispatch_agent(agentId, task, taskId?) → dispatch work to another agent (architect/developer/tester/doc-writer/qa/helpdesk)\ncu_refresh, record_decision, docs(action=...), action_log_add/list, agent_memory_save/load`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);

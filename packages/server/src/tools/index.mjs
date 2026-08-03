@@ -2070,3 +2070,9 @@ async function getToolsAndHandlers() {
 function invalidateCache() { _cache = null; _cacheTime = 0; }
 
 export { getToolsAndHandlers, invalidateCache, buildAppInstructions };
+
+async function getHandlers() {
+  const { handlers } = await getToolsAndHandlers();
+  return handlers;
+}
+export { getHandlers };
