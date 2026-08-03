@@ -172,6 +172,18 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
 - 重點：不要打壞現有功能，每步都要謹慎`,
   }[projectPhase] || phaseConstraints.bootstrap;
 
+  // ── Build autoExecute exclusion hint for LLM prompt ──
+  const autoExec = emConfig?.autoExecute || {};
+  const exclusionList = [];
+  if (!autoExec.securityFix) exclusionList.push("security/vulnerability 修復（securityFix=false）");
+  if (!autoExec.refactor) exclusionList.push("重構/重命名/搬移程式碼（refactor=false）");
+  if (!autoExec.breakingChange) exclusionList.push("破壞性變更/API 移除（breakingChange=false）");
+  if (!autoExec.tests) exclusionList.push("測試撰寫（tests=false）");
+  if (!autoExec.docs) exclusionList.push("文檔撰寫（docs=false）");
+  const exclusionText = exclusionList.length > 0
+    ? `\n## ❌ 不要規劃以下類別的工作（已由設定排除）\n以下類別不自動執行，不要列入規劃：\n${exclusionList.map(e => `- ${e}`).join("\n")}\n`
+    : "";
+
   // Planning scope — aligned with EM chat tool project_info categories
   const scopeSections = [];
   if (scope.gitChanges !== false) scopeSections.push(`### 1. Open Tasks — 待辦任務（最高優先）
@@ -213,7 +225,7 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
 - 對應 chat 工具：project_info(category=decisions / standards / changelog)`);
   const scopeText = scopeSections.join('\n\n');
 
-  const EM_PROMPT = `你是 AI Coding Team 的 Engineering Manager (陳哲宇 Ethan)。
+  const EM_PROMPT = `你是 AI Coding Team 的 Engineering Manager (陳哲宇 Ethan)。${exclusionText}
 
 ## 你的角色
 你是技術主管，不是執行者。你讀現況摘要，判斷什麼需要做，分配給合適的 agent。
@@ -521,10 +533,9 @@ export async function executeEMSession(opts = {}) {
     return { report, workList: effectiveWorkList, results: [] };
   }
 
-  // ── Filter work list by autoExecute rules ──
+  // ── Safety net: filter out excluded categories (LLM should already exclude via prompt) ──
   const autoExec = emConfig?.autoExecute || {};
-  const safeWorkList = effectiveWorkList.filter(task => {
-    // Determine category from task content
+  const execList = effectiveWorkList.filter(task => {
     const content = (task.task || '').toLowerCase();
     let category = null;
     if (/breaking|\bbreak\b|remove.*api|deprecat/i.test(content)) category = 'breakingChange';
@@ -534,31 +545,25 @@ export async function executeEMSession(opts = {}) {
     else if (/doc|readme|changelog|comment/i.test(content)) category = 'docs';
 
     if (category && !autoExec[category]) {
-      task._skipped = category;
+      console.log(`[AutoDispatch] Filtered out ${category} task (should have been excluded by prompt): ${task.task?.slice(0, 60)}`);
       return false;
     }
     return true;
   });
 
-  const skippedTasks = effectiveWorkList.filter(t => t._skipped);
-  if (skippedTasks.length > 0) {
-    sendSSE("warning", { message: `⚠️ ${skippedTasks.length} 項工作需人工確認（${[...new Set(skippedTasks.map(t => t._skipped))].join(', ')}）`, skipped: skippedTasks.map(t => ({ agent: t.agent, task: t.task.slice(0, 80), category: t._skipped })) });
-  }
-
-  const execList = safeWorkList;
   if (execList.length === 0) {
-    sendSSE("info", { message: "📋 所有工作都需人工確認。" });
-    sendSSE("plan", { workList });
-    sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, skipped: true });
-    const report = generateEMReport(workList, [], situationReport, { skipped: true, skippedReasons: skippedTasks, format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog });
+    sendSSE("info", { message: "✅ 沒有需要執行的工作。" });
+    sendSSE("plan", { workList: [] });
+    sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0 });
+    const report = generateEMReport([], [], situationReport, { format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog });
     saveAutoDispatchReport(rootDir, report, "em");
-    return { report, workList, results: [] };
+    return { report, workList: [], results: [] };
   }
 
-  sendSSE("plan", { workList: execList, skipped: skippedTasks.length > 0 ? skippedTasks : undefined });
+  sendSSE("plan", { workList: execList });
 
   // ── Phase 3: Deterministic execution ──
-  console.log(`[AutoDispatch] ═══ Phase 3: Agent Dispatch (serial, ${execList.length}/${workList.length} tasks) ═══`);
+  console.log(`[AutoDispatch] ═══ Phase 3: Agent Dispatch (serial, ${execList.length} tasks) ═══`);
   const results = [];
 
   // ── Load plan helpers for sub-task tracking ──
@@ -650,6 +655,36 @@ export async function executeEMSession(opts = {}) {
     }
   }
 
+  // ── Phase 3.5: Finalize plan — mark any remaining pending sub-tasks and close plan ──
+  if (plan && planHelpers) {
+    try {
+      const currentPlan = await planHelpers.getPlan(rootDir, plan.planId);
+      if (currentPlan) {
+        for (const task of currentPlan.tasks || []) {
+          for (const st of task.subtasks || []) {
+            if (st.status === 'pending' || st.status === 'running') {
+              await planHelpers.updateSubTask(rootDir, plan.planId, st.subtaskId, {
+                status: 'skipped',
+                completedAt: new Date().toISOString(),
+                result: 'Session ended before execution',
+              });
+            }
+          }
+        }
+        // Recompute plan status — _recomputeSummary inside getPlan/updateSubTask should mark it completed
+        const finalPlan = await planHelpers.getPlan(rootDir, plan.planId);
+        if (finalPlan && finalPlan.status === 'running') {
+          // Force finalize: all sub-tasks are now done/fail/skipped
+          await planHelpers.markPlanCompleted(rootDir, plan.planId);
+        }
+        console.log(`[AutoDispatch] Phase 3.5: Plan ${plan.planId} finalized → ${finalPlan?.status || 'unknown'}`);
+        sendSSE("plan_finalized", { planId: plan.planId, status: finalPlan?.status || 'completed' });
+      }
+    } catch (err) {
+      console.error(`[AutoDispatch] Plan finalize error (non-fatal):`, err.message);
+    }
+  }
+
   // ── Phase 4: Report ──
   console.log("[AutoDispatch] ═══ Phase 4: Report Generation ═══");
   sendSSE("info", { message: "📝 產生報告中..." });
@@ -659,9 +694,6 @@ export async function executeEMSession(opts = {}) {
     reportOpts.includeCodeChanges = emConfig.reporting.includeCodeChanges;
     reportOpts.includeActionLog = emConfig.reporting.includeActionLog;
   }
-  if (skippedTasks.length > 0) {
-    reportOpts.skipped = skippedTasks;
-  }
   const report = generateEMReport(execList, results, situationReport, reportOpts);
   saveAutoDispatchReport(rootDir, report, "em");
   console.log(`[AutoDispatch] Phase 4: Report saved (${report.length} chars)`);
@@ -670,8 +702,8 @@ export async function executeEMSession(opts = {}) {
   await addActionLog({
     agent: "em",
     action: "decide",
-    summary: `EM session 完成：調度 ${execList.length}/${effectiveWorkList.length} 項工作（${skippedTasks.length} 項需人工確認），成功 ${results.filter(r => r.success).length} 項`,
-    details: [...execList.map(w => `${w.priority}/${w.agent}: ${w.task}`), ...skippedTasks.map(w => `⚠️ SKIPPED(${w._skipped})/${w.agent}: ${w.task}`)].join("\n"),
+    summary: `EM session 完成：調度 ${execList.length} 項工作，成功 ${results.filter(r => r.success).length} 項`,
+    details: execList.map(w => `${w.priority}/${w.agent}: ${w.task}`).join("\n"),
     affectedFiles: [],
     result: "adr",
     priority: "high",
@@ -682,9 +714,9 @@ export async function executeEMSession(opts = {}) {
   const _totalTokens = results.reduce((sum, r) => sum + (r.tokenUsage?.total || 0), 0);
   const _totalCost = results.reduce((sum, r) => sum + (r.costUsd || 0), 0);
   const _totalDuration = results.reduce((sum, r) => sum + (r.durationMs || 0), 0);
-  console.log(`[AutoDispatch] 🎖️ EM Session complete: ${succeeded}✅ ${failed}❌ / ${execList.length} executed, ${skippedTasks.length} skipped`);
+  console.log(`[AutoDispatch] 🎖️ EM Session complete: ${succeeded}✅ ${failed}❌ / ${execList.length} executed`);
   console.log(`[AutoDispatch] 📊 Tokens: ${_totalTokens} | Cost: $${_totalCost.toFixed(4)} | Duration: ${(_totalDuration / 1000 / 60).toFixed(1)}min`);
-  sendSSE("done", { totalTasks: execList.length, succeeded, failed, skipped: skippedTasks.length, totalTokens: _totalTokens, totalCostUsd: _totalCost, totalDurationMs: _totalDuration });
+  sendSSE("done", { totalTasks: execList.length, succeeded, failed, totalTokens: _totalTokens, totalCostUsd: _totalCost, totalDurationMs: _totalDuration });
 
   return { report, workList: effectiveWorkList, results };
 }

@@ -5,8 +5,8 @@
   "mode": "em",
   "createdAt": "2026-08-02T14:31:07.869Z",
   "startedAt": "2026-08-02T14:31:07.870Z",
-  "completedAt": null,
-  "status": "running",
+  "completedAt": "2026-08-03T00:02:01.890Z",
+  "status": "completed",
   "tasks": [
     {
       "taskId": "ST-001",
@@ -15,17 +15,17 @@
       "sourceRef": null,
       "title": "修復 XSS 漏洞（合併 TASK-029 + TASK-038）：在 packages/ui/src/components/user-input.tsx 的 handleSubmit 函式中，使用者輸入未經淨化就直接渲染到 DOM。解法：安裝 DOMPurify（npm install dompurify @types/dompurify），在 handleSubmit 中將使用者輸入先經 DOMPurify.sanitize() 處理再使用。確認所有 render user input 的路徑都過 sanitize。參考 CODING-STANDARDS.md 的通用原則。Effort: S",
       "assignee": "developer",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "subtasks": [
         {
           "subtaskId": "ST-001.01",
           "title": "修復 XSS 漏洞（合併 TASK-029 + TASK-038）：在 packages/ui/src/components/user-input.tsx 的 handleSubmit 函式中，使用者輸入未經淨化就直接渲染到 DOM。解法：安裝 DOMPurify（npm install dompurify @types/dompurify），在 handleSubmit 中將使用者輸入先經 DOMPurify.sanitize() 處理再使用。確認所有 render user input 的路徑都過 sanitize。參考 CODING-STANDARDS.md 的通用原則。Effort: S",
           "assignee": "developer",
-          "status": "pending",
+          "status": "skipped",
           "timeoutMs": 7200000,
           "startedAt": null,
-          "completedAt": null,
+          "completedAt": "2026-08-03T00:02:01.886Z",
           "durationMs": 0,
           "tokenUsage": {
             "prompt": 0,
@@ -34,7 +34,7 @@
           },
           "costUsd": 0,
           "model": null,
-          "result": null,
+          "result": "Plan closed manually (old Night Shift plan before rename)",
           "error": null
         }
       ]
@@ -46,17 +46,17 @@
       "sourceRef": null,
       "title": "修復 SQL injection 漏洞（TASK-030）：在 packages/server/src/routes/api/users.mjs（或對應路徑）的 getUser 函式中，使用者提供的參數直接拼接進 SQL 查詢字串。解法：改用 parameterized query / prepared statement（若用 ORM 則改用 parameter binding），確保所有動態值都走 placeholder 而非字串拼接。檢查同檔案其他 query 是否也有同樣問題，一併修復。Effort: S",
       "assignee": "developer",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "subtasks": [
         {
           "subtaskId": "ST-002.01",
           "title": "修復 SQL injection 漏洞（TASK-030）：在 packages/server/src/routes/api/users.mjs（或對應路徑）的 getUser 函式中，使用者提供的參數直接拼接進 SQL 查詢字串。解法：改用 parameterized query / prepared statement（若用 ORM 則改用 parameter binding），確保所有動態值都走 placeholder 而非字串拼接。檢查同檔案其他 query 是否也有同樣問題，一併修復。Effort: S",
           "assignee": "developer",
-          "status": "pending",
+          "status": "skipped",
           "timeoutMs": 7200000,
           "startedAt": null,
-          "completedAt": null,
+          "completedAt": "2026-08-03T00:02:01.887Z",
           "durationMs": 0,
           "tokenUsage": {
             "prompt": 0,
@@ -65,7 +65,7 @@
           },
           "costUsd": 0,
           "model": null,
-          "result": null,
+          "result": "Plan closed manually (old Night Shift plan before rename)",
           "error": null
         }
       ]
@@ -77,17 +77,17 @@
       "sourceRef": null,
       "title": "為 API server 加入 Content-Security-Policy header（TASK-031）：在 packages/server 的主 server 啟動檔案（尋找 createServer 或 express app 設定處），加入 CSP middleware/response header。建議 policy：default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:。如果用 Express，加 helmet 或手動 setHeader。確保不阻擋現有功能（WebSocket、inline style）。Effort: S",
       "assignee": "developer",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "subtasks": [
         {
           "subtaskId": "ST-003.01",
           "title": "為 API server 加入 Content-Security-Policy header（TASK-031）：在 packages/server 的主 server 啟動檔案（尋找 createServer 或 express app 設定處），加入 CSP middleware/response header。建議 policy：default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:。如果用 Express，加 helmet 或手動 setHeader。確保不阻擋現有功能（WebSocket、inline style）。Effort: S",
           "assignee": "developer",
-          "status": "pending",
+          "status": "skipped",
           "timeoutMs": 7200000,
           "startedAt": null,
-          "completedAt": null,
+          "completedAt": "2026-08-03T00:02:01.888Z",
           "durationMs": 0,
           "tokenUsage": {
             "prompt": 0,
@@ -96,7 +96,7 @@
           },
           "costUsd": 0,
           "model": null,
-          "result": null,
+          "result": "Plan closed manually (old Night Shift plan before rename)",
           "error": null
         }
       ]
@@ -108,17 +108,17 @@
       "sourceRef": null,
       "title": "更新 lodash 相依套件（TASK-032）：執行 npm info lodash versions 確認最新穩定版（目前 4.17.21 已知有 CVE）。如果 lodash 仍有活躍維護版則升級到最新版；如果已停滯則評估替換方案。更新 package.json + package-lock.json，跑 vite build 確認無 breaking change。若 lodash 僅被少量使用，評估是否可用原生 JS 替換後直接移除依賴。Effort: S",
       "assignee": "developer",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "subtasks": [
         {
           "subtaskId": "ST-004.01",
           "title": "更新 lodash 相依套件（TASK-032）：執行 npm info lodash versions 確認最新穩定版（目前 4.17.21 已知有 CVE）。如果 lodash 仍有活躍維護版則升級到最新版；如果已停滯則評估替換方案。更新 package.json + package-lock.json，跑 vite build 確認無 breaking change。若 lodash 僅被少量使用，評估是否可用原生 JS 替換後直接移除依賴。Effort: S",
           "assignee": "developer",
-          "status": "pending",
+          "status": "skipped",
           "timeoutMs": 7200000,
           "startedAt": null,
-          "completedAt": null,
+          "completedAt": "2026-08-03T00:02:01.888Z",
           "durationMs": 0,
           "tokenUsage": {
             "prompt": 0,
@@ -127,7 +127,7 @@
           },
           "costUsd": 0,
           "model": null,
-          "result": null,
+          "result": "Plan closed manually (old Night Shift plan before rename)",
           "error": null
         }
       ]
@@ -139,17 +139,17 @@
       "sourceRef": null,
       "title": "修復 packages/server/src/routes/coding.mjs 的 path traversal 漏洞（65 findings, CWE-22）：semgrep 偵測到多處使用者輸入直接傳入 path.join / path.resolve。找到所有接收前端 path 參數的 route handler，加入路徑驗證：用 path.resolve() 解析後檢查結果是否以允許的根目錄（如 PAAW_ROOT 或專案 workspace root）為前綴，若不是則回傳 403。可提取共用函式 safeResolvePath(baseDir, userInput) 供整個檔案複用。參考 CODING-STANDARDS.md 跨平台路徑處理規範。Effort: M",
       "assignee": "developer",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "subtasks": [
         {
           "subtaskId": "ST-005.01",
           "title": "修復 packages/server/src/routes/coding.mjs 的 path traversal 漏洞（65 findings, CWE-22）：semgrep 偵測到多處使用者輸入直接傳入 path.join / path.resolve。找到所有接收前端 path 參數的 route handler，加入路徑驗證：用 path.resolve() 解析後檢查結果是否以允許的根目錄（如 PAAW_ROOT 或專案 workspace root）為前綴，若不是則回傳 403。可提取共用函式 safeResolvePath(baseDir, userInput) 供整個檔案複用。參考 CODING-STANDARDS.md 跨平台路徑處理規範。Effort: M",
           "assignee": "developer",
-          "status": "pending",
+          "status": "skipped",
           "timeoutMs": 7200000,
           "startedAt": null,
-          "completedAt": null,
+          "completedAt": "2026-08-03T00:02:01.889Z",
           "durationMs": 0,
           "tokenUsage": {
             "prompt": 0,
@@ -158,7 +158,7 @@
           },
           "costUsd": 0,
           "model": null,
-          "result": null,
+          "result": "Plan closed manually (old Night Shift plan before rename)",
           "error": null
         }
       ]
@@ -170,17 +170,17 @@
       "sourceRef": null,
       "title": "修復 packages/server/src/routes/backup.mjs 的 path traversal 漏洞（53 findings, CWE-22）：同 coding.mjs 的修復模式。找到所有接收前端 path / filename 參數的 handler，加入前綴驗證邏輯。備份功能尤其危險因為可能涉及檔案系統寫入。建立 safeResolvePath 驗證函式（或從 shared.mjs 匯入共用），確保所有路徑都在允許範圍內。Effort: M",
       "assignee": "developer",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "subtasks": [
         {
           "subtaskId": "ST-006.01",
           "title": "修復 packages/server/src/routes/backup.mjs 的 path traversal 漏洞（53 findings, CWE-22）：同 coding.mjs 的修復模式。找到所有接收前端 path / filename 參數的 handler，加入前綴驗證邏輯。備份功能尤其危險因為可能涉及檔案系統寫入。建立 safeResolvePath 驗證函式（或從 shared.mjs 匯入共用），確保所有路徑都在允許範圍內。Effort: M",
           "assignee": "developer",
-          "status": "pending",
+          "status": "skipped",
           "timeoutMs": 7200000,
           "startedAt": null,
-          "completedAt": null,
+          "completedAt": "2026-08-03T00:02:01.889Z",
           "durationMs": 0,
           "tokenUsage": {
             "prompt": 0,
@@ -189,7 +189,7 @@
           },
           "costUsd": 0,
           "model": null,
-          "result": null,
+          "result": "Plan closed manually (old Night Shift plan before rename)",
           "error": null
         }
       ]
@@ -201,17 +201,17 @@
       "sourceRef": null,
       "title": "修復 packages/server/src/routes/coding-features.mjs 的 path traversal 漏洞（52 findings, CWE-22）：同上修復模式。找到所有接收前端 path 參數的 route handler，加入路徑前綴驗證。如果 coding.mjs 已建立了共用的 safeResolvePath 函式，在此檔案匯入並複用。確保 feature map 相關的檔案操作都在 .paaw/ 或專案目錄範圍內。Effort: M",
       "assignee": "developer",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "subtasks": [
         {
           "subtaskId": "ST-007.01",
           "title": "修復 packages/server/src/routes/coding-features.mjs 的 path traversal 漏洞（52 findings, CWE-22）：同上修復模式。找到所有接收前端 path 參數的 route handler，加入路徑前綴驗證。如果 coding.mjs 已建立了共用的 safeResolvePath 函式，在此檔案匯入並複用。確保 feature map 相關的檔案操作都在 .paaw/ 或專案目錄範圍內。Effort: M",
           "assignee": "developer",
-          "status": "pending",
+          "status": "skipped",
           "timeoutMs": 7200000,
           "startedAt": null,
-          "completedAt": null,
+          "completedAt": "2026-08-03T00:02:01.889Z",
           "durationMs": 0,
           "tokenUsage": {
             "prompt": 0,
@@ -220,7 +220,7 @@
           },
           "costUsd": 0,
           "model": null,
-          "result": null,
+          "result": "Plan closed manually (old Night Shift plan before rename)",
           "error": null
         }
       ]
@@ -232,17 +232,17 @@
       "sourceRef": null,
       "title": "修復 packages/server/src/routes/coding-night-shift.mjs 的 command injection 漏洞（54 findings）：semgrep 偵測到 child_process 的 cmd 參數來自使用者輸入。找到所有 exec / execSync / spawn 呼叫，如果是執行固定命令則改用 execFile with args array（避免 shell 解析）；如果必須接受使用者命令則加入白名單驗證或嚴格的 input sanitization。參考 Night Shift 相關 ADR-010 的架構邊界設計。Effort: M",
       "assignee": "developer",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "subtasks": [
         {
           "subtaskId": "ST-008.01",
           "title": "修復 packages/server/src/routes/coding-night-shift.mjs 的 command injection 漏洞（54 findings）：semgrep 偵測到 child_process 的 cmd 參數來自使用者輸入。找到所有 exec / execSync / spawn 呼叫，如果是執行固定命令則改用 execFile with args array（避免 shell 解析）；如果必須接受使用者命令則加入白名單驗證或嚴格的 input sanitization。參考 Night Shift 相關 ADR-010 的架構邊界設計。Effort: M",
           "assignee": "developer",
-          "status": "pending",
+          "status": "skipped",
           "timeoutMs": 7200000,
           "startedAt": null,
-          "completedAt": null,
+          "completedAt": "2026-08-03T00:02:01.889Z",
           "durationMs": 0,
           "tokenUsage": {
             "prompt": 0,
@@ -251,7 +251,7 @@
           },
           "costUsd": 0,
           "model": null,
-          "result": null,
+          "result": "Plan closed manually (old Night Shift plan before rename)",
           "error": null
         }
       ]
@@ -263,7 +263,7 @@
     "completed": 0,
     "failed": 0,
     "timedOut": 0,
-    "skipped": 0,
+    "skipped": 8,
     "totalTokens": 0,
     "totalCostUsd": 0,
     "totalDurationMs": 0

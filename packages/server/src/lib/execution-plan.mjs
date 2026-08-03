@@ -332,6 +332,19 @@ export async function markPlanStarted(rootDir, planId) {
   return plan;
 }
 
+export async function markPlanCompleted(rootDir, planId) {
+  const plan = await getPlan(rootDir, planId);
+  if (!plan) throw new Error(`Plan not found: ${planId}`);
+  _recomputeSummary(plan);
+  // If still running after recompute, force it
+  if (plan.status === 'running') {
+    plan.status = 'completed';
+    plan.completedAt = new Date().toISOString();
+  }
+  await writeFile(_planPath(rootDir, planId), JSON.stringify(plan, null, 2) + '\n', 'utf-8');
+  return plan;
+}
+
 // ── Resume & Recovery ──
 
 /**
