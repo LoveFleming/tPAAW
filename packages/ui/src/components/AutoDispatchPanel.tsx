@@ -126,7 +126,7 @@ export default function AutoDispatchPanel({ theme, rootPath, model, openMainTab 
   const [emPrompt, setEmPrompt] = useState("");
   const [agentPrompts, setAgentPrompts] = useState<Record<string, any>>({});
   const [promptSaving, setPromptSaving] = useState(false);
-  const [promptSaveResult, setPromptSaveResult] = useState<"" | "ok" | "err">>("");
+  const [promptSaveResult, setPromptSaveResult] = useState<"" | "ok" | "err">("");
   const [editingRole, setEditingRole] = useState<string>("");
 
   const fetchPrompts = useCallback(async () => {
