@@ -939,7 +939,7 @@ export default async function a2aRoutes(req, res) {
                   name: "Response",
                   parts: [{ type: "text", text: result.content }],
                 }],
-                metadata: { turns: result.turns, toolCalls: result.toolCalls?.length || 0 },
+                metadata: { turns: result.turns, toolCalls: result.toolCalls?.length || 0, usage: result.usage || null },
               },
               id,
             });

@@ -2844,6 +2844,7 @@ export async function runAgentLoop(config) {
   let finalContent = "";
   let turns = 0;
   let emptyRetryCount = 0;
+  let _totalUsage = { prompt: 0, completion: 0, total: 0 };
 
   for (let i = 0; i < effectiveMaxTurns; i++) {
     // Check timeout (skip if timeout=0 = no limit)
@@ -2933,6 +2934,12 @@ export async function runAgentLoop(config) {
 
     const assistantMsg = choice.message;
     _llmLog.done({ model: llm.model, finishReason: choice.finish_reason || null, toolCallCount: (assistantMsg.tool_calls || []).length, usage: response.usage || null });
+    // Accumulate token usage
+    if (response.usage) {
+      _totalUsage.prompt += response.usage.prompt_tokens || 0;
+      _totalUsage.completion += response.usage.completion_tokens || 0;
+      _totalUsage.total += response.usage.total_tokens || 0;
+    }
     // sanitize content（清隱藏字元）
     let content = sanitizeContent(assistantMsg.content || "");
     const toolCalls = assistantMsg.tool_calls;
@@ -3138,6 +3145,7 @@ export async function runAgentLoop(config) {
     turns,
     toolCalls: toolCallLog,
     durationMs,
+    usage: _totalUsage,
   };
 }
 

@@ -73,9 +73,11 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
       const data = await res.json();
 
       if (data.error) return { success: false, content: "", error: data.error.message };
-      const artifacts = data.result?.artifacts || [];
+      const result = data.result || {};
+      const artifacts = result.artifacts || [];
       const texts = artifacts.flatMap(a => a.parts || []).filter(p => p.type === "text" || p.kind === "text").map(p => p.text);
-      return { success: true, content: texts.join("\n") || "(no output)" };
+      const usage = result.metadata?.usage || null;
+      return { success: true, content: texts.join("\n") || "(no output)", usage };
     } catch (err) {
       const isFetchErr = err.message && (err.message.includes("fetch failed") || err.message.includes("ECONNRESET") || err.message.includes("aborted"));
       if (isFetchErr && attempt < maxRetries) {
@@ -609,9 +611,9 @@ export async function executeEMSession(opts = {}) {
 
     // ── Extract token usage from result ──
     const _tokens = {
-      prompt: result.usage?.prompt_tokens || result.tokenUsage?.prompt || 0,
-      completion: result.usage?.completion_tokens || result.tokenUsage?.completion || 0,
-      total: result.usage?.total_tokens || result.tokenUsage?.total || 0,
+      prompt: result.usage?.prompt || result.usage?.prompt_tokens || result.tokenUsage?.prompt || 0,
+      completion: result.usage?.completion || result.usage?.completion_tokens || result.tokenUsage?.completion || 0,
+      total: result.usage?.total || result.usage?.total_tokens || result.tokenUsage?.total || 0,
     };
     const _cost = result.costUsd || _estimateCost(_tokens, agentModel || dispatchModel);
 

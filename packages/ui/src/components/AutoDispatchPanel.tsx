@@ -28,11 +28,16 @@ interface PlanListItem {
 
 const STATUS_BADGE: Record<string, { icon: string; color: string; label: string }> = {
   completed:  { icon: "✅", color: "#22c55e", label: "完成" },
+  done:       { icon: "✅", color: "#22c55e", label: "完成" },
   running:    { icon: "⏳", color: "#eab308", label: "執行中" },
   failed:     { icon: "❌", color: "#ef4444", label: "失敗" },
+  fail:       { icon: "❌", color: "#ef4444", label: "失敗" },
   partial:    { icon: "⚠️", color: "#f59e0b", label: "部分完成" },
   interrupted:{ icon: "⚡", color: "#f59e0b", label: "中斷" },
   created:    { icon: "⏸",  color: "#9ca3af", label: "待執行" },
+  pending:    { icon: "⬜", color: "#9ca3af", label: "待執行" },
+  skipped:    { icon: "⏭️", color: "#9ca3af", label: "跳過" },
+  timeout:    { icon: "⏰", color: "#f59e0b", label: "逾時" },
 };
 
 const SUB_ICON: Record<string, string> = {
