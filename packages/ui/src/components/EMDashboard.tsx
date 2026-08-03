@@ -155,8 +155,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const [showEmContextDebug, setShowEmContextDebug] = useState(false);
   const [emContextDebug, setEmContextDebug] = useState<any>(null);
   const [emAction, setEmAction] = useState(""); // current EM action (thinking vs tool)
-  const [emEvents, setEmEvents] = useState<any[]>([]); // live tool/thinking events
-  const [emThinking, setEmThinking] = useState(""); // latest thinking snippet
+  const [emToolLog, setEmToolLog] = useState<{ name: string; args: string; result: string }[]>([]); // ⚡ tool call log
   const [codeStatus, setCodeStatus] = useState<CodeStatus | null>(null);
   const [codeStatusLoading, setCodeStatusLoading] = useState(true);
   const [expandedArea, setExpandedArea] = useState<string | null>(null);
@@ -389,9 +388,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     const ac = new AbortController();
     abortRef.current = ac;
 
-    // Reset live events
-    setEmEvents([]);
-    setEmThinking("");
+    // Reset tool log
+    setEmToolLog([]);
     setEmAction("思考中");
 
     try {
@@ -432,26 +430,45 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             const d = JSON.parse(line.slice(6));
 
             if (currentEvent === "thinking" && d.content) {
-              // Update thinking snippet + action — no message bubble
-              setEmThinking(d.content.slice(0, 200));
-              setEmAction("思考中");
+              // Update action indicator — no message bubble
+              setEmAction("💭 思考中...");
             } else if (currentEvent === "tool" && d.name) {
-              // Track as live event — merge tool_end into tool_start
-              setEmEvents(prev => {
-                const newEvents = [...prev];
-                // tool_end: find matching tool_start and mark complete
-                if (d.event === "tool_end") {
-                  for (let i = newEvents.length - 1; i >= 0; i--) {
-                    if (newEvents[i].type === "tool_start" && newEvents[i].name === d.name) {
-                      newEvents[i] = { ...newEvents[i], type: "tool_complete", result: d.result };
-                      return newEvents;
-                    }
+              // Tool call — track in tool log (like CodingIDE agentToolLog)
+              if (d.args !== undefined) {
+                // tool_start: add entry with result = "..."
+                const actionLabels: Record<string, string> = {
+                  read_file: "📖 讀取檔案",
+                  write_file: "✏️ 寫入檔案",
+                  edit_file: "✏️ 編輯檔案",
+                  glob: "🔍 搜尋檔案",
+                  grep: "🔍 搜尋內容",
+                  bash: "⚡ 執行指令",
+                  git: "🔄 Git 操作",
+                  diff: "🔍 比較差異",
+                  ask_user: "❓ 詢問用戶",
+                  dispatch_agent: "🔧 派工",
+                  task_list: "📋 任務清單",
+                  task_update: "📝 更新任務",
+                  browser_test: "🌐 瀏覽器測試",
+                };
+                const actionLabel = actionLabels[d.name] || `🔧 ${d.name}`;
+                const argsObj = typeof d.args === "string" ? (() => { try { return JSON.parse(d.args); } catch { return {}; } })() : d.args;
+                const detail = argsObj?.path || argsObj?.file || argsObj?.pattern || argsObj?.command || argsObj?.question || "";
+                setEmAction(detail ? `${actionLabel} ${detail.split(/[\/\\]/).pop()}` : actionLabel);
+                setEmToolLog(prev => [...prev, { name: d.name, args: typeof d.args === "string" ? d.args : JSON.stringify(d.args), result: "..." }]);
+              }
+              if (d.result !== undefined && d.result !== "...") {
+                // tool_end: update last matching entry's result
+                setEmToolLog(prev => {
+                  const updated = [...prev];
+                  const idx = updated.length - 1;
+                  if (idx >= 0 && updated[idx].name === d.name) {
+                    updated[idx] = { ...updated[idx], result: d.result };
                   }
-                }
-                return [...newEvents, { type: d.event || "tool_start", name: d.name, args: d.args, result: d.result }];
-              });
-              setEmAction(`🔧 ${d.name}`);
-              setEmThinking("");
+                  return updated;
+                });
+                setEmAction("💭 思考中...");
+              }
             } else if (currentEvent === "content" && d.content) {
               // Final response — add as permanent message
               fullText = d.content;
@@ -460,9 +477,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
               setMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${typeof d.error === "string" ? d.error : d.error.error || d.error.message || "unknown"}`, ts: new Date().toISOString() }]);
               fullText = "__error__";
             } else if (currentEvent === "info" && d.message) {
-              // Info messages — track as event, don't add to messages
-              setEmEvents(prev => [...prev, { type: "info", content: d.message }]);
-              setEmAction(d.message.slice(0, 50));
+              // Info messages — update action indicator
+              setEmAction(d.message.slice(0, 60));
             }
             // A2A JSON-RPC format
             else if (d.result) {
@@ -483,7 +499,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
       // If stream ended with no content, show fallback
       if (!fullText || fullText === "__error__") {
-        if (fullText !== "__error__" && emEvents.length === 0) {
+        if (fullText !== "__error__" && emToolLog.length === 0) {
           setMessages(prev => [...prev, { role: "assistant", content: "（AI 回應完成但無文字內容）", ts: new Date().toISOString() }]);
         }
       }
@@ -499,8 +515,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     }
     abortRef.current = null;
     setEmAction("");
-    setEmEvents([]);
-    setEmThinking("");
+    setEmToolLog([]);
     setLoading(false);
   };
 
@@ -515,8 +530,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     if (emRunning || !rootPath) return;
     setEmRunning(true);
     setPendingPlan(null);
-    setEmEvents([]);
-    setEmThinking("");
+    setEmToolLog([]);
     setEmAction("收集專案狀態中");
     setMessages(prev => [...prev, { role: "user", content: "🚀 啟動 EM 調度規劃", ts: new Date().toISOString() }]);
 
@@ -594,8 +608,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     }
     setEmRunning(false);
     setEmAction("");
-    setEmEvents([]);
-    setEmThinking("");
+    setEmToolLog([]);
   };
 
   // ── EM Execute confirmed plan ──
@@ -1148,46 +1161,27 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                   )}
                   <span className={`text-xs font-medium ${(!emAction || emAction.includes("思考") || emAction.includes("規劃")) ? "opacity-70" : ""}`} style={{ color: "#8b5cf6" }}>{emAction || "思考中"}</span>
                 </div>
-                {/* Live tool badges — deduplicate by name, keep latest status */}
-                {(() => {
-                  const toolMap = new Map<string, { name: string; status: string; count: number }>();
-                  for (const evt of emEvents) {
-                    if (evt.type !== "tool_start" && evt.type !== "tool_complete") continue;
-                    const existing = toolMap.get(evt.name);
-                    if (existing) {
-                      existing.count++;
-                      if (evt.type === "tool_complete") existing.status = "done";
-                    } else {
-                      toolMap.set(evt.name, { name: evt.name, status: evt.type === "tool_complete" ? "done" : "running", count: 1 });
-                    }
-                  }
-                  const badges = Array.from(toolMap.values());
-                  if (badges.length === 0) return null;
-                  return (
-                    <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-stone-100">
-                      {badges.map((b, j) => (
-                        <div key={j} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                          b.status === "done" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" :
-                          "bg-amber-50 text-amber-600 border border-amber-200"
-                        }`}>
-                          {b.status === "done" ? <span>✅</span> : <span className="w-3 h-3 border-[1.5px] border-current border-t-transparent rounded-full animate-spin" />}
-                          <span>{b.name}{b.count > 1 ? ` ×${b.count}` : ""}</span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-                {/* Thinking snippet */}
-                {emThinking && (
-                  <div className="text-[10px] italic pb-1" style={{ color: "#8b5cf6", opacity: 0.6 }}>
-                    {emThinking.slice(0, 120)}
-                  </div>
-                )}
               </div>
             </div>
           )}
           <div ref={chatEndRef} />
         </div>
+
+        {/* ⚡ Tool Calls panel — same style as CodingIDE */}
+        {loading && emToolLog.length > 0 && (
+          <div className="shrink-0 max-h-32 overflow-y-auto border-t px-3 py-2 space-y-1" style={{ borderColor: tk.borderLight, scrollbarWidth: "thin" }}>
+            <div className="text-xs font-semibold text-stone-400 mb-1">⚡ Tool Calls</div>
+            {emToolLog.slice(-8).map((t, i) => (
+              <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                <span className={t.result !== "..." ? "text-green-500" : "text-blue-400 animate-pulse"}>
+                  {t.result !== "..." ? "✓" : "⏳"}
+                </span>
+                <span className="font-mono text-stone-600">{t.name}</span>
+                <span className="text-stone-400 truncate max-w-[200px]">{t.args}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Input */}
         <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight }}>
