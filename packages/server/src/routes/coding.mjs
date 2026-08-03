@@ -570,6 +570,25 @@ export default async function projectRoute(req, res) {
     };
   }
 
+  // ── Security: validate crewId / sessionId against path traversal ──
+  // Whitelist allows dots (crewId like "coding.architect") but still blocks
+  // "/", "\", and rejects ".." so an attacker cannot escape the conv dir.
+  const ID_WHITELIST = /^[a-zA-Z0-9._-]+$/;
+  function sanitizeId(id) {
+    const valid = typeof id === "string" && ID_WHITELIST.test(id) && !id.includes("..");
+    if (!valid) {
+      const err = new Error(`Invalid identifier: ${id}`);
+      err.code = "PATH_TRAVERSAL";
+      throw err;
+    }
+    return id;
+  }
+  function sendPathTraversalError(res, err) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: err.message, code: err.code || "PATH_TRAVERSAL" }));
+    return true;
+  }
+
   // Helper: read conversation from file (handles both old flat + new dir format)
   async function readConvFile(filePath) {
     if (!existsSync(filePath)) return { messages: [], _meta: {} };
@@ -678,7 +697,12 @@ export default async function projectRoute(req, res) {
   // GET /api/coding-crew/conversations/:crewId?cwd=... — load active conversation
   const convLoadMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/?]+)(?:\?.*)?$/);
   if (convLoadMatch && method === "GET") {
-    const crewId = decodeURIComponent(convLoadMatch[1]);
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(convLoadMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
     const cwd = q.cwd || PAAW_ROOT;
     const { activeFile } = getConvPaths(cwd, crewId);
     try {
@@ -694,7 +718,12 @@ export default async function projectRoute(req, res) {
 
   // POST /api/coding-crew/conversations/:crewId?cwd=... — save active conversation
   if (convLoadMatch && method === "POST") {
-    const crewId = decodeURIComponent(convLoadMatch[1]);
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(convLoadMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
     const cwd = q.cwd || PAAW_ROOT;
     const { agentDir, activeFile } = getConvPaths(cwd, crewId);
     let body;
@@ -725,7 +754,12 @@ export default async function projectRoute(req, res) {
 
   // DELETE /api/coding-crew/conversations/:crewId?cwd=... — clear active conversation
   if (convLoadMatch && method === "DELETE") {
-    const crewId = decodeURIComponent(convLoadMatch[1]);
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(convLoadMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
     const cwd = q.cwd || PAAW_ROOT;
     const { activeFile } = getConvPaths(cwd, crewId);
     try {
@@ -742,7 +776,12 @@ export default async function projectRoute(req, res) {
   // POST /api/coding-crew/conversations/:crewId/new-session?cwd=... — archive active + start new (like /new)
   const newSessionMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/new-session(?:\?.*)?$/);
   if (newSessionMatch && method === "POST") {
-    const crewId = decodeURIComponent(newSessionMatch[1]);
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(newSessionMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
     const cwd = q.cwd || PAAW_ROOT;
     const { agentDir, activeFile } = getConvPaths(cwd, crewId);
     try {
@@ -777,7 +816,12 @@ export default async function projectRoute(req, res) {
   // GET /api/coding-crew/conversations/:crewId/sessions?cwd=... — list all sessions
   const sessionsListMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/sessions(?:\?.*)?$/);
   if (sessionsListMatch && method === "GET") {
-    const crewId = decodeURIComponent(sessionsListMatch[1]);
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(sessionsListMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
     const cwd = q.cwd || PAAW_ROOT;
     const { agentDir, activeFile } = getConvPaths(cwd, crewId);
     try {
@@ -821,8 +865,18 @@ export default async function projectRoute(req, res) {
   // GET /api/coding-crew/conversations/:crewId/sessions/:sessionId?cwd=... — load specific session
   const sessionLoadMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/sessions\/([^?]+)/);
   if (sessionLoadMatch && method === "GET") {
-    const crewId = decodeURIComponent(sessionLoadMatch[1]);
-    const sessionId = decodeURIComponent(sessionLoadMatch[2]);
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(sessionLoadMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
+    let sessionId;
+    try {
+      sessionId = sanitizeId(decodeURIComponent(sessionLoadMatch[2]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
     const cwd = q.cwd || PAAW_ROOT;
     const { agentDir, activeFile } = getConvPaths(cwd, crewId);
     try {
@@ -839,8 +893,18 @@ export default async function projectRoute(req, res) {
 
   // DELETE /api/coding-crew/conversations/:crewId/sessions/:sessionId?cwd=... — delete a history session
   if (sessionLoadMatch && method === "DELETE") {
-    const crewId = decodeURIComponent(sessionLoadMatch[1]);
-    const sessionId = decodeURIComponent(sessionLoadMatch[2]);
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(sessionLoadMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
+    let sessionId;
+    try {
+      sessionId = sanitizeId(decodeURIComponent(sessionLoadMatch[2]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
     const cwd = q.cwd || PAAW_ROOT;
     const { agentDir } = getConvPaths(cwd, crewId);
     try {
@@ -863,8 +927,18 @@ export default async function projectRoute(req, res) {
   // POST /api/coding-crew/conversations/:crewId/switch/:sessionId?cwd=... — switch to a history session
   const switchSessionMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/switch\/([^?]+)/);
   if (switchSessionMatch && method === "POST") {
-    const crewId = decodeURIComponent(switchSessionMatch[1]);
-    const sessionId = decodeURIComponent(switchSessionMatch[2]);
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(switchSessionMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
+    let sessionId;
+    try {
+      sessionId = sanitizeId(decodeURIComponent(switchSessionMatch[2]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
     const cwd = q.cwd || PAAW_ROOT;
     const { agentDir, activeFile } = getConvPaths(cwd, crewId);
     try {

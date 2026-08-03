@@ -2757,6 +2757,12 @@ async function cleanupTempFiles(cwd, createdFiles, logFn) {
 
 // ── Main Agent Loop ──
 
+// ── Rate-limit cache: remember which providers are throttled ──
+const _rateLimitCache = new Map();
+const RATE_LIMIT_COOLDOWN_MS = 5 * 60 * 1000; // 5 min cooldown before retrying primary
+
+function _providerKey(providerId, model) { return `${providerId}/${model}`; }
+
 /**
  * Run the PAAW agent loop.
  *
@@ -2820,6 +2826,15 @@ export async function runAgentLoop(config) {
 
   // Resolve LLM config — mutable: fallback success updates active model for subsequent turns
   let llm = resolveLLMConfig(rootDir, modelOverride, fallbackModels);
+
+  // ── Check rate-limit cache: skip primary if still throttled ──
+  const primaryKey = _providerKey(llm.providerId, llm.model);
+  const cached = _rateLimitCache.get(primaryKey);
+  if (cached && Date.now() < cached.until && llm.fallbacks?.length > 0) {
+    const fb = llm.fallbacks[0];
+    console.log(`[Agent Loop] Primary ${primaryKey} is rate-limited (cache expires ${new Date(cached.until).toLocaleTimeString()}), using fallback ${fb.providerId}/${fb.model} directly`);
+    llm = { ...llm, apiUrl: fb.apiUrl, headers: fb.headers, model: fb.model, providerId: fb.providerId, maxTokens: fb.maxTokens || llm.maxTokens, contextWindow: fb.contextWindow || llm.contextWindow };
+  }
 
   if (onEvent) onEvent({ type: "start", model: llm.model, cwd, maxTurns: effectiveMaxTurns });
 
@@ -2906,6 +2921,8 @@ export async function runAgentLoop(config) {
               if (onEvent) onEvent({ type: evt, ...data });
             }, agentId, fb.maxTokens || llm.maxTokens);
             console.log(`[Agent Loop] Fallback to ${fb.providerId}/${fb.model} succeeded — switching active model for subsequent turns`);
+            // Cache rate-limit: remember primary is throttled
+            _rateLimitCache.set(primaryKey, { until: Date.now() + RATE_LIMIT_COOLDOWN_MS, fallbackKey: _providerKey(fb.providerId, fb.model) });
             // Update active LLM config so next loop iteration uses the fallback model directly
             llm = { ...llm, apiUrl: fb.apiUrl, headers: fb.headers, model: fb.model, providerId: fb.providerId, maxTokens: fb.maxTokens || llm.maxTokens, contextWindow: fb.contextWindow || llm.contextWindow };
             break;
@@ -3215,7 +3232,18 @@ export async function runAgentLoopStream(config, res) {
   };
 
   // Resolve LLM config
-  const llm = resolveLLMConfig(rootDir, modelOverride, fallbackModels);
+  // Resolve LLM config — mutable for fallback
+  let llm = resolveLLMConfig(rootDir, modelOverride, fallbackModels);
+
+  // ── Check rate-limit cache: skip primary if still throttled ──
+  const primaryKey = _providerKey(llm.providerId, llm.model);
+  const cached = _rateLimitCache.get(primaryKey);
+  if (cached && Date.now() < cached.until && llm.fallbacks?.length > 0) {
+    const fb = llm.fallbacks[0];
+    console.log(`[Agent Loop Stream] Primary ${primaryKey} is rate-limited (cache), using fallback ${fb.providerId}/${fb.model} directly`);
+    llm = { ...llm, apiUrl: fb.apiUrl, headers: fb.headers, model: fb.model, providerId: fb.providerId, maxTokens: fb.maxTokens || llm.maxTokens, contextWindow: fb.contextWindow || llm.contextWindow };
+  }
+
   sendSSE("start", { model: llm.model, cwd, maxTurns });
 
   // Build system prompt (load .paaw/ project context first)
@@ -3280,11 +3308,15 @@ export async function runAgentLoopStream(config, res) {
       if (is429 && llm.fallbacks && llm.fallbacks.length > 0) {
         for (const fb of llm.fallbacks) {
           console.log(`[callLLM] 429 rate-limited, trying fallback: ${fb.providerId}/${fb.model}`);
-          sendSSE("info", { message: `⏳ ${llm.providerId} 限流，切換到 ${fb.providerId}/${fb.model}` });
-          try {
-            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId, fb.maxTokens || llm.maxTokens);
-            usedLlm = fb;
-            break;
+            // Cache rate-limit: remember primary is throttled
+            _rateLimitCache.set(primaryKey, { until: Date.now() + RATE_LIMIT_COOLDOWN_MS, fallbackKey: _providerKey(fb.providerId, fb.model) });
+            sendSSE("info", { message: `⏳ ${llm.providerId} 限流，切換到 ${fb.providerId}/${fb.model}` });
+            try {
+              response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId, fb.maxTokens || llm.maxTokens);
+              usedLlm = fb;
+              // Update llm so subsequent turns use fallback directly
+              llm = { ...llm, apiUrl: fb.apiUrl, headers: fb.headers, model: fb.model, providerId: fb.providerId, maxTokens: fb.maxTokens || llm.maxTokens, contextWindow: fb.contextWindow || llm.contextWindow };
+              break;
           } catch (fbErr) {
             console.log(`[callLLM] fallback ${fb.providerId} also failed:`, fbErr.message);
             continue;
