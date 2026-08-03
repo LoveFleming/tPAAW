@@ -1277,6 +1277,9 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
         {/* Agent Activity + Overnight Report removed — Auto Dispatch tab handles reports */}
 
+        {/* ── EM 調度規則 (Dispatch Rules) ── */}
+        <EMDispatchRulesPanel rootPath={rootPath} tk={tk} />
+
         {/* ── 專案知識面板 (Project Knowledge) ── */}
         <ProjectKnowledgePanel rootPath={rootPath} tk={tk} onOpenFile={onOpenFile} refreshTrigger={cuFinishCount} />
 
@@ -1541,6 +1544,88 @@ const pct = total > 0 ? Math.round((okCount / total) * 100) : 0;
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ── EM Dispatch Rules Panel ──
+function EMDispatchRulesPanel({ rootPath, tk }: { rootPath: string; tk: any }) {
+  const [emPrompt, setEmPrompt] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveResult, setSaveResult] = useState<"" | "ok" | "err">("");
+  const [expanded, setExpanded] = useState(false);
+
+  const fetchPrompt = useCallback(async () => {
+    if (!rootPath) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-auto-dispatch/em-prompt?path=${encodeURIComponent(rootPath)}`);
+      const data = await res.json();
+      setEmPrompt(data?.content || "");
+    } catch {}
+    setLoading(false);
+  }, [rootPath]);
+
+  useEffect(() => { if (expanded && !emPrompt && !loading) fetchPrompt(); }, [expanded]);
+
+  const handleSave = async () => {
+    setSaving(true); setSaveResult("");
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-auto-dispatch/em-prompt?path=${encodeURIComponent(rootPath)}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: emPrompt }),
+      });
+      setSaveResult(r.ok ? "ok" : "err"); if (r.ok) setTimeout(() => setSaveResult(""), 3000);
+    } catch { setSaveResult("err"); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
+          <span>📋</span> EM 調度規則
+        </h3>
+        <button onClick={() => { setExpanded(!expanded); if (!expanded) fetchPrompt(); }}
+          className="text-sm px-2 py-1 rounded font-bold"
+          style={{ background: tk.bgMuted, color: tk.text }}>
+          {expanded ? "▼ 收合" : "▶ 展開"}
+        </button>
+      </div>
+      {!expanded ? (
+        <p className="text-sm text-stone-400 py-1">EM 自動派工的決策 prompt — 決定如何分配工作給 agent。</p>
+      ) : loading ? (
+        <p className="text-sm text-stone-400 py-2">⚡ 載入中...</p>
+      ) : (
+        <div className="space-y-2">
+          <div className="text-xs rounded p-2" style={{ background: tk.bgMuted, color: tk.text, opacity: 0.6 }}>
+            <div className="font-bold mb-1">💡 可用模板變數：</div>
+            <code style={{ fontSize: 10 }}>{'{{agentListText}}, {{strategyDesc}}, {{phaseConstraints}}, {{scopeText}}, {{exclusionText}}, {{maxSubs}}, {{minSubs}}, {{reportFormat}}, {{reportFormatDesc}}, {{estimateLine}}'}</code>
+          </div>
+          <textarea
+            value={emPrompt}
+            onChange={e => setEmPrompt(e.target.value)}
+            className="w-full text-xs p-3 rounded border font-mono resize-y"
+            style={{ borderColor: tk.borderLight, background: tk.bg, color: tk.text, minHeight: "350px" }}
+            spellCheck={false}
+          />
+          <div className="flex items-center gap-2">
+            <button onClick={handleSave} disabled={saving}
+              className="px-3 py-1 rounded text-xs font-medium"
+              style={{ background: "#22c55e", color: "#fff", opacity: saving ? 0.5 : 1 }}>
+              {saving ? "⏳ 儲存中..." : "💾 儲存規則"}
+            </button>
+            <button onClick={fetchPrompt}
+              className="px-3 py-1 rounded text-xs"
+              style={{ background: tk.bgMuted, color: tk.text }}>
+              🔄 重新載入
+            </button>
+            {saveResult === "ok" && <span className="text-xs" style={{ color: "#22c55e" }}>✅ 已儲存</span>}
+            {saveResult === "err" && <span className="text-xs" style={{ color: "#ef4444" }}>❌ 失敗</span>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
