@@ -21,8 +21,11 @@
   "toolGroups": [
     "core-read",
     "memory",
+    "decisions",
     "project",
     "project-edit",
-    "tasks"
+    "docs",
+    "tasks",
+    "dispatch"
   ]
 }
