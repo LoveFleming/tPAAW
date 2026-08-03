@@ -155,6 +155,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const [showEmContextDebug, setShowEmContextDebug] = useState(false);
   const [emContextDebug, setEmContextDebug] = useState<any>(null);
   const [emAction, setEmAction] = useState(""); // current EM action (thinking vs tool)
+  const [emEvents, setEmEvents] = useState<any[]>([]); // live tool/thinking events
+  const [emThinking, setEmThinking] = useState(""); // latest thinking snippet
   const [codeStatus, setCodeStatus] = useState<CodeStatus | null>(null);
   const [codeStatusLoading, setCodeStatusLoading] = useState(true);
   const [expandedArea, setExpandedArea] = useState<string | null>(null);
@@ -384,12 +386,13 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
 
-    // Add thinking bubble
-    const thinkId = Date.now();
-    setMessages(prev => [...prev, { role: "assistant", content: "🎖️ 規劃中...", ts: new Date().toISOString(), _thinking: true }]);
-
     const ac = new AbortController();
     abortRef.current = ac;
+
+    // Reset live events
+    setEmEvents([]);
+    setEmThinking("");
+    setEmAction("思考中");
 
     try {
       const res = await fetch(`${API_BASE}/a2a/em`, {
@@ -404,21 +407,16 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             conversationHistory: [...messages, { role: "user", content: text }].filter(m => !m._thinking),
             ...(model ? { metadata: { model } } : {}),
           },
-          id: `em-chat-${thinkId}`,
+          id: `em-chat-${Date.now()}`,
         }),
         signal: ac.signal,
       });
-
-      // Remove thinking bubble
-      setMessages(prev => prev.filter(m => !m._thinking));
 
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       let fullText = "";
-      let lastAssistantId: string | null = null;
-      let currentEvent = ""; // Track SSE event name
-      const toolLog: string[] = [];
+      let currentEvent = "";
 
       while (reader) {
         const { done, value } = await reader.read();
@@ -428,74 +426,71 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         buffer = lines.pop() || "";
 
         for (const line of lines) {
-          // Track SSE event name
-          if (line.startsWith("event: ")) {
-            currentEvent = line.slice(7).trim();
-            continue;
-          }
+          if (line.startsWith("event: ")) { currentEvent = line.slice(7).trim(); continue; }
           if (!line.startsWith("data: ")) continue;
           try {
             const d = JSON.parse(line.slice(6));
 
-            // ── Agent Loop SSE format (event: content, event: thinking, event: tool) ──
-            if (currentEvent === "content" && d.content) {
-              fullText = d.content;
-              setMessages(prev => [...prev.filter(m => !m._thinking)]);
-              setMessages(prev => [...prev, { role: "assistant", content: d.content, ts: new Date().toISOString() }]);
-            } else if (currentEvent === "thinking" && d.content) {
+            if (currentEvent === "thinking" && d.content) {
+              // Update thinking snippet + action — no message bubble
+              setEmThinking(d.content.slice(0, 200));
               setEmAction("思考中");
-              setMessages(prev => [...prev, { role: "assistant", content: `💭 ${d.content.slice(0, 200)}`, ts: new Date().toISOString(), _thinking: true }]);
             } else if (currentEvent === "tool" && d.name) {
+              // Track as live event — merge tool_end into tool_start
+              setEmEvents(prev => {
+                const newEvents = [...prev];
+                // tool_end: find matching tool_start and mark complete
+                if (d.event === "tool_end") {
+                  for (let i = newEvents.length - 1; i >= 0; i--) {
+                    if (newEvents[i].type === "tool_start" && newEvents[i].name === d.name) {
+                      newEvents[i] = { ...newEvents[i], type: "tool_complete", result: d.result };
+                      return newEvents;
+                    }
+                  }
+                }
+                return [...newEvents, { type: d.event || "tool_start", name: d.name, args: d.args, result: d.result }];
+              });
               setEmAction(`🔧 ${d.name}`);
-              toolLog.push(d.name);
-              setMessages(prev => [...prev.filter(m => !m._thinking)]);
-              setMessages(prev => [...prev, { role: "assistant", content: `🔧 執行: ${d.name}`, ts: new Date().toISOString(), _thinking: true }]);
+              setEmThinking("");
+            } else if (currentEvent === "content" && d.content) {
+              // Final response — add as permanent message
+              fullText = d.content;
+              setMessages(prev => [...prev, { role: "assistant", content: d.content, ts: new Date().toISOString() }]);
             } else if (currentEvent === "error" && d.error) {
-              setMessages(prev => [...prev.filter(m => !m._thinking)]);
               setMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${typeof d.error === "string" ? d.error : d.error.error || d.error.message || "unknown"}`, ts: new Date().toISOString() }]);
               fullText = "__error__";
             } else if (currentEvent === "info" && d.message) {
-              setMessages(prev => [...prev, { role: "assistant", content: d.message, ts: new Date().toISOString(), _thinking: true }]);
+              // Info messages — track as event, don't add to messages
+              setEmEvents(prev => [...prev, { type: "info", content: d.message }]);
+              setEmAction(d.message.slice(0, 50));
             }
-            // ── A2A JSON-RPC format (message/send non-streaming) ──
+            // A2A JSON-RPC format
             else if (d.result) {
               const r = d.result;
               if (r.artifacts?.[0]?.parts?.[0]?.text) {
                 fullText = r.artifacts[0].parts[0].text;
-                setMessages(prev => [...prev.filter(m => !m._thinking)]);
                 setMessages(prev => [...prev, { role: "assistant", content: fullText, ts: new Date().toISOString() }]);
               }
-            }
-            // ── JSON-RPC error ──
-            else if (d.error) {
-              setMessages(prev => [...prev.filter(m => !m._thinking)]);
+            } else if (d.error) {
               setMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${d.error.message || "unknown"}`, ts: new Date().toISOString() }]);
               fullText = "__error__";
             }
 
-            currentEvent = ""; // Reset after processing data
+            currentEvent = "";
           } catch {}
         }
       }
 
-      // If stream ended with content but not yet added as message, add it now
-      if (fullText && fullText !== "__error__") {
-        setMessages(prev => {
-          const filtered = prev.filter(m => !m._thinking);
-          // Check if content already exists
-          if (filtered.some(m => m.role === "assistant" && m.content === fullText)) return filtered;
-          return [...filtered, { role: "assistant", content: fullText, ts: new Date().toISOString() }];
-        });
-      } else if (!fullText && !toolLog.length) {
-        // No content at all — show fallback
-        setMessages(prev => [...prev.filter(m => !m._thinking)]);
-        setMessages(prev => [...prev, { role: "assistant", content: "（AI 回應完成但無文字內容）", ts: new Date().toISOString() }]);
+      // If stream ended with no content, show fallback
+      if (!fullText || fullText === "__error__") {
+        if (fullText !== "__error__" && emEvents.length === 0) {
+          setMessages(prev => [...prev, { role: "assistant", content: "（AI 回應完成但無文字內容）", ts: new Date().toISOString() }]);
+        }
       }
 
       // Refresh action log after EM responds
       refreshData();
     } catch (err: any) {
-      setMessages(prev => [...prev.filter(m => !m._thinking)]);
       if (err.name === "AbortError") {
         setMessages(prev => [...prev, { role: "assistant", content: "⏹️ 已中斷", ts: new Date().toISOString() }]);
       } else {
@@ -504,6 +499,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     }
     abortRef.current = null;
     setEmAction("");
+    setEmEvents([]);
+    setEmThinking("");
     setLoading(false);
   };
 
@@ -518,10 +515,10 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     if (emRunning || !rootPath) return;
     setEmRunning(true);
     setPendingPlan(null);
+    setEmEvents([]);
+    setEmThinking("");
+    setEmAction("收集專案狀態中");
     setMessages(prev => [...prev, { role: "user", content: "🚀 啟動 EM 調度規劃", ts: new Date().toISOString() }]);
-
-    // Add thinking bubble
-    setMessages(prev => [...prev, { role: "assistant", content: "🎖️ 收集專案狀態中...", ts: new Date().toISOString(), _thinking: true }]);
 
     try {
       const res = await fetch(`${API_BASE}/api/coding-crew/em-plan`, {
@@ -547,28 +544,18 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           try {
             const d = JSON.parse(line.slice(6));
 
-            // info messages — show as thinking updates
+            // info messages — update emAction only
             if (d.message && !d.workList && !d.totalTasks) {
               const displayMsg = d.contextLength
-                ? `🎖️ ${d.message}\n   📊 Context: ${d.contextLength} chars | Model: ${d.model || "default"}`
-                : `🎖️ ${d.message}`;
-              setMessages(prev => {
-                const lastThink = [...prev].reverse().findIndex(m => m._thinking);
-                if (lastThink >= 0) {
-                  const idx = prev.length - 1 - lastThink;
-                  const updated = [...prev];
-                  updated[idx] = { ...updated[idx], content: displayMsg } as any;
-                  return updated;
-                }
-                return prev;
-              });
+                ? `${d.message} (Context: ${d.contextLength} chars | Model: ${d.model || "default"})`
+                : d.message;
+              setEmAction(displayMsg.slice(0, 60));
             }
 
             // plan_ready — show plan in chat with confirm/cancel buttons
             if (d.workList) {
               plannedWorkList = d.workList;
               situationReport = d.situationReport || "";
-              setMessages(prev => [...prev.filter(m => !m._thinking)]);
 
               if (d.workList.length === 0) {
                 setMessages(prev => [...prev, {
@@ -603,10 +590,12 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         }
       }
     } catch (err: any) {
-      setMessages(prev => [...prev.filter(m => !m._thinking)]);
       setMessages(prev => [...prev, { role: "assistant", content: `❌ EM error: ${err.message}`, ts: new Date().toISOString() }]);
     }
     setEmRunning(false);
+    setEmAction("");
+    setEmEvents([]);
+    setEmThinking("");
   };
 
   // ── EM Execute confirmed plan ──
@@ -1159,6 +1148,23 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                   )}
                   <span className={`text-xs font-medium ${(!emAction || emAction.includes("思考") || emAction.includes("規劃")) ? "opacity-70" : ""}`} style={{ color: "#8b5cf6" }}>{emAction || "思考中"}</span>
                 </div>
+                {/* Live tool badges */}
+                {emEvents.filter(e => e.type === "tool_start" || e.type === "tool_complete").length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pb-1">
+                    {emEvents.filter(e => e.type === "tool_start" || e.type === "tool_complete").map((evt, j) => (
+                      <span key={j} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                        style={{ background: evt.type === "tool_complete" ? "#dcfce7" : "#fef3c7", color: evt.type === "tool_complete" ? "#166534" : "#92400e" }}>
+                        {evt.type === "tool_complete" ? "✔️" : "⏳"} {evt.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {/* Thinking snippet */}
+                {emThinking && (
+                  <div className="text-[10px] italic pb-1" style={{ color: "#8b5cf6", opacity: 0.6 }}>
+                    {emThinking.slice(0, 120)}
+                  </div>
+                )}
               </div>
             </div>
           )}
