@@ -10,8 +10,11 @@ import { cn } from "../../utils";
 interface GitReviewViewProps {
   qaReview: string | null;
   qaReviewLoading: boolean;
+  qaVerdict: { verdict: string; issues: number; critical: number; summary: string; feedback: string } | null;
   gitReviews: { id: string; ts: string; comment: string; branch?: string; files?: string[] }[];
   onRunReview: () => void;
+  onApprove: () => void;
+  onRework: () => void;
   fmtTime: (iso: string) => string;
   theme: {
     accent: string;
@@ -50,8 +53,11 @@ function parseReviewSections(text: string): { title: string; content: string; ic
 export default function GitReviewView({
   qaReview,
   qaReviewLoading,
+  qaVerdict,
   gitReviews,
   onRunReview,
+  onApprove,
+  onRework,
   fmtTime,
   theme,
 }: GitReviewViewProps) {
@@ -138,42 +144,95 @@ export default function GitReviewView({
             </button>
           </div>
 
-          {/* Structured sections */}
-          <div className="space-y-2">
-            {sections.map((s, i) => (
-              <div key={i} className={cn(
-                "rounded-lg border overflow-hidden",
-                s.severity === "warning" ? "border-amber-200" :
-                s.severity === "error" ? "border-red-200" :
-                "border-stone-200"
-              )}>
-                <div className={cn(
-                  "flex items-center gap-2 px-3 py-1.5 text-xs font-bold",
-                  s.severity === "warning" ? "bg-amber-50 text-amber-700" :
-                  s.severity === "error" ? "bg-red-50 text-red-700" :
-                  "bg-stone-50 text-stone-600"
+          {/* ══ Verdict Banner ══ */}
+          {qaVerdict && (
+            <div className={cn(
+              "rounded-lg border-2 p-3",
+              qaVerdict.verdict === "pass" ? "border-emerald-300 bg-emerald-50" :
+              qaVerdict.verdict === "conditional" ? "border-amber-300 bg-amber-50" :
+              "border-red-300 bg-red-50"
+            )}>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xl">
+                  {qaVerdict.verdict === "pass" ? "✅" : qaVerdict.verdict === "conditional" ? "⚠️" : "🔄"}
+                </span>
+                <span className={cn(
+                  "text-sm font-bold",
+                  qaVerdict.verdict === "pass" ? "text-emerald-700" :
+                  qaVerdict.verdict === "conditional" ? "text-amber-700" :
+                  "text-red-700"
                 )}>
-                  <span>{s.icon}</span>
-                  <span>{s.title}</span>
-                </div>
-                <div className="px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap text-stone-600">
-                  {s.content.trim()}
-                </div>
+                  {qaVerdict.verdict === "pass" ? "PASS — 品質達標" :
+                   qaVerdict.verdict === "conditional" ? "CONDITIONAL — 有小問題" :
+                   "REWORK — 退回重修"}
+                </span>
+                <span className="flex-1" />
+                <span className="text-[10px] text-stone-400">
+                  {qaVerdict.issues} issues · {qaVerdict.critical} critical
+                </span>
               </div>
-            ))}
-
-            {/* Action buttons */}
-            <div className="flex items-center gap-2 pt-2" style={{ borderTop: `1px solid ${theme.borderLight}` }}>
-              <button className="text-xs px-3 py-1.5 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold transition-colors">
-                ✅ Approve
-              </button>
-              <button className="text-xs px-3 py-1.5 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 font-bold transition-colors">
-                ⚠️ Request Changes
-              </button>
-              <button onClick={onRunReview} className="text-xs px-3 py-1.5 rounded-md bg-stone-50 text-stone-600 hover:bg-stone-100 font-medium transition-colors">
-                🔄 Re-review
-              </button>
+              <div className="text-xs text-stone-600 leading-relaxed">
+                {qaVerdict.summary}
+              </div>
+              {qaVerdict.feedback && qaVerdict.verdict !== "pass" && (
+                <div className="mt-2 pt-2 text-xs text-stone-700 border-t border-stone-200 whitespace-pre-wrap">
+                  <span className="font-bold">Feedback：</span>\n{qaVerdict.feedback}
+                </div>
+              )}
             </div>
+          )}
+
+          {/* Structured sections (from review text) */}
+          {sections.length > 1 && (
+            <div className="space-y-2">
+              {sections.map((s, i) => (
+                <div key={i} className={cn(
+                  "rounded-lg border overflow-hidden",
+                  s.severity === "warning" ? "border-amber-200" :
+                  s.severity === "error" ? "border-red-200" :
+                  "border-stone-200"
+                )}>
+                  <div className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 text-xs font-bold",
+                    s.severity === "warning" ? "bg-amber-50 text-amber-700" :
+                    s.severity === "error" ? "bg-red-50 text-red-700" :
+                    "bg-stone-50 text-stone-600"
+                  )}>
+                    <span>{s.icon}</span>
+                    <span>{s.title}</span>
+                  </div>
+                  <div className="px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap text-stone-600">
+                    {s.content.trim()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ══ Action Buttons — 接 pipeline ══ */}
+          <div className="flex items-center gap-2 pt-2" style={{ borderTop: `1px solid ${theme.borderLight}` }}>
+            {qaVerdict?.verdict === "rework" && (
+              <button onClick={onRework}
+                className="text-xs px-4 py-2 rounded-md bg-red-500 text-white hover:bg-red-600 font-bold transition-all active:scale-95">
+                🔄 Rework — 退回 Dev
+              </button>
+            )}
+            <button onClick={onApprove}
+              className={cn(
+                "text-xs px-4 py-2 rounded-md font-bold transition-all active:scale-95",
+                qaVerdict?.verdict === "pass"
+                  ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+              )}>
+              ✅ Approve
+            </button>
+            <button onClick={onRework}
+              className="text-xs px-3 py-2 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 font-bold transition-colors">
+              ⚠️ Rework
+            </button>
+            <button onClick={onRunReview} className="text-xs px-3 py-2 rounded-md bg-stone-50 text-stone-600 hover:bg-stone-100 font-medium transition-colors">
+              🔄 Re-review
+            </button>
           </div>
         </div>
       )}

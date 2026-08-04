@@ -40,6 +40,15 @@ const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
 
 const PIPELINE_PHASES = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
 
+// ── Mini Loop phases — skip spec, review, test, docs ──
+const MINI_LOOP_PHASES = ["implement", "qa", "commit"];
+
+// ── Loop mode → active phases mapping ──
+const LOOP_MODE_PHASES = {
+  full: PIPELINE_PHASES,
+  mini: MINI_LOOP_PHASES,
+};
+
 // ── Helpers ──
 
 function parseQuery(rawUrl) {
@@ -66,33 +75,53 @@ function now() { return new Date().toISOString(); }
 // ── Pipeline Helpers ──
 
 function ensurePipeline(task) {
+  const loopMode = task.loopMode || "full";
+  const activePhases = LOOP_MODE_PHASES[loopMode] || PIPELINE_PHASES;
+
   if (!task.pipeline) {
     const isDone = task.status === "resolved" || task.status === "closed";
-    task.pipeline = {
-      spec:      { status: "done", by: "unknown" },
-      implement: { status: isDone ? "done" : (task.status === "in-progress" ? "done" : "pending") },
-      review:    { status: isDone ? "done" : "pending" },
-      test:      { status: isDone ? "done" : "pending" },
-      qa:        { status: isDone ? "done" : "pending" },
-      docs:      { status: isDone ? "done" : "pending" },
-      commit:    { status: isDone ? "done" : "pending" },
-    };
+    task.pipeline = {};
+    for (const phase of PIPELINE_PHASES) {
+      if (!activePhases.includes(phase)) {
+        // Skip phase — mark as done/skipped
+        task.pipeline[phase] = { status: "done", by: "system", reason: `skipped (${loopMode} loop)` };
+      } else if (isDone) {
+        task.pipeline[phase] = { status: "done", by: "unknown" };
+      } else if (phase === "implement" && task.status === "in-progress") {
+        task.pipeline[phase] = { status: "done", by: "unknown" };
+      } else {
+        task.pipeline[phase] = { status: "pending" };
+      }
+    }
   }
   // Ensure all phases exist
   for (const phase of PIPELINE_PHASES) {
-    if (!task.pipeline[phase]) task.pipeline[phase] = { status: "pending" };
+    if (!task.pipeline[phase]) {
+      if (!activePhases.includes(phase)) {
+        task.pipeline[phase] = { status: "done", by: "system", reason: `skipped (${loopMode} loop)` };
+      } else {
+        task.pipeline[phase] = { status: "pending" };
+      }
+    }
   }
   return task;
+}
+
+function getActivePhases(task) {
+  const loopMode = task.loopMode || "full";
+  return LOOP_MODE_PHASES[loopMode] || PIPELINE_PHASES;
 }
 
 function deriveStatus(task) {
   const p = task.pipeline;
   if (!p) return task.status || "open";
   if (p.commit?.status === "done") return "resolved";
-  for (const phase of PIPELINE_PHASES) {
+  const activePhases = getActivePhases(task);
+  for (const phase of activePhases) {
     if (p[phase]?.status === "in_progress") return "in-progress";
-    if (p[phase]?.status === "failed" || p[phase]?.status === "needs_human") return "in-progress";
+    if (p[phase]?.status === "failed" || p[phase]?.status === "needs_human" || p[phase]?.status === "rework") return "in-progress";
     if (p[phase]?.status === "pending") return "in-progress";
+  }
   }
   if (p.spec?.status === "pending") return "open";
   return task.status || "open";
@@ -128,6 +157,7 @@ async function loadTasks(projectPath) {
         createdBy: t.createdBy || "agent",
         // New pipeline fields
         pipeline: t.pipeline || null,
+        loopMode: t.loopMode || "full",
         source: t.source || null,
         spec: t.spec || null,
         changes: t.changes || null,
@@ -480,10 +510,17 @@ export default async function codingTasksRoute(req, res) {
       at: now(),
       result: result || undefined,
     };
-    // Advance to next phase
-    const phaseIdx = PIPELINE_PHASES.indexOf(phase);
-    if (phaseIdx < PIPELINE_PHASES.length - 1) {
-      const nextPhase = PIPELINE_PHASES[phaseIdx + 1];
+    // Advance to next ACTIVE phase (skip inactive phases for mini loop)
+    const activePhases = getActivePhases(task);
+    const activeIdx = activePhases.indexOf(phase);
+    if (activeIdx < activePhases.length - 1) {
+      const nextPhase = activePhases[activeIdx + 1];
+      // Skip any phases between current and next active that are still pending
+      for (let i = PIPELINE_PHASES.indexOf(phase) + 1; PIPELINE_PHASES[i] !== nextPhase; i++) {
+        if (task.pipeline[PIPELINE_PHASES[i]]?.status === "pending") {
+          task.pipeline[PIPELINE_PHASES[i]] = { status: "done", by: "system", at: now(), reason: "auto-skipped" };
+        }
+      }
       if (task.pipeline[nextPhase]?.status === "pending") {
         task.pipeline[nextPhase] = { status: "in_progress", by: by || "agent", at: now() };
       }
@@ -511,7 +548,7 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: "Invalid JSON" }));
       return true;
     }
-    const { phase, reason, by, returnTo } = body;
+    const { phase, reason, by, returnTo, feedback } = body;
     if (!phase || !PIPELINE_PHASES.includes(phase)) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: `Invalid phase. Must be one of: ${PIPELINE_PHASES.join(", ")}` }));
@@ -525,17 +562,32 @@ export default async function codingTasksRoute(req, res) {
       return true;
     }
     const task = ensurePipeline(tasks[idx]);
-    // Mark phase as needs_human or failed
+    // Mark phase as rework/needs_human/failed
+    const phaseStatus = body.status || "rework";
     task.pipeline[phase] = {
-      status: body.status || "needs_human",
+      status: phaseStatus,
       by: by || "agent",
       at: now(),
       reason: reason || undefined,
+      feedback: feedback || undefined,
     };
-    // Optionally return to an earlier phase
-    if (returnTo && PIPELINE_PHASES.includes(returnTo)) {
-      task.pipeline[returnTo] = { status: "in_progress", by: by || "agent", at: now(), reason: reason || undefined };
+    // Return to an earlier phase (default: implement for QA rework)
+    const activePhases = getActivePhases(task);
+    const targetPhase = returnTo && PIPELINE_PHASES.includes(returnTo) ? returnTo : "implement";
+    // Reset downstream phases
+    const targetIdx = PIPELINE_PHASES.indexOf(targetPhase);
+    const currentIdx = PIPELINE_PHASES.indexOf(phase);
+    for (let i = targetIdx; i <= currentIdx; i++) {
+      const ph = PIPELINE_PHASES[i];
+      if (i === targetIdx) {
+        task.pipeline[ph] = { status: "in_progress", by: by || "agent", at: now(), reason: `rework from ${phase}`, feedback: feedback || undefined };
+      } else if (activePhases.includes(ph)) {
+        task.pipeline[ph] = { status: "pending" };
+      }
     }
+    // Add rework note
+    if (!Array.isArray(task.notes)) task.notes = [];
+    task.notes.push({ by: by || "agent", at: now(), content: `🔄 Rework from ${phase}: ${reason || feedback || "QA rejected"}` });
     task.status = deriveStatus(task);
     task.updatedAt = now();
     tasks[idx] = task;
@@ -728,12 +780,18 @@ export default async function codingTasksRoute(req, res) {
       return true;
     }
     const existing = ensurePipeline(tasks[idx]);
+    const oldLoopMode = existing.loopMode || "full";
     const updated = {
       ...existing,
       ...body,
       id: existing.id, // never overwrite ID
       updatedAt: now(),
     };
+    // If loopMode changed, re-ensure pipeline
+    if (body.loopMode && body.loopMode !== oldLoopMode) {
+      updated.loopMode = body.loopMode;
+      updated.pipeline = ensurePipeline(updated).pipeline;
+    }
     // Handle pipeline field updates
     if (body.pipeline) {
       updated.pipeline = { ...existing.pipeline, ...body.pipeline };
@@ -863,15 +921,10 @@ export default async function codingTasksRoute(req, res) {
       testResult: null,
       qaResult: null,
       overnight: null,
-      pipeline: body.pipeline || {
-        spec:      { status: "done", by: body.createdBy || "human", at: ts },
-        implement: { status: "pending" },
-        review:    { status: "pending" },
-        test:      { status: "pending" },
-        qa:        { status: "pending" },
-        docs:      { status: "pending" },
-        commit:    { status: "pending" },
-      },
+      pipeline: body.pipeline || null,
+      loopMode: body.loopMode || "mini",  // default mini loop for new tasks
+    });
+    // ensurePipeline will fill in the rest based on loopMode
     });
     // Derive status from pipeline
     newTask.status = deriveStatus(newTask);

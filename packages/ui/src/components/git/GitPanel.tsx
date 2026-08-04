@@ -79,12 +79,16 @@ interface GitPanelProps {
   aiCommitLoading: boolean;
   stagedSummary: StagedChangeSummary | null;
   qaReview: string | null;
+  qaVerdict: { verdict: string; issues: number; critical: number; summary: string; feedback: string } | null;
   qaReviewLoading: boolean;
   gitReviews: { id: string; ts: string; comment: string; branch?: string; files?: string[] }[];
 
   // ── Blame ──
   blameData: BlameLine[] | null;
   blameFile: string;
+
+  // ── Active task for pipeline actions ──
+  activeCodingTask: { id: string; title: string; loopMode?: string } | null;
 
   // ── Setters (passed through) ──
   setGitTab: (tab: "status" | "diff" | "blame" | "review") => void;
@@ -134,10 +138,12 @@ export default function GitPanel(props: GitPanelProps) {
     aiCommitLoading,
     stagedSummary,
     qaReview,
+    qaVerdict,
     qaReviewLoading,
     gitReviews,
     blameData,
     blameFile,
+    activeCodingTask,
     setGitTab: setExternalGitTab,
     setGitCommitMsg,
     setGitActionMsg,
@@ -270,7 +276,45 @@ export default function GitPanel(props: GitPanelProps) {
     }
   }, [rootPath, API_BASE, refreshGitStatus, refreshGitLog, loadGitDiff, setStagedSummary]);
 
-  // ── Unstage file ──
+  // ── QA Approve — human overrides, advance pipeline ──
+  const handleQaApprove = useCallback(async () => {
+    if (!activeCodingTask?.id || !rootPath) return;
+    setGitActionMsg("✅ Human approved — advancing pipeline...");
+    try {
+      await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTask.id)}/pipeline/advance?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phase: "qa", result: "Human approved after review", by: "human" }),
+      });
+      setGitActionMsg("✅ Pipeline advanced to commit phase");
+    } catch (e: any) {
+      setGitActionMsg(`❌ ${e.message}`);
+    }
+  }, [activeCodingTask, rootPath, API_BASE, setGitActionMsg]);
+
+  // ── QA Rework — human triggers rework, reject pipeline ──
+  const handleQaRework = useCallback(async () => {
+    if (!activeCodingTask?.id || !rootPath) return;
+    const feedback = qaVerdict?.feedback || "Human requested rework";
+    setGitActionMsg("🔄 Rework — returning to implement phase...");
+    try {
+      await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTask.id)}/pipeline/reject?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phase: "qa",
+          status: "rework",
+          reason: feedback,
+          feedback,
+          by: "human",
+          returnTo: "implement",
+        }),
+      });
+      setGitActionMsg("🔄 Rework — Dev will be re-dispatched");
+    } catch (e: any) {
+      setGitActionMsg(`❌ ${e.message}`);
+    }
+  }, [activeCodingTask, rootPath, API_BASE, qaVerdict, setGitActionMsg]);
   const handleUnstageFile = useCallback(async (path: string) => {
     if (!rootPath) return;
     setGitActionMsg(`Unstaging ${path.split(/[\\/]/).pop()}...`);
@@ -555,9 +599,12 @@ export default function GitPanel(props: GitPanelProps) {
         {gitTab === "review" && (
           <GitReviewView
             qaReview={qaReview}
+            qaVerdict={qaVerdict}
             qaReviewLoading={qaReviewLoading}
             gitReviews={gitReviews}
             onRunReview={runQaReview}
+            onApprove={handleQaApprove}
+            onRework={handleQaRework}
             fmtTime={fmtTime as any}
             theme={theme}
           />

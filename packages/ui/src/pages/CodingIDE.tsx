@@ -1696,6 +1696,21 @@ const sendChat = useCallback(async () => {
   // ── QA Code Review: send staged diff to QA agent (武大安) ──
   const [qaReviewLoading, setQaReviewLoading] = useState(false);
   const [qaReview, setQaReview] = useState("");
+  const [qaVerdict, setQaVerdict] = useState<{ verdict: string; issues: number; critical: number; summary: string; feedback: string } | null>(null);
+  // ── Parse QA verdict from review text ──
+  function parseQaVerdict(text: string): { verdict: string; issues: number; critical: number; summary: string; feedback: string } | null {
+    const match = text.match(/---QA_VERDICT---[\s\S]*?---END_VERDICT---/);
+    if (!match) return null;
+    const block = match[0];
+    const verdict = (block.match(/verdict:\s*(pass|conditional|rework)/)?.[1] || "").toLowerCase();
+    const issues = parseInt(block.match(/issues:\s*(\d+)/)?.[1] || "0");
+    const critical = parseInt(block.match(/critical:\s*(\d+)/)?.[1] || "0");
+    const summary = (block.match(/summary:\s*(.+)/)?.[1] || "").trim();
+    const feedback = (block.match(/feedback:\s*([\s\S]*?)(?=---END_VERDICT---|$)/)?.[1] || "").trim();
+    if (!verdict) return null;
+    return { verdict, issues, critical, summary, feedback };
+  }
+
   const runQaReview = useCallback(async () => {
     if (!rootPath) return;
     setQaReviewLoading(true);
@@ -1713,7 +1728,7 @@ const sendChat = useCallback(async () => {
         const diffRes = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}`);
         diffText = (await diffRes.json()).diff || "";
       }
-      // Build review request for QA agent
+      // Build review request for QA agent — 強調結構化 verdict
       const fileList = gitStatus?.staged?.map(f => f.path).join(", ") || gitStatus?.all?.map(f => f.path).join(", ") || "";
       const reviewTask = `請 review 以下 staged diff，這是另一個 agent 剛完成的變更。
 
@@ -1732,7 +1747,16 @@ ${'```'}\n
 5. 📝 缺漏的錯誤處理
 6. 🧪 建議的測試步驟
 
-最後給出 verdict：✅ 可以 commit / ⚠️ 有風險但可 commit / ❌ 不要 commit
+⚠️ **重要：你的回覆最後必須包含結構化 verdict 區塊：**
+\`\`\`
+---QA_VERDICT---
+verdict: pass 或 conditional 或 rework
+issues: 數字
+critical: 數字
+summary: 一句話總結
+feedback: 具體修正建議（rework 時必須給）
+---END_VERDICT---
+\`\`\`
 
 ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : ""}`;
 
@@ -1774,16 +1798,53 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           }
         }
       }
+
+      // ══ Parse QA verdict and drive pipeline ══
+      const verdict = parseQaVerdict(result);
+      if (verdict) {
+        setQaVerdict(verdict);
+        // Find active task to update pipeline
+        if (activeCodingTask?.id) {
+          try {
+            if (verdict.verdict === "pass") {
+              // ✅ Pass → advance QA phase → commit phase awaits human
+              await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTask.id)}/pipeline/advance?path=${encodeURIComponent(rootPath)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ phase: "qa", result: verdict.summary, by: "qa-agent" }),
+              });
+            } else if (verdict.verdict === "rework") {
+              // ❌ Rework → reject QA phase → return to implement
+              await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTask.id)}/pipeline/reject?path=${encodeURIComponent(rootPath)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  phase: "qa",
+                  status: "rework",
+                  reason: verdict.summary,
+                  feedback: verdict.feedback,
+                  by: "qa-agent",
+                  returnTo: "implement",
+                }),
+              });
+            }
+            // conditional → leave for human to decide
+          } catch (e: any) {
+            console.error("Pipeline action failed:", e.message);
+          }
+        }
+      }
+
       // Save review to server
       try {
         await fetch(`${API_BASE}/api/vibe-git/reviews?path=${encodeURIComponent(rootPath)}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ comment: result, branch: gitStatus?.branch, files: gitStatus?.staged?.map(f => f.path), diffLength: diffText?.length }),
+          body: JSON.stringify({ comment: result, branch: gitStatus?.branch, files: gitStatus?.staged?.map(f => f.path), diffLength: diffText?.length, verdict: verdict?.verdict || null }),
         });
       } catch {}
     } catch (err: any) { setQaReview(`❌ Error: ${err.message}`); }
     setQaReviewLoading(false);
-  }, [rootPath, gitDiff, gitLog, gitStatus]);
+  }, [rootPath, gitDiff, gitLog, gitStatus, activeCodingTask?.id]);
 
   // Auto-refresh git when panel opens or when switching to git tab
   useEffect(() => {
@@ -2558,10 +2619,12 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 aiCommitLoading={aiCommitLoading}
                 stagedSummary={stagedSummary}
                 qaReview={qaReview}
+                qaVerdict={qaVerdict}
                 qaReviewLoading={qaReviewLoading}
                 gitReviews={gitReviews}
                 blameData={blameData}
                 blameFile={blameFile}
+                activeCodingTask={activeCodingTask ? { id: activeCodingTask.id, title: activeCodingTask.title, loopMode: activeCodingTask.loopMode } : null}
                 setGitTab={setGitTab}
                 setGitCommitMsg={setGitCommitMsg}
                 setGitActionMsg={setGitActionMsg}
