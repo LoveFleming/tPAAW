@@ -15,6 +15,7 @@ interface StagedSummary {
   agent?: string;
   codename?: string;
   task?: string;
+  taskId?: string;
   codeFiles?: { path: string; reason: string }[];
   paawFiles?: { path: string; reason: string }[];
   files?: { path: string; reason: string }[];

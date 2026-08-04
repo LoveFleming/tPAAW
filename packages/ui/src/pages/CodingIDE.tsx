@@ -608,6 +608,7 @@ export default function CodingIDE() {
     agent?: string;
     codename?: string;
     task?: string;
+    taskId?: string;
     summary?: string;
     files?: { path: string; reason: string }[];
     howToTest?: string;
@@ -616,6 +617,8 @@ export default function CodingIDE() {
   }
   const [stagedSummary, setStagedSummary] = useState<StagedChangeSummary | null>(null);
   const [projectLoopMode, setProjectLoopMode] = useState<"mini" | "full">("mini");
+  const [activeCodingTaskId, setActiveCodingTaskId] = useState<string | null>(null);
+  const [activeTaskPipeline, setActiveTaskPipeline] = useState<Record<string, any> | null>(null);
   const [showStagedDetail, setShowStagedDetail] = useState(false);
 
   // ── API Tester State ──
@@ -698,6 +701,15 @@ export default function CodingIDE() {
       });
     } catch {}
   }, [rootPath]);
+
+  // Load active task pipeline when activeCodingTaskId changes
+  useEffect(() => {
+    if (!activeCodingTaskId || !rootPath) { setActiveTaskPipeline(null); return; }
+    fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTaskId)}?path=${encodeURIComponent(rootPath)}`)
+      .then(r => r.json())
+      .then(data => { if (data.pipeline) setActiveTaskPipeline(data.pipeline); })
+      .catch(() => {});
+  }, [activeCodingTaskId, rootPath]);
 
   // Load project APIs when rootPath changes
   useEffect(() => {
@@ -1826,18 +1838,18 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
       if (verdict) {
         setQaVerdict(verdict);
         // Find active task to update pipeline
-        if (activeCodingTask?.id) {
+        if (activeCodingTaskId) {
           try {
             if (verdict.verdict === "pass") {
               // ✅ Pass → advance QA phase → commit phase awaits human
-              await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTask.id)}/pipeline/advance?path=${encodeURIComponent(rootPath)}`, {
+              await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTaskId)}/pipeline/advance?path=${encodeURIComponent(rootPath)}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ phase: "qa", result: verdict.summary, by: "qa-agent" }),
               });
             } else if (verdict.verdict === "rework") {
               // ❌ Rework → reject QA phase → return to implement
-              await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTask.id)}/pipeline/reject?path=${encodeURIComponent(rootPath)}`, {
+              await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTaskId)}/pipeline/reject?path=${encodeURIComponent(rootPath)}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -1866,7 +1878,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
       } catch {}
     } catch (err: any) { setQaReview(`❌ Error: ${err.message}`); }
     setQaReviewLoading(false);
-  }, [rootPath, gitDiff, gitLog, gitStatus, activeCodingTask?.id]);
+  }, [rootPath, gitDiff, gitLog, gitStatus, activeCodingTaskId]);
 
   // Auto-refresh git when panel opens or when switching to git tab
   useEffect(() => {
@@ -1881,7 +1893,10 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
   useEffect(() => {
     if ((activeMainTab?.type === "git" || showGitPanel) && rootPath) {
       fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath)}`)
-        .then(r => r.json()).then(data => setStagedSummary(data)).catch(() => {});
+        .then(r => r.json()).then(data => {
+          setStagedSummary(data);
+          if (data.taskId) setActiveCodingTaskId(data.taskId);
+        }).catch(() => {});
     }
   }, [activeMainTab?.type, rootPath, showGitPanel]);
 
@@ -2646,7 +2661,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 gitReviews={gitReviews}
                 blameData={blameData}
                 blameFile={blameFile}
-                activeCodingTask={activeCodingTask ? { id: activeCodingTask.id, title: activeCodingTask.title, loopModeOverride: activeCodingTask.loopModeOverride, effectiveLoopMode: activeCodingTask.effectiveLoopMode, pipeline: activeCodingTask.pipeline } : null}
+                activeCodingTask={activeCodingTaskId ? { id: activeCodingTaskId, title: stagedSummary?.task || "", pipeline: activeTaskPipeline } : null}
                 projectLoopMode={projectLoopMode}
                 setProjectLoopMode={handleSetProjectLoopMode}
                 setGitTab={setGitTab}

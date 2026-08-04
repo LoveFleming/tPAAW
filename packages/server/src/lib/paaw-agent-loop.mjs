@@ -1630,6 +1630,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
             createdAt: new Date().toISOString(),
             agent: agentId || "unknown",
             task: args.task || "",
+            taskId: args.taskId || "",
             summary: args.summary || "",
             files: args.files || [],
             howToTest: args.howToTest || "",
