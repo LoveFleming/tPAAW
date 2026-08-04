@@ -88,7 +88,10 @@ interface GitPanelProps {
   blameFile: string;
 
   // ── Active task for pipeline actions ──
-  activeCodingTask: { id: string; title: string; loopMode?: string; pipeline?: Record<string, any> } | null;
+  activeCodingTask: { id: string; title: string; loopModeOverride?: string | null; effectiveLoopMode?: string; pipeline?: Record<string, any> } | null;
+  // ── Project-level loop mode ──
+  projectLoopMode: "mini" | "full";
+  setProjectLoopMode: (mode: "mini" | "full") => void;
 
   // ── Setters (passed through) ──
   setGitTab: (tab: "status" | "diff" | "blame" | "review") => void;
@@ -144,6 +147,8 @@ export default function GitPanel(props: GitPanelProps) {
     blameData,
     blameFile,
     activeCodingTask,
+    projectLoopMode,
+    setProjectLoopMode,
     setGitTab: setExternalGitTab,
     setGitCommitMsg,
     setGitActionMsg,
@@ -586,7 +591,9 @@ export default function GitPanel(props: GitPanelProps) {
             onStageFile={handleStageFile}
             qaReviewLoading={qaReviewLoading}
             pipeline={activeCodingTask?.pipeline || null}
-            loopMode={activeCodingTask?.loopMode || "mini"}
+            loopMode={projectLoopMode}
+            projectLoopMode={projectLoopMode}
+            setProjectLoopMode={setProjectLoopMode}
             qaVerdict={qaVerdict}
             onSpecApprove={handleSpecApprove}
             onSpecReject={handleSpecReject}

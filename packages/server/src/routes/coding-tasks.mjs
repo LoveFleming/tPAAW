@@ -40,8 +40,8 @@ const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
 
 const PIPELINE_PHASES = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
 
-// ── Mini Loop phases — skip spec, review, test, docs ──
-const MINI_LOOP_PHASES = ["implement", "qa", "commit"];
+// ── Mini Loop phases — 人是 QA，只走 implement → commit ──
+const MINI_LOOP_PHASES = ["implement", "commit"];
 
 // ── Loop mode → active phases mapping ──
 const LOOP_MODE_PHASES = {
@@ -74,8 +74,8 @@ function now() { return new Date().toISOString(); }
 
 // ── Pipeline Helpers ──
 
-function ensurePipeline(task) {
-  const loopMode = task.loopMode || "full";
+function ensurePipeline(task, projectConfig) {
+  const loopMode = getEffectiveLoopMode(task, projectConfig);
   const activePhases = LOOP_MODE_PHASES[loopMode] || PIPELINE_PHASES;
 
   if (!task.pipeline) {
@@ -107,21 +107,20 @@ function ensurePipeline(task) {
   return task;
 }
 
-function getActivePhases(task) {
-  const loopMode = task.loopMode || "full";
+function getActivePhases(task, projectConfig) {
+  const loopMode = getEffectiveLoopMode(task, projectConfig);
   return LOOP_MODE_PHASES[loopMode] || PIPELINE_PHASES;
 }
 
-function deriveStatus(task) {
+function deriveStatus(task, projectConfig) {
   const p = task.pipeline;
   if (!p) return task.status || "open";
   if (p.commit?.status === "done") return "resolved";
-  const activePhases = getActivePhases(task);
+  const activePhases = getActivePhases(task, projectConfig);
   for (const phase of activePhases) {
     if (p[phase]?.status === "in_progress") return "in-progress";
-    if (p[phase]?.status === "failed" || p[phase]?.status === "needs_human" || p[phase]?.status === "rework") return "in-progress";
+    if (p[phase]?.status === "failed" || p[phase]?.status === "needs_human" || p[phase]?.status === "awaiting_human" || p[phase]?.status === "rework") return "in-progress";
     if (p[phase]?.status === "pending") return "in-progress";
-  }
   }
   if (p.spec?.status === "pending") return "open";
   return task.status || "open";
@@ -129,53 +128,71 @@ function deriveStatus(task) {
 
 // ── Task Storage ──
 
-async function loadTasks(projectPath) {
+async function loadTasksAndConfig(projectPath) {
   const tasksFile = join(projectPath, ".paaw", "tasks", "TASKS.json");
-  if (!existsSync(tasksFile)) return [];
-  try {
-    const data = JSON.parse(await readFile(tasksFile, "utf-8"));
-    if (!Array.isArray(data.tasks)) return [];
-    return data.tasks.map(t => {
-      const mapped = {
-        id: t.id || "",
-        title: t.title || "",
-        type: t.type || "chore",
-        parentId: t.parentId || null,
-        linkedIssueId: t.linkedIssueId || null,
-        status: t.status || "open",
-        priority: t.priority || "medium",
-        effort: t.effort || null,
-        labels: Array.isArray(t.labels) ? t.labels : [],
-        assignee: t.assignee || null,
-        description: t.description || "",
-        relatedFiles: Array.isArray(t.relatedFiles) ? t.relatedFiles : [],
-        notes: Array.isArray(t.notes) ? t.notes : [],
-        executionResult: t.executionResult || null,
-        createdAt: t.createdAt || now(),
-        updatedAt: t.updatedAt || now(),
-        resolvedAt: t.resolvedAt || null,
-        createdBy: t.createdBy || "agent",
-        // New pipeline fields
-        pipeline: t.pipeline || null,
-        loopMode: t.loopMode || "full",
-        source: t.source || null,
-        spec: t.spec || null,
-        changes: t.changes || null,
-        git: t.git || null,
-        testResult: t.testResult || null,
-        qaResult: t.qaResult || null,
-        overnight: t.overnight || null,
-      };
-      return ensurePipeline(mapped);
-    });
-  } catch { return []; }
+  let tasks = [];
+  let config = { loopMode: "mini" }; // default: mini for new projects
+  if (existsSync(tasksFile)) {
+    try {
+      const data = JSON.parse(await readFile(tasksFile, "utf-8"));
+      if (Array.isArray(data.tasks)) {
+        tasks = data.tasks.map(t => {
+          const mapped = {
+            id: t.id || "",
+            title: t.title || "",
+            type: t.type || "chore",
+            parentId: t.parentId || null,
+            linkedIssueId: t.linkedIssueId || null,
+            status: t.status || "open",
+            priority: t.priority || "medium",
+            effort: t.effort || null,
+            labels: Array.isArray(t.labels) ? t.labels : [],
+            assignee: t.assignee || null,
+            description: t.description || "",
+            relatedFiles: Array.isArray(t.relatedFiles) ? t.relatedFiles : [],
+            notes: Array.isArray(t.notes) ? t.notes : [],
+            executionResult: t.executionResult || null,
+            createdAt: t.createdAt || now(),
+            updatedAt: t.updatedAt || now(),
+            resolvedAt: t.resolvedAt || null,
+            createdBy: t.createdBy || "agent",
+            pipeline: t.pipeline || null,
+            loopModeOverride: t.loopModeOverride || t.loopMode || null, // backward compat
+            source: t.source || null,
+            spec: t.spec || null,
+            changes: t.changes || null,
+            git: t.git || null,
+            testResult: t.testResult || null,
+            qaResult: t.qaResult || null,
+            overnight: t.overnight || null,
+          };
+          return ensurePipeline(mapped, config);
+        });
+      }
+      // Project-level config from TASKS.json top-level
+      if (data.loopMode) config.loopMode = data.loopMode;
+    } catch { /* empty */ }
+  }
+  return { tasks, config };
 }
 
-async function saveTasks(projectPath, tasks) {
+// Backward compat: loadTasks returns just the array
+async function loadTasks(projectPath) {
+  const { tasks } = await loadTasksAndConfig(projectPath);
+  return tasks;
+}
+
+function getEffectiveLoopMode(task, projectConfig) {
+  return task.loopModeOverride || projectConfig?.loopMode || "mini";
+}
+
+async function saveTasks(projectPath, tasks, config) {
   const tasksDir = join(projectPath, ".paaw", "tasks");
   if (!existsSync(tasksDir)) await mkdir(tasksDir, { recursive: true });
   const tasksFile = join(tasksDir, "TASKS.json");
-  await writeFile(tasksFile, JSON.stringify({ tasks, updatedAt: now() }, null, 2), "utf-8");
+  const output = { tasks, updatedAt: now() };
+  if (config?.loopMode) output.loopMode = config.loopMode;
+  await writeFile(tasksFile, JSON.stringify(output, null, 2), "utf-8");
 }
 
 // ── Route Handler ──
@@ -203,7 +220,7 @@ export default async function codingTasksRoute(req, res) {
 
   // ── GET /api/coding-tasks/stats ──
   if (url === "/api/coding-tasks/stats" && method === "GET") {
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     const stats = {
       total: tasks.length,
       open: tasks.filter(t => t.status === "open").length,
@@ -250,9 +267,10 @@ export default async function codingTasksRoute(req, res) {
 
   // ── GET /api/coding-tasks/pipeline/overview ──
   if (url === "/api/coding-tasks/pipeline/overview" && method === "GET") {
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     const overview = {
       total: tasks.length,
+      projectLoopMode: config.loopMode,
       phases: {},
       phaseOrder: PIPELINE_PHASES,
     };
@@ -295,7 +313,7 @@ export default async function codingTasksRoute(req, res) {
 
   // ── GET /api/coding-tasks/overnight-queue ──
   if (url === "/api/coding-tasks/overnight-queue" && method === "GET") {
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     // Tasks that are ready for overnight processing:
     // - spec is done, implement is pending or in_progress
     // - not yet fully resolved
@@ -338,7 +356,7 @@ export default async function codingTasksRoute(req, res) {
 
   // ── GET /api/coding-tasks/overnight-queue/results ──
   if (url === "/api/coding-tasks/overnight-queue/results" && method === "GET") {
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     // Find tasks with overnight results (overnight field exists with results)
     const results = tasks.filter(t => t.overnight && (t.overnight.lastRun || t.overnight.result));
     const summary = {
@@ -374,7 +392,7 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: "parentId and subTasks[] are required" }));
       return true;
     }
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     const parent = tasks.find(t => t.id === parentId);
     if (!parent) {
       res.writeHead(404, { "Content-Type": "application/json" });
@@ -438,7 +456,7 @@ export default async function codingTasksRoute(req, res) {
     parent.updatedAt = now();
 
     const all = [...tasks, ...created];
-    await saveTasks(projRoot, all);
+    await saveTasks(projRoot, all, config);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ parentId, subTasks: created, total: all.length }));
     return true;
@@ -449,6 +467,39 @@ export default async function codingTasksRoute(req, res) {
   // ════════════════════════════════════════════════
 
   // ── :id/notes ──
+  // ── GET /api/coding-tasks/project/loop-mode ──
+  if (url === "/api/coding-tasks/project/loop-mode" && method === "GET") {
+    const { config } = await loadTasksAndConfig(projRoot);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ loopMode: config.loopMode }));
+    return true;
+  }
+
+  // ── PUT /api/coding-tasks/project/loop-mode ──
+  if (url === "/api/coding-tasks/project/loop-mode" && method === "PUT") {
+    const body = await _readBody(req);
+    const parsed = JSON.parse(body);
+    const { loopMode } = parsed;
+    if (loopMode !== "mini" && loopMode !== "full") {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "loopMode must be 'mini' or 'full'" }));
+      return true;
+    }
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
+    config.loopMode = loopMode;
+    // Re-ensure pipeline for all active tasks
+    for (const task of tasks) {
+      if (task.status !== "resolved" && task.status !== "closed") {
+        ensurePipeline(task, config);
+        task.status = deriveStatus(task, config);
+      }
+    }
+    await saveTasks(projRoot, tasks, config);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, loopMode, tasksUpdated: tasks.filter(t => t.status !== "resolved" && t.status !== "closed").length }));
+    return true;
+  }
+
   const notesMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/notes$/);
   if (notesMatch && method === "POST") {
     const id = decodeURIComponent(notesMatch[1]);
@@ -463,7 +514,7 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: "Note content is required" }));
       return true;
     }
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     const idx = tasks.findIndex(t => t.id === id);
     if (idx < 0) {
       res.writeHead(404, { "Content-Type": "application/json" });
@@ -473,7 +524,7 @@ export default async function codingTasksRoute(req, res) {
     if (!Array.isArray(tasks[idx].notes)) tasks[idx].notes = [];
     tasks[idx].notes.push({ by: body.by || "user", at: now(), content: body.content.trim() });
     tasks[idx].updatedAt = now();
-    await saveTasks(projRoot, tasks);
+    await saveTasks(projRoot, tasks, config);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(tasks[idx]));
     return true;
@@ -495,19 +546,19 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: `Invalid phase. Must be one of: ${PIPELINE_PHASES.join(", ")}` }));
       return true;
     }
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     const idx = tasks.findIndex(t => t.id === id);
     if (idx < 0) {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Task not found" }));
       return true;
     }
-    const task = ensurePipeline(tasks[idx]);
+    const task = ensurePipeline(tasks[idx], config);
     // Special: if advancing spec from agent (not human), set to awaiting_human first (Gate 1)
     if (phase === "spec" && task.pipeline.spec?.status === "in_progress" && by !== "human") {
       task.pipeline.spec = { status: "awaiting_human", by: by || "agent", at: now(), result: result || undefined };
-      task.status = deriveStatus(task);
-      await saveTasks(projRoot, tasks);
+      task.status = deriveStatus(task, config);
+      await saveTasks(projRoot, tasks, config);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, task }));
       return true;
@@ -520,7 +571,7 @@ export default async function codingTasksRoute(req, res) {
       result: result || undefined,
     };
     // Advance to next ACTIVE phase (skip inactive phases for mini loop)
-    const activePhases = getActivePhases(task);
+    const activePhases = getActivePhases(task, config);
     const activeIdx = activePhases.indexOf(phase);
     if (activeIdx < activePhases.length - 1) {
       const nextPhase = activePhases[activeIdx + 1];
@@ -540,13 +591,13 @@ export default async function codingTasksRoute(req, res) {
       }
     }
     // Derive flat status
-    task.status = deriveStatus(task);
+    task.status = deriveStatus(task, config);
     if (task.status === "resolved" && !task.resolvedAt) {
       task.resolvedAt = now();
     }
     task.updatedAt = now();
     tasks[idx] = task;
-    await saveTasks(projRoot, tasks);
+    await saveTasks(projRoot, tasks, config);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(task));
     return true;
@@ -568,14 +619,14 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: `Invalid phase. Must be one of: ${PIPELINE_PHASES.join(", ")}` }));
       return true;
     }
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     const idx = tasks.findIndex(t => t.id === id);
     if (idx < 0) {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Task not found" }));
       return true;
     }
-    const task = ensurePipeline(tasks[idx]);
+    const task = ensurePipeline(tasks[idx], config);
     // Mark phase as rework/needs_human/failed
     const phaseStatus = body.status || "rework";
     task.pipeline[phase] = {
@@ -586,7 +637,7 @@ export default async function codingTasksRoute(req, res) {
       feedback: feedback || undefined,
     };
     // Return to an earlier phase (default: implement for QA rework)
-    const activePhases = getActivePhases(task);
+    const activePhases = getActivePhases(task, config);
     const targetPhase = returnTo && PIPELINE_PHASES.includes(returnTo) ? returnTo : "implement";
     // Reset downstream phases
     const targetIdx = PIPELINE_PHASES.indexOf(targetPhase);
@@ -602,10 +653,10 @@ export default async function codingTasksRoute(req, res) {
     // Add rework note
     if (!Array.isArray(task.notes)) task.notes = [];
     task.notes.push({ by: by || "agent", at: now(), content: `🔄 Rework from ${phase}: ${reason || feedback || "QA rejected"}` });
-    task.status = deriveStatus(task);
+    task.status = deriveStatus(task, config);
     task.updatedAt = now();
     tasks[idx] = task;
-    await saveTasks(projRoot, tasks);
+    await saveTasks(projRoot, tasks, config);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(task));
     return true;
@@ -615,7 +666,7 @@ export default async function codingTasksRoute(req, res) {
   const gitDiffMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/git\/diff$/);
   if (gitDiffMatch && method === "GET") {
     const id = decodeURIComponent(gitDiffMatch[1]);
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     const task = tasks.find(t => t.id === id);
     if (!task) {
       res.writeHead(404, { "Content-Type": "application/json" });
@@ -634,20 +685,20 @@ export default async function codingTasksRoute(req, res) {
   const gitStageMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/git\/stage$/);
   if (gitStageMatch && method === "POST") {
     const id = decodeURIComponent(gitStageMatch[1]);
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     const idx = tasks.findIndex(t => t.id === id);
     if (idx < 0) {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Task not found" }));
       return true;
     }
-    const task = ensurePipeline(tasks[idx]);
+    const task = ensurePipeline(tasks[idx], config);
     const git = new TaskGit(projRoot);
     const result = await git.stage(task);
     task.git = { ...task.git, staged: result.staged, stagedAt: now() };
     task.updatedAt = now();
     tasks[idx] = task;
-    await saveTasks(projRoot, tasks);
+    await saveTasks(projRoot, tasks, config);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ id, ...result }));
     return true;
@@ -659,14 +710,14 @@ export default async function codingTasksRoute(req, res) {
     const id = decodeURIComponent(gitCommitMatch[1]);
     let body;
     try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     const idx = tasks.findIndex(t => t.id === id);
     if (idx < 0) {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Task not found" }));
       return true;
     }
-    const task = ensurePipeline(tasks[idx]);
+    const task = ensurePipeline(tasks[idx], config);
     const git = new TaskGit(projRoot);
     const message = body.message || TaskGit.generateCommitMessage(task);
     const result = await git.commit(task, message, body.push !== false);
@@ -682,13 +733,13 @@ export default async function codingTasksRoute(req, res) {
     if (task.pipeline?.commit?.status !== "done") {
       task.pipeline.commit = { status: "done", by: body.by || "agent", at: now() };
     }
-    task.status = deriveStatus(task);
+    task.status = deriveStatus(task, config);
     if (task.status === "resolved" && !task.resolvedAt) {
       task.resolvedAt = now();
     }
     task.updatedAt = now();
     tasks[idx] = task;
-    await saveTasks(projRoot, tasks);
+    await saveTasks(projRoot, tasks, config);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ id, ...result, message }));
     return true;
@@ -698,19 +749,19 @@ export default async function codingTasksRoute(req, res) {
   const gitRestoreMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/git\/restore$/);
   if (gitRestoreMatch && method === "POST") {
     const id = decodeURIComponent(gitRestoreMatch[1]);
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     const idx = tasks.findIndex(t => t.id === id);
     if (idx < 0) {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Task not found" }));
       return true;
     }
-    const task = ensurePipeline(tasks[idx]);
+    const task = ensurePipeline(tasks[idx], config);
     const git = new TaskGit(projRoot);
     const result = await git.restore(task);
     task.updatedAt = now();
     tasks[idx] = task;
-    await saveTasks(projRoot, tasks);
+    await saveTasks(projRoot, tasks, config);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ id, ...result }));
     return true;
@@ -722,14 +773,14 @@ export default async function codingTasksRoute(req, res) {
     const id = decodeURIComponent(dispatchMatch[1]);
     let body;
     try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     const idx = tasks.findIndex(t => t.id === id);
     if (idx < 0) {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Task not found" }));
       return true;
     }
-    const task = ensurePipeline(tasks[idx]);
+    const task = ensurePipeline(tasks[idx], config);
     // Dispatch = mark phase as in_progress, set assignTo + assignee
     const phase = body.phase || "implement";
     const agent = body.agent || body.assignee || body.by || "agent";
@@ -743,7 +794,7 @@ export default async function codingTasksRoute(req, res) {
       };
     }
     task.assignee = agent;
-    task.status = deriveStatus(task);
+    task.status = deriveStatus(task, config);
     task.updatedAt = now();
     if (!Array.isArray(task.notes)) task.notes = [];
     const noteContent = body.instructions
@@ -755,7 +806,7 @@ export default async function codingTasksRoute(req, res) {
       content: noteContent,
     });
     tasks[idx] = task;
-    await saveTasks(projRoot, tasks);
+    await saveTasks(projRoot, tasks, config);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(task));
     return true;
@@ -765,7 +816,7 @@ export default async function codingTasksRoute(req, res) {
   const singleMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)$/);
   if (singleMatch && method === "GET") {
     const id = decodeURIComponent(singleMatch[1]);
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     const task = tasks.find(t => t.id === id);
     if (!task) {
       res.writeHead(404, { "Content-Type": "application/json" });
@@ -786,31 +837,32 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: "Invalid JSON" }));
       return true;
     }
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     const idx = tasks.findIndex(t => t.id === id);
     if (idx < 0) {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Task not found" }));
       return true;
     }
-    const existing = ensurePipeline(tasks[idx]);
-    const oldLoopMode = existing.loopMode || "full";
+    const existing = ensurePipeline(tasks[idx], config);
     const updated = {
       ...existing,
       ...body,
       id: existing.id, // never overwrite ID
       updatedAt: now(),
     };
-    // If loopMode changed, re-ensure pipeline
-    if (body.loopMode && body.loopMode !== oldLoopMode) {
-      updated.loopMode = body.loopMode;
-      updated.pipeline = ensurePipeline(updated).pipeline;
+    // If task override changed, re-ensure pipeline
+    const oldOverride = existing.loopModeOverride;
+    const newOverride = body.loopModeOverride;
+    if (newOverride !== undefined && newOverride !== oldOverride) {
+      updated.loopModeOverride = newOverride;
+      updated.pipeline = ensurePipeline(updated, config).pipeline;
     }
     // Handle pipeline field updates
     if (body.pipeline) {
       updated.pipeline = { ...existing.pipeline, ...body.pipeline };
       // Re-derive status from updated pipeline
-      updated.status = deriveStatus(updated);
+      updated.status = deriveStatus(updated, config);
     }
     if ((body.status === "resolved" || body.status === "closed") && !updated.resolvedAt) {
       updated.resolvedAt = now();
@@ -819,7 +871,7 @@ export default async function codingTasksRoute(req, res) {
       updated.resolvedAt = null;
     }
     tasks[idx] = updated;
-    await saveTasks(projRoot, tasks);
+    await saveTasks(projRoot, tasks, config);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(updated));
     return true;
@@ -828,7 +880,7 @@ export default async function codingTasksRoute(req, res) {
   // ── DELETE /api/coding-tasks/:id ──
   if (singleMatch && method === "DELETE") {
     const id = decodeURIComponent(singleMatch[1]);
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     const idx = tasks.findIndex(t => t.id === id);
     if (idx < 0) {
       res.writeHead(404, { "Content-Type": "application/json" });
@@ -836,7 +888,7 @@ export default async function codingTasksRoute(req, res) {
       return true;
     }
     const deleted = tasks.splice(idx, 1)[0];
-    await saveTasks(projRoot, tasks);
+    await saveTasks(projRoot, tasks, config);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, deleted }));
     return true;
@@ -848,7 +900,8 @@ export default async function codingTasksRoute(req, res) {
 
   // ── GET /api/coding-tasks (list) ──
   if (url === "/api/coding-tasks" && method === "GET") {
-    let tasks = await loadTasks(projRoot);
+    const { tasks: allTasks, config } = await loadTasksAndConfig(projRoot);
+    let tasks = allTasks;
     if (q.status) { const s = q.status.split(","); tasks = tasks.filter(t => s.includes(t.status)); }
     if (q.priority) { const s = q.priority.split(","); tasks = tasks.filter(t => s.includes(t.priority)); }
     if (q.type) { const s = q.type.split(","); tasks = tasks.filter(t => s.includes(t.type)); }
@@ -889,7 +942,7 @@ export default async function codingTasksRoute(req, res) {
       return (priorityOrder[a.priority] ?? 9) - (priorityOrder[b.priority] ?? 9);
     });
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ tasks }));
+    res.end(JSON.stringify({ tasks, projectLoopMode: config.loopMode }));
     return true;
   }
 
@@ -906,7 +959,7 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: "Title is required" }));
       return true;
     }
-    const tasks = await loadTasks(projRoot);
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
     const ts = now();
     const newTask = ensurePipeline({
       id: genId(tasks),
@@ -936,14 +989,12 @@ export default async function codingTasksRoute(req, res) {
       qaResult: null,
       overnight: null,
       pipeline: body.pipeline || null,
-      loopMode: body.loopMode || "mini",  // default mini loop for new tasks
-    });
-    // ensurePipeline will fill in the rest based on loopMode
+      loopModeOverride: body.loopModeOverride || body.loopMode || null,  // task override, not project
     });
     // Derive status from pipeline
-    newTask.status = deriveStatus(newTask);
+    newTask.status = deriveStatus(newTask, config);
     tasks.push(newTask);
-    await saveTasks(projRoot, tasks);
+    await saveTasks(projRoot, tasks, config);
     res.writeHead(201, { "Content-Type": "application/json" });
     res.end(JSON.stringify(newTask));
     return true;

@@ -51,6 +51,8 @@ interface GitStatusViewProps {
   // ── Pipeline state ──
   pipeline: Record<string, { status: string; by?: string; at?: string; result?: string; reason?: string; feedback?: string }> | null;
   loopMode: "full" | "mini";
+  projectLoopMode: "full" | "mini";
+  setProjectLoopMode: (mode: "full" | "mini") => void;
   qaVerdict: { verdict: string; issues: number; critical: number; summary: string; feedback: string } | null;
   onSpecApprove: () => void;
   onSpecReject: () => void;
@@ -78,6 +80,8 @@ export default function GitStatusView({
   qaReviewLoading,
   pipeline,
   loopMode,
+  projectLoopMode,
+  setProjectLoopMode,
   qaVerdict,
   onSpecApprove,
   onSpecReject,
@@ -87,7 +91,7 @@ export default function GitStatusView({
 
   // ── Pipeline progress helpers ──
   const PIPELINE_PHASES = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
-  const MINI_LOOP_PHASES = ["implement", "qa", "commit"];
+  const MINI_LOOP_PHASES = ["implement", "commit"];
   const activePhases = loopMode === "mini" ? MINI_LOOP_PHASES : PIPELINE_PHASES;
 
   const phaseEmoji: Record<string, string> = {
@@ -175,9 +179,12 @@ export default function GitStatusView({
             <span className="text-xs">🔄</span>
             <span className="text-[10px] font-bold text-stone-600">Pipeline</span>
             <span className={cn(
-              "text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-1",
-              loopMode === "mini" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
-            )}>
+              "text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-1 cursor-pointer select-none transition-all active:scale-95",
+              loopMode === "mini" ? "bg-amber-100 text-amber-700 hover:bg-amber-200" : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+            )}
+            onClick={() => setProjectLoopMode(loopMode === "mini" ? "full" : "mini")}
+            title={`Click to switch to ${loopMode === "mini" ? "Full Loop" : "Mini Loop"}`}
+            >
               {loopMode === "mini" ? "Mini Loop" : "Full Loop"}
             </span>
             {qaRework && (
@@ -289,22 +296,31 @@ export default function GitStatusView({
               )}
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <button onClick={(e) => { e.stopPropagation(); onQaReview(); }}
-                disabled={qaReviewLoading}
-                className={cn(
-                  "text-[10px] px-2 py-1 rounded-md font-bold transition-all active:scale-95",
-                  qaReviewLoading
-                    ? "bg-orange-300 text-white cursor-wait"
-                    : "bg-orange-500 text-white hover:bg-orange-600"
-                )}>
-                {qaReviewLoading ? (
-                  <span className="flex items-center gap-1">
-                    <span className="animate-spin">⚙️</span> Reviewing...
-                  </span>
-                ) : (
-                  "🔬 QA Review"
-                )}
-              </button>
+              {/* Full Loop: QA Review button */}
+              {loopMode === "full" && (
+                <button onClick={(e) => { e.stopPropagation(); onQaReview(); }}
+                  disabled={qaReviewLoading}
+                  className={cn(
+                    "text-[10px] px-2 py-1 rounded-md font-bold transition-all active:scale-95",
+                    qaReviewLoading
+                      ? "bg-orange-300 text-white cursor-wait"
+                      : "bg-orange-500 text-white hover:bg-orange-600"
+                  )}>
+                  {qaReviewLoading ? (
+                    <span className="flex items-center gap-1">
+                      <span className="animate-spin">⚙️</span> Reviewing...
+                    </span>
+                  ) : (
+                    "🔬 QA Review"
+                  )}
+                </button>
+              )}
+              {/* Mini Loop: Human review hint */}
+              {loopMode === "mini" && (
+                <span className="text-[10px] px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 font-bold">
+                  👤 你驗功能 → Commit
+                </span>
+              )}
               <button onClick={(e) => {
                 e.stopPropagation();
                 const s = stagedSummary!;

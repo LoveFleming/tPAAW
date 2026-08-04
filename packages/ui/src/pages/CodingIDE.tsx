@@ -615,6 +615,7 @@ export default function CodingIDE() {
     createdAt?: string;
   }
   const [stagedSummary, setStagedSummary] = useState<StagedChangeSummary | null>(null);
+  const [projectLoopMode, setProjectLoopMode] = useState<"mini" | "full">("mini");
   const [showStagedDetail, setShowStagedDetail] = useState(false);
 
   // ── API Tester State ──
@@ -676,6 +677,27 @@ export default function CodingIDE() {
       }
     })();
   }, []);
+
+  // Load project loop mode from server
+  useEffect(() => {
+    if (!rootPath) return;
+    fetch(`${API_BASE}/api/coding-tasks/project/loop-mode?path=${encodeURIComponent(rootPath)}`)
+      .then(r => r.json())
+      .then(data => { if (data.loopMode) setProjectLoopMode(data.loopMode); })
+      .catch(() => {});
+  }, [rootPath]);
+
+  const handleSetProjectLoopMode = useCallback(async (mode: "mini" | "full") => {
+    setProjectLoopMode(mode);
+    if (!rootPath) return;
+    try {
+      await fetch(`${API_BASE}/api/coding-tasks/project/loop-mode?path=${encodeURIComponent(rootPath)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ loopMode: mode }),
+      });
+    } catch {}
+  }, [rootPath]);
 
   // Load project APIs when rootPath changes
   useEffect(() => {
@@ -2624,7 +2646,9 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 gitReviews={gitReviews}
                 blameData={blameData}
                 blameFile={blameFile}
-                activeCodingTask={activeCodingTask ? { id: activeCodingTask.id, title: activeCodingTask.title, loopMode: activeCodingTask.loopMode, pipeline: activeCodingTask.pipeline } : null}
+                activeCodingTask={activeCodingTask ? { id: activeCodingTask.id, title: activeCodingTask.title, loopModeOverride: activeCodingTask.loopModeOverride, effectiveLoopMode: activeCodingTask.effectiveLoopMode, pipeline: activeCodingTask.pipeline } : null}
+                projectLoopMode={projectLoopMode}
+                setProjectLoopMode={handleSetProjectLoopMode}
                 setGitTab={setGitTab}
                 setGitCommitMsg={setGitCommitMsg}
                 setGitActionMsg={setGitActionMsg}
