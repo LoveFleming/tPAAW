@@ -19,6 +19,8 @@ export {
   getStatusEmoji,
   getStatusColorClass,
   getCategoryLabel,
+  fileKey,
+  pathFromFileKey,
 } from "./git-helpers";
 export type {
   GitFileStatus,

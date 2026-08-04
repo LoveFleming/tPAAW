@@ -10,13 +10,13 @@
  * 4. Tab 切換：Status / Diff / Blame / Review
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { cn } from "../../utils";
 import GitStatusView from "./GitStatusView";
 import GitDiffView from "./GitDiffView";
 import GitReviewView from "./GitReviewView";
 import GitCommitBar from "./GitCommitBar";
-import { classifyGitFile } from "./git-helpers";
+import { classifyGitFile, fileKey, pathFromFileKey } from "./git-helpers";
 
 // ── Types ──
 interface GitFileStatus {
@@ -162,39 +162,71 @@ export default function GitPanel(props: GitPanelProps) {
     setExternalGitTab(tab);
   }, [setExternalGitTab]);
 
-  // ── File toggle (single) ──
-  const toggleFile = useCallback((path: string) => {
-    setSelectedFiles(prev => {
+  // ── Selected keys (fileKey = "S::path" / "U::path") ──
+  // Internal state uses fileKey for uniqueness
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+
+  // Sync with parent's selectedFiles (path-based) on mount / when gitStatus changes
+  // But internally we track by fileKey for correctness
+  useEffect(() => {
+    // When gitStatus changes, recompute selectedKeys from selectedFiles prop
+    if (!gitStatus) return;
+    const allFiles: (GitFileStatus & { staged: boolean })[] = [];
+    for (const f of gitStatus.staged) allFiles.push({ ...f, staged: true });
+    for (const f of gitStatus.unstaged) allFiles.push({ ...f, staged: false });
+    for (const f of gitStatus.untracked) allFiles.push({ ...f, staged: false });
+    // Map selectedFiles (paths) → selectedKeys (fileKeys)
+    // If a path is selected and appears in both staged+unstaged, select both keys
+    const newKeys = new Set<string>();
+    for (const f of allFiles) {
+      if (selectedFiles.has(f.path)) newKeys.add(fileKey(f));
+    }
+    setSelectedKeys(newKeys);
+  }, [gitStatus, selectedFiles]);
+
+  // ── Toggle single file by key ──
+  const toggleKey = useCallback((key: string) => {
+    setSelectedKeys(prev => {
       const next = new Set(prev);
-      next.has(path) ? next.delete(path) : next.add(path);
+      next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
-  }, [setSelectedFiles]);
+  }, []);
 
-  // ── Select multiple files at once (for group Select All) ──
-  const selectFiles = useCallback((paths: string[], selected: boolean) => {
-    setSelectedFiles(prev => {
+  // ── Select multiple keys at once ──
+  const selectKeys = useCallback((keys: string[], selected: boolean) => {
+    setSelectedKeys(prev => {
       const next = new Set(prev);
-      for (const p of paths) {
-        if (selected) next.add(p); else next.delete(p);
+      for (const k of keys) {
+        if (selected) next.add(k); else next.delete(k);
       }
       return next;
     });
-  }, [setSelectedFiles]);
+  }, []);
 
   // ── Select All / Clear ──
   const selectAllFiles = useCallback(() => {
     if (!gitStatus) return;
-    const all = new Set<string>();
-    gitStatus.staged.forEach(f => all.add(f.path));
-    gitStatus.unstaged.forEach(f => all.add(f.path));
-    gitStatus.untracked.forEach(f => all.add(f.path));
-    setSelectedFiles(all);
-  }, [gitStatus, setSelectedFiles]);
+    const allKeys: string[] = [];
+    for (const f of gitStatus.staged) allKeys.push(fileKey({ ...f, staged: true }));
+    for (const f of gitStatus.unstaged) allKeys.push(fileKey({ ...f, staged: false }));
+    for (const f of gitStatus.untracked) allKeys.push(fileKey({ ...f, staged: false }));
+    selectKeys(allKeys, true);
+  }, [gitStatus, selectKeys]);
 
   const clearAllFiles = useCallback(() => {
-    setSelectedFiles(new Set());
-  }, [setSelectedFiles]);
+    setSelectedKeys(new Set());
+  }, []);
+
+  // ── Get selected paths (for commit API) from selectedKeys ──
+  const getSelectedPaths = useCallback((): string[] => {
+    return Array.from(selectedKeys).map(k => pathFromFileKey(k));
+  }, [selectedKeys]);
+
+  // ── Selected count (by unique paths) ──
+  const selectedPathCount = useMemo(() => {
+    return new Set(Array.from(selectedKeys).map(k => pathFromFileKey(k))).size;
+  }, [selectedKeys]);
 
   // ── File click → view diff ──
   const handleFileClick = useCallback((path: string, isStaged: boolean) => {
@@ -240,7 +272,7 @@ export default function GitPanel(props: GitPanelProps) {
 
   // ── Commit actions ──
   const handleCommitSelected = useCallback(async () => {
-    const files = Array.from(selectedFiles);
+    const files = getSelectedPaths();
     if (files.length === 0) { setGitActionMsg("⚠️ No files selected — check boxes below"); return; }
     if (!gitCommitMsg.trim()) { setGitActionMsg("⚠️ Enter commit message first"); return; }
     setGitActionMsg(`Staging ${files.length} file(s)...`);
@@ -253,11 +285,11 @@ export default function GitPanel(props: GitPanelProps) {
     if (!commitData.ok) { setGitActionMsg(`❌ Commit failed: ${commitData.error}`); refreshGitStatus(); return; }
     setGitActionMsg(`✅ Committed ${files.length} file(s): ${commitData.output || commitData.message}`);
     setGitCommitMsg("");
-    setSelectedFiles(new Set());
+    setSelectedKeys(new Set());
     try { await fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" }); setStagedSummary(null); } catch {}
     refreshGitStatus();
     refreshGitLog();
-  }, [selectedFiles, gitCommitMsg, rootPath, API_BASE, setGitActionMsg, setGitCommitMsg, setSelectedFiles, setStagedSummary, refreshGitStatus, refreshGitLog]);
+  }, [getSelectedPaths, gitCommitMsg, rootPath, API_BASE, setGitActionMsg, setGitCommitMsg, setSelectedKeys, setStagedSummary, refreshGitStatus, refreshGitLog]);
 
   const handleCommitAll = useCallback(async () => {
     if (!gitStatus?.staged?.length && !gitStatus?.unstaged?.length && !gitStatus?.untracked?.length) {
@@ -275,7 +307,7 @@ export default function GitPanel(props: GitPanelProps) {
     if (!commitData.ok) { setGitActionMsg(`❌ Commit failed: ${commitData.error}`); refreshGitStatus(); return; }
     setGitActionMsg(`✅ ${commitData.output || commitData.message}`);
     setGitCommitMsg("");
-    setSelectedFiles(new Set());
+    setSelectedKeys(new Set());
     try { await fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" }); setStagedSummary(null); } catch {}
     refreshGitStatus();
     refreshGitLog();
@@ -287,7 +319,7 @@ export default function GitPanel(props: GitPanelProps) {
     setGitActionMsg(null);  // Will be set by the commit bar via aiCommitLoading
     try {
       let diffText = "";
-      const selFiles = Array.from(selectedFiles);
+      const selFiles = getSelectedPaths();
       if (selFiles.length > 0) {
         for (const fp of selFiles) {
           if (codeOnly && classifyGitFile(fp) !== "code") continue;
@@ -404,9 +436,9 @@ export default function GitPanel(props: GitPanelProps) {
         {gitTab === "status" && (
           <GitStatusView
             gitStatus={gitStatus}
-            selectedFiles={selectedFiles}
-            onToggleFile={toggleFile}
-            onSelectFiles={selectFiles}
+            selectedKeys={selectedKeys}
+            onToggleKey={toggleKey}
+            onSelectKeys={selectKeys}
             onFileClick={handleFileClick}
             stagedSummary={stagedSummary}
             onPull={handlePull}
@@ -487,7 +519,7 @@ export default function GitPanel(props: GitPanelProps) {
       <GitCommitBar
         commitMsg={gitCommitMsg}
         onCommitMsgChange={setGitCommitMsg}
-        selectedFiles={selectedFiles}
+        selectedCount={selectedPathCount}
         stagedFiles={gitStatus?.staged || []}
         allFiles={gitStatus?.all || []}
         onCommitSelected={handleCommitSelected}

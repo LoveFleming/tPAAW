@@ -1,29 +1,28 @@
 /**
  * GitFileGroup.tsx — Git 檔案分組卡片組件
  * 
- * 分類顯示：Code（主）→ Config → Docs → Other → .paaw（最不顯眼）
- * 每個分組是一張可收折的卡片
- * Select All: 一次性設定，不要逐個 toggle（避免 React batch race）
+ * key = fileKey(f) = "S::path" / "U::path"
+ * 同名檔案 staged vs unstaged 各自獨立
  */
 
 import React, { useState } from "react";
 import { cn } from "../../utils";
-import { GitFileGroup as GitFileGroupType, getStatusEmoji, getStatusColorClass } from "./git-helpers";
+import { GitFileGroup as GitFileGroupType, getStatusEmoji, getStatusColorClass, fileKey } from "./git-helpers";
 
 interface GitFileGroupProps {
   group: GitFileGroupType;
-  selectedFiles: Set<string>;
-  onToggleFile: (path: string) => void;
-  onSelectFiles: (paths: string[], selected: boolean) => void;
+  selectedKeys: Set<string>;
+  onToggleKey: (key: string) => void;
+  onSelectKeys: (keys: string[], selected: boolean) => void;
   onFileClick: (path: string, isStaged: boolean) => void;
   className?: string;
 }
 
 export default function GitFileGroupCard({
   group,
-  selectedFiles,
-  onToggleFile,
-  onSelectFiles,
+  selectedKeys,
+  onToggleKey,
+  onSelectKeys,
   onFileClick,
   className,
 }: GitFileGroupProps) {
@@ -31,9 +30,9 @@ export default function GitFileGroupCard({
   const isCode = group.category === "code";
   const isPaaw = group.category === "paaw";
 
-  const allPaths = group.files.map(f => f.path);
-  const allSelected = allPaths.length > 0 && allPaths.every(p => selectedFiles.has(p));
-  const someSelected = allPaths.some(p => selectedFiles.has(p));
+  const allKeys = group.files.map(f => fileKey(f));
+  const allSelected = allKeys.length > 0 && allKeys.every(k => selectedKeys.has(k));
+  const someSelected = allKeys.some(k => selectedKeys.has(k));
 
   return (
     <div
@@ -51,26 +50,18 @@ export default function GitFileGroupCard({
           isCode ? "bg-emerald-50 hover:bg-emerald-100" : isPaaw ? "bg-stone-50 hover:bg-stone-100" : "bg-stone-50 hover:bg-stone-100"
         )}
       >
-        {/* Expand/Collapse indicator */}
         <span className={cn("text-[10px] transition-transform", expanded ? "rotate-0" : "-rotate-90")}>▼</span>
-
-        {/* Category emoji + label */}
         <span className="text-sm">{group.emoji}</span>
         <span className={cn("text-xs font-bold", isCode ? "text-emerald-700" : isPaaw ? "text-stone-500" : "text-stone-600")}>
           {group.label}
         </span>
-
-        {/* File count badge */}
         <span className={cn(
           "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
           isCode ? "bg-emerald-100 text-emerald-700" : isPaaw ? "bg-stone-200 text-stone-500" : "bg-stone-100 text-stone-500"
         )}>
           {group.files.length}
         </span>
-
         <span className="flex-1" />
-
-        {/* Select all in group — 一次性設定，不逐個 toggle */}
         {expanded && (
           <button
             type="button"
@@ -83,8 +74,7 @@ export default function GitFileGroupCard({
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
-              // 一次性全選/全不選
-              onSelectFiles(allPaths, !allSelected);
+              onSelectKeys(allKeys, !allSelected);
             }}
           >
             {allSelected ? "Deselect all" : "Select all"}
@@ -97,32 +87,26 @@ export default function GitFileGroupCard({
         <div className={cn("divide-y", isCode ? "divide-emerald-100" : "divide-stone-100")}>
           {group.files.map((f, i) => {
             const isStaged = f.staged ?? false;
+            const fk = fileKey(f);
             const emoji = getStatusEmoji(f.status);
             const colorClass = getStatusColorClass(f.status, isStaged);
 
             return (
               <div
-                key={i}
+                key={fk}
                 className={cn(
                   "flex items-center gap-2 px-3 py-1.5 text-xs transition-colors group",
                   isCode ? "hover:bg-emerald-25" : "hover:bg-stone-50"
                 )}
               >
-                {/* Checkbox */}
                 <input
                   type="checkbox"
-                  checked={selectedFiles.has(f.path)}
-                  onChange={() => onToggleFile(f.path)}
+                  checked={selectedKeys.has(fk)}
+                  onChange={() => onToggleKey(fk)}
                   className={cn("w-3 h-3 shrink-0 rounded", isCode ? "accent-emerald-500" : "accent-stone-400")}
                 />
-
-                {/* Status symbol */}
                 <span className={cn("font-bold w-4 shrink-0", colorClass)}>{emoji}</span>
-
-                {/* Status letter */}
                 <span className={cn("w-4 shrink-0 text-[10px] font-mono", colorClass)}>{f.status}</span>
-
-                {/* File path — clickable to view diff */}
                 <span
                   className={cn(
                     "truncate flex-1 cursor-pointer",
@@ -133,8 +117,13 @@ export default function GitFileGroupCard({
                 >
                   {f.path}
                 </span>
-
-                {/* Category tag for .paaw files */}
+                {/* Staged/Unstaged indicator for duplicate filenames */}
+                <span className={cn(
+                  "text-[9px] px-1 py-0.5 rounded shrink-0 font-medium",
+                  isStaged ? "bg-emerald-50 text-emerald-500" : "bg-amber-50 text-amber-500"
+                )}>
+                  {isStaged ? "staged" : "unstaged"}
+                </span>
                 {isPaaw && (
                   <span className="text-[10px] px-1 py-0.5 rounded bg-stone-100 text-stone-400 shrink-0">.paaw</span>
                 )}

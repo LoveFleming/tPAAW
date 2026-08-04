@@ -12,6 +12,22 @@ export interface GitFileStatus {
   staged?: boolean;
 }
 
+/**
+ * 唯一識別一個 git file entry
+ * 同一個 path 可能同時出現在 staged 和 unstaged
+ * 用 path + staged 狀態組合當 key
+ */
+export function fileKey(f: GitFileStatus): string {
+  return `${f.staged ? "S" : "U"}::${f.path}`;
+}
+
+/**
+ * 從 fileKey 取回 path（用於 git add/commit API）
+ */
+export function pathFromFileKey(key: string): string {
+  return key.replace(/^[SU]::/, "");
+}
+
 export interface GitCommit {
   hash: string;
   short: string;

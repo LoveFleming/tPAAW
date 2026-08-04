@@ -15,7 +15,7 @@ import { classifyGitFile } from "./git-helpers";
 interface GitCommitBarProps {
   commitMsg: string;
   onCommitMsgChange: (msg: string) => void;
-  selectedFiles: Set<string>;
+  selectedCount: number;
   /** All staged files */
   stagedFiles: { path: string; status: string }[];
   /** All files (staged + unstaged + untracked) */
@@ -38,7 +38,7 @@ interface GitCommitBarProps {
 export default function GitCommitBar({
   commitMsg,
   onCommitMsgChange,
-  selectedFiles,
+  selectedCount,
   stagedFiles,
   allFiles,
   onCommitSelected,
@@ -53,8 +53,8 @@ export default function GitCommitBar({
   const [showCommitMenu, setShowCommitMenu] = useState(false);
 
   // Count code vs .paaw files in selection
-  const selectedCodeCount = Array.from(selectedFiles).filter(p => classifyGitFile(p) === "code").length;
-  const selectedPaawCount = Array.from(selectedFiles).filter(p => classifyGitFile(p) === "paaw").length;
+  const selectedCodeCount = stagedFiles.filter(p => classifyGitFile(p.path) === "code").length;
+  const selectedPaawCount = stagedFiles.filter(p => classifyGitFile(p.path) === "paaw").length;
   const stagedCodeCount = stagedFiles.filter(f => classifyGitFile(f.path) === "code").length;
   const stagedPaawCount = stagedFiles.filter(f => classifyGitFile(f.path) === "paaw").length;
 
@@ -106,7 +106,7 @@ export default function GitCommitBar({
         {/* Commit Selected — primary action */}
         <button
           onClick={onCommitSelected}
-          disabled={selectedFiles.size === 0}
+          disabled={selectedCount === 0}
           className={cn(
             "text-xs px-3 py-1.5 rounded-md font-bold shrink-0 transition-all",
             "bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 disabled:hover:bg-emerald-600",
@@ -114,7 +114,7 @@ export default function GitCommitBar({
           )}
           data-commit-btn
         >
-          ✅ Commit{selectedFiles.size > 0 ? ` (${selectedFiles.size})` : ""}
+          ✅ Commit{selectedCount > 0 ? ` (${selectedCount})` : ""}
         </button>
 
         {/* Commit All — dropdown */}
