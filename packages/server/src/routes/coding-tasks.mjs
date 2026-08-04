@@ -153,7 +153,7 @@ async function loadTasksAndConfig(projectPath) {
           const mapped = {
             id: t.id || "",
             title: t.title || "",
-            type: t.type || "chore",
+            type: t.type || "feature",
             parentId: t.parentId || null,
             linkedIssueId: t.linkedIssueId || null,
             status: t.status || "open",
@@ -196,6 +196,8 @@ async function loadTasks(projectPath) {
 }
 
 function getEffectiveLoopMode(task, projectConfig) {
+  // Health tasks always use mini loop (implement → commit)
+  if (task.type === "health") return "mini";
   return task.loopModeOverride || projectConfig?.loopMode || "mini";
 }
 
@@ -388,6 +390,79 @@ export default async function codingTasksRoute(req, res) {
         pipeline: t.pipeline,
       })),
     }));
+    return true;
+  }
+
+  // ── POST /api/coding-tasks/health-fix ──
+  // Create a type=health parent task + sub-tasks from fixPlan
+  if (url === "/api/coding-tasks/health-fix" && method === "POST") {
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    const { title, description, fixPlan, source } = body;
+    if (!fixPlan?.steps || !Array.isArray(fixPlan.steps) || fixPlan.steps.length === 0) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "fixPlan.steps[] is required" }));
+      return true;
+    }
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
+    const ts = now();
+    // Create parent health task
+    const parentTask = ensurePipeline({
+      id: genId(tasks),
+      title: title || `🏥 Health Fix: ${fixPlan.steps.length} items`,
+      type: "health",
+      parentId: null,
+      status: "open",
+      priority: "medium",
+      labels: ["health", "auto-fix"],
+      assignee: "em",  // EM is the owner
+      description: description || "",
+      relatedFiles: [],
+      notes: [{ by: "system", at: ts, content: `Auto-created from code health scan. ${fixPlan.steps.length} sub-tasks.` }],
+      executionResult: null,
+      createdAt: ts,
+      updatedAt: ts,
+      createdBy: "health-scan",
+      pipeline: null,
+      loopModeOverride: null, // health tasks always mini
+      source: source || "code-health",
+    }, config);
+    parentTask.status = deriveStatus(parentTask, config);
+    tasks.push(parentTask);
+    // Create sub-tasks from fixPlan.steps
+    const created = [];
+    for (const step of fixPlan.steps) {
+      const subTask = ensurePipeline({
+        id: genId(tasks.concat(created)),
+        title: step.task?.trim() || step.title?.trim() || `Fix step`,
+        type: "health",
+        parentId: parentTask.id,
+        status: "open",
+        priority: "medium",
+        labels: ["health", "auto-fix"],
+        assignee: step.agent || null,
+        description: step.task || step.description || "",
+        relatedFiles: step.files || [],
+        notes: [],
+        executionResult: null,
+        createdAt: ts,
+        updatedAt: ts,
+        createdBy: "health-scan",
+        pipeline: null,
+        loopModeOverride: null,
+        source: source || "code-health",
+      }, config);
+      subTask.status = deriveStatus(subTask, config);
+      tasks.push(subTask);
+      created.push(subTask);
+    }
+    await saveTasks(projRoot, tasks, config);
+    res.writeHead(201, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, parent: { id: parentTask.id, title: parentTask.title }, subTasks: created.map(s => ({ id: s.id, title: s.title, assignee: s.assignee })) }));
     return true;
   }
 
@@ -976,8 +1051,8 @@ export default async function codingTasksRoute(req, res) {
     const ts = now();
     const newTask = ensurePipeline({
       id: genId(tasks),
-      title: body.title.trim(),
-      type: body.type || "chore",
+      title: body.title.trim() || "Untitled",
+      type: body.type || "feature",
       parentId: body.parentId || null,
       linkedIssueId: body.linkedIssueId || null,
       status: body.status || "open",

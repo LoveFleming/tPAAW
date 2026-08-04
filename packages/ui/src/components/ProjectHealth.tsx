@@ -9,6 +9,7 @@
  * - Session activity (recent AI sessions, success rate)
  */
 import React, { useEffect, useState, useCallback } from "react";
+import { cn } from "../utils";
 import API_BASE from "../api";
 
 // ── Types ──
@@ -39,6 +40,19 @@ interface HealthData {
   dependencies?: {
     total: number;
     outdated?: number;
+  };
+  fixItems?: FixItem[];
+}
+
+interface FixItem {
+  id: string;
+  severity: "high" | "medium" | "low";
+  category: string;
+  title: string;
+  description: string;
+  fixPlan: {
+    steps: { agent: string; task: string; files?: string[] }[];
+    estimatedMinutes: number;
   };
 }
 
@@ -242,6 +256,111 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Fix Items — Actionable health issues */}
+      {health.fixItems && health.fixItems.length > 0 && (
+        <div className="px-4 py-3 border-b border-stone-100">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-semibold text-stone-600">🔧 可修復項目</span>
+            <span className="text-xs text-stone-400">({health.fixItems.length})</span>
+          </div>
+          {health.fixItems.map((item) => (
+            <div key={item.id} className={cn(
+              "rounded-lg border mb-2 overflow-hidden",
+              item.severity === "high" ? "border-red-200" :
+              item.severity === "medium" ? "border-amber-200" :
+              "border-stone-200"
+            )}>
+              <div className={cn(
+                "flex items-center gap-2 px-3 py-1.5 text-xs",
+                item.severity === "high" ? "bg-red-50" :
+                item.severity === "medium" ? "bg-amber-50" :
+                "bg-stone-50"
+              )}>
+                <span>{item.severity === "high" ? "🔴" : item.severity === "medium" ? "🟡" : "🟢"}</span>
+                <span className="font-bold text-stone-700 flex-1">{item.title}</span>
+                <span className="text-[10px] text-stone-400">{item.category}</span>
+              </div>
+              <div className="px-3 py-1.5 text-[11px] text-stone-500">{item.description}</div>
+              <div className="px-3 py-1.5 flex items-center gap-1.5 flex-wrap">
+                {item.fixPlan.steps.map((step, i) => (
+                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 font-medium">
+                    {step.agent}: {step.task.slice(0, 30)}{step.task.length > 30 ? "..." : ""}
+                  </span>
+                ))}
+                <span className="text-[10px] text-stone-300">~{item.fixPlan.estimatedMinutes}min</span>
+              </div>
+              <div className="px-3 py-1.5 border-t border-stone-100 flex justify-end">
+                <button
+                  onClick={async () => {
+                    try {
+                      const r = await fetch(`${API_BASE}/api/coding-tasks/health-fix?path=${encodeURIComponent(projectRoot)}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          title: `🏥 ${item.title}`,
+                          description: item.description,
+                          fixPlan: item.fixPlan,
+                          source: "code-health",
+                        }),
+                      });
+                      const data = await r.json();
+                      if (data.ok) {
+                        alert(`✅ 已派給 EM！\nParent: ${data.parent.title}\nSub-tasks: ${data.subTasks.length}`);
+                        loadHealth();
+                      } else {
+                        alert(`❌ 失敗: ${data.error}`);
+                      }
+                    } catch (e: any) {
+                      alert(`❌ Error: ${e.message}`);
+                    }
+                  }}
+                  className="text-[10px] px-2.5 py-1 rounded-md bg-violet-500 text-white font-bold hover:bg-violet-600 active:scale-95 transition-all"
+                >
+                  🏥 派給 EM
+                </button>
+              </div>
+            </div>
+          ))}
+          {/* Fix All button */}
+          {health.fixItems.length > 1 && (
+            <div className="flex justify-end mt-1">
+              <button
+                onClick={async () => {
+                  const confirmed = confirm(`一次派 ${health.fixItems!.length} 個修復項目給 EM？`);
+                  if (!confirmed) return;
+                  try {
+                    const allSteps = health.fixItems!.flatMap(item => item.fixPlan.steps);
+                    const totalMin = health.fixItems!.reduce((sum, item) => sum + item.fixPlan.estimatedMinutes, 0);
+                    const r = await fetch(`${API_BASE}/api/coding-tasks/health-fix?path=${encodeURIComponent(projectRoot)}`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        title: `🏥 Health Fix: ${health.fixItems!.length} items`,
+                        description: health.fixItems!.map(i => `- ${i.title}`).join("\n"),
+                        fixPlan: { steps: allSteps, estimatedMinutes: totalMin },
+                        source: "code-health-batch",
+                      }),
+                    });
+                    const data = await r.json();
+                    if (data.ok) {
+                      alert(`✅ 全部派給 EM！\nParent: ${data.parent.title}\nSub-tasks: ${data.subTasks.length}`);
+                      loadHealth();
+                    } else {
+                      alert(`❌ 失敗: ${data.error}`);
+                    }
+                  } catch (e: any) {
+                    alert(`❌ Error: ${e.message}`);
+                  }
+                }}
+                className="text-[10px] px-3 py-1.5 rounded-md bg-violet-500 text-white font-bold hover:bg-violet-600 active:scale-95 transition-all"
+              >
+                🏥 全部派給 EM
+              </button>
+            </div>
+          )}
         </div>
       )}
 

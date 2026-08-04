@@ -3618,5 +3618,102 @@ async function collectProjectHealth(root, paaw) {
     }
   } catch {}
 
+  // ── Fix items (actionable health issues with fixPlan) ──
+  const fixItems = [];
+  const fixId = (cat, name) => `health-${cat}-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
+  // Missing .paaw/ docs → docWriter
+  for (const f of health.paawCompleteness.files) {
+    if (!f.exists && !f.name.endsWith("/")) {
+      fixItems.push({
+        id: fixId("paaw", f.name),
+        severity: "medium",
+        category: "documentation",
+        title: `缺少 .paaw/${f.name}`,
+        description: `${f.name} 是重要的專案知識文件，建議補齊`,
+        fixPlan: {
+          steps: [
+            { agent: "docWriter", task: `建立 .paaw/${f.name}，內容根據現有專案程式碼和架構推導` },
+          ],
+          estimatedMinutes: 10,
+        },
+      });
+    }
+  }
+
+  // Missing .paaw/ subdirs
+  for (const f of health.paawCompleteness.files) {
+    if (!f.exists && f.name.endsWith("/")) {
+      fixItems.push({
+        id: fixId("paaw", f.name),
+        severity: "low",
+        category: "structure",
+        title: `缺少 .paaw/${f.name} 目錄`,
+        description: `建議建立 ${f.name} 目錄以組織專案知識`,
+        fixPlan: {
+          steps: [
+            { agent: "docWriter", task: `建立 .paaw/${f.name} 目錄及基本內容` },
+          ],
+          estimatedMinutes: 5,
+        },
+      });
+    }
+  }
+
+  // Git: uncommitted changes → commit
+  if (health.git.uncommitted > 5) {
+    fixItems.push({
+      id: fixId("git", "uncommitted"),
+      severity: "medium",
+      category: "git",
+      title: `${health.git.uncommitted} 個未提交的變更`,
+      description: "工作目錄有大量未提交變更，建議整理後提交",
+      fixPlan: {
+        steps: [
+          { agent: "developer", task: "整理 uncommitted 變更，分組 stage + 準備 commit message（只 git add，不 commit）" },
+        ],
+        estimatedMinutes: 15,
+      },
+    });
+  }
+
+  // Git: no remote
+  if (!health.git.remote) {
+    fixItems.push({
+      id: fixId("git", "no-remote"),
+      severity: "high",
+      category: "git",
+      title: "沒有設定 Git Remote",
+      description: "建議設定 remote origin 以便 push 和協作",
+      fixPlan: {
+        steps: [
+          { agent: "developer", task: "幫使用者設定 git remote origin（詢問 repo URL）" },
+        ],
+        estimatedMinutes: 5,
+      },
+    });
+  }
+
+  // Low paaw score → comprehensive doc fix
+  if (health.paawCompleteness.score < 50) {
+    fixItems.push({
+      id: fixId("paaw", "low-score"),
+      severity: "high",
+      category: "documentation",
+      title: `.paaw/ 健康分數過低 (${health.paawCompleteness.score}/100)`,
+      description: "知識文件嚴重不足，建議全面補齊",
+      fixPlan: {
+        steps: [
+          { agent: "docWriter", task: "建立 .paaw/PROJECT.md，描述專案目標和架構" },
+          { agent: "docWriter", task: "建立 .paaw/DECISIONS.md，記錄重要架構決策" },
+          { agent: "docWriter", task: "建立 .paaw/CODING-STANDARDS.md，記錄程式碼規範" },
+        ],
+        estimatedMinutes: 20,
+      },
+    });
+  }
+
+  health.fixItems = fixItems;
+
   return health;
 }
