@@ -503,6 +503,15 @@ export default async function codingTasksRoute(req, res) {
       return true;
     }
     const task = ensurePipeline(tasks[idx]);
+    // Special: if advancing spec from agent (not human), set to awaiting_human first (Gate 1)
+    if (phase === "spec" && task.pipeline.spec?.status === "in_progress" && by !== "human") {
+      task.pipeline.spec = { status: "awaiting_human", by: by || "agent", at: now(), result: result || undefined };
+      task.status = deriveStatus(task);
+      await saveTasks(projRoot, tasks);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, task }));
+      return true;
+    }
     // Mark current phase done
     task.pipeline[phase] = {
       status: "done",
@@ -522,7 +531,12 @@ export default async function codingTasksRoute(req, res) {
         }
       }
       if (task.pipeline[nextPhase]?.status === "pending") {
-        task.pipeline[nextPhase] = { status: "in_progress", by: by || "agent", at: now() };
+        // Commit phase always awaits human; spec awaits human in full loop
+        if (nextPhase === "commit") {
+          task.pipeline[nextPhase] = { status: "awaiting_human", by: by || "agent", at: now() };
+        } else {
+          task.pipeline[nextPhase] = { status: "in_progress", by: by || "agent", at: now() };
+        }
       }
     }
     // Derive flat status

@@ -48,6 +48,12 @@ interface GitStatusViewProps {
   onUnstageFile: (path: string) => void;
   onStageFile: (path: string) => void;
   qaReviewLoading: boolean;
+  // ── Pipeline state ──
+  pipeline: Record<string, { status: string; by?: string; at?: string; result?: string; reason?: string; feedback?: string }> | null;
+  loopMode: "full" | "mini";
+  qaVerdict: { verdict: string; issues: number; critical: number; summary: string; feedback: string } | null;
+  onSpecApprove: () => void;
+  onSpecReject: () => void;
   theme: { accent: string; borderLight: string; bg: string; };
 }
 
@@ -70,9 +76,42 @@ export default function GitStatusView({
   onUnstageFile,
   onStageFile,
   qaReviewLoading,
+  pipeline,
+  loopMode,
+  qaVerdict,
+  onSpecApprove,
+  onSpecReject,
   theme,
 }: GitStatusViewProps) {
   const [showStagedDetail, setShowStagedDetail] = useState(false);
+
+  // ── Pipeline progress helpers ──
+  const PIPELINE_PHASES = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
+  const MINI_LOOP_PHASES = ["implement", "qa", "commit"];
+  const activePhases = loopMode === "mini" ? MINI_LOOP_PHASES : PIPELINE_PHASES;
+
+  const phaseEmoji: Record<string, string> = {
+    spec: "📋", implement: "💻", review: "👀", test: "🧪", qa: "🔬", docs: "📝", commit: "🚀"
+  };
+
+  const phaseStatusIcon = (status: string) => {
+    switch (status) {
+      case "done": return "✅";
+      case "in_progress": return "🔵";
+      case "rework": return "🔄";
+      case "failed": return "❌";
+      case "awaiting_human": return "🚧";
+      case "pending": return "⏳";
+      default: return "⏳";
+    }
+  };
+
+  // Check if spec is awaiting human
+  const specAwaiting = pipeline?.spec?.status === "awaiting_human";
+  // Check if QA is rework
+  const qaRework = pipeline?.qa?.status === "rework";
+  // Check if commit is awaiting human
+  const commitAwaiting = pipeline?.commit?.status === "awaiting_human";
 
   // 合併 staged + unstaged + untracked，標記 isStaged
   const allFiles = useMemo(() => {
@@ -129,18 +168,125 @@ export default function GitStatusView({
         <button onClick={onRefresh} className="text-xs text-stone-400 hover:text-stone-600 px-1.5 py-0.5 rounded hover:bg-stone-50">🔄</button>
       </div>
 
+      {/* ══ Pipeline Phase Progress Bar ══ */}
+      {pipeline && (
+        <div className="rounded-lg border border-stone-200 bg-white overflow-hidden">
+          <div className="flex items-center gap-1 px-3 py-2 bg-stone-50 border-b border-stone-100">
+            <span className="text-xs">🔄</span>
+            <span className="text-[10px] font-bold text-stone-600">Pipeline</span>
+            <span className={cn(
+              "text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-1",
+              loopMode === "mini" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+            )}>
+              {loopMode === "mini" ? "Mini Loop" : "Full Loop"}
+            </span>
+            {qaRework && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-bold ml-1">
+                🔄 Rework
+              </span>
+            )}
+            {qaVerdict && (
+              <span className={cn(
+                "text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-1",
+                qaVerdict.verdict === "pass" ? "bg-emerald-100 text-emerald-700" :
+                qaVerdict.verdict === "conditional" ? "bg-amber-100 text-amber-700" :
+                "bg-red-100 text-red-700"
+              )}>
+                QA: {qaVerdict.verdict}
+              </span>
+            )}
+          </div>
+          <div className="flex items-stretch px-3 py-2 gap-0.5">
+            {activePhases.map((phase, i) => {
+              const ps = pipeline[phase]?.status || "pending";
+              const icon = phaseStatusIcon(ps);
+              const isCurrent = ps === "in_progress" || ps === "awaiting_human" || ps === "rework";
+              const bg = ps === "done" ? "bg-emerald-50" :
+                         ps === "in_progress" ? "bg-blue-50" :
+                         ps === "rework" ? "bg-red-50" :
+                         ps === "awaiting_human" ? "bg-amber-50" :
+                         ps === "failed" ? "bg-red-50" :
+                         "bg-stone-50";
+              return (
+                <div key={phase} className={cn("flex-1 flex flex-col items-center gap-0.5 py-1 rounded-md", bg)}>
+                  <span className="text-[10px]">{icon}</span>
+                  <span className={cn("text-[9px] font-bold", isCurrent ? "text-stone-700" : "text-stone-400")}>
+                    {phase}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {/* Spec awaiting human banner */}
+          {specAwaiting && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border-t border-amber-200">
+              <span className="text-sm">🚧</span>
+              <span className="text-xs text-amber-700 font-bold flex-1">Spec 等確認 — Architect 寫好了，請確認方向</span>
+              <button onClick={onSpecApprove} className="text-[10px] px-2 py-1 rounded-md bg-emerald-500 text-white font-bold hover:bg-emerald-600 active:scale-95 transition-all">
+                ✅ Approve
+              </button>
+              <button onClick={onSpecReject} className="text-[10px] px-2 py-1 rounded-md bg-red-500 text-white font-bold hover:bg-red-600 active:scale-95 transition-all">
+                ❌ Reject
+              </button>
+            </div>
+          )}
+          {/* Commit awaiting human banner */}
+          {commitAwaiting && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 border-t border-emerald-200">
+              <span className="text-sm">🚀</span>
+              <span className="text-xs text-emerald-700 font-bold flex-1">QA 已通過 — 等你 Commit & Push</span>
+            </div>
+          )}
+          {/* Rework feedback banner */}
+          {qaRework && pipeline.qa?.feedback && (
+            <div className="px-3 py-2 bg-red-50 border-t border-red-200">
+              <div className="text-[10px] font-bold text-red-700 mb-0.5">🔄 Rework Feedback</div>
+              <div className="text-[10px] text-red-600 leading-relaxed">{pipeline.qa.feedback}</div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ══ AI Auto Dispatch ══ */}
       {hasAiStaged && stagedSummary?.exists && (
-        <div className="rounded-lg border-2 border-violet-300 bg-violet-50 overflow-hidden shadow-sm">
-          <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none bg-violet-100 hover:bg-violet-150 transition-colors"
+        <div className={cn(
+          "rounded-lg border-2 overflow-hidden shadow-sm",
+          qaRework ? "border-red-300 bg-red-50" : "border-violet-300 bg-violet-50"
+        )}>
+          <div className={cn(
+            "flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none transition-colors",
+            qaRework ? "bg-red-100 hover:bg-red-150" : "bg-violet-100 hover:bg-violet-150"
+          )}
             onClick={() => setShowStagedDetail(!showStagedDetail)}
           >
-            <span className="text-base">🤖</span>
+            <span className="text-base">{qaRework ? "🔄" : "🤖"}</span>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-bold text-violet-800">AI Auto Dispatch — 等 Review</div>
-              <div className="text-[10px] text-violet-600 truncate">
+              <div className={cn("text-xs font-bold", qaRework ? "text-red-800" : "text-violet-800")}>
+                {qaRework ? "AI Auto Dispatch — Rework 中" : "AI Auto Dispatch — 等 Review"}
+              </div>
+              <div className={cn("text-[10px] truncate", qaRework ? "text-red-600" : "text-violet-600")}>
                 {stagedSummary.agent || "Agent"}：{stagedSummary.task?.slice(0, 60) || stagedSummary.codename || "Auto task"}
               </div>
+              {/* Pipeline phase indicator */}
+              {pipeline && (
+                <div className="flex items-center gap-1 mt-0.5">
+                  {activePhases.map(phase => {
+                    const ps = pipeline[phase]?.status || "pending";
+                    if (ps === "pending" || ps === "done") return null;
+                    return (
+                      <span key={phase} className={cn(
+                        "text-[9px] px-1 py-0.5 rounded font-bold",
+                        ps === "in_progress" ? "bg-blue-100 text-blue-700" :
+                        ps === "rework" ? "bg-red-100 text-red-700" :
+                        ps === "awaiting_human" ? "bg-amber-100 text-amber-700" :
+                        "bg-stone-100 text-stone-500"
+                      )}>
+                        {phaseStatusIcon(ps)} {phase}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <button onClick={(e) => { e.stopPropagation(); onQaReview(); }}

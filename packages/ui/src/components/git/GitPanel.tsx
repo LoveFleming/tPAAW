@@ -88,7 +88,7 @@ interface GitPanelProps {
   blameFile: string;
 
   // ── Active task for pipeline actions ──
-  activeCodingTask: { id: string; title: string; loopMode?: string } | null;
+  activeCodingTask: { id: string; title: string; loopMode?: string; pipeline?: Record<string, any> } | null;
 
   // ── Setters (passed through) ──
   setGitTab: (tab: "status" | "diff" | "blame" | "review") => void;
@@ -281,11 +281,15 @@ export default function GitPanel(props: GitPanelProps) {
     if (!activeCodingTask?.id || !rootPath) return;
     setGitActionMsg("✅ Human approved — advancing pipeline...");
     try {
-      await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTask.id)}/pipeline/advance?path=${encodeURIComponent(rootPath)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase: "qa", result: "Human approved after review", by: "human" }),
-      });
+      // Advance QA phase (if not already done)
+      const pipeline = activeCodingTask.pipeline;
+      if (pipeline?.qa?.status !== "done") {
+        await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTask.id)}/pipeline/advance?path=${encodeURIComponent(rootPath)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: "qa", result: "Human approved after review", by: "human" }),
+        });
+      }
       setGitActionMsg("✅ Pipeline advanced to commit phase");
     } catch (e: any) {
       setGitActionMsg(`❌ ${e.message}`);
@@ -315,6 +319,44 @@ export default function GitPanel(props: GitPanelProps) {
       setGitActionMsg(`❌ ${e.message}`);
     }
   }, [activeCodingTask, rootPath, API_BASE, qaVerdict, setGitActionMsg]);
+
+  // ── Spec Approve — human confirms spec, advance to implement ──
+  const handleSpecApprove = useCallback(async () => {
+    if (!activeCodingTask?.id || !rootPath) return;
+    setGitActionMsg("✅ Spec approved — starting implementation...");
+    try {
+      await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTask.id)}/pipeline/advance?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phase: "spec", result: "Human approved spec", by: "human" }),
+      });
+      setGitActionMsg("✅ Spec approved — Dev will be dispatched");
+    } catch (e: any) {
+      setGitActionMsg(`❌ ${e.message}`);
+    }
+  }, [activeCodingTask, rootPath, API_BASE, setGitActionMsg]);
+
+  // ── Spec Reject — reject spec, return to spec ──
+  const handleSpecReject = useCallback(async () => {
+    if (!activeCodingTask?.id || !rootPath) return;
+    setGitActionMsg("❌ Spec rejected — rewriting spec...");
+    try {
+      await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTask.id)}/pipeline/reject?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phase: "spec",
+          status: "rework",
+          reason: "Human rejected spec",
+          by: "human",
+          returnTo: "spec",
+        }),
+      });
+      setGitActionMsg("❌ Spec rejected — Architect will rewrite");
+    } catch (e: any) {
+      setGitActionMsg(`❌ ${e.message}`);
+    }
+  }, [activeCodingTask, rootPath, API_BASE, setGitActionMsg]);
   const handleUnstageFile = useCallback(async (path: string) => {
     if (!rootPath) return;
     setGitActionMsg(`Unstaging ${path.split(/[\\/]/).pop()}...`);
@@ -543,6 +585,11 @@ export default function GitPanel(props: GitPanelProps) {
             onUnstageFile={handleUnstageFile}
             onStageFile={handleStageFile}
             qaReviewLoading={qaReviewLoading}
+            pipeline={activeCodingTask?.pipeline || null}
+            loopMode={activeCodingTask?.loopMode || "mini"}
+            qaVerdict={qaVerdict}
+            onSpecApprove={handleSpecApprove}
+            onSpecReject={handleSpecReject}
             theme={theme}
           />
         )}

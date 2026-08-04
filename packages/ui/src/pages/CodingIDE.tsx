@@ -2624,7 +2624,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 gitReviews={gitReviews}
                 blameData={blameData}
                 blameFile={blameFile}
-                activeCodingTask={activeCodingTask ? { id: activeCodingTask.id, title: activeCodingTask.title, loopMode: activeCodingTask.loopMode } : null}
+                activeCodingTask={activeCodingTask ? { id: activeCodingTask.id, title: activeCodingTask.title, loopMode: activeCodingTask.loopMode, pipeline: activeCodingTask.pipeline } : null}
                 setGitTab={setGitTab}
                 setGitCommitMsg={setGitCommitMsg}
                 setGitActionMsg={setGitActionMsg}
