@@ -106,7 +106,7 @@ export function SubTaskDetail({ theme, data }: { theme: any; data: any }) {
 }
 
 // ── Main Panel ──
-export default function AutoDispatchPanel({ theme, rootPath, model, openMainTab }: { theme: any; rootPath?: string; model?: string; openMainTab?: (tab: any) => void }) {
+export default function AutoDispatchPanel({ theme, rootPath, model, openMainTab, refreshTrigger = 0 }: { theme: any; rootPath?: string; model?: string; openMainTab?: (tab: any) => void; refreshTrigger?: number }) {
   const { t } = useI18n();
   const tk = theme;
 
@@ -144,6 +144,7 @@ export default function AutoDispatchPanel({ theme, rootPath, model, openMainTab 
 
   useEffect(() => { fetchConfig(); }, [fetchConfig]);
   useEffect(() => { refreshPlans(); }, [refreshPlans]);
+  useEffect(() => { if (refreshTrigger > 0) refreshPlans(); }, [refreshTrigger]);
 
   useEffect(() => {
     if (!rootPath) return;

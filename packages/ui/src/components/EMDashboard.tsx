@@ -1311,7 +1311,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                                   });
                                   const data = await r.json();
                                   if (data.ok) {
-                                    setMessages(prev => [...prev, { role: "assistant", content: `📤 已派工修復 **${item.name}**\n- Execution Plan：${data.planId}\n- Sub-tasks：${data.totalSubtasks} 個\n- Agent：${dispatch.crew.replace("coding.", "")} 已自動開始`, ts: new Date().toISOString() }]);
+                                    setMessages(prev => [...prev, { role: "assistant", content: `📤 已派工修復 **${item.name}**\n- Execution Plan：${data.planId}\n- Sub-tasks：${data.totalSubtasks} 個\n- Agent：${dispatch.crew.replace("coding.", "")} 已自動開始`, ts: new Date().toISOString(), actions: [{ label: "👉 查看 Auto Dispatch", type: "openReport" }] }]);
                                     loadRecentDispatches();
                                   } else {
                                     setMessages(prev => [...prev, { role: "assistant", content: `❌ 派工失敗：${data.error}`, ts: new Date().toISOString() }]);

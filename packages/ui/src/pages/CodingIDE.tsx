@@ -1207,6 +1207,7 @@ export default function CodingIDE() {
   // agentRunning/agentToolLog are now per-crew (derived from crewAgentRunning/crewAgentToolLog above)
   const [crewModels, setCrewModels] = useState<Record<string, string>>({}); // crewId → model
   const [emModel, setEmModel] = useState<string>(""); // EM Dashboard has its own model
+  const [adRefreshTrigger, setAdRefreshTrigger] = useState(0);
   const codingModel = activeCrew ? (crewModels[activeCrew] || "") : "";
   const setCodingModel = useCallback((model: string) => {
     if (!activeCrew) return;
@@ -3248,6 +3249,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   }
                 }}
                 onOpenAutoDispatch={() => {
+                  setAdRefreshTrigger(t => t + 1);
                   openMainTab({ id: "tool:nightshift", type: "nightshift", label: "Auto Dispatch", icon: "🏭", closable: true });
                 }}
               />
@@ -3335,6 +3337,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   rootPath={rootPath}
                   model={emModel}
                   openMainTab={openMainTab}
+                  refreshTrigger={adRefreshTrigger}
                 />
               </div>
             )}
