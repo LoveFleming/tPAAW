@@ -162,11 +162,22 @@ export default function GitPanel(props: GitPanelProps) {
     setExternalGitTab(tab);
   }, [setExternalGitTab]);
 
-  // ── File toggle ──
+  // ── File toggle (single) ──
   const toggleFile = useCallback((path: string) => {
     setSelectedFiles(prev => {
       const next = new Set(prev);
       next.has(path) ? next.delete(path) : next.add(path);
+      return next;
+    });
+  }, [setSelectedFiles]);
+
+  // ── Select multiple files at once (for group Select All) ──
+  const selectFiles = useCallback((paths: string[], selected: boolean) => {
+    setSelectedFiles(prev => {
+      const next = new Set(prev);
+      for (const p of paths) {
+        if (selected) next.add(p); else next.delete(p);
+      }
       return next;
     });
   }, [setSelectedFiles]);
@@ -395,6 +406,7 @@ export default function GitPanel(props: GitPanelProps) {
             gitStatus={gitStatus}
             selectedFiles={selectedFiles}
             onToggleFile={toggleFile}
+            onSelectFiles={selectFiles}
             onFileClick={handleFileClick}
             stagedSummary={stagedSummary}
             onPull={handlePull}

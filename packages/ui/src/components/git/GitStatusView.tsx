@@ -48,6 +48,7 @@ interface GitStatusViewProps {
   onQaReview: () => void;
   onSelectAll: () => void;
   onClearAll: () => void;
+  onSelectFiles: (paths: string[], selected: boolean) => void;
   theme: {
     accent: string;
     borderLight: string;
@@ -59,6 +60,7 @@ export default function GitStatusView({
   gitStatus,
   selectedFiles,
   onToggleFile,
+  onSelectFiles,
   onFileClick,
   stagedSummary,
   onPull,
@@ -252,6 +254,7 @@ export default function GitStatusView({
               group={g}
               selectedFiles={selectedFiles}
               onToggleFile={onToggleFile}
+              onSelectFiles={onSelectFiles}
               onFileClick={onFileClick}
             />
           ))}
