@@ -7,7 +7,6 @@
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 import API_BASE from "../api";
-import { cn } from "../utils";
 import ChatMessages from "./ChatMessages"; // kept for reference — EM chat now uses custom rich renderer
 import ModelSelector from "./ModelSelector";
 import { cn } from "../utils";
