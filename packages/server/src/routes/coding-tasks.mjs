@@ -31,7 +31,7 @@ import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { PassThrough } from "stream";
 import { readBody } from "./shared.mjs";
-import { TaskGit } from "lib/task-git.mjs";
+import { TaskGit } from "../lib/task-git.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -1153,7 +1153,7 @@ export async function triggerHealthAgentDispatch({ projRoot, subTask, chainParen
     helpdesk: "coding.helpdesk",
   };
   const crewId = agentMap[agentId] || agentId;
-  const { PAAW_ROOT } = await import("../context/shared.mjs").then(m => ({ PAAW_ROOT: m.PAAW_ROOT }));
+  const { PAAW_ROOT } = await import("./shared.mjs").then(m => ({ PAAW_ROOT: m.PAAW_ROOT }));
   const crewFile = join(PAAW_ROOT, "data", "crews", `${crewId}.json`);
   if (!existsSync(crewFile)) {
     console.error(`[health-chain] Agent '${agentId}' not found at ${crewFile}`);
@@ -1228,15 +1228,15 @@ export async function triggerHealthAgentDispatch({ projRoot, subTask, chainParen
     // ── Advance sub-task pipeline ──
     // Mini loop: implement → commit. Advance implement phase.
     try {
-      const { deriveStatus, ensurePipeline } = await import("./coding-pipeline.mjs");
-      // Directly update pipeline status
+      // Directly update pipeline status (deriveStatus is local to this file)
       const allTasks2 = await loadTasks(projRoot);
       const sIdx = allTasks2.findIndex(t => t.id === subTask.id);
       if (sIdx >= 0) {
         const st = allTasks2[sIdx];
         if (st.pipeline?.implement) {
           st.pipeline.implement.status = "done";
-          st.status = deriveStatus(st, await loadTasksAndConfig(projRoot).then(d => d.config));
+          const { config: cfg2 } = await loadTasksAndConfig(projRoot);
+          st.status = deriveStatus(st, cfg2);
           st.updatedAt = new Date().toISOString();
         }
         const { config: cfg2 } = await loadTasksAndConfig(projRoot);
