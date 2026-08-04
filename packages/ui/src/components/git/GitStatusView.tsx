@@ -46,6 +46,7 @@ interface GitStatusViewProps {
   onSelectAll: () => void;
   onClearAll: () => void;
   onUnstageFile: (path: string) => void;
+  onStageFile: (path: string) => void;
   theme: { accent: string; borderLight: string; bg: string; };
 }
 
@@ -66,6 +67,7 @@ export default function GitStatusView({
   onSelectAll,
   onClearAll,
   onUnstageFile,
+  onStageFile,
   theme,
 }: GitStatusViewProps) {
   const [showStagedDetail, setShowStagedDetail] = useState(false);
@@ -203,6 +205,7 @@ export default function GitStatusView({
               onSelectKeys={onSelectKeys}
               onFileClick={onFileClick}
               onUnstageFile={onUnstageFile}
+              onStageFile={onStageFile}
             />
           ))}
         </div>

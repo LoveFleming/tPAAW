@@ -293,6 +293,29 @@ export default function GitPanel(props: GitPanelProps) {
     }
   }, [rootPath, API_BASE, setGitActionMsg, refreshGitStatus, refreshGitLog]);
 
+  // ── Stage file (git add) ──
+  const handleStageFile = useCallback(async (path: string) => {
+    if (!rootPath) return;
+    setGitActionMsg(`Staging ${path.split(/[\\/]/).pop()}...`);
+    try {
+      const r = await fetch(`${API_BASE}/api/vibe-git/add?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: [path] }),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        setGitActionMsg(`✅ Staged: ${path.split(/[\\/]/).pop()}`);
+      } else {
+        setGitActionMsg(`❌ ${d.error}`);
+      }
+      refreshGitStatus();
+      refreshGitLog();
+    } catch (e: any) {
+      setGitActionMsg(`❌ ${e.message}`);
+    }
+  }, [rootPath, API_BASE, setGitActionMsg, refreshGitStatus, refreshGitLog]);
+
   // ── Commit actions ──
   const handleCommitSelected = useCallback(async () => {
     const files = getSelectedPaths();
@@ -474,6 +497,7 @@ export default function GitPanel(props: GitPanelProps) {
             onSelectAll={selectAllFiles}
             onClearAll={clearAllFiles}
             onUnstageFile={handleUnstageFile}
+            onStageFile={handleStageFile}
             theme={theme}
           />
         )}

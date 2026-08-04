@@ -16,6 +16,7 @@ interface GitFileGroupProps {
   onSelectKeys: (keys: string[], selected: boolean) => void;
   onFileClick: (path: string, isStaged: boolean) => void;
   onUnstageFile?: (path: string) => void;
+  onStageFile?: (path: string) => void;
   className?: string;
 }
 
@@ -26,6 +27,7 @@ export default function GitFileGroupCard({
   onSelectKeys,
   onFileClick,
   onUnstageFile,
+  onStageFile,
   className,
 }: GitFileGroupProps) {
   const [expanded, setExpanded] = useState(group.defaultExpanded);
@@ -119,7 +121,7 @@ export default function GitFileGroupCard({
                 >
                   {f.path}
                 </span>
-                {/* Staged/Unstaged indicator + unstage action */}
+                {/* Staged: unstage ✕ | Unstaged: stage + */}
                 {isStaged ? (
                   <button
                     onClick={(e) => { e.stopPropagation(); onUnstageFile?.(f.path); }}
@@ -129,9 +131,13 @@ export default function GitFileGroupCard({
                     staged ✕
                   </button>
                 ) : (
-                  <span className="text-[9px] px-1 py-0.5 rounded shrink-0 font-medium bg-amber-50 text-amber-500">
-                    unstaged
-                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onStageFile?.(f.path); }}
+                    className="text-[9px] px-1 py-0.5 rounded shrink-0 font-medium bg-amber-50 text-amber-500 hover:bg-emerald-50 hover:text-emerald-500 transition-colors"
+                    title="Stage this file (git add)"
+                  >
+                    + stage
+                  </button>
                 )}
                 {isPaaw && (
                   <span className="text-[10px] px-1 py-0.5 rounded bg-stone-100 text-stone-400 shrink-0">.paaw</span>
