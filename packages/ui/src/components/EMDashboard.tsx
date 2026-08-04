@@ -1255,7 +1255,16 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             )}
             {codeStatus && (
               <button
-                onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
+                onClick={async () => {
+                  if (!rootPath) return;
+                  try {
+                    const r = await fetch(`${API_BASE}/api/coding-project/status/refresh?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+                    const data = await r.json();
+                    if (data.ok) {
+                      setCodeStatus(data.initialized ? { initialized: true, scores: data.scores } : { initialized: false, scores: null });
+                    }
+                  } catch {}
+                }}
                 className="text-sm px-2 py-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold"
               >🔄 重新掃描</button>
             )}

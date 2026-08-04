@@ -3265,6 +3265,25 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
+    // POST /api/coding-project/status/refresh — invalidate cache + recompute
+    if (url.startsWith("/api/coding-project/status/refresh") && method === "POST") {
+      try {
+        const refreshRoot = projectPath ? resolve(projectPath) : PAAW_ROOT;
+        const cacheFile = join(refreshRoot, ".paaw", "code-intelligence", "status-cache.json");
+        if (existsSync(cacheFile)) {
+          try { await import("fs/promises").then(m => m.unlink(cacheFile)); } catch {}
+        }
+        const paaw = createPaawProject(refreshRoot);
+        const scores = await paaw.computeStatus();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, initialized: !!scores, scores }));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
     // GET /api/coding-project/status — Code Status Dashboard scores
     if (url.startsWith("/api/coding-project/status") && method === "GET") {
       try {

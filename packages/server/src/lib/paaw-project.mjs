@@ -926,50 +926,58 @@ export class PaawProject {
       testItems.push({ name: "API Test Payloads", status: "missing", detail: "Missing" });
     }
 
-    let hasTests = false;
+    // ── Unit Tests: prefer CU test-intelligence.json, fallback to file scan ──
     let testFileCount = 0;
     let unitCoverage = null;
-    // Use Node readdir instead of shell find (faster + Windows safe)
-    try {
-      const { scanProjectFiles } = await import("../routes/coding.mjs");
-      // Quick check: just count test files, don't actually run them
-      const pkgExists = existsSync(join(this.root, "package.json"));
-      if (pkgExists) {
-        // Check common test dirs
-        for (const dir of ["test", "tests", "__tests__", "packages/server/test", "packages/ui/src"]) {
-          const absDir = join(this.root, dir);
-          if (existsSync(absDir)) {
-            try {
-              const entries = await readdir(absDir, { recursive: true });
-              for (const e of entries) {
-                if (typeof e === "string" && (/\.test\./.test(e) || /\.spec\./.test(e))) testFileCount++;
-              }
-            } catch {}
+    let coverageGapCount = 0;
+    const tiFile = join(this.paawDir, "code-intelligence", "test-intelligence.json");
+    if (existsSync(tiFile)) {
+      try {
+        const ti = JSON.parse(readSync(tiFile, "utf-8"));
+        const stats = ti.stats || {};
+        testFileCount = stats.totalTestFiles || 0;
+        unitCoverage = stats.coverageRate || null;
+        coverageGapCount = (ti.coverageGaps || []).length;
+      } catch {}
+    }
+    // Fallback: scan test dirs if CU not available
+    if (testFileCount === 0) {
+      try {
+        const pkgExists = existsSync(join(this.root, "package.json"));
+        if (pkgExists) {
+          for (const dir of ["test", "tests", "__tests__", "packages/server/test", "packages/ui/src"]) {
+            const absDir = join(this.root, dir);
+            if (existsSync(absDir)) {
+              try {
+                const entries = await readdir(absDir, { recursive: true });
+                for (const e of entries) {
+                  if (typeof e === "string" && (/\.test\./.test(e) || /\.spec\./.test(e))) testFileCount++;
+                }
+              } catch {}
+            }
           }
         }
-      }
-    } catch {}
-    hasTests = testFileCount > 0;
-    // Skip running actual vitest/jest — too slow for status check
-    // Coverage shown as "N files" instead of actual percentage
+      } catch {}
+    }
 
-    if (hasTests) {
+    if (testFileCount > 0) {
       testPoints += 35;
-      testItems.push({ name: "Unit Tests", status: unitCoverage ? "ok" : "partial", detail: unitCoverage ? `Coverage: ${unitCoverage} (${testFileCount} files)` : `${testFileCount} test file(s)` });
+      const detail = unitCoverage ? `Coverage: ${unitCoverage} (${testFileCount} files)` : `${testFileCount} test file(s)`;
+      testItems.push({ name: "Unit Tests", status: unitCoverage ? "ok" : "partial", detail });
     } else {
       testItems.push({ name: "Unit Tests", status: "missing", detail: "None found" });
     }
 
-    let hasE2E = false;
-    let e2eResult = null;
-    // Just check if config exists, don't run tests
-    hasE2E = existsSync(join(this.root, "playwright.config.ts")) || existsSync(join(this.root, "playwright.config.js")) || existsSync(join(this.root, "cypress.config.ts")) || existsSync(join(this.root, "cypress.config.js"));
-    if (hasE2E) e2eResult = "Configured";
-    // Skip running actual playwright/cypress — too slow
+    // Coverage gaps (from CU)
+    if (coverageGapCount > 0) {
+      testItems.push({ name: "Coverage Gaps", status: "warn", detail: `${coverageGapCount} untested file(s)` });
+    }
 
+    let hasE2E = false;
+    hasE2E = existsSync(join(this.root, "playwright.config.ts")) || existsSync(join(this.root, "playwright.config.js")) || existsSync(join(this.root, "cypress.config.ts")) || existsSync(join(this.root, "cypress.config.js"));
     if (hasE2E) {
       testPoints += 25;
-      testItems.push({ name: "E2E Tests", status: e2eResult ? "ok" : "partial", detail: e2eResult || "Configured" });
+      testItems.push({ name: "E2E Tests", status: "ok", detail: "Configured" });
     } else {
       testItems.push({ name: "E2E Tests", status: "missing", detail: "Not configured" });
     }

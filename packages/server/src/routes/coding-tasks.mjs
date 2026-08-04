@@ -1120,6 +1120,11 @@ export async function runHealthPlanSubtask(projRoot, planId) {
     const allDone = finalPlan.tasks.every(t => t.subtasks.every(s => s.status === "done"));
     if (allDone) {
       await markPlanCompleted(projRoot, planId);
+      // Invalidate status cache — agent may have changed files
+      try {
+        const cacheFile = join(projRoot, ".paaw", "code-intelligence", "status-cache.json");
+        if (existsSync(cacheFile)) { try { await import("fs/promises").then(m => m.unlink(cacheFile)); } catch {} }
+      } catch {}
       console.log(`[health-plan] ✅ Plan ${planId} completed!`);
     } else {
       await updatePlanStatus(projRoot, planId, "partial");
