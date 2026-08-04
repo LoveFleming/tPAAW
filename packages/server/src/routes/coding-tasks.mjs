@@ -396,7 +396,7 @@ export default async function codingTasksRoute(req, res) {
   }
 
   // ── POST /api/coding-tasks/health-fix ──
-  // Create a type=health parent task + sub-tasks from fixPlan
+  // Create an execution plan from fixPlan (not coding tasks)
   if (url === "/api/coding-tasks/health-fix" && method === "POST") {
     let body;
     try { body = JSON.parse(await readBody(req)); } catch {
@@ -410,81 +410,50 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: "fixPlan.steps[] is required" }));
       return true;
     }
-    const { tasks, config } = await loadTasksAndConfig(projRoot);
-    const ts = now();
-    // Create parent health task
-    const parentTask = ensurePipeline({
-      id: genId(tasks),
-      title: title || `🏥 Health Fix: ${fixPlan.steps.length} items`,
-      type: "health",
-      parentId: null,
-      status: "open",
-      priority: "medium",
-      labels: ["health", "auto-fix"],
-      assignee: "em",  // EM is the owner
-      description: (description || "") + `\n\n⏱ 逾時規則：每個 sub-task 最多 60 分鐘。超時記錄但不中斷，繼續下一個。`,
-      relatedFiles: [],
-      notes: [{ by: "system", at: ts, content: `Auto-created from code health scan. ${fixPlan.steps.length} sub-tasks. Timeout: 60min/sub-task, timeout ≠ abort.` }],
-      executionResult: null,
-      createdAt: ts,
-      updatedAt: ts,
-      createdBy: "health-scan",
-      pipeline: null,
-      loopModeOverride: null, // health tasks always mini
-      source: source || "code-health",
-    }, config);
-    parentTask.status = deriveStatus(parentTask, config);
-    tasks.push(parentTask);
-    // Create sub-tasks from fixPlan.steps
-    const created = [];
-    for (const step of fixPlan.steps) {
-      const subTask = ensurePipeline({
-        id: genId(tasks.concat(created)),
-        title: step.task?.trim() || step.title?.trim() || `Fix step`,
-        type: "health",
-        parentId: parentTask.id,
-        status: "open",
-        priority: "medium",
-        labels: ["health", "auto-fix"],
-        assignee: step.agent || null,
-        description: step.task || step.description || "",
-        relatedFiles: step.files || [],
-        notes: [],
-        executionResult: null,
-        timeoutSeconds: 3600, // 60 min — timeout records but doesn't abort parent
-        createdAt: ts,
-        updatedAt: ts,
-        createdBy: "health-scan",
-        pipeline: null,
-        loopModeOverride: null,
-        source: source || "code-health",
-      }, config);
-      subTask.status = deriveStatus(subTask, config);
-      tasks.push(subTask);
-      created.push(subTask);
-    }
-    await saveTasks(projRoot, tasks, config);
 
-    // ── Auto-dispatch: trigger first sub-task's agent in background ──
-    if (created.length > 0 && created[0].assignee) {
-      const firstSub = created[0];
+    try {
+      const { createPlan, markPlanStarted, updateSubTask } = await import("../lib/execution-plan.mjs");
+
+      // Build items for createPlan
+      // Each fixPlan.step = one task with one subtask
+      const items = fixPlan.steps.map((step, i) => ({
+        title: step.task?.trim() || step.title?.trim() || `Fix step ${i + 1}`,
+        assignee: step.agent || "developer",
+        source: "code_health",
+        sourceRef: source || "health-scan",
+        priority: "medium",
+        subtasks: [{
+          title: step.task?.trim() || `Fix step ${i + 1}`,
+          assignee: step.agent || "developer",
+        }],
+      }));
+
+      const plan = await createPlan({
+        projectPath: projRoot,
+        projectPhase: "health",
+        mode: "health-fix",
+        items,
+      });
+
+      // Mark as started immediately
+      await markPlanStarted(projRoot, plan.planId);
+
+      // Auto-dispatch: trigger first subtask in background
       setImmediate(async () => {
         try {
-          await triggerHealthAgentDispatch({
-            projRoot,
-            subTask: firstSub,
-            chainParentId: parentTask.id,
-            chainSubTaskIds: created.map(s => s.id),
-            chainCurrentIndex: 0,
-          });
+          await runHealthPlanSubtask(projRoot, plan.planId);
         } catch (e) {
           console.error("[health-fix] auto-dispatch error:", e.message);
         }
       });
-    }
 
-    res.writeHead(201, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, parent: { id: parentTask.id, title: parentTask.title }, subTasks: created.map(s => ({ id: s.id, title: s.title, assignee: s.assignee })), autoStarted: created.length > 0 && !!created[0].assignee }));
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, planId: plan.planId, totalSubtasks: plan.summary.totalSubtasks, status: plan.status }));
+    } catch (e) {
+      console.error("[health-fix] createPlan error:", e.message);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
     return true;
   }
 
@@ -1129,6 +1098,162 @@ export default async function codingTasksRoute(req, res) {
   }
 
   return false;
+}
+
+/**
+ * runHealthPlanSubtask — Execute the next pending subtask of a health-fix execution plan.
+ * After completion, auto-advances to the next subtask.
+ * When all done, marks plan as completed.
+ */
+export async function runHealthPlanSubtask(projRoot, planId) {
+  const { getPlan, getNextPendingSubTask, updateSubTask, markPlanCompleted } = await import("../lib/execution-plan.mjs");
+  const plan = await getPlan(projRoot, planId);
+  if (!plan || plan.status === "completed" || plan.status === "failed") {
+    console.log(`[health-plan] Plan ${planId} is ${plan?.status || "not found"}, stopping`);
+    return;
+  }
+
+  const result = await getNextPendingSubTask(projRoot, planId);
+  if (!result) {
+    // No more pending subtasks — finalize plan
+    const finalPlan = await getPlan(projRoot, planId);
+    const allDone = finalPlan.tasks.every(t => t.subtasks.every(s => s.status === "done"));
+    if (allDone) {
+      await markPlanCompleted(projRoot, planId);
+      console.log(`[health-plan] ✅ Plan ${planId} completed!`);
+    } else {
+      await updatePlanStatus(projRoot, planId, "partial");
+      console.log(`[health-plan] ⚠️ Plan ${planId} partially completed`);
+    }
+    return;
+  }
+
+  const subtask = result.subtask;
+
+  // Mark subtask as running
+  await updateSubTask(projRoot, planId, subtask.subtaskId, {
+    status: "running",
+    startedAt: new Date().toISOString(),
+  });
+
+  const agentId = subtask.assignee;
+  if (!agentId) {
+    console.warn(`[health-plan] Subtask ${subtask.subtaskId} has no assignee, skipping`);
+    await updateSubTask(projRoot, planId, subtask.subtaskId, { status: "skipped", completedAt: new Date().toISOString() });
+    // Move to next
+    await runHealthPlanSubtask(projRoot, planId);
+    return;
+  }
+
+  // Check if agent is busy
+  const { runningCodingAgents } = await import("../lib/running-agents.mjs");
+  if (runningCodingAgents.has(agentId)) {
+    // Revert to pending, will be retried
+    await updateSubTask(projRoot, planId, subtask.subtaskId, { status: "pending", startedAt: null });
+    console.log(`[health-plan] Agent ${agentId} is busy, subtask ${subtask.subtaskId} queued`);
+    // Retry in 30 seconds
+    setTimeout(() => runHealthPlanSubtask(projRoot, planId), 30000);
+    return;
+  }
+
+  // Load crew config for agent
+  const agentMap = {
+    architect: "coding.architect",
+    developer: "coding.developer",
+    tester: "coding.tester",
+    "doc-writer": "coding.doc-writer",
+    qa: "coding.qa",
+    helpdesk: "coding.helpdesk",
+  };
+  const { PAAW_ROOT } = await import("./shared.mjs").then(m => ({ PAAW_ROOT: m.PAAW_ROOT }));
+  const crewId = agentMap[agentId] || agentId;
+  const crewFile = join(PAAW_ROOT, "data", "crews", `${crewId}.json`);
+
+  if (!existsSync(crewFile)) {
+    console.error(`[health-plan] Agent '${agentId}' not found at ${crewFile}`);
+    await updateSubTask(projRoot, planId, subtask.subtaskId, { status: "fail", error: `Agent not found: ${agentId}`, completedAt: new Date().toISOString() });
+    await runHealthPlanSubtask(projRoot, planId);
+    return;
+  }
+
+  try {
+    const crewDef = JSON.parse(readFileSync(crewFile, "utf-8"));
+    const systemPrompt = crewDef.rolePrompt || "";
+
+    // Build context
+    const extraContext = [];
+    try {
+      const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
+      const actionLog = await listActionLog(projRoot);
+      if (actionLog.length > 0) {
+        const recent = actionLog.slice(-10).map(e => `- [${e.agent}] ${e.action}${e.detail ? ": " + e.detail : ""} (${e.ts})`).join("\n");
+        extraContext.push(`\n## Recent Action Log\n${recent}`);
+      }
+      const agentMemoryText = await loadAgentMemory(agentId, projRoot);
+      if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory\n${agentMemoryText}`);
+    } catch {}
+
+    extraContext.push("\n## Rules\n- Only use `git add` (stage files), never `git commit` or `git push`.\n- When done, list all files you modified.\n- Write clean, minimal changes.\n");
+
+    const fullSystemPrompt = systemPrompt + extraContext.join("");
+    const messages = [
+      { role: "system", content: fullSystemPrompt },
+      { role: "user", content: subtask.title },
+    ];
+
+    const { resolveLLMConfig, runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
+    const llm = resolveLLMConfig(projRoot);
+
+    // Create a sink stream for SSE output (background work, no UI)
+    const sink = new PassThrough();
+    sink.resume();
+
+    const abortCtrl = new AbortController();
+    runningCodingAgents.set(agentId, { abortController: abortCtrl, res: sink, startedAt: Date.now(), source: `health-plan:${planId}` });
+
+    const startTime = Date.now();
+
+    await runAgentLoopStream({
+      systemPrompt: fullSystemPrompt,
+      messages,
+      cwd: projRoot,
+      agentId,
+      model: llm.model,
+      maxTurns: 30,
+      timeout: 3600, // 60 min
+      abortSignal: abortCtrl.signal,
+    }, sink);
+
+    const durationMs = Date.now() - startTime;
+    runningCodingAgents.delete(agentId);
+    sink.end();
+
+    // Mark subtask as done
+    await updateSubTask(projRoot, planId, subtask.subtaskId, {
+      status: "done",
+      completedAt: new Date().toISOString(),
+      durationMs,
+    });
+
+    console.log(`[health-plan] ✅ Subtask ${subtask.subtaskId} done (${Math.round(durationMs / 1000)}s)`);
+
+    // Dispatch next subtask
+    await runHealthPlanSubtask(projRoot, planId);
+
+  } catch (e) {
+    runningCodingAgents.delete(agentId);
+    console.error(`[health-plan] ❌ Subtask ${subtask.subtaskId} error:`, e.message);
+
+    // Mark as failed but continue chain
+    await updateSubTask(projRoot, planId, subtask.subtaskId, {
+      status: e.message?.includes("timed out") ? "timeout" : "fail",
+      error: e.message.slice(0, 200),
+      completedAt: new Date().toISOString(),
+    });
+
+    // Continue to next subtask
+    await runHealthPlanSubtask(projRoot, planId);
+  }
 }
 
 /**

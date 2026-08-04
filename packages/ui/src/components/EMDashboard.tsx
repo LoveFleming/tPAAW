@@ -83,21 +83,19 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   }, []);
 
   // ── Recent Dispatch (health tasks) ──
-  const [recentDispatches, setRecentDispatches] = useState<Array<{ id: string; title: string; status: string; type: string; assignee: string; createdAt: string; subTaskCount?: number }>>([]);
+  const [recentDispatches, setRecentDispatches] = useState<Array<{ planId: string; status: string; totalSubtasks: number; completed: number; createdAt: string }>>([]);
   const loadRecentDispatches = useCallback(async () => {
     if (!rootPath) return;
     try {
-      const r = await fetch(`${API_BASE}/api/coding-tasks?path=${encodeURIComponent(rootPath)}&type=health&limit=5`);
+      const r = await fetch(`${API_BASE}/api/execution-plans?path=${encodeURIComponent(rootPath)}`);
       const data = await r.json();
-      const tasks = (data.tasks || []).filter((t: any) => t.type === "health").slice(0, 5);
-      setRecentDispatches(tasks.map((t: any) => ({
-        id: t.id,
-        title: t.title,
-        status: t.status,
-        type: t.type,
-        assignee: t.assignee || "em",
-        createdAt: t.createdAt,
-        subTaskCount: t.subTaskCount || undefined,
+      const plans = (data.plans || []).filter((p: any) => p.mode === "health-fix").slice(0, 5);
+      setRecentDispatches(plans.map((p: any) => ({
+        planId: p.planId,
+        status: p.status,
+        totalSubtasks: p.summary?.totalSubtasks || 0,
+        completed: p.summary?.completed || 0,
+        createdAt: p.createdAt,
       })));
     } catch {}
   }, [rootPath]);
@@ -1313,9 +1311,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                                   });
                                   const data = await r.json();
                                   if (data.ok) {
-                                    setMessages(prev => [...prev, { role: "assistant", content: `📤 已派工修復 **${item.name}**\n- 任務：${data.parent.title}\n- Sub-tasks：${data.subTasks.length} 個\n- Agent：${agentId} 已自動開始\n\n可在 Auto Dispatch 查看進度`, ts: new Date().toISOString() }]);
+                                    setMessages(prev => [...prev, { role: "assistant", content: `📤 已派工修復 **${item.name}**\n- Execution Plan：${data.planId}\n- Sub-tasks：${data.totalSubtasks} 個\n- Agent：${dispatch.crew.replace("coding.", "")} 已自動開始`, ts: new Date().toISOString() }]);
                                     loadRecentDispatches();
-                                    onOpenAutoDispatch?.();
                                   } else {
                                     setMessages(prev => [...prev, { role: "assistant", content: `❌ 派工失敗：${data.error}`, ts: new Date().toISOString() }]);
                                   }
@@ -1357,23 +1354,21 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             <div className="text-xs text-stone-300 py-2">尚無派工記錄</div>
           ) : (
             <div className="space-y-1">
-              {recentDispatches.map(task => (
+              {recentDispatches.map(plan => (
                 <div
-                  key={task.id}
+                  key={plan.planId}
                   className="flex items-center gap-2 py-1.5 px-2 rounded-lg cursor-pointer hover:bg-stone-50 transition-colors"
                   onClick={() => onOpenAutoDispatch?.()}
                 >
-                  <span className="text-sm shrink-0">{task.status === "resolved" ? "✅" : task.status === "in-progress" || task.status === "open" ? "🔄" : "⏳"}</span>
-                  <span className="text-xs text-stone-600 flex-1 truncate">{task.title}</span>
+                  <span className="text-sm shrink-0">{plan.status === "completed" ? "✅" : plan.status === "running" ? "🔄" : "⏳"}</span>
+                  <span className="text-xs text-stone-600 flex-1 truncate font-mono">{plan.planId}</span>
+                  <span className="text-[10px] text-stone-400">{plan.completed}/{plan.totalSubtasks}</span>
                   <span className={cn(
                     "text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0",
-                    task.status === "resolved" ? "bg-green-100 text-green-700" :
-                    task.status === "open" ? "bg-blue-100 text-blue-700" :
+                    plan.status === "completed" ? "bg-green-100 text-green-700" :
+                    plan.status === "running" ? "bg-blue-100 text-blue-700" :
                     "bg-stone-100 text-stone-500"
-                  )}>{task.status === "resolved" ? "完成" : task.status === "open" ? "進行中" : task.status}</span>
-                  {task.subTaskCount && (
-                    <span className="text-[10px] text-stone-300 shrink-0">×{task.subTaskCount}</span>
-                  )}
+                  )}>{plan.status === "completed" ? "完成" : plan.status === "running" ? "執行中" : plan.status}</span>
                 </div>
               ))}
             </div>
