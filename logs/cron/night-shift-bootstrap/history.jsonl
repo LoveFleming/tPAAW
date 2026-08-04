@@ -1,0 +1,2 @@
+{"runId":"night-shift-bootstrap-2026-08-02T10-00-03","status":"started","ts":"2026-08-02T10:00:03.267Z"}
+{"runId":"night-shift-bootstrap-2026-08-02T10-00-03","status":"error","error":"The \"paths[2]\" argument must be of type string. Received undefined","ts":"2026-08-02T10:00:03.268Z"}

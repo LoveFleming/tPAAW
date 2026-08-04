@@ -1,5 +1,40 @@
 # Changelog
 
+## 2026-08-03
+### fixed
+- 修復 server/conversation.mjs 的 path traversal 漏洞（Semgrep finding 歸零）：
+
+1. 新增 sanit (1 modified)
+
+
+
+### changed
+- +113 −14 lines across 10 files
+
+### changed
+- 修 `server/conversation.mjs` 的 path traversal（TASK-005）。現況：檔案 5 個入口（loadConversat (1 new file) (2 modified)
+
+### changed
+- +52 −28 lines across 13 files
+
+### changed
+- 修 `server/routes.mjs` 的 path traversal（TASK-006）。現況：約 line 213-219 靜態檔案 serve 用  (1 new file) (2 modified)
+
+### changed
+- +74 −32 lines across 14 files
+
+### changed
+- 處理 `server/tool-loader.mjs` semgrep 誤報（TASK-007）。`safeResolve()`（約 line 28-48）邏輯 (1 modified)
+
+### changed
+- +81 −32 lines across 14 files
+
+### fixed
+- 驗證 agent-sre 專案（git root=/Users/steward/App/agent-sre）三個近期 security fix 沒有弄壞任何測試 (1 new file)
+
+### changed
+- +109 −32 lines across 14 files
+
 ## 2026-08-01
 ### added
 - 新增 shared-utils.test.ts（42 tests）和 dependency-context.test.mjs（25 tests）單元測試覆蓋。修復 night-shift-shared.test.mjs mock 策略以匹配 shellExecSync。發現並開立 critical bug ISS-027（gatherContext 使用未定義 projectRoot）。

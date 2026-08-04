@@ -42,6 +42,7 @@ import { shellExec, IS_WIN } from "../lib/shell-exec.mjs";
 import { createPaawProject } from "../lib/paaw-project.mjs";
 import { callLLMWithRetry } from "../lib/llm-utils.mjs";
 import { normalizePath, readBody } from "./shared.mjs";
+import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-parser.mjs";
 import { runSemgrep } from "../lib/semgrep-runner.mjs";
 import { buildCodeIntelligence, buildContextPackage } from "../lib/code-intelligence.mjs";
@@ -571,23 +572,7 @@ export default async function projectRoute(req, res) {
   }
 
   // ── Security: validate crewId / sessionId against path traversal ──
-  // Whitelist allows dots (crewId like "coding.architect") but still blocks
-  // "/", "\", and rejects ".." so an attacker cannot escape the conv dir.
-  const ID_WHITELIST = /^[a-zA-Z0-9._-]+$/;
-  function sanitizeId(id) {
-    const valid = typeof id === "string" && ID_WHITELIST.test(id) && !id.includes("..");
-    if (!valid) {
-      const err = new Error(`Invalid identifier: ${id}`);
-      err.code = "PATH_TRAVERSAL";
-      throw err;
-    }
-    return id;
-  }
-  function sendPathTraversalError(res, err) {
-    res.writeHead(400, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: err.message, code: err.code || "PATH_TRAVERSAL" }));
-    return true;
-  }
+  // sanitizeId / sendPathTraversalError now come from ../lib/coding-security.mjs
 
   // Helper: read conversation from file (handles both old flat + new dir format)
   async function readConvFile(filePath) {

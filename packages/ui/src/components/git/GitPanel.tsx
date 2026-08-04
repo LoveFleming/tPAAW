@@ -1,0 +1,475 @@
+/**
+ * GitPanel.tsx — Git 主面板
+ * 
+ * 整合所有 Git 子組件，取代 CodingIDE.tsx 內聯的 Git Panel
+ * 
+ * 設計原則：
+ * 1. Code 是主角，.paaw 是配角
+ * 2. 分組顯示 + 視覺層次
+ * 3. Commit Bar 固定底部
+ * 4. Tab 切換：Status / Diff / Blame / Review
+ */
+
+import React, { useState, useCallback } from "react";
+import { cn } from "../../utils";
+import GitStatusView from "./GitStatusView";
+import GitDiffView from "./GitDiffView";
+import GitReviewView from "./GitReviewView";
+import GitCommitBar from "./GitCommitBar";
+import { classifyGitFile } from "./git-helpers";
+
+// ── Types ──
+interface GitFileStatus {
+  status: string;
+  path: string;
+}
+
+interface GitCommit {
+  hash: string;
+  short: string;
+  author: string;
+  email: string;
+  date: string;
+  subject: string;
+}
+
+interface BlameLine {
+  hash: string;
+  author: string;
+  authorMail: string;
+  authorTime: string;
+  summary: string;
+  finalLine: number;
+  content: string;
+  short?: string;
+}
+
+interface StagedChangeSummary {
+  exists: boolean;
+  agent?: string;
+  codename?: string;
+  task?: string;
+  codeFiles?: { path: string; reason: string }[];
+  paawFiles?: { path: string; reason: string }[];
+  files?: { path: string; reason: string }[];
+  howToTest?: string;
+  risk?: string;
+  createdAt?: string;
+}
+
+interface GitPanelProps {
+  rootPath: string;
+  API_BASE: string;
+
+  // ── Git State ──
+  gitStatus: {
+    branch: string;
+    staged: GitFileStatus[];
+    unstaged: GitFileStatus[];
+    untracked: GitFileStatus[];
+    all: GitFileStatus[];
+  } | null;
+  gitLog: GitCommit[];
+  gitDiff: string;
+  gitDiffFile: string;
+  gitDiffCached: boolean;
+  gitCommitMsg: string;
+  gitActionMsg: string | null;
+  selectedFiles: Set<string>;
+  aiCommitLoading: boolean;
+  stagedSummary: StagedChangeSummary | null;
+  qaReview: string | null;
+  qaReviewLoading: boolean;
+  gitReviews: { id: string; ts: string; comment: string; branch?: string; files?: string[] }[];
+
+  // ── Blame ──
+  blameData: BlameLine[] | null;
+  blameFile: string;
+
+  // ── Setters (passed through) ──
+  setGitTab: (tab: "status" | "diff" | "blame" | "review") => void;
+  setGitCommitMsg: (msg: string) => void;
+  setGitActionMsg: (msg: string | null) => void;
+  setSelectedFiles: (files: Set<string>) => void;
+  setGitDiffFile: (file: string) => void;
+  setGitDiffCached: (cached: boolean) => void;
+  setActiveSubPanel: (panel: string) => void;
+  setStagedSummary: (summary: StagedChangeSummary | null) => void;
+
+  // ── Callbacks ──
+  refreshGitStatus: () => void;
+  refreshGitLog: () => void;
+  loadGitDiff: (file?: string, cached?: boolean, commit?: string) => void;
+  runQaReview: () => void;
+
+  // ── Helpers ──
+  fmtTime: (iso: string) => string;
+
+  // ── Theme ──
+  theme: {
+    accent: string;
+    borderLight: string;
+    bg: string;
+    bgMuted: string;
+  };
+
+  // ── i18n ──
+  tt: (key: string, fallback?: string) => string;
+}
+
+type GitTab = "status" | "diff" | "blame" | "review";
+
+export default function GitPanel(props: GitPanelProps) {
+  const {
+    rootPath,
+    API_BASE,
+    gitStatus,
+    gitLog,
+    gitDiff,
+    gitDiffFile,
+    gitDiffCached,
+    gitCommitMsg,
+    gitActionMsg,
+    selectedFiles,
+    aiCommitLoading,
+    stagedSummary,
+    qaReview,
+    qaReviewLoading,
+    gitReviews,
+    blameData,
+    blameFile,
+    setGitTab: setExternalGitTab,
+    setGitCommitMsg,
+    setGitActionMsg,
+    setSelectedFiles,
+    setGitDiffFile,
+    setGitDiffCached,
+    setActiveSubPanel,
+    setStagedSummary,
+    refreshGitStatus,
+    refreshGitLog,
+    loadGitDiff,
+    runQaReview,
+    fmtTime,
+    theme,
+    tt,
+  } = props;
+
+  const [gitTab, setLocalGitTab] = useState<GitTab>("status");
+
+  const setGitTab = useCallback((tab: GitTab) => {
+    setLocalGitTab(tab);
+    setExternalGitTab(tab);
+  }, [setExternalGitTab]);
+
+  // ── File toggle ──
+  const toggleFile = useCallback((path: string) => {
+    const prev = selectedFiles;
+    const next = new Set(prev);
+    next.has(path) ? next.delete(path) : next.add(path);
+    setSelectedFiles(next);
+  }, [setSelectedFiles]);
+
+  // ── File click → view diff ──
+  const handleFileClick = useCallback((path: string, isStaged: boolean) => {
+    loadGitDiff(path, isStaged);
+    setGitTab("diff");
+    setActiveSubPanel("diff");
+  }, [loadGitDiff, setGitTab, setActiveSubPanel]);
+
+  // ── Git actions ──
+  const handlePull = useCallback(async () => {
+    setGitActionMsg("Pulling...");
+    try {
+      const r = await fetch(`${API_BASE}/api/vibe-git/pull?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+      const d = await r.json();
+      setGitActionMsg(d.ok ? `✅ ${d.output || d.message}` : `❌ ${d.error}`);
+      refreshGitStatus();
+      refreshGitLog();
+    } catch (e: any) { setGitActionMsg(`❌ ${e.message}`); }
+  }, [rootPath, API_BASE, setGitActionMsg, refreshGitStatus, refreshGitLog]);
+
+  const handlePush = useCallback(async () => {
+    setGitActionMsg("Pushing...");
+    try {
+      const r = await fetch(`${API_BASE}/api/vibe-git/push?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const d = await r.json();
+      setGitActionMsg(d.ok ? `✅ ${d.output || d.message}` : `❌ ${d.error}`);
+      refreshGitStatus();
+      refreshGitLog();
+    } catch (e: any) { setGitActionMsg(`❌ ${e.message}`); }
+  }, [rootPath, API_BASE, setGitActionMsg, refreshGitStatus, refreshGitLog]);
+
+  const handleRefresh = useCallback(() => {
+    refreshGitStatus();
+    refreshGitLog();
+    loadGitDiff();
+    if (rootPath) {
+      fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath)}`)
+        .then(r => r.json())
+        .then(data => setStagedSummary(data))
+        .catch(() => {});
+    }
+  }, [rootPath, API_BASE, refreshGitStatus, refreshGitLog, loadGitDiff, setStagedSummary]);
+
+  // ── Commit actions ──
+  const handleCommitSelected = useCallback(async () => {
+    const files = Array.from(selectedFiles);
+    if (files.length === 0) { setGitActionMsg("⚠️ No files selected — check boxes below"); return; }
+    if (!gitCommitMsg.trim()) { setGitActionMsg("⚠️ Enter commit message first"); return; }
+    setGitActionMsg(`Staging ${files.length} file(s)...`);
+    const addRes = await fetch(`${API_BASE}/api/vibe-git/add?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ files }) });
+    const addData = await addRes.json();
+    if (!addData.ok) { setGitActionMsg(`❌ Stage failed: ${addData.error}`); return; }
+    setGitActionMsg("Committing...");
+    const commitRes = await fetch(`${API_BASE}/api/vibe-git/commit?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: gitCommitMsg.trim() }) });
+    const commitData = await commitRes.json();
+    if (!commitData.ok) { setGitActionMsg(`❌ Commit failed: ${commitData.error}`); refreshGitStatus(); return; }
+    setGitActionMsg(`✅ Committed ${files.length} file(s): ${commitData.output || commitData.message}`);
+    setGitCommitMsg("");
+    setSelectedFiles(new Set());
+    try { await fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" }); setStagedSummary(null); } catch {}
+    refreshGitStatus();
+    refreshGitLog();
+  }, [selectedFiles, gitCommitMsg, rootPath, API_BASE, setGitActionMsg, setGitCommitMsg, setSelectedFiles, setStagedSummary, refreshGitStatus, refreshGitLog]);
+
+  const handleCommitAll = useCallback(async () => {
+    if (!gitStatus?.staged?.length && !gitStatus?.unstaged?.length && !gitStatus?.untracked?.length) {
+      setGitActionMsg("Nothing to commit"); return;
+    }
+    const files = gitStatus.all?.map(f => f.path) || ["."];
+    setGitActionMsg("Staging...");
+    const addRes = await fetch(`${API_BASE}/api/vibe-git/add?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ files }) });
+    const addData = await addRes.json();
+    if (!addData.ok) { setGitActionMsg(`❌ Stage failed: ${addData.error}`); return; }
+    if (!gitCommitMsg.trim()) { setGitActionMsg("⚠️ Enter commit message first"); refreshGitStatus(); return; }
+    setGitActionMsg("Committing...");
+    const commitRes = await fetch(`${API_BASE}/api/vibe-git/commit?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: gitCommitMsg.trim() }) });
+    const commitData = await commitRes.json();
+    if (!commitData.ok) { setGitActionMsg(`❌ Commit failed: ${commitData.error}`); refreshGitStatus(); return; }
+    setGitActionMsg(`✅ ${commitData.output || commitData.message}`);
+    setGitCommitMsg("");
+    setSelectedFiles(new Set());
+    try { await fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" }); setStagedSummary(null); } catch {}
+    refreshGitStatus();
+    refreshGitLog();
+  }, [gitStatus, gitCommitMsg, rootPath, API_BASE, setGitActionMsg, setGitCommitMsg, setSelectedFiles, setStagedSummary, refreshGitStatus, refreshGitLog]);
+
+  // ── AI commit message ──
+  const handleAiGenerateMsg = useCallback(async (codeOnly: boolean) => {
+    if (!rootPath) return;
+    setGitActionMsg(null);  // Will be set by the commit bar via aiCommitLoading
+    try {
+      let diffText = "";
+      const selFiles = Array.from(selectedFiles);
+      if (selFiles.length > 0) {
+        for (const fp of selFiles) {
+          if (codeOnly && classifyGitFile(fp) !== "code") continue;
+          const r = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(fp)}`);
+          const d = await r.json();
+          if (d.diff) diffText += d.diff + "\n";
+        }
+      } else {
+        diffText = gitDiff;
+        if (!diffText) {
+          const r = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}`);
+          const d = await r.json();
+          diffText = d.diff || "";
+        }
+        // If codeOnly, filter the diff
+        if (codeOnly && diffText) {
+          const lines = diffText.split("\n");
+          const filtered: string[] = [];
+          let include = true;
+          for (const line of lines) {
+            if (line.startsWith("diff --git ")) {
+              const match = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
+              const filePath = match ? match[2] : "";
+              include = classifyGitFile(filePath) === "code";
+            }
+            if (include) filtered.push(line);
+          }
+          diffText = filtered.join("\n");
+        }
+      }
+      if (!diffText) { setGitActionMsg("⚠️ No code diff to analyze"); return; }
+      const res = await fetch(`${API_BASE}/api/vibe-git/ai-commit-msg?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ diff: diffText, files: selFiles.length > 0 ? selFiles : undefined }),
+      });
+      const data = await res.json();
+      if (data.message) {
+        setGitCommitMsg(data.message);
+        setGitActionMsg("✅ AI generated commit message (code only)");
+      } else {
+        setGitActionMsg("⚠️ AI couldn't generate a message");
+      }
+    } catch (e: any) { setGitActionMsg(`❌ ${e.message}`); }
+  }, [rootPath, API_BASE, selectedFiles, gitDiff, setGitCommitMsg, setGitActionMsg]);
+
+  // ── Apply staged summary to commit msg ──
+  const handleApplySummary = useCallback((msg: string) => {
+    setGitCommitMsg(msg);
+    setGitTab("status");
+  }, [setGitCommitMsg, setGitTab]);
+
+  // ── Diff mode change ──
+  const handleDiffModeChange = useCallback((mode: "working" | "staged" | "head") => {
+    if (mode === "working") { loadGitDiff(undefined, false); setGitDiffFile(""); setGitDiffCached(false); }
+    else if (mode === "staged") { loadGitDiff(undefined, true); setGitDiffFile(""); setGitDiffCached(true); }
+    else if (mode === "head") { loadGitDiff(undefined, false, "HEAD"); setGitDiffFile("__HEAD__"); }
+  }, [loadGitDiff, setGitDiffFile, setGitDiffCached]);
+
+  // ── Commit click in diff ──
+  const handleCommitClick = useCallback(async (hash: string) => {
+    setGitDiffFile("__commit__" + hash);
+    try {
+      const res = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}&commit=${encodeURIComponent(hash)}`);
+      const data = await res.json();
+      // setGitDiff is handled by parent — need to pass through
+    } catch {}
+  }, [rootPath, API_BASE, setGitDiffFile]);
+
+  // ── Tab labels ──
+  const tabConfig: { id: GitTab; label: string; emoji: string }[] = [
+    { id: "status", label: tt("vibe.gitStatus"), emoji: "📋" },
+    { id: "diff", label: tt("vibe.gitDiff"), emoji: "📄" },
+    { id: "blame", label: tt("vibe.gitBlame"), emoji: "🔍" },
+    { id: "review", label: "Review", emoji: "🔬" },
+  ];
+
+  // Determine active diff mode
+  const activeDiffMode: "working" | "staged" | "head" = gitDiffCached ? "staged" : gitDiffFile === "__HEAD__" ? "head" : "working";
+
+  return (
+    <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* ── Git sub-tabs ── */}
+      <div className="flex items-center px-2 py-1 shrink-0 gap-0.5" style={{ backgroundColor: theme.bg, borderBottom: `1px solid ${theme.borderLight}` }}>
+        {tabConfig.map(t => (
+          <button
+            key={t.id}
+            onClick={() => {
+              setGitTab(t.id);
+              if (t.id === "diff") setActiveSubPanel("diff");
+              if (t.id === "blame" && blameData) setActiveSubPanel("blame");
+            }}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1",
+              gitTab === t.id
+                ? "bg-white text-stone-700 shadow-sm"
+                : "text-stone-400 hover:text-stone-600 hover:bg-white/50"
+            )}
+          >
+            <span className="text-[10px]">{t.emoji}</span>
+            {t.label}
+          </button>
+        ))}
+        <span className="flex-1" />
+        <button
+          onClick={handleRefresh}
+          className="text-xs text-stone-400 hover:text-stone-600 px-1.5 py-0.5 rounded hover:bg-stone-50 transition-colors"
+        >
+          🔄
+        </button>
+      </div>
+
+      {/* ── Tab Content ── */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {/* Status */}
+        {gitTab === "status" && (
+          <GitStatusView
+            gitStatus={gitStatus}
+            selectedFiles={selectedFiles}
+            onToggleFile={toggleFile}
+            onFileClick={handleFileClick}
+            stagedSummary={stagedSummary}
+            onPull={handlePull}
+            onPush={handlePush}
+            onRefresh={handleRefresh}
+            gitLog={gitLog}
+            fmtTime={fmtTime as any}
+            onApplySummary={handleApplySummary}
+            onQaReview={runQaReview}
+            theme={theme}
+          />
+        )}
+
+        {/* Diff */}
+        {gitTab === "diff" && (
+          <GitDiffView
+            diffText={gitDiff}
+            diffMode={activeDiffMode}
+            diffFile={gitDiffFile}
+            gitLog={gitLog}
+            onDiffModeChange={handleDiffModeChange}
+            onCommitClick={handleCommitClick}
+            onQaReview={runQaReview}
+            qaReviewLoading={qaReviewLoading}
+            hasStagedChanges={!!gitStatus?.staged?.length}
+            fmtTime={fmtTime as any}
+            theme={theme}
+          />
+        )}
+
+        {/* Blame */}
+        {gitTab === "blame" && blameData && (
+          <div className="flex-1 overflow-auto">
+            <div className="flex items-center gap-2 px-3 py-1.5 sticky top-0 bg-white z-10" style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
+              <span className="text-xs font-bold text-stone-500">🔍 Blame — {blameFile}</span>
+            </div>
+            <table className="w-full text-sm font-mono" style={{ borderCollapse: "collapse" }}>
+              <tbody>
+                {blameData.map((line, i) => {
+                  const prevHash = i > 0 ? blameData[i - 1].hash : "";
+                  const showAuthor = line.hash !== prevHash;
+                  return (
+                    <tr key={i} style={{ borderTop: showAuthor ? "1px solid #e5e5e5" : "none" }}>
+                      <td className="px-2 py-0 text-right text-stone-300 select-none w-8 shrink-0">{line.finalLine}</td>
+                      <td className="px-2 py-0 w-32 shrink-0 truncate" style={{ color: showAuthor ? "#3B82F6" : "#c0c0c0" }}>
+                        {showAuthor ? (
+                          <span className="flex flex-col">
+                            <span className="truncate font-semibold">{line.author}</span>
+                            <span className="text-xs text-stone-400 truncate">{line.short || line.hash?.slice(0, 7)} · {fmtTime(line.authorTime)}</span>
+                          </span>
+                        ) : <span className="text-stone-200">│</span>}
+                      </td>
+                      <td className="px-2 py-0 text-stone-700 leading-5 whitespace-pre">{line.content}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Review */}
+        {gitTab === "review" && (
+          <GitReviewView
+            qaReview={qaReview}
+            qaReviewLoading={qaReviewLoading}
+            gitReviews={gitReviews}
+            onRunReview={runQaReview}
+            fmtTime={fmtTime as any}
+            theme={theme}
+          />
+        )}
+      </div>
+
+      {/* ── Commit Bar (fixed bottom) ── */}
+      <GitCommitBar
+        commitMsg={gitCommitMsg}
+        onCommitMsgChange={setGitCommitMsg}
+        selectedFiles={selectedFiles}
+        stagedFiles={gitStatus?.staged || []}
+        allFiles={gitStatus?.all || []}
+        onCommitSelected={handleCommitSelected}
+        onCommitAll={handleCommitAll}
+        onAiGenerateMsg={handleAiGenerateMsg}
+        aiLoading={aiCommitLoading}
+        actionMsg={gitActionMsg}
+        onClearActionMsg={() => setGitActionMsg(null)}
+        theme={theme}
+      />
+    </div>
+  );
+}

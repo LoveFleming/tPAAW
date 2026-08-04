@@ -31,6 +31,7 @@ import API_BASE from "../api";
 import DirectoryExplorer from "../components/DirectoryExplorer";
 import SidebarFileTree from "../components/SidebarFileTree";
 import EMDashboard from "../components/EMDashboard";
+import { GitPanel } from "../components/git";
 import DiffViewer from "../components/DiffViewer";
 import StandardsEditor from "../components/StandardsEditor";
 import SessionHistory from "../components/SessionHistory";
@@ -2541,435 +2542,42 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
               );
             })}
 
-            {/* === GIT PANEL (Diff / Blame / Status / Review) === */}
+            {/* === GIT PANEL (New Component) === */}
             {activeMainTab?.type === "git" && (
-              <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                {/* Git sub-tabs */}
-                <div className="flex items-center px-2 py-1 shrink-0 gap-0.5" style={{ backgroundColor: tk.bg, borderBottom: `1px solid ${tk.borderLight}` }}>
-                  {(["status", "diff", "blame", "review"] as const).map(gitT => (
-                    <button key={gitT} onClick={() => { setGitTab(gitT); if (gitT === "diff") setActiveSubPanel("diff"); if (gitT === "blame" && blameData) setActiveSubPanel("blame"); }}
-                      className={cn("px-2.5 py-1 rounded text-xs font-semibold transition-colors",
-                        gitTab === gitT ? "bg-stone-100 text-stone-700" : "text-stone-400 hover:text-stone-600")}>
-                      {gitT === "status" ? tt("vibe.gitStatus") : gitT === "diff" ? tt("vibe.gitDiff") : gitT === "blame" ? tt("vibe.gitBlame") : "🔬 Review"}
-                    </button>
-                  ))}
-                  <span className="flex-1" />
-                  <button onClick={() => { refreshGitStatus(); refreshGitLog(); loadGitDiff(); if (rootPath) fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath)}`).then(r=>r.json()).then(data=>setStagedSummary(data)).catch(()=>{}); }} className="text-xs text-stone-400 hover:text-stone-600 px-1.5 py-0.5 rounded hover:bg-stone-50">🔄</button>
-                </div>
-
-                {/* ⚠️ Pending review banner — staged but not committed */}
-                {gitStatus?.staged?.length > 0 && (
-                  <div className="px-3 py-1.5 bg-amber-50 border-b" style={{ borderColor: '#fcd34d' }}>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-amber-600 font-bold shrink-0">⚠️ {gitStatus.staged.length} staged</span>
-                      {stagedSummary?.exists && (
-                        <span className="text-stone-400 truncate hidden sm:inline">{stagedSummary.task?.slice(0, 60) || ''}</span>
-                      )}
-                      <span className="flex-1" />
-                      {stagedSummary?.exists && (
-                        <button onClick={() => {
-                          const s = stagedSummary!;
-                          const lines = [`[${s.task || 'update'}]`];
-                          if (s.files) for (const f of s.files) lines.push(`- ${f.path}: ${f.reason}`);
-                          if (s.howToTest) lines.push('', 'Test:', s.howToTest);
-                          setGitCommitMsg(lines.join('\n'));
-                          setGitTab('status');
-                        }} className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 font-bold shrink-0">📋 帶入</button>
-                      )}
-                      <button onClick={() => { setGitTab("review"); runQaReview(); }} className="text-xs px-2 py-0.5 rounded bg-orange-100 text-orange-700 hover:bg-orange-200 font-bold shrink-0">🔬 QA</button>
-                      <button onClick={() => setShowStagedDetail(!showStagedDetail)} className="text-xs px-1 py-0.5 text-amber-500 hover:text-amber-700 shrink-0">{showStagedDetail ? '▲' : '▼'}</button>
-                    </div>
-                    {/* Collapsible detail */}
-                    {showStagedDetail && stagedSummary?.exists && (
-                      <div className="mt-1.5 pt-1.5 text-xs leading-relaxed space-y-1" style={{ borderTop: '1px solid #fde68a' }}>
-                        {/* Task + agent */}
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-stone-700 shrink-0">{stagedSummary.codename || stagedSummary.agent || 'Agent'}</span>
-                          {stagedSummary.task && <span className="text-stone-400 truncate">· {stagedSummary.task}</span>}
-                        </div>
-                        {/* Files — compact */}
-                        {stagedSummary.files && stagedSummary.files.length > 0 && (
-                          <div className="space-y-0.5">
-                            {stagedSummary.files.slice(0, 5).map((f, i) => (
-                              <div key={i} className="flex items-baseline gap-1.5">
-                                <span className="font-mono text-emerald-600 shrink-0 max-w-[40%] truncate">{f.path.split(/[\\/]/).pop()}</span>
-                                <span className="text-stone-300 shrink-0">·</span>
-                                <span className="text-stone-500 truncate flex-1">{f.reason}</span>
-                              </div>
-                            ))}
-                            {stagedSummary.files.length > 5 && (
-                              <div className="text-stone-400 pl-1">+{stagedSummary.files.length - 5} more...</div>
-                            )}
-                          </div>
-                        )}
-                        {/* How to test */}
-                        {stagedSummary.howToTest && (
-                          <div className="flex items-start gap-1">
-                            <span className="shrink-0">🧪</span>
-                            <span className="text-stone-500 flex-1">{stagedSummary.howToTest}</span>
-                          </div>
-                        )}
-                        {/* Risk */}
-                        {stagedSummary.risk && stagedSummary.risk !== '無' && (
-                          <div className="flex items-start gap-1">
-                            <span className="shrink-0 text-red-400">⚠️</span>
-                            <span className="text-red-500 flex-1">{stagedSummary.risk}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {/* No summary hint */}
-                    {showStagedDetail && !stagedSummary?.exists && (
-                      <div className="mt-1 pt-1 text-xs text-stone-400" style={{ borderTop: '1px solid #fde68a' }}>Agent 未寫摘要。手動 commit 或提醒 agent 補寫。</div>
-                    )}
-                  </div>
-                )}
-
-                {/* Git Status */}
-                {gitTab === "status" && (
-                  <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                    {/* Branch + Action Buttons */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className="text-xs font-bold text-stone-500">🌿 {gitStatus?.branch || "..."}</div>
-                      <span className="flex-1" />
-                      <button onClick={async () => {
-                        setGitActionMsg("Pulling...");
-                        try {
-                          const r = await fetch(`${API_BASE}/api/vibe-git/pull?path=${encodeURIComponent(rootPath!)}`, { method: "POST" });
-                          const d = await r.json();
-                          setGitActionMsg(d.ok ? `✅ ${d.output || d.message}` : `❌ ${d.error}`);
-                          refreshGitStatus(); refreshGitLog();
-                        } catch (e: any) { setGitActionMsg(`❌ ${e.message}`); }
-                      }} className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">⬇ Pull</button>
-                      {/* Commit Selected — stages only checked files */}
-                      <button onClick={async () => {
-                        const files = Array.from(selectedFiles);
-                        if (files.length === 0) { setGitActionMsg("⚠️ No files selected — check boxes below"); return; }
-                        if (!gitCommitMsg.trim()) { setGitActionMsg("⚠️ Enter commit message first"); return; }
-                        setGitActionMsg(`Staging ${files.length} file(s)...`);
-                        const addRes = await fetch(`${API_BASE}/api/vibe-git/add?path=${encodeURIComponent(rootPath!)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ files }) });
-                        const addData = await addRes.json();
-                        if (!addData.ok) { setGitActionMsg(`❌ Stage failed: ${addData.error}`); return; }
-                        setGitActionMsg("Committing...");
-                        const commitRes = await fetch(`${API_BASE}/api/vibe-git/commit?path=${encodeURIComponent(rootPath!)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: gitCommitMsg.trim() }) });
-                        const commitData = await commitRes.json();
-                        if (!commitData.ok) { setGitActionMsg(`❌ Commit failed: ${commitData.error}`); refreshGitStatus(); return; }
-                        setGitActionMsg(`✅ Committed ${files.length} file(s): ${commitData.output || commitData.message}`);
-                        setGitCommitMsg("");
-                        setSelectedFiles(new Set());
-                        // Clear staged-changes summary
-                        try { await fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath!)}`, { method: "DELETE" }); setStagedSummary(null); } catch {}
-                        refreshGitStatus(); refreshGitLog();
-                      }} disabled={selectedFiles.size === 0} className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-40">✅ Commit ({selectedFiles.size})</button>
-                      {/* Commit All */}
-                      <button onClick={async () => {
-                        if (!gitStatus?.staged?.length && !gitStatus?.unstaged?.length && !gitStatus?.untracked?.length) {
-                          setGitActionMsg("Nothing to commit"); return;
-                        }
-                        const files = gitStatus.all?.map(f => f.path) || ["."];
-                        setGitActionMsg("Staging...");
-                        const addRes = await fetch(`${API_BASE}/api/vibe-git/add?path=${encodeURIComponent(rootPath!)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ files }) });
-                        const addData = await addRes.json();
-                        if (!addData.ok) { setGitActionMsg(`❌ Stage failed: ${addData.error}`); return; }
-                        if (!gitCommitMsg.trim()) { setGitActionMsg("⚠️ Enter commit message first"); refreshGitStatus(); return; }
-                        setGitActionMsg("Committing...");
-                        const commitRes = await fetch(`${API_BASE}/api/vibe-git/commit?path=${encodeURIComponent(rootPath!)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: gitCommitMsg.trim() }) });
-                        const commitData = await commitRes.json();
-                        if (!commitData.ok) { setGitActionMsg(`❌ Commit failed: ${commitData.error}`); refreshGitStatus(); return; }
-                        setGitActionMsg(`✅ ${commitData.output || commitData.message}`);
-                        setGitCommitMsg("");
-                        setSelectedFiles(new Set());
-                        // Clear staged-changes summary
-                        try { await fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath!)}`, { method: "DELETE" }); setStagedSummary(null); } catch {}
-                        refreshGitStatus(); refreshGitLog();
-                      }} className="text-xs px-2 py-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors">📦 All</button>
-                      {/* Push */}
-                      <button onClick={async () => {
-                        setGitActionMsg("Pushing...");
-                        try {
-                          const r = await fetch(`${API_BASE}/api/vibe-git/push?path=${encodeURIComponent(rootPath!)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-                          const d = await r.json();
-                          setGitActionMsg(d.ok ? `✅ ${d.output || d.message}` : `❌ ${d.error}`);
-                          refreshGitStatus(); refreshGitLog();
-                        } catch (e: any) { setGitActionMsg(`❌ ${e.message}`); }
-                      }} className="text-xs px-2 py-1 rounded bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors">⬆ Push</button>
-                    </div>
-                    {/* Commit message input */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={async () => {
-                          if (!rootPath) return;
-                          setAiCommitLoading(true);
-                          try {
-                            // Get diff — either for selected files or all
-                            let diffText = "";
-                            const selFiles = Array.from(selectedFiles);
-                            if (selFiles.length > 0) {
-                              // Fetch diff for each selected file
-                              for (const fp of selFiles) {
-                                const r = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(fp)}`);
-                                const d = await r.json();
-                                if (d.diff) diffText += d.diff + "\n";
-                              }
-                            } else {
-                              // Use full diff
-                              diffText = gitDiff;
-                              if (!diffText) {
-                                const r = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}`);
-                                const d = await r.json();
-                                diffText = d.diff || "";
-                              }
-                            }
-                            if (!diffText) { setGitActionMsg("⚠️ No diff to analyze"); setAiCommitLoading(false); return; }
-                            const res = await fetch(`${API_BASE}/api/vibe-git/ai-commit-msg?path=${encodeURIComponent(rootPath)}`, {
-                              method: "POST", headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ diff: diffText, files: selFiles.length > 0 ? selFiles : undefined }),
-                            });
-                            const data = await res.json();
-                            if (data.message) {
-                              setGitCommitMsg(data.message);
-                              setGitActionMsg("✅ AI generated commit message");
-                            } else {
-                              setGitActionMsg("⚠️ AI couldn't generate a message");
-                            }
-                          } catch (e: any) { setGitActionMsg(`❌ ${e.message}`); }
-                          setAiCommitLoading(false);
-                        }}
-                        disabled={aiCommitLoading}
-                        className="text-xs px-2 py-1.5 rounded shrink-0 transition-colors"
-                        style={{ backgroundColor: '#f3e8ff', color: '#7c3aed' }}
-                        title="AI generate commit message from diff"
-                      >{aiCommitLoading ? "⏳" : "🤖"}</button>
-                      <input
-                        value={gitCommitMsg}
-                        onChange={e => setGitCommitMsg(e.target.value)}
-                        placeholder="Commit message... (🤖 = AI generate)"
-                        className="flex-1 text-xs px-2 py-1.5 rounded border border-stone-200 focus:border-stone-400 focus:outline-none bg-white text-stone-700"
-                        onKeyDown={e => { if (e.key === "Enter" && gitCommitMsg.trim()) { (e.target as HTMLElement).parentElement?.querySelector?.('[data-commit-btn]')?.dispatchEvent(new MouseEvent('click')); } }}
-                      />
-                    </div>
-                    {/* Action feedback */}
-                    {gitActionMsg && (
-                      <div className={`text-xs px-2 py-1.5 rounded ${gitActionMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-700" : gitActionMsg.startsWith("❌") ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700"}`}>
-                        {gitActionMsg}
-                        <button onClick={() => setGitActionMsg(null)} className="ml-2 text-stone-400 hover:text-stone-600">✕</button>
-                      </div>
-                    )}
-                    {gitStatus ? (<>
-                    {/* Select All / Deselect All */}
-                    {(gitStatus.unstaged.length > 0 || gitStatus.untracked.length > 0 || gitStatus.staged.length > 0) && (
-                      <div className="flex items-center gap-2 pb-1">
-                        <button onClick={() => {
-                          const all = new Set<string>();
-                          gitStatus.staged.forEach(f => all.add(f.path));
-                          gitStatus.unstaged.forEach(f => all.add(f.path));
-                          gitStatus.untracked.forEach(f => all.add(f.path));
-                          setSelectedFiles(all);
-                        }} className="text-xs text-blue-500 hover:underline">Select All</button>
-                        <button onClick={() => setSelectedFiles(new Set())} className="text-xs text-stone-400 hover:underline">Clear</button>
-                        <span className="text-xs text-stone-400">{selectedFiles.size} selected</span>
-                      </div>
-                    )}
-                    {gitStatus.staged.length > 0 && (
-                      <div>
-                        <div className="text-xs font-bold text-emerald-500 mb-1">{tt('vibe.gitStaged')} ({gitStatus.staged.length})</div>
-                        {gitStatus.staged.map((f, i) => (
-                          <div key={i} className="flex items-center gap-1.5 py-0.5 text-xs hover:bg-stone-50 px-1 rounded group">
-                            <input type="checkbox" checked={selectedFiles.has(f.path)} onChange={() => {
-                              const next = new Set(selectedFiles);
-                              next.has(f.path) ? next.delete(f.path) : next.add(f.path);
-                              setSelectedFiles(next);
-                            }} className="w-3 h-3 shrink-0" />
-                            <span className="text-xs font-bold text-emerald-500 w-4 shrink-0">{f.status}</span>
-                            <span className="text-stone-600 truncate flex-1 cursor-pointer" onClick={() => { loadGitDiff(f.path, true); setGitTab("diff"); setActiveSubPanel("diff"); }}>{f.path}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {gitStatus.unstaged.length > 0 && (
-                      <div>
-                        <div className="text-xs font-bold text-amber-500 mb-1">{tt('vibe.gitUnstaged')} ({gitStatus.unstaged.length})</div>
-                        {gitStatus.unstaged.map((f, i) => (
-                          <div key={i} className="flex items-center gap-1.5 py-0.5 text-xs hover:bg-stone-50 px-1 rounded group">
-                            <input type="checkbox" checked={selectedFiles.has(f.path)} onChange={() => {
-                              const next = new Set(selectedFiles);
-                              next.has(f.path) ? next.delete(f.path) : next.add(f.path);
-                              setSelectedFiles(next);
-                            }} className="w-3 h-3 shrink-0" />
-                            <span className="text-xs font-bold text-amber-500 w-4 shrink-0">{f.status}</span>
-                            <span className="text-stone-600 truncate flex-1 cursor-pointer" onClick={() => { loadGitDiff(f.path, false); setGitTab("diff"); setActiveSubPanel("diff"); }}>{f.path}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {gitStatus.untracked.length > 0 && (
-                      <div>
-                        <div className="text-xs font-bold text-stone-400 mb-1">{tt('vibe.gitUntracked')} ({gitStatus.untracked.length})</div>
-                        {gitStatus.untracked.map((f, i) => (
-                          <div key={i} className="flex items-center gap-1.5 py-0.5 text-xs hover:bg-stone-50 px-1 rounded group">
-                            <input type="checkbox" checked={selectedFiles.has(f.path)} onChange={() => {
-                              const next = new Set(selectedFiles);
-                              next.has(f.path) ? next.delete(f.path) : next.add(f.path);
-                              setSelectedFiles(next);
-                            }} className="w-3 h-3 shrink-0" />
-                            <span className="text-xs font-bold text-stone-400 w-4 shrink-0">?</span>
-                            <span className="text-stone-500 truncate flex-1">{f.path}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {/* Recent commits */}
-                    {gitLog.length > 0 && (
-                      <div>
-                        <div className="text-xs font-bold text-stone-500 mb-1">{tt('vibe.gitRecent')}</div>
-                        {gitLog.slice(0, 8).map((c, i) => (
-                          <div key={i} className="flex items-center gap-2 py-0.5 text-xs">
-                            <span className="text-xs font-mono text-blue-500 shrink-0">{c.short}</span>
-                            <span className="text-stone-600 truncate flex-1">{c.subject}</span>
-                            <span className="text-stone-400 shrink-0">{fmtTime(c.date)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    </>) : (
-                      <div className="flex-1 flex items-center justify-center text-xs text-stone-400">Loading...</div>
-                    )}
-                  </div>
-                )}
-
-                {/* Diff View */}
-                {gitTab === "diff" && (
-                  <div className="flex-1 overflow-auto">
-                    {/* Diff toolbar */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 sticky top-0 bg-white z-10" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-                      <div className="flex gap-0.5">
-                        <button onClick={() => { loadGitDiff(undefined, false); setGitDiffFile(""); }}
-                          className={cn("text-xs px-2 py-0.5 rounded", !gitDiffCached && !gitDiffFile ? "bg-stone-200 text-stone-700 font-bold" : "text-stone-400 hover:bg-stone-100")}>
-                          Working
-                        </button>
-                        <button onClick={() => { loadGitDiff(undefined, true); setGitDiffFile(""); }}
-                          className={cn("text-xs px-2 py-0.5 rounded", gitDiffCached ? "bg-emerald-100 text-emerald-700 font-bold" : "text-stone-400 hover:bg-stone-100")}>
-                          Staged
-                        </button>
-                        <button onClick={() => { loadGitDiff(undefined, false, "HEAD"); setGitDiffFile("__HEAD__"); }}
-                          className={cn("text-xs px-2 py-0.5 rounded", gitDiffFile === "__HEAD__" ? "bg-blue-100 text-blue-700 font-bold" : "text-stone-400 hover:bg-stone-100")}>
-                          Last Commit
-                        </button>
-                      </div>
-                      <span className="flex-1" />
-                      {gitDiffFile && gitDiffFile !== "__HEAD__" && !gitDiffFile.startsWith("__commit__") && <span className="text-xs text-stone-400 truncate max-w-48">{gitDiffFile}</span>}
-                      {gitDiffFile?.startsWith("__commit__") && <span className="text-xs font-mono text-stone-400">{gitDiffFile.slice(10)}</span>}
-                      <button onClick={runQaReview} disabled={qaReviewLoading || (!gitDiff && !gitStatus?.staged?.length)} className="text-xs px-2 py-0.5 rounded text-white disabled:opacity-40" style={{ backgroundColor: tk.accent }}>{qaReviewLoading ? "⏳ Reviewing..." : "🔬 QA Review"}</button>
-                    </div>
-
-                    {gitDiff ? (
-                      <DiffViewer diffText={gitDiff} />
-                    ) : (
-                      /* No working changes — show recent commits with click-to-diff */
-                      <div className="p-3 space-y-1">
-                        <div className="text-xs text-stone-400 mb-2">最近提交（點擊查看 diff）</div>
-                        {gitLog.length > 0 ? gitLog.slice(0, 15).map((c, i) => (
-                          <div key={c.hash} className="flex items-start gap-2 p-2 rounded hover:bg-stone-50 cursor-pointer text-xs"
-                            onClick={async () => {
-                              setGitDiffFile("__commit__" + c.hash);
-                              try {
-                                const res = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath!)}&commit=${encodeURIComponent(c.hash)}`);
-                                const data = await res.json();
-                                setGitDiff(data.diff || "");
-                              } catch {}
-                            }}>
-                            <span className="font-mono text-stone-400 shrink-0">{c.short}</span>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-stone-700 truncate">{c.subject}</div>
-                              <div className="text-stone-400 mt-0.5">{c.author} · {fmtTime(c.date)}</div>
-                            </div>
-                            {i === 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-500 shrink-0">HEAD</span>}
-                          </div>
-                        )) : (
-                          <div className="flex items-center justify-center h-32 text-xs text-stone-400">{tt('vibe.gitNoChanges')}</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Blame View */}
-                {gitTab === "blame" && blameData && (
-                  <div className="flex-1 overflow-auto">
-                    <div className="flex items-center gap-2 px-3 py-1.5 sticky top-0 bg-white z-10" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-                      <span className="text-xs font-bold text-stone-500">🔍 Blame — {blameFile}</span>
-                    </div>
-                    <table className="w-full text-sm font-mono" style={{ borderCollapse: "collapse" }}>
-                      <tbody>
-                        {blameData.map((line, i) => {
-                          const prevHash = i > 0 ? blameData[i - 1].hash : "";
-                          const showAuthor = line.hash !== prevHash;
-                          return (
-                            <tr key={i} className={cn(showAuthor ? "" : "")} style={{ borderTop: showAuthor ? "1px solid #e5e5e5" : "none" }}>
-                              <td className="px-2 py-0 text-right text-stone-300 select-none w-8 shrink-0">{line.finalLine}</td>
-                              <td className="px-2 py-0 w-32 shrink-0 truncate" style={{ color: showAuthor ? "#3B82F6" : "#c0c0c0" }}>
-                                {showAuthor ? (
-                                  <span className="flex flex-col">
-                                    <span className="truncate font-semibold">{line.author}</span>
-                                    <span className="text-xs text-stone-400 truncate">{line.short || line.hash?.slice(0, 7)} · {fmtTime(line.authorTime)}</span>
-                                  </span>
-                                ) : <span className="text-stone-200">│</span>}
-                              </td>
-                              <td className="px-2 py-0 text-stone-700 leading-5 whitespace-pre">{line.content}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                {/* QA Code Review */}
-                {gitTab === "review" && (
-                  <div className="flex-1 overflow-auto p-3">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xs font-bold text-stone-700">🔬 QA Agent Code Review</span>
-                      <span className="text-xs text-stone-400">由 武大安 審查 staged changes</span>
-                      <span className="flex-1" />
-                      <button onClick={runQaReview} disabled={qaReviewLoading}
-                        className="text-xs px-3 py-1 rounded text-white disabled:opacity-40 active:scale-95"
-                        style={{ backgroundColor: tk.accent }}>
-                        {qaReviewLoading ? "⏳ 審查中..." : "🔍 開始 Review"}
-                      </button>
-                    </div>
-                    {qaReviewLoading ? (
-                      <div className="flex items-center justify-center h-32 text-stone-400 text-sm animate-pulse">🔬 QA Agent 審查中...</div>
-                    ) : qaReview ? (
-                      <div className="prose prose-sm max-w-none text-xs leading-relaxed whitespace-pre-wrap">{qaReview}</div>
-                    ) : null}
-                    {/* Review History */}
-                    {gitReviews.length > 0 && (
-                      <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
-                        <div className="text-xs font-bold text-stone-500 mb-2">📜 Review 歷史 ({gitReviews.length})</div>
-                        {gitReviews.filter(r => r.comment !== qaReview).slice(0, 10).map((r, i) => (
-                          <details key={r.id || i} className="mb-2">
-                            <summary className="text-xs text-stone-500 cursor-pointer hover:text-stone-700">
-                              {r.branch && <span className="text-emerald-500 mr-1">🔀 {r.branch}</span>}
-                              {fmtTime(r.ts)}
-                              {r.files && <span className="text-stone-400 ml-1">· {r.files.length} files</span>}
-                            </summary>
-                            <div className="text-sm text-stone-600 mt-1 whitespace-pre-wrap leading-relaxed border-l-2 pl-3" style={{ borderColor: "#e5e5e5" }}>
-                              {r.comment?.slice(0, 500)}{r.comment?.length > 500 ? "..." : ""}
-                            </div>
-                          </details>
-                        ))}
-                      </div>
-                    )}
-                    {!qaReview && gitReviews.length === 0 && (
-                      <div className="flex flex-col items-center justify-center h-32 gap-2 text-stone-400 text-xs">
-                        <span className="text-2xl">🔬</span>
-                        <p>點「開始 Review」讓 QA Agent 審查 staged changes</p>
-                        <p className="text-stone-300">QA 會檢查 bug、安全、跨平台、測試建議</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              <GitPanel
+                rootPath={rootPath!}
+                API_BASE={API_BASE}
+                gitStatus={gitStatus}
+                gitLog={gitLog}
+                gitDiff={gitDiff}
+                gitDiffFile={gitDiffFile}
+                gitDiffCached={gitDiffCached}
+                gitCommitMsg={gitCommitMsg}
+                gitActionMsg={gitActionMsg}
+                selectedFiles={selectedFiles}
+                aiCommitLoading={aiCommitLoading}
+                stagedSummary={stagedSummary}
+                qaReview={qaReview}
+                qaReviewLoading={qaReviewLoading}
+                gitReviews={gitReviews}
+                blameData={blameData}
+                blameFile={blameFile}
+                setGitTab={setGitTab}
+                setGitCommitMsg={setGitCommitMsg}
+                setGitActionMsg={setGitActionMsg}
+                setSelectedFiles={setSelectedFiles}
+                setGitDiffFile={setGitDiffFile}
+                setGitDiffCached={setGitDiffCached}
+                setActiveSubPanel={setActiveSubPanel}
+                setStagedSummary={setStagedSummary}
+                refreshGitStatus={refreshGitStatus}
+                refreshGitLog={refreshGitLog}
+                loadGitDiff={loadGitDiff}
+                runQaReview={runQaReview}
+                fmtTime={fmtTime}
+                theme={tk}
+                tt={tt}
+              />
             )}
 
             {/* === API TESTER === */}

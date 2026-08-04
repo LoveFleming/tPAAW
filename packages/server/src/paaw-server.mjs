@@ -133,10 +133,22 @@ const server = createServer(async (req, res) => {
       let reqPath = req.url?.split("?")[0] || "/";
       // Don't serve static for /api/ routes
       if (!reqPath.startsWith("/api/") && !reqPath.startsWith("/.well-known/")) {
-        let filePath = resolve(UI_DIST, reqPath.slice(1));
-        // Security: prevent path traversal
-        if (!filePath.startsWith(UI_DIST)) filePath = resolve(UI_DIST, "index.html");
-        if (!_exists(filePath) || reqPath === "/") filePath = resolve(UI_DIST, "index.html");
+        // Security: prevent path traversal — use a strict containment guard.
+        // resolve() expands "..", so a naive startsWith(UI_DIST) prefix check
+        // can be bypassed with UI_DIST/../secret. safeResolve throws on escape.
+        let filePath;
+        try {
+          const { safeResolve } = await import("./lib/coding-security.mjs");
+          filePath = reqPath === "/" ? resolve(UI_DIST, "index.html") : safeResolve(UI_DIST, reqPath.slice(1).replace(/^\/+/, ""));
+        } catch {
+          // traversal blocked or missing module → fall through to 404
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Not found", path: req.url }));
+          return;
+        }
+        if (!_exists(filePath)) {
+          filePath = resolve(UI_DIST, "index.html");
+        }
         try {
           const { extname } = await import("path");
           const ext = extname(filePath);
