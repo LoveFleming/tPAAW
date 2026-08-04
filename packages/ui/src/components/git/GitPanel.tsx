@@ -164,10 +164,25 @@ export default function GitPanel(props: GitPanelProps) {
 
   // ── File toggle ──
   const toggleFile = useCallback((path: string) => {
-    const prev = selectedFiles;
-    const next = new Set(prev);
-    next.has(path) ? next.delete(path) : next.add(path);
-    setSelectedFiles(next);
+    setSelectedFiles(prev => {
+      const next = new Set(prev);
+      next.has(path) ? next.delete(path) : next.add(path);
+      return next;
+    });
+  }, [setSelectedFiles]);
+
+  // ── Select All / Clear ──
+  const selectAllFiles = useCallback(() => {
+    if (!gitStatus) return;
+    const all = new Set<string>();
+    gitStatus.staged.forEach(f => all.add(f.path));
+    gitStatus.unstaged.forEach(f => all.add(f.path));
+    gitStatus.untracked.forEach(f => all.add(f.path));
+    setSelectedFiles(all);
+  }, [gitStatus, setSelectedFiles]);
+
+  const clearAllFiles = useCallback(() => {
+    setSelectedFiles(new Set());
   }, [setSelectedFiles]);
 
   // ── File click → view diff ──
@@ -389,6 +404,8 @@ export default function GitPanel(props: GitPanelProps) {
             fmtTime={fmtTime as any}
             onApplySummary={handleApplySummary}
             onQaReview={runQaReview}
+            onSelectAll={selectAllFiles}
+            onClearAll={clearAllFiles}
             theme={theme}
           />
         )}

@@ -2,17 +2,30 @@
  * GitStatusView.tsx — Git Status 分組顯示
  * 
  * 核心改進：
- * 1. Code / .paaw / Config / Docs 分組顯示
- * 2. Code 組永遠展開且最顯眼
- * 3. .paaw 組預設收折，視覺退讓
- * 4. Agent Summary 獨立卡片
- * 5. Commit Bar 獨立出來
+ * 1. AI Auto Dispatch 項目獨立分類（最上方，最醒目）
+ * 2. Code / .paaw / Config / Docs 分組顯示
+ * 3. Checkbox 多選正常運作
+ * 4. Select All / Clear 按鈕有效
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { cn } from "../../utils";
-import { groupGitFiles, GitFileStatus, GitFileGroup as GitFileGroupType, classifyGitFile } from "./git-helpers";
+import { groupGitFiles, GitFileStatus, classifyGitFile } from "./git-helpers";
 import GitFileGroupCard from "./GitFileGroup";
+
+// ── Types ──
+interface StagedSummary {
+  exists: boolean;
+  agent?: string;
+  codename?: string;
+  task?: string;
+  codeFiles?: { path: string; reason: string }[];
+  paawFiles?: { path: string; reason: string }[];
+  files?: { path: string; reason: string }[];
+  howToTest?: string;
+  risk?: string;
+  createdAt?: string;
+}
 
 interface GitStatusViewProps {
   gitStatus: {
@@ -25,31 +38,16 @@ interface GitStatusViewProps {
   selectedFiles: Set<string>;
   onToggleFile: (path: string) => void;
   onFileClick: (path: string, isStaged: boolean) => void;
-  /** Staged changes summary from agent */
-  stagedSummary: {
-    exists: boolean;
-    agent?: string;
-    codename?: string;
-    task?: string;
-    codeFiles?: { path: string; reason: string }[];
-    paawFiles?: { path: string; reason: string }[];
-    files?: { path: string; reason: string }[];
-    howToTest?: string;
-    risk?: string;
-    createdAt?: string;
-  } | null;
-  /** Callbacks for git actions */
+  stagedSummary: StagedSummary | null;
   onPull: () => void;
   onPush: () => void;
   onRefresh: () => void;
-  /** Git log for recent commits */
   gitLog: { short: string; subject: string; date: string; author: string }[];
-  /** Format time helper */
   fmtTime: (iso: string) => string;
-  /** Staged summary actions */
   onApplySummary: (msg: string) => void;
   onQaReview: () => void;
-  /** Theme colors */
+  onSelectAll: () => void;
+  onClearAll: () => void;
   theme: {
     accent: string;
     borderLight: string;
@@ -70,6 +68,8 @@ export default function GitStatusView({
   fmtTime,
   onApplySummary,
   onQaReview,
+  onSelectAll,
+  onClearAll,
   theme,
 }: GitStatusViewProps) {
   const [showStagedDetail, setShowStagedDetail] = useState(false);
@@ -84,22 +84,41 @@ export default function GitStatusView({
     return result;
   }, [gitStatus]);
 
-  // 分組
-  const fileGroups = useMemo(() => groupGitFiles(allFiles), [allFiles]);
+  // ── 分出 AI Agent 做的 staged files ──
+  // AI auto-dispatch 做的檔案 = staged + stagedSummary 中列出的
+  const aiStagedPaths = useMemo(() => {
+    if (!stagedSummary?.exists) return new Set<string>();
+    const paths = new Set<string>();
+    (stagedSummary.codeFiles ?? stagedSummary.files ?? []).forEach(f => paths.add(f.path));
+    (stagedSummary.paawFiles ?? []).forEach(f => paths.add(f.path));
+    return paths;
+  }, [stagedSummary]);
 
-  // Code vs .paaw 檔案數量統計
+  const aiStagedFiles = useMemo(() => {
+    if (!gitStatus || aiStagedPaths.size === 0) return [];
+    return gitStatus.staged.filter(f => aiStagedPaths.has(f.path));
+  }, [gitStatus, aiStagedPaths]);
+
+  // 非 AI 做的檔案（從分組中移除 AI 的）
+  const remainingFiles = useMemo(() => {
+    return allFiles.filter(f => !aiStagedPaths.has(f.path));
+  }, [allFiles, aiStagedPaths]);
+
+  // 非 AI 檔案分組
+  const fileGroups = useMemo(() => groupGitFiles(remainingFiles), [remainingFiles]);
+
+  // 統計
   const codeCount = allFiles.filter(f => classifyGitFile(f.path) === "code").length;
   const paawCount = allFiles.filter(f => classifyGitFile(f.path) === "paaw").length;
 
   if (!gitStatus) {
     return (
-      <div className="flex-1 flex items-center justify-center text-xs text-stone-400">
-        Loading...
-      </div>
+      <div className="flex-1 flex items-center justify-center text-xs text-stone-400">Loading...</div>
     );
   }
 
   const hasStaged = gitStatus.staged.length > 0;
+  const hasAiStaged = aiStagedFiles.length > 0;
 
   return (
     <div className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -110,107 +129,104 @@ export default function GitStatusView({
           <span className="font-mono">{gitStatus.branch}</span>
         </div>
         {codeCount > 0 && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold">
-            {codeCount} code
-          </span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold">{codeCount} code</span>
         )}
         {paawCount > 0 && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500 font-bold">
-            {paawCount} .paaw
-          </span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500 font-bold">{paawCount} .paaw</span>
         )}
         <span className="flex-1" />
-        <button onClick={onPull} className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors font-medium">
-          ⬇ Pull
-        </button>
-        <button onClick={onPush} className="text-xs px-2 py-1 rounded bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors font-medium">
-          ⬆ Push
-        </button>
-        <button onClick={onRefresh} className="text-xs text-stone-400 hover:text-stone-600 px-1.5 py-0.5 rounded hover:bg-stone-50">
-          🔄
-        </button>
+        <button onClick={onPull} className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors font-medium">⬇ Pull</button>
+        <button onClick={onPush} className="text-xs px-2 py-1 rounded bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors font-medium">⬆ Push</button>
+        <button onClick={onRefresh} className="text-xs text-stone-400 hover:text-stone-600 px-1.5 py-0.5 rounded hover:bg-stone-50">🔄</button>
       </div>
 
-      {/* ── Agent Summary Card (when staged) ── */}
-      {hasStaged && stagedSummary?.exists && (
-        <div className="rounded-lg border border-violet-200 bg-violet-25 overflow-hidden">
-          <button
+      {/* ══════════════════════════════════════════════════════
+          🤖 AI Auto Dispatch — 獨立分類（最上方，最醒目）
+          這些是 AI agent 自動派工做好的項目，等人 QA review
+          ══════════════════════════════════════════════════════ */}
+      {hasAiStaged && stagedSummary?.exists && (
+        <div className="rounded-lg border-2 border-violet-300 bg-violet-50 overflow-hidden shadow-sm">
+          {/* Header — 醒目標題 */}
+          <div
+            className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none bg-violet-100 hover:bg-violet-150 transition-colors"
             onClick={() => setShowStagedDetail(!showStagedDetail)}
-            className="w-full flex items-center gap-2 px-3 py-2 text-left bg-violet-50 hover:bg-violet-100 transition-colors"
           >
-            <span className="text-sm">🤖</span>
-            <span className="text-xs font-bold text-violet-700">
-              {stagedSummary.agent || "Agent"}: {stagedSummary.task?.slice(0, 50) || "Staged changes"}
-            </span>
-            {(stagedSummary.codeFiles ?? stagedSummary.files) && (
-              <span className="text-[10px] text-violet-500">
-                · {(stagedSummary.codeFiles ?? stagedSummary.files)?.length} files
-              </span>
-            )}
-            <span className="flex-1" />
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const s = stagedSummary!;
-                const codeOnly = s.codeFiles || s.files || [];
-                const lines = [`[${s.task || s.codename || 'update'}]`];
-                for (const f of codeOnly) lines.push(`- ${f.path}: ${f.reason}`);
-                if (s.howToTest) lines.push('', 'Test:', s.howToTest);
-                onApplySummary(lines.join('\n'));
-              }}
-              className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-600 hover:bg-violet-200 font-bold"
-            >
-              📋 帶入
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onQaReview();
-              }}
-              className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-600 hover:bg-orange-200 font-bold"
-            >
-              🔬 QA
-            </button>
-            <span className="text-[10px] text-violet-400">
-              {showStagedDetail ? "▲" : "▼"}
-            </span>
-          </button>
+            <span className="text-base">🤖</span>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-bold text-violet-800">
+                AI Auto Dispatch — 等 Review
+              </div>
+              <div className="text-[10px] text-violet-600 truncate">
+                {stagedSummary.agent || "Agent"}：{stagedSummary.task?.slice(0, 60) || stagedSummary.codename || "Auto task"}
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {/* QA Review 按鈕 — 主動作 */}
+              <button
+                onClick={(e) => { e.stopPropagation(); onQaReview(); }}
+                className="text-[10px] px-2 py-1 rounded-md bg-orange-500 text-white hover:bg-orange-600 font-bold transition-all active:scale-95"
+              >
+                🔬 QA Review
+              </button>
+              {/* 帶入 commit message */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const s = stagedSummary!;
+                  const codeOnly = s.codeFiles || s.files || [];
+                  const lines = [`[${s.task || s.codename || 'update'}]`];
+                  for (const f of codeOnly) lines.push(`- ${f.path}: ${f.reason}`);
+                  if (s.howToTest) lines.push('', 'Test:', s.howToTest);
+                  onApplySummary(lines.join('\n'));
+                }}
+                className="text-[10px] px-1.5 py-0.5 rounded bg-violet-200 text-violet-700 hover:bg-violet-300 font-bold"
+              >
+                📋 帶入
+              </button>
+              <span className="text-[10px] text-violet-400">{showStagedDetail ? "▲" : "▼"}</span>
+            </div>
+          </div>
 
+          {/* AI staged files — 緊湊列表 */}
+          <div className="px-3 py-1.5 divide-y divide-violet-100">
+            {aiStagedFiles.map((f, i) => {
+              const isCode = classifyGitFile(f.path) === "code";
+              return (
+                <div key={i} className="flex items-center gap-2 py-1 text-xs">
+                  <span className={cn("font-bold w-4 shrink-0", isCode ? "text-emerald-500" : "text-stone-400")}>
+                    {f.status}
+                  </span>
+                  <span
+                    className={cn("truncate flex-1 cursor-pointer", isCode ? "text-stone-700 font-medium" : "text-stone-400")}
+                    onClick={() => onFileClick(f.path, true)}
+                  >
+                    {f.path}
+                  </span>
+                  {/* 顯示 reason（從 summary） */}
+                  {(() => {
+                    const summary = stagedSummary!.codeFiles?.find(sf => sf.path === f.path)
+                      ?? stagedSummary!.paawFiles?.find(sf => sf.path === f.path)
+                      ?? stagedSummary!.files?.find(sf => sf.path === f.path);
+                    return summary ? (
+                      <span className="text-[10px] text-violet-500 truncate max-w-[40%] shrink-0">{summary.reason}</span>
+                    ) : null;
+                  })()}
+                  {isCode ? (
+                    <span className="text-[10px] px-1 py-0.5 rounded bg-emerald-100 text-emerald-600 shrink-0">code</span>
+                  ) : (
+                    <span className="text-[10px] px-1 py-0.5 rounded bg-stone-100 text-stone-400 shrink-0">.paaw</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 展開詳情 */}
           {showStagedDetail && (
-            <div className="px-3 py-2 text-xs space-y-1.5 bg-violet-25">
-              {/* Code files (primary) */}
-              {(stagedSummary.codeFiles ?? stagedSummary.files ?? [])?.length > 0 && (
-                <div className="space-y-0.5">
-                  <div className="font-bold text-emerald-600 text-[10px] uppercase tracking-wider">📝 Code</div>
-                  {(stagedSummary.codeFiles ?? stagedSummary.files)!.slice(0, 6).map((f, i) => (
-                    <div key={i} className="flex items-baseline gap-1.5 pl-2">
-                      <span className="font-mono text-emerald-600 shrink-0 max-w-[40%] truncate text-[11px]">
-                        {f.path.split(/[\\/]/).pop()}
-                      </span>
-                      <span className="text-stone-300">·</span>
-                      <span className="text-stone-500 truncate flex-1 text-[11px]">{f.reason}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {/* .paaw files (secondary) */}
-              {stagedSummary.paawFiles && stagedSummary.paawFiles.length > 0 && (
-                <div className="space-y-0.5">
-                  <div className="font-bold text-stone-400 text-[10px] uppercase tracking-wider">🤖 .paaw</div>
-                  {stagedSummary.paawFiles.slice(0, 4).map((f, i) => (
-                    <div key={i} className="flex items-baseline gap-1.5 pl-2">
-                      <span className="font-mono text-stone-400 shrink-0 max-w-[40%] truncate text-[11px]">
-                        {f.path.split(/[\\/]/).pop()}
-                      </span>
-                      <span className="text-stone-300">·</span>
-                      <span className="text-stone-400 truncate flex-1 text-[11px]">{f.reason}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="px-3 py-2 text-xs space-y-1.5 border-t border-violet-200 bg-violet-25">
               {/* How to test */}
               {stagedSummary.howToTest && (
-                <div className="flex items-start gap-1 pt-1" style={{ borderTop: "1px solid #ede9fe" }}>
+                <div className="flex items-start gap-1">
                   <span className="shrink-0">🧪</span>
                   <span className="text-stone-500 text-[11px]">{stagedSummary.howToTest}</span>
                 </div>
@@ -227,7 +243,7 @@ export default function GitStatusView({
         </div>
       )}
 
-      {/* ── File Groups ── */}
+      {/* ── File Groups (非 AI 部分) ── */}
       {fileGroups.length > 0 ? (
         <div className="space-y-2">
           {fileGroups.map(g => (
@@ -240,32 +256,21 @@ export default function GitStatusView({
             />
           ))}
         </div>
-      ) : (
+      ) : !hasAiStaged ? (
         <div className="flex flex-col items-center justify-center h-32 gap-2 text-stone-400 text-xs">
           <span className="text-2xl">✨</span>
           <p>Working tree clean</p>
         </div>
-      )}
+      ) : null}
 
       {/* ── Select All / Clear ── */}
       {allFiles.length > 0 && (
         <div className="flex items-center gap-2 pt-1">
-          <button
-            onClick={() => {
-              const all = new Set<string>();
-              gitStatus.staged.forEach(f => all.add(f.path));
-              gitStatus.unstaged.forEach(f => all.add(f.path));
-              gitStatus.untracked.forEach(f => all.add(f.path));
-              // This is a simplified approach - parent should handle this
-            }}
-            className="text-[10px] text-blue-500 hover:underline"
-          >
+          <button onClick={onSelectAll} className="text-[10px] text-blue-500 hover:underline font-medium">
             Select All
           </button>
           <span className="text-stone-300">·</span>
-          <button
-            className="text-[10px] text-stone-400 hover:underline"
-          >
+          <button onClick={onClearAll} className="text-[10px] text-stone-400 hover:underline font-medium">
             Clear
           </button>
           <span className="text-[10px] text-stone-400">{selectedFiles.size} selected</span>
@@ -276,15 +281,12 @@ export default function GitStatusView({
       {gitLog.length > 0 && (
         <div className="pt-2" style={{ borderTop: `1px solid ${theme.borderLight}` }}>
           <div className="text-xs font-bold text-stone-500 mb-1.5 flex items-center gap-1.5">
-            <span>📜</span>
-            <span>Recent</span>
+            <span>📜</span><span>Recent</span>
           </div>
           <div className="space-y-0.5">
             {gitLog.slice(0, 8).map((c, i) => (
               <div key={i} className="flex items-center gap-2 py-0.5 text-xs group">
-                <span className="text-[10px] font-mono text-blue-500 shrink-0 bg-blue-50 px-1 rounded">
-                  {c.short}
-                </span>
+                <span className="text-[10px] font-mono text-blue-500 shrink-0 bg-blue-50 px-1 rounded">{c.short}</span>
                 <span className="text-stone-600 truncate flex-1">{c.subject}</span>
                 <span className="text-stone-400 shrink-0 text-[10px]">{fmtTime(c.date)}</span>
               </div>

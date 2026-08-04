@@ -86,20 +86,24 @@ export default function GitFileGroupCard({
 
         {/* Select all in group */}
         {expanded && (
-          <span
-            className="text-[10px] text-stone-400 hover:text-stone-600"
+          <button
+            type="button"
+            className="text-[10px] text-stone-400 hover:text-stone-600 px-1"
             onClick={(e) => {
               e.stopPropagation();
-              // Toggle all in group
+              e.preventDefault();
               const allSelected = group.files.every(f => selectedFiles.has(f.path));
               group.files.forEach(f => {
-                if (allSelected && selectedFiles.has(f.path)) onToggleFile(f.path);
-                else if (!allSelected && !selectedFiles.has(f.path)) onToggleFile(f.path);
+                if (allSelected) {
+                  if (selectedFiles.has(f.path)) onToggleFile(f.path);
+                } else {
+                  if (!selectedFiles.has(f.path)) onToggleFile(f.path);
+                }
               });
             }}
           >
             {group.files.every(f => selectedFiles.has(f.path)) ? "Deselect" : "Select all"}
-          </span>
+          </button>
         )}
       </button>
 
