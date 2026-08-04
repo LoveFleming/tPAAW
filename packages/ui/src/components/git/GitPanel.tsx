@@ -270,6 +270,29 @@ export default function GitPanel(props: GitPanelProps) {
     }
   }, [rootPath, API_BASE, refreshGitStatus, refreshGitLog, loadGitDiff, setStagedSummary]);
 
+  // ── Unstage file ──
+  const handleUnstageFile = useCallback(async (path: string) => {
+    if (!rootPath) return;
+    setGitActionMsg(`Unstaging ${path.split(/[\\/]/).pop()}...`);
+    try {
+      const r = await fetch(`${API_BASE}/api/vibe-git/unstage?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file: path }),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        setGitActionMsg(`✅ Unstaged: ${path.split(/[\\/]/).pop()}`);
+      } else {
+        setGitActionMsg(`❌ ${d.error}`);
+      }
+      refreshGitStatus();
+      refreshGitLog();
+    } catch (e: any) {
+      setGitActionMsg(`❌ ${e.message}`);
+    }
+  }, [rootPath, API_BASE, setGitActionMsg, refreshGitStatus, refreshGitLog]);
+
   // ── Commit actions ──
   const handleCommitSelected = useCallback(async () => {
     const files = getSelectedPaths();
@@ -450,6 +473,7 @@ export default function GitPanel(props: GitPanelProps) {
             onQaReview={runQaReview}
             onSelectAll={selectAllFiles}
             onClearAll={clearAllFiles}
+            onUnstageFile={handleUnstageFile}
             theme={theme}
           />
         )}

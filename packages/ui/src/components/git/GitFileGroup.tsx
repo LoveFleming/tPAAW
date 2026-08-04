@@ -15,6 +15,7 @@ interface GitFileGroupProps {
   onToggleKey: (key: string) => void;
   onSelectKeys: (keys: string[], selected: boolean) => void;
   onFileClick: (path: string, isStaged: boolean) => void;
+  onUnstageFile?: (path: string) => void;
   className?: string;
 }
 
@@ -24,6 +25,7 @@ export default function GitFileGroupCard({
   onToggleKey,
   onSelectKeys,
   onFileClick,
+  onUnstageFile,
   className,
 }: GitFileGroupProps) {
   const [expanded, setExpanded] = useState(group.defaultExpanded);
@@ -117,13 +119,20 @@ export default function GitFileGroupCard({
                 >
                   {f.path}
                 </span>
-                {/* Staged/Unstaged indicator for duplicate filenames */}
-                <span className={cn(
-                  "text-[9px] px-1 py-0.5 rounded shrink-0 font-medium",
-                  isStaged ? "bg-emerald-50 text-emerald-500" : "bg-amber-50 text-amber-500"
-                )}>
-                  {isStaged ? "staged" : "unstaged"}
-                </span>
+                {/* Staged/Unstaged indicator + unstage action */}
+                {isStaged ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onUnstageFile?.(f.path); }}
+                    className="text-[9px] px-1 py-0.5 rounded shrink-0 font-medium bg-emerald-50 text-emerald-500 hover:bg-red-50 hover:text-red-500 transition-colors"
+                    title="Unstage this file"
+                  >
+                    staged ✕
+                  </button>
+                ) : (
+                  <span className="text-[9px] px-1 py-0.5 rounded shrink-0 font-medium bg-amber-50 text-amber-500">
+                    unstaged
+                  </span>
+                )}
                 {isPaaw && (
                   <span className="text-[10px] px-1 py-0.5 rounded bg-stone-100 text-stone-400 shrink-0">.paaw</span>
                 )}

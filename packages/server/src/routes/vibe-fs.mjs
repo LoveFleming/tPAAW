@@ -209,6 +209,24 @@ export default async function vibeFsRoute(req, res) {
     return true;
   }
 
+  // ── POST /api/vibe-git/unstage — git restore --staged ──
+  if (req.method === "POST" && req.url?.startsWith("/api/vibe-git/unstage")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const cwd = params.get("path");
+    if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return true; }
+    let body;
+    try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
+    const file = body.file; // single file path
+    const files = body.files; // or array of file paths
+    const targets = files || (file ? [file] : []);
+    if (!targets.length) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing file(s)" })); return true; }
+    const r = await runGit(["restore", "--staged", ...targets], cwd);
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return true; }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, message: `Unstaged ${targets.length} file(s)` }));
+    return true;
+  }
+
   // ── POST /api/vibe-git/commit — git commit ──
   if (req.method === "POST" && req.url?.startsWith("/api/vibe-git/commit")) {
     const params = new URL(req.url, "http://localhost").searchParams;
