@@ -46,6 +46,7 @@ import AutoDispatchPanel, { SubTaskDetail } from "../components/AutoDispatchPane
 import CrewManager from "../components/CrewManager";
 // ReportsTab removed — merged into AutoDispatchPanel
 import SecurityTab from "../components/SecurityTab";
+import ProjectHealth from "../components/ProjectHealth";
 import FileViewer from "../pages/FileViewer";
 
 // ── Types ──
@@ -2470,6 +2471,12 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:security") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:security" ? tk.toolbarActive : "transparent"; }}
           title="Security Scan">🔒 Security</button>
+        <button onClick={() => openMainTab({ id: "tool:health", type: "health", label: "Health", icon: "🩺", closable: true })}
+          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:health" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:health") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:health") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:health" ? tk.toolbarActive : "transparent"; }}
+          title="Project Health">🩺 Health</button>
 
       </div>
 
@@ -3335,6 +3342,16 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   rootPath={rootPath}
                   model={emModel}
                   openMainTab={openMainTab}
+                />
+              </div>
+            )}
+
+            {/* === Health Tab === */}
+            {mainTabs.some(t => t.type === "health") && rootPath && (
+              <div key="tool:health" className="flex-1 flex flex-col min-w-0 overflow-y-auto"
+                style={{ display: activeMainTab?.type === "health" ? undefined : "none" }}>
+                <ProjectHealth
+                  projectRoot={rootPath}
                 />
               </div>
             )}
