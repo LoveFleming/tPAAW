@@ -3165,6 +3165,7 @@ export async function runAgentLoop(config) {
         task: prompt.slice(0, 200),
         prompt,
         success: !finalContent.includes("[Agent loop timed out]") && !finalContent.startsWith("LLM API error"),
+        partial: finalContent.includes("[Agent loop timed out]"), // timed out but may have partial work
         content: finalContent,
         toolCalls: toolCallLog,
         durationMs,
@@ -3242,6 +3243,7 @@ export async function runAgentLoop(config) {
 
   return {
     success: !finalContent.includes("[Agent loop timed out]") && !finalContent.startsWith("LLM API error"),
+    partial: finalContent.includes("[Agent loop timed out]"),
     content: finalContent,
     turns,
     toolCalls: toolCallLog,
@@ -3355,7 +3357,7 @@ export async function runAgentLoopStream(config, res) {
       break;
     }
     if (timeoutMs > 0 && Date.now() - startTime > timeoutMs) {
-      sendSSE("error", { error: `Agent loop timed out after ${Math.round(timeoutMs/60000)} min (${turns} turns completed). Task may be partially done — check action log.` });
+      sendSSE("error", { error: `Agent loop timed out after ${Math.round(timeoutMs/60000)} min (${turns} turns completed). Work may be partially done — moving to next sub-task. Check action log for what was completed.` });
       break;
     }
 

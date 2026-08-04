@@ -398,7 +398,7 @@ export default async function projectRoute(req, res) {
       res.end(JSON.stringify({ error: "Invalid JSON" }));
       return true;
     }
-    const { agentId, task, cwd, model, priority = "medium" } = body;
+    const { agentId, task, cwd, model, priority = "medium", taskId, subTaskId, taskTimeout } = body;
     if (!agentId || !task) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Missing agentId or task" }));
@@ -523,6 +523,9 @@ export default async function projectRoute(req, res) {
       const cleanupDispatch = () => { runningCodingAgents.delete(agentId); };
       res.on("close", cleanupDispatch);
 
+      // Use task timeout if specified, otherwise 60 min safety net
+      const effectiveTimeout = taskTimeout || 3600; // 60 min default
+
       await runAgentLoopStream({
         systemPrompt: fullSystemPrompt,
         messages,
@@ -530,10 +533,51 @@ export default async function projectRoute(req, res) {
         agentId,
         model: useModel,
         maxTurns: 30,
-        timeout: 0, // no timeout for dispatched sub-tasks
+        timeout: effectiveTimeout,
         abortSignal: dispatchAbort.signal,
       }, res);
       cleanupDispatch();
+
+      // ── Post-dispatch: record result to task ──
+      if (taskId) {
+        try {
+          const tasksDir = join(projRoot, ".paaw", "tasks");
+          const tasksFile = join(tasksDir, "TASKS.json");
+          if (existsSync(tasksFile)) {
+            const allData = JSON.parse(readSync(tasksFile, "utf-8"));
+            const allTasks = allData.tasks || [];
+            const tIdx = allTasks.findIndex(t => t.id === taskId);
+            if (tIdx >= 0) {
+              if (!Array.isArray(allTasks[tIdx].notes)) allTasks[tIdx].notes = [];
+              allTasks[tIdx].notes.push({
+                by: agentId,
+                at: new Date().toISOString(),
+                content: `✅ Agent ${agentId} completed dispatched task`,
+              });
+              allTasks[tIdx].updatedAt = new Date().toISOString();
+              allData.tasks = allTasks;
+              const { writeFileSync } = await import("node:fs");
+              writeFileSync(tasksFile, JSON.stringify(allData, null, 2), "utf-8");
+            }
+          }
+        } catch (e) { console.error("post-dispatch task update error:", e.message); }
+      }
+
+      // ── Sub-task completion → auto-advance pipeline ──
+      if (subTaskId && taskId) {
+        try {
+          // Advance sub-task pipeline
+          const advRes = await fetch(`http://localhost:${process.env.PORT || 3100}/api/coding-tasks/${encodeURIComponent(subTaskId)}/pipeline/advance?path=${encodeURIComponent(projRoot)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phase: "implement", result: `Agent ${agentId} completed`, by: agentId }),
+          });
+          const advData = await advRes.json();
+          if (!advData.ok) {
+            console.error("sub-task advance failed:", advData.error);
+          }
+        } catch (e) { console.error("sub-task advance error:", e.message); }
+      }
 
       return true;
 
@@ -543,6 +587,30 @@ export default async function projectRoute(req, res) {
         res.end(JSON.stringify({ error: err.message }));
       } else {
         try { res.write(`data: ${JSON.stringify({ type: "error", error: err.message })}\n\n`); res.end(); } catch {}
+      }
+      // Record timeout/error to task
+      if (taskId) {
+        try {
+          const tasksDir = join(projRoot, ".paaw", "tasks");
+          const tasksFile = join(tasksDir, "TASKS.json");
+          if (existsSync(tasksFile)) {
+            const allData = JSON.parse(readSync(tasksFile, "utf-8"));
+            const allTasks = allData.tasks || [];
+            const tIdx = allTasks.findIndex(t => t.id === taskId);
+            if (tIdx >= 0) {
+              if (!Array.isArray(allTasks[tIdx].notes)) allTasks[tIdx].notes = [];
+              allTasks[tIdx].notes.push({
+                by: agentId,
+                at: new Date().toISOString(),
+                content: `⚠️ Agent ${agentId} ended with error: ${err.message.slice(0, 200)}. Work may be partially done.`,
+              });
+              allTasks[tIdx].updatedAt = new Date().toISOString();
+              allData.tasks = allTasks;
+              const { writeFileSync } = await import("node:fs");
+              writeFileSync(tasksFile, JSON.stringify(allData, null, 2), "utf-8");
+            }
+          }
+        } catch (e) { console.error("post-dispatch error task update:", e.message); }
       }
     }
     return true;
@@ -3635,7 +3703,7 @@ async function collectProjectHealth(root, paaw) {
           steps: [
             { agent: "docWriter", task: `建立 .paaw/${f.name}，內容根據現有專案程式碼和架構推導` },
           ],
-          estimatedMinutes: 10,
+          estimatedMinutes: 60,
         },
       });
     }
@@ -3654,7 +3722,7 @@ async function collectProjectHealth(root, paaw) {
           steps: [
             { agent: "docWriter", task: `建立 .paaw/${f.name} 目錄及基本內容` },
           ],
-          estimatedMinutes: 5,
+          estimatedMinutes: 60,
         },
       });
     }
@@ -3672,7 +3740,7 @@ async function collectProjectHealth(root, paaw) {
         steps: [
           { agent: "developer", task: "整理 uncommitted 變更，分組 stage + 準備 commit message（只 git add，不 commit）" },
         ],
-        estimatedMinutes: 15,
+        estimatedMinutes: 60,
       },
     });
   }
@@ -3689,7 +3757,7 @@ async function collectProjectHealth(root, paaw) {
         steps: [
           { agent: "developer", task: "幫使用者設定 git remote origin（詢問 repo URL）" },
         ],
-        estimatedMinutes: 5,
+        estimatedMinutes: 60,
       },
     });
   }
@@ -3708,7 +3776,7 @@ async function collectProjectHealth(root, paaw) {
           { agent: "docWriter", task: "建立 .paaw/DECISIONS.md，記錄重要架構決策" },
           { agent: "docWriter", task: "建立 .paaw/CODING-STANDARDS.md，記錄程式碼規範" },
         ],
-        estimatedMinutes: 20,
+        estimatedMinutes: 60,
       },
     });
   }
