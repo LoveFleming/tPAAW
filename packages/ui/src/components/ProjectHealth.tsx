@@ -308,7 +308,7 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
                       });
                       const data = await r.json();
                       if (data.ok) {
-                        alert(`✅ 已派給 EM！\nParent: ${data.parent.title}\nSub-tasks: ${data.subTasks.length}`);
+                        alert(`✅ 已派工修復！\nParent: ${data.parent.title}\nSub-tasks: ${data.subTasks.length}\n\nAgent 已自動開始第一個 sub-task`);
                         loadHealth();
                       } else {
                         alert(`❌ 失敗: ${data.error}`);
@@ -317,9 +317,9 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
                       alert(`❌ Error: ${e.message}`);
                     }
                   }}
-                  className="text-[10px] px-2.5 py-1 rounded-md bg-violet-500 text-white font-bold hover:bg-violet-600 active:scale-95 transition-all"
+                  className="text-[10px] px-2.5 py-1 rounded-md bg-emerald-500 text-white font-bold hover:bg-emerald-600 active:scale-95 transition-all"
                 >
-                  🏥 派給 EM
+                  🔧 派工修復
                 </button>
               </div>
             </div>
@@ -346,7 +346,7 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
                     });
                     const data = await r.json();
                     if (data.ok) {
-                      alert(`✅ 全部派給 EM！\nParent: ${data.parent.title}\nSub-tasks: ${data.subTasks.length}`);
+                      alert(`✅ 全部已派工修復！\nParent: ${data.parent.title}\nSub-tasks: ${data.subTasks.length}\n\nAgent 已自動開始第一個 sub-task`);
                       loadHealth();
                     } else {
                       alert(`❌ 失敗: ${data.error}`);
@@ -355,9 +355,9 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
                     alert(`❌ Error: ${e.message}`);
                   }
                 }}
-                className="text-[10px] px-3 py-1.5 rounded-md bg-violet-500 text-white font-bold hover:bg-violet-600 active:scale-95 transition-all"
+                className="text-[10px] px-3 py-1.5 rounded-md bg-emerald-500 text-white font-bold hover:bg-emerald-600 active:scale-95 transition-all"
               >
-                🏥 全部派給 EM
+                🔧 全部派工修復
               </button>
             </div>
           )}

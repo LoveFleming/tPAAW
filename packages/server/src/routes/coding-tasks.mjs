@@ -463,8 +463,48 @@ export default async function codingTasksRoute(req, res) {
       created.push(subTask);
     }
     await saveTasks(projRoot, tasks, config);
+
+    // ── Auto-dispatch: trigger first sub-task's agent ──
+    if (created.length > 0 && created[0].assignee) {
+      const firstSub = created[0];
+      // Fire dispatch in background — don't block the response
+      setImmediate(async () => {
+        try {
+          const dispatchRes = await fetch(`http://localhost:${process.env.PORT || 3100}/api/coding-crew/dispatch`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              agentId: firstSub.assignee,
+              task: firstSub.description || firstSub.title,
+              cwd: projRoot,
+              taskId: firstSub.id,
+              subTaskId: firstSub.id,
+              taskTimeout: firstSub.timeoutSeconds || 3600,
+              // Chain info: what to do after this agent completes
+              _chainParentId: parentTask.id,
+              _chainSubTaskIds: created.map(s => s.id),
+              _chainCurrentIndex: 0,
+            }),
+          });
+          const dispatchData = await dispatchRes.json();
+          if (dispatchData.busy) {
+            // Agent busy — add note, will be picked up later
+            const allTasks2 = await loadTasks(projRoot);
+            const subIdx = allTasks2.findIndex(t => t.id === firstSub.id);
+            if (subIdx >= 0) {
+              if (!Array.isArray(allTasks2[subIdx].notes)) allTasks2[subIdx].notes = [];
+              allTasks2[subIdx].notes.push({ by: "system", at: now(), content: `⏳ Agent ${firstSub.assignee} is busy — queued for later` });
+              await saveTasks(projRoot, allTasks2, config);
+            }
+          }
+        } catch (e) {
+          console.error("health-fix auto-dispatch error:", e.message);
+        }
+      });
+    }
+
     res.writeHead(201, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, parent: { id: parentTask.id, title: parentTask.title }, subTasks: created.map(s => ({ id: s.id, title: s.title, assignee: s.assignee })) }));
+    res.end(JSON.stringify({ ok: true, parent: { id: parentTask.id, title: parentTask.title }, subTasks: created.map(s => ({ id: s.id, title: s.title, assignee: s.assignee })), autoStarted: created.length > 0 && !!created[0].assignee }));
     return true;
   }
 

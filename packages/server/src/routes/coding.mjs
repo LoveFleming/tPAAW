@@ -398,7 +398,7 @@ export default async function projectRoute(req, res) {
       res.end(JSON.stringify({ error: "Invalid JSON" }));
       return true;
     }
-    const { agentId, task, cwd, model, priority = "medium", taskId, subTaskId, taskTimeout } = body;
+    const { agentId, task, cwd, model, priority = "medium", taskId, subTaskId, taskTimeout, _chainParentId, _chainSubTaskIds, _chainCurrentIndex } = body;
     if (!agentId || !task) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Missing agentId or task" }));
@@ -563,7 +563,7 @@ export default async function projectRoute(req, res) {
         } catch (e) { console.error("post-dispatch task update error:", e.message); }
       }
 
-      // ── Sub-task completion → auto-advance pipeline ──
+      // ── Sub-task completion → auto-advance pipeline + chain dispatch ──
       if (subTaskId && taskId) {
         try {
           // Advance sub-task pipeline
@@ -577,6 +577,85 @@ export default async function projectRoute(req, res) {
             console.error("sub-task advance failed:", advData.error);
           }
         } catch (e) { console.error("sub-task advance error:", e.message); }
+
+        // ── Chain: dispatch next sub-task if any ──
+        if (_chainParentId && Array.isArray(_chainSubTaskIds) && _chainCurrentIndex < _chainSubTaskIds.length - 1) {
+          const nextIndex = _chainCurrentIndex + 1;
+          const nextSubId = _chainSubTaskIds[nextIndex];
+          try {
+            // Load next sub-task info
+            const tasksFile = join(projRoot, ".paaw", "tasks", "TASKS.json");
+            if (existsSync(tasksFile)) {
+              const allData = JSON.parse(readSync(tasksFile, "utf-8"));
+              const allTasks = allData.tasks || [];
+              const nextSub = allTasks.find(t => t.id === nextSubId);
+              if (nextSub && nextSub.assignee) {
+                // Check if agent is busy before dispatching
+                if (runningCodingAgents.has(nextSub.assignee)) {
+                  // Agent busy — add note to sub-task
+                  if (!Array.isArray(nextSub.notes)) nextSub.notes = [];
+                  nextSub.notes.push({ by: "system", at: new Date().toISOString(), content: `⏳ Agent ${nextSub.assignee} is busy — queued for later` });
+                  nextSub.updatedAt = new Date().toISOString();
+                  allData.tasks = allTasks;
+                  const { writeFileSync } = await import("node:fs");
+                  writeFileSync(tasksFile, JSON.stringify(allData, null, 2), "utf-8");
+                } else {
+                  // Agent free — dispatch next sub-task
+                  setImmediate(async () => {
+                    try {
+                      await fetch(`http://localhost:${process.env.PORT || 3100}/api/coding-crew/dispatch`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          agentId: nextSub.assignee,
+                          task: nextSub.description || nextSub.title,
+                          cwd: projRoot,
+                          taskId: nextSub.id,
+                          subTaskId: nextSub.id,
+                          taskTimeout: nextSub.timeoutSeconds || 3600,
+                          _chainParentId: _chainParentId,
+                          _chainSubTaskIds: _chainSubTaskIds,
+                          _chainCurrentIndex: nextIndex,
+                        }),
+                      });
+                    } catch (e) { console.error("chain dispatch error:", e.message); }
+                  });
+                }
+              }
+            }
+          } catch (e) { console.error("chain load error:", e.message); }
+        }
+
+        // ── Chain complete: mark parent done if all sub-tasks done ──
+        if (_chainParentId && _chainCurrentIndex >= _chainSubTaskIds.length - 1) {
+          try {
+            // Check if all sub-tasks are resolved
+            const tasksFile = join(projRoot, ".paaw", "tasks", "TASKS.json");
+            if (existsSync(tasksFile)) {
+              const allData = JSON.parse(readSync(tasksFile, "utf-8"));
+              const allTasks = allData.tasks || [];
+              const parentIdx = allTasks.findIndex(t => t.id === _chainParentId);
+              if (parentIdx >= 0) {
+                const subIds = _chainSubTaskIds;
+                const allDone = subIds.every(sid => {
+                  const st = allTasks.find(t => t.id === sid);
+                  return st && (st.status === "resolved" || st.pipeline?.commit?.status === "done");
+                });
+                if (allDone) {
+                  // Mark parent as resolved
+                  allTasks[parentIdx].status = "resolved";
+                  allTasks[parentIdx].resolvedAt = new Date().toISOString();
+                  if (!Array.isArray(allTasks[parentIdx].notes)) allTasks[parentIdx].notes = [];
+                  allTasks[parentIdx].notes.push({ by: "system", at: new Date().toISOString(), content: `✅ All ${subIds.length} sub-tasks completed — health fix done` });
+                  allTasks[parentIdx].updatedAt = new Date().toISOString();
+                  allData.tasks = allTasks;
+                  const { writeFileSync } = await import("node:fs");
+                  writeFileSync(tasksFile, JSON.stringify(allData, null, 2), "utf-8");
+                }
+              }
+            }
+          } catch (e) { console.error("parent completion check error:", e.message); }
+        }
       }
 
       return true;
@@ -611,6 +690,41 @@ export default async function projectRoute(req, res) {
             }
           }
         } catch (e) { console.error("post-dispatch error task update:", e.message); }
+      }
+
+      // ── Chain: even on error, dispatch next sub-task ──
+      if (_chainParentId && Array.isArray(_chainSubTaskIds) && _chainCurrentIndex < _chainSubTaskIds.length - 1) {
+        const nextIndex = _chainCurrentIndex + 1;
+        const nextSubId = _chainSubTaskIds[nextIndex];
+        try {
+          const tasksFile = join(projRoot, ".paaw", "tasks", "TASKS.json");
+          if (existsSync(tasksFile)) {
+            const allData = JSON.parse(readSync(tasksFile, "utf-8"));
+            const allTasks = allData.tasks || [];
+            const nextSub = allTasks.find(t => t.id === nextSubId);
+            if (nextSub && nextSub.assignee && !runningCodingAgents.has(nextSub.assignee)) {
+              setImmediate(async () => {
+                try {
+                  await fetch(`http://localhost:${process.env.PORT || 3100}/api/coding-crew/dispatch`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      agentId: nextSub.assignee,
+                      task: nextSub.description || nextSub.title,
+                      cwd: projRoot,
+                      taskId: nextSub.id,
+                      subTaskId: nextSub.id,
+                      taskTimeout: nextSub.timeoutSeconds || 3600,
+                      _chainParentId: _chainParentId,
+                      _chainSubTaskIds: _chainSubTaskIds,
+                      _chainCurrentIndex: nextIndex,
+                    }),
+                  });
+                } catch (e2) { console.error("chain dispatch on error:", e2.message); }
+              });
+            }
+          }
+        } catch (e2) { console.error("chain load on error:", e2.message); }
       }
     }
     return true;
