@@ -331,11 +331,11 @@ export default function GitPanel(props: GitPanelProps) {
   }, [rootPath, API_BASE, setGitDiffFile]);
 
   // ── Tab labels ──
-  const tabConfig: { id: GitTab; label: string; emoji: string }[] = [
-    { id: "status", label: tt("vibe.gitStatus"), emoji: "📋" },
-    { id: "diff", label: tt("vibe.gitDiff"), emoji: "📄" },
-    { id: "blame", label: tt("vibe.gitBlame"), emoji: "🔍" },
-    { id: "review", label: "Review", emoji: "🔬" },
+  const tabConfig: { id: GitTab; label: string }[] = [
+    { id: "status", label: tt("vibe.gitStatus") },
+    { id: "diff", label: tt("vibe.gitDiff") },
+    { id: "blame", label: tt("vibe.gitBlame") },
+    { id: "review", label: "🔬 Review" },
   ];
 
   // Determine active diff mode
@@ -360,7 +360,6 @@ export default function GitPanel(props: GitPanelProps) {
                 : "text-stone-400 hover:text-stone-600 hover:bg-white/50"
             )}
           >
-            <span className="text-[10px]">{t.emoji}</span>
             {t.label}
           </button>
         ))}

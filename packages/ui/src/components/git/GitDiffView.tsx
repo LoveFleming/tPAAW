@@ -142,7 +142,7 @@ export default function GitDiffView({
                 : "text-stone-400 hover:bg-stone-100 hover:text-stone-600"
             )}
           >
-            Working
+            Working Tree
           </button>
           <button
             onClick={() => onDiffModeChange("staged")}
@@ -153,7 +153,7 @@ export default function GitDiffView({
                 : "text-stone-400 hover:bg-stone-100 hover:text-stone-600"
             )}
           >
-            Staged
+            Staged (已 add)
           </button>
           <button
             onClick={() => onDiffModeChange("head")}
