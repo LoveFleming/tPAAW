@@ -49,6 +49,19 @@ const LOOP_MODE_PHASES = {
   mini: MINI_LOOP_PHASES,
 };
 
+// ── Project Phase → Loop Mode 對應表 ──
+const PHASE_TO_LOOP_MODE = {
+  bootstrap: "mini",
+  mvp: "mini",
+  growth: "mini",
+  stable: "full",
+  refactor: "full",
+};
+
+function loopModeFromProjectPhase(projectPhase) {
+  return PHASE_TO_LOOP_MODE[projectPhase] || "mini";
+}
+
 // ── Helpers ──
 
 function parseQuery(rawUrl) {

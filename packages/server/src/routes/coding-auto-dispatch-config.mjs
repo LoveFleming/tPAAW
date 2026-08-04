@@ -103,6 +103,23 @@ export default async function autoDispatchConfigRoutes(req, res) {
 
       await saveConfig(rootDir, merged);
 
+      // ── Sync project.loopMode from projectPhase ──
+      const PHASE_TO_LOOP_MODE = { bootstrap: "mini", mvp: "mini", growth: "mini", stable: "full", refactor: "full" };
+      const newLoopMode = PHASE_TO_LOOP_MODE[merged.projectPhase] || "mini";
+      try {
+        const tasksFile = join(rootDir, ".paaw", "tasks", "TASKS.json");
+        const { existsSync, readFileSync, writeFileSync, mkdirSync } = await import('node:fs');
+        const { dirname } = await import('node:path');
+        let tasksData = { tasks: [], updatedAt: new Date().toISOString() };
+        if (existsSync(tasksFile)) tasksData = JSON.parse(readFileSync(tasksFile, "utf-8"));
+        const oldLoopMode = tasksData.loopMode || "mini";
+        if (oldLoopMode !== newLoopMode) {
+          tasksData.loopMode = newLoopMode;
+          if (!existsSync(dirname(tasksFile))) mkdirSync(dirname(tasksFile), { recursive: true });
+          writeFileSync(tasksFile, JSON.stringify(tasksData, null, 2), "utf-8");
+        }
+      } catch (e) { console.error("sync loopMode error:", e.message); }
+
       // If schedule enabled, register/update PAAW cron job
       if (merged.schedule.enabled && merged.schedule.time) {
         try {

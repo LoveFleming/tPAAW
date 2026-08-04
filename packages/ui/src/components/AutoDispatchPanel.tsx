@@ -6,6 +6,7 @@
  */
 import React, { useState, useEffect, useCallback } from "react";
 import { useI18n } from "../i18n";
+import { cn } from "../utils";
 import API_BASE from "../api";
 import ModelSelector from "./ModelSelector";
 
@@ -308,6 +309,23 @@ export default function AutoDispatchPanel({ theme, rootPath, model, openMainTab 
                   <option value="stable">✅ Stable</option>
                   <option value="refactor">🔧 Refactor</option>
                 </select>
+                {/* Show derived loop mode */}
+                {(() => {
+                  const phase = nsConfig.projectPhase || "bootstrap";
+                  const isMini = ["bootstrap", "mvp", "growth"].includes(phase);
+                  return (
+                    <div className="mt-1 flex items-center gap-1">
+                      <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+                        isMini ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+                      )}>
+                        {isMini ? "Mini Loop" : "Full Loop"}
+                      </span>
+                      <span className="text-[9px]" style={{ color: tk.textMuted }}>
+                        {isMini ? "implement → 你驗 → commit" : "spec → implement → test → qa → docs → commit"}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
               <div>
                 <div className="text-[11px] font-bold mb-1" style={{ color: tk.text }}>⏰ Schedule</div>

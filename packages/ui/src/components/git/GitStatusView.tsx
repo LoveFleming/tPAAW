@@ -53,7 +53,6 @@ interface GitStatusViewProps {
   pipeline: Record<string, { status: string; by?: string; at?: string; result?: string; reason?: string; feedback?: string }> | null;
   loopMode: "full" | "mini";
   projectLoopMode: "full" | "mini";
-  setProjectLoopMode: (mode: "full" | "mini") => void;
   qaVerdict: { verdict: string; issues: number; critical: number; summary: string; feedback: string } | null;
   onSpecApprove: () => void;
   onSpecReject: () => void;
@@ -82,7 +81,6 @@ export default function GitStatusView({
   pipeline,
   loopMode,
   projectLoopMode,
-  setProjectLoopMode,
   qaVerdict,
   onSpecApprove,
   onSpecReject,
@@ -180,12 +178,9 @@ export default function GitStatusView({
             <span className="text-xs">🔄</span>
             <span className="text-[10px] font-bold text-stone-600">Pipeline</span>
             <span className={cn(
-              "text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-1 cursor-pointer select-none transition-all active:scale-95",
-              loopMode === "mini" ? "bg-amber-100 text-amber-700 hover:bg-amber-200" : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-            )}
-            onClick={() => setProjectLoopMode(loopMode === "mini" ? "full" : "mini")}
-            title={`Click to switch to ${loopMode === "mini" ? "Full Loop" : "Mini Loop"}`}
-            >
+              "text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-1",
+              loopMode === "mini" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+            )}>
               {loopMode === "mini" ? "Mini Loop" : "Full Loop"}
             </span>
             {qaRework && (
