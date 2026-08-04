@@ -1300,7 +1300,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                             <button
                               onClick={async () => {
                                 try {
-                                  const agentId = dispatch.crew.replace("coding.", ""); // coding.tester → tester
+                                  const agentId = dispatch.crew.replace("coding.", "");
                                   const r = await fetch(`${API_BASE}/api/coding-tasks/health-fix?path=${encodeURIComponent(rootPath || "")}`, {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
@@ -1313,13 +1313,14 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                                   });
                                   const data = await r.json();
                                   if (data.ok) {
-                                    alert(`✅ 已派工修復！\n${data.subTasks.length} sub-task\nAgent 已自動開始`);
+                                    setMessages(prev => [...prev, { role: "assistant", content: `📤 已派工修復 **${item.name}**\n- 任務：${data.parent.title}\n- Sub-tasks：${data.subTasks.length} 個\n- Agent：${agentId} 已自動開始\n\n可在 Auto Dispatch 查看進度`, ts: new Date().toISOString() }]);
                                     loadRecentDispatches();
+                                    onOpenAutoDispatch?.();
                                   } else {
-                                    alert(`❌ 失敗: ${data.error}`);
+                                    setMessages(prev => [...prev, { role: "assistant", content: `❌ 派工失敗：${data.error}`, ts: new Date().toISOString() }]);
                                   }
                                 } catch (e: any) {
-                                  alert(`❌ Error: ${e.message}`);
+                                  setMessages(prev => [...prev, { role: "assistant", content: `❌ 派工錯誤：${e.message}`, ts: new Date().toISOString() }]);
                                 }
                               }}
                               className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500 text-white font-bold hover:bg-emerald-600 active:scale-95 transition-all shrink-0"

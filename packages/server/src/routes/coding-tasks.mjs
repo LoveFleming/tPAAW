@@ -987,7 +987,7 @@ export default async function codingTasksRoute(req, res) {
     return true;
   }
 
-  // ── DELETE /api/coding-tasks/:id ──
+  // ── DELETE /api/coding-tasks/:id (also aborts running agent) ──
   if (singleMatch && method === "DELETE") {
     const id = decodeURIComponent(singleMatch[1]);
     const { tasks, config } = await loadTasksAndConfig(projRoot);
@@ -998,6 +998,23 @@ export default async function codingTasksRoute(req, res) {
       return true;
     }
     const deleted = tasks.splice(idx, 1)[0];
+    // Also delete sub-tasks if this is a parent
+    if (!deleted.parentId) {
+      const subIds = tasks.filter(t => t.parentId === id).map(t => t.id);
+      for (let i = tasks.length - 1; i >= 0; i--) {
+        if (tasks[i].parentId === id) tasks.splice(i, 1);
+      }
+    }
+    // Try to abort running agent
+    try {
+      const { runningCodingAgents } = await import("../lib/running-agents.mjs");
+      const agentId = deleted.assignee;
+      if (agentId && runningCodingAgents.has(agentId)) {
+        const entry = runningCodingAgents.get(agentId);
+        entry?.abortController?.abort();
+        runningCodingAgents.delete(agentId);
+      }
+    } catch {}
     await saveTasks(projRoot, tasks, config);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, deleted }));
