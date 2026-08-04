@@ -1275,12 +1275,34 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                           {item.detail && item.status !== "ok" && item.status !== "info" && (
                             <span className="text-xs text-stone-300">{item.detail}</span>
                           )}
-                          {dispatch && onDispatchToCrew && (
+                          {dispatch && (
                             <button
-                              onClick={() => onDispatchToCrew(dispatch.crew, dispatch.prompt)}
-                              className="text-xs px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 font-bold shrink-0 transition-colors"
-                              title={`派交 ${dispatch.crew}`}
-                            >🔧</button>
+                              onClick={async () => {
+                                try {
+                                  const agentId = dispatch.crew.replace("coding.", ""); // coding.tester → tester
+                                  const r = await fetch(`${API_BASE}/api/coding-tasks/health-fix?path=${encodeURIComponent(rootPath || "")}`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                      title: `🔧 ${item.name}`,
+                                      description: item.detail || `Fix: ${item.name}`,
+                                      fixPlan: { steps: [{ agent: agentId, task: dispatch.prompt }], estimatedMinutes: 60 },
+                                      source: "em-health",
+                                    }),
+                                  });
+                                  const data = await r.json();
+                                  if (data.ok) {
+                                    alert(`✅ 已派工修復！\n${data.subTasks.length} sub-task\nAgent 已自動開始`);
+                                  } else {
+                                    alert(`❌ 失敗: ${data.error}`);
+                                  }
+                                } catch (e: any) {
+                                  alert(`❌ Error: ${e.message}`);
+                                }
+                              }}
+                              className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500 text-white font-bold hover:bg-emerald-600 active:scale-95 transition-all shrink-0"
+                              title="派工修復"
+                            >🔧 派工修復</button>
                           )}
                         </div>
                         );
