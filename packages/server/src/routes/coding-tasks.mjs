@@ -26,11 +26,12 @@
  */
 
 import { readFile, writeFile, mkdir } from "fs/promises";
-import { existsSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { PassThrough } from "stream";
 import { readBody } from "./shared.mjs";
-import { TaskGit } from "../lib/task-git.mjs";
+import { TaskGit } from "lib/task-git.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -464,41 +465,20 @@ export default async function codingTasksRoute(req, res) {
     }
     await saveTasks(projRoot, tasks, config);
 
-    // ── Auto-dispatch: trigger first sub-task's agent ──
+    // ── Auto-dispatch: trigger first sub-task's agent in background ──
     if (created.length > 0 && created[0].assignee) {
       const firstSub = created[0];
-      // Fire dispatch in background — don't block the response
       setImmediate(async () => {
         try {
-          const dispatchRes = await fetch(`http://localhost:${process.env.PORT || 3100}/api/coding-crew/dispatch`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              agentId: firstSub.assignee,
-              task: firstSub.description || firstSub.title,
-              cwd: projRoot,
-              taskId: firstSub.id,
-              subTaskId: firstSub.id,
-              taskTimeout: firstSub.timeoutSeconds || 3600,
-              // Chain info: what to do after this agent completes
-              _chainParentId: parentTask.id,
-              _chainSubTaskIds: created.map(s => s.id),
-              _chainCurrentIndex: 0,
-            }),
+          await triggerHealthAgentDispatch({
+            projRoot,
+            subTask: firstSub,
+            chainParentId: parentTask.id,
+            chainSubTaskIds: created.map(s => s.id),
+            chainCurrentIndex: 0,
           });
-          const dispatchData = await dispatchRes.json();
-          if (dispatchData.busy) {
-            // Agent busy — add note, will be picked up later
-            const allTasks2 = await loadTasks(projRoot);
-            const subIdx = allTasks2.findIndex(t => t.id === firstSub.id);
-            if (subIdx >= 0) {
-              if (!Array.isArray(allTasks2[subIdx].notes)) allTasks2[subIdx].notes = [];
-              allTasks2[subIdx].notes.push({ by: "system", at: now(), content: `⏳ Agent ${firstSub.assignee} is busy — queued for later` });
-              await saveTasks(projRoot, allTasks2, config);
-            }
-          }
         } catch (e) {
-          console.error("health-fix auto-dispatch error:", e.message);
+          console.error("[health-fix] auto-dispatch error:", e.message);
         }
       });
     }
@@ -1132,4 +1112,205 @@ export default async function codingTasksRoute(req, res) {
   }
 
   return false;
+}
+
+/**
+ * triggerHealthAgentDispatch — Run agent directly (no HTTP self-call)
+ * Used by health-fix auto-dispatch chain.
+ * SSE output goes to /dev/null (background work, no UI consumer).
+ * After agent completes (or errors), chain to next sub-task or mark parent done.
+ */
+export async function triggerHealthAgentDispatch({ projRoot, subTask, chainParentId, chainSubTaskIds, chainCurrentIndex }) {
+  const agentId = subTask.assignee;
+  if (!agentId) {
+    console.warn(`[health-chain] sub-task ${subTask.id} has no assignee, skipping`);
+    return;
+  }
+
+  // Check if agent is busy
+  const { runningCodingAgents } = await import("../lib/running-agents.mjs");
+  if (runningCodingAgents.has(agentId)) {
+    // Mark sub-task as queued
+    const allTasks = await loadTasks(projRoot);
+    const idx = allTasks.findIndex(t => t.id === subTask.id);
+    if (idx >= 0) {
+      if (!Array.isArray(allTasks[idx].notes)) allTasks[idx].notes = [];
+      allTasks[idx].notes.push({ by: "system", at: new Date().toISOString(), content: `⏳ Agent ${agentId} is busy — queued for later` });
+      allTasks[idx].updatedAt = new Date().toISOString();
+      const { config: cfg } = await loadTasksAndConfig(projRoot);
+      await saveTasks(projRoot, allTasks, cfg);
+    }
+    return;
+  }
+
+  // Load crew config for agent
+  const agentMap = {
+    architect: "coding.architect",
+    developer: "coding.developer",
+    tester: "coding.tester",
+    "doc-writer": "coding.doc-writer",
+    qa: "coding.qa",
+    helpdesk: "coding.helpdesk",
+  };
+  const crewId = agentMap[agentId] || agentId;
+  const { PAAW_ROOT } = await import("../context/shared.mjs").then(m => ({ PAAW_ROOT: m.PAAW_ROOT }));
+  const crewFile = join(PAAW_ROOT, "data", "crews", `${crewId}.json`);
+  if (!existsSync(crewFile)) {
+    console.error(`[health-chain] Agent '${agentId}' not found at ${crewFile}`);
+    return;
+  }
+
+  try {
+    const crewDef = JSON.parse(readFileSync(crewFile, "utf-8"));
+    const systemPrompt = crewDef.rolePrompt || "";
+
+    // Build context (same as dispatch)
+    const extraContext = [];
+    const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
+
+    // Action log
+    const actionLog = await listActionLog(projRoot);
+    if (actionLog.length > 0) {
+      const recent = actionLog.slice(-10).map(e => `- [${e.agent}] ${e.action}${e.detail ? ": " + e.detail : ""} (${e.ts})`).join("\n");
+      extraContext.push(`\n## Recent Action Log\n${recent}`);
+    }
+
+    // Agent memory
+    const agentMemoryText = await loadAgentMemory(agentId, projRoot);
+    if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory\n${agentMemoryText}`);
+
+    const AGENT_RULES = "\n## Rules\n- Only use `git add` (stage files), never `git commit` or `git push`. The human decides when to commit and push.\n- When done, list all files you modified (code, config, docs).\n- Write clean, minimal changes. Don't over-engineer.\n- Follow existing code patterns and conventions.\n";
+    extraContext.push(AGENT_RULES);
+
+    const fullSystemPrompt = systemPrompt + extraContext.join("");
+    const messages = [
+      { role: "system", content: fullSystemPrompt },
+      { role: "user", content: subTask.description || subTask.title },
+    ];
+
+    // Resolve LLM config
+    const { resolveLLMConfig, runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
+    const llm = resolveLLMConfig(projRoot);
+
+    // Create a sink stream for SSE output (background work, no UI)
+    const sink = new PassThrough();
+    sink.resume(); // drain automatically — don't buffer
+
+    // Register agent as running
+    const abortCtrl = new AbortController();
+    runningCodingAgents.set(agentId, { abortController: abortCtrl, res: sink, startedAt: Date.now(), source: "health-chain" });
+
+    await runAgentLoopStream({
+      systemPrompt: fullSystemPrompt,
+      messages,
+      cwd: projRoot,
+      agentId,
+      model: llm.model,
+      maxTurns: 30,
+      timeout: subTask.timeoutSeconds || 3600,
+      abortSignal: abortCtrl.signal,
+    }, sink);
+
+    runningCodingAgents.delete(agentId);
+    sink.end();
+
+    // ── Post-completion: record result to sub-task ──
+    const allTasks = await loadTasks(projRoot);
+    const subIdx = allTasks.findIndex(t => t.id === subTask.id);
+    if (subIdx >= 0) {
+      if (!Array.isArray(allTasks[subIdx].notes)) allTasks[subIdx].notes = [];
+      allTasks[subIdx].notes.push({ by: agentId, at: new Date().toISOString(), content: `✅ Agent ${agentId} completed health fix task` });
+      allTasks[subIdx].updatedAt = new Date().toISOString();
+      const { config: cfg } = await loadTasksAndConfig(projRoot);
+      await saveTasks(projRoot, allTasks, cfg);
+    }
+
+    // ── Advance sub-task pipeline ──
+    // Mini loop: implement → commit. Advance implement phase.
+    try {
+      const { deriveStatus, ensurePipeline } = await import("./coding-pipeline.mjs");
+      // Directly update pipeline status
+      const allTasks2 = await loadTasks(projRoot);
+      const sIdx = allTasks2.findIndex(t => t.id === subTask.id);
+      if (sIdx >= 0) {
+        const st = allTasks2[sIdx];
+        if (st.pipeline?.implement) {
+          st.pipeline.implement.status = "done";
+          st.status = deriveStatus(st, await loadTasksAndConfig(projRoot).then(d => d.config));
+          st.updatedAt = new Date().toISOString();
+        }
+        const { config: cfg2 } = await loadTasksAndConfig(projRoot);
+        await saveTasks(projRoot, allTasks2, cfg2);
+      }
+    } catch (e) { console.error("[health-chain] pipeline advance error:", e.message); }
+
+    // ── Chain: dispatch next sub-task ──
+    if (chainCurrentIndex < chainSubTaskIds.length - 1) {
+      const nextIndex = chainCurrentIndex + 1;
+      const nextSubId = chainSubTaskIds[nextIndex];
+      const allTasks3 = await loadTasks(projRoot);
+      const nextSub = allTasks3.find(t => t.id === nextSubId);
+      if (nextSub && nextSub.assignee) {
+        console.log(`[health-chain] dispatching next sub-task ${nextIndex + 1}/${chainSubTaskIds.length}: ${nextSub.assignee}`);
+        await triggerHealthAgentDispatch({
+          projRoot,
+          subTask: nextSub,
+          chainParentId,
+          chainSubTaskIds,
+          chainCurrentIndex: nextIndex,
+        });
+      }
+    } else {
+      // ── Last sub-task done → mark parent resolved ──
+      const allTasks4 = await loadTasks(projRoot);
+      const parentIdx = allTasks4.findIndex(t => t.id === chainParentId);
+      if (parentIdx >= 0) {
+        allTasks4[parentIdx].status = "resolved";
+        allTasks4[parentIdx].resolvedAt = new Date().toISOString();
+        if (!Array.isArray(allTasks4[parentIdx].notes)) allTasks4[parentIdx].notes = [];
+        allTasks4[parentIdx].notes.push({ by: "system", at: new Date().toISOString(), content: `✅ All ${chainSubTaskIds.length} sub-tasks completed — health fix done` });
+        allTasks4[parentIdx].updatedAt = new Date().toISOString();
+        const { config: cfg3 } = await loadTasksAndConfig(projRoot);
+        await saveTasks(projRoot, allTasks4, cfg3);
+      }
+      console.log(`[health-chain] parent ${chainParentId} resolved ✅`);
+    }
+
+  } catch (e) {
+    runningCodingAgents.delete(agentId);
+    console.error(`[health-chain] agent ${agentId} error:`, e.message);
+
+    // Record error to sub-task
+    try {
+      const allTasks = await loadTasks(projRoot);
+      const subIdx = allTasks.findIndex(t => t.id === subTask.id);
+      if (subIdx >= 0) {
+        if (!Array.isArray(allTasks[subIdx].notes)) allTasks[subIdx].notes = [];
+        allTasks[subIdx].notes.push({ by: agentId, at: new Date().toISOString(), content: `⚠️ Agent ${agentId} error: ${e.message.slice(0, 200)}. Moving to next.` });
+        allTasks[subIdx].updatedAt = new Date().toISOString();
+        const { config: cfg } = await loadTasksAndConfig(projRoot);
+        await saveTasks(projRoot, allTasks, cfg);
+      }
+    } catch {}
+
+    // Chain continues even on error
+    if (chainCurrentIndex < chainSubTaskIds.length - 1) {
+      const nextIndex = chainCurrentIndex + 1;
+      const nextSubId = chainSubTaskIds[nextIndex];
+      try {
+        const allTasks3 = await loadTasks(projRoot);
+        const nextSub = allTasks3.find(t => t.id === nextSubId);
+        if (nextSub && nextSub.assignee) {
+          console.log(`[health-chain] error occurred, dispatching next sub-task ${nextIndex + 1}/${chainSubTaskIds.length}`);
+          await triggerHealthAgentDispatch({
+            projRoot,
+            subTask: nextSub,
+            chainParentId,
+            chainSubTaskIds,
+            chainCurrentIndex: nextIndex,
+          });
+        }
+      } catch (e2) { console.error("[health-chain] chain recovery error:", e2.message); }
+    }
+  }
 }

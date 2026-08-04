@@ -70,7 +70,7 @@ import { SECURITY_RULES } from "../lib/security-rules.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 // ── Running agent tracking (for busy check + interrupt) ──
-const runningCodingAgents = new Map(); // agentId → { abortController, res, startedAt, source }
+import { runningCodingAgents } from "../lib/running-agents.mjs";
 
 // ── LLM Call Helper for project routes ──
 // Resolves provider config and calls LLM with proper 4-arg signature
@@ -578,48 +578,32 @@ export default async function projectRoute(req, res) {
           }
         } catch (e) { console.error("sub-task advance error:", e.message); }
 
-        // ── Chain: dispatch next sub-task if any ──
+        // ── Chain: use direct dispatch instead of HTTP self-call ──
         if (_chainParentId && Array.isArray(_chainSubTaskIds) && _chainCurrentIndex < _chainSubTaskIds.length - 1) {
           const nextIndex = _chainCurrentIndex + 1;
           const nextSubId = _chainSubTaskIds[nextIndex];
           try {
-            // Load next sub-task info
             const tasksFile = join(projRoot, ".paaw", "tasks", "TASKS.json");
             if (existsSync(tasksFile)) {
               const allData = JSON.parse(readSync(tasksFile, "utf-8"));
               const allTasks = allData.tasks || [];
               const nextSub = allTasks.find(t => t.id === nextSubId);
               if (nextSub && nextSub.assignee) {
-                // Check if agent is busy before dispatching
+                const { triggerHealthAgentDispatch } = await import("./coding-tasks.mjs");
                 if (runningCodingAgents.has(nextSub.assignee)) {
-                  // Agent busy — add note to sub-task
                   if (!Array.isArray(nextSub.notes)) nextSub.notes = [];
                   nextSub.notes.push({ by: "system", at: new Date().toISOString(), content: `⏳ Agent ${nextSub.assignee} is busy — queued for later` });
                   nextSub.updatedAt = new Date().toISOString();
                   allData.tasks = allTasks;
-                  const { writeFileSync } = await import("node:fs");
                   writeFileSync(tasksFile, JSON.stringify(allData, null, 2), "utf-8");
                 } else {
-                  // Agent free — dispatch next sub-task
-                  setImmediate(async () => {
-                    try {
-                      await fetch(`http://localhost:${process.env.PORT || 3100}/api/coding-crew/dispatch`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          agentId: nextSub.assignee,
-                          task: nextSub.description || nextSub.title,
-                          cwd: projRoot,
-                          taskId: nextSub.id,
-                          subTaskId: nextSub.id,
-                          taskTimeout: nextSub.timeoutSeconds || 3600,
-                          _chainParentId: _chainParentId,
-                          _chainSubTaskIds: _chainSubTaskIds,
-                          _chainCurrentIndex: nextIndex,
-                        }),
-                      });
-                    } catch (e) { console.error("chain dispatch error:", e.message); }
-                  });
+                  setImmediate(() => triggerHealthAgentDispatch({
+                    projRoot,
+                    subTask: nextSub,
+                    chainParentId: _chainParentId,
+                    chainSubTaskIds: _chainSubTaskIds,
+                    chainCurrentIndex: nextIndex,
+                  }));
                 }
               }
             }
@@ -629,7 +613,6 @@ export default async function projectRoute(req, res) {
         // ── Chain complete: mark parent done if all sub-tasks done ──
         if (_chainParentId && _chainCurrentIndex >= _chainSubTaskIds.length - 1) {
           try {
-            // Check if all sub-tasks are resolved
             const tasksFile = join(projRoot, ".paaw", "tasks", "TASKS.json");
             if (existsSync(tasksFile)) {
               const allData = JSON.parse(readSync(tasksFile, "utf-8"));
@@ -642,14 +625,12 @@ export default async function projectRoute(req, res) {
                   return st && (st.status === "resolved" || st.pipeline?.commit?.status === "done");
                 });
                 if (allDone) {
-                  // Mark parent as resolved
                   allTasks[parentIdx].status = "resolved";
                   allTasks[parentIdx].resolvedAt = new Date().toISOString();
                   if (!Array.isArray(allTasks[parentIdx].notes)) allTasks[parentIdx].notes = [];
                   allTasks[parentIdx].notes.push({ by: "system", at: new Date().toISOString(), content: `✅ All ${subIds.length} sub-tasks completed — health fix done` });
                   allTasks[parentIdx].updatedAt = new Date().toISOString();
                   allData.tasks = allTasks;
-                  const { writeFileSync } = await import("node:fs");
                   writeFileSync(tasksFile, JSON.stringify(allData, null, 2), "utf-8");
                 }
               }
@@ -692,7 +673,7 @@ export default async function projectRoute(req, res) {
         } catch (e) { console.error("post-dispatch error task update:", e.message); }
       }
 
-      // ── Chain: even on error, dispatch next sub-task ──
+      // ── Chain: even on error, dispatch next sub-task via direct call ──
       if (_chainParentId && Array.isArray(_chainSubTaskIds) && _chainCurrentIndex < _chainSubTaskIds.length - 1) {
         const nextIndex = _chainCurrentIndex + 1;
         const nextSubId = _chainSubTaskIds[nextIndex];
@@ -703,25 +684,14 @@ export default async function projectRoute(req, res) {
             const allTasks = allData.tasks || [];
             const nextSub = allTasks.find(t => t.id === nextSubId);
             if (nextSub && nextSub.assignee && !runningCodingAgents.has(nextSub.assignee)) {
-              setImmediate(async () => {
-                try {
-                  await fetch(`http://localhost:${process.env.PORT || 3100}/api/coding-crew/dispatch`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      agentId: nextSub.assignee,
-                      task: nextSub.description || nextSub.title,
-                      cwd: projRoot,
-                      taskId: nextSub.id,
-                      subTaskId: nextSub.id,
-                      taskTimeout: nextSub.timeoutSeconds || 3600,
-                      _chainParentId: _chainParentId,
-                      _chainSubTaskIds: _chainSubTaskIds,
-                      _chainCurrentIndex: nextIndex,
-                    }),
-                  });
-                } catch (e2) { console.error("chain dispatch on error:", e2.message); }
-              });
+              const { triggerHealthAgentDispatch } = await import("./coding-tasks.mjs");
+              setImmediate(() => triggerHealthAgentDispatch({
+                projRoot,
+                subTask: nextSub,
+                chainParentId: _chainParentId,
+                chainSubTaskIds: _chainSubTaskIds,
+                chainCurrentIndex: nextIndex,
+              }));
             }
           }
         } catch (e2) { console.error("chain load on error:", e2.message); }
@@ -3699,8 +3669,8 @@ async function collectProjectHealth(root, paaw) {
   const fixPlans = {
     "PROJECT.md": { steps: [{ agent: "architect", task: "建立 .paaw/PROJECT.md，分析專案結構，撰寫專案概述、技術棧、目標使用者等" }], estimatedMinutes: 60 },
     "ARCHITECTURE.md": { steps: [{ agent: "architect", task: "建立 .paaw/ARCHITECTURE.md，分析專案目錄結構、模組依賴、資料流，畫出架構圖" }], estimatedMinutes: 60 },
-    "DECISIONS.md": { steps: [{ agent: "docWriter", task: "建立 .paaw/DECISIONS.md，根據現有程式碼和架構推導技術決策，記錄 ADR (Architecture Decision Records)" }], estimatedMinutes: 60 },
-    "CHANGELOG.md": { steps: [{ agent: "docWriter", task: "建立 .paaw/CHANGELOG.md，從 git log 推導版本歷史和重要變更" }], estimatedMinutes: 60 },
+    "DECISIONS.md": { steps: [{ agent: "doc-writer", task: "建立 .paaw/DECISIONS.md，根據現有程式碼和架構推導技術決策，記錄 ADR (Architecture Decision Records)" }], estimatedMinutes: 60 },
+    "CHANGELOG.md": { steps: [{ agent: "doc-writer", task: "建立 .paaw/CHANGELOG.md，從 git log 推導版本歷史和重要變更" }], estimatedMinutes: 60 },
     "CODING-STANDARDS.md": { steps: [{ agent: "architect", task: "建立 .paaw/CODING-STANDARDS.md，分析現有程式碼風格，整理命名規規範、檔案結構、錯誤處理規則" }], estimatedMinutes: 60 },
   };
   const fixHints = {
@@ -3848,7 +3818,7 @@ async function collectProjectHealth(root, paaw) {
         description: `${f.name} 是重要的專案知識文件，建議補齊`,
         fixPlan: {
           steps: [
-            { agent: "docWriter", task: `建立 .paaw/${f.name}，內容根據現有專案程式碼和架構推導` },
+            { agent: "doc-writer", task: `建立 .paaw/${f.name}，內容根據現有專案程式碼和架構推導` },
           ],
           estimatedMinutes: 60,
         },
@@ -3867,7 +3837,7 @@ async function collectProjectHealth(root, paaw) {
         description: `建議建立 ${f.name} 目錄以組織專案知識`,
         fixPlan: {
           steps: [
-            { agent: "docWriter", task: `建立 .paaw/${f.name} 目錄及基本內容` },
+            { agent: "doc-writer", task: `建立 .paaw/${f.name} 目錄及基本內容` },
           ],
           estimatedMinutes: 60,
         },
@@ -3919,9 +3889,9 @@ async function collectProjectHealth(root, paaw) {
       description: "知識文件嚴重不足，建議全面補齊",
       fixPlan: {
         steps: [
-          { agent: "docWriter", task: "建立 .paaw/PROJECT.md，描述專案目標和架構" },
-          { agent: "docWriter", task: "建立 .paaw/DECISIONS.md，記錄重要架構決策" },
-          { agent: "docWriter", task: "建立 .paaw/CODING-STANDARDS.md，記錄程式碼規範" },
+          { agent: "doc-writer", task: "建立 .paaw/PROJECT.md，描述專案目標和架構" },
+          { agent: "doc-writer", task: "建立 .paaw/DECISIONS.md，記錄重要架構決策" },
+          { agent: "doc-writer", task: "建立 .paaw/CODING-STANDARDS.md，記錄程式碼規範" },
         ],
         estimatedMinutes: 60,
       },
