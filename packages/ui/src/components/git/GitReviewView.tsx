@@ -1,11 +1,7 @@
 /**
  * GitReviewView.tsx — QA Code Review 結構化呈現
  * 
- * 核心改進：
- * 1. Review 結果結構化顯示（Summary / Issues / Suggestions / Tests）
- * 2. Approve / Request Changes 按鈕
- * 3. Review 歷史卡片化
- * 4. 空狀態更引導
+ * Loading 狀態超醒目：全屏動畫 + 步驟提示
  */
 
 import React from "react";
@@ -23,21 +19,13 @@ interface GitReviewViewProps {
   };
 }
 
-/**
- * 嘗試將 QA review 文字解析為結構化區塊
- * 支援多種格式：markdown headers、emoji headers、numbered sections
- */
 function parseReviewSections(text: string): { title: string; content: string; icon: string; severity: "info" | "warning" | "error" }[] {
   const sections: { title: string; content: string; icon: string; severity: "info" | "warning" | "error" }[] = [];
-
-  // Try to split by markdown headers or emoji markers
   const lines = text.split("\n");
   let currentSection: { title: string; content: string; icon: string; severity: "info" | "warning" | "error" } = { title: "Summary", content: "", icon: "📋", severity: "info" };
 
   for (const line of lines) {
     const headerMatch = line.match(/^#{1,3}\s+(.+)/);
-    const emojiMatch = line.match(/^([⚠️❌✅💡🧪📝🔍🐛🔒🎨♻️🚀])/);
-
     if (headerMatch) {
       if (currentSection.content.trim()) sections.push({ ...currentSection });
       const title = headerMatch[1].trim();
@@ -48,21 +36,14 @@ function parseReviewSections(text: string): { title: string; content: string; ic
                    title.includes("Summary") || title.includes("摘要") ? "📋" : "📝";
       const severity = icon === "⚠️" ? "warning" : icon === "🔒" ? "error" : "info";
       currentSection = { title, content: "", icon, severity };
-    } else if (emojiMatch && line.trim().length < 30 && !currentSection.content) {
-      // Standalone emoji line — might be a section marker
-      if (currentSection.content.trim()) sections.push({ ...currentSection });
-      currentSection = { title: line.replace(/[⚠️❌✅💡🧪📝🔍🐛🔒🎨♻️🚀]/g, "").trim() || "Section", content: "", icon: emojiMatch[1], severity: "info" };
     } else {
       currentSection.content += line + "\n";
     }
   }
   if (currentSection.content.trim()) sections.push({ ...currentSection });
-
-  // If no sections parsed, show as single block
   if (sections.length === 0) {
     sections.push({ title: "Review", content: text, icon: "🔬", severity: "info" });
   }
-
   return sections;
 }
 
@@ -77,96 +58,148 @@ export default function GitReviewView({
   const sections = qaReview ? parseReviewSections(qaReview) : [];
 
   return (
-    <div className="flex-1 overflow-auto p-3 space-y-3">
-      {/* ── Header ── */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm">🔬</span>
-        <span className="text-xs font-bold text-stone-700">QA Code Review</span>
-        <span className="text-[10px] text-stone-400">由 AI 審查 staged changes</span>
-        <span className="flex-1" />
-        <button
-          onClick={onRunReview}
-          disabled={qaReviewLoading}
-          className="text-xs px-3 py-1.5 rounded-md text-white disabled:opacity-40 active:scale-95 font-medium transition-all"
-          style={{ backgroundColor: theme.accent }}
-        >
-          {qaReviewLoading ? "⏳ 審查中..." : "🔍 開始 Review"}
-        </button>
-      </div>
-
-      {/* ── Loading ── */}
+    <div className="flex-1 overflow-auto flex flex-col">
+      {/* ══════════════════════════════════════════════════════
+          LOADING STATE — 超醒目全屏
+          ══════════════════════════════════════════════════════ */}
       {qaReviewLoading && (
-        <div className="flex items-center justify-center h-32 text-stone-400 text-sm">
-          <div className="flex flex-col items-center gap-2">
-            <span className="text-3xl animate-pulse">🔬</span>
-            <p className="text-xs">QA Agent 審查中...</p>
+        <div className="flex-1 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-violet-50 to-white">
+          {/* 主動畫 */}
+          <div className="relative mb-4">
+            <div className="text-5xl animate-pulse">🔬</div>
+            <div className="absolute -top-1 -right-1 text-lg animate-bounce">⚡</div>
+          </div>
+
+          {/* 狀態文字 */}
+          <div className="text-center space-y-2">
+            <div className="text-sm font-bold text-violet-800">
+              QA Agent 正在 Review
+            </div>
+            <div className="text-xs text-violet-500">
+              檢查 staged changes 的 bug、安全、跨平台問題...
+            </div>
+          </div>
+
+          {/* 進度步驟 */}
+          <div className="mt-6 space-y-2 w-full max-w-xs">
+            {[
+              { icon: "📂", label: "讀取 staged diff", done: !!qaReview },
+              { icon: "🔍", label: "檢查程式碼品質", done: qaReview && qaReview.length > 100 },
+              { icon: "🔒", label: "安全 & 跨平台掃描", done: qaReview && qaReview.length > 500 },
+              { icon: "📝", label: "撰寫 review 報告", done: qaReview && qaReview.length > 1000 },
+            ].map((step, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs">
+                <span className={cn(
+                  "w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0",
+                  step.done ? "bg-emerald-100 text-emerald-600" : "bg-violet-100 text-violet-400 animate-pulse"
+                )}>
+                  {step.done ? "✓" : step.icon}
+                </span>
+                <span className={cn(
+                  step.done ? "text-emerald-600 font-medium" : "text-violet-400"
+                )}>
+                  {step.label}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Streaming preview — 如果已有部分結果 */}
+          {qaReview && qaReview.length > 0 && (
+            <div className="mt-4 w-full max-w-xs">
+              <div className="text-[10px] text-stone-400 mb-1">即時預覽...</div>
+              <div className="text-xs text-stone-500 bg-white rounded-lg border border-stone-200 p-3 max-h-32 overflow-auto whitespace-pre-wrap leading-relaxed">
+                {qaReview.slice(-500)}
+                <span className="inline-block w-1.5 h-3 bg-violet-400 animate-pulse ml-0.5" />
+              </div>
+            </div>
+          )}
+
+          {/* 等待提示 */}
+          <div className="mt-4 text-[10px] text-stone-400">
+            QA Agent 透過 AI 分析 staged diff，約需 10-30 秒
           </div>
         </div>
       )}
 
-      {/* ── Review Result — Structured ── */}
-      {qaReview && !qaReviewLoading && (
-        <div className="space-y-2">
-          {sections.map((s, i) => (
-            <div
-              key={i}
-              className={cn(
+      {/* ══════════════════════════════════════════════════════
+          RESULT — Review 完成
+          ══════════════════════════════════════════════════════ */}
+      {!qaReviewLoading && qaReview && (
+        <div className="flex-1 overflow-auto p-3 space-y-3">
+          {/* Header */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm">🔬</span>
+            <span className="text-xs font-bold text-stone-700">QA Code Review</span>
+            <span className="text-[10px] text-stone-400">完成</span>
+            <span className="flex-1" />
+            <button onClick={onRunReview} className="text-xs px-3 py-1.5 rounded-md text-white active:scale-95 font-medium transition-all" style={{ backgroundColor: theme.accent }}>
+              🔄 Re-review
+            </button>
+          </div>
+
+          {/* Structured sections */}
+          <div className="space-y-2">
+            {sections.map((s, i) => (
+              <div key={i} className={cn(
                 "rounded-lg border overflow-hidden",
                 s.severity === "warning" ? "border-amber-200" :
                 s.severity === "error" ? "border-red-200" :
                 "border-stone-200"
-              )}
-            >
-              {/* Section header */}
-              <div className={cn(
-                "flex items-center gap-2 px-3 py-1.5 text-xs font-bold",
-                s.severity === "warning" ? "bg-amber-50 text-amber-700" :
-                s.severity === "error" ? "bg-red-50 text-red-700" :
-                "bg-stone-50 text-stone-600"
               )}>
-                <span>{s.icon}</span>
-                <span>{s.title}</span>
+                <div className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 text-xs font-bold",
+                  s.severity === "warning" ? "bg-amber-50 text-amber-700" :
+                  s.severity === "error" ? "bg-red-50 text-red-700" :
+                  "bg-stone-50 text-stone-600"
+                )}>
+                  <span>{s.icon}</span>
+                  <span>{s.title}</span>
+                </div>
+                <div className="px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap text-stone-600">
+                  {s.content.trim()}
+                </div>
               </div>
-              {/* Section content */}
-              <div className="px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap text-stone-600">
-                {s.content.trim()}
-              </div>
-            </div>
-          ))}
+            ))}
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-2 pt-2" style={{ borderTop: `1px solid ${theme.borderLight}` }}>
-            <button className="text-xs px-3 py-1.5 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold transition-colors">
-              ✅ Approve
-            </button>
-            <button className="text-xs px-3 py-1.5 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 font-bold transition-colors">
-              ⚠️ Request Changes
-            </button>
-            <button
-              onClick={onRunReview}
-              className="text-xs px-3 py-1.5 rounded-md bg-stone-50 text-stone-600 hover:bg-stone-100 font-medium transition-colors"
-            >
-              🔄 Re-review
-            </button>
+            {/* Action buttons */}
+            <div className="flex items-center gap-2 pt-2" style={{ borderTop: `1px solid ${theme.borderLight}` }}>
+              <button className="text-xs px-3 py-1.5 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold transition-colors">
+                ✅ Approve
+              </button>
+              <button className="text-xs px-3 py-1.5 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 font-bold transition-colors">
+                ⚠️ Request Changes
+              </button>
+              <button onClick={onRunReview} className="text-xs px-3 py-1.5 rounded-md bg-stone-50 text-stone-600 hover:bg-stone-100 font-medium transition-colors">
+                🔄 Re-review
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* ── Empty State ── */}
-      {!qaReview && !qaReviewLoading && gitReviews.length === 0 && (
-        <div className="flex flex-col items-center justify-center h-40 gap-3 text-stone-400">
+      {/* ══════════════════════════════════════════════════════
+          EMPTY STATE — 還沒跑過 review
+          ══════════════════════════════════════════════════════ */}
+      {!qaReviewLoading && !qaReview && gitReviews.length === 0 && (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
           <span className="text-4xl">🔬</span>
-          <div className="text-center space-y-1">
+          <div className="text-center space-y-1.5">
             <p className="text-sm font-medium text-stone-500">No review yet</p>
             <p className="text-xs text-stone-400">點「開始 Review」讓 QA Agent 審查 staged changes</p>
             <p className="text-[10px] text-stone-300">QA 會檢查 bug、安全、跨平台、測試建議</p>
           </div>
+          <button onClick={onRunReview} className="mt-2 text-xs px-4 py-2 rounded-md text-white font-bold transition-all active:scale-95" style={{ backgroundColor: theme.accent }}>
+            🔍 開始 Review
+          </button>
         </div>
       )}
 
-      {/* ── Review History ── */}
-      {gitReviews.length > 0 && (
-        <div className="pt-3 space-y-2" style={{ borderTop: `1px solid ${theme.borderLight}` }}>
+      {/* ══════════════════════════════════════════════════════
+          HISTORY — Review 歷史
+          ══════════════════════════════════════════════════════ */}
+      {!qaReviewLoading && gitReviews.length > 0 && (
+        <div className="shrink-0 border-t p-3 space-y-2" style={{ borderColor: theme.borderLight }}>
           <div className="text-xs font-bold text-stone-500 flex items-center gap-1.5">
             <span>📜</span>
             <span>Review 歷史 ({gitReviews.length})</span>

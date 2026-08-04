@@ -47,6 +47,7 @@ interface GitStatusViewProps {
   onClearAll: () => void;
   onUnstageFile: (path: string) => void;
   onStageFile: (path: string) => void;
+  qaReviewLoading: boolean;
   theme: { accent: string; borderLight: string; bg: string; };
 }
 
@@ -68,6 +69,7 @@ export default function GitStatusView({
   onClearAll,
   onUnstageFile,
   onStageFile,
+  qaReviewLoading,
   theme,
 }: GitStatusViewProps) {
   const [showStagedDetail, setShowStagedDetail] = useState(false);
@@ -142,8 +144,20 @@ export default function GitStatusView({
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <button onClick={(e) => { e.stopPropagation(); onQaReview(); }}
-                className="text-[10px] px-2 py-1 rounded-md bg-orange-500 text-white hover:bg-orange-600 font-bold transition-all active:scale-95">
-                🔬 QA Review
+                disabled={qaReviewLoading}
+                className={cn(
+                  "text-[10px] px-2 py-1 rounded-md font-bold transition-all active:scale-95",
+                  qaReviewLoading
+                    ? "bg-orange-300 text-white cursor-wait"
+                    : "bg-orange-500 text-white hover:bg-orange-600"
+                )}>
+                {qaReviewLoading ? (
+                  <span className="flex items-center gap-1">
+                    <span className="animate-spin">⚙️</span> Reviewing...
+                  </span>
+                ) : (
+                  "🔬 QA Review"
+                )}
               </button>
               <button onClick={(e) => {
                 e.stopPropagation();

@@ -498,6 +498,7 @@ export default function GitPanel(props: GitPanelProps) {
             onClearAll={clearAllFiles}
             onUnstageFile={handleUnstageFile}
             onStageFile={handleStageFile}
+            qaReviewLoading={qaReviewLoading}
             theme={theme}
           />
         )}
