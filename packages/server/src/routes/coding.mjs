@@ -3693,21 +3693,54 @@ async function collectProjectHealth(root, paaw) {
     dependencies: undefined,
   };
 
-  // ── .paaw/ completeness ──
+  // ── .paaw/ completeness with fix plans ──
   const expectedFiles = ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md", "CHANGELOG.md", "CODING-STANDARDS.md"];
+  // Fix plans for each missing file
+  const fixPlans = {
+    "PROJECT.md": { steps: [{ agent: "architect", task: "建立 .paaw/PROJECT.md，分析專案結構，撰寫專案概述、技術棧、目標使用者等" }], estimatedMinutes: 60 },
+    "ARCHITECTURE.md": { steps: [{ agent: "architect", task: "建立 .paaw/ARCHITECTURE.md，分析專案目錄結構、模組依賴、資料流，畫出架構圖" }], estimatedMinutes: 60 },
+    "DECISIONS.md": { steps: [{ agent: "docWriter", task: "建立 .paaw/DECISIONS.md，根據現有程式碼和架構推導技術決策，記錄 ADR (Architecture Decision Records)" }], estimatedMinutes: 60 },
+    "CHANGELOG.md": { steps: [{ agent: "docWriter", task: "建立 .paaw/CHANGELOG.md，從 git log 推導版本歷史和重要變更" }], estimatedMinutes: 60 },
+    "CODING-STANDARDS.md": { steps: [{ agent: "architect", task: "建立 .paaw/CODING-STANDARDS.md，分析現有程式碼風格，整理命名規規範、檔案結構、錯誤處理規則" }], estimatedMinutes: 60 },
+  };
+  const fixHints = {
+    "PROJECT.md": "No project overview",
+    "ARCHITECTURE.md": "No architecture map",
+    "DECISIONS.md": "No ADRs",
+    "CHANGELOG.md": "No changelog",
+    "CODING-STANDARDS.md": "No coding standards",
+    "sessions/": "No session history",
+    "standards/": "No standards dir",
+  };
   let existCount = 0;
   for (const f of expectedFiles) {
     const content = await paaw.readFile(f);
     const exists = content !== null;
     if (exists) existCount++;
-    health.paawCompleteness.files.push({ name: f, exists, size: exists ? content.length : undefined });
+    health.paawCompleteness.files.push({
+      name: f,
+      exists,
+      size: exists ? content.length : undefined,
+      hint: !exists ? (fixHints[f] || `Missing ${f}`) : undefined,
+      fixPlan: !exists ? (fixPlans[f] || { steps: [{ agent: "developer", task: `建立 .paaw/${f}` }], estimatedMinutes: 60 }) : undefined,
+    });
   }
   // Check subdirs
+  const dirFixPlans = {
+    "sessions/": { steps: [{ agent: "developer", task: "建立 .paaw/sessions/ 目錄，確保 AI session 歷史可以儲存" }], estimatedMinutes: 60 },
+    "standards/": { steps: [{ agent: "architect", task: "建立 .paaw/standards/ 目錄和基本標準文件" }], estimatedMinutes: 60 },
+  };
   for (const d of ["sessions", "standards"]) {
     const dirPath = join(paaw.paawDir, d);
     const exists = existsSync(dirPath);
     if (exists) existCount++;
-    health.paawCompleteness.files.push({ name: d + "/", exists });
+    const name = d + "/";
+    health.paawCompleteness.files.push({
+      name,
+      exists,
+      hint: !exists ? (fixHints[name] || `Missing ${name}`) : undefined,
+      fixPlan: !exists ? (dirFixPlans[name] || { steps: [{ agent: "developer", task: `建立 .paaw/${name}` }], estimatedMinutes: 60 }) : undefined,
+    });
   }
   health.paawCompleteness.score = Math.round((existCount / (expectedFiles.length + 2)) * 100);
 

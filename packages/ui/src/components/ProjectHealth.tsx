@@ -17,7 +17,7 @@ import API_BASE from "../api";
 interface HealthData {
   paawCompleteness: {
     initialized: boolean;
-    files: { name: string; exists: boolean; size?: number }[];
+    files: { name: string; exists: boolean; size?: number; hint?: string; fixPlan?: FixItem["fixPlan"] }[];
     score: number; // 0-100
   };
   git: {
@@ -161,12 +161,45 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
         <div className="text-sm font-semibold text-stone-600 mb-2">📁 .paaw/ Knowledge</div>
         {paawCompleteness.files.map(f => (
           <div key={f.name} className="flex items-center gap-2 py-0.5">
-            <span className="text-sm">{f.exists ? "✅" : "⚪"}</span>
-            <span className={`text-sm ${f.exists ? "text-stone-600" : "text-stone-300"}`}>{f.name}</span>
+            <span className="text-sm">{f.exists ? "✅" : "❌"}</span>
+            <span className={`text-sm ${f.exists ? "text-stone-600" : "text-stone-400"}`}>{f.name}</span>
             {f.exists && f.size != null && (
               <span className="text-xs text-stone-300 ml-auto">
                 {f.size > 1024 ? `${Math.round(f.size / 1024)}K` : `${f.size}B`}
               </span>
+            )}
+            {!f.exists && f.hint && (
+              <>
+                <span className="text-[10px] text-stone-400 ml-auto mr-1">{f.hint}</span>
+                <button
+                  onClick={async () => {
+                    try {
+                      const r = await fetch(`${API_BASE}/api/coding-tasks/health-fix?path=${encodeURIComponent(projectRoot)}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          title: `🔧 Fix: ${f.name}`,
+                          description: `Auto-fix missing .paaw/${f.name}`,
+                          fixPlan: f.fixPlan,
+                          source: "code-health-item",
+                        }),
+                      });
+                      const data = await r.json();
+                      if (data.ok) {
+                        alert(`✅ 已派工修復！\n${data.subTasks.length} sub-task(s)\nAgent 已自動開始`);
+                        loadHealth();
+                      } else {
+                        alert(`❌ 失敗: ${data.error}`);
+                      }
+                    } catch (e: any) {
+                      alert(`❌ Error: ${e.message}`);
+                    }
+                  }}
+                  className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500 text-white font-bold hover:bg-emerald-600 active:scale-95 transition-all shrink-0"
+                >
+                  🔧 派工修復
+                </button>
+              </>
             )}
           </div>
         ))}
