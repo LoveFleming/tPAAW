@@ -46,7 +46,6 @@ import AutoDispatchPanel, { SubTaskDetail } from "../components/AutoDispatchPane
 import CrewManager from "../components/CrewManager";
 // ReportsTab removed — merged into AutoDispatchPanel
 import SecurityTab from "../components/SecurityTab";
-import ProjectHealth from "../components/ProjectHealth";
 import FileViewer from "../pages/FileViewer";
 
 // ── Types ──
@@ -70,7 +69,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "nightshift" | "security" | "crew-manager" | "subtask-detail";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "nightshift" | "security" | "crew-manager" | "subtask-detail";
 
 interface MainTab {
   id: string;
@@ -398,7 +397,7 @@ export default function CodingIDE() {
   const [contextDebug, setContextDebug] = useState<any>(null);
 
   // ── Right Panel Tab State ──
-  const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions" | "health" | "prompts" | "status">("chat");
+  const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions" | "prompts" | "status">("chat");
 
 
   // ── Recent Projects State ──
@@ -784,7 +783,7 @@ export default function CodingIDE() {
         console.log(`[CodingIDE] Parsed ${savedTabs?.length || 0} saved tabs, active=${savedActive}`);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
-          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "terminal", "ai-crew", "standards", "sessions", "decisions", "health", "em-dashboard", "prompts", "issues", "tasks", "features", "nightshift", "security", "crew-manager"]);
+          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "terminal", "ai-crew", "standards", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "nightshift", "security", "crew-manager"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", "));
           // Restore tabs (dashboard is already present)
@@ -2471,12 +2470,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:security") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:security" ? tk.toolbarActive : "transparent"; }}
           title="Security Scan">🔒 Security</button>
-        <button onClick={() => openMainTab({ id: "tool:health", type: "health", label: "Health", icon: "🩺", closable: true })}
-          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
-          style={{ backgroundColor: activeMainTab?.id === "tool:health" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:health") ? tk.toolbarText : tk.toolbarTextMuted }}
-          onMouseEnter={e => { if (activeMainTab?.id !== "tool:health") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:health" ? tk.toolbarActive : "transparent"; }}
-          title="Project Health">🩺 Health</button>
 
       </div>
 
@@ -3342,16 +3335,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   rootPath={rootPath}
                   model={emModel}
                   openMainTab={openMainTab}
-                />
-              </div>
-            )}
-
-            {/* === Health Tab === */}
-            {mainTabs.some(t => t.type === "health") && rootPath && (
-              <div key="tool:health" className="flex-1 flex flex-col min-w-0 overflow-y-auto"
-                style={{ display: activeMainTab?.type === "health" ? undefined : "none" }}>
-                <ProjectHealth
-                  projectRoot={rootPath}
                 />
               </div>
             )}
