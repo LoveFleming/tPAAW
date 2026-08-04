@@ -7,6 +7,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 import API_BASE from "../api";
+import { cn } from "../utils";
 import ChatMessages from "./ChatMessages"; // kept for reference — EM chat now uses custom rich renderer
 import ModelSelector from "./ModelSelector";
 import { cn } from "../utils";
@@ -81,6 +82,27 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       setEmProfile({ codename: d.codename, imageUrl: d.imageUrl, emoji: d.emoji });
     }).catch(() => {});
   }, []);
+
+  // ── Recent Dispatch (health tasks) ──
+  const [recentDispatches, setRecentDispatches] = useState<Array<{ id: string; title: string; status: string; type: string; assignee: string; createdAt: string; subTaskCount?: number }>>([]);
+  const loadRecentDispatches = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-tasks?path=${encodeURIComponent(rootPath)}&type=health&limit=5`);
+      const data = await r.json();
+      const tasks = (data.tasks || []).filter((t: any) => t.type === "health").slice(0, 5);
+      setRecentDispatches(tasks.map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        status: t.status,
+        type: t.type,
+        assignee: t.assignee || "em",
+        createdAt: t.createdAt,
+        subTaskCount: t.subTaskCount || undefined,
+      })));
+    } catch {}
+  }, [rootPath]);
+  useEffect(() => { loadRecentDispatches(); const iv = setInterval(loadRecentDispatches, 30000); return () => clearInterval(iv); }, [loadRecentDispatches]);
 
   // ── Chat State ──
   const EM_CHAT_ID = "coding.em";
@@ -1293,6 +1315,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                                   const data = await r.json();
                                   if (data.ok) {
                                     alert(`✅ 已派工修復！\n${data.subTasks.length} sub-task\nAgent 已自動開始`);
+                                    loadRecentDispatches();
                                   } else {
                                     alert(`❌ 失敗: ${data.error}`);
                                   }
@@ -1316,6 +1339,46 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         </div>
 
         {/* Agent Activity + Overnight Report removed — Auto Dispatch tab handles reports */}
+
+        {/* ── 最近派工 (Recent Dispatches) ── */}
+        <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
+              <span>📤</span> 最近派工
+            </h3>
+            {recentDispatches.length > 0 && (
+              <button
+                onClick={() => onOpenAutoDispatch?.()}
+                className="text-[10px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 hover:bg-amber-200 font-bold transition-colors"
+              >查看全部 →</button>
+            )}
+          </div>
+          {recentDispatches.length === 0 ? (
+            <div className="text-xs text-stone-300 py-2">尚無派工記錄</div>
+          ) : (
+            <div className="space-y-1">
+              {recentDispatches.map(task => (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-2 py-1.5 px-2 rounded-lg cursor-pointer hover:bg-stone-50 transition-colors"
+                  onClick={() => onOpenAutoDispatch?.()}
+                >
+                  <span className="text-sm shrink-0">{task.status === "resolved" ? "✅" : task.status === "in-progress" || task.status === "open" ? "🔄" : "⏳"}</span>
+                  <span className="text-xs text-stone-600 flex-1 truncate">{task.title}</span>
+                  <span className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0",
+                    task.status === "resolved" ? "bg-green-100 text-green-700" :
+                    task.status === "open" ? "bg-blue-100 text-blue-700" :
+                    "bg-stone-100 text-stone-500"
+                  )}>{task.status === "resolved" ? "完成" : task.status === "open" ? "進行中" : task.status}</span>
+                  {task.subTaskCount && (
+                    <span className="text-[10px] text-stone-300 shrink-0">×{task.subTaskCount}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* ── 專案知識面板 (Project Knowledge) ── */}
         <ProjectKnowledgePanel rootPath={rootPath} tk={tk} onOpenFile={onOpenFile} refreshTrigger={cuFinishCount} />
