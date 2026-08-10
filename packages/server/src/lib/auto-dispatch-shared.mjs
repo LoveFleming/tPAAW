@@ -28,6 +28,7 @@ import { listActionLog } from "./action-log.mjs";
  */
 export async function gatherContext(rootDir, sinceDate) {
   const safeDir = JSON.stringify(rootDir);
+  const projectRoot = rootDir; // fix: parameter was named rootDir but body used undefined projectRoot
   const since = sinceDate || new Date().toISOString().split("T")[0];
   const sinceArg = since.includes("T") ? since : `${since}T00:00:00`;
 
