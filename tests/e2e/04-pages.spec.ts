@@ -1,63 +1,36 @@
 /**
- * E2E: Mind Map Page
+ * E2E: Additional Pages (Legacy)
  *
- * Verifies Mind Map page loads and model selector exists.
+ * Basic page render tests for Mind Map, Projects, and Skill Builder.
+ * More comprehensive tests are in 11-nav-comprehensive.spec.ts
  */
 import { test, expect } from "@playwright/test";
+import { gotoHome, screenshot, waitForContent, clickSidebarItem } from "./helpers";
 
-test.describe("Mind Map Page", () => {
+test.describe("Page Render Tests", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    await page.waitForTimeout(3000);
-
-    const mindmapBtn = page.getByText("Mind Map").first();
-    if (await mindmapBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await mindmapBtn.click();
-      await page.waitForTimeout(2000);
-    }
+    await gotoHome(page);
+    await waitForContent(page);
   });
 
-  test("should render mind map page", async ({ page }) => {
-    await page.screenshot({ path: "tests/e2e/screenshots/07-mindmap.png" });
+  test("mind map page should render", async ({ page }) => {
+    await clickSidebarItem(page, "Mind Map");
     const body = page.locator("body");
     await expect(body).toBeVisible();
-  });
-});
-
-test.describe("Projects Page", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    await page.waitForTimeout(3000);
-
-    const projectsBtn = page.getByText("Projects").first();
-    if (await projectsBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await projectsBtn.click();
-      await page.waitForTimeout(2000);
-    }
+    await screenshot(page, "04-mindmap-page");
   });
 
-  test("should render projects page", async ({ page }) => {
-    await page.screenshot({ path: "tests/e2e/screenshots/08-projects.png" });
+  test("projects page should render", async ({ page }) => {
+    await clickSidebarItem(page, "Projects");
     const body = page.locator("body");
     await expect(body).toBeVisible();
-  });
-});
-
-test.describe("Skill Builder Page", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    await page.waitForTimeout(3000);
-
-    const skillBtn = page.getByText(/Skill/i).first();
-    if (await skillBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await skillBtn.click();
-      await page.waitForTimeout(2000);
-    }
+    await screenshot(page, "04-projects-page");
   });
 
-  test("should render skill builder page", async ({ page }) => {
-    await page.screenshot({ path: "tests/e2e/screenshots/09-skill-builder.png" });
+  test("skill builder page should render", async ({ page }) => {
+    await clickSidebarItem(page, "Skill Builder");
     const body = page.locator("body");
     await expect(body).toBeVisible();
+    await screenshot(page, "04-skill-builder-page");
   });
 });
