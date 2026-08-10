@@ -502,20 +502,20 @@ function AppInner() {
     if (pageType === "appbuilder") return t("sidebar.appBuilder");
     if (pageType === "reportapps") return t("sidebar.appPool");
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
-    if (pageType === "ai-settings") return "AI Settings";
+    if (pageType === "ai-settings") return t("sidebar.aiSettings");
     if (pageType === "coding") return t("sidebar.coding");
     if (pageType === "briefing-player") return t("sidebar.briefingPlayer", "Briefing Player");
-    if (pageType === "mind-map") return "Mind Map";
-    if (pageType === "notes") return "Notes";
+    if (pageType === "mind-map") return t("sidebar.mindMap");
+    if (pageType === "notes") return t("sidebar.notes");
     if (pageType === "plugin-manager") return "Plugin Manager";
     if (pageType.startsWith("plugin-")) {
       const p = plugins.find(pl => pl.id === pageType.slice(7));
       return p ? `${p.icon || "🔌"} ${p.name}` : "Plugin";
     }
     if (pageType === "projects") return "Project Board";
-    if (pageType === "wf-editor") return "Workflow Builder";
-    if (pageType === "wf-exec") return "Workflows";
-    if (pageType === "helpdesk") return "HelpDesk";
+    if (pageType === "wf-editor") return t("sidebar.workflowBuilder");
+    if (pageType === "wf-exec") return t("sidebar.workflows");
+    if (pageType === "helpdesk") return t("sidebar.helpDesk");
     if (pageType === "llm-log") return t("sidebar.llmLog", "LLM Log");
     if (pageType === "agent-log") return t("sidebar.agentLog", "Agent 執行記錄");
     if (pageType.startsWith("skillapp.")) {
@@ -833,9 +833,9 @@ function AppInner() {
                 <NavItem active={activePage.endsWith(":reportapps")} label={t("sidebar.appPool")} onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":briefing-player")} label={t("sidebar.briefingPlayer", "Briefing Player")} onClick={() => openBriefingPlayer()} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":coding")} label={t("sidebar.coding")} onClick={openCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":mind-map")} label="Mind Map" onClick={openMindMap} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":notes")} label="Notes" onClick={openNotes} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":projects")} label="Projects" onClick={() => { const tabId = `${currentScope}:projects`; setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]); setActivePage(tabId); }} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":mind-map")} label={t("sidebar.mindMap")} onClick={openMindMap} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":notes")} label={t("sidebar.notes")} onClick={openNotes} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":projects")} label={t("sidebar.projects")} onClick={() => { const tabId = `${currentScope}:projects`; setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]); setActivePage(tabId); }} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 {/* Workflows (wf-exec) hidden */}
                 {/* HelpDesk hidden */}
@@ -850,21 +850,21 @@ function AppInner() {
                 ))}
                 <NavItem
                   active={activePage.endsWith(":ai-settings")}
-                  label="AI Settings"
+                  label={t("sidebar.aiSettings")}
                   onClick={openSystemPrompts}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />
                 <NavItem
                   active={activePage.endsWith(":llm-log")}
-                  label={t("sidebar.llmLog", "LLM Log")}
+                  label={t("sidebar.llmLog")}
                   onClick={openLlmLog}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />
                 <NavItem
                   active={activePage.endsWith(":agent-log")}
-                  label={t("sidebar.agentLog", "Agent 執行記錄")}
+                  label={t("sidebar.agentLog")}
                   onClick={openAgentLog}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
@@ -874,7 +874,7 @@ function AppInner() {
             </SidebarSection>
 
             {/* Plugins */}
-            <SidebarSection title="Plugins">
+            <SidebarSection title={t("sidebar.plugins")}>
               <div>
                 {plugins.map((p) => (
                   p.enabled && (

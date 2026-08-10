@@ -456,7 +456,7 @@ export default function WorkflowEditor() {
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex items-center gap-2 px-4 py-2 border-b border-stone-200 bg-white">
           <span className="mr-1">{currentWf?.icon || "🔗"}</span>
-          <h2 className="font-semibold text-sm text-stone-800">{currentWf?.name || "Workflow Builder"}</h2>
+          <h2 className="font-semibold text-sm text-stone-800">{currentWf?.name || tt("sidebar.workflowBuilder")}</h2>
           <span className="text-xs text-stone-400 ml-2">{currentWf?.description}</span>
           <div className="flex-1" />
           <button onClick={() => addNode("skill")} className="px-3 py-1.5 text-xs rounded-lg font-medium bg-violet-600 hover:bg-violet-700 text-white transition-colors">+ Skill</button>
