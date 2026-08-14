@@ -66,6 +66,7 @@ const ROUTE_MODULES = [
   "./routes/coding-doc-coverage.mjs",
   "./routes/coding-staged-changes.mjs",
   "./routes/coding-health.mjs",
+  "./routes/coding-evidence.mjs",
   "./routes/coding-reports.mjs",
   "./routes/llm-logs.mjs",
   "./routes/agent-logs.mjs",

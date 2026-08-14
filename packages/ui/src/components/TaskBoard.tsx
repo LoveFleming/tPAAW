@@ -13,6 +13,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useI18n } from "../i18n";
 import API_BASE from "../api";
 import MarkdownText from "./MarkdownText";
+import EvidenceCard from "./EvidenceCard";
 
 // ── Types ──
 interface PipelinePhase {
@@ -205,6 +206,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
   const [showCreate, setShowCreate] = useState(false);
   const [showDecompose, setShowDecompose] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [showEvidence, setShowEvidence] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Task>>({ type: "chore" });
   const [noteInput, setNoteInput] = useState("");
   const [decomposeSubs, setDecomposeSubs] = useState([{ title: "", type: "", effort: "S", assignee: "", description: "" }]);
@@ -1070,11 +1072,23 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
                       <h2 className="text-lg font-bold" style={{ color: theme.text }}>{selected.title}</h2>
                     </div>
                     <div className="flex gap-1 shrink-0">
+                      <button onClick={() => setShowEvidence(!showEvidence)} className="text-xs px-2 py-1 rounded" style={{ background: showEvidence ? theme.accent : theme.accentBg, color: theme.accent }} title={t("evidence.open", "Evidence")}>🧾</button>
                       <button onClick={() => setShowDecompose(true)} className="text-xs px-2 py-1 rounded" style={{ background: theme.accentBg, color: theme.accent }} title="Decompose">✂️</button>
                       <button onClick={() => startEdit(selected)} className="text-xs px-2 py-1 rounded" style={{ background: theme.accentBg, color: theme.accent }}>✏️</button>
                       <button onClick={() => handleDelete(selected.id)} className="text-xs px-2 py-1 rounded" style={{ background: "#fef2f2", color: "#dc2626" }}>🗑️</button>
                     </div>
                   </div>
+
+                  {/* Evidence Package — 人 review 證據，不 review 碼 */}
+                  {showEvidence && selected && (
+                    <EvidenceCard
+                      rootPath={rootPath}
+                      taskId={selected.id}
+                      theme={theme}
+                      onClose={() => setShowEvidence(false)}
+                      onDecision={(_d, id) => { fetchTasks(); fetchStats(); }}
+                    />
+                  )}
 
                   {/* Linked Issue */}
                   {selected.linkedIssueId && (
