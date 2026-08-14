@@ -37,6 +37,7 @@ interface Evidence {
     qaResult: { status?: string; overall?: string; passed?: boolean } | null;
     coverage: string | number | null;
     pipeline: Record<string, { status: string }> | null;
+    repairLoop: { count: number; max: number; history: Array<{ round: number; at?: string; passed?: number; failed?: number; reason?: string; escalated?: boolean }> } | null;
   };
   provenance: {
     createdBy: string | null;
@@ -57,6 +58,8 @@ const PHASE_ICON: Record<string, string> = {
   awaiting_human: "✋",
   rejected: "✕",
   blocked: "⊘",
+  needs_human: "🛑",
+  rework: "🔁",
 };
 
 function riskColor(level: string): string {
@@ -88,6 +91,7 @@ export default function EvidenceCard({
   const [showReject, setShowReject] = useState(false);
   const [acting, setActing] = useState(false);
   const [result, setResult] = useState<"" | "ok" | "err">("");
+  const [repairing, setRepairing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,6 +110,23 @@ export default function EvidenceCard({
   }, [taskId, rootPath]);
 
   useEffect(() => { load(); }, [load]);
+
+  const triggerRepair = async () => {
+    setRepairing(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/coding-tasks/${encodeURIComponent(taskId)}/repair-loop/run?path=${encodeURIComponent(rootPath)}`,
+        { method: "POST", headers: { "Content-Type": "application/json" } }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // 202 accepted — 背景跑，稍後手動刷新看結果
+      setTimeout(() => load(), 3000);
+    } catch {
+      setResult("err");
+    } finally {
+      setRepairing(false);
+    }
+  };
 
   const approve = async () => {
     setActing(true);
@@ -261,6 +282,37 @@ export default function EvidenceCard({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* ── Repair Loop（方案 C：有界修復迴圈）── */}
+      {ev.verification.repairLoop && ev.verification.repairLoop.count > 0 && (
+        <div style={{ ...sectionStyle, borderColor: ev.verification.pipeline?.test?.status === "needs_human" ? "#ef444466" : theme.borderLight }}>
+          <div className="flex items-center justify-between">
+            <span style={labelStyle}>🔁 {t("evidence.repairLoop")}</span>
+            <span className="text-xs font-bold" style={{ color: ev.verification.pipeline?.test?.status === "needs_human" ? "#ef4444" : "#f59e0b" }}>
+              {ev.verification.pipeline?.test?.status === "needs_human"
+                ? `🛑 ${t("evidence.repairExhausted")}`
+                : `${t("evidence.repairRound")} ${ev.verification.repairLoop.count}/${ev.verification.repairLoop.max}`}
+            </span>
+          </div>
+          {ev.verification.repairLoop.history?.length > 0 && (
+            <div className="text-xs mt-1 space-y-0.5" style={{ opacity: 0.7 }}>
+              {ev.verification.repairLoop.history.slice(-3).map((h: any, i: number) => (
+                <div key={i}>• R{h.round}: {h.passed}✓ {h.failed}✗ {h.escalated ? "🛑" : ""}</div>
+              ))}
+            </div>
+          )}
+          {ev.verification.pipeline?.test?.status !== "needs_human" && ev.verification.pipeline?.implement?.status === "in_progress" && (
+            <button
+              className="text-xs mt-2 px-3 py-1.5 rounded font-semibold"
+              style={{ background: "#f59e0b", color: "#fff", border: "none", cursor: "pointer" }}
+              onClick={triggerRepair}
+              disabled={repairing}
+            >
+              {repairing ? "⏳" : "🔧"} {t("evidence.runRepair")}
+            </button>
+          )}
         </div>
       )}
 

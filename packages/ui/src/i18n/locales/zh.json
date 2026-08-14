@@ -679,5 +679,9 @@
   "evidence.category.docs": "文檔",
   "evidence.category.refactor": "重構",
   "evidence.category.securityFix": "安全修復",
-  "evidence.category.breakingChange": "破壞性變更"
+  "evidence.category.breakingChange": "破壞性變更",
+  "evidence.repairLoop": "修復迴圈",
+  "evidence.repairRound": "修復輪",
+  "evidence.repairExhausted": "修復上限已到，需要人類決定",
+  "evidence.runRepair": "執行修復"
 }

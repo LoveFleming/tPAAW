@@ -679,5 +679,9 @@
   "evidence.category.docs": "ドキュメント",
   "evidence.category.refactor": "リファクタ",
   "evidence.category.securityFix": "セキュリティ修正",
-  "evidence.category.breakingChange": "破壊的変更"
+  "evidence.category.breakingChange": "破壊的変更",
+  "evidence.repairLoop": "修復ループ",
+  "evidence.repairRound": "ラウンド",
+  "evidence.repairExhausted": "修復上限 — 人間の判断が必要",
+  "evidence.runRepair": "修復実行"
 }

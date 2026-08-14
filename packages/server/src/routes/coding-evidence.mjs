@@ -70,9 +70,12 @@ function computeTrustScore({ pipeline, testResult, qaResult, risk, diffStat }) {
   items.push({ name: "pipeline", label: "Pipeline 完成度", score: Math.round(phaseScore), max: 56, detail: phaseDetail });
 
   // 2. 測試 — 有結果且全綠 25 分；有結果但 fail 按比例；沒測試資料 0
+  // needs_human（修復上限已到）直接 0 分 — 這是给人看的紅旗
   let testScore = 0;
   let testMax = 25;
-  if (testResult) {
+  if (pipeline?.test?.status === "needs_human") {
+    testScore = 0;
+  } else if (testResult) {
     const passed = Number(testResult.passed ?? 0);
     const failed = Number(testResult.failed ?? 0);
     const total = passed + failed;
@@ -212,6 +215,7 @@ export async function gatherTaskEvidence(projectPath, taskId) {
       qaResult: task.qaResult || null,
       coverage: ti?.coverage || null,
       pipeline: task.pipeline || null,
+      repairLoop: task.repairLoop || null,
     },
     provenance: {
       createdBy: task.createdBy || null,

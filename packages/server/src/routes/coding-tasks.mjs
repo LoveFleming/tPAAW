@@ -41,6 +41,52 @@ const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
 
 const PIPELINE_PHASES = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
 
+// 方案 C：有界修復迴圈上限（TEST fail → auto rework implement，最多 N 輪）
+const REPAIR_LOOP_MAX = 3;
+
+/**
+ * applyRepairLoopRule — 方案 C 核心（純函數，方便測試）
+ * TEST 階段有失敗測試時的處置：
+ *   - 未達上限 → 自動退回 implement（repairTriggered）
+ *   - 達上限 → test=needs_human（needsHuman）
+ *   - 全綠 → 清計數，放行（返回 null）
+ * 直接改傳入的 task 物件（呼叫方負責 save）。
+ */
+export function applyRepairLoopRule(task) {
+  const failed = Number(task.testResult?.failed ?? 0);
+  const passed = Number(task.testResult?.passed ?? 0);
+  if (failed <= 0) {
+    // 全綠 → 清除修復計數（成功落地）
+    if (task.repairLoop?.count > 0) {
+      if (!Array.isArray(task.notes)) task.notes = [];
+      task.notes.push({ by: "repair-loop", at: now(), content: `✅ Repair loop resolved after ${task.repairLoop.count} round(s) — all tests green` });
+      task.repairLoop.count = 0;
+    }
+    return null; // 放行
+  }
+  if (!task.repairLoop || typeof task.repairLoop !== "object") task.repairLoop = { count: 0, max: REPAIR_LOOP_MAX, history: [] };
+  const rl = task.repairLoop;
+  rl.max = rl.max || REPAIR_LOOP_MAX;
+  if (rl.count < rl.max) {
+    rl.count += 1;
+    rl.history.push({ round: rl.count, at: now(), passed, failed, reason: "test failures" });
+    task.pipeline.test = { status: "rework", by: "repair-loop", at: now(), reason: `${failed} tests failed`, round: rl.count };
+    task.pipeline.implement = { status: "in_progress", by: "repair-loop", at: now(), reason: `repair round ${rl.count}/${rl.max}` };
+    for (const ph of ["review", "qa", "docs", "commit"]) {
+      if (task.pipeline[ph] && task.pipeline[ph].status !== "pending") task.pipeline[ph] = { status: "pending" };
+    }
+    if (!Array.isArray(task.notes)) task.notes = [];
+    task.notes.push({ by: "repair-loop", at: now(), content: `🔁 Repair loop ${rl.count}/${rl.max}: test fail (${passed}✓ ${failed}✗) → auto rework implement` });
+    return { repairTriggered: true, repairLoop: rl };
+  }
+  // 超過上限 → 停手，交給人
+  rl.history.push({ round: rl.count + 1, at: now(), passed, failed, reason: "max repair rounds exceeded", escalated: true });
+  task.pipeline.test = { status: "needs_human", by: "repair-loop", at: now(), reason: `${failed} tests failed after ${rl.max} repair rounds` };
+  if (!Array.isArray(task.notes)) task.notes = [];
+  task.notes.push({ by: "repair-loop", at: now(), content: `🛑 Repair loop exhausted (${rl.max} rounds): test fail (${passed}✓ ${failed}✗) → needs human decision` });
+  return { needsHuman: true, repairLoop: rl };
+}
+
 // ── Mini Loop phases — 人是 QA，只走 implement → commit ──
 const MINI_LOOP_PHASES = ["implement", "commit"];
 
@@ -179,6 +225,8 @@ async function loadTasksAndConfig(projectPath) {
             git: t.git || null,
             testResult: t.testResult || null,
             qaResult: t.qaResult || null,
+            docsResult: t.docsResult || null,
+            repairLoop: t.repairLoop || null,
             overnight: t.overnight || null,
           };
           return ensurePipeline(mapped, config);
@@ -633,6 +681,20 @@ export default async function codingTasksRoute(req, res) {
       return true;
     }
     const task = ensurePipeline(tasks[idx], config);
+    // ── 方案 C：有界修復迴圈（bounded repair loop）──
+    // TEST 階段完成但有失敗測試 → 不放行，自動退回 implement 重做（上限 REPAIR_LOOP_MAX 輪）
+    if (phase === "test") {
+      const verdict = applyRepairLoopRule(task);
+      if (verdict) {
+        task.status = deriveStatus(task, config);
+        task.updatedAt = now();
+        tasks[idx] = task;
+        await saveTasks(projRoot, tasks, config);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, ...verdict, task }));
+        return true;
+      }
+    }
     // Special: if advancing spec from agent (not human), set to awaiting_human first (Gate 1)
     if (phase === "spec" && task.pipeline.spec?.status === "in_progress" && by !== "human") {
       task.pipeline.spec = { status: "awaiting_human", by: by || "agent", at: now(), result: result || undefined };
@@ -738,6 +800,34 @@ export default async function codingTasksRoute(req, res) {
     await saveTasks(projRoot, tasks, config);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(task));
+    return true;
+  }
+
+  // ── :id/repair-loop/run ── 方案 C：背景觸發一輪修復（developer agent 帶錯誤修）
+  const repairRunMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/repair-loop\/run$/);
+  if (repairRunMatch && method === "POST") {
+    const id = decodeURIComponent(repairRunMatch[1]);
+    const { tasks: rTasks } = await loadTasksAndConfig(projRoot);
+    const rTask = rTasks.find(t => t.id === id);
+    if (!rTask) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Task not found" }));
+      return true;
+    }
+    if (!rTask.repairLoop || rTask.repairLoop.count < 1) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "No active repair round (advance test with failures first)" }));
+      return true;
+    }
+    if (rTask.pipeline?.test?.status === "needs_human") {
+      res.writeHead(409, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Repair loop exhausted — needs human decision", needsHuman: true }));
+      return true;
+    }
+    // 背景跑，不阻塞 HTTP
+    runRepairLoop(projRoot, id).catch(e => console.error("[repair-loop] background error:", e.message));
+    res.writeHead(202, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, accepted: true, round: rTask.repairLoop.count, max: rTask.repairLoop.max }));
     return true;
   }
 
@@ -1458,6 +1548,154 @@ export async function triggerHealthAgentDispatch({ projRoot, subTask, chainParen
           });
         }
       } catch (e2) { console.error("[health-chain] chain recovery error:", e2.message); }
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// 方案 C — 有界修復迴圈（Bounded Repair Loop）
+// TEST fail → 不經 EM，直接把錯誤餵回 developer agent 修（上限 REPAIR_LOOP_MAX 輪）
+// 超過上限 → pipeline.test = needs_human，進 EvidenceCard 給人決定
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * runRepairLoop — 執行一輪修復：developer agent 帶著測試錯誤修 implement
+ * 完成後 implement → done、test → pending（等 tester 重測）。
+ * 由 repair-loop/run API 背景觸發（不阻塞）。
+ */
+export async function runRepairLoop(projRoot, taskId) {
+  const { tasks, config } = await loadTasksAndConfig(projRoot);
+  const idx = tasks.findIndex(t => t.id === taskId);
+  if (idx < 0) { console.error(`[repair-loop] Task ${taskId} not found`); return; }
+  const task = tasks[idx];
+
+  if (!task.repairLoop || task.repairLoop.count < 1) {
+    console.log(`[repair-loop] Task ${taskId} has no active repair round, skipping`);
+    return;
+  }
+  if (task.pipeline?.test?.status === "needs_human") {
+    console.log(`[repair-loop] Task ${taskId} already needs_human, refusing auto repair`);
+    return;
+  }
+
+  const agentId = "developer";
+  const { runningCodingAgents } = await import("../lib/running-agents.mjs");
+  if (runningCodingAgents.has(agentId)) {
+    console.log(`[repair-loop] Developer busy, aborting (retry via API later)`);
+    return;
+  }
+
+  // 組修復 prompt：原 spec + 測試失敗證據
+  const failed = Number(task.testResult?.failed ?? 0);
+  const passed = Number(task.testResult?.passed ?? 0);
+  const testsWritten = (task.testResult?.testsWritten || []).slice(0, 20).join("\n");
+  const coverageGaps = (task.testResult?.coverageGaps || []).slice(0, 10).join("\n");
+  const specText = task.spec?.description || task.description || "";
+  const acText = (task.spec?.acceptanceCriteria || []).map((a, i) => `${i + 1}. ${a}`).join("\n");
+  const filesText = (task.relatedFiles || []).slice(0, 10).join(", ");
+
+  const repairPrompt = `## 修復任務：測試失敗（Repair Round ${task.repairLoop.count}/${task.repairLoop.max}）
+
+Task: ${task.id} — ${task.title}
+
+### 原 Spec
+${specText || "(無)"}
+${acText ? `\n### Acceptance Criteria\n${acText}` : ""}
+${filesText ? `\n### 相關檔案\n${filesText}` : ""}
+
+### 測試結果（失敗證據）
+- ✅ 通過: ${passed}
+- ❌ 失敗: ${failed}
+${testsWritten ? `\n### 測試檔案/名稱\n${testsWritten}` : ""}
+${coverageGaps ? `\n### Coverage Gaps\n${coverageGaps}` : ""}
+
+### 你的工作
+1. 重跑失敗的測試，找出 root cause
+2. 修復 implement 的程式碼（不是改測試來騙過 — 除非測試本身有 bug，先說明再改）
+3. 修完重跑測試確認全綠
+4. 完成後列出修改的檔案
+
+### 規則
+- Only use \`git add\` (stage files), never \`git commit\` or \`git push\`.
+- 最小變更原則：只修必要的，不要重構不相關的碼
+- 如果發現問題在測試本身（斷言錯誤/過時），修測試並在報告說明原因`;
+
+  // Load developer crew prompt（同 runHealthPlanSubtask 模式）
+  const { PAAW_ROOT } = await import("./shared.mjs").then(m => ({ PAAW_ROOT: m.PAAW_ROOT }));
+  const crewFile = join(PAAW_ROOT, "data", "crews", "coding.developer.json");
+  let systemPrompt = "";
+  if (existsSync(crewFile)) {
+    try { systemPrompt = JSON.parse(readFileSync(crewFile, "utf-8")).rolePrompt || ""; } catch {}
+  }
+
+  const extraContext = [];
+  try {
+    const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
+    const actionLog = await listActionLog(projRoot);
+    if (actionLog.length > 0) {
+      const recent = actionLog.slice(-10).map(e => `- [${e.agent}] ${e.action}${e.detail ? ": " + e.detail : ""} (${e.ts})`).join("\n");
+      extraContext.push(`\n## Recent Action Log\n${recent}`);
+    }
+    const mem = await loadAgentMemory(agentId, projRoot);
+    if (mem) extraContext.push(`\n## Your Long-term Memory\n${mem}`);
+  } catch {}
+
+  const messages = [
+    { role: "system", content: systemPrompt + extraContext.join("") },
+    { role: "user", content: repairPrompt },
+  ];
+
+  const sink = new PassThrough();
+  sink.resume();
+  const abortCtrl = new AbortController();
+  runningCodingAgents.set(agentId, { abortController: abortCtrl, res: sink, startedAt: Date.now(), source: `repair-loop:${taskId}` });
+
+  console.log(`[repair-loop] 🔧 Round ${task.repairLoop.count}/${task.repairLoop.max} dispatching developer for ${taskId}...`);
+  const startTime = Date.now();
+  try {
+    const { resolveLLMConfig, runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
+    const llm = resolveLLMConfig(projRoot);
+    await runAgentLoopStream({
+      systemPrompt: systemPrompt + extraContext.join(""),
+      messages,
+      cwd: projRoot,
+      agentId,
+      model: llm.model,
+      maxTurns: 30,
+      timeout: 3600,
+      abortSignal: abortCtrl.signal,
+    }, sink);
+
+    const durationMs = Date.now() - startTime;
+    runningCodingAgents.delete(agentId);
+    sink.end();
+    console.log(`[repair-loop] ✅ Developer finished repair (${Math.round(durationMs / 1000)}s), test back to pending`);
+
+    // implement → done、test → pending（等重測）
+    const { tasks: tasks2, config: cfg2 } = await loadTasksAndConfig(projRoot);
+    const idx2 = tasks2.findIndex(t => t.id === taskId);
+    if (idx2 >= 0) {
+      const t2 = tasks2[idx2];
+      t2.pipeline.implement = { status: "done", by: "repair-loop", at: new Date().toISOString(), result: `repair round ${t2.repairLoop?.count}` };
+      t2.pipeline.review = { status: "done", by: "repair-loop", at: new Date().toISOString(), reason: "auto-skipped (repair)" };
+      if (t2.pipeline.test) t2.pipeline.test = { status: "pending" };
+      t2.status = deriveStatus(t2, cfg2);
+      t2.updatedAt = new Date().toISOString();
+      if (!Array.isArray(t2.notes)) t2.notes = [];
+      t2.notes.push({ by: "repair-loop", at: new Date().toISOString(), content: `🔧 Repair round ${t2.repairLoop?.count} executed — awaiting re-test` });
+      await saveTasks(projRoot, tasks2, cfg2);
+    }
+  } catch (e) {
+    runningCodingAgents.delete(agentId);
+    sink.end();
+    console.error(`[repair-loop] ❌ Repair failed:`, e.message);
+    const { tasks: tasks3, config: cfg3 } = await loadTasksAndConfig(projRoot);
+    const idx3 = tasks3.findIndex(t => t.id === taskId);
+    if (idx3 >= 0) {
+      if (!Array.isArray(tasks3[idx3].notes)) tasks3[idx3].notes = [];
+      tasks3[idx3].notes.push({ by: "repair-loop", at: new Date().toISOString(), content: `⚠️ Repair dispatch error: ${e.message.slice(0, 200)}` });
+      tasks3[idx3].updatedAt = new Date().toISOString();
+      await saveTasks(projRoot, tasks3, cfg3);
     }
   }
 }

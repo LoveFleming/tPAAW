@@ -679,5 +679,9 @@
   "evidence.category.docs": "Docs",
   "evidence.category.refactor": "Refactor",
   "evidence.category.securityFix": "Security fix",
-  "evidence.category.breakingChange": "Breaking change"
+  "evidence.category.breakingChange": "Breaking change",
+  "evidence.repairLoop": "Repair Loop",
+  "evidence.repairRound": "Round",
+  "evidence.repairExhausted": "Repair exhausted — needs human",
+  "evidence.runRepair": "Run repair"
 }
