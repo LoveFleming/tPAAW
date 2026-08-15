@@ -16,7 +16,7 @@
  * 跨平台鐵律：路徑一律 normalizePath() 回前端；fs 遞迴不用 find。
  */
 
-import { readFile, readdir } from "fs/promises";
+import { readFile, readdir, stat } from "fs/promises";
 import { existsSync, readFileSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -30,6 +30,8 @@ import { runVerify, readLastVerify } from "../lib/release-unit/verify.mjs";
 import { computeMetrics, isTestFile } from "../lib/release-unit/metrics.mjs";
 import { analyzeUnit } from "../lib/release-unit/analyze.mjs";
 import { checkGates } from "../lib/release-unit/gates.mjs";
+import { askCodebase } from "../lib/release-unit/ask.mjs";
+import { extractAPIs } from "../lib/release-unit/apis.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -359,6 +361,129 @@ export default async function releaseUnitRoutes(req, res, next) {
     } catch (e) {
       return json(res, 500, { error: "git log failed", detail: e.message });
     }
+  }
+
+  // ══════ Phase 3 — AI 互動 + 契約 ══════
+
+  // ── GET /api/ru/ask?path=&q= — 自然語言問 codebase（檢索層，零 LLM）──
+  if (url === "/api/ru/ask" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    const q2 = q.get("q") || "";
+    if (!q2.trim()) return json(res, 400, { error: "q required" });
+    try {
+      const r = await askCodebase(path, q2, { maxHits: parseInt(q.get("hits") || "15", 10) });
+      r.path = normalizePath(path);
+      return json(res, 200, r);
+    } catch (e) {
+      return json(res, 500, { error: "ask failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/apis?path= — API 契約掃描 ──
+  if (url === "/api/ru/apis" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    try {
+      const r = await extractAPIs(path, { refresh });
+      r.path = normalizePath(path);
+      return json(res, 200, r);
+    } catch (e) {
+      return json(res, 500, { error: "apis scan failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/specs?path=[&id=] — 規格文件（.paaw/specs/）──
+  if (url === "/api/ru/specs" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    const dir = join(path, ".paaw", "specs");
+    if (!existsSync(dir)) return json(res, 200, { path: normalizePath(path), specs: [], count: 0 });
+    const id = q.get("id");
+    if (id) {
+      const f = join(dir, `${id.replace(/\.md$|\.json$/, "")}.md`);
+      const fj = join(dir, `${id.replace(/\.md$|\.json$/, "")}.json`);
+      for (const cand of [f, fj]) {
+        if (existsSync(cand)) {
+          const content = await readFile(cand, "utf-8");
+          return json(res, 200, { path: normalizePath(path), id, file: normalizePath(cand), content });
+        }
+      }
+      return json(res, 404, { error: `spec not found: ${id}` });
+    }
+    const specs = [];
+    for (const f of (await readdir(dir)).sort()) {
+      if (!/\.(md|json)$/.test(f)) continue;
+      const st = await stat(join(dir, f)).catch(() => null);
+      const head = await readFile(join(dir, f), "utf-8").then(c => c.match(/^#\s+(.+)$/m)?.[1] || null).catch(() => null);
+      specs.push({ id: f.replace(/\.(md|json)$/, ""), file: f, title: head, mtime: st?.mtime?.toISOString() || null });
+    }
+    return json(res, 200, { path: normalizePath(path), specs, count: specs.length });
+  }
+
+  // ── GET /api/ru/releases?path= — 發布紀錄（.paaw/releases/）──
+  if (url === "/api/ru/releases" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    const dir = join(path, ".paaw", "releases");
+    const releases = [];
+    if (existsSync(dir)) {
+      for (const f of (await readdir(dir)).filter(f => f.endsWith(".json")).sort().reverse()) {
+        try {
+          const r = JSON.parse(await readFile(join(dir, f), "utf-8"));
+          releases.push({
+            id: r.id || f.replace(/\.json$/, ""),
+            releasedAt: r.releasedAt || null,
+            taskId: r.taskId || null,
+            title: r.title || r.evidence?.title || null,
+            trustScore: r.evidence?.trustScore?.score ?? null,
+            riskLevel: r.evidence?.risk?.level ?? null,
+          });
+        } catch { /* skip corrupt */ }
+      }
+    }
+    releases.sort((a, b) => (b.releasedAt || "").localeCompare(a.releasedAt || ""));
+    return json(res, 200, { path: normalizePath(path), releases, count: releases.length });
+  }
+
+  // ── GET /api/ru/evidence?path=[&taskId=] — 變更證據鏈 ──
+  if (url === "/api/ru/evidence" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    // releases 證據 + task pipeline 證據（TASKS.json 裡有 pipeline 的 task）
+    const out = { path: normalizePath(path), releases: [], tasks: [] };
+    const relDir = join(path, ".paaw", "releases");
+    if (existsSync(relDir)) {
+      for (const f of (await readdir(relDir)).filter(f => f.endsWith(".json")).sort().reverse()) {
+        try {
+          const r = JSON.parse(await readFile(join(relDir, f), "utf-8"));
+          out.releases.push({
+            id: r.id || f.replace(/\.json$/, ""),
+            releasedAt: r.releasedAt,
+            taskId: r.taskId,
+            evidence: r.evidence ? {
+              trustScore: r.evidence.trustScore?.score ?? null,
+              risk: r.evidence.risk?.level ?? null,
+              diffStat: r.evidence.changes?.diffStat ?? null,
+              testResult: r.evidence.verification?.testResult ?? null,
+            } : null,
+          });
+        } catch { /* skip */ }
+      }
+    }
+    out.releases.sort((a, b) => (b.releasedAt || "").localeCompare(a.releasedAt || ""));
+    const tasksFile = join(path, ".paaw", "tasks", "TASKS.json");
+    if (existsSync(tasksFile)) {
+      try {
+        const data = JSON.parse(await readFile(tasksFile, "utf-8"));
+        for (const t of (data.tasks || [])) {
+          if (!t?.pipeline) continue;
+          const phases = Object.entries(t.pipeline)
+            .filter(([, p]) => p?.status === "done")
+            .map(([ph]) => ph);
+          if (!phases.length) continue;
+          out.tasks.push({ id: t.id, title: t.title, status: t.status, donePhases: phases, updatedAt: t.updatedAt });
+        }
+        out.tasks.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+        out.tasks = out.tasks.slice(0, 30);
+      } catch { /* skip */ }
+    }
+    return json(res, 200, out);
   }
 
   return next?.() ?? false;
