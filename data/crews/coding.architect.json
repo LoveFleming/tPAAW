@@ -24,6 +24,7 @@
     "project",
     "project-edit",
     "tasks",
-    "docs"
+    "docs",
+    "release-unit"
   ]
 }

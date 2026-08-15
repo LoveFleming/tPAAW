@@ -757,6 +757,63 @@ export const PAAW_TOOLS = [
     },
   },
 
+  // ── Release Unit Tools（Tool 化三防線：context / impact / verify）──
+  {
+    type: "function",
+    function: {
+      name: "ru_context",
+      description: "Release Unit context — 讀專案技術桡 + .paaw 四大文件（PROJECT/ARCHITECTURE/CODING-STANDARDS/DECISIONS）。改碼前必讀。",
+      parameters: {
+        type: "object",
+        properties: {
+          withDocs: { type: "boolean", description: "是否帶入文件全文（預設只回清單+規範）" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "ru_dependencies",
+      description: "查檔案依賴：我 import 誰（forward）、誰 import 我（reverse）、用了哪些外部套件。",
+      parameters: {
+        type: "object",
+        properties: {
+          file: { type: "string", description: "檔案路徑（相對/絕對/檔名皆可）" },
+        },
+        required: ["file"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "ru_impact_analysis",
+      description: "改動影響分析（改前必跑）：給定檔案清單，回傳直接/間接受影響的檔案（含深度）與樞紐熱點。",
+      parameters: {
+        type: "object",
+        properties: {
+          files: { type: "array", items: { type: "string" }, description: "預計改動的檔案清單" },
+          changeType: { type: "string", enum: ["modify", "add", "delete"], description: "改動類型（預設 modify）" },
+        },
+        required: ["files"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "ru_verify",
+      description: "驗證（改完必跑）：執行 build/lint/type-check/test，回傳每關結果與失敗輸出。",
+      parameters: {
+        type: "object",
+        properties: {
+          checks: { type: "array", items: { type: "string", enum: ["build", "lint", "type-check", "test"] }, description: "指定關卡（預設全部）" },
+        },
+      },
+    },
+  },
+
   ];
 
 // ── Tool Group System — load only what each agent needs ──
@@ -805,19 +862,19 @@ const CORE_READ_TOOLS = new Set(["read_file", "reference_read", "glob", "grep", 
 // ── Fallback groups (used when crew.json has no toolGroups) ──
 const AGENT_FALLBACK_GROUPS = {
   // Architect: read-only + decisions + project
-  architect: ["core-read", "memory", "decisions", "project", "project-edit"],
+  architect: ["core-read", "memory", "decisions", "project", "project-edit", "release-unit"],
   // Developer: full core + memory + project + tasks
-  developer: ["core", "memory", "decisions", "project", "project-edit", "tasks"],
+  developer: ["core", "memory", "decisions", "project", "project-edit", "tasks", "release-unit"],
   // Tester: full core + project
-  tester: ["core", "memory", "decisions", "project", "project-edit"],
+  tester: ["core", "memory", "decisions", "project", "project-edit", "release-unit"],
   // Doc-writer: full core + project-edit + docs
   "doc-writer": ["core", "memory", "decisions", "project", "project-edit", "docs"],
   // QA: read-only + project + project-edit
-  qa: ["core-read", "memory", "project", "project-edit"],
+  qa: ["core-read", "memory", "project", "project-edit", "release-unit"],
   // Helpdesk: read-only + project
   helpdesk: ["core-read", "memory", "decisions", "project", "project-edit"],
   // EM: read-only + project + project-edit + docs + tasks + dispatch (no notes/browser)
-  em: ["core-read", "memory", "decisions", "project", "project-edit", "docs", "tasks", "dispatch"],
+  em: ["core-read", "memory", "decisions", "project", "project-edit", "docs", "tasks", "dispatch", "release-unit"],
 };
 
 // ── Cache for crew toolGroups loaded from JSON ──
@@ -1552,6 +1609,69 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         const truncated = smartTruncateToolResult(result, 12_000, { alwaysKeepTail: true });
         if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 500) });
         return truncated;
+      }
+
+      // ══════════════════════════════════════════
+      // ── Release Unit Tools（三防線：context / impact / verify）──
+      // ══════════════════════════════════════════
+
+      case "ru_context": {
+        const { detectTechStack } = await import("./release-unit/adapters.mjs");
+        const tech = await detectTechStack(cwd);
+        const readDoc = async (rel) => {
+          const f = resolve(cwd, ".paaw", rel);
+          if (!existsSync(f)) return null;
+          try { return readSync(f, "utf-8"); } catch { return null; }
+        };
+        const standards = await readDoc("CODING-STANDARDS.md") ?? await readDoc("project/CODING-STANDARDS.md");
+        const docs = ["PROJECT.md", "ARCHITECTURE.md", "CODING-STANDARDS.md", "DECISIONS.md", "CONTEXT.md"];
+        const found = [];
+        for (const d of docs) {
+          if (await readDoc(d) ?? (d === "CODING-STANDARDS.md" && await readDoc("project/CODING-STANDARDS.md"))) found.push(d);
+        }
+        let out = `【Release Unit context】${cwd.split(/[\\/]/).pop()}\n技術桡：${tech.language} / ${tech.packageManager} / ${(tech.frameworks || []).join(", ") || "-"}\n.paaw 文件：${found.length ? found.join(", ") : "（尚未初始化）"}\n`;
+        if (standards) out += `\n【CODING-STANDARDS】\n${smartTruncateToolResult(standards, 6000, { alwaysKeepTail: false })}`;
+        if (args.withDocs) {
+          for (const d of ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md"]) {
+            const c = await readDoc(d);
+            if (c) out += `\n【${d}】\n${smartTruncateToolResult(c, 6000, { alwaysKeepTail: false })}`;
+          }
+        }
+        if (onEvent) onEvent({ type: "tool_end", name, result: `context ${found.length}/5 docs` });
+        return out;
+      }
+
+      case "ru_dependencies": {
+        const { buildDependencyGraph, queryGraph } = await import("./release-unit/dependencies.mjs");
+        const graph = await buildDependencyGraph(cwd);
+        const r = queryGraph(graph, args.file, "both");
+        if (!r.found) return `檔案不在依賴圖中：${args.file}（掃描 ${graph.fileCount} 檔，adapter=${graph.adapter}）。可用相對路徑或檔名重試。`;
+        const fmt = (list, label) => list?.length ? `\n【${label}】(${list.length})\n` + list.map(f => `  ${f}`).join("\n") : `\n【${label}】(0)`;
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${r.file}: fwd ${r.forward?.length || 0} / rev ${r.reverse?.length || 0}` });
+        return `檔案：${r.file}${fmt(r.forward, "我 import 誰")}${fmt(r.reverse, "誰 import 我")}${fmt(r.externals, "外部套件")}`;
+      }
+
+      case "ru_impact_analysis": {
+        const { impactAnalysis } = await import("./release-unit/impact.mjs");
+        const r = await impactAnalysis(cwd, args.files, { changeType: args.changeType });
+        if (r.unresolved.length) {
+          return `這些檔案不在依賴圖中，無法分析：${r.unresolved.join(", ")}。請確認路徑（相對於專案根）。`;
+        }
+        const lines = r.affected.map(a => `  d${a.depth} ${a.file}`);
+        if (onEvent) onEvent({ type: "tool_end", name, result: `affected ${r.affectedCount}` });
+        return `【影響分析】改動 ${r.changed.length} 檔（${r.changeType}）→ 受影響 ${r.affectedCount} 檔\n` +
+          (lines.length ? lines.join("\n") : "（無內部依賴者 — 安全）") +
+          (r.hotspots.length ? `\n【樞紐熱點（改動需特別小心）】\n` + r.hotspots.slice(0, 5).map(h => `  ${h.file}（${h.dependents} 依賴者）`).join("\n") : "");
+      }
+
+      case "ru_verify": {
+        const { runVerify } = await import("./release-unit/verify.mjs");
+        if (onEvent) onEvent({ type: "tool_end", name, result: "verify running…" });
+        const report = await runVerify(cwd, { checks: args.checks });
+        const lines = report.checks.map(c =>
+          `${c.ok ? "✅" : "❌"} ${c.check}（${Math.round(c.durationMs / 100) / 10}s）${c.ok ? "" : "\n" + (c.output || "").slice(-1500)}`);
+        if (onEvent) onEvent({ type: "tool_end", name, result: `verify ${report.overall}` });
+        return `【驗證結果】${report.overall.toUpperCase()}（${report.ran.join(", ") || "無可執行關卡"}）\n${lines.join("\n")}`;
       }
 
       // ══════════════════════════════════════════

@@ -101,6 +101,9 @@ export default async function releaseUnitRoutes(req, res, next) {
   // ── GET /api/ru/overview — 高層摘要 ──
   if (url === "/api/ru/overview" && method === "GET") {
     if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    // ⚠️ 先快照 .paaw 是否存在 — buildDependencyGraph 會自動建 .paaw/ 放快取，
+    // 快照在後會把新專案誤判成 initialized（empty state 判定依賴這個 flag）
+    const hadPaaw = existsSync(join(path, ".paaw"));
     const tech = await detectTechStack(path);
     const projectMd = (await readDoc(path, "PROJECT.md")) ?? (await readDoc(path, "project/PROJECT.md"));
     // 一句話描述：PROJECT.md 第一個標題/段落
@@ -116,7 +119,7 @@ export default async function releaseUnitRoutes(req, res, next) {
       tech,
       summary,
       scale: { sourceFiles: graph.fileCount, edges: Object.values(graph.deps).reduce((s, a) => s + a.length, 0) },
-      initialized: existsSync(join(path, ".paaw")),
+      initialized: hadPaaw,
       depsGraphFromCache: graph.fromCache,
     });
   }

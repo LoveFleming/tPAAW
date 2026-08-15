@@ -44,6 +44,7 @@ import TaskBoard from "../components/TaskBoard";
 import ReleaseManagerPanel from "../components/ReleaseManagerPanel";
 import HandoverPanel from "../components/HandoverPanel";
 import TroubleshootingPanel from "../components/TroubleshootingPanel";
+import ReleaseUnitPanel from "../components/ReleaseUnitPanel";
 import FeatureMap from "../components/FeatureMap";
 import AutoDispatchPanel, { SubTaskDetail } from "../components/AutoDispatchPanel";
 import CrewManager from "../components/CrewManager";
@@ -2508,6 +2509,12 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:troubleshooting") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:troubleshooting" ? tk.toolbarActive : "transparent"; }}
           title={tt("ops.title")}>🔧 Ops</button>
+        <button onClick={() => openMainTab({ id: "tool:ru", type: "release-unit", label: "Release Unit", icon: "🧭", closable: true })}
+          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:ru" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:ru") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:ru") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:ru" ? tk.toolbarActive : "transparent"; }}
+          title={tt("ru.title")}>🧭 RU</button>
 
       </div>
 
@@ -3351,6 +3358,17 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 <TroubleshootingPanel
                   rootPath={rootPath}
                   theme={{ borderLight: tk.borderLight, accent: tk.accent }}
+                />
+              </div>
+            )}
+            {/* === Release Unit Toolbox === (keep mounted, hide with CSS) */}
+            {mainTabs.some(t => t.type === "release-unit") && rootPath && (
+              <div key="tool:ru" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "release-unit" ? undefined : "none" }}>
+                <ReleaseUnitPanel
+                  rootPath={rootPath}
+                  theme={{ borderLight: tk.borderLight, accent: tk.accent }}
+                  onOpenEMDashboard={() => openMainTab({ id: DASHBOARD_TAB_ID, type: "em-dashboard", label: "EM 大總管", icon: "🎖️", closable: false })}
                 />
               </div>
             )}

@@ -24,6 +24,7 @@
     "decisions",
     "project",
     "project-edit",
-    "tasks"
+    "tasks",
+    "release-unit"
   ]
 }
