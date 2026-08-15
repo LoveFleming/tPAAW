@@ -408,7 +408,7 @@
   "provider.saveAndUse": "✅ Save & Start Using",
   "provider.saveFailed": "儲存失敗，請重試",
   "rm.agentGreeting": "要放行前，把證據攤開來看。我幫你確認這一版能不能安全上線 — 審證據，不審碼。",
-  "rm.agentName": "趙威霆 · Release Manager",
+  "rm.agentName": "彼得·諾瓦克 · Release Manager",
   "rm.approve": "批准",
   "rm.approveNotePh": "放行備註（選填）…",
   "rm.approveRelease": "批准上線",

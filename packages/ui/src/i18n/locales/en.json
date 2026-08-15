@@ -408,7 +408,7 @@
   "provider.saveAndUse": "✅ Save & Start Using",
   "provider.saveFailed": "Save failed, please try again",
   "rm.agentGreeting": "Before shipping, let's lay out the evidence. I help you decide whether this version is safe to release — review evidence, not code.",
-  "rm.agentName": "趙威霆 · Release Manager",
+  "rm.agentName": "Piotr Nowak · Release Manager",
   "rm.approve": "批准",
   "rm.approveNotePh": "放行備註（選填）…",
   "rm.approveRelease": "批准上線",

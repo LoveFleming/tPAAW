@@ -408,7 +408,7 @@
   "provider.saveAndUse": "✅ 保存して使用開始",
   "provider.saveFailed": "保存に失敗しました。再試行してください",
   "rm.agentGreeting": "リリース前にエビデンスを確認しましょう。コードではなく証拠を見て、このバージョンが安全にリリースできるか判断します。",
-  "rm.agentName": "趙威霆 · Release Manager",
+  "rm.agentName": "ピョトル・ノヴァク · Release Manager",
   "rm.approve": "批准",
   "rm.approveNotePh": "放行備註（選填）…",
   "rm.approveRelease": "批准上線",
