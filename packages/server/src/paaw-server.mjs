@@ -71,6 +71,7 @@ const ROUTE_MODULES = [
   "./routes/coding-handover.mjs",
   "./routes/coding-ops.mjs",
   "./routes/coding-reports.mjs",
+  "./routes/release-unit.mjs",
   "./routes/llm-logs.mjs",
   "./routes/agent-logs.mjs",
   "./routes/plugins.mjs",

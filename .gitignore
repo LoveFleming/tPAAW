@@ -79,3 +79,5 @@ playwright/.cache/
 temp/
 data/tools/*/config.json
 backups/
+.paaw/deps-cache.json
+.paaw/verify-last.json

@@ -1,0 +1,241 @@
+/**
+ * release-unit.mjs — Release Unit Tool API Routes（/api/ru/*）
+ *
+ * 總計畫：把 Release Unit API 化 — AI 派工前必讀 context、
+ * 改前跑 impact、改後跑 verify。Tier 1（理解力）+ Tier 3 核心（執行力）。
+ *
+ * Routes:
+ *   GET  /api/ru                                  — 列出所有 Release Unit（recent projects）
+ *   GET  /api/ru/overview?path=                   — 高層摘要（tech stack + 規模 + .paaw 狀態）
+ *   GET  /api/ru/context?path=                    — AI 完整 context（.paaw 四大文件 + standards）
+ *   GET  /api/ru/architecture?path=[&refresh=1]   — 模組邊界視圖
+ *   GET  /api/ru/dependencies?path=&file=&direction=[&refresh=1]
+ *   POST /api/ru/impact-analysis { path, files[], changeType? }
+ *   POST /api/ru/verify { path, checks[]?, skip[]? }
+ *
+ * 跨平台鐵律：路徑一律 normalizePath() 回前端；fs 遞迴不用 find。
+ */
+
+import { readFile } from "fs/promises";
+import { existsSync, readFileSync } from "fs";
+import { join, resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+import { normalizePath } from "./shared.mjs";
+import { detectTechStack } from "../lib/release-unit/adapters.mjs";
+import { buildDependencyGraph, queryGraph } from "../lib/release-unit/dependencies.mjs";
+import { impactAnalysis } from "../lib/release-unit/impact.mjs";
+import { architectureView } from "../lib/release-unit/architecture.mjs";
+import { runVerify, readLastVerify } from "../lib/release-unit/verify.mjs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
+
+function json(res, code, data) {
+  res.status(code).json(data);
+  return true;
+}
+
+function readBody(req) {
+  return new Promise((r) => {
+    let buf = "";
+    req.on("data", (c) => { buf += c; if (buf.length > 1e6) req.destroy(); });
+    req.on("end", () => { try { r(JSON.parse(buf || "{}")); } catch { r({}); } });
+    req.on("error", () => r({}));
+  });
+}
+
+function validRoot(p) {
+  return p && existsSync(p) && p.split(/[\\/]/).length >= 2; // 必須是存在的目錄路徑
+}
+
+/** .paaw 核心文件清單（context 用） */
+const CONTEXT_DOCS = [
+  { file: "PROJECT.md", label: "專案概述" },
+  { file: "ARCHITECTURE.md", label: "架構" },
+  { file: "CODING-STANDARDS.md", label: "Coding 規範", altDir: "project" },
+  { file: "DECISIONS.md", label: "技術決策" },
+  { file: "CONTEXT.md", label: "長期 context" },
+];
+
+async function readDoc(root, rel) {
+  const f = join(root, ".paaw", rel);
+  if (!existsSync(f)) return null;
+  try { return await readFile(f, "utf-8"); } catch { return null; }
+}
+
+export default async function releaseUnitRoutes(req, res, next) {
+  const method = req.method;
+  const rawUrl = req.url || "";
+  const url = rawUrl.split("?")[0];
+  const q = new URL(rawUrl, "http://localhost").searchParams;
+  const path = q.get("path");
+  const refresh = q.get("refresh") === "1";
+
+  if (!url.startsWith("/api/ru")) return next?.() ?? false;
+
+  // ── GET /api/ru — 列出所有 Release Unit ──
+  if (url === "/api/ru" && method === "GET") {
+    const recentFile = join(PAAW_ROOT, "data", "config", "recent-projects.json");
+    let recent = [];
+    try { recent = JSON.parse(readFileSync(recentFile, "utf-8")); } catch {}
+    const units = [];
+    for (const r of recent) {
+      if (!r?.path || !existsSync(r.path)) continue;
+      units.push({
+        path: normalizePath(r.path),
+        name: r.name || r.path.split(/[\\/]/).pop(),
+        initialized: existsSync(join(r.path, ".paaw")),
+        lastOpened: r.lastOpened || r.openedAt || null,
+      });
+    }
+    return json(res, 200, { units, count: units.length });
+  }
+
+  // ── GET /api/ru/overview — 高層摘要 ──
+  if (url === "/api/ru/overview" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    const tech = await detectTechStack(path);
+    const projectMd = (await readDoc(path, "PROJECT.md")) ?? (await readDoc(path, "project/PROJECT.md"));
+    // 一句話描述：PROJECT.md 第一個標題/段落
+    let summary = null;
+    if (projectMd) {
+      const m = projectMd.match(/^#\s+(.+)$/m) || projectMd.match(/^(.+)$/m);
+      summary = m ? m[1].slice(0, 200) : null;
+    }
+    const graph = await buildDependencyGraph(path);
+    return json(res, 200, {
+      path: normalizePath(path),
+      name: path.split(/[\\/]/).pop(),
+      tech,
+      summary,
+      scale: { sourceFiles: graph.fileCount, edges: Object.values(graph.deps).reduce((s, a) => s + a.length, 0) },
+      initialized: existsSync(join(path, ".paaw")),
+      depsGraphFromCache: graph.fromCache,
+    });
+  }
+
+  // ── GET /api/ru/context — AI 完整 context（派工前必讀）──
+  if (url === "/api/ru/context" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    const tech = await detectTechStack(path);
+    const docs = [];
+    let totalChars = 0;
+    for (const d of CONTEXT_DOCS) {
+      let content = await readDoc(path, d.file);
+      if (content == null && d.altDir) content = await readDoc(path, `${d.altDir}/${d.file}`);
+      docs.push({ file: d.file, label: d.label, found: content != null, chars: content?.length || 0 });
+      if (content) totalChars += content.length;
+    }
+    // 實際內容：docs 參數 content=1 才帶（預設只給清單，省 payload）
+    const withContent = q.get("content") === "1";
+    const payload = {
+      path: normalizePath(path),
+      tech,
+      docs,
+      totalChars,
+      standardsDir: existsSync(join(path, ".paaw", "standards")),
+      codingStandards: await readDoc(path, "CODING-STANDARDS.md") ?? await readDoc(path, "project/CODING-STANDARDS.md") ?? null,
+    };
+    if (withContent) {
+      payload.docContents = {};
+      for (const d of CONTEXT_DOCS) {
+        const c = await readDoc(path, d.file) ?? (d.altDir ? await readDoc(path, `${d.altDir}/${d.file}`) : null);
+        if (c) payload.docContents[d.file] = c.slice(0, 20000); // 單檔上限 20k chars
+      }
+    }
+    return json(res, 200, payload);
+  }
+
+  // ── GET /api/ru/architecture — 模組邊界視圖 ──
+  if (url === "/api/ru/architecture" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    try {
+      const view = await architectureView(path, { refresh });
+      view.path = normalizePath(path);
+      return json(res, 200, view);
+    } catch (e) {
+      return json(res, 500, { error: "architecture scan failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/dependencies — 依賴查詢 ──
+  if (url === "/api/ru/dependencies" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    try {
+      const graph = await buildDependencyGraph(path, { refresh });
+      const file = q.get("file");
+      const direction = q.get("direction") || "both";
+      const out = {
+        path: normalizePath(path),
+        adapter: graph.adapter,
+        fileCount: graph.fileCount,
+        fromCache: graph.fromCache,
+        generatedAt: graph.generatedAt,
+      };
+      if (file) {
+        out.query = queryGraph(graph, file, direction);
+      } else {
+        // 無 file：回圖統計 + top hubs（不回整圖 — 可能幾 MB）
+        const hubs = Object.entries(graph.rdeps)
+          .map(([f, d]) => ({ file: f, dependents: d.length }))
+          .sort((a, b) => b.dependents - a.dependents).slice(0, 20);
+        out.stats = {
+          edges: Object.values(graph.deps).reduce((s, a) => s + a.length, 0),
+          externalPackages: Object.keys(graph.pkgCount).length,
+          topPackages: Object.entries(graph.pkgCount).sort((a, b) => b[1] - a[1]).slice(0, 15)
+            .map(([pkg, n]) => ({ pkg, importers: n })),
+        };
+        out.hubs = hubs;
+      }
+      return json(res, 200, out);
+    } catch (e) {
+      return json(res, 500, { error: "dependency scan failed", detail: e.message });
+    }
+  }
+
+  // ── POST /api/ru/impact-analysis — 改動影響分析（改前必跑）──
+  if (url === "/api/ru/impact-analysis" && method === "POST") {
+    const body = await readBody(req);
+    if (!validRoot(body.path)) return json(res, 400, { error: "path required" });
+    const files = Array.isArray(body.files) ? body.files : [];
+    if (!files.length) return json(res, 400, { error: "files[] required" });
+    try {
+      const result = await impactAnalysis(body.path, files, {
+        changeType: body.changeType || "modify",
+        refresh: body.refresh === true,
+      });
+      result.path = normalizePath(body.path);
+      return json(res, 200, result);
+    } catch (e) {
+      return json(res, 500, { error: "impact analysis failed", detail: e.message });
+    }
+  }
+
+  // ── POST /api/ru/verify — 驗證（build/lint/test/type-check，改完必跑）──
+  if (url === "/api/ru/verify" && method === "POST") {
+    const body = await readBody(req);
+    if (!validRoot(body.path)) return json(res, 400, { error: "path required" });
+    try {
+      const report = await runVerify(body.path, {
+        checks: body.checks,
+        skip: body.skip,
+        timeoutMs: body.timeoutMs,
+      });
+      report.path = normalizePath(body.path);
+      return json(res, 200, report);
+    } catch (e) {
+      return json(res, 500, { error: "verify failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/verify — 上次 verify 結果（沒跑過回 null）──
+  if (url === "/api/ru/verify" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    const last = await readLastVerify(path);
+    if (last) last.path = normalizePath(path);
+    return json(res, 200, { last, found: !!last });
+  }
+
+  return next?.() ?? false;
+}
