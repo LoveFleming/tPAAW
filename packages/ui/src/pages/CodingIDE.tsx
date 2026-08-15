@@ -41,6 +41,9 @@ import ModelSelector from "../components/ModelSelector";
 import { ChatMessages, type ChatMessageItem } from "../components/ChatMessages";
 import IssueTracker from "../components/IssueTracker";
 import TaskBoard from "../components/TaskBoard";
+import ReleaseManagerPanel from "../components/ReleaseManagerPanel";
+import HandoverPanel from "../components/HandoverPanel";
+import TroubleshootingPanel from "../components/TroubleshootingPanel";
 import FeatureMap from "../components/FeatureMap";
 import AutoDispatchPanel, { SubTaskDetail } from "../components/AutoDispatchPanel";
 import CrewManager from "../components/CrewManager";
@@ -69,7 +72,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "nightshift" | "security" | "crew-manager" | "subtask-detail";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "nightshift" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting";
 
 interface MainTab {
   id: string;
@@ -799,7 +802,7 @@ export default function CodingIDE() {
         console.log(`[CodingIDE] Parsed ${savedTabs?.length || 0} saved tabs, active=${savedActive}`);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
-          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "terminal", "ai-crew", "standards", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "nightshift", "security", "crew-manager"]);
+          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "terminal", "ai-crew", "standards", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "nightshift", "security", "crew-manager", "release-manager", "handover", "troubleshooting"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", "));
           // Restore tabs (dashboard is already present)
@@ -2487,6 +2490,24 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:security") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:security" ? tk.toolbarActive : "transparent"; }}
           title="Security Scan">🔒 Security</button>
+        <button onClick={() => openMainTab({ id: "tool:release", type: "release-manager", label: "Release Manager", icon: "🚦", closable: true })}
+          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:release" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:release") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:release") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:release" ? tk.toolbarActive : "transparent"; }}
+          title={tt("rm.title")}>🚦 Release</button>
+        <button onClick={() => openMainTab({ id: "tool:handover", type: "handover", label: "Handover", icon: "🤝", closable: true })}
+          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:handover" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:handover") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:handover") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:handover" ? tk.toolbarActive : "transparent"; }}
+          title={tt("ho.title")}>🤝 Handover</button>
+        <button onClick={() => openMainTab({ id: "tool:troubleshooting", type: "troubleshooting", label: "Troubleshooting", icon: "🔧", closable: true })}
+          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:troubleshooting" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:troubleshooting") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:troubleshooting") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:troubleshooting" ? tk.toolbarActive : "transparent"; }}
+          title={tt("ops.title")}>🔧 Ops</button>
 
       </div>
 
@@ -3303,7 +3324,37 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
             )}
 
             {/* === ISSUES TAB === */}
-            {/* === Issues Tab === (keep mounted, hide with CSS) */}
+            {/* === RELEASE / HANDOVER / TROUBLESHOOTING TABS === (keep mounted, hide with CSS) */}
+            {mainTabs.some(t => t.type === "release-manager") && rootPath && (
+              <div key="tool:release" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "release-manager" ? undefined : "none" }}>
+                <ReleaseManagerPanel
+                  rootPath={rootPath}
+                  theme={{ borderLight: tk.borderLight, accent: tk.accent }}
+                  onOpenEMDashboard={() => openMainTab({ id: DASHBOARD_TAB_ID, type: "em-dashboard", label: "EM 大總管", icon: "🎖️", closable: false })}
+                />
+              </div>
+            )}
+            {mainTabs.some(t => t.type === "handover") && rootPath && (
+              <div key="tool:handover" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "handover" ? undefined : "none" }}>
+                <HandoverPanel
+                  rootPath={rootPath}
+                  theme={{ borderLight: tk.borderLight, accent: tk.accent }}
+                  onOpenEMDashboard={() => openMainTab({ id: DASHBOARD_TAB_ID, type: "em-dashboard", label: "EM 大總管", icon: "🎖️", closable: false })}
+                />
+              </div>
+            )}
+            {mainTabs.some(t => t.type === "troubleshooting") && rootPath && (
+              <div key="tool:troubleshooting" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "troubleshooting" ? undefined : "none" }}>
+                <TroubleshootingPanel
+                  rootPath={rootPath}
+                  theme={{ borderLight: tk.borderLight, accent: tk.accent }}
+                />
+              </div>
+            )}
+            {/* === Issues Tab === (keep mounted, hide with CSS) === */}
             {mainTabs.some(t => t.type === "issues") && rootPath && (
               <div key="tool:issues" className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTab?.type === "issues" ? undefined : "none" }}>

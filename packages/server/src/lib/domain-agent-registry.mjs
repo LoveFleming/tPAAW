@@ -273,6 +273,69 @@ const DOMAIN_AGENTS = {
       },
     ],
   },
+  rm: {
+    agentId: "rm",
+    crewId: "coding.rm",
+    name: "Release Manager 負責人",
+    description: "Release Manager — 審證據不審碼，評估風險，批准/退回上線",
+    contextProviders: ["project", "decisions", "codeIntelligence"],
+    tools: null,
+    maxTurns: 15,
+    skills: [
+      {
+        id: "rm-review",
+        name: "證據審查",
+        description: "讀取 release 證據包，評估是否可安全上線",
+        tags: ["rm", "evidence", "risk"],
+      },
+      {
+        id: "rm-risk",
+        name: "風險評估",
+        description: "分析變更的影響面與回滾方案",
+        tags: ["rm", "risk", "rollback"],
+      },
+    ],
+  },
+  handover: {
+    agentId: "handover",
+    crewId: "coding.handover",
+    name: "交接導覽員",
+    description: "Handover Specialist — 讓新工程師或新 AI agent 快速接手 release unit",
+    contextProviders: ["project", "decisions", "codeIntelligence"],
+    tools: null,
+    maxTurns: 15,
+    skills: [
+      {
+        id: "handover-brief",
+        name: "交接簡報",
+        description: "產出專案全貌：做什麼、為什麼、現况、怎麼接手",
+        tags: ["handover", "onboarding"],
+      },
+    ],
+  },
+  ops: {
+    agentId: "ops",
+    crewId: "coding.ops",
+    name: "維運值班工程師",
+    description: "Operations/Troubleshooting — runbook 維護、線上診斷、修復指引",
+    contextProviders: ["project", "decisions"],
+    tools: null,
+    maxTurns: 15,
+    skills: [
+      {
+        id: "ops-diagnose",
+        name: "事故診斷",
+        description: "讀 log 和 runbook，定位問題，給修復步驟",
+        tags: ["ops", "diagnose", "runbook"],
+      },
+      {
+        id: "ops-runbook",
+        name: "Runbook 生成",
+        description: "為常見事故生成可執行的排障指南",
+        tags: ["ops", "runbook"],
+      },
+    ],
+  },
 };
 
 // ── Public API ──
