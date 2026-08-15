@@ -792,6 +792,25 @@ export default function CodingIDE() {
     console.log(`[CodingIDE] Restore effect fired, rootPath=${rootPath}`);
     (async () => {
     try {
+      // 🌱 Fresh-import guard：沒有 .paaw 的 project 視為「剛 import」—
+      // 不 restore 上次的 tabs（可能全是基於舊 .paaw 的工具頁），清掉 localStorage，
+      // 讓使用者從 dashboard 初始狀態（code understanding 引導）開始
+      let hasPaaw = true;
+      try {
+        const ctxRes = await fetch(`${API_BASE}/api/coding-project/context?path=${encodeURIComponent(rootPath)}`);
+        hasPaaw = ctxRes.ok; // 404 = 無 .paaw
+      } catch { /* 探測失敗 — 保守 restore */ }
+      if (!hasPaaw) {
+        try { localStorage.removeItem(`paaw.vibeide.tabs:${rootPath}`); } catch {}
+        console.log(`[CodingIDE] No .paaw — fresh import state: reset tabs to dashboard (CU bootstrap)`);
+        // 回到初始狀態：只留 dashboard（EM / Code Understanding 引導入口），
+        // 清掉前一個專案殘留的 tabs 與 editor 檔案
+        setMainTabs([DASHBOARD_TAB]);
+        setActiveMainTabId(DASHBOARD_TAB_ID);
+        setOpenTabs([]);
+        setActiveTabId(null);
+        return;
+      }
       const saved = localStorage.getItem(`paaw.vibeide.tabs:${rootPath}`);
       if (!saved) {
         console.log(`[CodingIDE] No saved tabs found in localStorage`);
