@@ -98,6 +98,17 @@ const server = createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
+  // Express-style response helpers（4e4e597f 起部分 route 用 res.status().json()；
+  // raw http 沒這兩個方法，統一在這裡裝飾，向後相容 writeHead 用法）
+  if (typeof res.status !== "function") {
+    res.status = (code) => { res.statusCode = code; return res; };
+    res.json = (data) => {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify(data));
+      return res;
+    };
+  }
+
   // Try each route module in order
   for (const p of ROUTE_MODULES) {
     const mod = _loaded[p];
