@@ -179,7 +179,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const [emAction, setEmAction] = useState(""); // current EM action (thinking vs tool)
   const [emToolLog, setEmToolLog] = useState<{ name: string; args: string; result: string }[]>([]); // ⚡ tool call log
   const [codeStatus, setCodeStatus] = useState<CodeStatus | null>(null);
-  const [codeStatusLoading, setCodeStatusLoading] = useState(true);
+  const [codeStatusLoading, setCodeStatusLoading] = useState(true); // 仍供 refreshData 內部使用
   const [rescanState, setRescanState] = useState<"idle" | "scanning" | "done" | "error">("idle"); // 🔄 rescan feedback
   const [expandedArea, setExpandedArea] = useState<string | null>(null);
   const [showCUModal, setShowCUModal] = useState(false);
@@ -291,11 +291,14 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   // ── CU lifecycle phase（派生，不存儲）──
   // missing=無 .paaw｜no-code=code 尚少不催（剛建立/剛 import 還沒寫 code）｜ready=該跑｜partial=跑一半｜done=完成
   const CU_NO_CODE_THRESHOLD = 5;
+  // ⚠️ no-code 判定優先於 missing：空專案 import（無 .paaw 且 code 尚少）不催 CU，
+  // 先寫 code；有料了（≥5 檔）才是 missing → 彈窗引導建立知識庫
   const cuPhase: "missing" | "no-code" | "ready" | "partial" | "done" | "stale" | null = cuMeta && rootPath
-    ? (!cuMeta.hasPaaw ? "missing"
+    ? (cuMeta.sourceFiles < CU_NO_CODE_THRESHOLD ? "no-code"
+      : !cuMeta.hasPaaw ? "missing"
       : cuMeta.doneCount >= CU_STEPS.length ? ((cuMeta.staleCount ?? 0) > 0 ? "stale" : "done")
       : cuMeta.doneCount > 0 ? "partial"
-      : cuMeta.sourceFiles < CU_NO_CODE_THRESHOLD ? "no-code" : "ready")
+      : "ready")
     : null;
   const staleMechanical = (cuMeta?.staleSteps ?? []).filter(s => s.mechanical).length;
   const staleSmart = (cuMeta?.staleCount ?? 0) - staleMechanical;
@@ -1429,10 +1432,14 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
               {cuPhase === "done" && <span>✅ 已完成 {cuMeta?.doneCount ?? 0}/{CU_STEPS.length} — 知識庫就緒</span>}
             </div>
           )}
-          {!codeStatus && codeStatusLoading ? (
+          {/* 健康度數字只在 CU 實際產出後才顯示（partial/done/stale）—
+              沒跑 CU 不給分數更不給派工修復按鈕，否則 template 也能拿 10 分誤導 */}
+          {cuPhase === null ? (
             <p className="text-sm text-stone-400 py-2">⚡ 載入中...</p>
+          ) : (cuPhase === "missing" || cuPhase === "no-code" || cuPhase === "ready") ? (
+            <p className="text-sm text-stone-400 py-2">🧠 知識庫尚未建立 — 跑 Code Understanding 後這裡才會出現健康度分數</p>
           ) : !codeStatus ? (
-            <p className="text-sm text-stone-400 py-2">尚未 Code Understanding。點 🧠 產生健康度報告。</p>
+            <p className="text-sm text-stone-400 py-2">健康度載入失敗 — 點 🔄 重新掃描重試。</p>
           ) : !codeStatus.initialized ? (
             <p className="text-sm text-stone-400 py-2">尚未初始化。</p>
           ) : (
