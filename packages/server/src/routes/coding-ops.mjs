@@ -92,7 +92,7 @@ export default async function opsRoutes(req, res, next) {
   const url = rawUrl.split("?")[0];
   const q = new URL(rawUrl, "http://localhost").searchParams;
 
-  if (!url.startsWith("/api/coding-ops")) return next?.() ?? true;
+  if (!url.startsWith("/api/coding-ops")) return next?.() ?? false;
 
   const projectPath = q.get("path");
 
@@ -135,7 +135,7 @@ export default async function opsRoutes(req, res, next) {
     return res.json({ ok: true, file: `.paaw/runbook/${safeId}.md` });
   }
 
-  return next?.() ?? true;
+  return next?.() ?? false;
 }
 
 function readBody(req) {

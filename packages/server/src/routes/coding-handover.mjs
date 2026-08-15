@@ -198,7 +198,7 @@ export default async function handoverRoutes(req, res, next) {
   const url = rawUrl.split("?")[0];
   const q = new URL(rawUrl, "http://localhost").searchParams;
 
-  if (!url.startsWith("/api/coding-handover")) return next?.() ?? true;
+  if (!url.startsWith("/api/coding-handover")) return next?.() ?? false;
 
   const projectPath = q.get("path");
 
@@ -225,7 +225,7 @@ export default async function handoverRoutes(req, res, next) {
     return res.json({ ok: true, file: ".paaw/HANDOVER.md", bytes: md.length });
   }
 
-  return next?.() ?? true;
+  return next?.() ?? false;
 }
 
 function readBody(req) {

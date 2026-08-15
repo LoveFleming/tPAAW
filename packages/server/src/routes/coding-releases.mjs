@@ -90,7 +90,7 @@ export default async function releaseRoutes(req, res, next) {
   const q = new URL(rawUrl, "http://localhost").searchParams;
   const projectPath = q.get("path");
 
-  if (!url.startsWith("/api/coding-releases")) return next?.() ?? true;
+  if (!url.startsWith("/api/coding-releases")) return next?.() ?? false;
 
   // GET pending — 待放行清單
   if (url === "/api/coding-releases/pending" && method === "GET") {
@@ -198,7 +198,7 @@ export default async function releaseRoutes(req, res, next) {
     }
   }
 
-  return next?.() ?? true;
+  return next?.() ?? false;
 }
 
 // ── helpers ──
