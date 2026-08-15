@@ -34,7 +34,7 @@
  */
 
 import { readFile, writeFile, readdir, mkdir, unlink, appendFile, stat as fsStat } from "fs/promises";
-import { existsSync, readFileSync as readSync } from "fs";
+import { existsSync, readFileSync as readSync, readdirSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { exec as execCb } from "child_process";
@@ -55,6 +55,34 @@ import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
+
+// ── CU lifecycle raw materials — 輕量掃 source file 數（純 node fs，跨平台，不碰 node_modules）──
+// 用途：判斷「代碼尚少（no-code）」— 剛建立/剛 import 的專案 code 還沒成形，
+// Code Understanding 沒東西可分析，UI 不該催
+const CU_SOURCE_EXTS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".py", ".go", ".java", ".rs", ".vue", ".svelte"]);
+const CU_SKIP_DIRS = new Set(["node_modules", ".git", ".paaw", "dist", "build", "coverage", ".next", "vendor", "target", "out", ".cache"]);
+function countSourceFiles(root) {
+  let count = 0;
+  let visited = 0;
+  const stack = [root];
+  while (stack.length > 0 && visited < 2000) {
+    const dir = stack.pop();
+    visited++;
+    let entries;
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { continue; }
+    for (const e of entries) {
+      if (e.name.startsWith(".")) continue; // 隱藏目錄（.git/.paaw/.next…）全部跳過
+      if (e.isDirectory()) {
+        if (CU_SKIP_DIRS.has(e.name)) continue;
+        stack.push(join(dir, e.name));
+      } else {
+        const dot = e.name.lastIndexOf(".");
+        if (dot > 0 && CU_SOURCE_EXTS.has(e.name.slice(dot).toLowerCase())) count++;
+      }
+    }
+  }
+  return count;
+}
 
 // Debug logger for Code Understanding — writes to .paaw/cu-debug.log
 import { appendFileSync, existsSync as existsSyncSync } from "fs";
@@ -3312,8 +3340,18 @@ export default async function projectRoute(req, res) {
     if (url.startsWith("/api/coding-project/cu-status") && method === "GET") {
       try {
         const cuStatus = await paaw.getCuStatus();
+        const steps = cuStatus.steps || {};
+        const doneCount = Object.values(steps).filter(s => s?.status === "done").length;
+        const errorCount = Object.values(steps).filter(s => s?.status === "error").length;
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(cuStatus));
+        // CU lifecycle 原料：前端據此算 phase（missing/no-code/ready/partial/done）
+        res.end(JSON.stringify({
+          ...cuStatus,
+          hasPaaw: existsSync(join(root, ".paaw")),
+          sourceFiles: countSourceFiles(root),
+          doneCount,
+          errorCount,
+        }));
       } catch (err) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message }));

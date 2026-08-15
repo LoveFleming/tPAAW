@@ -283,6 +283,19 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
   // ── Load persisted step statuses when opening Modal ──
   const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number; error?: string }>>([]);
+  // CU lifecycle 原料（cu-status 擴充回傳）— phase 派生用
+  const [cuMeta, setCuMeta] = useState<{ hasPaaw: boolean; sourceFiles: number; doneCount: number } | null>(null);
+  const [cuInitBusy, setCuInitBusy] = useState(false);
+
+  // ── CU lifecycle phase（派生，不存儲）──
+  // missing=無 .paaw｜no-code=code 尚少不催（剛建立/剛 import 還沒寫 code）｜ready=該跑｜partial=跑一半｜done=完成
+  const CU_NO_CODE_THRESHOLD = 5;
+  const cuPhase: "missing" | "no-code" | "ready" | "partial" | "done" | null = cuMeta && rootPath
+    ? (!cuMeta.hasPaaw ? "missing"
+      : cuMeta.doneCount >= CU_STEPS.length ? "done"
+      : cuMeta.doneCount > 0 ? "partial"
+      : cuMeta.sourceFiles < CU_NO_CODE_THRESHOLD ? "no-code" : "ready")
+    : null;
   const loadPersistedSteps = useCallback(async () => {
     if (!rootPath) return [];
     let steps: Array<{ id: string; name: string; status: string; size?: number; error?: string }> = [];
@@ -290,6 +303,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       const res = await fetch(`${API_BASE}/api/coding-project/cu-status?path=${encodeURIComponent(rootPath)}`);
       if (res.ok) {
         const data = await res.json();
+        // CU lifecycle 原料（phase 派生用）
+        setCuMeta({ hasPaaw: data.hasPaaw !== false, sourceFiles: data.sourceFiles ?? 0, doneCount: data.doneCount ?? 0 });
         steps = CU_STEPS.map(s => {
           const st = data.steps?.[s.id];
           if (st?.status === "done") {
@@ -342,27 +357,21 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
   useEffect(() => { refreshData(); }, [refreshData]);
 
-  // ── Auto-trigger Code Understanding on first project open ──
-  // Per-project：切換專案（EMDashboard 不 unmount，只 display:none）要重新判定；
-  // 同一 session 重 import（刪 .paaw 再進來）也會對新 rootPath 重新彈 CU 視窗
+  // 進 dashboard 就載 CU 狀態（auto-popup + 狀態條用）
+  useEffect(() => { if (rootPath) loadPersistedSteps(); }, [rootPath]);
+
+  // ── Auto-popup Code Understanding — 只有 ready / missing 才彈 ──
+  // no-code（code 尚少，第一次進來根本還沒開始寫）不催；partial/done 不打擾
+  // Per-project：切換專案（EMDashboard 不 unmount）重新判定
   const autoCUTriggeredFor = useRef<string | null>(null);
   useEffect(() => {
     if (!rootPath) return;
     if (autoCUTriggeredFor.current === rootPath) return;
-    if (codeStatus && !codeStatus.initialized && onStartCodeUnderstanding) {
+    if (cuPhase === "ready" || cuPhase === "missing") {
       autoCUTriggeredFor.current = rootPath;
-      loadPersistedSteps().then((steps) => {
-        // If CU was already done before (>50% steps done), don't auto-popup
-        const doneCount = (steps || []).filter((s: any) => s.status === "done").length;
-        if (doneCount >= CU_STEPS.length * 0.5) {
-          return; // Already done — stay silent
-        }
-        // .paaw deleted or never initialized — show modal but DON'T auto-start
-        // Let user decide whether to run Code Understanding
-        setShowCUModal(true);
-      });
+      setShowCUModal(true);
     }
-  }, [rootPath, codeStatus, onStartCodeUnderstanding, loadPersistedSteps]);
+  }, [rootPath, cuPhase]);
 
   // ── When bulk Code Understanding finishes (running false→true→false), refresh persisted steps + code status ──
   const prevRunningRef = useRef(false);
@@ -1289,22 +1298,38 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
               <span>📊</span> Code Health
             </h3>
-            {!codeStatus && codeStatusLoading && rootPath && (
+            {/* CU lifecycle 狀態按鈕（cuPhase 主軸，舊 codeStatus fallback 只留給 done） */}
+            {cuPhase === null && rootPath && (
               <button disabled className="text-sm px-2 py-1 rounded bg-stone-200 text-stone-400 font-bold cursor-wait">⚡ 載入中...</button>
             )}
-            {!codeStatus && !codeStatusLoading && rootPath && (
+            {cuPhase === "missing" && (
+              <button
+                onClick={async () => {
+                  if (!rootPath || cuInitBusy) return;
+                  setCuInitBusy(true);
+                  try {
+                    await fetch(`${API_BASE}/api/coding-project/init?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+                    await Promise.all([refreshData(), loadPersistedSteps()]);
+                  } finally { setCuInitBusy(false); }
+                }}
+                disabled={cuInitBusy}
+                className="text-sm px-2 py-1 rounded bg-stone-600 text-white hover:bg-stone-700 font-bold disabled:opacity-50"
+              >{cuInitBusy ? "⏳ 初始化中..." : "🌱 初始化 .paaw"}</button>
+            )}
+            {cuPhase === "no-code" && (
               <button
                 onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
-                className="text-sm px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold"
+                title="代碼尚少 — 先寫 code 再跑更有意義，但仍可手動執行"
+                className="text-sm px-2 py-1 rounded bg-stone-100 text-stone-500 hover:bg-stone-200 font-bold"
               >🧠 Code Understanding</button>
             )}
-            {codeStatus && !codeStatus.initialized && (
+            {(cuPhase === "ready" || cuPhase === "partial") && (
               <button
                 onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
-                className="text-sm px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold animate-pulse"
+                className={cn("text-sm px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold", cuPhase === "ready" && "animate-pulse")}
               >🧠 Code Understanding</button>
             )}
-            {codeStatus && codeStatus.initialized && (
+            {cuPhase === "done" && (
               <button
                 onClick={async () => {
                   if (!rootPath || rescanState === "scanning") return;
@@ -1335,6 +1360,22 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
               >{rescanState === "scanning" ? "⏳ 掃描中..." : rescanState === "done" ? "✅ 已更新" : rescanState === "error" ? "❌ 失敗" : "🔄 重新掃描"}</button>
             )}
           </div>
+          {/* ── CU lifecycle 狀態條 — 一目瞭然現在是哪個階段 ── */}
+          {cuPhase && (
+            <div className={cn("flex items-center gap-2 rounded-lg px-2.5 py-1.5 mb-2 border text-xs",
+              cuPhase === "missing" ? "bg-stone-50 border-stone-200 text-stone-500" :
+              cuPhase === "no-code" ? "bg-stone-50 border-stone-200 text-stone-400" :
+              cuPhase === "ready" ? "bg-emerald-50 border-emerald-200 text-emerald-700" :
+              cuPhase === "partial" ? "bg-amber-50 border-amber-200 text-amber-700" :
+              "bg-green-50 border-green-200 text-green-700")}
+            >
+              {cuPhase === "missing" && <span>🌱 尚未初始化 — 這個 Release Unit 還沒有 .paaw 知識庫，初始化或跑 Code Understanding 建立</span>}
+              {cuPhase === "no-code" && <span>🌱 代碼尚少（{cuMeta?.sourceFiles ?? 0} 個檔案）— 先寫 code，Code Understanding 之後再跑也可以</span>}
+              {cuPhase === "ready" && <span>🧠 待探索（{cuMeta?.sourceFiles ?? 0} 個檔案）— 跑 Code Understanding 建立知識庫</span>}
+              {cuPhase === "partial" && <span>⏳ 進行中 {cuMeta?.doneCount ?? 0}/{CU_STEPS.length} — 知識庫部分完成，可繼續跑完</span>}
+              {cuPhase === "done" && <span>✅ 已完成 {cuMeta?.doneCount ?? 0}/{CU_STEPS.length} — 知識庫就緒</span>}
+            </div>
+          )}
           {!codeStatus && codeStatusLoading ? (
             <p className="text-sm text-stone-400 py-2">⚡ 載入中...</p>
           ) : !codeStatus ? (
