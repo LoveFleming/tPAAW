@@ -1460,6 +1460,11 @@ function buildHandlers(apps) {
     // ── Create or update execution plan for tracking ──
     let planId = null;
     let subtaskId = null;
+    // Tracks whether the plan/subtask outcome was already recorded on a normal
+    // code path (success/fail update or a non-error early return). The finally
+    // block must NOT overwrite a recorded outcome with a generic "Dispatch error"
+    // — that previously turned successful dispatches into failures.
+    let outcomeRecorded = false;
     try {
       const { createPlan, markPlanStarted, updateSubTask, markPlanCompleted } = await import("../lib/execution-plan.mjs");
       const workspaces = await loadWorkspaces();
@@ -1483,7 +1488,17 @@ function buildHandlers(apps) {
       const busyResp = await fetch(`${API}/api/coding-crew/running?agentId=${agentId}`);
       if (busyResp.ok) {
         const busyData = await busyResp.json();
-        if (busyData.running) return { text: `⏳ ${agentId} 正忙（已跑 ${busyData.elapsedS || '?'}s），等一下再派` };
+        if (busyData.running) {
+          // Agent busy is not a task failure — mark subtask skipped, keep plan open for retry
+          outcomeRecorded = true;
+          try {
+            const { updateSubTask } = await import("../lib/execution-plan.mjs");
+            const wsB = await loadWorkspaces();
+            const prB = wsB.length > 0 ? wsB[0] : PAAW_ROOT;
+            await updateSubTask(prB, planId, subtaskId, { status: "skipped", result: `agent busy (${busyData.elapsedS || '?'}s) — 派工未執行` });
+          } catch {}
+          return { text: `⏳ ${agentId} 正忙（已跑 ${busyData.elapsedS || '?'}s），等一下再派` };
+        }
       }
     } catch {}
 
@@ -1558,6 +1573,7 @@ function buildHandlers(apps) {
             usage: result.usage || null,
           });
           await markPlanCompleted(projRoot3, planId);
+          outcomeRecorded = true;
         } catch (err2) { console.error(`[dispatch_agent] Plan update failed:`, err2.message); }
       }
 
@@ -1584,8 +1600,9 @@ function buildHandlers(apps) {
       }
       return { text: `❌ 派工失敗：${err.message}`, error: true, planId };
     } finally {
-      // Ensure plan is always closed even on unexpected errors
-      if (planId && subtaskId) {
+      // Ensure plan is closed even on unexpected errors — but never overwrite an
+      // outcome already recorded above (success/fail/busy-skip paths).
+      if (planId && subtaskId && !outcomeRecorded) {
         try {
           const { updateSubTask, markPlanCompleted } = await import("../lib/execution-plan.mjs");
           const ws = await loadWorkspaces();
