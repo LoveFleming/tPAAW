@@ -347,7 +347,7 @@
   "onboarding.styleFormalLabel": "正式專業",
   "onboarding.welcome": "歡迎使用 PAAW！",
   "ops.agentGreeting": "系統出狀況？把錯誤訊息貼給我，我照 runbook 逐步查。沒 runbook 的問題，解決後我會沉淀一份。",
-  "ops.agentName": "林方正 · 維運助理",
+  "ops.agentName": "格蕾塔·穆勒 · 維運助理",
   "ops.checkedAt": "檢查於",
   "ops.refresh": "重新檢查",
   "ops.releases.title": "最近 Release（回滾參考）",

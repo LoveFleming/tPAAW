@@ -347,7 +347,7 @@
   "onboarding.styleFormalLabel": "フォーマル",
   "onboarding.welcome": "PAAWへようこそ！",
   "ops.agentGreeting": "システム異常？エラーメッセージを貼ってください。runbook に従って順に調査します。",
-  "ops.agentName": "林方正 · 運用",
+  "ops.agentName": "グレタ・ミュラー · 運用",
   "ops.checkedAt": "確認",
   "ops.refresh": "再確認",
   "ops.releases.title": "直近のリリース（ロールバック参考）",
