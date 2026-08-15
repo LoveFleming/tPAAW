@@ -13,6 +13,7 @@ export function sendSeedToChat(msg: string) {
 }
 
 import API_BASE from "../api";
+import { fmtChatTime } from "../utils";
 
 interface Message {
   role: "user" | "assistant";
@@ -476,7 +477,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  const formatTime = (ts: string) => new Date(ts).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" });
+  const formatTime = fmtChatTime;
 
   const activeProvider = providers.find(p => p.id === activeProviderId);
   const activeModelName = activeProvider?.models.find(m => m.id === activeModel)?.name || activeModel;

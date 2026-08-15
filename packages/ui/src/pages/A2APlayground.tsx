@@ -10,6 +10,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useI18n } from "../i18n";
 import API_BASE from "../api";
+import { fmtChatTime } from "../utils";
 
 const REMOTE_AGENT_URL = "http://localhost:4100";
 
@@ -44,7 +45,7 @@ export default function A2APlayground({ }: { _a2a?: boolean }) {
   const loadedRef = useRef(false);
 
   const addMsg = useCallback((role: ChatMessage["role"], text: string) => {
-    setMessages((prev) => [...prev, { role, text, time: new Date().toLocaleTimeString() }]);
+    setMessages((prev) => [...prev, { role, text, time: fmtChatTime(new Date()) }]);
   }, []);
 
   // Load remote agent card (from Help Desk Agent at 4100)

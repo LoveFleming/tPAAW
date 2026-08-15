@@ -16,6 +16,7 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { fmtChatTime } from "../utils";
 
 export interface ChatToolBadge {
   name: string;
@@ -76,9 +77,9 @@ export interface ChatMessagesProps {
 // ── Helpers ──
 
 function formatTime(ts?: string, timestamp?: number): string {
-  const date = ts ? new Date(ts) : timestamp ? new Date(timestamp) : null;
-  if (!date) return "";
-  return date.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" });
+  if (ts) return fmtChatTime(ts);
+  if (timestamp) return fmtChatTime(timestamp);
+  return "";
 }
 
 // ── Markdown Components ──

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { cn } from "../utils";
+import { cn, fmtChatTime } from "../utils";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import { SkillDefinition } from "../types";
@@ -1170,7 +1170,7 @@ export default function AppBuilder() {
                                         <div key={msg.id} className="bg-stone-800 rounded-lg px-4 py-2.5">
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className="text-xs font-bold text-blue-400">#{idx + 1}</span>
-                                                <span className="text-[10px] text-stone-500">{new Date(msg.ts).toLocaleTimeString()}</span>
+                                                <span className="text-[10px] text-stone-500">{fmtChatTime(msg.ts)}</span>
                                             </div>
                                             <div className="text-sm text-stone-300 whitespace-pre-wrap">{msg.text}</div>
                                         </div>
