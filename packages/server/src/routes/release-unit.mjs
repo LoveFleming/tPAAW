@@ -70,6 +70,17 @@ async function readDoc(root, rel) {
   try { return await readFile(f, "utf-8"); } catch { return null; }
 }
 
+// 讀專案 loop mode（.paaw/tasks/TASKS.json top-level loopMode，預設 mini）
+// 與 coding-tasks.mjs loadTasksAndConfig 同源，但只讀欄位不觸發 pipeline 重算
+function readLoopMode(root) {
+  try {
+    const f = join(root, ".paaw", "tasks", "TASKS.json");
+    if (!existsSync(f)) return "mini";
+    const data = JSON.parse(readFileSync(f, "utf-8"));
+    return data.loopMode === "full" ? "full" : "mini";
+  } catch { return "mini"; }
+}
+
 export default async function releaseUnitRoutes(req, res, next) {
   const method = req.method;
   const rawUrl = req.url || "";
@@ -92,6 +103,7 @@ export default async function releaseUnitRoutes(req, res, next) {
         path: normalizePath(r.path),
         name: r.name || r.path.split(/[\\/]/).pop(),
         initialized: existsSync(join(r.path, ".paaw")),
+        loopMode: readLoopMode(r.path),
         lastOpened: r.lastOpened || r.openedAt || null,
       });
     }
@@ -120,6 +132,7 @@ export default async function releaseUnitRoutes(req, res, next) {
       summary,
       scale: { sourceFiles: graph.fileCount, edges: Object.values(graph.deps).reduce((s, a) => s + a.length, 0) },
       initialized: hadPaaw,
+      loopMode: readLoopMode(path),
       depsGraphFromCache: graph.fromCache,
     });
   }

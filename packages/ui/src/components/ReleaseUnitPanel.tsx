@@ -20,6 +20,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
+import { cn } from "../utils";
 
 interface AnalyzeResult {
   score: number;
@@ -67,6 +68,22 @@ export default function ReleaseUnitPanel({ rootPath, theme: tk, onOpenEMDashboar
   const [initialized, setInitialized] = useState<boolean | null>(null);
   const [analyze, setAnalyze] = useState<AnalyzeResult | null>(null);
   const [initBusy, setInitBusy] = useState(false);
+  const [loopMode, setLoopMode] = useState<"mini" | "full" | null>(null);
+
+  // Loop mode 切換（PUT 後樂觀更新，失敗回滾）— 與 EM Dashboard 同一 API
+  const handleLoopModeChange = useCallback((mode: "mini" | "full") => {
+    if (!rootPath || loopMode === mode) return;
+    const prev = loopMode;
+    setLoopMode(mode); // optimistic
+    fetch(`${API_BASE}/api/coding-tasks/project/loop-mode?path=${encodeURIComponent(rootPath)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ loopMode: mode }),
+    })
+      .then(r => r.json())
+      .then(d => { if (!d.ok) setLoopMode(prev); })
+      .catch(() => setLoopMode(prev));
+  }, [rootPath, loopMode]);
 
   // impact
   const composingRef = useRef(false);
@@ -91,6 +108,7 @@ export default function ReleaseUnitPanel({ rootPath, theme: tk, onOpenEMDashboar
       const oRes = await fetch(`${API_BASE}/api/ru/overview?path=${encodeURIComponent(rootPath)}`);
       const o = await oRes.json();
       setInitialized(!!o.initialized);
+      setLoopMode(o.loopMode === "full" ? "full" : "mini");
       if (o.initialized) {
         const [aRes, vRes, gRes] = await Promise.all([
           fetch(`${API_BASE}/api/ru/analyze?path=${encodeURIComponent(rootPath)}`),
@@ -216,6 +234,35 @@ export default function ReleaseUnitPanel({ rootPath, theme: tk, onOpenEMDashboar
       {/* ═══ 已初始化：五區工具 ═══ */}
       {initialized === true && (
         <div className="p-5 space-y-6">
+
+          {/* ── 0. 🔁 Loop Mode 切換（開發者自己選 mini/full，决定派工管線深度）── */}
+          <section className="border rounded-xl p-3 bg-white" style={{ borderColor: tk.borderLight }}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-bold text-stone-600">🔁 {t("ru.loopMode.title")}</h3>
+              <span className="text-[10px] text-stone-400">{t("ru.loopMode.hint")}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleLoopModeChange("mini")}
+                className={cn("flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-left transition-colors",
+                  loopMode === "mini" ? "border-amber-400 bg-amber-50" : "border-stone-200 bg-white hover:bg-stone-50")}
+              >
+                <span className={cn("w-2 h-2 rounded-full", loopMode === "mini" ? "bg-amber-500" : "bg-stone-300")} />
+                <span className={cn("text-sm font-bold", loopMode === "mini" ? "text-amber-700" : "text-stone-500")}>🚀 Mini</span>
+                {loopMode === "mini" && <span className="text-[10px] font-bold text-amber-600">ON</span>}
+              </button>
+              <button
+                onClick={() => handleLoopModeChange("full")}
+                className={cn("flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-left transition-colors",
+                  loopMode === "full" ? "border-blue-400 bg-blue-50" : "border-stone-200 bg-white hover:bg-stone-50")}
+              >
+                <span className={cn("w-2 h-2 rounded-full", loopMode === "full" ? "bg-blue-500" : "bg-stone-300")} />
+                <span className={cn("text-sm font-bold", loopMode === "full" ? "text-blue-700" : "text-stone-500")}>🛡️ Full</span>
+                {loopMode === "full" && <span className="text-[10px] font-bold text-blue-600">ON</span>}
+              </button>
+            </div>
+            <p className="text-[10px] text-stone-400 mt-1.5">{loopMode === "mini" ? t("ru.loopMode.miniDesc") : t("ru.loopMode.fullDesc")}</p>
+          </section>
 
           {/* ── 1. Health ── */}
           <section>
