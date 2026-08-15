@@ -604,9 +604,8 @@ export default async function codingTasksRoute(req, res) {
 
   // ── PUT /api/coding-tasks/project/loop-mode ──
   if (url === "/api/coding-tasks/project/loop-mode" && method === "PUT") {
-    const body = await _readBody(req);
-    const parsed = JSON.parse(body);
-    const { loopMode } = parsed;
+    const body = JSON.parse(await readBody(req) || "{}");
+    const { loopMode } = body;
     if (loopMode !== "mini" && loopMode !== "full") {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "loopMode must be 'mini' or 'full'" }));

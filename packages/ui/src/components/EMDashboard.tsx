@@ -71,9 +71,12 @@ interface EMDashboardProps {
   onOpenAutoDispatch?: () => void;
   model?: string;
   onModelChange?: (m: string) => void;
+  // Project loop mode switch (mini / full)
+  loopMode?: "mini" | "full";
+  onLoopModeChange?: (mode: "mini" | "full") => void;
 }
 
-export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, onOpenAutoDispatch, model, onModelChange }: EMDashboardProps) {
+export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, onOpenAutoDispatch, model, onModelChange, loopMode, onLoopModeChange }: EMDashboardProps) {
   // ── EM Profile (avatar from crew API) ──
   const [emProfile, setEmProfile] = useState<{ codename?: string; imageUrl?: string; emoji?: string }>({});
   useEffect(() => {
@@ -1238,6 +1241,45 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       <div className="w-[40%] min-w-[280px] max-w-[480px] flex flex-col overflow-y-auto" style={{ scrollbarWidth: "thin", backgroundColor: tk.bgMuted }}>
         {/* Project Status + Git Changes Preview removed */}
         {/* Git Changes Preview removed — EM chat works from commit changes directly */}
+
+        {/* ── Loop Mode (mini / full) — release unit 開發模式 ── */}
+        {loopMode && onLoopModeChange && (
+          <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
+                <span>🔁</span> Loop Mode
+              </h3>
+              <span className="text-[10px] font-mono text-stone-400">TASKS.json</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => onLoopModeChange("mini")}
+                className={cn("rounded-lg border px-2.5 py-2 text-left transition-colors",
+                  loopMode === "mini" ? "border-amber-400 bg-amber-50" : "border-stone-200 bg-white hover:bg-stone-50")}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className={cn("w-2 h-2 rounded-full", loopMode === "mini" ? "bg-amber-500" : "bg-stone-300")} />
+                  <span className={cn("text-sm font-bold", loopMode === "mini" ? "text-amber-700" : "text-stone-500")}>🚀 Mini</span>
+                  {loopMode === "mini" && <span className="text-[10px] font-bold text-amber-600">ON</span>}
+                </div>
+                <div className="text-[10px] text-stone-400 mt-1">implement → commit（快速開發）</div>
+              </button>
+              <button
+                onClick={() => onLoopModeChange("full")}
+                className={cn("rounded-lg border px-2.5 py-2 text-left transition-colors",
+                  loopMode === "full" ? "border-blue-400 bg-blue-50" : "border-stone-200 bg-white hover:bg-stone-50")}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className={cn("w-2 h-2 rounded-full", loopMode === "full" ? "bg-blue-500" : "bg-stone-300")} />
+                  <span className={cn("text-sm font-bold", loopMode === "full" ? "text-blue-700" : "text-stone-500")}>🛡️ Full</span>
+                  {loopMode === "full" && <span className="text-[10px] font-bold text-blue-600">ON</span>}
+                </div>
+                <div className="text-[10px] text-stone-400 mt-1">七關證據流（上線後）</div>
+              </button>
+            </div>
+            <p className="text-[10px] text-stone-400 mt-1.5">{loopMode === "mini" ? "上線前快速迭代：developer 實作即 commit" : "上線後完整管線：spec → implement → review → test → qa → docs → commit，證據齊才能過"}</p>
+          </div>
+        )}
 
         {/* ── Code Health (from Code Understanding) ── */}
         <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
