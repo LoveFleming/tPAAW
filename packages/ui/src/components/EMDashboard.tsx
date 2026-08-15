@@ -1562,9 +1562,9 @@ interface KnowledgeFile {
   cuStep?: string; // which CU step produces this file
 }
 const KNOWLEDGE_FILES: KnowledgeFile[] = [
-  // CU 產出的核心檔案
-  { path: ".paaw/PROJECT.md", icon: "📋", label: "PROJECT.md", cuStep: "overview" },
-  { path: ".paaw/ARCHITECTURE.md", icon: "📐", label: "Architecture Map", cuStep: "architecture" },
+  // CU 產出的核心檔案（paths follow .paaw subdirectory structure — FILE_MAP layout）
+  { path: ".paaw/project/PROJECT.md", icon: "📋", label: "PROJECT.md", cuStep: "overview" },
+  { path: ".paaw/project/ARCHITECTURE.md", icon: "📐", label: "Architecture Map", cuStep: "architecture" },
   { path: ".paaw/features/FEATURES.json", icon: "🗺️", label: "Feature Map", cuStep: "feature-map" },
   { path: ".paaw/specs/api-contract.md", icon: "📡", label: "API Contract", cuStep: "api-spec" },
   { path: ".paaw/specs/error-codes.md", icon: "🐛", label: "Error Mapping", cuStep: "error-mapping" },
@@ -1574,8 +1574,8 @@ const KNOWLEDGE_FILES: KnowledgeFile[] = [
   { path: ".paaw/security/scan-results.json", icon: "🔒", label: "Security Scan", cuStep: "security-scan" },
   { path: ".paaw/changes/change-intelligence.json", icon: "🔄", label: "Change Intelligence", cuStep: "change-intelligence" },
   // Agent 維護的檔案（非 CU 產出，但重要）
-  { path: ".paaw/DECISIONS.md", icon: "🧠", label: "Decision Log" },
-  { path: ".paaw/CHANGELOG.md", icon: "📝", label: "Change Memory" },
+  { path: ".paaw/decisions/DECISIONS.md", icon: "🧠", label: "Decision Log" },
+  { path: ".paaw/changelog/CHANGELOG.md", icon: "📝", label: "Change Memory" },
 ];
 
 function ProjectKnowledgePanel({ rootPath, tk, onOpenFile, refreshTrigger }: { rootPath: string; tk: any; onOpenFile?: (p: string) => void; refreshTrigger?: number }) {
