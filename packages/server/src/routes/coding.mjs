@@ -34,7 +34,7 @@
  */
 
 import { readFile, writeFile, readdir, mkdir, unlink, appendFile, stat as fsStat } from "fs/promises";
-import { existsSync, readFileSync as readSync, readdirSync } from "fs";
+import { existsSync, readFileSync as readSync, readdirSync, statSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { exec as execCb } from "child_process";
@@ -48,6 +48,7 @@ import { runSemgrep } from "../lib/semgrep-runner.mjs";
 import { buildCodeIntelligence, buildContextPackage } from "../lib/code-intelligence.mjs";
 import { buildTestIntelligence } from "../lib/test-intelligence.mjs";
 import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
+import { rescanMechanicalLayer } from "../lib/cu-mechanical.mjs";
 
 // ── PAAW root directory (cross-platform safe) ──
 // fileURLToPath handles Windows drive-letter URLs correctly,
@@ -63,6 +64,7 @@ const CU_SOURCE_EXTS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".
 const CU_SKIP_DIRS = new Set(["node_modules", ".git", ".paaw", "dist", "build", "coverage", ".next", "vendor", "target", "out", ".cache"]);
 function countSourceFiles(root) {
   let count = 0;
+  let lastModifiedMs = 0; // 最新 source mtime — staleness 基準
   let visited = 0;
   const stack = [root];
   while (stack.length > 0 && visited < 2000) {
@@ -72,16 +74,52 @@ function countSourceFiles(root) {
     try { entries = readdirSync(dir, { withFileTypes: true }); } catch { continue; }
     for (const e of entries) {
       if (e.name.startsWith(".")) continue; // 隱藏目錄（.git/.paaw/.next…）全部跳過
+      const full = join(dir, e.name);
       if (e.isDirectory()) {
         if (CU_SKIP_DIRS.has(e.name)) continue;
-        stack.push(join(dir, e.name));
+        stack.push(full);
       } else {
         const dot = e.name.lastIndexOf(".");
-        if (dot > 0 && CU_SOURCE_EXTS.has(e.name.slice(dot).toLowerCase())) count++;
+        if (dot > 0 && CU_SOURCE_EXTS.has(e.name.slice(dot).toLowerCase())) {
+          count++;
+          try { const st = statSync(full); if (st.mtimeMs > lastModifiedMs) lastModifiedMs = st.mtimeMs; } catch {}
+        }
       }
     }
   }
-  return count;
+  return { count, lastModifiedMs };
+}
+
+// ── CU staleness — 智能層知識過期偵測（純 mtime 比對，免 token）──
+// step 產出檔比 code 最新 mtime 舊 → 過期（快照是舊地圖）
+// 與 UI CU_STEPS 的 file 對應（保持同步）
+const CU_STEP_FILES = {
+  scan: "scan.json",
+  architecture: "ARCHITECTURE.md",
+  "feature-map": "features/FEATURES.json",
+  "api-spec": "specs/api-contract.md",
+  "code-intelligence": "code-intelligence/summary.json",
+  "test-intelligence": "code-intelligence/test-intelligence.json",
+  "error-mapping": "specs/error-codes.md",
+  "security-scan": "security/scan-results.json",
+  standards: "standards/coding-style.md",
+  overview: "PROJECT.md",
+  "change-intelligence": "changes/change-intelligence.json",
+};
+const CU_MECHANICAL_STEPS = new Set(["code-intelligence", "test-intelligence", "change-intelligence"]);
+const STALE_TOLERANCE_MS = 2000; // 同步競態容差
+function computeCuStaleness(root, steps, codeLastModifiedMs) {
+  const staleSteps = [];
+  for (const [id, rel] of Object.entries(CU_STEP_FILES)) {
+    if (steps[id]?.status !== "done") continue; // 沒跑過的叫 pending 不叫過期
+    try {
+      const st = statSync(join(root, ".paaw", rel));
+      if (codeLastModifiedMs > st.mtimeMs + STALE_TOLERANCE_MS) {
+        staleSteps.push({ id, mechanical: CU_MECHANICAL_STEPS.has(id) });
+      }
+    } catch {}
+  }
+  return staleSteps;
 }
 
 // Debug logger for Code Understanding — writes to .paaw/cu-debug.log
@@ -3343,15 +3381,35 @@ export default async function projectRoute(req, res) {
         const steps = cuStatus.steps || {};
         const doneCount = Object.values(steps).filter(s => s?.status === "done").length;
         const errorCount = Object.values(steps).filter(s => s?.status === "error").length;
+        const { count: sourceFiles, lastModifiedMs } = countSourceFiles(root);
+        const staleSteps = computeCuStaleness(root, steps, lastModifiedMs);
         res.writeHead(200, { "Content-Type": "application/json" });
-        // CU lifecycle 原料：前端據此算 phase（missing/no-code/ready/partial/done）
+        // CU lifecycle 原料：前端據此算 phase（missing/no-code/ready/partial/done/stale）
         res.end(JSON.stringify({
           ...cuStatus,
           hasPaaw: existsSync(join(root, ".paaw")),
-          sourceFiles: countSourceFiles(root),
+          sourceFiles,
           doneCount,
           errorCount,
+          codeLastModified: lastModifiedMs > 0 ? new Date(lastModifiedMs).toISOString() : null,
+          staleSteps,
+          staleCount: staleSteps.length,
         }));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // POST /api/coding-project/cu-rescan-mechanical — 手動重掃機械層（免 token 秒級）
+    // 智能層（LLM 生成的文檔）永遠不在此自動重跑 — 過期時 UI 提醒人決定
+    if (url.startsWith("/api/coding-project/cu-rescan-mechanical") && method === "POST") {
+      try {
+        await paaw.init(); // 確保 .paaw 存在（無 .paaw 時先建骨架）
+        const result = await rescanMechanicalLayer(root, PAAW_ROOT);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
       } catch (err) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message }));

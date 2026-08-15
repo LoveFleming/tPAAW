@@ -284,18 +284,21 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   // ── Load persisted step statuses when opening Modal ──
   const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number; error?: string }>>([]);
   // CU lifecycle 原料（cu-status 擴充回傳）— phase 派生用
-  const [cuMeta, setCuMeta] = useState<{ hasPaaw: boolean; sourceFiles: number; doneCount: number } | null>(null);
+  const [cuMeta, setCuMeta] = useState<{ hasPaaw: boolean; sourceFiles: number; doneCount: number; codeLastModified?: string | null; staleSteps?: Array<{ id: string; mechanical: boolean }>; staleCount?: number } | null>(null);
   const [cuInitBusy, setCuInitBusy] = useState(false);
+  const [cuRescanBusy, setCuRescanBusy] = useState(false);
 
   // ── CU lifecycle phase（派生，不存儲）──
   // missing=無 .paaw｜no-code=code 尚少不催（剛建立/剛 import 還沒寫 code）｜ready=該跑｜partial=跑一半｜done=完成
   const CU_NO_CODE_THRESHOLD = 5;
-  const cuPhase: "missing" | "no-code" | "ready" | "partial" | "done" | null = cuMeta && rootPath
+  const cuPhase: "missing" | "no-code" | "ready" | "partial" | "done" | "stale" | null = cuMeta && rootPath
     ? (!cuMeta.hasPaaw ? "missing"
-      : cuMeta.doneCount >= CU_STEPS.length ? "done"
+      : cuMeta.doneCount >= CU_STEPS.length ? ((cuMeta.staleCount ?? 0) > 0 ? "stale" : "done")
       : cuMeta.doneCount > 0 ? "partial"
       : cuMeta.sourceFiles < CU_NO_CODE_THRESHOLD ? "no-code" : "ready")
     : null;
+  const staleMechanical = (cuMeta?.staleSteps ?? []).filter(s => s.mechanical).length;
+  const staleSmart = (cuMeta?.staleCount ?? 0) - staleMechanical;
   const loadPersistedSteps = useCallback(async () => {
     if (!rootPath) return [];
     let steps: Array<{ id: string; name: string; status: string; size?: number; error?: string }> = [];
@@ -303,8 +306,15 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       const res = await fetch(`${API_BASE}/api/coding-project/cu-status?path=${encodeURIComponent(rootPath)}`);
       if (res.ok) {
         const data = await res.json();
-        // CU lifecycle 原料（phase 派生用）
-        setCuMeta({ hasPaaw: data.hasPaaw !== false, sourceFiles: data.sourceFiles ?? 0, doneCount: data.doneCount ?? 0 });
+        // CU lifecycle 原料（phase 派生用 + staleness）
+        setCuMeta({
+          hasPaaw: data.hasPaaw !== false,
+          sourceFiles: data.sourceFiles ?? 0,
+          doneCount: data.doneCount ?? 0,
+          codeLastModified: data.codeLastModified ?? null,
+          staleSteps: data.staleSteps ?? [],
+          staleCount: data.staleCount ?? 0,
+        });
         steps = CU_STEPS.map(s => {
           const st = data.steps?.[s.id];
           if (st?.status === "done") {
@@ -1329,6 +1339,20 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                 className={cn("text-sm px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold", cuPhase === "ready" && "animate-pulse")}
               >🧠 Code Understanding</button>
             )}
+            {cuPhase === "stale" && (
+              <button
+                onClick={async () => {
+                  if (!rootPath || cuRescanBusy) return;
+                  setCuRescanBusy(true);
+                  try {
+                    await fetch(`${API_BASE}/api/coding-project/cu-rescan-mechanical?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+                    await Promise.all([refreshData(), loadPersistedSteps()]);
+                  } finally { setCuRescanBusy(false); }
+                }}
+                disabled={cuRescanBusy}
+                className="text-sm px-2 py-1 rounded bg-orange-600 text-white hover:bg-orange-700 font-bold disabled:opacity-50"
+              >{cuRescanBusy ? "⏳ 重掃中..." : "⚡ 重掃機械層"}</button>
+            )}
             {cuPhase === "done" && (
               <button
                 onClick={async () => {
@@ -1367,12 +1391,41 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
               cuPhase === "no-code" ? "bg-stone-50 border-stone-200 text-stone-400" :
               cuPhase === "ready" ? "bg-emerald-50 border-emerald-200 text-emerald-700" :
               cuPhase === "partial" ? "bg-amber-50 border-amber-200 text-amber-700" :
+              cuPhase === "stale" ? "bg-orange-50 border-orange-300 text-orange-700" :
               "bg-green-50 border-green-200 text-green-700")}
             >
               {cuPhase === "missing" && <span>🌱 尚未初始化 — 這個 Release Unit 還沒有 .paaw 知識庫，初始化或跑 Code Understanding 建立</span>}
               {cuPhase === "no-code" && <span>🌱 代碼尚少（{cuMeta?.sourceFiles ?? 0} 個檔案）— 先寫 code，Code Understanding 之後再跑也可以</span>}
               {cuPhase === "ready" && <span>🧠 待探索（{cuMeta?.sourceFiles ?? 0} 個檔案）— 跑 Code Understanding 建立知識庫</span>}
               {cuPhase === "partial" && <span>⏳ 進行中 {cuMeta?.doneCount ?? 0}/{CU_STEPS.length} — 知識庫部分完成，可繼續跑完</span>}
+              {cuPhase === "stale" && (
+                <span className="flex items-center gap-2 flex-wrap">
+                  ⚠️ 知識過期 — code 已變更（{new Date(cuMeta?.codeLastModified || "").toLocaleDateString()}），
+                  {staleMechanical > 0 && <span>機械層 {staleMechanical} 項待重掃</span>}
+                  {staleMechanical > 0 && staleSmart > 0 && <span>、</span>}
+                  {staleSmart > 0 && <span>智能層 {staleSmart} 項待重跑</span>}
+                  {staleMechanical > 0 && (
+                    <button
+                      onClick={async () => {
+                        if (!rootPath || cuRescanBusy) return;
+                        setCuRescanBusy(true);
+                        try {
+                          await fetch(`${API_BASE}/api/coding-project/cu-rescan-mechanical?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+                          await Promise.all([refreshData(), loadPersistedSteps()]);
+                        } finally { setCuRescanBusy(false); }
+                      }}
+                      disabled={cuRescanBusy}
+                      className="px-2 py-0.5 rounded bg-orange-600 text-white hover:bg-orange-700 font-bold disabled:opacity-50"
+                    >{cuRescanBusy ? "⏳ 重掃中..." : "⚡ 重掃機械層"}</button>
+                  )}
+                  {staleSmart > 0 && (
+                    <button
+                      onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
+                      className="px-2 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold"
+                    >🧠 開啟 CU 視窗重跑</button>
+                  )}
+                </span>
+              )}
               {cuPhase === "done" && <span>✅ 已完成 {cuMeta?.doneCount ?? 0}/{CU_STEPS.length} — 知識庫就緒</span>}
             </div>
           )}

@@ -901,6 +901,10 @@ export default async function codingTasksRoute(req, res) {
     if (task.pipeline?.commit?.status !== "done") {
       task.pipeline.commit = { status: "done", by: body.by || "agent", at: now() };
     }
+    // 🔄 Commit 後自動重掃 CU 機械層（fire-and-forget，免 token 秒級）
+    // 依賴圖/測試地圖/變更統計是 code 的純函數，code 變了就要重算，
+    // 讓下一次 impact/deps 查詢拿到新地圖；智能層（LLM 文檔）不動，過期由 staleness 提醒
+    import("../lib/cu-mechanical.mjs").then(m => m.rescanMechanicalLayer(projRoot)).catch(() => {});
     task.status = deriveStatus(task, config);
     if (task.status === "resolved" && !task.resolvedAt) {
       task.resolvedAt = now();
