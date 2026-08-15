@@ -47,7 +47,7 @@ interface CodeScoreItem {
 }
 interface CodeStatus {
   initialized: boolean;
-  scores: Record<string, { score: number; items: CodeScoreItem[] }>;
+  scores?: Record<string, { score: number; items: CodeScoreItem[] }>;
 }
 
 interface CodeUnderstandingStep {
@@ -87,14 +87,14 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const loadRecentDispatches = useCallback(async () => {
     if (!rootPath) return;
     try {
-      const r = await fetch(`${API_BASE}/api/execution-plans?path=${encodeURIComponent(rootPath)}`);
+      const r = await fetch(`${API_BASE}/api/auto-dispatch/plan/list?path=${encodeURIComponent(rootPath)}`);
       const data = await r.json();
       const plans = (data.plans || []).filter((p: any) => p.mode === "health-fix").slice(0, 5);
       setRecentDispatches(plans.map((p: any) => ({
         planId: p.planId,
         status: p.status,
-        totalSubtasks: p.summary?.totalSubtasks || 0,
-        completed: p.summary?.completed || 0,
+        totalSubtasks: p.totalSubtasks || p.summary?.totalSubtasks || 0,
+        completed: p.completed || p.summary?.completed || 0,
         createdAt: p.createdAt,
       })));
     } catch {}
@@ -177,6 +177,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const [emToolLog, setEmToolLog] = useState<{ name: string; args: string; result: string }[]>([]); // ⚡ tool call log
   const [codeStatus, setCodeStatus] = useState<CodeStatus | null>(null);
   const [codeStatusLoading, setCodeStatusLoading] = useState(true);
+  const [rescanState, setRescanState] = useState<"idle" | "scanning" | "done" | "error">("idle"); // 🔄 rescan feedback
   const [expandedArea, setExpandedArea] = useState<string | null>(null);
   const [showCUModal, setShowCUModal] = useState(false);
   const [singleStepRunning, setSingleStepRunning] = useState<string | null>(null); // step id being retried
@@ -1256,17 +1257,32 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             {codeStatus && (
               <button
                 onClick={async () => {
-                  if (!rootPath) return;
+                  if (!rootPath || rescanState === "scanning") return;
+                  setRescanState("scanning");
                   try {
                     const r = await fetch(`${API_BASE}/api/coding-project/status/refresh?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
                     const data = await r.json();
                     if (data.ok) {
-                      setCodeStatus(data.initialized ? { initialized: true, scores: data.scores } : { initialized: false, scores: null });
+                      setCodeStatus(data.initialized ? { initialized: true, scores: data.scores } : { initialized: false });
+                      setRescanState("done");
+                      setTimeout(() => setRescanState("idle"), 2000);
+                    } else {
+                      setRescanState("error");
+                      setTimeout(() => setRescanState("idle"), 3000);
                     }
-                  } catch {}
+                  } catch {
+                    setRescanState("error");
+                    setTimeout(() => setRescanState("idle"), 3000);
+                  }
                 }}
-                className="text-sm px-2 py-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold"
-              >🔄 重新掃描</button>
+                disabled={rescanState === "scanning"}
+                title={rescanState === "error" ? "重新掃描失敗，請確認 API server 狀態" : "清除快取並重新計算健康度"}
+                className={cn("text-sm px-2 py-1 rounded font-bold",
+                  rescanState === "scanning" ? "bg-stone-200 text-stone-400 cursor-wait" :
+                  rescanState === "done" ? "bg-green-100 text-green-700" :
+                  rescanState === "error" ? "bg-red-100 text-red-600" :
+                  "bg-stone-100 text-stone-600 hover:bg-stone-200")}
+              >{rescanState === "scanning" ? "⏳ 掃描中..." : rescanState === "done" ? "✅ 已更新" : rescanState === "error" ? "❌ 失敗" : "🔄 重新掃描"}</button>
             )}
           </div>
           {!codeStatus && codeStatusLoading ? (
@@ -1277,7 +1293,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             <p className="text-sm text-stone-400 py-2">尚未初始化。</p>
           ) : (
             <div className="space-y-1.5">
-              {Object.entries(codeStatus.scores).map(([area, data]) => (
+              {Object.entries(codeStatus.scores || {}).map(([area, data]) => (
                 <div key={area}>
                   <div
                     className="flex items-center gap-2 cursor-pointer select-none"
