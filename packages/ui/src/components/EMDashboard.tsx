@@ -343,12 +343,14 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   useEffect(() => { refreshData(); }, [refreshData]);
 
   // ── Auto-trigger Code Understanding on first project open ──
-  const autoCUTriggered = useRef(false);
+  // Per-project：切換專案（EMDashboard 不 unmount，只 display:none）要重新判定；
+  // 同一 session 重 import（刪 .paaw 再進來）也會對新 rootPath 重新彈 CU 視窗
+  const autoCUTriggeredFor = useRef<string | null>(null);
   useEffect(() => {
-    if (autoCUTriggered.current) return;
     if (!rootPath) return;
+    if (autoCUTriggeredFor.current === rootPath) return;
     if (codeStatus && !codeStatus.initialized && onStartCodeUnderstanding) {
-      autoCUTriggered.current = true;
+      autoCUTriggeredFor.current = rootPath;
       loadPersistedSteps().then((steps) => {
         // If CU was already done before (>50% steps done), don't auto-popup
         const doneCount = (steps || []).filter((s: any) => s.status === "done").length;
@@ -1296,7 +1298,13 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                 className="text-sm px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold"
               >🧠 Code Understanding</button>
             )}
-            {codeStatus && (
+            {codeStatus && !codeStatus.initialized && (
+              <button
+                onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
+                className="text-sm px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold animate-pulse"
+              >🧠 Code Understanding</button>
+            )}
+            {codeStatus && codeStatus.initialized && (
               <button
                 onClick={async () => {
                   if (!rootPath || rescanState === "scanning") return;
