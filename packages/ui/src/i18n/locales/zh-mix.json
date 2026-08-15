@@ -445,6 +445,8 @@
   "ru.deps.title": "依賴查詢",
   "ru.emptyInit.desc": "依賴圖 / impact analysis / verify 需要 .paaw 知識庫（PROJECT / ARCHITECTURE / CODING-STANDARDS）。先完成初始化，工具箱才能發揮作用。",
   "ru.emptyInit.goEM": "打開 EM 大總管",
+  "ru.emptyInit.initBtn": "🌱 一鍵初始化 .paaw",
+  "ru.emptyInit.initializing": "初始化中…",
   "ru.emptyInit.step1": "EM 大總管跑 Code Understanding，建立 .paaw/ 知識庫",
   "ru.emptyInit.step2": "補齊 CODING-STANDARDS — AI 改碼前的必讀規範",
   "ru.emptyInit.step3": "初始化完成後，這裡會出現 health score / 影響分析 / 驗證工具",

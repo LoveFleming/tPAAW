@@ -66,6 +66,7 @@ export default function ReleaseUnitPanel({ rootPath, theme: tk, onOpenEMDashboar
   const { t } = useI18n();
   const [initialized, setInitialized] = useState<boolean | null>(null);
   const [analyze, setAnalyze] = useState<AnalyzeResult | null>(null);
+  const [initBusy, setInitBusy] = useState(false);
 
   // impact
   const composingRef = useRef(false);
@@ -182,12 +183,32 @@ export default function ReleaseUnitPanel({ rootPath, theme: tk, onOpenEMDashboar
               <div>2️⃣ {t("ru.emptyInit.step2")}</div>
               <div>3️⃣ {t("ru.emptyInit.step3")}</div>
             </div>
-            {onOpenEMDashboard && (
-              <button onClick={onOpenEMDashboard}
-                className="mt-4 text-xs px-4 py-2 rounded-lg text-white" style={{ backgroundColor: tk.accent }}>
-                {t("ru.emptyInit.goEM")}
+            {/* 一鍵初始化 .paaw（用既有 /api/coding-project/init 建骨架）*/}
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <button
+                onClick={async () => {
+                  if (initBusy) return;
+                  setInitBusy(true);
+                  try {
+                    // 用既有 /api/coding-project/init 建立 .paaw/ 骨架（不用另開新端點）
+                    await fetch(`${API_BASE}/api/coding-project/init?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+                    await refresh();
+                  } catch { /* refresh 會重試 */ } finally { setInitBusy(false); }
+                }}
+                disabled={initBusy}
+                className="text-xs px-4 py-2 rounded-lg text-white disabled:opacity-50"
+                style={{ backgroundColor: tk.accent }}
+              >
+                {initBusy ? t("ru.emptyInit.initializing") : t("ru.emptyInit.initBtn")}
               </button>
-            )}
+              {onOpenEMDashboard && (
+                <button onClick={onOpenEMDashboard}
+                  className="text-xs px-4 py-2 rounded-lg border text-stone-600 hover:bg-white"
+                  style={{ borderColor: tk.borderLight }}>
+                  {t("ru.emptyInit.goEM")}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -445,6 +445,8 @@
   "ru.deps.title": "Dependencies",
   "ru.emptyInit.desc": "Dependency graph / impact analysis / verify need the .paaw knowledge base (PROJECT / ARCHITECTURE / CODING-STANDARDS). Initialize first.",
   "ru.emptyInit.goEM": "Open EM Dashboard",
+  "ru.emptyInit.initBtn": "🌱 Initialize .paaw",
+  "ru.emptyInit.initializing": "Initializing…",
   "ru.emptyInit.step1": "Run Code Understanding in EM Dashboard to build the .paaw/ knowledge base",
   "ru.emptyInit.step2": "Fill in CODING-STANDARDS — required reading before AI edits code",
   "ru.emptyInit.step3": "After init, health / impact analysis / verify tools appear here",

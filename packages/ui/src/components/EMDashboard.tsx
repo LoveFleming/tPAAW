@@ -1622,10 +1622,18 @@ const KNOWLEDGE_FILES: KnowledgeFile[] = [
 
 function ProjectKnowledgePanel({ rootPath, tk, onOpenFile, refreshTrigger }: { rootPath: string; tk: any; onOpenFile?: (p: string) => void; refreshTrigger?: number }) {
   const [knowledgeStatuses, setFileStatuses] = useState<Record<string, "ok" | "template" | "missing">>({});
+  const [paawExists, setPaawExists] = useState<boolean | null>(null);
+  const [initBusy, setInitBusy] = useState(false);
+  const [localRefresh, setLocalRefresh] = useState(0);
 
   useEffect(() => {
     if (!rootPath) return;
     const checkFiles = async () => {
+      // 先確認 .paaw 存不存在（決定顯示「初始化」還是「知識未產生」）— 用 coding-project/context，無副作用
+      try {
+        const ctxRes = await fetch(`${API_BASE}/api/coding-project/context?path=${encodeURIComponent(rootPath)}`);
+        setPaawExists(ctxRes.ok);
+      } catch { setPaawExists(false); }
       const results: Record<string, "ok" | "template" | "missing"> = {};
       for (const f of KNOWLEDGE_FILES) {
         try {
@@ -1657,7 +1665,7 @@ function ProjectKnowledgePanel({ rootPath, tk, onOpenFile, refreshTrigger }: { r
       setFileStatuses(results);
     };
     checkFiles();
-  }, [rootPath, refreshTrigger]);
+  }, [rootPath, refreshTrigger, localRefresh]);
 
   const okCount = Object.values(knowledgeStatuses).filter(s => s === "ok").length;
   const total = KNOWLEDGE_FILES.length;
@@ -1681,7 +1689,31 @@ const pct = total > 0 ? Math.round((okCount / total) * 100) : 0;
       </div>
       {/* Progress bar */}
       {isInitial ? (
-        <div className="text-xs text-stone-400 py-2">🌱 專案剛建立，知識庫尚未產生</div>
+        <div className="py-2">
+          {paawExists === false ? (
+            <>
+              <div className="text-xs text-stone-400 mb-2">🌱 專案沒有 .paaw/ 知識庫</div>
+              <button
+                onClick={async () => {
+                  if (initBusy) return;
+                  setInitBusy(true);
+                  try {
+                    // 用既有 /api/coding-project/init 建立 .paaw/ 骨架
+                    await fetch(`${API_BASE}/api/coding-project/init?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+                    setLocalRefresh(n => n + 1);
+                  } catch { /* ignore */ } finally { setInitBusy(false); }
+                }}
+                disabled={initBusy}
+                className="w-full text-xs px-3 py-2 rounded-lg text-white disabled:opacity-50"
+                style={{ backgroundColor: tk.accent }}
+              >
+                {initBusy ? "初始化中…" : "🌱 一鍵初始化 .paaw"}
+              </button>
+            </>
+          ) : (
+            <div className="text-xs text-stone-400 py-2">🌱 專案剛建立，知識庫尚未產生 — 跑 Code Understanding 後自動填入</div>
+          )}
+        </div>
       ) : (
         <div className="w-full h-1.5 rounded-full bg-stone-200 overflow-hidden mb-2">
           <div className={cn("h-full rounded-full transition-all", pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${pct}%` }} />

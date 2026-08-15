@@ -445,6 +445,8 @@
   "ru.deps.title": "依存查询",
   "ru.emptyInit.desc": "依存グラフ / 影響分析 / 検証には .paaw ナレッジ（PROJECT / ARCHITECTURE / CODING-STANDARDS）が必要です。先に初期化してください。",
   "ru.emptyInit.goEM": "EM ダッシュボードを開く",
+  "ru.emptyInit.initBtn": "🌱 .paaw を初期化",
+  "ru.emptyInit.initializing": "初期化中…",
   "ru.emptyInit.step1": "EM ダッシュボードで Code Understanding を実行し .paaw/ を構築",
   "ru.emptyInit.step2": "CODING-STANDARDS を記入 — AI がコードを書く前の必読ルール",
   "ru.emptyInit.step3": "初期化後、ヘルス / 影響分析 / 検証ツールがここに表示されます",
