@@ -3409,6 +3409,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 style={{ display: activeMainTab?.type === "tasks" ? undefined : "none" }}>
                 <TaskBoard
                   rootPath={rootPath}
+                  visible={activeMainTab?.type === "tasks"}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                   onOpenFile={openFile}
                   onNavigateIssue={(issueId) => {

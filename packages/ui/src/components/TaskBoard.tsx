@@ -111,6 +111,8 @@ interface TaskStats {
 
 interface Props {
   rootPath: string;
+  /** true when this tab is the visible main tab; triggers auto-refetch on re-show */
+  visible?: boolean;
   theme: { bg: string; bgMuted: string; borderLight: string; accent: string; accentBg: string; text: string };
   onOpenFile?: (path: string) => void;
   onNavigateIssue?: (issueId: string) => void;
@@ -194,7 +196,7 @@ function getAssigneeIcon(assignTo?: string): string {
 }
 
 // ── Component ──
-export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue }: Props) {
+export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue, visible = true }: Props) {
   const { t } = useI18n();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState<TaskStats | null>(null);
@@ -249,6 +251,18 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
   // Pipeline/overnight fetch removed — list view only
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
   useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  // Auto-reload when the tab becomes visible again (tabs are kept mounted + hidden via CSS,
+  // so switching back to the Tasks tab would otherwise show stale/empty data after an
+  // agent created tasks via chat in another tab)
+  const prevVisibleRef = useRef<boolean>(visible);
+  useEffect(() => {
+    if (visible && prevVisibleRef.current === false) {
+      fetchTasks();
+      fetchStats();
+    }
+    prevVisibleRef.current = visible;
+  }, [visible, fetchTasks, fetchStats]);
 
   const selected = tasks.find(t => t.id === selectedId);
   const childTasks = tasks.filter(t => t.parentId === selectedId);
