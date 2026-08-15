@@ -16,16 +16,20 @@
  * 跨平台鐵律：路徑一律 normalizePath() 回前端；fs 遞迴不用 find。
  */
 
-import { readFile } from "fs/promises";
+import { readFile, readdir } from "fs/promises";
 import { existsSync, readFileSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { normalizePath } from "./shared.mjs";
+import { shellExec } from "../lib/shell-exec.mjs";
 import { detectTechStack } from "../lib/release-unit/adapters.mjs";
 import { buildDependencyGraph, queryGraph } from "../lib/release-unit/dependencies.mjs";
 import { impactAnalysis } from "../lib/release-unit/impact.mjs";
 import { architectureView } from "../lib/release-unit/architecture.mjs";
 import { runVerify, readLastVerify } from "../lib/release-unit/verify.mjs";
+import { computeMetrics, isTestFile } from "../lib/release-unit/metrics.mjs";
+import { analyzeUnit } from "../lib/release-unit/analyze.mjs";
+import { checkGates } from "../lib/release-unit/gates.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -235,6 +239,126 @@ export default async function releaseUnitRoutes(req, res, next) {
     const last = await readLastVerify(path);
     if (last) last.path = normalizePath(path);
     return json(res, 200, { last, found: !!last });
+  }
+
+  // ══════ Phase 2 — 觀測 + 治理 ══════
+
+  // ── GET /api/ru/metrics — 代碼指標 ──
+  if (url === "/api/ru/metrics" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    try {
+      const m = await computeMetrics(path, { refresh });
+      m.path = normalizePath(path);
+      return json(res, 200, m);
+    } catch (e) {
+      return json(res, 500, { error: "metrics failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/analyze — 深度分析（Code Health 2.0）──
+  if (url === "/api/ru/analyze" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    try {
+      const a = await analyzeUnit(path, { refresh });
+      a.path = normalizePath(path);
+      return json(res, 200, a);
+    } catch (e) {
+      return json(res, 500, { error: "analyze failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/gates — 發布門檻檢查 ──
+  if (url === "/api/ru/gates" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    try {
+      const g = await checkGates(path);
+      g.path = normalizePath(path);
+      return json(res, 200, g);
+    } catch (e) {
+      return json(res, 500, { error: "gates check failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/tests — 測試檔清單 + 上次 test 結果 ──
+  if (url === "/api/ru/tests" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    try {
+      const graph = await buildDependencyGraph(path, { refresh });
+      const testFiles = Object.keys(graph.deps).filter(isTestFile).sort();
+      const last = await readLastVerify(path);
+      return json(res, 200, {
+        path: normalizePath(path),
+        testFiles,
+        testCount: testFiles.length,
+        sourceCount: graph.fileCount,
+        testRatio: graph.fileCount ? +(testFiles.length / graph.fileCount).toFixed(3) : 0,
+        lastRun: last?.checks?.find(c => c.check === "test") || null,
+      });
+    } catch (e) {
+      return json(res, 500, { error: "tests scan failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/features — 功能清單（.paaw/features/）──
+  if (url === "/api/ru/features" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    const dir = join(path, ".paaw", "features");
+    const features = [];
+    if (existsSync(dir)) {
+      for (const f of (await readdir(dir)).filter(f => f.endsWith(".json")).sort()) {
+        try {
+          const d = JSON.parse(await readFile(join(dir, f), "utf-8"));
+          features.push({
+            id: d.id || f.replace(/\.json$/, ""),
+            name: d.name || d.title || null,
+            status: d.status || null,
+            files: Array.isArray(d.files) ? d.files.length : 0,
+            updatedAt: d.updatedAt || null,
+          });
+        } catch { /* skip corrupt */ }
+      }
+    }
+    return json(res, 200, { path: normalizePath(path), features, count: features.length });
+  }
+
+  // ── GET /api/ru/runbooks — 操作手冊清單（.paaw/runbook/）──
+  if (url === "/api/ru/runbooks" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    const dir = join(path, ".paaw", "runbook");
+    const runbooks = [];
+    if (existsSync(dir)) {
+      for (const f of (await readdir(dir)).filter(f => f.endsWith(".md")).sort()) {
+        const content = await readFile(join(dir, f), "utf-8").catch(() => "");
+        const title = content.match(/^#\s+(.+)$/m)?.[1] || f.replace(/\.md$/, "");
+        runbooks.push({ id: f.replace(/\.md$/, ""), title, file: f, chars: content.length });
+      }
+    }
+    return json(res, 200, { path: normalizePath(path), runbooks, count: runbooks.length });
+  }
+
+  // ── GET /api/ru/changes — 變更紀錄（git log 分類）──
+  if (url === "/api/ru/changes" && method === "GET") {
+    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    const limit = Math.min(parseInt(q.get("limit") || "50", 10) || 50, 200);
+    try {
+      const { stdout } = await shellExec(
+        `git log -${limit} --format='%h~|~%aI~|~%s'`,
+        { cwd: path, timeout: 15_000, maxBuffer: 4 * 1024 * 1024 },
+      );
+      const lines = (stdout || "").split("\n").filter(Boolean);
+      const commits = lines.map(l => {
+        const [hash, date, ...msg] = l.split("~|~");
+        const subject = msg.join("|||");
+        const kind = /^feat/i.test(subject) ? "feat" : /^fix/i.test(subject) ? "fix"
+          : /^(refactor|perf)/i.test(subject) ? "refactor" : /^(doc|chore|style|test)/i.test(subject) ? "chore" : "other";
+        return { hash, date, subject: subject.slice(0, 160), kind };
+      });
+      const byKind = {};
+      for (const c of commits) byKind[c.kind] = (byKind[c.kind] || 0) + 1;
+      return json(res, 200, { path: normalizePath(path), commits, byKind, count: commits.length });
+    } catch (e) {
+      return json(res, 500, { error: "git log failed", detail: e.message });
+    }
   }
 
   return next?.() ?? false;

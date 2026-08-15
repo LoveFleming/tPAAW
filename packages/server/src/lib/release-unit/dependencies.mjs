@@ -30,8 +30,8 @@ function toRel(root, abs) {
   return relative(root, abs).split(/[\\/]/).join("/");
 }
 
-/** 遞迴走訪原始碼檔（純 Node fs，跨平台） */
-async function walkSources(root, exts, maxFiles = 8000) {
+/** 遞迴走訪原始碼檔（純 Node fs，跨平台；metrics 也用） */
+export async function walkSources(root, exts, maxFiles = 8000) {
   const out = []; // { rel, abs, mtimeMs }
   const extSet = new Set(exts);
   async function walk(dir, depth) {
