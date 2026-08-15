@@ -30,6 +30,7 @@
     "project",
     "project-edit",
     "tasks",
-    "release-unit"
+    "release-unit",
+    "dispatch"
   ]
 }

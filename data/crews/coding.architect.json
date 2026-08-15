@@ -25,6 +25,7 @@
     "project-edit",
     "tasks",
     "docs",
-    "release-unit"
+    "release-unit",
+    "dispatch"
   ]
 }
