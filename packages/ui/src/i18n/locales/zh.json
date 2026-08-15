@@ -202,7 +202,7 @@
   "gantt.month": "月",
   "gantt.week": "週",
   "ho.agentGreeting": "不管你是新工程師還是新接手的 AI，我幫你用最短時間搞懂這個 release unit。儘管問。",
-  "ho.agentName": "沈書桓 · 交接助理",
+  "ho.agentName": "蘇菲亞·科瓦爾斯卡 · 交接助理",
   "ho.emptyInit.desc": "交接包需要 .paaw 知識庫（PROJECT / ARCHITECTURE / DECISIONS）。先在 EM 大總管跑 Code Understanding。",
   "ho.emptyInit.goEM": "打開 EM 大總管",
   "ho.emptyInit.title": "這個 Release Unit 還沒初始化",

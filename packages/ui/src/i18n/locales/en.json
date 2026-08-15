@@ -202,7 +202,7 @@
   "gantt.month": "Month",
   "gantt.week": "Week",
   "ho.agentGreeting": "New engineer or new AI taking over? I help you understand this release unit in the shortest time. Ask away.",
-  "ho.agentName": "Shu-Huan Shen · Handover",
+  "ho.agentName": "Zofia Kowalska · Handover",
   "ho.emptyInit.desc": "The handover bundle needs the .paaw knowledge base (PROJECT / ARCHITECTURE / DECISIONS). Run Code Understanding in the EM Dashboard first.",
   "ho.emptyInit.goEM": "Open EM Dashboard",
   "ho.emptyInit.title": "This Release Unit isn't initialized",
