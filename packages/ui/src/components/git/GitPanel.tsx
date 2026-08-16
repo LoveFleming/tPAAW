@@ -490,6 +490,12 @@ export default function GitPanel(props: GitPanelProps) {
           const d = await r.json();
           diffText = d.diff || "";
         }
+        // 沒勾選且 working diff 空 → fallback 讀 staged（agent 已 git add 的場景）
+        if (!diffText) {
+          const r = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}&mode=staged`);
+          const d = await r.json();
+          diffText = d.diff || "";
+        }
         // If codeOnly, filter the diff
         if (codeOnly && diffText) {
           const lines = diffText.split("\n");
