@@ -1293,7 +1293,7 @@ export default async function projectRoute(req, res) {
       sendSSE("plan_ready", { workList, situationReport });
     } catch (err) {
       console.error("[EM-Plan] error:", err);
-      sendSSE("error", { message: err.message });
+      sendSSE("error", { message: `❌ EM 規劃失敗：${err.message}`, isError: true });
     }
     if (!res.writableEnded) res.end();
     return true;
@@ -1338,7 +1338,7 @@ export default async function projectRoute(req, res) {
       sendSSE("complete", { workList, results, report });
     } catch (err) {
       console.error("[EM-Execute] error:", err);
-      sendSSE("error", { message: err.message });
+      sendSSE("error", { message: `❌ EM 執行失敗：${err.message}`, isError: true });
     }
     if (!res.writableEnded) res.end();
     return true;

@@ -605,6 +605,12 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           try {
             const d = JSON.parse(line.slice(6));
 
+            // error events — show ❌ in chat (not just status bar)
+            if (d.isError) {
+              setMessages(prev => [...prev, { role: "assistant", content: d.message || "❌ EM 發生未知錯誤", ts: new Date().toISOString() }]);
+              continue;
+            }
+
             // info messages — update emAction only
             if (d.message && !d.workList && !d.totalTasks) {
               const displayMsg = d.contextLength

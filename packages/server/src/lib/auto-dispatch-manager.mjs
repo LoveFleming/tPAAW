@@ -312,11 +312,11 @@ ${requireEstimate ? '- 每項必須附預估 effort（' + defaultEffort + ' 为�
     if (models.length === 0) {
       const result = await callLLMWithRetry(llm.apiUrl, llm.headers, body, {
         maxRetries: 3,
-        timeoutMs: 60000,
+        timeoutMs: 300000,
         validateContent: true,
         sanitize: true,
-        caller: "overnight",
-        agentId: "overnight",
+        caller: "em-plan",
+        agentId: "em-plan",
         ...opts,
       });
       return result;
@@ -326,11 +326,11 @@ ${requireEstimate ? '- 每項必須附預估 effort（' + defaultEffort + ' 为�
         const m = resolveLLMConfig(rootDir, models[i]);
         const result = await callLLMWithRetry(m.apiUrl, m.headers, { ...body, model: m.model || m.defaultModel }, {
           maxRetries: 2,
-          timeoutMs: 60000,
+          timeoutMs: 300000,
           validateContent: true,
           sanitize: true,
-          caller: "overnight",
-          agentId: "overnight",
+          caller: "em-plan",
+          agentId: "em-plan",
           ...opts,
         });
         if (result) return result;
@@ -358,20 +358,28 @@ ${requireEstimate ? '- 每項必須附預估 effort（' + defaultEffort + ' 为�
     sendSSE("llm_done", { message: `✅ LLM 回覆 ${text.length} chars`, preview: text.slice(0, 200) });
     const match = text.match(/\[[\s\S]*\]/);
     if (match) {
+      let list;
       try {
-        const list = JSON.parse(match[0]);
-        console.log("[EM] planWorkList parsed:", list.length, "items");
-        return list.filter(item => item.agent && item.task);
+        list = JSON.parse(match[0]);
       } catch (parseErr) {
         console.error("[EM] planWorkList JSON parse failed:", parseErr.message);
-        return [];
+        throw new Error(`EM 規劃解析失敗（LLM 回覆不是合法 JSON）：${parseErr.message}`);
       }
+      console.log("[EM] planWorkList parsed:", list.length, "items");
+      const valid = list.filter(item => item.agent && item.task);
+      // 2026-08-16: malformed items (has items but none valid) must error, not silently "no work"
+      if (list.length > 0 && valid.length === 0) {
+        throw new Error(`LLM 回覆的 JSON 項目缺少 agent/task 欄位（${list.length} 項全無效）`);
+      }
+      return valid;
     }
     console.error("[EM] planWorkList: no JSON array found in LLM response");
-    return [];
+    throw new Error("EM 規劃失敗：LLM 回覆中找不到 JSON 工作清單（回應前 500 字：" + text.slice(0, 500) + "）");
   } catch (err) {
     console.error("[EM] planWorkList error:", err.message);
-    return [];
+    // 2026-08-16 fix: 過去這裡 return [] 會把 LLM 失敗（timeout/斷線）包裝成「沒有工作」
+    // 現在往上抛，讓 route 回 error，UI 顯示❌而不是假的「專案狀態良好」
+    throw err;
   }
 }
 

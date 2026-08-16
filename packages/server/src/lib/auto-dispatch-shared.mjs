@@ -148,8 +148,10 @@ async function gatherOpenTasks(rootDir) {
     if (tasks.length === 0) return { summary: "No tasks.", count: 0, items: [] };
 
     // Include open/in_progress tasks AND tasks with pending pipeline phases
+    // 2026-08-16: normalize status — tasks use "in-progress" (hyphen) or "in_progress" (underscore)
     const actionable = tasks.filter(t => {
-      if (t.status === "open" || t.status === "in_progress") return true;
+      const st = String(t.status || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+      if (st === "open" || st === "in_progress" || st === "pending" || st === "todo") return true;
       // Also check pipeline for pending phases
       if (t.pipeline) {
         return Object.values(t.pipeline).some(p => p && p.status === "pending");
