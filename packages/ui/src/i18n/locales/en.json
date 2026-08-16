@@ -808,5 +808,18 @@
   "workflow.newWorkflowName": "New Workflow",
   "workflow.outputChat": "✅ Output to chat",
   "workflow.outputFile": "✅ Output to file",
-  "workflow.selectWorkflow": "Select Workflow"
+  "workflow.selectWorkflow": "Select Workflow",
+  "rm.qd.title": "Quality Debt",
+  "rm.qd.subtitle": "Debt from bootstrap speed-run; repay from feature map before release",
+  "rm.qd.features": "active features",
+  "rm.qd.noTests": "without tests",
+  "rm.qd.noDocs": "without docs",
+  "rm.qd.openRetrofit": "retrofit tasks open",
+  "rm.qd.clean": "No quality debt ✓ all features have tests + docs",
+  "rm.qd.noFeatureMap": "Feature map not scanned yet — run a scan in Code Intelligence first",
+  "rm.qd.button": "Retrofit before release",
+  "rm.qd.buttonRunning": "Creating…",
+  "rm.qd.done": "Created {n} retrofit tasks (scanned {m} features) — dispatch via Task Board / EM",
+  "rm.qd.mapUpdatedAt": "Feature map updated: {t} (re-scan recommended)",
+  "rm.qd.refresh": "Refresh"
 }

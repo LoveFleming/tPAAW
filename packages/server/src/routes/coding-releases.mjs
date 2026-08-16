@@ -12,12 +12,15 @@
  *   GET  /api/coding-releases/list?path=...      — 已放行歷史（.paaw/releases/）
  *   POST /api/coding-releases/approve            — 批准上線（快照證據 → releases/）
  *   POST /api/coding-releases/reject             — 退回（原因回饋 task）
+ *   GET  /api/coding-releases/quality-debt?path=... — 品質債現況（feature map × tests/docs × retrofit）
+ *   POST /api/coding-releases/retrofit            — 上線前補強（feature map → 批次建 task）
  */
 
 import { readFile, writeFile, mkdir, readdir } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import { gatherTaskEvidence } from "./coding-evidence.mjs";
+import { runTaskRetrofit, qualityDebtSummary } from "../lib/task-retrofit.mjs";
 
 const PHASES_BEFORE_COMMIT = ["spec", "implement", "review", "test", "qa", "docs"];
 
@@ -195,6 +198,36 @@ export default async function releaseRoutes(req, res, next) {
       task.notes.push({ by: "release-manager", at, content: `❌ Release 退回：${reason}` });
       await writeTasksFile(path, data);
       return res.json({ ok: true });
+    }
+  }
+
+  // GET quality-debt — 品質債現況（bootstrap 衝功能後，上線前看這頁）
+  if (url === "/api/coding-releases/quality-debt" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    try {
+      const summary = await qualityDebtSummary(projectPath);
+      if (!summary.ok) {
+        // no-features-file 是可回復狀態（前端引導先跑 feature 掃描），回 200 帶 code
+        return res.json({ ok: false, code: summary.error, error: summary.error });
+      }
+      return res.json({ ok: true, ...summary });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  // POST retrofit — 上線前補強：從 feature map 批次建品質 task
+  if (url === "/api/coding-releases/retrofit" && method === "POST") {
+    let body = {};
+    try { body = JSON.parse(await readFileStream(req) || "{}"); } catch { /* empty body ok */ }
+    const path = body.path || projectPath;
+    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" });
+    try {
+      const result = await runTaskRetrofit(path, { priority: body.priority, featureIds: body.featureIds });
+      if (!result.ok) return res.json({ ok: false, error: result.error });
+      return res.json({ ok: true, scanned: result.scanned, createdCount: result.created.length, created: result.created, skipped: result.skipped, message: result.message });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
     }
   }
 

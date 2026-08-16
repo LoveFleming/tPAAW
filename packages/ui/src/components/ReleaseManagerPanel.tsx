@@ -51,6 +51,17 @@ interface Props {
   onOpenEMDashboard?: () => void;
 }
 
+interface QualityDebt {
+  ok: boolean;
+  code?: string;
+  featuresUpdatedAt?: string | null;
+  totalFeatures?: number;
+  activeFeatures?: number;
+  noTests?: number;
+  noDocs?: number;
+  openRetrofitTasks?: number;
+}
+
 export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashboard }: Props) {
   const { t } = useI18n();
   const [pending, setPending] = useState<PendingTask[]>([]);
@@ -63,26 +74,55 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const [acting, setActing] = useState<string | null>(null);
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
   const [approveNote, setApproveNote] = useState("");
+  const [qd, setQd] = useState<QualityDebt | null>(null);
+  const [retrofitting, setRetrofitting] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!rootPath) return;
     try {
-      const [pRes, lRes] = await Promise.all([
+      const [pRes, lRes, qdRes] = await Promise.all([
         fetch(`${API_BASE}/api/coding-releases/pending?path=${encodeURIComponent(rootPath)}`),
         fetch(`${API_BASE}/api/coding-releases/list?path=${encodeURIComponent(rootPath)}`),
+        fetch(`${API_BASE}/api/coding-releases/quality-debt?path=${encodeURIComponent(rootPath)}`),
       ]);
       const pData = await pRes.json();
       const lData = await lRes.json();
+      const qdData = await qdRes.json().catch(() => null);
       setInitialized(!!pData.initialized);
       setLoopMode(pData.loopMode || "mini");
       setPending(pData.pending || []);
       setReleases(lData.releases || []);
+      setQd(qdData);
     } catch {
       setInitialized(false);
     }
   }, [rootPath]);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  const runRetrofit = async () => {
+    if (!rootPath || retrofitting) return;
+    setRetrofitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-releases/retrofit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: rootPath }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setToast({ ok: true, text: t("rm.qd.done").replace("{n}", String(data.createdCount)).replace("{m}", String(data.scanned)) });
+        refresh();
+      } else {
+        setToast({ ok: false, text: `❌ ${data.error || "補強失敗"}` });
+      }
+    } catch (e: any) {
+      setToast({ ok: false, text: `❌ ${e?.message || "連線失敗"}` });
+    } finally {
+      setRetrofitting(false);
+      setTimeout(() => setToast(null), 6000);
+    }
+  };
 
   const approve = async (taskId: string) => {
     setActing(taskId);
@@ -299,6 +339,59 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                   )}
                 </div>
               ))}
+            </section>
+
+            {/* 品質債現況 */}
+            <section>
+              <h3 className="text-xs font-bold text-stone-600 mb-2 flex items-center gap-1.5">
+                🧰 {t("rm.qd.title")}
+                <button onClick={refresh} className="ml-1 text-[10px] text-stone-400 hover:text-stone-600">↻ {t("rm.qd.refresh")}</button>
+              </h3>
+
+              {/* 還沒跑 feature map */}
+              {qd && qd.ok === false && qd.code === "no-features-file" && (
+                <div className="border border-dashed rounded-lg p-3.5 text-xs text-stone-400" style={{ borderColor: tk.borderLight }}>
+                  🗺️ {t("rm.qd.noFeatureMap")}
+                </div>
+              )}
+
+              {qd && qd.ok === true && (
+                <div className="border rounded-xl bg-white p-3.5" style={{ borderColor: tk.borderLight }}>
+                  <p className="text-[11px] text-stone-400 mb-2.5">{t("rm.qd.subtitle")}</p>
+
+                  {/* 全清 */}
+                  {(qd.noTests === 0 && qd.noDocs === 0 && (qd.openRetrofitTasks || 0) === 0) ? (
+                    <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">{t("rm.qd.clean")}</div>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-2 mb-2.5">
+                        <span className="text-[11px] px-2 py-1 rounded-lg bg-stone-100 text-stone-600">📦 {(qd.activeFeatures ?? 0)} {t("rm.qd.features")}</span>
+                        <span className={`text-[11px] px-2 py-1 rounded-lg ${(qd.noTests ?? 0) > 0 ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-stone-100 text-stone-500"}`}>🧪 {(qd.noTests ?? 0)} {t("rm.qd.noTests")}</span>
+                        <span className={`text-[11px] px-2 py-1 rounded-lg ${(qd.noDocs ?? 0) > 0 ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-stone-100 text-stone-500"}`}>📘 {(qd.noDocs ?? 0)} {t("rm.qd.noDocs")}</span>
+                        {(qd.openRetrofitTasks ?? 0) > 0 && (
+                          <span className="text-[11px] px-2 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200">🛠️ {(qd.openRetrofitTasks ?? 0)} {t("rm.qd.openRetrofit")}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={runRetrofit} disabled={retrofitting}
+                          className="text-xs px-4 py-2 rounded-lg text-white disabled:opacity-40" style={{ backgroundColor: tk.accent }}>
+                          {retrofitting ? t("rm.qd.buttonRunning") : "🧰 " + t("rm.qd.button")}
+                        </button>
+                        {qd.featuresUpdatedAt && (
+                          <span className="text-[10px] text-stone-400">{t("rm.qd.mapUpdatedAt").replace("{t}", fmtShort(qd.featuresUpdatedAt))}</span>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* 載入失敗 / 未載入 */}
+              {qd === null && (
+                <div className="border border-dashed rounded-lg p-3.5 text-center text-xs text-stone-400" style={{ borderColor: tk.borderLight }}>
+                  …
+                </div>
+              )}
             </section>
 
             {/* Release 歷史 */}

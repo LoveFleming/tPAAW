@@ -808,5 +808,18 @@
   "workflow.newWorkflowName": "新規ワークフロー",
   "workflow.outputChat": "✅ チャットに出力",
   "workflow.outputFile": "✅ ファイルに出力",
-  "workflow.selectWorkflow": "ワークフローを選択"
+  "workflow.selectWorkflow": "ワークフローを選択",
+  "rm.qd.title": "品質負債",
+  "rm.qd.subtitle": "bootstrap で急いで作った負債、リリース前に feature map から一括補強",
+  "rm.qd.features": "個の active feature",
+  "rm.qd.noTests": "個にテストなし",
+  "rm.qd.noDocs": "個にドキュメントなし",
+  "rm.qd.openRetrofit": "件の補強 task が未完了",
+  "rm.qd.clean": "品質負債ゼロ ✓ 全 feature にテスト＋ドキュメントあり",
+  "rm.qd.noFeatureMap": "feature map 未スキャン — 先に Code Intelligence でスキャンしてください",
+  "rm.qd.button": "リリース前補強",
+  "rm.qd.buttonRunning": "作成中…",
+  "rm.qd.done": "補強 task を {n} 件作成（{m} feature をスキャン）— Task Board / EM から dispatch",
+  "rm.qd.mapUpdatedAt": "feature map 更新：{t}（再スキャン推奨）",
+  "rm.qd.refresh": "再読込"
 }

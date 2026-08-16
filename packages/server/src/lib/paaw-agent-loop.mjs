@@ -24,6 +24,7 @@ import { exec as execCb } from "child_process";
 import { shellExec, IS_WIN as IS_WIN_SHARED } from "./shell-exec.mjs";
 import { resolve, join, dirname, relative } from "path";
 import { getDependencyContext, getAffectedTests } from "./dependency-context.mjs";
+import { runTaskRetrofit } from "./task-retrofit.mjs";
 import { fileURLToPath } from "url";
 import { readFileSync as _readSync, existsSync as _exSync } from "fs";
 import { join as _pathJoin, dirname as _pathDirname, basename as _pathBasename, extname as _pathExtname } from "path";
@@ -2588,104 +2589,14 @@ Pipeline: ${_pipeText}${_shortPipeline ? "\n\u2139\ufe0f bootstrap \u77ed\u7248 
 
       case "task_retrofit": {
         // 2026-08-16 Fleming 定調（v2）：從 feature map 建，不從歷史 task 建
-        // 理由：task 是歷史碎片，早期 vibe coding 的產出可能被後來的 task 蓋掉；
-        // feature map 代表代碼「現況」，補強才不會補到已經不存在的東西
-        const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
-        if (!existsSync(featuresFile)) return "Error: 找不到 .paaw/features/FEATURES.json \u2014 \u5148\u8dd1 feature map \u6383\u63cf\u518d\u88dc\u5f37\u3002";
-        const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
-        if (!existsSync(tasksFile)) return "Error: No tasks file.";
-        const fdata = JSON.parse(readSync(featuresFile, "utf-8"));
-        const allFeatures = Array.isArray(fdata) ? fdata : (fdata.features || []);
-        const wanted = args.featureIds?.length ? new Set(args.featureIds) : null;
-        const features = allFeatures.filter(f => f.status !== "deprecated" && (!wanted || wanted.has(f.id)));
-        if (features.length === 0) return `\u274c \u6c92\u6709\u7b26\u5408\u689d\u4ef6\u7684 feature\uff08active${wanted ? " + featureIds \u904e\u6ffe" : ""}\uff09\u3002FEATURES.json \u5171 ${allFeatures.length} \u500b\u3002`;
-        const data = JSON.parse(readSync(tasksFile, "utf-8"));
-        const tasks = Array.isArray(data) ? data : data.tasks;
-        const now = new Date().toISOString();
-        const FULL = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
-
-        // \u53cd\u67e5\u8108\u7d61\uff1a\u54ea\u4e9b task \u52d5\u904e\u9019\u500b feature \u7684\u6a94\u6848\uff08\u53ea\u7576 description \u8108\u7d61\uff0c\u4e0d\u662f\u88dc\u5f37\u55ae\u4f4d\uff09
-        const fileToTasks = new Map();
-        for (const t of tasks) {
-          const files = [...(t.changes?.filesModified || []), ...(t.changes?.filesAdded || [])];
-          for (const f of files) {
-            if (!fileToTasks.has(f)) fileToTasks.set(f, []);
-            fileToTasks.get(f).push(t.id);
-          }
+        // 共用實作在 lib/task-retrofit.mjs（coding-releases route 也用它）
+        try {
+          const result = await runTaskRetrofit(cwd, { priority: args.priority, featureIds: args.featureIds });
+          if (!result.ok) return `Error: ${result.error}`;
+          return result.message;
+        } catch (e) {
+          return `Error: task_retrofit 失敗 — ${e.message}`;
         }
-
-        // \u51aa\u7b49\uff1a\u5df2\u6709\u672a\u7d50\u6848\u7684 feature retrofit \u5c31\u8df3\u904e
-        const openRetrofitFor = new Set(
-          tasks
-            .filter(t => t.source?.type === "feature-retrofit" && !["resolved", "closed"].includes(t.status))
-            .map(t => t.source?.retrofitFor).filter(Boolean)
-        );
-
-        let nextNum = Math.max(0, ...tasks.map(t => parseInt((t.id || "").replace(/^TASK-/, "")) || 0));
-        const created = [];
-        const skipped = [];
-        for (const f of features) {
-          if (openRetrofitFor.has(f.id)) { skipped.push(f.id); continue; }
-          const hasTests = (f.tests?.length || 0) > 0;
-          const hasDocs = Boolean(f.documentation && String(f.documentation).trim());
-          const related = [...new Set((f.codeFiles || []).flatMap(cf => fileToTasks.get(cf) || []))].slice(0, 5);
-          nextNum++;
-          const id = `TASK-${String(nextNum).padStart(3, "0")}`;
-          const pipe = {
-            spec:      { status: "done", by: "agent", at: now, note: `feature ${f.id} \u5df2\u5b58\u5728\uff0c\u4e0d\u91cd\u505a\u898f\u683c` },
-            implement: { status: "done", by: "agent", at: now, note: "\u65e2\u6709\u5be6\u4f5c\uff08feature map \u73fe\u6cc1\uff09" },
-            review:    { status: "pending" },
-            test:      hasTests ? { status: "done", by: "agent", at: now, note: `\u5df2\u6709\u6e2c\u8a66\uff1a${(f.tests || []).join(", ")}` } : { status: "pending" },
-            qa:        { status: "pending" },
-            docs:      hasDocs ? { status: "done", by: "agent", at: now, note: "documentation \u5df2\u5b58\u5728" } : { status: "pending" },
-            commit:    { status: "pending" },
-          };
-          const needPhases = FULL.filter(ph => pipe[ph].status === "pending");
-          tasks.push({
-            id,
-            title: `\u3010\u54c1\u8cea\u88dc\u5f37\u3011${f.id} ${f.name}`,
-            type: "test",
-            status: "open",
-            priority: args.priority || "high",
-            parentId: null,
-            description: `Release retrofit \u2014 \u4e0a\u7dda\u524d\u54c1\u8cea\u88dc\u5f37\uff08\u5f9e feature map \u5efa\u7acb\uff09\u3002
-Feature\uff1a${f.id} ${f.name} \u2014 ${f.description || ""}
-\u4ee3\u78bc\u6a94\u6848\uff1a
-${(f.codeFiles || []).map(cf => "- " + cf).join("\n") || "(\u5f9e FEATURES.json \u67e5\u7121\u6a94\u6848\uff0c\u5148\u91cd\u8dd1 feature \u6383\u63cf)"}
-\u9700\u88dc\u968e\u6bb5\uff1a${needPhases.join(" \u2192 ")}${hasTests ? "\uff08\u5df2\u6709\u6e2c\u8a66\uff0c\u4e0d\u91cd\u88dc test \u968e\u6bb5\uff09" : ""}${hasDocs ? "\uff08docs \u5df2\u5b58\u5728\uff09" : ""}
-\u9a57\u6536\uff1areview \u770b\u73fe\u6cc1\u4ee3\u78bc\u554f\u984c\u3001\u95dc\u9375\u8def\u5f91\u88dc\u6e2c\u8a66\u3001qa \u9a57\u6536\u3001docs \u88dc\u6587\u4ef6\u3002\u4e0d\u91cd\u505a\u5be6\u4f5c\u3002${related.length ? `\n\u76f8\u95dc\u6b77\u53f2 task\uff08\u8108\u7d61\u53c3\u8003\uff09\uff1a${related.join(", ")}` : ""}`,
-            labels: ["release-retrofit", ...(f.tags || [])],
-            assignee: null,
-            createdAt: now,
-            updatedAt: now,
-            createdBy: "agent",
-            source: { type: "feature-retrofit", retrofitFor: f.id },
-            spec: {
-              description: `\u88dc ${needPhases.join("/")} for feature ${f.id}`,
-              acceptanceCriteria: [
-                "review \u5b8c\u6210\uff08\u554f\u984c\u6e05\u55ae\u6216 approve \u7d00\u9304\uff09",
-                "\u95dc\u9375\u8def\u5f91\u6e2c\u8a66\u88dc\u9f4a\u4e14\u901a\u904e",
-                "qa \u9a57\u8b49 feature \u529f\u80fd\u6b63\u5e38",
-                "docs \u66f4\u65b0\uff08README/API/changelog\uff09",
-              ],
-              fileScope: f.codeFiles || [],
-              outOfScope: ["\u91cd\u65b0\u5be6\u4f5c\u529f\u80fd", "\u5927\u5e45\u91cd\u69cb"],
-            },
-            pipeline: pipe,
-            pipelinePhases: FULL,
-            pipelineMode: "full",
-            changes: { filesAdded: [], filesModified: [], filesDeleted: [] },
-            git: { baseCommit: null, branch: null, staged: false, committedSha: null },
-            notes: [{ text: `\u7531 task_retrofit \u81ea\u52d5\u751f\u6210\uff0c\u4f86\u6e90 feature ${f.id}`, at: now, by: "agent" }],
-            discussion: [],
-          });
-          created.push(`${id}(${f.id} ${f.name}${needPhases.length < 4 ? ", \u88dc" + needPhases.join("/") : ""})`);
-        }
-        if (created.length > 0) {
-          data.updatedAt = now;
-          await writeFile(tasksFile, JSON.stringify(data, null, 2), "utf-8");
-        }
-        return `\u2705 Release retrofit\uff08feature map \u7248\uff09\uff1a\u6383\u5230 ${features.length} \u500b active feature\uff0c\u65b0\u5efa ${created.length} \u500b\u54c1\u8cea\u88dc\u5f37 task${skipped.length ? `\uff08${skipped.length} \u500b\u5df2\u6709\u672a\u7d50\u6848 retrofit\uff0c\u7565\u904e\uff1a${skipped.join(", ")}\uff09` : ""}${created.length ? "\n\u65b0\u5efa\uff1a\n" + created.map(c => "- " + c).join("\n") : "\n\uff08\u6c92\u6709\u9700\u8981\u88dc\u7684\uff09"}`;
       }
 
       case "task_decompose": {

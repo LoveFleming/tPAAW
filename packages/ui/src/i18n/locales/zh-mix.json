@@ -808,5 +808,18 @@
   "workflow.newWorkflowName": "New Workflow",
   "workflow.outputChat": "✅ Output to chat",
   "workflow.outputFile": "✅ Output to file",
-  "workflow.selectWorkflow": "選擇 Workflow"
+  "workflow.selectWorkflow": "選擇 Workflow",
+  "rm.qd.title": "品質債現況",
+  "rm.qd.subtitle": "bootstrap 衝功能累積的債，上線前從 feature map 一次補",
+  "rm.qd.features": "個 active feature",
+  "rm.qd.noTests": "個沒測試",
+  "rm.qd.noDocs": "個沒文檔",
+  "rm.qd.openRetrofit": "張補強 task 未結案",
+  "rm.qd.clean": "品質債全清 ✓ 全部 feature 有測試＋文檔",
+  "rm.qd.noFeatureMap": "還沒跑 feature map 掃描，先到 Code Intelligence 掃一次才能補強",
+  "rm.qd.button": "上線前補強",
+  "rm.qd.buttonRunning": "建立中…",
+  "rm.qd.done": "已建立 {n} 張補強 task（掃 {m} 個 feature），去 Task Board / EM 派工",
+  "rm.qd.mapUpdatedAt": "feature map 更新：{t}（補強前建議重掃）",
+  "rm.qd.refresh": "重讀"
 }
