@@ -1929,6 +1929,15 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
     if (activeMainTab?.type === "git" && rootPath) { refreshGitStatus(); refreshGitLog(); loadGitDiff(); }
   }, [activeMainTab?.type, rootPath]);
 
+  // 2026-08-16: git 面板可見時定期輪詢 status+log（背景 agent commit 不會自己冒出來，
+  // 之前只只在開 panel/切 tab 抓一次，開著不動就永遠舊名單）
+  const gitVisible = showGitPanel || activeMainTab?.type === "git";
+  useEffect(() => {
+    if (!gitVisible || !rootPath) return;
+    const iv = setInterval(() => { refreshGitStatus(); refreshGitLog(); }, 15000);
+    return () => clearInterval(iv);
+  }, [gitVisible, rootPath, refreshGitStatus, refreshGitLog]);
+
   // Fetch staged-changes summary when entering git tab or opening git panel
   useEffect(() => {
     if ((activeMainTab?.type === "git" || showGitPanel) && rootPath) {
