@@ -454,7 +454,7 @@ export default function GitPanel(props: GitPanelProps) {
     try { await fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" }); setStagedSummary(null); } catch {}
     refreshGitStatus();
     refreshGitLog();
-  }, [gitStatus, gitCommitMsg, rootPath, API_BASE, setGitActionMsg, setGitCommitMsg, setSelectedFiles, setStagedSummary, refreshGitStatus, refreshGitLog]);
+  }, [gitStatus, gitCommitMsg, rootPath, API_BASE, setGitActionMsg, setGitCommitMsg, setStagedSummary, refreshGitStatus, refreshGitLog]);
 
   // ── AI commit message ──
   const handleAiGenerateMsg = useCallback(async (codeOnly: boolean) => {
