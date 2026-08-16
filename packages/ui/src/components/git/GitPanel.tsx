@@ -151,7 +151,7 @@ export default function GitPanel(props: GitPanelProps) {
     setGitTab: setExternalGitTab,
     setGitCommitMsg,
     setGitActionMsg,
-    setSelectedFiles,
+
     setGitDiffFile,
     setGitDiff,
     setGitDiffCached,
@@ -194,23 +194,10 @@ export default function GitPanel(props: GitPanelProps) {
   // Internal state uses fileKey for uniqueness
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
 
-  // Sync with parent's selectedFiles (path-based) on mount / when gitStatus changes
-  // But internally we track by fileKey for correctness
-  useEffect(() => {
-    // When gitStatus changes, recompute selectedKeys from selectedFiles prop
-    if (!gitStatus) return;
-    const allFiles: (GitFileStatus & { staged: boolean })[] = [];
-    for (const f of gitStatus.staged) allFiles.push({ ...f, staged: true });
-    for (const f of gitStatus.unstaged) allFiles.push({ ...f, staged: false });
-    for (const f of gitStatus.untracked) allFiles.push({ ...f, staged: false });
-    // Map selectedFiles (paths) → selectedKeys (fileKeys)
-    // If a path is selected and appears in both staged+unstaged, select both keys
-    const newKeys = new Set<string>();
-    for (const f of allFiles) {
-      if (selectedFiles.has(f.path)) newKeys.add(fileKey(f));
-    }
-    setSelectedKeys(newKeys);
-  }, [gitStatus, selectedFiles]);
+  // 2026-08-16: 移除「從 parent selectedFiles 重算勾選」的 effect
+  // root cause：toggleKey 只更新 local selectedKeys、從不回寫 parent，
+  // 但此 effect 在 gitStatus 每次變化（15s 輪詢）時用空的 parent state 覆蓋勾選
+  // → 勾選幾秒後必定消失。parent 的 selectedFiles 無外部寫入者，改為本組件自持。
 
   // ── Toggle single file by key ──
   const toggleKey = useCallback((key: string) => {
