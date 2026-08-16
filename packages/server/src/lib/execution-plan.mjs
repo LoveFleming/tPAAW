@@ -402,7 +402,9 @@ export async function resumePlan(rootDir, planId) {
   let resumed = 0;
   for (const task of plan.tasks) {
     for (const st of task.subtasks) {
-      if (st.status === 'interrupted' || st.status === 'pending') {
+      // 2026-08-16: fail/timeout 也重跑 — partial plan 的失敗項必須能被 resume
+      // （skipped 是政策性排除，不重跑）
+      if (st.status === 'interrupted' || st.status === 'pending' || st.status === 'fail' || st.status === 'timeout') {
         st.status = 'pending';
         st.startedAt = null;
         st.completedAt = null;
@@ -419,6 +421,7 @@ export async function resumePlan(rootDir, planId) {
   }
 
   plan.status = 'running';
+  plan.completedAt = null;
   _recomputeSummary(plan);
   await writeFile(_planPath(rootDir, plan.planId), JSON.stringify(plan, null, 2) + '\n', 'utf-8');
   console.log(`[ExecutionPlan] Resumed ${plan.planId}: ${resumed} subtasks back to pending`);

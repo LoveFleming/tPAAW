@@ -572,6 +572,27 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     }
   };
 
+  // ── Retry failed subtasks of a partial/failed plan (resume via planId) ──
+  const retryPlan = async (planId: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-auto-dispatch/start?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "em", planId }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: `🔄 已重新啟動 Plan **${planId}** 的失敗項（fail/timeout 重跑，done 不動）。到 Auto Dispatch 頁看進度。`,
+        ts: new Date().toISOString(),
+        actions: [{ label: "👉 查看 Auto Dispatch", type: "openReport" }],
+      } as any]);
+      onOpenAutoDispatch?.();
+    } catch (err: any) {
+      setMessages(prev => [...prev, { role: "assistant", content: `❌ 重啟 Plan 失敗：${err.message}`, ts: new Date().toISOString() }]);
+    }
+  };
+
   // ── EM Auto-orchestrate: Phase 1 — Plan only (show in chat for confirmation) ──
   const runEM = async () => {
     if (emRunning || !rootPath) return;
@@ -1542,15 +1563,24 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                   className="flex items-center gap-2 py-1.5 px-2 rounded-lg cursor-pointer hover:bg-stone-50 transition-colors"
                   onClick={() => onOpenAutoDispatch?.()}
                 >
-                  <span className="text-sm shrink-0">{plan.status === "completed" ? "✅" : plan.status === "running" ? "🔄" : "⏳"}</span>
+                  <span className="text-sm shrink-0">{plan.status === "completed" ? "✅" : plan.status === "running" ? "🔄" : plan.status === "partial" ? "🔶" : plan.status === "failed" ? "❌" : "⏳"}</span>
                   <span className="text-xs text-stone-600 flex-1 truncate font-mono">{plan.planId}</span>
                   <span className="text-[10px] text-stone-400">{plan.completed}/{plan.totalSubtasks}</span>
+                  {(plan.status === "partial" || plan.status === "failed" || plan.status === "interrupted") && (
+                    <button
+                      className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 hover:bg-amber-200 font-bold shrink-0 transition-colors"
+                      title="重跑失敗/未完成的 subtasks（已完成的不動）"
+                      onClick={(e) => { e.stopPropagation(); retryPlan(plan.planId); }}
+                    >🔄 重跑</button>
+                  )}
                   <span className={cn(
                     "text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0",
                     plan.status === "completed" ? "bg-green-100 text-green-700" :
                     plan.status === "running" ? "bg-blue-100 text-blue-700" :
+                    plan.status === "partial" ? "bg-amber-100 text-amber-700" :
+                    plan.status === "failed" ? "bg-red-100 text-red-700" :
                     "bg-stone-100 text-stone-500"
-                  )}>{plan.status === "completed" ? "完成" : plan.status === "running" ? "執行中" : plan.status}</span>
+                  )}>{plan.status === "completed" ? "完成" : plan.status === "running" ? "執行中" : plan.status === "partial" ? "部分完成" : plan.status}</span>
                 </div>
               ))}
             </div>

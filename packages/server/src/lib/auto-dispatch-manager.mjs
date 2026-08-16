@@ -59,6 +59,7 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
 
   // Retry on fetch errors (network glitches, transient connection resets)
   const maxRetries = 2;
+  const dispatcher = await _getA2ADispatcher();
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const controller = new AbortController();
@@ -68,6 +69,7 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
         signal: controller.signal,
+        ...(dispatcher ? { dispatcher } : {}),
       });
       if (timer) clearTimeout(timer);
       const data = await res.json();
@@ -89,6 +91,61 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
     }
   }
   return { success: false, content: "", error: "Max retries exceeded" };
+}
+
+// ── A2A fetch dispatcher：關掉 undici 預設 headers/body timeout（300s）──
+// 2026-08-16 教訓：message/send 是同步 HTTP，agent 跑超過 5 分鐘時 undici
+// 預設 headersTimeout=300s 會把 client 斷線（"fetch failed"），但 server 端
+// 工作照樣完成 → plan 誤記 fail、task 狀態不同步。拉長任務一律不得被這個砍。
+let _a2aDispatcher; // undefined=未初始化, null=不可用
+async function _getA2ADispatcher() {
+  if (_a2aDispatcher !== undefined) return _a2aDispatcher;
+  try {
+    const { Agent } = await import("undici");
+    _a2aDispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
+  } catch {
+    _a2aDispatcher = null; // fallback: global fetch 預設行為
+  }
+  return _a2aDispatcher;
+}
+
+// ── Helper: extract TASK-XXX reference from a work item title ──
+function _extractTaskRef(text) {
+  const m = String(text || "").match(/\bTASK-([0-9]{1,4})\b/i);
+  return m ? `TASK-${String(m[1]).padStart(3, "0")}` : null;
+}
+
+// ── Helper: sync task pipeline/note after EM subtask completes ──
+async function _syncTaskAfterDispatch(rootDir, taskRef, ok, detail) {
+  if (!taskRef) return;
+  try {
+    const { readFileSync: _rd, writeFileSync: _wr, existsSync: _ex } = await import("fs");
+    const { join: _join } = await import("path");
+    const tasksFile = _join(rootDir, ".paaw", "tasks", "TASKS.json");
+    if (!_ex(tasksFile)) return;
+    const data = JSON.parse(_rd(tasksFile, "utf-8"));
+    const tasks = Array.isArray(data) ? data : (data.tasks || []);
+    const task = tasks.find(t => String(t.id).toLowerCase() === taskRef.toLowerCase());
+    if (!task) return;
+    const now = new Date().toISOString();
+    if (!task.pipeline) task.pipeline = {};
+    if (!task.notes) task.notes = [];
+    if (ok) {
+      // 只補 implement（agent 自己 advance 過就尊重，不覆寫）
+      if (task.pipeline.implement?.status !== "done") {
+        task.pipeline.implement = { ...(task.pipeline.implement || {}), status: "done", by: "em-dispatch", at: now };
+      }
+      if (task.status === "open") task.status = "in-progress";
+      task.notes.push({ text: `EM dispatch 完成${detail ? `：${detail}` : ""}`, at: now, by: "em" });
+    } else {
+      task.notes.push({ text: `EM dispatch 失敗${detail ? `：${detail}` : ""}`, at: now, by: "em" });
+    }
+    task.updatedAt = now;
+    const payload = Array.isArray(data) ? tasks : { ...data, tasks, updatedAt: now };
+    _wr(tasksFile, JSON.stringify(payload, null, 2), "utf-8");
+  } catch (err) {
+    console.log(`[EM] _syncTaskAfterDispatch(${taskRef}) failed (non-fatal): ${err.message}`);
+  }
 }
 
 // ── Cost estimation (rough, for tracking purposes) ──
@@ -482,7 +539,7 @@ export async function executeEMSession(opts = {}) {
         title: w.task || `Task ${i + 1}`,
         assignee: w.agent || 'developer',
         source: w.source || 'em_plan',
-        sourceRef: w.sourceRef || null,
+        sourceRef: w.sourceRef || _extractTaskRef(w.task || w.title),
         priority: w.priority || 'medium',
         subtasks: [{ title: w.task || `Task ${i + 1}`, assignee: w.agent || 'developer' }],
       }));
@@ -636,7 +693,7 @@ export async function executeEMSession(opts = {}) {
       console.log(`[AutoDispatch] Phase 3: [${i + 1}/${execList.length}] ✅ ${task.agent} done (${result.content.length} chars, ${(_durationMs / 1000).toFixed(0)}s, ${_tokens.total} tokens)`);
       sendSSE("task_done", { index: i + 1, agent: task.agent, subtaskId, preview: result.content.slice(0, 200), durationMs: _durationMs, tokens: _tokens, costUsd: _cost });
 
-      // ── Mark sub-task as done ──
+      // ── Mark sub-task as done + write back to TASK-XXX ──
       if (plan && planHelpers && subtaskId) {
         try {
           await planHelpers.updateSubTask(rootDir, plan.planId, subtaskId, {
@@ -649,6 +706,8 @@ export async function executeEMSession(opts = {}) {
           });
         } catch {}
       }
+      const _taskRef = task.sourceRef || _extractTaskRef(task.task);
+      await _syncTaskAfterDispatch(rootDir, _taskRef, true, `subtaskId=${subtaskId || 'n/a'}`);
     } else {
       const timedOut = _durationMs >= 7200000; // 2h
       const stStatus = timedOut ? 'timeout' : 'fail';
@@ -667,6 +726,8 @@ export async function executeEMSession(opts = {}) {
           });
         } catch {}
       }
+      const _taskRef2 = task.sourceRef || _extractTaskRef(task.task);
+      await _syncTaskAfterDispatch(rootDir, _taskRef2, false, `${result.error || stStatus} (subtaskId=${subtaskId || 'n/a'})`);
     }
   }
 

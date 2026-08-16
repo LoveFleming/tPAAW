@@ -2425,6 +2425,7 @@ ${lines}`;
       }
 
       case "task_create": {
+        const PIPELINE_ORDER = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
         const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
         const tasksDir = join(cwd, ".paaw", "tasks");
         if (!existsSync(tasksDir)) await mkdir(tasksDir, { recursive: true });
@@ -2478,6 +2479,7 @@ ${lines}`;
       }
 
       case "task_update": {
+        const PIPELINE_ORDER = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
         const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
         if (!existsSync(tasksFile)) return "Error: No tasks file. Create tasks first.";
         const data = JSON.parse(readSync(tasksFile, "utf-8"));
@@ -2488,13 +2490,30 @@ ${lines}`;
 
         if (action === "update") {
           if (args.title) task.title = args.title;
-          if (args.status) task.status = args.status;
+          if (args.status) {
+            // 2026-08-16: 不能直接跳 resolved — pipeline 未全部完成時拒絕，避免假結案
+            if (args.status === "resolved" && !PIPELINE_ORDER.every(p => task.pipeline?.[p]?.status === "done")) {
+              const missing = PIPELINE_ORDER.filter(p => task.pipeline?.[p]?.status !== "done");
+              return `Error: 無法設 resolved — pipeline 還有階段未完成：${missing.join(", ")}。請用 advance 依序完成。`;
+            }
+            task.status = args.status;
+          }
           if (args.priority) task.priority = args.priority;
           task.updatedAt = now;
         } else if (action === "advance") {
           const phase = args.phase;
           if (!phase) return "Error: 'phase' is required for advance action.";
+          if (!PIPELINE_ORDER.includes(phase)) return `Error: Unknown phase '${phase}'. Valid: ${PIPELINE_ORDER.join(", ")}`;
           if (!task.pipeline) task.pipeline = {};
+          if (task.pipeline[phase]?.status === "done") {
+            return `⏭️ Task ${args.id} 的 ${phase} 已經是 done，略過。`;
+          }
+          // 2026-08-16: 強制順序 — 前置階段未完成不得 advance（防止 commit 先做、review 後補的亂序）
+          const phaseIdx = PIPELINE_ORDER.indexOf(phase);
+          const missingBefore = PIPELINE_ORDER.slice(0, phaseIdx).filter(p => task.pipeline[p]?.status !== "done");
+          if (missingBefore.length > 0) {
+            return `Error: 無法 advance '${phase}'，前置階段未完成：${missingBefore.join(", ")}。請先完成前置階段（或用 reject 回退）。`;
+          }
           if (!task.pipeline[phase]) task.pipeline[phase] = {};
           task.pipeline[phase].status = "done";
           task.pipeline[phase].by = "agent";
@@ -2502,9 +2521,8 @@ ${lines}`;
           if (args.result) {
             try { task.pipeline[phase].result = JSON.parse(args.result); } catch {}
           }
-          // Derive flat status
-          if (phase === "commit") task.status = "resolved";
-          else task.status = "in-progress";
+          // Derive flat status — resolved 唯有全部階段 done
+          task.status = PIPELINE_ORDER.every(p => task.pipeline[p]?.status === "done") ? "resolved" : "in-progress";
           task.updatedAt = now;
         } else if (action === "reject") {
           const phase = args.phase;
