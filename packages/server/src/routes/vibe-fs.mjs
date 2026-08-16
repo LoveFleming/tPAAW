@@ -124,6 +124,49 @@ export default async function vibeFsRoute(req, res) {
     return true;
   }
 
+  // ── GET /api/vibe-git/unpushed ──
+  // 人的 review queue：local 已 commit 未 push 的清單（2026-08-16 Fleming 流程：agent commit 不 push，人 push）
+  if (req.method === "GET" && req.url?.startsWith("/api/vibe-git/unpushed")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const cwd = params.get("path");
+    if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return true; }
+
+    // branch + upstream
+    const b = await runGit(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
+    const branch = b.ok ? b.stdout.trim() : "(unknown)";
+    const up = await runGit(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], cwd);
+    const upstream = up.ok ? up.stdout.trim() : null;
+
+    let ahead = 0, behind = 0, commits = [];
+    if (upstream) {
+      const cnt = await runGit(["rev-list", "--left-right", "--count", `${upstream}...HEAD`], cwd);
+      if (cnt.ok) {
+        const parts = cnt.stdout.trim().split(/\s+/);
+        behind = parseInt(parts[0]) || 0;
+        ahead = parseInt(parts[1]) || 0;
+      }
+    } else {
+      // 沒 upstream（新 repo 未 push 過）：全部視為待推
+      const c = await runGit(["rev-list", "--count", "HEAD"], cwd);
+      ahead = c.ok ? (parseInt(c.stdout.trim()) || 0) : 0;
+    }
+
+    const base = upstream || "HEAD";
+    const lg = await runGit([
+      "log", `${base}..HEAD`, "--max-count=50", "--pretty=format:%H|%h|%an|%at|%s", "--date=unix",
+    ], cwd);
+    if (lg.ok) {
+      commits = lg.stdout.split("\n").filter(Boolean).map(line => {
+        const [hash, short, author, ts, subject] = line.split("|");
+        return { hash, short, author, date: new Date(parseInt(ts) * 1000).toISOString(), subject };
+      });
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ branch, upstream, ahead, behind, commits }));
+    return true;
+  }
+
   // ── GET /api/vibe-git/diff ──
   if (req.method === "GET" && req.url?.startsWith("/api/vibe-git/diff")) {
     const params = new URL(req.url, "http://localhost").searchParams;
@@ -364,7 +407,7 @@ Respond with ONLY the commit message, nothing else.`;
       const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
         model: llm.model,
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 300,
+        max_tokens: 2000, // 2026-08-16: GLM 5.1 是 reasoning model，300 會被 thinking 吃光（content 產出 0 字）
         temperature: 0.3,
         stream: false,
       }, { maxRetries: 2, timeoutMs: 30_000, caller: "vibe-fs", agentId: "assistant", fallbacks: llm.fallbacks || [] });
@@ -373,7 +416,7 @@ Respond with ONLY the commit message, nothing else.`;
       // Strip code block wrapping if present
       msg = msg.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/, "").trim();
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ message: msg }));
+      res.end(JSON.stringify(msg ? { message: msg } : { message: "", error: `LLM 回應為空（finishReason: ${result.finishReason || "?"}）— 可能 reasoning tokens 用盡` }));
     } catch (err) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ message: "", error: err.message }));

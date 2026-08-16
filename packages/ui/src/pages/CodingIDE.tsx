@@ -2751,6 +2751,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 setGitActionMsg={setGitActionMsg}
                 setSelectedFiles={setSelectedFiles}
                 setGitDiffFile={setGitDiffFile}
+                setGitDiff={setGitDiff}
                 setGitDiffCached={setGitDiffCached}
                 setActiveSubPanel={setActiveSubPanel}
                 setStagedSummary={setStagedSummary}

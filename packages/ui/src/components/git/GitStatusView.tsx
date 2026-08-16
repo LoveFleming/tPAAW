@@ -24,7 +24,15 @@ interface StagedSummary {
   createdAt?: string;
 }
 
+interface UnpushedInfo {
+  ahead: number;
+  behind: number;
+  commits: { hash?: string; short: string; subject: string; author: string; date: string }[];
+}
+
 interface GitStatusViewProps {
+  unpushed?: UnpushedInfo | null;
+  onCommitClick?: (hash: string) => void;
   gitStatus: {
     branch: string;
     staged: GitFileStatus[];
@@ -60,6 +68,8 @@ interface GitStatusViewProps {
 }
 
 export default function GitStatusView({
+  unpushed,
+  onCommitClick,
   gitStatus,
   selectedKeys,
   onToggleKey,
@@ -170,6 +180,43 @@ export default function GitStatusView({
         <button onClick={onPush} className="text-xs px-2 py-1 rounded bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors font-medium">⬆ Push</button>
         <button onClick={onRefresh} className="text-xs text-stone-400 hover:text-stone-600 px-1.5 py-0.5 rounded hover:bg-stone-50">🔄</button>
       </div>
+
+      {/* ══ 待推送（人的 review queue：agent commit 止步於此，人看過才 push）══ */}
+      {unpushed && unpushed.ahead > 0 && (
+        <div className="rounded-lg border border-purple-200 bg-purple-50/60 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs">📤</span>
+            <span className="text-xs font-bold text-purple-700">
+              {unpushed.ahead} 個 commit 待推送
+            </span>
+            {unpushed.behind > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold">
+                ⚠️ 遠端有 {unpushed.behind} 個新 commit — 先 Pull
+              </span>
+            )}
+            <span className="flex-1" />
+            <button onClick={onPush}
+              className="text-xs px-3 py-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 font-semibold transition-colors">
+              ⬆ 確認沒問題，Push
+            </button>
+          </div>
+          <div className="space-y-1 max-h-44 overflow-y-auto">
+            {unpushed.commits.map((c, i) => (
+              <div key={i} className="flex items-center gap-2 py-0.5 text-xs bg-white/70 rounded px-2">
+                {onCommitClick ? (
+                  <button onClick={() => onCommitClick(c.hash || c.short)} title="看這個 commit 的 diff"
+                    className="text-[10px] font-mono text-purple-500 hover:text-purple-700 hover:underline shrink-0">{c.short}</button>
+                ) : (
+                  <span className="text-[10px] font-mono text-purple-500 shrink-0">{c.short}</span>
+                )}
+                <span className="text-stone-600 truncate flex-1" title={c.subject}>{c.subject}</span>
+                <span className="text-stone-400 shrink-0 text-[10px]">{fmtTime(c.date)}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-stone-400 mt-1.5">Developer 的 commit 到此為止 — 你看過內容再推。點 commit 旁的 sha 可在 Diff 分頁看細節。</p>
+        </div>
+      )}
 
       {/* ══ Pipeline Phase Progress Bar ══ */}
       {pipeline && (

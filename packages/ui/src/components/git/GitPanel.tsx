@@ -98,6 +98,7 @@ interface GitPanelProps {
   setGitActionMsg: (msg: string | null) => void;
   setSelectedFiles: (files: Set<string>) => void;
   setGitDiffFile: (file: string) => void;
+  setGitDiff: (diff: string) => void;
   setGitDiffCached: (cached: boolean) => void;
   setActiveSubPanel: (panel: string) => void;
   setStagedSummary: (summary: StagedChangeSummary | null) => void;
@@ -152,6 +153,7 @@ export default function GitPanel(props: GitPanelProps) {
     setGitActionMsg,
     setSelectedFiles,
     setGitDiffFile,
+    setGitDiff,
     setGitDiffCached,
     setActiveSubPanel,
     setStagedSummary,
@@ -165,6 +167,23 @@ export default function GitPanel(props: GitPanelProps) {
   } = props;
 
   const [gitTab, setLocalGitTab] = useState<GitTab>("status");
+  const [unpushed, setUnpushed] = useState<{ ahead: number; behind: number; commits: { hash?: string; short: string; subject: string; author: string; date: string }[] } | null>(null);
+
+  // 待推送清單：人的 review queue（agent commit 不 push，人在這裡看過再推）
+  const fetchUnpushed = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/vibe-git/unpushed?path=${encodeURIComponent(rootPath)}`);
+      const d = await r.json();
+      setUnpushed(d.error ? null : d);
+    } catch { setUnpushed(null); }
+  }, [rootPath, API_BASE]);
+
+  useEffect(() => {
+    fetchUnpushed();
+    const iv = setInterval(fetchUnpushed, 15000);
+    return () => clearInterval(iv);
+  }, [fetchUnpushed]);
 
   const setGitTab = useCallback((tab: GitTab) => {
     setLocalGitTab(tab);
@@ -253,8 +272,9 @@ export default function GitPanel(props: GitPanelProps) {
       setGitActionMsg(d.ok ? `✅ ${d.output || d.message}` : `❌ ${d.error}`);
       refreshGitStatus();
       refreshGitLog();
+      fetchUnpushed();
     } catch (e: any) { setGitActionMsg(`❌ ${e.message}`); }
-  }, [rootPath, API_BASE, setGitActionMsg, refreshGitStatus, refreshGitLog]);
+  }, [rootPath, API_BASE, setGitActionMsg, refreshGitStatus, refreshGitLog, fetchUnpushed]);
 
   const handlePush = useCallback(async () => {
     setGitActionMsg("Pushing...");
@@ -264,8 +284,9 @@ export default function GitPanel(props: GitPanelProps) {
       setGitActionMsg(d.ok ? `✅ ${d.output || d.message}` : `❌ ${d.error}`);
       refreshGitStatus();
       refreshGitLog();
+      fetchUnpushed();
     } catch (e: any) { setGitActionMsg(`❌ ${e.message}`); }
-  }, [rootPath, API_BASE, setGitActionMsg, refreshGitStatus, refreshGitLog]);
+  }, [rootPath, API_BASE, setGitActionMsg, refreshGitStatus, refreshGitLog, fetchUnpushed]);
 
   const handleRefresh = useCallback(() => {
     refreshGitStatus();
@@ -495,7 +516,7 @@ export default function GitPanel(props: GitPanelProps) {
         setGitCommitMsg(data.message);
         setGitActionMsg("✅ AI generated commit message (code only)");
       } else {
-        setGitActionMsg("⚠️ AI couldn't generate a message");
+        setGitActionMsg(`⚠️ ${data.error || "AI couldn't generate a message"}`);
       }
     } catch (e: any) { setGitActionMsg(`❌ ${e.message}`); }
   }, [rootPath, API_BASE, selectedFiles, gitDiff, setGitCommitMsg, setGitActionMsg]);
@@ -519,9 +540,10 @@ export default function GitPanel(props: GitPanelProps) {
     try {
       const res = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}&commit=${encodeURIComponent(hash)}`);
       const data = await res.json();
-      // setGitDiff is handled by parent — need to pass through
+      setGitDiff(data.diff || "");
+      setLocalGitTab("diff");
     } catch {}
-  }, [rootPath, API_BASE, setGitDiffFile]);
+  }, [rootPath, API_BASE, setGitDiffFile, setGitDiff]);
 
   // ── Tab labels ──
   const tabConfig: { id: GitTab; label: string }[] = [
@@ -571,6 +593,8 @@ export default function GitPanel(props: GitPanelProps) {
         {gitTab === "status" && (
           <GitStatusView
             gitStatus={gitStatus}
+            unpushed={unpushed}
+            onCommitClick={handleCommitClick}
             selectedKeys={selectedKeys}
             onToggleKey={toggleKey}
             onSelectKeys={selectKeys}
