@@ -184,7 +184,7 @@
       "executionResult": null,
       "timeoutSeconds": 0,
       "createdAt": "2026-07-22T12:30:14.985Z",
-      "updatedAt": "2026-07-22T12:31:10.997Z",
+      "updatedAt": "2026-08-16T06:01:36.887Z",
       "resolvedAt": null,
       "createdBy": "user",
       "pipeline": {
@@ -196,26 +196,6 @@
         "implement": {
           "status": "done",
           "by": "unknown"
-        },
-        "review": {
-          "status": "done",
-          "by": "system",
-          "reason": "skipped (mini loop)"
-        },
-        "test": {
-          "status": "done",
-          "by": "system",
-          "reason": "skipped (mini loop)"
-        },
-        "qa": {
-          "status": "done",
-          "by": "system",
-          "reason": "skipped (mini loop)"
-        },
-        "docs": {
-          "status": "done",
-          "by": "system",
-          "reason": "skipped (mini loop)"
         },
         "commit": {
           "status": "pending"
@@ -230,7 +210,13 @@
       "qaResult": null,
       "docsResult": null,
       "repairLoop": null,
-      "overnight": null
+      "overnight": null,
+      "pipelinePhases": [
+        "spec",
+        "implement",
+        "commit"
+      ],
+      "pipelineMode": "short"
     },
     {
       "id": "TASK-029",
@@ -255,7 +241,7 @@
       "executionResult": null,
       "timeoutSeconds": 0,
       "createdAt": "2026-07-22T12:31:10.997Z",
-      "updatedAt": "2026-07-22T13:37:24.031Z",
+      "updatedAt": "2026-08-16T06:01:36.887Z",
       "resolvedAt": null,
       "createdBy": "agent",
       "pipeline": {
@@ -265,18 +251,6 @@
           "reason": "skipped (mini loop)"
         },
         "implement": {
-          "status": "pending"
-        },
-        "review": {
-          "status": "pending"
-        },
-        "test": {
-          "status": "pending"
-        },
-        "qa": {
-          "status": "pending"
-        },
-        "docs": {
           "status": "pending"
         },
         "commit": {
@@ -292,7 +266,13 @@
       "qaResult": null,
       "docsResult": null,
       "repairLoop": null,
-      "overnight": null
+      "overnight": null,
+      "pipelinePhases": [
+        "spec",
+        "implement",
+        "commit"
+      ],
+      "pipelineMode": "short"
     },
     {
       "id": "TASK-030",
@@ -311,7 +291,7 @@
       "executionResult": null,
       "timeoutSeconds": 0,
       "createdAt": "2026-07-22T12:31:10.997Z",
-      "updatedAt": "2026-07-22T12:31:10.997Z",
+      "updatedAt": "2026-08-16T06:01:36.887Z",
       "resolvedAt": null,
       "createdBy": "agent",
       "pipeline": {
@@ -321,18 +301,6 @@
           "reason": "skipped (mini loop)"
         },
         "implement": {
-          "status": "pending"
-        },
-        "review": {
-          "status": "pending"
-        },
-        "test": {
-          "status": "pending"
-        },
-        "qa": {
-          "status": "pending"
-        },
-        "docs": {
           "status": "pending"
         },
         "commit": {
@@ -348,7 +316,13 @@
       "qaResult": null,
       "docsResult": null,
       "repairLoop": null,
-      "overnight": null
+      "overnight": null,
+      "pipelinePhases": [
+        "spec",
+        "implement",
+        "commit"
+      ],
+      "pipelineMode": "short"
     },
     {
       "id": "TASK-031",
@@ -367,7 +341,7 @@
       "executionResult": null,
       "timeoutSeconds": 0,
       "createdAt": "2026-07-22T12:31:10.997Z",
-      "updatedAt": "2026-07-22T12:31:10.997Z",
+      "updatedAt": "2026-08-16T06:01:36.887Z",
       "resolvedAt": null,
       "createdBy": "agent",
       "pipeline": {
@@ -377,18 +351,6 @@
           "reason": "skipped (mini loop)"
         },
         "implement": {
-          "status": "pending"
-        },
-        "review": {
-          "status": "pending"
-        },
-        "test": {
-          "status": "pending"
-        },
-        "qa": {
-          "status": "pending"
-        },
-        "docs": {
           "status": "pending"
         },
         "commit": {
@@ -404,7 +366,13 @@
       "qaResult": null,
       "docsResult": null,
       "repairLoop": null,
-      "overnight": null
+      "overnight": null,
+      "pipelinePhases": [
+        "spec",
+        "implement",
+        "commit"
+      ],
+      "pipelineMode": "short"
     },
     {
       "id": "TASK-032",
@@ -423,7 +391,7 @@
       "executionResult": null,
       "timeoutSeconds": 0,
       "createdAt": "2026-07-22T12:31:10.997Z",
-      "updatedAt": "2026-07-22T12:31:10.997Z",
+      "updatedAt": "2026-08-16T06:01:36.887Z",
       "resolvedAt": null,
       "createdBy": "agent",
       "pipeline": {
@@ -433,18 +401,6 @@
           "reason": "skipped (mini loop)"
         },
         "implement": {
-          "status": "pending"
-        },
-        "review": {
-          "status": "pending"
-        },
-        "test": {
-          "status": "pending"
-        },
-        "qa": {
-          "status": "pending"
-        },
-        "docs": {
           "status": "pending"
         },
         "commit": {
@@ -460,7 +416,13 @@
       "qaResult": null,
       "docsResult": null,
       "repairLoop": null,
-      "overnight": null
+      "overnight": null,
+      "pipelinePhases": [
+        "spec",
+        "implement",
+        "commit"
+      ],
+      "pipelineMode": "short"
     },
     {
       "id": "TASK-033",
@@ -479,7 +441,7 @@
       "executionResult": null,
       "timeoutSeconds": 0,
       "createdAt": "2026-07-22T12:31:10.997Z",
-      "updatedAt": "2026-07-22T12:31:10.997Z",
+      "updatedAt": "2026-08-16T06:01:36.887Z",
       "resolvedAt": null,
       "createdBy": "agent",
       "pipeline": {
@@ -489,18 +451,6 @@
           "reason": "skipped (mini loop)"
         },
         "implement": {
-          "status": "pending"
-        },
-        "review": {
-          "status": "pending"
-        },
-        "test": {
-          "status": "pending"
-        },
-        "qa": {
-          "status": "pending"
-        },
-        "docs": {
           "status": "pending"
         },
         "commit": {
@@ -516,7 +466,13 @@
       "qaResult": null,
       "docsResult": null,
       "repairLoop": null,
-      "overnight": null
+      "overnight": null,
+      "pipelinePhases": [
+        "spec",
+        "implement",
+        "commit"
+      ],
+      "pipelineMode": "short"
     },
     {
       "id": "TASK-034",
@@ -834,7 +790,7 @@
       "executionResult": null,
       "timeoutSeconds": 0,
       "createdAt": "2026-07-22T13:32:10.546Z",
-      "updatedAt": "2026-07-22T13:32:10.546Z",
+      "updatedAt": "2026-08-16T06:01:36.887Z",
       "resolvedAt": null,
       "createdBy": "user",
       "pipeline": {
@@ -844,18 +800,6 @@
           "reason": "skipped (mini loop)"
         },
         "implement": {
-          "status": "pending"
-        },
-        "review": {
-          "status": "pending"
-        },
-        "test": {
-          "status": "pending"
-        },
-        "qa": {
-          "status": "pending"
-        },
-        "docs": {
           "status": "pending"
         },
         "commit": {
@@ -871,9 +815,15 @@
       "qaResult": null,
       "docsResult": null,
       "repairLoop": null,
-      "overnight": null
+      "overnight": null,
+      "pipelinePhases": [
+        "spec",
+        "implement",
+        "commit"
+      ],
+      "pipelineMode": "short"
     }
   ],
-  "updatedAt": "2026-08-16T05:46:00.466Z",
+  "updatedAt": "2026-08-16T06:01:36.887Z",
   "loopMode": "mini"
 }

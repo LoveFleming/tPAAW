@@ -733,6 +733,20 @@ export const PAAW_TOOLS = [
   {
     type: "function",
     function: {
+      name: "task_retrofit",
+      description: "上線前品質補強：掃描 bootstrap 短版 pipeline（spec→implement→commit）已結案的 task，批次建立補 review/test/qa/docs 的全版 task。冪等：同一目標不重複建。",
+      parameters: {
+        type: "object",
+        properties: {
+          priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "新 task 優先級（默認 high）" },
+          targetIds: { type: "array", items: { type: "string" }, description: "只補這些 task（默認全部符合條件的）" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "dispatch_agent",
       description: "派工給其他 agent 執行任務。一次只派一個 agent，等結果回來再派下一個。",
       parameters: {
@@ -849,7 +863,7 @@ const TOOL_GROUP_MAP = {
   notes: "notes",
 
   // Task management
-  task_create: "tasks", task_update: "tasks", task_list: "tasks", task_decompose: "tasks", dispatch_agent: "dispatch",
+  task_create: "tasks", task_update: "tasks", task_list: "tasks", task_decompose: "tasks", task_retrofit: "tasks", dispatch_agent: "dispatch",
 
   // Docs & CU
   cu_refresh: "docs",
@@ -2426,6 +2440,14 @@ ${lines}`;
 
       case "task_create": {
         const PIPELINE_ORDER = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
+        // 2026-08-16 Fleming 定調：bootstrap = 快速看功能，pipeline 只到 commit 就結案
+        // 品質債（review/test/qa/docs）上線前用 task_retrofit 一次補
+        let _projectPhase = "bootstrap";
+        try {
+          _projectPhase = JSON.parse(readSync(join(cwd, ".paaw", "auto-dispatch", "config.json"), "utf-8"))?.projectPhase || "bootstrap";
+        } catch {}
+        const _shortPipeline = _projectPhase === "bootstrap";
+        const _phases = _shortPipeline ? ["spec", "implement", "commit"] : PIPELINE_ORDER;
         const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
         const tasksDir = join(cwd, ".paaw", "tasks");
         if (!existsSync(tasksDir)) await mkdir(tasksDir, { recursive: true });
@@ -2457,15 +2479,12 @@ ${lines}`;
             fileScope: args.fileScope || [],
             outOfScope: [],
           } : null,
-          pipeline: {
-            spec:      { status: "done", by: "agent", at: now },
-            implement: { status: "pending" },
-            review:    { status: "pending" },
-            test:      { status: "pending" },
-            qa:        { status: "pending" },
-            docs:      { status: "pending" },
-            commit:    { status: "pending" },
-          },
+          pipeline: _phases.reduce((pipe, p) => {
+            pipe[p] = p === "spec" ? { status: "done", by: "agent", at: now } : { status: "pending" };
+            return pipe;
+          }, {}),
+          pipelinePhases: _phases,
+          pipelineMode: _shortPipeline ? "short" : "full",
           changes: { filesAdded: [], filesModified: [], filesDeleted: [] },
           git: { baseCommit: null, branch: null, staged: false, committedSha: null },
           notes: [],
@@ -2475,7 +2494,10 @@ ${lines}`;
         data.updatedAt = now;
         await writeFile(tasksFile, JSON.stringify(data, null, 2), "utf-8");
         if (onEvent) onEvent({ type: "tool_end", name, result: id });
-        return `\u2705 Task created: ${id} "${args.title}"\nType: ${task.type} | Priority: ${task.priority}\nPipeline: spec \u2705 \u2192 implement \u23f3 \u2192 review \u23f3 \u2192 test \u23f3 \u2192 qa \u23f3 \u2192 docs \u23f3 \u2192 commit \u23f3`;
+        const _pipeText = _phases.map(p => p === "spec" ? "spec \u2705" : `${p} \u23f3`).join(" \u2192 ");
+        return `\u2705 Task created: ${id} "${args.title}"
+Type: ${task.type} | Priority: ${task.priority} | Pipeline mode: ${task.pipelineMode} (${_projectPhase})
+Pipeline: ${_pipeText}${_shortPipeline ? "\n\u2139\ufe0f bootstrap \u77ed\u7248 pipeline\uff1acommit \u5b8c\u6210\u5373\u7ed3\u6848\uff0c\u54c1\u8cea\u5075\u4e0a\u7dda\u524d\u7528 task_retrofit \u88dc" : ""}`;
       }
 
       case "task_update": {
@@ -2487,13 +2509,17 @@ ${lines}`;
         if (!task) return `Error: Task ${args.id} not found.`;
         const now = new Date().toISOString();
         const action = args.action;
+        // 2026-08-16: 以 task 自己的 pipeline 為準（bootstrap 短版只有 spec→implement→commit）
+        const ORDER = (Array.isArray(task.pipelinePhases) && task.pipelinePhases.length)
+          ? task.pipelinePhases
+          : PIPELINE_ORDER;
 
         if (action === "update") {
           if (args.title) task.title = args.title;
           if (args.status) {
             // 2026-08-16: 不能直接跳 resolved — pipeline 未全部完成時拒絕，避免假結案
-            if (args.status === "resolved" && !PIPELINE_ORDER.every(p => task.pipeline?.[p]?.status === "done")) {
-              const missing = PIPELINE_ORDER.filter(p => task.pipeline?.[p]?.status !== "done");
+            if (args.status === "resolved" && !ORDER.every(p => task.pipeline?.[p]?.status === "done")) {
+              const missing = ORDER.filter(p => task.pipeline?.[p]?.status !== "done");
               return `Error: 無法設 resolved — pipeline 還有階段未完成：${missing.join(", ")}。請用 advance 依序完成。`;
             }
             task.status = args.status;
@@ -2503,14 +2529,14 @@ ${lines}`;
         } else if (action === "advance") {
           const phase = args.phase;
           if (!phase) return "Error: 'phase' is required for advance action.";
-          if (!PIPELINE_ORDER.includes(phase)) return `Error: Unknown phase '${phase}'. Valid: ${PIPELINE_ORDER.join(", ")}`;
+          if (!ORDER.includes(phase)) return `Error: Unknown phase '${phase}'. Valid for this task (${task.pipelineMode || "full"}): ${ORDER.join(", ")}`;
           if (!task.pipeline) task.pipeline = {};
           if (task.pipeline[phase]?.status === "done") {
             return `⏭️ Task ${args.id} 的 ${phase} 已經是 done，略過。`;
           }
           // 2026-08-16: 強制順序 — 前置階段未完成不得 advance（防止 commit 先做、review 後補的亂序）
-          const phaseIdx = PIPELINE_ORDER.indexOf(phase);
-          const missingBefore = PIPELINE_ORDER.slice(0, phaseIdx).filter(p => task.pipeline[p]?.status !== "done");
+          const phaseIdx = ORDER.indexOf(phase);
+          const missingBefore = ORDER.slice(0, phaseIdx).filter(p => task.pipeline[p]?.status !== "done");
           if (missingBefore.length > 0) {
             return `Error: 無法 advance '${phase}'，前置階段未完成：${missingBefore.join(", ")}。請先完成前置階段（或用 reject 回退）。`;
           }
@@ -2521,8 +2547,8 @@ ${lines}`;
           if (args.result) {
             try { task.pipeline[phase].result = JSON.parse(args.result); } catch {}
           }
-          // Derive flat status — resolved 唯有全部階段 done
-          task.status = PIPELINE_ORDER.every(p => task.pipeline[p]?.status === "done") ? "resolved" : "in-progress";
+          // Derive flat status — resolved 唯有全部階段 done（短版 task 只到 commit）
+          task.status = ORDER.every(p => task.pipeline[p]?.status === "done") ? "resolved" : "in-progress";
           task.updatedAt = now;
         } else if (action === "reject") {
           const phase = args.phase;
@@ -2560,6 +2586,79 @@ ${lines}`;
         return `\u2705 Task ${args.id} updated (${action}). Status: ${task.status}`;
       }
 
+      case "task_retrofit": {
+        // 2026-08-16 Fleming 定調：bootstrap 短版 pipeline 結案的 task，
+        // 上線前批次補 review/test/qa/docs（每次新建全版 pipeline 的 task）
+        const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
+        if (!existsSync(tasksFile)) return "Error: No tasks file.";
+        const data = JSON.parse(readSync(tasksFile, "utf-8"));
+        const tasks = Array.isArray(data) ? data : data.tasks;
+        const now = new Date().toISOString();
+        const FULL = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
+        const isShortDone = t => t.status === "resolved" && (t.pipelineMode === "short" || (t.pipeline && !t.pipeline.review));
+        const wanted = args.targetIds?.length ? new Set(args.targetIds) : null;
+        const targets = tasks.filter(t => isShortDone(t) && (!wanted || wanted.has(t.id)));
+        const alreadyRetro = new Set(
+          tasks.filter(t => t.source?.type === "release-retrofit").map(t => t.source?.retrofitFor).filter(Boolean)
+        );
+        let nextNum = Math.max(0, ...tasks.map(t => parseInt((t.id || "").replace(/^TASK-/, "")) || 0));
+        const created = [];
+        for (const tgt of targets) {
+          if (alreadyRetro.has(tgt.id)) continue;
+          nextNum++;
+          const id = `TASK-${String(nextNum).padStart(3, "0")}`;
+          const fileScope = tgt.spec?.fileScope || [];
+          tasks.push({
+            id,
+            title: `【品質補強】${tgt.title}`,
+            type: "test",
+            status: "open",
+            priority: args.priority || "high",
+            parentId: null,
+            description: `Release retrofit — 上線前品質補強。目標 task：${tgt.id}（${tgt.title}）。\n範圍：review → test → qa → docs（原 task 的 spec/implement 已完成，不重做實作）。\n驗收：review 留下紀錄、test 補齊關鍵測試、qa 驗證 acceptance criteria、docs 補文件。${fileScope.length ? "\n檔案範圍：\n" + fileScope.map(f => "- " + f).join("\n") : ""}`,
+            labels: ["release-retrofit", ...(tgt.labels || [])],
+            assignee: null,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: "agent",
+            source: { type: "release-retrofit", retrofitFor: tgt.id },
+            spec: {
+              description: `補 review/test/qa/docs for ${tgt.id}`,
+              acceptanceCriteria: [
+                "review 完成（問題清單或 approve 紀錄）",
+                "關鍵路徑測試補齊且通過",
+                "qa 驗證原 task 驗收條件",
+                "docs 更新（API/README/changelog）",
+              ],
+              fileScope,
+              outOfScope: ["重新實作功能"],
+            },
+            pipeline: {
+              spec:      { status: "done", by: "agent", at: now, note: `refer ${tgt.id}` },
+              implement: { status: "done", by: "agent", at: now, note: `original task ${tgt.id}` },
+              review:    { status: "pending" },
+              test:      { status: "pending" },
+              qa:        { status: "pending" },
+              docs:      { status: "pending" },
+              commit:    { status: "pending" },
+            },
+            pipelinePhases: FULL,
+            pipelineMode: "full",
+            changes: { filesAdded: [], filesModified: [], filesDeleted: [] },
+            git: { baseCommit: null, branch: null, staged: false, committedSha: null },
+            notes: [{ text: `由 task_retrofit 自動生成，來源 ${tgt.id}`, at: now, by: "agent" }],
+            discussion: [],
+          });
+          created.push(id);
+        }
+        if (created.length > 0) {
+          data.updatedAt = now;
+          await writeFile(tasksFile, JSON.stringify(data, null, 2), "utf-8");
+        }
+        const skipped = targets.length - created.length;
+        return `\u2705 Release retrofit：掃到 ${targets.length} 個短版結案 task，新建 ${created.length} 個品質補強 task${skipped > 0 ? `（${skipped} 個已有 retrofit，略過）` : ""}${created.length ? "\n新建：" + created.join(", ") : "\n（沒有需要補的）"}`;
+      }
+
       case "task_decompose": {
         const { getHandlers } = await import("../tools/index.mjs");
         const handlers = await getHandlers();
@@ -2586,7 +2685,7 @@ ${lines}`;
       }
 
       default:
-        const unknownMsg = `Error: unknown tool '${name}'. Available tools: read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user, project_info, project_edit, staged_summary, record_decision, docs, action_log_add, action_log_list, task_list, task_create, task_update, task_decompose, dispatch_agent.`;
+        const unknownMsg = `Error: unknown tool '${name}'. Available tools: read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user, project_info, project_edit, staged_summary, record_decision, docs, action_log_add, action_log_list, task_list, task_create, task_update, task_decompose, task_retrofit, dispatch_agent.`;
         if (onEvent) onEvent({ type: "tool_end", name, result: unknownMsg });
         return unknownMsg;
     }
@@ -2878,7 +2977,8 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   }
 
   // Tool overview (compact — full schemas are sent via function-calling format)
-  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/decisions/standards/changelog/issues/features/feature_detail/runbook/faq/test_map/security/recent_changes\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_mapping\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\nreference_read(action=list|read|search, source=workspace|knowledge) → browse/read/search reference files in workspace/ and knowledge/ (read-only, for finding existing code examples and docs)\ntask_list(id?, status?, pipelinePhase?, type?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task with pipeline\ntask_update(id, action=update|advance|reject|note|assign, ...) → update task, advance/reject pipeline phase, add notes\ntask_decompose(parentId, subTasks) → split a large task into sub-tasks\ndispatch_agent(agentId, task, taskId?) → dispatch work to another agent (architect/developer/tester/doc-writer/qa/helpdesk)\ncu_refresh, record_decision, docs(action=...), action_log_add/list, agent_memory_save/load`);
+  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/decisions/standards/changelog/issues/features/feature_detail/runbook/faq/test_map/security/recent_changes\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_mapping\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\nreference_read(action=list|read|search, source=workspace|knowledge) → browse/read/search reference files in workspace/ and knowledge/ (read-only, for finding existing code examples and docs)\ntask_list(id?, status?, pipelinePhase?, type?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task with pipeline\ntask_update(id, action=update|advance|reject|note|assign, ...) → update task, advance/reject pipeline phase, add notes\ntask_decompose(parentId, subTasks) → split a large task into sub-tasks
+task_retrofit(priority?, targetIds?) → 上線前品質補強：批次為短版 pipeline 結案的 task 建立補 review/test/qa/docs 的全版 task\ndispatch_agent(agentId, task, taskId?) → dispatch work to another agent (architect/developer/tester/doc-writer/qa/helpdesk)\ncu_refresh, record_decision, docs(action=...), action_log_add/list, agent_memory_save/load`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);

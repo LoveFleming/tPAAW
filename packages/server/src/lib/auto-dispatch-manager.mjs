@@ -210,6 +210,8 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
     bootstrap: `【🏗️ Bootstrap 階段】
 - ✅ 只指派 developer 和 architect（寫碼、修 bug、評估架構）
 - ❌ 不要指派 tester、qa、doc-writer（初期先衝功能，測試文件之後再補）
+- 📋 Task pipeline 是短版：spec → implement → commit，commit 完成即結案（不要求測試/文檔）
+- 🧾 品質債上線前補：人說要 release/上線時才用 task_retrofit 批次建補 review/test/qa/docs 的 task，平時不要主動提
 - 重點：快速推進功能開發，不追求測試覆蓋率和文檔完整性`,
     mvp: `【📦 MVP 階段】
 - ✅ 主要指派 developer 和 architect
