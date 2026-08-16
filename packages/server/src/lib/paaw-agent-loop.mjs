@@ -492,7 +492,7 @@ export const PAAW_TOOLS = [
           note: { type: "string", description: "Add a note to issue" },
           featureId: { type: "string", description: "Related feature ID" },
           // ── Change record ──
-          type: { type: "string", enum: ["feature", "bugfix", "refactor", "security", "performance", "docs", "config"], description: "Change type" },
+          type: { type: "string", enum: ["feature", "bugfix", "refactor", "security", "performance", "test", "docs", "config"], description: "Change type" },
           files: { type: "array", items: { type: "string" }, description: "Changed file paths" },
           impact: { type: "string", description: "Potential impact" },
           testsRan: { type: "string", description: "Tests run to verify" },
@@ -734,12 +734,12 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "task_retrofit",
-      description: "上線前品質補強：掃描 bootstrap 短版 pipeline（spec→implement→commit）已結案的 task，批次建立補 review/test/qa/docs 的全版 task。冪等：同一目標不重複建。",
+      description: "上線前品質補強：從 feature map（.paaw/features/FEATURES.json）掃 active feature，為每個 feature 建一個補 review/test/qa/docs 的全版 task。以代碼現況為準（早期 task 的產出可能已被蓋掉），不是從歷史 task 建。冪等：已有未結案 retrofit 的 feature 不重複建。",
       parameters: {
         type: "object",
         properties: {
           priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "新 task 優先級（默認 high）" },
-          targetIds: { type: "array", items: { type: "string" }, description: "只補這些 task（默認全部符合條件的）" },
+          featureIds: { type: "array", items: { type: "string" }, description: "只補這些 feature（F-XXX，默認全部 active feature）" },
         },
       },
     },
@@ -2587,76 +2587,105 @@ Pipeline: ${_pipeText}${_shortPipeline ? "\n\u2139\ufe0f bootstrap \u77ed\u7248 
       }
 
       case "task_retrofit": {
-        // 2026-08-16 Fleming 定調：bootstrap 短版 pipeline 結案的 task，
-        // 上線前批次補 review/test/qa/docs（每次新建全版 pipeline 的 task）
+        // 2026-08-16 Fleming 定調（v2）：從 feature map 建，不從歷史 task 建
+        // 理由：task 是歷史碎片，早期 vibe coding 的產出可能被後來的 task 蓋掉；
+        // feature map 代表代碼「現況」，補強才不會補到已經不存在的東西
+        const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
+        if (!existsSync(featuresFile)) return "Error: 找不到 .paaw/features/FEATURES.json \u2014 \u5148\u8dd1 feature map \u6383\u63cf\u518d\u88dc\u5f37\u3002";
         const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
         if (!existsSync(tasksFile)) return "Error: No tasks file.";
+        const fdata = JSON.parse(readSync(featuresFile, "utf-8"));
+        const allFeatures = Array.isArray(fdata) ? fdata : (fdata.features || []);
+        const wanted = args.featureIds?.length ? new Set(args.featureIds) : null;
+        const features = allFeatures.filter(f => f.status !== "deprecated" && (!wanted || wanted.has(f.id)));
+        if (features.length === 0) return `\u274c \u6c92\u6709\u7b26\u5408\u689d\u4ef6\u7684 feature\uff08active${wanted ? " + featureIds \u904e\u6ffe" : ""}\uff09\u3002FEATURES.json \u5171 ${allFeatures.length} \u500b\u3002`;
         const data = JSON.parse(readSync(tasksFile, "utf-8"));
         const tasks = Array.isArray(data) ? data : data.tasks;
         const now = new Date().toISOString();
         const FULL = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
-        const isShortDone = t => t.status === "resolved" && (t.pipelineMode === "short" || (t.pipeline && !t.pipeline.review));
-        const wanted = args.targetIds?.length ? new Set(args.targetIds) : null;
-        const targets = tasks.filter(t => isShortDone(t) && (!wanted || wanted.has(t.id)));
-        const alreadyRetro = new Set(
-          tasks.filter(t => t.source?.type === "release-retrofit").map(t => t.source?.retrofitFor).filter(Boolean)
+
+        // \u53cd\u67e5\u8108\u7d61\uff1a\u54ea\u4e9b task \u52d5\u904e\u9019\u500b feature \u7684\u6a94\u6848\uff08\u53ea\u7576 description \u8108\u7d61\uff0c\u4e0d\u662f\u88dc\u5f37\u55ae\u4f4d\uff09
+        const fileToTasks = new Map();
+        for (const t of tasks) {
+          const files = [...(t.changes?.filesModified || []), ...(t.changes?.filesAdded || [])];
+          for (const f of files) {
+            if (!fileToTasks.has(f)) fileToTasks.set(f, []);
+            fileToTasks.get(f).push(t.id);
+          }
+        }
+
+        // \u51aa\u7b49\uff1a\u5df2\u6709\u672a\u7d50\u6848\u7684 feature retrofit \u5c31\u8df3\u904e
+        const openRetrofitFor = new Set(
+          tasks
+            .filter(t => t.source?.type === "feature-retrofit" && !["resolved", "closed"].includes(t.status))
+            .map(t => t.source?.retrofitFor).filter(Boolean)
         );
+
         let nextNum = Math.max(0, ...tasks.map(t => parseInt((t.id || "").replace(/^TASK-/, "")) || 0));
         const created = [];
-        for (const tgt of targets) {
-          if (alreadyRetro.has(tgt.id)) continue;
+        const skipped = [];
+        for (const f of features) {
+          if (openRetrofitFor.has(f.id)) { skipped.push(f.id); continue; }
+          const hasTests = (f.tests?.length || 0) > 0;
+          const hasDocs = Boolean(f.documentation && String(f.documentation).trim());
+          const related = [...new Set((f.codeFiles || []).flatMap(cf => fileToTasks.get(cf) || []))].slice(0, 5);
           nextNum++;
           const id = `TASK-${String(nextNum).padStart(3, "0")}`;
-          const fileScope = tgt.spec?.fileScope || [];
+          const pipe = {
+            spec:      { status: "done", by: "agent", at: now, note: `feature ${f.id} \u5df2\u5b58\u5728\uff0c\u4e0d\u91cd\u505a\u898f\u683c` },
+            implement: { status: "done", by: "agent", at: now, note: "\u65e2\u6709\u5be6\u4f5c\uff08feature map \u73fe\u6cc1\uff09" },
+            review:    { status: "pending" },
+            test:      hasTests ? { status: "done", by: "agent", at: now, note: `\u5df2\u6709\u6e2c\u8a66\uff1a${(f.tests || []).join(", ")}` } : { status: "pending" },
+            qa:        { status: "pending" },
+            docs:      hasDocs ? { status: "done", by: "agent", at: now, note: "documentation \u5df2\u5b58\u5728" } : { status: "pending" },
+            commit:    { status: "pending" },
+          };
+          const needPhases = FULL.filter(ph => pipe[ph].status === "pending");
           tasks.push({
             id,
-            title: `【品質補強】${tgt.title}`,
+            title: `\u3010\u54c1\u8cea\u88dc\u5f37\u3011${f.id} ${f.name}`,
             type: "test",
             status: "open",
             priority: args.priority || "high",
             parentId: null,
-            description: `Release retrofit — 上線前品質補強。目標 task：${tgt.id}（${tgt.title}）。\n範圍：review → test → qa → docs（原 task 的 spec/implement 已完成，不重做實作）。\n驗收：review 留下紀錄、test 補齊關鍵測試、qa 驗證 acceptance criteria、docs 補文件。${fileScope.length ? "\n檔案範圍：\n" + fileScope.map(f => "- " + f).join("\n") : ""}`,
-            labels: ["release-retrofit", ...(tgt.labels || [])],
+            description: `Release retrofit \u2014 \u4e0a\u7dda\u524d\u54c1\u8cea\u88dc\u5f37\uff08\u5f9e feature map \u5efa\u7acb\uff09\u3002
+Feature\uff1a${f.id} ${f.name} \u2014 ${f.description || ""}
+\u4ee3\u78bc\u6a94\u6848\uff1a
+${(f.codeFiles || []).map(cf => "- " + cf).join("\n") || "(\u5f9e FEATURES.json \u67e5\u7121\u6a94\u6848\uff0c\u5148\u91cd\u8dd1 feature \u6383\u63cf)"}
+\u9700\u88dc\u968e\u6bb5\uff1a${needPhases.join(" \u2192 ")}${hasTests ? "\uff08\u5df2\u6709\u6e2c\u8a66\uff0c\u4e0d\u91cd\u88dc test \u968e\u6bb5\uff09" : ""}${hasDocs ? "\uff08docs \u5df2\u5b58\u5728\uff09" : ""}
+\u9a57\u6536\uff1areview \u770b\u73fe\u6cc1\u4ee3\u78bc\u554f\u984c\u3001\u95dc\u9375\u8def\u5f91\u88dc\u6e2c\u8a66\u3001qa \u9a57\u6536\u3001docs \u88dc\u6587\u4ef6\u3002\u4e0d\u91cd\u505a\u5be6\u4f5c\u3002${related.length ? `\n\u76f8\u95dc\u6b77\u53f2 task\uff08\u8108\u7d61\u53c3\u8003\uff09\uff1a${related.join(", ")}` : ""}`,
+            labels: ["release-retrofit", ...(f.tags || [])],
             assignee: null,
             createdAt: now,
             updatedAt: now,
             createdBy: "agent",
-            source: { type: "release-retrofit", retrofitFor: tgt.id },
+            source: { type: "feature-retrofit", retrofitFor: f.id },
             spec: {
-              description: `補 review/test/qa/docs for ${tgt.id}`,
+              description: `\u88dc ${needPhases.join("/")} for feature ${f.id}`,
               acceptanceCriteria: [
-                "review 完成（問題清單或 approve 紀錄）",
-                "關鍵路徑測試補齊且通過",
-                "qa 驗證原 task 驗收條件",
-                "docs 更新（API/README/changelog）",
+                "review \u5b8c\u6210\uff08\u554f\u984c\u6e05\u55ae\u6216 approve \u7d00\u9304\uff09",
+                "\u95dc\u9375\u8def\u5f91\u6e2c\u8a66\u88dc\u9f4a\u4e14\u901a\u904e",
+                "qa \u9a57\u8b49 feature \u529f\u80fd\u6b63\u5e38",
+                "docs \u66f4\u65b0\uff08README/API/changelog\uff09",
               ],
-              fileScope,
-              outOfScope: ["重新實作功能"],
+              fileScope: f.codeFiles || [],
+              outOfScope: ["\u91cd\u65b0\u5be6\u4f5c\u529f\u80fd", "\u5927\u5e45\u91cd\u69cb"],
             },
-            pipeline: {
-              spec:      { status: "done", by: "agent", at: now, note: `refer ${tgt.id}` },
-              implement: { status: "done", by: "agent", at: now, note: `original task ${tgt.id}` },
-              review:    { status: "pending" },
-              test:      { status: "pending" },
-              qa:        { status: "pending" },
-              docs:      { status: "pending" },
-              commit:    { status: "pending" },
-            },
+            pipeline: pipe,
             pipelinePhases: FULL,
             pipelineMode: "full",
             changes: { filesAdded: [], filesModified: [], filesDeleted: [] },
             git: { baseCommit: null, branch: null, staged: false, committedSha: null },
-            notes: [{ text: `由 task_retrofit 自動生成，來源 ${tgt.id}`, at: now, by: "agent" }],
+            notes: [{ text: `\u7531 task_retrofit \u81ea\u52d5\u751f\u6210\uff0c\u4f86\u6e90 feature ${f.id}`, at: now, by: "agent" }],
             discussion: [],
           });
-          created.push(id);
+          created.push(`${id}(${f.id} ${f.name}${needPhases.length < 4 ? ", \u88dc" + needPhases.join("/") : ""})`);
         }
         if (created.length > 0) {
           data.updatedAt = now;
           await writeFile(tasksFile, JSON.stringify(data, null, 2), "utf-8");
         }
-        const skipped = targets.length - created.length;
-        return `\u2705 Release retrofit：掃到 ${targets.length} 個短版結案 task，新建 ${created.length} 個品質補強 task${skipped > 0 ? `（${skipped} 個已有 retrofit，略過）` : ""}${created.length ? "\n新建：" + created.join(", ") : "\n（沒有需要補的）"}`;
+        return `\u2705 Release retrofit\uff08feature map \u7248\uff09\uff1a\u6383\u5230 ${features.length} \u500b active feature\uff0c\u65b0\u5efa ${created.length} \u500b\u54c1\u8cea\u88dc\u5f37 task${skipped.length ? `\uff08${skipped.length} \u500b\u5df2\u6709\u672a\u7d50\u6848 retrofit\uff0c\u7565\u904e\uff1a${skipped.join(", ")}\uff09` : ""}${created.length ? "\n\u65b0\u5efa\uff1a\n" + created.map(c => "- " + c).join("\n") : "\n\uff08\u6c92\u6709\u9700\u8981\u88dc\u7684\uff09"}`;
       }
 
       case "task_decompose": {
@@ -2978,7 +3007,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
 
   // Tool overview (compact — full schemas are sent via function-calling format)
   parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/decisions/standards/changelog/issues/features/feature_detail/runbook/faq/test_map/security/recent_changes\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_mapping\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\nreference_read(action=list|read|search, source=workspace|knowledge) → browse/read/search reference files in workspace/ and knowledge/ (read-only, for finding existing code examples and docs)\ntask_list(id?, status?, pipelinePhase?, type?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task with pipeline\ntask_update(id, action=update|advance|reject|note|assign, ...) → update task, advance/reject pipeline phase, add notes\ntask_decompose(parentId, subTasks) → split a large task into sub-tasks
-task_retrofit(priority?, targetIds?) → 上線前品質補強：批次為短版 pipeline 結案的 task 建立補 review/test/qa/docs 的全版 task\ndispatch_agent(agentId, task, taskId?) → dispatch work to another agent (architect/developer/tester/doc-writer/qa/helpdesk)\ncu_refresh, record_decision, docs(action=...), action_log_add/list, agent_memory_save/load`);
+task_retrofit(priority?, featureIds?) → 上線前品質補強：從 feature map 每個 active feature 建一個補 review/test/qa/docs 的全版 task（以代碼現況為準，非歷史 task）\ndispatch_agent(agentId, task, taskId?) → dispatch work to another agent (architect/developer/tester/doc-writer/qa/helpdesk)\ncu_refresh, record_decision, docs(action=...), action_log_add/list, agent_memory_save/load`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);
