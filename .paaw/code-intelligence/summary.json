@@ -1,41 +1,41 @@
 {
-  "generatedAt": "2026-07-19T02:45:58.623Z",
-  "filesParsed": 182,
-  "totalFiles": 187,
+  "generatedAt": "2026-08-15T06:35:48.180Z",
+  "filesParsed": 259,
+  "totalFiles": 265,
   "languages": {
-    "typescript": 36,
-    "javascript": 72,
-    "tsx": 79
+    "typescript": 47,
+    "javascript": 122,
+    "tsx": 96
   },
   "callGraph": {
-    "totalFunctions": 865,
-    "totalCalls": 1639,
-    "resolvedCalls": 128,
-    "unresolvedCalls": 1511
+    "totalFunctions": 1199,
+    "totalCalls": 1986,
+    "resolvedCalls": 151,
+    "unresolvedCalls": 1835
   },
   "apiFunctionMap": {
-    "totalRoutes": 91,
+    "totalRoutes": 126,
     "withHandler": 2,
-    "withoutHandler": 89
+    "withoutHandler": 124
   },
   "dependencyGraph": {
-    "totalFiles": 182,
-    "totalEdges": 294,
-    "resolvedImports": 294,
-    "unresolvedImports": 426
+    "totalFiles": 259,
+    "totalEdges": 414,
+    "resolvedImports": 414,
+    "unresolvedImports": 571
   },
   "testCodeMap": {
-    "totalTestFiles": 12,
-    "matchedTests": 116,
+    "totalTestFiles": 29,
+    "matchedTests": 176,
     "totalTestedFunctions": 0
   },
   "symbolIndex": {
-    "total": 1533,
-    "functions": 875,
-    "classes": 25,
-    "exports": 407,
-    "routes": 91,
-    "components": 135
+    "total": 2103,
+    "functions": 1209,
+    "classes": 27,
+    "exports": 581,
+    "routes": 126,
+    "components": 160
   },
   "outputFiles": [
     "call-graph.json",

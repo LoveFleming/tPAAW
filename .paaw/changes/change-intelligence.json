@@ -1,1430 +1,2000 @@
 {
-  "generatedAt": "2026-07-19T02:45:59.033Z",
+  "generatedAt": "2026-08-15T06:35:49.094Z",
   "period": "30 days",
   "commits": [
     {
-      "hash": "f7a39fd",
+      "hash": "3e42cad1",
       "author": "LoveFleming",
-      "date": "2026-07-19T02:45:35.000Z",
-      "subject": "fix(night-shift): fix polling bugs in EMDashboard and NightShiftPanel",
+      "date": "2026-08-15T06:18:29.000Z",
+      "subject": "feat(em): Code Understanding 生命週期狀態 — 5 phase 狀態條，代碼尚少不催",
       "fileCount": 2,
       "files": [
-        "packages/ui/src/components/EMDashboard.tsx",
-        "packages/ui/src/components/NightShiftPanel.tsx"
-      ]
-    },
-    {
-      "hash": "65df51b",
-      "author": "LoveFleming",
-      "date": "2026-07-19T02:42:24.000Z",
-      "subject": "feat: all AI chat surfaces now use shared MarkdownText renderer",
-      "fileCount": 8,
-      "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/s-2026-07-19T02-25-08.json",
-        "data/config/recent-projects.json",
-        "packages/ui/src/components/AgentConsole.tsx",
-        "packages/ui/src/components/EMDashboard.tsx",
-        "packages/ui/src/components/MarkdownText.tsx",
-        "packages/ui/src/components/ProjectAiPanel.tsx"
-      ]
-    },
-    {
-      "hash": "9441c67",
-      "author": "LoveFleming",
-      "date": "2026-07-19T02:41:43.000Z",
-      "subject": "fix(coding): remove dead legacy route /api/coding-crew/overnight-report",
-      "fileCount": 1,
-      "files": [
-        "packages/server/src/routes/coding.mjs"
-      ]
-    },
-    {
-      "hash": "d8e5d73",
-      "author": "LoveFleming",
-      "date": "2026-07-19T02:40:18.000Z",
-      "subject": "fix(night-shift): resolve status.json race condition with atomic updateStatusFile",
-      "fileCount": 1,
-      "files": [
-        "packages/server/src/routes/coding-night-shift.mjs"
-      ]
-    },
-    {
-      "hash": "5b80c26",
-      "author": "LoveFleming",
-      "date": "2026-07-19T02:23:16.000Z",
-      "subject": "fix: remove message count badge from EM session list",
-      "fileCount": 3,
-      "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
+        "packages/server/src/routes/coding.mjs",
         "packages/ui/src/components/EMDashboard.tsx"
       ]
     },
     {
-      "hash": "71c3370",
+      "hash": "620ae31c",
       "author": "LoveFleming",
-      "date": "2026-07-19T02:19:11.000Z",
-      "subject": "feat: EM 新對話 now archives active + sessions history dropdown",
-      "fileCount": 4,
-      "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.architect/active.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        "packages/ui/src/components/EMDashboard.tsx"
-      ]
-    },
-    {
-      "hash": "63c3254",
-      "author": "LoveFleming",
-      "date": "2026-07-19T02:10:53.000Z",
-      "subject": "feat: EM 大總管 gets own crew, ai-settings prompt, and A2A endpoint",
-      "fileCount": 7,
-      "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        "data/ai-settings/em/system-prompt.md",
-        "data/config/recent-projects.json",
-        "data/crews/coding.em.json",
-        "packages/server/src/lib/domain-agent-registry.mjs",
-        "packages/ui/src/components/EMDashboard.tsx"
-      ]
-    },
-    {
-      "hash": "f12cb0e",
-      "author": "LoveFleming",
-      "date": "2026-07-19T02:01:16.000Z",
-      "subject": "style: EM work plan now renders as structured markdown with icons",
-      "fileCount": 7,
-      "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/actions.jsonl",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        ".paaw/issues/ISSUES.json",
-        ".paaw/sessions/2026-07-19-task.md",
-        "data/config/recent-projects.json",
-        "packages/ui/src/components/EMDashboard.tsx"
-      ]
-    },
-    {
-      "hash": "3a8ed8a",
-      "author": "LoveFleming",
-      "date": "2026-07-19T01:55:44.000Z",
-      "subject": "fix: A2A agent dispatch now passes model override via metadata",
+      "date": "2026-08-15T05:48:06.000Z",
+      "subject": "fix(em): 無 .paaw 專案 Code Understanding 視窗沒出現 — 兩處修復",
       "fileCount": 1,
       "files": [
-        "packages/server/src/lib/overnight-manager.mjs"
+        "packages/ui/src/components/EMDashboard.tsx"
       ]
     },
     {
-      "hash": "1635bc5",
+      "hash": "19baa3a3",
       "author": "LoveFleming",
-      "date": "2026-07-19T01:53:45.000Z",
-      "subject": "feat: add console.log for every Night Shift phase (EM + Parallel)",
-      "fileCount": 4,
-      "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        "data/config/recent-projects.json",
-        "packages/server/src/lib/overnight-manager.mjs"
-      ]
-    },
-    {
-      "hash": "ea05ec2",
-      "author": "LoveFleming",
-      "date": "2026-07-19T01:45:35.000Z",
-      "subject": "feat: add force reset button for stuck Night Shift status",
-      "fileCount": 5,
-      "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        "data/config/recent-projects.json",
-        "packages/server/src/routes/coding-night-shift.mjs",
-        "packages/ui/src/components/NightShiftPanel.tsx"
-      ]
-    },
-    {
-      "hash": "5d8350c",
-      "author": "LoveFleming",
-      "date": "2026-07-19T01:40:20.000Z",
-      "subject": "fix: A2A agent call now retries on fetch failed (up to 2 retries)",
-      "fileCount": 8,
-      "files": [
-        ".paaw/CHANGELOG.md",
-        ".paaw/agent-memory/tester.md",
-        ".paaw/changes/change-records.json",
-        ".paaw/coding-memory/actions.jsonl",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        ".paaw/features/FEATURES.json",
-        ".paaw/sessions/2026-07-19-task.md",
-        "packages/server/src/lib/overnight-manager.mjs"
-      ]
-    },
-    {
-      "hash": "7803170",
-      "author": "LoveFleming",
-      "date": "2026-07-19T01:34:42.000Z",
-      "subject": "test: add 54 unit tests for night-shift-shared.mjs",
+      "date": "2026-08-15T05:41:46.000Z",
+      "subject": "fix(ide): 重 import 無 .paaw 的 release unit 回初始狀態，不還原舊 tabs",
       "fileCount": 1,
       "files": [
-        "tests/unit/night-shift-shared.test.mjs"
+        "packages/ui/src/pages/CodingIDE.tsx"
       ]
     },
     {
-      "hash": "4b9f16c",
+      "hash": "0aa69206",
       "author": "LoveFleming",
-      "date": "2026-07-19T01:31:08.000Z",
-      "subject": "fix: EM auto-dispatch now reads night-shift config for model settings",
-      "fileCount": 5,
-      "files": [
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        ".paaw/night-shift/config.json",
-        "data/config/recent-projects.json",
-        "data/config/user.json",
-        "packages/server/src/routes/coding.mjs"
-      ]
-    },
-    {
-      "hash": "f1851c8",
-      "author": "LoveFleming",
-      "date": "2026-07-19T01:26:04.000Z",
-      "subject": "fix: ModelSelector dropdown opens upward (bottom-full) to avoid clipping",
+      "date": "2026-08-15T05:30:15.000Z",
+      "subject": "feat(ru): Loop Mode 切換進 RU 工具箱 — 開發者自選 mini/full",
       "fileCount": 6,
       "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        ".paaw/night-shift/status.json",
-        "data/config/recent-projects.json",
-        "data/config/user.json",
-        "packages/ui/src/components/ModelSelector.tsx"
+        "packages/server/src/routes/release-unit.mjs",
+        "packages/ui/src/components/ReleaseUnitPanel.tsx",
+        "packages/ui/src/i18n/locales/en.json",
+        "packages/ui/src/i18n/locales/ja.json",
+        "packages/ui/src/i18n/locales/zh-mix.json",
+        "packages/ui/src/i18n/locales/zh.json"
       ]
     },
     {
-      "hash": "e0815bb",
+      "hash": "1c9cd196",
       "author": "LoveFleming",
-      "date": "2026-07-19T01:20:26.000Z",
-      "subject": "refactor: remove Agent Activity + Overnight Report from EM Dashboard",
-      "fileCount": 4,
+      "date": "2026-08-15T04:30:03.000Z",
+      "subject": "feat(ui): 無 .paaw 空狀態一鍵初始化 — RU 工具箱 + 專案知識面板",
+      "fileCount": 6,
       "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        "data/config/recent-projects.json",
-        "packages/ui/src/components/EMDashboard.tsx"
+        "packages/ui/src/components/EMDashboard.tsx",
+        "packages/ui/src/components/ReleaseUnitPanel.tsx",
+        "packages/ui/src/i18n/locales/en.json",
+        "packages/ui/src/i18n/locales/ja.json",
+        "packages/ui/src/i18n/locales/zh-mix.json",
+        "packages/ui/src/i18n/locales/zh.json"
       ]
     },
     {
-      "hash": "afe8b0d",
+      "hash": "d446454e",
       "author": "LoveFleming",
-      "date": "2026-07-19T01:15:26.000Z",
-      "subject": "refactor: remove Project Status card from EM Dashboard",
-      "fileCount": 1,
+      "date": "2026-08-15T04:11:30.000Z",
+      "subject": "chore(release-unit): tPAAW 自身 gates.json 進版控 + metrics-cache 進 gitignore",
+      "fileCount": 2,
       "files": [
-        "packages/ui/src/components/EMDashboard.tsx"
+        ".gitignore",
+        ".paaw/gates.json"
       ]
     },
     {
-      "hash": "89ec3e7",
+      "hash": "6ddd1b63",
       "author": "LoveFleming",
-      "date": "2026-07-19T01:13:17.000Z",
-      "subject": "refactor: simplify EM Dashboard — remove date picker, git changes panel, last-run info",
-      "fileCount": 4,
-      "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        "data/config/recent-projects.json",
-        "packages/ui/src/components/EMDashboard.tsx"
-      ]
-    },
-    {
-      "hash": "4c11c19",
-      "author": "LoveFleming",
-      "date": "2026-07-19T01:02:43.000Z",
-      "subject": "refactor: remove legacy overnight-reports backward compat",
-      "fileCount": 3,
-      "files": [
-        "packages/server/src/lib/night-shift-shared.mjs",
-        "packages/server/src/routes/coding-night-shift.mjs",
-        "packages/server/src/routes/coding-reports.mjs"
-      ]
-    },
-    {
-      "hash": "19e1963",
-      "author": "LoveFleming",
-      "date": "2026-07-19T00:58:39.000Z",
-      "subject": "feat: unify Night Shift + EM overnight + Reports into single system",
-      "fileCount": 14,
-      "files": [
-        "backups/backup-2026-07-14T16-00-03.json",
-        "backups/backup-2026-07-18T16-00-28.json",
-        "backups/backup-2026-07-18T16-00-28.tar.gz",
-        "data/config/backup.json",
-        "data/config/distilled-memory/2026-07-19-030000-chat_1782553565770.md",
-        "data/config/distilled-memory/index.json",
-        "packages/server/src/lib/night-shift-shared.mjs",
-        "packages/server/src/lib/overnight-manager.mjs",
-        "packages/server/src/routes/coding-night-shift-config.mjs",
-        "packages/server/src/routes/coding-night-shift.mjs"
-      ]
-    },
-    {
-      "hash": "eaa7aa4",
-      "author": "LoveFleming",
-      "date": "2026-07-19T00:36:42.000Z",
-      "subject": "feat: add commit-only-no-push hard rule to AGENT_RULES",
-      "fileCount": 1,
-      "files": [
-        "packages/server/src/lib/agent-rules.mjs"
-      ]
-    },
-    {
-      "hash": "17bd1e2",
-      "author": "LoveFleming",
-      "date": "2026-07-18T14:39:41.000Z",
-      "subject": "feat: Night Shift prompts moved to config file — editable via API",
-      "fileCount": 4,
-      "files": [
-        ".paaw/night-shift/prompts.json",
-        "packages/server/src/paaw-server.mjs",
-        "packages/server/src/routes/coding-night-shift-prompts.mjs",
-        "packages/server/src/routes/coding-night-shift.mjs"
-      ]
-    },
-    {
-      "hash": "5c35004",
-      "author": "LoveFleming",
-      "date": "2026-07-18T14:32:04.000Z",
-      "subject": "fix: Night Shift model settings — use ModelSelector dropdowns",
-      "fileCount": 4,
-      "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        "data/config/recent-projects.json",
-        "packages/ui/src/components/NightShiftPanel.tsx"
-      ]
-    },
-    {
-      "hash": "ec36432",
-      "author": "LoveFleming",
-      "date": "2026-07-18T14:28:09.000Z",
-      "subject": "feat: Night Shift settings — schedule, model, fallback chain",
-      "fileCount": 20,
-      "files": [
-        ".paaw/CHANGELOG.md",
-        ".paaw/DECISIONS.md",
-        ".paaw/coding-memory/actions.jsonl",
-        ".paaw/features/FEATURES.json",
-        ".paaw/helpdesk/faq.md",
-        ".paaw/issues/ISSUES.json",
-        ".paaw/night-shift/config.json",
-        ".paaw/night-shift/report.md",
-        ".paaw/night-shift/status.json",
-        ".paaw/sessions/2026-07-18-night-shift-task-architecture-review-todays-git-changes-a10b.md"
-      ]
-    },
-    {
-      "hash": "a10ba61",
-      "author": "LoveFleming",
-      "date": "2026-07-18T14:17:13.000Z",
-      "subject": "fix: Reports tab — render markdown instead of plain text",
-      "fileCount": 4,
-      "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        "data/config/recent-projects.json",
-        "packages/ui/src/components/ReportsTab.tsx"
-      ]
-    },
-    {
-      "hash": "9d23f26",
-      "author": "LoveFleming",
-      "date": "2026-07-18T14:14:49.000Z",
-      "subject": "feat: Reports tab — EM report list + viewer with API",
+      "date": "2026-08-15T04:11:12.000Z",
+      "subject": "feat(release-unit): Phase 4 Tool 化+UI — ru_* agent tools + Release Unit 工具箱面板（含 empty state 引導）",
       "fileCount": 13,
       "files": [
-        ".paaw/CHANGELOG.md",
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/actions.jsonl",
-        ".paaw/coding-memory/conversations/coding.developer/active.json",
-        ".paaw/coding-memory/conversations/coding.developer/s-2026-07-18T13-57-33.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        ".paaw/coding-memory/dispatch-log.jsonl",
-        ".paaw/security/scan-results.json",
-        "data/config/recent-projects.json",
+        "data/crews/coding.architect.json",
+        "data/crews/coding.developer.json",
+        "data/crews/coding.em.json",
+        "data/crews/coding.qa.json",
+        "data/crews/coding.tester.json",
+        "packages/server/src/lib/paaw-agent-loop.mjs",
+        "packages/server/src/routes/release-unit.mjs",
+        "packages/ui/src/components/ReleaseUnitPanel.tsx",
+        "packages/ui/src/i18n/locales/en.json",
+        "packages/ui/src/i18n/locales/ja.json"
+      ]
+    },
+    {
+      "hash": "e923a38b",
+      "author": "LoveFleming",
+      "date": "2026-08-15T04:04:57.000Z",
+      "subject": "feat(release-unit): Phase 3 AI 互動+契約 — ask/apis/specs/releases/evidence",
+      "fileCount": 3,
+      "files": [
+        "packages/server/src/lib/release-unit/apis.mjs",
+        "packages/server/src/lib/release-unit/ask.mjs",
+        "packages/server/src/routes/release-unit.mjs"
+      ]
+    },
+    {
+      "hash": "81ca0ca1",
+      "author": "LoveFleming",
+      "date": "2026-08-15T04:02:30.000Z",
+      "subject": "feat(release-unit): Phase 2 觀測+治理 — metrics/analyze/gates/tests/features/runbooks/changes",
+      "fileCount": 5,
+      "files": [
+        "packages/server/src/lib/release-unit/analyze.mjs",
+        "packages/server/src/lib/release-unit/dependencies.mjs",
+        "packages/server/src/lib/release-unit/gates.mjs",
+        "packages/server/src/lib/release-unit/metrics.mjs",
+        "packages/server/src/routes/release-unit.mjs"
+      ]
+    },
+    {
+      "hash": "0fa9fea4",
+      "author": "LoveFleming",
+      "date": "2026-08-15T03:58:45.000Z",
+      "subject": "feat(release-unit): Phase 1 核心防線 — 依賴圖/影響分析/驗證/模組視圖 + /api/ru/* routes",
+      "fileCount": 8,
+      "files": [
+        ".gitignore",
+        "packages/server/src/lib/release-unit/adapters.mjs",
+        "packages/server/src/lib/release-unit/architecture.mjs",
+        "packages/server/src/lib/release-unit/dependencies.mjs",
+        "packages/server/src/lib/release-unit/impact.mjs",
+        "packages/server/src/lib/release-unit/verify.mjs",
+        "packages/server/src/paaw-server.mjs",
+        "packages/server/src/routes/release-unit.mjs"
+      ]
+    },
+    {
+      "hash": "fb3988a9",
+      "author": "LoveFleming",
+      "date": "2026-08-15T03:55:51.000Z",
+      "subject": "fix(server): raw http res 補上 status()/json() — 4e4e597f 三個 route 的 Express 風格回應全炸",
+      "fileCount": 1,
+      "files": [
         "packages/server/src/paaw-server.mjs"
       ]
     },
     {
-      "hash": "357e7ea",
+      "hash": "d247b02b",
       "author": "LoveFleming",
-      "date": "2026-07-18T14:03:30.000Z",
-      "subject": "fix: replace JSON.stringify with json-stable-stringify in refinery weeklyRefine",
-      "fileCount": 2,
+      "date": "2026-08-15T03:52:32.000Z",
+      "subject": "fix(server): 修正 coding-releases/ops/handover 路由 fallthrough — next?.() ?? true 會吞掉後續路由",
+      "fileCount": 3,
       "files": [
-        "packages/context/package.json",
-        "packages/context/src/refinery/refinery.ts"
+        "packages/server/src/routes/coding-handover.mjs",
+        "packages/server/src/routes/coding-ops.mjs",
+        "packages/server/src/routes/coding-releases.mjs"
       ]
     },
     {
-      "hash": "cea2539",
+      "hash": "4e4e597f",
       "author": "LoveFleming",
-      "date": "2026-07-18T07:09:35.000Z",
-      "subject": "fix(coding): Code Understanding — same 3 fixes as refresh-mapping",
-      "fileCount": 2,
+      "date": "2026-08-15T03:43:23.000Z",
+      "subject": "feat(coding-app): Release Manager / Handover / Troubleshooting 三面板 + rm/handover/ops agents",
+      "fileCount": 17,
       "files": [
-        "packages/server/src/routes/coding.mjs",
+        "data/crews/coding.handover.json",
+        "data/crews/coding.ops.json",
+        "data/crews/coding.rm.json",
+        "packages/server/src/lib/domain-agent-registry.mjs",
+        "packages/server/src/paaw-server.mjs",
+        "packages/server/src/routes/coding-handover.mjs",
+        "packages/server/src/routes/coding-ops.mjs",
+        "packages/server/src/routes/coding-releases.mjs",
+        "packages/ui/src/components/AgentSideChat.tsx",
+        "packages/ui/src/components/HandoverPanel.tsx"
+      ]
+    },
+    {
+      "hash": "59bd2b17",
+      "author": "LoveFleming",
+      "date": "2026-08-15T01:19:09.000Z",
+      "subject": "fix(ui): 聊天時間戳跨日顯示日期 — 共用 fmtChatTime",
+      "fileCount": 5,
+      "files": [
+        "packages/ui/src/components/ChatMessages.tsx",
+        "packages/ui/src/pages/A2APlayground.tsx",
+        "packages/ui/src/pages/AppBuilder.tsx",
+        "packages/ui/src/pages/ChatView.tsx",
+        "packages/ui/src/utils/index.ts"
+      ]
+    },
+    {
+      "hash": "f7f76d0e",
+      "author": "LoveFleming",
+      "date": "2026-08-15T00:59:48.000Z",
+      "subject": "feat(em): Loop Mode 開關進 EM Dashboard — mini/full 一鍵切換",
+      "fileCount": 3,
+      "files": [
+        "packages/server/src/routes/coding-tasks.mjs",
+        "packages/ui/src/components/EMDashboard.tsx",
         "packages/ui/src/pages/CodingIDE.tsx"
       ]
     },
     {
-      "hash": "34def2e",
+      "hash": "63f803bb",
       "author": "LoveFleming",
-      "date": "2026-07-18T06:55:57.000Z",
-      "subject": "feat(l3): AI feature discovery from orphan files + coverage improvement",
+      "date": "2026-08-15T00:29:09.000Z",
+      "subject": "fix(em): 專案知識面板 5 個檔案路徑改用 .paaw 子目錄結構",
+      "fileCount": 1,
+      "files": [
+        "packages/ui/src/components/EMDashboard.tsx"
+      ]
+    },
+    {
+      "hash": "30a96276",
+      "author": "LoveFleming",
+      "date": "2026-08-15T00:17:31.000Z",
+      "subject": "fix(code-health): 修復重新掃描按鈕 + /recent API 400",
       "fileCount": 2,
       "files": [
-        ".paaw/features/FEATURES.json",
-        "packages/server/src/routes/coding-features.mjs"
+        "packages/server/src/routes/coding.mjs",
+        "packages/ui/src/components/EMDashboard.tsx"
       ]
     },
     {
-      "hash": "dbc4b3f",
+      "hash": "444eef21",
       "author": "LoveFleming",
-      "date": "2026-07-18T06:41:39.000Z",
-      "subject": "feat(l3): Layer 3 feature map validation — deterministic checks on AI output",
-      "fileCount": 5,
-      "files": [
-        "packages/server/src/lib/feature-map-validator.mjs",
-        "packages/server/src/lib/overnight-manager.mjs",
-        "packages/server/src/routes/coding-features.mjs",
-        "packages/server/src/routes/coding-health.mjs",
-        "packages/server/src/routes/coding-night-shift.mjs"
-      ]
-    },
-    {
-      "hash": "ea7acd4",
-      "author": "LoveFleming",
-      "date": "2026-07-18T04:23:32.000Z",
-      "subject": "feat(features): generate AI understanding for all 9 features (9/9)",
-      "fileCount": 1,
-      "files": [
-        ".paaw/features/FEATURES.json"
-      ]
-    },
-    {
-      "hash": "f7e4b3a",
-      "author": "LoveFleming",
-      "date": "2026-07-18T04:18:15.000Z",
-      "subject": "fix(health): check .paaw/project/ for CODING-STANDARDS.md + fix issues wrapper",
-      "fileCount": 1,
-      "files": [
-        "packages/server/src/routes/coding-health.mjs"
-      ]
-    },
-    {
-      "hash": "f8d49ed",
-      "author": "LoveFleming",
-      "date": "2026-07-18T03:59:07.000Z",
-      "subject": "feat(coding): add health check endpoint + Night Shift timeout protection",
+      "date": "2026-08-14T15:05:31.000Z",
+      "subject": "feat(repair-loop): 方案 C 有界修復迴圈 — TEST fail 自動退回 developer 重做",
       "fileCount": 8,
       "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        ".paaw/night-shift/status.json",
-        ".paaw/security/scan-results.json",
-        "data/config/recent-projects.json",
+        "packages/server/src/routes/coding-evidence.mjs",
+        "packages/server/src/routes/coding-tasks.mjs",
+        "packages/ui/src/components/EvidenceCard.tsx",
+        "packages/ui/src/i18n/locales/en.json",
+        "packages/ui/src/i18n/locales/ja.json",
+        "packages/ui/src/i18n/locales/zh-mix.json",
+        "packages/ui/src/i18n/locales/zh.json",
+        "tests/unit/repair-loop.test.mjs"
+      ]
+    },
+    {
+      "hash": "33a48730",
+      "author": "LoveFleming",
+      "date": "2026-08-14T12:28:55.000Z",
+      "subject": "feat(evidence): Evidence Package 決策卡 — 人 review 證據，不 review 碼",
+      "fileCount": 9,
+      "files": [
         "packages/server/src/paaw-server.mjs",
-        "packages/server/src/routes/coding-health.mjs",
-        "packages/server/src/routes/coding-night-shift.mjs"
+        "packages/server/src/routes/coding-evidence.mjs",
+        "packages/ui/src/components/EvidenceCard.tsx",
+        "packages/ui/src/components/TaskBoard.tsx",
+        "packages/ui/src/i18n/locales/en.json",
+        "packages/ui/src/i18n/locales/ja.json",
+        "packages/ui/src/i18n/locales/zh-mix.json",
+        "packages/ui/src/i18n/locales/zh.json",
+        "tests/unit/coding-evidence.test.mjs"
       ]
     },
     {
-      "hash": "f710892",
+      "hash": "a2da998e",
       "author": "LoveFleming",
-      "date": "2026-07-18T01:17:04.000Z",
-      "subject": "fix(security): restore full language --include list, rely on --exclude data/semgrep-rules",
-      "fileCount": 1,
+      "date": "2026-08-10T12:25:57.000Z",
+      "subject": "fix(auto-dispatch): fix undefined projectRoot bug + fix cross-platform security test",
+      "fileCount": 15,
       "files": [
-        "packages/server/src/lib/semgrep-runner.mjs"
+        ".openclaw/workspace-state.json",
+        "AGENTS.md",
+        "HEARTBEAT.md",
+        "IDENTITY.md",
+        "SOUL.md",
+        "TOOLS.md",
+        "USER.md",
+        "data/config/backup.json",
+        "data/notes/notebooks.json",
+        "data/ui-state.json"
       ]
     },
     {
-      "hash": "00811f9",
+      "hash": "6465e421",
       "author": "LoveFleming",
-      "date": "2026-07-18T01:13:44.000Z",
-      "subject": "fix(security): only scan JS/TS, exclude semgrep-rules dir + non-web languages",
-      "fileCount": 1,
+      "date": "2026-08-10T12:24:16.000Z",
+      "subject": "test(unit): add 5-phase unit tests — i18n, llm-utils, truncation, execution-plan, security",
+      "fileCount": 5,
       "files": [
-        "packages/server/src/lib/semgrep-runner.mjs"
+        "tests/unit/coding-security-extended.test.mjs",
+        "tests/unit/context-truncation.test.mjs",
+        "tests/unit/execution-plan.test.mjs",
+        "tests/unit/i18n-consistency.test.ts",
+        "tests/unit/llm-utils.test.mjs"
       ]
     },
     {
-      "hash": "931f222",
+      "hash": "63871e54",
       "author": "LoveFleming",
-      "date": "2026-07-18T01:11:47.000Z",
-      "subject": "fix(ux): instant scroll to bottom instead of smooth animation",
-      "fileCount": 1,
-      "files": [
-        "packages/ui/src/components/EMDashboard.tsx"
-      ]
-    },
-    {
-      "hash": "0b1c947",
-      "author": "LoveFleming",
-      "date": "2026-07-18T01:08:49.000Z",
-      "subject": "fix(ux): don't auto-scroll EM chat to bottom on initial load",
-      "fileCount": 1,
-      "files": [
-        "packages/ui/src/components/EMDashboard.tsx"
-      ]
-    },
-    {
-      "hash": "146aafb",
-      "author": "LoveFleming",
-      "date": "2026-07-18T01:00:01.000Z",
-      "subject": "fix(security): use --include to only scan source code files, not JSON/MD/data",
-      "fileCount": 1,
-      "files": [
-        "packages/server/src/lib/semgrep-runner.mjs"
-      ]
-    },
-    {
-      "hash": "63b0098",
-      "author": "LoveFleming",
-      "date": "2026-07-18T00:48:38.000Z",
-      "subject": "feat(em): pass ModelSelector model to EM/Night Shift + Phase 0 feature map refresh",
-      "fileCount": 21,
-      "files": [
-        ".paaw/CHANGELOG.md",
-        ".paaw/DECISIONS.md",
-        ".paaw/agent-memory/tester.md",
-        ".paaw/changes/change-records.json",
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/code-intelligence/test-intelligence.json",
-        ".paaw/coding-memory/actions.jsonl",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        ".paaw/features/FEATURES.json",
-        ".paaw/issues/ISSUES.json"
-      ]
-    },
-    {
-      "hash": "0f868bc",
-      "author": "LoveFleming",
-      "date": "2026-07-18T00:17:17.000Z",
-      "subject": "chore: cleanup old backups and add new backup 2026-07-17",
+      "date": "2026-08-10T12:17:47.000Z",
+      "subject": "fix(i18n): complete locale keys + replace hardcoded strings with t()",
       "fileCount": 6,
       "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        "backups/backup-2026-07-17T16-00-17.json",
-        "backups/backup-2026-07-17T16-00-17.tar.gz",
-        "data/config/backup.json",
-        "data/config/recent-projects.json"
+        "packages/ui/src/App.tsx",
+        "packages/ui/src/i18n/locales/en.json",
+        "packages/ui/src/i18n/locales/ja.json",
+        "packages/ui/src/i18n/locales/zh-mix.json",
+        "packages/ui/src/i18n/locales/zh.json",
+        "packages/ui/src/pages/WorkflowEditor.tsx"
       ]
     },
     {
-      "hash": "2ecb9b6",
+      "hash": "3e9779e1",
       "author": "LoveFleming",
-      "date": "2026-07-17T14:39:32.000Z",
-      "subject": "fix: agent loop maxTurns fallback — use effectiveMaxTurns in both runAgentLoop and runAgentLoopStream",
-      "fileCount": 4,
+      "date": "2026-08-10T03:39:05.000Z",
+      "subject": "test(e2e): comprehensive Playwright E2E test suite (135 tests)",
+      "fileCount": 12,
       "files": [
-        ".paaw/coding-memory/actions.jsonl",
-        ".paaw/overnight-reports/2026-07-17.md",
-        ".paaw/sessions/2026-07-17-task.md",
-        "packages/server/src/lib/paaw-agent-loop.mjs"
+        "tests/e2e/01-smoke.spec.ts",
+        "tests/e2e/02-settings.spec.ts",
+        "tests/e2e/03-notes.spec.ts",
+        "tests/e2e/04-pages.spec.ts",
+        "tests/e2e/05-api.spec.ts",
+        "tests/e2e/06-chat.spec.ts",
+        "tests/e2e/07-skills.spec.ts",
+        "tests/e2e/08-apps.spec.ts",
+        "tests/e2e/09-coding.spec.ts",
+        "tests/e2e/10-execution.spec.ts"
       ]
     },
     {
-      "hash": "9556e54",
+      "hash": "6d81b911",
       "author": "LoveFleming",
-      "date": "2026-07-17T14:30:43.000Z",
-      "subject": "fix: _readBody not defined in coding.mjs em-run route",
-      "fileCount": 4,
+      "date": "2026-08-04T13:53:50.000Z",
+      "subject": "fix(code-health): 測試覆蓋率讀 CU test-intelligence + refresh API",
+      "fileCount": 9,
       "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
+        ".paaw/cu-debug.log",
         "data/config/recent-projects.json",
+        "logs/vibe-sessions/pty-1785850791285-4w7o.log",
+        "logs/vibe-sessions/pty-1785850988996-sgbr.json",
+        "logs/vibe-sessions/pty-1785850988996-sgbr.log",
+        "packages/server/src/lib/paaw-project.mjs",
+        "packages/server/src/routes/coding-tasks.mjs",
+        "packages/server/src/routes/coding.mjs",
+        "packages/ui/src/components/EMDashboard.tsx"
+      ]
+    },
+    {
+      "hash": "80c906b9",
+      "author": "LoveFleming",
+      "date": "2026-08-04T13:40:41.000Z",
+      "subject": "feat(health): 派工修復訊息加「查看 Auto Dispatch」按鈕",
+      "fileCount": 8,
+      "files": [
+        "data/config/recent-projects.json",
+        "logs/vibe-sessions/pty-1785850266122-9jar.json",
+        "logs/vibe-sessions/pty-1785850266122-9jar.log",
+        "logs/vibe-sessions/pty-1785850791285-4w7o.json",
+        "logs/vibe-sessions/pty-1785850791285-4w7o.log",
+        "packages/ui/src/components/AutoDispatchPanel.tsx",
+        "packages/ui/src/components/EMDashboard.tsx",
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "hash": "1cc41fd6",
+      "author": "LoveFleming",
+      "date": "2026-08-04T13:29:51.000Z",
+      "subject": "feat(health): 派工修復改用 Execution Plan — 統一進 Auto Dispatch",
+      "fileCount": 6,
+      "files": [
+        "data/config/recent-projects.json",
+        "logs/vibe-sessions/pty-1785849009758-pqzh.json",
+        "logs/vibe-sessions/pty-1785849009758-pqzh.log",
+        "packages/server/src/routes/coding-tasks.mjs",
+        "packages/ui/src/components/AutoDispatchPanel.tsx",
+        "packages/ui/src/components/EMDashboard.tsx"
+      ]
+    },
+    {
+      "hash": "016001b8",
+      "author": "LoveFleming",
+      "date": "2026-08-04T13:06:33.000Z",
+      "subject": "feat(health): EM chat 訊息取代 alert + Auto Dispatch 顯示派工狀態 + 中斷按鈕",
+      "fileCount": 6,
+      "files": [
+        "data/config/recent-projects.json",
+        "logs/vibe-sessions/pty-1785848123594-khs1.json",
+        "logs/vibe-sessions/pty-1785848123594-khs1.log",
+        "packages/server/src/routes/coding-tasks.mjs",
+        "packages/ui/src/components/AutoDispatchPanel.tsx",
+        "packages/ui/src/components/EMDashboard.tsx"
+      ]
+    },
+    {
+      "hash": "680662c2",
+      "author": "LoveFleming",
+      "date": "2026-08-04T12:48:08.000Z",
+      "subject": "fix(health): 修 3 個壞路徑讓派工修復能跑",
+      "fileCount": 4,
+      "files": [
+        "data/config/recent-projects.json",
+        "logs/vibe-sessions/pty-1785847203711-0zdh.json",
+        "logs/vibe-sessions/pty-1785847203711-0zdh.log",
+        "packages/server/src/routes/coding-tasks.mjs"
+      ]
+    },
+    {
+      "hash": "132a1da6",
+      "author": "LoveFleming",
+      "date": "2026-08-04T12:37:36.000Z",
+      "subject": "fix: 移除重複的 cn import",
+      "fileCount": 1,
+      "files": [
+        "packages/ui/src/components/EMDashboard.tsx"
+      ]
+    },
+    {
+      "hash": "c1aa6d10",
+      "author": "LoveFleming",
+      "date": "2026-08-04T12:36:25.000Z",
+      "subject": "feat(em): 右側加「最近派工」區塊，點進去開 Auto Dispatch tab",
+      "fileCount": 4,
+      "files": [
+        "data/config/recent-projects.json",
+        "logs/vibe-sessions/pty-1785846806923-k05b.json",
+        "logs/vibe-sessions/pty-1785846806923-k05b.log",
+        "packages/ui/src/components/EMDashboard.tsx"
+      ]
+    },
+    {
+      "hash": "a78a8aca",
+      "author": "LoveFleming",
+      "date": "2026-08-04T12:30:34.000Z",
+      "subject": "cleanup: 移除 ProjectHealth 元件和所有引用",
+      "fileCount": 5,
+      "files": [
+        "data/config/recent-projects.json",
+        "logs/vibe-sessions/pty-1785846400318-o5b8.json",
+        "logs/vibe-sessions/pty-1785846400318-o5b8.log",
+        "packages/ui/src/components/ProjectHealth.tsx",
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "hash": "507f3ec6",
+      "author": "LoveFleming",
+      "date": "2026-08-04T12:03:01.000Z",
+      "subject": "feat(health): ProjectHealth 加進 CodingIDE toolbar — 🩺 Health tab",
+      "fileCount": 2,
+      "files": [
+        "data/config/recent-projects.json",
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "hash": "2f32620b",
+      "author": "LoveFleming",
+      "date": "2026-08-04T11:52:23.000Z",
+      "subject": "fix(em-dashboard): 🔧 按鈕改『派工修復』+ 直接走 health-fix API",
+      "fileCount": 4,
+      "files": [
+        "data/config/recent-projects.json",
+        "logs/vibe-sessions/pty-1785844074229-nbzg.json",
+        "logs/vibe-sessions/pty-1785844074229-nbzg.log",
+        "packages/ui/src/components/EMDashboard.tsx"
+      ]
+    },
+    {
+      "hash": "c501d43a",
+      "author": "LoveFleming",
+      "date": "2026-08-04T11:43:17.000Z",
+      "subject": "fix(health): 修掉派工修復不能跑的 3 個 bug",
+      "fileCount": 3,
+      "files": [
+        "packages/server/src/lib/running-agents.mjs",
+        "packages/server/src/routes/coding-tasks.mjs",
         "packages/server/src/routes/coding.mjs"
       ]
     },
     {
-      "hash": "66c6b29",
+      "hash": "e22211ce",
       "author": "LoveFleming",
-      "date": "2026-07-17T14:28:31.000Z",
-      "subject": "fix: EM auto-dispatch root cause — callLLM returns parsed object not fetch Response",
-      "fileCount": 3,
+      "date": "2026-08-04T11:35:05.000Z",
+      "subject": "feat(health): .paaw/ 每個缺失項目加 🔧 派工修復按鈕",
+      "fileCount": 7,
       "files": [
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
         "data/config/recent-projects.json",
-        "packages/server/src/lib/overnight-manager.mjs"
+        "logs/vibe-sessions/pty-1785842903920-en4j.json",
+        "logs/vibe-sessions/pty-1785842903920-en4j.log",
+        "logs/vibe-sessions/pty-1785842978798-nmzd.json",
+        "logs/vibe-sessions/pty-1785842978798-nmzd.log",
+        "packages/server/src/routes/coding.mjs",
+        "packages/ui/src/components/ProjectHealth.tsx"
       ]
     },
     {
-      "hash": "33a8c69",
+      "hash": "4f246da3",
       "author": "LoveFleming",
-      "date": "2026-07-17T14:21:59.000Z",
-      "subject": "fix: EM chat style matches CodingIDE — left-aligned with avatars",
-      "fileCount": 3,
-      "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        "packages/ui/src/components/EMDashboard.tsx"
-      ]
-    },
-    {
-      "hash": "8a5fcd8",
-      "author": "LoveFleming",
-      "date": "2026-07-17T14:17:42.000Z",
-      "subject": "fix: EM auto-dispatch shows nothing — SSE event format mismatch + better logging",
-      "fileCount": 4,
-      "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        "packages/server/src/lib/overnight-manager.mjs",
-        "packages/ui/src/components/EMDashboard.tsx"
-      ]
-    },
-    {
-      "hash": "82fe698",
-      "author": "LoveFleming",
-      "date": "2026-07-17T13:29:30.000Z",
-      "subject": "fix: batch bug fixes from code audit",
+      "date": "2026-08-04T11:26:55.000Z",
+      "subject": "feat(health): 自動 dispatch chain — 派工修復一鍵到底",
       "fileCount": 6,
       "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
         "data/config/recent-projects.json",
-        "packages/ui/src/components/EMDashboard.tsx",
-        "packages/ui/src/components/NightShiftPanel.tsx",
-        "packages/ui/src/pages/CodingIDE.tsx"
+        "logs/vibe-sessions/pty-1785842293105-u0it.json",
+        "logs/vibe-sessions/pty-1785842293105-u0it.log",
+        "packages/server/src/routes/coding-tasks.mjs",
+        "packages/server/src/routes/coding.mjs",
+        "packages/ui/src/components/ProjectHealth.tsx"
       ]
     },
     {
-      "hash": "9c8c299",
+      "hash": "fd10109c",
       "author": "LoveFleming",
-      "date": "2026-07-17T13:20:13.000Z",
-      "subject": "fix: EM Dashboard model selector — give it own model state",
+      "date": "2026-08-04T11:16:41.000Z",
+      "subject": "fix(timeout): estimatedMinutes 全改 60 + timeout 不中斷工作繼續下一個",
       "fileCount": 3,
       "files": [
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
+        "packages/server/src/lib/paaw-agent-loop.mjs",
+        "packages/server/src/routes/coding-tasks.mjs",
+        "packages/server/src/routes/coding.mjs"
+      ]
+    },
+    {
+      "hash": "60a40947",
+      "author": "LoveFleming",
+      "date": "2026-08-04T10:53:37.000Z",
+      "subject": "feat(health): Task type + fixPlan + EM dispatch + Project Health UI",
+      "fileCount": 3,
+      "files": [
+        "packages/server/src/routes/coding-tasks.mjs",
+        "packages/server/src/routes/coding.mjs",
+        "packages/ui/src/components/ProjectHealth.tsx"
+      ]
+    },
+    {
+      "hash": "b6f5d334",
+      "author": "LoveFleming",
+      "date": "2026-08-04T10:27:30.000Z",
+      "subject": "refactor(loopMode): Project Phase → Loop Mode 自動對應",
+      "fileCount": 11,
+      "files": [
         "data/config/recent-projects.json",
+        "logs/vibe-sessions/pty-1785838514594-mjfp.json",
+        "logs/vibe-sessions/pty-1785838514594-mjfp.log",
+        "logs/vibe-sessions/pty-1785839172227-vwqa.json",
+        "logs/vibe-sessions/pty-1785839172227-vwqa.log",
+        "packages/server/src/routes/coding-auto-dispatch-config.mjs",
+        "packages/server/src/routes/coding-tasks.mjs",
+        "packages/ui/src/components/AutoDispatchPanel.tsx",
+        "packages/ui/src/components/git/GitPanel.tsx",
+        "packages/ui/src/components/git/GitStatusView.tsx"
+      ]
+    },
+    {
+      "hash": "eb4b2416",
+      "author": "LoveFleming",
+      "date": "2026-08-04T10:14:38.000Z",
+      "subject": "fix: activeCodingTask undefined — 改用 activeCodingTaskId state",
+      "fileCount": 3,
+      "files": [
+        "packages/server/src/lib/paaw-agent-loop.mjs",
+        "packages/ui/src/components/git/GitStatusView.tsx",
         "packages/ui/src/pages/CodingIDE.tsx"
       ]
     },
     {
-      "hash": "99e04c7",
+      "hash": "a653a971",
       "author": "LoveFleming",
-      "date": "2026-07-17T13:18:10.000Z",
-      "subject": "fix: hide (上次 night-shift: 07-16) from EM Dashboard",
+      "date": "2026-08-04T09:55:49.000Z",
+      "subject": "refactor(pipeline): loopMode 從 per-task 移到 per-project",
+      "fileCount": 5,
+      "files": [
+        ".paaw/tasks/TASKS.json",
+        "packages/server/src/routes/coding-tasks.mjs",
+        "packages/ui/src/components/git/GitPanel.tsx",
+        "packages/ui/src/components/git/GitStatusView.tsx",
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "hash": "7c42a9a4",
+      "author": "LoveFleming",
+      "date": "2026-08-04T07:14:46.000Z",
+      "subject": "feat(pipeline): P1 — Pipeline 可見性 + Auto Dispatch 強化 + Spec 閘門",
       "fileCount": 4,
       "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        "packages/ui/src/components/EMDashboard.tsx",
-        "packages/ui/src/components/NightShiftPanel.tsx"
+        "packages/server/src/routes/coding-tasks.mjs",
+        "packages/ui/src/components/git/GitPanel.tsx",
+        "packages/ui/src/components/git/GitStatusView.tsx",
+        "packages/ui/src/pages/CodingIDE.tsx"
       ]
     },
     {
-      "hash": "93dbf0e",
+      "hash": "54fb1692",
       "author": "LoveFleming",
-      "date": "2026-07-17T13:15:58.000Z",
-      "subject": "fix: hide stale night-shift last-run timestamp from panel",
-      "fileCount": 5,
+      "date": "2026-08-04T07:08:11.000Z",
+      "subject": "feat(pipeline): P0 — QA Verdict → Pipeline + Rework + Mini Loop",
+      "fileCount": 8,
       "files": [
-        ".paaw/code-intelligence/status-cache.json",
-        ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
         "data/config/recent-projects.json",
-        "data/config/user.json",
-        "packages/ui/src/components/NightShiftPanel.tsx"
+        "data/crews/coding.qa.json",
+        "logs/vibe-sessions/pty-1785825078166-oq38.json",
+        "logs/vibe-sessions/pty-1785825078166-oq38.log",
+        "packages/server/src/routes/coding-tasks.mjs",
+        "packages/ui/src/components/git/GitPanel.tsx",
+        "packages/ui/src/components/git/GitReviewView.tsx",
+        "packages/ui/src/pages/CodingIDE.tsx"
       ]
     },
     {
-      "hash": "78473de",
+      "hash": "66be37e1",
       "author": "LoveFleming",
-      "date": "2026-07-17T12:10:19.000Z",
-      "subject": "refactor: extract gateway to standalone repo (LoveFleming/tpaaw-gateway)",
-      "fileCount": 5,
+      "date": "2026-08-04T06:30:15.000Z",
+      "subject": "feat(git): QA Review 進度全屏顯示 + AI 卡片按鈕狀態",
+      "fileCount": 8,
       "files": [
-        "packages/gateway/config.json",
-        "packages/gateway/events.jsonl",
-        "packages/gateway/package.json",
-        "packages/gateway/public/index.html",
-        "packages/gateway/src/server.mjs"
+        "data/config/recent-projects.json",
+        "logs/vibe-sessions/pty-1785824659843-yiny.json",
+        "logs/vibe-sessions/pty-1785824659843-yiny.log",
+        "logs/vibe-sessions/pty-1785824715803-q1k8.json",
+        "logs/vibe-sessions/pty-1785824715803-q1k8.log",
+        "packages/ui/src/components/git/GitPanel.tsx",
+        "packages/ui/src/components/git/GitReviewView.tsx",
+        "packages/ui/src/components/git/GitStatusView.tsx"
+      ]
+    },
+    {
+      "hash": "fd693f6d",
+      "author": "LoveFleming",
+      "date": "2026-08-04T03:20:14.000Z",
+      "subject": "fix(crews): AI agent 只 stage 不 commit，所有改過的檔案都要 git add",
+      "fileCount": 3,
+      "files": [
+        "data/crews/coding.developer.json",
+        "data/crews/coding.doc-writer.json",
+        "data/crews/coding.tester.json"
+      ]
+    },
+    {
+      "hash": "05ed8d8a",
+      "author": "LoveFleming",
+      "date": "2026-08-04T03:14:59.000Z",
+      "subject": "feat(git): unstaged 檔案加 stage 按鈕 (+ stage)",
+      "fileCount": 3,
+      "files": [
+        "packages/ui/src/components/git/GitFileGroup.tsx",
+        "packages/ui/src/components/git/GitPanel.tsx",
+        "packages/ui/src/components/git/GitStatusView.tsx"
+      ]
+    },
+    {
+      "hash": "c0b30691",
+      "author": "LoveFleming",
+      "date": "2026-08-04T03:13:28.000Z",
+      "subject": "feat(git): Unstage 按鈕 — git restore --staged",
+      "fileCount": 7,
+      "files": [
+        "data/config/recent-projects.json",
+        "logs/vibe-sessions/pty-1785812727883-6241.json",
+        "logs/vibe-sessions/pty-1785812727883-6241.log",
+        "packages/server/src/routes/vibe-fs.mjs",
+        "packages/ui/src/components/git/GitFileGroup.tsx",
+        "packages/ui/src/components/git/GitPanel.tsx",
+        "packages/ui/src/components/git/GitStatusView.tsx"
+      ]
+    },
+    {
+      "hash": "24afd9a7",
+      "author": "LoveFleming",
+      "date": "2026-08-04T03:04:17.000Z",
+      "subject": "fix(ui): 同名檔案獨立選取 — fileKey 取代 path 作為 selectedKey",
+      "fileCount": 7,
+      "files": [
+        "data/config/recent-projects.json",
+        "packages/ui/src/components/git/GitCommitBar.tsx",
+        "packages/ui/src/components/git/GitFileGroup.tsx",
+        "packages/ui/src/components/git/GitPanel.tsx",
+        "packages/ui/src/components/git/GitStatusView.tsx",
+        "packages/ui/src/components/git/git-helpers.ts",
+        "packages/ui/src/components/git/index.ts"
+      ]
+    },
+    {
+      "hash": "93ada344",
+      "author": "LoveFleming",
+      "date": "2026-08-04T02:28:38.000Z",
+      "subject": "fix(ui): Select All 一次性設定，不再逐個 toggle",
+      "fileCount": 4,
+      "files": [
+        "logs/vibe-sessions/pty-1785762709321-ifin.log",
+        "packages/ui/src/components/git/GitFileGroup.tsx",
+        "packages/ui/src/components/git/GitPanel.tsx",
+        "packages/ui/src/components/git/GitStatusView.tsx"
+      ]
+    },
+    {
+      "hash": "509d966d",
+      "author": "LoveFleming",
+      "date": "2026-08-04T01:40:42.000Z",
+      "subject": "fix(ui): Git Status 三大修復",
+      "fileCount": 4,
+      "files": [
+        "logs/vibe-sessions/pty-1785762709321-ifin.log",
+        "packages/ui/src/components/git/GitFileGroup.tsx",
+        "packages/ui/src/components/git/GitPanel.tsx",
+        "packages/ui/src/components/git/GitStatusView.tsx"
       ]
     }
   ],
   "recentFiles": [
     {
-      "file": "packages/ui/src/components/EMDashboard.tsx",
-      "changeCount": 16,
-      "lastChanged": "2026-07-19T02:45:35.000Z",
-      "commits": [
-        "f7a39fd",
-        "65df51b",
-        "5b80c26",
-        "71c3370",
-        "63c3254",
-        "f12cb0e",
-        "e0815bb",
-        "afe8b0d",
-        "89ec3e7",
-        "931f222",
-        "0b1c947",
-        "63b0098",
-        "33a8c69",
-        "8a5fcd8",
-        "82fe698",
-        "99e04c7"
-      ]
-    },
-    {
-      "file": "packages/ui/src/components/NightShiftPanel.tsx",
-      "changeCount": 9,
-      "lastChanged": "2026-07-19T02:45:35.000Z",
-      "commits": [
-        "f7a39fd",
-        "ea05ec2",
-        "19e1963",
-        "5c35004",
-        "ec36432",
-        "63b0098",
-        "82fe698",
-        "99e04c7",
-        "93dbf0e"
-      ]
-    },
-    {
-      "file": ".paaw/code-intelligence/status-cache.json",
-      "changeCount": 22,
-      "lastChanged": "2026-07-19T02:42:24.000Z",
-      "commits": [
-        "65df51b",
-        "5b80c26",
-        "71c3370",
-        "63c3254",
-        "f12cb0e",
-        "1635bc5",
-        "ea05ec2",
-        "f1851c8",
-        "e0815bb",
-        "89ec3e7",
-        "5c35004",
-        "a10ba61",
-        "9d23f26",
-        "f8d49ed",
-        "63b0098",
-        "0f868bc",
-        "9556e54",
-        "33a8c69",
-        "8a5fcd8",
-        "82fe698",
-        "99e04c7",
-        "93dbf0e"
-      ]
-    },
-    {
-      "file": ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-      "changeCount": 26,
-      "lastChanged": "2026-07-19T02:42:24.000Z",
-      "commits": [
-        "65df51b",
-        "5b80c26",
-        "71c3370",
-        "63c3254",
-        "f12cb0e",
-        "1635bc5",
-        "ea05ec2",
-        "5d8350c",
-        "4b9f16c",
-        "f1851c8",
-        "e0815bb",
-        "89ec3e7",
-        "5c35004",
-        "a10ba61",
-        "9d23f26",
-        "f8d49ed",
-        "63b0098",
-        "0f868bc",
-        "9556e54",
-        "66c6b29",
-        "33a8c69",
-        "8a5fcd8",
-        "82fe698",
-        "9c8c299",
-        "99e04c7",
-        "93dbf0e"
-      ]
-    },
-    {
-      "file": ".paaw/coding-memory/conversations/coding.em-dashboard/s-2026-07-19T02-25-08.json",
-      "changeCount": 1,
-      "lastChanged": "2026-07-19T02:42:24.000Z",
-      "commits": [
-        "65df51b"
-      ]
-    },
-    {
-      "file": "data/config/recent-projects.json",
-      "changeCount": 20,
-      "lastChanged": "2026-07-19T02:42:24.000Z",
-      "commits": [
-        "65df51b",
-        "63c3254",
-        "f12cb0e",
-        "1635bc5",
-        "ea05ec2",
-        "4b9f16c",
-        "f1851c8",
-        "e0815bb",
-        "89ec3e7",
-        "5c35004",
-        "a10ba61",
-        "9d23f26",
-        "f8d49ed",
-        "63b0098",
-        "0f868bc",
-        "9556e54",
-        "66c6b29",
-        "82fe698",
-        "9c8c299",
-        "93dbf0e"
-      ]
-    },
-    {
-      "file": "packages/ui/src/components/AgentConsole.tsx",
-      "changeCount": 1,
-      "lastChanged": "2026-07-19T02:42:24.000Z",
-      "commits": [
-        "65df51b"
-      ]
-    },
-    {
-      "file": "packages/ui/src/components/MarkdownText.tsx",
-      "changeCount": 1,
-      "lastChanged": "2026-07-19T02:42:24.000Z",
-      "commits": [
-        "65df51b"
-      ]
-    },
-    {
-      "file": "packages/ui/src/components/ProjectAiPanel.tsx",
-      "changeCount": 1,
-      "lastChanged": "2026-07-19T02:42:24.000Z",
-      "commits": [
-        "65df51b"
-      ]
-    },
-    {
       "file": "packages/server/src/routes/coding.mjs",
+      "changeCount": 8,
+      "lastChanged": "2026-08-15T06:18:29.000Z",
+      "commits": [
+        "3e42cad1",
+        "30a96276",
+        "6d81b911",
+        "c501d43a",
+        "e22211ce",
+        "4f246da3",
+        "fd10109c",
+        "60a40947"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/EMDashboard.tsx",
+      "changeCount": 13,
+      "lastChanged": "2026-08-15T06:18:29.000Z",
+      "commits": [
+        "3e42cad1",
+        "620ae31c",
+        "1c9cd196",
+        "f7f76d0e",
+        "63f803bb",
+        "30a96276",
+        "6d81b911",
+        "80c906b9",
+        "1cc41fd6",
+        "016001b8",
+        "132a1da6",
+        "c1aa6d10",
+        "2f32620b"
+      ]
+    },
+    {
+      "file": "packages/ui/src/pages/CodingIDE.tsx",
+      "changeCount": 12,
+      "lastChanged": "2026-08-15T05:41:46.000Z",
+      "commits": [
+        "19baa3a3",
+        "6ddd1b63",
+        "4e4e597f",
+        "f7f76d0e",
+        "80c906b9",
+        "a78a8aca",
+        "507f3ec6",
+        "b6f5d334",
+        "eb4b2416",
+        "a653a971",
+        "7c42a9a4",
+        "54fb1692"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/release-unit.mjs",
       "changeCount": 5,
-      "lastChanged": "2026-07-19T02:41:43.000Z",
+      "lastChanged": "2026-08-15T05:30:15.000Z",
       "commits": [
-        "9441c67",
-        "4b9f16c",
-        "cea2539",
-        "63b0098",
-        "9556e54"
+        "0aa69206",
+        "6ddd1b63",
+        "e923a38b",
+        "81ca0ca1",
+        "0fa9fea4"
       ]
     },
     {
-      "file": "packages/server/src/routes/coding-night-shift.mjs",
-      "changeCount": 9,
-      "lastChanged": "2026-07-19T02:40:18.000Z",
+      "file": "packages/ui/src/components/ReleaseUnitPanel.tsx",
+      "changeCount": 3,
+      "lastChanged": "2026-08-15T05:30:15.000Z",
       "commits": [
-        "d8e5d73",
-        "ea05ec2",
-        "4c11c19",
-        "19e1963",
-        "17bd1e2",
-        "ec36432",
-        "dbc4b3f",
-        "f8d49ed",
-        "63b0098"
+        "0aa69206",
+        "1c9cd196",
+        "6ddd1b63"
       ]
     },
     {
-      "file": ".paaw/coding-memory/conversations/coding.architect/active.json",
+      "file": "packages/ui/src/i18n/locales/en.json",
+      "changeCount": 7,
+      "lastChanged": "2026-08-15T05:30:15.000Z",
+      "commits": [
+        "0aa69206",
+        "1c9cd196",
+        "6ddd1b63",
+        "4e4e597f",
+        "444eef21",
+        "33a48730",
+        "63871e54"
+      ]
+    },
+    {
+      "file": "packages/ui/src/i18n/locales/ja.json",
+      "changeCount": 7,
+      "lastChanged": "2026-08-15T05:30:15.000Z",
+      "commits": [
+        "0aa69206",
+        "1c9cd196",
+        "6ddd1b63",
+        "4e4e597f",
+        "444eef21",
+        "33a48730",
+        "63871e54"
+      ]
+    },
+    {
+      "file": "packages/ui/src/i18n/locales/zh-mix.json",
+      "changeCount": 7,
+      "lastChanged": "2026-08-15T05:30:15.000Z",
+      "commits": [
+        "0aa69206",
+        "1c9cd196",
+        "6ddd1b63",
+        "4e4e597f",
+        "444eef21",
+        "33a48730",
+        "63871e54"
+      ]
+    },
+    {
+      "file": "packages/ui/src/i18n/locales/zh.json",
+      "changeCount": 7,
+      "lastChanged": "2026-08-15T05:30:15.000Z",
+      "commits": [
+        "0aa69206",
+        "1c9cd196",
+        "6ddd1b63",
+        "4e4e597f",
+        "444eef21",
+        "33a48730",
+        "63871e54"
+      ]
+    },
+    {
+      "file": ".gitignore",
+      "changeCount": 2,
+      "lastChanged": "2026-08-15T04:11:30.000Z",
+      "commits": [
+        "d446454e",
+        "0fa9fea4"
+      ]
+    },
+    {
+      "file": ".paaw/gates.json",
       "changeCount": 1,
-      "lastChanged": "2026-07-19T02:19:11.000Z",
+      "lastChanged": "2026-08-15T04:11:30.000Z",
       "commits": [
-        "71c3370"
+        "d446454e"
       ]
     },
     {
-      "file": "data/ai-settings/em/system-prompt.md",
+      "file": "data/crews/coding.architect.json",
       "changeCount": 1,
-      "lastChanged": "2026-07-19T02:10:53.000Z",
+      "lastChanged": "2026-08-15T04:11:12.000Z",
       "commits": [
-        "63c3254"
+        "6ddd1b63"
+      ]
+    },
+    {
+      "file": "data/crews/coding.developer.json",
+      "changeCount": 2,
+      "lastChanged": "2026-08-15T04:11:12.000Z",
+      "commits": [
+        "6ddd1b63",
+        "fd693f6d"
       ]
     },
     {
       "file": "data/crews/coding.em.json",
       "changeCount": 1,
-      "lastChanged": "2026-07-19T02:10:53.000Z",
+      "lastChanged": "2026-08-15T04:11:12.000Z",
       "commits": [
-        "63c3254"
+        "6ddd1b63"
       ]
     },
     {
-      "file": "packages/server/src/lib/domain-agent-registry.mjs",
-      "changeCount": 1,
-      "lastChanged": "2026-07-19T02:10:53.000Z",
+      "file": "data/crews/coding.qa.json",
+      "changeCount": 2,
+      "lastChanged": "2026-08-15T04:11:12.000Z",
       "commits": [
-        "63c3254"
+        "6ddd1b63",
+        "54fb1692"
       ]
     },
     {
-      "file": ".paaw/coding-memory/actions.jsonl",
-      "changeCount": 6,
-      "lastChanged": "2026-07-19T02:01:16.000Z",
+      "file": "data/crews/coding.tester.json",
+      "changeCount": 2,
+      "lastChanged": "2026-08-15T04:11:12.000Z",
       "commits": [
-        "f12cb0e",
-        "5d8350c",
-        "ec36432",
-        "9d23f26",
-        "63b0098",
-        "2ecb9b6"
+        "6ddd1b63",
+        "fd693f6d"
       ]
     },
     {
-      "file": ".paaw/issues/ISSUES.json",
+      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
       "changeCount": 3,
-      "lastChanged": "2026-07-19T02:01:16.000Z",
+      "lastChanged": "2026-08-15T04:11:12.000Z",
       "commits": [
-        "f12cb0e",
-        "ec36432",
-        "63b0098"
+        "6ddd1b63",
+        "fd10109c",
+        "eb4b2416"
       ]
     },
     {
-      "file": ".paaw/sessions/2026-07-19-task.md",
+      "file": "packages/server/src/lib/release-unit/apis.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-08-15T04:04:57.000Z",
+      "commits": [
+        "e923a38b"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/release-unit/ask.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-08-15T04:04:57.000Z",
+      "commits": [
+        "e923a38b"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/release-unit/analyze.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-08-15T04:02:30.000Z",
+      "commits": [
+        "81ca0ca1"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/release-unit/dependencies.mjs",
       "changeCount": 2,
-      "lastChanged": "2026-07-19T02:01:16.000Z",
+      "lastChanged": "2026-08-15T04:02:30.000Z",
       "commits": [
-        "f12cb0e",
-        "5d8350c"
+        "81ca0ca1",
+        "0fa9fea4"
       ]
     },
     {
-      "file": "packages/server/src/lib/overnight-manager.mjs",
-      "changeCount": 8,
-      "lastChanged": "2026-07-19T01:55:44.000Z",
-      "commits": [
-        "3a8ed8a",
-        "1635bc5",
-        "5d8350c",
-        "19e1963",
-        "dbc4b3f",
-        "63b0098",
-        "66c6b29",
-        "8a5fcd8"
-      ]
-    },
-    {
-      "file": ".paaw/CHANGELOG.md",
-      "changeCount": 4,
-      "lastChanged": "2026-07-19T01:40:20.000Z",
-      "commits": [
-        "5d8350c",
-        "ec36432",
-        "9d23f26",
-        "63b0098"
-      ]
-    },
-    {
-      "file": ".paaw/agent-memory/tester.md",
-      "changeCount": 2,
-      "lastChanged": "2026-07-19T01:40:20.000Z",
-      "commits": [
-        "5d8350c",
-        "63b0098"
-      ]
-    },
-    {
-      "file": ".paaw/changes/change-records.json",
-      "changeCount": 2,
-      "lastChanged": "2026-07-19T01:40:20.000Z",
-      "commits": [
-        "5d8350c",
-        "63b0098"
-      ]
-    },
-    {
-      "file": ".paaw/features/FEATURES.json",
-      "changeCount": 5,
-      "lastChanged": "2026-07-19T01:40:20.000Z",
-      "commits": [
-        "5d8350c",
-        "ec36432",
-        "34def2e",
-        "ea7acd4",
-        "63b0098"
-      ]
-    },
-    {
-      "file": "tests/unit/night-shift-shared.test.mjs",
+      "file": "packages/server/src/lib/release-unit/gates.mjs",
       "changeCount": 1,
-      "lastChanged": "2026-07-19T01:34:42.000Z",
+      "lastChanged": "2026-08-15T04:02:30.000Z",
       "commits": [
-        "7803170"
+        "81ca0ca1"
       ]
     },
     {
-      "file": ".paaw/night-shift/config.json",
-      "changeCount": 2,
-      "lastChanged": "2026-07-19T01:31:08.000Z",
-      "commits": [
-        "4b9f16c",
-        "ec36432"
-      ]
-    },
-    {
-      "file": "data/config/user.json",
-      "changeCount": 3,
-      "lastChanged": "2026-07-19T01:31:08.000Z",
-      "commits": [
-        "4b9f16c",
-        "f1851c8",
-        "93dbf0e"
-      ]
-    },
-    {
-      "file": ".paaw/night-shift/status.json",
-      "changeCount": 3,
-      "lastChanged": "2026-07-19T01:26:04.000Z",
-      "commits": [
-        "f1851c8",
-        "ec36432",
-        "f8d49ed"
-      ]
-    },
-    {
-      "file": "packages/ui/src/components/ModelSelector.tsx",
+      "file": "packages/server/src/lib/release-unit/metrics.mjs",
       "changeCount": 1,
-      "lastChanged": "2026-07-19T01:26:04.000Z",
+      "lastChanged": "2026-08-15T04:02:30.000Z",
       "commits": [
-        "f1851c8"
+        "81ca0ca1"
       ]
     },
     {
-      "file": "packages/server/src/lib/night-shift-shared.mjs",
-      "changeCount": 2,
-      "lastChanged": "2026-07-19T01:02:43.000Z",
-      "commits": [
-        "4c11c19",
-        "19e1963"
-      ]
-    },
-    {
-      "file": "packages/server/src/routes/coding-reports.mjs",
-      "changeCount": 3,
-      "lastChanged": "2026-07-19T01:02:43.000Z",
-      "commits": [
-        "4c11c19",
-        "19e1963",
-        "9d23f26"
-      ]
-    },
-    {
-      "file": "backups/backup-2026-07-14T16-00-03.json",
+      "file": "packages/server/src/lib/release-unit/adapters.mjs",
       "changeCount": 1,
-      "lastChanged": "2026-07-19T00:58:39.000Z",
+      "lastChanged": "2026-08-15T03:58:45.000Z",
       "commits": [
-        "19e1963"
+        "0fa9fea4"
       ]
     },
     {
-      "file": "backups/backup-2026-07-18T16-00-28.json",
+      "file": "packages/server/src/lib/release-unit/architecture.mjs",
       "changeCount": 1,
-      "lastChanged": "2026-07-19T00:58:39.000Z",
+      "lastChanged": "2026-08-15T03:58:45.000Z",
       "commits": [
-        "19e1963"
+        "0fa9fea4"
       ]
     },
     {
-      "file": "backups/backup-2026-07-18T16-00-28.tar.gz",
+      "file": "packages/server/src/lib/release-unit/impact.mjs",
       "changeCount": 1,
-      "lastChanged": "2026-07-19T00:58:39.000Z",
+      "lastChanged": "2026-08-15T03:58:45.000Z",
       "commits": [
-        "19e1963"
+        "0fa9fea4"
       ]
     },
     {
-      "file": "data/config/backup.json",
-      "changeCount": 2,
-      "lastChanged": "2026-07-19T00:58:39.000Z",
-      "commits": [
-        "19e1963",
-        "0f868bc"
-      ]
-    },
-    {
-      "file": "data/config/distilled-memory/2026-07-19-030000-chat_1782553565770.md",
+      "file": "packages/server/src/lib/release-unit/verify.mjs",
       "changeCount": 1,
-      "lastChanged": "2026-07-19T00:58:39.000Z",
+      "lastChanged": "2026-08-15T03:58:45.000Z",
       "commits": [
-        "19e1963"
-      ]
-    },
-    {
-      "file": "data/config/distilled-memory/index.json",
-      "changeCount": 1,
-      "lastChanged": "2026-07-19T00:58:39.000Z",
-      "commits": [
-        "19e1963"
-      ]
-    },
-    {
-      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
-      "changeCount": 2,
-      "lastChanged": "2026-07-19T00:58:39.000Z",
-      "commits": [
-        "19e1963",
-        "ec36432"
-      ]
-    },
-    {
-      "file": "packages/ui/src/components/ReportsTab.tsx",
-      "changeCount": 3,
-      "lastChanged": "2026-07-19T00:58:39.000Z",
-      "commits": [
-        "19e1963",
-        "a10ba61",
-        "9d23f26"
-      ]
-    },
-    {
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "changeCount": 6,
-      "lastChanged": "2026-07-19T00:58:39.000Z",
-      "commits": [
-        "19e1963",
-        "9d23f26",
-        "cea2539",
-        "63b0098",
-        "82fe698",
-        "9c8c299"
-      ]
-    },
-    {
-      "file": "packages/server/src/lib/agent-rules.mjs",
-      "changeCount": 1,
-      "lastChanged": "2026-07-19T00:36:42.000Z",
-      "commits": [
-        "eaa7aa4"
-      ]
-    },
-    {
-      "file": ".paaw/night-shift/prompts.json",
-      "changeCount": 1,
-      "lastChanged": "2026-07-18T14:39:41.000Z",
-      "commits": [
-        "17bd1e2"
+        "0fa9fea4"
       ]
     },
     {
       "file": "packages/server/src/paaw-server.mjs",
       "changeCount": 4,
-      "lastChanged": "2026-07-18T14:39:41.000Z",
+      "lastChanged": "2026-08-15T03:58:45.000Z",
       "commits": [
-        "17bd1e2",
-        "ec36432",
-        "9d23f26",
-        "f8d49ed"
+        "0fa9fea4",
+        "fb3988a9",
+        "4e4e597f",
+        "33a48730"
       ]
     },
     {
-      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
-      "changeCount": 1,
-      "lastChanged": "2026-07-18T14:39:41.000Z",
-      "commits": [
-        "17bd1e2"
-      ]
-    },
-    {
-      "file": ".paaw/DECISIONS.md",
+      "file": "packages/server/src/routes/coding-handover.mjs",
       "changeCount": 2,
-      "lastChanged": "2026-07-18T14:28:09.000Z",
+      "lastChanged": "2026-08-15T03:52:32.000Z",
       "commits": [
-        "ec36432",
-        "63b0098"
+        "d247b02b",
+        "4e4e597f"
       ]
     },
     {
-      "file": ".paaw/helpdesk/faq.md",
-      "changeCount": 1,
-      "lastChanged": "2026-07-18T14:28:09.000Z",
+      "file": "packages/server/src/routes/coding-ops.mjs",
+      "changeCount": 2,
+      "lastChanged": "2026-08-15T03:52:32.000Z",
       "commits": [
-        "ec36432"
+        "d247b02b",
+        "4e4e597f"
       ]
     },
     {
-      "file": ".paaw/night-shift/report.md",
-      "changeCount": 1,
-      "lastChanged": "2026-07-18T14:28:09.000Z",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "changeCount": 2,
+      "lastChanged": "2026-08-15T03:52:32.000Z",
       "commits": [
-        "ec36432"
+        "d247b02b",
+        "4e4e597f"
       ]
     },
     {
-      "file": ".paaw/sessions/2026-07-18-night-shift-task-architecture-review-todays-git-changes-a10b.md",
+      "file": "data/crews/coding.handover.json",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T14:28:09.000Z",
+      "lastChanged": "2026-08-15T03:43:23.000Z",
       "commits": [
-        "ec36432"
+        "4e4e597f"
       ]
     },
     {
-      "file": ".paaw/sessions/2026-07-18-night-shift-task-build-fix-todays-changed-files-paawchangelo.md",
+      "file": "data/crews/coding.ops.json",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T14:28:09.000Z",
+      "lastChanged": "2026-08-15T03:43:23.000Z",
       "commits": [
-        "ec36432"
+        "4e4e597f"
       ]
     },
     {
-      "file": ".paaw/sessions/2026-07-18-night-shift-task-code-review-todays-changes-a10ba61-fix-repo.md",
+      "file": "data/crews/coding.rm.json",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T14:28:09.000Z",
+      "lastChanged": "2026-08-15T03:43:23.000Z",
       "commits": [
-        "ec36432"
+        "4e4e597f"
       ]
     },
     {
-      "file": ".paaw/sessions/2026-07-18-night-shift-task-documentation-update-todays-changes-a10ba61.md",
+      "file": "packages/server/src/lib/domain-agent-registry.mjs",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T14:28:09.000Z",
+      "lastChanged": "2026-08-15T03:43:23.000Z",
       "commits": [
-        "ec36432"
+        "4e4e597f"
       ]
     },
     {
-      "file": ".paaw/sessions/2026-07-18-night-shift-task-helpdesk-faq-update-todays-changes-paawchan.md",
+      "file": "packages/ui/src/components/AgentSideChat.tsx",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T14:28:09.000Z",
+      "lastChanged": "2026-08-15T03:43:23.000Z",
       "commits": [
-        "ec36432"
+        "4e4e597f"
       ]
     },
     {
-      "file": ".paaw/sessions/2026-07-18-night-shift-task-test-coverage-changed-files-paawchangelogmd.md",
+      "file": "packages/ui/src/components/HandoverPanel.tsx",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T14:28:09.000Z",
+      "lastChanged": "2026-08-15T03:43:23.000Z",
       "commits": [
-        "ec36432"
+        "4e4e597f"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-08-15T03:43:23.000Z",
+      "commits": [
+        "4e4e597f"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/TroubleshootingPanel.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-08-15T03:43:23.000Z",
+      "commits": [
+        "4e4e597f"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/ChatMessages.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-08-15T01:19:09.000Z",
+      "commits": [
+        "59bd2b17"
+      ]
+    },
+    {
+      "file": "packages/ui/src/pages/A2APlayground.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-08-15T01:19:09.000Z",
+      "commits": [
+        "59bd2b17"
+      ]
+    },
+    {
+      "file": "packages/ui/src/pages/AppBuilder.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-08-15T01:19:09.000Z",
+      "commits": [
+        "59bd2b17"
+      ]
+    },
+    {
+      "file": "packages/ui/src/pages/ChatView.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-08-15T01:19:09.000Z",
+      "commits": [
+        "59bd2b17"
+      ]
+    },
+    {
+      "file": "packages/ui/src/utils/index.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-15T01:19:09.000Z",
+      "commits": [
+        "59bd2b17"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/coding-tasks.mjs",
+      "changeCount": 14,
+      "lastChanged": "2026-08-15T00:59:48.000Z",
+      "commits": [
+        "f7f76d0e",
+        "444eef21",
+        "6d81b911",
+        "1cc41fd6",
+        "016001b8",
+        "680662c2",
+        "c501d43a",
+        "4f246da3",
+        "fd10109c",
+        "60a40947",
+        "b6f5d334",
+        "a653a971",
+        "7c42a9a4",
+        "54fb1692"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/coding-evidence.mjs",
+      "changeCount": 2,
+      "lastChanged": "2026-08-14T15:05:31.000Z",
+      "commits": [
+        "444eef21",
+        "33a48730"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/EvidenceCard.tsx",
+      "changeCount": 2,
+      "lastChanged": "2026-08-14T15:05:31.000Z",
+      "commits": [
+        "444eef21",
+        "33a48730"
+      ]
+    },
+    {
+      "file": "tests/unit/repair-loop.test.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-08-14T15:05:31.000Z",
+      "commits": [
+        "444eef21"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/TaskBoard.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-08-14T12:28:55.000Z",
+      "commits": [
+        "33a48730"
+      ]
+    },
+    {
+      "file": "tests/unit/coding-evidence.test.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-08-14T12:28:55.000Z",
+      "commits": [
+        "33a48730"
+      ]
+    },
+    {
+      "file": ".openclaw/workspace-state.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:25:57.000Z",
+      "commits": [
+        "a2da998e"
+      ]
+    },
+    {
+      "file": "AGENTS.md",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:25:57.000Z",
+      "commits": [
+        "a2da998e"
+      ]
+    },
+    {
+      "file": "HEARTBEAT.md",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:25:57.000Z",
+      "commits": [
+        "a2da998e"
+      ]
+    },
+    {
+      "file": "IDENTITY.md",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:25:57.000Z",
+      "commits": [
+        "a2da998e"
+      ]
+    },
+    {
+      "file": "SOUL.md",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:25:57.000Z",
+      "commits": [
+        "a2da998e"
+      ]
+    },
+    {
+      "file": "TOOLS.md",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:25:57.000Z",
+      "commits": [
+        "a2da998e"
+      ]
+    },
+    {
+      "file": "USER.md",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:25:57.000Z",
+      "commits": [
+        "a2da998e"
+      ]
+    },
+    {
+      "file": "data/config/backup.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:25:57.000Z",
+      "commits": [
+        "a2da998e"
+      ]
+    },
+    {
+      "file": "data/notes/notebooks.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:25:57.000Z",
+      "commits": [
+        "a2da998e"
+      ]
+    },
+    {
+      "file": "data/ui-state.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:25:57.000Z",
+      "commits": [
+        "a2da998e"
+      ]
+    },
+    {
+      "file": "logs/cron/system-daily-backup/history.jsonl",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:25:57.000Z",
+      "commits": [
+        "a2da998e"
+      ]
+    },
+    {
+      "file": "logs/cron/system-daily-log-purge/history.jsonl",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:25:57.000Z",
+      "commits": [
+        "a2da998e"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/auto-dispatch-shared.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:25:57.000Z",
+      "commits": [
+        "a2da998e"
       ]
     },
     {
       "file": "packages/ui/tsconfig.tsbuildinfo",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T14:28:09.000Z",
+      "lastChanged": "2026-08-10T12:25:57.000Z",
       "commits": [
-        "ec36432"
+        "a2da998e"
       ]
     },
     {
-      "file": ".paaw/coding-memory/conversations/coding.developer/active.json",
+      "file": "tests/unit/coding-security.test.mjs",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T14:14:49.000Z",
+      "lastChanged": "2026-08-10T12:25:57.000Z",
       "commits": [
-        "9d23f26"
+        "a2da998e"
       ]
     },
     {
-      "file": ".paaw/coding-memory/conversations/coding.developer/s-2026-07-18T13-57-33.json",
+      "file": "tests/unit/coding-security-extended.test.mjs",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T14:14:49.000Z",
+      "lastChanged": "2026-08-10T12:24:16.000Z",
       "commits": [
-        "9d23f26"
+        "6465e421"
       ]
     },
     {
-      "file": ".paaw/coding-memory/dispatch-log.jsonl",
+      "file": "tests/unit/context-truncation.test.mjs",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T14:14:49.000Z",
+      "lastChanged": "2026-08-10T12:24:16.000Z",
       "commits": [
-        "9d23f26"
+        "6465e421"
       ]
     },
     {
-      "file": ".paaw/security/scan-results.json",
+      "file": "tests/unit/execution-plan.test.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:24:16.000Z",
+      "commits": [
+        "6465e421"
+      ]
+    },
+    {
+      "file": "tests/unit/i18n-consistency.test.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:24:16.000Z",
+      "commits": [
+        "6465e421"
+      ]
+    },
+    {
+      "file": "tests/unit/llm-utils.test.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:24:16.000Z",
+      "commits": [
+        "6465e421"
+      ]
+    },
+    {
+      "file": "packages/ui/src/App.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:17:47.000Z",
+      "commits": [
+        "63871e54"
+      ]
+    },
+    {
+      "file": "packages/ui/src/pages/WorkflowEditor.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T12:17:47.000Z",
+      "commits": [
+        "63871e54"
+      ]
+    },
+    {
+      "file": "tests/e2e/01-smoke.spec.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T03:39:05.000Z",
+      "commits": [
+        "3e9779e1"
+      ]
+    },
+    {
+      "file": "tests/e2e/02-settings.spec.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T03:39:05.000Z",
+      "commits": [
+        "3e9779e1"
+      ]
+    },
+    {
+      "file": "tests/e2e/03-notes.spec.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T03:39:05.000Z",
+      "commits": [
+        "3e9779e1"
+      ]
+    },
+    {
+      "file": "tests/e2e/04-pages.spec.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T03:39:05.000Z",
+      "commits": [
+        "3e9779e1"
+      ]
+    },
+    {
+      "file": "tests/e2e/05-api.spec.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T03:39:05.000Z",
+      "commits": [
+        "3e9779e1"
+      ]
+    },
+    {
+      "file": "tests/e2e/06-chat.spec.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T03:39:05.000Z",
+      "commits": [
+        "3e9779e1"
+      ]
+    },
+    {
+      "file": "tests/e2e/07-skills.spec.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T03:39:05.000Z",
+      "commits": [
+        "3e9779e1"
+      ]
+    },
+    {
+      "file": "tests/e2e/08-apps.spec.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T03:39:05.000Z",
+      "commits": [
+        "3e9779e1"
+      ]
+    },
+    {
+      "file": "tests/e2e/09-coding.spec.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T03:39:05.000Z",
+      "commits": [
+        "3e9779e1"
+      ]
+    },
+    {
+      "file": "tests/e2e/10-execution.spec.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T03:39:05.000Z",
+      "commits": [
+        "3e9779e1"
+      ]
+    },
+    {
+      "file": "tests/e2e/11-nav-comprehensive.spec.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T03:39:05.000Z",
+      "commits": [
+        "3e9779e1"
+      ]
+    },
+    {
+      "file": "tests/e2e/helpers.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-10T03:39:05.000Z",
+      "commits": [
+        "3e9779e1"
+      ]
+    },
+    {
+      "file": ".paaw/cu-debug.log",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T13:53:50.000Z",
+      "commits": [
+        "6d81b911"
+      ]
+    },
+    {
+      "file": "data/config/recent-projects.json",
+      "changeCount": 16,
+      "lastChanged": "2026-08-04T13:53:50.000Z",
+      "commits": [
+        "6d81b911",
+        "80c906b9",
+        "1cc41fd6",
+        "016001b8",
+        "680662c2",
+        "c1aa6d10",
+        "a78a8aca",
+        "507f3ec6",
+        "2f32620b",
+        "e22211ce",
+        "4f246da3",
+        "b6f5d334",
+        "54fb1692",
+        "66be37e1",
+        "c0b30691",
+        "24afd9a7"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785850791285-4w7o.log",
       "changeCount": 2,
-      "lastChanged": "2026-07-18T14:14:49.000Z",
+      "lastChanged": "2026-08-04T13:53:50.000Z",
       "commits": [
-        "9d23f26",
-        "f8d49ed"
+        "6d81b911",
+        "80c906b9"
       ]
     },
     {
-      "file": "packages/context/package.json",
+      "file": "logs/vibe-sessions/pty-1785850988996-sgbr.json",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T14:03:30.000Z",
+      "lastChanged": "2026-08-04T13:53:50.000Z",
       "commits": [
-        "357e7ea"
+        "6d81b911"
       ]
     },
     {
-      "file": "packages/context/src/refinery/refinery.ts",
+      "file": "logs/vibe-sessions/pty-1785850988996-sgbr.log",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T14:03:30.000Z",
+      "lastChanged": "2026-08-04T13:53:50.000Z",
       "commits": [
-        "357e7ea"
+        "6d81b911"
       ]
     },
     {
-      "file": "packages/server/src/routes/coding-features.mjs",
-      "changeCount": 3,
-      "lastChanged": "2026-07-18T06:55:57.000Z",
-      "commits": [
-        "34def2e",
-        "dbc4b3f",
-        "63b0098"
-      ]
-    },
-    {
-      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "file": "packages/server/src/lib/paaw-project.mjs",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T06:41:39.000Z",
+      "lastChanged": "2026-08-04T13:53:50.000Z",
       "commits": [
-        "dbc4b3f"
+        "6d81b911"
       ]
     },
     {
-      "file": "packages/server/src/routes/coding-health.mjs",
-      "changeCount": 3,
-      "lastChanged": "2026-07-18T06:41:39.000Z",
-      "commits": [
-        "dbc4b3f",
-        "f7e4b3a",
-        "f8d49ed"
-      ]
-    },
-    {
-      "file": "packages/server/src/lib/semgrep-runner.mjs",
-      "changeCount": 3,
-      "lastChanged": "2026-07-18T01:17:04.000Z",
-      "commits": [
-        "f710892",
-        "00811f9",
-        "146aafb"
-      ]
-    },
-    {
-      "file": ".paaw/code-intelligence/test-intelligence.json",
+      "file": "logs/vibe-sessions/pty-1785850266122-9jar.json",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T00:48:38.000Z",
+      "lastChanged": "2026-08-04T13:40:41.000Z",
       "commits": [
-        "63b0098"
+        "80c906b9"
       ]
     },
     {
-      "file": ".paaw/overnight-reports/2026-07-18.md",
+      "file": "logs/vibe-sessions/pty-1785850266122-9jar.log",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T00:48:38.000Z",
+      "lastChanged": "2026-08-04T13:40:41.000Z",
       "commits": [
-        "63b0098"
+        "80c906b9"
       ]
     },
     {
-      "file": ".paaw/sessions/2026-07-18-task.md",
+      "file": "logs/vibe-sessions/pty-1785850791285-4w7o.json",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T00:48:38.000Z",
+      "lastChanged": "2026-08-04T13:40:41.000Z",
       "commits": [
-        "63b0098"
+        "80c906b9"
       ]
     },
     {
-      "file": "tests/unit/agent-loop-max-turns.test.mjs",
-      "changeCount": 1,
-      "lastChanged": "2026-07-18T00:48:38.000Z",
+      "file": "packages/ui/src/components/AutoDispatchPanel.tsx",
+      "changeCount": 4,
+      "lastChanged": "2026-08-04T13:40:41.000Z",
       "commits": [
-        "63b0098"
+        "80c906b9",
+        "1cc41fd6",
+        "016001b8",
+        "b6f5d334"
       ]
     },
     {
-      "file": "backups/backup-2026-07-17T16-00-17.json",
+      "file": "logs/vibe-sessions/pty-1785849009758-pqzh.json",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T00:17:17.000Z",
+      "lastChanged": "2026-08-04T13:29:51.000Z",
       "commits": [
-        "0f868bc"
+        "1cc41fd6"
       ]
     },
     {
-      "file": "backups/backup-2026-07-17T16-00-17.tar.gz",
+      "file": "logs/vibe-sessions/pty-1785849009758-pqzh.log",
       "changeCount": 1,
-      "lastChanged": "2026-07-18T00:17:17.000Z",
+      "lastChanged": "2026-08-04T13:29:51.000Z",
       "commits": [
-        "0f868bc"
+        "1cc41fd6"
       ]
     },
     {
-      "file": ".paaw/overnight-reports/2026-07-17.md",
+      "file": "logs/vibe-sessions/pty-1785848123594-khs1.json",
       "changeCount": 1,
-      "lastChanged": "2026-07-17T14:39:32.000Z",
+      "lastChanged": "2026-08-04T13:06:33.000Z",
       "commits": [
-        "2ecb9b6"
+        "016001b8"
       ]
     },
     {
-      "file": ".paaw/sessions/2026-07-17-task.md",
+      "file": "logs/vibe-sessions/pty-1785848123594-khs1.log",
       "changeCount": 1,
-      "lastChanged": "2026-07-17T14:39:32.000Z",
+      "lastChanged": "2026-08-04T13:06:33.000Z",
       "commits": [
-        "2ecb9b6"
+        "016001b8"
       ]
     },
     {
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "file": "logs/vibe-sessions/pty-1785847203711-0zdh.json",
       "changeCount": 1,
-      "lastChanged": "2026-07-17T14:39:32.000Z",
+      "lastChanged": "2026-08-04T12:48:08.000Z",
       "commits": [
-        "2ecb9b6"
+        "680662c2"
       ]
     },
     {
-      "file": "packages/gateway/config.json",
+      "file": "logs/vibe-sessions/pty-1785847203711-0zdh.log",
       "changeCount": 1,
-      "lastChanged": "2026-07-17T12:10:19.000Z",
+      "lastChanged": "2026-08-04T12:48:08.000Z",
       "commits": [
-        "78473de"
+        "680662c2"
       ]
     },
     {
-      "file": "packages/gateway/events.jsonl",
+      "file": "logs/vibe-sessions/pty-1785846806923-k05b.json",
       "changeCount": 1,
-      "lastChanged": "2026-07-17T12:10:19.000Z",
+      "lastChanged": "2026-08-04T12:36:25.000Z",
       "commits": [
-        "78473de"
+        "c1aa6d10"
       ]
     },
     {
-      "file": "packages/gateway/package.json",
+      "file": "logs/vibe-sessions/pty-1785846806923-k05b.log",
       "changeCount": 1,
-      "lastChanged": "2026-07-17T12:10:19.000Z",
+      "lastChanged": "2026-08-04T12:36:25.000Z",
       "commits": [
-        "78473de"
+        "c1aa6d10"
       ]
     },
     {
-      "file": "packages/gateway/public/index.html",
+      "file": "logs/vibe-sessions/pty-1785846400318-o5b8.json",
       "changeCount": 1,
-      "lastChanged": "2026-07-17T12:10:19.000Z",
+      "lastChanged": "2026-08-04T12:30:34.000Z",
       "commits": [
-        "78473de"
+        "a78a8aca"
       ]
     },
     {
-      "file": "packages/gateway/src/server.mjs",
+      "file": "logs/vibe-sessions/pty-1785846400318-o5b8.log",
       "changeCount": 1,
-      "lastChanged": "2026-07-17T12:10:19.000Z",
+      "lastChanged": "2026-08-04T12:30:34.000Z",
       "commits": [
-        "78473de"
+        "a78a8aca"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/ProjectHealth.tsx",
+      "changeCount": 4,
+      "lastChanged": "2026-08-04T12:30:34.000Z",
+      "commits": [
+        "a78a8aca",
+        "e22211ce",
+        "4f246da3",
+        "60a40947"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785844074229-nbzg.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T11:52:23.000Z",
+      "commits": [
+        "2f32620b"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785844074229-nbzg.log",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T11:52:23.000Z",
+      "commits": [
+        "2f32620b"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/running-agents.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T11:43:17.000Z",
+      "commits": [
+        "c501d43a"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785842903920-en4j.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T11:35:05.000Z",
+      "commits": [
+        "e22211ce"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785842903920-en4j.log",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T11:35:05.000Z",
+      "commits": [
+        "e22211ce"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785842978798-nmzd.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T11:35:05.000Z",
+      "commits": [
+        "e22211ce"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785842978798-nmzd.log",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T11:35:05.000Z",
+      "commits": [
+        "e22211ce"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785842293105-u0it.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T11:26:55.000Z",
+      "commits": [
+        "4f246da3"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785842293105-u0it.log",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T11:26:55.000Z",
+      "commits": [
+        "4f246da3"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785838514594-mjfp.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T10:27:30.000Z",
+      "commits": [
+        "b6f5d334"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785838514594-mjfp.log",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T10:27:30.000Z",
+      "commits": [
+        "b6f5d334"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785839172227-vwqa.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T10:27:30.000Z",
+      "commits": [
+        "b6f5d334"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785839172227-vwqa.log",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T10:27:30.000Z",
+      "commits": [
+        "b6f5d334"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/coding-auto-dispatch-config.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T10:27:30.000Z",
+      "commits": [
+        "b6f5d334"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/git/GitPanel.tsx",
+      "changeCount": 10,
+      "lastChanged": "2026-08-04T10:27:30.000Z",
+      "commits": [
+        "b6f5d334",
+        "a653a971",
+        "7c42a9a4",
+        "54fb1692",
+        "66be37e1",
+        "05ed8d8a",
+        "c0b30691",
+        "24afd9a7",
+        "93ada344",
+        "509d966d"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/git/GitStatusView.tsx",
+      "changeCount": 10,
+      "lastChanged": "2026-08-04T10:27:30.000Z",
+      "commits": [
+        "b6f5d334",
+        "eb4b2416",
+        "a653a971",
+        "7c42a9a4",
+        "66be37e1",
+        "05ed8d8a",
+        "c0b30691",
+        "24afd9a7",
+        "93ada344",
+        "509d966d"
+      ]
+    },
+    {
+      "file": ".paaw/tasks/TASKS.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T09:55:49.000Z",
+      "commits": [
+        "a653a971"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785825078166-oq38.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T07:08:11.000Z",
+      "commits": [
+        "54fb1692"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785825078166-oq38.log",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T07:08:11.000Z",
+      "commits": [
+        "54fb1692"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/git/GitReviewView.tsx",
+      "changeCount": 2,
+      "lastChanged": "2026-08-04T07:08:11.000Z",
+      "commits": [
+        "54fb1692",
+        "66be37e1"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785824659843-yiny.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T06:30:15.000Z",
+      "commits": [
+        "66be37e1"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785824659843-yiny.log",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T06:30:15.000Z",
+      "commits": [
+        "66be37e1"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785824715803-q1k8.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T06:30:15.000Z",
+      "commits": [
+        "66be37e1"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785824715803-q1k8.log",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T06:30:15.000Z",
+      "commits": [
+        "66be37e1"
+      ]
+    },
+    {
+      "file": "data/crews/coding.doc-writer.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T03:20:14.000Z",
+      "commits": [
+        "fd693f6d"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/git/GitFileGroup.tsx",
+      "changeCount": 5,
+      "lastChanged": "2026-08-04T03:14:59.000Z",
+      "commits": [
+        "05ed8d8a",
+        "c0b30691",
+        "24afd9a7",
+        "93ada344",
+        "509d966d"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785812727883-6241.json",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T03:13:28.000Z",
+      "commits": [
+        "c0b30691"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785812727883-6241.log",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T03:13:28.000Z",
+      "commits": [
+        "c0b30691"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/vibe-fs.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T03:13:28.000Z",
+      "commits": [
+        "c0b30691"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/git/GitCommitBar.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T03:04:17.000Z",
+      "commits": [
+        "24afd9a7"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/git/git-helpers.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T03:04:17.000Z",
+      "commits": [
+        "24afd9a7"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/git/index.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-08-04T03:04:17.000Z",
+      "commits": [
+        "24afd9a7"
+      ]
+    },
+    {
+      "file": "logs/vibe-sessions/pty-1785762709321-ifin.log",
+      "changeCount": 2,
+      "lastChanged": "2026-08-04T02:28:38.000Z",
+      "commits": [
+        "93ada344",
+        "509d966d"
       ]
     }
   ],
   "recentFeatures": [
+    {
+      "id": "F-043",
+      "name": "E2E Test Suite",
+      "tags": [
+        "testing",
+        "e2e"
+      ],
+      "changeCount": 10,
+      "files": [
+        "tests/e2e/01-smoke.spec.ts",
+        "tests/e2e/01-smoke.spec.ts",
+        "tests/e2e/02-settings.spec.ts",
+        "tests/e2e/02-settings.spec.ts",
+        "tests/e2e/03-notes.spec.ts",
+        "tests/e2e/03-notes.spec.ts",
+        "tests/e2e/04-pages.spec.ts",
+        "tests/e2e/04-pages.spec.ts",
+        "tests/e2e/05-api.spec.ts",
+        "tests/e2e/05-api.spec.ts"
+      ]
+    },
+    {
+      "id": "F-008",
+      "name": "Chat & Conversations",
+      "tags": [
+        "chat",
+        "ai"
+      ],
+      "changeCount": 2,
+      "files": [
+        "packages/ui/src/components/ChatMessages.tsx",
+        "packages/ui/src/pages/ChatView.tsx"
+      ]
+    },
+    {
+      "id": "F-031",
+      "name": "User Interface Infrastructure",
+      "tags": [
+        "ui",
+        "infrastructure"
+      ],
+      "changeCount": 2,
+      "files": [
+        "packages/ui/src/utils/index.ts",
+        "packages/ui/src/App.tsx"
+      ]
+    },
     {
       "id": "F-009",
       "name": "Code Understanding (CU) Workflow",
@@ -1432,46 +2002,21 @@
         "code-understanding",
         "ai"
       ],
-      "changeCount": 2,
+      "changeCount": 1,
       "files": [
-        "packages/ui/src/components/EMDashboard.tsx",
-        "packages/server/src/routes/coding-features.mjs"
+        "packages/ui/src/components/EMDashboard.tsx"
       ]
     },
     {
-      "id": "F-012",
-      "name": "Night Shift (Automated Agent Runs)",
+      "id": "F-001",
+      "name": "Agent Loop",
       "tags": [
-        "automation",
-        "coding"
-      ],
-      "changeCount": 2,
-      "files": [
-        "packages/ui/src/components/NightShiftPanel.tsx",
-        "packages/server/src/routes/coding-night-shift.mjs"
-      ]
-    },
-    {
-      "id": "F-005",
-      "name": "App Builder & Registry",
-      "tags": [
-        "apps",
-        "devtools"
+        "core",
+        "ai"
       ],
       "changeCount": 1,
       "files": [
-        "packages/ui/src/components/AgentConsole.tsx"
-      ]
-    },
-    {
-      "id": "F-020",
-      "name": "Projects & Boards",
-      "tags": [
-        "project-management"
-      ],
-      "changeCount": 1,
-      "files": [
-        "packages/ui/src/components/ProjectAiPanel.tsx"
+        "packages/server/src/lib/paaw-agent-loop.mjs"
       ]
     },
     {
@@ -1487,42 +2032,6 @@
       ]
     },
     {
-      "id": "F-039",
-      "name": "Action Log & Agent Memory",
-      "tags": [
-        "logging",
-        "memory"
-      ],
-      "changeCount": 1,
-      "files": [
-        "packages/server/src/lib/overnight-manager.mjs"
-      ]
-    },
-    {
-      "id": "F-008",
-      "name": "Chat & Conversations",
-      "tags": [
-        "chat",
-        "ai"
-      ],
-      "changeCount": 1,
-      "files": [
-        "packages/ui/src/components/ModelSelector.tsx"
-      ]
-    },
-    {
-      "id": "F-042",
-      "name": "Provider Setup & Configuration",
-      "tags": [
-        "settings",
-        "ai"
-      ],
-      "changeCount": 1,
-      "files": [
-        "packages/ui/src/components/ModelSelector.tsx"
-      ]
-    },
-    {
       "id": "F-002",
       "name": "A2A (Agent-to-Agent) Protocol",
       "tags": [
@@ -1531,75 +2040,290 @@
       ],
       "changeCount": 1,
       "files": [
-        "packages/server/src/lib/agent-rules.mjs"
+        "packages/ui/src/pages/A2APlayground.tsx"
       ]
     },
     {
-      "id": "F-029",
-      "name": "Context & Memory Store",
+      "id": "F-005",
+      "name": "App Builder & Registry",
       "tags": [
-        "context",
-        "memory"
+        "apps",
+        "devtools"
       ],
       "changeCount": 1,
       "files": [
-        "packages/context/src/refinery/refinery.ts"
+        "packages/ui/src/pages/AppBuilder.tsx"
       ]
     },
     {
-      "id": "F-025",
-      "name": "Semgrep SAST Integration",
+      "id": "F-023",
+      "name": "Workflow Editor & Execution",
       "tags": [
-        "security",
-        "scanning"
+        "workflow",
+        "automation"
       ],
       "changeCount": 1,
       "files": [
-        "packages/server/src/lib/semgrep-runner.mjs"
+        "packages/ui/src/pages/WorkflowEditor.tsx"
       ]
     },
     {
-      "id": "F-001",
-      "name": "Agent Loop",
+      "id": "F-018",
+      "name": "Notes & Notebooks",
       "tags": [
-        "core",
-        "ai"
+        "productivity",
+        "notes"
       ],
       "changeCount": 1,
       "files": [
-        "packages/server/src/lib/paaw-agent-loop.mjs"
+        "tests/e2e/03-notes.spec.ts"
+      ]
+    },
+    {
+      "id": "F-041",
+      "name": "PAAW Project & Snapshot",
+      "tags": [
+        "project",
+        "versioning"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/lib/paaw-project.mjs"
+      ]
+    },
+    {
+      "id": "F-020",
+      "name": "Projects & Boards",
+      "tags": [
+        "project-management"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/ui/src/components/ProjectHealth.tsx"
+      ]
+    },
+    {
+      "id": "F-037",
+      "name": "Vibe Sessions",
+      "tags": [
+        "automation",
+        "recording"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/routes/vibe-fs.mjs"
       ]
     }
   ],
   "recentApis": [
     {
       "method": "GET",
-      "path": "/api/coding-night-shift/config",
-      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
+      "path": "/api/coding-auto-dispatch/config",
+      "file": "packages/server/src/routes/coding-auto-dispatch-config.mjs",
       "handler": ""
     },
     {
       "method": "POST",
-      "path": "/api/coding-night-shift/config",
-      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
+      "path": "/api/coding-auto-dispatch/config",
+      "file": "packages/server/src/routes/coding-auto-dispatch-config.mjs",
       "handler": ""
     },
     {
       "method": "GET",
-      "path": "/api/coding-night-shift/prompts",
-      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "path": "/api/paaw-root",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/providers",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/user",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/ui-state",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/workspaces",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/models",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/preferences",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/context/chat",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/context/project",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/context/mindmap",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/context/notes",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/context/coding",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/apps",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/skills",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/notebooks",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/recent?limit=5",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/search?q=test",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/tags",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/mindmap/list",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/cron-jobs",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai-settings",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/crew",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/plugins",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/nonexistent-endpoint-12345",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/get",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/list?notebook=nonexistent-notebook-12345",
+      "file": "tests/e2e/05-api.spec.ts",
       "handler": ""
     },
     {
       "method": "POST",
-      "path": "/api/coding-night-shift/prompts",
-      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "path": "/api/notes/notebooks",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/search",
+      "file": "tests/e2e/05-api.spec.ts",
       "handler": ""
     },
     {
       "method": "POST",
-      "path": "/api/coding-night-shift/prompts/reset",
-      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "path": "/api/cron-jobs",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/paaw/ui-state",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/llm-logs",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent-logs",
+      "file": "tests/e2e/05-api.spec.ts",
       "handler": ""
     }
   ],
@@ -1647,60 +2371,56 @@
   ],
   "impactAnalysis": [
     {
-      "changedFile": "packages/ui/src/components/AgentConsole.tsx",
+      "changedFile": "packages/server/src/lib/release-unit/apis.mjs",
       "affectedFiles": [
-        "packages/ui/src/pages/AppBuilder.tsx",
-        "packages/ui/src/pages/EmployeeWorkspace.tsx",
-        "packages/ui/src/pages/SkillBuilder.tsx"
+        "packages/server/src/routes/release-unit.mjs"
       ],
-      "impactLevel": "medium"
+      "impactLevel": "low"
     },
     {
-      "changedFile": "packages/ui/src/components/MarkdownText.tsx",
+      "changedFile": "packages/server/src/lib/release-unit/ask.mjs",
       "affectedFiles": [
-        "packages/ui/src/components/AgentConsole.tsx",
-        "packages/ui/src/components/EMDashboard.tsx",
-        "packages/ui/src/components/ProjectAiPanel.tsx"
+        "packages/server/src/routes/release-unit.mjs"
       ],
-      "impactLevel": "medium"
+      "impactLevel": "low"
     },
     {
-      "changedFile": "packages/ui/src/components/ProjectAiPanel.tsx",
+      "changedFile": "packages/server/src/lib/release-unit/analyze.mjs",
       "affectedFiles": [
-        "packages/ui/src/pages/ProjectBoard.tsx"
+        "packages/server/src/routes/release-unit.mjs"
       ],
       "impactLevel": "low"
     }
   ],
-  "diffStat": ".paaw/CHANGELOG.md                                 |    253 +-\n .paaw/DECISIONS.md                                 |     79 +\n .paaw/agent-memory/tester.md                       |     23 +\n .paaw/changes/change-records.json                  |     26 +\n .paaw/code-intelligence/status-cache.json          |     16 +-\n .paaw/code-intelligence/test-intelligence.json     |    125 +-\n .paaw/coding-memory/actions.jsonl                  |     10 +\n .../conversations/coding.architect/active.json     |      2 +-\n .../conversations/coding.developer/active.json     |    234 +-\n .../coding.developer/s-2026-07-18T13-57-33.json    |     42 +\n .../conversations/coding.em-dashboard/active.json  |     30 +-\n .../coding.em-dashboard/s-2026-07-19T02-25-08.json |    169 +\n .paaw/coding-memory/dispatch-log.jsonl             |     27 +\n .paaw/features/FEATURES.json                       |    497 +-\n .paaw/helpdesk/faq.md                              |     87 +\n .paaw/issues/ISSUES.json                           |    276 +-\n .paaw/night-shift/config.json                      |     21 +\n .paaw/night-shift/prompts.json                     |     26 +\n .paaw/night-shift/report.md                        |     97 +\n .paaw/night-shift/status.json                      |     11 +-\n .paaw/overnight-reports/2026-07-17.md              |    568 +\n .paaw/overnight-reports/2026-07-18.md              |    655 +\n .paaw/security/scan-results.json                   | 123042 +-----------------\n .paaw/sessions/2026-07-17-task.md                  |     27 +\n ...-architecture-review-todays-git-changes-a10b.md |    159 +\n ...-build-fix-todays-changed-files-paawchangelo.md |    114 +\n ...-code-review-todays-changes-a10ba61-fix-repo.md |    122 +\n ...-documentation-update-todays-changes-a10ba61.md |    158 +\n ...-helpdesk-faq-update-todays-changes-paawchan.md |    102 +\n ...-test-coverage-changed-files-paawchangelogmd.md |    145 +\n .paaw/sessions/2026-07-18-task.md                  |     79 +\n .paaw/sessions/2026-0",
+  "diffStat": ".gitignore                                         |    3 +\n .openclaw/workspace-state.json                     |    4 +\n .paaw/cu-debug.log                                 |    2 +\n .paaw/gates.json                                   |   20 +\n .paaw/tasks/TASKS.json                             |    3 +-\n AGENTS.md                                          |  220 ++++\n HEARTBEAT.md                                       |    3 +\n IDENTITY.md                                        |   27 +\n SOUL.md                                            |   42 +\n TOOLS.md                                           |   44 +\n USER.md                                            |   21 +\n data/config/backup.json                            |    2 +-\n data/config/recent-projects.json                   |    2 +-\n data/crews/coding.architect.json                   |    5 +-\n data/crews/coding.developer.json                   |    7 +-\n data/crews/coding.doc-writer.json                  |    4 +-\n data/crews/coding.em.json                          |    3 +-\n data/crews/coding.handover.json                    |   22 +\n data/crews/coding.ops.json                         |   22 +\n data/crews/coding.qa.json                          |    5 +-\n data/crews/coding.rm.json                          |   22 +\n data/crews/coding.tester.json                      |    7 +-\n data/notes/notebooks.json                          |   21 +\n data/ui-state.json                                 |    5 +\n logs/cron/system-daily-backup/history.jsonl        |   12 +\n logs/cron/system-daily-log-purge/history.jsonl     |   12 +\n logs/vibe-sessions/pty-1785762709321-ifin.log      |    4 +\n logs/vibe-sessions/pty-1785812727883-6241.json     |   10 +\n logs/vibe-sessions/pty-1785812727883-6241.log      |    8 +\n logs/vibe-sessions/pty-1785824659843-yiny.json     |   10 +\n logs/vibe-sessions/pty-1785824659843-yiny.log      |    8 +\n logs/vibe-sessions/pty-1785824715803-q1k8.json     |   10 +\n logs/vibe-sessions/pty-1785824715803",
   "summary": {
     "period": "30 days",
     "totalCommits": 50,
-    "totalFilesChanged": 77,
-    "totalFeaturesChanged": 12,
-    "totalApisChanged": 5,
+    "totalFilesChanged": 138,
+    "totalFeaturesChanged": 13,
+    "totalApisChanged": 35,
     "totalDecisions": 10,
     "highImpactChanges": 0,
     "topChangedFiles": [
       {
+        "file": "packages/server/src/routes/coding.mjs",
+        "changes": 8
+      },
+      {
         "file": "packages/ui/src/components/EMDashboard.tsx",
-        "changes": 16
+        "changes": 13
       },
       {
-        "file": "packages/ui/src/components/NightShiftPanel.tsx",
-        "changes": 9
+        "file": "packages/ui/src/pages/CodingIDE.tsx",
+        "changes": 12
       },
       {
-        "file": ".paaw/code-intelligence/status-cache.json",
-        "changes": 22
+        "file": "packages/server/src/routes/release-unit.mjs",
+        "changes": 5
       },
       {
-        "file": ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
-        "changes": 26
-      },
-      {
-        "file": ".paaw/coding-memory/conversations/coding.em-dashboard/s-2026-07-19T02-25-08.json",
-        "changes": 1
+        "file": "packages/ui/src/components/ReleaseUnitPanel.tsx",
+        "changes": 3
       }
     ]
   }

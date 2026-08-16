@@ -92,9 +92,30 @@
       "callChain": []
     },
     {
+      "method": "POST",
+      "path": "/api/a2a/interrupt",
+      "file": "packages/server/src/routes/a2a.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
       "method": "GET",
       "path": "/api/a2a/agent-card",
       "file": "packages/server/src/routes/a2a.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/agentic-bindings",
+      "file": "packages/server/src/routes/agentic-bindings.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/agentic-bindings",
+      "file": "packages/server/src/routes/agentic-bindings.mjs",
       "handler": "",
       "callChain": []
     },
@@ -352,118 +373,181 @@
     },
     {
       "method": "GET",
-      "path": "/api/coding-night-shift/config",
-      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
+      "path": "/api/coding-auto-dispatch/config",
+      "file": "packages/server/src/routes/coding-auto-dispatch-config.mjs",
       "handler": "",
       "callChain": []
     },
     {
       "method": "POST",
-      "path": "/api/coding-night-shift/config",
-      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
+      "path": "/api/coding-auto-dispatch/config",
+      "file": "packages/server/src/routes/coding-auto-dispatch-config.mjs",
       "handler": "",
       "callChain": []
     },
     {
       "method": "GET",
-      "path": "/api/coding-night-shift/prompts",
-      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "path": "/api/coding-auto-dispatch/prompts",
+      "file": "packages/server/src/routes/coding-auto-dispatch-prompts.mjs",
       "handler": "",
       "callChain": []
     },
     {
       "method": "POST",
-      "path": "/api/coding-night-shift/prompts",
-      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "path": "/api/coding-auto-dispatch/prompts",
+      "file": "packages/server/src/routes/coding-auto-dispatch-prompts.mjs",
       "handler": "",
       "callChain": []
     },
     {
       "method": "POST",
-      "path": "/api/coding-night-shift/prompts/reset",
-      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "path": "/api/coding-auto-dispatch/prompts/reset",
+      "file": "packages/server/src/routes/coding-auto-dispatch-prompts.mjs",
       "handler": "",
       "callChain": []
     },
     {
       "method": "GET",
-      "path": "/api/paaw/skill-config",
-      "file": "packages/server/src/routes/crew.mjs",
-      "handler": "sendEvent",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
+      "path": "/api/coding-doc/coverage",
+      "file": "packages/server/src/routes/coding-doc-coverage.mjs",
+      "handler": "",
+      "callChain": []
     },
     {
       "method": "POST",
-      "path": "/api/paaw/skill-config",
-      "file": "packages/server/src/routes/crew.mjs",
-      "handler": "sendEvent",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/api/tool-registry",
-      "file": "packages/server/src/routes/tools.mjs",
+      "path": "/api/coding-doc/coverage",
+      "file": "packages/server/src/routes/coding-doc-coverage.mjs",
       "handler": "",
       "callChain": []
     },
     {
       "method": "GET",
-      "path": "/api/tool-registry/skills",
-      "file": "packages/server/src/routes/tools.mjs",
+      "path": "/api/coding-doc/undocumented",
+      "file": "packages/server/src/routes/coding-doc-coverage.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-em/config",
+      "file": "packages/server/src/routes/coding-em-config.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/coding-em/config",
+      "file": "packages/server/src/routes/coding-em-config.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-em/config/reset",
+      "file": "packages/server/src/routes/coding-em-config.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-staged/changes",
+      "file": "packages/server/src/routes/coding-staged-changes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-staged/changes",
+      "file": "packages/server/src/routes/coding-staged-changes.mjs",
       "handler": "",
       "callChain": []
     },
     {
       "method": "DELETE",
-      "path": "/api/tool-registry/skills//*",
-      "file": "packages/server/src/routes/tools.mjs",
+      "path": "/api/coding-staged/changes",
+      "file": "packages/server/src/routes/coding-staged-changes.mjs",
       "handler": "",
       "callChain": []
     },
     {
       "method": "GET",
-      "path": "/api/tool-registry//*",
-      "file": "packages/server/src/routes/tools.mjs",
+      "path": "/api/paaw/skill-config",
+      "file": "packages/server/src/routes/crew.mjs",
+      "handler": "sendEvent",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/skill-config",
+      "file": "packages/server/src/routes/crew.mjs",
+      "handler": "sendEvent",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/auto-dispatch/plan/create",
+      "file": "packages/server/src/routes/execution-plan-routes.mjs",
       "handler": "",
       "callChain": []
     },
     {
-      "method": "PUT",
-      "path": "/api/tool-registry//*",
-      "file": "packages/server/src/routes/tools.mjs",
+      "method": "GET",
+      "path": "/api/auto-dispatch/plan/latest",
+      "file": "packages/server/src/routes/execution-plan-routes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/auto-dispatch/plan/list",
+      "file": "packages/server/src/routes/execution-plan-routes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/auto-dispatch/plan/incomplete",
+      "file": "packages/server/src/routes/execution-plan-routes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/plugins",
+      "file": "packages/server/src/routes/plugins.mjs",
       "handler": "",
       "callChain": []
     },
     {
       "method": "POST",
-      "path": "/api/tool-registry//*",
-      "file": "packages/server/src/routes/tools.mjs",
+      "path": "/api/plugins",
+      "file": "packages/server/src/routes/plugins.mjs",
       "handler": "",
       "callChain": []
     },
@@ -505,6 +589,27 @@
     {
       "method": "POST",
       "path": "/api/paaw/skill-exec",
+      "file": "packages/server/src/routes/workflow.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/tool-exec",
+      "file": "packages/server/src/routes/workflow.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/tools",
+      "file": "packages/server/src/routes/workflow.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/workflow-trigger",
       "file": "packages/server/src/routes/workflow.mjs",
       "handler": "",
       "callChain": []
@@ -588,6 +693,34 @@
     },
     {
       "method": "GET",
+      "path": "/api/paaw/user",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/ui-state",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/workspaces",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/models",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
       "path": "/api/user/preferences",
       "file": "tests/e2e/05-api.spec.ts",
       "handler": "",
@@ -623,6 +756,13 @@
     },
     {
       "method": "GET",
+      "path": "/api/context/coding",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
       "path": "/api/apps",
       "file": "tests/e2e/05-api.spec.ts",
       "handler": "",
@@ -637,14 +777,35 @@
     },
     {
       "method": "GET",
-      "path": "/api/mindmap/list",
+      "path": "/api/notes/notebooks",
       "file": "tests/e2e/05-api.spec.ts",
       "handler": "",
       "callChain": []
     },
     {
       "method": "GET",
-      "path": "/api/notes/notebooks",
+      "path": "/api/notes/recent?limit=5",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/search?q=test",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/tags",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/mindmap/list",
       "file": "tests/e2e/05-api.spec.ts",
       "handler": "",
       "callChain": []
@@ -658,15 +819,99 @@
     },
     {
       "method": "GET",
+      "path": "/api/cron-jobs",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
       "path": "/api/ai-settings",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/crew",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/plugins",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/nonexistent-endpoint-12345",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/get",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/list?notebook=nonexistent-notebook-12345",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/notes/notebooks",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/search",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/cron-jobs",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/paaw/ui-state",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/llm-logs",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent-logs",
       "file": "tests/e2e/05-api.spec.ts",
       "handler": "",
       "callChain": []
     }
   ],
   "stats": {
-    "totalRoutes": 91,
+    "totalRoutes": 126,
     "withHandler": 2,
-    "withoutHandler": 89
+    "withoutHandler": 124
   }
 }

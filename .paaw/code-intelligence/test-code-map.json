@@ -64,8 +64,29 @@
       "testCount": 17
     },
     {
+      "testFile": "packages/server/src/lib/agentic-binding.mjs",
+      "productionFile": "packages/server/src/lib/tool-registry.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 6
+    },
+    {
+      "testFile": "packages/server/src/lib/auto-dispatch-manager.mjs",
+      "productionFile": "packages/server/src/lib/action-log.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 12
+    },
+    {
+      "testFile": "packages/server/src/lib/auto-dispatch-shared.mjs",
+      "productionFile": "packages/server/src/lib/shell-exec.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 14
+    },
+    {
       "testFile": "packages/server/src/lib/change-intelligence.mjs",
-      "productionFile": "packages/server/src/lib/paaw-project.mjs",
+      "productionFile": "packages/server/src/lib/shell-exec.mjs",
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 2
@@ -78,6 +99,13 @@
       "testCount": 11
     },
     {
+      "testFile": "packages/server/src/lib/context-compaction.mjs",
+      "productionFile": "packages/server/src/lib/context-truncation.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 5
+    },
+    {
       "testFile": "packages/server/src/lib/context-providers.mjs",
       "productionFile": "packages/server/src/lib/paaw-project.mjs",
       "matchType": "import",
@@ -85,18 +113,95 @@
       "testCount": 6
     },
     {
-      "testFile": "packages/server/src/lib/night-shift-shared.mjs",
+      "testFile": "packages/server/src/lib/cu-mechanical.mjs",
       "productionFile": "packages/server/src/lib/paaw-project.mjs",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 11
+      "testCount": 1
     },
     {
-      "testFile": "packages/server/src/lib/overnight-manager.mjs",
-      "productionFile": "packages/server/src/lib/action-log.mjs",
+      "testFile": "packages/server/src/lib/domain-agent-registry.mjs",
+      "productionFile": "packages/server/src/lib/security-rules.mjs",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 9
+      "testCount": 8
+    },
+    {
+      "testFile": "packages/server/src/lib/paaw-project.mjs",
+      "productionFile": "packages/server/src/lib/shell-exec.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 6
+    },
+    {
+      "testFile": "packages/server/src/lib/paaw-snapshot.mjs",
+      "productionFile": "packages/server/src/lib/shell-exec.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 1
+    },
+    {
+      "testFile": "packages/server/src/lib/release-unit/analyze.mjs",
+      "productionFile": "packages/server/src/lib/release-unit/metrics.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 3
+    },
+    {
+      "testFile": "packages/server/src/lib/release-unit/apis.mjs",
+      "productionFile": "packages/server/src/lib/release-unit/adapters.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 3
+    },
+    {
+      "testFile": "packages/server/src/lib/release-unit/architecture.mjs",
+      "productionFile": "packages/server/src/lib/release-unit/dependencies.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 2
+    },
+    {
+      "testFile": "packages/server/src/lib/release-unit/ask.mjs",
+      "productionFile": "packages/server/src/lib/release-unit/adapters.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 3
+    },
+    {
+      "testFile": "packages/server/src/lib/release-unit/dependencies.mjs",
+      "productionFile": "packages/server/src/lib/release-unit/adapters.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 12
+    },
+    {
+      "testFile": "packages/server/src/lib/release-unit/gates.mjs",
+      "productionFile": "packages/server/src/lib/release-unit/verify.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 2
+    },
+    {
+      "testFile": "packages/server/src/lib/release-unit/impact.mjs",
+      "productionFile": "packages/server/src/lib/release-unit/dependencies.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 3
+    },
+    {
+      "testFile": "packages/server/src/lib/release-unit/metrics.mjs",
+      "productionFile": "packages/server/src/lib/release-unit/adapters.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 2
+    },
+    {
+      "testFile": "packages/server/src/lib/release-unit/verify.mjs",
+      "productionFile": "packages/server/src/lib/release-unit/adapters.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 3
     },
     {
       "testFile": "packages/server/src/lib/security/index.mjs",
@@ -104,6 +209,13 @@
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 0
+    },
+    {
+      "testFile": "packages/server/src/lib/semgrep-runner.mjs",
+      "productionFile": "packages/server/src/lib/shell-exec.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 14
     },
     {
       "testFile": "packages/server/src/lib/test-intelligence.mjs",
@@ -127,6 +239,13 @@
       "testCount": 3
     },
     {
+      "testFile": "packages/server/src/lib/tool-registry-init.mjs",
+      "productionFile": "packages/server/src/lib/tool-registry.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 5
+    },
+    {
       "testFile": "packages/server/src/paaw-server.mjs",
       "productionFile": "packages/server/src/routes/shared.mjs",
       "matchType": "import",
@@ -139,6 +258,20 @@
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 25
+    },
+    {
+      "testFile": "packages/server/src/routes/agent-logs.mjs",
+      "productionFile": "packages/server/src/lib/agent-exec-logger.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 1
+    },
+    {
+      "testFile": "packages/server/src/routes/agentic-bindings.mjs",
+      "productionFile": "packages/server/src/routes/context.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 4
     },
     {
       "testFile": "packages/server/src/routes/ai-settings.mjs",
@@ -183,11 +316,39 @@
       "testCount": 3
     },
     {
+      "testFile": "packages/server/src/routes/coding-auto-dispatch-config.mjs",
+      "productionFile": "packages/server/src/routes/shared.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 3
+    },
+    {
+      "testFile": "packages/server/src/routes/coding-auto-dispatch-prompts.mjs",
+      "productionFile": "packages/server/src/routes/shared.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 2
+    },
+    {
+      "testFile": "packages/server/src/routes/coding-doc-coverage.mjs",
+      "productionFile": "packages/server/src/lib/doc-coverage.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 1
+    },
+    {
+      "testFile": "packages/server/src/routes/coding-em-config.mjs",
+      "productionFile": "packages/server/src/lib/em-config.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 1
+    },
+    {
       "testFile": "packages/server/src/routes/coding-features.mjs",
       "productionFile": "packages/server/src/routes/shared.mjs",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 11
+      "testCount": 12
     },
     {
       "testFile": "packages/server/src/routes/coding-issues.mjs",
@@ -204,18 +365,25 @@
       "testCount": 4
     },
     {
-      "testFile": "packages/server/src/routes/coding-night-shift-prompts.mjs",
-      "productionFile": "packages/server/src/routes/shared.mjs",
+      "testFile": "packages/server/src/routes/coding-releases.mjs",
+      "productionFile": "packages/server/src/routes/coding-evidence.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 7
+    },
+    {
+      "testFile": "packages/server/src/routes/coding-reports.mjs",
+      "productionFile": "packages/server/src/lib/auto-dispatch-shared.mjs",
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 2
     },
     {
-      "testFile": "packages/server/src/routes/coding-reports.mjs",
-      "productionFile": "packages/server/src/lib/night-shift-shared.mjs",
+      "testFile": "packages/server/src/routes/coding-tasks.mjs",
+      "productionFile": "packages/server/src/routes/shared.mjs",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 2
+      "testCount": 16
     },
     {
       "testFile": "packages/server/src/routes/crew.mjs",
@@ -230,6 +398,13 @@
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 17
+    },
+    {
+      "testFile": "packages/server/src/routes/execution-plan-routes.mjs",
+      "productionFile": "packages/server/src/lib/execution-plan.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 2
     },
     {
       "testFile": "packages/server/src/routes/helpdesk.mjs",
@@ -253,6 +428,13 @@
       "testCount": 18
     },
     {
+      "testFile": "packages/server/src/routes/plugins.mjs",
+      "productionFile": "packages/server/src/routes/context.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 3
+    },
+    {
       "testFile": "packages/server/src/routes/pocket.mjs",
       "productionFile": "packages/server/src/routes/shared.mjs",
       "matchType": "import",
@@ -265,6 +447,13 @@
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 8
+    },
+    {
+      "testFile": "packages/server/src/routes/release-unit.mjs",
+      "productionFile": "packages/server/src/routes/shared.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 6
     },
     {
       "testFile": "packages/server/src/routes/skill.mjs",
@@ -285,7 +474,7 @@
       "productionFile": "packages/server/src/routes/shared.mjs",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 2
+      "testCount": 4
     },
     {
       "testFile": "packages/server/src/routes/vibe-sessions.mjs",
@@ -299,14 +488,14 @@
       "productionFile": "packages/server/src/routes/context.mjs",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 1
+      "testCount": 5
     },
     {
       "testFile": "packages/server/src/scheduler/cron-jobs.mjs",
       "productionFile": "packages/server/src/routes/shared.mjs",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 13
+      "testCount": 14
     },
     {
       "testFile": "packages/server/src/tools/index.mjs",
@@ -330,6 +519,13 @@
       "testCount": 13
     },
     {
+      "testFile": "packages/ui/src/components/AgentBuilder.tsx",
+      "productionFile": "packages/ui/src/utils/index.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 3
+    },
+    {
       "testFile": "packages/ui/src/components/AgentConsole.tsx",
       "productionFile": "packages/ui/src/utils/index.ts",
       "matchType": "import",
@@ -344,11 +540,25 @@
       "testCount": 5
     },
     {
-      "testFile": "packages/ui/src/components/BrowserPreview.tsx",
+      "testFile": "packages/ui/src/components/AgentSideChat.tsx",
       "productionFile": "packages/ui/src/api.ts",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 6
+      "testCount": 1
+    },
+    {
+      "testFile": "packages/ui/src/components/AutoDispatchPanel.tsx",
+      "productionFile": "packages/ui/src/utils/index.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 12
+    },
+    {
+      "testFile": "packages/ui/src/components/ChatMessages.tsx",
+      "productionFile": "packages/ui/src/utils/index.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 10
     },
     {
       "testFile": "packages/ui/src/components/CrewEditor.tsx",
@@ -356,6 +566,13 @@
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 4
+    },
+    {
+      "testFile": "packages/ui/src/components/CrewManager.tsx",
+      "productionFile": "packages/ui/src/utils/index.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 13
     },
     {
       "testFile": "packages/ui/src/components/DecisionLog.tsx",
@@ -376,7 +593,14 @@
       "productionFile": "packages/ui/src/api.ts",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 6
+      "testCount": 11
+    },
+    {
+      "testFile": "packages/ui/src/components/EvidenceCard.tsx",
+      "productionFile": "packages/ui/src/api.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 7
     },
     {
       "testFile": "packages/ui/src/components/FeatureMap.tsx",
@@ -400,11 +624,18 @@
       "testCount": 5
     },
     {
+      "testFile": "packages/ui/src/components/HandoverPanel.tsx",
+      "productionFile": "packages/ui/src/api.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 4
+    },
+    {
       "testFile": "packages/ui/src/components/IssueTracker.tsx",
       "productionFile": "packages/ui/src/utils/index.ts",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 9
+      "testCount": 7
     },
     {
       "testFile": "packages/ui/src/components/JsonViewer.tsx",
@@ -425,7 +656,7 @@
       "productionFile": "packages/ui/src/api.ts",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 7
+      "testCount": 8
     },
     {
       "testFile": "packages/ui/src/components/MoveFolderPicker.tsx",
@@ -433,13 +664,6 @@
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 2
-    },
-    {
-      "testFile": "packages/ui/src/components/NightShiftPanel.tsx",
-      "productionFile": "packages/ui/src/api.ts",
-      "matchType": "import",
-      "testedFunctions": [],
-      "testCount": 6
     },
     {
       "testFile": "packages/ui/src/components/PaawTree.tsx",
@@ -456,7 +680,14 @@
       "testCount": 4
     },
     {
-      "testFile": "packages/ui/src/components/ProjectHealth.tsx",
+      "testFile": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "productionFile": "packages/ui/src/api.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 7
+    },
+    {
+      "testFile": "packages/ui/src/components/ReleaseUnitPanel.tsx",
       "productionFile": "packages/ui/src/api.ts",
       "matchType": "import",
       "testedFunctions": [],
@@ -467,7 +698,7 @@
       "productionFile": "packages/ui/src/utils/index.ts",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 1
+      "testCount": 2
     },
     {
       "testFile": "packages/ui/src/components/SessionHistory.tsx",
@@ -484,11 +715,74 @@
       "testCount": 12
     },
     {
+      "testFile": "packages/ui/src/components/SkillPicker.tsx",
+      "productionFile": "packages/ui/src/utils/index.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 2
+    },
+    {
       "testFile": "packages/ui/src/components/StandardsEditor.tsx",
       "productionFile": "packages/ui/src/api.ts",
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 6
+    },
+    {
+      "testFile": "packages/ui/src/components/TaskBoard.tsx",
+      "productionFile": "packages/ui/src/api.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 26
+    },
+    {
+      "testFile": "packages/ui/src/components/TroubleshootingPanel.tsx",
+      "productionFile": "packages/ui/src/api.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 2
+    },
+    {
+      "testFile": "packages/ui/src/components/git/GitCommitBar.tsx",
+      "productionFile": "packages/ui/src/utils/index.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 1
+    },
+    {
+      "testFile": "packages/ui/src/components/git/GitDiffView.tsx",
+      "productionFile": "packages/ui/src/utils/index.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 3
+    },
+    {
+      "testFile": "packages/ui/src/components/git/GitFileGroup.tsx",
+      "productionFile": "packages/ui/src/utils/index.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 1
+    },
+    {
+      "testFile": "packages/ui/src/components/git/GitPanel.tsx",
+      "productionFile": "packages/ui/src/utils/index.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 1
+    },
+    {
+      "testFile": "packages/ui/src/components/git/GitReviewView.tsx",
+      "productionFile": "packages/ui/src/utils/index.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 2
+    },
+    {
+      "testFile": "packages/ui/src/components/git/GitStatusView.tsx",
+      "productionFile": "packages/ui/src/utils/index.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 2
     },
     {
       "testFile": "packages/ui/src/components/orchestrator/ApiSpecSection.tsx",
@@ -558,7 +852,7 @@
       "productionFile": "packages/ui/src/utils/index.ts",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 5
+      "testCount": 6
     },
     {
       "testFile": "packages/ui/src/main.tsx",
@@ -621,7 +915,7 @@
       "productionFile": "packages/ui/src/theme.tsx",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 14
+      "testCount": 13
     },
     {
       "testFile": "packages/ui/src/pages/CronJobsPage.tsx",
@@ -789,7 +1083,7 @@
       "productionFile": "packages/ui/src/api.ts",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 7
+      "testCount": 8
     },
     {
       "testFile": "packages/ui/src/pages/WorkflowExec.tsx",
@@ -803,7 +1097,98 @@
       "productionFile": "packages/ui/src/types/index.ts",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 12
+      "testCount": 13
+    },
+    {
+      "testFile": "tests/e2e/01-smoke.spec.ts",
+      "productionFile": "tests/e2e/helpers.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 0
+    },
+    {
+      "testFile": "tests/e2e/02-settings.spec.ts",
+      "productionFile": "tests/e2e/helpers.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 0
+    },
+    {
+      "testFile": "tests/e2e/03-notes.spec.ts",
+      "productionFile": "tests/e2e/helpers.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 0
+    },
+    {
+      "testFile": "tests/e2e/04-pages.spec.ts",
+      "productionFile": "tests/e2e/helpers.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 0
+    },
+    {
+      "testFile": "tests/e2e/06-chat.spec.ts",
+      "productionFile": "tests/e2e/helpers.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 0
+    },
+    {
+      "testFile": "tests/e2e/07-skills.spec.ts",
+      "productionFile": "tests/e2e/helpers.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 0
+    },
+    {
+      "testFile": "tests/e2e/08-apps.spec.ts",
+      "productionFile": "tests/e2e/helpers.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 0
+    },
+    {
+      "testFile": "tests/e2e/09-coding.spec.ts",
+      "productionFile": "tests/e2e/helpers.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 0
+    },
+    {
+      "testFile": "tests/e2e/10-execution.spec.ts",
+      "productionFile": "tests/e2e/helpers.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 0
+    },
+    {
+      "testFile": "tests/e2e/11-nav-comprehensive.spec.ts",
+      "productionFile": "tests/e2e/helpers.ts",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 0
+    },
+    {
+      "testFile": "tests/unit/coding-evidence.test.mjs",
+      "productionFile": "packages/server/src/routes/coding-evidence.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 0
+    },
+    {
+      "testFile": "tests/unit/coding-security-extended.test.mjs",
+      "productionFile": "packages/server/src/lib/coding-security.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 1
+    },
+    {
+      "testFile": "tests/unit/coding-security.test.mjs",
+      "productionFile": "packages/server/src/lib/coding-security.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 0
     },
     {
       "testFile": "tests/unit/context-engine.test.mjs",
@@ -811,11 +1196,46 @@
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 0
+    },
+    {
+      "testFile": "tests/unit/context-truncation.test.mjs",
+      "productionFile": "packages/server/src/lib/context-truncation.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 0
+    },
+    {
+      "testFile": "tests/unit/conversation-sanitize.test.mjs",
+      "productionFile": "packages/server/src/lib/coding-security.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 0
+    },
+    {
+      "testFile": "tests/unit/execution-plan.test.mjs",
+      "productionFile": "packages/server/src/lib/execution-plan.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 1
+    },
+    {
+      "testFile": "tests/unit/llm-utils.test.mjs",
+      "productionFile": "packages/server/src/lib/llm-utils.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 0
+    },
+    {
+      "testFile": "tests/unit/repair-loop.test.mjs",
+      "productionFile": "packages/server/src/routes/coding-tasks.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 1
     }
   ],
   "stats": {
-    "totalTestFiles": 12,
-    "matchedTests": 116,
+    "totalTestFiles": 29,
+    "matchedTests": 176,
     "totalTestedFunctions": 0
   }
 }

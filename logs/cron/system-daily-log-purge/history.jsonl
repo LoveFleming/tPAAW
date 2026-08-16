@@ -26,3 +26,17 @@
 {"runId":"system-daily-log-purge-2026-08-08T19-00-26","status":"done","result":"deleted 1","ts":"2026-08-08T19:00:26.930Z"}
 {"runId":"system-daily-log-purge-2026-08-09T19-00-02","status":"started","ts":"2026-08-09T19:00:02.997Z"}
 {"runId":"system-daily-log-purge-2026-08-09T19-00-02","status":"done","result":"deleted 1","ts":"2026-08-09T19:00:03.020Z"}
+{"runId":"system-daily-log-purge-2026-08-10T19-00-09","status":"started","ts":"2026-08-10T19:00:09.181Z"}
+{"runId":"system-daily-log-purge-2026-08-10T19-00-09","status":"done","result":"deleted 1","ts":"2026-08-10T19:00:09.204Z"}
+{"runId":"system-daily-log-purge-2026-08-11T19-00-15","status":"started","ts":"2026-08-11T19:00:15.164Z"}
+{"runId":"system-daily-log-purge-2026-08-11T19-00-15","status":"done","result":"deleted 1","ts":"2026-08-11T19:00:15.188Z"}
+{"runId":"system-daily-log-purge-2026-08-12T19-00-21","status":"started","ts":"2026-08-12T19:00:21.366Z"}
+{"runId":"system-daily-log-purge-2026-08-12T19-00-21","status":"done","result":"deleted 1","ts":"2026-08-12T19:00:21.388Z"}
+{"runId":"system-daily-log-purge-2026-08-13T19-00-27","status":"started","ts":"2026-08-13T19:00:27.624Z"}
+{"runId":"system-daily-log-purge-2026-08-13T19-00-27","status":"done","result":"deleted 0","ts":"2026-08-13T19:00:27.642Z"}
+{"runId":"system-daily-log-purge-2026-08-14T19-00-05","status":"started","ts":"2026-08-14T19:00:05.713Z"}
+{"runId":"system-daily-log-purge-2026-08-14T19-00-05","status":"done","result":"deleted 0","ts":"2026-08-14T19:00:05.716Z"}
+{"runId":"system-daily-log-purge-2026-08-15T19-00-27","status":"started","ts":"2026-08-15T19:00:27.598Z"}
+{"runId":"system-daily-log-purge-2026-08-15T19-00-27","status":"done","result":"deleted 0","ts":"2026-08-15T19:00:27.605Z"}
+{"runId":"system-daily-log-purge-2026-08-16T19-00-27","status":"started","ts":"2026-08-16T19:00:27.043Z"}
+{"runId":"system-daily-log-purge-2026-08-16T19-00-27","status":"done","result":"deleted 0","ts":"2026-08-16T19:00:27.051Z"}
