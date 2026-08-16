@@ -73,7 +73,7 @@ const NAV_EMOJI_PATTERNS: { match: RegExp; emoji: string }[] = [
     { match: /notes|筆記|ノート/i, emoji: "📓" },
     { match: /projects|專案|プロジェクト/i, emoji: "📋" },
     { match: /helpdesk|客服/i, emoji: "🎧" },
-    { match: /llm.*log/i, emoji: "📡" },
+    { match: /llm.*(?:log|日誌|ログ)|^llm$/i, emoji: "📡" },
     { match: /agent.*log|執行記錄/i, emoji: "📝" },
 ];
 

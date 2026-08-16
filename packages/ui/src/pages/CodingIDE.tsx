@@ -217,6 +217,7 @@ export default function CodingIDE() {
 
   // ── Layout State ──
   const [sidebarWidth, setSidebarWidth] = useState(240);
+  const [fileTreeHidden, setFileTreeHidden] = useState(false);
   const [aiPanelWidth, setAiPanelWidth] = useState(360);
   const [terminalHeight, setTerminalHeight] = useState(200);
   const [showTerminal, setShowTerminal] = useState(false);
@@ -2471,6 +2472,13 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
         </div>
 
         {/* Non-dropdown tool buttons */}
+        {/* File tree 顯隱切換（2026-08-16 Fleming 要求） */}
+        <button onClick={() => setFileTreeHidden(v => !v)}
+          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: fileTreeHidden ? tk.toolbarActive : "transparent", color: tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (!fileTreeHidden) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = fileTreeHidden ? tk.toolbarActive : "transparent"; }}
+          title={fileTreeHidden ? "顯示檔案樹" : "隱藏檔案樹"}>{fileTreeHidden ? "📁" : "🗂️"}</button>
         <button onClick={() => openMainTab({ id: "tool:git", type: "git", label: "GIT", icon: "🔀", closable: true })}
           className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
           style={{ backgroundColor: activeMainTab?.id === "tool:git" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:git") ? tk.toolbarText : tk.toolbarTextMuted }}
@@ -2548,7 +2556,8 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
 
       {/* ── Main Content ── */}
       <div className="flex-1 flex min-h-0">
-        {/* ── File Explorer ── */}
+        {/* ── File Explorer（可隱藏）── */}
+        {!fileTreeHidden && (<>
         <div className="flex flex-col shrink-0 select-none" style={{ width: sidebarWidth, backgroundColor: "#fff" }}>
           <div className="px-2 py-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
             {/* Git branch indicator */}
@@ -2612,6 +2621,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
         {/* Sidebar resize */}
         <div className="w-px cursor-col-resize hover:w-0.5 hover:bg-blue-400 active:bg-blue-500 transition-all shrink-0"
           onMouseDown={e => startResize("sidebar", e)} style={{ backgroundColor: tk.borderLight }} />
+        </>)}
 
         {/* ── Center: Unified Tab System ── */}
         <div className="flex-1 flex flex-col min-w-0">
