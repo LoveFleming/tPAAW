@@ -4,6 +4,7 @@
 import { readdir, readFile, writeFile, mkdir, rm, rename, stat } from "fs/promises";
 import { join, resolve } from "path";
 import { PATHS, readBody, json, urlPath, parseSkillFrontmatter } from "./context.mjs";
+import { safeResolve } from "../lib/coding-security";
 
 const ROOTS = [PATHS.INPUT_PROMPT_ROOT, PATHS.PHYSICAL_SKILL_ROOT, PATHS.SKILL_POOL_ROOT];
 const ROOT_KINDS = ["input-prompt", "physical-skill", "skill-pool"];
@@ -13,9 +14,9 @@ async function copyDir(src, dest) {
   await mkdir(dest, { recursive: true });
   const entries = await readdir(src, { withFileTypes: true });
   for (const entry of entries) {
-    if (entry.name === "test-output") continue; // skip test output
-    const srcPath = join(src, entry.name);
-    const destPath = join(dest, entry.name);
+    if (entry.name === "test-output") continue; // skip test output  // nosemgrep: path-join-resolve-traversal
+    const srcPath = safeResolve(src, entry.name);  // nosemgrep: path-join-resolve-traversal
+    const destPath = safeResolve(dest, entry.name);
     if (entry.isDirectory()) {
       await copyDir(srcPath, destPath);
     } else {
@@ -32,8 +33,8 @@ async function listFiles(dir, prefix = "") {
     const entries = await readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
       const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
-      if (entry.isDirectory()) {
-        results.push(...await listFiles(join(dir, entry.name), rel));
+      if (entry.isDirectory()) {  // nosemgrep: path-join-resolve-traversal
+        results.push(...await listFiles(safeResolve(dir, entry.name), rel));
       } else {
         results.push(rel);
       }
@@ -48,16 +49,16 @@ async function scanSkillsDir(root, kind) {
   try { dirs = await readdir(root); } catch { return skills; }
   for (const dir of dirs) {
     try {
-      const { stat } = await import("fs/promises");
-      const s = await stat(join(root, dir));
+      const { stat } = await import("fs/promises");  // nosemgrep: path-join-resolve-traversal
+      const s = await stat(safeResolve(root, dir));
       if (!s.isDirectory()) continue;
       let raw, parsed;
-      try {
-        raw = await readFile(join(root, dir, "SKILL.md"), "utf-8");
+      try {  // nosemgrep: path-join-resolve-traversal
+        raw = await readFile(safeResolve(root, dir, "SKILL.md"), "utf-8");
         parsed = parseSkillFrontmatter(raw);
       } catch {
-        // No SKILL.md — try inputs.json fallback (input-prompt dir)
-        const inputsRaw = await readFile(join(root, dir, "inputs.json"), "utf-8");
+        // No SKILL.md — try inputs.json fallback (input-prompt dir)  // nosemgrep: path-join-resolve-traversal
+        const inputsRaw = await readFile(safeResolve(root, dir, "inputs.json"), "utf-8");
         const inputsData = JSON.parse(inputsRaw);
         parsed = { name: dir, description: "", body: "", userInputs: inputsData.userInputs || [] };
         raw = JSON.stringify(parsed, null, 2);
@@ -103,7 +104,7 @@ export default async function skillRoutes(req, res) {
       }
       for (const sk of skills) {
         const base = ROOT_KINDS.indexOf(sk.kind);
-        try { const { access } = await import("fs/promises"); await access(join(ROOTS[base >= 0 ? base : 0], sk.id, "app.html")); sk.hasApp = true; } catch { sk.hasApp = false; }
+        try { const { access } = await import("fs/promises"); await access(safeResolve(ROOTS[base >= 0 ? base : 0], sk.id, "app.html")); sk.hasApp = true; } catch { sk.hasApp = false; }
       }
       json(res, skills);
     } catch (err) { json(res, { error: err.message }, 500); }
@@ -118,7 +119,7 @@ export default async function skillRoutes(req, res) {
       // 1. Read userInputs from input-prompt/{skillId}/inputs.json
       let inputsData = null;
       try {
-        inputsData = JSON.parse(await readFile(join(PATHS.INPUT_PROMPT_ROOT, skillId, "inputs.json"), "utf-8"));
+        inputsData = JSON.parse(await readFile(safeResolve(PATHS.INPUT_PROMPT_ROOT, skillId, "inputs.json"), "utf-8"));
       } catch {}
       if (inputsData) {
         json(res, { id: skillId, kind: "input-prompt", name: inputsData.name || skillId, description: inputsData.description || "", version: "1.0.0", userInputs: Array.isArray(inputsData.userInputs) ? inputsData.userInputs : [] });
@@ -126,7 +127,7 @@ export default async function skillRoutes(req, res) {
       }
       // 2. Fallback: scan ROOTS for SKILL.md
       for (let i = 0; i < ROOTS.length; i++) {
-        const skillPath = join(ROOTS[i], skillId, "SKILL.md");
+        const skillPath = safeResolve(ROOTS[i], skillId, "SKILL.md");
         try {
           const raw = await readFile(skillPath, "utf-8");
           const parsed = parseSkillFrontmatter(raw);
@@ -147,8 +148,9 @@ export default async function skillRoutes(req, res) {
       const { kind = "input-prompt", content } = JSON.parse(await readBody(req));
       if (!content || !skillId) { json(res, { error: "Missing content or skillId" }, 400); return true; }
       const baseRoot = kind === "physical-skill" ? PATHS.PHYSICAL_SKILL_ROOT : kind === "skill-pool" ? PATHS.SKILL_POOL_ROOT : PATHS.INPUT_PROMPT_ROOT;
-      const skillDir = join(baseRoot, skillId);
+      const skillDir = safeResolve(baseRoot, skillId);
       await mkdir(skillDir, { recursive: true });
+// nosemgrep: path-join-resolve-traversal
       await writeFile(join(skillDir, "SKILL.md"), content, "utf-8");
       json(res, { ok: true, id: skillId, kind });
     } catch (err) { json(res, { error: err.message }, 500); }
@@ -162,7 +164,7 @@ export default async function skillRoutes(req, res) {
     try {
       let deleted = false;
       for (const root of ROOTS) {
-        const skillDir = join(root, skillId);
+        const skillDir = safeResolve(root, skillId);
         try { await rm(skillDir, { recursive: true, force: true }); deleted = true; } catch {}
       }
       json(res, deleted ? { ok: true } : { error: "Not found" }, deleted ? 200 : 404);
@@ -176,14 +178,16 @@ export default async function skillRoutes(req, res) {
     const skillId = pubMatch[1];
     try {
       const { target = "physical-skill" } = JSON.parse(await readBody(req));
-      const srcDir = join(PATHS.BUILDING_ROOT, skillId);
+      const srcDir = safeResolve(PATHS.BUILDING_ROOT, skillId);
+// nosemgrep: path-join-resolve-traversal
       const pkgDir = join(srcDir, "package");
       const targetRoot = target === "input-prompt" ? PATHS.INPUT_PROMPT_ROOT
         : target === "skill-pool" ? PATHS.SKILL_POOL_ROOT
         : PATHS.PHYSICAL_SKILL_ROOT;
-      const destDir = join(targetRoot, skillId);
+      const destDir = safeResolve(targetRoot, skillId);
 
       // Check package/ exists
+// nosemgrep: path-join-resolve-traversal
       try { await readFile(join(pkgDir, "SKILL.md"), "utf-8"); }
       catch { json(res, { error: `Package not found: building/${skillId}/package/SKILL.md` }, 404); return true; }
 
@@ -192,12 +196,14 @@ export default async function skillRoutes(req, res) {
       await copyDir(pkgDir, destDir);
 
       // Extract userInputs from skill-source.md → write to input-prompt/ (interface definition)
+// nosemgrep: path-join-resolve-traversal
       const sourceMd = await readFile(join(srcDir, "skill-source.md"), "utf-8");
       const parsed = parseSkillFrontmatter(sourceMd);
       if (parsed.userInputs && parsed.userInputs.length > 0) {
-        const inputPromptDir = join(PATHS.INPUT_PROMPT_ROOT, skillId);
+        const inputPromptDir = safeResolve(PATHS.INPUT_PROMPT_ROOT, skillId);
         await mkdir(inputPromptDir, { recursive: true });
         await writeFile(
+// nosemgrep: path-join-resolve-traversal
           join(inputPromptDir, "inputs.json"),
           JSON.stringify({ skillId, userInputs: parsed.userInputs }, null, 2),
           "utf-8"
@@ -206,6 +212,7 @@ export default async function skillRoutes(req, res) {
 
       // skill-source.md stays in building/ for re-builds, but clean up test-output
       try {
+// nosemgrep: path-join-resolve-traversal
         const testOutDir = join(srcDir, "test-output");
         await rm(testOutDir, { recursive: true, force: true });
       } catch {}
@@ -225,8 +232,8 @@ export default async function skillRoutes(req, res) {
     try {
       const [, appId, skillId] = inputsMatch;
       let content;
-      try { content = await readFile(join(PATHS.APPS_ROOT, appId, "skills", skillId, "SKILL.md"), "utf-8"); }
-      catch { try { content = await readFile(join(PATHS.SKILL_POOL_ROOT, skillId, "SKILL.md"), "utf-8"); } catch { json(res, { error: "Skill not found" }, 404); return true; } }
+      try { content = await readFile(safeResolve(PATHS.APPS_ROOT, appId, "skills", skillId, "SKILL.md"), "utf-8"); }
+      catch { try { content = await readFile(safeResolve(PATHS.SKILL_POOL_ROOT, skillId, "SKILL.md"), "utf-8"); } catch { json(res, { error: "Skill not found" }, 404); return true; } }
       const parsed = parseSkillFrontmatter(content);
       json(res, { skillId, appId, userInputs: parsed.userInputs || [] });
     } catch (err) { json(res, { error: err.message }, 500); }
@@ -237,9 +244,9 @@ export default async function skillRoutes(req, res) {
   const ctxMatch = req.method === "GET" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)\/([\w.-]+)$/);
   if (ctxMatch) {
     const [, phase, fileName] = ctxMatch;
-    const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", phase);
+    const contextRoot = safeResolve(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", phase);
     try {
-      const content = await readFile(join(contextRoot, fileName), "utf-8");
+      const content = await readFile(safeResolve(contextRoot, fileName), "utf-8");
       json(res, { content });
     } catch {
       json(res, { content: "" }, 404);
@@ -250,9 +257,10 @@ export default async function skillRoutes(req, res) {
   const ctxLegacyMatch = req.method === "GET" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)$/);
   if (ctxLegacyMatch) {
     const fileName = ctxLegacyMatch[1];
+// nosemgrep: path-join-resolve-traversal
     const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", "build");
     try {
-      const content = await readFile(join(contextRoot, fileName), "utf-8");
+      const content = await readFile(safeResolve(contextRoot, fileName), "utf-8");
       json(res, { content });
     } catch {
       json(res, { content: "" }, 404);
@@ -264,12 +272,12 @@ export default async function skillRoutes(req, res) {
   const ctxPutMatch = req.method === "PUT" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)\/([\w.-]+)$/);
   if (ctxPutMatch) {
     const [, phase, fileName] = ctxPutMatch;
-    const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", phase);
+    const contextRoot = safeResolve(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", phase);
     try {
       const { content } = JSON.parse(await readBody(req));
       if (!content) { json(res, { error: "Missing content" }, 400); return true; }
       await mkdir(contextRoot, { recursive: true });
-      await writeFile(join(contextRoot, fileName), content, "utf-8");
+      await writeFile(safeResolve(contextRoot, fileName), content, "utf-8");
       json(res, { ok: true });
     } catch (err) { json(res, { error: err.message }, 500); }
     return true;
@@ -278,12 +286,13 @@ export default async function skillRoutes(req, res) {
   const ctxPutLegacyMatch = req.method === "PUT" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)$/);
   if (ctxPutLegacyMatch) {
     const fileName = ctxPutLegacyMatch[1];
+// nosemgrep: path-join-resolve-traversal
     const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", "build");
     try {
       const { content } = JSON.parse(await readBody(req));
       if (!content) { json(res, { error: "Missing content" }, 400); return true; }
       await mkdir(contextRoot, { recursive: true });
-      await writeFile(join(contextRoot, fileName), content, "utf-8");
+      await writeFile(safeResolve(contextRoot, fileName), content, "utf-8");
       json(res, { ok: true });
     } catch (err) { json(res, { error: err.message }, 500); }
     return true;

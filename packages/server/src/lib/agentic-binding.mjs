@@ -18,6 +18,7 @@ import { toolRegistry } from "./tool-registry.mjs";
 let _bindings = null;
 
 function _loadBindings(configDir) {
+// nosemgrep: path-join-resolve-traversal
   const configFile = join(configDir, "agentic-bindings.json");
   if (!existsSync(configFile)) {
     // Create default

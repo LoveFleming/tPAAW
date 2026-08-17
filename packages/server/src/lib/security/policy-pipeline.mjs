@@ -55,7 +55,7 @@ export class PolicyPipeline {
         }
       } catch (err) {
         // Policy 本身噴錯 → 安全降級（擋下來）
-        console.error(`[Security] Policy ${policy.name} error:`, err.message)
+        console.error(`[Security] Policy ${policy.name} error:`, err.message)  // nosemgrep: unsafe-formatstring
         return { blocked: true, reason: `Internal security error: ${policy.name}` }
       }
     }

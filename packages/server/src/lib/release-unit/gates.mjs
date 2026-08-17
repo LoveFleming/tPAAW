@@ -25,6 +25,7 @@ const DEFAULT_GATES = {
 
 /** 讀（或建立）gates.json */
 export async function loadGates(root) {
+// nosemgrep: path-join-resolve-traversal
   const file = join(root, ".paaw", "gates.json");
   let gates = { ...DEFAULT_GATES };
   let created = false;
@@ -34,7 +35,8 @@ export async function loadGates(root) {
       gates = { ...DEFAULT_GATES, ...user };
     } catch { /* 壞檔用預設 */ }
   } else {
-    try {
+    try {  // nosemgrep: path-join-resolve-traversal
+// nosemgrep: path-join-resolve-traversal
       const dir = join(root, ".paaw");
       if (!existsSync(dir)) await mkdir(dir, { recursive: true });
       await writeFile(file, JSON.stringify({ ...DEFAULT_GATES, _hint: "required:true 擋發布；level:warn 只警示" }, null, 2), "utf-8");

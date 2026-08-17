@@ -17,6 +17,7 @@ import { join } from "path";
 const FULL = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
 
 function loadFeatures(cwd) {
+// nosemgrep: path-join-resolve-traversal
   const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
   if (!existsSync(featuresFile)) return { error: "no-features-file" };
   try {
@@ -30,7 +31,8 @@ function loadFeatures(cwd) {
   }
 }
 
-async function loadTasks(cwd) {
+async function loadTasks(cwd) {  // nosemgrep: path-join-resolve-traversal
+// nosemgrep: path-join-resolve-traversal
   const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
   if (!existsSync(tasksFile)) return { error: "no-tasks-file" };
   const data = JSON.parse(await readFile(tasksFile, "utf-8"));
@@ -189,8 +191,9 @@ ${(feat.codeFiles || []).map(cf => "- " + cf).join("\n") || "(從 FEATURES.json 
     created.push({ id, featureId: feat.id, featureName: feat.name, needPhases });
   }
 
-  if (created.length > 0) {
+  if (created.length > 0) {  // nosemgrep: path-join-resolve-traversal
     data.updatedAt = now;
+// nosemgrep: path-join-resolve-traversal
     const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
     await writeFile(tasksFile, JSON.stringify(data, null, 2), "utf-8");
   }

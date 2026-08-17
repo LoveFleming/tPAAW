@@ -1,0 +1,45 @@
+
+> paaw@0.1.0 dev
+> concurrently -k -n "UI,API" -c "cyan,magenta" "npm run dev -w @paaw/ui" "npm run dev -w @paaw/server"
+
+[UI] 
+[UI] > @paaw/ui@0.1.0 dev
+[UI] > vite
+[UI] 
+[API] 
+[API] > @paaw/server@0.1.0 dev
+[API] > node src/paaw-server.mjs
+[API] 
+[API] [PAAW] Loaded .env from /Users/steward/App/tPAAW/.env
+[API] ✅ ../lib/paaw-agent-loop.mjs: PAAW_TOOLS, callLLM, clearCrewGroupCache, executeTool, getAgentGroups, getToolGroupInfo, getToolsForAgent, resolveLLMConfig, runAgentLoop, runAgentLoopStream, setAgentConfig, trimMessagesToFit
+[API] ✅ ../lib/semgrep-runner.mjs: buildFullScanCommand, detectRulePacks, diagnoseSemgrep, formatCondensed, formatForAI, isSemgrepAvailable, runSemgrep
+[API] ✅ ../lib/paaw-project.mjs: PaawProject, createPaawProject
+[API] ✅ ../lib/domain-agent-registry.mjs: DOMAIN_AGENTS, buildAgentCard, buildSystemPrompt, clearCrewCache, getAgent, getAgentByCrewId, getCrewData, listAgents
+[API] ✅ ../lib/action-log.mjs: addActionLog, listActionLog, loadAgentMemory, saveAgentMemory
+[API] ✅ ../lib/bridge/paaw-bridge.mjs: startBridge
+[API] ✅ ../routes/shared.mjs: APPS_ROOT, APP_RULES_PATH, CONVERSATIONS_ROOT, CREWS_ROOT, CRON_CHAT_DIR, CRON_JOBS_FILE, CRON_LOGS_DIR, CRON_RESULTS_DIR, DASHBOARD_ROOT, DATA_ROOT, INPUT_PROMPT_ROOT, PAAW_CHAT_DIR, PAAW_DATA_DIR, PAAW_KNOWLEDGE_DIR, PAAW_ROOT, PAAW_USER_FILE, PAAW_WORKSPACES_FILE, PHYSICAL_SKILL_ROOT, PORT, SERVER_SRC, SKILLS_ROOT, SKILL_POOL_ROOT, UI_STATE_FILE, VIBE_SESSIONS_DIR, WORKFLOWS_ROOT, __dirname, appendFileSync, basename, buildTree, dirname, existsSync, extractHtml, getConvDir, getWorkspaceId, isAbsolute, join, json, mkdir, mkdirSync, normalizePath, projectPathHash, readBody, readFile, readFileSync, readdir, readdirSync, relative, resolve, resolveDataDir, rm, spawn, startWatcher, stat, statSync, unlink, unlinkSync, writeFile, writeFileSync, yaml
+[API] [BRIDGE] Listening on http://0.0.0.0:4100
+[API] [BRIDGE] Container: paaw
+[API] [BRIDGE] Host data dir: /Users/steward/App/tPAAW/packages/data
+[API] 
+[API] ═══ Import Check Results ═══
+[API] ✅ All imports OK — no missing exports
+[API] 
+[API] [cron] Scheduler started, checking every 60s
+[API] [distill] Auto-distill scheduler started
+[API] [ToolRegistry] Initialized with 31 tools from paaw-agent-loop
+[API] [ToolRegistry] Registered 30 tools from tools/index.mjs
+[API] [ToolRegistry] Total tools: 61
+[API] [ToolRegistry] Tools: read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user, browser_test, record_decision, docs, staged_summary, project_info, project_edit, cu_refresh, action_log_add, action_log_list, agent_memory_save, agent_memory_load, notes, reference_read, task_list, task_create, task_update, task_decompose, dispatch_agent, ru_context, ru_dependencies, ru_impact_analysis, ru_verify, app_list, project_status, project_update_task, app_create, app_edit, ai-service-monitor_add, ai-service-monitor_list, ai-service-monitor_get, ai-service-monitor_update, ai-service-monitor_delete, bookmarks_add, bookmarks_list, bookmarks_get, bookmarks_update, bookmarks_delete, pocket_add, pocket_list, pocket_get, pocket_update, pocket_delete, file_list, file_read, memory_add, memory_update, memory_read, schedule_cronjob, list_cronjobs, update_cronjob, delete_cronjob, run_cronjob
+[API] [PAAW] Tool registry initialized
+[API] [PTY-WS] WebSocket server listening on ws://127.0.0.1:4098
+[API] [PAAW] Listening on http://127.0.0.1:4097
+[API] [PAAW] 42 route modules + scheduler loaded
+[UI] 
+[UI]   VITE v5.4.21  ready in 102 ms
+[UI] 
+[UI]   ➜  Local:   http://localhost:5173/
+[UI]   ➜  Network: use --host to expose
+[API] npm run dev -w @paaw/server exited with code SIGKILL
+--> Sending SIGTERM to other processes..
+[UI] npm run dev -w @paaw/ui exited with code SIGTERM

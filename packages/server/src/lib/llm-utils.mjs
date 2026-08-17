@@ -471,7 +471,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
 
           return { content, raw: data };
         } catch (fbErr) {
-          console.log(`[callLLMWithRetry] Fallback ${fb.model} failed:`, fbErr.message?.slice(0, 100));
+          console.log(`[callLLMWithRetry] Fallback ${fb.model} failed:`, fbErr.message?.slice(0, 100));  // nosemgrep: unsafe-formatstring
           continue;
         }
       }

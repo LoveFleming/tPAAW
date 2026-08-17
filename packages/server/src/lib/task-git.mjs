@@ -54,7 +54,7 @@ export class TaskGit {
         await execAsync(`git add "${f}"`, { cwd: this.projectPath });
         staged.push(f);
       } catch (e) {
-        console.error(`[task-git] stage failed for ${f}:`, e.message);
+        console.error(`[task-git] stage failed for ${f}:`, e.message);  // nosemgrep: unsafe-formatstring
       }
     }
     return { staged, count: staged.length };
@@ -105,7 +105,7 @@ export class TaskGit {
         await execAsync(`git checkout -- "${f}"`, { cwd: this.projectPath });
         restored.push(f);
       } catch (e) {
-        console.error(`[task-git] restore failed for ${f}:`, e.message);
+        console.error(`[task-git] restore failed for ${f}:`, e.message);  // nosemgrep: unsafe-formatstring
       }
     }
     return { restored, count: restored.length };

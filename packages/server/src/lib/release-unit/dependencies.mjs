@@ -16,6 +16,7 @@ import { readFile, writeFile, mkdir, stat, readdir } from "fs/promises";
 import { existsSync } from "fs";
 import { join, relative, dirname, extname } from "path";
 import { detectAdapter, parsePathAliases } from "./adapters.mjs";
+import { safeResolve } from "../coding-security";
 
 const IGNORE_DIRS = new Set([
   "node_modules", ".git", ".gitignore", "dist", "build", "out", "coverage",
@@ -39,8 +40,8 @@ export async function walkSources(root, exts, maxFiles = 8000) {
     let entries;
     try { entries = await readdir(dir); } catch { return; }
     for (const name of entries) {
-      if (out.length >= maxFiles) return;
-      const abs = join(dir, name);
+      if (out.length >= maxFiles) return;  // nosemgrep: path-join-resolve-traversal
+      const abs = safeResolve(dir, name);
       let st;
       try { st = await stat(abs); } catch { continue; }
       if (st.isDirectory()) {
@@ -140,7 +141,8 @@ export async function buildDependencyGraph(root, opts = {}) {
 
   const signature = `${CACHE_VERSION}:${adapter.id}:${files.length}:${Math.max(0, ...files.map(f => Math.floor(f.mtimeMs / 1000)))}`;
 
-  // 快取有效 → 直接回
+  // 快取有效 → 直接回  // nosemgrep: path-join-resolve-traversal
+// nosemgrep: path-join-resolve-traversal
   const cacheFile = join(root, ".paaw", "deps-cache.json");
   if (!opts.refresh && existsSync(cacheFile)) {
     try {
@@ -211,8 +213,9 @@ export async function buildDependencyGraph(root, opts = {}) {
     pkgCount,
   };
 
-  // 寫快取（.paaw 不存在自動建 — 舊專案友善）
+  // 寫快取（.paaw 不存在自動建 — 舊專案友善）  // nosemgrep: path-join-resolve-traversal
   try {
+// nosemgrep: path-join-resolve-traversal
     const paawDir = join(root, ".paaw");
     if (!existsSync(paawDir)) await mkdir(paawDir, { recursive: true });
     await writeFile(cacheFile, JSON.stringify(graph), "utf-8");

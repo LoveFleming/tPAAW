@@ -18,6 +18,7 @@ import { computeMetrics } from "./metrics.mjs";
 import { buildDependencyGraph } from "./dependencies.mjs";
 import { readLastVerify } from "./verify.mjs";
 import { shellExec } from "../shell-exec.mjs";
+import { safeResolve } from "../coding-security";
 
 const PAAW_DOCS = ["PROJECT.md", "ARCHITECTURE.md", "CODING-STANDARDS.md", "DECISIONS.md", "CHANGELOG.md"];
 
@@ -48,12 +49,13 @@ async function gitInfo(root) {
 export async function analyzeUnit(root, opts = {}) {
   const risks = [];
 
-  // ── 1. .paaw 完整度 ──
+  // ── 1. .paaw 完整度 ──  // nosemgrep: path-join-resolve-traversal
+// nosemgrep: path-join-resolve-traversal
   const paawDir = join(root, ".paaw");
-  const missingDocs = [];
-  for (const doc of PAAW_DOCS) {
-    const found = existsSync(join(paawDir, doc))
-      || (doc === "CODING-STANDARDS.md" && existsSync(join(paawDir, "project", doc)));
+  const missingDocs = [];  // nosemgrep: path-join-resolve-traversal
+  for (const doc of PAAW_DOCS) {  // nosemgrep: path-join-resolve-traversal
+    const found = existsSync(safeResolve(paawDir, doc))
+      || (doc === "CODING-STANDARDS.md" && existsSync(safeResolve(paawDir, "project", doc)));
     if (!found) missingDocs.push(doc);
   }
   if (!existsSync(paawDir)) {

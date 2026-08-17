@@ -27,6 +27,7 @@ import { addActionLog } from "./action-log.mjs";
 import { writeFileSync, existsSync } from "fs";
 import { join } from "path";
 import {
+import { safeResolve } from "./coding-security";
   gatherContext,
   buildSituationReport,
   refreshFeatureMapping,
@@ -806,6 +807,7 @@ export async function runParallelSession(opts = {}) {
   const { rootDir, since, modelOverride, fallbackModels = [], sendSSE = (() => {}) } = opts;
   const { resolve } = await import("path");
   const { fileURLToPath } = await import("url");
+// nosemgrep: path-join-resolve-traversal
   const PAAW_ROOT = resolve(fileURLToPath(import.meta.url), "..", "..", "..", "..");
 
   // ── Phase 0 ──
@@ -894,9 +896,9 @@ export async function runParallelSession(opts = {}) {
           }
         },
       });
-
+  // nosemgrep: path-join-resolve-traversal
       // Read agent's report file if it wrote one
-      const reportFile = join(rootDir, ".paaw", "auto-dispatch", `${role}-report.md`);
+      const reportFile = safeResolve(rootDir, ".paaw", "auto-dispatch", `${role}-report.md`);
       let agentReport = "";
       if (existsSync(reportFile)) {
         agentReport = readFileSync(reportFile, "utf-8");
@@ -908,9 +910,9 @@ export async function runParallelSession(opts = {}) {
         codename: crew?.codename || dynamicCrewLabels[role]?.replace(/^[^ ]+ /, "") || role,
         result: typeof result === "string" ? result.slice(-500) : "ok",
         report: agentReport.slice(0, 2000) || (typeof result === "string" ? result.slice(-500) : "done"),
-      };
+      };  // nosemgrep: unsafe-formatstring
     } catch (err) {
-      console.error(`[AutoDispatch:${role}] failed:`, err.message);
+      console.error(`[AutoDispatch:${role}] failed:`, err.message);  // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
       return { role, status: "failed", codename: crew?.codename || role, error: err.message };
     }
   }));

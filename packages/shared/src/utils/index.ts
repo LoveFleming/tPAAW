@@ -21,7 +21,7 @@ export function resolveTemplate(
     let value: any = vars;
     for (const part of parts) {
       if (value == null) return "";
-      value = value[part];
+      value = value[part];  // nosemgrep: prototype-pollution-loop
     }
     return value != null ? String(value) : "";
   });

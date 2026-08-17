@@ -334,7 +334,7 @@ export function setupWebSocket() {
               console.log(`[Agent] Interrupted for session ${agentState.id}`);
               ws.send(JSON.stringify({ type: "agent_done", content: "⏹️ Agent 已中斷。", turns: 0, toolCalls: 0, success: false, interrupted: true }));
             } else {
-              console.error(`[Agent] Error for session ${agentState.id}:`, err.message);
+              console.error(`[Agent] Error for session ${agentState.id}:`, err.message);  // nosemgrep: unsafe-formatstring
               ws.send(JSON.stringify({ type: "agent_error", message: err.message }));
             }
           }

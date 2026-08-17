@@ -10,7 +10,10 @@ import { readdirSync, readFileSync, unlinkSync, statSync, mkdirSync } from "fs";
 import { join, resolve } from "path";
 
 import { fileURLToPath } from "url";
+import { safeResolve } from "../lib/coding-security";
+// nosemgrep: path-join-resolve-traversal
 const _ROOT = resolve(process.env.PAAW_ROOT || process.env.QWEN_CWD || fileURLToPath(new URL("../../../../", import.meta.url)));
+// nosemgrep: path-join-resolve-traversal
 const LOG_DIR = join(_ROOT, "data", "logs", "llm");
 
 function ensureLogDir() {
@@ -28,7 +31,7 @@ function cleanupOldLogs(retentionDays = 7) {
     for (const f of files) {
       const dateStr = f.replace(".jsonl", "");
       if (dateStr < cutoffStr) {
-        unlinkSync(join(LOG_DIR, f));
+        unlinkSync(safeResolve(LOG_DIR, f));
         deleted++;
       }
     }
@@ -64,10 +67,10 @@ function _callerToAgentId(caller) {
     "a2a-helpdesk": "a2a-helpdesk",
   };
   return map[caller] || caller;
-}
+}  // nosemgrep: path-join-resolve-traversal
 
 function parseLogs(dateStr) {
-  const logPath = join(LOG_DIR, `${dateStr}.jsonl`);
+  const logPath = safeResolve(LOG_DIR, `${dateStr}.jsonl`);
   try {
     const raw = readFileSync(logPath, "utf-8");
     return raw.split("\n").filter(Boolean).map(line => {
@@ -220,7 +223,7 @@ export default async function llmLogsRoute(req, res) {
       for (const f of files) {
         const dateStr = f.replace(".jsonl", "");
         if (dateStr < before) {
-          unlinkSync(join(LOG_DIR, f));
+          unlinkSync(safeResolve(LOG_DIR, f));
           deleted++;
         }
       }

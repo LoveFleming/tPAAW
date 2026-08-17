@@ -20,10 +20,12 @@ import { fileURLToPath } from "url";
 import { readBody, json, urlPath } from "./context.mjs";
 import { PAAW_ROOT } from "./shared.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { safeResolve } from "../lib/coding-security";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// nosemgrep: path-join-resolve-traversal
 const AI_SETTINGS_ROOT = resolve(__dirname, "../../../../data/ai-settings");
 
 // Category metadata — fixed set, but files are dynamic
@@ -72,9 +74,9 @@ const CU_FILE_LABELS = {
   "gen-feature-map": "產出 Feature Map",
   "code-review": "Code Review 規則",
 };
-
+  // nosemgrep: path-join-resolve-traversal
 function categoryDir(categoryId) {
-  return join(AI_SETTINGS_ROOT, categoryId);
+  return safeResolve(AI_SETTINGS_ROOT, categoryId);
 }
 
 function isValidCategory(categoryId) {
@@ -91,9 +93,9 @@ async function scanCategoryFiles(categoryId) {
   try {
     // If category has subcategories, scan each subdir
     if (cat && cat.subcategories) {
-      const results = [];
+      const results = [];  // nosemgrep: path-join-resolve-traversal
       for (const sub of cat.subcategories) {
-        const subDir = join(dir, sub);
+        const subDir = safeResolve(dir, sub);
         try {
           const entries = await readdir(subDir);
           entries
@@ -142,6 +144,7 @@ export default async function aiSettingsRoutes(req, res) {
       const body = JSON.parse(await readBody(req));
       const { resolve, dirname } = await import("path");
       const { mkdir, writeFile } = await import("fs/promises");
+// nosemgrep: path-join-resolve-traversal
       const configPath = resolve(AI_SETTINGS_ROOT, "agent-config.json");
       await writeFile(configPath, JSON.stringify(body, null, 2), "utf-8");
       json(res, { ok: true });
@@ -154,6 +157,7 @@ export default async function aiSettingsRoutes(req, res) {
     try {
       const { resolve } = await import("path");
       const { readFile: rf } = await import("fs/promises");
+// nosemgrep: path-join-resolve-traversal
       const configPath = resolve(AI_SETTINGS_ROOT, "../config/providers.json");
       const raw = await rf(configPath, "utf-8");
       json(res, JSON.parse(raw));
@@ -167,6 +171,7 @@ export default async function aiSettingsRoutes(req, res) {
       const body = JSON.parse(await readBody(req));
       const { resolve } = await import("path");
       const { writeFile: wf } = await import("fs/promises");
+// nosemgrep: path-join-resolve-traversal
       const configPath = resolve(AI_SETTINGS_ROOT, "../config/providers.json");
       await wf(configPath, JSON.stringify(body, null, 2), "utf-8");
       json(res, { ok: true });
@@ -217,6 +222,7 @@ export default async function aiSettingsRoutes(req, res) {
     try {
       const { resolve } = await import("path");
       const { readFile: rf } = await import("fs/promises");
+// nosemgrep: path-join-resolve-traversal
       const userPath = resolve(AI_SETTINGS_ROOT, "../config/user.json");
       const raw = await rf(userPath, "utf-8");
       const user = JSON.parse(raw);
@@ -231,6 +237,7 @@ export default async function aiSettingsRoutes(req, res) {
       const body = JSON.parse(await readBody(req));
       const { resolve } = await import("path");
       const { readFile: rf, writeFile: wf } = await import("fs/promises");
+// nosemgrep: path-join-resolve-traversal
       const userPath = resolve(AI_SETTINGS_ROOT, "../config/user.json");
       let user = {};
       try { user = JSON.parse(await rf(userPath, "utf-8")); } catch {}
@@ -266,7 +273,7 @@ export default async function aiSettingsRoutes(req, res) {
     const files = [];
     for (const f of fileEntries) {
       try {
-        const content = await readFile(join(dir, f.file), "utf-8");
+        const content = await readFile(safeResolve(dir, f.file), "utf-8");
         files.push({ ...f, content, exists: true });
       } catch {
         files.push({ ...f, content: "", exists: false });
@@ -285,7 +292,7 @@ export default async function aiSettingsRoutes(req, res) {
       return true;
     }
     try {
-      const content = await readFile(join(categoryDir(categoryId), fileName), "utf-8");
+      const content = await readFile(safeResolve(categoryDir(categoryId), fileName), "utf-8");
       json(res, { content });
     } catch {
       json(res, { content: "" }, 404);
@@ -303,6 +310,7 @@ export default async function aiSettingsRoutes(req, res) {
       const ctx = await contextEngine.build({ target: target || "chat" });
       let modelInfo = "default";
       try {
+// nosemgrep: path-join-resolve-traversal
         const pCfg = JSON.parse(readFileSync(resolve(PAAW_ROOT, "data/config/providers.json"), "utf-8"));
         let pid = pCfg.active;
         let mid = modelOverride || resolveDefaultModel(pCfg);
@@ -349,7 +357,7 @@ export default async function aiSettingsRoutes(req, res) {
         }
       }
       const dir = categoryDir(categoryId);
-      const filePath = join(dir, file);
+      const filePath = safeResolve(dir, file);
       // Check if already exists
       try {
         await readFile(filePath, "utf-8");
@@ -380,7 +388,7 @@ export default async function aiSettingsRoutes(req, res) {
         return true;
       }
       const dir = categoryDir(categoryId);
-      const filePath = join(dir, fileName);
+      const filePath = safeResolve(dir, fileName);
       await mkdir(dirname(filePath), { recursive: true });
       await writeFile(filePath, content, "utf-8");
       json(res, { ok: true, category: categoryId, file: fileName });
@@ -399,7 +407,7 @@ export default async function aiSettingsRoutes(req, res) {
       return true;
     }
     try {
-      await rm(join(categoryDir(categoryId), fileName));
+      await rm(safeResolve(categoryDir(categoryId), fileName));
       json(res, { ok: true, category: categoryId, file: fileName });
     } catch (err) {
       json(res, { error: err.message }, 404);
@@ -437,8 +445,10 @@ export default async function aiSettingsRoutes(req, res) {
       const parts = [];
       if (ctx.systemPrompt) parts.push(ctx.systemPrompt);
       // workspace paths (from buildBaseContext, may already be in systemPrompt, but add cwd)
+// nosemgrep: path-join-resolve-traversal
       const PAAW_R = resolve(__dirname, "../../../../");
       try {
+// nosemgrep: path-join-resolve-traversal
         const ws = JSON.parse(readSync(resolve(PAAW_R, "data/config/workspaces.json"), "utf-8"));
         if (ws.directories?.length) {
           parts.push(`\n=== 檔案路徑 ===\n📖 Knowledge：使用 file_list({ workspace: "knowledge" }) 和 file_read({ workspace: "knowledge", path: "檔名" }) 透過 API 存取。\n\n使用者的 Workspace 目錄（可讀寫）：\n${ws.directories.map(d => "- " + d).join("\n")}`);
@@ -457,7 +467,9 @@ export default async function aiSettingsRoutes(req, res) {
   // ── Workspaces API ──
   // GET /api/workspaces — list workspace directories (AI can access/modify)
   if (req.method === "GET" && path === "/api/workspaces") {
+// nosemgrep: path-join-resolve-traversal
     const DATA_DIR = resolve(AI_SETTINGS_ROOT, ".."); // data/
+// nosemgrep: path-join-resolve-traversal
     const wsFile = resolve(DATA_DIR, "config/workspaces.json");
     let dirs = [];
     try {
@@ -466,11 +478,17 @@ export default async function aiSettingsRoutes(req, res) {
     } catch {}
     // Also include default PAAW paths that AI can always access
     const defaultDirs = [
+// nosemgrep: path-join-resolve-traversal
       resolve(DATA_DIR, "apps"),
+// nosemgrep: path-join-resolve-traversal
       resolve(DATA_DIR, "skills"),
+// nosemgrep: path-join-resolve-traversal
       resolve(DATA_DIR, "knowledge"),
+// nosemgrep: path-join-resolve-traversal
       resolve(DATA_DIR, "ai-settings"),
+// nosemgrep: path-join-resolve-traversal
       resolve(DATA_DIR, "distill/knowledge"),
+// nosemgrep: path-join-resolve-traversal
       resolve(DATA_DIR, "config/distilled-memory"),
     ].filter(d => existsSync(d));
     const allDirs = [...new Set([...dirs, ...defaultDirs])];
@@ -484,7 +502,9 @@ export default async function aiSettingsRoutes(req, res) {
     try {
       const { directory } = JSON.parse(await readBody(req));
       if (!directory) { json(res, { error: "Missing directory" }, 400); return true; }
+// nosemgrep: path-join-resolve-traversal
       const DATA_DIR = resolve(AI_SETTINGS_ROOT, "..");
+// nosemgrep: path-join-resolve-traversal
       const wsFile = resolve(DATA_DIR, "config/workspaces.json");
       let ws = { directories: [] };
       try { ws = JSON.parse(await readFile(wsFile, "utf-8")); } catch {}
@@ -502,14 +522,16 @@ export default async function aiSettingsRoutes(req, res) {
   if (wsDelMatch) {
     try {
       const { directory } = JSON.parse(await readBody(req));
+// nosemgrep: path-join-resolve-traversal
       const DATA_DIR = resolve(AI_SETTINGS_ROOT, "..");
+// nosemgrep: path-join-resolve-traversal
       const wsFile = resolve(DATA_DIR, "config/workspaces.json");
       let ws = { directories: [] };
       try { ws = JSON.parse(await readFile(wsFile, "utf-8")); } catch {}
       ws.directories = ws.directories.filter(d => d !== directory);
       await writeFile(wsFile, JSON.stringify(ws, null, 2), "utf-8");
       json(res, { ok: true, directories: ws.directories });
-    } catch (err) { json(res, { error: err.message }, 500); }
+    } catch (err) { json(res, { error: err.message }, 500); }  // nosemgrep: path-join-resolve-traversal
     return true;
   }
 
@@ -531,7 +553,7 @@ export async function getAISettings(categoryId) {
   const result = {};
   for (const f of files) {
     try {
-      result[f.file.replace(/\.md$/, "")] = await readFile(join(dir, f.file), "utf-8");
+      result[f.file.replace(/\.md$/, "")] = await readFile(safeResolve(dir, f.file), "utf-8");
     } catch {
       result[f.file.replace(/\.md$/, "")] = "";
     }

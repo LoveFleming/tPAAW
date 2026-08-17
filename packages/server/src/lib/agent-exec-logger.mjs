@@ -14,15 +14,19 @@ import { existsSync, createReadStream } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { createInterface } from "readline";
+import { safeResolve } from "./coding-security";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 function _getRoot() {
+// nosemgrep: path-join-resolve-traversal
   return process.env.PAAW_ROOT || resolve(__dirname, "../../../../");
 }
 
+// nosemgrep: path-join-resolve-traversal
 const LOG_DIR = join(_getRoot(), "data", "logs", "agent");
+// nosemgrep: path-join-resolve-traversal
 const INDEX_FILE = join(LOG_DIR, "index.json");
 const MAX_INDEX = 200;
 
@@ -38,7 +42,7 @@ export function startAgentLog(taskInfo) {
   ensureDir();
   const taskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const startTime = Date.now();
-  const logFile = join(LOG_DIR, `${taskId}.jsonl`);
+  const logFile = safeResolve(LOG_DIR, `${taskId}.jsonl`);
   const steps = [];
 
   const log = (entry) => {
@@ -173,7 +177,7 @@ async function _updateIndex(entry) {
     for (const r of removed) {
       try {
         const { unlink } = await import("fs/promises");
-        await unlink(join(LOG_DIR, `${r.taskId}.jsonl`));
+        await unlink(safeResolve(LOG_DIR, `${r.taskId}.jsonl`));
       } catch {}
     }
     entries = entries.slice(0, MAX_INDEX);
@@ -201,11 +205,11 @@ export async function listAgentTasks(limit = 50, filter = {}) {
   }
 }
 
-/**
+/**  // nosemgrep: path-join-resolve-traversal
  * Get full detail of a specific task (read JSONL file).
  */
 export async function getAgentTaskDetail(taskId) {
-  const logFile = join(LOG_DIR, `${taskId}.jsonl`);
+  const logFile = safeResolve(LOG_DIR, `${taskId}.jsonl`);
   if (!existsSync(logFile)) return null;
 
   const steps = [];
@@ -232,7 +236,7 @@ export async function cleanupOldAgentLogs(retentionDays = 7) {
 
     for (const f of files) {
       if (!f.endsWith(".jsonl")) continue;
-      const filePath = join(LOG_DIR, f);
+      const filePath = safeResolve(LOG_DIR, f);
       const s = await stat(filePath);
       if (s.mtimeMs < cutoff) {
         const { unlink } = await import("fs/promises");

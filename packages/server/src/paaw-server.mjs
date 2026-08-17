@@ -84,7 +84,7 @@ async function loadRoutes() {
   for (const p of ROUTE_MODULES) {
     try { _loaded[p] = await import(p); }
     catch (err) {
-      if (err.code !== "ERR_MODULE_NOT_FOUND") console.error(`[Route] Failed to load ${p}:`, err.message);
+      if (err.code !== "ERR_MODULE_NOT_FOUND") console.error(`[Route] Failed to load ${p}:`, err.message);  // nosemgrep: unsafe-formatstring
     }
   }
   try { _loaded["./scheduler/cron-jobs.mjs"] = await import("./scheduler/cron-jobs.mjs"); }
@@ -117,7 +117,7 @@ const server = createServer(async (req, res) => {
     try {
       if (await mod.default(req, res)) return;
     } catch (err) {
-      console.error(`[Route] ${p} error:`, err.message);
+      console.error(`[Route] ${p} error:`, err.message);  // nosemgrep: unsafe-formatstring
       if (!res.headersSent) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Internal server error", detail: err.message }));

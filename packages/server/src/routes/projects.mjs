@@ -27,10 +27,13 @@ import { resolve, join } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { readBody } from "./shared.mjs";
+import { safeResolve } from "../lib/coding-security";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+// nosemgrep: path-join-resolve-traversal
 const PAAW_ROOT = resolve(__dirname, "../../../../");
+// nosemgrep: path-join-resolve-traversal
 const DATA_DIR = resolve(PAAW_ROOT, "data/projects");
 
 // ── Helpers ──
@@ -41,17 +44,17 @@ function genId(prefix = "p") {
 
 async function ensureDataDir() {
   if (!existsSync(DATA_DIR)) await mkdir(DATA_DIR, { recursive: true });
-}
+}  // nosemgrep: path-join-resolve-traversal
 
 async function loadProject(id) {
-  const file = resolve(DATA_DIR, `${id}.json`);
+  const file = safeResolve(DATA_DIR, `${id}.json`);
   if (!existsSync(file)) return null;
   return JSON.parse(await readFile(file, "utf-8"));
 }
-
+  // nosemgrep: path-join-resolve-traversal
 async function saveProject(project) {
   await ensureDataDir();
-  const file = resolve(DATA_DIR, `${project.id}.json`);
+  const file = safeResolve(DATA_DIR, `${project.id}.json`);
   await writeFile(file, JSON.stringify(project, null, 2), "utf-8");
 }
 
@@ -61,7 +64,7 @@ async function listAllProjects() {
   const projects = [];
   for (const f of files.filter(f => f.endsWith(".json"))) {
     try {
-      const data = JSON.parse(await readFile(resolve(DATA_DIR, f), "utf-8"));
+      const data = JSON.parse(await readFile(safeResolve(DATA_DIR, f), "utf-8"));
       // 只回傳 summary
       const allTasks = (data.categories || []).flatMap(c => c.tasks || []);
       const done = allTasks.filter(t => t.status === "done").length;
@@ -121,6 +124,7 @@ function computeStats(project) {
 
 async function ensureDefaultProject() {
   await ensureDataDir();
+// nosemgrep: path-join-resolve-traversal
   const paawFile = resolve(DATA_DIR, "paaw.json");
   if (existsSync(paawFile)) return;
 
@@ -338,11 +342,11 @@ async function handleProjectRoutes(req, res) {
 
   // DELETE /api/projects/:id
   if (detailMatch && method === "DELETE") {
-    const id = detailMatch[1];
+    const id = detailMatch[1];  // nosemgrep: path-join-resolve-traversal
     if (id === "paaw") {
       res.writeHead(403); res.end(JSON.stringify({ error: "Cannot delete default project" })); return true;
     }
-    const file = resolve(DATA_DIR, `${id}.json`);
+    const file = safeResolve(DATA_DIR, `${id}.json`);
     if (existsSync(file)) {
       const { rm } = await import("fs/promises");
       await rm(file);

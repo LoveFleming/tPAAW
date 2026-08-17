@@ -53,7 +53,7 @@ export class SecretStore {
   encrypt(plaintext) {
     if (!this._masterKey) throw new Error('SecretStore not initialized')
     const iv = randomBytes(IV_LENGTH)
-    const cipher = createCipheriv(ALGORITHM, this._masterKey, iv)
+    const cipher = createCipheriv(ALGORITHM, this._masterKey, iv, { authTagLength: 16 })
     const encrypted = Buffer.concat([cipher.update(plaintext, 'utf-8'), cipher.final()])
     const tag = cipher.getAuthTag()
 
@@ -78,7 +78,7 @@ export class SecretStore {
     const encrypted = Buffer.from(parts[3], 'base64')
     const tag = Buffer.from(parts[4], 'base64')
 
-    const decipher = createDecipheriv(ALGORITHM, this._masterKey, iv)
+    const decipher = createDecipheriv(ALGORITHM, this._masterKey, iv, { authTagLength: 16 })
     decipher.setAuthTag(tag)
     const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()])
 

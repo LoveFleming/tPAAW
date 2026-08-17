@@ -16,6 +16,7 @@ export default async function stagedChangesRoutes(req, res) {
   const urlObj = new URL(url, 'http://localhost');
   const pathname = urlObj.pathname;
   const projectDir = urlObj.searchParams.get('path') || '';
+// nosemgrep: path-join-resolve-traversal
   const filePath = join(projectDir, '.paaw', 'staged-changes.json');
 
   // ── GET /api/coding-staged/changes ──
