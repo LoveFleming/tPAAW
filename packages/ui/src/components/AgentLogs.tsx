@@ -6,12 +6,26 @@ type AgentTask = {
   agentId: string;
   prompt: string;
   model: string;
+  cwd?: string;
+  ruName?: string;
   startTime: string;
   durationMs: number;
   turns: number;
   status: string;
   stepCount: number;
   error: string | null;
+  usage?: { prompt: number; completion: number; total: number } | null;
+  costUsd?: number;
+  models?: Array<{ model: string; prompt: number; completion: number; costUsd: number }>;
+};
+
+type RuSummaryRow = {
+  ruName: string;
+  tasks: number;
+  tokensIn: number;
+  tokensOut: number;
+  costUsd: number;
+  byModel: Record<string, { tokensIn: number; tokensOut: number; costUsd: number }>;
 };
 
 type LogStep = {
@@ -51,6 +65,20 @@ function fmtTime(iso: string): string {
   } catch { return iso; }
 }
 
+function fmtTokens(n?: number): string {
+  if (!n) return "-";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
+
+function fmtCost(usd?: number): string {
+  if (usd == null || usd === 0) return "-";
+  if (usd < 0.01) return `$${usd.toFixed(4)}`;
+  if (usd < 1) return `$${usd.toFixed(3)}`;
+  return `$${usd.toFixed(2)}`;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   completed: "text-emerald-600 bg-emerald-50",
   interrupted: "text-amber-600 bg-amber-50",
@@ -75,6 +103,7 @@ export default function AgentLogs() {
   const [steps, setSteps] = useState<LogStep[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState({ agent: "", status: "" });
+  const [ruSummary, setRuSummary] = useState<{ rows: RuSummaryRow[]; totalCostUsd: number } | null>(null);
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -88,7 +117,15 @@ export default function AgentLogs() {
     } catch {}
   }, [filter]);
 
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+  const fetchRuSummary = useCallback(async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/agent-logs/ru-summary`);
+      const data = await r.json();
+      setRuSummary({ rows: data.rows || [], totalCostUsd: data.totalCostUsd || 0 });
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchTasks(); fetchRuSummary(); }, [fetchTasks, fetchRuSummary]);
 
   const fetchDetail = useCallback(async (taskId: string) => {
     setLoading(true);
@@ -172,9 +209,43 @@ export default function AgentLogs() {
             <option value="interrupted">interrupted</option>
             <option value="error">error</option>
           </select>
-          <button onClick={fetchTasks} className="px-3 py-1 text-sm rounded bg-stone-100 hover:bg-stone-200 transition-colors">🔄</button>
+          <button onClick={() => { fetchTasks(); fetchRuSummary(); }} className="px-3 py-1 text-sm rounded bg-stone-100 hover:bg-stone-200 transition-colors">🔄</button>
         </div>
       </div>
+
+      {/* RU 成本統計 */}
+      {ruSummary && ruSummary.rows.length > 0 && (
+        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+          <div className="px-4 py-2 bg-stone-50 border-b border-stone-200 text-sm font-medium text-stone-600 flex items-center justify-between">
+            <span>📦 Release Unit 成本統計</span>
+            <span className="text-xs text-stone-400">總計 <span className="font-semibold text-stone-600">{fmtCost(ruSummary.totalCostUsd)}</span></span>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-stone-50/50 border-b border-stone-100 text-stone-400 text-xs uppercase">
+                <th className="px-3 py-1.5 text-left">RU / Project</th>
+                <th className="px-3 py-1.5 text-right">Tasks</th>
+                <th className="px-3 py-1.5 text-right">Tokens In</th>
+                <th className="px-3 py-1.5 text-right">Tokens Out</th>
+                <th className="px-3 py-1.5 text-right">成本</th>
+                <th className="px-3 py-1.5 text-left">Model 明細</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {ruSummary.rows.map(r => (
+                <tr key={r.ruName}>
+                  <td className="px-3 py-1.5 font-medium text-stone-700">{r.ruName}</td>
+                  <td className="px-3 py-1.5 text-right text-stone-500 tabular-nums">{r.tasks}</td>
+                  <td className="px-3 py-1.5 text-right text-sky-600 tabular-nums">{fmtTokens(r.tokensIn)}</td>
+                  <td className="px-3 py-1.5 text-right text-violet-600 tabular-nums">{fmtTokens(r.tokensOut)}</td>
+                  <td className="px-3 py-1.5 text-right text-emerald-700 tabular-nums font-semibold">{fmtCost(r.costUsd)}</td>
+                  <td className="px-3 py-1.5 text-stone-400 text-xs">{Object.entries(r.byModel).map(([m, s]) => `${m.split("/").pop()} ${fmtCost(s.costUsd)}`).join(" · ")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
         <table className="w-full text-sm">
@@ -183,16 +254,18 @@ export default function AgentLogs() {
               <th className="px-3 py-2 text-left">時間</th>
               <th className="px-3 py-2 text-left">Agent</th>
               <th className="px-3 py-2 text-left">狀態</th>
+              <th className="px-3 py-2 text-left">RU</th>
               <th className="px-3 py-2 text-left">Prompt</th>
               <th className="px-3 py-2 text-right">Turns</th>
-              <th className="px-3 py-2 text-right">Steps</th>
               <th className="px-3 py-2 text-right">耗時</th>
+              <th className="px-3 py-2 text-right">Tokens In/Out</th>
+              <th className="px-3 py-2 text-right">成本</th>
               <th className="px-3 py-2 text-left">Model</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100">
             {tasks.length === 0 && (
-              <tr><td colSpan={8} className="px-3 py-8 text-center text-stone-400">尚無執行記錄</td></tr>
+              <tr><td colSpan={10} className="px-3 py-8 text-center text-stone-400">尚無執行記錄</td></tr>
             )}
             {tasks.map(t => (
               <tr key={t.taskId} onClick={() => setSelected(t.taskId)} className="hover:bg-amber-50/50 cursor-pointer transition-colors">
@@ -201,10 +274,16 @@ export default function AgentLogs() {
                 <td className="px-3 py-2">
                   <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[t.status] || "text-stone-400 bg-stone-50"}`}>{t.status}</span>
                 </td>
+                <td className="px-3 py-2 text-stone-600 text-xs whitespace-nowrap">📦 {t.ruName || "-"}</td>
                 <td className="px-3 py-2 text-stone-500 max-w-xs truncate">{t.prompt}</td>
                 <td className="px-3 py-2 text-right text-stone-500 tabular-nums">{t.turns}</td>
-                <td className="px-3 py-2 text-right text-stone-500 tabular-nums">{t.stepCount}</td>
                 <td className="px-3 py-2 text-right text-stone-500 tabular-nums font-medium">{fmtDuration(t.durationMs)}</td>
+                <td className="px-3 py-2 text-right text-xs tabular-nums whitespace-nowrap">
+                  <span className="text-sky-600">{fmtTokens(t.usage?.prompt)}</span>
+                  <span className="text-stone-300 mx-0.5">/</span>
+                  <span className="text-violet-600">{fmtTokens(t.usage?.completion)}</span>
+                </td>
+                <td className="px-3 py-2 text-right text-emerald-700 tabular-nums font-medium whitespace-nowrap">{fmtCost(t.costUsd)}</td>
                 <td className="px-3 py-2 text-stone-400 text-xs">{t.model?.split("/").pop()}</td>
               </tr>
             ))}

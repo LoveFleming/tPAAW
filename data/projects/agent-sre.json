@@ -1,0 +1,38 @@
+{
+  "id": "agent-sre",
+  "name": "Agent SRE — AI SRE Agent Crew",
+  "icon": "🛡️",
+  "description": "Standalone Kubernetes/Prometheus/Loki operations agent crew。獨立 repo，從 tPAAW coding crew 分拆出來的 SRE 專門團隊。",
+  "status": "in-progress",
+  "startDate": "2026-08-15",
+  "targetDate": "2026-09-30",
+  "repo": "https://github.com/LoveFleming/agent-sre",
+  "aliases": [
+    "agent-sre"
+  ],
+  "categories": [
+    {
+      "id": "cat_core",
+      "name": "核心功能",
+      "icon": "⚙️",
+      "description": "Agent loop、scheduler、tool registry",
+      "tasks": []
+    },
+    {
+      "id": "cat_tools",
+      "name": "SRE Tools",
+      "icon": "🔧",
+      "description": "Grafana/Prometheus/Loki/K8s/Security/Shell/Tchat providers",
+      "tasks": []
+    }
+  ],
+  "milestones": [
+    {
+      "id": "ms_mvp",
+      "name": "MVP — watchdog e2e 通過",
+      "date": "2026-08-31",
+      "description": "Watchdog patrol 全流程 e2e 綠燈"
+    }
+  ],
+  "createdAt": "2026-08-17T21:07:24.454338"
+}

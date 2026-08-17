@@ -511,6 +511,46 @@ export const PAAW_TOOLS = [
     },
   },
 
+  // ── Project Board tool（維護 data/projects/ 的專案看板 — 一個 release unit 對應一個 project）──
+  {
+    type: "function",
+    function: {
+      name: "project_board",
+      description: "維護 PAAW Project Board（data/projects/）。一個 release unit 對應一個 project。新 RU 開始時用 create 建 project，之後用 task_create/task_update 維護任務進度。",
+      parameters: {
+        type: "object",
+        properties: {
+          action: {
+            type: "string",
+            enum: ["status", "create", "update", "category_create", "task_create", "task_update", "milestone_create"],
+            description: "status=查看全部專案現況, create=建新 project(新 RU), update=改專案欄位, category_create=加分類, task_create=加任務, task_update=改任務, milestone_create=加里程碑",
+          },
+          projectId: { type: "string", description: "目標 project ID（status/create 以外必填）" },
+          // create / update
+          id: { type: "string", description: "(create) 新 project ID，英文小寫" },
+          name: { type: "string", description: "(create/update) 專案名稱；task_create/task_update 為任務名稱" },
+          icon: { type: "string", description: "(create/category_create) emoji icon" },
+          description: { type: "string", description: "(create/update/category_create) 描述" },
+          status: { type: "string", description: "(update) planning|in-progress|completed|on-hold|cancelled；(task_update) todo|progress|done" },
+          startDate: { type: "string", description: "(create) YYYY-MM-DD" },
+          targetDate: { type: "string", description: "(create/update) YYYY-MM-DD" },
+          repo: { type: "string", description: "(create) GitHub repo URL" },
+          aliases: { type: "array", items: { type: "string" }, description: "(create) 本機資料夾名 alias（跨機器對應 RU 用，例如 ['tPAAW']）" },
+          // category
+          categoryId: { type: "string", description: "(task_create) 放進哪個分類，省略放第一個" },
+          // task
+          taskId: { type: "string", description: "(task_update) 任務 ID" },
+          priority: { type: "string", enum: ["high", "medium", "low"], description: "(task_create/task_update) 優先級" },
+          start: { type: "string", description: "(task_create) YYYY-MM-DD" },
+          end: { type: "string", description: "(task_create) YYYY-MM-DD" },
+          // milestone
+          date: { type: "string", description: "(milestone_create) YYYY-MM-DD" },
+        },
+        required: ["action"],
+      },
+    },
+  },
+
   // ── CU Refresh ──
   {
     type: "function",
@@ -860,6 +900,9 @@ const TOOL_GROUP_MAP = {
   // Project edit — unified mutation tool
   project_edit: "project-edit",
 
+  // Project Board — 維護 data/projects/ 專案看板（RU 對應 project）
+  project_board: "project-board",
+
   // Notes
   notes: "notes",
 
@@ -876,8 +919,8 @@ const CORE_READ_TOOLS = new Set(["read_file", "reference_read", "glob", "grep", 
 
 // ── Fallback groups (used when crew.json has no toolGroups) ──
 const AGENT_FALLBACK_GROUPS = {
-  // Architect: read-only + decisions + project
-  architect: ["core-read", "memory", "decisions", "project", "project-edit", "release-unit"],
+  // Architect: read-only + decisions + project + project-board（維護 RU project）
+  architect: ["core-read", "memory", "decisions", "project", "project-edit", "project-board", "release-unit"],
   // Developer: full core + memory + project + tasks
   developer: ["core", "memory", "decisions", "project", "project-edit", "tasks", "release-unit"],
   // Tester: full core + project
@@ -889,7 +932,7 @@ const AGENT_FALLBACK_GROUPS = {
   // Helpdesk: read-only + project
   helpdesk: ["core-read", "memory", "decisions", "project", "project-edit"],
   // EM: read-only + project + project-edit + docs + tasks + dispatch (no notes/browser)
-  em: ["core-read", "memory", "decisions", "project", "project-edit", "docs", "tasks", "dispatch", "release-unit"],
+  em: ["core-read", "memory", "decisions", "project", "project-edit", "project-board", "docs", "tasks", "dispatch", "release-unit"],
 };
 
 // ── Cache for crew toolGroups loaded from JSON ──
@@ -1997,6 +2040,130 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
           default:
             return `Unknown category '${cat}'. Valid: context, decisions, standards, changelog, issues, features, feature_detail, runbook, faq, sessions, test_map, security, recent_changes, api_history`;
         }
+      }
+
+
+
+      // ══════════════════════════════════════════
+      // ── Project Board（維護 data/projects/ — 一個 RU 對應一個 project）──
+      // ══════════════════════════════════════════
+
+      case "project_board": {
+        const PROJECTS_DIR = join(_PAAW_ROOT, "data", "projects");
+        const action = args.action;
+
+        const _loadProject = (pid) => {
+          const f = join(PROJECTS_DIR, `${pid}.json`);
+          if (!existsSync(f)) return null;
+          try { return JSON.parse(readSync(f, "utf-8")); } catch { return null; }
+        };
+        const _saveProject = (p) => {
+          writeSync(join(PROJECTS_DIR, `${p.id}.json`), JSON.stringify(p, null, 2));
+        };
+
+        if (action === "status") {
+          const files = existsSync(PROJECTS_DIR) ? (await readdir(PROJECTS_DIR)).filter(f => f.endsWith(".json")).sort() : [];
+          if (files.length === 0) return "No projects found.";
+          const lines = [];
+          for (const f of files) {
+            const p = _loadProject(f.replace(/\.json$/, ""));
+            if (!p) continue;
+            const cats = p.categories || [];
+            const allTasks = cats.flatMap(c => c.tasks || []);
+            const done = allTasks.filter(t => t.status === "done").length;
+            const pct = allTasks.length ? Math.round((done / allTasks.length) * 100) : 0;
+            lines.push(`📦 ${p.name} (${p.id}) ${p.icon || ""} [${p.status || "?"}] ${pct}% (${done}/${allTasks.length})
+   目標日: ${p.targetDate || "-"} | categories: ${cats.map(c => `${c.name}(${(c.tasks||[]).length})`).join(", ") || "none"}`);
+          }
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${files.length} projects` });
+          return lines.join("\n");
+        }
+
+        if (action === "create") {
+          if (!args.id || !args.name) return "Error: 'id' and 'name' are required for create.";
+          if (!/^[a-z0-9][a-z0-9-_]*$/.test(args.id)) return "Error: id must be lowercase letters/digits/dash/underscore.";
+          if (_loadProject(args.id)) return `Error: project '${args.id}' already exists.`;
+          const proj = {
+            id: args.id, name: args.name, icon: args.icon || "📦", description: args.description || "",
+            status: "planning", startDate: args.startDate || new Date().toISOString().slice(0, 10),
+            targetDate: args.targetDate || "", repo: args.repo || "", aliases: args.aliases || [],
+            categories: [], milestones: [], createdAt: new Date().toISOString(),
+          };
+          await mkdir(PROJECTS_DIR, { recursive: true });
+          _saveProject(proj);
+          if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
+          return `✅ Created project ${args.id}: ${args.name}\n⚠️ 記得設定 aliases（本機資料夾名）讓 agent 執行紀錄能對應 RU 成本。`;
+        }
+
+        // 以下 actions 都需要 projectId
+        if (!args.projectId) return "Error: 'projectId' is required for this action.";
+        const proj = _loadProject(args.projectId);
+        if (!proj) return `Error: project '${args.projectId}' not found.`;
+
+        if (action === "update") {
+          for (const k of ["name", "icon", "description", "status", "startDate", "targetDate", "repo"]) {
+            if (args[k] !== undefined) proj[k] = args[k];
+          }
+          if (Array.isArray(args.aliases)) proj.aliases = args.aliases;
+          _saveProject(proj);
+          if (onEvent) onEvent({ type: "tool_end", name, result: "updated" });
+          return `✅ Updated project ${proj.id}.`;
+        }
+
+        if (action === "category_create") {
+          if (!args.name) return "Error: 'name' is required for category_create.";
+          proj.categories = proj.categories || [];
+          const cat = { id: `cat_${Date.now().toString(36)}`, name: args.name, icon: args.icon || "📁", description: args.description || "", tasks: [] };
+          proj.categories.push(cat);
+          _saveProject(proj);
+          if (onEvent) onEvent({ type: "tool_end", name, result: cat.id });
+          return `✅ Added category '${args.name}' to ${proj.id}.`;
+        }
+
+        if (action === "task_create") {
+          if (!args.name) return "Error: 'name' is required for task_create.";
+          proj.categories = proj.categories || [];
+          if (proj.categories.length === 0) return "Error: project has no categories. Create one with category_create first.";
+          const cat = args.categoryId ? proj.categories.find(c => c.id === args.categoryId) : proj.categories[proj.categories.length - 1];
+          if (!cat) return `Error: category '${args.categoryId}' not found.`;
+          cat.tasks = cat.tasks || [];
+          const task = {
+            id: `t_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+            name: args.name, status: "todo", priority: args.priority || "medium",
+            start: args.start || "", end: args.end || "",
+          };
+          cat.tasks.push(task);
+          _saveProject(proj);
+          if (onEvent) onEvent({ type: "tool_end", name, result: task.id });
+          return `✅ Added task '${args.name}' (${task.id}) to ${proj.id}/${cat.name}.`;
+        }
+
+        if (action === "task_update") {
+          if (!args.taskId) return "Error: 'taskId' is required for task_update.";
+          let found = null;
+          for (const c of (proj.categories || [])) {
+            const t = (c.tasks || []).find(t => t.id === args.taskId);
+            if (t) { found = t; break; }
+          }
+          if (!found) return `Error: task '${args.taskId}' not found in ${proj.id}.`;
+          for (const k of ["name", "status", "priority", "start", "end"]) {
+            if (args[k] !== undefined) found[k] = args[k];
+          }
+          _saveProject(proj);
+          if (onEvent) onEvent({ type: "tool_end", name, result: args.taskId });
+          return `✅ Updated task ${args.taskId}: ${found.name} [${found.status}]`;
+        }
+
+        if (action === "milestone_create") {
+          if (!args.name || !args.date) return "Error: 'name' and 'date' are required for milestone_create.";
+          proj.milestones = proj.milestones || [];
+          proj.milestones.push({ id: `ms_${Date.now().toString(36)}`, name: args.name, date: args.date, description: args.description || "" });
+          _saveProject(proj);
+          if (onEvent) onEvent({ type: "tool_end", name, result: "created" });
+          return `✅ Added milestone '${args.name}' (${args.date}) to ${proj.id}.`;
+        }
+
+        return `Unknown action '${action}'.`;
       }
 
 

@@ -14,6 +14,7 @@ import { existsSync, createReadStream } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { createInterface } from "readline";
+import { stepCostUsd } from "./ru-resolver.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -120,12 +121,33 @@ export function startAgentLog(taskInfo) {
     /** End the task */
     async end(result) {
       const totalDuration = Date.now() - startTime;
+
+      // ── Accumulate token usage + cost from LLM steps (per model) ──
+      const usage = { prompt: 0, completion: 0, total: 0 };
+      const byModel = {};
+      for (const s of steps) {
+        if (s.type !== "llm" || !s.usage) continue;
+        const inTok = s.usage.prompt_tokens || 0;
+        const outTok = s.usage.completion_tokens || 0;
+        usage.prompt += inTok;
+        usage.completion += outTok;
+        usage.total += (s.usage.total_tokens || (inTok + outTok));
+        const modelKey = s.model || taskInfo.model || "unknown";
+        if (!byModel[modelKey]) byModel[modelKey] = { model: modelKey, prompt: 0, completion: 0, costUsd: 0 };
+        byModel[modelKey].prompt += inTok;
+        byModel[modelKey].completion += outTok;
+        byModel[modelKey].costUsd += stepCostUsd(modelKey, s.usage);
+      }
+      const costUsd = Object.values(byModel).reduce((s, m) => s + m.costUsd, 0);
+
       log({
         phase: "task_end",
         totalDuration,
         turns: result.turns || 0,
         status: result.status || "completed",
         error: result.error || null,
+        usage,
+        costUsd,
       });
 
       // Update index
@@ -134,15 +156,19 @@ export function startAgentLog(taskInfo) {
         agentId: taskInfo.agentId || "unknown",
         prompt: (taskInfo.prompt || "").slice(0, 100),
         model: taskInfo.model || "",
+        cwd: taskInfo.cwd || "",
         startTime: new Date(startTime).toISOString(),
         durationMs: totalDuration,
         turns: result.turns || 0,
         status: result.status || "completed",
         stepCount: steps.length,
         error: result.error || null,
+        usage,
+        costUsd,
+        models: Object.values(byModel),
       });
 
-      return { taskId, totalDuration, stepCount: steps.length };
+      return { taskId, totalDuration, stepCount: steps.length, usage, costUsd };
     },
 
     /** Get the step list (for inline return) */
@@ -202,6 +228,41 @@ export async function listAgentTasks(limit = 50, filter = {}) {
 }
 
 /**
+ * Accumulate expired task usage into persistent per-RU cost history.
+ * data/agent-logs/ru-cost-history.json — purge 後仍保留的成本統計。
+ */
+async function _accumulateRuCostHistory(expiredEntries) {
+  const { resolveRuName } = await import("./ru-resolver.mjs");
+  const histFile = join(LOG_DIR, "ru-cost-history.json");
+  let hist = {};
+  try { hist = JSON.parse(await readFile(histFile, "utf-8")); } catch {}
+  for (const e of expiredEntries) {
+    const ru = resolveRuName(e.cwd) || "(未對應)";
+    if (!hist[ru]) hist[ru] = { ruName: ru, tasks: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, byModel: {} };
+    const h = hist[ru];
+    h.tasks += 1;
+    h.tokensIn += e.usage?.prompt || 0;
+    h.tokensOut += e.usage?.completion || 0;
+    h.costUsd += e.costUsd || 0;
+    for (const m of (e.models || [])) {
+      if (!h.byModel[m.model]) h.byModel[m.model] = { tokensIn: 0, tokensOut: 0, costUsd: 0 };
+      h.byModel[m.model].tokensIn += m.prompt || 0;
+      h.byModel[m.model].tokensOut += m.completion || 0;
+      h.byModel[m.model].costUsd += m.costUsd || 0;
+    }
+  }
+  await writeFile(histFile, JSON.stringify(hist, null, 2), "utf-8");
+}
+
+/**
+ * Read persistent per-RU cost history (survives log purge).
+ */
+export async function getRuCostHistory() {
+  const histFile = join(LOG_DIR, "ru-cost-history.json");
+  try { return JSON.parse(await readFile(histFile, "utf-8")); } catch { return {}; }
+}
+
+/**
  * Get full detail of a specific task (read JSONL file).
  */
 export async function getAgentTaskDetail(taskId) {
@@ -241,12 +302,14 @@ export async function cleanupOldAgentLogs(retentionDays = 7) {
       }
     }
 
-    // Also clean index entries
+    // Also clean index entries — 但先把 usage/cost 累計進持久化歷史（避免 7 天後成本統計歸零）
     try {
       const raw = await readFile(INDEX_FILE, "utf-8");
       let entries = JSON.parse(raw);
       const cutoffDate = new Date(cutoff).toISOString();
       const before = entries.length;
+      const expired = entries.filter(e => e.startTime <= cutoffDate && (e.usage || e.costUsd));
+      if (expired.length > 0) await _accumulateRuCostHistory(expired);
       entries = entries.filter(e => e.startTime > cutoffDate);
       if (entries.length < before) {
         await writeFile(INDEX_FILE, JSON.stringify(entries, null, 2), "utf-8");

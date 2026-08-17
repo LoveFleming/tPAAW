@@ -23,7 +23,8 @@
     "docs",
     "tasks",
     "dispatch",
-    "release-unit"
+    "release-unit",
+    "project-board"
   ],
   "greeting": "👋 我是 Ethan（陳哲宇），你的 Engineering Manager。\n\n讓我先看一下目前的工作狀況..."
 }
