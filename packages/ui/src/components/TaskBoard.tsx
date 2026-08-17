@@ -157,7 +157,7 @@ const PIPELINE_PHASE_ICONS: Record<string, string> = {
 };
 
 const PHASE_STATUS_ICONS: Record<string, string> = {
-  done: "✅", in_progress: "🔄", pending: "⏳", rejected: "❌", blocked: "⚠️",
+  done: "✅", in_progress: "🔄", pending: "⏳", rejected: "❌", blocked: "⚠️", skipped: "⏭", awaiting_human: "🙋",
 };
 
 const STATUS_FILTERS = ["all", "open", "in-progress", "resolved", "closed"];
@@ -175,17 +175,17 @@ function getCurrentPhase(task: Task): PipelinePhaseName | null {
   if (!task.pipeline) return null;
   for (const phase of PIPELINE_PHASES) {
     const p = task.pipeline[phase.toLowerCase()];
-    if (p && p.status !== "done") return phase;
+    if (p && p.status !== "done" && p.status !== "skipped") return phase;
   }
   return "DONE";
 }
 
-function getPhaseMiniBar(task: Task): { phase: PipelinePhaseName; done: boolean }[] {
+function getPhaseMiniBar(task: Task): { phase: PipelinePhaseName; done: boolean; skipped: boolean }[] {
   const pipeline = task.pipeline;
   if (!pipeline) return [];
   return PIPELINE_PHASES.map(phase => {
     const p = pipeline[phase.toLowerCase()];
-    return { phase, done: p?.status === "done" };
+    return { phase, done: p?.status === "done", skipped: p?.status === "skipped" };
   });
 }
 
@@ -447,8 +447,12 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
           <React.Fragment key={p.phase}>
             <div
               className="w-4 h-1.5 rounded-sm"
-              style={{ background: p.done ? "#22c55e" : theme.borderLight }}
-              title={p.phase}
+              style={{
+                background: p.done ? "#22c55e" : p.skipped ? "transparent" : theme.borderLight,
+                border: p.skipped ? `1px dashed ${theme.borderLight}` : undefined,
+                opacity: p.skipped ? 0.5 : 1,
+              }}
+              title={p.skipped ? `${p.phase} (skipped)` : p.phase}
             />
             {i < phases.length - 1 && <div className="w-1 h-px" style={{ background: theme.borderLight }} />}
           </React.Fragment>
@@ -472,13 +476,14 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
             const status = p?.status || "pending";
             const icon = PHASE_STATUS_ICONS[status] || "⏳";
             const isCurrent = phase === currentPhase;
+            const isSkipped = status === "skipped";
             return (
               <React.Fragment key={phase}>
-                <div className="flex flex-col items-center gap-1 shrink-0" style={{ minWidth: 70 }}>
+                <div className="flex flex-col items-center gap-1 shrink-0" style={{ minWidth: 70, opacity: isSkipped ? 0.35 : 1 }}>
                   <div className="text-xs font-bold" style={{ color: isCurrent ? theme.accent : theme.text, opacity: isCurrent ? 1 : 0.7 }}>
                     {PIPELINE_PHASE_ICONS[phase]} {phase}
                   </div>
-                  <div className="text-base">{icon}</div>
+                  <div className="text-base" title={p?.reason || status}>{icon}</div>
                   {p?.by && <div className="text-[10px]" style={{ opacity: 0.5 }}>{getAssigneeIcon(p.assignTo)} {p.by}</div>}
                   {p?.at && <div className="text-[10px]" style={{ opacity: 0.3 }}>{new Date(p.at).toLocaleDateString()}</div>}
                   {isCurrent && (

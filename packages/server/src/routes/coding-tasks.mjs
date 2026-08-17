@@ -143,8 +143,8 @@ function ensurePipeline(task, projectConfig) {
     task.pipeline = {};
     for (const phase of PIPELINE_PHASES) {
       if (!activePhases.includes(phase)) {
-        // Skip phase — mark as done/skipped
-        task.pipeline[phase] = { status: "done", by: "system", reason: `skipped (${loopMode} loop)` };
+        // Skip phase — 不在目前 loop mode 的階段，標記 skipped（非 done），UI 才不會誤顯示為已完成
+        task.pipeline[phase] = { status: "skipped", by: "system", at: now(), reason: `skipped (${loopMode} loop)` };
       } else if (isDone) {
         task.pipeline[phase] = { status: "done", by: "unknown" };
       } else if (phase === "implement" && task.status === "in-progress") {
@@ -158,10 +158,17 @@ function ensurePipeline(task, projectConfig) {
   for (const phase of PIPELINE_PHASES) {
     if (!task.pipeline[phase]) {
       if (!activePhases.includes(phase)) {
-        task.pipeline[phase] = { status: "done", by: "system", reason: `skipped (${loopMode} loop)` };
+        task.pipeline[phase] = { status: "skipped", by: "system", at: now(), reason: `skipped (${loopMode} loop)` };
       } else {
         task.pipeline[phase] = { status: "pending" };
       }
+    }
+  }
+  // 資料遷移：舊資料把 skipped phase 寫成 done + reason 'skipped...'，正規化為 skipped
+  for (const phase of PIPELINE_PHASES) {
+    const p = task.pipeline[phase];
+    if (p?.status === "done" && typeof p.reason === "string" && (p.reason.startsWith("skipped") || p.reason === "auto-skipped")) {
+      task.pipeline[phase] = { ...p, status: "skipped" };
     }
   }
   return task;
@@ -386,8 +393,8 @@ export default async function codingTasksRoute(req, res) {
       const p = t.pipeline;
       if (!p) return false;
       if (p.commit?.status === "done") return false;
-      // Spec must be done
-      if (p.spec?.status !== "done") return false;
+      // Spec must be done（mini loop 專案 spec 為 skipped，視同通過）
+      if (p.spec?.status !== "done" && p.spec?.status !== "skipped") return false;
       // At least one remaining phase is pending or in_progress
       const remaining = ["implement", "review", "test", "qa", "docs", "commit"];
       return remaining.some(ph => {
@@ -718,7 +725,7 @@ export default async function codingTasksRoute(req, res) {
       // Skip any phases between current and next active that are still pending
       for (let i = PIPELINE_PHASES.indexOf(phase) + 1; PIPELINE_PHASES[i] !== nextPhase; i++) {
         if (task.pipeline[PIPELINE_PHASES[i]]?.status === "pending") {
-          task.pipeline[PIPELINE_PHASES[i]] = { status: "done", by: "system", at: now(), reason: "auto-skipped" };
+          task.pipeline[PIPELINE_PHASES[i]] = { status: "skipped", by: "system", at: now(), reason: "auto-skipped" };
         }
       }
       if (task.pipeline[nextPhase]?.status === "pending") {
