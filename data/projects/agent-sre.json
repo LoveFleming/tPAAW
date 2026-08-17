@@ -2,37 +2,56 @@
   "id": "agent-sre",
   "name": "Agent SRE — AI SRE Agent Crew",
   "icon": "🛡️",
-  "description": "Standalone Kubernetes/Prometheus/Loki operations agent crew。獨立 repo，從 tPAAW coding crew 分拆出來的 SRE 專門團隊。",
+  "description": "Standalone Kubernetes/Prometheus/Loki operations agent crew。獨立 repo，從 tPAAW coding crew 分拆出來的 SRE 專門團隊。Release Unit：MVP（watchdog e2e 全綠 + 三大 UI 頁完成）。",
   "status": "in-progress",
   "startDate": "2026-08-15",
   "targetDate": "2026-09-30",
   "repo": "https://github.com/LoveFleming/agent-sre",
-  "aliases": [
-    "agent-sre"
-  ],
+  "aliases": ["agent-sre"],
   "categories": [
     {
       "id": "cat_core",
       "name": "核心功能",
       "icon": "⚙️",
-      "description": "Agent loop、scheduler、tool registry",
-      "tasks": []
+      "description": "Agent Registry、Runs、Scheduler、API auth（TASK-001~006, 015）",
+      "tasks": [
+        { "id": "TASK-001", "name": "agent-store.mjs — file-based Agent Registry 持久化", "status": "done", "priority": "high", "start": "2026-08-15", "end": "2026-08-15" },
+        { "id": "TASK-002", "name": "/api/agents CRUD endpoints", "status": "done", "priority": "high", "start": "2026-08-15", "end": "2026-08-16" },
+        { "id": "TASK-004", "name": "run-store.mjs + /api/runs 查詢 endpoints", "status": "done", "priority": "medium", "start": "2026-08-16", "end": "2026-08-16" },
+        { "id": "TASK-005", "name": "scheduler.mjs — node-cron 排程引擎", "status": "done", "priority": "medium", "start": "2026-08-16", "end": "2026-08-16" },
+        { "id": "TASK-006", "name": "POST /api/agents/:id/run 手動觸發", "status": "done", "priority": "medium", "start": "2026-08-16", "end": "2026-08-16" },
+        { "id": "TASK-015", "name": "API auth — X-API-Token（timingSafeEqual）", "status": "done", "priority": "high", "start": "2026-08-16", "end": "2026-08-16" }
+      ]
     },
     {
       "id": "cat_tools",
       "name": "SRE Tools",
       "icon": "🔧",
-      "description": "Grafana/Prometheus/Loki/K8s/Security/Shell/Tchat providers",
-      "tasks": []
+      "description": "tchat transport、mock servers、watchdog、datasources、防重複通知（TASK-007~011, 013）",
+      "tasks": [
+        { "id": "TASK-007", "name": "tchat transport 抽層 + 契約 v0（ports & adapters）", "status": "done", "priority": "medium", "start": "2026-08-16", "end": "2026-08-16" },
+        { "id": "TASK-008", "name": "Grafana mock server（dev fixture）", "status": "done", "priority": "medium", "start": "2026-08-16", "end": "2026-08-16" },
+        { "id": "TASK-009", "name": "tchat mock server（照契約 v0，port 3002）", "status": "done", "priority": "medium", "start": "2026-08-16", "end": "2026-08-16" },
+        { "id": "TASK-010", "name": "Watchdog 範本 agent（seed + 驗收）", "status": "done", "priority": "medium", "start": "2026-08-16", "end": "2026-08-16" },
+        { "id": "TASK-011", "name": "datasource-store.mjs + /api/datasources CRUD", "status": "done", "priority": "low", "start": "2026-08-16", "end": "2026-08-16" },
+        { "id": "TASK-013", "name": "Cooldown / fingerprint 防重複通知", "status": "done", "priority": "low", "start": "2026-08-16", "end": "2026-08-16" }
+      ]
+    },
+    {
+      "id": "cat_ui",
+      "name": "UI 頁面",
+      "icon": "🖥️",
+      "description": "AgentsPage / DatasourcesPage / RunsPage（TASK-003, 012, 014）— RU 收尾剩這兩個",
+      "tasks": [
+        { "id": "TASK-003", "name": "TaskManagementPage 升級為 AgentsPage", "status": "done", "priority": "high", "start": "2026-08-15", "end": "2026-08-16" },
+        { "id": "TASK-012", "name": "DatasourcesPage UI", "status": "todo", "priority": "low", "start": "", "end": "" },
+        { "id": "TASK-014", "name": "RunsPage UI — 執行歷史檢視", "status": "todo", "priority": "low", "start": "", "end": "" }
+      ]
     }
   ],
   "milestones": [
-    {
-      "id": "ms_mvp",
-      "name": "MVP — watchdog e2e 通過",
-      "date": "2026-08-31",
-      "description": "Watchdog patrol 全流程 e2e 綠燈"
-    }
+    { "id": "ms_mvp", "name": "MVP — watchdog e2e 通過", "date": "2026-08-31", "description": "Watchdog patrol 全流程 e2e 綠燈（已完成 ✅ commit 0cba7d7）" },
+    { "id": "ms_ru1", "name": "RU-1 結案 — 三大 UI 頁 + 全測試綠", "date": "2026-09-15", "description": "TASK-012 + TASK-014 完成，356+54 tests 全綠，即可結案這個 release unit" }
   ],
   "createdAt": "2026-08-17T21:07:24.454338"
 }
