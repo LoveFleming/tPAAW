@@ -4,7 +4,7 @@
  * Agent 執行紀錄用 cwd 反查 RU name；token 成本用 providers.json 的 pricing 計算。
  */
 import { readFileSync, existsSync, readdirSync } from "node:fs";
-import { join, basename } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -63,30 +63,39 @@ function _loadPricing() {
 }
 
 /**
+ * Normalize a path for matching: forward slashes, no trailing slash, lowercase.
+ * Windows 反斜線路徑（公司機 clientContext.cwd 傳來）也能比對。
+ */
+function _normPath(p) {
+  return String(p).replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+}
+
+/**
  * Resolve RU (project) name from a working directory path.
- * Match priority: rootPath exact → aliases (case-insensitive) → id vs basename(cwd).
+ * Match priority: rootPath exact/子目錄前緅 → alias/id 任一路徑 segment（含 basename）。
  * @param {string} cwd
  * @returns {string|null} project name, or null if no match
  */
 export function resolveRuName(cwd) {
   if (!cwd) return null;
   const projects = _loadProjects();
-  const base = basename(String(cwd)).toLowerCase();
+  const norm = _normPath(cwd);
+  const segments = norm.split("/").filter(Boolean);
 
-  // 1. exact rootPath match
+  // 1. rootPath exact or prefix（cwd 在專案子目錄內也算）
   for (const p of projects) {
-    if (p.rootPath && String(cwd).toLowerCase() === String(p.rootPath).toLowerCase()) {
-      return p.name || p.id;
-    }
+    if (!p.rootPath) continue;
+    const rp = _normPath(p.rootPath);
+    if (!rp) continue;
+    if (norm === rp || norm.startsWith(rp + "/")) return p.name || p.id;
   }
-  // 2. aliases match (folder name on any machine)
+  // 2. alias / id 出現在任一路徑 segment（basename 是最後一個 segment，原本就行為保留）
   for (const p of projects) {
-    const aliases = Array.isArray(p.aliases) ? p.aliases.map(a => String(a).toLowerCase()) : [];
-    if (aliases.includes(base)) return p.name || p.id;
-  }
-  // 3. id vs basename
-  for (const p of projects) {
-    if (String(p.id || "").toLowerCase() === base) return p.name || p.id;
+    const tokens = [
+      ...(Array.isArray(p.aliases) ? p.aliases.map(a => String(a).toLowerCase()) : []),
+      String(p.id || "").toLowerCase(),
+    ].filter(Boolean);
+    if (tokens.some(t => segments.includes(t))) return p.name || p.id;
   }
   return null;
 }

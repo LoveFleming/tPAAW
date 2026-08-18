@@ -26,7 +26,7 @@ export default async function agentLogsRoute(req, res) {
       const ru = q.get("ru") || null;
       let tasks = await listAgentTasks(limit, agentId ? { agentId } : status ? { status } : {});
       // 附加 RU name（cwd → project）
-      tasks = tasks.map(t => ({ ...t, ruName: resolveRuName(t.cwd) || "(未對應)" }));
+      tasks = tasks.map(t => ({ ...t, ruName: resolveRuName(t.cwd) || (String(t.agentId || "").startsWith("cron:") ? "⏰ 排程任務" : "(未對應)") }));
       if (ru) tasks = tasks.filter(t => t.ruName === ru);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ items: tasks, total: tasks.length }));
@@ -56,7 +56,7 @@ export default async function agentLogsRoute(req, res) {
           agg.byModel[m.model].costUsd += m.costUsd || 0;
         }
       };
-      for (const t of tasks) _agg(resolveRuName(t.cwd) || "(未對應)", t);
+      for (const t of tasks) _agg(resolveRuName(t.cwd) || (String(t.agentId || "").startsWith("cron:") ? "⏰ 排程任務" : "(未對應)"), t);
       // 合併已 purge 的歷史累計
       const hist = await getRuCostHistory();
       for (const h of Object.values(hist)) {

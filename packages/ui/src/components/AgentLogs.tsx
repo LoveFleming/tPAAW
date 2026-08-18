@@ -145,7 +145,7 @@ export default function AgentLogs() {
   if (selected) {
     const task = tasks.find(t => t.taskId === selected);
     return (
-      <div className="p-4 space-y-3">
+      <div className="p-4 space-y-3 h-full overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
         <div className="flex items-center gap-3">
           <button onClick={() => setSelected(null)} className="px-3 py-1.5 text-sm rounded-lg bg-stone-100 hover:bg-stone-200 transition-colors">← 返回列表</button>
           {task && (
@@ -188,7 +188,7 @@ export default function AgentLogs() {
 
   // List view
   return (
-    <div className="p-4 space-y-3">
+    <div className="p-4 space-y-3 h-full overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-stone-800">Agent 執行記錄</h2>
         <div className="flex items-center gap-2">

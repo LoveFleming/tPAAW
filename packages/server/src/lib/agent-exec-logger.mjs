@@ -237,7 +237,7 @@ async function _accumulateRuCostHistory(expiredEntries) {
   let hist = {};
   try { hist = JSON.parse(await readFile(histFile, "utf-8")); } catch {}
   for (const e of expiredEntries) {
-    const ru = resolveRuName(e.cwd) || "(未對應)";
+    const ru = resolveRuName(e.cwd) || (String(e.agentId || "").startsWith("cron:") ? "⏰ 排程任務" : "(未對應)");
     if (!hist[ru]) hist[ru] = { ruName: ru, tasks: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, byModel: {} };
     const h = hist[ru];
     h.tasks += 1;
