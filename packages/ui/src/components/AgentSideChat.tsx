@@ -12,6 +12,21 @@ import API_BASE from "../api";
 import { fmtChatTime } from "../utils";
 import MarkdownText from "./MarkdownText"; // markdown 渲染（含 GFM table）
 
+// fetch crew 大頭照（AI Crew 頁面同一張）；失敗 fallback emoji
+function useCrewAvatar(agentId: string, enabled: boolean) {
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!enabled || !agentId) return;
+    let alive = true;
+    fetch(`${API_BASE}/api/coding-crew/coding.${agentId}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (alive && d?.imageUrl) setAvatarUrl(`${API_BASE}${d.imageUrl}`); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [agentId, enabled]);
+  return avatarUrl;
+}
+
 export interface SideChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -48,6 +63,8 @@ export default function AgentSideChat({
   const abortRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const composingRef = useRef(false); // IME 三層保護（可靠層）
+  const avatarUrl = useCrewAvatar(agentId, true);
+
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -156,7 +173,11 @@ export default function AgentSideChat({
     <div className="flex flex-col border-l" style={{ borderColor: "#e7e5e4", height }}>
       {/* Header */}
       <div className="px-3 py-2 border-b flex items-center gap-2 shrink-0" style={{ borderColor: "#e7e5e4" }}>
-        <span className="text-base">{agentEmoji}</span>
+        {avatarUrl ? (
+          <img src={avatarUrl} className="w-6 h-6 rounded-full object-cover" alt="" />
+        ) : (
+          <span className="text-base">{agentEmoji}</span>
+        )}
         <span className="text-xs font-bold text-stone-700">{agentName}</span>
         {loading && <span className="text-[10px] text-stone-400 animate-pulse ml-auto">{action || "處理中…"}</span>}
       </div>
@@ -165,8 +186,8 @@ export default function AgentSideChat({
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3" style={{ scrollbarWidth: "thin" }}>
         {messages.length === 0 && (
           <div className="text-center py-8">
-            <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center text-2xl mb-2" style={{ backgroundColor: accent + "15" }}>
-              {agentEmoji}
+            <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center text-2xl mb-2 overflow-hidden" style={{ backgroundColor: accent + "15" }}>
+              {avatarUrl ? <img src={avatarUrl} className="w-full h-full object-cover" alt="" /> : agentEmoji}
             </div>
             <p className="text-xs text-stone-500 leading-relaxed max-w-[220px] mx-auto">{greeting}</p>
             {suggestions.length > 0 && (
@@ -185,7 +206,10 @@ export default function AgentSideChat({
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-[92%] rounded-xl px-3 py-2 ${m.role === "user" ? "bg-stone-800 text-white" : "bg-white border border-stone-200 text-stone-700"}`}
               style={m.role === "assistant" ? { borderLeft: `2px solid ${accent}` } : undefined}>
-              <div className="text-[10px] text-stone-400 mb-0.5">{m.role === "user" ? "你" : agentName} · {fmtChatTime(m.ts)}</div>
+              <div className="text-[10px] text-stone-400 mb-0.5 flex items-center gap-1">
+                {m.role === "assistant" && avatarUrl && <img src={avatarUrl} className="w-3.5 h-3.5 rounded-full object-cover" alt="" />}
+                <span>{m.role === "user" ? "你" : agentName} · {fmtChatTime(m.ts)}</span>
+              </div>
               {m.role === "assistant" ? (
                 <MarkdownText>{m.content}</MarkdownText>
               ) : (

@@ -445,7 +445,7 @@ export default function CodingIDE() {
   }, []);
 
   // ── Coding Crew Definitions (dynamic from project crew API) ──
-  const [codingCrews, setCodingCrews] = useState<Array<{ id: string; emoji: string; title: string; mode: "chat"; agentId: string }>>([
+  const [codingCrews, setCodingCrews] = useState<Array<{ id: string; emoji: string; title: string; mode: "chat"; agentId: string; imageUrl?: string }>>([
     { id: "coding.architect", emoji: "🏛️", title: "架構師", mode: "chat" as const, agentId: "architect" },
     { id: "coding.developer", emoji: "💻", title: "Developer", mode: "chat" as const, agentId: "developer" },
     { id: "coding.tester", emoji: "🧪", title: "Tester", mode: "chat" as const, agentId: "tester" },
@@ -469,6 +469,7 @@ export default function CodingIDE() {
             title: `${a.codename || a.title || a.id}`,
             mode: "chat" as const,
             agentId: a.id.replace(/^(coding\.|custom\.)/, ""),
+            imageUrl: a.imageUrl || undefined,
           }));
         setCodingCrews(crews);
       }
@@ -2389,7 +2390,11 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   }}
                     className={cn("flex-1 text-left flex items-center gap-2 truncate",
                       activeCrew === crew.id && "text-emerald-700 font-semibold")}>
-                    <span>{crew.emoji}</span> <span>{crew.title}</span>
+                    {crew.imageUrl ? (
+                      <img src={`${API_BASE}${crew.imageUrl}`} className="w-[18px] h-[18px] rounded-full object-cover shrink-0" alt="" />
+                    ) : (
+                      <span>{crew.emoji}</span>
+                    )} <span className="truncate">{crew.title}</span>
                     {activeCrew === crew.id && <span className="ml-auto text-emerald-500">●</span>}
                   </button>
                   <button onClick={async (e) => {
