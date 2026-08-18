@@ -23,6 +23,7 @@ import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import { cn } from "../utils";
 import ShellTerminal from "../components/ShellTerminal";
+import JsonViewer from "../components/JsonViewer";
 import { fileEmoji } from "../components/FileEmoji";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
@@ -170,6 +171,47 @@ function fmtBytes(n: number) {
 
 function tryFormatJson(str: string): string {
   try { return JSON.stringify(JSON.parse(str), null, 2); } catch { return str; }
+}
+
+// ── API Tester response body：JSON 自動 pretty / 樹狀檢視，非 JSON 原樣顯示 ──
+function ApiResponseBody({ body }: { body: string }) {
+  const { t: tt } = useI18n();
+  const [view, setView] = useState<"tree" | "raw">("tree");
+  const [copied, setCopied] = useState(false);
+  let parsed: unknown = null;
+  try { parsed = JSON.parse(body); } catch { /* not JSON */ }
+  const isJson = parsed !== null && typeof parsed === "object"; // object/array 才進樹狀；純量/文字用 pretty raw
+  const pretty = tryFormatJson(body);
+  const copy = () => {
+    navigator.clipboard.writeText(pretty).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  const btn = "text-xs px-2 py-1 rounded-md border transition-colors";
+  return (
+    <div className="flex-1 min-h-0 flex flex-col gap-2">
+      {/* Toolbar: Tree/Raw 切換 + 複製 */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {isJson && (
+          <>
+            <button onClick={() => setView("tree")} className={cn(btn, view === "tree" ? "bg-stone-800 text-white border-stone-800" : "bg-white text-stone-600 border-stone-300 hover:bg-stone-50")}>🌳 {tt("vibe.apiViewTree")}</button>
+            <button onClick={() => setView("raw")} className={cn(btn, view === "raw" ? "bg-stone-800 text-white border-stone-800" : "bg-white text-stone-600 border-stone-300 hover:bg-stone-50")}>📄 {tt("vibe.apiViewRaw")}</button>
+          </>
+        )}
+        <button onClick={copy} className={cn(btn, "ml-auto bg-white text-stone-600 border-stone-300 hover:bg-stone-50")}>{copied ? "✅" : "📋"} {tt("vibe.apiCopy")}</button>
+      </div>
+      {isJson && view === "tree" ? (
+        <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-stone-300 bg-white">
+          <JsonViewer data={parsed} compact />
+        </div>
+      ) : (
+        <pre className="flex-1 text-sm font-mono bg-stone-800 text-green-300 rounded-lg p-3 overflow-auto whitespace-pre-wrap break-words min-h-0">
+          {pretty}
+        </pre>
+      )}
+    </div>
+  );
 }
 
 // Safety: ensure value is a renderable string (not object/array/null)
@@ -3017,7 +3059,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                         {apiLoading && <span className="text-xs text-purple-500 animate-pulse">⚡ streaming...</span>}
                       </div>
                       <pre className="flex-1 text-sm font-mono bg-stone-900 text-green-300 rounded-lg p-3 overflow-auto whitespace-pre-wrap break-words min-h-0">
-                        {apiStreamContent || "⏳ Waiting for response..."}
+                        {apiStreamContent ? tryFormatJson(apiStreamContent) : "⏳ Waiting for response..."}
                       </pre>
                     </div>
                   ) : /* ── Normal response ── */ apiResponse ? (
@@ -3038,9 +3080,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                           </div>
                         </details>
                       )}
-                      <pre className="flex-1 text-sm font-mono bg-stone-800 text-green-300 rounded-lg p-3 overflow-auto whitespace-pre-wrap break-words min-h-0">
-                        {apiResponse.body}
-                      </pre>
+                      <ApiResponseBody body={apiResponse.body} />
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400 text-xs">

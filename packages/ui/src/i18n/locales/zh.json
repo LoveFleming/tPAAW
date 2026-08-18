@@ -821,5 +821,8 @@
   "rm.qd.buttonRunning": "建立中…",
   "rm.qd.done": "已建立 {n} 張補強 task（掃 {m} 個 feature），去 Task Board / EM 派工",
   "rm.qd.mapUpdatedAt": "feature map 更新：{t}（補強前建議重掃）",
-  "rm.qd.refresh": "重讀"
+  "rm.qd.refresh": "重讀",
+  "vibe.apiViewTree": "樹狀檢視",
+  "vibe.apiViewRaw": "原始文字",
+  "vibe.apiCopy": "複製"
 }

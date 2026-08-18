@@ -821,5 +821,8 @@
   "rm.qd.buttonRunning": "作成中…",
   "rm.qd.done": "補強 task を {n} 件作成（{m} feature をスキャン）— Task Board / EM から dispatch",
   "rm.qd.mapUpdatedAt": "feature map 更新：{t}（再スキャン推奨）",
-  "rm.qd.refresh": "再読込"
+  "rm.qd.refresh": "再読込",
+  "vibe.apiViewTree": "ツリー表示",
+  "vibe.apiViewRaw": "生テキスト",
+  "vibe.apiCopy": "コピー"
 }

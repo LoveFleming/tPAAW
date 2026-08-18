@@ -821,5 +821,8 @@
   "rm.qd.buttonRunning": "Creating…",
   "rm.qd.done": "Created {n} retrofit tasks (scanned {m} features) — dispatch via Task Board / EM",
   "rm.qd.mapUpdatedAt": "Feature map updated: {t} (re-scan recommended)",
-  "rm.qd.refresh": "Refresh"
+  "rm.qd.refresh": "Refresh",
+  "vibe.apiViewTree": "Tree View",
+  "vibe.apiViewRaw": "Raw Text",
+  "vibe.apiCopy": "Copy"
 }
