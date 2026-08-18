@@ -10,6 +10,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import API_BASE from "../api";
 import { fmtChatTime } from "../utils";
+import MarkdownText from "./MarkdownText"; // markdown 渲染（含 GFM table）
 
 export interface SideChatMessage {
   role: "user" | "assistant";
@@ -185,7 +186,11 @@ export default function AgentSideChat({
             <div className={`max-w-[92%] rounded-xl px-3 py-2 ${m.role === "user" ? "bg-stone-800 text-white" : "bg-white border border-stone-200 text-stone-700"}`}
               style={m.role === "assistant" ? { borderLeft: `2px solid ${accent}` } : undefined}>
               <div className="text-[10px] text-stone-400 mb-0.5">{m.role === "user" ? "你" : agentName} · {fmtChatTime(m.ts)}</div>
-              <div className="text-xs whitespace-pre-wrap leading-relaxed">{m.content}</div>
+              {m.role === "assistant" ? (
+                <MarkdownText>{m.content}</MarkdownText>
+              ) : (
+                <div className="text-xs whitespace-pre-wrap leading-relaxed">{m.content}</div>
+              )}
             </div>
           </div>
         ))}
