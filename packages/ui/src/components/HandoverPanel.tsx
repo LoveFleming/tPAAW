@@ -14,6 +14,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import AgentSideChat from "./AgentSideChat";
+import MarkdownText from "./MarkdownText";
 
 interface HandoverBundle {
   initialized: boolean;
@@ -90,10 +91,9 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
         {isOpen && (
           <div className="border-t px-3.5 py-2.5 max-h-64 overflow-y-auto" style={{ borderColor: tk.borderLight, scrollbarWidth: "thin" }}>
             {has ? (
-              <pre className="text-[11px] text-stone-600 whitespace-pre-wrap font-mono leading-relaxed">
-                {content!.split("\n").slice(0, maxLines).join("\n")}
-                {content!.split("\n").length > maxLines ? `\n… (${content!.split("\n").length - maxLines} more lines)` : ""}
-              </pre>
+              <div className="text-[11px] text-stone-600 leading-relaxed">
+                <MarkdownText>{content!.split("\n").slice(0, maxLines).join("\n")}{content!.split("\n").length > maxLines ? `\n… (${content!.split("\n").length - maxLines} more lines)` : ""}</MarkdownText>
+              </div>
             ) : (
               <div className="text-[11px] text-stone-400">{t("ho.missingDesc")}</div>
             )}

@@ -9,6 +9,7 @@ import { useI18n } from "../i18n";
 import { cn } from "../utils";
 import API_BASE from "../api";
 import ModelSelector from "./ModelSelector";
+import MarkdownText from "./MarkdownText";
 
 interface PlanListItem {
   planId: string;
@@ -96,8 +97,8 @@ export function SubTaskDetail({ theme, data }: { theme: any; data: any }) {
       {result && (
         <div>
           <div className="text-sm font-bold mb-2">📋 執行結果</div>
-          <div className="p-3 rounded text-xs" style={{ background: tk.bgMuted, whiteSpace: "pre-wrap" }}>
-            {result}
+          <div className="p-3 rounded text-xs" style={{ background: tk.bgMuted }}>
+            <MarkdownText>{result}</MarkdownText>
           </div>
         </div>
       )}
