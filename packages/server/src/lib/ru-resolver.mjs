@@ -82,6 +82,14 @@ export function resolveRuName(cwd) {
   const norm = _normPath(cwd);
   const segments = norm.split("/").filter(Boolean);
 
+  // 0. cwd 在 PAAW 自身安裝目錄內 → 直接就是 PAAW project
+  //    （任何機器、任何 clone 資料夾名都能命中；公司 Windows clone 路徑隨便取也抓得到）
+  const paawRoot = _normPath(process.env.PAAW_ROOT || PAAW_ROOT);
+  if (paawRoot && (norm === paawRoot || norm.startsWith(paawRoot + "/"))) {
+    const paawProj = projects.find(p => String(p.id || "").toLowerCase() === "paaw");
+    return (paawProj && (paawProj.name || paawProj.id)) || "PAAW";
+  }
+
   // 1. rootPath exact or prefix（cwd 在專案子目錄內也算）
   for (const p of projects) {
     if (!p.rootPath) continue;
@@ -90,12 +98,17 @@ export function resolveRuName(cwd) {
     if (norm === rp || norm.startsWith(rp + "/")) return p.name || p.id;
   }
   // 2. alias / id 出現在任一路徑 segment（basename 是最後一個 segment，原本就行為保留）
+  const _tokens = (p) => [
+    ...(Array.isArray(p.aliases) ? p.aliases.map(a => String(a).toLowerCase()) : []),
+    String(p.id || "").toLowerCase(),
+  ].filter(t => t.length > 0);
   for (const p of projects) {
-    const tokens = [
-      ...(Array.isArray(p.aliases) ? p.aliases.map(a => String(a).toLowerCase()) : []),
-      String(p.id || "").toLowerCase(),
-    ].filter(Boolean);
-    if (tokens.some(t => segments.includes(t))) return p.name || p.id;
+    if (_tokens(p).some(t => segments.includes(t))) return p.name || p.id;
+  }
+  // 3. alias / id 作為 segment 前緣（clone 資料夾常見變體：tPAAW-main、agent-sre-dev、paaw_backup）
+  //    只用長 token（≥ 4 字）避免誤判
+  for (const p of projects) {
+    if (_tokens(p).filter(t => t.length >= 4).some(t => segments.some(s => s.startsWith(t)))) return p.name || p.id;
   }
   return null;
 }
