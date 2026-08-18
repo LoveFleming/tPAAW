@@ -61,18 +61,29 @@ export default function AgentSideChat({
   const [loading, setLoading] = useState(false);
   const [action, setAction] = useState<string>("");
   const abortRef = useRef<AbortController | null>(null);
-  const endRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null); // 聊天容器：用容器 scrollTo，不用 scrollIntoView（會拖祖先容器）
+  const nearBottomRef = useRef(true);
   const composingRef = useRef(false); // IME 三層保護（可靠層）
   const avatarUrl = useCrewAvatar(agentId, true);
 
 
-  // 串流抖動修復：新訊息進朵用 smooth；同一訊息內容增長（串流 chunk）用 instant
+  // 串流抖動修復：新訊息 smooth；同一訊息內容增長（串流 chunk）用 instant + 只在使用者在底部附近時
   // （smooth 動畫被頻繁 chunk 打斷重啟 → 畫面持續抖動）
   const prevMsgLenRef = useRef(messages.length);
+  const prevContentLenRef = useRef(0);
   useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
     const isNewMessage = messages.length !== prevMsgLenRef.current;
+    const lastLen = messages.length ? (messages[messages.length - 1].content || "").length : 0;
+    const contentGrew = lastLen > prevContentLenRef.current;
     prevMsgLenRef.current = messages.length;
-    endRef.current?.scrollIntoView({ behavior: isNewMessage ? "smooth" : "instant" });
+    prevContentLenRef.current = lastLen;
+    if (isNewMessage) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    } else if (contentGrew && loading && nearBottomRef.current) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
+    }
   }, [messages, loading]);
 
   const send = useCallback(async (text?: string) => {
@@ -188,7 +199,10 @@ export default function AgentSideChat({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3" style={{ scrollbarWidth: "thin" }}>
+      <div ref={scrollRef} onScroll={(e) => {
+        const el = e.currentTarget;
+        nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+      }} className="flex-1 overflow-y-auto px-3 py-3 space-y-3" style={{ scrollbarWidth: "thin" }}>
         {messages.length === 0 && (
           <div className="text-center py-8">
             <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center text-2xl mb-2 overflow-hidden" style={{ backgroundColor: accent + "15" }}>
@@ -230,7 +244,6 @@ export default function AgentSideChat({
             </div>
           </div>
         )}
-        <div ref={endRef} />
       </div>
 
       {/* Input — IME 三層保護：composingRef → isComposing → keyCode 229 */}

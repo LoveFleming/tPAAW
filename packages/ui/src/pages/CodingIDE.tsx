@@ -401,6 +401,9 @@ export default function CodingIDE() {
     });
   }, [activeCrew]);
   const [chatInput, setChatInput] = useState("");
+  // 聊天捲動容器：跟底用容器自身 scrollTo（scrollIntoView 會連帶捲動祖先容器 → 頁面跳動）
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const chatNearBottomRef = useRef(true);
   const [crewLoading, setCrewLoading] = useState<Record<string, boolean>>({}); // crewId → chatLoading
   const domainAbortRef = useRef<AbortController | null>(null); // abort for domain AI (spec/test/bug/docs/maintain)
   const [crewAgentRunning, setCrewAgentRunning] = useState<Record<string, boolean>>({}); // crewId → agentRunning
@@ -1630,23 +1633,39 @@ const sendChat = useCallback(async () => {
     }
   }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent, codingModel, activeCrew]);
 
-  // Only auto-scroll when NEW messages arrive (not on tab switch or re-render)
+  // 追蹤使用者是否在底部附近：串流中只在使用者没往上翻時跟底（onScroll 在容器 div 上）
+
+  // 跟底捲動：新訊息 smooth；串流內容成長 instant（smooth 被 chunk 打斷重啟 → 抖動）
+  const chatLastLenRef = useRef(0);
+  const chatScrollToBottom = useCallback((smooth: boolean) => {
+    requestAnimationFrame(() => {
+      const el = chatScrollRef.current;
+      if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "instant" });
+    });
+  }, []);
   useEffect(() => {
-    if (chatMessages.length > prevChatLenRef.current) {
-      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
+    const isNewMessage = chatMessages.length > prevChatLenRef.current;
     prevChatLenRef.current = chatMessages.length;
-  }, [chatMessages.length]);
+    const lastLen = chatMessages.length ? (chatMessages[chatMessages.length - 1].content || "").length : 0;
+    const contentGrew = lastLen > chatLastLenRef.current;
+    chatLastLenRef.current = lastLen;
+    if (isNewMessage) {
+      chatScrollToBottom(true);
+    } else if (contentGrew && chatLoading && chatNearBottomRef.current) {
+      // 串流中 chunk 成長：直接釘底，不做動畫
+      chatScrollToBottom(false);
+    }
+  }, [chatMessages, chatLoading, chatScrollToBottom]);
 
   // Instant scroll to bottom when switching agent tabs
   useEffect(() => {
     if (activeCrew && chatMessages.length > 0) {
       // Use rAF to ensure DOM has rendered before jumping
       requestAnimationFrame(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: "instant" as ScrollBehavior });
+        chatScrollToBottom(false);
       });
     }
-  }, [activeCrew]);
+  }, [activeCrew, chatScrollToBottom]);
 
   // Alias for inline usage in AI crew tab
   const sendChatMessage = useCallback((msg: string) => {
@@ -3204,7 +3223,10 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 )}
 
                 {/* Chat messages */}
-                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ scrollbarWidth: "thin" }}>
+                <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ scrollbarWidth: "thin" }} onScroll={(e) => {
+                  const el = e.currentTarget;
+                  chatNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+                }}>
                   {chatMessages.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full gap-3">
                       {profile?.imageUrl ? (
