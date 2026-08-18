@@ -64,9 +64,9 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
   // IME composition tracking
   const composingRef = useRef(false);
 
-  // Scroll to bottom
+  // Scroll to bottom — instant：事件串流頻繁，smooth 動畫會被不斷打斷重啟造成抖動
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
   }, [chatMessages, currentEvents]);
 
   // Expose sendPrompt to parent

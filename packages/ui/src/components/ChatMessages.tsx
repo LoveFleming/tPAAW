@@ -186,6 +186,114 @@ function ToolBadges({ tools }: { tools: ChatToolBadge[] }) {
   );
 }
 
+// ── MessageRow — memo 化：串流 chunk 只重繪正在長大的訊息，歷史訊息全部跳過 ──
+// （沒有 memo 時每個 SSE chunk 都重跑全部歷史訊息的 react-markdown parse → 掉帧+高度跳動）
+const MessageRow = React.memo(function MessageRow({
+  msg, isLastAssistant, assistantName, userName, assistantAvatar, assistantEmoji,
+  accent, accentHover, userMarkdown, loading, activeTools, mdComponents, onContextMenu,
+}: {
+  msg: ChatMessageItem;
+  isLastAssistant: boolean;
+  assistantName: string; userName: string;
+  assistantAvatar?: string; assistantEmoji?: string;
+  accent?: string; accentHover?: string;
+  userMarkdown?: boolean;
+  loading?: boolean;
+  activeTools: ChatToolBadge[];
+  mdComponents: Record<string, any>;
+  onContextMenu: (e: React.MouseEvent, msg: ChatMessageItem) => void;
+}) {
+  return (
+    <div className="flex justify-start">
+      <div className="flex gap-2.5 max-w-[95%]">
+        {/* Avatar */}
+        <div className="flex-shrink-0 mt-1">
+          <ChatAvatar
+            role={msg.role}
+            assistantAvatar={assistantAvatar}
+            assistantEmoji={assistantEmoji}
+            accent={accent}
+            accentHover={accentHover}
+            userName={userName}
+          />
+        </div>
+        {/* Bubble */}
+        <div className="min-w-0">
+          {/* Name + time */}
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-xs font-medium text-stone-600">
+              {msg.role === "assistant" ? assistantName : userName}
+            </span>
+            {(msg.ts || msg.timestamp) && (
+              <span className="text-[10px] text-stone-300">
+                {formatTime(msg.ts, msg.timestamp)}
+              </span>
+            )}
+          </div>
+          {/* Content */}
+          <div
+            onContextMenu={(e) => onContextMenu(e, msg)}
+            className={`px-4 py-3 text-sm leading-relaxed rounded-2xl ${
+            msg.role === "assistant"
+              ? msg._thinking
+                ? "bg-stone-50 border border-stone-200 text-stone-500 italic"
+                : "bg-white shadow-sm border border-stone-100 text-stone-700"
+              : "bg-stone-50 text-stone-700"
+          }`}>
+            {/* Thinking history — shown collapsed above the final answer */}
+            {msg.role === "assistant" && msg._thinkingHistory && msg._thinkingHistory.length > 0 && !msg._thinking && (
+              <details className="mb-2 group">
+                <summary className="cursor-pointer text-xs text-stone-400 hover:text-stone-500 select-none flex items-center gap-1">
+                  <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
+                  <span>思考過程 ({msg._thinkingHistory.length} 段)</span>
+                </summary>
+                <div className="mt-1.5 pl-4 border-l-2 border-stone-100 space-y-1.5 max-h-60 overflow-y-auto">
+                  {msg._thinkingHistory.map((think, ti) => (
+                    <div key={ti} className="text-xs text-stone-400 italic whitespace-pre-wrap">
+                      {think.replace(/^💭\s*/, "")}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+            {msg.role === "assistant" ? (
+              <div className="prose prose-stone prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
+                {msg.content ? (
+                  msg._thinking ? (
+                    // Thinking bubble: plain text, no markdown rendering, with subtle pulse
+                    <div className="text-xs text-stone-400 whitespace-pre-wrap">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: accent || "#10b981" }} />
+                        {msg.content.replace(/^💭\s*/, "")}
+                      </span>
+                    </div>
+                  ) : (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                      {msg.content}
+                    </ReactMarkdown>
+                  )
+                ) : (
+                  <LoadingIndicator accent={accent} />
+                )}
+                {/* Tool badges only on non-thinking messages */}
+                {!msg._thinking && loading && isLastAssistant && activeTools.length > 0 && (
+                  <ToolBadges tools={activeTools} />
+                )}
+              </div>
+            ) : userMarkdown ? (
+              <div className="prose prose-stone prose-sm max-w-none prose-p:my-1">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+              </div>
+            ) : (
+              <div className="whitespace-pre-wrap">{msg.content}</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 // ── Main Component ──
 
 export const ChatMessages: React.FC<ChatMessagesProps> = ({
@@ -206,7 +314,8 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
   assignableAgents = [],
   onAssignToAgent,
 }) => {
-  const mdComponents = markdownComponents(accent, onDeepLink);
+  // 穩定身分：讓 MessageRow 的 memo 不會被每次 render 新建的 function 打破
+  const mdComponents = React.useMemo(() => markdownComponents(accent, onDeepLink), [accent, onDeepLink]);
 
   // ── Right-click context menu state ──
   const [ctxMenu, setCtxMenu] = React.useState<{ x: number; y: number; msg: ChatMessageItem } | null>(null);
@@ -232,11 +341,11 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
     };
   }, [ctxMenu]);
 
-  const handleMessageContextMenu = (e: React.MouseEvent, msg: ChatMessageItem) => {
+  const handleMessageContextMenu = React.useCallback((e: React.MouseEvent, msg: ChatMessageItem) => {
     if (!onAssignToAgent || assignableAgents.length === 0) return;
     e.preventDefault();
     setCtxMenu({ x: e.clientX, y: e.clientY, msg });
-  };
+  }, [onAssignToAgent, assignableAgents]);
 
   const handlePickAgent = (agentId: string) => {
     if (ctxMenu && onAssignToAgent) {
@@ -251,98 +360,24 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
 
   return (
     <div className={`w-full px-4 py-4 space-y-3 ${className}`}>
-      {messages.map((msg, i) => {
-        const isLastAssistant = msg.role === "assistant" && i === messages.length - 1;
-        return (
-          <div key={i} className="flex justify-start">
-            <div className="flex gap-2.5 max-w-[95%]">
-              {/* Avatar */}
-              <div className="flex-shrink-0 mt-1">
-                <ChatAvatar
-                  role={msg.role}
-                  assistantAvatar={assistantAvatar}
-                  assistantEmoji={assistantEmoji}
-                  accent={accent}
-                  accentHover={accentHover}
-                  userName={userName}
-                />
-              </div>
-              {/* Bubble */}
-              <div className="min-w-0">
-                {/* Name + time */}
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-xs font-medium text-stone-600">
-                    {msg.role === "assistant" ? assistantName : userName}
-                  </span>
-                  {(msg.ts || msg.timestamp) && (
-                    <span className="text-[10px] text-stone-300">
-                      {formatTime(msg.ts, msg.timestamp)}
-                    </span>
-                  )}
-                </div>
-                {/* Content */}
-                <div
-                  onContextMenu={(e) => handleMessageContextMenu(e, msg)}
-                  className={`px-4 py-3 text-sm leading-relaxed rounded-2xl ${
-                  msg.role === "assistant"
-                    ? msg._thinking
-                      ? "bg-stone-50 border border-stone-200 text-stone-500 italic"
-                      : "bg-white shadow-sm border border-stone-100 text-stone-700"
-                    : "bg-stone-50 text-stone-700"
-                }`}>
-                  {/* Thinking history — shown collapsed above the final answer */}
-                  {msg.role === "assistant" && msg._thinkingHistory && msg._thinkingHistory.length > 0 && !msg._thinking && (
-                    <details className="mb-2 group">
-                      <summary className="cursor-pointer text-xs text-stone-400 hover:text-stone-500 select-none flex items-center gap-1">
-                        <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
-                        <span>思考過程 ({msg._thinkingHistory.length} 段)</span>
-                      </summary>
-                      <div className="mt-1.5 pl-4 border-l-2 border-stone-100 space-y-1.5 max-h-60 overflow-y-auto">
-                        {msg._thinkingHistory.map((think, ti) => (
-                          <div key={ti} className="text-xs text-stone-400 italic whitespace-pre-wrap">
-                            {think.replace(/^💭\s*/, "")}
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  )}
-                  {msg.role === "assistant" ? (
-                    <div className="prose prose-stone prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
-                      {msg.content ? (
-                        msg._thinking ? (
-                          // Thinking bubble: plain text, no markdown rendering, with subtle pulse
-                          <div className="text-xs text-stone-400 whitespace-pre-wrap">
-                            <span className="inline-flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: accent || "#10b981" }} />
-                              {msg.content.replace(/^💭\s*/, "")}
-                            </span>
-                          </div>
-                        ) : (
-                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-                            {msg.content}
-                          </ReactMarkdown>
-                        )
-                      ) : (
-                        <LoadingIndicator accent={accent} />
-                      )}
-                      {/* Tool badges only on non-thinking messages */}
-                      {!msg._thinking && loading && isLastAssistant && activeTools.length > 0 && (
-                        <ToolBadges tools={activeTools} />
-                      )}
-                    </div>
-                  ) : userMarkdown ? (
-                    <div className="prose prose-stone prose-sm max-w-none prose-p:my-1">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-                    </div>
-                  ) : (
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+      {messages.map((msg, i) => (
+        <MessageRow
+          key={i}
+          msg={msg}
+          isLastAssistant={msg.role === "assistant" && i === messages.length - 1}
+          assistantName={assistantName}
+          userName={userName}
+          assistantAvatar={assistantAvatar}
+          assistantEmoji={assistantEmoji}
+          accent={accent}
+          accentHover={accentHover}
+          userMarkdown={userMarkdown}
+          loading={loading}
+          activeTools={activeTools}
+          mdComponents={mdComponents}
+          onContextMenu={handleMessageContextMenu}
+        />
+      ))}
 
       {/* Loading indicator — shows typing + current action (like Discord/OpenClaw) */}
       {loading && (

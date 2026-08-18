@@ -193,9 +193,13 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   }, []);
 
   // Scroll to bottom — only when explicitly requested (send/receive)
+  // ⚠️ 用容器的 scrollTo 而非 scrollIntoView：scrollIntoView 會連帶捲動所有祖先容器，
+  // 造成串流時整個畫面跟著抖動；容器 scrollTo 只影響聊天區本身
   const scrollToBottom = useCallback((smooth = true) => {
     requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "instant" });
+      const el = chatContainerRef.current;
+      if (!el) return;
+      el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "instant" });
     });
   }, []);
 
@@ -448,7 +452,8 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
 
         assistantMsg.content = fullContent;
         setMessages([...newMessages, { ...assistantMsg }]);
-        if (isNearBottomRef.current) scrollToBottom(true);
+        // 串流中每個 chunk 用 instant：smooth 動畫會被下一個 chunk 打斷重啟 → 抖動
+        if (isNearBottomRef.current) scrollToBottom(false);
       }
 
       assistantMsg.content = fullContent;

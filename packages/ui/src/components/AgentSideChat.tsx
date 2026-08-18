@@ -66,8 +66,13 @@ export default function AgentSideChat({
   const avatarUrl = useCrewAvatar(agentId, true);
 
 
+  // 串流抖動修復：新訊息進朵用 smooth；同一訊息內容增長（串流 chunk）用 instant
+  // （smooth 動畫被頻繁 chunk 打斷重啟 → 畫面持續抖動）
+  const prevMsgLenRef = useRef(messages.length);
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    const isNewMessage = messages.length !== prevMsgLenRef.current;
+    prevMsgLenRef.current = messages.length;
+    endRef.current?.scrollIntoView({ behavior: isNewMessage ? "smooth" : "instant" });
   }, [messages, loading]);
 
   const send = useCallback(async (text?: string) => {
