@@ -35,7 +35,14 @@ export function setupWebSocket() {
 
     ws.on("message", async (raw) => {
       let msg;
-      try { msg = JSON.parse(raw.toString()); } catch {
+      try {
+        msg = JSON.parse(raw.toString());
+        // ⚠️ xterm onData 逐字元送 raw text：'7' 是合法 JSON（number），會被解析成 7 然後因無 type 被丟棄
+        // 只允許 JSON object 進控制訊息流程，其他（number/boolean/null/array）一律當 raw 終端輸入
+        if (typeof msg !== "object" || msg === null || Array.isArray(msg)) {
+          throw new Error("raw terminal input");
+        }
+      } catch {
         const session = ptySessions.get(ws);
         if (session?.pty) session.pty.write(raw.toString());
         return;
