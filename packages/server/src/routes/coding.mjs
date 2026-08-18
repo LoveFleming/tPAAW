@@ -146,8 +146,19 @@ async function callProjectLLM(body, opts = {}) {
   const providersFile = join(PAAW_ROOT, "data", "config", "providers.json");
   let providerConfig;
   try { providerConfig = JSON.parse(readSync(providersFile, "utf8")); } catch { return { content: null }; }
-  const providerId = providerConfig.active || "zai";
-  const model = body.model || resolveDefaultModel(providerConfig);
+  // Parse "providerId/modelId" format (from ModelSelector) — 與 paaw-agent-loop resolveLLMConfig 同邏輯
+  // UI ModelSelector 的值是 "zai/glm-5.1" 這種格式；不剝 prefix 直接送 API 會 400 (unknown model)
+  let providerId = providerConfig.active || "zai";
+  let model = body.model || resolveDefaultModel(providerConfig);
+  if (model && model.includes("/")) {
+    const firstSlash = model.indexOf("/");
+    const candidateProvider = model.slice(0, firstSlash);
+    if (providerConfig.providers[candidateProvider]) {
+      providerId = candidateProvider;
+      model = model.slice(firstSlash + 1);
+    }
+    // Otherwise keep the full model string (e.g. "deepseek/deepseek-v4-flash" via openrouter)
+  }
   const provider = providerConfig.providers[providerId];
   if (!provider?.apiKey || provider.apiKey === "na") { return { content: null }; }
 
