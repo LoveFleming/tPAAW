@@ -71,6 +71,16 @@ function _normPath(p) {
 }
 
 /**
+ * Short display name: shortName > name 的「—」前段 > id。
+ * e.g. "PAAW — Personal AI Assistant Workspace" → "PAAW"
+ */
+function _displayName(p) {
+  if (p.shortName) return String(p.shortName);
+  const head = String(p.name || "").split(/\s*[—–]\s*/)[0].trim();
+  return head || p.id || "?";
+}
+
+/**
  * Resolve RU (project) name from a working directory path.
  * Match priority: rootPath exact/子目錄前緅 → alias/id 任一路徑 segment（含 basename）。
  * @param {string} cwd
@@ -87,7 +97,7 @@ export function resolveRuName(cwd) {
   const paawRoot = _normPath(process.env.PAAW_ROOT || PAAW_ROOT);
   if (paawRoot && (norm === paawRoot || norm.startsWith(paawRoot + "/"))) {
     const paawProj = projects.find(p => String(p.id || "").toLowerCase() === "paaw");
-    return (paawProj && (paawProj.name || paawProj.id)) || "PAAW";
+    return (paawProj && _displayName(paawProj)) || "PAAW";
   }
 
   // 1. rootPath exact or prefix（cwd 在專案子目錄內也算）
@@ -95,7 +105,7 @@ export function resolveRuName(cwd) {
     if (!p.rootPath) continue;
     const rp = _normPath(p.rootPath);
     if (!rp) continue;
-    if (norm === rp || norm.startsWith(rp + "/")) return p.name || p.id;
+    if (norm === rp || norm.startsWith(rp + "/")) return _displayName(p);
   }
   // 2. alias / id 出現在任一路徑 segment（basename 是最後一個 segment，原本就行為保留）
   const _tokens = (p) => [
@@ -103,12 +113,12 @@ export function resolveRuName(cwd) {
     String(p.id || "").toLowerCase(),
   ].filter(t => t.length > 0);
   for (const p of projects) {
-    if (_tokens(p).some(t => segments.includes(t))) return p.name || p.id;
+    if (_tokens(p).some(t => segments.includes(t))) return _displayName(p);
   }
   // 3. alias / id 作為 segment 前緣（clone 資料夾常見變體：tPAAW-main、agent-sre-dev、paaw_backup）
   //    只用長 token（≥ 4 字）避免誤判
   for (const p of projects) {
-    if (_tokens(p).filter(t => t.length >= 4).some(t => segments.some(s => s.startsWith(t)))) return p.name || p.id;
+    if (_tokens(p).filter(t => t.length >= 4).some(t => segments.some(s => s.startsWith(t)))) return _displayName(p);
   }
   return null;
 }

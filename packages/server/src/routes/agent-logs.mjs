@@ -7,7 +7,7 @@
  * POST /api/agent-logs/purge     — cleanup old logs
  */
 
-import { listAgentTasks, getAgentTaskDetail, cleanupOldAgentLogs, getRuCostHistory } from "../lib/agent-exec-logger.mjs";
+import { listAgentTasks, getAgentTaskDetail, cleanupOldAgentLogs, getRuCostHistory, backfillIndexCwd } from "../lib/agent-exec-logger.mjs";
 import { resolveRuName } from "../lib/ru-resolver.mjs";
 import { readBody } from "./shared.mjs";
 
@@ -16,6 +16,26 @@ export default async function agentLogsRoute(req, res) {
   const rawUrl = req.url || "";
   const url = rawUrl.split("?")[0];
   const q = new URL(rawUrl, "http://localhost").searchParams;
+
+  // GET /api/agent-logs/ru-debug — RU 解析診斷：看每筆 task 的 cwd 原始值與解析結果
+  // ?test=<path> 可直接測任意路徑；?backfill=1 手動觸發回填
+  if (url === "/api/agent-logs/ru-debug" && method === "GET") {
+    const out = { serverTime: new Date().toISOString() };
+    const testPath = q.get("test");
+    if (testPath !== null) out.test = { input: testPath, resolved: resolveRuName(testPath) };
+    if (q.get("backfill") === "1") out.backfilled = await backfillIndexCwd();
+    try {
+      const tasks = await listAgentTasks(30);
+      out.samples = tasks.slice(0, 20).map(t => ({
+        taskId: t.taskId, agentId: t.agentId, cwd: t.cwd ?? null,
+        resolvedRu: resolveRuName(t.cwd) || (String(t.agentId || "").startsWith("cron:") ? "⏰ 排程任務" : "(未對應)"),
+      }));
+      out.nullCwdCount = tasks.filter(t => !t.cwd).length;
+    } catch (e) { out.listError = e.message; }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(out, null, 2));
+    return;
+  }
 
   // GET /api/agent-logs — list
   if (url === "/api/agent-logs" && method === "GET") {

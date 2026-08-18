@@ -9,7 +9,7 @@
  *   data/agent-logs/index.json       — recent task summaries (last 200)
  */
 
-import { mkdir, appendFile, readFile, writeFile, readdir, stat } from "fs/promises";
+import { mkdir, appendFile, readFile, writeFile, readdir, stat, open } from "fs/promises";
 import { existsSync, createReadStream } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -210,6 +210,36 @@ async function _updateIndex(entry) {
   } catch (e) {
     console.error("[agent-exec-logger] Failed to update index:", e.message);
   }
+}
+
+/**
+ * Backfill missing cwd in index.json from each task's jsonl (task_start line).
+ * 冪等：只補 cwd 缺空的 entries。data/logs 不在 git 裡，每台機器要自己跑一次
+ * （server 啟動時自動執行；也可透過 /api/agent-logs/ru-debug?backfill=1 手動觸發）。
+ * @returns {number} 補了幾筆
+ */
+export async function backfillIndexCwd() {
+  let entries;
+  try { entries = JSON.parse(await readFile(INDEX_FILE, "utf-8")); } catch { return 0; }
+  if (!Array.isArray(entries)) return 0;
+  let fixed = 0;
+  for (const e of entries) {
+    if (e.cwd) continue;
+    try {
+      const fh = await open(join(LOG_DIR, `${e.taskId}.jsonl`), "r");
+      try {
+        const first = await fh.readFile({ encoding: "utf-8" });
+        // 只讀第一行就停（大檔不整讀）
+        const line = first.slice(0, first.indexOf("\n"));
+        const info = JSON.parse(line)?.taskInfo || {};
+        if (info.cwd) { e.cwd = info.cwd; fixed++; }
+      } finally { await fh.close(); }
+    } catch {}
+  }
+  if (fixed > 0) {
+    try { await writeFile(INDEX_FILE, JSON.stringify(entries, null, 2), "utf-8"); } catch {}
+  }
+  return fixed;
 }
 
 /**

@@ -20,6 +20,11 @@ import { setupWebSocket } from "./websocket/ws-handler.mjs";
 // ── Startup import check — catch missing exports (runs in background) ──
 import("./lib/import-check.mjs").catch(() => {}); // non-blocking, best-effort
 
+// ── Backfill agent-logs index cwd（data/logs 不連 git，每台機器首次啟動要自救一次）──
+import("./lib/agent-exec-logger.mjs").then(m => m.backfillIndexCwd?.())
+  .then(n => { if (n > 0) console.log(`[agent-logs] backfilled cwd for ${n} entries`); })
+  .catch(() => {});
+
 // ── Start bridge AFTER .env is loaded (shared.mjs already loaded via static import) ──
 // Bridge no longer auto-listens on import; we start it explicitly here.
 const shouldStartBridge = process.env.BRIDGE_PORT && process.env.BRIDGE_PORT !== "0";
