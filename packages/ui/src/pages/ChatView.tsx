@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 
@@ -650,7 +651,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
                     <div className={`px-4 py-3 text-sm leading-relaxed rounded-2xl ${msg.role === "assistant" ? "bg-white shadow-sm border border-stone-100 text-stone-700" : "bg-stone-50 text-stone-700"}`}>
                       {msg.role === "assistant" ? (
                         <div className="prose prose-stone prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
-                          {msg.content ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ node, href, ...props }) => {
+                          {msg.content ? <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={{ a: ({ node, href, ...props }) => {
                               // 攔截筆記 deep link: #/notes?note=xxx&notebook=yyy
                               if (href && href.startsWith("#/notes")) {
                                 try {

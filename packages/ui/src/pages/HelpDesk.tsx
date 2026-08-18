@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import API from "../api";
@@ -132,7 +133,7 @@ function A2aTaskDetail({ task, theme, formatTime }: { task: any; theme: any; for
                     border: isUser ? "1px solid #2e2e2e" : "none",
                   }}
                 >
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>{text}</ReactMarkdown>
                 </div>
               </div>
             </div>
@@ -148,7 +149,7 @@ function A2aTaskDetail({ task, theme, formatTime }: { task: any; theme: any; for
             <div key={i} className="rounded-xl p-3 mb-1" style={{ background: "#1a1a1a", border: "1px solid #2e2e2e" }}>
               <div className="text-xs font-semibold mb-1" style={{ color: "#4ade80" }}>{art.name || `Artifact ${i + 1}`}</div>
               <div className="text-xs prose prose-invert prose-sm max-w-none prose-p:my-0.5 prose-headings:my-1" style={{ color: "#a0a0a0" }}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{art.parts?.map((p: any) => p.text).join("") || ""}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>{art.parts?.map((p: any) => p.text).join("") || ""}</ReactMarkdown>
               </div>
             </div>
           ))}
@@ -845,7 +846,7 @@ export default function HelpDesk({ active = true }: { active?: boolean }) {
                       fontSize: m.role === "system" ? 12 : 14,
                     }}
                   >
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>{m.text}</ReactMarkdown>
                   </div>
                   <div className="text-[11px] px-1" style={{ color: "#6a6a6a" }}>
                     {m.role === "user" ? `🙋 ${activeTicket.agentName}` : isAgent ? "🎧 PAAW HelpDesk AI" : "ℹ️ System"} · {formatTime(m.ts)}

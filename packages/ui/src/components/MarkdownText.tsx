@@ -1,11 +1,14 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 
 /**
  * Shared markdown renderer for all AI chat surfaces.
  * Renders full markdown: headings, lists, tables, code blocks, bold/italic, links, blockquotes.
  * Use className="md-dark" for dark-themed parents (AgentConsole).
+ * remark-breaks：單換行 → <br> — agent 常用樹狀圖（├─ │ └─）等單換行排版，
+ * 標準 markdown 會把單換行摺疊成空格導致整團擠在一起（Discord/ChatGPT 同樣用 breaks 行為）
  */
 export default function MarkdownText({ children, className = "" }: { children: string; className?: string }) {
   return (
@@ -59,7 +62,7 @@ export default function MarkdownText({ children, className = "" }: { children: s
         .md-dark th, .md-dark td { border-color: #44403c; }
         .md-dark hr { border-top-color: #44403c; }
       `}</style>
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
         {children}
       </ReactMarkdown>
     </div>

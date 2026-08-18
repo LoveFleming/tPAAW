@@ -16,6 +16,7 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import { fmtChatTime } from "../utils";
 
 export interface ChatToolBadge {
@@ -268,7 +269,7 @@ const MessageRow = React.memo(function MessageRow({
                       </span>
                     </div>
                   ) : (
-                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={mdComponents}>
                       {msg.content}
                     </ReactMarkdown>
                   )
@@ -282,7 +283,7 @@ const MessageRow = React.memo(function MessageRow({
               </div>
             ) : userMarkdown ? (
               <div className="prose prose-stone prose-sm max-w-none prose-p:my-1">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>{msg.content}</ReactMarkdown>
               </div>
             ) : (
               <div className="whitespace-pre-wrap">{msg.content}</div>
