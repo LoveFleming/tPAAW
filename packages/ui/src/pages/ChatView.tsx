@@ -340,6 +340,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
     setMessages(withAssistant);
 
     let stallCheck: ReturnType<typeof setTimeout> | null = null;
+    let fullContent = ""; // hoist — abort 時 catch 要用（保留已串流的部分內容）
 
     try {
       const ctrl = new AbortController();
@@ -375,7 +376,6 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
       const reader = resp.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let fullContent = "";
       let sseChunkCount = 0;
       const sseStart = Date.now();
       console.debug(`[Chat SSE] Stream started`);
@@ -464,6 +464,11 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
     } catch (err: any) {
       if (err.name !== "AbortError") {
         assistantMsg.content = tt("chat.errorMessage");
+        setMessages([...newMessages, assistantMsg]);
+        await saveMessages(activeChatId, [...newMessages, assistantMsg]);
+      } else {
+        // 使用者按停止 — 保留已串流的部分內容，不留空氣泡
+        assistantMsg.content = fullContent ? fullContent + "\n\n_⏹️ 已中斷_" : "⏹️ 已中斷";
         setMessages([...newMessages, assistantMsg]);
         await saveMessages(activeChatId, [...newMessages, assistantMsg]);
       }

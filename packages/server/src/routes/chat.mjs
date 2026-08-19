@@ -249,8 +249,16 @@ export default async function chatRoutes(req, res) {
 
       let sseEnded = false;
 
+      // ── Client 斷線偵測（2026-08-19：按「停止」後 server 必須停止思考，不能繼續燒 token）──
+      let clientGone = false;
+      res.on('close', () => { clientGone = true; });
+
       for await (const chunk of engine.run(ctx.systemPrompt, messages || [], model)) {
         if (sseEnded) break; // 防止 done/error 之後又收到 chunk
+        if (clientGone) {
+          console.log(`[${chatReqId}] Client disconnected — aborting agent loop (停止燒 token)`);
+          break; // 使用者按了停止 — break 觸發 generator return()，取消後續 LLM 輪
+        }
         chunkCount++
         const elapsed = Date.now() - streamStart
         switch (chunk.type) {
@@ -297,8 +305,8 @@ export default async function chatRoutes(req, res) {
       // 清掉 heartbeat
       clearInterval(heartbeatTimer);
 
-      // ── Log AI interaction for distillation ──
-      try {
+      // ── Log AI interaction for distillation（使用者中途停止不記錄半成品）──
+      if (!clientGone) try {
         const { recordChatInteraction } = await import("./distill.mjs");
         const userMsgs = (messages || []).filter(m => m.role === "user");
         const lastUser = userMsgs.length > 0 ? userMsgs[userMsgs.length - 1].content : "";

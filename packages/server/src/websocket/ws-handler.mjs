@@ -241,6 +241,7 @@ export function setupWebSocket() {
         const running = runningAgents.get(ws);
         if (running) {
           running.aborted = true;
+          running.controller?.abort(); // 即時殺 in-flight LLM 呼叫
           runningAgents.delete(ws);
           console.log(`[Agent] Interrupt received for session ${running.id}`);
         }
@@ -260,7 +261,8 @@ export function setupWebSocket() {
             return;
           }
           agentState.busy = true;
-          const runCtx = { id: agentState.id, aborted: false };
+          const runAbort = new AbortController();
+          const runCtx = { id: agentState.id, aborted: false, controller: runAbort };
           runningAgents.set(ws, runCtx);
           ws.send(JSON.stringify({ type: "agent_running" }));
 
@@ -298,6 +300,7 @@ export function setupWebSocket() {
               timeout: 0, // no timeout — let agent run until done or interrupted
               rootDir: PAAW_ROOT,
               agentId,
+              abortSignal: runAbort.signal,
               onEvent: (evt) => {
                 // Check if agent was interrupted
                 if (runCtx.aborted) throw new Error("Agent interrupted by user");
@@ -323,17 +326,19 @@ export function setupWebSocket() {
               try { appendFileSync(agentState.vibeLogFile, `\n## Assistant\n${agentResult.content.slice(0, 5000)}\n`); } catch {}
             }
 
-            ws.send(JSON.stringify({
-              type: "agent_done",
-              content: agentResult.content,
-              turns: agentResult.turns,
-              toolCalls: agentResult.toolCalls?.length || 0,
-              success: agentResult.success,
-            }));
+            if (!runCtx.aborted) {
+              ws.send(JSON.stringify({
+                type: "agent_done",
+                content: agentResult.content,
+                turns: agentResult.turns,
+                toolCalls: agentResult.toolCalls?.length || 0,
+                success: agentResult.success,
+              }));
 
-            const donePatterns = /\bDONE\b|已完成|完成！|✅.*完成|Task completed|finished|已寫入|已生成|創建完成|建立完成/i;
-            if (donePatterns.test(agentResult.content)) {
-              ws.send(JSON.stringify({ type: "cliDone" }));
+              const donePatterns = /\bDONE\b|已完成|完成！|✅.*完成|Task completed|finished|已寫入|已生成|創建完成|建立完成/i;
+              if (donePatterns.test(agentResult.content)) {
+                ws.send(JSON.stringify({ type: "cliDone" }));
+              }
             }
 
           } catch (err) {

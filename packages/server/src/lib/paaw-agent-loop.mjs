@@ -2894,7 +2894,7 @@ export function trimMessagesToFit(messages, contextWindow = DEFAULT_CONTEXT_WIND
 
 // ── LLM API Call ──
 
-export async function callLLM(apiUrl, headers, model, messages, tools, stream = false, onEvent = null, agentId = null, maxTokens = 16384) {
+export async function callLLM(apiUrl, headers, model, messages, tools, stream = false, onEvent = null, agentId = null, maxTokens = 16384, signal = null) {
   console.log(`[callLLM] model=${model}, stream=${stream}, apiUrl=${apiUrl}, messages=${messages.length}, max_tokens=${maxTokens}`);
   const body = {
     model,
@@ -2972,7 +2972,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
       method: "POST",
       headers,
       body: JSON.stringify(body),
-    }, { timeoutMs: LLM_CALL_TIMEOUT_MS, readTimeoutMs: 600_000, maxRetries: 2, onRetry: (info) => {
+    }, { timeoutMs: LLM_CALL_TIMEOUT_MS, readTimeoutMs: 600_000, maxRetries: 2, signal, onRetry: (info) => {
       if (onEvent) onEvent("info", { message: `⏳ API 暫時不可用 (HTTP ${info.status}), ${info.delayMs / 1000}s 後重試...` });
     } });
 
@@ -2992,6 +2992,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
   const result = await callLLMWithRetry(apiUrl, headers, body, {
     maxRetries: 3,
     timeoutMs: LLM_CALL_TIMEOUT_MS,
+    signal,
     validateContent: true,
     sanitize: true,
     agentId: agentId,
@@ -3210,6 +3211,7 @@ export async function runAgentLoop(config) {
     onEvent = null,
     rootDir = _PAAW_ROOT,
     agentId = null,
+    abortSignal = null, // 使用者中斷 — 傳進 callLLM，即時殺 in-flight LLM 呼叫
   } = config;
 
   // Load agent config for defaults (with fallback)
@@ -3289,6 +3291,11 @@ export async function runAgentLoop(config) {
   let _totalUsage = { prompt: 0, completion: 0, total: 0 };
 
   for (let i = 0; i < effectiveMaxTurns; i++) {
+    // Check abort signal (user interrupt)
+    if (abortSignal?.aborted) {
+      finalContent = "⏹️ Agent 已中斷。";
+      break;
+    }
     // Check timeout (skip if timeout=0 = no limit)
     if (timeoutMs > 0 && Date.now() - startTime > timeoutMs) {
       finalContent += `\n\n---\n⏱️ 任務超時 (${effectiveTimeout}s)，但已完成 ${turns} 個步驟。\n已修改的檔案已保存。\n你可以跟我說「繼續」來接著完成。\n---`;
@@ -3335,8 +3342,13 @@ export async function runAgentLoop(config) {
     try {
       response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, (evt, data) => {
         if (onEvent) onEvent({ type: evt, ...data });
-      }, agentId, llm.maxTokens);
+      }, agentId, llm.maxTokens, abortSignal);
     } catch (err) {
+      // 使用者中斷 — 不進 fallback，直接結束
+      if (abortSignal?.aborted || err.name === "AbortError") {
+        finalContent = "⏹️ Agent 已中斷。";
+        break;
+      }
       // ── Provider-level fallback on 429/rate-limit ──
       const is429 = err.message && (err.message.includes("429") || err.message.includes("overloaded") || err.message.includes("rate") || err.message.includes("Limit Exhausted"));
       if (is429 && llm.fallbacks && llm.fallbacks.length > 0) {
@@ -3346,7 +3358,7 @@ export async function runAgentLoop(config) {
           try {
             response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, (evt, data) => {
               if (onEvent) onEvent({ type: evt, ...data });
-            }, agentId, fb.maxTokens || llm.maxTokens);
+            }, agentId, fb.maxTokens || llm.maxTokens, abortSignal);
             console.log(`[Agent Loop] Fallback to ${fb.providerId}/${fb.model} succeeded — switching active model for subsequent turns`);
             // Cache rate-limit: remember primary is throttled
             _rateLimitCache.set(primaryKey, { until: Date.now() + RATE_LIMIT_COOLDOWN_MS, fallbackKey: _providerKey(fb.providerId, fb.model) });
@@ -3731,8 +3743,13 @@ export async function runAgentLoopStream(config, res) {
     let usedLlm = llm;
     const _llmLog = _logger.llmCall({ turn: turns, model: usedLlm.model, messageCount: trimmedMessages.length, contextTokens: estimateMessageTokens(trimmedMessages) });
     try {
-      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId, llm.maxTokens);
+      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId, llm.maxTokens, abortSignal);
     } catch (err) {
+      // 使用者中斷 — 殺掉 in-flight LLM 呼叫後立即停止，不進 fallback/retry
+      if (abortSignal?.aborted || err.name === "AbortError") {
+        sendSSE("interrupted", { message: "Agent interrupted by user", turns });
+        break;
+      }
       const is429 = err.message && (err.message.includes("429") || err.message.includes("overloaded") || err.message.includes("rate"));
       if (is429 && llm.fallbacks && llm.fallbacks.length > 0) {
         for (const fb of llm.fallbacks) {
@@ -3741,7 +3758,7 @@ export async function runAgentLoopStream(config, res) {
             _rateLimitCache.set(primaryKey, { until: Date.now() + RATE_LIMIT_COOLDOWN_MS, fallbackKey: _providerKey(fb.providerId, fb.model) });
             sendSSE("info", { message: `⏳ ${llm.providerId} 限流，切換到 ${fb.providerId}/${fb.model}` });
             try {
-              response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId, fb.maxTokens || llm.maxTokens);
+              response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId, fb.maxTokens || llm.maxTokens, abortSignal);
               usedLlm = fb;
               // Update llm so subsequent turns use fallback directly
               llm = { ...llm, apiUrl: fb.apiUrl, headers: fb.headers, model: fb.model, providerId: fb.providerId, maxTokens: fb.maxTokens || llm.maxTokens, contextWindow: fb.contextWindow || llm.contextWindow };
@@ -3887,7 +3904,7 @@ export async function runAgentLoopStream(config, res) {
         role: "user",
         content: "你已經收集了足夠的資訊。現在請根據你看到的內容，直接給出完整的回答。不要使用任何工具。",
       });
-      const finalResponse = await callLLM(llm.apiUrl, llm.headers, llm.model, trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW), [], false, sendSSE, agentId, llm.maxTokens);
+      const finalResponse = await callLLM(llm.apiUrl, llm.headers, llm.model, trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW), [], false, sendSSE, agentId, llm.maxTokens, abortSignal);
       const finalContent = finalResponse.choices?.[0]?.message?.content || "";
       if (finalContent) {
         sendSSE("content", { content: finalContent, done: true });

@@ -147,12 +147,29 @@ function isRetryableError(err, respStatus) {
 
 // ── AbortController timeout ──
 
-function createTimeoutController(timeoutMs) {
+function createTimeoutController(timeoutMs, externalSignal = null) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   // 不要讓 timer 卡住 process 退出
   if (timer.unref) timer.unref();
-  return { controller, timer };
+  // 使用者中斷（user interrupt）：外部 signal 觸發時立即 abort — 殺掉進行中的 LLM 呼叫
+  const onExternalAbort = () => { clearTimeout(timer); controller.abort(); };
+  if (externalSignal) {
+    if (externalSignal.aborted) onExternalAbort();
+    else externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+  }
+  return {
+    controller,
+    timer,
+    cleanup: () => { if (externalSignal) externalSignal.removeEventListener("abort", onExternalAbort); },
+  };
+}
+
+/** 建立使用者中斷專用的 AbortError（呼叫端用 err.name === "AbortError" 判斷） */
+function _userAbortError() {
+  const e = new Error("Aborted by user interrupt");
+  e.name = "AbortError";
+  return e;
 }
 
 // ── 核心：帶 retry 的 fetch ──
@@ -183,9 +200,11 @@ export async function fetchWithRetry(url, options = {}, opts = {}) {
   try { _body = JSON.parse(options.body || '{}'); } catch {}
 
   let lastError = null;
+  const userSignal = opts.signal || null; // 使用者中斷 — abort 立即停止，不 retry
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const { controller, timer } = createTimeoutController(timeoutMs);
+    if (userSignal?.aborted) throw _userAbortError();
+    const { controller, timer, cleanup } = createTimeoutController(timeoutMs, userSignal);
 
     try {
       const resp = await fetch(url, {
@@ -224,6 +243,9 @@ export async function fetchWithRetry(url, options = {}, opts = {}) {
 
     } catch (err) {
       clearTimeout(timer);
+
+      // 使用者中斷 — 立即抛出不 retry
+      if (userSignal?.aborted) { cleanup(); throw _userAbortError(); }
 
       // AbortError = timeout
       if (err.name === 'AbortError') {
@@ -307,8 +329,10 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
   });
 
   let lastError = null;
+  const userSignal = opts.signal || null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (userSignal?.aborted) throw _userAbortError();
     try {
       const resp = await fetchWithRetry(apiUrl, {
         method: 'POST',
@@ -317,6 +341,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
       }, {
         maxRetries: 0, // 內層不 retry，由外層統一控制
         timeoutMs,
+        signal: opts.signal || null,
       });
 
       if (!resp.ok) {
@@ -392,6 +417,8 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
       };
 
     } catch (err) {
+      // 使用者中斷 — 立即抛出不 retry
+      if (userSignal?.aborted || (err.name === "AbortError" && opts.signal)) throw _userAbortError();
       lastError = err;
 
       // Log error
@@ -503,9 +530,11 @@ export async function fetchStreamWithRetry(url, options = {}, opts = {}) {
   try { _body = JSON.parse(options.body || '{}'); } catch {}
 
   let lastError = null;
+  const userSignal = opts.signal || null; // 使用者中斷 — abort 立即停止，不 retry
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const { controller, timer } = createTimeoutController(timeoutMs);
+    if (userSignal?.aborted) throw _userAbortError();
+    const { controller, timer, cleanup } = createTimeoutController(timeoutMs, userSignal);
 
     try {
       let resp = await fetch(url, {
@@ -578,6 +607,9 @@ export async function fetchStreamWithRetry(url, options = {}, opts = {}) {
 
     } catch (err) {
       clearTimeout(timer);
+
+      // 使用者中斷 — 立即抛出不 retry
+      if (userSignal?.aborted) { cleanup(); throw _userAbortError(); }
 
       lastError = err.name === 'AbortError'
         ? Object.assign(new Error(`Stream timeout after ${timeoutMs}ms`), { code: 'TIMEOUT' })
