@@ -627,8 +627,10 @@ export default function CodingIDE() {
                 if (data.message === "Code Understanding complete") {
                   setAiInitializing(false);
                   setPaawRefreshKey(k => k + 1);
-                  // Auto-open Features tab after Code Understanding completes
-                  openMainTab({ id: "tool:features", type: "features", label: "Features", icon: "🗺️", closable: true });
+                  // 首次掃描完成 → 自動開 Features tab；重新掃描 → 不跳走（2026-08-19 fix）
+                  if (!mainTabsRef.current.some(t => t.id === "tool:features")) {
+                    openMainTab({ id: "tool:features", type: "features", label: "Features", icon: "🗺️", closable: true });
+                  }
                 }
               }
             } catch {}
