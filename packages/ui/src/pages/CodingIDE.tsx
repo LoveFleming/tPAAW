@@ -319,6 +319,10 @@ export default function CodingIDE() {
   useEffect(() => {
     if (activeMainTab?.type === "ai-crew" && activeMainTab.crewId) {
       setActiveCrew(activeMainTab.crewId);
+      // Tab reconstruct（重啟後還原 tab）也要載入 crew profile — 否則大頭照退回 emoji（2026-08-19 fix）
+      fetch(`${API_BASE}/api/coding-crew/${activeMainTab.crewId}`).then(r => (r.ok ? r.json() : null)).then(data => {
+        if (data) setCrewProfile(prev => ({ ...prev, [activeMainTab.crewId!]: data }));
+      }).catch(() => {});
       // Refresh archived conversations when switching crew tab
       if (rootPath && showArchivePanel) {
         loadArchivedConversations(activeMainTab.crewId, rootPath);
