@@ -82,7 +82,10 @@ function _displayName(p) {
 
 /**
  * Resolve RU (project) name from a working directory path.
- * Match priority: rootPath exact/子目錄前緅 → alias/id 任一路徑 segment（含 basename）。
+ * Match priority: rootPath exact/子目錄前緅 → alias/id 任一路徑 segment（含 basename）
+ *              → alias/id segment 前緣 → PAAW 自身偵測（fallback，最後才判）。
+ * PAAW 自身偵測必須放最後：agent-sre 等 repo 若 clone 在 PAAW 安裝目錄內，
+ * 先走 alias 比對才不會被 blanket 判成 PAAW（2026-08-19 公司機案例）。
  * @param {string} cwd
  * @returns {string|null} project name, or null if no match
  */
@@ -91,14 +94,6 @@ export function resolveRuName(cwd) {
   const projects = _loadProjects();
   const norm = _normPath(cwd);
   const segments = norm.split("/").filter(Boolean);
-
-  // 0. cwd 在 PAAW 自身安裝目錄內 → 直接就是 PAAW project
-  //    （任何機器、任何 clone 資料夾名都能命中；公司 Windows clone 路徑隨便取也抓得到）
-  const paawRoot = _normPath(process.env.PAAW_ROOT || PAAW_ROOT);
-  if (paawRoot && (norm === paawRoot || norm.startsWith(paawRoot + "/"))) {
-    const paawProj = projects.find(p => String(p.id || "").toLowerCase() === "paaw");
-    return (paawProj && _displayName(paawProj)) || "PAAW";
-  }
 
   // 1. rootPath exact or prefix（cwd 在專案子目錄內也算）
   for (const p of projects) {
@@ -119,6 +114,13 @@ export function resolveRuName(cwd) {
   //    只用長 token（≥ 4 字）避免誤判
   for (const p of projects) {
     if (_tokens(p).filter(t => t.length >= 4).some(t => segments.some(s => s.startsWith(t)))) return _displayName(p);
+  }
+  // 4. PAAW 自身偵測（fallback）— cwd 在 PAAW 安裝目錄內任何子路徑 → PAAW project
+  //    放最後：先讓其他 RU 的 rootPath/alias 比對，避免 PAAW 目錄內的外部 repo 被 blanket 蓋掉
+  const paawRoot = _normPath(process.env.PAAW_ROOT || PAAW_ROOT);
+  if (paawRoot && (norm === paawRoot || norm.startsWith(paawRoot + "/"))) {
+    const paawProj = projects.find(p => String(p.id || "").toLowerCase() === "paaw");
+    return (paawProj && _displayName(paawProj)) || "PAAW";
   }
   return null;
 }
