@@ -55,6 +55,11 @@ function validRoot(p) {
   return p && existsSync(p) && p.split(/[\\/]/).length >= 2; // 必須是存在的目錄路徑
 }
 
+/** 400 回應 — 區分「沒給 path」與「path 不存在」，方便 UI/除錯分辨 */
+function badPath(res, p) {
+  return json(res, 400, { error: p ? `path not found or invalid: ${p}` : "path required" });
+}
+
 /** .paaw 核心文件清單（context 用） */
 const CONTEXT_DOCS = [
   { file: "PROJECT.md", label: "專案概述" },
@@ -112,7 +117,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/overview — 高層摘要 ──
   if (url === "/api/ru/overview" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     // ⚠️ 先快照 .paaw 是否存在 — buildDependencyGraph 會自動建 .paaw/ 放快取，
     // 快照在後會把新專案誤判成 initialized（empty state 判定依賴這個 flag）
     const hadPaaw = existsSync(join(path, ".paaw"));
@@ -139,7 +144,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/context — AI 完整 context（派工前必讀）──
   if (url === "/api/ru/context" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     const tech = await detectTechStack(path);
     const docs = [];
     let totalChars = 0;
@@ -171,7 +176,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/architecture — 模組邊界視圖 ──
   if (url === "/api/ru/architecture" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     try {
       const view = await architectureView(path, { refresh });
       view.path = normalizePath(path);
@@ -183,7 +188,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/dependencies — 依賴查詢 ──
   if (url === "/api/ru/dependencies" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     try {
       const graph = await buildDependencyGraph(path, { refresh });
       const file = q.get("file");
@@ -219,7 +224,7 @@ export default async function releaseUnitRoutes(req, res, next) {
   // ── POST /api/ru/impact-analysis — 改動影響分析（改前必跑）──
   if (url === "/api/ru/impact-analysis" && method === "POST") {
     const body = await readBody(req);
-    if (!validRoot(body.path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(body.path)) return badPath(res, body.path);
     const files = Array.isArray(body.files) ? body.files : [];
     if (!files.length) return json(res, 400, { error: "files[] required" });
     try {
@@ -237,7 +242,7 @@ export default async function releaseUnitRoutes(req, res, next) {
   // ── POST /api/ru/verify — 驗證（build/lint/test/type-check，改完必跑）──
   if (url === "/api/ru/verify" && method === "POST") {
     const body = await readBody(req);
-    if (!validRoot(body.path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(body.path)) return badPath(res, body.path);
     try {
       const report = await runVerify(body.path, {
         checks: body.checks,
@@ -253,7 +258,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/verify — 上次 verify 結果（沒跑過回 null）──
   if (url === "/api/ru/verify" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     const last = await readLastVerify(path);
     if (last) last.path = normalizePath(path);
     return json(res, 200, { last, found: !!last });
@@ -263,7 +268,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/metrics — 代碼指標 ──
   if (url === "/api/ru/metrics" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     try {
       const m = await computeMetrics(path, { refresh });
       m.path = normalizePath(path);
@@ -275,7 +280,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/analyze — 深度分析（Code Health 2.0）──
   if (url === "/api/ru/analyze" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     try {
       const a = await analyzeUnit(path, { refresh });
       a.path = normalizePath(path);
@@ -287,7 +292,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/gates — 發布門檻檢查 ──
   if (url === "/api/ru/gates" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     try {
       const g = await checkGates(path);
       g.path = normalizePath(path);
@@ -299,7 +304,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/tests — 測試檔清單 + 上次 test 結果 ──
   if (url === "/api/ru/tests" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     try {
       const graph = await buildDependencyGraph(path, { refresh });
       const testFiles = Object.keys(graph.deps).filter(isTestFile).sort();
@@ -319,7 +324,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/features — 功能清單（.paaw/features/）──
   if (url === "/api/ru/features" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     const dir = join(path, ".paaw", "features");
     const features = [];
     if (existsSync(dir)) {
@@ -341,7 +346,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/runbooks — 操作手冊清單（.paaw/runbook/）──
   if (url === "/api/ru/runbooks" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     const dir = join(path, ".paaw", "runbook");
     const runbooks = [];
     if (existsSync(dir)) {
@@ -356,7 +361,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/changes — 變更紀錄（git log 分類）──
   if (url === "/api/ru/changes" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     const limit = Math.min(parseInt(q.get("limit") || "50", 10) || 50, 200);
     try {
       const { stdout } = await shellExec(
@@ -383,7 +388,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/ask?path=&q= — 自然語言問 codebase（檢索層，零 LLM）──
   if (url === "/api/ru/ask" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     const q2 = q.get("q") || "";
     if (!q2.trim()) return json(res, 400, { error: "q required" });
     try {
@@ -397,7 +402,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/apis?path= — API 契約掃描 ──
   if (url === "/api/ru/apis" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     try {
       const r = await extractAPIs(path, { refresh });
       r.path = normalizePath(path);
@@ -409,7 +414,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/specs?path=[&id=] — 規格文件（.paaw/specs/）──
   if (url === "/api/ru/specs" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     const dir = join(path, ".paaw", "specs");
     if (!existsSync(dir)) return json(res, 200, { path: normalizePath(path), specs: [], count: 0 });
     const id = q.get("id");
@@ -436,7 +441,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/releases?path= — 發布紀錄（.paaw/releases/）──
   if (url === "/api/ru/releases" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     const dir = join(path, ".paaw", "releases");
     const releases = [];
     if (existsSync(dir)) {
@@ -460,7 +465,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru/evidence?path=[&taskId=] — 變更證據鏈 ──
   if (url === "/api/ru/evidence" && method === "GET") {
-    if (!validRoot(path)) return json(res, 400, { error: "path required" });
+    if (!validRoot(path)) return badPath(res, path);
     // releases 證據 + task pipeline 證據（TASKS.json 裡有 pipeline 的 task）
     const out = { path: normalizePath(path), releases: [], tasks: [] };
     const relDir = join(path, ".paaw", "releases");

@@ -107,6 +107,11 @@ export default function ReleaseUnitPanel({ rootPath, theme: tk, onOpenEMDashboar
     try {
       const oRes = await fetch(`${API_BASE}/api/ru/overview?path=${encodeURIComponent(rootPath)}`);
       const o = await oRes.json();
+      // 防禦：API 回 error shape（路徑無效/掃描失敗）不得炸 UI — 視為未初始化
+      if (!o || o.error || typeof o.initialized !== "boolean") {
+        setInitialized(false);
+        return;
+      }
       setInitialized(!!o.initialized);
       setLoopMode(o.loopMode === "full" ? "full" : "mini");
       if (o.initialized) {
@@ -115,10 +120,13 @@ export default function ReleaseUnitPanel({ rootPath, theme: tk, onOpenEMDashboar
           fetch(`${API_BASE}/api/ru/verify?path=${encodeURIComponent(rootPath)}`),
           fetch(`${API_BASE}/api/ru/gates?path=${encodeURIComponent(rootPath)}`),
         ]);
-        setAnalyze(await aRes.json());
-        const v = await vRes.json();
-        setVerifyLast(v.last || null);
-        setGates(await gRes.json());
+        // 防禦：非預期 shape（{error}、500 HTML parse 失敗）→ 保持 null，render 端顯示載入失敗而非白屏
+        const a = await aRes.json().catch(() => null);
+        setAnalyze(a && Array.isArray(a.risks) ? a : null);
+        const v = await vRes.json().catch(() => null);
+        setVerifyLast(v && v.last && Array.isArray(v.last.checks) ? v.last : null);
+        const g = await gRes.json().catch(() => null);
+        setGates(g && Array.isArray(g.gates) ? g : null);
       }
     } catch {
       setInitialized(false);
@@ -137,7 +145,9 @@ export default function ReleaseUnitPanel({ rootPath, theme: tk, onOpenEMDashboar
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: rootPath, files }),
       });
-      setImpactResult(await res.json());
+      const d = await res.json().catch(() => null);
+      // 防禦：error shape（affected/affectedCount 缺失）不進 state
+      if (d && Array.isArray(d.affected) && typeof d.affectedCount === "number") setImpactResult(d);
     } catch { /* keep old result */ } finally { setImpactBusy(false); }
   }, [rootPath, impactInput, impactBusy]);
 
@@ -145,8 +155,8 @@ export default function ReleaseUnitPanel({ rootPath, theme: tk, onOpenEMDashboar
     if (!depsInput.trim()) return;
     try {
       const res = await fetch(`${API_BASE}/api/ru/dependencies?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(depsInput.trim())}&direction=both`);
-      const d = await res.json();
-      setDepsResult(d.query || null);
+      const d = await res.json().catch(() => null);
+      setDepsResult(d && d.query && typeof d.query.found === "boolean" ? d.query : null);
     } catch { /* ignore */ }
   }, [rootPath, depsInput]);
 
@@ -159,11 +169,12 @@ export default function ReleaseUnitPanel({ rootPath, theme: tk, onOpenEMDashboar
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: rootPath }),
       });
-      const r = await res.json();
-      if (r.overall) setVerifyLast(r);
-      // gates 依 verify 結果判定 — 一起刷新
+      const r = await res.json().catch(() => null);
+      if (r && r.overall && Array.isArray(r.checks)) setVerifyLast(r);
+      // gates 依 verify 結果判定 — 一起刷新（shape 防禦同 refresh）
       const gRes = await fetch(`${API_BASE}/api/ru/gates?path=${encodeURIComponent(rootPath)}`);
-      setGates(await gRes.json());
+      const g = await gRes.json().catch(() => null);
+      setGates(g && Array.isArray(g.gates) ? g : null);
     } catch { /* ignore */ } finally { setVerifyBusy(false); }
   }, [rootPath, verifyBusy]);
 
@@ -339,11 +350,11 @@ export default function ReleaseUnitPanel({ rootPath, theme: tk, onOpenEMDashboar
                       ))}
                     </div>
                   )}
-                  {impactResult.hotspots.length > 0 && (
+                  {impactResult.hotspots?.length ? (
                     <div className="text-[11px] text-stone-500">
                       🔥 {t("ru.impact.hotspots")}: {impactResult.hotspots.slice(0, 3).map(h => `${h.file.split("/").pop()}(${h.dependents})`).join(" · ")}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               )}
             </div>
@@ -423,7 +434,7 @@ export default function ReleaseUnitPanel({ rootPath, theme: tk, onOpenEMDashboar
           <section>
             <h3 className="text-xs font-bold text-stone-600 mb-2 flex items-center gap-2">
               🚧 {t("ru.gates.title")}
-              <button onClick={() => fetch(`${API_BASE}/api/ru/gates?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setGates)}
+              <button onClick={() => fetch(`${API_BASE}/api/ru/gates?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(g => { if (g && Array.isArray(g.gates)) setGates(g); }).catch(() => {})}
                 className="text-[10px] px-2 py-0.5 rounded border text-stone-500 hover:bg-stone-50" style={{ borderColor: tk.borderLight }}>
                 {t("ru.gates.refresh")}
               </button>
