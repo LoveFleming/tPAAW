@@ -787,7 +787,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       const res = await fetch(`${API_BASE}/api/coding-project/ai-initial-step?path=${encodeURIComponent(rootPath)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ step: stepId }),
+        body: JSON.stringify({ step: stepId, model: model || undefined }),
       });
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
