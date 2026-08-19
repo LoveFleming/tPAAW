@@ -2382,8 +2382,15 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
       {/* ── Top Bar ── */}
       <div className="flex items-center h-9 px-2 border-b shrink-0 select-none" style={{ backgroundColor: tk.toolbarBg, borderColor: tk.toolbarBorder }}>
         {/* ── Left-side toolbar: all features with icon + name ── */}
+        {/* 🗂️ File tree 顯隱切換（2026-08-16 Fleming 要求；08-19 移到最前 — 控制左側欄的開關放最左邊） */}
+        <button onClick={() => setFileTreeHidden(v => !v)}
+          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: fileTreeHidden ? tk.toolbarActive : "transparent", color: tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (!fileTreeHidden) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = fileTreeHidden ? tk.toolbarActive : "transparent"; }}
+          title={fileTreeHidden ? "顯示檔案樹" : "隱藏檔案樹"}>{fileTreeHidden ? "📁" : "🗂️"}</button>
         {/* ⚡ Project */}
-        <div className="relative">
+        <div className="relative ml-1">
           <button onClick={() => setShowProjectMenu(!showProjectMenu)}
             className="toolbar-dropdown-trigger flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors" style={{ color: tk.toolbarText }} onMouseEnter={e => e.currentTarget.style.backgroundColor = tk.toolbarHover} onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
             <span className="text-xs">⚡</span> {tt("vibe.projectMenu", "Project")}
@@ -2539,13 +2546,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
         </div>
 
         {/* Non-dropdown tool buttons */}
-        {/* File tree 顯隱切換（2026-08-16 Fleming 要求） */}
-        <button onClick={() => setFileTreeHidden(v => !v)}
-          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
-          style={{ backgroundColor: fileTreeHidden ? tk.toolbarActive : "transparent", color: tk.toolbarTextMuted }}
-          onMouseEnter={e => { if (!fileTreeHidden) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = fileTreeHidden ? tk.toolbarActive : "transparent"; }}
-          title={fileTreeHidden ? "顯示檔案樹" : "隱藏檔案樹"}>{fileTreeHidden ? "📁" : "🗂️"}</button>
         <button onClick={() => openMainTab({ id: "tool:git", type: "git", label: "GIT", icon: "🔀", closable: true })}
           className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
           style={{ backgroundColor: activeMainTab?.id === "tool:git" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:git") ? tk.toolbarText : tk.toolbarTextMuted }}
