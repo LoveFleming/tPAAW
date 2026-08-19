@@ -570,8 +570,7 @@ export default function CodingIDE() {
   // ── Code Status Dashboard State ──
   const [domainAutoPrompt, setDomainAutoPrompt] = useState<{ mode: string; prompt: string } | null>(null);
 
-  const emModelRef = useRef(emModel);
-  emModelRef.current = emModel;
+  // emModelRef moved after emModel declaration (line ~1306) to avoid TDZ
 
   const startAiInitialize = useCallback(async (forceRerun = false) => {
     if (!rootPath || aiInitializing) return;
@@ -1304,6 +1303,8 @@ export default function CodingIDE() {
   // agentRunning/agentToolLog are now per-crew (derived from crewAgentRunning/crewAgentToolLog above)
   const [crewModels, setCrewModels] = useState<Record<string, string>>({}); // crewId → model
   const [emModel, setEmModel] = useState<string>(""); // EM Dashboard has its own model
+  const emModelRef = useRef(emModel);
+  emModelRef.current = emModel;
   const [adRefreshTrigger, setAdRefreshTrigger] = useState(0);
   const codingModel = activeCrew ? (crewModels[activeCrew] || "") : "";
   const setCodingModel = useCallback((model: string) => {
