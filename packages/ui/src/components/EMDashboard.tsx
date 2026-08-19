@@ -63,7 +63,7 @@ interface EMDashboardProps {
   theme: { bg: string; bgMuted: string; borderLight: string; accent: string; accentBg: string; text: string };
   onOpenFile?: (path: string) => void;
   // Code Understanding (was AI Initialize)
-  onStartCodeUnderstanding?: () => void;
+  onStartCodeUnderstanding?: (forceRerun?: boolean) => void;
   codeUnderstanding?: { running: boolean; steps: CodeUnderstandingStep[] };
   // Dispatch to crew with pre-filled message
   onDispatchToCrew?: (crewId: string, message: string) => void;
@@ -1673,7 +1673,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
               {/* Run All button — always available when not bulk running */}
               {!isBulkRunning && (
                 <button
-                  onClick={() => { if (onStartCodeUnderstanding) { onStartCodeUnderstanding(); } }}
+                  onClick={() => { if (onStartCodeUnderstanding) { onStartCodeUnderstanding(cuPhase === "stale"); } }}
                   disabled={singleStepRunning !== null}
                   className="px-4 py-1.5 text-sm font-bold rounded-lg border transition-colors disabled:opacity-50"
                   style={{ borderColor: "#bbf7d0", color: "#059669", backgroundColor: "#f0fdf4" }}

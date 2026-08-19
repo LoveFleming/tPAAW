@@ -570,7 +570,7 @@ export default function CodingIDE() {
   // ── Code Status Dashboard State ──
   const [domainAutoPrompt, setDomainAutoPrompt] = useState<{ mode: string; prompt: string } | null>(null);
 
-  const startAiInitialize = useCallback(async () => {
+  const startAiInitialize = useCallback(async (forceRerun = false) => {
     if (!rootPath || aiInitializing) return;
     setAiInitializing(true);
     const steps = [
@@ -589,7 +589,7 @@ export default function CodingIDE() {
     setAiInitSteps(steps.map(s => ({ ...s, status: "pending" as const })));
 
     try {
-      const res = await fetch(`${API_BASE}/api/coding-project/ai-initial?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: emModel || undefined }) });
+      const res = await fetch(`${API_BASE}/api/coding-project/ai-initial?path=${encodeURIComponent(rootPath)}${forceRerun ? "&force=1" : ""}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: emModel || undefined }) });
       if (!res.ok || !res.body) {
         setAiInitSteps(prev => prev.map(s => ({ ...s, status: "error" as const, error: `HTTP ${res.status}` })));
         setAiInitializing(false); return;
