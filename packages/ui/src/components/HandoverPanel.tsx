@@ -10,13 +10,13 @@
  * 空狀態：.paaw/ 不存在或知識檔案缺 → 引導先跑 Code Understanding。
  */
 
-import React, { useState, useEffect, useCallback, Component } from "react";
+import React, { useState, useEffect, useCallback, Component, useMemo } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import AgentSideChat from "./AgentSideChat";
 import MarkdownText from "./MarkdownText";
 
-class HandoverErrorBoundary extends Component<{}, { error: Error | null }> {
+class HandoverErrorBoundary extends Component<{ children: React.ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
   static getDerivedStateFromError(error: Error) { return { error }; }
   render() {
@@ -32,6 +32,47 @@ class HandoverErrorBoundary extends Component<{}, { error: Error | null }> {
     }
     return this.props.children;
   }
+}
+
+/** Markdown renderer with parse error fallback — prevents ReactMarkdown crashes from white-screening */
+function SafeMarkdown({ content }: { content: string }) {
+  const [parseError, setParseError] = useState<string | null>(null);
+  const sanitized = useMemo(() => {
+    // Pre-sanitize: escape patterns known to crash react-markdown 10
+    // 1. Remove raw HTML that might break the parser
+    // 2. Ensure code blocks are properly closed
+    try {
+      let md = content;
+      // Count code fences — if odd, append closing fence
+      const fenceCount = (md.match(/```/g) || []).length;
+      if (fenceCount % 2 !== 0) md += "\n```";
+      return md;
+    } catch {
+      return content;
+    }
+  }, [content]);
+
+  if (parseError) {
+    return (
+      <div className="space-y-1">
+        <div className="text-[10px] text-amber-600 font-bold">⚠️ Markdown 渲染失敗，顯示原始內容</div>
+        <pre className="text-[11px] text-stone-500 whitespace-pre-wrap break-words font-mono">{content}</pre>
+      </div>
+    );
+  }
+
+  return (
+    <ErrorBoundary onCatch={(err: Error) => setParseError(err.message)}>
+      <MarkdownText>{sanitized}</MarkdownText>
+    </ErrorBoundary>
+  );
+}
+
+/** Lightweight error boundary that calls onCatch instead of replacing UI */
+class ErrorBoundary extends Component<{ onCatch: (err: Error) => void; children: React.ReactNode }, {}> {
+  static getDerivedStateFromError() { return {}; }
+  componentDidCatch(err: Error) { this.props.onCatch(err); }
+  render() { return this.props.children; }
 }
 
 interface HandoverBundle {
@@ -125,7 +166,7 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
           <div className="border-t px-3.5 py-2.5 max-h-64 overflow-y-auto" style={{ borderColor: tk.borderLight, scrollbarWidth: "thin" }}>
             {has ? (
               <div className="text-[11px] text-stone-600 leading-relaxed">
-                <MarkdownText>{content!.split("\n").slice(0, maxLines).join("\n")}{content!.split("\n").length > maxLines ? `\n… (${content!.split("\n").length - maxLines} more lines)` : ""}</MarkdownText>
+                <SafeMarkdown content={content!.split("\n").slice(0, maxLines).join("\n") + (content!.split("\n").length > maxLines ? `\n… (${content!.split("\n").length - maxLines} more lines)` : "")} />
               </div>
             ) : (
               <div className="text-[11px] text-stone-400">{t("ho.missingDesc")}</div>
