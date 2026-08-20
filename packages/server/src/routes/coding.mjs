@@ -130,6 +130,22 @@ function cuLog(step, msg) {
   try { appendFileSync(join(PAAW_ROOT, ".paaw", "cu-debug.log"), line); } catch {}
 }
 
+/** Sanitize LLM-produced markdown before saving to .paaw/ — prevents frontend render crashes */
+function _sanitizeMd(md) {
+  if (!md || typeof md !== "string") return md || "";
+  let out = md;
+  // 1. Auto-close unclosed code fences
+  const fenceCount = (out.match(/```/g) || []).length;
+  if (fenceCount % 2 !== 0) out += "\n```";
+  // 2. Remove null bytes / control chars that break parsers
+  out = out.replace(/\u0000/g, "").replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+  // 3. Remove raw <script> tags (security + parser crash)
+  out = out.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
+  // 4. Trim trailing whitespace per line (trailing spaces break some markdown parsers)
+  out = out.split("\n").map(l => l.replace(/\s+$/, "")).join("\n");
+  return out;
+}
+
 // Shared agent rules
 import { AGENT_RULES } from "../lib/agent-rules.mjs";
 import { SECURITY_RULES } from "../lib/security-rules.mjs";
@@ -2674,14 +2690,20 @@ export default async function projectRoute(req, res) {
             return true;
           }
 
+          // Sanitize markdown before saving — prevent broken markdown from crashing frontend
+          const sanitized = _sanitizeMd(content);
+          if (sanitized !== content) {
+            cuLog(step.id, `Markdown sanitized: ${content.length} → ${sanitized.length} chars`);
+          }
+
           // Save output to .paaw/
           try {
             if (step.id === "scan") {
               await paaw.writeFile("scan.json", content);
             } else if (step.id === "architecture") {
-              await paaw.writeFile("ARCHITECTURE.md", content);
+              await paaw.writeFile("ARCHITECTURE.md", sanitized);
             } else if (step.id === "api-spec") {
-              await paaw.writeFile("specs/api-contract.md", content);
+              await paaw.writeFile("specs/api-contract.md", sanitized);
               // Extract api-examples from ```json-examples block
               const examplesMatch = content.match(/```json-examples\s*\n([\s\S]*?)\n```/);
               if (examplesMatch) {
@@ -2696,13 +2718,13 @@ export default async function projectRoute(req, res) {
                 }
               }
             } else if (step.id === "error-mapping") {
-              await paaw.writeFile("specs/error-codes.md", content);
+              await paaw.writeFile("specs/error-codes.md", sanitized);
               const runbookMatches = [...content.matchAll(/## Runbook[:\s]+(\d+).*?\n([\s\S]*?)(?=\n## Runbook|\n---|$)/g)];
               for (const rm of runbookMatches) {
                 await paaw.writeFile(`runbook/${rm[1]}.md`, `# Runbook: ${rm[1]}\n\n${rm[2].trim()}`);
               }
             } else if (step.id === "decisions") {
-              await paaw.writeFile("DECISIONS.md", content);
+              await paaw.writeFile("DECISIONS.md", sanitized);
             } else if (step.id === "test-payload") {
               await paaw.writeFile("test-payloads/all-payloads.json", content);
               try {
@@ -2715,11 +2737,11 @@ export default async function projectRoute(req, res) {
                 }
               } catch {}
             } else if (step.id === "standards") {
-              await paaw.writeFile("standards/coding-style.md", content);
+              await paaw.writeFile("standards/coding-style.md", sanitized);
             } else if (step.id === "faq") {
-              await paaw.writeFile("helpdesk/faq.md", content);
+              await paaw.writeFile("helpdesk/faq.md", sanitized);
             } else if (step.id === "overview") {
-              await paaw.writeFile("PROJECT.md", content);
+              await paaw.writeFile("PROJECT.md", sanitized);
             } else if (step.id === "feature-map") {
               // Parse AI output as JSON array and write to FEATURES.json
               try {
@@ -3062,28 +3084,27 @@ export default async function projectRoute(req, res) {
             }, { timeoutMs: 600_000 }); // 10 min per step in bulk mode
 
             const content = result.content || "";
-
-            // Store results
+            const sanitized = _sanitizeMd(content);
             try {
               if (step.id === "scan") {
                 scanResult = content;
                 await paaw.writeFile("scan.json", content);
               } else if (step.id === "architecture") {
                 architectureResult = content;
-                await paaw.writeFile("ARCHITECTURE.md", content);
+                await paaw.writeFile("ARCHITECTURE.md", sanitized);
               } else if (step.id === "api-spec") {
                 apiSpecResult = content;
-                await paaw.writeFile("specs/api-contract.md", content);
+                await paaw.writeFile("specs/api-contract.md", sanitized);
               } else if (step.id === "error-mapping") {
                 errorMappingResult = content;
-                await paaw.writeFile("specs/error-codes.md", content);
+                await paaw.writeFile("specs/error-codes.md", sanitized);
                 const runbookMatches = [...content.matchAll(/## Runbook[:\s]+(\d+).*?\n([\s\S]*?)(?=\n## Runbook|\n---|$)/g)];
                 for (const rm of runbookMatches) {
                   await paaw.writeFile(`runbook/${rm[1]}.md`, `# Runbook: ${rm[1]}\n\n${rm[2].trim()}`);
                 }
               } else if (step.id === "decisions") {
                 decisionsResult = content;
-                await paaw.writeFile("DECISIONS.md", content);
+                await paaw.writeFile("DECISIONS.md", sanitized);
               } else if (step.id === "test-payload") {
                 await paaw.writeFile("test-payloads/all-payloads.json", content);
                 try {
@@ -3099,11 +3120,11 @@ export default async function projectRoute(req, res) {
                   }
                 } catch {}
               } else if (step.id === "standards") {
-                await paaw.writeFile("standards/coding-style.md", content);
+                await paaw.writeFile("standards/coding-style.md", sanitized);
               } else if (step.id === "faq") {
-                await paaw.writeFile("helpdesk/faq.md", content);
+                await paaw.writeFile("helpdesk/faq.md", sanitized);
               } else if (step.id === "overview") {
-                await paaw.writeFile("PROJECT.md", content);
+                await paaw.writeFile("PROJECT.md", sanitized);
               } else if (step.id === "feature-map") {
                 // Parse AI output as JSON array and write to FEATURES.json
                 let featureMapOk = false;
@@ -3544,19 +3565,18 @@ export default async function projectRoute(req, res) {
               maxTokens: 16000,
             });
             const content = result.content || "";
-
-            // Save based on prompt type
-            if (pf.includes("api-spec")) await paaw.writeFile("specs/api-contract.md", content);
+            const sanitized = _sanitizeMd(content);
+            if (pf.includes("api-spec")) await paaw.writeFile("specs/api-contract.md", sanitized);
             else if (pf.includes("error-mapping")) {
-              await paaw.writeFile("specs/error-codes.md", content);
+              await paaw.writeFile("specs/error-codes.md", sanitized);
               const runbookMatches = [...content.matchAll(/## Runbook[:\s]+(\d+).*?\n([\s\S]*?)(?=\n## Runbook|\n---|$)/g)];
               for (const rm of runbookMatches) {
                 await paaw.writeFile(`runbook/${rm[1]}.md`, `# Runbook: ${rm[1]}\n\n${rm[2].trim()}`);
               }
             } else if (pf.includes("test-payload")) await paaw.writeFile("test-payloads/all-payloads.json", content);
-            else if (pf.includes("standards")) await paaw.writeFile("standards/coding-style.md", content);
-            else if (pf.includes("faq")) await paaw.writeFile("helpdesk/faq.md", content);
-            else if (pf.includes("overview")) await paaw.writeFile("PROJECT.md", content);
+            else if (pf.includes("standards")) await paaw.writeFile("standards/coding-style.md", sanitized);
+            else if (pf.includes("faq")) await paaw.writeFile("helpdesk/faq.md", sanitized);
+            else if (pf.includes("overview")) await paaw.writeFile("PROJECT.md", sanitized);
             else if (pf.includes("scan")) { /* scan result used as context only */ }
 
             sendEvent("step_done", { step: stepName, size: content.length, preview: content.slice(0, 200) });
