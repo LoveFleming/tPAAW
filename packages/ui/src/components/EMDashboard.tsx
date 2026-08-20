@@ -246,16 +246,9 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   // ── CU step definitions (must match server) ──
   const CU_STEPS = [
     { id: "scan", name: "🔍 掃描專案結構", file: "scan.json" },
-    { id: "architecture", name: "📐 Architecture Map", file: "ARCHITECTURE.md" },
     { id: "feature-map", name: "🗺️ Feature Map", file: "features/FEATURES.json" },
-    { id: "api-spec", name: "📡 API Contract", file: "specs/api-contract.md" },
     { id: "code-intelligence", name: "🧠 Code Intelligence", file: "code-intelligence/summary.json" },
     { id: "test-intelligence", name: "🧪 Test Intelligence", file: "code-intelligence/test-intelligence.json" },
-    { id: "error-mapping", name: "🐛 Error Map + Runbooks", file: "specs/error-codes.md" },
-    { id: "security-scan", name: "🔒 Security Scan (Semgrep)", file: "security/scan-results.json" },
-    { id: "standards", name: "🏛️ Coding Standards", file: "standards/coding-style.md" },
-    { id: "overview", name: "📊 PROJECT.md", file: "PROJECT.md", checkOnly: true },
-    { id: "change-intelligence", name: "🔄 Change Intelligence", file: "changes/change-intelligence.json" },
   ];
 
   // ── Code Health item → Crew + prompt mapping ──
@@ -1751,18 +1744,13 @@ interface KnowledgeFile {
 const KNOWLEDGE_FILES: KnowledgeFile[] = [
   // CU 產出的核心檔案（paths follow .paaw subdirectory structure — FILE_MAP layout）
   { path: ".paaw/project/PROJECT.md", icon: "📋", label: "PROJECT.md", cuStep: "overview" },
-  { path: ".paaw/project/ARCHITECTURE.md", icon: "📐", label: "Architecture Map", cuStep: "architecture" },
   { path: ".paaw/features/FEATURES.json", icon: "🗺️", label: "Feature Map", cuStep: "feature-map" },
-  { path: ".paaw/specs/api-contract.md", icon: "📡", label: "API Contract", cuStep: "api-spec" },
-  { path: ".paaw/specs/error-codes.md", icon: "🐛", label: "Error Mapping", cuStep: "error-mapping" },
-  { path: ".paaw/standards/coding-style.md", icon: "🏛️", label: "Coding Standards", cuStep: "standards" },
   { path: ".paaw/code-intelligence/summary.json", icon: "🧠", label: "Code Intelligence", cuStep: "code-intelligence" },
   { path: ".paaw/code-intelligence/test-intelligence.json", icon: "🧪", label: "Test Intelligence", cuStep: "test-intelligence" },
-  { path: ".paaw/security/scan-results.json", icon: "🔒", label: "Security Scan", cuStep: "security-scan" },
-  { path: ".paaw/changes/change-intelligence.json", icon: "🔄", label: "Change Intelligence", cuStep: "change-intelligence" },
-  // Agent 維護的檔案（非 CU 產出，但重要）
+  // 人寫的檔案（非 CU 產出，但重要）
+  { path: ".paaw/project/CODING-STANDARDS.md", icon: "🏛️", label: "Coding Standards" },
+  // Agent 維護的檔案（非 CU 產出）
   { path: ".paaw/decisions/DECISIONS.md", icon: "🧠", label: "Decision Log" },
-  { path: ".paaw/changelog/CHANGELOG.md", icon: "📝", label: "Change Memory" },
 ];
 
 function ProjectKnowledgePanel({ rootPath, tk, onOpenFile, refreshTrigger }: { rootPath: string; tk: any; onOpenFile?: (p: string) => void; refreshTrigger?: number }) {

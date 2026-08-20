@@ -446,8 +446,8 @@ export const PAAW_TOOLS = [
         properties: {
           category: {
             type: "string",
-            enum: ["context", "decisions", "standards", "changelog", "issues", "features", "feature_detail", "runbook", "faq", "sessions", "test_map", "security", "recent_changes", "api_history"],
-            description: "What to query: context=PROJECT.md+ARCHITECTURE.md, decisions=ADRs, standards=coding standards, changelog=CHANGELOG.md, issues=issue tracker, features=feature map, feature_detail=single feature, runbook=troubleshooting, faq=FAQ, sessions=work sessions, test_map=test intelligence, security=semgrep results, recent_changes=change intelligence, api_history=API tester logs"
+            enum: ["context", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "standards_read"],
+            description: "What to query: context=project overview (PROJECT.md+standards+feature map), features=feature map, feature_detail=single feature, runbook=troubleshooting, sessions=work sessions, test_map=test intelligence, recent_changes=change intelligence, api_history=API tester logs, project_read=human-written PROJECT.md, standards_read=human-written CODING-STANDARDS.md"
           },
           id: { type: "string", description: "Feature/issue ID (e.g. F-001, ISS-001). Used with category=feature_detail." },
           search: { type: "string", description: "Search keyword. Used with: features (by name), runbook (by content), faq (by keyword)." },
@@ -556,14 +556,14 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "cu_refresh",
-      description: "Refresh specific Code Understanding steps after code changes. Use this after making significant code changes instead of re-running the entire CU flow. Deterministic steps (code-intelligence, test-intelligence, security-scan, change-intelligence) are fast and safe to re-run. LLM steps (feature-map, api-spec, etc.) only re-run if you explicitly request them.",
+      description: "Refresh specific Code Understanding steps after code changes. Use this after making significant code changes instead of re-running the entire CU flow. Deterministic steps (code-intelligence, test-intelligence) are fast and safe to re-run. Add feature-map to re-run the feature map (LLM).",
       parameters: {
         type: "object",
         properties: {
           steps: {
             type: "array",
-            items: { type: "string", enum: ["code-intelligence", "test-intelligence", "security-scan", "change-intelligence", "feature-map", "api-spec", "error-mapping", "standards", "architecture", "overview"] },
-            description: "Which steps to refresh. Default: deterministic steps only (code-intelligence, test-intelligence, change-intelligence). Add LLM steps only if architecture/APIs/features changed significantly.",
+            items: { type: "string", enum: ["code-intelligence", "test-intelligence", "feature-map"] },
+            description: "Which steps to refresh. Default: deterministic steps (code-intelligence, test-intelligence). Add feature-map only if features/APIs changed significantly (costs LLM).",
           },
         },
       },
@@ -1829,7 +1829,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       case "project_info": {
         // ── Alias mapping: old tool names → project_info category ──
         const cat = args.category;
-        if (!cat) return "Error: 'category' parameter is required. Valid: context, decisions, standards, changelog, issues, features, feature_detail, runbook, faq, sessions, test_map, security, recent_changes, api_history";
+        if (!cat) return "Error: 'category' parameter is required. Valid: context, issues, features, feature_detail, runbook, sessions, test_map, recent_changes, api_history, project_read, standards_read";
         const paaw = createPaawProject(cwd);
 
         switch (cat) {
@@ -1866,6 +1866,18 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
               if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: content ? `${content.length} chars` : "empty" });
               return content || "(No changelog yet)";
             } catch { return "(No CHANGELOG.md found)"; }
+          }
+          case "project_read": {
+            if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
+            const proj = await paaw.readFile("PROJECT.md");
+            if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: proj ? `${proj.length} chars` : "empty" });
+            return proj || "(No PROJECT.md found)";
+          }
+          case "standards_read": {
+            if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
+            const cst = await paaw.readFile("CODING-STANDARDS.md");
+            if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: cst ? `${cst.length} chars` : "empty" });
+            return cst || "(No CODING-STANDARDS.md found)";
           }
           case "issues": {
             const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
@@ -2038,7 +2050,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
             } catch (err) { return `Error: ${err.message}`; }
           }
           default:
-            return `Unknown category '${cat}'. Valid: context, decisions, standards, changelog, issues, features, feature_detail, runbook, faq, sessions, test_map, security, recent_changes, api_history`;
+            return `Unknown category '${cat}'. Valid: context, issues, features, feature_detail, runbook, sessions, test_map, recent_changes, api_history, project_read, standards_read`;
         }
       }
 
@@ -2173,7 +2185,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       // ══════════════════════════════════════════
 
       case "cu_refresh": {
-        const steps = Array.isArray(args.steps) ? args.steps : ["code-intelligence", "test-intelligence", "change-intelligence"];
+        const steps = Array.isArray(args.steps) ? args.steps : ["code-intelligence", "test-intelligence"];
         const results = [];
         const paawDir = join(cwd, ".paaw");
         if (!existsSync(paawDir)) {
@@ -2196,23 +2208,9 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
             results.push(`🧪 Test Intelligence: ${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`);
           } catch (err) { results.push(`🧪 Test Intelligence: failed — ${err.message}`); }
         }
-        if (steps.includes("security-scan")) {
-          try {
-            const { runSemgrep } = await import("./semgrep-runner.mjs");
-            const findings = await runSemgrep(cwd);
-            results.push(`🔒 Security: ${findings.length} findings`);
-          } catch (err) { results.push(`🔒 Security: failed — ${err.message}`); }
-        }
-        if (steps.includes("change-intelligence")) {
-          try {
-            const { buildChangeIntelligence } = await import("./change-intelligence.mjs");
-            const { summary } = await buildChangeIntelligence(cwd, { days: 30, maxCommits: 50 });
-            results.push(`🔄 Change Intelligence: ${summary.totalCommits} commits, ${summary.totalFilesChanged} files`);
-          } catch (err) { results.push(`🔄 Change Intelligence: failed — ${err.message}`); }
-        }
 
         // LLM steps — these re-run the CU step via API (requires server running)
-        const llmSteps = steps.filter(s => !["code-intelligence", "test-intelligence", "security-scan", "change-intelligence"].includes(s));
+        const llmSteps = steps.filter(s => !["code-intelligence", "test-intelligence"].includes(s));
         if (llmSteps.length > 0) {
           results.push(`\n⚠️ LLM steps (${llmSteps.join(", ")}) require calling POST /api/coding-project/ai-initial-step — use from Coding IDE or auto dispatch.`);
         }
@@ -3085,7 +3083,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   }
 
   // Tool overview (compact — full schemas are sent via function-calling format)
-  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/decisions/standards/changelog/issues/features/feature_detail/runbook/faq/test_map/security/recent_changes\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_mapping\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\nreference_read(action=list|read|search, source=workspace|knowledge) → browse/read/search reference files in workspace/ and knowledge/ (read-only, for finding existing code examples and docs)\ntask_list(id?, status?, pipelinePhase?, type?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task with pipeline\ntask_update(id, action=update|advance|reject|note|assign, ...) → update task, advance/reject pipeline phase, add notes\ntask_decompose(parentId, subTasks) → split a large task into sub-tasks
+  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/features/feature_detail/runbook/test_map/recent_changes/issues/api_history/project_read/standards_read\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_mapping\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\nreference_read(action=list|read|search, source=workspace|knowledge) → browse/read/search reference files in workspace/ and knowledge/ (read-only, for finding existing code examples and docs)\ntask_list(id?, status?, pipelinePhase?, type?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task with pipeline\ntask_update(id, action=update|advance|reject|note|assign, ...) → update task, advance/reject pipeline phase, add notes\ntask_decompose(parentId, subTasks) → split a large task into sub-tasks
 task_retrofit(priority?, featureIds?) → 上線前品質補強：從 feature map 每個 active feature 建一個補 review/test/qa/docs 的全版 task（以代碼現況為準，非歷史 task）\ndispatch_agent(agentId, task, taskId?) → dispatch work to another agent (architect/developer/tester/doc-writer/qa/helpdesk)\ncu_refresh, record_decision, docs(action=...), action_log_add/list, agent_memory_save/load`);
 
   if (skillMd) {

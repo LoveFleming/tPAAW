@@ -22,11 +22,10 @@ import { promisify } from "util";
 const execAsync = promisify(_exec);
 
 // .paaw 重構後知識檔案在子目錄（見 paaw-project.mjs FILE_MAP）
+// Slim CU：只保留人寫的 PROJECT.md + Coding Standards
 const KNOWLEDGE_SOURCES = [
-  { key: "project", file: "project/PROJECT.md" },
-  { key: "architecture", file: "project/ARCHITECTURE.md" },
-  { key: "decisions", file: "decisions/DECISIONS.md" },
-  { key: "changelog", file: "changelog/CHANGELOG.md" },
+  { key: "project", file: "project/PROJECT.md", label: "專案概覽" },
+  { key: "codingStandards", file: "project/CODING-STANDARDS.md", label: "Coding Standards" },
 ];
 
 async function readKnowledgeFile(projectPath, rel) {
@@ -115,7 +114,7 @@ async function buildBundle(projectPath) {
     package: pkg,
     activeTasks,
     releases,
-    hasKnowledge: !!(knowledge.project || knowledge.architecture),
+    hasKnowledge: !!(knowledge.project || knowledge.codingStandards),
   };
 }
 
@@ -129,17 +128,13 @@ function renderHandoverMd(bundle) {
   L.push("");
   L.push("## 1. 這是什麼專案？");
   L.push("");
-  L.push(k.project ? k.project.split("\n").slice(0, 40).join("\n") : "_(尚未建立 PROJECT.md — 請先跑 Code Understanding)_");
+  L.push(k.project ? k.project.split("\n").slice(0, 40).join("\n") : "_(尚未建立 PROJECT.md — 請人工填寫)_");
   L.push("");
-  L.push("## 2. 架構");
+  L.push("## 2. Coding Standards");
   L.push("");
-  L.push(k.architecture ? k.architecture.split("\n").slice(0, 60).join("\n") : "_(尚未建立 ARCHITECTURE.md)_");
+  L.push(k.codingStandards ? k.codingStandards.split("\n").slice(0, 60).join("\n") : "_(尚未建立 CODING-STANDARDS.md)_");
   L.push("");
-  L.push("## 3. 重要設計決策（為什麼是這樣）");
-  L.push("");
-  L.push(k.decisions ? k.decisions.split("\n").slice(0, 80).join("\n") : "_(尚未建立 DECISIONS.md)_");
-  L.push("");
-  L.push("## 4. 最近變更");
+  L.push("## 3. 最近變更");
   L.push("");
   if (bundle.git.log.length) {
     L.push("### Git 歷史（最近 15 筆）");
@@ -147,12 +142,8 @@ function renderHandoverMd(bundle) {
     L.push(bundle.git.log.join("\n"));
     L.push("```");
   }
-  if (k.changelog) {
-    L.push("### CHANGELOG（最近）");
-    L.push(k.changelog.split("\n").slice(0, 40).join("\n"));
-  }
   L.push("");
-  L.push("## 5. 進行中的工作");
+  L.push("## 4. 進行中的工作");
   L.push("");
   if (bundle.activeTasks.length) {
     for (const t of bundle.activeTasks) L.push(`- [${t.status}] ${t.id} — ${t.title}（${t.priority}）`);
@@ -160,7 +151,7 @@ function renderHandoverMd(bundle) {
     L.push("_(沒有進行中的 task)_");
   }
   L.push("");
-  L.push("## 6. 怎麼跑起來");
+  L.push("## 5. 怎麼跑起來");
   L.push("");
   if (bundle.package?.scripts && Object.keys(bundle.package.scripts).length) {
     const common = ["dev", "start", "build", "test", "lint"];
@@ -173,7 +164,7 @@ function renderHandoverMd(bundle) {
     L.push("_(沒有 package.json scripts — 依專案類型自行確認)_");
   }
   L.push("");
-  L.push("## 7. Release 歷史（最近 5 筆）");
+  L.push("## 6. Release 歷史（最近 5 筆）");
   L.push("");
   if (bundle.releases.length) {
     for (const r of bundle.releases) L.push(`- ${r.releasedAt} — ${r.id} — ${r.title}`);
@@ -181,7 +172,7 @@ function renderHandoverMd(bundle) {
     L.push("_(尚未有 release 記錄)_");
   }
   L.push("");
-  L.push("## 8. 接手指引");
+  L.push("## 7. 接手指引");
   L.push("");
   L.push("1. 讀完 1–3 節建立全貌");
   L.push("2. `git log` 看最近改動方向");

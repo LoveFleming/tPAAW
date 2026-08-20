@@ -578,16 +578,9 @@ export default function CodingIDE() {
     const currentModel = emModelRef.current || emModel;
     const steps = [
       { id: "scan", name: "🔍 掃描專案結構" },
-      { id: "architecture", name: "📐 Architecture Map" },
       { id: "feature-map", name: "🗺️ Feature Map" },
-      { id: "api-spec", name: "📡 API Contract" },
       { id: "code-intelligence", name: "🧠 Code Intelligence" },
       { id: "test-intelligence", name: "🧪 Test Intelligence" },
-      { id: "error-mapping", name: "🐛 Error Map + Runbooks" },
-      { id: "security-scan", name: "🔒 Security Scan" },
-      { id: "standards", name: "🏛️ Coding Standards" },
-      { id: "overview", name: "📊 PROJECT.md" },
-      { id: "change-intelligence", name: "🔄 Change Intelligence" },
     ];
     setAiInitSteps(steps.map(s => ({ ...s, status: "pending" as const })));
 

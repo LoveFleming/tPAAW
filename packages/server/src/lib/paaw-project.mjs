@@ -189,12 +189,9 @@ export class PaawProject {
   async loadContext() {
     if (!this.exists) return null;
 
-    const [project, architecture, decisions, changelog, standards] = await Promise.all([
+    const [project, codingStandards] = await Promise.all([
       this.readFile("PROJECT.md"),
-      this.readFile("ARCHITECTURE.md"),
-      this.readFile("DECISIONS.md"),
-      this.readFile("CHANGELOG.md"),
-      this.loadStandards(),
+      this.readFile("CODING-STANDARDS.md"),
     ]);
 
     const recentSessions = await this.loadRecentSessions(3);
@@ -202,8 +199,9 @@ export class PaawProject {
     // Feature Map + File-to-Feature mapping
     let featureMap = null;
     let fileFeatureMap = null;
+    // 實際檔案是 FEATURES.json（feature-map step 寫入）— feature-map.json 是舊/不存在的路徑
     try {
-      const fmRaw = await this.readFile("features/feature-map.json");
+      const fmRaw = await this.readFile("features/FEATURES.json");
       if (fmRaw) {
         const fm = JSON.parse(fmRaw);
         // Compact summary: feature name → key files
@@ -215,27 +213,21 @@ export class PaawProject {
         }));
       }
     } catch {}
-    // File → Feature mapping (reverse index from api-function-map)
+    // File → Feature mapping (reverse index from FILE-FEATURES.json — file→features，非 API routes)
     try {
-      const apiMapRaw = await this.readFile("code-intelligence/api-function-map.json");
-      if (apiMapRaw) {
-        const apiMap = JSON.parse(apiMapRaw);
-        fileFeatureMap = (apiMap.routes || []).slice(0, 30).map(r => ({
-          file: r.file,
-          method: r.method,
-          path: r.path,
-          handler: r.handler || "",
-          feature: r.feature || "",
+      const ffRaw = await this.readFile("features/FILE-FEATURES.json");
+      if (ffRaw) {
+        const ffm = JSON.parse(ffRaw);
+        fileFeatureMap = Object.entries(ffm.files || {}).slice(0, 30).map(([file, feats]) => ({
+          file,
+          feature: (feats || []).map(f => f.name).join(", ") || "",
         }));
       }
     } catch {}
 
     return {
       project,
-      architecture,
-      decisions,
-      changelog,
-      standards,
+      codingStandards,
       recentSessions,
       featureMap,
       fileFeatureMap,
@@ -251,9 +243,12 @@ export class PaawProject {
     const parts = [];
 
     if (ctx.project) {
-      parts.push(`\n=== 專案概覽 ===\n${ctx.project}`);
+      parts.push(`\n=== 專案概覽 (PROJECT.md) ===\n${ctx.project}`);
     }
-    // Standards: 不再注入 system prompt（太肥）— agent 用 project_info(category=standards) 按需讀取
+    if (ctx.codingStandards) {
+      // 人寫的 CODING-STANDARDS.md — 精簡注入（前 3000 chars）
+      parts.push(`\n=== Coding Standards (精簡，完整用 project_info(category=content)) ===\n${ctx.codingStandards.length > 3000 ? ctx.codingStandards.slice(0, 3000) + "\n… (truncated)" : ctx.codingStandards}`);
+    }
     // Feature Map: feature → files（保留，加 Hint）
     if (ctx.featureMap && ctx.featureMap.length > 0) {
       const fmLines = ctx.featureMap.map(f => {
@@ -267,16 +262,9 @@ export class PaawProject {
     if (ctx.fileFeatureMap && ctx.fileFeatureMap.length > 0) {
       const ffLines = ctx.fileFeatureMap.map(r => {
         const feat = r.feature ? `[${r.feature}] ` : "";
-        return `- ${r.file}: ${r.method} ${r.path} ${r.handler ? `→ ${r.handler}` : ""} ${feat}`;
+        return `- ${r.file}${feat}`;
       });
-      parts.push(`\n=== File → Feature & API Map (${ctx.fileFeatureMap.length} routes) ===\n${ffLines.join("\n")}`);
-    }
-    if (ctx.decisions) {
-      // 精簡：只取最後 500 chars（之前是 2000）
-      const dec = ctx.decisions.length > 500
-        ? ctx.decisions.slice(-500)
-        : ctx.decisions;
-      parts.push(`\n=== 近期決策 (精簡，完整用 project_info(category=decisions)) ===\n${dec}`);
+      parts.push(`\n=== File → Feature Map (${ctx.fileFeatureMap.length} files) ===\n${ffLines.join("\n")}`);
     }
     // Sessions: 只列 summary，不展開
     if (ctx.recentSessions && ctx.recentSessions.length > 0) {

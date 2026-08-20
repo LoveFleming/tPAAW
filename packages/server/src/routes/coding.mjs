@@ -92,21 +92,17 @@ function countSourceFiles(root) {
 
 // ── CU staleness — 智能層知識過期偵測（純 mtime 比對，免 token）──
 // step 產出檔比 code 最新 mtime 舊 → 過期（快照是舊地圖）
-// 與 UI CU_STEPS 的 file 對應（保持同步）
+// 與 UI CU_STEPS 的 file 對應（保持同步）— Slim CU：只保留 4 個 steps + 人寫檔案
 const CU_STEP_FILES = {
   scan: "scan.json",
-  architecture: "ARCHITECTURE.md",
   "feature-map": "features/FEATURES.json",
-  "api-spec": "specs/api-contract.md",
   "code-intelligence": "code-intelligence/summary.json",
   "test-intelligence": "code-intelligence/test-intelligence.json",
-  "error-mapping": "specs/error-codes.md",
-  "security-scan": "security/scan-results.json",
-  standards: "standards/coding-style.md",
-  overview: "PROJECT.md",
-  "change-intelligence": "changes/change-intelligence.json",
+  // 人寫的非自動 step（給健康檢查參考）
+  overview: "project/PROJECT.md",
+  standards: "project/CODING-STANDARDS.md",
 };
-const CU_MECHANICAL_STEPS = new Set(["code-intelligence", "test-intelligence", "change-intelligence"]);
+const CU_MECHANICAL_STEPS = new Set(["code-intelligence", "test-intelligence"]);
 const STALE_TOLERANCE_MS = 2000; // 同步競態容差
 function computeCuStaleness(root, steps, codeLastModifiedMs) {
   const staleSteps = [];
@@ -2452,20 +2448,9 @@ export default async function projectRoute(req, res) {
 
       const ALL_STEPS = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
-        { id: "architecture", name: "📐 產出 Architecture Map", promptFile: "gen-architecture.md" },
         { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
-        { id: "api-spec", name: "📡 產出 API Contract", promptFile: "gen-api-spec.md" },
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
         { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
-        { id: "error-mapping", name: "🐛 產出 Error Map + Runbooks", promptFile: "gen-error-mapping.md" },
-        { id: "security-scan", name: "🔒 安全掃描 (Semgrep)", promptFile: null },
-        { id: "standards", name: "🏛️ 產出 Coding Standards", promptFile: "gen-standards.md" },
-        { id: "overview", name: "📊 產出 PROJECT.md", promptFile: "gen-overview.md" },
-        { id: "change-intelligence", name: "🔄 Change Intelligence", promptFile: null },
-        // Optional steps (available but not in default bulk flow)
-        { id: "decisions", name: "📋 產出 Decision Records (ADR)", promptFile: "gen-decisions.md" },
-        { id: "test-payload", name: "🧪 產出 Test Payloads", promptFile: "gen-test-payload.md" },
-        { id: "faq", name: "🤖 產出 HelpDesk FAQ", promptFile: "gen-faq.md" },
       ];
       const step = ALL_STEPS.find(s => s.id === stepId);
       if (!step) {
@@ -2898,16 +2883,9 @@ export default async function projectRoute(req, res) {
       const forceRerun = q.force === "1" || q.force === "true";
       const steps = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
-        { id: "architecture", name: "📐 產出 Architecture Map", promptFile: "gen-architecture.md" },
         { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
-        { id: "api-spec", name: "📡 產出 API Contract", promptFile: "gen-api-spec.md" },
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
         { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
-        { id: "error-mapping", name: "🐛 產出 Error Map + Runbooks", promptFile: "gen-error-mapping.md" },
-        { id: "security-scan", name: "🔒 安全掃描 (Semgrep)", promptFile: null },
-        { id: "standards", name: "🏛️ 產出 Coding Standards", promptFile: "gen-standards.md" },
-        { id: "overview", name: "📊 產出 PROJECT.md", promptFile: "gen-overview.md" },
-        { id: "change-intelligence", name: "🔄 Change Intelligence", promptFile: null },
       ];
 
       // SSE stream — send progress as each step completes
