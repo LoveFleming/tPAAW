@@ -10,11 +10,29 @@
  * 空狀態：.paaw/ 不存在或知識檔案缺 → 引導先跑 Code Understanding。
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Component } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import AgentSideChat from "./AgentSideChat";
 import MarkdownText from "./MarkdownText";
+
+class HandoverErrorBoundary extends Component<{}, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6">
+          <span className="text-2xl">💥</span>
+          <div className="text-xs text-red-600 font-bold">Handover 頁面錯誤</div>
+          <pre className="text-[10px] text-stone-500 bg-stone-50 rounded p-2 max-w-md overflow-auto">{this.state.error.message}</pre>
+          <button onClick={() => this.setState({ error: null })} className="text-xs px-3 py-1.5 rounded bg-blue-500 text-white">重試</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface HandoverBundle {
   initialized: boolean;
@@ -46,8 +64,23 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/coding-handover/bundle?path=${encodeURIComponent(rootPath)}`);
-      setBundle(await res.json());
-    } catch {
+      if (!res.ok) {
+        console.error(`[Handover] bundle API ${res.status}`);
+        setBundle(null);
+        setLoading(false);
+        return;
+      }
+      const data = await res.json();
+      // Validate shape
+      if (!data || typeof data !== "object" || !("initialized" in data)) {
+        console.error("[Handover] unexpected bundle shape:", data);
+        setBundle(null);
+        setLoading(false);
+        return;
+      }
+      setBundle(data);
+    } catch (err) {
+      console.error("[Handover] fetch failed:", err);
       setBundle(null);
     } finally {
       setLoading(false);
@@ -104,6 +137,7 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
   };
 
   return (
+    <HandoverErrorBoundary>
     <div className="flex h-full min-h-0">
       {/* ── 左：內容區 ── */}
       <div className="flex-1 min-w-0 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
@@ -249,6 +283,7 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
         />
       </div>
     </div>
+    </HandoverErrorBoundary>
   );
 }
 
