@@ -889,6 +889,10 @@ export async function runParallelSession(opts = {}) {
         fallbackModels: nsFallbacks,
         maxTurns: 15,
         timeout: 0, // no timeout — let agent complete task
+        featureBoundary: ctx.featureBoundary ? {
+          allowedFiles: ctx.allowedFiles || [],
+          featureIds: ctx.matchedFeatureIds || [],
+        } : null,
         onEvent: (event) => {
           if (event.type === "tool_call") {
             console.log(`[AutoDispatch:${role}] tool: ${event.name}`);

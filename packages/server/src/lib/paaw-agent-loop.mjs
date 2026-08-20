@@ -20,6 +20,7 @@
 
 import { readFile, writeFile, readdir, stat, mkdir, rm } from "fs/promises";
 import { existsSync, readFileSync as readSync, mkdirSync, appendFileSync, writeFileSync as writeSync, readdirSync, statSync } from "fs";
+import { loadFeatureData, matchFeaturesForFiles, buildContextBoundary } from "./feature-boundary.mjs";
 import { exec as execCb } from "child_process";
 import { shellExec, IS_WIN as IS_WIN_SHARED } from "./shell-exec.mjs";
 import { resolve, join, dirname, relative } from "path";
@@ -1230,7 +1231,7 @@ async function runShell(command, cwd, timeoutMs = 30_000) {
  * Execute a tool call and return the result string.
  * All paths are resolved relative to cwd for safety.
  */
-export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
+export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureBoundary = null) {
   const { name, arguments: argsStr } = call.function;
   let args;
   try { args = JSON.parse(argsStr); } catch { return `Error: invalid JSON arguments`; }
@@ -1459,6 +1460,20 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         return result;
       }
 
+      // ── Feature Boundary Check (Change Boundary) ──
+      // Check if file is within allowed feature scope
+      // New files (not yet on disk) are always allowed
+      const _checkBoundary = (filePath) => {
+        if (!featureBoundary || !featureBoundary.allowedFiles) return null; // no boundary active
+        const rel = filePath.replace(/\\/g, "/").replace(cwd.replace(/\\/g, "/").replace(/\/+$/, "") + "/", "");
+        // New file — always allow
+        if (!existsSync(filePath)) return null;
+        // File is in allowed scope
+        if (featureBoundary.allowedFiles.some(f => f.replace(/\\/g, "/") === rel)) return null;
+        // File is outside boundary — return violation
+        return rel;
+      };
+
       case "write_file": {
         const filePath = resolvePath(args.path);
         if (!args.path) return `Error: write_file requires 'path' argument`;
@@ -1466,6 +1481,11 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         if (!isPathAllowed(args.path, true)) {
           const hint = `cwd='${cwd}'. Use a relative path from PAAW root like 'data/apps/test/app.html'. Do NOT use Windows absolute paths like 'C:\\...'.`;
           return `Error: path '${args.path}' is not writable. ${hint}`;
+        }
+        // ── Change Boundary: check if existing file is outside feature scope ──
+        const boundaryViolation = _checkBoundary(filePath);
+        if (boundaryViolation) {
+          return `⚠️ **Feature Boundary Violation**: \`${boundaryViolation}\` is outside your assigned feature scope.\n\nYour allowed files are defined by features: ${featureBoundary.featureIds?.join(", ") || "unknown"}.\n\nIf you have a valid reason to modify this file, use \`ask_user\` to explain why this change is necessary. Otherwise, stay within the feature boundary.\n\nTip: You can use \`project_info(category=feature_detail)\` to see the full list of files in your assigned features.`;
         }
         try {
           // ── P0: Inject dependency context before write ──
@@ -1498,6 +1518,11 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
           return `Error: path '${args.path}' is not writable. ${hint}`;
         }
         if (!existsSync(filePath)) return `Error: file not found: ${args.path}`;
+        // ── Change Boundary: check if existing file is outside feature scope ──
+        const editBoundaryViolation = _checkBoundary(filePath);
+        if (editBoundaryViolation) {
+          return `⚠️ **Feature Boundary Violation**: \`${editBoundaryViolation}\` is outside your assigned feature scope.\n\nYour allowed files are defined by features: ${featureBoundary.featureIds?.join(", ") || "unknown"}.\n\nIf you have a valid reason to modify this file, use \`ask_user\` to explain why this change is necessary. Otherwise, stay within the feature boundary.\n\nTip: You can use \`project_info(category=feature_detail)\` to see the full list of files in your assigned features.`;
+        }
         try {
           // ── P0: Inject dependency context before edit ──
           const depCtx = getDependencyContext(cwd, filePath);
@@ -3210,6 +3235,7 @@ export async function runAgentLoop(config) {
     rootDir = _PAAW_ROOT,
     agentId = null,
     abortSignal = null, // 使用者中斷 — 傳進 callLLM，即時殺 in-flight LLM 呼叫
+    featureBoundary = null, // Context Boundary — { allowedFiles: string[], featureIds: string[] }
   } = config;
 
   // Load agent config for defaults (with fallback)
@@ -3461,7 +3487,7 @@ export async function runAgentLoop(config) {
         toolResult = await Promise.race([
           toolRegistry.initialized && toolRegistry.has(_toolName)
             ? toolRegistry.execute(_toolName, JSON.parse(call.function.arguments || "{}"), { cwd, rootDir, onEvent: _wrappedOnEvent, agentId })
-            : executeTool(call, cwd, rootDir, _wrappedOnEvent, agentId),
+            : executeTool(call, cwd, rootDir, _wrappedOnEvent, agentId, featureBoundary),
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error(`Tool '${_toolName}' timed out after ${_toolTimeoutMs / 1000}s`)), _toolTimeoutMs)
           )
@@ -3625,6 +3651,7 @@ export async function runAgentLoopStream(config, res) {
     rootDir = _PAAW_ROOT,
     agentId = null,
     abortSignal = null,
+    featureBoundary = null,
   } = config;
 
   let agentCfg = { ..._agentCfgDefaults };
@@ -3863,7 +3890,7 @@ export async function runAgentLoopStream(config, res) {
       }
       const toolResult = toolRegistry.initialized && toolRegistry.has(_toolName2)
         ? String(await toolRegistry.execute(_toolName2, args, _ctx2))
-        : await executeTool(call, cwd, rootDir, null, agentId);
+        : await executeTool(call, cwd, rootDir, null, agentId, featureBoundary);
       const _toolDuration = _toolLog.done({ resultLen: toolResult.length, resultPreview: toolResult.slice(0, 200) });
       sendSSE("tool_result", { name: call.function.name, result: toolResult.slice(0, 2000) });
 

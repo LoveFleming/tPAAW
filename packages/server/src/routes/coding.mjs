@@ -479,11 +479,27 @@ export default async function projectRoute(req, res) {
       const cleanupChatAgent = () => { runningCodingAgents.delete(agent.agentId); };
       res.on("close", cleanupChatAgent);
 
+      // Feature boundary for Change Boundary (chat path)
+      let chatFeatureBoundary = null;
+      try {
+        const { buildContextBoundary } = await import("../lib/feature-boundary.mjs");
+        const stagedResp = await fetch(`http://localhost:${paawPort}/api/staged-changes?path=${encodeURIComponent(projRoot)}`).catch(() => null);
+        const stagedData = stagedResp?.ok ? await stagedResp.json() : null;
+        const stagedPaths = stagedData?.files?.map(f => f.path) || [];
+        if (stagedPaths.length > 0) {
+          const boundary = buildContextBoundary(projRoot, stagedPaths);
+          if (boundary.featureIds.length > 0) {
+            chatFeatureBoundary = { allowedFiles: boundary.allowedFiles, featureIds: boundary.featureIds };
+          }
+        }
+      } catch {}
+
       await runAgentLoopStream({
         prompt: "", // handled by messages array
         systemPrompt: "", // handled by messages array
         messages: finalMessages, // trimmed with 262K budget, same as A2A
         model: model || undefined,
+        featureBoundary: chatFeatureBoundary,
         cwd: cwd || undefined,
         maxTurns: agent.maxTurns,
         timeout: 0, // no timeout — complex tasks may take arbitrarily long
@@ -656,10 +672,26 @@ export default async function projectRoute(req, res) {
       // Use task timeout if specified, otherwise 60 min safety net
       const effectiveTimeout = taskTimeout || 3600; // 60 min default
 
+      // Feature boundary for Change Boundary (dispatch path)
+      let dispatchFeatureBoundary = null;
+      try {
+        const { buildContextBoundary } = await import("../lib/feature-boundary.mjs");
+        const stagedResp2 = await fetch(`http://localhost:${paawPort}/api/staged-changes?path=${encodeURIComponent(projRoot)}`).catch(() => null);
+        const stagedData2 = stagedResp2?.ok ? await stagedResp2.json() : null;
+        const stagedPaths2 = stagedData2?.files?.map(f => f.path) || [];
+        if (stagedPaths2.length > 0) {
+          const boundary2 = buildContextBoundary(projRoot, stagedPaths2);
+          if (boundary2.featureIds.length > 0) {
+            dispatchFeatureBoundary = { allowedFiles: boundary2.allowedFiles, featureIds: boundary2.featureIds };
+          }
+        }
+      } catch {}
+
       await runAgentLoopStream({
         systemPrompt: fullSystemPrompt,
         messages,
         cwd: projRoot,
+        featureBoundary: dispatchFeatureBoundary,
         agentId,
         model: useModel,
         maxTurns: 30,

@@ -216,6 +216,8 @@ export function buildContextBoundary(rootDir, changedFiles = []) {
       const p = typeof t === "string" ? t : t.path || "";
       if (p) allowedFiles.add(p.replace(/\\/g, "/"));
     }
+    // Also include the matched files themselves — they may not be in codeFiles yet
+    for (const f of featMatch.matchedFiles) allowedFiles.add(f.replace(/\\/g, "/"));
   }
 
   // Find unmatched changed files
