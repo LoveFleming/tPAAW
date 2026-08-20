@@ -17,8 +17,8 @@ import { shellExecSync } from "./shell-exec.mjs";
 import { exec as execCb } from "child_process";
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { PaawProject } from "./paaw-project.mjs";
-import { listActionLog } from "./action-log.mjs";
+import { loadFeatureData, matchFeaturesForFiles, buildFeatureFileTree, buildContextBoundary } from "./feature-boundary.mjs";
+
 
 // ── Context Gathering（統一版） ──
 
@@ -97,7 +97,21 @@ export async function gatherContext(rootDir, sinceDate) {
   // 9. Feature summary
   ctx.featuresSummary = getFeatureSummaryText(rootDir);
 
-  // 10. Open Issues
+  // 10. Context Boundary — feature file tree for changed files
+  try {
+    const boundary = buildContextBoundary(rootDir, ctx.changedFiles);
+    ctx.featureBoundary = boundary.boundaryText;
+    ctx.matchedFeatureIds = boundary.featureIds;
+    ctx.allowedFiles = boundary.allowedFiles;
+    ctx.unmatchedFiles = boundary.unmatchedFiles;
+  } catch {
+    ctx.featureBoundary = "";
+    ctx.matchedFeatureIds = [];
+    ctx.allowedFiles = [];
+    ctx.unmatchedFiles = [];
+  }
+
+  // 11. Open Issues
   ctx.issues = await gatherOpenIssues(rootDir);
 
   // 11. Open Tasks
@@ -273,6 +287,10 @@ export function buildSituationReport(ctx) {
 
   if (ctx.paawContext) {
     report += `### 專案知識\n${ctx.paawContext}\n`;
+  }
+
+  if (ctx.featureBoundary) {
+    report += `### 🎯 Feature Context Boundary\n${ctx.featureBoundary}\n`;
   }
 
   // Open Issues

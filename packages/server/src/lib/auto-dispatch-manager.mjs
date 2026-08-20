@@ -863,7 +863,8 @@ export async function runParallelSession(opts = {}) {
     const taskPrompt = (config.task || "")
       .replace(/\{\{gitLog\}\}/g, ctx.gitLog || "(none)")
       .replace(/\{\{changedFiles\}\}/g, fileList)
-      .replace(/\{\{featuresSummary\}\}/g, ctx.featuresSummary || "(none)");
+      .replace(/\{\{featuresSummary\}\}/g, ctx.featuresSummary || "(none)")
+      .replace(/\{\{featureBoundary\}\}/g, ctx.featureBoundary || "(no feature boundary)");
 
     // Load agent memory + action log
     let memoryText = "";

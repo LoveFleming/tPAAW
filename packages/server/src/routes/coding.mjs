@@ -573,6 +573,19 @@ export default async function projectRoute(req, res) {
         } catch {}
       }
 
+      // Context Boundary — inject feature file tree if task mentions features or files
+      try {
+        const { buildContextBoundary } = await import("../lib/feature-boundary.mjs");
+        // Try to extract file references from task description
+        const taskFiles = task.match(/[\w/.-]+\.(ts|tsx|mjs|js|jsx|json)/g) || [];
+        if (taskFiles.length > 0) {
+          const boundary = buildContextBoundary(projRoot, taskFiles);
+          if (boundary.featureIds.length > 0) {
+            extraContext.push(boundary.boundaryText);
+          }
+        }
+      } catch {}
+
       // Code intelligence — summary only (not full file dump)
       const ciFile = join(projRoot, ".paaw", "code-intelligence", "code-intelligence.json");
       if (existsSync(ciFile)) {
