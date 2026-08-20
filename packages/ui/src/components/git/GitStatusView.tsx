@@ -130,9 +130,12 @@ export default function GitStatusView({
   const allFiles = useMemo(() => {
     if (!gitStatus) return [];
     const result: (GitFileStatus & { staged: boolean })[] = [];
-    for (const f of gitStatus.staged) result.push({ ...f, staged: true });
-    for (const f of gitStatus.unstaged) result.push({ ...f, staged: false });
-    for (const f of gitStatus.untracked) result.push({ ...f, staged: false });
+    const staged = Array.isArray(gitStatus.staged) ? gitStatus.staged : [];
+    const unstaged = Array.isArray(gitStatus.unstaged) ? gitStatus.unstaged : [];
+    const untracked = Array.isArray(gitStatus.untracked) ? gitStatus.untracked : [];
+    for (const f of staged) result.push({ ...f, staged: true });
+    for (const f of unstaged) result.push({ ...f, staged: false });
+    for (const f of untracked) result.push({ ...f, staged: false });
     return result;
   }, [gitStatus]);
 
@@ -147,7 +150,7 @@ export default function GitStatusView({
 
   const aiStagedFiles = useMemo(() => {
     if (!gitStatus || aiStagedPaths.size === 0) return [];
-    return gitStatus.staged.filter(f => aiStagedPaths.has(f.path));
+    return (Array.isArray(gitStatus.staged) ? gitStatus.staged : []).filter(f => aiStagedPaths.has(f.path));
   }, [gitStatus, aiStagedPaths]);
 
   const remainingFiles = useMemo(() => {
