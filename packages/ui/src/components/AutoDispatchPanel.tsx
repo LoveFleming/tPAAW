@@ -297,7 +297,7 @@ export default function AutoDispatchPanel({ theme, rootPath, model, openMainTab,
           </button>
         </div>
         {showConfig && nsConfig && (
-          <div className="flex-1 flex flex-col px-3 py-2 max-h-[50vh] overflow-y-auto" style={{ borderTop: `1px solid ${tk.borderLight}`, background: tk.bgMuted }}>
+          <div className="flex-1 flex flex-col px-3 py-2 overflow-visible" style={{ borderTop: `1px solid ${tk.borderLight}`, background: tk.bgMuted }}>
             <div className="space-y-2">
               <div>
                 <div className="text-[11px] font-bold mb-1" style={{ color: tk.text }}>🏗️ Phase</div>

@@ -212,8 +212,8 @@ export default function ModelSelector({ feature, value, onChange, className, sty
       {open && (
         <div
           className={dropUp
-            ? "absolute right-0 bottom-full mb-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50 max-h-80 overflow-y-auto"
-            : "absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50 max-h-80 overflow-y-auto"}
+            ? "absolute right-0 bottom-full mb-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-[9999] max-h-80 overflow-y-auto"
+            : "absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-[9999] max-h-80 overflow-y-auto"}
         >
           {providers.map(p => {
             const isCurrentProvider = curPid === p.id;
