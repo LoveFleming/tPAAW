@@ -46,16 +46,9 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/coding-handover/bundle?path=${encodeURIComponent(rootPath)}`);
-      if (!res.ok) {
-        setBundle(null);
-        setToast({ ok: false, text: `Handover API ${res.status} — server 未連線` });
-      } else {
-        const data = await res.json();
-        setBundle(data);
-      }
+      setBundle(await res.json());
     } catch {
       setBundle(null);
-      setToast({ ok: false, text: "連線失敗 — 請確認 PAAW server 正在運行" });
     } finally {
       setLoading(false);
     }
