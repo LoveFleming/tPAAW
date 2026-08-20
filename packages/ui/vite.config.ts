@@ -28,6 +28,10 @@ export default defineConfig(({ mode }) => {
           target: `http://127.0.0.1:${PAAW_PORT}`,
           changeOrigin: true,
         },
+        '/a2a': {
+          target: `http://127.0.0.1:${PAAW_PORT}`,
+          changeOrigin: true,
+        },
       },
     },
   };
