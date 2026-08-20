@@ -130,6 +130,34 @@ function cuLog(step, msg) {
   try { appendFileSync(join(PAAW_ROOT, ".paaw", "cu-debug.log"), line); } catch {}
 }
 
+/** Diff-aware write: only overwrite if content has meaningful changes.
+ *  Returns true if written (changed), false if skipped (no real diff). */
+async function diffWriteFile(paaw, filename, newContent) {
+  const old = await paaw.readFile(filename).catch(() => null);
+  if (old !== null && old === newContent) {
+    cuLog("diffWrite", `${filename}: identical, skipped`);
+    return false;
+  }
+  // Compare meaningful lines — ignore whitespace-only diffs and timestamp lines
+  if (old !== null) {
+    const oldLines = old.split("\n").filter(l => l.trim() && !l.match(/^>\s*\*Last\s+updated/i) && !l.match(/^>\s*\*Updated/i));
+    const newLines = newContent.split("\n").filter(l => l.trim() && !l.match(/^>\s*\*Last\s+updated/i) && !l.match(/^>\s*\*Updated/i));
+    const oldNorm = oldLines.map(l => l.trim()).join("\n");
+    const newNorm = newLines.map(l => l.trim()).join("\n");
+    if (oldNorm === newNorm) {
+      cuLog("diffWrite", `${filename}: no meaningful diff, skipped`);
+      return false;
+    }
+    const diffLines = newLines.filter((l, i) => !oldLines[i] || l.trim() !== oldLines[i].trim()).length;
+    const pct = Math.round(diffLines / Math.max(newLines.length, 1) * 100);
+    cuLog("diffWrite", `${filename}: ${diffLines} lines changed (${pct}%), writing`);
+  } else {
+    cuLog("diffWrite", `${filename}: new file, writing`);
+  }
+  await paaw.writeFile(filename, newContent);
+  return true;
+}
+
 /** Sanitize LLM-produced markdown before saving to .paaw/ — prevents frontend render crashes */
 function _sanitizeMd(md) {
   if (!md || typeof md !== "string") return md || "";
@@ -2701,9 +2729,9 @@ export default async function projectRoute(req, res) {
             if (step.id === "scan") {
               await paaw.writeFile("scan.json", content);
             } else if (step.id === "architecture") {
-              await paaw.writeFile("ARCHITECTURE.md", sanitized);
+              await diffWriteFile(paaw, "ARCHITECTURE.md", sanitized);
             } else if (step.id === "api-spec") {
-              await paaw.writeFile("specs/api-contract.md", sanitized);
+              await diffWriteFile(paaw, "specs/api-contract.md", sanitized);
               // Extract api-examples from ```json-examples block
               const examplesMatch = content.match(/```json-examples\s*\n([\s\S]*?)\n```/);
               if (examplesMatch) {
@@ -2718,13 +2746,13 @@ export default async function projectRoute(req, res) {
                 }
               }
             } else if (step.id === "error-mapping") {
-              await paaw.writeFile("specs/error-codes.md", sanitized);
+              await diffWriteFile(paaw, "specs/error-codes.md", sanitized);
               const runbookMatches = [...content.matchAll(/## Runbook[:\s]+(\d+).*?\n([\s\S]*?)(?=\n## Runbook|\n---|$)/g)];
               for (const rm of runbookMatches) {
                 await paaw.writeFile(`runbook/${rm[1]}.md`, `# Runbook: ${rm[1]}\n\n${rm[2].trim()}`);
               }
             } else if (step.id === "decisions") {
-              await paaw.writeFile("DECISIONS.md", sanitized);
+              await diffWriteFile(paaw, "DECISIONS.md", sanitized);
             } else if (step.id === "test-payload") {
               await paaw.writeFile("test-payloads/all-payloads.json", content);
               try {
@@ -2737,11 +2765,11 @@ export default async function projectRoute(req, res) {
                 }
               } catch {}
             } else if (step.id === "standards") {
-              await paaw.writeFile("standards/coding-style.md", sanitized);
+              await diffWriteFile(paaw, "standards/coding-style.md", sanitized);
             } else if (step.id === "faq") {
-              await paaw.writeFile("helpdesk/faq.md", sanitized);
+              await diffWriteFile(paaw, "helpdesk/faq.md", sanitized);
             } else if (step.id === "overview") {
-              await paaw.writeFile("PROJECT.md", sanitized);
+              await diffWriteFile(paaw, "PROJECT.md", sanitized);
             } else if (step.id === "feature-map") {
               // Parse AI output as JSON array and write to FEATURES.json
               try {
@@ -3091,20 +3119,20 @@ export default async function projectRoute(req, res) {
                 await paaw.writeFile("scan.json", content);
               } else if (step.id === "architecture") {
                 architectureResult = content;
-                await paaw.writeFile("ARCHITECTURE.md", sanitized);
+                await diffWriteFile(paaw, "ARCHITECTURE.md", sanitized);
               } else if (step.id === "api-spec") {
                 apiSpecResult = content;
-                await paaw.writeFile("specs/api-contract.md", sanitized);
+                await diffWriteFile(paaw, "specs/api-contract.md", sanitized);
               } else if (step.id === "error-mapping") {
                 errorMappingResult = content;
-                await paaw.writeFile("specs/error-codes.md", sanitized);
+                await diffWriteFile(paaw, "specs/error-codes.md", sanitized);
                 const runbookMatches = [...content.matchAll(/## Runbook[:\s]+(\d+).*?\n([\s\S]*?)(?=\n## Runbook|\n---|$)/g)];
                 for (const rm of runbookMatches) {
                   await paaw.writeFile(`runbook/${rm[1]}.md`, `# Runbook: ${rm[1]}\n\n${rm[2].trim()}`);
                 }
               } else if (step.id === "decisions") {
                 decisionsResult = content;
-                await paaw.writeFile("DECISIONS.md", sanitized);
+                await diffWriteFile(paaw, "DECISIONS.md", sanitized);
               } else if (step.id === "test-payload") {
                 await paaw.writeFile("test-payloads/all-payloads.json", content);
                 try {
@@ -3120,11 +3148,11 @@ export default async function projectRoute(req, res) {
                   }
                 } catch {}
               } else if (step.id === "standards") {
-                await paaw.writeFile("standards/coding-style.md", sanitized);
+                await diffWriteFile(paaw, "standards/coding-style.md", sanitized);
               } else if (step.id === "faq") {
-                await paaw.writeFile("helpdesk/faq.md", sanitized);
+                await diffWriteFile(paaw, "helpdesk/faq.md", sanitized);
               } else if (step.id === "overview") {
-                await paaw.writeFile("PROJECT.md", sanitized);
+                await diffWriteFile(paaw, "PROJECT.md", sanitized);
               } else if (step.id === "feature-map") {
                 // Parse AI output as JSON array and write to FEATURES.json
                 let featureMapOk = false;
@@ -3566,17 +3594,17 @@ export default async function projectRoute(req, res) {
             });
             const content = result.content || "";
             const sanitized = _sanitizeMd(content);
-            if (pf.includes("api-spec")) await paaw.writeFile("specs/api-contract.md", sanitized);
+            if (pf.includes("api-spec")) await diffWriteFile(paaw, "specs/api-contract.md", sanitized);
             else if (pf.includes("error-mapping")) {
-              await paaw.writeFile("specs/error-codes.md", sanitized);
+              await diffWriteFile(paaw, "specs/error-codes.md", sanitized);
               const runbookMatches = [...content.matchAll(/## Runbook[:\s]+(\d+).*?\n([\s\S]*?)(?=\n## Runbook|\n---|$)/g)];
               for (const rm of runbookMatches) {
                 await paaw.writeFile(`runbook/${rm[1]}.md`, `# Runbook: ${rm[1]}\n\n${rm[2].trim()}`);
               }
             } else if (pf.includes("test-payload")) await paaw.writeFile("test-payloads/all-payloads.json", content);
-            else if (pf.includes("standards")) await paaw.writeFile("standards/coding-style.md", sanitized);
-            else if (pf.includes("faq")) await paaw.writeFile("helpdesk/faq.md", sanitized);
-            else if (pf.includes("overview")) await paaw.writeFile("PROJECT.md", sanitized);
+            else if (pf.includes("standards")) await diffWriteFile(paaw, "standards/coding-style.md", sanitized);
+            else if (pf.includes("faq")) await diffWriteFile(paaw, "helpdesk/faq.md", sanitized);
+            else if (pf.includes("overview")) await diffWriteFile(paaw, "PROJECT.md", sanitized);
             else if (pf.includes("scan")) { /* scan result used as context only */ }
 
             sendEvent("step_done", { step: stepName, size: content.length, preview: content.slice(0, 200) });
