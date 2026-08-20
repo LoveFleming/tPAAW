@@ -1460,9 +1460,12 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         return result;
       }
 
-      // ── Feature Boundary Check (Change Boundary) ──
+      // ── Feature Boundary Check (Change Boundary — soft enforce) ──
       // Check if file is within allowed feature scope
       // New files (not yet on disk) are always allowed
+      // Boundary violations are NOT blocked — just recorded + warned
+      // So midnight auto-dispatch won't get stuck
+      // Agent sees the warning in tool result, human sees violations in task report
       const _checkBoundary = (filePath) => {
         if (!featureBoundary || !featureBoundary.allowedFiles) return null; // no boundary active
         const rel = filePath.replace(/\\/g, "/").replace(cwd.replace(/\\/g, "/").replace(/\/+$/, "") + "/", "");
@@ -1482,10 +1485,11 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           const hint = `cwd='${cwd}'. Use a relative path from PAAW root like 'data/apps/test/app.html'. Do NOT use Windows absolute paths like 'C:\\...'.`;
           return `Error: path '${args.path}' is not writable. ${hint}`;
         }
-        // ── Change Boundary: check if existing file is outside feature scope ──
+        // ── Change Boundary: warn if outside feature scope, but allow ──
         const boundaryViolation = _checkBoundary(filePath);
         if (boundaryViolation) {
-          return `⚠️ **Feature Boundary Violation**: \`${boundaryViolation}\` is outside your assigned feature scope.\n\nYour allowed files are defined by features: ${featureBoundary.featureIds?.join(", ") || "unknown"}.\n\nIf you have a valid reason to modify this file, use \`ask_user\` to explain why this change is necessary. Otherwise, stay within the feature boundary.\n\nTip: You can use \`project_info(category=feature_detail)\` to see the full list of files in your assigned features.`;
+          _recordViolation(boundaryViolation, "write_file");
+          if (onEvent) onEvent({ type: "boundary_violation", file: boundaryViolation, tool: "write_file" });
         }
         try {
           // ── P0: Inject dependency context before write ──
@@ -1499,7 +1503,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           // Track modified files for post-edit test verification
           const relPath = filePath.replace(cwd + "/", "").replace(cwd + "\\", "");
           if (onEvent) onEvent({ type: "tool_end", name, result: `Wrote ${filePath} (${args.content.length} bytes)${wasNew ? " [NEW]" : ""}` });
-          const baseResult = `Successfully wrote ${args.content.length} bytes to ${args.path}${wasNew ? " [NEW FILE]" : ""}`;
+          const baseResult = `Successfully wrote ${args.content.length} bytes to ${args.path}${wasNew ? " [NEW FILE]" : ""}${boundaryViolation ? `\n\n⚠️ **Feature Boundary**: \`${boundaryViolation}\` is outside your assigned feature scope (features: ${featureBoundary.featureIds?.join(", ") || "unknown"}). This change is recorded for human review.` : ""}`;
           return depCtx ? `${baseResult}\n\n${depCtx}` : baseResult;
         } catch (writeErr) {
           const errMsg = `write_file error: ${writeErr.message}. path='${args.path}', resolved='${filePath}', cwd='${cwd}'`;
@@ -1518,10 +1522,11 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           return `Error: path '${args.path}' is not writable. ${hint}`;
         }
         if (!existsSync(filePath)) return `Error: file not found: ${args.path}`;
-        // ── Change Boundary: check if existing file is outside feature scope ──
+        // ── Change Boundary: warn if outside feature scope, but allow ──
         const editBoundaryViolation = _checkBoundary(filePath);
         if (editBoundaryViolation) {
-          return `⚠️ **Feature Boundary Violation**: \`${editBoundaryViolation}\` is outside your assigned feature scope.\n\nYour allowed files are defined by features: ${featureBoundary.featureIds?.join(", ") || "unknown"}.\n\nIf you have a valid reason to modify this file, use \`ask_user\` to explain why this change is necessary. Otherwise, stay within the feature boundary.\n\nTip: You can use \`project_info(category=feature_detail)\` to see the full list of files in your assigned features.`;
+          _recordViolation(editBoundaryViolation, "edit_file");
+          if (onEvent) onEvent({ type: "boundary_violation", file: editBoundaryViolation, tool: "edit_file" });
         }
         try {
           // ── P0: Inject dependency context before edit ──
@@ -1536,7 +1541,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           const newContent = content.replace(args.old_text, args.new_text);
           await writeFile(filePath, newContent, "utf-8");
           if (onEvent) onEvent({ type: "tool_end", name, result: `Edited ${filePath}` });
-          const baseResult = `Successfully edited ${args.path} (1 replacement)`;
+          const baseResult = `Successfully edited ${args.path} (1 replacement)${editBoundaryViolation ? `\n\n⚠️ **Feature Boundary**: \`${editBoundaryViolation}\` is outside your assigned feature scope (features: ${featureBoundary.featureIds?.join(", ") || "unknown"}). This change is recorded for human review.` : ""}`;
           return depCtx ? `${baseResult}\n\n${depCtx}` : baseResult;
         } catch (editErr) {
           const errMsg = `edit_file error: ${editErr.message}. path='${args.path}', resolved='${filePath}', cwd='${cwd}'`;
@@ -3630,6 +3635,7 @@ export async function runAgentLoop(config) {
     toolCalls: toolCallLog,
     durationMs,
     usage: _totalUsage,
+    boundaryViolations: featureBoundary?._violations || [],
   };
 }
 

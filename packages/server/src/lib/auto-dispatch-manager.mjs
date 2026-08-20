@@ -897,6 +897,10 @@ export async function runParallelSession(opts = {}) {
           if (event.type === "tool_call") {
             console.log(`[AutoDispatch:${role}] tool: ${event.name}`);
           }
+          if (event.type === "boundary_violation") {
+            console.log(`[AutoDispatch:${role}] ⚠️ boundary violation: ${event.file} (${event.tool})`);
+            sendSSE("boundary_violation", { role, file: event.file, tool: event.tool });
+          }
         },
       });
 
@@ -913,6 +917,7 @@ export async function runParallelSession(opts = {}) {
         codename: crew?.codename || dynamicCrewLabels[role]?.replace(/^[^ ]+ /, "") || role,
         result: typeof result === "string" ? result.slice(-500) : "ok",
         report: agentReport.slice(0, 2000) || (typeof result === "string" ? result.slice(-500) : "done"),
+        boundaryViolations: result?.boundaryViolations || [],
       };
     } catch (err) {
       console.error(`[AutoDispatch:${role}] failed:`, err.message);
@@ -933,6 +938,16 @@ export async function runParallelSession(opts = {}) {
 
   const report = generateParallelReport(agentResults, ctx, dynamicCrewLabels) +
     (docResult.summary ? `\n\n---\n\n## 📝 文檔更新\n\n${docResult.summary}\n` : "");
+
+  // ── Feature Boundary Violations Summary ──
+  const allViolations = agentResults.flatMap(r => r.boundaryViolations || []);
+  if (allViolations.length > 0) {
+    const violationReport = allViolations.map(v =>
+      `- ⚠️ \`${v.file}\` (${v.tool}) at ${v.time}`
+    ).join("\n");
+    report += `\n\n---\n\n## 🚧 Feature Boundary Violations\n\n${allViolations.length} file(s) modified outside feature boundary — review recommended:\n\n${violationReport}\n`;
+  }
+
   saveAutoDispatchReport(rootDir, report, "parallel");
   console.log(`[AutoDispatch] Phase 3: Report saved (${report.length} chars)`);
   sendSSE("report", { report });
