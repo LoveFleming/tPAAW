@@ -347,12 +347,12 @@ export default function CodingIDE() {
     // ── Sync: also remove matching openTabs entry when closing a file tab ──
     // This is the core fix — closing a main tab must also clean up openTabs,
     // otherwise stale editor state persists and causes blank content / wrong activeTab.
-    const closingTab = mainTabsRef.current.find(t => t.id === id);
+    const closingTab = (mainTabsRef.current || []).find(t => t.id === id);
     if (closingTab?.filePath) {
       setOpenTabs(prev => prev.filter(ot => ot.path !== closingTab.filePath));
       // If the closed tab was active, move activeTabId to remaining
       if (activeTabId === closingTab.filePath) {
-        const remaining = openTabsRef.current.filter(ot => ot.path !== closingTab.filePath);
+        const remaining = (openTabsRef.current || []).filter(ot => ot.path !== closingTab.filePath);
         setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : null);
       }
     }
@@ -631,7 +631,7 @@ export default function CodingIDE() {
                   setAiInitializing(false);
                   setPaawRefreshKey(k => k + 1);
                   // 首次掃描完成 → 自動開 Features tab；重新掃描 → 不跳走（2026-08-19 fix）
-                  if (!mainTabsRef.current.some(t => t.id === "tool:features")) {
+                  if (!(mainTabsRef.current || []).some(t => t.id === "tool:features")) {
                     openMainTab({ id: "tool:features", type: "features", label: "Features", icon: "🗺️", closable: true });
                   }
                 }
@@ -883,7 +883,7 @@ export default function CodingIDE() {
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", "));
           // Restore tabs (dashboard is already present)
-          const existingIds = new Set(mainTabsRef.current.map(t => t.id));
+          const existingIds = new Set((mainTabsRef.current || []).map(t => t.id));
           const newTabs = validTabs.filter((t: MainTab) => !existingIds.has(t.id));
           console.log(`[CodingIDE] New tabs to restore: ${newTabs.length} (existing: ${existingIds.size})`);
           if (newTabs.length > 0) {
@@ -1098,7 +1098,7 @@ export default function CodingIDE() {
     if (loadingFileRef.current) return; // prevent double-click race
 
     // Check both openTabs (editor) and mainTabs (viewer) for existing file
-    const existingEditor = openTabsRef.current.find(ot => ot.path === path);
+    const existingEditor = (openTabsRef.current || []).find(ot => ot.path === path);
     if (existingEditor) {
       setActiveTabId(existingEditor.id);
       setActiveMainTabId(`file:${path}`);
@@ -1143,7 +1143,7 @@ export default function CodingIDE() {
   const closeTab = useCallback((id: string) => {
     setOpenTabs(prev => prev.filter(ot => ot.id !== id));
     if (activeTabId === id) {
-      const remaining = openTabsRef.current.filter(ot => ot.id !== id);
+      const remaining = (openTabsRef.current || []).filter(ot => ot.id !== id);
       setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : null);
     }
     closeMainTab(`file:${id}`);

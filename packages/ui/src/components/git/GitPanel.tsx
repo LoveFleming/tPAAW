@@ -223,9 +223,12 @@ export default function GitPanel(props: GitPanelProps) {
   const selectAllFiles = useCallback(() => {
     if (!gitStatus) return;
     const allKeys: string[] = [];
-    for (const f of gitStatus.staged) allKeys.push(fileKey({ ...f, staged: true }));
-    for (const f of gitStatus.unstaged) allKeys.push(fileKey({ ...f, staged: false }));
-    for (const f of gitStatus.untracked) allKeys.push(fileKey({ ...f, staged: false }));
+    const staged = Array.isArray(gitStatus.staged) ? gitStatus.staged : [];
+    const unstaged = Array.isArray(gitStatus.unstaged) ? gitStatus.unstaged : [];
+    const untracked = Array.isArray(gitStatus.untracked) ? gitStatus.untracked : [];
+    for (const f of staged) allKeys.push(fileKey({ ...f, staged: true }));
+    for (const f of unstaged) allKeys.push(fileKey({ ...f, staged: false }));
+    for (const f of untracked) allKeys.push(fileKey({ ...f, staged: false }));
     selectKeys(allKeys, true);
   }, [gitStatus, selectKeys]);
 

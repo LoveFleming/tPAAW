@@ -420,7 +420,7 @@ function FeatureDetail({ feature, theme, t, onOpenFile, understanding, onUnderst
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-mono" style={{ color: theme.text, opacity: 0.5 }}>{feature.id}</span>
             <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: st.bg, color: st.text }}>{st.label}</span>
-            {feature.tags.map(tag => (
+            {((feature.tags || [])).map(tag => (
               <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: theme.bg, color: theme.text, opacity: 0.6 }}>🏷️ {tag}</span>
             ))}
           </div>
@@ -437,8 +437,8 @@ function FeatureDetail({ feature, theme, t, onOpenFile, understanding, onUnderst
 
       <div className="p-4 flex flex-col gap-4">
         {/* Code Files */}
-        <Section title={`📄 ${t("feature.codeFiles")}`} count={feature.codeFiles.length} theme={theme}>
-          {feature.codeFiles.map(f => (
+        <Section title={`📄 ${t("feature.codeFiles")}`} count={(feature.codeFiles || []).length} theme={theme}>
+          {(feature.codeFiles || []).map(f => (
             <button key={f} onClick={() => onOpenFile?.(f)} className="block text-sm text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
               {f}
             </button>
@@ -446,8 +446,8 @@ function FeatureDetail({ feature, theme, t, onOpenFile, understanding, onUnderst
         </Section>
 
         {/* API Endpoints */}
-        <Section title={`🌐 ${t("feature.apis")}`} count={feature.apis.length} theme={theme}>
-          {feature.apis.map((a, i) => (
+        <Section title={`🌐 ${t("feature.apis")}`} count={(feature.apis || []).length} theme={theme}>
+          {(feature.apis || []).map((a, i) => (
             <div key={i} className="flex items-center gap-2 text-sm px-2 py-1 rounded" style={{ background: theme.bgMuted }}>
               <span className="font-mono font-bold text-xs px-1.5 py-0.5 rounded" style={{ background: theme.bg, color: HTTP_COLORS[a.method] || theme.text }}>{a.method}</span>
               <span className="font-mono" style={{ color: theme.text }}>{a.path}</span>
@@ -457,8 +457,8 @@ function FeatureDetail({ feature, theme, t, onOpenFile, understanding, onUnderst
         </Section>
 
         {/* Tests */}
-        <Section title={`🧪 ${t("feature.tests")}`} count={feature.tests.length} theme={theme}>
-          {feature.tests.map(f => (
+        <Section title={`🧪 ${t("feature.tests")}`} count={(feature.tests || []).length} theme={theme}>
+          {(feature.tests || []).map(f => (
             <button key={f} onClick={() => onOpenFile?.(f)} className="block text-sm text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
               {f}
             </button>
@@ -466,8 +466,8 @@ function FeatureDetail({ feature, theme, t, onOpenFile, understanding, onUnderst
         </Section>
 
         {/* Runbooks */}
-        <Section title={`📖 ${t("feature.runbooks")}`} count={feature.runbooks.length} theme={theme}>
-          {feature.runbooks.map(f => (
+        <Section title={`📖 ${t("feature.runbooks")}`} count={(feature.runbooks || []).length} theme={theme}>
+          {(feature.runbooks || []).map(f => (
             <button key={f} onClick={() => onOpenFile?.(f)} className="block text-sm text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
               {f}
             </button>
