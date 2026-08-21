@@ -18,6 +18,7 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { exec as _exec } from "child_process";
 import { promisify } from "util";
+import { buildHandoverState, writeHandoverState, loadHandoverState } from "../lib/release-unit/handover-state.mjs";
 
 const execAsync = promisify(_exec);
 
@@ -192,6 +193,19 @@ export default async function handoverRoutes(req, res, next) {
   if (!url.startsWith("/api/coding-handover")) return next?.() ?? false;
 
   const projectPath = q.get("path");
+
+  if (url === "/api/coding-handover/state" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) {
+      return res.status(400).json({ error: "path required" });
+    }
+    // ?refresh=1 → 現場重建並落地；否則讓快取（自動保鮮的 handover-state.json）優先
+    if (q.get("refresh") === "1") {
+      const st = await writeHandoverState(projectPath);
+      return res.json(st);
+    }
+    const st = await loadHandoverState(projectPath);
+    return res.json(st);
+  }
 
   if (url === "/api/coding-handover/bundle" && method === "GET") {
     if (!projectPath || !existsSync(projectPath)) {

@@ -95,6 +95,7 @@ interface Props {
 export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }: Props) {
   const { t } = useI18n();
   const [bundle, setBundle] = useState<HandoverBundle | null>(null);
+  const [hState, setHState] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
@@ -103,6 +104,11 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
   const refresh = useCallback(async () => {
     if (!rootPath) return;
     setLoading(true);
+    // R4: handover state 並行拉（獨立失败不影響 bundle）
+    fetch(`${API_BASE}/api/coding-handover/state?path=${encodeURIComponent(rootPath)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d?.nextAction) setHState(d); })
+      .catch(() => {});
     try {
       const res = await fetch(`${API_BASE}/api/coding-handover/bundle?path=${encodeURIComponent(rootPath)}`);
       if (!res.ok) {
@@ -195,6 +201,20 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
         {toast && (
           <div className={`mx-5 mt-3 px-3 py-2 rounded-lg text-xs ${toast.ok ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
             {toast.text}
+          </div>
+        )}
+
+        {hState && (
+          <div className="mx-5 mt-3 px-3.5 py-2.5 rounded-xl border flex items-center gap-3 flex-wrap"
+            style={{ borderColor: hState.nextAction.step === "idle" ? tk.borderLight : "#d9770655", background: hState.nextAction.step === "idle" ? "#fafaf9" : "#fffbeb" }}>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-stone-800 text-white">{t("ho.state.title")}</span>
+            <span className="text-xs font-bold text-stone-800">{hState.nextAction.step} — {hState.nextAction.reason}</span>
+            {hState.currentState && (
+              <span className="text-[10px] text-stone-500 font-mono ml-auto">
+                {hState.currentState.branch}@{hState.currentState.headSha} · {t("ho.state.dirty")} {hState.currentState.dirtyCount} · {t("ho.state.unpushed")} {hState.currentState.unpushedCount}
+                {hState.issues?.length > 0 && ` · ⚠️ ${hState.issues.length}`}
+              </span>
+            )}
           </div>
         )}
 

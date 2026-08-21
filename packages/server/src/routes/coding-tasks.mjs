@@ -267,6 +267,8 @@ async function saveTasks(projectPath, tasks, config) {
   const output = { tasks, updatedAt: now() };
   if (config?.loopMode) output.loopMode = config.loopMode;
   await writeFile(tasksFile, JSON.stringify(output, null, 2), "utf-8");
+  // 🎯 R4: task 每次變動 → debounced handover state 刷新（任何時刻 AI 停掉都能接手）
+  import("../lib/release-unit/handover-state.mjs").then(m => m.scheduleHandoverRefresh(projectPath)).catch(() => {});
 }
 
 // ── Route Handler ──
