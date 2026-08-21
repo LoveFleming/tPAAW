@@ -65,8 +65,8 @@ async function _actualChangedFiles(projectPath, task) {
       );
       return _parseNameStatus(stdout);
     }
-    // 未 commit：working tree
-    const { stdout } = await execAsync("git status --porcelain", {
+    // 未 commit：working tree（-uall：展開 untracked 目錄，否則 git 壓縮成 "?? dir/" 穿過 noise filter）
+    const { stdout } = await execAsync("git status --porcelain -uall", {
       cwd: projectPath, maxBuffer: 4 * 1024 * 1024, timeout: 15000,
     });
     return _parsePorcelain(stdout);
@@ -87,13 +87,13 @@ function _parseNameStatus(stdout) {
 }
 
 function _parsePorcelain(stdout) {
-  // " M path" / "?? path" / "M path"（staged 有時只隔 1 空格 — 不可 slice 固定位）
+  // " M path" / "?? path" / "A  path"（staged 新檔只隔 1 空格 — 不可 slice 固定位）
   return stdout.trim().split("\n").filter(Boolean).map(line => {
     const m = line.match(/^(..?)\s+(.*)$/);
     if (!m) return null;
     const st = m[1].trim();
     const path = _normPath(m[2].split(" -> ").pop()); // rename 顯示 "old -> new"
-    const status = st === "??" ? "A" : st.includes("D") ? "D" : "M";
+    const status = (st === "??" || st.includes("A")) ? "A" : st.includes("D") ? "D" : st.includes("R") ? "R" : "M";
     return { path, status };
   }).filter(f => f && f.path);
 }
