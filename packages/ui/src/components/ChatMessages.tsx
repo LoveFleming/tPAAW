@@ -85,6 +85,11 @@ function formatTime(ts?: string, timestamp?: number): string {
 
 // ── Markdown Components ──
 
+// 效能：預設參數陣列必須是模組級身分（inline [] 每次新建 → 打爆 handleMessageContextMenu
+// 的 useCallback → onContextMenu prop 變 → 所有 MessageRow memo 失效 → 每鍵全列 markdown 重 parse）
+const EMPTY_TOOLS: ChatToolBadge[] = [];
+const EMPTY_AGENTS: AssignableAgent[] = [];
+
 const markdownComponents = (accent?: string, onDeepLink?: (type: string, params: Record<string, string>) => void) => ({
   a: ({ node, href, ...props }: any) => {
     // 攔截筆記 deep link
@@ -306,13 +311,13 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
   assistantAvatar,
   assistantEmoji,
   loading = false,
-  activeTools = [],
+  activeTools = EMPTY_TOOLS,
   agentAction = "",
   userMarkdown = false,
   onDeepLink,
   endRef,
   className = "",
-  assignableAgents = [],
+  assignableAgents = EMPTY_AGENTS,
   onAssignToAgent,
 }) => {
   // 穩定身分：讓 MessageRow 的 memo 不會被每次 render 新建的 function 打破

@@ -116,6 +116,8 @@ interface ApiHistoryItem { id: string; ts: string; method: string; url: string; 
 
 // ── Constants ──
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
+// 效能：空陣列模組級身分（inline [] 每鍵新建 → agentToolLog 身分變 → 打爆 ChatMessages memo）
+const EMPTY_TOOL_LOG: Array<{ name: string; args: string; result: string }> = [];
 const METHOD_COLORS: Record<string, string> = {
   GET: "#10B981", POST: "#3B82F6", PUT: "#F59E0B", PATCH: "#8B5CF6",
   DELETE: "#EF4444", HEAD: "#6B7280", OPTIONS: "#6B7280",
@@ -417,7 +419,7 @@ export default function CodingIDE() {
   const chatLoading = activeCrew ? !!crewLoading[activeCrew] : false;
   const agentRunning = activeCrew ? !!crewAgentRunning[activeCrew] : false;
   const agentAction = activeCrew ? (crewAgentAction[activeCrew] || "") : "";
-  const agentToolLog = activeCrew ? (crewAgentToolLog[activeCrew] || []) : [];
+  const agentToolLog = activeCrew ? (crewAgentToolLog[activeCrew] || EMPTY_TOOL_LOG) : EMPTY_TOOL_LOG;
   const setChatLoading = useCallback((v: boolean) => { if (activeCrew) setCrewLoading(prev => ({ ...prev, [activeCrew]: v })); }, [activeCrew]);
   const setAgentRunning = useCallback((v: boolean) => { if (activeCrew) setCrewAgentRunning(prev => ({ ...prev, [activeCrew]: v })); }, [activeCrew]);
   const setAgentAction = useCallback((v: string) => { if (activeCrew) setCrewAgentAction(prev => ({ ...prev, [activeCrew]: v })); }, [activeCrew]);
@@ -503,6 +505,11 @@ export default function CodingIDE() {
     // Helpdesk hidden from sidebar
     { id: "coding.qa", emoji: "🔬", title: "QA", mode: "chat" as const, agentId: "qa" },
   ]);
+  // 效能：badge 衍生陣列 useMemo（inline .map 每鍵新建身分 → 打爆 ChatMessages 的 MessageRow memo）
+  const agentToolBadges = useMemo(() => agentToolLog.map(t => ({ name: t.name, status: t.result !== "..." ? "done" as const : "running" as const })), [agentToolLog]);
+  const assignableChatAgents = useMemo(() => codingCrews
+    .filter(c => c.id !== activeCrew)
+    .map(c => ({ id: c.id, emoji: c.emoji, title: c.title })), [codingCrews, activeCrew]);
 
   // Refresh coding crew from API when rootPath changes
   const refreshCodingCrew = useCallback(async () => {
@@ -3284,13 +3291,10 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                     assistantEmoji={crew?.emoji || "🤖"}
                     loading={chatLoading}
                     agentAction={agentAction}
-                    activeTools={agentToolLog.map(t => ({ name: t.name, status: t.result !== "..." ? "done" as const : "running" as const }))}
+                    activeTools={agentToolBadges}
                     endRef={chatEndRef}
-                    assignableAgents={codingCrews
-                      .filter(c => c.id !== activeCrew)
-                      .map(c => ({ id: c.id, emoji: c.emoji, title: c.title }))
-                    }
-                    onAssignToAgent={(agentId, messageContent) => assignToAgent(agentId, messageContent)}
+                    assignableAgents={assignableChatAgents}
+                    onAssignToAgent={assignToAgent}
                   />
                 </div>
 

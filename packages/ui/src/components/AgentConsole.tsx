@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { cn } from "../utils";
 import { ChatMessages, type ChatMessageItem, type ChatToolBadge } from "./ChatMessages";
 
@@ -311,12 +311,12 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
     setCurrentEvents([]);
   };
 
-  // ── Live tool badges from current events ──
-  const liveToolBadges: ChatToolBadge[] = currentEvents.map(evt => {
+  // ── Live tool badges from current events（useMemo：身分穩定，不打爆 ChatMessages 內部 memo）──
+  const liveToolBadges: ChatToolBadge[] = useMemo(() => currentEvents.map(evt => {
     if (evt.type === "tool_start") return { name: evt.name || "tool", status: "running" as const };
     if (evt.type === "tool_complete") return { name: evt.name || "tool", status: "done" as const };
     return { name: evt.name || "tool", status: undefined as any };
-  }).filter(b => b.name !== "tool" || b.status);
+  }).filter(b => b.name !== "tool" || b.status), [currentEvents]);
 
   // ── Live thinking content for the typing indicator ──
   const lastThinking = currentEvents.filter(e => e.type === "thinking").pop()?.content;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
@@ -62,6 +62,101 @@ interface Props {
   onProviderNotReady?: () => void;
 }
 
+// ── 效能關鍵（2026-08-21 輸入卡頓修復）：模組級身分 ──
+// input 與 messages 同住一個 component：typing 每鍵觸發全員重 render。
+// 以下所有新物件/新函式若定義在 component 內，會打爆 memo 或直接 remount subtree。
+
+const REMARK_PLUGINS = [remarkGfm, remarkBreaks];
+
+/** 頭像 — 模組級：定義在 render 內會讓每鍵 unmount/remount 所有歷史頭像 */
+const AssistantAvatarImg = ({ src, alt, size = "w-8 h-8" }: { src: string; alt?: string; size?: string }) => (
+  <img src={src} className={`${size} rounded-full object-cover ring-2 ring-white shadow-md`} alt={alt || "assistant"}
+    onError={(e) => { const el = e.currentTarget; el.style.display = "none"; }} />
+);
+
+interface ToolBadge { name: string; status: 'running' | 'done' | 'error' }
+
+const ToolBadgeChip = ({ tool, runningLabel }: { tool: ToolBadge; runningLabel: string }) => (
+  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${tool.status === 'running' ? 'bg-amber-50 text-amber-600 border border-amber-200' : tool.status === 'done' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-600 border border-rose-200'}`}>
+    {tool.status === 'running' && <span className="w-3 h-3 border-[1.5px] border-current border-t-transparent rounded-full animate-spin" />}
+    {tool.status === 'done' && <span>✅</span>}
+    {tool.status === 'error' && <span>❌</span>}
+    <span>{tool.name}</span>
+    {tool.status === 'running' && <span className="text-amber-400">{runningLabel}</span>}
+  </div>
+);
+
+/** 單則訊息 — memo：typing 時歷史訊息全部跳過（含 react-markdown parse），
+ *  只有身分變動的訊息（串流中的最後一則）會重繪 */
+const MessageRow = React.memo(function MessageRow({
+  msg, isLastAssistant, assistantName, userName, youLabel, avatarSrc, accent, accentHover,
+  chatAction, loading, activeTools, mdComponents, runningLabel, formatTime,
+}: {
+  msg: Message; isLastAssistant: boolean; assistantName: string; userName: string; youLabel: string;
+  avatarSrc: string; accent: string; accentHover: string; chatAction: string; loading: boolean;
+  activeTools: ToolBadge[]; mdComponents: Record<string, any>; runningLabel: string;
+  formatTime: (ts: string) => string;
+}) {
+  return (
+    <div className="flex justify-start">
+      <div className="flex gap-2.5 max-w-[95%]">
+        {/* Avatar */}
+        <div className="flex-shrink-0 mt-1">
+          {msg.role === "assistant" ? (
+            <AssistantAvatarImg src={avatarSrc} alt={assistantName} size="w-8 h-8" />
+          ) : (
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm" style={{ background: `linear-gradient(135deg, ${accent}, ${accentHover})` }}>
+              {youLabel}
+            </div>
+          )}
+        </div>
+        {/* Bubble */}
+        <div>
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-xs font-medium text-stone-600">{msg.role === "assistant" ? assistantName : userName}</span>
+            <span className="text-[10px] text-stone-300">{formatTime(msg.timestamp)}</span>
+          </div>
+          <div className={`px-4 py-3 text-sm leading-relaxed rounded-2xl ${msg.role === "assistant" ? "bg-white shadow-sm border border-stone-100 text-stone-700" : "bg-stone-50 text-stone-700"}`}>
+            {msg.role === "assistant" ? (
+              <div className="prose prose-stone prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
+                {msg.content ? <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={mdComponents}>{msg.content}</ReactMarkdown> : (
+                  <div className="flex flex-col gap-3 py-2">
+                    <div className="flex items-center gap-2" style={{ color: accent }}>
+                      {chatAction.includes("思考") ? (
+                        <div className="flex gap-1.5">
+                          <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: accent, animationDelay: "0ms" }} />
+                          <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: accent, animationDelay: "200ms" }} />
+                          <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: accent, animationDelay: "400ms" }} />
+                        </div>
+                      ) : (
+                        <span className="w-3.5 h-3.5 border-[2px] border-current border-t-transparent rounded-full animate-spin" style={{ borderColor: accent, borderTopColor: "transparent" }} />
+                      )}
+                      <span className={`text-xs font-medium ${chatAction.includes("思考") ? "opacity-70" : ""}`}>{chatAction || "思考中"}</span>
+                    </div>
+                    {activeTools.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {activeTools.map((tool, i) => <ToolBadgeChip key={i} tool={tool} runningLabel={runningLabel} />)}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Tool badges — show when tools are running (even with content) */}
+                {loading && isLastAssistant && activeTools.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-stone-100">
+                    {activeTools.map((tool, i) => <ToolBadgeChip key={i} tool={tool} runningLabel={runningLabel} />)}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="whitespace-pre-wrap">{msg.content}</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export default function ChatView({ profile, embedded = false, onTitleChange, onDeepLink, seedMessage, onSeedConsumed, apps = [], onOpenApp, providerReady, onProviderNotReady }: Props) {
   const { t: tt } = useI18n();
   const { info: themeInfo } = useTheme();
@@ -95,10 +190,32 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
     ? (profile.assistantAvatar.startsWith("/") ? `${API_BASE}${profile.assistantAvatar}` : profile.assistantAvatar)
     : "/avatars/assistant-default.png";
 
-  const AssistantAvatar = ({ size = "w-8 h-8" }: { size?: string }) => (
-    <img src={avatarSrc} className={`${size} rounded-full object-cover ring-2 ring-white shadow-md`} alt={assistantName}
-      onError={(e) => { const el = e.currentTarget; el.style.display = "none"; }} />
-  );
+  // ── 效能：md components 身分穩定（typing 時不重建 → MessageRow memo 成立）──
+  const accentColor = themeInfo.accent;
+  const mdComponents = useMemo(() => ({
+    a: ({ node, href, ...props }: any) => {
+      // 攔截筆記 deep link: #/notes?note=xxx&notebook=yyy
+      if (href && href.startsWith("#/notes")) {
+        try {
+          const u = new URL("http://dummy" + href.slice(1)); // /notes?note=xxx
+          const params: Record<string, string> = {};
+          u.searchParams.forEach((v, k) => { params[k] = v; });
+          return <a {...props} href={href} onClick={(e) => { e.preventDefault(); onDeepLink?.("notes", params); }} style={{ color: "inherit", textDecoration: "underline", cursor: "pointer" }} />;
+        } catch { /* fallback */ }
+      }
+      // 攔截 App deep link: #/app:bookmarks
+      if (href && href.startsWith("#/app:")) {
+        const appId = href.slice(6);
+        return <a {...props} href={href} onClick={(e) => { e.preventDefault(); onOpenApp?.(appId); }} style={{ color: accentColor, textDecoration: "underline", cursor: "pointer", fontWeight: 500 }} />;
+      }
+      return <a {...props} href={href} target="_blank" rel="noopener noreferrer" />;
+    },
+  }), [accentColor, onDeepLink, onOpenApp]);
+
+  // 預先翻譯（字串身分穩定，過 memo）
+  const youLabel = tt("common.you");
+  const runningLabel = tt("common.running");
+  const chatUserName = profile.name || youLabel;
 
   // ── Load providers ──
   useEffect(() => {
@@ -513,7 +630,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
         {/* Profile bar */}
         <div className="flex items-center gap-3 px-4 py-2.5">
           <div className="relative">
-            <AssistantAvatar size="w-10 h-10" />
+            <AssistantAvatarImg src={avatarSrc} alt={assistantName} size="w-10 h-10" />
             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white" />
           </div>
           <div className="flex-1 min-w-0">
@@ -635,94 +752,23 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
             {messages.map((msg, i) => {
               const isLastAssistant = msg.role === "assistant" && i === messages.length - 1;
               return (
-              <div key={i} className="flex justify-start">
-                <div className="flex gap-2.5 max-w-[95%]">
-                  {/* Avatar */}
-                  <div className="flex-shrink-0 mt-1">
-                    {msg.role === "assistant" ? (
-                      <AssistantAvatar size="w-8 h-8" />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
-                        {tt("common.you")}
-                      </div>
-                    )}
-                  </div>
-                  {/* Bubble */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-xs font-medium text-stone-600">{msg.role === "assistant" ? assistantName : profile.name || tt("common.you")}</span>
-                      <span className="text-[10px] text-stone-300">{formatTime(msg.timestamp)}</span>
-                    </div>
-                    <div className={`px-4 py-3 text-sm leading-relaxed rounded-2xl ${msg.role === "assistant" ? "bg-white shadow-sm border border-stone-100 text-stone-700" : "bg-stone-50 text-stone-700"}`}>
-                      {msg.role === "assistant" ? (
-                        <div className="prose prose-stone prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
-                          {msg.content ? <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={{ a: ({ node, href, ...props }) => {
-                              // 攔截筆記 deep link: #/notes?note=xxx&notebook=yyy
-                              if (href && href.startsWith("#/notes")) {
-                                try {
-                                  const u = new URL("http://dummy" + href.slice(1)); // /notes?note=xxx
-                                  const params: Record<string, string> = {};
-                                  u.searchParams.forEach((v, k) => { params[k] = v; });
-                                  return <a {...props} href={href} onClick={(e) => { e.preventDefault(); onDeepLink?.("notes", params); }} style={{ color: "inherit", textDecoration: "underline", cursor: "pointer" }} />;
-                                } catch { /* fallback */ }
-                              }
-                              // 攔截 App deep link: #/app:bookmarks
-                              if (href && href.startsWith("#/app:")) {
-                                const appId = href.slice(6);
-                                return <a {...props} href={href} onClick={(e) => { e.preventDefault(); onOpenApp?.(appId); }} style={{ color: themeInfo.accent, textDecoration: "underline", cursor: "pointer", fontWeight: 500 }} />;
-                              }
-                              return <a {...props} href={href} target="_blank" rel="noopener noreferrer" />;
-                            } }}>{msg.content}</ReactMarkdown> : (
-                            <div className="flex flex-col gap-3 py-2">
-                              <div className="flex items-center gap-2" style={{ color: themeInfo.accent }}>
-                                {chatAction.includes("思考") ? (
-                                  <div className="flex gap-1.5">
-                                    <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: themeInfo.accent, animationDelay: "0ms" }} />
-                                    <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: themeInfo.accent, animationDelay: "200ms" }} />
-                                    <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: themeInfo.accent, animationDelay: "400ms" }} />
-                                  </div>
-                                ) : (
-                                  <span className="w-3.5 h-3.5 border-[2px] border-current border-t-transparent rounded-full animate-spin" style={{ borderColor: themeInfo.accent, borderTopColor: "transparent" }} />
-                                )}
-                                <span className={`text-xs font-medium ${chatAction.includes("思考") ? "opacity-70" : ""}`}>{chatAction || "思考中"}</span>
-                              </div>
-                              {activeTools.length > 0 && (
-                                <div className="flex flex-wrap gap-2">
-                                  {activeTools.map((tool, i) => (
-                                    <div key={i} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${tool.status === 'running' ? 'bg-amber-50 text-amber-600 border border-amber-200' : tool.status === 'done' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-600 border border-rose-200'}`}>
-                                      {tool.status === 'running' && <span className="w-3 h-3 border-[1.5px] border-current border-t-transparent rounded-full animate-spin" />}
-                                      {tool.status === 'done' && <span>✅</span>}
-                                      {tool.status === 'error' && <span>❌</span>}
-                                      <span>{tool.name}</span>
-                                      {tool.status === 'running' && <span className="text-amber-400">{tt("common.running")}</span>}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {/* Tool badges — show when tools are running (even with content) */}
-                          {isLoading && isLastAssistant && activeTools.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-stone-100">
-                              {activeTools.map((tool, i) => (
-                                <div key={i} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${tool.status === 'running' ? 'bg-amber-50 text-amber-600 border border-amber-200' : tool.status === 'done' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-600 border border-rose-200'}`}>
-                                  {tool.status === 'running' && <span className="w-3 h-3 border-[1.5px] border-current border-t-transparent rounded-full animate-spin" />}
-                                  {tool.status === 'done' && <span>✅</span>}
-                                  {tool.status === 'error' && <span>❌</span>}
-                                  <span>{tool.name}</span>
-                                  {tool.status === 'running' && <span className="text-amber-400">{tt("common.running")}</span>}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="whitespace-pre-wrap">{msg.content}</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <MessageRow
+                key={i}
+                msg={msg}
+                isLastAssistant={isLastAssistant}
+                assistantName={assistantName}
+                userName={chatUserName}
+                youLabel={youLabel}
+                avatarSrc={avatarSrc}
+                accent={themeInfo.accent}
+                accentHover={themeInfo.accentHover}
+                chatAction={isLastAssistant && !msg.content ? chatAction : ""}
+                loading={isLoading}
+                activeTools={activeTools}
+                mdComponents={mdComponents}
+                runningLabel={runningLabel}
+                formatTime={formatTime}
+              />
               );
             })}
             <div ref={messagesEndRef} />
