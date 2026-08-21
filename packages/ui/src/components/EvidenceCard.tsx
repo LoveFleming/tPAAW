@@ -19,6 +19,25 @@ interface TrustItem {
   max: number;
 }
 
+interface ReviewFile {
+  path: string;
+  status: string;
+  features?: string[];
+}
+
+interface ReviewBoundary {
+  version: number;
+  hasScope: boolean;
+  scopeCount: number;
+  scopeFiles: string[];
+  commitRange: { base: string; head: string } | string;
+  expectedFiles: ReviewFile[];
+  unexpectedFiles: ReviewFile[];
+  noiseFiles: string[];
+  summary: { total: number; expected: number; unexpected: number; hasUnexpected: boolean };
+  checkedAt: string;
+}
+
 interface Evidence {
   taskId: string;
   title: string;
@@ -46,6 +65,8 @@ interface Evidence {
     executionResult: { agent: string | null; success: boolean | null; summary: string | null } | null;
   };
   trustScore: { score: number; items: TrustItem[]; riskPenalty: number };
+  reviewBoundary?: ReviewBoundary | null;
+  needsHumanDecision?: boolean;
   generatedAt: string;
 }
 
@@ -226,6 +247,12 @@ export default function EvidenceCard({
   const ds = ev.changes.diffStat;
   const riskC = riskColor(ev.risk.level);
   const scoreC = scoreColor(ev.trustScore.score);
+  const rb = ev.reviewBoundary;
+  const rbRangeText = (() => {
+    const r = ev.reviewBoundary?.commitRange;
+    if (!r || typeof r === "string") return t("evidence.workingTree");
+    return `${r.base.slice(0, 8)}…${r.head.slice(0, 8)}`;
+  })();
 
   return (
     <div style={cardStyle}>
@@ -236,6 +263,14 @@ export default function EvidenceCard({
           <div className="text-sm font-semibold truncate" style={{ color: theme.text }}>{ev.title}</div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {ev.needsHumanDecision && (
+            <span
+              className="text-xs font-bold px-2 py-1 rounded animate-pulse"
+              style={{ background: "#f59e0b22", color: "#f59e0b", border: "1px solid #f59e0b55" }}
+            >
+              ⚠️ {t("evidence.needsHumanDecision")}
+            </span>
+          )}
           <span
             className="text-xs font-bold px-2 py-1 rounded"
             style={{ background: `${riskC}22`, color: riskC, border: `1px solid ${riskC}55` }}
@@ -258,7 +293,7 @@ export default function EvidenceCard({
         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs" style={{ opacity: 0.75 }}>
           {ev.trustScore.items.map((it) => (
             <span key={it.name}>
-              {it.label}: <b>{it.score}</b>/{it.max}
+              {t(it.label, it.label)}: <b>{it.score}</b>/{it.max}
             </span>
           ))}
           {ev.trustScore.riskPenalty !== 0 && (
@@ -282,6 +317,67 @@ export default function EvidenceCard({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* ── Review Boundary（R1）：scope vs 實際 diff ── */}
+      {ev.reviewBoundary && (
+        <div
+          style={{
+            ...sectionStyle,
+            ...(ev.reviewBoundary.summary.hasUnexpected
+              ? { borderColor: "#f59e0b88", background: "#f59e0b0d" }
+              : {}),
+          }}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span style={labelStyle}>🎯 {t("evidence.reviewBoundary")}</span>
+            <span
+              className="text-xs font-bold"
+              style={{
+                color: ev.reviewBoundary.summary.hasUnexpected ? "#f59e0b" : "#22c55e",
+              }}
+            >
+              {!ev.reviewBoundary.hasScope
+                ? `⚪ ${t("evidence.noScope")}`
+                : ev.reviewBoundary.summary.hasUnexpected
+                  ? `⚠️ ${t("evidence.scopeUnexpected")}: ${ev.reviewBoundary.summary.unexpected}`
+                  : `✓ ${t("evidence.scopeAllExpected")}`}
+            </span>
+          </div>
+          {ev.reviewBoundary.hasScope ? (
+            <div className="text-xs" style={{ opacity: 0.8 }}>
+              <div className="mb-1">
+                ✓ {t("evidence.scopeExpected")}: <b>{ev.reviewBoundary.summary.expected}</b>/{ev.reviewBoundary.summary.total}
+                <span className="ml-2" style={{ opacity: 0.5 }}>
+                  ({rbRangeText})
+                </span>
+              </div>
+              {ev.reviewBoundary.summary.hasUnexpected && (
+                <div className="mt-1 space-y-0.5 font-mono">
+                  {ev.reviewBoundary.unexpectedFiles.slice(0, 8).map((f) => (
+                    <div key={f.path} className="flex items-baseline gap-1 flex-wrap">
+                      <span style={{ color: "#f59e0b" }}>⚠️ {f.status}</span>
+                      <span>{f.path}</span>
+                      {f.features && f.features.length > 0 && (
+                        <span style={{ opacity: 0.5 }}>{f.features.join(", ")}</span>
+                      )}
+                    </div>
+                  ))}
+                  {ev.reviewBoundary.unexpectedFiles.length > 8 && (
+                    <div style={{ opacity: 0.5 }}>… +{ev.reviewBoundary.unexpectedFiles.length - 8}</div>
+                  )}
+                  <div className="mt-1" style={{ opacity: 0.55, fontFamily: "inherit" }}>
+                    💡 {t("evidence.unexpectedHint")}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-xs" style={{ opacity: 0.55 }}>
+              {t("evidence.noScopeHint")}
+            </div>
+          )}
         </div>
       )}
 

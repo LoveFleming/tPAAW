@@ -23,6 +23,7 @@ import { join } from "path";
 import { exec as _exec } from "child_process";
 import { fileURLToPath } from "url";
 import { promisify } from "util";
+import { buildReviewBoundary } from "../lib/review-boundary.mjs";
 
 const execAsync = promisify(_exec);
 const __filename = fileURLToPath(import.meta.url);
@@ -54,7 +55,7 @@ export function classifyRisk(text) {
 
 // ── Trust Score（透明加權，UI 顯示各項得分） ──
 
-function computeTrustScore({ pipeline, testResult, qaResult, risk, diffStat }) {
+function computeTrustScore({ pipeline, testResult, qaResult, risk, diffStat, reviewBoundary }) {
   const items = [];
 
   // 1. Pipeline 完成度 — 每階段 done +8，awaiting_human +5（已到人面前）
@@ -94,6 +95,13 @@ function computeTrustScore({ pipeline, testResult, qaResult, risk, diffStat }) {
 
   // 5. 風險調整 — high -10, medium -5, low +0（直接扣總分）
   const riskPenalty = risk.level === "high" ? -10 : risk.level === "medium" ? -5 : 0;
+
+  // 6. Review Boundary（R1）— scope 外檔案是紅旗：全部符合 +9，每筆 unexpected 扨5（最低 0）
+  if (reviewBoundary && reviewBoundary.hasScope) {
+    const u = reviewBoundary.summary?.unexpected || 0;
+    const scopeScore = u === 0 ? 9 : Math.max(0, 9 - u * 5);
+    items.push({ name: "scope", label: "evidence.trustScope", score: scopeScore, max: 9, detail: { unexpected: u } });
+  }
 
   const raw = items.reduce((s, i) => s + i.score, 0) + riskPenalty;
   const maxTotal = items.reduce((s, i) => s + i.max, 0);
@@ -189,6 +197,12 @@ export async function gatherTaskEvidence(projectPath, taskId) {
 
   const ti = await loadTestIntelligence(projectPath);
 
+  // 🎯 Review Boundary（R1）：優先用 commit 時存的，沒有就現算（證據即時可得）
+  let reviewBoundary = task.reviewBoundary || null;
+  if (!reviewBoundary) {
+    try { reviewBoundary = await buildReviewBoundary(projectPath, task); } catch { reviewBoundary = null; }
+  }
+
   const evidence = {
     taskId: task.id,
     title: task.title,
@@ -217,6 +231,7 @@ export async function gatherTaskEvidence(projectPath, taskId) {
       pipeline: task.pipeline || null,
       repairLoop: task.repairLoop || null,
     },
+    reviewBoundary,
     provenance: {
       createdBy: task.createdBy || null,
       createdAt: task.createdAt || null,
@@ -240,7 +255,11 @@ export async function gatherTaskEvidence(projectPath, taskId) {
     qaResult: task.qaResult,
     risk,
     diffStat,
+    reviewBoundary,
   });
+
+  // 決策卡紅旗：scope 外有變更 → 需要人決策
+  evidence.needsHumanDecision = Boolean(reviewBoundary?.summary?.hasUnexpected);
 
   return evidence;
 }

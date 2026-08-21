@@ -32,6 +32,7 @@ import { fileURLToPath } from "url";
 import { PassThrough } from "stream";
 import { readBody } from "./shared.mjs";
 import { TaskGit } from "../lib/task-git.mjs";
+import { buildReviewBoundary } from "../lib/review-boundary.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -235,6 +236,7 @@ async function loadTasksAndConfig(projectPath) {
             docsResult: t.docsResult || null,
             repairLoop: t.repairLoop || null,
             overnight: t.overnight || null,
+            reviewBoundary: t.reviewBoundary || null,
           };
           return ensurePipeline(mapped, config);
         });
@@ -907,6 +909,13 @@ export default async function codingTasksRoute(req, res) {
     // Mark commit phase done if pipeline is at that stage
     if (task.pipeline?.commit?.status !== "done") {
       task.pipeline.commit = { status: "done", by: body.by || "agent", at: now() };
+    }
+    // 🎯 Review Boundary（R1）：commit 後比對 fileScope vs 實際 diff → expected/unexpected
+    // Deterministic（純 git + 查表），人先看 unexpected，不逐行 review
+    try {
+      task.reviewBoundary = await buildReviewBoundary(projRoot, task);
+    } catch (e) {
+      console.error("[coding-tasks] review boundary failed:", e.message);
     }
     // 🔄 Commit 後自動重掃 CU 機械層（fire-and-forget，免 token 秒級）
     // 依賴圖/測試地圖/變更統計是 code 的純函數，code 變了就要重算，
