@@ -24,6 +24,7 @@
  */
 
 import { addActionLog } from "./action-log.mjs";
+import { addCostAttribution } from "./coding-task-cost.mjs";
 import { writeFileSync, existsSync } from "fs";
 import { join } from "path";
 import {
@@ -691,6 +692,14 @@ export async function executeEMSession(opts = {}) {
 
     results.push({ ...task, ...result, subtaskId, durationMs: _durationMs, tokenUsage: _tokens, costUsd: _cost });
 
+    // ── R3: Cost 歸集 — 寫回 coding task（TASK-XXX）──
+    if (_tokens.total > 0 || _cost > 0) {
+      try {
+        const _costRef = task.taskId || task.id || task.task || "";
+        addCostAttribution(rootDir, _costRef, _tokens, _cost, agentModel || dispatchModel || null, "em");
+      } catch {}
+    }
+
     if (result.success) {
       console.log(`[AutoDispatch] Phase 3: [${i + 1}/${execList.length}] ✅ ${task.agent} done (${result.content.length} chars, ${(_durationMs / 1000).toFixed(0)}s, ${_tokens.total} tokens)`);
       sendSSE("task_done", { index: i + 1, agent: task.agent, subtaskId, preview: result.content.slice(0, 200), durationMs: _durationMs, tokens: _tokens, costUsd: _cost });
@@ -918,6 +927,7 @@ export async function runParallelSession(opts = {}) {
         result: typeof result === "string" ? result.slice(-500) : "ok",
         report: agentReport.slice(0, 2000) || (typeof result === "string" ? result.slice(-500) : "done"),
         boundaryViolations: result?.boundaryViolations || [],
+        tokenUsage: result?.usage || null, // R3: 讓 cost 歸集拿得到每 crew 用量
       };
     } catch (err) {
       console.error(`[AutoDispatch:${role}] failed:`, err.message);
@@ -928,6 +938,19 @@ export async function runParallelSession(opts = {}) {
   // ── Phase 3: Generate report ──
   sendSSE("info", { message: "📝 產生報告中..." });
   const agentResults = results.map(r => r.status === "fulfilled" ? r.value : { role: "unknown", status: "failed", error: r.reason?.message });
+
+  // ── R3: Cost 歸集 — 平行 crews 用量寫回 coding task（ctx 帶得出 TASK-XXX 才生效）──
+  try {
+    const _pTokens = agentResults.reduce((s, r) => ({
+      prompt: s.prompt + (r?.tokenUsage?.prompt || 0),
+      completion: s.completion + (r?.tokenUsage?.completion || 0),
+      total: s.total + (r?.tokenUsage?.total || 0),
+    }), { prompt: 0, completion: 0, total: 0 });
+    if (_pTokens.total > 0) {
+      const _pRef = ctx?.taskId || ctx?.taskRef || ctx?.userInput || "";
+      addCostAttribution(rootDir, _pRef, _pTokens, 0, effectiveModel || null, "parallel");
+    }
+  } catch {}
   console.log(`[AutoDispatch] Phase 2: Results: ${agentResults.filter(r => r.status === "completed").length}✅ ${agentResults.filter(r => r.status === "failed").length}❌`);
 
   // ── Phase 4: Documentation (Doc Writer → Help Desk review loop) ──

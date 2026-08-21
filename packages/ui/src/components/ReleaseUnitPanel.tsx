@@ -19,6 +19,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import RuModelSection from "./RuModelSection";
+import RuCostSection from "./RuCostSection";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import { cn } from "../utils";
@@ -278,6 +279,9 @@ export default function ReleaseUnitPanel({ rootPath, theme: tk, onOpenEMDashboar
 
           {/* ── 0.5 🧠 Release Unit Model（R2）── */}
           <RuModelSection rootPath={rootPath} theme={tk} />
+
+          {/* ── 0.6 💰 Cost 歸集（R3）── */}
+          <RuCostSection rootPath={rootPath} theme={tk} />
 
           {/* ── 1. Health ── */}
           <section>

@@ -326,6 +326,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
     toolNames: (body.tools || []).map(t => t.function?.name).filter(Boolean),
     maxTokens: body.max_tokens,
     caller: opts.caller || null,
+    taskId: opts.taskId || null, // R3: cost 歸集 tag（caller 有帶才生效）
   });
 
   let lastError = null;
@@ -404,6 +405,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
         toolCalls: (choice.message?.tool_calls || []).map(tc => ({ name: tc.function?.name, argsLen: (tc.function?.arguments || "").length })),
         usage: data.usage || null,
         caller: opts.caller || null,
+        taskId: opts.taskId || null, // R3: cost 歸集 tag
         attempts: attempt + 1,
       });
 

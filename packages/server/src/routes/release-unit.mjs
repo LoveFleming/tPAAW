@@ -33,6 +33,7 @@ import { checkGates } from "../lib/release-unit/gates.mjs";
 import { askCodebase } from "../lib/release-unit/ask.mjs";
 import { extractAPIs } from "../lib/release-unit/apis.mjs";
 import { loadReleaseUnitModel, queryModelByFeature, queryModelByFile, queryModelByApi } from "../lib/release-unit/model.mjs";
+import { buildCostReport } from "../lib/release-unit/cost.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -96,6 +97,18 @@ export default async function releaseUnitRoutes(req, res, next) {
   const refresh = q.get("refresh") === "1";
 
   if (!url.startsWith("/api/ru")) return next?.() ?? false;
+
+  // ── GET /api/ru/cost — Cost 歸集（R3：per day/model/agent/task/feature）──
+  if (url === "/api/ru/cost" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    try {
+      const days = Math.max(1, Math.min(365, Number(q.get("days")) || 30));
+      const report = buildCostReport(PAAW_ROOT, { days, projectRoot: path });
+      return json(res, 200, { root: normalizePath(path), ...report });
+    } catch (e) {
+      return json(res, 500, { error: "cost report failed", detail: e.message });
+    }
+  }
 
   // ── GET /api/ru/model — Release Unit Model（R2：單一事實來源，零 LLM）──
   if ((url === "/api/ru/model" || url === "/api/ru/model/query") && method === "GET") {
