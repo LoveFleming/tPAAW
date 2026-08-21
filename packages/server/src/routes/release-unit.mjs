@@ -34,6 +34,7 @@ import { askCodebase } from "../lib/release-unit/ask.mjs";
 import { extractAPIs } from "../lib/release-unit/apis.mjs";
 import { loadReleaseUnitModel, queryModelByFeature, queryModelByFile, queryModelByApi } from "../lib/release-unit/model.mjs";
 import { buildCostReport } from "../lib/release-unit/cost.mjs";
+import { answerQuestion } from "../lib/release-unit/qa.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -97,6 +98,19 @@ export default async function releaseUnitRoutes(req, res, next) {
   const refresh = q.get("refresh") === "1";
 
   if (!url.startsWith("/api/ru")) return next?.() ?? false;
+
+  // ── GET /api/ru/qa — 新人 12 問 deterministic 引擎（R5：no answer without evidence）──
+  if (url === "/api/ru/qa" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    const q2 = q.get("q") || "";
+    if (!q2.trim()) return json(res, 400, { error: "q required" });
+    try {
+      const a = await answerQuestion(path, q2);
+      return json(res, 200, { root: normalizePath(path), ...a });
+    } catch (e) {
+      return json(res, 500, { error: "qa failed", detail: e.message });
+    }
+  }
 
   // ── GET /api/ru/cost — Cost 歸集（R3：per day/model/agent/task/feature）──
   if (url === "/api/ru/cost" && method === "GET") {
