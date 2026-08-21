@@ -32,6 +32,7 @@ import { analyzeUnit } from "../lib/release-unit/analyze.mjs";
 import { checkGates } from "../lib/release-unit/gates.mjs";
 import { askCodebase } from "../lib/release-unit/ask.mjs";
 import { extractAPIs } from "../lib/release-unit/apis.mjs";
+import { loadReleaseUnitModel, queryModelByFeature, queryModelByFile, queryModelByApi } from "../lib/release-unit/model.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -95,6 +96,50 @@ export default async function releaseUnitRoutes(req, res, next) {
   const refresh = q.get("refresh") === "1";
 
   if (!url.startsWith("/api/ru")) return next?.() ?? false;
+
+  // ── GET /api/ru/model — Release Unit Model（R2：單一事實來源，零 LLM）──
+  if ((url === "/api/ru/model" || url === "/api/ru/model/query") && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    try {
+      if (url === "/api/ru/model") {
+        const m = await loadReleaseUnitModel(path, { refresh });
+        m.root = normalizePath(path);
+        // 查詢參數可縮小回傳：?view=summary 只給 summary + gaps
+        if (q.get("view") === "summary") {
+          return json(res, 200, {
+            root: m.root, version: m.version, generatedAt: m.generatedAt, headSha: m.headSha, stale: m.stale,
+            summary: m.summary, knowledgeGaps: m.knowledgeGaps,
+            features: (m.features || []).map(f => ({
+              id: f.id, name: f.name, status: f.status, fileCount: f.fileCount,
+              apiCount: f.apiCount, testCount: f.testCount, changeCount: f.changeCount,
+              lastChangeAt: f.lastChangeAt, knowledgeGaps: f.knowledgeGaps,
+            })),
+          });
+        }
+        return json(res, 200, m);
+      }
+      // /api/ru/model/query?type=feature|file|api
+      const m = await loadReleaseUnitModel(path, { refresh });
+      const type = q.get("type");
+      if (type === "feature") {
+        const r = queryModelByFeature(m, q.get("id") || "");
+        if (!r) return json(res, 404, { error: `feature not found: ${q.get("id")}` });
+        return json(res, 200, { root: normalizePath(path), type, result: r });
+      }
+      if (type === "file") {
+        const r = queryModelByFile(m, q.get("file") || "");
+        return json(res, 200, { root: normalizePath(path), type, result: r });
+      }
+      if (type === "api") {
+        const r = queryModelByApi(m, q.get("method") || "GET", q.get("route") || "");
+        if (!r) return json(res, 404, { error: `api not found: ${q.get("method")} ${q.get("route")}` });
+        return json(res, 200, { root: normalizePath(path), type, result: r });
+      }
+      return json(res, 400, { error: "type must be feature | file | api" });
+    } catch (e) {
+      return json(res, 500, { error: "model build failed", detail: e.message });
+    }
+  }
 
   // ── GET /api/ru — 列出所有 Release Unit ──
   if (url === "/api/ru" && method === "GET") {
