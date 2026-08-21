@@ -292,7 +292,7 @@ export default function WorkflowExec() {
             {workflows.map(wf => {
               const hasStart = wf.nodes.some(n => n.type === "start");
               const hasEnd = wf.nodes.some(n => n.type === "end");
-              const skillCount = wf.nodes.filter(n => n.type === "skill" || n.type === "tool").length;
+              const skillCount = wf.nodes.filter(n => n.type === "skill" || String(n.type) === "tool").length;
               return (
                 <button key={wf.id} onClick={() => selectWf(wf.id)} className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${currentWf?.id === wf.id ? "bg-violet-100 text-violet-800" : "hover:bg-stone-50 text-stone-600"}`}>
                   <div className="flex items-center gap-2"><span>{wf.icon}</span><span className={currentWf?.id === wf.id ? "font-medium" : ""}>{wf.name}</span></div>
