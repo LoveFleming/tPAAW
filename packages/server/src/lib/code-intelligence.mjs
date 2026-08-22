@@ -557,10 +557,7 @@ export function buildSymbolIndex(parsedResult) {
  */
 export async function buildCodeIntelligence(projectRoot, paawRoot) {
   // Parse all source files
-  const parsedResult = await parseProject(projectRoot, paawRoot, {
-    maxFiles: 500,
-    maxBytes: 100_000,
-  });
+  const parsedResult = await parseProject(projectRoot, paawRoot); // 無上限（2026-08-22 Fleming 要求）
 
   // Build all intelligence layers
   const callGraph = buildCallGraph(parsedResult);

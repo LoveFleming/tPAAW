@@ -430,7 +430,7 @@ export async function runFullValidation(projectRoot, options = {}) {
     let parsedProject = null;
     try {
       const { parseProject } = await import("./tree-sitter-parser.mjs");
-      parsedProject = await parseProject(projectRoot, projectRoot, { maxFiles: 300 });
+      parsedProject = await parseProject(projectRoot, projectRoot); // 無上限
     } catch {
       // tree-sitter not available, skip function-level validation
     }

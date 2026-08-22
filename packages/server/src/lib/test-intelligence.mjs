@@ -101,8 +101,7 @@ function findTestedFunctions(testFile, productionFile) {
 export async function buildTestIntelligence(projectRoot, paawRoot) {
   // Parse all source files (including test files)
   const parsedResult = await parseProject(projectRoot, paawRoot, {
-    maxFiles: 500,
-    maxBytes: 100_000,
+    // 無上限（2026-08-22）
   });
 
   // Separate test files from production files

@@ -477,12 +477,12 @@ function extractFileInfo(tree, filePath, language) {
 /**
  * @param {string} projectRoot - project root directory
  * @param {string} paawRoot - PAAW installation root (for grammar WASM paths)
- * @param {object} options - { maxFiles: 500, maxBytes: 100KB per file }
+ * @param {object} options - { maxFiles?: number, maxBytes?: number }（預設無上限）
  * @returns {Promise<{ files: object[], stats: object }>}
  */
 export async function parseProject(projectRoot, paawRoot, options = {}) {
-  const maxFiles = options.maxFiles || 500;
-  const maxBytes = options.maxBytes || 100_000; // 100KB per file
+  const maxFiles = options.maxFiles || 0; // 0 = 無上限
+  const maxBytes = options.maxBytes || 0; // 0 = 無上限
 
   await initParser(paawRoot);
 
@@ -492,10 +492,10 @@ export async function parseProject(projectRoot, paawRoot, options = {}) {
   const SOURCE_EXTS = new Set(Object.keys(LANG_MAP));
 
   function walkDir(dir) {
-    if (sourceFiles.length >= maxFiles) return;
+    if (maxFiles > 0 && sourceFiles.length >= maxFiles) return;
     try {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        if (sourceFiles.length >= maxFiles) break;
+        if (maxFiles > 0 && sourceFiles.length >= maxFiles) break;
         if (SKIP_DIRS.has(entry.name) || entry.name.startsWith(".")) continue;
         const fullPath = join(dir, entry.name);
         if (entry.isDirectory()) {
@@ -503,9 +503,8 @@ export async function parseProject(projectRoot, paawRoot, options = {}) {
         } else if (entry.isFile() && SOURCE_EXTS.has(extname(entry.name))) {
           try {
             const stat = statSync(fullPath);
-            if (stat.size <= maxBytes) {
-              sourceFiles.push(fullPath);
-            }
+            if (maxBytes > 0 && stat.size > maxBytes) continue; // 0 = 不限
+            sourceFiles.push(fullPath);
           } catch {}
         }
       }
