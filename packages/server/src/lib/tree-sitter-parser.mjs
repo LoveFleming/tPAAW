@@ -313,22 +313,22 @@ function extractFileInfo(tree, filePath, language) {
         let pathStr = "";
         // Walk condition to find string comparisons
         walkNode(condition, (n) => {
-          // req.method === "GET" or req.method === "POST"
-          if (n.type === "binary_expression" && n.text.includes("req.method")) {
+          // req.method === "GET" / method === "GET"（route 檔局部變數慣例，2026-08-22）
+          if (n.type === "binary_expression" && (n.text.includes("req.method") || /\bmethod\s*===/.test(n.text))) {
             const right = n.childForFieldName("right");
             if (right && right.type === "string") {
               method = right.text.replace(/^['"]|['"]$/g, "");
             }
           }
-          // path === "/api/..." or path.startsWith("/api/...")
-          if (n.type === "binary_expression" && n.text.includes("path")) {
+          // path === "/api/..." / url === "/api/..."（url 局部變數慣例，146 處 route 檔使用）
+          if (n.type === "binary_expression" && (n.text.includes("path") || /\burl\s*===/.test(n.text))) {
             const right = n.childForFieldName("right");
             if (right && right.type === "string") {
               pathStr = right.text.replace(/^['"]|['"]$/g, "");
             }
           }
-          // path.startsWith("/api/...")
-          if (n.type === "call_expression" && n.text.includes("path.startsWith")) {
+          // path.startsWith("/api/...") / url.startsWith("/api/...")
+          if (n.type === "call_expression" && (n.text.includes("path.startsWith") || n.text.includes("url.startsWith"))) {
             const callArgs = n.childForFieldName("arguments");
             if (callArgs) {
               const firstArg = callArgs.children.find(c => c.type === "string");
