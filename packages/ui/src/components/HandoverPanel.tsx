@@ -10,11 +10,11 @@
  * 空狀態：.paaw/ 不存在或知識檔案缺 → 引導先跑 Code Understanding。
  */
 
-import React, { useState, useEffect, useCallback, Component, useMemo } from "react";
+import React, { useState, useEffect, useCallback, Component, useMemo, useRef } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import RuQaSection from "./RuQaSection";
-import AgentSideChat from "./AgentSideChat";
+import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
 import MarkdownText from "./MarkdownText";
 
 class HandoverErrorBoundary extends Component<{ children: React.ReactNode }, { error: Error | null }> {
@@ -103,6 +103,7 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
   const [expandSection, setExpandSection] = useState<string | null>("project");
   // Handover tab view：Main Info（交接包）| 新人 12 問（2026-08-22 Fleming）
   const [hoTab, setHoTab] = useState<"main" | "qa">("main");
+  const chatRef = useRef<AgentSideChatHandle>(null);
 
   const refresh = useCallback(async () => {
     if (!rootPath) return;
@@ -185,6 +186,24 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
       </div>
     );
   };
+
+  // 新人 12 問 → 引擎查證 → 帶證據送 Handover AI（AI 有資料依據，Q&A tab 不展開）
+  const handleQaAskAi = useCallback((question: string, result: any) => {
+    if (!chatRef.current) return;
+    let prompt = question;
+    if (result) {
+      const lines: string[] = [`${question}`, "", "[Release Unit 引擎查證結果（deterministic，回答請以此為依據，不要編造；證據不足處誠實說明）]"];
+      lines.push(result.summary || "");
+      for (const b of (result.bullets || []) as string[]) lines.push(`- ${b}`);
+      const ev = (result.evidence || []) as { type?: string; ref?: string; detail?: string }[];
+      if (ev.length) {
+        lines.push("Evidence:");
+        for (const e of ev) lines.push(`- [${e.type || "?"}] ${e.ref || ""}${e.detail ? ` — ${e.detail}` : ""}`);
+      }
+      prompt = lines.join("\n");
+    }
+    chatRef.current.send(prompt);
+  }, []);
 
   return (
     <HandoverErrorBoundary>
@@ -340,7 +359,7 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
           ) : (
             <div className="p-5">
               {/* ═══ 新人 12 問 — deterministic Q&A（evidence 保證，R5 引擎；元件自帶 header）═══ */}
-              <RuQaSection rootPath={rootPath} theme={tk} />
+              <RuQaSection rootPath={rootPath} theme={tk} onAskAi={handleQaAskAi} />
             </div>
           )}
           </div>
@@ -349,7 +368,7 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
 
       {/* ── 右：Handover AI 助理 ── */}
       <div className="w-[320px] shrink-0 hidden md:block">
-        <AgentSideChat
+        <AgentSideChat ref={chatRef}
           agentId="handover"
           agentName={t("ho.agentName")}
           agentEmoji="🤝"

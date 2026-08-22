@@ -32,7 +32,7 @@ const SUGGESTIONS = [
 ] as const;
 const CIRCLED = ["①","②","③","④","⑤","⑥","⑦","⑧","⑨","⑩","⑪","⑫"];
 
-export default function RuQaSection({ rootPath, theme }: { rootPath: string; theme: any }) {
+export default function RuQaSection({ rootPath, theme, onAskAi }: { rootPath: string; theme: any; onAskAi?: (question: string, engineResult: Answer | null) => void }) {
   const { t } = useI18n();
   const [q, setQ] = useState("");
   const [a, setA] = useState<Answer | null>(null);
@@ -48,11 +48,19 @@ export default function RuQaSection({ rootPath, theme }: { rootPath: string; the
       const res = await fetch(`${API_BASE}/api/ru/qa?path=${encodeURIComponent(rootPath)}&q=${encodeURIComponent(qs)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const d = await res.json();
-      if (d && typeof d.summary === "string") setA(d);
+      if (d && typeof d.summary === "string") {
+        if (onAskAi) {
+          onAskAi(qs, d);          // 有 AI 助理（Handover）：帶證據送 AI 回答，本地不展開
+          setA(null);
+        } else {
+          setA(d);                 // 無 AI（RU 工具箱）：本地答案卡
+        }
+      }
     } catch {
-      setA({ question: qs, intent: "error", matched: false, summary: t("ru.qa.error"), evidence: [], noEvidence: true });
+      if (onAskAi) onAskAi(qs, null);
+      else setA({ question: qs, intent: "error", matched: false, summary: t("ru.qa.error"), evidence: [], noEvidence: true });
     } finally { setLoading(false); }
-  }, [rootPath, t]);
+  }, [rootPath, t, onAskAi]);
 
   useEffect(() => { setA(null); setQ(""); }, [rootPath]);
 

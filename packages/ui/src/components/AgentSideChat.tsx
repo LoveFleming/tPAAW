@@ -45,7 +45,11 @@ interface AgentSideChatProps {
   height?: string;          // e.g. "100%" — container height
 }
 
-export default function AgentSideChat({
+export interface AgentSideChatHandle {
+  send: (text: string) => void;   // 外部注入訊息（Handover QA → AI）
+}
+
+export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(function AgentSideChat({
   agentId,
   agentName,
   agentEmoji = "🤖",
@@ -55,7 +59,7 @@ export default function AgentSideChat({
   placeholder = "問我任何問題…",
   accent = "#8b5e3c",
   height = "100%",
-}: AgentSideChatProps) {
+}: AgentSideChatProps, ref) {
   const [messages, setMessages] = useState<SideChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -185,6 +189,9 @@ export default function AgentSideChat({
     }
   }, [input, loading, messages, agentId, cwd]);
 
+  // 外部注入訊息（Handover QA chips → AI；不改變內部訊息流）
+  React.useImperativeHandle(ref, () => ({ send: (text: string) => { send(text); } }), [send]);
+
   return (
     <div className="flex flex-col border-l" style={{ borderColor: "#e7e5e4", height }}>
       {/* Header */}
@@ -275,4 +282,4 @@ export default function AgentSideChat({
       </div>
     </div>
   );
-}
+});
