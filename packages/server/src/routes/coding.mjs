@@ -3499,6 +3499,17 @@ export default async function projectRoute(req, res) {
           const { buildReleaseUnitModel } = await import("../lib/release-unit/model.mjs");
           ruModel = await buildReleaseUnitModel(root);
           result.ruModel = { ok: true, headSha: ruModel.headSha, apis: ruModel.summary?.apis, features: ruModel.summary?.features };
+          // Content-addressed rescan report：哪些 table 實質變更 / model 是否重寫（2026-08-22）
+          const rs = ruModel._rescan;
+          if (rs) {
+            const totals = rs.diff
+              ? Object.entries(rs.diff).reduce((acc, [t, d]) => {
+                  acc[t] = d.added + d.removed + d.modified;
+                  return acc;
+                }, {})
+              : null;
+            result.ruDiff = { written: rs.written, changed: rs.changed, headChanged: rs.headChanged, tables: rs.diff, totals };
+          }
         } catch (e) {
           result.ruModel = { ok: false, error: e.message };
         }

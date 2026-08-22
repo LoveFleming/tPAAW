@@ -18,7 +18,8 @@
  */
 
 import { resolve, join, extname, basename, relative, dirname } from "path";
-import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync, statSync } from "fs";
+import { readFileSync, existsSync, mkdirSync, readdirSync, statSync } from "fs";
+import { diffWriteJson } from "./stable-hash.mjs";
 import { parseProject, formatForAI } from "./tree-sitter-parser.mjs";
 
 // ── 1. Call Graph ──
@@ -598,11 +599,10 @@ export async function buildCodeIntelligence(projectRoot, paawRoot) {
     },
   };
 
-  const writtenFiles = [];
+  // Content-addressed 寫入：內容指紋相同 → skip（mtime 不動 → git 零 diff）2026-08-22
+  const writtenFiles = Object.keys(outputs);
   for (const [filename, data] of Object.entries(outputs)) {
-    const filePath = join(ciDir, filename);
-    writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
-    writtenFiles.push(filename);
+    diffWriteJson(join(ciDir, filename), data);
   }
 
   // Build summary
@@ -620,8 +620,8 @@ export async function buildCodeIntelligence(projectRoot, paawRoot) {
     outputDir: ".paaw/code-intelligence/",
   };
 
-  // Save summary
-  writeFileSync(join(ciDir, "summary.json"), JSON.stringify(summary, null, 2), "utf-8");
+  // Save summary（generatedAt 不算內容 — 只有實質變更才會連同它一起重寫）
+  diffWriteJson(join(ciDir, "summary.json"), summary, { ignoreKeys: ["generatedAt"] });
 
   return { summary, parsedResult };
 }

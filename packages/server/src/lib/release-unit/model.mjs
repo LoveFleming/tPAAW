@@ -21,6 +21,37 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { shellExec } from "../shell-exec.mjs";
+import { hashObject } from "../stable-hash.mjs";
+
+// ── Content-addressed（2026-08-22）：entry 指紋 _h + table 指紋 + 寫檔 gate ──
+// 全量重建照舊（不漂保證）；落盤前比指紋 — 內容不變就不寫（git 零 diff）。
+// _h = entry 內容指紋；tableHashes = 各 table 所有 _h 的聚合指紋。
+
+const ENTRY_HASH_KEY = "_h";
+
+/** entry 加內容指紋（不含 _h 自身） */
+function _stamp(entries) {
+  for (const e of entries) e[ENTRY_HASH_KEY] = hashObject({ ...e, [ENTRY_HASH_KEY]: undefined });
+  return entries;
+}
+
+/** table 指紋：所有 entry _h 排序後聚合 */
+function _tableHash(entries) {
+  return hashObject(entries.map(e => e[ENTRY_HASH_KEY]).sort());
+}
+
+/** 語意 key → 新舊 diff（+新增 / -消失 / ~修改） */
+function _diffTable(oldEntries, newEntries, keyFn) {
+  const oldMap = new Map(oldEntries.map(e => [keyFn(e), e]));
+  const newMap = new Map(newEntries.map(e => [keyFn(e), e]));
+  let added = 0, removed = 0, modified = 0;
+  for (const [k, e] of newMap) {
+    if (!oldMap.has(k)) added++;
+    else if (oldMap.get(k)[ENTRY_HASH_KEY] !== e[ENTRY_HASH_KEY]) modified++;
+  }
+  for (const k of oldMap.keys()) if (!newMap.has(k)) removed++;
+  return { added, removed, modified };
+}
 
 const MODEL_FILE = ["release-unit-model.json"];
 
@@ -114,6 +145,7 @@ export async function buildReleaseUnitModel(root, opts = {}) {
       featureIds: ids,
     };
   });
+  apis.sort((a, b) => (a.path + " " + a.method).localeCompare(b.path + " " + b.method)); // 決定性順序
   const apisWithFeature = apis.filter(a => a.featureIds.length > 0).length;
 
   // ── Tests → feature ──
@@ -123,6 +155,7 @@ export async function buildReleaseUnitModel(root, opts = {}) {
     const ids = fIdsByFile.get(prod) ? [...fIdsByFile.get(prod)] : [];
     return { testFile: _norm(m.testFile), productionFile: prod, testCount: m.testCount ?? 0, featureIds: ids };
   });
+  testRelations.sort((a, b) => (a.testFile + "→" + a.productionFile).localeCompare(b.testFile + "→" + b.productionFile)); // 決定性順序
 
   // ── Changes → feature（git log）──
   const commits = await _gitLogWithFiles(root, commitLimit);
@@ -136,7 +169,7 @@ export async function buildReleaseUnitModel(root, opts = {}) {
     const kind = /^feat/i.test(subject) ? "feat" : /^fix/i.test(subject) ? "fix"
       : /^(refactor|perf)/i.test(subject) ? "refactor"
       : /^(doc|chore|style|test)/i.test(subject) ? "chore" : "other";
-    return { hash: c.hash, date: c.date, subject, kind, files: c.files.length, featureIds: [...touched] };
+    return { hash: c.hash, date: c.date, subject, kind, files: c.files.length, featureIds: [...touched].sort() };
   });
 
   // feature 維度統計
@@ -194,13 +227,34 @@ export async function buildReleaseUnitModel(root, opts = {}) {
   }
   const hotUnmapped = [...churnByFile.entries()]
     .filter(([f]) => !mappedFiles.has(f))
-    .sort((a, b) => b[1] - a[1]).slice(0, 15)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 15) // churn 降冪 + 檔名 tiebreak（決定性）
     .map(([file, churn]) => ({ file, commits: churn }));
+
+  // ── Content-addressed：entry 指紋 + table 指紋 ──
+  _stamp(featureViews);
+  _stamp(apis);
+  _stamp(testRelations);
+  _stamp(changes);
+  const knowledgeGaps = {
+    featuresWithoutTests: featureViews.filter(f => f.knowledgeGaps.includes("no-tests")).map(f => f.id),
+    featuresWithoutRunbooks: featureViews.filter(f => f.knowledgeGaps.includes("no-runbook")).map(f => f.id),
+    apisWithoutFeature: apis.filter(a => a.featureIds.length === 0).map(a => `${a.method} ${a.path} (${a.file})`),
+    filesWithoutFeature: unmapped.length,
+    hotUnmappedFiles: hotUnmapped,
+  };
+  const tableHashes = {
+    features: _tableHash(featureViews),
+    apis: _tableHash(apis),
+    tests: _tableHash(testRelations),
+    changes: _tableHash(changes),
+    knowledgeGaps: hashObject(knowledgeGaps), // 無 entry 結構 → 整體指紋
+  };
 
   const model = {
     version: 1,
     generatedAt: new Date().toISOString(),
     headSha,
+    tableHashes, // 各 table 內容指紋（content-addressed；寫檔 gate + 變更偵測用）
     root: null, // 由 route 填（避免存 absolute path）
     summary: {
       features: featureViews.length,
@@ -223,24 +277,48 @@ export async function buildReleaseUnitModel(root, opts = {}) {
     apis,
     tests: testRelations,
     changes,
-    knowledgeGaps: {
-      featuresWithoutTests: featureViews.filter(f => f.knowledgeGaps.includes("no-tests")).map(f => f.id),
-      featuresWithoutRunbooks: featureViews.filter(f => f.knowledgeGaps.includes("no-runbook")).map(f => f.id),
-      apisWithoutFeature: apis.filter(a => a.featureIds.length === 0).map(a => `${a.method} ${a.path} (${a.file})`),
-      filesWithoutFeature: unmapped.length,
-      hotUnmappedFiles: hotUnmapped,
-    },
+    knowledgeGaps,
   };
 
-  if (save) {
+  // ── 寫檔 gate：headSha 或任一 table 指紋有變才落盤；內容不變 → mtime 不動（git 零 diff）──
+  let written = false;
+  let diff = null;
+  const oldModel = save ? _readJson(join(root, ".paaw", ...MODEL_FILE), null) : null;
+  if (oldModel) {
+    // 舊檔可能無 _h（首次遷移）— 補算後可比
+    if (!oldModel.apis?.[0]?.[ENTRY_HASH_KEY]) {
+      try {
+        if (Array.isArray(oldModel.features)) _stamp(oldModel.features);
+        if (Array.isArray(oldModel.apis)) _stamp(oldModel.apis);
+        if (Array.isArray(oldModel.tests)) _stamp(oldModel.tests);
+        if (Array.isArray(oldModel.changes)) _stamp(oldModel.changes);
+      } catch {}
+    }
+    diff = {
+      features: _diffTable(oldModel.features || [], featureViews, e => e.id),
+      apis: _diffTable(oldModel.apis || [], apis, e => `${e.method} ${e.path}`),
+      tests: _diffTable(oldModel.tests || [], testRelations, e => `${e.testFile}→${e.productionFile}`),
+      changes: _diffTable(oldModel.changes || [], changes, e => e.hash),
+    };
+  }
+  const headChanged = !oldModel || oldModel.headSha !== headSha;
+  const contentChanged = !oldModel || JSON.stringify(oldModel.tableHashes || {}) !== JSON.stringify(tableHashes);
+  if (save && (headChanged || contentChanged)) {
     const outDir = join(root, ".paaw");
     if (existsSync(outDir)) {
       try {
+        if (contentChanged) model.generatedAt = new Date().toISOString(); // generatedAt = 內容版本時間（只在實質變更前進）
         mkdirSync(dirname(join(outDir, ...MODEL_FILE)), { recursive: true });
         writeFileSync(join(outDir, ...MODEL_FILE), JSON.stringify(model, null, 2), "utf-8");
+        written = true;
       } catch { /* 唯讀環境照樣回傳 model */ }
     }
   }
+  // diff report（non-enumerable — 不入檔、不干擾既有消費端；rescan route / 未來 Review Boundary 用）
+  Object.defineProperty(model, "_rescan", {
+    value: { written, changed: contentChanged, headChanged, diff },
+    enumerable: false,
+  });
   return model;
 }
 

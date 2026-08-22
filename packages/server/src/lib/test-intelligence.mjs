@@ -14,7 +14,8 @@
  */
 
 import { join, basename, dirname, extname, relative, resolve } from "path";
-import { readFileSync, existsSync, readdirSync, statSync } from "fs";
+import { readFileSync, existsSync, readdirSync, statSync, mkdirSync } from "fs";
+import { diffWriteJson } from "./stable-hash.mjs";
 import { parseProject } from "./tree-sitter-parser.mjs";
 
 // ── Test file patterns ──
@@ -276,18 +277,11 @@ export async function buildTestIntelligence(projectRoot, paawRoot) {
     stats,
   };
 
-  // Save
+  // Save（content-addressed：內容不變 skip 寫檔 — git 零 diff）2026-08-22
   const ciDir = join(projectRoot, ".paaw", "code-intelligence");
-  if (!existsSync(ciDir)) {
-    import("fs").then(fs => fs.mkdirSync(ciDir, { recursive: true }));
-  } else {
-    // ciDir already exists from code-intelligence.mjs
-  }
-  // Ensure dir
-  try { 
-    const fs = await import("fs");
-    if (!fs.existsSync(ciDir)) fs.mkdirSync(ciDir, { recursive: true });
-    fs.writeFileSync(join(ciDir, "test-intelligence.json"), JSON.stringify(data, null, 2), "utf-8");
+  try {
+    if (!existsSync(ciDir)) mkdirSync(ciDir, { recursive: true });
+    diffWriteJson(join(ciDir, "test-intelligence.json"), data);
   } catch {}
 
   return { summary: stats, data };

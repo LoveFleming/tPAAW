@@ -280,7 +280,20 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const [cuMeta, setCuMeta] = useState<{ hasPaaw: boolean; sourceFiles: number; doneCount: number; codeLastModified?: string | null; staleSteps?: Array<{ id: string; mechanical: boolean; manual?: boolean }>; staleCount?: number } | null>(null);
   const [cuInitBusy, setCuInitBusy] = useState(false);
   const [cuRescanBusy, setCuRescanBusy] = useState(false);
-  const [cuRescanMsg, setCuRescanMsg] = useState<"" | "ok" | "fail">("");
+  const [cuRescanMsg, setCuRescanMsg] = useState<string>(""); // "" | "fail" | ✅ 摘要文字
+  // 重掃回報：content-addressed diff 摘要（+新增/-消失/~修改；無變更 = model 未重寫，git 零 diff）
+  const reportRescan = useCallback(async (r: Response) => {
+    if (!r.ok) { setCuRescanMsg("fail"); setTimeout(() => setCuRescanMsg(""), 3000); return; }
+    const d = await r.json().catch(() => null);
+    const t = d?.ruDiff?.tables;
+    if (t) {
+      const fmt = (label: string, x?: { added: number; removed: number; modified: number }) =>
+        !x || x.added + x.removed + x.modified === 0 ? "" : ` ${label}+${x.added}/-${x.removed}/~${x.modified}`;
+      const parts = [fmt("API", t.apis), fmt("feat", t.features), fmt("test", t.tests), fmt("chg", t.changes)].filter(Boolean);
+      setCuRescanMsg(parts.length ? `✅ 重掃：${parts.join("，")}` : "✅ 重掃完成 — 無變更（model 未重寫）");
+    } else setCuRescanMsg("✅ 已重掃+重建 RU model");
+    setTimeout(() => setCuRescanMsg(""), 5000);
+  }, []);
 
   // ── CU lifecycle phase（派生，不存儲）──
   // missing=無 .paaw｜no-code=code 尚少不催（剛建立/剛 import 還沒寫 code）｜ready=該跑｜partial=跑一半｜done=完成
@@ -1374,15 +1387,14 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                   try {
                     try {
                       const r = await fetch(`${API_BASE}/api/coding-project/cu-rescan-mechanical?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
-                      setCuRescanMsg(r.ok ? "ok" : "fail");
-                      setTimeout(() => setCuRescanMsg(""), 3000);
+                      await reportRescan(r);
                     } catch { setCuRescanMsg("fail"); setTimeout(() => setCuRescanMsg(""), 3000); }
                     await Promise.all([refreshData(), loadPersistedSteps()]);
                   } finally { setCuRescanBusy(false); }
                 }}
                 disabled={cuRescanBusy}
                 className="text-sm px-2 py-1 rounded bg-orange-600 text-white hover:bg-orange-700 font-bold disabled:opacity-50"
-              >{cuRescanBusy ? "⏳ 重掃中..." : cuRescanMsg === "ok" ? "✅ 已重掃+重建 RU model" : cuRescanMsg === "fail" ? "❌ 重掃失敗" : "⚡ 重掃機械層"}</button>
+              >{cuRescanBusy ? "⏳ 重掃中..." : cuRescanMsg === "fail" ? "❌ 重掃失敗" : cuRescanMsg || "⚡ 重掃機械層"}</button>
             )}
             {cuPhase === "done" && (
               <button
@@ -1443,15 +1455,14 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                         try {
                           try {
                             const r = await fetch(`${API_BASE}/api/coding-project/cu-rescan-mechanical?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
-                            setCuRescanMsg(r.ok ? "ok" : "fail");
-                            setTimeout(() => setCuRescanMsg(""), 3000);
+                            await reportRescan(r);
                           } catch { setCuRescanMsg("fail"); setTimeout(() => setCuRescanMsg(""), 3000); }
                           await Promise.all([refreshData(), loadPersistedSteps()]);
                         } finally { setCuRescanBusy(false); }
                       }}
                       disabled={cuRescanBusy}
                       className="px-2 py-0.5 rounded bg-orange-600 text-white hover:bg-orange-700 font-bold disabled:opacity-50"
-                    >{cuRescanBusy ? "⏳ 重掃中..." : cuRescanMsg === "ok" ? "✅ 已重掃+重建 RU model" : cuRescanMsg === "fail" ? "❌ 重掃失敗" : "⚡ 重掃機械層"}</button>
+                    >{cuRescanBusy ? "⏳ 重掃中..." : cuRescanMsg === "fail" ? "❌ 重掃失敗" : cuRescanMsg || "⚡ 重掃機械層"}</button>
                   )}
                   {staleSmart > 0 && (
                     <button

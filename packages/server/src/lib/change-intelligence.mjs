@@ -16,7 +16,8 @@
 
 import { exec as execCb } from "child_process";
 import { shellExec, IS_WIN } from "./shell-exec.mjs";
-import { readFileSync, existsSync, mkdirSync, writeFileSync } from "fs";
+import { readFileSync, existsSync, mkdirSync } from "fs";
+import { diffWriteJson } from "./stable-hash.mjs";
 import { join, resolve } from "path";
 import { promisify } from "util";
 import { PaawProject } from "./paaw-project.mjs";
@@ -224,7 +225,7 @@ export async function buildChangeIntelligence(projectRoot, options = {}) {
   // Save
   const changesDir = join(projectRoot, ".paaw", "changes");
   if (!existsSync(changesDir)) mkdirSync(changesDir, { recursive: true });
-  writeFileSync(join(changesDir, "change-intelligence.json"), JSON.stringify(data, null, 2), "utf-8");
+  diffWriteJson(join(changesDir, "change-intelligence.json"), data, { ignoreKeys: ["generatedAt"] }); // 內容不變 skip（git 零 diff）
 
   return { summary, data };
 }
