@@ -277,7 +277,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   // ── Load persisted step statuses when opening Modal ──
   const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number; error?: string }>>([]);
   // CU lifecycle 原料（cu-status 擴充回傳）— phase 派生用
-  const [cuMeta, setCuMeta] = useState<{ hasPaaw: boolean; sourceFiles: number; doneCount: number; codeLastModified?: string | null; staleSteps?: Array<{ id: string; mechanical: boolean }>; staleCount?: number } | null>(null);
+  const [cuMeta, setCuMeta] = useState<{ hasPaaw: boolean; sourceFiles: number; doneCount: number; codeLastModified?: string | null; staleSteps?: Array<{ id: string; mechanical: boolean; manual?: boolean }>; staleCount?: number } | null>(null);
   const [cuInitBusy, setCuInitBusy] = useState(false);
   const [cuRescanBusy, setCuRescanBusy] = useState(false);
   const [cuRescanMsg, setCuRescanMsg] = useState<"" | "ok" | "fail">("");
@@ -290,12 +290,15 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const cuPhase: "missing" | "no-code" | "ready" | "partial" | "done" | "stale" | null = cuMeta && rootPath
     ? (cuMeta.sourceFiles < CU_NO_CODE_THRESHOLD ? "no-code"
       : !cuMeta.hasPaaw ? "missing"
-      : cuMeta.doneCount >= CU_STEPS.length ? ((cuMeta.staleCount ?? 0) > 0 ? "stale" : "done")
+      : cuMeta.doneCount >= CU_STEPS.length ? (
+          // manual-only stale（人寫文件較舊）不算知識過期 — 進 done + 小字提示（2026-08-22）
+          ((cuMeta.staleSteps ?? []).some(s => !s.mechanical && !s.manual) || (cuMeta.staleSteps ?? []).some(s => s.mechanical)) ? "stale" : "done")
       : cuMeta.doneCount > 0 ? "partial"
       : "ready")
     : null;
   const staleMechanical = (cuMeta?.staleSteps ?? []).filter(s => s.mechanical).length;
-  const staleSmart = (cuMeta?.staleCount ?? 0) - staleMechanical;
+  const staleManual = (cuMeta?.staleSteps ?? []).filter(s => (s as any).manual).length; // 人寫文件（CU 重跑不會更新）
+  const staleSmart = (cuMeta?.staleSteps ?? []).filter(s => !s.mechanical && !(s as any).manual).length;
   const loadPersistedSteps = useCallback(async () => {
     if (!rootPath) return [];
     let steps: Array<{ id: string; name: string; status: string; size?: number; error?: string }> = [];
@@ -1456,9 +1459,19 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                       className="px-2 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold"
                     >🧠 開啟 CU 視窗重跑</button>
                   )}
+                  {staleManual > 0 && (
+                    <span className="text-stone-500 text-xs">· 人寫文件 {staleManual} 項較舊（PROJECT.md / CODING-STANDARDS.md — 需人工更新，重跑不會刷新）</span>
+                  )}
                 </span>
               )}
-              {cuPhase === "done" && <span>✅ 已完成 {cuMeta?.doneCount ?? 0}/{CU_STEPS.length} — 知識庫就緒</span>}
+              {cuPhase === "done" && (
+                <span className="flex items-center gap-2 flex-wrap">
+                  <span>✅ 已完成 {cuMeta?.doneCount ?? 0}/{CU_STEPS.length} — 知識庫就緒</span>
+                  {((cuMeta?.staleSteps ?? []).filter(s => s.manual).length > 0) && (
+                    <span className="text-stone-500">· 人寫文件（PROJECT.md / CODING-STANDARDS.md）比 code 舊 — 需人工更新，重跑 CU 不會刷新</span>
+                  )}
+                </span>
+              )}
             </div>
           )}
           {/* 健康度數字只在 CU 實際產出後才顯示（partial/done/stale）—

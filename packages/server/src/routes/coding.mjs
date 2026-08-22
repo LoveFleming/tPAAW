@@ -103,6 +103,7 @@ const CU_STEP_FILES = {
   standards: "project/CODING-STANDARDS.md",
 };
 const CU_MECHANICAL_STEPS = new Set(["code-intelligence", "test-intelligence"]);
+const CU_MANUAL_STEPS = new Set(["overview", "standards"]); // 人寫文件 — CU 重跑不會更新，過期只能人工改
 const STALE_TOLERANCE_MS = 2000; // 同步競態容差
 function computeCuStaleness(root, steps, codeLastModifiedMs) {
   const staleSteps = [];
@@ -111,7 +112,7 @@ function computeCuStaleness(root, steps, codeLastModifiedMs) {
     try {
       const st = statSync(join(root, ".paaw", rel));
       if (codeLastModifiedMs > st.mtimeMs + STALE_TOLERANCE_MS) {
-        staleSteps.push({ id, mechanical: CU_MECHANICAL_STEPS.has(id) });
+        staleSteps.push({ id, mechanical: CU_MECHANICAL_STEPS.has(id), manual: CU_MANUAL_STEPS.has(id) });
       }
     } catch {}
   }
