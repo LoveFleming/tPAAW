@@ -44,6 +44,9 @@ function classifyTestType(fileName, filePath, content = "") {
   if (/\.e2e\./.test(fileName) || /e2e[_-]/.test(fileName) || /E2E\.java$/.test(fileName)) {
     return "e2e";
   }
+  if (/\.contract\./.test(fileName) || /ContractTest\.(java|ts|js)$/.test(fileName) || /contract/i.test(filePath)) {
+    return "contract";
+  }
   if (/\.integration\./.test(fileName) || /IT\.java$/.test(fileName) || /integration/i.test(filePath)) {
     return "integration";
   }

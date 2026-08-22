@@ -21,12 +21,14 @@ import { useI18n } from "../i18n";
 
 // ── Model types（與 server 對應，寬鬆防禦）──
 interface RuApi { method: string; path: string; file?: string | null; handler?: string | null; featureIds?: string[] }
-interface RuTest { testFile: string; productionFile: string; testCount?: number; featureIds?: string[] }
+interface RuTest { testFile: string; productionFile: string; testCount?: number; kind?: string | null; featureIds?: string[] }
 interface RuChange { hash: string; date: string; subject: string; kind?: string; files?: number; featureIds?: string[] }
+interface RuTestEntry { file: string; kind?: string | null }
 interface RuFeature {
   id: string; name: string; status?: string; description?: string;
   fileCount?: number; files?: string[]; apiCount?: number; apis?: string[];
-  testCount?: number; tests?: string[]; changeCount?: number;
+  testCount?: number; tests?: RuTestEntry[]; changeCount?: number;
+  lastChangeAt?: string | null; knowledgeGaps?: string[];
 }
 interface RuModel {
   root?: string; generatedAt?: string; headSha?: string; stale?: boolean;
@@ -114,7 +116,7 @@ export default function RuView({ category, rootPath, theme, onOpenFile, onOpenCa
 
   // Code Intelligence 原料（call chain + call graph）— 只有需要此資料的分類才抓
   const [codeIntel, setCodeIntel] = useState<CodeIntel | null>(null);
-  const needsCodeIntel = category === "apis" || category === "callgraph" || category === "overview";
+  const needsCodeIntel = category === "apis" || category === "callgraph" || category === "overview" || category === "features";
   useEffect(() => {
     if (!rootPath || !needsCodeIntel || codeIntel) return;
     let cancelled = false;
@@ -204,7 +206,10 @@ export default function RuView({ category, rootPath, theme, onOpenFile, onOpenCa
               <StatBox label={t("ruTree.tests")} value={sm?.tests ?? 0} />
               <StatBox label={t("ruTree.noTests")} value={noTests} tone={noTests ? "warn" : undefined} />
             </div>
-            <FeaturesGrid features={model.features || []} t={t} accent={accent} borderLight={borderLight} accentText={accentText} FileLink={FileLink} />
+            <FeaturesGrid
+              features={model.features || []} model={model} callChainMap={callChainMap}
+              t={t} accent={accent} borderLight={borderLight} accentText={accentText} FileLink={FileLink}
+            />
           </div>
         );
       }
@@ -277,13 +282,14 @@ export default function RuView({ category, rootPath, theme, onOpenFile, onOpenCa
               <StatBox label={t("ruTree.noTests")} value={gaps?.featuresWithoutTests?.length ?? 0} tone={(gaps?.featuresWithoutTests?.length) ? "warn" : undefined} />
             </div>
             <div className="rounded-lg border overflow-hidden" style={{ borderColor: borderLight }}>
-              <div className="grid grid-cols-[1.2fr_auto_1.2fr] px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50" style={{ borderBottom: `1px solid ${borderLight}` }}>
-                <span>🧪 {t("ruTree.tests")}</span><span className="text-center w-10">n</span><span>{t("ru.view.testsTarget")}</span>
+              <div className="grid grid-cols-[1.2fr_auto_auto_1.2fr] px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50" style={{ borderBottom: `1px solid ${borderLight}` }}>
+                <span>🧪 {t("ruTree.tests")}</span><span className="text-center w-10">n</span><span className="w-16 text-center">kind</span><span>{t("ru.view.testsTarget")}</span>
               </div>
               {rows.map((r, i) => (
-                <div key={`${r.testFile}-${i}`} className={`grid grid-cols-[1.2fr_auto_1.2fr] items-center px-3 py-1.5 gap-2 ${i % 2 ? "bg-stone-50" : "bg-white"}`}>
+                <div key={`${r.testFile}-${i}`} className={`grid grid-cols-[1.2fr_auto_auto_1.2fr] items-center px-3 py-1.5 gap-2 ${i % 2 ? "bg-stone-50" : "bg-white"}`}>
                   <FileLink file={r.testFile} />
                   <span className="text-[10px] font-bold text-stone-400 w-10 text-center">{r.testCount ?? ""}</span>
+                  <span className="w-16 flex justify-center"><KindBadge kind={r.kind} /></span>
                   {r.productionFile ? <FileLink file={r.productionFile} /> : <span className="text-[11px] text-stone-300">—</span>}
                 </div>
               ))}
@@ -366,51 +372,206 @@ export default function RuView({ category, rootPath, theme, onOpenFile, onOpenCa
 }
 
 // ═══ Features 卡片牆 ═══
-function FeaturesGrid({ features, t, accent, borderLight, accentText, FileLink }: any) {
-  const [openId, setOpenId] = useState<string | null>(null);
+// ═══ Test kind badge（unit/integration/contract/e2e — test-intelligence 慣例判定）═══
+const KIND_COLOR: Record<string, string> = { unit: "#64748b", integration: "#7c3aed", contract: "#d97706", e2e: "#059669" };
+function KindBadge({ kind }: { kind?: string | null }) {
+  if (!kind) return <span className="text-[9px] text-stone-300">—</span>;
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {features.map((f: RuFeature) => {
-        const open = openId === f.id;
-        return (
-          <div key={f.id} className="rounded-lg border bg-white overflow-hidden" style={{ borderColor: open ? accent : borderLight }}>
-            <button onClick={() => setOpenId(open ? null : f.id)} className="w-full text-left px-3 py-2 hover:bg-stone-50 transition-colors">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono font-bold shrink-0" style={{ color: accentText }}>{f.id}</span>
-                <span className="text-xs font-semibold text-stone-700 truncate flex-1">{f.name}</span>
-                {f.status === "active" && <span className="text-[9px] text-emerald-500 shrink-0">●</span>}
-                <span className="text-[9px] text-stone-300 shrink-0">{open ? "▾" : "▸"}</span>
-              </div>
-              {f.description && <p className="text-[10px] text-stone-400 mt-0.5 line-clamp-2">{f.description}</p>}
-              <div className="flex gap-2 mt-1 text-[10px] text-stone-500">
-                <span>📁 {f.fileCount ?? (f.files || []).length}</span>
-                <span>⚡ {f.apiCount ?? (f.apis || []).length}</span>
-                <span className={f.testCount ? "" : "text-amber-500"}>🧪 {f.testCount ?? 0}</span>
-                <span>🕘 {f.changeCount ?? 0}</span>
-              </div>
-            </button>
-            {open && (
-              <div className="px-3 pb-2 space-y-1.5" style={{ borderTop: `1px solid ${borderLight}`, paddingTop: 6 }}>
-                <div>
-                  <div className="text-[9px] font-bold text-stone-400 mb-0.5">📁 {t("ruTree.files")}</div>
-                  {(f.files || []).map((file: string) => <div key={file}><FileLink file={file}>{baseName(file)}</FileLink></div>)}
-                  {!(f.files || []).length && <span className="text-[10px] text-stone-300">—</span>}
-                </div>
-                <div>
-                  <div className="text-[9px] font-bold text-stone-400 mb-0.5">⚡ {t("ruTree.apis")}</div>
-                  {(f.apis || []).slice(0, 20).map((api: string) => <div key={api} className="text-[10px] font-mono text-stone-500 break-all">{api}</div>)}
-                  {!(f.apis || []).length && <span className="text-[10px] text-stone-300">—</span>}
-                </div>
-                <div>
-                  <div className="text-[9px] font-bold text-stone-400 mb-0.5">🧪 {t("ruTree.tests")}</div>
-                  {(f.tests || []).map((tf: string) => <div key={tf}><FileLink file={tf}>{baseName(tf)}</FileLink></div>)}
-                  {!(f.tests || []).length && <span className="text-[10px] text-amber-500">{t("ruTree.noTests")}</span>}
-                </div>
-              </div>
-            )}
+    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded text-white font-mono" style={{ backgroundColor: KIND_COLOR[kind] || "#a8a29e" }} data-testid={`kind-${kind}`}>
+      {kind}
+    </span>
+  );
+}
+
+// ═══ CallChainTree 共用（APIs 表 ▼ 展開 + Feature Cockpit ENTRY）═══
+function CallChainTree({ chain, t, borderLight }: { chain: { function: string; depth: number; file?: string; resolved?: boolean }[]; t: any; borderLight: string }) {
+  return (
+    <div className="font-mono text-[10px] leading-relaxed border-l-2 pl-2" style={{ borderColor: borderLight }} data-testid="ru-callchain">
+      {chain.map((c: any, j: number) => (
+        <div key={j} style={{ paddingLeft: (c.depth || 0) * 12 }} className={c.resolved ? "text-stone-600" : "text-stone-300"}>
+          {"· ".repeat(Math.min(c.depth || 0, 1))}{c.function}()
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ═══ 🎯 Features：卡片牆 → 點卡進 Feature Cockpit ═══
+function FeaturesGrid({ features, model, callChainMap, t, accent, borderLight, accentText, FileLink }: any) {
+  const [openId, setOpenId] = useState<string | null>(null); // cockpit 選中 feature
+  if (openId) {
+    const f = features.find((x: RuFeature) => x.id === openId);
+    if (f) return (
+      <FeatureCockpit
+        feature={f} model={model} callChainMap={callChainMap}
+        t={t} accent={accent} borderLight={borderLight} accentText={accentText} FileLink={FileLink}
+        onBack={() => setOpenId(null)}
+      />
+    );
+  }
+  return (
+    <div className="grid grid-cols-2 gap-2" data-testid="ru-feature-grid">
+      {features.map((f: RuFeature) => (
+        <button key={f.id} onClick={() => setOpenId(f.id)}
+          className="text-left rounded-lg border bg-white px-3 py-2 hover:border-stone-400 hover:shadow-sm transition-all"
+          style={{ borderColor: borderLight }}
+          data-testid={`ru-feature-card-${f.id}`}>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono font-bold shrink-0" style={{ color: accentText }}>{f.id}</span>
+            <span className="text-xs font-semibold text-stone-700 truncate flex-1">{f.name}</span>
+            {f.status === "active" && <span className="text-[9px] text-emerald-500 shrink-0">●</span>}
+            <span className="text-[9px] text-stone-400 shrink-0">→</span>
           </div>
-        );
-      })}
+          {f.description && <p className="text-[10px] text-stone-400 mt-0.5 line-clamp-2">{f.description}</p>}
+          <div className="flex gap-2 mt-1 text-[10px] text-stone-500">
+            <span>📁 {f.fileCount ?? (f.files || []).length}</span>
+            <span>⚡ {f.apiCount ?? (f.apis || []).length}</span>
+            <span className={f.testCount ? "" : "text-amber-500"}>🧪 {f.testCount ?? 0}</span>
+            <span>🕘 {f.changeCount ?? 0}</span>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ═══ 🛗 Feature Cockpit：單一 feature 全景（Purpose / Entry / Code / Tests / Changes / Model）═══
+function FeatureCockpit({ feature, model, callChainMap, t, accent, borderLight, accentText, FileLink, onBack }: any) {
+  const f = feature as RuFeature;
+  const [showAi, setShowAi] = useState(false);
+  const [aiMd, setAiMd] = useState<string | null>(null);
+  // aiUnderstanding 懶載（FEATURES.json — cockpit 開了才抓）
+  const rootPath = model?.root || "";
+  useEffect(() => {
+    if (!showAi || aiMd !== null || !rootPath) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/coding-features?path=${encodeURIComponent(rootPath)}`);
+        if (!res.ok) return;
+        const d = await res.json();
+        const hit = (d.features || []).find((x: any) => x.id === f.id);
+        if (!cancelled) setAiMd(hit?.aiUnderstanding || "");
+      } catch { if (!cancelled) setAiMd(""); }
+    })();
+    return () => { cancelled = true; };
+  }, [showAi, aiMd, f.id, rootPath]);
+
+  const kindCounts = (f.tests || []).reduce((acc: Record<string, number>, tf) => {
+    const k = tf.kind || "unknown";
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
+  // CALL PATH 統計：feature 的 routes 所有鏈的 distinct functions / files
+  const chainFns = new Set<string>();
+  const chainFiles = new Set<string>();
+  for (const api of f.apis || []) {
+    const chain = callChainMap?.get(api);
+    if (chain) for (const c of chain) {
+      chainFns.add(c.function);
+      if (c.file) chainFiles.add(c.file);
+    }
+  }
+  const sha = (model?.headSha || "").slice(0, 7);
+
+  return (
+    <div className="space-y-3" data-testid={`ru-cockpit-${f.id}`}>
+      {/* Header */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={onBack} data-testid="ru-cockpit-back" className="text-[10px] px-2 py-0.5 rounded border bg-white hover:bg-stone-50" style={{ borderColor: borderLight }}>← {t("ru.view.backToList")}</button>
+        <span className="text-[10px] font-mono font-bold" style={{ color: accentText }}>{f.id}</span>
+        <span className="text-sm font-bold text-stone-800">{f.name}</span>
+        {f.status === "active" && <span className="text-[10px] text-emerald-500 font-bold">● active</span>}
+        <span className="ml-auto text-[9px] font-mono text-stone-400">{t("ru.view.modelFresh")} @ {sha || "?"}</span>
+      </div>
+
+      {/* Purpose */}
+      <div className="rounded-lg border bg-white px-3 py-2" style={{ borderColor: accent }}>
+        <div className="text-[9px] font-bold text-stone-400 mb-0.5">🎯 {t("ru.view.purpose")}</div>
+        <p className="text-xs text-stone-600 leading-relaxed">{f.description || "—"}</p>
+        <button onClick={() => setShowAi(v => !v)} className="text-[10px] mt-1 text-stone-400 hover:text-stone-600 underline">
+          {showAi ? "▾" : "▸"} {t("ru.view.aiUnderstanding")}
+        </button>
+        {showAi && (
+          aiMd === null
+            ? <div className="text-[10px] text-stone-300 mt-1">{t("ru.view.intelLoading")}</div>
+            : aiMd
+              ? <pre className="text-[10px] text-stone-500 whitespace-pre-wrap mt-1 max-h-72 overflow-y-auto font-mono leading-relaxed">{aiMd}</pre>
+              : <div className="text-[10px] text-stone-300 mt-1">{t("ru.view.noAiUnderstanding")}</div>
+        )}
+      </div>
+
+      {/* Entry Points + Call Path */}
+      <div className="rounded-lg border bg-white overflow-hidden" style={{ borderColor: borderLight }}>
+        <div className="px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50" style={{ borderBottom: `1px solid ${borderLight}` }}>
+          ⚡ {t("ru.view.entryPoints")} · {(f.apis || []).length}
+          {chainFns.size > 0 && <span className="ml-2 font-normal text-stone-400">{t("ru.view.callPath")}：{chainFns.size} fns · {chainFiles.size} files</span>}
+        </div>
+        {(f.apis || []).slice(0, 30).map((api: string) => {
+          const chain = callChainMap?.get(api);
+          return <EntryRow key={api} api={api} chain={chain} t={t} borderLight={borderLight} />;
+        })}
+        {!(f.apis || []).length && <div className="px-3 py-2 text-[10px] text-stone-300">—</div>}
+      </div>
+
+      {/* Code + Tests 兩欄 */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-lg border bg-white overflow-hidden" style={{ borderColor: borderLight }}>
+          <div className="px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50" style={{ borderBottom: `1px solid ${borderLight}` }}>📁 {t("ru.view.codeStructure")} · {(f.files || []).length}</div>
+          <div className="px-3 py-2 space-y-0.5 max-h-48 overflow-y-auto">
+            {(f.files || []).map((file: string) => <div key={file}><FileLink file={file}>{file}</FileLink></div>)}
+            {!(f.files || []).length && <span className="text-[10px] text-stone-300">—</span>}
+          </div>
+        </div>
+        <div className="rounded-lg border bg-white overflow-hidden" style={{ borderColor: borderLight }}>
+          <div className="px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50 flex items-center gap-2" style={{ borderBottom: `1px solid ${borderLight}` }}>
+            <span>🧪 {t("ruTree.tests")} · {f.testCount ?? 0}</span>
+            <span className="ml-auto flex gap-1.5">
+              {Object.entries(kindCounts).map(([k, n]) => (
+                <span key={k} className="flex items-center gap-0.5 font-normal"><KindBadge kind={k} />{n}</span>
+              ))}
+            </span>
+          </div>
+          <div className="px-3 py-2 space-y-0.5 max-h-48 overflow-y-auto">
+            {(f.tests || []).map((tf: RuTestEntry) => (
+              <div key={tf.file} className="flex items-center gap-1.5">
+                <KindBadge kind={tf.kind} />
+                <FileLink file={tf.file} />
+              </div>
+            ))}
+            {!(f.tests || []).length && <div className="text-[10px] text-amber-500">⚠ {t("ruTree.noTests")}</div>}
+          </div>
+        </div>
+      </div>
+
+      {/* Changes */}
+      <div className="rounded-lg border bg-white px-3 py-2 flex items-center gap-3 flex-wrap" style={{ borderColor: borderLight }}>
+        <span className="text-[10px] font-bold text-stone-400">🕘 {t("ruTree.changeHistory")}</span>
+        <span className="text-[11px] text-stone-600 font-bold">{f.changeCount ?? 0}</span>
+        {f.lastChangeAt && <span className="text-[10px] text-stone-400 font-mono">{f.lastChangeAt.slice(0, 10)}</span>}
+        {(f.knowledgeGaps || []).includes("no-tests") && <span className="ml-auto text-[9px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">gap: no-tests</span>}
+        {(f.knowledgeGaps || []).includes("no-runbook") && <span className="text-[9px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">gap: no-runbook</span>}
+      </div>
+    </div>
+  );
+}
+
+// Entry 單行（method path + ▼ 鏈）
+function EntryRow({ api, chain, t, borderLight }: any) {
+  const [open, setOpen] = useState(false);
+  const [method, ...rest] = api.split(" ");
+  return (
+    <div className="border-b last:border-b-0" style={{ borderColor: borderLight }}>
+      <div className="flex items-center gap-2 px-3 py-1.5">
+        {chain && (
+          <button onClick={() => setOpen(v => !v)}
+            className={`text-[9px] px-1 rounded border shrink-0 ${open ? "bg-stone-700 text-white border-stone-700" : "bg-white text-stone-400 border-stone-200 hover:border-stone-400"}`}
+            title={t("ru.view.callChain")}>▼</button>
+        )}
+        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded text-white shrink-0" style={{ backgroundColor: METHOD_COLOR[method?.toUpperCase()] || "#6b7280" }}>{method}</span>
+        <span className="text-[11px] font-mono text-stone-700 break-all">{rest.join(" ")}</span>
+      </div>
+      {open && chain && <div className="px-3 pb-2"><CallChainTree chain={chain} t={t} borderLight={borderLight} /></div>}
     </div>
   );
 }
@@ -623,15 +784,9 @@ function ApisTable({ apis, t, borderLight, accentText, FeatureChip, FileLink, ca
                 <span className="flex gap-1 justify-end flex-wrap max-w-[140px]">{(a.featureIds || []).map(fid => <FeatureChip key={fid} id={fid} />)}</span>
               </div>
               {isOpen && chain && (
-                <div className="px-3 pb-2 pt-0.5" data-testid="ru-callchain">
+                <div className="px-3 pb-2 pt-0.5">
                   <div className="text-[9px] font-bold text-stone-400 mb-1">{t("ru.view.callChain")} · {chain.length}</div>
-                  <div className="font-mono text-[10px] leading-relaxed border-l-2 pl-2" style={{ borderColor: borderLight }}>
-                    {chain.map((c: any, j: number) => (
-                      <div key={j} style={{ paddingLeft: (c.depth || 0) * 12 }} className={c.resolved ? "text-stone-600" : "text-stone-300"}>
-                        {"· ".repeat(Math.min(c.depth || 0, 1))}{c.function}()
-                      </div>
-                    ))}
-                  </div>
+                  <CallChainTree chain={chain} t={t} borderLight={borderLight} />
                 </div>
               )}
             </div>

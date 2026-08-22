@@ -114,6 +114,7 @@ export async function buildReleaseUnitModel(root, opts = {}) {
   const fileFeatures = _readJson(join(root, ".paaw", "features", "FILE-FEATURES.json"), {});
   const apiMap = _readJson(join(ciDir, "api-function-map.json"), { routes: [] });
   const testMap = _readJson(join(ciDir, "test-code-map.json"), { mappings: [] });
+  const tiData = _readJson(join(ciDir, "test-intelligence.json"), null); // classifyTestType 的 kind 在這
   const depGraph = _readJson(join(ciDir, "dependency-graph.json"), { files: [], edges: [] });
 
   const features = (featuresData?.features || (Array.isArray(featuresData) ? featuresData : []));
@@ -150,10 +151,12 @@ export async function buildReleaseUnitModel(root, opts = {}) {
 
   // ── Tests → feature ──
   const mappings = testMap.mappings || [];
+  // test 檔 → kind（unit/integration/contract/e2e — classifyTestType 慣例判定，路徑 normalize 對齊）
+  const testKindMap = new Map((tiData?.testToCode || []).map(t => [_norm(t.testFile), t.testType || null]));
   const testRelations = mappings.map(m => {
     const prod = _norm(m.productionFile);
     const ids = fIdsByFile.get(prod) ? [...fIdsByFile.get(prod)] : [];
-    return { testFile: _norm(m.testFile), productionFile: prod, testCount: m.testCount ?? 0, featureIds: ids };
+    return { testFile: _norm(m.testFile), productionFile: prod, testCount: m.testCount ?? 0, kind: testKindMap.get(_norm(m.testFile)) || null, featureIds: ids };
   });
   testRelations.sort((a, b) => (a.testFile + "→" + a.productionFile).localeCompare(b.testFile + "→" + b.productionFile)); // 決定性順序
 
@@ -202,7 +205,7 @@ export async function buildReleaseUnitModel(root, opts = {}) {
       files,
       apis: fApis.map(a => `${a.method} ${a.path}`),
       apiCount: fApis.length,
-      tests: fTests.map(t => t.testFile),
+      tests: fTests.map(t => ({ file: t.testFile, kind: t.kind || null })),
       testCount: fTests.reduce((s, t) => s + (t.testCount || 0), 0),
       changeCount: st.count,
       lastChangeAt: st.lastAt,

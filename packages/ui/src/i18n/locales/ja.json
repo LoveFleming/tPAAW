@@ -949,5 +949,13 @@
   "ru.view.cgPick": "← 関数を選ぶと callers / callees 表示",
   "ru.view.cgCallers": "Callers（呼び出し元）",
   "ru.view.cgCallees": "Callees（呼び出し先）",
-  "ru.view.intelLoading": "Code Intelligence（コールグラフ）読み込み中…"
+  "ru.view.intelLoading": "Code Intelligence（コールグラフ）読み込み中…",
+  "ru.view.backToList": "機能一覧に戻る",
+  "ru.view.purpose": "Purpose 目的",
+  "ru.view.aiUnderstanding": "AI 深掘り理解",
+  "ru.view.noAiUnderstanding": "（この機能の AI 理解はまだありません）",
+  "ru.view.entryPoints": "Entry Points",
+  "ru.view.callPath": "Call Path",
+  "ru.view.codeStructure": "Code Structure（AST から生成）",
+  "ru.view.modelFresh": "MODEL ✓ Fresh"
 }

@@ -949,5 +949,13 @@
   "ru.view.cgPick": "← 點選 function 看 callers / callees",
   "ru.view.cgCallers": "Callers 被誰呼叫",
   "ru.view.cgCallees": "Callees 呼叫了誰",
-  "ru.view.intelLoading": "載入 Code Intelligence（call graph）…"
+  "ru.view.intelLoading": "載入 Code Intelligence（call graph）…",
+  "ru.view.backToList": "回 feature 列表",
+  "ru.view.purpose": "Purpose 用途",
+  "ru.view.aiUnderstanding": "AI 深入理解",
+  "ru.view.noAiUnderstanding": "（此 feature 尚無 AI 深入理解）",
+  "ru.view.entryPoints": "Entry Points 進入點",
+  "ru.view.callPath": "Call Path",
+  "ru.view.codeStructure": "Code Structure（Generated from AST）",
+  "ru.view.modelFresh": "MODEL ✓ Fresh"
 }

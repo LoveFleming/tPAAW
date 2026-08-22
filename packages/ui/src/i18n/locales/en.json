@@ -949,5 +949,13 @@
   "ru.view.cgPick": "← Pick a function to see callers / callees",
   "ru.view.cgCallers": "Callers",
   "ru.view.cgCallees": "Callees",
-  "ru.view.intelLoading": "Loading Code Intelligence (call graph)…"
+  "ru.view.intelLoading": "Loading Code Intelligence (call graph)…",
+  "ru.view.backToList": "Back to features",
+  "ru.view.purpose": "Purpose",
+  "ru.view.aiUnderstanding": "AI understanding",
+  "ru.view.noAiUnderstanding": "(No AI understanding for this feature yet)",
+  "ru.view.entryPoints": "Entry Points",
+  "ru.view.callPath": "Call Path",
+  "ru.view.codeStructure": "Code Structure (Generated from AST)",
+  "ru.view.modelFresh": "MODEL ✓ Fresh"
 }
