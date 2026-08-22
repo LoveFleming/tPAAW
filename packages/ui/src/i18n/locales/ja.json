@@ -924,5 +924,13 @@
   "ru.qa.sugTitle": "新人12問 · クリックで質問",
   "ho.tab.main": "メイン情報",
   "ho.tab.qa": "新人12問",
-  "ru.qa.searching": "エビデンス検索中…"
+  "ru.qa.searching": "エビデンス検索中…",
+  "ru.view.handler": "ハンドラ",
+  "ru.view.noHandler": "未検出",
+  "ru.view.testsTarget": "テスト対象",
+  "ru.view.all": "すべて",
+  "ru.view.mappedTo": "Feature 割当",
+  "ru.view.noFeature": "Feature なし",
+  "ru.view.runbooksGap": "以下の features は runbook 未整備",
+  "ru.view.openHint": "カテゴリをクリックでタブ表示"
 }

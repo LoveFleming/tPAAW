@@ -924,5 +924,13 @@
   "ru.qa.sugTitle": "Newcomer 12 questions · click to ask",
   "ho.tab.main": "Main Info",
   "ho.tab.qa": "Newcomer 12 Questions",
-  "ru.qa.searching": "Searching evidence…"
+  "ru.qa.searching": "Searching evidence…",
+  "ru.view.handler": "Handler",
+  "ru.view.noHandler": "not located",
+  "ru.view.testsTarget": "Covers production",
+  "ru.view.all": "All",
+  "ru.view.mappedTo": "Feature ownership",
+  "ru.view.noFeature": "No feature owns",
+  "ru.view.runbooksGap": "Features below have no runbook yet — visible work items",
+  "ru.view.openHint": "Click a category to open it as a tab"
 }

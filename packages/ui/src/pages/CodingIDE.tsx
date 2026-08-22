@@ -32,6 +32,7 @@ import API_BASE from "../api";
 import DirectoryExplorer from "../components/DirectoryExplorer";
 import SidebarFileTree from "../components/SidebarFileTree";
 import RuTree from "../components/RuTree";
+import RuView, { type RuCategory } from "../components/RuView";
 import EMDashboard from "../components/EMDashboard";
 import { GitPanel } from "../components/git";
 import DiffViewer from "../components/DiffViewer";
@@ -76,7 +77,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "nightshift" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "release-unit" | "handover" | "troubleshooting";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "nightshift" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "release-unit" | "handover" | "troubleshooting" | "ru-view";
 
 interface MainTab {
   id: string;
@@ -882,7 +883,7 @@ export default function CodingIDE() {
         console.log(`[CodingIDE] Parsed ${savedTabs?.length || 0} saved tabs, active=${savedActive}`);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
-          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "terminal", "ai-crew", "standards", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "nightshift", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "release-unit"]);
+          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "terminal", "ai-crew", "standards", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "nightshift", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "release-unit", "ru-view"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", "));
           // Restore tabs (dashboard is already present)
@@ -2669,7 +2670,27 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           </div>
           <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
             {sidebarView === "ru" ? (
-              <RuTree rootPath={rootPath} theme={tk} onOpenFile={openFile} />
+              <RuTree
+                rootPath={rootPath}
+                theme={tk}
+                onOpenFile={openFile}
+                onOpenCategory={(cat: RuCategory) => {
+                  const META: Record<string, { icon: string; labelKey: string }> = {
+                    features: { icon: "🎯", labelKey: "ruTree.features" },
+                    apis: { icon: "⚡", labelKey: "ruTree.apis" },
+                    files: { icon: "📁", labelKey: "ruTree.files" },
+                    deps: { icon: "🔗", labelKey: "ruTree.dependencies" },
+                    tests: { icon: "🧪", labelKey: "ruTree.tests" },
+                    changes: { icon: "🕘", labelKey: "ruTree.changeHistory" },
+                    aiwork: { icon: "🤖", labelKey: "ruTree.aiWorkHistory" },
+                    config: { icon: "⚙️", labelKey: "ruTree.configuration" },
+                    runbooks: { icon: "📕", labelKey: "ruTree.runbooks" },
+                  };
+                  const m = META[cat];
+                  openMainTab({ id: `ru:${cat}`, type: "ru-view", label: tt(m?.labelKey || "ruTree.features"), icon: m?.icon || "🧭", closable: true, data: { category: cat } });
+                }}
+                activeCategory={activeMainTab?.type === "ru-view" ? activeMainTab.data?.category : null}
+              />
             ) : rootPath ? (
               <SidebarFileTree
                 projectRoot={rootPath}
@@ -3495,6 +3516,20 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 />
               </div>
             )}
+            {/* === RU 分類頁（RuView，每分類一個 tab）=== */}
+            {mainTabs.filter(t => t.type === "ru-view").map(tab => (
+              <div key={tab.id} className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTabId === tab.id ? undefined : "none" }}>
+                <TabErrorBoundary label={tab.label}>
+                  <RuView
+                    category={(tab.data?.category || "features") as RuCategory}
+                    rootPath={rootPath}
+                    theme={{ borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, accentText: tk.accentText }}
+                    onOpenFile={openFile}
+                  />
+                </TabErrorBoundary>
+              </div>
+            ))}
             {/* === Release Unit Toolbox === (keep mounted, hide with CSS) */}
             {mainTabs.some(t => t.type === "release-unit") && rootPath && (
               <div key="tool:ru" className="flex-1 flex flex-col min-w-0"

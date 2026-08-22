@@ -924,5 +924,13 @@
   "ru.qa.sugTitle": "新人 12 問 · 點題即問",
   "ho.tab.main": "Main Info 交接包",
   "ho.tab.qa": "新人 12 問",
-  "ru.qa.searching": "查證據中…"
+  "ru.qa.searching": "查證據中…",
+  "ru.view.handler": "Handler",
+  "ru.view.noHandler": "未定位",
+  "ru.view.testsTarget": "測試對象",
+  "ru.view.all": "全部",
+  "ru.view.mappedTo": "Feature 認領",
+  "ru.view.noFeature": "無 feature 認領",
+  "ru.view.runbooksGap": "以下 features 還沒有 runbook — 看得到的工作項",
+  "ru.view.openHint": "點分類 → 主區開 tab 顯示內容"
 }
