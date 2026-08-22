@@ -914,5 +914,14 @@
   "ruTree.aiWorkHint": "dispatch-log / coding-memory 正規化中（R4）",
   "ruTree.viewInPanel": "詳細は EM ダッシュボードで",
   "ruTree.configLoop": "ループモード",
-  "ruTree.runbooksHint": "ランブック未作成。knowledgeGaps で追跡"
+  "ruTree.runbooksHint": "ランブック未作成。knowledgeGaps で追跡",
+  "ru.qa.sug5": "特定の機能はどこ？",
+  "ru.qa.sug6": "なぜこの設計なのか？",
+  "ru.qa.sug7": "この API の最終変更理由は？",
+  "ru.qa.sug8": "このフィールドの出所は？",
+  "ru.qa.sug9": "このファイル編集の影響は？",
+  "ru.qa.sug10": "どうデプロイする？",
+  "ru.qa.sug11": "障害時のロールバック方法は？",
+  "ru.qa.sug12": "最近の本番障害は？",
+  "ru.qa.sugTitle": "新人12問 · クリックで質問"
 }

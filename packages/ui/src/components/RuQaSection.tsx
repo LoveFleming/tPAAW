@@ -24,9 +24,13 @@ const EV_ICON: Record<string, string> = {
   doc: "📄", file: "📁", commit: "🔖", adr: "⚖️", task: "📋", api: "🔌", release: "🚀", stat: "📊",
 };
 
+// 新人 12 問完整清單 — 點了即問（對應 qa.mjs 12 intents）
 const SUGGESTIONS = [
   "ru.qa.sug1", "ru.qa.sug2", "ru.qa.sug3", "ru.qa.sug4",
+  "ru.qa.sug5", "ru.qa.sug6", "ru.qa.sug7", "ru.qa.sug8",
+  "ru.qa.sug9", "ru.qa.sug10", "ru.qa.sug11", "ru.qa.sug12",
 ] as const;
+const CIRCLED = ["①","②","③","④","⑤","⑥","⑦","⑧","⑨","⑩","⑪","⑫"];
 
 export default function RuQaSection({ rootPath, theme }: { rootPath: string; theme: any }) {
   const { t } = useI18n();
@@ -93,15 +97,18 @@ export default function RuQaSection({ rootPath, theme }: { rootPath: string; the
           </button>
         </div>
 
-        {/* 建議題（新人 12 問精選）*/}
-        <div className="flex flex-wrap gap-1 mt-1.5">
-          {SUGGESTIONS.map(s => (
-            <button key={s} onClick={() => ask(t(s))}
-              className="text-[10px] px-2 py-0.5 rounded-full border text-stone-500 hover:bg-stone-100"
-              style={{ borderColor: theme.borderLight }}>
-              {t(s)}
-            </button>
-          ))}
+        {/* 新人 12 問 — 完整清單，點了即問 */}
+        <div className="mt-1.5">
+          <div className="text-[9px] font-semibold text-stone-400 mb-1">{t("ru.qa.sugTitle")}</div>
+          <div className="flex flex-wrap gap-1">
+            {SUGGESTIONS.map((s, i) => (
+              <button key={s} onClick={() => ask(t(s))}
+                className="text-[10px] px-2 py-0.5 rounded-full border text-stone-600 hover:bg-stone-100 hover:border-stone-400 transition-colors"
+                style={{ borderColor: theme.borderLight }}>
+                <span className="text-stone-400 mr-0.5">{CIRCLED[i]}</span>{t(s)}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* 答案卡 */}

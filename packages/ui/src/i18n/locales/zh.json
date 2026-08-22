@@ -914,5 +914,14 @@
   "ruTree.aiWorkHint": "dispatch-log 與 coding-memory 正規化中（R4）",
   "ruTree.viewInPanel": "詳情請到 EM 大總管查看",
   "ruTree.configLoop": "Loop 模式",
-  "ruTree.runbooksHint": "尚無 runbook，缺口已列入 knowledgeGaps"
+  "ruTree.runbooksHint": "尚無 runbook，缺口已列入 knowledgeGaps",
+  "ru.qa.sug5": "某個功能在哪？",
+  "ru.qa.sug6": "為什麼當初這樣設計？",
+  "ru.qa.sug7": "這個 API 上次為什麼修改？",
+  "ru.qa.sug8": "這個欄位從哪裡來？",
+  "ru.qa.sug9": "修改這個檔案會影響什麼？",
+  "ru.qa.sug10": "如何部署？",
+  "ru.qa.sug11": "出問題怎麼 rollback？",
+  "ru.qa.sug12": "最近有哪些 production issue？",
+  "ru.qa.sugTitle": "新人 12 問 · 點題即問"
 }

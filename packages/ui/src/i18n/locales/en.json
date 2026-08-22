@@ -914,5 +914,14 @@
   "ruTree.aiWorkHint": "Dispatch-log & coding-memory normalization in progress (R4)",
   "ruTree.viewInPanel": "See EM Dashboard for details",
   "ruTree.configLoop": "Loop mode",
-  "ruTree.runbooksHint": "No runbooks yet; tracked in knowledgeGaps"
+  "ruTree.runbooksHint": "No runbooks yet; tracked in knowledgeGaps",
+  "ru.qa.sug5": "Where is a certain feature?",
+  "ru.qa.sug6": "Why was it designed this way?",
+  "ru.qa.sug7": "Why was this API last changed?",
+  "ru.qa.sug8": "Where does this field come from?",
+  "ru.qa.sug9": "What does editing this file affect?",
+  "ru.qa.sug10": "How to deploy?",
+  "ru.qa.sug11": "How to rollback on failure?",
+  "ru.qa.sug12": "Recent production issues?",
+  "ru.qa.sugTitle": "Newcomer 12 questions · click to ask"
 }
