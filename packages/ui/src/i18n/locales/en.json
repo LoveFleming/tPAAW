@@ -923,5 +923,7 @@
   "ru.qa.sug10": "How to deploy?",
   "ru.qa.sug11": "How to rollback on failure?",
   "ru.qa.sug12": "Recent production issues?",
-  "ru.qa.sugTitle": "Newcomer 12 questions · click to ask"
+  "ru.qa.sugTitle": "Newcomer 12 questions · click to ask",
+  "ho.tab.main": "Main Info",
+  "ho.tab.qa": "Newcomer 12 Questions"
 }

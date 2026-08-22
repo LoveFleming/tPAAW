@@ -923,5 +923,7 @@
   "ru.qa.sug10": "如何部署？",
   "ru.qa.sug11": "出問題怎麼 rollback？",
   "ru.qa.sug12": "最近有哪些 production issue？",
-  "ru.qa.sugTitle": "新人 12 問 · 點題即問"
+  "ru.qa.sugTitle": "新人 12 問 · 點題即問",
+  "ho.tab.main": "交接包",
+  "ho.tab.qa": "新人 12 問"
 }

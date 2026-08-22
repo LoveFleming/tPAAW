@@ -101,6 +101,8 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
   const [generating, setGenerating] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
   const [expandSection, setExpandSection] = useState<string | null>("project");
+  // Handover tab view：Main Info（交接包）| 新人 12 問（2026-08-22 Fleming）
+  const [hoTab, setHoTab] = useState<"main" | "qa">("main");
 
   const refresh = useCallback(async () => {
     if (!rootPath) return;
@@ -242,8 +244,20 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
           </div>
         )}
 
-        {/* ═══ 交接包 ═══ */}
+        {/* ═══ 交接包（tab view：Main Info | 新人 12 問）═══ */}
         {!loading && bundle?.initialized && bundle.hasKnowledge && (
+          <div>
+          <div className="flex items-center gap-1 px-5 pt-3 sticky top-0 z-10 bg-white" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
+            <button onClick={() => setHoTab("main")}
+              className={`text-xs font-semibold px-3 py-2 border-b-2 -mb-px transition-colors ${hoTab === "main" ? "border-stone-800 text-stone-800" : "border-transparent text-stone-400 hover:text-stone-600"}`}>
+              📋 {t("ho.tab.main")}
+            </button>
+            <button onClick={() => setHoTab("qa")}
+              className={`text-xs font-semibold px-3 py-2 border-b-2 -mb-px transition-colors ${hoTab === "qa" ? "border-stone-800 text-stone-800" : "border-transparent text-stone-400 hover:text-stone-600"}`}>
+              ❓ {t("ho.tab.qa")}
+            </button>
+          </div>
+          {hoTab === "main" ? (
           <div className="p-5 space-y-4">
             {/* 快覽列 */}
             <div className="grid grid-cols-4 gap-2">
@@ -322,8 +336,13 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
               </div>
             )}
 
-            {/* ═══ 新人 12 問 — deterministic Q&A（evidence 保證，R5 引擎；元件自帶 header）═══ */}
-            <RuQaSection rootPath={rootPath} theme={tk} />
+          </div>
+          ) : (
+            <div className="p-5">
+              {/* ═══ 新人 12 問 — deterministic Q&A（evidence 保證，R5 引擎；元件自帶 header）═══ */}
+              <RuQaSection rootPath={rootPath} theme={tk} />
+            </div>
+          )}
           </div>
         )}
       </div>
