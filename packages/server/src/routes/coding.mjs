@@ -3491,6 +3491,16 @@ export default async function projectRoute(req, res) {
       try {
         await paaw.init(); // 確保 .paaw 存在（無 .paaw 時先建骨架）
         const result = await rescanMechanicalLayer(root, PAAW_ROOT);
+        // 重掃成功 → 直接重建 Release Unit Model（不等 read-path self-heal；
+        // 否則 RU 樹 stale badge 停在舊狀態，體感「按了沒發生任何事」2026-08-22）
+        let ruModel = null;
+        try {
+          const { buildReleaseUnitModel } = await import("../lib/release-unit/model.mjs");
+          ruModel = await buildReleaseUnitModel(root);
+          result.ruModel = { ok: true, headSha: ruModel.headSha, apis: ruModel.summary?.apis, features: ruModel.summary?.features };
+        } catch (e) {
+          result.ruModel = { ok: false, error: e.message };
+        }
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(result));
       } catch (err) {

@@ -280,6 +280,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const [cuMeta, setCuMeta] = useState<{ hasPaaw: boolean; sourceFiles: number; doneCount: number; codeLastModified?: string | null; staleSteps?: Array<{ id: string; mechanical: boolean }>; staleCount?: number } | null>(null);
   const [cuInitBusy, setCuInitBusy] = useState(false);
   const [cuRescanBusy, setCuRescanBusy] = useState(false);
+  const [cuRescanMsg, setCuRescanMsg] = useState<"" | "ok" | "fail">("");
 
   // ── CU lifecycle phase（派生，不存儲）──
   // missing=無 .paaw｜no-code=code 尚少不催（剛建立/剛 import 還沒寫 code）｜ready=該跑｜partial=跑一半｜done=完成
@@ -1368,13 +1369,17 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                   if (!rootPath || cuRescanBusy) return;
                   setCuRescanBusy(true);
                   try {
-                    await fetch(`${API_BASE}/api/coding-project/cu-rescan-mechanical?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+                    try {
+                      const r = await fetch(`${API_BASE}/api/coding-project/cu-rescan-mechanical?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+                      setCuRescanMsg(r.ok ? "ok" : "fail");
+                      setTimeout(() => setCuRescanMsg(""), 3000);
+                    } catch { setCuRescanMsg("fail"); setTimeout(() => setCuRescanMsg(""), 3000); }
                     await Promise.all([refreshData(), loadPersistedSteps()]);
                   } finally { setCuRescanBusy(false); }
                 }}
                 disabled={cuRescanBusy}
                 className="text-sm px-2 py-1 rounded bg-orange-600 text-white hover:bg-orange-700 font-bold disabled:opacity-50"
-              >{cuRescanBusy ? "⏳ 重掃中..." : "⚡ 重掃機械層"}</button>
+              >{cuRescanBusy ? "⏳ 重掃中..." : cuRescanMsg === "ok" ? "✅ 已重掃+重建 RU model" : cuRescanMsg === "fail" ? "❌ 重掃失敗" : "⚡ 重掃機械層"}</button>
             )}
             {cuPhase === "done" && (
               <button
@@ -1433,13 +1438,17 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                         if (!rootPath || cuRescanBusy) return;
                         setCuRescanBusy(true);
                         try {
-                          await fetch(`${API_BASE}/api/coding-project/cu-rescan-mechanical?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+                          try {
+                            const r = await fetch(`${API_BASE}/api/coding-project/cu-rescan-mechanical?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+                            setCuRescanMsg(r.ok ? "ok" : "fail");
+                            setTimeout(() => setCuRescanMsg(""), 3000);
+                          } catch { setCuRescanMsg("fail"); setTimeout(() => setCuRescanMsg(""), 3000); }
                           await Promise.all([refreshData(), loadPersistedSteps()]);
                         } finally { setCuRescanBusy(false); }
                       }}
                       disabled={cuRescanBusy}
                       className="px-2 py-0.5 rounded bg-orange-600 text-white hover:bg-orange-700 font-bold disabled:opacity-50"
-                    >{cuRescanBusy ? "⏳ 重掃中..." : "⚡ 重掃機械層"}</button>
+                    >{cuRescanBusy ? "⏳ 重掃中..." : cuRescanMsg === "ok" ? "✅ 已重掃+重建 RU model" : cuRescanMsg === "fail" ? "❌ 重掃失敗" : "⚡ 重掃機械層"}</button>
                   )}
                   {staleSmart > 0 && (
                     <button
