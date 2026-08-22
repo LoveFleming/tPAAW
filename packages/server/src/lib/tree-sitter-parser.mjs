@@ -118,10 +118,41 @@ function extractCalls(funcNode) {
   return calls;
 }
 
+// ── Java Spring annotation → route（GetMapping/PostMapping/RequestMapping…）──
+function javaAnnotationRoute(annoNode) {
+  // web-tree-sitter childForFieldName 對部分 field 失效 — 掃 children fallback
+  if (annoNode.type !== "annotation" && annoNode.type !== "marker_annotation") return null; // @Xxx(...) vs @Xxx
+  const annoName = ((annoNode.childForFieldName("name") || annoNode.children.find(c => c.type === "identifier" || c.type === "scoped_identifier"))?.text || "").split(".").pop();
+  const MAPPING = { GetMapping: "GET", PostMapping: "POST", PutMapping: "PUT", DeleteMapping: "DELETE", PatchMapping: "PATCH", RequestMapping: "" };
+  if (!(annoName in MAPPING)) return null;
+  const args = annoNode.childForFieldName("arguments") || annoNode.children.find(c => c.type === "annotation_argument_list");
+  let pathStr = "";
+  let httpMethod = "";
+  if (args) {
+    for (const child of args.children) {
+      if (child.type === "string_literal") {
+        if (!pathStr) pathStr = child.text.replace(/^"|"$/g, "");
+      } else if (child.type === "assignment_expression" || child.type === "element_value_pair") {
+        const l = child.childForFieldName("left")?.text || child.children[0]?.text || "";
+        const r = child.childForFieldName("right") || child.children[2];
+        if (!r) continue;
+        if ((l === "value" || l === "path") && r.type === "string_literal") pathStr = r.text.replace(/^"|"$/g, "");
+        if (l === "method") {
+          const m = /RequestMethod\.(\w+)/.exec(r.text);
+          if (m) httpMethod = m[1].toUpperCase();
+        }
+      }
+    }
+  }
+  if (!pathStr) return { method: httpMethod || MAPPING[annoName] || "GET", path: "" }; // marker annotation（@PostMapping 無 path）→ 用 class prefix
+  return { method: httpMethod || MAPPING[annoName] || "GET", path: pathStr };
+}
+
 /**
  * Extract structured info from a single file's AST
  */
 function extractFileInfo(tree, filePath, language) {
+  let javaRoutePrefix = ""; // class-level @RequestMapping prefix
   const info = {
     file: filePath,
     language,
@@ -148,12 +179,34 @@ function extractFileInfo(tree, filePath, language) {
       }
     }
 
-    // ── Java method declarations ──
+    // ── Java class-level @RequestMapping prefix（classes 清單由下方既有 class 分支處理）──
+    if (language === "java" && node.type === "class_declaration") {
+      const mods = node.children.find(c => c.type === "modifiers");
+      if (mods) {
+        for (const c of mods.children) {
+          if (c.type === "annotation" && (c.childForFieldName("name")?.text || c.children.find(x => x.type === "identifier")?.text || "").endsWith("RequestMapping")) {
+            const ri = javaAnnotationRoute(c);
+            if (ri && ri.path) javaRoutePrefix = ri.path;
+          }
+        }
+      }
+    }
+
+    // ── Java method declarations + Spring mapping annotations ──
     if (node.type === "method_declaration" && language === "java") {
       const name = node.childForFieldName("name")?.text || "";
       const params = node.childForFieldName("parameters")?.text || "";
       if (name) {
         info.functions.push({ name, kind: "method", async: false, params });
+      }
+      // Spring routes：@GetMapping("/x") / @RequestMapping(value="/x", method=RequestMethod.POST)
+      const mods = node.children.find(c => c.type === "modifiers");
+      if (mods) {
+        for (const c of mods.children) {
+          if (c.type !== "annotation" && c.type !== "marker_annotation") continue;
+          const ri = javaAnnotationRoute(c);
+          if (ri && (ri.path || javaRoutePrefix)) info.routes.push({ method: ri.method, path: (javaRoutePrefix || "") + ri.path, handler: name });
+        }
       }
     }
 
@@ -280,6 +333,54 @@ function extractFileInfo(tree, filePath, language) {
         if (isPublic) {
           info.exports.push({ kind: "class", name, isDefault: false });
         }
+      }
+    }
+
+    // ── Python function definitions（pytest test_* 也在這進清單）──
+    if (language === "python" && node.type === "function_definition") {
+      const name = node.childForFieldName("name")?.text || "";
+      const params = node.childForFieldName("parameters")?.text || "()";
+      if (name) info.functions.push({ name, kind: "function", async: false, params });
+    }
+
+    // ── Python routes：@app.get("/x") / @router.post("/x") / @app.route("/x", methods=["POST"]) ──
+    if (language === "python" && node.type === "decorated_definition") {
+      const def = node.children.find(c => c.type === "function_definition" || c.type === "class_definition");
+      const handler = def?.childForFieldName("name")?.text || "";
+      const PY_HTTP = ["get", "post", "put", "patch", "delete", "head", "options", "route", "api_route"];
+      for (const dec of node.children) {
+        if (dec.type !== "decorator") continue;
+        const call = dec.children.find(c => c.type === "call");
+        if (!call) continue;
+        const fn = call.childForFieldName("function");
+        if (!fn || fn.type !== "attribute") continue; // 只認 obj.method 形態
+        const prop = fn.childForFieldName("attribute")?.text || "";
+        const obj = fn.childForFieldName("object")?.text || "";
+        if (!PY_HTTP.includes(prop)) continue;
+        if (!/^(app|router|api|bp|blueprint|ns|web|server|fastapi|flask)/i.test(obj)) continue;
+        const args = call.childForFieldName("arguments");
+        if (!args) continue;
+        let pathStr = "";
+        for (const c of args.children) {
+          if (c.type === "string") {
+            pathStr = c.text.replace(/^[rRbBfFuU]{0,2}['"]/, "").replace(/['"]$/, "");
+            break;
+          }
+        }
+        if (!pathStr) continue;
+        let m = "";
+        if (prop === "route" || prop === "api_route") {
+          m = "GET"; // Flask 預設 GET/HEAD/OPTIONS
+          for (const c of args.children) {
+            if (c.type === "keyword_argument" && (c.childForFieldName("name")?.text || "") === "methods") {
+              const mm = /["'](GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)["']/.exec((c.childForFieldName("value")?.text) || "");
+              if (mm) m = mm[1];
+            }
+          }
+        } else {
+          m = prop.toUpperCase();
+        }
+        info.routes.push({ method: m, path: pathStr, handler });
       }
     }
 
