@@ -13,6 +13,7 @@
 import React, { useState, useEffect, useCallback, Component, useMemo } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
+import RuQaSection from "./RuQaSection";
 import AgentSideChat from "./AgentSideChat";
 import MarkdownText from "./MarkdownText";
 
@@ -320,6 +321,9 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
                 )}
               </div>
             )}
+
+            {/* ═══ 新人 12 問 — deterministic Q&A（evidence 保證，R5 引擎；元件自帶 header）═══ */}
+            <RuQaSection rootPath={rootPath} theme={tk} />
           </div>
         )}
       </div>
