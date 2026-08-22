@@ -932,5 +932,22 @@
   "ru.view.mappedTo": "Feature ownership",
   "ru.view.noFeature": "No feature owns",
   "ru.view.runbooksGap": "Features below have no runbook yet — visible work items",
-  "ru.view.openHint": "Click a category to open it as a tab"
+  "ru.view.openHint": "Click a category to open it as a tab",
+  "ruTree.overview": "Release Unit Overview",
+  "ruTree.callGraph": "Call Graph",
+  "ru.view.descFeatures": "Feature cards — files / APIs / tests / changes",
+  "ru.view.descApis": "All API endpoints · ▼ expand call chain",
+  "ru.view.descFiles": "File ↔ feature mapping + hot unmapped",
+  "ru.view.descCallGraph": "Search a function → callers / callees",
+  "ru.view.descTests": "Test ↔ production file mapping",
+  "ru.view.descChanges": "Commit timeline (kind filter)",
+  "ru.view.descConfig": "Loop mode & project config",
+  "ru.view.callChain": "Call chain",
+  "ru.view.cgSearch": "Search function or file…",
+  "ru.view.cgResults": "Functions",
+  "ru.view.cgNoResult": "No matching function",
+  "ru.view.cgPick": "← Pick a function to see callers / callees",
+  "ru.view.cgCallers": "Callers",
+  "ru.view.cgCallees": "Callees",
+  "ru.view.intelLoading": "Loading Code Intelligence (call graph)…"
 }

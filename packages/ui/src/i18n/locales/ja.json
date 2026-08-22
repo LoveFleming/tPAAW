@@ -932,5 +932,22 @@
   "ru.view.mappedTo": "Feature 割当",
   "ru.view.noFeature": "Feature なし",
   "ru.view.runbooksGap": "以下の features は runbook 未整備",
-  "ru.view.openHint": "カテゴリをクリックでタブ表示"
+  "ru.view.openHint": "カテゴリをクリックでタブ表示",
+  "ruTree.overview": "Release Unit 概要",
+  "ruTree.callGraph": "コールグラフ",
+  "ru.view.descFeatures": "機能カード — ファイル / API / テスト / 変更",
+  "ru.view.descApis": "全 API エンドポイント · ▼ コールチェーン展開",
+  "ru.view.descFiles": "ファイル ↔ フィーチャー対応 + 未マップ多発ファイル",
+  "ru.view.descCallGraph": "関数を検索 → callers / callees",
+  "ru.view.descTests": "テスト ↔ 本番コード対応",
+  "ru.view.descChanges": "コミットタイムライン（kind 絞り込み）",
+  "ru.view.descConfig": "ループモードとプロジェクト設定",
+  "ru.view.callChain": "コールチェーン",
+  "ru.view.cgSearch": "関数名やファイルを検索…",
+  "ru.view.cgResults": "関数",
+  "ru.view.cgNoResult": "該当する関数なし",
+  "ru.view.cgPick": "← 関数を選ぶと callers / callees 表示",
+  "ru.view.cgCallers": "Callers（呼び出し元）",
+  "ru.view.cgCallees": "Callees（呼び出し先）",
+  "ru.view.intelLoading": "Code Intelligence（コールグラフ）読み込み中…"
 }

@@ -31,8 +31,7 @@ import "highlight.js/styles/github.css";
 import API_BASE from "../api";
 import DirectoryExplorer from "../components/DirectoryExplorer";
 import SidebarFileTree from "../components/SidebarFileTree";
-import RuTree from "../components/RuTree";
-import RuView, { type RuCategory } from "../components/RuView";
+import RuView, { RU_CATEGORY_META, type RuCategory } from "../components/RuView";
 import EMDashboard from "../components/EMDashboard";
 import { GitPanel } from "../components/git";
 import DiffViewer from "../components/DiffViewer";
@@ -265,7 +264,6 @@ export default function CodingIDE() {
   // ── Layout State ──
   const [sidebarWidth, setSidebarWidth] = useState(240);
   // Sidebar 視圖：檔案樹 vs Release Unit 樹（2026-08-22，North Star：RU 是導航第一原則）
-  const [sidebarView, setSidebarView] = useState<"files" | "ru">("files");
   const [fileTreeHidden, setFileTreeHidden] = useState(false);
   const [aiPanelWidth, setAiPanelWidth] = useState(360);
   const [terminalHeight, setTerminalHeight] = useState(200);
@@ -2627,12 +2625,12 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:troubleshooting") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:troubleshooting" ? tk.toolbarActive : "transparent"; }}
           title={tt("ops.title")}>🔧 Ops</button>
-        <button onClick={() => openMainTab({ id: "tool:ru", type: "release-unit", label: "Release Unit", icon: "🧭", closable: true })}
+        <button onClick={() => openMainTab({ id: "ru:overview", type: "ru-view", label: tt("ruTree.overview"), icon: "🧭", closable: true, data: { category: "overview" } })}
           className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
-          style={{ backgroundColor: activeMainTab?.id === "tool:ru" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:ru") ? tk.toolbarText : tk.toolbarTextMuted }}
-          onMouseEnter={e => { if (activeMainTab?.id !== "tool:ru") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:ru" ? tk.toolbarActive : "transparent"; }}
-          title={tt("ru.title")}>🧭 RU</button>
+          style={{ backgroundColor: activeMainTab?.id === "ru:overview" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "ru:overview") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "ru:overview") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "ru:overview" ? tk.toolbarActive : "transparent"; }}
+          title={tt("ruTree.overview")}>🧭 RU</button>
 
       </div>
 
@@ -2642,22 +2640,8 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
         {!fileTreeHidden && (<>
         <div className="flex flex-col shrink-0 select-none" style={{ width: sidebarWidth, backgroundColor: "#fff" }}>
           <div className="px-2 py-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-            {/* Sidebar 視圖切換：📁 Files | 🧭 Release Unit */}
-            <div className="flex items-center gap-1 py-1">
-              <button onClick={() => setSidebarView("files")}
-                className={cn("text-[10px] px-2 py-0.5 rounded-md font-semibold border transition-colors",
-                  sidebarView === "files" ? "bg-stone-800 text-white border-stone-800" : "bg-white text-stone-500 border-stone-300 hover:bg-stone-50")}>
-                📁 {tt("vibe.sidebarFiles")}
-              </button>
-              <button onClick={() => setSidebarView("ru")}
-                className={cn("text-[10px] px-2 py-0.5 rounded-md font-semibold border transition-colors",
-                  sidebarView === "ru" ? "bg-stone-800 text-white border-stone-800" : "bg-white text-stone-500 border-stone-300 hover:bg-stone-50")}
-                title={tt("vibe.sidebarRuHint")}>
-                🧭 {tt("vibe.sidebarRu")}
-              </button>
-            </div>
-            {/* Git branch indicator（僅 files 視圖顯示）*/}
-            {sidebarView === "files" && gitStatus?.branch && (
+            {/* Git branch indicator */}
+            {gitStatus?.branch && (
               <div className="flex items-center gap-1 py-1">
                 <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-semibold border border-emerald-200">🔀 {gitStatus.branch}</span>
                 {(gitStatus.staged.length + gitStatus.unstaged.length + gitStatus.untracked.length) > 0 && (
@@ -2669,29 +2653,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
             )}
           </div>
           <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
-            {sidebarView === "ru" ? (
-              <RuTree
-                rootPath={rootPath}
-                theme={tk}
-                onOpenFile={openFile}
-                onOpenCategory={(cat: RuCategory) => {
-                  const META: Record<string, { icon: string; labelKey: string }> = {
-                    features: { icon: "🎯", labelKey: "ruTree.features" },
-                    apis: { icon: "⚡", labelKey: "ruTree.apis" },
-                    files: { icon: "📁", labelKey: "ruTree.files" },
-                    deps: { icon: "🔗", labelKey: "ruTree.dependencies" },
-                    tests: { icon: "🧪", labelKey: "ruTree.tests" },
-                    changes: { icon: "🕘", labelKey: "ruTree.changeHistory" },
-                    aiwork: { icon: "🤖", labelKey: "ruTree.aiWorkHistory" },
-                    config: { icon: "⚙️", labelKey: "ruTree.configuration" },
-                    runbooks: { icon: "📕", labelKey: "ruTree.runbooks" },
-                  };
-                  const m = META[cat];
-                  openMainTab({ id: `ru:${cat}`, type: "ru-view", label: tt(m?.labelKey || "ruTree.features"), icon: m?.icon || "🧭", closable: true, data: { category: cat } });
-                }}
-                activeCategory={activeMainTab?.type === "ru-view" ? activeMainTab.data?.category : null}
-              />
-            ) : rootPath ? (
+            {rootPath ? (
               <SidebarFileTree
                 projectRoot={rootPath}
                 activeFilePath={activeMainTab?.filePath || activeTabId}
@@ -3526,6 +3488,10 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                     rootPath={rootPath}
                     theme={{ borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, accentText: tk.accentText }}
                     onOpenFile={openFile}
+                    onOpenCategory={(cat: RuCategory) => {
+                      const m = RU_CATEGORY_META.find(x => x.key === cat);
+                      openMainTab({ id: `ru:${cat}`, type: "ru-view", label: tt(m?.labelKey || "ruTree.features"), icon: m?.icon || "🧭", closable: true, data: { category: cat } });
+                    }}
                   />
                 </TabErrorBoundary>
               </div>

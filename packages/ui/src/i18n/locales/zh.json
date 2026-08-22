@@ -932,5 +932,22 @@
   "ru.view.mappedTo": "Feature 認領",
   "ru.view.noFeature": "無 feature 認領",
   "ru.view.runbooksGap": "以下 features 還沒有 runbook — 看得到的工作項",
-  "ru.view.openHint": "點分類 → 主區開 tab 顯示內容"
+  "ru.view.openHint": "點分類 → 主區開 tab 顯示內容",
+  "ruTree.overview": "Release Unit 總覽",
+  "ruTree.callGraph": "調用圖",
+  "ru.view.descFeatures": "功能單元卡片牆 — 檔案 / API / 測試 / 變更",
+  "ru.view.descApis": "全部 API 端點 · ▼ 展開調用鏈",
+  "ru.view.descFiles": "檔案 ↔ feature 對應 + 高頻未映射",
+  "ru.view.descCallGraph": "搜尋函數 → 誰呼叫它 / 它呼叫誰",
+  "ru.view.descTests": "測試檔 ↔ 生產碼對照",
+  "ru.view.descChanges": "commit 時間軸（kind 篩選）",
+  "ru.view.descConfig": "Loop 模式與專案組態",
+  "ru.view.callChain": "調用鏈",
+  "ru.view.cgSearch": "搜尋函數名或檔案…",
+  "ru.view.cgResults": "函數",
+  "ru.view.cgNoResult": "找不到符合的函數",
+  "ru.view.cgPick": "← 點選函數查看 callers / callees",
+  "ru.view.cgCallers": "被誰呼叫 callers",
+  "ru.view.cgCallees": "呼叫了誰 callees",
+  "ru.view.intelLoading": "載入 Code Intelligence（call graph）…"
 }

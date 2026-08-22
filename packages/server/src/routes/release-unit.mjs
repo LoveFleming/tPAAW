@@ -124,6 +124,36 @@ export default async function releaseUnitRoutes(req, res, next) {
     }
   }
 
+  // ── GET /api/ru/code-intel — Code Intelligence 原料（call graph + API call chain）──
+  // 直接讀 .paaw/code-intelligence/*.json（不重建）— RuView 的 APIs callChain 與 📞 Call Graph 分類用
+  if (url === "/api/ru/code-intel" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    try {
+      const ciDir = join(path, ".paaw", "code-intelligence");
+      const apiMapFile = join(ciDir, "api-function-map.json");
+      const callGraphFile = join(ciDir, "call-graph.json");
+      if (!existsSync(apiMapFile) || !existsSync(callGraphFile)) {
+        return json(res, 404, { error: "code-intelligence not built", hint: "Run ⚡重掃機械層 first" });
+      }
+      const apiMap = JSON.parse(readFileSync(apiMapFile, "utf-8"));
+      const callGraph = JSON.parse(readFileSync(callGraphFile, "utf-8"));
+      // 瘦身：nodes 只留顯示需要的欄位；edges 不回（callersOf/calleesOf 已涵蓋）
+      const nodes = (callGraph.nodes || []).map(n => ({ id: n.id, name: n.name, file: n.file, kind: n.kind }));
+      return json(res, 200, {
+        root: normalizePath(path),
+        apiMap: {
+          routes: (apiMap.routes || []).map(r => ({
+            method: r.method, path: r.path, file: r.file, handler: r.handler,
+            callChain: r.callChain || null,
+          })),
+        },
+        callGraph: { nodes, callersOf: callGraph.callersOf || {}, calleesOf: callGraph.calleesOf || {}, stats: callGraph.stats || null },
+      });
+    } catch (e) {
+      return json(res, 500, { error: "code-intel failed", detail: e.message });
+    }
+  }
+
   // ── GET /api/ru/model — Release Unit Model（R2：單一事實來源，零 LLM）──
   if ((url === "/api/ru/model" || url === "/api/ru/model/query") && method === "GET") {
     if (!validRoot(path)) return badPath(res, path);

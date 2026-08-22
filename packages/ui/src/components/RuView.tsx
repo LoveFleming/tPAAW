@@ -1,16 +1,18 @@
 /**
  * RuView — 🧭 Release Unit 主區分類頁（每個 RU 分類開一個 tab）
  *
- * sidebar 目錄點分類 → 主區開 tab 顯示該分類 model 內容（rich UI）：
+ * 🧭 toolbar 開 overview 總覽 → 點分類卡片開該分類 tab（2026-08-22 起 sidebar RU tree 移除）：
+ *   🏠 Overview 分類卡片牆（各分類 count + 一句話）
  *   🎯 Features 卡片牆（可展開檔案/API/測試）
- *   ⚡ APIs 表格（prefix 篩選 + method 色票 + handler 直連）
+ *   ⚡ APIs 表格（prefix 篩選 + method 色票 + handler 直連 + ▼ call chain 展開）
+ *   📞 Call Graph 瀏覽器（搜尋函數 → callers/callees 對照）
  *   📁 Files 對應表（hot unmapped + feature 認領）
  *   🧪 Tests 對照表（test ↔ production file）
  *   🕘 Change History 時間軸（kind 篩選 + feature chips）
  *   🔗 Dependencies / 🤖 AI Work / ⚙️ Configuration — 部分資料說明卡
  *   📋 Specs / 📕 Runbooks / 🚀 Deployment / 🔐 Security / 🚨 Incidents — 未建置狀態（Runbooks 列缺口清單）
  *
- * 資料源同 RuTree：GET /api/ru/model（deterministic，零 LLM）。
+ * 資料源：GET /api/ru/model + GET /api/ru/code-intel（deterministic，零 LLM）。
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
@@ -37,13 +39,25 @@ interface RuModel {
   };
 }
 
-export type RuCategory = "features" | "apis" | "files" | "deps" | "tests" | "changes" | "aiwork" | "config" | "specs" | "runbooks" | "deploy" | "security" | "incidents";
+interface CodeIntelRoute { method: string; path: string; file?: string | null; handler?: string | null; callChain?: { function: string; depth: number; file?: string; resolved?: boolean }[] | null }
+interface CodeIntel {
+  apiMap?: { routes?: CodeIntelRoute[] };
+  callGraph?: {
+    nodes?: { id: string; name: string; file: string; kind?: string }[];
+    callersOf?: Record<string, string[]>;
+    calleesOf?: Record<string, string[]>;
+    stats?: { totalNodes?: number; totalEdges?: number; totalFunctions?: number } | null;
+  };
+}
+
+export type RuCategory = "overview" | "features" | "apis" | "files" | "deps" | "callgraph" | "tests" | "changes" | "aiwork" | "config" | "specs" | "runbooks" | "deploy" | "security" | "incidents";
 
 export const RU_CATEGORY_META: { key: RuCategory; icon: string; labelKey: string }[] = [
   { key: "features", icon: "🎯", labelKey: "ruTree.features" },
   { key: "apis", icon: "⚡", labelKey: "ruTree.apis" },
   { key: "files", icon: "📁", labelKey: "ruTree.files" },
   { key: "deps", icon: "🔗", labelKey: "ruTree.dependencies" },
+  { key: "callgraph", icon: "📞", labelKey: "ruTree.callGraph" },
   { key: "tests", icon: "🧪", labelKey: "ruTree.tests" },
   { key: "changes", icon: "🕘", labelKey: "ruTree.changeHistory" },
   { key: "aiwork", icon: "🤖", labelKey: "ruTree.aiWorkHistory" },
@@ -76,9 +90,10 @@ interface Props {
   rootPath: string;
   theme: any;
   onOpenFile: (absPath: string) => void;
+  onOpenCategory?: (cat: RuCategory) => void; // overview 卡片點擊 → 開該分類 tab
 }
 
-export default function RuView({ category, rootPath, theme, onOpenFile }: Props) {
+export default function RuView({ category, rootPath, theme, onOpenFile, onOpenCategory }: Props) {
   const { t } = useI18n();
   const [model, setModel] = useState<RuModel | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,6 +111,31 @@ export default function RuView({ category, rootPath, theme, onOpenFile }: Props)
     } catch (e: any) { setError(e?.message || "failed"); } finally { setLoading(false); }
   }, [rootPath]);
   useEffect(() => { setModel(null); load(); }, [load]);
+
+  // Code Intelligence 原料（call chain + call graph）— 只有需要此資料的分類才抓
+  const [codeIntel, setCodeIntel] = useState<CodeIntel | null>(null);
+  const needsCodeIntel = category === "apis" || category === "callgraph" || category === "overview";
+  useEffect(() => {
+    if (!rootPath || !needsCodeIntel || codeIntel) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/ru/code-intel?path=${encodeURIComponent(rootPath)}`);
+        if (!res.ok) return;
+        const d = await res.json();
+        if (!cancelled) setCodeIntel(d);
+      } catch { /* 靜默 — callChain/call graph 顯示為不可用 */ }
+    })();
+    return () => { cancelled = true; };
+  }, [rootPath, needsCodeIntel, codeIntel]);
+  // method+path → callChain（APIs 分類展開用）
+  const callChainMap = useMemo(() => {
+    const m = new Map<string, { function: string; depth: number; file?: string; resolved?: boolean }[]>();
+    for (const r of codeIntel?.apiMap?.routes || []) {
+      if (r.callChain?.length) m.set(`${r.method} ${r.path}`, r.callChain);
+    }
+    return m;
+  }, [codeIntel]);
 
   const meta = RU_CATEGORY_META.find(m => m.key === category);
   const gaps = model?.knowledgeGaps;
@@ -145,6 +185,14 @@ export default function RuView({ category, rootPath, theme, onOpenFile }: Props)
 
   const body = (() => {
     switch (category) {
+      // ═══ 🏠 Overview：分類卡片牆（RU 總覽入口）═══
+      case "overview":
+        return (
+          <OverviewGrid
+            model={model} codeIntel={codeIntel} t={t} borderLight={borderLight} accentText={accentText}
+            onOpenCategory={((cat: RuCategory) => onOpenCategory?.(cat)) as any}
+          />
+        );
       // ═══ 🎯 Features：卡片牆 + 展開細節 ═══
       case "features": {
         const noTests = gaps?.featuresWithoutTests?.length ?? 0;
@@ -162,7 +210,7 @@ export default function RuView({ category, rootPath, theme, onOpenFile }: Props)
       }
       // ═══ ⚡ APIs：表格 + prefix 篩選 ═══
       case "apis": {
-        return <ApisTable apis={model.apis || []} t={t} borderLight={borderLight} accentText={accentText} FeatureChip={FeatureChip} FileLink={FileLink} />;
+        return <ApisTable apis={model.apis || []} t={t} borderLight={borderLight} accentText={accentText} FeatureChip={FeatureChip} FileLink={FileLink} callChainMap={callChainMap} />;
       }
       // ═══ 📁 Files：對應表 + hot unmapped ═══
       case "files": {
@@ -211,6 +259,13 @@ export default function RuView({ category, rootPath, theme, onOpenFile }: Props)
       // ═══ 🔗 Dependencies ═══
       case "deps":
         return <NotBuilt hint={t("ruTree.depsHint")} />;
+      // ═══ 📞 Call Graph：搜尋函數 → callers/callees ═══
+      case "callgraph":
+        return (
+          <CallGraphBrowser
+            codeIntel={codeIntel} t={t} borderLight={borderLight} accentText={accentText} FileLink={FileLink}
+          />
+        );
       // ═══ 🧪 Tests：對照表 ═══
       case "tests": {
         const rows = (model.tests || []).slice(0, 200);
@@ -361,8 +416,157 @@ function FeaturesGrid({ features, t, accent, borderLight, accentText, FileLink }
 }
 
 // ═══ APIs 表格 ═══
-function ApisTable({ apis, t, borderLight, accentText, FeatureChip, FileLink }: any) {
+// ═══ 🏠 Overview：分類卡片牆 ═══
+function OverviewGrid({ model, codeIntel, t, borderLight, accentText, onOpenCategory }: any) {
+  const sm = model?.summary;
+  const counts: Record<string, number | null> = {
+    features: sm?.features ?? null,
+    apis: sm?.apis ?? null,
+    files: sm?.files ?? null,
+    callgraph: codeIntel?.callGraph?.stats?.totalNodes ?? null,
+    tests: sm?.tests ?? null,
+    changes: sm?.commits ?? null,
+  };
+  const descs: Record<string, string> = {
+    features: t("ru.view.descFeatures"), apis: t("ru.view.descApis"), files: t("ru.view.descFiles"),
+    deps: t("ruTree.depsHint"), callgraph: t("ru.view.descCallGraph"), tests: t("ru.view.descTests"),
+    changes: t("ru.view.descChanges"), aiwork: t("ruTree.aiWorkHint"), config: t("ru.view.descConfig"),
+    specs: t("ruTree.notBuilt"), runbooks: t("ruTree.runbooksHint"),
+    deploy: t("ruTree.notBuilt"), security: t("ruTree.notBuilt"), incidents: t("ruTree.notBuilt"),
+  };
+  const cats = ["features", "apis", "files", "deps", "callgraph", "tests", "changes", "aiwork", "config", "specs", "runbooks", "deploy", "security", "incidents"] as const satisfies readonly RuCategory[];
+  const notBuilt = new Set(["specs", "deploy", "security", "incidents"]);
+  return (
+    <div className="space-y-3" data-testid="ru-overview">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+        {cats.map(cat => {
+          const meta = RU_CATEGORY_META.find(m => m.key === cat);
+          if (!meta) return null;
+          const cnt = counts[cat];
+          const built = !notBuilt.has(cat);
+          return (
+            <button key={cat} onClick={() => built && onOpenCategory?.(cat)}
+              className={`text-left rounded-lg border px-3 py-2.5 transition-colors ${built ? "bg-white hover:border-stone-400 hover:shadow-sm cursor-pointer" : "bg-stone-50 cursor-default opacity-60"}`}
+              style={{ borderColor: borderLight }}
+              data-testid={`ru-overview-${cat}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-stone-700">{meta.icon} {t(meta.labelKey)}</span>
+                {cnt !== null && cnt !== undefined && <span className="text-[10px] font-mono font-bold" style={{ color: accentText }}>{cnt}</span>}
+              </div>
+              <div className="text-[10px] text-stone-400 mt-1 leading-snug">{descs[cat] || ""}</div>
+            </button>
+          );
+        })}
+      </div>
+      <div className="text-[10px] text-stone-400">{t("ru.view.openHint")}</div>
+    </div>
+  );
+}
+
+// ═══ 📞 Call Graph 瀏覽器：搜尋函數 → callers/callees ═══
+function CallGraphBrowser({ codeIntel, t, borderLight, accentText, FileLink }: any) {
+  const [q, setQ] = useState("");
+  const [selected, setSelected] = useState<{ name: string; file: string } | null>(null);
+  const nodes = codeIntel?.callGraph?.nodes || [];
+  const callersOf = codeIntel?.callGraph?.callersOf || {};
+  const calleesOf = codeIntel?.callGraph?.calleesOf || {};
+  const stats = codeIntel?.callGraph?.stats;
+
+  const results = useMemo(() => {
+    const typed: { id: string; name: string; file: string; kind?: string }[] = nodes || [];
+    const needle = q.trim().toLowerCase();
+    const list = needle
+      ? typed.filter(n => n.name.toLowerCase().includes(needle) || (n.file || "").toLowerCase().includes(needle))
+      : typed.filter(n => (callersOf[n.name] || []).length > 0); // 空查詢：先給有 caller 的熱門函數
+    return list.slice(0, 60);
+  }, [q, nodes, callersOf]);
+
+  const callers = selected ? [...new Set(callersOf[selected.name] || [])] : [];
+  const callees = selected ? [...new Set(calleesOf[selected.name] || [])] : [];
+
+  if (!codeIntel) {
+    return <div className="text-xs text-stone-400 py-8 text-center" data-testid="ru-callgraph">{t("ru.view.intelLoading")}</div>;
+  }
+
+  const splitRef = (ref: string) => {
+    const i = ref.lastIndexOf(":");
+    return i > 0 ? { file: ref.slice(0, i), fn: ref.slice(i + 1) } : { file: "", fn: ref };
+  };
+
+  return (
+    <div className="space-y-3" data-testid="ru-callgraph">
+      {/* stats bar */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <input
+          value={q} onChange={e => setQ(e.target.value)}
+          placeholder={t("ru.view.cgSearch")}
+          className="flex-1 min-w-[220px] text-xs font-mono px-3 py-1.5 rounded-md border bg-white focus:outline-none focus:ring-2"
+          style={{ borderColor: borderLight }}
+          data-testid="ru-cg-search"
+        />
+        {stats && (
+          <div className="flex gap-3 text-[10px] text-stone-400 font-mono">
+            <span>{stats.totalNodes ?? nodes.length} nodes</span>
+            <span>{stats.totalEdges ?? "?"} edges</span>
+          </div>
+        )}
+      </div>
+      <div className="grid grid-cols-[1fr_1fr] gap-3">
+        {/* 左：搜尋結果 */}
+        <div className="rounded-lg border overflow-hidden max-h-[420px] overflow-y-auto" style={{ borderColor: borderLight }}>
+          <div className="px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50 sticky top-0" style={{ borderBottom: `1px solid ${borderLight}` }}>
+            {t("ru.view.cgResults")} · {results.length}{q.trim() ? "" : "+"}
+          </div>
+          {results.map(n => (
+            <button key={n.id} onClick={() => setSelected({ name: n.name, file: n.file })}
+              className={`w-full text-left px-3 py-1.5 border-b hover:bg-stone-50 ${selected?.name === n.name && selected?.file === n.file ? "bg-stone-100" : ""}`}
+              style={{ borderColor: borderLight }}>
+              <div className="text-[11px] font-mono font-bold text-stone-700">{n.name}<span className="text-stone-300">()</span></div>
+              <div className="text-[9px] text-stone-400 font-mono">{baseName(n.file)}</div>
+            </button>
+          ))}
+          {results.length === 0 && <div className="px-3 py-4 text-[10px] text-stone-300 text-center">{t("ru.view.cgNoResult")}</div>}
+        </div>
+        {/* 右：選中函數 callers/callees */}
+        <div className="space-y-3">
+          {!selected ? (
+            <div className="text-[10px] text-stone-300 py-8 text-center">{t("ru.view.cgPick")}</div>
+          ) : (
+            <>
+              <div className="rounded-lg border px-3 py-2" style={{ borderColor: borderLight }}>
+                <div className="text-xs font-mono font-bold" style={{ color: accentText }}>{selected.name}()</div>
+                {selected.file ? <FileLink file={selected.file}>{baseName(selected.file)}</FileLink> : null}
+              </div>
+              {([
+                { title: `← ${t("ru.view.cgCallers")} · ${callers.length}`, list: callers as string[] },
+                { title: `→ ${t("ru.view.cgCallees")} · ${callees.length}`, list: callees as string[] },
+              ] as { title: string; list: string[] }[]).map(({ title, list }) => (
+                <div key={title} className="rounded-lg border overflow-hidden max-h-[160px] overflow-y-auto" style={{ borderColor: borderLight }}>
+                  <div className="px-3 py-1 text-[10px] font-bold text-stone-400 bg-stone-50 sticky top-0" style={{ borderBottom: `1px solid ${borderLight}` }}>{title}</div>
+                  {list.map(ref => {
+                    const { file, fn } = splitRef(ref);
+                    return (
+                      <button key={ref} onClick={() => { const hit = (nodes as { id: string; name: string; file: string; kind?: string }[]).find(n => n.name === fn && (!file || n.file === file)); if (hit) setSelected({ name: hit.name, file: hit.file }); }}
+                        className="w-full text-left px-3 py-1 border-b hover:bg-stone-50 flex items-baseline justify-between gap-2" style={{ borderColor: borderLight }}>
+                        <span className="text-[10px] font-mono text-stone-600">{fn}()</span>
+                        <span className="text-[9px] text-stone-400 font-mono truncate">{baseName(file)}</span>
+                      </button>
+                    );
+                  })}
+                  {list.length === 0 && <div className="px-3 py-2 text-[9px] text-stone-300">—</div>}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ApisTable({ apis, t, borderLight, accentText, FeatureChip, FileLink, callChainMap }: any) {
   const [group, setGroup] = useState<string>("__all__");
+  const [expanded, setExpanded] = useState<string | null>(null); // "METHOD path"
   const groups = useMemo(() => {
     const m = new Map<string, number>();
     for (const a of apis as RuApi[]) {
@@ -397,16 +601,42 @@ function ApisTable({ apis, t, borderLight, accentText, FeatureChip, FileLink }: 
         <div className="grid grid-cols-[64px_1.4fr_1.2fr_auto] px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50 gap-2" style={{ borderBottom: `1px solid ${borderLight}` }}>
           <span>METHOD</span><span>PATH</span><span>{t("ru.view.handler")}</span><span>{t("ruTree.features")}</span>
         </div>
-        {rows.slice(0, 300).map((a, i) => (
-          <div key={`${a.method}-${a.path}-${i}`} className={`grid grid-cols-[64px_1.4fr_1.2fr_auto] items-center px-3 py-1.5 gap-2 ${i % 2 ? "bg-stone-50" : "bg-white"}`}>
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded text-white text-center shrink-0" style={{ backgroundColor: METHOD_COLOR[a.method] || "#6b7280" }}>{a.method}</span>
-            <span className="text-[11px] font-mono text-stone-700 break-all">{a.path}</span>
-            {a.file
-              ? <FileLink file={a.file}>{baseName(a.file)}{a.handler ? ` · ${a.handler}()` : ""}</FileLink>
-              : <span className="text-[10px] text-stone-300">{t("ru.view.noHandler")}</span>}
-            <span className="flex gap-1 justify-end flex-wrap max-w-[140px]">{(a.featureIds || []).map(fid => <FeatureChip key={fid} id={fid} />)}</span>
-          </div>
-        ))}
+        {rows.slice(0, 300).map((a, i) => {
+          const key = `${a.method} ${a.path}`;
+          const chain = callChainMap?.get(key);
+          const isOpen = expanded === key;
+          return (
+            <div key={key + i} className={i % 2 ? "bg-stone-50" : "bg-white"}>
+              <div className="grid grid-cols-[64px_1.4fr_1.2fr_auto] items-center px-3 py-1.5 gap-2">
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded text-white text-center shrink-0" style={{ backgroundColor: METHOD_COLOR[a.method] || "#6b7280" }}>{a.method}</span>
+                <span className="text-[11px] font-mono text-stone-700 break-all flex items-center gap-1">
+                  {chain && (
+                    <button onClick={() => setExpanded(isOpen ? null : key)}
+                      className={`text-[9px] px-1 rounded border shrink-0 transition-colors ${isOpen ? "bg-stone-700 text-white border-stone-700" : "bg-white text-stone-400 border-stone-200 hover:border-stone-400"}`}
+                      title={t("ru.view.callChain")}>▼</button>
+                  )}
+                  {a.path}
+                </span>
+                {a.file
+                  ? <FileLink file={a.file}>{baseName(a.file)}{a.handler ? ` · ${a.handler}()` : ""}</FileLink>
+                  : <span className="text-[10px] text-stone-300">{t("ru.view.noHandler")}</span>}
+                <span className="flex gap-1 justify-end flex-wrap max-w-[140px]">{(a.featureIds || []).map(fid => <FeatureChip key={fid} id={fid} />)}</span>
+              </div>
+              {isOpen && chain && (
+                <div className="px-3 pb-2 pt-0.5" data-testid="ru-callchain">
+                  <div className="text-[9px] font-bold text-stone-400 mb-1">{t("ru.view.callChain")} · {chain.length}</div>
+                  <div className="font-mono text-[10px] leading-relaxed border-l-2 pl-2" style={{ borderColor: borderLight }}>
+                    {chain.map((c: any, j: number) => (
+                      <div key={j} style={{ paddingLeft: (c.depth || 0) * 12 }} className={c.resolved ? "text-stone-600" : "text-stone-300"}>
+                        {"· ".repeat(Math.min(c.depth || 0, 1))}{c.function}()
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
