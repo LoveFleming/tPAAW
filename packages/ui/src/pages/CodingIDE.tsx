@@ -3479,23 +3479,28 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
               </div>
             )}
             {/* === RU 分類頁（RuView，每分類一個 tab）=== */}
-            {mainTabs.filter(t => t.type === "ru-view").map(tab => (
+            {mainTabs.filter(t => t.type === "ru-view").map(tab => {
+              // features 分類已移回 Feature Map 頁 — 舊 persisted tab（含 "features"）一律导回 overview
+              const rawCat = tab.data?.category as RuCategory | undefined;
+              const cat = rawCat && RU_CATEGORY_META.some(m => m.key === rawCat) ? rawCat : "overview";
+              return (
               <div key={tab.id} className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTabId === tab.id ? undefined : "none" }}>
                 <TabErrorBoundary label={tab.label}>
                   <RuView
-                    category={(tab.data?.category || "features") as RuCategory}
+                    category={cat}
                     rootPath={rootPath}
                     theme={{ borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, accentText: tk.accentText }}
                     onOpenFile={openFile}
-                    onOpenCategory={(cat: RuCategory) => {
-                      const m = RU_CATEGORY_META.find(x => x.key === cat);
-                      openMainTab({ id: `ru:${cat}`, type: "ru-view", label: tt(m?.labelKey || "ruTree.features"), icon: m?.icon || "🧭", closable: true, data: { category: cat } });
+                    onOpenCategory={(c: RuCategory) => {
+                      const m = RU_CATEGORY_META.find(x => x.key === c);
+                      openMainTab({ id: `ru:${c}`, type: "ru-view", label: tt(m?.labelKey || "ruTree.overview"), icon: m?.icon || "🧭", closable: true, data: { category: c } });
                     }}
                   />
                 </TabErrorBoundary>
               </div>
-            ))}
+              );
+            })}
             {/* === Release Unit Toolbox === (keep mounted, hide with CSS) */}
             {mainTabs.some(t => t.type === "release-unit") && rootPath && (
               <div key="tool:ru" className="flex-1 flex flex-col min-w-0"

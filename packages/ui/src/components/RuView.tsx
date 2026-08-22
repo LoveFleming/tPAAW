@@ -52,10 +52,9 @@ interface CodeIntel {
   };
 }
 
-export type RuCategory = "overview" | "features" | "apis" | "files" | "deps" | "callgraph" | "tests" | "changes" | "aiwork" | "config" | "specs" | "runbooks" | "deploy" | "security" | "incidents";
+export type RuCategory = "overview" | "apis" | "files" | "deps" | "callgraph" | "tests" | "changes" | "aiwork" | "config" | "specs" | "runbooks" | "deploy" | "security" | "incidents";
 
 export const RU_CATEGORY_META: { key: RuCategory; icon: string; labelKey: string }[] = [
-  { key: "features", icon: "🎯", labelKey: "ruTree.features" },
   { key: "apis", icon: "⚡", labelKey: "ruTree.apis" },
   { key: "files", icon: "📁", labelKey: "ruTree.files" },
   { key: "deps", icon: "🔗", labelKey: "ruTree.dependencies" },
@@ -116,7 +115,7 @@ export default function RuView({ category, rootPath, theme, onOpenFile, onOpenCa
 
   // Code Intelligence 原料（call chain + call graph）— 只有需要此資料的分類才抓
   const [codeIntel, setCodeIntel] = useState<CodeIntel | null>(null);
-  const needsCodeIntel = category === "apis" || category === "callgraph" || category === "overview" || category === "features";
+  const needsCodeIntel = category === "apis" || category === "callgraph" || category === "overview";
   useEffect(() => {
     if (!rootPath || !needsCodeIntel || codeIntel) return;
     let cancelled = false;
@@ -149,7 +148,7 @@ export default function RuView({ category, rootPath, theme, onOpenFile, onOpenCa
 
   const FileLink = ({ file, children }: { file: string; children?: React.ReactNode }) => (
     <button onClick={() => onOpenFile(joinPath(rootPath, file))}
-      className="font-mono text-[11px] text-left hover:underline break-all"
+      className="font-mono text-sm text-left hover:underline break-all"
       style={{ color: accentText }} title={joinPath(rootPath, file)}>
       {children ?? file}
     </button>
@@ -195,25 +194,6 @@ export default function RuView({ category, rootPath, theme, onOpenFile, onOpenCa
             onOpenCategory={((cat: RuCategory) => onOpenCategory?.(cat)) as any}
           />
         );
-      // ═══ 🎯 Features：卡片牆 + 展開細節 ═══
-      case "features": {
-        const noTests = gaps?.featuresWithoutTests?.length ?? 0;
-        return (
-          <div className="space-y-4" data-testid="ru-features">
-            <div className="grid grid-cols-4 gap-2">
-              <StatBox label={t("ruTree.features")} value={sm?.features ?? model.features?.length ?? 0} />
-              <StatBox label={t("ruTree.apis")} value={sm?.apis ?? 0} />
-              <StatBox label={t("ruTree.tests")} value={sm?.tests ?? 0} />
-              <StatBox label={t("ruTree.noTests")} value={noTests} tone={noTests ? "warn" : undefined} />
-            </div>
-            <FeaturesGrid
-              features={model.features || []} model={model} callChainMap={callChainMap}
-              t={t} accent={accent} borderLight={borderLight} accentText={accentText} FileLink={FileLink}
-            />
-          </div>
-        );
-      }
-      // ═══ ⚡ APIs：表格 + prefix 篩選 ═══
       case "apis": {
         return <ApisTable apis={model.apis || []} t={t} borderLight={borderLight} accentText={accentText} FeatureChip={FeatureChip} FileLink={FileLink} callChainMap={callChainMap} />;
       }
@@ -360,7 +340,7 @@ export default function RuView({ category, rootPath, theme, onOpenFile, onOpenCa
       {/* header */}
       <div className="px-4 py-2 flex items-center gap-2 shrink-0" style={{ borderBottom: `1px solid ${borderLight}` }}>
         <span className="text-sm">{meta?.icon}</span>
-        <h2 className="text-sm font-bold text-stone-700">{t(meta?.labelKey || "ruTree.features")}</h2>
+        <h2 className="text-sm font-bold text-stone-700">{t(meta?.labelKey || "ruTree.overview")}</h2>
         <span className="text-[10px] text-stone-400 truncate">{t("ruTree.updated")} {shortDate(model.generatedAt)} @ {model.headSha?.slice(0, 7) || "—"}</span>
         {model.stale && <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 font-semibold border border-amber-200">{t("ruTree.stale")}</span>}
         <button onClick={load} title={t("ruTree.refresh")} className="ml-auto shrink-0 px-1.5 rounded hover:bg-stone-100 text-xs">🔄</button>
@@ -377,7 +357,7 @@ const KIND_COLOR: Record<string, string> = { unit: "#64748b", integration: "#7c3
 function KindBadge({ kind }: { kind?: string | null }) {
   if (!kind) return <span className="text-[9px] text-stone-300">—</span>;
   return (
-    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded text-white font-mono" style={{ backgroundColor: KIND_COLOR[kind] || "#a8a29e" }} data-testid={`kind-${kind}`}>
+    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white font-mono" style={{ backgroundColor: KIND_COLOR[kind] || "#a8a29e" }} data-testid={`kind-${kind}`}>
       {kind}
     </span>
   );
@@ -386,7 +366,7 @@ function KindBadge({ kind }: { kind?: string | null }) {
 // ═══ CallChainTree 共用（APIs 表 ▼ 展開 + Feature Cockpit ENTRY）═══
 function CallChainTree({ chain, t, borderLight }: { chain: { function: string; depth: number; file?: string; resolved?: boolean }[]; t: any; borderLight: string }) {
   return (
-    <div className="font-mono text-[10px] leading-relaxed border-l-2 pl-2" style={{ borderColor: borderLight }} data-testid="ru-callchain">
+    <div className="font-mono text-xs leading-relaxed border-l-2 pl-2" style={{ borderColor: borderLight }} data-testid="ru-callchain">
       {chain.map((c: any, j: number) => (
         <div key={j} style={{ paddingLeft: (c.depth || 0) * 12 }} className={c.resolved ? "text-stone-600" : "text-stone-300"}>
           {"· ".repeat(Math.min(c.depth || 0, 1))}{c.function}()
@@ -396,54 +376,16 @@ function CallChainTree({ chain, t, borderLight }: { chain: { function: string; d
   );
 }
 
-// ═══ 🎯 Features：卡片牆 → 點卡進 Feature Cockpit ═══
-function FeaturesGrid({ features, model, callChainMap, t, accent, borderLight, accentText, FileLink }: any) {
-  const [openId, setOpenId] = useState<string | null>(null); // cockpit 選中 feature
-  if (openId) {
-    const f = features.find((x: RuFeature) => x.id === openId);
-    if (f) return (
-      <FeatureCockpit
-        feature={f} model={model} callChainMap={callChainMap}
-        t={t} accent={accent} borderLight={borderLight} accentText={accentText} FileLink={FileLink}
-        onBack={() => setOpenId(null)}
-      />
-    );
-  }
-  return (
-    <div className="grid grid-cols-2 gap-2" data-testid="ru-feature-grid">
-      {features.map((f: RuFeature) => (
-        <button key={f.id} onClick={() => setOpenId(f.id)}
-          className="text-left rounded-lg border bg-white px-3 py-2 hover:border-stone-400 hover:shadow-sm transition-all"
-          style={{ borderColor: borderLight }}
-          data-testid={`ru-feature-card-${f.id}`}>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono font-bold shrink-0" style={{ color: accentText }}>{f.id}</span>
-            <span className="text-xs font-semibold text-stone-700 truncate flex-1">{f.name}</span>
-            {f.status === "active" && <span className="text-[9px] text-emerald-500 shrink-0">●</span>}
-            <span className="text-[9px] text-stone-400 shrink-0">→</span>
-          </div>
-          {f.description && <p className="text-[10px] text-stone-400 mt-0.5 line-clamp-2">{f.description}</p>}
-          <div className="flex gap-2 mt-1 text-[10px] text-stone-500">
-            <span>📁 {f.fileCount ?? (f.files || []).length}</span>
-            <span>⚡ {f.apiCount ?? (f.apis || []).length}</span>
-            <span className={f.testCount ? "" : "text-amber-500"}>🧪 {f.testCount ?? 0}</span>
-            <span>🕘 {f.changeCount ?? 0}</span>
-          </div>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ═══ 🛗 Feature Cockpit：單一 feature 全景（Purpose / Entry / Code / Tests / Changes / Model）═══
-function FeatureCockpit({ feature, model, callChainMap, t, accent, borderLight, accentText, FileLink, onBack }: any) {
+// ═══ 🛗 Feature Cockpit：單一 feature 全景（Entry / Code / Tests / Changes / Model）═══
+// 雙模式：onBack 有 = standalone（含 header + Purpose 懶載）；無 = embedded（FeatureMap detail 用）
+export function FeatureCockpit({ feature, model, callChainMap, t, accent, borderLight, accentText, FileLink, onBack }: any) {
   const f = feature as RuFeature;
   const [showAi, setShowAi] = useState(false);
   const [aiMd, setAiMd] = useState<string | null>(null);
-  // aiUnderstanding 懶載（FEATURES.json — cockpit 開了才抓）
   const rootPath = model?.root || "";
+  // aiUnderstanding 懶載（僅 standalone 模式 — embedded 時 FeatureDetail 有現成 AI 區）
   useEffect(() => {
-    if (!showAi || aiMd !== null || !rootPath) return;
+    if (!onBack || !showAi || aiMd !== null || !rootPath) return;
     let cancelled = false;
     (async () => {
       try {
@@ -455,7 +397,7 @@ function FeatureCockpit({ feature, model, callChainMap, t, accent, borderLight, 
       } catch { if (!cancelled) setAiMd(""); }
     })();
     return () => { cancelled = true; };
-  }, [showAi, aiMd, f.id, rootPath]);
+  }, [showAi, aiMd, f.id, rootPath, onBack]);
 
   const kindCounts = (f.tests || []).reduce((acc: Record<string, number>, tf) => {
     const k = tf.kind || "unknown";
@@ -476,55 +418,59 @@ function FeatureCockpit({ feature, model, callChainMap, t, accent, borderLight, 
 
   return (
     <div className="space-y-3" data-testid={`ru-cockpit-${f.id}`}>
-      {/* Header */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={onBack} data-testid="ru-cockpit-back" className="text-[10px] px-2 py-0.5 rounded border bg-white hover:bg-stone-50" style={{ borderColor: borderLight }}>← {t("ru.view.backToList")}</button>
-        <span className="text-[10px] font-mono font-bold" style={{ color: accentText }}>{f.id}</span>
-        <span className="text-sm font-bold text-stone-800">{f.name}</span>
-        {f.status === "active" && <span className="text-[10px] text-emerald-500 font-bold">● active</span>}
-        <span className="ml-auto text-[9px] font-mono text-stone-400">{t("ru.view.modelFresh")} @ {sha || "?"}</span>
-      </div>
+      {/* Header + Purpose（standalone 模式；embedded 由 FeatureDetail header 提供） */}
+      {onBack && (
+        <>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={onBack} data-testid="ru-cockpit-back" className="text-xs px-2 py-0.5 rounded border bg-white hover:bg-stone-50" style={{ borderColor: borderLight }}>← {t("ru.view.backToList")}</button>
+            <span className="text-xs font-mono font-bold" style={{ color: accentText }}>{f.id}</span>
+            <span className="text-base font-bold text-stone-800">{f.name}</span>
+            {f.status === "active" && <span className="text-xs text-emerald-500 font-bold">● active</span>}
+            <span className="ml-auto text-xs font-mono text-stone-400">{t("ru.view.modelFresh")} @ {sha || "?"}</span>
+          </div>
 
-      {/* Purpose */}
-      <div className="rounded-lg border bg-white px-3 py-2" style={{ borderColor: accent }}>
-        <div className="text-[9px] font-bold text-stone-400 mb-0.5">🎯 {t("ru.view.purpose")}</div>
-        <p className="text-xs text-stone-600 leading-relaxed">{f.description || "—"}</p>
-        <button onClick={() => setShowAi(v => !v)} className="text-[10px] mt-1 text-stone-400 hover:text-stone-600 underline">
-          {showAi ? "▾" : "▸"} {t("ru.view.aiUnderstanding")}
-        </button>
-        {showAi && (
-          aiMd === null
-            ? <div className="text-[10px] text-stone-300 mt-1">{t("ru.view.intelLoading")}</div>
-            : aiMd
-              ? <pre className="text-[10px] text-stone-500 whitespace-pre-wrap mt-1 max-h-72 overflow-y-auto font-mono leading-relaxed">{aiMd}</pre>
-              : <div className="text-[10px] text-stone-300 mt-1">{t("ru.view.noAiUnderstanding")}</div>
-        )}
-      </div>
+          <div className="rounded-lg border bg-white px-3 py-2" style={{ borderColor: accent }}>
+            <div className="text-[11px] font-bold text-stone-400 mb-0.5">🎯 {t("ru.view.purpose")}</div>
+            <p className="text-sm text-stone-600 leading-relaxed">{f.description || "—"}</p>
+            <button onClick={() => setShowAi(v => !v)} className="text-xs mt-1 text-stone-400 hover:text-stone-600 underline">
+              {showAi ? "▾" : "▸"} {t("ru.view.aiUnderstanding")}
+            </button>
+            {showAi && (
+              aiMd === null
+                ? <div className="text-xs text-stone-300 mt-1">{t("ru.view.intelLoading")}</div>
+                : aiMd
+                  ? <pre className="text-xs text-stone-500 whitespace-pre-wrap mt-1 max-h-72 overflow-y-auto font-mono leading-relaxed">{aiMd}</pre>
+                  : <div className="text-xs text-stone-300 mt-1">{t("ru.view.noAiUnderstanding")}</div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Entry Points + Call Path */}
       <div className="rounded-lg border bg-white overflow-hidden" style={{ borderColor: borderLight }}>
-        <div className="px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50" style={{ borderBottom: `1px solid ${borderLight}` }}>
-          ⚡ {t("ru.view.entryPoints")} · {(f.apis || []).length}
-          {chainFns.size > 0 && <span className="ml-2 font-normal text-stone-400">{t("ru.view.callPath")}：{chainFns.size} fns · {chainFiles.size} files</span>}
+        <div className="px-3 py-1.5 text-sm font-bold text-stone-400 bg-stone-50 flex items-center gap-2 flex-wrap" style={{ borderBottom: `1px solid ${borderLight}` }}>
+          <span>⚡ {t("ru.view.entryPoints")} · {(f.apis || []).length}</span>
+          {chainFns.size > 0 && <span className="font-normal">{t("ru.view.callPath")}：{chainFns.size} fns · {chainFiles.size} files</span>}
+          {!onBack && <span className="ml-auto font-mono font-normal">{t("ru.view.modelFresh")} @ {sha || "?"}</span>}
         </div>
         {(f.apis || []).slice(0, 30).map((api: string) => {
           const chain = callChainMap?.get(api);
           return <EntryRow key={api} api={api} chain={chain} t={t} borderLight={borderLight} />;
         })}
-        {!(f.apis || []).length && <div className="px-3 py-2 text-[10px] text-stone-300">—</div>}
+        {!(f.apis || []).length && <div className="px-3 py-2 text-sm text-stone-300">—</div>}
       </div>
 
       {/* Code + Tests 兩欄 */}
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-lg border bg-white overflow-hidden" style={{ borderColor: borderLight }}>
-          <div className="px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50" style={{ borderBottom: `1px solid ${borderLight}` }}>📁 {t("ru.view.codeStructure")} · {(f.files || []).length}</div>
-          <div className="px-3 py-2 space-y-0.5 max-h-48 overflow-y-auto">
+          <div className="px-3 py-1.5 text-sm font-bold text-stone-400 bg-stone-50" style={{ borderBottom: `1px solid ${borderLight}` }}>📁 {t("ru.view.codeStructure")} · {(f.files || []).length}</div>
+          <div className="px-3 py-2 space-y-0.5 max-h-64 overflow-y-auto">
             {(f.files || []).map((file: string) => <div key={file}><FileLink file={file}>{file}</FileLink></div>)}
-            {!(f.files || []).length && <span className="text-[10px] text-stone-300">—</span>}
+            {!(f.files || []).length && <span className="text-sm text-stone-300">—</span>}
           </div>
         </div>
         <div className="rounded-lg border bg-white overflow-hidden" style={{ borderColor: borderLight }}>
-          <div className="px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50 flex items-center gap-2" style={{ borderBottom: `1px solid ${borderLight}` }}>
+          <div className="px-3 py-1.5 text-sm font-bold text-stone-400 bg-stone-50 flex items-center gap-2" style={{ borderBottom: `1px solid ${borderLight}` }}>
             <span>🧪 {t("ruTree.tests")} · {f.testCount ?? 0}</span>
             <span className="ml-auto flex gap-1.5">
               {Object.entries(kindCounts).map(([k, n]) => (
@@ -532,32 +478,32 @@ function FeatureCockpit({ feature, model, callChainMap, t, accent, borderLight, 
               ))}
             </span>
           </div>
-          <div className="px-3 py-2 space-y-0.5 max-h-48 overflow-y-auto">
+          <div className="px-3 py-2 space-y-0.5 max-h-64 overflow-y-auto">
             {(f.tests || []).map((tf: RuTestEntry) => (
               <div key={tf.file} className="flex items-center gap-1.5">
                 <KindBadge kind={tf.kind} />
                 <FileLink file={tf.file} />
               </div>
             ))}
-            {!(f.tests || []).length && <div className="text-[10px] text-amber-500">⚠ {t("ruTree.noTests")}</div>}
+            {!(f.tests || []).length && <div className="text-sm text-amber-500">⚠ {t("ruTree.noTests")}</div>}
           </div>
         </div>
       </div>
 
       {/* Changes */}
       <div className="rounded-lg border bg-white px-3 py-2 flex items-center gap-3 flex-wrap" style={{ borderColor: borderLight }}>
-        <span className="text-[10px] font-bold text-stone-400">🕘 {t("ruTree.changeHistory")}</span>
-        <span className="text-[11px] text-stone-600 font-bold">{f.changeCount ?? 0}</span>
-        {f.lastChangeAt && <span className="text-[10px] text-stone-400 font-mono">{f.lastChangeAt.slice(0, 10)}</span>}
-        {(f.knowledgeGaps || []).includes("no-tests") && <span className="ml-auto text-[9px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">gap: no-tests</span>}
-        {(f.knowledgeGaps || []).includes("no-runbook") && <span className="text-[9px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">gap: no-runbook</span>}
+        <span className="text-sm font-bold text-stone-400">🕘 {t("ruTree.changeHistory")}</span>
+        <span className="text-[15px] text-stone-600 font-bold">{f.changeCount ?? 0}</span>
+        {f.lastChangeAt && <span className="text-xs text-stone-400 font-mono">{f.lastChangeAt.slice(0, 10)}</span>}
+        {(f.knowledgeGaps || []).includes("no-tests") && <span className="ml-auto text-xs text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">gap: no-tests</span>}
+        {(f.knowledgeGaps || []).includes("no-runbook") && <span className="text-xs text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">gap: no-runbook</span>}
       </div>
     </div>
   );
 }
 
 // Entry 單行（method path + ▼ 鏈）
-function EntryRow({ api, chain, t, borderLight }: any) {
+export function EntryRow({ api, chain, t, borderLight }: any) {
   const [open, setOpen] = useState(false);
   const [method, ...rest] = api.split(" ");
   return (
@@ -565,11 +511,11 @@ function EntryRow({ api, chain, t, borderLight }: any) {
       <div className="flex items-center gap-2 px-3 py-1.5">
         {chain && (
           <button onClick={() => setOpen(v => !v)}
-            className={`text-[9px] px-1 rounded border shrink-0 ${open ? "bg-stone-700 text-white border-stone-700" : "bg-white text-stone-400 border-stone-200 hover:border-stone-400"}`}
+            className={`text-xs px-1 rounded border shrink-0 ${open ? "bg-stone-700 text-white border-stone-700" : "bg-white text-stone-400 border-stone-200 hover:border-stone-400"}`}
             title={t("ru.view.callChain")}>▼</button>
         )}
-        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded text-white shrink-0" style={{ backgroundColor: METHOD_COLOR[method?.toUpperCase()] || "#6b7280" }}>{method}</span>
-        <span className="text-[11px] font-mono text-stone-700 break-all">{rest.join(" ")}</span>
+        <span className="text-xs font-bold px-1.5 py-0.5 rounded text-white shrink-0" style={{ backgroundColor: METHOD_COLOR[method?.toUpperCase()] || "#6b7280" }}>{method}</span>
+        <span className="text-[15px] font-mono text-stone-700 break-all">{rest.join(" ")}</span>
       </div>
       {open && chain && <div className="px-3 pb-2"><CallChainTree chain={chain} t={t} borderLight={borderLight} /></div>}
     </div>
@@ -581,7 +527,6 @@ function EntryRow({ api, chain, t, borderLight }: any) {
 function OverviewGrid({ model, codeIntel, t, borderLight, accentText, onOpenCategory }: any) {
   const sm = model?.summary;
   const counts: Record<string, number | null> = {
-    features: sm?.features ?? null,
     apis: sm?.apis ?? null,
     files: sm?.files ?? null,
     callgraph: codeIntel?.callGraph?.stats?.totalNodes ?? null,
@@ -589,13 +534,13 @@ function OverviewGrid({ model, codeIntel, t, borderLight, accentText, onOpenCate
     changes: sm?.commits ?? null,
   };
   const descs: Record<string, string> = {
-    features: t("ru.view.descFeatures"), apis: t("ru.view.descApis"), files: t("ru.view.descFiles"),
+    apis: t("ru.view.descApis"), files: t("ru.view.descFiles"),
     deps: t("ruTree.depsHint"), callgraph: t("ru.view.descCallGraph"), tests: t("ru.view.descTests"),
     changes: t("ru.view.descChanges"), aiwork: t("ruTree.aiWorkHint"), config: t("ru.view.descConfig"),
     specs: t("ruTree.notBuilt"), runbooks: t("ruTree.runbooksHint"),
     deploy: t("ruTree.notBuilt"), security: t("ruTree.notBuilt"), incidents: t("ruTree.notBuilt"),
   };
-  const cats = ["features", "apis", "files", "deps", "callgraph", "tests", "changes", "aiwork", "config", "specs", "runbooks", "deploy", "security", "incidents"] as const satisfies readonly RuCategory[];
+  const cats = ["apis", "files", "deps", "callgraph", "tests", "changes", "aiwork", "config", "specs", "runbooks", "deploy", "security", "incidents"] as const satisfies readonly RuCategory[];
   const notBuilt = new Set(["specs", "deploy", "security", "incidents"]);
   return (
     <div className="space-y-3" data-testid="ru-overview">

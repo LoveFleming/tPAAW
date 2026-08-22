@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { cn } from "../utils";
 import { useI18n } from "../i18n";
+import { FeatureCockpit } from "./RuView";
 import API_BASE from "../api";
 
 interface ApiEntry {
@@ -84,6 +85,31 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<"features" | "files">("features");
   const [fetchError, setFetchError] = useState<string | null>(null);
+  // RU model + callChain（Feature Cockpit 資料源 — deterministic，零 LLM）
+  const [ruModel, setRuModel] = useState<any>(null);
+  const [callChainMap, setCallChainMap] = useState<Map<string, any> | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setRuModel(null); setCallChainMap(null);
+    (async () => {
+      try {
+        const [mRes, cRes] = await Promise.all([
+          fetch(`${API_BASE}/api/ru/model?path=${encodeURIComponent(rootPath)}`),
+          fetch(`${API_BASE}/api/ru/code-intel?path=${encodeURIComponent(rootPath)}`),
+        ]);
+        if (mRes.ok) { const m = await mRes.json(); if (!cancelled) setRuModel(m.model || m); }
+        if (cRes.ok) {
+          const c = await cRes.json();
+          const map = new Map<string, any>();
+          for (const r of c?.apiMap?.routes || []) {
+            if (r.callChain?.length) map.set(`${r.method} ${r.path}`, r.callChain);
+          }
+          if (!cancelled) setCallChainMap(map);
+        }
+      } catch { /* model 未建時 silent — detail fallback 舊 sections */ }
+    })();
+    return () => { cancelled = true; };
+  }, [rootPath]);
 
   const basePath = `${API_BASE}/api/coding-features?path=${encodeURIComponent(rootPath)}`;
 
@@ -214,11 +240,11 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
   return (
     <div className="flex h-full" style={{ background: theme.bg }}>
       {/* === Left: Feature List === */}
-      <div className="w-72 flex flex-col border-r shrink-0" style={{ borderColor: theme.borderLight }}>
+      <div className="w-80 flex flex-col border-r shrink-0" style={{ borderColor: theme.borderLight }}>
         {/* Header */}
         <div className="px-3 py-2 flex flex-col gap-1.5" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold" style={{ color: theme.text }}>
+            <span className="text-base font-semibold" style={{ color: theme.text }}>
               🗺️ {t("feature.title")}
             </span>
             <div className="flex gap-1">
@@ -237,14 +263,14 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
           <div className="flex rounded overflow-hidden" style={{ border: `1px solid ${theme.borderLight}` }}>
             <button
               onClick={() => setViewMode("features")}
-              className="flex-1 text-xs py-0.5 transition-colors"
+              className="flex-1 text-sm py-1 transition-colors"
               style={{ background: viewMode === "features" ? theme.accentBg : theme.bg, color: viewMode === "features" ? theme.accent : theme.text, opacity: viewMode === "features" ? 1 : 0.5 }}
             >
               🗺️ {t("feature.byFeature")}
             </button>
             <button
               onClick={() => setViewMode("files")}
-              className="flex-1 text-xs py-0.5 transition-colors"
+              className="flex-1 text-sm py-1 transition-colors"
               style={{ background: viewMode === "files" ? theme.accentBg : theme.bg, color: viewMode === "files" ? theme.accent : theme.text, opacity: viewMode === "files" ? 1 : 0.5 }}
             >
               📄 {t("feature.byFile")}
@@ -259,7 +285,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder={t("feature.searchPlaceholder")}
-            className="w-full text-xs px-2 py-1 rounded border outline-none"
+            className="w-full text-sm px-2 py-1.5 rounded border outline-none"
             style={inputStyle}
           />
         </div>
@@ -296,14 +322,14 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
                   onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
                 >
                   <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-xs font-mono shrink-0" style={{ color: theme.text, opacity: 0.5 }}>{f.id}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: st.bg, color: st.text }}>{st.label}</span>
+                    <span className="text-sm font-mono shrink-0" style={{ color: theme.text, opacity: 0.5 }}>{f.id}</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded shrink-0" style={{ background: st.bg, color: st.text }}>{st.label}</span>
                   </div>
-                  <div className="text-sm font-medium truncate" style={{ color: theme.text }}>{f.name}</div>
+                  <div className="text-[15px] font-medium truncate" style={{ color: theme.text }}>{f.name}</div>
                   {f.description && (
-                    <div className="text-xs truncate mt-0.5" style={{ color: theme.text, opacity: 0.4 }}>{f.description}</div>
+                    <div className="text-sm truncate mt-0.5" style={{ color: theme.text, opacity: 0.4 }}>{f.description}</div>
                   )}
-                  <div className="flex items-center gap-2 mt-1 text-[10px]" style={{ color: theme.text, opacity: 0.5 }}>
+                  <div className="flex items-center gap-2 mt-1 text-xs" style={{ color: theme.text, opacity: 0.5 }}>
                     {f.codeFiles.length > 0 && <span>📄 {f.codeFiles.length}</span>}
                     {f.apis.length > 0 && <span>🌐 {f.apis.length}</span>}
                     {f.tests.length > 0 && <span>🧪 {f.tests.length}</span>}
@@ -334,6 +360,8 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
             theme={theme}
             t={t}
             onOpenFile={onOpenFile}
+            ruModel={ruModel}
+            callChainMap={callChainMap}
             understanding={understanding}
             onUnderstand={handleUnderstand}
             editingDocs={editingDocs}
@@ -394,11 +422,13 @@ function CreateFeatureForm({ onCreate, onCancel, theme, t }: {
 }
 
 // ── Feature Detail ──
-function FeatureDetail({ feature, theme, t, onOpenFile, understanding, onUnderstand, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, onDelete, rootPath }: {
+function FeatureDetail({ feature, theme, t, onOpenFile, ruModel, callChainMap, understanding, onUnderstand, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, onDelete, rootPath }: {
   feature: Feature;
   theme: any;
   t: (k: string) => string;
   onOpenFile?: (p: string) => void;
+  ruModel?: any;
+  callChainMap?: Map<string, any> | null;
   understanding: string | null;
   onUnderstand: () => void;
   editingDocs: boolean;
@@ -412,34 +442,54 @@ function FeatureDetail({ feature, theme, t, onOpenFile, understanding, onUnderst
 }) {
   const st = STATUS_STYLES[feature.status] || STATUS_STYLES.active;
 
+  // RU model 對應的 deterministic feature（有 → 用 Feature Cockpit 呈現；無 → fallback 舊 sections）
+  const ruFeature = (ruModel?.features || []).find((x: any) => x.id === feature.id) || null;
+  // Cockpit 用 FileLink（點檔開 editor tab）
+  const CockpitFileLink = useCallback(({ file, children }: { file: string; children?: React.ReactNode }) => (
+    <button onClick={() => onOpenFile?.(file)} className="font-mono text-sm text-left hover:underline break-all" style={{ color: theme.accent }} title={file}>
+      {children ?? file}
+    </button>
+  ), [onOpenFile, theme.accent]);
+
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
       <div className="px-4 py-3 flex items-start justify-between gap-2" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-mono" style={{ color: theme.text, opacity: 0.5 }}>{feature.id}</span>
-            <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: st.bg, color: st.text }}>{st.label}</span>
+            <span className="text-sm font-mono" style={{ color: theme.text, opacity: 0.5 }}>{feature.id}</span>
+            <span className="text-xs px-2 py-0.5 rounded" style={{ background: st.bg, color: st.text }}>{st.label}</span>
             {((feature.tags || [])).map(tag => (
-              <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: theme.bg, color: theme.text, opacity: 0.6 }}>🏷️ {tag}</span>
+              <span key={tag} className="text-xs px-1.5 py-0.5 rounded" style={{ background: theme.bg, color: theme.text, opacity: 0.6 }}>🏷️ {tag}</span>
             ))}
           </div>
-          <h2 className="text-lg font-bold" style={{ color: theme.text }}>{feature.name}</h2>
-          {feature.description && <p className="text-sm mt-1" style={{ color: theme.text, opacity: 0.6 }}>{feature.description}</p>}
+          <h2 className="text-xl font-bold" style={{ color: theme.text }}>{feature.name}</h2>
+          {feature.description && <p className="text-base mt-1" style={{ color: theme.text, opacity: 0.6 }}>{feature.description}</p>}
         </div>
         <div className="flex gap-1 shrink-0">
-          <button onClick={onUnderstand} disabled={understanding === "loading"} className="text-xs px-2 py-1 rounded font-medium" style={{ background: theme.accentBg, color: theme.accent }}>
+          <button onClick={onUnderstand} disabled={understanding === "loading"} className="text-sm px-2 py-1 rounded font-medium" style={{ background: theme.accentBg, color: theme.accent }}>
             {understanding === "loading" ? "⏳ ..." : `🤖 ${t("feature.generateUnderstanding")}`}
           </button>
-          <button onClick={onDelete} className="text-xs px-2 py-1 rounded" style={{ background: "#fef2f2", color: "#dc2626" }}>🗑️</button>
+          <button onClick={onDelete} className="text-sm px-2 py-1 rounded" style={{ background: "#fef2f2", color: "#dc2626" }}>🗑️</button>
         </div>
       </div>
 
       <div className="p-4 flex flex-col gap-4">
+        {/* 🛗 Feature Cockpit（RU model deterministic 全景 — Entry Points 調用鏈 / Code Structure / Tests kind / Changes）*/}
+        {ruFeature && ruModel && (
+          <FeatureCockpit
+            feature={ruFeature} model={ruModel} callChainMap={callChainMap}
+            t={t} accent={theme.accent} borderLight={theme.borderLight} accentText={theme.accent}
+            FileLink={CockpitFileLink}
+          />
+        )}
+
+        {/* fallback 舊 sections（RU model 沒資料時才顯示，避免跟 cockpit 重複）*/}
+        {!ruFeature && (<>
         {/* Code Files */}
         <Section title={`📄 ${t("feature.codeFiles")}`} count={(feature.codeFiles || []).length} theme={theme}>
           {(feature.codeFiles || []).map(f => (
-            <button key={f} onClick={() => onOpenFile?.(f)} className="block text-sm text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
+            <button key={f} onClick={() => onOpenFile?.(f)} className="block text-[15px] text-left px-2 py-1.5 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
               {f}
             </button>
           ))}
@@ -448,10 +498,10 @@ function FeatureDetail({ feature, theme, t, onOpenFile, understanding, onUnderst
         {/* API Endpoints */}
         <Section title={`🌐 ${t("feature.apis")}`} count={(feature.apis || []).length} theme={theme}>
           {(feature.apis || []).map((a, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm px-2 py-1 rounded" style={{ background: theme.bgMuted }}>
-              <span className="font-mono font-bold text-xs px-1.5 py-0.5 rounded" style={{ background: theme.bg, color: HTTP_COLORS[a.method] || theme.text }}>{a.method}</span>
+            <div key={i} className="flex items-center gap-2 text-[15px] px-2 py-1 rounded" style={{ background: theme.bgMuted }}>
+              <span className="font-mono font-bold text-sm px-1.5 py-0.5 rounded" style={{ background: theme.bg, color: HTTP_COLORS[a.method] || theme.text }}>{a.method}</span>
               <span className="font-mono" style={{ color: theme.text }}>{a.path}</span>
-              <span className="text-xs ml-auto" style={{ color: theme.text, opacity: 0.4 }}>{a.file}</span>
+              <span className="text-sm ml-auto" style={{ color: theme.text, opacity: 0.4 }}>{a.file}</span>
             </div>
           ))}
         </Section>
@@ -459,16 +509,17 @@ function FeatureDetail({ feature, theme, t, onOpenFile, understanding, onUnderst
         {/* Tests */}
         <Section title={`🧪 ${t("feature.tests")}`} count={(feature.tests || []).length} theme={theme}>
           {(feature.tests || []).map(f => (
-            <button key={f} onClick={() => onOpenFile?.(f)} className="block text-sm text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
+            <button key={f} onClick={() => onOpenFile?.(f)} className="block text-[15px] text-left px-2 py-1.5 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
               {f}
             </button>
           ))}
         </Section>
+        </>)}
 
         {/* Runbooks */}
         <Section title={`📖 ${t("feature.runbooks")}`} count={(feature.runbooks || []).length} theme={theme}>
           {(feature.runbooks || []).map(f => (
-            <button key={f} onClick={() => onOpenFile?.(f)} className="block text-sm text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
+            <button key={f} onClick={() => onOpenFile?.(f)} className="block text-[15px] text-left px-2 py-1.5 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
               {f}
             </button>
           ))}
@@ -479,9 +530,9 @@ function FeatureDetail({ feature, theme, t, onOpenFile, understanding, onUnderst
           {(feature._issueSummaries || []).map(iss => {
             const ist = { bg: iss.status === "open" ? "#fef2f2" : "#f0fdf4", text: iss.status === "open" ? "#dc2626" : "#16a34a" };
             return (
-              <div key={iss.id} className="flex items-center gap-2 text-sm px-2 py-1 rounded" style={{ background: theme.bgMuted }}>
-                <span className="font-mono text-xs" style={{ color: theme.text, opacity: 0.5 }}>{iss.id}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: ist.bg, color: ist.text }}>{iss.status}</span>
+              <div key={iss.id} className="flex items-center gap-2 text-[15px] px-2 py-1 rounded" style={{ background: theme.bgMuted }}>
+                <span className="font-mono text-sm" style={{ color: theme.text, opacity: 0.5 }}>{iss.id}</span>
+                <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: ist.bg, color: ist.text }}>{iss.status}</span>
                 <span style={{ color: theme.text }}>{iss.title}</span>
               </div>
             );
@@ -492,31 +543,31 @@ function FeatureDetail({ feature, theme, t, onOpenFile, understanding, onUnderst
         {feature.aiUnderstanding && (
           <div className="rounded-lg p-4" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold" style={{ color: theme.text }}>🤖 {t("feature.aiUnderstanding")}</h3>
-              <span className="text-[10px]" style={{ color: theme.text, opacity: 0.4 }}>
+              <h3 className="text-base font-semibold" style={{ color: theme.text }}>🤖 {t("feature.aiUnderstanding")}</h3>
+              <span className="text-xs" style={{ color: theme.text, opacity: 0.4 }}>
                 {feature.aiUnderstandingAt ? new Date(feature.aiUnderstandingAt).toLocaleString() : ""}
               </span>
             </div>
-            <pre className="text-sm whitespace-pre-wrap font-sans" style={{ color: theme.text }}>{feature.aiUnderstanding}</pre>
+            <pre className="text-[15px] whitespace-pre-wrap font-sans" style={{ color: theme.text }}>{feature.aiUnderstanding}</pre>
           </div>
         )}
 
         {/* Documentation */}
         <div className="rounded-lg p-4" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold" style={{ color: theme.text }}>📖 {t("feature.documentation")}</h3>
+            <h3 className="text-base font-semibold" style={{ color: theme.text }}>📖 {t("feature.documentation")}</h3>
             <div className="flex items-center gap-2">
-              {feature.docsUpdatedAt && <span className="text-[10px]" style={{ color: theme.text, opacity: 0.4 }}>{new Date(feature.docsUpdatedAt).toLocaleString()}</span>}
+              {feature.docsUpdatedAt && <span className="text-xs" style={{ color: theme.text, opacity: 0.4 }}>{new Date(feature.docsUpdatedAt).toLocaleString()}</span>}
               {!editingDocs ? (
-                <button onClick={() => { setEditingDocs(true); setDocsContent(feature.documentation || ""); }} className="text-xs px-2 py-0.5 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
+                <button onClick={() => { setEditingDocs(true); setDocsContent(feature.documentation || ""); }} className="text-sm px-2 py-1 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
                   ✏️ {t("feature.edit")}
                 </button>
               ) : (
                 <>
-                  <button onClick={onSaveDocs} disabled={savingDocs} className="text-xs px-2 py-0.5 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
+                  <button onClick={onSaveDocs} disabled={savingDocs} className="text-sm px-2 py-1 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
                     {savingDocs ? "..." : `💾 ${t("feature.save")}`}
                   </button>
-                  <button onClick={() => setEditingDocs(false)} className="text-xs px-2 py-0.5 rounded" style={{ background: theme.bg, color: theme.text }}>
+                  <button onClick={() => setEditingDocs(false)} className="text-sm px-2 py-1 rounded" style={{ background: theme.bg, color: theme.text }}>
                     {t("feature.cancel")}
                   </button>
                 </>
@@ -528,14 +579,14 @@ function FeatureDetail({ feature, theme, t, onOpenFile, understanding, onUnderst
               value={docsContent}
               onChange={e => setDocsContent(e.target.value)}
               rows={10}
-              className="w-full text-sm p-2 rounded border outline-none resize-y font-mono"
+              className="w-full text-[15px] p-2 rounded border outline-none resize-y font-mono"
               style={{ background: theme.bg, color: theme.text, borderColor: theme.borderLight }}
               placeholder={t("feature.docsPlaceholder")}
             />
           ) : feature.documentation ? (
-            <pre className="text-sm whitespace-pre-wrap font-sans" style={{ color: theme.text }}>{feature.documentation}</pre>
+            <pre className="text-[15px] whitespace-pre-wrap font-sans" style={{ color: theme.text }}>{feature.documentation}</pre>
           ) : (
-            <p className="text-sm" style={{ color: theme.text, opacity: 0.3 }}>{t("feature.noDocs")}</p>
+            <p className="text-[15px]" style={{ color: theme.text, opacity: 0.3 }}>{t("feature.noDocs")}</p>
           )}
         </div>
       </div>
@@ -597,12 +648,12 @@ function FileToFeatureList({ features, theme, t, searchQuery, onSelectFeature, o
 
   return (
     <div>
-      <div className="px-3 py-1.5 text-[10px]" style={{ color: theme.text, opacity: 0.4, borderBottom: `1px solid ${theme.borderLight}` }}>
+      <div className="px-3 py-1.5 text-xs" style={{ color: theme.text, opacity: 0.4, borderBottom: `1px solid ${theme.borderLight}` }}>
         {filtered.length} {t("feature.filesMapped")}
       </div>
       {Object.entries(grouped).map(([dir, entries]) => (
         <div key={dir}>
-          <div className="px-3 py-1 text-[10px] font-mono sticky top-0" style={{ color: theme.text, opacity: 0.3, background: theme.bgMuted, borderBottom: `1px solid ${theme.borderLight}` }}>
+          <div className="px-3 py-1 text-xs font-mono sticky top-0" style={{ color: theme.text, opacity: 0.3, background: theme.bgMuted, borderBottom: `1px solid ${theme.borderLight}` }}>
             📁 {dir}/
           </div>
           {entries.map(({ file, features: feats }) => (
@@ -613,7 +664,7 @@ function FileToFeatureList({ features, theme, t, searchQuery, onSelectFeature, o
             >
               <button
                 onClick={() => onOpenFile?.(file)}
-                className="text-xs font-mono truncate flex-1 text-left hover:underline"
+                className="text-sm font-mono truncate flex-1 text-left hover:underline"
                 style={{ color: theme.accent }}
                 title={file}
               >
@@ -627,7 +678,7 @@ function FileToFeatureList({ features, theme, t, searchQuery, onSelectFeature, o
                     <button
                       key={i}
                       onClick={() => onSelectFeature(ft.id)}
-                      className="text-[10px] px-1.5 py-0.5 rounded transition-opacity hover:opacity-100"
+                      className="text-xs px-1.5 py-0.5 rounded transition-opacity hover:opacity-100"
                       style={{ background: st?.bg || theme.bgMuted, color: st?.text || theme.text, opacity: 0.7 }}
                       title={`${ft.type} ${ft.name}`}
                     >
@@ -654,7 +705,7 @@ function Section({ title, count, theme, children }: {
   if (count === 0) return null;
   return (
     <div>
-      <h3 className="text-xs font-semibold uppercase mb-2" style={{ color: theme.text, opacity: 0.5 }}>
+      <h3 className="text-sm font-semibold uppercase mb-2" style={{ color: theme.text, opacity: 0.5 }}>
         {title} <span style={{ opacity: 0.5 }}>({count})</span>
       </h3>
       <div className="flex flex-col gap-1">{children}</div>
