@@ -500,9 +500,7 @@
   "ru.cost.deterministic": "Program-generated, zero LLM",
   "ru.cost.estimated": "estimated",
   "ru.qa.title": "Ask Codebase (Newcomer 12Q)",
-  "ru.qa.noLlm": "zero LLM · evidence-based",
   "ru.qa.placeholder": "e.g. what does changing xxx.mjs affect? / riskiest spots? / where is tokenUsage from?",
-  "ru.qa.ask": "Ask",
   "ru.qa.evidence": "Evidence",
   "ru.qa.noEvidence": "No evidence found",
   "ru.qa.error": "Query failed (API error)",
@@ -925,5 +923,6 @@
   "ru.qa.sug12": "Recent production issues?",
   "ru.qa.sugTitle": "Newcomer 12 questions · click to ask",
   "ho.tab.main": "Main Info",
-  "ho.tab.qa": "Newcomer 12 Questions"
+  "ho.tab.qa": "Newcomer 12 Questions",
+  "ru.qa.searching": "Searching evidence…"
 }

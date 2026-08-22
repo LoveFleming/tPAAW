@@ -500,9 +500,7 @@
   "ru.cost.deterministic": "程式生成，零 LLM",
   "ru.cost.estimated": "為估算值",
   "ru.qa.title": "問 Codebase（新人 12 問）",
-  "ru.qa.noLlm": "零 LLM · evidence-based",
   "ru.qa.placeholder": "例：修改 xxx.mjs 會影響什麼？/ 哪裡最危險？/ tokenUsage 從哪來？",
-  "ru.qa.ask": "Ask",
   "ru.qa.evidence": "Evidence",
   "ru.qa.noEvidence": "No evidence found",
   "ru.qa.error": "查詢失敗（API error）",
@@ -925,5 +923,6 @@
   "ru.qa.sug12": "最近有哪些 production issue？",
   "ru.qa.sugTitle": "新人 12 問 · 點題即問",
   "ho.tab.main": "Main Info 交接包",
-  "ho.tab.qa": "新人 12 問"
+  "ho.tab.qa": "新人 12 問",
+  "ru.qa.searching": "查證據中…"
 }

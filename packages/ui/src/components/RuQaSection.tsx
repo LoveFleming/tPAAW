@@ -71,62 +71,50 @@ export default function RuQaSection({ rootPath, theme }: { rootPath: string; the
 
   return (
     <section>
-      <h3 className="text-xs font-bold text-stone-600 mb-2 flex items-center gap-2">
-        ❓ {t("ru.qa.title")}
-        <span className="text-[9px] font-normal px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">{t("ru.qa.noLlm")}</span>
-      </h3>
+      <h3 className="text-xs font-bold text-stone-600 mb-2">❓ {t("ru.qa.title")}</h3>
       <div style={box}>
-        <div className="flex gap-1.5">
-          <input
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            onCompositionStart={() => { composingRef.current = true; }}
-            onCompositionEnd={() => { composingRef.current = false; }}
-            onKeyDown={e => {
-              if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(q); }
-            }}
-            placeholder={t("ru.qa.placeholder")}
-            className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border outline-none"
-            style={{ borderColor: theme.borderLight, background: "#fff", color: theme.text }}
-          />
-          <button onClick={() => ask(q)} disabled={loading || !q.trim()}
-            className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-40"
-            style={{ backgroundColor: theme.accent || "#78716c" }}>
-            {loading ? "…" : t("ru.qa.ask")}
-          </button>
-        </div>
+        <input
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          onCompositionStart={() => { composingRef.current = true; }}
+          onCompositionEnd={() => { composingRef.current = false; }}
+          onKeyDown={e => {
+            if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(q); }
+          }}
+          placeholder={t("ru.qa.placeholder")}
+          className="w-full text-xs px-2.5 py-1.5 rounded-lg border outline-none focus:border-stone-400 transition-colors"
+          style={{ borderColor: theme.borderLight, background: "#fff", color: theme.text }}
+        />
 
-        {/* 新人 12 問 — 完整清單，點了即問 */}
-        <div className="mt-1.5">
+        {/* 新人 12 問 — 兩欄 grid，點了即問 */}
+        <div className="mt-2">
           <div className="text-[9px] font-semibold text-stone-400 mb-1">{t("ru.qa.sugTitle")}</div>
-          <div className="flex flex-wrap gap-1">
+          <div className="grid grid-cols-2 gap-1">
             {SUGGESTIONS.map((s, i) => (
               <button key={s} onClick={() => ask(t(s))}
-                className="text-[10px] px-2 py-0.5 rounded-full border text-stone-600 hover:bg-stone-100 hover:border-stone-400 transition-colors"
+                className="text-left text-[10px] px-2 py-1 rounded-md border text-stone-600 hover:bg-stone-50 hover:border-stone-300 transition-colors truncate"
                 style={{ borderColor: theme.borderLight }}>
-                <span className="text-stone-400 mr-0.5">{CIRCLED[i]}</span>{t(s)}
+                <span className="text-stone-300 mr-1">{CIRCLED[i]}</span>{t(s)}
               </button>
             ))}
           </div>
         </div>
 
         {/* 答案卡 */}
-        {a && (
-          <div className="mt-2.5 border-t pt-2.5" style={{ borderColor: theme.borderLight }}>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded"
-                style={{ background: a.noEvidence ? "#fef3c7" : "#dcfce7", color: a.noEvidence ? "#92400e" : "#166534" }}>
-                {a.noEvidence ? t("ru.qa.noEvidence") : `intent: ${a.intent}`}
-              </span>
-              <span className="text-[10px] text-stone-400 truncate">{a.question}</span>
-            </div>
-            <div className="text-xs leading-relaxed" style={{ color: a.noEvidence ? "#92400e" : theme.text }}>
+        {loading && (
+          <div className="mt-2.5 border-t pt-2.5 text-[11px] text-stone-400 animate-pulse" style={{ borderColor: theme.borderLight }}>
+            🔍 {t("ru.qa.searching")}
+          </div>
+        )}
+        {a && !loading && (
+          <div className={`mt-2.5 border-t pt-2.5 ${a.noEvidence ? "rounded-lg px-2.5 py-2" : ""}`} style={{ borderColor: a.noEvidence ? "#fcd34d" : theme.borderLight, background: a.noEvidence ? "#fffbeb" : undefined }}>
+            <div className="text-xs font-medium leading-relaxed" style={{ color: a.noEvidence ? "#92400e" : theme.text }}>
               {a.noEvidence ? "🚫 " : ""}{a.summary}
             </div>
             {a.bullets && a.bullets.length > 0 && (
-              <ul className="text-[11px] mt-1 space-y-0.5" style={{ color: theme.text }}>
-                {a.bullets.map((b, i) => <li key={i} className="truncate" title={b}>• {b}</li>)}
+              <ul className="text-[11px] mt-1.5 space-y-1 leading-relaxed" style={{ color: theme.text }}>
+                {a.bullets.map((b, i) => <li key={i} className="break-words">• {b}</li>)}
               </ul>
             )}
             {a.evidence.length > 0 && (
