@@ -18,6 +18,8 @@ import { exec as execCb } from "child_process";
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { loadFeatureData, matchFeaturesForFiles, buildFeatureFileTree, buildContextBoundary } from "./feature-boundary.mjs";
+import { PaawProject } from "./paaw-project.mjs";
+import { listActionLog } from "./action-log.mjs";
 
 
 // ── Context Gathering（統一版） ──
