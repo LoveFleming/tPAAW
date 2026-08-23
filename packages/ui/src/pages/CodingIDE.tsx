@@ -50,6 +50,8 @@ import ReleaseUnitPanel from "../components/ReleaseUnitPanel";
 import TabErrorBoundary from "../components/TabErrorBoundary";
 import FeatureMap from "../components/FeatureMap";
 import AutoDispatchPanel, { SubTaskDetail } from "../components/AutoDispatchPanel";
+import ApiMapSidebar from "../components/ApiMapSidebar";
+import AgentSideChat, { type AgentSideChatHandle } from "../components/AgentSideChat";
 import CrewManager from "../components/CrewManager";
 // ReportsTab removed — merged into AutoDispatchPanel
 import SecurityTab from "../components/SecurityTab";
@@ -1096,6 +1098,8 @@ export default function CodingIDE() {
   // ═══════════════════════════════════════════════
   // File Operations
   // ═══════════════════════════════════════════════
+  // API Tester 右欄 Developer AI（外部注入訊息用）
+  const apiDevChatRef = useRef<AgentSideChatHandle>(null);
   const openFile = useCallback(async (path: string) => {
     if (loadingFileRef.current) return; // prevent double-click race
 
@@ -2846,8 +2850,26 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
             )}
 
             {/* === API TESTER === */}
+            {/* === API TESTER（三欄：API 地圖 | 測試台 | Developer AI）=== */}
             {activeMainTab?.type === "api" && (
-              <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+              <div className="flex-1 flex min-w-0 overflow-hidden" data-testid="api-tester-page">
+                {/* 左欄：API 地圖宮殿 */}
+                <div className="shrink-0 border-r hidden lg:flex flex-col" style={{ width: 264, borderColor: tk.borderLight }}>
+                  <ApiMapSidebar
+                    rootPath={rootPath}
+                    onPick={(m, p) => {
+                      const base = rootPath ? `http://localhost:${new URL(API_BASE).port}` : API_BASE;
+                      setApiUrl(`${base}${p}`);
+                      setApiMethod(m || "GET");
+                      setApiStreamMode(false);
+                    }}
+                    onOpenFile={(abs) => { openFile(abs); }}
+                    onAskAi={(prompt) => { apiDevChatRef.current?.send(prompt); }}
+                    borderLight={tk.borderLight}
+                  />
+                </div>
+                {/* 中欄：request builder + response（原有）*/}
+                <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* ── Top: Request Builder ── */}
                 <div data-api-panel="request" className="shrink-0 overflow-y-auto p-3 space-y-2 flex flex-col" style={{ flex: "0 0 50%", borderBottom: `1px solid ${tk.borderLight}`, maxHeight: "70%" }}>
                   {/* Title bar + History dropdown */}
@@ -3121,6 +3143,21 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                       <p>{tt("vibe.apiNoResponse")}</p>
                     </div>
                   )}
+                </div>
+              </div>
+                {/* 右欄：Developer AI 助理 */}
+                <div className="shrink-0 border-l hidden xl:flex flex-col" style={{ width: 340, borderColor: tk.borderLight }}>
+                  <AgentSideChat
+                    ref={apiDevChatRef}
+                    agentId="developer"
+                    agentName={tt("apiMap.devAiName")}
+                    agentEmoji="💻"
+                    greeting={tt("apiMap.devAiGreeting")}
+                    cwd={rootPath}
+                    accent="#2563eb"
+                    height="100%"
+                    placeholder={tt("apiMap.devAiPlaceholder")}
+                  />
                 </div>
               </div>
             )}

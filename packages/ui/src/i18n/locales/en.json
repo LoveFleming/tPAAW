@@ -957,5 +957,12 @@
   "ru.view.entryPoints": "Entry Points",
   "ru.view.callPath": "Call Path",
   "ru.view.codeStructure": "Code Structure (Generated from AST)",
-  "ru.view.modelFresh": "MODEL ✓ Fresh"
+  "ru.view.modelFresh": "MODEL ✓ Fresh",
+  "apiMap.noProject": "Select a project first",
+  "apiMap.search": "Search APIs (method / path)",
+  "apiMap.noApis": "No APIs found — run a rescan first",
+  "apiMap.askAi": "Ask AI about this API",
+  "apiMap.devAiName": "Developer",
+  "apiMap.devAiGreeting": "I'm your Developer 💻 Pick an API on the left and hit \"Ask AI\" — I'll explain the handler, build payloads, and analyze responses.",
+  "apiMap.devAiPlaceholder": "Ask about API usage, payloads…"
 }

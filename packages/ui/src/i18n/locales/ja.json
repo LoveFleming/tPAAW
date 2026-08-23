@@ -957,5 +957,12 @@
   "ru.view.entryPoints": "Entry Points",
   "ru.view.callPath": "Call Path",
   "ru.view.codeStructure": "Code Structure（AST から生成）",
-  "ru.view.modelFresh": "MODEL ✓ Fresh"
+  "ru.view.modelFresh": "MODEL ✓ Fresh",
+  "apiMap.noProject": "先にプロジェクトを選択",
+  "apiMap.search": "API検索（method / path）",
+  "apiMap.noApis": "APIが見つかりません — 再スキャンを実行",
+  "apiMap.askAi": "このAPIをAIに聞く",
+  "apiMap.devAiName": "デベロッパー",
+  "apiMap.devAiGreeting": "開発エンジニアです 💻 左のAPIを選んで「AIに聞く」— handlerの解説、payload作成、レスポンス分析をサポートします。",
+  "apiMap.devAiPlaceholder": "APIの使い方やpayloadについて質問…"
 }

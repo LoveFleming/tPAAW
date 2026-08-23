@@ -957,5 +957,12 @@
   "ru.view.entryPoints": "Entry Points 進入點",
   "ru.view.callPath": "Call Path",
   "ru.view.codeStructure": "Code Structure（Generated from AST）",
-  "ru.view.modelFresh": "MODEL ✓ Fresh"
+  "ru.view.modelFresh": "MODEL ✓ Fresh",
+  "apiMap.noProject": "先選擇專案",
+  "apiMap.search": "搜尋 API（method / path）",
+  "apiMap.noApis": "沒有找到 API — 先跑重掃",
+  "apiMap.askAi": "問 AI 這條 API",
+  "apiMap.devAiName": "開發工程師",
+  "apiMap.devAiGreeting": "我是你的開發工程師 💻 選左邊一條 API 按「問 AI」，我幫你解讀 handler、組 payload、分析回應。",
+  "apiMap.devAiPlaceholder": "問我 API 用途、payload 怎麼組…"
 }
