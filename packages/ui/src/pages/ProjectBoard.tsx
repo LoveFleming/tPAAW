@@ -244,8 +244,15 @@ export default function ProjectBoard() {
           </div>
 
           {/* Project cards */}
-          <div className="grid md:grid-cols-2 gap-4">
-            {summaries.map(p => (
+          {summaries.length === 0 ? (
+            <div className="rounded-xl border p-10 text-center" style={{ borderColor: tk.borderLight, background: tk.bgMuted }}>
+              <div className="text-3xl mb-2">🗂️</div>
+              <div className="font-medium mb-1" style={{ color: tk.textPrimary }}>{tt("project.empty")}</div>
+              <div className="text-sm" style={{ color: tk.textMuted }}>{tt("project.emptyHint")}</div>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              {summaries.map(p => (
               <div key={p.id} onClick={() => openProject(p.id)}
                 className="rounded-xl border p-5 cursor-pointer transition-all hover:shadow-md"
                 style={{ borderColor: tk.borderLight, background: tk.bgMuted }}>
@@ -267,8 +274,9 @@ export default function ProjectBoard() {
                   <div className="text-xs mt-2" style={{ color: tk.textMuted }}>🏁 {p.milestonesDone}/{p.milestonesTotal} 里程碑</div>
                 )}
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* New project modal */}

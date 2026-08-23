@@ -118,144 +118,6 @@ function computeStats(project) {
   };
 }
 
-// ── Default PAAW Project ──
-
-async function ensureDefaultProject() {
-  await ensureDataDir();
-  const paawFile = resolve(DATA_DIR, "paaw.json");
-  if (existsSync(paawFile)) return;
-
-  const paawProject = {
-    id: "paaw",
-    name: "PAAW — Personal AI Assistant Workspace",
-    icon: "🐾",
-    description: "Build your personal AI workforce. 人用 AI 自己做工具 → AI 幫你記資料 → AI 放大你記的資料 → 形成能力飛輪。",
-    status: "in-progress",
-    startDate: "2026-01-01",
-    targetDate: "2026-12-31",
-    repo: "https://github.com/LoveFleming/tPAAW",
-    dashboard: "",
-    categories: [
-      {
-        id: "infrastructure",
-        name: "基礎設施",
-        icon: "🏗️",
-        description: "LLM retry、路徑系統、安全防護、備份還原",
-        tasks: [
-          { id: genId("t"), name: "LLM API 重試/清理/驗證", status: "done", priority: "high", start: "2026-02-01", end: "2026-02-15" },
-          { id: genId("t"), name: "絕對路徑系統 ({{PAAW_ROOT}})", status: "done", priority: "high", start: "2026-02-10", end: "2026-02-28" },
-          { id: genId("t"), name: "多 Provider fallback chain", status: "done", priority: "high", start: "2026-03-01", end: "2026-03-10" },
-          { id: genId("t"), name: "Backup/Restore 系統 (跨平台)", status: "done", priority: "high", start: "2026-06-15", end: "2026-06-25" },
-          { id: genId("t"), name: "Security Kernel (approval + audit)", status: "progress", priority: "medium", start: "2026-06-20", end: "2026-07-15" },
-        ],
-      },
-      {
-        id: "skill-system",
-        name: "Skill 系統",
-        icon: "🔨",
-        description: "技能定義、Skill Builder、測試執行",
-        tasks: [
-          { id: genId("t"), name: "Skill 格式標準化 (schema)", status: "done", priority: "high", start: "2026-03-01", end: "2026-03-15" },
-          { id: genId("t"), name: "Skill Builder (AI 建構技能)", status: "done", priority: "high", start: "2026-03-15", end: "2026-04-30" },
-          { id: genId("t"), name: "Skill 測試沙盒 + timeout", status: "done", priority: "medium", start: "2026-05-01", end: "2026-05-15" },
-          { id: genId("t"), name: "Skill 輸出模式 (file/display/both)", status: "done", priority: "medium", start: "2026-06-10", end: "2026-06-18" },
-          { id: genId("t"), name: "Skill 版本管理", status: "todo", priority: "low", start: "", end: "" },
-        ],
-      },
-      {
-        id: "app-system",
-        name: "App 系統",
-        icon: "📱",
-        description: "App Builder、自動註冊為 Chat Tool、雙入口",
-        tasks: [
-          { id: genId("t"), name: "App Builder (AI 建構 App)", status: "done", priority: "high", start: "2026-04-01", end: "2026-04-30" },
-          { id: genId("t"), name: "App 自動註冊為 Chat Tool", status: "done", priority: "high", start: "2026-05-01", end: "2026-05-15" },
-          { id: genId("t"), name: "雙入口：聊天 + App 視窗", status: "done", priority: "high", start: "2026-05-15", end: "2026-06-01" },
-          { id: genId("t"), name: "App 資料 = AI 記憶", status: "progress", priority: "high", start: "2026-06-20", end: "2026-07-30" },
-          { id: genId("t"), name: "觸發關鍵字自動路由", status: "todo", priority: "medium", start: "", end: "" },
-        ],
-      },
-      {
-        id: "chat-assistant",
-        name: "聊天助理",
-        icon: "💬",
-        description: "Context Engine、Tool Engine、串流回應",
-        tasks: [
-          { id: genId("t"), name: "Context Engine (per-message)", status: "done", priority: "high", start: "2026-03-10", end: "2026-03-25" },
-          { id: genId("t"), name: "Tool Engine (ReAct loop)", status: "done", priority: "high", start: "2026-03-25", end: "2026-04-10" },
-          { id: genId("t"), name: "串流回應 (SSE)", status: "done", priority: "high", start: "2026-04-10", end: "2026-04-25" },
-          { id: genId("t"), name: "聊天工具整合", status: "done", priority: "medium", start: "2026-06-20", end: "2026-06-28" },
-          { id: genId("t"), name: "Deep Link 機制", status: "done", priority: "medium", start: "2026-06-25", end: "2026-06-27" },
-        ],
-      },
-      {
-        id: "builtin-apps",
-        name: "內建應用",
-        icon: "📦",
-        description: "Notes、Mind Map、Briefing Player、Coding IDE",
-        tasks: [
-          { id: genId("t"), name: "Notes 筆記系統 (OneNote 式)", status: "done", priority: "high", start: "2026-06-20", end: "2026-06-27" },
-          { id: genId("t"), name: "Mind Map Viewer (markmap)", status: "done", priority: "medium", start: "2026-06-15", end: "2026-06-22" },
-          { id: genId("t"), name: "Briefing Player", status: "done", priority: "low", start: "2026-05-20", end: "2026-05-30" },
-          { id: genId("t"), name: "Coding IDE", status: "done", priority: "high", start: "2026-05-25", end: "2026-06-20" },
-          { id: genId("t"), name: "Project Board (專案看板)", status: "progress", priority: "high", start: "2026-06-27", end: "2026-06-30" },
-          { id: genId("t"), name: "Gantt Chart 甘特圖", status: "progress", priority: "medium", start: "2026-06-28", end: "2026-07-05" },
-        ],
-      },
-      {
-        id: "ai-intelligence",
-        name: "AI 智慧層",
-        icon: "🧠",
-        description: "AI 蒸餾、知識庫、自動學習",
-        tasks: [
-          { id: genId("t"), name: "AI 蒸餾系統", status: "done", priority: "medium", start: "2026-04-15", end: "2026-05-15" },
-          { id: genId("t"), name: "Knowledge 知識庫管理", status: "done", priority: "medium", start: "2026-05-15", end: "2026-05-30" },
-          { id: genId("t"), name: "自動蒸餾排程", status: "done", priority: "low", start: "2026-05-30", end: "2026-06-05" },
-          { id: genId("t"), name: "AI 寫筆記", status: "done", priority: "medium", start: "2026-06-25", end: "2026-06-28" },
-        ],
-      },
-      {
-        id: "ui-ux",
-        name: "UI/UX",
-        icon: "🎨",
-        description: "主題系統、響應式設計、CodingIDE 風格",
-        tasks: [
-          { id: genId("t"), name: "7 種主題色系統", status: "done", priority: "medium", start: "2026-04-01", end: "2026-04-15" },
-          { id: genId("t"), name: "tk token 系統", status: "done", priority: "medium", start: "2026-06-20", end: "2026-06-25" },
-          { id: genId("t"), name: "i18n 多語系", status: "done", priority: "low", start: "2026-05-10", end: "2026-05-20" },
-          { id: genId("t"), name: "CodingIDE 邊框優化", status: "done", priority: "low", start: "2026-06-26", end: "2026-06-27" },
-        ],
-      },
-      {
-        id: "operations",
-        name: "營運與部署",
-        icon: "🚀",
-        description: "Cron 排程、系統設定、部署流程",
-        tasks: [
-          { id: genId("t"), name: "Cron Job 系統", status: "done", priority: "medium", start: "2026-05-01", end: "2026-05-15" },
-          { id: genId("t"), name: "設定頁 (Provider/Skill/Backup)", status: "done", priority: "medium", start: "2026-05-15", end: "2026-06-01" },
-          { id: genId("t"), name: "Vercel 靜態部署", status: "done", priority: "low", start: "2026-04-20", end: "2026-05-01" },
-          { id: genId("t"), name: "Windows 跨平台相容", status: "done", priority: "medium", start: "2026-06-10", end: "2026-06-20" },
-          { id: genId("t"), name: "Docker 容器化部署", status: "todo", priority: "low", start: "", end: "" },
-        ],
-      },
-    ],
-    milestones: [
-      { id: genId("m"), name: "PAAW v0.1 — 核心框架", status: "done", note: "Skill + App + Chat 基礎架構", date: "2026-03" },
-      { id: genId("m"), name: "PAAW v0.5 — 雙入口 + 工具生態", status: "done", note: "聊天視窗 + App 視窗都能用", date: "2026-05" },
-      { id: genId("m"), name: "PAAW v0.8 — 內建應用套件", status: "done", note: "Notes + Mind Map + Coding IDE", date: "2026-06" },
-      { id: genId("m"), name: "PAAW v1.0 — 正式發布", status: "progress", note: "Project Board + Gantt + 安裝包", date: "2026-09" },
-      { id: genId("m"), name: "PAAW v1.5 — Plugin Marketplace", status: "todo", note: "第三方技能/App 市集", date: "2026-12" },
-      { id: genId("m"), name: "PAAW v2.0 — Multi-user", status: "todo", note: "多人協作 + 權限管理", date: "2027-Q1" },
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  await writeFile(paawFile, JSON.stringify(paawProject, null, 2), "utf-8");
-  console.log("[Projects] Default PAAW project created");
-}
-
 // ════════════════════════════════════════
 // Route Handler
 // ════════════════════════════════════════
@@ -267,9 +129,6 @@ async function handleProjectRoutes(req, res) {
   const path = parsedUrl.pathname;
 
   if (method === "OPTIONS") return false;
-
-  // Ensure default project exists
-  await ensureDefaultProject();
 
   // ── Project list / create ──
 
@@ -340,9 +199,6 @@ async function handleProjectRoutes(req, res) {
   // DELETE /api/projects/:id
   if (detailMatch && method === "DELETE") {
     const id = detailMatch[1];
-    if (id === "paaw") {
-      res.writeHead(403); res.end(JSON.stringify({ error: "Cannot delete default project" })); return true;
-    }
     const file = resolve(DATA_DIR, `${id}.json`);
     if (existsSync(file)) {
       const { rm } = await import("fs/promises");

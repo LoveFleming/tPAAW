@@ -1074,5 +1074,7 @@
   "onboarding.providerPriceIn": "Input price $/M",
   "onboarding.providerPriceOut": "Output price $/M",
   "onboarding.providerConfigured": "configured",
-  "onboarding.providerNoKey": "⚠️ No API key yet — you can configure it later"
+  "onboarding.providerNoKey": "⚠️ No API key yet — you can configure it later",
+  "project.empty": "No projects yet",
+  "project.emptyHint": "Click “＋ New Project” at the top right to create your first project"
 }

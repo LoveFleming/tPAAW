@@ -1074,5 +1074,7 @@
   "onboarding.providerPriceIn": "輸入價格 $/M",
   "onboarding.providerPriceOut": "輸出價格 $/M",
   "onboarding.providerConfigured": "已設定完成",
-  "onboarding.providerNoKey": "⚠️ 尚未設定 API Key，你可以稍後再配置"
+  "onboarding.providerNoKey": "⚠️ 尚未設定 API Key，你可以稍後再配置",
+  "project.empty": "还没有專案",
+  "project.emptyHint": "點右上角「＋ 新專案」建立第一個專案"
 }

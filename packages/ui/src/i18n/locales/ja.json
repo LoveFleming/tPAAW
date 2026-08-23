@@ -1074,5 +1074,7 @@
   "onboarding.providerPriceIn": "入力価格 $/M",
   "onboarding.providerPriceOut": "出力価格 $/M",
   "onboarding.providerConfigured": "設定完了",
-  "onboarding.providerNoKey": "⚠️ API Keyが未設定です。後で設定できます"
+  "onboarding.providerNoKey": "⚠️ API Keyが未設定です。後で設定できます",
+  "project.empty": "プロジェクトはまだありません",
+  "project.emptyHint": "右上の「＋ 新規プロジェクト」から最初のプロジェクトを作成できます"
 }
