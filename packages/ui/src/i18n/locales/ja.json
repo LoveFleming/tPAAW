@@ -1017,5 +1017,11 @@
   "tests.sug1Label": "最高リスクのギャップ",
   "tests.sug1Prompt": "カバレッジギャップから、リスクが高く優先的にテストすべき5ファイルは？",
   "tests.sug2Label": "テスト品質監査",
-  "tests.sug2Prompt": "既存のテストマッピングに「テスト済みだが要点外れ」や誤対応はない？"
+  "tests.sug2Prompt": "既存のテストマッピングに「テスト済みだが要点外れ」や誤対応はない？",
+  "apiMap.unmapped": "その他（未マッピング）",
+  "tests.featuresWithTests": "テストありFeatures",
+  "tests.otherGroup": "その他（featureなし）",
+  "codeIntel.featureScope": "Feature 絞り込み",
+  "codeIntel.allFeatures": "全部",
+  "codeIntel.impactFromFeature": "featureから入力"
 }

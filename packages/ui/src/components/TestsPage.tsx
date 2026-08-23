@@ -13,6 +13,7 @@ import React, { useEffect, useMemo, useRef, useState, forwardRef } from "react";
 import { useI18n } from "../i18n";
 import { useTheme } from "../theme";
 import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
+import { useRuModel } from "./useRuModel";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4097";
 
@@ -40,6 +41,7 @@ function TestsPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<AgentSid
   const accentText = themeCtx?.info?.accentText || "#0369a1";
 
   const [data, setData] = useState<DetailData | null>(null);
+  const ruModel = useRuModel(rootPath);
   const [loading, setLoading] = useState(false);
   const [kindFilter, setKindFilter] = useState<string>("__all__");
   const [expanded, setExpanded] = useState<string | null>(null); // testFile
@@ -72,6 +74,29 @@ function TestsPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<AgentSid
     return list.filter(e => (e.testType || "unit") === kindFilter);
   }, [data, kindFilter]);
 
+  // ── feature 分組：test 的 matches 打到 feature 的 files → 歸該 feature（多歸屬誠實顯示）──
+  const testGroups = useMemo(() => {
+    const feats = (ruModel?.features || []).map(f => ({ id: f.id, name: f.name, files: new Set(f.files || []) }));
+    const byFeature = new Map<string, TestToCodeEntry[]>();
+    const others: TestToCodeEntry[] = [];
+    for (const e of rows) {
+      const hit = feats.filter(f => (e.matches || []).some(m => f.files.has(m.productionFile)));
+      if (hit.length === 0) others.push(e);
+      else hit.forEach(f => {
+        if (!byFeature.has(f.id)) byFeature.set(f.id, []);
+        byFeature.get(f.id)!.push(e);
+      });
+    }
+    const groups = [...byFeature.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([id, entries]) => ({ key: id, name: feats.find(f => f.id === id)?.name || id, entries }));
+    if (others.length) groups.push({ key: "__others__", name: "", entries: others });
+    return groups;
+  }, [rows, ruModel]);
+
+  const featuresWithTests = testGroups.filter(g => g.key !== "__others__").length;
+  const [openTestGroup, setOpenTestGroup] = useState<Record<string, boolean>>({});
+
   const askGaps = () => {
     const gaps = (data?.coverageGaps || []).slice(0, 20)
       .map(g => `${g.file}（${g.functionCount ?? "?"} 函數）`).join("\n");
@@ -98,7 +123,7 @@ function TestsPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<AgentSid
       {/* 左：宮殿 */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto p-4 space-y-4">
         {/* 統計卡 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2" data-testid="tests-stats">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2" data-testid="tests-stats">
           <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight }}>
             <div className="text-[10px] text-stone-400 font-medium">{t("tests.totalFiles")}</div>
             <div className="text-lg font-bold text-stone-700">{data?.summary?.totalTestFiles ?? "—"}</div>
@@ -114,6 +139,10 @@ function TestsPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<AgentSid
           <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight, background: (data?.summary?.coverageGapFiles || 0) > 0 ? "#fffbeb" : undefined }}>
             <div className="text-[10px] text-stone-400 font-medium">{t("tests.gapFiles")}</div>
             <div className={`text-lg font-bold ${(data?.summary?.coverageGapFiles || 0) > 0 ? "text-amber-600" : "text-stone-700"}`}>{data?.summary?.coverageGapFiles ?? "—"}</div>
+          </div>
+          <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight }}>
+            <div className="text-[10px] text-stone-400 font-medium">{t("tests.featuresWithTests")}</div>
+            <div className="text-lg font-bold text-stone-700">{featuresWithTests}<span className="text-xs text-stone-400 font-normal">/{(ruModel?.features || []).length || "—"}</span></div>
           </div>
         </div>
 
@@ -140,7 +169,29 @@ function TestsPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<AgentSid
           <div className="px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50 flex items-center" style={{ borderBottom: `1px solid ${borderLight}` }}>
             🔗 {t("tests.mappingTitle")} · {rows.length}
           </div>
-          {rows.slice(0, 120).map(e => {
+          {testGroups.map(g => {
+            const gOpen = openTestGroup[g.key] !== false;
+            const gKinds = [...new Set(g.entries.map(e => e.testType || "unit"))];
+            return (
+            <div key={g.key}>
+              <button onClick={() => setOpenTestGroup(prev => ({ ...prev, [g.key]: !gOpen }))}
+                className="w-full px-3 py-1.5 bg-stone-50 hover:bg-stone-100 flex items-center gap-2 text-left"
+                style={{ borderBottom: `1px solid ${borderLight}` }} data-testid="tests-group">
+                <span className="text-[10px]">{gOpen ? "▾" : "▸"}</span>
+                {g.key === "__others__" ? (
+                  <span className="text-[11px] font-bold text-stone-400">📦 {t("tests.otherGroup")}</span>
+                ) : (
+                  <>
+                    <span className="text-[11px] font-mono font-bold" style={{ color: accentText }}>{g.key}</span>
+                    <span className="text-[11px] font-bold text-stone-700 truncate">{g.name}</span>
+                  </>
+                )}
+                <span className="text-[9px] text-stone-400 shrink-0">🧪 {g.entries.length}</span>
+                <span className="flex gap-1 shrink-0">
+                  {gKinds.map(k => <span key={k} className="text-[8px] px-1 py-0.5 rounded text-white font-bold" style={{ backgroundColor: KIND_COLORS[k] || "#78716c" }}>{k}</span>)}
+                </span>
+              </button>
+              {gOpen && g.entries.map(e => {
             const kind = e.testType || "unit";
             const isOpen = expanded === e.testFile;
             return (
@@ -174,6 +225,9 @@ function TestsPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<AgentSid
                   </div>
                 )}
               </div>
+              );
+            })}
+            </div>
             );
           })}
           {rows.length === 0 && !loading && (

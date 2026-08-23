@@ -12,6 +12,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../i18n";
+import { useRuModel, featureNameMap, type RuModelLite } from "./useRuModel";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4097";
 
@@ -38,7 +39,10 @@ interface Props {
 export default function ApiMapSidebar({ rootPath, onPick, onOpenFile, onAskAi, borderLight = "#f0f0f0", accentText = "#0369a1" }: Props) {
   const { t } = useI18n();
   const [apis, setApis] = useState<ApiEntry[]>([]);
+  const ruModel: RuModelLite | null = useRuModel(rootPath);
+  const featNames = useMemo(() => featureNameMap(ruModel), [ruModel]);
   const [query, setQuery] = useState("");
+  const [mode, setMode] = useState<"feature" | "prefix">("feature"); // feature 分組為主軸
   const [openGroup, setOpenGroup] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<string | null>(null); // method+path
   const composingRef = useRef(false); // IME 三層保護
@@ -80,17 +84,29 @@ export default function ApiMapSidebar({ rootPath, onPick, onOpenFile, onAskAi, b
     return apis.filter(a => `${a.method} ${a.path}`.toLowerCase().includes(q));
   }, [apis, query]);
 
-  // prefix 分組（path 第一段）
+  // 分組：feature（Release Unit 為主軸）或 prefix（技術結構）
+  const UNMAPPED_KEY = "__unmapped__";
   const groups = useMemo(() => {
     const g = new Map<string, ApiEntry[]>();
+    const push = (key: string, a: ApiEntry) => { if (!g.has(key)) g.set(key, []); g.get(key)!.push(a); };
+    if (mode === "feature") {
+      // 多歸屬誠實顯示：API 有幾個 featureIds 就出現在幾組
+      for (const a of filtered) {
+        const fids = (a.featureIds || []).filter(fid => featNames.has(fid));
+        if (fids.length === 0) push(UNMAPPED_KEY, a);
+        else fids.forEach(fid => push(fid, a));
+      }
+      // feature 依 F-id 排序，其他放最後
+      const featKeys = [...g.keys()].filter(k => k !== UNMAPPED_KEY).sort();
+      if (g.has(UNMAPPED_KEY)) featKeys.push(UNMAPPED_KEY);
+      return featKeys.map(k => [k, g.get(k)!] as [string, ApiEntry[]]);
+    }
     for (const a of filtered) {
       const parts = a.path.replace(/^\/+/, "").split("/");
-      const key = parts.length > 1 ? `/${parts[0]}` : "/";
-      if (!g.has(key)) g.set(key, []);
-      g.get(key)!.push(a);
+      push(parts.length > 1 ? `/${parts[0]}` : "/", a);
     }
     return [...g.entries()].sort((x, y) => x[0].localeCompare(y[0]));
-  }, [filtered]);
+  }, [filtered, mode, featNames]);
 
   const askAbout = (a: ApiEntry) => {
     const chain = (a.callChain || []).map(c => `${"  ".repeat(c.depth)}${c.function}${c.resolved === false ? " (unresolved)" : ""}`).join("\n");
@@ -121,8 +137,19 @@ export default function ApiMapSidebar({ rootPath, onPick, onOpenFile, onAskAi, b
           style={{ borderColor: borderLight }}
           data-testid="api-map-search"
         />
-        <div className="text-[10px] text-stone-400 font-medium px-0.5">
-          ⚡ {filtered.length}/{apis.length} APIs
+        <div className="flex items-center justify-between">
+          <div className="text-[10px] text-stone-400 font-medium px-0.5">
+            ⚡ {filtered.length}/{apis.length} APIs
+          </div>
+          <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: borderLight }} data-testid="api-map-mode">
+            {(["feature", "prefix"] as const).map(m => (
+              <button key={m} onClick={() => setMode(m)}
+                data-testid={`api-map-mode-${m}`}
+                className={`text-[10px] font-bold px-1.5 py-0.5 ${mode === m ? "bg-stone-800 text-white" : "text-stone-400 hover:bg-stone-100"}`}>
+                {m === "feature" ? "🧩 Feature" : "🔍 Prefix"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -138,8 +165,17 @@ export default function ApiMapSidebar({ rootPath, onPick, onOpenFile, onAskAi, b
               <button onClick={() => setOpenGroup(prev => ({ ...prev, [gName]: !open }))}
                 className="w-full flex items-center gap-1 text-xs font-bold text-stone-500 hover:text-stone-700 px-1 py-0.5">
                 <span className="text-[10px]">{open ? "▾" : "▸"}</span>
-                <span className="font-mono">{gName}</span>
-                <span className="text-stone-400 font-normal">({list.length})</span>
+                {mode === "feature" && gName !== UNMAPPED_KEY ? (
+                  <>
+                    <span className="font-mono shrink-0" style={{ color: accentText }}>{gName}</span>
+                    <span className="truncate">{featNames.get(gName) || "?"}</span>
+                  </>
+                ) : mode === "feature" ? (
+                  <span className="text-stone-400">📦 {t("apiMap.unmapped")}</span>
+                ) : (
+                  <span className="font-mono">{gName}</span>
+                )}
+                <span className="text-stone-400 font-normal shrink-0">({list.length})</span>
               </button>
               {open && list.map(a => {
                 const key = `${a.method} ${a.path}`;

@@ -18,6 +18,7 @@ import React, { useEffect, useMemo, useRef, useState, forwardRef } from "react";
 import { useI18n } from "../i18n";
 import { useTheme } from "../theme";
 import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
+import { useRuModel, type RuFeatureLite } from "./useRuModel";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4097";
 
@@ -56,6 +57,7 @@ function CodeIntelPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<Agen
   const accentText = themeCtx?.info?.accentText || "#0369a1";
 
   const [tab, setTab] = useState<SubTab>("callgraph");
+  const ruFeatures: RuFeatureLite[] = useRuModel(rootPath)?.features || [];
   const [codeIntel, setCodeIntel] = useState<CodeIntel | null>(null);
   const chatRef = useRef<AgentSideChatHandle>(null);
   React.useImperativeHandle(ref, () => ({
@@ -65,6 +67,7 @@ function CodeIntelPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<Agen
   // ── Call Graph state ──
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<{ name: string; file: string } | null>(null);
+  const [featureScope, setFeatureScope] = useState<string>(""); // "" = 全部；F-xxx = 限縮該 feature 的檔案
   const composingRef = useRef(false); // IME 三層保護
 
   // ── Deps state ──
@@ -110,13 +113,20 @@ function CodeIntelPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<Agen
   const calleesOf = codeIntel?.callGraph?.calleesOf || {};
   const cgStats = codeIntel?.callGraph?.stats;
 
+  const scopeFiles = useMemo(() => {
+    if (!featureScope) return null;
+    const f = ruFeatures.find(x => x.id === featureScope);
+    return f ? new Set(f.files || []) : null;
+  }, [featureScope, ruFeatures]);
+
   const results = useMemo(() => {
     const needle = q.trim().toLowerCase();
+    const inScope = (n: CgNode) => !scopeFiles || scopeFiles.has(n.file || "");
     const list = needle
-      ? nodes.filter(n => n.name.toLowerCase().includes(needle) || (n.file || "").toLowerCase().includes(needle))
-      : nodes.filter(n => (callersOf[n.name] || []).length > 0);
+      ? nodes.filter(n => inScope(n) && (n.name.toLowerCase().includes(needle) || (n.file || "").toLowerCase().includes(needle)))
+      : nodes.filter(n => inScope(n) && (callersOf[n.name] || []).length > 0);
     return list.slice(0, 60);
-  }, [q, nodes, callersOf]);
+  }, [q, nodes, callersOf, scopeFiles]);
 
   const callers = selected ? [...new Set(callersOf[selected.name] || [])] : [];
   const callees = selected ? [...new Set(calleesOf[selected.name] || [])] : [];
@@ -125,6 +135,23 @@ function CodeIntelPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<Agen
     const i = ref.lastIndexOf(":");
     return i > 0 ? { file: ref.slice(0, i), fn: ref.slice(i + 1) } : { file: "", fn: ref };
   };
+
+  const FeatureChips = ({ active, onPick }: { active: string; onPick: (id: string, files: string[]) => void }) => (
+    <div className="flex gap-1 overflow-x-auto pb-1" data-testid="ci-feature-chips">
+      <button onClick={() => onPick("", [])}
+        className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors ${active === "" ? "bg-stone-800 text-white border-stone-800" : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"}`}>
+        {t("codeIntel.allFeatures")}
+      </button>
+      {ruFeatures.map(f => (
+        <button key={f.id} onClick={() => onPick(f.id, f.files || [])} title={f.name}
+          data-testid={`ci-feature-chip-${f.id}`}
+          className={`shrink-0 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border transition-colors ${active === f.id ? "text-white border-transparent" : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"}`}
+          style={active === f.id ? { backgroundColor: "#7c3aed" } : undefined}>
+          {f.id}
+        </button>
+      ))}
+    </div>
+  );
 
   const FileLink = ({ file, children }: { file: string; children?: React.ReactNode }) => (
     <button onClick={() => onOpenFile?.(`${rootPath}/${file}`)}
@@ -223,6 +250,8 @@ function CodeIntelPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<Agen
           {/* ═══ 📞 Call Graph ═══ */}
           {tab === "callgraph" && (
             <div className="space-y-3" data-testid="ci-callgraph">
+              <div className="text-[10px] text-stone-400 font-bold">{t("codeIntel.featureScope")}</div>
+              <FeatureChips active={featureScope} onPick={(id) => setFeatureScope(id)} />
               <div className="flex gap-2">
                 <input
                   value={q} onChange={e => setQ(e.target.value)}
@@ -352,6 +381,8 @@ function CodeIntelPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<Agen
           {tab === "impact" && (
             <div className="space-y-3 max-w-3xl" data-testid="ci-impact">
               <div className="text-xs text-stone-500">{t("codeIntel.impactHint")}</div>
+              <div className="text-[10px] text-stone-400 font-bold">{t("codeIntel.impactFromFeature")}</div>
+              <FeatureChips active="" onPick={(_, files) => { if (files.length) setImpactInput(files.join("\n")); }} />
               <textarea
                 value={impactInput} onChange={e => setImpactInput(e.target.value)}
                 onCompositionStart={() => { impactComposingRef.current = true; }}

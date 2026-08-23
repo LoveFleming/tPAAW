@@ -1017,5 +1017,11 @@
   "tests.sug1Label": "Riskiest gaps",
   "tests.sug1Prompt": "From the coverage gaps, which 5 files are riskiest and should be tested first? Why?",
   "tests.sug2Label": "Test quality audit",
-  "tests.sug2Prompt": "Audit existing test mappings — any \"tested but not meaningful\" or mismatched pairs?"
+  "tests.sug2Prompt": "Audit existing test mappings — any \"tested but not meaningful\" or mismatched pairs?",
+  "apiMap.unmapped": "Unmapped",
+  "tests.featuresWithTests": "Features w/ tests",
+  "tests.otherGroup": "Others (no feature)",
+  "codeIntel.featureScope": "Feature scope",
+  "codeIntel.allFeatures": "All",
+  "codeIntel.impactFromFeature": "Fill from feature"
 }

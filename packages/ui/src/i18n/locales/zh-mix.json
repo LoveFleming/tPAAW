@@ -1017,5 +1017,11 @@
   "tests.sug1Label": "最高風險缺口",
   "tests.sug1Prompt": "從 coverage gaps 看，哪 5 個檔案風險最高該優先補測？為什麼？",
   "tests.sug2Label": "測試品質體檢",
-  "tests.sug2Prompt": "檢查現有 test 的 mapping，有沒有「測了但沒測到重點」或誤配？"
+  "tests.sug2Prompt": "檢查現有 test 的 mapping，有沒有「測了但沒測到重點」或誤配？",
+  "apiMap.unmapped": "其他（未 mapping feature）",
+  "tests.featuresWithTests": "有測試 Features",
+  "tests.otherGroup": "其他（不屬任何 feature）",
+  "codeIntel.featureScope": "Feature 限縮",
+  "codeIntel.allFeatures": "All 全部",
+  "codeIntel.impactFromFeature": "從 feature 貼入 files"
 }
