@@ -12,33 +12,14 @@ import { readBody, json, PATHS } from "./context.mjs";
 
 const CONFIG_FILE = join(PATHS.CONFIG_ROOT, "agentic-bindings.json");
 
-function _ensureConfig() {
-  if (!existsSync(CONFIG_FILE)) {
-    mkdirSync(PATHS.CONFIG_ROOT, { recursive: true });
-    const defaults = {
-      "afternoon-tea": {
-        workflowId: "afternoon-tea",
-        toolName: "order_afternoon_tea",
-        description: "啟動下午茶訂購流程。AI 代理人會自動發菜單、收訂單、催人、結單。",
-        triggers: ["訂下午茶", "下午茶", "訂飲料", "團購飲料"],
-        defaults: {
-          title: "下午茶訂購",
-          menu: "",
-          roomId: "rainy-afternoon-tea",
-          participants: [],
-          deadline: "10 分鐘",
-        },
-        agenticPlatformUrl: "http://localhost:4200",
-        enabled: true,
-      },
-    };
-    writeFileSync(CONFIG_FILE, JSON.stringify(defaults, null, 2), "utf-8");
-  }
-}
-
 function _readConfig() {
-  _ensureConfig();
-  return JSON.parse(readFileSync(CONFIG_FILE, "utf-8"));
+  // 缺檔/壞檔回空 — 不自動寫預設（ensure-default pattern 已拔）
+  try {
+    if (!existsSync(CONFIG_FILE)) return {};
+    return JSON.parse(readFileSync(CONFIG_FILE, "utf-8")) || {};
+  } catch {
+    return {};
+  }
 }
 
 async function _writeConfig(config) {
