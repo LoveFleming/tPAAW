@@ -171,6 +171,7 @@ function AppInner() {
   }, [openTabs, currentScope]);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [paawVersion, setPaawVersion] = useState("");
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem("paaw.sidebar-width");
     return saved ? parseInt(saved, 10) : 260;
@@ -235,6 +236,11 @@ function AppInner() {
   }, []);
 
   useEffect(() => { loadCrew(); loadPaawRoot(); loadSkillApps(); loadDataApps(); loadUiState(); loadPlugins(); }, [loadCrew, loadPaawRoot, loadSkillApps, loadDataApps, loadUiState]);
+
+  // PAAW 版本（左上角顯示；pack.mjs 打包時寫在 package.json）
+  useEffect(() => {
+    fetch(`${API_BASE}/api/version`).then(r => r.json()).then(d => { if (d?.version) setPaawVersion(d.version); }).catch(() => {});
+  }, []);
 
   // ── Navigation helpers ──
   const handleSelectProject = useCallback((path: string) => {
@@ -743,7 +749,10 @@ function AppInner() {
             </svg>
           </button>
           <button onClick={() => { setActivePage("_chat"); }} className="flex flex-col items-start leading-tight cursor-pointer hover:text-white/80 transition-colors" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>
-            <span className="text-sm font-semibold text-white tracking-tight">PAAW</span>
+            <span className="flex items-center gap-1.5">
+              <span className="text-sm font-semibold text-white tracking-tight">PAAW</span>
+              {paawVersion && <span className="text-[9px] font-mono font-normal text-white/50 px-1 py-px rounded bg-white/10">v{paawVersion}</span>}
+            </span>
             <span className="text-[10px] font-normal text-white/50">Personal AI Assistant Workspace</span>
           </button>
         </div>

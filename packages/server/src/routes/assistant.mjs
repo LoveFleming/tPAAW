@@ -266,6 +266,19 @@ export default async function assistantRoute(req, res) {
 
   // ── Provider / Model APIs ──
 
+  // GET /api/version — PAAW 版本（pack.mjs 打包時寫在 package.json）
+  if (req.method === "GET" && path === "/api/version") {
+    try {
+      const pkg = JSON.parse(await readFile(resolve(PAAW_ROOT, "package.json"), "utf-8"));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ version: pkg.version || "0.0.0" }));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ version: "0.0.0" }));
+    }
+    return true;
+  }
+
   // GET /api/paaw/providers
   if (req.method === "GET" && path === "/api/paaw/providers") {
     try {
