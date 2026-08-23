@@ -8,9 +8,10 @@ import { readFileSync, writeFileSync, unlinkSync, mkdirSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { spawn } from "child_process";
 import { normalizePath, PAAW_ROOT, DATA_ROOT, PORT } from "./shared.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 // ── AI Settings paths ──
-const CODE_REVIEW_PROMPT_PATH = resolve(PAAW_ROOT, "data/ai-settings/coding/code-review.md");
+const CODE_REVIEW_PROMPT_PATH = resolve(DATA_HOME, "ai-settings/coding/code-review.md");
 
 // ── Helper: run git command ──
 export async function runGit(args, cwd) {

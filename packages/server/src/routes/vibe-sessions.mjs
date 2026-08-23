@@ -15,9 +15,10 @@ import {
 } from "./shared.mjs";
 
 // ── AI Settings paths ──
-const DISTILL_VIBE_PROMPT_PATH = resolve(PAAW_ROOT, "data/ai-settings/distill/vibe.md");
+const DISTILL_VIBE_PROMPT_PATH = resolve(DATA_HOME, "ai-settings/distill/vibe.md");
 import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 async function readBodyStr(req) {
   return new Promise((ok) => {
@@ -195,7 +196,7 @@ export default async function vibeSessionsRoute(req, res) {
 
         let distilled = null;
         try {
-          const providerConfig = JSON.parse(readFileSync(resolve(PAAW_ROOT, "data/config/providers.json"), "utf8"));
+          const providerConfig = JSON.parse(readFileSync(resolve(DATA_HOME, "config/providers.json"), "utf8"));
           const providerId = providerConfig.active;
           const provider = providerConfig.providers[providerId];
           if (provider?.apiKey && provider.apiKey !== "na") {

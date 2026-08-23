@@ -14,6 +14,7 @@ import {
 } from "./shared.mjs";
 import { json } from "./context.mjs";
 import { runAgentLoop } from "../lib/paaw-agent-loop.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 export default async function crewRoute(req, res) {
   const url = new URL(req.url, "http://localhost");
@@ -34,7 +35,7 @@ export default async function crewRoute(req, res) {
       // Merge into agent-config
       const { loadAgentConfig } = await import("./context.mjs");
       const { writeFile: wf, mkdir } = await import("fs/promises");
-      const cfgPath = resolve(PAAW_ROOT, "data/ai-settings/agent-config.json");
+      const cfgPath = resolve(DATA_HOME, "ai-settings/agent-config.json");
       const current = await loadAgentConfig();
       if (body.testTimeout) current.timeoutSeconds = body.testTimeout;
       if (body.maxToolCalls) current.maxTurns = body.maxToolCalls;
@@ -173,7 +174,7 @@ export default async function crewRoute(req, res) {
       const agentCfg = await loadAgentConfig();
       const effectiveMaxTurns = maxToolCalls || agentCfg.maxTurns;
       const effectiveTimeout = timeout || agentCfg.timeoutSeconds;
-      const workCwd = runCwd || resolve(PAAW_ROOT, "data", "logs", "cli");
+      const workCwd = runCwd || resolve(DATA_HOME, "logs", "cli");
       // Ensure temp dir exists
       try { await mkdir(workCwd, { recursive: true }); } catch {}
 
@@ -218,7 +219,7 @@ export default async function crewRoute(req, res) {
   if (modelsMatch) {
     try {
       const { readFileSync: _rsf } = await import("fs");
-      const providerConfig = JSON.parse(_rsf(resolve(PAAW_ROOT, "data/config/providers.json"), "utf-8"));
+      const providerConfig = JSON.parse(_rsf(resolve(DATA_HOME, "config/providers.json"), "utf-8"));
       const activeProviderId = providerConfig.active;
       // Return ALL providers with their models (for ModelSelector dropdown)
       const providers = Object.entries(providerConfig.providers || {}).filter(([_, p]) => p.enabled !== false).map(([pid, p]) => ({

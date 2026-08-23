@@ -14,6 +14,7 @@ import { fileURLToPath } from "url";
 import { spawn } from "child_process";
 import yaml from "js-yaml";
 import chokidar from "chokidar";
+import { DATA_HOME } from "../data-home.mjs";
 
 // ── Path constants ──
 const __filename = fileURLToPath(import.meta.url);
@@ -22,15 +23,15 @@ const SERVER_SRC = dirname(__dirname);           // .../packages/server/src
 
 const DASHBOARD_ROOT = resolve(SERVER_SRC, "../../ui");
 const PAAW_ROOT = resolve(SERVER_SRC, "../../../");
-const CONVERSATIONS_ROOT = resolve(PAAW_ROOT, "data/crews/conversation");
-const CREWS_ROOT = resolve(PAAW_ROOT, "data/crews");
-const SKILLS_ROOT = resolve(PAAW_ROOT, "data/skills");
+const CONVERSATIONS_ROOT = resolve(DATA_HOME, "crews/conversation");
+const CREWS_ROOT = resolve(DATA_HOME, "crews");
+const SKILLS_ROOT = resolve(DATA_HOME, "skills");
 const INPUT_PROMPT_ROOT = resolve(SKILLS_ROOT, "input-prompt");
 const PHYSICAL_SKILL_ROOT = resolve(SKILLS_ROOT, "physical-skill");
 const SKILL_POOL_ROOT = resolve(SKILLS_ROOT, "pool");
-const APPS_ROOT = resolve(PAAW_ROOT, "data/apps");
-const WORKFLOWS_ROOT = resolve(PAAW_ROOT, "data/workflows");
-const DATA_ROOT = resolve(PAAW_ROOT, "data");
+const APPS_ROOT = resolve(DATA_HOME, "apps");
+const WORKFLOWS_ROOT = resolve(DATA_HOME, "workflows");
+const DATA_ROOT = resolve(DATA_HOME);
 
 // Aliases used by assistant APIs
 const PAAW_DATA_DIR = DATA_ROOT;
@@ -39,13 +40,13 @@ const PAAW_CHAT_DIR = resolve(PAAW_DATA_DIR, "chats");
 const PAAW_WORKSPACES_FILE = resolve(PAAW_DATA_DIR, "workspaces.json");
 const PAAW_KNOWLEDGE_DIR = resolve(PAAW_DATA_DIR, "knowledge");
 const UI_STATE_FILE = resolve(PAAW_DATA_DIR, "ui-state.json");
-const APP_RULES_PATH = resolve(PAAW_ROOT, "data/config/app-builder-rules.md");
+const APP_RULES_PATH = resolve(DATA_HOME, "config/app-builder-rules.md");
 
 // Cron / scheduler paths
-const CRON_JOBS_FILE = resolve(PAAW_ROOT, "data/cron/cron-jobs.json");
+const CRON_JOBS_FILE = resolve(DATA_HOME, "cron/cron-jobs.json");
 const CRON_LOGS_DIR = resolve(PAAW_ROOT, "logs/cron");
 const CRON_RESULTS_DIR = resolve(PAAW_ROOT, "logs/cron-results");
-const CRON_CHAT_DIR = resolve(PAAW_ROOT, "data/chats");
+const CRON_CHAT_DIR = resolve(DATA_HOME, "chats");
 
 // Vibe sessions
 const VIBE_SESSIONS_DIR = resolve(PAAW_ROOT, "logs/vibe-sessions");

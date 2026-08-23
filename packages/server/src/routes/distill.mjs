@@ -29,14 +29,14 @@ import { PATHS, readBody, json, urlPath } from "./context.mjs";
 
 // ── Paths ──
 const PAAW_ROOT = PATHS.PAAW_ROOT;
-const DISTILL_DIR     = resolve(PAAW_ROOT, "data/distill");
+const DISTILL_DIR     = resolve(DATA_HOME, "distill");
 const RAW_DIR         = resolve(DISTILL_DIR, "raw");
 const KNOWLEDGE_DIR   = resolve(DISTILL_DIR, "knowledge");
 const CONFIG_FILE     = resolve(DISTILL_DIR, "config.json");
-const PROVIDERS_FILE  = resolve(PAAW_ROOT, "data/config/providers.json");
+const PROVIDERS_FILE  = resolve(DATA_HOME, "config/providers.json");
 const CHAT_DIR        = PATHS.CHAT_DIR;
 const VIBE_DIR        = resolve(PAAW_ROOT, "logs/vibe-sessions");
-const DISTILL_SETTINGS_DIR = resolve(PAAW_ROOT, "data/ai-settings/distill");
+const DISTILL_SETTINGS_DIR = resolve(DATA_HOME, "ai-settings/distill");
 
 // ── Read distill system prompt from AI settings ──
 function safeReadDistillPrompt() {
@@ -46,7 +46,7 @@ function safeReadDistillPrompt() {
 // ── Default Config ──
 // Per-source distill prompts are loaded from data/ai-settings/distill/{source}.md
 // Fallback to inline defaults if file doesn't exist
-const DISTILL_PROMPTS_DIR = resolve(PAAW_ROOT, "data/ai-settings/distill");
+const DISTILL_PROMPTS_DIR = resolve(DATA_HOME, "ai-settings/distill");
 
 function loadDistillPrompt(source) {
   // Load from data/ai-settings/distill/{source}.md
@@ -145,6 +145,7 @@ export function recordCronExecution({ jobName, success, result, duration }) {
 // ── LLM Call Helper (with retry + sanitize) ──
 import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 async function callLLM(systemPrompt, userPrompt, maxTokens = 4096, modelOverride) {
   try {

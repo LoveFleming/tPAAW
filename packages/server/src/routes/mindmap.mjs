@@ -18,12 +18,13 @@ import { dirname } from "path";
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent } from "../lib/llm-utils.mjs";
 import { readBody } from "./shared.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "../../../../");
-const MINDMAP_DIR = resolve(PAAW_ROOT, "data/mindmaps");
-const SYSTEM_PROMPT_PATH = resolve(PAAW_ROOT, "data/ai-settings/mindmap/system-prompt.md");
+const MINDMAP_DIR = resolve(DATA_HOME, "mindmaps");
+const SYSTEM_PROMPT_PATH = resolve(DATA_HOME, "ai-settings/mindmap/system-prompt.md");
 
 // ── 載入系統提示詞 ──
 
@@ -109,7 +110,7 @@ function cleanMarkdownResponse(content) {
 // ── Provider 解析 ──
 
 function loadProviderConfig() {
-  const configPath = resolve(PAAW_ROOT, "data/config/providers.json");
+  const configPath = resolve(DATA_HOME, "config/providers.json");
   try {
     return JSON.parse(readFileSync(configPath, "utf-8"));
   } catch {

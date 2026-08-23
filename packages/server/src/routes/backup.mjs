@@ -23,11 +23,12 @@ import { createGzip, createGunzip } from "zlib";
 import { pipeline } from "stream/promises";
 import { Readable } from "stream";
 import { readBody } from "./shared.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "../../../../");
-const DATA_DIR = resolve(PAAW_ROOT, "data");
+const DATA_DIR = resolve(DATA_HOME);
 const BACKUP_DIR_DEFAULT = resolve(PAAW_ROOT, "backups");
 const CONFIG_FILE = resolve(DATA_DIR, "config/backup.json");
 

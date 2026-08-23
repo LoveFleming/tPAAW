@@ -5,13 +5,14 @@ import { readdir, readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { resolve } from "path";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 // ── Paths (reuse from context.mjs) ──
 const PAAW_ROOT = PATHS.PAAW_ROOT;
-const PAAW_DATA_DIR = resolve(PAAW_ROOT, "data");
+const PAAW_DATA_DIR = resolve(DATA_HOME);
 const PAAW_USER_FILE = resolve(PAAW_DATA_DIR, "user.json");
 const PAAW_CHAT_DIR = resolve(PAAW_DATA_DIR, "chats");
-const APPS_ROOT = resolve(PAAW_ROOT, "data/apps");
+const APPS_ROOT = resolve(DATA_HOME, "apps");
 
 // Ensure dirs exist
 await mkdir(PAAW_CHAT_DIR, { recursive: true });

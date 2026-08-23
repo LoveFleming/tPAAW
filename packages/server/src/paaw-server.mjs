@@ -16,6 +16,7 @@ import {
   resolve, dirname, join,
 } from "./routes/shared.mjs";
 import { setupWebSocket } from "./websocket/ws-handler.mjs";
+import { DATA_HOME } from "./data-home.mjs";
 
 // ── Startup import check — catch missing exports (runs in background) ──
 import("./lib/import-check.mjs").catch(() => {}); // non-blocking, best-effort
@@ -226,7 +227,7 @@ server.listen(PORT, async () => {
 
   // Ensure daily backup cron job exists
   try {
-    const cronPath = resolve(PAAW_ROOT, "data/cron/cron-jobs.json");
+    const cronPath = resolve(DATA_HOME, "cron/cron-jobs.json");
     await mkdir(dirname(cronPath), { recursive: true });
     let cronJobs = [];
     try { cronJobs = JSON.parse(await readFile(cronPath, "utf-8")); } catch {}
@@ -235,7 +236,7 @@ server.listen(PORT, async () => {
       // Load backup config for schedule hour
       let scheduleHour = 0;
       try {
-        const bkConfig = JSON.parse(await readFile(resolve(PAAW_ROOT, "data/config/backup.json"), "utf-8"));
+        const bkConfig = JSON.parse(await readFile(resolve(DATA_HOME, "config/backup.json"), "utf-8"));
         scheduleHour = bkConfig.scheduleHour || 0;
       } catch {}
       cronJobs.push({
@@ -264,7 +265,7 @@ server.listen(PORT, async () => {
 
   // Ensure daily LLM log purge cron job exists
   try {
-    const cronPath = resolve(PAAW_ROOT, "data/cron/cron-jobs.json");
+    const cronPath = resolve(DATA_HOME, "cron/cron-jobs.json");
     let cronJobs = [];
     try { cronJobs = JSON.parse(await readFile(cronPath, "utf-8")); } catch {}
     const existingPurge = cronJobs.find(j => j.id === "system-daily-log-purge");
@@ -303,7 +304,7 @@ server.listen(PORT, async () => {
     const projectPaths = new Set([PAAW_ROOT]); // Always check PAAW root
     // From workspaces.json
     try {
-      const workspacesPath = join(PAAW_ROOT, 'data', 'workspaces.json');
+      const workspacesPath = join(DATA_HOME, 'workspaces.json');
       if (existsSync(workspacesPath)) {
         const ws = JSON.parse(await readFile(workspacesPath, 'utf-8'));
         if (Array.isArray(ws)) ws.forEach(w => { if (w.path) projectPaths.add(w.path); });
@@ -312,7 +313,7 @@ server.listen(PORT, async () => {
     } catch {}
     // From recent-projects.json
     try {
-      const recentPath = join(PAAW_ROOT, 'data', 'config', 'recent-projects.json');
+      const recentPath = join(DATA_HOME, 'config', 'recent-projects.json');
       if (existsSync(recentPath)) {
         const recent = JSON.parse(await readFile(recentPath, 'utf-8'));
         if (Array.isArray(recent)) recent.forEach((r) => { if (r.path) projectPaths.add(r.path); });

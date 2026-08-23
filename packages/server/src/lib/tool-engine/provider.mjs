@@ -1,3 +1,4 @@
+import { DATA_HOME } from "../../data-home.mjs";
 /**
  * Provider Adapter — AI Provider 抽象層 (.mjs)
  *
@@ -19,7 +20,7 @@ const PAAW_ROOT = pathResolve(__providerDir, '../../../../')
 /** Append an LLM log entry to data/llm-logs/YYYY-MM-DD.jsonl */
 function _llmLog(entry) {
   try {
-    const logDir = join(PAAW_ROOT, "data", "logs", "llm")
+    const logDir = join(DATA_HOME, "logs", "llm")
     if (!existsSync(logDir)) mkdirSync(logDir, { recursive: true })
     const dateStr = new Date().toISOString().slice(0, 10)
     const logPath = join(logDir, `${dateStr}.jsonl`)

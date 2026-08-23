@@ -20,6 +20,7 @@ import { fileURLToPath } from "url";
 import { randomUUID } from "crypto";
 import { tmpdir } from "os";
 import { shellExec, IS_WIN } from "./shell-exec.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -168,7 +169,7 @@ function scanSourceExtensions(projectRoot, maxDepth = 4) {
 }
 
 export function detectRulePacks(projectRoot) {
-  const LOCAL_RULES_DIR = resolve(PAAW_ROOT, "data", "semgrep-rules");
+  const LOCAL_RULES_DIR = resolve(DATA_HOME, "semgrep-rules");
   LOG("detectRulePacks: LOCAL_RULES_DIR=", LOCAL_RULES_DIR, "exists=", existsSync(LOCAL_RULES_DIR));
   const hasLocal = existsSync(LOCAL_RULES_DIR);
   const packs = [];

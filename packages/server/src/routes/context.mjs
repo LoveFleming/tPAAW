@@ -7,6 +7,7 @@ import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readFileSync, existsSync } from "fs";
 import yaml from "js-yaml";
+import { DATA_HOME } from "../data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -19,19 +20,19 @@ const DASHBOARD_ROOT = resolve(__dirname, "../../../../ui");
 export const PATHS = {
   PAAW_ROOT,
   DASHBOARD_ROOT,
-  CREWS_ROOT:      resolve(PAAW_ROOT, "data/crews"),
-  CONVERSATIONS_ROOT: resolve(PAAW_ROOT, "data/crews/conversation"),
-  SKILLS_ROOT:     resolve(PAAW_ROOT, "data/skills"),
-  INPUT_PROMPT_ROOT: resolve(PAAW_ROOT, "data/skills/input-prompt"),
-  PHYSICAL_SKILL_ROOT: resolve(PAAW_ROOT, "data/skills/physical-skill"),
-  SKILL_POOL_ROOT: resolve(PAAW_ROOT, "data/skills/pool"),
-  BUILDING_ROOT:   resolve(PAAW_ROOT, "data/skills/building"),
-  APPS_ROOT:       resolve(PAAW_ROOT, "data/apps"),
-  WORKFLOWS_ROOT:  resolve(PAAW_ROOT, "data/workflows"),
-  CONFIG_ROOT:     resolve(PAAW_ROOT, "data/config"),
-  CHAT_DIR:        resolve(PAAW_ROOT, "data/chats"),
-  SYSTEM_DIR:      resolve(PAAW_ROOT, "data/ai-settings/_base"), // legacy name kept, now points to ai-settings/_base
-  PAAW_ROOT_DATA:  resolve(PAAW_ROOT, "data"),
+  CREWS_ROOT:      resolve(DATA_HOME, "crews"),
+  CONVERSATIONS_ROOT: resolve(DATA_HOME, "crews/conversation"),
+  SKILLS_ROOT:     resolve(DATA_HOME, "skills"),
+  INPUT_PROMPT_ROOT: resolve(DATA_HOME, "skills/input-prompt"),
+  PHYSICAL_SKILL_ROOT: resolve(DATA_HOME, "skills/physical-skill"),
+  SKILL_POOL_ROOT: resolve(DATA_HOME, "skills/pool"),
+  BUILDING_ROOT:   resolve(DATA_HOME, "skills/building"),
+  APPS_ROOT:       resolve(DATA_HOME, "apps"),
+  WORKFLOWS_ROOT:  resolve(DATA_HOME, "workflows"),
+  CONFIG_ROOT:     resolve(DATA_HOME, "config"),
+  CHAT_DIR:        resolve(DATA_HOME, "chats"),
+  SYSTEM_DIR:      resolve(DATA_HOME, "ai-settings/_base"), // legacy name kept, now points to ai-settings/_base
+  PAAW_ROOT_DATA:  resolve(DATA_HOME),
 };
 
 // ── Helpers ──
@@ -124,7 +125,7 @@ let _agentConfigCache = null;
 let _agentConfigTs = 0;
 
 export async function loadAgentConfig() {
-  const configPath = join(PATHS.PAAW_ROOT, "data/ai-settings/agent-config.json");
+  const configPath = join(DATA_HOME, "ai-settings/agent-config.json");
   try {
     const stat = await import("fs").then(fs => fs.statSync(configPath));
     if (_agentConfigCache && stat.mtimeMs === _agentConfigTs) return _agentConfigCache;

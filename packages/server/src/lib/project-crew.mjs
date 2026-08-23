@@ -15,6 +15,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "fs";
 import { join, resolve } from "path";
 import { fileURLToPath } from "url";
+import { DATA_HOME } from "../data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = resolve(__filename, "..");
@@ -22,7 +23,7 @@ const __dirname = resolve(__filename, "..");
 // Resolve global crews directory
 // lib/ → src/ → server/ → packages/ → root = 4 levels up
 const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
-const GLOBAL_CREWS_DIR = join(PAAW_ROOT, "data", "crews");
+const GLOBAL_CREWS_DIR = join(DATA_HOME, "crews");
 
 // Default crew IDs (the 6 coding agents + EM)
 const DEFAULT_CREW_IDS = [
@@ -556,9 +557,9 @@ export function readProjectSkills(projectDir, crewId) {
  */
 function readSkillContent(skillId) {
   const roots = [
-    { dir: resolve(PAAW_ROOT, "data", "skills", "physical-skill"), kind: "physical" },
-    { dir: resolve(PAAW_ROOT, "data", "skills", "input-prompt"), kind: "input" },
-    { dir: resolve(PAAW_ROOT, "data", "skills", "building"), kind: "building" },
+    { dir: resolve(DATA_HOME, "skills", "physical-skill"), kind: "physical" },
+    { dir: resolve(DATA_HOME, "skills", "input-prompt"), kind: "input" },
+    { dir: resolve(DATA_HOME, "skills", "building"), kind: "building" },
   ];
 
   for (const { dir } of roots) {

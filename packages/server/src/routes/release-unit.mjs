@@ -35,6 +35,7 @@ import { extractAPIs } from "../lib/release-unit/apis.mjs";
 import { loadReleaseUnitModel, queryModelByFeature, queryModelByFile, queryModelByApi } from "../lib/release-unit/model.mjs";
 import { buildCostReport } from "../lib/release-unit/cost.mjs";
 import { answerQuestion } from "../lib/release-unit/qa.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -200,7 +201,7 @@ export default async function releaseUnitRoutes(req, res, next) {
 
   // ── GET /api/ru — 列出所有 Release Unit ──
   if (url === "/api/ru" && method === "GET") {
-    const recentFile = join(PAAW_ROOT, "data", "config", "recent-projects.json");
+    const recentFile = join(DATA_HOME, "config", "recent-projects.json");
     let recent = [];
     try { recent = JSON.parse(readFileSync(recentFile, "utf-8")); } catch {}
     const units = [];

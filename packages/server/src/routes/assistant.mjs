@@ -8,6 +8,7 @@
 import { readdir, readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { readFileSync, existsSync } from "fs";
 import { join, resolve, dirname } from "path";
+import { DATA_HOME } from "../data-home.mjs";
 import {
   PAAW_ROOT, PAAW_DATA_DIR, PAAW_USER_FILE, PAAW_CHAT_DIR,
   PAAW_WORKSPACES_FILE, PAAW_KNOWLEDGE_DIR, UI_STATE_FILE,
@@ -135,7 +136,7 @@ export default async function assistantRoute(req, res) {
   if (req.method === "PUT" && path === "/api/paaw/app-rules") {
     try {
       const body = await readBody(req);
-      await mkdir(resolve(PAAW_ROOT, "data/config"), { recursive: true });
+      await mkdir(resolve(DATA_HOME, "config"), { recursive: true });
       await writeFile(APP_RULES_PATH, body, "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, message: "Rules updated" }));
@@ -170,9 +171,9 @@ export default async function assistantRoute(req, res) {
       }
       const poolSkills = [];
       try {
-        const dirs = await readdir(resolve(PAAW_ROOT, "data/skills/pool"));
+        const dirs = await readdir(resolve(DATA_HOME, "skills/pool"));
         for (const d of dirs) {
-          if (existsSync(resolve(PAAW_ROOT, "data/skills/pool", d, "SKILL.md"))) poolSkills.push(d);
+          if (existsSync(resolve(DATA_HOME, "skills/pool", d, "SKILL.md"))) poolSkills.push(d);
         }
       } catch {}
       if (poolSkills.length > 0) {
@@ -201,7 +202,7 @@ export default async function assistantRoute(req, res) {
       data: null,
     };
     try {
-      bundle.app = JSON.parse(await readFile(resolve(PAAW_ROOT, "data/apps", `${appId}.json`), "utf-8"));
+      bundle.app = JSON.parse(await readFile(resolve(DATA_HOME, "apps", `${appId}.json`), "utf-8"));
     } catch {}
     if (!bundle.app) {
       res.writeHead(404);
@@ -209,14 +210,14 @@ export default async function assistantRoute(req, res) {
       return true;
     }
     try {
-      const skillsDir = resolve(PAAW_ROOT, "data/apps", appId, "skills");
+      const skillsDir = resolve(DATA_HOME, "apps", appId, "skills");
       const skillDirs = await readdir(skillsDir);
       for (const sd of skillDirs) {
         try { bundle.skills[sd] = await readFile(resolve(skillsDir, sd, "SKILL.md"), "utf-8"); } catch {}
       }
     } catch {}
-    try { bundle.html = await readFile(resolve(PAAW_ROOT, "data/apps", appId, "app.html"), "utf-8"); } catch {}
-    try { bundle.data = JSON.parse(await readFile(resolve(PAAW_ROOT, "data/app-data", `${appId}.json`), "utf-8")); } catch {}
+    try { bundle.html = await readFile(resolve(DATA_HOME, "apps", appId, "app.html"), "utf-8"); } catch {}
+    try { bundle.data = JSON.parse(await readFile(resolve(DATA_HOME, "app-data", `${appId}.json`), "utf-8")); } catch {}
 
     res.writeHead(200, { "Content-Type": "application/json", "Content-Disposition": `attachment; filename="${appId}-bundle.json"` });
     res.end(JSON.stringify(bundle, null, 2));
@@ -238,21 +239,21 @@ export default async function assistantRoute(req, res) {
         res.end(JSON.stringify({ error: "Missing app.id" }));
         return true;
       }
-      await writeFile(resolve(PAAW_ROOT, "data/apps", `${app.id}.json`), JSON.stringify(app, null, 2), "utf-8");
+      await writeFile(resolve(DATA_HOME, "apps", `${app.id}.json`), JSON.stringify(app, null, 2), "utf-8");
       if (bundle.skills) {
         for (const [skillName, skillContent] of Object.entries(bundle.skills)) {
-          const skillDir = resolve(PAAW_ROOT, "data/apps", app.id, "skills", skillName);
+          const skillDir = resolve(DATA_HOME, "apps", app.id, "skills", skillName);
           await mkdir(skillDir, { recursive: true });
           await writeFile(resolve(skillDir, "SKILL.md"), skillContent, "utf-8");
         }
       }
       if (bundle.html) {
-        const appDir = resolve(PAAW_ROOT, "data/apps", app.id);
+        const appDir = resolve(DATA_HOME, "apps", app.id);
         await mkdir(appDir, { recursive: true });
         await writeFile(resolve(appDir, "app.html"), bundle.html, "utf-8");
       }
       if (bundle.data) {
-        await writeFile(resolve(PAAW_ROOT, "data/app-data", `${app.id}.json`), JSON.stringify(bundle.data, null, 2), "utf-8");
+        await writeFile(resolve(DATA_HOME, "app-data", `${app.id}.json`), JSON.stringify(bundle.data, null, 2), "utf-8");
       }
       invalidateCache();
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -578,10 +579,10 @@ export default async function assistantRoute(req, res) {
   if (req.method === "GET" && skillInputsMatch) {
     try {
       const [, appId, skillId] = skillInputsMatch;
-      let skillPath = resolve(PAAW_ROOT, "data/apps", appId, "skills", skillId, "SKILL.md");
+      let skillPath = resolve(DATA_HOME, "apps", appId, "skills", skillId, "SKILL.md");
       let content;
       try { content = await readFile(skillPath, "utf-8"); } catch {
-        skillPath = resolve(PAAW_ROOT, "data/skills/pool", skillId, "SKILL.md");
+        skillPath = resolve(DATA_HOME, "skills/pool", skillId, "SKILL.md");
         try { content = await readFile(skillPath, "utf-8"); } catch {
           res.writeHead(404); res.end(JSON.stringify({ error: "Skill not found" })); return true;
         }

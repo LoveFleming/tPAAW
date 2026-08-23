@@ -14,6 +14,7 @@ import {
 import { runAgentLoop, runAgentLoopStream } from "../lib/paaw-agent-loop.mjs";
 import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 // Lazy-load distill module
 let _distillMod = null;
@@ -258,7 +259,7 @@ async function runCronJob(job) {
   // ── Report type: run via PAAW Agent Loop ──
   try {
     const skillId = job.skillId || job.reportAppId;
-    const skillDir = resolve(PAAW_ROOT, "data/skills/physical-skill", skillId);
+    const skillDir = resolve(DATA_HOME, "skills/physical-skill", skillId);
     console.log(`[cron] Skill ${skillId}: workDir=${skillDir}`);
 
     let skillMd = "";
@@ -568,12 +569,12 @@ async function agentLoopHandler(req, res) {
     const { loadAgentConfig } = await import("../routes/context.mjs");
     const agentCfg = await loadAgentConfig();
 
-    const workDir = cwd || resolve(PAAW_ROOT, "data", "logs", "cron", `${Date.now()}`);
+    const workDir = cwd || resolve(DATA_HOME, "logs", "cron", `${Date.now()}`);
     try { mkdirSync(workDir, { recursive: true }); } catch {}
     let skillMd = "";
     let autoSystemPrompt = systemPrompt;
     if (skillId) {
-      const skillPath = resolve(PAAW_ROOT, "data/skills/physical-skill", skillId, "SKILL.md");
+      const skillPath = resolve(DATA_HOME, "skills/physical-skill", skillId, "SKILL.md");
       try { skillMd = await readFile(skillPath, "utf-8"); skillMd = skillMd.replace(/\{\{PAAW_ROOT\}\}/g, PAAW_ROOT); } catch {}
     }
 
@@ -612,12 +613,12 @@ async function agentLoopHandler(req, res) {
     const { loadAgentConfig } = await import("../routes/context.mjs");
     const agentCfg = await loadAgentConfig();
 
-    const workDir = cwd || resolve(PAAW_ROOT, "data", "logs", "cron", `${Date.now()}`);
+    const workDir = cwd || resolve(DATA_HOME, "logs", "cron", `${Date.now()}`);
     try { mkdirSync(workDir, { recursive: true }); } catch {}
     let skillMd = "";
     let autoSystemPrompt = systemPrompt;
     if (skillId) {
-      const skillPath = resolve(PAAW_ROOT, "data/skills/physical-skill", skillId, "SKILL.md");
+      const skillPath = resolve(DATA_HOME, "skills/physical-skill", skillId, "SKILL.md");
       try { skillMd = await readFile(skillPath, "utf-8"); skillMd = skillMd.replace(/\{\{PAAW_ROOT\}\}/g, PAAW_ROOT); } catch {}
     }
 
@@ -758,7 +759,7 @@ async function vibeSessionsApiHandler(req, res) {
 
       let distilled = null;
       try {
-        const providerConfig = JSON.parse(readFileSync(resolve(PAAW_ROOT, "data/config/providers.json"), "utf8"));
+        const providerConfig = JSON.parse(readFileSync(resolve(DATA_HOME, "config/providers.json"), "utf8"));
         const providerId = providerConfig.active;
         const provider = providerConfig.providers[providerId];
         if (provider?.apiKey && provider.apiKey !== "na") {

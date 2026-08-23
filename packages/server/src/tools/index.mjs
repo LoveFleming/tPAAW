@@ -9,9 +9,10 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { resolve, dirname, join, isAbsolute, relative } from "path";
 import { fileURLToPath } from "url";
 import { PAAW_ROOT } from "../routes/shared.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PAAW_DATA_DIR = resolve(__dirname, "../../../../data");
+const PAAW_DATA_DIR = DATA_HOME;
 const APPS_DIR = resolve(PAAW_DATA_DIR, "apps");
 
 // ── Helpers to work with schema ──
@@ -1773,7 +1774,7 @@ function buildHandlers(apps) {
     switch (action) {
       case "list_notebooks": {
         try {
-          const dir = join(PAAW_ROOT, "data", "notes");
+          const dir = join(DATA_HOME, "notes");
           if (!existsSync(dir)) return "目前沒有任何筆記本。";
           const entries = (await readdir(dir)).filter(e => e.endsWith(".json") && e !== "sections.json");
           if (entries.length === 0) return "目前沒有任何筆記本。";
@@ -1795,7 +1796,7 @@ function buildHandlers(apps) {
         const tags = args.tags || [];
         if (!title && !content) return { text: "❌ 請提供標題或內容", error: true };
         try {
-          const dir = join(PAAW_ROOT, "data", "notes");
+          const dir = join(DATA_HOME, "notes");
           if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
           const file = join(dir, `${notebook}.json`);
           let nb = { id: notebook, name: notebook, notes: [] };
@@ -1813,7 +1814,7 @@ function buildHandlers(apps) {
         const icon = args.icon || "📁";
         if (!notebook || !name) return "❌ 需要 notebook 和 name";
         try {
-          const file = join(PAAW_ROOT, "data", "notes", "sections.json");
+          const file = join(DATA_HOME, "notes", "sections.json");
           let all = {};
           if (existsSync(file)) { try { all = JSON.parse(readFileSync(file, "utf-8")); } catch {} }
           if (!all[notebook]) all[notebook] = [{ id: "default", name: "Default" }];
@@ -1827,7 +1828,7 @@ function buildHandlers(apps) {
         const q = args.q || "";
         if (!q) return "❌ 請提供搜尋關鍵字";
         try {
-          const dir = join(PAAW_ROOT, "data", "notes");
+          const dir = join(DATA_HOME, "notes");
           if (!existsSync(dir)) return "沒有筆記";
           const entries = (await readdir(dir)).filter(e => e.endsWith(".json") && e !== "sections.json");
           const results = [];

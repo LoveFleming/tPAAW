@@ -18,6 +18,7 @@ import { resolve, join } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { PaawProject } from "./paaw-project.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -78,12 +79,12 @@ async function decisionsProvider({ cwd } = {}) {
 async function helpdeskProvider() {
   const result = {};
 
-  const knowledge = await safeReadTruncated(join(PAAW_ROOT, "data", "helpdesk", "KNOWLEDGE.md"));
+  const knowledge = await safeReadTruncated(join(DATA_HOME, "helpdesk", "KNOWLEDGE.md"));
   if (knowledge) result["知識庫"] = knowledge;
 
   // Recent helpdesk tickets (last 5)
   try {
-    const ticketsFile = join(PAAW_ROOT, "data", "helpdesk", "tickets.json");
+    const ticketsFile = join(DATA_HOME, "helpdesk", "tickets.json");
     const ticketsRaw = await safeRead(ticketsFile);
     if (ticketsRaw) {
       const tickets = JSON.parse(ticketsRaw);

@@ -33,6 +33,7 @@ import { PassThrough } from "stream";
 import { readBody } from "./shared.mjs";
 import { TaskGit } from "../lib/task-git.mjs";
 import { buildReviewBoundary } from "../lib/review-boundary.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -1285,7 +1286,7 @@ export async function runHealthPlanSubtask(projRoot, planId) {
   };
   const { PAAW_ROOT } = await import("./shared.mjs").then(m => ({ PAAW_ROOT: m.PAAW_ROOT }));
   const crewId = agentMap[agentId] || agentId;
-  const crewFile = join(PAAW_ROOT, "data", "crews", `${crewId}.json`);
+  const crewFile = join(DATA_HOME, "crews", `${crewId}.json`);
 
   if (!existsSync(crewFile)) {
     console.error(`[health-plan] Agent '${agentId}' not found at ${crewFile}`);
@@ -1414,7 +1415,7 @@ export async function triggerHealthAgentDispatch({ projRoot, subTask, chainParen
   };
   const crewId = agentMap[agentId] || agentId;
   const { PAAW_ROOT } = await import("./shared.mjs").then(m => ({ PAAW_ROOT: m.PAAW_ROOT }));
-  const crewFile = join(PAAW_ROOT, "data", "crews", `${crewId}.json`);
+  const crewFile = join(DATA_HOME, "crews", `${crewId}.json`);
   if (!existsSync(crewFile)) {
     console.error(`[health-chain] Agent '${agentId}' not found at ${crewFile}`);
     return;
@@ -1645,7 +1646,7 @@ ${coverageGaps ? `\n### Coverage Gaps\n${coverageGaps}` : ""}
 
   // Load developer crew prompt（同 runHealthPlanSubtask 模式）
   const { PAAW_ROOT } = await import("./shared.mjs").then(m => ({ PAAW_ROOT: m.PAAW_ROOT }));
-  const crewFile = join(PAAW_ROOT, "data", "crews", "coding.developer.json");
+  const crewFile = join(DATA_HOME, "crews", "coding.developer.json");
   let systemPrompt = "";
   if (existsSync(crewFile)) {
     try { systemPrompt = JSON.parse(readFileSync(crewFile, "utf-8")).rolePrompt || ""; } catch {}

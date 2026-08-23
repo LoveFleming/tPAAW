@@ -20,13 +20,14 @@ import { resolve } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { resolveDefaultModel } from "./lib/llm-utils.mjs";
+import { DATA_HOME } from "./data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // ── Paths ──
 const PAAW_ROOT = resolve(__dirname, "../../../");
-const DATA_DIR = resolve(PAAW_ROOT, "data");
+const DATA_DIR = resolve(DATA_HOME);
 const CONFIG_DIR = resolve(DATA_DIR, "config");
 const APPS_DIR = resolve(DATA_DIR, "apps");
 const CHAT_DIR = resolve(DATA_DIR, "chats");

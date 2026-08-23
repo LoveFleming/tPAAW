@@ -17,11 +17,12 @@ import { resolve, join } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { SECURITY_RULES } from "./security-rules.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "../../../..");
-const CREWS_DIR = resolve(PAAW_ROOT, "data", "crews");
+const CREWS_DIR = resolve(DATA_HOME, "crews");
 
 // ── Crew cache (keyed by crewId only; project overrides merged at call time) ──
 const _crewCache = {};
@@ -387,7 +388,7 @@ export async function buildSystemPrompt(agentId, opts = {}) {
   parts.push(`=== 當前日期時間 ===\n今天是 ${_dateStr}（星期${_weekday}），時間 ${_timeStr}，時區 Asia/Taipei (UTC+8)`);
 
   // 0. If ai-settings/{agentId}/system-prompt.md exists, use it as base prompt
-  const aiSettingsPromptPath = resolve(PAAW_ROOT, "data", "ai-settings", agentId, "system-prompt.md");
+  const aiSettingsPromptPath = resolve(DATA_HOME, "ai-settings", agentId, "system-prompt.md");
   if (existsSync(aiSettingsPromptPath)) {
     try {
       const promptText = readSync(aiSettingsPromptPath, "utf-8").trim();
@@ -467,14 +468,14 @@ export async function buildSystemPrompt(agentId, opts = {}) {
     const refPaths = [];
 
     // Knowledge: just the directory path, don't expand contents
-    const knowledgeDir = resolve(PAAW_ROOT, "data/knowledge");
+    const knowledgeDir = resolve(DATA_HOME, "knowledge");
     if (existsSync(knowledgeDir)) {
       refPaths.push(`📖 Knowledge (data/knowledge/) — 使用 reference_read(action="list|read|search", source="knowledge") 存取（唯讀）`);
     }
 
     // Workspace: external dirs from workspaces.json (just the paths, don't expand contents)
     try {
-      const ws = JSON.parse(readSync(resolve(PAAW_ROOT, "data/workspaces.json"), "utf-8"));
+      const ws = JSON.parse(readSync(resolve(DATA_HOME, "workspaces.json"), "utf-8"));
       if (ws.directories?.length) {
         refPaths.push(`📂 Workspace 目錄（使用 reference_read(action="list|read|search", source="workspace", path="...") 存取）：\n${ws.directories.map(d => "  - " + d).join("\n")}`);
       }

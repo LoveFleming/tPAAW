@@ -8,6 +8,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { join, resolve, extname } from "path";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
 import { runAgentLoop, resolveLLMConfig, callLLM } from "../lib/paaw-agent-loop.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 const PAAW_ROOT = process.env.PAAW_ROOT || PATHS.PAAW_ROOT;
 
@@ -390,14 +391,14 @@ export default async function workflowRoutes(req, res) {
       // Find skill path
       let skillPath = appId
         ? join(PATHS.APPS_ROOT, appId, "skills", skillId, "SKILL.md")
-        : join(PATHS.SKILL_POOL_ROOT || resolve(PAAW_ROOT, "data/skills/physical-skill"), skillId, "SKILL.md");
+        : join(PATHS.SKILL_POOL_ROOT || resolve(DATA_HOME, "skills/physical-skill"), skillId, "SKILL.md");
       if (!existsSync(skillPath)) {
         // Try skill pool root
-        skillPath = join(PATHS.SKILL_POOL_ROOT || resolve(PAAW_ROOT, "data/skills/physical-skill"), skillId, "SKILL.md");
+        skillPath = join(PATHS.SKILL_POOL_ROOT || resolve(DATA_HOME, "skills/physical-skill"), skillId, "SKILL.md");
       }
       if (!existsSync(skillPath)) {
         // Try physical-skill dir
-        skillPath = resolve(PAAW_ROOT, `data/skills/physical-skill/${skillId}/SKILL.md`);
+        skillPath = resolve(DATA_HOME, `skills/physical-skill/${skillId}/SKILL.md`);
       }
       if (!existsSync(skillPath)) { json(res, { error: `Skill not found: ${skillId}` }, 404); return true; }
 
@@ -499,10 +500,10 @@ export default async function workflowRoutes(req, res) {
             ? join(PATHS.APPS_ROOT, appId, "skills", node.skillId, "SKILL.md")
             : null;
           if (!skillPathResolved || !existsSync(skillPathResolved)) {
-            skillPathResolved = resolve(PAAW_ROOT, `data/skills/physical-skill/${node.skillId}/SKILL.md`);
+            skillPathResolved = resolve(DATA_HOME, `skills/physical-skill/${node.skillId}/SKILL.md`);
           }
           if (!existsSync(skillPathResolved)) {
-            skillPathResolved = resolve(PAAW_ROOT, `data/skills/building/${node.skillId}/package/SKILL.md`);
+            skillPathResolved = resolve(DATA_HOME, `skills/building/${node.skillId}/package/SKILL.md`);
           }
           if (!existsSync(skillPathResolved)) { results.push({ node: node.name, error: `Skill not found: ${node.skillId}` }); break; }
           output = await runSkillMiniLoop({ skillPath: skillPathResolved, input: ri, appId, model: wfModel });

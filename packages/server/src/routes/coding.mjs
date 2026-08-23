@@ -178,13 +178,14 @@ import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 // ── Running agent tracking (for busy check + interrupt) ──
 import { runningCodingAgents } from "../lib/running-agents.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 // ── LLM Call Helper for project routes ──
 // Resolves provider config and calls LLM with proper 4-arg signature
 async function callProjectLLM(body, opts = {}) {
   // providers.json lives at {PAAW_ROOT}/data/config/providers.json
   // it resolves to the PAAW server root
-  const providersFile = join(PAAW_ROOT, "data", "config", "providers.json");
+  const providersFile = join(DATA_HOME, "config", "providers.json");
   let providerConfig;
   try { providerConfig = JSON.parse(readSync(providersFile, "utf8")); } catch { return { content: null }; }
   // Parse "providerId/modelId" format (from ModelSelector) — 與 paaw-agent-loop resolveLLMConfig 同邏輯
@@ -259,7 +260,7 @@ export default async function projectRoute(req, res) {
   const crewMatch = url.match(/^\/api\/coding-crew\/([^/?]+)$/);
   if (crewMatch && method === "GET" && !['running', 'interrupt', 'dispatch', 'chat', 'conversations', 'context-window'].includes(crewMatch[1])) {
     const crewId = decodeURIComponent(crewMatch[1]);
-    const crewFile = join(PAAW_ROOT, "data", "crews", `${crewId}.json`);
+    const crewFile = join(DATA_HOME, "crews", `${crewId}.json`);
     try {
       if (existsSync(crewFile)) {
         const crew = JSON.parse(readSync(crewFile, "utf-8"));
@@ -551,7 +552,7 @@ export default async function projectRoute(req, res) {
       helpdesk: "coding.helpdesk",
     };
     const crewId = agentMap[agentId] || agentId;
-    const crewFile = join(PAAW_ROOT, "data", "crews", `${crewId}.json`);
+    const crewFile = join(DATA_HOME, "crews", `${crewId}.json`);
     if (!existsSync(crewFile)) {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: `Agent '${agentId}' not found` }));
@@ -1501,7 +1502,7 @@ export default async function projectRoute(req, res) {
     try {
       const { readdirSync, readFileSync: rf, existsSync: exists } = await import("fs");
       const { join, resolve: resv } = await import("path");
-      const skillsRoot = resv(PAAW_ROOT, "data", "skills");
+      const skillsRoot = resv(DATA_HOME, "skills");
       const skills = [];
 
       // Scan physical-skill and input-prompt dirs
@@ -1939,7 +1940,7 @@ export default async function projectRoute(req, res) {
   // Must sit BEFORE the `if (!projectPath)` guard below (2026-08-15 fix:
   // they lived inside the guarded try-block and always returned 400)
   if (url.startsWith("/api/coding-project/recent")) {
-    const recentPath = join(PAAW_ROOT, "data", "config", "recent-projects.json");
+    const recentPath = join(DATA_HOME, "config", "recent-projects.json");
     const loadRecent = () => {
       try {
         if (existsSync(recentPath)) return JSON.parse(readSync(recentPath, "utf-8"));
@@ -2296,7 +2297,7 @@ export default async function projectRoute(req, res) {
 
     // ── GET /api/coding-project/templates ──
     if (url.startsWith("/api/coding-project/templates") && method === "GET") {
-      const templatesDir = join(PAAW_ROOT, "data", "templates", "standards");
+      const templatesDir = join(DATA_HOME, "templates", "standards");
       const templates = [];
       try {
         const entries = await readdir(templatesDir);
@@ -2316,7 +2317,7 @@ export default async function projectRoute(req, res) {
     // ── GET /api/coding-project/templates/:name ──
     const tplMatch = url.match(/^\/api\/project\/templates\/([^?]+)/);
     if (tplMatch && method === "GET") {
-      const templatesDir = join(PAAW_ROOT, "data", "templates", "standards");
+      const templatesDir = join(DATA_HOME, "templates", "standards");
       const name = decodeURIComponent(tplMatch[1]);
       const filePath = join(templatesDir, name);
       try {
@@ -2340,7 +2341,7 @@ export default async function projectRoute(req, res) {
         res.end(JSON.stringify({ error: "Missing 'template' field" }));
         return true;
       }
-      const templatesDir = join(PAAW_ROOT, "data", "templates", "standards");
+      const templatesDir = join(DATA_HOME, "templates", "standards");
       try {
         const content = await readFile(join(templatesDir, templateName), "utf-8");
         // Ensure .paaw/ exists
@@ -2537,8 +2538,8 @@ export default async function projectRoute(req, res) {
         } catch {}
 
         // Load prompt
-        const promptsDir = join(PAAW_ROOT, "data", "prompts", "code-understanding");
-        const aiSettingsDir = join(PAAW_ROOT, "data", "ai-settings", "coding");
+        const promptsDir = join(DATA_HOME, "prompts", "code-understanding");
+        const aiSettingsDir = join(DATA_HOME, "ai-settings", "coding");
         const loadPrompt = (filename) => {
           // Priority: ai-settings/coding/ > prompts/code-understanding/
           try { return readSync(resolve(aiSettingsDir, filename), "utf-8"); } catch {}
@@ -2979,8 +2980,8 @@ export default async function projectRoute(req, res) {
         } catch {}
 
         // Load prompt templates
-        const promptsDir = join(PAAW_ROOT, "data", "prompts", "code-understanding");
-        const aiSettingsDir = join(PAAW_ROOT, "data", "ai-settings", "coding");
+        const promptsDir = join(DATA_HOME, "prompts", "code-understanding");
+        const aiSettingsDir = join(DATA_HOME, "ai-settings", "coding");
         const loadPrompt = (filename) => {
           // Priority: ai-settings/coding/ > prompts/code-understanding/
           try { return readSync(resolve(aiSettingsDir, filename), "utf-8"); } catch {}
@@ -3355,8 +3356,8 @@ export default async function projectRoute(req, res) {
       try {
         // Load domain system prompt
         // Priority: .paaw/prompts/{domain}-ai/ → ai-settings/domain-ai/{domain}/ → prompts/{domain}-ai/
-        const aiSettingsBase = join(PAAW_ROOT, "data", "ai-settings", "domain-ai");
-        const legacyPromptsBase = join(PAAW_ROOT, "data", "prompts");
+        const aiSettingsBase = join(DATA_HOME, "ai-settings", "domain-ai");
+        const legacyPromptsBase = join(DATA_HOME, "prompts");
         const domainPromptDir = join(legacyPromptsBase, `${domain}-ai`);
         const aiSettingsDomainDir = join(aiSettingsBase, domain);
         const systemPromptFile = resolve(aiSettingsBase, "system-prompt.md");
@@ -3527,7 +3528,7 @@ export default async function projectRoute(req, res) {
     }
 
     if (url.startsWith("/api/coding-project/prompts") && method === "GET" && !url.includes("/prompts/")) {
-      const promptsDir = join(PAAW_ROOT, "data", "prompts", "code-understanding");
+      const promptsDir = join(DATA_HOME, "prompts", "code-understanding");
       const projectPromptsDir = join(root, ".paaw", "prompts", "code-understanding");
       try {
         const files = existsSync(promptsDir) ? await readdir(promptsDir) : [];
@@ -3567,7 +3568,7 @@ export default async function projectRoute(req, res) {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ filename, content: readSync(projectFile, "utf-8"), source: "project" }));
       } else {
-        const defaultDir = join(PAAW_ROOT, "data", "prompts", "code-understanding");
+        const defaultDir = join(DATA_HOME, "prompts", "code-understanding");
         const defaultFile = resolve(defaultDir, filename);
         if (existsSync(defaultFile)) {
           res.writeHead(200, { "Content-Type": "application/json" });

@@ -39,15 +39,16 @@ import { dirname } from "path";
 import { readBody } from "./shared.mjs";
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent } from "../lib/llm-utils.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "../../../../");
-const NOTES_DIR = resolve(PAAW_ROOT, "data/notes");
+const NOTES_DIR = resolve(DATA_HOME, "notes");
 const NOTEBOOKS_FILE = resolve(NOTES_DIR, "notebooks.json");
 const SECTIONS_FILE = resolve(NOTES_DIR, "sections.json");
 const IMAGES_DIR = resolve(NOTES_DIR, "images");
-const SYSTEM_PROMPT_PATH = resolve(PAAW_ROOT, "data/ai-settings/notes/system-prompt.md");
+const SYSTEM_PROMPT_PATH = resolve(DATA_HOME, "ai-settings/notes/system-prompt.md");
 
 // ── AI 筆記助手 ──
 
@@ -60,7 +61,7 @@ function getSystemPrompt() {
 }
 
 function loadProviderConfig() {
-  const configPath = resolve(PAAW_ROOT, "data/config/providers.json");
+  const configPath = resolve(DATA_HOME, "config/providers.json");
   try {
     return JSON.parse(readFileSync(configPath, "utf-8"));
   } catch { return null; }

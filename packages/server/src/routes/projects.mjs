@@ -27,11 +27,12 @@ import { resolve, join } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { readBody } from "./shared.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "../../../../");
-const DATA_DIR = resolve(PAAW_ROOT, "data/projects");
+const DATA_DIR = resolve(DATA_HOME, "projects");
 
 // ── Helpers ──
 

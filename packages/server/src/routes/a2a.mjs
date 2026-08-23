@@ -45,12 +45,13 @@ import { JsonTaskPersistence } from "../lib/task-persistence.mjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "../../../..");
-const DATA_DIR = resolve(PAAW_ROOT, "data");
+const DATA_DIR = resolve(DATA_HOME);
 
 // ── Agent Rules — injected into every crew's system prompt ──
 import { AGENT_RULES } from "../lib/agent-rules.mjs";
 import { readFileSync as readSync } from "fs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 // ── Feature Map Summary (injected into system prompt) ──
 async function getFeatureSummary(cwd) {

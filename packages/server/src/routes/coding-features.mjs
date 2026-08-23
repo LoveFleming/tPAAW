@@ -20,6 +20,7 @@ import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readBody, normalizePath } from "./shared.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 function getMaxTokens(providerConfig, providerId, model) {
   const provider = providerConfig.providers?.[providerId];
@@ -220,7 +221,7 @@ export default async function codingFeaturesRoute(req, res) {
   }
 
   const projRoot = resolve(projectPath);
-  const providersFile = join(PAAW_ROOT, "data", "config", "providers.json");
+  const providersFile = join(DATA_HOME, "config", "providers.json");
 
   // ── GET /api/coding-features/file-map ──
   if (url === "/api/coding-features/file-map" && method === "GET") {

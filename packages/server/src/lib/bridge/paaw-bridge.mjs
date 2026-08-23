@@ -45,6 +45,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import { createHash } from "crypto";
 import { fileURLToPath } from "url";
+import { DATA_HOME } from "../../data-home.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -59,7 +60,7 @@ const PORT = parseInt(process.env.BRIDGE_PORT || "4100", 10);
 const HOST = process.env.BRIDGE_HOST || "0.0.0.0";
 const PAAW_CONTAINER = process.env.PAAW_CONTAINER || "paaw";
 const BRIDGE_TOKEN = process.env.BRIDGE_TOKEN || "";
-const HOST_DATA_DIR = resolve(PAAW_ROOT, "data");
+const HOST_DATA_DIR = resolve(DATA_HOME);
 
 // ── State ───────────────────────────────────────────────
 

@@ -17,12 +17,13 @@
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DATA_HOME } from "../data-home.mjs";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 // lib → src → server → packages → PAAW root（4 層）
 const PAAW_ROOT = join(__dirname, "..", "..", "..", "..");
-const RECENT_FILE = join(PAAW_ROOT, "data", "config", "recent-projects.json");
-const PROVIDERS_FILE = join(PAAW_ROOT, "data", "config", "providers.json");
+const RECENT_FILE = join(DATA_HOME, "config", "recent-projects.json");
+const PROVIDERS_FILE = join(DATA_HOME, "config", "providers.json");
 
 // ── Caches ──
 let _recentCache = null;

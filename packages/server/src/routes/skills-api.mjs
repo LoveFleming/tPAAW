@@ -12,6 +12,7 @@ import {
   readBody,
 } from "./shared.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 // ── Helper: parse YAML frontmatter from SKILL.md ──
 function parseSkillFrontmatter(raw) {
@@ -339,7 +340,7 @@ export default async function skillsApiRoute(req, res) {
   // Also accept legacy /api/skill-lab/build-files for backward compat
   if (req.method === "GET" && (req.url?.startsWith("/api/skill-builder/build-files") || req.url?.startsWith("/api/skill-lab/build-files"))) {
     try {
-      const skillsDir = join(PAAW_ROOT, "data/skills");
+      const skillsDir = join(DATA_HOME, "skills");
       const results = [];
       try {
         const buildingDir = join(skillsDir, "building");
@@ -395,7 +396,7 @@ export default async function skillsApiRoute(req, res) {
 
       // Load generate prompt template (user-facing prompt template)
       let genPrompt = "";
-      try { genPrompt = readFileSync(resolve(PAAW_ROOT, "data/ai-settings/skill-builder/generate/generate-prompt.md"), "utf-8").trim(); } catch {}
+      try { genPrompt = readFileSync(resolve(DATA_HOME, "ai-settings/skill-builder/generate/generate-prompt.md"), "utf-8").trim(); } catch {}
       if (!genPrompt) genPrompt = "請根據以下需求，產出完整的 SKILL.md：";
 
       const userMessage = `${genPrompt}\n\n${requirement}`;

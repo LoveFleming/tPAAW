@@ -6,6 +6,7 @@
 import { WebSocketServer } from "ws";
 import { spawn as ptySpawn } from "node-pty";
 import { runAgentLoop } from "../lib/paaw-agent-loop.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 import {
   PAAW_ROOT, readFileSync, writeFileSync, appendFileSync, resolve, join, mkdirSync,
 } from "../routes/shared.mjs";
@@ -64,7 +65,7 @@ export function setupWebSocket() {
         // ════════════════════════════════════════════════════════════
         if (opts.engine === "paaw-agent" || opts.cli === "paaw-agent") {
           console.log(`[PTY] Agent mode session: ${sessionId} (cwd: ${opts.cwd || PAAW_ROOT}, systemPrompt: ${(opts.systemPrompt || "").length} chars)`);
-          const agentCwd = opts.cwd || resolve(PAAW_ROOT, "data", "vibe-sessions", sessionId);
+          const agentCwd = opts.cwd || resolve(DATA_HOME, "vibe-sessions", sessionId);
           try { mkdirSync(agentCwd, { recursive: true }); } catch {}
           const agentState = {
             id: sessionId,
@@ -284,7 +285,7 @@ export function setupWebSocket() {
             let fallbackModels;
             try {
               const { resolveDefaultModel } = await import("../lib/llm-utils.mjs");
-              const providersFile = join(PAAW_ROOT, "data", "config", "providers.json");
+              const providersFile = join(DATA_HOME, "config", "providers.json");
               const providerConfig = JSON.parse(readFileSync(providersFile, "utf8"));
               const activeProvider = providerConfig.providers[providerConfig.active || "zai"];
               if (activeProvider?.fallbackModels) fallbackModels = activeProvider.fallbackModels;

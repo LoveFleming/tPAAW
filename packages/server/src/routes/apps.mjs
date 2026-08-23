@@ -14,6 +14,7 @@ import {
 } from "./shared.mjs";
 import { parseSkillFrontmatter } from "./skills-api.mjs";
 import { runAgentLoop, runAgentLoopStream } from "../lib/paaw-agent-loop.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 export default async function appsRoute(req, res) {
   // ── GET /api/apps — list apps ──
@@ -57,7 +58,7 @@ export default async function appsRoute(req, res) {
       res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "App ID must be lowercase alphanumeric starting with a letter" })); return true;
     }
     const appDir = join(APPS_ROOT, params.id);
-    const dataDir = resolve(PAAW_ROOT, "data/app-data");
+    const dataDir = resolve(DATA_HOME, "app-data");
     try {
       await mkdir(appDir, { recursive: true });
       const appMeta = {
@@ -112,7 +113,7 @@ export default async function appsRoute(req, res) {
     const m = req.method === "GET" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
     if (m) {
       const appId = m[1];
-      const dataDir = resolve(PAAW_ROOT, "data/app-data");
+      const dataDir = resolve(DATA_HOME, "app-data");
       await mkdir(dataDir, { recursive: true });
       try {
         const data = await readFile(join(dataDir, `${appId}.json`), "utf-8");
@@ -131,7 +132,7 @@ export default async function appsRoute(req, res) {
     const m = req.method === "PUT" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
     if (m) {
       const appId = m[1];
-      const dataDir = resolve(PAAW_ROOT, "data/app-data");
+      const dataDir = resolve(DATA_HOME, "app-data");
       await mkdir(dataDir, { recursive: true });
       const filePath = join(dataDir, `${appId}.json`);
       try {
@@ -153,7 +154,7 @@ export default async function appsRoute(req, res) {
     const m = req.method === "POST" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
     if (m) {
       const appId = m[1];
-      const dataDir = resolve(PAAW_ROOT, "data/app-data");
+      const dataDir = resolve(DATA_HOME, "app-data");
       await mkdir(dataDir, { recursive: true });
       const filePath = join(dataDir, `${appId}.json`);
       try {
@@ -182,7 +183,7 @@ export default async function appsRoute(req, res) {
     const m = req.method === "DELETE" && req.url?.match(/^\/api\/app-data\/([\w.-]+)\/([\w.-]+)(?:\?.*)?$/);
     if (m) {
       const [, appId, itemId] = m;
-      const dataDir = resolve(PAAW_ROOT, "data/app-data");
+      const dataDir = resolve(DATA_HOME, "app-data");
       await mkdir(dataDir, { recursive: true });
       const filePath = join(dataDir, `${appId}.json`);
       try {
@@ -206,7 +207,7 @@ export default async function appsRoute(req, res) {
     const m = req.method === "PATCH" && req.url?.match(/^\/api\/app-data\/([\w.-]+)\/([\w.-]+)(?:\?.*)?$/);
     if (m) {
       const [, appId, itemId] = m;
-      const dataDir = resolve(PAAW_ROOT, "data/app-data");
+      const dataDir = resolve(DATA_HOME, "app-data");
       await mkdir(dataDir, { recursive: true });
       const filePath = join(dataDir, `${appId}.json`);
       try {

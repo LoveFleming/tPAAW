@@ -20,6 +20,7 @@ import { fileURLToPath } from "url";
 import { readBody, json, urlPath } from "./context.mjs";
 import { PAAW_ROOT } from "./shared.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -303,7 +304,7 @@ export default async function aiSettingsRoutes(req, res) {
       const ctx = await contextEngine.build({ target: target || "chat" });
       let modelInfo = "default";
       try {
-        const pCfg = JSON.parse(readFileSync(resolve(PAAW_ROOT, "data/config/providers.json"), "utf-8"));
+        const pCfg = JSON.parse(readFileSync(resolve(DATA_HOME, "config/providers.json"), "utf-8"));
         let pid = pCfg.active;
         let mid = modelOverride || resolveDefaultModel(pCfg);
         if (mid && mid.includes("/")) { const idx = mid.indexOf("/"); pid = mid.slice(0, idx); mid = mid.slice(idx + 1); }

@@ -40,6 +40,7 @@ import { createPaawProject } from "./paaw-project.mjs";
 import { PaawSnapshot } from "./paaw-snapshot.mjs";
 import { resolveDefaultModel } from "./llm-utils.mjs";
 import { toolRegistry } from "./tool-registry.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 // ── Types ──
 
@@ -75,7 +76,7 @@ import { toolRegistry } from "./tool-registry.mjs";
 const _PAAW_ROOT = resolve(__dirname, "../../../../");
 
 function loadProviderConfig() {
-  const configPath = resolve(_PAAW_ROOT, "data/config/providers.json");
+  const configPath = resolve(DATA_HOME, "config/providers.json");
   try {
     return JSON.parse(readSync(configPath, "utf-8"));
   } catch {
@@ -85,12 +86,12 @@ function loadProviderConfig() {
 
 export function resolveLLMConfig(_rootDir, modelOverride, fallbackModels) {
   const config = loadProviderConfig();
-  if (!config) throw new Error("No provider config found — checked: " + resolve(_PAAW_ROOT, "data/config/providers.json"));
+  if (!config) throw new Error("No provider config found — checked: " + resolve(DATA_HOME, "config/providers.json"));
 
   // Auto-read fallback preferences from user.json if no explicit fallbackModels
   if (!fallbackModels || fallbackModels.length === 0) {
     try {
-      const userPrefs = JSON.parse(readSync(resolve(_PAAW_ROOT, "data/config/user.json"), "utf-8"))?.preferences || {};
+      const userPrefs = JSON.parse(readSync(resolve(DATA_HOME, "config/user.json"), "utf-8"))?.preferences || {};
       // Collect all *Fallback keys (e.g. autoDispatchFallback, codingIDEFallback)
       const userFbs = Object.entries(userPrefs)
         .filter(([k]) => k.endsWith("Fallback"))
@@ -963,7 +964,7 @@ function getAgentGroupsFromConfig(agentId) {
   if (!crewId) return AGENT_FALLBACK_GROUPS[agentId] || ["core", "memory"];
 
   try {
-    const crewPath = join(_PAAW_ROOT, "data", "crews", `${crewId}.json`);
+    const crewPath = join(DATA_HOME, "crews", `${crewId}.json`);
     if (existsSync(crewPath)) {
       const crew = JSON.parse(readSync(crewPath, "utf-8"));
       if (Array.isArray(crew.toolGroups) && crew.toolGroups.length > 0) {
@@ -2091,7 +2092,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
       // ══════════════════════════════════════════
 
       case "project_board": {
-        const PROJECTS_DIR = join(_PAAW_ROOT, "data", "projects");
+        const PROJECTS_DIR = join(DATA_HOME, "projects");
         const action = args.action;
 
         const _loadProject = (pid) => {
@@ -2940,7 +2941,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
   // Only log here for the stream path (fetchStreamWithRetry doesn't log).
   const _logStreamRequest = () => {
     try {
-      const logDir = join(_PAAW_ROOT, "data", "logs", "llm");
+      const logDir = join(DATA_HOME, "logs", "llm");
       mkdirSync(logDir, { recursive: true });
       const dateStr = new Date().toISOString().slice(0, 10);
       const logPath = join(logDir, `${dateStr}.jsonl`);
@@ -2967,7 +2968,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
   // Helper to log stream response (only for stream path)
   const _logStreamResponse = (response, error = null) => {
     try {
-      const logDir = join(_PAAW_ROOT, "data", "logs", "llm");
+      const logDir = join(DATA_HOME, "logs", "llm");
       mkdirSync(logDir, { recursive: true });
       const dateStr = new Date().toISOString().slice(0, 10);
       const logPath = join(logDir, `${dateStr}.jsonl`);
@@ -3041,7 +3042,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
 function refreshDynamicContext(messages) {
   if (!messages[0] || messages[0].role !== "system") return;
   try {
-    const MEMORY_FILE = resolve(_PAAW_ROOT, "data/config/MEMORY.md");
+    const MEMORY_FILE = resolve(DATA_HOME, "config/MEMORY.md");
     let mem = "";
     try { mem = readSync(MEMORY_FILE, "utf-8"); } catch {}
     const marker = "=== 長期記憶 (MEMORY.md) ===";
@@ -3072,7 +3073,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
     parts.push(customPrompt);
   } else {
     // Load agent loop system prompt from ai-settings
-    const AGENT_LOOP_PROMPT_PATH = resolve(_PAAW_ROOT, "data/ai-settings/agent-loop/system-prompt.md");
+    const AGENT_LOOP_PROMPT_PATH = resolve(DATA_HOME, "ai-settings/agent-loop/system-prompt.md");
     let agentBase = "";
     try { agentBase = readSync(AGENT_LOOP_PROMPT_PATH, "utf-8").trim(); } catch {}
     if (agentBase) {
@@ -3815,7 +3816,7 @@ export async function runAgentLoopStream(config, res) {
     // ── Log stream response ──
     if (response._llmCallId) {
       try {
-        const logDir = join(_PAAW_ROOT, "data", "logs", "llm");
+        const logDir = join(DATA_HOME, "logs", "llm");
         mkdirSync(logDir, { recursive: true });
         const dateStr = new Date().toISOString().slice(0, 10);
         const logPath = join(logDir, `${dateStr}.jsonl`);
