@@ -49,7 +49,7 @@ import HandoverPanel from "../components/HandoverPanel";
 import TroubleshootingPanel from "../components/TroubleshootingPanel";
 import TabErrorBoundary from "../components/TabErrorBoundary";
 import FeatureMap from "../components/FeatureMap";
-import AutoDispatchPanel, { SubTaskDetail } from "../components/AutoDispatchPanel";
+import { SubTaskDetail } from "../components/AutoDispatchPanel";
 import ApiMapSidebar from "../components/ApiMapSidebar";
 import AgentSideChat, { type AgentSideChatHandle } from "../components/AgentSideChat";
 import CrewManager from "../components/CrewManager";
@@ -78,7 +78,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "nightshift" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests";
 
 interface MainTab {
   id: string;
@@ -883,7 +883,7 @@ export default function CodingIDE() {
         console.log(`[CodingIDE] Parsed ${savedTabs?.length || 0} saved tabs, active=${savedActive}`);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
-          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "terminal", "ai-crew", "standards", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "nightshift", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel", "tests"]);
+          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "terminal", "ai-crew", "standards", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel", "tests"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", "));
           // Restore tabs (dashboard is already present)
@@ -2593,13 +2593,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:features") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:features" ? tk.toolbarActive : "transparent"; }}
           title={tt("feature.title")}>🗺️ Features</button>
-          <button onClick={() => openMainTab({ id: "tool:nightshift", type: "nightshift", label: "Auto Dispatch", icon: "🏭", closable: true })}
-          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
-          style={{ backgroundColor: activeMainTab?.id === "tool:nightshift" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:nightshift") ? tk.toolbarText : tk.toolbarTextMuted }}
-          onMouseEnter={e => { if (activeMainTab?.id !== "tool:nightshift") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:nightshift" ? tk.toolbarActive : "transparent"; }}
-          title={tt("autoDispatch.title")}>🏭 Auto Dispatch</button>
-        <button onClick={() => openMainTab({ id: "tool:crew", type: "crew-manager", label: "AI Crew", icon: "👥", closable: true })}
+          <button onClick={() => openMainTab({ id: "tool:crew", type: "crew-manager", label: "AI Crew", icon: "👥", closable: true })}
           className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
           style={{ backgroundColor: activeMainTab?.id === "tool:crew" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:crew") ? tk.toolbarText : tk.toolbarTextMuted }}
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:crew") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
@@ -3454,10 +3448,8 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                     setTimeout(() => chatInputRef.current?.focus(), 300);
                   }
                 }}
-                onOpenAutoDispatch={() => {
-                  setAdRefreshTrigger(t => t + 1);
-                  openMainTab({ id: "tool:nightshift", type: "nightshift", label: "Auto Dispatch", icon: "🏭", closable: true });
-                }}
+                openMainTab={openMainTab}
+                adRefreshTrigger={adRefreshTrigger}
               />
             </div>
 
@@ -3579,20 +3571,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   rootPath={rootPath}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                   onOpenFile={openFile}
-                />
-              </div>
-            )}
-
-            {/* === Auto Dispatch === (keep mounted, hide with CSS) */}
-            {mainTabs.some(t => t.type === "nightshift") && (
-              <div key="tool:nightshift" className="flex-1 flex flex-col min-w-0"
-                style={{ display: activeMainTab?.type === "nightshift" ? undefined : "none" }}>
-                <AutoDispatchPanel
-                  theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
-                  rootPath={rootPath}
-                  model={emModel}
-                  openMainTab={openMainTab}
-                  refreshTrigger={adRefreshTrigger}
                 />
               </div>
             )}

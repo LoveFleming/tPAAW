@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import API_BASE from "../api";
 import ChatMessages from "./ChatMessages"; // kept for reference — EM chat now uses custom rich renderer
+import AutoDispatchPanel from "./AutoDispatchPanel";
 import ModelSelector from "./ModelSelector";
 import { cn } from "../utils";
 import MarkdownText from "./MarkdownText";
@@ -67,8 +68,11 @@ interface EMDashboardProps {
   codeUnderstanding?: { running: boolean; steps: CodeUnderstandingStep[] };
   // Dispatch to crew with pre-filled message
   onDispatchToCrew?: (crewId: string, message: string) => void;
-  // Open Auto Dispatch tab
+  // Open Auto Dispatch tab（legacy — 內部已併入 rightTab="dispatch"）
   onOpenAutoDispatch?: () => void;
+  // 開 subtask-detail tab 用（AutoDispatchPanel 內嵌）
+  openMainTab?: (tab: any) => void;
+  adRefreshTrigger?: number;
   model?: string;
   onModelChange?: (m: string) => void;
   // Project loop mode switch (mini / full)
@@ -76,7 +80,7 @@ interface EMDashboardProps {
   onLoopModeChange?: (mode: "mini" | "full") => void;
 }
 
-export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, onOpenAutoDispatch, model, onModelChange, loopMode, onLoopModeChange }: EMDashboardProps) {
+export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, onOpenAutoDispatch, openMainTab, adRefreshTrigger = 0, model, onModelChange, loopMode, onLoopModeChange }: EMDashboardProps) {
   // ── EM Profile (avatar from crew API) ──
   const [emProfile, setEmProfile] = useState<{ codename?: string; imageUrl?: string; emoji?: string }>({});
   useEffect(() => {
@@ -173,6 +177,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
   useEffect(() => { fetchEmSessions(); }, [fetchEmSessions]);
   const [emRunning, setEmRunning] = useState(false);
+  // 右側面板 tab：overview | dispatch（Auto Dispatch 併入）
+  const [rightTab, setRightTab] = useState<"overview" | "dispatch">("overview");
   const [pendingPlan, setPendingPlan] = useState<PendingPlan | null>(null);
   const [showEmContextDebug, setShowEmContextDebug] = useState(false);
   const [emContextDebug, setEmContextDebug] = useState<any>(null);
@@ -597,7 +603,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         ts: new Date().toISOString(),
         actions: [{ label: "👉 查看 Auto Dispatch", type: "openReport" }],
       } as any]);
-      onOpenAutoDispatch?.();
+      setRightTab("dispatch"); onOpenAutoDispatch?.();
     } catch (err: any) {
       setMessages(prev => [...prev, { role: "assistant", content: `❌ 重啟 Plan 失敗：${err.message}`, ts: new Date().toISOString() }]);
     }
@@ -937,9 +943,9 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                 {emRunning ? "⏳" : "🚀 EM"}
               </button>
               <button
-                onClick={() => onOpenAutoDispatch?.()}
+                onClick={() => { setRightTab("dispatch"); onOpenAutoDispatch?.(); }}
                 className="text-xs px-3 py-1 rounded-md font-bold flex items-center gap-1 bg-indigo-600 text-white hover:bg-indigo-700"
-                title="打開 Auto Dispatch 面板"
+                title="切到派工面板"
               >
                 🌙
               </button>
@@ -1197,7 +1203,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                             }
                             if (action.type === "openReport" && action.reportId) {
                               // Open Auto Dispatch tab (reports live there)
-                              onOpenAutoDispatch?.();
+                              setRightTab("dispatch"); onOpenAutoDispatch?.();
                             }
                           }}
                           disabled={action.type === "confirmPlan" && emRunning}
@@ -1298,8 +1304,30 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         </div>
       </div>
 
-      {/* ════════ RIGHT: Overview Panels (40%) ════════ */}
-      <div className="w-[40%] min-w-[280px] max-w-[480px] flex flex-col overflow-y-auto" style={{ scrollbarWidth: "thin", backgroundColor: tk.bgMuted }}>
+      {/* RIGHT: Overview / 派工 tabs（Auto Dispatch 併入） */}
+      <div
+        className={cn("min-w-[300px] flex flex-col border-l", rightTab === "dispatch" ? "w-[46%] max-w-[720px]" : "w-[40%] max-w-[480px]")}
+        style={{ scrollbarWidth: "thin", borderColor: tk.borderLight, backgroundColor: tk.bgMuted }}>
+        {/* tab bar */}
+        <div className={"shrink-0 flex items-center gap-1 px-2 py-1.5 border-b"} style={{ borderColor: tk.borderLight, background: tk.bg }}>
+          {([["overview", "Overview"], ["dispatch", "Dispatch"]]).map(([key, label]) => (
+            <button key={key} onClick={() => setRightTab(key as "overview" | "dispatch")}
+              data-testid={`em-right-tab-${key}`}
+              className={cn("text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors",
+                rightTab === key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100")}>
+              {key === "overview" ? "📋 Overview" : "🏭 派工 Auto Dispatch"}
+            </button>
+          ))}
+        </div>
+        {/* Dispatch tab */}
+        {rightTab === "dispatch" && (
+          <div className="flex-1 min-h-0" data-testid="em-dispatch-embedded">
+            <AutoDispatchPanel theme={tk} rootPath={rootPath} model={model} openMainTab={openMainTab} refreshTrigger={adRefreshTrigger} />
+          </div>
+        )}
+        {/* Overview tab: original right content */}
+        {rightTab === "overview" && (
+        <div className="flex-1 flex flex-col overflow-y-auto">
         {/* Project Status + Git Changes Preview removed */}
         {/* Git Changes Preview removed — EM chat works from commit changes directly */}
 
@@ -1574,7 +1602,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             </h3>
             {recentDispatches.length > 0 && (
               <button
-                onClick={() => onOpenAutoDispatch?.()}
+                onClick={() => { setRightTab("dispatch"); onOpenAutoDispatch?.(); }}
                 className="text-[10px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 hover:bg-amber-200 font-bold transition-colors"
               >查看全部 →</button>
             )}
@@ -1587,7 +1615,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                 <div
                   key={plan.planId}
                   className="flex items-center gap-2 py-1.5 px-2 rounded-lg cursor-pointer hover:bg-stone-50 transition-colors"
-                  onClick={() => onOpenAutoDispatch?.()}
+                  onClick={() => { setRightTab("dispatch"); onOpenAutoDispatch?.(); }}
                 >
                   <span className="text-sm shrink-0">{plan.status === "completed" ? "✅" : plan.status === "running" ? "🔄" : plan.status === "partial" ? "🔶" : plan.status === "failed" ? "❌" : "⏳"}</span>
                   <span className="text-xs text-stone-600 flex-1 truncate font-mono">{plan.planId}</span>
@@ -1616,6 +1644,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         {/* ── 專案知識面板 (Project Knowledge) ── */}
         <ProjectKnowledgePanel rootPath={rootPath} tk={tk} onOpenFile={onOpenFile} refreshTrigger={cuFinishCount} />
 
+        </div>
+        )}
       </div>
     </div>
 
@@ -1902,7 +1932,7 @@ const pct = total > 0 ? Math.round((okCount / total) * 100) : 0;
               </span>
             </button>
           );
-        })}
+         })}
       </div>
     </div>
   );
