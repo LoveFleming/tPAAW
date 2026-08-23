@@ -31,7 +31,7 @@ import "highlight.js/styles/github.css";
 import API_BASE from "../api";
 import DirectoryExplorer from "../components/DirectoryExplorer";
 import SidebarFileTree from "../components/SidebarFileTree";
-import RuView, { RU_CATEGORY_META, type RuCategory } from "../components/RuView";
+import CodeIntelPage from "../components/CodeIntelPage";
 import EMDashboard from "../components/EMDashboard";
 import { GitPanel } from "../components/git";
 import DiffViewer from "../components/DiffViewer";
@@ -46,7 +46,6 @@ import TaskBoard from "../components/TaskBoard";
 import ReleaseManagerPanel from "../components/ReleaseManagerPanel";
 import HandoverPanel from "../components/HandoverPanel";
 import TroubleshootingPanel from "../components/TroubleshootingPanel";
-import ReleaseUnitPanel from "../components/ReleaseUnitPanel";
 import TabErrorBoundary from "../components/TabErrorBoundary";
 import FeatureMap from "../components/FeatureMap";
 import AutoDispatchPanel, { SubTaskDetail } from "../components/AutoDispatchPanel";
@@ -78,7 +77,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "nightshift" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "release-unit" | "handover" | "troubleshooting" | "ru-view";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "nightshift" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel";
 
 interface MainTab {
   id: string;
@@ -883,7 +882,7 @@ export default function CodingIDE() {
         console.log(`[CodingIDE] Parsed ${savedTabs?.length || 0} saved tabs, active=${savedActive}`);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
-          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "terminal", "ai-crew", "standards", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "nightshift", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "release-unit", "ru-view"]);
+          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "terminal", "ai-crew", "standards", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "nightshift", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", "));
           // Restore tabs (dashboard is already present)
@@ -2629,12 +2628,12 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:troubleshooting") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:troubleshooting" ? tk.toolbarActive : "transparent"; }}
           title={tt("ops.title")}>🔧 Ops</button>
-        <button onClick={() => openMainTab({ id: "ru:overview", type: "ru-view", label: tt("ruTree.overview"), icon: "🧭", closable: true, data: { category: "overview" } })}
+        <button onClick={() => openMainTab({ id: "tool:code-intel", type: "code-intel", label: tt("codeIntel.toolbar"), icon: "📞", closable: true })}
           className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
-          style={{ backgroundColor: activeMainTab?.id === "ru:overview" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "ru:overview") ? tk.toolbarText : tk.toolbarTextMuted }}
-          onMouseEnter={e => { if (activeMainTab?.id !== "ru:overview") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "ru:overview" ? tk.toolbarActive : "transparent"; }}
-          title={tt("ruTree.overview")}>🧭 RU</button>
+          style={{ backgroundColor: activeMainTab?.id === "tool:code-intel" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:code-intel") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:code-intel") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:code-intel" ? tk.toolbarActive : "transparent"; }}
+          title={tt("codeIntel.toolbar")}>📞 Intel</button>
 
       </div>
 
@@ -3515,42 +3514,15 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 />
               </div>
             )}
-            {/* === RU 分類頁（RuView，每分類一個 tab）=== */}
-            {mainTabs.filter(t => t.type === "ru-view").map(tab => {
-              // features 分類已移回 Feature Map 頁 — 舊 persisted tab（含 "features"）一律导回 overview
-              const rawCat = tab.data?.category as RuCategory | undefined;
-              const cat = rawCat && RU_CATEGORY_META.some(m => m.key === rawCat) ? rawCat : "overview";
-              return (
+            {/* === Code Intelligence 頁（📞 Call Graph / 🔗 Deps / 🎯 Impact / 🩺 Health + Architect AI）=== */}
+            {mainTabs.filter(t => t.type === "code-intel").map(tab => (
               <div key={tab.id} className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTabId === tab.id ? undefined : "none" }}>
                 <TabErrorBoundary label={tab.label}>
-                  <RuView
-                    category={cat}
-                    rootPath={rootPath}
-                    theme={{ borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, accentText: tk.accentText }}
-                    onOpenFile={openFile}
-                    onOpenCategory={(c: RuCategory) => {
-                      const m = RU_CATEGORY_META.find(x => x.key === c);
-                      openMainTab({ id: `ru:${c}`, type: "ru-view", label: tt(m?.labelKey || "ruTree.overview"), icon: m?.icon || "🧭", closable: true, data: { category: c } });
-                    }}
-                  />
+                  <CodeIntelPage rootPath={rootPath} onOpenFile={openFile} />
                 </TabErrorBoundary>
               </div>
-              );
-            })}
-            {/* === Release Unit Toolbox === (keep mounted, hide with CSS) */}
-            {mainTabs.some(t => t.type === "release-unit") && rootPath && (
-              <div key="tool:ru" className="flex-1 flex flex-col min-w-0"
-                style={{ display: activeMainTab?.type === "release-unit" ? undefined : "none" }}>
-                <TabErrorBoundary label="RU 工具箱">
-                <ReleaseUnitPanel
-                  rootPath={rootPath}
-                  theme={{ borderLight: tk.borderLight, accent: tk.accent }}
-                  onOpenEMDashboard={() => openMainTab({ id: DASHBOARD_TAB_ID, type: "em-dashboard", label: "EM 大總管", icon: "🎖️", closable: false })}
-                />
-                </TabErrorBoundary>
-              </div>
-            )}
+            ))}
             {/* === Issues Tab === (keep mounted, hide with CSS) === */}
             {mainTabs.some(t => t.type === "issues") && rootPath && (
               <div key="tool:issues" className="flex-1 flex flex-col min-w-0"
