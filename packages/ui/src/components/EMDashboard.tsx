@@ -52,7 +52,6 @@ interface CodeUnderstandingStep {
 interface EMDashboardProps {
   rootPath: string;
   theme: { bg: string; bgMuted: string; borderLight: string; accent: string; accentBg: string; text: string };
-  onOpenFile?: (path: string) => void;
   // Code Understanding (was AI Initialize)
   onStartCodeUnderstanding?: (forceRerun?: boolean) => void;
   codeUnderstanding?: { running: boolean; steps: CodeUnderstandingStep[] };
@@ -70,7 +69,7 @@ interface EMDashboardProps {
   onLoopModeChange?: (mode: "mini" | "full") => void;
 }
 
-export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, onOpenAutoDispatch, openMainTab, adRefreshTrigger = 0, model, onModelChange, loopMode, onLoopModeChange }: EMDashboardProps) {
+export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, onOpenAutoDispatch, openMainTab, adRefreshTrigger = 0, model, onModelChange, loopMode, onLoopModeChange }: EMDashboardProps) {
   // ── EM Profile (avatar from crew API) ──
   const [emProfile, setEmProfile] = useState<{ codename?: string; imageUrl?: string; emoji?: string }>({});
   useEffect(() => {
@@ -352,7 +351,6 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
   // ── When bulk Code Understanding finishes (running false→true→false), refresh persisted steps + code status ──
   const prevRunningRef = useRef(false);
-  const [cuFinishCount, setCuFinishCount] = useState(0);
   useEffect(() => {
     const wasRunning = prevRunningRef.current;
     const isRunning = codeUnderstanding?.running;
@@ -370,7 +368,6 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           return prev;
         });
       });
-      setCuFinishCount(c => c + 1);
     }
     prevRunningRef.current = !!isRunning;
   }, [codeUnderstanding?.running, loadPersistedSteps]);
@@ -1479,9 +1476,6 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           )}
         </div>
 
-        {/* ── 專案知識面板 (Project Knowledge) ── */}
-        <ProjectKnowledgePanel rootPath={rootPath} tk={tk} onOpenFile={onOpenFile} refreshTrigger={cuFinishCount} />
-
         </div>
         )}
       </div>
@@ -1635,143 +1629,3 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 // ── Git Changes Preview Panel removed ──
 // EM chat works from commit changes directly, no need for a separate panel
 
-// ── 專案知識面板 (Project Knowledge) ──
-interface KnowledgeFile {
-  path: string;
-  icon: string;
-  label: string;
-  cuStep?: string; // which CU step produces this file
-}
-const KNOWLEDGE_FILES: KnowledgeFile[] = [
-  // CU 產出的核心檔案（paths follow .paaw subdirectory structure — FILE_MAP layout）
-  { path: ".paaw/project/PROJECT.md", icon: "📋", label: "PROJECT.md", cuStep: "overview" },
-  { path: ".paaw/features/FEATURES.json", icon: "🗺️", label: "Feature Map", cuStep: "feature-map" },
-  { path: ".paaw/code-intelligence/summary.json", icon: "🧠", label: "Code Intelligence", cuStep: "code-intelligence" },
-  { path: ".paaw/code-intelligence/test-intelligence.json", icon: "🧪", label: "Test Intelligence", cuStep: "test-intelligence" },
-  // 人寫的檔案（非 CU 產出，但重要）
-  { path: ".paaw/project/CODING-STANDARDS.md", icon: "🏛️", label: "Coding Standards" },
-  // Agent 維護的檔案（非 CU 產出）
-  { path: ".paaw/decisions/DECISIONS.md", icon: "🧠", label: "Decision Log" },
-];
-
-function ProjectKnowledgePanel({ rootPath, tk, onOpenFile, refreshTrigger }: { rootPath: string; tk: any; onOpenFile?: (p: string) => void; refreshTrigger?: number }) {
-  const [knowledgeStatuses, setFileStatuses] = useState<Record<string, "ok" | "template" | "missing">>({});
-  const [paawExists, setPaawExists] = useState<boolean | null>(null);
-  const [initBusy, setInitBusy] = useState(false);
-  const [localRefresh, setLocalRefresh] = useState(0);
-
-  useEffect(() => {
-    if (!rootPath) return;
-    const checkFiles = async () => {
-      // 先確認 .paaw 存不存在（決定顯示「初始化」還是「知識未產生」）— 用 coding-project/context，無副作用
-      try {
-        const ctxRes = await fetch(`${API_BASE}/api/coding-project/context?path=${encodeURIComponent(rootPath)}`);
-        setPaawExists(ctxRes.ok);
-      } catch { setPaawExists(false); }
-      const results: Record<string, "ok" | "template" | "missing"> = {};
-      for (const f of KNOWLEDGE_FILES) {
-        try {
-          const filePath = f.path.replace(/^\.paaw\//, "");
-          const res = await fetch(`${API_BASE}/api/coding-project/file?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(filePath)}`);
-          if (!res.ok) { results[f.path] = "missing"; continue; }
-          const content = await res.text();
-          // JSON files: check if valid JSON with content
-          if (f.path.endsWith(".json")) {
-            try {
-              const parsed = JSON.parse(content);
-              const hasContent = JSON.stringify(parsed).length > 20;
-              results[f.path] = hasContent ? "ok" : "template";
-            } catch {
-              results[f.path] = "template";
-            }
-            continue;
-          }
-          // Markdown files: check for real content
-          if (!content.trim() || content.includes("(待補充)") || content.includes("(auto-detect)") || content.length < 50) {
-            results[f.path] = "template";
-          } else {
-            results[f.path] = "ok";
-          }
-        } catch {
-          results[f.path] = "missing";
-        }
-      }
-      setFileStatuses(results);
-    };
-    checkFiles();
-  }, [rootPath, refreshTrigger, localRefresh]);
-
-  const okCount = Object.values(knowledgeStatuses).filter(s => s === "ok").length;
-  const total = KNOWLEDGE_FILES.length;
-  const missingCount = Object.values(knowledgeStatuses).filter(s => s === "missing").length;
-  const isInitial = missingCount === total; // all missing = brand new project
-const pct = total > 0 ? Math.round((okCount / total) * 100) : 0;
-
-  return (
-    <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
-          <span>📚</span> 專案知識
-        </h3>
-        {isInitial ? (
-          <span className="text-xs font-bold text-stone-400">🌱 Initial</span>
-        ) : (
-          <span className={cn("text-xs font-bold", pct === 100 ? "text-green-600" : pct >= 50 ? "text-amber-600" : "text-red-500")}>
-            {okCount}/{total} ({pct}%)
-          </span>
-        )}
-      </div>
-      {/* Progress bar */}
-      {isInitial ? (
-        <div className="py-2">
-          {paawExists === false ? (
-            <>
-              <div className="text-xs text-stone-400 mb-2">🌱 專案沒有 .paaw/ 知識庫</div>
-              <button
-                onClick={async () => {
-                  if (initBusy) return;
-                  setInitBusy(true);
-                  try {
-                    // 用既有 /api/coding-project/init 建立 .paaw/ 骨架
-                    await fetch(`${API_BASE}/api/coding-project/init?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
-                    setLocalRefresh(n => n + 1);
-                  } catch { /* ignore */ } finally { setInitBusy(false); }
-                }}
-                disabled={initBusy}
-                className="w-full text-xs px-3 py-2 rounded-lg text-white disabled:opacity-50"
-                style={{ backgroundColor: tk.accent }}
-              >
-                {initBusy ? "初始化中…" : "🌱 一鍵初始化 .paaw"}
-              </button>
-            </>
-          ) : (
-            <div className="text-xs text-stone-400 py-2">🌱 專案剛建立，知識庫尚未產生 — 跑 Code Understanding 後自動填入</div>
-          )}
-        </div>
-      ) : (
-        <div className="w-full h-1.5 rounded-full bg-stone-200 overflow-hidden mb-2">
-          <div className={cn("h-full rounded-full transition-all", pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${pct}%` }} />
-        </div>
-      )}
-      {/* File list */}
-      <div className="space-y-1">
-        {KNOWLEDGE_FILES.map(f => {
-          const st = knowledgeStatuses[f.path] || "missing";
-          return (
-            <button
-              key={f.path}
-              onClick={() => onOpenFile?.(`${rootPath}/${f.path}`)}
-              className="flex items-center gap-2 text-sm w-full hover:bg-stone-50 rounded px-1.5 py-1 transition-colors"
-            >
-              <span className="shrink-0">{f.icon}</span>
-              <span className="text-stone-600 flex-1 text-left truncate">{f.label}</span>
-              <span className="shrink-0 text-xs">
-                {st === "ok" ? <span className="text-green-500">✅</span> : st === "template" ? <span className="text-amber-500">⚠️</span> : <span className="text-red-400">❌</span>}
-              </span>
-            </button>
-          );
-         })}
-      </div>
-    </div>
-  );
-}
