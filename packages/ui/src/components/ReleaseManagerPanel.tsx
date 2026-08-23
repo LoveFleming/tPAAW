@@ -12,11 +12,11 @@
  *   - 已初始化但無待放行 → 說明什麼會出現在這裡
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
+import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
 import EvidenceCard from "./EvidenceCard";
-import AgentSideChat from "./AgentSideChat";
 
 const PHASES = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
 
@@ -62,6 +62,25 @@ interface QualityDebt {
   openRetrofitTasks?: number;
 }
 
+interface ReadinessFeature {
+  id: string; name: string; changedFiles: string[]; changeCount: number;
+  apis: string[]; apiImpact: boolean; tests: { file: string; kind?: string | null }[];
+  hasTests: boolean; knowledgeGaps: string[]; recentSubjects: string[];
+}
+interface Readiness {
+  releaseId: string; since: string; sinceRelease: { id: string; releasedAt: string; title: string } | null;
+  firstRelease: boolean;
+  commits: { count: number; authors: string[]; subjects: string[] };
+  changedFiles: { file: string; changeCount: number }[];
+  changedFeatures: ReadinessFeature[];
+  changedApis: { method: string; path: string; file: string; featureIds: string[] }[];
+  tests: { totalTestFiles?: number | null; changedFeaturesWithTests: number; changedFeaturesTotal: number };
+  gates: { overall?: string; gates?: { gate: string; status: string; detail?: string; required?: boolean }[] } | null;
+  openItems: number; risk: string; riskReasons: string[]; ready: boolean;
+}
+
+const RISK_COLORS: Record<string, string> = { LOW: "#16a34a", MEDIUM: "#d97706", HIGH: "#dc2626" };
+
 export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashboard }: Props) {
   const { t } = useI18n();
   const [pending, setPending] = useState<PendingTask[]>([]);
@@ -76,6 +95,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const [approveNote, setApproveNote] = useState("");
   const [qd, setQd] = useState<QualityDebt | null>(null);
   const [retrofitting, setRetrofitting] = useState(false);
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
+  const chatRef = useRef<AgentSideChatHandle>(null);
 
   const refresh = useCallback(async () => {
     if (!rootPath) return;
@@ -99,6 +120,66 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   }, [rootPath]);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    if (!rootPath) { setReadiness(null); return; }
+    let cancelled = false;
+    fetch(`${API_BASE}/api/coding-releases/readiness?path=${encodeURIComponent(rootPath)}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled && d && !d.error) setReadiness(d); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [rootPath, pending.length]); // 批准後 pending 變動 → 基準線變 → 重抓
+
+  // ── Readiness 證據注入（No answer without evidence）──
+  const readinessEvidence = (): string | null => {
+    if (!readiness) return null;
+    const feats = readiness.changedFeatures.map(f =>
+      `● ${f.id} ${f.name}\n  files: ${f.changedFiles.length}\n  change: ${f.recentSubjects[0] || "(commits)"}\n  risk-signal: ${f.hasTests ? "tests ✓" : "NO TESTS"}${f.apiImpact ? " · API impact" : ""}`
+    ).join("\n");
+    const gates = (readiness.gates?.gates || []).map(g => `${g.gate}: ${g.status}`).join(", ") || "n/a";
+    return [
+      `Release #${readiness.releaseId}`,
+      `Baseline: ${readiness.firstRelease ? "首次發布（first commit 起）" : `${readiness.sinceRelease?.id} @ ${readiness.sinceRelease?.releasedAt?.slice(0, 16)}`}`,
+      `Ready: ${readiness.ready ? "READY" : "NOT READY"} · Risk: ${readiness.risk}（${readiness.riskReasons.join("; ") || "clean"}）`,
+      `Commits since baseline: ${readiness.commits.count}（${readiness.commits.authors.join(", ")}）`,
+      `Changed: ${readiness.changedFeatures.length} features / ${readiness.changedApis.length} APIs / ${readiness.changedFiles.length} files / open items ${readiness.openItems}`,
+      `Tests: changed features with tests ${readiness.tests.changedFeaturesWithTests}/${readiness.tests.changedFeaturesTotal}`,
+      `Gates: ${gates}`,
+      "",
+      "Changed Features:",
+      feats,
+      "",
+      "Changed APIs:",
+      readiness.changedApis.slice(0, 20).map(a => `${a.method} ${a.path} (${a.file})`).join("\n") || "(none)",
+      "",
+      "Recent commits:",
+      readiness.commits.subjects.slice(0, 10).join("\n"),
+    ].join("\n");
+  };
+
+  const generateReport = () => {
+    const ev = readinessEvidence();
+    if (!ev) return;
+    chatRef.current?.send(
+      `以下是這次 release 的就緒證據（程式產生，deterministic）：\n\n${ev}\n\n` +
+      `請以 Release Manager 角色產生一份「給老闆的上線報告」：\n` +
+      `1) 一句話結論（能不能上）\n2) 這次改了什麼（人話，feature 導向）\n3) 風險與最壞情況\n4) 測試與驗證狀態\n5) rollback 考量\n6) 建議決策（上 / 不上 / 附條件上）`
+    );
+  };
+
+  const askBoss = (topic: string) => {
+    const ev = readinessEvidence();
+    if (!ev) return;
+    const Q: Record<string, string> = {
+      risk: `老闆固定問題：「這次最大的風險是什麼？最壞情況？」\n請基於證據回答，並具體指出最壞情況下哪些功能會受影響、多快能察覺。`,
+      rollback: `老闆固定問題：「Rollback plan 是什麼？」\n請基於 changed features/APIs 說明：revert 哪些 commit、有沒有資料遷移問題、回滾需要多久。`,
+      impact: `老闆固定問題：「影響範圍？」\n請基於 changed features/APIs 列出：影響哪些功能、哪些 API 變了（breaking?）、哪些用戶流程會經過。`,
+      tests: `老闆固定問題：「測試涵蓋了什麼？沒測到什麼？」\n請誠實指出：changed features 有沒有測試、測了什麼層級、最該補但來不及補的是什麼、建議上線後先手動驗什麼。`,
+      why: `老闆固定問題：「為什麼現在要上？不上會怎樣？」\n請從這批 changed features 的價值與風險累積角度回答。`,
+    };
+    chatRef.current?.send(`Release 就緒證據：\n\n${ev}\n\n${Q[topic]}`);
+  };
 
   const runRetrofit = async () => {
     if (!rootPath || retrofitting) return;
@@ -200,6 +281,103 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
         {toast && (
           <div className={`mx-5 mt-3 px-3 py-2 rounded-lg text-xs ${toast.ok ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
             {toast.text}
+          </div>
+        )}
+
+        {/* ═══ Release Readiness 報告（APRS 風格 — 打開就能跟老闆報告）═══ */}
+        {readiness && (
+          <div className="px-5 pt-4" data-testid="rm-readiness">
+            <div className="rounded-xl border overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
+              {/* Header */}
+              <div className="px-4 py-3 flex items-center gap-3 flex-wrap" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: readiness.ready ? "#f0fdf4" : "#fff7ed" }}>
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-stone-800 flex items-center gap-2">
+                    🚀 Release #{readiness.releaseId}
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold"
+                      style={{ color: readiness.ready ? "#16a34a" : "#d97706", backgroundColor: readiness.ready ? "#dcfce7" : "#ffedd5" }}>
+                      {readiness.ready ? t("rm.ready") : t("rm.notReady")}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-stone-400 mt-0.5" data-testid="rm-readiness-baseline">
+                    {readiness.firstRelease
+                      ? t("rm.firstRelease")
+                      : `${t("rm.since")} ${readiness.sinceRelease?.releasedAt?.slice(0, 16).replace("T", " ")} (${readiness.sinceRelease?.id})`}
+                  </div>
+                </div>
+                <button onClick={generateReport}
+                  className="ml-auto text-xs px-3 py-1.5 rounded-lg text-white font-bold shrink-0 hover:opacity-90"
+                  style={{ backgroundColor: "#7c3aed" }} data-testid="rm-gen-report">
+                  📋 {t("rm.genReport")}
+                </button>
+              </div>
+
+              {/* Stats row */}
+              <div className="grid grid-cols-3 md:grid-cols-6 divide-x" style={{ borderColor: tk.borderLight }} data-testid="rm-readiness-stats">
+                {([
+                  [t("rm.stFeatures"), String(readiness.changedFeatures.length), "#0369a1"],
+                  [t("rm.stApis"), String(readiness.changedApis.length), "#0369a1"],
+                  [t("rm.stFiles"), String(readiness.changedFiles.length), "#57534e"],
+                  [t("rm.stCommits"), String(readiness.commits.count), "#57534e"],
+                  [t("rm.stOpen"), String(readiness.openItems), readiness.openItems > 0 ? "#d97706" : "#16a34a"],
+                  [t("rm.stRisk"), readiness.risk, RISK_COLORS[readiness.risk] || "#57534e"],
+                ] as [string, string, string][]).map(([label, val, color]) => (
+                  <div key={label} className="px-3 py-2 text-center" style={{ borderColor: tk.borderLight }}>
+                    <div className="text-[9px] text-stone-400 font-bold">{label}</div>
+                    <div className="text-base font-bold font-mono" style={{ color }}>{val}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tests + Gates 一行 */}
+              <div className="px-4 py-2 flex items-center gap-3 flex-wrap text-[11px]" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: "#fafaf9" }}>
+                <span className="font-bold text-stone-500">🧪 {t("rm.testsLine")}</span>
+                <span className={readiness.tests.changedFeaturesTotal === 0 ? "text-stone-400" : readiness.tests.changedFeaturesWithTests === readiness.tests.changedFeaturesTotal ? "text-green-600 font-bold" : "text-amber-600 font-bold"}>
+                  {t("rm.featureTests")} {readiness.tests.changedFeaturesWithTests}/{readiness.tests.changedFeaturesTotal}
+                </span>
+                {(readiness.gates?.gates || []).slice(0, 4).map(g => (
+                  <span key={g.gate} className={`font-mono ${g.status === "pass" ? "text-green-600" : g.status === "blocked" || g.status === "fail" ? "text-red-500 font-bold" : "text-stone-400"}`}>
+                    {g.gate} {g.status === "pass" ? "✓" : g.status === "blocked" || g.status === "fail" ? "✗" : "…"}
+                  </span>
+                ))}
+                {readiness.riskReasons.length > 0 && (
+                  <span className="text-[10px] text-amber-600 truncate" title={readiness.riskReasons.join("; ")}>{t("rm.riskWhy")}: {readiness.riskReasons.join("; ")}</span>
+                )}
+              </div>
+
+              {/* Changed Features */}
+              {readiness.changedFeatures.length > 0 && (
+                <div data-testid="rm-readiness-features">
+                  {(readiness.changedFeatures).map(f => (
+                    <div key={f.id} className="px-4 py-2.5 border-b last:border-0 hover:bg-stone-50" style={{ borderColor: tk.borderLight }} data-testid="rm-readiness-feature">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded" style={{ color: "#7c3aed", backgroundColor: "#f5f3ff" }}>{f.id}</span>
+                        <span className="text-xs font-bold text-stone-800">{f.name}</span>
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ color: RISK_COLORS[f.hasTests || !f.apiImpact ? "LOW" : "HIGH"], backgroundColor: f.hasTests || !f.apiImpact ? "#f0fdf4" : "#fef2f2" }}>
+                          risk {f.hasTests || !f.apiImpact ? "LOW" : "HIGH"}
+                        </span>
+                        <span className={`text-[9px] font-bold ${f.hasTests ? "text-green-600" : "text-red-500"}`}>tests {f.hasTests ? `✓ ${f.tests.length}` : "✗ none"}</span>
+                        <span className={`text-[9px] ${f.apiImpact ? "text-blue-600 font-bold" : "text-stone-400"}`}>{f.apiImpact ? `API impact: ${f.apis.length}` : "API impact: No"}</span>
+                      </div>
+                      <div className="text-[10px] text-stone-500 mt-1">
+                        Change: {f.recentSubjects.slice(0, 2).join(" / ") || `${f.changedFiles.length} files changed`}
+                        <span className="text-stone-400"> · {f.changedFiles.length} files · {f.changeCount} changes</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 老闆固定問題快捷鍵 */}
+            <div className="flex gap-1.5 flex-wrap mt-2" data-testid="rm-boss-questions">
+              {([["risk", "🎲", t("rm.bqRisk")], ["rollback", "↩️", t("rm.bqRollback")], ["impact", "🎯", t("rm.bqImpact")], ["tests", "🧪", t("rm.bqTests")], ["why", "❓", t("rm.bqWhy")]] as [string, string, string][]).map(([k, icon, label]) => (
+                <button key={k} onClick={() => askBoss(k)}
+                  className="text-[10px] px-2 py-1 rounded-full border bg-white hover:bg-stone-100 text-stone-600 font-medium"
+                  style={{ borderColor: tk.borderLight }} data-testid={`rm-boss-${k}`}>
+                  {icon} {label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -423,8 +601,9 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
       </div>
 
       {/* ── 右：RM AI 助理 ── */}
-      <div className="w-[320px] shrink-0 hidden md:block">
+      <div className="w-[340px] shrink-0 hidden md:block">
         <AgentSideChat
+          ref={chatRef}
           agentId="rm"
           agentName={t("rm.agentName")}
           agentEmoji="🚦"

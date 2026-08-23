@@ -21,6 +21,10 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { gatherTaskEvidence } from "./coding-evidence.mjs";
 import { runTaskRetrofit, qualityDebtSummary } from "../lib/task-retrofit.mjs";
+import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
+import { checkGates } from "../lib/release-unit/gates.mjs";
+import { shellExec } from "../lib/shell-exec.mjs";
+import { readFileSync } from "fs";
 
 const PHASES_BEFORE_COMMIT = ["spec", "implement", "review", "test", "qa", "docs"];
 
@@ -198,6 +202,119 @@ export default async function releaseRoutes(req, res, next) {
       task.notes.push({ by: "release-manager", at, content: `❌ Release 退回：${reason}` });
       await writeTasksFile(path, data);
       return res.json({ ok: true });
+    }
+  }
+
+  // GET readiness — 上線就緒報告（基準線 = 上次 release 時間；無 release = 首次發布，基準 = first commit）
+  // 程式保證事實（diff/feature/api/gates），AI 只負責推理與報告 — No answer without evidence
+  if (url === "/api/coding-releases/readiness" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) {
+      return res.status(400).json({ error: "path required" });
+    }
+    try {
+      // ── 基準線 ──
+      const releases = await listReleases(projectPath);
+      const lastRelease = releases[0] || null;
+      let since = lastRelease?.releasedAt || null;
+      let firstRelease = !lastRelease;
+      if (!since) {
+        // 首次發布：基準 = repo 第一個 commit
+        try {
+          const { stdout } = await shellExec("git log --reverse --pretty=%aI | head -1", { cwd: projectPath, timeout: 10000 });
+          since = stdout.trim() || new Date(Date.now() - 30 * 86400e3).toISOString();
+        } catch { since = new Date(Date.now() - 30 * 86400e3).toISOString(); }
+      }
+
+      // ── 機械變更（deterministic）──
+      const { data: ci } = await buildChangeIntelligence(projectPath, { since, maxCommits: 300 });
+      const commits = ci?.commits || [];
+      const recentFiles = ci?.recentFiles || [];
+      const changedSet = new Set(recentFiles.map(f => f.file));
+
+      // ── Feature Map（release-unit-model）──
+      let model = null;
+      try {
+        model = JSON.parse(readFileSync(join(projectPath, ".paaw", "release-unit-model.json"), "utf-8"));
+      } catch { /* no model */ }
+
+      const changedApis = (model?.apis || []).filter(a => a.file && changedSet.has(a.file))
+        .map(a => ({ method: a.method, path: a.path, file: a.file, featureIds: a.featureIds || [] }));
+
+      const changedFeatures = [];
+      for (const f of model?.features || []) {
+        const files = (f.files || []).filter(x => changedSet.has(x));
+        if (!files.length) continue;
+        const fids = new Set([f.id]);
+        const apis = changedApis.filter(a => a.featureIds?.some(id => fids.has(id)));
+        // 該 feature 的近期 commit 主旨（拿最後 3 條當 Change 描述）
+        const subjects = [];
+        for (const c of commits.slice().reverse()) {
+          if (subjects.length >= 3) break;
+          if (c.files.some(x => files.includes(x)) && !subjects.includes(c.subject)) subjects.push(c.subject);
+        }
+        changedFeatures.push({
+          id: f.id, name: f.name, status: f.status,
+          changedFiles: files,
+          changeCount: files.reduce((s, x) => s + (recentFiles.find(rf => rf.file === x)?.changeCount || 1), 0),
+          apis: apis.map(a => `${a.method} ${a.path}`),
+          apiImpact: apis.length > 0,
+          tests: (f.tests || []).map(tf => ({ file: tf.file, kind: tf.kind })),
+          hasTests: (f.tests || []).length > 0,
+          knowledgeGaps: f.knowledgeGaps || [],
+          recentSubjects: subjects.reverse(),
+        });
+      }
+
+      // ── Gates ──
+      let gates = null;
+      try { gates = await checkGates(projectPath); } catch { /* gates 失敗不擋報告 */ }
+      const blockedGates = (gates?.gates || []).filter(g => g.status === "blocked" || g.status === "fail");
+
+      // ── Open items（TASKS.json 有 rework/failed 的 task）──
+      const tasksData = await readTasksFile(projectPath);
+      let openItems = 0;
+      for (const task of tasksData?.tasks || []) {
+        const pl = task.pipeline || {};
+        const bad = Object.values(pl).some((ph) => ph && typeof ph === "object" && (ph.status === "rework" || ph.status === "failed"));
+        if (bad || task.status === "rework" || task.status === "failed") openItems++;
+      }
+
+      // ── Risk（deterministic heuristic）──
+      let riskScore = 0;
+      const riskReasons = [];
+      if (changedFeatures.some(f => !f.hasTests && f.apiImpact)) { riskScore += 2; riskReasons.push("changed feature with API impact has no tests"); }
+      else if (changedFeatures.some(f => !f.hasTests)) { riskScore += 1; riskReasons.push("changed feature without tests"); }
+      if (recentFiles.length > 20) { riskScore += 1; riskReasons.push(`${recentFiles.length} changed files`); }
+      if (changedApis.length > 10) { riskScore += 1; riskReasons.push(`${changedApis.length} changed APIs`); }
+      if (blockedGates.length > 0) { riskScore += 1; riskReasons.push(`${blockedGates.length} blocked gates`); }
+      if (openItems > 0) { riskScore += 1; riskReasons.push(`${openItems} open rework/failed items`); }
+      const risk = riskScore >= 3 ? "HIGH" : riskScore >= 1 ? "MEDIUM" : "LOW";
+      const ready = blockedGates.length === 0 && risk !== "HIGH";
+
+      const authors = [...new Set(commits.map(c => c.author))];
+      return res.json({
+        releaseId: new Date().toISOString().slice(0, 10).replace(/-/g, "."),
+        generatedAt: new Date().toISOString(),
+        since,
+        sinceRelease: lastRelease ? { id: lastRelease.id, releasedAt: lastRelease.releasedAt, title: lastRelease.title } : null,
+        firstRelease,
+        headSha: model?.headSha || null,
+        commits: { count: commits.length, authors, subjects: commits.slice(0, 30).map(c => `${c.short} ${c.subject}`) },
+        changedFiles: recentFiles,
+        changedFeatures,
+        changedApis,
+        tests: {
+          totalTestFiles: model?.summary?.testFiles ?? null,
+          changedFeaturesWithTests: changedFeatures.filter(f => f.hasTests).length,
+          changedFeaturesTotal: changedFeatures.length,
+        },
+        gates,
+        openItems,
+        risk, riskReasons,
+        ready,
+      });
+    } catch (e) {
+      return res.status(500).json({ error: "readiness failed", detail: e.message });
     }
   }
 

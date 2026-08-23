@@ -47,10 +47,13 @@ async function git(projectRoot, args) {
  */
 export async function buildChangeIntelligence(projectRoot, options = {}) {
   const days = options.days || 30;
-  const maxCommits = options.maxCommits || 50;
+  const maxCommits = options.maxCommits || 200;
 
   // ── 1. Recent commits ──
-  const sinceDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  // options.since（ISO）優先 — Release Readiness 用「上次 release 時間」當基準線
+  const sinceDate = options.since
+    ? new Date(options.since).toISOString().slice(0, 10)
+    : new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const logOutput = await git(projectRoot, `log --pretty='format:%H|%h|%an|%ad|%s' --date=iso --since="${sinceDate}" -${maxCommits} --name-only`);
 
   const commits = [];
