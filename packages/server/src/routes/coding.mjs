@@ -2198,9 +2198,13 @@ export default async function projectRoute(req, res) {
     // ── GET /api/coding-project/test-intelligence ──
     if (url.startsWith("/api/coding-project/test-intelligence") && method === "GET") {
       try {
-        const { summary } = await buildTestIntelligence(root, PAAW_ROOT);
+        const { summary, data } = await buildTestIntelligence(root, PAAW_ROOT);
+        // detail=1 → 帶明細（Tests 頁用：testToCode 對照 + coverageGaps）
+        const wantsDetail = new URL(rawUrl, "http://localhost").searchParams.get("detail") === "1";
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(summary));
+        res.end(JSON.stringify(wantsDetail
+          ? { summary, testToCode: data.testToCode || [], coverageGaps: (data.coverageGaps || []).slice(0, 100), featureToTests: data.featureToTests || [] }
+          : summary));
       } catch (err) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message }));

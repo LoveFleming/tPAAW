@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { cn } from "../utils";
 import { useI18n } from "../i18n";
-import { FeatureCockpit } from "./RuView";
+import { FeatureCockpit } from "./FeatureCockpit";
 import API_BASE from "../api";
 
 interface ApiEntry {

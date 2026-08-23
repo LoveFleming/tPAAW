@@ -32,6 +32,7 @@ import API_BASE from "../api";
 import DirectoryExplorer from "../components/DirectoryExplorer";
 import SidebarFileTree from "../components/SidebarFileTree";
 import CodeIntelPage from "../components/CodeIntelPage";
+import TestsPage from "../components/TestsPage";
 import EMDashboard from "../components/EMDashboard";
 import { GitPanel } from "../components/git";
 import DiffViewer from "../components/DiffViewer";
@@ -77,7 +78,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "nightshift" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "nightshift" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests";
 
 interface MainTab {
   id: string;
@@ -882,7 +883,7 @@ export default function CodingIDE() {
         console.log(`[CodingIDE] Parsed ${savedTabs?.length || 0} saved tabs, active=${savedActive}`);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
-          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "terminal", "ai-crew", "standards", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "nightshift", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel"]);
+          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "terminal", "ai-crew", "standards", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "nightshift", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel", "tests"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", "));
           // Restore tabs (dashboard is already present)
@@ -2634,6 +2635,12 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:code-intel") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:code-intel" ? tk.toolbarActive : "transparent"; }}
           title={tt("codeIntel.toolbar")}>📞 Intel</button>
+        <button onClick={() => openMainTab({ id: "tool:tests", type: "tests", label: tt("tests.toolbar"), icon: "🧪", closable: true })}
+          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:tests" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:tests") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:tests") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:tests" ? tk.toolbarActive : "transparent"; }}
+          title={tt("tests.toolbar")}>🧪 Tests</button>
 
       </div>
 
@@ -3520,6 +3527,15 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 style={{ display: activeMainTabId === tab.id ? undefined : "none" }}>
                 <TabErrorBoundary label={tab.label}>
                   <CodeIntelPage rootPath={rootPath} onOpenFile={openFile} />
+                </TabErrorBoundary>
+              </div>
+            ))}
+            {/* === Tests 頁（🧪 對照表 + 缺口 + Tester AI）=== */}
+            {mainTabs.filter(t => t.type === "tests").map(tab => (
+              <div key={tab.id} className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTabId === tab.id ? undefined : "none" }}>
+                <TabErrorBoundary label={tab.label}>
+                  <TestsPage rootPath={rootPath} onOpenFile={openFile} />
                 </TabErrorBoundary>
               </div>
             ))}
