@@ -183,8 +183,8 @@ import { DATA_HOME } from "../data-home.mjs";
 // ── LLM Call Helper for project routes ──
 // Resolves provider config and calls LLM with proper 4-arg signature
 async function callProjectLLM(body, opts = {}) {
-  // providers.json lives at {PAAW_ROOT}/data/config/providers.json
-  // it resolves to the PAAW server root
+  // providers.json lives at {DATA_HOME}/config/providers.json
+  // (PAAW_DATA_HOME env > repo data/ — gateway 版 data 在 HOME/data)
   const providersFile = join(DATA_HOME, "config", "providers.json");
   let providerConfig;
   try { providerConfig = JSON.parse(readSync(providersFile, "utf8")); } catch { return { content: null }; }

@@ -223,7 +223,7 @@ setupWebSocket();   // WebSocket on port 4098
 
 server.listen(PORT, async () => {
   // Ensure required directories exist
-  await mkdir(`${PAAW_ROOT}/data/knowledge`, { recursive: true });
+  await mkdir(resolve(DATA_HOME, "knowledge"), { recursive: true });
 
   // Ensure daily backup cron job exists
   try {

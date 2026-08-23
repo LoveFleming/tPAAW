@@ -5,18 +5,14 @@
 
 import { readdir, readFile, writeFile, mkdir } from "fs/promises";
 import { join, resolve, dirname } from "path";
-import {
-  PAAW_ROOT, readBody,
-} from "./shared.mjs";
-import { fileURLToPath } from "url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { readBody } from "./shared.mjs";
+import { DATA_HOME } from "../data-home.mjs";
 
 export default async function pocketRoute(req, res) {
   const url = req.url || "";
 
   if (url === "/api/notes" || url?.startsWith("/api/notes?")) {
-    const dir = resolve(PAAW_ROOT || __dirname, "data/app-data");
+    const dir = resolve(DATA_HOME, "app-data");
     const NOTES_FILE = join(dir, "pocket.json");
 
     async function loadArr() {

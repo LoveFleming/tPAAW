@@ -1,0 +1,169 @@
+{
+  "id": "pocket",
+  "name": "Pocket",
+  "icon": "🎒",
+  "description": "My Notes — todo、idea、vocab、sentence、mood 五種筆記",
+  "type": "data",
+  "dataShape": "array",
+  "schema": {
+    "type": "object",
+    "description": "Pocket 筆記 — 支援五種筆記類型，每種有各自的可用欄位",
+    "properties": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "todo",
+          "idea",
+          "vocab",
+          "sentence",
+          "mood"
+        ],
+        "label": "筆記類型",
+        "description": "決定筆記種類：todo=待辦事項, idea=發想, vocab=單字, sentence=句子, mood=心情"
+      }
+    },
+    "required": [
+      "type"
+    ],
+    "oneOf": [
+      {
+        "title": "Todo — 待辦事項",
+        "properties": {
+          "type": {
+            "const": "todo"
+          },
+          "text": {
+            "type": "string",
+            "label": "事項內容",
+            "description": "要做什麼事"
+          },
+          "done": {
+            "type": "boolean",
+            "label": "已完成",
+            "description": "是否已完成"
+          }
+        },
+        "required": [
+          "type",
+          "text"
+        ]
+      },
+      {
+        "title": "Idea — 發想點子",
+        "properties": {
+          "type": {
+            "const": "idea"
+          },
+          "title": {
+            "type": "string",
+            "label": "標題",
+            "description": "點子標題"
+          },
+          "description": {
+            "type": "string",
+            "label": "描述",
+            "description": "點子詳細內容"
+          }
+        },
+        "required": [
+          "type",
+          "title"
+        ]
+      },
+      {
+        "title": "Vocab — 單字",
+        "properties": {
+          "type": {
+            "const": "vocab"
+          },
+          "word": {
+            "type": "string",
+            "label": "單字",
+            "description": "英文單字"
+          },
+          "definition": {
+            "type": "string",
+            "label": "定義",
+            "description": "單字定義/解釋"
+          },
+          "example": {
+            "type": "string",
+            "label": "例句",
+            "description": "例句"
+          }
+        },
+        "required": [
+          "type",
+          "word",
+          "definition"
+        ]
+      },
+      {
+        "title": "Sentence — 句子",
+        "properties": {
+          "type": {
+            "const": "sentence"
+          },
+          "text": {
+            "type": "string",
+            "label": "原文",
+            "description": "英文句子原文"
+          },
+          "translation": {
+            "type": "string",
+            "label": "翻譯",
+            "description": "中文翻譯"
+          }
+        },
+        "required": [
+          "type",
+          "text",
+          "translation"
+        ]
+      },
+      {
+        "title": "Mood — 心情",
+        "properties": {
+          "type": {
+            "const": "mood"
+          },
+          "event": {
+            "type": "string",
+            "label": "事件",
+            "description": "發生什麼事"
+          },
+          "feeling": {
+            "type": "string",
+            "label": "感受",
+            "description": "當下的心情感受"
+          },
+          "thought": {
+            "type": "string",
+            "label": "想法",
+            "description": "反思/想法"
+          },
+          "nextStep": {
+            "type": "string",
+            "label": "下一步",
+            "description": "接下來打算做什麼"
+          }
+        },
+        "required": [
+          "type",
+          "event",
+          "feeling"
+        ]
+      }
+    ]
+  },
+  "aiPrompt": "📒 Pocket 筆記系統\n管理五種筆記，每種有自己的欄位：\n\n1. todo — 待辦事項\n   - text (必填)：要做什麼\n   - done：是否完成\n   - 範例：{\"type\":\"todo\",\"text\":\"買牛奶\"}\n\n2. idea — 發想點子\n   - title (必填)：點子標題\n   - description：詳細內容\n   - 範例：{\"type\":\"idea\",\"title\":\"App 新功能\",\"description\":\"加一個日曆視圖\"}\n\n3. vocab — 單字\n   - word (必填)：英文單字\n   - definition (必填)：定義\n   - example：例句\n   - 範例：{\"type\":\"vocab\",\"word\":\"ubiquitous\",\"definition\":\"無所不在的\"}\n\n4. sentence — 句子\n   - text (必填)：原文\n   - translation (必填)：翻譯\n   - 範例：{\"type\":\"sentence\",\"text\":\"I'm learning.\",\"translation\":\"我正在學習。\"}\n\n5. mood — 心情\n   - event (必填)：發生什麼事\n   - feeling (必填)：感受\n   - thought：想法\n   - nextStep：下一步\n   - 範例：{\"type\":\"mood\",\"event\":\"完成 Pocket app\",\"feeling\":\"開心\"}\n\n可用指令：\n- 新增：POST /api/app-data/pocket (body 是 JSON 筆記)\n- 查詢全部：GET /api/app-data/pocket\n- 更新：PATCH /api/app-data/pocket/:id (body 是部分欄位)\n- 刪除：DELETE /api/app-data/pocket/:id\n- 搜尋：對已載入的資料用 JavaScript filter()\n\n如果使用者說「幫我記一筆」、「新增筆記」、「加一個 todo」等，自動用對應 type 和欄位新增。查詢時回覆格式盡量簡潔易讀。",
+  "triggers": [
+    "pocket",
+    "筆記",
+    "notes",
+    "note"
+  ],
+  "status": "published",
+  "createdAt": "2026-06-12T04:55:00.000Z",
+  "publishedAt": "2026-06-12T13:40:03.381Z"
+}
