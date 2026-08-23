@@ -3,7 +3,7 @@
  *
  * 佈局：
  *   左側 (60%): EM Chat 對話視窗
- *   右側 (40%): Project Overview + Agent Activity + Overnight Report
+ *   全寬 sub-tab：💬 EM Chat | 🏛 派工 Auto Dispatch（CU 狀態 slim bar 在 chat 頂部）
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 import API_BASE from "../api";
@@ -57,8 +57,6 @@ interface EMDashboardProps {
   codeUnderstanding?: { running: boolean; steps: CodeUnderstandingStep[] };
   // Dispatch to crew with pre-filled message
   onDispatchToCrew?: (crewId: string, message: string) => void;
-  // Open Auto Dispatch tab（legacy — 內部已併入 rightTab="dispatch"）
-  onOpenAutoDispatch?: () => void;
   // 開 subtask-detail tab 用（AutoDispatchPanel 內嵌）
   openMainTab?: (tab: any) => void;
   adRefreshTrigger?: number;
@@ -69,7 +67,7 @@ interface EMDashboardProps {
   onLoopModeChange?: (mode: "mini" | "full") => void;
 }
 
-export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, onOpenAutoDispatch, openMainTab, adRefreshTrigger = 0, model, onModelChange, loopMode, onLoopModeChange }: EMDashboardProps) {
+export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, openMainTab, adRefreshTrigger = 0, model, onModelChange, loopMode, onLoopModeChange }: EMDashboardProps) {
   // ── EM Profile (avatar from crew API) ──
   const [emProfile, setEmProfile] = useState<{ codename?: string; imageUrl?: string; emoji?: string }>({});
   useEffect(() => {
@@ -79,25 +77,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   }, []);
 
   // ── Recent Dispatch (health tasks) ──
-  const [recentDispatches, setRecentDispatches] = useState<Array<{ planId: string; status: string; totalSubtasks: number; completed: number; createdAt: string }>>([]);
-  const loadRecentDispatches = useCallback(async () => {
-    if (!rootPath) return;
-    try {
-      const r = await fetch(`${API_BASE}/api/auto-dispatch/plan/list?path=${encodeURIComponent(rootPath)}`);
-      const data = await r.json();
-      const plans = (data.plans || []).filter((p: any) => p.mode === "health-fix").slice(0, 5);
-      setRecentDispatches(plans.map((p: any) => ({
-        planId: p.planId,
-        status: p.status,
-        totalSubtasks: p.totalSubtasks || p.summary?.totalSubtasks || 0,
-        completed: p.completed || p.summary?.completed || 0,
-        createdAt: p.createdAt,
-      })));
-    } catch {}
-  }, [rootPath]);
-  useEffect(() => { loadRecentDispatches(); const iv = setInterval(loadRecentDispatches, 30000); return () => clearInterval(iv); }, [loadRecentDispatches]);
-
-  // ── Chat State ──
+    // ── Chat State ──
   const EM_CHAT_ID = "coding.em";
   const [messagesLoaded, setMessagesLoaded] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -167,7 +147,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   useEffect(() => { fetchEmSessions(); }, [fetchEmSessions]);
   const [emRunning, setEmRunning] = useState(false);
   // 右側面板 tab：overview | dispatch（Auto Dispatch 併入）
-  const [rightTab, setRightTab] = useState<"overview" | "dispatch">("overview");
+  const [view, setView] = useState<"chat" | "dispatch">("chat");
   const [pendingPlan, setPendingPlan] = useState<PendingPlan | null>(null);
   const [showEmContextDebug, setShowEmContextDebug] = useState(false);
   const [emContextDebug, setEmContextDebug] = useState<any>(null);
@@ -531,27 +511,6 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
     }
   };
 
-  // ── Retry failed subtasks of a partial/failed plan (resume via planId) ──
-  const retryPlan = async (planId: string) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-auto-dispatch/start?path=${encodeURIComponent(rootPath)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "em", planId }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setMessages(prev => [...prev, {
-        role: "assistant",
-        content: `🔄 已重新啟動 Plan **${planId}** 的失敗項（fail/timeout 重跑，done 不動）。到 Auto Dispatch 頁看進度。`,
-        ts: new Date().toISOString(),
-        actions: [{ label: "👉 查看 Auto Dispatch", type: "openReport" }],
-      } as any]);
-      setRightTab("dispatch"); onOpenAutoDispatch?.();
-    } catch (err: any) {
-      setMessages(prev => [...prev, { role: "assistant", content: `❌ 重啟 Plan 失敗：${err.message}`, ts: new Date().toISOString() }]);
-    }
-  };
-
   // ── EM Auto-orchestrate: Phase 1 — Plan only (show in chat for confirmation) ──
   const runEM = async () => {
     if (emRunning || !rootPath) return;
@@ -790,9 +749,20 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
 
   return (
     <>
-    <div className="flex-1 flex min-w-0 overflow-hidden">
-      {/* ════════ LEFT: EM Chat (60%) ════════ */}
-      <div className="flex-1 flex flex-col min-w-0 border-r" style={{ borderColor: tk.borderLight }}>
+    <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* ── Sub-tab bar：💬 EM Chat | 🏛 派工 Auto Dispatch（全寬，比照 ChatView） ── */}
+      <div className="shrink-0 flex items-center gap-1 px-2 py-1.5 border-b" style={{ borderColor: tk.borderLight, background: tk.bg }}>
+        <button data-testid="em-main-tab-chat" onClick={() => setView("chat")}
+          className={cn("text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors", view === "chat" ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100")}>
+          💬 EM Chat
+        </button>
+        <button data-testid="em-main-tab-dispatch" onClick={() => setView("dispatch")}
+          className={cn("text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors", view === "dispatch" ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100")}>
+          🏛 派工 Auto Dispatch
+        </button>
+      </div>
+      {view === "chat" ? (
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header — matches crew agent header layout */}
         <div className="shrink-0 px-4 py-3 border-b relative" style={{ borderColor: tk.borderLight, background: `linear-gradient(135deg, #8b5cf611 0%, #8b5cf608 100%)` }}>
           <div className="flex items-center gap-3">
@@ -867,6 +837,19 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
               {onModelChange && (
                 <ModelSelector feature="codingIDE.emDashboard" value={model || ""} onChange={onModelChange} />
               )}
+              {/* Loop Mode — release unit 開發模式（mini = 快速迭代 / full = 七關證據流） */}
+              {loopMode && onLoopModeChange && (
+                <div className="flex items-center rounded-md border border-stone-200 overflow-hidden shrink-0"
+                  title={loopMode === "mini" ? "Mini：上線前快速迭代 — developer 實作即 commit" : "Full：上線後完整管線 — spec → implement → review → test → qa → docs → commit，證據齊才能過"}>
+                  {(["mini", "full"] as const).map(m => (
+                    <button key={m} onClick={() => onLoopModeChange(m)}
+                      className={cn("text-[10px] font-bold px-2 py-1 transition-colors",
+                        loopMode === m ? (m === "mini" ? "bg-amber-500 text-white" : "bg-blue-500 text-white") : "bg-white text-stone-400 hover:bg-stone-50")}>
+                      {m === "mini" ? "🚀 Mini" : "🛡️ Full"}
+                    </button>
+                  ))}
+                </div>
+              )}
               {/* Divider */}
               <div className="w-px h-5 bg-stone-200 mx-1" />
               {/* EM-specific action buttons */}
@@ -877,13 +860,6 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                   emRunning ? "bg-stone-200 text-stone-400 cursor-not-allowed" : "bg-amber-600 text-white hover:bg-amber-700")}
               >
                 {emRunning ? "⏳" : "🚀 EM"}
-              </button>
-              <button
-                onClick={() => { setRightTab("dispatch"); onOpenAutoDispatch?.(); }}
-                className="text-xs px-3 py-1 rounded-md font-bold flex items-center gap-1 bg-indigo-600 text-white hover:bg-indigo-700"
-                title="切到派工面板"
-              >
-                🌙
               </button>
             </div>
           </div>
@@ -1085,6 +1061,96 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
           </div>
         )}
 
+        {/* ── CU lifecycle slim bar — 知識庫狀態一行掌握 ── */}
+        <div className="shrink-0 flex items-center gap-2 px-4 py-1.5 border-b text-xs" style={{ borderColor: tk.borderLight, backgroundColor: tk.bgMuted }}>
+          {cuPhase === null && (
+            <span className="text-stone-400 truncate">⏳ 載入知識庫狀態…</span>
+          )}
+          {cuPhase === "missing" && (
+            <>
+              <span className="text-stone-500 truncate flex-1" title="這個 Release Unit 還沒有 .paaw 知識庫 — 初始化或跑 Code Understanding 建立">🌱 尚未初始化 — 還沒有 .paaw 知識庫</span>
+              <button
+                onClick={async () => {
+                  if (!rootPath || cuInitBusy) return;
+                  setCuInitBusy(true);
+                  try {
+                    await fetch(`${API_BASE}/api/coding-project/init?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+                    await loadPersistedSteps();
+                  } finally { setCuInitBusy(false); }
+                }}
+                disabled={cuInitBusy}
+                className="shrink-0 px-2 py-0.5 rounded bg-stone-600 text-white hover:bg-stone-700 font-bold disabled:opacity-50"
+              >{cuInitBusy ? "⏳ 初始化中..." : "🌱 初始化 .paaw"}</button>
+            </>
+          )}
+          {cuPhase === "no-code" && (
+            <>
+              <span className="text-stone-400 truncate flex-1">🌱 代碼尚少（{cuMeta?.sourceFiles ?? 0} 個檔案）— 先寫 code，Code Understanding 之後再跑也可以</span>
+              <button onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
+                title="代碼尚少 — 先寫 code 再跑更有意義，但仍可手動執行"
+                className="shrink-0 px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-stone-200 font-bold"
+              >🧠 Code Understanding</button>
+            </>
+          )}
+          {cuPhase === "ready" && (
+            <>
+              <span className="text-emerald-700 truncate flex-1">🧠 待探索（{cuMeta?.sourceFiles ?? 0} 個檔案）— 跑 Code Understanding 建立知識庫</span>
+              <button onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
+                className="shrink-0 px-2 py-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold animate-pulse"
+              >🧠 Code Understanding</button>
+            </>
+          )}
+          {cuPhase === "partial" && (
+            <>
+              <span className="text-amber-700 truncate flex-1">⏳ 進行中 {cuMeta?.doneCount ?? 0}/{CU_STEPS.length} — 知識庫部分完成，可繼續跑完</span>
+              <button onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
+                className="shrink-0 px-2 py-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold"
+              >🧠 Code Understanding</button>
+            </>
+          )}
+          {cuPhase === "stale" && (
+            <>
+              <span className="text-orange-700 truncate flex-1" title={`知識過期 — code 已變更（${new Date(cuMeta?.codeLastModified || "").toLocaleDateString()}）${staleManual > 0 ? `；人寫文件 ${staleManual} 項較舊（PROJECT.md / CODING-STANDARDS.md — 需人工更新，重跑不會刷新）` : ""}`}>
+                ⚠️ 知識過期 — code 已變更（{new Date(cuMeta?.codeLastModified || "").toLocaleDateString()}）
+                {staleMechanical > 0 && <>，機械層 {staleMechanical} 項待重掃</>}
+                {staleSmart > 0 && <>，智能層 {staleSmart} 項待重跑</>}
+              </span>
+              {staleMechanical > 0 && (
+                <button
+                  onClick={async () => {
+                    if (!rootPath || cuRescanBusy) return;
+                    setCuRescanBusy(true);
+                    try {
+                      try {
+                        const r = await fetch(`${API_BASE}/api/coding-project/cu-rescan-mechanical?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+                        await reportRescan(r);
+                      } catch { setCuRescanMsg("fail"); setTimeout(() => setCuRescanMsg(""), 3000); }
+                      await loadPersistedSteps();
+                    } finally { setCuRescanBusy(false); }
+                  }}
+                  disabled={cuRescanBusy}
+                  className="shrink-0 px-2 py-0.5 rounded bg-orange-600 text-white hover:bg-orange-700 font-bold disabled:opacity-50"
+                >{cuRescanBusy ? "⏳ 重掃中..." : cuRescanMsg === "fail" ? "❌ 重掃失敗" : cuRescanMsg || "⚡ 重掃機械層"}</button>
+              )}
+              {staleSmart > 0 && (
+                <button onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
+                  className="shrink-0 px-2 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold"
+                >🧠 開啟 CU 視窗重跑</button>
+              )}
+            </>
+          )}
+          {cuPhase === "done" && (
+            <>
+              <span className="text-green-700 truncate flex-1" title={((cuMeta?.staleSteps ?? []).filter(s => s.manual).length > 0) ? "人寫文件（PROJECT.md / CODING-STANDARDS.md）比 code 舊 — 需人工更新，重跑 CU 不會刷新" : undefined}>
+                ✅ 已完成 {cuMeta?.doneCount ?? 0}/{CU_STEPS.length} — 知識庫就緒
+              </span>
+              <button onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
+                className="shrink-0 px-2 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold"
+              >🧠 Code Understanding</button>
+            </>
+          )}
+        </div>
+
         {/* Chat Messages */}
         <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: "thin" }}>
           {messages.map((msg, i) => (
@@ -1139,7 +1205,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                             }
                             if (action.type === "openReport" && action.reportId) {
                               // Open Auto Dispatch tab (reports live there)
-                              setRightTab("dispatch"); onOpenAutoDispatch?.();
+                              setView("dispatch");
                             }
                           }}
                           disabled={action.type === "confirmPlan" && emRunning}
@@ -1240,245 +1306,11 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
         </div>
       </div>
 
-      {/* RIGHT: Overview / 派工 tabs（Auto Dispatch 併入） */}
-      <div
-        className={cn("min-w-[300px] flex flex-col border-l", rightTab === "dispatch" ? "w-[46%] max-w-[720px]" : "w-[40%] max-w-[480px]")}
-        style={{ scrollbarWidth: "thin", borderColor: tk.borderLight, backgroundColor: tk.bgMuted }}>
-        {/* tab bar */}
-        <div className={"shrink-0 flex items-center gap-1 px-2 py-1.5 border-b"} style={{ borderColor: tk.borderLight, background: tk.bg }}>
-          {([["overview", "Overview"], ["dispatch", "Dispatch"]]).map(([key, label]) => (
-            <button key={key} onClick={() => setRightTab(key as "overview" | "dispatch")}
-              data-testid={`em-right-tab-${key}`}
-              className={cn("text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors",
-                rightTab === key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100")}>
-              {key === "overview" ? "📋 Overview" : "🏭 派工 Auto Dispatch"}
-            </button>
-          ))}
+      ) : (
+        <div className="flex-1 min-h-0" data-testid="em-dispatch-full">
+          <AutoDispatchPanel theme={tk} rootPath={rootPath} model={model} openMainTab={openMainTab} refreshTrigger={adRefreshTrigger} />
         </div>
-        {/* Dispatch tab */}
-        {rightTab === "dispatch" && (
-          <div className="flex-1 min-h-0" data-testid="em-dispatch-embedded">
-            <AutoDispatchPanel theme={tk} rootPath={rootPath} model={model} openMainTab={openMainTab} refreshTrigger={adRefreshTrigger} />
-          </div>
-        )}
-        {/* Overview tab: original right content */}
-        {rightTab === "overview" && (
-        <div className="flex-1 flex flex-col overflow-y-auto">
-        {/* Project Status + Git Changes Preview removed */}
-        {/* Git Changes Preview removed — EM chat works from commit changes directly */}
-
-        {/* ── Loop Mode (mini / full) — release unit 開發模式 ── */}
-        {loopMode && onLoopModeChange && (
-          <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
-                <span>🔁</span> Loop Mode
-              </h3>
-              <span className="text-[10px] font-mono text-stone-400">TASKS.json</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => onLoopModeChange("mini")}
-                className={cn("rounded-lg border px-2.5 py-2 text-left transition-colors",
-                  loopMode === "mini" ? "border-amber-400 bg-amber-50" : "border-stone-200 bg-white hover:bg-stone-50")}
-              >
-                <div className="flex items-center gap-1.5">
-                  <span className={cn("w-2 h-2 rounded-full", loopMode === "mini" ? "bg-amber-500" : "bg-stone-300")} />
-                  <span className={cn("text-sm font-bold", loopMode === "mini" ? "text-amber-700" : "text-stone-500")}>🚀 Mini</span>
-                  {loopMode === "mini" && <span className="text-[10px] font-bold text-amber-600">ON</span>}
-                </div>
-                <div className="text-[10px] text-stone-400 mt-1">implement → commit（快速開發）</div>
-              </button>
-              <button
-                onClick={() => onLoopModeChange("full")}
-                className={cn("rounded-lg border px-2.5 py-2 text-left transition-colors",
-                  loopMode === "full" ? "border-blue-400 bg-blue-50" : "border-stone-200 bg-white hover:bg-stone-50")}
-              >
-                <div className="flex items-center gap-1.5">
-                  <span className={cn("w-2 h-2 rounded-full", loopMode === "full" ? "bg-blue-500" : "bg-stone-300")} />
-                  <span className={cn("text-sm font-bold", loopMode === "full" ? "text-blue-700" : "text-stone-500")}>🛡️ Full</span>
-                  {loopMode === "full" && <span className="text-[10px] font-bold text-blue-600">ON</span>}
-                </div>
-                <div className="text-[10px] text-stone-400 mt-1">七關證據流（上線後）</div>
-              </button>
-            </div>
-            <p className="text-[10px] text-stone-400 mt-1.5">{loopMode === "mini" ? "上線前快速迭代：developer 實作即 commit" : "上線後完整管線：spec → implement → review → test → qa → docs → commit，證據齊才能過"}</p>
-          </div>
-        )}
-
-        {/* ── Code Health (from Code Understanding) ── */}
-        <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
-              <span>📊</span> Code Health
-            </h3>
-            {/* CU lifecycle 狀態按鈕（cuPhase 主軸） */}
-            {cuPhase === null && rootPath && (
-              <button disabled className="text-sm px-2 py-1 rounded bg-stone-200 text-stone-400 font-bold cursor-wait">⚡ 載入中...</button>
-            )}
-            {cuPhase === "missing" && (
-              <button
-                onClick={async () => {
-                  if (!rootPath || cuInitBusy) return;
-                  setCuInitBusy(true);
-                  try {
-                    await fetch(`${API_BASE}/api/coding-project/init?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
-                    await loadPersistedSteps();
-                  } finally { setCuInitBusy(false); }
-                }}
-                disabled={cuInitBusy}
-                className="text-sm px-2 py-1 rounded bg-stone-600 text-white hover:bg-stone-700 font-bold disabled:opacity-50"
-              >{cuInitBusy ? "⏳ 初始化中..." : "🌱 初始化 .paaw"}</button>
-            )}
-            {cuPhase === "no-code" && (
-              <button
-                onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
-                title="代碼尚少 — 先寫 code 再跑更有意義，但仍可手動執行"
-                className="text-sm px-2 py-1 rounded bg-stone-100 text-stone-500 hover:bg-stone-200 font-bold"
-              >🧠 Code Understanding</button>
-            )}
-            {(cuPhase === "ready" || cuPhase === "partial") && (
-              <button
-                onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
-                className={cn("text-sm px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold", cuPhase === "ready" && "animate-pulse")}
-              >🧠 Code Understanding</button>
-            )}
-            {cuPhase === "stale" && (
-              <button
-                onClick={async () => {
-                  if (!rootPath || cuRescanBusy) return;
-                  setCuRescanBusy(true);
-                  try {
-                    try {
-                      const r = await fetch(`${API_BASE}/api/coding-project/cu-rescan-mechanical?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
-                      await reportRescan(r);
-                    } catch { setCuRescanMsg("fail"); setTimeout(() => setCuRescanMsg(""), 3000); }
-                    await loadPersistedSteps();
-                  } finally { setCuRescanBusy(false); }
-                }}
-                disabled={cuRescanBusy}
-                className="text-sm px-2 py-1 rounded bg-orange-600 text-white hover:bg-orange-700 font-bold disabled:opacity-50"
-              >{cuRescanBusy ? "⏳ 重掃中..." : cuRescanMsg === "fail" ? "❌ 重掃失敗" : cuRescanMsg || "⚡ 重掃機械層"}</button>
-            )}
-            {cuPhase === "done" && (
-              <button
-                onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
-                className="text-sm px-2 py-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold"
-              >🧠 Code Understanding</button>
-            )}
-          </div>
-          {/* ── CU lifecycle 狀態條 — 一目瞭然現在是哪個階段 ── */}
-          {cuPhase && (
-            <div className={cn("flex items-center gap-2 rounded-lg px-2.5 py-1.5 mb-2 border text-xs",
-              cuPhase === "missing" ? "bg-stone-50 border-stone-200 text-stone-500" :
-              cuPhase === "no-code" ? "bg-stone-50 border-stone-200 text-stone-400" :
-              cuPhase === "ready" ? "bg-emerald-50 border-emerald-200 text-emerald-700" :
-              cuPhase === "partial" ? "bg-amber-50 border-amber-200 text-amber-700" :
-              cuPhase === "stale" ? "bg-orange-50 border-orange-300 text-orange-700" :
-              "bg-green-50 border-green-200 text-green-700")}
-            >
-              {cuPhase === "missing" && <span>🌱 尚未初始化 — 這個 Release Unit 還沒有 .paaw 知識庫，初始化或跑 Code Understanding 建立</span>}
-              {cuPhase === "no-code" && <span>🌱 代碼尚少（{cuMeta?.sourceFiles ?? 0} 個檔案）— 先寫 code，Code Understanding 之後再跑也可以</span>}
-              {cuPhase === "ready" && <span>🧠 待探索（{cuMeta?.sourceFiles ?? 0} 個檔案）— 跑 Code Understanding 建立知識庫</span>}
-              {cuPhase === "partial" && <span>⏳ 進行中 {cuMeta?.doneCount ?? 0}/{CU_STEPS.length} — 知識庫部分完成，可繼續跑完</span>}
-              {cuPhase === "stale" && (
-                <span className="flex items-center gap-2 flex-wrap">
-                  ⚠️ 知識過期 — code 已變更（{new Date(cuMeta?.codeLastModified || "").toLocaleDateString()}），
-                  {staleMechanical > 0 && <span>機械層 {staleMechanical} 項待重掃</span>}
-                  {staleMechanical > 0 && staleSmart > 0 && <span>、</span>}
-                  {staleSmart > 0 && <span>智能層 {staleSmart} 項待重跑</span>}
-                  {staleMechanical > 0 && (
-                    <button
-                      onClick={async () => {
-                        if (!rootPath || cuRescanBusy) return;
-                        setCuRescanBusy(true);
-                        try {
-                          try {
-                            const r = await fetch(`${API_BASE}/api/coding-project/cu-rescan-mechanical?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
-                            await reportRescan(r);
-                          } catch { setCuRescanMsg("fail"); setTimeout(() => setCuRescanMsg(""), 3000); }
-                          await loadPersistedSteps();
-                        } finally { setCuRescanBusy(false); }
-                      }}
-                      disabled={cuRescanBusy}
-                      className="px-2 py-0.5 rounded bg-orange-600 text-white hover:bg-orange-700 font-bold disabled:opacity-50"
-                    >{cuRescanBusy ? "⏳ 重掃中..." : cuRescanMsg === "fail" ? "❌ 重掃失敗" : cuRescanMsg || "⚡ 重掃機械層"}</button>
-                  )}
-                  {staleSmart > 0 && (
-                    <button
-                      onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
-                      className="px-2 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold"
-                    >🧠 開啟 CU 視窗重跑</button>
-                  )}
-                  {staleManual > 0 && (
-                    <span className="text-stone-500 text-xs">· 人寫文件 {staleManual} 項較舊（PROJECT.md / CODING-STANDARDS.md — 需人工更新，重跑不會刷新）</span>
-                  )}
-                </span>
-              )}
-              {cuPhase === "done" && (
-                <span className="flex items-center gap-2 flex-wrap">
-                  <span>✅ 已完成 {cuMeta?.doneCount ?? 0}/{CU_STEPS.length} — 知識庫就緒</span>
-                  {((cuMeta?.staleSteps ?? []).filter(s => s.manual).length > 0) && (
-                    <span className="text-stone-500">· 人寫文件（PROJECT.md / CODING-STANDARDS.md）比 code 舊 — 需人工更新，重跑 CU 不會刷新</span>
-                  )}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Agent Activity + Overnight Report removed — Auto Dispatch tab handles reports */}
-
-        {/* ── 最近派工 (Recent Dispatches) ── */}
-        <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
-              <span>📤</span> 最近派工
-            </h3>
-            {recentDispatches.length > 0 && (
-              <button
-                onClick={() => { setRightTab("dispatch"); onOpenAutoDispatch?.(); }}
-                className="text-[10px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 hover:bg-amber-200 font-bold transition-colors"
-              >查看全部 →</button>
-            )}
-          </div>
-          {recentDispatches.length === 0 ? (
-            <div className="text-xs text-stone-300 py-2">尚無派工記錄</div>
-          ) : (
-            <div className="space-y-1">
-              {recentDispatches.map(plan => (
-                <div
-                  key={plan.planId}
-                  className="flex items-center gap-2 py-1.5 px-2 rounded-lg cursor-pointer hover:bg-stone-50 transition-colors"
-                  onClick={() => { setRightTab("dispatch"); onOpenAutoDispatch?.(); }}
-                >
-                  <span className="text-sm shrink-0">{plan.status === "completed" ? "✅" : plan.status === "running" ? "🔄" : plan.status === "partial" ? "🔶" : plan.status === "failed" ? "❌" : "⏳"}</span>
-                  <span className="text-xs text-stone-600 flex-1 truncate font-mono">{plan.planId}</span>
-                  <span className="text-[10px] text-stone-400">{plan.completed}/{plan.totalSubtasks}</span>
-                  {(plan.status === "partial" || plan.status === "failed" || plan.status === "interrupted") && (
-                    <button
-                      className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 hover:bg-amber-200 font-bold shrink-0 transition-colors"
-                      title="重跑失敗/未完成的 subtasks（已完成的不動）"
-                      onClick={(e) => { e.stopPropagation(); retryPlan(plan.planId); }}
-                    >🔄 重跑</button>
-                  )}
-                  <span className={cn(
-                    "text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0",
-                    plan.status === "completed" ? "bg-green-100 text-green-700" :
-                    plan.status === "running" ? "bg-blue-100 text-blue-700" :
-                    plan.status === "partial" ? "bg-amber-100 text-amber-700" :
-                    plan.status === "failed" ? "bg-red-100 text-red-700" :
-                    "bg-stone-100 text-stone-500"
-                  )}>{plan.status === "completed" ? "完成" : plan.status === "running" ? "執行中" : plan.status === "partial" ? "部分完成" : plan.status}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        </div>
-        )}
-      </div>
+      )}
     </div>
 
     {/* ══ Code Understanding Progress Modal ══ */}
