@@ -15,32 +15,17 @@ const rawUrl_path = (req) => (req.url || "").split("?")[0];
 
 const CONFIG_FILE = join(PATHS.CONFIG_ROOT, "plugins.json");
 
-// Default config
-const DEFAULT_PLUGINS = {
-  "agentic-platform": {
-    name: "Agentic Platform",
-    icon: "🤖",
-    url: "http://localhost:4200",
-    enabled: true,
-  },
-};
-
-// Ensure config exists
-async function ensureConfig() {
-  if (!existsSync(CONFIG_FILE)) {
-    await mkdir(PATHS.CONFIG_ROOT, { recursive: true });
-    await writeFile(CONFIG_FILE, JSON.stringify(DEFAULT_PLUGINS, null, 2), "utf-8");
-  }
-}
-
 export async function handlePluginRoutes(req, res) {
   const path = rawUrl_path(req);
   // GET /api/plugins
   if (req.method === "GET" && path === "/api/plugins") {
+    let config = {};
     try {
-      await ensureConfig();
-      const raw = readFileSync(CONFIG_FILE, "utf-8");
-      const config = JSON.parse(raw);
+      if (existsSync(CONFIG_FILE)) config = JSON.parse(readFileSync(CONFIG_FILE, "utf-8")) || {};
+    } catch (err) {
+      config = {};
+    }
+    try {
       const plugins = Object.entries(config).map(([id, p]) => ({
         id,
         name: p.name || id,
@@ -59,7 +44,7 @@ export async function handlePluginRoutes(req, res) {
   if (req.method === "POST" && path === "/api/plugins") {
     try {
       const body = JSON.parse(await readBody(req));
-      await ensureConfig();
+      await mkdir(PATHS.CONFIG_ROOT, { recursive: true });
       await writeFile(CONFIG_FILE, JSON.stringify(body, null, 2), "utf-8");
       json(res, { ok: true });
     } catch (err) {
