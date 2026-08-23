@@ -1042,5 +1042,9 @@
   "rm.bqRollback": "Rollback plan",
   "rm.bqImpact": "影響範圍",
   "rm.bqTests": "測試缺口",
-  "rm.bqWhy": "為什麼現在上"
+  "rm.bqWhy": "為什麼現在上",
+  "rm.noTestRun": "尚未執行測試 — 數字待跑",
+  "rm.runTests": "執行測試",
+  "rm.testing": "執行中…",
+  "rm.includeE2e": "含 E2E"
 }

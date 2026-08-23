@@ -1042,5 +1042,9 @@
   "rm.bqRollback": "Rollback plan",
   "rm.bqImpact": "Blast radius",
   "rm.bqTests": "Test gaps",
-  "rm.bqWhy": "Why now"
+  "rm.bqWhy": "Why now",
+  "rm.noTestRun": "No test run yet — numbers pending",
+  "rm.runTests": "Run Tests",
+  "rm.testing": "Running…",
+  "rm.includeE2e": "incl. E2E"
 }

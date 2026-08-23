@@ -24,6 +24,7 @@ import { runTaskRetrofit, qualityDebtSummary } from "../lib/task-retrofit.mjs";
 import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
 import { checkGates } from "../lib/release-unit/gates.mjs";
 import { shellExec } from "../lib/shell-exec.mjs";
+import { startTestRun, getRunState, readLastTestRun, detectTestGroups } from "../lib/test-runner.mjs";
 import { readFileSync } from "fs";
 
 const PHASES_BEFORE_COMMIT = ["spec", "implement", "review", "test", "qa", "docs"];
@@ -205,6 +206,23 @@ export default async function releaseRoutes(req, res, next) {
     }
   }
 
+  // POST test-run — 真實執行測試（背景 job，結果寫 .paaw/test-runs/last.json）
+  if (url === "/api/coding-releases/test-run" && method === "POST") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    let body = {};
+    let _buf = ""; await new Promise((resolve) => { req.on("data", (c) => { _buf += c; }); req.on("end", resolve); req.on("error", resolve); });
+    try { body = JSON.parse(_buf || "{}"); } catch { /* empty body ok */ }
+    const r = await startTestRun(projectPath, { includeE2e: !!body.includeE2e });
+    return res.json(r);
+  }
+  // GET test-run — 執行狀態 / 最後結果
+  if (url === "/api/coding-releases/test-run" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    const runningState = getRunState(projectPath);
+    if (runningState) return res.json({ running: true, ...runningState });
+    return res.json({ running: false, last: readLastTestRun(projectPath), detected: detectTestGroups(projectPath, { includeE2e: true }).map(g => ({ kind: g.kind, runner: g.runner })) });
+  }
+
   // GET readiness — 上線就緒報告（基準線 = 上次 release 時間；無 release = 首次發布，基準 = first commit）
   // 程式保證事實（diff/feature/api/gates），AI 只負責推理與報告 — No answer without evidence
   if (url === "/api/coding-releases/readiness" && method === "GET") {
@@ -288,6 +306,11 @@ export default async function releaseRoutes(req, res, next) {
       if (changedApis.length > 10) { riskScore += 1; riskReasons.push(`${changedApis.length} changed APIs`); }
       if (blockedGates.length > 0) { riskScore += 1; riskReasons.push(`${blockedGates.length} blocked gates`); }
       if (openItems > 0) { riskScore += 1; riskReasons.push(`${openItems} open rework/failed items`); }
+      const ltr = await lastTestRunSummary(projectPath);
+      if (ltr) {
+        if (ltr.summary.failed > 0) { riskScore += 1; riskReasons.push(`${ltr.summary.failed} failing tests (last run)`); }
+        if (ltr.stale) { riskReasons.push(`test run stale (${ltr.staleCommits} commits since)`); }
+      }
       const risk = riskScore >= 3 ? "HIGH" : riskScore >= 1 ? "MEDIUM" : "LOW";
       const ready = blockedGates.length === 0 && risk !== "HIGH";
 
@@ -308,6 +331,7 @@ export default async function releaseRoutes(req, res, next) {
           changedFeaturesWithTests: changedFeatures.filter(f => f.hasTests).length,
           changedFeaturesTotal: changedFeatures.length,
         },
+        lastTestRun: await lastTestRunSummary(projectPath),
         gates,
         openItems,
         risk, riskReasons,
@@ -359,4 +383,28 @@ function readFileStream(req) {
     req.on("end", () => resolve(buf));
     req.on("error", () => resolve(""));
   });
+}
+// ── lastTestRun 摘要（readiness 用）：真實執行數字 + stale 偵測 ──
+async function lastTestRunSummary(projectPath) {
+  try {
+    const rec = readLastTestRun(projectPath);
+    if (!rec) return null;
+    let stale = false, staleCommits = 0;
+    if (rec.headSha) {
+      try {
+        const { stdout } = await shellExec(`git rev-list ${rec.headSha}..HEAD --count`, { cwd: projectPath, timeout: 5000 });
+        staleCommits = parseInt(stdout.trim(), 10) || 0;
+        stale = staleCommits > 0;
+      } catch { /* git 不可用時不算 stale */ }
+    }
+    return {
+      finishedAt: rec.finishedAt,
+      status: rec.status,
+      includeE2e: rec.includeE2e || false,
+      durationMs: rec.durationMs,
+      summary: rec.summary || { passed: 0, failed: 0, skipped: 0, total: 0 },
+      byKind: rec.byKind || {},
+      stale, staleCommits,
+    };
+  } catch { return null; }
 }

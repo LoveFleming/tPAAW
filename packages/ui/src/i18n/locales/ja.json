@@ -1042,5 +1042,9 @@
   "rm.bqRollback": "ロールバック計画",
   "rm.bqImpact": "影響範囲",
   "rm.bqTests": "テスト不足",
-  "rm.bqWhy": "なぜ今？"
+  "rm.bqWhy": "なぜ今？",
+  "rm.noTestRun": "テスト未実行 — 数値は未取得",
+  "rm.runTests": "テスト実行",
+  "rm.testing": "実行中…",
+  "rm.includeE2e": "E2E含む"
 }

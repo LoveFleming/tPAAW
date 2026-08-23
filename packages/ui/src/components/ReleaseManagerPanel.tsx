@@ -75,6 +75,12 @@ interface Readiness {
   changedFeatures: ReadinessFeature[];
   changedApis: { method: string; path: string; file: string; featureIds: string[] }[];
   tests: { totalTestFiles?: number | null; changedFeaturesWithTests: number; changedFeaturesTotal: number };
+  lastTestRun: {
+    finishedAt: string; status: string; includeE2e: boolean; durationMs: number;
+    summary: { passed: number; failed: number; skipped: number; total: number };
+    byKind: Record<string, { passed: number; failed: number; skipped: number; files: number }>;
+    stale: boolean; staleCommits: number;
+  } | null;
   gates: { overall?: string; gates?: { gate: string; status: string; detail?: string; required?: boolean }[] } | null;
   openItems: number; risk: string; riskReasons: string[]; ready: boolean;
 }
@@ -96,6 +102,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const [qd, setQd] = useState<QualityDebt | null>(null);
   const [retrofitting, setRetrofitting] = useState(false);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [includeE2e, setIncludeE2e] = useState(false);
   const chatRef = useRef<AgentSideChatHandle>(null);
 
   const refresh = useCallback(async () => {
@@ -121,15 +129,33 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  useEffect(() => {
+  const fetchReadiness = useCallback(() => {
     if (!rootPath) { setReadiness(null); return; }
-    let cancelled = false;
     fetch(`${API_BASE}/api/coding-releases/readiness?path=${encodeURIComponent(rootPath)}`)
       .then(r => r.json())
-      .then(d => { if (!cancelled && d && !d.error) setReadiness(d); })
+      .then(d => { if (d && !d.error) setReadiness(d); })
       .catch(() => {});
-    return () => { cancelled = true; };
-  }, [rootPath, pending.length]); // 批准後 pending 變動 → 基準線變 → 重抓
+  }, [rootPath]);
+
+  useEffect(() => { fetchReadiness(); }, [fetchReadiness, pending.length]); // 批准後 pending 變動 → 基準線變 → 重抓
+
+  // ▶ 執行測試：POST 背景跑 → 輪詢到結束 → 重抓 readiness（真實數字）
+  const runTests = async () => {
+    if (!rootPath || testing) return;
+    setTesting(true);
+    try {
+      await fetch(`${API_BASE}/api/coding-releases/test-run?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ includeE2e }),
+      });
+      for (let i = 0; i < 600; i++) { // 最長 20 分鐘
+        await new Promise(r => setTimeout(r, 2000));
+        const st = await fetch(`${API_BASE}/api/coding-releases/test-run?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).catch(() => null);
+        if (!st?.running) break;
+      }
+      fetchReadiness();
+    } finally { setTesting(false); }
+  }
 
   // ── Readiness 證據注入（No answer without evidence）──
   const readinessEvidence = (): string | null => {
@@ -145,6 +171,9 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
       `Commits since baseline: ${readiness.commits.count}（${readiness.commits.authors.join(", ")}）`,
       `Changed: ${readiness.changedFeatures.length} features / ${readiness.changedApis.length} APIs / ${readiness.changedFiles.length} files / open items ${readiness.openItems}`,
       `Tests: changed features with tests ${readiness.tests.changedFeaturesWithTests}/${readiness.tests.changedFeaturesTotal}`,
+      ...(readiness.lastTestRun
+        ? [`Last test run (${readiness.lastTestRun.finishedAt.slice(0, 16).replace("T", " ")}${readiness.lastTestRun.stale ? ` ⚠ STALE ${readiness.lastTestRun.staleCommits} commits since` : ""}): ${readiness.lastTestRun.summary.passed} passed / ${readiness.lastTestRun.summary.failed} failed / ${readiness.lastTestRun.summary.skipped} skipped（${Object.entries(readiness.lastTestRun.byKind).map(([k, v]) => `${k} ${v.passed}✓${v.failed ? ` ${v.failed}✗` : ""}`).join(", ") || "no per-kind"}）`]
+        : [`Tests: 尚未執行過測試（數字待跑）`]),
       `Gates: ${gates}`,
       "",
       "Changed Features:",
@@ -328,9 +357,35 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                 ))}
               </div>
 
-              {/* Tests + Gates 一行 */}
+              {/* Tests + Gates 一行（含真實執行數字）*/}
               <div className="px-4 py-2 flex items-center gap-3 flex-wrap text-[11px]" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: "#fafaf9" }}>
                 <span className="font-bold text-stone-500">🧪 {t("rm.testsLine")}</span>
+                {/* 真實執行數字（.paaw/test-runs/last.json — 程式跑的）*/}
+                {readiness.lastTestRun ? (
+                  <span className="flex items-center gap-2 flex-wrap" data-testid="rm-test-run-real">
+                    {Object.entries(readiness.lastTestRun.byKind).map(([kind, v]) => (
+                      <span key={kind} className={`font-mono px-1.5 py-0.5 rounded ${v.failed > 0 ? "bg-red-50 text-red-600 font-bold" : "bg-green-50 text-green-700"}`}>
+                        {kind} {v.passed}✓{v.failed > 0 ? ` ${v.failed}✗` : ""}
+                      </span>
+                    ))}
+                    {!readiness.lastTestRun.includeE2e && <span className="font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-400">e2e —</span>}
+                    <span className={`text-[10px] ${readiness.lastTestRun.stale ? "text-amber-600 font-bold" : "text-stone-400"}`} title={readiness.lastTestRun.stale ? `${readiness.lastTestRun.staleCommits} commits since last run` : ""}>
+                      {readiness.lastTestRun.stale ? `⏰ ${readiness.lastTestRun.staleCommits}c` : `⏱ ${Math.round(readiness.lastTestRun.durationMs / 1000)}s`}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="text-stone-400 italic">{t("rm.noTestRun")}</span>
+                )}
+                <button onClick={runTests} disabled={testing}
+                  className="text-[10px] px-2 py-0.5 rounded-full border font-bold disabled:opacity-50 hover:bg-stone-100 flex items-center gap-1"
+                  style={{ borderColor: testing ? tk.borderLight : "#0369a1", color: testing ? "#a8a29e" : "#0369a1" }}
+                  data-testid="rm-run-tests">
+                  {testing ? <span className="animate-spin inline-block w-2.5 h-2.5 border-[1.5px] border-current border-t-transparent rounded-full" /> : "▶"} {testing ? t("rm.testing") : t("rm.runTests")}
+                </button>
+                <label className="flex items-center gap-1 text-[10px] text-stone-400 cursor-pointer select-none" data-testid="rm-e2e-toggle">
+                  <input type="checkbox" checked={includeE2e} onChange={e => setIncludeE2e(e.target.checked)} className="accent-sky-600" />
+                  {t("rm.includeE2e")}
+                </label>
                 <span className={readiness.tests.changedFeaturesTotal === 0 ? "text-stone-400" : readiness.tests.changedFeaturesWithTests === readiness.tests.changedFeaturesTotal ? "text-green-600 font-bold" : "text-amber-600 font-bold"}>
                   {t("rm.featureTests")} {readiness.tests.changedFeaturesWithTests}/{readiness.tests.changedFeaturesTotal}
                 </span>

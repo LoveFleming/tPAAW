@@ -41,7 +41,7 @@ const TEST_PATTERNS = [
 
 // ── Classify test type ──
 
-function classifyTestType(fileName, filePath, content = "") {
+export function classifyTestType(fileName, filePath, content = "") {
   // By filename
   if (/\.e2e\./.test(fileName) || /e2e[_-]/.test(fileName) || /E2E\.java$/.test(fileName)) {
     return "e2e";
