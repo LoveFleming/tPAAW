@@ -17,11 +17,19 @@ interface UserProfile {
   onboardedAt?: string;
 }
 
+interface ProviderModel {
+  id: string;
+  name?: string;
+  contextWindow?: number;
+  maxTokens?: number;
+  pricing?: { inputPerMillion?: number; outputPerMillion?: number };
+}
+
 interface ProviderData {
   name: string;
   baseURL: string;
   apiKey: string;
-  models: { id: string; name: string }[];
+  models: ProviderModel[];
 }
 
 const STYLES = [
@@ -46,6 +54,18 @@ export default function OnboardingPage({ onComplete }: Props) {
   const [selectedModel, setSelectedModel] = useState("");
   const [providerSkipped, setProviderSkipped] = useState(false);
 
+  // 新增第一個 Provider 的表單（全新安裝 providers = 空 → 走這個模式）
+  const [formId, setFormId] = useState("");
+  const [formName, setFormName] = useState("");
+  const [formBaseURL, setFormBaseURL] = useState("");
+  const [formApiKey, setFormApiKey] = useState("");
+  const [formModelId, setFormModelId] = useState("");
+  const [formModelName, setFormModelName] = useState("");
+  const [formCtx, setFormCtx] = useState("");
+  const [formMaxTok, setFormMaxTok] = useState("");
+  const [formPriceIn, setFormPriceIn] = useState("");
+  const [formPriceOut, setFormPriceOut] = useState("");
+
   useEffect(() => {
     fetch(`${API_BASE}/api/paaw/providers`)
       .then(r => r.json())
@@ -65,7 +85,35 @@ export default function OnboardingPage({ onComplete }: Props) {
     setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], baseURL: url } }));
   };
 
+  const hasExistingProviders = Object.keys(providers).length > 0;
+  const formValid = !!(formId.trim() && formBaseURL.trim() && formApiKey.trim() && formModelId.trim());
+
   const saveProviders = async () => {
+    if (!hasExistingProviders) {
+      // 表單模式：建立第一個 provider（OpenAI 相容：baseURL + apiKey + models）
+      const model: ProviderModel = { id: formModelId.trim() };
+      if (formModelName.trim()) model.name = formModelName.trim();
+      const ctx = parseInt(formCtx, 10); if (Number.isFinite(ctx) && ctx > 0) model.contextWindow = ctx;
+      const mt = parseInt(formMaxTok, 10); if (Number.isFinite(mt) && mt > 0) model.maxTokens = mt;
+      const pin = parseFloat(formPriceIn); const pout = parseFloat(formPriceOut);
+      if (!Number.isNaN(pin) || !Number.isNaN(pout)) {
+        model.pricing = {
+          ...(Number.isNaN(pin) ? {} : { inputPerMillion: pin }),
+          ...(Number.isNaN(pout) ? {} : { outputPerMillion: pout }),
+        };
+      }
+      const pid = formId.trim();
+      await fetch(`${API_BASE}/api/paaw/providers`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          active: pid,
+          defaultModel: model.id,
+          providers: { [pid]: { name: formName.trim() || pid, baseURL: formBaseURL.trim(), apiKey: formApiKey, models: [model] } },
+        }),
+      });
+      return;
+    }
     await fetch(`${API_BASE}/api/paaw/providers`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -75,7 +123,9 @@ export default function OnboardingPage({ onComplete }: Props) {
 
   // Check if provider is configured (has API key)
   const activeProvider = providers[activeId];
-  const hasValidProvider = activeProvider && activeProvider.apiKey && activeProvider.apiKey !== "na";
+  const hasValidProvider = !hasExistingProviders
+    ? formValid
+    : !!(activeProvider && activeProvider.apiKey && activeProvider.apiKey !== "na" && activeProvider.apiKey !== "YOUR_API_KEY_HERE");
 
   const handleFinish = async () => {
     // Save provider config if not skipped
@@ -211,9 +261,10 @@ export default function OnboardingPage({ onComplete }: Props) {
     <div key="provider" className="flex flex-col items-center text-center max-w-lg w-full">
       <div className="text-4xl mb-6">🤖</div>
       <h2 className="text-2xl font-bold text-stone-800 mb-2">設定 AI Provider</h2>
-      <p className="text-stone-400 text-sm mb-6">至少設定一個 Provider 才能開始聊天，也可以稍後在設定頁配置</p>
+      <p className="text-stone-400 text-sm mb-6">{hasExistingProviders ? tt("onboarding.providerDescSelect") : tt("onboarding.providerDescCreate")}</p>
 
-      {/* Provider cards */}
+      {hasExistingProviders ? (
+      /* Provider cards（已有 providers：選一個、補 key）*/
       <div className="space-y-3 mb-6 w-full">
         {Object.entries(providers).map(([pid, p]) => (
           <div
@@ -241,7 +292,7 @@ export default function OnboardingPage({ onComplete }: Props) {
                   className="text-xs px-2 py-1 rounded-md border border-stone-200 text-stone-600 focus:outline-none"
                 >
                   {p.models.map(m => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
+                    <option key={m.id} value={m.id}>{m.name || m.id}</option>
                   ))}
                 </select>
               )}
@@ -263,12 +314,111 @@ export default function OnboardingPage({ onComplete }: Props) {
           </div>
         ))}
       </div>
+      ) : (
+      /* 全新安裝：建立第一個 Provider（OpenAI 相容 API）*/
+      <div className="w-full bg-white rounded-xl border-2 border-stone-200 p-5 space-y-3 text-left mb-6">
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-xs font-semibold text-stone-500 block mb-1">{tt("onboarding.providerId")}</span>
+            <input
+              data-ob="pid"
+              type="text"
+              value={formId}
+              onChange={(e) => setFormId(e.target.value)}
+              placeholder={tt("onboarding.providerIdPh")}
+              className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono text-stone-700 focus:outline-none focus:border-stone-400"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-semibold text-stone-500 block mb-1">{tt("onboarding.providerName")}</span>
+            <input
+              data-ob="pname"
+              type="text"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              placeholder={tt("onboarding.providerNamePh")}
+              className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm text-stone-700 focus:outline-none focus:border-stone-400"
+            />
+          </label>
+        </div>
+        <label className="block">
+          <span className="text-xs font-semibold text-stone-500 block mb-1">{tt("onboarding.providerBaseUrl")}</span>
+          <input
+            data-ob="pbase"
+            type="text"
+            value={formBaseURL}
+            onChange={(e) => setFormBaseURL(e.target.value)}
+            placeholder={tt("onboarding.providerBaseUrlPh")}
+            className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono text-stone-700 focus:outline-none focus:border-stone-400"
+          />
+          <span className="text-[10px] text-stone-400 block mt-1">{tt("onboarding.providerOpenaiHint")}</span>
+        </label>
+        <label className="block">
+          <span className="text-xs font-semibold text-stone-500 block mb-1">{tt("onboarding.providerApiKey")}</span>
+          <input
+            data-ob="pkey"
+            type="password"
+            value={formApiKey}
+            onChange={(e) => setFormApiKey(e.target.value)}
+            placeholder="sk-..."
+            className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono text-stone-700 focus:outline-none focus:border-stone-400"
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs font-semibold text-stone-500 block mb-1">{tt("onboarding.providerModelId")}</span>
+          <input
+            data-ob="pmid"
+            type="text"
+            value={formModelId}
+            onChange={(e) => setFormModelId(e.target.value)}
+            placeholder={tt("onboarding.providerModelIdPh")}
+            className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono text-stone-700 focus:outline-none focus:border-stone-400"
+          />
+        </label>
+        <details className="border-t border-stone-100 pt-3">
+          <summary className="text-xs font-semibold text-stone-400 cursor-pointer select-none hover:text-stone-600">{tt("onboarding.providerAdvanced")}</summary>
+          <div className="space-y-3 pt-3">
+            <label className="block">
+              <span className="text-xs font-semibold text-stone-500 block mb-1">{tt("onboarding.providerModelName")}</span>
+              <input
+                data-ob="pmname"
+                type="text"
+                value={formModelName}
+                onChange={(e) => setFormModelName(e.target.value)}
+                placeholder={tt("onboarding.providerModelNamePh")}
+                className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm text-stone-700 focus:outline-none focus:border-stone-400"
+              />
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-xs font-semibold text-stone-500 block mb-1">{tt("onboarding.providerContextWindow")}</span>
+                <input data-ob="pctx" type="text" inputMode="numeric" value={formCtx} onChange={(e) => setFormCtx(e.target.value)} placeholder="128000" className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono text-stone-700 focus:outline-none focus:border-stone-400" />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-stone-500 block mb-1">{tt("onboarding.providerMaxTokens")}</span>
+                <input data-ob="pmax" type="text" inputMode="numeric" value={formMaxTok} onChange={(e) => setFormMaxTok(e.target.value)} placeholder="16384" className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono text-stone-700 focus:outline-none focus:border-stone-400" />
+              </label>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-xs font-semibold text-stone-500 block mb-1">{tt("onboarding.providerPriceIn")}</span>
+                <input data-ob="ppin" type="text" inputMode="decimal" value={formPriceIn} onChange={(e) => setFormPriceIn(e.target.value)} placeholder="0.6" className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono text-stone-700 focus:outline-none focus:border-stone-400" />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-stone-500 block mb-1">{tt("onboarding.providerPriceOut")}</span>
+                <input data-ob="ppout" type="text" inputMode="decimal" value={formPriceOut} onChange={(e) => setFormPriceOut(e.target.value)} placeholder="2.2" className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono text-stone-700 focus:outline-none focus:border-stone-400" />
+              </label>
+            </div>
+          </div>
+        </details>
+      </div>
+      )}
 
       {/* Status hint */}
       {hasValidProvider ? (
-        <p className="text-green-600 text-sm mb-4">✅ {providers[activeId]?.name} 已設定完成</p>
+        <p className="text-green-600 text-sm mb-4">✅ {hasExistingProviders ? providers[activeId]?.name : (formName.trim() || formId.trim())} {tt("onboarding.providerConfigured")}</p>
       ) : (
-        <p className="text-amber-500 text-sm mb-4">⚠️ 尚未設定 API Key，你可以稍後再配置</p>
+        <p className="text-amber-500 text-sm mb-4">{tt("onboarding.providerNoKey")}</p>
       )}
 
       <div className="flex flex-col gap-3 w-full">

@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "..", "..");
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   // Load .env from repo root (not packages/ui CWD)
   const env = loadEnv(mode, REPO_ROOT, "");
 
@@ -16,10 +16,14 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
-    define: {
+    // API/WS port 只在 dev server（vite serve）烙入 — 5173 頁面要指到真 API port。
+    // production build（vite build）不烙：UI 由 PAAW server 自己 serve，
+    // 前端 fallback 用頁面 host / port+1，部署在任何 port 都正確。
+    // （烙死 4097 的包裝在非 4097 port 會全部 API 打錯地方）
+    define: command === "serve" ? {
       "import.meta.env.VITE_PAAW_PORT": JSON.stringify(PAAW_PORT),
       "import.meta.env.VITE_PAAW_WS_PORT": JSON.stringify(PAAW_WS_PORT),
-    },
+    } : {},
     server: {
       port: VITE_PORT,
       strictPort: false,

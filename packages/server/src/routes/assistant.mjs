@@ -293,7 +293,7 @@ export default async function assistantRoute(req, res) {
       res.end(JSON.stringify(safe));
     } catch {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ active: "", defaultModel: "", configured: false, providers: {} }));
+      res.end(JSON.stringify({ active: "", defaultModel: "", fallbacks: [], configured: false, providers: {} }));
     }
     return true;
   }
@@ -302,8 +302,16 @@ export default async function assistantRoute(req, res) {
   if (req.method === "PUT" && path === "/api/paaw/providers") {
     try {
       const filePath = resolve(PAAW_DATA_DIR, "config/providers.json");
-      const config = JSON.parse(await readFile(filePath, "utf-8"));
+      // 全新機器第一次設定（onboarding）：providers.json 可能還不存在 — 建立初始空結構
+      let config;
+      try {
+        config = JSON.parse(await readFile(filePath, "utf-8"));
+      } catch {
+        config = { active: "", defaultModel: "", fallbacks: [], providers: {} };
+      }
       const body = JSON.parse(await readBody(req));
+      if (!Array.isArray(config.fallbacks)) config.fallbacks = [];
+      if (!config.providers) config.providers = {};
       if (body.active) config.active = body.active;
       if (body.defaultModel) config.defaultModel = body.defaultModel;
       // Fallback chain（UI 可編輯，按序使用）
@@ -337,8 +345,10 @@ export default async function assistantRoute(req, res) {
           if (p.name) config.providers[pid].name = p.name;
         }
       }
+      const { mkdir } = await import("fs/promises");
+      await mkdir(dirname(filePath), { recursive: true });
       await writeFile(filePath, JSON.stringify(config, null, 2), "utf-8");
-      const safe = { ok: true, active: config.active, defaultModel: config.defaultModel, providers: {} };
+      const safe = { ok: true, active: config.active, defaultModel: config.defaultModel, fallbacks: config.fallbacks || [], providers: {} };
       for (const [k, v] of Object.entries(config.providers)) {
         safe.providers[k] = { ...v, apiKey: v.apiKey ? v.apiKey.slice(0, 8) + "..." : "" };
       }

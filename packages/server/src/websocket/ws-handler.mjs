@@ -20,7 +20,8 @@ async function getDistillModule() {
   return _distillMod;
 }
 
-const WS_PORT = parseInt(process.env.PAAW_WS_PORT || "4098", 10);
+// PAAW_WS_PORT env 優先；否則跟 PAAW_PORT+1 慣例（前端 fallback 同邏輯：頁面 port+1）
+const WS_PORT = parseInt(process.env.PAAW_WS_PORT || String(parseInt(process.env.PAAW_PORT || "4097", 10) + 1), 10);
 
 export function setupWebSocket() {
   const wss = new WebSocketServer({ port: WS_PORT, host: "0.0.0.0" });
