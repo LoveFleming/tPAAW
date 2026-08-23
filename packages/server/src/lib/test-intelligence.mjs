@@ -35,6 +35,8 @@ const TEST_PATTERNS = [
   /^(.+)Test\.(java)$/,
   /^(.+)IT\.(java)$/,  // Integration test
   /^(.+)E2E\.(java)$/,
+  // Go
+  /^(.+)_test\.(go)$/,
 ];
 
 // ── Classify test type ──
@@ -186,6 +188,31 @@ export async function buildTestIntelligence(projectRoot, paawRoot) {
             });
             break;
           }
+        }
+      }
+    }
+
+    // Strategy 3: Go package 慣例 — *_test.go 測同目錄同 package（foo_test.go↔foo.go 同名優先）
+    if (matches.length === 0 && /_test\.go$/.test(basename(testFile.file))) {
+      const base = basename(testFile.file).replace(/_test\.go$/, "");
+      const dir = dirname(testFile.file);
+      const exact = productionFiles.find(f => f.file === join(dir, base + ".go").replace(/\\/g, "/"));
+      const targets = exact ? [exact] : productionFiles.filter(f => dirname(f.file) === dir && f.file.endsWith(".go") && !/_test\.go$/.test(f.file));
+      for (const prodFile of targets) {
+        const testedFns = findTestedFunctions(testFile, prodFile);
+        if (exact || testedFns.length > 0) { // 同名慣例直接信；非同名要有叫用交集
+          matches.push({
+            productionFile: prodFile.file,
+            matchType: "package",
+            testedFunctions: testedFns,
+            confidence: exact ? "high" : "medium",
+          });
+          if (!codeToTest[prodFile.file]) codeToTest[prodFile.file] = [];
+          codeToTest[prodFile.file].push({
+            testFile: testFile.file,
+            testType: testFile.testType,
+            testedFunctions: testedFns,
+          });
         }
       }
     }

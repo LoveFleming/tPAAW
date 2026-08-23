@@ -1,5 +1,5 @@
 {
-  "timestamp": 1785298155283,
+  "timestamp": 1787413777625,
   "data": {
     "architecture": {
       "score": 100,
@@ -47,7 +47,7 @@
         {
           "name": "API Endpoints",
           "status": "info",
-          "detail": "~85 detected"
+          "detail": "~142 detected"
         }
       ]
     },
@@ -57,12 +57,17 @@
         {
           "name": "API Test Payloads",
           "status": "ok",
-          "detail": "1 file(s)"
+          "detail": "234 file(s)"
         },
         {
           "name": "Unit Tests",
-          "status": "partial",
-          "detail": "11 test file(s)"
+          "status": "ok",
+          "detail": "Coverage: 5.2% (29 files)"
+        },
+        {
+          "name": "Coverage Gaps",
+          "status": "warn",
+          "detail": "236 untested file(s)"
         },
         {
           "name": "E2E Tests",
@@ -77,7 +82,7 @@
         {
           "name": "README",
           "status": "ok",
-          "detail": "9d ago"
+          "detail": "34d ago"
         },
         {
           "name": "FAQ",
@@ -92,12 +97,12 @@
         {
           "name": "Tracked Files",
           "status": "info",
-          "detail": "3489 files"
+          "detail": "4028 files"
         }
       ]
     },
     "maintainability": {
-      "score": 100,
+      "score": 85,
       "items": [
         {
           "name": "Coding Standards",
@@ -106,13 +111,13 @@
         },
         {
           "name": "Git Status",
-          "status": "ok",
-          "detail": "Clean"
+          "status": "warn",
+          "detail": "43 uncommitted"
         },
         {
           "name": "Error Handling",
           "status": "ok",
-          "detail": "67 files"
+          "detail": "101 files"
         },
         {
           "name": "Dependencies",

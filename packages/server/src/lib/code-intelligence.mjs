@@ -390,8 +390,8 @@ export function buildTestCodeMap(parsedResult) {
   const TEST_PATTERNS = [
     /^(.+)\.test\.(js|mjs|cjs|jsx|ts|tsx)$/,
     /^(.+)\.spec\.(js|mjs|cjs|jsx|ts|tsx)$/,
-    /^test[_-](.+)\.(js|mjs|cjs|jsx|ts|tsx|py|java)$/,
-    /^(.+)[_-]test\.(js|mjs|cjs|jsx|ts|tsx|py|java)$/,
+    /^test[_-](.+)\.(js|mjs|cjs|jsx|ts|tsx|py|java|go)$/,
+    /^(.+)[_-]test\.(js|mjs|cjs|jsx|ts|tsx|py|java|go)$/,
   ];
 
   for (const file of parsedResult.files) {
@@ -405,7 +405,7 @@ export function buildTestCodeMap(parsedResult) {
       if (match) {
         const baseName = match[1];
         // Find production file with this base name
-        for (const ext of [".js", ".mjs", ".ts", ".tsx", ".jsx", ".py", ".java"]) {
+        for (const ext of [".js", ".mjs", ".ts", ".tsx", ".jsx", ".py", ".java", ".go"]) {
           const candidate = join(dirname(file.file), baseName + ext);
           const found = parsedResult.files.find(f => f.file === candidate);
           if (found) {
@@ -431,8 +431,35 @@ export function buildTestCodeMap(parsedResult) {
       }
     }
 
+    // Strategy 2.5: Go package 慣例 — *_test.go 測同目錄同 package
+    if (!productionFile && /_test\.go$/.test(fileName)) {
+      const base = fileName.replace(/_test\.go$/, "");
+      const dir = dirname(file.file);
+      // 2.5a: 同名 base.go（Go 慣例 foo_test.go ↔ foo.go）
+      const exact = parsedResult.files.find(f => f.file === join(dir, base + ".go").replace(/\\/g, "/"));
+      if (exact) {
+        productionFile = exact;
+        matchType = "naming";
+      } else {
+        // 2.5b: 同目錄其他 .go — 只挑有叫用交集的（evidence-based，避免誤配）
+        const dirFiles = parsedResult.files.filter(f => dirname(f.file) === dir && f.file.endsWith(".go") && !/_test\.go$/.test(f.file));
+        const called = new Set();
+        for (const fn of file.functions) {
+          for (const c of fn.calls || []) called.add(c.callee.split(".").pop());
+        }
+        const shared = dirFiles.filter(df => df.functions.some(f => called.has(f.name)));
+        if (shared.length >= 1) {
+          for (const df of shared) {
+            const testedFunctions = [...called].filter(n => df.functions.some(f => f.name === n));
+            mappings.push({ testFile: file.file, productionFile: df.file, matchType: "package", testedFunctions, testCount: file.functions.length });
+          }
+          productionFile = null; // 已手動 push，跳過底下單檔 push
+          continue;
+        }
+      }
+    }
+
     if (productionFile) {
-      // Find which functions are tested
       const testedFunctions = [];
       for (const fn of file.functions) {
         if (!fn.calls) continue;

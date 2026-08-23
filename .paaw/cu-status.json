@@ -22,13 +22,13 @@
     },
     "code-intelligence": {
       "status": "done",
-      "summary": "1199 functions",
-      "updatedAt": "2026-08-15T06:35:48.180Z"
+      "summary": "1419 functions",
+      "updatedAt": "2026-08-23T00:32:09.102Z"
     },
     "test-intelligence": {
       "status": "done",
       "summary": "29 tests",
-      "updatedAt": "2026-08-15T06:35:48.980Z"
+      "updatedAt": "2026-08-23T00:32:10.122Z"
     },
     "error-mapping": {
       "status": "done",
@@ -53,7 +53,7 @@
     "change-intelligence": {
       "status": "done",
       "summary": "50 commits",
-      "updatedAt": "2026-08-15T06:35:49.094Z"
+      "updatedAt": "2026-08-23T00:32:10.276Z"
     }
   }
 }

@@ -22,7 +22,30 @@ const LANG_MAP = {
   ".tsx": "tsx",
   ".py": "python",
   ".java": "java",
+  ".go": "go",
 };
+
+// Go route 註冊物件名白名單（gin/echo/chi/fiber/gorilla/net-http 慣例變數名）
+const GO_ROUTER_RE = /^(r|router|route|routes|app|api|e|g|s|srv|server|mux|http|grp|rg|group|v1|v2|v3|admin|auth|public|private|internal|web|mobile|open)$/i;
+
+// Go 字串 literal 去 quote（"x" 與 `x`）
+function stripGoString(text) {
+  return text.replace(/^"|"$/g, "").replace(/^`|`$/g, "");
+}
+
+// Go receiver text → type 短名："(u *pkg.User)" → "User"
+function goReceiverType(receiverText) {
+  const inner = receiverText.replace(/^\(|\)$/g, "").trim();
+  const parts = inner.split(/\s+/);
+  const t = parts[parts.length - 1] || "";
+  return t.replace(/^\*/, "").split(".").pop();
+}
+
+// Go route handler 名（第一個非字串 arg：identifier / selector_expression）
+function goHandlerName(args) {
+  const arg = args.children.find(c => c.type === "identifier" || c.type === "selector_expression");
+  return arg ? arg.text : "";
+}
 
 // ── Grammar WASM paths (resolved relative to PAAW_ROOT) ──
 
@@ -34,6 +57,7 @@ function getGrammarWasmPath(lang, paawRoot) {
     tsx: join(paawRoot, "node_modules", "tree-sitter-typescript", "tree-sitter-tsx.wasm"),
     python: join(paawRoot, "node_modules", "tree-sitter-python", "tree-sitter-python.wasm"),
     java: join(paawRoot, "node_modules", "tree-sitter-java", "tree-sitter-java.wasm"),
+    go: join(paawRoot, "node_modules", "tree-sitter-go", "tree-sitter-go.wasm"),
   };
   return paths[lang] || null;
 }
@@ -101,6 +125,14 @@ function extractCalls(funcNode) {
           callee = `${objText}.${propText}`;
           callType = objText.includes(".") ? "chained" : "method";
         }
+      } else if (fn.type === "selector_expression") {
+        // Go: obj.Method() — Go grammar 欄位是 operand/field（不是 JS 的 object/property）
+        const opd = fn.childForFieldName("operand");
+        const fld = fn.childForFieldName("field");
+        if (opd && fld) {
+          callee = `${opd.text}.${fld.text}`;
+          callType = opd.text.includes(".") ? "chained" : "method";
+        }
       } else if (fn.type === "call_expression") {
         // foo()() — nested call
         callee = fn.text.slice(0, 60);
@@ -153,6 +185,8 @@ function javaAnnotationRoute(annoNode) {
  */
 function extractFileInfo(tree, filePath, language) {
   let javaRoutePrefix = ""; // class-level @RequestMapping prefix
+  const goGroupPrefix = {};     // gin/echo: v1 := r.Group("/v1") → var name → prefix（支援巢狀鏈）
+  const goPendingMethods = {};  // Go receiver type → [methods]（method_declaration 可能早於 struct 定義）
   const info = {
     file: filePath,
     language,
@@ -167,6 +201,24 @@ function extractFileInfo(tree, filePath, language) {
   const root = tree.rootNode;
 
   walkNode(root, (node) => {
+    // ── Imports (Go) ──
+    if (node.type === "import_declaration" && language === "go") {
+      // import "fmt" / import ( "x" // alias y "z" )
+      const specs = [];
+      for (const c of node.children) {
+        if (c.type === "import_spec") specs.push(c);
+        if (c.type === "import_spec_list") for (const s of c.children) if (s.type === "import_spec") specs.push(s);
+      }
+      for (const s of specs) {
+        const p = s.childForFieldName("path");
+        if (!p) continue;
+        const source = stripGoString(p.text);
+        const parts = source.split("/");
+        const alias = s.childForFieldName("name")?.text;
+        info.imports.push({ source, names: [alias || parts[parts.length - 1] || parts[0]] });
+      }
+    }
+
     // ── Imports (Java) ──
     if (node.type === "import_declaration" && language === "java") {
       // import java.util.List;  or  import java.util.*;
@@ -282,8 +334,8 @@ function extractFileInfo(tree, filePath, language) {
       }
     }
 
-    // ── Function declarations ──
-    if (node.type === "function_declaration") {
+    // ── Function declarations（JS/TS 專用 — Go 走上方 Go branch，避免重複 push）──
+    if (node.type === "function_declaration" && language !== "go") {
       const name = node.childForFieldName("name")?.text || "";
       const asyncKw = node.children.find(c => c.type === "async");
       const params = node.childForFieldName("parameters")?.text || "";
@@ -384,6 +436,112 @@ function extractFileInfo(tree, filePath, language) {
       }
     }
 
+    // ── Go functions（call graph 主要來源）──
+    if (language === "go" && node.type === "function_declaration") {
+      const name = node.childForFieldName("name")?.text || "";
+      const params = node.childForFieldName("parameters")?.text || "()";
+      if (name) {
+        info.functions.push({ name, kind: "function", async: false, params, calls: extractCalls(node) });
+        if (/^[A-Z]/.test(name)) info.exports.push({ kind: "function", name, isDefault: false }); // Go 大寫 = exported
+      }
+    }
+
+    // ── Go methods（receiver method；短名進 functions 讓 call graph resolve 得到 obj.Method）──
+    if (language === "go" && node.type === "method_declaration") {
+      const name = node.childForFieldName("name")?.text || "";
+      const receiver = node.childForFieldName("receiver")?.text || "()";
+      const params = node.childForFieldName("parameters")?.text || "()";
+      if (name) {
+        info.functions.push({ name, kind: "method", async: false, params: `${receiver} ${params}`, calls: extractCalls(node) });
+        const rt = goReceiverType(receiver);
+        (goPendingMethods[rt] = goPendingMethods[rt] || []).push(name);
+        if (/^[A-Z]/.test(name)) info.exports.push({ kind: "method", name, isDefault: false });
+      }
+    }
+
+    // ── Go struct → classes（type User struct { ... }）──
+    if (language === "go" && node.type === "type_spec") {
+      const name = node.childForFieldName("name")?.text || "";
+      const typeVal = node.childForFieldName("type");
+      if (name && typeVal && typeVal.type === "struct_type") {
+        info.classes.push({ name, methods: [] });
+        if (/^[A-Z]/.test(name)) info.exports.push({ kind: "class", name, isDefault: false });
+      }
+    }
+
+    // ── Go gin/echo group prefix：v1 := r.Group("/v1") / v2 := v1.Group("/v2")（巢狀串接）──
+    if (language === "go" && node.type === "short_var_declaration") {
+      const left = node.childForFieldName("left");
+      const right = node.childForFieldName("right");
+      const varName = left?.children.find(c => c.type === "identifier")?.text;
+      const call = right?.children.find(c => c.type === "call_expression");
+      if (varName && call) {
+        const cfn = call.childForFieldName("function");
+        if (cfn?.type === "selector_expression" && (cfn.childForFieldName("field")?.text || "") === "Group") {
+          const cargs = call.childForFieldName("arguments");
+          const s = cargs?.children.find(c => c.type === "interpreted_string_literal" || c.type === "raw_string_literal");
+          if (s) {
+            const opd = cfn.childForFieldName("operand")?.text || "";
+            goGroupPrefix[varName] = (goGroupPrefix[opd] || "") + stripGoString(s.text);
+          }
+        }
+      }
+    }
+
+    // ── Go routes ──
+    // gin/echo: r.GET("/x", h)（全大寫 verb）；chi/fiber: r.Get("/x", h)（首字大寫）
+    // gorilla/mux + net/http: r.HandleFunc("/x", h) / http.HandleFunc / mux.Handle + .Methods("POST") 鏈
+    if (language === "go" && node.type === "call_expression") {
+      const fn = node.childForFieldName("function");
+      const args = node.childForFieldName("arguments");
+      if (fn && fn.type === "selector_expression" && args) {
+        const fld = fn.childForFieldName("field")?.text || "";
+        const opd = fn.childForFieldName("operand")?.text || "";
+        const GO_VERBS = {
+          GET: "GET", POST: "POST", PUT: "PUT", PATCH: "PATCH", DELETE: "DELETE", HEAD: "HEAD", OPTIONS: "OPTIONS", Any: "ANY",
+          Get: "GET", Post: "POST", Put: "PUT", Patch: "PATCH", Delete: "DELETE", Head: "HEAD", Options: "OPTIONS",
+        };
+        const firstStr = () => args.children.find(c => c.type === "interpreted_string_literal" || c.type === "raw_string_literal");
+        if ((fld in GO_VERBS) && GO_ROUTER_RE.test(opd)) {
+          const s = firstStr();
+          if (s) info.routes.push({ method: GO_VERBS[fld], path: (goGroupPrefix[opd] || "") + stripGoString(s.text), handler: goHandlerName(args) });
+        } else if ((fld === "HandleFunc" || fld === "Handle") && GO_ROUTER_RE.test(opd)) {
+          const s = firstStr();
+          if (s) {
+            // 被 .Methods("POST") 鏈住 → 這節點先被訪問，method 由外層 Methods 分支補上，這裡別重複 push
+            const outer = node.parent?.parent; // selector_expression → 外層 call_expression(.Methods)
+            const outerFld = outer?.type === "call_expression" ? outer.childForFieldName("function")?.childForFieldName("field")?.text : "";
+            const chained = /^Methods?$/.test(outerFld || "");
+            if (!chained) info.routes.push({ method: "ANY", path: stripGoString(s.text), handler: goHandlerName(args) });
+          }
+        } else if ((fld === "Methods" || fld === "Method") && opd) {
+          // gorilla/mux：r.HandleFunc("/x", h).Methods("POST", "GET") — operand 是內層 HandleFunc call
+          const inner = fn.childForFieldName("operand");
+          if (inner && inner.type === "call_expression") {
+            const ifn = inner.childForFieldName("function");
+            const iargs = inner.childForFieldName("arguments");
+            if (ifn?.type === "selector_expression" && iargs) {
+              const ifld = ifn.childForFieldName("field")?.text || "";
+              if (ifld === "HandleFunc" || ifld === "Handle") {
+                const s = iargs.children.find(c => c.type === "interpreted_string_literal" || c.type === "raw_string_literal");
+                if (s) {
+                  const path = stripGoString(s.text);
+                  const methods = args.children
+                    .filter(c => c.type === "interpreted_string_literal" || c.type === "raw_string_literal")
+                    .map(c => stripGoString(c.text).toUpperCase())
+                    .filter(m => /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$/.test(m));
+                  if (methods.length === 0) methods.push("ANY");
+                  for (const m of methods) {
+                    info.routes.push({ method: m, path, handler: goHandlerName(iargs) });
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     // ── Route patterns: router.get('/path', ...), app.post('/path', ...) ──
     if (node.type === "call_expression") {
       const fn = node.childForFieldName("function");
@@ -469,6 +627,19 @@ function extractFileInfo(tree, filePath, language) {
     }
   });
 
+  // Go：method_declaration 可能早於/晚於 struct 定義（甚至跨檔）— 統一補掛到 class entries
+  for (const [typeName, methods] of Object.entries(goPendingMethods)) {
+    if (!/^[A-Z]/.test(typeName)) continue; // 非匯出型別（int 等基底）不建 class
+    let cls = info.classes.find(c => c.name === typeName);
+    if (!cls) {
+      cls = { name: typeName, methods: [] };
+      info.classes.push(cls);
+    }
+    for (const m of methods) {
+      if (!cls.methods.includes(m)) cls.methods.push(m);
+    }
+  }
+
   return info;
 }
 
@@ -488,7 +659,7 @@ export async function parseProject(projectRoot, paawRoot, options = {}) {
 
   // Collect source files
   const sourceFiles = [];
-  const SKIP_DIRS = new Set(["node_modules", ".git", ".paaw", "dist", "build", "coverage", ".next", ".nuxt", "vendor", "__pycache__", "backups", "temp", "tmp", "data"]);
+  const SKIP_DIRS = new Set(["node_modules", ".git", ".paaw", "dist", "build", "coverage", ".next", ".nuxt", "vendor", "__pycache__", "testdata", "backups", "temp", "tmp", "data"]);
   const SOURCE_EXTS = new Set(Object.keys(LANG_MAP));
 
   function walkDir(dir) {

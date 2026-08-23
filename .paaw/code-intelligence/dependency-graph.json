@@ -674,6 +674,14 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/tool-engine/provider.mjs",
           "names": []
         },
@@ -691,6 +699,14 @@
         },
         {
           "source": "packages/server/src/routes/coding-features.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
           "names": []
         },
         {
@@ -788,10 +804,6 @@
         {
           "source": "packages/server/src/lib/auto-dispatch-manager.mjs",
           "names": []
-        },
-        {
-          "source": "packages/server/src/lib/auto-dispatch-shared.mjs",
-          "names": []
         }
       ],
       "exports": [
@@ -834,9 +846,19 @@
           "resolved": false,
           "targetFile": null,
           "names": []
+        },
+        {
+          "source": "./ru-resolver.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/ru-resolver.mjs",
+          "names": []
         }
       ],
       "importedBy": [
+        {
+          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
         {
           "source": "packages/server/src/routes/agent-logs.mjs",
           "names": []
@@ -844,9 +866,55 @@
       ],
       "exports": [
         "startAgentLog",
+        "backfillIndexCwd",
         "listAgentTasks",
+        "getRuCostHistory",
         "getAgentTaskDetail",
         "cleanupOldAgentLogs"
+      ]
+    },
+    "packages/server/src/lib/ru-resolver.mjs": {
+      "path": "packages/server/src/lib/ru-resolver.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "node:fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "node:path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "node:url",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/lib/agent-exec-logger.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/release-unit/cost.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/agent-logs.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "resolveRuName",
+        "getModelPricing",
+        "calcCostUsd",
+        "stepCostUsd"
       ]
     },
     "packages/server/src/lib/agent-rules.mjs": {
@@ -856,6 +924,10 @@
       "importedBy": [
         {
           "source": "packages/server/src/routes/a2a.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
           "names": []
         }
       ],
@@ -903,6 +975,10 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/tool-registry-init.mjs",
           "names": []
         }
@@ -919,6 +995,12 @@
           "source": "./action-log.mjs",
           "resolved": true,
           "targetFile": "packages/server/src/lib/action-log.mjs",
+          "names": []
+        },
+        {
+          "source": "./coding-task-cost.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/coding-task-cost.mjs",
           "names": []
         },
         {
@@ -947,6 +1029,33 @@
         "executeEMSession",
         "runParallelSession",
         "runAutoDispatch"
+      ]
+    },
+    "packages/server/src/lib/coding-task-cost.mjs": {
+      "path": "packages/server/src/lib/coding-task-cost.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "node:fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "node:path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/lib/auto-dispatch-manager.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "addCostAttribution"
       ]
     },
     "packages/server/src/lib/auto-dispatch-shared.mjs": {
@@ -984,15 +1093,9 @@
           "names": []
         },
         {
-          "source": "./paaw-project.mjs",
+          "source": "./feature-boundary.mjs",
           "resolved": true,
-          "targetFile": "packages/server/src/lib/paaw-project.mjs",
-          "names": []
-        },
-        {
-          "source": "./action-log.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/action-log.mjs",
+          "targetFile": "packages/server/src/lib/feature-boundary.mjs",
           "names": []
         }
       ],
@@ -1044,6 +1147,10 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-project.mjs",
           "names": []
         },
@@ -1060,11 +1167,27 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/release-unit/handover-state.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/release-unit/model.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/release-unit/qa.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/release-unit/verify.mjs",
           "names": []
         },
         {
           "source": "packages/server/src/lib/semgrep-runner.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
           "names": []
         },
         {
@@ -1079,38 +1202,20 @@
         "IS_WIN"
       ]
     },
-    "packages/server/src/lib/paaw-project.mjs": {
-      "path": "packages/server/src/lib/paaw-project.mjs",
+    "packages/server/src/lib/feature-boundary.mjs": {
+      "path": "packages/server/src/lib/feature-boundary.mjs",
       "language": "javascript",
       "imports": [
         {
-          "source": "fs/promises",
+          "source": "node:fs",
           "resolved": false,
           "targetFile": null,
           "names": []
         },
         {
-          "source": "fs",
+          "source": "node:path",
           "resolved": false,
           "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "path",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "child_process",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "./shell-exec.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/shell-exec.mjs",
           "names": []
         }
       ],
@@ -1120,25 +1225,15 @@
           "names": []
         },
         {
-          "source": "packages/server/src/lib/change-intelligence.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/context-providers.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/cu-mechanical.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/routes/coding-issues.mjs",
+          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
           "names": []
         }
       ],
       "exports": [
-        "PaawProject",
-        "createPaawProject"
+        "loadFeatureData",
+        "matchFeaturesForFiles",
+        "buildFeatureFileTree",
+        "buildContextBoundary"
       ]
     },
     "packages/server/src/lib/bridge/paaw-bridge.mjs": {
@@ -1222,6 +1317,12 @@
           "names": []
         },
         {
+          "source": "./stable-hash.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/stable-hash.mjs",
+          "names": []
+        },
+        {
           "source": "path",
           "resolved": false,
           "targetFile": null,
@@ -1244,10 +1345,122 @@
         {
           "source": "packages/server/src/lib/cu-mechanical.mjs",
           "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
         }
       ],
       "exports": [
         "buildChangeIntelligence"
+      ]
+    },
+    "packages/server/src/lib/stable-hash.mjs": {
+      "path": "packages/server/src/lib/stable-hash.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "crypto",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/lib/change-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/code-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/release-unit/model.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/test-intelligence.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "stableStringify",
+        "hashObject",
+        "sansKeys",
+        "diffWriteJson"
+      ]
+    },
+    "packages/server/src/lib/paaw-project.mjs": {
+      "path": "packages/server/src/lib/paaw-project.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs/promises",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./shell-exec.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/shell-exec.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/lib/change-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/context-providers.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/cu-mechanical.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-issues.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "PaawProject",
+        "createPaawProject"
       ]
     },
     "packages/server/src/lib/code-intelligence.mjs": {
@@ -1267,6 +1480,12 @@
           "names": []
         },
         {
+          "source": "./stable-hash.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/stable-hash.mjs",
+          "names": []
+        },
+        {
           "source": "./tree-sitter-parser.mjs",
           "resolved": true,
           "targetFile": "packages/server/src/lib/tree-sitter-parser.mjs",
@@ -1276,6 +1495,10 @@
       "importedBy": [
         {
           "source": "packages/server/src/lib/cu-mechanical.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
           "names": []
         }
       ],
@@ -1314,6 +1537,10 @@
         {
           "source": "packages/server/src/lib/test-intelligence.mjs",
           "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
         }
       ],
       "exports": [
@@ -1334,6 +1561,10 @@
         }
       ],
       "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        },
         {
           "source": "tests/unit/coding-security-extended.test.mjs",
           "names": []
@@ -1364,7 +1595,12 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        }
+      ],
       "exports": [
         "estimateMessageTokens",
         "shouldCompact",
@@ -1379,6 +1615,10 @@
       "importedBy": [
         {
           "source": "packages/server/src/lib/context-compaction.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
           "names": []
         },
         {
@@ -1478,7 +1718,12 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        }
+      ],
       "exports": [
         "rescanMechanicalLayer"
       ]
@@ -1500,6 +1745,12 @@
           "names": []
         },
         {
+          "source": "./stable-hash.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/stable-hash.mjs",
+          "names": []
+        },
+        {
           "source": "./tree-sitter-parser.mjs",
           "resolved": true,
           "targetFile": "packages/server/src/lib/tree-sitter-parser.mjs",
@@ -1509,6 +1760,10 @@
       "importedBy": [
         {
           "source": "packages/server/src/lib/cu-mechanical.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
           "names": []
         }
       ],
@@ -1533,7 +1788,12 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        }
+      ],
       "exports": [
         "getDependencyContext",
         "getAffectedTests",
@@ -1636,6 +1896,10 @@
       "importedBy": [
         {
           "source": "packages/server/src/lib/domain-agent-registry.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
           "names": []
         }
       ],
@@ -1813,6 +2077,204 @@
         "OvernightRunner"
       ]
     },
+    "packages/server/src/lib/paaw-agent-loop.mjs": {
+      "path": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs/promises",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./feature-boundary.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/feature-boundary.mjs",
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./shell-exec.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./dependency-context.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/dependency-context.mjs",
+          "names": []
+        },
+        {
+          "source": "./task-retrofit.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/task-retrofit.mjs",
+          "names": []
+        },
+        {
+          "source": "url",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./llm-utils.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "./context-truncation.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/context-truncation.mjs",
+          "names": []
+        },
+        {
+          "source": "./context-compaction.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/context-compaction.mjs",
+          "names": []
+        },
+        {
+          "source": "./agent-exec-logger.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/agent-exec-logger.mjs",
+          "names": []
+        },
+        {
+          "source": "./paaw-project.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "./paaw-snapshot.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-snapshot.mjs",
+          "names": []
+        },
+        {
+          "source": "./llm-utils.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "./tool-registry.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/tool-registry.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/lib/tool-registry-init.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/apps.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/crew.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/workflow.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/scheduler/cron-jobs.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/websocket/ws-handler.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "resolveLLMConfig",
+        "PAAW_TOOLS",
+        "clearCrewGroupCache",
+        "getToolsForAgent",
+        "getToolGroupInfo",
+        "getAgentGroups",
+        "setAgentConfig",
+        "executeTool",
+        "trimMessagesToFit",
+        "callLLM",
+        "runAgentLoop",
+        "runAgentLoopStream"
+      ]
+    },
+    "packages/server/src/lib/task-retrofit.mjs": {
+      "path": "packages/server/src/lib/task-retrofit.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs/promises",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-releases.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "qualityDebtSummary",
+        "runTaskRetrofit"
+      ]
+    },
     "packages/server/src/lib/paaw-snapshot.mjs": {
       "path": "packages/server/src/lib/paaw-snapshot.mjs",
       "language": "javascript",
@@ -1854,7 +2316,12 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        }
+      ],
       "exports": [
         "PaawSnapshot"
       ]
@@ -2295,12 +2762,49 @@
       ],
       "importedBy": [
         {
+          "source": "packages/server/src/lib/release-unit/qa.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/routes/release-unit.mjs",
           "names": []
         }
       ],
       "exports": [
         "askCodebase"
+      ]
+    },
+    "packages/server/src/lib/release-unit/cost.mjs": {
+      "path": "packages/server/src/lib/release-unit/cost.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "node:fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "node:path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../ru-resolver.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/ru-resolver.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/release-unit.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "buildCostReport"
       ]
     },
     "packages/server/src/lib/release-unit/gates.mjs": {
@@ -2349,6 +2853,43 @@
         "checkGates"
       ]
     },
+    "packages/server/src/lib/release-unit/handover-state.mjs": {
+      "path": "packages/server/src/lib/release-unit/handover-state.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "node:fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "node:path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../shell-exec.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/shell-exec.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding-handover.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "buildHandoverState",
+        "writeHandoverState",
+        "renderHandoverMd",
+        "loadHandoverState",
+        "scheduleHandoverRefresh"
+      ]
+    },
     "packages/server/src/lib/release-unit/impact.mjs": {
       "path": "packages/server/src/lib/release-unit/impact.mjs",
       "language": "javascript",
@@ -2370,11 +2911,153 @@
         "impactAnalysis"
       ]
     },
+    "packages/server/src/lib/release-unit/model.mjs": {
+      "path": "packages/server/src/lib/release-unit/model.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../shell-exec.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "../stable-hash.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/stable-hash.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/lib/release-unit/qa.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/release-unit.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "buildReleaseUnitModel",
+        "loadReleaseUnitModel",
+        "queryModelByFeature",
+        "queryModelByFile",
+        "queryModelByApi"
+      ]
+    },
+    "packages/server/src/lib/release-unit/qa.mjs": {
+      "path": "packages/server/src/lib/release-unit/qa.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "node:fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "node:path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../shell-exec.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "./model.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/release-unit/model.mjs",
+          "names": []
+        },
+        {
+          "source": "./ask.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/release-unit/ask.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/release-unit.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "answerQuestion",
+        "QA_INTENT_IDS"
+      ]
+    },
+    "packages/server/src/lib/review-boundary.mjs": {
+      "path": "packages/server/src/lib/review-boundary.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "util",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding-evidence.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-tasks.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "_normPath",
+        "buildReviewBoundary"
+      ]
+    },
     "packages/server/src/lib/running-agents.mjs": {
       "path": "packages/server/src/lib/running-agents.mjs",
       "language": "javascript",
       "imports": [],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        }
+      ],
       "exports": [
         "runningCodingAgents"
       ]
@@ -2577,7 +3260,12 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        }
+      ],
       "exports": [
         "detectRulePacks",
         "buildFullScanCommand",
@@ -2741,8 +3429,8 @@
         },
         {
           "source": "./paaw-agent-loop.mjs",
-          "resolved": false,
-          "targetFile": null,
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-agent-loop.mjs",
           "names": []
         }
       ],
@@ -2882,6 +3570,10 @@
           "names": []
         },
         {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/routes/crew.mjs",
           "names": []
         },
@@ -3014,8 +3706,8 @@
         },
         {
           "source": "../lib/paaw-agent-loop.mjs",
-          "resolved": false,
-          "targetFile": null,
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-agent-loop.mjs",
           "names": []
         },
         {
@@ -3108,6 +3800,12 @@
           "source": "../lib/agent-exec-logger.mjs",
           "resolved": true,
           "targetFile": "packages/server/src/lib/agent-exec-logger.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/ru-resolver.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/ru-resolver.mjs",
           "names": []
         },
         {
@@ -3344,8 +4042,8 @@
         },
         {
           "source": "../lib/paaw-agent-loop.mjs",
-          "resolved": false,
-          "targetFile": null,
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-agent-loop.mjs",
           "names": []
         }
       ],
@@ -3758,6 +4456,12 @@
           "resolved": false,
           "targetFile": null,
           "names": []
+        },
+        {
+          "source": "../lib/review-boundary.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/review-boundary.mjs",
+          "names": []
         }
       ],
       "importedBy": [
@@ -3854,6 +4558,12 @@
           "source": "util",
           "resolved": false,
           "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../lib/release-unit/handover-state.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/release-unit/handover-state.mjs",
           "names": []
         }
       ],
@@ -4049,6 +4759,12 @@
           "resolved": true,
           "targetFile": "packages/server/src/routes/coding-evidence.mjs",
           "names": []
+        },
+        {
+          "source": "../lib/task-retrofit.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/task-retrofit.mjs",
+          "names": []
         }
       ],
       "importedBy": [],
@@ -4151,6 +4867,12 @@
           "resolved": true,
           "targetFile": "packages/server/src/lib/task-git.mjs",
           "names": []
+        },
+        {
+          "source": "../lib/review-boundary.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/review-boundary.mjs",
+          "names": []
         }
       ],
       "importedBy": [
@@ -4165,6 +4887,142 @@
         "runHealthPlanSubtask",
         "triggerHealthAgentDispatch",
         "runRepairLoop"
+      ]
+    },
+    "packages/server/src/routes/coding.mjs": {
+      "path": "packages/server/src/routes/coding.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs/promises",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "url",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../lib/shell-exec.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/paaw-project.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/llm-utils.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "./shared.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/routes/shared.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/coding-security.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/coding-security.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/tree-sitter-parser.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/tree-sitter-parser.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/semgrep-runner.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/semgrep-runner.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/code-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/code-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/test-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/test-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/change-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/change-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/cu-mechanical.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/cu-mechanical.mjs",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../lib/agent-rules.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/agent-rules.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/security-rules.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/security-rules.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/llm-utils.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/running-agents.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/running-agents.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [],
+      "exports": [
+        "projectRoute"
       ]
     },
     "packages/server/src/routes/crew.mjs": {
@@ -4203,8 +5061,8 @@
         },
         {
           "source": "../lib/paaw-agent-loop.mjs",
-          "resolved": false,
-          "targetFile": null,
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-agent-loop.mjs",
           "names": []
         }
       ],
@@ -4693,6 +5551,24 @@
           "resolved": true,
           "targetFile": "packages/server/src/lib/release-unit/apis.mjs",
           "names": []
+        },
+        {
+          "source": "../lib/release-unit/model.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/release-unit/model.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/release-unit/cost.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/release-unit/cost.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/release-unit/qa.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/release-unit/qa.mjs",
+          "names": []
         }
       ],
       "importedBy": [],
@@ -4810,8 +5686,8 @@
         },
         {
           "source": "../lib/paaw-agent-loop.mjs",
-          "resolved": false,
-          "targetFile": null,
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-agent-loop.mjs",
           "names": []
         }
       ],
@@ -4850,8 +5726,8 @@
         },
         {
           "source": "../lib/paaw-agent-loop.mjs",
-          "resolved": false,
-          "targetFile": null,
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-agent-loop.mjs",
           "names": []
         },
         {
@@ -5029,8 +5905,8 @@
         },
         {
           "source": "./pages/CodingIDE",
-          "resolved": false,
-          "targetFile": null,
+          "resolved": true,
+          "targetFile": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
         },
         {
@@ -5271,6 +6147,10 @@
           "names": []
         },
         {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
           "source": "packages/ui/src/pages/WelcomePage.tsx",
           "names": []
         }
@@ -5297,6 +6177,12 @@
         },
         {
           "source": "remark-gfm",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "remark-breaks",
           "resolved": false,
           "targetFile": null,
           "names": []
@@ -5665,6 +6551,219 @@
       ],
       "exports": [
         "CronJobsPage"
+      ]
+    },
+    "packages/ui/src/pages/CodingIDE.tsx": {
+      "path": "packages/ui/src/pages/CodingIDE.tsx",
+      "language": "tsx",
+      "imports": [
+        {
+          "source": "react",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../theme",
+          "resolved": true,
+          "targetFile": "packages/ui/src/theme.tsx",
+          "names": []
+        },
+        {
+          "source": "../i18n",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../utils",
+          "resolved": true,
+          "targetFile": "packages/ui/src/utils/index.ts",
+          "names": []
+        },
+        {
+          "source": "../components/ShellTerminal",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ShellTerminal.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/JsonViewer",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/JsonViewer.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/FileEmoji",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/FileEmoji.tsx",
+          "names": []
+        },
+        {
+          "source": "highlight.js",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "highlight.js/styles/github.css",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../api",
+          "resolved": true,
+          "targetFile": "packages/ui/src/api.ts",
+          "names": []
+        },
+        {
+          "source": "../components/DirectoryExplorer",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/DirectoryExplorer.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/SidebarFileTree",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/SidebarFileTree.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/RuView",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/RuView.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/EMDashboard",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/EMDashboard.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/git",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/git/index.ts",
+          "names": []
+        },
+        {
+          "source": "../components/DiffViewer",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/DiffViewer.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/StandardsEditor",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/StandardsEditor.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/SessionHistory",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/SessionHistory.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/DecisionLog",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/DecisionLog.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/ModelSelector",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ModelSelector.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/ChatMessages",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ChatMessages.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/IssueTracker",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/IssueTracker.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/TaskBoard",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/TaskBoard.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/ReleaseManagerPanel",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/HandoverPanel",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/HandoverPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/TroubleshootingPanel",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/TroubleshootingPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/ReleaseUnitPanel",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ReleaseUnitPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/TabErrorBoundary",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/TabErrorBoundary.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/FeatureMap",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/FeatureMap.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/AutoDispatchPanel",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/AutoDispatchPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/CrewManager",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/CrewManager.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/SecurityTab",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/SecurityTab.tsx",
+          "names": []
+        },
+        {
+          "source": "../pages/FileViewer",
+          "resolved": true,
+          "targetFile": "packages/ui/src/pages/FileViewer.tsx",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/App.tsx",
+          "names": []
+        }
+      ],
+      "exports": [
+        "CodingIDE"
       ]
     },
     "packages/ui/src/pages/BriefingPlayer.tsx": {
@@ -6106,6 +7205,10 @@
         {
           "source": "packages/ui/src/App.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -6168,6 +7271,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/App.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
         }
       ],
@@ -6385,6 +7492,12 @@
         },
         {
           "source": "remark-gfm",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "remark-breaks",
           "resolved": false,
           "targetFile": null,
           "names": []
@@ -6730,6 +7843,10 @@
           "names": []
         },
         {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
           "source": "packages/ui/src/pages/CronJobsPage.tsx",
           "names": []
         },
@@ -6922,6 +8039,10 @@
           "names": []
         },
         {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
           "source": "packages/ui/src/pages/FileEditor.tsx",
           "names": []
         },
@@ -7084,6 +8205,22 @@
           "names": []
         },
         {
+          "source": "packages/ui/src/components/RuCostSection.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/components/RuModelSection.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/components/RuQaSection.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/components/RuView.tsx",
+          "names": []
+        },
+        {
           "source": "packages/ui/src/components/SecurityTab.tsx",
           "names": []
         },
@@ -7141,6 +8278,10 @@
         },
         {
           "source": "packages/ui/src/pages/ChatView.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
         },
         {
@@ -7321,6 +8462,12 @@
           "names": []
         },
         {
+          "source": "remark-breaks",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
           "source": "../utils",
           "resolved": true,
           "targetFile": "packages/ui/src/utils/index.ts",
@@ -7334,6 +8481,10 @@
         },
         {
           "source": "packages/ui/src/components/EMDashboard.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
         }
       ],
@@ -7397,6 +8548,12 @@
           "resolved": true,
           "targetFile": "packages/ui/src/utils/index.ts",
           "names": []
+        },
+        {
+          "source": "./MarkdownText",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/MarkdownText.tsx",
+          "names": []
         }
       ],
       "importedBy": [
@@ -7413,8 +8570,69 @@
           "names": []
         }
       ],
+      "exports": []
+    },
+    "packages/ui/src/components/MarkdownText.tsx": {
+      "path": "packages/ui/src/components/MarkdownText.tsx",
+      "language": "tsx",
+      "imports": [
+        {
+          "source": "react",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "react-markdown",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "remark-gfm",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "remark-breaks",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/components/AgentSideChat.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/components/AutoDispatchPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/components/EMDashboard.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/components/HandoverPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/components/IssueTracker.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/components/ProjectAiPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/components/TaskBoard.tsx",
+          "names": []
+        }
+      ],
       "exports": [
-        "AgentSideChat"
+        "MarkdownText"
       ]
     },
     "packages/ui/src/components/AutoDispatchPanel.tsx": {
@@ -7450,9 +8668,20 @@
           "resolved": true,
           "targetFile": "packages/ui/src/components/ModelSelector.tsx",
           "names": []
+        },
+        {
+          "source": "./MarkdownText",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/MarkdownText.tsx",
+          "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
       "exports": [
         "SubTaskDetail",
         "AutoDispatchPanel"
@@ -7486,6 +8715,10 @@
         },
         {
           "source": "packages/ui/src/pages/AppBuilder.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
         },
         {
@@ -7616,7 +8849,12 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
       "exports": [
         "CrewManager"
       ]
@@ -7671,7 +8909,12 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
       "exports": [
         "DecisionLog"
       ]
@@ -7690,6 +8933,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/components/git/GitDiffView.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
         }
       ],
@@ -7739,54 +8986,14 @@
           "names": []
         }
       ],
-      "importedBy": [],
-      "exports": [
-        "EMDashboard"
-      ]
-    },
-    "packages/ui/src/components/MarkdownText.tsx": {
-      "path": "packages/ui/src/components/MarkdownText.tsx",
-      "language": "tsx",
-      "imports": [
-        {
-          "source": "react",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "react-markdown",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "remark-gfm",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        }
-      ],
       "importedBy": [
         {
-          "source": "packages/ui/src/components/EMDashboard.tsx",
-          "names": []
-        },
-        {
-          "source": "packages/ui/src/components/IssueTracker.tsx",
-          "names": []
-        },
-        {
-          "source": "packages/ui/src/components/ProjectAiPanel.tsx",
-          "names": []
-        },
-        {
-          "source": "packages/ui/src/components/TaskBoard.tsx",
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
         }
       ],
       "exports": [
-        "MarkdownText"
+        "EMDashboard"
       ]
     },
     "packages/ui/src/components/EvidenceCard.tsx": {
@@ -7849,15 +9056,66 @@
           "names": []
         },
         {
+          "source": "./RuView",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/RuView.tsx",
+          "names": []
+        },
+        {
           "source": "../api",
           "resolved": true,
           "targetFile": "packages/ui/src/api.ts",
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
       "exports": [
         "FeatureMap"
+      ]
+    },
+    "packages/ui/src/components/RuView.tsx": {
+      "path": "packages/ui/src/components/RuView.tsx",
+      "language": "tsx",
+      "imports": [
+        {
+          "source": "react",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../api",
+          "resolved": true,
+          "targetFile": "packages/ui/src/api.ts",
+          "names": []
+        },
+        {
+          "source": "../i18n",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/components/FeatureMap.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
+      "exports": [
+        "RU_CATEGORY_META",
+        "RuView",
+        "FeatureCockpit",
+        "EntryRow"
       ]
     },
     "packages/ui/src/components/FileEmoji.tsx": {
@@ -7871,6 +9129,10 @@
         },
         {
           "source": "packages/ui/src/components/SidebarFileTree.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
         },
         {
@@ -7972,15 +9234,69 @@
           "names": []
         },
         {
+          "source": "./RuQaSection",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/RuQaSection.tsx",
+          "names": []
+        },
+        {
           "source": "./AgentSideChat",
           "resolved": true,
           "targetFile": "packages/ui/src/components/AgentSideChat.tsx",
           "names": []
+        },
+        {
+          "source": "./MarkdownText",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/MarkdownText.tsx",
+          "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
       "exports": [
         "HandoverPanel"
+      ]
+    },
+    "packages/ui/src/components/RuQaSection.tsx": {
+      "path": "packages/ui/src/components/RuQaSection.tsx",
+      "language": "tsx",
+      "imports": [
+        {
+          "source": "react",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../i18n",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../api",
+          "resolved": true,
+          "targetFile": "packages/ui/src/api.ts",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/components/HandoverPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/components/ReleaseUnitPanel.tsx",
+          "names": []
+        }
+      ],
+      "exports": [
+        "RuQaSection"
       ]
     },
     "packages/ui/src/components/IssueTracker.tsx": {
@@ -8018,7 +9334,12 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
       "exports": [
         "IssueTracker"
       ]
@@ -8047,6 +9368,10 @@
         }
       ],
       "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
         {
           "source": "packages/ui/src/pages/FileViewer.tsx",
           "names": []
@@ -8195,7 +9520,12 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
       "exports": [
         "ReleaseManagerPanel"
       ]
@@ -8208,6 +9538,24 @@
           "source": "react",
           "resolved": false,
           "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./RuModelSection",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/RuModelSection.tsx",
+          "names": []
+        },
+        {
+          "source": "./RuCostSection",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/RuCostSection.tsx",
+          "names": []
+        },
+        {
+          "source": "./RuQaSection",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/RuQaSection.tsx",
           "names": []
         },
         {
@@ -8229,9 +9577,80 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
       "exports": [
         "ReleaseUnitPanel"
+      ]
+    },
+    "packages/ui/src/components/RuModelSection.tsx": {
+      "path": "packages/ui/src/components/RuModelSection.tsx",
+      "language": "tsx",
+      "imports": [
+        {
+          "source": "react",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../i18n",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../api",
+          "resolved": true,
+          "targetFile": "packages/ui/src/api.ts",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/components/ReleaseUnitPanel.tsx",
+          "names": []
+        }
+      ],
+      "exports": [
+        "RuModelSection"
+      ]
+    },
+    "packages/ui/src/components/RuCostSection.tsx": {
+      "path": "packages/ui/src/components/RuCostSection.tsx",
+      "language": "tsx",
+      "imports": [
+        {
+          "source": "react",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../i18n",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../api",
+          "resolved": true,
+          "targetFile": "packages/ui/src/api.ts",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/components/ReleaseUnitPanel.tsx",
+          "names": []
+        }
+      ],
+      "exports": [
+        "RuCostSection"
       ]
     },
     "packages/ui/src/components/SecurityTab.tsx": {
@@ -8263,7 +9682,12 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
       "exports": [
         "SecurityTab"
       ]
@@ -8285,7 +9709,12 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
       "exports": [
         "SessionHistory"
       ]
@@ -8319,7 +9748,12 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
       "exports": [
         "ShellTerminal"
       ]
@@ -8341,9 +9775,35 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
       "exports": [
         "StandardsEditor"
+      ]
+    },
+    "packages/ui/src/components/TabErrorBoundary.tsx": {
+      "path": "packages/ui/src/components/TabErrorBoundary.tsx",
+      "language": "tsx",
+      "imports": [
+        {
+          "source": "react",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
+      "exports": [
+        "TabErrorBoundary"
       ]
     },
     "packages/ui/src/components/TaskBoard.tsx": {
@@ -8381,7 +9841,12 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
       "exports": [
         "TaskBoard"
       ]
@@ -8415,7 +9880,12 @@
           "names": []
         }
       ],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
       "exports": [
         "TroubleshootingPanel"
       ]
@@ -8683,7 +10153,12 @@
       "path": "packages/ui/src/components/git/index.ts",
       "language": "typescript",
       "imports": [],
-      "importedBy": [],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
       "exports": [
         "default",
         "default",
@@ -9816,6 +11291,26 @@
       "importedBy": [],
       "exports": []
     },
+    "scripts/runtime-guard-scanner.mjs": {
+      "path": "scripts/runtime-guard-scanner.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [],
+      "exports": []
+    },
     "tests/e2e/01-smoke.spec.ts": {
       "path": "tests/e2e/01-smoke.spec.ts",
       "language": "typescript",
@@ -10621,6 +12116,11 @@
       "names": []
     },
     {
+      "from": "packages/server/src/lib/agent-exec-logger.mjs",
+      "to": "packages/server/src/lib/ru-resolver.mjs",
+      "names": []
+    },
+    {
       "from": "packages/server/src/lib/agentic-binding.mjs",
       "to": "packages/server/src/lib/tool-registry.mjs",
       "names": []
@@ -10628,6 +12128,11 @@
     {
       "from": "packages/server/src/lib/auto-dispatch-manager.mjs",
       "to": "packages/server/src/lib/action-log.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/auto-dispatch-manager.mjs",
+      "to": "packages/server/src/lib/coding-task-cost.mjs",
       "names": []
     },
     {
@@ -10642,12 +12147,7 @@
     },
     {
       "from": "packages/server/src/lib/auto-dispatch-shared.mjs",
-      "to": "packages/server/src/lib/paaw-project.mjs",
-      "names": []
-    },
-    {
-      "from": "packages/server/src/lib/auto-dispatch-shared.mjs",
-      "to": "packages/server/src/lib/action-log.mjs",
+      "to": "packages/server/src/lib/feature-boundary.mjs",
       "names": []
     },
     {
@@ -10657,7 +12157,17 @@
     },
     {
       "from": "packages/server/src/lib/change-intelligence.mjs",
+      "to": "packages/server/src/lib/stable-hash.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/change-intelligence.mjs",
       "to": "packages/server/src/lib/paaw-project.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/code-intelligence.mjs",
+      "to": "packages/server/src/lib/stable-hash.mjs",
       "names": []
     },
     {
@@ -10698,6 +12208,66 @@
     {
       "from": "packages/server/src/lib/domain-agent-registry.mjs",
       "to": "packages/server/src/lib/security-rules.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "to": "packages/server/src/lib/feature-boundary.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "to": "packages/server/src/lib/shell-exec.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "to": "packages/server/src/lib/dependency-context.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "to": "packages/server/src/lib/task-retrofit.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "to": "packages/server/src/lib/llm-utils.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "to": "packages/server/src/lib/context-truncation.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "to": "packages/server/src/lib/context-compaction.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "to": "packages/server/src/lib/agent-exec-logger.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "to": "packages/server/src/lib/paaw-project.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "to": "packages/server/src/lib/paaw-snapshot.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "to": "packages/server/src/lib/llm-utils.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "to": "packages/server/src/lib/tool-registry.mjs",
       "names": []
     },
     {
@@ -10761,6 +12331,11 @@
       "names": []
     },
     {
+      "from": "packages/server/src/lib/release-unit/cost.mjs",
+      "to": "packages/server/src/lib/ru-resolver.mjs",
+      "names": []
+    },
+    {
       "from": "packages/server/src/lib/release-unit/dependencies.mjs",
       "to": "packages/server/src/lib/release-unit/adapters.mjs",
       "names": []
@@ -10772,6 +12347,11 @@
     },
     {
       "from": "packages/server/src/lib/release-unit/gates.mjs",
+      "to": "packages/server/src/lib/shell-exec.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/release-unit/handover-state.mjs",
       "to": "packages/server/src/lib/shell-exec.mjs",
       "names": []
     },
@@ -10788,6 +12368,31 @@
     {
       "from": "packages/server/src/lib/release-unit/metrics.mjs",
       "to": "packages/server/src/lib/release-unit/dependencies.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/release-unit/model.mjs",
+      "to": "packages/server/src/lib/shell-exec.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/release-unit/model.mjs",
+      "to": "packages/server/src/lib/stable-hash.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/release-unit/qa.mjs",
+      "to": "packages/server/src/lib/shell-exec.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/release-unit/qa.mjs",
+      "to": "packages/server/src/lib/release-unit/model.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/release-unit/qa.mjs",
+      "to": "packages/server/src/lib/release-unit/ask.mjs",
       "names": []
     },
     {
@@ -10827,6 +12432,11 @@
     },
     {
       "from": "packages/server/src/lib/test-intelligence.mjs",
+      "to": "packages/server/src/lib/stable-hash.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/test-intelligence.mjs",
       "to": "packages/server/src/lib/tree-sitter-parser.mjs",
       "names": []
     },
@@ -10853,6 +12463,11 @@
     {
       "from": "packages/server/src/lib/tool-registry-init.mjs",
       "to": "packages/server/src/lib/tool-registry.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/tool-registry-init.mjs",
+      "to": "packages/server/src/lib/paaw-agent-loop.mjs",
       "names": []
     },
     {
@@ -10883,6 +12498,11 @@
     {
       "from": "packages/server/src/routes/agent-logs.mjs",
       "to": "packages/server/src/lib/agent-exec-logger.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/agent-logs.mjs",
+      "to": "packages/server/src/lib/ru-resolver.mjs",
       "names": []
     },
     {
@@ -10923,6 +12543,11 @@
     {
       "from": "packages/server/src/routes/apps.mjs",
       "to": "packages/server/src/routes/skills-api.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/apps.mjs",
+      "to": "packages/server/src/lib/paaw-agent-loop.mjs",
       "names": []
     },
     {
@@ -10971,6 +12596,11 @@
       "names": []
     },
     {
+      "from": "packages/server/src/routes/coding-evidence.mjs",
+      "to": "packages/server/src/lib/review-boundary.mjs",
+      "names": []
+    },
+    {
       "from": "packages/server/src/routes/coding-features.mjs",
       "to": "packages/server/src/routes/shared.mjs",
       "names": []
@@ -10978,6 +12608,11 @@
     {
       "from": "packages/server/src/routes/coding-features.mjs",
       "to": "packages/server/src/lib/llm-utils.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-handover.mjs",
+      "to": "packages/server/src/lib/release-unit/handover-state.mjs",
       "names": []
     },
     {
@@ -11001,6 +12636,11 @@
       "names": []
     },
     {
+      "from": "packages/server/src/routes/coding-releases.mjs",
+      "to": "packages/server/src/lib/task-retrofit.mjs",
+      "names": []
+    },
+    {
       "from": "packages/server/src/routes/coding-reports.mjs",
       "to": "packages/server/src/lib/auto-dispatch-shared.mjs",
       "names": []
@@ -11016,6 +12656,86 @@
       "names": []
     },
     {
+      "from": "packages/server/src/routes/coding-tasks.mjs",
+      "to": "packages/server/src/lib/review-boundary.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/lib/shell-exec.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/lib/paaw-project.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/lib/llm-utils.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/routes/shared.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/lib/coding-security.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/lib/tree-sitter-parser.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/lib/semgrep-runner.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/lib/code-intelligence.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/lib/test-intelligence.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/lib/change-intelligence.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/lib/cu-mechanical.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/lib/agent-rules.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/lib/security-rules.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/lib/llm-utils.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/lib/running-agents.mjs",
+      "names": []
+    },
+    {
       "from": "packages/server/src/routes/crew.mjs",
       "to": "packages/server/src/routes/shared.mjs",
       "names": []
@@ -11023,6 +12743,11 @@
     {
       "from": "packages/server/src/routes/crew.mjs",
       "to": "packages/server/src/routes/context.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/crew.mjs",
+      "to": "packages/server/src/lib/paaw-agent-loop.mjs",
       "names": []
     },
     {
@@ -11171,6 +12896,21 @@
       "names": []
     },
     {
+      "from": "packages/server/src/routes/release-unit.mjs",
+      "to": "packages/server/src/lib/release-unit/model.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/release-unit.mjs",
+      "to": "packages/server/src/lib/release-unit/cost.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/release-unit.mjs",
+      "to": "packages/server/src/lib/release-unit/qa.mjs",
+      "names": []
+    },
+    {
       "from": "packages/server/src/routes/skill.mjs",
       "to": "packages/server/src/routes/context.mjs",
       "names": []
@@ -11211,8 +12951,18 @@
       "names": []
     },
     {
+      "from": "packages/server/src/routes/workflow.mjs",
+      "to": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "names": []
+    },
+    {
       "from": "packages/server/src/scheduler/cron-jobs.mjs",
       "to": "packages/server/src/routes/shared.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/scheduler/cron-jobs.mjs",
+      "to": "packages/server/src/lib/paaw-agent-loop.mjs",
       "names": []
     },
     {
@@ -11228,6 +12978,11 @@
     {
       "from": "packages/server/src/tools/index.mjs",
       "to": "packages/server/src/routes/shared.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/websocket/ws-handler.mjs",
+      "to": "packages/server/src/lib/paaw-agent-loop.mjs",
       "names": []
     },
     {
@@ -11278,6 +13033,11 @@
     {
       "from": "packages/ui/src/App.tsx",
       "to": "packages/ui/src/pages/CronJobsPage.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/App.tsx",
+      "to": "packages/ui/src/pages/CodingIDE.tsx",
       "names": []
     },
     {
@@ -11431,6 +13191,11 @@
       "names": []
     },
     {
+      "from": "packages/ui/src/components/AgentSideChat.tsx",
+      "to": "packages/ui/src/components/MarkdownText.tsx",
+      "names": []
+    },
+    {
       "from": "packages/ui/src/components/AutoDispatchPanel.tsx",
       "to": "packages/ui/src/utils/index.ts",
       "names": []
@@ -11443,6 +13208,11 @@
     {
       "from": "packages/ui/src/components/AutoDispatchPanel.tsx",
       "to": "packages/ui/src/components/ModelSelector.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/AutoDispatchPanel.tsx",
+      "to": "packages/ui/src/components/MarkdownText.tsx",
       "names": []
     },
     {
@@ -11547,6 +13317,11 @@
     },
     {
       "from": "packages/ui/src/components/FeatureMap.tsx",
+      "to": "packages/ui/src/components/RuView.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/FeatureMap.tsx",
       "to": "packages/ui/src/api.ts",
       "names": []
     },
@@ -11572,7 +13347,17 @@
     },
     {
       "from": "packages/ui/src/components/HandoverPanel.tsx",
+      "to": "packages/ui/src/components/RuQaSection.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/HandoverPanel.tsx",
       "to": "packages/ui/src/components/AgentSideChat.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/HandoverPanel.tsx",
+      "to": "packages/ui/src/components/MarkdownText.tsx",
       "names": []
     },
     {
@@ -11672,12 +13457,47 @@
     },
     {
       "from": "packages/ui/src/components/ReleaseUnitPanel.tsx",
+      "to": "packages/ui/src/components/RuModelSection.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/ReleaseUnitPanel.tsx",
+      "to": "packages/ui/src/components/RuCostSection.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/ReleaseUnitPanel.tsx",
+      "to": "packages/ui/src/components/RuQaSection.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/ReleaseUnitPanel.tsx",
       "to": "packages/ui/src/api.ts",
       "names": []
     },
     {
       "from": "packages/ui/src/components/ReleaseUnitPanel.tsx",
       "to": "packages/ui/src/utils/index.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/RuCostSection.tsx",
+      "to": "packages/ui/src/api.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/RuModelSection.tsx",
+      "to": "packages/ui/src/api.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/RuQaSection.tsx",
+      "to": "packages/ui/src/api.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/RuView.tsx",
+      "to": "packages/ui/src/api.ts",
       "names": []
     },
     {
@@ -12088,6 +13908,151 @@
     {
       "from": "packages/ui/src/pages/ChatView.tsx",
       "to": "packages/ui/src/utils/index.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/theme.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/utils/index.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/ShellTerminal.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/JsonViewer.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/FileEmoji.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/api.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/DirectoryExplorer.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/SidebarFileTree.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/RuView.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/EMDashboard.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/git/index.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/DiffViewer.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/StandardsEditor.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/SessionHistory.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/DecisionLog.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/ModelSelector.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/ChatMessages.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/IssueTracker.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/TaskBoard.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/HandoverPanel.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/TroubleshootingPanel.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/ReleaseUnitPanel.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/TabErrorBoundary.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/FeatureMap.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/AutoDispatchPanel.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/CrewManager.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/components/SecurityTab.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/pages/FileViewer.tsx",
       "names": []
     },
     {
@@ -12612,9 +14577,9 @@
     }
   ],
   "stats": {
-    "totalFiles": 259,
-    "totalEdges": 414,
-    "resolvedImports": 414,
-    "unresolvedImports": 571
+    "totalFiles": 278,
+    "totalEdges": 508,
+    "resolvedImports": 508,
+    "unresolvedImports": 620
   }
 }

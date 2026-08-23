@@ -1,0 +1,209 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-22T01:50:01.256Z",
+  "initialized": true,
+  "currentState": {
+    "branch": "dev",
+    "headSha": "d2fb3395",
+    "dirtyCount": 42,
+    "dirtyFiles": [
+      "M .paaw/changes/change-intelligence.json",
+      " M .paaw/code-intelligence/api-function-map.json",
+      " M .paaw/code-intelligence/call-graph.json",
+      " M .paaw/code-intelligence/dependency-graph.json",
+      " M .paaw/code-intelligence/file-map.json",
+      " M .paaw/code-intelligence/status-cache.json",
+      " M .paaw/code-intelligence/summary.json",
+      " M .paaw/code-intelligence/symbol-index.json",
+      " M .paaw/code-intelligence/test-code-map.json",
+      " M .paaw/code-intelligence/test-intelligence.json",
+      " M .paaw/coding-memory/conversations/coding.architect/active.json",
+      " M .paaw/coding-memory/conversations/coding.qa/active.json",
+      " M .paaw/coding-memory/dispatch-log.jsonl",
+      " M .paaw/cu-debug.log",
+      " M .paaw/cu-status.json",
+      " M data/api-tester-history.json",
+      " M data/config/backup.json",
+      " M data/config/user.json",
+      " M logs/cron/system-daily-backup/history.jsonl",
+      " M logs/cron/system-daily-log-purge/history.jsonl",
+      " M packages/ui/src/components/AgentSideChat.tsx",
+      " M packages/ui/src/components/HandoverPanel.tsx",
+      " M packages/ui/src/components/RuQaSection.tsx",
+      " M packages/ui/tsconfig.tsbuildinfo",
+      "?? .paaw/HANDOVER.md",
+      "?? .paaw/coding-memory/conversations/coding.em/active.json",
+      "?? .paaw/handover-state.json",
+      "?? .paaw/release-unit-model.json",
+      "?? logs/vibe-sessions/pty-1787012630984-xzvi.json",
+      "?? logs/vibe-sessions/pty-1787012630984-xzvi.log"
+    ],
+    "unpushedCount": 0,
+    "unpushedCommits": []
+  },
+  "workingPlan": {
+    "activeTasks": [
+      {
+        "id": "TASK-028",
+        "title": "修所有 security issue",
+        "status": "in-progress",
+        "priority": "high",
+        "phase": "review",
+        "phaseStatus": "pending",
+        "next": "run review"
+      },
+      {
+        "id": "TASK-029",
+        "title": "修 XSS in user-input.tsx:handleSubmit",
+        "status": "in-progress",
+        "priority": "high",
+        "phase": "implement",
+        "phaseStatus": "pending",
+        "next": "run implement"
+      },
+      {
+        "id": "TASK-030",
+        "title": "修 SQL injection in api/users.mjs:getUser",
+        "status": "in-progress",
+        "priority": "high",
+        "phase": "implement",
+        "phaseStatus": "pending",
+        "next": "run implement"
+      },
+      {
+        "id": "TASK-031",
+        "title": "加 CSP header to server config",
+        "status": "in-progress",
+        "priority": "high",
+        "phase": "implement",
+        "phaseStatus": "pending",
+        "next": "run implement"
+      },
+      {
+        "id": "TASK-032",
+        "title": "更新 dependency lodash 4.17.21",
+        "status": "in-progress",
+        "priority": "high",
+        "phase": "implement",
+        "phaseStatus": "pending",
+        "next": "run implement"
+      },
+      {
+        "id": "TASK-033",
+        "title": "補 security scan 測試",
+        "status": "in-progress",
+        "priority": "high",
+        "phase": "implement",
+        "phaseStatus": "pending",
+        "next": "run implement"
+      },
+      {
+        "id": "TASK-038",
+        "title": "修 XSS in handleSubmit",
+        "status": "in-progress",
+        "priority": "high",
+        "phase": "implement",
+        "phaseStatus": "pending",
+        "next": "run implement"
+      }
+    ],
+    "activeCount": 7
+  },
+  "changes": {
+    "recentCommits": [
+      {
+        "hash": "d2fb3395",
+        "date": "2026-08-22T09:42:17+08:00",
+        "subject": "refactor(ru-qa): UX cleanup per Fleming feedback"
+      },
+      {
+        "hash": "4c589800",
+        "date": "2026-08-22T09:36:11+08:00",
+        "subject": "feat(handover): tab view — 📋 Main Info | ❓ 新人 12 問"
+      },
+      {
+        "hash": "35573557",
+        "date": "2026-08-22T09:28:57+08:00",
+        "subject": "feat(ru-qa): full newcomer-12-questions chip list — click any to ask instantly"
+      },
+      {
+        "hash": "0543aa22",
+        "date": "2026-08-22T09:20:08+08:00",
+        "subject": "feat(handover): embed RU Q&A (newcomer-12-questions) into Handover panel"
+      },
+      {
+        "hash": "2a04c88b",
+        "date": "2026-08-22T09:00:40+08:00",
+        "subject": "feat(ru): Release Unit sidebar tree — RU as first-class navigation"
+      },
+      {
+        "hash": "84245035",
+        "date": "2026-08-21T21:22:34+08:00",
+        "subject": "perf(ui): fix chat input lag — memoize message rows across all chat surfaces"
+      },
+      {
+        "hash": "ae305537",
+        "date": "2026-08-21T21:11:36+08:00",
+        "subject": "fix(ui): WorkflowExec node type comparison — String() cast for legacy 'tool' nodes"
+      },
+      {
+        "hash": "580a52d9",
+        "date": "2026-08-21T21:03:01+08:00",
+        "subject": "feat(release-unit): R5 — Q&A engine, newcomer-12-questions acceptance"
+      },
+      {
+        "hash": "166c36b8",
+        "date": "2026-08-21T20:55:23+08:00",
+        "subject": "feat(release-unit): R4 — Handover State, auto-refreshed take-over snapshot"
+      },
+      {
+        "hash": "0925da87",
+        "date": "2026-08-21T20:48:49+08:00",
+        "subject": "feat(release-unit): R3 — Cost attribution per day/model/agent/task/feature"
+      }
+    ]
+  },
+  "issues": [],
+  "decisions": {
+    "file": ".paaw/DECISIONS.md",
+    "count": 11,
+    "recent": [
+      {
+        "id": "ADR-011",
+        "title": "Constrained Shell Execution for AI Agents (project_run_command)",
+        "date": "2026-07-19"
+      },
+      {
+        "id": "ADR-010",
+        "title": "Shared Tool Registry (OCP-compliant)",
+        "date": "2026-07-19"
+      },
+      {
+        "id": "ADR-009",
+        "title": "ADR-010: Night Shift 三模組職責邊界與分層策略",
+        "date": "2026-07-19"
+      },
+      {
+        "id": "ADR-008",
+        "title": "Untitled Decision",
+        "date": "2026-07-18"
+      },
+      {
+        "id": "ADR-007",
+        "title": "Untitled Decision",
+        "date": "2026-07-18"
+      }
+    ]
+  },
+  "nextAction": {
+    "step": "commit",
+    "reason": "42 個未提交檔案",
+    "detail": [
+      "M .paaw/changes/change-intelligence.json",
+      " M .paaw/code-intelligence/api-function-map.json",
+      " M .paaw/code-intelligence/call-graph.json",
+      " M .paaw/code-intelligence/dependency-graph.json",
+      " M .paaw/code-intelligence/file-map.json"
+    ]
+  }
+}

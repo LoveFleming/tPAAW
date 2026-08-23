@@ -107,6 +107,34 @@
     },
     {
       "method": "GET",
+      "path": "/api/agent-logs/ru-debug",
+      "file": "packages/server/src/routes/agent-logs.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent-logs",
+      "file": "packages/server/src/routes/agent-logs.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent-logs/ru-summary",
+      "file": "packages/server/src/routes/agent-logs.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent-logs/purge",
+      "file": "packages/server/src/routes/agent-logs.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
       "path": "/api/agentic-bindings",
       "file": "packages/server/src/routes/agentic-bindings.mjs",
       "handler": "",
@@ -172,6 +200,141 @@
       "method": "GET",
       "path": "/api/workspaces",
       "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/api-tester/proxy",
+      "file": "packages/server/src/routes/api-tester.mjs",
+      "handler": "pump",
+      "callChain": [
+        {
+          "function": "reader.read",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "String",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/api-tester/save",
+      "file": "packages/server/src/routes/api-tester.mjs",
+      "handler": "pump",
+      "callChain": [
+        {
+          "function": "reader.read",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "String",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/api-tester/stream",
+      "file": "packages/server/src/routes/api-tester.mjs",
+      "handler": "pump",
+      "callChain": [
+        {
+          "function": "reader.read",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "String",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/apps",
+      "file": "packages/server/src/routes/apps.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/report-train",
+      "file": "packages/server/src/routes/apps.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/report-publish",
+      "file": "packages/server/src/routes/apps.mjs",
       "handler": "",
       "callChain": []
     },
@@ -324,6 +487,48 @@
     },
     {
       "method": "GET",
+      "path": "/api/backup/config",
+      "file": "packages/server/src/routes/backup.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/backup/config",
+      "file": "packages/server/src/routes/backup.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/backup/run",
+      "file": "packages/server/src/routes/backup.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/backup/list",
+      "file": "packages/server/src/routes/backup.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/backup/restore",
+      "file": "packages/server/src/routes/backup.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/backup/delete",
+      "file": "packages/server/src/routes/backup.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
       "path": "/api/paaw/chats",
       "file": "packages/server/src/routes/chat.mjs",
       "handler": "",
@@ -407,6 +612,136 @@
       "callChain": []
     },
     {
+      "method": "POST",
+      "path": "/api/coding-auto-dispatch/start",
+      "file": "packages/server/src/routes/coding-auto-dispatch.mjs",
+      "handler": "sendJSON",
+      "callChain": [
+        {
+          "function": "res.writeHead",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-auto-dispatch/reset",
+      "file": "packages/server/src/routes/coding-auto-dispatch.mjs",
+      "handler": "sendJSON",
+      "callChain": [
+        {
+          "function": "res.writeHead",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-auto-dispatch/last-run",
+      "file": "packages/server/src/routes/coding-auto-dispatch.mjs",
+      "handler": "sendJSON",
+      "callChain": [
+        {
+          "function": "res.writeHead",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-auto-dispatch/status",
+      "file": "packages/server/src/routes/coding-auto-dispatch.mjs",
+      "handler": "sendJSON",
+      "callChain": [
+        {
+          "function": "res.writeHead",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-auto-dispatch/report",
+      "file": "packages/server/src/routes/coding-auto-dispatch.mjs",
+      "handler": "sendJSON",
+      "callChain": [
+        {
+          "function": "res.writeHead",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
       "method": "GET",
       "path": "/api/coding-doc/coverage",
       "file": "packages/server/src/routes/coding-doc-coverage.mjs",
@@ -450,6 +785,167 @@
     },
     {
       "method": "GET",
+      "path": "/api/coding-features/file-map",
+      "file": "packages/server/src/routes/coding-features.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-features/validate",
+      "file": "packages/server/src/routes/coding-features.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-features/stats",
+      "file": "packages/server/src/routes/coding-features.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-features",
+      "file": "packages/server/src/routes/coding-features.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-features",
+      "file": "packages/server/src/routes/coding-features.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-features/refresh-mapping",
+      "file": "packages/server/src/routes/coding-features.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-features/discover",
+      "file": "packages/server/src/routes/coding-features.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-handover/state",
+      "file": "packages/server/src/routes/coding-handover.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-handover/bundle",
+      "file": "packages/server/src/routes/coding-handover.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-handover/generate",
+      "file": "packages/server/src/routes/coding-handover.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-issues/stats",
+      "file": "packages/server/src/routes/coding-issues.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-issues/import-known",
+      "file": "packages/server/src/routes/coding-issues.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-issues",
+      "file": "packages/server/src/routes/coding-issues.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-issues",
+      "file": "packages/server/src/routes/coding-issues.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-memory",
+      "file": "packages/server/src/routes/coding-memory.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-ops/status",
+      "file": "packages/server/src/routes/coding-ops.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-ops/runbook",
+      "file": "packages/server/src/routes/coding-ops.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-ops/runbook/save",
+      "file": "packages/server/src/routes/coding-ops.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-releases/pending",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-releases/list",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-releases/reject",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-releases/quality-debt",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-releases/retrofit",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
       "path": "/api/coding-staged/changes",
       "file": "packages/server/src/routes/coding-staged-changes.mjs",
       "handler": "",
@@ -468,6 +964,2408 @@
       "file": "packages/server/src/routes/coding-staged-changes.mjs",
       "handler": "",
       "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-tasks/stats",
+      "file": "packages/server/src/routes/coding-tasks.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-tasks/pipeline/overview",
+      "file": "packages/server/src/routes/coding-tasks.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-tasks/overnight-queue",
+      "file": "packages/server/src/routes/coding-tasks.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-tasks/overnight-queue/results",
+      "file": "packages/server/src/routes/coding-tasks.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-tasks/health-fix",
+      "file": "packages/server/src/routes/coding-tasks.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-tasks/decompose",
+      "file": "packages/server/src/routes/coding-tasks.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-tasks/project/loop-mode",
+      "file": "packages/server/src/routes/coding-tasks.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/coding-tasks/project/loop-mode",
+      "file": "packages/server/src/routes/coding-tasks.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-tasks",
+      "file": "packages/server/src/routes/coding-tasks.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-tasks",
+      "file": "packages/server/src/routes/coding-tasks.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-crew/chat",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-crew/dispatch",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-crew/conversations",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-crew/context-window",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-crew/action-log/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-crew/em-plan",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-crew/em-execute",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-crew/interrupt",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-crew/running",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/skills/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/agent-memory/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/coding-project/agent-memory/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/coding-project/agent-memory/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/crew-export/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/crew-import/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/create/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/context/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/initial/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/dev-config/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/tree/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/sessions/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/standards/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/decisions/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/decisions/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/changelog/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/file/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/coding-project/file/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/security-scan/results/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/security-scan/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/test-intelligence/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/change-intelligence/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/code-intelligence/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/code-intelligence/context-package/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/generate-overview/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/templates/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/import-template/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/generate-standards/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/all/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/health/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/snapshot/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/snapshots/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/snapshot/restore/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/git-strategy/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/coding-project/git-strategy/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/ai-initial-step/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/ai-initial/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/domain-ai/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/cu-status/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/cu-rescan-mechanical/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/status/refresh/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/status/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/ai-fix/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/prompts/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
     },
     {
       "method": "GET",
@@ -508,6 +3406,95 @@
           "resolved": false
         }
       ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/skill-test/run",
+      "file": "packages/server/src/routes/crew.mjs",
+      "handler": "sendEvent",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/cli-run",
+      "file": "packages/server/src/routes/crew.mjs",
+      "handler": "sendEvent",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/distill/config",
+      "file": "packages/server/src/routes/distill.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/distill/config",
+      "file": "packages/server/src/routes/distill.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/distill/sources",
+      "file": "packages/server/src/routes/distill.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/distill/run",
+      "file": "packages/server/src/routes/distill.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/distill/logs",
+      "file": "packages/server/src/routes/distill.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/distill/knowledge",
+      "file": "packages/server/src/routes/distill.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/distill/record",
+      "file": "packages/server/src/routes/distill.mjs",
+      "handler": "",
+      "callChain": []
     },
     {
       "method": "POST",
@@ -538,6 +3525,223 @@
       "callChain": []
     },
     {
+      "method": "POST",
+      "path": "/api/helpdesk/ask",
+      "file": "packages/server/src/routes/helpdesk.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/helpdesk/tickets",
+      "file": "packages/server/src/routes/helpdesk.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/helpdesk/tickets",
+      "file": "packages/server/src/routes/helpdesk.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/helpdesk/knowledge",
+      "file": "packages/server/src/routes/helpdesk.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/helpdesk/models",
+      "file": "packages/server/src/routes/helpdesk.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/llm-logs",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/llm-logs/stats",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/llm-logs",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/llm-logs/purge",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/notebooks",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/notes/notebooks",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/notes/notebooks",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/notes/notebooks",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/sections",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/notes/sections",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/notes/sections",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/notes/sections",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/list",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/get",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/notes/create",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/notes/update",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/notes/delete",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/notes/move",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/notes/ai-write",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/search",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/tags",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/by-tag",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/notes/pin",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/recent",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/notes/upload-image",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/images//*",
+      "file": "packages/server/src/routes/notes.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
       "method": "GET",
       "path": "/api/plugins",
       "file": "packages/server/src/routes/plugins.mjs",
@@ -548,6 +3752,209 @@
       "method": "POST",
       "path": "/api/plugins",
       "file": "packages/server/src/routes/plugins.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects",
+      "file": "packages/server/src/routes/projects.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects",
+      "file": "packages/server/src/routes/projects.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/qa",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/cost",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/code-intel",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/model/query",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/overview",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/context",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/architecture",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/dependencies",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/ru/impact-analysis",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/ru/verify",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/verify",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/metrics",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/analyze",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/gates",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/tests",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/features",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/runbooks",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/changes",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/ask",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/apis",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/specs",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/releases",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ru/evidence",
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/vibe-fs/write",
+      "file": "packages/server/src/routes/vibe-fs.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/pick-directory",
+      "file": "packages/server/src/routes/vibe-fs.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/vibe-sessions",
+      "file": "packages/server/src/routes/vibe-sessions.mjs",
       "handler": "",
       "callChain": []
     },
@@ -611,6 +4018,27 @@
       "method": "POST",
       "path": "/api/paaw/workflow-trigger",
       "file": "packages/server/src/routes/workflow.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/cron-jobs",
+      "file": "packages/server/src/scheduler/cron-jobs.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent-run",
+      "file": "packages/server/src/scheduler/cron-jobs.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent-run/stream",
+      "file": "packages/server/src/scheduler/cron-jobs.mjs",
       "handler": "",
       "callChain": []
     },
@@ -910,8 +4338,8 @@
     }
   ],
   "stats": {
-    "totalRoutes": 126,
-    "withHandler": 2,
-    "withoutHandler": 124
+    "totalRoutes": 305,
+    "withHandler": 65,
+    "withoutHandler": 240
   }
 }
