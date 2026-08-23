@@ -734,7 +734,7 @@ function AppInner() {
   }
 
   if (!profile) {
-    return <OnboardingPage onComplete={(p) => setProfile(p)} />;
+    return <OnboardingPage onComplete={(p) => { setProfile(p); checkProviderReady(); }} />;
   }
 
   // ── Main Layout ──
