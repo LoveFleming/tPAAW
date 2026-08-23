@@ -41,16 +41,6 @@ interface PendingPlan {
   situationReport: string;
 }
 
-interface CodeScoreItem {
-  name: string;
-  status: string;
-  detail: string;
-}
-interface CodeStatus {
-  initialized: boolean;
-  scores?: Record<string, { score: number; items: CodeScoreItem[] }>;
-}
-
 interface CodeUnderstandingStep {
   id: string;
   name: string;
@@ -184,10 +174,6 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const [emContextDebug, setEmContextDebug] = useState<any>(null);
   const [emAction, setEmAction] = useState(""); // current EM action (thinking vs tool)
   const [emToolLog, setEmToolLog] = useState<{ name: string; args: string; result: string }[]>([]); // ⚡ tool call log
-  const [codeStatus, setCodeStatus] = useState<CodeStatus | null>(null);
-  const [codeStatusLoading, setCodeStatusLoading] = useState(true); // 仍供 refreshData 內部使用
-  const [rescanState, setRescanState] = useState<"idle" | "scanning" | "done" | "error">("idle"); // 🔄 rescan feedback
-  const [expandedArea, setExpandedArea] = useState<string | null>(null);
   const [showCUModal, setShowCUModal] = useState(false);
   const [singleStepRunning, setSingleStepRunning] = useState<string | null>(null); // step id being retried
 
@@ -256,29 +242,6 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     { id: "code-intelligence", name: "🧠 Code Intelligence", file: "code-intelligence/summary.json" },
     { id: "test-intelligence", name: "🧪 Test Intelligence", file: "code-intelligence/test-intelligence.json" },
   ];
-
-  // ── Code Health item → Crew + prompt mapping ──
-  // When user clicks 🔧 on a missing/warn item, dispatch to the right crew with a pre-filled prompt
-  const HEALTH_DISPATCH: Record<string, { crew: string; prompt: string }> = {
-    // Architecture
-    "Architecture Map": { crew: "coding.architect", prompt: "請根據目前專案程式碼，產出 ARCHITECTURE.md，包含系統架構圖、模組依賴關係、資料流動方向。" },
-    "Decision Records": { crew: "coding.architect", prompt: "請檢查近期的重要技術決策，用 ADR 格式補進 DECISIONS.md。" },
-    "PROJECT.md": { crew: "coding.doc-writer", prompt: "請根據目前專案狀態，更新 PROJECT.md，包含產品定位、技術棧、專案結構。" },
-    // API
-    "API Contract": { crew: "coding.architect", prompt: "請掃描所有 API routes，產出 specs/api-contract.md，列出每個 endpoint 的 method、path、request/response schema。" },
-    "Error Mapping": { crew: "coding.developer", prompt: "請掃描所有 error code 和 exception，產出 specs/error-codes.md，定義每個 error 的 HTTP status、類型、處理方式。" },
-    "Runbooks": { crew: "coding.helpdesk", prompt: "請根據已知的 error codes，為每個常見錯誤寫 runbook（診斷步驟 + 修復方式），存到 .paaw/runbook/。" },
-    // Test
-    "API Test Payloads": { crew: "coding.tester", prompt: "請根據 API contract，為每個 endpoint 產出 test payload JSON，存到 .paaw/test-payloads/。" },
-    "Unit Tests": { crew: "coding.tester", prompt: "請檢查目前缺少 unit test 的模組，列出優先級並開始補測試。" },
-    "E2E Tests": { crew: "coding.tester", prompt: "請評估是否需要 E2E 測試，如果需要，設定 playwright/cypress 並寫關鍵流程的 E2E 測試。" },
-    // Docs
-    "README": { crew: "coding.doc-writer", prompt: "請更新 README.md，確保包含：專案介紹、安裝步驟、使用方式、開發指南。" },
-    "FAQ": { crew: "coding.helpdesk", prompt: "請根據已知 issues 和 common questions，產出 helpdesk/faq.md。" },
-    "Changelog": { crew: "coding.doc-writer", prompt: "請根據最近的 git log，更新 CHANGELOG.md。" },
-    // Maintainability
-    "Coding Standards": { crew: "coding.qa", prompt: "請根據目前專案的 coding style，產出 standards/coding-style.md，包含命名規則、檔案結構、lint 規則。" },
-  };
 
   // ── Load persisted step statuses when opening Modal ──
   const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number; error?: string }>>([]);
@@ -371,21 +334,6 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     return steps;
   }, [rootPath]);
 
-  // ── Fetch data when rootPath changes ──
-  const refreshData = useCallback(async () => {
-    if (!rootPath) return;
-    setCodeStatusLoading(true);
-    // Fire all requests in parallel
-    const [codeRes] = await Promise.allSettled([
-      fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()),
-    ]);
-    // codeRes intentionally ignored — just keeping the pattern for future use
-    if (codeRes.status === "fulfilled") setCodeStatus(codeRes.value);
-    setCodeStatusLoading(false);
-  }, [rootPath]);
-
-  useEffect(() => { refreshData(); }, [refreshData]);
-
   // 進 dashboard 就載 CU 狀態（auto-popup + 狀態條用）
   useEffect(() => { if (rootPath) loadPersistedSteps(); }, [rootPath]);
 
@@ -422,11 +370,10 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           return prev;
         });
       });
-      refreshData();
       setCuFinishCount(c => c + 1);
     }
     prevRunningRef.current = !!isRunning;
-  }, [codeUnderstanding?.running, loadPersistedSteps, refreshData]);
+  }, [codeUnderstanding?.running, loadPersistedSteps]);
 
   // Auto-scroll to bottom instantly (no smooth animation flicker)
   useEffect(() => {
@@ -568,7 +515,6 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       }
 
       // Refresh action log after EM responds
-      refreshData();
     } catch (err: any) {
       if (err.name === "AbortError") {
         setMessages(prev => [...prev, { role: "assistant", content: "⏹️ 已中斷", ts: new Date().toISOString() }]);
@@ -786,7 +732,6 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       }
       const summaryText = `🎖️ EM 調度完成！完成 ${completedSteps.length} 項工作。\n\n${completedSteps.map(s => `  ✅ ${s.name}: ${s.summary.slice(0, 100)}`).join("\n")}`;
       setMessages(prev => [...prev, { role: "assistant", content: summaryText, ts: new Date().toISOString(), actions: finalActions }]);
-      refreshData();
     } catch (err: any) {
       setMessages(prev => [...prev, { role: "assistant", content: `❌ EM error: ${err.message}`, ts: new Date().toISOString() }]);
     }
@@ -831,12 +776,6 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       setPersistedSteps(prev => prev.map(s => s.id === stepId
         ? { ...s, status: hadError ? "error" : "done", size: stepSize || undefined }
         : s));
-      // Refresh code status after single step
-      try {
-        const stRes = await fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`);
-        const stData = await stRes.json();
-        setCodeStatus(stData);
-      } catch {}
     } catch (err) {
       setPersistedSteps(prev => prev.map(s => s.id === stepId ? { ...s, status: "error" } : s));
     }
@@ -1376,7 +1315,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
               <span>📊</span> Code Health
             </h3>
-            {/* CU lifecycle 狀態按鈕（cuPhase 主軸，舊 codeStatus fallback 只留給 done） */}
+            {/* CU lifecycle 狀態按鈕（cuPhase 主軸） */}
             {cuPhase === null && rootPath && (
               <button disabled className="text-sm px-2 py-1 rounded bg-stone-200 text-stone-400 font-bold cursor-wait">⚡ 載入中...</button>
             )}
@@ -1387,7 +1326,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                   setCuInitBusy(true);
                   try {
                     await fetch(`${API_BASE}/api/coding-project/init?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
-                    await Promise.all([refreshData(), loadPersistedSteps()]);
+                    await loadPersistedSteps();
                   } finally { setCuInitBusy(false); }
                 }}
                 disabled={cuInitBusy}
@@ -1417,7 +1356,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                       const r = await fetch(`${API_BASE}/api/coding-project/cu-rescan-mechanical?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
                       await reportRescan(r);
                     } catch { setCuRescanMsg("fail"); setTimeout(() => setCuRescanMsg(""), 3000); }
-                    await Promise.all([refreshData(), loadPersistedSteps()]);
+                    await loadPersistedSteps();
                   } finally { setCuRescanBusy(false); }
                 }}
                 disabled={cuRescanBusy}
@@ -1426,33 +1365,9 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             )}
             {cuPhase === "done" && (
               <button
-                onClick={async () => {
-                  if (!rootPath || rescanState === "scanning") return;
-                  setRescanState("scanning");
-                  try {
-                    const r = await fetch(`${API_BASE}/api/coding-project/status/refresh?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
-                    const data = await r.json();
-                    if (data.ok) {
-                      setCodeStatus(data.initialized ? { initialized: true, scores: data.scores } : { initialized: false });
-                      setRescanState("done");
-                      setTimeout(() => setRescanState("idle"), 2000);
-                    } else {
-                      setRescanState("error");
-                      setTimeout(() => setRescanState("idle"), 3000);
-                    }
-                  } catch {
-                    setRescanState("error");
-                    setTimeout(() => setRescanState("idle"), 3000);
-                  }
-                }}
-                disabled={rescanState === "scanning"}
-                title={rescanState === "error" ? "重新掃描失敗，請確認 API server 狀態" : "清除快取並重新計算健康度"}
-                className={cn("text-sm px-2 py-1 rounded font-bold",
-                  rescanState === "scanning" ? "bg-stone-200 text-stone-400 cursor-wait" :
-                  rescanState === "done" ? "bg-green-100 text-green-700" :
-                  rescanState === "error" ? "bg-red-100 text-red-600" :
-                  "bg-stone-100 text-stone-600 hover:bg-stone-200")}
-              >{rescanState === "scanning" ? "⏳ 掃描中..." : rescanState === "done" ? "✅ 已更新" : rescanState === "error" ? "❌ 失敗" : "🔄 重新掃描"}</button>
+                onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
+                className="text-sm px-2 py-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold"
+              >🧠 Code Understanding</button>
             )}
           </div>
           {/* ── CU lifecycle 狀態條 — 一目瞭然現在是哪個階段 ── */}
@@ -1485,7 +1400,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                             const r = await fetch(`${API_BASE}/api/coding-project/cu-rescan-mechanical?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
                             await reportRescan(r);
                           } catch { setCuRescanMsg("fail"); setTimeout(() => setCuRescanMsg(""), 3000); }
-                          await Promise.all([refreshData(), loadPersistedSteps()]);
+                          await loadPersistedSteps();
                         } finally { setCuRescanBusy(false); }
                       }}
                       disabled={cuRescanBusy}
@@ -1511,83 +1426,6 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                   )}
                 </span>
               )}
-            </div>
-          )}
-          {/* 健康度數字只在 CU 實際產出後才顯示（partial/done/stale）—
-              沒跑 CU 不給分數更不給派工修復按鈕，否則 template 也能拿 10 分誤導 */}
-          {cuPhase === null ? (
-            <p className="text-sm text-stone-400 py-2">⚡ 載入中...</p>
-          ) : (cuPhase === "missing" || cuPhase === "no-code" || cuPhase === "ready") ? (
-            <p className="text-sm text-stone-400 py-2">🧠 知識庫尚未建立 — 跑 Code Understanding 後這裡才會出現健康度分數</p>
-          ) : !codeStatus ? (
-            <p className="text-sm text-stone-400 py-2">健康度載入失敗 — 點 🔄 重新掃描重試。</p>
-          ) : !codeStatus.initialized ? (
-            <p className="text-sm text-stone-400 py-2">尚未初始化。</p>
-          ) : (
-            <div className="space-y-1.5">
-              {Object.entries(codeStatus.scores || {}).map(([area, data]) => (
-                <div key={area}>
-                  <div
-                    className="flex items-center gap-2 cursor-pointer select-none"
-                    onClick={() => setExpandedArea(expandedArea === area ? null : area)}
-                  >
-                    <span className="text-sm text-stone-300 w-3">{expandedArea === area ? "▼" : "▶"}</span>
-                    <span className="text-sm font-semibold text-stone-600 capitalize flex-1">{area.replace(/[-_]/g, " ")}</span>
-                    <div className="w-16 h-1.5 rounded-full bg-stone-200 overflow-hidden">
-                      <div className={cn("h-full rounded-full", data.score >= 80 ? "bg-green-500" : data.score >= 50 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${data.score}%` }} />
-                    </div>
-                    <span className={cn("text-sm font-bold", data.score >= 80 ? "text-green-600" : data.score >= 50 ? "text-amber-600" : "text-red-600")}>{data.score}</span>
-                  </div>
-                  {expandedArea === area && (
-                    <div className="ml-5 mt-1 space-y-0.5">
-                      {data.items.map((item, i) => {
-                        const dispatch = (item.status === "missing" || item.status === "warn") ? HEALTH_DISPATCH[item.name] : null;
-                        return (
-                        <div key={i} className="flex items-center gap-1.5 text-sm">
-                          <span className={item.status === "done" || item.status === "ok" ? "text-green-500" : item.status === "partial" || item.status === "warn" ? "text-amber-500" : item.status === "missing" ? "text-red-400" : "text-stone-400"}>
-                            {item.status === "done" || item.status === "ok" ? "✅" : item.status === "partial" || item.status === "warn" ? "🟡" : item.status === "missing" ? "❌" : "ℹ️"}
-                          </span>
-                          <span className="text-stone-500 flex-1">{item.name}</span>
-                          {item.detail && item.status !== "ok" && item.status !== "info" && (
-                            <span className="text-xs text-stone-300">{item.detail}</span>
-                          )}
-                          {dispatch && (
-                            <button
-                              onClick={async () => {
-                                try {
-                                  const agentId = dispatch.crew.replace("coding.", "");
-                                  const r = await fetch(`${API_BASE}/api/coding-tasks/health-fix?path=${encodeURIComponent(rootPath || "")}`, {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({
-                                      title: `🔧 ${item.name}`,
-                                      description: item.detail || `Fix: ${item.name}`,
-                                      fixPlan: { steps: [{ agent: agentId, task: dispatch.prompt }], estimatedMinutes: 60 },
-                                      source: "em-health",
-                                    }),
-                                  });
-                                  const data = await r.json();
-                                  if (data.ok) {
-                                    setMessages(prev => [...prev, { role: "assistant", content: `📤 已派工修復 **${item.name}**\n- Execution Plan：${data.planId}\n- Sub-tasks：${data.totalSubtasks} 個\n- Agent：${dispatch.crew.replace("coding.", "")} 已自動開始`, ts: new Date().toISOString(), actions: [{ label: "👉 查看 Auto Dispatch", type: "openReport" }] }]);
-                                    loadRecentDispatches();
-                                  } else {
-                                    setMessages(prev => [...prev, { role: "assistant", content: `❌ 派工失敗：${data.error}`, ts: new Date().toISOString() }]);
-                                  }
-                                } catch (e: any) {
-                                  setMessages(prev => [...prev, { role: "assistant", content: `❌ 派工錯誤：${e.message}`, ts: new Date().toISOString() }]);
-                                }
-                              }}
-                              className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500 text-white font-bold hover:bg-emerald-600 active:scale-95 transition-all shrink-0"
-                              title="派工修復"
-                            >🔧 派工修復</button>
-                          )}
-                        </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ))}
             </div>
           )}
         </div>
@@ -1739,7 +1577,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
               )}
               {/* Close button — replaces 完成 ✅ */}
               {!isBulkRunning && !singleStepRunning && (
-                <button onClick={() => { setShowCUModal(false); refreshData(); }} className="px-4 py-1.5 text-sm font-bold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">
+                <button onClick={() => { setShowCUModal(false); }} className="px-4 py-1.5 text-sm font-bold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">
                   關閉
                 </button>
               )}
