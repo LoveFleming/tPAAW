@@ -1076,5 +1076,15 @@
   "onboarding.providerConfigured": "configured",
   "onboarding.providerNoKey": "⚠️ No API key yet — you can configure it later",
   "project.empty": "No projects yet",
-  "project.emptyHint": "Click “＋ New Project” at the top right to create your first project"
+  "project.emptyHint": "Click “＋ New Project” at the top right to create your first project",
+  "onboarding.backupTitle": "Daily Automatic Backup",
+  "onboarding.backupDesc": "Your data is backed up daily into an archive. You can change everything later in Settings.",
+  "onboarding.backupDir": "Backup path",
+  "onboarding.backupDirHint": "Folder where backup archives are stored (absolute path)",
+  "onboarding.backupTime": "Backup time (daily)",
+  "onboarding.backupKeep": "Keep last N backups",
+  "onboarding.backupCronNote": "A daily backup cron job will be created (visible in Cron Jobs). Older backups beyond the retention count are pruned automatically.",
+  "onboarding.backupSave": "Save settings & start",
+  "onboarding.backupUseDefault": "Use defaults & start",
+  "onboarding.backupSkip": "Use defaults, adjust later →"
 }

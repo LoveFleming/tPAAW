@@ -42,7 +42,7 @@ const STYLES = [
 export default function OnboardingPage({ onComplete }: Props) {
   const { t: tt } = useI18n();
   const { info: themeInfo } = useTheme();
-  const [step, setStep] = useState(0); // 0: welcome, 1: name, 2: intro, 3: style, 4: provider
+  const [step, setStep] = useState(0); // 0: welcome, 1: name, 2: intro, 3: style, 4: provider, 5: backup
   const [name, setName] = useState("");
   const [intro, setIntro] = useState("");
   const [style, setStyle] = useState<UserProfile["style"]>("casual");
@@ -66,6 +66,14 @@ export default function OnboardingPage({ onComplete }: Props) {
   const [formPriceIn, setFormPriceIn] = useState("");
   const [formPriceOut, setFormPriceOut] = useState("");
 
+  // Backup state（Step 5 — 每日備份：路徑/時間/保留份數，可用預設）
+  const [bkDir, setBkDir] = useState("");
+  const [bkHour, setBkHour] = useState(0);
+  const [bkKeep, setBkKeep] = useState(7);
+  const [bkLoaded, setBkLoaded] = useState(false);
+  const [bkDefaultDir, setBkDefaultDir] = useState("");
+  const [bkDirty, setBkDirty] = useState(false);
+
   useEffect(() => {
     fetch(`${API_BASE}/api/paaw/providers`)
       .then(r => r.json())
@@ -76,6 +84,32 @@ export default function OnboardingPage({ onComplete }: Props) {
       })
       .catch(() => {});
   }, []);
+
+  // Step 5 進入時載入 backup 預設值（server 正規化後 = 真實絕對路徑）
+  useEffect(() => {
+    if (step !== 5 || bkLoaded) return;
+    fetch(`${API_BASE}/api/backup/config`)
+      .then(r => r.json())
+      .then(data => {
+        const c = data.config || {};
+        setBkDir(c.backupDir || "");
+        setBkDefaultDir(c.backupDir || "");
+        setBkHour(typeof c.scheduleHour === "number" ? c.scheduleHour : 0);
+        setBkKeep(c.retentionCount || 7);
+        setBkLoaded(true);
+      })
+      .catch(() => setBkLoaded(true));
+  }, [step, bkLoaded]);
+
+  const saveBackupConfig = async () => {
+    try {
+      await fetch(`${API_BASE}/api/backup/config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ backupDir: bkDir, scheduleHour: bkHour, retentionCount: bkKeep, enabled: true }),
+      });
+    } catch (err) { console.error("Failed to save backup config:", err); }
+  };
 
   const handleApiKeyChange = (pid: string, key: string) => {
     setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], apiKey: key } }));
@@ -423,18 +457,86 @@ export default function OnboardingPage({ onComplete }: Props) {
 
       <div className="flex flex-col gap-3 w-full">
         <button
-          onClick={() => { setProviderSkipped(false); handleFinish(); }}
+          onClick={() => { setProviderSkipped(false); setStep(5); }}
           disabled={!hasValidProvider}
           className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}
         >
-          ✅ 儲存並開始使用
+          ✅ 儲存並繼續
         </button>
         <button
-          onClick={() => { setProviderSkipped(true); handleFinish(); }}
+          onClick={() => { setProviderSkipped(true); setStep(5); }}
           className="w-full py-2.5 rounded-xl text-stone-400 font-medium text-sm hover:text-stone-600 hover:bg-stone-100 transition-all"
         >
-          稍後再設定 →
+          略過，稍後再設定 →
+        </button>
+      </div>
+    </div>,
+
+    // Step 5: Backup — 每日自動備份（路徑/時間/保留份數，預設直接用）
+    <div key="backup" className="w-full">
+      <div className="text-center mb-6">
+        <div className="text-4xl mb-2">📦</div>
+        <h2 className="text-2xl font-bold text-stone-800 mb-2">{tt("onboarding.backupTitle")}</h2>
+        <p className="text-stone-500 text-sm">{tt("onboarding.backupDesc")}</p>
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-5 mb-4 space-y-4">
+        {!bkLoaded ? (
+          <div className="text-center text-stone-400 text-sm py-4">⋯</div>
+        ) : (
+          <>
+            <label className="block">
+              <span className="text-xs font-semibold text-stone-500 block mb-1">{tt("onboarding.backupDir")}</span>
+              <input
+                value={bkDir}
+                onChange={(e) => { setBkDir(e.target.value); setBkDirty(true); }}
+                className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono text-stone-700 focus:outline-none focus:border-stone-400"
+                placeholder={bkDefaultDir}
+              />
+              <span className="text-xs text-stone-400 mt-1 block">{tt("onboarding.backupDirHint")}</span>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-xs font-semibold text-stone-500 block mb-1">{tt("onboarding.backupTime")}</span>
+                <select
+                  value={bkHour}
+                  onChange={(e) => { setBkHour(Number(e.target.value)); setBkDirty(true); }}
+                  className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm text-stone-700 focus:outline-none focus:border-stone-400"
+                >
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-stone-500 block mb-1">{tt("onboarding.backupKeep")}</span>
+                <input
+                  type="number" min={1} max={30} value={bkKeep}
+                  onChange={(e) => { setBkKeep(Number(e.target.value) || 7); setBkDirty(true); }}
+                  className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm text-stone-700 focus:outline-none focus:border-stone-400"
+                />
+              </label>
+            </div>
+            <div className="text-xs text-stone-400">{tt("onboarding.backupCronNote")}</div>
+          </>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3 w-full">
+        <button
+          onClick={async () => { await saveBackupConfig(); handleFinish(); }}
+          disabled={!bkLoaded}
+          className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}
+        >
+          {bkDirty ? tt("onboarding.backupSave") : tt("onboarding.backupUseDefault")}
+        </button>
+        <button
+          onClick={handleFinish}
+          className="w-full py-2.5 rounded-xl text-stone-400 font-medium text-sm hover:text-stone-600 hover:bg-stone-100 transition-all"
+        >
+          {tt("onboarding.backupSkip")}
         </button>
       </div>
     </div>,
@@ -445,7 +547,7 @@ export default function OnboardingPage({ onComplete }: Props) {
       <div className="w-full max-w-xl mx-4 px-6 py-12">
         {/* Progress dots */}
         <div className="flex justify-center gap-2 mb-10">
-          {[0, 1, 2, 3, 4].map((i) => (
+          {[0, 1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}
               className="w-2 h-2 rounded-full transition-all"

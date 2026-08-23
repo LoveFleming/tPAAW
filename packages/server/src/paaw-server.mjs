@@ -225,40 +225,10 @@ server.listen(PORT, async () => {
   // Ensure required directories exist
   await mkdir(resolve(DATA_HOME, "knowledge"), { recursive: true });
 
-  // Ensure daily backup cron job exists
+  // Sync daily backup cron job (schedule/enabled follow backup config)
   try {
-    const cronPath = resolve(DATA_HOME, "cron/cron-jobs.json");
-    await mkdir(dirname(cronPath), { recursive: true });
-    let cronJobs = [];
-    try { cronJobs = JSON.parse(await readFile(cronPath, "utf-8")); } catch {}
-    const existingBackup = cronJobs.find(j => j.id === "system-daily-backup");
-    if (!existingBackup) {
-      // Load backup config for schedule hour
-      let scheduleHour = 0;
-      try {
-        const bkConfig = JSON.parse(await readFile(resolve(DATA_HOME, "config/backup.json"), "utf-8"));
-        scheduleHour = bkConfig.scheduleHour || 0;
-      } catch {}
-      cronJobs.push({
-        id: "system-daily-backup",
-        name: "📦 每日資料備份",
-        type: "reminder",
-        reminderText: `[系統排程] 每日資料備份正在執行。`,
-        skillId: "",
-        schedule: `0 ${scheduleHour} * * *`,
-        prompt: "",
-        params: {},
-        outputTarget: "chat",
-        outputPath: "",
-        enabled: true,
-        createdAt: new Date().toISOString(),
-        lastRun: null,
-        lastStatus: null,
-        _systemBackup: true,
-      });
-      await writeFile(cronPath, JSON.stringify(cronJobs, null, 2), "utf-8");
-      console.log(`[PAAW] Daily backup cron job created (schedule: 0 ${scheduleHour} * * *)`);
-    }
+    const { syncBackupCronJob } = await import("./routes/backup.mjs");
+    await syncBackupCronJob();
   } catch (err) {
     console.error(`[PAAW] Failed to create backup cron job:`, err.message);
   }

@@ -1076,5 +1076,15 @@
   "onboarding.providerConfigured": "已設定完成",
   "onboarding.providerNoKey": "⚠️ 尚未設定 API Key，你可以稍後再配置",
   "project.empty": "还没有專案",
-  "project.emptyHint": "點右上角「＋ 新專案」建立第一個專案"
+  "project.emptyHint": "點右上角「＋ 新專案」建立第一個專案",
+  "onboarding.backupTitle": "每日自動備份",
+  "onboarding.backupDesc": "你的資料每天會自動備份成壓縮檔，隨時可在設定中調整。",
+  "onboarding.backupDir": "備份路徑",
+  "onboarding.backupDirHint": "備份檔存放的資料夾（絕對路徑）",
+  "onboarding.backupTime": "備份時間（每天）",
+  "onboarding.backupKeep": "保留份數",
+  "onboarding.backupCronNote": "完成後會建立一個每日備份排程（Cron Jobs 可見），舊備份超過保留份數自動清理。",
+  "onboarding.backupSave": "儲存設定並開始使用",
+  "onboarding.backupUseDefault": "使用預設設定並開始使用",
+  "onboarding.backupSkip": "使用預設，之後再調整 →"
 }

@@ -1076,5 +1076,15 @@
   "onboarding.providerConfigured": "設定完了",
   "onboarding.providerNoKey": "⚠️ API Keyが未設定です。後で設定できます",
   "project.empty": "プロジェクトはまだありません",
-  "project.emptyHint": "右上の「＋ 新規プロジェクト」から最初のプロジェクトを作成できます"
+  "project.emptyHint": "右上の「＋ 新規プロジェクト」から最初のプロジェクトを作成できます",
+  "onboarding.backupTitle": "毎日自動バックアップ",
+  "onboarding.backupDesc": "データは毎日圧縮アーカイブにバックアップされます。後で設定から変更できます。",
+  "onboarding.backupDir": "バックアップ先",
+  "onboarding.backupDirHint": "バックアップの保存フォルダ（絶対パス）",
+  "onboarding.backupTime": "バックアップ時刻（毎日）",
+  "onboarding.backupKeep": "保持世代数",
+  "onboarding.backupCronNote": "完了すると毎日のバックアップ Cron ジョブが作成されます（Cron Jobs で確認可能）。保持数を超えた古いバックアップは自動削除されます。",
+  "onboarding.backupSave": "設定して開始",
+  "onboarding.backupUseDefault": "デフォルトで開始",
+  "onboarding.backupSkip": "デフォルトのまま後で調整 →"
 }

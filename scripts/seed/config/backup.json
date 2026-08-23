@@ -1,6 +1,6 @@
 {
-  "backupDir": "backups",
-  "retentionCount": 5,
+  "backupDir": "",
+  "retentionCount": 7,
   "enabled": true,
   "scheduleHour": 0
 }

@@ -15,7 +15,7 @@
 
 import { readFile, writeFile, readdir, mkdir, rm, stat } from "fs/promises";
 import { existsSync, mkdirSync, writeFileSync, createWriteStream, createReadStream } from "fs";
-import { resolve, join, basename, relative } from "path";
+import { resolve, join, basename, relative, isAbsolute } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { execSync } from "child_process";
@@ -29,7 +29,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "../../../../");
 const DATA_DIR = resolve(DATA_HOME);
-const BACKUP_DIR_DEFAULT = resolve(PAAW_ROOT, "backups");
+const BACKUP_DIR_DEFAULT = resolve(DATA_DIR, "..", "backups"); // DATA_HOME 旁 — gateway 版 = HOME/backups（跨版本留存），dev = repo/backups
 const CONFIG_FILE = resolve(DATA_DIR, "config/backup.json");
 
 // 要備份的子目錄
@@ -239,18 +239,57 @@ async function extractTarGz(tarFile, destDir) {
 
 // ── Config ──
 
-async function loadConfig() {
-  try {
-    return JSON.parse(await readFile(CONFIG_FILE, "utf-8"));
-  } catch {
-    return {
-      backupDir: BACKUP_DIR_DEFAULT,
-      retentionCount: 7,
-      enabled: true,
-      scheduleHour: 0,
-      lastBackupAt: null,
+/** 同步 system-daily-backup cron job（開機 + config 變更後都叫） */
+export async function syncBackupCronJob() {
+  const config = await loadConfig();
+  const cronPath = resolve(DATA_DIR, "cron/cron-jobs.json");
+  const { mkdir, readFile, writeFile } = await import("fs/promises");
+  const { dirname } = await import("path");
+  await mkdir(dirname(cronPath), { recursive: true });
+  let cronJobs = [];
+  try { cronJobs = JSON.parse(await readFile(cronPath, "utf-8")); } catch {}
+  let job = cronJobs.find(j => j.id === "system-daily-backup");
+  const schedule = `0 ${config.scheduleHour || 0} * * *`;
+  if (!job) {
+    job = {
+      id: "system-daily-backup",
+      name: "📦 每日資料備份",
+      type: "reminder",
+      reminderText: `[系統排程] 每日資料備份正在執行。`,
+      skillId: "",
+      schedule,
+      prompt: "",
+      params: {},
+      outputTarget: "chat",
+      outputPath: "",
+      enabled: config.enabled !== false,
+      createdAt: new Date().toISOString(),
+      lastRun: null,
+      lastStatus: null,
+      _systemBackup: true,
     };
+    cronJobs.push(job);
+  } else {
+    job.schedule = schedule;
+    job.enabled = config.enabled !== false;
   }
+  await writeFile(cronPath, JSON.stringify(cronJobs, null, 2), "utf-8");
+  return job;
+}
+
+async function loadConfig() {
+  let config;
+  try {
+    config = JSON.parse(await readFile(CONFIG_FILE, "utf-8"));
+  } catch {
+    config = {};
+  }
+  config.retentionCount = config.retentionCount || 7;
+  config.enabled = config.enabled !== false;
+  config.scheduleHour = config.scheduleHour || 0;
+  // 空/相對路徑正規化為絕對預設（UI 顯示真實路徑、runBackup 有一致行為）
+  if (!config.backupDir || !isAbsolute(config.backupDir)) config.backupDir = BACKUP_DIR_DEFAULT;
+  return config;
 }
 
 async function saveConfig(config) {
@@ -261,7 +300,8 @@ async function saveConfig(config) {
 // ── Backup ──
 
 async function runBackup(config) {
-  const backupDir = config.backupDir || BACKUP_DIR_DEFAULT;
+  let backupDir = config.backupDir || BACKUP_DIR_DEFAULT;
+  if (!isAbsolute(backupDir)) backupDir = BACKUP_DIR_DEFAULT; // 相對路徑不可預測（cwd）→ 統一用預設
   await mkdir(backupDir, { recursive: true });
 
   const label = timestampLabel();
@@ -415,6 +455,7 @@ async function handleBackupRoutes(req, res) {
     if (body.enabled !== undefined) config.enabled = body.enabled;
     if (body.scheduleHour !== undefined) config.scheduleHour = body.scheduleHour;
     await saveConfig(config);
+    try { await syncBackupCronJob(); } catch (e) { console.error("[Backup] sync cron failed:", e.message); }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, config }));
     return true;
