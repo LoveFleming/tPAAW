@@ -271,7 +271,7 @@ export default async function assistantRoute(req, res) {
     try {
       const config = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "config/providers.json"), "utf-8"));
       const hasAnyKey = Object.values(config.providers).some((p) => p.apiKey && p.apiKey.length > 0);
-      const safe = { active: config.active, defaultModel: config.defaultModel, configured: hasAnyKey, providers: {} };
+      const safe = { active: config.active, defaultModel: config.defaultModel, fallbacks: config.fallbacks || [], configured: hasAnyKey, providers: {} };
       for (const [k, v] of Object.entries(config.providers)) {
         safe.providers[k] = { ...v, apiKey: v.apiKey ? v.apiKey.slice(0, 8) + "..." : "" };
       }
@@ -292,10 +292,23 @@ export default async function assistantRoute(req, res) {
       const body = JSON.parse(await readBody(req));
       if (body.active) config.active = body.active;
       if (body.defaultModel) config.defaultModel = body.defaultModel;
+      // Fallback chain（UI 可編輯，按序使用）
+      if (Array.isArray(body.fallbacks)) config.fallbacks = body.fallbacks;
+      // 明確刪除（UI 的刪除/rename 需要 — PUT 本身不刪不在 body 裡的 provider）
+      if (Array.isArray(body.removedProviderIds) && body.removedProviderIds.length > 0) {
+        for (const pid of body.removedProviderIds) delete config.providers[pid];
+        if (config.active && body.removedProviderIds.includes(config.active) && Object.keys(config.providers).length > 0) {
+          config.active = Object.keys(config.providers)[0];
+        }
+        if (Array.isArray(config.fallbacks)) {
+          config.fallbacks = config.fallbacks.filter((f) => !body.removedProviderIds.includes(f.provider));
+        }
+      }
       if (body.provider && body.providerId) {
         const pid = body.providerId;
         if (config.providers[pid]) {
-          if (body.provider.apiKey !== undefined) config.providers[pid].apiKey = body.provider.apiKey;
+          // apiKey 以 "..." 結尾 = GET 回傳的截斷版未變更，不覆蓋真 key
+          if (body.provider.apiKey !== undefined && !body.provider.apiKey.endsWith("...")) config.providers[pid].apiKey = body.provider.apiKey;
           if (body.provider.baseURL !== undefined) config.providers[pid].baseURL = body.provider.baseURL;
           if (body.provider.models) config.providers[pid].models = body.provider.models;
         }
@@ -304,7 +317,7 @@ export default async function assistantRoute(req, res) {
         for (const [pid, pdata] of Object.entries(body.providers)) {
           if (!config.providers[pid]) config.providers[pid] = { name: pid, baseURL: "", apiKey: "", models: [] };
           const p = pdata;
-          if (p.apiKey !== undefined) config.providers[pid].apiKey = p.apiKey;
+          if (p.apiKey !== undefined && !p.apiKey.endsWith("...")) config.providers[pid].apiKey = p.apiKey;
           if (p.baseURL !== undefined) config.providers[pid].baseURL = p.baseURL;
           if (p.models) config.providers[pid].models = p.models;
           if (p.name) config.providers[pid].name = p.name;

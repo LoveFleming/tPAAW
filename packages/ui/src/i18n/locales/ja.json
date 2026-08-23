@@ -1040,5 +1040,18 @@
   "rm.runTests": "テスト実行",
   "rm.testing": "実行中…",
   "rm.includeE2e": "E2E含む",
-  "ops.genRunbook": "AI Runbook 作成"
+  "ops.genRunbook": "AI Runbook 作成",
+  "common.add": "追加",
+  "settings.addModel": "モデルを追加",
+  "settings.noModels": "モデル未登録",
+  "settings.modelIdPlaceholder": "モデルID（例 glm-5.1）",
+  "settings.modelNamePlaceholder": "表示名",
+  "settings.modelCtx": "コンテキスト",
+  "settings.modelMax": "最大トークン",
+  "settings.modelPriceIn": "入力 $/M",
+  "settings.modelPriceOut": "出力 $/M",
+  "settings.fallbacks": "フォールバックチェーン",
+  "settings.fallbacksDesc": "メインモデル失敗時に順番に切替；各エントリはそのプロバイダーの API キーを使用",
+  "settings.addFallback": "フォールバックを追加",
+  "settings.noFallbacks": "フォールバック未設定（任意）"
 }

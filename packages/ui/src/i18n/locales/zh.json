@@ -1040,5 +1040,18 @@
   "rm.runTests": "執行測試",
   "rm.testing": "執行中…",
   "rm.includeE2e": "含 E2E",
-  "ops.genRunbook": "AI 寫 Runbook"
+  "ops.genRunbook": "AI 寫 Runbook",
+  "common.add": "新增",
+  "settings.addModel": "新增 Model",
+  "settings.noModels": "尚未新增 Model",
+  "settings.modelIdPlaceholder": "model id（例 glm-5.1）",
+  "settings.modelNamePlaceholder": "顯示名稱",
+  "settings.modelCtx": "Context Window",
+  "settings.modelMax": "Max Tokens",
+  "settings.modelPriceIn": "輸入 $/M",
+  "settings.modelPriceOut": "輸出 $/M",
+  "settings.fallbacks": "Fallback Chain（備援順序）",
+  "settings.fallbacksDesc": "主 model 失敗時按序切換；請求會用該 provider 的 API Key",
+  "settings.addFallback": "新增 Fallback",
+  "settings.noFallbacks": "尚未設定 fallback（初學者可留空）"
 }

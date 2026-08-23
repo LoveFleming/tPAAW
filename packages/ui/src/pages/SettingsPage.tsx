@@ -6,11 +6,24 @@ import API_BASE from "../api";
 import BackupSettings from "./BackupSettings";
 import PluginManager from "./PluginManager";
 
+interface ModelData {
+  id: string;
+  name: string;
+  contextWindow?: number;
+  maxTokens?: number;
+  pricing?: { inputPerMillion?: number; outputPerMillion?: number };
+}
+
 interface ProviderData {
   name: string;
   baseURL: string;
   apiKey: string;
-  models: { id: string; name: string }[];
+  models: ModelData[];
+}
+
+interface FallbackEntry {
+  provider: string;
+  model: string;
 }
 
 interface SettingsPageProps {
@@ -26,6 +39,9 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   const [providers, setProviders] = useState<Record<string, ProviderData>>({});
   const [activeId, setActiveId] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
+  const [fallbacks, setFallbacks] = useState<FallbackEntry[]>([]);
+  const [pendingRemovals, setPendingRemovals] = useState<string[]>([]);
+  const [newModel, setNewModel] = useState<{ pid: string; id: string; name: string }>({ pid: "", id: "", name: "" });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [profile, setProfile] = useState<any>(null);
@@ -61,6 +77,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
         if (data.providers) setProviders(data.providers);
         if (data.active) setActiveId(data.active);
         if (data.defaultModel) setSelectedModel(data.defaultModel);
+        if (Array.isArray(data.fallbacks)) setFallbacks(data.fallbacks);
       })
       .catch(() => {});
   }, []);
@@ -132,6 +149,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   const removeProvider = (pid: string) => {
     const { [pid]: removed, ...rest } = providers;
     setProviders(rest);
+    setPendingRemovals(prev => prev.includes(pid) ? prev : [...prev, pid]);
     if (activeId === pid) {
       const remaining = Object.keys(rest);
       setActiveId(remaining.length > 0 ? remaining[0] : "");
@@ -144,15 +162,37 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
     const p = providers[oldPid];
     const { [oldPid]: removed, ...rest } = providers;
     setProviders({ ...rest, [newPid]: { ...p } });
+    setPendingRemovals(prev => prev.includes(oldPid) ? prev : [...prev, oldPid]);
     if (activeId === oldPid) setActiveId(newPid);
     setSaved(false);
   };
 
   const addModelToProvider = (pid: string) => {
-    const id = prompt(t("settings.modelIdPrompt"));
-    if (!id) return;
-    const name = prompt(t("settings.modelNamePrompt")) || id;
-    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: [...prev[pid].models, { id, name }] } }));
+    const id = newModel.id.trim();
+    if (!id || newModel.pid !== pid) return;
+    const name = newModel.name.trim() || id;
+    setProviders(prev => {
+      if (!prev[pid] || prev[pid].models.some(m => m.id === id)) return prev;
+      return { ...prev, [pid]: { ...prev[pid], models: [...prev[pid].models, { id, name }] } };
+    });
+    setNewModel({ pid: "", id: "", name: "" });
+    setSaved(false);
+  };
+
+  const handleModelText = (pid: string, mid: string, field: string, value: string) => {
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.map(m => m.id === mid ? { ...m, [field]: value } : m) } }));
+    setSaved(false);
+  };
+
+  const handleModelField = (pid: string, mid: string, field: string, raw: string) => {
+    const value = raw === "" ? undefined : Number(raw);
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.map(m => m.id === mid ? { ...m, [field]: value } : m) } }));
+    setSaved(false);
+  };
+
+  const handleModelPricing = (pid: string, mid: string, field: string, raw: string) => {
+    const value = raw === "" ? undefined : Number(raw);
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.map(m => m.id === mid ? { ...m, pricing: { ...m.pricing, [field]: value } } : m) } }));
     setSaved(false);
   };
 
@@ -168,9 +208,9 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
       const resp = await fetch(`${API_BASE}/api/paaw/providers`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: activeId, defaultModel: selectedModel, providers }),
+        body: JSON.stringify({ active: activeId, defaultModel: selectedModel, providers, fallbacks, removedProviderIds: pendingRemovals }),
       });
-      if (resp.ok) { setSaved(true); setTimeout(() => setSaved(false), 2000); onProvidersSaved?.(); }
+      if (resp.ok) { setSaved(true); setPendingRemovals([]); setTimeout(() => setSaved(false), 2000); onProvidersSaved?.(); }
     } catch {}
     setSaving(false);
   };
@@ -379,24 +419,63 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Models</label>
-                      <button onClick={() => addModelToProvider(pid)} className="text-xs text-stone-500 hover:text-stone-700 px-2 py-0.5 rounded hover:bg-stone-100">+ 新增 Model</button>
+                      {newModel.pid !== pid && (
+                        <button onClick={() => setNewModel({ pid, id: "", name: "" })} className="text-xs text-stone-500 hover:text-stone-700 px-2 py-0.5 rounded hover:bg-stone-100">+ {t("settings.addModel")}</button>
+                      )}
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="space-y-2">
                       {p.models.map(m => (
-                        <span key={m.id} className="group inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-stone-50 border border-stone-100 text-stone-600">
-                          {selectedModel === m.id && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
-                          {m.name}
-                          {activeId === pid && (
-                            <button onClick={() => setSelectedModel(m.id)}
-                              className={`text-[9px] ml-0.5 px-1 rounded ${selectedModel === m.id ? "text-amber-600 bg-amber-50" : "text-stone-300 hover:text-stone-500"}`}
-                              title={t("settings.setDefault")}>{selectedModel === m.id ? "✓" : "📌"}</button>
-                          )}
-                          <button onClick={() => removeModelFromProvider(pid, m.id)}
-                            className="text-stone-300 hover:text-rose-400 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
-                            title={t("settings.deleteModel")}>✕</button>
-                        </span>
+                        <div key={m.id} className="rounded-lg border border-stone-100 bg-stone-50/60 px-3 py-2">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            {selectedModel === m.id && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />}
+                            <input type="text" value={m.name} onChange={e => handleModelText(pid, m.id, "name", e.target.value)}
+                              className="flex-1 min-w-0 text-xs font-medium text-stone-700 bg-transparent border-b border-transparent hover:border-stone-300 focus:border-stone-400 focus:outline-none" placeholder={t("settings.modelNamePlaceholder")} />
+                            <input type="text" value={m.id} onChange={e => handleModelText(pid, m.id, "id", e.target.value)}
+                              className="w-[130px] shrink-0 text-[10px] font-mono text-stone-400 bg-transparent border-b border-transparent hover:border-stone-300 focus:border-stone-400 focus:outline-none" placeholder="model id" />
+                            {activeId === pid && (
+                              <button onClick={() => { setSelectedModel(m.id); setSaved(false); }}
+                                className={`text-[9px] px-1 rounded shrink-0 ${selectedModel === m.id ? "text-amber-600 bg-amber-50" : "text-stone-300 hover:text-stone-500"}`}
+                                title={t("settings.setDefault")}>{selectedModel === m.id ? "✓" : "📌"}</button>
+                            )}
+                            <button onClick={() => removeModelFromProvider(pid, m.id)}
+                              className="text-stone-300 hover:text-rose-400 text-[10px] shrink-0"
+                              title={t("settings.deleteModel")}>✕</button>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div>
+              <label className="text-[9px] font-bold text-stone-300 uppercase tracking-wider block mb-0.5">{t("settings.modelCtx")}</label>
+              <input type="number" value={m.contextWindow ?? ""} onChange={e => handleModelField(pid, m.id, "contextWindow", e.target.value)}
+                className="w-full px-2 py-1 rounded border border-stone-200 text-[11px] font-mono text-stone-600 focus:outline-none focus:border-stone-400 bg-white" placeholder="128000" />
+            </div>
+            <div>
+              <label className="text-[9px] font-bold text-stone-300 uppercase tracking-wider block mb-0.5">{t("settings.modelMax")}</label>
+              <input type="number" value={m.maxTokens ?? ""} onChange={e => handleModelField(pid, m.id, "maxTokens", e.target.value)}
+                className="w-full px-2 py-1 rounded border border-stone-200 text-[11px] font-mono text-stone-600 focus:outline-none focus:border-stone-400 bg-white" placeholder="16384" />
+            </div>
+            <div>
+              <label className="text-[9px] font-bold text-stone-300 uppercase tracking-wider block mb-0.5">{t("settings.modelPriceIn")}</label>
+              <input type="number" step="0.01" value={m.pricing?.inputPerMillion ?? ""} onChange={e => handleModelPricing(pid, m.id, "inputPerMillion", e.target.value)}
+                className="w-full px-2 py-1 rounded border border-stone-200 text-[11px] font-mono text-stone-600 focus:outline-none focus:border-stone-400 bg-white" placeholder="0.6" />
+            </div>
+            <div>
+              <label className="text-[9px] font-bold text-stone-300 uppercase tracking-wider block mb-0.5">{t("settings.modelPriceOut")}</label>
+              <input type="number" step="0.01" value={m.pricing?.outputPerMillion ?? ""} onChange={e => handleModelPricing(pid, m.id, "outputPerMillion", e.target.value)}
+                className="w-full px-2 py-1 rounded border border-stone-200 text-[11px] font-mono text-stone-600 focus:outline-none focus:border-stone-400 bg-white" placeholder="2.2" />
+            </div>
+                          </div>
+                        </div>
                       ))}
-                      {p.models.length === 0 && <span className="text-xs text-stone-300">尚未新增 Model</span>}
+                      {p.models.length === 0 && <span className="text-xs text-stone-300">{t("settings.noModels")}</span>}
+                      {newModel.pid === pid && (
+                        <div className="flex gap-2 items-center rounded-lg border border-dashed border-amber-300 bg-amber-50/40 px-3 py-2">
+                          <input type="text" value={newModel.id} onChange={e => setNewModel(v => ({ ...v, id: e.target.value }))} placeholder={t("settings.modelIdPlaceholder")} autoFocus
+                            className="w-[140px] px-2 py-1 rounded border border-stone-200 text-[11px] font-mono focus:outline-none focus:border-amber-400" onKeyDown={e => { if (e.key === "Enter") addModelToProvider(pid); if (e.key === "Escape") setNewModel({ pid: "", id: "", name: "" }); }} />
+                          <input type="text" value={newModel.name} onChange={e => setNewModel(v => ({ ...v, name: e.target.value }))} placeholder={t("settings.modelNamePlaceholder")}
+                            className="flex-1 px-2 py-1 rounded border border-stone-200 text-[11px] focus:outline-none focus:border-amber-400" onKeyDown={e => { if (e.key === "Enter") addModelToProvider(pid); }} />
+                          <button onClick={() => addModelToProvider(pid)} disabled={!newModel.id.trim()} className="text-[11px] px-3 py-1 rounded-lg text-white font-medium disabled:opacity-50" style={{ background: themeInfo.accent }}>{t("common.add")}</button>
+                          <button onClick={() => setNewModel({ pid: "", id: "", name: "" })} className="text-[11px] px-2 py-1 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-100">{t("common.cancel")}</button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -439,6 +518,39 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                 <p className="text-xs text-stone-400 mt-1">所有 AI 功能的起始 model，各功能可在「Model 偏好」中自訂</p>
               </div>
             )}
+
+            {/* Fallback chain */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">{t("settings.fallbacks")}</label>
+                <button onClick={() => { const firstPid = Object.keys(providers)[0]; if (firstPid) setFallbacks(prev => [...prev, { provider: firstPid, model: providers[firstPid]?.models[0]?.id || "" }]); setSaved(false); }}
+                  className="text-xs text-stone-500 hover:text-stone-700 px-2 py-0.5 rounded hover:bg-stone-100">+ {t("settings.addFallback")}</button>
+              </div>
+              <p className="text-xs text-stone-400 mb-3">{t("settings.fallbacksDesc")}</p>
+              <div className="space-y-2">
+                {fallbacks.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="w-5 text-[10px] font-mono text-stone-300 text-center shrink-0">{i + 1}</span>
+                    <select value={f.provider} onChange={e => { const pid = e.target.value; setFallbacks(prev => prev.map((x, j) => j === i ? { ...x, provider: pid, model: providers[pid]?.models[0]?.id || "" } : x)); setSaved(false); }}
+                      className="px-2 py-1.5 rounded-lg border border-stone-200 text-xs focus:outline-none focus:border-stone-400">
+                      {Object.keys(providers).map(pid => <option key={pid} value={pid}>{pid}</option>)}
+                    </select>
+                    <select value={f.model} onChange={e => { const v = e.target.value; setFallbacks(prev => prev.map((x, j) => j === i ? { ...x, model: v } : x)); setSaved(false); }}
+                      className="flex-1 px-2 py-1.5 rounded-lg border border-stone-200 text-xs font-mono focus:outline-none focus:border-stone-400">
+                      <option value="">—</option>
+                      {(providers[f.provider]?.models || []).map(m => <option key={m.id} value={m.id}>{m.name} ({m.id})</option>)}
+                    </select>
+                    <button onClick={() => setFallbacks(prev => { if (i === 0) return prev.slice(1); const c = [...prev]; [c[i - 1], c[i]] = [c[i], c[i - 1]]; return c; })} disabled={i === 0}
+                      className="text-stone-300 hover:text-stone-600 text-xs px-1 disabled:opacity-30" title="上移">↑</button>
+                    <button onClick={() => setFallbacks(prev => { if (i === prev.length - 1) return prev.slice(0, -1); const c = [...prev]; [c[i], c[i + 1]] = [c[i + 1], c[i]]; return c; })} disabled={i === fallbacks.length - 1}
+                      className="text-stone-300 hover:text-stone-600 text-xs px-1 disabled:opacity-30" title="下移">↓</button>
+                    <button onClick={() => { setFallbacks(prev => prev.filter((_, j) => j !== i)); setSaved(false); }}
+                      className="text-stone-300 hover:text-rose-400 text-xs px-1" title={t("common.delete")}>✕</button>
+                  </div>
+                ))}
+                {fallbacks.length === 0 && <span className="text-xs text-stone-300">{t("settings.noFallbacks")}</span>}
+              </div>
+            </div>
 
             <button onClick={handleSaveProviders} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
               {saving ? t("common.saving") : saved ? t("common.saved") : t("settings.saveProviders")}
