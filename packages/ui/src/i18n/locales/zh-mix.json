@@ -358,17 +358,10 @@
   "onboarding.welcome": "歡迎使用 PAAW！",
   "ops.agentGreeting": "系統出狀況？把錯誤訊息貼給我，我照 runbook 逐步查。沒 runbook 的問題，解決後我會沉淀一份。",
   "ops.agentName": "格蕾塔·穆勒 · 維運助理",
-  "ops.checkedAt": "檢查於",
-  "ops.refresh": "重新檢查",
   "ops.releases.title": "最近 Release（回滾參考）",
   "ops.runbook.empty": "還沒有 runbook",
   "ops.runbook.emptyHint": "右邊的 AI 助理可以幫你生成第一版 runbook（常見事故、診斷步驟、回滾方案）。每次解決新問題也該沉淀一份。",
   "ops.runbook.title": "Runbook 排障手冊",
-  "ops.status.clean": "工作區乾淨",
-  "ops.status.dirty": "有未 commit 變更",
-  "ops.status.lastCommits": "最後 commits",
-  "ops.status.notRepo": "這個資料夾不是 git repo",
-  "ops.status.title": "服務現況",
   "ops.sug.diagnose": "診斷問題",
   "ops.sug.diagnosePrompt": "系統出現異常，請幫我逐步診斷：先查 runbook 和 log，定位原因後給修復步驟。",
   "ops.sug.genRunbook": "生成 Runbook",
@@ -1046,5 +1039,6 @@
   "rm.noTestRun": "尚未執行測試 — 數字待跑",
   "rm.runTests": "執行測試",
   "rm.testing": "執行中…",
-  "rm.includeE2e": "含 E2E"
+  "rm.includeE2e": "含 E2E",
+  "ops.genRunbook": "AI 寫 Runbook"
 }

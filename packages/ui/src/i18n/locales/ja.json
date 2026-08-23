@@ -358,17 +358,10 @@
   "onboarding.welcome": "PAAWへようこそ！",
   "ops.agentGreeting": "システム異常？エラーメッセージを貼ってください。runbook に従って順に調査します。",
   "ops.agentName": "グレタ・ミュラー · 運用",
-  "ops.checkedAt": "確認",
-  "ops.refresh": "再確認",
   "ops.releases.title": "直近のリリース（ロールバック参考）",
   "ops.runbook.empty": "runbook はまだありません",
   "ops.runbook.emptyHint": "右の AI アシスタントが最初の runbook を生成できます（よくある事故、診断手順、ロールバック）。",
   "ops.runbook.title": "Runbook",
-  "ops.status.clean": "クリーン",
-  "ops.status.dirty": "未 commit 変更あり",
-  "ops.status.lastCommits": "直近の commits",
-  "ops.status.notRepo": "このフォルダは git リポジトリではありません",
-  "ops.status.title": "サービス状況",
   "ops.sug.diagnose": "診断",
   "ops.sug.diagnosePrompt": "異常が発生中。runbook と log を確認し、原因を特定して修復手順を示して。",
   "ops.sug.genRunbook": "Runbook 生成",
@@ -1046,5 +1039,6 @@
   "rm.noTestRun": "テスト未実行 — 数値は未取得",
   "rm.runTests": "テスト実行",
   "rm.testing": "実行中…",
-  "rm.includeE2e": "E2E含む"
+  "rm.includeE2e": "E2E含む",
+  "ops.genRunbook": "AI Runbook 作成"
 }

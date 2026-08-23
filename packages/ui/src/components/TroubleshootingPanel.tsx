@@ -3,17 +3,18 @@
  *
  * 「可維運」— 出事知道怎麼查、怎麼修、怎麼退。
  *
- * 左：服務現況（git 狀態/最後 commits）+ Runbook 清單（點開可讀）
+ * 左：Runbook 清單（點開可讀）+ 最近 Release（回滾參考）
  * 右：Ops AI 助理（讀 runbook + log 幫診斷、生成 runbook）
  *
- * 空狀態：.paaw/ 不存在 → git 狀態照顯示（不依賴知識庫），
- *         runbook 區顯示引導（AI 助理可生成第一版 runbook）。
+ * 「AI 寫 Runbook」：注入 deterministic 證據（git 狀態 + releases + 現有 runbooks +
+ * 真 API 清單）→ AI 用真實 API 路徑寫診斷/驗證步驟，不憑空掰 URL。
+ * git/服務狀態不佔 UI（git tab 已有）但保留在 AI 證據裡。
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
-import AgentSideChat from "./AgentSideChat";
+import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
 
 interface OpsStatus {
   initialized: boolean;
@@ -41,6 +42,7 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
   const [loading, setLoading] = useState(true);
   const [openRb, setOpenRb] = useState<string | null>(null);
   const [rbContent, setRbContent] = useState<string | null>(null);
+  const chatRef = useRef<AgentSideChatHandle>(null);
 
   const refresh = useCallback(async () => {
     if (!rootPath) return;
@@ -70,6 +72,36 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
     }
   };
 
+  // ── AI 寫 Runbook：注入 deterministic 證據（含真 API 路徑 — 不憑空掰 URL）──
+  const generateRunbook = async () => {
+    if (!status) return;
+    // API 清單（health-check / 驗證步驟候選）
+    let apiList = "";
+    try {
+      const r = await fetch(`${API_BASE}/api/api-tester/project-apis?root=${encodeURIComponent(rootPath)}`);
+      const d = await r.json();
+      const apis = (d.routes || d.apis || (Array.isArray(d) ? d : [])).slice?.(0, 20) || [];
+      apiList = apis.map((a: any) => `- ${a.method} ${a.path}  (${a.file || "?"})`).join("\n");
+    } catch { /* API 清單拿不到就略過 */ }
+
+    const ev = [
+      "維運事實（程式產生，deterministic）：",
+      `git: ${status.git.isRepo ? `${status.git.branch}${status.git.dirty ? `（⚠ ${status.git.dirtyFiles.length} 未 commit）` : "（clean）"}` : "非 git repo"}`,
+      status.git.lastCommits?.length ? `last commits:\n${status.git.lastCommits.slice(0, 3).join("\n")}` : "",
+      status.releases.length ? `最近 releases:\n${status.releases.slice(0, 3).map((r) => `- ${r.releasedAt?.slice(0, 10)} ${r.id} ${r.title}`).join("\n")}` : "releases:（尚無 release 記錄）",
+      status.runbooks.length
+        ? `現有 runbooks（避免重複，格式參考）：\n${status.runbooks.map((rb) => `- ${rb.id} ${rb.title}（${rb.headings.slice(0, 4).join(" / ")}）`).join("\n")}`
+        : "現有 runbooks:（沒有 — 這是第一份）",
+      apiList ? `驗證用 API（真實路徑，從 API map 來 — 診斷/驗證步驟請用這些）：\n${apiList}` : "",
+    ].filter(Boolean).join("\n\n");
+
+    chatRef.current?.send(
+      `${ev}\n\n請寫一份 runbook（markdown），用這個 repo 的真實 API 路徑與指令。結構：\n` +
+      `# <症況標題>\n## 症狀（怎麼發現）\n## 診斷步驟（curl/指令 — 用上面真實 API）\n## 修復步驟\n## 驗證（API + 預期回應）\n## 回滾（退到哪個 release / git 指令）\n` +
+      `寫完後我會存到 .paaw/runbook/。`
+    );
+  };
+
   return (
     <div className="flex h-full min-h-0">
       {/* ── 左：內容區 ── */}
@@ -77,13 +109,14 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
         <div className="px-5 py-3 border-b sticky top-0 bg-white/95 backdrop-blur z-10 flex items-center gap-2" style={{ borderColor: tk.borderLight }}>
           <span className="text-lg">🔧</span>
           <h2 className="text-sm font-bold text-stone-800">{t("ops.title")}</h2>
-          {status?.checkedAt && (
-            <span className="text-[10px] font-mono text-stone-400 ml-auto">
-              {t("ops.checkedAt")} {new Date(status.checkedAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
-            </span>
-          )}
+          <span className="ml-auto" />
+          <button onClick={generateRunbook} disabled={!status}
+            className="text-xs px-2.5 py-1 rounded-lg text-white font-bold hover:opacity-90 disabled:opacity-40" style={{ backgroundColor: "#7c3aed" }}
+            data-testid="ops-gen-runbook">
+            ✍️ {t("ops.genRunbook")}
+          </button>
           <button onClick={refresh} className="text-xs px-2 py-1 rounded-lg border hover:bg-stone-50 text-stone-500" style={{ borderColor: tk.borderLight }}>
-            🔄 {t("ops.refresh")}
+            🔄
           </button>
         </div>
 
@@ -91,33 +124,6 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
 
         {!loading && status && (
           <div className="p-5 space-y-5">
-            {/* ═══ 服務現況 ═══ */}
-            <section>
-              <h3 className="text-xs font-bold text-stone-600 mb-2">📊 {t("ops.status.title")}</h3>
-              <div className="border rounded-xl bg-white p-3.5" style={{ borderColor: tk.borderLight }}>
-                {status.git.isRepo ? (
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-3 text-xs text-stone-600">
-                      <span>🌿 <b className="font-mono">{status.git.branch}</b></span>
-                      <span>{status.git.dirty
-                        ? <span className="text-amber-600">⚠️ {t("ops.status.dirty")}（{status.git.dirtyFiles.length}）</span>
-                        : <span className="text-green-600">✅ {t("ops.status.clean")}</span>}</span>
-                      <span>📦 npm scripts: {Object.keys(status.scripts).length}</span>
-                    </div>
-                    {status.git.dirty && (
-                      <pre className="text-[10px] font-mono text-stone-400 bg-stone-50 rounded p-2 max-h-24 overflow-y-auto">{status.git.dirtyFiles.join("\n")}</pre>
-                    )}
-                    <div>
-                      <div className="text-[10px] text-stone-400 mb-1">{t("ops.status.lastCommits")}</div>
-                      <pre className="text-[10px] font-mono text-stone-500 leading-relaxed">{status.git.lastCommits.join("\n") || "—"}</pre>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-xs text-stone-400">{t("ops.status.notRepo")}</div>
-                )}
-              </div>
-            </section>
-
             {/* ═══ 最近 Release（回滾參考）═══ */}
             {status.releases.length > 0 && (
               <section>
@@ -135,18 +141,22 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
             )}
 
             {/* ═══ Runbook ═══ */}
-            <section>
+            <section data-testid="ops-runbook-section">
               <h3 className="text-xs font-bold text-stone-600 mb-2 flex items-center gap-1.5">
                 📚 {t("ops.runbook.title")}
                 {status.runbooks.length > 0 && <span className="px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500 text-[10px]">{status.runbooks.length}</span>}
               </h3>
 
               {status.runbooks.length === 0 && (
-                <div className="border border-dashed rounded-lg p-4 text-center" style={{ borderColor: tk.borderLight }}>
+                <div className="border border-dashed rounded-lg p-4 text-center" style={{ borderColor: tk.borderLight }} data-testid="ops-runbook-empty">
                   <div className="text-xs text-stone-400 mb-1">{t("ops.runbook.empty")}</div>
-                  <div className="text-[11px] text-stone-500 leading-relaxed max-w-sm mx-auto">
+                  <div className="text-[11px] text-stone-500 leading-relaxed max-w-sm mx-auto mb-2">
                     {t("ops.runbook.emptyHint")}
                   </div>
+                  <button onClick={generateRunbook}
+                    className="text-xs px-3 py-1.5 rounded-lg text-white font-bold hover:opacity-90" style={{ backgroundColor: "#7c3aed" }}>
+                    ✍️ {t("ops.genRunbook")}
+                  </button>
                 </div>
               )}
 
@@ -175,6 +185,7 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
       {/* ── 右：Ops AI 助理 ── */}
       <div className="w-[320px] shrink-0 hidden md:block">
         <AgentSideChat
+          ref={chatRef}
           agentId="ops"
           agentName={t("ops.agentName")}
           agentEmoji="🔧"

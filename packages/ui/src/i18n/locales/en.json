@@ -358,17 +358,10 @@
   "onboarding.welcome": "Welcome to PAAW!",
   "ops.agentGreeting": "System acting up? Paste the error message — I'll work the runbook step by step. New problems get sedimented into a runbook.",
   "ops.agentName": "Greta Müller · Ops",
-  "ops.checkedAt": "checked",
-  "ops.refresh": "Re-check",
   "ops.releases.title": "Recent Releases (rollback reference)",
   "ops.runbook.empty": "No runbooks yet",
   "ops.runbook.emptyHint": "The AI assistant on the right can generate a first runbook (common incidents, diagnosis steps, rollback). Sediment one after each new fix.",
   "ops.runbook.title": "Runbooks",
-  "ops.status.clean": "clean",
-  "ops.status.dirty": "uncommitted changes",
-  "ops.status.lastCommits": "Last commits",
-  "ops.status.notRepo": "This folder is not a git repo",
-  "ops.status.title": "Service Status",
   "ops.sug.diagnose": "Diagnose",
   "ops.sug.diagnosePrompt": "Something is wrong. Diagnose step by step: check runbook and logs, locate the cause, give fix steps.",
   "ops.sug.genRunbook": "Generate runbook",
@@ -1046,5 +1039,6 @@
   "rm.noTestRun": "No test run yet — numbers pending",
   "rm.runTests": "Run Tests",
   "rm.testing": "Running…",
-  "rm.includeE2e": "incl. E2E"
+  "rm.includeE2e": "incl. E2E",
+  "ops.genRunbook": "AI Write Runbook"
 }
