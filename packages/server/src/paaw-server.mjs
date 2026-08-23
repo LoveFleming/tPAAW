@@ -80,6 +80,7 @@ const ROUTE_MODULES = [
   "./routes/release-unit.mjs",
   "./routes/llm-logs.mjs",
   "./routes/agent-logs.mjs",
+  "./routes/log-retention.mjs",
   "./routes/plugins.mjs",
   "./routes/agentic-bindings.mjs",
 ];
@@ -242,7 +243,7 @@ server.listen(PORT, async () => {
     if (!existingPurge) {
       cronJobs.push({
         id: "system-daily-log-purge",
-        name: "🧹 清理 LLM 舊日誌",
+        name: "🧹 清理舊日誌（依保留政策）",
         type: "reminder",
         reminderText: "",
         skillId: "",

@@ -1086,5 +1086,17 @@
   "onboarding.backupCronNote": "完了すると毎日のバックアップ Cron ジョブが作成されます（Cron Jobs で確認可能）。保持数を超えた古いバックアップは自動削除されます。",
   "onboarding.backupSave": "設定して開始",
   "onboarding.backupUseDefault": "デフォルトで開始",
-  "onboarding.backupSkip": "デフォルトのまま後で調整 →"
+  "onboarding.backupSkip": "デフォルトのまま後で調整 →",
+  "backup.logTitle": "ログ保持",
+  "backup.logCronNote": "毎日 03:00 に自動クリーンアップ（システム Cron）",
+  "backup.logLlm": "LLM ログ（日数）",
+  "backup.logLlmHint": "LLM API 呼び出し記録",
+  "backup.logAgent": "Agent ログ（日数）",
+  "backup.logAgentHint": "Agent タスク実行トレース",
+  "backup.logOther": "その他ログ（日数）",
+  "backup.logOtherHint": "CLI・Cron などその他",
+  "backup.logSaveBtn": "保持ポリシーを保存",
+  "backup.logPurgeBtn": "今すぐクリーンアップ",
+  "backup.logSaved": "✅ ログ保持ポリシーを保存しました",
+  "backup.logPurged": "✅ {deleted} ファイルを削除（LLM {llm}／Agent {agent}／その他 {other}）"
 }

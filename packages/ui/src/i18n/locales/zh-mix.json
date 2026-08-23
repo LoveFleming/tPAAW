@@ -1086,5 +1086,17 @@
   "onboarding.backupCronNote": "完成後會建立一個每日備份排程（Cron Jobs 可見），舊備份超過保留份數自動清理。",
   "onboarding.backupSave": "儲存設定並開始使用",
   "onboarding.backupUseDefault": "使用預設設定並開始使用",
-  "onboarding.backupSkip": "使用預設，之後再調整 →"
+  "onboarding.backupSkip": "使用預設，之後再調整 →",
+  "backup.logTitle": "日誌保留",
+  "backup.logCronNote": "每日 03:00 自動清理（系統排程）",
+  "backup.logLlm": "LLM 日誌（天）",
+  "backup.logLlmHint": "LLM API 呼叫紀錄",
+  "backup.logAgent": "Agent 執行紀錄（天）",
+  "backup.logAgentHint": "Agent 任務執行軌跡",
+  "backup.logOther": "其他日誌（天）",
+  "backup.logOtherHint": "CLI、Cron 等其餘日誌",
+  "backup.logSaveBtn": "儲存保留政策",
+  "backup.logPurgeBtn": "立即清理",
+  "backup.logSaved": "✅ 日誌保留政策已儲存",
+  "backup.logPurged": "✅ 已清理 {deleted} 個檔案（LLM {llm}／Agent {agent}／其他 {other}）"
 }

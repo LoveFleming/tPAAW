@@ -41,6 +41,9 @@ export default function BackupSettings() {
   const [editRetention, setEditRetention] = useState(7);
   const [editing, setEditing] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [logRet, setLogRet] = useState<{ llmDays: number; agentDays: number; otherDays: number } | null>(null);
+  const [logSaving, setLogSaving] = useState(false);
+  const [purging, setPurging] = useState(false);
 
   const api = {
     get: async (p: string) => (await fetch(p)).json(),
@@ -61,9 +64,40 @@ export default function BackupSettings() {
     setBackups(data.backups || []);
   }, []);
 
+  const loadLogRetention = useCallback(async () => {
+    try {
+      const data = await api.get(`${API_BASE}/api/logs/retention`);
+      if (data.retention) setLogRet(data.retention);
+    } catch {}
+  }, []);
+
   const msg = (type: "ok" | "err", text: string) => {
     setMessage({ type, text });
     setTimeout(() => setMessage(null), 4000);
+  };
+
+  // 儲存日誌保留政策
+  const saveLogRetention = async () => {
+    if (!logRet) return;
+    setLogSaving(true);
+    try {
+      const data = await api.put(`${API_BASE}/api/logs/retention`, logRet);
+      if (data.ok) { setLogRet(data.retention); msg("ok", tt("backup.logSaved")); }
+      else msg("err", data.error || tt("backup.saveFailed"));
+    } finally { setLogSaving(false); }
+  };
+
+  // 立即清理日誌
+  const runLogPurge = async () => {
+    setPurging(true);
+    try {
+      const data = await api.post(`${API_BASE}/api/logs/purge`);
+      if (data.ok) {
+        const d = data.detail || { llm: 0, agent: 0, other: 0 };
+        msg("ok", tt("backup.logPurged").replace("{deleted}", String(data.deleted)).replace("{llm}", String(d.llm)).replace("{agent}", String(d.agent)).replace("{other}", String(d.other)));
+      } else msg("err", data.error || tt("backup.saveFailed"));
+    } catch (err: any) { msg("err", err.message); }
+    finally { setPurging(false); }
   };
 
   // 手動備份
@@ -135,6 +169,7 @@ export default function BackupSettings() {
 
   useEffect(() => {
     loadConfig();
+    loadLogRetention();
     loadBackups();
   }, []);
 
@@ -232,6 +267,41 @@ export default function BackupSettings() {
             </button>
           </div>
         </div>
+
+        {/* ── 日誌保留政策 ── */}
+        {logRet && (
+        <div className="rounded-xl border p-5 mb-5" style={{ borderColor: tk.borderLight, background: tk.bgMuted }}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold" style={{ color: tk.textPrimary }}>🧹 {tt("backup.logTitle")}</h2>
+            <span className="text-xs" style={{ color: tk.textMuted }}>{tt("backup.logCronNote")}</span>
+          </div>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {([["llmDays", "backup.logLlm"], ["agentDays", "backup.logAgent"], ["otherDays", "backup.logOther"]] as const).map(([k, label]) => (
+              <label key={k} className="block">
+                <span className="text-xs font-semibold block mb-1" style={{ color: tk.textSecondary }}>{tt(label)}</span>
+                <input
+                  type="number" min={1} max={3650} value={logRet[k]}
+                  onChange={(e) => setLogRet({ ...logRet, [k]: Number(e.target.value) || 1 })}
+                  className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: tk.borderInput, background: tk.bg, color: tk.textPrimary }}
+                />
+                <span className="text-xs mt-1 block" style={{ color: tk.textMuted }}>{tt(label === "backup.logLlm" ? "backup.logLlmHint" : label === "backup.logAgent" ? "backup.logAgentHint" : "backup.logOtherHint")}</span>
+              </label>
+            ))}
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={saveLogRetention} disabled={logSaving}
+              className="px-4 py-2 rounded-lg text-sm font-medium"
+              style={{ background: tk.accent, color: "#fff" }}>
+              {logSaving ? "…" : tt("backup.logSaveBtn")}
+            </button>
+            <button onClick={runLogPurge} disabled={purging}
+              className="px-4 py-2 rounded-lg text-sm font-medium"
+              style={{ background: tk.bg, color: tk.textSecondary, border: `1px solid ${tk.borderInput}` }}>
+              {purging ? "…" : tt("backup.logPurgeBtn")}
+            </button>
+          </div>
+        </div>
+        )}
 
         {/* ── 備份列表 ── */}
         <div className="rounded-xl border p-5" style={{ borderColor: tk.borderLight, background: tk.bgMuted }}>

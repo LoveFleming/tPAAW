@@ -44,7 +44,7 @@ const APP_RULES_PATH = resolve(DATA_HOME, "config/app-builder-rules.md");
 
 // Cron / scheduler paths
 const CRON_JOBS_FILE = resolve(DATA_HOME, "cron/cron-jobs.json");
-const CRON_LOGS_DIR = resolve(PAAW_ROOT, "logs/cron");
+const CRON_LOGS_DIR = resolve(DATA_HOME, "logs/cron"); // Fleming 政策：cron 紀錄 7 天清（log-retention）— DATA_HOME 跨版本
 const CRON_RESULTS_DIR = resolve(PAAW_ROOT, "logs/cron-results");
 const CRON_CHAT_DIR = resolve(DATA_HOME, "chats");
 

@@ -450,7 +450,10 @@ async function handleBackupRoutes(req, res) {
   if (path === "/api/backup/config" && method === "PUT") {
     const body = JSON.parse(await readBody(req));
     const config = await loadConfig();
-    if (body.backupDir !== undefined) config.backupDir = body.backupDir;
+    if (body.backupDir !== undefined) {
+      // Windows 相容：trim + 反斜線統一成正斜線（Node Windows 兩者皆吃）；相對路徑會被 loadConfig 正規化
+      config.backupDir = String(body.backupDir).trim().replace(/\\/g, "/");
+    }
     if (body.retentionCount !== undefined) config.retentionCount = body.retentionCount;
     if (body.enabled !== undefined) config.enabled = body.enabled;
     if (body.scheduleHour !== undefined) config.scheduleHour = body.scheduleHour;

@@ -1086,5 +1086,17 @@
   "onboarding.backupCronNote": "A daily backup cron job will be created (visible in Cron Jobs). Older backups beyond the retention count are pruned automatically.",
   "onboarding.backupSave": "Save settings & start",
   "onboarding.backupUseDefault": "Use defaults & start",
-  "onboarding.backupSkip": "Use defaults, adjust later →"
+  "onboarding.backupSkip": "Use defaults, adjust later →",
+  "backup.logTitle": "Log Retention",
+  "backup.logCronNote": "Auto cleanup daily at 03:00 (system cron)",
+  "backup.logLlm": "LLM logs (days)",
+  "backup.logLlmHint": "LLM API call records",
+  "backup.logAgent": "Agent logs (days)",
+  "backup.logAgentHint": "Agent task execution traces",
+  "backup.logOther": "Other logs (days)",
+  "backup.logOtherHint": "CLI, cron and other logs",
+  "backup.logSaveBtn": "Save retention policy",
+  "backup.logPurgeBtn": "Purge now",
+  "backup.logSaved": "✅ Log retention policy saved",
+  "backup.logPurged": "✅ Purged {deleted} files (LLM {llm} / Agent {agent} / other {other})"
 }

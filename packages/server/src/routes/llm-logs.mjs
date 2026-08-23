@@ -9,16 +9,15 @@
 import { readdirSync, readFileSync, unlinkSync, statSync, mkdirSync } from "fs";
 import { join, resolve } from "path";
 
-import { fileURLToPath } from "url";
-const _ROOT = resolve(process.env.PAAW_ROOT || process.env.QWEN_CWD || fileURLToPath(new URL("../../../../", import.meta.url)));
-const LOG_DIR = join(_ROOT, "data", "logs", "llm");
+import { DATA_HOME } from "../data-home.mjs";
+const LOG_DIR = resolve(DATA_HOME, "logs", "llm");
 
 function ensureLogDir() {
   mkdirSync(LOG_DIR, { recursive: true });
 }
 
 /** Auto-cleanup logs older than retentionDays (default 7) */
-function cleanupOldLogs(retentionDays = 7) {
+export function cleanupOldLogs(retentionDays = 7) {
   try {
     const files = readdirSync(LOG_DIR).filter(f => f.endsWith(".jsonl"));
     const cutoff = new Date();
@@ -40,9 +39,8 @@ function cleanupOldLogs(retentionDays = 7) {
   }
 }
 
-// Run cleanup once on module load (server startup)
+// Ensure dir on module load（purge 交給 log-retention 政策 — cron /api/logs/purge）
 ensureLogDir();
-cleanupOldLogs(7);
 
 /** Infer agentId from caller field for old logs that lack agentId */
 function _callerToAgentId(caller) {

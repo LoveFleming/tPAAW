@@ -12,6 +12,7 @@
 import { mkdir, appendFile, readFile, writeFile, readdir, stat, open } from "fs/promises";
 import { existsSync, createReadStream } from "fs";
 import { join, resolve, dirname } from "path";
+import { DATA_HOME } from "../data-home.mjs";
 import { fileURLToPath } from "url";
 import { createInterface } from "readline";
 import { stepCostUsd } from "./ru-resolver.mjs";
@@ -19,11 +20,7 @@ import { stepCostUsd } from "./ru-resolver.mjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-function _getRoot() {
-  return process.env.PAAW_ROOT || resolve(__dirname, "../../../../");
-}
-
-const LOG_DIR = join(_getRoot(), "data", "logs", "agent");
+const LOG_DIR = join(DATA_HOME, "logs", "agent");
 const INDEX_FILE = join(LOG_DIR, "index.json");
 const MAX_INDEX = 200;
 

@@ -128,12 +128,11 @@ async function runCronJob(job) {
   // ── System Log Purge type ──
   if (job._systemLogPurge) {
     try {
-      const resp = await fetch(`http://127.0.0.1:${PORT}/api/llm-logs/purge`, {
+      const resp = await fetch(`http://127.0.0.1:${PORT}/api/logs/purge`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ days: 7 }),
       });
       const data = await resp.json();
-      console.log(`[cron] Log purge done: deleted ${data.deleted} files (${data.retentionDays}-day retention)`);
+      console.log(`[cron] Log purge done: deleted ${data.deleted} files (llm:${data.detail?.llm} agent:${data.detail?.agent} other:${data.detail?.other}, retention ${JSON.stringify(data.retention)})`);
       await appendCronLog(job.id, { runId, status: "done", result: `deleted ${data.deleted}` });
     } catch (err) {
       console.error(`[cron] Log purge error:`, err.message);
