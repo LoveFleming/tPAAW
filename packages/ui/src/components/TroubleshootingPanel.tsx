@@ -25,7 +25,7 @@ interface OpsStatus {
     dirtyFiles: string[];
     lastCommits: string[];
   };
-  runbooks: { id: string; title: string; bytes: number; headings: string[] }[];
+  runbooks: { id: string; title: string; bytes: number; mtime?: string; headings: string[] }[];
   scripts: Record<string, string>;
   releases: { id: string; taskId: string; title: string; releasedAt: string; note: string | null }[];
   checkedAt: string;
@@ -115,9 +115,6 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
             data-testid="ops-gen-runbook">
             ✍️ {t("ops.genRunbook")}
           </button>
-          <button onClick={refresh} className="text-xs px-2 py-1 rounded-lg border hover:bg-stone-50 text-stone-500" style={{ borderColor: tk.borderLight }}>
-            🔄
-          </button>
         </div>
 
         {loading && <div className="p-8 text-center text-xs text-stone-400 animate-pulse">{t("common.loading")}</div>}
@@ -166,7 +163,7 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
                     <span>📒</span>
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-bold text-stone-700 truncate">{rb.title}</div>
-                      <div className="text-[10px] font-mono text-stone-400">{rb.id} · {(rb.bytes / 1024).toFixed(1)} KB</div>
+                      <div className="text-[10px] font-mono text-stone-400">{rb.mtime ? `${rb.mtime.slice(0, 10)} · ` : ""}{(rb.bytes / 1024).toFixed(1)} KB</div>
                     </div>
                     <span className="text-[10px] text-stone-400">{openRb === rb.id ? "▾" : "▸"}</span>
                   </button>

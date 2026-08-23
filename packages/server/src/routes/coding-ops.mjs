@@ -11,7 +11,7 @@
  *   POST /api/coding-ops/runbook/save               — 儲存 runbook（AI 生成後人也 editable）
  */
 
-import { readFile, writeFile, mkdir, readdir } from "fs/promises";
+import { readFile, writeFile, mkdir, readdir, stat } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import { exec as _exec } from "child_process";
@@ -46,18 +46,21 @@ async function listRunbooks(projectPath) {
   const out = [];
   for (const f of files) {
     try {
-      const content = await readFile(join(dir, f), "utf-8");
+      const full = join(dir, f);
+      const content = await readFile(full, "utf-8");
+      const st = await stat(full);
       // 取第一個 # 標題當 title
       const titleMatch = content.match(/^#\s+(.+)$/m);
       out.push({
         id: f.replace(/\.md$/, ""),
         title: titleMatch ? titleMatch[1] : f,
         bytes: content.length,
+        mtime: st.mtime.toISOString(),
         headings: (content.match(/^##\s+(.+)$/gm) || []).slice(0, 8).map(h => h.replace(/^##\s+/, "")),
       });
     } catch { /* skip */ }
   }
-  out.sort((a, b) => a.id.localeCompare(b.id));
+  out.sort((a, b) => (b.mtime || "").localeCompare(a.mtime || "")); // 最新在最上
   return out;
 }
 
