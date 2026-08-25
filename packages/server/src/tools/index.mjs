@@ -788,7 +788,20 @@ function buildHandlers(apps) {
         if (!existsSync(ctxFile)) return "(No project context found)";
         return readFileSync(ctxFile, "utf-8");
       }
-      default: return `Category '${cat}' not implemented in chat assistant. Available: issues, features, context`;
+      case "security": {
+        const secFile = join(root, ".paaw", "security", "scan-results.json");
+        if (!existsSync(secFile)) return "⚠️ Security scan results not found. Run a scan first (coding app → Security tab).";
+        try {
+          const sec = JSON.parse(readFileSync(secFile, "utf-8"));
+          let findings = sec.findings || [];
+          if (args.severity) { const want = String(args.severity).toLowerCase(); findings = findings.filter(f => String(f.severity).toLowerCase() === want); }
+          if (args.file) { const norm = String(args.file).replace(/\\/g, "/"); findings = findings.filter(f => String(f.file || "").replace(/\\/g, "/").includes(norm)); }
+          if (findings.length === 0) return "No security findings. ✅";
+          const summary = sec.stats ? ` (stats: ${JSON.stringify(sec.stats.bySeverity || {})})` : "";
+          return `Security Findings (${findings.length})${summary}:\n` + findings.map(f => `- [${String(f.severity).toUpperCase()}] ${f.file}:${f.line || "?"} — ${f.message}`).join("\n");
+        } catch (err) { return `Error: ${err.message}`; }
+      }
+      default: return `Category '${cat}' not implemented in chat assistant. Available: issues, features, context, security`;
     }
   };
 

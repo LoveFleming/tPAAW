@@ -457,7 +457,7 @@ export const PAAW_TOOLS = [
           name: { type: "string", description: "Standard name to read (for category=standards). If omitted, lists all." },
           status: { type: "string", description: "Filter issues by status (comma-separated): open,in-progress,resolved,closed,wontfix." },
           priority: { type: "string", description: "Filter issues by priority (comma-separated): critical,high,medium,low." },
-          severity: { type: "string", description: "Filter security findings: error,warning,info." },
+          severity: { type: "string", description: "Filter security findings (case-insensitive): critical,error,warning,info." },
           file: { type: "string", description: "File path filter. Used with: test_map (which tests cover this file), security (findings for file), recent_changes (impact of file)." },
           feature: { type: "string", description: "Feature ID for test_map: list all tests for that feature." },
           days: { type: "number", description: "Days back for recent_changes (default: 30)." },
@@ -2039,7 +2039,10 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             try {
               const sec = JSON.parse(readSync(secFile, "utf-8"));
               let findings = sec.findings || [];
-              if (args.severity) findings = findings.filter(f => f.severity === args.severity);
+              if (args.severity) {
+                const want = String(args.severity).toLowerCase();
+                findings = findings.filter(f => String(f.severity).toLowerCase() === want);
+              }
               if (args.file) { const norm = args.file.replace(/\\\\/g, "/"); findings = findings.filter(f => f.file?.replace(/\\\\/g, "/").includes(norm)); }
               if (findings.length === 0) { if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: "clean" }); return "No security findings. ✅"; }
               if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${findings.length} findings` });
