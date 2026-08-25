@@ -1098,5 +1098,11 @@
   "backup.logSaveBtn": "保持ポリシーを保存",
   "backup.logPurgeBtn": "今すぐクリーンアップ",
   "backup.logSaved": "✅ ログ保持ポリシーを保存しました",
-  "backup.logPurged": "✅ {deleted} ファイルを削除（LLM {llm}／Agent {agent}／その他 {other}）"
+  "backup.logPurged": "✅ {deleted} ファイルを削除（LLM {llm}／Agent {agent}／その他 {other}）",
+  "cu.stale.label": "知識が逸脱 — Release Unit 構造が変更されました",
+  "cu.stale.mechanical": "件の機械層の再スキャンが必要",
+  "cu.stale.smart": "件の智能層の再実行が必要",
+  "cu.stale.manual": "件の手動ドキュメントが古い",
+  "cu.stale.manualDetail": "PROJECT.md / CODING-STANDARDS.md — 手動更新が必要、CU再実行では更新されません",
+  "cu.stale.manualDetailDone": "手動ドキュメント（PROJECT.md / CODING-STANDARDS.md）がコードより古い — 手動更新が必要、CU再実行では更新されません"
 }

@@ -1098,5 +1098,11 @@
   "backup.logSaveBtn": "Save retention policy",
   "backup.logPurgeBtn": "Purge now",
   "backup.logSaved": "✅ Log retention policy saved",
-  "backup.logPurged": "✅ Purged {deleted} files (LLM {llm} / Agent {agent} / other {other})"
+  "backup.logPurged": "✅ Purged {deleted} files (LLM {llm} / Agent {agent} / other {other})",
+  "cu.stale.label": "Knowledge Stale — Release Unit structure changed",
+  "cu.stale.mechanical": "mechanical steps to rescan",
+  "cu.stale.smart": "smart steps to rerun",
+  "cu.stale.manual": "manual docs outdated",
+  "cu.stale.manualDetail": "PROJECT.md / CODING-STANDARDS.md — requires manual update, CU rerun won't refresh",
+  "cu.stale.manualDetailDone": "Manual docs (PROJECT.md / CODING-STANDARDS.md) older than code — requires manual update, CU rerun won't refresh"
 }

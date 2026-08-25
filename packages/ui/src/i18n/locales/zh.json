@@ -1098,5 +1098,11 @@
   "backup.logSaveBtn": "儲存保留政策",
   "backup.logPurgeBtn": "立即清理",
   "backup.logSaved": "✅ 日誌保留政策已儲存",
-  "backup.logPurged": "✅ 已清理 {deleted} 個檔案（LLM {llm}／Agent {agent}／其他 {other}）"
+  "backup.logPurged": "✅ 已清理 {deleted} 個檔案（LLM {llm}／Agent {agent}／其他 {other}）",
+  "cu.stale.label": "知識脫節 — Release Unit 結構已變更",
+  "cu.stale.mechanical": "項機械層待重掃",
+  "cu.stale.smart": "項智能層待重跑",
+  "cu.stale.manual": "項人寫文件較舊",
+  "cu.stale.manualDetail": "PROJECT.md / CODING-STANDARDS.md — 需人工更新，重跑不會刷新",
+  "cu.stale.manualDetailDone": "人寫文件（PROJECT.md / CODING-STANDARDS.md）比 code 舊 — 需人工更新，重跑 CU 不會刷新"
 }

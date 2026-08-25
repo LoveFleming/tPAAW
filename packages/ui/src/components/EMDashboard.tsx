@@ -11,6 +11,7 @@ import ChatMessages from "./ChatMessages"; // kept for reference — EM chat now
 import AutoDispatchPanel from "./AutoDispatchPanel";
 import ModelSelector from "./ModelSelector";
 import { cn } from "../utils";
+import { useI18n } from "../i18n";
 import MarkdownText from "./MarkdownText";
 
 interface ChatMessage {
@@ -87,6 +88,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const prevMsgLenRef = useRef(0);
   const composingRef = useRef(false);
+  const { t } = useI18n();
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -1110,10 +1112,10 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
           )}
           {cuPhase === "stale" && (
             <>
-              <span className="text-orange-700 truncate flex-1" title={`知識過期 — code 已變更（${new Date(cuMeta?.codeLastModified || "").toLocaleDateString()}）${staleManual > 0 ? `；人寫文件 ${staleManual} 項較舊（PROJECT.md / CODING-STANDARDS.md — 需人工更新，重跑不會刷新）` : ""}`}>
-                ⚠️ 知識過期 — code 已變更（{new Date(cuMeta?.codeLastModified || "").toLocaleDateString()}）
-                {staleMechanical > 0 && <>，機械層 {staleMechanical} 項待重掃</>}
-                {staleSmart > 0 && <>，智能層 {staleSmart} 項待重跑</>}
+              <span className="text-orange-700 truncate flex-1" title={`${t("cu.stale.label")}（${new Date(cuMeta?.codeLastModified || "").toLocaleDateString()}）${staleManual > 0 ? `；${staleManual} ${t("cu.stale.manual")}（${t("cu.stale.manualDetail")}）` : ""}`}>
+                ⚠️ {t("cu.stale.label")}（{new Date(cuMeta?.codeLastModified || "").toLocaleDateString()}）
+                {staleMechanical > 0 && <>，{staleMechanical} {t("cu.stale.mechanical")}</>}
+                {staleSmart > 0 && <>，{staleSmart} {t("cu.stale.smart")}</>}
               </span>
               {staleMechanical > 0 && (
                 <button
@@ -1141,7 +1143,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
           )}
           {cuPhase === "done" && (
             <>
-              <span className="text-green-700 truncate flex-1" title={((cuMeta?.staleSteps ?? []).filter(s => s.manual).length > 0) ? "人寫文件（PROJECT.md / CODING-STANDARDS.md）比 code 舊 — 需人工更新，重跑 CU 不會刷新" : undefined}>
+              <span className="text-green-700 truncate flex-1" title={((cuMeta?.staleSteps ?? []).filter(s => s.manual).length > 0) ? t("cu.stale.manualDetailDone") : undefined}>
                 ✅ 已完成 {cuMeta?.doneCount ?? 0}/{CU_STEPS.length} — 知識庫就緒
               </span>
               <button onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
