@@ -167,22 +167,66 @@ export function initProjectCrew(projectDir, opts = {}) {
 }
 
 /**
+ * Add-only sync — global coding.* crews added after project initialization
+ * (e.g. coding.ops / coding.handover / coding.rm) automatically join the
+ * project crew. Never removes anything; project overrides & custom agents
+ * are untouched. Persists new ids + copies template to project layer once.
+ */
+function syncNewGlobalCrews(projectDir, config) {
+  let globalIds;
+  try {
+    globalIds = listGlobalCrewIds();
+  } catch {
+    return config;
+  }
+  const known = new Set([...(config.globalCrewIds || []), ...(config.customAgents || [])]);
+  const missing = globalIds.filter(id => !known.has(id));
+  if (missing.length === 0) return config;
+
+  ensureAgentsDir(projectDir);
+  const added = [];
+  for (const crewId of missing) {
+    const globalDef = readGlobalCrew(crewId);
+    if (!globalDef) continue;
+    const destPath = getAgentPath(projectDir, crewId);
+    if (!existsSync(destPath)) {
+      writeJson(destPath, { ...globalDef, _source: "global", _syncedAt: new Date().toISOString() });
+    }
+    added.push(crewId);
+  }
+  if (added.length === 0) return config;
+
+  config.globalCrewIds = [...(config.globalCrewIds || []), ...added];
+  config.models = config.models || {};
+  for (const crewId of added) {
+    if (!config.models[crewId]) {
+      config.models[crewId] = { primary: "", fallbacks: [], emModel: "", autoDispatchModel: "" };
+    }
+  }
+  writeJson(getConfigPath(projectDir), config);
+  return config;
+}
+
+/**
  * Read full project crew — merge global defaults with project overrides.
  * Returns list of agents (excluding EM).
+ * New global crews are auto-synced (add-only) so they appear in every
+ * already-initialized project.
  *
  * @param {string} projectDir
  * @returns {object} { agents: [...], config: {...}, initialized: boolean }
  */
 export function readProjectCrew(projectDir) {
   const configPath = getConfigPath(projectDir);
-  const config = readJson(configPath, { ...DEFAULT_CONFIG });
+  let config = readJson(configPath, { ...DEFAULT_CONFIG });
 
   if (!config.initialized) {
     // Not initialized yet — auto-init from global
     initProjectCrew(projectDir);
+    config = readJson(configPath, { ...DEFAULT_CONFIG });
   }
 
-  const updatedConfig = readJson(configPath, { ...DEFAULT_CONFIG });
+  const updatedConfig = syncNewGlobalCrews(projectDir, config);
   const allIds = [...(updatedConfig.globalCrewIds || []), ...(updatedConfig.customAgents || [])];
 
   const agents = [];
@@ -518,7 +562,7 @@ export function readEMAgent(projectDir) {
 // ── Internal helpers ──
 
 function stripInternal(agent) {
-  const { _source, _clonedAt, _updatedAt, _createdAt, _resetAt, ...rest } = agent;
+  const { _source, _clonedAt, _updatedAt, _createdAt, _resetAt, _syncedAt, ...rest } = agent;
   return {
     ...rest,
     _source: _source || "global",

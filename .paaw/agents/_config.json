@@ -8,7 +8,10 @@
     "coding.doc-writer",
     "coding.helpdesk",
     "coding.qa",
-    "coding.tester"
+    "coding.tester",
+    "coding.handover",
+    "coding.ops",
+    "coding.rm"
   ],
   "customAgents": [],
   "models": {
@@ -31,6 +34,24 @@
       ],
       "emModel": "zai/glm-5.1",
       "nightShiftModel": "openrouter/deepseek/deepseek-v4-flash"
+    },
+    "coding.handover": {
+      "primary": "",
+      "fallbacks": [],
+      "emModel": "",
+      "autoDispatchModel": ""
+    },
+    "coding.ops": {
+      "primary": "",
+      "fallbacks": [],
+      "emModel": "",
+      "autoDispatchModel": ""
+    },
+    "coding.rm": {
+      "primary": "",
+      "fallbacks": [],
+      "emModel": "",
+      "autoDispatchModel": ""
     }
   },
   "skillBindings": {

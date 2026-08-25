@@ -508,6 +508,9 @@ export default function CodingIDE() {
     { id: "coding.doc-writer", emoji: "📝", title: "Doc Writer", mode: "chat" as const, agentId: "doc-writer" },
     // Helpdesk hidden from sidebar
     { id: "coding.qa", emoji: "🔬", title: "QA", mode: "chat" as const, agentId: "qa" },
+    { id: "coding.ops", emoji: "🔧", title: "Ops 維運", mode: "chat" as const, agentId: "ops" },
+    { id: "coding.handover", emoji: "🤝", title: "Handover 交接", mode: "chat" as const, agentId: "handover" },
+    { id: "coding.rm", emoji: "🚦", title: "Release Manager", mode: "chat" as const, agentId: "rm" },
   ]);
   // 效能：badge 衍生陣列 useMemo（inline .map 每鍵新建身分 → 打爆 ChatMessages 的 MessageRow memo）
   const agentToolBadges = useMemo(() => agentToolLog.map(t => ({ name: t.name, status: t.result !== "..." ? "done" as const : "running" as const })), [agentToolLog]);
@@ -1413,6 +1416,9 @@ const sendChat = useCallback(async () => {
           "coding.doc-writer": "doc-writer",
           "coding.qa": "qa",
           "coding.em": "em",
+          "coding.ops": "ops",
+          "coding.handover": "handover",
+          "coding.rm": "rm",
         };
         const a2aAgentId = CREW_TO_AGENT[activeCrew || ""] || activeCrew?.replace(/^coding\./, "") || "architect";
         const a2aAbort = new AbortController();
@@ -1720,6 +1726,9 @@ const sendChat = useCallback(async () => {
       "coding.doc-writer": "doc-writer",
       "coding.qa": "qa",
       "coding.em": "em",
+      "coding.ops": "ops",
+      "coding.handover": "handover",
+      "coding.rm": "rm",
     };
     const a2aAgentId = CREW_TO_AGENT[targetCrew.id] || targetCrew.id.replace(/^coding\./, "");
     const modelForCrew = crewModels[targetCrew.id] || "";
