@@ -762,7 +762,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
         </button>
       </div>
       {view === "chat" ? (
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Header — matches crew agent header layout */}
         <div className="shrink-0 px-4 py-3 border-b relative" style={{ borderColor: tk.borderLight, background: `linear-gradient(135deg, #8b5cf611 0%, #8b5cf608 100%)` }}>
           <div className="flex items-center gap-3">
@@ -1276,7 +1276,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
         )}
 
         {/* Input */}
-        <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight }}>
+        <div className="shrink-0 px-4 py-3 border-t" style={{ borderColor: tk.borderLight }}>
           <div className="flex items-end gap-2">
             <textarea
               value={input}
