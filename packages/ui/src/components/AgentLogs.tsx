@@ -267,12 +267,12 @@ export default function AgentLogs() {
               <th className="px-3 py-2 text-left">Agent</th>
               <th className="px-3 py-2 text-left">狀態</th>
               <th className="px-3 py-2 text-left">RU</th>
-              <th className="px-3 py-2 text-left">Prompt</th>
               <th className="px-3 py-2 text-right">Turns</th>
               <th className="px-3 py-2 text-right">耗時</th>
               <th className="px-3 py-2 text-right">Tokens In/Out</th>
               <th className="px-3 py-2 text-right">成本</th>
               <th className="px-3 py-2 text-left">Model</th>
+              <th className="px-3 py-2 text-left">Prompt</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100">
@@ -287,7 +287,6 @@ export default function AgentLogs() {
                   <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[t.status] || "text-stone-400 bg-stone-50"}`}>{t.status}</span>
                 </td>
                 <td className="px-3 py-2 text-stone-600 text-xs whitespace-nowrap">📦 {t.ruName || "-"}</td>
-                <td className="px-3 py-2 text-stone-500 max-w-xs truncate">{t.prompt}</td>
                 <td className="px-3 py-2 text-right text-stone-500 tabular-nums">{t.turns}</td>
                 <td className="px-3 py-2 text-right text-stone-500 tabular-nums font-medium">{fmtDuration(t.durationMs)}</td>
                 <td className="px-3 py-2 text-right text-xs tabular-nums whitespace-nowrap">
@@ -297,6 +296,7 @@ export default function AgentLogs() {
                 </td>
                 <td className="px-3 py-2 text-right text-emerald-700 tabular-nums font-medium whitespace-nowrap">{fmtCost(t.costUsd)}</td>
                 <td className="px-3 py-2 text-stone-400 text-xs">{t.model?.split("/").pop()}</td>
+                <td className="px-3 py-2 text-stone-500 max-w-xs truncate">{t.prompt}</td>
               </tr>
             ))}
           </tbody>
