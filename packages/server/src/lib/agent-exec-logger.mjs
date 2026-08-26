@@ -50,7 +50,7 @@ export function startAgentLog(taskInfo) {
     taskInfo: {
       taskId,
       agentId: taskInfo.agentId || "unknown",
-      prompt: (taskInfo.prompt || "").slice(0, 500),
+      prompt: undefined, // no longer recording prompt
       model: taskInfo.model || "",
       cwd: taskInfo.cwd || "",
       maxTurns: taskInfo.maxTurns || 0,
@@ -151,7 +151,7 @@ export function startAgentLog(taskInfo) {
       await _updateIndex({
         taskId,
         agentId: taskInfo.agentId || "unknown",
-        prompt: (taskInfo.prompt || "").slice(0, 100),
+        prompt: undefined, // no longer recording prompt
         model: taskInfo.model || "",
         cwd: taskInfo.cwd || "",
         startTime: new Date(startTime).toISOString(),
