@@ -107,9 +107,29 @@ function MarkdownView({ content }: { content: string }) {
 }
 
 // ── Syntax-highlighted Code View with line numbers ──
-function CodeView({ content, fileName }: { content: string; fileName: string }) {
+function CodeView({ content, fileName, filePath, active }: { content: string; fileName: string; filePath: string; active?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const codeRef = useRef<HTMLElement>(null);
+  const cacheKey = filePath || fileName;
+
+  // Restore scroll position when this tab becomes active
+  useEffect(() => {
+    if (active === false) return; // no need to restore when hidden
+    const saved = _scrollCache.get(cacheKey);
+    if (saved && saved > 0 && containerRef.current) {
+      // Use rAF to ensure DOM layout is complete after visibility change
+      requestAnimationFrame(() => {
+        if (containerRef.current) containerRef.current.scrollTop = saved;
+      });
+    }
+  }, [active, cacheKey]);
+
+  // Save scroll on unmount (in case of remount)
+  useEffect(() => {
+    return () => {
+      if (containerRef.current) _scrollCache.set(cacheKey, containerRef.current.scrollTop);
+    };
+  }, [cacheKey]);
 
   const lines = content.split("\n");
   const lineCount = lines.length;
@@ -150,6 +170,9 @@ function CodeView({ content, fileName }: { content: string; fileName: string }) 
     <div
       ref={containerRef}
       className="flex-1 overflow-auto w-full h-full"
+      onScroll={() => {
+        if (containerRef.current) _scrollCache.set(cacheKey, containerRef.current.scrollTop);
+      }}
     >
       <table className="w-full border-collapse" style={{ tableLayout: "fixed" }}>
         <colgroup>
@@ -190,6 +213,9 @@ function CodeView({ content, fileName }: { content: string; fileName: string }) 
 function escapeHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+
+// ── Module-level scroll position cache (survives remounts) ──
+const _scrollCache = new Map<string, number>();
 
 // ── Main Component ──
 interface Props {
@@ -317,10 +343,10 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
       ) : content !== null ? (
         <div className="flex-1 flex flex-col bg-white min-h-0 overflow-hidden">
           {fileType === "json" && parsedJson !== null && <JsonViewer data={parsedJson} />}
-          {fileType === "json" && parsedJson === null && <div className="flex-1 overflow-hidden"><CodeView content={content} fileName={fileName} /></div>}
+          {fileType === "json" && parsedJson === null && <div className="flex-1 overflow-hidden"><CodeView content={content} fileName={fileName} filePath={filePath} active={active} /></div>}
           {fileType === "markdown" && <div className="flex-1 overflow-auto"><MarkdownView content={content} /></div>}
           {fileType === "image" && <ImageView filePath={filePath} />}
-          {fileType === "code" && <div className="flex-1 overflow-hidden"><CodeView content={content} fileName={fileName} /></div>}
+          {fileType === "code" && <div className="flex-1 overflow-hidden"><CodeView content={content} fileName={fileName} filePath={filePath} active={active} /></div>}
         </div>
       ) : null}
     </div>
