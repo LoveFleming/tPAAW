@@ -232,6 +232,95 @@ function safeStr(v: any): string {
 // ═══════════════════════════════════════════════
 // Main Component
 // ═══════════════════════════════════════════════
+// ── Editor Tab Content (extracted so each tab can have its own useMemo/hljs) ──
+function EditorTabContent({ tabId, filePath, tabData, isActive, isEditing, textareaRef, lineNumWidth, handleContentChange, stopEditing, handleCodeViewClick, startEditing, tk, tt, openFile }: {
+  tabId: string;
+  filePath: string;
+  tabData: OpenTab | undefined;
+  isActive: boolean;
+  isEditing: boolean;
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  lineNumWidth: number;
+  handleContentChange: (v: string) => void;
+  stopEditing: () => void;
+  handleCodeViewClick: (e: React.MouseEvent) => void;
+  startEditing: () => void;
+  tk: any;
+  tt: (k: string) => string;
+  openFile: (path: string) => void;
+}) {
+  const tabHighlighted = useMemo(() => {
+    if (!tabData?.content) return "";
+    const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+    const langMap: Record<string, string> = { ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript", mjs: "javascript", json: "json", md: "markdown", py: "python", go: "go", rs: "rust", java: "java", yaml: "yaml", yml: "yaml", xml: "xml", html: "xml", css: "css", scss: "scss", sh: "bash", sql: "sql" };
+    const lang = langMap[ext];
+    try {
+      return lang ? hljs.highlight(tabData.content, { language: lang, ignoreIllegals: true }).value : hljs.highlightAuto(tabData.content).value;
+    } catch { return escapeHtml(tabData.content); }
+  }, [tabData?.content, filePath]);
+
+  const tabLineCount = tabData?.content?.split("\n").length ?? 0;
+
+  return (
+    <div
+      className="absolute inset-0 flex flex-col overflow-hidden"
+      style={{ visibility: isActive ? "visible" : "hidden", zIndex: isActive ? 1 : 0, pointerEvents: isActive ? "auto" : "none" }}
+    >
+      {tabData ? (
+        isEditing ? (
+          <div className="flex h-full w-full">
+            <div className="shrink-0 select-none overflow-hidden" style={{ color: tk.textMuted, backgroundColor: tk.bgMuted, borderRight: `1px solid ${tk.borderLight}`, width: lineNumWidth }}>
+              <div className="py-3">
+                {Array.from({ length: tabLineCount }, (_, i) => (
+                  <div key={i} className="pr-3 text-sm font-mono leading-5" style={{ height: 20 }}>{i + 1}</div>
+                ))}
+              </div>
+            </div>
+            <textarea ref={isActive ? textareaRef : undefined} value={tabData.content} onChange={e => handleContentChange(e.target.value)}
+              onBlur={stopEditing}
+              onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); stopEditing(); } }}
+              className="flex-1 min-w-0 p-3 text-[13px] font-mono leading-5 resize-none outline-none bg-white"
+              style={{ tabSize: 2, whiteSpace: "pre", overflowWrap: "normal", overflowX: "auto" }} spellCheck={false} />
+          </div>
+        ) : (
+          <div className="h-full w-full overflow-auto cursor-text" onClick={handleCodeViewClick} onDoubleClick={startEditing}>
+            <table className="w-full border-collapse" style={{ tableLayout: "fixed" }}>
+              <colgroup>
+                <col style={{ width: lineNumWidth }} />
+                <col />
+              </colgroup>
+              <tbody className="font-mono text-[13px]" style={{ tabSize: 2 }}>
+                {tabHighlighted.split("\n").map((htmlLine: string, i: number) => (
+                  <tr key={i}>
+                    <td
+                      className="text-right pr-3 select-none border-r sticky left-0 z-10"
+                      style={{ backgroundColor: tk.bgMuted, borderColor: tk.borderLight, color: tk.textMuted, lineHeight: "20px", height: "20px", whiteSpace: "nowrap", verticalAlign: "top", fontSize: "12px" }}
+                    >
+                      {i + 1}
+                    </td>
+                    <td className="pl-4" style={{ lineHeight: "20px", height: "20px", whiteSpace: "pre", verticalAlign: "top" }}
+                      dangerouslySetInnerHTML={{ __html: htmlLine || "&nbsp;" }} />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {isActive && (
+              <div className="absolute bottom-3 right-3 text-xs text-stone-300 bg-white/80 px-2 py-1 rounded border" style={{ borderColor: tk.borderInput }}>
+                {tt("vibe.clickToEdit")} · Cmd+S {tt("vibe.save")} · {tt("vibe.autoSave")}
+              </div>
+            )}
+          </div>
+        )
+      ) : (
+        <div className="flex-1 flex items-center justify-center text-stone-400 text-sm">
+          <button onClick={() => openFile(filePath)}
+            className="px-3 py-1.5 rounded bg-stone-100 hover:bg-stone-200 text-stone-600 text-sm">重新載入檔案</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CodingIDE() {
   const { info: themeInfo } = useTheme();
   const { t: tt } = useI18n();
@@ -2756,60 +2845,30 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           {/* ── Content Area ── */}
           <div className="flex-1 flex min-h-0 overflow-hidden relative">
 
-            {/* === EDITOR === */}
-            {activeMainTab?.type === "editor" && activeTab && (
-              <div className="flex-1 min-w-0 overflow-hidden relative">
-                {isEditing ? (
-                  <div className="flex h-full w-full">
-                    <div className="shrink-0 select-none overflow-hidden" style={{ color: tk.textMuted, backgroundColor: tk.bgMuted, borderRight: `1px solid ${tk.borderLight}`, width: lineNumWidth }}>
-                      <div className="py-3">
-                        {Array.from({ length: lineCount }, (_, i) => (
-                          <div key={i} className="pr-3 text-sm font-mono leading-5" style={{ height: 20 }}>{i + 1}</div>
-                        ))}
-                      </div>
-                    </div>
-                    <textarea ref={textareaRef} value={activeTab.content} onChange={e => handleContentChange(e.target.value)}
-                      onBlur={stopEditing}
-                      onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); stopEditing(); } }}
-                      className="flex-1 min-w-0 p-3 text-[13px] font-mono leading-5 resize-none outline-none bg-white"
-                      style={{ tabSize: 2, whiteSpace: "pre", overflowWrap: "normal", overflowX: "auto" }} spellCheck={false} />
-                  </div>
-                ) : (
-                  <div className="h-full w-full overflow-auto cursor-text" onClick={handleCodeViewClick} onDoubleClick={startEditing}>
-                    <table className="w-full border-collapse" style={{ tableLayout: "fixed" }}>
-                      <colgroup>
-                        <col style={{ width: lineNumWidth }} />
-                        <col />
-                      </colgroup>
-                      <tbody className="font-mono text-[13px]" style={{ tabSize: 2 }}>
-                        {highlightedCode.split("\n").map((htmlLine, i) => (
-                          <tr key={i}>
-                            <td
-                              className="text-right pr-3 select-none border-r sticky left-0 z-10"
-                              style={{ backgroundColor: tk.bgMuted, borderColor: tk.borderLight, color: tk.textMuted, lineHeight: "20px", height: "20px", whiteSpace: "nowrap", verticalAlign: "top", fontSize: "12px" }}
-                            >
-                              {i + 1}
-                            </td>
-                            <td className="pl-4" style={{ lineHeight: "20px", height: "20px", whiteSpace: "pre", verticalAlign: "top" }}
-                              dangerouslySetInnerHTML={{ __html: htmlLine || "&nbsp;" }} />
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    <div className="absolute bottom-3 right-3 text-xs text-stone-300 bg-white/80 px-2 py-1 rounded border" style={{ borderColor: tk.borderInput }}>
-                      {tt("vibe.clickToEdit")} · Cmd+S {tt("vibe.save")} · {tt("vibe.autoSave")}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeMainTab?.type === "editor" && !activeTab && (
-              <div className="flex-1 flex items-center justify-center text-stone-400 text-sm">
-                <button onClick={() => { if (activeMainTab?.filePath) openFile(activeMainTab.filePath); }}
-                  className="px-3 py-1.5 rounded bg-stone-100 hover:bg-stone-200 text-stone-600 text-sm">重新載入檔案</button>
-              </div>
-            )}
+            {/* === EDITOR — keep all editor tabs alive (hidden) to preserve scroll === */}
+            {mainTabs.filter(t => t.type === "editor" && t.filePath).map(tab => {
+              const isActive = activeMainTab?.id === tab.id;
+              const tabData = openTabs.find(ot => ot.path === tab.filePath);
+              return (
+                <EditorTabContent
+                  key={tab.id}
+                  tabId={tab.id}
+                  filePath={tab.filePath || ""}
+                  tabData={tabData}
+                  isActive={isActive}
+                  isEditing={isActive && isEditing}
+                  textareaRef={textareaRef}
+                  lineNumWidth={lineNumWidth}
+                  handleContentChange={handleContentChange}
+                  stopEditing={stopEditing}
+                  handleCodeViewClick={handleCodeViewClick}
+                  startEditing={startEditing}
+                  tk={tk}
+                  tt={tt}
+                  openFile={openFile}
+                />
+              );
+            })}
 
             {/* === FILE VIEWER — keep all viewer tabs alive (hidden) to preserve scroll === */}
             {mainTabs.filter(t => t.type === "viewer" && t.filePath).map(tab => {
