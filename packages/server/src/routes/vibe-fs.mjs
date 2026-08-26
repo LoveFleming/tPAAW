@@ -531,8 +531,9 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     args.push(query, cwd);
 
     try {
-      const child = spawn("rg", args, { cwd, timeout: 15000 });
+      const child = spawn("rg", args, { cwd, timeout: 15000, shell: process.platform === "win32" });
       let stdout = "", stderr = "", resultCount = 0;
+      let responded = false; // guard against double response (error + close both firing)
       const results = [];
       const fileMap = new Map(); // path → { filename, matches: [] }
 
@@ -568,6 +569,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
       child.stderr.on("data", (d) => { stderr += d; });
 
       child.on("close", (code) => {
+        if (responded) return; // already sent response (e.g. from error handler)
         // rg exit code 0 = found matches, 1 = no matches, 2+ = error
         if (code !== null && code > 1) {
           // rg errored — use native fallback
@@ -580,6 +582,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
         for (const f of allResults) {
           if (f.matches.length > 20) f.matches = f.matches.slice(0, 20);
         }
+        responded = true;
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           results: allResults.slice(0, maxResults),
@@ -589,6 +592,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
       });
 
       child.on("error", () => {
+        if (responded) return;
         // rg not found — fallback to Node.js native search
         return nativeSearch(cwd, query, { caseSensitive, wholeWord, useRegex }, maxResults, res);
       });
@@ -605,7 +609,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
 // ── Native cross-platform search (fallback when rg is unavailable or errors) ──
 
 async function nativeSearch(cwd, query, opts, maxResults, res) {
-  const { readdirSync, statSync } = await import("fs");
+  const { readdirSync, statSync, readFileSync } = await import("fs");
   const fileMap = new Map();
   const maxDepth = 10;
   const ignoreDirs = new Set([".git", "node_modules", "dist", "build", ".next", "__pycache__", ".paaw", ".cache"]);

@@ -3785,7 +3785,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                     <div
                       key={mi}
                       className="flex items-start gap-2 px-3 py-0.5 pl-8 cursor-pointer hover:bg-blue-50 text-xs"
-                      onClick={() => { openFile(file.path); setActiveSubPanel("editor"); }}
+                      onClick={() => { openFile(file.path); setActiveSubPanel("editor"); setShowSearch(false); }}
                     >
                       <span className="text-stone-400 shrink-0 w-8 text-right">{match.line}</span>
                       <span className="text-stone-600 truncate">{highlightMatch(match.content, searchQuery, searchCaseSensitive)}</span>
