@@ -115,7 +115,7 @@ export default function LlmLogTab() {
   const agentOptions = summary?.byAgent ? Object.keys(summary.byAgent).sort() : [];
 
   return (
-    <div className="flex-1 flex flex-col min-w-0" style={{ backgroundColor: "#1a1a2e", color: "#cdd6f4" }}>
+    <div className="flex-1 flex flex-col min-h-0 h-full" style={{ backgroundColor: "#1a1a2e", color: "#cdd6f4" }}>
       {/* ── Header: Stats Summary ── */}
       <div className="px-4 py-3 border-b border-stone-700/50 flex items-center gap-4 flex-wrap">
         <h2 className="text-sm font-bold flex items-center gap-1.5">📡 LLM API Log</h2>
@@ -142,16 +142,9 @@ export default function LlmLogTab() {
               <span className="px-2 py-0.5 rounded bg-amber-900/50 text-amber-300">
                 ⏱ {formatDuration(summary.totalDurationMs)}
               </span>
-              {summary.auditFail > 0 && (
-                <span className="px-2 py-0.5 rounded bg-red-900/50 text-red-300">
-                  🛡️ ❌ {summary.auditFail}
-                </span>
-              )}
-              {summary.auditOk > 0 && (
-                <span className="px-2 py-0.5 rounded bg-emerald-900/30 text-emerald-400">
-                  🛡️ ✅ {summary.auditOk}
-                </span>
-              )}
+              <span className="px-2 py-0.5 rounded bg-stone-700/60 text-stone-200 font-semibold">
+                🛡️ 合規 {summary.auditOk ?? 0} · 不合規 {summary.auditFail ?? 0}
+              </span>
             </>
           )}
         </div>
@@ -195,7 +188,7 @@ export default function LlmLogTab() {
       )}
 
       {/* ── Main Content: Log List ── */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden flex">
         {/* Log List */}
         <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#444 #1a1a2e" }}>
           <table className="w-full text-xs">
