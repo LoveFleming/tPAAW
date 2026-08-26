@@ -59,7 +59,7 @@ function ImageView({ filePath }: { filePath: string }) {
         className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
         onError={(e) => {
           (e.target as HTMLImageElement).style.display = "none";
-          (e.target as HTMLImageElement).parentElement!.innerHTML = `<div class=\"text-stone-400 text-sm\">Failed to load image</div>`;
+          (e.target as HTMLImageElement).parentElement!.innerHTML = `<div class="text-stone-400 text-sm">Failed to load image</div>`;
         }}
       />
     </div>
@@ -105,6 +105,13 @@ function MarkdownView({ content }: { content: string }) {
     </div>
   );
 }
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// ── Module-level scroll position cache (survives remounts) ──
+const _scrollCache = new Map<string, number>();
 
 // ── Syntax-highlighted Code View with line numbers ──
 function CodeView({ content, fileName, filePath, active }: { content: string; fileName: string; filePath: string; active?: boolean }) {
@@ -210,13 +217,6 @@ function CodeView({ content, fileName, filePath, active }: { content: string; fi
   );
 }
 
-function escapeHtml(str: string): string {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-// ── Module-level scroll position cache (survives remounts) ──
-const _scrollCache = new Map<string, number>();
-
 // ── Main Component ──
 interface Props {
   filePath: string;
@@ -245,13 +245,15 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
     try { return JSON.parse(content); } catch { return null; }
   }, [content, filePath]);
 
-  // Track last loaded filePath to know when to re-fetch
-  const [loadedPath, setLoadedPath] = useState<string | null>(null);
+  // Track last loaded filePath — use REF (not state) to avoid stale-dep abort
+  // When loadedPath was state in [filePath, loadedPath] deps, React would re-run
+  // the effect on setLoadedPath(), causing cleanup→abort of a just-completed fetch.
+  const loadedPathRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!filePath) { setContent(null); setMeta(null); setLoadedPath(null); return; }
+    if (!filePath) { setContent(null); setMeta(null); loadedPathRef.current = null; return; }
     // Already loaded this file? Don't re-fetch (preserves scroll position)
-    if (loadedPath === filePath) return;
+    if (loadedPathRef.current === filePath) return;
     const fileName = pathBasename(filePath);
     const fileType = detectFileType(fileName);
     // For images, don't fetch content — ImageView uses direct URL
@@ -259,7 +261,7 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
       setContent(""); // trigger loaded state
       setMeta({ size: 0 });
       setLoading(false);
-      setLoadedPath(filePath);
+      loadedPathRef.current = filePath;
       return;
     }
     setLoading(true);
@@ -267,9 +269,11 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
     setMeta(null);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
+    const fetchUrl = `${API_BASE}/api/fs/file?path=${encodeURIComponent(filePath)}`;
+    console.log(`[FileViewer] Fetching: ${fetchUrl}`);
     // Retry logic: up to 3 attempts with 500ms delay
     const doFetch = (attempt = 0) => {
-      fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(filePath)}`, { signal: controller.signal })
+      fetch(fetchUrl, { signal: controller.signal })
         .then(r => {
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           return r.json();
@@ -279,13 +283,13 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
           setContent(data.content ?? "");
           setMeta({ size: data.size ?? 0 });
           setLoading(false);
-          setLoadedPath(filePath);
+          loadedPathRef.current = filePath;
         })
         .catch((err) => {
           if (err.name === 'AbortError') {
             setContent(`// Unable to load file: Request timed out`);
             setLoading(false);
-            setLoadedPath(filePath); // Mark as loaded to prevent retry loop
+            loadedPathRef.current = filePath; // Mark as loaded to prevent retry loop
             return;
           }
           if (attempt < 2) {
@@ -293,13 +297,13 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
           } else {
             setContent(`// Unable to load file: ${err.message}`);
             setLoading(false);
-            setLoadedPath(filePath); // Mark as loaded to prevent retry loop
+            loadedPathRef.current = filePath; // Mark as loaded to prevent retry loop
           }
         });
     };
     doFetch(0);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [filePath, loadedPath]);
+  }, [filePath]); // ONLY filePath — loadedPathRef never triggers re-run
 
   const safeRoot = projectRoot || '';
   const relativePath = safeRoot ? filePath.replace(new RegExp(`^${safeRoot.replace(/[\\/]+/g, '/').replace(/\/$/, '')}/?`), '') : filePath;
