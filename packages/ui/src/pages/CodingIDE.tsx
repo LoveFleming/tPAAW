@@ -1170,6 +1170,13 @@ export default function CodingIDE() {
 
   const startEditing = useCallback(() => { setIsEditing(true); setTimeout(() => textareaRef.current?.focus(), 50); }, []);
   const stopEditing = useCallback(() => { setIsEditing(false); if (activeTab?.modified) saveFile(activeTab); }, [activeTab, saveFile]);
+  const handleCodeViewClick = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Only left click
+    // Don't enter edit mode when user was selecting text
+    const selection = window.getSelection();
+    if (selection && selection.toString().length > 0) return;
+    startEditing();
+  }, [startEditing]);
 
   const handleContentChange = useCallback((newContent: string) => {
     if (!activeTabId) return;
@@ -2766,7 +2773,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                       style={{ tabSize: 2, whiteSpace: "pre", overflowWrap: "normal", overflowX: "auto" }} spellCheck={false} />
                   </div>
                 ) : (
-                  <div className="h-full w-full overflow-auto cursor-text" onClick={startEditing} onDoubleClick={startEditing}>
+                  <div className="h-full w-full overflow-auto cursor-text" onClick={handleCodeViewClick} onDoubleClick={startEditing}>
                     <table className="w-full border-collapse" style={{ tableLayout: "fixed" }}>
                       <colgroup>
                         <col style={{ width: lineNumWidth }} />
@@ -2808,8 +2815,11 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
               return (
                 <div
                   key={tab.id}
-                  className="flex-1 flex flex-col overflow-hidden"
-                  style={{ display: isActive ? undefined : "none" }}
+                  className={isActive ? "flex-1 flex flex-col overflow-hidden" : "flex flex-col overflow-hidden"}
+                  style={isActive
+                    ? { position: "relative", zIndex: 1 }
+                    : { position: "absolute", visibility: "hidden", pointerEvents: "none", inset: 0, zIndex: 0 }
+                  }
                 >
                   <FileViewer filePath={tab.filePath!} projectRoot={rootPath} active={isActive} />
                 </div>

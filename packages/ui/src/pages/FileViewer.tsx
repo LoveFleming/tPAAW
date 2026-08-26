@@ -224,9 +224,8 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
 
   useEffect(() => {
     if (!filePath) { setContent(null); setMeta(null); setLoadedPath(null); return; }
-    if (active === false) return; // Don't fetch when tab is hidden
     // Already loaded this file? Don't re-fetch (preserves scroll position)
-    if (loadedPath === filePath && content !== null) return;
+    if (loadedPath === filePath) return;
     const fileName = pathBasename(filePath);
     const fileType = detectFileType(fileName);
     // For images, don't fetch content — ImageView uses direct URL
@@ -260,6 +259,7 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
           if (err.name === 'AbortError') {
             setContent(`// Unable to load file: Request timed out`);
             setLoading(false);
+            setLoadedPath(filePath); // Mark as loaded to prevent retry loop
             return;
           }
           if (attempt < 2) {
@@ -267,12 +267,13 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
           } else {
             setContent(`// Unable to load file: ${err.message}`);
             setLoading(false);
+            setLoadedPath(filePath); // Mark as loaded to prevent retry loop
           }
         });
     };
     doFetch(0);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [filePath, active, loadedPath, content]);
+  }, [filePath, loadedPath]);
 
   const safeRoot = projectRoot || '';
   const relativePath = safeRoot ? filePath.replace(new RegExp(`^${safeRoot.replace(/[\\/]+/g, '/').replace(/\/$/, '')}/?`), '') : filePath;
