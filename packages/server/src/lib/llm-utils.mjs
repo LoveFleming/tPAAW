@@ -402,8 +402,8 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
         error: null,
         finishReason: choice.finish_reason || null,
         contentLen: content.length,
-        contentPreview: content.slice(0, 500),
-        toolCalls: (choice.message?.tool_calls || []).map(tc => ({ name: tc.function?.name, argsLen: (tc.function?.arguments || "").length })),
+        contentPreview: content.slice(0, 2000),
+        toolCalls: (choice.message?.tool_calls || []).map(tc => ({ name: tc.function?.name, argsLen: (tc.function?.arguments || "").length, args: (tc.function?.arguments || "").slice(0, 2000) })),
         usage: data.usage || null,
         caller: opts.caller || null,
         taskId: opts.taskId || null, // R3: cost 歸集 tag

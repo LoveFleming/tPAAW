@@ -20,9 +20,10 @@ interface LlmLogItem {
   durationMs: number | null;
   finishReason: string | null;
   contentLen: number;
-  toolCalls: { name: string; argsLen: number }[];
+  toolCalls: { name: string; argsLen: number; args: string }[];
   auditOk: boolean;
   auditViolations: string[];
+  contentPreview: string;
   usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null;
   error: string | null;
   caller: string | null;
@@ -329,18 +330,23 @@ export default function LlmLogTab() {
               {selectedLog.toolCalls.length > 0 && (
                 <div>
                   <div className="text-stone-500 mb-0.5">Tool Calls ({selectedLog.toolCalls.length})</div>
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     {selectedLog.toolCalls.map((tc, i) => {
                       const isViolation = selectedLog.auditViolations?.includes(tc.name);
                       return (
-                        <div key={i} className={`px-2 py-1 rounded text-xs ${isViolation ? "bg-red-900/40 text-red-300" : "bg-stone-800 text-amber-300"}`}>
-                          {isViolation ? "🚫" : "🔧"} {tc.name} <span className="text-stone-500">({tc.argsLen} chars)</span>
+                        <div key={i} className={`rounded text-xs overflow-hidden ${isViolation ? "bg-red-900/40 border border-red-800/50" : "bg-stone-800"}`}>
+                          <div className={`px-2 py-1 font-medium ${isViolation ? "text-red-300" : "text-amber-300"}`}>
+                            {isViolation ? "🚫" : "🔧"} {tc.name}
+                          </div>
+                          {tc.args && (
+                            <pre className="px-2 py-1 text-[10px] text-stone-300 whitespace-pre-wrap break-all border-t border-stone-700/50 max-h-40 overflow-y-auto">{tc.args}</pre>
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 </div>
-              )}
+              )}}
               {selectedLog.toolCalls.length > 0 && !selectedLog.auditOk && (
                 <div className="px-2 py-1.5 rounded bg-red-900/30 border border-red-800/50">
                   <div className="text-red-300 text-xs font-medium">🚫 Audit Violations ({selectedLog.auditViolations.length})</div>
@@ -359,8 +365,12 @@ export default function LlmLogTab() {
               )}
               {selectedLog.contentLen > 0 && (
                 <div>
-                  <div className="text-stone-500 mb-0.5">Response</div>
-                  <div className="text-emerald-300">{selectedLog.contentLen} chars</div>
+                  <div className="text-stone-500 mb-0.5">Response ({selectedLog.contentLen} chars)</div>
+                  {selectedLog.contentPreview ? (
+                    <pre className="text-emerald-300 text-[10px] whitespace-pre-wrap break-all max-h-60 overflow-y-auto bg-stone-800/50 rounded p-2">{selectedLog.contentPreview}{selectedLog.contentLen > selectedLog.contentPreview.length ? "\n..." : ""}</pre>
+                  ) : (
+                    <div className="text-emerald-300">{selectedLog.contentLen} chars</div>
+                  )}
                 </div>
               )}
               <div>

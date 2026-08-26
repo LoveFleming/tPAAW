@@ -116,6 +116,7 @@ function pairLogs(logs) {
         durationMs: p.response?.durationMs ?? null,
         finishReason: p.response?.finishReason ?? null,
         contentLen: p.response?.contentLen ?? 0,
+        contentPreview: p.response?.contentPreview || "",
         toolCalls,
         auditOk,
         auditViolations: violations.map(v => v.name),
