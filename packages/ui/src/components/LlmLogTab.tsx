@@ -346,7 +346,7 @@ export default function LlmLogTab() {
                     })}
                   </div>
                 </div>
-              )}}
+              )}
               {selectedLog.toolCalls.length > 0 && !selectedLog.auditOk && (
                 <div className="px-2 py-1.5 rounded bg-red-900/30 border border-red-800/50">
                   <div className="text-red-300 text-xs font-medium">🚫 Audit Violations ({selectedLog.auditViolations.length})</div>
