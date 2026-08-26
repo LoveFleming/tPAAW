@@ -103,8 +103,18 @@ function pairLogs(logs) {
       const toolCalls = p.response?.toolCalls || [];
       const allowedTools = p.request.toolNames || [];
       // Audit: every tool call must be in the allowed tool list
-      const violations = toolCalls.filter(tc => tc.name && !allowedTools.includes(tc.name));
-      const auditOk = violations.length === 0;
+      // If allowedTools is empty (old logs without toolNames), audit is N/A
+      const hasAllowList = allowedTools.length > 0;
+      const violations = hasAllowList
+        ? toolCalls.filter(tc => tc.name && !allowedTools.includes(tc.name))
+        : [];
+      const auditOk = toolCalls.length === 0 ? null         // no tool calls → N/A
+        : !hasAllowList ? null                                // no allow list → N/A
+        : violations.length === 0;                            // has list + no violations → true
+      const auditViolations = violations.map(v => ({
+        tool: v.name,
+        reason: `不在允許清單 [${allowedTools.slice(0, 10).join(", ")}${allowedTools.length > 10 ? ", ..." : ""}] 中`,
+      }));
       return {
         id: p.request.id,
         ts: p.request.ts,
@@ -119,7 +129,8 @@ function pairLogs(logs) {
         contentPreview: p.response?.contentPreview || "",
         toolCalls,
         auditOk,
-        auditViolations: violations.map(v => v.name),
+        auditViolations,
+        auditNA: auditOk === null,
         usage: p.response?.usage || null,
         error: p.response?.error || null,
         caller: p.request.caller || p.response?.caller || null,
@@ -178,12 +189,13 @@ export default async function llmLogsRoute(req, res) {
       }
 
       // Tool audit summary
-      const auditOkCount = filtered.filter(l => l.auditOk).length;
-      const auditFailCount = filtered.filter(l => !l.auditOk).length;
+      const auditOkCount = filtered.filter(l => l.auditOk === true).length;
+      const auditFailCount = filtered.filter(l => l.auditOk === false).length;
+      const auditNACount = filtered.filter(l => l.auditOk === null).length;
       const allViolations = filtered.flatMap(l => l.auditViolations || []);
       const violationCounts = {};
       for (const v of allViolations) {
-        violationCounts[v] = (violationCounts[v] || 0) + 1;
+        violationCounts[v.tool] = (violationCounts[v.tool] || 0) + 1;
       }
 
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -193,7 +205,7 @@ export default async function llmLogsRoute(req, res) {
         offset,
         limit,
         days,
-        summary: { success, errors, totalDurationMs, totalTokens, totalPromptTokens, totalCompletionTokens, byModel, byAgent, auditOk: auditOkCount, auditFail: auditFailCount, violations: violationCounts },
+        summary: { success, errors, totalDurationMs, totalTokens, totalPromptTokens, totalCompletionTokens, byModel, byAgent, auditOk: auditOkCount, auditFail: auditFailCount, auditNA: auditNACount, violations: violationCounts },
       }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });

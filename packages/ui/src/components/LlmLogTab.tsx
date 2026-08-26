@@ -21,8 +21,9 @@ interface LlmLogItem {
   finishReason: string | null;
   contentLen: number;
   toolCalls: { name: string; argsLen: number; args: string }[];
-  auditOk: boolean;
-  auditViolations: string[];
+  auditOk: boolean | null; // null = N/A (no tool calls or no allow list)
+  auditViolations: { tool: string; reason: string }[];
+  auditNA: boolean;
   contentPreview: string;
   usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null;
   error: string | null;
@@ -40,6 +41,7 @@ interface LlmLogSummary {
   byAgent: Record<string, { count: number; tokens: number; errors: number }>;
   auditOk: number;
   auditFail: number;
+  auditNA: number;
   violations: Record<string, number>;
 }
 
@@ -144,7 +146,7 @@ export default function LlmLogTab() {
                 ⏱ {formatDuration(summary.totalDurationMs)}
               </span>
               <span className="px-2 py-0.5 rounded bg-stone-700/60 text-stone-200 font-semibold">
-                🛡️ 合規 {summary.auditOk ?? 0} · 不合規 {summary.auditFail ?? 0}
+                🛡️ 合規 {summary.auditOk ?? 0} · 不合規 {summary.auditFail ?? 0}{summary.auditNA > 0 ? ` · N/A ${summary.auditNA}` : ""}
               </span>
             </>
           )}
@@ -231,8 +233,8 @@ export default function LlmLogTab() {
                     )}
                   </td>
                   <td className="px-3 py-1.5 whitespace-nowrap">
-                    {log.toolCalls.length === 0 ? (
-                      <span className="text-stone-600">—</span>
+                    {log.auditOk === null ? (
+                      <span className="text-stone-600">N/A</span>
                     ) : log.auditOk ? (
                       <span className="text-emerald-400">✅ {log.toolCalls.length}</span>
                     ) : (
@@ -337,6 +339,9 @@ export default function LlmLogTab() {
                         <div key={i} className={`rounded text-xs overflow-hidden ${isViolation ? "bg-red-900/40 border border-red-800/50" : "bg-stone-800"}`}>
                           <div className={`px-2 py-1 font-medium ${isViolation ? "text-red-300" : "text-amber-300"}`}>
                             {isViolation ? "🚫" : "🔧"} {tc.name}
+                            {isViolation && selectedLog.auditViolations?.find(v => v.tool === tc.name) && (
+                              <span className="text-stone-500 text-[10px] ml-1">— {selectedLog.auditViolations.find(v => v.tool === tc.name).reason}</span>
+                            )}
                           </div>
                           {tc.args && (
                             <pre className="px-2 py-1 text-[10px] text-stone-300 whitespace-pre-wrap break-all border-t border-stone-700/50 max-h-40 overflow-y-auto">{tc.args}</pre>
@@ -347,14 +352,23 @@ export default function LlmLogTab() {
                   </div>
                 </div>
               )}
-              {selectedLog.toolCalls.length > 0 && !selectedLog.auditOk && (
+              {selectedLog.toolCalls.length > 0 && !selectedLog.auditOk && selectedLog.auditOk !== null && (
                 <div className="px-2 py-1.5 rounded bg-red-900/30 border border-red-800/50">
                   <div className="text-red-300 text-xs font-medium">🚫 Audit Violations ({selectedLog.auditViolations.length})</div>
-                  <div className="text-red-400 text-[10px] mt-1">
+                  <div className="space-y-1 mt-1">
                     {selectedLog.auditViolations.map((v, i) => (
-                      <span key={i} className="inline-block mr-1 px-1 py-0.5 rounded bg-red-900/50">{v}</span>
+                      <div key={i} className="text-red-400 text-[10px]">
+                        <span className="font-semibold text-red-300">{v.tool}</span>
+                        <span className="text-stone-500"> — {v.reason}</span>
+                      </div>
                     ))}
                   </div>
+                </div>
+              )}
+              {selectedLog.auditOk === null && selectedLog.toolCalls.length > 0 && (
+                <div className="px-2 py-1.5 rounded bg-stone-700/30 border border-stone-700/50">
+                  <div className="text-stone-400 text-xs font-medium">⚠️ Audit N/A</div>
+                  <div className="text-stone-500 text-[10px] mt-1">要求記錄缺少允許工具清單，無法判定合規性</div>
                 </div>
               )}
               {selectedLog.error && (
