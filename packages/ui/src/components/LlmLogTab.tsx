@@ -379,7 +379,7 @@ export default function LlmLogTab() {
               )}
               {selectedLog.contentLen > 0 && (
                 <div>
-                  <div className="text-stone-500 mb-0.5">Response ({selectedLog.contentLen} chars)</div>
+                  <div className="text-stone-500 mb-0.5">💬 AI 回覆 ({selectedLog.contentLen} chars)</div>
                   {selectedLog.contentPreview ? (
                     <pre className="text-emerald-300 text-[10px] whitespace-pre-wrap break-all max-h-60 overflow-y-auto bg-stone-800/50 rounded p-2">{selectedLog.contentPreview}{selectedLog.contentLen > selectedLog.contentPreview.length ? "\n..." : ""}</pre>
                   ) : (
