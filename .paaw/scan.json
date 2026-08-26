@@ -1,36 +1,49 @@
-```json
-{
-  "projectName": "paaw",
-  "projectType": "web-app",
-  "language": "TypeScript (inferred from git log)",
-  "framework": "React/Next.js (inferred)",
-  "runtime": "Node.js",
-  "summary": "An AI agent management platform with a coding IDE for feature mapping, issue tracking, and code health analysis. Analysis based solely on git log; no source code files were provided in the file tree.",
-  "entryPoints": [],
-  "keyDirectories": {
-    "source": null,
-    "tests": null,
-    "config": null,
-    "docs": null
-  },
-  "modules": [],
-  "apis": [],
-  "errorCodes": [],
-  "dataModels": [],
-  "techDebt": [
-    {
-      "area": "Source code not provided in file tree",
-      "severity": "high",
-      "suggestion": "Provide full file tree including source directories (e.g., src/, app/, etc.) to enable accurate analysis."
-    }
-  ],
-  "healthGaps": {
-    "missingApiSpec": true,
-    "missingErrorMap": true,
-    "missingTests": true,
-    "missingStandards": true,
-    "missingArchitecture": true,
-    "missingDecisions": true
-  }
-}
+## Scan Aborted — Missing Inputs
+
+I cannot produce a valid inventory: **the file tree scan failed**, so I have no source code to read. The only real input I received is the git log.
+
+Per the rules ("Read ACTUAL source code, don't guess from file names" / "Be precise with file paths — they will be used to navigate"), fabricating `modules`, `apis`, `dataModels`, and file paths from commit messages alone would poison downstream navigation. So I'm not emitting the JSON yet.
+
+---
+
+### 1. Why the file tree failed
+
+The `find` command used unescaped parentheses, which POSIX `/bin/sh` rejects:
+
 ```
+find . -type f ( -name '*.ts' ... )      ← syntax error near `('
+```
+
+**Corrected command** (escape as `\(` `\)`, or run under bash/zsh):
+
+```bash
+find . -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.mjs' -o -name '*.js' -o -name '*.cjs' -o -name '*.jsx' -o -name '*.py' -o -name '*.java' -o -name '*.go' -o -name '*.rb' -o -name '*.php' \) \
+  -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/.paaw/*' \
+  -not -path '*/dist/*' -not -path '*/build/*' -not -path '*/coverage/*' \
+  -not -path '*/data/semgrep-rules/*'
+```
+
+Also note: the `Dependencies` field came back empty, so the package.json read likely failed too — worth re-checking that step.
+
+---
+
+### 2. Unverified inferences from git log (NOT for the inventory)
+
+Hypotheses only — must be confirmed against actual source before entering the knowledge base:
+
+- **Project**: PAAW (`paaw`), v0.3.9, appears to be a self-hosted AI agent workbench / "agentic platform" with a plugin system (`agentic-platform`, `agentic-bindings` plugins referenced)
+- **Likely modules referenced in commits**: onboarding wizard, Provider (LLM) settings, Chat (ChatView), EM (with Chat + 派工 Auto Dispatch sub-tabs), Ops (Runbook + Troubleshooting), backup system, logging with retention policy, seed data (bookmarks, pocket apps), code-health scoring (recently simplified)
+- **Runtime hints**: `.mjs` files and `PAAW_DATA_HOME` env var suggest Node.js; Windows backup paths + onboarding UI suggest a desktop or local web app
+- **Locale**: Traditional Chinese UI/commits
+- **Recent architectural churn**: removal of Project Knowledge Panel, Code Health five-category scores, ensure-default patterns being stripped (0.3.5–0.3.7) — the codebase is mid-refactor
+
+---
+
+### 3. What I need to complete the scan
+
+Re-run the context gathering with:
+1. The corrected `find` command (or `git ls-files` as a simpler fallback)
+2. The actual `package.json` contents
+3. Source files themselves (or at minimum the tree + key entry points) so dependency edges and API definitions can be verified
+
+Once the file tree lands, I can produce the full JSON inventory in one pass — including `healthGaps`, which I suspect will flag `missingArchitecture` and `missingDecisions` given the ongoing refactors visible in the log.
