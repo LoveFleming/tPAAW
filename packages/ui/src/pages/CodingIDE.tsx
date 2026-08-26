@@ -325,11 +325,13 @@ export default function CodingIDE() {
   useEffect(() => {
     if (activeMainTab?.type === "ai-crew" && activeMainTab.crewId) {
       setActiveCrew(activeMainTab.crewId);
-      // Tab reconstruct（重啟後還原 tab）也要載入 crew profile — 否則大頭照退回 emoji（2026-08-19 fix）
-      fetch(`${API_BASE}/api/coding-crew/${activeMainTab.crewId}`).then(r => (r.ok ? r.json() : null)).then(data => {
-        if (data) setCrewProfile(prev => ({ ...prev, [activeMainTab.crewId!]: data }));
-      }).catch(() => {});
-      // Refresh archived conversations when switching crew tab
+      // Only fetch profile if not already cached — avoids re-fetch on every tab switch
+      if (!crewProfile[activeMainTab.crewId]) {
+        fetch(`${API_BASE}/api/coding-crew/${activeMainTab.crewId}`).then(r => (r.ok ? r.json() : null)).then(data => {
+          if (data) setCrewProfile(prev => ({ ...prev, [activeMainTab.crewId!]: data }));
+        }).catch(() => {});
+      }
+      // Refresh archived conversations only when archive panel is open
       if (rootPath && showArchivePanel) {
         loadArchivedConversations(activeMainTab.crewId, rootPath);
       }
@@ -2815,11 +2817,8 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
               return (
                 <div
                   key={tab.id}
-                  className={isActive ? "flex-1 flex flex-col overflow-hidden" : "flex flex-col overflow-hidden"}
-                  style={isActive
-                    ? { position: "relative", zIndex: 1 }
-                    : { position: "absolute", visibility: "hidden", pointerEvents: "none", inset: 0, zIndex: 0 }
-                  }
+                  className="absolute inset-0 flex flex-col overflow-hidden"
+                  style={{ visibility: isActive ? "visible" : "hidden", zIndex: isActive ? 1 : 0, pointerEvents: isActive ? "auto" : "none" }}
                 >
                   <FileViewer filePath={tab.filePath!} projectRoot={rootPath} active={isActive} />
                 </div>
@@ -3191,8 +3190,8 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
               const hasProject = !!rootPath;
               const isCrewActive = activeMainTab?.type === "ai-crew" && activeMainTab?.crewId === activeCrew;
               return (
-              <div key={activeCrew} className="flex-1 flex flex-col min-w-0 bg-white"
-                style={isCrewActive ? undefined : { display: "none" }}>
+              <div key={activeCrew} className="absolute inset-0 flex flex-col min-w-0 bg-white"
+                style={{ visibility: isCrewActive ? "visible" : "hidden", zIndex: isCrewActive ? 1 : 0, pointerEvents: isCrewActive ? "auto" : "none" }}>
                 {/* Profile header */}
                 <div className="shrink-0 px-4 py-3 relative" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: `linear-gradient(135deg, ${tk.accent}11 0%, ${tk.accentBg} 100%)` }}>
                   <div className="flex items-center gap-3">
