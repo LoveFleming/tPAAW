@@ -21,6 +21,8 @@ interface LlmLogItem {
   finishReason: string | null;
   contentLen: number;
   toolCalls: { name: string; argsLen: number }[];
+  auditOk: boolean;
+  auditViolations: string[];
   usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null;
   error: string | null;
   caller: string | null;
@@ -35,6 +37,9 @@ interface LlmLogSummary {
   totalCompletionTokens: number;
   byModel: Record<string, { count: number; tokens: number; errors: number; durationMs: number }>;
   byAgent: Record<string, { count: number; tokens: number; errors: number }>;
+  auditOk: number;
+  auditFail: number;
+  violations: Record<string, number>;
 }
 
 interface LlmLogResponse {
@@ -137,6 +142,16 @@ export default function LlmLogTab() {
               <span className="px-2 py-0.5 rounded bg-amber-900/50 text-amber-300">
                 ⏱ {formatDuration(summary.totalDurationMs)}
               </span>
+              {summary.auditFail > 0 && (
+                <span className="px-2 py-0.5 rounded bg-red-900/50 text-red-300">
+                  🛡️ ❌ {summary.auditFail}
+                </span>
+              )}
+              {summary.auditOk > 0 && (
+                <span className="px-2 py-0.5 rounded bg-emerald-900/30 text-emerald-400">
+                  🛡️ ✅ {summary.auditOk}
+                </span>
+              )}
             </>
           )}
         </div>
@@ -182,19 +197,19 @@ export default function LlmLogTab() {
       {/* ── Main Content: Log List ── */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Log List */}
-        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#444 #1a1a2e" }}>
           <table className="w-full text-xs">
-            <thead className="sticky top-0 bg-[#1a1a2e]">
+            <thead className="sticky top-0 z-10" style={{ backgroundColor: "#1a1a2e" }}>
               <tr className="text-stone-500 border-b border-stone-700/50">
                 <th className="text-left px-3 py-2 font-medium">Time</th>
                 <th className="text-left px-3 py-2 font-medium">Agent</th>
-                <th className="text-left px-3 py-2 font-medium">Caller</th>
                 <th className="text-left px-3 py-2 font-medium">Model</th>
                 <th className="text-left px-3 py-2 font-medium">Msgs</th>
                 <th className="text-left px-3 py-2 font-medium">Tools</th>
+                <th className="text-left px-3 py-2 font-medium">Audit</th>
                 <th className="text-left px-3 py-2 font-medium">Duration</th>
-                <th className="text-left px-3 py-2 font-medium">Input Tok</th>
-                <th className="text-left px-3 py-2 font-medium">Output Tok</th>
+                <th className="text-left px-3 py-2 font-medium">In Tok</th>
+                <th className="text-left px-3 py-2 font-medium">Out Tok</th>
                 <th className="text-left px-3 py-2 font-medium">Result</th>
               </tr>
             </thead>
@@ -210,19 +225,29 @@ export default function LlmLogTab() {
                     <span className="mr-1">{AGENT_EMOJI[log.agentId] || "🤖"}</span>
                     <span className={log.agentId === "unknown" ? "text-stone-500" : "text-stone-200"}>{log.agentId}</span>
                   </td>
-                  <td className="px-3 py-1.5 text-cyan-300 whitespace-nowrap text-[10px]">{log.caller || "—"}</td>
                   <td className="px-3 py-1.5 text-blue-300 whitespace-nowrap">{log.model}</td>
                   <td className="px-3 py-1.5 text-stone-400 text-center">{log.messageCount}</td>
                   <td className="px-3 py-1.5 text-stone-400">
-                    {log.toolNames.length > 0 ? (
-                      <span className="text-amber-300">{log.toolNames.length} tools</span>
+                    {log.toolCalls.length > 0 ? (
+                      <span className="text-amber-300">{log.toolCalls.length} calls</span>
+                    ) : log.toolNames.length > 0 ? (
+                      <span className="text-stone-600">{log.toolNames.length} avail</span>
                     ) : (
                       <span className="text-stone-600">—</span>
                     )}
                   </td>
+                  <td className="px-3 py-1.5 whitespace-nowrap">
+                    {log.toolCalls.length === 0 ? (
+                      <span className="text-stone-600">—</span>
+                    ) : log.auditOk ? (
+                      <span className="text-emerald-400">✅ {log.toolCalls.length}</span>
+                    ) : (
+                      <span className="text-red-400">❌ {log.auditViolations.length}</span>
+                    )}
+                  </td>
                   <td className="px-3 py-1.5 text-stone-400 whitespace-nowrap">
                     {log.durationMs !== null ? (
-                      <span className={log.durationMs > 10000 ? "text-amber-400" : log.durationMs > 30000 ? "text-red-400" : "text-stone-300"}>
+                      <span className={log.durationMs > 30000 ? "text-red-400" : log.durationMs > 10000 ? "text-amber-400" : "text-stone-300"}>
                         {formatDuration(log.durationMs)}
                       </span>
                     ) : "—"}
@@ -241,7 +266,7 @@ export default function LlmLogTab() {
                     {log.error ? (
                       <span className="text-red-400">❌ Error</span>
                     ) : log.finishReason === "tool_calls" ? (
-                      <span className="text-amber-300">🔧 {log.toolCalls.length} calls</span>
+                      <span className="text-amber-300">🔧 {log.toolCalls.length}</span>
                     ) : log.finishReason === "stop" ? (
                       <span className="text-emerald-300">✅ {log.contentLen > 0 ? `${log.contentLen} chars` : ""}</span>
                     ) : (
@@ -281,10 +306,6 @@ export default function LlmLogTab() {
                 <div className="text-stone-200">{selectedLog.agentId}</div>
               </div>
               <div>
-                <div className="text-stone-500 mb-0.5">Caller</div>
-                <div className="text-cyan-300">{selectedLog.caller || "—"}</div>
-              </div>
-              <div>
                 <div className="text-stone-500 mb-0.5">Duration</div>
                 <div className="text-stone-200">{formatDuration(selectedLog.durationMs)}</div>
               </div>
@@ -314,12 +335,25 @@ export default function LlmLogTab() {
               )}
               {selectedLog.toolCalls.length > 0 && (
                 <div>
-                  <div className="text-stone-500 mb-0.5">Tool Calls Made ({selectedLog.toolCalls.length})</div>
+                  <div className="text-stone-500 mb-0.5">Tool Calls ({selectedLog.toolCalls.length})</div>
                   <div className="space-y-1">
-                    {selectedLog.toolCalls.map((tc, i) => (
-                      <div key={i} className="px-2 py-1 rounded bg-stone-800 text-amber-300">
-                        🔧 {tc.name} <span className="text-stone-500">({tc.argsLen} chars args)</span>
-                      </div>
+                    {selectedLog.toolCalls.map((tc, i) => {
+                      const isViolation = selectedLog.auditViolations?.includes(tc.name);
+                      return (
+                        <div key={i} className={`px-2 py-1 rounded text-xs ${isViolation ? "bg-red-900/40 text-red-300" : "bg-stone-800 text-amber-300"}`}>
+                          {isViolation ? "🚫" : "🔧"} {tc.name} <span className="text-stone-500">({tc.argsLen} chars)</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {selectedLog.toolCalls.length > 0 && !selectedLog.auditOk && (
+                <div className="px-2 py-1.5 rounded bg-red-900/30 border border-red-800/50">
+                  <div className="text-red-300 text-xs font-medium">🚫 Audit Violations ({selectedLog.auditViolations.length})</div>
+                  <div className="text-red-400 text-[10px] mt-1">
+                    {selectedLog.auditViolations.map((v, i) => (
+                      <span key={i} className="inline-block mr-1 px-1 py-0.5 rounded bg-red-900/50">{v}</span>
                     ))}
                   </div>
                 </div>

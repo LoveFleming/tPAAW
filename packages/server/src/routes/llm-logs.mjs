@@ -99,22 +99,31 @@ function pairLogs(logs) {
   }
   return Object.values(byId)
     .filter(p => p.request)
-    .map(p => ({
-      id: p.request.id,
-      ts: p.request.ts,
-      agentId: p.request.agentId || p.response?.agentId || _callerToAgentId(p.request.caller || p.response?.caller) || "unknown",
-      model: p.request.model || p.response?.model || "?",
-      stream: p.request.stream ?? false,
-      messageCount: p.request.messageCount ?? 0,
-      toolNames: p.request.toolNames || [],
-      durationMs: p.response?.durationMs ?? null,
-      finishReason: p.response?.finishReason ?? null,
-      contentLen: p.response?.contentLen ?? 0,
-      toolCalls: p.response?.toolCalls || [],
-      usage: p.response?.usage || null,
-      error: p.response?.error || null,
-      caller: p.request.caller || p.response?.caller || null,
-    }))
+    .map(p => {
+      const toolCalls = p.response?.toolCalls || [];
+      const allowedTools = p.request.toolNames || [];
+      // Audit: every tool call must be in the allowed tool list
+      const violations = toolCalls.filter(tc => tc.name && !allowedTools.includes(tc.name));
+      const auditOk = violations.length === 0;
+      return {
+        id: p.request.id,
+        ts: p.request.ts,
+        agentId: p.request.agentId || p.response?.agentId || _callerToAgentId(p.request.caller || p.response?.caller) || "unknown",
+        model: p.request.model || p.response?.model || "?",
+        stream: p.request.stream ?? false,
+        messageCount: p.request.messageCount ?? 0,
+        toolNames: allowedTools,
+        durationMs: p.response?.durationMs ?? null,
+        finishReason: p.response?.finishReason ?? null,
+        contentLen: p.response?.contentLen ?? 0,
+        toolCalls,
+        auditOk,
+        auditViolations: violations.map(v => v.name),
+        usage: p.response?.usage || null,
+        error: p.response?.error || null,
+        caller: p.request.caller || p.response?.caller || null,
+      };
+    })
     .sort((a, b) => b.ts.localeCompare(a.ts)); // newest first
 }
 
@@ -167,6 +176,15 @@ export default async function llmLogsRoute(req, res) {
         byAgent[l.agentId].errors += l.error ? 1 : 0;
       }
 
+      // Tool audit summary
+      const auditOkCount = filtered.filter(l => l.auditOk).length;
+      const auditFailCount = filtered.filter(l => !l.auditOk).length;
+      const allViolations = filtered.flatMap(l => l.auditViolations || []);
+      const violationCounts = {};
+      for (const v of allViolations) {
+        violationCounts[v] = (violationCounts[v] || 0) + 1;
+      }
+
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         items,
@@ -174,7 +192,7 @@ export default async function llmLogsRoute(req, res) {
         offset,
         limit,
         days,
-        summary: { success, errors, totalDurationMs, totalTokens, totalPromptTokens, totalCompletionTokens, byModel, byAgent },
+        summary: { success, errors, totalDurationMs, totalTokens, totalPromptTokens, totalCompletionTokens, byModel, byAgent, auditOk: auditOkCount, auditFail: auditFailCount, violations: violationCounts },
       }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
