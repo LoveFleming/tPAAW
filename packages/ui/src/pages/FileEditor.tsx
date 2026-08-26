@@ -26,10 +26,10 @@ export default function FileEditor({ filePath, active }: Props) {
   const fileName = pathBasename(filePath);
   const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
 
-  // Load file content
+  // Load file content (always fetch on mount, not gated by active)
   useEffect(() => {
     if (!filePath) return;
-    if (active === false) return;
+    if (active === false) return; // skip only when explicitly hidden
     setLoading(true);
     fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(filePath)}`)
       .then(r => r.json())
@@ -43,7 +43,7 @@ export default function FileEditor({ filePath, active }: Props) {
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
-  }, [filePath, active]);
+  }, [filePath]); // removed 'active' from deps — don't re-fetch on tab switch
 
   // Auto-save (debounced 800ms after last edit)
   const save = useCallback(async () => {

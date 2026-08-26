@@ -1022,7 +1022,7 @@ function AppInner() {
           {/* Content */}
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
             {openTabs.map((tabId) => (
-              <div key={tabId} className="h-full w-full flex flex-col" style={{ display: activePage === tabId ? "flex" : "none" }}>
+              <div key={tabId} className="h-full w-full flex flex-col absolute inset-0" style={{ visibility: activePage === tabId ? "visible" : "hidden", zIndex: activePage === tabId ? 1 : 0, pointerEvents: activePage === tabId ? "auto" : "none" }}>
                 {renderPage(tabId, activePage === tabId)}
               </div>
             ))}
