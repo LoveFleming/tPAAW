@@ -4,7 +4,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "";
 type AgentTask = {
   taskId: string;
   agentId: string;
-  prompt: string;
+  prompt?: string; // deprecated
   model: string;
   cwd?: string;
   ruName?: string;
@@ -174,11 +174,7 @@ export default function AgentLogs() {
           )}
         </div>
 
-        {task?.prompt && (
-          <div className="px-3 py-2 rounded-lg bg-stone-50 text-sm text-stone-600 truncate">
-            💬 {task.prompt}
-          </div>
-        )}
+
 
         {/* Timeline */}
         <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
@@ -296,7 +292,6 @@ export default function AgentLogs() {
                 </td>
                 <td className="px-3 py-2 text-right text-emerald-700 tabular-nums font-medium whitespace-nowrap">{fmtCost(t.costUsd)}</td>
                 <td className="px-3 py-2 text-stone-400 text-xs">{t.model?.split("/").pop()}</td>
-                <td className="px-3 py-2 text-stone-500 max-w-xs truncate">{t.prompt}</td>
               </tr>
             ))}
           </tbody>
