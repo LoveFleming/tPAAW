@@ -1317,6 +1317,23 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
     return startsWith(abs, normCwd) || startsWith(abs, normRoot) || workspaceDirs.some((d) => startsWith(abs, norm(d))) || inPaawKnowledge;
   };
 
+  // ── Feature Boundary helpers (must be BEFORE switch — const in switch causes TDZ) ──
+  const _checkBoundary = (filePath) => {
+    if (!featureBoundary || !featureBoundary.allowedFiles) return null; // no boundary active
+    const rel = filePath.replace(/\\/g, "/").replace(cwd.replace(/\\/g, "/").replace(/\/+$/, "") + "/", "");
+    // New file — always allow
+    if (!existsSync(filePath)) return null;
+    // File is in allowed scope
+    if (featureBoundary.allowedFiles.some(f => f.replace(/\\/g, "/") === rel)) return null;
+    // File is outside boundary — return violation
+    return rel;
+  };
+  const _recordViolation = (file, tool) => {
+    if (!featureBoundary) return;
+    if (!featureBoundary._violations) featureBoundary._violations = [];
+    featureBoundary._violations.push({ file, tool, ts: new Date().toISOString() });
+  };
+
   // Emit tool event for SSE
   if (onEvent) onEvent({ type: "tool_start", name, args });
 
@@ -1460,23 +1477,6 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         if (onEvent) onEvent({ type: "tool_end", name, result: `Read ${filePath} (${content.length} bytes)` });
         return result;
       }
-
-      // ── Feature Boundary Check (Change Boundary — soft enforce) ──
-      // Check if file is within allowed feature scope
-      // New files (not yet on disk) are always allowed
-      // Boundary violations are NOT blocked — just recorded + warned
-      // So midnight auto-dispatch won't get stuck
-      // Agent sees the warning in tool result, human sees violations in task report
-      const _checkBoundary = (filePath) => {
-        if (!featureBoundary || !featureBoundary.allowedFiles) return null; // no boundary active
-        const rel = filePath.replace(/\\/g, "/").replace(cwd.replace(/\\/g, "/").replace(/\/+$/, "") + "/", "");
-        // New file — always allow
-        if (!existsSync(filePath)) return null;
-        // File is in allowed scope
-        if (featureBoundary.allowedFiles.some(f => f.replace(/\\/g, "/") === rel)) return null;
-        // File is outside boundary — return violation
-        return rel;
-      };
 
       case "write_file": {
         const filePath = resolvePath(args.path);
