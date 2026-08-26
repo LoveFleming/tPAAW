@@ -88,61 +88,49 @@ function _loadPricing() {
 /**
  * Resolve RU (Release Unit) name from a working directory path.
  *
- * RU = Coding app 匯入的那個專案。跟 PAAW product tracker (data/projects/) 無關。
+ * RU = Coding app 匯入的那個專案。用專案 root 的 folder name 當 RU 名。
+ * 不用 recent-projects.json name、不用 package.json name — 這兩個會抓錯。
  *
  * Match priority:
- *   1. Coding app 匯入專案（recent-projects.json）— 最長前綴贏
- *   2. 專案 package.json name
- *   3. Folder basename
- *   4. PAAW 自身偵測（cwd 在 PAAW_ROOT 內 → "PAAW"）
+ *   1. Coding app 匯入專案（recent-projects.json）— 路徑比對，取 folder basename
+ *   2. PAAW 自身偵測（cwd 落在 PAAW_ROOT 內 → "PAAW"）
+ *   3. Folder basename（最後手段）
+ *   4. 空白 → "-"
  *
  * @param {string} cwd
- * @returns {string|null} project name, or null if no match
+ * @returns {string} project name (never null — blank → "-")
  */
 export function resolveRuName(cwd) {
-  if (!cwd) return null;
+  if (!cwd) return "-";
   const norm = _normPath(cwd);
-  const segments = norm.split("/").filter(Boolean);
 
-  // ── 1. Coding app 匯入專案：路徑比對（最長前綴贏）──
+  // ── 1. Coding app 匯入專案：路徑比對（最長前綴贏）→ 取 folder basename ──
   const recent = _loadRecentProjects();
-  let best = null; // { rp, rec }
+  let best = null; // { rp }
   for (const r of recent) {
     const rp = _normPath(r.path);
     if (!rp) continue;
     if (norm === rp || norm.startsWith(rp + "/")) {
-      if (!best || rp.length > best.rp.length) best = { rp, rec: r };
+      if (!best || rp.length > best.rp.length) best = { rp };
     }
   }
   if (best) {
-    // 匯入時的名稱就是 RU 名
-    const name = String(best.rec.name || "").trim();
-    if (name) return name;
-    // 匯入時沒給名稱，用 folder basename
     const base = best.rp.split("/").filter(Boolean).pop() || "";
     if (base) return base;
   }
 
-  // ── 2. PAAW 自身偵測（在 package.json 之前 — 避免 PAAW 內的子目錄被 @paaw/ui 等攔走）──
+  // ── 2. PAAW 自身偵測（在 basename 之前 — 避免 PAAW 內的子目錄誤判）──
   const paawRoot = _normPath(process.env.PAAW_ROOT || PAAW_ROOT);
   if (paawRoot && (norm === paawRoot || norm.startsWith(paawRoot + "/"))) {
     return "PAAW";
   }
 
-  // ── 3. 專案 root 的 package.json name ──
-  // 讀匯入 root / cwd 本身的 package.json，不要往子目錄找
-  const pkgName = _readPackageJsonName(cwd);
-  if (pkgName) {
-    // Strip @scope/ prefix (e.g. @paaw/ui → ui is too vague, use the raw name)
-    const clean = pkgName.replace(/^@[^/]+\//, "");
-    if (clean && clean.length >= 2) return clean;
-  }
-
-  // ── 4. Folder basename ──
+  // ── 3. Folder basename ──
+  const segments = norm.split("/").filter(Boolean);
   const basename = segments[segments.length - 1] || "";
-  if (basename && basename.length > 0) return basename;
+  if (basename) return basename;
 
-  return null;
+  return "-";
 }
 
 /**

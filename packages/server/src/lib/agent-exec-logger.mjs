@@ -20,8 +20,8 @@ import { stepCostUsd } from "./ru-resolver.mjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const LOG_DIR = join(DATA_HOME, "logs", "agent");
-const INDEX_FILE = join(LOG_DIR, "index.json");
+export const LOG_DIR = join(DATA_HOME, "logs", "agent");
+export const INDEX_FILE = join(LOG_DIR, "index.json");
 const MAX_INDEX = 200;
 
 function ensureDir() {
@@ -264,7 +264,7 @@ async function _accumulateRuCostHistory(expiredEntries) {
   let hist = {};
   try { hist = JSON.parse(await readFile(histFile, "utf-8")); } catch {}
   for (const e of expiredEntries) {
-    const ru = resolveRuName(e.cwd) || (String(e.agentId || "").startsWith("cron:") ? "⏰ 排程任務" : "(未對應)");
+    const ru = resolveRuName(e.cwd);
     if (!hist[ru]) hist[ru] = { ruName: ru, tasks: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, byModel: {} };
     const h = hist[ru];
     h.tasks += 1;

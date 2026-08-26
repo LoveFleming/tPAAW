@@ -125,6 +125,16 @@ export default function AgentLogs() {
     } catch {}
   }, []);
 
+  const deleteRu = useCallback(async (ruName: string) => {
+    if (!confirm(`確定刪除 ${ruName} 的所有執行記錄？`)) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/agent-logs/ru/${encodeURIComponent(ruName)}`, { method: "DELETE" });
+      const data = await r.json();
+      if (data.ok) { fetchTasks(); fetchRuSummary(); }
+      else { alert(data.error || "刪除失敗"); }
+    } catch { alert("刪除失敗"); }
+  }, [fetchTasks, fetchRuSummary]);
+
   useEffect(() => { fetchTasks(); fetchRuSummary(); }, [fetchTasks, fetchRuSummary]);
 
   const fetchDetail = useCallback(async (taskId: string) => {
@@ -229,6 +239,7 @@ export default function AgentLogs() {
                 <th className="px-3 py-1.5 text-right">Tokens Out</th>
                 <th className="px-3 py-1.5 text-right">成本</th>
                 <th className="px-3 py-1.5 text-left">Model 明細</th>
+                <th className="px-3 py-1.5 text-center w-10">刪</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
@@ -240,6 +251,7 @@ export default function AgentLogs() {
                   <td className="px-3 py-1.5 text-right text-violet-600 tabular-nums">{fmtTokens(r.tokensOut)}</td>
                   <td className="px-3 py-1.5 text-right text-emerald-700 tabular-nums font-semibold">{fmtCost(r.costUsd)}</td>
                   <td className="px-3 py-1.5 text-stone-400 text-xs">{Object.entries(r.byModel).map(([m, s]) => `${m.split("/").pop()} ${fmtCost(s.costUsd)}`).join(" · ")}</td>
+                  <td className="px-3 py-1.5 text-center"><button onClick={e => { e.stopPropagation(); deleteRu(r.ruName); }} className="text-xs text-stone-300 hover:text-red-500 transition-colors" title={`刪除 ${r.ruName} 所有記錄`}>🗑️</button></td>
                 </tr>
               ))}
             </tbody>

@@ -7,9 +7,11 @@
  * POST /api/agent-logs/purge     — cleanup old logs
  */
 
-import { listAgentTasks, getAgentTaskDetail, cleanupOldAgentLogs, getRuCostHistory, backfillIndexCwd } from "../lib/agent-exec-logger.mjs";
+import { listAgentTasks, getAgentTaskDetail, cleanupOldAgentLogs, getRuCostHistory, backfillIndexCwd, LOG_DIR, INDEX_FILE } from "../lib/agent-exec-logger.mjs";
 import { resolveRuName } from "../lib/ru-resolver.mjs";
 import { readBody } from "./shared.mjs";
+import { join } from "node:path";
+import { readFile, writeFile, unlink } from "node:fs/promises";
 
 export default async function agentLogsRoute(req, res) {
   const method = req.method;
@@ -28,7 +30,7 @@ export default async function agentLogsRoute(req, res) {
       const tasks = await listAgentTasks(30);
       out.samples = tasks.slice(0, 20).map(t => ({
         taskId: t.taskId, agentId: t.agentId, cwd: t.cwd ?? null,
-        resolvedRu: resolveRuName(t.cwd) || (String(t.agentId || "").startsWith("cron:") ? "⏰ 排程任務" : "(未對應)"),
+        resolvedRu: resolveRuName(t.cwd),
       }));
       out.nullCwdCount = tasks.filter(t => !t.cwd).length;
     } catch (e) { out.listError = e.message; }
@@ -46,7 +48,7 @@ export default async function agentLogsRoute(req, res) {
       const ru = q.get("ru") || null;
       let tasks = await listAgentTasks(limit, agentId ? { agentId } : status ? { status } : {});
       // 附加 RU name（cwd → project）
-      tasks = tasks.map(t => ({ ...t, ruName: resolveRuName(t.cwd) || (String(t.agentId || "").startsWith("cron:") ? "⏰ 排程任務" : "(未對應)") }));
+      tasks = tasks.map(t => ({ ...t, ruName: resolveRuName(t.cwd) }));
       if (ru) tasks = tasks.filter(t => t.ruName === ru);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ items: tasks, total: tasks.length }));
@@ -76,7 +78,7 @@ export default async function agentLogsRoute(req, res) {
           agg.byModel[m.model].costUsd += m.costUsd || 0;
         }
       };
-      for (const t of tasks) _agg(resolveRuName(t.cwd) || (String(t.agentId || "").startsWith("cron:") ? "⏰ 排程任務" : "(未對應)"), t);
+      for (const t of tasks) _agg(resolveRuName(t.cwd), t);
       // 合併已 purge 的歷史累計
       const hist = await getRuCostHistory();
       for (const h of Object.values(hist)) {
@@ -117,6 +119,45 @@ export default async function agentLogsRoute(req, res) {
       }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(detail));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // DELETE /api/agent-logs/ru/:ruName — delete all logs for a release unit
+  const ruDeleteMatch = url.match(/^\/api\/agent-logs\/ru\/(.+)$/);
+  if (ruDeleteMatch && method === "DELETE") {
+    try {
+      const targetRu = decodeURIComponent(ruDeleteMatch[1]);
+      if (!targetRu || targetRu === "-") {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid RU name" }));
+        return true;
+      }
+      // Filter index entries: keep only those whose cwd resolves to a different RU
+      let entries = [];
+      try { entries = JSON.parse(await readFile(INDEX_FILE, "utf-8")); } catch {}
+      const toDelete = entries.filter(e => resolveRuName(e.cwd) === targetRu);
+      entries = entries.filter(e => resolveRuName(e.cwd) !== targetRu);
+      // Delete .jsonl files for removed entries
+      for (const e of toDelete) {
+        try { await unlink(join(LOG_DIR, `${e.taskId}.jsonl`)); } catch {}
+      }
+      // Remove from ru-cost-history.json
+      const histFile = join(LOG_DIR, "ru-cost-history.json");
+      try {
+        const hist = JSON.parse(await readFile(histFile, "utf-8"));
+        if (hist[targetRu]) {
+          delete hist[targetRu];
+          await writeFile(histFile, JSON.stringify(hist, null, 2), "utf-8");
+        }
+      } catch {}
+      // Save updated index
+      await writeFile(INDEX_FILE, JSON.stringify(entries, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, deleted: toDelete.length, ruName: targetRu }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
