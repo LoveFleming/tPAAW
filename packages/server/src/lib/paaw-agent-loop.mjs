@@ -1093,6 +1093,8 @@ export function getToolsForAgent(agentId, extraGroups = []) {
     }
 
     const group = TOOL_GROUP_MAP[name];
+    // 🌐 內建瀏覽器工具：所有 agent 一律可用（Fleming 2026-08-27 定調 — 讀網頁/操作/截圖是通用能力）
+    if (group === "browser") return true;
     return group && groups.has(group);
   });
 }

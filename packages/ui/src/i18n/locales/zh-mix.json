@@ -1108,7 +1108,7 @@
   "browser.title": "內建 Browser",
   "browser.lastAction": "Last action",
   "browser.notInstalled": "Playwright 未安裝 — install steps:",
-  "browser.empty": "Agent 還沒用 browser\n叫 agent browser_navigate，畫面會即時顯示在這裡",
+  "browser.empty": "Agent 還沒用 browser\n叫 agent browser_navigate，畫面會即時顯示在這裡\n也可以直接用上面的 address bar 手動開",
   "ru.manager": "Release Units（工作集）",
   "ru.import": "匯入 project",
   "ru.remove": "Remove",
@@ -1119,5 +1119,7 @@
   "ru.tabTooltip": "Release Unit manager — import / remove / switch",
   "ru.tabRu": "Release Unit",
   "ru.tabFiles": "Files Explorer",
-  "ru.filesDisabled": "先在 Release Unit tab 選一個 project"
+  "ru.filesDisabled": "先在 Release Unit tab 選一個 project",
+  "browser.urlPlaceholder": "輸入 URL（manual navigate）…",
+  "browser.go": "Go"
 }

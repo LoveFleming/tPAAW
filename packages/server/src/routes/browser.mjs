@@ -8,13 +8,34 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 
 import { DATA_HOME } from "../data-home.mjs";
-import { browserState, PLAYWRIGHT_INSTALL_HINT } from "../lib/browser-session.mjs";
+import { browserState, PLAYWRIGHT_INSTALL_HINT, getBrowserPage, trackPage, takeScreenshot, assertSafeUrl } from "../lib/browser-session.mjs";
 
 const SHOT_DIR = join(DATA_HOME, "logs", "browser");
 
 export default async function browserRoute(req, res) {
   const method = req.method;
   const url = (req.url || "").split("?")[0];
+
+  // POST /api/browser/navigate {url} — 手動導航（IDE 網址列用；與 agent 共用同一個 page）
+  if (url === "/api/browser/navigate" && method === "POST") {
+    let body = {};
+    try { body = JSON.parse(await new Promise((r) => { let b = ""; req.on("data", c => { b += c; if (b.length > 1e5) req.destroy(); }); req.on("end", () => r(b)); req.on("error", () => r("")); }) || "{}"); } catch {}
+    const target0 = (body.url || "").trim();
+    if (!target0) { json(res, 400, { error: "url required" }); return true; }
+    const target = /^https?:\/\//i.test(target0) ? target0 : "https://" + target0;
+    try {
+      assertSafeUrl(target);
+      const page = await getBrowserPage(DATA_HOME);
+      trackPage(page);
+      await page.goto(target, { waitUntil: "domcontentloaded", timeout: 20000 });
+      const shot = await takeScreenshot(DATA_HOME, page);
+      const s = browserState();
+      json(res, 200, { ...s, screenshot: shot });
+    } catch (e) {
+      json(res, 400, { error: e.message });
+    }
+    return true;
+  }
 
   // GET /api/browser/status
   if (url === "/api/browser/status" && method === "GET") {

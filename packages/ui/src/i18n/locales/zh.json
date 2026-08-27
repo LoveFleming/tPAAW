@@ -1108,7 +1108,7 @@
   "browser.title": "內建瀏覽器",
   "browser.lastAction": "最後動作",
   "browser.notInstalled": "Playwright 未安裝 — 安裝步驟：",
-  "browser.empty": "Agent 還沒使用瀏覽器\n請 agent 用 browser_navigate 開啟網頁，這裡會即時顯示畫面",
+  "browser.empty": "Agent 還沒使用瀏覽器\n跟 agent 說「用 browser_navigate 打開某網頁」，畫面會即時顯示在這裡\n也可以直接用上方網址列手動開啟",
   "ru.manager": "Release Units（專案工作集）",
   "ru.import": "匯入專案",
   "ru.remove": "移除",
@@ -1119,5 +1119,7 @@
   "ru.tabTooltip": "Release Unit 管理員 — 匯入／移除／切換專案",
   "ru.tabRu": "Release Unit",
   "ru.tabFiles": "Files Explorer",
-  "ru.filesDisabled": "先在 Release Unit 分頁選擇一個專案"
+  "ru.filesDisabled": "先在 Release Unit 分頁選擇一個專案",
+  "browser.urlPlaceholder": "輸入網址（手動導航）…",
+  "browser.go": "前往"
 }

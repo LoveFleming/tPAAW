@@ -1108,7 +1108,7 @@
   "browser.title": "内蔵ブラウザ",
   "browser.lastAction": "最終操作",
   "browser.notInstalled": "Playwright 未インストール — インストール手順：",
-  "browser.empty": "エージェントはまだブラウザを使っていません\nbrowser_navigate でページを開くと、ここに表示されます",
+  "browser.empty": "エージェントはまだブラウザを使っていません\nbrowser_navigate を指示すると、ここにリアルタイム表示されます\n上のアドレスバーから手動で開くこともできます",
   "ru.manager": "リリースユニット（ワークセット）",
   "ru.import": "プロジェクトを追加",
   "ru.remove": "削除",
@@ -1119,5 +1119,7 @@
   "ru.tabTooltip": "リリースユニット管理 — 追加・削除・切替",
   "ru.tabRu": "リリースユニット",
   "ru.tabFiles": "ファイル",
-  "ru.filesDisabled": "先にリリースユニットタブでプロジェクトを選択してください"
+  "ru.filesDisabled": "先にリリースユニットタブでプロジェクトを選択してください",
+  "browser.urlPlaceholder": "URLを入力（手動ナビゲーション）…",
+  "browser.go": "開く"
 }

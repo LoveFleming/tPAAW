@@ -1108,7 +1108,7 @@
   "browser.title": "Built-in Browser",
   "browser.lastAction": "Last action",
   "browser.notInstalled": "Playwright not installed — install steps:",
-  "browser.empty": "Agent hasn't used the browser yet\nAsk the agent to browser_navigate — its view will appear here",
+  "browser.empty": "Agent hasn't used the browser yet\nAsk the agent to browser_navigate — its view appears here in real time\nOr use the address bar above to open a page manually",
   "ru.manager": "Release Units (working set)",
   "ru.import": "Import Project",
   "ru.remove": "Remove",
@@ -1119,5 +1119,7 @@
   "ru.tabTooltip": "Release Unit manager — import / remove / switch projects",
   "ru.tabRu": "Release Unit",
   "ru.tabFiles": "Files Explorer",
-  "ru.filesDisabled": "Select a project in the Release Unit tab first"
+  "ru.filesDisabled": "Select a project in the Release Unit tab first",
+  "browser.urlPlaceholder": "Enter URL (manual navigation)…",
+  "browser.go": "Go"
 }
