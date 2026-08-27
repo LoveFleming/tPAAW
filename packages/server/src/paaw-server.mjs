@@ -9,6 +9,7 @@
  * Refactored: ~120 lines (dispatch + listen)
  */
 
+import "./lib/epipe-guard.mjs"; // EPIPE 防護 — 必須第一個 import（ESM import 先於 module body 執行）
 import { createServer } from "http";
 import { appendFileSync, mkdirSync } from "fs";
 import {
@@ -19,19 +20,11 @@ import {
 import { setupWebSocket } from "./websocket/ws-handler.mjs";
 import { DATA_HOME } from "./data-home.mjs";
 
-// ── EPIPE 保護（必須最早註冊）──
-// stdout/stderr 管道斷掉（parent terminal 關閉、concurrently 重啟、背景執行）時，
-// 任何 console.log 都會炸 uncaught exception → 連環風暴（2026-08-27 09:08 實例：
-// 2 秒內 1878 個 crash file）甚至整個 process 死掉。
-// 掛上 error handler 直接吞掉 EPIPE，console 永遠不再殺 process。
-for (const _stream of [process.stdout, process.stderr]) {
-  _stream?.on?.("error", (e) => { if (e?.code === "EPIPE") return; throw e; });
-}
-
 // ── Process-level crash protection ──
 // Node 15+ terminates on unhandledRejection by default.
 // These handlers LOG the error + write crash log to disk,
 // preventing "整個 server 當掉" from a single stray async error.
+// （EPIPE 防護在 lib/epipe-guard.mjs，第一個 import）
 const _crashWriteLast = new Map(); // error signature → last write ts（防風暴寫爆磁碟）
 function _writeCrashLog(kind, detail) {
   try {
@@ -266,6 +259,10 @@ server.on("error", (err) => {
   }
   try { console.error("❌ [PAAW] HTTP server error:", err); } catch {}
 });
+
+// Flight recorder — 黑盒子：任何死法都留死亡時間 + heap 曲線（data/logs/server-heartbeat.log）
+import { startFlightRecorder } from "./lib/flight-recorder.mjs";
+startFlightRecorder(DATA_HOME);
 
 server.listen(PORT, async () => {
   // Ensure required directories exist
