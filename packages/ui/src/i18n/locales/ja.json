@@ -1122,7 +1122,11 @@
   "ru.filesDisabled": "先にリリースユニットタブでプロジェクトを選択してください",
   "browser.urlPlaceholder": "URLを入力（手動ナビゲーション）…",
   "browser.go": "開く",
-  "browser.modeInteractive": "スクリーンショットモードへ（エージェントのブラウザ表示）",
+  "browser.modeInteractive": "インタラクティブモード：iframe でページを直接埋め込み（ローカル dev 向け）",
   "browser.modeScreenshot": "インタラクティブモードへ（ページを直接操作）",
-  "browser.emptyShot": "エージェントのブラウザにまだ画面がありません\nbrowser ツール使用後にここに表示されます"
+  "browser.emptyShot": "エージェントのブラウザにまだ画面がありません\nbrowser ツール使用後にここに表示されます",
+  "browser.modeStream": "共有モード：エージェントのブラウザをリアルタイムストリーム、直接操作可能",
+  "browser.modeShot": "スクリーンショットモード：エージェントのブラウザの最新スナップショット（閲覧のみ）",
+  "browser.emptyStream": "最初のフレームを待っています…\n上の URL バーで開くか、エージェントにナビゲートさせましょう\nクリック・スクロール・入力がそのままエージェントのブラウザに反映されます",
+  "browser.focusHint": "画面をクリックすると直接入力できます（IME 対応）"
 }

@@ -1122,7 +1122,11 @@
   "ru.filesDisabled": "先在 Release Unit tab 選一個 project",
   "browser.urlPlaceholder": "輸入 URL（manual navigate）…",
   "browser.go": "Go",
-  "browser.modeInteractive": "切到 screenshot mode（顯示 agent browser 畫面）",
+  "browser.modeInteractive": "Interactive mode：iframe 直接嵌入網頁（local dev 最流暢）",
   "browser.modeScreenshot": "切到 interactive mode（直接操作網頁）",
-  "browser.emptyShot": "Agent 的 browser 還沒畫面\nagent 用 browser 工具後這裡會顯示截圖"
+  "browser.emptyShot": "Agent 的 browser 還沒畫面\nagent 用 browser 工具後這裡會顯示截圖",
+  "browser.modeStream": "Shared mode：即時串流 agent browser，可直接操作（Cowork 級）",
+  "browser.modeShot": "Screenshot mode：agent browser 最新截圖（純旁觀）",
+  "browser.emptyStream": "共用串流等待第一個 frame…\n用上面 address bar 開網頁，或叫 agent 用 browser 工具導航\n你的 click/scroll/typing 直接操作 agent 的 browser",
+  "browser.focusHint": "點擊畫面後可直接打字（支援中文 IME）"
 }

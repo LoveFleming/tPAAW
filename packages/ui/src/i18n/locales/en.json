@@ -1122,7 +1122,11 @@
   "ru.filesDisabled": "Select a project in the Release Unit tab first",
   "browser.urlPlaceholder": "Enter URL (manual navigation)…",
   "browser.go": "Go",
-  "browser.modeInteractive": "Switch to screenshot mode (agent's browser view)",
+  "browser.modeInteractive": "Interactive mode: embed page via iframe (best for local dev servers)",
   "browser.modeScreenshot": "Switch to interactive mode (operate the page directly)",
-  "browser.emptyShot": "No screenshot from agent's browser yet\nAppears here once the agent uses a browser tool"
+  "browser.emptyShot": "No screenshot from agent's browser yet\nAppears here once the agent uses a browser tool",
+  "browser.modeStream": "Shared mode: live stream of agent's browser, fully operable (Cowork-level)",
+  "browser.modeShot": "Screenshot mode: latest snapshot of agent's browser (view only)",
+  "browser.emptyStream": "Waiting for the first frame…\nOpen a URL above, or ask the agent to navigate\nYour clicks/scroll/typing operate the agent's browser directly",
+  "browser.focusHint": "Click the page, then type directly (IME supported)"
 }

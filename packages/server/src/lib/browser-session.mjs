@@ -3,6 +3,7 @@
 //   - Chromium（Playwright），不是使用者的瀏覽器，獨立 profile
 //   - persistent userDataDir → 登入狀態跨重啟保留（cookie 持久化）
 //   - headless、單一 context、所有 agent 共用（v1 簡化）
+//   - Cowork 級共用體驗：CDP Page.startScreencast 下行串流 + 輸入回注（人與 agent 操作同一個 browser）
 //
 // 安全邊界：
 //   - 只允許 http/https（block file: / javascript: / data:）
@@ -12,6 +13,8 @@
 //（npm i && npx playwright install chromium）。未安裝時工具回覆清楚安裝指引，不炸 server。
 import { mkdirSync } from "fs";
 import { join } from "path";
+
+import { DATA_HOME } from "../data-home.mjs";
 
 let _ctx = null;          // Playwright BrowserContext（singleton）
 let _launching = null;    // 進行中的 launch promise（防併發雙開）
@@ -125,3 +128,162 @@ export const PLAYWRIGHT_INSTALL_HINT =
   "  npm install\n" +
   "  npx playwright install chromium   # ~170MB download, Windows/macOS/Linux all supported\n" +
   "Then retry. Server restart is NOT required (lazy load).";
+
+// ══════════════════════════════════════════════════════════════
+// Cowork 級共用串流 — CDP screencast 下行 + 輸入回注上行
+//
+// 下行：Page.startScreencast → Page.screencastFrame 事件（base64 JPEG + viewport metadata）
+//       → SSE 廣播給所有 viewer（IDE 共用模式）。ack 是 CDP 原生 flow control。
+// 上行：POST /api/browser/input → page.mouse / page.keyboard 回注（點擊/滾輪/按鍵/IME 文字）
+// 生命週期：第一個 SSE client 連上才開串流；全部斷線就停（headless 無人看不必耗資源）。
+//          watchdog 每 2s 確認 page 身分 — agent 換頁/關頁自動重綁 CDP。
+// ══════════════════════════════════════════════════════════════
+const _stream = {
+  clients: new Set(),      // SSE res 物件
+  cdp: null,               // CDP session（綁定 _castPage）
+  castPage: null,          // 目前串流的 page
+  starting: null,          // 防併發啟動 promise
+  watchdog: null,          // setInterval handle
+  lastFrameAt: 0,          // 廣播節流（≥50ms 一張，≈20fps 上限）
+};
+
+export function streamClientCount() { return _stream.clients.size; }
+
+/** SSE client 上線 — 有 viewer 才開串流；馬上 kick 一張畫面給新 viewer */
+export function attachStreamClient(res) {
+  _stream.clients.add(res);
+  _ensureWatchdog();
+  ensureScreencast().then(() => kickScreencast()).catch(() => {});
+}
+
+/** SSE client 離線 — 最後一個斷線就停串流 */
+export function detachStreamClient(res) {
+  _stream.clients.delete(res);
+  if (_stream.clients.size === 0) stopScreencast();
+}
+
+/** 廣播 payload 給所有 SSE client（斷線的自動剔除）*/
+export function broadcastToStream(payload) {
+  for (const res of _stream.clients) {
+    try {
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+      if (typeof res.flush === "function") res.flush();
+    } catch {
+      _stream.clients.delete(res);
+    }
+  }
+}
+
+/** 確保 screencast 綁在「目前」page 上（page 換了/關了就重綁）*/
+export async function ensureScreencast() {
+  const page = await getBrowserPage(DATA_HOME);
+  trackPage(page);
+  if (_stream.cdp && _stream.castPage === page && !page.isClosed()) return; // 已綁定
+  if (_stream.starting) return _stream.starting;
+  _stream.starting = (async () => {
+    if (_stream.cdp) { try { await _stream.cdp.detach(); } catch {} _stream.cdp = null; }
+    const cdp = await page.context().newCDPSession(page);
+    cdp.on("Page.screencastFrame", async (ev) => {
+      const { data, metadata = {}, sessionId } = ev;
+      const now = Date.now();
+      if (now - _stream.lastFrameAt >= 50) { // 廣播節流；ack 永遠送（flow control）
+        _stream.lastFrameAt = now;
+        broadcastToStream({
+          type: "frame",
+          jpeg: data,
+          w: metadata.deviceWidth || 1280,
+          h: metadata.deviceHeight || 800,
+          url: page.url(),
+        });
+      }
+      try { await cdp.send("Page.screencastFrameAck", { sessionId }); } catch {}
+    });
+    await cdp.send("Page.startScreencast", {
+      format: "jpeg",
+      quality: 70,
+      maxWidth: 1280,
+      maxHeight: 800,
+      everyNthFrame: 1,
+    });
+    _stream.cdp = cdp;
+    _stream.castPage = page;
+  })().catch(err => {
+    _stream.starting = null;
+    throw err;
+  });
+  return _stream.starting;
+}
+
+/** 強制重發一張畫面（新 viewer 連上 / 導航後用；CDP 重發 start 會立即產生一張 frame）*/
+export async function kickScreencast() {
+  if (!_stream.cdp) return;
+  try {
+    await _stream.cdp.send("Page.startScreencast", {
+      format: "jpeg", quality: 70, maxWidth: 1280, maxHeight: 800, everyNthFrame: 1,
+    });
+  } catch {}
+}
+
+function _ensureWatchdog() {
+  if (_stream.watchdog) return;
+  _stream.watchdog = setInterval(() => {
+    if (_stream.clients.size === 0) return; // stopScreencast 會清
+    ensureScreencast().catch(() => {}); // page 換了自動重綁
+  }, 2000);
+}
+
+function stopScreencast() {
+  if (_stream.watchdog) { clearInterval(_stream.watchdog); _stream.watchdog = null; }
+  const cdp = _stream.cdp;
+  _stream.cdp = null;
+  _stream.castPage = null;
+  _stream.starting = null;
+  if (cdp) {
+    cdp.send("Page.stopScreencast", {}).catch(() => {});
+    cdp.detach().catch(() => {});
+  }
+}
+
+// ── 輸入回注（人的滑鼠/鍵盤 → agent 的 browser）──
+const _BUTTON_MAP = { 0: "left", 1: "middle", 2: "right" };
+
+export async function applyBrowserInput(evt) {
+  if (!evt || typeof evt.type !== "string") throw new Error("input event requires `type`");
+  const page = await getBrowserPage(DATA_HOME);
+  trackPage(page);
+  const mods = [];
+  if (evt.modifiers?.alt) mods.push("Alt");
+  if (evt.modifiers?.ctrl) mods.push("Control");
+  if (evt.modifiers?.shift) mods.push("Shift");
+  if (evt.modifiers?.meta) mods.push("Meta");
+  const modOpt = mods.length ? mods : undefined;
+  const button = _BUTTON_MAP[evt.button] || "left";
+  switch (evt.type) {
+    case "mousedown":
+      if (!Number.isFinite(evt.x) || !Number.isFinite(evt.y)) throw new Error("mousedown requires x,y");
+      await page.mouse.move(evt.x, evt.y, { steps: 1 });
+      await page.mouse.down({ button, modifiers: modOpt });
+      break;
+    case "mouseup":
+      await page.mouse.up({ button, modifiers: modOpt });
+      break;
+    case "mousemove":
+      if (!Number.isFinite(evt.x) || !Number.isFinite(evt.y)) break;
+      await page.mouse.move(evt.x, evt.y, { steps: 1 });
+      break;
+    case "wheel":
+      await page.mouse.wheel(evt.deltaX || 0, evt.deltaY || 0);
+      break;
+    case "key": // 特殊鍵/組合鍵 — Playwright key name（"Enter" / "Control+a"）
+      if (!evt.key) throw new Error("key event requires `key`");
+      await page.keyboard.press(evt.key);
+      break;
+    case "text": // 純文字插入（含 IME 中文 — insertText 不經鍵盤佈局）
+      if (!evt.text) break;
+      await page.keyboard.insertText(String(evt.text).slice(0, 2000));
+      break;
+    default:
+      throw new Error(`Unknown input type: ${evt.type}`);
+  }
+  _state.lastActionAt = Date.now();
+}
