@@ -10,6 +10,7 @@
  */
 
 import { createServer } from "http";
+import { appendFileSync, mkdirSync } from "fs";
 import {
   PORT, PAAW_ROOT,
   readdir, readFile, writeFile, mkdir,
@@ -17,6 +18,33 @@ import {
 } from "./routes/shared.mjs";
 import { setupWebSocket } from "./websocket/ws-handler.mjs";
 import { DATA_HOME } from "./data-home.mjs";
+
+// ── Process-level crash protection ──
+// Node 15+ terminates on unhandledRejection by default.
+// These handlers LOG the error + write crash log to disk,
+// preventing "整個 server 當掉" from a single stray async error.
+process.on('unhandledRejection', (reason, promise) => {
+  const ts = new Date().toISOString();
+  console.error(`\n🚨 [PAAW] UNHANDLED REJECTION (${ts}) — server stays alive:`);
+  console.error('  Reason:', reason);
+  try {
+    const crashDir = join(DATA_HOME, 'logs', 'crash');
+    mkdirSync(crashDir, { recursive: true });
+    appendFileSync(join(crashDir, `crash-${ts.replace(/[:.]/g, '-')}.log`),
+      `[UNHANDLED REJECTION] ${ts}\nReason: ${reason?.stack || reason}\n\n`);
+  } catch (_e) { /* best effort */ }
+});
+process.on('uncaughtException', (err) => {
+  const ts = new Date().toISOString();
+  console.error(`\n🚨 [PAAW] UNCAUGHT EXCEPTION (${ts}) — server stays alive:`);
+  console.error('  Error:', err.stack || err.message);
+  try {
+    const crashDir = join(DATA_HOME, 'logs', 'crash');
+    mkdirSync(crashDir, { recursive: true });
+    appendFileSync(join(crashDir, `crash-${ts.replace(/[:.]/g, '-')}.log`),
+      `[UNCAUGHT EXCEPTION] ${ts}\n${err.stack || err.message}\n\n`);
+  } catch (_e) { /* best effort */ }
+});
 
 // ── Startup import check — catch missing exports (runs in background) ──
 import("./lib/import-check.mjs").catch(() => {}); // non-blocking, best-effort

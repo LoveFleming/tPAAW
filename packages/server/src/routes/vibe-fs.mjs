@@ -574,7 +574,13 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
         if (code !== null && code > 1) {
           // rg errored — use native fallback
           console.log(`[search] rg exited with code ${code}, falling back to native search`);
-          return nativeSearch(cwd, query, { caseSensitive, wholeWord, useRegex }, maxResults, res);
+          responded = true;
+          // ⚠️ nativeSearch is async — MUST .catch() to prevent unhandledRejection crashing the server
+          nativeSearch(cwd, query, { caseSensitive, wholeWord, useRegex }, maxResults, res).catch(err => {
+            console.error(`[search] nativeSearch failed:`, err.message);
+            if (!res.writableEnded) { try { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Search failed: " + err.message, results: [], total: 0, truncated: false })); } catch {} }
+          });
+          return;
         }
         const allResults = Array.from(fileMap.values()).sort((a, b) => b.matches.length - a.matches.length);
         const truncated = allResults.reduce((sum, f) => sum + f.matches.length, 0) > maxResults;
@@ -593,8 +599,13 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
 
       child.on("error", () => {
         if (responded) return;
+        responded = true;
         // rg not found — fallback to Node.js native search
-        return nativeSearch(cwd, query, { caseSensitive, wholeWord, useRegex }, maxResults, res);
+        // ⚠️ nativeSearch is async — MUST .catch() to prevent unhandledRejection crashing the server
+        nativeSearch(cwd, query, { caseSensitive, wholeWord, useRegex }, maxResults, res).catch(err => {
+          console.error(`[search] nativeSearch failed:`, err.message);
+          if (!res.writableEnded) { try { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Search failed: " + err.message, results: [], total: 0, truncated: false })); } catch {} }
+        });
       });
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
