@@ -235,6 +235,8 @@ export async function fetchWithRetry(url, options = {}, opts = {}) {
         };
         if (onRetry) onRetry(retryInfo);
         console.warn(`[LLM-Utils] Retry ${attempt + 1}/${maxRetries} in ${delay}ms (HTTP ${resp.status}${retryAfter ? ', Retry-After: ' + retryAfter : ''})`);
+        // 釋放 429 response body，避免 undici socket/記憶體 leak（多 agent 併發 + 高頻 retry 時會累積）
+        try { await resp.body?.cancel().catch(() => {}); } catch {}
         await sleep(delay);
         continue;
       }
@@ -561,6 +563,8 @@ export async function fetchStreamWithRetry(url, options = {}, opts = {}) {
         }
         if (onRetry) onRetry({ attempt: attempt + 1, status: resp.status, delayMs: delay, retryAfter: !!retryAfter });
         console.warn(`[LLM-Utils] Stream retry ${attempt + 1}/${maxRetries} in ${delay}ms (HTTP ${resp.status}${retryAfter ? ', Retry-After: ' + retryAfter : ''})`);
+        // 釋放 429 response body，避免 undici socket/記憶體 leak
+        try { await resp.body?.cancel().catch(() => {}); } catch {}
         await sleep(delay);
         continue;
       }
