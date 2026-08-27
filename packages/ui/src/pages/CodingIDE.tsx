@@ -119,6 +119,10 @@ interface ApiHistoryItem { id: string; ts: string; method: string; url: string; 
 
 // ── Constants ──
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
+
+// Chat scroll cache — crewId → scrollTop（FileViewer scroll cache 同款）
+// 切換 agent tab 時 remount（key={activeCrew}）會丟失捲動位置，用 cache 還原
+const _chatScrollCache = new Map<string, number>();
 // 效能：空陣列模組級身分（inline [] 每鍵新建 → agentToolLog 身分變 → 打爆 ChatMessages memo）
 const EMPTY_TOOL_LOG: Array<{ name: string; args: string; result: string }> = [];
 const METHOD_COLORS: Record<string, string> = {
@@ -1765,29 +1769,44 @@ const sendChat = useCallback(async () => {
       if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "instant" });
     });
   }, []);
+  const prevChatCrewRef = useRef<string | null>(null); // 偵測 agent tab 切換（chatMessages 長度比較跨 crew 無意義）
   useEffect(() => {
+    const crewSwitched = prevChatCrewRef.current !== activeCrew;
+    prevChatCrewRef.current = activeCrew;
     const isNewMessage = chatMessages.length > prevChatLenRef.current;
     prevChatLenRef.current = chatMessages.length;
     const lastLen = chatMessages.length ? (chatMessages[chatMessages.length - 1].content || "").length : 0;
     const contentGrew = lastLen > chatLastLenRef.current;
     chatLastLenRef.current = lastLen;
+
+    if (crewSwitched) {
+      // Agent tab 切換：還原上次的捲動位置，不跳底（FileViewer scroll cache 同款）
+      // 沒 cache（首次開啟/新對話）才落在底部
+      if (chatMessages.length > 0 && activeCrew) {
+        const crewId = activeCrew;
+        const saved = _chatScrollCache.get(crewId);
+        requestAnimationFrame(() => {
+          const el = chatScrollRef.current;
+          if (!el || el.scrollHeight <= el.clientHeight) return;
+          if (saved != null) {
+            el.scrollTop = saved;
+            chatNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+          } else {
+            el.scrollTop = el.scrollHeight;
+            chatNearBottomRef.current = true;
+          }
+        });
+      }
+      return; // 切換這次不跑跟底邏輯（長度比較跨 crew 本來就無意義）
+    }
+
     if (isNewMessage) {
       chatScrollToBottom(true);
     } else if (contentGrew && chatLoading && chatNearBottomRef.current) {
       // 串流中 chunk 成長：直接釘底，不做動畫
       chatScrollToBottom(false);
     }
-  }, [chatMessages, chatLoading, chatScrollToBottom]);
-
-  // Instant scroll to bottom when switching agent tabs
-  useEffect(() => {
-    if (activeCrew && chatMessages.length > 0) {
-      // Use rAF to ensure DOM has rendered before jumping
-      requestAnimationFrame(() => {
-        chatScrollToBottom(false);
-      });
-    }
-  }, [activeCrew, chatScrollToBottom]);
+  }, [chatMessages, chatLoading, chatScrollToBottom, activeCrew]);
 
   // Alias for inline usage in AI crew tab
   const sendChatMessage = useCallback((msg: string) => {
@@ -3354,6 +3373,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ scrollbarWidth: "thin" }} onScroll={(e) => {
                   const el = e.currentTarget;
                   chatNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+                  if (activeCrew) _chatScrollCache.set(activeCrew, el.scrollTop); // FileViewer scroll cache 同款
                 }}>
                   {chatMessages.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full gap-3">
