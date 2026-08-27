@@ -918,6 +918,7 @@ export default function CodingIDE() {
     if (!rootPath) return;
     // Don't save until restore effect has run for this rootPath
     if (tabsRestoredRef.current !== rootPath) return;
+    if (tabsRestoreDoneRef.current !== rootPath) return; // restore 未完成 — 不要用過渡狀態蓋掉 saved tabs
     // Only persist closable tabs; skip dashboard
     const tabsToSave = mainTabs.filter(t => t.id !== DASHBOARD_TAB_ID);
     // Don't overwrite saved tabs with just-dashboard state on race condition
@@ -947,10 +948,21 @@ export default function CodingIDE() {
 
   // ── Restore main tabs when project loads ──
   const tabsRestoredRef = useRef<string | null>(null);
+  const tabsRestoreDoneRef = useRef<string | null>(null); // 還原完成才准 persist（防空狀態蓋掉 saved tabs）
   useEffect(() => {
     if (!rootPath || tabsRestoredRef.current === rootPath) return;
+    const prevRoot = tabsRestoredRef.current;
     tabsRestoredRef.current = rootPath;
-    console.log(`[CodingIDE] Restore effect fired, rootPath=${rootPath}`);
+    tabsRestoreDoneRef.current = null; // 還原進行中 — persist 暫停
+    // RU 切換：main tabs / open files / chat 都還是前一個 RU 的 — 先清乾淨，restore 再疊回此 RU 的
+    if (prevRoot) {
+      setMainTabs([DASHBOARD_TAB]);
+      setActiveMainTabId(DASHBOARD_TAB_ID);
+      setOpenTabs([]);
+      setActiveTabId(null);
+      setChatMessages(() => []);
+    }
+    console.log(`[CodingIDE] Restore effect fired, rootPath=${rootPath} (switched from ${prevRoot || "first-load"})`);
     (async () => {
     try {
       // 🌱 Fresh-import guard：沒有 .paaw 的 project 視為「剛 import」—
@@ -987,12 +999,14 @@ export default function CodingIDE() {
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", "));
           // Restore tabs (dashboard is already present)
-          const existingIds = new Set((mainTabsRef.current || []).map(t => t.id));
-          const newTabs = validTabs.filter((t: MainTab) => !existingIds.has(t.id));
-          console.log(`[CodingIDE] New tabs to restore: ${newTabs.length} (existing: ${existingIds.size})`);
-          if (newTabs.length > 0) {
-            setMainTabs(prev => [DASHBOARD_TAB, ...prev.filter(t => t.id !== DASHBOARD_TAB_ID), ...newTabs]);
-          }
+          // RU 切換後 prev 已是乾淨 dashboard — functional update 不吃 stale ref
+          setMainTabs(prev => {
+            const existing = new Set(prev.map(t => t.id));
+            const toAdd = validTabs.filter((t: MainTab) => t.id !== DASHBOARD_TAB_ID && !existing.has(t.id));
+            if (toAdd.length === 0) return prev;
+            console.log(`[CodingIDE] New tabs to restore: ${toAdd.length}`);
+            return [DASHBOARD_TAB, ...prev.filter(t => t.id !== DASHBOARD_TAB_ID), ...toAdd];
+          });
           // Restore active tab (delay to ensure tabs are rendered)
           const validActive = validTabs.find((t: MainTab) => t.id === savedActive);
           if (validActive && savedActive !== DASHBOARD_TAB_ID) {
@@ -1026,7 +1040,7 @@ export default function CodingIDE() {
           }
         }
       }
-    } catch {}
+    } catch {} finally { tabsRestoreDoneRef.current = rootPath; }
     })();
   }, [rootPath]);
 
