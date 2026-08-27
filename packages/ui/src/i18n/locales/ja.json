@@ -1121,5 +1121,8 @@
   "ru.tabFiles": "ファイル",
   "ru.filesDisabled": "先にリリースユニットタブでプロジェクトを選択してください",
   "browser.urlPlaceholder": "URLを入力（手動ナビゲーション）…",
-  "browser.go": "開く"
+  "browser.go": "開く",
+  "browser.modeInteractive": "スクリーンショットモードへ（エージェントのブラウザ表示）",
+  "browser.modeScreenshot": "インタラクティブモードへ（ページを直接操作）",
+  "browser.emptyShot": "エージェントのブラウザにまだ画面がありません\nbrowser ツール使用後にここに表示されます"
 }

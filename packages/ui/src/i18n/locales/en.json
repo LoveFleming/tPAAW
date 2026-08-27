@@ -1121,5 +1121,8 @@
   "ru.tabFiles": "Files Explorer",
   "ru.filesDisabled": "Select a project in the Release Unit tab first",
   "browser.urlPlaceholder": "Enter URL (manual navigation)…",
-  "browser.go": "Go"
+  "browser.go": "Go",
+  "browser.modeInteractive": "Switch to screenshot mode (agent's browser view)",
+  "browser.modeScreenshot": "Switch to interactive mode (operate the page directly)",
+  "browser.emptyShot": "No screenshot from agent's browser yet\nAppears here once the agent uses a browser tool"
 }

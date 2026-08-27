@@ -1121,5 +1121,8 @@
   "ru.tabFiles": "Files Explorer",
   "ru.filesDisabled": "先在 Release Unit tab 選一個 project",
   "browser.urlPlaceholder": "輸入 URL（manual navigate）…",
-  "browser.go": "Go"
+  "browser.go": "Go",
+  "browser.modeInteractive": "切到 screenshot mode（顯示 agent browser 畫面）",
+  "browser.modeScreenshot": "切到 interactive mode（直接操作網頁）",
+  "browser.emptyShot": "Agent 的 browser 還沒畫面\nagent 用 browser 工具後這裡會顯示截圖"
 }
