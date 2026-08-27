@@ -108,6 +108,7 @@ const ROUTE_MODULES = [
   "./routes/coding-reports.mjs",
   "./routes/release-unit.mjs",
   "./routes/llm-logs.mjs",
+  "./routes/browser.mjs",
   "./routes/agent-logs.mjs",
   "./routes/log-retention.mjs",
   "./routes/plugins.mjs",

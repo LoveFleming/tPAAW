@@ -1104,5 +1104,9 @@
   "cu.stale.smart": "smart steps to rerun",
   "cu.stale.manual": "manual docs outdated",
   "cu.stale.manualDetail": "PROJECT.md / CODING-STANDARDS.md — requires manual update, CU rerun won't refresh",
-  "cu.stale.manualDetailDone": "Manual docs (PROJECT.md / CODING-STANDARDS.md) older than code — requires manual update, CU rerun won't refresh"
+  "cu.stale.manualDetailDone": "Manual docs (PROJECT.md / CODING-STANDARDS.md) older than code — requires manual update, CU rerun won't refresh",
+  "browser.title": "Built-in Browser",
+  "browser.lastAction": "Last action",
+  "browser.notInstalled": "Playwright not installed — install steps:",
+  "browser.empty": "Agent hasn't used the browser yet\nAsk the agent to browser_navigate — its view will appear here"
 }

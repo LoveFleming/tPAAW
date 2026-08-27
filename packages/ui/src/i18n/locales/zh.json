@@ -1104,5 +1104,9 @@
   "cu.stale.smart": "項智能層待重跑",
   "cu.stale.manual": "項人寫文件較舊",
   "cu.stale.manualDetail": "PROJECT.md / CODING-STANDARDS.md — 需人工更新，重跑不會刷新",
-  "cu.stale.manualDetailDone": "人寫文件（PROJECT.md / CODING-STANDARDS.md）比 code 舊 — 需人工更新，重跑 CU 不會刷新"
+  "cu.stale.manualDetailDone": "人寫文件（PROJECT.md / CODING-STANDARDS.md）比 code 舊 — 需人工更新，重跑 CU 不會刷新",
+  "browser.title": "內建瀏覽器",
+  "browser.lastAction": "最後動作",
+  "browser.notInstalled": "Playwright 未安裝 — 安裝步驟：",
+  "browser.empty": "Agent 還沒使用瀏覽器\n請 agent 用 browser_navigate 開啟網頁，這裡會即時顯示畫面"
 }

@@ -1104,5 +1104,9 @@
   "cu.stale.smart": "件の智能層の再実行が必要",
   "cu.stale.manual": "件の手動ドキュメントが古い",
   "cu.stale.manualDetail": "PROJECT.md / CODING-STANDARDS.md — 手動更新が必要、CU再実行では更新されません",
-  "cu.stale.manualDetailDone": "手動ドキュメント（PROJECT.md / CODING-STANDARDS.md）がコードより古い — 手動更新が必要、CU再実行では更新されません"
+  "cu.stale.manualDetailDone": "手動ドキュメント（PROJECT.md / CODING-STANDARDS.md）がコードより古い — 手動更新が必要、CU再実行では更新されません",
+  "browser.title": "内蔵ブラウザ",
+  "browser.lastAction": "最終操作",
+  "browser.notInstalled": "Playwright 未インストール — インストール手順：",
+  "browser.empty": "エージェントはまだブラウザを使っていません\nbrowser_navigate でページを開くと、ここに表示されます"
 }

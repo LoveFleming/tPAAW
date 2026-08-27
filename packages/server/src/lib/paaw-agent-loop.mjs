@@ -41,6 +41,10 @@ import { PaawSnapshot } from "./paaw-snapshot.mjs";
 import { resolveDefaultModel } from "./llm-utils.mjs";
 import { toolRegistry } from "./tool-registry.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import {
+  getBrowserPage, takeScreenshot, trackPage, readPageText, locateTarget,
+  assertSafeUrl, browserState, PLAYWRIGHT_INSTALL_HINT,
+} from "./browser-session.mjs";
 
 // ── Types ──
 
@@ -369,6 +373,75 @@ export const PAAW_TOOLS = [
           expectText: { type: "string", description: "Text that should appear in the response body" },
         },
         required: ["url"],
+      },
+    },
+  },
+  // ── Real Browser Tools (Playwright, JS-rendered pages, docs lookup, UI self-verification) ──
+  {
+    type: "function",
+    function: {
+      name: "browser_navigate",
+      description: "Open a URL in the built-in headless Chromium browser (JS-rendered pages supported, unlike browser_test). Use for reading docs, npm/GitHub pages, or opening the local dev server preview to verify UI you built. Login sessions persist across runs. Returns page title + text excerpt.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "URL to open (http/https only)" },
+          waitMs: { type: "number", description: "Extra ms to wait for JS rendering after load (default 800)" },
+        },
+        required: ["url"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "browser_read",
+      description: "Read the visible text content of the current browser page (after JS rendering). Use after browser_navigate or actions to read page content.",
+      parameters: {
+        type: "object",
+        properties: {
+          maxLength: { type: "number", description: "Max chars to return (default 8000)" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "browser_screenshot",
+      description: "Take a screenshot of the current browser page. Saved to data/logs/browser/ and shown in the IDE Browser tab for human review. Use to visually verify UI you built.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "browser_click",
+      description: "Click an element on the current browser page. Identify by CSS selector or by visible text. Returns page text excerpt after click.",
+      parameters: {
+        type: "object",
+        properties: {
+          selector: { type: "string", description: "CSS selector (e.g. \"button.submit\", \"#login\")" },
+          text: { type: "string", description: "Visible text to click (e.g. \"Sign in\")" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "browser_type",
+      description: "Type text into an input field on the current browser page. Optionally press Enter to submit. Returns page text excerpt after typing.",
+      parameters: {
+        type: "object",
+        properties: {
+          selector: { type: "string", description: "CSS selector of the input (e.g. \"input[name=q]\")" },
+          text: { type: "string", description: "Text to type" },
+          submit: { type: "boolean", description: "Press Enter after typing (default false)" },
+        },
+        required: ["selector", "text"],
       },
     },
   },
@@ -885,6 +958,11 @@ const TOOL_GROUP_MAP = {
 
   // Browser testing
   browser_test: "browser",
+  browser_navigate: "browser",
+  browser_read: "browser",
+  browser_screenshot: "browser",
+  browser_click: "browser",
+  browser_type: "browser",
 
   // Memory & logging
   action_log_add: "memory", action_log_list: "memory",
@@ -1827,6 +1905,90 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             : `Failed to fetch ${testUrl}: ${fetchErr.message}`;
           if (onEvent) onEvent({ type: "tool_error", name, error: errMsg });
           return `❌ ${errMsg}\n\nThis usually means the dev server is not running. Check the port and try again.`;
+        }
+      }
+
+      // ══════════════════════════════════════════
+      // ── Real Browser Tools (Playwright) ──
+      case "browser_navigate": {
+        const url = assertSafeUrl(args.url);
+        if (onEvent) onEvent({ type: "tool_start", name, args: url });
+        try {
+          const page = await getBrowserPage(DATA_HOME);
+          trackPage(page);
+          await page.goto(url, { waitUntil: "domcontentloaded" });
+          await page.waitForTimeout(args.waitMs ?? 800);
+          const title = await page.title().catch(() => "(no title)");
+          const excerpt = (await readPageText(page, 1500)) || "(empty page)";
+          if (onEvent) onEvent({ type: "tool_end", name, result: title });
+          return `✅ Loaded: ${title}\nURL: ${page.url()}\n\n--- Text excerpt ---\n${excerpt}\n\nUse browser_read for full content, browser_screenshot for visual capture.`;
+        } catch (navErr) {
+          const hint = /playwright|Cannot find module/i.test(navErr?.message || "") ? `\n\n${PLAYWRIGHT_INSTALL_HINT}` : "";
+          if (onEvent) onEvent({ type: "tool_error", name, error: navErr.message });
+          return `❌ browser_navigate failed: ${navErr.message}${hint}`;
+        }
+      }
+      case "browser_read": {
+        if (onEvent) onEvent({ type: "tool_start", name, args: {} });
+        try {
+          const page = await getBrowserPage(DATA_HOME);
+          trackPage(page);
+          const text = await readPageText(page, Math.min(args.maxLength || 8000, 20000));
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${text.length} chars` });
+          return `URL: ${page.url()}\n\n${text || "(empty page)"}`;
+        } catch (readErr) {
+          const hint = /playwright|Cannot find module/i.test(readErr?.message || "") ? `\n\n${PLAYWRIGHT_INSTALL_HINT}` : "";
+          if (onEvent) onEvent({ type: "tool_error", name, error: readErr.message });
+          return `❌ browser_read failed: ${readErr.message}${hint}`;
+        }
+      }
+      case "browser_screenshot": {
+        if (onEvent) onEvent({ type: "tool_start", name, args: {} });
+        try {
+          const page = await getBrowserPage(DATA_HOME);
+          trackPage(page);
+          const path = await takeScreenshot(DATA_HOME, page);
+          if (onEvent) onEvent({ type: "tool_end", name, result: path });
+          return `📸 Screenshot saved: ${path}\nVisible in IDE Browser tab (human review). Use browser_read to get text content of what you see.`;
+        } catch (shotErr) {
+          const hint = /playwright|Cannot find module/i.test(shotErr?.message || "") ? `\n\n${PLAYWRIGHT_INSTALL_HINT}` : "";
+          if (onEvent) onEvent({ type: "tool_error", name, error: shotErr.message });
+          return `❌ browser_screenshot failed: ${shotErr.message}${hint}`;
+        }
+      }
+      case "browser_click": {
+        if (onEvent) onEvent({ type: "tool_start", name, args });
+        try {
+          const page = await getBrowserPage(DATA_HOME);
+          trackPage(page);
+          const target = locateTarget(page, args);
+          await target.click({ timeout: 10_000 });
+          await page.waitForTimeout(600);
+          const excerpt = (await readPageText(page, 1200)) || "(empty)";
+          if (onEvent) onEvent({ type: "tool_end", name, result: `clicked @ ${page.url()}` });
+          return `✅ Clicked (${args.selector || JSON.stringify(args.text)})\nURL now: ${page.url()}\n\n--- Text excerpt ---\n${excerpt}`;
+        } catch (clickErr) {
+          const hint = /playwright|Cannot find module/i.test(clickErr?.message || "") ? `\n\n${PLAYWRIGHT_INSTALL_HINT}` : "";
+          if (onEvent) onEvent({ type: "tool_error", name, error: clickErr.message });
+          return `❌ browser_click failed: ${clickErr.message}${hint}`;
+        }
+      }
+      case "browser_type": {
+        if (onEvent) onEvent({ type: "tool_start", name, args });
+        try {
+          const page = await getBrowserPage(DATA_HOME);
+          trackPage(page);
+          const input = page.locator(args.selector).first();
+          await input.fill(String(args.text), { timeout: 10_000 });
+          if (args.submit) await input.press("Enter");
+          await page.waitForTimeout(600);
+          const excerpt = (await readPageText(page, 1200)) || "(empty)";
+          if (onEvent) onEvent({ type: "tool_end", name, result: `typed into ${args.selector}` });
+          return `✅ Typed into ${args.selector}${args.submit ? " + Enter" : ""}\nURL now: ${page.url()}\n\n--- Text excerpt ---\n${excerpt}`;
+        } catch (typeErr) {
+          const hint = /playwright|Cannot find module/i.test(typeErr?.message || "") ? `\n\n${PLAYWRIGHT_INSTALL_HINT}` : "";
+          if (onEvent) onEvent({ type: "tool_error", name, error: typeErr.message });
+          return `❌ browser_type failed: ${typeErr.message}${hint}`;
         }
       }
 

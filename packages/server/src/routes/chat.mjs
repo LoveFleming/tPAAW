@@ -183,6 +183,11 @@ export default async function chatRoutes(req, res) {
         "project_status",     // 專案狀態
         "project_update_task", // 專案任務更新
         "browser_test",       // 瀏覽器測試
+        "browser_navigate",   // 內建瀏覽器（僅 coding app）
+        "browser_read",
+        "browser_screenshot",
+        "browser_click",
+        "browser_type",
         "glob",               // 檔案搜尋
         "grep",               // 文字搜尋
         "diff",               // 檔案差異

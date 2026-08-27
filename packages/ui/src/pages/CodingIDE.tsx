@@ -35,6 +35,7 @@ import CodeIntelPage from "../components/CodeIntelPage";
 import TestsPage from "../components/TestsPage";
 import EMDashboard from "../components/EMDashboard";
 import { GitPanel } from "../components/git";
+import { BrowserPanel } from "../components/browser/BrowserPanel";
 import DiffViewer from "../components/DiffViewer";
 import StandardsEditor from "../components/StandardsEditor";
 import SessionHistory from "../components/SessionHistory";
@@ -78,7 +79,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests";
 
 interface MainTab {
   id: string;
@@ -981,7 +982,7 @@ export default function CodingIDE() {
         console.log(`[CodingIDE] Parsed ${savedTabs?.length || 0} saved tabs, active=${savedActive}`);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
-          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "terminal", "ai-crew", "standards", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel", "tests"]);
+          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "browser", "terminal", "ai-crew", "standards", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel", "tests"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", "));
           // Restore tabs (dashboard is already present)
@@ -1598,6 +1599,11 @@ const sendChat = useCallback(async () => {
                       diff: "🔍 比較差異",
                       ask_user: "❓ 詢問用戶",
                       browser_test: "🌐 瀏覽器測試",
+                      browser_navigate: "🌐 開啟網頁",
+                      browser_read: "📖 讀取頁面",
+                      browser_screenshot: "📸 頁面截圖",
+                      browser_click: "🖱️ 點擊",
+                      browser_type: "⌨️ 輸入",
                     };
                     const actionLabel = actionLabels[data.name] || `🔧 ${data.name}`;
                     // Show file name if available
@@ -2695,6 +2701,12 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:git") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:git" ? tk.toolbarActive : "transparent"; }}
           title={tt("vibe.git")}>🔀 GIT</button>
+        <button onClick={() => openMainTab({ id: "tool:browser", type: "browser", label: "BROWSER", icon: "🌐", closable: true })}
+          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:browser" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:browser") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:browser") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:browser" ? tk.toolbarActive : "transparent"; }}
+          title={tt("browser.title")}>🌐 BROWSER</button>
         <button onClick={() => openMainTab({ id: "tool:api", type: "api", label: "API Tester", icon: "🌐", closable: true })}
           className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
           style={{ backgroundColor: activeMainTab?.id === "tool:api" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:api") ? tk.toolbarText : tk.toolbarTextMuted }}
@@ -2904,6 +2916,9 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
             })}
 
             {/* === GIT PANEL (New Component) === */}
+            {activeMainTab?.type === "browser" && (
+              <BrowserPanel API_BASE={API_BASE} />
+            )}
             {activeMainTab?.type === "git" && (
               <GitPanel
                 rootPath={rootPath!}
