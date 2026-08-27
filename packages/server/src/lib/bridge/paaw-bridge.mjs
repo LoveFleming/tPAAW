@@ -581,6 +581,15 @@ const server = createServer(async (req, res) => {
 // DO NOT auto-listen on import! Export start() so the main server
 // can call it AFTER .env is loaded.
 export function startBridge() {
+  // EADDRINUSE 清楚報錯 + 乾淨退出，不要炸 exception 風暴
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      try { console.error(`❌ [BRIDGE] Port ${PORT} 已被佔用 — 已有另一個 paaw-bridge 實體在跑`); } catch {}
+      if (process.argv[1]?.endsWith("paaw-bridge.mjs")) process.exit(1);
+      return; // 內嵌模式：只報錯不殺主 server
+    }
+    try { console.error("❌ [BRIDGE] server error:", err); } catch {}
+  });
   server.listen(PORT, HOST, () => {
     console.log(`[BRIDGE] Listening on http://${HOST}:${PORT}`);
     console.log(`[BRIDGE] Container: ${PAAW_CONTAINER}`);

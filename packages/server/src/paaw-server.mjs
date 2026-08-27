@@ -19,31 +19,39 @@ import {
 import { setupWebSocket } from "./websocket/ws-handler.mjs";
 import { DATA_HOME } from "./data-home.mjs";
 
+// ── EPIPE 保護（必須最早註冊）──
+// stdout/stderr 管道斷掉（parent terminal 關閉、concurrently 重啟、背景執行）時，
+// 任何 console.log 都會炸 uncaught exception → 連環風暴（2026-08-27 09:08 實例：
+// 2 秒內 1878 個 crash file）甚至整個 process 死掉。
+// 掛上 error handler 直接吞掉 EPIPE，console 永遠不再殺 process。
+for (const _stream of [process.stdout, process.stderr]) {
+  _stream?.on?.("error", (e) => { if (e?.code === "EPIPE") return; throw e; });
+}
+
 // ── Process-level crash protection ──
 // Node 15+ terminates on unhandledRejection by default.
 // These handlers LOG the error + write crash log to disk,
 // preventing "整個 server 當掉" from a single stray async error.
-process.on('unhandledRejection', (reason, promise) => {
-  const ts = new Date().toISOString();
-  console.error(`\n🚨 [PAAW] UNHANDLED REJECTION (${ts}) — server stays alive:`);
-  console.error('  Reason:', reason);
+const _crashWriteLast = new Map(); // error signature → last write ts（防風暴寫爆磁碟）
+function _writeCrashLog(kind, detail) {
   try {
-    const crashDir = join(DATA_HOME, 'logs', 'crash');
+    const ts = new Date().toISOString();
+    const sig = `${kind}:${String(detail).slice(0, 200)}`;
+    if (Date.now() - (_crashWriteLast.get(sig) || 0) < 5000) return; // 同簽名 5 秒內只寫一筆
+    _crashWriteLast.set(sig, Date.now());
+    const crashDir = join(DATA_HOME, "logs", "crash");
     mkdirSync(crashDir, { recursive: true });
-    appendFileSync(join(crashDir, `crash-${ts.replace(/[:.]/g, '-')}.log`),
-      `[UNHANDLED REJECTION] ${ts}\nReason: ${reason?.stack || reason}\n\n`);
-  } catch (_e) { /* best effort */ }
+    appendFileSync(join(crashDir, `crash-${ts.replace(/[:.]/g, "-")}.log`),
+      `[${kind}] ${ts}\n${detail}\n\n`);
+  } catch { /* best effort */ }
+}
+process.on('unhandledRejection', (reason, promise) => {
+  try { console.error(`🚨 [PAAW] UNHANDLED REJECTION — server stays alive:`, reason); } catch {}
+  _writeCrashLog('UNHANDLED REJECTION', reason?.stack || String(reason));
 });
 process.on('uncaughtException', (err) => {
-  const ts = new Date().toISOString();
-  console.error(`\n🚨 [PAAW] UNCAUGHT EXCEPTION (${ts}) — server stays alive:`);
-  console.error('  Error:', err.stack || err.message);
-  try {
-    const crashDir = join(DATA_HOME, 'logs', 'crash');
-    mkdirSync(crashDir, { recursive: true });
-    appendFileSync(join(crashDir, `crash-${ts.replace(/[:.]/g, '-')}.log`),
-      `[UNCAUGHT EXCEPTION] ${ts}\n${err.stack || err.message}\n\n`);
-  } catch (_e) { /* best effort */ }
+  try { console.error(`🚨 [PAAW] UNCAUGHT EXCEPTION — server stays alive:`, err?.stack || err); } catch {}
+  _writeCrashLog('UNCAUGHT EXCEPTION', err?.stack || String(err));
 });
 
 // ── Startup import check — catch missing exports (runs in background) ──
@@ -249,6 +257,15 @@ try {
 }
 
 setupWebSocket();   // WebSocket on port 4098
+
+// EADDRINUSE 清楚報錯 + 乾淨退出，不要炸 exception 風暴
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    try { console.error(`❌ [PAAW] Port ${PORT} 已被佔用 — 已有另一個 paaw-server 實體在跑，本實體退出。`); } catch {}
+    process.exit(1);
+  }
+  try { console.error("❌ [PAAW] HTTP server error:", err); } catch {}
+});
 
 server.listen(PORT, async () => {
   // Ensure required directories exist
