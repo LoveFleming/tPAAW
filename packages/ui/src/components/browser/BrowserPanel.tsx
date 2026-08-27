@@ -117,7 +117,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
       )}
 
       {/* ── 截圖：填滿主區 ── */}
-      <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center bg-gray-900">
+      <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center bg-white">
         {shotTs ? (
           <img
             key={shotTs}
