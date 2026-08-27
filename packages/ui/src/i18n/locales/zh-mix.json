@@ -1116,5 +1116,8 @@
   "ru.removeConfirm": "移除這個 Release Unit？只移除 tab，不刪任何 file。",
   "ru.empty": "還沒有 Release Unit\n按 Import 加入 project",
   "ru.hint": "🤖 AI 被關在自己的 Release Unit 目錄內，不能跨 RU 存取",
-  "ru.tabTooltip": "Release Unit manager — import / remove / switch"
+  "ru.tabTooltip": "Release Unit manager — import / remove / switch",
+  "ru.tabRu": "Release Unit",
+  "ru.tabFiles": "Files Explorer",
+  "ru.filesDisabled": "先在 Release Unit tab 選一個 project"
 }

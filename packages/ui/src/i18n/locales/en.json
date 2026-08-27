@@ -1116,5 +1116,8 @@
   "ru.removeConfirm": "Remove this Release Unit? Only removes the tab — no files are deleted.",
   "ru.empty": "No Release Units yet\nClick Import Project to add one",
   "ru.hint": "🤖 AI is confined to its own Release Unit directory — no cross-RU access",
-  "ru.tabTooltip": "Release Unit manager — import / remove / switch projects"
+  "ru.tabTooltip": "Release Unit manager — import / remove / switch projects",
+  "ru.tabRu": "Release Unit",
+  "ru.tabFiles": "Files Explorer",
+  "ru.filesDisabled": "Select a project in the Release Unit tab first"
 }

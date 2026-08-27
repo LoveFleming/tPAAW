@@ -650,6 +650,7 @@ export default function CodingIDE() {
       .then(r => r.json()).then(data => { if (Array.isArray(data)) setRecentProjects(data); }).catch(() => {});
     // Clear state
     setRootPath("");
+    setSidebarTab("ru");
     setOpenTabs([]);
     setActiveTabId(null);
     setMainTabs([DASHBOARD_TAB]);
@@ -833,7 +834,7 @@ export default function CodingIDE() {
     (async () => {
       // Load root path
       const root = localStorage.getItem("paaw.vibeide.rootPath");
-      if (root) { setRootPath(root); expandDir(root); registerRu(root); }
+      if (root) { setRootPath(root); expandDir(root); registerRu(root); setSidebarTab("files"); }
       // Load API history from server
       try {
         const res = await fetch(`${API_BASE}/api/api-tester/history`);
@@ -1199,7 +1200,7 @@ export default function CodingIDE() {
   // 每個 RU 記住自己的樹展開狀態，切換不重置
   // ═══════════════════════════════════════════════
   const [releaseUnits, setReleaseUnits] = useState<{ id: string; path: string; label: string; exists?: boolean }[]>([]);
-  const [ruManagerOpen, setRuManagerOpen] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<"ru" | "files">("ru");
   const ruTreeCacheRef = useRef<Map<string, { expandedDirs: Set<string>; dirContents: Record<string, FsItem[]> }>>(new Map());
 
   // 載入 RU registry（GET /api/ru/workspaces）
@@ -1239,7 +1240,7 @@ export default function CodingIDE() {
     }
     loadingDirsRef.current = new Set();
     setRootPath(path);
-    setRuManagerOpen(false);
+    setSidebarTab("files");
     expandDir(path);
     registerRu(path);
   }, [rootPath, expandDir, registerRu]);
@@ -1249,7 +1250,7 @@ export default function CodingIDE() {
     if (!window.confirm(tt("ru.removeConfirm"))) return;
     setReleaseUnits(prev => prev.filter(u => u.id !== unit.id));
     fetch(`${API_BASE}/api/ru/workspaces?id=${unit.id}`, { method: "DELETE" }).catch(() => {});
-    if (rootPath === unit.path) { setRootPath(""); setRuManagerOpen(true); }
+    if (rootPath === unit.path) { setRootPath(""); setSidebarTab("ru"); }
   }, [rootPath]);
 
   // ═══════════════════════════════════════════════
@@ -2833,26 +2834,17 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
         {/* ── File Explorer（可隱藏）── */}
         {!fileTreeHidden && (<>
         <div className="flex flex-col shrink-0 select-none" style={{ width: sidebarWidth, backgroundColor: "#fff" }}>
-          {/* ── Release Unit tab strip（RU = 專案目錄）── */}
-          <div className="flex items-stretch gap-0.5 px-1 pt-1 overflow-x-auto shrink-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-            <button onClick={() => setRuManagerOpen(true)}
-              className={`flex items-center gap-1 px-2 py-1.5 text-xs shrink-0 transition-colors ${ruManagerOpen || !rootPath ? "text-stone-800 font-semibold" : "text-stone-400 hover:text-stone-600"}`}
-              style={{ borderBottom: `2px solid ${ruManagerOpen || !rootPath ? tk.accent : "transparent"}` }}
-              title={tt("ru.tabTooltip")}>📦</button>
-            {releaseUnits.map(u => {
-              const active = rootPath === u.path && !ruManagerOpen;
-              return (
-                <div key={u.id} className="group relative shrink-0">
-                  <button onClick={() => switchRu(u.path)}
-                    className={`flex items-center px-2 py-1.5 text-xs transition-colors ${active ? "text-stone-800 font-semibold" : "text-stone-400 hover:text-stone-600"}`}
-                    style={{ borderBottom: `2px solid ${active ? tk.accent : "transparent"}` }}
-                    title={u.path}>{u.exists === false ? "⚠️ " : ""}{u.label}</button>
-                  <button onClick={e => { e.stopPropagation(); removeRu(u); }}
-                    className="absolute -right-0.5 top-0 opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-500 text-[10px]"
-                    title={tt("ru.remove", "Remove")}>✕</button>
-                </div>
-              );
-            })}
+          {/* ── Sidebar tabs：① Release Unit ② Files Explorer（未選 RU 鎖定）── */}
+          <div className="flex items-stretch gap-0.5 px-1 pt-1 shrink-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
+            <button onClick={() => setSidebarTab("ru")}
+              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs shrink-0 transition-colors ${sidebarTab === "ru" ? "text-stone-800 font-semibold" : "text-stone-400 hover:text-stone-600"}`}
+              style={{ borderBottom: `2px solid ${sidebarTab === "ru" ? tk.accent : "transparent"}` }}
+              title={tt("ru.tabTooltip")}>📦 {tt("ru.tabRu", "Release Unit")}{releaseUnits.length > 0 && <span className="text-[10px] font-normal text-stone-400">{releaseUnits.length}</span>}</button>
+            <button onClick={() => { if (rootPath) setSidebarTab("files"); }}
+              disabled={!rootPath}
+              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs shrink-0 transition-colors ${sidebarTab === "files" && rootPath ? "text-stone-800 font-semibold" : rootPath ? "text-stone-400 hover:text-stone-600" : "text-stone-300 cursor-not-allowed"}`}
+              style={{ borderBottom: `2px solid ${sidebarTab === "files" && rootPath ? tk.accent : "transparent"}` }}
+              title={rootPath ? tt("ru.tabFiles", "Files Explorer") : tt("ru.filesDisabled")}>🗂 {tt("ru.tabFiles", "Files Explorer")}</button>
           </div>
           <div className="px-2 py-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
             {/* Git branch indicator */}
@@ -2868,7 +2860,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
             )}
           </div>
           <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
-            {rootPath && !ruManagerOpen ? (
+            {sidebarTab === "files" && rootPath ? (
               <SidebarFileTree
                 projectRoot={rootPath}
                 activeFilePath={activeMainTab?.filePath || activeTabId}
@@ -2903,7 +2895,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                     className="group flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-blue-50 cursor-pointer text-sm">
                     <span className="shrink-0">{u.exists === false ? "⚠️" : "📦"}</span>
                     <span className="truncate flex-1 text-stone-700" title={u.path}>{u.label}</span>
-                    {rootPath === u.path && !ruManagerOpen && <span className="text-[10px] text-emerald-600 font-bold" title={tt("ru.active", "active")}>●</span>}
+                    {rootPath === u.path && <span className="text-[10px] text-emerald-600 font-bold" title={tt("ru.active", "active")}>●</span>}
                     <button onClick={e => { e.stopPropagation(); removeRu(u); }}
                       className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-500 text-xs shrink-0" title={tt("ru.remove", "Remove")}>✕</button>
                   </div>

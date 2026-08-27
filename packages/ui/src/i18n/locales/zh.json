@@ -1116,5 +1116,8 @@
   "ru.removeConfirm": "確定移除這個 Release Unit？只會移除分頁，不會刪除任何檔案。",
   "ru.empty": "還沒有任何 Release Unit\n按「匯入專案」把專案加入工作集",
   "ru.hint": "🤖 AI 被限制在自己 Release Unit 的目錄內，不能跨 RU 存取",
-  "ru.tabTooltip": "Release Unit 管理員 — 匯入／移除／切換專案"
+  "ru.tabTooltip": "Release Unit 管理員 — 匯入／移除／切換專案",
+  "ru.tabRu": "Release Unit",
+  "ru.tabFiles": "Files Explorer",
+  "ru.filesDisabled": "先在 Release Unit 分頁選擇一個專案"
 }
