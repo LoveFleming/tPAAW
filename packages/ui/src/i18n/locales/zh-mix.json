@@ -1108,5 +1108,13 @@
   "browser.title": "內建 Browser",
   "browser.lastAction": "Last action",
   "browser.notInstalled": "Playwright 未安裝 — install steps:",
-  "browser.empty": "Agent 還沒用 browser\n叫 agent browser_navigate，畫面會即時顯示在這裡"
+  "browser.empty": "Agent 還沒用 browser\n叫 agent browser_navigate，畫面會即時顯示在這裡",
+  "ru.manager": "Release Units（工作集）",
+  "ru.import": "匯入 project",
+  "ru.remove": "Remove",
+  "ru.active": "active",
+  "ru.removeConfirm": "移除這個 Release Unit？只移除 tab，不刪任何 file。",
+  "ru.empty": "還沒有 Release Unit\n按 Import 加入 project",
+  "ru.hint": "🤖 AI 被關在自己的 Release Unit 目錄內，不能跨 RU 存取",
+  "ru.tabTooltip": "Release Unit manager — import / remove / switch"
 }

@@ -17,9 +17,10 @@
  */
 
 import { readFile, readdir, stat } from "fs/promises";
-import { existsSync, readFileSync } from "fs";
-import { join, resolve, dirname } from "path";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import { join, resolve, dirname, basename } from "path";
 import { fileURLToPath } from "url";
+import { randomUUID } from "crypto";
 import { normalizePath } from "./shared.mjs";
 import { shellExec } from "../lib/shell-exec.mjs";
 import { detectTechStack } from "../lib/release-unit/adapters.mjs";
@@ -99,6 +100,58 @@ export default async function releaseUnitRoutes(req, res, next) {
   const refresh = q.get("refresh") === "1";
 
   if (!url.startsWith("/api/ru")) return next?.() ?? false;
+
+  // ═══ Release Unit Workspace Registry（sidebar RU tabs 用）═══
+  // 一個 RU = 一個專案目錄。註冊表存在 DATA_HOME/config/release-units.json
+  // registry 只管「分頁存在與否」— 移除不碰任何檔案
+  const RU_REGISTRY = join(DATA_HOME, "config", "release-units.json");
+  const _loadRuRegistry = () => {
+    try {
+      const raw = JSON.parse(readFileSync(RU_REGISTRY, "utf-8"));
+      return Array.isArray(raw.units) ? raw.units : [];
+    } catch { return []; }
+  };
+  const _saveRuRegistry = (units) => {
+    mkdirSync(dirname(RU_REGISTRY), { recursive: true });
+    writeFileSync(RU_REGISTRY, JSON.stringify({ units }, null, 2));
+  };
+
+  // GET /api/ru/workspaces — 已註冊的 RU 清單（exists 標記路徑還在不在）
+  if (url === "/api/ru/workspaces" && method === "GET") {
+    const units = _loadRuRegistry().map(u => ({ ...u, exists: existsSync(u.path) }));
+    return json(res, 200, { units });
+  }
+
+  // POST /api/ru/workspaces {path, label?} — 註冊（以 resolved path 去重）
+  if (url === "/api/ru/workspaces" && method === "POST") {
+    const body = await readBody(req);
+    const rawPath = (body.path || "").trim();
+    if (!rawPath || !existsSync(rawPath)) return json(res, 400, { error: "path required and must exist" });
+    const absPath = resolve(rawPath);
+    const units = _loadRuRegistry();
+    const found = units.find(u => resolve(u.path) === absPath);
+    if (found) return json(res, 200, { unit: { ...found, exists: true } });
+    const unit = {
+      id: randomUUID(),
+      path: normalizePath(absPath),
+      label: (body.label || basename(absPath)).slice(0, 40),
+      addedAt: new Date().toISOString(),
+    };
+    units.push(unit);
+    _saveRuRegistry(units);
+    return json(res, 200, { unit: { ...unit, exists: true } });
+  }
+
+  // DELETE /api/ru/workspaces?id= — 取消註冊（不刪檔案）
+  if (url === "/api/ru/workspaces" && method === "DELETE") {
+    const id = q.get("id");
+    if (!id) return json(res, 400, { error: "id required" });
+    const units = _loadRuRegistry();
+    const next2 = units.filter(u => u.id !== id);
+    if (next2.length === units.length) return json(res, 404, { error: "not found" });
+    _saveRuRegistry(next2);
+    return json(res, 200, { ok: true });
+  }
 
   // ── GET /api/ru/qa — 新人 12 問 deterministic 引擎（R5：no answer without evidence）──
   if (url === "/api/ru/qa" && method === "GET") {

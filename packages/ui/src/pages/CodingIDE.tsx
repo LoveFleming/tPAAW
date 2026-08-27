@@ -833,7 +833,7 @@ export default function CodingIDE() {
     (async () => {
       // Load root path
       const root = localStorage.getItem("paaw.vibeide.rootPath");
-      if (root) { setRootPath(root); expandDir(root); }
+      if (root) { setRootPath(root); expandDir(root); registerRu(root); }
       // Load API history from server
       try {
         const res = await fetch(`${API_BASE}/api/api-tester/history`);
@@ -1193,6 +1193,64 @@ export default function CodingIDE() {
       expandDir(path);
     }
   }, [expandDir]);
+
+  // ═══════════════════════════════════════════════
+  // Release Unit Tabs（2026-08-27：RU = 專案目錄；sidebar tab strip）
+  // 每個 RU 記住自己的樹展開狀態，切換不重置
+  // ═══════════════════════════════════════════════
+  const [releaseUnits, setReleaseUnits] = useState<{ id: string; path: string; label: string; exists?: boolean }[]>([]);
+  const [ruManagerOpen, setRuManagerOpen] = useState(false);
+  const ruTreeCacheRef = useRef<Map<string, { expandedDirs: Set<string>; dirContents: Record<string, FsItem[]> }>>(new Map());
+
+  // 載入 RU registry（GET /api/ru/workspaces）
+  useEffect(() => {
+    fetch(`${API_BASE}/api/ru/workspaces`)
+      .then(r => r.json())
+      .then(d => setReleaseUnits(d.units || []))
+      .catch(() => {});
+  }, []);
+
+  // 註冊 RU（票等，伺服器以 resolved path 去重）
+  const registerRu = useCallback((path: string) => {
+    fetch(`${API_BASE}/api/ru/workspaces`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.unit) setReleaseUnits(prev => prev.some(u => u.path === d.unit.path) ? prev : [...prev, d.unit]);
+      })
+      .catch(() => {});
+  }, []);
+
+  // 切換 RU：快取目前樹狀態 → 還原目標樹狀態（沒快體就展開 root）→ 註冊
+  const switchRu = useCallback((path: string) => {
+    if (rootPath && rootPath !== path) {
+      ruTreeCacheRef.current.set(rootPath, { expandedDirs: expandedDirsRef.current, dirContents: dirContentsRef.current });
+    }
+    const cached = ruTreeCacheRef.current.get(path);
+    if (cached) {
+      setExpandedDirs(cached.expandedDirs); expandedDirsRef.current = cached.expandedDirs;
+      setDirContents(cached.dirContents); dirContentsRef.current = cached.dirContents;
+    } else {
+      setExpandedDirs(new Set()); expandedDirsRef.current = new Set();
+      setDirContents({}); dirContentsRef.current = {};
+    }
+    loadingDirsRef.current = new Set();
+    setRootPath(path);
+    setRuManagerOpen(false);
+    expandDir(path);
+    registerRu(path);
+  }, [rootPath, expandDir, registerRu]);
+
+  // 移除 RU（只移 tab，不碰檔案）
+  const removeRu = useCallback((unit: { id: string; path: string; label: string }) => {
+    if (!window.confirm(tt("ru.removeConfirm"))) return;
+    setReleaseUnits(prev => prev.filter(u => u.id !== unit.id));
+    fetch(`${API_BASE}/api/ru/workspaces?id=${unit.id}`, { method: "DELETE" }).catch(() => {});
+    if (rootPath === unit.path) { setRootPath(""); setRuManagerOpen(true); }
+  }, [rootPath]);
 
   // ═══════════════════════════════════════════════
   // File Operations
@@ -2328,7 +2386,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
     {showDirExplorer && (
       <DirectoryExplorer
         initialPath={rootPath || undefined}
-        onSelect={(path) => { setRootPath(path); setShowDirExplorer(false); setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; loadingDirsRef.current = new Set(); expandDir(path); }}
+        onSelect={(path) => { switchRu(path); setShowDirExplorer(false); }}
         onClose={() => setShowDirExplorer(false)}
         title="📂 選擇專案目錄"
       />
@@ -2495,13 +2553,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                       // Step 2: Open the new project
                       setShowNewProject(false);
                       setNewProjectStep(1);
-                      setRootPath(data.path);
-                      setExpandedDirs(new Set());
-                      setDirContents({});
-                      dirContentsRef.current = {};
-                      loadingDirsRef.current = new Set();
-                      expandDir(data.path);
-                      try { localStorage.setItem("paaw.vibeide.rootPath", data.path); } catch {}
+                      switchRu(data.path);
 
                       // Step 3: Send scaffold prompt to developer agent
                       const scaffoldPrompt = `我剛建立了一個新的 Node.js + React + Vite 專案，請幫我搭建完整的專案骨架。\n\n專案名稱：${newProjectName.trim()}\n專案描述：${newProjectDesc.trim()}\n\n請建立以下結構：\n1. 前端：React + Vite + TypeScript + Tailwind CSS\n   - src/App.tsx — 主頁面，根據描述生成基本 UI\n   - src/main.tsx — 入口\n   - index.html\n2. 後端：Node.js + Express\n   - server/index.ts — API server，基本 health check endpoint\n3. 設定檔\n   - package.json（前後端 scripts）\n   - tsconfig.json\n   - vite.config.ts\n   - tailwind.config.js\n   - .gitignore\n4. 安裝依賴並確認可以啟動\n\n根據我的描述「${newProjectDesc.trim()}」生成對應的基本 UI 和 API。保持簡潔可用，不用完美。`;
@@ -2566,7 +2618,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   <div className="border-t border-stone-100 my-1" />
                   <div className="px-3 py-1 text-xs font-semibold text-stone-400">{tt("vibe.recentProjects", "Recent Projects")}</div>
                   {recentProjects.slice(0, 8).map(rp => (
-                    <button key={rp.path} onClick={() => { setShowProjectMenu(false); setRootPath(rp.path); setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rp.path); }}
+                    <button key={rp.path} onClick={() => { setShowProjectMenu(false); switchRu(rp.path); }}
                       className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 flex items-center gap-2 truncate">
                       <span className="shrink-0">{rp.hasPaaw ? "🤖" : "📁"}</span> <span className="truncate">{rp.name}</span>
                     </button>
@@ -2781,6 +2833,27 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
         {/* ── File Explorer（可隱藏）── */}
         {!fileTreeHidden && (<>
         <div className="flex flex-col shrink-0 select-none" style={{ width: sidebarWidth, backgroundColor: "#fff" }}>
+          {/* ── Release Unit tab strip（RU = 專案目錄）── */}
+          <div className="flex items-stretch gap-0.5 px-1 pt-1 overflow-x-auto shrink-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
+            <button onClick={() => setRuManagerOpen(true)}
+              className={`flex items-center gap-1 px-2 py-1.5 text-xs shrink-0 transition-colors ${ruManagerOpen || !rootPath ? "text-stone-800 font-semibold" : "text-stone-400 hover:text-stone-600"}`}
+              style={{ borderBottom: `2px solid ${ruManagerOpen || !rootPath ? tk.accent : "transparent"}` }}
+              title={tt("ru.tabTooltip")}>📦</button>
+            {releaseUnits.map(u => {
+              const active = rootPath === u.path && !ruManagerOpen;
+              return (
+                <div key={u.id} className="group relative shrink-0">
+                  <button onClick={() => switchRu(u.path)}
+                    className={`flex items-center px-2 py-1.5 text-xs transition-colors ${active ? "text-stone-800 font-semibold" : "text-stone-400 hover:text-stone-600"}`}
+                    style={{ borderBottom: `2px solid ${active ? tk.accent : "transparent"}` }}
+                    title={u.path}>{u.exists === false ? "⚠️ " : ""}{u.label}</button>
+                  <button onClick={e => { e.stopPropagation(); removeRu(u); }}
+                    className="absolute -right-0.5 top-0 opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-500 text-[10px]"
+                    title={tt("ru.remove", "Remove")}>✕</button>
+                </div>
+              );
+            })}
+          </div>
           <div className="px-2 py-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
             {/* Git branch indicator */}
             {gitStatus?.branch && (
@@ -2795,7 +2868,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
             )}
           </div>
           <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
-            {rootPath ? (
+            {rootPath && !ruManagerOpen ? (
               <SidebarFileTree
                 projectRoot={rootPath}
                 activeFilePath={activeMainTab?.filePath || activeTabId}
@@ -2810,30 +2883,46 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 }}
               />
             ) : (
-              <div className="flex flex-col items-center justify-center h-full gap-3 px-4 text-center">
-                <span className="text-4xl">💻</span>
-                <p className="text-sm font-medium text-stone-500">{tt("vibe.addProject", "加入你的 Code Project")}</p>
-                <div className="flex flex-col gap-1.5 w-full max-w-[200px]">
+              <div className="flex flex-col h-full p-3 gap-2 overflow-y-auto">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-stone-400">{tt("ru.manager", "Release Units")}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500">{releaseUnits.length}</span>
+                </div>
+                <div className="flex gap-1.5">
+                  <button onClick={() => setShowDirExplorer(true)}
+                    className="flex-1 text-xs px-2 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold">
+                    📂 {tt("ru.import", "Import")}
+                  </button>
                   <button onClick={() => { setNewProjectParent(""); setNewProjectName(""); setNewProjectError(""); setShowNewProject(true); }}
-                    className="text-xs px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
+                    className="flex-1 text-xs px-2 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
                     ➕ {tt("vibe.newProject", "New Project")}
                   </button>
-                  <button onClick={() => setShowDirExplorer(true)}
-                    className="text-xs px-3 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold">
-                    📂 {tt("vibe.importProject", "Import Project")}
-                  </button>
-                  {recentProjects.length > 0 && (
-                    <div className="border-t border-stone-200 pt-2 mt-1">
-                      <div className="text-[10px] font-semibold text-stone-400 mb-1">{tt("vibe.recentProjects")}</div>
-                      {recentProjects.slice(0, 5).map(rp => (
-                        <button key={rp.path} onClick={() => { setRootPath(rp.path); setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rp.path); }}
-                          className="w-full text-left px-2 py-1.5 text-xs hover:bg-blue-50 rounded flex items-center gap-1.5 truncate">
-                          <span className="shrink-0">{rp.hasPaaw ? "🤖" : "📁"}</span> <span className="truncate text-stone-600">{rp.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
+                {releaseUnits.map(u => (
+                  <div key={u.id} onClick={() => switchRu(u.path)}
+                    className="group flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-blue-50 cursor-pointer text-sm">
+                    <span className="shrink-0">{u.exists === false ? "⚠️" : "📦"}</span>
+                    <span className="truncate flex-1 text-stone-700" title={u.path}>{u.label}</span>
+                    {rootPath === u.path && !ruManagerOpen && <span className="text-[10px] text-emerald-600 font-bold" title={tt("ru.active", "active")}>●</span>}
+                    <button onClick={e => { e.stopPropagation(); removeRu(u); }}
+                      className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-500 text-xs shrink-0" title={tt("ru.remove", "Remove")}>✕</button>
+                  </div>
+                ))}
+                {releaseUnits.length === 0 && (
+                  <div className="text-xs text-stone-400 text-center mt-8 leading-relaxed">{tt("ru.empty")}</div>
+                )}
+                {recentProjects.length > 0 && (
+                  <div className="border-t border-stone-100 pt-2 mt-2">
+                    <div className="text-[10px] font-semibold text-stone-400 mb-1">{tt("vibe.recentProjects", "Recent Projects")}</div>
+                    {recentProjects.slice(0, 5).map(rp => (
+                      <button key={rp.path} onClick={() => { switchRu(rp.path); }}
+                        className="w-full text-left px-2 py-1.5 text-xs hover:bg-blue-50 rounded flex items-center gap-1.5 truncate">
+                        <span className="shrink-0">{rp.hasPaaw ? "🤖" : "📁"}</span> <span className="truncate text-stone-600">{rp.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-auto pt-2 border-t border-stone-100 text-[10px] text-stone-400 leading-relaxed">{tt("ru.hint")}</div>
               </div>
             )}
           </div>

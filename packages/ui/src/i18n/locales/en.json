@@ -1108,5 +1108,13 @@
   "browser.title": "Built-in Browser",
   "browser.lastAction": "Last action",
   "browser.notInstalled": "Playwright not installed — install steps:",
-  "browser.empty": "Agent hasn't used the browser yet\nAsk the agent to browser_navigate — its view will appear here"
+  "browser.empty": "Agent hasn't used the browser yet\nAsk the agent to browser_navigate — its view will appear here",
+  "ru.manager": "Release Units (working set)",
+  "ru.import": "Import Project",
+  "ru.remove": "Remove",
+  "ru.active": "active",
+  "ru.removeConfirm": "Remove this Release Unit? Only removes the tab — no files are deleted.",
+  "ru.empty": "No Release Units yet\nClick Import Project to add one",
+  "ru.hint": "🤖 AI is confined to its own Release Unit directory — no cross-RU access",
+  "ru.tabTooltip": "Release Unit manager — import / remove / switch projects"
 }

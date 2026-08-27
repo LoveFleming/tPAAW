@@ -3274,6 +3274,10 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
 
   // Inject cwd dynamically
   parts.push(`\nWorking directory: ${cwd}`);
+
+  // Release Unit Boundary（RU = 專案目錄；FileGuard 已在路徑層強制，此處是明示）
+  const _ruName = (cwd.replace(/\\/g, "/").split("/").filter(Boolean).pop() || "workspace");
+  parts.push(`\n## Release Unit Boundary\n你目前服務的 Release Unit：${_ruName}\n檔案讀寫已被路徑邊界強制限制在此專案目錄內（deterministic enforcement，非提醒）。其他 Release Unit（其他專案目錄）的檔案不可存取也不需存取。若使用者要求的內容需要其他 Release Unit，請說明邊界並請使用者切換到該 RU 操作。`);
   if (IS_WIN) {
     parts.push(`\n⚠️ Windows 環境重要規則：\n- 寫檔案請用 write_file/edit_file 工具，不要用 bash 的 echo/cat 重定向（cmd.exe 字元轉義會出問題）\n- **禁止用 bash 跑 Unix 指令**：find、grep、ls、cat、head、tail、wc、sed、awk、xargs、rm、cp、mv、mkdir、touch 等在 Windows cmd.exe 不可用或行為不同\n- 用內建工具代替：glob 找檔案、grep 工具搜尋內容、read_file 讀檔、write_file 寫檔\n- bash 只用於：git 命令、node/npm/npx 命令、python 命令、跨平台指令\n- 路徑一律用正斜線 / 不要用反斜線 \\\n- 檔案路徑一律用相對路徑（如 data/apps/report/app.html），不要用絕對路徑（如 C:\\Users\\...）\n- git 命令可以正常使用\n- **每個 tool 呼叫都有 30 秒 timeout**，如果操作需要更久請分步驟執行`);
   }
