@@ -77,8 +77,8 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
 
   return (
     <div className="h-full flex flex-col bg-white min-h-0">
-      {/* ── 網址列（手動操作）── */}
-      <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-gray-200 shrink-0">
+      {/* ── 網址列（手動操作）— 唯一常駐 chrome ── */}
+      <div className="flex items-center gap-1.5 px-1.5 py-1 border-b border-gray-200 shrink-0">
         <span className={connected ? "text-green-600 text-xs" : "text-red-500 text-xs"}>●</span>
         <input
           value={urlInput}
@@ -90,27 +90,23 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
             if (e.key === "Enter") { e.preventDefault(); navigate(); }
           }}
           placeholder={t("browser.urlPlaceholder")}
-          className="flex-1 min-w-0 text-xs px-2.5 py-1.5 rounded-full bg-gray-100 focus:bg-white border border-transparent focus:border-blue-300 outline-none font-mono"
+          className="flex-1 min-w-0 text-xs px-2.5 py-1 rounded-full bg-gray-100 focus:bg-white border border-transparent focus:border-blue-300 outline-none font-mono"
           spellCheck={false}
         />
         <button onClick={navigate} disabled={navigating || !urlInput.trim()}
-          className="text-xs px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:opacity-40 shrink-0">
+          className="text-xs px-3 py-1 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:opacity-40 shrink-0">
           {navigating ? "…" : t("browser.go")}
         </button>
       </div>
 
-      {/* ── 狀態列 ── */}
-      <div className="flex items-center gap-2 px-3 py-1 border-b border-gray-100 text-[11px] text-gray-500 shrink-0">
-        {status?.title && <span className="truncate max-w-[40%]">{status.title}</span>}
-        {status?.lastActionAt && (
-          <span className="ml-auto shrink-0">{t("browser.lastAction")}: {new Date(status.lastActionAt).toLocaleTimeString()}</span>
-        )}
-        {navError && <span className="text-red-500 truncate" title={navError}>⚠ {navError}</span>}
-      </div>
+      {/* 導航錯誤 — 只有出錯才佔一行 */}
+      {navError && (
+        <div className="px-3 py-0.5 text-[11px] text-red-500 border-b border-red-100 shrink-0 truncate" title={navError}>⚠ {navError}</div>
+      )}
 
       {/* Playwright 未安裝 */}
       {status?.available === false && (
-        <div className="m-4 p-3 rounded bg-amber-50 border border-amber-200 text-xs text-amber-800 whitespace-pre-wrap font-mono">
+        <div className="m-2 p-2 rounded bg-amber-50 border border-amber-200 text-xs text-amber-800 whitespace-pre-wrap font-mono">
           <div className="font-semibold mb-1">{t("browser.notInstalled")}</div>
           {status.installHint}
         </div>
