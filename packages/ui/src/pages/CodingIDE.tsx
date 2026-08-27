@@ -3012,7 +3012,9 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
 
             {/* === GIT PANEL (New Component) === */}
             {activeMainTab?.type === "browser" && (
-              <BrowserPanel API_BASE={API_BASE} />
+              <div className="absolute inset-0 flex flex-col overflow-hidden">
+                <BrowserPanel API_BASE={API_BASE} />
+              </div>
             )}
             {activeMainTab?.type === "git" && (
               <GitPanel
