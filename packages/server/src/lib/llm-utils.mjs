@@ -15,6 +15,12 @@
 
 // ── 配置 ──
 
+// undici 預設 headersTimeout=300s：非串流 LLM 呼叫（大 prompt + 深思考）常超過 5 分鐘才回 headers，
+// 會在整 300s 被 TypeError: fetch failed 掐死（2026-08-28 Code Understanding 實測兩次 301s 死亡）。
+// 解除 undici 內建 timeout，改由各呼叫端的 AbortController（timeoutMs）全權管理。
+import { Agent as _UndiciAgent } from "undici";
+const _llmDispatcher = new _UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 });
+
 const DEFAULT_MAX_RETRIES = 2;           // reduced from 5 — most providers handle 429 internally now, no need to retry 5 times
 const DEFAULT_BASE_DELAY_MS = 1000;     // first retry wait 1s (was 2s — most providers don't need long waits)
 const DEFAULT_MAX_DELAY_MS = 10000;     // max 10s between retries (was 30s — too long for non-rate-limited providers)
@@ -211,6 +217,7 @@ export async function fetchWithRetry(url, options = {}, opts = {}) {
       const resp = await fetch(url, {
         ...options,
         signal: controller.signal,
+        dispatcher: _llmDispatcher,
       });
       clearTimeout(timer);
 
