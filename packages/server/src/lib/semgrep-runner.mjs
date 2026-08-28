@@ -261,7 +261,7 @@ export function isSemgrepAvailable() {
     LOG("isSemgrepAvailable: testing", bin);
     execSyncCb(`${bin} --version`, {
       stdio: "pipe",
-      timeout: 15000,
+      timeout: 60000, // 60s：semgrep 冷啟動會做線上版本檢查（brew/pip 首次執行），15s 會誤判「未安裝」（2026-08-28 Mac 實例）
       shell: true,
       env: _semgrepEnv(),
       encoding: "utf-8",
