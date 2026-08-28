@@ -1,7 +1,7 @@
 {
   "name": "paaw",
   "private": true,
-  "version": "0.3.9",
+  "version": "0.6.1",
   "description": "PAAW — Personal AI Assistant Workspace. Build your personal AI Workforce.",
   "workspaces": [
     "packages/*"
