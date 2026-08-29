@@ -33,6 +33,7 @@ import {
   refreshFeatureMapping,
   validateFeatureMap,
   saveAutoDispatchReport,
+  scanTasksForDispatch,
 } from "./auto-dispatch-shared.mjs";
 
 // ── A2A Client ──
@@ -473,43 +474,26 @@ async function runPhase0(rootDir, modelOverride, fallbackModels, sendSSE) {
 
 // ── EM Plan only (Phase 0-2): gather context + LLM planning ──
 export async function planEMSession(opts = {}) {
-  const { rootDir, since, modelOverride, fallbackModels = [], sendSSE = (() => {}) } = opts;
+  const { rootDir, sendSSE = (() => {}) } = opts;
 
-  // ── Read EM config for planning model ──
-  let emPlanningModel = null;
+  console.log("[AutoDispatch] 🎖️ EM Plan — task-driven（Phase 0-2 已移除）");
+
+  // 2026-08-29 Fleming 定調：拿掉 Phase 0（feature map refresh）/ Phase 1（context gathering）/
+  // Phase 2（LLM 規劃）— 自動派工只看 TASKS.json 有沒有需要做的 task，deterministic 不用 LLM。
+  // 沒有 task 要做時，理由會寫進 situationReport（→ 派工報告看得到）
+  sendSSE("info", { message: "📋 讀取 TASKS.json，檢查待辦 task..." });
+
+  let maxTasks = 10;
   try {
     const { readEMConfig } = await import("./em-config.mjs");
-    const emConfig = readEMConfig(rootDir);
-    emPlanningModel = emConfig?.model?.planning || null;
+    maxTasks = readEMConfig(rootDir)?.taskDecomposition?.maxSubtasks || 10;
   } catch { /* em-config not available */ }
 
-  const effectiveModel = emPlanningModel || modelOverride;
+  const scan = scanTasksForDispatch(rootDir, { maxTasks });
+  sendSSE("info", { message: `📊 TASKS.json：open ${scan.openCount} 個，本輪派工 ${scan.workList.length} 項` });
+  if (scan.workList.length === 0) sendSSE("info", { message: `ℹ️ ${scan.noWorkReason}` });
 
-  console.log("[AutoDispatch] 🎖️═══ EM Plan (no execute) ═══🎖️");
-  console.log(`[AutoDispatch] rootDir=${rootDir}, since=${since || "today"}, model=${effectiveModel || "default"}${emPlanningModel ? " (from EM config)" : ""}`);
-
-  // ── Phase 0 ──
-  await runPhase0(rootDir, effectiveModel, fallbackModels, sendSSE);
-
-  // ── Phase 1: Deterministic gathering ──
-  console.log("[AutoDispatch] ═══ Phase 1: Context Gathering ═══");
-  sendSSE("info", { message: "🎖️ EM 啟動，收集專案狀態..." });
-  const ctx = await gatherContext(rootDir, since);
-  const situationReport = buildSituationReport(ctx);
-  console.log(`[AutoDispatch] Phase 1: ${ctx.commitCount} commits, ${ctx.changedFiles.length} files changed, ${ctx.unpushed ? ctx.unpushed.split("\n").length + " unpushed" : "all pushed"}`);
-  sendSSE("info", { message: `📊 現況摘要收集完成` });
-
-  if (ctx.unpushed) {
-    sendSSE("warning", { message: `⚠️ 發現 ${ctx.unpushed.split("\n").length} 個未 push 的 commit（push 由人決定）` });
-  }
-
-  // ── Phase 2: LLM planning ──
-  console.log("[AutoDispatch] ═══ Phase 2: LLM Work Planning ═══");
-  sendSSE("info", { message: "🧠 規劃工作清單中..." });
-  const workList = await planWorkList(situationReport, rootDir, effectiveModel, fallbackModels, sendSSE, opts.projectPhase || 'bootstrap');
-  console.log(`[AutoDispatch] Phase 2: EM planned ${workList.length} tasks`);
-
-  return { workList, situationReport };
+  return { workList: scan.workList, situationReport: scan.situationReport };
 }
 
 // ── EM Execute only (Phase 3-4): dispatch agents + report ──
@@ -612,6 +596,9 @@ export async function executeEMSession(opts = {}) {
   const autoExec = emConfig?.autoExecute || {};
   const filteredReasons = [];
   const execList = effectiveWorkList.filter(task => {
+    // 2026-08-29: task_scan / plan_resume 項目來自 TASKS.json 或既有 plan，跳過類別安全網
+    //（安全網只攔 LLM 自由規劃的項目；task 本身 autoExecute=false 已在掃描階段排除）
+    if (task.source === 'task_scan' || task.source === 'plan_resume' || task._resumeSubTaskId) return true;
     // 2026-08-29: 先剝掉路徑 token（如 .paaw/security/scan-results.json）再做類別比對——
     // 任務描述「引用」security 檔案路徑 ≠ security 修復；之前在這裡被誤判，把全部工作過濾掗 0 派工
     const content = (task.task || '').toLowerCase().replace(/[^\s]*[/\\][^\s]*/g, ' ');
@@ -1210,7 +1197,7 @@ function generateEMReport(workList, results, situationReport, opts = {}) {
   } else {
     report += `**結果：** ✅ ${succeeded} 成功 / ❌ ${failed} 失敗 / ${workList.length} 總計\n`;
   }
-  report += `**模式：** EM 智慧調度${opts.skipped ? '（部分工作需人工確認）' : ''}\n\n---\n\n`;
+  report += `**模式：** Task-driven 自動派工（TASKS.json）${opts.skipped ? '（部分工作需人工確認）' : ''}\n\n---\n\n`;
 
   // Executive format: skip full situation report
   if (format !== 'executive') {
@@ -1325,10 +1312,20 @@ export async function runAutoDispatch(opts = {}) {
   if (opts.existingPlanId) {
     return executeEMSession({ ...opts, workList: [], situationReport: "Resuming interrupted plan" });
   }
-  // EM mode: plan + execute in sequence
+  // 2026-08-29: 有未完成的 plan（上次中斷）→ 優先續跑，不重掃 task（避免同一 task 重複派）
+  try {
+    const { findIncompletePlans } = await import("./execution-plan.mjs");
+    const incomplete = await findIncompletePlans(opts.rootDir);
+    if (incomplete.length > 0) {
+      opts.sendSSE?.("info", { message: `🔁 發現未完成 plan ${incomplete[0].planId}，優先續跑（不重掃 task）` });
+      console.log(`[AutoDispatch] Resuming incomplete plan: ${incomplete[0].planId}`);
+      return executeEMSession({ ...opts, existingPlanId: incomplete[0].planId, workList: [], situationReport: "Resuming interrupted plan" });
+    }
+  } catch { /* execution-plan not available */ }
+  // Task-driven：掃 TASKS.json → 有就執行，沒有就回報理由
   const { workList, situationReport } = await planEMSession(opts);
   if (!workList.length) {
-    opts.sendSSE?.("info", { message: "✅ 沒有需要調度的工作。" });
+    opts.sendSSE?.("info", { message: "✅ 沒有需要調度的 task。" });
     const report = generateEMReport([], [], situationReport);
     saveAutoDispatchReport(opts.rootDir, report, "em");
     opts.sendSSE?.("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
