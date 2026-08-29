@@ -1487,8 +1487,8 @@ export default function CodingIDE() {
   const [chatMode, setChatMode] = useState<"chat" | "agent" | "spec" | "test" | "bug" | "docs" | "maintain">("agent");
   // ── 2026-08-29 Fleming：agent chat 內建瀏規器面板（tester 邊聊邊看 agent 操作）──
   const [chatBrowserOpen, setChatBrowserOpen] = useState(false);
-  const [chatBrowserHeight, setChatBrowserHeight] = useState(340);
-  const chatBrowserDragRef = useRef<{ startY: number; startH: number } | null>(null);
+  const [chatBrowserWidth, setChatBrowserWidth] = useState(880);
+  const chatBrowserDragRef = useRef<{ startX: number; startW: number } | null>(null);
   // agentRunning/agentToolLog are now per-crew (derived from crewAgentRunning/crewAgentToolLog above)
   const [crewModels, setCrewModels] = useState<Record<string, string>>({}); // crewId → model
   const [emModel, setEmModel] = useState<string>(""); // EM Dashboard has its own model
@@ -3494,6 +3494,9 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   </div>
                 )}
 
+                {/* side-by-side 容器：左 chat、右 browser（2026-08-29 v2 大畫面版） */}
+                <div className="flex-1 flex min-h-0 min-w-0">
+                <div className="flex-1 flex flex-col min-h-0 min-w-0">
                 {/* Chat messages */}
                 <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ scrollbarWidth: "thin" }} onScroll={(e) => {
                   const el = e.currentTarget;
@@ -3575,36 +3578,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   </div>
                 )}
 
-                {/* ── 內建瀏覽器面板（2026-08-29 Fleming）：邊聊邊看 agent 操作，同一個 Playwright browser，人也可下場操作 ── */}
-                {chatBrowserOpen && isCrewActive && (
-                  <div className="shrink-0 flex flex-col border-t" style={{ height: chatBrowserHeight, borderColor: tk.borderLight, backgroundColor: tk.bgMuted }}>
-                    {/* 拖曳調整高度 */}
-                    <div
-                      className="shrink-0 h-1.5 cursor-row-resize hover:bg-stone-300/60 transition-colors"
-                      onMouseDown={e => {
-                        e.preventDefault();
-                        chatBrowserDragRef.current = { startY: e.clientY, startH: chatBrowserHeight };
-                        const onMove = (ev: MouseEvent) => {
-                          const d = chatBrowserDragRef.current;
-                          if (!d) return;
-                          const maxH = Math.max(200, window.innerHeight - 320);
-                          setChatBrowserHeight(Math.min(maxH, Math.max(160, d.startH + (d.startY - ev.clientY))));
-                        };
-                        const onUp = () => {
-                          chatBrowserDragRef.current = null;
-                          window.removeEventListener("mousemove", onMove);
-                          window.removeEventListener("mouseup", onUp);
-                        };
-                        window.addEventListener("mousemove", onMove);
-                        window.addEventListener("mouseup", onUp);
-                      }}
-                    />
-                    <div className="flex-1 min-h-0">
-                      <BrowserPanel API_BASE={API_BASE} />
-                    </div>
-                  </div>
-                )}
-
                 {/* Chat input */}
                 <div className="shrink-0 px-4 py-2.5" style={{ borderTop: `1px solid ${tk.borderLight}`, backgroundColor: tk.bgMuted }}>
                   <div className="flex items-end gap-2">
@@ -3661,6 +3634,37 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                       送出
                     </button>
                   </div>
+                </div>
+                </div>
+                {/* ── 右側大畫面瀏覽器（Fleming v2）：全高、可拖寬度，人與 agent 共用同一個 Playwright browser ── */}
+                {chatBrowserOpen && isCrewActive && (
+                  <div className="shrink-0 flex flex-row min-h-0 border-l" style={{ width: chatBrowserWidth, borderColor: tk.borderLight, backgroundColor: tk.bgMuted }}>
+                    {/* 垂直拖曳調整寬度（左緣把手） */}
+                    <div
+                      className="shrink-0 w-1.5 cursor-col-resize hover:bg-stone-300/60 transition-colors"
+                      onMouseDown={e => {
+                        e.preventDefault();
+                        chatBrowserDragRef.current = { startX: e.clientX, startW: chatBrowserWidth };
+                        const onMove = (ev: MouseEvent) => {
+                          const d = chatBrowserDragRef.current;
+                          if (!d) return;
+                          const maxW = Math.max(360, window.innerWidth - 420);
+                          setChatBrowserWidth(Math.min(maxW, Math.max(360, d.startW - (ev.clientX - d.startX))));
+                        };
+                        const onUp = () => {
+                          chatBrowserDragRef.current = null;
+                          window.removeEventListener("mousemove", onMove);
+                          window.removeEventListener("mouseup", onUp);
+                        };
+                        window.addEventListener("mousemove", onMove);
+                        window.addEventListener("mouseup", onUp);
+                      }}
+                    />
+                    <div className="flex-1 min-h-0 min-w-0">
+                      <BrowserPanel API_BASE={API_BASE} />
+                    </div>
+                  </div>
+                )}
                 </div>
               </div>
               );
