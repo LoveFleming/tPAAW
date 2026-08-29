@@ -54,7 +54,29 @@ export async function getBrowserContext(DATA_HOME) {
       headless: true,
       viewport: { width: 1280, height: 800 },
       timeout: 20_000,
+      permissions: ["clipboard-read", "clipboard-write"], // GitHub 等 copy 按鈕需要
+      args: ["--disable-smooth-scrolling"], // 遠控必需：平滑捲動會 latching 連續 wheel 事件（第二發之後全被丢掉）
     });
+    // 保險：runtime 再授權一次（舊 context 起來時沒帶 permissions 的情況）
+    await ctx.grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => {});
+    // 捲軸常駐顯示（headless 預設 overlay scrollbars 自動隱藏，人看不到捲軸會以為不能捲）
+    // 注意：init script 執行時 documentElement 可能還是 null（loading 早期）— 用 MutationObserver 等 <html> 出現
+    await ctx.addInitScript(`(() => {
+      const inject = () => {
+        const de = document.documentElement;
+        if (!de) return false;
+        if (de.dataset.paawScrollbar) return true;
+        de.dataset.paawScrollbar = "1";
+        const st = document.createElement("style");
+        st.textContent = "::-webkit-scrollbar{width:12px;height:12px}::-webkit-scrollbar-thumb{background:rgba(130,130,140,.75);border-radius:8px;border:2px solid transparent;background-clip:content-box}::-webkit-scrollbar-track{background:rgba(120,120,120,.12)}::-webkit-scrollbar-corner{background:rgba(120,120,120,.12)}";
+        (document.head || de).appendChild(st);
+        return true;
+      };
+      if (!inject()) {
+        const mo = new MutationObserver(() => { if (inject()) mo.disconnect(); });
+        mo.observe(document, { childList: true, subtree: false });
+      }
+    })();`).catch(() => {});
     ctx.on("close", () => { _ctx = null; _state.ready = false; });
     ctx.setDefaultTimeout(15_000);
     ctx.setDefaultNavigationTimeout(25_000);
@@ -138,6 +160,9 @@ export const PLAYWRIGHT_INSTALL_HINT =
 // 生命週期：第一個 SSE client 連上才開串流；全部斷線就停（headless 無人看不必耗資源）。
 //          watchdog 每 2s 確認 page 身分 — agent 換頁/關頁自動重綁 CDP。
 // ══════════════════════════════════════════════════════════════
+// 每個 page 專用的 CDP session（wheel 回注用 — WeakMap 隨 page 回收）
+const _cdpByPage = new WeakMap();
+
 const _stream = {
   clients: new Set(),      // SSE res 物件
   cdp: null,               // CDP session（綁定 _castPage）
@@ -271,9 +296,27 @@ export async function applyBrowserInput(evt) {
       if (!Number.isFinite(evt.x) || !Number.isFinite(evt.y)) break;
       await page.mouse.move(evt.x, evt.y, { steps: 1 });
       break;
-    case "wheel":
-      await page.mouse.wheel(evt.deltaX || 0, evt.deltaY || 0);
+    case "wheel": {
+      // CDP mouseWheel 有 latching 問題：第一發有效，之後連續發會被 Chromium 丢掉（遠控場景常見坑）
+      // 改走 scrollBy + 「滑鼠位置下最近可捲祖先」— noVNC 系遠控標準解法，確定性 100%
+      const dx = evt.deltaX || 0, dy = evt.deltaY || 0;
+      const _sy0 = await page.evaluate(() => window.scrollY).catch(() => -1);
+      await page.evaluate(([x, y, ddx, ddy]) => {
+        const doc = document.scrollingElement || document.documentElement;
+        let t = null;
+        try {
+          let n = document.elementFromPoint(x, y);
+          while (n && n !== doc) {
+            if (n.scrollHeight > n.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(n).overflowY)) { t = n; break; }
+            n = n.parentElement;
+          }
+        } catch {}
+        (t || doc).scrollBy({ top: ddy, left: ddx });
+      }, [Number.isFinite(evt.x) ? evt.x : 640, Number.isFinite(evt.y) ? evt.y : 400, dx, dy]);
+      const _m = await page.evaluate(() => ({ y: window.scrollY, sh: document.documentElement.scrollHeight, ch: document.documentElement.clientHeight })).catch(() => ({}));
+      console.log(`[browser-input] wheel @(${evt.x},${evt.y}) d=${dy} scrollY ${_sy0}→${_m.y} max=${(_m.sh || 0) - (_m.ch || 0)}`);
       break;
+    }
     case "key": // 特殊鍵/組合鍵 — Playwright key name（"Enter" / "Control+a"）
       if (!evt.key) throw new Error("key event requires `key`");
       await page.keyboard.press(evt.key);

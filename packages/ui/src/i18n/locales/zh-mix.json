@@ -1143,5 +1143,9 @@
   "emDash.interruptBtn": "中斷",
   "emDash.interruptAsked": "已請求中斷 — 目前 task 完成後停止，剩餘標記 skipped",
   "emDash.dispatchSummaryDone": "自動派工完成",
-  "emDash.dispatchSummaryInterrupted": "自動派工已中斷"
+  "emDash.dispatchSummaryInterrupted": "自動派工已中斷",
+  "browser.clipboardGet": "取回 shared browser clipboard（GitHub 等 copy 按鈕的內容）",
+  "browser.clipboardDone": "已 copy {n} 字到你的剪貼簿",
+  "browser.clipboardEmpty": "Shared browser clipboard 是空的",
+  "browser.clipboardFail": "取回失敗（頁面需為 https 或 localhost）"
 }

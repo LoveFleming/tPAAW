@@ -1143,5 +1143,9 @@
   "emDash.interruptBtn": "中断",
   "emDash.interruptAsked": "中断リクエスト済み — 現在のタスク完了後に停止、残りはスキップ",
   "emDash.dispatchSummaryDone": "自動ディスパッチ完了",
-  "emDash.dispatchSummaryInterrupted": "自動ディスパッチ中断"
+  "emDash.dispatchSummaryInterrupted": "自動ディスパッチ中断",
+  "browser.clipboardGet": "共有ブラウザのクリップボードを取得（GitHub などの copy ボタンの内容）",
+  "browser.clipboardDone": "{n} 文字をクリップボードにコピーしました",
+  "browser.clipboardEmpty": "共有ブラウザのクリップボードは空です",
+  "browser.clipboardFail": "取得失敗（ページは https または localhost である必要があります）"
 }

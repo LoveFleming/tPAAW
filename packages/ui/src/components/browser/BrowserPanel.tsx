@@ -184,7 +184,8 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      sendInput({ type: "wheel", deltaX: Math.round(e.deltaX), deltaY: Math.round(e.deltaY) });
+      const p = toPageXY(e.clientX, e.clientY);
+      sendInput({ type: "wheel", x: p?.x ?? 640, y: p?.y ?? 400, deltaX: Math.round(e.deltaX), deltaY: Math.round(e.deltaY) });
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -243,6 +244,27 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
 
   const dotOk = mode === "stream" ? live : connected;
 
+  // 取回共享瀏覽器剪貼簿（GitHub copy 按鈕寫适的内容 → 本機剪貼簿）
+  const [clipMsg, setClipMsg] = useState("");
+  useEffect(() => {
+    if (!clipMsg) return;
+    const id = setTimeout(() => setClipMsg(""), 3500);
+    return () => clearTimeout(id);
+  }, [clipMsg]);
+  const grabClipboard = async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/browser/clipboard`);
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || "fail");
+      const text = String(d.text || "");
+      if (!text) { setClipMsg(t("browser.clipboardEmpty")); return; }
+      await navigator.clipboard.writeText(text);
+      setClipMsg(t("browser.clipboardDone").replace("{n}", String(text.length)));
+    } catch (err) {
+      setClipMsg(t("browser.clipboardFail"));
+    }
+  };
+
   const modeBtn = (m: Mode, icon: string, titleKey: string) => (
     <button
       key={m}
@@ -281,6 +303,12 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
           {modeBtn("stream", "🔗", "browser.modeStream")}
           {modeBtn("iframe", "🖐", "browser.modeInteractive")}
           {modeBtn("shot", "📸", "browser.modeShot")}
+          <button
+            onClick={grabClipboard}
+            title={t("browser.clipboardGet")}
+            className="text-xs px-2 py-1 rounded-full shrink-0 border bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200 transition-colors"
+          >📋</button>
+          {clipMsg && <span className="text-[10px] text-emerald-600 truncate max-w-[140px]">{clipMsg}</span>}
         </div>
       </div>
 

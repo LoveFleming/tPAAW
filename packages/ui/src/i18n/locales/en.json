@@ -1143,5 +1143,9 @@
   "emDash.interruptBtn": "Interrupt",
   "emDash.interruptAsked": "Interrupt requested — stops after current task, rest marked skipped",
   "emDash.dispatchSummaryDone": "Auto-dispatch complete",
-  "emDash.dispatchSummaryInterrupted": "Auto-dispatch interrupted"
+  "emDash.dispatchSummaryInterrupted": "Auto-dispatch interrupted",
+  "browser.clipboardGet": "Fetch shared browser clipboard (content copied by GitHub etc.)",
+  "browser.clipboardDone": "Copied {n} chars to your clipboard",
+  "browser.clipboardEmpty": "Shared browser clipboard is empty",
+  "browser.clipboardFail": "Fetch failed (page must be https or localhost)"
 }

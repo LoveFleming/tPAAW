@@ -80,6 +80,21 @@ export default async function browserRoute(req, res) {
     return true;
   }
 
+  // GET /api/browser/clipboard — 讀共享瀏覽器的剪貼簿（GitHub copy 按鈕等寫入的內容 → 人按 📋 取回本機）
+  if (url === "/api/browser/clipboard" && method === "GET") {
+    try {
+      const page = await getBrowserPage(DATA_HOME);
+      trackPage(page);
+      const text = await page.evaluate(() => (typeof navigator !== "undefined" && navigator.clipboard)
+        ? navigator.clipboard.readText().catch(() => "")
+        : "");
+      json(res, 200, { ok: true, text: String(text ?? "") });
+    } catch (err) {
+      json(res, 500, { ok: false, error: err?.message || String(err) });
+    }
+    return true;
+  }
+
   // POST /api/browser/input — 輸入回注（共用模式：人的操作直接進 agent 的 browser）
   if (url === "/api/browser/input" && method === "POST") {
     let body = null;
