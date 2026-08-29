@@ -9,7 +9,7 @@
     "breakingChange": false
   },
   "taskDecomposition": {
-    "maxSubtasks": 10,
+    "maxSubtasks": 100,
     "defaultEffort": "S",
     "requireEstimate": true
   },

@@ -342,7 +342,7 @@ export function buildSituationReport(ctx) {
 // 自動派工不再跑 Phase 0-2（feature map refresh / context gathering / LLM 規劃），
 // 只看 TASKS.json 有沒有需要做的 task：有 → 派工；沒有 → 回理由（寫進派工報告）
 export function scanTasksForDispatch(rootDir, opts = {}) {
-  const maxTasks = opts.maxTasks || 10;
+  const maxTasks = opts.maxTasks || 100;
   const tasksFile = join(rootDir, ".paaw", "tasks", "TASKS.json");
 
   let all = [];

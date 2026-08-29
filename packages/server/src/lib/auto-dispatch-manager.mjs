@@ -483,10 +483,10 @@ export async function planEMSession(opts = {}) {
   // 沒有 task 要做時，理由會寫進 situationReport（→ 派工報告看得到）
   sendSSE("info", { message: "📋 讀取 TASKS.json，檢查待辦 task..." });
 
-  let maxTasks = 10;
+  let maxTasks = 100;
   try {
     const { readEMConfig } = await import("./em-config.mjs");
-    maxTasks = readEMConfig(rootDir)?.taskDecomposition?.maxSubtasks || 10;
+    maxTasks = readEMConfig(rootDir)?.taskDecomposition?.maxSubtasks || 100;
   } catch { /* em-config not available */ }
 
   const scan = scanTasksForDispatch(rootDir, { maxTasks });
