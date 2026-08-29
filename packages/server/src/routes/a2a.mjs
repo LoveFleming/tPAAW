@@ -638,7 +638,7 @@ export default async function a2aRoutes(req, res) {
           if (actionLogText) extraContext.push({ source: "action-log", content: actionLogText });
           if (agentMemoryText) extraContext.push({ source: "agent-memory", content: agentMemoryText });
           const { AGENT_RULES } = await import("../lib/agent-rules.mjs");
-          const featureSummary = getFeatureSummary(cwd || PAAW_ROOT);
+          const featureSummary = await getFeatureSummary(cwd || PAAW_ROOT);
           if (featureSummary) extraContext.push({ source: "feature-map", content: featureSummary });
           // Code Intelligence
           const ciFile = join(cwd || PAAW_ROOT, ".paaw", "code-intelligence", "code-intelligence.json");
@@ -731,7 +731,7 @@ export default async function a2aRoutes(req, res) {
             const extraContext = [];
             if (actionLogText) extraContext.push(`\n## Recent Action Log (跨 Agent 交接紀錄)\n${actionLogText}`);
             if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
-            const featureSummary = getFeatureSummary(rootDir);
+            const featureSummary = await getFeatureSummary(rootDir);
             if (featureSummary) extraContext.push(featureSummary);
             // Inject Code Intelligence file map for coding projects
             const ciFile = join(rootDir, ".paaw", "code-intelligence", "code-intelligence.json");
@@ -874,7 +874,7 @@ export default async function a2aRoutes(req, res) {
             const extraContext = [];
             if (actionLogText) extraContext.push(`\n## Recent Action Log (跨 Agent 交接紀錄)\n${actionLogText}`);
             if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
-            const featureSummary2 = getFeatureSummary(rootDir);
+            const featureSummary2 = await getFeatureSummary(rootDir);
             if (featureSummary2) extraContext.push(featureSummary2);
             // Inject Code Intelligence file map for coding projects
             const ciFile2 = join(rootDir, ".paaw", "code-intelligence", "code-intelligence.json");
