@@ -2,6 +2,8 @@
  * Coding Auto Dispatch — HTTP Routes
  *
  * POST   /api/coding-auto-dispatch/start           — 啟動（body: { mode, model, since }）
+ * POST   /api/coding-auto-dispatch/preview         — task-driven 預覽（不執行；確認制派工用）
+ * POST   /api/coding-auto-dispatch/stop            — 請求中斷（目前 task 完成後停止）
  * POST   /api/coding-auto-dispatch/reset            — Force reset stuck status
  * GET    /api/coding-auto-dispatch/status           — 最新執行狀態
  * GET    /api/coding-auto-dispatch/report           — 最新報告（markdown）
@@ -113,26 +115,10 @@ export default async function codingAutoDispatchRoute(req, res) {
     // Respond immediately — run async
     sendJSON(res, 200, { ok: true, message: `Night shift started (mode: ${mode})`, startedAt: status.startedAt, mode });
 
-    // ── Global timeout: 10 min ──
-    const AUTO_DISPATCH_TIMEOUT_MS = (nsConfig?.projectPhase === 'bootstrap' || nsConfig?.projectPhase === 'mvp')
-      ? 30 * 60 * 1000  // 30 min for early stage (dev-heavy)
-      : 20 * 60 * 1000; // 20 min for stable/refactor
+    // 2026-08-29 Fleming 定調：拿掉全域 timeout（20/30min）— task-driven 長時間執行
+    // （上限 100 task × 每 task 2h）；安全機制改為：每 task 2h timeout（a2aCallAgent）+
+    //   使用者中斷按鈕（/stop，task 間安全中斷點）
     const statusPath = join(nsDir, STATUS_FILE);
-    const timeoutId = setTimeout(() => {
-      const updated = updateStatusFile(statusPath, (current) => {
-        if (current.status !== "running") return null; // already completed/failed/interrupted
-        return {
-          ...current,
-          status: "failed",
-          completedAt: new Date().toISOString(),
-          duration: Date.now() - startTime,
-          error: `Timed out after ${AUTO_DISPATCH_TIMEOUT_MS / 1000}s`,
-        };
-      });
-      if (updated) {
-        console.error(`[AutoDispatch] Timed out after ${AUTO_DISPATCH_TIMEOUT_MS / 1000}s`);
-      }
-    }, AUTO_DISPATCH_TIMEOUT_MS);
 
     // ── Run via auto-dispatch-manager ──
     try {
@@ -146,7 +132,14 @@ export default async function codingAutoDispatchRoute(req, res) {
         // 輪詢 /status 就看得到進度，不用只靠 terminal console；task_* 事件同時更新 agents map
         updateStatusFile(statusPath, (current) => {
           const msg = String(data?.message || data?.preview || (typeof data === "string" ? data : "")).slice(0, 300);
-          const events = [...(current.events || []), { ts: new Date().toISOString(), type, message: msg }].slice(-80);
+          // 2026-08-29: task_*/done 事件附帶結構化 meta — EM Chat 輪詢 /status 可以直接組進度訊息
+          let meta;
+          if (type === "task_start" || type === "task_done" || type === "task_error") {
+            meta = { index: data.index, total: data.total, agent: data.agent, subtaskId: data.subtaskId };
+          } else if (type === "done") {
+            meta = { totalTasks: data.totalTasks, succeeded: data.succeeded, failed: data.failed, ...(data.interrupted ? { interrupted: true } : {}) };
+          }
+          const events = [...(current.events || []), { ts: new Date().toISOString(), type, message: msg, ...(meta ? { meta } : {}) }].slice(-80);
           const patch = { events, lastEvent: events[events.length - 1] };
           if (type === "task_start" || type === "task_done" || type === "task_error") {
             const agentKey = data.agent || `task-${data.index}`;
@@ -185,6 +178,7 @@ export default async function codingAutoDispatchRoute(req, res) {
           status: "completed",
           completedAt: new Date().toISOString(),
           duration: Date.now() - startTime,
+          ...(current.stopRequested ? { interruptedByUser: true } : {}),
           report: result.report,
         };
       });
@@ -206,10 +200,50 @@ export default async function codingAutoDispatchRoute(req, res) {
           error: err.message,
         };
       });
-    } finally {
-      clearTimeout(timeoutId);
     }
 
+    return true;
+  }
+
+  // ── POST /api/coding-auto-dispatch/preview — task-driven 預覽（不執行；EM Chat 確認制派工用）──
+  if (urlObj.pathname === "/api/coding-auto-dispatch/preview" && method === "POST") {
+    try {
+      let reqBody = {};
+      try { reqBody = JSON.parse(await readBody(req) || "{}"); } catch {}
+      const root = urlObj.searchParams.get("path") || reqBody.cwd || projRoot;
+      const { scanTasksForDispatch } = await import("../lib/auto-dispatch-shared.mjs");
+      let maxTasks = 100;
+      try {
+        const { readEMConfig } = await import("../lib/em-config.mjs");
+        maxTasks = readEMConfig(root)?.taskDecomposition?.maxSubtasks || 100;
+      } catch {}
+      const scan = scanTasksForDispatch(root, { maxTasks });
+      sendJSON(res, 200, { ok: true, ...scan });
+    } catch (err) {
+      console.error("[AutoDispatch] preview error:", err.message);
+      sendJSON(res, 500, { error: err.message });
+    }
+    return true;
+  }
+
+  // ── POST /api/coding-auto-dispatch/stop — 請求中斷（安全中斷點：目前 task 完成後停止，剩餘標 skipped）──
+  if (urlObj.pathname === "/api/coding-auto-dispatch/stop" && method === "POST") {
+    try {
+      let reqBody = {};
+      try { reqBody = JSON.parse(await readBody(req) || "{}"); } catch {}
+      const root = urlObj.searchParams.get("path") || reqBody.cwd || projRoot;
+      const statusPath = join(root, AUTO_DISPATCH_DIR, STATUS_FILE);
+      const updated = updateStatusFile(statusPath, (current) => {
+        if (current.status !== "running") return null;
+        const events = [...(current.events || []), { ts: new Date().toISOString(), type: "info", message: "⏹️ 使用者請求中斷 — 將於目前 task 完成後停止" }].slice(-80);
+        return { ...current, stopRequested: true, stoppedAt: new Date().toISOString(), events, lastEvent: events[events.length - 1] };
+      });
+      sendJSON(res, 200, updated
+        ? { ok: true, message: "Interrupt requested — will stop after current task" }
+        : { ok: false, message: "Not running" });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
     return true;
   }
 

@@ -364,10 +364,19 @@ export function scanTasksForDispatch(rootDir, opts = {}) {
   const sorted = [...open].sort((a, b) => (prioRank[a.priority] ?? 1) - (prioRank[b.priority] ?? 1));
 
   const workList = [];
-  const excluded = [];
+  const excluded = []; // [{id, title, reason}] — 供 preview API / 確認卡結構化使用
+  const excludedLines = [];
   for (const t of sorted) {
-    if (t.autoExecute === false) { excluded.push(`- ${t.id} ${(t.title || "").slice(0, 80)}（autoExecute=false，不自動執行）`); continue; }
-    if (workList.length >= maxTasks) { excluded.push(`- ${t.id} ${(t.title || "").slice(0, 80)}（超出單次上限 ${maxTasks}，留到下一輪）`); continue; }
+    if (t.autoExecute === false) {
+      excluded.push({ id: t.id, title: (t.title || "").slice(0, 80), reason: "autoExecute=false，不自動執行" });
+      excludedLines.push(`- ${t.id} ${(t.title || "").slice(0, 80)}（autoExecute=false，不自動執行）`);
+      continue;
+    }
+    if (workList.length >= maxTasks) {
+      excluded.push({ id: t.id, title: (t.title || "").slice(0, 80), reason: `超出單次上限 ${maxTasks}，留到下一輪` });
+      excludedLines.push(`- ${t.id} ${(t.title || "").slice(0, 80)}（超出單次上限 ${maxTasks}，留到下一輪）`);
+      continue;
+    }
     workList.push({
       agent: t.assignee || "developer",
       task: `執行 ${t.id}：${t.title || "(無標題)"}。先讀 .paaw/tasks/TASKS.json 中 ${t.id} 的完整 description / spec / changes 欄位，依內容實作並自我驗收。`,
@@ -387,14 +396,16 @@ export function scanTasksForDispatch(rootDir, opts = {}) {
   ];
   if (workList.length) lines.push("", ...workList.map(w => `- ${w.sourceRef} → ${w.agent}（${w.priority}）`));
   if (inProgress.length) lines.push("", "進行中/審查中（不自動重派，等人類結案）：", ...inProgress.map(t => `- ${t.id} ${(t.title || "").slice(0, 80)}（${t.status}）`));
-  if (excluded.length) lines.push("", "排除項：", ...excluded);
+  if (excluded.length) lines.push("", "排除項：", ...excludedLines);
   const situationReport = lines.join("\n");
+
+  const stats = { total: roots.length, open: open.length, inProgress: inProgress.length, done: doneCount, other, excluded: excluded.length };
 
   const noWorkReason = open.length === 0
     ? `沒有 open task（共 ${roots.length} 個主 task：done ${doneCount}、進行中 ${inProgress.length}、其他 ${other}）`
     : `open task ${open.length} 個但全部被排除（詳見報告排除清單）`;
 
-  return { workList, situationReport, openCount: open.length, noWorkReason };
+  return { workList, situationReport, stats, excluded, openCount: open.length, noWorkReason };
 }
 
 // ── Feature Map Refresh（統一版，不再兩邊複製） ──

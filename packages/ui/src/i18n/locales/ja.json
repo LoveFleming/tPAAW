@@ -1134,5 +1134,13 @@
   "emDash.dispatchRunning": "自動ディスパッチ実行中",
   "emDash.dispatchDone": "自動ディスパッチ完了",
   "emDash.dispatchFailed": "自動ディスパッチ失敗",
-  "emDash.view": "表示"
+  "emDash.view": "表示",
+  "emDash.dispatchScopeTitle": "自動ディスパッチ範囲確認",
+  "emDash.dispatchNoWork": "ディスパッチするタスクはありません",
+  "emDash.dispatchStarted": "自動ディスパッチを開始しました（バックグラウンド、各タスク独立コンテキスト）",
+  "emDash.inputLocked": "⏳ 自動ディスパッチ実行中…入力はロックされています",
+  "emDash.interruptBtn": "中断",
+  "emDash.interruptAsked": "中断リクエスト済み — 現在のタスク完了後に停止、残りはスキップ",
+  "emDash.dispatchSummaryDone": "自動ディスパッチ完了",
+  "emDash.dispatchSummaryInterrupted": "自動ディスパッチ中断"
 }

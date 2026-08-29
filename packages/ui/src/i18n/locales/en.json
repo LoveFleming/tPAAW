@@ -1134,5 +1134,13 @@
   "emDash.dispatchRunning": "Auto dispatch running",
   "emDash.dispatchDone": "Auto dispatch completed",
   "emDash.dispatchFailed": "Auto dispatch failed",
-  "emDash.view": "View"
+  "emDash.view": "View",
+  "emDash.dispatchScopeTitle": "Auto-Dispatch Scope Confirmation",
+  "emDash.dispatchNoWork": "No tasks to dispatch right now",
+  "emDash.dispatchStarted": "Auto-dispatch started (background, each task runs in its own context)",
+  "emDash.inputLocked": "⏳ Auto-dispatch running… input locked",
+  "emDash.interruptBtn": "Interrupt",
+  "emDash.interruptAsked": "Interrupt requested — stops after current task, rest marked skipped",
+  "emDash.dispatchSummaryDone": "Auto-dispatch complete",
+  "emDash.dispatchSummaryInterrupted": "Auto-dispatch interrupted"
 }

@@ -25,7 +25,7 @@
 
 import { addActionLog } from "./action-log.mjs";
 import { addCostAttribution } from "./coding-task-cost.mjs";
-import { writeFileSync, existsSync } from "fs";
+import { writeFileSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 import {
   gatherContext,
@@ -497,6 +497,15 @@ export async function planEMSession(opts = {}) {
 }
 
 // ── EM Execute only (Phase 3-4): dispatch agents + report ──
+// ── 使用者中斷：讀 status.json 的 stopRequested 旗標（/stop API 設定）──
+// 安全中斷點語意：正在跑的 task 讓它跑完，下一個 task 開始前停止
+function _stopRequested(rootDir) {
+  try {
+    const st = JSON.parse(readFileSync(join(rootDir, ".paaw", "auto-dispatch", "status.json"), "utf-8"));
+    return st.stopRequested === true && st.status === "running";
+  } catch { return false; }
+}
+
 export async function executeEMSession(opts = {}) {
   const { rootDir, workList, situationReport = "", baseUrl = `http://127.0.0.1:${process.env.PAAW_PORT || 4097}`, modelOverride, fallbackModels = [], sendSSE = (() => {}), projectPhase = 'bootstrap', existingPlanId = null } = opts;
 
@@ -653,6 +662,7 @@ export async function executeEMSession(opts = {}) {
   // ── Phase 3: Deterministic execution ──
   console.log(`[AutoDispatch] ═══ Phase 3: Agent Dispatch (serial, ${execList.length} tasks) ═══`);
   const results = [];
+  let userInterrupted = false;
 
   // ── Load plan helpers for sub-task tracking ──
   let planHelpers = null;
@@ -661,6 +671,13 @@ export async function executeEMSession(opts = {}) {
   } catch {}
 
   for (let i = 0; i < execList.length; i++) {
+    // 2026-08-29: 使用者中斷 — task 間檢查 stop 旗標（目前 task 跑完後停止，不砍半隻 agent）
+    if (i > 0 && _stopRequested(rootDir)) {
+      sendSSE("info", { message: `⏹️ 收到中斷請求 — 剩餘 ${execList.length - i} 項 task 標記 skipped，不執行` });
+      console.log(`[AutoDispatch] ⏹️ User interrupt at task ${i + 1}/${execList.length}`);
+      userInterrupted = true;
+      break;
+    }
     const task = execList[i];
     const subtaskId = task._resumeSubTaskId || (plan ? `${plan.tasks[i]?.subtasks[0]?.subtaskId || ''}` : null);
 
@@ -816,7 +833,7 @@ export async function executeEMSession(opts = {}) {
   const _totalDuration = results.reduce((sum, r) => sum + (r.durationMs || 0), 0);
   console.log(`[AutoDispatch] 🎖️ EM Session complete: ${succeeded}✅ ${failed}❌ / ${execList.length} executed`);
   console.log(`[AutoDispatch] 📊 Tokens: ${_totalTokens} | Cost: $${_totalCost.toFixed(4)} | Duration: ${(_totalDuration / 1000 / 60).toFixed(1)}min`);
-  sendSSE("done", { totalTasks: execList.length, succeeded, failed, totalTokens: _totalTokens, totalCostUsd: _totalCost, totalDurationMs: _totalDuration });
+  sendSSE("done", { totalTasks: execList.length, succeeded, failed, totalTokens: _totalTokens, totalCostUsd: _totalCost, totalDurationMs: _totalDuration, ...(userInterrupted ? { interrupted: true } : {}) });
 
   return { report, workList: effectiveWorkList, results };
 }

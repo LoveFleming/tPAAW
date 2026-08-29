@@ -168,6 +168,57 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   const adRecentlyFinished = adStatus && adStatus.status !== "running" && adStatus.status !== "never" && adStatus.completedAt
     && (Date.now() - new Date(adStatus.completedAt).getTime()) < 5 * 60 * 1000;
 
+  // 2026-08-29: running 期間把 status events 轉成 chat 進度訊息（cron / 派工頁 / chat 觸發的都看得到）
+  const adEventsSeenRef = useRef<number | null>(null);
+  const [stopAsked, setStopAsked] = useState(false);
+  useEffect(() => {
+    const evts: any[] = adStatus?.events || [];
+    if (adEventsSeenRef.current !== null && evts.length < adEventsSeenRef.current) {
+      adEventsSeenRef.current = null; // 新一輪派工（events 重置）→ 重新計數
+    }
+    if (adEventsSeenRef.current === null) {
+      // 首次觀察：執行中才倒帶（補齊進度）；間置狀態不倒歷史，避免洗版
+      adEventsSeenRef.current = adStatus?.status === "running" ? 0 : evts.length;
+      if (adEventsSeenRef.current === 0 && evts.length === 0) return;
+      if (adEventsSeenRef.current !== 0) return;
+    }
+    const fresh = evts.slice(adEventsSeenRef.current);
+    if (!fresh.length) {
+      if (adStatus?.status !== "running") setStopAsked(false);
+      return;
+    }
+    adEventsSeenRef.current = evts.length;
+
+    const agentIcon: Record<string, string> = {
+      architect: "🏛️", developer: "💻", tester: "🧪",
+      "doc-writer": "📝", qa: "🔬", helpdesk: "🌸",
+    };
+    const lines: string[] = [];
+    for (const e of fresh) {
+      const m = e.meta || {};
+      if (e.type === "task_start") {
+        lines.push(`▶️ [${m.index ?? "?"}${m.total ? `/${m.total}` : ""}] ${agentIcon[m.agent] || "🔧"} **${m.agent}** 開始執行${m.subtaskId ? ` — ${m.subtaskId}` : ""}`);
+      } else if (e.type === "task_done") {
+        lines.push(`✅ [${m.index ?? "?"}] **${m.agent}** 完成${m.subtaskId ? ` — ${m.subtaskId}` : ""}`);
+      } else if (e.type === "task_error") {
+        lines.push(`❌ [${m.index ?? "?"}] **${m.agent}** 失敗：${(e.message || "").slice(0, 100)}`);
+      } else if (e.type === "done") {
+        const head = m.interrupted ? t("emDash.dispatchSummaryInterrupted") : t("emDash.dispatchSummaryDone");
+        lines.push(`${m.interrupted ? "⏹️" : "🏁"} ${head} — 成功 **${m.succeeded ?? 0}** / 失敗 **${m.failed ?? 0}** / 共 ${m.totalTasks ?? 0} 項，統整報告見「自動派工」分頁`);
+      } else if (e.type === "info" && e.message) {
+        lines.push(`ℹ️ ${String(e.message).slice(0, 120)}`);
+      }
+    }
+    if (lines.length) {
+      setMessages(prev => [...prev, ...lines.map(content => ({ role: "assistant", content, ts: new Date().toISOString() } as ChatMessage))]);
+      requestAnimationFrame(() => {
+        const el = chatScrollRef.current;
+        if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 300) el.scrollTop = el.scrollHeight;
+      });
+    }
+    if (adStatus?.status !== "running") setStopAsked(false);
+  }, [adStatus]);
+
   useEffect(() => { fetchEmSessions(); }, [fetchEmSessions]);
   const [emRunning, setEmRunning] = useState(false);
   // 右側面板 tab：overview | dispatch（Auto Dispatch 併入）
@@ -394,7 +445,16 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   const sendMessage = async () => {
     const text = input.trim();
     if (!text || loading) return;
+    if (adStatus?.status === "running") return; // 派工執行中 input 鎖定
     setInput("");
+
+    // 2026-08-29 確認制派工：敲「自動派工 / 開始派工 / 派工」→ 顯示範圍等人確認（短指令才觸發，避免誤判問句）
+    const compact = text.replace(/\s/g, "");
+    if (/派工/.test(compact) && compact.length <= 6) {
+      setMessages(prev => [...prev, { role: "user", content: text, ts: new Date().toISOString() } as ChatMessage]);
+      startDispatchIntent();
+      return;
+    }
 
     const userMsg: ChatMessage = { role: "user", content: text, ts: new Date().toISOString() };
     setMessages(prev => [...prev, userMsg]);
@@ -539,216 +599,114 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
     }
   };
 
-  // ── EM Auto-orchestrate: Phase 1 — Plan only (show in chat for confirmation) ──
-  const runEM = async () => {
-    if (emRunning || !rootPath) return;
+  // ── 2026-08-29 Fleming 定調：確認制自動派工 ──
+  // 使用者敲「自動派工」→ 即時掃 TASKS.json 顯示工作範圍 → 人確認 → 背景執行（/start API）
+  // 每個 task 是獨立無狀態 A2A 呼叫（context 不累積），可長時間把所有 task 做完，最後統整報告
+  const startDispatchIntent = async () => {
+    if (!rootPath) return;
+    if (adStatus?.status === "running") {
+      setMessages(prev => [...prev, { role: "assistant", content: `⚠️ 自動派工已在執行中，請等它完成或按「⏹ 中斷」。`, ts: new Date().toISOString() } as ChatMessage]);
+      return;
+    }
     setEmRunning(true);
-    setPendingPlan(null);
-    setEmToolLog([]);
-    setEmAction("收集專案狀態中");
-    setMessages(prev => [...prev, { role: "user", content: "🚀 啟動 EM 調度規劃", ts: new Date().toISOString() }]);
-
-    // 2026-08-29: 即時進度訊息 — 在 chat 裡 live 更新（之前只更新 emAction 小字，user 看不到在做什麼）
-    const progressLines: string[] = [];
-    let progressFinalized = false;
-    const upsertPlanProgress = (finalize?: string) => {
-      const content = finalize !== undefined ? finalize : `### 🌙 ${t("emDash.planProgressTitle")}\n\n${progressLines.map(l => `- ${l}`).join("\n")}`;
-      setMessages(prev => {
-        const idx = prev.findIndex(m => (m as any)._emPlanProgress);
-        const ts = new Date().toISOString();
-        if (idx >= 0) {
-          const updated = [...prev];
-          updated[idx] = { role: "assistant", content, ts, ...(finalize !== undefined ? {} : { _emPlanProgress: true }) } as any;
-          return updated;
-        }
-        return [...prev, { role: "assistant", content, ts, _emPlanProgress: true } as any];
+    setEmAction("掃描 TASKS.json");
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-auto-dispatch/preview?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
       });
-      // 內容原地更新不會觸發 messages.length 的自動捲動 — 手動貼底（僅當 user 已在底部附近）
+      const d = await res.json();
+      if (!d.ok) throw new Error(d.error || "preview failed");
+
+      if (!d.workList || d.workList.length === 0) {
+        setMessages(prev => [...prev, {
+          role: "assistant",
+          content: `ℹ️ ${t("emDash.dispatchNoWork")}\n\n> ${d.noWorkReason || ""}`,
+          ts: new Date().toISOString(),
+        } as ChatMessage]);
+        return;
+      }
+
+      const stats = d.stats || {};
+      const priorityIcon: Record<string, string> = { critical: "💣", high: "🔴", medium: "🟡", low: "🟢" };
+      const agentIcon: Record<string, string> = {
+        architect: "🏛️", developer: "💻", tester: "🧪",
+        "doc-writer": "📝", qa: "🔬", helpdesk: "🌸",
+      };
+      const planText = (d.workList as any[]).map((w, i) => {
+        const pi = priorityIcon[w.priority as string] || "⚪";
+        const ai = agentIcon[w.agent as string] || "🔧";
+        return `${pi} ${i + 1}. ${ai} **${w.agent}** — ${w.sourceRef || ""}\n\n${w.task.slice(0, 160)}${w.task.length > 160 ? "…" : ""}`;
+      }).join("\n\n");
+      const excludedText = (d.excluded || []).length
+        ? `\n\n---\n\n**🔒 排除 ${d.excluded.length} 項：**\n${(d.excluded as any[]).map(e => `- ~~${e.id} ${e.title}~~（${e.reason}）`).join("\n")}`
+        : "";
+
+      setPendingPlan({ workList: d.workList, situationReport: d.situationReport || "" });
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: `## 📋 ${t("emDash.dispatchScopeTitle")}\n\nTASKS.json：open **${stats.open ?? "?"}** ｜ 進行中 ${stats.inProgress ?? 0} ｜ done ${stats.done ?? 0}\n\n本輪將派工 **${d.workList.length}** 項（依 priority 排序，各自獨立 context 逐一執行）：\n\n${planText}${excludedText}`,
+        ts: new Date().toISOString(),
+        actions: [
+          { label: "✅ 確認執行", type: "confirmPlan", planData: { workList: d.workList, situationReport: d.situationReport || "" } },
+          { label: "❌ 取消", type: "cancelPlan" },
+        ],
+      } as any]);
       requestAnimationFrame(() => {
         const el = chatScrollRef.current;
-        if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 260) el.scrollTop = el.scrollHeight;
+        if (el) el.scrollTop = el.scrollHeight;
       });
-    };
-    const finalizePlanProgress = (text: string) => {
-      if (progressFinalized) return;
-      progressFinalized = true;
-      upsertPlanProgress(text);
-    };
-    upsertPlanProgress();
-
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-crew/em-plan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cwd: rootPath, model: model || undefined }),
-      });
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let plannedWorkList: any[] = [];
-      let situationReport = "";
-
-      while (reader) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const d = JSON.parse(line.slice(6));
-
-            // error events — finalize 進度訊息（❌ 顯示在 chat，不是只在小字狀態）
-            if (d.isError) {
-              finalizePlanProgress(`❌ ${d.message || "EM 發生未知錯誤"}`);
-              continue;
-            }
-
-            // info messages — 更新 emAction 小字 + chat 進度訊息
-            if (d.message && !d.workList && !d.totalTasks) {
-              const displayMsg = d.contextLength
-                ? `${d.message} (Context: ${d.contextLength} chars | Model: ${d.model || "default"})`
-                : d.message;
-              setEmAction(displayMsg.slice(0, 60));
-              progressLines.push(displayMsg.slice(0, 120));
-              upsertPlanProgress();
-            }
-
-            // plan_ready — show plan in chat with confirm/cancel buttons
-            if (d.workList) {
-              plannedWorkList = d.workList;
-              situationReport = d.situationReport || "";
-
-              if (d.workList.length === 0) {
-                finalizePlanProgress("✅ 目前沒有需要調度的工作，專案狀態良好。");
-              } else {
-                const priorityIcon: Record<string, string> = { high: "🔴", medium: "🟡", low: "🟢" };
-                const agentIcon: Record<string, string> = {
-                  architect: "🏛️", developer: "💻", tester: "🧪",
-                  "doc-writer": "📝", qa: "🔬", helpdesk: "🌸",
-                };
-                const planText = d.workList.map((w: any, i: number) => {
-                  const pi = priorityIcon[w.priority as string] || "⚪";
-                  const ai = agentIcon[w.agent as string] || "🔧";
-                  return `### ${pi} ${i + 1}. ${ai} ${w.agent}\n\n**任務：** ${w.task}${w.reason ? `\n\n> 💡 ${w.reason}` : ""}`;
-                }).join("\n---\n\n");
-
-                finalizePlanProgress(`✅ ${t("emDash.planDone")} — 共 **${d.workList.length}** 項工作`);
-                setMessages(prev => [...prev, {
-                  role: "assistant",
-                  content: `## 📋 EM 調度規劃\n\n共 **${d.workList.length}** 項工作，確認後開始執行：\n\n---\n\n${planText}`,
-                  ts: new Date().toISOString(),
-                  actions: [
-                    { label: "✅ 確認執行", type: "confirmPlan", planData: { workList: d.workList, situationReport } },
-                    { label: "❌ 取消", type: "cancelPlan" },
-                  ],
-                } as any]);
-              }
-            }
-          } catch {}
-        }
-      }
-      // stream 結束但沒收到 plan_ready/error（例如 server 中斷）— 收尾避免進度訊息懸掛
-      finalizePlanProgress(progressLines.length > 0 ? `⚠️ 連線結束（未收到規劃結果）\n\n${progressLines.map(l => `- ${l}`).join("\n")}` : "⚠️ 連線結束（未收到任何事件）");
     } catch (err: any) {
-      finalizePlanProgress(`❌ EM error: ${err.message}`);
+      setMessages(prev => [...prev, { role: "assistant", content: `❌ ${err.message}`, ts: new Date().toISOString() } as ChatMessage]);
+    } finally {
+      setEmRunning(false);
+      setEmAction("");
     }
-    setEmRunning(false);
-    setEmAction("");
-    setEmToolLog([]);
   };
 
-  // ── EM Execute confirmed plan ──
-  const confirmEMPlan = async (plan: PendingPlan) => {
-    if (emRunning || !rootPath) return;
-    setEmRunning(true);
+  // ── 確認後執行：走 /start API 背景執行（2026-08-29 改版 — 不再前端 SSE 掛長連線）──
+  // 進度由 adStatus 輪詢（4s）把 events 轉成 chat 訊息；執行中 input 鎖定 + 中斷 button
+  const confirmEMPlan = async (_plan: PendingPlan) => {
+    if (!rootPath || adStatus?.status === "running") return;
     setPendingPlan(null);
-    setMessages(prev => [...prev, { role: "user", content: "✅ 確認執行 EM 調度計畫", ts: new Date().toISOString() }]);
-
+    setMessages(prev => [...prev, { role: "user", content: "✅ 確認執行自動派工", ts: new Date().toISOString() } as ChatMessage]);
     try {
-      const res = await fetch(`${API_BASE}/api/coding-crew/em-execute`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cwd: rootPath, workList: plan.workList, situationReport: plan.situationReport, model: model || undefined }),
+      const res = await fetch(`${API_BASE}/api/coding-auto-dispatch/start?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "em", model: model || undefined }),
       });
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      const completedSteps: { stepId: string; name: string; summary: string; reportId?: string }[] = [];
-
-      while (reader) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const d = JSON.parse(line.slice(6));
-            const agentIcon: Record<string, string> = {
-              architect: "🏛️", developer: "💻", tester: "🧪",
-              "doc-writer": "📝", qa: "🔬", helpdesk: "🌸",
-            };
-
-            // task_start
-            if (d.agent && d.task && d.preview === undefined && d.error === undefined) {
-              const ai = agentIcon[d.agent as string] || "🔧";
-              setMessages(prev => [...prev, {
-                role: "assistant",
-                content: `### ⏳ ${ai} ${d.agent} 執行中...\n\n${d.task}\n\n\`[${d.index}/${d.total}]\``,
-                ts: new Date().toISOString(),
-                _emProgress: true,
-              } as any]);
-            }
-
-            // task_done
-            if (d.agent && d.preview !== undefined) {
-              const ai = agentIcon[d.agent as string] || "🔧";
-              completedSteps.push({ stepId: d.agent, name: d.agent, summary: d.preview });
-              setMessages(prev => {
-                const lastProg = [...prev].reverse().findIndex(m => m._emProgress);
-                if (lastProg >= 0) {
-                  const idx = prev.length - 1 - lastProg;
-                  const updated = [...prev];
-                  updated[idx] = { role: "assistant", content: `### ✅ ${ai} ${d.agent} 完成\n\n${d.preview.slice(0, 300)}`, ts: new Date().toISOString() } as any;
-                  return updated;
-                }
-                return [...prev, { role: "assistant", content: `✅ **${d.agent}** — ${d.preview.slice(0, 200)}`, ts: new Date().toISOString() } as any];
-              });
-            }
-
-            // task_error
-            if (d.agent && d.error) {
-              setMessages(prev => {
-                const lastProg = [...prev].reverse().findIndex(m => m._emProgress);
-                if (lastProg >= 0) {
-                  const idx = prev.length - 1 - lastProg;
-                  const updated = [...prev];
-                  updated[idx] = { role: "assistant", content: `❌ **${d.agent}** — ${d.error}`, ts: new Date().toISOString() } as any;
-                  return updated;
-                }
-                return [...prev, { role: "assistant", content: `❌ **${d.agent}** — ${d.error}`, ts: new Date().toISOString() } as any];
-              });
-            }
-          } catch {}
-        }
-      }
-
-      // Final summary
-      const finalActions: ChatAction[] = [];
-      if (completedSteps.length > 0) {
-        finalActions.push({ label: "📊完整報告", type: "openReport", reportId: "em-report" });
-      }
-      const summaryText = `🎖️ EM 調度完成！完成 ${completedSteps.length} 項工作。\n\n${completedSteps.map(s => `  ✅ ${s.name}: ${s.summary.slice(0, 100)}`).join("\n")}`;
-      setMessages(prev => [...prev, { role: "assistant", content: summaryText, ts: new Date().toISOString(), actions: finalActions }]);
+      const d = await res.json();
+      if (!d.ok) throw new Error(d.error || "start failed");
+      // 樂觀標記 running → input 立刻鎖定 + 中斷 button 出現（下一輪 poll 會校正）
+      setAdStatus({ status: "running", startedAt: new Date().toISOString(), events: [] });
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: `🚀 ${t("emDash.dispatchStarted")}`,
+        ts: new Date().toISOString(),
+      } as ChatMessage]);
+      requestAnimationFrame(() => {
+        const el = chatScrollRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
     } catch (err: any) {
-      setMessages(prev => [...prev, { role: "assistant", content: `❌ EM error: ${err.message}`, ts: new Date().toISOString() }]);
+      setMessages(prev => [...prev, { role: "assistant", content: `❌ ${err.message}`, ts: new Date().toISOString() } as ChatMessage]);
     }
-    setEmRunning(false);
+  };
+
+  // ── 中斷自動派工（安全中斷點：目前 task 完成後停止，剩餘標 skipped）──
+  const stopDispatch = async () => {
+    if (!rootPath || adStatus?.status !== "running") return;
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-auto-dispatch/stop?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+      });
+      const d = await res.json();
+      if (d.ok) {
+        setStopAsked(true);
+        setMessages(prev => [...prev, { role: "assistant", content: `⏹️ ${t("emDash.interruptAsked")}`, ts: new Date().toISOString() } as ChatMessage]);
+      } else {
+        setMessages(prev => [...prev, { role: "assistant", content: `⚠️ ${d.message || "目前沒有在執行"}`, ts: new Date().toISOString() } as ChatMessage]);
+      }
+    } catch {}
   };
 
   // ── Run a single Code Understanding step (retry) ──
@@ -909,15 +867,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
               )}
               {/* Divider */}
               <div className="w-px h-5 bg-stone-200 mx-1" />
-              {/* EM-specific action buttons */}
-              <button
-                onClick={runEM}
-                disabled={emRunning}
-                className={cn("text-xs px-3 py-1 rounded-md font-bold flex items-center gap-1",
-                  emRunning ? "bg-stone-200 text-stone-400 cursor-not-allowed" : "bg-amber-600 text-white hover:bg-amber-700")}
-              >
-                {emRunning ? "⏳" : "🚀 EM"}
-              </button>
+              {/* 2026-08-29: 🚀 EM 規劃 button 已移除 — 改成在 input 敲「自動派工」觸發確認制派工 */}
             </div>
           </div>
         </div>
@@ -1360,21 +1310,35 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                 if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
                 if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
               }}
-              placeholder={`跟 ${emProfile.codename || "EM 大總管"}對話... (Enter 送出, Shift+Enter 換行)`}
+              disabled={adStatus?.status === "running"}
+              placeholder={adStatus?.status === "running"
+                ? t("emDash.inputLocked")
+                : `跟 ${emProfile.codename || "EM 大總管"}對話（敲「自動派工」啟動確認制派工）...`}
               rows={1}
-              className="flex-1 resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              className="flex-1 resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-60"
               style={{ borderColor: tk.borderLight, backgroundColor: tk.bg }}
             />
-            <button
-              onClick={loading ? stopAgent : sendMessage}
-              disabled={!loading && !input.trim()}
-              className={cn("px-4 py-2 rounded-lg text-sm font-bold transition-colors",
-                loading
-                  ? "bg-red-500 text-white hover:bg-red-600"
-                  : input.trim() ? "bg-amber-600 text-white hover:bg-amber-700" : "bg-stone-200 text-stone-400")}
-            >
-              {loading ? "中斷" : "送出"}
-            </button>
+            {adStatus?.status === "running" ? (
+              <button
+                onClick={stopDispatch}
+                disabled={stopAsked}
+                className={cn("px-4 py-2 rounded-lg text-sm font-bold transition-colors shrink-0",
+                  stopAsked ? "bg-stone-300 text-stone-500 cursor-not-allowed" : "bg-red-500 text-white hover:bg-red-600 animate-pulse")}
+              >
+                {stopAsked ? "⏳ 中斷中…" : `⏹ ${t("emDash.interruptBtn")}`}
+              </button>
+            ) : (
+              <button
+                onClick={loading ? stopAgent : sendMessage}
+                disabled={!loading && !input.trim()}
+                className={cn("px-4 py-2 rounded-lg text-sm font-bold transition-colors shrink-0",
+                  loading
+                    ? "bg-red-500 text-white hover:bg-red-600"
+                    : input.trim() ? "bg-amber-600 text-white hover:bg-amber-700" : "bg-stone-200 text-stone-400")}
+              >
+                {loading ? "中斷" : "送出"}
+              </button>
+            )}
           </div>
         </div>
       </div>

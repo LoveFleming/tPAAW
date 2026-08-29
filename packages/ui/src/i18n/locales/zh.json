@@ -1134,5 +1134,13 @@
   "emDash.dispatchRunning": "自動派工執行中",
   "emDash.dispatchDone": "自動派工完成",
   "emDash.dispatchFailed": "自動派工失敗",
-  "emDash.view": "查看"
+  "emDash.view": "查看",
+  "emDash.dispatchScopeTitle": "自動派工範圍確認",
+  "emDash.dispatchNoWork": "目前沒有需要派工的 task",
+  "emDash.dispatchStarted": "自動派工已啟動（背景執行，每個 task 獨立 context 逐一處理）",
+  "emDash.inputLocked": "⏳ 自動派工執行中…輸入已鎖定",
+  "emDash.interruptBtn": "中斷",
+  "emDash.interruptAsked": "已請求中斷 — 目前 task 完成後停止，剩餘標記 skipped",
+  "emDash.dispatchSummaryDone": "自動派工完成",
+  "emDash.dispatchSummaryInterrupted": "自動派工已中斷"
 }
