@@ -14,6 +14,8 @@ import { DATA_HOME } from "../data-home.mjs";
 import {
   browserState, PLAYWRIGHT_INSTALL_HINT, getBrowserPage, trackPage, takeScreenshot, assertSafeUrl,
   attachStreamClient, detachStreamClient, applyBrowserInput, kickScreencast,
+  browserTabs, browserNewTab, browserSwitchTab, browserCloseTab, browserNavAction,
+  browserDownloads, browserHandleDialog,
 } from "../lib/browser-session.mjs";
 
 const SHOT_DIR = join(DATA_HOME, "logs", "browser");
@@ -48,7 +50,12 @@ export default async function browserRoute(req, res) {
       const s = browserState();
       json(res, 200, { ...s, screenshot: shot });
     } catch (e) {
-      json(res, 400, { error: e.message });
+      // 下載啟動不是錯：goto 遇到 attachment 會 throw "Download is starting"，檔案已進下載管線
+      if (/Download is starting/i.test(String(e?.message || ""))) {
+        json(res, 200, { ...browserState(), downloadStarted: true });
+      } else {
+        json(res, 400, { error: e.message });
+      }
     }
     return true;
   }
@@ -77,6 +84,51 @@ export default async function browserRoute(req, res) {
       clearInterval(ping);
       detachStreamClient(res);
     });
+    return true;
+  }
+
+  // ── 分頁管理（Cowork 級）──
+  // GET /api/browser/tabs — 列出所有分頁 + activeId
+  if (url === "/api/browser/tabs" && method === "GET") {
+    try { getBrowserPage(DATA_HOME).catch(() => {}); json(res, 200, browserTabs()); }
+    catch (e) { json(res, 500, { error: e.message }); }
+    return true;
+  }
+  // POST /api/browser/tabs {action:"new"|"switch"|"close", id?, url?}
+  if (url === "/api/browser/tabs" && method === "POST") {
+    let body = {};
+    try { body = JSON.parse(await readBody(req) || "{}"); } catch {}
+    try {
+      if (body.action === "new") {
+        const r = await browserNewTab(DATA_HOME, body.url || null);
+        json(res, 200, { ok: true, ...r, ...browserTabs() });
+      } else if (body.action === "switch") {
+        json(res, 200, { ok: true, ...await browserSwitchTab(body.id) });
+      } else if (body.action === "close") {
+        json(res, 200, { ok: true, ...await browserCloseTab(DATA_HOME, body.id) });
+      } else { json(res, 400, { error: "action must be new|switch|close" }); }
+    } catch (e) { json(res, 400, { error: e.message }); }
+    return true;
+  }
+  // POST /api/browser/back | forward | reload — 導航控制
+  for (const act of ["back", "forward", "reload"]) {
+    if (url === `/api/browser/${act}` && method === "POST") {
+      try { json(res, 200, { ok: true, ...(await browserNavAction(act)) }); }
+      catch (e) { json(res, 400, { error: e.message }); }
+      return true;
+    }
+  }
+  // GET /api/browser/downloads — 下載清單
+  if (url === "/api/browser/downloads" && method === "GET") {
+    json(res, 200, { ok: true, downloads: browserDownloads() });
+    return true;
+  }
+  // POST /api/browser/dialog {id, action:"accept"|"dismiss", text?}
+  if (url === "/api/browser/dialog" && method === "POST") {
+    let body = {};
+    try { body = JSON.parse(await readBody(req) || "{}"); } catch {}
+    try { json(res, 200, await browserHandleDialog(body.id, body.action, body.text)); }
+    catch (e) { json(res, 400, { error: e.message }); }
     return true;
   }
 

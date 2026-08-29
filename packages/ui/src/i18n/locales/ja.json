@@ -1147,5 +1147,13 @@
   "browser.clipboardGet": "共有ブラウザのクリップボードを取得（GitHub などの copy ボタンの内容）",
   "browser.clipboardDone": "{n} 文字をクリップボードにコピーしました",
   "browser.clipboardEmpty": "共有ブラウザのクリップボードは空です",
-  "browser.clipboardFail": "取得失敗（ページは https または localhost である必要があります）"
+  "browser.clipboardFail": "取得失敗（ページは https または localhost である必要があります）",
+  "browser.back": "戻る",
+  "browser.forward": "進む",
+  "browser.reload": "再読み込み",
+  "browser.newTab": "新しいタブ",
+  "browser.closeTab": "タブを閉じる",
+  "browser.dialogOk": "OK",
+  "browser.dialogCancel": "キャンセル",
+  "browser.dialogPrompt": "テキスト入力…"
 }

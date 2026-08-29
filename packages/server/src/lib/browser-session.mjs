@@ -77,9 +77,36 @@ export async function getBrowserContext(DATA_HOME) {
         mo.observe(document, { childList: true, subtree: false });
       }
     })();`).catch(() => {});
-    ctx.on("close", () => { _ctx = null; _state.ready = false; });
+    ctx.on("close", () => { _ctx = null; _state.ready = false; _pagesById.clear(); _titlesById.clear(); _activePageRef = null; });
     ctx.setDefaultTimeout(15_000);
     ctx.setDefaultNavigationTimeout(25_000);
+    // 下載：自動存 DATA_HOME/downloads + SSE 廣播（Cowork 級下載管理）
+    mkdirSync(join(DATA_HOME, "downloads"), { recursive: true });
+    ctx.on("download", async (dl) => {
+      const entry = { id: String(++_dlSeq), filename: dl.suggestedFilename() || `download-${Date.now()}`, state: "saving", path: null, ts: Date.now() };
+      _downloads.unshift(entry);
+      if (_downloads.length > 30) _downloads.pop();
+      broadcastToStream({ type: "download", ...entry });
+      try {
+        const safe = entry.filename.replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
+        const path = join(DATA_HOME, "downloads", `${Date.now()}-${safe}`);
+        await dl.saveAs(path);
+        entry.state = "done";
+        entry.path = path.split(/[\\/]/).join("/");
+      } catch (e) {
+        entry.state = "failed";
+      }
+      broadcastToStream({ type: "download", ...entry });
+    });
+    // popup（target=_blank、window.open）→ 白動 wire + 切成 active（Chrome 行為：新分頁自動跳過去）
+    ctx.on("page", (p) => {
+      _wirePage(p);
+      _activePageRef = p;
+      broadcastTabs();
+      ensureScreencast().then(() => kickScreencast()).catch(() => {});
+    });
+    // 既有分頁（persistent profile 回復）全部 wire
+    for (const p of ctx.pages()) _wirePage(p);
     _ctx = ctx;
     _state.ready = true;
     _state.available = true;
@@ -94,12 +121,12 @@ export async function getBrowserContext(DATA_HOME) {
   return _launching;
 }
 
-/** 取得目前 page（沒有就開新分頁）*/
+/** 取得目前 active page（沒有就開新分頁）— 所有 tool/route/input 都操作 active tab */
 export async function getBrowserPage(DATA_HOME) {
   const ctx = await getBrowserContext(DATA_HOME);
-  let page = ctx.pages().find(p => !p.isClosed());
+  let page = _resolveActive();
   if (!page) page = await ctx.newPage();
-  return page;
+  return _wirePage(page);
 }
 
 /** 截圖：存時間戳檔 + 覆蓋 latest.png（IDE 輪詢用）*/
@@ -163,6 +190,126 @@ export const PLAYWRIGHT_INSTALL_HINT =
 // 每個 page 專用的 CDP session（wheel 回注用 — WeakMap 隨 page 回收）
 const _cdpByPage = new WeakMap();
 
+// ── 多分頁狀態（Cowork 級 tab 管理）──
+let _pageSeq = 0;
+const _pagesById = new Map();     // pageId → Page
+const _titlesById = new Map();     // pageId → title（同步快取，title() 是 async）
+let _activePageRef = null;         // 目前的 active tab
+const _dialogs = new Map();       // dialogId → Dialog（等 UI 回應）
+let _dialogSeq = 0;
+const _downloads = [];            // 最近 30 筆下載
+let _dlSeq = 0;
+
+function _resolveActive() {
+  if (_activePageRef && !_activePageRef.isClosed()) return _activePageRef;
+  const open = [..._pagesById.values()].filter(p => !p.isClosed());
+  _activePageRef = open[0] || null;
+  return _activePageRef;
+}
+
+/** wire 一個 page：id、tab 狀態廣播、dialog、關閉清理。全部 page 都要過這個 */
+function _wirePage(page) {
+  if (!page || page.isClosed() || page.__paawWired) return page;
+  page.__paawWired = true;
+  page.__paawId = String(++_pageSeq);
+  _pagesById.set(page.__paawId, page);
+  const upd = () => {
+    if (_resolveActive() === page) { _state.url = page.url(); _state.lastActionAt = Date.now(); }
+    page.title().then(t => { _titlesById.set(page.__paawId, t || ""); broadcastTabs(); }).catch(() => {});
+    broadcastTabs();
+  };
+  page.on("framenavigated", upd);
+  page.on("close", () => {
+    _pagesById.delete(page.__paawId);
+    _titlesById.delete(page.__paawId);
+    broadcastTabs();
+  });
+  page.on("dialog", (dlg) => {
+    const id = String(++_dialogSeq);
+    _dialogs.set(id, dlg);
+    try {
+      broadcastToStream({ type: "dialog", id, kind: dlg.type(), message: dlg.message(), defaultValue: dlg.defaultValue() || "" });
+    } catch {}
+  });
+  upd();
+  return page;
+}
+
+function broadcastTabs() {
+  broadcastToStream({ type: "tabs", ...browserTabs() });
+}
+
+export function browserTabs() {
+  const active = _resolveActive();
+  const tabs = [..._pagesById.entries()]
+    .filter(([, p]) => !p.isClosed())
+    .map(([id, p]) => ({ id, url: p.url(), title: _titlesById.get(id) || "" }));
+  return { tabs, activeId: active ? active.__paawId : null };
+}
+
+export async function browserNewTab(DATA_HOME, url) {
+  const ctx = await getBrowserContext(DATA_HOME);
+  const page = _wirePage(await ctx.newPage());
+  _activePageRef = page;
+  if (url) {
+    assertSafeUrl(url);
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 });
+  }
+  await ensureScreencast().then(() => kickScreencast()).catch(() => {});
+  broadcastTabs();
+  return { id: page.__paawId, url: page.url() };
+}
+
+export async function browserSwitchTab(id) {
+  const page = _pagesById.get(String(id));
+  if (!page || page.isClosed()) throw new Error(`tab not found: ${id}`);
+  _activePageRef = page;
+  _state.url = page.url();
+  await ensureScreencast().then(() => kickScreencast()).catch(() => {});
+  broadcastTabs();
+  return browserTabs();
+}
+
+export async function browserCloseTab(DATA_HOME, id) {
+  const page = _pagesById.get(String(id));
+  if (!page || page.isClosed()) throw new Error(`tab not found: ${id}`);
+  const wasActive = _resolveActive() === page;
+  if (_pagesById.size <= 1) throw new Error("不能關最後一個分頁（瀏覽器至少保留一頁）");
+  await page.close();
+  if (wasActive) {
+    _activePageRef = null;
+    await getBrowserPage(DATA_HOME); // 解出下一個 active 並確保 screencast 重綁
+    await ensureScreencast().then(() => kickScreencast()).catch(() => {});
+  }
+  broadcastTabs();
+  return browserTabs();
+}
+
+/** 導航控制：back / forward / reload */
+export async function browserNavAction(action) {
+  const page = await getBrowserPage(DATA_HOME);
+  const opts = { waitUntil: "domcontentloaded", timeout: 20000 };
+  if (action === "back") await page.goBack(opts).catch(e => { if (!/timed out/i.test(String(e))) throw e; });
+  else if (action === "forward") await page.goForward(opts).catch(e => { if (!/timed out/i.test(String(e))) throw e; });
+  else if (action === "reload") await page.reload(opts).catch(e => { if (!/timed out/i.test(String(e))) throw e; });
+  else throw new Error(`Unknown nav action: ${action}`);
+  await takeScreenshot(DATA_HOME, page).catch(() => {});
+  await kickScreencast().catch(() => {});
+  return { url: page.url() };
+}
+
+export function browserDownloads() { return _downloads.map(d => ({ ...d })); }
+
+export async function browserHandleDialog(id, action, text) {
+  const dlg = _dialogs.get(String(id));
+  if (!dlg) throw new Error(`dialog not found: ${id}`);
+  _dialogs.delete(String(id));
+  if (action === "accept") await dlg.accept(text || undefined).catch(() => {});
+  else await dlg.dismiss().catch(() => {});
+  broadcastToStream({ type: "dialog", id: String(id), closed: true });
+  return { ok: true };
+}
+
 const _stream = {
   clients: new Set(),      // SSE res 物件
   cdp: null,               // CDP session（綁定 _castPage）
@@ -179,6 +326,7 @@ export function attachStreamClient(res) {
   _stream.clients.add(res);
   _ensureWatchdog();
   ensureScreencast().then(() => kickScreencast()).catch(() => {});
+  broadcastTabs(); // 新 viewer 馬上拿到分頁快照
 }
 
 /** SSE client 離線 — 最後一個斷線就停串流 */
@@ -288,6 +436,10 @@ export async function applyBrowserInput(evt) {
       if (!Number.isFinite(evt.x) || !Number.isFinite(evt.y)) throw new Error("mousedown requires x,y");
       await page.mouse.move(evt.x, evt.y, { steps: 1 });
       await page.mouse.down({ button, modifiers: modOpt });
+      try {
+        const hit = await page.evaluate(([x, y]) => { const el = document.elementFromPoint(x, y); return el ? el.tagName + ":" + (el.textContent || "").trim().slice(0, 24) : "(nothing)"; }, [evt.x, evt.y]);
+        console.log(`[browser-input] mousedown @(${evt.x},${evt.y}) → ${hit} | page=${page.url().slice(0, 50)}`);
+      } catch {}
       break;
     case "mouseup":
       await page.mouse.up({ button, modifiers: modOpt });

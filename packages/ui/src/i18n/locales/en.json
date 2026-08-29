@@ -1147,5 +1147,13 @@
   "browser.clipboardGet": "Fetch shared browser clipboard (content copied by GitHub etc.)",
   "browser.clipboardDone": "Copied {n} chars to your clipboard",
   "browser.clipboardEmpty": "Shared browser clipboard is empty",
-  "browser.clipboardFail": "Fetch failed (page must be https or localhost)"
+  "browser.clipboardFail": "Fetch failed (page must be https or localhost)",
+  "browser.back": "Back",
+  "browser.forward": "Forward",
+  "browser.reload": "Reload",
+  "browser.newTab": "New tab",
+  "browser.closeTab": "Close tab",
+  "browser.dialogOk": "OK",
+  "browser.dialogCancel": "Cancel",
+  "browser.dialogPrompt": "Enter text…"
 }

@@ -34,6 +34,12 @@ interface CastFrame {
 
 type Mode = "stream" | "iframe" | "shot";
 
+interface TabInfo { id: string; url: string; title: string }
+interface DlgInfo { id: string; kind: string; message: string; defaultValue: string }
+interface DlInfo { id: string; filename: string; state: string; path: string | null; ts: number }
+
+const hostOf = (u: string) => { try { return new URL(u).hostname || "about:blank"; } catch { return u ? u.slice(0, 30) : ""; } };
+
 // 特殊鍵 → Playwright key name（其餘單字元鍵走 text 插入）
 const KEY_MAP: Record<string, string> = {
   Enter: "Enter", Tab: "Tab", Backspace: "Backspace", Delete: "Delete", Escape: "Escape",
@@ -62,6 +68,12 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
   const lastMoveRef = useRef(0);
   const frameRef = useRef<CastFrame | null>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null); // frame 顯示尺寸（letterbox 計算後）
+  // ── Cowork 級：分頁 / dialog / 下載 ──
+  const [tabs, setTabs] = useState<TabInfo[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [dlgList, setDlgList] = useState<DlgInfo[]>([]);
+  const [dialogText, setDialogText] = useState("");
+  const [downloads, setDownloads] = useState<DlInfo[]>([]);
 
   useEffect(() => { frameRef.current = frame; }, [frame]);
 
@@ -95,7 +107,13 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     }
   }, [status?.url]);
 
-  // ── 共用模式：SSE 串流（CDP screencast frames）──
+  // 分頁/下載初始清單（SSE 只在 stream 模式收，其他模式靠這個 + 動作回應同步）
+  useEffect(() => {
+    fetch(`${API_BASE}/api/browser/tabs`).then(r => r.json()).then(d => { if (d.tabs) { setTabs(d.tabs); setActiveTabId(d.activeId ?? null); } }).catch(() => {});
+    fetch(`${API_BASE}/api/browser/downloads`).then(r => r.json()).then(d => { if (d.downloads) setDownloads(d.downloads.slice(0, 8)); }).catch(() => {});
+  }, [API_BASE]);
+
+  // ── 共用模式：SSE 串流（CDP screencast frames + tabs/dialog/download 事件）──
   useEffect(() => {
     if (mode !== "stream") { setLive(false); return; }
     const es = new EventSource(`${API_BASE}/api/browser/stream`);
@@ -105,7 +123,21 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
       try {
         const d = JSON.parse(e.data);
         if (d.type === "hello") { if (!opened) setLive(true); }
-        else if (d.type === "frame") setFrame({ jpeg: d.jpeg, w: d.w, h: d.h, url: d.url });
+        else if (d.type === "frame") {
+          setFrame({ jpeg: d.jpeg, w: d.w, h: d.h, url: d.url });
+          if (d.url && !typingRef.current && d.url !== lastShownUrlRef.current) {
+            lastShownUrlRef.current = d.url;
+            setUrlInput(d.url);
+          }
+        }
+        else if (d.type === "tabs") { setTabs(d.tabs || []); setActiveTabId(d.activeId ?? null); }
+        else if (d.type === "dialog") {
+          if (d.closed) setDlgList(prev => prev.filter(x => x.id !== d.id));
+          else setDlgList(prev => [...prev.filter(x => x.id !== d.id), { id: d.id, kind: d.kind, message: d.message, defaultValue: d.defaultValue || "" }]);
+        }
+        else if (d.type === "download") {
+          setDownloads(prev => [{ id: d.id, filename: d.filename, state: d.state, path: d.path ?? null, ts: d.ts }, ...prev.filter(x => x.id !== d.id)].slice(0, 8));
+        }
       } catch { /* ignore malformed */ }
     };
     es.onerror = () => setLive(false); // EventSource 內建自動重連
@@ -196,6 +228,13 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
     const mod = e.ctrlKey || e.metaKey;
     const alt = e.altKey;
+    // 本機剪貼簿 → 遠端貼上（headless 的系統剪貼簿跟本機不同，Ctrl+V 轉發無效）
+    if (mod && (e.key === "v" || e.key === "V")) {
+      e.preventDefault();
+      navigator.clipboard.readText().then(txt => { if (txt) sendInput({ type: "text", text: txt.slice(0, 2000) }); }).catch(() => {});
+      return;
+    }
+    // Ctrl+C：選取文字複製到遠端剪貼簿（配合 📋 取回本機）— 直接轉發組合鍵
     const pwKey = KEY_MAP[e.key];
     if (pwKey !== undefined) {
       e.preventDefault();
@@ -244,6 +283,32 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
 
   const dotOk = mode === "stream" ? live : connected;
 
+  // ── 導航控制 + 分頁操作 ──
+  const navAction = async (act: "back" | "forward" | "reload") => {
+    try { await fetch(`${API_BASE}/api/browser/${act}`, { method: "POST" }); } catch {}
+  };
+  const tabAction = async (action: string, id?: string) => {
+    try {
+      const r = await fetch(`${API_BASE}/api/browser/tabs`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, id }),
+      });
+      const d = await r.json();
+      if (d.tabs) { setTabs(d.tabs); setActiveTabId(d.activeId ?? null); }
+    } catch {}
+  };
+  const respondDialog = async (id: string, action: "accept" | "dismiss") => {
+    const text = dialogText;
+    setDialogText("");
+    try {
+      await fetch(`${API_BASE}/api/browser/dialog`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action, text: text || undefined }),
+      });
+    } catch {}
+    setDlgList(prev => prev.filter(x => x.id !== id));
+  };
+
   // 取回共享瀏覽器剪貼簿（GitHub copy 按鈕寫适的内容 → 本機剪貼簿）
   const [clipMsg, setClipMsg] = useState("");
   useEffect(() => {
@@ -281,6 +346,12 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
       {/* ── 網址列 — 唯一常駐 chrome ── */}
       <div className="flex items-center gap-1.5 px-1.5 py-1 border-b border-gray-200 shrink-0">
         <span className={dotOk ? "text-green-600 text-xs" : "text-red-500 text-xs"}>●</span>
+        {/* 導航控制：← → ⟳（Cowork 級）*/}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button onClick={() => navAction("back")} title={t("browser.back")} className="text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded text-sm px-1.5 py-0.5">←</button>
+          <button onClick={() => navAction("forward")} title={t("browser.forward")} className="text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded text-sm px-1.5 py-0.5">→</button>
+          <button onClick={() => navAction("reload")} title={t("browser.reload")} className="text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded text-sm px-1.5 py-0.5">⟳</button>
+        </div>
         <input
           value={urlInput}
           onChange={e => { setUrlInput(e.target.value); }}
@@ -312,6 +383,26 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
         </div>
       </div>
 
+      {/* ── 分頁列（Cowork 級多分頁）── */}
+      {tabs.length > 0 && (
+        <div className="flex items-stretch gap-0.5 px-1 pt-1 overflow-x-auto shrink-0 border-b border-gray-200 bg-gray-50">
+          {tabs.map(tb => (
+            <div key={tb.id} onClick={() => { if (tb.id !== activeTabId) tabAction("switch", tb.id); }}
+              title={tb.url}
+              className={`group flex items-center gap-1 max-w-[180px] min-w-[72px] px-2 py-1 rounded-t-md cursor-pointer text-[11px] border border-b-0 ${
+                activeTabId === tb.id ? "bg-white border-gray-300 text-gray-800 font-medium" : "bg-gray-100 border-transparent text-gray-500 hover:bg-gray-200"
+              }`}>
+              <span className="truncate flex-1">{tb.title || hostOf(tb.url)}</span>
+              {tabs.length > 1 && (
+                <button onClick={e => { e.stopPropagation(); tabAction("close", tb.id); }} title={t("browser.closeTab")}
+                  className="opacity-0 group-hover:opacity-100 hover:text-red-500 shrink-0 leading-none text-xs">×</button>
+              )}
+            </div>
+          ))}
+          <button onClick={() => tabAction("new")} title={t("browser.newTab")} className="px-2 py-1 text-gray-500 hover:text-gray-800 text-sm shrink-0 leading-none">＋</button>
+        </div>
+      )}
+
       {/* 導航錯誤 — 只有出錯才佔一行 */}
       {navError && (
         <div className="px-3 py-0.5 text-[11px] text-red-500 border-b border-red-100 shrink-0 truncate" title={navError}>⚠ {navError}</div>
@@ -326,7 +417,41 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
       )}
 
       {/* ── 主區 ── */}
-      <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center bg-white">
+      <div className="relative flex-1 min-h-0 overflow-hidden flex items-center justify-center bg-white">
+        {/* dialog 卡（alert/confirm/prompt — 遠端頁面彈窗，等人在此回應）*/}
+        {dlgList.length > 0 && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40">
+            <div className="bg-white rounded-xl shadow-2xl border border-gray-200 w-[380px] max-w-[90%] p-4">
+              <div className="text-sm font-semibold mb-2">{dlgList[0].kind === "prompt" ? "🤔" : dlgList[0].kind === "confirm" ? "❓" : "ℹ️"} {dlgList[0].kind}</div>
+              <div className="text-sm text-gray-700 whitespace-pre-wrap mb-3 break-all">{dlgList[0].message}</div>
+              {dlgList[0].kind === "prompt" && (
+                <input value={dialogText} onChange={e => setDialogText(e.target.value)} placeholder={t("browser.dialogPrompt")} autoFocus
+                  className="w-full text-sm px-2.5 py-1.5 rounded-lg border border-gray-300 focus:border-blue-400 outline-none mb-3" />
+              )}
+              <div className="flex justify-end gap-2">
+                {dlgList[0].kind !== "alert" && (
+                  <button onClick={() => respondDialog(dlgList[0].id, "dismiss")} className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200">{t("browser.dialogCancel")}</button>
+                )}
+                <button onClick={() => respondDialog(dlgList[0].id, "accept")} className="text-sm px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white">{t("browser.dialogOk")}</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* 下載列（右下角 — 完成可複製路徑）*/}
+        {downloads.length > 0 && (
+          <div className="absolute bottom-2 right-2 flex flex-col gap-1 max-w-[260px] z-20">
+            {downloads.map(dl => (
+              <div key={dl.id} className="px-2.5 py-1.5 rounded-lg bg-gray-900/90 text-white text-[11px] shadow-lg flex items-center gap-2">
+                <span className="shrink-0">{dl.state === "done" ? "✅" : dl.state === "failed" ? "❌" : "⏬"}</span>
+                <span className="truncate flex-1" title={dl.path || dl.filename}>{dl.filename}</span>
+                {dl.state === "done" && dl.path && (
+                  <button onClick={() => navigator.clipboard?.writeText(dl.path!).catch(() => {})} title={dl.path} className="opacity-60 hover:opacity-100 shrink-0">📄</button>
+                )}
+                <button onClick={() => setDownloads(prev => prev.filter(x => x.id !== dl.id))} className="opacity-60 hover:opacity-100 shrink-0">×</button>
+              </div>
+            ))}
+          </div>
+        )}
         {mode === "stream" ? (
           <div ref={stageRef} className="w-full h-full flex items-center justify-center bg-gray-900 relative overflow-hidden">
           {frame && box ? (

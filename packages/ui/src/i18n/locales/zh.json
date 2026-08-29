@@ -1147,5 +1147,13 @@
   "browser.clipboardGet": "取回共享瀏覽器剪貼簿（GitHub 等 copy 按鈕的內容）",
   "browser.clipboardDone": "已複製 {n} 字到你的剪貼簿",
   "browser.clipboardEmpty": "共享瀏覽器剪貼簿是空的",
-  "browser.clipboardFail": "取回失敗（頁面需為 https 或 localhost）"
+  "browser.clipboardFail": "取回失敗（頁面需為 https 或 localhost）",
+  "browser.back": "上一頁",
+  "browser.forward": "下一頁",
+  "browser.reload": "重新載入",
+  "browser.newTab": "開新分頁",
+  "browser.closeTab": "關閉分頁",
+  "browser.dialogOk": "確定",
+  "browser.dialogCancel": "取消",
+  "browser.dialogPrompt": "輸入文字…"
 }
