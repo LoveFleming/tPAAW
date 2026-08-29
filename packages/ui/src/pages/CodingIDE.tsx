@@ -1485,6 +1485,10 @@ export default function CodingIDE() {
   // AI Chat Sidebar
   // ═══════════════════════════════════════════════
   const [chatMode, setChatMode] = useState<"chat" | "agent" | "spec" | "test" | "bug" | "docs" | "maintain">("agent");
+  // ── 2026-08-29 Fleming：agent chat 內建瀏規器面板（tester 邊聊邊看 agent 操作）──
+  const [chatBrowserOpen, setChatBrowserOpen] = useState(false);
+  const [chatBrowserHeight, setChatBrowserHeight] = useState(340);
+  const chatBrowserDragRef = useRef<{ startY: number; startH: number } | null>(null);
   // agentRunning/agentToolLog are now per-crew (derived from crewAgentRunning/crewAgentToolLog above)
   const [crewModels, setCrewModels] = useState<Record<string, string>>({}); // crewId → model
   const [emModel, setEmModel] = useState<string>(""); // EM Dashboard has its own model
@@ -3404,6 +3408,15 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                       {viewingArchive && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">📂 歷史</span>
                       )}
+                      {/* Browser panel toggle — 2026-08-29 Fleming：agent chat 邊聊邊看 agent 操作 browser */}
+                      <button
+                        onClick={() => setChatBrowserOpen(!chatBrowserOpen)}
+                        className="text-xs px-2 py-1 rounded transition-colors"
+                        style={{ color: chatBrowserOpen ? tk.accent : undefined }}
+                        title={tt("coding.chatBrowserToggle")}
+                      >
+                        🌐
+                      </button>
                       {/* History button */}
                       <button
                         onClick={() => {
@@ -3559,6 +3572,36 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                         <span className="text-stone-400 truncate max-w-[200px]">{t.args}</span>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* ── 內建瀏覽器面板（2026-08-29 Fleming）：邊聊邊看 agent 操作，同一個 Playwright browser，人也可下場操作 ── */}
+                {chatBrowserOpen && isCrewActive && (
+                  <div className="shrink-0 flex flex-col border-t" style={{ height: chatBrowserHeight, borderColor: tk.borderLight, backgroundColor: tk.bgMuted }}>
+                    {/* 拖曳調整高度 */}
+                    <div
+                      className="shrink-0 h-1.5 cursor-row-resize hover:bg-stone-300/60 transition-colors"
+                      onMouseDown={e => {
+                        e.preventDefault();
+                        chatBrowserDragRef.current = { startY: e.clientY, startH: chatBrowserHeight };
+                        const onMove = (ev: MouseEvent) => {
+                          const d = chatBrowserDragRef.current;
+                          if (!d) return;
+                          const maxH = Math.max(200, window.innerHeight - 320);
+                          setChatBrowserHeight(Math.min(maxH, Math.max(160, d.startH + (d.startY - ev.clientY))));
+                        };
+                        const onUp = () => {
+                          chatBrowserDragRef.current = null;
+                          window.removeEventListener("mousemove", onMove);
+                          window.removeEventListener("mouseup", onUp);
+                        };
+                        window.addEventListener("mousemove", onMove);
+                        window.addEventListener("mouseup", onUp);
+                      }}
+                    />
+                    <div className="flex-1 min-h-0">
+                      <BrowserPanel API_BASE={API_BASE} />
+                    </div>
                   </div>
                 )}
 

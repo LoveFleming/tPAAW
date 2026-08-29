@@ -65,6 +65,7 @@
   "coding.useRegex": "正則表達式",
   "coding.waitingResponse": "⏳ Waiting for response...",
   "coding.wholeWord": "全字匹配",
+  "coding.chatBrowserToggle": "內建瀏覽器畫面（開/關）— 跟 agent 共用同一個 browser",
   "common.back": "返回",
   "common.cancel": "取消",
   "common.confirm": "確認",

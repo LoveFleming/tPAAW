@@ -65,6 +65,7 @@
   "coding.useRegex": "正規表現",
   "coding.waitingResponse": "⏳ レスポンス待機中...",
   "coding.wholeWord": "完全一致",
+  "coding.chatBrowserToggle": "内蔵ブラウザー画面（開く/閉じる）— エージェントと共有",
   "common.back": "戻る",
   "common.cancel": "キャンセル",
   "common.confirm": "確認",

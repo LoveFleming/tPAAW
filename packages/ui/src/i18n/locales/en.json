@@ -65,6 +65,7 @@
   "coding.useRegex": "Regex",
   "coding.waitingResponse": "⏳ Waiting for response...",
   "coding.wholeWord": "Whole word",
+  "coding.chatBrowserToggle": "Built-in browser view (open/close) — shared with the agent",
   "common.back": "Back",
   "common.cancel": "Cancel",
   "common.confirm": "Confirm",
