@@ -174,6 +174,22 @@ export default function AutoDispatchPanel({ active = true, theme, rootPath, mode
     return () => clearInterval(interval);
   }, [execPlan?.status, refreshPlans]);
 
+  // 2026-08-29: 執行中顯示最新進度事件（status.json events ring buffer，同一份資料也會顯示在 EM Chat slim bar）
+  const [nsStatus, setNsStatus] = useState<any>(null);
+  useEffect(() => {
+    if (!rootPath || !isRunning) return;
+    let stopped = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/coding-auto-dispatch/status?path=${encodeURIComponent(rootPath)}`);
+        if (!stopped) setNsStatus(await res.json());
+      } catch {}
+    };
+    poll();
+    const id = setInterval(poll, 4000);
+    return () => { stopped = true; clearInterval(id); };
+  }, [rootPath, isRunning]);
+
   // ── Actions ──
   const handleStart = async () => {
     setStarting(true);
@@ -273,6 +289,11 @@ export default function AutoDispatchPanel({ active = true, theme, rootPath, mode
             style={{ background: isRunning ? tk.bgMuted : tk.accentBg, color: isRunning ? tk.text : tk.accent, opacity: isRunning ? 0.5 : 1 }}>
             {starting ? "⏳ 啟動中..." : isRunning ? "⏳ 執行中..." : `🚀 ${t("autoDispatch.start")}`}
           </button>
+          {isRunning && nsStatus?.lastEvent?.message && (
+            <div className="text-[10px] mb-1 truncate" style={{ color: tk.text, opacity: 0.6 }} title={nsStatus.lastEvent.message}>
+              {nsStatus.lastEvent.message}
+            </div>
+          )}
         </div>
 
         <div ref={listScrollRef} onScroll={(e) => { savedScrollRef.current.list = e.currentTarget.scrollTop; }} className="flex-1 overflow-y-auto">

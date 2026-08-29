@@ -142,8 +142,13 @@ export default async function codingAutoDispatchRoute(req, res) {
       const sendSSE = (type, data) => {
         console.log(`[AutoDispatch:${mode}] ${type}:`, typeof data === "string" ? data : JSON.stringify(data).slice(0, 200));
 
-        if (type === "task_start" || type === "task_done" || type === "task_error") {
-          updateStatusFile(statusPath, (current) => {
+        // 2026-08-29: 所有事件寫入 status.json events ring buffer — UI（EM Chat slim bar / 派工頁）
+        // 輪詢 /status 就看得到進度，不用只靠 terminal console；task_* 事件同時更新 agents map
+        updateStatusFile(statusPath, (current) => {
+          const msg = String(data?.message || data?.preview || (typeof data === "string" ? data : "")).slice(0, 300);
+          const events = [...(current.events || []), { ts: new Date().toISOString(), type, message: msg }].slice(-80);
+          const patch = { events, lastEvent: events[events.length - 1] };
+          if (type === "task_start" || type === "task_done" || type === "task_error") {
             const agentKey = data.agent || `task-${data.index}`;
             const agents = { ...(current.agents || {}) };
             agents[agentKey] = {
@@ -151,15 +156,13 @@ export default async function codingAutoDispatchRoute(req, res) {
               ...(data.preview ? { report: data.preview } : {}),
               ...(data.error ? { error: data.error } : {}),
             };
-            return {
-              ...current,
-              agents,
-              completedAgents: (type === "task_done" || type === "task_error")
-                ? (current.completedAgents || 0) + 1
-                : (current.completedAgents || 0),
-            };
-          });
-        }
+            patch.agents = agents;
+            patch.completedAgents = (type === "task_done" || type === "task_error")
+              ? (current.completedAgents || 0) + 1
+              : (current.completedAgents || 0);
+          }
+          return { ...current, ...patch };
+        });
       };
 
       const result = await runAutoDispatch({

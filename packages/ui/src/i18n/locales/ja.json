@@ -1128,5 +1128,11 @@
   "browser.modeStream": "共有モード：エージェントのブラウザをリアルタイムストリーム、直接操作可能",
   "browser.modeShot": "スクリーンショットモード：エージェントのブラウザの最新スナップショット（閲覧のみ）",
   "browser.emptyStream": "最初のフレームを待っています…\n上の URL バーで開くか、エージェントにナビゲートさせましょう\nクリック・スクロール・入力がそのままエージェントのブラウザに反映されます",
-  "browser.focusHint": "画面をクリックすると直接入力できます（IME 対応）"
+  "browser.focusHint": "画面をクリックすると直接入力できます（IME 対応）",
+  "emDash.planProgressTitle": "EM 調度計画を実行中",
+  "emDash.planDone": "計画完了",
+  "emDash.dispatchRunning": "自動ディスパッチ実行中",
+  "emDash.dispatchDone": "自動ディスパッチ完了",
+  "emDash.dispatchFailed": "自動ディスパッチ失敗",
+  "emDash.view": "表示"
 }

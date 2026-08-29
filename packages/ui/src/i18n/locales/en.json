@@ -1128,5 +1128,11 @@
   "browser.modeStream": "Shared mode: live stream of agent's browser, fully operable (Cowork-level)",
   "browser.modeShot": "Screenshot mode: latest snapshot of agent's browser (view only)",
   "browser.emptyStream": "Waiting for the first frame…\nOpen a URL above, or ask the agent to navigate\nYour clicks/scroll/typing operate the agent's browser directly",
-  "browser.focusHint": "Click the page, then type directly (IME supported)"
+  "browser.focusHint": "Click the page, then type directly (IME supported)",
+  "emDash.planProgressTitle": "EM planning in progress",
+  "emDash.planDone": "Planning complete",
+  "emDash.dispatchRunning": "Auto dispatch running",
+  "emDash.dispatchDone": "Auto dispatch completed",
+  "emDash.dispatchFailed": "Auto dispatch failed",
+  "emDash.view": "View"
 }

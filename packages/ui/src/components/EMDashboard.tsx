@@ -148,6 +148,26 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
     } catch {}
   }, [rootPath]);
 
+  // 2026-08-29: 自動派工狀態輪詢 — chat view 頂部 slim bar 顯示進度（cron / 派工頁啟動的也能看到）
+  const [adStatus, setAdStatus] = useState<any>(null);
+  useEffect(() => {
+    if (!rootPath) return;
+    let stopped = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/coding-auto-dispatch/status?path=${encodeURIComponent(rootPath)}`);
+        if (!stopped) setAdStatus(await res.json());
+      } catch {}
+    };
+    poll();
+    const id = setInterval(poll, adStatus?.status === "running" ? 4000 : 20000);
+    return () => { stopped = true; clearInterval(id); };
+  }, [rootPath, adStatus?.status]);
+
+  // 派工結束 5 分鐘內顯示結果 bar
+  const adRecentlyFinished = adStatus && adStatus.status !== "running" && adStatus.status !== "never" && adStatus.completedAt
+    && (Date.now() - new Date(adStatus.completedAt).getTime()) < 5 * 60 * 1000;
+
   useEffect(() => { fetchEmSessions(); }, [fetchEmSessions]);
   const [emRunning, setEmRunning] = useState(false);
   // 右側面板 tab：overview | dispatch（Auto Dispatch 併入）
@@ -528,6 +548,34 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
     setEmAction("收集專案狀態中");
     setMessages(prev => [...prev, { role: "user", content: "🚀 啟動 EM 調度規劃", ts: new Date().toISOString() }]);
 
+    // 2026-08-29: 即時進度訊息 — 在 chat 裡 live 更新（之前只更新 emAction 小字，user 看不到在做什麼）
+    const progressLines: string[] = [];
+    let progressFinalized = false;
+    const upsertPlanProgress = (finalize?: string) => {
+      const content = finalize !== undefined ? finalize : `### 🌙 ${t("emDash.planProgressTitle")}\n\n${progressLines.map(l => `- ${l}`).join("\n")}`;
+      setMessages(prev => {
+        const idx = prev.findIndex(m => (m as any)._emPlanProgress);
+        const ts = new Date().toISOString();
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = { role: "assistant", content, ts, ...(finalize !== undefined ? {} : { _emPlanProgress: true }) } as any;
+          return updated;
+        }
+        return [...prev, { role: "assistant", content, ts, _emPlanProgress: true } as any];
+      });
+      // 內容原地更新不會觸發 messages.length 的自動捲動 — 手動貼底（僅當 user 已在底部附近）
+      requestAnimationFrame(() => {
+        const el = chatScrollRef.current;
+        if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 260) el.scrollTop = el.scrollHeight;
+      });
+    };
+    const finalizePlanProgress = (text: string) => {
+      if (progressFinalized) return;
+      progressFinalized = true;
+      upsertPlanProgress(text);
+    };
+    upsertPlanProgress();
+
     try {
       const res = await fetch(`${API_BASE}/api/coding-crew/em-plan`, {
         method: "POST",
@@ -552,18 +600,20 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
           try {
             const d = JSON.parse(line.slice(6));
 
-            // error events — show ❌ in chat (not just status bar)
+            // error events — finalize 進度訊息（❌ 顯示在 chat，不是只在小字狀態）
             if (d.isError) {
-              setMessages(prev => [...prev, { role: "assistant", content: d.message || "❌ EM 發生未知錯誤", ts: new Date().toISOString() }]);
+              finalizePlanProgress(`❌ ${d.message || "EM 發生未知錯誤"}`);
               continue;
             }
 
-            // info messages — update emAction only
+            // info messages — 更新 emAction 小字 + chat 進度訊息
             if (d.message && !d.workList && !d.totalTasks) {
               const displayMsg = d.contextLength
                 ? `${d.message} (Context: ${d.contextLength} chars | Model: ${d.model || "default"})`
                 : d.message;
               setEmAction(displayMsg.slice(0, 60));
+              progressLines.push(displayMsg.slice(0, 120));
+              upsertPlanProgress();
             }
 
             // plan_ready — show plan in chat with confirm/cancel buttons
@@ -572,11 +622,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
               situationReport = d.situationReport || "";
 
               if (d.workList.length === 0) {
-                setMessages(prev => [...prev, {
-                  role: "assistant",
-                  content: "✅ 目前沒有需要調度的工作，專案狀態良好。",
-                  ts: new Date().toISOString(),
-                }]);
+                finalizePlanProgress("✅ 目前沒有需要調度的工作，專案狀態良好。");
               } else {
                 const priorityIcon: Record<string, string> = { high: "🔴", medium: "🟡", low: "🟢" };
                 const agentIcon: Record<string, string> = {
@@ -589,6 +635,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                   return `### ${pi} ${i + 1}. ${ai} ${w.agent}\n\n**任務：** ${w.task}${w.reason ? `\n\n> 💡 ${w.reason}` : ""}`;
                 }).join("\n---\n\n");
 
+                finalizePlanProgress(`✅ ${t("emDash.planDone")} — 共 **${d.workList.length}** 項工作`);
                 setMessages(prev => [...prev, {
                   role: "assistant",
                   content: `## 📋 EM 調度規劃\n\n共 **${d.workList.length}** 項工作，確認後開始執行：\n\n---\n\n${planText}`,
@@ -603,8 +650,10 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
           } catch {}
         }
       }
+      // stream 結束但沒收到 plan_ready/error（例如 server 中斷）— 收尾避免進度訊息懸掛
+      finalizePlanProgress(progressLines.length > 0 ? `⚠️ 連線結束（未收到規劃結果）\n\n${progressLines.map(l => `- ${l}`).join("\n")}` : "⚠️ 連線結束（未收到任何事件）");
     } catch (err: any) {
-      setMessages(prev => [...prev, { role: "assistant", content: `❌ EM error: ${err.message}`, ts: new Date().toISOString() }]);
+      finalizePlanProgress(`❌ EM error: ${err.message}`);
     }
     setEmRunning(false);
     setEmAction("");
@@ -1158,6 +1207,22 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
             </>
           )}
         </div>
+
+        {/* 2026-08-29: 自動派工即時狀態 slim bar（執行中/剛結束） */}
+        {(adStatus?.status === "running" || adRecentlyFinished) && (
+          <div className="shrink-0 px-3 py-1.5 border-b flex items-center gap-2 text-[11px]" style={{ borderColor: tk.borderLight, background: adStatus?.status === "running" ? "#8b5cf611" : adStatus?.status === "failed" ? "#ef444411" : "#22c55e11" }}>
+            <span className={adStatus?.status === "running" ? "animate-pulse" : ""}>{adStatus?.status === "running" ? "🌙" : adStatus?.status === "failed" ? "❌" : "✅"}</span>
+            <span className="font-bold shrink-0" style={{ color: adStatus?.status === "failed" ? "#dc2626" : adStatus?.status === "running" ? "#7c3aed" : "#16a34a" }}>
+              {adStatus?.status === "running" ? t("emDash.dispatchRunning") : adStatus?.status === "failed" ? t("emDash.dispatchFailed") : t("emDash.dispatchDone")}
+            </span>
+            <span className="text-stone-500 truncate flex-1 min-w-0" title={adStatus?.lastEvent?.message || adStatus?.error || ""}>
+              {adStatus?.status === "running"
+                ? (adStatus?.lastEvent?.message || "...")
+                : (adStatus?.status === "failed" ? (adStatus?.error || "") : (adStatus?.duration ? `${Math.round(adStatus.duration / 1000)}s` : ""))}
+            </span>
+            <button onClick={() => setView("dispatch")} className="shrink-0 px-2 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold">{t("emDash.view")} →</button>
+          </div>
+        )}
 
         {/* Chat Messages */}
         <div ref={chatScrollRef} onScroll={(e) => { chatScrollTopRef.current = e.currentTarget.scrollTop; }} className="flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: "thin" }}>

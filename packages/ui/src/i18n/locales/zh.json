@@ -1128,5 +1128,11 @@
   "browser.modeStream": "共用模式：即時串流 agent 瀏覽器，可直接操作（Cowork 級）",
   "browser.modeShot": "截圖模式：顯示 agent 瀏覽器的最新截圖（純旁觀）",
   "browser.emptyStream": "共用串流等待第一個畫面…\n用上方網址列開啟網頁，或叫 agent 用 browser 工具導航\n畫面即時串流，你的點擊/滾輪/鍵盤會直接操作 agent 的瀏覽器",
-  "browser.focusHint": "點擊畫面後可直接打字（支援中文輸入）"
+  "browser.focusHint": "點擊畫面後可直接打字（支援中文輸入）",
+  "emDash.planProgressTitle": "EM 調度規劃進行中",
+  "emDash.planDone": "規劃完成",
+  "emDash.dispatchRunning": "自動派工執行中",
+  "emDash.dispatchDone": "自動派工完成",
+  "emDash.dispatchFailed": "自動派工失敗",
+  "emDash.view": "查看"
 }

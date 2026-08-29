@@ -48,9 +48,12 @@ export async function gatherContext(rootDir, sinceDate) {
 
   // 3. Commit count since date
   try {
-    ctx.commitCount = parseInt(
-      shellExecSync(`git log --since="${sinceArg}" --oneline 2>nul | find /c /v ""`, { cwd: projectRoot, encoding: "utf-8", timeout: 10000 }).trim()
-    ) || 0;
+    // 2026-08-29: `find /c /v ""` 是 Windows CMD idiom — 在 mac/linux 會炸 find: /c: No such file or directory
+    // 且 commitCount 永遠 0（間接產生空的 `nul` 檔案）；改平台分支（比照 scanProjectFiles 作法）
+    const countCmd = process.platform === "win32"
+      ? `git log --since="${sinceArg}" --oneline 2>nul | find /c /v ""`
+      : `git log --since="${sinceArg}" --oneline | wc -l`;
+    ctx.commitCount = parseInt(shellExecSync(countCmd, { cwd: projectRoot, encoding: "utf-8", timeout: 10000 }).trim()) || 0;
   } catch { ctx.commitCount = 0; }
 
   // 4. Changed files (diff names)
