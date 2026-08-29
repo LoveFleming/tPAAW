@@ -448,14 +448,6 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
     if (adStatus?.status === "running") return; // 派工執行中 input 鎖定
     setInput("");
 
-    // 2026-08-29 確認制派工：敲「自動派工 / 開始派工 / 派工」→ 顯示範圍等人確認（短指令才觸發，避免誤判問句）
-    const compact = text.replace(/\s/g, "");
-    if (/派工/.test(compact) && compact.length <= 6) {
-      setMessages(prev => [...prev, { role: "user", content: text, ts: new Date().toISOString() } as ChatMessage]);
-      startDispatchIntent();
-      return;
-    }
-
     const userMsg: ChatMessage = { role: "user", content: text, ts: new Date().toISOString() };
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
@@ -591,75 +583,13 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
     setEmAction("");
     setEmToolLog([]);
     setLoading(false);
+    // 2026-08-29: EM 回完立刻刷新派工狀態 — auto_dispatch start 後 input 鎖定要即時生效
+    fetch(`${API_BASE}/api/coding-auto-dispatch/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setAdStatus).catch(() => {});
   };
 
   const stopAgent = () => {
     if (abortRef.current) {
       abortRef.current.abort();
-    }
-  };
-
-  // ── 2026-08-29 Fleming 定調：確認制自動派工 ──
-  // 使用者敲「自動派工」→ 即時掃 TASKS.json 顯示工作範圍 → 人確認 → 背景執行（/start API）
-  // 每個 task 是獨立無狀態 A2A 呼叫（context 不累積），可長時間把所有 task 做完，最後統整報告
-  const startDispatchIntent = async () => {
-    if (!rootPath) return;
-    if (adStatus?.status === "running") {
-      setMessages(prev => [...prev, { role: "assistant", content: `⚠️ 自動派工已在執行中，請等它完成或按「⏹ 中斷」。`, ts: new Date().toISOString() } as ChatMessage]);
-      return;
-    }
-    setEmRunning(true);
-    setEmAction("掃描 TASKS.json");
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-auto-dispatch/preview?path=${encodeURIComponent(rootPath)}`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
-      });
-      const d = await res.json();
-      if (!d.ok) throw new Error(d.error || "preview failed");
-
-      if (!d.workList || d.workList.length === 0) {
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          content: `ℹ️ ${t("emDash.dispatchNoWork")}\n\n> ${d.noWorkReason || ""}`,
-          ts: new Date().toISOString(),
-        } as ChatMessage]);
-        return;
-      }
-
-      const stats = d.stats || {};
-      const priorityIcon: Record<string, string> = { critical: "💣", high: "🔴", medium: "🟡", low: "🟢" };
-      const agentIcon: Record<string, string> = {
-        architect: "🏛️", developer: "💻", tester: "🧪",
-        "doc-writer": "📝", qa: "🔬", helpdesk: "🌸",
-      };
-      const planText = (d.workList as any[]).map((w, i) => {
-        const pi = priorityIcon[w.priority as string] || "⚪";
-        const ai = agentIcon[w.agent as string] || "🔧";
-        return `${pi} ${i + 1}. ${ai} **${w.agent}** — ${w.sourceRef || ""}\n\n${w.task.slice(0, 160)}${w.task.length > 160 ? "…" : ""}`;
-      }).join("\n\n");
-      const excludedText = (d.excluded || []).length
-        ? `\n\n---\n\n**🔒 排除 ${d.excluded.length} 項：**\n${(d.excluded as any[]).map(e => `- ~~${e.id} ${e.title}~~（${e.reason}）`).join("\n")}`
-        : "";
-
-      setPendingPlan({ workList: d.workList, situationReport: d.situationReport || "" });
-      setMessages(prev => [...prev, {
-        role: "assistant",
-        content: `## 📋 ${t("emDash.dispatchScopeTitle")}\n\nTASKS.json：open **${stats.open ?? "?"}** ｜ 進行中 ${stats.inProgress ?? 0} ｜ done ${stats.done ?? 0}\n\n本輪將派工 **${d.workList.length}** 項（依 priority 排序，各自獨立 context 逐一執行）：\n\n${planText}${excludedText}`,
-        ts: new Date().toISOString(),
-        actions: [
-          { label: "✅ 確認執行", type: "confirmPlan", planData: { workList: d.workList, situationReport: d.situationReport || "" } },
-          { label: "❌ 取消", type: "cancelPlan" },
-        ],
-      } as any]);
-      requestAnimationFrame(() => {
-        const el = chatScrollRef.current;
-        if (el) el.scrollTop = el.scrollHeight;
-      });
-    } catch (err: any) {
-      setMessages(prev => [...prev, { role: "assistant", content: `❌ ${err.message}`, ts: new Date().toISOString() } as ChatMessage]);
-    } finally {
-      setEmRunning(false);
-      setEmAction("");
     }
   };
 
@@ -1313,7 +1243,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
               disabled={adStatus?.status === "running"}
               placeholder={adStatus?.status === "running"
                 ? t("emDash.inputLocked")
-                : `跟 ${emProfile.codename || "EM 大總管"}對話（敲「自動派工」啟動確認制派工）...`}
+                : `跟 ${emProfile.codename || "EM 大總管"}對話，想派工就說一聲（例如「把 tasks 跑一輪」）...`}
               rows={1}
               className="flex-1 resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-60"
               style={{ borderColor: tk.borderLight, backgroundColor: tk.bg }}

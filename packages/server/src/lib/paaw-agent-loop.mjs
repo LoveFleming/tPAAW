@@ -987,7 +987,7 @@ const TOOL_GROUP_MAP = {
   notes: "notes",
 
   // Task management
-  task_create: "tasks", task_update: "tasks", task_list: "tasks", task_decompose: "tasks", task_retrofit: "tasks", dispatch_agent: "dispatch",
+  task_create: "tasks", task_update: "tasks", task_list: "tasks", task_decompose: "tasks", task_retrofit: "tasks", dispatch_agent: "dispatch", auto_dispatch: "dispatch",
 
   // Docs & CU
   cu_refresh: "docs",
@@ -2988,7 +2988,7 @@ Pipeline: ${_pipeText}${_shortPipeline ? "\n\u2139\ufe0f bootstrap \u77ed\u7248 
       }
 
       default:
-        const unknownMsg = `Error: unknown tool '${name}'. Available tools: read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user, project_info, project_edit, staged_summary, record_decision, docs, action_log_add, action_log_list, task_list, task_create, task_update, task_decompose, task_retrofit, dispatch_agent.`;
+        const unknownMsg = `Error: unknown tool '${name}'. Available tools: read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user, project_info, project_edit, staged_summary, record_decision, docs, action_log_add, action_log_list, task_list, task_create, task_update, task_decompose, task_retrofit, dispatch_agent, auto_dispatch.`;
         if (onEvent) onEvent({ type: "tool_end", name, result: unknownMsg });
         return unknownMsg;
     }

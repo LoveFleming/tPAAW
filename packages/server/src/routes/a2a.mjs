@@ -759,6 +759,7 @@ export default async function a2aRoutes(req, res) {
                 }
               } catch {}
             }
+            extraContext.push(`\n## Current Project Root\n${rootDir}（呼叫 tool 需要路徑時，cwd 帶這個值）`);
             extraContext.push(AGENT_RULES);
             const fullSystemPrompt = systemPrompt + extraContext.join("");
 
@@ -900,6 +901,7 @@ export default async function a2aRoutes(req, res) {
                 }
               } catch {}
             }
+            extraContext.push(`\n## Current Project Root\n${rootDir}（呼叫 tool 需要路徑時，cwd 帶這個值）`);
             extraContext.push(AGENT_RULES);
             const fullSystemPrompt = systemPrompt + extraContext.join("");
 

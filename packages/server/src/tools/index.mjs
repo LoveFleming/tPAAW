@@ -616,6 +616,23 @@ async function buildToolDefinitions() {
     },
   });
 
+  // ── Auto Dispatch（task-driven，EM 自然語言確認制派工，2026-08-29）──
+  tools.push({
+    type: "function",
+    function: {
+      name: "auto_dispatch",
+      description: "自動派工（task-driven）：掃 TASKS.json 的 open task，背景逐一派給 agent 執行（每個 task 獨立 context，可長時間跑完，最後統整報告）。流程：action=preview 先看範圍（不執行）→ 向使用者展示待確認 → 使用者確認後 action=start 開始 → 要停就 action=stop（安全中斷點）。大範圍派工優先用這個，不要逐個 dispatch_agent。",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["preview", "start", "stop"], description: "preview=看派工範圍（不執行）；start=背景開始執行；stop=中斷（目前 task 完成後停止）" },
+          cwd: { type: "string", description: "專案 root 絕對路徑（帶 system prompt 裡 Current Project Root 的值）" },
+        },
+        required: ["action"],
+      },
+    },
+  });
+
   // ── Cron Job tools (global, always available) ──
   tools.push({
     type: "function",
@@ -1135,6 +1152,58 @@ function buildHandlers(apps) {
       }
     };
   }
+
+  // ── Auto Dispatch handler（task-driven，EM 確認制派工）──
+  handlers.auto_dispatch = async ({ action, cwd } = {}) => {
+    const root = cwd || PAAW_ROOT;
+    if (action === "preview") {
+      try {
+        const { scanTasksForDispatch } = await import("../lib/auto-dispatch-shared.mjs");
+        let maxTasks = 100;
+        try {
+          const { readEMConfig } = await import("../lib/em-config.mjs");
+          maxTasks = readEMConfig(root)?.taskDecomposition?.maxSubtasks || 100;
+        } catch {}
+        const scan = scanTasksForDispatch(root, { maxTasks });
+        if (!scan.workList.length) return { text: `ℹ️ 沒有需要派工的 task。${scan.noWorkReason}` };
+        const s = scan.stats;
+        const lines = scan.workList.map((w, i) =>
+          `${i + 1}. [${w.priority}] ${w.sourceRef} ${w.task.replace(/^執行 \S+：/, "").slice(0, 70)} → ${w.agent}`);
+        const excl = scan.excluded.length
+          ? `\n排除 ${scan.excluded.length} 項：\n${scan.excluded.map(e => `- ${e.id} ${e.title}（${e.reason}）`).join("\n")}`
+          : "";
+        return { text: `📋 派工範圍（TASKS.json：open ${s.open}｜進行中 ${s.inProgress}｜done ${s.done}）\n將派工 ${scan.workList.length} 項（priority 排序，各自獨立 context 逐一執行）：\n${lines.join("\n")}${excl}\n\n（這是 preview，尚未執行；使用者確認後才用 action=start 開始）` };
+      } catch (err) {
+        return { text: `❌ preview 失敗：${err.message}`, error: true };
+      }
+    }
+    if (action === "start") {
+      try {
+        const res = await fetch(`${API}/api/coding-auto-dispatch/start?path=${encodeURIComponent(root)}`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "em" }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!d.ok) return { text: `❌ 啟動失敗：${d.error || d.message || res.status}` };
+        return { text: `✅ 自動派工已啟動（背景執行，chat 會自動顯示進度；使用者要求停止時用 action=stop）` };
+      } catch (err) {
+        return { text: `❌ 啟動失敗：${err.message}`, error: true };
+      }
+    }
+    if (action === "stop") {
+      try {
+        const res = await fetch(`${API}/api/coding-auto-dispatch/stop?path=${encodeURIComponent(root)}`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+        });
+        const d = await res.json().catch(() => ({}));
+        return { text: d.ok
+          ? "✅ 已請求中斷 — 目前 task 完成後停止，剩餘標 skipped，plan 正常結案。"
+          : `⚠️ ${d.message || "目前沒有在執行"}` };
+      } catch (err) {
+        return { text: `❌ 中斷失敗：${err.message}`, error: true };
+      }
+    }
+    return { text: "❌ action 必須是 preview / start / stop" };
+  };
 
   // ── Cron Job handlers (global) ──
   handlers.schedule_cronjob = async (args) => {
