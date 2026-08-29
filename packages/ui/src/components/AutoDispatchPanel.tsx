@@ -4,7 +4,7 @@
  * Master table (plan summary) + Detail table (task → sub-task hierarchy)
  * Actions: delete plan, change status, resume, view sub-task detail in new tab
  */
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useI18n } from "../i18n";
 import { cn } from "../utils";
 import API_BASE from "../api";
@@ -107,7 +107,7 @@ export function SubTaskDetail({ theme, data }: { theme: any; data: any }) {
 }
 
 // ── Main Panel ──
-export default function AutoDispatchPanel({ theme, rootPath, model, openMainTab, refreshTrigger = 0 }: { theme: any; rootPath?: string; model?: string; openMainTab?: (tab: any) => void; refreshTrigger?: number }) {
+export default function AutoDispatchPanel({ active = true, theme, rootPath, model, openMainTab, refreshTrigger = 0 }: { active?: boolean; theme: any; rootPath?: string; model?: string; openMainTab?: (tab: any) => void; refreshTrigger?: number }) {
   const { t } = useI18n();
   const tk = theme;
 
@@ -121,6 +121,16 @@ export default function AutoDispatchPanel({ theme, rootPath, model, openMainTab,
   const [planList, setPlanList] = useState<PlanListItem[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [cronJob, setCronJob] = useState<any>(null);
+
+  // 2026-08-29: 常駐掛載時保留 scroll — 記錄左右兩欄 scroll，active 切回時還原
+  const listScrollRef = useRef<HTMLDivElement>(null);
+  const detailScrollRef = useRef<HTMLDivElement>(null);
+  const savedScrollRef = useRef({ list: 0, detail: 0 });
+  useEffect(() => {
+    if (!active) return;
+    if (listScrollRef.current) listScrollRef.current.scrollTop = savedScrollRef.current.list;
+    if (detailScrollRef.current) detailScrollRef.current.scrollTop = savedScrollRef.current.detail;
+  }, [active]);
 
   // ── Fetch helpers ──
   const fetchConfig = useCallback(async () => {
@@ -265,7 +275,7 @@ export default function AutoDispatchPanel({ theme, rootPath, model, openMainTab,
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div ref={listScrollRef} onScroll={(e) => { savedScrollRef.current.list = e.currentTarget.scrollTop; }} className="flex-1 overflow-y-auto">
           {planList.length === 0 && <div className="p-3 text-center text-xs" style={{ color: tk.text, opacity: 0.4 }}>尚無執行記錄</div>}
           {planList.map((p, i) => (
             <div key={p.planId} onClick={() => loadPlan(p.planId)}
@@ -368,7 +378,7 @@ export default function AutoDispatchPanel({ theme, rootPath, model, openMainTab,
         )}
       </div>
       {/* ═══ Right: Master + Detail ═══ */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={detailScrollRef} onScroll={(e) => { savedScrollRef.current.detail = e.currentTarget.scrollTop; }} className="flex-1 overflow-y-auto">
         {!execPlan ? (
           <div className="flex-1 flex flex-col items-center justify-center h-full gap-2" style={{ color: tk.text, opacity: 0.4 }}>
             <div className="text-4xl">🏭</div>

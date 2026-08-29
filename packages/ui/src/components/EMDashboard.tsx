@@ -87,6 +87,8 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const prevMsgLenRef = useRef(0);
+  // 2026-08-29: tab 切換保留 scroll — 持續記錄 chat scroll 位置
+  const chatScrollTopRef = useRef(0);
   const composingRef = useRef(false);
   const { t } = useI18n();
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -150,6 +152,10 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   const [emRunning, setEmRunning] = useState(false);
   // 右側面板 tab：overview | dispatch（Auto Dispatch 併入）
   const [view, setView] = useState<"chat" | "dispatch">("chat");
+  // 2026-08-29: 切回 chat 時還原 scroll 位置（兩個 view 改為常駐掛載 + hidden 切換）
+  useEffect(() => {
+    if (view === "chat" && chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollTopRef.current;
+  }, [view]);
   const [pendingPlan, setPendingPlan] = useState<PendingPlan | null>(null);
   const [showEmContextDebug, setShowEmContextDebug] = useState(false);
   const [emContextDebug, setEmContextDebug] = useState<any>(null);
@@ -763,8 +769,8 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
           🏛 派工 Auto Dispatch
         </button>
       </div>
-      {view === "chat" ? (
-      <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {/* 2026-08-29: 兩個 view 常駐掛載，用 hidden 切換 — 保留雙方 scroll 位置與元件狀態 */}
+      <div className={cn("flex-1 flex flex-col min-w-0 min-h-0", view !== "chat" && "hidden")}>
         {/* Header — matches crew agent header layout */}
         <div className="shrink-0 px-4 py-3 border-b relative" style={{ borderColor: tk.borderLight, background: `linear-gradient(135deg, #8b5cf611 0%, #8b5cf608 100%)` }}>
           <div className="flex items-center gap-3">
@@ -1154,7 +1160,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
         </div>
 
         {/* Chat Messages */}
-        <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: "thin" }}>
+        <div ref={chatScrollRef} onScroll={(e) => { chatScrollTopRef.current = e.currentTarget.scrollTop; }} className="flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: "thin" }}>
           {messages.map((msg, i) => (
             <div key={i} className="mb-3 flex gap-2.5">
               {/* Avatar */}
@@ -1308,11 +1314,9 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
         </div>
       </div>
 
-      ) : (
-        <div className="flex-1 min-h-0" data-testid="em-dispatch-full">
-          <AutoDispatchPanel theme={tk} rootPath={rootPath} model={model} openMainTab={openMainTab} refreshTrigger={adRefreshTrigger} />
-        </div>
-      )}
+      <div className={cn("flex-1 min-h-0", view !== "dispatch" && "hidden")} data-testid="em-dispatch-full">
+        <AutoDispatchPanel active={view === "dispatch"} theme={tk} rootPath={rootPath} model={model} openMainTab={openMainTab} refreshTrigger={adRefreshTrigger} />
+      </div>
     </div>
 
     {/* ══ Code Understanding Progress Modal ══ */}

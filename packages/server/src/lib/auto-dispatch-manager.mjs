@@ -610,8 +610,11 @@ export async function executeEMSession(opts = {}) {
 
   // ── Safety net: filter out excluded categories (LLM should already exclude via prompt) ──
   const autoExec = emConfig?.autoExecute || {};
+  const filteredReasons = [];
   const execList = effectiveWorkList.filter(task => {
-    const content = (task.task || '').toLowerCase();
+    // 2026-08-29: 先剝掉路徑 token（如 .paaw/security/scan-results.json）再做類別比對——
+    // 任務描述「引用」security 檔案路徑 ≠ security 修復；之前在這裡被誤判，把全部工作過濾掗 0 派工
+    const content = (task.task || '').toLowerCase().replace(/[^\s]*[/\\][^\s]*/g, ' ');
     let category = null;
     if (/breaking|\bbreak\b|remove.*api|deprecat/i.test(content)) category = 'breakingChange';
     else if (/security|vulnerability|cwe-|injection|xss|csrf/i.test(content)) category = 'securityFix';
@@ -621,16 +624,39 @@ export async function executeEMSession(opts = {}) {
 
     if (category && !autoExec[category]) {
       console.log(`[AutoDispatch] Filtered out ${category} task (should have been excluded by prompt): ${task.task?.slice(0, 60)}`);
+      filteredReasons.push({ category, agent: task.agent || 'developer', task: task.task || '' });
       return false;
     }
     return true;
   });
 
   if (execList.length === 0) {
-    sendSSE("info", { message: "✅ 沒有需要執行的工作。" });
-    sendSSE("plan", { workList: [] });
-    sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0 });
-    const report = generateEMReport([], [], situationReport, { format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog });
+    // 2026-08-29: 全被 auto-execute 類別過濾時要講清楚，不要回報「0 總計、專案狀態良好」；
+    // 且要把 plan 結案，之前會停在 running 永遠不清（下次 cron 又 resume 僵尸 plan）
+    const wasFiltered = filteredReasons.length > 0;
+    sendSSE("info", wasFiltered
+      ? { message: `⏸️ ${filteredReasons.length} 項工作被 auto-execute 類別設定排除（${[...new Set(filteredReasons.map(f => f.category))].join(', ')}），未執行。` }
+      : { message: "✅ 沒有需要執行的工作。" });
+    sendSSE("plan", { workList: wasFiltered ? effectiveWorkList : [] });
+    sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, ...(wasFiltered ? { skipped: true, reason: 'filtered-by-autoexec' } : {}) });
+    if (plan?.planId) {
+      try {
+        const { updateSubTask, markPlanCompleted } = await import("./execution-plan.mjs");
+        for (const t of plan.tasks || []) {
+          for (const st of t.subtasks || []) {
+            if (st.status === 'pending') {
+              try { await updateSubTask(rootDir, plan.planId, st.subtaskId, { status: 'skipped', result: 'excluded by auto-execute category filter' }); } catch {}
+            }
+          }
+        }
+        await markPlanCompleted(rootDir, plan.planId);
+        console.log(`[AutoDispatch] Plan ${plan.planId} closed (all tasks filtered by auto-exec categories)`);
+      } catch (e) { console.error(`[AutoDispatch] Close filtered plan failed:`, e.message); }
+    }
+    const report = generateEMReport(effectiveWorkList, [], situationReport, {
+      format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog,
+      ...(wasFiltered ? { skipped: filteredReasons.map(f => ({ _skipped: `auto-exec 排除（${f.category}）`, agent: f.agent, task: f.task })) } : {}),
+    });
     saveAutoDispatchReport(rootDir, report, "em");
     return { report, workList: [], results: [] };
   }
@@ -1180,7 +1206,7 @@ function generateEMReport(workList, results, situationReport, opts = {}) {
   report += `**日期：** ${dateStr}\n`;
   report += `**時間：** ${now.toTimeString().slice(0, 8)}\n`;
   if (skipped.length > 0) {
-    report += `**結果：** ✅ ${succeeded} 成功 / ❌ ${failed} 失敗 / ⏸️ ${skipped.length} 待確認 / ${workList.length} 執行\n`;
+    report += `**結果：** ✅ ${succeeded} 成功 / ❌ ${failed} 失敗 / ⏸️ ${skipped.length} 待確認 / ${workList.length} 項規劃\n`;
   } else {
     report += `**結果：** ✅ ${succeeded} 成功 / ❌ ${failed} 失敗 / ${workList.length} 總計\n`;
   }
