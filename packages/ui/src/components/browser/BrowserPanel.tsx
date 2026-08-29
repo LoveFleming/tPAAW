@@ -300,8 +300,8 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
       {/* ── 主區 ── */}
       <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center bg-white">
         {mode === "stream" ? (
-          frame && box ? (
-            <div ref={stageRef} className="w-full h-full flex items-center justify-center bg-gray-900 relative overflow-hidden">
+          <div ref={stageRef} className="w-full h-full flex items-center justify-center bg-gray-900 relative overflow-hidden">
+          {frame && box ? (
               <div className="relative shadow-2xl" style={{ width: box.w, height: box.h }}>
                 <img
                   src={`data:image/jpeg;base64,${frame.jpeg}`}
@@ -332,13 +332,13 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
                   </div>
                 )}
               </div>
-            </div>
           ) : status?.available === false ? null : (
             <div className="text-center text-gray-400 text-sm leading-relaxed px-6">
               <div className="text-4xl mb-3">🔗</div>
               {t("browser.emptyStream")}
             </div>
-          )
+          )}
+          </div>
         ) : mode === "iframe" ? (
           iframeSrc ? (
             <iframe
