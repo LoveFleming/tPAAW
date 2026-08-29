@@ -1154,25 +1154,25 @@ function buildHandlers(apps) {
   }
 
   // ── Auto Dispatch handler（task-driven，EM 確認制派工）──
+  // 2026-08-29 Fleming 定調：tool 一律走 API，不直接 import 內部 lib 掃檔 —
+  // API 是唯一入口（跟 cron / panel / EM chat 同一條路），耦合留在 route 層
   handlers.auto_dispatch = async ({ action, cwd } = {}) => {
     const root = cwd || PAAW_ROOT;
     if (action === "preview") {
       try {
-        const { scanTasksForDispatch } = await import("../lib/auto-dispatch-shared.mjs");
-        let maxTasks = 100;
-        try {
-          const { readEMConfig } = await import("../lib/em-config.mjs");
-          maxTasks = readEMConfig(root)?.taskDecomposition?.maxSubtasks || 100;
-        } catch {}
-        const scan = scanTasksForDispatch(root, { maxTasks });
-        if (!scan.workList.length) return { text: `ℹ️ 沒有需要派工的 task。${scan.noWorkReason}` };
-        const s = scan.stats;
-        const lines = scan.workList.map((w, i) =>
-          `${i + 1}. [${w.priority}] ${w.sourceRef} ${w.task.replace(/^執行 \S+：/, "").slice(0, 70)} → ${w.agent}`);
-        const excl = scan.excluded.length
-          ? `\n排除 ${scan.excluded.length} 項：\n${scan.excluded.map(e => `- ${e.id} ${e.title}（${e.reason}）`).join("\n")}`
+        const res = await fetch(`${API}/api/coding-auto-dispatch/preview?path=${encodeURIComponent(root)}`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!d.ok) return { text: `❌ preview 失敗：${d.error || res.status}` };
+        if (!d.workList?.length) return { text: `ℹ️ 沒有需要派工的 task。${d.noWorkReason || ""}` };
+        const s = d.stats || {};
+        const lines = d.workList.map((w, i) =>
+          `${i + 1}. [${w.priority}] ${w.sourceRef} ${String(w.task).replace(/^執行 \S+：/, "").slice(0, 70)} → ${w.agent}`);
+        const excl = (d.excluded || []).length
+          ? `\n排除 ${d.excluded.length} 項：\n${d.excluded.map(e => `- ${e.id} ${e.title}（${e.reason}）`).join("\n")}`
           : "";
-        return { text: `📋 派工範圍（TASKS.json：open ${s.open}｜進行中 ${s.inProgress}｜done ${s.done}）\n將派工 ${scan.workList.length} 項（priority 排序，各自獨立 context 逐一執行）：\n${lines.join("\n")}${excl}\n\n（這是 preview，尚未執行；使用者確認後才用 action=start 開始）` };
+        return { text: `📋 派工範圍（TASKS.json：open ${s.open}｜進行中 ${s.inProgress}｜done ${s.done}）\n將派工 ${d.workList.length} 項（priority 排序，各自獨立 context 逐一執行）：\n${lines.join("\n")}${excl}\n\n（這是 preview，尚未執行；使用者確認後才用 action=start 開始）` };
       } catch (err) {
         return { text: `❌ preview 失敗：${err.message}`, error: true };
       }

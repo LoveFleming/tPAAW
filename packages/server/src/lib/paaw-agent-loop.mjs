@@ -887,6 +887,24 @@ export const PAAW_TOOLS = [
     },
   },
 
+  // ── Auto Dispatch（task-driven，EM 自然語言確認制派工，2026-08-29）──
+  // 一律走 API（/preview、/start、/stop）— 跟 cron / panel / EM chat 同一條路
+  {
+    type: "function",
+    function: {
+      name: "auto_dispatch",
+      description: "自動派工（task-driven）：掃 TASKS.json 的 open task，背景逐一派給 agent 執行（每個 task 獨立 context，可長時間跑完，最後統整報告）。流程：action=preview 先看範圍（不執行）→ 向使用者展示待確認 → 使用者確認後 action=start 開始 → 要停就 action=stop（安全中斷點）。大範圍派工優先用這個，不要逐個 dispatch_agent。",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["preview", "start", "stop"], description: "preview=看派工範圍（不執行）；start=背景開始執行；stop=中斷（目前 task 完成後停止）" },
+          cwd: { type: "string", description: "專案 root 絕對路徑（帶 system prompt 裡 Current Project Root 的值）" },
+        },
+        required: ["action"],
+      },
+    },
+  },
+
   // ── Release Unit Tools（Tool 化三防線：context / impact / verify）──
   {
     type: "function",
@@ -2985,6 +3003,20 @@ Pipeline: ${_pipeText}${_shortPipeline ? "\n\u2139\ufe0f bootstrap \u77ed\u7248 
           return resultText;
         }
         return "Error: dispatch_agent handler not available";
+      }
+
+      case "auto_dispatch": {
+        // task-driven 自動派工（preview/start/stop）— handler 在 tools/index.mjs，一律走 API
+        const { getHandlers: getH3 } = await import("../tools/index.mjs");
+        const handlers3 = await getH3();
+        if (handlers3.auto_dispatch) {
+          if (onEvent) onEvent({ type: "tool_start", name, args: JSON.stringify(args) });
+          const result = await handlers3.auto_dispatch({ ...args, cwd: args.cwd || cwd });
+          const resultText = typeof result === "string" ? result : result.text || JSON.stringify(result);
+          if (onEvent) onEvent({ type: "tool_end", name, result: resultText });
+          return resultText;
+        }
+        return "Error: auto_dispatch handler not available";
       }
 
       default:
