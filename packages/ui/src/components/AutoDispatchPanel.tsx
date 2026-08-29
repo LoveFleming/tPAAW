@@ -118,6 +118,7 @@ export default function AutoDispatchPanel({ active = true, theme, rootPath, mode
   const [saveResult, setSaveResult] = useState<"" | "ok" | "err">("");
 
   const [execPlan, setExecPlan] = useState<any>(null);
+  const isRunning = execPlan?.status === "running"; // 提前宣告：L179 polling effect dep 需要（TDZ fix 2026-08-29）
   const [planList, setPlanList] = useState<PlanListItem[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [cronJob, setCronJob] = useState<any>(null);
@@ -267,7 +268,7 @@ export default function AutoDispatchPanel({ active = true, theme, rootPath, mode
   const fmtDur = (ms: number) => ms ? (ms < 60000 ? `${(ms/1000).toFixed(0)}s` : `${(ms/60000).toFixed(1)}min`) : "—";
   const fmtTok = (n: number) => n > 0 ? n.toLocaleString() : "—";
 
-  const isRunning = execPlan?.status === "running";
+
   const hasPending = execPlan?.tasks?.some((task: any) =>
     task.subtasks?.some((st: any) => st.status === "interrupted" || st.status === "pending")
   );
