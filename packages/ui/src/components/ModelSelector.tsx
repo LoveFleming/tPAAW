@@ -55,6 +55,9 @@ async function ensurePrefsLoaded() {
       defaultModelCache = data.current || "";
     }
   } catch {}
+  // ⚠️ 失敗不留髒 cache：沒載到 providers 就允許下次重試
+  //（2026-08-30 bug：頁面載入瞬間 fetch 失敗 → providers 永遠空 → 全部 ModelSelector 消失到重新整理）
+  if (providersCache.length === 0) prefLoaded = false;
 }
 
 export async function getModelForFeature(feature: string): Promise<string> {
@@ -141,9 +144,17 @@ export default function ModelSelector({ feature, value, onChange, className, sty
   }
 
   useEffect(() => {
-    ensurePrefsLoaded().then(() => {
+    let cancelled = false;
+    const load = async () => {
+      await ensurePrefsLoaded();
+      if (cancelled) return;
       const loaded = providersCache.length > 0 ? providersCache : [];
       setProviders(loaded);
+      if (loaded.length === 0) {
+        // server 可能正在重啟 — 3 秒後重試（原 bug：失敗一次 selector 就永久消失）
+        setTimeout(load, 3000);
+        return;
+      }
       // Validate and resolve model using freshly loaded providers
       let resolved = "";
       if (!value) {
@@ -159,7 +170,9 @@ export default function ModelSelector({ feature, value, onChange, className, sty
         if (resolved !== value) saveModelForFeature(feature, resolved);
       }
       if (resolved) onChange(resolved);
-    });
+    };
+    load();
+    return () => { cancelled = true; };
   }, []);
 
   // Close on outside click + auto-detect dropdown direction
@@ -194,7 +207,19 @@ export default function ModelSelector({ feature, value, onChange, className, sty
   const curModel = curProvider?.models.find(m => m.id === curMid);
   const displayName = curModel?.name || curModel?.id || curMid || "Select Model";
 
-  if (providers.length === 0) return null;
+  // 沒載到 providers：顯示「載入中」chip（auto-retry 中），不再無聲消失讓人以為 UI 壞了
+  if (providers.length === 0) {
+    return (
+      <button
+        type="button"
+        onClick={() => { ensurePrefsLoaded().then(() => setProviders(providersCache.length > 0 ? providersCache : [])); }}
+        className="text-[11px] px-2 py-1 rounded-lg border text-stone-400"
+        style={{ borderColor: "#d6d3d1", ...style }}
+      >
+        🤖 model 載入中…
+      </button>
+    );
+  }
 
   return (
     <div ref={ref} className="relative" style={style}>
