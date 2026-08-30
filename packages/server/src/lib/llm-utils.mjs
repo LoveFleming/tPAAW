@@ -331,6 +331,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
     stream: false,
     apiUrl: apiUrl.replace(/\/v.*$/, "/..."),
     messageCount: body.messages?.length,
+    images: (body.messages || []).reduce((n, m) => n + (Array.isArray(m?.content) ? m.content.filter(p => p?.type === "image_url").length : 0), 0) || undefined, // Vision Phase 4：含圖請求歸因（0 → undefined 不記）
     messagesPreview: body.messages?.map(m => ({ role: m.role, len: typeof m.content === "string" ? m.content.length : Array.isArray(m.content) ? m.content.length + 1000 * m.content.filter(p => p?.type === "image_url").length : 0, preview: (typeof m.content === "string" ? m.content : (m.content || []).map(p => p?.type === "text" ? p.text : "[圖片]").join(" "))?.slice?.(0, 200) || "" })),
     toolsCount: body.tools?.length || 0,
     toolNames: (body.tools || []).map(t => t.function?.name).filter(Boolean),
