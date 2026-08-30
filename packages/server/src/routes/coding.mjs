@@ -2104,6 +2104,8 @@ export default async function projectRoute(req, res) {
 
     // ── GET /api/coding-project/decisions ──
     if (url.startsWith("/api/coding-project/decisions") && method === "GET") {
+      // 2026-08-30: 讀取前先觸發 flat 遺產搬移（舊版寫 .paaw/DECISIONS.md → decisions/DECISIONS.md）
+      await paaw._migrateFlatLegacy("DECISIONS.md").catch(() => {});
       const content = await paaw.readFile("DECISIONS.md");
       res.writeHead(200, { "Content-Type": "text/markdown" });
       res.end(content || "");
@@ -2121,6 +2123,7 @@ export default async function projectRoute(req, res) {
 
     // ── GET /api/coding-project/changelog ──
     if (url.startsWith("/api/coding-project/changelog") && method === "GET") {
+      await paaw._migrateFlatChangelog().catch(() => {});
       const content = await paaw.readFile("CHANGELOG.md");
       res.writeHead(200, { "Content-Type": "text/markdown" });
       res.end(content || "");

@@ -1177,5 +1177,6 @@
   "skillBuilder.multilineLabel": "Multiline input",
   "skillBuilder.requiredLabel": "Required",
   "briefing.title": "Briefing Player",
-  "settings.yourName": "Your name"
+  "settings.yourName": "Your name",
+  "decisions.toolbar": "Architecture Decision Records (ADR)"
 }

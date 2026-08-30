@@ -1177,5 +1177,6 @@
   "skillBuilder.multilineLabel": "複数行入力",
   "skillBuilder.requiredLabel": "必須",
   "briefing.title": "Briefing Player",
-  "settings.yourName": "お名前"
+  "settings.yourName": "お名前",
+  "decisions.toolbar": "アーキテクチャ決定記録 (ADR)"
 }

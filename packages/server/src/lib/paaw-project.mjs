@@ -492,7 +492,10 @@ export class PaawProject {
   // ── Changelog ──
 
   async appendChangelog(entry) {
-    const cl = join(this.paawDir, "CHANGELOG.md");
+    // 2026-08-30: 路徑統一走 _resolvePath（FILE_MAP: CHANGELOG.md → changelog/CHANGELOG.md）
+    // 與 readFile 同源，修掉「寫 flat、讀 mapped」分叉（同 DECISIONS.md bug）
+    await this._migrateFlatChangelog().catch(() => {});
+    const cl = this._resolvePath("CHANGELOG.md");
     const existing = existsSync(cl) ? await readFile(cl, "utf-8") : DEFAULT_CHANGELOG_MD;
 
     const dateStr = today();
@@ -609,8 +612,55 @@ export class PaawProject {
 
   // ── Decision Records ──
 
+  // 2026-08-30: flat 遺產合併 — 舊版寫 .paaw/DECISIONS.md，FILE_MAP 讀 decisions/DECISIONS.md
+  // 寫入前若 mapped 檔無 ADR 而 flat 有 → 一次性搬入，flat 改指向註解（不再分叉）
+  async _migrateFlatLegacy(mappedName) {
+    const mapped = this._resolvePath(mappedName);
+    const flat = join(this.paawDir, mappedName);
+    if (mapped === flat || !existsSync(flat)) return null;
+    const [mappedContent, flatContent] = await Promise.all([
+      existsSync(mapped) ? readFile(mapped, "utf-8") : "",
+      readFile(flat, "utf-8"),
+    ]);
+    const adrRe = /## ADR-\d+/g;
+    const flatAdrs = (flatContent.match(adrRe) || []).length;
+    const mappedAdrs = (mappedContent.match(adrRe) || []).length;
+    if (mappedAdrs > 0 || flatAdrs === 0) return null; // mapped 已有內容或 flat 無 ADR → 不動
+    // 只留 flat 的 ADR 段落（剝 header 引導）
+    const body = flatContent.split(/(^## ADR-\d+)/m).slice(1).join("") || flatContent.replace(/^[^#]*\n/, "");
+    const merged = (mappedContent || "").trimEnd() + "\n\n" + (body.startsWith("## ADR-") ? body : flatContent.trim()) + "\n";
+    await mkdir(dirname(mapped), { recursive: true });
+    await writeFile(mapped, merged, "utf-8");
+    await writeFile(flat, `# Technical Decisions
+
+> 本檔已遷移至 decisions/DECISIONS.md（API 讀寫以該檔為準）\n`, "utf-8");
+    return { migrated: flatAdrs };
+  }
+
+  // CHANGELOG 版遺產合併（同款：mapped 無日期 section 且 flat 有 → 搬入）
+  async _migrateFlatChangelog() {
+    const mapped = this._resolvePath("CHANGELOG.md");
+    const flat = join(this.paawDir, "CHANGELOG.md");
+    if (mapped === flat || !existsSync(flat)) return null;
+    const [mappedContent, flatContent] = await Promise.all([
+      existsSync(mapped) ? readFile(mapped, "utf-8") : "",
+      readFile(flat, "utf-8"),
+    ]);
+    const sectionRe = /^## \d{4}-\d{2}-\d{2}/m;
+    if (sectionRe.test(mappedContent) || !sectionRe.test(flatContent)) return null;
+    const body = flatContent.substring(flatContent.search(sectionRe));
+    const merged = (mappedContent || "").trimEnd() + "\n\n" + body.trim() + "\n";
+    await mkdir(dirname(mapped), { recursive: true });
+    await writeFile(mapped, merged, "utf-8");
+    await writeFile(flat, `# Changelog
+
+> 本檔已遷移至 changelog/CHANGELOG.md（API 讀寫以該檔為準）\n`, "utf-8");
+    return { migrated: true };
+  }
+
   async addDecision(decision) {
-    const df = join(this.paawDir, "DECISIONS.md");
+    await this._migrateFlatLegacy("DECISIONS.md").catch(() => {});
+    const df = this._resolvePath("DECISIONS.md");
     const existing = existsSync(df) ? await readFile(df, "utf-8") : DEFAULT_DECISIONS_MD;
 
     // Count existing ADRs

@@ -1177,5 +1177,6 @@
   "skillBuilder.multilineLabel": "多行輸入",
   "skillBuilder.requiredLabel": "必填",
   "briefing.title": "Briefing Player",
-  "settings.yourName": "你的名字"
+  "settings.yourName": "你的名字",
+  "decisions.toolbar": "架構決策記錄 (ADR)"
 }

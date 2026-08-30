@@ -2796,6 +2796,12 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:features") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:features" ? tk.toolbarActive : "transparent"; }}
           title={tt("feature.title")}>🗺️ Features</button>
+<button onClick={() => openMainTab({ id: "tool:decisions", type: "decisions", label: "Decisions", icon: "📜", closable: true })}
+          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:decisions" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:decisions") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:decisions") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:decisions" ? tk.toolbarActive : "transparent"; }}
+          title={tt("decisions.toolbar")}>📜 ADR</button>
 <button onClick={() => openMainTab({ id: "tool:git", type: "git", label: "Git", icon: "🔀", closable: true })}
           className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
           style={{ backgroundColor: activeMainTab?.id === "tool:git" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:git") ? tk.toolbarText : tk.toolbarTextMuted }}
@@ -3797,6 +3803,13 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                   onOpenFile={openFile}
                 />
+              </div>
+            )}
+
+            {mainTabs.some(t => t.type === "decisions") && rootPath && (
+              <div key="tool:decisions" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "decisions" ? undefined : "none" }}>
+                <DecisionLog projectRoot={rootPath} />
               </div>
             )}
 
