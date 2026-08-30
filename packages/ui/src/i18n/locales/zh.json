@@ -197,6 +197,7 @@
   "feature.noFiles": "沒有已映射的檔案",
   "feature.refreshMapping": "更新映射",
   "feature.refreshed": "已更新",
+  "feature.refreshingHint": "AI 重新掃描映射中…約 1~5 分鐘（視 feature 數），請勿關閉頁面",
   "feature.runbooks": "操作手冊",
   "feature.save": "儲存",
   "feature.searchPlaceholder": "搜尋功能...",

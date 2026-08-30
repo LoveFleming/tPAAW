@@ -197,6 +197,7 @@
   "feature.noFiles": "No mapped files",
   "feature.refreshMapping": "Refresh Mapping",
   "feature.refreshed": "Updated",
+  "feature.refreshingHint": "AI re-scanning mappings… ~1-5 min depending on feature count, keep page open",
   "feature.runbooks": "Runbooks",
   "feature.save": "Save",
   "feature.searchPlaceholder": "Search features...",

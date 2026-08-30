@@ -20,6 +20,7 @@ import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readBody, normalizePath } from "./shared.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { callProjectLLM } from "./coding.mjs"; // 統一 LLM 咽喉：thinking 控制 + llm log 歸因 + 空回應診斷（2026-08-30）
 import { DATA_HOME } from "../data-home.mjs";
 
 function getMaxTokens(providerConfig, providerId, model) {
@@ -112,13 +113,6 @@ async function generateUnderstanding(projectPath, feature, providersFile) {
   const provider = providerConfig.providers?.[providerId];
   if (!provider?.apiKey || provider.apiKey === "na") return null;
 
-  const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
-  const headers = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${provider.apiKey}`,
-    ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
-  };
-
   // Read code files content
   const codeSnippets = [];
   for (const filePath of (feature.codeFiles || [])) {
@@ -183,21 +177,19 @@ Please provide:
 
 Write in clear, concise markdown. Use the project's context if available.`;
 
-  const reqBody = {
-    model,
-    messages: [
-      { role: "system", content: "You are a senior code analyst. Provide clear, actionable code understanding in markdown." },
-      { role: "user", content: prompt },
-    ],
-    temperature: 0.3,
-    max_tokens: 3000,
-  };
-
   try {
-    const res = await fetch(apiUrl, { method: "POST", headers, body: JSON.stringify(reqBody) });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || null;
+    // 2026-08-30：統一走 callProjectLLM（thinking off + llm log 歸因 + 空回應診斷）
+    const data = await callProjectLLM({
+      model,
+      messages: [
+        { role: "system", content: "You are a senior code analyst. Provide clear, actionable code understanding in markdown." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.3,
+      maxTokens: 3000,
+      thinking: { type: "disabled" },
+    }, { caller: "features", agentId: "features" });
+    return data.content || null;
   } catch {
     return null;
   }
@@ -581,21 +573,17 @@ Output a JSON array with updated mappings. Each element:
 
 Output ONLY the JSON array, no markdown fences.`;
 
-    const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
-    const headers = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${provider.apiKey}`,
-      ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
-    };
-
     try {
-      const llmRes = await fetch(apiUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2, max_tokens: getMaxTokens(providerConfig, providerId, model) }),
-      });
-      const llmData = await llmRes.json();
-      const content = llmData.choices?.[0]?.message?.content || "";
+      // 2026-08-30：direct fetch → callProjectLLM（統一咽喉）
+      // 原問題：自己 fetch 不進 llm log（LlmLogTab 看不到）、thinking 預設全開燒輸出額度、無空回應診斷
+      // 大輸出任務（全部 features 的 mapping JSON）— thinking off + 10min timeout + 歸因 caller=features
+      const llmData = await callProjectLLM({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2,
+        thinking: { type: "disabled" },
+      }, { caller: "features", agentId: "features", timeoutMs: 600_000, maxRetries: 2 });
+      const content = llmData.content || "";
       const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
       if (!cleanJson) {
         res.writeHead(500, { "Content-Type": "application/json" });
@@ -726,21 +714,15 @@ Output a JSON array of new features:
 
 Output ONLY the JSON array, no markdown fences.`;
 
-    const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
-    const headers = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${provider.apiKey}`,
-      ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
-    };
-
     try {
-      const llmRes = await fetch(apiUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.3, max_tokens: getMaxTokens(providerConfig, providerId, model) }),
-      });
-      const llmData = await llmRes.json();
-      const content = llmData.choices?.[0]?.message?.content || "";
+      // 2026-08-30 同 refresh-mapping：走 callProjectLLM 統一咽喉（thinking off + llm log 歸因）
+      const llmData = await callProjectLLM({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+        thinking: { type: "disabled" },
+      }, { caller: "features", agentId: "features", timeoutMs: 600_000, maxRetries: 2 });
+      const content = llmData.content || "";
       const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
 
       if (!cleanJson) {

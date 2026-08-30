@@ -197,6 +197,7 @@
   "feature.noFiles": "マッピングされたファイルなし",
   "feature.refreshMapping": "マッピング更新",
   "feature.refreshed": "更新済み",
+  "feature.refreshingHint": "AIで全マッピング再スキャン中…1〜5分（機能数次第）、ページを閉じないでください",
   "feature.runbooks": "ランブック",
   "feature.save": "保存",
   "feature.searchPlaceholder": "フィーチャーを検索...",

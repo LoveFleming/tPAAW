@@ -248,9 +248,10 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
               🗺️ {t("feature.title")}
             </span>
             <div className="flex gap-1">
-              <button onClick={() => handleRefreshMapping()} disabled={refreshing} className="text-xs px-1.5 py-0.5 rounded" style={{ background: refreshing ? theme.bgMuted : theme.accentBg, color: refreshing ? theme.text : theme.accent, opacity: refreshing ? 0.5 : 1 }} title={t("feature.refreshMapping")}>
+              <button onClick={() => handleRefreshMapping()} disabled={refreshing} className="text-xs px-1.5 py-0.5 rounded" style={{ background: refreshing ? theme.bgMuted : theme.accentBg, color: refreshing ? theme.text : theme.accent, opacity: refreshing ? 0.5 : 1 }} title={refreshing ? t("feature.refreshingHint") : t("feature.refreshMapping")}>
                 {refreshing ? "⏳" : "🔄"}
               </button>
+              {refreshing && <span className="text-xs animate-pulse" style={{ color: theme.accent, opacity: 0.8 }}>{t("feature.refreshingHint")}</span>}
               <button onClick={() => setShowCreate(!showCreate)} className="text-xs px-1.5 py-0.5 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
                 +
               </button>

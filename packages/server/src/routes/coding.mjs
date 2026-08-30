@@ -167,7 +167,7 @@ import { DATA_HOME } from "../data-home.mjs";
 // caller em：這批呼叫屬 EM dashboard 的 AI 初始化/知識建構流 — 成本歸集（R3）別記在 coding 帳上
 const CU_LLM_OPTS = { caller: "em", agentId: "em" };
 
-async function callProjectLLM(body, opts = {}) {
+export async function callProjectLLM(body, opts = {}) {
   // providers.json lives at {DATA_HOME}/config/providers.json
   // (PAAW_DATA_HOME env > repo data/ — gateway 版 data 在 HOME/data)
   const providersFile = join(DATA_HOME, "config", "providers.json");
