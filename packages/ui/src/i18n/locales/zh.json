@@ -1161,5 +1161,10 @@
   "browser.closeTab": "關閉分頁",
   "browser.dialogOk": "確定",
   "browser.dialogCancel": "取消",
-  "browser.dialogPrompt": "輸入文字…"
+  "browser.dialogPrompt": "輸入文字…",
+  "chat": {
+    "attachImage": "附加圖片（AI 會用視覺模型看圖）",
+    "imageLimit": "一次最多 4 張圖",
+    "imageDropHere": "放開以加入圖片"
+  }
 }

@@ -10,6 +10,7 @@ import { DATA_HOME } from "../../data-home.mjs";
  */
 
 import { fetchStreamWithRetry, sanitizeContent } from '../llm-utils.mjs'
+import { messagesForModel, isVisionModel } from '../vision-content.mjs'
 import { fileURLToPath } from 'url'
 import { dirname, resolve as pathResolve, join } from 'path'
 import { existsSync, mkdirSync, appendFileSync } from 'fs'
@@ -57,9 +58,10 @@ export class OpenAICompatibleAdapter {
 
     const body = {
       model: modelName,
-      messages,
+      messages: messagesForModel(messages, isVisionModel(modelName)), // 👁 非 vision model 收含圖歷史 → 佔位保護（2026-08-30）
       stream: true,
       max_tokens: 4096,
+      ...(this.config.extraBody || {}), // Vision 路由等場景的 body 覆写（thinking off / 額度）
     }
 
     if (tools.length > 0) {

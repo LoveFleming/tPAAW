@@ -1161,5 +1161,10 @@
   "browser.closeTab": "タブを閉じる",
   "browser.dialogOk": "OK",
   "browser.dialogCancel": "キャンセル",
-  "browser.dialogPrompt": "テキスト入力…"
+  "browser.dialogPrompt": "テキスト入力…",
+  "chat": {
+    "attachImage": "画像を添付（AIがビジョンモデルで確認）",
+    "imageLimit": "1回につき最大4枚",
+    "imageDropHere": "ドロップして画像を追加"
+  }
 }

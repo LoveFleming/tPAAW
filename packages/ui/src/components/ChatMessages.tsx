@@ -18,6 +18,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
 import { fmtChatTime } from "../utils";
+import API_BASE from "../api";
 
 export interface ChatToolBadge {
   name: string;
@@ -286,12 +287,24 @@ const MessageRow = React.memo(function MessageRow({
                   <ToolBadges tools={activeTools} />
                 )}
               </div>
-            ) : userMarkdown ? (
-              <div className="prose prose-stone prose-sm max-w-none prose-p:my-1">
-                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>{msg.content}</ReactMarkdown>
-              </div>
             ) : (
-              <div className="whitespace-pre-wrap">{msg.content}</div>
+              <>
+                {/* 👁 Vision Phase 2：user 訊息的圖片縮圖（2026-08-30）*/}
+                {Array.isArray((msg as any).images) && (msg as any).images.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {(msg as any).images.map((img: string, ii: number) => (
+                      <img key={ii} src={img.startsWith("http") || img.startsWith("/") ? img : `${API_BASE}${img.startsWith("/") ? "" : "/api/"}${img}`} alt="" className="w-36 h-36 object-cover rounded-xl border border-stone-200 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => window.open(img.startsWith("http") || img.startsWith("/") ? img : `${API_BASE}/api/${img}`, "_blank")} />
+                    ))}
+                  </div>
+                )}
+                {userMarkdown ? (
+                  <div className="prose prose-stone prose-sm max-w-none prose-p:my-1">
+                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>{msg.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                )}
+              </>
             )}
           </div>
         </div>

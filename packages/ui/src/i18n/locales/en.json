@@ -1161,5 +1161,10 @@
   "browser.closeTab": "Close tab",
   "browser.dialogOk": "OK",
   "browser.dialogCancel": "Cancel",
-  "browser.dialogPrompt": "Enter text…"
+  "browser.dialogPrompt": "Enter text…",
+  "chat": {
+    "attachImage": "Attach image (AI will use vision model)",
+    "imageLimit": "Max 4 images per message",
+    "imageDropHere": "Drop to attach image"
+  }
 }

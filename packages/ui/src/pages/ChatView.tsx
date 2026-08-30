@@ -20,6 +20,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
+  images?: string[]; // 👁 Vision Phase 2：uploads/ 相對路徑引用（2026-08-30）
 }
 
 interface Chat {
@@ -181,6 +182,47 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  // 👁 Vision Phase 2：待送圖片（{id, dataUrl} — client 已壓縮；送出時上傳換 path）
+  const [pendingImages, setPendingImages] = useState<{ id: string; dataUrl: string }[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+
+  /** 圖片壓縮：長邊 1568px、jpeg q80（各家 vision API 甜蜜點，一張約 1-2k tokens）*/
+  const compressImage = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX = 1568;
+          const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/jpeg", 0.8));
+        };
+        img.onerror = () => reject(new Error("image load fail"));
+        img.src = String(reader.result);
+      };
+      reader.onerror = () => reject(new Error("file read fail"));
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  /** 加圖（paste/drop/picker 共用）：壓縮後排進 pendingImages，上限 4 張 */
+  const addImages = useCallback(async (files: File[]) => {
+    const imgs = files.filter(f => f.type.startsWith("image/"));
+    if (imgs.length === 0) return;
+    const room = 4 - pendingImages.length;
+    if (room <= 0) { alert(tt("chat.imageLimit")); return; }
+    const results: { id: string; dataUrl: string }[] = [];
+    for (const f of imgs.slice(0, room)) {
+      try { results.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, dataUrl: await compressImage(f) }); } catch {}
+    }
+    if (results.length > 0) setPendingImages(p => [...p, ...results].slice(0, 4));
+  }, [compressImage, pendingImages.length, tt]);
   const abortRef = useRef<AbortController | null>(null);
   const composingRef = useRef(false);
   const chatAreaRef = useRef<HTMLDivElement>(null);
@@ -431,7 +473,22 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   // ── Send message (SSE streaming) ──
   const handleSend = async (overrideText?: string) => {
     const text = (overrideText ?? input).trim();
-    if (!text || !activeChatId || isLoading) return;
+    const sending = pendingImages;
+    if ((!text && sending.length === 0) || !activeChatId || isLoading) return;
+
+    // 👁 有圖 → 先上傳拿路徑（uploads/xxx.jpg），失敗的跳過並提示
+    let uploadedPaths: string[] = [];
+    if (sending.length > 0) {
+      const results = await Promise.all(sending.map(async (img) => {
+        try {
+          const r = await fetch(`${API_BASE}/api/uploads`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataUrl: img.dataUrl }) });
+          const d = await r.json();
+          return d.ok ? d.path : null;
+        } catch { return null; }
+      }));
+      uploadedPaths = results.filter(Boolean) as string[];
+      if (uploadedPaths.length === 0 && !text) { setPendingImages([]); return; }
+    }
 
     // Provider not ready — show message and prompt user to settings
     if (providerReady === false) {
@@ -445,10 +502,11 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
       return;
     }
 
-    const userMsg: Message = { role: "user", content: text, timestamp: new Date().toISOString() };
+    const userMsg: Message = { role: "user", content: text, timestamp: new Date().toISOString(), ...(uploadedPaths.length > 0 ? { images: uploadedPaths } : {}) };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput("");
+    setPendingImages([]);
     setIsLoading(true);
     scrollToBottom(false);
 
@@ -467,7 +525,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+          messages: newMessages.map(m => ({ role: m.role, content: m.content, ...(m.images?.length ? { images: m.images } : {}) })),
           model: activeModel,
           provider: activeProviderId,
         }),
@@ -778,19 +836,43 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
 
       {/* ── Input bar ── */}
       {activeChatId && (
-        <div className="shrink-0 px-4 py-3 border-t bg-white/80 backdrop-blur-sm" style={{ borderColor: themeInfo.accentBorder + "30" }}>
+        <div className="shrink-0 px-4 py-3 border-t bg-white/80 backdrop-blur-sm" style={{ borderColor: themeInfo.accentBorder + "30" }}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => { e.preventDefault(); setDragOver(false); addImages(Array.from(e.dataTransfer.files)); }}>
+          {/* 👁 待送圖片預覽（2026-08-30）*/}
+          {pendingImages.length > 0 && (
+            <div className="flex gap-2 mb-2 flex-wrap">
+              {pendingImages.map(img => (
+                <div key={img.id} className="relative group">
+                  <img src={img.dataUrl} alt="" className="w-20 h-20 object-cover rounded-lg border border-stone-200" />
+                  <button onClick={() => setPendingImages(p => p.filter(x => x.id !== img.id))} className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-stone-700 text-white text-xs flex items-center justify-center opacity-80 hover:opacity-100">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {dragOver && <div className="mb-2 text-xs px-3 py-2 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">{tt("chat.imageDropHere")}</div>}
           <div className="flex gap-2 items-end">
+            {/* 👁 📎 貼圖鈕 */}
+            <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addImages(Array.from(e.target.files || [])); e.target.value = ""; }} />
+            <button onClick={() => imageInputRef.current?.click()} disabled={pendingImages.length >= 4} title={tt("chat.attachImage")} className="p-2.5 rounded-xl border border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300 disabled:opacity-40 flex-shrink-0 transition-colors bg-stone-50">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M10 2a.75.75 0 01.75.75v5.59l1.72-1.72a.75.75 0 111.06 1.06l-3 3a.75.75 0 01-1.06 0l-3-3a.75.75 0 111.06-1.06l1.72 1.72V2.75A.75.75 0 0110 2zM4.5 10.5a.75.75 0 00-1.5 0v4A2.5 2.5 0 005.5 17h9a2.5 2.5 0 002.5-2.5v-4a.75.75 0 00-1.5 0v4a1 1 0 01-1 1h-9a1 1 0 01-1-1v-4z" /></svg>
+            </button>
             <textarea ref={textareaRef} value={input} onChange={(e) => setInput(e.target.value)}
               onCompositionStart={() => { composingRef.current = true; }}
               onCompositionEnd={() => { composingRef.current = false; }}
               onKeyDown={handleKeyDown}
+              onPaste={(e) => {
+                const files = Array.from(e.clipboardData.files || []).filter(f => f.type.startsWith("image/"));
+                if (files.length > 0) { e.preventDefault(); addImages(files); }
+              }}
               placeholder={`跟${assistantName}說點什麼...`}
               rows={1}
               className="flex-1 px-4 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:border-stone-400 resize-none transition-colors bg-stone-50" style={{ maxHeight: 120 }} />
             {isLoading ? (
               <button onClick={handleStop} className="px-4 py-2.5 rounded-xl text-white font-medium text-sm bg-rose-500 hover:bg-rose-600 flex-shrink-0 transition-colors">停止</button>
             ) : (
-              <button onClick={() => handleSend()} disabled={!input.trim()} className="px-4 py-2.5 rounded-xl text-white font-medium text-sm disabled:opacity-40 flex-shrink-0 transition-all" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
+              <button onClick={() => handleSend()} disabled={!input.trim() && pendingImages.length === 0} className="px-4 py-2.5 rounded-xl text-white font-medium text-sm disabled:opacity-40 flex-shrink-0 transition-all" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 005.135 9.25h6.115a.75.75 0 010 1.5H5.135a1.5 1.5 0 00-1.442 1.086l-1.414 4.926a.75.75 0 00.826.95 28.896 28.896 0 0015.293-7.154.75.75 0 000-1.115A28.897 28.897 0 003.105 2.289z" /></svg>
               </button>
             )}

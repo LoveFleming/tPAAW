@@ -6,6 +6,36 @@ import { resolve } from "path";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { hasImages } from "../lib/vision-content.mjs";
+import { uploadsDir } from "./uploads.mjs";
+import { readFile as _readFile } from "fs/promises";
+import { join as _join, basename as _basename } from "path";
+
+/**
+ * 訊含圖處理（2026-08-30 Vision Phase 2）：
+ * UI 送來的 user message 帶 images: ["uploads/xxx.jpg"]（路徑引用，不存 base64）
+ * 送 LLM 前讀檔轉 data URI，組成 OpenAI vision content array
+ */
+async function buildVisionMessages(messages) {
+  const out = [];
+  let imageCount = 0;
+  for (const m of messages || []) {
+    const imgs = Array.isArray(m.images) ? m.images.slice(0, 4) : [];
+    if (imgs.length === 0 || m.role !== "user") { out.push(m); continue; }
+    const content = [{ type: "text", text: String(m.content || "") }];
+    for (const rel of imgs) {
+      try {
+        const name = _basename(String(rel)); // 防穿越：只取檔名
+        const buf = await _readFile(_join(uploadsDir(), name));
+        const ext = name.toLowerCase().endsWith(".png") ? "png" : name.toLowerCase().endsWith(".webp") ? "webp" : name.toLowerCase().endsWith(".gif") ? "gif" : "jpeg";
+        content.push({ type: "image_url", image_url: { url: `data:image/${ext};base64,${buf.toString("base64")}` } });
+        imageCount++;
+      } catch (e) { console.warn(`[chat] image load fail: ${rel} — ${e.message}`); }
+    }
+    out.push({ role: m.role, content: content.length > 1 ? content : String(m.content || ""), images: m.images });
+  }
+  return { messages: out, imageCount };
+}
 
 // ── Paths (reuse from context.mjs) ──
 const PAAW_ROOT = PATHS.PAAW_ROOT;
@@ -107,7 +137,11 @@ export default async function chatRoutes(req, res) {
     let heartbeatTimer = null;
     try {
       const body = JSON.parse(await readBody(req));
-      const { messages, model: requestedModel, provider: requestedProvider, contextTarget, systemPrompt: clientSystemPrompt } = body;
+      const { messages: rawMessages, model: requestedModel, provider: requestedProvider, contextTarget, systemPrompt: clientSystemPrompt } = body;
+
+      // ── Vision Phase 2（2026-08-30）：images 路徑 → vision content array ──
+      const { messages: visionMessages, imageCount } = await buildVisionMessages(rawMessages);
+      const messages = visionMessages;
 
       // ── Resolve provider ──
       const providerConfig = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "config/providers.json"), "utf-8"));
@@ -125,7 +159,7 @@ export default async function chatRoutes(req, res) {
           resolvedProviderId = modelProviderHint;
         }
       }
-      const resolvedProvider = providerConfig.providers[resolvedProviderId];
+      let resolvedProvider = providerConfig.providers[resolvedProviderId];
       if (!resolvedProvider) {
         json(res, { error: `Unknown provider: ${resolvedProviderId}` }, 400);
         return true;
@@ -133,6 +167,28 @@ export default async function chatRoutes(req, res) {
       if (!resolvedProvider.apiKey || resolvedProvider.apiKey === "na") {
         json(res, { error: `No API key configured for provider: ${resolvedProviderId}` }, 400);
         return true;
+      }
+
+      // ── Vision 路由（2026-08-30 Phase 2）：訊含圖 → 自動切 visionModel ──
+      // 設計：providers.json 頂層 visionModel（"providerId/modelId"）；沒設或不支援就不切
+      let extraBody = null;
+      if (imageCount > 0 && hasImages(messages)) {
+        const vm = String(providerConfig.visionModel || "");
+        if (vm.includes("/")) {
+          const vi = vm.indexOf("/");
+          const vp = providerConfig.providers[vm.slice(0, vi)];
+          const vModelId = vm.slice(vi + 1);
+          if (vp?.apiKey && vp.apiKey !== "na") {
+            resolvedProviderId = vm.slice(0, vi);
+            resolvedProvider = vp;
+            model = vModelId;
+            // vision 分析關思考 + 提高輸出額度（thinking 燒光 max_tokens 實證教訓 2026-08-30）
+            extraBody = { max_tokens: 8192, ...(resolvedProviderId === "zai" ? { thinking: { type: "disabled" } } : {}) };
+            console.log(`[chat] 👁 vision routing: ${imageCount} image(s) → ${vm}`);
+          } else {
+            console.warn(`[chat] ⚠️ visionModel "${vm}" provider 沒 key — 走原 model（圖會被佔位保護換掉）`);
+          }
+        }
       }
 
       // ── Context Engine: use client-specified target or default to chat ──
@@ -224,6 +280,7 @@ export default async function chatRoutes(req, res) {
           extraHeaders: resolvedProviderId === 'openrouter'
             ? { 'HTTP-Referer': 'https://paaw.ai', 'X-Title': 'PAAW' }
             : undefined,
+          extraBody, // Vision 路由時帶 thinking disabled + 8192 額度（provider.mjs 合併）
         },
         executors,
         maxToolRounds: 5,
