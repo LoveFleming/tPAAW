@@ -560,10 +560,6 @@
   "settings.styleFormal": "💼 Formal",
   "settings.theme": "Theme",
   "settings.title": "Settings",
-  "sidebar": {
-    "llmLog": "LLM Logs",
-    "agentLog": "📊 Agent Execution"
-  },
   "sidebar.addDirectory": "Add Directory",
   "sidebar.agentLog": "📊 Agent Execution",
   "sidebar.aiCrew": "AI Crew",
@@ -1163,9 +1159,23 @@
   "browser.dialogOk": "OK",
   "browser.dialogCancel": "Cancel",
   "browser.dialogPrompt": "Enter text…",
-  "chat": {
-    "attachImage": "Attach image (AI will use vision model)",
-    "imageLimit": "Max 4 images per message",
-    "imageDropHere": "Drop to attach image"
-  }
+  "chat.attachImage": "Attach image (AI will use vision model)",
+  "chat.imageLimit": "Max 4 images per message",
+  "chat.imageDropHere": "Drop to attach image",
+  "appBuilder.selectBaseSkill": "Select base skill",
+  "briefing.changeDir": "Change directory",
+  "settings.assistantName": "Assistant name",
+  "settings.clickAvatar": "Click avatar to change picture",
+  "settings.crewChatLabel": "Crew Chat",
+  "settings.replyStyle": "Reply style",
+  "settings.resetAvatar": "Reset to default",
+  "settings.selfIntro": "Self introduction",
+  "sidebar.skills": "Skills",
+  "skillBuilder.fieldDescLabel": "Description",
+  "skillBuilder.fieldLabelLabel": "Field name",
+  "skillBuilder.fieldValueLabel": "Input placeholder",
+  "skillBuilder.multilineLabel": "Multiline input",
+  "skillBuilder.requiredLabel": "Required",
+  "briefing.title": "Briefing Player",
+  "settings.yourName": "Your name"
 }

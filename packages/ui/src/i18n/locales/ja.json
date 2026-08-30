@@ -560,10 +560,6 @@
   "settings.styleFormal": "💼 フォーマル",
   "settings.theme": "テーマ",
   "settings.title": "設定",
-  "sidebar": {
-    "llmLog": "LLM ログ",
-    "agentLog": "📊 エージェント実行記録"
-  },
   "sidebar.addDirectory": "ディレクトリを追加",
   "sidebar.agentLog": "📊 エージェント実行記録",
   "sidebar.aiCrew": "AIチーム",
@@ -1163,9 +1159,23 @@
   "browser.dialogOk": "OK",
   "browser.dialogCancel": "キャンセル",
   "browser.dialogPrompt": "テキスト入力…",
-  "chat": {
-    "attachImage": "画像を添付（AIがビジョンモデルで確認）",
-    "imageLimit": "1回につき最大4枚",
-    "imageDropHere": "ドロップして画像を追加"
-  }
+  "chat.attachImage": "画像を添付（AIがビジョンモデルで確認）",
+  "chat.imageLimit": "1回につき最大4枚",
+  "chat.imageDropHere": "ドロップして画像を追加",
+  "appBuilder.selectBaseSkill": "ベーススキルを選択",
+  "briefing.changeDir": "ディレクトリ切替",
+  "settings.assistantName": "アシスタント名",
+  "settings.clickAvatar": "アバターをクリックして画像を変更",
+  "settings.crewChatLabel": "Crew Chat",
+  "settings.replyStyle": "返信スタイル",
+  "settings.resetAvatar": "デフォルトに戻す",
+  "settings.selfIntro": "自己紹介",
+  "sidebar.skills": "スキル",
+  "skillBuilder.fieldDescLabel": "説明",
+  "skillBuilder.fieldLabelLabel": "フィールド名",
+  "skillBuilder.fieldValueLabel": "入力プレースホルダー",
+  "skillBuilder.multilineLabel": "複数行入力",
+  "skillBuilder.requiredLabel": "必須",
+  "briefing.title": "Briefing Player",
+  "settings.yourName": "お名前"
 }

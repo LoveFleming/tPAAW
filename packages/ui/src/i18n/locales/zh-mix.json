@@ -560,10 +560,6 @@
   "settings.styleFormal": "💼 Formal",
   "settings.theme": "主題 / Theme",
   "settings.title": "設定",
-  "sidebar": {
-    "llmLog": "LLM 日誌",
-    "agentLog": "Agent 執行記錄"
-  },
   "sidebar.addDirectory": "加入目錄",
   "sidebar.agentLog": "Agent 執行記錄",
   "sidebar.aiCrew": "AI Crew",
@@ -1163,9 +1159,23 @@
   "browser.dialogOk": "OK",
   "browser.dialogCancel": "Cancel",
   "browser.dialogPrompt": "輸入文字…",
-  "chat": {
-    "attachImage": "附加圖片（AI 會用 vision model 看圖）",
-    "imageLimit": "一次最多 4 張圖",
-    "imageDropHere": "放開以加入圖片"
-  }
+  "chat.attachImage": "附加圖片（AI 會用 vision model 看圖）",
+  "chat.imageLimit": "一次最多 4 張圖",
+  "chat.imageDropHere": "放開以加入圖片",
+  "appBuilder.selectBaseSkill": "選擇基底 Skill",
+  "briefing.changeDir": "切換 directory",
+  "settings.assistantName": "助理名字",
+  "settings.clickAvatar": "點擊頭像換圖片",
+  "settings.crewChatLabel": "Crew Chat",
+  "settings.replyStyle": "回覆 style",
+  "settings.resetAvatar": "恢復預設",
+  "settings.selfIntro": "自我介紹",
+  "sidebar.skills": "Skills",
+  "skillBuilder.fieldDescLabel": "說明",
+  "skillBuilder.fieldLabelLabel": "欄位名稱",
+  "skillBuilder.fieldValueLabel": "輸入 placeholder",
+  "skillBuilder.multilineLabel": "多行輸入",
+  "skillBuilder.requiredLabel": "必填",
+  "briefing.title": "Briefing Player",
+  "settings.yourName": "你的名字"
 }
