@@ -191,7 +191,7 @@ async function callProjectLLM(body, opts = {}) {
 
   // Resolve maxTokens: caller override > model config in providers.json > 32768
   const modelConfig = (provider.models || []).find(m => m.id === model);
-  const defaultMaxTokens = modelConfig?.maxTokens || providerConfig.defaultMaxTokens || 32768;
+  const defaultMaxTokens = modelConfig?.maxTokens || providerConfig.defaultMaxTokens || 65536;
   const maxTokens = body.maxTokens ?? defaultMaxTokens;
 
   const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
