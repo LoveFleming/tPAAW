@@ -60,6 +60,9 @@ function updateStatusFile(statusPath, mutator) {
   }
 }
 
+// 2026-08-30：同 project 並行 guard（module-level — server 重啟自動清空，殭屍可恢復）
+const _activeRuns = new Set();
+
 export default async function codingAutoDispatchRoute(req, res) {
   const urlObj = new URL(req.url, "http://localhost");
   const method = req.method;
@@ -79,6 +82,14 @@ export default async function codingAutoDispatchRoute(req, res) {
 
   // ── POST /api/coding-auto-dispatch/start ──
   if (urlObj.pathname === "/api/coding-auto-dispatch/start" && method === "POST") {
+    // 2026-08-30 單例 guard：同 project 不並行（防誤按兩次 start 重複派工）
+    // server 重啟後 Set 清空 = 殭屍 plan 可被恢復續跑（resumePlan 已把 running 也納入重跑）
+    if (_activeRuns.has(projRoot)) {
+      sendJSON(res, 409, { ok: false, error: `此專案派工已在執行中（status.json 輪詢可看進度）— 若 UI 卡殭屍（重啟後殘留），先用 /api/coding-auto-dispatch/stop 重置再 start` });
+      return true;
+    }
+    _activeRuns.add(projRoot);
+    try {
     const nsDir = join(projRoot, AUTO_DISPATCH_DIR);
     if (!existsSync(nsDir)) mkdirSync(nsDir, { recursive: true });
 
@@ -200,6 +211,16 @@ export default async function codingAutoDispatchRoute(req, res) {
           error: err.message,
         };
       });
+    } finally {
+      // 釋放 guard：無論成功、失敗、異常 — 同 project 可重新 start
+      _activeRuns.delete(projRoot);
+    }
+    } catch (outerErr) {
+      // 前置步驟（config 載入/status 初始化）失敗也要釋放 guard + 回報
+      console.error("[AutoDispatch] Start failed:", outerErr.message);
+      if (!res.headersSent) sendJSON(res, 500, { ok: false, error: outerErr.message });
+    } finally {
+      _activeRuns.delete(projRoot);
     }
 
     return true;
