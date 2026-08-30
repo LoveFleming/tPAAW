@@ -11,7 +11,7 @@
 //
 // 跨平台：Playwright 支援 Windows / macOS / Linux，Chromium binary 各平台各自下載
 //（npm i && npx playwright install chromium）。未安裝時工具回覆清楚安裝指引，不炸 server。
-import { mkdirSync } from "fs";
+import { mkdirSync, readdirSync, statSync, rmSync } from "fs";
 import { join } from "path";
 
 import { DATA_HOME } from "../data-home.mjs";
@@ -139,7 +139,32 @@ export async function takeScreenshot(DATA_HOME, page) {
   const { copyFileSync } = await import("fs");
   try { copyFileSync(path, join(shotDir, "latest.png")); } catch { /* best effort */ }
   _state.lastScreenshot = { path: path.split(/[\\/]/).join("/"), ts: Date.now() };
+  try { pruneBrowserShots(shotDir, 40); } catch { /* 清理失敗不影響截圖 */ }
   return _state.lastScreenshot.path;
+}
+
+/**
+ * 磁碟清理（Vision Phase 4，2026-08-30）：data/logs/browser 只留最新 keep 張
+ * — latest.png 永遠保留（IDE 輪詢用）；每次截圖順手清（純函數可單測）
+ * @returns {{ removed: number, kept: number }}
+ */
+export function pruneBrowserShots(shotDir, keep = 40) {
+  if (!shotDir) return { removed: 0, kept: 0 };
+  let files;
+  try { files = readdirSync(shotDir); } catch { return { removed: 0, kept: 0 }; }
+  const shots = files
+    .filter(f => /^shot-/.test(f) && /\.(png|jpe?g)$/i.test(f))
+    .map(f => {
+      let mtime = 0;
+      try { mtime = statSync(join(shotDir, f)).mtimeMs; } catch {}
+      return { f, mtime };
+    })
+    .sort((a, b) => b.mtime - a.mtime); // 新 → 舊
+  const victims = shots.slice(keep).map(x => x.f);
+  for (const f of victims) {
+    try { rmSync(join(shotDir, f), { force: true }); } catch {}
+  }
+  return { removed: victims.length, kept: shots.length - victims.length };
 }
 
 /** 更新狀態（每次動作後呼叫）*/

@@ -63,20 +63,35 @@ export function estimateContentTokens(content) {
 }
 
 /**
- * 送 LLM 前的最後一關：
- * - model 支援 vision → 原封不動
- * - 不支援但歷史有圖 → 每個 image part 換成文字佔位（防 API 400）
- * 回傳新陣列（淺拷貝，不動原訊息）
+ * 送 LLM 前的最後一關（咽喉點 — callLLM 統一呼叫）：
+ * 1. 舊圖降級（Phase 4）：無論 model 支不支援 vision，只保留最後 K 則含圖訊息的圖，
+ *    更早的圖換佔位文字 — 避免長 vision loop 每輪重送全部舊截圖（每張 ~1600 tok + base64 payload）
+ * 2. 佔位保護（Phase 1）：不支援 vision 的 model 收到圖 → 換佔位（防 API 400）
+ * 回傳新陣列（淺拷貝，不動原訊息）。
+ * @param {object} opts { keepLastImages = 2 } — 保留最後幾則含圖訊息的圖（0 = 全降級）
  */
-export function messagesForModel(messages, modelSupportsVision) {
-  if (modelSupportsVision || !Array.isArray(messages) || !hasImages(messages)) return messages;
-  return messages.map(m => {
+export function messagesForModel(messages, modelSupportsVision, { keepLastImages = 2 } = {}) {
+  if (!Array.isArray(messages) || !hasImages(messages)) return messages;
+
+  // 找出最後 K 則含圖訊息的 index（保留名單）
+  const imageMsgIdx = new Set();
+  for (let i = messages.length - 1, seen = 0; i >= 0 && seen < keepLastImages; i--) {
+    if (Array.isArray(messages[i]?.content) && messages[i].content.some(p => p?.type === "image_url")) {
+      imageMsgIdx.add(i);
+      seen++;
+    }
+  }
+
+  return messages.map((m, i) => {
     if (!Array.isArray(m?.content)) return m;
+    const hasImg = m.content.some(p => p?.type === "image_url");
+    if (!hasImg) return m;
+    if (modelSupportsVision && imageMsgIdx.has(i)) return m; // 保留：最新的 K 則含圖
     return {
       ...m,
       content: m.content.map(p =>
         p?.type === "image_url"
-          ? { type: "text", text: "[圖片：此模型不支援影像輸入，已省略]" }
+          ? { type: "text", text: modelSupportsVision ? "[舊截圖已省略 — 需要可重新截圖]" : "[圖片：此模型不支援影像輸入，已省略]" }
           : p
       ),
     };
@@ -161,11 +176,19 @@ export function imageFileToDataUrl(absPath, maxBytes = MAX_IMAGE_BYTES) {
  * 把圖檔包成 agent message（user role + array content — OpenAI vision 格式）。
  * 一張讀不進來就略過那張；全部失敗/空陣列 → null。
  * label 是給模型看的文字說明（標明這是系統附圖，不是使用者說的話）。
+ * Phase 4：maxImages（預設 4）— 超過丟最舊的，label 加省略註記（防失控 tool 批次灌爆 context）。
  */
-export function buildImageAttachmentMessage(absPaths, label = "📸 [系統附圖]") {
-  const parts = [{ type: "text", text: label }];
+export function buildImageAttachmentMessage(absPaths, label = "📸 [系統附圖]", { maxImages = 4 } = {}) {
+  let paths = (absPaths || []).filter(Boolean);
+  let note = "";
+  if (paths.length > maxImages) {
+    const dropped = paths.length - maxImages;
+    paths = paths.slice(-maxImages); // 保留最新的（工具序列產出，新的在後）
+    note = `（較早的 ${dropped} 張已省略 — 只留最新 ${maxImages} 張）`;
+  }
+  const parts = [{ type: "text", text: label + note }];
   let n = 0;
-  for (const p of absPaths || []) {
+  for (const p of paths) {
     const du = imageFileToDataUrl(p);
     if (du) { parts.push({ type: "image_url", image_url: { url: du } }); n++; }
   }

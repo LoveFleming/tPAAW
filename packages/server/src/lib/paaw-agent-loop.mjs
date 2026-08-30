@@ -3151,12 +3151,20 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
   // ── LLM Request Logging ──
   // NOTE: callLLMWithRetry (llm-utils.mjs) already logs request+response for non-stream.
   // Only log here for the stream path (fetchStreamWithRetry doesn't log).
+  const _countImages = (msgs) => (msgs || []).reduce((n, m) => n + (Array.isArray(m?.content) ? m.content.filter(p => p?.type === "image_url").length : 0), 0);
+  const _previewMsg = (m) => {
+    const c = m?.content;
+    if (typeof c === "string") return { role: m.role, len: c.length, preview: c.slice(0, 200) };
+    if (Array.isArray(c)) return { role: m.role, len: c.length, images: c.filter(p => p?.type === "image_url").length, preview: c.map(p => p?.type === "text" ? p.text : "[圖片]").join(" ").slice(0, 200) };
+    return { role: m?.role, len: 0, preview: "" };
+  };
   const _logStreamRequest = () => {
     try {
       const logDir = join(DATA_HOME, "logs", "llm");
       mkdirSync(logDir, { recursive: true });
       const dateStr = new Date().toISOString().slice(0, 10);
       const logPath = join(logDir, `${dateStr}.jsonl`);
+      const _imgTotal = _countImages(body.messages);
       const logEntry = {
         id: callId,
         ts: new Date(callStartTime).toISOString(),
@@ -3166,7 +3174,8 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
         stream,
         apiUrl: apiUrl.replace(/\/v.*$/, "/..."), // don't log full URL with keys
         messageCount: body.messages?.length,
-        messagesPreview: body.messages?.map(m => ({ role: m.role, len: (m.content || "").length, preview: (m.content || "").slice(0, 200) })),
+        messagesPreview: body.messages?.map(_previewMsg),
+        images: _imgTotal > 0 ? _imgTotal : undefined, // Vision Phase 4：圖片成本歸因（不記 base64）
         toolsCount: body.tools?.length || 0,
         toolNames: (body.tools || []).map(t => t.function?.name).filter(Boolean),
         maxTokens: body.max_tokens,

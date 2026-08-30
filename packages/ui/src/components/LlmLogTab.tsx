@@ -16,6 +16,7 @@ interface LlmLogItem {
   model: string;
   stream: boolean;
   messageCount: number;
+  images: number | null; // 👁 Vision Phase 4：這次請求含幾張圖（null = 無圖/舊 log）
   toolNames: string[];
   durationMs: number | null;
   finishReason: string | null;
@@ -221,7 +222,10 @@ export default function LlmLogTab() {
                     <span className="mr-1">{AGENT_EMOJI[log.agentId] || "🤖"}</span>
                     <span className={log.agentId === "unknown" ? "text-stone-500" : "text-stone-200"}>{log.agentId}</span>
                   </td>
-                  <td className="px-3 py-1.5 text-blue-300 whitespace-nowrap">{log.model}</td>
+                  <td className="px-3 py-1.5 text-blue-300 whitespace-nowrap">
+                    {log.model}
+                    {log.images ? <span className="ml-1 text-amber-300" title={`${log.images} image(s)`}>👁{log.images}</span> : null}
+                  </td>
                   <td className="px-3 py-1.5 text-stone-400 text-center">{log.messageCount}</td>
                   <td className="px-3 py-1.5 text-stone-400">
                     {log.toolCalls.length > 0 ? (

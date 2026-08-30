@@ -122,6 +122,7 @@ function pairLogs(logs) {
         model: p.request.model || p.response?.model || "?",
         stream: p.request.stream ?? false,
         messageCount: p.request.messageCount ?? 0,
+        images: p.request.images ?? null, // Vision Phase 4：含圖請求歸因（request log 的圖片總數）
         toolNames: allowedTools,
         durationMs: p.response?.durationMs ?? null,
         finishReason: p.response?.finishReason ?? null,

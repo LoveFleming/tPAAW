@@ -154,6 +154,10 @@ async function _syncTaskAfterDispatch(rootDir, taskRef, ok, detail) {
 const MODEL_PRICING = {
   'zai/glm-5.1': { input: 0.6, output: 2.2 },      // per 1M tokens, USD
   'glm-5.1': { input: 0.6, output: 2.2 },
+  'zai/glm-4.6v': { input: 0.6, output: 2.2 },     // Vision Phase 4（2026-08-30）：vision 路由後歸因不落 default
+  'glm-4.6v': { input: 0.6, output: 2.2 },
+  'zai/glm-4.5v': { input: 0.6, output: 2.2 },
+  'glm-4.5v': { input: 0.6, output: 2.2 },
   'openrouter/z-ai/glm-5.1': { input: 1.0, output: 3.2 },
   'openrouter/deepseek/deepseek-v4-flash': { input: 0.14, output: 0.28 },
   'deepseek/deepseek-v4-flash': { input: 0.14, output: 0.28 },
