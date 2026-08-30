@@ -388,15 +388,40 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
       // 驗證有實質內容（只對純文字回應做，tool_calls 可能 content 為空）
       const hasToolCalls = choice.message?.tool_calls?.length > 0;
       if (validateContent && !hasToolCalls && !isMeaningfulContent(content)) {
-        console.warn(`[LLM-Utils] Attempt ${attempt + 1}: response content is empty/whitespace/hidden-only`);
+        // ── 空回應診斷（2026-08-30）：死法要寫清楚，讓人一看就知道要改什麼 ──
+        // 實例：reasoning_tokens=15989/16000 + finish=length → thinking 燒光額度，重試 4 次全同樣死法
+        const _finish = choice.finish_reason || "unknown";
+        const _usage = data.usage || {};
+        const _completion = _usage.completion_tokens ?? 0;
+        const _reasoning = _usage.completion_tokens_details?.reasoning_tokens ?? 0;
+        const _cap = body.max_tokens ?? null;
+        const _burn = _completion > 0 ? Math.round((_reasoning / _completion) * 100) : 0;
+        let _diag;
+        if (_finish === "length" && _reasoning > 0 && _burn >= 90) {
+          _diag = `模型思考燒光輸出額度：reasoning_tokens=${_reasoning}${_cap != null ? ` / max_tokens=${_cap}` : ""}, finish=length, model=${body.model}, caller=${opts.caller || "?"} → 解法：調高 providers.json 的 model maxTokens（建議 ≥65536）或該呼叫停用 thinking`;
+        } else if (_finish === "length") {
+          _diag = `回應被 max_tokens 截斷（finish=length, completion_tokens=${_completion}${_cap != null ? `, max_tokens=${_cap}` : ""}, model=${body.model}）→ 解法：調高 providers.json 的 model maxTokens`;
+        } else {
+          _diag = `回應內容為空（finish=${_finish}, completion_tokens=${_completion}, model=${body.model}）→ 解法：換 model 或檢查 provider 設定`;
+        }
+        console.warn(`[LLM-Utils] Attempt ${attempt + 1}: 空回應 — ${_diag}`);
         if (attempt < maxRetries) {
           const delay = calcBackoff(attempt, DEFAULT_BASE_DELAY_MS, DEFAULT_MAX_DELAY_MS);
           console.warn(`[LLM-Utils] Retrying in ${delay}ms...`);
           await sleep(delay);
           continue;
         }
-        // 最後一次還是空的，回傳空字串讓 caller 處理
-        console.warn('[LLM-Utils] All retries exhausted on empty content');
+        // 最後一次還是空 — 帶診斷 throw（route 的 catch 會把 err.message 送到 UI，不再只看到「AI 回應為空」）
+        console.warn(`[LLM-Utils] All retries exhausted on empty content — ${_diag}`);
+        try {
+          _writeLlmLog({
+            id: _callId, ts: new Date().toISOString(), phase: "response", agentId: agentId || opts.caller || null,
+            model: body.model || "?", stream: false, durationMs: Date.now() - _startTime,
+            error: _diag, finishReason: _finish, contentLen: 0, caller: opts.caller || null,
+            taskId: opts.taskId || null, attempts: attempt + 1,
+          });
+        } catch {}
+        throw new Error(`LLM 空回應：${_diag}`);
       }
 
       // Log successful call
