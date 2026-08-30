@@ -1,49 +1,160 @@
-## Scan Aborted — Missing Inputs
-
-I cannot produce a valid inventory: **the file tree scan failed**, so I have no source code to read. The only real input I received is the git log.
-
-Per the rules ("Read ACTUAL source code, don't guess from file names" / "Be precise with file paths — they will be used to navigate"), fabricating `modules`, `apis`, `dataModels`, and file paths from commit messages alone would poison downstream navigation. So I'm not emitting the JSON yet.
-
----
-
-### 1. Why the file tree failed
-
-The `find` command used unescaped parentheses, which POSIX `/bin/sh` rejects:
-
+```json
+{
+  "projectName": "paaw",
+  "projectType": "monorepo",
+  "language": "TypeScript / JavaScript (ESM, .mjs)",
+  "framework": "React (Vite + Tailwind) UI, custom Node.js HTTP/WebSocket server, Playwright automation",
+  "runtime": "Node.js",
+  "summary": "PAAW is an AI agent workspace platform — a local server + web UI that lets users build, run, and observe AI coding agents, crews, workflows, skills, and release units with browser automation, security gates, and context engineering.",
+  "entryPoints": [
+    "packages/server/src/paaw-server.mjs",
+    "packages/ui/src/main.tsx",
+    "packages/ui/src/App.tsx",
+    "packages/shared/src/index.ts",
+    "packages/context/src/index.ts",
+    "packages/db/src/index.ts",
+    "packages/engine/src/index.ts",
+    "scripts/dev-server.mjs",
+    "scripts/postinstall.cjs"
+  ],
+  "keyDirectories": {
+    "source": "packages/",
+    "tests": "tests/",
+    "config": "project root (playwright.config.ts, vitest.config.ts, packages/ui/vite.config.ts)",
+    "docs": null
+  },
+  "modules": [
+    {
+      "name": "server",
+      "path": "packages/server/src",
+      "responsibility": "Main HTTP + WebSocket server hosting all API routes, agent loop, tools, scheduler, and business logic",
+      "dependsOn": ["shared", "context", "db", "engine"],
+      "exports": ["paaw-server.mjs (server bootstrap)"]
+    },
+    {
+      "name": "server-routes",
+      "path": "packages/server/src/routes",
+      "responsibility": "REST route modules: coding tasks, chat, release units, skills, apps, projects, browser, workflows, A2A, helpdesk, notes, plugins, backup",
+      "dependsOn": ["server-lib", "shared"],
+      "exports": ["route registration modules consumed by paaw-server.mjs"]
+    },
+    {
+      "name": "server-lib",
+      "path": "packages/server/src/lib",
+      "responsibility": "Core logic: agent loop (paaw-agent-loop), tool registries, security (approval/policy/audit/secrets), coding security, browser executor/sessions, execution plans, release-unit analysis suite, auto-dispatch, context compaction/truncation, test-runner, semgrep, tree-sitter parsing, code intelligence",
+      "dependsOn": ["shared", "context", "db"],
+      "exports": ["paaw-agent-loop", "tool-registry", "coding-security", "execution-plan", "release-unit/*", "security/*", "browser-executor", "auto-dispatch-manager", "llm-utils", "context-compaction"]
+    },
+    {
+      "name": "server-scheduler",
+      "path": "packages/server/src/scheduler",
+      "responsibility": "Cron job scheduling for background agent runs",
+      "dependsOn": ["server-lib"],
+      "exports": ["cron-jobs.mjs"]
+    },
+    {
+      "name": "ui",
+      "path": "packages/ui/src",
+      "responsibility": "React web frontend: IDE for coding agents, chat, crew management, orchestrator workspace, release explorer, project dashboards, git panels, browser panel, i18n",
+      "dependsOn": ["shared", "server (via api.ts)"],
+      "exports": ["App", "pages/*", "components/*"]
+    },
+    {
+      "name": "context",
+      "path": "packages/context/src",
+      "responsibility": "Context engineering: memory store, context assembler, context refinery for prompt construction",
+      "dependsOn": ["shared"],
+      "exports": ["assembler", "memory-store", "refinery"]
+    },
+    {
+      "name": "shared",
+      "path": "packages/shared/src",
+      "responsibility": "Shared types, Zod-style schemas, and utilities used by both server and UI",
+      "dependsOn": [],
+      "exports": ["types", "schemas", "utils"]
+    },
+    {
+      "name": "db",
+      "path": "packages/db/src",
+      "responsibility": "Database layer: connection handling, migrations, repositories for runs and chats, data-store paths",
+      "dependsOn": ["shared"],
+      "exports": ["connection", "migrate", "repositories/runs", "repositories/chats", "repositories/data-store"]
+    },
+    {
+      "name": "engine",
+      "path": "packages/engine/src",
+      "responsibility": "Workflow/runner engine: tool registry abstraction (TS twin of server tool-engine), workflow execution",
+      "dependsOn": ["shared", "db"],
+      "exports": ["tool-engine", "runner", "workflow"]
+    },
+    {
+      "name": "scripts",
+      "path": "scripts",
+      "responsibility": "Build/pack, dev server, postinstall, paaw-sync, runtime guard scanner",
+      "dependsOn": ["server"],
+      "exports": ["pack.mjs", "dev-server.mjs", "postinstall.cjs", "paaw-sync.mjs", "runtime-guard-scanner.mjs"]
+    },
+    {
+      "name": "tests",
+      "path": "tests",
+      "responsibility": "Unit tests (vitest) for agent loop, security, context, providers, execution plans; e2e Playwright specs per page",
+      "dependsOn": ["server", "ui"],
+      "exports": []
+    }
+  ],
+  "apis": [
+    { "method": "POST", "path": "/api/chat", "file": "packages/server/src/routes/chat.mjs", "hasRequestSchema": true, "hasResponseSchema": false, "hasErrorMapping": true, "hasTestPayload": false },
+    { "method": "*", "path": "/api/coding/tasks", "file": "packages/server/src/routes/coding-tasks.mjs", "hasRequestSchema": true, "hasResponseSchema": false, "hasErrorMapping": true, "hasTestPayload": false },
+    { "method": "*", "path": "/api/coding/issues", "file": "packages/server/src/routes/coding-issues.mjs", "hasRequestSchema": false, "hasResponseSchema": false, "hasErrorMapping": false, "hasTestPayload": false },
+    { "method": "*", "path": "/api/coding/evidence", "file": "packages/server/src/routes/coding-evidence.mjs", "hasRequestSchema": false, "hasResponseSchema": false, "hasErrorMapping": false, "hasTestPayload": false },
+    { "method": "*", "path": "/api/coding/health", "file": "packages/server/src/routes/coding-health.mjs", "hasRequestSchema": false, "hasResponseSchema": true, "hasErrorMapping": false, "hasTestPayload": false },
+    { "method": "*", "path": "/api/release-unit", "file": "packages/server/src/routes/release-unit.mjs", "hasRequestSchema": true, "hasResponseSchema": true, "hasErrorMapping": true, "hasTestPayload": false },
+    { "method": "*", "path": "/api/skills", "file": "packages/server/src/routes/skills-api.mjs", "hasRequestSchema": true, "hasResponseSchema": true, "hasErrorMapping": false, "hasTestPayload": false },
+    { "method": "*", "path": "/api/ai-settings", "file": "packages/server/src/routes/ai-settings.mjs", "hasRequestSchema": true, "hasResponseSchema": true, "hasErrorMapping": false, "hasTestPayload": true },
+    { "method": "*", "path": "/api/crew", "file": "packages/server/src/routes/crew.mjs", "hasRequestSchema": false, "hasResponseSchema": false, "hasErrorMapping": false, "hasTestPayload": false },
+    { "method": "*", "path": "/api/projects", "file": "packages/server/src/routes/projects.mjs", "hasRequestSchema": false, "hasResponseSchema": false, "hasErrorMapping": false, "hasTestPayload": false },
+    { "method": "*", "path": "/api/apps", "file": "packages/server/src/routes/apps.mjs", "hasRequestSchema": false, "hasResponseSchema": false, "hasErrorMapping": false, "hasTestPayload": false },
+    { "method": "*", "path": "/api/browser", "file": "packages/server/src/routes/browser.mjs", "hasRequestSchema": true, "hasResponseSchema": false, "hasErrorMapping": false, "hasTestPayload": false },
+    { "method": "*", "path": "/api/workflow", "file": "packages/server/src/routes/workflow.mjs", "hasRequestSchema": true, "hasResponseSchema": false, "hasErrorMapping": false, "hasTestPayload": false },
+    { "method": "*", "path": "/api/a2a", "file": "packages/server/src/routes/a2a.mjs", "hasRequestSchema": true, "hasResponseSchema": false, "hasErrorMapping": false, "hasTestPayload": false },
+    { "method": "*", "path": "/api/notes", "file": "packages/server/src/routes/notes.mjs", "hasRequestSchema": false, "hasResponseSchema": false, "hasErrorMapping": false, "hasTestPayload": false },
+    { "method": "*", "path": "/api/context", "file": "packages/server/src/routes/context.mjs", "hasRequestSchema": false, "hasResponseSchema": false, "hasErrorMapping": false, "hasTestPayload": false },
+    { "method": "*", "path": "/api/plugins", "file": "packages/server/src/routes/plugins.mjs", "hasRequestSchema": false, "hasResponseSchema": false, "hasErrorMapping": false, "hasTestPayload": false },
+    { "method": "*", "path": "/api/backup", "file": "packages/server/src/routes/backup.mjs", "hasRequestSchema": false, "hasResponseSchema": false, "hasErrorMapping": false, "hasTestPayload": false },
+    { "method": "*", "path": "/api/helpdesk", "file": "packages/server/src/routes/helpdesk.mjs", "hasRequestSchema": false, "hasResponseSchema": false, "hasErrorMapping": false, "hasTestPayload": false },
+    { "method": "*", "path": "/api/coding/auto-dispatch", "file": "packages/server/src/routes/coding-auto-dispatch.mjs", "hasRequestSchema": true, "hasResponseSchema": false, "hasErrorMapping": false, "hasTestPayload": true }
+  ],
+  "errorCodes": [
+    { "code": "MAX_TURNS_EXCEEDED", "type": "agent-loop error", "file": "packages/server/src/lib/paaw-agent-loop.mjs", "hasRunbook": false },
+    { "code": "SECURITY_POLICY_VIOLATION", "type": "security error", "file": "packages/server/src/lib/security/policy-pipeline.mjs", "hasRunbook": false },
+    { "code": "APPROVAL_REQUIRED", "type": "security error", "file": "packages/server/src/lib/security/approval.mjs", "hasRunbook": false },
+    { "code": "REPAIR_LOOP_FAILURE", "type": "execution error", "file": "packages/server/src/lib/test-runner.mjs (repair-loop tested in tests/unit/repair-loop.test.mjs)", "hasRunbook": false }
+  ],
+  "dataModels": [
+    { "name": "CodingTask", "file": "packages/shared/src/types/index.ts", "fields": ["id", "status", "plan", "stagedChanges", "evidence", "issues"], "persistence": "file (task-persistence.mjs)" },
+    { "name": "ReleaseUnit", "file": "packages/server/src/lib/release-unit/model.mjs", "fields": ["apis", "gates", "impact", "dependencies", "architecture", "qa", "cost", "handoverState"], "persistence": "file" },
+    { "name": "Chat / Conversation", "file": "packages/db/src/repositories/chats.ts", "fields": ["id", "messages", "sessionId"], "persistence": "database (db package)" },
+    { "name": "Run", "file": "packages/db/src/repositories/runs.ts", "fields": ["id", "workflowId", "status", "steps"], "persistence": "database" },
+    { "name": "AgentMemory", "file": "packages/context/src/memory/memory-store.ts", "fields": ["key", "value", "stalenessWatermark"], "persistence": "file" },
+    { "name": "Skill", "file": "packages/server/src/routes/skills-api.mjs", "fields": ["id", "format", "prompts"], "persistence": "file" },
+    { "name": "Crew", "file": "packages/server/src/lib/project-crew.mjs", "fields": ["agents", "roles"], "persistence": "file" },
+    { "name": "ExecutionPlan", "file": "packages/server/src/lib/execution-plan.mjs", "fields": ["steps", "targets", "status"], "persistence": "memory/file" }
+  ],
+  "techDebt": [
+    { "area": "Mixed JS (.mjs) and TS module split in server", "severity": "medium", "suggestion": "packages/server is plain .mjs while engine duplicates tool-registry in TS; consolidate to TypeScript with shared tool-engine package" },
+    { "area": "Duplicated tool-registry implementations", "severity": "medium", "suggestion": "packages/server/src/lib/tool-engine and lib/tool-registry plus packages/engine/src/tool-engine define overlapping registries — unify into one source of truth" },
+    { "area": "Mock data alongside production UI", "severity": "low", "suggestion": "packages/ui/src/data/mockOrchestrators.ts and mockData.ts — move behind a dev flag or remove" },
+    { "area": "Very large flat lib directory (~70 files)", "severity": "medium", "suggestion": "packages/server/src/lib mixes unrelated domains; group into sub-packages (coding, release-unit already grouped, security already grouped)" },
+    { "area": "No package.json visible / dependency metadata missing", "severity": "high", "suggestion": "Dependencies list is empty in provided context — verify manifests exist and are committed for reproducible installs" },
+    { "area": "Chinese-only commit messages and missing docs directory", "severity": "low", "suggestion": "Add docs/ and bilingual commit conventions for onboarding" }
+  ],
+  "healthGaps": {
+    "missingApiSpec": true,
+    "missingErrorMap": true,
+    "missingTests": false,
+    "missingStandards": true,
+    "missingArchitecture": true,
+    "missingDecisions": true
+  }
+}
 ```
-find . -type f ( -name '*.ts' ... )      ← syntax error near `('
-```
-
-**Corrected command** (escape as `\(` `\)`, or run under bash/zsh):
-
-```bash
-find . -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.mjs' -o -name '*.js' -o -name '*.cjs' -o -name '*.jsx' -o -name '*.py' -o -name '*.java' -o -name '*.go' -o -name '*.rb' -o -name '*.php' \) \
-  -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/.paaw/*' \
-  -not -path '*/dist/*' -not -path '*/build/*' -not -path '*/coverage/*' \
-  -not -path '*/data/semgrep-rules/*'
-```
-
-Also note: the `Dependencies` field came back empty, so the package.json read likely failed too — worth re-checking that step.
-
----
-
-### 2. Unverified inferences from git log (NOT for the inventory)
-
-Hypotheses only — must be confirmed against actual source before entering the knowledge base:
-
-- **Project**: PAAW (`paaw`), v0.3.9, appears to be a self-hosted AI agent workbench / "agentic platform" with a plugin system (`agentic-platform`, `agentic-bindings` plugins referenced)
-- **Likely modules referenced in commits**: onboarding wizard, Provider (LLM) settings, Chat (ChatView), EM (with Chat + 派工 Auto Dispatch sub-tabs), Ops (Runbook + Troubleshooting), backup system, logging with retention policy, seed data (bookmarks, pocket apps), code-health scoring (recently simplified)
-- **Runtime hints**: `.mjs` files and `PAAW_DATA_HOME` env var suggest Node.js; Windows backup paths + onboarding UI suggest a desktop or local web app
-- **Locale**: Traditional Chinese UI/commits
-- **Recent architectural churn**: removal of Project Knowledge Panel, Code Health five-category scores, ensure-default patterns being stripped (0.3.5–0.3.7) — the codebase is mid-refactor
-
----
-
-### 3. What I need to complete the scan
-
-Re-run the context gathering with:
-1. The corrected `find` command (or `git ls-files` as a simpler fallback)
-2. The actual `package.json` contents
-3. Source files themselves (or at minimum the tree + key entry points) so dependency edges and API definitions can be verified
-
-Once the file tree lands, I can produce the full JSON inventory in one pass — including `healthGaps`, which I suspect will flag `missingArchitecture` and `missingDecisions` given the ongoing refactors visible in the log.

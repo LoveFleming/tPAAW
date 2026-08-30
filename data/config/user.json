@@ -14,6 +14,7 @@
     "autoDispatchFallback": "openrouter/deepseek/deepseek-v4-flash-0731",
     "appBuilder": "openrouter/z-ai/glm-5.1",
     "codingIDE.coding.developer": "zai/glm-5.1",
-    "codingIDE.coding.architect": "zai/glm-5.1"
+    "codingIDE.coding.architect": "zai/glm-5.1",
+    "codingIDE.emDashboard": "zai/glm-5.1"
   }
 }

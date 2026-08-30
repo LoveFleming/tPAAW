@@ -477,5 +477,33 @@
     "tags": [],
     "createdAt": "2026-07-04T09:48:28.243Z",
     "updatedAt": "2026-07-04T09:49:33.142Z"
+  },
+  {
+    "ticketId": "TKT-1788084989665",
+    "agentName": "Agent Orchestrator",
+    "agentType": "a2a",
+    "subject": "ping",
+    "status": "answered",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1788084989665_uz2c",
+        "role": "user",
+        "text": "ping",
+        "ts": 1788084989665
+      },
+      {
+        "id": "msg_1788084989665_mi1g",
+        "role": "agent",
+        "text": "pong 🏓\n\nHelpDesk 在線上，有什麼可以幫你的嗎？",
+        "ts": 1788084989665
+      }
+    ],
+    "tags": [
+      "a2a:task-1788084984072-hx88hb",
+      "a2a"
+    ],
+    "createdAt": "2026-08-30T10:16:29.665Z",
+    "updatedAt": "2026-08-30T10:16:29.665Z"
   }
 ]

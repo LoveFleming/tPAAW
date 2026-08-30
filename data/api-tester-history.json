@@ -1,5 +1,39 @@
 [
   {
+    "id": "req-1787037982960",
+    "ts": "2026-08-18T07:26:22.960Z",
+    "method": "GET",
+    "url": "http://localhost:4097/api/models",
+    "status": 200,
+    "elapsed": 9,
+    "headers": [
+      {
+        "key": "Content-Type",
+        "value": "application/json",
+        "enabled": true
+      }
+    ],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "access-control-allow-headers": "Content-Type",
+        "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+        "access-control-allow-origin": "*",
+        "connection": "keep-alive",
+        "content-type": "application/json",
+        "date": "Tue, 18 Aug 2026 07:26:22 GMT",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": "{\"providers\":[{\"id\":\"zai\",\"name\":\"智譜 GLM\",\"models\":[{\"id\":\"glm-5.1\",\"name\":\"GLM-5.1\"},{\"id\":\"glm-5\",\"name\":\"GLM-5\"}]},{\"id\":\"openrouter\",\"name\":\"OpenRouter\",\"models\":[{\"id\":\"moonshotai/kimi-k2.6\",\"name\":\"Kimi K2.6\"},{\"id\":\"deepseek/deepseek-v4-flash-0731\",\"name\":\"DeepSeek V4 Flash\"},{\"id\":\"z-ai/glm-5.1\",\"name\":\"GLM-5.1 (via OpenRouter)\"}]}],\"activeProviderId\":\"zai\",\"current\":\"glm-5.1\",\"defaultModel\":\"glm-5.1\",\"paawRoot\":\"/Users/steward/App/tPAAW\"}",
+      "elapsed": 9,
+      "size": 451
+    }
+  },
+  {
     "id": "req-1782563235862",
     "ts": "2026-06-27T12:27:15.862Z",
     "method": "GET",

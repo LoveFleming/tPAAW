@@ -90,3 +90,15 @@
 {"runId":"system-daily-backup-2026-08-15T16-00-01","status":"done","result":"backup-2026-08-15T16-00-01.tar.gz","ts":"2026-08-15T16:00:02.470Z"}
 {"runId":"system-daily-backup-2026-08-16T16-00-26","status":"started","ts":"2026-08-16T16:00:26.289Z"}
 {"runId":"system-daily-backup-2026-08-16T16-00-26","status":"done","result":"backup-2026-08-16T16-00-26.tar.gz","ts":"2026-08-16T16:00:27.510Z"}
+{"runId":"system-daily-backup-2026-08-17T16-00-00","status":"started","ts":"2026-08-17T16:00:00.188Z"}
+{"runId":"system-daily-backup-2026-08-17T16-00-00","status":"done","result":"backup-2026-08-17T16-00-00.tar.gz","ts":"2026-08-17T16:00:01.385Z"}
+{"runId":"system-daily-backup-2026-08-18T16-00-15","status":"started","ts":"2026-08-18T16:00:15.801Z"}
+{"runId":"system-daily-backup-2026-08-18T16-00-15","status":"done","result":"backup-2026-08-18T16-00-15.tar.gz","ts":"2026-08-18T16:00:17.013Z"}
+{"runId":"system-daily-backup-2026-08-19T16-00-14","status":"started","ts":"2026-08-19T16:00:14.986Z"}
+{"runId":"system-daily-backup-2026-08-19T16-00-14","status":"done","result":"backup-2026-08-19T16-00-14.tar.gz","ts":"2026-08-19T16:00:16.174Z"}
+{"runId":"system-daily-backup-2026-08-20T16-00-10","status":"started","ts":"2026-08-20T16:00:10.639Z"}
+{"runId":"system-daily-backup-2026-08-20T16-00-10","status":"done","result":"backup-2026-08-20T16-00-10.tar.gz","ts":"2026-08-20T16:00:11.846Z"}
+{"runId":"system-daily-backup-2026-08-21T16-00-05","status":"started","ts":"2026-08-21T16:00:05.484Z"}
+{"runId":"system-daily-backup-2026-08-21T16-00-05","status":"done","result":"backup-2026-08-21T16-00-05.tar.gz","ts":"2026-08-21T16:00:06.693Z"}
+{"runId":"system-daily-backup-2026-08-22T16-00-13","status":"started","ts":"2026-08-22T16:00:13.742Z"}
+{"runId":"system-daily-backup-2026-08-22T16-00-13","status":"done","result":"backup-2026-08-22T16-00-13.tar.gz","ts":"2026-08-22T16:00:14.940Z"}
