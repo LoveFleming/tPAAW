@@ -2939,9 +2939,14 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           {/* ── .paaw/ Project Knowledge removed (agents maintain via API) ── */}
         </div>
 
-        {/* Sidebar resize */}
-        <div className="w-px cursor-col-resize hover:w-0.5 hover:bg-blue-400 active:bg-blue-500 transition-all shrink-0"
-          onMouseDown={e => startResize("sidebar", e)} style={{ backgroundColor: tk.borderLight }} />
+        {/* Sidebar resize — 視覺 1px 細線、命中區 ±6px（VS Code 慣例：好抓比好看重要） */}
+        <div
+          className="relative shrink-0 w-[13px] cursor-col-resize group"
+          onMouseDown={e => startResize("sidebar", e)}
+          style={{ "--split-line": tk.borderLight } as React.CSSProperties}
+        >
+          <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-[var(--split-line)] group-hover:bg-blue-400 group-active:bg-blue-500" />
+        </div>
         </>)}
 
         {/* ── Center: Unified Tab System ── */}
@@ -3288,8 +3293,10 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   )}
                 </div>
 
-                {/* ── Splitter ── */}
-                <div className="h-px cursor-row-resize hover:h-1 hover:bg-blue-400 active:bg-blue-500 transition-all shrink-0"
+                {/* ── Splitter ──（同 sidebar：視覺 1px、命中區 ±6px） ── */}
+                <div
+                  className="relative shrink-0 h-[13px] cursor-row-resize group"
+                  style={{ "--split-line": tk.border } as React.CSSProperties}
                   onMouseDown={e => {
                     e.preventDefault();
                     const container = e.currentTarget.parentElement;
@@ -3310,7 +3317,9 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                     const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
                     document.addEventListener("mousemove", onMove);
                     document.addEventListener("mouseup", onUp);
-                  } } style={{ backgroundColor: tk.border }} />
+                  } }>
+                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-[var(--split-line)] group-hover:bg-blue-400 group-active:bg-blue-500" />
+                </div>
 
                 {/* ── Bottom: Response Viewer ── */}
                 <div data-api-panel="response" className="flex-1 overflow-y-auto p-3 min-h-0">
