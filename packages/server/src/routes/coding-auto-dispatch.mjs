@@ -254,6 +254,19 @@ export default async function codingAutoDispatchRoute(req, res) {
       try { reqBody = JSON.parse(await readBody(req) || "{}"); } catch {}
       const root = urlObj.searchParams.get("path") || reqBody.cwd || projRoot;
       const statusPath = join(root, AUTO_DISPATCH_DIR, STATUS_FILE);
+      // 2026-08-30 殭屍救援：沒有活的 dispatch process 時，stop 直接把殭屍標 interrupted
+      // （否則 stopRequested 掛著永遠等不到「task 完成後停止」的中斷點 — Fleming 實案例）
+      if (!_activeRuns.has(root)) {
+        const fixed = updateStatusFile(statusPath, (current) => {
+          if (current.status !== "running" || _activeRuns.has(root)) return null;
+          const events = [...(current.events || []), { ts: new Date().toISOString(), type: "info", message: "⚠️ 殭屍 running（無活 dispatch）— 中斷請求直接生效，已標 interrupted；重新 start 可續跑" }].slice(-80);
+          return { ...current, status: "interrupted", completedAt: new Date().toISOString(), error: "Interrupted (orphaned run — server restarted)", events, lastEvent: events[events.length - 1] };
+        });
+        sendJSON(res, 200, fixed
+          ? { ok: true, message: "Orphaned running status — already interrupted. Start again to resume the plan." }
+          : { ok: false, message: "Not running" });
+        return true;
+      }
       const updated = updateStatusFile(statusPath, (current) => {
         if (current.status !== "running") return null;
         const events = [...(current.events || []), { ts: new Date().toISOString(), type: "info", message: "⏹️ 使用者請求中斷 — 將於目前 task 完成後停止" }].slice(-80);
@@ -346,6 +359,19 @@ export default async function codingAutoDispatchRoute(req, res) {
     }
     try {
       const data = JSON.parse(readSync(statusFile, "utf-8"));
+      // 2026-08-30 孤兒偵測：status 說 running 但本 process 没有活的 dispatch（重啟後殭屍）
+      // → 自動降為 interrupted，UI 下一次輪詢（≤4s）就停止閃爕「中斷」/解鎖 input；
+      // plan 檔不受影響，下次 start 照常續跑（findIncompletePlans 看 plans/*.json）
+      if (data.status === "running" && !_activeRuns.has(projRoot)) {
+        const fixed = updateStatusFile(statusFile, (current) => {
+          if (current.status !== "running" || _activeRuns.has(projRoot)) return null; // 重驗（避免競態）
+          const events = [...(current.events || []), { ts: new Date().toISOString(), type: "info", message: "⚠️ 偵測到殭屍狀態（server 重啟後殘留 running）— 已自動標記 interrupted，重新 start 可續跑" }].slice(-80);
+          return { ...current, status: "interrupted", completedAt: new Date().toISOString(), error: "Server restarted while dispatch was running", events, lastEvent: events[events.length - 1] };
+        });
+        if (fixed) sendJSON(res, 200, fixed);
+        else sendJSON(res, 200, JSON.parse(readSync(statusFile, "utf-8")));
+        return true;
+      }
       sendJSON(res, 200, data);
     } catch {
       sendJSON(res, 200, { status: "error", message: "Failed to read status" });
