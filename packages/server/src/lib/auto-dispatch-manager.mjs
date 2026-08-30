@@ -382,6 +382,7 @@ ${requireEstimate ? '- 每項必須附預估 effort（' + defaultEffort + ' 为�
         sanitize: true,
         caller: "em-plan",
         agentId: "em-plan",
+        disableThinking: true, // EM 規劃=JSON 派工表（2026-08-30）
         ...opts,
       });
       return result;
@@ -396,6 +397,7 @@ ${requireEstimate ? '- 每項必須附預估 effort（' + defaultEffort + ' 为�
           sanitize: true,
           caller: "em-plan",
           agentId: "em-plan",
+          disableThinking: true, // EM 規劃=JSON 派工表 — 最不該被 thinking 截斷的輸出（2026-08-30）
           ...opts,
         });
         if (result) return result;

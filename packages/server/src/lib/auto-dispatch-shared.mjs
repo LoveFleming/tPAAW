@@ -461,6 +461,7 @@ export async function refreshFeatureMapping(projRoot, modelOverride, fallbackMod
         sanitize: true,
         caller: "auto-dispatch",
         agentId: "auto-dispatch",
+        disableThinking: true, // 結構化輸出 — thinking 燒額度風險（2026-08-30）
         ...opts,
       });
       return result;
@@ -475,6 +476,7 @@ export async function refreshFeatureMapping(projRoot, modelOverride, fallbackMod
           sanitize: true,
           caller: "auto-dispatch",
           agentId: "auto-dispatch",
+          disableThinking: true, // 結構化輸出 — thinking 燒額度風險（2026-08-30）
           ...opts,
         });
         if (result) return result;

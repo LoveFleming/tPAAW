@@ -190,6 +190,7 @@ async function callLLM(systemPrompt, userPrompt, maxTokens = 4096, modelOverride
       sanitize: true,
       caller: "distill",
       agentId: "distill",
+      disableThinking: true, // 蒸餾=結構化大輸出，thinking 燒額度（2026-08-30）
     });
 
     if (!isMeaningfulContent(result.content)) {

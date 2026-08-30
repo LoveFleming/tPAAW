@@ -315,9 +315,15 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
     sanitize = true,
     agentId = null,
     fallbacks = [], // [{ apiUrl, headers, model, maxTokens? }]
+    disableThinking = false, // 2026-08-30：結構化/大輸出任務用 — zai 才注入 thinking disabled（其他 provider 不帶免得格式不符）
   } = opts;
   const _startTime = Date.now();
   const _callId = `llm-${_startTime}-${Math.random().toString(36).slice(2, 8)}`;
+
+  // thinking off 咽喉處理：僅 zai（url 判別）、僅 caller 沒自己帶 thinking 時
+  if (disableThinking && body.thinking === undefined && /z\.ai/.test(apiUrl)) {
+    body.thinking = { type: "disabled" };
+  }
 
   // ── LLM Request Log ──
   const caller = opts.caller || agentId || "unknown";

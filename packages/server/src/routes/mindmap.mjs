@@ -176,6 +176,7 @@ async function generateMindMap(userPrompt, content, modelOverride) {
     caller: "mindmap",
     agentId: "assistant",
     fallbacks: llm.fallbacks || [],
+    disableThinking: true, // 心智圖=結構化大輸出，4096 額度被 thinking 燒風險高（2026-08-30）
   });
 
   const markdown = cleanMarkdownResponse(result.content);
@@ -341,6 +342,7 @@ async function handleMindMapRoutes(req, res) {
         caller: "mindmap-chat",
         agentId: "assistant",
         fallbacks: llm.fallbacks || [],
+        disableThinking: true, // max_tokens 4096 — thinking 燒額度風險（2026-08-30）
       });
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true, content: result.content }));

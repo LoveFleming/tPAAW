@@ -12,6 +12,7 @@ import { readFile, writeFile, mkdir } from "fs/promises";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readBody, json } from "./shared.mjs";
+import { callLLMWithRetry } from "../lib/llm-utils.mjs"; // 2026-08-30：fallback 摘要改走統一咽喉（原本 direct fetch 無 retry/log/診斷）
 import { JsonTaskPersistence } from "../lib/task-persistence.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 import { truncateToolResultsInMessages, limitHistoryTurns } from "../lib/context-truncation.mjs";
@@ -209,17 +210,18 @@ ${memoryContext}
   // ── Fallback: force summary if ToolEngine exhausted rounds without producing text ──
   if (fullText.trim().length < 100 && toolsUsed.length > 0) {
     console.log(`[HelpDesk] Text too short (${fullText.length} chars), forcing summary call`);
-    const res = await fetch(`${provider.baseURL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${provider.apiKey}`,
-        ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
-      },
-      body: JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, ...conversation, { role: "user", content: "剛才你讀了知識庫檔案。現在請直接根據你讀到的內容，用繁體中文完整回答使用者的問題。不要使用任何工具，直接輸出答案。" }], temperature: 0.3 }),
+    const data = await callLLMWithRetry(`${provider.baseURL.replace(/\/+$/, "")}/chat/completions`, {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${provider.apiKey}`,
+      ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
+    }, { model, messages: [{ role: "system", content: systemPrompt }, ...conversation, { role: "user", content: "剛才你讀了知識庫檔案。現在請直接根據你讀到的內容，用繁體中文完整回答使用者的問題。不要使用任何工具，直接輸出答案。" }], temperature: 0.3 }, {
+      maxRetries: 2,
+      timeoutMs: 120_000,
+      caller: "helpdesk",
+      agentId: "helpdesk",
+      disableThinking: true, // 強制摘要=結構化回答，thinking 燒額度風險（2026-08-30）
     });
-    const data = await res.json();
-    fullText = data.choices?.[0]?.message?.content || fullText;
+    fullText = data.content || fullText;
     console.log(`[HelpDesk] Summary call result: ${fullText.length} chars`);
   }
 

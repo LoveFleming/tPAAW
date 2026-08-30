@@ -229,6 +229,7 @@ export default async function vibeSessionsRoute(req, res) {
               sanitize: true,
               caller: "vibe-sessions",
               agentId: "assistant",
+              disableThinking: true, // 蒸餾=結構化輸出（2026-08-30）
             });
             distilled = isMeaningfulContent(result.content) ? result.content : null;
           }

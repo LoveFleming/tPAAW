@@ -411,7 +411,7 @@ Respond with ONLY the commit message, nothing else.`;
         max_tokens: 2000, // 2026-08-16: GLM 5.1 是 reasoning model，300 會被 thinking 吃光（content 產出 0 字）
         temperature: 0.3,
         stream: false,
-      }, { maxRetries: 2, timeoutMs: 30_000, caller: "vibe-fs", agentId: "assistant", fallbacks: llm.fallbacks || [] });
+      }, { maxRetries: 2, timeoutMs: 30_000, caller: "vibe-fs", agentId: "assistant", fallbacks: llm.fallbacks || [], disableThinking: true }); // 2026-08-16 註解的正解：與其提高 max_tokens 閃 thinking，直接關掉
 
       let msg = result.content || "";
       // Strip code block wrapping if present

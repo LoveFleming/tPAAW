@@ -784,6 +784,7 @@ async function vibeSessionsApiHandler(req, res) {
             sanitize: true,
             caller: "cron-distill",
             agentId: "cron",
+            disableThinking: true, // 蒸餾=結構化輸出（2026-08-30）
           });
           distilled = isMeaningfulContent(result.content) ? result.content : null;
         }

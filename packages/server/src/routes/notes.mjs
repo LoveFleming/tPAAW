@@ -111,6 +111,7 @@ async function aiWriteNote(userPrompt, content, modelOverride) {
     ],
     max_tokens: 4096,
   }, {
+    disableThinking: true, // 筆記整理=結構化輸出（2026-08-30）
     maxRetries: 3,
     timeoutMs: 900_000,
     validateContent: true,

@@ -412,6 +412,7 @@ export default async function skillsApiRoute(req, res) {
         max_tokens: llm.maxTokens || 16384,
         temperature: 0.7,
       }, {
+        disableThinking: true, // skill 執行=deterministic 腳本輸出（2026-08-30）
         maxRetries: 3,
         timeoutMs: 900_000,
         validateContent: true,
