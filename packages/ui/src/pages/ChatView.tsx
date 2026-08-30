@@ -149,7 +149,19 @@ const MessageRow = React.memo(function MessageRow({
                 )}
               </div>
             ) : (
-              <div className="whitespace-pre-wrap">{msg.content}</div>
+              <div>
+                {/* 👁 Vision Phase 2 補完：氣泡渲染送出的圖（2026-08-30 Fleming 回報沒顯示） */}
+                {msg.images && msg.images.length > 0 && (
+                  <div className="flex gap-2 mb-2 flex-wrap">
+                    {msg.images.map((p, j) => (
+                      <a key={j} href={`${API_BASE}/api/${p}`} target="_blank" rel="noreferrer">
+                        <img src={`${API_BASE}/api/${p}`} alt="" className="max-w-[180px] max-h-[180px] rounded-lg border border-stone-200 object-cover hover:opacity-90 transition-opacity" />
+                      </a>
+                    ))}
+                  </div>
+                )}
+                <div className="whitespace-pre-wrap">{msg.content}</div>
+              </div>
             )}
           </div>
         </div>

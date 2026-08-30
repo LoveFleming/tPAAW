@@ -304,6 +304,32 @@ function extractText(message) {
     .join("\n");
 }
 
+// 👁 2026-08-30：抽取 message.parts 裡的圖（coding app agent chat 貼圖）
+// 安全：只允許 uploads/<安全檔名> — 防路徑穿越（客戶端可傳任意 path）
+const UPLOADS_PATH_RE = /^uploads\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+export function extractImages(message) {
+  if (!message?.parts) return [];
+  const paths = message.parts
+    .filter(p => (p.type === "image" || p.kind === "image") && typeof p.path === "string")
+    .map(p => p.path);
+  const valid = [...new Set(paths)].filter(p => UPLOADS_PATH_RE.test(p));
+  const dropped = paths.length - valid.length;
+  if (dropped > 0) console.warn(`[A2A] ⚠️ 丟棄 ${dropped} 個不合法圖片 path（僅允許 uploads/xxx）`);
+  return valid.slice(0, 4); // 與 chat 面同上限 4 張
+}
+
+// 👁 圖 append 成 user attachment message（重用 Phase 3 機制：vision 自動路由/降級/上限都在裡面）
+// uploads/<name> 是 data 相對路徑 → 解成絕對路徑（buildImageAttachmentMessage 吃絕對路徑）
+async function appendImageMessages(messages, imagePaths, sourceLabel) {
+  if (!imagePaths?.length) return;
+  const { buildImageAttachmentMessage } = await import("../lib/vision-content.mjs");
+  const { uploadsDir } = await import("./uploads.mjs");
+  const abs = imagePaths.map(p => join(uploadsDir(), p.slice("uploads/".length)));
+  const imgMsg = buildImageAttachmentMessage(abs, `使用者貼的圖（${sourceLabel}）`);
+  if (imgMsg) messages.push(imgMsg);
+  else console.warn("[A2A] ⚠️ 圖片檔讀取失敗 — 降級為純文字輪");
+}
+
 function makeAgentMessage(text) {
   return {
     role: "agent",
@@ -789,6 +815,10 @@ export default async function a2aRoutes(req, res) {
             }
             messages.push({ role: "user", content: userText });
 
+            // 👁 2026-08-30：coding app agent chat 貼圖 — message.parts 帶圖 → append vision attachment（loop 自動路由 visionModel）
+            const _imgs = extractImages(params?.message);
+            if (_imgs.length > 0) await appendImageMessages(messages, _imgs, agentId);
+
             // ── Apply context window trimming (aligned with agent loop: 262K budget) ──
             const { trimMessagesToFit } = await import("../lib/paaw-agent-loop.mjs");
             const finalMessages = trimMessagesToFit(messages);
@@ -942,6 +972,10 @@ export default async function a2aRoutes(req, res) {
               }
             }
             messages.push({ role: "user", content: userText });
+
+            // 👁 2026-08-30：coding app agent chat 貼圖 — message.parts 帶圖 → append vision attachment（loop 自動路由 visionModel）
+            const _imgs = extractImages(params?.message);
+            if (_imgs.length > 0) await appendImageMessages(messages, _imgs, agentId);
 
             // ── Apply context window trimming (aligned with agent loop: 262K budget) ──
             const { trimMessagesToFit } = await import("../lib/paaw-agent-loop.mjs");

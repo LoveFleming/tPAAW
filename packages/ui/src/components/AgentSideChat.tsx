@@ -10,6 +10,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import API_BASE from "../api";
 import { fmtChatTime } from "../utils";
+import { useI18n } from "../i18n";
 import MarkdownText from "./MarkdownText"; // markdown 渲染（含 GFM table）
 
 // fetch crew 大頭照（AI Crew 頁面同一張）；失敗 fallback emoji
@@ -31,6 +32,7 @@ export interface SideChatMessage {
   role: "user" | "assistant";
   content: string;
   ts: string;
+  images?: string[]; // 👁 uploads/ 相對路徑（agent chat 貼圖，2026-08-30）
 }
 
 interface AgentSideChatProps {
@@ -69,6 +71,45 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
   const nearBottomRef = useRef(true);
   const composingRef = useRef(false); // IME 三層保護（可靠層）
   const avatarUrl = useCrewAvatar(agentId, true);
+  const { t: tt } = useI18n();
+
+  // 👁 agent chat 貼圖（2026-08-30）：paste/drop/picker → 壓縮 → 上傳 → a2a parts 喜vision model
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [pendingImages, setPendingImages] = useState<{ id: string; dataUrl: string }[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+  const compressImage = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX = 1568;
+          const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/jpeg", 0.8));
+        };
+        img.onerror = () => reject(new Error("image load fail"));
+        img.src = String(reader.result);
+      };
+      reader.onerror = () => reject(new Error("file read fail"));
+      reader.readAsDataURL(file);
+    });
+  }, []);
+  const addImages = useCallback(async (files: File[]) => {
+    const imgs = files.filter(f => f.type.startsWith("image/"));
+    if (imgs.length === 0) return;
+    const room = 4 - pendingImages.length;
+    if (room <= 0) { alert(tt("chat.imageLimit")); return; }
+    const results: { id: string; dataUrl: string }[] = [];
+    for (const f of imgs.slice(0, room)) {
+      try { results.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, dataUrl: await compressImage(f) }); } catch {}
+    }
+    if (results.length > 0) setPendingImages(p => [...p, ...results].slice(0, 4));
+  }, [compressImage, pendingImages.length, tt]);
 
 
   // 串流抖動修復：新訊息 smooth；同一訊息內容增長（串流 chunk）用 instant + 只在使用者在底部附近時
@@ -92,11 +133,26 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
 
   const send = useCallback(async (text?: string) => {
     const msg = (text ?? input).trim();
-    if (!msg || loading) return;
-    if (text) setInput("");
-    else setInput("");
+    if ((!msg && pendingImages.length === 0) || loading) return;
+    setInput("");
 
-    const userMsg: SideChatMessage = { role: "user", content: msg, ts: new Date().toISOString() };
+    // 👁 先上傳 pending 圖 → 換 path（失敗跳過）
+    let uploadedPaths: string[] = [];
+    if (pendingImages.length > 0) {
+      const results = await Promise.all(pendingImages.map(async (img) => {
+        try {
+          const r = await fetch(`${API_BASE}/api/uploads`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataUrl: img.dataUrl }) });
+          const j = await r.json();
+          return j.ok ? j.path : null;
+        } catch { return null; }
+      }));
+      uploadedPaths = results.filter(Boolean) as string[];
+    }
+    setPendingImages([]);
+    const textPart = msg || (uploadedPaths.length > 0 ? "請看這張圖" : "");
+    if (!textPart) return;
+
+    const userMsg: SideChatMessage = { role: "user", content: textPart, ts: new Date().toISOString(), ...(uploadedPaths.length > 0 ? { images: uploadedPaths } : {}) };
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
     setAction("💭 思考中…");
@@ -112,9 +168,9 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
           jsonrpc: "2.0",
           method: "message/stream",
           params: {
-            message: { role: "user", parts: [{ type: "text", text: msg }] },
+            message: { role: "user", parts: [{ type: "text", text: textPart }, ...uploadedPaths.map(p => ({ type: "image", path: p }))] },
             context: { cwd },
-            conversationHistory: [...messages, { role: "user", content: msg }],
+            conversationHistory: [...messages, { role: "user", content: textPart }],
           },
           id: `${agentId}-chat-${Date.now()}`,
         }),
@@ -187,7 +243,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
       setAction("");
       abortRef.current = null;
     }
-  }, [input, loading, messages, agentId, cwd]);
+  }, [input, loading, messages, agentId, cwd, pendingImages]);
 
   // 外部注入訊息（Handover QA chips → AI；不改變內部訊息流）
   React.useImperativeHandle(ref, () => ({ send: (text: string) => { send(text); } }), [send]);
@@ -239,7 +295,16 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
               {m.role === "assistant" ? (
                 <MarkdownText>{m.content}</MarkdownText>
               ) : (
-                <div className="text-xs whitespace-pre-wrap leading-relaxed">{m.content}</div>
+                <div>
+                  {m.images && m.images.length > 0 && (
+                    <div className="flex gap-1.5 mb-1 flex-wrap justify-end">
+                      {m.images.map((p, j) => (
+                        <img key={j} src={`${API_BASE}/api/${p}`} alt="" className="max-w-[140px] max-h-[140px] rounded-lg object-cover" />
+                      ))}
+                    </div>
+                  )}
+                  <div className="text-xs whitespace-pre-wrap leading-relaxed">{m.content}</div>
+                </div>
               )}
             </div>
           </div>
@@ -254,11 +319,31 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
       </div>
 
       {/* Input — IME 三層保護：composingRef → isComposing → keyCode 229 */}
-      <div className="border-t p-2 shrink-0" style={{ borderColor: "#e7e5e4" }}>
+      <div className="border-t p-2 shrink-0" style={{ borderColor: "#e7e5e4" }}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); addImages(Array.from(e.dataTransfer.files)); }}>
+        {/* 👁 待送圖預覽 */}
+        {pendingImages.length > 0 && (
+          <div className="flex gap-1.5 mb-1.5 flex-wrap">
+            {pendingImages.map(img => (
+              <div key={img.id} className="relative group">
+                <img src={img.dataUrl} alt="" className="w-14 h-14 object-cover rounded-lg border border-stone-200" />
+                <button onClick={() => setPendingImages(p => p.filter(x => x.id !== img.id))} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-stone-700 text-white text-[9px] flex items-center justify-center opacity-80 hover:opacity-100">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+        {dragOver && <div className="mb-1.5 text-[10px] px-2 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">{tt("chat.imageDropHere")}</div>}
         <div className="flex gap-1.5 items-end">
+          {/* 👁 📞 貼圖鈕 */}
+          <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addImages(Array.from(e.target.files || [])); e.target.value = ""; }} />
+          <button onClick={() => imageInputRef.current?.click()} disabled={pendingImages.length >= 4} title={tt("chat.attachImage")}
+            className="text-xs px-2 py-2 rounded-lg border border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300 disabled:opacity-40 shrink-0 bg-stone-50">📎</button>
           <textarea
             value={input}
             onChange={e => setInput(e.target.value)}
+            onPaste={(e) => { const files = Array.from(e.clipboardData?.files || []); if (files.length > 0) { e.preventDefault(); addImages(files); } }}
             onCompositionStart={() => { composingRef.current = true; }}
             onCompositionEnd={() => { composingRef.current = false; }}
             onKeyDown={e => {
@@ -273,7 +358,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
             <button onClick={() => abortRef.current?.abort()}
               className="text-xs px-3 py-2 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 shrink-0">停止</button>
           ) : (
-            <button onClick={() => send()} disabled={!input.trim()}
+            <button onClick={() => send()} disabled={!input.trim() && pendingImages.length === 0}
               className="text-xs px-3 py-2 rounded-lg text-white disabled:opacity-40 shrink-0" style={{ backgroundColor: accent }}>
               送出
             </button>
