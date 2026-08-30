@@ -169,6 +169,14 @@ export function locateTarget(page, { selector, text }) {
   throw new Error("Provide `selector` or `text` to identify the element");
 }
 
+/** 安裝 chromium 元件後重置「未安裝」狀態（UI 不再顯示未安裝；下次操作 lazy 重啟） */
+export function resetBrowserAvailability() {
+  if (!_ctx && _state.available === false) {
+    _state.available = null;
+    _state.error = null;
+  }
+}
+
 /** 未安裝 playwright 時的安裝指引 */
 export const PLAYWRIGHT_INSTALL_HINT =
   "Playwright is not installed on this machine.\n" +

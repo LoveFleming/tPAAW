@@ -17,6 +17,7 @@ import {
   browserTabs, browserNewTab, browserSwitchTab, browserCloseTab, browserNavAction,
   browserDownloads, browserHandleDialog,
 } from "../lib/browser-session.mjs";
+import { getBrowserSetupStatus, startBrowserInstall, browserInstallState } from "../lib/browser-setup.mjs";
 
 const SHOT_DIR = join(DATA_HOME, "logs", "browser");
 
@@ -32,6 +33,22 @@ function readBody(req) {
 export default async function browserRoute(req, res) {
   const method = req.method;
   const url = (req.url || "").split("?")[0];
+
+  // ── 可選元件：chromium 偵測 + 一鍵安裝（Gateway 前置工程）──
+  // GET /api/browser/setup — 偵測 playwright/chromium 是否就緒 + 安裝進度
+  if (url === "/api/browser/setup" && method === "GET") {
+    try {
+      const setup = await getBrowserSetupStatus();
+      json(res, 200, { ok: true, ...setup, install: browserInstallState() });
+    } catch (e) { json(res, 500, { error: e.message }); }
+    return true;
+  }
+  // POST /api/browser/setup/install — 一鍵安裝 chromium（冪等、背景執行、進度用 GET setup 輪詢）
+  if (url === "/api/browser/setup/install" && method === "POST") {
+    try { json(res, 200, { ok: true, install: startBrowserInstall() }); }
+    catch (e) { json(res, e.statusCode || 500, { ok: false, error: e.message, install: browserInstallState() }); }
+    return true;
+  }
 
   // POST /api/browser/navigate {url} — 手動導航（IDE 網址列用；與 agent 共用同一個 page）
   if (url === "/api/browser/navigate" && method === "POST") {
