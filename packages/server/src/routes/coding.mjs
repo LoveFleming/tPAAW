@@ -161,6 +161,12 @@ import { DATA_HOME } from "../data-home.mjs";
 
 // ── LLM Call Helper for project routes ──
 // Resolves provider config and calls LLM with proper 4-arg signature
+// CU 智能層/知識產出 LLM 呼叫統一參數（2026-08-30）
+// maxTokens 32000：16000 會被 thinking 燒光（reasoning_tokens=15989 → content 空 ×4）
+// caller em：這批呼叫屬 EM dashboard 的 AI 初始化/知識建構流 — 成本歸集（R3）別記在 coding 帳上
+const CU_LLM_MAX_TOKENS = 32000;
+const CU_LLM_OPTS = { caller: "em", agentId: "em" };
+
 async function callProjectLLM(body, opts = {}) {
   // providers.json lives at {DATA_HOME}/config/providers.json
   // (PAAW_DATA_HOME env > repo data/ — gateway 版 data 在 HOME/data)
@@ -2727,9 +2733,9 @@ export default async function projectRoute(req, res) {
             model: cuModelOverride || undefined,
             messages: [{ role: "user", content: fullPrompt }],
             temperature: 0.2,
-            maxTokens: 32000,
+            maxTokens: CU_LLM_MAX_TOKENS,
             thinking: { type: "disabled" }, // CU 產出 deterministic JSON — 關思考免得 reasoning 烒光 max_tokens（2026-08-30）
-          }, { timeoutMs: 600_000, maxRetries: 3 }); // 10 min timeout for single step
+          }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }); // 10 min timeout for single step
 
           const content = result.content || "";
           cuLog(step.id, `LLM response: contentLen=${content.length} finishReason=${result.finishReason} attempts=${result.attempts}`);
@@ -3123,9 +3129,9 @@ export default async function projectRoute(req, res) {
               model: cuModelOverride || undefined,
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0.2,
-              maxTokens: 32000,
+              maxTokens: CU_LLM_MAX_TOKENS,
               thinking: { type: "disabled" }, // CU 產出 deterministic JSON — 關思考免得 reasoning 烒光 max_tokens（2026-08-30）
-            }, { timeoutMs: 600_000 }); // 10 min per step in bulk mode
+            }, { ...CU_LLM_OPTS, timeoutMs: 600_000 }); // 10 min per step in bulk mode
 
             const content = result.content || "";
             const sanitized = _sanitizeMd(content);
@@ -3439,8 +3445,8 @@ export default async function projectRoute(req, res) {
           model: modelOverride || undefined,
           messages,
           temperature: 0.3,
-          maxTokens: 16000,
-        });
+          maxTokens: CU_LLM_MAX_TOKENS,
+        }, CU_LLM_OPTS); // maxTokens 統一常數（防 thinking 燒光）+ 歸因 em
 
         sendEvent("done", { content: result.content || "" });
       } catch (err) {
@@ -3674,8 +3680,9 @@ Output ONLY the markdown document, starting with # Coding Standards (Auto-Genera
     const result = await callProjectLLM({
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
-      maxTokens: 16000,
-    });
+      maxTokens: CU_LLM_MAX_TOKENS,
+      thinking: { type: "disabled" }, // 產出 deterministic 文件 — 關思考（2026-08-30）
+    }, { ...CU_LLM_OPTS, timeoutMs: 600_000 });
     return result.content || null;
   } catch (err) {
     console.error("[project route] generate-standards error:", err.message);
