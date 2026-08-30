@@ -225,10 +225,14 @@ export default async function crewRoute(req, res) {
       const providers = Object.entries(providerConfig.providers || {}).filter(([_, p]) => p.enabled !== false).map(([pid, p]) => ({
         id: pid,
         name: p.name || pid,
-        models: (p.models || []).filter(m => (typeof m === "object" ? m.enabled !== false : true)).map(m => ({ id: typeof m === "string" ? m : m.id, name: typeof m === "string" ? m : (m.name || m.id) })),
+        models: (p.models || []).filter(m => (typeof m === "object" ? m.enabled !== false : true)).map(m => ({
+          id: typeof m === "string" ? m : m.id,
+          name: typeof m === "string" ? m : (m.name || m.id),
+          vision: typeof m === "object" ? m.vision === true : false, // 👁 vision-capable（2026-08-30）
+        })),
       }));
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ providers, activeProviderId, current: providerConfig.defaultModel, defaultModel: providerConfig.defaultModel, paawRoot: PAAW_ROOT }));
+      res.end(JSON.stringify({ providers, activeProviderId, current: providerConfig.defaultModel, defaultModel: providerConfig.defaultModel, visionModel: providerConfig.visionModel || null, paawRoot: PAAW_ROOT }));
     } catch (err) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ providers: [], activeProviderId: "", current: "", defaultModel: "", paawRoot: PAAW_ROOT }));

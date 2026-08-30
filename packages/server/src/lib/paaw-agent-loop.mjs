@@ -35,6 +35,7 @@ const __dirname = dirname(__filename);
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent, fetchStreamWithRetry } from "./llm-utils.mjs";
 import { smartTruncateToolResult, truncateToolResultsInMessages, limitHistoryTurns, estimateTokens } from "./context-truncation.mjs";
 import { compactIfNeeded, estimateMessageTokens, shouldCompact } from "./context-compaction.mjs";
+import { messagesForModel, isVisionModel } from "./vision-content.mjs";
 import { startAgentLog } from "./agent-exec-logger.mjs";
 import { createPaawProject } from "./paaw-project.mjs";
 import { PaawSnapshot } from "./paaw-snapshot.mjs";
@@ -3124,6 +3125,9 @@ export function trimMessagesToFit(messages, contextWindow = DEFAULT_CONTEXT_WIND
 
 export async function callLLM(apiUrl, headers, model, messages, tools, stream = false, onEvent = null, agentId = null, maxTokens = 16384, signal = null) {
   console.log(`[callLLM] model=${model}, stream=${stream}, apiUrl=${apiUrl}, messages=${messages.length}, max_tokens=${maxTokens}`);
+  // Vision 保護（2026-08-30 Phase 1）：非 vision model 收到含圖歷史 → 圖換佔位文字（防 API 400）
+  // 所有 agent surface 的 LLM 請求都走這裡 — 一處攔截全鏈生效
+  messages = messagesForModel(messages, isVisionModel(model));
   const body = {
     model,
     messages,

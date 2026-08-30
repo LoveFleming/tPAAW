@@ -20,6 +20,7 @@
  */
 
 import { estimateTokens } from "./context-truncation.mjs";
+import { contentToText, estimateContentTokens } from "./vision-content.mjs"; // vision array content 相容（2026-08-30 Phase 1）
 
 // ── Configuration ──
 
@@ -47,8 +48,8 @@ const DEFAULT_SUMMARY_MODEL = "deepseek-chat";
 export function estimateMessageTokens(messages) {
   let total = 0;
   for (const msg of messages) {
-    // Content tokens
-    total += estimateTokens(msg.content || "");
+    // Content tokens（string 或 vision array — 圖一張 ~1600 tok）
+    total += estimateContentTokens(msg.content);
 
     // Tool call overhead
     if (msg.tool_calls) {
@@ -171,7 +172,7 @@ async function summarizeMessages(messages, llmConfig, originalPrompt) {
   // Build a compact representation of the messages
   const messageText = messages.map(m => {
     const role = m.role === "assistant" ? "Assistant" : m.role === "user" ? "User" : m.role === "tool" ? "Tool Result" : "System";
-    const content = (m.content || "").slice(0, 2000); // Cap each message's contribution
+    const content = contentToText(m.content).slice(0, 2000); // Cap each message's contribution（vision array → 文字+圖片標記）
     let text = `[${role}]`;
     if (m.tool_calls?.length) {
       text += ` (called ${m.tool_calls.map(tc => tc.function?.name).join(", ")})`;
@@ -229,7 +230,7 @@ Output a structured summary in markdown:`;
       .filter(m => m.role === "assistant" || m.role === "user")
       .map(m => {
         const role = m.role === "assistant" ? "AI" : "User";
-        return `[${role}] ${(m.content || "").slice(0, 300)}`;
+        return `[${role}] ${contentToText(m.content).slice(0, 300)}`;
       });
 
     return `Fallback summary (${messages.length} messages, LLM summarization failed: ${err.message}):\n${fallbackParts.join("\n").slice(0, 5000)}`;

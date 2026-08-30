@@ -265,7 +265,7 @@ export function limitHistoryTurns(messages, maxUserTurns = 10) {
   const summaryParts = evicted
     .filter(m => m.role === "assistant" || m.role === "user")
     .map(m => {
-      const content = (m.content || "").slice(0, 200);
+      const content = (String(m.content && m.content.map ? m.content.filter(p => p.type === "text").map(p => p.text).join(" ") : m.content || "")).slice(0, 200);
       const role = m.role === "assistant" ? "AI" : "User";
       return `[${role}] ${content}`;
     });

@@ -331,7 +331,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
     stream: false,
     apiUrl: apiUrl.replace(/\/v.*$/, "/..."),
     messageCount: body.messages?.length,
-    messagesPreview: body.messages?.map(m => ({ role: m.role, len: (m.content || "").length, preview: (m.content || "").slice(0, 200) })),
+    messagesPreview: body.messages?.map(m => ({ role: m.role, len: typeof m.content === "string" ? m.content.length : Array.isArray(m.content) ? m.content.length + 1000 * m.content.filter(p => p?.type === "image_url").length : 0, preview: (typeof m.content === "string" ? m.content : (m.content || []).map(p => p?.type === "text" ? p.text : "[圖片]").join(" "))?.slice?.(0, 200) || "" })),
     toolsCount: body.tools?.length || 0,
     toolNames: (body.tools || []).map(t => t.function?.name).filter(Boolean),
     maxTokens: body.max_tokens,
