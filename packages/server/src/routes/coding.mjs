@@ -60,35 +60,8 @@ const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
 // ── CU lifecycle raw materials — 輕量掃 source file 數（純 node fs，跨平台，不碰 node_modules）──
 // 用途：判斷「代碼尚少（no-code）」— 剛建立/剛 import 的專案 code 還沒成形，
 // Code Understanding 沒東西可分析，UI 不該催
-const CU_SOURCE_EXTS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".py", ".go", ".java", ".rs", ".vue", ".svelte"]);
-const CU_SKIP_DIRS = new Set(["node_modules", ".git", ".paaw", "dist", "build", "coverage", ".next", "vendor", "target", "out", ".cache"]);
-function countSourceFiles(root) {
-  let count = 0;
-  let lastModifiedMs = 0; // 最新 source mtime — staleness 基準
-  let visited = 0;
-  const stack = [root];
-  while (stack.length > 0 && visited < 2000) {
-    const dir = stack.pop();
-    visited++;
-    let entries;
-    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { continue; }
-    for (const e of entries) {
-      if (e.name.startsWith(".")) continue; // 隱藏目錄（.git/.paaw/.next…）全部跳過
-      const full = join(dir, e.name);
-      if (e.isDirectory()) {
-        if (CU_SKIP_DIRS.has(e.name)) continue;
-        stack.push(full);
-      } else {
-        const dot = e.name.lastIndexOf(".");
-        if (dot > 0 && CU_SOURCE_EXTS.has(e.name.slice(dot).toLowerCase())) {
-          count++;
-          try { const st = statSync(full); if (st.mtimeMs > lastModifiedMs) lastModifiedMs = st.mtimeMs; } catch {}
-        }
-      }
-    }
-  }
-  return { count, lastModifiedMs };
-}
+// ⚠️ 定義已抽到 lib/cu-source-scan.mjs（單一事實來源 — paaw-project 的 CU watermark 同一套規則）
+import { countSourceFiles } from "../lib/cu-source-scan.mjs";
 
 // ── CU staleness — 智能層知識過期偵測（純 mtime 比對，免 token）──
 // step 產出檔比 code 最新 mtime 舊 → 過期（快照是舊地圖）
@@ -111,7 +84,13 @@ function computeCuStaleness(root, steps, codeLastModifiedMs) {
     if (steps[id]?.status !== "done") continue; // 沒跑過的叫 pending 不叫過期
     try {
       const st = statSync(join(root, ".paaw", rel));
-      if (codeLastModifiedMs > st.mtimeMs + STALE_TOLERANCE_MS) {
+      // ⚠️ content-addressed 寫入（diffWriteJson）：內容沒變 → skip → 檔案 mtime 不動。
+      // 純 mtime 比對會把「重掃確認無變更」誤判成永遠 stale（2026-08-30 Fleming 回報）
+      // → watermark：step 完成時記下當時 source 最新 mtime（codeMtime）存進 cu-status，
+      //   重掃無變更也會刷新 watermark = 「這版 code 我確認過」→ badge 正確消失
+      const watermark = Number(steps[id]?.codeMtime) || 0;
+      const basis = Math.max(st.mtimeMs, watermark);
+      if (codeLastModifiedMs > basis + STALE_TOLERANCE_MS) {
         staleSteps.push({ id, mechanical: CU_MECHANICAL_STEPS.has(id), manual: CU_MANUAL_STEPS.has(id) });
       }
     } catch {}

@@ -23,6 +23,7 @@ import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { exec as execCb } from "child_process";
 import { shellExec, IS_WIN } from "./shell-exec.mjs";
+import { countSourceFiles } from "./cu-source-scan.mjs";
 
 // ── Helpers ──
 
@@ -770,7 +771,15 @@ export class PaawProject {
     if (!this.exists) return;
     let cuStatus = await this.getCuStatus();
     cuStatus.steps = cuStatus.steps || {};
-    cuStatus.steps[stepId] = { status, ...extra, updatedAt: new Date().toISOString() };
+    // CU watermark（2026-08-30）：step 標 done 時記下「當時 source 最新 mtime」
+    // 重掃無變更（diffWriteJson skip → 檔案 mtime 不動）也會刷新 watermark，
+    // staleness 改以 watermark 為基準 → 「確認過這版 code」不會被誤判 stale
+    let patch = { ...extra };
+    if (status === "done" && patch.codeMtime === undefined) {
+      try { patch.codeMtime = countSourceFiles(this.root).lastModifiedMs; } catch {}
+    }
+    // merge 語意：保留先前欄位（如 codeMtime / summary）— 重複標 done 不會清掉寶貴 meta
+    cuStatus.steps[stepId] = { ...cuStatus.steps[stepId], status, ...patch, updatedAt: new Date().toISOString() };
     await writeFile(join(this.paawDir, "cu-status.json"), JSON.stringify(cuStatus, null, 2), "utf-8");
   }
 
