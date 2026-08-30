@@ -200,6 +200,12 @@ async function callProjectLLM(body, opts = {}) {
     temperature: body.temperature ?? 0.3,
     max_tokens: maxTokens,
   };
+  // thinking 控制（zai GLM 格式；其他 provider 不帶免得 fallback/格式不符）
+  // 2026-08-30 教訓：CU feature-map 29k-token prompt + thinking 默認全開 →
+  // reasoning 烒光 16k max_tokens（reasoning_tokens=15989）→ content 空 × 4 次（finish=length）
+  if (body.thinking && providerId === "zai") {
+    reqBody.thinking = body.thinking;
+  }
   return callLLMWithRetry(apiUrl, headers, reqBody, {
     maxRetries: opts.maxRetries ?? 3,
     timeoutMs: opts.timeoutMs ?? 300_000,
@@ -2721,7 +2727,8 @@ export default async function projectRoute(req, res) {
             model: cuModelOverride || undefined,
             messages: [{ role: "user", content: fullPrompt }],
             temperature: 0.2,
-            maxTokens: 16000,
+            maxTokens: 32000,
+            thinking: { type: "disabled" }, // CU 產出 deterministic JSON — 關思考免得 reasoning 烒光 max_tokens（2026-08-30）
           }, { timeoutMs: 600_000, maxRetries: 3 }); // 10 min timeout for single step
 
           const content = result.content || "";
@@ -3116,7 +3123,8 @@ export default async function projectRoute(req, res) {
               model: cuModelOverride || undefined,
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0.2,
-              maxTokens: 16000,
+              maxTokens: 32000,
+              thinking: { type: "disabled" }, // CU 產出 deterministic JSON — 關思考免得 reasoning 烒光 max_tokens（2026-08-30）
             }, { timeoutMs: 600_000 }); // 10 min per step in bulk mode
 
             const content = result.content || "";
