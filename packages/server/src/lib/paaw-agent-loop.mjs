@@ -3638,6 +3638,13 @@ export async function runAgentLoop(config) {
     // Add assistant message to history
     const historyMsg = { role: "assistant", content };
     if (toolCalls) historyMsg.tool_calls = toolCalls;
+    // 思考連續性（2026-08-30）：reasoning_content 帶回下一輪 — 多步 tool loop 不每輪失憶重推
+    // - 只在「本輪有 tool call」時帶（純文字回應後 loop 結束，帶了沒人讀）
+    // - 截斷防膨脹：保結尾 4096 字（結論在尾端）
+    const _reasoning = assistantMsg.reasoning_content;
+    if (toolCalls && toolCalls.length > 0 && _reasoning && _reasoning.trim()) {
+      historyMsg.reasoning_content = _reasoning.length > 4096 ? "…(前略)… " + _reasoning.slice(-4096) : _reasoning;
+    }
     messages.push(historyMsg);
 
     // If LLM just responded with text (no tool calls), we're done
@@ -4055,6 +4062,11 @@ export async function runAgentLoopStream(config, res) {
 
     const historyMsg = { role: "assistant", content };
     if (toolCalls) historyMsg.tool_calls = toolCalls;
+    // 思考連續性（2026-08-30）：同 runAgentLoop — reasoning_content 只在 tool 輪帶回、截尾 4096
+    const _reasoning = assistantMsg.reasoning_content;
+    if (toolCalls && toolCalls.length > 0 && _reasoning && _reasoning.trim()) {
+      historyMsg.reasoning_content = _reasoning.length > 4096 ? "…(前略)… " + _reasoning.slice(-4096) : _reasoning;
+    }
     messages.push(historyMsg);
 
     // Final text response — check for empty/whitespace, retry once
