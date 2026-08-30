@@ -35,7 +35,7 @@ const __dirname = dirname(__filename);
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent, fetchStreamWithRetry } from "./llm-utils.mjs";
 import { smartTruncateToolResult, truncateToolResultsInMessages, limitHistoryTurns, estimateTokens } from "./context-truncation.mjs";
 import { compactIfNeeded, estimateMessageTokens, shouldCompact } from "./context-compaction.mjs";
-import { messagesForModel, isVisionModel } from "./vision-content.mjs";
+import { messagesForModel, isVisionModel, hasImages, extractImageMarkers, buildImageAttachmentMessage, resolveVisionLlmConfig, visionAvailable } from "./vision-content.mjs";
 import { startAgentLog } from "./agent-exec-logger.mjs";
 import { createPaawProject } from "./paaw-project.mjs";
 import { PaawSnapshot } from "./paaw-snapshot.mjs";
@@ -411,7 +411,7 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "browser_screenshot",
-      description: "Take a screenshot of the current browser page. Saved to data/logs/browser/ and shown in the IDE Browser tab for human review. Use to visually verify UI you built.",
+      description: "Take a screenshot of the current browser page. Saved to data/logs/browser/ and shown in the IDE Browser tab. If a vision model is configured, the screenshot is ALSO attached to your context as an image so you can visually verify the page. Use to verify UI you built.",
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
@@ -1969,8 +1969,17 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           const page = await getBrowserPage(DATA_HOME);
           trackPage(page);
           const path = await takeScreenshot(DATA_HOME, page);
+          // Vision Phase 3（2026-08-30）：多拍一張 jpeg q80 給 LLM 看（png 留給 IDE Browser tab 人看）
+          // 標記由 agent loop 攔截 → 圖進 message；沒 vision 能力時降級為文字提示
+          let visionMarker = "";
+          try {
+            const shotDir = join(DATA_HOME, "logs", "browser");
+            const visionPath = join(shotDir, `shot-${Date.now()}.vision.jpg`);
+            await page.screenshot({ path: visionPath, type: "jpeg", quality: 80, fullPage: false });
+            visionMarker = `\n[[PAAW_IMAGE:${visionPath.split(/[\\/]/).join("/")}]]`;
+          } catch { /* vision copy 失敗不影響主截圖 */ }
           if (onEvent) onEvent({ type: "tool_end", name, result: path });
-          return `📸 Screenshot saved: ${path}\nVisible in IDE Browser tab (human review). Use browser_read to get text content of what you see.`;
+          return `📸 Screenshot saved: ${path}${visionMarker}\nPNG 存檔（人看）：IDE Browser tab。若 vision 可用，畫面已直接附在你的上下文裡 — 請描述你看到的內容做視覺驗證；看不到圖就用 browser_read 讀文字。`;
         } catch (shotErr) {
           const hint = /playwright|Cannot find module/i.test(shotErr?.message || "") ? `\n\n${PLAYWRIGHT_INSTALL_HINT}` : "";
           if (onEvent) onEvent({ type: "tool_error", name, error: shotErr.message });
@@ -3574,12 +3583,16 @@ export async function runAgentLoop(config) {
 
     // Call LLM (with context window trimming — smart head+tail + history limit)
     const trimmedMessages = trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW);
+    // ── Vision 路由（2026-08-30 Phase 3）：歷史含圖 + active model 非 vision + visionModel 可用 → 本輪換 vision model ──
+    // 每輪重算（compaction 收掉圖 → 自動換回原 model）；429 fallback 鏈照舊走原鏈（佔位保護接手）
+    const turnLlm = resolveVisionLlmConfig(llm, hasImages(messages)) || llm;
+    if (turnLlm !== llm) console.log(`[Agent Loop] 👁 vision routing: ${llm.providerId}/${llm.model} → ${turnLlm.providerId}/${turnLlm.model} (history has images)`);
     let response;
-    const _llmLog = _logger.llmCall({ turn: turns, model: llm.model, messageCount: trimmedMessages.length, contextTokens: estimateMessageTokens(trimmedMessages) });
+    const _llmLog = _logger.llmCall({ turn: turns, model: turnLlm.model, messageCount: trimmedMessages.length, contextTokens: estimateMessageTokens(trimmedMessages) });
     try {
-      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, (evt, data) => {
+      response = await callLLM(turnLlm.apiUrl, turnLlm.headers, turnLlm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, (evt, data) => {
         if (onEvent) onEvent({ type: evt, ...data });
-      }, agentId, llm.maxTokens, abortSignal);
+      }, agentId, turnLlm.maxTokens, abortSignal);
     } catch (err) {
       // 使用者中斷 — 不進 fallback，直接結束
       if (abortSignal?.aborted || err.name === "AbortError") {
@@ -3737,11 +3750,30 @@ export async function runAgentLoop(config) {
         args: call.function.arguments,
         result: toolResult.slice(0, 1000),
       });
+      // ── Vision Phase 3（2026-08-30）：tool result 帶 [[PAAW_IMAGE:...]] → 圖進 agent message ──
+      // 有看圖能力（active model 是 vision 或 visionModel 可路由）→ tool 訊息帶乾淨文字 + 追加圖片訊息
+      // 沒有 → 標記降級為「已存檔」文字提示（呼叫 callLLM 時佔位保護也接不到圖，不白附 base64）
+      let _pushToolMsg = toolResult;
+      let _imageMsg = null;
+      const { text: _cleanText, imagePaths: _imgPaths } = extractImageMarkers(toolResult);
+      if (_imgPaths.length > 0) {
+        if (visionAvailable(llm)) {
+          _pushToolMsg = _cleanText;
+          _imageMsg = buildImageAttachmentMessage(
+            _imgPaths,
+            "📸 [系統附圖] 這是 browser_screenshot 拍的目前畫面（系統自動附上，非使用者輸入）— 請基於畫面內容做視覺驗證"
+          );
+          console.log(`[Agent Loop] 👁 vision attach: ${_imgPaths.length} image(s) from ${_toolName}`);
+        } else {
+          _pushToolMsg = _cleanText + "\n（圖片已存檔但本 run 無 vision 能力 — 請改用 browser_read 讀取文字內容）";
+        }
+      }
       messages.push({
         role: "tool",
         tool_call_id: call.id,
-        content: toolResult,
+        content: _pushToolMsg,
       });
+      if (_imageMsg) messages.push(_imageMsg);
 
       // Refresh system prompt dynamic context after memory changes
       if (call.function.name === "memory_add" || call.function.name === "memory_update") {
@@ -3987,9 +4019,12 @@ export async function runAgentLoopStream(config, res) {
     const trimmedMessages = trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW);
     let response;
     let usedLlm = llm;
+    // ── Vision 路由（2026-08-30 Phase 3）：同 runAgentLoop — 歷史含圖 → 本輪換 vision model ──
+    usedLlm = resolveVisionLlmConfig(llm, hasImages(messages)) || llm;
+    if (usedLlm !== llm) console.log(`[Agent Loop Stream] 👁 vision routing: ${llm.providerId}/${llm.model} → ${usedLlm.providerId}/${usedLlm.model} (history has images)`);
     const _llmLog = _logger.llmCall({ turn: turns, model: usedLlm.model, messageCount: trimmedMessages.length, contextTokens: estimateMessageTokens(trimmedMessages) });
     try {
-      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId, llm.maxTokens, abortSignal);
+      response = await callLLM(usedLlm.apiUrl, usedLlm.headers, usedLlm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId, usedLlm.maxTokens, abortSignal);
     } catch (err) {
       // 使用者中斷 — 殺掉 in-flight LLM 呼叫後立即停止，不進 fallback/retry
       if (abortSignal?.aborted || err.name === "AbortError") {
@@ -4137,11 +4172,29 @@ export async function runAgentLoopStream(config, res) {
         refreshDynamicContext(messages);
       }
 
+      // ── Vision Phase 3（2026-08-30）：同 runAgentLoop — tool result 帶圖 → 進 agent message ──
+      let _pushToolMsg2 = toolResult;
+      let _imageMsg2 = null;
+      const { text: _cleanText2, imagePaths: _imgPaths2 } = extractImageMarkers(toolResult);
+      if (_imgPaths2.length > 0) {
+        if (visionAvailable(llm)) {
+          _pushToolMsg2 = _cleanText2;
+          _imageMsg2 = buildImageAttachmentMessage(
+            _imgPaths2,
+            "📸 [系統附圖] 這是 browser_screenshot 拍的目前畫面（系統自動附上，非使用者輸入）— 請基於畫面內容做視覺驗證"
+          );
+          console.log(`[Agent Loop Stream] 👁 vision attach: ${_imgPaths2.length} image(s) from ${_toolName2}`);
+        } else {
+          _pushToolMsg2 = _cleanText2 + "\n（圖片已存檔但本 run 無 vision 能力 — 請改用 browser_read 讀取文字內容）";
+        }
+      }
+
       messages.push({
         role: "tool",
         tool_call_id: call.id,
-        content: toolResult,
+        content: _pushToolMsg2,
       });
+      if (_imageMsg2) messages.push(_imageMsg2);
     }
 
     // End thinking log after all tools in this turn
@@ -4155,7 +4208,9 @@ export async function runAgentLoopStream(config, res) {
         role: "user",
         content: "你已經收集了足夠的資訊。現在請根據你看到的內容，直接給出完整的回答。不要使用任何工具。",
       });
-      const finalResponse = await callLLM(llm.apiUrl, llm.headers, llm.model, trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW), [], false, sendSSE, agentId, llm.maxTokens, abortSignal);
+      // Vision 路由同主 loop：尾輪含圖 → 換 vision model
+      const _finalLlm = resolveVisionLlmConfig(llm, hasImages(messages)) || llm;
+      const finalResponse = await callLLM(_finalLlm.apiUrl, _finalLlm.headers, _finalLlm.model, trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW), [], false, sendSSE, agentId, _finalLlm.maxTokens, abortSignal);
       const finalContent = finalResponse.choices?.[0]?.message?.content || "";
       if (finalContent) {
         sendSSE("content", { content: finalContent, done: true });

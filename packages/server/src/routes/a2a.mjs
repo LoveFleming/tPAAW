@@ -717,6 +717,20 @@ export default async function a2aRoutes(req, res) {
             const conversationHistory = params?.conversationHistory || null;
             const rootDir = clientContext.cwd || PAAW_ROOT;
 
+            // ── requiresVision 派工（2026-08-30 Phase 3）：agent 宣告需要視覺 → 沒人為指定 model 時自動配 visionModel ──
+            // （registry 沒開 flag 的 agent 靠 loop 內建自動路由 — 截圖進上下文才切）
+            let effectiveModel = modelOverride;
+            if (agent?.requiresVision && !modelOverride) {
+              const { getVisionModel } = await import("../lib/vision-content.mjs");
+              const vm = getVisionModel();
+              if (vm) {
+                effectiveModel = vm;
+                console.log(`[A2A:${agentId}] 👁 requiresVision → ${vm}`);
+              } else {
+                console.warn(`[A2A:${agentId}] ⚠️ requiresVision 但 providers.json 沒設 visionModel — 用原 model`);
+              }
+            }
+
             // Build system prompt from crew + context providers + action log + agent memory
             const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
             const actionLogText = (await listActionLog({ cwd: rootDir, limit: 10 })).text;
@@ -824,7 +838,7 @@ export default async function a2aRoutes(req, res) {
               prompt: "", // handled by messages array
               systemPrompt: "", // handled by messages array
               messages: finalMessages, // trimmed with 262K budget
-              model: modelOverride,
+              model: effectiveModel,
               cwd: clientContext.cwd,
               maxTurns: agent.maxTurns,
               timeout: 0, // no timeout — complex agent tasks may take arbitrarily long
@@ -860,6 +874,19 @@ export default async function a2aRoutes(req, res) {
             const modelOverride = params?.metadata?.model;
             const conversationHistory = params?.conversationHistory || null;
             const rootDir = clientContext.cwd || PAAW_ROOT;
+
+            // ── requiresVision 派工（2026-08-30 Phase 3）：同 message/stream — EM 調度主要走這條 ──
+            let effectiveModel = modelOverride;
+            if (agent?.requiresVision && !modelOverride) {
+              const { getVisionModel } = await import("../lib/vision-content.mjs");
+              const vm = getVisionModel();
+              if (vm) {
+                effectiveModel = vm;
+                console.log(`[A2A:${agentId}] 👁 requiresVision → ${vm}`);
+              } else {
+                console.warn(`[A2A:${agentId}] ⚠️ requiresVision 但 providers.json 沒設 visionModel — 用原 model`);
+              }
+            }
 
             // Build system prompt from crew + context providers + action log + agent memory
             const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
@@ -926,7 +953,7 @@ export default async function a2aRoutes(req, res) {
               prompt: "", // handled by messages array
               systemPrompt: "", // handled by messages array
               messages: finalMessages, // trimmed with 262K budget
-              model: modelOverride,
+              model: effectiveModel,
               cwd: clientContext.cwd,
               maxTurns: agent.maxTurns,
               timeout: 0, // no timeout — complex agent tasks may take arbitrarily long

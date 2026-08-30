@@ -684,8 +684,22 @@ export async function executeEMSession(opts = {}) {
     // Resolve per-agent EM model (falls back to global modelOverride or EM dispatch model)
     const crewId = task.crewId || `coding.${task.agent}`;
     const dispatchModel = emConfig?.model?.dispatch || modelOverride;
-    const agentModel = resolveAgentModel(rootDir, crewId, "em", dispatchModel || "");
+    let agentModel = resolveAgentModel(rootDir, crewId, "em", dispatchModel || "");
     const agentFallbacks = resolveAgentFallbacks(rootDir, crewId, fallbackModels);
+
+    // ── requiresVision 派工（2026-08-30 Phase 3）：agent 宣告需要視覺且沒明確指定 model → 配 visionModel ──
+    // （沒開 flag 的 agent 靠 loop 內建自動路由：browser_screenshot 圖進上下文才切 vision model，省成本）
+    try {
+      const { getAgent } = await import("./domain-agent-registry.mjs");
+      if (getAgent(task.agent)?.requiresVision && !agentModel && !dispatchModel) {
+        const { getVisionModel } = await import("./vision-content.mjs");
+        const vm = getVisionModel();
+        if (vm) {
+          agentModel = vm;
+          sendSSE("info", { message: `👁 ${task.agent} requiresVision → ${vm}` });
+        }
+      }
+    } catch {}
 
     console.log(`[AutoDispatch] Phase 3: [${i + 1}/${execList.length}]${subtaskId ? ` ${subtaskId}` : ''} → ${task.agent}${agentModel ? ` (model: ${agentModel})` : ""}: ${task.task.slice(0, 80)}...`);
     sendSSE("task_start", { index: i + 1, total: execList.length, subtaskId, ...task });

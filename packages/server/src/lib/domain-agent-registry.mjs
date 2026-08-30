@@ -83,6 +83,7 @@ export function buildAgentCard(agentId, req) {
       streaming: true,
       pushNotifications: false,
       stateTransitionHistory: true,
+      ...(agent.requiresVision ? { vision: true } : {}), // Phase 3（2026-08-30）：requiresVision → 派工自動配 vision model
     },
     defaultInputModes: ["text"],
     defaultOutputModes: ["text"],
