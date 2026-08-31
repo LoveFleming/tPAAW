@@ -1,9 +1,0 @@
-{
-  "method": "GET",
-  "path": "/api/coding-crew/running",
-  "description": "列出正在執行的 agents",
-  "query": {},
-  "body": null,
-  "expectedStatus": 200,
-  "notes": ""
-}

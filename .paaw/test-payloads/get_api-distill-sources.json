@@ -1,9 +1,0 @@
-{
-  "method": "GET",
-  "path": "/api/distill/sources",
-  "description": "列出蒸餾來源",
-  "query": null,
-  "body": null,
-  "expectedStatus": 200,
-  "notes": ""
-}

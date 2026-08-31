@@ -55,10 +55,9 @@ data/llm-logs/
 data/agent-logs/
 data/cli-run-output/
 data/cron-output/
-.paaw-staging/
-.paaw-review/
-.paaw/tmp/
-packages/server/.paaw/
+# Dev workspace (per-machine, never versioned — .paaw 是開發該 release unit 的資料)
+.paaw/
+.openclaw/
 
 # PAAW temp/debug files
 packages/server/temp/
@@ -79,9 +78,6 @@ playwright/.cache/
 temp/
 data/tools/*/config.json
 backups/
-.paaw/deps-cache.json
-.paaw/verify-last.json
-.paaw/metrics-cache.json
 
 # Secret store master key (per-machine, never versioned)
 data/keys/

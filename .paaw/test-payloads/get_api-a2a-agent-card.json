@@ -1,9 +1,0 @@
-{
-  "method": "GET",
-  "path": "/api/a2a/agent-card",
-  "description": "取得 Agent Card（PAAW UI 用）",
-  "query": null,
-  "body": null,
-  "expectedStatus": 200,
-  "notes": ""
-}

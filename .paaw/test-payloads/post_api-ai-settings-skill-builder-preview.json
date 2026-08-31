@@ -1,9 +1,0 @@
-{
-  "method": "POST",
-  "path": "/api/ai-settings/skill-builder/preview",
-  "description": "預覽 skill builder",
-  "query": null,
-  "body": {},
-  "expectedStatus": 200,
-  "notes": ""
-}

@@ -1,9 +1,0 @@
-{
-  "method": "GET",
-  "path": "/api/projects/:id/stats",
-  "description": "專案統計",
-  "query": null,
-  "body": null,
-  "expectedStatus": 200,
-  "notes": ""
-}

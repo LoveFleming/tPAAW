@@ -1,9 +1,0 @@
-{
-  "method": "GET",
-  "path": "/api/paaw/providers",
-  "description": "取得 AI providers",
-  "query": null,
-  "body": null,
-  "expectedStatus": 200,
-  "notes": ""
-}

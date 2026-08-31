@@ -1,9 +1,0 @@
-{
-  "method": "DELETE",
-  "path": "/api/projects/:id/milestones/:msId",
-  "description": "刪除里程碑",
-  "query": null,
-  "body": null,
-  "expectedStatus": 200,
-  "notes": "⚠️ 刪除"
-}

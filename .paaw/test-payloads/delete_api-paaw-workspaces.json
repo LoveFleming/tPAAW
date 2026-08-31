@@ -1,9 +1,0 @@
-{
-  "method": "DELETE",
-  "path": "/api/paaw/workspaces",
-  "description": "刪除 workspace",
-  "query": null,
-  "body": null,
-  "expectedStatus": 200,
-  "notes": "⚠️ 刪除"
-}
