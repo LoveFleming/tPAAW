@@ -133,3 +133,12 @@ pre { tab-size: 2; }
   100% { transform: rotate(360deg); }
 }
 .ai-spinner { animation: aiSpin 1.2s ease-in-out infinite; display: inline-block; }
+
+/* ⬛ Coding App 專注模式（2026-09-01）：
+   App.tsx 的 tab 容器（absolute inset-0 + inline zIndex:1）會把 focus wrapper 的
+   z-[9999] 卡在 stacking context 裡，導致 PAAW header（44px）蓋住 coding toolbar、
+   ⛶ 返回按鈕看不到。這條規則讓「直接包含 focus wrapper」的 tab 容器突破上限。
+   :has() 只在專注模式開啟時 match，關閉時自動還原，React re-render 也蓋不掉 (!important)。 */
+div.absolute.inset-0:has(> div.fixed.z-\[9999\]) {
+  z-index: 9998 !important;
+}
