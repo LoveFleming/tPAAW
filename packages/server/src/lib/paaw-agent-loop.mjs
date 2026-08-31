@@ -3513,8 +3513,9 @@ export async function runAgentLoop(config) {
   const createdFiles = new Set(); // track NEW files (didn't exist before) for cleanup
 
   // Ensure .paaw/tmp/ exists as designated temp area (auto-cleaned each session)
-  // Only create under rootDir (PAAW project root), NOT under cwd (could be an app/skill subdirectory)
-  const tmpDir = join(rootDir, ".paaw", "tmp");
+  // 跟著 cwd（目標專案）：agents 拿相對路徑 .paaw/tmp/ 寫 scratch，清這裡才真的清得到；
+  // 絕不建在 rootDir（PAAW 產品安裝目錄）— 執行程式不能在安裝目錄長 .paaw
+  const tmpDir = join(cwd, ".paaw", "tmp");
   try {
     await mkdir(tmpDir, { recursive: true });
     // Clean up previous session's temp files
@@ -3951,8 +3952,8 @@ export async function runAgentLoopStream(config, res) {
   const streamCreatedFiles = new Set(); // track NEW files for cleanup
 
   // Ensure .paaw/tmp/ exists as designated temp area (auto-cleaned each session)
-  // Only under rootDir, NOT cwd (cwd might be an app/skill subdirectory)
-  const streamTmpDir = join(rootDir, ".paaw", "tmp");
+  // 跟著 cwd（目標專案）— 同 runAgentLoop；不碰 rootDir（產品安裝目錄）
+  const streamTmpDir = join(cwd, ".paaw", "tmp");
   try {
     await mkdir(streamTmpDir, { recursive: true });
     const oldTempFiles = await readdir(streamTmpDir).catch(() => []);

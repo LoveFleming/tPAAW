@@ -98,12 +98,17 @@ function computeCuStaleness(root, steps, codeLastModifiedMs) {
   return staleSteps;
 }
 
-// Debug logger for Code Understanding — writes to .paaw/cu-debug.log
-import { appendFileSync, existsSync as existsSyncSync } from "fs";
+// Debug logger for Code Understanding — writes to data/logs/cu-debug.log
+// （不可寫產品根目錄 .paaw — 執行程式不能在安裝目錄長 .paaw）
+import { appendFileSync, existsSync as existsSyncSync, mkdirSync } from "fs";
 function cuLog(step, msg) {
   const line = `[${new Date().toISOString()}] [CU] step=${step} ${msg}\n`;
   console.log(line.trim());
-  try { appendFileSync(join(PAAW_ROOT, ".paaw", "cu-debug.log"), line); } catch {}
+  try {
+    const logDir = join(DATA_HOME, "logs");
+    mkdirSync(logDir, { recursive: true });
+    appendFileSync(join(logDir, "cu-debug.log"), line);
+  } catch {}
 }
 
 /** Diff-aware write: only overwrite if content has meaningful changes.
