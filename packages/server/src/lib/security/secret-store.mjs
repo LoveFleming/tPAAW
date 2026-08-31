@@ -12,7 +12,7 @@ import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { DATA_HOME } from '../../data-home.mjs'
 
 const ALGORITHM = 'aes-256-gcm'
 const IV_LENGTH = 16
@@ -21,7 +21,9 @@ const KEY_LENGTH = 32
 
 export class SecretStore {
   constructor(options = {}) {
-    this.keyPath = options.keyPath || join(dirname(fileURLToPath(import.meta.url)), '../../../.paaw/keys/master.key')
+    // master key 是「使用者機器資料」，必须住在 DATA_HOME（data/）—
+    // 放 code tree 的話 versions/<v>/ 更新換目錄就解不密，也會被 pack 打包連 master.key 一起出貨
+    this.keyPath = options.keyPath || join(DATA_HOME, 'keys', 'master.key')
     this.decrypted = new Map()  // memory only cache
     this._masterKey = null
   }

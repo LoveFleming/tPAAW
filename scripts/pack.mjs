@@ -18,7 +18,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { createReadStream, createWriteStream, cpSync, mkdirSync, rmSync, statSync, existsSync, writeFileSync, readFileSync } from "node:fs";
+import { createReadStream, createWriteStream, cpSync, mkdirSync, rmSync, statSync, existsSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -65,11 +65,15 @@ mkdirSync(STAGE, { recursive: true });
 console.log("▸ stage 檔案（排除開發/個人資料）…");
 // rsync 規則：無斜前綴 = 任何層級 match；/ 前綴 = 只 match repo 根
 // 「dist」必須根鎖定，否則 packages/ui/dist（UI build 產物）會被誤殺
-const GLOBAL_EXCLUDES = [".git", "node_modules", ".DS_Store"];
+// .paaw / temp / logs 任何層級都不該出貨（packages/server/.paaw 的 master.key、
+// packages/*/temp 的 stream log 都曾漏進 zip）；data 只能根鎖定（packages/ui/src/data 是原始碼）
+const GLOBAL_EXCLUDES = [".git", "node_modules", ".DS_Store", ".paaw", "temp", "logs"];
 const ROOT_EXCLUDES = [
-  "/data", "/.paaw", "/.openclaw", "/logs", "/backups",
-  "/dist", "/storage", "/tmp", "/temp", "/test-results", "/tests", "/coverage", "/nul",
+  "/data", "/.openclaw", "/backups",
+  "/dist", "/storage", "/tmp", "/test-results", "/tests", "/coverage", "/nul",
   "/.env", "/.env.dev",
+  "/packages/data", "/packages/server/data",
+  "/docs-paaw-sync-*",
   "/AGENTS.md", "/SOUL.md", "/USER.md", "/IDENTITY.md", "/HEARTBEAT.md", "/TOOLS.md",
   "/vitest.config.ts", "/playwright.config.ts",
 ];
@@ -79,10 +83,18 @@ execSync(`rsync -a ${EXCLUDES} ./ "${STAGE}/"`, { cwd: ROOT, stdio: "pipe" });
 
 // ---------- 3. data-seed（scripts/seed + 產品級 ai-settings overlay）----------
 
-console.log("▸ data-seed 播種（scripts/seed + ai-settings）…");
+console.log("▸ data-seed 播種（scripts/seed + ai-settings + crews 模板）…");
 cpSync(join(ROOT, "scripts/seed"), join(STAGE, "data-seed"), { recursive: true });
 mkdirSync(join(STAGE, "data-seed/ai-settings"), { recursive: true });
 cpSync(join(ROOT, "data/ai-settings"), join(STAGE, "data-seed/ai-settings"), { recursive: true });
+
+// crews 模板（coding.* + my.assistant + pic 頭像）— 沒播種的話 fresh install
+// 的 coding app 0 個 agent、crew 系統全空。conversation/ 是 runtime 對話狀態，不播種。
+mkdirSync(join(STAGE, "data-seed/crews"), { recursive: true });
+for (const entry of readdirSync(join(ROOT, "data/crews"))) {
+  if (entry === "conversation") continue;
+  cpSync(join(ROOT, "data/crews", entry), join(STAGE, "data-seed/crews", entry), { recursive: true });
+}
 
 // ---------- 4. zip ----------
 

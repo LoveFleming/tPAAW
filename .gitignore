@@ -82,3 +82,6 @@ backups/
 .paaw/deps-cache.json
 .paaw/verify-last.json
 .paaw/metrics-cache.json
+
+# Secret store master key (per-machine, never versioned)
+data/keys/
