@@ -148,14 +148,22 @@ export default function SkillsPage() {
         } catch (err: any) { alert(`匯出失敗: ${err.message}`); }
     };
 
-    // ── Import skill ──
+    // ── Import skill（.json bundle 或 .zip）──
     const handleImportSkill = async (file: File) => {
         try {
-            const text = await file.text();
-            const bundle = JSON.parse(text);
-            const resp = await fetch(`${API}/api/skills/import`, {
-                method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bundle),
-            });
+            let resp: Response;
+            if (file.name.toLowerCase().endsWith(".zip")) {
+                // zip → 二進位上傳，server 解析（SKILL.md → physical-skill；inputs.json → input-prompt）
+                resp = await fetch(`${API}/api/skills/import-zip`, {
+                    method: "POST", headers: { "Content-Type": "application/zip" }, body: file,
+                });
+            } else {
+                const text = await file.text();
+                const bundle = JSON.parse(text);
+                resp = await fetch(`${API}/api/skills/import`, {
+                    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bundle),
+                });
+            }
             const data = await resp.json();
             if (data.ok) { showToast(`✅ ${data.message}`); loadSkills(); } else { alert(`❌ ${data.error}`); }
         } catch (err: any) { alert(`❌ 匯入失敗: ${err.message}`); }
@@ -200,7 +208,7 @@ export default function SkillsPage() {
                         {/* Import Skill */}
                         <label className="text-xs px-2.5 py-1 rounded-lg border cursor-pointer hover:bg-stone-50 transition-colors flex items-center gap-1 text-stone-600" style={{ borderColor: "#d6d3d1" }}>
                             📥 匯入
-                            <input type="file" accept=".json" className="hidden" onChange={async (e) => {
+                            <input type="file" accept=".json,.zip" className="hidden" onChange={async (e) => {
                                 const file = e.target.files?.[0];
                                 if (!file) return;
                                 await handleImportSkill(file);

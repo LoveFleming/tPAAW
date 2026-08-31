@@ -3259,6 +3259,23 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
 
 // ── System Prompt Assembly ──
 
+/** Skill bindings — 把 project crew 綁定的技能整份展開，直接附加到 system prompt送 LLM
+ *  綁定存在 {cwd}/.paaw/agents/_config.json 的 skillBindings（Management 頁可設）
+ *  auto-dispatch / crew chat / cron 都走這裡，一處注入全部生效 */
+async function appendSkillBindings(systemPrompt, cwd, agentId) {
+  if (!agentId || !cwd) return systemPrompt;
+  try {
+    const { readProjectSkills } = await import("./project-crew.mjs");
+    const bound = readProjectSkills(cwd, agentId);
+    if (!bound || bound.length === 0) return systemPrompt;
+    const section = bound.map(s => `### Skill: ${s.name}\n${s.prompt}`).join("\n\n");
+    return systemPrompt + `\n\n## 已掛載技能 (Skills)\n以下是綁定到此 Agent 的技能定義，請在執行任務時遵循這些規則：\n\n${section}`;
+  } catch (err) {
+    console.warn("[AgentLoop] Skill binding injection failed:", err.message);
+    return systemPrompt;
+  }
+}
+
 /** Refresh dynamic context (MEMORY.md) in messages[0] after memory changes */
 function refreshDynamicContext(messages) {
   if (!messages[0] || messages[0].role !== "system") return;
@@ -3532,7 +3549,10 @@ export async function runAgentLoop(config) {
     }
   } catch {}
 
-  const systemPrompt = buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext });
+  const systemPrompt = await appendSkillBindings(
+    buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }),
+    cwd, agentId,
+  );
 
   // Allow pre-built messages (for A2A conversation history injection)
   const messages = config.messages || [
@@ -3982,7 +4002,10 @@ export async function runAgentLoopStream(config, res) {
       paawContext = await paaw.loadContextText();
     }
   } catch {}
-  const systemPrompt = buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext });
+  const systemPrompt = await appendSkillBindings(
+    buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }),
+    cwd, agentId,
+  );
   // Allow pre-built messages (for conversation history injection)
   // If provided, use them directly; otherwise build from prompt + systemPrompt
   const messages = config.messages || [

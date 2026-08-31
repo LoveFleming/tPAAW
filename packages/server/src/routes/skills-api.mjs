@@ -5,7 +5,7 @@
 
 import { readdir, readFile, writeFile, mkdir, rm, stat } from "fs/promises";
 import { existsSync, readFileSync } from "fs";
-import { join, resolve } from "path";
+import { join, resolve, dirname } from "path";
 import {
   yaml,
   PAAW_ROOT, INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT, SKILL_POOL_ROOT,
@@ -332,6 +332,122 @@ export default async function skillsApiRoute(req, res) {
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── POST /api/skills/import-zip — import skill from zip（Management Skills 頁）──
+  // zip 內含一個 skill 資料夾（或根層直接放 SKILL.md / inputs.json）。
+  // 可選 ?kind=physical-skill|input-prompt|skill-pool、?id=<skill-id>
+  // 預設：含 SKILL.md → physical-skill；只有 inputs.json → input-prompt
+  if (req.method === "POST" && req.url?.match(/^\/api\/skills\/import-zip(?:\?.*)?$/)) {
+    try {
+      const chunks = [];
+      for await (const c of req) chunks.push(c);
+      const buf = Buffer.concat(chunks);
+      if (buf.length === 0) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Empty body — 上傳 zip 檔案" }));
+        return true;
+      }
+      if (buf.length > 20 * 1024 * 1024) {
+        res.writeHead(413, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "zip 太大（上限 20MB）" }));
+        return true;
+      }
+
+      const AdmZip = (await import("adm-zip")).default;
+      const zip = new AdmZip(buf);
+      const urlObj = new URL(req.url, "http://localhost");
+      const kindParam = urlObj.searchParams.get("kind");
+      const idParam = urlObj.searchParams.get("id");
+
+      // 收集檔案 entries（跳過目錄、垃圾檔）
+      const JUNK = new Set([".DS_Store", "__MACOSX"]);
+      const entries = zip.getEntries().filter(e => {
+        if (e.isDirectory) return false;
+        const parts = e.entryName.split("/");
+        return !parts.some(p => JUNK.has(p));
+      });
+      if (entries.length === 0) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "zip 裡沒有檔案" }));
+        return true;
+      }
+
+      // zip-slip 防護 + 偵測共同根資料夾
+      let commonRoot = null;
+      for (const e of entries) {
+        const name = e.entryName;
+        if (name.startsWith("/") || name.split("/").includes("..")) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: `不合法的路徑: ${name}` }));
+          return true;
+        }
+        const top = name.split("/")[0];
+        commonRoot = commonRoot === null ? top : (commonRoot === top ? commonRoot : null);
+        if (commonRoot === null && name.includes("/")) {
+          // 多個不同頂層 + 有子目錄 = 混亂結構，仍允續（以根層檔案為準）
+        }
+      }
+      const hasSubdirs = entries.some(e => e.entryName.includes("/"));
+      const rootFolder = hasSubdirs && entries.every(e => e.entryName.split("/")[0] === commonRoot) ? commonRoot : null;
+      const stripPrefix = rootFolder ? rootFolder + "/" : "";
+      const files = entries.map(e => ({
+        path: e.entryName.slice(stripPrefix.length),
+        data: e.getData(),
+      })).filter(f => f.path.length > 0);
+
+      const names = new Set(files.map(f => f.path));
+      const hasSkillMd = names.has("SKILL.md");
+      const hasInputs = names.has("inputs.json");
+      if (!hasSkillMd && !hasInputs) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "zip 裡找不到 SKILL.md 或 inputs.json（可放在根層或單一資料夾內）" }));
+        return true;
+      }
+
+      // skill id：?id= > SKILL.md frontmatter > 資料夾名 > zip 檔名
+      let skillId = idParam;
+      if (!skillId && hasSkillMd) {
+        const raw = files.find(f => f.path === "SKILL.md").data.toString("utf-8");
+        const fm = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+        const idm = fm && fm[1].match(/^id:\s*(.+)$/m);
+        if (idm) skillId = idm[1].trim();
+      }
+      if (!skillId && !hasInputs) skillId = rootFolder;
+      if (!skillId && hasInputs) {
+        try { skillId = JSON.parse(files.find(f => f.path === "inputs.json").data.toString("utf-8")).skillId; } catch {}
+      }
+      if (!skillId) {
+        const cd = req.headers["content-disposition"] || "";
+        const m = cd.match(/filename="?([^";]+)\.zip"?/i);
+        if (m) skillId = m[1].replace(/[^\w.-]/g, "-");
+      }
+      if (!skillId || !/^[\w.-]+$/.test(skillId)) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "無法決定 skill id（可加 ?id= 指定）" }));
+        return true;
+      }
+
+      const kind = kindParam || (hasSkillMd ? "physical-skill" : "input-prompt");
+      const targetRoot = kind === "input-prompt" ? INPUT_PROMPT_ROOT
+        : kind === "skill-pool" ? SKILL_POOL_ROOT
+        : PHYSICAL_SKILL_ROOT;
+      const skillDir = join(targetRoot, skillId);
+      await mkdir(skillDir, { recursive: true });
+      for (const f of files) {
+        const dest = join(skillDir, f.path);
+        if (!dest.startsWith(skillDir)) continue; // 雙保險
+        await mkdir(dirname(dest), { recursive: true });
+        await writeFile(dest, f.data);
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, message: `Skill「${skillId}」已從 zip 匯入（${files.length} 檔案）`, skillId, kind, files: files.length }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `zip 匯入失敗: ${err.message}` }));
     }
     return true;
   }
