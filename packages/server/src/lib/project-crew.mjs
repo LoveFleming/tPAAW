@@ -589,15 +589,23 @@ export function readProjectSkills(projectDir, crewId) {
   for (const skillId of skillIds) {
     const skillData = readSkillContent(skillId);
     if (skillData) {
-      results.push({ id: skillId, name: skillData.name, prompt: skillData.prompt });
+      let prompt = skillData.prompt;
+      // 附上目錄內其他檔案路徑，agent 需要時用 read_file 讀取
+      if (skillData.skillDir) {
+        const files = listSkillFiles(skillData.skillDir);
+        if (files.length > 0) {
+          prompt += `\n\n---\n\n## 技能附件檔案（需要時用 read_file 讀取）\n${files.map(f => `- ${f}`).join("\n")}`;
+        }
+      }
+      results.push({ id: skillId, name: skillData.name, prompt });
     }
   }
   return results;
 }
 
-/** 技能附件展開：把 skill 目錄內所有文字檔案整份附加（rules / references / templates …）
- *  Fleming 2026-08-31 要求：展開所有檔案，不是只有 SKILL.md */
-function expandSkillFiles(skillDir, body) {
+/** 技能目錄掃描：列出 skill 目錄內所有檔案路徑（供 agent read_file 用）
+ *  SKILL.md 本身已展開；其餘檔案列絕對路徑，agent 需要時再讀 */
+function listSkillFiles(skillDir) {
   const SKIP_FILES = new Set(["SKILL.md", "_cron_inputs.json"]);
   const BINARY_EXT = /\.(png|jpe?g|gif|webp|ico|zip|pdf|woff2?|ttf|eot|mp4|mp3|wav)$/i;
   const SKIP_DIRS = new Set([".git", "node_modules"]);
@@ -614,32 +622,11 @@ function expandSkillFiles(skillDir, body) {
         walk(p, r);
       } else {
         if (SKIP_FILES.has(e.name) || BINARY_EXT.test(e.name)) continue;
-        files.push({ path: r, abs: p });
+        files.push(p); // 絕對路徑
       }
     }
   })(skillDir, "");
-  if (files.length === 0) return body;
-
-  const parts = [body, "\n\n---\n\n## 技能附件檔案（完整內容）\n"];
-  let total = body.length;
-  const CAP = 300_000; // 安全上限：防止未來肥大 skill 撐爆 context
-  const skipped = [];
-  for (const f of files) {
-    let content;
-    try { content = readFileSync(f.abs, "utf-8"); } catch { continue; }
-    if (content.includes("\u0000")) continue; // binary 內容保護
-    if (total + content.length > CAP) { skipped.push(f.abs); continue; }
-    total += content.length;
-    const ext = (f.path.split(".").pop() || "").toLowerCase();
-    const isMd = ext === "md" || ext === "markdown";
-    parts.push(isMd
-      ? `### ${f.path}\n${content}\n`
-      : `### ${f.path}\n\`\`\`${ext}\n${content}\n\`\`\`\n`);
-  }
-  if (skipped.length > 0) {
-    parts.push(`\n（以下檔案超過展開上限未附加，可用 read_file 讀取：\n${skipped.join("\n")}）\n`);
-  }
-  return parts.join("\n");
+  return files;
 }
 
 /**
@@ -665,7 +652,8 @@ function readSkillContent(skillId) {
       const body = bodyMatch ? bodyMatch[1].trim() : raw;
       return {
         name: (nameMatch && nameMatch[1]) || skillId,
-        prompt: expandSkillFiles(join(dir, skillId), body),
+        prompt: body,
+        skillDir: join(dir, skillId),
       };
     } catch {}
 
