@@ -361,6 +361,8 @@ export default function CodingIDE() {
   const [sidebarWidth, setSidebarWidth] = useState(240);
   // Sidebar 視圖：檔案樹 vs Release Unit 樹（2026-08-22，North Star：RU 是導航第一原則）
   const [fileTreeHidden, setFileTreeHidden] = useState(false);
+  // ⛶ 專注模式（2026-09-01 Fleming 要求）— Coding App 鋪滿整個視窗（蓋掉 PAAW header/sidebar），Esc 或再按一次縮回
+  const [focusMode, setFocusMode] = useState(false);
   const [aiPanelWidth, setAiPanelWidth] = useState(360);
   const [terminalHeight, setTerminalHeight] = useState(200);
   const [showTerminal, setShowTerminal] = useState(false);
@@ -1377,6 +1379,7 @@ export default function CodingIDE() {
       if (e.key === "Escape") {
         setShowQuickOpen(false);
         if (!searchQuery) setShowSearch(false);
+        setFocusMode(false); // Esc 退出專注模式
       }
     };
     window.addEventListener("keydown", handler);
@@ -2384,7 +2387,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
   // RENDER
   // ═══════════════════════════════════════════════
   return (
-    <>
+    <div className={cn("h-full w-full", focusMode && "fixed inset-0 z-[9999]")}>
     {/* EM Orchestration Floating Panel */}
     {(emRunning || emLog.length > 0) && (
       <div className="fixed bottom-4 right-4 w-96 max-h-80 bg-white border border-amber-300 rounded-lg shadow-xl z-50 overflow-hidden">
@@ -2850,6 +2853,13 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:troubleshooting") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:troubleshooting" ? tk.toolbarActive : "transparent"; }}
           title={tt("ops.title")}>🔧 Ops</button>
+        {/* ⛶ 專注模式（2026-09-01 Fleming 要求）— 鋪滿整個視窗，蓋掉 PAAW sidebar/header，再按一次或 Esc 縮回 */}
+        <button onClick={() => setFocusMode(v => !v)}
+          className="ml-auto flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors shrink-0"
+          style={{ backgroundColor: focusMode ? tk.toolbarActive : "transparent", color: focusMode ? tk.accent : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (!focusMode) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = focusMode ? tk.toolbarActive : "transparent"; }}
+          title={focusMode ? tt("vibe.focusOff") : tt("vibe.focusOn")}>{focusMode ? "🗗" : "⛶"}</button>
 
       </div>
 
@@ -4183,7 +4193,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
       )}
 
     </div>
-    </>
+    </div>
   );
 }
 

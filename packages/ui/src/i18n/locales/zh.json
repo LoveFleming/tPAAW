@@ -790,6 +790,8 @@
   "vibe.domainAiSpec": "Spec AI",
   "vibe.domainAiTest": "Test AI",
   "vibe.fixArea": "AI Fix",
+  "vibe.focusOff": "退出專注模式（Esc）",
+  "vibe.focusOn": "專注模式 — 鋪滿整個視窗",
   "vibe.format": "格式化 JSON",
   "vibe.git": "🔀 Git",
   "vibe.gitBlame": "🔍 歸屬",

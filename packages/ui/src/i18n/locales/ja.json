@@ -790,6 +790,8 @@
   "vibe.domainAiSpec": "Spec AI",
   "vibe.domainAiTest": "Test AI",
   "vibe.fixArea": "AI修正",
+  "vibe.focusOff": "集中モードを終了（Esc）",
+  "vibe.focusOn": "集中モード — 画面全体に表示",
   "vibe.format": "JSON フォーマット",
   "vibe.git": "🔀 Git",
   "vibe.gitBlame": "🔍 Blame",

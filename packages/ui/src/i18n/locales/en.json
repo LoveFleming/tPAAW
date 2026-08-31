@@ -790,6 +790,8 @@
   "vibe.domainAiSpec": "Spec AI",
   "vibe.domainAiTest": "Test AI",
   "vibe.fixArea": "AI Fix",
+  "vibe.focusOff": "Exit Focus Mode (Esc)",
+  "vibe.focusOn": "Focus Mode — fill entire window",
   "vibe.format": "Format JSON",
   "vibe.git": "🔀 Git",
   "vibe.gitBlame": "🔍 Blame",
