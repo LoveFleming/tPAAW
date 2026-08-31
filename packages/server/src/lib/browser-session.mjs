@@ -208,7 +208,8 @@ export const PLAYWRIGHT_INSTALL_HINT =
   "Install it (one-time, per machine):\n" +
   "  cd <PAAW root>\n" +
   "  npm install\n" +
-  "  npx playwright install chromium   # ~170MB download, Windows/macOS/Linux all supported\n" +
+  "  npx playwright install chromium   # ~170MB download\n" +
+  (process.platform === "linux" ? "  sudo npx playwright install-deps chromium  # Linux 系統依賴（libnss3 等）\n" : "") +
   "Then retry. Server restart is NOT required (lazy load).";
 
 // ══════════════════════════════════════════════════════════════

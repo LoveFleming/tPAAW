@@ -77,7 +77,24 @@ export function startBrowserInstall() {
   child.stdout?.on("data", onChunk);
   child.stderr?.on("data", onChunk);
   child.on("error", (e) => { pushLine(`spawn error: ${e?.message || e}`); finish(1); });
-  child.on("close", (code) => finish(code));
+  child.on("close", (code) => {
+    if (code === 0 && process.platform === "linux") {
+      // Linux 還需要系統依賴（libnss3 等）— 自動追加 install-deps
+      pushLine("Linux 偵測到，自動安裝系統依賴…");
+      const depChild = spawn("npx", ["playwright", "install-deps", "chromium"], {
+        cwd: REPO_ROOT, shell: false, env: process.env,
+      });
+      depChild.stdout?.on("data", onChunk);
+      depChild.stderr?.on("data", onChunk);
+      depChild.on("error", (e) => { pushLine(`install-deps error: ${e?.message || e}`); finish(1); });
+      depChild.on("close", (depCode) => {
+        if (depCode !== 0) pushLine(`⚠️ install-deps exited ${depCode} — 可能需要 sudo 手動跑：sudo npx playwright install-deps chromium`);
+        finish(depCode);
+      });
+    } else {
+      finish(code);
+    }
+  });
 
   return browserInstallState();
 }
