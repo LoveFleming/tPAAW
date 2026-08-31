@@ -1,14 +1,8 @@
 ---
 id: react-frontend-best-practices
-name: React 前端最佳實踐
-version: 1.0.0
-description: React 元件效能與組合模式 — 33 條規則（re-render 優化、bundle 瘦身、渲染效能、常見陷阱），寫/審/refactor React 元件時遵循
 category: coding
-tags:
-  - react
-  - frontend
-  - performance
-source: JOHNadonis/claude-code-skills (frontend-react-best-practices)
+name: frontend-react-best-practices
+description: React performance optimization guidelines. Use when writing, reviewing, or refactoring React components to ensure optimal rendering and bundle patterns. Triggers on tasks involving React components, hooks, memoization, or bundle optimization.
 ---
 
 # React Best Practices
@@ -29,7 +23,7 @@ Reference these guidelines when:
 
 ### Bundle Size Optimization (CRITICAL)
 
-#### bundle-barrel-imports
+#### bundle-barrel-imports - @rules/bundle-barrel-imports.md
 
 Import directly from source, avoid barrel files.
 
@@ -42,7 +36,7 @@ import Check from "lucide-react/dist/esm/icons/check";
 import X from "lucide-react/dist/esm/icons/x";
 ```
 
-#### bundle-conditional
+#### bundle-conditional - @rules/bundle-conditional.md
 
 Load modules only when feature is activated.
 
@@ -54,7 +48,7 @@ useEffect(() => {
 }, [enabled]);
 ```
 
-#### bundle-preload
+#### bundle-preload - @rules/bundle-preload.md
 
 Preload on hover/focus for perceived speed.
 
@@ -70,7 +64,7 @@ Preload on hover/focus for perceived speed.
 
 ### Re-render Optimization (MEDIUM)
 
-#### rerender-functional-setstate
+#### rerender-functional-setstate - @rules/rerender-functional-setstate.md
 
 Use functional setState for stable callbacks.
 
@@ -89,7 +83,7 @@ const addItem = useCallback((item) => {
 }, []);
 ```
 
-#### rerender-derived-state-no-effect
+#### rerender-derived-state-no-effect - @rules/rerender-derived-state-no-effect.md
 
 Derive state during render, not in effects.
 
@@ -104,7 +98,7 @@ useEffect(() => {
 const fullName = firstName + " " + lastName;
 ```
 
-#### rerender-lazy-state-init
+#### rerender-lazy-state-init - @rules/rerender-lazy-state-init.md
 
 Pass function to useState for expensive initial values.
 
@@ -116,7 +110,7 @@ const [data] = useState(expensiveComputation());
 const [data] = useState(() => expensiveComputation());
 ```
 
-#### rerender-dependencies
+#### rerender-dependencies - @rules/rerender-dependencies.md
 
 Use primitive dependencies in effects.
 
@@ -132,7 +126,7 @@ useEffect(() => {
 }, [user.id]);
 ```
 
-#### rerender-derived-state
+#### rerender-derived-state - @rules/rerender-derived-state.md
 
 Subscribe to derived booleans, not raw values.
 
@@ -145,7 +139,7 @@ const isMobile = width < 768;
 const isMobile = useMediaQuery("(max-width: 767px)");
 ```
 
-#### rerender-memo
+#### rerender-memo - @rules/rerender-memo.md
 
 Extract expensive work into memoized components.
 
@@ -162,7 +156,7 @@ function Profile({ user, loading }) {
 }
 ```
 
-#### rerender-memo-with-default-value
+#### rerender-memo-with-default-value - @rules/rerender-memo-with-default-value.md
 
 Hoist default non-primitive props to constants.
 
@@ -175,7 +169,7 @@ const NOOP = () => {}
 const Button = memo(({ onClick = NOOP }) => ...)
 ```
 
-#### rerender-simple-expression-in-memo
+#### rerender-simple-expression-in-memo - @rules/rerender-simple-expression-in-memo.md
 
 Don't wrap simple primitive expressions in useMemo.
 
@@ -187,7 +181,7 @@ const isLoading = useMemo(() => a.loading || b.loading, [a.loading, b.loading]);
 const isLoading = a.loading || b.loading;
 ```
 
-#### rerender-move-effect-to-event
+#### rerender-move-effect-to-event - @rules/rerender-move-effect-to-event.md
 
 Put interaction logic in event handlers, not effects.
 
@@ -201,7 +195,7 @@ useEffect(() => {
 const handleSubmit = () => post("/api/register");
 ```
 
-#### rerender-transitions
+#### rerender-transitions - @rules/rerender-transitions.md
 
 Use startTransition for non-urgent updates.
 
@@ -212,7 +206,7 @@ const handler = () => {
 };
 ```
 
-#### rerender-use-ref-transient-values
+#### rerender-use-ref-transient-values - @rules/rerender-use-ref-transient-values.md
 
 Use refs for transient frequent values.
 
@@ -233,7 +227,7 @@ useEffect(() => {
 
 ### Rendering Performance (MEDIUM)
 
-#### rendering-conditional-render
+#### rendering-conditional-render - @rules/rendering-conditional-render.md
 
 Use ternary, not && for conditionals with numbers.
 
@@ -249,7 +243,7 @@ Use ternary, not && for conditionals with numbers.
 }
 ```
 
-#### rendering-hoist-jsx
+#### rendering-hoist-jsx - @rules/rendering-hoist-jsx.md
 
 Extract static JSX outside components.
 
@@ -262,7 +256,7 @@ function Container({ loading }) {
 }
 ```
 
-#### rendering-content-visibility
+#### rendering-content-visibility - @rules/rendering-content-visibility.md
 
 Use content-visibility for long lists.
 
@@ -273,7 +267,7 @@ Use content-visibility for long lists.
 }
 ```
 
-#### rendering-animate-svg-wrapper
+#### rendering-animate-svg-wrapper - @rules/rendering-animate-svg-wrapper.md
 
 Animate wrapper div, not SVG element (for GPU acceleration).
 
@@ -284,7 +278,7 @@ Animate wrapper div, not SVG element (for GPU acceleration).
 </div>
 ```
 
-#### rendering-svg-precision
+#### rendering-svg-precision - @rules/rendering-svg-precision.md
 
 Reduce SVG coordinate precision with SVGO.
 
@@ -292,7 +286,7 @@ Reduce SVG coordinate precision with SVGO.
 npx svgo --precision=1 --multipass icon.svg
 ```
 
-#### rendering-hydration-no-flicker
+#### rendering-hydration-no-flicker - @rules/rendering-hydration-no-flicker.md
 
 Use inline script for client-only data to prevent flicker.
 
@@ -304,7 +298,7 @@ Use inline script for client-only data to prevent flicker.
 ` }} />
 ```
 
-#### rendering-hydration-suppress-warning
+#### rendering-hydration-suppress-warning - @rules/rendering-hydration-suppress-warning.md
 
 Suppress expected hydration mismatches.
 
@@ -312,7 +306,7 @@ Suppress expected hydration mismatches.
 <span suppressHydrationWarning>{new Date().toLocaleString()}</span>
 ```
 
-#### rendering-client-only
+#### rendering-client-only - @rules/rendering-client-only.md
 
 Render browser-only components with ClientOnly and a fallback.
 
@@ -322,7 +316,7 @@ Render browser-only components with ClientOnly and a fallback.
 </ClientOnly>
 ```
 
-#### rendering-use-hydrated
+#### rendering-use-hydrated - @rules/rendering-use-hydrated.md
 
 Use `useHydrated` for SSR/CSR divergence.
 
@@ -331,7 +325,7 @@ let hydrated = useHydrated();
 return hydrated ? <Widget /> : <Skeleton />;
 ```
 
-#### rendering-usetransition-loading
+#### rendering-usetransition-loading - @rules/rendering-usetransition-loading.md
 
 Prefer useTransition over manual loading states.
 
@@ -346,7 +340,7 @@ let handleSearch = (value) => {
 };
 ```
 
-#### fault-tolerant-error-boundaries
+#### fault-tolerant-error-boundaries - @rules/fault-tolerant-error-boundaries.md
 
 Place error boundaries at feature boundaries.
 
@@ -358,7 +352,7 @@ Place error boundaries at feature boundaries.
 
 ### Client Patterns (MEDIUM)
 
-#### client-passive-event-listeners
+#### client-passive-event-listeners - @rules/client-passive-event-listeners.md
 
 Use passive listeners for scroll/touch.
 
@@ -367,7 +361,7 @@ document.addEventListener("wheel", handler, { passive: true });
 document.addEventListener("touchstart", handler, { passive: true });
 ```
 
-#### client-localstorage-schema
+#### client-localstorage-schema - @rules/client-localstorage-schema.md
 
 Version and minimize localStorage data.
 
@@ -383,7 +377,7 @@ function saveConfig(config: Config) {
 
 ### Hooks (HIGH)
 
-#### hooks-limit-useeffect
+#### hooks-limit-useeffect - @rules/hooks-limit-useeffect.md
 
 Use useEffect only when absolutely necessary. Prefer derived state or event handlers.
 
@@ -401,7 +395,7 @@ let filtered = items.filter((i) => i.active);
 let filtered = useMemo(() => items.filter((i) => i.active), [items]);
 ```
 
-#### hooks-useeffect-named-functions
+#### hooks-useeffect-named-functions - @rules/hooks-useeffect-named-functions.md
 
 Use named function declarations in useEffect for better debugging and self-documentation.
 
@@ -430,7 +424,7 @@ useEffect(function subscribeToOnlineStatus() {
 
 ### Composition Patterns (HIGH)
 
-#### composition-avoid-boolean-props
+#### composition-avoid-boolean-props - @rules/composition-avoid-boolean-props.md
 
 Don't add boolean props to customize behavior. Use composition instead.
 
@@ -443,7 +437,7 @@ Don't add boolean props to customize behavior. Use composition instead.
 <EditComposer messageId="xyz" />
 ```
 
-#### composition-compound-components
+#### composition-compound-components - @rules/composition-compound-components.md
 
 Structure complex components as compound components with shared context.
 
@@ -459,7 +453,7 @@ Structure complex components as compound components with shared context.
 </Composer.Provider>
 ```
 
-#### composition-state-provider
+#### composition-state-provider - @rules/composition-state-provider.md
 
 Lift state into provider components for cross-component access.
 
@@ -474,7 +468,7 @@ Lift state into provider components for cross-component access.
 </ForwardMessageProvider>
 ```
 
-#### composition-explicit-variants
+#### composition-explicit-variants - @rules/composition-explicit-variants.md
 
 Create explicit variant components instead of prop combinations.
 
@@ -493,7 +487,7 @@ function ThreadComposer({ channelId }) {
 }
 ```
 
-#### composition-children-over-render-props
+#### composition-children-over-render-props - @rules/composition-children-over-render-props.md
 
 Prefer children for composition. Use render props only when passing data back.
 
@@ -508,7 +502,7 @@ Prefer children for composition. Use render props only when passing data back.
 <List renderItem={({ item }) => <Item {...item} />} />
 ```
 
-#### composition-avoid-overabstraction
+#### composition-avoid-overabstraction - @rules/composition-avoid-overabstraction.md
 
 Avoid rigid configuration props; prefer composable children APIs.
 
@@ -519,7 +513,7 @@ Avoid rigid configuration props; prefer composable children APIs.
 </Select>
 ```
 
-#### composition-typescript-namespaces
+#### composition-typescript-namespaces - @rules/composition-typescript-namespaces.md
 
 Use TypeScript namespaces to combine component and its types for single-import access.
 

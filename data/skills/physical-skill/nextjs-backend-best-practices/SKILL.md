@@ -1,17 +1,54 @@
 ---
 id: nextjs-backend-best-practices
-name: Next.js 後端最佳實踐
-version: 1.0.0
-description: Next.js 16 App Router 後端 — Server Components、Server Actions、Route Handlers、快取策略、Top 5 常見錯誤、效能模式
 category: coding
-tags:
-  - nextjs
-  - backend
-  - server-actions
-  - app-router
-source: secondsky/claude-skills (plugins/nextjs, MIT)
+name: nextjs
+description: "Next.js 16 with App Router, Server Components, Server Actions, Cache Components. Use for React 19.2 apps, SSR, or encountering async params, proxy.ts migration, use cache errors."
+license: MIT
+metadata:
+  version: 1.0.0
+  last_verified: 2025-11-21
+  nextjs_version: 16.2.0
+  react_version: 19.2.0
+  node_version: 20.9+
+  author: Claude Skills Maintainers
+  repository: https://github.com/secondsky/claude-skills
+  production_tested: true
+  token_savings: 65-70%
+  errors_prevented: 18+
+  keywords:
+    - Next.js 16
+    - Next.js App Router
+    - Next.js Pages Router
+    - Server Components
+    - React Server Components
+    - Server Actions
+    - Cache Components
+    - use cache
+    - Next.js 16 breaking changes
+    - async params nextjs
+    - proxy.ts migration
+    - React 19.2
+    - Next.js metadata
+    - Next.js SEO
+    - generateMetadata
+    - static generation
+    - dynamic rendering
+    - streaming SSR
+    - Suspense
+    - parallel routes
+    - intercepting routes
+    - route groups
+    - Next.js middleware
+    - Next.js API routes
+    - Route Handlers
+    - revalidatePath
+    - revalidateTag
+    - next/navigation
+    - useSearchParams
+    - turbopack
+    - next.config
+allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
 ---
-
 # Next.js App Router - Production Patterns
 
 **Version**: Next.js 16.2.0

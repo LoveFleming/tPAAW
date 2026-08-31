@@ -595,9 +595,57 @@ export function readProjectSkills(projectDir, crewId) {
   return results;
 }
 
+/** 技能附件展開：把 skill 目錄內所有文字檔案整份附加（rules / references / templates …）
+ *  Fleming 2026-08-31 要求：展開所有檔案，不是只有 SKILL.md */
+function expandSkillFiles(skillDir, body) {
+  const SKIP_FILES = new Set(["SKILL.md", "_cron_inputs.json"]);
+  const BINARY_EXT = /\.(png|jpe?g|gif|webp|ico|zip|pdf|woff2?|ttf|eot|mp4|mp3|wav)$/i;
+  const SKIP_DIRS = new Set([".git", "node_modules"]);
+  const files = [];
+  (function walk(d, rel) {
+    let entries;
+    try { entries = readdirSync(d, { withFileTypes: true }); } catch { return; }
+    for (const e of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (e.name.startsWith(".")) continue;
+      const p = join(d, e.name);
+      const r = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) {
+        if (SKIP_DIRS.has(e.name)) continue;
+        walk(p, r);
+      } else {
+        if (SKIP_FILES.has(e.name) || BINARY_EXT.test(e.name)) continue;
+        files.push({ path: r, abs: p });
+      }
+    }
+  })(skillDir, "");
+  if (files.length === 0) return body;
+
+  const parts = [body, "\n\n---\n\n## 技能附件檔案（完整內容）\n"];
+  let total = body.length;
+  const CAP = 300_000; // 安全上限：防止未來肥大 skill 撐爆 context
+  const skipped = [];
+  for (const f of files) {
+    let content;
+    try { content = readFileSync(f.abs, "utf-8"); } catch { continue; }
+    if (content.includes("\u0000")) continue; // binary 內容保護
+    if (total + content.length > CAP) { skipped.push(f.abs); continue; }
+    total += content.length;
+    const ext = (f.path.split(".").pop() || "").toLowerCase();
+    const isMd = ext === "md" || ext === "markdown";
+    parts.push(isMd
+      ? `### ${f.path}\n${content}\n`
+      : `### ${f.path}\n\`\`\`${ext}\n${content}\n\`\`\`\n`);
+  }
+  if (skipped.length > 0) {
+    parts.push(`\n（以下檔案超過展開上限未附加，可用 read_file 讀取：\n${skipped.join("\n")}）\n`);
+  }
+  return parts.join("\n");
+}
+
 /**
  * Read a skill's prompt content from data/skills/ directories.
  * Tries physical-skill first (SKILL.md), then input-prompt (inputs.json).
+ * SKILL.md 展開 = body + 目錄內所有文字檔案（rules/references/templates）
  */
 function readSkillContent(skillId) {
   const roots = [
@@ -617,7 +665,7 @@ function readSkillContent(skillId) {
       const body = bodyMatch ? bodyMatch[1].trim() : raw;
       return {
         name: (nameMatch && nameMatch[1]) || skillId,
-        prompt: body,
+        prompt: expandSkillFiles(join(dir, skillId), body),
       };
     } catch {}
 
