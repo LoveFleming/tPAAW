@@ -3262,7 +3262,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
 /** Skill bindings — 把 project crew 綁定的技能整份展開，直接附加到 system prompt送 LLM
  *  綁定存在 {cwd}/.paaw/agents/_config.json 的 skillBindings（Management 頁可設）
  *  auto-dispatch / crew chat / cron 都走這裡，一處注入全部生效 */
-async function appendSkillBindings(systemPrompt, cwd, agentId) {
+export async function appendSkillBindings(systemPrompt, cwd, agentId) {
   if (!agentId || !cwd) return systemPrompt;
   try {
     const { readProjectSkills } = await import("./project-crew.mjs");

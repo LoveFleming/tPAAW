@@ -694,16 +694,29 @@ export default async function a2aRoutes(req, res) {
           }
           if (AGENT_RULES) extraContext.push({ source: "agent-rules", content: AGENT_RULES });
 
+          // Skill bindings — 跟 paaw-agent-loop 實際送 LLM 的內容完全一致（同一個 appendSkillBindings）
+          const { appendSkillBindings } = await import("../lib/paaw-agent-loop.mjs");
+          const promptWithSkills = await appendSkillBindings(systemPrompt, cwd, agentId);
+          if (promptWithSkills !== systemPrompt) {
+            const { readProjectSkills } = await import("../lib/project-crew.mjs");
+            const bound = readProjectSkills(cwd, agentId) || [];
+            extraContext.push({
+              source: "skill-bindings",
+              content: `已注入 ${bound.length} 個 skill（完整內容含附件檔案路徑已附加在 baseSystemPrompt 尾部，與 agent 實際收到的一致）：\n` +
+                bound.map(s => `- ${s.name}（${s.prompt.length} 字元）\n  預覽：${(s.prompt || "").slice(0, 500)}${(s.prompt || "").length > 500 ? "\n  ...（完整內容在 baseSystemPrompt）" : ""}`).join("\n"),
+            });
+          }
+
           sendJSON(res, 200, {
             agentId,
             agentName: agentInfo?.name,
             crewId: agentInfo?.crewId,
             contextProviders: agentInfo?.contextProviders || [],
-            baseSystemPrompt: systemPrompt,
-            baseSystemPromptLength: systemPrompt.length,
+            baseSystemPrompt: promptWithSkills,
+            baseSystemPromptLength: promptWithSkills.length,
             dynamicContext: extraContext,
             dynamicContextLength: extraContext.reduce((s, c) => s + c.content.length, 0),
-            totalLength: systemPrompt.length + extraContext.reduce((s, c) => s + c.content.length, 0),
+            totalLength: promptWithSkills.length + extraContext.reduce((s, c) => s + c.content.length, 0),
           });
         } catch (err) {
           sendJSON(res, 500, { error: err.message });
