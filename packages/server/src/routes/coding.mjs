@@ -529,7 +529,7 @@ export default async function projectRoute(req, res) {
       res.end(JSON.stringify({ error: "Invalid JSON" }));
       return true;
     }
-    const { agentId, task, cwd, model, priority = "medium", taskId, subTaskId, taskTimeout, _chainParentId, _chainSubTaskIds, _chainCurrentIndex } = body;
+    const { agentId, task, cwd, model, priority = "medium", taskId, subTaskId, taskTimeout } = body;
     if (!agentId || !task) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Missing agentId or task" }));
@@ -698,7 +698,7 @@ export default async function projectRoute(req, res) {
       }, res);
       cleanupDispatch();
 
-      // ── Post-dispatch: record result to task ──
+      // ── Post-dispatch: record result to task — 成功 → close（feature-first 簡化後語意）──
       if (taskId) {
         try {
           const tasksDir = join(projRoot, ".paaw", "tasks");
@@ -714,6 +714,8 @@ export default async function projectRoute(req, res) {
                 at: new Date().toISOString(),
                 content: `✅ Agent ${agentId} completed dispatched task`,
               });
+              allTasks[tIdx].status = "close";
+              if (!allTasks[tIdx].resolvedAt) allTasks[tIdx].resolvedAt = new Date().toISOString();
               allTasks[tIdx].updatedAt = new Date().toISOString();
               allData.tasks = allTasks;
               const { writeFileSync } = await import("node:fs");
@@ -723,80 +725,35 @@ export default async function projectRoute(req, res) {
         } catch (e) { console.error("post-dispatch task update error:", e.message); }
       }
 
-      // ── Sub-task completion → auto-advance pipeline + chain dispatch ──
+      // ── Sub-task completion → close；全部子任務 close → parent close（feature-first：無 chain、無 advance）──
       if (subTaskId && taskId) {
         try {
-          // Advance sub-task pipeline
-          const advRes = await fetch(`http://localhost:${process.env.PORT || 3100}/api/coding-tasks/${encodeURIComponent(subTaskId)}/pipeline/advance?path=${encodeURIComponent(projRoot)}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phase: "implement", result: `Agent ${agentId} completed`, by: agentId }),
-          });
-          const advData = await advRes.json();
-          if (!advData.ok) {
-            console.error("sub-task advance failed:", advData.error);
+          const tasksFile = join(projRoot, ".paaw", "tasks", "TASKS.json");
+          if (existsSync(tasksFile)) {
+            const allData = JSON.parse(readSync(tasksFile, "utf-8"));
+            const allTasks = allData.tasks || [];
+            const sub = allTasks.find(t => t.id === subTaskId);
+            if (sub) {
+              sub.status = "close";
+              if (!sub.resolvedAt) sub.resolvedAt = new Date().toISOString();
+              sub.updatedAt = new Date().toISOString();
+            }
+            const parent = allTasks.find(t => t.id === taskId);
+            if (parent && parent.id !== subTaskId) {
+              const subs = allTasks.filter(t => t.parentId === taskId);
+              if (subs.length > 0 && subs.every(s => s.status === "close" || s.status === "ignore")) {
+                parent.status = "close";
+                if (!parent.resolvedAt) parent.resolvedAt = new Date().toISOString();
+                parent.updatedAt = new Date().toISOString();
+                if (!Array.isArray(parent.notes)) parent.notes = [];
+                parent.notes.push({ by: "system", at: new Date().toISOString(), content: `✅ All ${subs.length} sub-tasks completed` });
+              }
+            }
+            allData.tasks = allTasks;
+            const { writeFileSync } = await import("node:fs");
+            writeFileSync(tasksFile, JSON.stringify(allData, null, 2), "utf-8");
           }
-        } catch (e) { console.error("sub-task advance error:", e.message); }
-
-        // ── Chain: use direct dispatch instead of HTTP self-call ──
-        if (_chainParentId && Array.isArray(_chainSubTaskIds) && _chainCurrentIndex < _chainSubTaskIds.length - 1) {
-          const nextIndex = _chainCurrentIndex + 1;
-          const nextSubId = _chainSubTaskIds[nextIndex];
-          try {
-            const tasksFile = join(projRoot, ".paaw", "tasks", "TASKS.json");
-            if (existsSync(tasksFile)) {
-              const allData = JSON.parse(readSync(tasksFile, "utf-8"));
-              const allTasks = allData.tasks || [];
-              const nextSub = allTasks.find(t => t.id === nextSubId);
-              if (nextSub && nextSub.assignee) {
-                const { triggerHealthAgentDispatch } = await import("./coding-tasks.mjs");
-                if (runningCodingAgents.has(nextSub.assignee)) {
-                  if (!Array.isArray(nextSub.notes)) nextSub.notes = [];
-                  nextSub.notes.push({ by: "system", at: new Date().toISOString(), content: `⏳ Agent ${nextSub.assignee} is busy — queued for later` });
-                  nextSub.updatedAt = new Date().toISOString();
-                  allData.tasks = allTasks;
-                  writeFileSync(tasksFile, JSON.stringify(allData, null, 2), "utf-8");
-                } else {
-                  setImmediate(() => triggerHealthAgentDispatch({
-                    projRoot,
-                    subTask: nextSub,
-                    chainParentId: _chainParentId,
-                    chainSubTaskIds: _chainSubTaskIds,
-                    chainCurrentIndex: nextIndex,
-                  }));
-                }
-              }
-            }
-          } catch (e) { console.error("chain load error:", e.message); }
-        }
-
-        // ── Chain complete: mark parent done if all sub-tasks done ──
-        if (_chainParentId && _chainCurrentIndex >= _chainSubTaskIds.length - 1) {
-          try {
-            const tasksFile = join(projRoot, ".paaw", "tasks", "TASKS.json");
-            if (existsSync(tasksFile)) {
-              const allData = JSON.parse(readSync(tasksFile, "utf-8"));
-              const allTasks = allData.tasks || [];
-              const parentIdx = allTasks.findIndex(t => t.id === _chainParentId);
-              if (parentIdx >= 0) {
-                const subIds = _chainSubTaskIds;
-                const allDone = subIds.every(sid => {
-                  const st = allTasks.find(t => t.id === sid);
-                  return st && (st.status === "resolved" || st.pipeline?.commit?.status === "done");
-                });
-                if (allDone) {
-                  allTasks[parentIdx].status = "resolved";
-                  allTasks[parentIdx].resolvedAt = new Date().toISOString();
-                  if (!Array.isArray(allTasks[parentIdx].notes)) allTasks[parentIdx].notes = [];
-                  allTasks[parentIdx].notes.push({ by: "system", at: new Date().toISOString(), content: `✅ All ${subIds.length} sub-tasks completed — health fix done` });
-                  allTasks[parentIdx].updatedAt = new Date().toISOString();
-                  allData.tasks = allTasks;
-                  writeFileSync(tasksFile, JSON.stringify(allData, null, 2), "utf-8");
-                }
-              }
-            }
-          } catch (e) { console.error("parent completion check error:", e.message); }
-        }
+        } catch (e) { console.error("sub-task completion update error:", e.message); }
       }
 
       return true;
@@ -824,6 +781,7 @@ export default async function projectRoute(req, res) {
                 at: new Date().toISOString(),
                 content: `⚠️ Agent ${agentId} ended with error: ${err.message.slice(0, 200)}. Work may be partially done.`,
               });
+              allTasks[tIdx].status = "pending"; // 失敗 → pending，寫明原因，等人處理（不自動重試）
               allTasks[tIdx].updatedAt = new Date().toISOString();
               allData.tasks = allTasks;
               const { writeFileSync } = await import("node:fs");
@@ -833,29 +791,6 @@ export default async function projectRoute(req, res) {
         } catch (e) { console.error("post-dispatch error task update:", e.message); }
       }
 
-      // ── Chain: even on error, dispatch next sub-task via direct call ──
-      if (_chainParentId && Array.isArray(_chainSubTaskIds) && _chainCurrentIndex < _chainSubTaskIds.length - 1) {
-        const nextIndex = _chainCurrentIndex + 1;
-        const nextSubId = _chainSubTaskIds[nextIndex];
-        try {
-          const tasksFile = join(projRoot, ".paaw", "tasks", "TASKS.json");
-          if (existsSync(tasksFile)) {
-            const allData = JSON.parse(readSync(tasksFile, "utf-8"));
-            const allTasks = allData.tasks || [];
-            const nextSub = allTasks.find(t => t.id === nextSubId);
-            if (nextSub && nextSub.assignee && !runningCodingAgents.has(nextSub.assignee)) {
-              const { triggerHealthAgentDispatch } = await import("./coding-tasks.mjs");
-              setImmediate(() => triggerHealthAgentDispatch({
-                projRoot,
-                subTask: nextSub,
-                chainParentId: _chainParentId,
-                chainSubTaskIds: _chainSubTaskIds,
-                chainCurrentIndex: nextIndex,
-              }));
-            }
-          }
-        } catch (e2) { console.error("chain load on error:", e2.message); }
-      }
     }
     return true;
   }

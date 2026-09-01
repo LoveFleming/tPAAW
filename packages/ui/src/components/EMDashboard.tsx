@@ -8,7 +8,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import API_BASE from "../api";
 import ChatMessages from "./ChatMessages"; // kept for reference — EM chat now uses custom rich renderer
-import AutoDispatchPanel from "./AutoDispatchPanel";
 import ModelSelector from "./ModelSelector";
 import { cn } from "../utils";
 import { useI18n } from "../i18n";
@@ -222,7 +221,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   useEffect(() => { fetchEmSessions(); }, [fetchEmSessions]);
   const [emRunning, setEmRunning] = useState(false);
   // 右側面板 tab：overview | dispatch（Auto Dispatch 併入）
-  const [view, setView] = useState<"chat" | "dispatch">("chat");
+  const [view, setView] = useState<"chat">("chat");
   // 2026-08-29: 切回 chat 時還原 scroll 位置（兩個 view 改為常駐掛載 + hidden 切換）
   useEffect(() => {
     if (view === "chat" && chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollTopRef.current;
@@ -701,13 +700,10 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
           className={cn("text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors", view === "chat" ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100")}>
           💬 EM Chat
         </button>
-        <button data-testid="em-main-tab-dispatch" onClick={() => setView("dispatch")}
-          className={cn("text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors", view === "dispatch" ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100")}>
-          🏛 派工 Auto Dispatch
-        </button>
+
       </div>
       {/* 2026-08-29: 兩個 view 常駐掛載，用 hidden 切換 — 保留雙方 scroll 位置與元件狀態 */}
-      <div className={cn("flex-1 flex flex-col min-w-0 min-h-0", view !== "chat" && "hidden")}>
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Header — matches crew agent header layout */}
         <div className="shrink-0 px-4 py-3 border-b relative" style={{ borderColor: tk.borderLight, background: `linear-gradient(135deg, #8b5cf611 0%, #8b5cf608 100%)` }}>
           <div className="flex items-center gap-3">
@@ -1100,7 +1096,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                 ? (adStatus?.lastEvent?.message || "...")
                 : (adStatus?.status === "failed" ? (adStatus?.error || "") : (adStatus?.duration ? `${Math.round(adStatus.duration / 1000)}s` : ""))}
             </span>
-            <button onClick={() => setView("dispatch")} className="shrink-0 px-2 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold">{t("emDash.view")} →</button>
+            <button onClick={() => {}} className="shrink-0 px-2 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold">{t("emDash.view")} →</button>
           </div>
         )}
 
@@ -1158,7 +1154,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                             }
                             if (action.type === "openReport" && action.reportId) {
                               // Open Auto Dispatch tab (reports live there)
-                              setView("dispatch");
+                              // dispatch view removed;
                             }
                           }}
                           disabled={action.type === "confirmPlan" && emRunning}
@@ -1273,9 +1269,8 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
         </div>
       </div>
 
-      <div className={cn("flex-1 min-h-0", view !== "dispatch" && "hidden")} data-testid="em-dispatch-full">
-        <AutoDispatchPanel active={view === "dispatch"} theme={tk} rootPath={rootPath} model={model} openMainTab={openMainTab} refreshTrigger={adRefreshTrigger} />
-      </div>
+      {/* Auto Dispatch panel removed (feature-first: reports in EM chat) */}
+
     </div>
 
     {/* ══ Code Understanding Progress Modal ══ */}

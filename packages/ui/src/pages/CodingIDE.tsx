@@ -50,7 +50,6 @@ import HandoverPanel from "../components/HandoverPanel";
 import TroubleshootingPanel from "../components/TroubleshootingPanel";
 import TabErrorBoundary from "../components/TabErrorBoundary";
 import FeatureMap from "../components/FeatureMap";
-import { SubTaskDetail } from "../components/AutoDispatchPanel";
 import ApiMapSidebar from "../components/ApiMapSidebar";
 import AgentSideChat, { type AgentSideChatHandle } from "../components/AgentSideChat";
 import CrewManager from "../components/CrewManager";
@@ -3906,11 +3905,8 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
 
             {/* === Sub-task Detail Tab === */}
             {activeMainTab?.type === "subtask-detail" && (
-              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
-                <SubTaskDetail
-                  theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
-                  data={activeMainTab.data}
-                />
+              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0 p-4" style={{ color: tk.text }}>
+                <div className="text-sm opacity-60">Sub-task detail view removed (feature-first simplification)</div>
               </div>
             )}
 

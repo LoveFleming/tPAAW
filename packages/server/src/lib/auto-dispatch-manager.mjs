@@ -117,7 +117,7 @@ function _extractTaskRef(text) {
   return m ? `TASK-${String(m[1]).padStart(3, "0")}` : null;
 }
 
-// ── Helper: sync task pipeline/note after EM subtask completes ──
+// ── Helper: sync task after EM dispatch（feature-first 簡化語意：ok→close, fail→pending+notes）──
 async function _syncTaskAfterDispatch(rootDir, taskRef, ok, detail) {
   if (!taskRef) return;
   try {
@@ -130,23 +130,41 @@ async function _syncTaskAfterDispatch(rootDir, taskRef, ok, detail) {
     const task = tasks.find(t => String(t.id).toLowerCase() === taskRef.toLowerCase());
     if (!task) return;
     const now = new Date().toISOString();
-    if (!task.pipeline) task.pipeline = {};
     if (!task.notes) task.notes = [];
     if (ok) {
-      // 只補 implement（agent 自己 advance 過就尊重，不覆寫）
-      if (task.pipeline.implement?.status !== "done") {
-        task.pipeline.implement = { ...(task.pipeline.implement || {}), status: "done", by: "em-dispatch", at: now };
-      }
-      if (task.status === "open") task.status = "in-progress";
-      task.notes.push({ text: `EM dispatch 完成${detail ? `：${detail}` : ""}`, at: now, by: "em" });
+      task.status = "close";
+      if (!task.resolvedAt) task.resolvedAt = now;
+      task.notes.push({ by: "em", at: now, content: `✅ EM dispatch 完成${detail ? `：${detail}` : ""}` });
+      // touch feature updatedAt
+      try { const { touchFeature } = await import("./feature-registry.mjs"); touchFeature(rootDir, task.featureId, now); } catch {}
     } else {
-      task.notes.push({ text: `EM dispatch 失敗${detail ? `：${detail}` : ""}`, at: now, by: "em" });
+      task.status = "pending"; // 失敗 → pending，寫明原因，等人處理（不自動重試）
+      task.notes.push({ by: "em", at: now, content: `⚠️ EM dispatch 失敗：${detail || "unknown error"}。Task 已標 pending，等人處理。` });
     }
     task.updatedAt = now;
     const payload = Array.isArray(data) ? tasks : { ...data, tasks, updatedAt: now };
     _wr(tasksFile, JSON.stringify(payload, null, 2), "utf-8");
   } catch (err) {
     console.log(`[EM] _syncTaskAfterDispatch(${taskRef}) failed (non-fatal): ${err.message}`);
+  }
+}
+
+// ── Helper: inject dispatch report into EM chat（派工報告只顯示在 EM chat view）──
+async function _appendEMChatReport(rootDir, text) {
+  try {
+    const { existsSync: _ex, readFileSync: _rd, writeFileSync: _wr, mkdirSync: _mk } = await import("fs");
+    const { join: _join, dirname: _dn } = await import("path");
+    const file = _join(rootDir, ".paaw", "coding-memory", "conversations", "coding.em", "active.json");
+    let conv = { _meta: { agentId: "coding.em" }, messages: [], createdAt: new Date().toISOString() };
+    if (_ex(file)) {
+      try { conv = JSON.parse(_rd(file, "utf-8")); } catch {}
+    }
+    if (!Array.isArray(conv.messages)) conv.messages = [];
+    conv.messages.push({ role: "assistant", content: text, ts: new Date().toISOString(), fromAutoDispatch: true });
+    _mk(_dn(file), { recursive: true });
+    _wr(file, JSON.stringify(conv, null, 2), "utf-8");
+  } catch (err) {
+    console.log(`[EM] chat report injection failed (non-fatal): ${err.message}`);
   }
 }
 
@@ -513,7 +531,7 @@ function _stopRequested(rootDir) {
 }
 
 export async function executeEMSession(opts = {}) {
-  const { rootDir, workList, situationReport = "", baseUrl = `http://127.0.0.1:${process.env.PAAW_PORT || 4097}`, modelOverride, fallbackModels = [], sendSSE = (() => {}), projectPhase = 'bootstrap', existingPlanId = null } = opts;
+  const { rootDir, workList, situationReport = "", baseUrl = `http://127.0.0.1:${process.env.PAAW_PORT || 4097}`, modelOverride, fallbackModels = [], sendSSE = (() => {}), projectPhase = 'bootstrap', _removed = null /* existingPlanId removed */ } = opts;
 
   // ── Read EM config for execution behavior ──
   let emConfig = null;
@@ -522,77 +540,17 @@ export async function executeEMSession(opts = {}) {
     emConfig = readEMConfig(rootDir);
   } catch { /* em-config not available */ }
 
-  // ── Create Execution Plan ──
-  let plan = null;
-  try {
-    const { createPlan, markPlanStarted, updateSubTask, resumePlan, getPlan } = await import("./execution-plan.mjs");
-
-    if (existingPlanId) {
-      // Resume existing plan — don't create new one
-      plan = await getPlan(rootDir, existingPlanId);
-      if (!plan) throw new Error(`Plan not found: ${existingPlanId}`);
-      const { resumedCount } = await resumePlan(rootDir, existingPlanId);
-      // Re-read after resume
-      plan = await getPlan(rootDir, existingPlanId);
-      sendSSE("plan_resumed", { planId: plan.planId, resumedCount, totalSubtasks: plan.summary.totalSubtasks });
-      console.log(`[AutoDispatch] 📋 Execution Plan resumed: ${plan.planId} (${resumedCount} subtasks back to pending)`);
-    } else {
-      const planItems = (workList || []).map((w, i) => ({
-        title: w.task || `Task ${i + 1}`,
-        assignee: w.agent || 'developer',
-        source: w.source || 'em_plan',
-        sourceRef: w.sourceRef || _extractTaskRef(w.task || w.title),
-        priority: w.priority || 'medium',
-        subtasks: [{ title: w.task || `Task ${i + 1}`, assignee: w.agent || 'developer' }],
-      }));
-      plan = await createPlan({
-        projectPath: rootDir,
-        projectPhase,
-        mode: 'em',
-        items: planItems,
-      });
-      await markPlanStarted(rootDir, plan.planId);
-      sendSSE("plan_created", { planId: plan.planId, totalSubtasks: plan.summary.totalSubtasks });
-      console.log(`[AutoDispatch] 📋 Execution Plan created: ${plan.planId} (${plan.summary.totalSubtasks} subtasks)`);
-    }
-  } catch (err) {
-    console.error(`[AutoDispatch] Plan creation failed (non-fatal):`, err.message);
-  }
+  // ── Execution Plan 已移除（feature-first：dispatch 直接執行 workList，不建 plan 物件）──
+  const effectiveWorkList = workList;
 
   // ── Per-agent model resolution ──
   const { resolveAgentModel, resolveAgentFallbacks } = await import("./project-crew.mjs");
-
-  // ── If resuming, build workList from pending plan sub-tasks ──
-  let effectiveWorkList = workList;
-  if (existingPlanId && plan && (!workList || workList.length === 0)) {
-    effectiveWorkList = [];
-    for (const task of plan.tasks || []) {
-      for (const st of task.subtasks || []) {
-        if (st.status === 'pending' || st.status === 'interrupted') {
-          effectiveWorkList.push({
-            task: st.title || task.title,
-            agent: st.assignee || 'developer',
-            source: 'plan_resume',
-            sourceRef: st.subtaskId,
-            priority: 'high',
-            _resumeSubTaskId: st.subtaskId,
-          });
-        }
-      }
-    }
-    console.log(`[AutoDispatch] 📋 Resumed ${effectiveWorkList.length} pending sub-tasks from plan`);
-    if (effectiveWorkList.length === 0) {
-      sendSSE("info", { message: "✅ Plan 裡所有工作已完成。" });
-      const report = generateEMReport([], [], situationReport);
-      sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
-      return { report, workList: [], results: [] };
-    }
-  }
 
   if (!effectiveWorkList || effectiveWorkList.length === 0) {
     sendSSE("info", { message: "✅ 目前沒有需要調度的工作，專案狀態良好。" });
     const report = generateEMReport([], [], situationReport);
     saveAutoDispatchReport(rootDir, report, "em");
+    await _appendEMChatReport(rootDir, report);
     sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
     return { report, workList: [], results: [] };
   }
@@ -641,20 +599,6 @@ export async function executeEMSession(opts = {}) {
       : { message: "✅ 沒有需要執行的工作。" });
     sendSSE("plan", { workList: wasFiltered ? effectiveWorkList : [] });
     sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, ...(wasFiltered ? { skipped: true, reason: 'filtered-by-autoexec' } : {}) });
-    if (plan?.planId) {
-      try {
-        const { updateSubTask, markPlanCompleted } = await import("./execution-plan.mjs");
-        for (const t of plan.tasks || []) {
-          for (const st of t.subtasks || []) {
-            if (st.status === 'pending') {
-              try { await updateSubTask(rootDir, plan.planId, st.subtaskId, { status: 'skipped', result: 'excluded by auto-execute category filter' }); } catch {}
-            }
-          }
-        }
-        await markPlanCompleted(rootDir, plan.planId);
-        console.log(`[AutoDispatch] Plan ${plan.planId} closed (all tasks filtered by auto-exec categories)`);
-      } catch (e) { console.error(`[AutoDispatch] Close filtered plan failed:`, e.message); }
-    }
     const report = generateEMReport(effectiveWorkList, [], situationReport, {
       format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog,
       ...(wasFiltered ? { skipped: filteredReasons.map(f => ({ _skipped: `auto-exec 排除（${f.category}）`, agent: f.agent, task: f.task })) } : {}),
@@ -670,11 +614,7 @@ export async function executeEMSession(opts = {}) {
   const results = [];
   let userInterrupted = false;
 
-  // ── Load plan helpers for sub-task tracking ──
-  let planHelpers = null;
-  try {
-    planHelpers = await import("./execution-plan.mjs");
-  } catch {}
+  // Plan helpers removed (feature-first: no execution-plan)
 
   for (let i = 0; i < execList.length; i++) {
     // 2026-08-29: 使用者中斷 — task 間檢查 stop 旗標（目前 task 跑完後停止，不砍半隻 agent）
@@ -685,7 +625,7 @@ export async function executeEMSession(opts = {}) {
       break;
     }
     const task = execList[i];
-    const subtaskId = task._resumeSubTaskId || (plan ? `${plan.tasks[i]?.subtasks[0]?.subtaskId || ''}` : null);
+    const subtaskId = task._resumeSubTaskId || null;
 
     // Resolve per-agent EM model (falls back to global modelOverride or EM dispatch model)
     const crewId = task.crewId || `coding.${task.agent}`;
@@ -710,19 +650,7 @@ export async function executeEMSession(opts = {}) {
     console.log(`[AutoDispatch] Phase 3: [${i + 1}/${execList.length}]${subtaskId ? ` ${subtaskId}` : ''} → ${task.agent}${agentModel ? ` (model: ${agentModel})` : ""}: ${task.task.slice(0, 80)}...`);
     sendSSE("task_start", { index: i + 1, total: execList.length, subtaskId, ...task });
 
-    // ── Mark sub-task as running ──
-    const _startTime = Date.now();
-    if (plan && planHelpers && subtaskId) {
-      try {
-        await planHelpers.updateSubTask(rootDir, plan.planId, subtaskId, {
-          status: 'running',
-          startedAt: new Date().toISOString(),
-          model: agentModel || dispatchModel || null,
-        });
-      } catch {}
-    }
-
-    const result = await a2aCallAgent(baseUrl, task.agent, task.task, {
+        const result = await a2aCallAgent(baseUrl, task.agent, task.task, {
       cwd: rootDir,
       timeout: 7200000, // 2h per sub-task
       modelOverride: agentModel || dispatchModel,
@@ -754,19 +682,7 @@ export async function executeEMSession(opts = {}) {
       console.log(`[AutoDispatch] Phase 3: [${i + 1}/${execList.length}] ✅ ${task.agent} done (${result.content.length} chars, ${(_durationMs / 1000).toFixed(0)}s, ${_tokens.total} tokens)`);
       sendSSE("task_done", { index: i + 1, agent: task.agent, subtaskId, preview: result.content.slice(0, 200), durationMs: _durationMs, tokens: _tokens, costUsd: _cost });
 
-      // ── Mark sub-task as done + write back to TASK-XXX ──
-      if (plan && planHelpers && subtaskId) {
-        try {
-          await planHelpers.updateSubTask(rootDir, plan.planId, subtaskId, {
-            status: 'done',
-            completedAt: new Date().toISOString(),
-            durationMs: _durationMs,
-            tokenUsage: _tokens,
-            costUsd: _cost,
-            result: 'success',
-          });
-        } catch {}
-      }
+      // Plan sub-task tracking removed (feature-first)
       const _taskRef = task.sourceRef || _extractTaskRef(task.task);
       await _syncTaskAfterDispatch(rootDir, _taskRef, true, `subtaskId=${subtaskId || 'n/a'}`);
     } else {
@@ -775,54 +691,13 @@ export async function executeEMSession(opts = {}) {
       console.log(`[AutoDispatch] Phase 3: [${i + 1}/${execList.length}] ❌ ${task.agent} ${stStatus}: ${result.error}`);
       sendSSE("task_error", { index: i + 1, agent: task.agent, subtaskId, error: result.error, status: stStatus });
 
-      if (plan && planHelpers && subtaskId) {
-        try {
-          await planHelpers.updateSubTask(rootDir, plan.planId, subtaskId, {
-            status: stStatus,
-            completedAt: new Date().toISOString(),
-            durationMs: _durationMs,
-            tokenUsage: _tokens,
-            costUsd: _cost,
-            error: result.error,
-          });
-        } catch {}
-      }
+      // Plan sub-task tracking removed (feature-first)
       const _taskRef2 = task.sourceRef || _extractTaskRef(task.task);
       await _syncTaskAfterDispatch(rootDir, _taskRef2, false, `${result.error || stStatus} (subtaskId=${subtaskId || 'n/a'})`);
     }
   }
 
-  // ── Phase 3.5: Finalize plan — mark any remaining pending sub-tasks and close plan ──
-  if (plan && planHelpers) {
-    try {
-      const currentPlan = await planHelpers.getPlan(rootDir, plan.planId);
-      if (currentPlan) {
-        for (const task of currentPlan.tasks || []) {
-          for (const st of task.subtasks || []) {
-            if (st.status === 'pending' || st.status === 'running') {
-              await planHelpers.updateSubTask(rootDir, plan.planId, st.subtaskId, {
-                status: 'skipped',
-                completedAt: new Date().toISOString(),
-                result: 'Session ended before execution',
-              });
-            }
-          }
-        }
-        // Recompute plan status — _recomputeSummary inside getPlan/updateSubTask should mark it completed
-        const finalPlan = await planHelpers.getPlan(rootDir, plan.planId);
-        if (finalPlan && finalPlan.status === 'running') {
-          // Force finalize: all sub-tasks are now done/fail/skipped
-          await planHelpers.markPlanCompleted(rootDir, plan.planId);
-        }
-        console.log(`[AutoDispatch] Phase 3.5: Plan ${plan.planId} finalized → ${finalPlan?.status || 'unknown'}`);
-        sendSSE("plan_finalized", { planId: plan.planId, status: finalPlan?.status || 'completed' });
-      }
-    } catch (err) {
-      console.error(`[AutoDispatch] Plan finalize error (non-fatal):`, err.message);
-    }
-  }
-
-  // ── Phase 4: Report ──
+    // ── Phase 4: Report ──
   console.log("[AutoDispatch] ═══ Phase 4: Report Generation ═══");
   sendSSE("info", { message: "📝 產生報告中..." });
   const reportOpts = {};

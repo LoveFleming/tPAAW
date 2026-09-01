@@ -503,20 +503,20 @@ async function buildToolDefinitions() {
     type: "function",
     function: {
       name: "task_create",
-      description: "在 Code Project 裡建立一個 Task。支援 requirement/bug/security/chore 類型。當使用者說「記錄一個需求」「加個 bug」「有個安全問題」或在討論中識別出待辦事項時使用。",
+      description: "建立一個 Task。一切以 feature 為主 — featureId 必填。類型 dev/test/docs。雜項掛 Utility & Platform Misc。當使用者說「記錄一個需求」「加個 bug」或在討論中識別出待辦時使用。",
       parameters: {
         type: "object",
         properties: {
           title: { type: "string", description: "Task 標題" },
-          type: { type: "string", enum: ["requirement", "bug", "security", "chore"], description: "Task 類型" },
+          featureId: { type: "string", description: "必填。所屬 feature ID（如 F20260901-001）。雜項掛 Utility & Platform Misc" },
+          type: { type: "string", enum: ["dev", "test", "docs"], description: "Task 類型：dev（寫碼/修bug/重構）、test、docs" },
           priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "優先級，預設 medium" },
-          effort: { type: "string", enum: ["S", "M", "L", "XL"], description: "工作量估計" },
           description: { type: "string", description: "詳細說明" },
           assignee: { type: "string", description: "指派對象：human / em / architect / developer 等" },
           labels: { type: "array", items: { type: "string" }, description: "標籤" },
           note: { type: "string", description: "建立時的第一筆討論紀錄（選填）" },
         },
-        required: ["title", "type"]
+        required: ["title", "featureId", "type"]
       }
     }
   });
@@ -524,16 +524,16 @@ async function buildToolDefinitions() {
     type: "function",
     function: {
       name: "task_update",
-      description: "更新 Code Project 裡的 Task。可以改狀態、優先級、指派人、加討論紀錄。當使用者說「這個 bug 修好了」「把這個標成高優先」或 EM 完成夜間工作時使用。",
+      description: "更新 Task。可以改狀態（open/close/pending/ignore）、優先級、指派人、加討論紀錄。失敗 → pending + 寫原因。完成 → close。",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "Task ID（例如 TASK-001 或 ISS-001）" },
-          status: { type: "string", enum: ["open", "in-progress", "resolved", "closed", "wontfix"], description: "新狀態" },
+          id: { type: "string", description: "Task ID（例如 TASK-001）" },
+          status: { type: "string", enum: ["open", "close", "pending", "ignore"], description: "新狀態" },
           priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "新優先級" },
           assignee: { type: "string", description: "新指派對象" },
           note: { type: "string", description: "加入的討論紀錄" },
-          executionResult: { type: "object", description: "EM 派工執行結果 { summary, filesChanged, success }" },
+          result: { type: "string", description: "執行結果摘要" },
         },
         required: ["id"]
       }
@@ -543,12 +543,13 @@ async function buildToolDefinitions() {
     type: "function",
     function: {
       name: "task_list",
-      description: "查詢 Code Project 裡的 Task 列表。可以依狀態、類型、優先級篩選。當使用者說「有哪些待辦」「bug 列表」「安全問題」或 EM 準備夜間派工時使用。",
+      description: "查詢 Task 列表。可以依狀態（open/close/pending/ignore）、類型（dev/test/docs）、featureId、優先級篩選。當使用者說「有哪些待辦」或 EM 準備派工時使用。",
       parameters: {
         type: "object",
         properties: {
-          status: { type: "string", description: "篩選狀態，逗號分隔（例如：open,in-progress）" },
-          type: { type: "string", description: "篩選類型，逗號分隔（例如：bug,security）" },
+          status: { type: "string", description: "篩選狀態，逗號分隔（例如：open,pending）" },
+          type: { type: "string", description: "篩選類型，逗號分隔（例如：dev,test）" },
+          featureId: { type: "string", description: "篩選 feature ID" },
           priority: { type: "string", description: "篩選優先級，逗號分隔" },
           search: { type: "string", description: "搜尋關鍵字" },
         },
@@ -561,7 +562,7 @@ async function buildToolDefinitions() {
     type: "function",
     function: {
       name: "task_decompose",
-      description: "將一個大 Task 拆分成多個子任務。EM 收到大任務（例如「修所有安全問題」「修今天的 bugs」）時，必須先用這個工具拆分，再逐個派工。不要一次給 agent 一大坨工作。",
+      description: "將一個大 Task 拆分成多個子任務。子任務繼承父任務的 featureId。",
       parameters: {
         type: "object",
         properties: {
@@ -572,9 +573,8 @@ async function buildToolDefinitions() {
               type: "object",
               properties: {
                 title: { type: "string", description: "子任務標題" },
-                type: { type: "string", enum: ["requirement", "bug", "security", "chore"], description: "子任務類型（預設繼承父任務）" },
+                type: { type: "string", enum: ["dev", "test", "docs"], description: "子任務類型（預設繼承父任務）" },
                 priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "優先級" },
-                effort: { type: "string", enum: ["S", "M", "L", "XL"], description: "工作量估計" },
                 assignee: { type: "string", description: "指派對象" },
                 description: { type: "string", description: "子任務詳細說明" },
                 relatedFiles: { type: "array", items: { type: "string" }, description: "相關檔案" },
@@ -1406,24 +1406,24 @@ function buildHandlers(apps) {
   };
 
   // ── Task Management handlers (global) ──
-  handlers.task_create = async ({ title, type, priority, effort, description, assignee, labels, note } = {}) => {
+  handlers.task_create = async ({ title, featureId, type, priority, description, assignee, labels, note } = {}) => {
     try {
-      // Use first workspace path as project path, or PAAW_ROOT
+      if (!featureId) return { text: "❌ featureId 為必填（一切以 feature 為主 — 雜項掛 Utility & Platform Misc）", error: true };
       const workspaces = await loadWorkspaces();
       const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
       const resp = await fetch(`${API}/api/coding-tasks?path=${encodeURIComponent(projectPath)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title, type, priority: priority || "medium", effort, description: description || "", assignee: assignee || null,
+          title, featureId, type, priority: priority || "medium", description: description || "", assignee: assignee || null,
           labels: labels || [], notes: note ? [{ by: "agent", at: new Date().toISOString(), content: note }] : [],
           createdBy: "agent",
         }),
       });
       const data = await resp.json();
       if (data.id) {
-        const typeIcon = { requirement: "📋", bug: "🐛", security: "🔒", chore: "🔧" }[type] || "📋";
-        return { text: `${typeIcon} 已建立 ${data.id}：${title}（${type}/${priority || "medium"}）${assignee ? `→ ${assignee}` : ""}` };
+        const typeIcon = { dev: "🔨", test: "🧪", docs: "📖" }[type] || "🔨";
+        return { text: `${typeIcon} 已建立 ${data.id}：${title}（${type}/${priority || "medium"}，feature: ${featureId}）${assignee ? `→ ${assignee}` : ""}` };
       }
       return { text: `❌ 建立失敗：${data.error || "未知錯誤"}`, error: true };
     } catch (err) {
@@ -1431,7 +1431,7 @@ function buildHandlers(apps) {
     }
   };
 
-  handlers.task_update = async ({ id, status, priority, assignee, note, executionResult } = {}) => {
+  handlers.task_update = async ({ id, status, priority, assignee, note, result } = {}) => {
     try {
       const workspaces = await loadWorkspaces();
       const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
@@ -1439,7 +1439,7 @@ function buildHandlers(apps) {
       if (status) updateBody.status = status;
       if (priority) updateBody.priority = priority;
       if (assignee) updateBody.assignee = assignee;
-      if (executionResult) updateBody.executionResult = executionResult;
+      if (result) updateBody.result = result;
 
       // First update the task fields
       if (Object.keys(updateBody).length > 0) {
@@ -1487,11 +1487,11 @@ function buildHandlers(apps) {
 
       const resp = await fetch(url);
       const data = await resp.json();
-      const issues = data.issues || [];
+      const issues = data.tasks || [];
       if (issues.length === 0) return { text: "沒有符合條件的 Task" };
 
-      const statusIcon = { open: "🔴", "in-progress": "🔧", resolved: "✅", closed: "✅", wontfix: "➖" };
-      const typeIcon = { requirement: "📋", bug: "🐛", security: "🔒", chore: "🔧" };
+      const statusIcon = { open: "🟡", pending: "🔵", close: "✅", ignore: "⏭️" };
+      const typeIcon = { dev: "🔨", test: "🧪", docs: "📖" };
       let text = `📋 **Task 列表**（${issues.length} 筆）\n\n`;
       for (const t of issues) {
         const si = statusIcon[t.status] || "⬜";
@@ -1520,7 +1520,7 @@ function buildHandlers(apps) {
       if (data.subTasks) {
         let text = `✂️ ${parentId} 已拆分為 ${data.subTasks.length} 個子任務：\n\n`;
         for (const s of data.subTasks) {
-          const typeIcon = { requirement: "📋", bug: "🐛", security: "🔒", chore: "🔧" }[s.type] || "📋";
+          const typeIcon = { dev: "🔨", test: "🧪", docs: "📖" }[s.type] || "🔨";
           const assignee = s.assignee ? ` → ${s.assignee}` : "";
           text += `${typeIcon} **${s.id}**: ${s.title}${assignee}\n`;
         }
@@ -1540,31 +1540,14 @@ function buildHandlers(apps) {
     const agent = getAgentByCrewId(`coding.${agentId}`);
     if (!agent) return { text: `❌ 找不到 agent: ${agentId}` };
 
-    // ── Create or update execution plan for tracking ──
-    let planId = null;
+    // ── Execution plan removed (feature-first: no plan tracking) ──
     let subtaskId = null;
     // Tracks whether the plan/subtask outcome was already recorded on a normal
     // code path (success/fail update or a non-error early return). The finally
     // block must NOT overwrite a recorded outcome with a generic "Dispatch error"
     // — that previously turned successful dispatches into failures.
     let outcomeRecorded = false;
-    try {
-      const { createPlan, markPlanStarted, updateSubTask, markPlanCompleted } = await import("../lib/execution-plan.mjs");
-      const workspaces = await loadWorkspaces();
-      const projRoot = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
-      const plan = await createPlan({
-        projectPath: projRoot,
-        projectPhase: 'em-chat',
-        mode: 'em',
-        items: [{ title: task.slice(0, 120), assignee: agentId, priority: 'high', subtasks: [{ title: task, assignee: agentId }] }],
-      });
-      await markPlanStarted(projRoot, plan.planId);
-      planId = plan.planId;
-      subtaskId = plan.tasks[0]?.subtasks[0]?.subtaskId;
-      console.log(`[dispatch_agent] 📋 Plan created: ${planId}, subtask: ${subtaskId}`);
-    } catch (err) {
-      console.error(`[dispatch_agent] Plan creation failed (non-fatal):`, err.message);
-    }
+    // Execution plan removed (feature-first) — no planId/subtaskId tracking
 
     // Check if agent is busy
     try {
@@ -1574,12 +1557,7 @@ function buildHandlers(apps) {
         if (busyData.running) {
           // Agent busy is not a task failure — mark subtask skipped, keep plan open for retry
           outcomeRecorded = true;
-          try {
-            const { updateSubTask } = await import("../lib/execution-plan.mjs");
-            const wsB = await loadWorkspaces();
-            const prB = wsB.length > 0 ? wsB[0] : PAAW_ROOT;
-            await updateSubTask(prB, planId, subtaskId, { status: "skipped", result: `agent busy (${busyData.elapsedS || '?'}s) — 派工未執行` });
-          } catch {}
+          // Plan subtask update removed (feature-first)
           return { text: `⏳ ${agentId} 正忙（已跑 ${busyData.elapsedS || '?'}s），等一下再派` };
         }
       }
@@ -1643,27 +1621,12 @@ function buildHandlers(apps) {
       const agentNames = { architect: "林曉薇", developer: "Priya", tester: "Divya", "doc-writer": "Megan", qa: "武大安", helpdesk: "小春" };
       const name = agentNames[agentId] || agentId;
 
-      // ── Update execution plan ──
-      if (planId && subtaskId) {
-        try {
-          const { updateSubTask, markPlanCompleted } = await import("../lib/execution-plan.mjs");
-          const workspaces3 = await loadWorkspaces();
-          const projRoot3 = workspaces3.length > 0 ? workspaces3[0] : PAAW_ROOT;
-          await updateSubTask(projRoot3, planId, subtaskId, {
-            status: success ? "done" : "fail",
-            completedAt: new Date().toISOString(),
-            result: success ? preview.slice(0, 200) : `Agent ${agentId} failed`,
-            usage: result.usage || null,
-          });
-          await markPlanCompleted(projRoot3, planId);
-          outcomeRecorded = true;
-        } catch (err2) { console.error(`[dispatch_agent] Plan update failed:`, err2.message); }
-      }
+      // Execution plan update removed (feature-first)
 
       if (success) {
-        return { text: `✅ ${name} (${agentId}) 完成任務！\n\n${preview}`, taskId, planId };
+        return { text: `✅ ${name} (${agentId}) 完成任務！\n\n${preview}`, taskId };
       } else {
-        return { text: `❌ ${name} (${agentId}) 執行失敗：\n\n${preview}`, taskId, planId, error: true };
+        return { text: `❌ ${name} (${agentId}) 執行失敗：\n\n${preview}`, taskId, error: true };
       }
     } catch (err) {
       // Mark task as failed
@@ -1675,25 +1638,13 @@ function buildHandlers(apps) {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              status: "open",
-              executionResult: { summary: `Dispatch error: ${err.message}`, filesChanged: [], success: false },
+              status: "pending",
+              notes: [{ by: "agent", at: new Date().toISOString(), content: `⚠️ 派工失敗：${err.message}` }],
             }),
           });
         } catch {}
       }
-      return { text: `❌ 派工失敗：${err.message}`, error: true, planId };
-    } finally {
-      // Ensure plan is closed even on unexpected errors — but never overwrite an
-      // outcome already recorded above (success/fail/busy-skip paths).
-      if (planId && subtaskId && !outcomeRecorded) {
-        try {
-          const { updateSubTask, markPlanCompleted } = await import("../lib/execution-plan.mjs");
-          const ws = await loadWorkspaces();
-          const pr = ws.length > 0 ? ws[0] : PAAW_ROOT;
-          await updateSubTask(pr, planId, subtaskId, { status: "fail", completedAt: new Date().toISOString(), result: `Dispatch error` });
-          await markPlanCompleted(pr, planId);
-        } catch {}
-      }
+      return { text: `❌ 派工失敗：${err.message}`, error: true };
     }
   };
 

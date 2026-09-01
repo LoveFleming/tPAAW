@@ -338,9 +338,10 @@ export function buildSituationReport(ctx) {
   return report;
 }
 
-// ── Task-driven dispatch scan（2026-08-29 Fleming 定調）──
-// 自動派工不再跑 Phase 0-2（feature map refresh / context gathering / LLM 規劃），
-// 只看 TASKS.json 有沒有需要做的 task：有 → 派工；沒有 → 回理由（寫進派工報告）
+// ── Task-driven dispatch scan（2026-09-01 feature-first 簡化）──
+// 只挑 status === "open" 且掛了 featureId 的 task。pending/close/ignore 一律不派。
+// type 決定 agent：test → tester、docs → doc-writer、其他（dev）→ developer。
+// loop mode（mini/full）與 EM cron 只是觸發器，不影響這裡的挑選邏輯。
 export function scanTasksForDispatch(rootDir, opts = {}) {
   const maxTasks = opts.maxTasks || 100;
   const tasksFile = join(rootDir, ".paaw", "tasks", "TASKS.json");
@@ -354,11 +355,28 @@ export function scanTasksForDispatch(rootDir, opts = {}) {
     return { workList: [], situationReport, openCount: 0, noWorkReason: `TASKS.json 讀取失敗：${err.message}` };
   }
 
+  const norm = s => String(s || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const toStatus = s => {
+    const st = norm(s);
+    if (st === "open" || st === "todo") return "open";
+    if (["in_progress", "review", "testing", "pending", "awaiting_human"].includes(st)) return "pending";
+    if (["done", "completed", "resolved", "closed"].includes(st)) return "close";
+    if (["skipped", "wontfix", "ignore"].includes(st)) return "ignore";
+    return "open";
+  };
+  const agentFor = t => {
+    const ty = norm(t.type);
+    if (ty === "test" || ty === "testing") return "tester";
+    if (ty === "docs" || ty === "doc" || ty === "documentation") return "doc-writer";
+    return "developer";
+  };
+
   const roots = all.filter(t => !t.parentId); // 主 task（subtask 跟 parent 一起算）
-  const open = roots.filter(t => t.status === "open");
-  const inProgress = roots.filter(t => ["in_progress", "in-progress", "review", "testing"].includes(t.status));
-  const doneCount = roots.filter(t => ["done", "completed", "resolved"].includes(t.status)).length;
-  const other = roots.length - open.length - inProgress.length - doneCount;
+  const open = roots.filter(t => toStatus(t.status) === "open");
+  const pendingCount = roots.filter(t => toStatus(t.status) === "pending").length;
+  const closeCount = roots.filter(t => toStatus(t.status) === "close").length;
+  const ignoreCount = roots.filter(t => toStatus(t.status) === "ignore").length;
+  const noFeature = open.filter(t => !t.featureId);
 
   const prioRank = { critical: 0, urgent: 0, high: 1, medium: 2, low: 3 };
   const sorted = [...open].sort((a, b) => (prioRank[a.priority] ?? 1) - (prioRank[b.priority] ?? 1));
@@ -367,9 +385,9 @@ export function scanTasksForDispatch(rootDir, opts = {}) {
   const excluded = []; // [{id, title, reason}] — 供 preview API / 確認卡結構化使用
   const excludedLines = [];
   for (const t of sorted) {
-    if (t.autoExecute === false) {
-      excluded.push({ id: t.id, title: (t.title || "").slice(0, 80), reason: "autoExecute=false，不自動執行" });
-      excludedLines.push(`- ${t.id} ${(t.title || "").slice(0, 80)}（autoExecute=false，不自動執行）`);
+    if (!t.featureId) {
+      excluded.push({ id: t.id, title: (t.title || "").slice(0, 80), reason: "未掛 featureId — 請掛到所屬 feature（雜項掛 Utility & Platform Misc）後才會派工" });
+      excludedLines.push(`- ${t.id} ${(t.title || "").slice(0, 80)}（⚠️ 未掛 featureId，不派工）`);
       continue;
     }
     if (workList.length >= maxTasks) {
@@ -378,32 +396,34 @@ export function scanTasksForDispatch(rootDir, opts = {}) {
       continue;
     }
     workList.push({
-      agent: t.assignee || "developer",
-      task: `執行 ${t.id}：${t.title || "(無標題)"}。先讀 .paaw/tasks/TASKS.json 中 ${t.id} 的完整 description / spec / changes 欄位，依內容實作並自我驗收。`,
+      agent: t.assignee || agentFor(t),
+      task: `執行 ${t.id}（feature ${t.featureId}）：${t.title || "(無標題)"}。先讀 .paaw/tasks/TASKS.json 中 ${t.id} 的 description 與 notes，依內容實作並自我驗收。`,
       priority: t.priority || "medium",
-      reason: `${t.id} 為 open task（priority: ${t.priority || "medium"}）`,
+      reason: `${t.id} 為 open task（feature: ${t.featureId}，priority: ${t.priority || "medium"}）`,
       source: "task_scan",
       sourceRef: t.id,
     });
   }
 
   const lines = [
-    "## 📋 Task 檢查（deterministic — 2026-08-29 起自動派工直接看 TASKS.json）",
+    "## 📋 Task 檢查（deterministic — feature-first：只派 open + 有 featureId）",
     "",
-    `TASKS.json 共 ${roots.length} 個主 task：open **${open.length}**、進行中/審查中 ${inProgress.length}、done ${doneCount}、其他 ${other}`,
+    `TASKS.json 共 ${roots.length} 個主 task：open **${open.length}**、pending ${pendingCount}、close ${closeCount}、ignore ${ignoreCount}`,
     "",
     `本輪派工：**${workList.length}** 項${workList.length ? `（依 priority 排序，上限 ${maxTasks}）` : ""}`,
   ];
   if (workList.length) lines.push("", ...workList.map(w => `- ${w.sourceRef} → ${w.agent}（${w.priority}）`));
-  if (inProgress.length) lines.push("", "進行中/審查中（不自動重派，等人類結案）：", ...inProgress.map(t => `- ${t.id} ${(t.title || "").slice(0, 80)}（${t.status}）`));
+  if (noFeature.length) lines.push("", "⚠️ open 但未掛 featureId（不派工，請先掛 feature）：", ...noFeature.map(t => `- ${t.id} ${(t.title || "").slice(0, 80)}`));
   if (excluded.length) lines.push("", "排除項：", ...excludedLines);
   const situationReport = lines.join("\n");
 
-  const stats = { total: roots.length, open: open.length, inProgress: inProgress.length, done: doneCount, other, excluded: excluded.length };
+  const stats = { total: roots.length, open: open.length, pending: pendingCount, close: closeCount, ignore: ignoreCount, noFeature: noFeature.length, excluded: excluded.length };
 
   const noWorkReason = open.length === 0
-    ? `沒有 open task（共 ${roots.length} 個主 task：done ${doneCount}、進行中 ${inProgress.length}、其他 ${other}）`
-    : `open task ${open.length} 個但全部被排除（詳見報告排除清單）`;
+    ? `沒有 open task（共 ${roots.length} 個主 task：close ${closeCount}、pending ${pendingCount}、ignore ${ignoreCount}）`
+    : noFeature.length === open.length
+      ? `open task ${open.length} 個全部未掛 featureId（詳見報告）`
+      : `open task ${open.length} 個但全部被排除（詳見報告排除清單）`;
 
   return { workList, situationReport, stats, excluded, openCount: open.length, noWorkReason };
 }

@@ -13,95 +13,46 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useI18n } from "../i18n";
 import API_BASE from "../api";
 import MarkdownText from "./MarkdownText";
-import EvidenceCard from "./EvidenceCard";
 
 // ── Types ──
-interface PipelinePhase {
-  status: string; // pending | in_progress | done | rejected | blocked
-  by?: string;
-  at?: string;
-  assignTo?: string; // human | ai_overnight
-}
-
-interface TaskSource {
-  type: string; // vibe | discussion | pm | issue | security | manual
-  sessionId?: string;
-  issueId?: string;
-  note?: string;
-}
-
-interface TaskChanges {
-  filesAdded: string[];
-  filesModified: string[];
-  filesDeleted: string[];
-  diffStat?: string;
-}
-
-interface TaskSpec {
-  description: string;
-  acceptanceCriteria: string[];
-  fileScope: string[];
-  outOfScope: string[];
-}
-
-interface TestResult {
-  testsWritten: string[];
-  passed: number;
-  failed: number;
-  coverage?: string;
-  coverageGaps?: string[];
-}
-
-interface QaResult {
-  autoChecks: Array<{ rule: string; passed: boolean; detail?: string }>;
-  manualChecks?: Array<{ label: string; checked: boolean }>;
-  overall: string;
-}
-
-interface DocsResult {
-  files: Array<{ path: string; action: string }>;
-  generatedAt: string;
-}
-
-interface TaskGit {
-  baseCommit: string;
-  branch: string | null;
-  staged: boolean;
-  committedSha: string | null;
-}
+// ── Feature-first Task Model (2026-09-01) ──
+// Status: open | close | pending | ignore
+// Type:   dev | test | docs
+// Every task has a featureId
 
 interface Task {
   id: string;
+  featureId: string | null;
   title: string;
-  type: "requirement" | "bug" | "security" | "chore";
+  type: "dev" | "test" | "docs";
   parentId: string | null;
-  linkedIssueId: string | null;
-  status: "open" | "in-progress" | "resolved" | "closed" | "wontfix";
+  status: "open" | "close" | "pending" | "ignore";
   priority: "critical" | "high" | "medium" | "low";
-  effort: "S" | "M" | "L" | "XL" | null;
   labels: string[];
   assignee: string | null;
   description: string;
   relatedFiles: string[];
   notes: { by: string; at: string; content: string }[];
-  executionResult: { summary: string; filesChanged: string[]; success: boolean } | null;
+  result: string | null;
+  git?: { staged?: boolean; commitSha?: string; backupBranch?: string } | null;
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;
   createdBy: string;
-  // New pipeline fields (all optional for backward compat)
-  pipeline?: Record<string, PipelinePhase>;
-  source?: TaskSource;
-  changes?: TaskChanges;
-  spec?: TaskSpec;
-  testResult?: TestResult;
-  qaResult?: QaResult;
-  docsResult?: DocsResult;
-  git?: TaskGit;
-  discussion?: Array<{ summary: string; at: string }>;
+  source?: { type?: string; sessionId?: string; issueId?: string; note?: string } | null;
 }
 
 interface TaskStats {
+  total: number;
+  open: number;
+  pending: number;
+  close: number;
+  ignore: number;
+  byType: { dev: number; test: number; docs: number };
+  byAssignee: Record<string, { total: number; open: number; close: number }>;
+}
+
+interface Props {
   total: number;
   open: number;
   inProgress: number;
@@ -120,11 +71,10 @@ interface Props {
 
 // ── Constants ──
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  open:         { bg: "#fef2f2", text: "#dc2626", label: "Open" },
-  "in-progress":{ bg: "#fffbeb", text: "#d97706", label: "In Progress" },
-  resolved:     { bg: "#f0fdf4", text: "#16a34a", label: "Resolved" },
-  closed:       { bg: "#f5f5f4", text: "#78716c", label: "Closed" },
-  wontfix:      { bg: "#faf5ff", text: "#9333ea", label: "Won't Fix" },
+  open:    { bg: "#fef2f2", text: "#dc2626", label: "Open" },
+  pending: { bg: "#fffbeb", text: "#d97706", label: "Pending" },
+  close:   { bg: "#f0fdf4", text: "#16a34a", label: "Close" },
+  ignore:  { bg: "#f5f5f4", text: "#78716c", label: "Ignore" },
 };
 
 const PRIORITY_STYLES: Record<string, { dot: string; label: string }> = {
@@ -135,65 +85,20 @@ const PRIORITY_STYLES: Record<string, { dot: string; label: string }> = {
 };
 
 const TYPE_STYLES: Record<string, { icon: string; bg: string; text: string; label: string }> = {
-  requirement: { icon: "📋", bg: "#eff6ff", text: "#2563eb", label: "Requirement" },
-  bug:         { icon: "🐛", bg: "#fef2f2", text: "#dc2626", label: "Bug" },
-  security:    { icon: "🔒", bg: "#fdf4ff", text: "#9333ea", label: "Security" },
-  chore:       { icon: "🔧", bg: "#f5f5f4", text: "#78716c", label: "Chore" },
+  dev:  { icon: "🔨", bg: "#eff6ff", text: "#2563eb", label: "Dev" },
+  test: { icon: "🧪", bg: "#fef2f2", text: "#dc2626", label: "Test" },
+  docs: { icon: "📖", bg: "#f5f5f4", text: "#78716c", label: "Docs" },
 };
 
-const EFFORT_STYLES: Record<string, { color: string }> = {
-  S: { color: "#22c55e" }, M: { color: "#3b82f6" }, L: { color: "#f59e0b" }, XL: { color: "#dc2626" },
-};
+const STATUS_FILTERS = ["all", "open", "pending", "close", "ignore"];
+const TYPE_FILTERS = ["all", "dev", "test", "docs"];
 
-const SOURCE_ICONS: Record<string, string> = {
-  vibe: "🌊", discussion: "💬", pm: "📋", issue: "🐛", security: "🔒", manual: "🔧",
-};
-
-const PIPELINE_PHASES = ["SPEC", "IMPLEMENT", "REVIEW", "TEST", "QA", "DOCS", "DONE"] as const;
-type PipelinePhaseName = typeof PIPELINE_PHASES[number];
-
-const PIPELINE_PHASE_ICONS: Record<string, string> = {
-  SPEC: "📝", IMPLEMENT: "🔨", REVIEW: "👁️", TEST: "🧪", QA: "✅", DOCS: "📖", DONE: "🎉",
-};
-
-const PHASE_STATUS_ICONS: Record<string, string> = {
-  done: "✅", in_progress: "🔄", pending: "⏳", rejected: "❌", blocked: "⚠️", skipped: "⏭", awaiting_human: "🙋",
-};
-
-const STATUS_FILTERS = ["all", "open", "in-progress", "resolved", "closed"];
-const TYPE_FILTERS = ["all", "requirement", "bug", "security", "chore"];
-
-type ViewMode = "list";
 
 // ── Helper functions ──
 function getTaskSourceIcon(task: Task): string {
-  if (task.source?.type && SOURCE_ICONS[task.source.type]) return SOURCE_ICONS[task.source.type];
-  return TYPE_STYLES[task.type]?.icon || "📋";
+  return TYPE_STYLES[task.type]?.icon || "🔨";
 }
 
-function getCurrentPhase(task: Task): PipelinePhaseName | null {
-  if (!task.pipeline) return null;
-  for (const phase of PIPELINE_PHASES) {
-    const p = task.pipeline[phase.toLowerCase()];
-    if (p && p.status !== "done" && p.status !== "skipped") return phase;
-  }
-  return "DONE";
-}
-
-function getPhaseMiniBar(task: Task): { phase: PipelinePhaseName; done: boolean; skipped: boolean }[] {
-  const pipeline = task.pipeline;
-  if (!pipeline) return [];
-  return PIPELINE_PHASES.map(phase => {
-    const p = pipeline[phase.toLowerCase()];
-    return { phase, done: p?.status === "done", skipped: p?.status === "skipped" };
-  });
-}
-
-function getAssigneeIcon(assignTo?: string): string {
-  if (assignTo === "ai_overnight") return "🌙";
-  if (assignTo === "human") return "☀️";
-  return "👤";
-}
 
 // ── Component ──
 export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue, visible = true }: Props) {
@@ -209,13 +114,12 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
   const [showDecompose, setShowDecompose] = useState(false);
   const [editing, setEditing] = useState(false);
   const [showEvidence, setShowEvidence] = useState(false);
-  const [editForm, setEditForm] = useState<Partial<Task>>({ type: "chore" });
+  const [editForm, setEditForm] = useState<Partial<Task>>({ type: "dev" });
   const [noteInput, setNoteInput] = useState("");
-  const [decomposeSubs, setDecomposeSubs] = useState([{ title: "", type: "", effort: "S", assignee: "", description: "" }]);
+  const [decomposeSubs, setDecomposeSubs] = useState([{ title: "", type: "dev", assignee: "", description: "" }]);
   // viewMode, pipelineOverview, overnight state removed — list view only
   const [diffModal, setDiffModal] = useState<string | null>(null);
   const [commitMsg, setCommitMsg] = useState("");
-  const [showSpecForm, setShowSpecForm] = useState(false);
 
   // IME composition refs
   const searchRef = useRef<HTMLInputElement>(null);
@@ -329,7 +233,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
       const data = await res.json();
       if (data.subTasks) {
         setShowDecompose(false);
-        setDecomposeSubs([{ title: "", type: "", effort: "S", assignee: "", description: "" }]);
+        setDecomposeSubs([{ title: "", type: "dev", assignee: "", description: "" }]);
         fetchTasks();
         fetchStats();
       } else {
@@ -355,34 +259,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
     } catch {}
   };
 
-  // ── Pipeline handlers ──
-  const handleAdvancePhase = async (taskId: string, phase: string) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-tasks/${taskId}/pipeline/advance?path=${pathParam}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase, status: "done", result: {} }),
-      });
-      if (res.ok) {
-        fetchTasks();
-      }
-    } catch {}
-  };
-
-  const handleRejectPhase = async (taskId: string, phase: string) => {
-    const feedback = prompt(`Reject ${phase} — feedback:`);
-    if (!feedback) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-tasks/${taskId}/pipeline/reject?path=${pathParam}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase, feedback, backTo: "IMPLEMENT" }),
-      });
-      if (res.ok) {
-        fetchTasks();
-      }
-    } catch {}
-  };
+  // Pipeline handlers removed (feature-first: use status directly)
 
   // ── Git handlers ──
   const handleGitStage = async (taskId: string) => {
@@ -432,349 +309,9 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
     setEditing(true);
     setEditForm({
       title: task.title, status: task.status, priority: task.priority,
-      type: task.type, effort: task.effort, assignee: task.assignee, description: task.description,
+      type: task.type, featureId: task.featureId, assignee: task.assignee, description: task.description,
     });
   };
-
-
-  // ── Task card mini pipeline bar ──
-  const renderPhaseMiniBar = (task: Task) => {
-    const phases = getPhaseMiniBar(task);
-    if (phases.length === 0) return null;
-    return (
-      <div className="flex items-center gap-0.5 mt-1">
-        {phases.map((p, i) => (
-          <React.Fragment key={p.phase}>
-            <div
-              className="w-4 h-1.5 rounded-sm"
-              style={{
-                background: p.done ? "#22c55e" : p.skipped ? "transparent" : theme.borderLight,
-                border: p.skipped ? `1px dashed ${theme.borderLight}` : undefined,
-                opacity: p.skipped ? 0.5 : 1,
-              }}
-              title={p.skipped ? `${p.phase} (skipped)` : p.phase}
-            />
-            {i < phases.length - 1 && <div className="w-1 h-px" style={{ background: theme.borderLight }} />}
-          </React.Fragment>
-        ))}
-      </div>
-    );
-  };
-
-  // ── Pipeline progress bar (detail) ──
-  const renderPipelineProgressBar = (task: Task) => {
-    if (!task.pipeline) return null;
-    const currentPhase = getCurrentPhase(task);
-    return (
-      <div className="mb-4 p-3 rounded" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
-        <h3 className="text-xs font-semibold uppercase mb-2" style={{ color: theme.text, opacity: 0.6 }}>
-          {t("task.pipelineProgress", "Pipeline Progress")}
-        </h3>
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {PIPELINE_PHASES.map((phase, i) => {
-            const p = task.pipeline![phase.toLowerCase()];
-            const status = p?.status || "pending";
-            const icon = PHASE_STATUS_ICONS[status] || "⏳";
-            const isCurrent = phase === currentPhase;
-            const isSkipped = status === "skipped";
-            return (
-              <React.Fragment key={phase}>
-                <div className="flex flex-col items-center gap-1 shrink-0" style={{ minWidth: 70, opacity: isSkipped ? 0.35 : 1 }}>
-                  <div className="text-xs font-bold" style={{ color: isCurrent ? theme.accent : theme.text, opacity: isCurrent ? 1 : 0.7 }}>
-                    {PIPELINE_PHASE_ICONS[phase]} {phase}
-                  </div>
-                  <div className="text-base" title={p?.reason || status}>{icon}</div>
-                  {p?.by && <div className="text-[10px]" style={{ opacity: 0.5 }}>{getAssigneeIcon(p.assignTo)} {p.by}</div>}
-                  {p?.at && <div className="text-[10px]" style={{ opacity: 0.3 }}>{new Date(p.at).toLocaleDateString()}</div>}
-                  {isCurrent && (
-                    <div className="flex gap-1 mt-1">
-                      <button
-                        onClick={() => handleAdvancePhase(task.id, phase)}
-                        className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-                        style={{ background: theme.accentBg, color: theme.accent }}
-                      >
-                        {t("task.advance", "Advance ▶")}
-                      </button>
-                      <button
-                        onClick={() => handleRejectPhase(task.id, phase)}
-                        className="text-[10px] px-1.5 py-0.5 rounded"
-                        style={{ background: "#fef2f2", color: "#dc2626" }}
-                      >
-                        ❌
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {i < PIPELINE_PHASES.length - 1 && (
-                  <div className="shrink-0" style={{ minWidth: 12, height: 1, background: theme.borderLight, alignSelf: "center", marginTop: -20 }} />
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
-  // ── Spec section ──
-  const renderSpecSection = (task: Task) => {
-    if (!task.spec) return null;
-    return (
-      <div className="mb-4 p-3 rounded" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
-        <h3 className="text-xs font-semibold uppercase mb-2" style={{ color: theme.text, opacity: 0.6 }}>
-          {t("task.spec", "📝 Spec")}
-        </h3>
-        {task.spec.description && (
-          <div className="text-sm mb-2" style={{ color: theme.text }}>
-            <MarkdownText>{task.spec.description}</MarkdownText>
-          </div>
-        )}
-        {task.spec.acceptanceCriteria.length > 0 && (
-          <div className="mb-2">
-            <div className="text-xs font-medium mb-1" style={{ color: theme.text, opacity: 0.7 }}>
-              {t("task.acceptanceCriteria", "Acceptance Criteria")}
-            </div>
-            {task.spec.acceptanceCriteria.map((criteria, i) => (
-              <div key={i} className="flex items-start gap-2 text-sm mb-1" style={{ color: theme.text }}>
-                <input type="checkbox" readOnly className="mt-0.5 shrink-0" />
-                <span>{criteria}</span>
-              </div>
-            ))}
-          </div>
-        )}
-        {task.spec.fileScope.length > 0 && (
-          <div className="mb-2">
-            <div className="text-xs font-medium mb-1" style={{ color: theme.text, opacity: 0.7 }}>
-              {t("task.fileScope", "File Scope")}
-            </div>
-            <div className="flex flex-col gap-1">
-              {task.spec.fileScope.map((f, i) => (
-                <button key={i} onClick={() => onOpenFile?.(f)} className="text-sm text-left font-mono hover:underline" style={{ color: theme.accent }}>
-                  📄 {f}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {task.spec.outOfScope.length > 0 && (
-          <div>
-            <div className="text-xs font-medium mb-1" style={{ color: theme.text, opacity: 0.7 }}>
-              {t("task.outOfScope", "Out of Scope")}
-            </div>
-            <div className="text-sm" style={{ color: theme.text, opacity: 0.5 }}>
-              {task.spec.outOfScope.join(", ")}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // ── Changes section ──
-  const renderChangesSection = (task: Task) => {
-    if (!task.changes) return null;
-    const c = task.changes;
-    const totalFiles = c.filesAdded.length + c.filesModified.length + c.filesDeleted.length;
-    return (
-      <div className="mb-4 p-3 rounded" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs font-semibold uppercase" style={{ color: theme.text, opacity: 0.6 }}>
-            {t("task.changes", "📁 Changes")}
-          </h3>
-          <button
-            onClick={() => handleViewDiff(task.id)}
-            className="text-xs px-2 py-0.5 rounded font-medium"
-            style={{ background: theme.accentBg, color: theme.accent }}
-          >
-            {t("task.viewDiff", "View Diff")}
-          </button>
-        </div>
-        <div className="text-xs mb-2" style={{ color: theme.text, opacity: 0.6 }}>
-          {totalFiles} files {c.diffStat ? `(${c.diffStat})` : ""}
-        </div>
-        <div className="flex flex-col gap-0.5">
-          {c.filesAdded.map((f, i) => (
-            <div key={`a${i}`} className="text-sm font-mono" style={{ color: "#16a34a" }}>+ {f}</div>
-          ))}
-          {c.filesModified.map((f, i) => (
-            <div key={`m${i}`} className="text-sm font-mono" style={{ color: "#d97706" }}>M {f}</div>
-          ))}
-          {c.filesDeleted.map((f, i) => (
-            <div key={`d${i}`} className="text-sm font-mono" style={{ color: "#dc2626" }}>- {f}</div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  // ── Test result section ──
-  const renderTestResultSection = (task: Task) => {
-    if (!task.testResult) return null;
-    const tr = task.testResult;
-    const total = tr.passed + tr.failed;
-    return (
-      <div className="mb-4 p-3 rounded" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
-        <h3 className="text-xs font-semibold uppercase mb-2" style={{ color: theme.text, opacity: 0.6 }}>
-          {t("task.testResult", "🧪 Test Result")}
-        </h3>
-        <div className="flex items-center gap-3 text-sm mb-2" style={{ color: theme.text }}>
-          <span style={{ color: tr.failed > 0 ? "#dc2626" : "#16a34a" }}>
-            {tr.passed}/{total} {t("task.passed", "passed")}
-          </span>
-          {tr.coverage && <span style={{ opacity: 0.7 }}>{t("task.coverage", "Coverage")}: {tr.coverage}</span>}
-        </div>
-        {tr.testsWritten.length > 0 && (
-          <div className="mb-2">
-            <div className="text-xs font-medium mb-1" style={{ opacity: 0.7 }}>{t("task.testsWritten", "Tests Written")}</div>
-            {tr.testsWritten.map((test, i) => (
-              <div key={i} className="text-sm font-mono mb-0.5" style={{ color: theme.text, opacity: 0.8 }}>✓ {test}</div>
-            ))}
-          </div>
-        )}
-        {tr.coverageGaps && tr.coverageGaps.length > 0 && (
-          <div>
-            <div className="text-xs font-medium mb-1" style={{ color: "#d97706" }}>{t("task.coverageGaps", "Coverage Gaps")}</div>
-            {tr.coverageGaps.map((gap, i) => (
-              <div key={i} className="text-sm" style={{ color: "#d97706", opacity: 0.8 }}>⚠ {gap}</div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // ── QA result section ──
-  const renderQaResultSection = (task: Task) => {
-    if (!task.qaResult) return null;
-    const qa = task.qaResult;
-    return (
-      <div className="mb-4 p-3 rounded" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
-        <h3 className="text-xs font-semibold uppercase mb-2" style={{ color: theme.text, opacity: 0.6 }}>
-          {t("task.qaResult", "✅ QA Result")}
-        </h3>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-sm font-bold" style={{
-            color: qa.overall === "passed" ? "#16a34a" : qa.overall === "failed" ? "#dc2626" : "#d97706"
-          }}>
-            {qa.overall.toUpperCase()}
-          </span>
-        </div>
-        {qa.autoChecks.length > 0 && (
-          <div className="mb-2">
-            <div className="text-xs font-medium mb-1" style={{ opacity: 0.7 }}>{t("task.autoChecks", "Auto Checks")}</div>
-            {qa.autoChecks.map((check, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm mb-0.5" style={{ color: theme.text }}>
-                <span>{check.passed ? "✅" : "❌"}</span>
-                <span className="flex-1">{check.rule}</span>
-                {check.detail && <span className="text-xs" style={{ opacity: 0.5 }}>{check.detail}</span>}
-              </div>
-            ))}
-          </div>
-        )}
-        {qa.manualChecks && qa.manualChecks.length > 0 && (
-          <div>
-            <div className="text-xs font-medium mb-1" style={{ opacity: 0.7 }}>{t("task.manualChecks", "Manual Checks")}</div>
-            {qa.manualChecks.map((check, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm mb-0.5" style={{ color: theme.text }}>
-                <span>{check.checked ? "☑️" : "☐"}</span>
-                <span>{check.label}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // ── Git section ──
-  const renderGitSection = (task: Task) => {
-    const g = task.git;
-    return (
-      <div className="mb-4 p-3 rounded" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
-        <h3 className="text-xs font-semibold uppercase mb-2" style={{ color: theme.text, opacity: 0.6 }}>
-          {t("task.git", "🔗 Git")}
-        </h3>
-        {g && (
-          <div className="text-xs mb-2 flex flex-col gap-0.5" style={{ color: theme.text, opacity: 0.7 }}>
-            <div>📌 {t("task.baseCommit", "Base")}: <code style={{ fontSize: 11 }}>{(g.baseCommit || "").slice(0, 8)}</code></div>
-            <div>🌿 {t("task.branch", "Branch")}: {g.branch || "—"}</div>
-            <div>{g.staged ? "📦" : "⬜"} {t("task.staged", "Staged")}: {g.staged ? "Yes" : "No"}</div>
-            {g.committedSha && <div>✅ {t("task.committed", "Committed")}: <code style={{ fontSize: 11 }}>{(g.committedSha || "").slice(0, 8)}</code></div>}
-          </div>
-        )}
-        {/* Commit message preview */}
-        <div className="mb-2">
-          <textarea
-            ref={commitMsgRef}
-            value={commitMsg}
-            onChange={e => setCommitMsg(e.target.value)}
-            placeholder={t("task.commitMsgPlaceholder", "Commit message (auto-generate or type)...")}
-            rows={2}
-            className="w-full text-xs px-2 py-1.5 rounded border outline-none resize-y font-mono"
-            style={inputStyle}
-          />
-        </div>
-        <div className="flex gap-1 flex-wrap">
-          <button
-            onClick={() => handleGitStage(task.id)}
-            className="text-xs px-2 py-1 rounded font-medium"
-            style={{ background: theme.accentBg, color: theme.accent }}
-          >
-            {t("task.stageFiles", "📦 Stage")}
-          </button>
-          <button
-            onClick={() => handleGitCommit(task.id, commitMsg || `${task.id}: ${task.title}`, true)}
-            disabled={!commitMsg.trim() && !task.title}
-            className="text-xs px-2 py-1 rounded font-medium"
-            style={{
-              background: commitMsg.trim() || task.title ? theme.accentBg : theme.bgMuted,
-              color: commitMsg.trim() || task.title ? theme.accent : theme.text,
-              opacity: commitMsg.trim() || task.title ? 1 : 0.5,
-            }}
-          >
-            {t("task.commitPush", "🚀 Commit & Push")}
-          </button>
-          <button
-            onClick={() => handleGitRestore(task.id)}
-            className="text-xs px-2 py-1 rounded"
-            style={{ background: "#fef2f2", color: "#dc2626" }}
-          >
-            {t("task.restore", "↩️ Restore")}
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  // ── Diff modal ──
-  const renderDiffModal = () => {
-    if (!diffModal) return null;
-    return (
-      <div
-        onClick={() => setDiffModal(null)}
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
-      >
-        <div
-          onClick={e => e.stopPropagation()}
-          style={{ background: theme.bg, border: `1px solid ${theme.borderLight}`, borderRadius: 8, maxWidth: "80vw", maxHeight: "80vh", overflow: "auto", padding: 16 }}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-bold" style={{ color: theme.text }}>{t("task.diff", "Diff")}</h3>
-            <button onClick={() => setDiffModal(null)} className="text-xs px-2 py-1 rounded" style={{ background: theme.bgMuted, color: theme.text }}>✕</button>
-          </div>
-          <pre className="text-xs font-mono whitespace-pre-wrap" style={{ color: theme.text }}>
-            {diffModal}
-          </pre>
-        </div>
-      </div>
-    );
-  };
-
-  // ── Task card for kanban ──
-
-  // ══════════════════════════════════════════════════════
-  // RENDER
-  // ══════════════════════════════════════════════════════
 
   return (
     <div className="flex h-full" style={{ background: theme.bg }}>
@@ -785,8 +322,8 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
           <div className="flex items-center gap-2 px-3 py-2 text-xs flex-wrap" style={{ background: theme.bgMuted, borderBottom: `1px solid ${theme.borderLight}` }}>
             <span style={{ color: theme.text, opacity: 0.6 }}>{t("task.tasks", "Tasks")}: <b>{stats.total}</b></span>
             <span className="px-1.5 py-0.5 rounded" style={{ background: STATUS_STYLES.open.bg, color: STATUS_STYLES.open.text }}>{t("task.open", "Open")}: {stats.open}</span>
-            {stats.inProgress > 0 && <span className="px-1.5 py-0.5 rounded" style={{ background: STATUS_STYLES["in-progress"].bg, color: STATUS_STYLES["in-progress"].text }}>{t("task.active", "Active")}: {stats.inProgress}</span>}
-            <span className="px-1.5 py-0.5 rounded" style={{ background: STATUS_STYLES.resolved.bg, color: STATUS_STYLES.resolved.text }}>{t("task.done", "Done")}: {stats.resolved}</span>
+            {stats.pending > 0 && <span className="px-1.5 py-0.5 rounded" style={{ background: STATUS_STYLES.pending.bg, color: STATUS_STYLES.pending.text }}>{t("task.pending", "Pending")}: {stats.pending}</span>}
+            <span className="px-1.5 py-0.5 rounded" style={{ background: STATUS_STYLES.close.bg, color: STATUS_STYLES.close.text }}>{t("task.done", "Done")}: {stats.close}</span>
             <div className="flex-1" />
             <button
               onClick={() => { fetchTasks(); fetchStats(); }}
@@ -854,12 +391,12 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
                             <span className="text-xs font-mono shrink-0" style={{ color: theme.text, opacity: 0.5 }}>{task.id}</span>
                             <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: st.bg, color: st.text }}>{st.label}</span>
                             <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: ty.bg, color: ty.text }}>{ty.label}</span>
-                            {task.effort && <span className="text-[10px] px-1 py-0.5 rounded shrink-0 font-bold" style={{ background: (EFFORT_STYLES[task.effort] || EFFORT_STYLES.S).color + "20", color: (EFFORT_STYLES[task.effort] || EFFORT_STYLES.S).color }}>{task.effort}</span>}
+                            {task.featureId && <span className="text-[10px] px-1 py-0.5 rounded shrink-0" style={{ background: theme.bgMuted, color: theme.text, opacity: 0.6 }}>{task.featureId}</span>}
                             {task.assignee && <span className="text-[10px] shrink-0">👤{task.assignee}</span>}
-                            {task.executionResult && <span className="text-[10px] shrink-0">{task.executionResult.success ? "⚡✅" : "⚡❌"}</span>}
+                            {task.result && <span className="text-[10px] shrink-0" title={task.result}>⚡</span>}
                           </div>
                           <div className="text-sm font-medium truncate" style={{ color: theme.text }}>{task.title}</div>
-                          {renderPhaseMiniBar(task)}
+                          
                         </div>
                       </div>
                     </div>
@@ -890,19 +427,15 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("task.type", "Type")}</label>
-                <select value={editForm.type || "chore"} onChange={e => setEditForm({ ...editForm, type: e.target.value as any })} className="w-full text-sm px-2 py-1.5 rounded border" style={inputStyle}>
-                  <option value="requirement">📋 {t("task.requirement", "Requirement")}</option>
-                  <option value="bug">🐛 Bug</option>
-                  <option value="security">🔒 {t("task.security", "Security")}</option>
-                  <option value="chore">🔧 {t("task.chore", "Chore")}</option>
+                <select value={editForm.type || "dev"} onChange={e => setEditForm({ ...editForm, type: e.target.value as any })} className="w-full text-sm px-2 py-1.5 rounded border" style={inputStyle}>
+                  <option value="dev">🔨 Dev</option>
+                  <option value="test">🧪 Test</option>
+                  <option value="docs">📖 Docs</option>
                 </select>
               </div>
               <div className="flex-1">
-                <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("task.effort", "Effort")}</label>
-                <select value={editForm.effort || ""} onChange={e => setEditForm({ ...editForm, effort: e.target.value as any || null })} className="w-full text-sm px-2 py-1.5 rounded border" style={inputStyle}>
-                  <option value="">—</option>
-                  <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option>
-                </select>
+                <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>Feature ID *</label>
+                <input value={editForm.featureId || ""} onChange={e => setEditForm({ ...editForm, featureId: e.target.value })} className="w-full text-sm px-2 py-1.5 rounded border" style={inputStyle} placeholder="F20260901-001" />
               </div>
             </div>
             <div className="flex gap-3">
@@ -929,7 +462,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
               <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("task.source", "Source")}</label>
               <select
                 value={(editForm as any).sourceType || "manual"}
-                onChange={e => setEditForm({ ...editForm, source: { type: e.target.value } } as any)}
+                onChange={e => setEditForm({ ...editForm, source: { type: e.target.value as any } } as any)}
                 className="w-full text-sm px-2 py-1.5 rounded border"
                 style={inputStyle}
               >
@@ -941,330 +474,97 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
                 <option value="manual">🔧 Manual</option>
               </select>
             </div>
-            {/* New: Spec fields (collapsible) */}
-            <div>
+
+            <div className="flex gap-3 mt-2">
               <button
-                onClick={() => setShowSpecForm(!showSpecForm)}
-                className="text-xs font-semibold uppercase flex items-center gap-1"
-                style={{ color: theme.text, opacity: 0.6 }}
+                onClick={() => { if (editForm.title?.trim()) handleCreate(editForm); }}
+                className="text-sm px-4 py-1.5 rounded font-medium"
+                style={{ background: theme.accentBg, color: theme.accent }}
               >
-                {showSpecForm ? "▼" : "▶"} {t("task.specFields", "Spec (optional)")}
+                {t("task.create", "Create")}
               </button>
-              {showSpecForm && (
-                <div className="mt-2 p-3 rounded border flex flex-col gap-2" style={{ borderColor: theme.borderLight, background: theme.bgMuted }}>
-                  <div>
-                    <label className="text-xs block mb-1" style={{ opacity: 0.6 }}>{t("task.specDescription", "Spec Description")}</label>
-                    <textarea
-                      value={(editForm as any).specDesc || ""}
-                      onChange={e => setEditForm({ ...editForm, spec: { ...(editForm as any).spec, description: e.target.value } } as any)}
-                      rows={2}
-                      className="w-full text-sm px-2 py-1.5 rounded border outline-none resize-y"
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs block mb-1" style={{ opacity: 0.6 }}>{t("task.acceptanceCriteria", "Acceptance Criteria")} (one per line)</label>
-                    <textarea
-                      value={(editForm as any).specCriteria || ""}
-                      onChange={e => setEditForm({ ...editForm, spec: { ...(editForm as any).spec, acceptanceCriteria: e.target.value.split("\n").filter(Boolean) } } as any)}
-                      rows={3}
-                      className="w-full text-sm px-2 py-1.5 rounded border outline-none resize-y"
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs block mb-1" style={{ opacity: 0.6 }}>{t("task.fileScope", "File Scope")} (one per line)</label>
-                    <textarea
-                      value={(editForm as any).specScope || ""}
-                      onChange={e => setEditForm({ ...editForm, spec: { ...(editForm as any).spec, fileScope: e.target.value.split("\n").filter(Boolean) } } as any)}
-                      rows={2}
-                      className="w-full text-sm px-2 py-1.5 rounded border outline-none resize-y font-mono"
-                      style={inputStyle}
-                    />
-                  </div>
-                </div>
-              )}
+              <button onClick={() => { setShowCreate(false); setEditForm({ type: "dev" }); }} className="text-sm px-4 py-1.5 rounded" style={{ background: theme.bgMuted, color: theme.text }}>
+                {t("task.cancel", "Cancel")}
+              </button>
             </div>
           </div>
-            <div className="flex gap-2 p-3 border-t" style={{ borderColor: theme.borderLight, background: theme.bgMuted }}>
-              <button onClick={() => handleCreate(editForm)} className="text-sm px-4 py-1.5 rounded font-medium" style={{ background: theme.accentBg, color: theme.accent }}>✅ {t("task.create", "Create")}</button>
-              <button onClick={() => setShowCreate(false)} className="text-sm px-4 py-1.5 rounded" style={{ background: theme.bg, color: theme.text }}>{t("task.cancel", "Cancel")}</button>
-            </div>
-          </div>
-        ) : showDecompose && selected ? (
-          <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-            <h2 className="text-lg font-bold" style={{ color: theme.text }}>✂️ {t("task.decompose", "Decompose")} {selected.id}</h2>
-            <div className="text-sm" style={{ color: theme.text, opacity: 0.6 }}>{t("task.splitInto", "Split")} <b>{selected.title}</b> {t("task.intoSubTasks", "into sub-tasks")}</div>
+        </div>
+        ) : showDecompose ? (
+          <div className="flex-1 overflow-y-auto p-4">
+            <h2 className="text-lg font-bold mb-3" style={{ color: theme.text }}>✂️ {t("task.decompose", "Decompose")}: {selectedId}</h2>
             {decomposeSubs.map((sub, idx) => (
-              <div key={idx} className="p-3 rounded border" style={{ borderColor: theme.borderLight, background: theme.bgMuted }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-bold" style={{ opacity: 0.5 }}>#{idx + 1}</span>
-                  {decomposeSubs.length > 1 && <button onClick={() => setDecomposeSubs(decomposeSubs.filter((_, i) => i !== idx))} className="text-xs px-1 rounded" style={{ color: "#dc2626" }}>✕</button>}
-                </div>
-                <input type="text" value={sub.title} onChange={e => { const n = [...decomposeSubs]; n[idx] = { ...n[idx], title: e.target.value }; setDecomposeSubs(n); }} placeholder={t("task.subTaskTitle", "Sub-task title")} className="w-full text-sm px-2 py-1.5 rounded border outline-none mb-2" style={inputStyle} />
-                <div className="flex gap-2">
-                  <select value={sub.effort} onChange={e => { const n = [...decomposeSubs]; n[idx] = { ...n[idx], effort: e.target.value }; setDecomposeSubs(n); }} className="text-xs px-1.5 py-1 rounded border" style={inputStyle}><option value="S">S</option><option value="M">M</option><option value="L">L</option></select>
-                  <input type="text" value={sub.assignee} onChange={e => { const n = [...decomposeSubs]; n[idx] = { ...n[idx], assignee: e.target.value }; setDecomposeSubs(n); }} placeholder={t("task.assignee", "Assignee")} className="flex-1 text-xs px-1.5 py-1 rounded border outline-none" style={inputStyle} />
-                </div>
+              <div key={idx} className="flex gap-2 mb-2 items-end">
+                <input value={sub.title} onChange={e => { const n = [...decomposeSubs]; n[idx] = { ...n[idx], title: e.target.value }; setDecomposeSubs(n); }} className="flex-1 text-sm px-2 py-1.5 rounded border" style={inputStyle} placeholder="Sub-task title" />
+                <button onClick={() => setDecomposeSubs(decomposeSubs.filter((_, i) => i !== idx))} className="text-xs px-2 py-1.5 rounded" style={{ background: theme.bgMuted, color: theme.text }}>×</button>
               </div>
             ))}
-            <button onClick={() => setDecomposeSubs([...decomposeSubs, { title: "", type: "", effort: "S", assignee: "", description: "" }])} className="text-xs px-2 py-1.5 rounded" style={{ background: theme.bgMuted, color: theme.text }}>+ {t("task.addSubTask", "Add sub-task")}</button>
-            <div className="flex gap-2 mt-2">
-              <button onClick={handleDecompose} disabled={!decomposeSubs.some(s => s.title.trim())} className="text-sm px-4 py-1.5 rounded font-medium" style={{ background: theme.accentBg, color: theme.accent, opacity: decomposeSubs.some(s => s.title.trim()) ? 1 : 0.5 }}>✂️ {t("task.split", "Split")}</button>
-              <button onClick={() => { setShowDecompose(false); setDecomposeSubs([{ title: "", type: "", effort: "S", assignee: "", description: "" }]); }} className="text-sm px-4 py-1.5 rounded" style={{ background: theme.bgMuted, color: theme.text }}>{t("task.cancel", "Cancel")}</button>
+            <button onClick={() => setDecomposeSubs([...decomposeSubs, { title: "", type: "dev", assignee: "", description: "" }])} className="text-xs px-2 py-1.5 rounded mt-1" style={{ background: theme.bgMuted, color: theme.text }}>+ {t("task.addSubTask", "Add sub-task")}</button>
+            <div className="flex gap-3 mt-3">
+              <button onClick={handleDecompose} className="text-sm px-4 py-1.5 rounded font-medium" style={{ background: theme.accentBg, color: theme.accent }}>{t("task.decompose", "Decompose")}</button>
+              <button onClick={() => { setShowDecompose(false); setDecomposeSubs([{ title: "", type: "dev", assignee: "", description: "" }]); }} className="text-sm px-4 py-1.5 rounded" style={{ background: theme.bgMuted, color: theme.text }}>{t("task.cancel", "Cancel")}</button>
             </div>
           </div>
-        ) : editing ? (
-          <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-            <h2 className="text-lg font-bold" style={{ color: theme.text }}>✏️ {t("task.edit", "Edit")} {selected!.id}</h2>
-            <div>
-              <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("task.title", "Title")}</label>
-              <input type="text" value={editForm.title || ""} onChange={e => setEditForm({ ...editForm, title: e.target.value })} className="w-full text-sm px-2 py-1.5 rounded border outline-none" style={inputStyle} />
-            </div>
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("task.type", "Type")}</label>
-                <select value={editForm.type || "chore"} onChange={e => setEditForm({ ...editForm, type: e.target.value as any })} className="w-full text-sm px-2 py-1.5 rounded border" style={inputStyle}>
-                  <option value="requirement">📋</option><option value="bug">🐛</option><option value="security">🔒</option><option value="chore">🔧</option>
-                </select>
-              </div>
-              <div className="flex-1">
-                <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("task.effort", "Effort")}</label>
-                <select value={editForm.effort || ""} onChange={e => setEditForm({ ...editForm, effort: e.target.value as any || null })} className="w-full text-sm px-2 py-1.5 rounded border" style={inputStyle}>
-                  <option value="">—</option><option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("task.status", "Status")}</label>
-                <select value={editForm.status || "open"} onChange={e => setEditForm({ ...editForm, status: e.target.value as any })} className="w-full text-sm px-2 py-1.5 rounded border" style={inputStyle}>
-                  <option value="open">Open</option><option value="in-progress">In Progress</option><option value="resolved">Resolved</option><option value="closed">Closed</option>
-                </select>
-              </div>
-              <div className="flex-1">
-                <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("task.priority", "Priority")}</label>
-                <select value={editForm.priority || "medium"} onChange={e => setEditForm({ ...editForm, priority: e.target.value as any })} className="w-full text-sm px-2 py-1.5 rounded border" style={inputStyle}>
-                  <option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
-                </select>
-              </div>
-              <div className="flex-1">
-                <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("task.assignee", "Assignee")}</label>
-                <input type="text" value={editForm.assignee || ""} onChange={e => setEditForm({ ...editForm, assignee: e.target.value })} className="w-full text-sm px-2 py-1.5 rounded border outline-none" style={inputStyle} />
-              </div>
-            </div>
-            <div className="flex-1 flex flex-col">
-              <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("task.description", "Description")}</label>
-              <textarea value={editForm.description || ""} onChange={e => setEditForm({ ...editForm, description: e.target.value })} rows={8} className="w-full flex-1 text-sm px-2 py-1.5 rounded border outline-none resize-y" style={{ ...inputStyle, minHeight: "120px" }} />
-            </div>
-          </div>
-            <div className="flex gap-2 p-3 border-t" style={{ borderColor: theme.borderLight, background: theme.bgMuted }}>
-              <button onClick={() => handleUpdate(selected!.id, editForm)} className="text-sm px-4 py-1.5 rounded font-medium" style={{ background: theme.accentBg, color: theme.accent }}>✅ {t("task.save", "Save")}</button>
-              <button onClick={() => setEditing(false)} className="text-sm px-4 py-1.5 rounded" style={{ background: theme.bg, color: theme.text }}>{t("task.cancel", "Cancel")}</button>
-            </div>
-          </div>
-        ) : selected && (
+        ) : selected ? (
           <div className="flex-1 overflow-y-auto p-4">
-            {(() => {
-              const st = STATUS_STYLES[selected.status] || STATUS_STYLES.open;
-              const pr = PRIORITY_STYLES[selected.priority] || PRIORITY_STYLES.medium;
-              const ty = TYPE_STYLES[selected.type] || TYPE_STYLES.chore;
-              const sourceIcon = getTaskSourceIcon(selected);
-              return (
-                <>
-                  {/* Header */}
-                  <div className="flex items-start justify-between gap-2 mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="text-base">{sourceIcon}</span>
-                        <span className="text-xs font-mono" style={{ opacity: 0.5 }}>{selected.id}</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: st.bg, color: st.text }}>{st.label}</span>
-                        <span className="text-[10px] px-1 py-0.5 rounded inline-flex items-center gap-1" style={{ background: theme.bgMuted, color: theme.text }}>
-                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: pr.dot }} />{pr.label}
-                        </span>
-                        <span className="text-[10px] px-1 py-0.5 rounded" style={{ background: ty.bg, color: ty.text }}>{ty.icon} {ty.label}</span>
-                        {selected.effort && <span className="text-[10px] px-1 py-0.5 rounded font-bold" style={{ background: (EFFORT_STYLES[selected.effort] || EFFORT_STYLES.S).color + "20", color: (EFFORT_STYLES[selected.effort] || EFFORT_STYLES.S).color }}>{selected.effort}</span>}
-                        {selected.assignee && <span className="text-[10px] px-1 py-0.5 rounded" style={{ background: theme.bgMuted, color: theme.text }}>👤 {selected.assignee}</span>}
-                        {selected.executionResult && <span className="text-[10px] px-1 py-0.5 rounded" style={{ background: "#1e1b4b", color: "#c4b5fd" }}>⚡ {selected.executionResult.success ? "✅" : "❌"}</span>}
-                      </div>
-                      <h2 className="text-lg font-bold" style={{ color: theme.text }}>{selected.title}</h2>
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      <button onClick={() => setShowEvidence(!showEvidence)} className="text-xs px-2 py-1 rounded" style={{ background: showEvidence ? theme.accent : theme.accentBg, color: theme.accent }} title={t("evidence.open", "Evidence")}>🧾</button>
-                      <button onClick={() => setShowDecompose(true)} className="text-xs px-2 py-1 rounded" style={{ background: theme.accentBg, color: theme.accent }} title="Decompose">✂️</button>
-                      <button onClick={() => startEdit(selected)} className="text-xs px-2 py-1 rounded" style={{ background: theme.accentBg, color: theme.accent }}>✏️</button>
-                      <button onClick={() => handleDelete(selected.id)} className="text-xs px-2 py-1 rounded" style={{ background: "#fef2f2", color: "#dc2626" }}>🗑️</button>
-                    </div>
-                  </div>
-
-                  {/* Evidence Package — 人 review 證據，不 review 碼 */}
-                  {showEvidence && selected && (
-                    <EvidenceCard
-                      rootPath={rootPath}
-                      taskId={selected.id}
-                      theme={theme}
-                      onClose={() => setShowEvidence(false)}
-                      onDecision={(_d, id) => { fetchTasks(); fetchStats(); }}
-                    />
-                  )}
-
-                  {/* Linked Issue */}
-                  {selected.linkedIssueId && (
-                    <div className="mb-3 p-2 rounded flex items-center gap-2" style={{ background: theme.bgMuted }}>
-                      <span className="text-xs" style={{ opacity: 0.6 }}>🐛 {t("task.issue", "Issue")}:</span>
-                      <button onClick={() => onNavigateIssue?.(selected.linkedIssueId!)} className="text-xs font-mono px-1.5 py-0.5 rounded hover:underline" style={{ color: theme.accent }}>{selected.linkedIssueId}</button>
-                    </div>
-                  )}
-
-                  {/* Parent */}
-                  {parentTask && (
-                    <div className="mb-3 p-2 rounded flex items-center gap-2" style={{ background: theme.bgMuted }}>
-                      <span className="text-xs" style={{ opacity: 0.6 }}>⬆️ {t("task.parent", "Parent")}:</span>
-                      <button onClick={() => navigateTo(parentTask.id)} className="text-xs font-mono px-1.5 py-0.5 rounded hover:underline" style={{ color: theme.accent }}>{parentTask.id}: {parentTask.title}</button>
-                    </div>
-                  )}
-
-                  {/* Children */}
-                  {childTasks.length > 0 && (
-                    <div className="mb-3">
-                      <h3 className="text-xs font-semibold uppercase mb-1" style={{ opacity: 0.5 }}>📌 {t("task.subTasks", "Sub-tasks")} ({childTasks.length})</h3>
-                      <div className="flex flex-col gap-1">
-                        {childTasks.map(child => {
-                          const cst = STATUS_STYLES[child.status] || STATUS_STYLES.open;
-                          return (
-                            <button key={child.id} onClick={() => navigateTo(child.id)} className="flex items-center gap-2 text-xs text-left px-2 py-1.5 rounded hover:underline" style={{ background: theme.bgMuted, color: theme.text }}>
-                              <span className="font-mono shrink-0" style={{ opacity: 0.5 }}>{child.id}</span>
-                              <span className="text-[10px] px-1 py-0.5 rounded" style={{ background: cst.bg, color: cst.text }}>{cst.label}</span>
-                              <span className="truncate flex-1">{child.title}</span>
-                              {child.effort && <span className="shrink-0 font-bold" style={{ color: (EFFORT_STYLES[child.effort] || EFFORT_STYLES.S).color }}>{child.effort}</span>}
-                              {child.executionResult && <span className="shrink-0">{child.executionResult.success ? "⚡✅" : "⚡❌"}</span>}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Timestamps */}
-                  <div className="flex gap-4 text-xs mb-4" style={{ color: theme.text, opacity: 0.5 }}>
-                    <span>📅 {new Date(selected.createdAt).toLocaleString()}</span>
-                    <span>🔄 {new Date(selected.updatedAt).toLocaleString()}</span>
-                    {selected.resolvedAt && <span>✅ {new Date(selected.resolvedAt).toLocaleString()}</span>}
-                  </div>
-
-                  {/* Description */}
-                  {selected.description && (
-                    <div className="mb-4">
-                      <h3 className="text-xs font-semibold uppercase mb-1" style={{ opacity: 0.5 }}>{t("task.description", "Description")}</h3>
-                      <div style={{ color: theme.text }}><MarkdownText>{selected.description}</MarkdownText></div>
-                    </div>
-                  )}
-
-                  {/* Related Files */}
-                  {selected.relatedFiles.length > 0 && (
-                    <div className="mb-4">
-                      <h3 className="text-xs font-semibold uppercase mb-1" style={{ opacity: 0.5 }}>{t("task.relatedFiles", "Related Files")}</h3>
-                      <div className="flex flex-col gap-1">
-                        {selected.relatedFiles.map(f => (
-                          <button key={f} onClick={() => onOpenFile?.(f)} className="text-sm text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>📄 {f}</button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Execution Result */}
-                  {selected.executionResult && (
-                    <div className="mb-4">
-                      <h3 className="text-xs font-semibold uppercase mb-1" style={{ opacity: 0.5 }}>⚡ {t("task.executionResult", "Execution Result")}</h3>
-                      <div className="p-2 rounded" style={{ background: "#1e1b4b", color: "#c4b5fd" }}>
-                        <div className="text-sm">{selected.executionResult.success ? "✅" : "❌"} {selected.executionResult.summary}</div>
-                        {selected.executionResult.filesChanged?.length > 0 && (
-                          <div className="mt-1 text-xs" style={{ opacity: 0.8 }}>{t("task.files", "Files")}: {selected.executionResult.filesChanged.join(", ")}</div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ── NEW: Pipeline Progress Bar ── */}
-                  {renderPipelineProgressBar(selected)}
-
-                  {/* ── NEW: Spec section ── */}
-                  {renderSpecSection(selected)}
-
-                  {/* ── NEW: Changes section ── */}
-                  {renderChangesSection(selected)}
-
-                  {/* ── NEW: Test Result ── */}
-                  {renderTestResultSection(selected)}
-
-                  {/* ── NEW: QA Result ── */}
-                  {renderQaResultSection(selected)}
-
-                  {/* ── NEW: Git section ── */}
-                  {renderGitSection(selected)}
-
-                  {/* Discussion / Notes */}
-                  <div className="mb-4">
-                    <h3 className="text-xs font-semibold uppercase mb-1" style={{ opacity: 0.5 }}>{t("task.discussion", "Discussion")}</h3>
-                    {/* Discussion summaries */}
-                    {selected.discussion && selected.discussion.length > 0 && (
-                      <div className="flex flex-col gap-1 mb-2">
-                        {selected.discussion.map((d, i) => (
-                          <div key={i} className="text-xs p-2 rounded" style={{ background: theme.bgMuted, color: theme.text, opacity: 0.8 }}>
-                            💬 {d.summary}
-                            <span className="text-[10px] ml-2" style={{ opacity: 0.4 }}>{new Date(d.at).toLocaleString()}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {selected.notes.length > 0 && (
-                      <div className="flex flex-col gap-2 mb-2">
-                        {selected.notes.map((note, i) => (
-                          <div key={i} className="flex gap-2 items-start">
-                            <span className="text-xs shrink-0">{note.by === "agent" || note.by === "em" ? "🤖" : "👤"}</span>
-                            <div className="text-sm flex-1" style={{ color: theme.text }}>
-                              <MarkdownText>{note.content}</MarkdownText>
-                              <div className="text-[10px] mt-0.5" style={{ opacity: 0.4 }}>{new Date(note.at).toLocaleString()}</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex gap-2">
-                      <input
-                        ref={noteRef}
-                        type="text"
-                        value={noteInput}
-                        onChange={e => setNoteInput(e.target.value)}
-                        placeholder={t("task.addNote", "Add a note...")}
-                        className="flex-1 text-xs px-2 py-1.5 rounded border outline-none"
-                        style={inputStyle}
-                        onKeyDown={e => { if (e.key === "Enter" && noteInput.trim()) { e.preventDefault(); handleAddNote(); } }}
-                      />
-                      <button
-                        onClick={handleAddNote}
-                        disabled={!noteInput.trim()}
-                        className="text-xs px-2 py-1 rounded font-medium shrink-0"
-                        style={{
-                          background: noteInput.trim() ? theme.accentBg : theme.bgMuted,
-                          color: noteInput.trim() ? theme.accent : theme.text,
-                          opacity: noteInput.trim() ? 1 : 0.5,
-                        }}
-                      >
-                        💬
-                      </button>
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg font-bold" style={{ color: theme.text }}>{selected.id}</span>
+              <span className="px-1.5 py-0.5 rounded text-xs" style={{ background: STATUS_STYLES[selected.status]?.bg, color: STATUS_STYLES[selected.status]?.text }}>{STATUS_STYLES[selected.status]?.label}</span>
+              {selected.featureId && <span className="px-1.5 py-0.5 rounded text-xs" style={{ background: theme.bgMuted, color: theme.text, opacity: 0.7 }}>📌 {selected.featureId}</span>}
+            </div>
+            <div className="text-base font-semibold mb-2" style={{ color: theme.text }}>{selected.title}</div>
+            {selected.description && <div className="text-sm mb-3" style={{ color: theme.text, opacity: 0.8 }}><MarkdownText>{selected.description}</MarkdownText></div>}
+            {selected.result && <div className="mb-3 p-2 rounded text-sm" style={{ background: theme.bgMuted, color: theme.text }}><strong>Result:</strong> {selected.result}</div>}
+            {/* Notes */}
+            <div className="mb-3">
+              <h4 className="text-xs font-semibold uppercase mb-1" style={{ opacity: 0.6 }}>{t("task.notes", "Notes")}</h4>
+              {selected.notes?.map((n, i) => (
+                <div key={i} className="text-sm mb-1" style={{ color: theme.text, opacity: 0.8 }}>
+                  <span className="text-xs" style={{ opacity: 0.5 }}>{n.by} · {new Date(n.at).toLocaleString()}</span>
+                  <div>{n.content}</div>
+                </div>
+              ))}
+              <div className="flex gap-2 mt-1">
+                <input ref={noteRef} value={noteInput} onChange={e => setNoteInput(e.target.value)}
+                  onCompositionStart={() => { if (noteRef.current) (noteRef.current as any)._composing = true; }}
+                  onCompositionEnd={() => { if (noteRef.current) (noteRef.current as any)._composing = false; }}
+                  onKeyDown={e => { if (e.key === "Enter" && !((noteRef.current as any)?._composing || e.nativeEvent.isComposing || e.keyCode === 229)) { e.preventDefault(); handleAddNote(); } }}
+                  className="flex-1 text-sm px-2 py-1.5 rounded border" style={inputStyle} placeholder="Add note..."
+                />
+                <button onClick={handleAddNote} className="text-sm px-3 py-1.5 rounded" style={{ background: theme.accentBg, color: theme.accent }}>+</button>
+              </div>
+            </div>
+            {/* Status change */}
+            <div className="flex gap-2 mb-3">
+              {(["open", "pending", "close", "ignore"] as const).map(s => (
+                <button key={s} onClick={() => handleUpdate(selected.id, { status: s })} className="text-xs px-2 py-1 rounded" style={{ background: STATUS_STYLES[s].bg, color: STATUS_STYLES[s].text, opacity: selected.status === s ? 1 : 0.5 }}>{STATUS_STYLES[s].label}</button>
+              ))}
+            </div>
+            {/* Git controls */}
+            <div className="flex gap-2 mb-3">
+              <button onClick={() => handleViewDiff(selected.id)} className="text-xs px-2 py-1 rounded" style={{ background: theme.bgMuted, color: theme.text }}>Diff</button>
+              <button onClick={() => handleGitStage(selected.id)} className="text-xs px-2 py-1 rounded" style={{ background: theme.bgMuted, color: theme.text }}>Stage</button>
+              <button onClick={() => { const msg = prompt("Commit message:"); if (msg) handleGitCommit(selected.id, msg, true); }} className="text-xs px-2 py-1 rounded" style={{ background: theme.bgMuted, color: theme.text }}>Commit</button>
+              <button onClick={() => handleDelete(selected.id)} className="text-xs px-2 py-1 rounded" style={{ background: "#fef2f2", color: "#dc2626" }}>Delete</button>
+            </div>
           </div>
-        )}
+        ) : null}
       </div>
-
-      {/* Diff Modal */}
-      {renderDiffModal()}
     </div>
   );
+
+  // ── Diff Modal ──
+  function renderDiffModal() {
+    if (!diffModal) return null;
+    return (
+      <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: "rgba(0,0,0,0.5)" }}>
+        <div className="w-[80vw] h-[80vh] rounded-lg p-4 overflow-auto" style={{ background: theme.bg }}>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm font-bold" style={{ color: theme.text }}>Diff</span>
+            <button onClick={() => setDiffModal(null)} className="text-sm px-2 py-1 rounded" style={{ background: theme.bgMuted, color: theme.text }}>Close</button>
+          </div>
+          <pre className="text-xs overflow-auto" style={{ color: theme.text, opacity: 0.8 }}>{diffModal}</pre>
+        </div>
+      </div>
+    );
+  }
 }

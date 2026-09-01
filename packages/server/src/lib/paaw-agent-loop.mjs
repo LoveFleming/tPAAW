@@ -757,14 +757,14 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "task_list",
-      description: "List coding tasks. Can filter by pipeline phase, status, type, or priority. Also supports reading a single task by ID.",
+      description: "List coding tasks (feature-first). Filter by status, type, featureId, or priority. Read single task by ID. Status: open|close|pending|ignore. Type: dev|test|docs.",
       parameters: {
         type: "object",
         properties: {
           id: { type: "string", description: "Get a single task by ID (e.g. 'TASK-014')" },
-          status: { type: "string", description: "Filter by flat status: open, in-progress, resolved, closed" },
-          pipelinePhase: { type: "string", description: "Filter by pipeline phase: spec, implement, review, test, qa, docs, commit", enum: ["spec", "implement", "review", "test", "qa", "docs", "commit"] },
-          type: { type: "string", description: "Filter by type: feature, bugfix, refactor, test, docs, chore" },
+          status: { type: "string", description: "Filter by status: open, close, pending, ignore" },
+          type: { type: "string", description: "Filter by type: dev, test, docs" },
+          featureId: { type: "string", description: "Filter by feature ID (e.g. 'F20260901-001')" },
           priority: { type: "string", description: "Filter by priority: critical, high, medium, low" },
         },
       },
@@ -774,21 +774,20 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "task_create",
-      description: "Create a new coding task. Tasks are the unit of work in the pipeline (spec → implement → review → test → qa → docs → commit).",
+      description: "Create a new coding task. Every task MUST have a featureId (all work belongs to a feature). Status: open|close|pending|ignore. Type: dev|test|docs.",
       parameters: {
         type: "object",
         properties: {
           title: { type: "string", description: "Task title" },
-          type: { type: "string", enum: ["feature", "bugfix", "refactor", "test", "docs", "chore"], description: "Task type" },
+          featureId: { type: "string", description: "REQUIRED. Feature this task belongs to (e.g. 'F20260901-001'). Misc work → use 'Utility & Platform Misc' feature." },
+          type: { type: "string", enum: ["dev", "test", "docs"], description: "Task type: dev (code/bugfix/refactor), test, docs" },
           priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "Priority level" },
           description: { type: "string", description: "Detailed description of what needs to be done" },
           parentId: { type: "string", description: "Parent task ID (for subtasks from decompose)" },
           source: { type: "string", enum: ["vibe", "discussion", "pm", "issue", "security", "manual"], description: "Where this task came from" },
-          fileScope: { type: "array", items: { type: "string" }, description: "Files/directories this task should touch" },
-          acceptanceCriteria: { type: "array", items: { type: "string" }, description: "Criteria for considering this task done" },
           labels: { type: "array", items: { type: "string" }, description: "Labels/tags" },
         },
-        required: ["title", "type"],
+        required: ["title", "featureId", "type"],
       },
     },
   },
@@ -796,22 +795,20 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "task_update",
-      description: "Update an existing task. Can change pipeline phase status, add notes, update fields, or advance/reject pipeline.",
+      description: "Update a coding task. Actions: update (change fields), note (add note), assign (assign agent). No pipeline — use status directly (open|close|pending|ignore).",
       parameters: {
         type: "object",
         properties: {
           id: { type: "string", description: "Task ID to update" },
-          action: { type: "string", enum: ["update", "advance", "reject", "note", "assign"], description: "What to do: update fields, advance pipeline phase, reject phase, add note, or assign" },
+          action: { type: "string", enum: ["update", "note", "assign"], description: "What to do: update fields, add note, or assign agent" },
           title: { type: "string", description: "New title (action=update)" },
-          status: { type: "string", description: "New flat status (action=update)" },
+          status: { type: "string", description: "New status (action=update): open, close, pending, ignore" },
+          type: { type: "string", description: "New type (action=update): dev, test, docs" },
+          featureId: { type: "string", description: "Reassign to different feature (action=update)" },
           priority: { type: "string", description: "New priority (action=update)" },
-          phase: { type: "string", description: "Pipeline phase to advance/reject (action=advance/reject): spec, implement, review, test, qa, docs, commit" },
-          result: { type: "string", description: "Result data as JSON string (action=advance): { passed, failed, coverage, etc }" },
-          feedback: { type: "string", description: "Feedback reason (action=reject)" },
-          backTo: { type: "string", description: "Phase to return to (action=reject): e.g. 'implement'" },
+          result: { type: "string", description: "Execution result summary (action=update)" },
           note: { type: "string", description: "Note content (action=note)" },
-          assignTo: { type: "string", description: "Assign to agent or 'ai_overnight' (action=assign)" },
-          changes: { type: "string", description: "JSON string of file changes to record: { filesAdded: [], filesModified: [], filesDeleted: [] }" },
+          assignTo: { type: "string", description: "Assign to agent (action=assign): developer, tester, doc-writer, architect" },
         },
         required: ["id", "action"],
       },
@@ -821,7 +818,7 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "task_decompose",
-      description: "將一個大 Task 拆分成多個子任務。EM 收到大任務時，必須先用這個工具拆分，再逐個派工。",
+      description: "將一個大 Task 拆分成多個子任務。子任務繼承父任務的 featureId。",
       parameters: {
         type: "object",
         properties: {
@@ -832,9 +829,8 @@ export const PAAW_TOOLS = [
               type: "object",
               properties: {
                 title: { type: "string", description: "子任務標題" },
-                type: { type: "string", enum: ["requirement", "bug", "security", "chore"] },
+                type: { type: "string", enum: ["dev", "test", "docs"], description: "子任務類型" },
                 priority: { type: "string", enum: ["critical", "high", "medium", "low"] },
-                effort: { type: "string", enum: ["S", "M", "L", "XL"] },
                 assignee: { type: "string", description: "指派對象" },
                 description: { type: "string", description: "子任務詳細說明" },
               },
@@ -847,21 +843,7 @@ export const PAAW_TOOLS = [
       },
     },
   },
-  {
-    type: "function",
-    function: {
-      name: "task_retrofit",
-      description: "上線前品質補強：從 feature map（.paaw/features/FEATURES.json）掃 active feature，為每個 feature 建一個補 review/test/qa/docs 的全版 task。以代碼現況為準（早期 task 的產出可能已被蓋掉），不是從歷史 task 建。冪等：已有未結案 retrofit 的 feature 不重複建。",
-      parameters: {
-        type: "object",
-        properties: {
-          priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "新 task 優先級（默認 high）" },
-          featureIds: { type: "array", items: { type: "string" }, description: "只補這些 feature（F-XXX，默認全部 active feature）" },
-        },
-      },
-    },
-  },
-  {
+    {
     type: "function",
     function: {
       name: "dispatch_agent",
@@ -1006,7 +988,7 @@ const TOOL_GROUP_MAP = {
   notes: "notes",
 
   // Task management
-  task_create: "tasks", task_update: "tasks", task_list: "tasks", task_decompose: "tasks", task_retrofit: "tasks", dispatch_agent: "dispatch", auto_dispatch: "dispatch",
+  task_create: "tasks", task_update: "tasks", task_list: "tasks", task_decompose: "tasks", dispatch_agent: "dispatch", auto_dispatch: "dispatch",
 
   // Docs & CU
   cu_refresh: "docs",
@@ -2794,6 +2776,9 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         try {
           const data = JSON.parse(readSync(tasksFile, "utf-8"));
           let tasks = data.tasks || [];
+          // Normalize old statuses for display
+          const norm = s => { const st = String(s||"").trim().toLowerCase().replace(/[\s-]+/g,"_"); if (st==="open"||st==="todo") return "open"; if (["in_progress","review","testing","pending","awaiting_human"].includes(st)) return "pending"; if (["done","completed","resolved","closed"].includes(st)) return "close"; if (["skipped","wontfix","ignore"].includes(st)) return "ignore"; return "open"; };
+          const normType = t => { const ty = String(t||"").toLowerCase(); if (ty==="test"||ty==="testing") return "test"; if (ty==="docs"||ty==="doc"||ty==="documentation") return "docs"; return "dev"; };
           // Single task by ID
           if (args.id) {
             const task = tasks.find(t => t.id === args.id);
@@ -2801,26 +2786,20 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             return JSON.stringify(task, null, 2);
           }
           // Filters
-          if (args.status) tasks = tasks.filter(t => t.status === args.status);
-          if (args.type) tasks = tasks.filter(t => t.type === args.type);
+          if (args.status) tasks = tasks.filter(t => norm(t.status) === args.status);
+          if (args.type) tasks = tasks.filter(t => normType(t.type) === args.type);
+          if (args.featureId) tasks = tasks.filter(t => t.featureId === args.featureId);
           if (args.priority) tasks = tasks.filter(t => t.priority === args.priority);
-          if (args.pipelinePhase) {
-            tasks = tasks.filter(t => {
-              const p = t.pipeline?.[args.pipelinePhase];
-              return p && p.status !== "done" && p.status !== "skipped";
-            });
-          }
           if (tasks.length === 0) {
             if (onEvent) onEvent({ type: "tool_end", name, result: "0 tasks" });
             return "(No matching tasks found)";
           }
           const lines = tasks.map(t => {
-            const phases = ["spec","implement","review","test","qa","docs","commit"];
-            const phaseStr = phases.map(ph => {
-              const s = t.pipeline?.[ph]?.status || "?";
-              return s === "done" ? "\u2705" : s === "in_progress" ? "\ud83d\udd04" : s === "failed" ? "\u274c" : s === "needs_human" ? "\u26a0\ufe0f" : "\u23f3";
-            }).join(" ");
-            return `[${t.id}] ${t.status} | ${t.priority} | ${t.title}\n  Pipeline: ${phaseStr}`;
+            const s = norm(t.status);
+            const icon = s === "open" ? "🟡" : s === "pending" ? "🔵" : s === "close" ? "✅" : "⏭️";
+            const ty = normType(t.type);
+            const fid = t.featureId || "(no feature)";
+            return `[${t.id}] ${icon} ${s} | ${ty} | ${t.priority} | ${fid}\n  ${t.title}`;
           }).join("\n\n");
           if (onEvent) onEvent({ type: "tool_end", name, result: `${tasks.length} tasks` });
           return `Tasks (${tasks.length}):
@@ -2831,15 +2810,11 @@ ${lines}`;
       }
 
       case "task_create": {
-        const PIPELINE_ORDER = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
-        // 2026-08-16 Fleming 定調：bootstrap = 快速看功能，pipeline 只到 commit 就結案
-        // 品質債（review/test/qa/docs）上線前用 task_retrofit 一次補
-        let _projectPhase = "bootstrap";
-        try {
-          _projectPhase = JSON.parse(readSync(join(cwd, ".paaw", "auto-dispatch", "config.json"), "utf-8"))?.projectPhase || "bootstrap";
-        } catch {}
-        const _shortPipeline = _projectPhase === "bootstrap";
-        const _phases = _shortPipeline ? ["spec", "implement", "commit"] : PIPELINE_ORDER;
+        // Feature-first：featureId 必填，status 只有 open/close/pending/ignore，type 只有 dev/test/docs
+        if (!args.featureId) {
+          return "Error: featureId is required. Every task must belong to a feature (misc work → 'Utility & Platform Misc' feature).";
+        }
+        const normType = t => { const ty = String(t||"").toLowerCase(); if (ty==="test"||ty==="testing") return "test"; if (ty==="docs"||ty==="doc"||ty==="documentation") return "docs"; return "dev"; };
         const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
         const tasksDir = join(cwd, ".paaw", "tasks");
         if (!existsSync(tasksDir)) await mkdir(tasksDir, { recursive: true });
@@ -2853,8 +2828,9 @@ ${lines}`;
         const id = `TASK-${String(nextNum).padStart(3, "0")}`;
         const task = {
           id,
-          title: args.title,
-          type: args.type || "feature",
+          featureId: args.featureId,
+          title: args.title || "(untitled)",
+          type: normType(args.type),
           status: "open",
           priority: args.priority || "medium",
           parentId: args.parentId || null,
@@ -2865,35 +2841,27 @@ ${lines}`;
           updatedAt: now,
           createdBy: "agent",
           source: { type: args.source || "manual" },
-          spec: args.acceptanceCriteria || args.fileScope ? {
-            description: args.description || "",
-            acceptanceCriteria: args.acceptanceCriteria || [],
-            fileScope: args.fileScope || [],
-            outOfScope: [],
-          } : null,
-          pipeline: _phases.reduce((pipe, p) => {
-            pipe[p] = p === "spec" ? { status: "done", by: "agent", at: now } : { status: "pending" };
-            return pipe;
-          }, {}),
-          pipelinePhases: _phases,
-          pipelineMode: _shortPipeline ? "short" : "full",
-          changes: { filesAdded: [], filesModified: [], filesDeleted: [] },
-          git: { baseCommit: null, branch: null, staged: false, committedSha: null },
           notes: [],
-          discussion: [],
+          result: null,
+          git: null,
+          timeoutSeconds: 0,
+          resolvedAt: null,
         };
         data.tasks.push(task);
         data.updatedAt = now;
         await writeFile(tasksFile, JSON.stringify(data, null, 2), "utf-8");
+        // touch feature updatedAt
+        try { const { touchFeature } = await import("./feature-registry.mjs"); touchFeature(cwd, args.featureId, now); } catch {}
         if (onEvent) onEvent({ type: "tool_end", name, result: id });
-        const _pipeText = _phases.map(p => p === "spec" ? "spec \u2705" : `${p} \u23f3`).join(" \u2192 ");
-        return `\u2705 Task created: ${id} "${args.title}"
-Type: ${task.type} | Priority: ${task.priority} | Pipeline mode: ${task.pipelineMode} (${_projectPhase})
-Pipeline: ${_pipeText}${_shortPipeline ? "\n\u2139\ufe0f bootstrap \u77ed\u7248 pipeline\uff1acommit \u5b8c\u6210\u5373\u7ed3\u6848\uff0c\u54c1\u8cea\u5075\u4e0a\u7dda\u524d\u7528 task_retrofit \u88dc" : ""}`;
+        return `✅ Task created: ${id} "${task.title}"
+Feature: ${task.featureId} | Type: ${task.type} | Priority: ${task.priority} | Status: open`;
       }
 
       case "task_update": {
-        const PIPELINE_ORDER = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
+        // Feature-first：no pipeline, 4 statuses, 3 types
+        const TASK_STATUSES = ["open", "close", "pending", "ignore"];
+        const normStatus = s => { const st = String(s||"").trim().toLowerCase().replace(/[\s-]+/g,"_"); if (st==="open"||st==="todo") return "open"; if (["in_progress","review","testing","pending","awaiting_human"].includes(st)) return "pending"; if (["done","completed","resolved","closed"].includes(st)) return "close"; if (["skipped","wontfix","ignore"].includes(st)) return "ignore"; return "open"; };
+        const normType = t => { const ty = String(t||"").toLowerCase(); if (ty==="test"||ty==="testing") return "test"; if (ty==="docs"||ty==="doc"||ty==="documentation") return "docs"; return "dev"; };
         const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
         if (!existsSync(tasksFile)) return "Error: No tasks file. Create tasks first.";
         const data = JSON.parse(readSync(tasksFile, "utf-8"));
@@ -2901,93 +2869,41 @@ Pipeline: ${_pipeText}${_shortPipeline ? "\n\u2139\ufe0f bootstrap \u77ed\u7248 
         if (!task) return `Error: Task ${args.id} not found.`;
         const now = new Date().toISOString();
         const action = args.action;
-        // 2026-08-16: 以 task 自己的 pipeline 為準（bootstrap 短版只有 spec→implement→commit）
-        const ORDER = (Array.isArray(task.pipelinePhases) && task.pipelinePhases.length)
-          ? task.pipelinePhases
-          : PIPELINE_ORDER;
 
         if (action === "update") {
           if (args.title) task.title = args.title;
           if (args.status) {
-            // 2026-08-16: 不能直接跳 resolved — pipeline 未全部完成時拒絕，避免假結案
-            if (args.status === "resolved" && !ORDER.every(p => task.pipeline?.[p]?.status === "done")) {
-              const missing = ORDER.filter(p => task.pipeline?.[p]?.status !== "done");
-              return `Error: 無法設 resolved — pipeline 還有階段未完成：${missing.join(", ")}。請用 advance 依序完成。`;
-            }
+            if (!TASK_STATUSES.includes(args.status)) return `Error: Invalid status '${args.status}'. Must be one of: ${TASK_STATUSES.join(", ")}`;
             task.status = args.status;
+            if (args.status === "close" && !task.resolvedAt) task.resolvedAt = now;
+            if (args.status === "open" || args.status === "pending") task.resolvedAt = null;
           }
+          if (args.type) task.type = normType(args.type);
+          if (args.featureId) task.featureId = args.featureId;
           if (args.priority) task.priority = args.priority;
+          if (args.result) task.result = args.result;
           task.updatedAt = now;
-        } else if (action === "advance") {
-          const phase = args.phase;
-          if (!phase) return "Error: 'phase' is required for advance action.";
-          if (!ORDER.includes(phase)) return `Error: Unknown phase '${phase}'. Valid for this task (${task.pipelineMode || "full"}): ${ORDER.join(", ")}`;
-          if (!task.pipeline) task.pipeline = {};
-          if (task.pipeline[phase]?.status === "done") {
-            return `⏭️ Task ${args.id} 的 ${phase} 已經是 done，略過。`;
+          // touch feature on close
+          if (task.status === "close" && task.featureId) {
+            try { const { touchFeature } = await import("./feature-registry.mjs"); touchFeature(cwd, task.featureId, now); } catch {}
           }
-          // 2026-08-16: 強制順序 — 前置階段未完成不得 advance（防止 commit 先做、review 後補的亂序）
-          const phaseIdx = ORDER.indexOf(phase);
-          const missingBefore = ORDER.slice(0, phaseIdx).filter(p => task.pipeline[p]?.status !== "done");
-          if (missingBefore.length > 0) {
-            return `Error: 無法 advance '${phase}'，前置階段未完成：${missingBefore.join(", ")}。請先完成前置階段（或用 reject 回退）。`;
-          }
-          if (!task.pipeline[phase]) task.pipeline[phase] = {};
-          task.pipeline[phase].status = "done";
-          task.pipeline[phase].by = "agent";
-          task.pipeline[phase].at = now;
-          if (args.result) {
-            try { task.pipeline[phase].result = JSON.parse(args.result); } catch {}
-          }
-          // Derive flat status — resolved 唯有全部階段 done（短版 task 只到 commit）
-          task.status = ORDER.every(p => task.pipeline[p]?.status === "done") ? "resolved" : "in-progress";
-          task.updatedAt = now;
-        } else if (action === "reject") {
-          const phase = args.phase;
-          if (!phase) return "Error: 'phase' is required for reject action.";
-          if (!task.pipeline) task.pipeline = {};
-          if (!task.pipeline[phase]) task.pipeline[phase] = {};
-          task.pipeline[phase].status = "failed";
-          task.pipeline[phase].feedback = args.feedback || "";
-          if (args.backTo) {
-            if (!task.pipeline[args.backTo]) task.pipeline[args.backTo] = {};
-            task.pipeline[args.backTo].status = "pending";
-          }
-          task.status = "in-progress";
-          task.updatedAt = now;
         } else if (action === "note") {
           if (!task.notes) task.notes = [];
-          task.notes.push({ text: args.note, at: now, by: "agent" });
+          task.notes.push({ by: "agent", at: now, content: args.note || "" });
           task.updatedAt = now;
         } else if (action === "assign") {
           task.assignee = args.assignTo;
+          task.status = "pending"; // 派工 = pending（等人/agent處理）
           if (!task.notes) task.notes = [];
-          task.notes.push({ text: `Assigned to ${args.assignTo}`, at: now, by: "agent" });
+          task.notes.push({ by: "agent", at: now, content: `Assigned to ${args.assignTo}` });
           task.updatedAt = now;
-        } else if (action === "update" && args.changes) {
-          try {
-            const ch = JSON.parse(args.changes);
-            if (ch.filesAdded) task.changes.filesAdded = ch.filesAdded;
-            if (ch.filesModified) task.changes.filesModified = ch.filesModified;
-            if (ch.filesDeleted) task.changes.filesDeleted = ch.filesDeleted;
-          } catch {}
+        } else {
+          return `Error: Unknown action '${action}'. Valid: update, note, assign.`;
         }
 
         await writeFile(tasksFile, JSON.stringify(data, null, 2), "utf-8");
         if (onEvent) onEvent({ type: "tool_end", name, result: `${args.id} ${action}` });
-        return `\u2705 Task ${args.id} updated (${action}). Status: ${task.status}`;
-      }
-
-      case "task_retrofit": {
-        // 2026-08-16 Fleming 定調（v2）：從 feature map 建，不從歷史 task 建
-        // 共用實作在 lib/task-retrofit.mjs（coding-releases route 也用它）
-        try {
-          const result = await runTaskRetrofit(cwd, { priority: args.priority, featureIds: args.featureIds });
-          if (!result.ok) return `Error: ${result.error}`;
-          return result.message;
-        } catch (e) {
-          return `Error: task_retrofit 失敗 — ${e.message}`;
-        }
+        return `✅ Task ${args.id} updated (${action}). Status: ${task.status}${task.featureId ? ` | Feature: ${task.featureId}` : ""}`;
       }
 
       case "task_decompose": {

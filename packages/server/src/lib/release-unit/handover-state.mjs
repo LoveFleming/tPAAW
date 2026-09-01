@@ -62,7 +62,7 @@ function _pipelineNext(task) {
 
 function _workingPlan(tasks) {
   const active = tasks
-    .filter(t => !["resolved", "done", "cancelled", "closed"].includes(String(t.status || "").toLowerCase()))
+    .filter(t => !["resolved", "done", "cancelled", "closed", "close", "ignore"].includes(String(t.status || "").toLowerCase()))
     .slice(0, 12)
     .map(t => {
       const pn = _pipelineNext(t);

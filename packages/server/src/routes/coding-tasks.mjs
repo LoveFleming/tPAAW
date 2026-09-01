@@ -1,114 +1,68 @@
 /**
- * Coding Tasks Route — Task management for .paaw/ projects
+ * Coding Tasks Route — Feature-first 任務模型（2026-09-01 Fleming 定調簡化）
  *
- * Tasks = actionable work items (派工、執行、追蹤)
- * Issues = problem/requirement records (記錄、分類、追蹤)
+ * Task = 掛在 feature 下的最小工作單位。沒有 pipeline、沒有 mini/full loop 語意。
+ *   status: open | close | pending | ignore
+ *     open    — 派工候選（唯一會被自動派工挑走的狀態）
+ *     pending — 暫停中（執行中 / 失敗等人處理 / 等外部）
+ *     close   — 完成
+ *     ignore  — 永不處理
+ *   type:   dev | test | docs
+ *   featureId 必填（雜項掛 Utility & Platform Misc）
+ *
+ * Loop mode（mini/full）與 EM cron 只是「觸發器」設定 — 決定何時派工，不再影響 task 結構。
  *
  * Endpoints:
- *   GET    /api/coding-tasks?path=...                       — List tasks (filter: status, type, priority, assignee, parentId, pipeline)
- *   GET    /api/coding-tasks/stats?path=...                 — Summary stats
- *   GET    /api/coding-tasks/pipeline/overview?path=...     — Pipeline summary for all tasks
- *   GET    /api/coding-tasks/overnight-queue?path=...       — Tonight's overnight queue
- *   GET    /api/coding-tasks/overnight-queue/results?path=... — Last overnight results
- *   GET    /api/coding-tasks/:id?path=...                   — Get single task (ensurePipeline applied)
- *   POST   /api/coding-tasks?path=...                       — Create task
- *   PUT    /api/coding-tasks/:id?path=...                   — Update task
- *   DELETE /api/coding-tasks/:id?path=...                   — Delete task
- *   POST   /api/coding-tasks/decompose?path=...             — Decompose into sub-tasks
- *   POST   /api/coding-tasks/:id/notes?path=...             — Add note
- *   POST   /api/coding-tasks/:id/pipeline/advance?path=...  — Advance a pipeline phase
- *   POST   /api/coding-tasks/:id/pipeline/reject?path=...   — Reject/return a pipeline phase
- *   GET    /api/coding-tasks/:id/git/diff?path=...          — Get task diff
- *   POST   /api/coding-tasks/:id/git/stage?path=...         — Git add task files
- *   POST   /api/coding-tasks/:id/git/commit?path=...        — Git commit + optional push
- *   POST   /api/coding-tasks/:id/git/restore?path=...       — Restore task files
- *   POST   /api/coding-tasks/:id/dispatch?path=...          — EM dispatch
+ *   GET    /api/coding-tasks?path=...              — List tasks (filter: status, type, featureId, priority, assignee, parentId, search)
+ *   GET    /api/coding-tasks/stats?path=...        — Summary stats（4 status + byType + byAssignee）
+ *   GET    /api/coding-tasks/project/loop-mode     — 觸發器設定
+ *   PUT    /api/coding-tasks/project/loop-mode     — 觸發器設定
+ *   GET    /api/coding-tasks/:id?path=...          — Get single task
+ *   POST   /api/coding-tasks?path=...              — Create task（title + featureId + type 必填）
+ *   PUT    /api/coding-tasks/:id?path=...          — Update task
+ *   DELETE /api/coding-tasks/:id?path=...          — Delete task（+ abort running agent）
+ *   POST   /api/coding-tasks/decompose?path=...    — Decompose into sub-tasks
+ *   POST   /api/coding-tasks/:id/notes?path=...    — Add note
+ *   GET    /api/coding-tasks/:id/git/diff          — Get task diff
+ *   POST   /api/coding-tasks/:id/git/stage         — Git add task files
+ *   POST   /api/coding-tasks/:id/git/commit        — Git commit + push（成功 → task close）
+ *   POST   /api/coding-tasks/:id/git/restore       — Restore task files
+ *   POST   /api/coding-tasks/:id/dispatch          — 派工（assignee + status pending）
  */
 
 import { readFile, writeFile, mkdir } from "fs/promises";
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { PassThrough } from "stream";
 import { readBody } from "./shared.mjs";
 import { TaskGit } from "../lib/task-git.mjs";
 import { buildReviewBoundary } from "../lib/review-boundary.mjs";
-import { DATA_HOME } from "../data-home.mjs";
+import { featureExists, touchFeature } from "../lib/feature-registry.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
 
-// ── Pipeline Constants ──
+// ── 常數 ──
 
-const PIPELINE_PHASES = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
+export const TASK_STATUSES = ["open", "close", "pending", "ignore"];
+export const TASK_TYPES = ["dev", "test", "docs"];
 
-// 方案 C：有界修復迴圈上限（TEST fail → auto rework implement，最多 N 輪）
-const REPAIR_LOOP_MAX = 3;
+// ── 舊資料正規化 ──
 
-/**
- * applyRepairLoopRule — 方案 C 核心（純函數，方便測試）
- * TEST 階段有失敗測試時的處置：
- *   - 未達上限 → 自動退回 implement（repairTriggered）
- *   - 達上限 → test=needs_human（needsHuman）
- *   - 全綠 → 清計數，放行（返回 null）
- * 直接改傳入的 task 物件（呼叫方負責 save）。
- */
-export function applyRepairLoopRule(task) {
-  const failed = Number(task.testResult?.failed ?? 0);
-  const passed = Number(task.testResult?.passed ?? 0);
-  if (failed <= 0) {
-    // 全綠 → 清除修復計數（成功落地）
-    if (task.repairLoop?.count > 0) {
-      if (!Array.isArray(task.notes)) task.notes = [];
-      task.notes.push({ by: "repair-loop", at: now(), content: `✅ Repair loop resolved after ${task.repairLoop.count} round(s) — all tests green` });
-      task.repairLoop.count = 0;
-    }
-    return null; // 放行
-  }
-  if (!task.repairLoop || typeof task.repairLoop !== "object") task.repairLoop = { count: 0, max: REPAIR_LOOP_MAX, history: [] };
-  const rl = task.repairLoop;
-  rl.max = rl.max || REPAIR_LOOP_MAX;
-  if (rl.count < rl.max) {
-    rl.count += 1;
-    rl.history.push({ round: rl.count, at: now(), passed, failed, reason: "test failures" });
-    task.pipeline.test = { status: "rework", by: "repair-loop", at: now(), reason: `${failed} tests failed`, round: rl.count };
-    task.pipeline.implement = { status: "in_progress", by: "repair-loop", at: now(), reason: `repair round ${rl.count}/${rl.max}` };
-    for (const ph of ["review", "qa", "docs", "commit"]) {
-      if (task.pipeline[ph] && task.pipeline[ph].status !== "pending") task.pipeline[ph] = { status: "pending" };
-    }
-    if (!Array.isArray(task.notes)) task.notes = [];
-    task.notes.push({ by: "repair-loop", at: now(), content: `🔁 Repair loop ${rl.count}/${rl.max}: test fail (${passed}✓ ${failed}✗) → auto rework implement` });
-    return { repairTriggered: true, repairLoop: rl };
-  }
-  // 超過上限 → 停手，交給人
-  rl.history.push({ round: rl.count + 1, at: now(), passed, failed, reason: "max repair rounds exceeded", escalated: true });
-  task.pipeline.test = { status: "needs_human", by: "repair-loop", at: now(), reason: `${failed} tests failed after ${rl.max} repair rounds` };
-  if (!Array.isArray(task.notes)) task.notes = [];
-  task.notes.push({ by: "repair-loop", at: now(), content: `🛑 Repair loop exhausted (${rl.max} rounds): test fail (${passed}✓ ${failed}✗) → needs human decision` });
-  return { needsHuman: true, repairLoop: rl };
+export function normalizeStatus(s) {
+  const st = String(s || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (st === "open" || st === "todo") return "open";
+  if (["in_progress", "review", "testing", "pending", "awaiting_human"].includes(st)) return "pending";
+  if (["done", "completed", "resolved", "closed"].includes(st)) return "close";
+  if (["skipped", "wontfix", "ignore"].includes(st)) return "ignore";
+  return "open";
 }
 
-// ── Mini Loop phases — 人是 QA，只走 implement → commit ──
-const MINI_LOOP_PHASES = ["implement", "commit"];
-
-// ── Loop mode → active phases mapping ──
-const LOOP_MODE_PHASES = {
-  full: PIPELINE_PHASES,
-  mini: MINI_LOOP_PHASES,
-};
-
-// ── Project Phase → Loop Mode 對應表 ──
-const PHASE_TO_LOOP_MODE = {
-  bootstrap: "mini",
-  mvp: "mini",
-  growth: "mini",
-  stable: "full",
-  refactor: "full",
-};
-
-function loopModeFromProjectPhase(projectPhase) {
-  return PHASE_TO_LOOP_MODE[projectPhase] || "mini";
+export function normalizeType(t) {
+  const ty = String(t || "").toLowerCase();
+  if (ty === "test" || ty === "testing") return "test";
+  if (ty === "docs" || ty === "doc" || ty === "documentation") return "docs";
+  return "dev"; // feature/bugfix/refactor/bug/security/requirement/chore/health → dev
 }
 
 // ── Helpers ──
@@ -134,131 +88,49 @@ function genId(existing) {
 
 function now() { return new Date().toISOString(); }
 
-// ── Pipeline Helpers ──
-
-function ensurePipeline(task, projectConfig) {
-  const loopMode = getEffectiveLoopMode(task, projectConfig);
-  const activePhases = LOOP_MODE_PHASES[loopMode] || PIPELINE_PHASES;
-
-  if (!task.pipeline) {
-    const isDone = task.status === "resolved" || task.status === "closed";
-    task.pipeline = {};
-    for (const phase of PIPELINE_PHASES) {
-      if (!activePhases.includes(phase)) {
-        // Skip phase — 不在目前 loop mode 的階段，標記 skipped（非 done），UI 才不會誤顯示為已完成
-        task.pipeline[phase] = { status: "skipped", by: "system", at: now(), reason: `skipped (${loopMode} loop)` };
-      } else if (isDone) {
-        task.pipeline[phase] = { status: "done", by: "unknown" };
-      } else if (phase === "implement" && task.status === "in-progress") {
-        task.pipeline[phase] = { status: "done", by: "unknown" };
-      } else {
-        task.pipeline[phase] = { status: "pending" };
-      }
-    }
-  }
-  // Ensure all phases exist
-  for (const phase of PIPELINE_PHASES) {
-    if (!task.pipeline[phase]) {
-      if (!activePhases.includes(phase)) {
-        task.pipeline[phase] = { status: "skipped", by: "system", at: now(), reason: `skipped (${loopMode} loop)` };
-      } else {
-        task.pipeline[phase] = { status: "pending" };
-      }
-    }
-  }
-  // 資料遷移：舊資料把 skipped phase 寫成 done + reason 'skipped...'，正規化為 skipped
-  for (const phase of PIPELINE_PHASES) {
-    const p = task.pipeline[phase];
-    if (p?.status === "done" && typeof p.reason === "string" && (p.reason.startsWith("skipped") || p.reason === "auto-skipped")) {
-      task.pipeline[phase] = { ...p, status: "skipped" };
-    }
-  }
-  return task;
-}
-
-function getActivePhases(task, projectConfig) {
-  const loopMode = getEffectiveLoopMode(task, projectConfig);
-  return LOOP_MODE_PHASES[loopMode] || PIPELINE_PHASES;
-}
-
-function deriveStatus(task, projectConfig) {
-  const p = task.pipeline;
-  if (!p) return task.status || "open";
-  if (p.commit?.status === "done") return "resolved";
-  const activePhases = getActivePhases(task, projectConfig);
-  for (const phase of activePhases) {
-    if (p[phase]?.status === "in_progress") return "in-progress";
-    if (p[phase]?.status === "failed" || p[phase]?.status === "needs_human" || p[phase]?.status === "awaiting_human" || p[phase]?.status === "rework") return "in-progress";
-    if (p[phase]?.status === "pending") return "in-progress";
-  }
-  if (p.spec?.status === "pending") return "open";
-  return task.status || "open";
-}
-
-// ── Task Storage ──
+// ── Task Storage（讀取時正規化 + 剝除 pipeline 舊欄位）──
 
 async function loadTasksAndConfig(projectPath) {
   const tasksFile = join(projectPath, ".paaw", "tasks", "TASKS.json");
   let tasks = [];
-  let config = { loopMode: "mini" }; // default: mini for new projects
+  let config = { loopMode: "mini" };
   if (existsSync(tasksFile)) {
     try {
       const data = JSON.parse(await readFile(tasksFile, "utf-8"));
       if (Array.isArray(data.tasks)) {
-        tasks = data.tasks.map(t => {
-          const mapped = {
-            id: t.id || "",
-            title: t.title || "",
-            type: t.type || "feature",
-            parentId: t.parentId || null,
-            linkedIssueId: t.linkedIssueId || null,
-            status: t.status || "open",
-            priority: t.priority || "medium",
-            effort: t.effort || null,
-            labels: Array.isArray(t.labels) ? t.labels : [],
-            assignee: t.assignee || null,
-            description: t.description || "",
-            relatedFiles: Array.isArray(t.relatedFiles) ? t.relatedFiles : [],
-            notes: Array.isArray(t.notes) ? t.notes : [],
-            executionResult: t.executionResult || null,
-            timeoutSeconds: t.timeoutSeconds || 0,
-            createdAt: t.createdAt || now(),
-            updatedAt: t.updatedAt || now(),
-            resolvedAt: t.resolvedAt || null,
-            createdBy: t.createdBy || "agent",
-            pipeline: t.pipeline || null,
-            loopModeOverride: t.loopModeOverride || t.loopMode || null, // backward compat
-            source: t.source || null,
-            spec: t.spec || null,
-            changes: t.changes || null,
-            git: t.git || null,
-            testResult: t.testResult || null,
-            qaResult: t.qaResult || null,
-            docsResult: t.docsResult || null,
-            repairLoop: t.repairLoop || null,
-            overnight: t.overnight || null,
-            reviewBoundary: t.reviewBoundary || null,
-          };
-          return ensurePipeline(mapped, config);
-        });
+        tasks = data.tasks.map(t => ({
+          id: t.id || "",
+          featureId: t.featureId || null,
+          type: normalizeType(t.type),
+          title: t.title || "",
+          parentId: t.parentId || null,
+          status: normalizeStatus(t.status),
+          priority: t.priority || "medium",
+          labels: Array.isArray(t.labels) ? t.labels : [],
+          assignee: t.assignee || null,
+          description: t.description || "",
+          relatedFiles: Array.isArray(t.relatedFiles) ? t.relatedFiles : [],
+          notes: Array.isArray(t.notes) ? t.notes : [],
+          result: t.result || t.executionResult?.summary || null,
+          git: t.git || null,
+          timeoutSeconds: t.timeoutSeconds || 0,
+          createdAt: t.createdAt || now(),
+          updatedAt: t.updatedAt || now(),
+          resolvedAt: t.resolvedAt || null,
+          createdBy: t.createdBy || "agent",
+          source: t.source || null,
+          reviewBoundary: t.reviewBoundary || null,
+        }));
       }
-      // Project-level config from TASKS.json top-level
       if (data.loopMode) config.loopMode = data.loopMode;
     } catch { /* empty */ }
   }
   return { tasks, config };
 }
 
-// Backward compat: loadTasks returns just the array
 async function loadTasks(projectPath) {
   const { tasks } = await loadTasksAndConfig(projectPath);
   return tasks;
-}
-
-function getEffectiveLoopMode(task, projectConfig) {
-  // Health tasks always use mini loop (implement → commit)
-  if (task.type === "health") return "mini";
-  return task.loopModeOverride || projectConfig?.loopMode || "mini";
 }
 
 async function saveTasks(projectPath, tasks, config) {
@@ -268,7 +140,13 @@ async function saveTasks(projectPath, tasks, config) {
   const output = { tasks, updatedAt: now() };
   if (config?.loopMode) output.loopMode = config.loopMode;
   await writeFile(tasksFile, JSON.stringify(output, null, 2), "utf-8");
-  // 🎯 R4: task 每次變動 → debounced handover state 刷新（任何時刻 AI 停掉都能接手）
+  // task 結案 → touch feature updatedAt（UI by updatedAt 排序反映活動）
+  for (const t of tasks) {
+    if (t.status === "close" && t.featureId) {
+      try { touchFeature(projectPath, t.featureId, t.updatedAt || now()); } catch {}
+    }
+  }
+  // R4: task 變動 → debounced handover state 刷新
   import("../lib/release-unit/handover-state.mjs").then(m => m.scheduleHandoverRefresh(projectPath)).catch(() => {});
 }
 
@@ -297,14 +175,13 @@ export default async function codingTasksRoute(req, res) {
 
   // ── GET /api/coding-tasks/stats ──
   if (url === "/api/coding-tasks/stats" && method === "GET") {
-    const { tasks, config } = await loadTasksAndConfig(projRoot);
+    const { tasks } = await loadTasksAndConfig(projRoot);
     const stats = {
       total: tasks.length,
       open: tasks.filter(t => t.status === "open").length,
-      inProgress: tasks.filter(t => t.status === "in-progress").length,
-      resolved: tasks.filter(t => t.status === "resolved").length,
-      closed: tasks.filter(t => t.status === "closed").length,
-      wontfix: tasks.filter(t => t.status === "wontfix").length,
+      pending: tasks.filter(t => t.status === "pending").length,
+      close: tasks.filter(t => t.status === "close").length,
+      ignore: tasks.filter(t => t.status === "ignore").length,
       byPriority: {
         critical: tasks.filter(t => t.priority === "critical").length,
         high: tasks.filter(t => t.priority === "high").length,
@@ -312,208 +189,47 @@ export default async function codingTasksRoute(req, res) {
         low: tasks.filter(t => t.priority === "low").length,
       },
       byType: {
-        requirement: tasks.filter(t => t.type === "requirement").length,
-        bug: tasks.filter(t => t.type === "bug").length,
-        security: tasks.filter(t => t.type === "security").length,
-        chore: tasks.filter(t => t.type === "chore").length,
+        dev: tasks.filter(t => t.type === "dev").length,
+        test: tasks.filter(t => t.type === "test").length,
+        docs: tasks.filter(t => t.type === "docs").length,
       },
       byAssignee: {},
-      pipelineDistribution: {},
     };
     for (const t of tasks) {
       const a = t.assignee || "unassigned";
-      if (!stats.byAssignee[a]) stats.byAssignee[a] = { total: 0, open: 0, resolved: 0 };
+      if (!stats.byAssignee[a]) stats.byAssignee[a] = { total: 0, open: 0, close: 0 };
       stats.byAssignee[a].total++;
-      if (t.status === "open" || t.status === "in-progress") stats.byAssignee[a].open++;
-      if (t.status === "resolved" || t.status === "closed") stats.byAssignee[a].resolved++;
-    }
-    // Pipeline distribution
-    for (const t of tasks) {
-      for (const phase of PIPELINE_PHASES) {
-        const ph = t.pipeline?.[phase];
-        if (ph) {
-          const key = `${phase}:${ph.status}`;
-          stats.pipelineDistribution[key] = (stats.pipelineDistribution[key] || 0) + 1;
-        }
-      }
+      if (t.status === "open") stats.byAssignee[a].open++;
+      if (t.status === "close") stats.byAssignee[a].close++;
     }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(stats));
     return true;
   }
 
-  // ── GET /api/coding-tasks/pipeline/overview ──
-  if (url === "/api/coding-tasks/pipeline/overview" && method === "GET") {
-    const { tasks, config } = await loadTasksAndConfig(projRoot);
-    const overview = {
-      total: tasks.length,
-      projectLoopMode: config.loopMode,
-      phases: {},
-      phaseOrder: PIPELINE_PHASES,
-    };
-    for (const phase of PIPELINE_PHASES) {
-      overview.phases[phase] = {
-        pending: 0,
-        in_progress: 0,
-        done: 0,
-        failed: 0,
-        needs_human: 0,
-        skipped: 0,
-      };
-    }
-    for (const t of tasks) {
-      for (const phase of PIPELINE_PHASES) {
-        const ph = t.pipeline?.[phase];
-        if (ph && overview.phases[phase]) {
-          const st = ph.status || "pending";
-          if (overview.phases[phase][st] !== undefined) {
-            overview.phases[phase][st]++;
-          }
-        }
-      }
-    }
-    // Summary: how many tasks fully complete
-    overview.completed = tasks.filter(t => t.pipeline?.commit?.status === "done").length;
-    overview.inPipeline = tasks.filter(t => {
-      const p = t.pipeline;
-      if (!p) return false;
-      if (p.commit?.status === "done") return false;
-      return PIPELINE_PHASES.some(ph => {
-        const st = p[ph]?.status;
-        return st === "in_progress" || st === "pending" || st === "failed" || st === "needs_human";
-      });
-    }).length;
+  // ── GET /api/coding-tasks/project/loop-mode ──
+  // 觸發器設定（mini/full）— 只決定派工觸發方式，不再影響 task 結構
+  if (url === "/api/coding-tasks/project/loop-mode" && method === "GET") {
+    const { config } = await loadTasksAndConfig(projRoot);
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(overview));
+    res.end(JSON.stringify({ loopMode: config.loopMode }));
     return true;
   }
 
-  // ── GET /api/coding-tasks/overnight-queue ──
-  if (url === "/api/coding-tasks/overnight-queue" && method === "GET") {
-    const { tasks, config } = await loadTasksAndConfig(projRoot);
-    // Tasks that are ready for overnight processing:
-    // - spec is done, implement is pending or in_progress
-    // - not yet fully resolved
-    const queue = tasks.filter(t => {
-      const p = t.pipeline;
-      if (!p) return false;
-      if (p.commit?.status === "done") return false;
-      // Spec must be done（mini loop 專案 spec 為 skipped，視同通過）
-      if (p.spec?.status !== "done" && p.spec?.status !== "skipped") return false;
-      // At least one remaining phase is pending or in_progress
-      const remaining = ["implement", "review", "test", "qa", "docs", "commit"];
-      return remaining.some(ph => {
-        const st = p[ph]?.status;
-        return st === "pending" || st === "in_progress" || st === "failed";
-      });
-    });
-    // Group by current phase
-    const grouped = {};
-    for (const phase of PIPELINE_PHASES) {
-      grouped[phase] = queue.filter(t => {
-        const statuses = PIPELINE_PHASES;
-        // Find the first phase that isn't done
-        for (const ph of statuses) {
-          const st = t.pipeline[ph]?.status;
-          if (st !== "done" && st !== "skipped") {
-            return ph === phase;
-          }
-        }
-        return false;
-      });
-    }
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({
-      total: queue.length,
-      byCurrentPhase: grouped,
-      tasks: queue,
-    }));
-    return true;
-  }
-
-  // ── GET /api/coding-tasks/overnight-queue/results ──
-  if (url === "/api/coding-tasks/overnight-queue/results" && method === "GET") {
-    const { tasks, config } = await loadTasksAndConfig(projRoot);
-    // Find tasks with overnight results (overnight field exists with results)
-    const results = tasks.filter(t => t.overnight && (t.overnight.lastRun || t.overnight.result));
-    const summary = {
-      total: results.length,
-      succeeded: results.filter(t => t.overnight?.result === "success").length,
-      failed: results.filter(t => t.overnight?.result === "failed").length,
-      partial: results.filter(t => t.overnight?.result === "partial").length,
-    };
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({
-      summary,
-      tasks: results.map(t => ({
-        id: t.id,
-        title: t.title,
-        overnight: t.overnight,
-        pipeline: t.pipeline,
-      })),
-    }));
-    return true;
-  }
-
-  // ── POST /api/coding-tasks/health-fix ──
-  // Create an execution plan from fixPlan (not coding tasks)
-  if (url === "/api/coding-tasks/health-fix" && method === "POST") {
-    let body;
-    try { body = JSON.parse(await readBody(req)); } catch {
+  // ── PUT /api/coding-tasks/project/loop-mode ──
+  if (url === "/api/coding-tasks/project/loop-mode" && method === "PUT") {
+    const body = JSON.parse(await readBody(req) || "{}");
+    const { loopMode } = body;
+    if (loopMode !== "mini" && loopMode !== "full") {
       res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      res.end(JSON.stringify({ error: "loopMode must be 'mini' or 'full'" }));
       return true;
     }
-    const { title, description, fixPlan, source } = body;
-    if (!fixPlan?.steps || !Array.isArray(fixPlan.steps) || fixPlan.steps.length === 0) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "fixPlan.steps[] is required" }));
-      return true;
-    }
-
-    try {
-      const { createPlan, markPlanStarted, updateSubTask } = await import("../lib/execution-plan.mjs");
-
-      // Build items for createPlan
-      // Each fixPlan.step = one task with one subtask
-      const items = fixPlan.steps.map((step, i) => ({
-        title: step.task?.trim() || step.title?.trim() || `Fix step ${i + 1}`,
-        assignee: step.agent || "developer",
-        source: "code_health",
-        sourceRef: source || "health-scan",
-        priority: "medium",
-        subtasks: [{
-          title: step.task?.trim() || `Fix step ${i + 1}`,
-          assignee: step.agent || "developer",
-        }],
-      }));
-
-      const plan = await createPlan({
-        projectPath: projRoot,
-        projectPhase: "health",
-        mode: "health-fix",
-        items,
-      });
-
-      // Mark as started immediately
-      await markPlanStarted(projRoot, plan.planId);
-
-      // Auto-dispatch: trigger first subtask in background
-      setImmediate(async () => {
-        try {
-          await runHealthPlanSubtask(projRoot, plan.planId);
-        } catch (e) {
-          console.error("[health-fix] auto-dispatch error:", e.message);
-        }
-      });
-
-      res.writeHead(201, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, planId: plan.planId, totalSubtasks: plan.summary.totalSubtasks, status: plan.status }));
-    } catch (e) {
-      console.error("[health-fix] createPlan error:", e.message);
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: e.message }));
-    }
+    const { tasks, config } = await loadTasksAndConfig(projRoot);
+    config.loopMode = loopMode;
+    await saveTasks(projRoot, tasks, config);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, loopMode }));
     return true;
   }
 
@@ -542,49 +258,28 @@ export default async function codingTasksRoute(req, res) {
     for (const sub of subTasks) {
       if (!sub.title?.trim()) continue;
       const ts = now();
-      const newSub = ensurePipeline({
+      created.push({
         id: genId(tasks.concat(created)),
+        featureId: sub.featureId || parent.featureId || null,
+        type: normalizeType(sub.type || parent.type),
         title: sub.title.trim(),
-        type: sub.type || parent.type,
-        parentId: parentId,
-        linkedIssueId: sub.linkedIssueId || parent.linkedIssueId || null,
+        parentId,
         status: "open",
         priority: sub.priority || parent.priority,
-        effort: sub.effort || null,
         labels: sub.labels || parent.labels || [],
         assignee: sub.assignee || null,
         description: sub.description || "",
         relatedFiles: sub.relatedFiles || [],
         notes: [],
-        executionResult: null,
+        result: null,
+        git: null,
+        timeoutSeconds: 0,
         createdAt: ts,
         updatedAt: ts,
         resolvedAt: null,
         createdBy: body.createdBy || "agent",
         source: sub.source || parent.source || null,
-        spec: sub.spec || parent.spec || null,
-        changes: sub.changes || null,
-        git: sub.git || null,
-        testResult: null,
-        qaResult: null,
-        overnight: null,
       });
-      // New sub-tasks start with spec done, implement pending
-      newSub.pipeline = {
-        spec:      { status: "done", by: body.createdBy || "agent", at: ts },
-        implement: { status: "pending" },
-        review:    { status: "pending" },
-        test:      { status: "pending" },
-        qa:        { status: "pending" },
-        docs:      { status: "pending" },
-        commit:    { status: "pending" },
-      };
-      created.push(newSub);
-    }
-    // Mark parent in-progress
-    if (parent.status === "open") {
-      parent.status = "in-progress";
-      parent.updatedAt = now();
     }
     if (!Array.isArray(parent.notes)) parent.notes = [];
     parent.notes.push({
@@ -604,39 +299,6 @@ export default async function codingTasksRoute(req, res) {
   // ════════════════════════════════════════════════
   // /:id ROUTES
   // ════════════════════════════════════════════════
-
-  // ── :id/notes ──
-  // ── GET /api/coding-tasks/project/loop-mode ──
-  if (url === "/api/coding-tasks/project/loop-mode" && method === "GET") {
-    const { config } = await loadTasksAndConfig(projRoot);
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ loopMode: config.loopMode }));
-    return true;
-  }
-
-  // ── PUT /api/coding-tasks/project/loop-mode ──
-  if (url === "/api/coding-tasks/project/loop-mode" && method === "PUT") {
-    const body = JSON.parse(await readBody(req) || "{}");
-    const { loopMode } = body;
-    if (loopMode !== "mini" && loopMode !== "full") {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "loopMode must be 'mini' or 'full'" }));
-      return true;
-    }
-    const { tasks, config } = await loadTasksAndConfig(projRoot);
-    config.loopMode = loopMode;
-    // Re-ensure pipeline for all active tasks
-    for (const task of tasks) {
-      if (task.status !== "resolved" && task.status !== "closed") {
-        ensurePipeline(task, config);
-        task.status = deriveStatus(task, config);
-      }
-    }
-    await saveTasks(projRoot, tasks, config);
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, loopMode, tasksUpdated: tasks.filter(t => t.status !== "resolved" && t.status !== "closed").length }));
-    return true;
-  }
 
   const notesMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/notes$/);
   if (notesMatch && method === "POST") {
@@ -668,185 +330,11 @@ export default async function codingTasksRoute(req, res) {
     return true;
   }
 
-  // ── :id/pipeline/advance ──
-  const advanceMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/pipeline\/advance$/);
-  if (advanceMatch && method === "POST") {
-    const id = decodeURIComponent(advanceMatch[1]);
-    let body;
-    try { body = JSON.parse(await readBody(req)); } catch {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Invalid JSON" }));
-      return true;
-    }
-    const { phase, result, by } = body;
-    if (!phase || !PIPELINE_PHASES.includes(phase)) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: `Invalid phase. Must be one of: ${PIPELINE_PHASES.join(", ")}` }));
-      return true;
-    }
-    const { tasks, config } = await loadTasksAndConfig(projRoot);
-    const idx = tasks.findIndex(t => t.id === id);
-    if (idx < 0) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Task not found" }));
-      return true;
-    }
-    const task = ensurePipeline(tasks[idx], config);
-    // ── 方案 C：有界修復迴圈（bounded repair loop）──
-    // TEST 階段完成但有失敗測試 → 不放行，自動退回 implement 重做（上限 REPAIR_LOOP_MAX 輪）
-    if (phase === "test") {
-      const verdict = applyRepairLoopRule(task);
-      if (verdict) {
-        task.status = deriveStatus(task, config);
-        task.updatedAt = now();
-        tasks[idx] = task;
-        await saveTasks(projRoot, tasks, config);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: false, ...verdict, task }));
-        return true;
-      }
-    }
-    // Special: if advancing spec from agent (not human), set to awaiting_human first (Gate 1)
-    if (phase === "spec" && task.pipeline.spec?.status === "in_progress" && by !== "human") {
-      task.pipeline.spec = { status: "awaiting_human", by: by || "agent", at: now(), result: result || undefined };
-      task.status = deriveStatus(task, config);
-      await saveTasks(projRoot, tasks, config);
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, task }));
-      return true;
-    }
-    // Mark current phase done
-    task.pipeline[phase] = {
-      status: "done",
-      by: by || "agent",
-      at: now(),
-      result: result || undefined,
-    };
-    // Advance to next ACTIVE phase (skip inactive phases for mini loop)
-    const activePhases = getActivePhases(task, config);
-    const activeIdx = activePhases.indexOf(phase);
-    if (activeIdx < activePhases.length - 1) {
-      const nextPhase = activePhases[activeIdx + 1];
-      // Skip any phases between current and next active that are still pending
-      for (let i = PIPELINE_PHASES.indexOf(phase) + 1; PIPELINE_PHASES[i] !== nextPhase; i++) {
-        if (task.pipeline[PIPELINE_PHASES[i]]?.status === "pending") {
-          task.pipeline[PIPELINE_PHASES[i]] = { status: "skipped", by: "system", at: now(), reason: "auto-skipped" };
-        }
-      }
-      if (task.pipeline[nextPhase]?.status === "pending") {
-        // Commit phase always awaits human; spec awaits human in full loop
-        if (nextPhase === "commit") {
-          task.pipeline[nextPhase] = { status: "awaiting_human", by: by || "agent", at: now() };
-        } else {
-          task.pipeline[nextPhase] = { status: "in_progress", by: by || "agent", at: now() };
-        }
-      }
-    }
-    // Derive flat status
-    task.status = deriveStatus(task, config);
-    if (task.status === "resolved" && !task.resolvedAt) {
-      task.resolvedAt = now();
-    }
-    task.updatedAt = now();
-    tasks[idx] = task;
-    await saveTasks(projRoot, tasks, config);
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(task));
-    return true;
-  }
-
-  // ── :id/pipeline/reject ──
-  const rejectMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/pipeline\/reject$/);
-  if (rejectMatch && method === "POST") {
-    const id = decodeURIComponent(rejectMatch[1]);
-    let body;
-    try { body = JSON.parse(await readBody(req)); } catch {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Invalid JSON" }));
-      return true;
-    }
-    const { phase, reason, by, returnTo, feedback } = body;
-    if (!phase || !PIPELINE_PHASES.includes(phase)) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: `Invalid phase. Must be one of: ${PIPELINE_PHASES.join(", ")}` }));
-      return true;
-    }
-    const { tasks, config } = await loadTasksAndConfig(projRoot);
-    const idx = tasks.findIndex(t => t.id === id);
-    if (idx < 0) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Task not found" }));
-      return true;
-    }
-    const task = ensurePipeline(tasks[idx], config);
-    // Mark phase as rework/needs_human/failed
-    const phaseStatus = body.status || "rework";
-    task.pipeline[phase] = {
-      status: phaseStatus,
-      by: by || "agent",
-      at: now(),
-      reason: reason || undefined,
-      feedback: feedback || undefined,
-    };
-    // Return to an earlier phase (default: implement for QA rework)
-    const activePhases = getActivePhases(task, config);
-    const targetPhase = returnTo && PIPELINE_PHASES.includes(returnTo) ? returnTo : "implement";
-    // Reset downstream phases
-    const targetIdx = PIPELINE_PHASES.indexOf(targetPhase);
-    const currentIdx = PIPELINE_PHASES.indexOf(phase);
-    for (let i = targetIdx; i <= currentIdx; i++) {
-      const ph = PIPELINE_PHASES[i];
-      if (i === targetIdx) {
-        task.pipeline[ph] = { status: "in_progress", by: by || "agent", at: now(), reason: `rework from ${phase}`, feedback: feedback || undefined };
-      } else if (activePhases.includes(ph)) {
-        task.pipeline[ph] = { status: "pending" };
-      }
-    }
-    // Add rework note
-    if (!Array.isArray(task.notes)) task.notes = [];
-    task.notes.push({ by: by || "agent", at: now(), content: `🔄 Rework from ${phase}: ${reason || feedback || "QA rejected"}` });
-    task.status = deriveStatus(task, config);
-    task.updatedAt = now();
-    tasks[idx] = task;
-    await saveTasks(projRoot, tasks, config);
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(task));
-    return true;
-  }
-
-  // ── :id/repair-loop/run ── 方案 C：背景觸發一輪修復（developer agent 帶錯誤修）
-  const repairRunMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/repair-loop\/run$/);
-  if (repairRunMatch && method === "POST") {
-    const id = decodeURIComponent(repairRunMatch[1]);
-    const { tasks: rTasks } = await loadTasksAndConfig(projRoot);
-    const rTask = rTasks.find(t => t.id === id);
-    if (!rTask) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Task not found" }));
-      return true;
-    }
-    if (!rTask.repairLoop || rTask.repairLoop.count < 1) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "No active repair round (advance test with failures first)" }));
-      return true;
-    }
-    if (rTask.pipeline?.test?.status === "needs_human") {
-      res.writeHead(409, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Repair loop exhausted — needs human decision", needsHuman: true }));
-      return true;
-    }
-    // 背景跑，不阻塞 HTTP
-    runRepairLoop(projRoot, id).catch(e => console.error("[repair-loop] background error:", e.message));
-    res.writeHead(202, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, accepted: true, round: rTask.repairLoop.count, max: rTask.repairLoop.max }));
-    return true;
-  }
-
   // ── :id/git/diff ──
   const gitDiffMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/git\/diff$/);
   if (gitDiffMatch && method === "GET") {
     const id = decodeURIComponent(gitDiffMatch[1]);
-    const { tasks, config } = await loadTasksAndConfig(projRoot);
+    const { tasks } = await loadTasksAndConfig(projRoot);
     const task = tasks.find(t => t.id === id);
     if (!task) {
       res.writeHead(404, { "Content-Type": "application/json" });
@@ -872,19 +360,17 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: "Task not found" }));
       return true;
     }
-    const task = ensurePipeline(tasks[idx], config);
     const git = new TaskGit(projRoot);
-    const result = await git.stage(task);
-    task.git = { ...task.git, staged: result.staged, stagedAt: now() };
-    task.updatedAt = now();
-    tasks[idx] = task;
+    const result = await git.stage(tasks[idx]);
+    tasks[idx].git = { ...tasks[idx].git, staged: result.staged, stagedAt: now() };
+    tasks[idx].updatedAt = now();
     await saveTasks(projRoot, tasks, config);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ id, ...result }));
     return true;
   }
 
-  // ── :id/git/commit ──
+  // ── :id/git/commit ──（成功 → task close）
   const gitCommitMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/git\/commit$/);
   if (gitCommitMatch && method === "POST") {
     const id = decodeURIComponent(gitCommitMatch[1]);
@@ -897,11 +383,10 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: "Task not found" }));
       return true;
     }
-    const task = ensurePipeline(tasks[idx], config);
+    const task = tasks[idx];
     const git = new TaskGit(projRoot);
     const message = body.message || TaskGit.generateCommitMessage(task);
     const result = await git.commit(task, message, body.push !== false);
-    // Update task git info
     task.git = {
       ...task.git,
       commitSha: result.sha,
@@ -909,28 +394,19 @@ export default async function codingTasksRoute(req, res) {
       pushed: result.pushed,
       committedAt: now(),
     };
-    // Mark commit phase done if pipeline is at that stage
-    if (task.pipeline?.commit?.status !== "done") {
-      task.pipeline.commit = { status: "done", by: body.by || "agent", at: now() };
-    }
-    // 🎯 Review Boundary（R1）：commit 後比對 fileScope vs 實際 diff → expected/unexpected
-    // Deterministic（純 git + 查表），人先看 unexpected，不逐行 review
+    // Review Boundary（R1）：commit 後比對 fileScope vs 實際 diff → expected/unexpected
     try {
       task.reviewBoundary = await buildReviewBoundary(projRoot, task);
     } catch (e) {
       console.error("[coding-tasks] review boundary failed:", e.message);
     }
-    // 🔄 Commit 後自動重掃 CU 機械層（fire-and-forget，免 token 秒級）
-    // 依賴圖/測試地圖/變更統計是 code 的純函數，code 變了就要重算，
-    // 讓下一次 impact/deps 查詢拿到新地圖；智能層（LLM 文檔）不動，過期由 staleness 提醒
-    import("../lib/cu-mechanical.mjs").then(m => m.rescanMechanicalLayer(projRoot)).catch(() => {});
-    // 🎯 Release Unit Model（R2）：git 變了 change→feature 關聯就過期 → fire-and-forget 重建
-    import("../lib/release-unit/model.mjs").then(m => m.buildReleaseUnitModel(projRoot)).catch(() => {});
-    task.status = deriveStatus(task, config);
-    if (task.status === "resolved" && !task.resolvedAt) {
-      task.resolvedAt = now();
-    }
+    // Commit 成功 = task 完成
+    task.status = "close";
+    if (!task.resolvedAt) task.resolvedAt = now();
     task.updatedAt = now();
+    // Commit 後自動重掃 CU 機械層 + 重建 RU Model（fire-and-forget）
+    import("../lib/cu-mechanical.mjs").then(m => m.rescanMechanicalLayer(projRoot)).catch(() => {});
+    import("../lib/release-unit/model.mjs").then(m => m.buildReleaseUnitModel(projRoot)).catch(() => {});
     tasks[idx] = task;
     await saveTasks(projRoot, tasks, config);
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -949,18 +425,16 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: "Task not found" }));
       return true;
     }
-    const task = ensurePipeline(tasks[idx], config);
     const git = new TaskGit(projRoot);
-    const result = await git.restore(task);
-    task.updatedAt = now();
-    tasks[idx] = task;
+    const result = await git.restore(tasks[idx]);
+    tasks[idx].updatedAt = now();
     await saveTasks(projRoot, tasks, config);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ id, ...result }));
     return true;
   }
 
-  // ── :id/dispatch ──
+  // ── :id/dispatch — 派工：assignee + status pending ──
   const dispatchMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)\/dispatch$/);
   if (dispatchMatch && method === "POST") {
     const id = decodeURIComponent(dispatchMatch[1]);
@@ -973,30 +447,17 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: "Task not found" }));
       return true;
     }
-    const task = ensurePipeline(tasks[idx], config);
-    // Dispatch = mark phase as in_progress, set assignTo + assignee
-    const phase = body.phase || "implement";
-    const agent = body.agent || body.assignee || body.by || "agent";
-    if (PIPELINE_PHASES.includes(phase)) {
-      task.pipeline[phase] = {
-        ...task.pipeline[phase],
-        status: "in_progress",
-        assignTo: agent,
-        by: agent,
-        at: now(),
-      };
-    }
-    task.assignee = agent;
-    task.status = deriveStatus(task, config);
+    const task = tasks[idx];
+    task.assignee = body.agent || body.assignee || body.by || "developer";
+    task.status = "pending";
     task.updatedAt = now();
     if (!Array.isArray(task.notes)) task.notes = [];
-    const noteContent = body.instructions
-      ? `Dispatched to **${agent}** for **${phase}** phase: ${body.instructions}`
-      : body.note || `Dispatched to ${agent} for ${phase}`;
     task.notes.push({
       by: body.by || "dispatch",
       at: now(),
-      content: noteContent,
+      content: body.instructions
+        ? `派工給 **${task.assignee}**：${body.instructions}`
+        : body.note || `派工給 ${task.assignee}`,
     });
     tasks[idx] = task;
     await saveTasks(projRoot, tasks, config);
@@ -1009,7 +470,7 @@ export default async function codingTasksRoute(req, res) {
   const singleMatch = url.match(/^\/api\/coding-tasks\/([^/?]+)$/);
   if (singleMatch && method === "GET") {
     const id = decodeURIComponent(singleMatch[1]);
-    const { tasks, config } = await loadTasksAndConfig(projRoot);
+    const { tasks } = await loadTasksAndConfig(projRoot);
     const task = tasks.find(t => t.id === id);
     if (!task) {
       res.writeHead(404, { "Content-Type": "application/json" });
@@ -1037,31 +498,41 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: "Task not found" }));
       return true;
     }
-    const existing = ensurePipeline(tasks[idx], config);
+    const existing = tasks[idx];
+    // 驗證
+    if (body.status !== undefined && !TASK_STATUSES.includes(body.status)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `status must be one of: ${TASK_STATUSES.join(", ")}` }));
+      return true;
+    }
+    if (body.type !== undefined && !TASK_TYPES.includes(normalizeType(body.type))) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `type must be one of: ${TASK_TYPES.join(", ")}` }));
+      return true;
+    }
+    if (body.featureId !== undefined && body.featureId && !featureExists(projRoot, body.featureId)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `featureId '${body.featureId}' not found in FEATURES.json` }));
+      return true;
+    }
     const updated = {
       ...existing,
-      ...body,
+      ...(body.featureId !== undefined ? { featureId: body.featureId } : {}),
+      ...(body.type !== undefined ? { type: normalizeType(body.type) } : {}),
+      ...(body.title !== undefined ? { title: body.title } : {}),
+      ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.priority !== undefined ? { priority: body.priority } : {}),
+      ...(body.assignee !== undefined ? { assignee: body.assignee } : {}),
+      ...(body.result !== undefined ? { result: body.result } : {}),
+      ...(Array.isArray(body.relatedFiles) ? { relatedFiles: body.relatedFiles } : {}),
+      ...(Array.isArray(body.labels) ? { labels: body.labels } : {}),
       id: existing.id, // never overwrite ID
       updatedAt: now(),
     };
-    // If task override changed, re-ensure pipeline
-    const oldOverride = existing.loopModeOverride;
-    const newOverride = body.loopModeOverride;
-    if (newOverride !== undefined && newOverride !== oldOverride) {
-      updated.loopModeOverride = newOverride;
-      updated.pipeline = ensurePipeline(updated, config).pipeline;
-    }
-    // Handle pipeline field updates
-    if (body.pipeline) {
-      updated.pipeline = { ...existing.pipeline, ...body.pipeline };
-      // Re-derive status from updated pipeline
-      updated.status = deriveStatus(updated, config);
-    }
-    if ((body.status === "resolved" || body.status === "closed") && !updated.resolvedAt) {
-      updated.resolvedAt = now();
-    }
-    if (body.status === "open" || body.status === "in-progress") {
-      updated.resolvedAt = null;
+    if (body.status !== undefined) {
+      updated.status = body.status;
+      if (body.status === "close" && !updated.resolvedAt) updated.resolvedAt = now();
+      if (body.status === "open" || body.status === "pending") updated.resolvedAt = null;
     }
     tasks[idx] = updated;
     await saveTasks(projRoot, tasks, config);
@@ -1083,7 +554,6 @@ export default async function codingTasksRoute(req, res) {
     const deleted = tasks.splice(idx, 1)[0];
     // Also delete sub-tasks if this is a parent
     if (!deleted.parentId) {
-      const subIds = tasks.filter(t => t.parentId === id).map(t => t.id);
       for (let i = tasks.length - 1; i >= 0; i--) {
         if (tasks[i].parentId === id) tasks.splice(i, 1);
       }
@@ -1114,28 +584,10 @@ export default async function codingTasksRoute(req, res) {
     let tasks = allTasks;
     if (q.status) { const s = q.status.split(","); tasks = tasks.filter(t => s.includes(t.status)); }
     if (q.priority) { const s = q.priority.split(","); tasks = tasks.filter(t => s.includes(t.priority)); }
-    if (q.type) { const s = q.type.split(","); tasks = tasks.filter(t => s.includes(t.type)); }
+    if (q.type) { const s = q.type.split(",").map(normalizeType); tasks = tasks.filter(t => s.includes(t.type)); }
     if (q.assignee) { const s = q.assignee.split(","); tasks = tasks.filter(t => s.includes(t.assignee || "unassigned")); }
     if (q.parentId) { tasks = tasks.filter(t => t.parentId === q.parentId); }
-    if (q.linkedIssueId) { tasks = tasks.filter(t => t.linkedIssueId === q.linkedIssueId); }
-    // Pipeline filter: ?pipeline=implement:pending or ?pipeline=commit:done
-    if (q.pipeline) {
-      const [phase, status] = q.pipeline.split(":");
-      if (phase && status) {
-        tasks = tasks.filter(t => t.pipeline?.[phase]?.status === status);
-      } else if (phase) {
-        // Filter tasks whose current active phase matches
-        tasks = tasks.filter(t => {
-          for (const ph of PIPELINE_PHASES) {
-            const st = t.pipeline?.[ph]?.status;
-            if (st && st !== "done" && st !== "skipped") {
-              return ph === phase;
-            }
-          }
-          return false;
-        });
-      }
-    }
+    if (q.featureId) { tasks = tasks.filter(t => t.featureId === q.featureId); }
     if (q.search) {
       const s = q.search.toLowerCase();
       tasks = tasks.filter(t =>
@@ -1145,7 +597,7 @@ export default async function codingTasksRoute(req, res) {
       );
     }
     const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-    const statusOrder = { open: 0, "in-progress": 1, resolved: 2, closed: 3, wontfix: 4 };
+    const statusOrder = { open: 0, pending: 1, close: 2, ignore: 3 };
     tasks.sort((a, b) => {
       const so = (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
       if (so !== 0) return so;
@@ -1169,41 +621,46 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: "Title is required" }));
       return true;
     }
+    if (!body.featureId?.trim()) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "featureId is required（一切以 feature 為主 — 雜項掛 Utility & Platform Misc）" }));
+      return true;
+    }
+    const type = normalizeType(body.type);
+    if (body.type && !TASK_TYPES.includes(type)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `type must be one of: ${TASK_TYPES.join(", ")}` }));
+      return true;
+    }
+    if (!featureExists(projRoot, body.featureId)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `featureId '${body.featureId}' not found in FEATURES.json` }));
+      return true;
+    }
     const { tasks, config } = await loadTasksAndConfig(projRoot);
     const ts = now();
-    const newTask = ensurePipeline({
+    const newTask = {
       id: genId(tasks),
-      title: body.title.trim() || "Untitled",
-      type: body.type || "feature",
+      featureId: body.featureId.trim(),
+      type,
+      title: body.title.trim(),
       parentId: body.parentId || null,
-      linkedIssueId: body.linkedIssueId || null,
-      status: body.status || "open",
+      status: "open",
       priority: body.priority || "medium",
-      effort: body.effort || null,
       labels: body.labels || [],
       assignee: body.assignee || null,
       description: body.description || "",
       relatedFiles: body.relatedFiles || [],
-      notes: body.notes || [],
-      executionResult: null,
+      notes: [],
+      result: null,
+      git: null,
       timeoutSeconds: body.timeoutSeconds || 0,
       createdAt: ts,
       updatedAt: ts,
       resolvedAt: null,
       createdBy: body.createdBy || "user",
-      // New pipeline fields
       source: body.source || null,
-      spec: body.spec || (body.description ? { description: body.description } : null),
-      changes: body.changes || null,
-      git: body.git || null,
-      testResult: null,
-      qaResult: null,
-      overnight: null,
-      pipeline: body.pipeline || null,
-      loopModeOverride: body.loopModeOverride || body.loopMode || null,  // task override, not project
-    });
-    // Derive status from pipeline
-    newTask.status = deriveStatus(newTask, config);
+    };
     tasks.push(newTask);
     await saveTasks(projRoot, tasks, config);
     res.writeHead(201, { "Content-Type": "application/json" });
@@ -1212,514 +669,4 @@ export default async function codingTasksRoute(req, res) {
   }
 
   return false;
-}
-
-/**
- * runHealthPlanSubtask — Execute the next pending subtask of a health-fix execution plan.
- * After completion, auto-advances to the next subtask.
- * When all done, marks plan as completed.
- */
-export async function runHealthPlanSubtask(projRoot, planId) {
-  const { getPlan, getNextPendingSubTask, updateSubTask, markPlanCompleted } = await import("../lib/execution-plan.mjs");
-  const plan = await getPlan(projRoot, planId);
-  if (!plan || plan.status === "completed" || plan.status === "failed") {
-    console.log(`[health-plan] Plan ${planId} is ${plan?.status || "not found"}, stopping`);
-    return;
-  }
-
-  const result = await getNextPendingSubTask(projRoot, planId);
-  if (!result) {
-    // No more pending subtasks — finalize plan
-    const finalPlan = await getPlan(projRoot, planId);
-    const allDone = finalPlan.tasks.every(t => t.subtasks.every(s => s.status === "done"));
-    if (allDone) {
-      await markPlanCompleted(projRoot, planId);
-      // Invalidate status cache — agent may have changed files
-      try {
-        const cacheFile = join(projRoot, ".paaw", "code-intelligence", "status-cache.json");
-        if (existsSync(cacheFile)) { try { await import("fs/promises").then(m => m.unlink(cacheFile)); } catch {} }
-      } catch {}
-      console.log(`[health-plan] ✅ Plan ${planId} completed!`);
-    } else {
-      await updatePlanStatus(projRoot, planId, "partial");
-      console.log(`[health-plan] ⚠️ Plan ${planId} partially completed`);
-    }
-    return;
-  }
-
-  const subtask = result.subtask;
-
-  // Mark subtask as running
-  await updateSubTask(projRoot, planId, subtask.subtaskId, {
-    status: "running",
-    startedAt: new Date().toISOString(),
-  });
-
-  const agentId = subtask.assignee;
-  if (!agentId) {
-    console.warn(`[health-plan] Subtask ${subtask.subtaskId} has no assignee, skipping`);
-    await updateSubTask(projRoot, planId, subtask.subtaskId, { status: "skipped", completedAt: new Date().toISOString() });
-    // Move to next
-    await runHealthPlanSubtask(projRoot, planId);
-    return;
-  }
-
-  // Check if agent is busy
-  const { runningCodingAgents } = await import("../lib/running-agents.mjs");
-  if (runningCodingAgents.has(agentId)) {
-    // Revert to pending, will be retried
-    await updateSubTask(projRoot, planId, subtask.subtaskId, { status: "pending", startedAt: null });
-    console.log(`[health-plan] Agent ${agentId} is busy, subtask ${subtask.subtaskId} queued`);
-    // Retry in 30 seconds
-    setTimeout(() => runHealthPlanSubtask(projRoot, planId), 30000);
-    return;
-  }
-
-  // Load crew config for agent
-  const agentMap = {
-    architect: "coding.architect",
-    developer: "coding.developer",
-    tester: "coding.tester",
-    "doc-writer": "coding.doc-writer",
-    qa: "coding.qa",
-    helpdesk: "coding.helpdesk",
-  };
-  const { PAAW_ROOT } = await import("./shared.mjs").then(m => ({ PAAW_ROOT: m.PAAW_ROOT }));
-  const crewId = agentMap[agentId] || agentId;
-  const crewFile = join(DATA_HOME, "crews", `${crewId}.json`);
-
-  if (!existsSync(crewFile)) {
-    console.error(`[health-plan] Agent '${agentId}' not found at ${crewFile}`);
-    await updateSubTask(projRoot, planId, subtask.subtaskId, { status: "fail", error: `Agent not found: ${agentId}`, completedAt: new Date().toISOString() });
-    await runHealthPlanSubtask(projRoot, planId);
-    return;
-  }
-
-  try {
-    const crewDef = JSON.parse(readFileSync(crewFile, "utf-8"));
-    const systemPrompt = crewDef.rolePrompt || "";
-
-    // Build context
-    const extraContext = [];
-    try {
-      const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
-      const actionLog = await listActionLog(projRoot);
-      if (actionLog.length > 0) {
-        const recent = actionLog.slice(-10).map(e => `- [${e.agent}] ${e.action}${e.detail ? ": " + e.detail : ""} (${e.ts})`).join("\n");
-        extraContext.push(`\n## Recent Action Log\n${recent}`);
-      }
-      const agentMemoryText = await loadAgentMemory(agentId, projRoot);
-      if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory\n${agentMemoryText}`);
-    } catch {}
-
-    extraContext.push("\n## Rules\n- Only use `git add` (stage files), never `git commit` or `git push`.\n- When done, list all files you modified.\n- Write clean, minimal changes.\n");
-
-    const fullSystemPrompt = systemPrompt + extraContext.join("");
-    const messages = [
-      { role: "system", content: fullSystemPrompt },
-      { role: "user", content: subtask.title },
-    ];
-
-    const { resolveLLMConfig, runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
-    const llm = resolveLLMConfig(projRoot);
-
-    // Create a sink stream for SSE output (background work, no UI)
-    const sink = new PassThrough();
-    sink.resume();
-
-    const abortCtrl = new AbortController();
-    runningCodingAgents.set(agentId, { abortController: abortCtrl, res: sink, startedAt: Date.now(), source: `health-plan:${planId}` });
-
-    const startTime = Date.now();
-
-    await runAgentLoopStream({
-      systemPrompt: fullSystemPrompt,
-      messages,
-      cwd: projRoot,
-      agentId,
-      model: llm.model,
-      maxTurns: 30,
-      timeout: 3600, // 60 min
-      abortSignal: abortCtrl.signal,
-    }, sink);
-
-    const durationMs = Date.now() - startTime;
-    runningCodingAgents.delete(agentId);
-    sink.end();
-
-    // Mark subtask as done
-    await updateSubTask(projRoot, planId, subtask.subtaskId, {
-      status: "done",
-      completedAt: new Date().toISOString(),
-      durationMs,
-    });
-
-    console.log(`[health-plan] ✅ Subtask ${subtask.subtaskId} done (${Math.round(durationMs / 1000)}s)`);
-
-    // Dispatch next subtask
-    await runHealthPlanSubtask(projRoot, planId);
-
-  } catch (e) {
-    runningCodingAgents.delete(agentId);
-    console.error(`[health-plan] ❌ Subtask ${subtask.subtaskId} error:`, e.message);
-
-    // Mark as failed but continue chain
-    await updateSubTask(projRoot, planId, subtask.subtaskId, {
-      status: e.message?.includes("timed out") ? "timeout" : "fail",
-      error: e.message.slice(0, 200),
-      completedAt: new Date().toISOString(),
-    });
-
-    // Continue to next subtask
-    await runHealthPlanSubtask(projRoot, planId);
-  }
-}
-
-/**
- * triggerHealthAgentDispatch — Run agent directly (no HTTP self-call)
- * Used by health-fix auto-dispatch chain.
- * SSE output goes to /dev/null (background work, no UI consumer).
- * After agent completes (or errors), chain to next sub-task or mark parent done.
- */
-export async function triggerHealthAgentDispatch({ projRoot, subTask, chainParentId, chainSubTaskIds, chainCurrentIndex }) {
-  const agentId = subTask.assignee;
-  if (!agentId) {
-    console.warn(`[health-chain] sub-task ${subTask.id} has no assignee, skipping`);
-    return;
-  }
-
-  // Check if agent is busy
-  const { runningCodingAgents } = await import("../lib/running-agents.mjs");
-  if (runningCodingAgents.has(agentId)) {
-    // Mark sub-task as queued
-    const allTasks = await loadTasks(projRoot);
-    const idx = allTasks.findIndex(t => t.id === subTask.id);
-    if (idx >= 0) {
-      if (!Array.isArray(allTasks[idx].notes)) allTasks[idx].notes = [];
-      allTasks[idx].notes.push({ by: "system", at: new Date().toISOString(), content: `⏳ Agent ${agentId} is busy — queued for later` });
-      allTasks[idx].updatedAt = new Date().toISOString();
-      const { config: cfg } = await loadTasksAndConfig(projRoot);
-      await saveTasks(projRoot, allTasks, cfg);
-    }
-    return;
-  }
-
-  // Load crew config for agent
-  const agentMap = {
-    architect: "coding.architect",
-    developer: "coding.developer",
-    tester: "coding.tester",
-    "doc-writer": "coding.doc-writer",
-    qa: "coding.qa",
-    helpdesk: "coding.helpdesk",
-  };
-  const crewId = agentMap[agentId] || agentId;
-  const { PAAW_ROOT } = await import("./shared.mjs").then(m => ({ PAAW_ROOT: m.PAAW_ROOT }));
-  const crewFile = join(DATA_HOME, "crews", `${crewId}.json`);
-  if (!existsSync(crewFile)) {
-    console.error(`[health-chain] Agent '${agentId}' not found at ${crewFile}`);
-    return;
-  }
-
-  try {
-    const crewDef = JSON.parse(readFileSync(crewFile, "utf-8"));
-    const systemPrompt = crewDef.rolePrompt || "";
-
-    // Build context (same as dispatch)
-    const extraContext = [];
-    const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
-
-    // Action log
-    const actionLog = await listActionLog(projRoot);
-    if (actionLog.length > 0) {
-      const recent = actionLog.slice(-10).map(e => `- [${e.agent}] ${e.action}${e.detail ? ": " + e.detail : ""} (${e.ts})`).join("\n");
-      extraContext.push(`\n## Recent Action Log\n${recent}`);
-    }
-
-    // Agent memory
-    const agentMemoryText = await loadAgentMemory(agentId, projRoot);
-    if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory\n${agentMemoryText}`);
-
-    const AGENT_RULES = "\n## Rules\n- Only use `git add` (stage files), never `git commit` or `git push`. The human decides when to commit and push.\n- When done, list all files you modified (code, config, docs).\n- Write clean, minimal changes. Don't over-engineer.\n- Follow existing code patterns and conventions.\n";
-    extraContext.push(AGENT_RULES);
-
-    const fullSystemPrompt = systemPrompt + extraContext.join("");
-    const messages = [
-      { role: "system", content: fullSystemPrompt },
-      { role: "user", content: subTask.description || subTask.title },
-    ];
-
-    // Resolve LLM config
-    const { resolveLLMConfig, runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
-    const llm = resolveLLMConfig(projRoot);
-
-    // Create a sink stream for SSE output (background work, no UI)
-    const sink = new PassThrough();
-    sink.resume(); // drain automatically — don't buffer
-
-    // Register agent as running
-    const abortCtrl = new AbortController();
-    runningCodingAgents.set(agentId, { abortController: abortCtrl, res: sink, startedAt: Date.now(), source: "health-chain" });
-
-    await runAgentLoopStream({
-      systemPrompt: fullSystemPrompt,
-      messages,
-      cwd: projRoot,
-      agentId,
-      model: llm.model,
-      maxTurns: 30,
-      timeout: subTask.timeoutSeconds || 3600,
-      abortSignal: abortCtrl.signal,
-    }, sink);
-
-    runningCodingAgents.delete(agentId);
-    sink.end();
-
-    // ── Post-completion: record result to sub-task ──
-    const allTasks = await loadTasks(projRoot);
-    const subIdx = allTasks.findIndex(t => t.id === subTask.id);
-    if (subIdx >= 0) {
-      if (!Array.isArray(allTasks[subIdx].notes)) allTasks[subIdx].notes = [];
-      allTasks[subIdx].notes.push({ by: agentId, at: new Date().toISOString(), content: `✅ Agent ${agentId} completed health fix task` });
-      allTasks[subIdx].updatedAt = new Date().toISOString();
-      const { config: cfg } = await loadTasksAndConfig(projRoot);
-      await saveTasks(projRoot, allTasks, cfg);
-    }
-
-    // ── Advance sub-task pipeline ──
-    // Mini loop: implement → commit. Advance implement phase.
-    try {
-      // Directly update pipeline status (deriveStatus is local to this file)
-      const allTasks2 = await loadTasks(projRoot);
-      const sIdx = allTasks2.findIndex(t => t.id === subTask.id);
-      if (sIdx >= 0) {
-        const st = allTasks2[sIdx];
-        if (st.pipeline?.implement) {
-          st.pipeline.implement.status = "done";
-          const { config: cfg2 } = await loadTasksAndConfig(projRoot);
-          st.status = deriveStatus(st, cfg2);
-          st.updatedAt = new Date().toISOString();
-        }
-        const { config: cfg2 } = await loadTasksAndConfig(projRoot);
-        await saveTasks(projRoot, allTasks2, cfg2);
-      }
-    } catch (e) { console.error("[health-chain] pipeline advance error:", e.message); }
-
-    // ── Chain: dispatch next sub-task ──
-    if (chainCurrentIndex < chainSubTaskIds.length - 1) {
-      const nextIndex = chainCurrentIndex + 1;
-      const nextSubId = chainSubTaskIds[nextIndex];
-      const allTasks3 = await loadTasks(projRoot);
-      const nextSub = allTasks3.find(t => t.id === nextSubId);
-      if (nextSub && nextSub.assignee) {
-        console.log(`[health-chain] dispatching next sub-task ${nextIndex + 1}/${chainSubTaskIds.length}: ${nextSub.assignee}`);
-        await triggerHealthAgentDispatch({
-          projRoot,
-          subTask: nextSub,
-          chainParentId,
-          chainSubTaskIds,
-          chainCurrentIndex: nextIndex,
-        });
-      }
-    } else {
-      // ── Last sub-task done → mark parent resolved ──
-      const allTasks4 = await loadTasks(projRoot);
-      const parentIdx = allTasks4.findIndex(t => t.id === chainParentId);
-      if (parentIdx >= 0) {
-        allTasks4[parentIdx].status = "resolved";
-        allTasks4[parentIdx].resolvedAt = new Date().toISOString();
-        if (!Array.isArray(allTasks4[parentIdx].notes)) allTasks4[parentIdx].notes = [];
-        allTasks4[parentIdx].notes.push({ by: "system", at: new Date().toISOString(), content: `✅ All ${chainSubTaskIds.length} sub-tasks completed — health fix done` });
-        allTasks4[parentIdx].updatedAt = new Date().toISOString();
-        const { config: cfg3 } = await loadTasksAndConfig(projRoot);
-        await saveTasks(projRoot, allTasks4, cfg3);
-      }
-      console.log(`[health-chain] parent ${chainParentId} resolved ✅`);
-    }
-
-  } catch (e) {
-    runningCodingAgents.delete(agentId);
-    console.error(`[health-chain] agent ${agentId} error:`, e.message);
-
-    // Record error to sub-task
-    try {
-      const allTasks = await loadTasks(projRoot);
-      const subIdx = allTasks.findIndex(t => t.id === subTask.id);
-      if (subIdx >= 0) {
-        if (!Array.isArray(allTasks[subIdx].notes)) allTasks[subIdx].notes = [];
-        allTasks[subIdx].notes.push({ by: agentId, at: new Date().toISOString(), content: `⚠️ Agent ${agentId} error: ${e.message.slice(0, 200)}. Moving to next.` });
-        allTasks[subIdx].updatedAt = new Date().toISOString();
-        const { config: cfg } = await loadTasksAndConfig(projRoot);
-        await saveTasks(projRoot, allTasks, cfg);
-      }
-    } catch {}
-
-    // Chain continues even on error
-    if (chainCurrentIndex < chainSubTaskIds.length - 1) {
-      const nextIndex = chainCurrentIndex + 1;
-      const nextSubId = chainSubTaskIds[nextIndex];
-      try {
-        const allTasks3 = await loadTasks(projRoot);
-        const nextSub = allTasks3.find(t => t.id === nextSubId);
-        if (nextSub && nextSub.assignee) {
-          console.log(`[health-chain] error occurred, dispatching next sub-task ${nextIndex + 1}/${chainSubTaskIds.length}`);
-          await triggerHealthAgentDispatch({
-            projRoot,
-            subTask: nextSub,
-            chainParentId,
-            chainSubTaskIds,
-            chainCurrentIndex: nextIndex,
-          });
-        }
-      } catch (e2) { console.error("[health-chain] chain recovery error:", e2.message); }
-    }
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// 方案 C — 有界修復迴圈（Bounded Repair Loop）
-// TEST fail → 不經 EM，直接把錯誤餵回 developer agent 修（上限 REPAIR_LOOP_MAX 輪）
-// 超過上限 → pipeline.test = needs_human，進 EvidenceCard 給人決定
-// ════════════════════════════════════════════════════════════════
-
-/**
- * runRepairLoop — 執行一輪修復：developer agent 帶著測試錯誤修 implement
- * 完成後 implement → done、test → pending（等 tester 重測）。
- * 由 repair-loop/run API 背景觸發（不阻塞）。
- */
-export async function runRepairLoop(projRoot, taskId) {
-  const { tasks, config } = await loadTasksAndConfig(projRoot);
-  const idx = tasks.findIndex(t => t.id === taskId);
-  if (idx < 0) { console.error(`[repair-loop] Task ${taskId} not found`); return; }
-  const task = tasks[idx];
-
-  if (!task.repairLoop || task.repairLoop.count < 1) {
-    console.log(`[repair-loop] Task ${taskId} has no active repair round, skipping`);
-    return;
-  }
-  if (task.pipeline?.test?.status === "needs_human") {
-    console.log(`[repair-loop] Task ${taskId} already needs_human, refusing auto repair`);
-    return;
-  }
-
-  const agentId = "developer";
-  const { runningCodingAgents } = await import("../lib/running-agents.mjs");
-  if (runningCodingAgents.has(agentId)) {
-    console.log(`[repair-loop] Developer busy, aborting (retry via API later)`);
-    return;
-  }
-
-  // 組修復 prompt：原 spec + 測試失敗證據
-  const failed = Number(task.testResult?.failed ?? 0);
-  const passed = Number(task.testResult?.passed ?? 0);
-  const testsWritten = (task.testResult?.testsWritten || []).slice(0, 20).join("\n");
-  const coverageGaps = (task.testResult?.coverageGaps || []).slice(0, 10).join("\n");
-  const specText = task.spec?.description || task.description || "";
-  const acText = (task.spec?.acceptanceCriteria || []).map((a, i) => `${i + 1}. ${a}`).join("\n");
-  const filesText = (task.relatedFiles || []).slice(0, 10).join(", ");
-
-  const repairPrompt = `## 修復任務：測試失敗（Repair Round ${task.repairLoop.count}/${task.repairLoop.max}）
-
-Task: ${task.id} — ${task.title}
-
-### 原 Spec
-${specText || "(無)"}
-${acText ? `\n### Acceptance Criteria\n${acText}` : ""}
-${filesText ? `\n### 相關檔案\n${filesText}` : ""}
-
-### 測試結果（失敗證據）
-- ✅ 通過: ${passed}
-- ❌ 失敗: ${failed}
-${testsWritten ? `\n### 測試檔案/名稱\n${testsWritten}` : ""}
-${coverageGaps ? `\n### Coverage Gaps\n${coverageGaps}` : ""}
-
-### 你的工作
-1. 重跑失敗的測試，找出 root cause
-2. 修復 implement 的程式碼（不是改測試來騙過 — 除非測試本身有 bug，先說明再改）
-3. 修完重跑測試確認全綠
-4. 完成後列出修改的檔案
-
-### 規則
-- Only use \`git add\` (stage files), never \`git commit\` or \`git push\`.
-- 最小變更原則：只修必要的，不要重構不相關的碼
-- 如果發現問題在測試本身（斷言錯誤/過時），修測試並在報告說明原因`;
-
-  // Load developer crew prompt（同 runHealthPlanSubtask 模式）
-  const { PAAW_ROOT } = await import("./shared.mjs").then(m => ({ PAAW_ROOT: m.PAAW_ROOT }));
-  const crewFile = join(DATA_HOME, "crews", "coding.developer.json");
-  let systemPrompt = "";
-  if (existsSync(crewFile)) {
-    try { systemPrompt = JSON.parse(readFileSync(crewFile, "utf-8")).rolePrompt || ""; } catch {}
-  }
-
-  const extraContext = [];
-  try {
-    const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
-    const actionLog = await listActionLog(projRoot);
-    if (actionLog.length > 0) {
-      const recent = actionLog.slice(-10).map(e => `- [${e.agent}] ${e.action}${e.detail ? ": " + e.detail : ""} (${e.ts})`).join("\n");
-      extraContext.push(`\n## Recent Action Log\n${recent}`);
-    }
-    const mem = await loadAgentMemory(agentId, projRoot);
-    if (mem) extraContext.push(`\n## Your Long-term Memory\n${mem}`);
-  } catch {}
-
-  const messages = [
-    { role: "system", content: systemPrompt + extraContext.join("") },
-    { role: "user", content: repairPrompt },
-  ];
-
-  const sink = new PassThrough();
-  sink.resume();
-  const abortCtrl = new AbortController();
-  runningCodingAgents.set(agentId, { abortController: abortCtrl, res: sink, startedAt: Date.now(), source: `repair-loop:${taskId}` });
-
-  console.log(`[repair-loop] 🔧 Round ${task.repairLoop.count}/${task.repairLoop.max} dispatching developer for ${taskId}...`);
-  const startTime = Date.now();
-  try {
-    const { resolveLLMConfig, runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
-    const llm = resolveLLMConfig(projRoot);
-    await runAgentLoopStream({
-      systemPrompt: systemPrompt + extraContext.join(""),
-      messages,
-      cwd: projRoot,
-      agentId,
-      model: llm.model,
-      maxTurns: 30,
-      timeout: 3600,
-      abortSignal: abortCtrl.signal,
-    }, sink);
-
-    const durationMs = Date.now() - startTime;
-    runningCodingAgents.delete(agentId);
-    sink.end();
-    console.log(`[repair-loop] ✅ Developer finished repair (${Math.round(durationMs / 1000)}s), test back to pending`);
-
-    // implement → done、test → pending（等重測）
-    const { tasks: tasks2, config: cfg2 } = await loadTasksAndConfig(projRoot);
-    const idx2 = tasks2.findIndex(t => t.id === taskId);
-    if (idx2 >= 0) {
-      const t2 = tasks2[idx2];
-      t2.pipeline.implement = { status: "done", by: "repair-loop", at: new Date().toISOString(), result: `repair round ${t2.repairLoop?.count}` };
-      t2.pipeline.review = { status: "done", by: "repair-loop", at: new Date().toISOString(), reason: "auto-skipped (repair)" };
-      if (t2.pipeline.test) t2.pipeline.test = { status: "pending" };
-      t2.status = deriveStatus(t2, cfg2);
-      t2.updatedAt = new Date().toISOString();
-      if (!Array.isArray(t2.notes)) t2.notes = [];
-      t2.notes.push({ by: "repair-loop", at: new Date().toISOString(), content: `🔧 Repair round ${t2.repairLoop?.count} executed — awaiting re-test` });
-      await saveTasks(projRoot, tasks2, cfg2);
-    }
-  } catch (e) {
-    runningCodingAgents.delete(agentId);
-    sink.end();
-    console.error(`[repair-loop] ❌ Repair failed:`, e.message);
-    const { tasks: tasks3, config: cfg3 } = await loadTasksAndConfig(projRoot);
-    const idx3 = tasks3.findIndex(t => t.id === taskId);
-    if (idx3 >= 0) {
-      if (!Array.isArray(tasks3[idx3].notes)) tasks3[idx3].notes = [];
-      tasks3[idx3].notes.push({ by: "repair-loop", at: new Date().toISOString(), content: `⚠️ Repair dispatch error: ${e.message.slice(0, 200)}` });
-      tasks3[idx3].updatedAt = new Date().toISOString();
-      await saveTasks(projRoot, tasks3, cfg3);
-    }
-  }
 }
