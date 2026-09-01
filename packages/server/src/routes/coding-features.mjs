@@ -22,6 +22,7 @@ import { readBody, normalizePath } from "./shared.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 import { callProjectLLM } from "./coding.mjs"; // 統一 LLM 咽喉：thinking 控制 + llm log 歸因 + 空回應診斷（2026-08-30）
 import { DATA_HOME } from "../data-home.mjs";
+import { nextFeatureId, inferFeatureType, touchFeature, ensureMiscFeature, featureExists } from "../lib/feature-registry.mjs";
 
 function getMaxTokens(providerConfig, providerId, model) {
   const provider = providerConfig.providers?.[providerId];
@@ -49,13 +50,7 @@ function parseQuery(rawUrl) {
   return params;
 }
 
-function genId(existing) {
-  const nums = existing
-    .map(f => parseInt(f.id?.replace(/^F-/, ""), 10))
-    .filter(n => !isNaN(n));
-  const next = (nums.length > 0 ? Math.max(...nums) : 0) + 1;
-  return `F-${String(next).padStart(3, "0")}`;
-}
+// genId replaced by feature-registry.nextFeatureId (F+YYYYMMDD+seq format)
 
 function now() {
   return new Date().toISOString();
@@ -69,22 +64,16 @@ function getFeaturesFile(projectPath) {
   return join(getFeaturesDir(projectPath), "FEATURES.json");
 }
 
+// loadFeatures/saveFeatures: use feature-registry.mjs (single source of truth)
+// Local helpers below delegate to the registry for backward compat
 async function loadFeatures(projectPath) {
-  const file = getFeaturesFile(projectPath);
-  if (!existsSync(file)) return [];
-  try {
-    const data = JSON.parse(await readFile(file, "utf-8"));
-    return Array.isArray(data.features) ? data.features : [];
-  } catch {
-    return [];
-  }
+  const { loadFeatures: _lf } = await import("../lib/feature-registry.mjs");
+  return _lf(projectPath);
 }
 
 async function saveFeatures(projectPath, features) {
-  const dir = getFeaturesDir(projectPath);
-  if (!existsSync(dir)) await mkdir(dir, { recursive: true });
-  const file = getFeaturesFile(projectPath);
-  await writeFile(file, JSON.stringify({ features, updatedAt: now() }, null, 2), "utf-8");
+  const { saveFeatures: _sf } = await import("../lib/feature-registry.mjs");
+  _sf(projectPath, features);
 }
 
 // ── Load related data for feature detail ──
@@ -255,6 +244,11 @@ export default async function codingFeaturesRoute(req, res) {
       total: features.length,
       active: features.filter(f => f.status === "active").length,
       deprecated: features.filter(f => f.status === "deprecated").length,
+      byType: {
+        frontend: features.filter(f => f.type === "frontend").length,
+        backend: features.filter(f => f.type === "backend").length,
+        mixed: features.filter(f => !f.type).length,
+      },
       withUnderstanding: features.filter(f => f.aiUnderstanding).length,
       withTests: features.filter(f => (f.tests || []).length > 0).length,
       withIssues: features.filter(f => (f.issues || []).length > 0).length,
@@ -402,6 +396,10 @@ export default async function codingFeaturesRoute(req, res) {
       res.end(JSON.stringify({ error: "Feature not found" }));
       return true;
     }
+    // If codeFiles changed and no explicit type, re-infer
+    if (body.codeFiles && !body.type) {
+      body.type = inferFeatureType(body.codeFiles);
+    }
     const updated = {
       ...features[idx],
       ...body,
@@ -440,6 +438,9 @@ export default async function codingFeaturesRoute(req, res) {
     if (q.status) {
       features = features.filter(f => f.status === q.status);
     }
+    if (q.type) {
+      features = features.filter(f => (f.type || "") === q.type);
+    }
     if (q.search) {
       const s = q.search.toLowerCase();
       features = features.filter(f =>
@@ -448,6 +449,12 @@ export default async function codingFeaturesRoute(req, res) {
         f.id?.toLowerCase().includes(s)
       );
     }
+    // Sort by updatedAt desc (most recently active first)
+    features.sort((a, b) => {
+      const aT = a.updatedAt || a.createdAt || "";
+      const bT = b.updatedAt || b.createdAt || "";
+      return bT.localeCompare(aT);
+    });
     // Attach issue summaries (lightweight)
     const enriched = await Promise.all(features.map(async f => {
       const issueSummaries = await loadIssueSummaries(projRoot, f.issues || []);
@@ -473,10 +480,11 @@ export default async function codingFeaturesRoute(req, res) {
     }
     const features = await loadFeatures(projRoot);
     const newFeature = {
-      id: genId(features),
+      id: nextFeatureId(projRoot),
       name: body.name.trim(),
       description: body.description || "",
       status: body.status || "active",
+      type: body.type || inferFeatureType(body.codeFiles || []),
       codeFiles: body.codeFiles || [],
       apis: body.apis || [],
       tests: body.tests || [],
@@ -777,12 +785,13 @@ Output ONLY the JSON array, no markdown fences.`;
           return allFiles.has(norm);
         });
 
-        const fid = `F-${String(features.length + 1).padStart(3, "0")}`;
+        const fid = nextFeatureId(projRoot);
         features.push({
           id: fid,
           name: nf.name || "Unnamed Feature",
           description: nf.description || "",
           status: "active",
+          type: inferFeatureType(validFiles),
           codeFiles: validFiles,
           apis: [],
           tests: validTests,
