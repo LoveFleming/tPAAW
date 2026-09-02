@@ -5,15 +5,15 @@
 //   - browser-executor.mjs：headless: false（使用者親眼看見操作）、每 RU 獨立 persistent
 //     profile、每次操作落盤 JSONL 審計日誌 — release unit 的驗收 / 演示 / 自動化操作
 //
-// 規格（Fleming 2026-08-27 22:39）：
-//   1. Playwright chromium.launchPersistentContext
+// 規格（Fleming 2026-08-27 22:39，2026-09-02 改：統一用系統 Chrome）：
+//   1. Playwright chromium.launchPersistentContext（channel: "chrome" — 用系統已安裝的 Google Chrome）
 //   2. 每個 releaseUnit 獨立 persistent profile（DATA_HOME/browser-executor-profiles/<ruId>/）
 //   3. v1 methods：open / readPage / click / type / screenshot / getConsoleErrors / getFailedRequests / close
 //   4. headless: false — 讓使用者看見操作
 //   5. 所有操作記錄 releaseUnitId、traceId、URL、action、result、screenshotPath、timestamp
 //      → 記憶體（session 內，供查詢）+ JSONL 落盤（DATA_HOME/logs/browser-executor/<ruId>.jsonl）
-//   6. 絕不使用使用者預設 Chrome profile — userDataDir 一律在 PAAW data 目錄下，
-//      且只用具備 persistent context 的 bundled Chromium（不 channel:"chrome"）
+//   6. 絕不使用使用者預設 Chrome profile — userDataDir 一律在 PAAW data 目錄下。
+//      PAAW 不再用自帶 chromium — 統一 channel: "chrome" 操控系統 Chrome（不載 ~170MB bundled）
 //
 // 生命週期：open 時惰性啟動（防併發雙開）；close 或使用者手動關視窗 → session 移除（日誌已落盤）
 // traceId：session 建立時自動生成；open 可帶入指定值（把一輪驗收的全部操作綁在同一 trace）
@@ -69,6 +69,7 @@ async function _ensureSession(releaseUnitId) {
   mkdirSync(profileDir, { recursive: true });
   mkdirSync(join(LOG_ROOT, ru, "shots"), { recursive: true });
   const ctx = await chromium.launchPersistentContext(profileDir, {
+    channel: "chrome", // 用系統已安裝的 Google Chrome，不再用自帶 chromium
     headless: false, // ← 規格：讓使用者看見操作
     viewport: { width: 1280, height: 800 },
     timeout: 20_000,

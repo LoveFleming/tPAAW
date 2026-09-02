@@ -9,8 +9,8 @@
 //   - 只允許 http/https（block file: / javascript: / data:）
 //   - 截圖存 DATA_HOME/logs/browser/，最新一張固定檔名 latest.png（IDE Browser tab 輪詢用）
 //
-// 跨平台：Playwright 支援 Windows / macOS / Linux，Chromium binary 各平台各自下載
-//（npm i && npx playwright install chromium）。未安裝時工具回覆清楚安裝指引，不炸 server。
+// 跨平台：Playwright 支援 Windows / macOS / Linux — 統一 channel:"chrome" 操控系統已安裝的 Google Chrome
+//（不再下載自帶 chromium）。找不到系統 Chrome 時工具回覆清楚指引，不炸 server。
 import { mkdirSync, readdirSync, statSync, rmSync } from "fs";
 import { join } from "path";
 
