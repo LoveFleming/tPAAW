@@ -627,6 +627,30 @@ export async function executeEMSession(opts = {}) {
     const task = execList[i];
     const subtaskId = task._resumeSubTaskId || null;
 
+    // 2026-09-02: spec-driven 多輪協調 — task 有 spec（SA 勾了要測試/文件/review）
+    // → 走 em-orchestrator 多 agent 多輪；否則維持單 agent 單輪派工
+    if (task.source === "task_scan" && task.sourceRef) {
+      try {
+        const { readTask, orchestrateTask, buildAgentChain } = await import("./em-orchestrator.mjs");
+        const t = readTask(rootDir, task.sourceRef);
+        if (t && t.spec) {
+          sendSSE("info", { message: `🎖️ [${task.sourceRef}] 有 spec，走 EM 多輪協調：${buildAgentChain(t.spec, t.type).join(" → ")}` });
+          const orch = await orchestrateTask({
+            rootDir, task: t, baseUrl,
+            modelOverride: emConfig?.model?.dispatch || modelOverride,
+            fallbackModels, sendSSE, maxLoops: 30,
+          });
+          results.push({ ...task, success: orch.ok, content: `orchestrated ${orch.chain.join("→")} (${orch.loopCount} loops, ${orch.status})`, subtaskId, durationMs: 0, tokenUsage: { total: 0 }, costUsd: 0 });
+          await _syncTaskAfterDispatch(rootDir, task.sourceRef, orch.ok, `EM 協調完成：${orch.status} (${orch.loopCount} loops, ${orch.chain.join("→")})`);
+          sendSSE("task_done", { index: i + 1, agent: "em", subtaskId, preview: orch.status, durationMs: 0 });
+          continue; // 這張 task 已由 orchestrator 處理完
+        }
+      } catch (err) {
+        console.log(`[AutoDispatch] orchestrate ${task.sourceRef} failed, fallback to single-agent: ${err.message}`);
+        // fall through 到單一 agent 派工
+      }
+    }
+
     // Resolve per-agent EM model (falls back to global modelOverride or EM dispatch model)
     const crewId = task.crewId || `coding.${task.agent}`;
     const dispatchModel = emConfig?.model?.dispatch || modelOverride;

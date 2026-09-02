@@ -514,6 +514,16 @@ async function buildToolDefinitions() {
           description: { type: "string", description: "詳細說明" },
           assignee: { type: "string", description: "指派對象：human / em / architect / developer 等" },
           labels: { type: "array", items: { type: "string" }, description: "標籤" },
+          spec: {
+            type: "object",
+            description: "派工規格（SA 開單時勾選，EM 依此決定派誰/順序）",
+            properties: {
+              tests: { type: "boolean", description: "要不要測試（true → 派 tester）" },
+              docs: { type: "boolean", description: "要不要文件（true → 派 doc-writer）" },
+              review: { type: "boolean", description: "要不要 code review（true → 派 qa）" },
+              qa: { type: "boolean", description: "要不要 QA 驗收（true → 派 qa）" },
+            },
+          },
           note: { type: "string", description: "建立時的第一筆討論紀錄（選填）" },
         },
         required: ["title", "featureId", "type"]
@@ -1406,7 +1416,7 @@ function buildHandlers(apps) {
   };
 
   // ── Task Management handlers (global) ──
-  handlers.task_create = async ({ title, featureId, type, priority, description, assignee, labels, note } = {}) => {
+  handlers.task_create = async ({ title, featureId, type, priority, description, assignee, labels, note, spec } = {}) => {
     try {
       if (!featureId) return { text: "❌ featureId 為必填（一切以 feature 為主 — 雜項掛 Utility & Platform Misc）", error: true };
       const workspaces = await loadWorkspaces();
@@ -1417,7 +1427,7 @@ function buildHandlers(apps) {
         body: JSON.stringify({
           title, featureId, type, priority: priority || "medium", description: description || "", assignee: assignee || null,
           labels: labels || [], notes: note ? [{ by: "agent", at: new Date().toISOString(), content: note }] : [],
-          createdBy: "agent",
+          spec: spec || undefined, createdBy: "agent",
         }),
       });
       const data = await resp.json();

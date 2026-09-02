@@ -119,6 +119,7 @@ async function loadTasksAndConfig(projectPath) {
           resolvedAt: t.resolvedAt || null,
           createdBy: t.createdBy || "agent",
           source: t.source || null,
+          spec: t.spec || null,
           reviewBoundary: t.reviewBoundary || null,
         }));
       }
@@ -655,6 +656,7 @@ export default async function codingTasksRoute(req, res) {
       result: null,
       git: null,
       timeoutSeconds: body.timeoutSeconds || 0,
+      spec: body.spec || null,
       createdAt: ts,
       updatedAt: ts,
       resolvedAt: null,

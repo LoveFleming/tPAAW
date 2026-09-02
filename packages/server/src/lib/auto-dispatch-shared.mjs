@@ -365,6 +365,12 @@ export function scanTasksForDispatch(rootDir, opts = {}) {
     return "open";
   };
   const agentFor = t => {
+    // spec-driven：SA 勾了「要不要測試/文件/review」→ 依勾選決定 pipeline
+    if (t.spec) {
+      // 有 spec → 用 spec 決定執行鏈（返回第一個要做、還沒做的 agent）
+      // 實際多輪編排交給 em-orchestrator；這裡只要回「developer」作為起點
+      return "developer";
+    }
     const ty = norm(t.type);
     if (ty === "test" || ty === "testing") return "tester";
     if (ty === "docs" || ty === "doc" || ty === "documentation") return "doc-writer";
@@ -385,9 +391,13 @@ export function scanTasksForDispatch(rootDir, opts = {}) {
   const excluded = []; // [{id, title, reason}] — 供 preview API / 確認卡結構化使用
   const excludedLines = [];
   for (const t of sorted) {
-    if (!t.featureId) {
-      excluded.push({ id: t.id, title: (t.title || "").slice(0, 80), reason: "未掛 featureId — 請掛到所屬 feature（雜項掛 Utility & Platform Misc）後才會派工" });
-      excludedLines.push(`- ${t.id} ${(t.title || "").slice(0, 80)}（⚠️ 未掛 featureId，不派工）`);
+    // 2026-09-02: task 不綁 feature 也可派工 — 只要 open（或 pending 待派）即可；
+    // 有 spec（SA 勾選要測試/文件/review）或 featureId 都算可派。
+    const hasSpec = t.spec && Object.keys(t.spec).some(k => t.spec[k]);
+    const hasFeature = !!t.featureId;
+    if (!hasSpec && !hasFeature) {
+      excluded.push({ id: t.id, title: (t.title || "").slice(0, 80), reason: "既無 spec（要測試/文件/review）也無 featureId — 無從決定派誰" });
+      excludedLines.push(`- ${t.id} ${(t.title || "").slice(0, 80)}（⚠️ 無 spec / featureId，不派工）`);
       continue;
     }
     if (workList.length >= maxTasks) {
@@ -397,9 +407,9 @@ export function scanTasksForDispatch(rootDir, opts = {}) {
     }
     workList.push({
       agent: t.assignee || agentFor(t),
-      task: `執行 ${t.id}（feature ${t.featureId}）：${t.title || "(無標題)"}。先讀 .paaw/tasks/TASKS.json 中 ${t.id} 的 description 與 notes，依內容實作並自我驗收。`,
+      task: `執行 ${t.id}${t.featureId ? `（feature ${t.featureId}）` : ""}：${t.title || "(無標題)"}。先讀 .paaw/tasks/TASKS.json 中 ${t.id} 的 description 與 notes，依內容實作並自我驗收。${t.spec && (t.spec.tests || t.spec.review || t.spec.docs) ? `（EM 協調：需測試=${!!t.spec.tests} review=${!!t.spec.review} 文件=${!!t.spec.docs}，走多 agent 協調）` : ""}`,
       priority: t.priority || "medium",
-      reason: `${t.id} 為 open task（feature: ${t.featureId}，priority: ${t.priority || "medium"}）`,
+      reason: `${t.id} 為 open task${t.featureId ? `（feature: ${t.featureId}` : ""}，priority: ${t.priority || "medium"}）`,
       source: "task_scan",
       sourceRef: t.id,
     });
