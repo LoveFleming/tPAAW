@@ -120,17 +120,17 @@ export default function DecisionLog({ projectRoot, refreshKey = 0 }: DecisionLog
       {/* Toolbar */}
       <div className="flex items-center gap-1 px-2 py-1.5 border-b border-stone-200 bg-stone-50 text-xs shrink-0">
         <span className="font-semibold text-stone-600">🧠 Decisions</span>
-        <span className="text-[10px] text-stone-400">({adrs.length})</span>
+        <span className="text-xs text-stone-400">({adrs.length})</span>
         <div className="flex-1" />
         <button
           onClick={() => setShowNew(!showNew)}
-          className="px-1.5 py-0.5 rounded text-[10px] text-blue-600 hover:bg-blue-50 font-medium"
+          className="px-1.5 py-0.5 rounded text-xs text-blue-600 hover:bg-blue-50 font-medium"
         >
           ➕ New ADR
         </button>
         <button
           onClick={loadDecisions}
-          className="px-1 py-0.5 rounded text-[10px] text-stone-400 hover:text-stone-600"
+          className="px-1 py-0.5 rounded text-xs text-stone-400 hover:text-stone-600"
         >
           ↻
         </button>
@@ -187,12 +187,12 @@ export default function DecisionLog({ projectRoot, refreshKey = 0 }: DecisionLog
       <div className="flex flex-1 min-h-0">
         {/* List */}
         <div className="w-48 border-r border-stone-200 overflow-y-auto bg-white" style={{ scrollbarWidth: "thin" }}>
-          {loading && <div className="px-2 py-1 text-[10px] text-stone-400 animate-pulse">Loading...</div>}
+          {loading && <div className="px-2 py-1 text-xs text-stone-400 animate-pulse">Loading...</div>}
           {adrs.length === 0 && !loading && (
-            <div className="px-2 py-4 text-[10px] text-stone-400 text-center">
+            <div className="px-2 py-4 text-xs text-stone-400 text-center">
               <div className="text-xl mb-1">🧠</div>
               No decisions yet.<br />
-              <span className="text-[9px]">AI-recorded ADRs<br />and manual entries<br />will appear here.</span>
+              <span className="text-xs">AI-recorded ADRs<br />and manual entries<br />will appear here.</span>
             </div>
           )}
           {adrs.map(adr => (
@@ -204,17 +204,17 @@ export default function DecisionLog({ projectRoot, refreshKey = 0 }: DecisionLog
               }`}
             >
               <div className="flex items-center gap-1">
-                <span className="text-[9px] font-mono text-stone-400">{adr.id}</span>
+                <span className="text-xs font-mono text-stone-400">{adr.id}</span>
                 {adr.status && (
-                  <span className={`text-[8px] px-1 rounded font-bold uppercase ${STATUS_STYLES[adr.status.toLowerCase()] || "bg-stone-100 text-stone-500"}`}>
+                  <span className={`text-[10px] px-1 rounded font-bold uppercase ${STATUS_STYLES[adr.status.toLowerCase()] || "bg-stone-100 text-stone-500"}`}>
                     {adr.status}
                   </span>
                 )}
               </div>
-              <div className={`text-[11px] mt-0.5 leading-tight ${selected?.id === adr.id ? "text-blue-700 font-medium" : "text-stone-700"}`}>
+              <div className={`text-sm mt-0.5 leading-snug ${selected?.id === adr.id ? "text-blue-700 font-medium" : "text-stone-700"}`}>
                 {adr.title}
               </div>
-              {adr.date && <div className="text-[9px] text-stone-300 mt-0.5">{adr.date}</div>}
+              {adr.date && <div className="text-xs text-stone-400 mt-0.5">{adr.date}</div>}
             </div>
           ))}
         </div>
@@ -224,33 +224,33 @@ export default function DecisionLog({ projectRoot, refreshKey = 0 }: DecisionLog
           {selected ? (
             <div className="space-y-3">
               <div>
-                <div className="text-[10px] font-mono text-stone-400">{selected.id}</div>
+                <div className="text-xs font-mono text-stone-400">{selected.id}</div>
                 <h3 className="text-sm font-bold text-stone-800 mt-0.5">{selected.title}</h3>
               </div>
               {selected.date && (
-                <div className="text-[10px] text-stone-400">📅 {selected.date}</div>
+                <div className="text-xs text-stone-400">📅 {selected.date}</div>
               )}
               {selected.context && (
                 <div>
-                  <div className="text-[10px] font-semibold text-stone-500 mb-0.5">📋 Background</div>
-                  <div className="text-[11px] text-stone-600 leading-relaxed">{selected.context}</div>
+                  <div className="text-xs font-semibold text-stone-500 mb-0.5">📋 Background</div>
+                  <div className="text-sm text-stone-600 leading-relaxed">{selected.context}</div>
                 </div>
               )}
               {selected.decision && (
                 <div>
-                  <div className="text-[10px] font-semibold text-stone-500 mb-0.5">✅ Decision</div>
-                  <div className="text-[11px] text-stone-700 leading-relaxed font-medium">{selected.decision}</div>
+                  <div className="text-xs font-semibold text-stone-500 mb-0.5">✅ Decision</div>
+                  <div className="text-sm text-stone-700 leading-relaxed font-medium">{selected.decision}</div>
                 </div>
               )}
               {selected.consequences && (
                 <div>
-                  <div className="text-[10px] font-semibold text-stone-500 mb-0.5">⚠️ Consequences</div>
-                  <div className="text-[11px] text-stone-600 leading-relaxed">{selected.consequences}</div>
+                  <div className="text-xs font-semibold text-stone-500 mb-0.5">⚠️ Consequences</div>
+                  <div className="text-sm text-stone-600 leading-relaxed">{selected.consequences}</div>
                 </div>
               )}
             </div>
           ) : (
-            <div className="flex items-center justify-center h-full text-stone-300 text-xs">
+            <div className="flex items-center justify-center h-full text-stone-300 text-sm">
               <div className="text-center">
                 <div className="text-2xl mb-2">🧠</div>
                 <div>Select an ADR to view details</div>
