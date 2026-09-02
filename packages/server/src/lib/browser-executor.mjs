@@ -25,6 +25,7 @@ import { pathToFileURL } from "url";
 
 import { DATA_HOME } from "../data-home.mjs";
 import { assertSafeUrl, readPageText, locateTarget } from "./browser-session.mjs";
+import { resolveBrowserChannel } from "./browser-setup.mjs";
 
 const PROFILE_ROOT = join(DATA_HOME, "browser-executor-profiles"); // 每 RU 獨立 profile
 const LOG_ROOT = join(DATA_HOME, "logs", "browser-executor");
@@ -69,7 +70,7 @@ async function _ensureSession(releaseUnitId) {
   mkdirSync(profileDir, { recursive: true });
   mkdirSync(join(LOG_ROOT, ru, "shots"), { recursive: true });
   const ctx = await chromium.launchPersistentContext(profileDir, {
-    channel: "chrome", // 用系統已安裝的 Google Chrome，不再用自帶 chromium
+    ...resolveBrowserChannel(/* expectVisible */ true), // 依系統實際安裝選 chrome/msedge/executablePath（跨平台）
     headless: false, // ← 規格：讓使用者看見操作
     viewport: { width: 1280, height: 800 },
     timeout: 20_000,

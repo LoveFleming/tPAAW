@@ -22,18 +22,20 @@ function _buildCandidates() {
   const pf = process.env.PROGRAMFILES;
   const pfx = process.env["PROGRAMFILES(X86)"];
   const la = process.env.LOCALAPPDATA;
-  // Windows — 常見 Chrome 路徑
+  // Windows — 常見 Chrome / Edge 路徑（用 Set 去重）
+  const win = new Set();
   for (const base of [pf, pfx, la]) {
     if (!base) continue;
-    list.push(`${base}\\Google\\Chrome\\Application\\chrome.exe`);
-    list.push(`${base}\\Microsoft\\Edge\\Application\\msedge.exe`);
-    if (pf && base !== pf) list.push(`${base}\\Microsoft\\Edge\\Application\\msedge.exe`);
+    win.add(`${base}\\Google\\Chrome\\Application\\chrome.exe`);
+    win.add(`${base}\\Microsoft\\Edge\\Application\\msedge.exe`);
   }
-  // macOS — Chrome / Chromium
+  list.push(...win);
+  // macOS — Chrome / Chromium / Edge
   list.push("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome");
   list.push("/Applications/Chromium.app/Contents/MacOS/Chromium");
-  // Linux — PATH 二進位
-  list.push("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "microsoft-edge");
+  list.push("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge");
+  // Linux — PATH 二進位（含 Edge）
+  list.push("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "microsoft-edge", "microsoft-edge-stable");
   return list;
 }
 
@@ -52,6 +54,33 @@ export function detectSystemChrome() {
     if (existsSync(p)) return p;
   }
   return null;
+}
+
+/**
+ * 解析 Playwright launch channel — 依系統實際安裝的瀏覽器選
+ *
+ * 目的（跨平台，2026-09-02 Fleming）：
+ *   公司 Windows 可能只裝 Microsoft Edge（很多企業預設），Linux 可能是 chromium-browser。
+ *   `channel:"chrome"` 在 Playwright 只認 Google Chrome — 只有 Edge/Chromium 的機器會 launch 失敗。
+ *   因此依偵測結果選：有 Google Chrome→channel:"chrome"；只有 Edge→channel:"msedge"；
+ *   只有 Linux Chromium(channel 不吃)→給 executablePath。
+ *
+ * @returns {{ channel?: string, executablePath?: string }} — 傳給 chromium.launchPersistentContext 的選項
+ */
+export function resolveBrowserChannel(expectVisible = false) {
+  const exe = detectSystemChrome();
+  if (!exe) return {}; // 找不到 → 不注 options，讓 Playwright 報缺瀏覽器（UI 顯示安裝指引）
+  const lower = exe.toLowerCase();
+  if (/chrome\.exe|google chrome|chromium\.app/.test(lower)) {
+    // 找到 Google Chrome / Chromium → 用 chrome channel（各平台可靠）
+    return { channel: "chrome" };
+  }
+  if (/edge(\\.exe)?/.test(lower) || /microsoft edge/.test(lower)) {
+    // 只有 Microsoft Edge → msedge channel（Windows/macOS 支援）
+    return { channel: "msedge" };
+  }
+  // Linux 的 chromium-browser / 其他 → 直接用偵測到的 executablePath（channel 不支援的非 Chrome 家族）
+  return { executablePath: exe };
 }
 
 /** 偵測 playwright 套件 + 系統 Chrome，供 UI 顯示 */
