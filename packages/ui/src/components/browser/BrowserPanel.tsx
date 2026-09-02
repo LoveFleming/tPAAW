@@ -173,19 +173,17 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     }).catch(() => { /* best effort — 斷線由 SSE 狀態顯示 */ });
   }, [API_BASE]);
 
-  // 畫面座標 → page CSS 座標（object-contain：scale = min(容器/viewport)，無裁切）
+  // 畫面座標 → page CSS 座標（頁面填滿寬度、頂端對齊：scale = 容器寬/viewport 寬，無水平偏移）
   const toPageXY = (clientX: number, clientY: number) => {
     const f = frameRef.current;
     const el = overlayRef.current;
     if (!f || !el) return null;
     const r = el.getBoundingClientRect();
     if (!r.width || !r.height || !f.w || !f.h) return null;
-    const scale = Math.min(r.width / f.w, r.height / f.h);
-    const dw = f.w * scale, dh = f.h * scale;
-    const offX = (r.width - dw) / 2, offY = (r.height - dh) / 2;
+    const scale = r.width / f.w; // 寬度填滿 → scale（y 依同比例，頂端對齊 offsetY=0）
     return {
-      x: Math.round((clientX - r.left - offX) / scale),
-      y: Math.round((clientY - r.top - offY) / scale),
+      x: Math.round((clientX - r.left) / scale),
+      y: Math.round((clientY - r.top) / scale),
     };
   };
 
@@ -504,12 +502,13 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
         {mode === "stream" ? (
           <div ref={stageRef} className="w-full h-full bg-gray-900 relative overflow-hidden">
           {frame ? (
-              <div className="absolute inset-0">
+              <div className="absolute inset-0 overflow-hidden bg-white">
+                {/* 頁面填滿寬度、頂端對齊（w-full h-auto 依寬度等比，底部超出靠捲軸捲）→ 無上下黑塊 */}
                 <img
                   src={`data:image/jpeg;base64,${frame.jpeg}`}
                   alt="shared browser"
                   draggable={false}
-                  className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
+                  className="absolute top-0 left-0 w-full h-auto select-none pointer-events-none"
                 />
                 {/* 透明輸入層：收滑鼠/滾輪/鍵盤（含 IME）→ 回注 agent browser（蓋滿整個面板）*/}
                 <textarea
