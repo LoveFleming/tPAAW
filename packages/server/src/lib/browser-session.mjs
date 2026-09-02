@@ -54,7 +54,7 @@ export async function getBrowserContext(DATA_HOME) {
     // （Playwright 透過 CDP 操控，功能完全一致：screencast 串流/分頁/dialog/下載/clipboard 全部可用）
     const ctx = await chromium.launchPersistentContext(profileDir, {
       channel: "chrome",
-      headless: true,
+      headless: false, // 本機跑（Fleming：mac/linux/windows 都是本機）→ 開真實 Chrome 視窗，看得到原生捲軸
       viewport: { width: 1280, height: 800 },
       timeout: 20_000,
       permissions: ["clipboard-read", "clipboard-write"], // GitHub 等 copy 按鈕需要
