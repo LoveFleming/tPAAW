@@ -513,7 +513,7 @@ export async function planEMSession(opts = {}) {
     maxTasks = readEMConfig(rootDir)?.taskDecomposition?.maxSubtasks || 100;
   } catch { /* em-config not available */ }
 
-  const scan = scanTasksForDispatch(rootDir, { maxTasks });
+  const scan = scanTasksForDispatch(rootDir, { maxTasks, ...(opts?.focusTaskId ? { taskId: opts.focusTaskId } : {}) });
   sendSSE("info", { message: `📊 TASKS.json：open ${scan.openCount} 個，本輪派工 ${scan.workList.length} 項` });
   if (scan.workList.length === 0) sendSSE("info", { message: `ℹ️ ${scan.noWorkReason}` });
 
@@ -1241,6 +1241,7 @@ function generateParallelReport(agentResults, ctx, dynamicLabels = null) {
  */
 export async function runAutoDispatch(opts = {}) {
   const mode = opts.mode || "em";
+  const focusTaskId = opts.focusTaskId; // 指定單號（自然語言觸發）
   if (mode === "parallel") {
     return runParallelSession(opts);
   }
@@ -1259,7 +1260,7 @@ export async function runAutoDispatch(opts = {}) {
     }
   } catch { /* execution-plan not available */ }
   // Task-driven：掃 TASKS.json → 有就執行，沒有就回報理由
-  const { workList, situationReport } = await planEMSession(opts);
+  const { workList, situationReport } = await planEMSession({ ...opts, focusTaskId });
   if (!workList.length) {
     opts.sendSSE?.("info", { message: "✅ 沒有需要調度的 task。" });
     const report = generateEMReport([], [], situationReport);

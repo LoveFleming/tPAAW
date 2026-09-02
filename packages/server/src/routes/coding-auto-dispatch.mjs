@@ -109,6 +109,7 @@ export default async function codingAutoDispatchRoute(req, res) {
     const modelOverride = reqBody.model || nsConfig?.model?.primary || undefined;
     const fallbackModels = nsConfig?.model?.fallbacks || [];
     const sinceDate = reqBody.since || urlObj.searchParams.get("since") || new Date().toISOString().split("T")[0];
+    const focusTaskId = reqBody.taskId || urlObj.searchParams.get("taskId") || undefined; // 指定單號（自然語言觸發）
 
     const startTime = Date.now();
 
@@ -178,6 +179,7 @@ export default async function codingAutoDispatchRoute(req, res) {
         fallbackModels,
         sendSSE,
         projectPhase: nsConfig?.projectPhase || 'bootstrap',
+        focusTaskId, // 指定單號（自然語言觸發）→ 只派那張
         existingPlanId: reqBody.planId || urlObj.searchParams.get('planId') || null,
       });
 
@@ -238,7 +240,7 @@ export default async function codingAutoDispatchRoute(req, res) {
         const { readEMConfig } = await import("../lib/em-config.mjs");
         maxTasks = readEMConfig(root)?.taskDecomposition?.maxSubtasks || 100;
       } catch {}
-      const scan = scanTasksForDispatch(root, { maxTasks });
+      const scan = scanTasksForDispatch(root, { maxTasks, taskId: reqBody.taskId || urlObj.searchParams.get("taskId") || undefined });
       sendJSON(res, 200, { ok: true, ...scan });
     } catch (err) {
       console.error("[AutoDispatch] preview error:", err.message);

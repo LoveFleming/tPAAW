@@ -344,6 +344,7 @@ export function buildSituationReport(ctx) {
 // loop mode（mini/full）與 EM cron 只是觸發器，不影響這裡的挑選邏輯。
 export function scanTasksForDispatch(rootDir, opts = {}) {
   const maxTasks = opts.maxTasks || 100;
+  const focusTaskId = opts.taskId ? String(opts.taskId).trim().toLowerCase() : null; // 指定單號（自然語言觸發）
   const tasksFile = join(rootDir, ".paaw", "tasks", "TASKS.json");
 
   let all = [];
@@ -379,6 +380,8 @@ export function scanTasksForDispatch(rootDir, opts = {}) {
 
   const roots = all.filter(t => !t.parentId); // 主 task（subtask 跟 parent 一起算）
   const open = roots.filter(t => toStatus(t.status) === "open");
+  // 指定單號：只針對那張（不管 open/pending/close 都找出來，決定派不派）
+  const focusTask = focusTaskId ? roots.find(t => String(t.id).toLowerCase() === focusTaskId) : null;
   const pendingCount = roots.filter(t => toStatus(t.status) === "pending").length;
   const closeCount = roots.filter(t => toStatus(t.status) === "close").length;
   const ignoreCount = roots.filter(t => toStatus(t.status) === "ignore").length;
@@ -391,6 +394,8 @@ export function scanTasksForDispatch(rootDir, opts = {}) {
   const excluded = []; // [{id, title, reason}] — 供 preview API / 確認卡結構化使用
   const excludedLines = [];
   for (const t of sorted) {
+    // 指定單號模式：只派那張（若它非 open → 不派，excluded）
+    if (focusTaskId && String(t.id).toLowerCase() !== focusTaskId) continue;
     // 2026-09-02: task 不綁 feature 也可派工 — 只要 open（或 pending 待派）即可；
     // 有 spec（SA 勾選要測試/文件/review）或 featureId 都算可派。
     const hasSpec = t.spec && Object.keys(t.spec).some(k => t.spec[k]);
@@ -416,7 +421,7 @@ export function scanTasksForDispatch(rootDir, opts = {}) {
   }
 
   const lines = [
-    "## 📋 Task 檢查（deterministic — feature-first：只派 open + 有 featureId）",
+    focusTaskId ? `## 🎯 Task 檢查（指定單號 ${opts.taskId}）` : "## 📋 Task 檢查（deterministic — feature-first：只派 open + 有 featureId）",
     "",
     `TASKS.json 共 ${roots.length} 個主 task：open **${open.length}**、pending ${pendingCount}、close ${closeCount}、ignore ${ignoreCount}`,
     "",
@@ -429,11 +434,24 @@ export function scanTasksForDispatch(rootDir, opts = {}) {
 
   const stats = { total: roots.length, open: open.length, pending: pendingCount, close: closeCount, ignore: ignoreCount, noFeature: noFeature.length, excluded: excluded.length };
 
-  const noWorkReason = open.length === 0
-    ? `沒有 open task（共 ${roots.length} 個主 task：close ${closeCount}、pending ${pendingCount}、ignore ${ignoreCount}）`
-    : noFeature.length === open.length
-      ? `open task ${open.length} 個全部未掛 featureId（詳見報告）`
-      : `open task ${open.length} 個但全部被排除（詳見報告排除清單）`;
+  let noWorkReason;
+  if (focusTaskId) {
+    if (!focusTask) {
+      noWorkReason = `找不到單號 ${opts.taskId}（TASKS.json 共 ${roots.length} 個主 task）— 沒單可以做，請先請 SA 開單。`;
+    } else if (toStatus(focusTask.status) !== "open") {
+      noWorkReason = `單號 ${opts.taskId} 目前狀態是「${focusTask.status}」（非 open）— 沒有要派工的單，沒單可以做。`;
+    } else if (workList.length === 0) {
+      noWorkReason = `單號 ${opts.taskId} 是 open 但因無 spec/featureId 或其他原因未列入派工（詳見報告排除清單）。`;
+    } else {
+      noWorkReason = `指定單號 ${opts.taskId} 可派工（1 張）。`;
+    }
+  } else if (open.length === 0) {
+    noWorkReason = `沒有 open task（共 ${roots.length} 個主 task：close ${closeCount}、pending ${pendingCount}、ignore ${ignoreCount}）— 沒單可以做，請先請 SA 開單。`;
+  } else if (noFeature.length === open.length) {
+    noWorkReason = `open task ${open.length} 個全部未掛 featureId（詳見報告）`;
+  } else {
+    noWorkReason = `open task ${open.length} 個但全部被排除（詳見報告排除清單）`;
+  }
 
   return { workList, situationReport, stats, excluded, openCount: open.length, noWorkReason };
 }

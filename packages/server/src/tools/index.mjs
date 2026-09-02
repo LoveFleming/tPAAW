@@ -627,15 +627,17 @@ async function buildToolDefinitions() {
   });
 
   // ── Auto Dispatch（task-driven，EM 自然語言確認制派工，2026-08-29）──
+  // ── Auto Dispatch tool（2026-09-02: 支援指定單號 + 沒單回報閉環）──
   tools.push({
     type: "function",
     function: {
       name: "auto_dispatch",
-      description: "自動派工（task-driven）：掃 TASKS.json 的 open task，背景逐一派給 agent 執行（每個 task 獨立 context，可長時間跑完，最後統整報告）。流程：action=preview 先看範圍（不執行）→ 向使用者展示待確認 → 使用者確認後 action=start 開始 → 要停就 action=stop（安全中斷點）。大範圍派工優先用這個，不要逐個 dispatch_agent。",
+      description: "自動派工 / EM 協調（task-driven）：掃 TASKS.json 的 open task，逐一派給 agent 執行（每個 task 獨立 context，可長時間跑完，最後統整報告）。自然語言觸發 EM 就用這個：使用者說「做 TASK-042」「派工」「跑 EM 」。流程：action=preview 先看範圍（不執行）→ action=start 背景開始執行（**會先檢查有無 open task，沒單會回「沒單可以做」**）→ 要停就 action=stop（安全中斷點）。支援 taskId 指定單號：只派那張。大範圍派工優先用這個，不要逐個 dispatch_agent。",
       parameters: {
         type: "object",
         properties: {
-          action: { type: "string", enum: ["preview", "start", "stop"], description: "preview=看派工範圍（不執行）；start=背景開始執行；stop=中斷（目前 task 完成後停止）" },
+          action: { type: "string", enum: ["preview", "start", "stop"], description: "preview=看派工範圍（不執行）；start=背景開始執行（先查有無單，沒單回沒單可做）；stop=中斷（目前 task 完成後停止）" },
+          taskId: { type: "string", description: "指定單號（選填）：只派這一張，例如 TASK-042。留空=派全部 open task。" },
           cwd: { type: "string", description: "專案 root 絕對路徑（帶 system prompt 裡 Current Project Root 的值）" },
         },
         required: ["action"],
@@ -1166,16 +1168,16 @@ function buildHandlers(apps) {
   // ── Auto Dispatch handler（task-driven，EM 確認制派工）──
   // 2026-08-29 Fleming 定調：tool 一律走 API，不直接 import 內部 lib 掃檔 —
   // API 是唯一入口（跟 cron / panel / EM chat 同一條路），耦合留在 route 層
-  handlers.auto_dispatch = async ({ action, cwd } = {}) => {
+  handlers.auto_dispatch = async ({ action, taskId, cwd } = {}) => {
     const root = cwd || PAAW_ROOT;
     if (action === "preview") {
       try {
-        const res = await fetch(`${API}/api/coding-auto-dispatch/preview?path=${encodeURIComponent(root)}`, {
+        const res = await fetch(`${API}/api/coding-auto-dispatch/preview?path=${encodeURIComponent(root)}${taskId ? `&taskId=${encodeURIComponent(taskId)}` : ""}`, {
           method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
         });
         const d = await res.json().catch(() => ({}));
         if (!d.ok) return { text: `❌ preview 失敗：${d.error || res.status}` };
-        if (!d.workList?.length) return { text: `ℹ️ 沒有需要派工的 task。${d.noWorkReason || ""}` };
+        if (!d.workList?.length) return { text: `ℹ️ ${d.noWorkReason || "沒有需要派工的 task。"}` };
         const s = d.stats || {};
         const lines = d.workList.map((w, i) =>
           `${i + 1}. [${w.priority}] ${w.sourceRef} ${String(w.task).replace(/^執行 \S+：/, "").slice(0, 70)} → ${w.agent}`);
@@ -1189,12 +1191,26 @@ function buildHandlers(apps) {
     }
     if (action === "start") {
       try {
+        // ── 2026-09-02 閉環：啟動前先掃有無 open task ──
+        // 有單才啟動；沒單回「沒單可以做」（自然語言觸發 EM 的核心行為）
+        const checkRes = await fetch(`${API}/api/coding-auto-dispatch/preview?path=${encodeURIComponent(root)}${taskId ? `&taskId=${encodeURIComponent(taskId)}` : ""}`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+        });
+        const check = await checkRes.json().catch(() => ({}));
+        if (!check.ok) return { text: `❌ 檢查派工範圍失敗：${check.error || checkRes.status}` };
+        if (!check.workList?.length) {
+          // 沒單 — 回「沒單可以做」
+          const scopeMsg = check.noWorkReason || "目前沒有 open task。";
+          return { text: `😕 沒單可以做 — ${scopeMsg}\n\n要先請 SA（software-architect）開單，再叫我派工。${taskId ? `（指定單號 ${taskId} 未找到可派工的 open task）` : ""}` };
+        }
+        // 有單 → 啟動
         const res = await fetch(`${API}/api/coding-auto-dispatch/start?path=${encodeURIComponent(root)}`, {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "em" }),
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "em", ...(taskId ? { taskId } : {}) }),
         });
         const d = await res.json().catch(() => ({}));
         if (!d.ok) return { text: `❌ 啟動失敗：${d.error || d.message || res.status}` };
-        return { text: `✅ 自動派工已啟動（背景執行，chat 會自動顯示進度；使用者要求停止時用 action=stop）` };
+        const n = check.workList.length;
+        return { text: `✅ 有 ${n} 張單，已啟動 EM 派工（背景執行，chat 會顯示進度）${taskId ? `：指定 ${taskId}` : ""}。\n領域：${check.workList.map(w => w.sourceRef).join(", ")}` };
       } catch (err) {
         return { text: `❌ 啟動失敗：${err.message}`, error: true };
       }
