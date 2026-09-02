@@ -50,6 +50,10 @@ data/skills/.test-output/
 data/skills/building/*/test-*
 # Logs — unified under data/logs/
 data/logs/
+# Browser persistent profiles (system Chrome via Playwright — per-machine runtime state, never versioned)
+data/browser-profile/
+data/browser-executor-profiles/
+data/downloads/
 # Legacy log dirs (no longer used, kept for reference)
 data/llm-logs/
 data/agent-logs/
