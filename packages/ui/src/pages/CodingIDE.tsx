@@ -2386,7 +2386,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
   // RENDER
   // ═══════════════════════════════════════════════
   return (
-    <div className={cn("h-full w-full", focusMode && "fixed inset-0 z-[9999]")}>
+    <div className={cn("h-full w-full coding-app-root", focusMode && "fixed inset-0 z-[9999]")}>
     {/* EM Orchestration Floating Panel */}
     {(emRunning || emLog.length > 0) && (
       <div className="fixed bottom-4 right-4 w-96 max-h-80 bg-white border border-amber-300 rounded-lg shadow-xl z-50 overflow-hidden">

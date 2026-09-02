@@ -94,6 +94,46 @@ pre { tab-size: 2; }
   display: none;
 }
 
+/* ═══ Coding App 跨平台捲軸統一（2026-09-02 Fleming）═══
+   問題：Linux Chrome 的 GTK 捲軸吃不到 scrollbar-width:thin，維持粗捲軸佔寬度
+         並蓋住欄位左側資料（caption/檔名），而 Win/Mac 用 overlay 捲軸不佔位
+         → 三平台渲染不一致、Linux 有東西被遮。
+   解法：不分 CSS 版。在 coding app root 內統一細捲軸 + scrollbar-gutter:stable
+         （永久預留溝槽，內容永遠不被竿軸壓到），三平台顯示一致。 */
+.coding-app-root,
+.coding-app-root * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+}
+
+/* 內容容器永久預留捲軸溝槽 → Linux 粗捲軸不會再蓋住檔名/caption */
+.coding-app-root .overflow-y-auto,
+.coding-app-root [class*="overflow-y-auto"] {
+  scrollbar-gutter: stable;
+}
+
+/* Webkit 細捲軸（Linux/Windows Chrome 走這條） */
+.coding-app-root ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.coding-app-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.coding-app-root ::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.55);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.coding-app-root ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 116, 139, 0.75);
+  background-clip: padding-box;
+}
+.coding-app-root ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* Notes editor placeholder */
 [contenteditable][data-placeholder]:empty::before {
   content: attr(data-placeholder);
