@@ -112,8 +112,9 @@ export async function orchestrateTask({ rootDir, task, baseUrl, modelOverride, f
       // 若這 agent 這輪已 done（例如 review 通過後不用重跑 developer 之前的），跳過
       if (agents[agent] === "done") continue;
 
-      sendSSE("info", { message: `🎖️ [${taskId}] loop ${loopCount}: 派 ${agent}...` });
-      updateTaskOrchestration(rootDir, taskId, { currentStep: agent, agents: { ...agents, [agent]: "running" } });
+      // 派工中：送結構化 task_start — EM Chat 顯示「▶️ developer 開始執行」
+      sendSSE("task_start", { index: chain.indexOf(agent) + 1, total: chain.length, agent, subtaskId: taskId, task: `${taskId} (loop ${loopCount})` });
+      updateTaskOrchestration(rootDir, taskId, { currentStep: agent, loopCount, agents: { ...agents, [agent]: "running" } });
 
       // 依 agent 角色給不同 prompt（帶 task context + spec）
       const prompt = buildAgentPrompt(task, agent, spec, loopCount);
@@ -129,12 +130,14 @@ export async function orchestrateTask({ rootDir, task, baseUrl, modelOverride, f
       if (result.success) {
         agents[agent] = "done";
         updateTaskOrchestration(rootDir, taskId, { agents: { ...agents } }, `✅ ${agent} 完成（loop ${loopCount}）`);
+        sendSSE("task_done", { index: chain.indexOf(agent) + 1, agent, subtaskId: taskId, preview: (result.content || "").slice(0, 200), durationMs: result.durationMs || 0 });
         advanced = true;
       } else {
         // agent 失敗 → blocked，升級給人
         agents[agent] = "blocked";
         updateTaskOrchestration(rootDir, taskId, { agents: { ...agents }, status: "blocked", currentStep: agent }, `🚨 ${agent} 失敗：${result.error || "unknown"}。已標 blocked，等人介入。`);
         status = "blocked";
+        sendSSE("task_error", { index: chain.indexOf(agent) + 1, agent, subtaskId: taskId, error: result.error || "unknown" });
         return { ok: false, status, chain, loopCount, results };
       }
     }
@@ -159,6 +162,7 @@ export async function orchestrateTask({ rootDir, task, baseUrl, modelOverride, f
     if (allDone) {
       status = "done";
       updateTaskOrchestration(rootDir, taskId, { agents, status: "done", loopCount }, `🏁 Task 完成（${loopCount} 輪）：${chain.join(" → ")} 全部 done`);
+      sendSSE("task_done", { index: 0, agent: "em", subtaskId: taskId, preview: `🏁 ${taskId} 協調完成（${loopCount} 輪）：${chain.join(" → ")} 全部 done` });
       return { ok: true, status, chain, loopCount, results };
     }
 
