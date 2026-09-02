@@ -493,6 +493,13 @@ export async function applyBrowserInput(evt) {
       if (!Number.isFinite(evt.x) || !Number.isFinite(evt.y)) break;
       await page.mouse.move(evt.x, evt.y, { steps: 1 });
       break;
+    case "contextmenu":
+      // 右鍵回注：mouse.click(right) — Playwright 會產生 mousedown/mouseup + 觸發網頁 contextmenu listener
+      // （Fleming：很多網頁自訂右鍵功能，必須真測得到）
+      if (!Number.isFinite(evt.x) || !Number.isFinite(evt.y)) throw new Error("contextmenu requires x,y");
+      await page.mouse.move(evt.x, evt.y, { steps: 1 });
+      await page.mouse.click(evt.x, evt.y, { button: "right", modifiers: modOpt });
+      break;
     case "wheel": {
       // CDP mouseWheel 有 latching 問題：第一發有效，之後連續發會被 Chromium 丢掉（遠控場景常見坑）
       // 改走 scrollBy + 「滑鼠位置下最近可捲祖先」— noVNC 系遠控標準解法，確定性 100%

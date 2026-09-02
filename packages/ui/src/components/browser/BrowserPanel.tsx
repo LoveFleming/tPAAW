@@ -332,6 +332,22 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     window.addEventListener("mouseup", onUp);
   };
 
+  // 右鍵：回注到遠端 page（觸發網頁自訂 context menu），同時 preventDefault 擋本機選單
+  // （Fleming：很多網頁有右鍵功能，不能封掉；之前只 preventDefault 會讓網頁右鍵「看起來壞掉」）
+  const onCastContextMenu = (e: React.MouseEvent<HTMLTextAreaElement>) => {
+    e.preventDefault(); // 擋本機選單（它會蓋住遠端 context menu）
+    const p = toPageXY(e.clientX, e.clientY);
+    if (!p) return;
+    const mods: string[] = [];
+    if (e.ctrlKey) mods.push("Control");
+    if (e.shiftKey) mods.push("Shift");
+    sendInput({
+      type: "contextmenu",
+      x: p.x, y: p.y,
+      modifiers: mods,
+    });
+  };
+
   const dotOk = mode === "stream" ? live : connected;
 
   // ── 導航控制 ──
@@ -518,7 +534,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
                   onMouseDown={onCastMouseDown}
                   onMouseUp={onCastMouseUp}
                   onMouseMove={onCastMouseMove}
-                  onContextMenu={e => e.preventDefault()}
+                  onContextMenu={onCastContextMenu}
                   onKeyDown={onCastKeyDown}
                   onCompositionStart={() => { composingRef.current = true; }}
                   onCompositionEnd={onCastCompositionEnd}
