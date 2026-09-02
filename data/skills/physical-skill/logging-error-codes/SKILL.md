@@ -5,9 +5,9 @@ name: Logging & Error Codes
 description: "AI Software Factory 統一的 logging 與 error code 寫碼標準。所有 Orchestrator / Node / Framework / service 層級的新 code 皆須遵循：結構化 log key-value、分級 log level、PAAW Error Code Rules v1（{CODE_CLASS}_{AREA}_{FAMILY}_{DETAIL}）、Exception Flow 保留原則。適用任何語言/框架。"
 license: internal
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   author: AI Software Factory / Fleming
-  source: data/factory-standards/error-code-rules-v1.json (2026-04-03)
+  source: data/factory-standards/error-code-rules-v1.json (2026-04-03) + secondsky/claude-skills api-error-handling (MIT) + industry structured-logging standards
   keywords:
     - logging
     - structured logging
@@ -133,12 +133,39 @@ framework 啟動期固定用 `SYS_FW_BOOT_*`、`SYS_FW_INIT_*`、`SYS_FW_STARTUP
 
 如何寫 log（詳細範例見 `references/logging-practices.md`）。摘要：
 
+- **核心哲學**：每一行 log 要能回答「what / when / which request / what context」四問
+- **五級標準**：`ERROR / WARN / INFO / DEBUG / TRACE`，別把非 error 塞成 error（告警疲勞）
 - **結構化 key-value**（JSON），不要只有自由文字 — AI 才 parse 得動
+- **correlation ID 必帶**：requestId 在 boundary 產生、往下傳，log 每條都要有（沒有 = 無法跨 service 追蹤 = reject）
 - **log level 分級**：debug / info / warn / error，別全塞 error
 - **必帶 context**：requestId / traceId / 業務 key，讓同一次請求可串起來
 - **error log 必帶 errorCode + errorType + 可補救方向**
 - **不要 log 機密**：密碼、token、個人資料 — 只 log 必要欄位
 - **error path 也要 log**：錯誤「在哪一層、從哪來」比「最後長什麼樣」更關鍵
+- **反模式即 reject**：log 密碼/token、field 命名不一致、熱路徑 over-logging、沒 correlation id、純 txt、console.log 當 prod logging、同 exception 重打 5 遍
+
+## API Error Response
+
+HTTP API boundary 的 error response 統一形狀（詳細見 `references/api-error-response.md`）：
+
+```json
+{
+  "error": {
+    "code": "SYS_CTRL_REQUEST_BODY_INVALID",
+    "message": "Invalid request parameters",
+    "status": 400,
+    "requestId": "req_abc123",
+    "timestamp": "2026-09-02T12:00:00Z",
+    "details": [{ "field": "email", "message": "Invalid email format" }]
+  }
+}
+```
+
+- `code` 用 **PAAW error code**（不自創另一套）
+- 5xx 回通用訊息不洩 stack；stack 只進 server log
+- 5xx 才 log error，4xx 是 client 問題
+- 對外部依賴可用 circuit breaker（見 reference）
+- 多語言實作：`references/api-error-python-flask.md`（Flask 完整錯誤處理 + retry + Sentry）
 
 ## Output Contract
 

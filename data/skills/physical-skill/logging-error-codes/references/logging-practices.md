@@ -1,6 +1,43 @@
 # Logging Practices
 
 > 寫給未來的 ops 跟 AI 讀的 log。結構化、可分級、可串接、不含機密。
+> 核心哲學（來源：industry structured-logging standards）：**每一行 log 都要能回答——什麼事發生（what）、何時（when）、在哪個 request（which request）、帶著什麼 context（what context）。** 做不到這四問的 log，就是廢 log。
+
+## 0. Log Level 標準定義（五級）
+
+全專案統一採用五級語意，不當成裝飾：
+
+| Level | 何時用 | 是否要告警 |
+|-------|--------|-----------|
+| `ERROR` | 確定出錯、需要人介入 | ✅ |
+| `WARN` | 意外但系統已恢復/可自理 | ⚠️ 達門檻才告警 |
+| `INFO` | 業務事件、服務生命週期、顯著狀態變更 | ❌ |
+| `DEBUG` | 開發細節（**預設 prod 不開**） | ❌ |
+| `TRACE` | 逐步執行流程，深層除錯 | ❌ |
+
+**鐵律：別把非 error 塞成 error。** 全都 ERROR = 告警疲勞 = 真的問題被忽略。判斷標準：
+- 使用者登入成功 → `INFO`，不是 `ERROR`
+- cache miss → `DEBUG`，不是 `ERROR`
+- rate limit 到 95% → `WARN`，不是 `ERROR`
+
+## 0b. correlation ID — 在邊界掛載、往下傳播
+
+**每一條 log 都要帶 correlation ID（requestId），否則在分散系統裡根本串不起一次 request。**
+
+- 在 **request boundary**（API entry / job start）產生 `requestId`
+- 往下傳給所有內部呼叫，log 每條都帶
+- 錯誤 response 也回傳同一個 `requestId`（見 `references/api-error-response.md`），讓使用者的報錯可直接對 log
+
+```javascript
+// boundary 掛載
+const requestId = req.id = crypto.randomUUID();
+logger = logger.bind({ requestId }); // structlog/pino 風格
+
+// 內部任何 log 自動帶 requestId
+logger.error({ event: "mes_query_failed", errorCode: "...", ... }); // 自動含 requestId
+```
+
+**反模式**：log 裡沒有 requestId/correlation id → 無法追蹤一次 request 跨 service 的路徑 → observability 根本建立不起來，直接 reject。
 
 ## 1. 結構化 log（JSON key-value）
 
@@ -138,3 +175,23 @@ catch (e) {
 - 能不能靠 `grep errorCode logs/` 撈出所有同類錯誤統計頻率？
 - 每個 errorCode 查得到 runbook / 解法嗎？
 - 不能 → 就是還不夠好，回去補 errorCode 或補 log 欄位。
+
+## 9. 反模式 — 看到直接 reject
+
+- ❌ `log.info(f"password={password}")` / 任何 log 含 token、密碼、PII → **資安事件**，用結構化欄位 + 洗掉敏感資料
+- ❌ 各 service field 命名不一致（A 用 `orderId`、B 用 `order_id`、C 用 `OrderID`）→ 定義共同 logging schema，用 lint 強制
+- ❌ 熱路徑（100K req/s 的 loop）裡 `logger.info()` → 對 logging infra 的 DDoS；要 rate-limited / sampled
+- ❌ 任何 log 沒 requestId / correlation id → 無法跨 service 追蹤，observability 從這斷掉
+- ❌ prod log 存純 `.txt`（無結構化）→ 每次 query 都要 grep + regex + 運氣
+- ❌ 用 `console.log` / `System.out.println` 當 prod 正式 logging → 沒有 level、結構化、路由
+- ❌ 同一個 exception 每層重打 5 遍 → 同一個失敗 5 條 error log，違反 Exception Flow 原則
+
+## 10. 審查時機
+
+寫完 code 後，用這四問過一遍每條新增的 log：
+1. **what** — 我 log 的是「發生的事」，不是「我心情」?
+2. **when** — 有 timestamp?
+3. **which request** — 有 requestId / correlation id?
+4. **what context** — 有沒有足以還原現場的業務 key（lotId/orderId…），且**不含機密**?
+
+四問全過 = log 合格。任一不過 = 回去改。
