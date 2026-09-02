@@ -34,7 +34,6 @@ interface CastFrame {
 
 type Mode = "stream" | "iframe" | "shot";
 
-interface TabInfo { id: string; url: string; title: string }
 interface DlgInfo { id: string; kind: string; message: string; defaultValue: string }
 interface DlInfo { id: string; filename: string; state: string; path: string | null; ts: number }
 interface SetupInfo {
@@ -42,8 +41,6 @@ interface SetupInfo {
   chrome: boolean;
   executablePath: string | null;
 }
-
-const hostOf = (u: string) => { try { return new URL(u).hostname || "about:blank"; } catch { return u ? u.slice(0, 30) : ""; } };
 
 // 特殊鍵 → Playwright key name（其餘單字元鍵走 text 插入）
 const KEY_MAP: Record<string, string> = {
@@ -72,9 +69,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const lastMoveRef = useRef(0);
   const frameRef = useRef<CastFrame | null>(null);
-  // ── Cowork 級：分頁 / dialog / 下載 ──
-  const [tabs, setTabs] = useState<TabInfo[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  // ── Cowork 級：dialog / 下載（無分頁 — Fleming：不需要分頁）──
   const [dlgList, setDlgList] = useState<DlgInfo[]>([]);
   const [dialogText, setDialogText] = useState("");
   const [downloads, setDownloads] = useState<DlInfo[]>([]);
@@ -131,13 +126,12 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     }
   }, [status?.url]);
 
-  // 分頁/下載初始清單（SSE 只在 stream 模式收，其他模式靠這個 + 動作回應同步）
+  // dialog/下載初始清單（SSE 只在 stream 模式收，其他模式靠這個 + 動作回應同步）
   useEffect(() => {
-    fetch(`${API_BASE}/api/browser/tabs`).then(r => r.json()).then(d => { if (d.tabs) { setTabs(d.tabs); setActiveTabId(d.activeId ?? null); } }).catch(() => {});
     fetch(`${API_BASE}/api/browser/downloads`).then(r => r.json()).then(d => { if (d.downloads) setDownloads(d.downloads.slice(0, 8)); }).catch(() => {});
   }, [API_BASE]);
 
-  // ── 共用模式：SSE 串流（CDP screencast frames + tabs/dialog/download 事件）──
+  // ── 共用模式：SSE 串流（CDP screencast frames + dialog/download 事件）──
   useEffect(() => {
     if (mode !== "stream") { setLive(false); return; }
     const es = new EventSource(`${API_BASE}/api/browser/stream`);
@@ -154,7 +148,6 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
             setUrlInput(d.url);
           }
         }
-        else if (d.type === "tabs") { setTabs(d.tabs || []); setActiveTabId(d.activeId ?? null); }
         else if (d.type === "dialog") {
           if (d.closed) setDlgList(prev => prev.filter(x => x.id !== d.id));
           else setDlgList(prev => [...prev.filter(x => x.id !== d.id), { id: d.id, kind: d.kind, message: d.message, defaultValue: d.defaultValue || "" }]);
@@ -168,8 +161,8 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     return () => { es.close(); setLive(false); };
   }, [API_BASE, mode]);
 
-  // ── 共用模式：沒有 letterbox — 畫面 object-cover 填滿整個面板 ──
-  // （Fleming 2026-09-02：browser 畫面佔滿整個 main area）
+  // ── 共用模式：object-contain 完整顯示（含 scrollbar，不裁切畫面）──
+  // （Fleming 2026-09-02：要能看到頁面 scrollbar，不能裁切）
 
   const sendInput = useCallback((payload: Record<string, unknown>) => {
     fetch(`${API_BASE}/api/browser/input`, {
@@ -179,20 +172,19 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     }).catch(() => { /* best effort — 斷線由 SSE 狀態顯示 */ });
   }, [API_BASE]);
 
-  // 畫面座標 → page CSS 座標（object-cover 填滿：需把裁切偏移反向換算）
+  // 畫面座標 → page CSS 座標（object-contain：scale = min(容器/viewport)，無裁切）
   const toPageXY = (clientX: number, clientY: number) => {
     const f = frameRef.current;
     const el = overlayRef.current;
     if (!f || !el) return null;
     const r = el.getBoundingClientRect();
     if (!r.width || !r.height || !f.w || !f.h) return null;
-    // object-cover：scale = max(容器/viewport)，超出容器部分置中裁切
-    const scale = Math.max(r.width / f.w, r.height / f.h);
+    const scale = Math.min(r.width / f.w, r.height / f.h);
     const dw = f.w * scale, dh = f.h * scale;
-    const offX = (dw - r.width) / 2, offY = (dh - r.height) / 2;
+    const offX = (r.width - dw) / 2, offY = (r.height - dh) / 2;
     return {
-      x: Math.round((clientX - r.left + offX) / scale),
-      y: Math.round((clientY - r.top + offY) / scale),
+      x: Math.round((clientX - r.left - offX) / scale),
+      y: Math.round((clientY - r.top - offY) / scale),
     };
   };
 
@@ -297,19 +289,9 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
 
   const dotOk = mode === "stream" ? live : connected;
 
-  // ── 導航控制 + 分頁操作 ──
+  // ── 導航控制 ──
   const navAction = async (act: "back" | "forward" | "reload") => {
     try { await fetch(`${API_BASE}/api/browser/${act}`, { method: "POST" }); } catch {}
-  };
-  const tabAction = async (action: string, id?: string) => {
-    try {
-      const r = await fetch(`${API_BASE}/api/browser/tabs`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, id }),
-      });
-      const d = await r.json();
-      if (d.tabs) { setTabs(d.tabs); setActiveTabId(d.activeId ?? null); }
-    } catch {}
   };
   const respondDialog = async (id: string, action: "accept" | "dismiss") => {
     const text = dialogText;
@@ -397,25 +379,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
         </div>
       </div>
 
-      {/* ── 分頁列（Cowork 級多分頁）── */}
-      {tabs.length > 0 && (
-        <div className="flex items-stretch gap-0.5 px-1 pt-1 overflow-x-auto shrink-0 border-b border-gray-200 bg-gray-50">
-          {tabs.map(tb => (
-            <div key={tb.id} onClick={() => { if (tb.id !== activeTabId) tabAction("switch", tb.id); }}
-              title={tb.url}
-              className={`group flex items-center gap-1 max-w-[180px] min-w-[72px] px-2 py-1 rounded-t-md cursor-pointer text-[11px] border border-b-0 ${
-                activeTabId === tb.id ? "bg-white border-gray-300 text-gray-800 font-medium" : "bg-gray-100 border-transparent text-gray-500 hover:bg-gray-200"
-              }`}>
-              <span className="truncate flex-1">{tb.title || hostOf(tb.url)}</span>
-              {tabs.length > 1 && (
-                <button onClick={e => { e.stopPropagation(); tabAction("close", tb.id); }} title={t("browser.closeTab")}
-                  className="opacity-0 group-hover:opacity-100 hover:text-red-500 shrink-0 leading-none text-xs">×</button>
-              )}
-            </div>
-          ))}
-          <button onClick={() => tabAction("new")} title={t("browser.newTab")} className="px-2 py-1 text-gray-500 hover:text-gray-800 text-sm shrink-0 leading-none">＋</button>
-        </div>
-      )}
+      {/* ── 分頁列移除（Fleming：不需要分頁）── */}
 
       {/* 導航錯誤 — 只有出錯才佔一行 */}
       {navError && (
@@ -498,7 +462,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
                   src={`data:image/jpeg;base64,${frame.jpeg}`}
                   alt="shared browser"
                   draggable={false}
-                  className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
+                  className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
                 />
                 {/* 透明輸入層：收滑鼠/滾輪/鍵盤（含 IME）→ 回注 agent browser（蓋滿整個面板）*/}
                 <textarea
