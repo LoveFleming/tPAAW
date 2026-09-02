@@ -97,6 +97,7 @@
   "browser.setup.needChrome": "找不到系統 Chrome / Chromium — 安裝後按重新偵測：",
   "browser.setup.manual": "安裝 / 檢查指令",
   "browser.setup.recheck": "重新偵測",
+  "browser.scrollbar": "捲動",
   "browser.title": "內建瀏覽器",
   "browser.urlPlaceholder": "輸入網址（手動導航）…",
   "chat.assistantDefault": "林語晴",

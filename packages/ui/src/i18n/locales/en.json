@@ -97,6 +97,7 @@
   "browser.setup.needChrome": "No system Chrome / Chromium found — install then recheck:",
   "browser.setup.manual": "Install / check commands",
   "browser.setup.recheck": "Recheck",
+  "browser.scrollbar": "Scroll",
   "browser.title": "Built-in Browser",
   "browser.urlPlaceholder": "Enter URL (manual navigation)…",
   "chat.assistantDefault": "Yuqing",

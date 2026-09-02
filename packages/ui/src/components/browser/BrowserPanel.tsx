@@ -30,6 +30,7 @@ interface CastFrame {
   w: number;    // viewport CSS 寬（座標換算基準）
   h: number;
   url: string;
+  scroll?: { top: number; max: number; h: number }; // document 層 scroll 狀態（UI 畫 scrollbar）
 }
 
 type Mode = "stream" | "iframe" | "shot";
@@ -142,7 +143,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
         const d = JSON.parse(e.data);
         if (d.type === "hello") { if (!opened) setLive(true); }
         else if (d.type === "frame") {
-          setFrame({ jpeg: d.jpeg, w: d.w, h: d.h, url: d.url });
+          setFrame({ jpeg: d.jpeg, w: d.w, h: d.h, url: d.url, scroll: d.scroll });
           if (d.url && !typingRef.current && d.url !== lastShownUrlRef.current) {
             lastShownUrlRef.current = d.url;
             setUrlInput(d.url);
@@ -285,6 +286,52 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     } finally {
       setNavigating(false);
     }
+  };
+
+  // 自訂 vertical scrollbar（headless overlay scrollbar 在串流圖裡看不見 — Fleming 要能看到捲軸）
+  // thumb 依 document scroll 狀態繪製；點擊/拖動 → 送 wheel 回注
+  const scrollDragRef = useRef<{ y: number; top: number } | null>(null);
+  const scrollbarThumbSize = (s: CastFrame["scroll"] | undefined) => {
+    if (!s || s.max <= 0) return 0;
+    const ratio = s.h / (s.h + s.max);
+    return Math.max(24, Math.round(ratio * 100)); // 至少 24px
+  };
+  const scrollToRatio = (ratio: number) => {
+    const f = frameRef.current?.scroll;
+    if (!f || f.max <= 0) return;
+    const delta = Math.round(f.top - ratio * f.max); // 現在位置 → 目標位置（回注 wheel 差值）
+    if (delta !== 0) sendInput({ type: "wheel", x: 640, y: 400, deltaX: 0, deltaY: delta });
+  };
+  const onScrollbarTrack = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const rect = el.getBoundingClientRect();
+    const f = frameRef.current?.scroll;
+    if (!f || !rect.height) return;
+    const thumb = scrollbarThumbSize(f);
+    const clickY = e.clientY - rect.top - thumb / 2;
+    scrollToRatio(Math.min(1, Math.max(0, clickY / rect.height)));
+  };
+  const onScrollbarGrab = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault(); e.stopPropagation();
+    const el = e.currentTarget;
+    const rect = el.getBoundingClientRect();
+    const f = frameRef.current?.scroll;
+    if (!f || f.max <= 0) return;
+    const ratio = f.max > 0 ? f.top / f.max : 0;
+    scrollDragRef.current = { y: e.clientY, top: ratio * rect.height };
+    const onMove = (ev: MouseEvent) => {
+      const s = scrollDragRef.current; if (!s) return;
+      const trackH = rect.height;
+      const newTop = Math.min(trackH, Math.max(0, s.top + (ev.clientY - s.y)));
+      scrollToRatio(newTop / trackH);
+    };
+    const onUp = () => {
+      scrollDragRef.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
   };
 
   const dotOk = mode === "stream" ? live : connected;
@@ -484,6 +531,25 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
                 {!kbdFocus && (
                   <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/60 text-white text-[11px] pointer-events-none whitespace-nowrap z-10">
                     ⌨ {t("browser.focusHint")}
+                  </div>
+                )}
+                {/* 自訂 vertical scrollbar（headless 圖裡看不見捲軸 → 疊一層）：可拖動/點擊回注 */}
+                {frame.scroll && frame.scroll.max > 0 && (
+                  <div
+                    onMouseDown={onScrollbarTrack}
+                    onDragStart={e => e.preventDefault()}
+                    className="absolute top-0 right-0 h-full w-3.5 z-20 cursor-pointer select-none"
+                    title={t("browser.scrollbar")}
+                  >
+                    <div
+                      onMouseDown={onScrollbarGrab}
+                      className="absolute right-0.5 w-2 rounded-full bg-white/70 hover:bg-white/90 border border-black/20"
+                      style={{
+                        top: `${(frame.scroll.max > 0 ? (frame.scroll.top / frame.scroll.max) : 0) * 100}%`,
+                        height: `${scrollbarThumbSize(frame.scroll)}px`,
+                        transition: "top 60ms linear",
+                      }}
+                    />
                   </div>
                 )}
               </div>

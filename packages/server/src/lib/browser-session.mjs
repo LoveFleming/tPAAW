@@ -399,12 +399,23 @@ export async function ensureScreencast() {
       const now = Date.now();
       if (now - _stream.lastFrameAt >= 50) { // 廣播節流；ack 永遠送（flow control）
         _stream.lastFrameAt = now;
+        // 附上 document 層 scroll 狀態（headless Chrome overlay scrollbar 在 screencast 圖裡看不見 → UI 畫自訂 scrollbar）
+        let scroll = { top: 0, max: 0, h: 0 };
+        try {
+          scroll = await page.evaluate(() => {
+            const p = window.scrollY;
+            const sh = document.documentElement.scrollHeight;
+            const ch = document.documentElement.clientHeight;
+            return { top: p, max: Math.max(0, sh - ch), h: ch };
+          }).catch(() => scroll);
+        } catch {}
         broadcastToStream({
           type: "frame",
           jpeg: data,
           w: metadata.deviceWidth || 1280,
           h: metadata.deviceHeight || 800,
           url: page.url(),
+          scroll,
         });
       }
       try { await cdp.send("Page.screencastFrameAck", { sessionId }); } catch {}
@@ -474,10 +485,6 @@ export async function applyBrowserInput(evt) {
       if (!Number.isFinite(evt.x) || !Number.isFinite(evt.y)) throw new Error("mousedown requires x,y");
       await page.mouse.move(evt.x, evt.y, { steps: 1 });
       await page.mouse.down({ button, modifiers: modOpt });
-      try {
-        const hit = await page.evaluate(([x, y]) => { const el = document.elementFromPoint(x, y); return el ? el.tagName + ":" + (el.textContent || "").trim().slice(0, 24) : "(nothing)"; }, [evt.x, evt.y]);
-        console.log(`[browser-input] mousedown @(${evt.x},${evt.y}) → ${hit} | page=${page.url().slice(0, 50)}`);
-      } catch {}
       break;
     case "mouseup":
       await page.mouse.up({ button, modifiers: modOpt });
@@ -490,7 +497,6 @@ export async function applyBrowserInput(evt) {
       // CDP mouseWheel 有 latching 問題：第一發有效，之後連續發會被 Chromium 丢掉（遠控場景常見坑）
       // 改走 scrollBy + 「滑鼠位置下最近可捲祖先」— noVNC 系遠控標準解法，確定性 100%
       const dx = evt.deltaX || 0, dy = evt.deltaY || 0;
-      const _sy0 = await page.evaluate(() => window.scrollY).catch(() => -1);
       await page.evaluate(([x, y, ddx, ddy]) => {
         const doc = document.scrollingElement || document.documentElement;
         let t = null;
@@ -503,8 +509,6 @@ export async function applyBrowserInput(evt) {
         } catch {}
         (t || doc).scrollBy({ top: ddy, left: ddx });
       }, [Number.isFinite(evt.x) ? evt.x : 640, Number.isFinite(evt.y) ? evt.y : 400, dx, dy]);
-      const _m = await page.evaluate(() => ({ y: window.scrollY, sh: document.documentElement.scrollHeight, ch: document.documentElement.clientHeight })).catch(() => ({}));
-      console.log(`[browser-input] wheel @(${evt.x},${evt.y}) d=${dy} scrollY ${_sy0}→${_m.y} max=${(_m.sh || 0) - (_m.ch || 0)}`);
       break;
     }
     case "key": // 特殊鍵/組合鍵 — Playwright key name（"Enter" / "Control+a"）

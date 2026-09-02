@@ -97,6 +97,7 @@
   "browser.setup.needChrome": "システム Chrome / Chromium が見つかりません — インストールして再確認：",
   "browser.setup.manual": "インストール / 確認コマンド",
   "browser.setup.recheck": "再確認",
+  "browser.scrollbar": "スクロール",
   "browser.title": "内蔵ブラウザ",
   "browser.urlPlaceholder": "URLを入力（手動ナビゲーション）…",
   "chat.assistantDefault": "語晴",

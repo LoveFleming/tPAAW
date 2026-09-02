@@ -97,6 +97,7 @@
   "browser.setup.needChrome": "找不到系統 Chrome / Chromium — install 後按 recheck：",
   "browser.setup.manual": "Install / check 指令",
   "browser.setup.recheck": "Recheck",
+  "browser.scrollbar": "Scroll",
   "browser.title": "內建 Browser",
   "browser.urlPlaceholder": "輸入 URL（manual navigate）…",
   "chat.assistantDefault": "林語晴",
