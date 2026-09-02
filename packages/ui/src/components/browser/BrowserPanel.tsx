@@ -39,9 +39,8 @@ interface DlgInfo { id: string; kind: string; message: string; defaultValue: str
 interface DlInfo { id: string; filename: string; state: string; path: string | null; ts: number }
 interface SetupInfo {
   playwright: boolean;
-  chromium: boolean;
+  chrome: boolean;
   executablePath: string | null;
-  install: { state: string; startedAt: number | null; finishedAt: number | null; exitCode: number | null; lines: string[] };
 }
 
 const hostOf = (u: string) => { try { return new URL(u).hostname || "about:blank"; } catch { return u ? u.slice(0, 30) : ""; } };
@@ -80,7 +79,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
   const [dlgList, setDlgList] = useState<DlgInfo[]>([]);
   const [dialogText, setDialogText] = useState("");
   const [downloads, setDownloads] = useState<DlInfo[]>([]);
-  // ── 可選元件：chromium 偵測 + 一鍵安裝（Gateway 前置工程）──
+  // ── 可選元件：偵測系統 Chrome / Chromium（channel: "chrome"，不載自帶 chromium）──
   const [setup, setSetup] = useState<SetupInfo | null>(null);
   const setupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -93,27 +92,13 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     } catch { return null; }
   }, [API_BASE]);
 
-  const startInstall = useCallback(async () => {
-    try { await fetch(`${API_BASE}/api/browser/setup/install`, { method: "POST" }); } catch {}
-    fetchSetup(); // 立刻拿到 running 狀態，之後靠輪詢
-  }, [API_BASE, fetchSetup]);
-
-  // available===false 才偵測/輪詢（1s）；安裝結束後停輪詢並刷新 status（lazy 重啟已由 server 端處理）
+  // available===false 才偵測/輪詢（1s）；輪詢只是刷新狀態（不再有安裝流程）
   useEffect(() => {
     if (status?.available !== false) { setSetup(null); return; }
     fetchSetup();
     setupPollRef.current = setInterval(fetchSetup, 1000);
     return () => { if (setupPollRef.current) clearInterval(setupPollRef.current); };
   }, [status?.available === false, fetchSetup]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const installDoneRef = useRef(false);
-  useEffect(() => {
-    if (setup?.install.state === "running") installDoneRef.current = false;
-    if (setup?.install.state === "done" && !installDoneRef.current) {
-      installDoneRef.current = true;
-      fetch(`${API_BASE}/api/browser/status`).then(r => r.json()).then(setStatus).catch(() => {}); // lazy 重啟後刷新
-    }
-  }, [setup?.install.state, API_BASE]);
 
   useEffect(() => { frameRef.current = frame; }, [frame]);
 
@@ -448,7 +433,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
         <div className="px-3 py-0.5 text-[11px] text-red-500 border-b border-red-100 shrink-0 truncate" title={navError}>⚠ {navError}</div>
       )}
 
-      {/* Playwright 未安裝（影響共用/截圖模式；iframe 模式照用）— 一鍵安裝卡 */}
+      {/* Playwright/系統 Chrome 未就緒（影響共用/截圖模式；iframe 模式照用）— 指引卡，不再有一鍵安裝 */}
       {status?.available === false && mode !== "iframe" && (
         <div className="m-2 p-3 rounded bg-amber-50 border border-amber-200 text-xs text-amber-800">
           <div className="font-semibold mb-2">{t("browser.notInstalled")}</div>
@@ -456,31 +441,25 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
             <div className="text-amber-600">{t("browser.setup.checking")}</div>
           ) : !setup.playwright ? (
             <div className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{status.installHint}</div>
-          ) : setup.chromium ? (
-            <div className="text-amber-600">{t("browser.setup.done")}</div>
+          ) : setup.chrome ? (
+            <div className="flex items-center gap-2">
+              <span className="text-amber-600">{t("browser.setup.done")}</span>
+              <button onClick={fetchSetup}
+                className="ml-auto px-2 py-0.5 rounded border border-amber-300 hover:bg-amber-100 text-amber-700 select-none">
+                ↻ {t("browser.setup.recheck")}
+              </button>
+            </div>
           ) : (
-            <div className="flex flex-col gap-2">
-              {setup.install.state !== "running" && (
-                <button onClick={startInstall}
-                  className="self-start px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium transition-colors">
-                  ⬇ {t("browser.setup.installBtn")}
-                </button>
-              )}
-              {setup.install.state === "running" && (
-                <div>
-                  <div className="mb-1 animate-pulse">⏳ {t("browser.setup.installing")}</div>
-                  <pre className="max-h-32 overflow-auto bg-white/70 rounded p-2 font-mono text-[10px] leading-snug whitespace-pre-wrap">
-                    {setup.install.lines.slice(-8).join("\n")}
-                  </pre>
-                </div>
-              )}
-              {setup.install.state === "failed" && (
-                <div className="text-red-600">✗ {t("browser.setup.failed")}</div>
-              )}
+            <div className="flex flex-col gap-1">
+              <div className="text-amber-600">{t("browser.setup.needChrome")}</div>
               <details className="text-[11px]">
                 <summary className="cursor-pointer text-amber-600 select-none">{t("browser.setup.manual")}</summary>
                 <div className="whitespace-pre-wrap font-mono mt-1 leading-relaxed">{status.installHint}</div>
               </details>
+              <button onClick={fetchSetup}
+                className="self-start px-2.5 py-1 rounded border border-amber-300 hover:bg-amber-100 text-amber-700 select-none">
+                ↻ {t("browser.setup.recheck")}
+              </button>
             </div>
           )}
         </div>

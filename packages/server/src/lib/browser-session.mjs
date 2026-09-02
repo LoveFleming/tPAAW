@@ -50,7 +50,10 @@ export async function getBrowserContext(DATA_HOME) {
     const shotDir = join(DATA_HOME, "logs", "browser");
     mkdirSync(profileDir, { recursive: true });
     mkdirSync(shotDir, { recursive: true });
+    // channel: "chrome" → 用系統已安裝的 Google Chrome / Chromium，不再下載自帶 chromium
+    // （Playwright 透過 CDP 操控，功能完全一致：screencast 串流/分頁/dialog/下載/clipboard 全部可用）
     const ctx = await chromium.launchPersistentContext(profileDir, {
+      channel: "chrome",
       headless: true,
       viewport: { width: 1280, height: 800 },
       timeout: 20_000,
@@ -202,15 +205,16 @@ export function resetBrowserAvailability() {
   }
 }
 
-/** 未安裝 playwright 時的安裝指引 */
+/** 未安裝 playwright 或找不到系統 Chrome 時的安裝指引（channel: "chrome" 模式） */
 export const PLAYWRIGHT_INSTALL_HINT =
-  "Playwright is not installed on this machine.\n" +
-  "Install it (one-time, per machine):\n" +
-  "  cd <PAAW root>\n" +
-  "  npm install\n" +
-  "  npx playwright install chromium   # ~170MB download\n" +
-  (process.platform === "linux" ? "  sudo npx playwright install-deps chromium  # Linux 系統依賴（libnss3 等）\n" : "") +
-  "Then retry. Server restart is NOT required (lazy load).";
+  "需要一個 Chrome 家族的瀏覽器（Google Chrome 或 Chromium）。\n" +
+  "PAAW 不再下載自帶 chromium — 直接偵測你系統已安裝的 Chrome。\n\n" +
+  "macOS：裝好 Google Chrome 即可\n" +
+  "Windows：裝好 Google Chrome 即可\n" +
+  "Linux：sudo apt install chromium-browser 或裝 google-chrome-stable\n" +
+  "\n" +
+  "另外需確認 playwright 套件已裝（PAAW root）：npm install\n" +
+  "裝好後重試即可，Server 不用重啟（lazy load）。" + (process.platform === "linux" ? "\n\n（Linux 若缺系統依賴：sudo npx playwright install-deps chromium）" : "");
 
 // ══════════════════════════════════════════════════════════════
 // Cowork 級共用串流 — CDP screencast 下行 + 輸入回注上行
