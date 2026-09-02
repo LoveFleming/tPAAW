@@ -72,7 +72,6 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const lastMoveRef = useRef(0);
   const frameRef = useRef<CastFrame | null>(null);
-  const [box, setBox] = useState<{ w: number; h: number } | null>(null); // frame 顯示尺寸（letterbox 計算後）
   // ── Cowork 級：分頁 / dialog / 下載 ──
   const [tabs, setTabs] = useState<TabInfo[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
@@ -169,22 +168,8 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     return () => { es.close(); setLive(false); };
   }, [API_BASE, mode]);
 
-  // ── 共用模式：顯示框尺寸（letterbox：等比縮放塞滿容器）──
-  useEffect(() => {
-    if (mode !== "stream" || !frame) return;
-    const el = stageRef.current;
-    if (!el) return;
-    const measure = () => {
-      const cw = el.clientWidth, ch = el.clientHeight;
-      if (!cw || !ch || !frame.w || !frame.h) return;
-      const s = Math.min(cw / frame.w, ch / frame.h);
-      setBox({ w: Math.round(frame.w * s), h: Math.round(frame.h * s) });
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [mode, frame?.w, frame?.h]);
+  // ── 共用模式：沒有 letterbox — 畫面 object-cover 填滿整個面板 ──
+  // （Fleming 2026-09-02：browser 畫面佔滿整個 main area）
 
   const sendInput = useCallback((payload: Record<string, unknown>) => {
     fetch(`${API_BASE}/api/browser/input`, {
@@ -194,16 +179,20 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     }).catch(() => { /* best effort — 斷線由 SSE 狀態顯示 */ });
   }, [API_BASE]);
 
-  // 畫面座標 → page CSS 座標（frame.w/h = viewport 實際大小）
+  // 畫面座標 → page CSS 座標（object-cover 填滿：需把裁切偏移反向換算）
   const toPageXY = (clientX: number, clientY: number) => {
     const f = frameRef.current;
     const el = overlayRef.current;
     if (!f || !el) return null;
     const r = el.getBoundingClientRect();
-    if (!r.width || !r.height) return null;
+    if (!r.width || !r.height || !f.w || !f.h) return null;
+    // object-cover：scale = max(容器/viewport)，超出容器部分置中裁切
+    const scale = Math.max(r.width / f.w, r.height / f.h);
+    const dw = f.w * scale, dh = f.h * scale;
+    const offX = (dw - r.width) / 2, offY = (dh - r.height) / 2;
     return {
-      x: Math.round(((clientX - r.left) / r.width) * f.w),
-      y: Math.round(((clientY - r.top) / r.height) * f.h),
+      x: Math.round((clientX - r.left + offX) / scale),
+      y: Math.round((clientY - r.top + offY) / scale),
     };
   };
 
@@ -246,7 +235,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [mode, sendInput, box?.w, box?.h]);
+  }, [mode, sendInput, frame?.w, frame?.h]);
 
   const onCastKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // IME 三層保護（Fleming 規則）：composition 中不轉發（compositionEnd 統一 insertText）
@@ -502,16 +491,16 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
           </div>
         )}
         {mode === "stream" ? (
-          <div ref={stageRef} className="w-full h-full flex items-center justify-center bg-gray-900 relative overflow-hidden">
-          {frame && box ? (
-              <div className="relative shadow-2xl" style={{ width: box.w, height: box.h }}>
+          <div ref={stageRef} className="w-full h-full bg-gray-900 relative overflow-hidden">
+          {frame ? (
+              <div className="absolute inset-0">
                 <img
                   src={`data:image/jpeg;base64,${frame.jpeg}`}
                   alt="shared browser"
                   draggable={false}
-                  className="absolute inset-0 w-full h-full select-none pointer-events-none"
+                  className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
                 />
-                {/* 透明輸入層：收滑鼠/滾輪/鍵盤（含 IME）→ 回注 agent browser */}
+                {/* 透明輸入層：收滑鼠/滾輪/鍵盤（含 IME）→ 回注 agent browser（蓋滿整個面板）*/}
                 <textarea
                   ref={overlayRef}
                   className="absolute inset-0 w-full h-full bg-transparent text-transparent caret-transparent resize-none outline-none border-0 p-0 m-0 overflow-hidden cursor-default select-none"
@@ -529,7 +518,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
                 />
                 {/* 鍵盤焦點提示 — 沒焦點時浮現 */}
                 {!kbdFocus && (
-                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/60 text-white text-[11px] pointer-events-none whitespace-nowrap">
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/60 text-white text-[11px] pointer-events-none whitespace-nowrap z-10">
                     ⌨ {t("browser.focusHint")}
                   </div>
                 )}
