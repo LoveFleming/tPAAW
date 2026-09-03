@@ -224,7 +224,10 @@ export async function callProjectLLM(body, opts = {}) {
     sanitize: true,
     caller: opts.caller || "coding",
     agentId: opts.agentId || "coding",
-    fallbacks: opts.fallbacks || [],
+    // 2026-09-03 fix：caller 沒傳 fallbacks 時，自動用 resolveLLMConfig 的 chain（providers.json fallbacks / auto）
+    // 否則 zai 429 時 CU 各步驟直接報錯，不會轉 DeepSeek
+    fallbacks: opts.fallbacks?.length ? opts.fallbacks
+      : (await import("../lib/paaw-agent-loop.mjs")).resolveLLMConfig(null).fallbacks || [],
   });
 }
 
