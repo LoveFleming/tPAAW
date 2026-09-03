@@ -527,16 +527,19 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
           if (sanitize) content = sanitizeContent(content);
 
           const durationMs = Date.now() - _startTime;
-          console.log(`[callLLMWithRetry] ${caller} ← FALLBACK ${fb.model} ${durationMs}ms (${content.length} chars)`);
+          console.log(`[callLLMWithRetry] ${caller} ← FALLBACK ${fb.model} ${durationMs}ms (${content.length} chars, finish=${data.choices?.[0]?.finish_reason})`);
           _writeLlmLog({
             id: _callId, ts: new Date().toISOString(), phase: "response-fallback",
             agentId: agentId || opts.caller || null, model: fb.model, stream: false, durationMs,
             fallback: true, caller: opts.caller || null,
+            finishReason: choice.finish_reason || null, contentLen: content.length,
+            contentPreview: content.slice(0, 300), usage: data.usage || null,
           });
 
           const hasToolCalls = choice.message?.tool_calls?.length > 0;
           if (validateContent && !hasToolCalls && !isMeaningfulContent(content)) {
-            console.warn(`[LLM-Utils] Fallback ${fb.model}: empty response`);
+            console.warn(`[LLM-Utils] Fallback ${fb.model}: empty/meaningless response (finish=${choice.finish_reason}, len=${content.length}) — trying next fallback`);
+            lastError = new Error(`Fallback ${fb.model} 回應無實質內容（finish=${choice.finish_reason}, len=${content.length}）`);
             continue; // try next fallback
           }
 

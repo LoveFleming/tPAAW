@@ -241,7 +241,7 @@ export async function callProjectLLM(body, opts = {}) {
  *   reduce：合併去重（太大就 pairwise 合併）
  *   gap-fill：checkCoverage 找孤兒檔 → 補一輪歸屬
  */
-const FM_CHUNK_CHARS = 300_000;   // 每塊 source analysis 約 85k tokens
+const FM_CHUNK_CHARS = 80_000;    // 每塊 source analysis（~23k tokens — fallback model 對大單發不可靠）
 const FM_MERGE_CHARS = 300_000;   // partials 超過就 pairwise 合併
 const FM_CONCURRENCY = 2;         // 平行度（避免 fallback provider 限流）
 
@@ -2793,7 +2793,7 @@ export default async function projectRoute(req, res) {
               cuLog(step.id, `Tree-sitter: ${tsResult.stats.parsedFiles}/${tsResult.stats.totalFiles} files parsed, ${tsResult.stats.errors} errors`);
               // Add condensed format (compact, fits in context window)
               const condensed = formatCondensed(tsResult);
-              if (condensed && condensed.length <= 350_000) {
+              if (condensed && condensed.length <= 80_000) {
                 fullPrompt += `\n\n--- SOURCE ANALYSIS (Tree-sitter) ---\n${condensed}`;
               } else if (condensed) {
                 // 大 release unit：map-reduce 分塊產出完整 feature map
@@ -2888,7 +2888,7 @@ export default async function projectRoute(req, res) {
               try {
                 const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
                 if (!cleanJson) throw new Error("AI 回應為空，無法產生 Feature Map");
-                const features = JSON.parse(cleanJson);
+                const features = _extractJsonArray(content);
                 if (Array.isArray(features)) {
                   const featuresWithIds = features.map((f, i) => ({
                     ...f,
@@ -3200,7 +3200,7 @@ export default async function projectRoute(req, res) {
               const tsResult = await parseProject(root, PAAW_ROOT, { maxFiles: 0, maxBytes: 500_000 });
               cuLog(step.id, `Tree-sitter: ${tsResult.stats.parsedFiles}/${tsResult.stats.totalFiles} files parsed, ${tsResult.stats.errors} errors`);
               const condensed = formatCondensed(tsResult);
-              if (condensed && condensed.length <= 350_000) {
+              if (condensed && condensed.length <= 80_000) {
                 fullPrompt += `\n\n--- SOURCE ANALYSIS (Tree-sitter) ---\n${condensed}`;
               } else if (condensed) {
                 // 大 release unit：map-reduce 分塊產出完整 feature map
