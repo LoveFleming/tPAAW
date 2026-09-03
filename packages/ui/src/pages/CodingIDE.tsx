@@ -2936,13 +2936,13 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   <span className="text-xs font-semibold text-stone-400">{tt("ru.manager", "Release Units")}</span>
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500">{releaseUnits.length}</span>
                 </div>
-                <div className="flex gap-1.5">
+                <div className="flex flex-col gap-1.5">
                   <button onClick={() => setShowDirExplorer(true)}
-                    className="flex-1 text-xs px-2 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold">
+                    className="w-full text-xs px-2 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-center whitespace-nowrap">
                     📂 {tt("ru.import", "Import")}
                   </button>
                   <button onClick={() => { setNewProjectParent(""); setNewProjectName(""); setNewProjectError(""); setShowNewProject(true); }}
-                    className="flex-1 text-xs px-2 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
+                    className="w-full text-xs px-2 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-center whitespace-nowrap">
                     ➕ {tt("vibe.newProject", "New Project")}
                   </button>
                 </div>
