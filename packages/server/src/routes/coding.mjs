@@ -172,6 +172,23 @@ import { DATA_HOME } from "../data-home.mjs";
 // caller em：這批呼叫屬 EM dashboard 的 AI 初始化/知識建構流 — 成本歸集（R3）別記在 coding 帳上
 const CU_LLM_OPTS = { caller: "em", agentId: "em" };
 
+// ── CU step skill 外掛（2026-09-03 Fleming：code understanding 可套 skill）──
+// 優先序：專案層 <root>/.paaw/cu-skills/<stepId>.md → 全域 data/skills/cu/<stepId>.md
+// 純 markdown 指令，注入在 prompt 組裝完成後、LLM 呼叫前（chunked 模式也吃得到）
+async function loadCuStepSkill(root, stepId) {
+  const candidates = [
+    join(root, ".paaw", "cu-skills", `${stepId}.md`),
+    join(DATA_HOME, "skills", "cu", `${stepId}.md`),
+  ];
+  for (const p of candidates) {
+    try {
+      const content = await readFile(p, "utf8");
+      if (content.trim()) return { path: p, content: content.trim() };
+    } catch {}
+  }
+  return null;
+}
+
 export async function callProjectLLM(body, opts = {}) {
   // providers.json lives at {DATA_HOME}/config/providers.json
   // (PAAW_DATA_HOME env > repo data/ — gateway 版 data 在 HOME/data)
@@ -1560,6 +1577,26 @@ export default async function projectRoute(req, res) {
   // ── Per-Project Crew Management (Phase 1: Data Layer) ──
   // ════════════════════════════════════════════════════════
 
+  // ── GET /api/coding-project/cu-skills — 列出 CU 各 step 可用的外掛 skill ──
+  if (url.startsWith("/api/coding-project/cu-skills") && req.method === "GET") {
+    const qStep = new URL(url, "http://localhost").searchParams.get("step");
+    const cuSkillsRoot = join(DATA_HOME, "skills", "cu");
+    const out = [];
+    try {
+      for (const f of readdirSync(cuSkillsRoot)) {
+        if (!f.endsWith(".md")) continue;
+        const stepId = f.replace(/\.md$/, "");
+        if (qStep && stepId !== qStep) continue;
+        const content = readSync(join(cuSkillsRoot, f), "utf8");
+        const name = (content.match(/^#\s+(.+)$/m) || [])[1] || stepId;
+        out.push({ stepId, name, scope: "global", path: `skills/cu/${f}`, chars: content.length });
+      }
+    } catch {}
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ skills: out }));
+    return true;
+  }
+
   // ── GET /api/coding-project/skills — List all available skills for SkillPicker ──
   if (url.startsWith("/api/coding-project/skills") && req.method === "GET") {
     try {
@@ -2783,6 +2820,14 @@ export default async function projectRoute(req, res) {
           }
         }
 
+          // CU step skill 外掛：有放 .paaw/cu-skills/<stepId>.md（專案）或 data/skills/cu/<stepId>.md（全域）就注入
+          const cuSkill = await loadCuStepSkill(root, step.id);
+          if (cuSkill) {
+            fullPrompt += `\n\n--- CU SKILL DIRECTIVES（${step.id} 方法論指令，優先於預設 prompt 的做法但不可違反輸出格式）---\n${cuSkill.content}`;
+            cuLog(step.id, `Applied CU skill: ${cuSkill.path}`);
+            sendEvent?.("step_progress", { step: step.id, name: step.name, message: `套用 skill：${cuSkill.path.split("/").slice(-1)[0]}` });
+          }
+
           // Tree-sitter source analysis for feature-map step
           let chunkedFeatureMap = null;
           if (step.id === "feature-map") {
@@ -3189,6 +3234,14 @@ export default async function projectRoute(req, res) {
           }
           if (decisionsResult && (step.id === "standards" || step.id === "faq" || step.id === "overview" || step.id === "feature-map")) {
             fullPrompt += `\n\n--- DECISIONS ---\n${decisionsResult.slice(0, 2000)}`;
+          }
+
+          // CU step skill 外掛：有放 .paaw/cu-skills/<stepId>.md（專案）或 data/skills/cu/<stepId>.md（全域）就注入
+          const cuSkill = await loadCuStepSkill(root, step.id);
+          if (cuSkill) {
+            fullPrompt += `\n\n--- CU SKILL DIRECTIVES（${step.id} 方法論指令，優先於預設 prompt 的做法但不可違反輸出格式）---\n${cuSkill.content}`;
+            cuLog(step.id, `Applied CU skill: ${cuSkill.path}`);
+            sendEvent?.("step_progress", { step: step.id, name: step.name, message: `套用 skill：${cuSkill.path.split("/").slice(-1)[0]}` });
           }
 
           // Tree-sitter source analysis for feature-map step
