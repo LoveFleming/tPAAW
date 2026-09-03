@@ -233,6 +233,135 @@ export async function callProjectLLM(body, opts = {}) {
 
 // ── Query parser ──
 
+/**
+ * Feature Map chunked 產出（2026-09-03 Fleming 要求：不考慮成本，完整的 feature map）
+ *
+ * 大 release unit 單次呼叫塞不下 → map-reduce：
+ *   map：把 tree-sitter 分析按檔案分塊，每塊一次 LLM 呼叫產 partial feature JSON
+ *   reduce：合併去重（太大就 pairwise 合併）
+ *   gap-fill：checkCoverage 找孤兒檔 → 補一輪歸屬
+ */
+const FM_CHUNK_CHARS = 300_000;   // 每塊 source analysis 約 85k tokens
+const FM_MERGE_CHARS = 300_000;   // partials 超過就 pairwise 合併
+const FM_CONCURRENCY = 2;         // 平行度（避免 fallback provider 限流）
+
+function _extractJsonArray(text) {
+  if (!text) return null;
+  let t = text.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+  try { const v = JSON.parse(t); return Array.isArray(v) ? v : null; } catch {}
+  const s = t.indexOf("["); const e = t.lastIndexOf("]");
+  if (s >= 0 && e > s) { try { const v = JSON.parse(t.slice(s, e + 1)); return Array.isArray(v) ? v : null; } catch {} }
+  return null;
+}
+
+function _chunkFiles(files, maxChars = FM_CHUNK_CHARS) {
+  const chunks = [];
+  let cur = [], curLen = 0;
+  for (const f of files) {
+    // 每檔估算長度：formatCondensed 一行一檔，粗估 300 字元 + signals
+    const est = 400 + (f.exports.length + f.imports.length + f.functions.length + f.classes.length + f.components.length + f.routes.length) * 40;
+    if (curLen + est > maxChars && cur.length > 0) { chunks.push(cur); cur = []; curLen = 0; }
+    cur.push(f); curLen += est;
+  }
+  if (cur.length > 0) chunks.push(cur);
+  return chunks;
+}
+
+async function _runPool(items, worker, concurrency = FM_CONCURRENCY) {
+  const results = new Array(items.length);
+  let idx = 0;
+  async function lane() {
+    while (idx < items.length) {
+      const i = idx++;
+      results[i] = await worker(items[i], i);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, lane));
+  return results;
+}
+
+async function _fmLLM(cuModelOverride, prompt, opts = {}) {
+  const result = await callProjectLLM({
+    model: cuModelOverride || undefined,
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0,
+    thinking: { type: "disabled" },
+  }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3, ...opts });
+  return result.content || "";
+}
+
+async function generateFeatureMapChunked({ tsResult, basePrompt, projectRoot, cuModelOverride, cuLog, sendEvent, stepId, stepName }) {
+  const { formatCondensed } = await import("../lib/tree-sitter-parser.mjs");
+  const chunks = _chunkFiles(tsResult.files);
+  cuLog("feature-map", `Chunked mode: ${tsResult.files.length} files → ${chunks.length} chunks`);
+
+  // ── Map：每塊產 partial features ──
+  const subsetNote = `\n\n## CHUNKED ANALYSIS MODE\nThis is a SUBSET of the project's source analysis (chunk of ${chunks.length} total). Identify ALL features visible in this subset only — do not invent features for files not shown. Output the partial JSON feature array only.`;
+  const partials = await _runPool(chunks, async (chunkFiles, i) => {
+    const chunkCondensed = formatCondensed({ files: chunkFiles });
+    const prompt = basePrompt + `\n\n--- SOURCE ANALYSIS (Tree-sitter) — PART ${i + 1}/${chunks.length} ---\n${chunkCondensed}` + subsetNote;
+    sendEvent?.("step_progress", { step: stepId, name: stepName, message: `Map ${i + 1}/${chunks.length}（${chunkFiles.length} 檔）` });
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const raw = await _fmLLM(cuModelOverride, prompt);
+        const arr = _extractJsonArray(raw);
+        if (arr) { cuLog("feature-map", `Chunk ${i + 1}: ${arr.length} features`); return arr; }
+        cuLog("feature-map", `Chunk ${i + 1}: attempt ${attempt} — invalid JSON, retry`);
+      } catch (e) {
+        cuLog("feature-map", `Chunk ${i + 1}: attempt ${attempt} failed — ${e.message?.slice(0, 120)}`);
+      }
+    }
+    return [];
+  });
+  const allPartials = partials.flat();
+  if (allPartials.length === 0) throw new Error("All chunks failed — no partial features");
+
+  // ── Reduce：合併去重（太大就 pairwise）──
+  sendEvent?.("step_progress", { step: stepId, name: stepName, message: `合併 ${allPartials.length} 個 partial features` });
+  const mergePrompt = (lists, note) => `You are merging partial feature maps of the SAME project produced from different file chunks.\n${note}\n\nRules:\n- Features describing the same functional area (name/description overlap, shared files) MUST be merged into one\n- Keep the JSON structure exactly: name, description, status, codeFiles, apis, tests, runbooks, tags\n- Union their codeFiles/apis/tests/runbooks/tags; never drop files\n- Do NOT invent new features; do NOT drop any feature\n- Output ONLY the merged JSON array\n\n${lists.map((p, i) => `--- PARTIAL ${i + 1} (${p.length} features) ---\n${JSON.stringify(p, null, 1)}`).join("\n\n")}`;
+  let features = allPartials;
+  while (true) {
+    const total = JSON.stringify(features).length;
+    if (features.length === 1 || total <= FM_MERGE_CHARS) break;
+    const groups = [];
+    for (let i = 0; i < features.length; i += 2) groups.push(features.slice(i, i + 2));
+    features = (await _runPool(groups, async (g) => {
+      const raw = await _fmLLM(cuModelOverride, mergePrompt(g, "Merge these partial feature maps pairwise."));
+      return _extractJsonArray(raw) || g.flat();
+    })).flat();
+    cuLog("feature-map", `Pairwise merge → ${features.length} features (${JSON.stringify(features).length} chars)`);
+  }
+  if (features.length > 1) {
+    const raw = await _fmLLM(cuModelOverride, mergePrompt([features], "Produce the final complete feature map of the project."));
+    features = _extractJsonArray(raw) || features;
+  }
+  cuLog("feature-map", `After merge: ${features.length} features`);
+
+  // ── Gap-fill：孤兒檔歸屬 ──
+  try {
+    const { checkCoverage } = await import("../lib/feature-map-validator.mjs");
+    const { orphans } = checkCoverage(projectRoot, features);
+    const orphanSet = new Set(orphans);
+    const orphanFiles = tsResult.files.filter(f => orphanSet.has(f.file.replace(/^\.\//, "")));
+    if (orphanFiles.length > 0 && orphanFiles.length < tsResult.files.length) {
+      sendEvent?.("step_progress", { step: stepId, name: stepName, message: `Gap-fill：${orphanFiles.length} 個未歸屬檔案` });
+      cuLog("feature-map", `Gap-fill: ${orphanFiles.length} unmapped files`);
+      const orphanCondensed = formatCondensed({ files: orphanFiles });
+      const gapPrompt = basePrompt + `\n\n--- UNMAPPED FILES (Tree-sitter) ---\n${orphanCondensed}` + `\n\n## GAP-FILL MODE\nThese source files are not yet mapped to any feature. The current feature map follows. Assign each file to the most fitting existing feature (union the file into codeFiles), or create a new feature if none fits. Do NOT remove existing features or files. Output the complete updated JSON array only.\n\n--- CURRENT FEATURE MAP ---\n${JSON.stringify(features, null, 1)}`;
+      const raw = await _fmLLM(cuModelOverride, gapPrompt);
+      const filled = _extractJsonArray(raw);
+      if (filled && filled.length >= features.length) {
+        features = filled;
+        cuLog("feature-map", `Gap-fill done → ${features.length} features`);
+      }
+    }
+  } catch (e) {
+    cuLog("feature-map", `Gap-fill skipped (non-fatal): ${e.message?.slice(0, 120)}`);
+  }
+
+  return { features, chunkCount: chunks.length };
+}
+
 function parseQuery(url) {
   const u = new URL(url, "http://localhost");
   const params = {};
@@ -2655,15 +2784,24 @@ export default async function projectRoute(req, res) {
         }
 
           // Tree-sitter source analysis for feature-map step
+          let chunkedFeatureMap = null;
           if (step.id === "feature-map") {
             try {
               cuLog(step.id, "Running Tree-sitter source analysis...");
-              const tsResult = await parseProject(root, PAAW_ROOT, { maxFiles: 500, maxBytes: 100_000 });
+              // 2026-09-03 Fleming：不設上限 — 大 release unit 也要完整 feature map
+              const tsResult = await parseProject(root, PAAW_ROOT, { maxFiles: 0, maxBytes: 500_000 });
               cuLog(step.id, `Tree-sitter: ${tsResult.stats.parsedFiles}/${tsResult.stats.totalFiles} files parsed, ${tsResult.stats.errors} errors`);
               // Add condensed format (compact, fits in context window)
               const condensed = formatCondensed(tsResult);
-              if (condensed) {
+              if (condensed && condensed.length <= 350_000) {
                 fullPrompt += `\n\n--- SOURCE ANALYSIS (Tree-sitter) ---\n${condensed}`;
+              } else if (condensed) {
+                // 大 release unit：map-reduce 分塊產出完整 feature map
+                const { features } = await generateFeatureMapChunked({
+                  tsResult, basePrompt: fullPrompt, projectRoot: root,
+                  cuModelOverride, cuLog, sendEvent, stepId: step.id, stepName: step.name,
+                });
+                chunkedFeatureMap = JSON.stringify(features, null, 2);
               }
               // Also save full analysis to .paaw/ for debugging
               const fullAnalysis = formatForAI(tsResult);
@@ -2675,7 +2813,9 @@ export default async function projectRoute(req, res) {
 
         // Call LLM with longer timeout for single step
         try {
-          const result = await callProjectLLM({
+          const result = chunkedFeatureMap
+            ? { content: chunkedFeatureMap, finishReason: "stop", attempts: 1 }
+            : await callProjectLLM({
             model: cuModelOverride || undefined,
             messages: [{ role: "user", content: fullPrompt }],
             temperature: 0,
@@ -3052,14 +3192,23 @@ export default async function projectRoute(req, res) {
           }
 
           // Tree-sitter source analysis for feature-map step
+          let chunkedFeatureMap = null;
           if (step.id === "feature-map") {
             try {
               cuLog(step.id, "Running Tree-sitter source analysis...");
-              const tsResult = await parseProject(root, PAAW_ROOT, { maxFiles: 500, maxBytes: 100_000 });
+              // 2026-09-03 Fleming：不設上限 — 大 release unit 也要完整 feature map
+              const tsResult = await parseProject(root, PAAW_ROOT, { maxFiles: 0, maxBytes: 500_000 });
               cuLog(step.id, `Tree-sitter: ${tsResult.stats.parsedFiles}/${tsResult.stats.totalFiles} files parsed, ${tsResult.stats.errors} errors`);
               const condensed = formatCondensed(tsResult);
-              if (condensed) {
+              if (condensed && condensed.length <= 350_000) {
                 fullPrompt += `\n\n--- SOURCE ANALYSIS (Tree-sitter) ---\n${condensed}`;
+              } else if (condensed) {
+                // 大 release unit：map-reduce 分塊產出完整 feature map
+                const { features } = await generateFeatureMapChunked({
+                  tsResult, basePrompt: fullPrompt, projectRoot: root,
+                  cuModelOverride, cuLog, sendEvent, stepId: step.id, stepName: step.name,
+                });
+                chunkedFeatureMap = JSON.stringify(features, null, 2);
               }
               const fullAnalysis = formatForAI(tsResult);
               await paaw.writeFile("features/tree-sitter-analysis.txt", fullAnalysis);
@@ -3070,7 +3219,9 @@ export default async function projectRoute(req, res) {
 
           // Call LLM
           try {
-            const result = await callProjectLLM({
+            const result = chunkedFeatureMap
+              ? { content: chunkedFeatureMap, finishReason: "stop", attempts: 1 }
+              : await callProjectLLM({
               model: cuModelOverride || undefined,
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0,
