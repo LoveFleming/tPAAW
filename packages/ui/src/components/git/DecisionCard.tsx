@@ -47,6 +47,7 @@ export interface EvidenceDecisionCard {
   } | null;
   needsHumanDecision?: boolean;
   trustScore?: { score?: number; items?: { name?: string; label?: string; score?: number }[]; riskPenalty?: number; label?: string; reason?: string[] };
+  provenance?: { createdBy?: string | null; createdAt?: string | null; updatedAt?: string | null; resolvedAt?: string | null };
 }
 
 interface DecisionCardProps {
@@ -115,6 +116,11 @@ export default function DecisionCard({ evidence, loading, onShowCode, t = (k, f)
         )}
         {evidence.needsHumanDecision && (
           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-bold">🚧 需人決策</span>
+        )}
+        {evidence.provenance?.createdBy && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 font-semibold shrink-0">
+            🤖 {evidence.provenance.createdBy}
+          </span>
         )}
       </div>
 
