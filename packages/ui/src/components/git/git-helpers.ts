@@ -10,6 +10,19 @@ export interface GitFileStatus {
   status: string;
   path: string;
   staged?: boolean;
+  /** porcelain v1 X 欄（staged 狀態），server 端提供 */
+  x?: string;
+  /** porcelain v1 Y 欄（unstaged 狀態） */
+  y?: string;
+}
+
+/**
+ * 取得這列在「staged 或 unstaged」語境下的有效狀態碼（M/A/D/R/C/?)
+ * 兩碼 status（如 AM）依 staged 與否取對應欄位
+ */
+export function effectiveStatus(f: GitFileStatus): string {
+  const raw = f.x != null && f.y != null ? (f.staged ? f.x : f.y) : f.status;
+  return (raw ?? "?").trim() || "?";
 }
 
 /**
@@ -190,8 +203,8 @@ export function getCategoryLabel(category: FileCategory): string {
 /**
  * 取得 git status 符號對應的 emoji
  */
-export function getStatusEmoji(status: string): string {
-  switch (status) {
+export function getStatusEmoji(f: GitFileStatus): string {
+  switch (effectiveStatus(f)) {
     case "M": return "✎";
     case "A": return "✚";
     case "D": return "✖";
@@ -341,7 +354,8 @@ export function unexpectedOutOfScopePaths(
 /**
  * 取得 status 顏色 class
  */
-export function getStatusColorClass(status: string, isStaged: boolean): string {
+export function getStatusColorClass(f: GitFileStatus, isStaged: boolean): string {
+  const status = effectiveStatus(f);
   if (isStaged) {
     switch (status) {
       case "A": return "text-emerald-600";

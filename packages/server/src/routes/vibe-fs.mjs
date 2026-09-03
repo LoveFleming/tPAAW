@@ -96,10 +96,12 @@ export default async function vibeFsRoute(req, res) {
     const branch = branchMatch ? branchMatch[1] : "(unknown)";
     const files = r.stdout.split("\n").filter(l => l && !l.startsWith("#")).map(l => ({
       status: l.slice(0, 2).trim(), path: l.slice(3),
+      // porcelain v1 XY 兩欄：X = staged 狀態，Y = unstaged 狀態（' ' = 無變更，'?' = untracked）
+      x: l[0], y: l[1],
     }));
-    const staged = files.filter(f => "MARC".includes(f.status[0]));
-    const unstaged = files.filter(f => "MD".includes(f.status[0] || f.status[1]));
-    const untracked = files.filter(f => f.status === "??");
+    const staged = files.filter(f => f.x !== " " && f.x !== "?");
+    const unstaged = files.filter(f => f.y !== " " && f.y !== "?");
+    const untracked = files.filter(f => f.x === "?" && f.y === "?");
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ branch, staged, unstaged, untracked, all: files }));
     return true;

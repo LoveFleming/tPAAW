@@ -125,8 +125,8 @@ export default function FeatureGroupCard({
           {group.files.map((f, i) => {
             const isStaged = f.staged ?? false;
             const fk = fileKey(f);
-            const emoji = getStatusEmoji(f.status);
-            const colorClass = getStatusColorClass(f.status, isStaged);
+            const emoji = getStatusEmoji(f);
+            const colorClass = getStatusColorClass(f, isStaged);
 
             return (
               <div
