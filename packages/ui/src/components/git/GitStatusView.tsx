@@ -7,7 +7,7 @@
 
 import React, { useMemo, useState } from "react";
 import { cn } from "../../utils";
-import { groupGitFiles, GitFileStatus, classifyGitFile, fileKey, pathFromFileKey, FeatureFileMap, groupGitFilesByFeature } from "./git-helpers";
+import { groupGitFiles, GitFileStatus, classifyGitFile, fileKey, pathFromFileKey, FeatureFileMap, groupGitFilesByFeature, crossFeaturePaths, unexpectedOutOfScopePaths } from "./git-helpers";
 import GitFileGroupCard from "./GitFileGroup";
 import FeatureGroupCard from "./FeatureGroupCard";
 import DecisionCard, { EvidenceDecisionCard } from "./DecisionCard";
@@ -187,6 +187,10 @@ export default function GitStatusView({
 
   const featureGroups = fileGroups.featureGroups;
   const fallbackGroups = fileGroups.fallbackGroups;
+
+  // ── Phase D：cross-feature / unexpected 旗標（純查表，Change Boundary 視覺化）──
+  const crossPaths = useMemo(() => crossFeaturePaths(allFiles, featureMap), [allFiles, featureMap]);
+  const unexpectedPaths = useMemo(() => unexpectedOutOfScopePaths(allFiles, evidence), [allFiles, evidence]);
 
   if (!gitStatus) {
     return <div className="flex-1 flex items-center justify-center text-xs text-stone-400">Loading...</div>;
@@ -457,6 +461,8 @@ export default function GitStatusView({
             <FeatureGroupCard
               key={`feat-${i}-${g.featureId || g.name}`}
               group={g}
+              crossPaths={crossPaths}
+              unexpectedPaths={unexpectedPaths}
               selectedKeys={selectedKeys}
               onToggleKey={onToggleKey}
               onSelectKeys={onSelectKeys}

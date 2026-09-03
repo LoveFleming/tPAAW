@@ -290,6 +290,55 @@ export function groupGitFilesByFeature(
 }
 
 /**
+ * Phase D：cross-feature / unexpected 旗標（Change Boundary 視覺化，純 deterministic）
+ */
+
+/**
+ * 找出 cross-feature 檔案：一檔命中 ≥2 個 feature
+ * 回傳 Set<path>（正規化為 /）
+ */
+export function crossFeaturePaths(
+  files: GitFileStatus[],
+  featureMap: FeatureFileMap | null | undefined
+): Set<string> {
+  const out = new Set<string>();
+  for (const f of files) {
+    if (featuresForPath(f.path, featureMap).length >= 2) {
+      out.add(f.path.replace(/\\/g, "/"));
+    }
+  }
+  return out;
+}
+
+/**
+ * 找出 unexpected（scope 外）檔案：
+ * - evidence.reviewBoundary.unexpectedFiles 列出的 path 一律算
+ * - 有 scope（hasScope）時：working tree 的 code 檔不在 expectedFiles → 也算
+ * 沒有 evidence / 沒 scope → 回空集合（不誤報）
+ */
+export function unexpectedOutOfScopePaths(
+  files: (GitFileStatus & { staged?: boolean })[],
+  evidence: { reviewBoundary?: {
+    hasScope?: boolean;
+    expectedFiles?: { path: string }[];
+    unexpectedFiles?: { path: string }[];
+  } | null } | null | undefined
+): Set<string> {
+  const out = new Set<string>();
+  const rb = evidence?.reviewBoundary;
+  if (!rb) return out;
+  for (const f of rb.unexpectedFiles ?? []) out.add(f.path.replace(/\\/g, "/"));
+  if (rb.hasScope && Array.isArray(rb.expectedFiles)) {
+    const expected = new Set((rb.expectedFiles).map(f => f.path.replace(/\\/g, "/")));
+    for (const f of files) {
+      const p = f.path.replace(/\\/g, "/");
+      if (classifyGitFile(p) === "code" && !expected.has(p)) out.add(p);
+    }
+  }
+  return out;
+}
+
+/**
  * 取得 status 顏色 class
  */
 export function getStatusColorClass(status: string, isStaged: boolean): string {

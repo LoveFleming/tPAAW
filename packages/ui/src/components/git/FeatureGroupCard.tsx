@@ -26,6 +26,10 @@ interface FeatureGroupCardProps {
   onFileClick: (path: string, isStaged: boolean) => void;
   onUnstageFile?: (path: string) => void;
   onStageFile?: (path: string) => void;
+  /** Phase D：cross-feature 檔案集合（正規化 / 路徑） */
+  crossPaths?: Set<string>;
+  /** Phase D：scope 外（unexpected）檔案集合 */
+  unexpectedPaths?: Set<string>;
 }
 
 export default function FeatureGroupCard({
@@ -37,8 +41,14 @@ export default function FeatureGroupCard({
   onFileClick,
   onUnstageFile,
   onStageFile,
+  crossPaths,
+  unexpectedPaths,
 }: FeatureGroupCardProps) {
   const [expanded, setExpanded] = useState(true);
+
+  const norm = (p: string) => p.replace(/\\/g, "/");
+  const crossCount = crossPaths ? group.files.filter(f => crossPaths.has(norm(f.path))).length : 0;
+  const unexpectedCount = unexpectedPaths ? group.files.filter(f => unexpectedPaths.has(norm(f.path))).length : 0;
 
   const allKeys = group.files.map(f => fileKey(f));
   const allSelected = allKeys.length > 0 && allKeys.every(k => selectedKeys.has(k));
@@ -77,6 +87,14 @@ export default function FeatureGroupCard({
         )}>
           {group.files.length}
         </span>
+        {unexpectedCount > 0 && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-bold shrink-0"
+            title="Scope 外變更（Change Boundary）">⚠ {unexpectedCount} out-of-scope</span>
+        )}
+        {crossCount > 0 && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold shrink-0"
+            title="此 feature 內有檔案同時屬於多個 feature">⇄ {crossCount} cross-feature</span>
+        )}
         <span className="flex-1" />
         {unmapped && (
           <span className="text-[9px] text-amber-500 mr-1">未對應 feature</span>
@@ -129,6 +147,12 @@ export default function FeatureGroupCard({
                   title={f.path}
                 >
                   {f.path}
+                  {unexpectedPaths?.has(norm(f.path)) && (
+                    <span className="ml-1.5 text-[9px] px-1 py-0.5 rounded bg-red-100 text-red-600 font-bold align-middle">⚠ out-of-scope</span>
+                  )}
+                  {crossPaths?.has(norm(f.path)) && (
+                    <span className="ml-1.5 text-[9px] px-1 py-0.5 rounded bg-blue-100 text-blue-600 font-bold align-middle">⇄ cross</span>
+                  )}
                 </span>
                 {/* Staged: unstage ✕ | Unstaged: stage + */}
                 {isStaged ? (
