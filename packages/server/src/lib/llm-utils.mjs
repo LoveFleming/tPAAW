@@ -492,8 +492,8 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
         }
       }
 
-      // 非 retryable 或最後一次，直接拋出
-      throw err;
+      // 非 retryable 或最後一次 — 跳出迴圈交給 fallback 區塊處理（2026-09-03 fix：原本直接 throw，fallback 永遠執行不到）
+      break;
     }
   }
 
