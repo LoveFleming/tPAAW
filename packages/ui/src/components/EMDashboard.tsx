@@ -12,6 +12,7 @@ import ModelSelector from "./ModelSelector";
 import { cn } from "../utils";
 import { useI18n } from "../i18n";
 import MarkdownText from "./MarkdownText";
+import SkillPicker from "./SkillPicker";
 
 interface ChatMessage {
   role: string;
@@ -302,6 +303,10 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
 
   // ── Load persisted step statuses when opening Modal ──
   const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number; error?: string }>>([]);
+  // ── CU step skill 綁定（PAAW skill 綁到 cu.<stepId>）──
+  const [cuSkillBindings, setCuSkillBindings] = useState<Record<string, string[]>>({});
+  const [cuSkillNames, setCuSkillNames] = useState<Record<string, string>>({});
+  const [cuSkillPickerStep, setCuSkillPickerStep] = useState<string | null>(null);
   // CU lifecycle 原料（cu-status 擴充回傳）— phase 派生用
   const [cuMeta, setCuMeta] = useState<{ hasPaaw: boolean; sourceFiles: number; doneCount: number; codeLastModified?: string | null; staleSteps?: Array<{ id: string; mechanical: boolean; manual?: boolean }>; staleCount?: number } | null>(null);
   const [cuInitBusy, setCuInitBusy] = useState(false);
@@ -338,6 +343,35 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   const staleMechanical = (cuMeta?.staleSteps ?? []).filter(s => s.mechanical).length;
   const staleManual = (cuMeta?.staleSteps ?? []).filter(s => (s as any).manual).length; // 人寫文件（CU 重跑不會更新）
   const staleSmart = (cuMeta?.staleSteps ?? []).filter(s => !s.mechanical && !(s as any).manual).length;
+  // ── CU step skill 綁定：載入 / 儲存 ──
+  const loadCuSkillBindings = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-project/cu-skills?path=${encodeURIComponent(rootPath)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCuSkillBindings(data.bindings || {});
+      }
+      const res2 = await fetch(`${API_BASE}/api/coding-project/skills`);
+      if (res2.ok) {
+        const data2 = await res2.json();
+        const names: Record<string, string> = {};
+        for (const sk of data2.skills || []) names[sk.id] = sk.name;
+        setCuSkillNames(names);
+      }
+    } catch {}
+  }, [rootPath]);
+
+  const saveCuSkillBinding = useCallback(async (stepId: string, skills: string[]) => {
+    setCuSkillBindings(prev => ({ ...prev, [stepId]: skills }));
+    try {
+      await fetch(`${API_BASE}/api/coding-project/cu-skills?path=${encodeURIComponent(rootPath)}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stepId, skills }),
+      });
+    } catch {}
+  }, [rootPath]);
+
   const loadPersistedSteps = useCallback(async () => {
     if (!rootPath) return [];
     let steps: Array<{ id: string; name: string; status: string; size?: number; error?: string }> = [];
@@ -393,6 +427,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
 
   // 進 dashboard 就載 CU 狀態（auto-popup + 狀態條用）
   useEffect(() => { if (rootPath) loadPersistedSteps(); }, [rootPath]);
+  useEffect(() => { if (showCUModal) loadCuSkillBindings(); }, [showCUModal, loadCuSkillBindings]);
 
   // ── Auto-popup Code Understanding — 只有 ready / missing 才彈 ──
   // no-code（code 尚少，第一次進來根本還沒開始寫）不催；partial/done 不打擾
@@ -415,7 +450,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
     if (wasRunning && !isRunning) {
       // Bulk run just finished — merge live step results into persistedSteps first
       // (in case .paaw/ files aren't written yet, we still show what the frontend knows)
-      loadPersistedSteps().then(() => {
+      loadPersistedSteps().then(() => { loadCuSkillBindings(); 
         setPersistedSteps(prev => {
           // If loadPersistedSteps returned all pending but we have live results, use live results
           const liveSteps = codeUnderstanding?.steps || [];
@@ -1311,6 +1346,23 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                     {step.name}
                     {step.status === "running" && <span className="ml-2 inline-block animate-pulse">●</span>}
                   </div>
+                  {/* Skill 綁定 */}
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <button
+                      onClick={() => setCuSkillPickerStep(step.id)}
+                      disabled={isRunning}
+                      className={cn("text-[10px] px-1.5 py-0.5 rounded border transition-colors",
+                        (cuSkillBindings[step.id]?.length || 0) > 0
+                          ? "border-violet-300 bg-violet-50 text-violet-600 hover:bg-violet-100"
+                          : "border-stone-200 bg-stone-50 text-stone-400 hover:bg-stone-100")}
+                      title="綁定 PAAW skill 到此步驟"
+                    >🧩 {(cuSkillBindings[step.id]?.length || 0) > 0 ? `${cuSkillBindings[step.id].length} skills` : "綁定 skill"}</button>
+                    {(cuSkillBindings[step.id]?.length || 0) > 0 && (
+                      <span className="text-[10px] text-violet-400 truncate max-w-[240px]">
+                        {(cuSkillBindings[step.id] || []).map(id => cuSkillNames[id] || id).join("、")}
+                      </span>
+                    )}
+                  </div>
                   {step.status === "done" && step.size && (
                     <div className="text-xs text-stone-300">{step.size.toLocaleString()} chars</div>
                   )}
@@ -1371,6 +1423,29 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
           </div>
             </>);
           })()}
+        </div>
+      </div>
+    )}
+
+    {/* CU Skill Picker Modal */}
+    {cuSkillPickerStep && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setCuSkillPickerStep(null)}>
+        <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 flex flex-col" style={{ width: "min(560px, 90vw)", maxHeight: "75vh" }} onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-3 border-b border-stone-200">
+            <h3 className="text-sm font-bold text-stone-800">🧩 綁定 PAAW Skill — {persistedSteps.find(x => x.id === cuSkillPickerStep)?.name || cuSkillPickerStep}</h3>
+            <button onClick={() => setCuSkillPickerStep(null)} className="text-stone-400 hover:text-stone-600 text-lg">✕</button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <SkillPicker
+              rootPath={rootPath}
+              selected={cuSkillBindings[cuSkillPickerStep] || []}
+              onChange={(skills: string[]) => saveCuSkillBinding(cuSkillPickerStep, skills)}
+              theme={tk}
+            />
+          </div>
+          <div className="px-5 py-3 border-t border-stone-200 flex justify-end">
+            <button onClick={() => setCuSkillPickerStep(null)} className="px-4 py-1.5 text-sm font-bold text-white rounded-lg bg-violet-600 hover:bg-violet-700">完成</button>
+          </div>
         </div>
       </div>
     )}
