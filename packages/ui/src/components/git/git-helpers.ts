@@ -202,6 +202,93 @@ export function getStatusEmoji(status: string): string {
   }
 }
 
+// ── Feature-First 分組（FILE-FEATURES 查表，純 deterministic）──
+
+/**
+ * FILE-FEATURES.json 裡的一個 feature 反查項目
+ */
+export interface FeatureRef {
+  id?: string;
+  name?: string;
+  tags?: string[];
+}
+
+/**
+ * file path → feature refs 的反查表（GET /api/coding-features/file-map 回傳）
+ */
+export type FeatureFileMap = Record<string, FeatureRef[]>;
+
+/**
+ * 查某個 git 檔案命中哪些 feature（純查表，回空陣列 = 未對應）
+ */
+export function featuresForPath(
+  path: string,
+  featureMap: FeatureFileMap | null | undefined
+): FeatureRef[] {
+  if (!featureMap) return [];
+  const hit = featureMap[path] ?? featureMap[path.replace(/\\/g, "/")];
+  return Array.isArray(hit) ? hit.filter(Boolean) : [];
+}
+
+/**
+ * Feature-first 分組：把 git files 依 FILE-FEATURES 歸到對應 feature 卡
+ *
+ * - 對應到 feature 的 code 檔 → 依 feature 分組（feature 是主角）
+ * - 有 feature 對應但非 code（.paaw / config / docs）→ 也歸 feature（給脈絡，但次要）
+ * - 沒有任何 feature 對應 → 進 unmapped（defensive，讓洞一眼可見）
+ */
+export interface FeatureGroup {
+  featureId?: string;
+  /** 顯示名：feature name（缺則用 id） */
+  name: string;
+  files: GitFileStatus[];
+}
+
+/**
+ * 將 git files 依 feature 分組。回傳 { groups, unmapped }
+ * - groups: 依 feature 聚合的 code 檔（維持遇到順序）
+ * - unmapped: 沒對應到任何 feature 的 code 檔
+ * - 非 code 檔一律不進 feature 分組（另有 category 分組處理）
+ */
+export function groupGitFilesByFeature(
+  files: (GitFileStatus & { staged: boolean })[],
+  featureMap: FeatureFileMap | null | undefined
+): { groups: FeatureGroup[]; unmapped: GitFileStatus[] } {
+  const groups: FeatureGroup[] = [];
+  const groupByKey = new Map<string, FeatureGroup>();
+  const unmapped: GitFileStatus[] = [];
+
+  for (const f of files) {
+    // 只有 code 檔參與 feature 分組；.paaw/config/docs/other 交給 category 分組
+    const cat = classifyGitFile(f.path);
+    if (cat !== "code") {
+      unmapped.push(f);
+      continue;
+    }
+
+    const refs = featuresForPath(f.path, featureMap);
+    if (refs.length === 0) {
+      unmapped.push(f);
+      continue;
+    }
+
+    // 一個檔可能對應多個 feature → 每個都進（檔案會重複出現在多張卡，屬正常）
+    for (const ref of refs) {
+      const name = ref.name || ref.id || "Unnamed feature";
+      const key = ref.id || name;
+      let g = groupByKey.get(key);
+      if (!g) {
+        g = { featureId: ref.id, name, files: [] };
+        groupByKey.set(key, g);
+        groups.push(g);
+      }
+      g.files.push(f);
+    }
+  }
+
+  return { groups, unmapped };
+}
+
 /**
  * 取得 status 顏色 class
  */

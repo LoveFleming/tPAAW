@@ -7,8 +7,9 @@
 
 import React, { useMemo, useState } from "react";
 import { cn } from "../../utils";
-import { groupGitFiles, GitFileStatus, classifyGitFile, fileKey, pathFromFileKey } from "./git-helpers";
+import { groupGitFiles, GitFileStatus, classifyGitFile, fileKey, pathFromFileKey, FeatureFileMap, groupGitFilesByFeature } from "./git-helpers";
 import GitFileGroupCard from "./GitFileGroup";
+import FeatureGroupCard from "./FeatureGroupCard";
 
 interface StagedSummary {
   exists: boolean;
@@ -57,6 +58,8 @@ interface GitStatusViewProps {
   onUnstageFile: (path: string) => void;
   onStageFile: (path: string) => void;
   qaReviewLoading: boolean;
+  // ── Feature-first 分組（Phase A）──
+  featureMap: FeatureFileMap | null;
   // ── Pipeline state ──
   pipeline: Record<string, { status: string; by?: string; at?: string; result?: string; reason?: string; feedback?: string }> | null;
   loopMode: "full" | "mini";
@@ -88,6 +91,7 @@ export default function GitStatusView({
   onUnstageFile,
   onStageFile,
   qaReviewLoading,
+  featureMap,
   pipeline,
   loopMode,
   projectLoopMode,
@@ -157,10 +161,22 @@ export default function GitStatusView({
     return allFiles.filter(f => !aiStagedPaths.has(f.path));
   }, [allFiles, aiStagedPaths]);
 
-  const fileGroups = useMemo(() => groupGitFiles(remainingFiles), [remainingFiles]);
-
   const codeCount = allFiles.filter(f => classifyGitFile(f.path) === "code").length;
   const paawCount = allFiles.filter(f => classifyGitFile(f.path) === "paaw").length;
+
+  // ── Feature-first 分組（Phase A）──
+  // code 檔依 feature 聚合；unmapped code + 非 code（.paaw/config/docs）走原本 category 分組
+  const fileGroups = useMemo(() => {
+    const all = groupGitFilesByFeature(remainingFiles, featureMap);
+    // 依 feature 聚合後：group.files 已含 feature 標記
+    const featureCategorized = all.groups.map(g => ({ ...g }));
+    // unmapped = 所有沒對到 feature 的檔（含非 code），再用原本 category 分組
+    const fallback = groupGitFiles(all.unmapped);
+    return { featureGroups: featureCategorized, fallbackGroups: fallback };
+  }, [remainingFiles, featureMap]);
+
+  const featureGroups = fileGroups.featureGroups;
+  const fallbackGroups = fileGroups.fallbackGroups;
 
   if (!gitStatus) {
     return <div className="flex-1 flex items-center justify-center text-xs text-stone-400">Loading...</div>;
@@ -415,10 +431,29 @@ export default function GitStatusView({
         </div>
       )}
 
-      {/* File Groups */}
-      {fileGroups.length > 0 ? (
+      {/* Feature-First File Groups */}
+      {featureGroups.length > 0 && (
         <div className="space-y-2">
-          {fileGroups.map(g => (
+          <div className="flex items-center gap-1.5 text-[10px] font-bold text-violet-600"><span>🎯</span>Feature Changes</div>
+          {featureGroups.map((g, i) => (
+            <FeatureGroupCard
+              key={`feat-${i}-${g.featureId || g.name}`}
+              group={g}
+              selectedKeys={selectedKeys}
+              onToggleKey={onToggleKey}
+              onSelectKeys={onSelectKeys}
+              onFileClick={onFileClick}
+              onUnstageFile={onUnstageFile}
+              onStageFile={onStageFile}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Fallback groups: unmapped code + .paaw/config/docs */}
+      {fallbackGroups.length > 0 && (
+        <div className="space-y-2">
+          {fallbackGroups.map(g => (
             <GitFileGroupCard
               key={g.category}
               group={g}
@@ -431,7 +466,9 @@ export default function GitStatusView({
             />
           ))}
         </div>
-      ) : !hasAiStaged ? (
+      )}
+
+      {fallbackGroups.length === 0 && featureGroups.length === 0 && !hasAiStaged ? (
         <div className="flex flex-col items-center justify-center h-32 gap-2 text-stone-400 text-xs">
           <span className="text-2xl">✨</span><p>Working tree clean</p>
         </div>

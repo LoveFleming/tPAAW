@@ -13,6 +13,7 @@ export { default as GitDiffView } from "./GitDiffView";
 export { default as GitReviewView } from "./GitReviewView";
 export { default as GitCommitBar } from "./GitCommitBar";
 export { default as GitFileGroupCard } from "./GitFileGroup";
+export { default as FeatureGroupCard } from "./FeatureGroupCard";
 export {
   classifyGitFile,
   groupGitFiles,
@@ -21,10 +22,15 @@ export {
   getCategoryLabel,
   fileKey,
   pathFromFileKey,
+  featuresForPath,
+  groupGitFilesByFeature,
 } from "./git-helpers";
 export type {
   GitFileStatus,
   GitCommit,
   FileCategory,
   GitFileGroup,
+  FeatureRef,
+  FeatureFileMap,
+  FeatureGroup,
 } from "./git-helpers";

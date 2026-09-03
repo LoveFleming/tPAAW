@@ -16,7 +16,7 @@ import GitStatusView from "./GitStatusView";
 import GitDiffView from "./GitDiffView";
 import GitReviewView from "./GitReviewView";
 import GitCommitBar from "./GitCommitBar";
-import { classifyGitFile, fileKey, pathFromFileKey } from "./git-helpers";
+import { classifyGitFile, fileKey, pathFromFileKey, FeatureFileMap } from "./git-helpers";
 
 // ── Types ──
 interface GitFileStatus {
@@ -168,6 +168,23 @@ export default function GitPanel(props: GitPanelProps) {
 
   const [gitTab, setLocalGitTab] = useState<GitTab>("status");
   const [unpushed, setUnpushed] = useState<{ ahead: number; behind: number; commits: { hash?: string; short: string; subject: string; author: string; date: string }[] } | null>(null);
+  // ── Feature-first 分組（Phase A）：抓 FILE-FEATURES 反查表 ──
+  const [featureMap, setFeatureMap] = useState<FeatureFileMap | null>(null);
+
+  // 抓 feature map（純查表，失敗不阻擋 git status 顯示）
+  const fetchFeatureMap = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-features/file-map?path=${encodeURIComponent(rootPath)}`);
+      if (!r.ok) { setFeatureMap(null); return; }
+      const d = await r.json();
+      setFeatureMap(d.files || d || null);
+    } catch { setFeatureMap(null); }
+  }, [rootPath, API_BASE]);
+
+  useEffect(() => {
+    fetchFeatureMap();
+  }, [fetchFeatureMap]);
 
   // 待推送清單：人的 review queue（agent commit 不 push，人在這裡看過再推）
   const fetchUnpushed = useCallback(async () => {
@@ -282,6 +299,7 @@ export default function GitPanel(props: GitPanelProps) {
     refreshGitStatus();
     refreshGitLog();
     loadGitDiff();
+    fetchFeatureMap();
     if (rootPath) {
       fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath)}`)
         .then(r => r.json())
@@ -614,6 +632,7 @@ export default function GitPanel(props: GitPanelProps) {
             qaVerdict={qaVerdict}
             onSpecApprove={handleSpecApprove}
             onSpecReject={handleSpecReject}
+            featureMap={featureMap}
             theme={theme}
           />
         )}
