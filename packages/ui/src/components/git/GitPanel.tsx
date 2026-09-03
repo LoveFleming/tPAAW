@@ -17,6 +17,7 @@ import GitDiffView from "./GitDiffView";
 import GitReviewView from "./GitReviewView";
 import GitCommitBar from "./GitCommitBar";
 import { classifyGitFile, fileKey, pathFromFileKey, FeatureFileMap } from "./git-helpers";
+import type { EvidenceDecisionCard } from "./DecisionCard";
 
 // ── Types ──
 interface GitFileStatus {
@@ -186,6 +187,26 @@ export default function GitPanel(props: GitPanelProps) {
     fetchFeatureMap();
   }, [fetchFeatureMap]);
 
+  // ── Phase B：抓 active task 的證據決策卡資料 ──
+  const [evidence, setEvidence] = useState<EvidenceDecisionCard | null>(null);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
+
+  const fetchEvidence = useCallback(async () => {
+    const taskId = activeCodingTask?.id;
+    if (!taskId || !rootPath) { setEvidence(null); return; }
+    setEvidenceLoading(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-evidence/task/${encodeURIComponent(taskId)}?path=${encodeURIComponent(rootPath)}`);
+      if (!r.ok) { setEvidence(null); return; }
+      setEvidence(await r.json());
+    } catch { setEvidence(null); }
+    finally { setEvidenceLoading(false); }
+  }, [rootPath, API_BASE, activeCodingTask?.id]);
+
+  useEffect(() => {
+    fetchEvidence();
+  }, [fetchEvidence]);
+
   // 待推送清單：人的 review queue（agent commit 不 push，人在這裡看過再推）
   const fetchUnpushed = useCallback(async () => {
     if (!rootPath) return;
@@ -300,6 +321,7 @@ export default function GitPanel(props: GitPanelProps) {
     refreshGitLog();
     loadGitDiff();
     fetchFeatureMap();
+    fetchEvidence();
     if (rootPath) {
       fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath)}`)
         .then(r => r.json())
@@ -633,7 +655,11 @@ export default function GitPanel(props: GitPanelProps) {
             onSpecApprove={handleSpecApprove}
             onSpecReject={handleSpecReject}
             featureMap={featureMap}
+            evidence={evidence}
+            evidenceLoading={evidenceLoading}
+            onShowCode={(path?: string) => handleFileClick(path || "", false)}
             theme={theme}
+            tt={tt}
           />
         )}
 

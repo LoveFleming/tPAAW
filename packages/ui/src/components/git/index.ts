@@ -14,6 +14,7 @@ export { default as GitReviewView } from "./GitReviewView";
 export { default as GitCommitBar } from "./GitCommitBar";
 export { default as GitFileGroupCard } from "./GitFileGroup";
 export { default as FeatureGroupCard } from "./FeatureGroupCard";
+export { default as DecisionCard } from "./DecisionCard";
 export {
   classifyGitFile,
   groupGitFiles,

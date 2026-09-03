@@ -10,6 +10,7 @@ import { cn } from "../../utils";
 import { groupGitFiles, GitFileStatus, classifyGitFile, fileKey, pathFromFileKey, FeatureFileMap, groupGitFilesByFeature } from "./git-helpers";
 import GitFileGroupCard from "./GitFileGroup";
 import FeatureGroupCard from "./FeatureGroupCard";
+import DecisionCard, { EvidenceDecisionCard } from "./DecisionCard";
 
 interface StagedSummary {
   exists: boolean;
@@ -60,6 +61,10 @@ interface GitStatusViewProps {
   qaReviewLoading: boolean;
   // ── Feature-first 分組（Phase A）──
   featureMap: FeatureFileMap | null;
+  // ── Phase B：證據決策卡 ──
+  evidence: EvidenceDecisionCard | null;
+  evidenceLoading: boolean;
+  onShowCode: (path?: string) => void;
   // ── Pipeline state ──
   pipeline: Record<string, { status: string; by?: string; at?: string; result?: string; reason?: string; feedback?: string }> | null;
   loopMode: "full" | "mini";
@@ -68,6 +73,7 @@ interface GitStatusViewProps {
   onSpecApprove: () => void;
   onSpecReject: () => void;
   theme: { accent: string; borderLight: string; bg: string; };
+  tt: (key: string, fallback?: string) => string;
 }
 
 export default function GitStatusView({
@@ -92,6 +98,9 @@ export default function GitStatusView({
   onStageFile,
   qaReviewLoading,
   featureMap,
+  evidence,
+  evidenceLoading,
+  onShowCode,
   pipeline,
   loopMode,
   projectLoopMode,
@@ -99,6 +108,7 @@ export default function GitStatusView({
   onSpecApprove,
   onSpecReject,
   theme,
+  tt,
 }: GitStatusViewProps) {
   const [showStagedDetail, setShowStagedDetail] = useState(false);
 
@@ -315,6 +325,14 @@ export default function GitStatusView({
           )}
         </div>
       )}
+
+      {/* ══ Phase B：證據決策卡（R1 Review Boundary — 人先看決策，diff 藏後面）══ */}
+      <DecisionCard
+        evidence={evidence}
+        loading={evidenceLoading}
+        onShowCode={onShowCode}
+        t={tt}
+      />
 
       {/* ══ AI Auto Dispatch ══ */}
       {hasAiStaged && stagedSummary?.exists && (
