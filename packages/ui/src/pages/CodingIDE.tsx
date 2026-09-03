@@ -545,6 +545,29 @@ export default function CodingIDE() {
   openTabsRef.current = openTabs; // keep in sync
   const mainTabsRef = useRef(mainTabs);
   mainTabsRef.current = mainTabs; // keep in sync
+
+  // ── Tab drag & drop reorder ──
+  const dragTabIdRef = useRef<string | null>(null);
+  const handleTabDragStart = useCallback((tabId: string, e: React.DragEvent) => {
+    dragTabIdRef.current = tabId;
+    e.dataTransfer.effectAllowed = "move";
+  }, []);
+  const handleTabDragOver = useCallback((targetId: string, e: React.DragEvent) => {
+    if (!dragTabIdRef.current || dragTabIdRef.current === targetId) return;
+    e.preventDefault(); // allow drop
+    e.dataTransfer.dropEffect = "move";
+    const draggedId = dragTabIdRef.current;
+    setMainTabs(prev => {
+      const from = prev.findIndex(t => t.id === draggedId);
+      const to = prev.findIndex(t => t.id === targetId);
+      if (from < 0 || to < 0 || from === to) return prev;
+      const arr = [...prev];
+      const [moved] = arr.splice(from, 1);
+      arr.splice(to, 0, moved);
+      return arr;
+    });
+  }, []);
+  const handleTabDragEnd = useCallback(() => { dragTabIdRef.current = null; }, []);
   const tabBarRef = useRef<HTMLDivElement>(null);
   // Crew profile data
   const [crewProfile, setCrewProfile] = useState<Record<string, any>>({});
@@ -2969,6 +2992,11 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
               const isActive = activeMainTabId === tab.id;
               return (
                 <div key={tab.id}
+                  draggable
+                  onDragStart={e => handleTabDragStart(tab.id, e)}
+                  onDragOver={e => handleTabDragOver(tab.id, e)}
+                  onDragEnd={handleTabDragEnd}
+                  onDrop={e => { e.preventDefault(); handleTabDragEnd(); }}
                   ref={el => { if (isActive && el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' }); }}
                   className={cn("group flex items-center gap-1 px-3 py-1 cursor-pointer select-none text-xs shrink-0 transition-colors",
                     isActive ? "bg-white text-stone-800" : "text-stone-400 hover:bg-stone-100")}
