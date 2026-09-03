@@ -5,26 +5,12 @@
  * 同名檔案 staged vs unstaged 各自獨立
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { cn } from "../../utils";
 import { groupGitFiles, GitFileStatus, classifyGitFile, fileKey, pathFromFileKey, FeatureFileMap, groupGitFilesByFeature, crossFeaturePaths, unexpectedOutOfScopePaths } from "./git-helpers";
 import GitFileGroupCard from "./GitFileGroup";
 import FeatureGroupCard from "./FeatureGroupCard";
 import DecisionCard, { EvidenceDecisionCard } from "./DecisionCard";
-
-interface StagedSummary {
-  exists: boolean;
-  agent?: string;
-  codename?: string;
-  task?: string;
-  taskId?: string;
-  codeFiles?: { path: string; reason: string }[];
-  paawFiles?: { path: string; reason: string }[];
-  files?: { path: string; reason: string }[];
-  howToTest?: string;
-  risk?: string;
-  createdAt?: string;
-}
 
 interface UnpushedInfo {
   ahead: number;
@@ -46,19 +32,15 @@ interface GitStatusViewProps {
   onToggleKey: (key: string) => void;
   onSelectKeys: (keys: string[], selected: boolean) => void;
   onFileClick: (path: string, isStaged: boolean) => void;
-  stagedSummary: StagedSummary | null;
   onPull: () => void;
   onPush: () => void;
   onRefresh: () => void;
   gitLog: { short: string; subject: string; date: string; author: string }[];
   fmtTime: (iso: string) => string;
-  onApplySummary: (msg: string) => void;
-  onQaReview: () => void;
   onSelectAll: () => void;
   onClearAll: () => void;
   onUnstageFile: (path: string) => void;
   onStageFile: (path: string) => void;
-  qaReviewLoading: boolean;
   // ── Feature-first 分組（Phase A）──
   featureMap: FeatureFileMap | null;
   // ── Phase B：證據決策卡 ──
@@ -84,19 +66,15 @@ export default function GitStatusView({
   onToggleKey,
   onSelectKeys,
   onFileClick,
-  stagedSummary,
   onPull,
   onPush,
   onRefresh,
   gitLog,
   fmtTime,
-  onApplySummary,
-  onQaReview,
   onSelectAll,
   onClearAll,
   onUnstageFile,
   onStageFile,
-  qaReviewLoading,
   featureMap,
   evidence,
   evidenceLoading,
@@ -110,8 +88,6 @@ export default function GitStatusView({
   theme,
   tt,
 }: GitStatusViewProps) {
-  const [showStagedDetail, setShowStagedDetail] = useState(false);
-
   // ── Pipeline progress helpers ──
   const PIPELINE_PHASES = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
   const MINI_LOOP_PHASES = ["implement", "commit"];
@@ -153,37 +129,19 @@ export default function GitStatusView({
     return result;
   }, [gitStatus]);
 
-  // AI auto-dispatch staged files
-  const aiStagedPaths = useMemo(() => {
-    if (!stagedSummary?.exists) return new Set<string>();
-    const paths = new Set<string>();
-    (stagedSummary.codeFiles ?? stagedSummary.files ?? []).forEach(f => paths.add(f.path));
-    (stagedSummary.paawFiles ?? []).forEach(f => paths.add(f.path));
-    return paths;
-  }, [stagedSummary]);
-
-  const aiStagedFiles = useMemo(() => {
-    if (!gitStatus || aiStagedPaths.size === 0) return [];
-    return (Array.isArray(gitStatus.staged) ? gitStatus.staged : []).filter(f => aiStagedPaths.has(f.path));
-  }, [gitStatus, aiStagedPaths]);
-
-  const remainingFiles = useMemo(() => {
-    return allFiles.filter(f => !aiStagedPaths.has(f.path));
-  }, [allFiles, aiStagedPaths]);
-
   const codeCount = allFiles.filter(f => classifyGitFile(f.path) === "code").length;
   const paawCount = allFiles.filter(f => classifyGitFile(f.path) === "paaw").length;
 
   // ── Feature-first 分組（Phase A）──
   // code 檔依 feature 聚合；unmapped code + 非 code（.paaw/config/docs）走原本 category 分組
   const fileGroups = useMemo(() => {
-    const all = groupGitFilesByFeature(remainingFiles, featureMap);
+    const all = groupGitFilesByFeature(allFiles, featureMap);
     // 依 feature 聚合後：group.files 已含 feature 標記
     const featureCategorized = all.groups.map(g => ({ ...g }));
     // unmapped = 所有沒對到 feature 的檔（含非 code），再用原本 category 分組
     const fallback = groupGitFiles(all.unmapped);
     return { featureGroups: featureCategorized, fallbackGroups: fallback };
-  }, [remainingFiles, featureMap]);
+  }, [allFiles, featureMap]);
 
   const featureGroups = fileGroups.featureGroups;
   const fallbackGroups = fileGroups.fallbackGroups;
@@ -196,7 +154,6 @@ export default function GitStatusView({
     return <div className="flex-1 flex items-center justify-center text-xs text-stone-400">Loading...</div>;
   }
 
-  const hasAiStaged = aiStagedFiles.length > 0;
 
   return (
     <div className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -338,121 +295,6 @@ export default function GitStatusView({
         t={tt}
       />
 
-      {/* ══ AI Auto Dispatch ══ */}
-      {hasAiStaged && stagedSummary?.exists && (
-        <div className={cn(
-          "rounded-lg border-2 overflow-hidden shadow-sm",
-          qaRework ? "border-red-300 bg-red-50" : "border-violet-300 bg-violet-50"
-        )}>
-          <div className={cn(
-            "flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none transition-colors",
-            qaRework ? "bg-red-100 hover:bg-red-150" : "bg-violet-100 hover:bg-violet-150"
-          )}
-            onClick={() => setShowStagedDetail(!showStagedDetail)}
-          >
-            <span className="text-base">{qaRework ? "🔄" : "🤖"}</span>
-            <div className="flex-1 min-w-0">
-              <div className={cn("text-xs font-bold", qaRework ? "text-red-800" : "text-violet-800")}>
-                {qaRework ? "AI Auto Dispatch — Rework 中" : "AI Auto Dispatch — 等 Review"}
-              </div>
-              <div className={cn("text-[10px] truncate", qaRework ? "text-red-600" : "text-violet-600")}>
-                {stagedSummary.agent || "Agent"}：{stagedSummary.task?.slice(0, 60) || stagedSummary.codename || "Auto task"}
-              </div>
-              {/* Pipeline phase indicator */}
-              {pipeline && (
-                <div className="flex items-center gap-1 mt-0.5">
-                  {activePhases.map(phase => {
-                    const ps = pipeline[phase]?.status || "pending";
-                    if (ps === "pending" || ps === "done") return null;
-                    return (
-                      <span key={phase} className={cn(
-                        "text-[9px] px-1 py-0.5 rounded font-bold",
-                        ps === "in_progress" ? "bg-blue-100 text-blue-700" :
-                        ps === "rework" ? "bg-red-100 text-red-700" :
-                        ps === "awaiting_human" ? "bg-amber-100 text-amber-700" :
-                        "bg-stone-100 text-stone-500"
-                      )}>
-                        {phaseStatusIcon(ps)} {phase}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              {/* Full Loop: QA Review button */}
-              {loopMode === "full" && (
-                <button onClick={(e) => { e.stopPropagation(); onQaReview(); }}
-                  disabled={qaReviewLoading}
-                  className={cn(
-                    "text-[10px] px-2 py-1 rounded-md font-bold transition-all active:scale-95",
-                    qaReviewLoading
-                      ? "bg-orange-300 text-white cursor-wait"
-                      : "bg-orange-500 text-white hover:bg-orange-600"
-                  )}>
-                  {qaReviewLoading ? (
-                    <span className="flex items-center gap-1">
-                      <span className="animate-spin">⚙️</span> Reviewing...
-                    </span>
-                  ) : (
-                    "🔬 QA Review"
-                  )}
-                </button>
-              )}
-              {/* Mini Loop: Human review hint */}
-              {loopMode === "mini" && (
-                <span className="text-[10px] px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 font-bold">
-                  👤 你驗功能 → Commit
-                </span>
-              )}
-              <button onClick={(e) => {
-                e.stopPropagation();
-                const s = stagedSummary!;
-                const codeOnly = s.codeFiles || s.files || [];
-                const lines = [`[${s.task || s.codename || 'update'}]`];
-                for (const f of codeOnly) lines.push(`- ${f.path}: ${f.reason}`);
-                if (s.howToTest) lines.push('', 'Test:', s.howToTest);
-                onApplySummary(lines.join('\n'));
-              }}
-                className="text-[10px] px-1.5 py-0.5 rounded bg-violet-200 text-violet-700 hover:bg-violet-300 font-bold">
-                📋 帶入
-              </button>
-              <span className="text-[10px] text-violet-400">{showStagedDetail ? "▲" : "▼"}</span>
-            </div>
-          </div>
-          <div className="px-3 py-1.5 divide-y divide-violet-100">
-            {aiStagedFiles.map((f, i) => {
-              const isCode = classifyGitFile(f.path) === "code";
-              return (
-                <div key={`ai-${i}`} className="flex items-center gap-2 py-1 text-xs">
-                  <span className={cn("font-bold w-4 shrink-0", isCode ? "text-emerald-500" : "text-stone-400")}>{f.status}</span>
-                  <span className={cn("truncate flex-1 cursor-pointer", isCode ? "text-stone-700 font-medium" : "text-stone-400")}
-                    onClick={() => onFileClick(f.path, true)}>{f.path}</span>
-                  {(() => {
-                    const summary = stagedSummary!.codeFiles?.find(sf => sf.path === f.path)
-                      ?? stagedSummary!.paawFiles?.find(sf => sf.path === f.path)
-                      ?? stagedSummary!.files?.find(sf => sf.path === f.path);
-                    return summary ? <span className="text-[10px] text-violet-500 truncate max-w-[40%] shrink-0">{summary.reason}</span> : null;
-                  })()}
-                  {isCode ? <span className="text-[10px] px-1 py-0.5 rounded bg-emerald-100 text-emerald-600 shrink-0">code</span>
-                    : <span className="text-[10px] px-1 py-0.5 rounded bg-stone-100 text-stone-400 shrink-0">.paaw</span>}
-                </div>
-              );
-            })}
-          </div>
-          {showStagedDetail && (
-            <div className="px-3 py-2 text-xs space-y-1.5 border-t border-violet-200 bg-violet-25">
-              {stagedSummary.howToTest && (
-                <div className="flex items-start gap-1"><span className="shrink-0">🧪</span><span className="text-stone-500 text-[11px]">{stagedSummary.howToTest}</span></div>
-              )}
-              {stagedSummary.risk && stagedSummary.risk !== "無" && (
-                <div className="flex items-start gap-1"><span className="shrink-0 text-red-400">⚠️</span><span className="text-red-500 text-[11px]">{stagedSummary.risk}</span></div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Feature-First File Groups */}
       {featureGroups.length > 0 && (
         <div className="space-y-2">
@@ -492,7 +334,7 @@ export default function GitStatusView({
         </div>
       )}
 
-      {fallbackGroups.length === 0 && featureGroups.length === 0 && !hasAiStaged ? (
+      {fallbackGroups.length === 0 && featureGroups.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-32 gap-2 text-stone-400 text-xs">
           <span className="text-2xl">✨</span><p>Working tree clean</p>
         </div>

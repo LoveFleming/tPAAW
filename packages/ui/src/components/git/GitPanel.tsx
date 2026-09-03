@@ -140,7 +140,6 @@ export default function GitPanel(props: GitPanelProps) {
     gitActionMsg,
     selectedFiles,
     aiCommitLoading,
-    stagedSummary,
     qaReview,
     qaVerdict,
     qaReviewLoading,
@@ -557,13 +556,6 @@ export default function GitPanel(props: GitPanelProps) {
     } catch (e: any) { setGitActionMsg(`❌ ${e.message}`); }
   }, [rootPath, API_BASE, selectedFiles, gitDiff, setGitCommitMsg, setGitActionMsg]);
 
-  // ── Apply staged summary to commit msg ──
-  const handleApplySummary = useCallback((msg: string) => {
-    setGitCommitMsg(msg);
-    setGitTab("status");
-  }, [setGitCommitMsg, setGitTab]);
-
-  // ── Diff mode change ──
   const handleDiffModeChange = useCallback((mode: "working" | "staged" | "head") => {
     if (mode === "working") { loadGitDiff(undefined, false); setGitDiffFile(""); setGitDiffCached(false); }
     else if (mode === "staged") { loadGitDiff(undefined, true); setGitDiffFile(""); setGitDiffCached(true); }
@@ -635,19 +627,15 @@ export default function GitPanel(props: GitPanelProps) {
             onToggleKey={toggleKey}
             onSelectKeys={selectKeys}
             onFileClick={handleFileClick}
-            stagedSummary={stagedSummary}
             onPull={handlePull}
             onPush={handlePush}
             onRefresh={handleRefresh}
             gitLog={gitLog}
             fmtTime={fmtTime as any}
-            onApplySummary={handleApplySummary}
-            onQaReview={runQaReview}
             onSelectAll={selectAllFiles}
             onClearAll={clearAllFiles}
             onUnstageFile={handleUnstageFile}
             onStageFile={handleStageFile}
-            qaReviewLoading={qaReviewLoading}
             pipeline={activeCodingTask?.pipeline || null}
             loopMode={projectLoopMode}
             projectLoopMode={projectLoopMode}
