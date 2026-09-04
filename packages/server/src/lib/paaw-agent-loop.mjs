@@ -525,7 +525,7 @@ export const PAAW_TOOLS = [
             enum: ["context", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "standards_read"],
             description: "What to query: context=project overview (PROJECT.md+standards+feature map), features=feature map, feature_detail=single feature, runbook=troubleshooting, sessions=work sessions, test_map=test intelligence, recent_changes=change intelligence, api_history=API tester logs, project_read=human-written PROJECT.md, standards_read=human-written CODING-STANDARDS.md"
           },
-          id: { type: "string", description: "Feature/issue ID (e.g. F-001, ISS-001). Used with category=feature_detail." },
+          id: { type: "string", description: "Feature/issue ID (正式格式 F{YYYYMMDD}-{NNN}，如 F20260904-001；issue 為 ISS-001). 一律用 project_info 查現況，勿自編. Used with category=feature_detail." },
           search: { type: "string", description: "Search keyword. Used with: features (by name), runbook (by content), faq (by keyword)." },
           code: { type: "string", description: "Error code for runbook lookup (e.g. ORD-001)." },
           name: { type: "string", description: "Standard name to read (for category=standards). If omitted, lists all." },
@@ -560,7 +560,7 @@ export const PAAW_TOOLS = [
             description: "Mutation action to perform",
           },
           // ── Issue create/update/delete ──
-          id: { type: "string", description: "Issue/feature ID (e.g. ISS-001, F-001)" },
+          id: { type: "string", description: "Issue/feature ID (ISS-001；feature 正式格式 F{YYYYMMDD}-{NNN} 如 F20260904-001，勿自編)" },
           title: { type: "string", description: "Issue title or change title" },
           priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "Priority" },
           status: { type: "string", enum: ["open", "in-progress", "resolved", "closed", "wontfix"], description: "Issue status" },

@@ -584,7 +584,7 @@ Rules:
 8. Do NOT invent files that don't exist in the file list above
 
 Output a JSON array with updated mappings. Each element:
-{ "id": "F-001", "codeFiles": [...], "apis": [{"method":"GET","path":"/api/x","file":"src/x.mjs"}], "tests": [...], "runbooks": [...] }
+{ "id": "F20260904-001", "codeFiles": [...], "apis": [{"method":"GET","path":"/api/x","file":"src/x.mjs"}], "tests": [...], "runbooks": [...] }
 
 Output ONLY the JSON array, no markdown fences.`;
 

@@ -24,7 +24,7 @@ export const AGENT_RULES = `
 ### 📋 專案資訊查詢（優先使用 project_info，不要 read_file .paaw/）
 - project_info(category="context") — PROJECT.md, ARCHITECTURE.md, CODING-STANDARDS.md
 - project_info(category="features") — 列出所有 feature
-- project_info(category="feature_detail", id="F-001") — 查 feature 完整 detail + codeFiles + APIs + tests
+- project_info(category="feature_detail", id="F20260904-001") — 查 feature 完整 detail + codeFiles + APIs + tests（feature ID 正式格式 F{YYYYMMDD}-{NNN}，先用 features 查現況，勿自編）
 - project_info(category="test_map", file="src/foo.ts") — 查這檔案的測試覆蓋
 - project_info(category="recent_changes") — 最近改了什麼
 - project_info(category="decisions") — 架構決策 (ADR)
