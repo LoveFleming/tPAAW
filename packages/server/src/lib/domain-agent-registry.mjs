@@ -455,9 +455,9 @@ export async function buildSystemPrompt(agentId, opts = {}) {
       const skillPrompts = readProjectSkills(projDir, agent.crewId);
       if (skillPrompts && skillPrompts.length > 0) {
         const skillSection = skillPrompts.map(s =>
-          `### Skill: ${s.name}\n${s.prompt}`
+          `### Skill: ${s.name}${s.path ? `\n（源路徑: ${s.path}）` : ""}\n${s.prompt}`
         ).join("\n\n");
-        parts.push(`\n## 已掛載技能 (Skills)\n以下是綁定到此 Agent 的技能定義，請在對話中遵循這些規則：\n\n${skillSection}`);
+        parts.push(`\n## 已掛載技能 (Skills)\n以下是綁定到此 Agent 的技能定義，請在對話中遵循這些規則（skill 定義優先於一般做法）：\n\n${skillSection}`);
       }
     } catch (err) {
       console.error(`[DomainAgent] Skill injection error for ${agent.crewId}:`, err.message);

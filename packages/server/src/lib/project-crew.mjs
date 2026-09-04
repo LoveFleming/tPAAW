@@ -632,7 +632,7 @@ export function readProjectSkills(projectDir, crewId) {
           prompt += `\n\n---\n\n## 技能附件檔案（需要時用 read_file 讀取）\n${files.map(f => `- ${f}`).join("\n")}`;
         }
       }
-      results.push({ id: skillId, name: skillData.name, prompt });
+      results.push({ id: skillId, name: skillData.name, prompt, path: skillData.skillDir || null });
     }
   }
   return results;

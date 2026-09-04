@@ -3184,8 +3184,8 @@ export async function appendSkillBindings(systemPrompt, cwd, agentId) {
     const { readProjectSkills } = await import("./project-crew.mjs");
     const bound = readProjectSkills(cwd, agentId);
     if (!bound || bound.length === 0) return systemPrompt;
-    const section = bound.map(s => `### Skill: ${s.name}\n${s.prompt}`).join("\n\n");
-    return systemPrompt + `\n\n## 已掛載技能 (Skills)\n以下是綁定到此 Agent 的技能定義，請在執行任務時遵循這些規則：\n\n${section}`;
+    const section = bound.map(s => `### Skill: ${s.name}${s.path ? `\n（源路徑: ${s.path}）` : ""}\n${s.prompt}`).join("\n\n");
+    return systemPrompt + `\n\n## 已掛載技能 (Skills)\n以下是綁定到此 Agent 的技能定義，請在執行任務時遵循這些規則（skill 定義優先於一般做法）：\n\n${section}`;
   } catch (err) {
     console.warn("[AgentLoop] Skill binding injection failed:", err.message);
     return systemPrompt;

@@ -2779,7 +2779,7 @@ export default async function projectRoute(req, res) {
           if (cuSkills.length > 0) {
             fullPrompt += `\n\n--- CU SKILL DIRECTIVES（${step.id} 方法論指令，優先於預設 prompt 的做法但不可違反輸出格式）---`;
             for (const sk of cuSkills) {
-              fullPrompt += `\n\n### Skill: ${sk.name}\n${sk.prompt}`;
+              fullPrompt += `\n\n### Skill: ${sk.name}${sk.path ? `\n（源路徑: ${sk.path}）` : ""}\n${sk.prompt}`;
             }
             cuLog(step.id, `Applied ${cuSkills.length} skill(s): ${cuSkills.map(x => x.id).join(", ")}`);
             sendEvent?.("step_progress", { step: step.id, name: step.name, message: `套用 skill：${cuSkills.map(x => x.name).join("、")}` });
@@ -3198,7 +3198,7 @@ export default async function projectRoute(req, res) {
           if (cuSkills.length > 0) {
             fullPrompt += `\n\n--- CU SKILL DIRECTIVES（${step.id} 方法論指令，優先於預設 prompt 的做法但不可違反輸出格式）---`;
             for (const sk of cuSkills) {
-              fullPrompt += `\n\n### Skill: ${sk.name}\n${sk.prompt}`;
+              fullPrompt += `\n\n### Skill: ${sk.name}${sk.path ? `\n（源路徑: ${sk.path}）` : ""}\n${sk.prompt}`;
             }
             cuLog(step.id, `Applied ${cuSkills.length} skill(s): ${cuSkills.map(x => x.id).join(", ")}`);
             sendEvent?.("step_progress", { step: step.id, name: step.name, message: `套用 skill：${cuSkills.map(x => x.name).join("、")}` });
