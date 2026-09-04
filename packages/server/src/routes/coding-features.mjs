@@ -577,7 +577,7 @@ Rules:
 8. Do NOT invent files that don't exist in the file list above
 
 Output a JSON array with updated mappings. Each element:
-{ "id": "F-001", "codeFiles": [...], "apis": [{"method":"GET","path":"/api/x","file":"src/x.mjs"}], "tests": [...], "runbooks": [...] }
+{ "id": "F20260904-001", "codeFiles": [...], "apis": [{"method":"GET","path":"/api/x","file":"src/x.mjs"}], "tests": [...], "runbooks": [...] }
 
 Output ONLY the JSON array, no markdown fences.`;
 
@@ -687,7 +687,8 @@ Output ONLY the JSON array, no markdown fences.`;
 
     // Get existing feature names so AI doesn't duplicate
     const existingNames = features.map(f => ({ id: f.id, name: f.name, description: f.description }));
-    const nextId = `F-${String(features.length + 1).padStart(3, "0")}`;
+    const { nextFeatureId } = await import("../lib/feature-registry.mjs");
+    const nextId = nextFeatureId(projRoot); // 2026-09-05：正式 ID 格式（原第 5 處 F-001 硬編碼）
 
     const prompt = `You are a software architect analyzing unmapped source files in a codebase.
 

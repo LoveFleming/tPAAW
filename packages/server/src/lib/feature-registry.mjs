@@ -9,7 +9,7 @@
  *  - 雜項 task 一定要掛 featureId — 沒有歸屬的用 "Utility & Platform Misc" 收容
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, readdirSync, rmSync } from "fs";
 import { join } from "path";
 
 export const FEATURE_STATUSES = ["active", "deprecated", "planned", "retired"];
@@ -33,6 +33,17 @@ export function loadFeatures(projRoot) {
 export function saveFeatures(projRoot, features) {
   const file = featuresFile(projRoot);
   mkdirSync(join(projRoot, ".paaw", "features"), { recursive: true });
+  // 2026-09-05：寫入前自動輪替備份（教訓：architect 整頓 34→3 直接覆蓋，無法回復）
+  try {
+    if (existsSync(file)) {
+      const backupDir = join(projRoot, ".paaw", "features", "backups");
+      mkdirSync(backupDir, { recursive: true });
+      copyFileSync(file, join(backupDir, `FEATURES-${Date.now()}.json`));
+      // 只留最近 5 份
+      const olds = readdirSync(backupDir).filter(f => f.startsWith("FEATURES-")).sort();
+      while (olds.length > 5) rmSync(join(backupDir, olds.shift()), { force: true });
+    }
+  } catch { /* 備份失敗不擋寫入 */ }
   writeFileSync(file, JSON.stringify({ features, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
 }
 
