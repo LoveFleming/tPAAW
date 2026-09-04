@@ -3738,7 +3738,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
               <div key={tab.id} className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTabId === tab.id ? undefined : "none" }}>
                 <TabErrorBoundary label={tab.label}>
-                  <CodeIntelPage rootPath={rootPath} onOpenFile={openFile} />
+                  <CodeIntelPage rootPath={rootPath} onOpenFile={openFile} refreshKey={paawRefreshKey} />
                 </TabErrorBoundary>
               </div>
             ))}
@@ -3747,7 +3747,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
               <div key={tab.id} className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTabId === tab.id ? undefined : "none" }}>
                 <TabErrorBoundary label={tab.label}>
-                  <TestsPage rootPath={rootPath} onOpenFile={openFile} />
+                  <TestsPage rootPath={rootPath} onOpenFile={openFile} refreshKey={paawRefreshKey} />
                 </TabErrorBoundary>
               </div>
             ))}

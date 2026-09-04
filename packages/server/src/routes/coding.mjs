@@ -316,6 +316,29 @@ function sanitizeFeature(f) {
   };
 }
 
+/** TI 測試映射回寫 FEATURES.json（2026-09-04：LLM feature-map 常漏 tests → deterministic featureToTests 補齊）
+ *  回傳補上的 feature 數 */
+async function backfillFeatureTests(root, featureToTests) {
+  try {
+    if (!Array.isArray(featureToTests) || featureToTests.length === 0) return 0;
+    const { loadFeatures, saveFeatures } = await import("../lib/feature-registry.mjs");
+    const features = loadFeatures(root);
+    if (!Array.isArray(features) || features.length === 0) return 0;
+    let changed = 0;
+    for (const m of featureToTests) {
+      const tests = (Array.isArray(m.tests) ? m.tests : []).filter(t => typeof t === "string" && t.trim());
+      if (tests.length === 0) continue;
+      const f = features.find(x => x.id === m.featureId) || features.find(x => x.name === m.featureName);
+      if (!f) continue;
+      const before = (f.tests || []).length;
+      f.tests = Array.from(new Set([...(Array.isArray(f.tests) ? f.tests : []), ...tests]));
+      if ((f.tests || []).length > before) changed++;
+    }
+    if (changed > 0) saveFeatures(root, features);
+    return changed;
+  } catch { return 0; }
+}
+
 function _chunkFiles(files, maxChars = FM_CHUNK_CHARS) {
   const chunks = [];
   let cur = [], curLen = 0;
@@ -2740,8 +2763,10 @@ export default async function projectRoute(req, res) {
         if (step.id === "test-intelligence") {
           try {
             cuLog(step.id, "Building test intelligence...");
-            const { summary } = await buildTestIntelligence(root, PAAW_ROOT);
+            const { summary, data: tiData } = await buildTestIntelligence(root, PAAW_ROOT);
             cuLog(step.id, `Test intelligence done: ${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`);
+            const tiEnriched = await backfillFeatureTests(root, tiData?.featureToTests); // 2026-09-04：tests 回寫 FEATURES.json
+            if (tiEnriched > 0) cuLog(step.id, `Backfilled tests into ${tiEnriched} feature(s)`);
             sendEvent("step_done", {
               step: step.id,
               name: step.name,
@@ -3195,8 +3220,10 @@ export default async function projectRoute(req, res) {
           if (step.id === "test-intelligence") {
             try {
               cuLog(step.id, "[bulk] Building test intelligence...");
-              const { summary } = await buildTestIntelligence(root, PAAW_ROOT);
+              const { summary, data: tiData } = await buildTestIntelligence(root, PAAW_ROOT);
               cuLog(step.id, `[bulk] Test intelligence: ${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`);
+              const tiEnriched = await backfillFeatureTests(root, tiData?.featureToTests); // 2026-09-04：tests 回寫 FEATURES.json
+              if (tiEnriched > 0) cuLog(step.id, `[bulk] Backfilled tests into ${tiEnriched} feature(s)`);
               sendEvent("step_done", { step: step.id, name: step.name, summary: `${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`, stats: summary });
               try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.totalTestFiles} tests` }); } catch {}
             } catch (err) {

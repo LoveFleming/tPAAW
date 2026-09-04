@@ -48,9 +48,10 @@ const baseName = (p: string) => p.split(/[\\/]/).pop() || p;
 interface Props {
   rootPath: string;
   onOpenFile?: (absPath: string) => void;
+  refreshKey?: number; // 2026-09-04：CU 完成後重抓（mount-only fetch 會 stale）
 }
 
-function CodeIntelPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<AgentSideChatHandle | null>) {
+function CodeIntelPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.Ref<AgentSideChatHandle | null>) {
   const { t } = useI18n();
   const themeCtx = useTheme();
   const borderLight = "#f0f0f0";
@@ -92,7 +93,7 @@ function CodeIntelPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<Agen
       .then(r => r.json()).then(d => { if (!cancelled) setCodeIntel(d); })
       .catch(() => { if (!cancelled) setCodeIntel(null); });
     return () => { cancelled = true; };
-  }, [rootPath]);
+  }, [rootPath, refreshKey]);
 
   useEffect(() => {
     if (!rootPath || tab !== "health") return;
