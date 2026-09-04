@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync
 import { join, resolve } from "path";
 import { fileURLToPath } from "url";
 import { DATA_HOME } from "../data-home.mjs";
+import { hashObject } from "../stable-hash.mjs"; // 2026-09-05：模板跟版 hash
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = resolve(__filename, "..");
@@ -144,7 +145,7 @@ export function initProjectCrew(projectDir, opts = {}) {
     // Write a copy (without modifying original)
     const destPath = getAgentPath(projectDir, crewId);
     if (!existsSync(destPath) || force) {
-      writeJson(destPath, { ...globalDef, _source: "global", _clonedAt: new Date().toISOString() });
+      writeJson(destPath, { ...globalDef, _source: "global", _clonedAt: new Date().toISOString(), _templateHash: hashObject(_cleanDeep(globalDef)) });
     }
     copied.push(crewId);
   }
@@ -154,7 +155,7 @@ export function initProjectCrew(projectDir, opts = {}) {
   if (emDef) {
     const emPath = getAgentPath(projectDir, EM_CREW_ID);
     if (!existsSync(emPath) || force) {
-      writeJson(emPath, { ...emDef, _source: "global", _clonedAt: new Date().toISOString() });
+      writeJson(emPath, { ...emDef, _source: "global", _clonedAt: new Date().toISOString(), _templateHash: hashObject(_cleanDeep(emDef)) });
     }
   }
 
@@ -194,6 +195,39 @@ export function initProjectCrew(projectDir, opts = {}) {
  * project crew. Never removes anything; project overrides & custom agents
  * are untouched. Persists new ids + copies template to project layer once.
  */
+function _cleanDeep(obj) {
+  if (Array.isArray(obj)) return obj.map(_cleanDeep);
+  if (obj && typeof obj === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) if (!k.startsWith("_")) out[k] = _cleanDeep(v);
+    return out;
+  }
+  return obj;
+}
+
+/** 2026-09-05：全域模板跟版 — 專案副本未客製化（內容 hash == 種入模板 hash）時自動更新為新版模板。
+ *  沒有 _templateHash 的舊種子：與現行全域相同就補 hash 對齊；不同 = 視為客製化，不動。 */
+function syncUpdatedGlobalCrews(projectDir, config) {
+  try {
+    for (const crewId of config.globalCrewIds || []) {
+      const projectPath = getAgentPath(projectDir, crewId);
+      const globalDef = readGlobalCrew(crewId);
+      if (!globalDef || !existsSync(projectPath)) continue;
+      const proj = readJson(projectPath, null);
+      if (!proj || proj._source !== "global") continue;
+      const curHash = _cleanDeep(proj) && hashObject(_cleanDeep(proj));
+      const newHash = hashObject(_cleanDeep(globalDef));
+      if (!proj._templateHash) {
+        if (curHash === newHash) writeJson(projectPath, { ...proj, _templateHash: newHash, _syncedAt: new Date().toISOString() });
+        continue;
+      }
+      if (curHash === proj._templateHash && proj._templateHash !== newHash) {
+        writeJson(projectPath, { ...globalDef, _source: "global", _templateHash: newHash, _syncedAt: new Date().toISOString() });
+      }
+    }
+  } catch { /* 模板跟版失敗不擋讀取 */ }
+}
+
 function syncNewGlobalCrews(projectDir, config) {
   let globalIds;
   try {
@@ -212,7 +246,7 @@ function syncNewGlobalCrews(projectDir, config) {
     if (!globalDef) continue;
     const destPath = getAgentPath(projectDir, crewId);
     if (!existsSync(destPath)) {
-      writeJson(destPath, { ...globalDef, _source: "global", _syncedAt: new Date().toISOString() });
+      writeJson(destPath, { ...globalDef, _source: "global", _syncedAt: new Date().toISOString(), _templateHash: hashObject(_cleanDeep(globalDef)) });
     }
     added.push(crewId);
   }
@@ -258,6 +292,7 @@ export function readProjectCrew(projectDir) {
   }
 
   const updatedConfig = syncNewGlobalCrews(projectDir, config);
+  syncUpdatedGlobalCrews(projectDir, updatedConfig); // 2026-09-05：未客製化的專案副本自動跟全域模板新版
   const allIds = [...(updatedConfig.globalCrewIds || []), ...(updatedConfig.customAgents || [])];
 
   const agents = [];
@@ -593,7 +628,7 @@ export function readEMAgent(projectDir) {
 // ── Internal helpers ──
 
 function stripInternal(agent) {
-  const { _source, _clonedAt, _updatedAt, _createdAt, _resetAt, _syncedAt, ...rest } = agent;
+  const { _source, _clonedAt, _updatedAt, _createdAt, _resetAt, _syncedAt, _templateHash, ...rest } = agent;
   return {
     ...rest,
     _source: _source || "global",
