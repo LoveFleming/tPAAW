@@ -61,7 +61,7 @@ function ensureAgentsDir(projectDir) {
   return agentsDir;
 }
 
-function readJson(filePath, fallback = null) {
+export function readJson(filePath, fallback = null) {
   try {
     return JSON.parse(readFileSync(filePath, "utf-8"));
   } catch {
@@ -73,7 +73,7 @@ function writeJson(filePath, data) {
   writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
 }
 
-function getConfigPath(projectDir) {
+export function getConfigPath(projectDir) {
   return join(projectDir, ".paaw", "agents", "_config.json");
 }
 
