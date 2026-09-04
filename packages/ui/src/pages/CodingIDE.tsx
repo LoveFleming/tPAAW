@@ -886,20 +886,6 @@ export default function CodingIDE() {
       .catch(() => {});
   }, [rootPath]);
 
-  // EM Dashboard loop mode switch — PUT + local update
-  const handleLoopModeChange = useCallback((mode: "mini" | "full") => {
-    if (!rootPath) return;
-    setProjectLoopMode(mode); // optimistic
-    fetch(`${API_BASE}/api/coding-tasks/project/loop-mode?path=${encodeURIComponent(rootPath)}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ loopMode: mode }),
-    })
-      .then(r => r.json())
-      .then(data => { if (!data.ok) setProjectLoopMode(mode === "mini" ? "full" : "mini"); }) // revert on failure
-      .catch(() => setProjectLoopMode(mode === "mini" ? "full" : "mini"));
-  }, [rootPath]);
-
   // Load active task pipeline when activeCodingTaskId changes
   useEffect(() => {
     if (!activeCodingTaskId || !rootPath) { setActiveTaskPipeline(null); return; }
@@ -3690,8 +3676,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 codeUnderstanding={{ running: aiInitializing, steps: aiInitSteps }}
                 model={emModel}
                 onModelChange={setEmModel}
-                loopMode={projectLoopMode}
-                onLoopModeChange={handleLoopModeChange}
                 onDispatchToCrew={(crewId, message) => {
                   // Switch to the crew tab and pre-fill the chat input
                   const crew = codingCrews.find(c => c.id === crewId);

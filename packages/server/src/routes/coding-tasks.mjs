@@ -217,23 +217,6 @@ export default async function codingTasksRoute(req, res) {
     return true;
   }
 
-  // ── PUT /api/coding-tasks/project/loop-mode ──
-  if (url === "/api/coding-tasks/project/loop-mode" && method === "PUT") {
-    const body = JSON.parse(await readBody(req) || "{}");
-    const { loopMode } = body;
-    if (loopMode !== "mini" && loopMode !== "full") {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "loopMode must be 'mini' or 'full'" }));
-      return true;
-    }
-    const { tasks, config } = await loadTasksAndConfig(projRoot);
-    config.loopMode = loopMode;
-    await saveTasks(projRoot, tasks, config);
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, loopMode }));
-    return true;
-  }
-
   // ── POST /api/coding-tasks/decompose ──
   if (url === "/api/coding-tasks/decompose" && method === "POST") {
     let body;

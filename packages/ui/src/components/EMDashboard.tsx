@@ -63,12 +63,9 @@ interface EMDashboardProps {
   adRefreshTrigger?: number;
   model?: string;
   onModelChange?: (m: string) => void;
-  // Project loop mode switch (mini / full)
-  loopMode?: "mini" | "full";
-  onLoopModeChange?: (mode: "mini" | "full") => void;
 }
 
-export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, openMainTab, adRefreshTrigger = 0, model, onModelChange, loopMode, onLoopModeChange }: EMDashboardProps) {
+export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, openMainTab, adRefreshTrigger = 0, model, onModelChange }: EMDashboardProps) {
   // ── EM Profile (avatar from crew API) ──
   const [emProfile, setEmProfile] = useState<{ codename?: string; imageUrl?: string; emoji?: string }>({});
   useEffect(() => {
@@ -221,12 +218,6 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
 
   useEffect(() => { fetchEmSessions(); }, [fetchEmSessions]);
   const [emRunning, setEmRunning] = useState(false);
-  // 右側面板 tab：overview | dispatch（Auto Dispatch 併入）
-  const [view, setView] = useState<"chat">("chat");
-  // 2026-08-29: 切回 chat 時還原 scroll 位置（兩個 view 改為常駐掛載 + hidden 切換）
-  useEffect(() => {
-    if (view === "chat" && chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollTopRef.current;
-  }, [view]);
   const [pendingPlan, setPendingPlan] = useState<PendingPlan | null>(null);
   const [showEmContextDebug, setShowEmContextDebug] = useState(false);
   const [emContextDebug, setEmContextDebug] = useState<any>(null);
@@ -729,14 +720,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   return (
     <>
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-      {/* ── Sub-tab bar：💬 EM Chat | 🏛 派工 Auto Dispatch（全寬，比照 ChatView） ── */}
-      <div className="shrink-0 flex items-center gap-1 px-2 py-1.5 border-b" style={{ borderColor: tk.borderLight, background: tk.bg }}>
-        <button data-testid="em-main-tab-chat" onClick={() => setView("chat")}
-          className={cn("text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors", view === "chat" ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100")}>
-          💬 EM Chat
-        </button>
-
-      </div>
+      <div className="shrink-0 flex items-center gap-1 px-2 py-1.5 border-b" style={{ borderColor: tk.borderLight, background: tk.bg }} />
       {/* 2026-08-29: 兩個 view 常駐掛載，用 hidden 切換 — 保留雙方 scroll 位置與元件狀態 */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Header — matches crew agent header layout */}
@@ -812,19 +796,6 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
               {/* Model selector */}
               {onModelChange && (
                 <ModelSelector feature="codingIDE.emDashboard" value={model || ""} onChange={onModelChange} />
-              )}
-              {/* Loop Mode — release unit 開發模式（mini = 快速迭代 / full = 七關證據流） */}
-              {loopMode && onLoopModeChange && (
-                <div className="flex items-center rounded-md border border-stone-200 overflow-hidden shrink-0"
-                  title={loopMode === "mini" ? "Mini：上線前快速迭代 — developer 實作即 commit" : "Full：上線後完整管線 — spec → implement → review → test → qa → docs → commit，證據齊才能過"}>
-                  {(["mini", "full"] as const).map(m => (
-                    <button key={m} onClick={() => onLoopModeChange(m)}
-                      className={cn("text-[10px] font-bold px-2 py-1 transition-colors",
-                        loopMode === m ? (m === "mini" ? "bg-amber-500 text-white" : "bg-blue-500 text-white") : "bg-white text-stone-400 hover:bg-stone-50")}>
-                      {m === "mini" ? "🚀 Mini" : "🛡️ Full"}
-                    </button>
-                  ))}
-                </div>
               )}
               {/* Divider */}
               <div className="w-px h-5 bg-stone-200 mx-1" />
