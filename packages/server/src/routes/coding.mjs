@@ -267,6 +267,32 @@ function _extractJsonArray(text) {
   return null;
 }
 
+/** LLM JSON 陣列修復（2026-09-04：實測 tpaaw-gateway feature-map 壞在 ["tags"]: 鬼 key）
+ *  pass1 直接 parse → pass2 常見鬼格式修復（["key"]: → "key":、尾逗號）→ pass3 逐頂層物件 salvage（壞物件丟棄、好的保留，也涵蓋截斷）
+ *  回傳 array 或 null */
+function repairLlmJsonArray(text) {
+  if (!text) return null;
+  const clean = String(text).replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+  try { const v = JSON.parse(clean); if (Array.isArray(v)) return v; } catch {}
+  const repaired = clean
+    .replace(/\[\s*"([^"]*?)"\s*\]\s*:/g, '"$1":') // ["key"]: → "key":
+    .replace(/,(\s*[\]}])/g, "$1");                   // 尾逗號
+  try { const v = JSON.parse(repaired); if (Array.isArray(v)) return v; } catch {}
+  // 逐頂層物件 salvage
+  const out = [];
+  let depth = 0, start = -1, inStr = false, esc = false;
+  for (let i = 0; i < repaired.length; i++) {
+    const c = repaired[i];
+    if (esc) { esc = false; continue; }
+    if (c === "\\") { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === "{") { if (depth === 0) start = i; depth++; }
+    else if (c === "}") { depth--; if (depth === 0 && start >= 0) { try { out.push(JSON.parse(repaired.slice(start, i + 1))); } catch {} start = -1; } }
+  }
+  return out.length > 0 ? out : null;
+}
+
 function _chunkFiles(files, maxChars = FM_CHUNK_CHARS) {
   const chunks = [];
   let cur = [], curLen = 0;
@@ -2891,7 +2917,8 @@ export default async function projectRoute(req, res) {
               try {
                 const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
                 if (!cleanJson) throw new Error("AI 回應為空，無法產生 Feature Map");
-                const features = _extractJsonArray(content);
+                let features = _extractJsonArray(content);
+                if (!Array.isArray(features)) features = repairLlmJsonArray(content); // 2026-09-04：修 LLM JSON 鬼格式（["tags"]:、尾逗號、逐物件 salvage）
                 if (Array.isArray(features)) {
                   const featureIdBatch = nextFeatureIds(root, features.length);
                   const featuresWithIds = features.map((f, i) => ({
@@ -3292,7 +3319,9 @@ export default async function projectRoute(req, res) {
                 try {
                   const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
                   if (!cleanJson) throw new Error("AI 回應為空，無法產生 Feature Map");
-                  const features = JSON.parse(cleanJson);
+                  let features = null;
+                  try { features = JSON.parse(cleanJson); } catch {}
+                  if (!Array.isArray(features)) features = repairLlmJsonArray(content); // 2026-09-04：修 LLM JSON 鬼格式
                   if (Array.isArray(features)) {
                     const featureIdBatch = nextFeatureIds(root, features.length);
                     const featuresWithIds = features.map((f, i) => ({

@@ -1319,7 +1319,8 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                     {step.name}
                     {step.status === "running" && <span className="ml-2 inline-block animate-pulse">●</span>}
                   </div>
-                  {/* Skill 綁定 */}
+                  {/* Skill 綁定（2026-09-04：機械步無 LLM — CI/TI 不提供綁定）*/}
+                  {step.id !== "code-intelligence" && step.id !== "test-intelligence" && (
                   <div className="flex items-center gap-1 mt-0.5">
                     <button
                       onClick={() => setCuSkillPickerStep(step.id)}
@@ -1336,6 +1337,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                       </span>
                     )}
                   </div>
+                  )}
                   {step.status === "done" && step.size && (
                     <div className="text-xs text-stone-300">{step.size.toLocaleString()} chars</div>
                   )}
