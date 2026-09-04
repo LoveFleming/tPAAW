@@ -293,6 +293,29 @@ function repairLlmJsonArray(text) {
   return out.length > 0 ? out : null;
 }
 
+/** Feature 物件白名單清洗（2026-09-04：防 LLM 幻覺欄位 tagsFinal/runbooksPlaceholder 進 FEATURES.json）
+ *  只保留已知欄位並補預設值，多餘欄位丟棄；name 缺失回 null（呼叫端過濾） */
+function sanitizeFeature(f) {
+  if (!f || typeof f !== "object") return null;
+  const name = typeof f.name === "string" && f.name.trim() ? f.name.trim() : null;
+  if (!name) return null;
+  const strArr = (v) => Array.isArray(v) ? v.filter(x => typeof x === "string") : [];
+  const apis = Array.isArray(f.apis)
+    ? f.apis.filter(a => a && typeof a === "object" && typeof a.path === "string")
+        .map(a => ({ method: String(a.method || "GET"), path: a.path, file: String(a.file || "") }))
+    : [];
+  return {
+    name,
+    description: String(f.description || ""),
+    status: f.status === "deprecated" || f.status === "planned" ? f.status : "active",
+    codeFiles: strArr(f.codeFiles),
+    apis,
+    tests: strArr(f.tests),
+    runbooks: strArr(f.runbooks),
+    tags: strArr(f.tags).slice(0, 5),
+  };
+}
+
 function _chunkFiles(files, maxChars = FM_CHUNK_CHARS) {
   const chunks = [];
   let cur = [], curLen = 0;
@@ -2920,8 +2943,9 @@ export default async function projectRoute(req, res) {
                 let features = _extractJsonArray(content);
                 if (!Array.isArray(features)) features = repairLlmJsonArray(content); // 2026-09-04：修 LLM JSON 鬼格式（["tags"]:、尾逗號、逐物件 salvage）
                 if (Array.isArray(features)) {
-                  const featureIdBatch = nextFeatureIds(root, features.length);
-                  const featuresWithIds = features.map((f, i) => ({
+                  const cleanFeatures = features.map(sanitizeFeature).filter(Boolean); // 2026-09-04：白名單清洗，洗掉幻覺欄位
+                  const featureIdBatch = nextFeatureIds(root, cleanFeatures.length);
+                  const featuresWithIds = cleanFeatures.map((f, i) => ({
                     ...f,
                     id: featureIdBatch[i],
                     issues: [],
@@ -2979,7 +3003,7 @@ export default async function projectRoute(req, res) {
                   const feats = JSON.parse(recovered);
                   if (Array.isArray(feats) && feats.length > 0) {
                     const featureIdBatch = nextFeatureIds(root, feats.length);
-                    const featuresWithIds = feats.map((f, i) => ({ ...f, id: featureIdBatch[i], issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
+                    const featuresWithIds = feats.map(sanitizeFeature).filter(Boolean).map((f, i) => ({ ...f, id: featureIdBatch[i], issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
                     const featuresDir = join(root, ".paaw", "features");
                     if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
                     await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
@@ -3323,8 +3347,9 @@ export default async function projectRoute(req, res) {
                   try { features = JSON.parse(cleanJson); } catch {}
                   if (!Array.isArray(features)) features = repairLlmJsonArray(content); // 2026-09-04：修 LLM JSON 鬼格式
                   if (Array.isArray(features)) {
-                    const featureIdBatch = nextFeatureIds(root, features.length);
-                    const featuresWithIds = features.map((f, i) => ({
+                    const cleanFeatures = features.map(sanitizeFeature).filter(Boolean); // 2026-09-04：白名單清洗
+                    const featureIdBatch = nextFeatureIds(root, cleanFeatures.length);
+                    const featuresWithIds = cleanFeatures.map((f, i) => ({
                       ...f,
                       id: featureIdBatch[i],
                       issues: [],
@@ -3382,7 +3407,7 @@ export default async function projectRoute(req, res) {
                     const feats = JSON.parse(recovered);
                     if (Array.isArray(feats) && feats.length > 0) {
                       const featureIdBatch = nextFeatureIds(root, feats.length);
-                    const featuresWithIds = feats.map((f, i) => ({ ...f, id: featureIdBatch[i], issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
+                    const featuresWithIds = feats.map(sanitizeFeature).filter(Boolean).map((f, i) => ({ ...f, id: featureIdBatch[i], issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
                       const featuresDir = join(root, ".paaw", "features");
                       if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
                       await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");

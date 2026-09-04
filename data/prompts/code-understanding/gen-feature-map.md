@@ -105,6 +105,14 @@ Output a JSON array of features. Each feature object MUST have this exact struct
 
 9. Output ONLY the JSON array, no markdown fences, no explanation
 
+10. **JSON 硬規則（違反 = 整份被丟棄）：**
+    - Key 一律是雙引號字串：`"tags"` ✅，`["tags"]` ❌ 絕對禁止括號包 key
+    - 禁止尾逗號（trailing comma）：`"a",
+  }` ❌
+    - 只能用上方範例的欄位名，禁止發明新欄位（如 `tagsFinal`、`runbooksPlaceholder` ❌）
+    - 沒資料就給空陣列 `[]`，不要給 null、不要省略欄位
+    - 輸出會直接被程式 `JSON.parse`，任何語法錯誤都會導致結果作廢重來
+
 ## Systematic Approach
 
 1. **First**, read the Source Analysis — identify dependency clusters and route groups
