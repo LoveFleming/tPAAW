@@ -51,6 +51,16 @@ const DEFAULT_CONFIG = {
   contextOverrides: {}, // { "coding.architect": { "injectProjectContext": true, "extraContext": "" } }
 };
 
+// ── CU step 預設 skills（2026-09-04 Fleming：CU 預設帶入合適的 PAAW skill）──
+// 只在專案「沒設過」該 step 綁定時生效（undefined → 用預設；設 [] = 使用者清空，尊重）
+// 對應 data/skills/physical-skill/ 內的方法論 skill
+export const DEFAULT_CU_STEP_SKILLS = {
+  scan: ["spec-miner"],                                  // 掃專案結構 → 從 code 挖 spec/行為
+  "feature-map": ["feature-map-master"],                 // feature → 檔案映射（同方法論）
+  "code-intelligence": ["code-documenter", "architecture-designer"], // 代碼結構智慧
+  "test-intelligence": ["test-master", "playwright-expert"],         // 測試智慧（策略 + E2E）
+};
+
 // ── Helpers ──
 
 function ensureAgentsDir(projectDir) {
@@ -601,9 +611,13 @@ function stripInternal(agent) {
  */
 export function readProjectSkills(projectDir, crewId) {
   const config = readJson(getConfigPath(projectDir), null);
-  if (!config || !config.skillBindings || !config.skillBindings[crewId]) return [];
 
-  const skillIds = config.skillBindings[crewId];
+  let skillIds = config?.skillBindings?.[crewId];
+  // 2026-09-04：CU step 沒設過綁定 → 套預設 skills（使用者清空 [] 則尊重不回填）
+  // 專案尚未 init（無 _config.json）也套預設 — CU 不該因為 crew 還沒初始化就失去方法論
+  if (skillIds === undefined && crewId?.startsWith("cu.")) {
+    skillIds = DEFAULT_CU_STEP_SKILLS[crewId.slice(3)] || [];
+  }
   if (!Array.isArray(skillIds) || skillIds.length === 0) return [];
 
   const results = [];

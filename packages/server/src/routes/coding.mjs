@@ -1574,16 +1574,28 @@ export default async function projectRoute(req, res) {
 
   // ── CU step skill 綁定 — GET 讀綁定 / PUT 更新（用 crew.json skillBindings["cu.<stepId>"]）──
   if (url.startsWith("/api/coding-project/cu-skills") && (req.method === "GET" || req.method === "PUT" || req.method === "POST")) {
-    const { readJson, getConfigPath } = await import("../lib/project-crew.mjs");
+    const { readJson, getConfigPath, DEFAULT_CU_STEP_SKILLS } = await import("../lib/project-crew.mjs");
     const { updateAgentSkills } = await import("../lib/project-crew.mjs");
     const config = readJson(getConfigPath(projectPath), null) || {};
+    // GET：回有效綁定（explicit 專案設定 > DEFAULT_CU_STEP_SKILLS 預設），並標記哪些是預設
     const bindings = {};
+    const defaultsApplied = {};
+    for (const stepId of Object.keys(DEFAULT_CU_STEP_SKILLS)) {
+      const explicit = config.skillBindings?.[`cu.${stepId}`];
+      if (Array.isArray(explicit)) {
+        if (explicit.length > 0) bindings[stepId] = explicit;
+      } else {
+        bindings[stepId] = DEFAULT_CU_STEP_SKILLS[stepId];
+        defaultsApplied[stepId] = true;
+      }
+    }
+    // 舊行為相容：其他有設定的 cu.* 也照回
     for (const [k, v] of Object.entries(config.skillBindings || {})) {
       if (k.startsWith("cu.") && Array.isArray(v) && v.length > 0) bindings[k.slice(3)] = v;
     }
     if (req.method === "GET") {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ bindings }));
+      res.end(JSON.stringify({ bindings, defaultsApplied }));
       return true;
     }
     const body = JSON.parse(await readBody(req) || "{}");
