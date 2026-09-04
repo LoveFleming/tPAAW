@@ -55,10 +55,10 @@ const DEFAULT_CONFIG = {
 // 只在專案「沒設過」該 step 綁定時生效（undefined → 用預設；設 [] = 使用者清空，尊重）
 // 對應 data/skills/physical-skill/ 內的方法論 skill
 export const DEFAULT_CU_STEP_SKILLS = {
-  scan: ["spec-miner"],                                  // 掃專案結構 → 從 code 挖 spec/行為
-  "feature-map": ["feature-map-master"],                 // feature → 檔案映射（同方法論）
-  "code-intelligence": ["code-documenter", "architecture-designer"], // 代碼結構智慧
-  "test-intelligence": ["test-master", "playwright-expert"],         // 測試智慧（策略 + E2E）
+  scan: ["spec-miner"],                  // 掃專案結構 → 從 code 挖 spec/行為
+  "feature-map": ["feature-map-master"], // feature → 檔案映射（同方法論）
+  // 註：code-intelligence / test-intelligence 是機械步（Tree-sitter 純分析，不跑 LLM）
+  // → skill 綁了也不會被用到，不設預設（2026-09-04 實測確認）
 };
 
 // ── Helpers ──

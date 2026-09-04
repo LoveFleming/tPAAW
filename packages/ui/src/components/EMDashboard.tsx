@@ -439,6 +439,8 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
     const wasRunning = prevRunningRef.current;
     const isRunning = codeUnderstanding?.running;
     if (wasRunning && !isRunning) {
+      // 2026-09-04 Fleming：CU bulk 完成 → 自動收起 modal（不然跳去 Features tab 也被 modal 蓋住）
+      setShowCUModal(false);
       // Bulk run just finished — merge live step results into persistedSteps first
       // (in case .paaw/ files aren't written yet, we still show what the frontend knows)
       loadPersistedSteps().then(() => { loadCuSkillBindings(); 
