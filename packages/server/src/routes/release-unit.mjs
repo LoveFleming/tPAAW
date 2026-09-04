@@ -128,13 +128,32 @@ export default async function releaseUnitRoutes(req, res, next) {
     const rawPath = (body.path || "").trim();
     if (!rawPath || !existsSync(rawPath)) return json(res, 400, { error: "path required and must exist" });
     const absPath = resolve(rawPath);
+    // Label 優先序：body.label > git repo name（git toplevel basename）> 根目錄名
+    let label = (body.label || "").trim();
+    if (!label) {
+      try {
+        const topLevel = String(shellExecSync(`git -C "${absPath}" rev-parse --show-toplevel`, { timeout: 5000 })).trim();
+        label = (topLevel && existsSync(topLevel) ? basename(topLevel) : basename(absPath)).slice(0, 40);
+      } catch {
+        label = basename(absPath).slice(0, 40); // 沒 git → 用根目錄名
+      }
+    } else {
+      label = label.slice(0, 40);
+    }
     const units = _loadRuRegistry();
     const found = units.find(u => resolve(u.path) === absPath);
-    if (found) return json(res, 200, { unit: { ...found, exists: true } });
+    if (found) {
+      // 已註冊過：沒指定 label 時也用 git repo name 刷新 label（補齊舊資料）
+      if (!(body.label || "").trim() && found.label !== label) {
+        found.label = label;
+        _saveRuRegistry(units);
+      }
+      return json(res, 200, { unit: { ...found, exists: true } });
+    }
     const unit = {
       id: randomUUID(),
       path: normalizePath(absPath),
-      label: (body.label || basename(absPath)).slice(0, 40),
+      label,
       addedAt: new Date().toISOString(),
     };
     units.push(unit);
