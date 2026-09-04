@@ -37,6 +37,7 @@ function shortDate(iso?: string): string {
 }
 
 const KIND_COLOR: Record<string, string> = { unit: "#64748b", integration: "#7c3aed", contract: "#d97706", e2e: "#059669" };
+const COMMIT_KIND_COLOR: Record<string, string> = { feat: "#2563eb", fix: "#dc2626", refactor: "#9333ea", test: "#059669", docs: "#64748b", chore: "#78716c" };
 
 function KindBadge({ kind }: { kind?: string | null }) {
   if (!kind) return <span className="text-[9px] text-stone-300">—</span>;
@@ -63,6 +64,11 @@ export function FeatureCockpit({ feature, model, callChainMap, t, accent, border
   const f = feature as RuFeature;
   const [showAi, setShowAi] = useState(false);
   const [aiMd, setAiMd] = useState<string | null>(null);
+  const [showChanges, setShowChanges] = useState(false); // 2026-09-05：變更歷史明細展開
+  // 此 feature 的變更明細（RU model changes 表 — deterministic，git log 來的）
+  const featureChanges = ((model?.changes || []) as any[])
+    .filter(c => Array.isArray(c.featureIds) && c.featureIds.includes(f.id))
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
   const rootPath = model?.root || "";
   // aiUnderstanding 懶載（僅 standalone 模式 — embedded 時 FeatureDetail 有現成 AI 區）
   useEffect(() => {
@@ -174,11 +180,39 @@ export function FeatureCockpit({ feature, model, callChainMap, t, accent, border
       {/* Changes */}
       <div className="rounded-lg border bg-white px-3 py-2 flex items-center gap-3 flex-wrap" style={{ borderColor: borderLight }}>
         <span className="text-sm font-bold text-stone-400">🕘 {t("ruTree.changeHistory")}</span>
-        <span className="text-[15px] text-stone-600 font-bold">{f.changeCount ?? 0}</span>
+        {(f.changeCount ?? 0) > 0 ? (
+          <button onClick={() => setShowChanges(v => !v)}
+            className={`text-xs px-1.5 py-0.5 rounded border font-bold flex items-center gap-1 ${showChanges ? "bg-stone-700 text-white border-stone-700" : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"}`}
+            title="展開變更明細">
+            <span className="text-[15px] font-bold text-stone-600">{f.changeCount ?? 0}</span>
+            <span>▼</span>
+          </button>
+        ) : (
+          <span className="text-[15px] text-stone-600 font-bold">{f.changeCount ?? 0}</span>
+        )}
         {f.lastChangeAt && <span className="text-xs text-stone-400 font-mono">{f.lastChangeAt.slice(0, 10)}</span>}
-        {(f.knowledgeGaps || []).includes("no-tests") && <span className="ml-auto text-xs text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">gap: no-tests</span>}
-        {(f.knowledgeGaps || []).includes("no-runbook") && <span className="text-xs text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">gap: no-runbook</span>}
+        <span className="ml-auto flex gap-1.5">
+          {(f.knowledgeGaps || []).includes("no-tests") && <span className="text-xs text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">gap: no-tests</span>}
+          {(f.knowledgeGaps || []).includes("no-runbook") && <span className="text-xs text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">gap: no-runbook</span>}
+        </span>
       </div>
+      {/* 變更明細（2026-09-05：點數字展開 — RU model changes 表，deterministic）*/}
+      {showChanges && (
+        <div className="rounded-lg border bg-white overflow-hidden" style={{ borderColor: borderLight }} data-testid="ru-change-detail">
+          <div className="px-3 py-2 space-y-1 max-h-72 overflow-y-auto">
+            {featureChanges.slice(0, 20).map((c: any) => (
+              <div key={c.hash} className="flex items-start gap-2 text-xs py-0.5" style={{ borderBottom: `1px dashed ${borderLight}` }}>
+                <span className="font-mono text-stone-400 shrink-0 w-[64px]" title={c.hash}>{(c.hash || "").slice(0, 7)}</span>
+                <span className="font-mono text-stone-400 shrink-0 w-[92px]">{(c.date || "").slice(0, 10)}</span>
+                <span className="font-bold px-1.5 py-0.5 rounded text-white shrink-0 text-[10px] font-mono" style={{ backgroundColor: COMMIT_KIND_COLOR[c.kind] || "#a8a29e" }}>{c.kind || "chore"}</span>
+                <span className="text-stone-700 break-all min-w-0">{c.subject}</span>
+                <span className="ml-auto text-stone-400 shrink-0 font-mono">{c.files ?? 0}f</span>
+              </div>
+            ))}
+            {featureChanges.length > 20 && <div className="text-xs text-stone-400 text-center py-1">… 共 {featureChanges.length} 筆，僅顯示最近 20 筆</div>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
