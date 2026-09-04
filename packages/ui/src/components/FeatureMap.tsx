@@ -79,7 +79,6 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
-  const [understanding, setUnderstanding] = useState<string | null>(null);
   const [editingDocs, setEditingDocs] = useState(false);
   const [docsContent, setDocsContent] = useState("");
   const [savingDocs, setSavingDocs] = useState(false);
@@ -166,23 +165,6 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
       alert("Refresh failed: " + err.message);
     }
     setRefreshing(false);
-  };
-
-  // ── Generate AI Understanding ──
-  const handleUnderstand = async () => {
-    if (!selectedId) return;
-    setUnderstanding("loading");
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-features/${encodeURIComponent(selectedId)}/understand?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
-      const data = await res.json();
-      if (data.ok) {
-        // Update the feature in local state
-        setFeatures(prev => prev.map(f => f.id === selectedId ? { ...f, aiUnderstanding: data.understanding, aiUnderstandingAt: data.feature?.aiUnderstandingAt } : f));
-      }
-    } catch (err) {
-      alert("Understanding failed: " + err.message);
-    }
-    setUnderstanding(null);
   };
 
   // ── Save documentation ──
@@ -364,8 +346,6 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
             onOpenFile={onOpenFile}
             ruModel={ruModel}
             callChainMap={callChainMap}
-            understanding={understanding}
-            onUnderstand={handleUnderstand}
             editingDocs={editingDocs}
             docsContent={docsContent}
             setDocsContent={setDocsContent}
@@ -424,15 +404,13 @@ function CreateFeatureForm({ onCreate, onCancel, theme, t }: {
 }
 
 // ── Feature Detail ──
-function FeatureDetail({ feature, theme, t, onOpenFile, ruModel, callChainMap, understanding, onUnderstand, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, onDelete, rootPath }: {
+function FeatureDetail({ feature, theme, t, onOpenFile, ruModel, callChainMap, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, onDelete, rootPath }: {
   feature: Feature;
   theme: any;
   t: (k: string) => string;
   onOpenFile?: (p: string) => void;
   ruModel?: any;
   callChainMap?: Map<string, any> | null;
-  understanding: string | null;
-  onUnderstand: () => void;
   editingDocs: boolean;
   docsContent: string;
   setDocsContent: (s: string) => void;
@@ -469,9 +447,6 @@ function FeatureDetail({ feature, theme, t, onOpenFile, ruModel, callChainMap, u
           {feature.description && <p className="text-sm mt-1" style={{ color: theme.text, opacity: 0.6 }}>{feature.description}</p>}
         </div>
         <div className="flex gap-1 shrink-0">
-          <button onClick={onUnderstand} disabled={understanding === "loading"} className="text-xs px-2 py-1 rounded font-medium" style={{ background: theme.accentBg, color: theme.accent }}>
-            {understanding === "loading" ? "⏳ ..." : `🤖 ${t("feature.generateUnderstanding")}`}
-          </button>
           <button onClick={onDelete} className="text-xs px-2 py-1 rounded" style={{ background: "#fef2f2", color: "#dc2626" }}>🗑️</button>
         </div>
       </div>

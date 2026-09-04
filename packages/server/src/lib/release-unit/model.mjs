@@ -332,7 +332,14 @@ export async function loadReleaseUnitModel(root, { refresh = false } = {}) {
     const m = _readJson(modelFile, null);
     if (m?.headSha) {
       const head = await _gitHead(root);
-      if (head && m.headSha === head) return { ...m, stale: false };
+      if (head && m.headSha === head) {
+        // 2026-09-04：FEATURES.json 是 .paaw 檔（不影響 headSha）— feature 數不一致 = 過期重建
+        // 病例：CU 先建 RU model（0 features）後跑 feature-map → cockpit 永遠拿空 model
+        const cur = _readJson(join(root, ".paaw", "features", "FEATURES.json"), null);
+        const curCount = Array.isArray(cur?.features) ? cur.features.length : Array.isArray(cur) ? cur.length : 0;
+        const modelCount = Array.isArray(m.features) ? m.features.length : 0;
+        if (curCount === modelCount) return { ...m, stale: false };
+      }
     }
   }
   return buildReleaseUnitModel(root); // 重建（建完即存）
