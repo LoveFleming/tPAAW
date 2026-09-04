@@ -92,7 +92,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const [pending, setPending] = useState<PendingTask[]>([]);
   const [releases, setReleases] = useState<ReleaseRecord[]>([]);
   const [initialized, setInitialized] = useState<boolean | null>(null); // null = loading
-  const [loopMode, setLoopMode] = useState<string>("mini");
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -118,7 +117,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
       const lData = await lRes.json();
       const qdData = await qdRes.json().catch(() => null);
       setInitialized(!!pData.initialized);
-      setLoopMode(pData.loopMode || "mini");
       setPending(pData.pending || []);
       setReleases(lData.releases || []);
       setQd(qdData);
@@ -300,9 +298,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
             <span className="text-lg">🚦</span>
             <h2 className="text-sm font-bold text-stone-800">{t("rm.title")}</h2>
             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">.paaw/releases/</span>
-            {loopMode === "mini" && initialized && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200">目前 mini loop — 上線前請切 full mode</span>
-            )}
           </div>
           <p className="text-[11px] text-stone-400 mt-0.5">{t("rm.subtitle")}</p>
         </div>

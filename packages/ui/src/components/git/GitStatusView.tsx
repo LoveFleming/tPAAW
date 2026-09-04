@@ -49,8 +49,6 @@ interface GitStatusViewProps {
   onShowCode: (path?: string) => void;
   // ── Pipeline state ──
   pipeline: Record<string, { status: string; by?: string; at?: string; result?: string; reason?: string; feedback?: string }> | null;
-  loopMode: "full" | "mini";
-  projectLoopMode: "full" | "mini";
   qaVerdict: { verdict: string; issues: number; critical: number; summary: string; feedback: string } | null;
   onSpecApprove: () => void;
   onSpecReject: () => void;
@@ -80,8 +78,6 @@ export default function GitStatusView({
   evidenceLoading,
   onShowCode,
   pipeline,
-  loopMode,
-  projectLoopMode,
   qaVerdict,
   onSpecApprove,
   onSpecReject,
@@ -90,8 +86,7 @@ export default function GitStatusView({
 }: GitStatusViewProps) {
   // ── Pipeline progress helpers ──
   const PIPELINE_PHASES = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
-  const MINI_LOOP_PHASES = ["implement", "commit"];
-  const activePhases = loopMode === "mini" ? MINI_LOOP_PHASES : PIPELINE_PHASES;
+  const activePhases = PIPELINE_PHASES;
 
   const phaseEmoji: Record<string, string> = {
     spec: "📋", implement: "💻", review: "👀", test: "🧪", qa: "🔬", docs: "📝", commit: "🚀"
@@ -214,12 +209,6 @@ export default function GitStatusView({
           <div className="flex items-center gap-1 px-3 py-2 bg-stone-50 border-b border-stone-100">
             <span className="text-xs">🔄</span>
             <span className="text-[10px] font-bold text-stone-600">Pipeline</span>
-            <span className={cn(
-              "text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-1",
-              loopMode === "mini" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
-            )}>
-              {loopMode === "mini" ? "Mini Loop" : "Full Loop"}
-            </span>
             {qaRework && (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-bold ml-1">
                 🔄 Rework

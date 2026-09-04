@@ -798,7 +798,6 @@ export default function CodingIDE() {
     createdAt?: string;
   }
   const [stagedSummary, setStagedSummary] = useState<StagedChangeSummary | null>(null);
-  const [projectLoopMode, setProjectLoopMode] = useState<"mini" | "full">("mini");
   const [activeCodingTaskId, setActiveCodingTaskId] = useState<string | null>(null);
   const [activeTaskPipeline, setActiveTaskPipeline] = useState<Record<string, any> | null>(null);
   const [showStagedDetail, setShowStagedDetail] = useState(false);
@@ -862,29 +861,6 @@ export default function CodingIDE() {
       }
     })();
   }, []);
-
-  // Derive loopMode from projectPhase (loaded from auto-dispatch config)
-  const PHASE_TO_LOOP_MODE: Record<string, "mini" | "full"> = { bootstrap: "mini", mvp: "mini", growth: "mini", stable: "full", refactor: "full" };
-  // Priority: TASKS.json loopMode (manual switch / synced from phase) > phase-derived
-  useEffect(() => {
-    if (!rootPath) return;
-    fetch(`${API_BASE}/api/coding-tasks/project/loop-mode?path=${encodeURIComponent(rootPath)}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.loopMode === "mini" || data.loopMode === "full") {
-          setProjectLoopMode(data.loopMode);
-        } else {
-          // No explicit loopMode — derive from auto-dispatch projectPhase
-          return fetch(`${API_BASE}/api/coding-auto-dispatch/config?path=${encodeURIComponent(rootPath)}`)
-            .then(r => r.json())
-            .then(cfg => {
-              const phase = cfg.projectPhase || "bootstrap";
-              setProjectLoopMode(PHASE_TO_LOOP_MODE[phase] || "mini");
-            });
-        }
-      })
-      .catch(() => {});
-  }, [rootPath]);
 
   // Load active task pipeline when activeCodingTaskId changes
   useEffect(() => {
@@ -3032,7 +3008,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 blameData={blameData}
                 blameFile={blameFile}
                 activeCodingTask={activeCodingTaskId ? { id: activeCodingTaskId, title: stagedSummary?.task || "", pipeline: activeTaskPipeline } : null}
-                projectLoopMode={projectLoopMode}
                 setGitTab={setGitTab}
                 setGitCommitMsg={setGitCommitMsg}
                 setGitActionMsg={setGitActionMsg}

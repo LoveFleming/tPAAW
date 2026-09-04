@@ -15,8 +15,6 @@
  * Endpoints:
  *   GET    /api/coding-tasks?path=...              — List tasks (filter: status, type, featureId, priority, assignee, parentId, search)
  *   GET    /api/coding-tasks/stats?path=...        — Summary stats（4 status + byType + byAssignee）
- *   GET    /api/coding-tasks/project/loop-mode     — 觸發器設定
- *   PUT    /api/coding-tasks/project/loop-mode     — 觸發器設定
  *   GET    /api/coding-tasks/:id?path=...          — Get single task
  *   POST   /api/coding-tasks?path=...              — Create task（title + featureId + type 必填）
  *   PUT    /api/coding-tasks/:id?path=...          — Update task
@@ -205,15 +203,6 @@ export default async function codingTasksRoute(req, res) {
     }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(stats));
-    return true;
-  }
-
-  // ── GET /api/coding-tasks/project/loop-mode ──
-  // 觸發器設定（mini/full）— 只決定派工觸發方式，不再影響 task 結構
-  if (url === "/api/coding-tasks/project/loop-mode" && method === "GET") {
-    const { config } = await loadTasksAndConfig(projRoot);
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ loopMode: config.loopMode }));
     return true;
   }
 
