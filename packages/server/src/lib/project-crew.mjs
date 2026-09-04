@@ -148,12 +148,24 @@ export function initProjectCrew(projectDir, opts = {}) {
     }
   }
 
+  // 2026-09-04：預設帶入 skills — 各 crew 模板的 skillIds 自動 seed 到 skillBindings
+  // （使用者已自訂過的綁定（含清空 []）不覆蓋；skill 內容由 readProjectSkills 從 data/skills 即時讀）
+  const skillBindings = { ...((existingConfig && existingConfig.skillBindings) || {}) };
+  for (const crewId of [...copied, EM_CREW_ID]) {
+    if (skillBindings[crewId] !== undefined) continue;
+    const def = readGlobalCrew(crewId);
+    if (Array.isArray(def?.skillIds) && def.skillIds.length > 0) {
+      skillBindings[crewId] = [...def.skillIds];
+    }
+  }
+
   // Create/update config
   const config = {
     ...DEFAULT_CONFIG,
     initialized: true,
     initializedAt: new Date().toISOString(),
     globalCrewIds: copied,
+    skillBindings,
   };
   writeJson(configPath, config);
 
@@ -201,6 +213,15 @@ function syncNewGlobalCrews(projectDir, config) {
   for (const crewId of added) {
     if (!config.models[crewId]) {
       config.models[crewId] = { primary: "", fallbacks: [], emModel: "", autoDispatchModel: "" };
+    }
+  }
+  // 2026-09-04：新 sync 進來的 crew 也預設帶入模板 skillIds（使用者已自訂不覆蓋）
+  config.skillBindings = config.skillBindings || {};
+  for (const crewId of added) {
+    if (config.skillBindings[crewId] !== undefined) continue;
+    const def = readGlobalCrew(crewId);
+    if (Array.isArray(def?.skillIds) && def.skillIds.length > 0) {
+      config.skillBindings[crewId] = [...def.skillIds];
     }
   }
   writeJson(getConfigPath(projectDir), config);

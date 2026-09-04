@@ -128,6 +128,14 @@ export default async function releaseUnitRoutes(req, res, next) {
     const rawPath = (body.path || "").trim();
     if (!rawPath || !existsSync(rawPath)) return json(res, 400, { error: "path required and must exist" });
     const absPath = resolve(rawPath);
+    // 2026-09-04：import RU 時自動把 PAAW AI crew 帶進專案 .paaw/agents/
+    // （prompts 複製成專案層 agent 檔 + 各 crew 模板 skillIds 預設綁定；已初始化的專案做 add-only sync）
+    let crewProvisioned = false;
+    try {
+      const { readProjectCrew } = await import("../lib/project-crew.mjs");
+      readProjectCrew(absPath); // 未初始化 → auto-init；已初始化 → sync 新 global crews + seed skills
+      crewProvisioned = true;
+    } catch {} // crew provision 失敗不阻斷 RU 註冊
     // Label 優先序：body.label > git repo name（git toplevel basename）> 根目錄名
     let label = (body.label || "").trim();
     if (!label) {
@@ -148,7 +156,7 @@ export default async function releaseUnitRoutes(req, res, next) {
         found.label = label;
         _saveRuRegistry(units);
       }
-      return json(res, 200, { unit: { ...found, exists: true } });
+      return json(res, 200, { unit: { ...found, exists: true }, crewProvisioned });
     }
     const unit = {
       id: randomUUID(),
@@ -158,7 +166,7 @@ export default async function releaseUnitRoutes(req, res, next) {
     };
     units.push(unit);
     _saveRuRegistry(units);
-    return json(res, 200, { unit: { ...unit, exists: true } });
+    return json(res, 200, { unit: { ...unit, exists: true }, crewProvisioned });
   }
 
   // DELETE /api/ru/workspaces?id= — 取消註冊（不刪檔案）
