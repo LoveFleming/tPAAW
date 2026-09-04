@@ -11,7 +11,7 @@
  * composingRef（可靠）→ isComposing（fallback）→ keyCode 229（legacy）；
  * 中文用 compositionEnd 的 insertText 回注，不經鍵盤佈局。
  */
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useI18n } from "../../i18n";
 
 interface BrowserStatus {
@@ -30,7 +30,7 @@ interface CastFrame {
   w: number;    // viewport CSS 寬（座標換算基準）
   h: number;
   url: string;
-  scroll?: { top: number; max: number; h: number }; // document 層 scroll 狀態（UI 畫 scrollbar）
+  scroll?: { top: number; max: number; h: number; left?: number; maxX?: number; w?: number }; // document 層 scroll 狀態（UI 畫 scrollbar，含水平）
 }
 
 type Mode = "stream" | "iframe" | "shot";
@@ -68,6 +68,21 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
   const composingRef = useRef(false);       // IME composition（可靠層）
   const overlayRef = useRef<HTMLTextAreaElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  // 2026-09-04：stream 畫面 contain-fit 自適 — 依 stage 尺寸等比縮放（不裁切、不留大黑邊），座標換算仍以顯示區為準
+  const [stageSize, setStageSize] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setStageSize({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el);
+    setStageSize({ w: el.clientWidth, h: el.clientHeight });
+    return () => ro.disconnect();
+  }, []);
+  const fit = useMemo(() => {
+    if (!frame?.w || !frame?.h || !stageSize.w || !stageSize.h) return null;
+    const s = Math.min(stageSize.w / frame.w, stageSize.h / frame.h);
+    return { w: Math.floor(frame.w * s), h: Math.floor(frame.h * s) };
+  }, [frame?.w, frame?.h, stageSize.w, stageSize.h]);
   const lastMoveRef = useRef(0);
   const frameRef = useRef<CastFrame | null>(null);
   // ── Cowork 級：dialog / 下載（無分頁 — Fleming：不需要分頁）──
@@ -294,6 +309,48 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     const ratio = s.h / (s.h + s.max);
     return Math.max(24, Math.round(ratio * 100)); // 至少 24px
   };
+  // 水平捲軸（2026-09-04）— 拖動/點擊 → wheel deltaX 回注
+  const hScrollDragRef = useRef<{ x: number; left: number } | null>(null);
+  const hScrollbarThumbSize = (s: CastFrame["scroll"] | undefined) => {
+    if (!s || (s.maxX ?? 0) <= 0 || !s.w) return 0;
+    const ratio = s.w / (s.w + (s.maxX ?? 0));
+    return Math.max(24, Math.round(ratio * 100));
+  };
+  const hScrollToRatio = (ratio: number) => {
+    const f = frameRef.current?.scroll;
+    if (!f || (f.maxX ?? 0) <= 0) return;
+    const target = Math.round((f.maxX ?? 0) * Math.min(1, Math.max(0, ratio)));
+    const delta = Math.round((f.left ?? 0) - target);
+    if (delta !== 0) sendInput({ type: "wheel", x: 640, y: 400, deltaX: delta, deltaY: 0 });
+  };
+  const onHScrollbarTrack = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const f = frameRef.current?.scroll;
+    if (!f || !rect.width) return;
+    const thumb = hScrollbarThumbSize(f);
+    const clickX = e.clientX - rect.left - thumb / 2;
+    hScrollToRatio(Math.min(1, Math.max(0, clickX / rect.width)));
+  };
+  const onHScrollbarGrab = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault(); e.stopPropagation();
+    const f = frameRef.current?.scroll;
+    if (!f || (f.maxX ?? 0) <= 0) return;
+    const rect = e.currentTarget.parentElement!.getBoundingClientRect();
+    const ratio = (f.left ?? 0) / (f.maxX || 1);
+    hScrollDragRef.current = { x: e.clientX, left: ratio * rect.width };
+    const onMove = (ev: MouseEvent) => {
+      const s = hScrollDragRef.current; if (!s) return;
+      const newLeft = Math.min(rect.width, Math.max(0, s.left + (ev.clientX - s.x)));
+      hScrollToRatio(newLeft / rect.width);
+    };
+    const onUp = () => {
+      hScrollDragRef.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
   const scrollToRatio = (ratio: number) => {
     const f = frameRef.current?.scroll;
     if (!f || f.max <= 0) return;
@@ -516,15 +573,16 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
           </div>
         )}
         {mode === "stream" ? (
-          <div ref={stageRef} className="w-full h-full bg-gray-900 relative overflow-hidden">
+          <div ref={stageRef} className="w-full h-full bg-gray-900 relative overflow-hidden flex items-center justify-center">
           {frame ? (
-              <div className="absolute inset-0 overflow-hidden bg-white">
-                {/* 頁面填滿寬度、頂端對齊（w-full h-auto 依寬度等比，底部超出靠捲軸捲）→ 無上下黑塊 */}
+              <div className="relative overflow-hidden bg-white shrink-0"
+                style={fit ? { width: `${fit.w}px`, height: `${fit.h}px` } : undefined}>
+                {/* contain-fit：依 viewport 長寬比等比縮放到面板內（自適應、不裁切）*/}
                 <img
                   src={`data:image/jpeg;base64,${frame.jpeg}`}
                   alt="shared browser"
                   draggable={false}
-                  className="absolute top-0 left-0 w-full h-auto select-none pointer-events-none"
+                  className="absolute inset-0 w-full h-full select-none pointer-events-none"
                 />
                 {/* 透明輸入層：收滑鼠/滾輪/鍵盤（含 IME）→ 回注 agent browser（蓋滿整個面板）*/}
                 <textarea
@@ -563,6 +621,25 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
                         top: `${(frame.scroll.max > 0 ? (frame.scroll.top / frame.scroll.max) : 0) * 100}%`,
                         height: `${scrollbarThumbSize(frame.scroll)}px`,
                         transition: "top 60ms linear",
+                      }}
+                    />
+                  </div>
+                )}
+                {/* 自訂 horizontal scrollbar（2026-09-04）：拖動/點擊 → wheel deltaX 回注 */}
+                {frame.scroll && (frame.scroll.maxX ?? 0) > 0 && (
+                  <div
+                    onMouseDown={onHScrollbarTrack}
+                    onDragStart={e => e.preventDefault()}
+                    className="absolute bottom-0 left-0 w-full h-3.5 z-20 cursor-pointer select-none"
+                    title={t("browser.scrollbar")}
+                  >
+                    <div
+                      onMouseDown={onHScrollbarGrab}
+                      className="absolute bottom-0.5 h-2 rounded-full bg-white/70 hover:bg-white/90 border border-black/20"
+                      style={{
+                        left: `${((frame.scroll.left ?? 0) / (frame.scroll.maxX || 1)) * 100}%`,
+                        width: `${hScrollbarThumbSize(frame.scroll)}%`,
+                        transition: "left 60ms linear",
                       }}
                     />
                   </div>

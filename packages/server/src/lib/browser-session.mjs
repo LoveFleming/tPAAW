@@ -401,13 +401,17 @@ export async function ensureScreencast() {
       if (now - _stream.lastFrameAt >= 50) { // 廣播節流；ack 永遠送（flow control）
         _stream.lastFrameAt = now;
         // 附上 document 層 scroll 狀態（headless Chrome overlay scrollbar 在 screencast 圖裡看不見 → UI 畫自訂 scrollbar）
-        let scroll = { top: 0, max: 0, h: 0 };
+        // 2026-09-04：加 hScroll 水平捲動狀態 — UI 畫水平捲軸
+        let scroll = { top: 0, max: 0, h: 0, left: 0, maxX: 0, w: 0 };
         try {
           scroll = await page.evaluate(() => {
             const p = window.scrollY;
             const sh = document.documentElement.scrollHeight;
             const ch = document.documentElement.clientHeight;
-            return { top: p, max: Math.max(0, sh - ch), h: ch };
+            const lp = window.scrollX;
+            const sw = document.documentElement.scrollWidth;
+            const cw = document.documentElement.clientWidth;
+            return { top: p, max: Math.max(0, sh - ch), h: ch, left: lp, maxX: Math.max(0, sw - cw), w: cw };
           }).catch(() => scroll);
         } catch {}
         broadcastToStream({
