@@ -117,7 +117,16 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
 
                     {/* Preview */}
                     <div className="flex items-center gap-4 p-4 rounded-xl" style={{ backgroundColor: t.accentBg }}>
-                        <CrewAvatar crewId={id || "new"} codename={codename || "New"} size={80} />
+                        <div className="shrink-0">
+                            {imageUrl.trim() ? (
+                                <img src={`${API_BASE}${imageUrl.trim()}`} alt={codename || "avatar"}
+                                    className="w-20 h-20 rounded-full object-cover"
+                                    style={{ border: "2px solid " + t.accent }}
+                                    onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                            ) : (
+                                <CrewAvatar crewId={id || "new"} codename={codename || "New"} size={80} />
+                            )}
+                        </div>
                         <div>
                             <div className="text-lg font-bold text-stone-800">{title || "Employee Name"}</div>
                             <div className="text-sm text-stone-500">{codename || "Codename"}</div>
