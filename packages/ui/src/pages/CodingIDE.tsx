@@ -357,7 +357,7 @@ export default function CodingIDE() {
   }), [themeInfo]);
 
   // ── Layout State ──
-  const [sidebarWidth, setSidebarWidth] = useState(244);
+  const [sidebarWidth, setSidebarWidth] = useState(250);
   // Sidebar 視圖：檔案樹 vs Release Unit 樹（2026-08-22，North Star：RU 是導航第一原則）
   const [fileTreeHidden, setFileTreeHidden] = useState(false);
   // ⛶ 專注模式（2026-09-01 Fleming 要求）— Coding App 鋪滿整個視窗（蓋掉 PAAW header/sidebar），Esc 或再按一次縮回
