@@ -56,6 +56,18 @@ export function nextFeatureId(projRoot) {
   return `${prefix}${String(max + 1).padStart(3, "0")}`;
 }
 
+/** 批次產生 count 個同日連號新 feature id（接續現有 FEATURES.json 最大號）
+ *  CU feature-map step 一次重建整份清單時用（2026-09-04：修 CU 產出 F-001 舊格式問題） */
+export function nextFeatureIds(projRoot, count = 1) {
+  const first = nextFeatureId(projRoot);
+  const n = Math.max(1, count);
+  const m = first.match(/^(F\d{8})-(\d+)$/);
+  if (!m) return Array.from({ length: n }, () => first); // 非預期格式 fallback（同名去重交給 loader）
+  const prefix = m[1];
+  const start = parseInt(m[2], 10);
+  return Array.from({ length: n }, (_, i) => `${prefix}-${String(start + i).padStart(3, "0")}`);
+}
+
 // ── type heuristic：packages/ui → frontend、packages/server → backend、共用 → "" ──
 export function inferFeatureType(files = []) {
   let fe = 0, be = 0;

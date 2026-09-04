@@ -34,6 +34,7 @@
  */
 
 import { readFile, writeFile, readdir, mkdir, unlink, appendFile, stat as fsStat } from "fs/promises";
+import { nextFeatureIds } from "../lib/feature-registry.mjs"; // 2026-09-04：CU feature-map 產 F{YYYYMMDD}-{seq} 新格式 ID（原 F-001 舊格式的真正源頭）
 import { existsSync, readFileSync as readSync, readdirSync, statSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -2892,9 +2893,10 @@ export default async function projectRoute(req, res) {
                 if (!cleanJson) throw new Error("AI 回應為空，無法產生 Feature Map");
                 const features = _extractJsonArray(content);
                 if (Array.isArray(features)) {
+                  const featureIdBatch = nextFeatureIds(root, features.length);
                   const featuresWithIds = features.map((f, i) => ({
                     ...f,
-                    id: `F-${String(i + 1).padStart(3, "0")}`,
+                    id: featureIdBatch[i],
                     issues: [],
                     aiUnderstanding: "",
                     aiUnderstandingAt: null,
@@ -2949,7 +2951,8 @@ export default async function projectRoute(req, res) {
                   const recovered = cleanJson.substring(0, lastComplete + 1).trim() + '\n]';
                   const feats = JSON.parse(recovered);
                   if (Array.isArray(feats) && feats.length > 0) {
-                    const featuresWithIds = feats.map((f, i) => ({ ...f, id: `F-${String(i+1).padStart(3,"0")}`, issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
+                    const featureIdBatch = nextFeatureIds(root, feats.length);
+                    const featuresWithIds = feats.map((f, i) => ({ ...f, id: featureIdBatch[i], issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
                     const featuresDir = join(root, ".paaw", "features");
                     if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
                     await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
@@ -3291,9 +3294,10 @@ export default async function projectRoute(req, res) {
                   if (!cleanJson) throw new Error("AI 回應為空，無法產生 Feature Map");
                   const features = JSON.parse(cleanJson);
                   if (Array.isArray(features)) {
+                    const featureIdBatch = nextFeatureIds(root, features.length);
                     const featuresWithIds = features.map((f, i) => ({
                       ...f,
-                      id: `F-${String(i + 1).padStart(3, "0")}`,
+                      id: featureIdBatch[i],
                       issues: [],
                       aiUnderstanding: "",
                       aiUnderstandingAt: null,
@@ -3348,7 +3352,8 @@ export default async function projectRoute(req, res) {
                     const recovered = cleanJson.substring(0, lastComplete + 1).trim() + '\n]';
                     const feats = JSON.parse(recovered);
                     if (Array.isArray(feats) && feats.length > 0) {
-                      const featuresWithIds = feats.map((f, i) => ({ ...f, id: `F-${String(i+1).padStart(3,"0")}`, issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
+                      const featureIdBatch = nextFeatureIds(root, feats.length);
+                    const featuresWithIds = feats.map((f, i) => ({ ...f, id: featureIdBatch[i], issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
                       const featuresDir = join(root, ".paaw", "features");
                       if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
                       await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
