@@ -46,6 +46,7 @@ interface Feature {
 
 interface Props {
   rootPath: string;
+  refreshKey?: number; // 2026-09-04：外部資料更新訊號（CU 完成/掃描完成）→ 重新載入（tab 常駐 CSS hide 不會 remount，需要顯式刷新）
   theme: {
     bg: string;
     bgMuted: string;
@@ -71,7 +72,7 @@ const HTTP_COLORS: Record<string, string> = {
   DELETE: "#dc2626",
 };
 
-export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
+export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: Props) {
   const { t } = useI18n();
   const [features, setFeatures] = useState<Feature[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -109,7 +110,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
       } catch { /* model 未建時 silent — detail fallback 舊 sections */ }
     })();
     return () => { cancelled = true; };
-  }, [rootPath]);
+  }, [rootPath, refreshKey]); // refreshKey：CU 重跑後 RU model / callChain 也要重抓
 
   const basePath = `${API_BASE}/api/coding-features?path=${encodeURIComponent(rootPath)}`;
 
@@ -143,7 +144,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
       setFetchError(`連線失敗: ${err.message}`);
     }
     setLoading(false);
-  }, [basePath, searchQuery]);
+  }, [basePath, searchQuery, refreshKey]);
 
   useEffect(() => { fetchFeatures(); }, [fetchFeatures]);
 
