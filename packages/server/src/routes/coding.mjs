@@ -2034,62 +2034,6 @@ export default async function projectRoute(req, res) {
     return true;
   }
 
-  // ── Recent projects (multi-project) — global routes, do NOT need ?path= ──
-  // Must sit BEFORE the `if (!projectPath)` guard below (2026-08-15 fix:
-  // they lived inside the guarded try-block and always returned 400)
-  if (url.startsWith("/api/coding-project/recent")) {
-    const recentPath = join(DATA_HOME, "config", "recent-projects.json");
-    const loadRecent = () => {
-      try {
-        if (existsSync(recentPath)) return JSON.parse(readSync(recentPath, "utf-8"));
-      } catch {}
-      return [];
-    };
-
-    // GET — list recently opened projects
-    if (method === "GET") {
-      const recent = loadRecent().map(r => ({ ...r, path: normalizePath(r.path) }));
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(recent));
-      return true;
-    }
-
-    // DELETE — remove a project from recent list
-    if (method === "DELETE") {
-      const removePath = new URL(req.url, "http://localhost").searchParams.get("path");
-      let recent = loadRecent();
-      if (removePath) {
-        recent = recent.filter(r => normalizePath(r.path) !== normalizePath(removePath));
-        await mkdir(dirname(recentPath), { recursive: true });
-        await writeFile(recentPath, JSON.stringify(recent, null, 2), "utf-8");
-      }
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(recent.map(r => ({ ...r, path: normalizePath(r.path) }))));
-      return true;
-    }
-
-    // POST — add/update recent project
-    if (method === "POST") {
-      const body = JSON.parse(await readBody(req) || "{}");
-      const path = normalizePath(body.path || "");
-      if (path) {
-        let recent = loadRecent();
-        const name = body.name || path.split(/[\\/]/).pop();
-        recent = recent.filter(r => normalizePath(r.path) !== path);
-        recent.unshift({ path, name, lastOpened: new Date().toISOString(), hasPaaw: existsSync(join(path, ".paaw")) });
-        recent = recent.slice(0, 20); // keep last 20
-        await mkdir(dirname(recentPath), { recursive: true });
-        await writeFile(recentPath, JSON.stringify(recent, null, 2), "utf-8");
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(recent));
-      } else {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Missing path in body" }));
-      }
-      return true;
-    }
-  }
-
   if (!projectPath) {
     res.writeHead(400, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Missing 'path' query parameter" }));

@@ -581,10 +581,6 @@ export default function CodingIDE() {
   const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions" | "prompts" | "status">("chat");
 
 
-  // ── Recent Projects State ──
-  const [recentProjects, setRecentProjects] = useState<{ path: string; name: string; hasPaaw: boolean }[]>([]);
-  const [showRecentProjects, setShowRecentProjects] = useState(false);
-
   // ── New Project State ──
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProjectStep, setNewProjectStep] = useState(1); // 1=template, 2=config, 3=creating
@@ -669,9 +665,6 @@ export default function CodingIDE() {
   // Close / unload project
   const closeProject = useCallback(() => {
     if (!rootPath) return;
-    // Remove from recent projects
-    fetch(`${API_BASE}/api/coding-project/recent?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" })
-      .then(r => r.json()).then(data => { if (Array.isArray(data)) setRecentProjects(data); }).catch(() => {});
     // Clear state
     setRootPath("");
     setSidebarTab("ru");
@@ -930,10 +923,6 @@ export default function CodingIDE() {
 
   useEffect(() => {
     try { localStorage.setItem("paaw.vibeide.rootPath", rootPath); } catch {}
-    // Save to recent projects server-side
-    if (rootPath) {
-      fetch(`${API_BASE}/api/coding-project/recent?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).catch(() => {});
-    }
   }, [rootPath]);
 
   // ── Persist main tabs to localStorage (per project) ──
@@ -1068,10 +1057,6 @@ export default function CodingIDE() {
     })();
   }, [rootPath]);
 
-  // Load recent projects on mount
-  useEffect(() => {
-    fetch(`${API_BASE}/api/coding-project/recent`).then(r => r.json()).then(data => { if (Array.isArray(data)) setRecentProjects(data); }).catch(() => {});
-  }, []);
   useEffect(() => {
     try { localStorage.setItem("paaw.api-tester.history", JSON.stringify(apiHistory.slice(0, 50))); } catch {}
   }, [apiHistory]);
@@ -2657,18 +2642,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   <span>✕</span> {tt("vibe.closeProject")}
                 </button>
               )}
-              {recentProjects.length > 0 && (
-                <>
-                  <div className="border-t border-stone-100 my-1" />
-                  <div className="px-3 py-1 text-xs font-semibold text-stone-400">{tt("vibe.recentProjects", "Recent Projects")}</div>
-                  {recentProjects.slice(0, 8).map(rp => (
-                    <button key={rp.path} onClick={() => { setShowProjectMenu(false); switchRu(rp.path); }}
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 flex items-center gap-2 truncate">
-                      <span className="shrink-0">{rp.hasPaaw ? "🤖" : "📁"}</span> <span className="truncate">{rp.name}</span>
-                    </button>
-                  ))}
-                </>
-              )}
             </div>
           )}
         </div>
@@ -2958,17 +2931,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 ))}
                 {releaseUnits.length === 0 && (
                   <div className="text-xs text-stone-400 text-center mt-8 leading-relaxed">{tt("ru.empty")}</div>
-                )}
-                {recentProjects.length > 0 && (
-                  <div className="border-t border-stone-100 pt-2 mt-2">
-                    <div className="text-[10px] font-semibold text-stone-400 mb-1">{tt("vibe.recentProjects", "Recent Projects")}</div>
-                    {recentProjects.slice(0, 5).map(rp => (
-                      <button key={rp.path} onClick={() => { switchRu(rp.path); }}
-                        className="w-full text-left px-2 py-1.5 text-xs hover:bg-blue-50 rounded flex items-center gap-1.5 truncate">
-                        <span className="shrink-0">{rp.hasPaaw ? "🤖" : "📁"}</span> <span className="truncate text-stone-600">{rp.name}</span>
-                      </button>
-                    ))}
-                  </div>
                 )}
                 <div className="mt-auto pt-2 border-t border-stone-100 text-[10px] text-stone-400 leading-relaxed">{tt("ru.hint")}</div>
               </div>
