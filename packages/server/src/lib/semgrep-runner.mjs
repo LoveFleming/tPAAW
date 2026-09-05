@@ -151,7 +151,7 @@ const INSTALL_INSTRUCTIONS = IS_WIN
 function scanSourceExtensions(projectRoot, maxDepth = 4) {
   const found = new Set();
   const excludeDirs = new Set(["node_modules", ".git", "dist", "build", "coverage", ".paaw", "semgrep-rules"]);
-  const targetExts = new Set([".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".py", ".java"]);
+  const targetExts = new Set([".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".py", ".java", ".go"]);
 
   function walk(dir, depth) {
     if (depth > maxDepth) return;
@@ -193,6 +193,9 @@ export function detectRulePacks(projectRoot) {
     }
     if (exts.has(".java")) {
       packs.push(safePath(join(LOCAL_RULES_DIR, "java")));
+    }
+    if (exts.has(".go")) {
+      packs.push(safePath(join(LOCAL_RULES_DIR, "golang")));
     }
     if (existsSync(join(LOCAL_RULES_DIR, "problem-based-packs"))) {
       packs.push(safePath(join(LOCAL_RULES_DIR, "problem-based-packs")));
@@ -308,7 +311,7 @@ export async function runSemgrep(projectRoot, options = {}) {
     return {
       findings: [],
       stats: { total: 0, bySeverity: {}, byCategory: {}, filesScanned: 0, rulesRun: 0 },
-      error: "No supported source files found. Semgrep needs .js/.ts/.py/.java files to scan.",
+      error: "No supported source files found. Semgrep needs .js/.ts/.py/.java/.go files to scan.",
     };
   }
 
