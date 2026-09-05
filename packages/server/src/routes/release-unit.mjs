@@ -180,6 +180,42 @@ export default async function releaseUnitRoutes(req, res, next) {
     return json(res, 200, { ok: true });
   }
 
+  // POST /api/ru/clone — Git URL → clone 成新 Release Unit（2026-09-05 Phase 2 wizard）
+  // 只接受 https:// / http:// / git@ 遠端 URL；本地路徑請用 Import。
+  // clone 完丟回 path，註冊由 client 走 POST /api/ru/workspaces（crew provisioning 在那邊）
+  if (url === "/api/ru/clone" && method === "POST") {
+    const body = await readBody(req);
+    const gitUrl = String(body.gitUrl || "").trim();
+    const parentDirRaw = String(body.parentDir || "").trim();
+    if (!gitUrl) return json(res, 400, { error: "gitUrl required" });
+    if (!parentDirRaw || !existsSync(parentDirRaw)) return json(res, 400, { error: "parentDir required and must exist" });
+    // 防注入：URL 只准安全字元（git URL 常見字符）；擋 shell metacharacters
+    if (!/^(https?:\/\/|git@)[A-Za-z0-9._~:@\/%+-]+$/.test(gitUrl) || /[\s;`$&|<>"']/.test(gitUrl)) {
+      return json(res, 400, { error: "invalid gitUrl — 只接受 https:// 或 git@ 開頭的遠端 URL" });
+    }
+    const parentDir = resolve(parentDirRaw);
+    // repo 名：URL 尾段去 .git；防空 → fallback "repo"
+    const tail = gitUrl.split("/").pop() || "";
+    let repoName = tail.endsWith(".git") ? tail.slice(0, -4) : tail;
+    // git@host:path 形式尾段可能帶 ':'
+    repoName = (repoName.split(":").pop() || "").replace(/[^A-Za-z0-9._-]/g, "") || "repo";
+    const target = join(parentDir, repoName);
+    if (existsSync(target)) {
+      return json(res, 409, { error: `目錄已存在：${normalizePath(target)}（要嘛先刪，要嘛直接 Import 它）` });
+    }
+    try {
+      const { stdout, stderr } = await shellExec(`git clone -- ${JSON.stringify(gitUrl)} ${JSON.stringify(target)}`, { timeout: 600_000, maxBuffer: 10 * 1024 * 1024 });
+      if (!existsSync(join(target, ".git"))) {
+        return json(res, 500, { error: "clone 失敗", detail: String(stderr || stdout || "").slice(-500) });
+      }
+      return json(res, 200, { ok: true, path: normalizePath(target), label: repoName.slice(0, 40) });
+    } catch (e) {
+      // clone 了一半失敗 → 清掉殘骸，不留半成品
+      try { await shellExec(process.platform === "win32" ? `rmdir /s /q ${JSON.stringify(target)}` : `rm -rf ${JSON.stringify(target)}`, { timeout: 30_000 }); } catch {}
+      return json(res, 500, { error: "clone 失敗", detail: String(e.stderr || e.stdout || e.message || "").slice(-500) });
+    }
+  }
+
   // ── GET /api/ru/qa — 新人 12 問 deterministic 引擎（R5：no answer without evidence）──
   if (url === "/api/ru/qa" && method === "GET") {
     if (!validRoot(path)) return badPath(res, path);

@@ -34,6 +34,8 @@ import SidebarFileTree from "../components/SidebarFileTree";
 import CodeIntelPage from "../components/CodeIntelPage";
 import TestsPage from "../components/TestsPage";
 import EMDashboard from "../components/EMDashboard";
+import RuCloneModal from "../components/RuCloneModal";
+import RuOnboardingModal from "../components/RuOnboardingModal";
 import { GitPanel } from "../components/git";
 import { BrowserPanel } from "../components/browser/BrowserPanel";
 import DiffViewer from "../components/DiffViewer";
@@ -826,6 +828,8 @@ export default function CodingIDE() {
   const distillTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [showDirExplorer, setShowDirExplorer] = useState(false);
+  const [showRuClone, setShowRuClone] = useState(false);
+  const [onboardingPath, setOnboardingPath] = useState<string | null>(null);
 
   // ── Derived: sync activeTab with activeMainTab ──
   // activeTabId is the sidebar tab; but the MAIN panel is driven by activeMainTab.
@@ -2376,9 +2380,28 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
     {showDirExplorer && (
       <DirectoryExplorer
         initialPath={rootPath || undefined}
-        onSelect={(path) => { switchRu(path); setShowDirExplorer(false); }}
+        onSelect={(path) => { switchRu(path); setShowDirExplorer(false); setOnboardingPath(path); }}
         onClose={() => setShowDirExplorer(false)}
         title="📂 選擇專案目錄"
+      />
+    )}
+
+    {/* Git Clone Modal（Phase 2 wizard：🌐 從 Git Repo 建 RU）*/}
+    {showRuClone && (
+      <RuCloneModal
+        theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, text: tk.text }}
+        onClose={() => setShowRuClone(false)}
+        onCloned={(path) => { setShowRuClone(false); switchRu(path); setOnboardingPath(path); }}
+      />
+    )}
+
+    {/* RU Onboarding Modal（import/clone 後：掃描 → Skill 建議 → CU）*/}
+    {onboardingPath && (
+      <RuOnboardingModal
+        rootPath={onboardingPath}
+        theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, text: tk.text }}
+        onClose={() => setOnboardingPath(null)}
+        onOpenEm={() => openMainTab(DASHBOARD_TAB)}
       />
     )}
 
@@ -2874,6 +2897,10 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   <button onClick={() => setShowDirExplorer(true)}
                     className="w-full text-xs px-2 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-center whitespace-nowrap">
                     📂 {tt("ru.import", "Import")}
+                  </button>
+                  <button onClick={() => setShowRuClone(true)}
+                    className="w-full text-xs px-2 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-center whitespace-nowrap">
+                    🌐 {tt("ru.clone")}
                   </button>
                   <button onClick={() => { setNewProjectParent(""); setNewProjectName(""); setNewProjectError(""); setShowNewProject(true); }}
                     className="w-full text-xs px-2 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-center whitespace-nowrap">
