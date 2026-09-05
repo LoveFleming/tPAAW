@@ -89,6 +89,7 @@ const ROUTE_MODULES = [
   "./routes/projects.mjs",
   "./routes/a2a.mjs",
   "./routes/helpdesk.mjs",
+  "./routes/coding-skill-suggest.mjs",
   "./routes/coding.mjs",
   "./routes/coding-issues.mjs",
   "./routes/coding-tasks.mjs",

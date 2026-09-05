@@ -11,6 +11,7 @@ import { cn } from "../utils";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import AgentBuilder from "./AgentBuilder";
+import SkillSuggestModal from "./SkillSuggestModal";
 import SkillPicker from "./SkillPicker";
 
 // ── Types ──
@@ -116,6 +117,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [showSuggest, setShowSuggest] = useState(false);
   const [detailTab, setDetailTab] = useState<DetailTab>("rules");
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
@@ -387,6 +389,11 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
             <span className="text-xs text-stone-400">{agents.length}</span>
           </div>
           <p className="text-[11px] text-stone-400 mt-0.5">專案客製化 Agent 管理</p>
+          <button onClick={() => setShowSuggest(true)}
+            className="mt-2 w-full text-[11px] px-2 py-1.5 rounded-lg border bg-white hover:bg-stone-50 text-stone-600 font-medium"
+            style={{ borderColor: t.borderLight }} data-testid="skill-suggest-open">
+            {tt("ss.openBtn")}
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto py-1">
@@ -933,6 +940,12 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
           onClose={() => setShowBuilder(false)}
           onCreated={handleAgentCreated}
         />
+      )}
+      {showSuggest && (
+        <SkillSuggestModal rootPath={rootPath}
+          theme={{ bg: t.bg, bgMuted: t.bgMuted, borderLight: t.borderLight, accent: t.accent, text: t.text }}
+          onClose={() => setShowSuggest(false)}
+          onApplied={() => { loadCrew(); onCrewChanged?.(); }} />
       )}
     </div>
   );
