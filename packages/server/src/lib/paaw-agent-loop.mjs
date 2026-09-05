@@ -523,10 +523,10 @@ export const PAAW_TOOLS = [
           category: {
             type: "string",
             enum: ["context", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "standards_read", "error_codes"],
-            description: "What to query: context=project overview (PROJECT.md+standards+feature map), features=feature map, feature_detail=single feature, runbook=troubleshooting, sessions=work sessions, test_map=test intelligence, recent_changes=change intelligence, api_history=API tester logs, project_read=human-written PROJECT.md, standards_read=human-written CODING-STANDARDS.md, error_codes=error codes by feature (寫碼前查既有 codes 不重複；帶 feature 參數看單一 feature)"
+            description: "What to query: context=project overview (PROJECT.md+standards+feature map), features=feature map, feature_detail=single feature, runbook=troubleshooting, sessions=work sessions, test_map=test intelligence, recent_changes=change intelligence, api_history=API tester logs, project_read=human-written PROJECT.md, standards_read=human-written CODING-STANDARDS.md, error_codes=error codes by feature（寫碼前查既有 codes 不重複；debug 時帶 search=錯誤碼/訊息穩定片段反查 feature+file:line；帶 feature 看單一 feature）"
           },
           id: { type: "string", description: "Feature/issue ID (正式格式 F{YYYYMMDD}-{NNN}，如 F20260904-001；issue 為 ISS-001). 一律用 project_info 查現況，勿自編. Used with category=feature_detail." },
-          search: { type: "string", description: "Search keyword. Used with: features (by name), runbook (by content), faq (by keyword)." },
+          search: { type: "string", description: "Search keyword. Used with: features (by name), runbook (by content), faq (by keyword), error_codes (錯誤碼/訊息片段反查 — debug 入口)." },
           code: { type: "string", description: "Error code for runbook lookup (e.g. ORD-001)." },
           name: { type: "string", description: "Standard name to read (for category=standards). If omitted, lists all." },
           status: { type: "string", description: "Filter issues by status (comma-separated): open,in-progress,resolved,closed,wontfix." },
@@ -2124,6 +2124,32 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             try {
               const data = JSON.parse(readSync(ecFile, "utf-8"));
             if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${data.stats?.uniqueCodes || 0} codes` });
+              // 🔍 反查（debug 入口）：錯誤碼/訊息片段 → feature + file:line
+              if (args.search) {
+                const q = String(args.search).toLowerCase();
+                const hit = (c) => (c.code || "").toLowerCase().includes(q) || (c.message || "").toLowerCase().includes(q) || (c.file || "").toLowerCase().includes(q);
+                const groups = [];
+                for (const g of data.byFeature || []) {
+                  const matched = (g.codes || []).filter(hit);
+                  if (matched.length) groups.push({ g, matched });
+                }
+                const unmappedHits = (data.unmapped || []).filter(hit);
+                if (!groups.length && !unmappedHits.length) {
+                  return `🔍 沒有 hit「${args.search}」。建議：換更短的穩定片段（code 前綴或訊息關鍵字，避開變數值），或不帶 search 列出全部。`;
+                }
+                const lines = [`🔍 error codes 反查「${args.search}」：`];
+                for (const { g, matched } of groups.slice(0, 10)) {
+                  lines.push(``, `[${g.featureId}] ${g.featureName}${g.summary ? ` — ${g.summary.slice(0, 80)}` : ""}`);
+                  for (const c of matched.slice(0, 8)) {
+                    lines.push(`  ${c.code || `(無code)`}${c.message ? `「${c.message}」` : ""} @${c.file}${c.line ? ":" + c.line : ""}${c.httpStatus ? ` [HTTP ${c.httpStatus}]` : ""}${c.kind === "throw" ? " (throw)" : ""}`);
+                  }
+                }
+                if (unmappedHits.length) {
+                  lines.push(``, `(unmapped — 不屬於任何 feature:)`);
+                  for (const c of unmappedHits.slice(0, 5)) lines.push(`  ${c.code || `(無code)`}${c.message ? `「${c.message}」` : ""} @${c.file}${c.line ? ":" + c.line : ""}`);
+                }
+                return lines.join("\n");
+              }
               if (args.feature) {
                 const g = (data.byFeature || []).find(f => f.featureId === args.feature || f.featureName?.toLowerCase().includes(String(args.feature).toLowerCase()));
                 if (!g) return `(No error codes found for feature '${args.feature}')`;
