@@ -72,11 +72,12 @@ const CU_STEP_FILES = {
   "feature-map": "features/FEATURES.json",
   "code-intelligence": "code-intelligence/summary.json",
   "test-intelligence": "code-intelligence/test-intelligence.json",
+  "error-codes": "error-codes.json",
   // 人寫的非自動 step（給健康檢查參考）
   overview: "project/PROJECT.md",
   standards: "project/CODING-STANDARDS.md",
 };
-const CU_MECHANICAL_STEPS = new Set(["code-intelligence", "test-intelligence"]);
+const CU_MECHANICAL_STEPS = new Set(["code-intelligence", "test-intelligence", "error-codes"]);
 const CU_MANUAL_STEPS = new Set(["overview", "standards"]); // 人寫文件 — CU 重跑不會更新，過期只能人工改
 const STALE_TOLERANCE_MS = 2000; // 同步競態容差
 function computeCuStaleness(root, steps, codeLastModifiedMs) {
@@ -2632,6 +2633,7 @@ export default async function projectRoute(req, res) {
         { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
         { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
+        { id: "error-codes", name: "🔢 Error Codes by Feature", promptFile: null },
       ];
       const step = ALL_STEPS.find(s => s.id === stepId);
       if (!step) {
@@ -2789,6 +2791,28 @@ export default async function projectRoute(req, res) {
           return true;
         }
 
+        // Special handling: error-codes — by-feature error code scan（純機器，零 token）
+        if (step.id === "error-codes") {
+          try {
+            cuLog(step.id, "Scanning error codes by feature...");
+            const { scanErrorCodes } = await import("../lib/error-code-scan.mjs");
+            const ecResult = scanErrorCodes(root);
+            cuLog(step.id, `Error codes done: ${ecResult.uniqueCodes} unique / ${ecResult.featureCount} features / ${ecResult.violations.length} violations`);
+            sendEvent("step_done", {
+              step: step.id,
+              name: step.name,
+              summary: `${ecResult.uniqueCodes} codes, ${ecResult.featureCount} features, ${ecResult.violations.length} violations`,
+              stats: { total: ecResult.total, uniqueCodes: ecResult.uniqueCodes, featureCount: ecResult.featureCount, violations: ecResult.violations.length, unmapped: ecResult.unmapped.length },
+            });
+            try { await paaw.setCuStepStatus(step.id, "done", { summary: `${ecResult.uniqueCodes} codes / ${ecResult.violations.length} violations` }); } catch {}
+          } catch (err) {
+            cuLog(step.id, `Error codes failed: ${err.message}`);
+            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+          }
+          sendEvent("done", { message: "Error codes complete" });
+          res.end();
+          return true;
+        }
         // Special handling: change-intelligence runs git log analysis (no LLM needed)
         if (step.id === "change-intelligence") {
           try {
@@ -3095,6 +3119,7 @@ export default async function projectRoute(req, res) {
         { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
         { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
+        { id: "error-codes", name: "🔢 Error Codes by Feature", promptFile: null },
       ];
 
       // SSE stream — send progress as each step completes
@@ -3228,6 +3253,23 @@ export default async function projectRoute(req, res) {
               try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.totalTestFiles} tests` }); } catch {}
             } catch (err) {
               cuLog(step.id, `[bulk] Test intelligence failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+            }
+            continue;
+          }
+
+          // Special handling: error-codes — by-feature error code scan（純機器，零 token）
+          if (step.id === "error-codes") {
+            try {
+              cuLog(step.id, "[bulk] Scanning error codes by feature...");
+              const { scanErrorCodes } = await import("../lib/error-code-scan.mjs");
+              const ecResult = scanErrorCodes(root);
+              cuLog(step.id, `[bulk] Error codes: ${ecResult.uniqueCodes} unique / ${ecResult.featureCount} features / ${ecResult.violations.length} violations`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${ecResult.uniqueCodes} codes, ${ecResult.featureCount} features, ${ecResult.violations.length} violations` });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${ecResult.uniqueCodes} codes / ${ecResult.violations.length} violations` }); } catch {}
+            } catch (err) {
+              cuLog(step.id, `[bulk] Error codes failed: ${err.message}`);
               sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
               try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
             }

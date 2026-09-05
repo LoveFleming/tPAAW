@@ -522,8 +522,8 @@ export const PAAW_TOOLS = [
         properties: {
           category: {
             type: "string",
-            enum: ["context", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "standards_read"],
-            description: "What to query: context=project overview (PROJECT.md+standards+feature map), features=feature map, feature_detail=single feature, runbook=troubleshooting, sessions=work sessions, test_map=test intelligence, recent_changes=change intelligence, api_history=API tester logs, project_read=human-written PROJECT.md, standards_read=human-written CODING-STANDARDS.md"
+            enum: ["context", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "standards_read", "error_codes"],
+            description: "What to query: context=project overview (PROJECT.md+standards+feature map), features=feature map, feature_detail=single feature, runbook=troubleshooting, sessions=work sessions, test_map=test intelligence, recent_changes=change intelligence, api_history=API tester logs, project_read=human-written PROJECT.md, standards_read=human-written CODING-STANDARDS.md, error_codes=error codes by feature (寫碼前查既有 codes 不重複；帶 feature 參數看單一 feature)"
           },
           id: { type: "string", description: "Feature/issue ID (正式格式 F{YYYYMMDD}-{NNN}，如 F20260904-001；issue 為 ISS-001). 一律用 project_info 查現況，勿自編. Used with category=feature_detail." },
           search: { type: "string", description: "Search keyword. Used with: features (by name), runbook (by content), faq (by keyword)." },
@@ -533,7 +533,7 @@ export const PAAW_TOOLS = [
           priority: { type: "string", description: "Filter issues by priority (comma-separated): critical,high,medium,low." },
           severity: { type: "string", description: "Filter security findings (case-insensitive): critical,error,warning,info." },
           file: { type: "string", description: "File path filter. Used with: test_map (which tests cover this file), security (findings for file), recent_changes (impact of file)." },
-          feature: { type: "string", description: "Feature ID for test_map: list all tests for that feature." },
+          feature: { type: "string", description: "Feature ID. Used with: test_map (list all tests for that feature), error_codes (codes for that feature)." },
           days: { type: "number", description: "Days back for recent_changes (default: 30)." },
           limit: { type: "number", description: "Max results for sessions/api_history (default: 5/20)." },
           method: { type: "string", description: "Filter api_history by HTTP method." },
@@ -2117,6 +2117,25 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
               }).join("\n\n");
               return `Features (${features.length}):\n\n${list}`;
             } catch (err) { return `Error reading features: ${err.message}`; }
+          }
+          case "error_codes": { // 2026-09-05：error code by feature — agent 寫碼前查既有 codes、helpdesk 從 code 追 feature
+            const ecFile = join(cwd, ".paaw", "error-codes.json");
+            if (!existsSync(ecFile)) return "(No error-codes.json — CU error-codes step 未跑。請跑 CU 或請人類在 FeatureMap panel 重掃。)";
+            try {
+              const data = JSON.parse(readSync(ecFile, "utf-8"));
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${data.uniqueCodes || 0} codes` });
+              if (args.feature) {
+                const g = (data.byFeature || []).find(f => f.featureId === args.feature || f.featureName?.toLowerCase().includes(String(args.feature).toLowerCase()));
+                if (!g) return `(No error codes found for feature '${args.feature}')`;
+                const lines = g.codes.map(c => `  ${c.code} — ${c.file}:${c.line} (${c.kind}${c.issues?.length ? "; issues: " + c.issues.join(", ") : ""})`);
+                if (data.annotations?.[g.featureId]?.summary) lines.push(`\nAI 註解：${data.annotations[g.featureId].summary}`);
+                return `Error codes for [${g.featureId}] ${g.featureName} (${g.uniqueCount} unique):\n${lines.join("\n")}`;
+              }
+              const head = (data.byFeature || []).slice(0, args.limit ? Number(args.limit) : 15).map(g =>
+                `[${g.featureId}] ${g.featureName}: ${g.uniqueCount} codes${(data.violations || []).some(v => g.codes.some(c => c.code === v.code)) ? " (⚠️ 有違規)" : ""}`);
+              const extra = (data.byFeature || []).length > 15 ? `\n... 共 ${data.byFeature.length} 個 feature（帶 feature 參數看單一 feature）` : "";
+              return `Error codes by feature (${data.uniqueCodes} unique / ${data.byFeature?.length || 0} features / ${data.violations?.length || 0} violations):\n${head.join("\n")}${extra}\nunmapped: ${data.unmapped?.length || 0}`;
+            } catch (err) { return `Error reading error-codes: ${err.message}`; }
           }
           case "feature_detail": {
             if (!args.id) return "Error: 'id' parameter is required for feature_detail.";

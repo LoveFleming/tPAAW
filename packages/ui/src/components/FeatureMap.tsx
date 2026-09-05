@@ -88,6 +88,37 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
   // RU model + callChain（Feature Cockpit 資料源 — deterministic，零 LLM）
   const [ruModel, setRuModel] = useState<any>(null);
   const [callChainMap, setCallChainMap] = useState<Map<string, any> | null>(null);
+  // Error codes by feature（2026-09-05 — CU 機器步驟產出，零 token）
+  const [ecData, setEcData] = useState<any>(null);
+  const [ecBusy, setEcBusy] = useState<"" | "rescan" | "annotate">("");
+  const loadErrorCodes = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-project/error-codes?path=${encodeURIComponent(rootPath)}`);
+      if (res.ok) setEcData(await res.json());
+    } catch { /* 缺檔/沒慣例 — silent */ }
+  }, [rootPath]);
+  useEffect(() => { loadErrorCodes(); }, [loadErrorCodes, refreshKey]);
+  const ecMap = React.useMemo(() => {
+    const m = new Map<string, { uniqueCount: number; codes: any[]; hasViolation: boolean }>();
+    for (const g of ecData?.byFeature || []) {
+      m.set(g.featureId, { uniqueCount: g.uniqueCount, codes: g.codes, hasViolation: g.codes.some((c: any) => c.issues?.length) });
+    }
+    return m;
+  }, [ecData]);
+  const ecRescan = async () => {
+    setEcBusy("rescan");
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-project/error-codes/rescan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: rootPath }) });
+      if (res.ok) setEcData(await res.json());
+    } catch {} setEcBusy("");
+  };
+  const ecAnnotate = async () => {
+    setEcBusy("annotate");
+    try {
+      await fetch(`${API_BASE}/api/coding-project/error-codes/annotate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: rootPath }) });
+      await loadErrorCodes(); // 註解存回 json — 重新讀
+    } catch {} setEcBusy("");
+  };
   useEffect(() => {
     let cancelled = false;
     setRuModel(null); setCallChainMap(null);
@@ -231,6 +262,12 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
               🗺️ {t("feature.title")}
             </span>
             <div className="flex gap-1">
+              <button onClick={ecRescan} disabled={!!ecBusy} className="text-xs px-1.5 py-0.5 rounded" style={{ background: theme.accentBg, color: theme.accent, opacity: ecBusy ? 0.5 : 1 }} title={t("feature.ecRescan")}>
+                {ecBusy === "rescan" ? "⏳" : "🔢"}
+              </button>
+              <button onClick={ecAnnotate} disabled={!!ecBusy || !ecData?.byFeature?.length} className="text-xs px-1.5 py-0.5 rounded" style={{ background: theme.accentBg, color: theme.accent, opacity: ecBusy || !ecData?.byFeature?.length ? 0.5 : 1 }} title={t("feature.ecAnnotate")}>
+                {ecBusy === "annotate" ? "⏳" : "✨"}
+              </button>
               <button onClick={() => handleRefreshMapping()} disabled={refreshing} className="text-xs px-1.5 py-0.5 rounded" style={{ background: refreshing ? theme.bgMuted : theme.accentBg, color: refreshing ? theme.text : theme.accent, opacity: refreshing ? 0.5 : 1 }} title={refreshing ? t("feature.refreshingHint") : t("feature.refreshMapping")}>
                 {refreshing ? "⏳" : "🔄"}
               </button>
@@ -315,6 +352,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
                   )}
                   <div className="flex items-center gap-2 mt-1 text-[10px]" style={{ color: theme.text, opacity: 0.5 }}>
                     {f.codeFiles.length > 0 && <span>📄 {f.codeFiles.length}</span>}
+                    {ecMap.get(f.id)?.uniqueCount ? <span style={{ color: ecMap.get(f.id)?.hasViolation ? "#d97706" : undefined }}>🔢 {ecMap.get(f.id)!.uniqueCount}</span> : null}
                     {f.apis.length > 0 && <span>🌐 {f.apis.length}</span>}
                     {f.tests.length > 0 && <span>🧪 {f.tests.length}</span>}
                     {f.issues.length > 0 && <span>🐛 {f.issues.length}</span>}
@@ -452,6 +490,35 @@ function FeatureDetail({ feature, theme, t, onOpenFile, ruModel, callChainMap, e
       </div>
 
       <div className="p-4 flex flex-col gap-4">
+        {/* 🔢 Error Codes by feature（CU 機器掃描 — 不管 cockpit/fallback 都顯示）*/}
+        {(() => {
+          const g = ecMap.get(feature.id);
+          const codes = g?.codes || [];
+          const ann = ecData?.annotations?.[feature.id];
+          return (
+            <Section title={`🔢 ${t("feature.ecTitle")}`} count={g?.uniqueCount || 0} theme={theme}>
+              {codes.length === 0 && <div className="text-xs px-2 py-1" style={{ color: theme.text, opacity: 0.45 }}>{t("feature.ecEmpty")}</div>}
+              {codes.map((c: any, i: number) => (
+                <div key={`${c.code}-${c.file}-${c.line}-${i}`} className="flex items-center gap-2 text-xs px-2 py-1 rounded" style={{ background: theme.bgMuted }}>
+                  <span title={c.kind === "throw" ? "throw / raise 位置" : "字串參考"}>{c.kind === "throw" ? "🚨" : "📄"}</span>
+                  <span className="font-mono font-bold" style={{ color: c.issues?.length ? "#d97706" : theme.accent }}>{c.code}</span>
+                  <button onClick={() => onOpenFile?.(c.file)} className="font-mono hover:underline truncate" style={{ color: theme.text, opacity: 0.55 }}>{c.file}:{c.line}</button>
+                  {(c.issues || []).map((iss: string) => (
+                    <span key={iss} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "#fef3c7", color: "#b45309" }}>⚠️ {iss}</span>
+                  ))}
+                </div>
+              ))}
+              {ann?.summary && (
+                <div className="mt-1 px-2 py-1.5 rounded text-xs" style={{ background: theme.bgMuted, color: theme.text, opacity: 0.8 }}>
+                  <div>✨ {ann.summary}</div>
+                  {(ann.notes || []).slice(0, 3).map((n: string, i: number) => <div key={i} className="opacity-60 mt-0.5">• {n}</div>)}
+                  {(ann.suggestions || []).length > 0 && <div className="mt-1 opacity-70">💡 {(ann.suggestions || []).join(" / ")}</div>}
+                </div>
+              )}
+            </Section>
+          );
+        })()}
+
         {/* 🛗 Feature Cockpit（RU model deterministic 全景 — Entry Points 調用鏈 / Code Structure / Tests kind / Changes）*/}
         {ruFeature && ruModel && (
           <FeatureCockpit
