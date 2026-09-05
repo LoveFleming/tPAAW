@@ -2929,6 +2929,7 @@ export default async function projectRoute(req, res) {
             try {
               const { organizeFeatureMapV2 } = await import("../lib/feature-map-v2.mjs");
               const { features, meta } = await organizeFeatureMapV2(root, {
+                model: cuModelOverride || undefined,
                 callLLM: (body) => callProjectLLM({ ...body, model: cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
                 onProgress: (msg) => { cuLog(step.id, msg); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
                 paawRoot: PAAW_ROOT,
@@ -3345,6 +3346,7 @@ export default async function projectRoute(req, res) {
               cuLog(step.id, "[bulk] feature-map v2 (deterministic skeleton + LLM flesh)...");
               const { organizeFeatureMapV2 } = await import("../lib/feature-map-v2.mjs");
               const { features, meta } = await organizeFeatureMapV2(root, {
+                model: cuModelOverride || undefined,
                 callLLM: (body) => callProjectLLM({ ...body, model: cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
                 onProgress: (msg) => { cuLog(step.id, `[bulk] ${msg}`); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
                 paawRoot: PAAW_ROOT,

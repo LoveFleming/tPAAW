@@ -24,7 +24,7 @@
 | # | 步驟 | 產物 | 內容 |
 |---|------|------|------|
 | 1.1 | 📡 Scan | project-scan.json | 語言/框架/檔案樹/規模 |
-| 1.2 | 🗺️ Feature Map v2 | features/FEATURES.json | **骨架數學決定論：進入點(route/UI/API) → reach closure → Jaccard 聚類（同 repo 重跑必同輸出）**；LLM 只長肉（命名/description/bizLogic 摘要）；orphans 程式歸不了 → LLM 分組標 `grade:"utility"`（非決定論，人定案）；meta 檔記 shared 層/方法/stats |
+| 1.2 | 🗺️ Feature Map v2 | features/FEATURES.json | **骨架數學決定論：進入點(route/UI/API) → reach closure → Jaccard 聚類（同 repo 重跑必同輸出）**；長肉 = **每個 feature 一個獨立 agent loop**（cu-feature agent，core-read 工具組，多輪 read_file 實際讀 code — 不是一次送全部 features 給 LLM）；斷點續跑（parts/ 逐個落檔，重跑只補缺）；agent 失敗兩次 → 決定論降級命名（標 degraded，整步不失敗）；orphans 程式歸不了 → LLM 分組標 `grade:"utility"`（非決定論，人定案）；meta 檔記 shared 層/enrichment 統計（loops/turns/tokens） |
 | 1.3 | 🧠 Code Intelligence | code-intel.json | 呼叫圖/依賴/架構筆記 |
 | 1.4 | 🧪 Test Intelligence | test-intel.json | 測試覆蓋地圖 |
 | 1.5 | 🔢 Error Codes | error-codes.json | **v2：機器收訊號（throw/raise/panic/HTTP 4xx-5xx/Error 類…跨語言）→ LLM 語意整理 by feature**；判讀 conventions（none/systematic/mixed）；無慣例 → 建議導入 Rules v1；每筆帶 file:line 證據 |

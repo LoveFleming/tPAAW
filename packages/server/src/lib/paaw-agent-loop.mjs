@@ -1008,6 +1008,8 @@ const AGENT_FALLBACK_GROUPS = {
   tester: ["core", "memory", "decisions", "project", "project-edit", "release-unit"],
   // Doc-writer: full core + project-edit + docs
   "doc-writer": ["core", "memory", "decisions", "project", "project-edit", "docs"],
+  // CU feature 長肉 agent（feature-map v2.1）：純唯讀分析 — read_file/glob/grep/diff，無寫檔無 shell
+  "cu-feature": ["core-read"],
   // QA: read-only + project + project-edit
   qa: ["core-read", "memory", "project", "project-edit", "release-unit"],
   // Helpdesk: read-only + project
