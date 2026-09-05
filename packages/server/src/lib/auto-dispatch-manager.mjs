@@ -627,22 +627,24 @@ export async function executeEMSession(opts = {}) {
     const task = execList[i];
     const subtaskId = task._resumeSubTaskId || null;
 
-    // 2026-09-02: spec-driven 多輪協調 — task 有 spec（SA 勾了要測試/文件/review）
-    // → 走 em-orchestrator 多 agent 多輪；否則維持單 agent 單輪派工
+    // 2026-09-05 v2（Fleming 21:17 定調）：RU 開的 task 一律走 EM 自決編制協調 —
+    // 開幾個 agent loop、派誰、順序、打回重派，由 EM 看 task 與成果自己決定（每輪一個結構化決策）；
+    // 無 spec 時 EM 自己判斷（通常就是一個 developer loop）；決策 LLM 掛掉降級 deterministic chain 保底
     if (task.source === "task_scan" && task.sourceRef) {
       try {
-        const { readTask, orchestrateTask, buildAgentChain } = await import("./em-orchestrator.mjs");
+        const { readTask, orchestrateTask } = await import("./em-orchestrator.mjs");
         const t = readTask(rootDir, task.sourceRef);
-        if (t && t.spec) {
-          sendSSE("info", { message: `🎖️ [${task.sourceRef}] 有 spec，走 EM 多輪協調：${buildAgentChain(t.spec, t.type).join(" → ")}` });
+        if (t) {
+          sendSSE("info", { message: `🎖️ [${task.sourceRef}] EM 自決編制：${t.title || t.id}` });
           const orch = await orchestrateTask({
             rootDir, task: t, baseUrl,
             modelOverride: emConfig?.model?.dispatch || modelOverride,
             fallbackModels, sendSSE, maxLoops: 30,
           });
-          results.push({ ...task, success: orch.ok, content: `orchestrated ${orch.chain.join("→")} (${orch.loopCount} loops, ${orch.status})`, subtaskId, durationMs: 0, tokenUsage: { total: 0 }, costUsd: 0 });
-          await _syncTaskAfterDispatch(rootDir, task.sourceRef, orch.ok, `EM 協調完成：${orch.status} (${orch.loopCount} loops, ${orch.chain.join("→")})`);
-          sendSSE("task_done", { index: i + 1, agent: "em", subtaskId, preview: orch.status, durationMs: 0 });
+          const _orchTokens = orch.tokenUsage?.total || 0;
+          results.push({ ...task, success: orch.ok, content: `EM 自決編制 ${orch.decidedBy === "em" ? "" : "(保底鏈)"}：${orch.chain.join("→")} (${orch.loopCount - (orch.decidedBy === "em" ? 1 : 0)} 次派工, ${orch.status})`, subtaskId, durationMs: 0, tokenUsage: { total: _orchTokens }, costUsd: 0, decidedBy: orch.decidedBy });
+          await _syncTaskAfterDispatch(rootDir, task.sourceRef, orch.ok, `EM 協調完成（${orch.decidedBy}）：${orch.status} (${orch.chain.join("→")})`);
+          sendSSE("task_done", { index: i + 1, agent: "em", subtaskId, preview: orch.summary || orch.status, durationMs: 0, tokens: { total: _orchTokens } });
           continue; // 這張 task 已由 orchestrator 處理完
         }
       } catch (err) {

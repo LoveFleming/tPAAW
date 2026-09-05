@@ -59,7 +59,7 @@
 |---|------|------|------|
 | 3.1 | Auto Dispatch 單軌 | `.paaw/auto-dispatch/config.json` `schedule.enabled` | 一個開關；夜間佇列 = task 內容（無 phase/gate 矩陣） |
 | 3.2 | Task Pipeline | Task 面板 | bootstrap 階段短版（spec→implement→commit done 即 resolved）；mvp+ 全版七階段；task 自帶 `pipelinePhases`/`pipelineMode` |
-| 3.3 | EM 派工 | 自動 | 依 task 內容派工；token tracking 累計 |
+| 3.3 | EM 派工（自決編制 v2） | 自動 | **RU task 一律走 EM 決策迴圈**：每輪一次結構化 LLM 決策（dispatch/complete/escalate）— 開幾個 agent loop、派誰、順序、打回重派由 EM 看 task 與成果自己決定（spec 是建議非硬性）；每個 dispatch = 一個完整 agent loop（多輪 + tool call，順序執行）；EM 一次順序完成多個 tasks；決策 LLM 連續失敗 2 次 → deterministic chain 保底；token tracking 累計（決策 + agent 全算） |
 | 3.4 | Git 規則 | agent 寫碼時 | agent 只 `stage` + staged_summary；**commit 永遠是人類** |
 | 3.5 | 人 Review | Staged Changes | UI review → approve（commit）/reject |
 | 3.6 | Plan 結案 | Plan 面板 | `markPlanCompleted`；`autoExecute:false` 不入 plan |
