@@ -1216,5 +1216,12 @@
   "workflow.newWorkflowName": "新規ワークフロー",
   "workflow.outputChat": "✅ チャットに出力",
   "workflow.outputFile": "✅ ファイルに出力",
-  "workflow.selectWorkflow": "ワークフローを選択"
+  "workflow.selectWorkflow": "ワークフローを選択",
+  "codeIntel.tabC4": "Architecture",
+  "codeIntel.c4Title": "C4 外部接続マップ",
+  "codeIntel.c4Organize": "整理（LLM、token 消費）",
+  "codeIntel.c4Empty": "未整理 — 「整理」で deps/env/compose の証拠を収集し C4 モデルを組み立て（LLM token 消費）、または CU の C4 ステップを実行",
+  "codeIntel.c4Containers": "Containers",
+  "codeIntel.c4External": "External Systems",
+  "codeIntel.c4Relations": "Relationships"
 }

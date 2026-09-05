@@ -522,11 +522,11 @@ export const PAAW_TOOLS = [
         properties: {
           category: {
             type: "string",
-            enum: ["context", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "standards_read", "error_codes"],
-            description: "What to query: context=project overview (PROJECT.md+standards+feature map), features=feature map, feature_detail=single feature, runbook=troubleshooting, sessions=work sessions, test_map=test intelligence, recent_changes=change intelligence, api_history=API tester logs, project_read=human-written PROJECT.md, standards_read=human-written CODING-STANDARDS.md, error_codes=error codes by feature（寫碼前查既有 codes 不重複；debug 時帶 search=錯誤碼/訊息穩定片段反查 feature+file:line；帶 feature 看單一 feature）"
+            enum: ["context", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "standards_read", "error_codes", "c4_model"],
+            description: "What to query: context=project overview (PROJECT.md+standards+feature map), features=feature map, feature_detail=single feature, runbook=troubleshooting, sessions=work sessions, test_map=test intelligence, recent_changes=change intelligence, api_history=API tester logs, project_read=human-written PROJECT.md, standards_read=human-written CODING-STANDARDS.md, error_codes=error codes by feature（寫碼前查既有 codes 不重複；debug 時帶 search=錯誤碼/訊息穩定片段反查 feature+file:line；帶 feature 看單一 feature）， c4_model=C4 對外連線全景（containers/external systems/relationships；帶 search 查特定服務）"
           },
           id: { type: "string", description: "Feature/issue ID (正式格式 F{YYYYMMDD}-{NNN}，如 F20260904-001；issue 為 ISS-001). 一律用 project_info 查現況，勿自編. Used with category=feature_detail." },
-          search: { type: "string", description: "Search keyword. Used with: features (by name), runbook (by content), faq (by keyword), error_codes (錯誤碼/訊息片段反查 — debug 入口)." },
+          search: { type: "string", description: "Search keyword. Used with: features (by name), runbook (by content), faq (by keyword), error_codes (錯誤碼/訊息片段反查 — debug 入口), c4_model (服務名/技術，如 redis)." },
           code: { type: "string", description: "Error code for runbook lookup (e.g. ORD-001)." },
           name: { type: "string", description: "Standard name to read (for category=standards). If omitted, lists all." },
           status: { type: "string", description: "Filter issues by status (comma-separated): open,in-progress,resolved,closed,wontfix." },
@@ -2162,6 +2162,31 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
               const rec = data.recommendation?.suggest ? `\n⚠️ 建議導入 Error Code Rules v1（plan 詳見 error-codes.json / FeatureMap panel）` : "";
               return `Error codes by feature (${data.stats?.uniqueCodes || 0} unique / ${data.byFeature?.length || 0} features / conventions: ${data.conventions || "unknown"})${data.conventionNote ? `\n慣例：${data.conventionNote}` : ""}${rec}\n${head.join("\n")}${extra}\nunmapped: ${(data.unmapped || []).length}`;
             } catch (err) { return `Error reading error-codes: ${err.message}`; }
+          }
+          case "c4_model": { // 2026-09-05：對外連線全景 — ops/handover/architect 查 RU 連哪些 DB/服務
+            const c4File = join(cwd, ".paaw", "c4-model.json");
+            if (!existsSync(c4File)) return "(No c4-model.json — CU c4-model 步驟未跑。請跑 CU 或請人類在 Code Intel → Architecture tab 整理。注意：組裝會花 LLM token。)";
+            try {
+              const data = JSON.parse(readSync(c4File, "utf-8"));
+            if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${data.stats?.external || 0} external` });
+              const fmt = (c) => `  ${c.name} [${c.type || "?"}]${c.technology ? ` (${c.technology})` : ""} — ${c.description || ""}${c.evidence?.length ? ` | 證據: ${c.evidence.slice(0, 3).join("; ")}` : ""}`;
+              if (args.search) {
+                const q = String(args.search).toLowerCase();
+                const hit = (c) => [c.name, c.type, c.technology, c.description, ...(c.evidence || [])].join(" ").toLowerCase().includes(q);
+                const cont = (data.containers || []).filter(hit);
+                const ext = (data.externalSystems || []).filter(hit);
+                const rel = (data.relationships || []).filter(r => `${r.from} ${r.to} ${r.protocol} ${r.description}`.toLowerCase().includes(q));
+                if (!cont.length && !ext.length && !rel.length) return `🔍 c4 沒有 hit「${args.search}」。試更短的關鍵字（如 redis、db、佇列）。`;
+                const lines = [`🔍 C4 搜尋「${args.search}」：`];
+                if (cont.length) { lines.push(``, `Containers:`); cont.forEach(c => lines.push(fmt(c))); }
+                if (ext.length) { lines.push(``, `External systems:`); ext.forEach(c => lines.push(fmt(c))); }
+                if (rel.length) { lines.push(``, `Relationships:`); rel.forEach(r => lines.push(`  ${r.from} → ${r.to} (${r.protocol || "?"}) — ${r.description || ""}`)); }
+                return lines.join("\n");
+              }
+              const lines = [`# C4 對外連線：${data.system?.name || ""}`, data.system?.description || "", "", "## Containers", ...(data.containers || []).map(fmt), "", "## External systems", ...(data.externalSystems || []).map(fmt), "", "## Relationships", ...(data.relationships || []).map(r => `  ${r.from} → ${r.to} (${r.protocol || "?"}) — ${r.description || ""}`)];
+              if (data.notes) lines.push("", `Notes: ${data.notes}`);
+              return lines.join("\n");
+            } catch (err) { return `Error reading c4-model: ${err.message}`; }
           }
           case "feature_detail": {
             if (!args.id) return "Error: 'id' parameter is required for feature_detail.";

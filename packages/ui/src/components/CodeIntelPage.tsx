@@ -14,7 +14,7 @@
  * 取代：RuView（退休）+ ReleaseUnitPanel（退休）— 資料層 release-unit-model 不動。
  */
 
-import React, { useEffect, useMemo, useRef, useState, forwardRef } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback, forwardRef } from "react";
 import { useI18n } from "../i18n";
 import { useTheme } from "../theme";
 import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
@@ -22,7 +22,7 @@ import { useRuModel, type RuFeatureLite } from "./useRuModel";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4097";
 
-type SubTab = "callgraph" | "deps" | "impact" | "health";
+type SubTab = "callgraph" | "deps" | "impact" | "health" | "c4";
 
 // ── 資料形狀（寬鬆防禦）──
 interface CgNode { id: string; name: string; file: string; kind?: string }
@@ -39,6 +39,15 @@ interface DepsQuery { file: string; found: boolean; forward?: string[]; reverse?
 interface ImpactResult {
   changed?: number; affectedCount?: number; dependsOn?: number; hotspots?: number;
   affected?: { file: string; depth: number; changeType?: string }[];
+}
+// ── C4 Model（對外連線全景）2026-09-05 ──
+interface C4Model {
+  system?: { name?: string; description?: string };
+  containers?: { name: string; type?: string; technology?: string; description?: string; evidence?: string[] }[];
+  externalSystems?: { name: string; type?: string; technology?: string; description?: string; evidence?: string[] }[];
+  relationships?: { from: string; to: string; protocol?: string; description?: string }[];
+  notes?: string;
+  stats?: { containers?: number; external?: number; relationships?: number };
 }
 interface AnalyzeResult { score?: number; grade?: string; risks?: { id: string; severity: string; title: string; detail?: string }[]; signals?: Record<string, any> }
 interface GatesResult { overall?: string; gates?: { gate: string; required?: boolean; status: string; detail?: string }[] }
@@ -85,6 +94,23 @@ function CodeIntelPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: Re
   // ── Health state ──
   const [analyze, setAnalyze] = useState<AnalyzeResult | null>(null);
   const [gates, setGates] = useState<GatesResult | null>(null);
+  // C4 model
+  const [c4, setC4] = useState<C4Model | null>(null);
+  const [c4Busy, setC4Busy] = useState(false);
+  const loadC4 = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-project/c4-model?path=${encodeURIComponent(rootPath)}`);
+      if (res.ok) { const d = await res.json(); setC4(d.missing ? null : d); }
+    } catch { /* silent */ }
+  }, [rootPath]);
+  useEffect(() => { if (tab === "c4") loadC4(); }, [tab, loadC4, refreshKey]);
+  const c4Organize = async () => {
+    setC4Busy(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-project/c4-model/rescan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: rootPath }) });
+      if (res.ok) { const d = await res.json(); setC4(d.skipped || d.missing ? null : d); }
+    } catch {} setC4Busy(false);
+  };
 
   useEffect(() => {
     if (!rootPath) { setCodeIntel(null); return; }
@@ -224,6 +250,7 @@ function CodeIntelPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: Re
     { key: "deps", icon: "🔗", label: t("codeIntel.tabDeps") },
     { key: "impact", icon: "🎯", label: t("codeIntel.tabImpact") },
     { key: "health", icon: "🩺", label: t("codeIntel.tabHealth") },
+    { key: "c4", icon: "🏛", label: t("codeIntel.tabC4") },
   ];
 
   return (
@@ -475,6 +502,89 @@ function CodeIntelPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: Re
                       ))}
                     </div>
                   )}
+                </>
+              )}
+            </div>
+          )}
+          {tab === "c4" && (
+            <div className="space-y-3" data-testid="ci-panel-c4">
+              {/* header：系統名 + 整理按鈕 */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold text-stone-800">{c4?.system?.name || t("codeIntel.c4Title")}</div>
+                  {c4?.system?.description && <div className="text-xs text-stone-500 mt-0.5">{c4.system.description}</div>}
+                </div>
+                <button onClick={c4Organize} disabled={c4Busy} className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-stone-800 text-white disabled:opacity-50">
+                  {c4Busy ? "⏳" : "🏛"} {t("codeIntel.c4Organize")}
+                </button>
+              </div>
+
+              {!c4 && !c4Busy && (
+                <div className="text-xs text-stone-400 p-4 text-center">{t("codeIntel.c4Empty")}</div>
+              )}
+
+              {c4 && (
+                <>
+                  {/* Containers */}
+                  {(c4.containers?.length || 0) > 0 && (
+                    <div className="rounded-lg border overflow-hidden" style={{ borderColor: borderLight }}>
+                      <div className="px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50" style={{ borderBottom: `1px solid ${borderLight}` }}>
+                        📦 {t("codeIntel.c4Containers")} · {c4.containers!.length}
+                      </div>
+                      {c4.containers!.map(c => (
+                        <div key={c.name} className="px-3 py-2 border-b last:border-0" style={{ borderColor: borderLight }}>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-stone-800">{c.name}</span>
+                            {c.type && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-600">{c.type}</span>}
+                            {c.technology && <span className="text-[10px] text-stone-400">{c.technology}</span>}
+                          </div>
+                          {c.description && <div className="text-[11px] text-stone-500 mt-0.5">{c.description}</div>}
+                          {(c.evidence?.length || 0) > 0 && (
+                            <div className="text-[10px] text-stone-400 font-mono mt-0.5 truncate" title={c.evidence!.join("\n")}>🔍 {c.evidence!.slice(0, 3).join(" · ")}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* External systems */}
+                  {(c4.externalSystems?.length || 0) > 0 && (
+                    <div className="rounded-lg border overflow-hidden" style={{ borderColor: borderLight }}>
+                      <div className="px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50" style={{ borderBottom: `1px solid ${borderLight}` }}>
+                        🌐 {t("codeIntel.c4External")} · {c4.externalSystems!.length}
+                      </div>
+                      {c4.externalSystems!.map(x => (
+                        <div key={x.name} className="px-3 py-2 border-b last:border-0" style={{ borderColor: borderLight }}>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-stone-800">{x.name}</span>
+                            {x.type && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-violet-50 text-violet-700">{x.type}</span>}
+                            {x.technology && <span className="text-[10px] text-stone-400">{x.technology}</span>}
+                          </div>
+                          {x.description && <div className="text-[11px] text-stone-500 mt-0.5">{x.description}</div>}
+                          {(x.evidence?.length || 0) > 0 && (
+                            <div className="text-[10px] text-stone-400 font-mono mt-0.5 truncate" title={x.evidence!.join("\n")}>🔍 {x.evidence!.slice(0, 3).join(" · ")}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* Relationships */}
+                  {(c4.relationships?.length || 0) > 0 && (
+                    <div className="rounded-lg border overflow-hidden" style={{ borderColor: borderLight }}>
+                      <div className="px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50" style={{ borderBottom: `1px solid ${borderLight}` }}>
+                        🔗 {t("codeIntel.c4Relations")} · {c4.relationships!.length}
+                      </div>
+                      {c4.relationships!.map((r, i) => (
+                        <div key={`${r.from}-${r.to}-${i}`} className="px-3 py-1.5 border-b last:border-0 text-xs flex items-center gap-2 flex-wrap" style={{ borderColor: borderLight }}>
+                          <span className="font-semibold text-stone-700">{r.from}</span>
+                          <span className="text-stone-400">→</span>
+                          <span className="font-semibold text-stone-700">{r.to}</span>
+                          {r.protocol && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">{r.protocol}</span>}
+                          {r.description && <span className="text-[11px] text-stone-400">{r.description}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {c4.notes && <div className="text-[11px] text-stone-500 bg-stone-50 rounded-lg p-2 whitespace-pre-wrap">📝 {c4.notes}</div>}
                 </>
               )}
             </div>

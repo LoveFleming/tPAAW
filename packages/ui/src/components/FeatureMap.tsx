@@ -373,6 +373,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
         ) : (
           <FeatureDetail
             feature={selected}
+            ecData={ecData}
             theme={theme}
             t={t}
             onOpenFile={onOpenFile}
@@ -436,8 +437,9 @@ function CreateFeatureForm({ onCreate, onCancel, theme, t }: {
 }
 
 // ── Feature Detail ──
-function FeatureDetail({ feature, theme, t, onOpenFile, ruModel, callChainMap, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, onDelete, rootPath }: {
+function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callChainMap, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, onDelete, rootPath }: {
   feature: Feature;
+  ecData?: any;
   theme: any;
   t: (k: string) => string;
   onOpenFile?: (p: string) => void;
@@ -486,11 +488,12 @@ function FeatureDetail({ feature, theme, t, onOpenFile, ruModel, callChainMap, e
       <div className="p-4 flex flex-col gap-4">
         {/* 🔢 Error Codes by feature（v2 — LLM 語意整理，不認命名慣例；只讀掃描產物）*/}
         {ecData && (() => {
-          const g = ecMap.get(feature.id);
-          const codes = ecData.byFeature?.find((x: any) => x.featureId === feature.id)?.codes || [];
-          const summary = ecData.byFeature?.find((x: any) => x.featureId === feature.id)?.summary;
+          const g = ecData.byFeature?.find((x: any) => x.featureId === feature.id);
+          const codes = g?.codes || [];
+          const summary = g?.summary;
+          const uniqueCount = g?.uniqueCount || codes.length;
           return (
-            <Section title={`🔢 ${t("feature.ecTitle")}`} count={g?.uniqueCount || 0} theme={theme}>
+            <Section title={`🔢 ${t("feature.ecTitle")}`} count={uniqueCount} theme={theme}>
               {ecData.recommendation?.suggest && (
                 <div className="px-2 py-1.5 rounded text-xs whitespace-pre-wrap" style={{ background: "#fef3c7", color: "#b45309" }}>
                   📋 {t("feature.ecRecommend")}{ecData.recommendation.plan ? `\n\n${ecData.recommendation.plan}` : ""}

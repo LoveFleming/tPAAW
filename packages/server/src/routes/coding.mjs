@@ -73,6 +73,7 @@ const CU_STEP_FILES = {
   "code-intelligence": "code-intelligence/summary.json",
   "test-intelligence": "code-intelligence/test-intelligence.json",
   "error-codes": "error-codes.json",
+  "c4-model": "c4-model.json",
   // 人寫的非自動 step（給健康檢查參考）
   overview: "project/PROJECT.md",
   standards: "project/CODING-STANDARDS.md",
@@ -2634,6 +2635,7 @@ export default async function projectRoute(req, res) {
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
         { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
         { id: "error-codes", name: "🔢 Error Codes by Feature", promptFile: null },
+        { id: "c4-model", name: "🏛️ C4 Model（對外連線）", promptFile: null },
       ];
       const step = ALL_STEPS.find(s => s.id === stepId);
       if (!step) {
@@ -2823,6 +2825,32 @@ export default async function projectRoute(req, res) {
           res.end();
           return true;
         }
+        // Special handling: c4-model — 對外連線全景（機器收證據 + LLM 組 C4）
+        if (step.id === "c4-model") {
+          try {
+            cuLog(step.id, "Collecting external signals + LLM assembling C4...");
+            const { organizeC4Model } = await import("../lib/c4-model-scan.mjs");
+            const c4Result = await organizeC4Model(root, {
+              callLLM: (body) => callProjectLLM({ ...body, model: cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+              onProgress: (msg) => { cuLog(step.id, msg); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
+            });
+            cuLog(step.id, `C4 done: ${c4Result.stats.containers} containers / ${c4Result.stats.external} external / ${c4Result.stats.relationships} relationships`);
+            sendEvent("step_done", {
+              step: step.id,
+              name: step.name,
+              summary: `${c4Result.stats.containers} containers, ${c4Result.stats.external} external systems`,
+            });
+            try { await paaw.setCuStepStatus(step.id, "done", { summary: `${c4Result.stats.external} external / ${c4Result.stats.containers} containers` }); } catch {}
+          } catch (err) {
+            cuLog(step.id, `C4 model failed: ${err.message}`);
+            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+            try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+          }
+          sendEvent("done", { message: "C4 model complete" });
+          res.end();
+          return true;
+        }
+
         // Special handling: change-intelligence runs git log analysis (no LLM needed)
         if (step.id === "change-intelligence") {
           try {
@@ -3130,6 +3158,7 @@ export default async function projectRoute(req, res) {
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
         { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
         { id: "error-codes", name: "🔢 Error Codes by Feature", promptFile: null },
+        { id: "c4-model", name: "🏛️ C4 Model（對外連線）", promptFile: null },
       ];
 
       // SSE stream — send progress as each step completes
@@ -3288,6 +3317,26 @@ export default async function projectRoute(req, res) {
               }
             } catch (err) {
               cuLog(step.id, `[bulk] Error codes failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+            }
+            continue;
+          }
+
+          // Special handling: c4-model — 對外連線全景（bulk）
+          if (step.id === "c4-model") {
+            try {
+              cuLog(step.id, "[bulk] Collecting external signals + LLM assembling C4...");
+              const { organizeC4Model } = await import("../lib/c4-model-scan.mjs");
+              const c4Result = await organizeC4Model(root, {
+                callLLM: (body) => callProjectLLM({ ...body, model: cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+                onProgress: (msg) => { cuLog(step.id, `[bulk] ${msg}`); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
+              });
+              cuLog(step.id, `[bulk] C4: ${c4Result.stats.containers} containers / ${c4Result.stats.external} external`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${c4Result.stats.containers} containers, ${c4Result.stats.external} external systems` });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${c4Result.stats.external} external / ${c4Result.stats.containers} containers` }); } catch {}
+            } catch (err) {
+              cuLog(step.id, `[bulk] C4 model failed: ${err.message}`);
               sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
               try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
             }

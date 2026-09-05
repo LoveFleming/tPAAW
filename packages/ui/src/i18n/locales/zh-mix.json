@@ -1216,5 +1216,12 @@
   "workflow.newWorkflowName": "New Workflow",
   "workflow.outputChat": "✅ Output to chat",
   "workflow.outputFile": "✅ Output to file",
-  "workflow.selectWorkflow": "選擇 Workflow"
+  "workflow.selectWorkflow": "選擇 Workflow",
+  "codeIntel.tabC4": "Architecture",
+  "codeIntel.c4Title": "C4 對外連線全景",
+  "codeIntel.c4Organize": "整理（LLM，花 token）",
+  "codeIntel.c4Empty": "還沒整理 — 按「整理」收集 deps/env/compose 證據並組裝 C4 model（花 LLM token），或跑 CU 的 C4 步驟",
+  "codeIntel.c4Containers": "Containers",
+  "codeIntel.c4External": "External Systems",
+  "codeIntel.c4Relations": "Relationships"
 }

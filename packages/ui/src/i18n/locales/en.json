@@ -1216,5 +1216,12 @@
   "workflow.newWorkflowName": "New Workflow",
   "workflow.outputChat": "✅ Output to chat",
   "workflow.outputFile": "✅ Output to file",
-  "workflow.selectWorkflow": "Select Workflow"
+  "workflow.selectWorkflow": "Select Workflow",
+  "codeIntel.tabC4": "Architecture",
+  "codeIntel.c4Title": "C4 External Connections",
+  "codeIntel.c4Organize": "Organize (LLM, uses tokens)",
+  "codeIntel.c4Empty": "Not organized yet — click Organize to collect deps/env/compose evidence and assemble the C4 model (uses LLM tokens), or run the CU C4 step",
+  "codeIntel.c4Containers": "Containers",
+  "codeIntel.c4External": "External Systems",
+  "codeIntel.c4Relations": "Relationships"
 }
