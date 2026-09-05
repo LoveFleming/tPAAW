@@ -159,7 +159,14 @@ export async function orchestrateTask({ rootDir, task, baseUrl, modelOverride, f
   const llm = resolveLLMConfig(rootDir, modelOverride);
   const fallbackCfgs = (fallbackModels || []).filter(Boolean).map(m => resolveLLMConfig(rootDir, m));
 
+  // 2026-09-05 Fleming：console + action log 都要清楚看到每個 agent loop 的開始與結束
+  const { addActionLog } = await import("./action-log.mjs");
+  const _log = (msg) => console.log(`[EM-Orch] [${taskId}] ${msg}`);
+  const _act = (entry) => { addActionLog(entry, rootDir).catch(() => {}); };
+  const _t0 = Date.now();
+
   updateTaskOrchestration(rootDir, taskId, { decidedBy: "em", agents: {}, runs: {}, loopCount: 0, status: "running", startedAt: new Date().toISOString() }, `🎖️ EM 開始自決編制協調（roster: ${roster.map(r => r.id).join(", ")}）`);
+  _log(`🎖️ EM 自決編制開始：「${task.title || taskId}」（roster ${roster.length} agents，max ${maxLoops} 輪）`);
 
   const history = [];         // [{round, agent, outcome}]
   const results = {};         // agent → 最後一次結果
@@ -217,12 +224,16 @@ export async function orchestrateTask({ rootDir, task, baseUrl, modelOverride, f
     if (decision.action === "complete") {
       const summary = String(decision.summary || "task 完成").slice(0, 600);
       updateTaskOrchestration(rootDir, taskId, { agents, runs, status: "done", loopCount }, `🏁 Task 完成（${loopCount - 1} 次派工）：${summary}`);
+      _log(`🏁 驗收完成（${chain.length} 次派工：${chain.join("→")}，${((Date.now() - _t0) / 1000).toFixed(0)}s）：${summary.slice(0, 200)}`);
+      _act({ agent: "em", action: "decide", summary: `[${taskId}] 驗收完成（${chain.join("→")}）`, details: summary, affectedFiles: [], result: "ok", priority: "high" });
       sendSSE("task_done", { index: 0, agent: "em", subtaskId: taskId, preview: `🏁 ${taskId} 完成（${chain.length} 派工）：${summary.slice(0, 180)}` });
       return { ok: true, status: "done", chain, loopCount, results, decidedBy: "em", tokenUsage, summary };
     }
     if (decision.action === "escalate") {
       const reason = String(decision.reason || "需要人類介入").slice(0, 400);
       updateTaskOrchestration(rootDir, taskId, { agents, runs, status: "blocked", loopCount, escalateReason: reason }, `🚨 升級給人：${reason}`);
+      _log(`🚨 升級給人：${reason}`);
+      _act({ agent: "em", action: "escalate", summary: `[${taskId}] 升級給人（${chain.length} 次派工後）`, details: reason, affectedFiles: [], result: "blocked", priority: "high" });
       sendSSE("task_error", { index: 0, agent: "em", subtaskId: taskId, error: `escalate: ${reason}` });
       return { ok: false, status: "blocked", chain, loopCount, results, decidedBy: "em", tokenUsage, escalateReason: reason };
     }
@@ -238,6 +249,7 @@ export async function orchestrateTask({ rootDir, task, baseUrl, modelOverride, f
       const crewId = `coding.${agent}`;
       const agentModel = resolveAgentModel(rootDir, crewId, "em", modelOverride || "");
       const agentFallbacks = resolveAgentFallbacks(rootDir, crewId, fallbackModels);
+      _log(`🎖️ R${loopCount} 決策：dispatch ${agent}#${(runs[agent] || 0) + 1} — ${String(decision.reason || "").slice(0, 120)}`);
       chain.push(agent);
       runs[agent] = (runs[agent] || 0) + 1;
       agents[agent] = "running";
@@ -245,6 +257,8 @@ export async function orchestrateTask({ rootDir, task, baseUrl, modelOverride, f
       sendSSE("task_start", { index: chain.length, total: chain.length, agent, subtaskId: taskId, task: `${taskId} (R${loopCount} ${agent}#${runs[agent]})` });
 
       const prompt = `${instruction}\n\n（Task ${taskId}：${task.title || ""}。完整描述：${(task.description || "").slice(0, 2000)}。可先讀 .paaw/tasks/TASKS.json 中 ${taskId} 的 notes 看前人執行紀錄。）`;
+      const _loopStart = Date.now();
+      _log(`▶️ R${loopCount} ${agent} agent loop 開始（#${runs[agent]}，model: ${agentModel || modelOverride || "default"}）`);
       let result;
       try {
         result = await a2aCallAgent(baseUrl, agent, prompt, {
@@ -253,6 +267,11 @@ export async function orchestrateTask({ rootDir, task, baseUrl, modelOverride, f
       } catch (e) {
         result = { success: false, content: "", error: e.message };
       }
+      const _loopDur = Date.now() - _loopStart;
+      const _loopTokens = (result?.usage?.total_tokens || result?.usage?.total || 0);
+      _log(`${result.success ? "✅" : "❌"} R${loopCount} ${agent} agent loop 結束（${(_loopDur / 1000).toFixed(0)}s, ${_loopTokens} tokens, 輸出 ${String(result.content || "").length} 字${result.success ? "" : `，錯誤：${String(result.error || "?").slice(0, 120)}`}）`);
+      _act({ agent: "em", action: "dispatch", summary: `[${taskId}] R${loopCount} 派工 ${agent}#${runs[agent]} — ${result.success ? "✅" : "❌"} ${(_loopDur / 1000).toFixed(0)}s`, details: `指令：${instruction.slice(0, 500)}\n\n結果：${String(result.content || result.error || "").slice(0, 600)}`, affectedFiles: [], result: result.success ? "ok" : "fail", priority: "medium" });
+      result.durationMs = _loopDur;
       _addTokens(result?.usage || result?.tokenUsage);
       results[agent] = { success: !!result.success, content: String(result.content || "").slice(0, 4000), error: result.error || null, round: loopCount };
 

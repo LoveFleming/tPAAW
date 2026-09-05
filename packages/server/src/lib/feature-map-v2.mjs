@@ -164,11 +164,16 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
 
   const sharedBrief = dm.shared.slice(0, 30);
   const enrichment = { loops: 0, ok: 0, degraded: 0, resumed: parts.size, totalTurns: 0, totalMs: 0, usage: null };
+  const _nDet = workItems.filter(w => w.kind === "deterministic").length;
+  console.log(`[FM-v2] 🗺️ 長肉開始：${workItems.length} items（${_nDet} deterministic + ${workItems.length - _nDet} utility），逐個 agent loop${parts.size ? `（續跑 ${parts.size} 已完成）` : ""}`);
+  const _enrichT0 = Date.now();
 
   for (let i = 0; i < workItems.length; i++) {
     const item = workItems[i];
     let part = parts.get(i);
     if (!part) {
+      const _itemT0 = Date.now();
+      console.log(`[FM-v2] ▶️ feature ${i + 1}/${workItems.length} agent loop 開始（${item.kind}）：${item.apis?.[0]?.path || item.files?.[0] || ""}`);
       const material = {
         kind: item.kind,
         apis: item.apis.slice(0, 20).map(a => `${a.method} ${a.path}`),
@@ -198,10 +203,12 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
       }
       if (!flesh) { flesh = _fallbackFlesh(item); enrichment.degraded++; }
       else enrichment.ok++;
-      part = { flesh, turns: turns, durationMs: dur, usage, degraded: !!flesh.degraded, finishedAt: new Date().toISOString() };
+      const _wallMs = Date.now() - _itemT0;
+      part = { flesh, turns: turns, durationMs: dur, wallMs: _wallMs, usage, degraded: !!flesh.degraded, finishedAt: new Date().toISOString() };
       writeFileSync(partPath(i), JSON.stringify(part, null, 2)); // 立即落檔 — 斷點續跑
       parts.set(i, part);
-      onProgress?.(`✅ ${i + 1}/${workItems.length}「${flesh.name}」${flesh.degraded ? "（⚠️ 自動降級）" : `（${turns} turns）`}`);
+      console.log(`[FM-v2] ${flesh.degraded ? "⚠️" : "✅"} feature ${i + 1}/${workItems.length}「${flesh.name}」agent loop 結束（${turns} turns, ${(_wallMs / 1000).toFixed(0)}s）`);
+      onProgress?.(`✅ ${i + 1}/${workItems.length}「${flesh.name}」${flesh.degraded ? "（⚠️ 自動降級）" : `（${turns} turns, ${(_wallMs / 1000).toFixed(0)}s）`}`);
     }
     enrichment.totalTurns += part.turns || 0;
     enrichment.totalMs += part.durationMs || 0;
@@ -281,6 +288,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
   } catch {}
 
   try { rmSync(partsDir, { recursive: true, force: true }); } catch {} // 全部完成 — parts 清場
+  console.log(`[FM-v2] 🗺️ 長肉完成：${workItems.length} items（ok ${enrichment.ok} / 降級 ${enrichment.degraded} / 續跑 ${enrichment.resumed}），${enrichment.totalTurns} turns，${((Date.now() - _enrichT0) / 1000).toFixed(0)}s`);
 
   return { features, meta };
 }

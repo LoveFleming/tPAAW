@@ -3488,6 +3488,9 @@ export async function runAgentLoop(config) {
   const timeoutMs = effectiveTimeout > 0 ? effectiveTimeout * 1000 : 0; // 0 = no timeout
   const toolCallLog = [];
 
+  // 2026-09-05 Fleming：每個 agent loop 的開始/結束要在 console 一眼看到
+  console.log(`[AgentLoop] ▶️ agent=${agentId || "agent"} model=${modelOverride || "default"} turns≤${effectiveMaxTurns} cwd=${String(cwd).split("/").slice(-2).join("/")} prompt=${prompt.length}字`);
+
   // ── Execution logger ──
   const _logger = startAgentLog({
     agentId: agentId || "agent",
@@ -3892,8 +3895,11 @@ export async function runAgentLoop(config) {
   // ── Auto-cleanup temp files created during this session ──
   await cleanupTempFiles(cwd, createdFiles, (msg) => console.log(msg));
 
+  const _loopOk = !finalContent.includes("[Agent loop timed out]") && !finalContent.startsWith("LLM API error");
+  console.log(`[AgentLoop] ${_loopOk ? "✅" : "❌"} agent=${agentId || "agent"} 結束（${turns} turns, ${((Date.now() - startTime) / 1000).toFixed(0)}s, ${_totalUsage.total || 0} tokens, 輸出 ${finalContent.length} 字）`);
+
   return {
-    success: !finalContent.includes("[Agent loop timed out]") && !finalContent.startsWith("LLM API error"),
+    success: _loopOk,
     partial: finalContent.includes("[Agent loop timed out]"),
     content: finalContent,
     turns,
