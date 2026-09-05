@@ -19,7 +19,7 @@ export default function Gates({ runSkill }: GatesProps) {
                                     <div className="text-sm font-semibold">{s.title}</div>
                                     <div className="mt-1 text-xs text-zinc-600">{s.description}</div>
                                     <div className="mt-2 flex flex-wrap gap-2">
-                                        <RiskBadge risk={s.risk} />
+                                        <RiskBadge risk={s.risk ?? "guarded"} />
                                         <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-700">deterministic</span>
                                     </div>
                                 </div>

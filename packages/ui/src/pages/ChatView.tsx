@@ -237,7 +237,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   }, [compressImage, pendingImages.length, tt]);
   const abortRef = useRef<AbortController | null>(null);
   const composingRef = useRef(false);
-  const chatAreaRef = useRef<HTMLDivElement>(null);
+  const chatAreaRef = useRef<HTMLDivElement | null>(null);
 
   // ── Assistant avatar ──
   const avatarSrc = profile.assistantAvatar
@@ -351,7 +351,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
 
   // Auto-scroll: only when user sends/receives, not on polling
   const isNearBottomRef = useRef(true);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Track whether user is near bottom
   useEffect(() => {
@@ -605,7 +605,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
               setChatAction("💭 思考中...");
             } else if (parsed.tool_call) {
               const tc = parsed.tool_call;
-              const label = tc.name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              const label = tc.name.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
               const labelShort = label.replace(/ App/g, "");
               setActiveTools(prev => [...prev, { name: labelShort, status: 'running' }]);
               const actionLabels = {
@@ -616,11 +616,11 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
                 grep: "🔍 搜尋內容",
                 bash: "⚡ 執行指令",
               };
-              setChatAction(actionLabels[tc.name] || `🔧 ${labelShort}`);
+              setChatAction((actionLabels as Record<string, string>)[tc.name] || `🔧 ${labelShort}`);
               console.debug(`[Chat SSE] tool_call: ${tc.name} ${Date.now() - sseStart}ms`);
             } else if (parsed.tool_result) {
               const tr = parsed.tool_result;
-              const trLabel = (tr.name || "tool").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()).replace(/ App/g, "");
+              const trLabel = (tr.name || "tool").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()).replace(/ App/g, "");
               setActiveTools(prev => prev.map(t => t.name === trLabel ? { ...t, status: tr.result?.error ? 'error' : 'done' } : t));
               setTimeout(() => setActiveTools(prev => prev.filter(t => t.name !== trLabel)), 1500);
               // Tool result received → model now thinks about next step
@@ -630,7 +630,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
               } else if (tr.result?.text) {
                 fullContent += `\n${tr.result.text}\n`;
               } else {
-                const label = (tr.name || "tool").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+                const label = (tr.name || "tool").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
                 fullContent += `\n✅ ${label} 完成\n`;
               }
               console.debug(`[Chat SSE] tool_result: ${tr.name} error=${!!tr.result?.error} ${Date.now() - sseStart}ms`);
@@ -660,7 +660,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
         await saveMessages(activeChatId, [...newMessages, assistantMsg]);
       }
     } finally {
-      clearTimeout(stallCheck);
+      if (stallCheck) clearTimeout(stallCheck);
       setIsLoading(false);
       setChatAction("");
       abortRef.current = null;

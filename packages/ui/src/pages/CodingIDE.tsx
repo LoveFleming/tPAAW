@@ -101,6 +101,7 @@ interface ChatMessage {
   _thinkingHistory?: string[]; // preserved thinking texts before final answer replaces them
   _toolCalls?: { name: string; args?: string; result?: string }[]; // tool calls made in this turn
   _streaming?: boolean; // true while content is being streamed in (OpenClaw style)
+  _greeting?: boolean; // true for auto-generated greeting bubbles (excluded from conversationHistory)
 }
 
 interface CodingEvent {
@@ -282,7 +283,7 @@ function EditorTabContent({ tabId, filePath, tabData, isActive, isEditing, texta
                 ))}
               </div>
             </div>
-            <textarea ref={isActive ? textareaRef : undefined} value={tabData.content} onChange={e => handleContentChange(e.target.value)}
+            <textarea ref={(isActive ? textareaRef : undefined) as React.Ref<HTMLTextAreaElement>} value={tabData.content} onChange={e => handleContentChange(e.target.value)}
               onBlur={stopEditing}
               onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); stopEditing(); } }}
               className="flex-1 min-w-0 p-3 text-[13px] font-mono leading-5 resize-none outline-none bg-white"
@@ -341,6 +342,7 @@ export default function CodingIDE() {
     borderInput: "#e0e0e0",
     textMuted: "#9ca3af",
     textPrimary: "#374151",
+    text: "#374151",
     textSecondary: "#6b7280",
     accent: themeInfo.accent,
     accentLight: themeInfo.accentLight,
@@ -1564,6 +1566,7 @@ const sendChat = useCallback(async () => {
       setChatLoading(true);
       if (isAgentMode) { setAgentRunning(true); setAgentToolLog([]); }
 
+      let finalContent = ""; // hoisted：catch 也要讀（中斷時避免重複訊息）
       try {
         // ── A2A JSON-RPC: message/stream ──
         // Map crewId → A2A agentId
@@ -1610,7 +1613,6 @@ const sendChat = useCallback(async () => {
 
         const reader = res.body?.getReader();
         const decoder = new TextDecoder();
-        let finalContent = "";
         // Accumulate tool calls + thinking silently — only show final answer (OpenClaw style)
         const silentToolCalls: { name: string; args?: string; result?: string }[] = [];
         let buffer = "";
@@ -1661,7 +1663,7 @@ const sendChat = useCallback(async () => {
                       browser_click: "🖱️ 點擊",
                       browser_type: "⌨️ 輸入",
                     };
-                    const actionLabel = actionLabels[data.name] || `🔧 ${data.name}`;
+                    const actionLabel = (actionLabels as Record<string, string>)[data.name] || `🔧 ${data.name}`;
                     // Show file name if available
                     const argsObj = typeof data.args === "string" ? (() => { try { return JSON.parse(data.args); } catch { return {}; } })() : data.args;
                     const detail = argsObj?.path || argsObj?.file || argsObj?.pattern || argsObj?.command || "";
@@ -2659,7 +2661,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                       setCrewProfile(prev => ({ ...prev, [crew.id]: data }));
                       if (!crewConversations[crew.id] || crewConversations[crew.id].length === 0) {
                         const greeting = data?.chatConfig?.greeting || `嗨！我是${data?.codename || crew.title}，有什麼我可以幫忙的嗎？`;
-                        setCrewConversations(prev => ({ ...prev, [crew.id]: [{ role: "assistant", content: greeting, _greeting: true }] }));
+                        setCrewConversations(prev => ({ ...prev, [crew.id]: [{ role: "assistant", content: greeting, ts: new Date().toISOString(), _greeting: true }] }));
                       }
                     }).catch(() => {});
                   }}
@@ -3037,7 +3039,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 gitReviews={gitReviews}
                 blameData={blameData}
                 blameFile={blameFile}
-                activeCodingTask={activeCodingTaskId ? { id: activeCodingTaskId, title: stagedSummary?.task || "", pipeline: activeTaskPipeline } : null}
+                activeCodingTask={activeCodingTaskId ? { id: activeCodingTaskId, title: stagedSummary?.task || "", pipeline: activeTaskPipeline ?? undefined } : null}
                 setGitTab={setGitTab}
                 setGitCommitMsg={setGitCommitMsg}
                 setGitActionMsg={setGitActionMsg}
@@ -3376,7 +3378,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
               const crew = codingCrews.find(c => c.id === activeCrew);
               const profile = crewProfile[activeCrew] as any;
               const rolePrompt = profile?.rolePrompt || "";
-              const roleSummary = rolePrompt.split('\n').find(l => l.trim() && !l.startsWith('#') && !l.startsWith('你是') && l.length > 5) || rolePrompt.slice(0, 80);
+              const roleSummary = rolePrompt.split('\n').find((l: string) => l.trim() && !l.startsWith('#') && !l.startsWith('你是') && l.length > 5) || rolePrompt.slice(0, 80);
               const hasProject = !!rootPath;
               const isCrewActive = activeMainTab?.type === "ai-crew" && activeMainTab?.crewId === activeCrew;
               return (
@@ -3860,7 +3862,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                         if (!mainTabs.some(t => t.id === `crew:${devCrewId}`)) {
                           setMainTabs(prev => [...prev, { id: `crew:${devCrewId}`, type: "ai-crew", label: "💻 Developer", icon: "💻", closable: true }]);
                         }
-                        setActiveMainTab(prev => ({ ...prev, id: `crew:${devCrewId}`, type: "ai-crew", label: "💻 Developer" }));
+                        setActiveMainTabId(`crew:${devCrewId}`);
                       }
                     } catch (err: any) {
                       alert(`❌ 派工錯誤：${err.message}`);

@@ -52,13 +52,7 @@ interface TaskStats {
   byAssignee: Record<string, { total: number; open: number; close: number }>;
 }
 
-interface Props {
-  total: number;
-  open: number;
-  inProgress: number;
-  resolved: number;
-  byAssignee: Record<string, { total: number; open: number; resolved: number }>;
-}
+// ── stray Props 與下方同名 interface 合併導致 total/open/… 被誤判為必填（2026-09-06 刪）──
 
 interface Props {
   rootPath: string;

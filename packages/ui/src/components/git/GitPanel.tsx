@@ -99,7 +99,7 @@ interface GitPanelProps {
   setGitDiffFile: (file: string) => void;
   setGitDiff: (diff: string) => void;
   setGitDiffCached: (cached: boolean) => void;
-  setActiveSubPanel: (panel: string) => void;
+  setActiveSubPanel: React.Dispatch<React.SetStateAction<"diff" | "blame" | "editor" | "api-tester">>;
   setStagedSummary: (summary: StagedChangeSummary | null) => void;
 
   // ── Callbacks ──

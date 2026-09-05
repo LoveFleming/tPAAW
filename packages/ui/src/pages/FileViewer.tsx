@@ -69,7 +69,7 @@ function ImageView({ filePath }: { filePath: string }) {
 // ── Markdown View (theme-aware prose) ──
 function MarkdownView({ content }: { content: string }) {
   const { info: t } = useTheme();
-  const [MarkdownComponent, setComponent] = useState<React.ComponentType<{ children: string }> | null>(null);
+  const [MarkdownComponent, setComponent] = useState<React.ComponentType<{ children: string; remarkPlugins?: unknown[] }> | null>(null);
   const [gfmPlugin, setGfmPlugin] = useState<any>(null);
 
   useEffect(() => {
@@ -220,7 +220,7 @@ function CodeView({ content, fileName, filePath, active }: { content: string; fi
 // ── Main Component ──
 interface Props {
   filePath: string;
-  projectRoot: string;
+  projectRoot?: string;
   active?: boolean;
 }
 

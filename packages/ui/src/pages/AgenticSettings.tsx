@@ -273,11 +273,11 @@ export default function AgenticSettings() {
   );
 }
 
-function Field({ label, value, onChange, mono }: {
-  label: string; value: string; onChange: (v: string) => void; mono?: boolean;
+function Field({ label, value, onChange, mono, full }: {
+  label: string; value: string; onChange: (v: string) => void; mono?: boolean; full?: boolean;
 }) {
   return (
-    <div className={mono ? "" : ""}>
+    <div className={full ? "col-span-2" : ""}>
       <label className="text-xs font-semibold text-stone-500 uppercase tracking-wide block mb-1.5">{label}</label>
       <input value={value} onChange={e => onChange(e.target.value)}
         className={`w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-300 ${mono ? "font-mono" : ""}`} />

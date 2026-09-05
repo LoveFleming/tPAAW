@@ -162,13 +162,13 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
         }
         setFeatures(loaded);
       } catch (parseErr) {
-        console.error("[FeatureMap] JSON parse error:", parseErr.message, "raw:", text.slice(0, 500));
-        setFetchError(`API 回應格式錯誤: ${parseErr.message}`);
+        console.error("[FeatureMap] JSON parse error:", parseErr instanceof Error ? parseErr.message : String(parseErr), "raw:", text.slice(0, 500));
+        setFetchError(`API 回應格式錯誤: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`);
         setFeatures([]);
       }
     } catch (err) {
       console.error("[FeatureMap] fetch error:", err);
-      setFetchError(`連線失敗: ${err.message}`);
+      setFetchError(`連線失敗: ${err instanceof Error ? err.message : String(err)}`);
     }
     setLoading(false);
   }, [basePath, searchQuery, refreshKey]);
@@ -190,7 +190,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
         alert(`❌ ${data.error}`);
       }
     } catch (err) {
-      alert("Refresh failed: " + err.message);
+      alert("Refresh failed: " + (err instanceof Error ? err.message : String(err)));
     }
     setRefreshing(false);
   };
@@ -208,7 +208,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
       setFeatures(prev => prev.map(f => f.id === selectedId ? { ...f, documentation: docsContent, docsUpdatedAt: new Date().toISOString() } : f));
       setEditingDocs(false);
     } catch (err) {
-      alert("Save failed: " + err.message);
+      alert("Save failed: " + (err instanceof Error ? err.message : String(err)));
     }
     setSavingDocs(false);
   };
@@ -226,7 +226,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
         await fetchFeatures();
       }
     } catch (err) {
-      alert("Create failed: " + err.message);
+      alert("Create failed: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -238,7 +238,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
       if (selectedId === id) setSelectedId(null);
       await fetchFeatures();
     } catch (err) {
-      alert("Delete failed: " + err.message);
+      alert("Delete failed: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 

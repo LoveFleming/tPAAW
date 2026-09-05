@@ -68,7 +68,7 @@ export default function AgentMemoryPanel({ rootPath, theme }: Props) {
       setMemories(mems);
       // Auto-select first agent with memory, or first agent overall
       if (!selectedId && mems.length > 0) {
-        const withMemory = mems.find(m => m.hasMemory);
+        const withMemory = mems.find((m: { hasMemory?: boolean }) => m.hasMemory);
         setSelectedId((withMemory || mems[0]).agentId);
       }
     } catch (err) {
@@ -113,7 +113,7 @@ export default function AgentMemoryPanel({ rootPath, theme }: Props) {
       setOriginalContent(content);
       await fetchList();
     } catch (err) {
-      alert("Save failed: " + err.message);
+      alert("Save failed: " + (err instanceof Error ? err.message : String(err)));
     }
     setSaving(false);
   };
@@ -128,7 +128,7 @@ export default function AgentMemoryPanel({ rootPath, theme }: Props) {
       }
       await fetchList();
     } catch (err) {
-      alert("Delete failed: " + err.message);
+      alert("Delete failed: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 

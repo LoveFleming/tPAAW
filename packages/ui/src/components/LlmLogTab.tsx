@@ -338,13 +338,14 @@ export default function LlmLogTab() {
                   <div className="text-stone-500 mb-0.5">Tool Calls ({selectedLog.toolCalls.length})</div>
                   <div className="space-y-1.5">
                     {selectedLog.toolCalls.map((tc, i) => {
-                      const isViolation = selectedLog.auditViolations?.includes(tc.name);
+                      const violation = selectedLog.auditViolations?.find(v => v.tool === tc.name);
+                      const isViolation = !!violation;
                       return (
                         <div key={i} className={`rounded text-xs overflow-hidden ${isViolation ? "bg-red-900/40 border border-red-800/50" : "bg-stone-800"}`}>
                           <div className={`px-2 py-1 font-medium ${isViolation ? "text-red-300" : "text-amber-300"}`}>
                             {isViolation ? "🚫" : "🔧"} {tc.name}
-                            {isViolation && selectedLog.auditViolations?.find(v => v.tool === tc.name) && (
-                              <span className="text-stone-500 text-[10px] ml-1">— {selectedLog.auditViolations.find(v => v.tool === tc.name).reason}</span>
+                            {isViolation && violation && (
+                              <span className="text-stone-500 text-[10px] ml-1">— {violation.reason}</span>
                             )}
                           </div>
                           {tc.args && (
