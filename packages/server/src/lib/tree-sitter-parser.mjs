@@ -603,8 +603,35 @@ function extractFileInfo(tree, filePath, language) {
       }
     }
 
+    // ── Python imports：from .x import y / import a.b / from .m import * ──
+    if (language === "python" && node.type === "import_from_statement") {
+      const mod = node.children.find(c => c.type === "dotted_name" || c.type === "relative_import");
+      if (mod) {
+        const names = [];
+        for (const c of node.children) {
+          if (c !== mod && c.type === "dotted_name") names.push(c.text.split(".")[0]);
+          if (c.type === "wildcard_import") names.push("*");
+        }
+        info.imports.push({ source: mod.text, names });
+      }
+    }
+    if (language === "python" && node.type === "import_statement") {
+      for (const c of node.children) {
+        if (c.type === "dotted_name") info.imports.push({ source: c.text, names: [c.text.split(".").pop()] });
+      }
+    }
+    // ── Python 公開 def/class = exports（函式庫 api 進入點素材）──
+    if (language === "python" && (node.type === "function_definition" || node.type === "class_definition")) {
+      const nameNode = node.childForFieldName("name");
+      if (nameNode && !nameNode.text.startsWith("_")) {
+        info.exports.push({ kind: node.type === "class_definition" ? "class" : "function", name: nameNode.text, isDefault: false });
+      }
+    }
+
     // ── React components: function Xxx() returning JSX / PascalCase functions ──
-    if (node.type === "function_declaration" || node.type === "arrow_function") {
+    // （僅 JS/TS 家族 — Go 大寫函式是 export 不是 React，之前誤判成 ui 進入點）
+    if ((node.type === "function_declaration" || node.type === "arrow_function")
+      && ["javascript", "typescript", "tsx"].includes(language)) {
       const nameNode = node.type === "function_declaration"
         ? node.childForFieldName("name")
         : null;
@@ -614,7 +641,7 @@ function extractFileInfo(tree, filePath, language) {
       }
     }
     // Also check: const Xxx = () => JSX
-    if (node.type === "lexical_declaration") {
+    if (node.type === "lexical_declaration" && ["javascript", "typescript", "tsx"].includes(language)) {
       for (const child of node.children) {
         if (child.type === "variable_declarator") {
           const name = child.childForFieldName("name")?.text || "";

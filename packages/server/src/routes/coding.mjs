@@ -2925,29 +2925,25 @@ export default async function projectRoute(req, res) {
           // Tree-sitter source analysis for feature-map step
           let chunkedFeatureMap = null;
           if (step.id === "feature-map") {
+            // 2026-09-05 v2：骨架數學決定論（entry-reach-Jaccard）+ LLM 只長肉 — 取代 LLM 自由切分
             try {
-              cuLog(step.id, "Running Tree-sitter source analysis...");
-              // 2026-09-03 Fleming：不設上限 — 大 release unit 也要完整 feature map
-              const tsResult = await parseProject(root, PAAW_ROOT, { maxFiles: 0, maxBytes: 500_000 });
-              cuLog(step.id, `Tree-sitter: ${tsResult.stats.parsedFiles}/${tsResult.stats.totalFiles} files parsed, ${tsResult.stats.errors} errors`);
-              // Add condensed format (compact, fits in context window)
-              const condensed = formatCondensed(tsResult);
-              if (condensed && condensed.length <= 80_000) {
-                fullPrompt += `\n\n--- SOURCE ANALYSIS (Tree-sitter) ---\n${condensed}`;
-              } else if (condensed) {
-                // 大 release unit：map-reduce 分塊產出完整 feature map
-                const { features } = await generateFeatureMapChunked({
-                  tsResult, basePrompt: fullPrompt, projectRoot: root,
-                  cuModelOverride, cuLog, sendEvent, stepId: step.id, stepName: step.name,
-                });
-                chunkedFeatureMap = JSON.stringify(features, null, 2);
-              }
-              // Also save full analysis to .paaw/ for debugging
-              const fullAnalysis = formatForAI(tsResult);
-              await paaw.writeFile("features/tree-sitter-analysis.txt", fullAnalysis);
-            } catch (tsErr) {
-              cuLog(step.id, `Tree-sitter failed (non-fatal): ${tsErr.message}`);
+              const { organizeFeatureMapV2 } = await import("../lib/feature-map-v2.mjs");
+              const { features, meta } = await organizeFeatureMapV2(root, {
+                callLLM: (body) => callProjectLLM({ ...body, model: cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+                onProgress: (msg) => { cuLog(step.id, msg); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
+                paawRoot: PAAW_ROOT,
+              });
+              cuLog(step.id, `v2: ${features.length} features (${meta.stats.clusters} deterministic + ${Math.max(0, features.length - meta.stats.clusters)} utility) / shared ${meta.stats.shared} / orphans ${meta.orphans.length}`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${features.length} features — ${meta.stats.clusters} deterministic` });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${features.length} features (v2: ${meta.stats.clusters} 數學骨架)` }); } catch {}
+            } catch (err) {
+              cuLog(step.id, `feature-map v2 failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
             }
+            sendEvent("done", { message: "Feature map v2 complete" });
+            res.end();
+            return true;
           }
 
         // Call LLM with longer timeout for single step
@@ -3337,6 +3333,27 @@ export default async function projectRoute(req, res) {
               try { await paaw.setCuStepStatus(step.id, "done", { summary: `${c4Result.stats.external} external / ${c4Result.stats.containers} containers` }); } catch {}
             } catch (err) {
               cuLog(step.id, `[bulk] C4 model failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+            }
+            continue;
+          }
+
+          // Special handling: feature-map v2 — 骨架數學決定論 + LLM 只長肉（2026-09-05）
+          if (step.id === "feature-map") {
+            try {
+              cuLog(step.id, "[bulk] feature-map v2 (deterministic skeleton + LLM flesh)...");
+              const { organizeFeatureMapV2 } = await import("../lib/feature-map-v2.mjs");
+              const { features, meta } = await organizeFeatureMapV2(root, {
+                callLLM: (body) => callProjectLLM({ ...body, model: cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+                onProgress: (msg) => { cuLog(step.id, `[bulk] ${msg}`); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
+                paawRoot: PAAW_ROOT,
+              });
+              cuLog(step.id, `[bulk] v2: ${features.length} features (${meta.stats.clusters} deterministic)`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${features.length} features — ${meta.stats.clusters} deterministic` });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${features.length} features (v2)` }); } catch {}
+            } catch (err) {
+              cuLog(step.id, `[bulk] feature-map v2 failed: ${err.message}`);
               sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
               try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
             }

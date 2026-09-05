@@ -24,7 +24,7 @@
 | # | 步驟 | 產物 | 內容 |
 |---|------|------|------|
 | 1.1 | 📡 Scan | project-scan.json | 語言/框架/檔案樹/規模 |
-| 1.2 | 🗺️ Feature Map | features.json | feature → files 對應（機器掃 + LLM 命名） |
+| 1.2 | 🗺️ Feature Map v2 | features/FEATURES.json | **骨架數學決定論：進入點(route/UI/API) → reach closure → Jaccard 聚類（同 repo 重跑必同輸出）**；LLM 只長肉（命名/description/bizLogic 摘要）；orphans 程式歸不了 → LLM 分組標 `grade:"utility"`（非決定論，人定案）；meta 檔記 shared 層/方法/stats |
 | 1.3 | 🧠 Code Intelligence | code-intel.json | 呼叫圖/依賴/架構筆記 |
 | 1.4 | 🧪 Test Intelligence | test-intel.json | 測試覆蓋地圖 |
 | 1.5 | 🔢 Error Codes | error-codes.json | **v2：機器收訊號（throw/raise/panic/HTTP 4xx-5xx/Error 類…跨語言）→ LLM 語意整理 by feature**；判讀 conventions（none/systematic/mixed）；無慣例 → 建議導入 Rules v1；每筆帶 file:line 證據 |
@@ -116,4 +116,4 @@
 
 ---
 
-*Baseline: dev@374cb7cc（2026-09-05）。本文件由 Stewart 維護，功能凍結至測試回合結束。*
+*Baseline: dev@374cb7cc + feature-map v2（2026-09-05 晚，Fleming 授權的凍結例外）。本文件由 Stewart 維護，功能凍結至測試回合結束。*
