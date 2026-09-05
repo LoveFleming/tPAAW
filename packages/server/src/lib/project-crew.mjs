@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync
 import { join, resolve } from "path";
 import { fileURLToPath } from "url";
 import { DATA_HOME } from "../data-home.mjs";
-import { hashObject } from "../stable-hash.mjs"; // 2026-09-05：模板跟版 hash
+import { hashObject } from "./stable-hash.mjs"; // 2026-09-05：模板跟版 hash
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = resolve(__filename, "..");
