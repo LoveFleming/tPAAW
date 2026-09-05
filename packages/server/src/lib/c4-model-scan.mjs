@@ -16,7 +16,7 @@ import { DATA_HOME } from "../data-home.mjs";
 
 // ── 已知外部服務依賴表（不足的自動 heuristic 補） ──
 const DEP_RULES = [
-  { cat: "db", re: /^(pg|postgres|postgresql|mysql|mysql2|mongoose|mongodb|better-sqlite3|sqlite3|prisma|@prisma\/client|typeorm|sequelize|knex|mariadb|cassandra-driver|neo4j-driver|@elastic\/elasticsearch|elasticsearch)$/ },
+  { cat: "db", re: /^(pg|postgres|postgresql|psycopg2-binary|psycopg2|psycopg|pgx|mysql|mysql2|mysql-connector-python|mysql-connector-java|mongoose|mongodb|better-sqlite3|sqlite3|prisma|@prisma\/client|typeorm|sequelize|knex|mariadb|cassandra-driver|neo4j-driver|@elastic\/elasticsearch|elasticsearch)$/ },
   { cat: "cache", re: /^(redis|ioredis|@redis\/client|node-cache|lru-cache)$/ },
   { cat: "queue", re: /^(amqplib|amqp|rabbitmq|kafkajs|kafka-node|nats|@nestjs\/microservices|bullmq|bull|bee-queue|sqs-consumer|celery|kombu)$/ },
   { cat: "cloud", re: /^(aws-sdk|@aws-sdk\/.*|googleapis|@google-cloud\/.*|firebase-admin|azure-storage|@azure\/.*|aliyun|oss|cos-nodejs-sdk-v5)$/ },
@@ -89,21 +89,59 @@ export function collectExternalSignals(root) {
   const pyproj = join(projectRoot, "pyproject.toml");
   if (existsSync(pyproj)) {
     const rel = relative(projectRoot, pyproj).replace(/\\/g, "/");
-    for (const m of readFileSync(pyproj, "utf-8").matchAll(/^\s*([A-Za-z0-9_.-]+)\s*[=<>~]/gm)) {
-      const cat = PY_EXTRA.test(m[1]) ? _classifyDep(m[1].toLowerCase()) || "external?" : _classifyDep(m[1]);
-      if (cat) deps.push({ name: m[1], version: "", cat, source: rel, manager: "pip" });
+    const pytxt = readFileSync(pyproj, "utf-8");
+    const pySeen = new Set();
+    const pyPush = (name) => {
+      if (pySeen.has(name.toLowerCase())) return;
+      const cat = PY_EXTRA.test(name.toLowerCase()) ? _classifyDep(name.toLowerCase()) || "external?" : _classifyDep(name);
+      if (cat) { pySeen.add(name.toLowerCase()); deps.push({ name, version: "", cat, source: rel, manager: "pip" }); }
+    };
+    // Poetry 風格：name = "^1.0"（行首指定，大小寫無關分類）；陣列指定（key = [...]）跳過，
+    // 否則 optional-dependencies 的組名（postgres = [...]）會被誤當套件
+    for (const m of pytxt.matchAll(/^\s*([A-Za-z0-9_.-]+)\s*[=<>~]([^\n]*)/gm)) {
+      if (/^\s*\[/.test(m[2])) continue;
+      pyPush(m[1]);
+    }
+    // PEP 621 陣列式：dependencies = ["pkg>=1.0", ...]（可跨行）+ [project.optional-dependencies] extras
+    // v1 洞：只認 Poetry 風格，主流 PEP 621 陣列掃不到 — 2026-09-06 補
+    let inOptional = false, arrBuf = null;
+    for (const line of pytxt.split("\n")) {
+      if (arrBuf) {
+        arrBuf.text += "\n" + line;
+        if (line.includes("]")) {
+          for (const q of arrBuf.text.matchAll(/['"]([^'"]+)['"]/g)) {
+            const nm = q[1].match(/^([A-Za-z0-9_.-]+)/);
+            if (nm) pyPush(nm[1]);
+          }
+          arrBuf = null;
+        }
+        continue;
+      }
+      const header = line.match(/^\s*\[([^\]]+)\]/);
+      if (header) { inOptional = /optional-dependencies/.test(header[1]); continue; }
+      const arr = line.match(/^\s*([A-Za-z0-9_.-]*)\s*=\s*\[/);
+      if (!arr) continue;
+      const key = arr[1] || "dependencies";
+      if (!(/(^|\.)dependencies$/.test(key) || inOptional)) continue;
+      if (line.includes("]")) {
+        for (const q of line.matchAll(/['"]([^'"]+)['"]/g)) {
+          const nm = q[1].match(/^([A-Za-z0-9_.-]+)/);
+          if (nm) pyPush(nm[1]);
+        }
+      } else arrBuf = { text: line };
     }
   }
   const gomod = join(projectRoot, "go.mod");
   if (existsSync(gomod)) {
     const rel = relative(projectRoot, gomod).replace(/\\/g, "/");
     for (const m of readFileSync(gomod, "utf-8").matchAll(/^\s+([A-Za-z0-9_.\/-]+)\s+v[\d.]+/gm)) {
-      const short = m[1].split("/").pop();
+      const short0 = m[1].split("/").pop();
+      const short = /^v\d+$/.test(short0) ? m[1].split("/").slice(-2)[0] : short0; // github.com/redis/go-redis/v9 → go-redis
       const cat = _classifyDep(short) || (HEURISTIC.test(m[1]) ? "external?" : null);
       if (cat) deps.push({ name: m[1], version: "", cat, source: rel, manager: "go" });
     }
   }
-  for (const [mf, mgr] of [["pom.xml", "maven"], ["build.gradle", "gradle"]]) {
+  for (const [mf, mgr] of [["pom.xml", "maven"], ["build.gradle", "gradle"], ["build.gradle.kts", "gradle"]]) {
     const p = join(projectRoot, mf);
     if (!existsSync(p)) continue;
     const rel = relative(projectRoot, p).replace(/\\/g, "/");
@@ -111,7 +149,11 @@ export function collectExternalSignals(root) {
     const ids = [...txt.matchAll(/<artifactId>([A-Za-z0-9._-]+)<\/artifactId>/g)].map(x => x[1])
       .concat([...txt.matchAll(/(?:implementation|api|compile|runtimeOnly)[\s'("]+([A-Za-z0-9._:$-]+)/g)].map(x => x[1]));
     for (const id of new Set(ids)) {
-      const cat = _classifyDep(id) || (HEURISTIC.test(id) ? "external?" : null);
+      // Maven 座標 group:artifact:version[:classifier] — artifactId 永遠在 parts[1]；name 保留完整座標當證據
+      // v1 洞：拿整串座標比對正規則幾乎不中，只能靠 heuristic — 2026-09-06 補切 ":"
+      const segs = id.split(":");
+      const artifact = segs.length >= 2 ? segs[1] : id;
+      const cat = _classifyDep(artifact) || _classifyDep(id) || (HEURISTIC.test(artifact) || HEURISTIC.test(id) ? "external?" : null);
       if (cat) deps.push({ name: id, version: "", cat, source: rel, manager: mgr });
     }
   }
