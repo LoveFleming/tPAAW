@@ -581,6 +581,8 @@
   "rm.emptyInit.step2": "把 Loop Mode 切到 Full（七關證據流）",
   "rm.emptyInit.step3": "派工開發 — 走完 pipeline 的 task 會自動進待放行",
   "rm.emptyInit.title": "這個 Release Unit 還沒開始開發",
+  "rm.emptyNoTasks.desc": "Code Understanding 已跑完（{n} 個步驟 ✓）。完成下面兩步，走完 pipeline 的 task 就會出現在這裡等放行。",
+  "rm.emptyNoTasks.title": "知識庫已建好，還沒有開發任務",
   "rm.featureTests": "Features 佈防",
   "rm.firstRelease": "首次發布 — 基準線為 repo 第一個 commit",
   "rm.genReport": "產生 Review Report",

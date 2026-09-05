@@ -107,11 +107,20 @@ export default async function releaseRoutes(req, res, next) {
     }
     const data = await readTasksFile(projectPath);
     if (!data) {
+      // TASKS.json 不存在 ≠ 專案沒初始化 — CU 可能已跑過
+      // （EM 跑完 CU 但還沒派工時，RM 不該再叫人跑 CU，2026-09-05）
+      let cuDone = 0;
+      try {
+        const cu = JSON.parse(readFileSync(join(projectPath, ".paaw", "cu-status.json"), "utf-8"));
+        cuDone = Object.values(cu.steps || {}).filter(s => s?.status === "done").length;
+      } catch { /* 無 cu-status → 0 */ }
       return res.json({
-        initialized: false,
+        initialized: cuDone > 0,
+        cuDone,
+        hasTasksFile: false,
         loopMode: "mini",
         pending: [],
-        message: "no-tasks",
+        message: cuDone > 0 ? "cu-done-no-tasks" : "no-tasks",
       });
     }
     const pending = [];
@@ -141,7 +150,7 @@ export default async function releaseRoutes(req, res, next) {
       });
     }
     pending.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
-    return res.json({ initialized: true, loopMode: data.loopMode || "mini", pending });
+    return res.json({ initialized: true, hasTasksFile: true, loopMode: data.loopMode || "mini", pending });
   }
 
   // GET list — release 歷史

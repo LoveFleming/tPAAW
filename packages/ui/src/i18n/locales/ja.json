@@ -581,6 +581,8 @@
   "rm.emptyInit.step2": "Loop Mode を Full に切替（7ゲート証拠フロー）",
   "rm.emptyInit.step3": "作業を dispatch — パイプライン完走タスクが承認待ちに並びます",
   "rm.emptyInit.title": "このリリースユニットはまだ開発開始前です",
+  "rm.emptyNoTasks.desc": "Code Understanding が完了（{n} ステップ ✓）。下の 2 ステップを済ませると、パイプラインを完走したタスクがここで承認待ちになります。",
+  "rm.emptyNoTasks.title": "ナレッジベース準備済み、開発タスクはまだありません",
   "rm.featureTests": "Features網羅",
   "rm.firstRelease": "初回リリース — ベースラインは最初のコミット",
   "rm.genReport": "レビューレポート生成",

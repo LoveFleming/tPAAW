@@ -8,7 +8,8 @@
  * 右：RM AI 助理（審證據不審碼）
  *
  * 空狀態設計：
- *   - 專案未初始化（無 .paaw/TASKS.json）→ 引導先跑 CU / mini loop 開發
+ *   - 專案未初始化（無 TASKS.json 也沒跑過 CU）→ 引導先跑 CU / mini loop 開發
+ *   - CU 已跑過但還沒派工（無 TASKS.json）→ 告知知識庫就緒，引導切 Full + 派工
  *   - 已初始化但無待放行 → 說明什麼會出現在這裡
  */
 
@@ -92,6 +93,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const [pending, setPending] = useState<PendingTask[]>([]);
   const [releases, setReleases] = useState<ReleaseRecord[]>([]);
   const [initialized, setInitialized] = useState<boolean | null>(null); // null = loading
+  const [hasTasksFile, setHasTasksFile] = useState(true); // false = CU 已跑但還沒派工（無 TASKS.json）
+  const [cuDone, setCuDone] = useState(0); // CU 已完成步驟數
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -117,6 +120,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
       const lData = await lRes.json();
       const qdData = await qdRes.json().catch(() => null);
       setInitialized(!!pData.initialized);
+      setHasTasksFile(pData.hasTasksFile !== false);
+      setCuDone(pData.cuDone || 0);
       setPending(pData.pending || []);
       setReleases(lData.releases || []);
       setQd(qdData);
@@ -466,7 +471,22 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                 {pending.length > 0 && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">{pending.length}</span>}
               </h3>
 
-              {pending.length === 0 && (
+              {pending.length === 0 && !hasTasksFile ? (
+                <div className="border rounded-xl p-4 bg-stone-50" style={{ borderColor: tk.borderLight }}>
+                  <div className="text-sm font-bold text-stone-700 mb-1">🧠 {t("rm.emptyNoTasks.title")}</div>
+                  <p className="text-xs text-stone-500 leading-relaxed mb-3">{t("rm.emptyNoTasks.desc").replace("{n}", String(cuDone))}</p>
+                  <div className="text-left bg-white rounded-lg border p-3 text-[11px] text-stone-500 space-y-1.5" style={{ borderColor: tk.borderLight }}>
+                    <div>2️⃣ {t("rm.emptyInit.step2")}</div>
+                    <div>3️⃣ {t("rm.emptyInit.step3")}</div>
+                  </div>
+                  {onOpenEMDashboard && (
+                    <button onClick={onOpenEMDashboard}
+                      className="mt-3 text-xs px-4 py-2 rounded-lg text-white" style={{ backgroundColor: tk.accent }}>
+                      {t("rm.emptyInit.goEM")}
+                    </button>
+                  )}
+                </div>
+              ) : pending.length === 0 && (
                 <div className="border border-dashed rounded-lg p-4 text-center text-xs text-stone-400" style={{ borderColor: tk.borderLight }}>
                   {t("rm.pending.empty")}
                 </div>

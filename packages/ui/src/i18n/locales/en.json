@@ -581,6 +581,8 @@
   "rm.emptyInit.step2": "Switch Loop Mode to Full (7-gate evidence pipeline)",
   "rm.emptyInit.step3": "Dispatch work — tasks completing the pipeline land in the pending queue",
   "rm.emptyInit.title": "This Release Unit hasn't started development",
+  "rm.emptyNoTasks.desc": "Code Understanding finished ({n} steps ✓). Finish the two steps below — tasks completing the pipeline will queue here for approval.",
+  "rm.emptyNoTasks.title": "Knowledge base ready, no dev tasks yet",
   "rm.featureTests": "Features covered",
   "rm.firstRelease": "First release — baseline is the repo's first commit",
   "rm.genReport": "Generate Review Report",
