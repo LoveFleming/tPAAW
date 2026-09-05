@@ -2118,23 +2118,23 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
               return `Features (${features.length}):\n\n${list}`;
             } catch (err) { return `Error reading features: ${err.message}`; }
           }
-          case "error_codes": { // 2026-09-05：error code by feature — agent 寫碼前查既有 codes、helpdesk 從 code 追 feature
+          case "error_codes": { // 2026-09-05 v2：LLM 語意整理 — agent 寫碼前查既有 error 處理、helpdesk 從 code 追 feature
             const ecFile = join(cwd, ".paaw", "error-codes.json");
-            if (!existsSync(ecFile)) return "(No error-codes.json — CU error-codes step 未跑。請跑 CU 或請人類在 FeatureMap panel 重掃。)";
+            if (!existsSync(ecFile)) return "(No error-codes.json — CU error-codes 步驟未跑。請跑 CU 或請人類在 FeatureMap panel 🔢 整理。注意：整理會花 LLM token。)";
             try {
               const data = JSON.parse(readSync(ecFile, "utf-8"));
-              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${data.uniqueCodes || 0} codes` });
+            if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${data.stats?.uniqueCodes || 0} codes` });
               if (args.feature) {
                 const g = (data.byFeature || []).find(f => f.featureId === args.feature || f.featureName?.toLowerCase().includes(String(args.feature).toLowerCase()));
                 if (!g) return `(No error codes found for feature '${args.feature}')`;
-                const lines = g.codes.map(c => `  ${c.code} — ${c.file}:${c.line} (${c.kind}${c.issues?.length ? "; issues: " + c.issues.join(", ") : ""})`);
-                if (data.annotations?.[g.featureId]?.summary) lines.push(`\nAI 註解：${data.annotations[g.featureId].summary}`);
-                return `Error codes for [${g.featureId}] ${g.featureName} (${g.uniqueCount} unique):\n${lines.join("\n")}`;
+                const lines = (g.codes || []).map(c => `  ${c.code || `(無code) ${c.message}`} — ${c.file}${c.line ? ":" + c.line : ""}${c.httpStatus ? ` [HTTP ${c.httpStatus}]` : ""}${c.kind === "throw" ? " (throw)" : ""}`);
+                return `Error handling for [${g.featureId}] ${g.featureName} (${g.uniqueCount} unique)${g.summary ? `\n摘要：${g.summary}` : ""}\n${lines.join("\n")}`;
               }
               const head = (data.byFeature || []).slice(0, args.limit ? Number(args.limit) : 15).map(g =>
-                `[${g.featureId}] ${g.featureName}: ${g.uniqueCount} codes${(data.violations || []).some(v => g.codes.some(c => c.code === v.code)) ? " (⚠️ 有違規)" : ""}`);
+                `[${g.featureId}] ${g.featureName}: ${g.uniqueCount || (g.codes || []).length} codes`);
               const extra = (data.byFeature || []).length > 15 ? `\n... 共 ${data.byFeature.length} 個 feature（帶 feature 參數看單一 feature）` : "";
-              return `Error codes by feature (${data.uniqueCodes} unique / ${data.byFeature?.length || 0} features / ${data.violations?.length || 0} violations):\n${head.join("\n")}${extra}\nunmapped: ${data.unmapped?.length || 0}`;
+              const rec = data.recommendation?.suggest ? `\n⚠️ 建議導入 Error Code Rules v1（plan 詳見 error-codes.json / FeatureMap panel）` : "";
+              return `Error codes by feature (${data.stats?.uniqueCodes || 0} unique / ${data.byFeature?.length || 0} features / conventions: ${data.conventions || "unknown"})${data.conventionNote ? `\n慣例：${data.conventionNote}` : ""}${rec}\n${head.join("\n")}${extra}\nunmapped: ${(data.unmapped || []).length}`;
             } catch (err) { return `Error reading error-codes: ${err.message}`; }
           }
           case "feature_detail": {

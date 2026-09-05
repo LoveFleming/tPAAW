@@ -77,7 +77,7 @@ const CU_STEP_FILES = {
   overview: "project/PROJECT.md",
   standards: "project/CODING-STANDARDS.md",
 };
-const CU_MECHANICAL_STEPS = new Set(["code-intelligence", "test-intelligence", "error-codes"]);
+const CU_MECHANICAL_STEPS = new Set(["code-intelligence", "test-intelligence"]);
 const CU_MANUAL_STEPS = new Set(["overview", "standards"]); // 人寫文件 — CU 重跑不會更新，過期只能人工改
 const STALE_TOLERANCE_MS = 2000; // 同步競態容差
 function computeCuStaleness(root, steps, codeLastModifiedMs) {
@@ -2791,23 +2791,33 @@ export default async function projectRoute(req, res) {
           return true;
         }
 
-        // Special handling: error-codes — by-feature error code scan（純機器，零 token）
+        // Special handling: error-codes — by-feature LLM 語意整理（2026-09-05 v2：不認命名慣例，OSS/任意 project 都能用）
         if (step.id === "error-codes") {
           try {
-            cuLog(step.id, "Scanning error codes by feature...");
-            const { scanErrorCodes } = await import("../lib/error-code-scan.mjs");
-            const ecResult = scanErrorCodes(root);
-            cuLog(step.id, `Error codes done: ${ecResult.uniqueCodes} unique / ${ecResult.featureCount} features / ${ecResult.violations.length} violations`);
-            sendEvent("step_done", {
-              step: step.id,
-              name: step.name,
-              summary: `${ecResult.uniqueCodes} codes, ${ecResult.featureCount} features, ${ecResult.violations.length} violations`,
-              stats: { total: ecResult.total, uniqueCodes: ecResult.uniqueCodes, featureCount: ecResult.featureCount, violations: ecResult.violations.length, unmapped: ecResult.unmapped.length },
+            cuLog(step.id, "Collecting error signals + LLM organizing...");
+            const { organizeErrorCodes } = await import("../lib/error-code-scan.mjs");
+            const ecResult = await organizeErrorCodes(root, {
+              callLLM: (body) => callProjectLLM({ ...body, model: cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+              onProgress: (msg) => { cuLog(step.id, msg); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
             });
-            try { await paaw.setCuStepStatus(step.id, "done", { summary: `${ecResult.uniqueCodes} codes / ${ecResult.violations.length} violations` }); } catch {}
+            if (ecResult.skipped) {
+              cuLog(step.id, `Skipped: ${ecResult.reason}`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: "no error signals" });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: "no error signals" }); } catch {}
+            } else {
+              cuLog(step.id, `Error codes done: ${ecResult.stats.uniqueCodes} codes / ${ecResult.stats.featureCount} features / conventions=${ecResult.conventions}${ecResult.recommendation.suggest ? " (建議導入 Rules v1)" : ""}`);
+              sendEvent("step_done", {
+                step: step.id,
+                name: step.name,
+                summary: `${ecResult.stats.uniqueCodes} codes, ${ecResult.stats.featureCount} features, conventions: ${ecResult.conventions}`,
+                stats: { ...ecResult.stats, conventions: ecResult.conventions, suggest: ecResult.recommendation.suggest },
+              });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${ecResult.stats.uniqueCodes} codes / conventions=${ecResult.conventions}` }); } catch {}
+            }
           } catch (err) {
             cuLog(step.id, `Error codes failed: ${err.message}`);
             sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+            try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
           }
           sendEvent("done", { message: "Error codes complete" });
           res.end();
@@ -3259,15 +3269,23 @@ export default async function projectRoute(req, res) {
             continue;
           }
 
-          // Special handling: error-codes — by-feature error code scan（純機器，零 token）
+          // Special handling: error-codes — by-feature LLM 語意整理（v2）
           if (step.id === "error-codes") {
             try {
-              cuLog(step.id, "[bulk] Scanning error codes by feature...");
-              const { scanErrorCodes } = await import("../lib/error-code-scan.mjs");
-              const ecResult = scanErrorCodes(root);
-              cuLog(step.id, `[bulk] Error codes: ${ecResult.uniqueCodes} unique / ${ecResult.featureCount} features / ${ecResult.violations.length} violations`);
-              sendEvent("step_done", { step: step.id, name: step.name, summary: `${ecResult.uniqueCodes} codes, ${ecResult.featureCount} features, ${ecResult.violations.length} violations` });
-              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${ecResult.uniqueCodes} codes / ${ecResult.violations.length} violations` }); } catch {}
+              cuLog(step.id, "[bulk] Collecting error signals + LLM organizing...");
+              const { organizeErrorCodes } = await import("../lib/error-code-scan.mjs");
+              const ecResult = await organizeErrorCodes(root, {
+                callLLM: (body) => callProjectLLM({ ...body, model: cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+                onProgress: (msg) => { cuLog(step.id, `[bulk] ${msg}`); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
+              });
+              if (ecResult.skipped) {
+                sendEvent("step_done", { step: step.id, name: step.name, summary: "no error signals" });
+                try { await paaw.setCuStepStatus(step.id, "done", { summary: "no error signals" }); } catch {}
+              } else {
+                cuLog(step.id, `[bulk] Error codes: ${ecResult.stats.uniqueCodes} codes / ${ecResult.stats.featureCount} features / conventions=${ecResult.conventions}`);
+                sendEvent("step_done", { step: step.id, name: step.name, summary: `${ecResult.stats.uniqueCodes} codes, ${ecResult.stats.featureCount} features, conventions: ${ecResult.conventions}` });
+                try { await paaw.setCuStepStatus(step.id, "done", { summary: `${ecResult.stats.uniqueCodes} codes / conventions=${ecResult.conventions}` }); } catch {}
+              }
             } catch (err) {
               cuLog(step.id, `[bulk] Error codes failed: ${err.message}`);
               sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
