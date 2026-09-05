@@ -85,3 +85,9 @@ backups/
 
 # Secret store master key (per-machine, never versioned)
 data/keys/
+
+# Runtime artifacts（machine-local，不入 repo）— 2026-09-05
+**/tsconfig.tsbuildinfo
+logs/
+data/a2a-tasks/
+data/config/release-units.json
