@@ -12,6 +12,7 @@ import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import AgentBuilder from "./AgentBuilder";
 import SkillSuggestModal from "./SkillSuggestModal";
+import RuSkillManagerModal from "./RuSkillManagerModal";
 import SkillPicker from "./SkillPicker";
 
 // ── Types ──
@@ -118,6 +119,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
   const [loading, setLoading] = useState(true);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [showSuggest, setShowSuggest] = useState(false);
+  const [showRuSkills, setShowRuSkills] = useState(false);
   const [detailTab, setDetailTab] = useState<DetailTab>("rules");
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
@@ -393,6 +395,11 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
             className="mt-2 w-full text-[11px] px-2 py-1.5 rounded-lg border bg-white hover:bg-stone-50 text-stone-600 font-medium"
             style={{ borderColor: t.borderLight }} data-testid="skill-suggest-open">
             {tt("ss.openBtn")}
+          </button>
+          <button onClick={() => setShowRuSkills(true)}
+            className="mt-1.5 w-full text-[11px] px-2 py-1.5 rounded-lg border bg-white hover:bg-stone-50 text-stone-600 font-medium"
+            style={{ borderColor: t.borderLight }} data-testid="ru-skills-open">
+            {tt("rusk.openBtn")}
           </button>
         </div>
 
@@ -946,6 +953,12 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
           theme={{ bg: t.bg, bgMuted: t.bgMuted, borderLight: t.borderLight, accent: t.accent, text: t.text }}
           onClose={() => setShowSuggest(false)}
           onApplied={() => { loadCrew(); onCrewChanged?.(); }} />
+      )}
+      {showRuSkills && (
+        <RuSkillManagerModal rootPath={rootPath}
+          theme={{ bg: t.bg, bgMuted: t.bgMuted, borderLight: t.borderLight, accent: t.accent, text: t.text }}
+          onClose={() => setShowRuSkills(false)}
+          onChanged={() => { loadCrew(); onCrewChanged?.(); }} />
       )}
     </div>
   );

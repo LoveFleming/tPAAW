@@ -17,6 +17,7 @@ import { join, resolve } from "path";
 import { fileURLToPath } from "url";
 import { DATA_HOME } from "../data-home.mjs";
 import { hashObject } from "./stable-hash.mjs"; // 2026-09-05：模板跟版 hash
+import { readRuSkillContent, provisionRuSkills } from "./ru-skills.mjs"; // 2026-09-05：Skill Instance Model — skills 是 RU 資產
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = resolve(__filename, "..");
@@ -179,6 +180,9 @@ export function initProjectCrew(projectDir, opts = {}) {
     skillBindings,
   };
   writeJson(configPath, config);
+
+  // 2026-09-05 Skill Instance Model：綁定的 skills 同時 clone 進 {ru}/.paaw/skills/
+  provisionRuSkills(projectDir, Object.values(skillBindings).flat());
 
   return {
     ok: true,
@@ -528,6 +532,9 @@ export function updateAgentSkills(projectDir, agentId, skillIds) {
   config.skillBindings[agentId] = skillIds || [];
   writeJson(configPath, config);
 
+  // 2026-09-05：新綁的 skills 同步 clone 進 RU（Skill Instance Model）
+  provisionRuSkills(projectDir, skillIds || []);
+
   return { agentId, skills: skillIds || [] };
 }
 
@@ -635,6 +642,26 @@ function stripInternal(agent) {
   };
 }
 
+/** 2026-09-05：這個 RU 全部會用到的 skill ids — 啓動遷移/狀態 UI 用。
+ *  skillBindings（權威）+ CU 步驟預設 + crew 模板自帶 skillIds（未 init 的 RU fallback）。 */
+export function allBoundSkillIds(projectDir) {
+  const ids = new Set();
+  const push = arr => { if (Array.isArray(arr)) for (const id of arr) if (id) ids.add(id); };
+
+  const config = readJson(getConfigPath(projectDir), null);
+  if (config?.skillBindings) for (const v of Object.values(config.skillBindings)) push(v);
+  for (const v of Object.values(DEFAULT_CU_STEP_SKILLS)) push(v);
+
+  // crew 模板 skillIds（專案未 init 或模板更新加料時的 fallback）
+  try {
+    for (const crewId of listGlobalCrewIds()) {
+      push(readGlobalCrew(crewId)?.skillIds);
+    }
+    push(readGlobalCrew(EM_CREW_ID)?.skillIds);
+  } catch { /* 全域模板讀不到不擋 */ }
+  return [...ids];
+}
+
 // ── Skill prompt injection ──
 
 /**
@@ -657,7 +684,8 @@ export function readProjectSkills(projectDir, crewId) {
 
   const results = [];
   for (const skillId of skillIds) {
-    const skillData = readSkillContent(skillId);
+    // 2026-09-05：單一解析路徑 — skill 只從 {ru}/.paaw/skills/ 讀（RU 資產）
+    const skillData = readRuSkillContent(projectDir, skillId);
     if (skillData) {
       let prompt = skillData.prompt;
       // 附上目錄內其他檔案路徑，agent 需要時用 read_file 讀取
@@ -676,7 +704,7 @@ export function readProjectSkills(projectDir, crewId) {
 /** 技能目錄掃描：列出 skill 目錄內所有檔案路徑（供 agent read_file 用）
  *  SKILL.md 本身已展開；其餘檔案列絕對路徑，agent 需要時再讀 */
 function listSkillFiles(skillDir) {
-  const SKIP_FILES = new Set(["SKILL.md", "_cron_inputs.json"]);
+  const SKIP_FILES = new Set(["SKILL.md", "_cron_inputs.json", "_paaw.json"]);
   const BINARY_EXT = /\.(png|jpe?g|gif|webp|ico|zip|pdf|woff2?|ttf|eot|mp4|mp3|wav)$/i;
   const SKIP_DIRS = new Set([".git", "node_modules"]);
   const files = [];
@@ -704,39 +732,5 @@ function listSkillFiles(skillDir) {
  * Tries physical-skill first (SKILL.md), then input-prompt (inputs.json).
  * SKILL.md 展開 = body + 目錄內所有文字檔案（rules/references/templates）
  */
-function readSkillContent(skillId) {
-  const roots = [
-    { dir: resolve(DATA_HOME, "skills", "physical-skill"), kind: "physical" },
-    { dir: resolve(DATA_HOME, "skills", "input-prompt"), kind: "input" },
-    { dir: resolve(DATA_HOME, "skills", "building"), kind: "building" },
-  ];
-
-  for (const { dir } of roots) {
-    // Try SKILL.md
-    const skillMdPath = join(dir, skillId, "SKILL.md");
-    try {
-      const raw = readFileSync(skillMdPath, "utf-8");
-      const nameMatch = raw.match(/^name:\s*(.+)$/m);
-      // Extract body (after frontmatter)
-      const bodyMatch = raw.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/);
-      const body = bodyMatch ? bodyMatch[1].trim() : raw;
-      return {
-        name: (nameMatch && nameMatch[1]) || skillId,
-        prompt: body,
-        skillDir: join(dir, skillId),
-      };
-    } catch {}
-
-    // Try inputs.json
-    const inputsPath = join(dir, skillId, "inputs.json");
-    try {
-      const data = JSON.parse(readFileSync(inputsPath, "utf-8"));
-      return {
-        name: data.name || skillId,
-        prompt: data.description || data.systemPrompt || `Skill: ${skillId}`,
-      };
-    } catch {}
-  }
-
-  return null;
-}
+// 2026-09-05：readSkillContent（全域單例讀取）已移除 — Skill Instance Model 上線後
+// 唯一解析路徑是 ru-skills.readRuSkillContent（{ru}/.paaw/skills/），全域 catalog 只是上游模板。

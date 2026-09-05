@@ -90,6 +90,7 @@ const ROUTE_MODULES = [
   "./routes/a2a.mjs",
   "./routes/helpdesk.mjs",
   "./routes/coding-skill-suggest.mjs",
+  "./routes/coding-ru-skills.mjs",
   "./routes/coding.mjs",
   "./routes/coding-issues.mjs",
   "./routes/coding-tasks.mjs",
@@ -270,6 +271,33 @@ startFlightRecorder(DATA_HOME);
 server.listen(PORT, async () => {
   // Ensure required directories exist
   await mkdir(resolve(DATA_HOME, "knowledge"), { recursive: true });
+
+  // 2026-09-05 Skill Instance Model 啓動遷移：所有已註冊 RU → 綁定的 skills clone 進
+  // {ru}/.paaw/skills/（冪等；之後 readRuSkillContent 單一路徑只讀 RU 內副本）
+  try {
+    const { readFileSync: rf, existsSync: ee } = await import("fs");
+    const { join: jj } = await import("path");
+    const regPath = resolve(DATA_HOME, "config", "release-units.json");
+    const { provisionRuSkills, syncRuSkills } = await import("./lib/ru-skills.mjs");
+    const { allBoundSkillIds } = await import("./lib/project-crew.mjs");
+    if (ee(regPath)) {
+      const units = JSON.parse(rf(regPath, "utf-8")).units || [];
+      let provTotal = 0;
+      for (const u of units) {
+        if (!u?.path || !ee(u.path)) continue;
+        try {
+          const r = provisionRuSkills(u.path, allBoundSkillIds(u.path));
+          provTotal += r.provisioned.length;
+          syncRuSkills(u.path);
+        } catch (e) {
+          console.warn(`[PAAW] RU skill 遷移失敗 ${u.path}: ${e.message}`);
+        }
+      }
+      console.log(`[PAAW] RU skill 遷移完成：${units.length} 個 RU（新 clone ${provTotal} 個 skill）`);
+    }
+  } catch (err) {
+    console.warn(`[PAAW] RU skill 遷移跳過：${err.message}`);
+  }
 
   // Sync daily backup cron job (schedule/enabled follow backup config)
   try {
