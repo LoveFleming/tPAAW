@@ -32,7 +32,7 @@ const DEFAULTS = {
   uploadsDays: 90,       // data/uploads 保留天數
 };
 
-async function loadConfig() {
+export async function loadConfig() {
   try {
     const raw = JSON.parse(await readFile(CONFIG_FILE, "utf-8"));
     const cfg = { ...DEFAULTS };
@@ -47,6 +47,32 @@ async function loadConfig() {
   } catch {
     return { ...DEFAULTS };
   }
+}
+
+/** 設定寫回（route PUT 用 — 只接受白名單鍵：數字 >=0 + enabled boolean） */
+export async function saveConfig(patch) {
+  const cfg = { ...(await loadConfig()) };
+  for (const k of Object.keys(DEFAULTS)) {
+    if (patch[k] === undefined) continue;
+    if (k === "enabled") {
+      if (typeof patch[k] === "boolean") cfg.enabled = patch[k];
+    } else {
+      const n = Number(patch[k]);
+      if (Number.isFinite(n) && n >= 0) cfg[k] = n;
+    }
+  }
+  const { writeFile: wf, mkdir: mk } = await import("fs/promises");
+  await mk(resolve(DATA_HOME, "config"), { recursive: true });
+  await wf(CONFIG_FILE, JSON.stringify(cfg, null, 2), "utf-8");
+  return cfg;
+}
+
+/** janitor.log 尾端 N 行（UI 看） */
+export async function tailJanitorLog(lines = 200) {
+  try {
+    const txt = await readFile(JANITOR_LOG, "utf-8");
+    return txt.split("\n").filter(Boolean).slice(-lines);
+  } catch { return []; }
 }
 
 /** RU 清單：PAAW_ROOT 自己 + release-units.json 註冊的每個單元 */

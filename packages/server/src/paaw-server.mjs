@@ -138,6 +138,7 @@ const ROUTE_MODULES = [
   "./routes/browser.mjs",
   "./routes/agent-logs.mjs",
   "./routes/log-retention.mjs",
+  "./routes/janitor.mjs",
   "./routes/plugins.mjs",
   "./routes/agentic-bindings.mjs",
 ];

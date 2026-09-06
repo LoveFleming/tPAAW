@@ -23,6 +23,8 @@ import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import { cn } from "../utils";
 import ShellTerminal from "../components/ShellTerminal";
+import ConsoleLogView from "../components/ConsoleLogView";
+import JanitorPanel from "../components/JanitorPanel";
 import JsonViewer from "../components/JsonViewer";
 import { fileEmoji } from "../components/FileEmoji";
 import hljs from "highlight.js";
@@ -502,6 +504,8 @@ export default function CodingIDE() {
     });
   }, [activeCrew]);
   const [chatInput, setChatInput] = useState("");
+  // Terminal tab 檢視：⌨️ shell | 📜 console | 🧹 janitor（2026-09-06）
+  const [terminalView, setTerminalView] = useState<"shell" | "console" | "janitor">("shell");
   // 👁 2026-09-06：9 agent 聊天輸入框貼圖/附圖（agent/chat mode 走 a2a parts、domain mode 走 images）
   const [pendingImages, setPendingImages] = useState<{ id: string; dataUrl: string }[]>([]);
   const crewImageInputRef = useRef<HTMLInputElement>(null);
@@ -3761,9 +3765,37 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                         zIndex: isActive ? 1 : 0,
                       }}
                     >
-                      <div className="flex-1 min-h-0 bg-[#1e1717]">
-                        {rootPath && <ShellTerminal key={tab.id} cwd={rootPath} active={isActive} />}
+                      {/* 檢視切換 toolbar（只有 terminal tab 用） */}
+                      {isActive && (
+                        <div className="shrink-0 flex items-center gap-1 px-2 py-1 border-b" style={{ borderColor: tk.borderLight, backgroundColor: "#1a1414" }}>
+                          {([
+                            ["shell", `⌨️ ${tt("janitor.viewShell")}`],
+                            ["console", `📜 ${tt("janitor.viewConsole")}`],
+                            ["janitor", `🧹 ${tt("janitor.viewJanitor")}`],
+                          ] as const).map(([v, label]) => (
+                            <button key={v} onClick={() => setTerminalView(v)}
+                              className="text-xs px-2.5 py-1 rounded-lg font-medium transition-colors"
+                              style={{
+                                backgroundColor: terminalView === v ? "#8b5cf622" : "transparent",
+                                color: terminalView === v ? "#8b5cf6" : "#a8a29e",
+                                border: `1px solid ${terminalView === v ? "#8b5cf655" : "transparent"}`,
+                              }}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {/* shell 永遠掛載（保 session）；console/janitor 蓋在上面 */}
+                      <div className="flex-1 min-h-0 bg-[#1e1717]" style={{ display: terminalView === "shell" ? undefined : "none" }}>
+                        {rootPath && <ShellTerminal key={tab.id} cwd={rootPath} active={isActive && terminalView === "shell"} />}
                       </div>
+                      {isActive && terminalView !== "shell" && (
+                        <div className="flex-1 min-h-0" style={{ backgroundColor: "#fafaf9" }}>
+                          {terminalView === "console"
+                            ? <ConsoleLogView cwd={rootPath || undefined} theme={tk} />
+                            : <JanitorPanel theme={tk} />}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

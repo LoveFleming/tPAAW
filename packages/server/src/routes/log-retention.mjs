@@ -1,5 +1,7 @@
 /**
- * Log Retention API — 日誌保留政策（Fleming 政策：LLM + Agent 紀錄一年、其餘 7 天）
+ * Log Retention API — 日誌保留政策
+ * Fleming 2026-09-06 定調（推翻 8 月的留一年）：
+ *   LLM 呼叫記錄 + agent 執行記錄是成本核算資產（RU 用了多少 token）→ 永不刪（days=0）
  *
  * GET  /api/logs/retention — 讀保留設定
  * PUT  /api/logs/retention — 寫設定（llmDays / agentDays / otherDays）
@@ -21,7 +23,7 @@ import { cleanupOldAgentLogs } from "../lib/agent-exec-logger.mjs";
 
 const CONFIG_FILE = resolve(DATA_HOME, "config/log-retention.json");
 const LOGS_ROOT = resolve(DATA_HOME, "logs");
-const DEFAULTS = { llmDays: 365, agentDays: 365, otherDays: 7 };
+const DEFAULTS = { llmDays: 0, agentDays: 0, otherDays: 7 }; // 0 = 永不刪（成本核算資產）
 
 async function loadRetention() {
   try {
@@ -104,13 +106,13 @@ async function purgeLlmBefore(before) {
 
 export async function runLogPurge(options = {}) {
   const cfg = await loadRetention();
-  let llmDeleted;
+  let llmDeleted = 0;
   if (options.before) {
-    llmDeleted = await purgeLlmBefore(options.before); // 明確日期 > 政策
-  } else {
-    llmDeleted = cleanupOldLogs(cfg.llmDays);          // 預設政策：一年
+    llmDeleted = await purgeLlmBefore(options.before); // 明確日期 > 政策（人為主動）
+  } else if (cfg.llmDays > 0) {
+    llmDeleted = cleanupOldLogs(cfg.llmDays);          // 0 = 永不刪（成本核算資產）
   }
-  const agentDeleted = await cleanupOldAgentLogs(cfg.agentDays);
+  const agentDeleted = cfg.agentDays > 0 ? await cleanupOldAgentLogs(cfg.agentDays) : 0;
   const otherDeleted = await purgeOtherLogs(cfg.otherDays);
   return { cfg, llmDeleted, agentDeleted, otherDeleted };
 }
