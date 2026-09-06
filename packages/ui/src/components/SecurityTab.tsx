@@ -250,10 +250,11 @@ export default function SecurityTab({ rootPath, theme, onOpenFile, onDispatchAge
                 <div className="text-stone-500 mt-2">確認 PATH 包含 Python Scripts：</div>
                 <div className="text-stone-500 mt-1">Windows: set PYTHONUTF8=1 && set PYTHONIOENCODING=utf-8 && semgrep --version</div>
                 <div className="text-stone-500">macOS: brew install semgrep</div>
+                <div className="text-stone-500">Linux: pipx install semgrep <span className="text-stone-400">（或 python3 -m pip install --user semgrep，裝完確認 ~/.local/bin 在 PATH）</span></div>
                 <div className="mt-2 text-stone-500 font-bold">若 semgrep 不在 PATH，可設環境變數：</div>
                 <div className="mt-1">
                   <code className="select-all px-1.5 py-0.5 bg-white border border-stone-200 rounded font-mono text-stone-700">
-                    SEMGREP_PATH=C:\path\to\semgrep.exe (Windows) / SEMGREP_PATH=/usr/local/bin/semgrep (macOS)
+                    SEMGREP_PATH=C:\path\to\semgrep.exe (Windows) / SEMGREP_PATH=/usr/local/bin/semgrep (macOS/Linux)
                   </code>
                 </div>
               </div>
