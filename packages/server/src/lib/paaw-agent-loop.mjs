@@ -522,8 +522,8 @@ export const PAAW_TOOLS = [
         properties: {
           category: {
             type: "string",
-            enum: ["context", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "standards_read", "error_codes", "c4_model", "security"],
-            description: "What to query: context=project overview (PROJECT.md+standards+feature map), features=feature map, feature_detail=single feature, runbook=troubleshooting, sessions=work sessions, test_map=test intelligence, recent_changes=change intelligence, api_history=API tester logs, project_read=human-written PROJECT.md, standards_read=human-written CODING-STANDARDS.md, error_codes=error codes by feature（寫碼前查既有 codes 不重複；debug 時帶 search=錯誤碼/訊息穩定片段反查 feature+file:line；帶 feature 看單一 feature）， c4_model=C4 對外連線全景（containers/external systems/relationships；帶 search 查特定服務）, security=security scan findings 明細（file:line + CWE + snippet + feature 對應；QA/SA 看 security 結果與開 task 的入口；帶 severity/file/search 過濾）"
+            enum: ["context", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "standards_read", "error_codes", "c4_model", "security", "decisions", "standards", "changelog", "faq"],
+            description: "What to query: context=project overview (PROJECT.md+standards+feature map), features=feature map, feature_detail=single feature, runbook=troubleshooting, sessions=work sessions, test_map=test intelligence, recent_changes=change intelligence, api_history=API tester logs, project_read=human-written PROJECT.md, standards_read=human-written CODING-STANDARDS.md, error_codes=error codes by feature（寫碼前查既有 codes 不重複；debug 時帶 search=錯誤碼/訊息穩定片段反查 feature+file:line；帶 feature 看單一 feature）， c4_model=C4 對外連線全景（containers/external systems/relationships；帶 search 查特定服務）, security=security scan findings 明細（file:line + CWE + snippet + feature 對應；QA/SA 看 security 結果與開 task 的入口；帶 severity/file/search 過濾）, decisions=架構決策記錄 DECISIONS.md（ADR 清單與内文）, standards=standards 文件清單（帶 name=讀單一份）, changelog=CHANGELOG.md 版本變更記錄, faq=helpdesk FAQ（帶 search 查關鍵字）"
           },
           id: { type: "string", description: "Feature/issue ID (正式格式 F{YYYYMMDD}-{NNN}，如 F20260904-001；issue 為 ISS-001). 一律用 project_info 查現況，勿自編. Used with category=feature_detail." },
           search: { type: "string", description: "Search keyword. Used with: features (by name), runbook (by content), faq (by keyword), error_codes (錯誤碼/訊息片段反查 — debug 入口), c4_model (服務名/技術，如 redis)." },
@@ -2075,7 +2075,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
       case "project_info": {
         // ── Alias mapping: old tool names → project_info category ──
         const cat = args.category;
-        if (!cat) return "Error: 'category' parameter is required. Valid: context, issues, features, feature_detail, runbook, sessions, test_map, recent_changes, api_history, project_read, standards_read";
+        if (!cat) return "Error: 'category' parameter is required. Valid: context, issues, features, feature_detail, runbook, sessions, test_map, recent_changes, api_history, project_read, standards_read, error_codes, c4_model, security, decisions, standards, changelog, faq";
         const paaw = createPaawProject(cwd);
 
         switch (cat) {
