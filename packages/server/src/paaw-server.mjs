@@ -149,7 +149,9 @@ async function loadRoutes() {
   for (const p of ROUTE_MODULES) {
     try { _loaded[p] = await import(p); }
     catch (err) {
-      if (err.code !== "ERR_MODULE_NOT_FOUND") console.error(`[Route] Failed to load ${p}:`, err.message);
+      // 2026-09-06 教訓：crew.mjs 打錯 import 路徑被 ERR_MODULE_NOT_FOUND 靜默吞掉，
+      // AI Crew 整頁 API 無預警 404 — route 模組載入失敗一律大聲報，不得跳過
+      console.error(`[Route] Failed to load ${p}:`, err.message);
     }
   }
   try { _loaded["./scheduler/cron-jobs.mjs"] = await import("./scheduler/cron-jobs.mjs"); }

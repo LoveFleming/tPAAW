@@ -4,7 +4,7 @@
  */
 
 import { readdir, readFile, writeFile, mkdir, unlink, rm, stat } from "fs/promises";
-import { LOG_HOME } from "./data-home.mjs";
+import { LOG_HOME } from "../data-home.mjs";
 import { existsSync } from "fs";
 import {
   join, resolve, dirname,
