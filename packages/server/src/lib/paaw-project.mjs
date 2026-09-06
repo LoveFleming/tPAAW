@@ -819,8 +819,15 @@ export class PaawProject {
 
   async setCuStepStatus(stepId, status, extra = {}) {
     if (!this.exists) return;
-    let cuStatus = await this.getCuStatus();
-    cuStatus.steps = cuStatus.steps || {};
+    // 2026-09-06：cu-status.json 不存在時從 {steps:{}} 開始 —
+    // 不再把 getCuStatus() 的 legacy fallback 推斷（舊 11-step schema：architecture/api-spec/...）整份回寫進檔案，
+    // 否則新專案第一次標 step done 就會沉澱一堆舊 schema key（tpaaw-gateway 實案例）
+    let cuStatus = { steps: {} };
+    try {
+      const raw = await readFile(join(this.paawDir, "cu-status.json"), "utf-8");
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") cuStatus = parsed;
+    } catch {}
     // CU watermark（2026-08-30）：step 標 done 時記下「當時 source 最新 mtime」
     // 重掃無變更（diffWriteJson skip → 檔案 mtime 不動）也會刷新 watermark，
     // staleness 改以 watermark 為基準 → 「確認過這版 code」不會被誤判 stale

@@ -82,7 +82,6 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
   const [editingDocs, setEditingDocs] = useState(false);
   const [docsContent, setDocsContent] = useState("");
   const [savingDocs, setSavingDocs] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<"features" | "files">("features");
   const [fetchError, setFetchError] = useState<string | null>(null);
   // RU model + callChain（Feature Cockpit 資料源 — deterministic，零 LLM）
@@ -177,23 +176,8 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
 
   const selected = features.find(f => f.id === selectedId);
 
-  // ── Refresh all feature mappings (AI re-scan) ──
-  const handleRefreshMapping = async () => {
-    setRefreshing(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-features/refresh-mapping?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
-      const data = await res.json();
-      if (data.ok) {
-        await fetchFeatures();
-        alert(`✅ ${t("feature.refreshed")} ${data.updated}/${data.total}`);
-      } else {
-        alert(`❌ ${data.error}`);
-      }
-    } catch (err) {
-      alert("Refresh failed: " + (err instanceof Error ? err.message : String(err)));
-    }
-    setRefreshing(false);
-  };
+  // 2026-09-06 Fleming 定調：要更新 feature 一律從 CU（Code Understanding）固定入口跑
+  // 原工具列「AI re-scan mapping」獨立入口已移除（API 保留供 EM/腳本用），避免多入口更新 feature map
 
   // ── Save documentation ──
   const handleSaveDocs = async () => {
@@ -262,10 +246,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
               <button onClick={ecRescan} disabled={ecBusy} className="text-xs px-1.5 py-0.5 rounded" style={{ background: theme.accentBg, color: theme.accent, opacity: ecBusy ? 0.5 : 1 }} title={t("feature.ecRescan")}>
                 {ecBusy ? "⏳" : "🔢"}
               </button>
-              <button onClick={() => handleRefreshMapping()} disabled={refreshing} className="text-xs px-1.5 py-0.5 rounded" style={{ background: refreshing ? theme.bgMuted : theme.accentBg, color: refreshing ? theme.text : theme.accent, opacity: refreshing ? 0.5 : 1 }} title={refreshing ? t("feature.refreshingHint") : t("feature.refreshMapping")}>
-                {refreshing ? "⏳" : "🔄"}
-              </button>
-              {refreshing && <span className="text-xs animate-pulse" style={{ color: theme.accent, opacity: 0.8 }}>{t("feature.refreshingHint")}</span>}
+              {/* 2026-09-06：🔄 AI re-scan 按鈕移除 — feature 更新統一走 CU 入口（Fleming 定調） */}
               <button onClick={() => setShowCreate(!showCreate)} className="text-xs px-1.5 py-0.5 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
                 +
               </button>
