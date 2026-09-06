@@ -3580,7 +3580,7 @@ export default async function projectRoute(req, res) {
 
     // POST /api/coding-project/domain-ai — run a domain AI
     if (url.startsWith("/api/coding-project/domain-ai") && method === "POST") {
-      const { domain, prompt, history, model: modelOverride } = JSON.parse(await readBody(req));
+      const { domain, prompt, history, model: modelOverride, images } = JSON.parse(await readBody(req));
       const validDomains = ["spec", "test", "bug", "docs", "maintain"];
       if (!validDomains.includes(domain)) {
         res.writeHead(400, { "Content-Type": "application/json" });
@@ -3686,9 +3686,34 @@ export default async function projectRoute(req, res) {
         }
         messages.push({ role: "user", content: prompt });
 
+        // 👁 2026-09-06：domain AI 貼圖 — 有圖 → vision content array + 自動切 visionModel（沒設定則降級純文字附註）
+        let effectiveModel = modelOverride;
+        const imgPaths = Array.isArray(images)
+          ? [...new Set(images)].filter((p) => typeof p === "string" && /^uploads\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(p)).slice(0, 4)
+          : [];
+        if (imgPaths.length > 0) {
+          try {
+            const { imageFileToDataUrl, getVisionModel, visionAvailable } = await import("../lib/vision-content.mjs");
+            const { uploadsDir } = await import("./uploads.mjs");
+            if (visionAvailable(null)) {
+              const parts = [{ type: "text", text: prompt }];
+              for (const p of imgPaths) {
+                const du = imageFileToDataUrl(join(uploadsDir(), p.slice("uploads/".length)));
+                if (du) parts.push({ type: "image_url", image_url: { url: du } });
+              }
+              if (parts.length > 1) {
+                messages[messages.length - 1] = { role: "user", content: parts };
+                effectiveModel = getVisionModel();
+              }
+            } else {
+              messages[messages.length - 1] = { role: "user", content: `${prompt}\n\n（附了 ${imgPaths.length} 張圖，但未設定 visionModel — 此模型看不到圖）` };
+            }
+          } catch { /* 讀檔失敗降級純文字 */ }
+        }
+
         // Call LLM
         const result = await callProjectLLM({
-          model: modelOverride || undefined,
+          model: effectiveModel || undefined,
           messages,
           temperature: 0.3,
         }, CU_LLM_OPTS); // 對話型 0.3；maxTokens 走 providers.json

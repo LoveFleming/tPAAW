@@ -502,6 +502,38 @@ export default function CodingIDE() {
     });
   }, [activeCrew]);
   const [chatInput, setChatInput] = useState("");
+  // 👁 2026-09-06：9 agent 聊天輸入框貼圖/附圖（agent/chat mode 走 a2a parts、domain mode 走 images）
+  const [pendingImages, setPendingImages] = useState<{ id: string; dataUrl: string }[]>([]);
+  const crewImageInputRef = useRef<HTMLInputElement>(null);
+  const compressChatImage = useCallback((file: File) => new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 1568; // 長邊 1568px jpeg q80 — vision API 甜蜜點
+      let { width, height } = img;
+      if (Math.max(width, height) > MAX) {
+        const r = MAX / Math.max(width, height);
+        width = Math.round(width * r); height = Math.round(height * r);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("image load fail")); };
+    img.src = url;
+  }), []);
+  const addChatImages = useCallback(async (files: File[]) => {
+    const imgs = files.filter(f => f.type.startsWith("image/"));
+    if (imgs.length === 0) return;
+    const room = 4 - pendingImages.length;
+    if (room <= 0) { alert(tt("chat.imageLimit")); return; }
+    const results = await Promise.all(imgs.slice(0, room).map(async f => {
+      try { return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, dataUrl: await compressChatImage(f) }; } catch { return null; }
+    }));
+    setPendingImages(prev => [...prev, ...results.filter((r): r is { id: string; dataUrl: string } => r !== null)]);
+  }, [compressChatImage, pendingImages.length, tt]);
   // 聊天捲動容器：跟底用容器自身 scrollTo（scrollIntoView 會連帶捲動祖先容器 → 頁面跳動）
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const chatNearBottomRef = useRef(true);
@@ -1520,16 +1552,32 @@ export default function CodingIDE() {
   }, [activeCrew]);
 
 const sendChat = useCallback(async () => {
-    if (!chatInput.trim() || chatLoading) return;
+    if ((!chatInput.trim() && pendingImages.length === 0) || chatLoading) return;
 
     // ── No auto-archive on send: user may want to continue a conversation ──
     // Archived conversations are still viewable in sidebar; new session via button only.
 
-    const userMsg: ChatMessage = { role: "user", content: chatInput.trim(), ts: new Date().toISOString() };
+    // 👁 貼圖：壓縮檔先上傳 → uploads/ 路徑（agent mode 進 a2a parts、domain mode 進 images）
+    let uploadedPaths: string[] = [];
+    if (pendingImages.length > 0) {
+      const results = await Promise.all(pendingImages.map(async (img) => {
+        try {
+          const r = await fetch(`${API_BASE}/api/uploads`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataUrl: img.dataUrl }) });
+          const d = await r.json();
+          return (d?.ok && d?.path) ? d.path as string : null;
+        } catch { return null; }
+      }));
+      uploadedPaths = results.filter(Boolean) as string[];
+    }
+    const sendText = chatInput.trim() || (uploadedPaths.length > 0 ? "請看這張圖" : "");
+    if (!sendText) return;
+
+    const userMsg: ChatMessage = { role: "user", content: sendText, ts: new Date().toISOString(), ...(uploadedPaths.length > 0 ? { images: uploadedPaths } : {}) };
     setChatMessages(prev => [...prev, userMsg]);
     setChatInput("");
+    setPendingImages([]);
     setViewingArchive(null); // exit archive viewing when user sends a message
-    logEvent("ai_chat", { prompt: chatInput.trim().slice(0, 200) });
+    logEvent("ai_chat", { prompt: sendText.slice(0, 200) });
 
     // ── Domain AI mode (spec, test, bug, docs, maintain) ──
     if (["spec", "test", "bug", "docs", "maintain"].includes(chatMode)) {
@@ -1543,6 +1591,7 @@ const sendChat = useCallback(async () => {
           body: JSON.stringify({
             domain: chatMode,
             prompt: userMsg.content,
+            ...(uploadedPaths.length > 0 ? { images: uploadedPaths } : {}),
             model: codingModel || undefined,
             history: chatMessages.filter(m => !m._thinking).map(m => ({ role: m.role, content: m.content })),
             crewId: activeCrew || undefined,
@@ -1629,7 +1678,7 @@ const sendChat = useCallback(async () => {
             jsonrpc: "2.0",
             method: "message/stream",
             params: {
-              message: { role: "user", parts: [{ type: "text", text: userMsg.content }] },
+              message: { role: "user", parts: [{ type: "text", text: userMsg.content }, ...uploadedPaths.map(p => ({ type: "image", path: p }))] },
               context: {
                 cwd: rootPath || undefined,
                 ...(activeTab ? { activeFile: activeTab.path, activeFileContent: activeTab.content.slice(0, 3000) } : {}),
@@ -1858,7 +1907,7 @@ const sendChat = useCallback(async () => {
       if (isAgentMode) setAgentRunning(false);
       a2aAbortRef.current = null;
     }
-  }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent, codingModel, activeCrew]);
+  }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent, codingModel, activeCrew, pendingImages]);
 
   // 追蹤使用者是否在底部附近：串流中只在使用者没往上翻時跟底（onScroll 在容器 div 上）
 
@@ -3553,13 +3602,30 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
 
                 {/* Chat input */}
                 <div className="shrink-0 px-4 py-2.5" style={{ borderTop: `1px solid ${tk.borderLight}`, backgroundColor: tk.bgMuted }}>
+                  {pendingImages.length > 0 && (
+                    <div className="flex gap-2 mb-2 flex-wrap">
+                      {pendingImages.map(img => (
+                        <div key={img.id} className="relative group">
+                          <img src={img.dataUrl} alt="pending" className="w-14 h-14 object-cover rounded-lg border border-stone-200" />
+                          <button
+                            onClick={() => setPendingImages(prev => prev.filter(p => p.id !== img.id))}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-stone-600 text-white text-xs leading-none hidden group-hover:flex items-center justify-center"
+                            title="移除">✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex items-end gap-2">
+                    <input ref={crewImageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addChatImages(Array.from(e.target.files || [])); e.target.value = ""; }} />
+                    <button onClick={() => crewImageInputRef.current?.click()} disabled={pendingImages.length >= 4} title={tt("chat.attachImage")}
+                      className="text-xs px-2 py-2 rounded-lg border border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300 disabled:opacity-40 shrink-0 bg-stone-50">📎</button>
                     <textarea
                       ref={chatInputRef}
                       value={chatInput}
                       onChange={e => setChatInput(e.target.value)}
                       onCompositionStart={() => { composingRef.current = true; }}
                       onCompositionEnd={() => { composingRef.current = false; }}
+                      onPaste={(e) => { const files = Array.from(e.clipboardData?.files || []); if (files.length > 0) { e.preventDefault(); addChatImages(files); } }}
                       onKeyDown={handleChatKeyDown}
                       placeholder={`問 ${crew?.title}...`}
                       className="flex-1 text-sm px-3 py-2 rounded-lg resize-none outline-none border focus:border-blue-400"
@@ -3600,8 +3666,8 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                       >中斷</button>
                     )}
                     <button
-                      onClick={() => { if (!chatInput.trim()) return; sendChat(); }}
-                      disabled={chatLoading || !chatInput.trim()}
+                      onClick={() => { if (!chatInput.trim() && pendingImages.length === 0) return; sendChat(); }}
+                      disabled={chatLoading || (!chatInput.trim() && pendingImages.length === 0)}
                       className="px-4 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-40 transition-colors"
                       style={{ backgroundColor: chatLoading ? '#a1a1aa' : tk.accent }}>
                       送出
