@@ -615,7 +615,10 @@ export default async function projectRoute(req, res) {
         try {
           const sec = JSON.parse(readSync(secFile, "utf-8"));
           if (sec.stats?.total > 0) {
-            extraContext.push(`\n## Security Scan Summary (${sec.stats.total} findings, scanned ${sec.scannedAt || 'unknown'})\nBy severity: ${JSON.stringify(sec.stats.bySeverity)}\nBy category: ${JSON.stringify(sec.stats.byCategory)}`);
+            // 舊格式没 scannedAt → 檔案 mtime fallback（2026-09-06：agent 反映 scanned unknown 無法判時效性）
+            let scannedAt = sec.scannedAt;
+            if (!scannedAt) { try { scannedAt = new Date(statSync(secFile).mtimeMs).toISOString(); } catch { scannedAt = "unknown"; } }
+            extraContext.push(`\n## Security Scan Summary (${sec.stats.total} findings, scanned ${scannedAt})\nBy severity: ${JSON.stringify(sec.stats.bySeverity)}\nBy category: ${JSON.stringify(sec.stats.byCategory)}\n（明細查詢：project_info(category="security") — file:line + CWE + snippet + feature 對應；QA/SA 評估後可開 task 修復）`);
           }
         } catch {}
       }
@@ -2357,10 +2360,10 @@ export default async function projectRoute(req, res) {
     if (url.startsWith("/api/coding-project/security-scan") && !url.includes("/results") && method === "GET") {
       try {
         const scanResult = await runSemgrep(root, { timeoutMs: 1_800_000 });
-        // Save to .paaw/security/
+        // Save to .paaw/security/（帮 scannedAt — 2026-09-06 前没記，agent 端看到 scanned unknown 無法判時效性）
         const secDir = join(root, ".paaw", "security");
         if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
-        await writeFile(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
+        await writeFile(join(secDir, "scan-results.json"), JSON.stringify({ ...scanResult, scannedAt: new Date().toISOString() }, null, 2), "utf-8");
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(scanResult));
       } catch (err) {

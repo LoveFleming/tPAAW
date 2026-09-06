@@ -522,8 +522,8 @@ export const PAAW_TOOLS = [
         properties: {
           category: {
             type: "string",
-            enum: ["context", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "standards_read", "error_codes", "c4_model"],
-            description: "What to query: context=project overview (PROJECT.md+standards+feature map), features=feature map, feature_detail=single feature, runbook=troubleshooting, sessions=work sessions, test_map=test intelligence, recent_changes=change intelligence, api_history=API tester logs, project_read=human-written PROJECT.md, standards_read=human-written CODING-STANDARDS.md, error_codes=error codes by feature（寫碼前查既有 codes 不重複；debug 時帶 search=錯誤碼/訊息穩定片段反查 feature+file:line；帶 feature 看單一 feature）， c4_model=C4 對外連線全景（containers/external systems/relationships；帶 search 查特定服務）"
+            enum: ["context", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "standards_read", "error_codes", "c4_model", "security"],
+            description: "What to query: context=project overview (PROJECT.md+standards+feature map), features=feature map, feature_detail=single feature, runbook=troubleshooting, sessions=work sessions, test_map=test intelligence, recent_changes=change intelligence, api_history=API tester logs, project_read=human-written PROJECT.md, standards_read=human-written CODING-STANDARDS.md, error_codes=error codes by feature（寫碼前查既有 codes 不重複；debug 時帶 search=錯誤碼/訊息穩定片段反查 feature+file:line；帶 feature 看單一 feature）， c4_model=C4 對外連線全景（containers/external systems/relationships；帶 search 查特定服務）, security=security scan findings 明細（file:line + CWE + snippet + feature 對應；QA/SA 看 security 結果與開 task 的入口；帶 severity/file/search 過濾）"
           },
           id: { type: "string", description: "Feature/issue ID (正式格式 F{YYYYMMDD}-{NNN}，如 F20260904-001；issue 為 ISS-001). 一律用 project_info 查現況，勿自編. Used with category=feature_detail." },
           search: { type: "string", description: "Search keyword. Used with: features (by name), runbook (by content), faq (by keyword), error_codes (錯誤碼/訊息片段反查 — debug 入口), c4_model (服務名/技術，如 redis)." },
@@ -1019,8 +1019,8 @@ const CORE_READ_TOOLS = new Set(["read_file", "reference_read", "glob", "grep", 
 
 // ── Fallback groups (used when crew.json has no toolGroups) ──
 const AGENT_FALLBACK_GROUPS = {
-  // Architect: read-only + decisions + project + project-board（維護 RU project）
-  architect: ["core-read", "memory", "decisions", "project", "project-edit", "project-board", "release-unit"],
+  // Architect: read-only + decisions + project + project-board（維護 RU project）+ tasks（security 修復開 task — 2026-09-06）
+  architect: ["core-read", "memory", "decisions", "project", "project-edit", "project-board", "tasks", "release-unit"],
   // Developer: full core + memory + project + tasks
   developer: ["core", "memory", "decisions", "project", "project-edit", "tasks", "release-unit"],
   // Tester: full core + project
@@ -1029,8 +1029,8 @@ const AGENT_FALLBACK_GROUPS = {
   "doc-writer": ["core", "memory", "decisions", "project", "project-edit", "docs"],
   // CU feature 長肉 agent（feature-map v2.1）：純唯讀分析 — read_file/glob/grep/diff，無寫檔無 shell
   "cu-feature": ["core-read"],
-  // QA: read-only + project + project-edit
-  qa: ["core-read", "memory", "project", "project-edit", "release-unit"],
+  // QA: read-only + project + project-edit + tasks（security findings 開修復 task — 2026-09-06）
+  qa: ["core-read", "memory", "project", "project-edit", "tasks", "release-unit"],
   // Helpdesk: read-only + project
   helpdesk: ["core-read", "memory", "decisions", "project", "project-edit"],
   // EM: read-only + project + project-edit + docs + tasks + dispatch (no notes/browser)
@@ -2319,19 +2319,37 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             } catch (err) { return `Error: ${err.message}`; }
           }
           case "security": {
+            // 2026-09-06 Fleming：QA/SA 要能看到 security scan 明細並開 task 單 — 補 cwe/snippet/references/feature 對應
             const secFile = join(cwd, ".paaw", "security", "scan-results.json");
-            if (!existsSync(secFile)) return "⚠️ Security scan results not found.";
+            if (!existsSync(secFile)) return "⚠️ Security scan results not found — 先跑 Security Scan（EM dashboard 或 CU security-scan step）。";
             try {
               const sec = JSON.parse(readSync(secFile, "utf-8"));
+              const total = (sec.findings || []).length;
               let findings = sec.findings || [];
               if (args.severity) {
                 const want = String(args.severity).toLowerCase();
                 findings = findings.filter(f => String(f.severity).toLowerCase() === want);
               }
-              if (args.file) { const norm = args.file.replace(/\\\\/g, "/"); findings = findings.filter(f => f.file?.replace(/\\\\/g, "/").includes(norm)); }
-              if (findings.length === 0) { if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: "clean" }); return "No security findings. ✅"; }
+              if (args.file) { const norm = args.file.replace(/\\/g, "/"); findings = findings.filter(f => f.file?.replace(/\\/g, "/").includes(norm)); }
+              if (args.search) { const q = String(args.search).toLowerCase(); findings = findings.filter(f => `${f.message || ""} ${f.id || ""} ${Array.isArray(f.cwe) ? f.cwe.join(" ") : f.cwe || ""}`.toLowerCase().includes(q)); }
+              if (findings.length === 0) { if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: "clean" }); return `No security findings${total ? " matching filter" : ""}. ✅`; }
+              // feature 對照（開 task 單掛 featureId 用）— FILE-FEATURES.json repo-relative key
+              let fileFeatures = {};
+              try { const ff = JSON.parse(readSync(join(cwd, ".paaw", "features", "FILE-FEATURES.json"), "utf-8")); fileFeatures = ff.files || {}; } catch {}
+              const cwdN = cwd.replace(/\\/g, "/");
+              const rel = (p) => { const n = String(p || "").replace(/\\/g, "/"); return n.startsWith(cwdN + "/") ? n.slice(cwdN.length + 1) : n; };
+              const header = `Security Findings（${findings.length}/${total}，scanned ${sec.scannedAt || "(unknown)"}${sec.stats?.bySeverity ? `，severity ${JSON.stringify(sec.stats.bySeverity)}` : ""}）`;
+              const lines = findings.map(f => {
+                const rf = rel(f.file);
+                const rule = String(f.id || "").split(".").pop();
+                const cwe = Array.isArray(f.cwe) ? f.cwe.join("; ") : f.cwe;
+                const feats = (fileFeatures[rf] || []).map(x => x.id).join(",");
+                const snip = String(f.snippet || "").replace(/\s+/g, " ").slice(0, 120);
+                const refs = (f.references || []).slice(0, 1).join("");
+                return `- [${String(f.severity || "?").toUpperCase()}] ${rf}:${f.line || "?"}${cwe ? `｜${cwe}` : ""}${feats ? `｜feature: ${feats}` : ""}${f.confidence ? `｜confidence ${f.confidence}` : ""}\n  rule: ${rule}｜${f.message}${snip ? `\n  code: ${snip}` : ""}${refs ? `\n  ref: ${refs}` : ""}`;
+              }).join("\n");
               if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${findings.length} findings` });
-              return `Security Findings (${findings.length}):\n${findings.map(f => `- [${f.severity.toUpperCase()}] ${f.file}:${f.line || "?"} — ${f.message}`).join("\n")}`;
+              return `${header}\n${lines}\n（開 task 修復時掛對應 featureId；severity/file/search 可過濾）`;
             } catch (err) { return `Error: ${err.message}`; }
           }
           case "recent_changes": {
