@@ -45,7 +45,7 @@ async function git(projectRoot, args) {
  * @param {object} options - { days: 30, maxCommits: 50 }
  * @returns {Promise<{ summary: object, data: object }>}
  */
-export async function buildChangeIntelligence(projectRoot, options = {}) {
+export async function buildChangeIntelligence(projectRoot, options = {}, { persist = true } = {}) {
   const days = options.days || 30;
   const maxCommits = options.maxCommits || 200;
 
@@ -225,10 +225,12 @@ export async function buildChangeIntelligence(projectRoot, options = {}) {
     summary,
   };
 
-  // Save
-  const changesDir = join(projectRoot, ".paaw", "changes");
-  if (!existsSync(changesDir)) mkdirSync(changesDir, { recursive: true });
-  diffWriteJson(join(changesDir, "change-intelligence.json"), data, { ignoreKeys: ["generatedAt"] }); // 內容不變 skip（git 零 diff）
+  // Save（2026-09-06：persist=false → 純算不落檔 — GET 讀取不該寫 CU 產出）
+  if (persist) {
+    const changesDir = join(projectRoot, ".paaw", "changes");
+    if (!existsSync(changesDir)) mkdirSync(changesDir, { recursive: true });
+    diffWriteJson(join(changesDir, "change-intelligence.json"), data, { ignoreKeys: ["generatedAt"] }); // 內容不變 skip（git 零 diff）
+  }
 
   return { summary, data };
 }

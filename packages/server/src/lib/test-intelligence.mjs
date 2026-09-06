@@ -104,7 +104,7 @@ function findTestedFunctions(testFile, productionFile) {
  * @param {string} paawRoot
  * @returns {Promise<{ summary: object, data: object }>}
  */
-export async function buildTestIntelligence(projectRoot, paawRoot) {
+export async function buildTestIntelligence(projectRoot, paawRoot, { persist = true } = {}) {
   // Parse all source files (including test files)
   const parsedResult = await parseProject(projectRoot, paawRoot, {
     // 無上限（2026-08-22）
@@ -308,11 +308,15 @@ export async function buildTestIntelligence(projectRoot, paawRoot) {
   };
 
   // Save（content-addressed：內容不變 skip 寫檔 — git 零 diff）2026-08-22
-  const ciDir = join(projectRoot, ".paaw", "code-intelligence");
-  try {
-    if (!existsSync(ciDir)) mkdirSync(ciDir, { recursive: true });
-    diffWriteJson(join(ciDir, "test-intelligence.json"), data);
-  } catch {}
+  // 2026-09-06：persist=false → 純算不落檔（GET API 讀取用 — 避免讀一次就寫出產出檔、
+  // CU 的檔案推斷誤判 step 已跑）只有 CU 流程（ai-initial 單步/bulk、機械層重掃、cu_refresh tool）persist:true
+  if (persist) {
+    const ciDir = join(projectRoot, ".paaw", "code-intelligence");
+    try {
+      if (!existsSync(ciDir)) mkdirSync(ciDir, { recursive: true });
+      diffWriteJson(join(ciDir, "test-intelligence.json"), data);
+    } catch {}
+  }
 
   return { summary: stats, data };
 }

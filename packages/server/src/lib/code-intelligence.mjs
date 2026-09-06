@@ -583,7 +583,7 @@ export function buildSymbolIndex(parsedResult) {
  * @param {string} paawRoot - PAAW installation root
  * @returns {Promise<{ stats: object, files: string[] }>}
  */
-export async function buildCodeIntelligence(projectRoot, paawRoot) {
+export async function buildCodeIntelligence(projectRoot, paawRoot, { persist = true } = {}) {
   // Parse all source files
   const parsedResult = await parseProject(projectRoot, paawRoot); // 無上限（2026-08-22 Fleming 要求）
 
@@ -627,9 +627,12 @@ export async function buildCodeIntelligence(projectRoot, paawRoot) {
   };
 
   // Content-addressed 寫入：內容指紋相同 → skip（mtime 不動 → git 零 diff）2026-08-22
-  const writtenFiles = Object.keys(outputs);
-  for (const [filename, data] of Object.entries(outputs)) {
-    diffWriteJson(join(ciDir, filename), data);
+  // 2026-09-06：persist=false → 純算不落檔（GET API 讀取用 — 避免讀一次就寫產出檔、CU 檔案推斷誤判 step done）
+  const writtenFiles = persist ? Object.keys(outputs) : [];
+  if (persist) {
+    for (const [filename, data] of Object.entries(outputs)) {
+      diffWriteJson(join(ciDir, filename), data);
+    }
   }
 
   // Build summary
@@ -648,7 +651,7 @@ export async function buildCodeIntelligence(projectRoot, paawRoot) {
   };
 
   // Save summary（generatedAt 不算內容 — 只有實質變更才會連同它一起重寫）
-  diffWriteJson(join(ciDir, "summary.json"), summary, { ignoreKeys: ["generatedAt"] });
+  if (persist) diffWriteJson(join(ciDir, "summary.json"), summary, { ignoreKeys: ["generatedAt"] });
 
   return { summary, parsedResult };
 }

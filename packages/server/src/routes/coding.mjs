@@ -2373,7 +2373,7 @@ export default async function projectRoute(req, res) {
     // ── GET /api/coding-project/test-intelligence ──
     if (url.startsWith("/api/coding-project/test-intelligence") && method === "GET") {
       try {
-        const { summary, data } = await buildTestIntelligence(root, PAAW_ROOT);
+        const { summary, data } = await buildTestIntelligence(root, PAAW_ROOT, { persist: false }); // 2026-09-06：GET 讀取純算不落檔 — 否則 CU 還沒跑就有 test-intelligence.json、檔案推斷誤判 step done
         // detail=1 → 帶明細（Tests 頁用：testToCode 對照 + coverageGaps）
         const wantsDetail = new URL(rawUrl, "http://localhost").searchParams.get("detail") === "1";
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -2390,7 +2390,7 @@ export default async function projectRoute(req, res) {
     // ── GET /api/coding-project/change-intelligence ──
     if (url.startsWith("/api/coding-project/change-intelligence") && method === "GET") {
       try {
-        const { summary } = await buildChangeIntelligence(root, { days: 30, maxCommits: 50 });
+        const { summary } = await buildChangeIntelligence(root, { days: 30, maxCommits: 50 }, { persist: false }); // 2026-09-06：GET 純算不落檔
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(summary));
       } catch (err) {
@@ -2404,7 +2404,7 @@ export default async function projectRoute(req, res) {
     // Build and return full code intelligence (call graph, dependency graph, etc.)
     if (url.startsWith("/api/coding-project/code-intelligence") && method === "GET") {
       try {
-        const { summary } = await buildCodeIntelligence(root, PAAW_ROOT);
+        const { summary } = await buildCodeIntelligence(root, PAAW_ROOT, { persist: false }); // 2026-09-06：GET 純算不落檔（防 CU 檔案推斷誤判）
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(summary));
       } catch (err) {
@@ -2897,7 +2897,7 @@ export default async function projectRoute(req, res) {
         if (step.id === "change-intelligence") {
           try {
             cuLog(step.id, "Building change intelligence...");
-            const { summary } = await buildChangeIntelligence(root, { days: 30, maxCommits: 50 });
+            const { summary } = await buildChangeIntelligence(root, { days: 30, maxCommits: 50 }, { persist: false }); // 2026-09-06：GET 純算不落檔
             cuLog(step.id, `Change intelligence done: ${summary.totalCommits} commits, ${summary.totalFilesChanged} files changed`);
             sendEvent("step_done", {
               step: step.id,
@@ -3416,7 +3416,7 @@ export default async function projectRoute(req, res) {
           if (step.id === "change-intelligence") {
             try {
               cuLog(step.id, "[bulk] Building change intelligence...");
-              const { summary } = await buildChangeIntelligence(root, { days: 30, maxCommits: 50 });
+              const { summary } = await buildChangeIntelligence(root, { days: 30, maxCommits: 50 }, { persist: false }); // 2026-09-06：GET 純算不落檔
               cuLog(step.id, `[bulk] Change intelligence: ${summary.totalCommits} commits, ${summary.totalFilesChanged} files`);
               sendEvent("step_done", { step: step.id, name: step.name, summary: `${summary.totalCommits} commits, ${summary.totalFilesChanged} files`, stats: summary });
               try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.totalCommits} commits` }); } catch {}
