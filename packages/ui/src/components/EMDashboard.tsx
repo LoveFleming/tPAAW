@@ -227,7 +227,6 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   const [emAction, setEmAction] = useState(""); // current EM action (thinking vs tool)
   const [emToolLog, setEmToolLog] = useState<{ name: string; args: string; result: string }[]>([]); // ⚡ tool call log
   const [showCUModal, setShowCUModal] = useState(false);
-  const [singleStepRunning, setSingleStepRunning] = useState<string | null>(null); // step id being retried
 
   // ── EM Config ──
   const [emConfig, setEmConfig] = useState<any>(null);
@@ -427,7 +426,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
 
   // 2026-09-06 Fleming：移除 auto-popup CU modal（ready/missing 自動彈）— 與 onboarding wizard 疊 modal
   // （没 .paaw 的專案進來：wizard 跳 + CU modal 也自動開 → 兩個 z-50 疊畫面全亂）
-  // 現在 CU modal 只由：wizard 最後一步「開始 Scan」/頂部按鈕/單步重跑 開啟
+  // 現在 CU modal 只由：wizard 最後一步「開始 Scan」/頂部按鈕 開啟（2026-09-06 單步重跑按鈕已移除 — 一律整批增量跑）
 
   // 2026-09-06 Fleming：外部請求開 CU modal（wizard「開始 Scan」）— 只開 modal 不直接跑，讓使用者先綁 skill 再按執行
   const cuModalReqRef = useRef(0);
@@ -676,50 +675,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
     } catch {}
   };
 
-  // ── Run a single Code Understanding step (retry) ──
-  const runSingleStep = useCallback(async (stepId: string) => {
-    if (!rootPath || singleStepRunning) return;
-    setSingleStepRunning(stepId);
-    // Update local state to show running
-    setPersistedSteps(prev => prev.map(s => s.id === stepId ? { ...s, status: "running" } : s));
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-project/ai-initial-step?path=${encodeURIComponent(rootPath)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ step: stepId, model: model || undefined }),
-      });
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let stepSize = 0;
-      let hadError = false;
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            try {
-              const d = JSON.parse(line.slice(6));
-              if (d.step && d.preview !== undefined && d.size) stepSize = d.size;
-              if (d.step && d.error) hadError = true;
-            } catch {}
-          }
-        }
-      }
-      // Update local state
-      setPersistedSteps(prev => prev.map(s => s.id === stepId
-        ? { ...s, status: hadError ? "error" : "done", size: stepSize || undefined }
-        : s));
-    } catch (err) {
-      setPersistedSteps(prev => prev.map(s => s.id === stepId ? { ...s, status: "error" } : s));
-    }
-    setSingleStepRunning(null);
-  }, [rootPath, singleStepRunning]);
-
+  
   if (!rootPath) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
@@ -1293,7 +1249,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
 
     {/* ══ Code Understanding Progress Modal ══ */}
     {showCUModal && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { if (!codeUnderstanding?.running && !singleStepRunning) setShowCUModal(false); }}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { if (!codeUnderstanding?.running) setShowCUModal(false); }}>
         <div className="bg-white rounded-2xl shadow-2xl border flex flex-col" style={{ width: "min(520px, 90vw)", maxHeight: "70vh" }} onClick={e => e.stopPropagation()}>
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-3 border-b rounded-t-2xl" style={{ backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" }}>
@@ -1301,12 +1257,12 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
             {/* ✕ close always visible — disabled while running */}
             <button
               onClick={() => setShowCUModal(false)}
-              disabled={codeUnderstanding?.running || singleStepRunning !== null}
-              className={cn("text-lg transition-colors", (codeUnderstanding?.running || singleStepRunning !== null) ? "text-stone-200 cursor-not-allowed" : "text-stone-400 hover:text-stone-600")}
+              disabled={!!codeUnderstanding?.running}
+              className={cn("text-lg transition-colors", codeUnderstanding?.running ? "text-stone-200 cursor-not-allowed" : "text-stone-400 hover:text-stone-600")}
             >✕</button>
           </div>
           {/* 2026-09-06：執行中提示 — CU 在 server 端跑，關視窗不會中斷（Fleming 回饋：使用者不知道會等多久）*/}
-          {(codeUnderstanding?.running || singleStepRunning !== null) && (
+          {codeUnderstanding?.running && (
             <div className="mx-5 mt-3 px-3 py-2 rounded-lg text-[11px] leading-relaxed" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }}>
               💡 {t("cu.serverRunHint")}
             </div>
@@ -1315,7 +1271,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
           {(() => {
             const isBulkRunning = codeUnderstanding?.running && codeUnderstanding.steps.length > 0;
             const steps = isBulkRunning ? codeUnderstanding.steps : persistedSteps;
-            const isRunning = isBulkRunning || singleStepRunning !== null;
+            const isRunning = isBulkRunning;
             if (steps.length === 0) return (
               <div className="flex-1 flex items-center justify-center text-sm text-stone-400 py-12">
                 載入中...
@@ -1328,7 +1284,6 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
               <div key={step.id} className="flex items-center gap-3 py-2">
                 <span className="text-lg shrink-0">
                   {step.status === "done" ? "✅" : step.status === "running" ? "⏳" : step.status === "error" ? "❌" : step.status === "skip" ? "⏭️" : "⬜"}
-                  {singleStepRunning === step.id && <span className="ml-1 inline-block animate-pulse">●</span>}
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className={cn("text-sm font-medium", step.status === "running" ? "text-emerald-700" : step.status === "done" ? "text-stone-600" : step.status === "error" ? "text-red-500" : "text-stone-400")}>
@@ -1374,22 +1329,6 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                     <div className="text-xs text-stone-300">Skipped</div>
                   )}
                 </div>
-                {/* Retry / Run button — not during bulk run */}
-                {!isBulkRunning && (step.status === "error" || step.status === "skip" || step.status === "done" || step.status === "pending") && (
-                  <button
-                    onClick={() => runSingleStep(step.id)}
-                    disabled={singleStepRunning !== null}
-                    className={cn("text-xs px-2 py-1 rounded font-bold shrink-0 transition-colors",
-                      singleStepRunning === step.id
-                        ? "bg-emerald-100 text-emerald-400 cursor-wait"
-                        : singleStepRunning !== null
-                          ? "bg-stone-100 text-stone-300 cursor-not-allowed"
-                          : "bg-stone-100 text-stone-500 hover:bg-emerald-100 hover:text-emerald-600")}
-                    title={step.status === "done" ? "重做此步驟" : "單獨執行此步驟"}
-                  >
-                    {singleStepRunning === step.id ? "⏳" : step.status === "done" ? "🔄" : "▶️"}
-                  </button>
-                )}
               </div>
             ))}
           </div>
@@ -1398,24 +1337,22 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
             <span className="text-sm text-stone-400">
               {isBulkRunning
                 ? "AI 正在分析專案..."
-                : singleStepRunning
-                  ? `正在執行 ${singleStepRunning}...`
-                  : `${persistedSteps.filter(s => s.status === "done").length}/${persistedSteps.length} 完成`}
+                : `${persistedSteps.filter(s => s.status === "done").length}/${persistedSteps.length} 完成`}
             </span>
             <div className="flex gap-2">
               {/* Run All button — always available when not bulk running */}
               {!isBulkRunning && (
                 <button
                   onClick={() => { if (onStartCodeUnderstanding) { onStartCodeUnderstanding(false); } }} // 2026-09-06：增量模式 — server 只重跑有變更的步驟（watermark 比對）；force 全量留給特殊情況
-                  disabled={singleStepRunning !== null}
+                  
                   className="px-4 py-1.5 text-sm font-bold rounded-lg border transition-colors disabled:opacity-50"
                   style={{ borderColor: "#bbf7d0", color: "#059669", backgroundColor: "#f0fdf4" }}
                 >
-                  🚀 執行 CU（增量）
+                  🚀 執行
                 </button>
               )}
               {/* Close button — replaces 完成 ✅ */}
-              {!isBulkRunning && !singleStepRunning && (
+              {!isBulkRunning && (
                 <button onClick={() => { setShowCUModal(false); }} className="px-4 py-1.5 text-sm font-bold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">
                   關閉
                 </button>
