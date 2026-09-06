@@ -14,9 +14,9 @@ import { readdirSync, statSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 
 export const CU_SOURCE_EXTS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".py", ".go", ".java", ".rs", ".vue", ".svelte"]);
-export const CU_SKIP_DIRS = new Set(["node_modules", ".git", ".paaw", "dist", "build", "coverage", ".next", "vendor", "target", "out", ".cache"]);
+export const CU_SKIP_DIRS = new Set(["node_modules", ".git", ".paaw", "dist", "build", "coverage", ".next", "vendor", "target", "out", ".cache", "semgrep-rules"]); // semgrep-rules：規則範例碼不是專案 source（舊 find 的 -not-path 搬過來）
 
-const MAX_VISIT = 2000;
+const MAX_VISIT = 8000; // 2026-09-06 review：2000→8000 — 大型 monorepo 目錄數餘裕；純 fs walk 幾百 ms 可接受
 
 // ── .gitignore parsing（簡化版：涵蓋 dir/、*.ext、path/to/x、!negate、#註解）──
 
@@ -129,6 +129,7 @@ export function walkSourceFiles(root, opts = {}) {
       }
     }
   }
+  if (visited >= MAX_VISIT) console.warn(`[cu-source-scan] MAX_VISIT ${MAX_VISIT} 截斷（${root}）— 檔案清單可能不完整`);
   return { files, lastModifiedMs, visited };
 }
 

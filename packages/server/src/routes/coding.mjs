@@ -96,7 +96,11 @@ function computeCuStaleness(root, steps, codeLastModifiedMs) {
       if (codeLastModifiedMs > basis + STALE_TOLERANCE_MS) {
         staleSteps.push({ id, mechanical: CU_MECHANICAL_STEPS.has(id), manual: CU_MANUAL_STEPS.has(id) });
       }
-    } catch {}
+    } catch {
+      // 2026-09-06 review：產出檔不存在（.paaw 被部分清理/手動刪）但 status=done → 也算過期
+      // 否則增量重掃會 skip 它，空產出永遠不重建
+      staleSteps.push({ id, mechanical: CU_MECHANICAL_STEPS.has(id), manual: CU_MANUAL_STEPS.has(id) });
+    }
   }
   return staleSteps;
 }
