@@ -1399,12 +1399,12 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
               {/* Run All button — always available when not bulk running */}
               {!isBulkRunning && (
                 <button
-                  onClick={() => { if (onStartCodeUnderstanding) { onStartCodeUnderstanding(true); } }} // 2026-09-06 Fleming：全部執行 = 一律 force 重跑（含 c4-model）— 已 done 不再 skip，確保重掃 CU 每次都更新 C4/feature map
+                  onClick={() => { if (onStartCodeUnderstanding) { onStartCodeUnderstanding(false); } }} // 2026-09-06：增量模式 — server 只重跑有變更的步驟（watermark 比對）；force 全量留給特殊情況
                   disabled={singleStepRunning !== null}
                   className="px-4 py-1.5 text-sm font-bold rounded-lg border transition-colors disabled:opacity-50"
                   style={{ borderColor: "#bbf7d0", color: "#059669", backgroundColor: "#f0fdf4" }}
                 >
-                  🚀 全部執行
+                  🚀 執行 CU（增量）
                 </button>
               )}
               {/* Close button — replaces 完成 ✅ */}

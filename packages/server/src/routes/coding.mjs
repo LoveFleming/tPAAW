@@ -3259,6 +3259,13 @@ export default async function projectRoute(req, res) {
         const cuStatus = await paaw.getCuStatus();
         const cuSteps = cuStatus.steps || {};
 
+        // 2026-09-06 Fleming：增量重掃 — 只重跑「有變更」的步驟
+        // watermark 機制：每個 step 完成時記下當時 source mtime（cu-status codeMtime），
+        // code 有新變更（lastModifiedMs > watermark）的 step 才重跑；沒變的 done step 照舊 skip 省 token
+        const { lastModifiedMs: _codeMtime } = countSourceFiles(root);
+        const staleStepIds = new Set(computeCuStaleness(root, cuSteps, _codeMtime).map(s => s.id));
+        cuLog("bulk", `Incremental plan: stale=[${[...staleStepIds].join(",") || "none"}] force=${forceRerun}`);
+
         // Accumulate context from previous steps
         let scanResult = "";
         let architectureResult = "";
@@ -3267,10 +3274,11 @@ export default async function projectRoute(req, res) {
         let decisionsResult = "";
 
         for (const step of steps) {
-          // ── Skip if this step was already done (unless force rerun) ──
-          if (!forceRerun && cuSteps[step.id]?.status === "done") {
-            cuLog(step.id, `Skipping — already done`);
-            sendEvent("step_skip", { step: step.id, name: step.name, reason: "Already done" });
+          // ── Skip if this step is done AND up-to-date (unless force rerun) ──
+          // 2026-09-06：done 但過期（code 有變更）的 step 不再 skip — 增量重跑它
+          if (!forceRerun && cuSteps[step.id]?.status === "done" && !staleStepIds.has(step.id)) {
+            cuLog(step.id, `Skipping — done & no changes since last scan`);
+            sendEvent("step_skip", { step: step.id, name: step.name, reason: "已最新（無變更）" });
             continue;
           }
 
