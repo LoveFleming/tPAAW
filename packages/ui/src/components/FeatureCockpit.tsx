@@ -229,7 +229,7 @@ export function EntryRow({ api, chain, t, borderLight }: any) {
             title={t("ru.view.callChain")}>▼</button>
         )}
         <span className="text-xs font-bold px-1.5 py-0.5 rounded text-white shrink-0" style={{ backgroundColor: METHOD_COLOR[method?.toUpperCase()] || "#6b7280" }}>{method}</span>
-        <span className="text-[15px] font-mono text-stone-700 break-all">{rest.join(" ")}</span>
+        <span className="text-xs font-mono text-stone-700 break-all">{rest.join(" ")}</span>
       </div>
       {open && chain && <div className="px-3 pb-2"><CallChainTree chain={chain} t={t} borderLight={borderLight} /></div>}
     </div>
