@@ -1116,9 +1116,20 @@ export default async function projectRoute(req, res) {
   // app = {cwd}/.paaw/logs/app-console.log（agent 重啟 app 時落檔 — developer prompt 有指引）
   if (url.startsWith("/api/logs/console") && method === "GET") {
     const src = q.src === "app" ? "app" : "server";
-    const file = src === "app"
-      ? join(q.cwd || PAAW_ROOT, ".paaw", "logs", "app-console.log")
-      : join(DATA_HOME, "logs", "server-console.log");
+    let file;
+    if (src === "app") {
+      // log4j 式日期檔名（2026-09-06）：讀最新的 app-console-YYYY-MM-DD.log；舊固定名 fallback
+      const logsDir = join(q.cwd || PAAW_ROOT, ".paaw", "logs");
+      let target = join(logsDir, "app-console.log");
+      try {
+        const ls = await readdir(logsDir);
+        const dated = ls.filter(f => /^app-console-\d{4}-\d{2}-\d{2}\.log$/.test(f)).sort();
+        if (dated.length > 0) target = join(logsDir, dated[dated.length - 1]);
+      } catch { /* 目錄不存在走 fallback */ }
+      file = target;
+    } else {
+      file = join(DATA_HOME, "logs", "server-console.log");
+    }
     try {
       let data = "";
       let size = 0;

@@ -86,9 +86,30 @@ async function purgeOtherLogs(days) {
   return deleted;
 }
 
-export async function runLogPurge() {
+/** llm/*.jsonl 依「明確日期」purge（Fleming 2026-09-06：留一年，用 API by 日期 purge）
+ *  before = "YYYY-MM-DD" → 檔名日期 < before 的全刪（不受 llmDays 政策限制） */
+async function purgeLlmBefore(before) {
+  const llmDir = join(LOGS_ROOT, "llm");
+  let deleted = 0;
+  if (!existsSync(llmDir) || !/^\d{4}-\d{2}-\d{2}$/.test(before)) return deleted;
+  const files = await readdir(llmDir).catch(() => []);
+  for (const f of files) {
+    const m = f.match(/^(\d{4}-\d{2}-\d{2})\.jsonl$/);
+    if (m && m[1] < before) {
+      try { await unlink(join(llmDir, f)); deleted++; } catch {}
+    }
+  }
+  return deleted;
+}
+
+export async function runLogPurge(options = {}) {
   const cfg = await loadRetention();
-  const llmDeleted = cleanupOldLogs(cfg.llmDays);
+  let llmDeleted;
+  if (options.before) {
+    llmDeleted = await purgeLlmBefore(options.before); // 明確日期 > 政策
+  } else {
+    llmDeleted = cleanupOldLogs(cfg.llmDays);          // 預設政策：一年
+  }
   const agentDeleted = await cleanupOldAgentLogs(cfg.agentDays);
   const otherDeleted = await purgeOtherLogs(cfg.otherDays);
   return { cfg, llmDeleted, agentDeleted, otherDeleted };
@@ -128,12 +149,21 @@ export default async function logRetentionRoutes(req, res) {
 
   if (url === "/api/logs/purge" && method === "POST") {
     try {
-      const r = await runLogPurge();
+      let body = {};
+      try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
+      const r = await runLogPurge(body.before ? { before: String(body.before) } : {});
+      // Janitor：per-RU runtime 垃圾（semgrep/app-console/versions/uploads）— 2026-09-06
+      let janitor = null;
+      try {
+        const { runJanitor } = await import("../lib/janitor.mjs");
+        janitor = await runJanitor();
+      } catch (err) { janitor = { error: err.message }; }
       jsonOut(200, {
         ok: true,
         retention: r.cfg,
         deleted: r.llmDeleted + r.agentDeleted + r.otherDeleted,
         detail: { llm: r.llmDeleted, agent: r.agentDeleted, other: r.otherDeleted },
+        janitor,
       });
     } catch (err) {
       jsonOut(500, { error: err.message });
