@@ -62,7 +62,7 @@ const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
 // 用途：判斷「代碼尚少（no-code）」— 剛建立/剛 import 的專案 code 還沒成形，
 // Code Understanding 沒東西可分析，UI 不該催
 // ⚠️ 定義已抽到 lib/cu-source-scan.mjs（單一事實來源 — paaw-project 的 CU watermark 同一套規則）
-import { countSourceFiles } from "../lib/cu-source-scan.mjs";
+import { countSourceFiles, walkSourceFiles } from "../lib/cu-source-scan.mjs";
 
 // ── CU staleness — 智能層知識過期偵測（純 mtime 比對，免 token）──
 // step 產出檔比 code 最新 mtime 舊 → 過期（快照是舊地圖）
@@ -4072,17 +4072,10 @@ async function runShellCmd(command, cwd, timeoutMs = 10_000) {
 }
 
 // ── Cross-platform file tree scan (Windows has no Unix 'find') ──
-function scanProjectFiles(cwd, maxFiles = 0) {
-  const isWin = process.platform === "win32";
-  // Only scan source code files — no JSON/MD/data files
-  // maxFiles=0 means no limit (scan all)
-  const limitPart = maxFiles > 0 ? `.slice(0,${maxFiles})` : "";
-  const headPart = maxFiles > 0 ? ` | head -${maxFiles}` : "";
-  const winSlice = maxFiles > 0 ? `f.slice(0,${maxFiles})` : "f";
-  const cmd = isWin
-    ? `node -e "const{readdirSync:r,statSync:s}=require('fs');const{join:j}=require('path');function walk(d,a){for(const e of r(d)){const p=j(d,e);try{if(s(p).isDirectory()){if(!e.includes('node_modules')&&!e.includes('dist')&&!e.includes('build')&&!e.includes('coverage')&&!e.startsWith('.'))walk(p,a)}else if(/\.(ts|tsx|mjs|js|cjs|jsx|py|java|go|rb|php)$/.test(e))a.push(p.replace(/\\\\/g,'/'))}}catch{}}const f=[];walk('.',f);console.log(${winSlice}.join('\\n'))"`
-    : "find . -type f \\( -name '*.ts' -o -name '*.tsx' -o -name '*.mjs' -o -name '*.js' -o -name '*.cjs' -o -name '*.jsx' -o -name '*.py' -o -name '*.java' -o -name '*.go' -o -name '*.rb' -o -name '*.php' \\) -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/.paaw/*' -not -path '*/dist/*' -not -path '*/build/*' -not -path '*/coverage/*' -not -path '*/data/semgrep-rules/*'" + headPart;
-  return runShellCmd(cmd, cwd, 30_000);
+async function scanProjectFiles(cwd, maxFiles = 0) {
+  // 2026-09-06：改純 Node walker（共用 cu-source-scan）— 支援 .gitignore、刪掉 Windows/macOS 雙分支 shell find
+  const { files } = walkSourceFiles(cwd, { maxFiles });
+  return files.join("\n");
 }
 
 // ── Collect Project Health ──

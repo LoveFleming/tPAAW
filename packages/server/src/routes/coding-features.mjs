@@ -17,6 +17,7 @@
 import { readFile, writeFile, mkdir, readdir, unlink } from "fs/promises";
 import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
+import { walkSourceFiles } from "../lib/cu-source-scan.mjs";
 import { fileURLToPath } from "url";
 import { readBody, normalizePath } from "./shared.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
@@ -533,17 +534,9 @@ export default async function codingFeaturesRoute(req, res) {
     }
 
     // Scan codebase: list all source files
-    const { exec: execCb } = await import("child_process");
-    const isWin = process.platform === "win32";
-    const scanCmd = isWin
-      ? `node -e "const{readdirSync:r,statSync:s}=require('fs');const{join:j}=require('path');function walk(d,a){for(const e of r(d)){const p=j(d,e);try{if(s(p).isDirectory()){if(!e.includes('node_modules')&&!e.includes('dist')&&!e.startsWith('.'))walk(p,a)}else if(/\.(ts|tsx|mjs|js|jsx)$/.test(e))a.push(p.replace(/\\\\/g,'/'))}}catch{}}const f=[];walk('.',f);console.log(f.join('\\n'))"`
-      : "find . -type f \\( -name '*.ts' -o -name '*.tsx' -o -name '*.mjs' -o -name '*.js' -o -name '*.jsx' \\) -not -path '*/node_modules/*' -not -path '*/dist/*' -not -path '*/.paaw/*'";
-    const scanFiles = () => new Promise((resolve) => {
-      execCb(scanCmd, { cwd: projRoot, maxBuffer: 10*1024*1024 }, (err, stdout) => {
-        resolve(stdout.trim().split("\n").filter(Boolean));
-      });
-    });
-    const allFiles = await scanFiles();
+    // 2026-09-06：改共用 walker（cu-source-scan）— 支援 .gitignore、刪掉 shell find 雙分支
+    const _walked = walkSourceFiles(projRoot, { exts: new Set([".ts", ".tsx", ".mjs", ".js", ".jsx"]) });
+    const allFiles = _walked.files;
 
     // Read API contract if exists
     let apiContract = "";
