@@ -836,6 +836,21 @@ export default function CodingIDE() {
   const [showDirExplorer, setShowDirExplorer] = useState(false);
   const [showRuClone, setShowRuClone] = useState(false);
   const [onboardingPath, setOnboardingPath] = useState<string | null>(null);
+  // 🎉 Onboarding 觸發補洞（2026-09-06 Fleming 回報）：wizard 原本只在 DirExplorer/Clone 觸發，
+  // 「刪 .paaw 後重開 RU」或「bootstrap 過但 CU 從沒跑」不會跳 → 與 spec 0.4「刪掉重跑=重建」預期不符。
+  // 開專案時檢 cu-status：CU 從未 done（doneCount=0）且有 source 檔 → 自動跳 onboarding。
+  useEffect(() => {
+    if (!rootPath) return;
+    let alive = true;
+    fetch(`${API_BASE}/api/coding-project/cu-status?path=${encodeURIComponent(rootPath)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (!alive) return;
+        if ((d?.doneCount ?? 0) === 0 && (d?.sourceFiles ?? 0) > 0) setOnboardingPath(rootPath);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [rootPath]);
 
   // ── Derived: sync activeTab with activeMainTab ──
   // activeTabId is the sidebar tab; but the MAIN panel is driven by activeMainTab.
