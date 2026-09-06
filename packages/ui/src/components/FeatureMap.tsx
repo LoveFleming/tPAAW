@@ -214,18 +214,6 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
     }
   };
 
-  // ── Delete feature ──
-  const handleDelete = async (id: string) => {
-    if (!confirm(`Delete feature ${id}?`)) return;
-    try {
-      await fetch(`${API_BASE}/api/coding-features/${encodeURIComponent(id)}?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" });
-      if (selectedId === id) setSelectedId(null);
-      await fetchFeatures();
-    } catch (err) {
-      alert("Delete failed: " + (err instanceof Error ? err.message : String(err)));
-    }
-  };
-
   const inputStyle = {
     background: theme.bg,
     color: theme.text,
@@ -366,7 +354,6 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
             setEditingDocs={setEditingDocs}
             onSaveDocs={handleSaveDocs}
             savingDocs={savingDocs}
-            onDelete={() => handleDelete(selected.id)}
             rootPath={rootPath}
           />
         )}
@@ -418,7 +405,7 @@ function CreateFeatureForm({ onCreate, onCancel, theme, t }: {
 }
 
 // ── Feature Detail ──
-function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callChainMap, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, onDelete, rootPath }: {
+function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callChainMap, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, rootPath }: {
   feature: Feature;
   ecData?: any;
   theme: any;
@@ -432,7 +419,6 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
   setEditingDocs: (b: boolean) => void;
   onSaveDocs: () => void;
   savingDocs: boolean;
-  onDelete: () => void;
   rootPath: string;
 }) {
   const st = STATUS_STYLES[feature.status] || STATUS_STYLES.active;
@@ -461,9 +447,8 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
           <h2 className="text-base font-bold" style={{ color: theme.text }}>{feature.name}</h2>
           {feature.description && <p className="text-xs mt-1 leading-relaxed" style={{ color: theme.text, opacity: 0.6 }}>{feature.description}</p>}
         </div>
-        <div className="flex gap-1 shrink-0">
-          <button onClick={onDelete} className="text-xs px-2 py-1 rounded" style={{ background: "#fef2f2", color: "#dc2626" }}>🗑️</button>
-        </div>
+        {/* 2026-09-06 Fleming：刪 feature 不從 UI 手删 — SA 開單叫 developer 刪碼後，
+            用 project_edit(action="feature_delete") tool 刪記錄，程式與 feature 才會同步 */}
       </div>
 
       <div className="p-4 flex flex-col gap-4">

@@ -556,7 +556,7 @@ export const PAAW_TOOLS = [
         properties: {
           action: {
             type: "string",
-            enum: ["issue_create", "issue_update", "issue_delete", "change_record", "feature_update_docs", "feature_update_mapping", "run_command"],
+            enum: ["issue_create", "issue_update", "issue_delete", "change_record", "feature_update_docs", "feature_update_mapping", "feature_delete", "run_command"],
             description: "Mutation action to perform",
           },
           // ── Issue create/update/delete ──
@@ -2819,7 +2819,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
       // ── Unified project_edit handler ──
       case "project_edit": {
         const action = args.action;
-        if (!action) return "Error: 'action' parameter is required. Valid: issue_create, issue_update, issue_delete, change_record, feature_update_docs, feature_update_mapping, run_command";
+        if (!action) return "Error: 'action' parameter is required. Valid: issue_create, issue_update, issue_delete, change_record, feature_update_docs, feature_update_mapping, feature_delete, run_command";
         const paaw = createPaawProject(cwd);
 
         switch (action) {
@@ -2909,6 +2909,21 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             writeSync(featuresFile, JSON.stringify(data, null, 2));
             if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
             return `✅ Updated docs for ${args.id}: ${feature.name}`;
+          }
+
+          // ── feature_delete：移除 feature 記錄（2026-09-06 Fleming：刪 feature 走 agent tool，人不在 UI 手刪）──
+          // 標準流程：SA（architect）開 task 叫 developer 刪掉相關程式碼並 stage → SA 確認後才刪 feature 記錄 → 程式與 feature map 同步
+          case "feature_delete": {
+            if (!args.id) return "Error: id is required（featureId，如 F20260901-001）";
+            const { loadFeatures, saveFeatures } = await import("./feature-registry.mjs");
+            const features = await loadFeatures(cwd);
+            const idx = features.findIndex(f => f.id === args.id);
+            if (idx < 0) return `Error: Feature ${args.id} not found（先 project_info(category="features") 確認 id）`;
+            const deleted = features.splice(idx, 1)[0];
+            await saveFeatures(cwd, features);
+            const fileCount = (deleted.codeFiles || []).length;
+            if (onEvent) onEvent({ type: "tool_end", name, result: `feature ${args.id} deleted` });
+            return `已刪除 feature ${args.id}「${deleted.name || ""}」（原映射 ${fileCount} 個檔案）。\n⚠️ 請確認：相關程式碼是否已由 developer 移除（task 已 stage/commit）？若還沒，請先開 task 處理，程式與 feature map 才會同步。`;
           }
 
           case "feature_update_mapping": {
@@ -3468,7 +3483,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   }
 
   // Tool overview (compact — full schemas are sent via function-calling format)
-  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/features/feature_detail/runbook/test_map/recent_changes/issues/api_history/project_read/standards_read\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_mapping\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\nreference_read(action=list|read|search, source=workspace|knowledge) → browse/read/search reference files in workspace/ and knowledge/ (read-only, for finding existing code examples and docs)\ntask_list(id?, status?, pipelinePhase?, type?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task with pipeline\ntask_update(id, action=update|advance|reject|note|assign, ...) → update task, advance/reject pipeline phase, add notes\ntask_decompose(parentId, subTasks) → split a large task into sub-tasks
+  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/features/feature_detail/runbook/test_map/recent_changes/issues/api_history/project_read/standards_read\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_docs/mapping/delete\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\nreference_read(action=list|read|search, source=workspace|knowledge) → browse/read/search reference files in workspace/ and knowledge/ (read-only, for finding existing code examples and docs)\ntask_list(id?, status?, pipelinePhase?, type?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task with pipeline\ntask_update(id, action=update|advance|reject|note|assign, ...) → update task, advance/reject pipeline phase, add notes\ntask_decompose(parentId, subTasks) → split a large task into sub-tasks
 task_retrofit(priority?, featureIds?) → 上線前品質補強：從 feature map 每個 active feature 建一個補 review/test/qa/docs 的全版 task（以代碼現況為準，非歷史 task）\ndispatch_agent(agentId, task, taskId?) → dispatch work to another agent (architect/developer/tester/doc-writer/qa/helpdesk)\ncu_refresh, record_decision, docs(action=...), action_log_add/list, agent_memory_save/load`);
 
   if (skillMd) {
