@@ -1022,7 +1022,10 @@ function AppInner() {
           {/* Content */}
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
             {openTabs.map((tabId) => (
-              <div key={tabId} className="h-full w-full flex flex-col absolute inset-0" style={{ visibility: activePage === tabId ? "visible" : "hidden", zIndex: activePage === tabId ? 1 : 0, pointerEvents: activePage === tabId ? "auto" : "none" }}>
+              <div key={tabId} className="h-full w-full flex flex-col absolute inset-0" style={{ visibility: activePage === tabId ? "visible" : "hidden", opacity: activePage === tabId ? 1 : 0, zIndex: activePage === tabId ? 1 : 0, pointerEvents: activePage === tabId ? "auto" : "none" }}>
+                {/* 2026-09-06：hidden tab 加 opacity:0 — CSS visibility 可被子孫 inline style 覆寫
+                    （CodingIDE terminal 容器的 visibility:"visible" 會穿透，把深色 terminal 透到別頁後面
+                    =「Agent 執行記錄兩個 table 後面藏著黑色區塊」的根因）。opacity 子孫無法覆寫。 */}
                 {renderPage(tabId, activePage === tabId)}
               </div>
             ))}
