@@ -3430,14 +3430,22 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                             className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b transition-colors"
                             style={{ borderColor: tk.borderLight, opacity: sess.isActive ? 0.7 : 1 }}
                           >
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-stone-700 truncate">
-                                {sess.isActive && <span className="text-green-500 mr-1">●</span>}
-                                {sess.title || "對話"}
+                            {/* 2026-09-06 Fleming：時間帶頭欄位 — 找過去聊天記錄方便 */}
+                            <div className="flex items-start gap-2.5">
+                              <span className="text-[11px] font-mono font-semibold text-stone-500 shrink-0 pt-0.5" style={{ minWidth: "78px" }}>
+                                {sess.lastUpdated
+                                  ? new Date(sess.lastUpdated).toLocaleString("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).replace("\n", " ")
+                                  : "—"}
                               </span>
-                            </div>
-                            <div className="text-[10px] text-stone-400 mt-0.5">
-                              {sess.lastUpdated ? new Date(sess.lastUpdated).toLocaleString("zh-TW", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                              <span className="flex-1 min-w-0">
+                                <span className="flex items-center gap-1">
+                                  {sess.isActive && <span className="text-green-500 shrink-0">●</span>}
+                                  <span className="text-sm font-medium text-stone-700 truncate">{sess.title || "對話"}</span>
+                                </span>
+                                <span className="block text-[10px] text-stone-400 mt-0.5 font-mono truncate">
+                                  {sess.messageCount ?? "?"} · {sess.sessionId}
+                                </span>
+                              </span>
                             </div>
                           </button>
                         ))

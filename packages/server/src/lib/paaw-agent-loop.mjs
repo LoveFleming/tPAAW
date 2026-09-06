@@ -707,6 +707,24 @@ export const PAAW_TOOLS = [
       },
     },
   },
+  // ── Conversation History（2026-09-06 Fleming：每個 agent 都能查過去聊天記錄，RU 開發紀錄全保留）──
+  {
+    type: "function",
+    function: {
+      name: "conversation_history",
+      description: "查過去的聊天記錄（跨 session，含已封存）。action: list=列出自己的對話 sessions；load=讀某 session 完整內容；search=關鍵字搜尋對話（預設搜全部 agent）。找「之前聊過什麼、決定了什麼」用這個。",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["list", "load", "search"], description: "list=列出 sessions；load=讀完整對話；search=關鍵字搜尋" },
+          sessionId: { type: "string", description: "load 時要讀的 session id（來自 list 結果；active=目前對話）" },
+          query: { type: "string", description: "search 時的關鍵字" },
+          crewId: { type: "string", description: "選配：指定查其他 agent（如 coding.em）；search 未指定時搜全部" },
+        },
+        required: ["action"],
+      },
+    },
+  },
   // ── Unified notes tool ──
   {
     type: "function",
@@ -968,6 +986,7 @@ const TOOL_GROUP_MAP = {
   // Memory & logging
   action_log_add: "memory", action_log_list: "memory",
   agent_memory_save: "memory", agent_memory_load: "memory",
+  conversation_history: "memory", // 2026-09-06：聊天記錄查詢（memory group → 全 crew 可用）
 
   // Decision & changelog
   record_decision: "decisions", docs: "decisions",
@@ -2603,6 +2622,79 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         const content = await loadAgentMemory(agentId, rootDir || cwd);
         if (onEvent) onEvent({ type: "tool_end", name, result: content ? `${content.length} chars` : "empty" });
         return content || "(No saved memory yet)";
+      }
+
+      case "conversation_history": {
+        // 2026-09-06 Fleming：每個 agent 都能查過去聊天記錄（.paaw/coding-memory/conversations/）
+        // RU 開發紀錄全保留 — active.json 為進行中，s-*.json 為封存 session
+        const base = rootDir || cwd;
+        const convRoot = join(base, ".paaw", "coding-memory", "conversations");
+        const myAgentId = args._agentId || _agentCfg?.agentId || "agent";
+        const safe = (s) => /^[a-zA-Z0-9._-]+$/.test(s); // 防 path traversal
+        const targetCrew = args.crewId && safe(args.crewId) ? args.crewId : (myAgentId.startsWith("coding.") ? myAgentId : `coding.${myAgentId}`);
+        const readSess = (dir, f) => {
+          try { return JSON.parse(readSync(join(dir, f), "utf-8")); } catch { return null; }
+        };
+        const fmtTime = (t) => (t || "").slice(0, 16).replace("T", " ");
+
+        if (args.action === "list") {
+          const dir = join(convRoot, targetCrew);
+          if (!existsSync(dir)) return `(尚無 ${targetCrew} 的對話記錄)`;
+          const items = [];
+          const act = readSess(dir, "active.json");
+          if (act?.messages?.length) items.push({ id: "active", meta: act._meta, msgs: act.messages });
+          const sessFiles = existsSync(dir) ? readdirSync(dir).filter(f => f.startsWith("s-") && f.endsWith(".json")).sort().reverse() : [];
+          for (const f of sessFiles) {
+            const d = readSess(dir, f);
+            if (d?.messages?.length) items.push({ id: f.replace(".json", ""), meta: d._meta, msgs: d.messages });
+          }
+          if (!items.length) return "(尚無對話記錄)";
+          const lines = items.map(it => `  ${it.id.padEnd(24)} ${fmtTime(it.meta?.lastUpdated || it.meta?.archivedAt)}  ${String(it.msgs.length).padStart(3)}則  ${(it.meta?.title || "").slice(0, 40)}`);
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${items.length} sessions` });
+          return `📁 ${targetCrew} sessions（時間序）：\n${lines.join("\n")}\n\n用 conversation_history(action="load", sessionId="s-...") 讀完整內容`;
+        }
+
+        if (args.action === "load") {
+          if (!args.sessionId || !safe(args.sessionId)) return "Error: load 需要 sessionId（先 list 取得；active=目前對話）";
+          const dir = join(convRoot, targetCrew);
+          const file = args.sessionId === "active" ? "active.json" : `${args.sessionId}.json`;
+          if (!existsSync(join(dir, file))) return `找不到 session ${args.sessionId}（先 list 看有哪些）`;
+          const d = readSess(dir, file);
+          if (!d?.messages?.length) return "(空 session)";
+          const lines = d.messages.map(m => {
+            const c = typeof m.content === "string" ? m.content : JSON.stringify(m.content);
+            return `[${fmtTime(m.ts)}] ${m.role === "user" ? "👤" : "🤖"}: ${c.slice(0, 600)}`;
+          });
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${d.messages.length} msgs` });
+          return `📜 ${targetCrew}/${args.sessionId}（${d.messages.length} 則）\n${lines.join("\n")}`.slice(0, 12000);
+        }
+
+        if (args.action === "search") {
+          if (!args.query) return "Error: search 需要 query";
+          if (!existsSync(convRoot)) return "(尚無任何對話記錄)";
+          const crews = args.crewId && safe(args.crewId) ? [args.crewId] : readdirSync(convRoot).filter(safe);
+          const hits = [];
+          const q = String(args.query).toLowerCase();
+          for (const crew of crews) {
+            const dir = join(convRoot, crew);
+            if (!existsSync(dir)) continue;
+            for (const f of ["active.json", ...readdirSync(dir).filter(x => x.startsWith("s-") && x.endsWith(".json")).sort().reverse()]) {
+              const d = readSess(dir, f);
+              if (!d?.messages?.length) continue;
+              for (let i = 0; i < d.messages.length; i++) {
+                const c = typeof d.messages[i].content === "string" ? d.messages[i].content : "";
+                const idx = c.toLowerCase().indexOf(q);
+                if (idx >= 0) {
+                  hits.push(`${crew}/${f.replace(".json", "")} #${i} ${d.messages[i].role}: ...${c.slice(Math.max(0, idx - 60), idx + 120)}...`);
+                  if (hits.length >= 40) break;
+                }
+              }
+            }
+          }
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${hits.length} hits` });
+          return hits.length ? `🔍 「${args.query}」找到 ${hits.length} 筆：\n${hits.join("\n")}` : `🔍 「${args.query}」沒有找到`;
+        }
+        return "Error: action 必須是 list / load / search";
       }
 
       // ── Notes Tools ──
