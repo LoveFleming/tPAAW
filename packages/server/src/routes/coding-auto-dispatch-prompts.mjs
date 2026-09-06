@@ -33,7 +33,7 @@ const DEFAULT_PROMPTS = {
   },
   helpdesk: {
     crewId: "coding.helpdesk",
-    task: "## Auto Dispatch Task: HelpDesk & FAQ Update\n\nChanged files:\n{{changedFiles}}\n\n## Your Tasks\n1. Check for any new error patterns in the changed code\n2. Update FAQ if new features were added that users might ask about\n3. Check .paaw/issues/ for any new issues — summarize them\n4. Update known issues list if needed\n\nUse project_info(category=issues) to list issues. Use read_file to check specs.\nWrite a summary to .paaw/auto-dispatch/helpdesk-report.md using write_file.",
+    task: "## Auto Dispatch Task: HelpDesk Patrol\n\nChanged files:\n{{changedFiles}}\n\n## Your Tasks\n1. Check for any new error patterns in the changed code\n2. Check .paaw/issues/ for any new issues — summarize them\n3. Update known issues list if needed\n\nUse project_info(category=issues) to list issues. Use read_file to check specs.\nWrite a summary to .paaw/auto-dispatch/helpdesk-report.md using write_file.",
   },
 };
 

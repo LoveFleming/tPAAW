@@ -156,7 +156,7 @@ export default function PaawTree({ projectRoot, onOpenFile, refreshKey = 0 }: Pa
     if (tree && expanded.size === 1) {
       const toExpand = new Set([tree.path]);
       const findDirs = (node: PaawNode) => {
-        if (node.type === "dir" && ["sessions", "standards", "prompts", "api-logs"].includes(node.name)) {
+        if (node.type === "dir" && ["sessions", "prompts", "api-logs"].includes(node.name)) {
           toExpand.add(node.path);
         }
         node.children?.forEach(findDirs);

@@ -736,7 +736,7 @@ async function buildToolDefinitions() {
       parameters: {
         type: "object",
         properties: {
-          category: { type: "string", enum: ["context", "decisions", "standards", "changelog", "issues", "features", "feature_detail", "runbook", "faq", "sessions", "test_map", "security", "recent_changes", "api_history"], description: "Category to read" },
+          category: { type: "string", enum: ["context", "decisions", "changelog", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "standards_read", "error_codes", "c4_model", "security"], description: "Category to read" },
           id: { type: "string", description: "Feature/issue ID for detail queries" },
           search: { type: "string", description: "Search term" },
           status: { type: "string", description: "Filter by status (comma-separated)" },

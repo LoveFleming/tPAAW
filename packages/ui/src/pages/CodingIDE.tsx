@@ -39,7 +39,6 @@ import RuOnboardingModal from "../components/RuOnboardingModal";
 import { GitPanel } from "../components/git";
 import { BrowserPanel } from "../components/browser/BrowserPanel";
 import DiffViewer from "../components/DiffViewer";
-import StandardsEditor from "../components/StandardsEditor";
 import SessionHistory from "../components/SessionHistory";
 
 import DecisionLog from "../components/DecisionLog";
@@ -80,7 +79,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests";
 
 interface MainTab {
   id: string;
@@ -572,7 +571,7 @@ export default function CodingIDE() {
   const [contextDebug, setContextDebug] = useState<any>(null);
 
   // ── Right Panel Tab State ──
-  const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions" | "prompts" | "status">("chat");
+  const [rightTab, setRightTab] = useState<"chat" | "sessions" | "decisions" | "prompts" | "status">("chat");
 
 
   // ── New Project State ──
@@ -1017,7 +1016,7 @@ export default function CodingIDE() {
         console.log(`[CodingIDE] Parsed ${savedTabs?.length || 0} saved tabs, active=${savedActive}`);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
-          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "browser", "terminal", "ai-crew", "standards", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel", "tests"]);
+          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "browser", "terminal", "ai-crew", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel", "tests"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", "));
           // Restore tabs (dashboard is already present)

@@ -8,9 +8,6 @@
  *   GET    /api/coding-project/tree?path=...           — Get .paaw/ directory tree
  *   GET    /api/coding-project/sessions?path=...       — List sessions
  *   GET    /api/coding-project/sessions/:filename?path=... — Read specific session
- *   GET    /api/coding-project/standards?path=...      — List standards
- *   GET    /api/coding-project/standards/:name?path=...— Read standard
- *   PUT    /api/coding-project/standards/:name?path=...— Write standard
  *   GET    /api/coding-project/decisions?path=...      — Read decisions
  *   POST   /api/coding-project/decisions?path=...      — Add decision
  *   GET    /api/coding-project/changelog?path=...      — Read changelog
@@ -2253,38 +2250,6 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── GET /api/coding-project/standards ──
-    if (url.startsWith("/api/coding-project/standards") && !url.match(/\/api\/project\/standards\/[^?]+/) && method === "GET") {
-      const standards = await paaw.listStandards();
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(standards));
-      return true;
-    }
-
-    // ── GET/PUT /api/coding-project/standards/:name ──
-    const stdMatch = url.match(/^\/api\/project\/standards\/([^?]+)/);
-    if (stdMatch) {
-      const name = decodeURIComponent(stdMatch[1]);
-      if (method === "GET") {
-        const content = await paaw.readStandard(name);
-        if (content === null) {
-          res.writeHead(404, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Standard not found" }));
-        } else {
-          res.writeHead(200, { "Content-Type": "text/markdown" });
-          res.end(content);
-        }
-        return true;
-      }
-      if (method === "PUT") {
-        const body = await readBody(req);
-        const result = await paaw.writeStandard(name, body);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(result));
-        return true;
-      }
-    }
-
     // ── GET /api/coding-project/decisions ──
     if (url.startsWith("/api/coding-project/decisions") && method === "GET") {
       // 2026-08-30: 讀取前先觸發 flat 遺產搬移（舊版寫 .paaw/DECISIONS.md → decisions/DECISIONS.md）
@@ -2472,80 +2437,6 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── GET /api/coding-project/templates ──
-    if (url.startsWith("/api/coding-project/templates") && method === "GET") {
-      const templatesDir = join(DATA_HOME, "templates", "standards");
-      const templates = [];
-      try {
-        const entries = await readdir(templatesDir);
-        for (const name of entries.filter(f => f.endsWith(".md")).sort()) {
-          const content = await readFile(join(templatesDir, name), "utf-8");
-          // Extract title from first heading
-          const titleLine = content.split("\n").find(l => l.startsWith("# "));
-          const title = titleLine ? titleLine.replace(/^#\s*/, "") : name.replace(".md", "");
-          templates.push({ name, title, preview: content.slice(0, 200) });
-        }
-      } catch {}
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(templates));
-      return true;
-    }
-
-    // ── GET /api/coding-project/templates/:name ──
-    const tplMatch = url.match(/^\/api\/project\/templates\/([^?]+)/);
-    if (tplMatch && method === "GET") {
-      const templatesDir = join(DATA_HOME, "templates", "standards");
-      const name = decodeURIComponent(tplMatch[1]);
-      const filePath = join(templatesDir, name);
-      try {
-        const content = await readFile(filePath, "utf-8");
-        res.writeHead(200, { "Content-Type": "text/markdown" });
-        res.end(content);
-      } catch {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Template not found" }));
-      }
-      return true;
-    }
-
-    // ── POST /api/coding-project/import-template ──
-    if (url.startsWith("/api/coding-project/import-template") && method === "POST") {
-      const body = JSON.parse(await readBody(req));
-      const templateName = body.template; // e.g. "typescript.md"
-      const targetName = body.target || templateName; // save as
-      if (!templateName) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Missing 'template' field" }));
-        return true;
-      }
-      const templatesDir = join(DATA_HOME, "templates", "standards");
-      try {
-        const content = await readFile(join(templatesDir, templateName), "utf-8");
-        // Ensure .paaw/ exists
-        if (!paaw.exists) await paaw.init();
-        await paaw.writeStandard(targetName, content);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true, name: targetName, size: content.length }));
-      } catch {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Template not found" }));
-      }
-      return true;
-    }
-
-    // ── POST /api/coding-project/generate-standards ──
-    // Uses LLM to analyze codebase and generate coding standards
-    if (url.startsWith("/api/coding-project/generate-standards") && method === "POST") {
-      if (!paaw.exists) await paaw.init();
-      const generated = await generateStandardsFromCodebase(root);
-      if (generated) {
-        await paaw.writeStandard("auto-generated.md", generated);
-      }
-      res.writeHead(200, { "Content-Type": "text/markdown" });
-      res.end(generated || "# Failed to generate standards");
-      return true;
-    }
-
     // ── GET /api/coding-project/all ──
     // Returns everything needed for the right-panel tabs in one call
     if (url.startsWith("/api/coding-project/all") && method === "GET") {
@@ -2554,10 +2445,9 @@ export default async function projectRoute(req, res) {
         res.end(JSON.stringify({ initialized: false }));
         return true;
       }
-      const [context, sessions, standards, decisions, changelog] = await Promise.all([
+      const [context, sessions, decisions, changelog] = await Promise.all([
         paaw.loadContext(),
         paaw.listSessions(),
-        paaw.listStandards(),
         paaw.readFile("DECISIONS.md"),
         paaw.readFile("CHANGELOG.md"),
       ]);
@@ -2566,7 +2456,6 @@ export default async function projectRoute(req, res) {
         initialized: true,
         context,
         sessions,
-        standards,
         decisions,
         changelog,
       }));
@@ -2945,13 +2834,13 @@ export default async function projectRoute(req, res) {
           if (step.id !== "scan" && step.id !== "architecture") {
             await loadCtx("ARCHITECTURE.md", "ARCHITECTURE");
           }
-          if (step.id === "test-payload" || step.id === "faq" || step.id === "overview" || step.id === "feature-map") {
+          if (step.id === "test-payload" || step.id === "overview" || step.id === "feature-map") {
             await loadCtx("specs/api-contract.md", "API SPEC");
           }
-          if (step.id === "faq" || step.id === "overview" || step.id === "feature-map") {
+          if (step.id === "overview" || step.id === "feature-map") {
             await loadCtx("specs/error-codes.md", "ERROR MAPPING");
           }
-          if (step.id === "standards" || step.id === "faq" || step.id === "overview" || step.id === "feature-map") {
+          if (step.id === "overview" || step.id === "feature-map") {
             await loadCtx("DECISIONS.md", "DECISIONS", 2000);
           }
         }
@@ -3058,10 +2947,6 @@ export default async function projectRoute(req, res) {
                   }
                 }
               } catch {}
-            } else if (step.id === "standards") {
-              await diffWriteFile(paaw, "standards/coding-style.md", sanitized);
-            } else if (step.id === "faq") {
-              await diffWriteFile(paaw, "helpdesk/faq.md", sanitized);
             } else if (step.id === "overview") {
               await diffWriteFile(paaw, "PROJECT.md", sanitized);
             } else if (step.id === "feature-map") {
@@ -3441,17 +3326,17 @@ export default async function projectRoute(req, res) {
           let fullPrompt = promptTemplate;
           fullPrompt += `\n\n--- PROJECT CONTEXT ---\n${projectContext}`;
           if (scanResult) fullPrompt += `\n\n--- SCAN RESULTS ---\n${scanResult}`;
-          if (architectureResult && (step.id === "decisions" || step.id === "api-spec" || step.id === "standards" || step.id === "faq" || step.id === "overview" || step.id === "feature-map")) {
+          if (architectureResult && (step.id === "decisions" || step.id === "api-spec" || step.id === "overview" || step.id === "feature-map")) {
             const archLimit = step.id === "feature-map" ? 8000 : 3000;
             fullPrompt += `\n\n--- ARCHITECTURE ---\n${architectureResult.slice(0, archLimit)}`;
           }
-          if (apiSpecResult && (step.id === "test-payload" || step.id === "faq" || step.id === "overview" || step.id === "feature-map")) {
+          if (apiSpecResult && (step.id === "test-payload" || step.id === "overview" || step.id === "feature-map")) {
             fullPrompt += `\n\n--- API SPEC ---\n${apiSpecResult}`;
           }
-          if (errorMappingResult && (step.id === "faq" || step.id === "overview" || step.id === "feature-map")) {
+          if (errorMappingResult && (step.id === "overview" || step.id === "feature-map")) {
             fullPrompt += `\n\n--- ERROR MAPPING ---\n${errorMappingResult}`;
           }
-          if (decisionsResult && (step.id === "standards" || step.id === "faq" || step.id === "overview" || step.id === "feature-map")) {
+          if (decisionsResult && (step.id === "overview" || step.id === "feature-map")) {
             fullPrompt += `\n\n--- DECISIONS ---\n${decisionsResult.slice(0, 2000)}`;
           }
 
@@ -3539,10 +3424,6 @@ export default async function projectRoute(req, res) {
                     await paaw.writeFile(`test-payloads/${slug}.json`, JSON.stringify(payloads, null, 2));
                   }
                 } catch {}
-              } else if (step.id === "standards") {
-                await diffWriteFile(paaw, "standards/coding-style.md", sanitized);
-              } else if (step.id === "faq") {
-                await diffWriteFile(paaw, "helpdesk/faq.md", sanitized);
               } else if (step.id === "overview") {
                 await diffWriteFile(paaw, "PROJECT.md", sanitized);
               } else if (step.id === "feature-map") {
@@ -3779,15 +3660,6 @@ export default async function projectRoute(req, res) {
           if (content) paawContext += `\n=== ${f} ===\n${content.slice(0, 3000)}\n`;
         }
 
-        // Also load standards dir for maintain
-        if (domain === "maintain") {
-          const stdFiles = await paaw.listStandards();
-          for (const sf of stdFiles) {
-            const c = await paaw.readStandard(sf.name);
-            if (c) paawContext += `\n=== standards/${sf.name} ===\n${c.slice(0, 1500)}\n`;
-          }
-        }
-
         // Load runbooks for bug
         if (domain === "bug") {
           const rbDir = join(paaw.paawDir, "runbook");
@@ -3993,77 +3865,7 @@ export default async function projectRoute(req, res) {
 // ── readBody imported from shared.mjs ──
 
 // ── Generate Standards from Codebase ──
-
-async function generateStandardsFromCodebase(projectRoot) {
-  // 1. Gather codebase info
-  const samples = [];
-  const root = projectRoot;
-
-  // Read package.json
-  try {
-    const pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8"));
-    samples.push(`package.json scripts: ${JSON.stringify(pkg.scripts || {})}`);
-    samples.push(`dependencies: ${Object.keys(pkg.dependencies || {}).join(", ")}`);
-    samples.push(`devDependencies: ${Object.keys(pkg.devDependencies || {}).join(", ")}`);
-  } catch {}
-
-  // Read a few source files as samples
-  const sourcePatterns = [
-    "packages/server/src/lib/*.mjs",
-    "packages/ui/src/pages/*.tsx",
-    "packages/ui/src/components/*.tsx",
-  ];
-
-  for (const pattern of sourcePatterns) {
-    try {
-      const { glob } = await import("fs/promises");
-      // Use readdir as fallback
-      const dir = join(root, pattern.replace(/\/[^/]+$/, ""));
-      const ext = pattern.match(/\*\.(.+)$/)?.[1] || "mjs";
-      if (existsSync(dir)) {
-        const files = await readdir(dir);
-        const matching = files.filter(f => f.endsWith(`.${ext}`)).slice(0, 3);
-        for (const f of matching) {
-          const content = readSync(join(dir, f), "utf-8");
-          samples.push(`--- ${f} (first 600 chars) ---\n${content.slice(0, 600)}`);
-        }
-      }
-    } catch {}
-  }
-
-  if (samples.length === 0) return null;
-
-  // 2. Build prompt
-  const prompt = `Analyze the following codebase samples and generate a comprehensive Coding Standards document in Markdown format.
-Focus on:
-1. File naming conventions used
-2. Code style (indentation, quotes, semicolons)
-3. Error handling patterns
-4. Export patterns (ESM vs CJS)
-5. Framework-specific conventions (React, Node.js)
-6. Any existing patterns that should be standardized
-
-Codebase samples:
-
-${samples.join("\n\n")}
-
-Output ONLY the markdown document, starting with # Coding Standards (Auto-Generated).`;
-
-  // 3. Call LLM
-  try {
-    const result = await callProjectLLM({
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0,
-      thinking: { type: "disabled" }, // 產出 deterministic 文件 — 關思考（2026-08-30）
-    }, { ...CU_LLM_OPTS, timeoutMs: 600_000 });
-    return result.content || null;
-  } catch (err) {
-    console.error("[project route] generate-standards error:", err.message);
-    return null;
-  }
-}
-
-// ── Shell helper ──
+// generateStandardsFromCodebase 已移除（2026-09-06：standards dir 系統退役 — Fleming）
 
 async function runShellCmd(command, cwd, timeoutMs = 10_000) {
   try {
@@ -4113,7 +3915,6 @@ async function collectProjectHealth(root, paaw) {
     "CHANGELOG.md": "No changelog",
     "CODING-STANDARDS.md": "No coding standards",
     "sessions/": "No session history",
-    "standards/": "No standards dir",
   };
   let existCount = 0;
   for (const f of expectedFiles) {
@@ -4131,9 +3932,8 @@ async function collectProjectHealth(root, paaw) {
   // Check subdirs
   const dirFixPlans = {
     "sessions/": { steps: [{ agent: "developer", task: "建立 .paaw/sessions/ 目錄，確保 AI session 歷史可以儲存" }], estimatedMinutes: 60 },
-    "standards/": { steps: [{ agent: "architect", task: "建立 .paaw/standards/ 目錄和基本標準文件" }], estimatedMinutes: 60 },
   };
-  for (const d of ["sessions", "standards"]) {
+  for (const d of ["sessions"]) {
     const dirPath = join(paaw.paawDir, d);
     const exists = existsSync(dirPath);
     if (exists) existCount++;

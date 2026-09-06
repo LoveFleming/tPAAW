@@ -11,7 +11,6 @@
  *   ├── CONTEXT.md
  *   ├── sessions/
  *   ├── api-logs/
- *   ├── standards/
  *   ├── prompts/
  *   └── snapshots/
  *
@@ -73,7 +72,7 @@ export class PaawProject {
   // ── Initialization ──
 
   async init() {
-    const subDirs = ["features", "specs", "standards", "prompts", "issues", "runbook", "code-intelligence", "security", "changes", "operations", "quality", "api-logs", "test-payloads", "sessions",
+    const subDirs = ["features", "specs", "prompts", "issues", "runbook", "code-intelligence", "security", "changes", "operations", "quality", "api-logs", "test-payloads", "sessions",
       // New organized subdirectories
       "project", "decisions", "changelog", "actions"];
     for (const sub of subDirs) {
@@ -276,53 +275,6 @@ export class PaawProject {
     }
 
     return parts.join("\n");
-  }
-
-  // ── Standards ──
-
-  async loadStandards() {
-    // Main file
-    const main = await this.readFile("CODING-STANDARDS.md");
-    if (!main && !existsSync(join(this.paawDir, "standards"))) return null;
-
-    // Sub-files
-    const stdDir = join(this.paawDir, "standards");
-    const parts = [];
-    if (main) parts.push(main);
-
-    if (existsSync(stdDir)) {
-      try {
-        const files = await readdir(stdDir);
-        for (const f of files.filter(f => f.endsWith(".md")).sort()) {
-          const content = await readFile(join(stdDir, f), "utf-8");
-          parts.push(`\n--- ${f} ---\n${content}`);
-        }
-      } catch {}
-    }
-
-    return parts.length > 0 ? parts.join("\n") : null;
-  }
-
-  async listStandards() {
-    const stdDir = join(this.paawDir, "standards");
-    const result = [];
-    if (!existsSync(stdDir)) return result;
-    try {
-      const files = await readdir(stdDir);
-      for (const f of files.filter(f => f.endsWith(".md")).sort()) {
-        const stat_ = await stat(join(stdDir, f));
-        result.push({ name: f, size: stat_.size, modified: stat_.mtime.toISOString() });
-      }
-    } catch {}
-    return result;
-  }
-
-  async readStandard(name) {
-    return this.readFile(`standards/${name}`);
-  }
-
-  async writeStandard(name, content) {
-    return this.writeFile(`standards/${name}`, content);
   }
 
   // ── Sessions ──
@@ -801,7 +753,6 @@ export class PaawProject {
         { id: "test-intelligence", file: "code-intelligence/test-intelligence.json" },
         { id: "error-mapping", file: "specs/error-codes.md" },
         { id: "security-scan", file: "security/scan-results.json" },
-        { id: "standards", file: "standards/coding-style.md" },
         { id: "overview", file: "PROJECT.md" },
         { id: "change-intelligence", file: "changes/change-intelligence.json" },
       ];
@@ -919,16 +870,9 @@ const DEFAULT_STANDARDS_MD = `# Coding Standards
 2. 新字串必須用 t() + 加 locale key（如適用）
 3. 永遠處理 IME composition（useRef，不要用 useState）
 
-## 規範子目錄
+## 規範內容
 
-將各語言/框架的規範放在 \`standards/\` 子目錄：
-
-- \`standards/typescript.md\` — TypeScript 規範
-- \`standards/react.md\` — React 規範
-- \`standards/naming.md\` — 命名規範
-- \`standards/git-commit.md\` — Commit message 規範
-
-> 可透過 Coding IDE 的 Standards Editor 編輯，或點「Import」匯入範本。
+語言/框架專屬規範直接寫在本檔的分段標題下（例如 ## TypeScript、## React、## Git Commit）。
 `;
 
 // ── Export singleton instance ──

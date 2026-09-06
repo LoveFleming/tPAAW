@@ -28,7 +28,7 @@ export const AGENT_RULES = `
 - project_info(category="test_map", file="src/foo.ts") — 查這檔案的測試覆蓋
 - project_info(category="recent_changes") — 最近改了什麼
 - project_info(category="decisions") — 架構決策 (ADR)
-- project_info(category="runbook") / (category="faq") — 排障指南
+- project_info(category="runbook") — 排障指南
 - project_edit(action="issue_create/update/delete") — 開/改 issue
 - project_edit(action="change_record") — 記錄變更交接
 - read_file 只用來讀原始碼，不用來讀 .paaw/
