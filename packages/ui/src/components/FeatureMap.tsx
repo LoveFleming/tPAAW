@@ -459,7 +459,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
             ))}
           </div>
           <h2 className="text-base font-bold" style={{ color: theme.text }}>{feature.name}</h2>
-          {feature.description && <p className="text-sm mt-1" style={{ color: theme.text, opacity: 0.6 }}>{feature.description}</p>}
+          {feature.description && <p className="text-xs mt-1 leading-relaxed" style={{ color: theme.text, opacity: 0.6 }}>{feature.description}</p>}
         </div>
         <div className="flex gap-1 shrink-0">
           <button onClick={onDelete} className="text-xs px-2 py-1 rounded" style={{ background: "#fef2f2", color: "#dc2626" }}>🗑️</button>
