@@ -287,7 +287,6 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
             </div>
 
             {section("project", "🎯", t("ho.sec.project"), bundle.knowledge.project, 40)}
-            {section("codingStandards", "🏛️", t("ho.sec.standards"), bundle.knowledge.codingStandards, 60)}
 
             {/* Git 歷史 */}
             <div className="border rounded-xl overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>

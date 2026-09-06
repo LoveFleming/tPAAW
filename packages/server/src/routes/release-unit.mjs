@@ -69,7 +69,6 @@ function badPath(res, p) {
 const CONTEXT_DOCS = [
   { file: "PROJECT.md", label: "專案概述" },
   { file: "ARCHITECTURE.md", label: "架構" },
-  { file: "CODING-STANDARDS.md", label: "Coding 規範", altDir: "project" },
   { file: "DECISIONS.md", label: "技術決策" },
   { file: "CONTEXT.md", label: "長期 context" },
 ];
@@ -380,8 +379,6 @@ export default async function releaseUnitRoutes(req, res, next) {
       tech,
       docs,
       totalChars,
-      standardsDir: existsSync(join(path, ".paaw", "standards")),
-      codingStandards: await readDoc(path, "CODING-STANDARDS.md") ?? await readDoc(path, "project/CODING-STANDARDS.md") ?? null,
     };
     if (withContent) {
       payload.docContents = {};

@@ -522,8 +522,8 @@ export const PAAW_TOOLS = [
         properties: {
           category: {
             type: "string",
-            enum: ["context", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "standards_read", "error_codes", "c4_model", "security", "decisions", "changelog"],
-            description: "What to query: context=project overview (PROJECT.md+standards+feature map), features=feature map, feature_detail=single feature, runbook=troubleshooting, sessions=work sessions, test_map=test intelligence, recent_changes=change intelligence, api_history=API tester logs, project_read=human-written PROJECT.md, standards_read=human-written CODING-STANDARDS.md, error_codes=error codes by feature（寫碼前查既有 codes 不重複；debug 時帶 search=錯誤碼/訊息穩定片段反查 feature+file:line；帶 feature 看單一 feature）， c4_model=C4 對外連線全景（containers/external systems/relationships；帶 search 查特定服務）, security=security scan findings 明細（file:line + CWE + snippet + feature 對應；QA/SA 看 security 結果與開 task 的入口；帶 severity/file/search 過濾）, decisions=架構決策記錄 DECISIONS.md（ADR 清單與内文）, changelog=CHANGELOG.md 版本變更記錄"
+            enum: ["context", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "error_codes", "c4_model", "security", "decisions", "changelog"],
+            description: "What to query: context=project overview (PROJECT.md+feature map), features=feature map, feature_detail=single feature, runbook=troubleshooting, sessions=work sessions, test_map=test intelligence, recent_changes=change intelligence, api_history=API tester logs, project_read=human-written PROJECT.md, error_codes=error codes by feature（寫碼前查既有 codes 不重複；debug 時帶 search=錯誤碼/訊息穩定片段反查 feature+file:line；帶 feature 看單一 feature）， c4_model=C4 對外連線全景（containers/external systems/relationships；帶 search 查特定服務）, security=security scan findings 明細（file:line + CWE + snippet + feature 對應；QA/SA 看 security 結果與開 task 的入口；帶 severity/file/search 過濾）, decisions=架構決策記錄 DECISIONS.md（ADR 清單與内文）, changelog=CHANGELOG.md 版本變更記錄"
           },
           id: { type: "string", description: "Feature/issue ID (正式格式 F{YYYYMMDD}-{NNN}，如 F20260904-001；issue 為 ISS-001). 一律用 project_info 查現況，勿自編. Used with category=feature_detail." },
           search: { type: "string", description: "Search keyword. Used with: features (by name), runbook (by content), faq (by keyword), error_codes (錯誤碼/訊息片段反查 — debug 入口), c4_model (服務名/技術，如 redis)." },
@@ -911,7 +911,7 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "ru_context",
-      description: "Release Unit context — 讀專案技術桡 + .paaw 四大文件（PROJECT/ARCHITECTURE/CODING-STANDARDS/DECISIONS）。改碼前必讀。",
+      description: "Release Unit context — 讀專案技術桡 + .paaw 三大文件（PROJECT/ARCHITECTURE/DECISIONS）。改碼前必讀。",
       parameters: {
         type: "object",
         properties: {
@@ -1834,14 +1834,12 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           if (!existsSync(f)) return null;
           try { return readSync(f, "utf-8"); } catch { return null; }
         };
-        const standards = await readDoc("CODING-STANDARDS.md") ?? await readDoc("project/CODING-STANDARDS.md");
-        const docs = ["PROJECT.md", "ARCHITECTURE.md", "CODING-STANDARDS.md", "DECISIONS.md", "CONTEXT.md"];
+        const docs = ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md", "CONTEXT.md"];
         const found = [];
         for (const d of docs) {
-          if (await readDoc(d) ?? (d === "CODING-STANDARDS.md" && await readDoc("project/CODING-STANDARDS.md"))) found.push(d);
+          if (await readDoc(d)) found.push(d);
         }
         let out = `【Release Unit context】${cwd.split(/[\\/]/).pop()}\n技術桡：${tech.language} / ${tech.packageManager} / ${(tech.frameworks || []).join(", ") || "-"}\n.paaw 文件：${found.length ? found.join(", ") : "（尚未初始化）"}\n`;
-        if (standards) out += `\n【CODING-STANDARDS】\n${smartTruncateToolResult(standards, 6000, { alwaysKeepTail: false })}`;
         if (args.withDocs) {
           for (const d of ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md"]) {
             const c = await readDoc(d);
@@ -2075,7 +2073,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
       case "project_info": {
         // ── Alias mapping: old tool names → project_info category ──
         const cat = args.category;
-        if (!cat) return "Error: 'category' parameter is required. Valid: context, issues, features, feature_detail, runbook, sessions, test_map, recent_changes, api_history, project_read, standards_read, error_codes, c4_model, security, decisions, changelog";
+        if (!cat) return "Error: 'category' parameter is required. Valid: context, issues, features, feature_detail, runbook, sessions, test_map, recent_changes, api_history, project_read, error_codes, c4_model, security, decisions, changelog";
         const paaw = createPaawProject(cwd);
 
         switch (cat) {
@@ -2106,12 +2104,6 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             const proj = await paaw.readFile("PROJECT.md");
             if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: proj ? `${proj.length} chars` : "empty" });
             return proj || "(No PROJECT.md found)";
-          }
-          case "standards_read": {
-            if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
-            const cst = await paaw.readFile("CODING-STANDARDS.md");
-            if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: cst ? `${cst.length} chars` : "empty" });
-            return cst || "(No CODING-STANDARDS.md found)";
           }
           case "issues": {
             const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
@@ -2357,7 +2349,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             } catch (err) { return `Error: ${err.message}`; }
           }
           default:
-            return `Unknown category '${cat}'. Valid: context, issues, features, feature_detail, runbook, sessions, test_map, recent_changes, api_history, project_read, standards_read`;
+            return `Unknown category '${cat}'. Valid: context, issues, features, feature_detail, runbook, sessions, test_map, recent_changes, api_history, project_read`;
         }
       }
 
@@ -3471,7 +3463,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   }
 
   // Tool overview (compact — full schemas are sent via function-calling format)
-  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/features/feature_detail/runbook/test_map/recent_changes/issues/api_history/project_read/standards_read\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_docs/mapping/delete\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\nreference_read(action=list|read|search, source=workspace|knowledge) → browse/read/search reference files in workspace/ and knowledge/ (read-only, for finding existing code examples and docs)\ntask_list(id?, status?, pipelinePhase?, type?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task with pipeline\ntask_update(id, action=update|advance|reject|note|assign, ...) → update task, advance/reject pipeline phase, add notes\ntask_decompose(parentId, subTasks) → split a large task into sub-tasks
+  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/features/feature_detail/runbook/test_map/recent_changes/issues/api_history/project_read\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_docs/mapping/delete\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\nreference_read(action=list|read|search, source=workspace|knowledge) → browse/read/search reference files in workspace/ and knowledge/ (read-only, for finding existing code examples and docs)\ntask_list(id?, status?, pipelinePhase?, type?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task with pipeline\ntask_update(id, action=update|advance|reject|note|assign, ...) → update task, advance/reject pipeline phase, add notes\ntask_decompose(parentId, subTasks) → split a large task into sub-tasks
 task_retrofit(priority?, featureIds?) → 上線前品質補強：從 feature map 每個 active feature 建一個補 review/test/qa/docs 的全版 task（以代碼現況為準，非歷史 task）\ndispatch_agent(agentId, task, taskId?) → dispatch work to another agent (architect/developer/tester/doc-writer/qa/helpdesk)\ncu_refresh, record_decision, docs(action=...), action_log_add/list, agent_memory_save/load`);
 
   if (skillMd) {

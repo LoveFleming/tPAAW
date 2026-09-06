@@ -73,7 +73,6 @@ const CU_STEP_FILES = {
   "c4-model": "c4-model.json",
   // 人寫的非自動 step（給健康檢查參考）
   overview: "project/PROJECT.md",
-  standards: "project/CODING-STANDARDS.md",
 };
 const CU_MECHANICAL_STEPS = new Set(["code-intelligence", "test-intelligence"]);
 const CU_MANUAL_STEPS = new Set(["overview", "standards"]); // 人寫文件 — CU 重跑不會更新，過期只能人工改
@@ -3653,7 +3652,7 @@ export default async function projectRoute(req, res) {
           test: ["specs/api-contract.md", "test-payloads/all-payloads.json"],
           bug: ["specs/error-codes.md", "DECISIONS.md"],
           docs: ["PROJECT.md", "helpdesk/faq.md", "CHANGELOG.md"],
-          maintain: ["CODING-STANDARDS.md", "DECISIONS.md"],
+          maintain: ["DECISIONS.md"],
         };
         for (const f of domainPaawFiles[domain] || []) {
           const content = await paaw.readFile(f);
@@ -3899,21 +3898,19 @@ async function collectProjectHealth(root, paaw) {
   };
 
   // ── .paaw/ completeness with fix plans ──
-  const expectedFiles = ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md", "CHANGELOG.md", "CODING-STANDARDS.md"];
+  const expectedFiles = ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md", "CHANGELOG.md"];
   // Fix plans for each missing file
   const fixPlans = {
     "PROJECT.md": { steps: [{ agent: "architect", task: "建立 .paaw/PROJECT.md，分析專案結構，撰寫專案概述、技術棧、目標使用者等" }], estimatedMinutes: 60 },
     "ARCHITECTURE.md": { steps: [{ agent: "architect", task: "建立 .paaw/ARCHITECTURE.md，分析專案目錄結構、模組依賴、資料流，畫出架構圖" }], estimatedMinutes: 60 },
     "DECISIONS.md": { steps: [{ agent: "doc-writer", task: "建立 .paaw/DECISIONS.md，根據現有程式碼和架構推導技術決策，記錄 ADR (Architecture Decision Records)" }], estimatedMinutes: 60 },
     "CHANGELOG.md": { steps: [{ agent: "doc-writer", task: "建立 .paaw/CHANGELOG.md，從 git log 推導版本歷史和重要變更" }], estimatedMinutes: 60 },
-    "CODING-STANDARDS.md": { steps: [{ agent: "architect", task: "建立 .paaw/CODING-STANDARDS.md，分析現有程式碼風格，整理命名規規範、檔案結構、錯誤處理規則" }], estimatedMinutes: 60 },
   };
   const fixHints = {
     "PROJECT.md": "No project overview",
     "ARCHITECTURE.md": "No architecture map",
     "DECISIONS.md": "No ADRs",
     "CHANGELOG.md": "No changelog",
-    "CODING-STANDARDS.md": "No coding standards",
     "sessions/": "No session history",
   };
   let existCount = 0;
@@ -4124,7 +4121,6 @@ async function collectProjectHealth(root, paaw) {
         steps: [
           { agent: "doc-writer", task: "建立 .paaw/PROJECT.md，描述專案目標和架構" },
           { agent: "doc-writer", task: "建立 .paaw/DECISIONS.md，記錄重要架構決策" },
-          { agent: "doc-writer", task: "建立 .paaw/CODING-STANDARDS.md，記錄程式碼規範" },
         ],
         estimatedMinutes: 60,
       },

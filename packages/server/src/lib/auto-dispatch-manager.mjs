@@ -346,7 +346,7 @@ ${scopeText}
 每個 agent 都是獨立 session，看不到其他 agent 的對話。所以：
 - task 描述要包含所有必要 context（檔案路徑、問題描述、預期結果）
 - 不要假設 agent 知道之前的 task 做了什麼
-- 如果 task 需要參考某個文件 → 在 task 中指明（例如「參考 .paaw/CODING-STANDARDS.md 的路徑規範」）
+- 如果 task 需要參考某個文件 → 在 task 中指明（例如「參考 .paaw/DECISIONS.md 的架構決策」）
 
 ## 任務描述規則
 - ❌ "改善程式碼品質"（太空泛）

@@ -26,7 +26,6 @@ const execAsync = promisify(_exec);
 // Slim CU：只保留人寫的 PROJECT.md + Coding Standards
 const KNOWLEDGE_SOURCES = [
   { key: "project", file: "project/PROJECT.md", label: "專案概覽" },
-  { key: "codingStandards", file: "project/CODING-STANDARDS.md", label: "Coding Standards" },
 ];
 
 async function readKnowledgeFile(projectPath, rel) {
@@ -115,7 +114,7 @@ async function buildBundle(projectPath) {
     package: pkg,
     activeTasks,
     releases,
-    hasKnowledge: !!(knowledge.project || knowledge.codingStandards),
+    hasKnowledge: !!knowledge.project,
   };
 }
 
@@ -131,11 +130,7 @@ function renderHandoverMd(bundle) {
   L.push("");
   L.push(k.project ? k.project.split("\n").slice(0, 40).join("\n") : "_(尚未建立 PROJECT.md — 請人工填寫)_");
   L.push("");
-  L.push("## 2. Coding Standards");
-  L.push("");
-  L.push(k.codingStandards ? k.codingStandards.split("\n").slice(0, 60).join("\n") : "_(尚未建立 CODING-STANDARDS.md)_");
-  L.push("");
-  L.push("## 3. 最近變更");
+  L.push("## 2. 最近變更");
   L.push("");
   if (bundle.git.log.length) {
     L.push("### Git 歷史（最近 15 筆）");
@@ -144,7 +139,7 @@ function renderHandoverMd(bundle) {
     L.push("```");
   }
   L.push("");
-  L.push("## 4. 進行中的工作");
+  L.push("## 3. 進行中的工作");
   L.push("");
   if (bundle.activeTasks.length) {
     for (const t of bundle.activeTasks) L.push(`- [${t.status}] ${t.id} — ${t.title}（${t.priority}）`);
@@ -152,7 +147,7 @@ function renderHandoverMd(bundle) {
     L.push("_(沒有進行中的 task)_");
   }
   L.push("");
-  L.push("## 5. 怎麼跑起來");
+  L.push("## 4. 怎麼跑起來");
   L.push("");
   if (bundle.package?.scripts && Object.keys(bundle.package.scripts).length) {
     const common = ["dev", "start", "build", "test", "lint"];
@@ -165,7 +160,7 @@ function renderHandoverMd(bundle) {
     L.push("_(沒有 package.json scripts — 依專案類型自行確認)_");
   }
   L.push("");
-  L.push("## 6. Release 歷史（最近 5 筆）");
+  L.push("## 5. Release 歷史（最近 5 筆）");
   L.push("");
   if (bundle.releases.length) {
     for (const r of bundle.releases) L.push(`- ${r.releasedAt} — ${r.id} — ${r.title}`);

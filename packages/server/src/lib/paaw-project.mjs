@@ -7,7 +7,6 @@
  *   ├── ARCHITECTURE.md
  *   ├── DECISIONS.md
  *   ├── CHANGELOG.md
- *   ├── CODING-STANDARDS.md
  *   ├── CONTEXT.md
  *   ├── sessions/
  *   ├── api-logs/
@@ -88,7 +87,6 @@ export class PaawProject {
       { file: "PROJECT.md", content: DEFAULT_PROJECT_MD },
       { file: "DECISIONS.md", content: DEFAULT_DECISIONS_MD },
       { file: "CHANGELOG.md", content: DEFAULT_CHANGELOG_MD },
-      { file: "CODING-STANDARDS.md", content: DEFAULT_STANDARDS_MD },
     ];
 
     for (const { file, content } of defaults) {
@@ -142,7 +140,6 @@ export class PaawProject {
     "ARCHITECTURE.md": "project/ARCHITECTURE.md",
     "STATUS.md": "project/STATUS.md",
     "AI-OPERATING-GUIDE.md": "project/AI-OPERATING-GUIDE.md",
-    "CODING-STANDARDS.md": "project/CODING-STANDARDS.md",
     "TEST-EVIDENCE.md": "project/TEST-EVIDENCE.md",
     "DECISIONS.md": "decisions/DECISIONS.md",
     "CHANGELOG.md": "changelog/CHANGELOG.md",
@@ -189,9 +186,8 @@ export class PaawProject {
   async loadContext() {
     if (!this.exists) return null;
 
-    const [project, codingStandards] = await Promise.all([
+    const [project] = await Promise.all([
       this.readFile("PROJECT.md"),
-      this.readFile("CODING-STANDARDS.md"),
     ]);
 
     const recentSessions = await this.loadRecentSessions(3);
@@ -227,7 +223,6 @@ export class PaawProject {
 
     return {
       project,
-      codingStandards,
       recentSessions,
       featureMap,
       fileFeatureMap,
@@ -244,10 +239,6 @@ export class PaawProject {
 
     if (ctx.project) {
       parts.push(`\n=== 專案概覽 (PROJECT.md) ===\n${ctx.project}`);
-    }
-    if (ctx.codingStandards) {
-      // 人寫的 CODING-STANDARDS.md — 精簡注入（前 3000 chars）
-      parts.push(`\n=== Coding Standards (精簡，完整用 project_info(category=content)) ===\n${ctx.codingStandards.length > 3000 ? ctx.codingStandards.slice(0, 3000) + "\n… (truncated)" : ctx.codingStandards}`);
     }
     // Feature Map: feature → files（保留，加 Hint）
     if (ctx.featureMap && ctx.featureMap.length > 0) {
@@ -860,20 +851,6 @@ const DEFAULT_CHANGELOG_MD = `# Changelog
 
 `;
 
-const DEFAULT_STANDARDS_MD = `# Coding Standards
-
-> 本專案的 Coding 規範。AI 在寫碼時必須遵守。
-
-## 通用原則
-
-1. 改完碼一定要 commit + push，不留 uncommitted local change
-2. 新字串必須用 t() + 加 locale key（如適用）
-3. 永遠處理 IME composition（useRef，不要用 useState）
-
-## 規範內容
-
-語言/框架專屬規範直接寫在本檔的分段標題下（例如 ## TypeScript、## React、## Git Commit）。
-`;
 
 // ── Export singleton instance ──
 

@@ -19,7 +19,7 @@ import { buildDependencyGraph } from "./dependencies.mjs";
 import { readLastVerify } from "./verify.mjs";
 import { shellExec } from "../shell-exec.mjs";
 
-const PAAW_DOCS = ["PROJECT.md", "ARCHITECTURE.md", "CODING-STANDARDS.md", "DECISIONS.md", "CHANGELOG.md"];
+const PAAW_DOCS = ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md", "CHANGELOG.md"];
 
 async function gitInfo(root) {
   const out = { branch: null, dirtyFiles: null, lastCommitAt: null, lastCommitMsg: null };
@@ -52,8 +52,7 @@ export async function analyzeUnit(root, opts = {}) {
   const paawDir = join(root, ".paaw");
   const missingDocs = [];
   for (const doc of PAAW_DOCS) {
-    const found = existsSync(join(paawDir, doc))
-      || (doc === "CODING-STANDARDS.md" && existsSync(join(paawDir, "project", doc)));
+    const found = existsSync(join(paawDir, doc));
     if (!found) missingDocs.push(doc);
   }
   if (!existsSync(paawDir)) {
@@ -63,7 +62,7 @@ export async function analyzeUnit(root, opts = {}) {
   } else if (missingDocs.length >= 3) {
     risks.push({ id: "paaw-incomplete", severity: "medium", title: `.paaw 缺 ${missingDocs.length} 份核心文件`,
       detail: `缺：${missingDocs.join(", ")}`,
-      suggestion: "補齊核心文件（PROJECT / ARCHITECTURE / CODING-STANDARDS / DECISIONS / CHANGELOG）" });
+      suggestion: "補齊核心文件（PROJECT / ARCHITECTURE / DECISIONS / CHANGELOG）" });
   }
 
   // ── 2+3. metrics + graph（並行） ──

@@ -7,7 +7,7 @@
  * buildSystemPrompt 會把每個 key-value 展開成 ## 標題\n內容
  *
  * Provider 可以讀：
- *   - .paaw/ 目錄（PROJECT.md, DECISIONS.md, CODING-STANDARDS.md）
+ *   - .paaw/ 目錄（PROJECT.md, DECISIONS.md）
  *   - data/helpdesk/（KNOWLEDGE.md）
  *   - 任何 PAAW data 目錄
  */
@@ -45,18 +45,16 @@ async function safeReadTruncated(filePath, maxLen = 8000) {
 // ── Providers ──
 
 /**
- * Project context — .paaw/PROJECT.md + .paaw/CODING-STANDARDS.md
+ * Project context — .paaw/PROJECT.md
  * 適用：architect, coding agent, test agent
  */
 async function projectProvider({ cwd } = {}) {
   const projectRoot = cwd || PAAW_ROOT;
   const paaw = new PaawProject(projectRoot);
   const projectMd = await paaw.readFile("PROJECT.md");
-  const standardsMd = await paaw.readFile("CODING-STANDARDS.md");
 
   const result = {};
   if (projectMd) result["專案概覽"] = projectMd;
-  if (standardsMd) result["編碼規範"] = standardsMd;
   return result;
 }
 

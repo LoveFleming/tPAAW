@@ -104,8 +104,7 @@ export async function askCodebase(root, q, opts = {}) {
   const docHits = [];
   const paawDir = join(root, ".paaw");
   if (existsSync(paawDir)) {
-    const docs = ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md", "CONTEXT.md", "CHANGELOG.md",
-      "project/CODING-STANDARDS.md", "CODING-STANDARDS.md"];
+    const docs = ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md", "CONTEXT.md", "CHANGELOG.md"];
     for (const d of docs) {
       const f = join(paawDir, d);
       if (!existsSync(f)) continue;

@@ -22,7 +22,7 @@ export const AGENT_RULES = `
 不能憑記憶寫碼。System prompt 裡的檔案 Map 是目錄，不是原文。每次都要 read_file 確認結構再改。
 
 ### 📋 專案資訊查詢（優先使用 project_info，不要 read_file .paaw/）
-- project_info(category="context") — PROJECT.md, ARCHITECTURE.md, CODING-STANDARDS.md
+- project_info(category="context") — PROJECT.md, ARCHITECTURE.md
 - project_info(category="features") — 列出所有 feature
 - project_info(category="feature_detail", id="F20260904-001") — 查 feature 完整 detail + codeFiles + APIs + tests（feature ID 正式格式 F{YYYYMMDD}-{NNN}，先用 features 查現況，勿自編）
 - project_info(category="test_map", file="src/foo.ts") — 查這檔案的測試覆蓋

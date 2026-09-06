@@ -780,7 +780,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                         className="w-4 h-4 accent-emerald-500" />
                       <div className="flex-1">
                         <div className="text-sm font-semibold text-stone-700">📂 專案知識 (.paaw/)</div>
-                        <div className="text-[11px] text-stone-400">PROJECT.md, CODING-STANDARDS.md, KNOWN-ISSUES.md</div>
+                        <div className="text-[11px] text-stone-400">PROJECT.md, KNOWN-ISSUES.md</div>
                       </div>
                     </label>
                   </div>
@@ -817,7 +817,6 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                     <div className="text-xs font-semibold text-stone-600 mb-2">📋 Context 來源預覽</div>
                     <div className="space-y-1 text-[11px] text-stone-500">
                       {editData.injectProjectContext && <div>✅ .paaw/PROJECT.md</div>}
-                      {editData.injectProjectContext && <div>✅ .paaw/CODING-STANDARDS.md</div>}
                       {(editData.toolGroups || []).includes("decisions") && <div>✅ .paaw/decision-log.json</div>}
                       {(editData.toolGroups || []).includes("project") && <div>✅ .paaw/project.json (feature map)</div>}
                       {(editData.toolGroups || []).includes("issues") && <div>✅ .paaw/issues.json</div>}

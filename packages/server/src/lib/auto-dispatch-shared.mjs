@@ -91,7 +91,7 @@ export async function gatherContext(rootDir, sinceDate) {
   // 8. .paaw/ context files
   const paaw = new PaawProject(rootDir);
   ctx.paawContext = "";
-  for (const f of ["PROJECT.md", "STATUS.md", "DECISIONS.md", "CODING-STANDARDS.md", "CHANGELOG.md", "KNOWN-ISSUES.md", "NEXT-ACTIONS.md", "AI-OPERATING-GUIDE.md"]) {
+  for (const f of ["PROJECT.md", "STATUS.md", "DECISIONS.md", "CHANGELOG.md", "KNOWN-ISSUES.md", "NEXT-ACTIONS.md", "AI-OPERATING-GUIDE.md"]) {
     const fp = paaw._resolvePath(f);
     if (existsSync(fp)) {
       const content = readFileSync(fp, "utf-8").slice(0, 2000);
