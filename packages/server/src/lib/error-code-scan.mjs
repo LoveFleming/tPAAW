@@ -17,6 +17,7 @@
 import { existsSync, readFileSync, writeFileSync, readdirSync } from "fs";
 import { join, resolve, relative, extname } from "path";
 import { DATA_HOME } from "../data-home.mjs";
+import { loadProjectIgnore } from "./cu-source-scan.mjs";
 
 // ── 語言泛用的 error 訊號（不認任何命名慣例） ──
 const SIGNAL_RULES = [
@@ -42,16 +43,20 @@ const MAX_PER_FEATURE = 14; // 單 feature 餵 LLM 的訊號上限
 const MAX_GLOBAL = 700;     // 總量上限（單次 LLM call 的素材量）
 const MAX_TEXT = 160;
 
-function* _walk(dir) {
+function* _walk(dir, root, ignore) {
   let entries;
   try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
   for (const e of entries) {
     if (e.name.startsWith(".") && e.name !== ".") continue;
     const p = join(dir, e.name);
+    // 2026-09-06：支援 .gitignore（tpaaw-gateway versions/ 12000+ 備份檔不再污染 error 訊號）
+    const rel = relative(root, p).replace(/\\/g, "/");
     if (e.isDirectory()) {
       if (SKIP_DIRS.has(e.name)) continue;
-      yield* _walk(p);
+      if (ignore.shouldIgnore(rel, true)) continue;
+      yield* _walk(p, root, ignore);
     } else if (e.isFile() && SOURCE_EXTS.has(extname(e.name)) && !e.name.endsWith(".d.ts")) {
+      if (ignore.shouldIgnore(rel, false)) continue;
       yield p;
     }
   }
@@ -84,7 +89,7 @@ export function collectErrorSignals(root) {
   const unmapped = [];
   let totalSignals = 0;
 
-  for (const filePath of _walk(projectRoot)) {
+  for (const filePath of _walk(projectRoot, projectRoot, loadProjectIgnore(projectRoot))) {
     let lines;
     try { lines = readFileSync(filePath, "utf-8").split("\n"); } catch { continue; }
     const rel = relative(projectRoot, filePath).replace(/\\/g, "/");

@@ -857,6 +857,8 @@ export default function CodingIDE() {
   const [showDirExplorer, setShowDirExplorer] = useState(false);
   const [showRuClone, setShowRuClone] = useState(false);
   const [onboardingPath, setOnboardingPath] = useState<string | null>(null);
+  // 2026-09-06：wizard「開始 Scan」→ 開 CU modal（不直接跑）；遞增觸發 EMDashboard 開 modal
+  const [cuModalRequest, setCuModalRequest] = useState(0);
   // 🎉 Onboarding 觸發補洞（2026-09-06 Fleming 回報）：wizard 原本只在 DirExplorer/Clone 觸發，
   // 「刪 .paaw 後重開 RU」或「bootstrap 過但 CU 從沒跑」不會跳 → 與 spec 0.4「刪掉重跑=重建」預期不符。
   // 開專案時檢 cu-status：CU 從未 done（doneCount=0）且有 source 檔 → 自動跳 onboarding。
@@ -2445,9 +2447,9 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
         onClose={() => setOnboardingPath(null)}
         onOpenEm={() => openMainTab(DASHBOARD_TAB)}
         onStartCu={() => {
-          // 2026-09-06 Fleming：wizard 最後一步「開始 Scan」— 切到 dashboard + 觸發 CU（增量），CU 進度 modal 自動跳出（EMDashboard running→true 自動開）
+          // 2026-09-06 Fleming：wizard「開始 Scan」→ 開 CU modal 但不直接跑（可能要先綁 skill）— 使用者在 modal 裡綁完 skill 自己按執行
           openMainTab(DASHBOARD_TAB);
-          startAiInitialize(false);
+          setCuModalRequest(n => n + 1);
           setOnboardingPath(null);
         }}
       />
@@ -3647,6 +3649,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 rootPath={rootPath}
                 theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                 onStartCodeUnderstanding={startAiInitialize}
+                cuModalRequest={cuModalRequest}
                 codeUnderstanding={{ running: aiInitializing, steps: aiInitSteps }}
                 model={emModel}
                 onModelChange={setEmModel}

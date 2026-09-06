@@ -685,31 +685,45 @@ export async function parseProject(projectRoot, paawRoot, options = {}) {
   await initParser(paawRoot);
 
   // Collect source files
+  // 2026-09-06：改用共用 walker（cu-source-scan）— 支援 .gitignore + 統一排除規則
+  // （原本自帶 SKIP_DIRS 不讀 gitignore：tpaaw-gateway 的 versions/（12000+ 歷史備份）被掃進去，
+  //   每個舊版的 entry points 都變成 feature → 65 個假 features）
   const sourceFiles = [];
-  const SKIP_DIRS = new Set(["node_modules", ".git", ".paaw", "dist", "build", "coverage", ".next", ".nuxt", "vendor", "__pycache__", "testdata", "backups", "temp", "tmp", "data"]);
   const SOURCE_EXTS = new Set(Object.keys(LANG_MAP));
-
-  function walkDir(dir) {
-    if (maxFiles > 0 && sourceFiles.length >= maxFiles) return;
-    try {
-      for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        if (maxFiles > 0 && sourceFiles.length >= maxFiles) break;
-        if (SKIP_DIRS.has(entry.name) || entry.name.startsWith(".")) continue;
-        const fullPath = join(dir, entry.name);
-        if (entry.isDirectory()) {
-          walkDir(fullPath);
-        } else if (entry.isFile() && SOURCE_EXTS.has(extname(entry.name))) {
-          try {
-            const stat = statSync(fullPath);
-            if (maxBytes > 0 && stat.size > maxBytes) continue; // 0 = 不限
-            sourceFiles.push(fullPath);
-          } catch {}
+  try {
+    const { walkSourceFiles } = await import("./cu-source-scan.mjs");
+    const walked = walkSourceFiles(projectRoot, { exts: SOURCE_EXTS, maxFiles: maxFiles > 0 ? maxFiles : 0 });
+    for (const rel of walked.files) {
+      const fullPath = join(projectRoot, rel);
+      try {
+        if (maxBytes > 0) { const st = statSync(fullPath); if (st.size > maxBytes) continue; }
+        sourceFiles.push(fullPath);
+      } catch {}
+    }
+  } catch {
+    // fallback：共用 walker 不可用時退回舊邏輯（不讀 gitignore）
+    const SKIP_DIRS = new Set(["node_modules", ".git", ".paaw", "dist", "build", "coverage", ".next", ".nuxt", "vendor", "__pycache__", "testdata", "backups", "temp", "tmp", "data"]);
+    function walkDir(dir) {
+      if (maxFiles > 0 && sourceFiles.length >= maxFiles) return;
+      try {
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          if (maxFiles > 0 && sourceFiles.length >= maxFiles) break;
+          if (SKIP_DIRS.has(entry.name) || entry.name.startsWith(".")) continue;
+          const fullPath = join(dir, entry.name);
+          if (entry.isDirectory()) {
+            walkDir(fullPath);
+          } else if (entry.isFile() && SOURCE_EXTS.has(extname(entry.name))) {
+            try {
+              const stat = statSync(fullPath);
+              if (maxBytes > 0 && stat.size > maxBytes) continue; // 0 = 不限
+              sourceFiles.push(fullPath);
+            } catch {}
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
+    walkDir(projectRoot);
   }
-
-  walkDir(projectRoot);
 
   // Parse each file
   const results = [];

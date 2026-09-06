@@ -64,9 +64,11 @@ interface EMDashboardProps {
   adRefreshTrigger?: number;
   model?: string;
   onModelChange?: (m: string) => void;
+  /** 2026-09-06 Fleming：外部請求開 CU modal（wizard「開始 Scan」— 只開 modal 不直接跑，先綁 skill）；遞增觸發 */
+  cuModalRequest?: number;
 }
 
-export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, openMainTab, adRefreshTrigger = 0, model, onModelChange }: EMDashboardProps) {
+export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, openMainTab, adRefreshTrigger = 0, model, onModelChange, cuModalRequest = 0 }: EMDashboardProps) {
   // ── EM Profile (avatar from crew API) ──
   const [emProfile, setEmProfile] = useState<{ codename?: string; imageUrl?: string; emoji?: string }>({});
   useEffect(() => {
@@ -435,6 +437,16 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
       setShowCUModal(true);
     }
   }, [rootPath, cuPhase]);
+
+  // 2026-09-06 Fleming：外部請求開 CU modal（wizard「開始 Scan」）— 只開 modal 不直接跑，讓使用者先綁 skill 再按執行
+  const cuModalReqRef = useRef(0);
+  useEffect(() => {
+    if (cuModalRequest > cuModalReqRef.current) {
+      cuModalReqRef.current = cuModalRequest;
+      loadPersistedSteps();
+      setShowCUModal(true);
+    }
+  }, [cuModalRequest, loadPersistedSteps]);
 
   // 2026-09-06 Fleming：CU 開始跑（running false→true）自動開進度 modal — 任何入口（wizard 開始 Scan / 執行 CU 按鈕 / API）都會跳出
   const cuRunningEdge = codeUnderstanding?.running;
