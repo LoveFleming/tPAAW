@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/api/notes/ai-write",
+  "description": "AI 寫筆記",
+  "query": null,
+  "body": {
+    "prompt": "Write a note about React hooks"
+  },
+  "expectedStatus": 200,
+  "notes": "AI 驅動"
+}

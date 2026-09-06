@@ -1,0 +1,49 @@
+{
+  "generatedAt": "2026-08-30T05:11:36.809Z",
+  "filesParsed": 292,
+  "totalFiles": 299,
+  "languages": {
+    "typescript": 48,
+    "javascript": 146,
+    "tsx": 105
+  },
+  "callGraph": {
+    "totalFunctions": 1546,
+    "totalCalls": 2481,
+    "resolvedCalls": 299,
+    "unresolvedCalls": 2182
+  },
+  "apiFunctionMap": {
+    "totalRoutes": 326,
+    "withHandler": 94,
+    "withoutHandler": 232
+  },
+  "dependencyGraph": {
+    "totalFiles": 292,
+    "totalEdges": 575,
+    "resolvedImports": 575,
+    "unresolvedImports": 660
+  },
+  "testCodeMap": {
+    "totalTestFiles": 30,
+    "matchedTests": 205,
+    "totalTestedFunctions": 0
+  },
+  "symbolIndex": {
+    "total": 2793,
+    "functions": 1564,
+    "classes": 30,
+    "exports": 697,
+    "routes": 326,
+    "components": 176
+  },
+  "outputFiles": [
+    "call-graph.json",
+    "api-function-map.json",
+    "dependency-graph.json",
+    "test-code-map.json",
+    "symbol-index.json",
+    "file-map.json"
+  ],
+  "outputDir": ".paaw/code-intelligence/"
+}

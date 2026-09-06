@@ -1,0 +1,15 @@
+{
+  "method": "POST",
+  "path": "/api/coding-tasks/:id/pipeline/advance",
+  "description": "推進 pipeline phase",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": {
+    "phase": "implement",
+    "result": "Code implemented, all tests pass",
+    "by": "developer"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

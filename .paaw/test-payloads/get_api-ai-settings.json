@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "path": "/api/ai-settings",
+  "description": "列出所有 AI settings 分類",
+  "query": null,
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}

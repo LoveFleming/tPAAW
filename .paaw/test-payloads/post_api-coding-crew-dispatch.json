@@ -1,0 +1,15 @@
+{
+  "method": "POST",
+  "path": "/api/coding-crew/dispatch",
+  "description": "EM dispatch: 觸發 agent 執行 task（SSE streaming）",
+  "query": {},
+  "body": {
+    "agentId": "developer",
+    "task": "Fix the login bug in Login.tsx",
+    "cwd": "/Users/steward/App/tPAAW",
+    "model": "",
+    "priority": "high"
+  },
+  "expectedStatus": 200,
+  "notes": "SSE streaming"
+}

@@ -1,0 +1,12 @@
+{
+  "method": "PUT",
+  "path": "/api/helpdesk/tickets",
+  "description": "更新 ticket",
+  "query": null,
+  "body": {
+    "ticketId": "TKT_001",
+    "status": "answered"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

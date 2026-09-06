@@ -1,0 +1,12 @@
+{
+  "method": "POST",
+  "path": "/api/notes/sections",
+  "description": "建立 section",
+  "query": null,
+  "body": {
+    "notebook": "nb_001",
+    "name": "Section 1"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

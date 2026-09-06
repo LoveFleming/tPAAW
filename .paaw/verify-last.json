@@ -1,0 +1,24 @@
+{
+  "root": "/Users/steward/App/tPAAW",
+  "adapter": "js-ts",
+  "overall": "pass",
+  "ran": [
+    "test"
+  ],
+  "skipped": [
+    "build",
+    {}
+  ],
+  "checks": [
+    {
+      "check": "test",
+      "command": "npm test",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 737,
+      "output": "ted sets status to running\n[ExecutionPlan] Created ns-2026-08-15-paaw-plan-test-w3upjj: 2 tasks, 3 subtasks\n\nstdout | tests/unit/execution-plan.test.mjs > execution-plan > markPlanCompleted sets status to completed\n[ExecutionPlan] Created ns-2026-08-15-paaw-plan-test-kHbVpC: 2 tasks, 3 subtasks\n\nstdout | tests/unit/execution-plan.test.mjs > execution-plan > listPlans returns all plans\n[ExecutionPlan] Created ns-2026-08-15-paaw-plan-test-ARyCNw: 2 tasks, 3 subtasks\n\nstdout | tests/unit/execution-plan.test.mjs > execution-plan > listPlans returns all plans\n[ExecutionPlan] Created ns-2026-08-15-paaw-plan-test-ARyCNw: 1 tasks, 1 subtasks\n\nstdout | tests/unit/execution-plan.test.mjs > execution-plan > deletePlan removes the plan file\n[ExecutionPlan] Created ns-2026-08-15-paaw-plan-test-aVdxGq: 2 tasks, 3 subtasks\n\nstdout | tests/unit/execution-plan.test.mjs > execution-plan > deletePlan removes the plan file\n[ExecutionPlan] Deleted: ns-2026-08-15-paaw-plan-test-aVdxGq\n\n ✓ tests/unit/context-engine.test.mjs (10 tests) 18ms\n ✓ tests/unit/execution-plan.test.mjs (18 tests) 39ms\n ✓ tests/unit/coding-evidence.test.mjs (8 tests) 47ms\n ✓ tests/unit/shared-utils.test.ts (42 tests) 58ms\n ✓ tests/unit/auto-dispatch-shared.test.mjs (54 tests) 89ms\n ✓ tests/unit/agent-loop-max-turns.test.mjs (25 tests) 116ms\n ✓ tests/unit/skill-format.test.mjs (4 tests) 8ms\n ✓ tests/unit/coding-security-extended.test.mjs (30 tests) 8ms\n ✓ tests/unit/ai-settings.test.mjs (14 tests) 7ms\n ✓ tests/unit/llm-utils.test.mjs (25 tests) 3ms\n ✓ tests/unit/providers.test.mjs (4 tests) 3ms\n ✓ tests/unit/conversation-sanitize.test.mjs (6 tests) 3ms\n ✓ tests/unit/coding-security.test.mjs (7 tests) 2ms\nstdout | tests/unit/repair-loop.test.mjs\n[PAAW] Loaded .env from /Users/steward/App/tPAAW/.env\n\n ✓ tests/unit/repair-loop.test.mjs (8 tests) 3ms\n\n Test Files  17 passed (17)\n      Tests  314 passed (314)\n   Start at  12:07:30\n   Duration  443ms (transform 611ms, setup 0ms, import 732ms, tests 477ms, environment 1ms)"
+    }
+  ],
+  "totalDurationMs": 737,
+  "generatedAt": "2026-08-15T04:07:31.293Z"
+}

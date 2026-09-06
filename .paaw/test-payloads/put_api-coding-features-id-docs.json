@@ -1,0 +1,13 @@
+{
+  "method": "PUT",
+  "path": "/api/coding-features/:id/docs",
+  "description": "更新 feature 文件（markdown）",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": {
+    "documentation": "# User Auth\n\nDetailed docs..."
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

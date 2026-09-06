@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "path": "/api/distill/logs",
+  "description": "列出蒸餾日誌",
+  "query": null,
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}

@@ -1,0 +1,11 @@
+{
+  "method": "GET",
+  "path": "/api/coding-features/:id",
+  "description": "取得單一 feature 詳情",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}

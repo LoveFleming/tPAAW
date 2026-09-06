@@ -1,0 +1,11 @@
+{
+  "method": "PUT",
+  "path": "/api/skills/:kind/:id",
+  "description": "更新 skill",
+  "query": null,
+  "body": {
+    "name": "Updated Skill"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

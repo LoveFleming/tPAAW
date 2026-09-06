@@ -1,0 +1,9 @@
+{
+  "method": "POST",
+  "path": "/api/notes/upload-image",
+  "description": "上傳圖片",
+  "query": null,
+  "body": null,
+  "expectedStatus": 200,
+  "notes": "multipart/form-data"
+}

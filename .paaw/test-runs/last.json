@@ -1,0 +1,225 @@
+{
+  "finishedAt": "2026-08-23T02:59:03.265Z",
+  "headSha": "5ab4a46382794d4f3b964a9ebbda5875c04dfb7e",
+  "status": "fail",
+  "durationMs": 497935,
+  "includeE2e": true,
+  "summary": {
+    "passed": 437,
+    "failed": 12,
+    "skipped": 0,
+    "total": 449
+  },
+  "byKind": {
+    "unit": {
+      "passed": 302,
+      "failed": 12,
+      "skipped": 0,
+      "files": 17
+    },
+    "e2e": {
+      "passed": 135,
+      "failed": 0,
+      "skipped": 0,
+      "files": 11
+    }
+  },
+  "groups": [
+    {
+      "kind": "mixed",
+      "runner": "vitest",
+      "cmd": "npx vitest run --reporter=json --outputFile=.paaw/test-runs/.vitest.json",
+      "status": "fail",
+      "passed": 302,
+      "failed": 12,
+      "skipped": 0,
+      "files": {
+        "tests/unit/agent-loop-max-turns.test.mjs": {
+          "kind": "unit",
+          "passed": 25,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests/unit/ai-settings.test.mjs": {
+          "kind": "unit",
+          "passed": 14,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests/unit/auto-dispatch-shared.test.mjs": {
+          "kind": "unit",
+          "passed": 42,
+          "failed": 12,
+          "skipped": 0
+        },
+        "tests/unit/coding-evidence.test.mjs": {
+          "kind": "unit",
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests/unit/coding-security-extended.test.mjs": {
+          "kind": "unit",
+          "passed": 30,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests/unit/coding-security.test.mjs": {
+          "kind": "unit",
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests/unit/context-engine.test.mjs": {
+          "kind": "unit",
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests/unit/context-truncation.test.mjs": {
+          "kind": "unit",
+          "passed": 24,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests/unit/conversation-sanitize.test.mjs": {
+          "kind": "unit",
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests/unit/dependency-context.test.mjs": {
+          "kind": "unit",
+          "passed": 25,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests/unit/execution-plan.test.mjs": {
+          "kind": "unit",
+          "passed": 18,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests/unit/i18n-consistency.test.ts": {
+          "kind": "unit",
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests/unit/llm-utils.test.mjs": {
+          "kind": "unit",
+          "passed": 25,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests/unit/providers.test.mjs": {
+          "kind": "unit",
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests/unit/repair-loop.test.mjs": {
+          "kind": "unit",
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests/unit/shared-utils.test.ts": {
+          "kind": "unit",
+          "passed": 42,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests/unit/skill-format.test.mjs": {
+          "kind": "unit",
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0
+        }
+      },
+      "outputTail": "JSON report written to /Users/steward/App/tPAAW/.paaw/test-runs/.vitest.json\n\n",
+      "exitCode": 1,
+      "durationMs": 843
+    },
+    {
+      "kind": "e2e",
+      "runner": "playwright",
+      "cmd": "npx playwright test --reporter=json",
+      "status": "pass",
+      "passed": 135,
+      "failed": 0,
+      "skipped": 0,
+      "files": {
+        "01-smoke.spec.ts": {
+          "kind": "e2e",
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        "02-settings.spec.ts": {
+          "kind": "e2e",
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0
+        },
+        "03-notes.spec.ts": {
+          "kind": "e2e",
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        "04-pages.spec.ts": {
+          "kind": "e2e",
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0
+        },
+        "05-api.spec.ts": {
+          "kind": "e2e",
+          "passed": 33,
+          "failed": 0,
+          "skipped": 0
+        },
+        "06-chat.spec.ts": {
+          "kind": "e2e",
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        "07-skills.spec.ts": {
+          "kind": "e2e",
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0
+        },
+        "08-apps.spec.ts": {
+          "kind": "e2e",
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0
+        },
+        "09-coding.spec.ts": {
+          "kind": "e2e",
+          "passed": 9,
+          "failed": 0,
+          "skipped": 0
+        },
+        "10-execution.spec.ts": {
+          "kind": "e2e",
+          "passed": 15,
+          "failed": 0,
+          "skipped": 0
+        },
+        "11-nav-comprehensive.spec.ts": {
+          "kind": "e2e",
+          "passed": 23,
+          "failed": 0,
+          "skipped": 0
+        }
+      },
+      "outputTail": "          }\n              ],\n              \"id\": \"f47b4b51ebecd1631baf-416782e280e19e55c7ad\",\n              \"file\": \"11-nav-comprehensive.spec.ts\",\n              \"line\": 197,\n              \"column\": 7\n            },\n            {\n              \"title\": \"should show Plugins section\",\n              \"ok\": true,\n              \"tags\": [],\n              \"tests\": [\n                {\n                  \"timeout\": 30000,\n                  \"annotations\": [],\n                  \"expectedStatus\": \"passed\",\n                  \"projectId\": \"chromium\",\n                  \"projectName\": \"chromium\",\n                  \"results\": [\n                    {\n                      \"workerIndex\": 0,\n                      \"parallelIndex\": 0,\n                      \"status\": \"passed\",\n                      \"duration\": 3307,\n                      \"errors\": [],\n                      \"stdout\": [],\n                      \"stderr\": [],\n                      \"retry\": 0,\n                      \"startTime\": \"2026-08-23T02:58:53.323Z\",\n                      \"annotations\": [],\n                      \"attachments\": []\n                    }\n                  ],\n                  \"status\": \"expected\"\n                }\n              ],\n              \"id\": \"f47b4b51ebecd1631baf-1b0f41efbfde3f0afea4\",\n              \"file\": \"11-nav-comprehensive.spec.ts\",\n              \"line\": 220,\n              \"column\": 7\n            },\n            {\n              \"title\": \"should show Workspaces section\",\n              \"ok\": true,\n              \"tags\": [],\n              \"tests\": [\n                {\n                  \"timeout\": 30000,\n                  \"annotations\": [],\n                  \"expectedStatus\": \"passed\",\n                  \"projectId\": \"chromium\",\n                  \"projectName\": \"chromium\",\n                  \"results\": [\n                    {\n                      \"workerIndex\": 0,\n                      \"parallelIndex\": 0,\n                      \"status\": \"passed\",\n                      \"duration\": 3292,\n                      \"errors\": [],\n                      \"stdout\": [],\n                      \"stderr\": [],\n                      \"retry\": 0,\n                      \"startTime\": \"2026-08-23T02:58:56.638Z\",\n                      \"annotations\": [],\n                      \"attachments\": []\n                    }\n                  ],\n                  \"status\": \"expected\"\n                }\n              ],\n              \"id\": \"f47b4b51ebecd1631baf-bb4db92b77581ea5db44\",\n              \"file\": \"11-nav-comprehensive.spec.ts\",\n              \"line\": 237,\n              \"column\": 7\n            },\n            {\n              \"title\": \"should show settings button at sidebar bottom\",\n              \"ok\": true,\n              \"tags\": [],\n              \"tests\": [\n                {\n                  \"timeout\": 30000,\n                  \"annotations\": [],\n                  \"expectedStatus\": \"passed\",\n                  \"projectId\": \"chromium\",\n                  \"projectName\": \"chromium\",\n                  \"results\": [\n                    {\n                      \"workerIndex\": 0,\n                      \"parallelIndex\": 0,\n                      \"status\": \"passed\",\n                      \"duration\": 3285,\n                      \"errors\": [],\n                      \"stdout\": [],\n                      \"stderr\": [],\n                      \"retry\": 0,\n                      \"startTime\": \"2026-08-23T02:58:59.937Z\",\n                      \"annotations\": [],\n                      \"attachments\": []\n                    }\n                  ],\n                  \"status\": \"expected\"\n                }\n              ],\n              \"id\": \"f47b4b51ebecd1631baf-cc8507146cdc67d9b4e9\",\n              \"file\": \"11-nav-comprehensive.spec.ts\",\n              \"line\": 254,\n              \"column\": 7\n            }\n          ]\n        }\n      ]\n    }\n  ],\n  \"errors\": [],\n  \"stats\": {\n    \"startTime\": \"2026-08-23T02:50:46.582Z\",\n    \"duration\": 496668.52999999997,\n    \"expected\": 135,\n    \"skipped\": 0,\n    \"unexpected\": 0,\n    \"flaky\": 0\n  }\n}\n\n",
+      "exitCode": 0,
+      "durationMs": 497080
+    }
+  ]
+}

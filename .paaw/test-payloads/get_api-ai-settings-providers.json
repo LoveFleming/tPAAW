@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "path": "/api/ai-settings/providers",
+  "description": "取得 providers 設定",
+  "query": null,
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}

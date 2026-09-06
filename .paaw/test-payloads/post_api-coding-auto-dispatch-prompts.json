@@ -1,0 +1,14 @@
+{
+  "method": "POST",
+  "path": "/api/coding-auto-dispatch/prompts",
+  "description": "更新 prompt（單一 role 或整包）",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": {
+    "role": "tester",
+    "task": "Updated test prompt..."
+  },
+  "expectedStatus": 200,
+  "notes": "寫入 prompts.json"
+}

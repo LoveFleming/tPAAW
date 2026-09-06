@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/api/coding-auto-dispatch/reset",
+  "description": "Force reset 卡住的 auto dispatch status",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": null,
+  "expectedStatus": 200,
+  "notes": "⚠️ 中斷正在執行的 auto dispatch"
+}

@@ -1,0 +1,15 @@
+{
+  "method": "POST",
+  "path": "/api/apps",
+  "description": "建立/更新 app",
+  "query": null,
+  "body": {
+    "id": "my-app",
+    "name": "My App",
+    "description": "A test app",
+    "template": "blank",
+    "type": "data"
+  },
+  "expectedStatus": 200,
+  "notes": "⚠️ 建立/覆蓋 app"
+}

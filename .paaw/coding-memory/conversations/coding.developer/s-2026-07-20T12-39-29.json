@@ -1,0 +1,22 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "hello",
+      "ts": "2026-07-19T11:09:19.384Z"
+    },
+    {
+      "role": "assistant",
+      "content": "你好！我是普里亞·夏爾馬 (Priya Sharma)，全端開發工程師 👋\n\n我可以幫你處理：\n\n- 🔧 **功能實作** — 新功能、API、UI 組件\n- 🐛 **Bug 修復** — 排查、定位、修復程式問題\n- ♻️ **重構** — 改善程式碼結構與效能\n- 🔌 **整合** — 前後端串接、套件整合\n\n有什麼開發上的需求或問題嗎？儘管告訴我！",
+      "ts": "2026-07-19T11:09:37.011Z"
+    }
+  ],
+  "_meta": {
+    "crewId": "coding.developer",
+    "lastUpdated": "2026-07-20T12:38:31.489Z",
+    "messageCount": 2,
+    "archivedAt": "2026-07-20T12:39:29.165Z",
+    "title": "hello",
+    "sessionId": "s-2026-07-20T12-39-29"
+  }
+}

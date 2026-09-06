@@ -1,0 +1,11 @@
+{
+  "method": "DELETE",
+  "path": "/api/coding-issues/:id",
+  "description": "刪除 issue",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": null,
+  "expectedStatus": 200,
+  "notes": "⚠️ 刪除資料"
+}

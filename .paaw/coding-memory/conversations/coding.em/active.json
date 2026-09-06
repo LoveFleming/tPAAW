@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "crewId": "coding.em",
+    "lastUpdated": "2026-08-25T13:36:03.994Z",
+    "messageCount": 3
+  },
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "🎖️ 我是陳哲宇 Ethan，EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。",
+      "ts": "2026-08-21T15:44:16.302Z"
+    },
+    {
+      "role": "user",
+      "content": "🚀 啟動 EM 調度規劃",
+      "ts": "2026-08-23T04:23:13.762Z"
+    },
+    {
+      "role": "assistant",
+      "content": "❌ EM 規劃失敗：PaawProject is not defined",
+      "ts": "2026-08-23T04:23:14.332Z"
+    }
+  ]
+}

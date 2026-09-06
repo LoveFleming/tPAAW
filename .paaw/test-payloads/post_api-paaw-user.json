@@ -1,0 +1,12 @@
+{
+  "method": "POST",
+  "path": "/api/paaw/user",
+  "description": "更新使用者資訊",
+  "query": null,
+  "body": {
+    "name": "Steward",
+    "avatar": ""
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

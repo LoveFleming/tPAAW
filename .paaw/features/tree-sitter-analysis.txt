@@ -1,0 +1,5634 @@
+# Project Source Analysis (Tree-sitter)
+Parsed 289 of 296 source files
+Languages: typescript(48), javascript(144), tsx(104)
+
+## packages/context/src/assembler.ts [typescript]
+  Imports:
+    * ← kysely
+    * ← @paaw/db
+    * ← @paaw/shared
+    * ← ../memory/memory-store
+  Exports:
+    class: ContextAssembler
+  Functions:
+    function estimateTokens(text: string)
+    function truncateToTokens(text: string, maxTokens: number)
+  Classes:
+    class ContextAssembler { constructor, build, renderText }
+
+## packages/context/src/index.ts [typescript]
+  Exports:
+    named: ContextAssembler
+    named: MemoryStore
+    named: MemoryEntry
+    named: Refinery
+
+## packages/context/src/memory/index.ts [typescript]
+  Exports:
+    named: MemoryStore
+    named: MemoryEntry
+
+## packages/context/src/memory/memory-store.ts [typescript]
+  Imports:
+    * ← kysely
+    * ← @paaw/db
+    * ← @paaw/shared
+  Exports:
+    class: MemoryStore
+  Classes:
+    class MemoryStore { constructor, remember, recall, search, forget, cleanup }
+
+## packages/context/src/refinery/index.ts [typescript]
+  Exports:
+    named: Refinery
+
+## packages/context/src/refinery/refinery.ts [typescript]
+  Imports:
+    * ← kysely
+    * ← @paaw/db
+    * ← json-stable-stringify
+    * ← @paaw/shared
+    * ← ../memory/memory-store
+  Exports:
+    class: Refinery
+  Classes:
+    class Refinery { constructor, extractKnowledge, dailyRefine, weeklyRefine }
+
+## packages/db/src/connection.ts [typescript]
+  Imports:
+    * ← sql.js
+    * ← kysely
+    * ← fs
+    * ← path
+    * ← ./paths
+    * ← ./types
+  Exports:
+    function: createDb
+    function: getDb
+    function: getRawDb
+    function: closeDb
+    named: saveToDisk
+  Functions:
+    function saveToDisk()
+    async function createDb(dbPath?: string)
+    async function getDb(dbPath?: string)
+    function getRawDb()
+    async function closeDb()
+  Classes:
+    class SqlJsDialect { db, constructor, createAdapter }
+
+## packages/db/src/index.ts [typescript]
+  Exports:
+    named: createDb
+    named: getDb
+    named: closeDb
+    named: migrate
+    named: getProjectRoot
+    named: getDbPath
+    named: RunsRepo
+    named: ChatsRepo
+    named: DataStoreRepo
+    named: PaawDB
+    named: RunsTable
+    named: ConversationsTable
+    named: ChatMessagesTable
+    named: DataStoreTable
+
+## packages/db/src/migrate.ts [typescript]
+  Imports:
+    * ← sql.js
+    * ← path
+    * ← fs
+    * ← ./paths
+  Exports:
+    function: migrate
+  Functions:
+    async function migrate(dbPath?: string)
+
+## packages/db/src/paths.ts [typescript]
+  Imports:
+    * ← path
+  Exports:
+    function: getProjectRoot
+    function: getDbPath
+  Functions:
+    function getProjectRoot()
+    function getDbPath(dbName: string = "paaw.sqlite")
+
+## packages/db/src/repositories/chats.ts [typescript]
+  Imports:
+    * ← kysely
+    * ← ../types
+    * ← @paaw/shared
+  Exports:
+    class: ChatsRepo
+  Classes:
+    class ChatsRepo { constructor, createConversation, addMessage, getConversation, getMessages, listConversations, closeConversation }
+
+## packages/db/src/repositories/data-store.ts [typescript]
+  Imports:
+    * ← kysely
+    * ← ../types
+    * ← @paaw/shared
+  Exports:
+    class: DataStoreRepo
+  Classes:
+    class DataStoreRepo { constructor, create, read, update, softDelete, search }
+
+## packages/db/src/repositories/runs.ts [typescript]
+  Imports:
+    * ← kysely
+    * ← ../types
+    * ← @paaw/shared
+  Exports:
+    class: RunsRepo
+  Classes:
+    class RunsRepo { constructor, create, start, complete, fail, getById, listByUser, cancel }
+
+## packages/db/src/types.ts [typescript]
+  Imports:
+    * ← kysely
+
+## packages/engine/src/index.ts [typescript]
+  Exports:
+    named: executeSkill
+    named: createRunner
+    named: PromptRunner
+    named: DataRunner
+    named: ApiRunner
+    named: ScriptRunner
+    named: SkillExecutor
+    named: executeWorkflow
+    named: WorkflowNodeDef
+    named: WorkflowResult
+    named: ToolEngine
+    named: createToolEngine
+    named: ToolRegistry
+    named: OpenAICompatibleAdapter
+    named: createProviderAdapter
+    named: ProviderAdapter
+    named: ProviderConfig
+    named: ProviderChunk
+    named: ChatMessage
+    named: ToolDef
+    named: ToolExecutor
+    named: ToolResult
+    named: EngineChunk
+    named: ToolEngineOptions
+
+## packages/engine/src/runner/index.ts [typescript]
+  Imports:
+    * ← @paaw/shared
+    * ← @paaw/shared
+    * ← @paaw/db
+  Exports:
+    class: PromptRunner
+    class: DataRunner
+    class: ApiRunner
+    class: ScriptRunner
+    function: createRunner
+    function: executeSkill
+  Functions:
+    function resolvePromptTemplate(template: string, input: Record<string, any>)
+    function getSandboxUrl()
+    function createRunner(type: RunnerType, deps?: { dataStoreRepo?: any })
+    async function executeSkill(params: {
+  skillId: string;
+  input: Record<string, any>;
+  execution: { runner: RunnerType; mode: "sync" | "async"; timeout: number; config: Record<string, any> };
+  context: RunContext;
+  runsRepo: RunsRepo;
+  dataStoreRepo?: any;
+})
+  Classes:
+    class PromptRunner { execute }
+    class DataRunner { constructor, execute }
+    class ApiRunner { execute }
+    class ScriptRunner { execute, _execFile, _execInline, _buildExecCommand, _buildInlineCommand, _callSandbox, _parseResult }
+
+## packages/engine/src/tool-engine/index.ts [typescript]
+  Imports:
+    * ← ./types
+    * ← ./provider
+    * ← ./tool-registry
+  Exports:
+    class: ToolEngine
+    function: createToolEngine
+    named: ToolRegistry
+    named: ProviderAdapter
+    named: ProviderConfig
+    named: ProviderChunk
+    named: ChatMessage
+    named: ToolDef
+    named: ToolExecutor
+    named: ToolResult
+    named: EngineChunk
+    named: ToolEngineOptions
+  Functions:
+    function createToolEngine(options: ToolEngineOptions)
+  Classes:
+    class ToolEngine { provider, registry, maxToolRounds, debug, constructor, getToolDefinitions, registerTool, unregisterTool, run, _chatRoundStream, _chatRound }
+
+## packages/engine/src/tool-engine/provider.ts [typescript]
+  Imports:
+    * ← ./types
+  Exports:
+    class: OpenAICompatibleAdapter
+    function: createProviderAdapter
+  Functions:
+    function createProviderAdapter(config: ProviderConfig)
+  Classes:
+    class OpenAICompatibleAdapter { name, config, constructor, chat }
+
+## packages/engine/src/tool-engine/tool-registry.ts [typescript]
+  Imports:
+    * ← ./types
+  Exports:
+    class: ToolRegistry
+  Classes:
+    class ToolRegistry { executors, register, registerAll, unregister, getToolDefinitions, getToolDef, has, execute, listNames, getExecutor, clear }
+
+## packages/engine/src/workflow/index.ts [typescript]
+  Imports:
+    * ← @paaw/shared
+    * ← @paaw/shared
+    * ← @paaw/db
+    * ← ../runner/index
+  Exports:
+    function: executeWorkflow
+  Functions:
+    async function executeWorkflow(params: {
+  workflowId: string;
+  nodes: WorkflowNodeDef[];
+  onError: "stop" | "skip" | "retry";
+  context: RunContext;
+  runsRepo: RunsRepo;
+  getSkillExecution: (skillId: string) => Promise<{ runner: any; mode: any; timeout: number; config: any } | null>;
+  dataStoreRepo?: any;
+})
+
+## packages/server/src/context-engine.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← url
+    * ← path
+    * ← ./lib/llm-utils.mjs
+    * ← ./data-home.mjs
+  Exports:
+    function: loadProviderConfig
+    variable: contextEngine
+    default value: contextEngine
+  Functions:
+    function safeRead(filePath)
+    function safeReadJSON(filePath, fallback)
+    function resolvePaths(text)
+    function buildBaseContext()
+    function readCategoryFiles(categoryName)
+    function loadUserProfile()
+    function loadMemory()
+    function loadWorkspaces()
+    function loadProviderConfig()
+    function buildDynamicContext()
+    function loadApiTools()
+    function loadGeneratedSkills()
+    function buildRuntimeTools()
+    function checkFieldRequired(schema, fieldName)
+    function loadAppInstructions()
+    function loadRecentChatSummary(maxChats)
+    function parseSkillFrontmatter(content)
+
+## packages/server/src/data-home.mjs [javascript]
+  Imports:
+    * ← node:path
+    * ← node:url
+  Exports:
+    variable: DATA_HOME
+
+## packages/server/src/lib/action-log.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+  Exports:
+    function: addActionLog
+    function: listActionLog
+    function: saveAgentMemory
+    function: loadAgentMemory
+  Functions:
+    function getActionLogPath(cwd)
+    function getAgentMemoryDir(cwd)
+    async function addActionLog(entry, cwd)
+    async function listActionLog(opts = {})
+    async function saveAgentMemory(agentId, content, cwd)
+    async function loadAgentMemory(agentId, cwd, maxChars = 6000)
+
+## packages/server/src/lib/agent-exec-logger.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ../data-home.mjs
+    * ← url
+    * ← readline
+    * ← ./ru-resolver.mjs
+  Exports:
+    variable: LOG_DIR
+    variable: INDEX_FILE
+    function: startAgentLog
+    function: backfillIndexCwd
+    function: listAgentTasks
+    function: getRuCostHistory
+    function: getAgentTaskDetail
+    function: cleanupOldAgentLogs
+  Functions:
+    function ensureDir()
+    function startAgentLog(taskInfo)
+    arrow log(entry)
+    async function _updateIndex(entry)
+    async function backfillIndexCwd()
+    async function listAgentTasks(limit = 50, filter = {})
+    async function _accumulateRuCostHistory(expiredEntries)
+    async function getRuCostHistory()
+    async function getAgentTaskDetail(taskId)
+    async function cleanupOldAgentLogs(retentionDays = 7)
+
+## packages/server/src/lib/agent-rules.mjs [javascript]
+  Exports:
+    variable: AGENT_RULES
+
+## packages/server/src/lib/agentic-binding.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← ./tool-registry.mjs
+  Exports:
+    function: initAgenticBindings
+    function: getBindings
+    function: reloadBindings
+  Functions:
+    function _loadBindings(configDir)
+    function _buildToolDef(binding)
+    function _buildHandler(binding)
+    function initAgenticBindings(configDir)
+    function getBindings()
+    function reloadBindings(configDir)
+
+## packages/server/src/lib/auto-dispatch-manager.mjs [javascript]
+  Imports:
+    * ← ./action-log.mjs
+    * ← ./coding-task-cost.mjs
+    * ← fs
+    * ← path
+    * ← ./auto-dispatch-shared.mjs
+  Exports:
+    function: a2aCallAgent
+    function: planEMSession
+    function: executeEMSession
+    function: runParallelSession
+    function: runAutoDispatch
+  Functions:
+    async function a2aCallAgent(baseUrl, agentId, message, opts = {})
+    async function _getA2ADispatcher()
+    function _extractTaskRef(text)
+    async function _syncTaskAfterDispatch(rootDir, taskRef, ok, detail)
+    function _estimateCost(tokens, model)
+    async function planWorkList(situationReport, rootDir, modelOverride, fallbackModels = [], sendSSE = (() => {}), projectPhase = 'bootstrap')
+    async function callWithFallback(body, opts = {})
+    async function runPhase0(rootDir, modelOverride, fallbackModels, sendSSE)
+    async function planEMSession(opts = {})
+    function _stopRequested(rootDir)
+    async function executeEMSession(opts = {})
+    async function runParallelSession(opts = {})
+    async function runDocPhase(rootDir, paawRoot, modelOverride, fallbackModels, effectiveModel, sendSSE)
+    function generateEMReport(workList, results, situationReport, opts = {})
+    function generateParallelReport(agentResults, ctx, dynamicLabels = null)
+    async function runAutoDispatch(opts = {})
+
+## packages/server/src/lib/auto-dispatch-shared.mjs [javascript]
+  Imports:
+    * ← child_process
+    * ← ./shell-exec.mjs
+    * ← child_process
+    * ← fs
+    * ← path
+    * ← ./feature-boundary.mjs
+    * ← ./paaw-project.mjs
+    * ← ./action-log.mjs
+  Exports:
+    function: gatherContext
+    function: buildSituationReport
+    function: scanTasksForDispatch
+    function: refreshFeatureMapping
+    function: validateFeatureMap
+    function: saveAutoDispatchReport
+    function: listAutoDispatchReports
+    function: readAutoDispatchReport
+    function: deleteAutoDispatchReport
+  Functions:
+    async function gatherContext(rootDir, sinceDate)
+    async function gatherOpenIssues(rootDir)
+    async function gatherOpenTasks(rootDir)
+    function gatherSecuritySummary(rootDir)
+    function getFeatureSummaryText(rootDir)
+    function buildSituationReport(ctx)
+    function scanTasksForDispatch(rootDir, opts = {})
+    async function refreshFeatureMapping(projRoot, modelOverride, fallbackModels = [], sendSSE)
+    async function callWithFallback(body, opts = {})
+    async function validateFeatureMap(projRoot, sendSSE)
+    function saveAutoDispatchReport(rootDir, report, mode = "em")
+    async function listAutoDispatchReports(rootDir)
+    async function readAutoDispatchReport(rootDir, date)
+    async function deleteAutoDispatchReport(rootDir, date)
+    function extractReportMetadata(content)
+
+## packages/server/src/lib/bridge/paaw-bridge.mjs [javascript]
+  Imports:
+    * ← http
+    * ← fs
+    * ← fs/promises
+    * ← path
+    * ← child_process
+    * ← util
+    * ← crypto
+    * ← url
+    * ← ../../data-home.mjs
+  Exports:
+    function: startBridge
+  Functions:
+    async function readBody(req)
+    function auth(req)
+    async function fileHash(path)
+    async function walkDir(dir, base = dir)
+    async function dockerExec(...args)
+    async function dockerCpFrom(containerPath, hostPath)
+    async function dockerCpTo(hostPath, containerPath)
+    async function containerRunning()
+    async function createSyncRequest(subPath, label)
+    async function generateDiff(dirA, dirB)
+    function parseDiffBrief(output, dirA, dirB)
+    async function hashBasedDiff(dirA, dirB)
+    async function approveSync(id, reviewedBy)
+    async function rejectSync(id, reviewedBy, reason)
+    async function updateContainer(action)
+    function startBridge()
+  Routes:
+    GET /health
+    POST /api/sync/request
+    GET /api/sync/pending
+    GET /api/sync/diff//*
+    POST /api/sync/approve//*
+    POST /api/sync/reject//*
+    POST /api/tool/proxy
+    GET /api/tool/tokens
+    POST /api/update//*
+    GET /api/update/status
+
+## packages/server/src/lib/browser-executor.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← url
+    * ← ../data-home.mjs
+    * ← ./browser-session.mjs
+  Exports:
+    function: open
+    function: readPage
+    function: click
+    function: type
+    function: screenshot
+    function: getConsoleErrors
+    function: getFailedRequests
+    function: close
+    function: status
+    default value: BrowserExecutor
+  Functions:
+    function _safeRuId(releaseUnitId)
+    function _nowTs()
+    function _newTraceId()
+    function _normPath(p)
+    function _get(releaseUnitId)
+    async function _ensureSession(releaseUnitId)
+    function _attachHooks(s)
+    arrow pushErr(e)
+    arrow pushFailed(f)
+    arrow hookPage(page)
+    function _log(s, { action, url, result = "ok", detail = null, error = null, screenshotPath = null, traceId = null })
+    async function _shot(s, name, { png = false, fullPage = false } = {})
+    function _normalizeTarget(url)
+    async function open({ releaseUnitId, url, traceId } = {})
+    async function readPage({ releaseUnitId, maxLength = 8000, traceId } = {})
+    async function click({ releaseUnitId, selector, text, traceId } = {})
+    async function type({ releaseUnitId, selector, text, pressEnter = false, traceId } = {})
+    async function screenshot({ releaseUnitId, fullPage = false, traceId } = {})
+    async function getConsoleErrors({ releaseUnitId, traceId } = {})
+    async function getFailedRequests({ releaseUnitId, traceId } = {})
+    async function close({ releaseUnitId, traceId } = {})
+    function status()
+    arrow step(name, ok, extra = "")
+
+## packages/server/src/lib/browser-session.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← ../data-home.mjs
+  Exports:
+    function: browserState
+    function: assertSafeUrl
+    function: getBrowserContext
+    function: getBrowserPage
+    function: takeScreenshot
+    function: trackPage
+    function: readPageText
+    function: locateTarget
+    function: resetBrowserAvailability
+    variable: PLAYWRIGHT_INSTALL_HINT
+    function: browserTabs
+    function: browserNewTab
+    function: browserSwitchTab
+    function: browserCloseTab
+    function: browserNavAction
+    function: browserDownloads
+    function: browserHandleDialog
+    function: streamClientCount
+    function: attachStreamClient
+    function: detachStreamClient
+    function: broadcastToStream
+    function: ensureScreencast
+    function: kickScreencast
+    function: applyBrowserInput
+  Functions:
+    function browserState()
+    function assertSafeUrl(url)
+    async function getBrowserContext(DATA_HOME)
+    async function getBrowserPage(DATA_HOME)
+    async function takeScreenshot(DATA_HOME, page)
+    function trackPage(page)
+    arrow upd()
+    async function readPageText(page, maxLength = 8000)
+    function locateTarget(page, { selector, text })
+    function resetBrowserAvailability()
+    function _resolveActive()
+    function _wirePage(page)
+    arrow upd()
+    function broadcastTabs()
+    function browserTabs()
+    async function browserNewTab(DATA_HOME, url)
+    async function browserSwitchTab(id)
+    async function browserCloseTab(DATA_HOME, id)
+    async function browserNavAction(action)
+    function browserDownloads()
+    async function browserHandleDialog(id, action, text)
+    function streamClientCount()
+    function attachStreamClient(res)
+    function detachStreamClient(res)
+    function broadcastToStream(payload)
+    async function ensureScreencast()
+    async function kickScreencast()
+    function _ensureWatchdog()
+    function stopScreencast()
+    async function applyBrowserInput(evt)
+
+## packages/server/src/lib/browser-setup.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← child_process
+    * ← node:path
+    * ← node:url
+    * ← ../data-home.mjs
+  Exports:
+    function: getBrowserSetupStatus
+    function: browserInstallState
+    function: startBrowserInstall
+  Functions:
+    async function getBrowserSetupStatus()
+    function browserInstallState()
+    function startBrowserInstall()
+    arrow onChunk(buf)
+    function pushLine(l)
+    function finish(code)
+
+## packages/server/src/lib/change-intelligence.mjs [javascript]
+  Imports:
+    * ← child_process
+    * ← ./shell-exec.mjs
+    * ← fs
+    * ← ./stable-hash.mjs
+    * ← path
+    * ← util
+    * ← ./paaw-project.mjs
+  Exports:
+    function: buildChangeIntelligence
+  Functions:
+    async function git(projectRoot, args)
+    async function buildChangeIntelligence(projectRoot, options = {})
+
+## packages/server/src/lib/code-intelligence.mjs [javascript]
+  Imports:
+    * ← path
+    * ← fs
+    * ← ./stable-hash.mjs
+    * ← ./tree-sitter-parser.mjs
+  Exports:
+    function: buildCallGraph
+    function: buildApiFunctionMap
+    function: buildDependencyGraph
+    function: buildTestCodeMap
+    function: buildSymbolIndex
+    function: buildCodeIntelligence
+    function: buildContextPackage
+  Functions:
+    function buildCallGraph(parsedResult)
+    function resolveCallTarget(calleeName, currentFile, parsedResult)
+    function resolveImportPath(source, fromFile, parsedResult)
+    function buildApiFunctionMap(parsedResult, callGraph)
+    function traceCallChain(funcId, callGraph, visited, maxDepth)
+    function buildDependencyGraph(parsedResult)
+    function buildTestCodeMap(parsedResult)
+    function buildSymbolIndex(parsedResult)
+    async function buildCodeIntelligence(projectRoot, paawRoot)
+    async function buildContextPackage(projectRoot, paawRoot, query = {})
+    arrow loadJson(name)
+
+## packages/server/src/lib/coding-security.mjs [javascript]
+  Imports:
+    * ← node:path
+  Exports:
+    function: sanitizeId
+    function: safeResolve
+    function: sendPathTraversalError
+  Functions:
+    function sanitizeId(id)
+    function safeResolve(root, ...segments)
+    function sendPathTraversalError(res, err)
+
+## packages/server/src/lib/coding-task-cost.mjs [javascript]
+  Imports:
+    * ← node:fs
+    * ← node:path
+  Exports:
+    function: addCostAttribution
+  Functions:
+    function addCostAttribution(projectRoot, taskRef, tokens, costUsd, model = null, source = "em")
+    function round6(n)
+
+## packages/server/src/lib/context-compaction.mjs [javascript]
+  Imports:
+    * ← ./context-truncation.mjs
+  Exports:
+    function: estimateMessageTokens
+    function: shouldCompact
+    function: partitionMessages
+    function: compactIfNeeded
+  Functions:
+    function estimateMessageTokens(messages)
+    function shouldCompact(messages, contextWindow, maxOutputTokens = 16384)
+    function partitionMessages(messages, contextWindow, maxOutputTokens = 16384)
+    async function summarizeMessages(messages, llmConfig, originalPrompt)
+    async function compactIfNeeded(messages, llmConfig, opts = {})
+
+## packages/server/src/lib/context-providers.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← path
+    * ← ./paaw-project.mjs
+    * ← ../data-home.mjs
+  Exports:
+    variable: contextProviders
+  Functions:
+    async function safeRead(filePath)
+    async function safeReadTruncated(filePath, maxLen = 8000)
+    async function projectProvider({ cwd } = {})
+    async function decisionsProvider({ cwd } = {})
+    async function helpdeskProvider()
+    async function codeIntelligenceProvider({ cwd } = {})
+
+## packages/server/src/lib/context-truncation.mjs [javascript]
+  Exports:
+    function: estimateTokens
+    function: smartTruncateToolResult
+    function: truncateToolResultsInMessages
+    function: limitHistoryTurns
+  Functions:
+    function estimateTokens(text)
+    function tailHasImportantContent(text, tailChars = MIN_TAIL_CHARS)
+    function smartTruncateToolResult(text, maxChars = DEFAULT_MAX_TOOL_RESULT_CHARS, opts = {})
+    function truncateToolResultsInMessages(messages, maxCharsPerResult = DEFAULT_MAX_TOOL_RESULT_CHARS, totalBudgetChars = 30_000)
+    function limitHistoryTurns(messages, maxUserTurns = 10)
+
+## packages/server/src/lib/cu-mechanical.mjs [javascript]
+  Imports:
+    * ← path
+    * ← ./paaw-project.mjs
+    * ← ./code-intelligence.mjs
+    * ← ./test-intelligence.mjs
+    * ← ./change-intelligence.mjs
+  Exports:
+    function: rescanMechanicalLayer
+  Functions:
+    async function rescanMechanicalLayer(projectRoot, paawRoot)
+
+## packages/server/src/lib/cu-source-scan.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+  Exports:
+    variable: CU_SOURCE_EXTS
+    variable: CU_SKIP_DIRS
+    function: countSourceFiles
+  Functions:
+    function countSourceFiles(root)
+
+## packages/server/src/lib/dependency-context.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+  Exports:
+    function: getDependencyContext
+    function: getAffectedTests
+    function: getImpactSummary
+  Functions:
+    function _loadCI(cwd)
+    function getDependencyContext(cwd, filePath)
+    function getAffectedTests(cwd, changedFiles)
+    function getImpactSummary(cwd, filePath)
+
+## packages/server/src/lib/doc-coverage.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← url
+  Exports:
+    function: readDocCoverage
+    function: writeDocCoverage
+    function: updateDocCoverage
+    function: getUndocumentedCommits
+  Functions:
+    function readDocCoverage(projectDir)
+    function writeDocCoverage(projectDir, coverage)
+    function updateDocCoverage(projectDir, newLastCommit, documentedCommits = [])
+    async function getUndocumentedCommits(projectDir, runGit)
+
+## packages/server/src/lib/domain-agent-registry.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← path
+    * ← ./security-rules.mjs
+    * ← ../data-home.mjs
+  Exports:
+    function: clearCrewCache
+    function: buildAgentCard
+    function: getAgent
+    function: listAgents
+    function: getAgentByCrewId
+    function: getCrewData
+    function: buildSystemPrompt
+    named: DOMAIN_AGENTS
+  Functions:
+    async function loadCrew(crewId, projectDir = null)
+    function clearCrewCache()
+    function buildAgentCard(agentId, req)
+    function getAgent(agentId)
+    function listAgents()
+    function getAgentByCrewId(crewId)
+    async function getCrewData(crewId)
+    async function buildSystemPrompt(agentId, opts = {})
+
+## packages/server/src/lib/em-config.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← url
+    * ← path
+  Exports:
+    function: readEMConfig
+    function: updateEMConfig
+    function: resetEMConfig
+    function: resolveEMModel
+    function: filterDispatchableAgents
+    function: canAutoExecute
+    named: DEFAULT_EM_CONFIG
+  Functions:
+    function getEMConfigPath(projectDir)
+    function readJson(filePath, fallback = null)
+    function writeJson(filePath, data)
+    function deepMerge(target, source)
+    function readEMConfig(projectDir)
+    function updateEMConfig(projectDir, patch)
+    function resetEMConfig(projectDir)
+    function resolveEMModel(projectDir, context = "interactive", globalDefault = "")
+    function filterDispatchableAgents(projectDir, agents)
+    function canAutoExecute(projectDir, category)
+
+## packages/server/src/lib/execution-plan.mjs [javascript]
+  Imports:
+    * ← node:fs/promises
+    * ← node:fs
+    * ← node:path
+  Exports:
+    function: createPlan
+    function: getPlan
+    function: getLatestPlan
+    function: listPlans
+    function: updateSubTask
+    function: getPlanSummary
+    function: getNextPendingSubTask
+    function: markPlanStarted
+    function: markPlanCompleted
+    function: findIncompletePlans
+    function: markInterruptedPlans
+    function: resumePlan
+    function: deletePlan
+    function: updatePlanStatus
+  Functions:
+    function _plansDir(rootDir)
+    function _planPath(rootDir, planId)
+    async function _ensurePlansDir(rootDir)
+    function _genPlanId(projectPath)
+    function _genSubTaskId(parentId, index)
+    async function createPlan(opts = {})
+    async function getPlan(rootDir, planId)
+    async function getLatestPlan(rootDir)
+    async function listPlans(rootDir)
+    async function updateSubTask(rootDir, planId, subtaskId, patch = {})
+    async function getPlanSummary(rootDir, planId)
+    function _recomputeSummary(plan)
+    async function getNextPendingSubTask(rootDir, planId)
+    async function markPlanStarted(rootDir, planId)
+    async function markPlanCompleted(rootDir, planId)
+    async function findIncompletePlans(rootDir)
+    async function markInterruptedPlans(rootDir)
+    async function resumePlan(rootDir, planId)
+    async function deletePlan(rootDir, planId)
+    async function updatePlanStatus(rootDir, planId, status)
+
+## packages/server/src/lib/feature-boundary.mjs [javascript]
+  Imports:
+    * ← node:fs
+    * ← node:path
+  Exports:
+    function: loadFeatureData
+    function: matchFeaturesForFiles
+    function: buildFeatureFileTree
+    function: buildContextBoundary
+  Functions:
+    function loadFeatureData(rootDir)
+    function matchFeaturesForFiles(filePaths, fileFeatureMap)
+    function buildFeatureFileTree(feature, changedFiles = [])
+    arrow mark(f)
+    function buildContextBoundary(rootDir, changedFiles = [])
+
+## packages/server/src/lib/feature-map-validator.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← child_process
+  Exports:
+    function: scanAllSourceFiles
+    function: extractApiRoutes
+    function: validateFeatureMapping
+    function: checkCoverage
+    function: validateUnderstanding
+    function: runFullValidation
+  Functions:
+    function scanAllSourceFiles(projectRoot)
+    function walk(dir)
+    function extractApiRoutes(projectRoot)
+    function scanRoutes(dir)
+    function validateFeatureMapping(projectRoot, features)
+    function checkCoverage(projectRoot, features)
+    function validateUnderstanding(projectRoot, feature, parsedProject)
+    async function runFullValidation(projectRoot, options = {})
+
+## packages/server/src/lib/flight-recorder.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+  Exports:
+    function: startFlightRecorder
+  Functions:
+    function startFlightRecorder(DATA_HOME)
+    arrow mark(msg)
+
+## packages/server/src/lib/import-check.mjs [javascript]
+  Functions:
+    async function checkImports()
+
+## packages/server/src/lib/llm-utils.mjs [javascript]
+  Imports:
+    * ← undici
+    * ← path
+    * ← url
+    * ← path
+    * ← fs
+    * ← ../data-home.mjs
+  Exports:
+    function: resolveDefaultModel
+    function: sanitizeContent
+    function: isMeaningfulContent
+    function: fetchWithRetry
+    function: callLLMWithRetry
+    function: fetchStreamWithRetry
+  Functions:
+    function resolveDefaultModel(providerConfig)
+    function sanitizeContent(text)
+    function isMeaningfulContent(content)
+    function sleep(ms)
+    function calcBackoff(attempt, baseDelay, maxDelay)
+    function isRetryableError(err, respStatus)
+    function createTimeoutController(timeoutMs, externalSignal = null)
+    arrow onExternalAbort()
+    function _userAbortError()
+    async function fetchWithRetry(url, options = {}, opts = {})
+    async function callLLMWithRetry(apiUrl, headers, body, opts = {})
+    async function fetchStreamWithRetry(url, options = {}, opts = {})
+    arrow resetReadTimer()
+    function _writeLlmLog(entry)
+
+## packages/server/src/lib/overnight-runner.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+  Exports:
+    class: OvernightRunner
+    default value: OvernightRunner
+  Classes:
+    class OvernightRunner { constructor, _loadTasks, _saveTasks, _saveResult, getQueue, getLastResults, _runPhase, run }
+
+## packages/server/src/lib/paaw-project.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← child_process
+    * ← ./shell-exec.mjs
+    * ← ./cu-source-scan.mjs
+  Exports:
+    class: PaawProject
+    function: createPaawProject
+  Functions:
+    function today()
+    function slugify(text)
+    async function runShell(command, cwd, timeoutMs = 10_000)
+    async arrow walk(dirPath, parentNode, depth = 0)
+    function createPaawProject(projectRoot)
+  Classes:
+    class PaawProject { constructor, exists, init, _migrateFlatFiles, _scanFiles, _resolvePath, readFile, writeFile, loadContext, loadContextText, loadStandards, listStandards, readStandard, writeStandard, loadRecentSessions, listSessions, readSession, recordSession, _renderSessionMd, appendChangelog, generateChangelogFromSession, addDecision, logApiCall, generateProjectOverview, getCuStatus, setCuStepStatus, listTree }
+
+## packages/server/src/lib/paaw-snapshot.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← crypto
+    * ← child_process
+    * ← ./shell-exec.mjs
+  Exports:
+    class: PaawSnapshot
+  Functions:
+    async function runShell(command, cwd, timeoutMs = 10_000)
+  Classes:
+    class PaawSnapshot { constructor, create, createPreEdit, list, restoreFile, diffFile, cleanup }
+
+## packages/server/src/lib/project-crew.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← url
+    * ← ../data-home.mjs
+  Exports:
+    function: initProjectCrew
+    function: readProjectCrew
+    function: readProjectAgent
+    function: updateProjectAgent
+    function: createCustomAgent
+    function: deleteCustomAgent
+    function: resetProjectAgent
+    function: updateAgentModel
+    function: updateAgentSkills
+    function: resolveAgentModel
+    function: resolveAgentFallbacks
+    function: getDispatchableAgents
+    function: readEMAgent
+    function: readProjectSkills
+  Functions:
+    function ensureAgentsDir(projectDir)
+    function readJson(filePath, fallback = null)
+    function writeJson(filePath, data)
+    function getConfigPath(projectDir)
+    function getAgentPath(projectDir, agentId)
+    function readGlobalCrew(crewId)
+    function listGlobalCrewIds()
+    function initProjectCrew(projectDir, opts = {})
+    function syncNewGlobalCrews(projectDir, config)
+    function readProjectCrew(projectDir)
+    function readProjectAgent(projectDir, agentId)
+    function updateProjectAgent(projectDir, agentId, patch)
+    function createCustomAgent(projectDir, def)
+    function deleteCustomAgent(projectDir, agentId)
+    function resetProjectAgent(projectDir, agentId)
+    function updateAgentModel(projectDir, agentId, modelConfig)
+    function updateAgentSkills(projectDir, agentId, skillIds)
+    function resolveAgentModel(projectDir, agentId, context = "interactive", globalDefault = "")
+    function resolveAgentFallbacks(projectDir, agentId, globalFallbacks = [])
+    function getDispatchableAgents(projectDir)
+    function readEMAgent(projectDir)
+    function stripInternal(agent)
+    function readProjectSkills(projectDir, crewId)
+    function readSkillContent(skillId)
+
+## packages/server/src/lib/release-unit/adapters.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+  Exports:
+    function: parsePathAliases
+    variable: jsTsAdapter
+    variable: pythonAdapter
+    variable: goAdapter
+    variable: genericAdapter
+    function: detectAdapter
+    named: readJsonSafe
+    function: detectTechStack
+  Functions:
+    async function readJsonSafe(file)
+    function parsePathAliases(root)
+    async function detectAdapter(root)
+    async function detectTechStack(root)
+
+## packages/server/src/lib/release-unit/analyze.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← fs/promises
+    * ← ./metrics.mjs
+    * ← ./dependencies.mjs
+    * ← ./verify.mjs
+    * ← ../shell-exec.mjs
+  Exports:
+    function: analyzeUnit
+  Functions:
+    async function gitInfo(root)
+    async arrow run(cmd)
+    async function analyzeUnit(root, opts = {})
+
+## packages/server/src/lib/release-unit/apis.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← path
+    * ← ./adapters.mjs
+    * ← ./dependencies.mjs
+  Exports:
+    function: extractAPIs
+  Functions:
+    function lineOf(content, index)
+    async function extractAPIs(root, opts = {})
+    function nearMethods(content, from)
+
+## packages/server/src/lib/release-unit/architecture.mjs [javascript]
+  Imports:
+    * ← ./dependencies.mjs
+  Exports:
+    function: architectureView
+  Functions:
+    function moduleOf(file)
+    async function architectureView(root, opts = {})
+
+## packages/server/src/lib/release-unit/ask.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ./adapters.mjs
+    * ← ./dependencies.mjs
+    * ← ./metrics.mjs
+  Exports:
+    function: askCodebase
+  Functions:
+    function tokenize(q)
+    function pathScore(rel, tokens)
+    async function askCodebase(root, q, opts = {})
+
+## packages/server/src/lib/release-unit/cost.mjs [javascript]
+  Imports:
+    * ← node:fs
+    * ← node:path
+    * ← ../ru-resolver.mjs
+  Exports:
+    function: buildCostReport
+  Functions:
+    function _readLogDay(llmDir, dateStr)
+    function _dayInRange(dateStr, days, todayStr)
+    function _norm(p)
+    function _extractCalls(entries)
+    function _readJsonSafe(file, fallback)
+    function _loadCodingTasks(root)
+    function _buildFileFeatureIndex(root)
+    arrow add(file, id)
+    function _scopeToFeatures(fileScope, idx)
+    function buildCostReport(paawRoot, opts = {})
+    arrow _grp(key)
+    function round6(n)
+
+## packages/server/src/lib/release-unit/dependencies.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ./adapters.mjs
+  Exports:
+    function: walkSources
+    function: packageNameOf
+    function: buildDependencyGraph
+    function: queryGraph
+    function: normalizeFileKey
+  Functions:
+    function toRel(root, abs)
+    async function walkSources(root, exts, maxFiles = 8000)
+    async function walk(dir, depth)
+    function packageNameOf(spec)
+    function resolveAlias(spec, aliases)
+    function candidateRels(spec, fromRel, aliases)
+    arrow addRel(r)
+    function addWithExts(addRel, base)
+    function toRelFromSpec(fromDir, spec)
+    async function buildDependencyGraph(root, opts = {})
+    function queryGraph(graph, file, direction = "both")
+    function normalizeFileKey(graph, file)
+
+## packages/server/src/lib/release-unit/gates.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ./verify.mjs
+    * ← ../shell-exec.mjs
+  Exports:
+    function: loadGates
+    function: checkGates
+  Functions:
+    async function loadGates(root)
+    async function checkGates(root)
+
+## packages/server/src/lib/release-unit/handover-state.mjs [javascript]
+  Imports:
+    * ← node:fs
+    * ← node:path
+    * ← ../shell-exec.mjs
+  Exports:
+    function: buildHandoverState
+    function: writeHandoverState
+    function: renderHandoverMd
+    function: loadHandoverState
+    function: scheduleHandoverRefresh
+  Functions:
+    async function _git(root, cmd)
+    async function _gitLines(root, cmd)
+    async function _currentState(root)
+    function _pipelineNext(task)
+    function _workingPlan(tasks)
+    async function _changes(root)
+    function _issues(tasks)
+    function _decisions(root)
+    function _nextAction(state, plan, issues)
+    async function buildHandoverState(projectRoot)
+    async function writeHandoverState(projectRoot, state = null)
+    function renderHandoverMd(st)
+    async function loadHandoverState(projectRoot)
+    function scheduleHandoverRefresh(projectRoot)
+
+## packages/server/src/lib/release-unit/impact.mjs [javascript]
+  Imports:
+    * ← ./dependencies.mjs
+  Exports:
+    function: impactAnalysis
+  Functions:
+    function bfs(seeds, edgeMap)
+    async function impactAnalysis(root, files, opts = {})
+    function topHubs(graph, changed, affected)
+
+## packages/server/src/lib/release-unit/metrics.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ./adapters.mjs
+    * ← ./dependencies.mjs
+  Exports:
+    function: isTestFile
+    function: computeMetrics
+  Functions:
+    function isTestFile(rel)
+    async function computeMetrics(root, opts = {})
+
+## packages/server/src/lib/release-unit/model.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← ../shell-exec.mjs
+    * ← ../stable-hash.mjs
+  Exports:
+    function: buildReleaseUnitModel
+    function: loadReleaseUnitModel
+    function: queryModelByFeature
+    function: queryModelByFile
+    function: queryModelByApi
+  Functions:
+    function _stamp(entries)
+    function _tableHash(entries)
+    function _diffTable(oldEntries, newEntries, keyFn)
+    function _readJson(file, fallback)
+    function _norm(p)
+    async function _gitLogWithFiles(root, limit = 200)
+    async function _gitHead(root)
+    async function buildReleaseUnitModel(root, opts = {})
+    arrow addFileFeature(file, id)
+    async function loadReleaseUnitModel(root, { refresh = false } = {})
+    function queryModelByFeature(model, featureId)
+    function queryModelByFile(model, relPath)
+    function queryModelByApi(model, method, routePath)
+
+## packages/server/src/lib/release-unit/qa.mjs [javascript]
+  Imports:
+    * ← node:fs
+    * ← node:path
+    * ← ../shell-exec.mjs
+    * ← ./model.mjs
+    * ← ./ask.mjs
+  Exports:
+    function: answerQuestion
+    variable: QA_INTENT_IDS
+  Functions:
+    async function _git(root, cmd)
+    function _readJson(file, fb)
+    function _findLine(root, relFile, needle, limit = 3)
+    function _extractRoutePath(q)
+    function _extractFilePath(q)
+    function _matchFeature(model, q)
+    function _tokens(q)
+    async function _projectPurpose(root, model)
+    function _listApis(model)
+    function _findFeature(model, feature)
+    async function _whyDesign(root, model, q)
+    async function _apiLastChange(root, model, q)
+    async function _dangerousPlaces(root, model)
+    async function _fieldOrigin(root, model, q)
+    async function _fileImpact(root, model, q)
+    async function _deploy(root)
+    async function _rollback(root)
+    async function _productionIssues(root)
+    function _techDebt(root, model)
+    async function answerQuestion(projectRoot, question)
+
+## packages/server/src/lib/release-unit/verify.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ./adapters.mjs
+    * ← ../shell-exec.mjs
+  Exports:
+    function: runVerify
+    function: readLastVerify
+  Functions:
+    function tail(text, max = 4000)
+    async function runVerify(root, opts = {})
+    async function readLastVerify(root)
+
+## packages/server/src/lib/review-boundary.mjs [javascript]
+  Imports:
+    * ← child_process
+    * ← util
+    * ← fs
+    * ← path
+  Exports:
+    function: _normPath
+    function: buildReviewBoundary
+  Functions:
+    function _normPath(p)
+    function _inScope(file, scopeSet)
+    async function _actualChangedFiles(projectPath, task)
+    function _parseNameStatus(stdout)
+    function _parsePorcelain(stdout)
+    function _featureFor(path, fileFeatureMap)
+    function _loadFileFeatureMap(projectPath)
+    async function buildReviewBoundary(projectPath, task)
+
+## packages/server/src/lib/ru-resolver.mjs [javascript]
+  Imports:
+    * ← node:fs
+    * ← node:path
+    * ← node:url
+    * ← ../data-home.mjs
+  Exports:
+    function: resolveRuName
+    function: getModelPricing
+    function: calcCostUsd
+    function: stepCostUsd
+  Functions:
+    function _loadRecentProjects()
+    function _normPath(p)
+    function _readPackageJsonName(dirPath)
+    function _loadPricing()
+    function resolveRuName(cwd)
+    function getModelPricing(modelId)
+    function calcCostUsd(usage, pricing)
+    function stepCostUsd(model, usage)
+
+## packages/server/src/lib/running-agents.mjs [javascript]
+  Exports:
+    variable: runningCodingAgents
+
+## packages/server/src/lib/security/approval.mjs [javascript]
+  Exports:
+    class: ApprovalManager
+  Classes:
+    class ApprovalManager { constructor, request, approve, deny, getStatus, listPending, clearHistory }
+
+## packages/server/src/lib/security/audit-log.mjs [javascript]
+  Imports:
+    * ← node:fs/promises
+    * ← node:path
+    * ← node:url
+  Exports:
+    class: AuditLog
+  Classes:
+    class AuditLog { constructor, init, log, flush, getTodayLog, getRecent, _startFlushTimer, dispose }
+
+## packages/server/src/lib/security/index.mjs [javascript]
+  Imports:
+    * ← ./policy-pipeline.mjs
+    * ← ./approval.mjs
+    * ← ./secret-store.mjs
+    * ← ./audit-log.mjs
+  Exports:
+    class: SecurityKernel
+  Classes:
+    class SecurityKernel { constructor, _registerBuiltinPolicies, checkToolCall, recordResult, init, dispose }
+
+## packages/server/src/lib/security/policy-pipeline.mjs [javascript]
+  Exports:
+    class: PolicyPipeline
+  Classes:
+    class PolicyPipeline { constructor, add, insertBefore, remove, setRateLimiter, run }
+
+## packages/server/src/lib/security/secret-store.mjs [javascript]
+  Imports:
+    * ← node:crypto
+    * ← node:fs/promises
+    * ← node:fs
+    * ← node:path
+    * ← node:url
+  Exports:
+    class: SecretStore
+  Classes:
+    class SecretStore { constructor, init, encrypt, decrypt, resolveApiKey, resolveAllProviderKeys, clearCache, dispose }
+
+## packages/server/src/lib/security-rules.mjs [javascript]
+  Exports:
+    variable: SECURITY_RULES
+
+## packages/server/src/lib/semgrep-runner.mjs [javascript]
+  Imports:
+    * ← child_process
+    * ← fs
+    * ← path
+    * ← util
+    * ← url
+    * ← crypto
+    * ← os
+    * ← ./shell-exec.mjs
+    * ← ../data-home.mjs
+  Exports:
+    function: detectRulePacks
+    function: buildFullScanCommand
+    function: isSemgrepAvailable
+    function: diagnoseSemgrep
+    function: runSemgrep
+    function: formatForAI
+    function: formatCondensed
+  Functions:
+    arrow LOG(...args)
+    arrow LOG_ERR(...args)
+    function safePath(p)
+    function _semgrepEnv()
+    function scanSourceExtensions(projectRoot, maxDepth = 4)
+    function walk(dir, depth)
+    function detectRulePacks(projectRoot)
+    function buildSemgrepCmd(projectRoot, rulePacks, excludeArgs)
+    function buildFullScanCommand(projectRoot)
+    function isSemgrepAvailable()
+    function diagnoseSemgrep()
+    async function runSemgrep(projectRoot, options = {})
+    function formatForAI(scanResult)
+    function formatCondensed(scanResult)
+  React Components:
+    arrow: LOG
+    arrow: LOG_ERR
+
+## packages/server/src/lib/shell-exec.mjs [javascript]
+  Imports:
+    * ← child_process
+    * ← util
+  Exports:
+    function: shellExec
+    function: shellExecSync
+    function: getShell
+    named: IS_WIN
+  Functions:
+    async function shellExec(command, options = {})
+    function shellExecSync(command, options = {})
+    function getShell()
+
+## packages/server/src/lib/stable-hash.mjs [javascript]
+  Imports:
+    * ← crypto
+    * ← fs
+  Exports:
+    function: stableStringify
+    function: hashObject
+    function: sansKeys
+    function: diffWriteJson
+  Functions:
+    function stableStringify(value)
+    function _canon(v)
+    function hashObject(obj)
+    function sansKeys(obj, keys = [])
+    function diffWriteJson(filePath, data, { ignoreKeys = [] } = {})
+
+## packages/server/src/lib/task-git.mjs [javascript]
+  Imports:
+    * ← child_process
+    * ← util
+  Exports:
+    class: TaskGit
+  Classes:
+    class TaskGit { constructor, getDiff, stage, commit, restore, getHeadSha, generateCommitMessage }
+
+## packages/server/src/lib/task-persistence.mjs [javascript]
+  Imports:
+    * ← node:fs/promises
+    * ← node:path
+  Exports:
+    class: JsonTaskPersistence
+  Classes:
+    class JsonTaskPersistence { constructor, _ensureDir, _path, save, load, delete, list, findByContext, updateStatus, appendArtifact, appendEvent, appendMemory, saveTokens, saveCheckpoint, saveTrace }
+
+## packages/server/src/lib/task-retrofit.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+  Exports:
+    function: qualityDebtSummary
+    function: runTaskRetrofit
+  Functions:
+    function loadFeatures(cwd)
+    async function loadTasks(cwd)
+    function isOpen(t)
+    async function qualityDebtSummary(cwd)
+    async function runTaskRetrofit(cwd, opts = {})
+
+## packages/server/src/lib/test-intelligence.mjs [javascript]
+  Imports:
+    * ← path
+    * ← fs
+    * ← ./stable-hash.mjs
+    * ← ./tree-sitter-parser.mjs
+  Exports:
+    function: classifyTestType
+    function: buildTestIntelligence
+  Functions:
+    function classifyTestType(fileName, filePath, content = "")
+    function findTestedFunctions(testFile, productionFile)
+    async function buildTestIntelligence(projectRoot, paawRoot)
+
+## packages/server/src/lib/test-runner.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← child_process
+    * ← ./test-intelligence.mjs
+    * ← ./shell-exec.mjs
+  Exports:
+    function: detectTestGroups
+    function: parseJUnitXml
+    function: junitCounts
+    function: parseGoTestOutput
+    function: getRunState
+    function: startTestRun
+    function: readLastTestRun
+  Functions:
+    function detectTestGroups(projectPath, { includeE2e = false } = {})
+    function detectPytest(projectPath)
+    function xmlAttrs(s)
+    function parseJUnitXml(xml)
+    function junitCounts(xmlText, isPy)
+    function parseGoTestOutput(out)
+    function kindFromGoName(name)
+    function findReportXmls(projectPath, runner)
+    arrow check(base)
+    arrow skip(n)
+    async function runGroup(projectPath, group)
+    arrow walk(suites)
+    function spawnCapture(cwd, cmd, timeoutMs)
+    function getRunState(projectPath)
+    async function startTestRun(projectPath, { includeE2e = false } = {})
+    function readLastTestRun(projectPath)
+    function detectDetectedSummary(projectPath)
+
+## packages/server/src/lib/tool-engine/index.mjs [javascript]
+  Imports:
+    * ← ./provider.mjs
+    * ← ./tool-registry.mjs
+    * ← ../security/index.mjs
+  Exports:
+    class: ToolEngine
+    function: createToolEngine
+  Functions:
+    function looksLikeFakeToolCall(text)
+    function isWriteOperation(name)
+    function getVerifyToolName(name)
+    function extractVerifyId(writeName, args, result)
+    function detectToolError(result)
+    async function verifyWriteResult(toolName, args, result, registry)
+    function createToolEngine(provider, executors, options = {})
+  Classes:
+    class ToolEngine { constructor, getToolDefinitions, registerTool, unregisterTool, run }
+
+## packages/server/src/lib/tool-engine/provider.mjs [javascript]
+  Imports:
+    * ← ../../data-home.mjs
+    * ← ../llm-utils.mjs
+    * ← url
+    * ← path
+    * ← fs
+  Exports:
+    class: OpenAICompatibleAdapter
+    function: createProviderAdapter
+  Functions:
+    function _llmLog(entry)
+    arrow logStream(line)
+    function createProviderAdapter(config)
+  Classes:
+    class OpenAICompatibleAdapter { constructor, chat }
+
+## packages/server/src/lib/tool-engine/tool-registry.mjs [javascript]
+  Exports:
+    class: ToolRegistry
+  Classes:
+    class ToolRegistry { constructor, register, registerAll, unregister, getToolDefinitions, getToolDef, has, execute, listNames, clear }
+
+## packages/server/src/lib/tool-registry-init.mjs [javascript]
+  Imports:
+    * ← ./tool-registry.mjs
+    * ← ./paaw-agent-loop.mjs
+  Exports:
+    function: initLoopATools
+    function: initLoopBTools
+    function: initAllTools
+    function: registerTool
+    function: injectRegistryTools
+  Functions:
+    function initLoopATools()
+    async function initLoopBTools()
+    async function initAllTools()
+    function registerTool(entry)
+    function injectRegistryTools(engine, ctx = {})
+
+## packages/server/src/lib/tool-registry.mjs [javascript]
+  Exports:
+    variable: toolRegistry
+
+## packages/server/src/lib/tree-sitter-parser.mjs [javascript]
+  Imports:
+    * ← path
+    * ← fs
+  Exports:
+    function: parseProject
+    function: formatForAI
+    function: formatCondensed
+  Functions:
+    function stripGoString(text)
+    function goReceiverType(receiverText)
+    function goHandlerName(args)
+    function getGrammarWasmPath(lang, paawRoot)
+    async function initParser(paawRoot)
+    async function getLanguage(lang, paawRoot)
+    function walkNode(node, visitor, depth = 0, maxDepth = 20)
+    function extractCalls(funcNode)
+    function javaAnnotationRoute(annoNode)
+    function extractFileInfo(tree, filePath, language)
+    arrow firstStr()
+    async function parseProject(projectRoot, paawRoot, options = {})
+    function walkDir(dir)
+    function formatForAI(parsedResult)
+    function formatCondensed(parsedResult)
+
+## packages/server/src/paaw-server.mjs [javascript]
+  Imports:
+    * ← ./lib/epipe-guard.mjs
+    * ← http
+    * ← fs
+    * ← ./routes/shared.mjs
+    * ← ./websocket/ws-handler.mjs
+    * ← ./data-home.mjs
+    * ← ./lib/flight-recorder.mjs
+  Functions:
+    function _writeCrashLog(kind, detail)
+    async function loadRoutes()
+
+## packages/server/src/routes/a2a.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← path
+    * ← ../lib/task-persistence.mjs
+    * ← ../lib/agent-rules.mjs
+    * ← fs
+    * ← ../lib/llm-utils.mjs
+    * ← ../data-home.mjs
+  Exports:
+    variable: runningStreams
+    default function: a2aRoutes
+  Functions:
+    function cleanConversationHistory(conversationHistory)
+    async function getFeatureSummary(cwd)
+    async function getCachedSkill()
+    async function getCachedProviders()
+    async function getCachedKnowledge()
+    async function getCachedTools()
+    async function loadTickets()
+    async function saveTicketsFile(tickets)
+    async function syncTicketFromTask(task)
+    function readBody(req)
+    function sendJSON(res, code, body)
+    function genId()
+    async function saveTask(task)
+    async function getTask(taskId)
+    async function listTasks()
+    async function notifyWebhook(task, pushConfig)
+    function makeTask({ message, contextId, taskId })
+    function extractText(message)
+    function makeAgentMessage(text)
+    function getAgentCard(req)
+    async function runAgentLoop({ message, systemPrompt, onChunk })
+    async function findLatestTaskInContext(contextId)
+    async function runHelpDeskViaA2A(conversation, { onProgress, modelOverride, taskId } = {})
+    async function a2aRoutes(req, res)
+    async arrow onStatus(statusUpdate)
+  Routes:
+    GET /.well-known/agent-card.json
+    POST /a2a
+    GET /api/a2a/tasks
+    POST /api/a2a/interrupt
+    GET /api/a2a/agent-card
+
+## packages/server/src/routes/agent-logs.mjs [javascript]
+  Imports:
+    * ← ../lib/agent-exec-logger.mjs
+    * ← ../lib/ru-resolver.mjs
+    * ← ./shared.mjs
+    * ← node:path
+    * ← node:fs/promises
+  Exports:
+    default function: agentLogsRoute
+  Functions:
+    async function agentLogsRoute(req, res)
+    arrow _agg(ruName, task)
+  Routes:
+    GET /api/agent-logs/ru-debug
+    GET /api/agent-logs
+    GET /api/agent-logs/ru-summary
+    POST /api/agent-logs/purge
+
+## packages/server/src/routes/agentic-bindings.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← ./context.mjs
+  Exports:
+    default function: agenticBindingRoutes
+  Functions:
+    function _readConfig()
+    async function _writeConfig(config)
+    async function agenticBindingRoutes(req, res)
+  Routes:
+    GET /api/agentic-bindings
+    POST /api/agentic-bindings
+
+## packages/server/src/routes/ai-settings.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← path
+    * ← fs
+    * ← url
+    * ← ./context.mjs
+    * ← ./shared.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../data-home.mjs
+  Exports:
+    default function: aiSettingsRoutes
+    named: AI_SETTINGS_ROOT
+    named: CATEGORIES
+    function: getAISettings
+  Functions:
+    function categoryDir(categoryId)
+    function isValidCategory(categoryId)
+    async function scanCategoryFiles(categoryId)
+    async function aiSettingsRoutes(req, res)
+    async function getAISettings(categoryId)
+  Routes:
+    GET /api/ai-settings/agent-config
+    PUT /api/ai-settings/agent-config
+    GET /api/ai-settings/providers
+    PUT /api/ai-settings/providers
+    GET /api/user/preferences
+    PUT /api/user/preferences
+    GET /api/ai-settings
+    GET /api/workspaces
+
+## packages/server/src/routes/api-tester.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← ./shared.mjs
+  Exports:
+    default function: apiTesterRoute
+  Functions:
+    async function apiTesterRoute(req, res)
+    async arrow pump()
+  Routes:
+    POST /api/api-tester/proxy
+    POST /api/api-tester/save
+    POST /api/api-tester/stream
+
+## packages/server/src/routes/apps.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ./shared.mjs
+    * ← ./skills-api.mjs
+    * ← ../lib/paaw-agent-loop.mjs
+    * ← ../data-home.mjs
+  Exports:
+    default function: appsRoute
+  Functions:
+    async function appsRoute(req, res)
+  Routes:
+    POST /api/apps
+    POST /api/report-train
+    POST /api/report-publish
+
+## packages/server/src/routes/assistant.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ../data-home.mjs
+    * ← ./shared.mjs
+  Exports:
+    default function: assistantRoute
+  Functions:
+    async function invalidateCache()
+    async function loadUiState()
+    async function saveUiState(state)
+    async function assistantRoute(req, res)
+  Routes:
+    GET /api/paaw/user
+    POST /api/paaw/user
+    POST /api/paaw/avatar
+    GET /api/paaw/avatar/assistant
+    GET /api/paaw/app-rules
+    PUT /api/paaw/app-rules
+    GET /api/paaw/app-skills
+    POST /api/paaw/apps/import
+    GET /api/version
+    GET /api/paaw/providers
+    PUT /api/paaw/providers
+    GET /api/paaw/workspaces
+    POST /api/paaw/workspaces
+    DELETE /api/paaw/workspaces
+    GET /api/paaw/knowledge-paths
+    GET /api/paaw/ui-state
+    PUT /api/paaw/ui-state
+    PATCH /api/paaw/ui-state
+    GET /api/paaw/workflows
+    POST /api/paaw/workflows
+    POST /api/paaw/workflow-output-chat
+    POST /api/paaw/file-write
+
+## packages/server/src/routes/backup.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← path
+    * ← child_process
+    * ← zlib
+    * ← stream/promises
+    * ← stream
+    * ← ./shared.mjs
+    * ← ../data-home.mjs
+  Exports:
+    function: syncBackupCronJob
+    default value: handleBackupRoutes
+  Functions:
+    function genId()
+    function timestampLabel()
+    async function collectFiles(baseDir, subDir = "")
+    function makeTarHeader(filename, size)
+    async function createTarGz(srcDir, dirs, outFile)
+    async function extractTarGz(tarFile, destDir)
+    async function syncBackupCronJob()
+    async function loadConfig()
+    async function saveConfig(config)
+    async function runBackup(config)
+    async function cleanupOldBackups(config)
+    async function listBackups(config)
+    async function restoreBackup(config, filename)
+    async function handleBackupRoutes(req, res)
+  Routes:
+    GET /api/backup/config
+    PUT /api/backup/config
+    POST /api/backup/run
+    GET /api/backup/list
+    POST /api/backup/restore
+    DELETE /api/backup/delete
+
+## packages/server/src/routes/browser.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← ../data-home.mjs
+    * ← ../lib/browser-session.mjs
+    * ← ../lib/browser-setup.mjs
+  Exports:
+    default function: browserRoute
+  Functions:
+    function readBody(req)
+    async function browserRoute(req, res)
+    function json(res, code, data)
+  Routes:
+    GET /api/browser/setup
+    POST /api/browser/setup/install
+    POST /api/browser/navigate
+    GET /api/browser/stream
+    GET /api/browser/tabs
+    POST /api/browser/tabs
+    GET /api/browser/downloads
+    POST /api/browser/dialog
+    GET /api/browser/clipboard
+    POST /api/browser/input
+    GET /api/browser/status
+    GET /api/browser/screenshot
+
+## packages/server/src/routes/chat.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← path
+    * ← ./context.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../data-home.mjs
+  Exports:
+    default function: chatRoutes
+  Functions:
+    async function chatRoutes(req, res)
+    async function readPromptFile(file)
+    async function writePromptFile(file, content)
+  Routes:
+    GET /api/paaw/chats
+    GET /api/paaw/chats//*
+    POST /api/paaw/chats
+    PUT /api/paaw/chats//*
+    DELETE /api/paaw/chats//*
+    POST /api/paaw/chat
+    GET /api/system-prompts
+
+## packages/server/src/routes/coding-auto-dispatch-config.mjs [javascript]
+  Imports:
+    * ← node:fs/promises
+    * ← node:fs
+    * ← node:path
+    * ← ./shared.mjs
+  Exports:
+    default function: autoDispatchConfigRoutes
+  Functions:
+    async function getConfig(rootDir)
+    async function saveConfig(rootDir, config)
+    async function autoDispatchConfigRoutes(req, res)
+  Routes:
+    GET /api/coding-auto-dispatch/config
+    POST /api/coding-auto-dispatch/config
+
+## packages/server/src/routes/coding-auto-dispatch-prompts.mjs [javascript]
+  Imports:
+    * ← node:fs/promises
+    * ← node:fs
+    * ← node:path
+    * ← ./shared.mjs
+  Exports:
+    default function: autoDispatchPromptsRoutes
+    named: getPromptsFile
+  Functions:
+    async function getPromptsFile(rootDir)
+    async function autoDispatchPromptsRoutes(req, res)
+  Routes:
+    GET /api/coding-auto-dispatch/prompts
+    POST /api/coding-auto-dispatch/prompts
+    POST /api/coding-auto-dispatch/prompts/reset
+
+## packages/server/src/routes/coding-auto-dispatch.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← url
+  Exports:
+    default function: codingAutoDispatchRoute
+  Functions:
+    function updateStatusFile(statusPath, mutator)
+    async function codingAutoDispatchRoute(req, res)
+    arrow readBody(req)
+    arrow sendJSON(res, code, data)
+    arrow sendSSE(type, data)
+  Routes:
+    POST /api/coding-auto-dispatch/start
+    POST /api/coding-auto-dispatch/preview
+    POST /api/coding-auto-dispatch/stop
+    POST /api/coding-auto-dispatch/reset
+    GET /api/coding-auto-dispatch/last-run
+    GET /api/coding-auto-dispatch/status
+    GET /api/coding-auto-dispatch/report
+
+## packages/server/src/routes/coding-doc-coverage.mjs [javascript]
+  Imports:
+    * ← ../lib/doc-coverage.mjs
+    * ← ./vibe-fs.mjs
+  Exports:
+    default function: docCoverageRoutes
+  Functions:
+    async function docCoverageRoutes(req, res)
+  Routes:
+    GET /api/coding-doc/coverage
+    POST /api/coding-doc/coverage
+    GET /api/coding-doc/undocumented
+
+## packages/server/src/routes/coding-em-config.mjs [javascript]
+  Imports:
+    * ← ../lib/em-config.mjs
+  Exports:
+    default function: emConfigRoutes
+  Functions:
+    async function emConfigRoutes(req, res)
+  Routes:
+    GET /api/coding-em/config
+    PATCH /api/coding-em/config
+    POST /api/coding-em/config/reset
+
+## packages/server/src/routes/coding-evidence.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← child_process
+    * ← url
+    * ← util
+    * ← ../lib/review-boundary.mjs
+  Exports:
+    function: classifyRisk
+    function: gatherTaskEvidence
+    default function: evidenceRoutes
+  Functions:
+    function classifyRisk(text)
+    function computeTrustScore({ pipeline, testResult, qaResult, risk, diffStat, reviewBoundary })
+    async function gitDiffStat(projectPath, since)
+    async function gitStatusShort(projectPath)
+    async function loadTasksRaw(projectPath)
+    async function loadTestIntelligence(projectPath)
+    async function gatherTaskEvidence(projectPath, taskId)
+    async function gatherPlanEvidence(projectPath, planId)
+    function _json(res, code, obj)
+    async function evidenceRoutes(req, res)
+
+## packages/server/src/routes/coding-features.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← ./shared.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../data-home.mjs
+  Exports:
+    default function: codingFeaturesRoute
+  Functions:
+    function getMaxTokens(providerConfig, providerId, model)
+    function parseQuery(rawUrl)
+    function genId(existing)
+    function now()
+    function getFeaturesDir(projectPath)
+    function getFeaturesFile(projectPath)
+    async function loadFeatures(projectPath)
+    async function saveFeatures(projectPath, features)
+    async function loadIssueSummaries(projectPath, issueIds)
+    async function generateUnderstanding(projectPath, feature, providersFile)
+    async function codingFeaturesRoute(req, res)
+    arrow scanFiles()
+  Routes:
+    GET /api/coding-features/file-map
+    GET /api/coding-features/validate
+    GET /api/coding-features/stats
+    GET /api/coding-features
+    POST /api/coding-features
+    POST /api/coding-features/refresh-mapping
+    POST /api/coding-features/discover
+
+## packages/server/src/routes/coding-handover.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← child_process
+    * ← util
+    * ← ../lib/release-unit/handover-state.mjs
+  Exports:
+    default function: handoverRoutes
+  Functions:
+    async function readKnowledgeFile(projectPath, rel)
+    async function gitLog(projectPath, n = 15)
+    async function gitStatusShort(projectPath)
+    async function loadPackageInfo(projectPath)
+    async function loadActiveTasks(projectPath)
+    async function loadReleasesSummary(projectPath)
+    async function buildBundle(projectPath)
+    function renderHandoverMd(bundle)
+    async function handoverRoutes(req, res, next)
+    function readBody(req)
+  Routes:
+    GET /api/coding-handover/state
+    GET /api/coding-handover/bundle
+    POST /api/coding-handover/generate
+
+## packages/server/src/routes/coding-health.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← url
+  Exports:
+    default function: codingHealthRoute
+  Functions:
+    function sendJSON(res, code, data)
+    function parsePath(req)
+    async function codingHealthRoute(req, res)
+
+## packages/server/src/routes/coding-issues.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← ./shared.mjs
+    * ← ../lib/paaw-project.mjs
+  Exports:
+    default function: codingIssuesRoute
+  Functions:
+    function parseQuery(rawUrl)
+    function genId(existing)
+    function now()
+    async function loadIssues(projectPath)
+    async function saveIssues(projectPath, issues)
+    function parseKnownIssues(md)
+    async function codingIssuesRoute(req, res)
+  Routes:
+    GET /api/coding-issues/stats
+    POST /api/coding-issues/import-known
+    GET /api/coding-issues
+    POST /api/coding-issues
+
+## packages/server/src/routes/coding-memory.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← ./shared.mjs
+    * ← fs
+  Exports:
+    default function: codingMemoryRoute
+  Functions:
+    function loadCrewMetadata()
+    function parseQuery(rawUrl)
+    function getMemoryDir(projectPath)
+    async function codingMemoryRoute(req, res)
+  Routes:
+    GET /api/coding-memory
+
+## packages/server/src/routes/coding-ops.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← child_process
+    * ← util
+  Exports:
+    default function: opsRoutes
+  Functions:
+    async function gitInfo(projectPath)
+    async function listRunbooks(projectPath)
+    async function loadScripts(projectPath)
+    async function loadRecentReleases(projectPath)
+    async function opsRoutes(req, res, next)
+    function readBody(req)
+  Routes:
+    GET /api/coding-ops/status
+    GET /api/coding-ops/runbook
+    POST /api/coding-ops/runbook/save
+
+## packages/server/src/routes/coding-releases.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ./coding-evidence.mjs
+    * ← ../lib/task-retrofit.mjs
+    * ← ../lib/change-intelligence.mjs
+    * ← ../lib/release-unit/gates.mjs
+    * ← ../lib/shell-exec.mjs
+    * ← ../lib/test-runner.mjs
+    * ← fs
+  Exports:
+    default function: releaseRoutes
+  Functions:
+    async function readTasksFile(projectPath)
+    async function writeTasksFile(projectPath, data)
+    function isPendingRelease(task)
+    function releasesDir(projectPath)
+    async function listReleases(projectPath)
+    async function releaseRoutes(req, res, next)
+    function readFileStream(req)
+    async function lastTestRunSummary(projectPath)
+  Routes:
+    GET /api/coding-releases/pending
+    GET /api/coding-releases/list
+    POST /api/coding-releases/reject
+    POST /api/coding-releases/test-run
+    GET /api/coding-releases/test-run
+    GET /api/coding-releases/readiness
+    GET /api/coding-releases/quality-debt
+    POST /api/coding-releases/retrofit
+
+## packages/server/src/routes/coding-reports.mjs [javascript]
+  Imports:
+    * ← ../lib/auto-dispatch-shared.mjs
+    * ← node:fs
+    * ← node:path
+  Exports:
+    default function: codingReportsRoutes
+  Functions:
+    async function codingReportsRoutes(req, res)
+    arrow sendJSON(code, data)
+
+## packages/server/src/routes/coding-staged-changes.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+  Exports:
+    default function: stagedChangesRoutes
+  Functions:
+    async function stagedChangesRoutes(req, res)
+  Routes:
+    GET /api/coding-staged/changes
+    POST /api/coding-staged/changes
+    DELETE /api/coding-staged/changes
+
+## packages/server/src/routes/coding-tasks.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← stream
+    * ← ./shared.mjs
+    * ← ../lib/task-git.mjs
+    * ← ../lib/review-boundary.mjs
+    * ← ../data-home.mjs
+  Exports:
+    function: applyRepairLoopRule
+    default function: codingTasksRoute
+    function: runHealthPlanSubtask
+    function: triggerHealthAgentDispatch
+    function: runRepairLoop
+  Functions:
+    function applyRepairLoopRule(task)
+    function loopModeFromProjectPhase(projectPhase)
+    function parseQuery(rawUrl)
+    function genId(existing)
+    function now()
+    function ensurePipeline(task, projectConfig)
+    function getActivePhases(task, projectConfig)
+    function deriveStatus(task, projectConfig)
+    async function loadTasksAndConfig(projectPath)
+    async function loadTasks(projectPath)
+    function getEffectiveLoopMode(task, projectConfig)
+    async function saveTasks(projectPath, tasks, config)
+    async function codingTasksRoute(req, res)
+    async function runHealthPlanSubtask(projRoot, planId)
+    async function triggerHealthAgentDispatch({ projRoot, subTask, chainParentId, chainSubTaskIds, chainCurrentIndex })
+    async function runRepairLoop(projRoot, taskId)
+  Routes:
+    GET /api/coding-tasks/stats
+    GET /api/coding-tasks/pipeline/overview
+    GET /api/coding-tasks/overnight-queue
+    GET /api/coding-tasks/overnight-queue/results
+    POST /api/coding-tasks/health-fix
+    POST /api/coding-tasks/decompose
+    GET /api/coding-tasks/project/loop-mode
+    PUT /api/coding-tasks/project/loop-mode
+    GET /api/coding-tasks
+    POST /api/coding-tasks
+
+## packages/server/src/routes/context.mjs [javascript]
+  Imports:
+    * ← path
+    * ← url
+    * ← fs
+    * ← js-yaml
+    * ← ../data-home.mjs
+  Exports:
+    variable: PATHS
+    function: readBody
+    function: json
+    function: urlPath
+    function: projectPathHash
+    function: parseSkillFrontmatter
+    function: resolveDataDir
+    function: readSystemPrompt
+    function: loadAgentConfig
+  Functions:
+    function readBody(req)
+    function json(res, data, status = 200)
+    function urlPath(req)
+    function projectPathHash(path)
+    function parseSkillFrontmatter(raw)
+    function resolveDataDir(_wsId, subdir)
+    async function readSystemPrompt(type, id, fallback = "")
+    async function loadAgentConfig()
+
+## packages/server/src/routes/crew.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ./shared.mjs
+    * ← ./context.mjs
+    * ← ../lib/paaw-agent-loop.mjs
+    * ← ../data-home.mjs
+  Exports:
+    default function: crewRoute
+  Functions:
+    async function crewRoute(req, res)
+    arrow sendEvent(obj)
+    arrow sendSSE(obj)
+    function crewDirForRequest()
+    async function listCrewFiles()
+    arrow norm(p)
+    arrow norm(p)
+    arrow norm(p)
+  Routes:
+    GET /api/paaw/skill-config
+    POST /api/paaw/skill-config
+    POST /api/skill-test/run
+    POST /api/cli-run
+
+## packages/server/src/routes/distill.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← fs/promises
+    * ← path
+    * ← ./context.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../data-home.mjs
+  Exports:
+    function: loadConfig
+    function: record
+    function: recordChatInteraction
+    function: recordVibeOutput
+    function: recordCronExecution
+    function: distillAll
+    default function: distillRouter
+    function: matchesCron
+  Functions:
+    function safeReadDistillPrompt()
+    function loadDistillPrompt(source)
+    function loadConfig()
+    function saveConfig(cfg)
+    function deepMerge(target, source)
+    function record(source, data)
+    function recordChatInteraction({ user, assistant, model, provider, tools })
+    function recordVibeOutput({ sessionId, cli, cwd, output })
+    function recordCronExecution({ jobName, success, result, duration })
+    async function callLLM(systemPrompt, userPrompt, maxTokens = 4096, modelOverride)
+    function buildContentFromEntries(source, entries)
+    async function distillSourceDate(source, dateStr, config, modelOverride)
+    async function distillAll(sourceFilter, modelOverride)
+    function getStats()
+    async function distillRouter(req, res)
+    function matchesCron(expr, date)
+    arrow check(val, spec)
+  Routes:
+    GET /api/distill/config
+    PUT /api/distill/config
+    GET /api/distill/sources
+    POST /api/distill/run
+    GET /api/distill/logs
+    GET /api/distill/knowledge
+    POST /api/distill/record
+
+## packages/server/src/routes/execution-plan-routes.mjs [javascript]
+  Imports:
+    * ← ../lib/execution-plan.mjs
+  Exports:
+    default function: executionPlanRoutes
+  Functions:
+    async function executionPlanRoutes(req, res)
+    function _readBody(req)
+  Routes:
+    POST /api/auto-dispatch/plan/create
+    GET /api/auto-dispatch/plan/latest
+    GET /api/auto-dispatch/plan/list
+    GET /api/auto-dispatch/plan/incomplete
+
+## packages/server/src/routes/helpdesk.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← path
+    * ← url
+    * ← ./shared.mjs
+    * ← ../lib/task-persistence.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../lib/context-truncation.mjs
+  Exports:
+    function: reloadHelpDeskCache
+    default function: helpdeskRoute
+  Functions:
+    async function getCachedSkill()
+    async function getCachedProviders()
+    async function getCachedKnowledge()
+    async function getCachedTools()
+    async function reloadHelpDeskCache()
+    async function loadTickets()
+    async function saveTickets(tickets)
+    async function runHelpDeskSkill(conversation, modelOverride, options = {})
+    async function helpdeskRoute(req, res)
+  Routes:
+    POST /api/helpdesk/ask
+    GET /api/helpdesk/tickets
+    PUT /api/helpdesk/tickets
+    GET /api/helpdesk/knowledge
+    GET /api/helpdesk/models
+
+## packages/server/src/routes/llm-logs.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← ../data-home.mjs
+  Exports:
+    function: cleanupOldLogs
+    default function: llmLogsRoute
+  Functions:
+    function ensureLogDir()
+    function cleanupOldLogs(retentionDays = 7)
+    function _callerToAgentId(caller)
+    function parseLogs(dateStr)
+    function parseAllLogs(days = 7)
+    function pairLogs(logs)
+    async function llmLogsRoute(req, res)
+    async function readBody(req)
+  Routes:
+    GET /api/llm-logs
+    GET /api/llm-logs/stats
+    DELETE /api/llm-logs
+    POST /api/llm-logs/purge
+
+## packages/server/src/routes/log-retention.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ./shared.mjs
+    * ← ../data-home.mjs
+    * ← ./llm-logs.mjs
+    * ← ../lib/agent-exec-logger.mjs
+  Exports:
+    function: runLogPurge
+    default function: logRetentionRoutes
+  Functions:
+    async function loadRetention()
+    async function saveRetention(cfg)
+    async function purgeDirByMtime(dir, days)
+    async function walk(d)
+    async function purgeOtherLogs(days)
+    async function runLogPurge()
+    async function logRetentionRoutes(req, res)
+    arrow jsonOut(code, obj)
+  Routes:
+    GET /api/logs/retention
+    PUT /api/logs/retention
+    POST /api/logs/purge
+
+## packages/server/src/routes/mindmap.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← path
+    * ← ../lib/llm-utils.mjs
+    * ← ./shared.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../data-home.mjs
+  Exports:
+    default value: handleMindMapRoutes
+  Functions:
+    function getSystemPrompt()
+    async function readFilesForMindmap(files)
+    async function readDirectoryForMindmap(dirPath)
+    async function scan(dir, depth)
+    function cleanMarkdownResponse(content)
+    function loadProviderConfig()
+    function resolveLLM(modelOverride)
+    async function generateMindMap(userPrompt, content, modelOverride)
+    async function handleMindMapRoutes(req, res)
+
+## packages/server/src/routes/notes.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← path
+    * ← ./shared.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../data-home.mjs
+  Exports:
+    default value: handleNotesRoutes
+  Functions:
+    function getSystemPrompt()
+    function loadProviderConfig()
+    function resolveLLM(modelOverride)
+    async function aiWriteNote(userPrompt, content, modelOverride)
+    async function ensureDirs()
+    async function loadNotebooks()
+    async function saveNotebooks(notebooks)
+    async function loadSections()
+    async function saveSections(sections)
+    function notebookDir(notebookId)
+    function notePath(notebookId, noteId)
+    async function loadNote(notebookId, noteId)
+    async function saveNote(note)
+    async function deleteNoteFile(notebookId, noteId)
+    async function listNotesInNotebook(notebookId, sectionId)
+    async function searchAllNotes(query)
+    function genId(prefix = "n")
+    async function handleNotesRoutes(req, res)
+  Routes:
+    GET /api/notes/notebooks
+    POST /api/notes/notebooks
+    PUT /api/notes/notebooks
+    DELETE /api/notes/notebooks
+    GET /api/notes/sections
+    POST /api/notes/sections
+    PUT /api/notes/sections
+    DELETE /api/notes/sections
+    GET /api/notes/list
+    GET /api/notes/get
+    POST /api/notes/create
+    PUT /api/notes/update
+    DELETE /api/notes/delete
+    PUT /api/notes/move
+    POST /api/notes/ai-write
+    GET /api/notes/search
+    GET /api/notes/tags
+    GET /api/notes/by-tag
+    PUT /api/notes/pin
+    GET /api/notes/recent
+    POST /api/notes/upload-image
+    GET /api/notes/images//*
+
+## packages/server/src/routes/plugins.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ./context.mjs
+  Exports:
+    function: handlePluginRoutes
+    default value: handlePluginRoutes
+  Functions:
+    arrow rawUrl_path(req)
+    async function handlePluginRoutes(req, res)
+  Routes:
+    GET /api/plugins
+    POST /api/plugins
+
+## packages/server/src/routes/pocket.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← path
+    * ← ./shared.mjs
+    * ← ../data-home.mjs
+  Exports:
+    default function: pocketRoute
+  Functions:
+    async function pocketRoute(req, res)
+    async function loadArr()
+    async function saveArr(data)
+    function normalizeNote(n)
+
+## packages/server/src/routes/projects.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← path
+    * ← ./shared.mjs
+    * ← ../data-home.mjs
+  Exports:
+    default value: handleProjectRoutes
+  Functions:
+    function genId(prefix = "p")
+    async function ensureDataDir()
+    async function loadProject(id)
+    async function saveProject(project)
+    async function listAllProjects()
+    function computeStats(project)
+    async function handleProjectRoutes(req, res)
+  Routes:
+    GET /api/projects
+    POST /api/projects
+
+## packages/server/src/routes/release-unit.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← crypto
+    * ← ./shared.mjs
+    * ← ../lib/shell-exec.mjs
+    * ← ../lib/release-unit/adapters.mjs
+    * ← ../lib/release-unit/dependencies.mjs
+    * ← ../lib/release-unit/impact.mjs
+    * ← ../lib/release-unit/architecture.mjs
+    * ← ../lib/release-unit/verify.mjs
+    * ← ../lib/release-unit/metrics.mjs
+    * ← ../lib/release-unit/analyze.mjs
+    * ← ../lib/release-unit/gates.mjs
+    * ← ../lib/release-unit/ask.mjs
+    * ← ../lib/release-unit/apis.mjs
+    * ← ../lib/release-unit/model.mjs
+    * ← ../lib/release-unit/cost.mjs
+    * ← ../lib/release-unit/qa.mjs
+    * ← ../data-home.mjs
+  Exports:
+    default function: releaseUnitRoutes
+  Functions:
+    function json(res, code, data)
+    function readBody(req)
+    function validRoot(p)
+    function badPath(res, p)
+    async function readDoc(root, rel)
+    function readLoopMode(root)
+    async function releaseUnitRoutes(req, res, next)
+    arrow _loadRuRegistry()
+    arrow _saveRuRegistry(units)
+  Routes:
+    GET /api/ru/workspaces
+    POST /api/ru/workspaces
+    DELETE /api/ru/workspaces
+    GET /api/ru/qa
+    GET /api/ru/cost
+    GET /api/ru/code-intel
+    GET /api/ru/model/query
+    GET /api/ru
+    GET /api/ru/overview
+    GET /api/ru/context
+    GET /api/ru/architecture
+    GET /api/ru/dependencies
+    POST /api/ru/impact-analysis
+    POST /api/ru/verify
+    GET /api/ru/verify
+    GET /api/ru/metrics
+    GET /api/ru/analyze
+    GET /api/ru/gates
+    GET /api/ru/tests
+    GET /api/ru/features
+    GET /api/ru/runbooks
+    GET /api/ru/changes
+    GET /api/ru/ask
+    GET /api/ru/apis
+    GET /api/ru/specs
+    GET /api/ru/releases
+    GET /api/ru/evidence
+
+## packages/server/src/routes/shared.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← child_process
+    * ← js-yaml
+    * ← chokidar
+    * ← ../data-home.mjs
+  Exports:
+    named: __dirname
+    named: SERVER_SRC
+    named: DASHBOARD_ROOT
+    named: PAAW_ROOT
+    named: CONVERSATIONS_ROOT
+    named: CREWS_ROOT
+    named: SKILLS_ROOT
+    named: INPUT_PROMPT_ROOT
+    named: PHYSICAL_SKILL_ROOT
+    named: SKILL_POOL_ROOT
+    named: APPS_ROOT
+    named: WORKFLOWS_ROOT
+    named: DATA_ROOT
+    named: PAAW_DATA_DIR
+    named: PAAW_USER_FILE
+    named: PAAW_CHAT_DIR
+    named: PAAW_WORKSPACES_FILE
+    named: PAAW_KNOWLEDGE_DIR
+    named: UI_STATE_FILE
+    named: APP_RULES_PATH
+    named: CRON_JOBS_FILE
+    named: CRON_LOGS_DIR
+    named: CRON_RESULTS_DIR
+    named: CRON_CHAT_DIR
+    named: VIBE_SESSIONS_DIR
+    named: PORT
+    named: readdir
+    named: readFile
+    named: writeFile
+    named: mkdir
+    named: unlink
+    named: rm
+    named: stat
+    named: readFileSync
+    named: existsSync
+    named: readdirSync
+    named: mkdirSync
+    named: writeFileSync
+    named: appendFileSync
+    named: statSync
+    named: unlinkSync
+    named: join
+    named: resolve
+    named: dirname
+    named: isAbsolute
+    named: relative
+    named: yaml
+    named: spawn
+    named: projectPathHash
+    named: getConvDir
+    named: normalizePath
+    named: basename
+    named: readBody
+    named: json
+    named: resolveDataDir
+    named: getWorkspaceId
+    named: extractHtml
+    named: buildTree
+    named: startWatcher
+  Functions:
+    function projectPathHash(path)
+    function getConvDir(employeeId, root)
+    function normalizePath(p)
+    function basename(p)
+    function readBody(req)
+    function json(res, code, data)
+    function resolveDataDir(_wsId, subdir)
+    function getWorkspaceId(url)
+    function extractHtml(text)
+    async function buildTree(absRoot, currentPath, maxDepth)
+    function startWatcher(root, sseRes)
+    arrow send(type, path)
+
+## packages/server/src/routes/skill.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← path
+    * ← ./context.mjs
+  Exports:
+    default function: skillRoutes
+  Functions:
+    async function copyDir(src, dest)
+    async function listFiles(dir, prefix = "")
+    async function scanSkillsDir(root, kind)
+    async function skillRoutes(req, res)
+
+## packages/server/src/routes/skills-api.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ./shared.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../data-home.mjs
+  Exports:
+    named: parseSkillFrontmatter
+    default function: skillsApiRoute
+  Functions:
+    function parseSkillFrontmatter(raw)
+    async function skillsApiRoute(req, res)
+    async arrow scanSkillsDir(root, kind)
+
+## packages/server/src/routes/vibe-fs.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← child_process
+    * ← ./shared.mjs
+    * ← ../data-home.mjs
+  Exports:
+    function: runGit
+    default function: vibeFsRoute
+  Functions:
+    async function runGit(args, cwd)
+    async function vibeFsRoute(req, res)
+    async function nativeSearch(cwd, query, opts, maxResults, res)
+    function walkDir(dir, depth)
+  Routes:
+    PUT /api/vibe-fs/write
+    GET /api/pick-directory
+
+## packages/server/src/routes/vibe-sessions.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ./shared.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../data-home.mjs
+  Exports:
+    default function: vibeSessionsRoute
+  Functions:
+    async function readBodyStr(req)
+    async function vibeSessionsRoute(req, res)
+  Routes:
+    POST /api/vibe-sessions
+
+## packages/server/src/routes/workflow.mjs [javascript]
+  Imports:
+    * ← node:child_process
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ./context.mjs
+    * ← ../lib/paaw-agent-loop.mjs
+    * ← ../data-home.mjs
+  Exports:
+    default function: workflowRoutes
+  Functions:
+    function topoSort(nodes, edges)
+    function scanSkillDir(skillRoot, base = "")
+    function runScript(skillDir, scriptRel, args = [])
+    async function runSkillMiniLoop({ skillPath, input, appId, systemContext, model, timeoutMs = 180000, agentId = 'workflow' })
+    async function workflowRoutes(req, res)
+  Routes:
+    GET /api/paaw-root
+    GET /api/paaw/workflows
+    POST /api/paaw/workflows
+    POST /api/paaw/workflow-output-chat
+    POST /api/paaw/file-write
+    POST /api/paaw/skill-exec
+    POST /api/paaw/tool-exec
+    GET /api/paaw/tools
+    POST /api/paaw/workflow-trigger
+
+## packages/server/src/scheduler/cron-jobs.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← ../routes/shared.mjs
+    * ← ../lib/paaw-agent-loop.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../data-home.mjs
+  Exports:
+    default function: schedulerRoute
+  Functions:
+    async function getDistillModule()
+    function matchesCron(expr, date)
+    arrow check(val, spec)
+    async function loadCronJobs()
+    async function saveCronJobs(jobs)
+    async function appendCronLog(jobId, entry)
+    async function runCronJob(job)
+    async function deliverToChat(chatId, content)
+    async function cronApiHandler(req, res)
+    arrow _readBody()
+    async function agentLoopHandler(req, res)
+    arrow _readBody()
+    async function vibeSessionsApiHandler(req, res)
+    async function schedulerRoute(req, res)
+  Routes:
+    POST /api/cron-jobs
+    POST /api/agent-run
+    POST /api/agent-run/stream
+
+## packages/server/src/tools/index.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← ../routes/shared.mjs
+    * ← ../data-home.mjs
+  Exports:
+    named: getToolsAndHandlers
+    named: invalidateCache
+    named: buildAppInstructions
+    named: getHandlers
+  Functions:
+    function extractFields(app)
+    function checkRequired(app, fieldName)
+    function getDataShape(app)
+    async function loadApps()
+    async function buildToolDefinitions()
+    function buildHandlers(apps)
+    async function loadWorkspaces()
+    arrow isAbsPath(d)
+    async function loadKnowledgeDirs()
+    async function loadKnowledgeFiles()
+    function matchWorkspace(dirs, hint)
+    function buildAppInstructions(apps)
+    async function getToolsAndHandlers()
+    function invalidateCache()
+    async function getHandlers()
+
+## packages/server/src/websocket/ws-handler.mjs [javascript]
+  Imports:
+    * ← ws
+    * ← node-pty
+    * ← ../lib/paaw-agent-loop.mjs
+    * ← ../data-home.mjs
+    * ← ../routes/shared.mjs
+  Exports:
+    function: setupWebSocket
+  Functions:
+    async function getDistillModule()
+    function setupWebSocket()
+    arrow stripAnsiForLog(s)
+    arrow stripAnsi(s)
+
+## packages/shared/src/schemas/index.ts [typescript]
+  Imports:
+    * ← @sinclair/typebox
+  Exports:
+    variable: PaginationQuery
+    variable: PaginatedResponse
+    variable: ApiOkResponse
+    variable: ApiErrorResponse
+    variable: SkillExecutionConfig
+    variable: SkillInputField
+    variable: SkillSample
+    variable: SkillDefinition
+    variable: SkillRunRequest
+    variable: SkillRunResponse
+    variable: AppSkillRef
+    variable: AppDefinition
+    variable: WorkflowNode
+    variable: WorkflowDefinition
+    variable: WorkflowRunResponse
+    variable: CronDefinition
+    variable: ChatMessage
+    variable: Conversation
+  Functions:
+    arrow PaginatedResponse(dataSchema: T)
+    arrow ApiOkResponse(dataSchema: T)
+  React Components:
+    arrow: PaginatedResponse
+    arrow: ApiOkResponse
+
+## packages/shared/src/utils/index.ts [typescript]
+  Exports:
+    function: generateId
+    function: resolveTemplate
+    function: resolveTemplateObj
+    function: validateRequired
+    function: measureMs
+    function: nowISO
+    function: todayStr
+  Functions:
+    function generateId(prefix: string = "")
+    function resolveTemplate(
+  template: string,
+  vars: Record<string, any>
+)
+    function resolveTemplateObj(
+  obj: Record<string, any>,
+  vars: Record<string, any>
+)
+    function validateRequired(
+  input: Record<string, any>,
+  required: string[]
+)
+    async function measureMs(fn: () => Promise<T>)
+    function nowISO()
+    function todayStr()
+
+## packages/ui/src/App.tsx [tsx]
+  Imports:
+    * ← ./components/Icon
+    * ← ./components/DirectoryExplorer
+    * ← react
+    * ← ./pages/ChatView
+    * ← ./pages/AICrew
+    * ← ./pages/SkillsPage
+    * ← ./pages/SkillBuilder
+    * ← ./pages/AppBuilder
+    * ← ./pages/AppPool
+    * ← ./pages/CronJobsPage
+    * ← ./pages/CodingIDE
+    * ← ./pages/BriefingPlayer
+    * ← ./pages/MindMapViewer
+    * ← ./pages/Notes
+    * ← ./pages/ProjectBoard
+    * ← ./pages/FileEditor
+    * ← ./pages/WorkflowEditor
+    * ← ./pages/WorkflowExec
+    * ← ./pages/PluginManager
+    * ← ./pages/FileViewer
+    * ← ./components/SidebarFileTree
+    * ← ./components/KnowledgeTree
+    * ← ./pages/OnboardingPage
+    * ← ./pages/SettingsPage
+    * ← ./pages/AISettingsPage
+    * ← ./pages/HelpDesk
+    * ← ./components/LlmLogTab
+    * ← ./components/AgentLogs
+    * ← ./components/ui/shared
+    * ← ./types
+    * ← ./theme
+    * ← ./i18n
+    * ← ./utils
+    * ← ./api
+  Exports:
+    default function: App
+  Functions:
+    function simpleHash(s: string)
+    function makeScopeKey(wsId: string, projectRoot: string | null)
+    function parseTabId(tabId: string)
+    function AppInner()
+    arrow normPath(p: string | null)
+    arrow openApp(id: string)
+    arrow closeTab(id: string)
+    arrow handleSelectFile(path: string)
+    arrow handleEditFile(path: string)
+    arrow handler()
+    arrow handleMove(ev: MouseEvent)
+    arrow handleUp()
+    function App()
+  React Components:
+    function: AppInner
+    function: App
+
+## packages/ui/src/api.ts [typescript]
+  Exports:
+    default value: API_BASE
+
+## packages/ui/src/components/AgentBuilder.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../utils
+    * ← ../api
+  Exports:
+    default function: AgentBuilder
+  Functions:
+    function AgentBuilder({ rootPath, theme: t, onClose, onCreated }: AgentBuilderProps)
+    arrow toggleTool(id: string)
+    async arrow handleCreate()
+  React Components:
+    function: AgentBuilder
+
+## packages/ui/src/components/AgentConsole.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../utils
+    * ← ./ChatMessages
+  Exports:
+    default value: AgentConsole
+  Functions:
+    arrow handleChatSend()
+    arrow handleInterrupt()
+
+## packages/ui/src/components/AgentLogs.tsx [tsx]
+  Imports:
+    * ← react
+  Exports:
+    default function: AgentLogs
+  Functions:
+    function fmtDuration(ms: number)
+    function fmtTime(iso: string)
+    function fmtTokens(n?: number)
+    function fmtCost(usd?: number)
+    function AgentLogs()
+    function StepRow({ step }: { step: LogStep })
+  React Components:
+    function: AgentLogs
+    function: StepRow
+
+## packages/ui/src/components/AgentMemoryPanel.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../utils
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: AgentMemoryPanel
+  Functions:
+    function agentFallbackIcon(agentId: string)
+    function AgentMemoryPanel({ rootPath, theme }: Props)
+    async arrow handleSave()
+    async arrow handleDelete(agentId: string)
+    function renderAvatar(mem: MemoryEntry, size: number)
+  React Components:
+    function: AgentMemoryPanel
+
+## packages/ui/src/components/AgentSideChat.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../api
+    * ← ../utils
+    * ← ./MarkdownText
+  Functions:
+    function useCrewAvatar(agentId: string, enabled: boolean)
+
+## packages/ui/src/components/ApiMapSidebar.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← ./useRuModel
+  Exports:
+    variable: METHOD_COLORS
+    default function: ApiMapSidebar
+  Functions:
+    function ApiMapSidebar({ rootPath, onPick, onOpenFile, onAskAi, borderLight = "#f0f0f0", accentText = "#0369a1" }: Props)
+    arrow push(key: string, a: ApiEntry)
+    arrow askAbout(a: ApiEntry)
+  React Components:
+    function: ApiMapSidebar
+
+## packages/ui/src/components/AutoDispatchPanel.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← ../utils
+    * ← ../api
+    * ← ./ModelSelector
+    * ← ./MarkdownText
+  Exports:
+    function: SubTaskDetail
+    default function: AutoDispatchPanel
+  Functions:
+    function badge(status: string)
+    function SubTaskDetail({ theme, data }: { theme: any; data: any })
+    function AutoDispatchPanel({ active = true, theme, rootPath, model, openMainTab, refreshTrigger = 0 }: { active?: boolean; theme: any; rootPath?: string; model?: string; openMainTab?: (tab: any) => void; refreshTrigger?: number })
+    async arrow poll()
+    async arrow handleStart()
+    async arrow handleResume(planId: string)
+    async arrow handleDelete(planId: string)
+    async arrow handleStatusChange(planId: string, newStatus: string)
+    async arrow loadPlan(planId: string)
+    arrow openSubTaskDetail(st: any, taskTitle: string)
+    arrow fmtDate(iso?: string)
+    arrow fmtDur(ms: number)
+    arrow fmtTok(n: number)
+  React Components:
+    function: SubTaskDetail
+    function: AutoDispatchPanel
+
+## packages/ui/src/components/ChatMessages.tsx [tsx]
+  Imports:
+    * ← react
+    * ← react-markdown
+    * ← remark-gfm
+    * ← remark-breaks
+    * ← ../utils
+  Exports:
+    variable: ChatMessages
+    default value: ChatMessages
+  Functions:
+    function formatTime(ts?: string, timestamp?: number)
+    arrow markdownComponents(accent?: string, onDeepLink?: (type: string, params: Record<string, string>) => void)
+    function ChatAvatar({
+  role,
+  assistantAvatar,
+  assistantEmoji,
+  accent,
+  accentHover,
+  userName = "你",
+}: {
+  role: string;
+  assistantAvatar?: string;
+  assistantEmoji?: string;
+  accent?: string;
+  accentHover?: string;
+  userName?: string;
+})
+    function LoadingIndicator({ accent, label = "思考中" }: { accent?: string; label?: string })
+    function ToolBadges({ tools }: { tools: ChatToolBadge[] })
+    arrow ChatMessages({
+  messages,
+  accent = "#10b981",
+  accentHover,
+  assistantName = "AI",
+  userName = "你",
+  assistantAvatar,
+  assistantEmoji,
+  loading = false,
+  activeTools = EMPTY_TOOLS,
+  agentAction = "",
+  userMarkdown = false,
+  onDeepLink,
+  endRef,
+  className = "",
+  assignableAgents = EMPTY_AGENTS,
+  onAssignToAgent,
+})
+    arrow handleClick(e: MouseEvent)
+    arrow handleEsc(e: KeyboardEvent)
+    arrow handlePickAgent(agentId: string)
+  React Components:
+    function: ChatAvatar
+    function: LoadingIndicator
+    function: ToolBadges
+    arrow: ChatMessages
+
+## packages/ui/src/components/CodeIntelPage.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← ../theme
+    * ← ./AgentSideChat
+    * ← ./useRuModel
+  Exports:
+    default value: CodeIntelPage
+  Functions:
+    arrow baseName(p: string)
+    function CodeIntelPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<AgentSideChatHandle | null>)
+    arrow inScope(n: CgNode)
+    arrow splitRef(ref: string)
+    arrow FeatureChips({ active, onPick }: { active: string; onPick: (id: string, files: string[]) => void })
+    arrow FileLink({ file, children }: { file: string; children?: React.ReactNode })
+    arrow askImpact()
+    arrow askDeps()
+    arrow askCallers()
+    async arrow runDeps()
+    async arrow runImpact()
+  React Components:
+    function: CodeIntelPageInner
+    arrow: FeatureChips
+    arrow: FileLink
+
+## packages/ui/src/components/CrewAvatar.tsx [tsx]
+  Imports:
+    * ← react
+  Exports:
+    default function: CrewAvatar
+  Functions:
+    function CrewAvatar({ crewId, codename, size = 120 }: AvatarProps)
+  React Components:
+    function: CrewAvatar
+
+## packages/ui/src/components/CrewEditor.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../types
+    * ← ./CrewAvatar
+    * ← ./Icon
+    * ← ../theme
+    * ← ../api
+  Exports:
+    default function: CrewEditor
+  Functions:
+    function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEditorProps)
+    arrow toggleSkill(skillId: string)
+    async arrow handleSave()
+    async arrow handleDelete()
+  React Components:
+    function: CrewEditor
+
+## packages/ui/src/components/CrewManager.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../utils
+    * ← ../api
+    * ← ../i18n
+    * ← ./AgentBuilder
+    * ← ./SkillPicker
+  Exports:
+    default function: CrewManager
+  Functions:
+    function Section({ title, icon, children, defaultOpen = false }: { title: string; icon: string; children: React.ReactNode; defaultOpen?: boolean })
+    function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewManagerProps)
+    arrow patchEdit(patch: Partial<AgentDef>)
+    arrow patchChatConfig(key: string, val: any)
+    arrow patchGuardrails(key: string, val: string)
+    arrow toggleToolGroup(gid: string)
+    arrow toggleFallback(modelId: string)
+    async arrow saveRules()
+    async arrow saveModel()
+    async arrow saveSkills()
+    async arrow resetAgent()
+    async arrow deleteAgent()
+    async arrow handleAgentCreated(agentId: string)
+  React Components:
+    function: Section
+    function: CrewManager
+
+## packages/ui/src/components/DecisionLog.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../api
+  Exports:
+    default function: DecisionLog
+  Functions:
+    function parseADRs(md: string)
+    function DecisionLog({ projectRoot, refreshKey = 0 }: DecisionLogProps)
+    async arrow handleAdd()
+  React Components:
+    function: DecisionLog
+
+## packages/ui/src/components/DiffViewer.tsx [tsx]
+  Imports:
+    * ← react
+  Exports:
+    function: DiffViewer
+    default value: DiffViewer
+  Functions:
+    function parseUnifiedDiff(diffText: string)
+    function DiffViewer({ diffText, theme }: { diffText: string; theme?: "light" | "dark" })
+    function FileDiff({ file, colors }: { file: DiffFile; colors: any })
+    function DiffLineRow({ line, colors }: { line: DiffLine; colors: any })
+  React Components:
+    function: DiffViewer
+    function: FileDiff
+    function: DiffLineRow
+
+## packages/ui/src/components/DirectoryExplorer.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../theme
+    * ← ../api
+  Exports:
+    default function: DirectoryExplorer
+  Functions:
+    function DirectoryExplorer({
+    initialPath,
+    onSelect,
+    onClose,
+    title = "📂 選擇目錄",
+}: Props)
+    arrow handler(e: KeyboardEvent)
+    arrow goUp()
+    async arrow handleManualGo()
+  React Components:
+    function: DirectoryExplorer
+
+## packages/ui/src/components/EMDashboard.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../api
+    * ← ./ChatMessages
+    * ← ./AutoDispatchPanel
+    * ← ./ModelSelector
+    * ← ../utils
+    * ← ../i18n
+    * ← ./MarkdownText
+  Exports:
+    default function: EMDashboard
+  Functions:
+    function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, openMainTab, adRefreshTrigger = 0, model, onModelChange, loopMode, onLoopModeChange }: EMDashboardProps)
+    async arrow poll()
+    async arrow patchEmConfig(patch: any)
+    async arrow patchEmConfigDeep(section: string, key: string, value: any)
+    async arrow saveEmConfig()
+    async arrow resetEmConfig()
+    arrow fmt(label: string, x?: { added: number; removed: number; modified: number })
+    async arrow sendMessage()
+    arrow stopAgent()
+    async arrow confirmEMPlan(_plan: PendingPlan)
+    async arrow stopDispatch()
+  React Components:
+    function: EMDashboard
+
+## packages/ui/src/components/EvidenceCard.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: EvidenceCard
+  Functions:
+    function riskColor(level: string)
+    function scoreColor(score: number)
+    function EvidenceCard({
+  rootPath,
+  taskId,
+  theme,
+  onClose,
+  onDecision,
+}: {
+  rootPath: string;
+  taskId: string;
+  theme: any;
+  onClose: () => void;
+  onDecision?: (decision: "approved" | "rejected", taskId: string) => void;
+})
+    async arrow triggerRepair()
+    async arrow approve()
+    async arrow reject()
+    arrow btn(bg: string, extra: React.CSSProperties = {})
+  React Components:
+    function: EvidenceCard
+
+## packages/ui/src/components/FeatureCockpit.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../api
+  Exports:
+    function: FeatureCockpit
+    function: EntryRow
+  Functions:
+    function joinPath(root: string, rel: string)
+    function baseName(p: string)
+    function shortDate(iso?: string)
+    function KindBadge({ kind }: { kind?: string | null })
+    function CallChainTree({ chain, t, borderLight }: { chain: { function: string; depth: number; file?: string; resolved?: boolean }[]; t: any; borderLight: string })
+    function FeatureCockpit({ feature, model, callChainMap, t, accent, borderLight, accentText, FileLink, onBack }: any)
+    function EntryRow({ api, chain, t, borderLight }: any)
+  React Components:
+    function: KindBadge
+    function: CallChainTree
+    function: FeatureCockpit
+    function: EntryRow
+
+## packages/ui/src/components/FeatureMap.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../utils
+    * ← ../i18n
+    * ← ./FeatureCockpit
+    * ← ../api
+  Exports:
+    default function: FeatureMap
+  Functions:
+    function FeatureMap({ rootPath, theme, onOpenFile }: Props)
+    async arrow handleRefreshMapping()
+    async arrow handleUnderstand()
+    async arrow handleSaveDocs()
+    async arrow handleCreate(name: string, description: string)
+    async arrow handleDelete(id: string)
+    function CreateFeatureForm({ onCreate, onCancel, theme, t }: {
+  onCreate: (name: string, description: string) => void;
+  onCancel: () => void;
+  theme: any;
+  t: (k: string) => string;
+})
+    function FeatureDetail({ feature, theme, t, onOpenFile, ruModel, callChainMap, understanding, onUnderstand, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, onDelete, rootPath }: {
+  feature: Feature;
+  theme: any;
+  t: (k: string) => string;
+  onOpenFile?: (p: string) => void;
+  ruModel?: any;
+  callChainMap?: Map<string, any> | null;
+  understanding: string | null;
+  onUnderstand: () => void;
+  editingDocs: boolean;
+  docsContent: string;
+  setDocsContent: (s: string) => void;
+  setEditingDocs: (b: boolean) => void;
+  onSaveDocs: () => void;
+  savingDocs: boolean;
+  onDelete: () => void;
+  rootPath: string;
+})
+    function FileToFeatureList({ features, theme, t, searchQuery, onSelectFeature, onOpenFile }: {
+  features: Feature[];
+  theme: any;
+  t: (k: string) => string;
+  searchQuery: string;
+  onSelectFeature: (id: string) => void;
+  onOpenFile?: (p: string) => void;
+})
+    function Section({ title, count, theme, children }: {
+  title: string;
+  count: number;
+  theme: any;
+  children: React.ReactNode;
+})
+  React Components:
+    function: FeatureMap
+    function: CreateFeatureForm
+    function: FeatureDetail
+    function: FileToFeatureList
+    function: Section
+
+## packages/ui/src/components/FileEmoji.tsx [tsx]
+  Exports:
+    function: fileEmoji
+  Functions:
+    function fileEmoji(ext: string)
+
+## packages/ui/src/components/FileImportPicker.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../theme
+    * ← ../api
+  Exports:
+    default function: FileImportPicker
+  Functions:
+    function FileImportPicker({
+  open,
+  onClose,
+  onPick,
+  existingNames = [],
+  title = "匯入檔案",
+}: Props)
+    arrow handler(e: KeyboardEvent)
+    arrow handleConfirm()
+    arrow handleManualGo()
+  React Components:
+    function: FileImportPicker
+
+## packages/ui/src/components/FilePickerModal.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../api
+  Exports:
+    default function: FilePickerModal
+  Functions:
+    function FilePickerModal({ open, mode, onClose, onPick, existingNames = [], title }: FilePickerModalProps)
+    async arrow findAndLoad(nodes: TreeNode[])
+    arrow handleConfirm()
+    function PickerTree({ nodes, depth, expandedPaths, onToggle, selectedPath, onSelect, mode }: {
+  nodes: TreeNode[]; depth: number; expandedPaths: Set<string>;
+  onToggle: (path: string) => void; selectedPath: string | null;
+  onSelect: (path: string, type: "dir" | "file") => void; mode: PickerMode;
+})
+    function findNode(root: TreeNode, path: string)
+  React Components:
+    function: FilePickerModal
+    function: PickerTree
+
+## packages/ui/src/components/HandoverPanel.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../api
+    * ← ../i18n
+    * ← ./RuQaSection
+    * ← ./AgentSideChat
+    * ← ./MarkdownText
+  Exports:
+    default function: HandoverPanel
+  Functions:
+    function SafeMarkdown({ content }: { content: string })
+    function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }: Props)
+    async arrow generate()
+    arrow section(key: string, icon: string, title: string, content: string | null, maxLines: number)
+    function StatCard({ label, value, icon }: { label: string; value: string; icon: string })
+  Classes:
+    class HandoverErrorBoundary { state, getDerivedStateFromError, render }
+    class ErrorBoundary { getDerivedStateFromError, componentDidCatch, render }
+  React Components:
+    function: SafeMarkdown
+    function: HandoverPanel
+    function: StatCard
+
+## packages/ui/src/components/Icon.tsx [tsx]
+  Imports:
+    * ← react
+  Exports:
+    default function: Icon
+    function: IconLabel
+    function: CliIcon
+    function: ApprovalIcon
+  Functions:
+    function Icon({ name, size = 16, className = "", style }: IconProps)
+    function IconLabel({ name, children, size = 14, gap = 4, className = "" }: {
+    name: keyof typeof PATHS | string;
+    children: React.ReactNode;
+    size?: number;
+    gap?: number;
+    className?: string;
+})
+    function CliIcon({ cli, size = 14 }: { cli: string; size?: number })
+    function ApprovalIcon({ mode, size = 14 }: { mode: string; size?: number })
+  React Components:
+    function: Icon
+    function: IconLabel
+    function: CliIcon
+    function: ApprovalIcon
+
+## packages/ui/src/components/IssueTracker.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../utils
+    * ← ../i18n
+    * ← ../api
+    * ← ./MarkdownText
+  Exports:
+    default function: IssueTracker
+  Functions:
+    function IssueTracker({ rootPath, theme, onOpenFile, onNavigateTask }: Props)
+    async arrow handleCreate(form: Partial<Issue>)
+    async arrow handleUpdate(id: string, patch: Partial<Issue>)
+    async arrow handleDelete(id: string)
+    async arrow handleAddNote()
+    async arrow handleImport()
+    arrow startEdit(issue: Issue)
+  React Components:
+    function: IssueTracker
+
+## packages/ui/src/components/JsonViewer.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../utils
+    * ← ../theme
+  Exports:
+    default function: JsonViewer
+  Functions:
+    function getType(v: unknown)
+    function getChildCount(v: unknown)
+    function isExpandable(v: unknown)
+    function truncate(str: string, max = 300)
+    function matchesSearch(value: unknown, query: string)
+    function findMatchingPaths(obj: unknown, query: string, prefix = "$")
+    function walk(v: unknown, path: string)
+    function expandableEntries(data: unknown)
+    function TypeBadge({ type, count }: { type: string; count?: number })
+    function CopyButton({ value, label }: { value: string; label?: string })
+    arrow handleCopy(e: React.MouseEvent)
+    function ValueDisplay({ value, type, highlighted }: { value: JsonValue; type: string; highlighted?: boolean })
+    function JsonTree({
+  data, keyName, depth, path, expandedSet, onToggle, searchQuery,
+}: {
+  data: unknown; keyName: string; depth: number; path: string;
+  expandedSet: Set<string>; onToggle: (path: string) => void; searchQuery: string;
+})
+    function JsonViewer({ data, title, compact = false, readOnly = false }: JsonViewerProps)
+    function walk(v: unknown, p: string)
+  React Components:
+    function: TypeBadge
+    function: CopyButton
+    function: ValueDisplay
+    function: JsonTree
+    function: JsonViewer
+
+## packages/ui/src/components/KnowledgeTree.tsx [tsx]
+  Imports:
+    * ← react
+    * ← react-dom
+    * ← ../utils
+    * ← ../i18n
+    * ← ./FileEmoji
+    * ← ../api
+    * ← ./FileImportPicker
+    * ← ./MoveFolderPicker
+  Exports:
+    default function: KnowledgeTree
+  Functions:
+    function RenameInput({ defaultValue, onConfirm, onCancel }: {
+  defaultValue: string; onConfirm: (name: string) => void; onCancel: () => void;
+})
+    function CtxMenu({ menu, onAction, onClose }: {
+  menu: CtxState; onAction: (action: string, menu: CtxState) => void; onClose: () => void;
+})
+    arrow handler(e: MouseEvent)
+    arrow handler(e: KeyboardEvent)
+    arrow handleRename(newName: string)
+    function NewItemInput({ parentPath, type, onConfirm, onCancel }: {
+  parentPath: string; type: "file" | "folder";
+  onConfirm: (path: string) => void; onCancel: () => void;
+})
+    arrow handleConfirm()
+    function KnowledgeTree({ onOpenFile, onEditFile, onOpenInBriefingPlayer, onAiSummary }: { 
+  onOpenFile?: (path: string) => void;
+  onEditFile?: (path: string) => void;
+  onOpenInBriefingPlayer?: (dir: string) => void;
+  onAiSummary?: (path: string, name: string, isDir: boolean) => void;
+})
+    async arrow findAndLoad(nodes: TreeNode[])
+    function findNode(root: TreeNode, path: string)
+  React Components:
+    function: RenameInput
+    function: CtxMenu
+    function: NewItemInput
+    function: KnowledgeTree
+
+## packages/ui/src/components/LlmLogTab.tsx [tsx]
+  Imports:
+    * ← react
+  Exports:
+    default function: LlmLogTab
+  Functions:
+    function formatDuration(ms: number | null)
+    function formatTokens(n: number)
+    function LlmLogTab()
+  React Components:
+    function: LlmLogTab
+
+## packages/ui/src/components/MarkdownText.tsx [tsx]
+  Imports:
+    * ← react
+    * ← react-markdown
+    * ← remark-gfm
+    * ← remark-breaks
+  Exports:
+    default function: MarkdownText
+  Functions:
+    function MarkdownText({ children, className = "" }: { children: string; className?: string })
+  React Components:
+    function: MarkdownText
+
+## packages/ui/src/components/ModelSelector.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../api
+  Exports:
+    function: getModelForFeature
+    function: saveModelForFeature
+    default function: ModelSelector
+  Functions:
+    async function ensurePrefsLoaded()
+    async function getModelForFeature(feature: string)
+    async function saveModelForFeature(feature: string, value: string)
+    function parseValue(value: string)
+    function formatValue(providerId: string, modelId: string)
+    function ModelSelector({ feature, value, onChange, className, style }: ModelSelectorProps)
+    function resolveValidModelWith(provList: ProviderInfo[], val: string)
+    async arrow load()
+    arrow handler(e: MouseEvent)
+  React Components:
+    function: ModelSelector
+
+## packages/ui/src/components/MoveFolderPicker.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../theme
+    * ← ../api
+  Exports:
+    default function: MoveFolderPicker
+  Functions:
+    function MoveFolderPicker({
+  open,
+  onClose,
+  onPick,
+  rootPath,
+  itemName,
+}: Props)
+    arrow handler(e: KeyboardEvent)
+  React Components:
+    function: MoveFolderPicker
+
+## packages/ui/src/components/PaawTree.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: PaawTree
+  Functions:
+    function paawFileIcon(name: string)
+    function TreeItem({
+  node,
+  depth,
+  expanded,
+  onToggle,
+  onOpenFile,
+}: {
+  node: PaawNode;
+  depth: number;
+  expanded: Set<string>;
+  onToggle: (path: string) => void;
+  onOpenFile: (path: string, name: string) => void;
+})
+    function PaawTree({ projectRoot, onOpenFile, refreshKey = 0 }: PaawTreeProps)
+    arrow findDirs(node: PaawNode)
+    async arrow handleInit()
+    async arrow handleGenerate()
+  React Components:
+    function: TreeItem
+    function: PaawTree
+
+## packages/ui/src/components/ProjectAiPanel.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ./MarkdownText
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: ProjectAiPanel
+  Functions:
+    function ProjectAiPanel({ context, initialPrompt, tk, onClose }: Props)
+    async arrow handleSend(overrideText?: string)
+    arrow handleKeyDown(e: React.KeyboardEvent)
+    arrow stopGeneration()
+  React Components:
+    function: ProjectAiPanel
+
+## packages/ui/src/components/ReleaseManagerPanel.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../api
+    * ← ../i18n
+    * ← ./AgentSideChat
+    * ← ./EvidenceCard
+  Exports:
+    default function: ReleaseManagerPanel
+  Functions:
+    function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashboard }: Props)
+    async arrow runTests()
+    arrow readinessEvidence()
+    arrow generateReport()
+    arrow askBoss(topic: string)
+    async arrow runRetrofit()
+    async arrow approve(taskId: string)
+    async arrow reject(taskId: string)
+    arrow phaseBadge(st: string)
+    arrow riskColor(lv: string | null | undefined)
+    arrow trustColor(s: number | null)
+    function fmtShort(iso?: string)
+  React Components:
+    function: ReleaseManagerPanel
+
+## packages/ui/src/components/RuCostSection.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: RuCostSection
+  Functions:
+    arrow fmtUsd(n: number)
+    arrow fmtTok(n: number)
+    function RuCostSection({ rootPath, theme }: { rootPath: string; theme: any })
+  React Components:
+    function: RuCostSection
+
+## packages/ui/src/components/RuModelSection.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: RuModelSection
+  Functions:
+    function RuModelSection({ rootPath, theme }: { rootPath: string; theme: any })
+    arrow stat(v: number | null | undefined)
+  React Components:
+    function: RuModelSection
+
+## packages/ui/src/components/RuQaSection.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: RuQaSection
+  Functions:
+    function RuQaSection({ rootPath, theme, onAskAi }: { rootPath: string; theme: any; onAskAi?: (question: string, engineResult: Answer | null) => void })
+    arrow chip(e: Evidence, i: number)
+  React Components:
+    function: RuQaSection
+
+## packages/ui/src/components/SecurityTab.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../utils
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: SecurityTab
+  Functions:
+    function SeverityDot({ severity, size = 10 }: { severity: string; size?: number })
+    function SecurityTab({ rootPath, theme, onOpenFile, onDispatchAgent, agentBusy }: Props)
+  React Components:
+    function: SeverityDot
+    function: SecurityTab
+
+## packages/ui/src/components/SessionHistory.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../api
+  Exports:
+    default function: SessionHistory
+  Functions:
+    function formatDate(iso: string)
+    function formatSize(bytes: number)
+    function SessionHistory({ projectRoot, refreshKey = 0 }: SessionHistoryProps)
+  React Components:
+    function: SessionHistory
+
+## packages/ui/src/components/ShellTerminal.tsx [tsx]
+  Imports:
+    * ← react
+    * ← @xterm/xterm
+    * ← @xterm/addon-fit
+    * ← @xterm/xterm/css/xterm.css
+  Exports:
+    default function: ShellTerminal
+  Functions:
+    function ShellTerminal({ cwd, fontSize = 13, active = true }: ShellTerminalProps)
+  React Components:
+    function: ShellTerminal
+
+## packages/ui/src/components/SidebarFileTree.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../utils
+    * ← ../theme
+    * ← ./FileEmoji
+    * ← ../i18n
+    * ← ../api
+    * ← ./FileImportPicker
+    * ← ./MoveFolderPicker
+  Exports:
+    default function: SidebarFileTree
+  Functions:
+    function RenameInput({ defaultValue, onConfirm, onCancel }: {
+  defaultValue: string; onConfirm: (name: string) => void; onCancel: () => void;
+})
+    function NewItemInput({ parentPath, depth, type, onConfirm, onCancel }: {
+  parentPath: string; depth: number; type: "file" | "folder";
+  onConfirm: (path: string) => void; onCancel: () => void;
+})
+    arrow handleConfirm()
+    function ContextMenu({ menu, onAction, onClose }: {
+  menu: CtxMenuState;
+  onAction: (action: string, menu: CtxMenuState) => void;
+  onClose: () => void;
+})
+    arrow handleClick(e: MouseEvent)
+    arrow handleKey(e: KeyboardEvent)
+    function closeGlobalCtxMenu()
+    function pathStartsWith(p: string, prefix: string)
+    function relativePath(p: string, prefix: string)
+    function fileIconElement(name: string)
+    function findNode(root: TreeNode, path: string)
+    function SidebarFileTree({ projectRoot, activeFilePath, openFilePaths, onSelectFile, startDepth = 0, onRemoveWorkspace, onEditFile, onOpenInBriefingPlayer, onAiSummary }: Props)
+  React Components:
+    function: RenameInput
+    function: NewItemInput
+    function: ContextMenu
+    function: SidebarFileTree
+
+## packages/ui/src/components/SkillPicker.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../utils
+    * ← ../api
+  Exports:
+    default function: SkillPicker
+  Functions:
+    function SkillPicker({ rootPath, selected, onChange, theme: t }: SkillPickerProps)
+    arrow toggle(id: string)
+  React Components:
+    function: SkillPicker
+
+## packages/ui/src/components/StandardsEditor.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../api
+  Exports:
+    default function: StandardsEditor
+  Functions:
+    function StandardsEditor({ projectRoot, refreshKey = 0 }: StandardsEditorProps)
+    async arrow handleSave()
+    async arrow handleImport(templateName: string)
+    async arrow handleGenerate()
+    async arrow handleCreate()
+    arrow onContentChange(v: string)
+  React Components:
+    function: StandardsEditor
+
+## packages/ui/src/components/TabErrorBoundary.tsx [tsx]
+  Imports:
+    * ← react
+  Exports:
+    default class: TabErrorBoundary
+  Classes:
+    class TabErrorBoundary { state, getDerivedStateFromError, componentDidCatch, render }
+
+## packages/ui/src/components/TaskBoard.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← ../api
+    * ← ./MarkdownText
+    * ← ./EvidenceCard
+  Exports:
+    default function: TaskBoard
+  Functions:
+    function getTaskSourceIcon(task: Task)
+    function getCurrentPhase(task: Task)
+    function getPhaseMiniBar(task: Task)
+    function getAssigneeIcon(assignTo?: string)
+    function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue, visible = true }: Props)
+    arrow navigateTo(id: string)
+    async arrow handleCreate(form: Partial<Task>)
+    async arrow handleUpdate(id: string, patch: Partial<Task>)
+    async arrow handleDelete(id: string)
+    async arrow handleDecompose()
+    async arrow handleAddNote()
+    async arrow handleAdvancePhase(taskId: string, phase: string)
+    async arrow handleRejectPhase(taskId: string, phase: string)
+    async arrow handleGitStage(taskId: string)
+    async arrow handleGitCommit(taskId: string, message: string, push: boolean)
+    async arrow handleGitRestore(taskId: string)
+    async arrow handleViewDiff(taskId: string)
+    arrow startEdit(task: Task)
+    arrow renderPhaseMiniBar(task: Task)
+    arrow renderPipelineProgressBar(task: Task)
+    arrow renderSpecSection(task: Task)
+    arrow renderChangesSection(task: Task)
+    arrow renderTestResultSection(task: Task)
+    arrow renderQaResultSection(task: Task)
+    arrow renderGitSection(task: Task)
+    arrow renderDiffModal()
+  React Components:
+    function: TaskBoard
+
+## packages/ui/src/components/TestsPage.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← ../theme
+    * ← ./AgentSideChat
+    * ← ./useRuModel
+  Exports:
+    default value: TestsPage
+  Functions:
+    arrow baseName(p: string)
+    function TestsPageInner({ rootPath, onOpenFile }: Props, ref: React.Ref<AgentSideChatHandle | null>)
+    arrow askGaps()
+    arrow askMapping(e: TestToCodeEntry)
+  React Components:
+    function: TestsPageInner
+
+## packages/ui/src/components/TroubleshootingPanel.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../api
+    * ← ../i18n
+    * ← ./AgentSideChat
+  Exports:
+    default function: TroubleshootingPanel
+  Functions:
+    function TroubleshootingPanel({ rootPath, theme: tk }: Props)
+    async arrow openRunbook(id: string)
+    async arrow generateRunbook()
+  React Components:
+    function: TroubleshootingPanel
+
+## packages/ui/src/components/browser/BrowserPanel.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../../i18n
+  Exports:
+    function: BrowserPanel
+    default value: BrowserPanel
+  Functions:
+    arrow hostOf(u: string)
+    function BrowserPanel({ API_BASE }: { API_BASE: string })
+    async arrow poll()
+    arrow measure()
+    arrow toPageXY(clientX: number, clientY: number)
+    arrow onCastMouseDown(e: React.MouseEvent)
+    arrow onCastMouseUp(e: React.MouseEvent)
+    arrow onCastMouseMove(e: React.MouseEvent)
+    arrow onWheel(e: WheelEvent)
+    arrow onCastKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>)
+    arrow onCastCompositionEnd(e: React.CompositionEvent<HTMLTextAreaElement>)
+    async arrow navigate()
+    async arrow navAction(act: "back" | "forward" | "reload")
+    async arrow tabAction(action: string, id?: string)
+    async arrow respondDialog(id: string, action: "accept" | "dismiss")
+    async arrow grabClipboard()
+    arrow modeBtn(m: Mode, icon: string, titleKey: string)
+  React Components:
+    function: BrowserPanel
+
+## packages/ui/src/components/git/GitCommitBar.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../../utils
+    * ← ./git-helpers
+  Exports:
+    default function: GitCommitBar
+  Functions:
+    function GitCommitBar({
+  commitMsg,
+  onCommitMsgChange,
+  selectedCount,
+  stagedFiles,
+  allFiles,
+  onCommitSelected,
+  onCommitAll,
+  onAiGenerateMsg,
+  aiLoading,
+  actionMsg,
+  onClearActionMsg,
+  theme,
+}: GitCommitBarProps)
+  React Components:
+    function: GitCommitBar
+
+## packages/ui/src/components/git/GitDiffView.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../../utils
+    * ← ./git-helpers
+    * ← ../DiffViewer
+  Exports:
+    default function: GitDiffView
+  Functions:
+    function splitDiffByCategory(diffText: string)
+    function GitDiffView({
+  diffText,
+  diffMode,
+  diffFile,
+  gitLog,
+  onDiffModeChange,
+  onCommitClick,
+  onQaReview,
+  qaReviewLoading,
+  hasStagedChanges,
+  fmtTime,
+  theme,
+}: GitDiffViewProps)
+    function DiffGroupSection({ group, fileCount }: { group: DiffFileGroup; fileCount: number })
+  React Components:
+    function: GitDiffView
+    function: DiffGroupSection
+
+## packages/ui/src/components/git/GitFileGroup.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../../utils
+    * ← ./git-helpers
+  Exports:
+    default function: GitFileGroupCard
+  Functions:
+    function GitFileGroupCard({
+  group,
+  selectedKeys,
+  onToggleKey,
+  onSelectKeys,
+  onFileClick,
+  onUnstageFile,
+  onStageFile,
+  className,
+}: GitFileGroupProps)
+  React Components:
+    function: GitFileGroupCard
+
+## packages/ui/src/components/git/GitPanel.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../../utils
+    * ← ./GitStatusView
+    * ← ./GitDiffView
+    * ← ./GitReviewView
+    * ← ./GitCommitBar
+    * ← ./git-helpers
+  Exports:
+    default function: GitPanel
+  Functions:
+    function GitPanel(props: GitPanelProps)
+  React Components:
+    function: GitPanel
+
+## packages/ui/src/components/git/GitReviewView.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../../utils
+  Exports:
+    default function: GitReviewView
+  Functions:
+    function parseReviewSections(text: string)
+    function GitReviewView({
+  qaReview,
+  qaReviewLoading,
+  qaVerdict,
+  gitReviews,
+  onRunReview,
+  onApprove,
+  onRework,
+  fmtTime,
+  theme,
+}: GitReviewViewProps)
+  React Components:
+    function: GitReviewView
+
+## packages/ui/src/components/git/GitStatusView.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../../utils
+    * ← ./git-helpers
+    * ← ./GitFileGroup
+  Exports:
+    default function: GitStatusView
+  Functions:
+    function GitStatusView({
+  unpushed,
+  onCommitClick,
+  gitStatus,
+  selectedKeys,
+  onToggleKey,
+  onSelectKeys,
+  onFileClick,
+  stagedSummary,
+  onPull,
+  onPush,
+  onRefresh,
+  gitLog,
+  fmtTime,
+  onApplySummary,
+  onQaReview,
+  onSelectAll,
+  onClearAll,
+  onUnstageFile,
+  onStageFile,
+  qaReviewLoading,
+  pipeline,
+  loopMode,
+  projectLoopMode,
+  qaVerdict,
+  onSpecApprove,
+  onSpecReject,
+  theme,
+}: GitStatusViewProps)
+    arrow phaseStatusIcon(status: string)
+  React Components:
+    function: GitStatusView
+
+## packages/ui/src/components/git/git-helpers.ts [typescript]
+  Exports:
+    function: fileKey
+    function: pathFromFileKey
+    function: classifyGitFile
+    function: groupGitFiles
+    function: getCategoryLabel
+    function: getStatusEmoji
+    function: getStatusColorClass
+  Functions:
+    function fileKey(f: GitFileStatus)
+    function pathFromFileKey(key: string)
+    function classifyGitFile(path: string)
+    function groupGitFiles(files: GitFileStatus[])
+    function getCategoryLabel(category: FileCategory)
+    function getStatusEmoji(status: string)
+    function getStatusColorClass(status: string, isStaged: boolean)
+
+## packages/ui/src/components/git/index.ts [typescript]
+  Exports:
+    named: default
+    named: default
+    named: default
+    named: default
+    named: default
+    named: default
+    named: classifyGitFile
+    named: groupGitFiles
+    named: getStatusEmoji
+    named: getStatusColorClass
+    named: getCategoryLabel
+    named: fileKey
+    named: pathFromFileKey
+    named: GitFileStatus
+    named: GitCommit
+    named: FileCategory
+    named: GitFileGroup
+
+## packages/ui/src/components/orchestrator/ApiSpecSection.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../../types
+    * ← ../ui/shared
+  Exports:
+    default function: ApiSpecSection
+  Functions:
+    function ApiSpecSection({ spec }: { spec: Orchestrator["apiSpec"] })
+  React Components:
+    function: ApiSpecSection
+
+## packages/ui/src/components/orchestrator/DecisionRuleTable.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../../types
+    * ← ../ui/shared
+  Exports:
+    default function: DecisionRuleTable
+  Functions:
+    function DecisionRuleTable({ rules }: { rules: DecisionRule[] })
+  React Components:
+    function: DecisionRuleTable
+
+## packages/ui/src/components/orchestrator/FlowStepList.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../../types
+    * ← ../ui/shared
+    * ← lucide-react
+  Exports:
+    default function: FlowStepList
+  Functions:
+    function FlowStepList({ steps }: { steps: FlowStep[] })
+  React Components:
+    function: FlowStepList
+
+## packages/ui/src/components/orchestrator/JsonSchemaViewer.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../ui/shared
+  Exports:
+    default function: JsonSchemaViewer
+  Functions:
+    function JsonSchemaViewer({ schema }: { schema: any })
+  React Components:
+    function: JsonSchemaViewer
+
+## packages/ui/src/components/orchestrator/MarkdownSection.tsx [tsx]
+  Imports:
+    * ← react
+    * ← react-markdown
+    * ← ../ui/shared
+  Exports:
+    default function: MarkdownSection
+  Functions:
+    function MarkdownSection({ title, content }: { title: string, content: string })
+  React Components:
+    function: MarkdownSection
+
+## packages/ui/src/components/orchestrator/NodeContractPanel.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../../types
+    * ← ../ui/shared
+    * ← ./JsonSchemaViewer
+    * ← lucide-react
+  Exports:
+    default function: NodeContractPanel
+  Functions:
+    function NodeItem({ node }: { node: NodeContract })
+    function NodeContractPanel({ contracts }: { contracts: NodeContract[] })
+  React Components:
+    function: NodeItem
+    function: NodeContractPanel
+
+## packages/ui/src/components/orchestrator/ObservabilityPanel.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../../types
+    * ← ../ui/shared
+  Exports:
+    default function: ObservabilityPanel
+  Functions:
+    function ObservabilityPanel({
+    errorPolicy,
+    errorCodes,
+    observability
+}: {
+    errorPolicy: Orchestrator["errorPolicy"];
+    errorCodes: Orchestrator["errorCodes"];
+    observability: Orchestrator["observability"];
+})
+  React Components:
+    function: ObservabilityPanel
+
+## packages/ui/src/components/orchestrator/OverviewCard.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../../types
+    * ← ../ui/shared
+    * ← ../../utils
+  Exports:
+    default function: OverviewCard
+  Functions:
+    function OverviewCard({ orch }: { orch: Orchestrator })
+  React Components:
+    function: OverviewCard
+
+## packages/ui/src/components/orchestrator/TestTargetsPanel.tsx [tsx]
+  Imports:
+    * ← ../../components/Icon
+    * ← react
+    * ← ../../types
+    * ← ../ui/shared
+  Exports:
+    default function: TestTargetsPanel
+  Functions:
+    function TestTargetsPanel({ targets }: { targets: TestTargets })
+    function TargetSection({ title, items, color, bg, border, icon }: { title: string, items: string[], color: string, bg: string, border: string, icon: string })
+  React Components:
+    function: TestTargetsPanel
+    function: TargetSection
+
+## packages/ui/src/components/ui/shared.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../../utils
+    * ← ../../types
+    * ← ../Icon
+  Exports:
+    named: cn
+    function: Card
+    function: RiskBadge
+    function: CodeBlock
+    function: SidebarSection
+    function: NavItem
+  Functions:
+    function Card({
+    title,
+    children,
+    right,
+    className,
+    style,
+}: {
+    title?: React.ReactNode;
+    children: React.ReactNode;
+    right?: React.ReactNode;
+    className?: string;
+    style?: React.CSSProperties;
+})
+    function RiskBadge({ risk }: { risk: Risk })
+    function CodeBlock({ text }: { text: string })
+    function findEmoji(label: string)
+    function SidebarSection({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode })
+    function NavItem({
+    active,
+    label,
+    onClick,
+    right,
+    emoji: emojiProp,
+    accentColor = "#f97316",
+    accentBg = "#fff7ed",
+}: {
+    active: boolean;
+    label: string;
+    onClick: () => void;
+    right?: React.ReactNode;
+    emoji?: string;
+    accentColor?: string;
+    accentBg?: string;
+})
+  React Components:
+    function: Card
+    function: RiskBadge
+    function: CodeBlock
+    function: SidebarSection
+    function: NavItem
+
+## packages/ui/src/components/useRuModel.ts [typescript]
+  Imports:
+    * ← react
+  Exports:
+    function: useRuModel
+    function: featureNameMap
+  Functions:
+    function useRuModel(rootPath?: string | null)
+    function featureNameMap(model: RuModelLite | null)
+
+## packages/ui/src/i18n/index.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ./locales/zh-mix.json
+    * ← ./locales/en.json
+    * ← ./locales/zh.json
+    * ← ./locales/ja.json
+  Exports:
+    variable: LOCALE_LABELS
+    function: I18nProvider
+    function: useI18n
+  Functions:
+    function getStoredLocale()
+    function storeLocale(locale: Locale)
+    function I18nProvider({ children }: { children: React.ReactNode })
+    function useI18n()
+  React Components:
+    function: I18nProvider
+
+## packages/ui/src/main.tsx [tsx]
+  Imports:
+    * ← react
+    * ← react-dom/client
+    * ← ./App
+    * ← ./i18n
+    * ← ./index.css
+
+## packages/ui/src/pages/A2APlayground.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← ../api
+    * ← ../utils
+  Exports:
+    default function: A2APlayground
+  Functions:
+    function A2APlayground({ }: { _a2a?: boolean })
+    arrow handleKeyDown(e: React.KeyboardEvent)
+  React Components:
+    function: A2APlayground
+
+## packages/ui/src/pages/AICrew.tsx [tsx]
+  Imports:
+    * ← ../api
+    * ← react
+    * ← ../components/ui/shared
+    * ← ../types
+    * ← ../theme
+    * ← ../i18n
+    * ← ../components/CrewEditor
+    * ← ../components/Icon
+  Exports:
+    default function: AICrew
+  Functions:
+    function AICrew({ openEmployee, onCrewChanged }: AICrewProps)
+    arrow handleAdd()
+    arrow handleEdit(c: Crew)
+    async arrow handleSave(crewData: Crew)
+    async arrow handleDelete(id: string)
+  React Components:
+    function: AICrew
+
+## packages/ui/src/pages/AISettingsPage.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../theme
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: AISettingsPage
+  Functions:
+    function AISettingsPage()
+    arrow startEdit(file: string)
+    async arrow save()
+    arrow cancelEdit()
+    async arrow handleCreate()
+    async arrow handleDelete(file: string)
+  React Components:
+    function: AISettingsPage
+
+## packages/ui/src/pages/AgenticSettings.tsx [tsx]
+  Imports:
+    * ← react
+  Exports:
+    default function: AgenticSettings
+  Functions:
+    function AgenticSettings()
+    function Field({ label, value, onChange, mono }: {
+  label: string; value: string; onChange: (v: string) => void; mono?: boolean;
+})
+  React Components:
+    function: AgenticSettings
+    function: Field
+
+## packages/ui/src/pages/AppBuilder.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../utils
+    * ← ../theme
+    * ← ../i18n
+    * ← ../types
+    * ← ../components/AgentConsole
+    * ← ../api
+    * ← ../components/ModelSelector
+  Exports:
+    default function: AppBuilder
+  Functions:
+    function SkillPickerDialog({
+    skills,
+    onSelect,
+    onClose,
+}: {
+    skills: SkillDefinition[];
+    onSelect: (sk: SkillDefinition) => void;
+    onClose: () => void;
+})
+    function AppBuilder()
+    async arrow handlePreviewPrompt()
+    arrow finishPolling(reason: string)
+  React Components:
+    function: SkillPickerDialog
+    function: AppBuilder
+
+## packages/ui/src/pages/AppPool.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../theme
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: AppPool
+  Functions:
+    function AppPool({ onOpenApp }: { onOpenApp: (appId: string) => void })
+    arrow loadApps()
+    arrow handleUnpublish(appId: string)
+    arrow handleDelete(appId: string)
+  React Components:
+    function: AppPool
+
+## packages/ui/src/pages/BackupSettings.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← ../theme
+    * ← ../api
+  Exports:
+    default function: BackupSettings
+  Functions:
+    function BackupSettings()
+    arrow msg(type: "ok" | "err", text: string)
+    async arrow saveLogRetention()
+    async arrow runLogPurge()
+    async arrow runBackup()
+    async arrow saveConfig()
+    async arrow doRestore(filename: string)
+    async arrow deleteBackup(filename: string)
+    function formatSize(bytes: number)
+  React Components:
+    function: BackupSettings
+
+## packages/ui/src/pages/BriefingPlayer.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../theme
+    * ← ../i18n
+    * ← ../api
+    * ← highlight.js/lib/common
+    * ← highlight.js/lib/languages/java
+    * ← highlight.js/lib/languages/yaml
+    * ← highlight.js/lib/languages/dockerfile
+    * ← highlight.js/lib/languages/ini
+    * ← highlight.js/lib/languages/properties
+    * ← highlight.js/styles/github.css
+  Exports:
+    default function: BriefingPlayer
+  Functions:
+    function getHljsLang(name: string)
+    function normalizePath(p: string)
+    function isAbsolutePath(p: string)
+    function pathBasename(p: string)
+    function joinPath(dir: string, rel: string)
+    function parseMarkdown(rawText: string, mdDir: string)
+    function renderMarkdown(md: string, theme?: any)
+    arrow flushTable()
+    arrow parseRow(row: string)
+    function renderInline(text: string)
+    function RefOverlay({ refPath, onClose, theme }: { refPath: string; onClose: () => void; theme: any })
+    arrow handler(e: KeyboardEvent)
+    function BriefingPlayer({ initialDir }: { initialDir?: string | null })
+    arrow collect(node: any)
+    arrow handler(e: KeyboardEvent)
+    arrow handler()
+    arrow getRelPos(clientX: number, clientY: number)
+    arrow handleContentMouseDown(e: React.MouseEvent)
+    arrow handleMarkerMouseDown(e: React.MouseEvent, idx: number)
+    arrow onMove(e: MouseEvent)
+    arrow onUp()
+    arrow render()
+  React Components:
+    function: RefOverlay
+    function: BriefingPlayer
+
+## packages/ui/src/pages/ChatView.tsx [tsx]
+  Imports:
+    * ← react
+    * ← react-markdown
+    * ← remark-gfm
+    * ← remark-breaks
+    * ← ../theme
+    * ← ../i18n
+    * ← ../api
+    * ← ../utils
+  Exports:
+    function: sendSeedToChat
+    default function: ChatView
+  Functions:
+    function sendSeedToChat(msg: string)
+    arrow AssistantAvatarImg({ src, alt, size = "w-8 h-8" }: { src: string; alt?: string; size?: string })
+    arrow ToolBadgeChip({ tool, runningLabel }: { tool: ToolBadge; runningLabel: string })
+    function ChatView({ profile, embedded = false, onTitleChange, onDeepLink, seedMessage, onSeedConsumed, apps = [], onOpenApp, providerReady, onProviderNotReady }: Props)
+    arrow onScroll()
+    async arrow consumeSeed()
+    async arrow createNewChat()
+    async arrow deleteChat(chatId: string)
+    arrow selectChat(chat: Chat)
+    async arrow saveMessages(chatId: string, msgs: Message[])
+    async arrow handleSend(overrideText?: string)
+    arrow handleStop()
+    arrow handleKeyDown(e: React.KeyboardEvent)
+    async arrow switchModel(providerId: string, modelId: string)
+  React Components:
+    arrow: AssistantAvatarImg
+    arrow: ToolBadgeChip
+    function: ChatView
+
+## packages/ui/src/pages/CronJobsPage.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../theme
+    * ← ../i18n
+    * ← js-yaml
+    * ← ../api
+  Exports:
+    default function: CronJobsPage
+  Functions:
+    function CronJobsPage()
+    arrow reload()
+    arrow loadJobDetail(jobId: string)
+    arrow addParam()
+    arrow removeParam(idx: number)
+    arrow updateParam(idx: number, field: "key" | "value", val: string)
+    arrow resetForm()
+    arrow openEdit(job: CronJob)
+    async arrow handleSave()
+    arrow closeForm()
+    async arrow handleToggle(job: CronJob)
+    async arrow handleDelete(id: string)
+    async arrow handleRunNow(id: string, e?: React.MouseEvent)
+    arrow viewResult(file: string)
+    arrow statusIcon(status: string | null)
+  React Components:
+    function: CronJobsPage
+
+## packages/ui/src/pages/EmployeeWorkspace.tsx [tsx]
+  Imports:
+    * ← ../api
+    * ← ../components/ModelSelector
+    * ← react
+    * ← ../components/ui/shared
+    * ← ../types
+    * ← ../theme
+    * ← ../i18n
+    * ← ../components/Icon
+    * ← ../components/AgentConsole
+  Exports:
+    default function: EmployeeWorkspace
+  Functions:
+    function EmployeeWorkspace({ employeeId, projectRoot, crew: crewProp }: Props)
+    arrow handleStartClick()
+    async arrow computeHash(data: Record<string, string>)
+    async arrow launchTask(dialogData: Record<string, string>)
+    arrow handleDialogSubmit()
+    arrow handler(e: KeyboardEvent)
+  React Components:
+    function: EmployeeWorkspace
+
+## packages/ui/src/pages/FileEditor.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../theme
+    * ← ../i18n
+    * ← ../components/FileEmoji
+    * ← ../utils
+    * ← ../api
+  Exports:
+    default function: FileEditor
+  Functions:
+    function FileEditor({ filePath, active }: Props)
+  React Components:
+    function: FileEditor
+
+## packages/ui/src/pages/FileViewer.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../components/JsonViewer
+    * ← ../theme
+    * ← ../i18n
+    * ← ../components/FileEmoji
+    * ← ../utils
+    * ← highlight.js
+    * ← highlight.js/styles/github.css
+    * ← ../api
+  Exports:
+    default function: FileViewer
+  Functions:
+    function fileIconElement(name: string)
+    function detectLanguage(name: string)
+    function detectFileType(name: string)
+    function ImageView({ filePath }: { filePath: string })
+    function MarkdownView({ content }: { content: string })
+    function escapeHtml(str: string)
+    function CodeView({ content, fileName, filePath, active }: { content: string; fileName: string; filePath: string; active?: boolean })
+    function FileViewer({ filePath, projectRoot, active }: Props)
+    arrow handler(e: KeyboardEvent)
+    arrow doFetch(attempt = 0)
+  React Components:
+    function: ImageView
+    function: MarkdownView
+    function: CodeView
+    function: FileViewer
+
+## packages/ui/src/pages/GanttChart.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+  Exports:
+    default function: GanttChart
+  Functions:
+    function parseDate(s: string)
+    function fmtDate(ts: number)
+    function statusColor(status: string)
+    function monthLabel(ts: number)
+    function dayLabel(ts: number)
+    function GanttChart({ project, tk }: Props)
+    function taskBarStyle(task: GanttTask)
+    function milestonePos(dateStr: string)
+  React Components:
+    function: GanttChart
+
+## packages/ui/src/pages/Gates.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../components/ui/shared
+    * ← ../data/mockData
+    * ← ../types
+  Exports:
+    default function: Gates
+  Functions:
+    function Gates({ runSkill }: GatesProps)
+  React Components:
+    function: Gates
+
+## packages/ui/src/pages/HelpDesk.tsx [tsx]
+  Imports:
+    * ← react
+    * ← react-markdown
+    * ← remark-gfm
+    * ← remark-breaks
+    * ← ../theme
+    * ← ../i18n
+    * ← ../api
+    * ← ../utils
+  Exports:
+    default function: HelpDesk
+  Functions:
+    function formatTime(ts: string | number | undefined)
+    function escHtml(s: string)
+    function A2aTaskDetail({ task, theme, formatTime }: { task: any; theme: any; formatTime: (t: string) => string })
+    function HelpDesk({ active = true }: { active?: boolean })
+  React Components:
+    function: A2aTaskDetail
+    function: HelpDesk
+
+## packages/ui/src/pages/MindMapViewer.tsx [tsx]
+  Imports:
+    * ← react
+    * ← markmap-lib
+    * ← markmap-view
+    * ← ../theme
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: MindMapViewer
+  Functions:
+    function themeColors(accent: string)
+    function withAlpha(hex: string, alpha: number)
+    function MindMapViewer()
+  React Components:
+    function: MindMapViewer
+
+## packages/ui/src/pages/Monitoring.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../components/ui/shared
+    * ← ../data/mockData
+    * ← ../types
+  Exports:
+    default function: Monitoring
+  Functions:
+    function Monitoring({ runSkill }: MonitoringProps)
+  React Components:
+    function: Monitoring
+
+## packages/ui/src/pages/Notes.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../theme
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: Notes
+  Functions:
+    function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps)
+    arrow handler(e: MouseEvent)
+    function toolBtnStyle(tk: any)
+  Routes:
+    GET /api/notes/notebooks
+    GET /api/notes/tags
+    POST /api/notes/create
+    POST /api/notes/notebooks
+    POST /api/notes/sections
+    POST /api/notes/create
+    GET /api/notes/notebooks
+  React Components:
+    function: Notes
+
+## packages/ui/src/pages/OnboardingPage.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../theme
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: OnboardingPage
+  Functions:
+    function OnboardingPage({ onComplete }: Props)
+    async arrow saveBackupConfig()
+    arrow handleApiKeyChange(pid: string, key: string)
+    arrow handleBaseURLChange(pid: string, url: string)
+    async arrow saveProviders()
+    async arrow handleFinish()
+  React Components:
+    function: OnboardingPage
+
+## packages/ui/src/pages/OperationsCenter.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../components/ui/shared
+    * ← ../utils
+    * ← ../data/mockData
+    * ← ../types
+  Exports:
+    default function: OperationsCenter
+  Functions:
+    function OperationsCenter({
+    runs,
+    setActiveAppId,
+    setSelectedRunId,
+    setSelectedIncidentId,
+    runSkill,
+    todayIncidentCounts,
+    runCounts,
+    currentRuns,
+    todayIncidents,
+    suggestions,
+}: OperationsCenterProps)
+  React Components:
+    function: OperationsCenter
+
+## packages/ui/src/pages/OrchestratorOverview.tsx [tsx]
+  Imports:
+    * ← ../components/Icon
+    * ← react
+    * ← ../data/mockOrchestrators
+    * ← ../utils
+    * ← ../types
+  Exports:
+    default function: OrchestratorOverview
+  Functions:
+    function OrchestratorOverview({ openApp }: { openApp: (id: string) => void })
+  React Components:
+    function: OrchestratorOverview
+
+## packages/ui/src/pages/OrchestratorWorkspace.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../data/mockOrchestrators
+    * ← ../components/orchestrator/OverviewCard
+    * ← ../components/orchestrator/MarkdownSection
+    * ← ../components/orchestrator/ApiSpecSection
+    * ← ../components/orchestrator/FlowStepList
+    * ← ../components/orchestrator/DecisionRuleTable
+    * ← ../components/orchestrator/ObservabilityPanel
+    * ← ../components/orchestrator/NodeContractPanel
+    * ← ../components/orchestrator/TestTargetsPanel
+  Exports:
+    default function: OrchestratorWorkspace
+  Functions:
+    function OrchestratorWorkspace({ 
+    domain, 
+    orchId 
+}: { 
+    domain: string; 
+    orchId: string; 
+})
+    arrow scrollTo(id: string)
+  React Components:
+    function: OrchestratorWorkspace
+
+## packages/ui/src/pages/PluginManager.tsx [tsx]
+  Imports:
+    * ← react
+  Exports:
+    default function: PluginManager
+  Functions:
+    function PluginManager()
+  React Components:
+    function: PluginManager
+
+## packages/ui/src/pages/ProjectBoard.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../theme
+    * ← ../i18n
+    * ← ../api
+    * ← ./GanttChart
+    * ← ../components/ProjectAiPanel
+  Exports:
+    default function: ProjectBoard
+  Functions:
+    function sb(s: string)
+    function pb(p: string)
+    function pctColor(p: number)
+    function Modal({ title, onClose, children, tk }: { title: string; onClose: () => void; children: React.ReactNode; tk: any })
+    function ProjectBoard()
+    async arrow refresh()
+    async arrow openProject(id: string)
+    async arrow saveProject(data: any)
+    async arrow deleteProject(id: string)
+    async arrow addCategory(name: string, icon: string, desc: string)
+    async arrow updateCategory(catId: string, data: any)
+    async arrow deleteCategory(catId: string)
+    async arrow addTask(catId: string, name: string, priority: string, start: string, end: string)
+    async arrow updateTask(taskId: string, data: any)
+    async arrow deleteTask(taskId: string)
+    async arrow cycleTaskStatus(task: Task)
+    async arrow addMilestone(name: string, date: string)
+    async arrow updateMilestone(msId: string, data: any)
+    async arrow deleteMilestone(msId: string)
+    function QuickAddTask({ onAdd, tk, tt }: { onAdd: (name: string, priority: string, start: string, end: string) => void; tk: any; tt: (k: string, f?: string) => string })
+    function ProjectFormModal({ tk, tt, project, onClose, onSave }: { tk: any; tt: (k: string, f?: string) => string; project?: any; onClose: () => void; onSave: (d: any) => void })
+    function CategoryFormModal({ tk, tt, category, onClose, onSave }: { tk: any; tt: (k: string, f?: string) => string; category?: any; onClose: () => void; onSave: (n: string, i: string, d: string) => void })
+    function TaskFormModal({ tk, tt, task, onClose, onSave }: { tk: any; tt: (k: string, f?: string) => string; task?: any; onClose: () => void; onSave: (n: string, p: string, s: string, e: string, st: string) => void })
+    function MilestoneFormModal({ tk, tt, milestone, onClose, onSave }: { tk: any; tt: (k: string, f?: string) => string; milestone?: any; onClose: () => void; onSave: (n: string, d: string) => void })
+  Routes:
+    GET /api/projects
+    POST /api/projects
+  React Components:
+    function: Modal
+    function: ProjectBoard
+    function: QuickAddTask
+    function: ProjectFormModal
+    function: CategoryFormModal
+    function: TaskFormModal
+    function: MilestoneFormModal
+
+## packages/ui/src/pages/ProjectDashboard.tsx [tsx]
+  Imports:
+    * ← ../api
+    * ← react
+    * ← ../theme
+    * ← ../components/Icon
+    * ← ../utils
+  Exports:
+    default function: ProjectDashboard
+  Functions:
+    function ProjectDashboard({ projectRoot, openEmployee }: { projectRoot: string; openEmployee?: (id: string) => void })
+  React Components:
+    function: ProjectDashboard
+
+## packages/ui/src/pages/ProviderSetupPage.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../theme
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: ProviderSetupPage
+  Functions:
+    function ProviderSetupPage({ onComplete }: Props)
+    arrow handleApiKeyChange(pid: string, key: string)
+    arrow handleBaseURLChange(pid: string, url: string)
+    async arrow handleSave()
+  React Components:
+    function: ProviderSetupPage
+
+## packages/ui/src/pages/Rca.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../components/ui/shared
+    * ← ../utils
+    * ← ../data/mockData
+    * ← ../types
+  Exports:
+    default function: Rca
+  Functions:
+    function Rca({ selectedIncidentId, setSelectedIncidentId, runSkill }: RcaProps)
+  React Components:
+    function: Rca
+
+## packages/ui/src/pages/ReleaseUnitExplorer.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../utils
+    * ← ../components/FileEmoji
+    * ← ../utils
+    * ← ../api
+  Exports:
+    default function: ReleaseUnitExplorer
+  Functions:
+    async function fetchTree(root: string)
+    async function fetchLazyChildren(root: string, subpath: string)
+    async function fetchFile(path: string)
+    function fileIconElement(name: string)
+    function detectLang(name: string)
+    function TreeNodeView({
+  node,
+  root,
+  depth,
+  selectedPath,
+  onSelectFile,
+  onToggleDir,
+  expanded,
+}: {
+  node: TreeNode;
+  root: string;
+  depth: number;
+  selectedPath: string | null;
+  onSelectFile: (path: string) => void;
+  onToggleDir: (path: string) => void;
+  expanded: Set<string>;
+})
+    function ReleaseUnitExplorer({ projectRoot }: Props)
+    arrow findNode(nodes: TreeNode, target: string)
+  React Components:
+    function: TreeNodeView
+    function: ReleaseUnitExplorer
+
+## packages/ui/src/pages/SettingsPage.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../theme
+    * ← ../i18n
+    * ← ../api
+    * ← ./BackupSettings
+    * ← ./PluginManager
+  Exports:
+    default function: SettingsPage
+  Functions:
+    function SettingsPage({ initialTab, onTabChange, onProvidersSaved }: SettingsPageProps = {})
+    arrow setTab(newTab: typeof tab)
+    arrow handleApiKeyChange(pid: string, key: string)
+    arrow handleBaseURLChange(pid: string, url: string)
+    arrow handleProviderField(pid: string, field: string, value: any)
+    arrow addProvider()
+    arrow removeProvider(pid: string)
+    arrow renameProvider(oldPid: string, newPid: string)
+    arrow addModelToProvider(pid: string)
+    arrow handleModelText(pid: string, mid: string, field: string, value: string)
+    arrow handleModelField(pid: string, mid: string, field: string, raw: string)
+    arrow handleModelPricing(pid: string, mid: string, field: string, raw: string)
+    arrow removeModelFromProvider(pid: string, mid: string)
+    async arrow handleSaveProviders()
+    async arrow handleSaveProfile()
+    async arrow handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>)
+    arrow handleResetAvatar()
+    function ToolsTab()
+    async arrow toggleEnabled(routeId: string, enabled: boolean)
+  React Components:
+    function: SettingsPage
+    function: ToolsTab
+
+## packages/ui/src/pages/SkillBuilder.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../utils
+    * ← ../i18n
+    * ← ../theme
+    * ← ../components/AgentConsole
+    * ← react-markdown
+    * ← remark-gfm
+    * ← ../components/ModelSelector
+    * ← ../api
+  Exports:
+    default function: SkillBuilder
+  Functions:
+    function buildPromptFromFields(form: SkillForm)
+    function parseSkillMd(content: string)
+    arrow flushSection()
+    arrow flushLegacy()
+    function buildSkillMd(form: SkillForm)
+    function formatSize(bytes: number)
+    function typeIcon(type: string)
+    function StepCard({ number, icon, title, hint, children, required, accent, accentLight, accentBorder }: {
+  number: number; icon: string; title: string; hint?: string;
+  children: React.ReactNode; required?: boolean;
+  accent: string; accentLight: string; accentBorder: string;
+})
+    function InputFieldCard({ field, index, onUpdate, onRemove }: {
+  field: InputField; index: number;
+  onUpdate: (idx: number, patch: Partial<InputField>) => void;
+  onRemove: (idx: number) => void;
+})
+    function ContentViewer({ file, content, accent }: { file: OutputFile; content: string; accent: string })
+    function SkillBuilder()
+    arrow update(key: K, value: SkillForm[K])
+    arrow addInput()
+    arrow removeInput(idx: number)
+    arrow updateInput(idx: number, patch: Partial<InputField>)
+    arrow handleSelectFile(path: string)
+    async arrow handleCreate()
+    async arrow handleAIGenerate()
+    async arrow handlePreviewPrompt()
+    async arrow handleBuild()
+    arrow buildTestPrompt()
+    async arrow handleTest()
+    async arrow loadFileContent(file: OutputFile)
+    async arrow handlePublish()
+  React Components:
+    function: StepCard
+    function: InputFieldCard
+    function: ContentViewer
+    function: SkillBuilder
+
+## packages/ui/src/pages/SkillsPage.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../types
+    * ← ../components/Icon
+    * ← ../theme
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: SkillsPage
+  Functions:
+    function buildSkillMd(fields: {
+    id: string; name: string; version: string; description: string; category: string;
+    tags: string; useSkills: string; usePhysicalSkills: string; userInputs: UserInput[]; body: string;
+})
+    function SkillsPage()
+    arrow showToast(m: string)
+    arrow startEdit(sk: SkillDefinition)
+    arrow startCreate()
+    arrow cancelEdit()
+    arrow addInput()
+    arrow removeInput(idx: number)
+    arrow updateInput(idx: number, field: keyof UserInput, value: any)
+    async arrow handleSave()
+    async arrow handleDelete(sk: SkillDefinition)
+    async arrow handleExportSkill(sk: SkillDefinition, e?: React.MouseEvent)
+    async arrow handleImportSkill(file: File)
+  React Components:
+    function: SkillsPage
+
+## packages/ui/src/pages/SystemPromptsPage.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../theme
+    * ← ../api
+  Exports:
+    default function: SystemPromptsPage
+  Functions:
+    function SystemPromptsPage()
+    arrow startEdit(file: string)
+    async arrow save()
+    arrow cancelEdit()
+  React Components:
+    function: SystemPromptsPage
+
+## packages/ui/src/pages/WelcomePage.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../utils
+    * ← ../components/Icon
+    * ← ../components/DirectoryExplorer
+    * ← ../utils
+    * ← ../api
+  Exports:
+    default function: WelcomePage
+  Functions:
+    function WelcomePage({ onSelect }: Props)
+    arrow handleSelect(path: string)
+    arrow handleKeyDown(e: React.KeyboardEvent)
+    arrow handleNativeFolderPicker()
+    arrow handleFolderSelect(path: string)
+  React Components:
+    function: WelcomePage
+
+## packages/ui/src/pages/WorkflowEditor.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← @xyflow/react
+    * ← @xyflow/react/dist/style.css
+    * ← ../api
+  Exports:
+    default function: WorkflowEditor
+  Functions:
+    function StartNode({ data, selected }: NodeProps)
+    function EndNode({ data, selected }: NodeProps)
+    function SkillNode({ data, selected }: NodeProps)
+    function ToolNode({ data, selected }: NodeProps)
+    function NodeConfigPanel({ node, appSkills, providerTools, onUpdate, onDelete, onClose }: {
+  node: WFNode; appSkills: AppSkill[]; providerTools: ProviderTool[]; onUpdate: (p: Partial<WFNode>) => void; onDelete: () => void; onClose: () => void;
+})
+    function WorkflowEditor()
+    arrow showToast(m: string)
+    arrow toRFNode(n: WFNode)
+  React Components:
+    function: StartNode
+    function: EndNode
+    function: SkillNode
+    function: ToolNode
+    function: NodeConfigPanel
+    function: WorkflowEditor
+
+## packages/ui/src/pages/WorkflowExec.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: WorkflowExec
+  Functions:
+    function ResultCards({ output }: { output: any })
+    function topoSort(nodes: WFNode[], edges: WFEdge[])
+    function resolveTemplate(t: string, ctx: Record<string, any>)
+    function typeIcon(type?: WFNodeType)
+    function formatTime(ts: string)
+    arrow pad(n: number)
+    function WorkflowExec()
+    arrow showToast(m: string)
+  React Components:
+    function: ResultCards
+    function: WorkflowExec
+
+## packages/ui/src/theme.tsx [tsx]
+  Imports:
+    * ← react
+  Exports:
+    variable: THEMES
+    function: ThemeProvider
+    function: useTheme
+    variable: THEME_GROUPS
+  Functions:
+    function ThemeProvider({ children }: { children: React.ReactNode })
+    arrow setTheme(id: ThemeId)
+    function useTheme()
+  React Components:
+    function: ThemeProvider
+
+## packages/ui/src/types/index.ts [typescript]
+  Exports:
+    function: buildSystemPrompt
+    function: migrateCrew
+  Functions:
+    function buildSystemPrompt(
+    crew: Crew,
+    skillDefinitions: Map<string, SkillDefinition>,
+    selectedSkillIds: string[],
+    formData?: Record<string, string>,
+    paths?: { paawRoot: string; projectRoot: string; workspaces?: string[]; skillRules?: string },
+    workspaces?: string[],
+    skillRules?: string
+)
+    function migrateCrew(crew: any)
+
+## packages/ui/src/utils/index.ts [typescript]
+  Imports:
+    * ← ../types
+  Exports:
+    function: nowIso
+    function: fmtTime
+    function: cn
+    function: shortId
+    function: safeJsonParse
+    function: randId
+    function: badgeClasses
+    function: statusClasses
+    function: pathBasename
+    function: pathSplit
+    function: pathStartsWith
+    function: pathRelative
+    function: fmtChatTime
+  Functions:
+    function nowIso()
+    function fmtTime(iso: string)
+    function cn(...xs: Array<string | false | null | undefined>)
+    function shortId(id: string)
+    function safeJsonParse(s: string)
+    function randId()
+    function badgeClasses(risk: Risk)
+    function statusClasses(s: RunStatus)
+    function pathBasename(p: string)
+    function pathSplit(p: string)
+    function pathStartsWith(p: string, prefix: string)
+    function pathRelative(p: string, prefix: string)
+    function fmtChatTime(input?: string | number | Date)
+
+## packages/ui/vite.config.ts [typescript]
+  Imports:
+    * ← vite
+    * ← @vitejs/plugin-react
+    * ← path
+    * ← url
+
+## playwright.config.ts [typescript]
+  Imports:
+    * ← @playwright/test
+
+## scripts/paaw-sync.mjs [javascript]
+  Imports:
+    * ← child_process
+    * ← fs
+    * ← path
+    * ← url
+  Functions:
+    arrow info
+    arrow ok
+    arrow warn
+    function shouldSkip(name, fullPath)
+    function scanDir(dir, base = "")
+    function syncTree(srcDir, dstDir)
+    function cleanEmptyDirs(dir)
+    function git(cwd, ...cmd)
+
+## scripts/pack.mjs [javascript]
+  Imports:
+    * ← node:child_process
+    * ← node:fs
+    * ← node:crypto
+    * ← node:path
+    * ← node:url
+
+## scripts/postinstall.cjs [javascript]
+  Functions:
+    function isLinux()
+    function hasApt()
+    function emojiFontInstalled()
+    function installEmojiFont()
+
+## scripts/runtime-guard-scanner.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+  Functions:
+    function walk(dir, acc = [])
+    function scanTDZ(filePath, src)
+    function scanNullIterable(filePath, src)
+
+## tests/e2e/01-smoke.spec.ts [typescript]
+  Imports:
+    * ← @playwright/test
+    * ← ./helpers
+
+## tests/e2e/02-settings.spec.ts [typescript]
+  Imports:
+    * ← @playwright/test
+    * ← ./helpers
+
+## tests/e2e/03-notes.spec.ts [typescript]
+  Imports:
+    * ← @playwright/test
+    * ← ./helpers
+
+## tests/e2e/04-pages.spec.ts [typescript]
+  Imports:
+    * ← @playwright/test
+    * ← ./helpers
+
+## tests/e2e/05-api.spec.ts [typescript]
+  Imports:
+    * ← @playwright/test
+  Functions:
+    async function apiContext()
+  Routes:
+    GET /api/paaw-root
+    GET /api/paaw/providers
+    GET /api/paaw/user
+    GET /api/paaw/ui-state
+    GET /api/paaw/workspaces
+    GET /api/models
+    GET /api/user/preferences
+    GET /api/context/chat
+    GET /api/context/project
+    GET /api/context/mindmap
+    GET /api/context/notes
+    GET /api/context/coding
+    GET /api/apps
+    GET /api/skills
+    GET /api/notes/notebooks
+    GET /api/notes/recent?limit=5
+    GET /api/notes/search?q=test
+    GET /api/notes/tags
+    GET /api/mindmap/list
+    GET /api/projects
+    GET /api/cron-jobs
+    GET /api/ai-settings
+    GET /api/crew
+    GET /api/plugins
+    GET /api/nonexistent-endpoint-12345
+    GET /api/notes/get
+    GET /api/notes/list?notebook=nonexistent-notebook-12345
+    POST /api/notes/notebooks
+    GET /api/notes/search
+    POST /api/cron-jobs
+    PATCH /api/paaw/ui-state
+    GET /api/llm-logs
+    GET /api/agent-logs
+
+## tests/e2e/06-chat.spec.ts [typescript]
+  Imports:
+    * ← @playwright/test
+    * ← ./helpers
+
+## tests/e2e/07-skills.spec.ts [typescript]
+  Imports:
+    * ← @playwright/test
+    * ← ./helpers
+
+## tests/e2e/08-apps.spec.ts [typescript]
+  Imports:
+    * ← @playwright/test
+    * ← ./helpers
+
+## tests/e2e/09-coding.spec.ts [typescript]
+  Imports:
+    * ← @playwright/test
+    * ← ./helpers
+
+## tests/e2e/10-execution.spec.ts [typescript]
+  Imports:
+    * ← @playwright/test
+    * ← ./helpers
+
+## tests/e2e/11-nav-comprehensive.spec.ts [typescript]
+  Imports:
+    * ← @playwright/test
+    * ← ./helpers
+
+## tests/e2e/helpers.ts [typescript]
+  Imports:
+    * ← @playwright/test
+  Exports:
+    variable: SCREENSHOT_DIR
+    function: gotoHome
+    function: clickSidebarItem
+    function: screenshot
+    function: dismissOnboarding
+    function: waitForContent
+    function: getPageText
+    function: isVisible
+  Functions:
+    async function gotoHome(page: Page, opts: { waitFor?: number } = {})
+    async function clickSidebarItem(page: Page, text: string, timeout = 5000)
+    async function screenshot(page: Page, name: string)
+    async function dismissOnboarding(page: Page)
+    async function waitForContent(page: Page, timeout = 10_000)
+    async function getPageText(page: Page)
+    async function isVisible(locator: Locator, timeout = 3000)
+
+## tests/unit/agent-loop-max-turns.test.mjs [javascript]
+  Imports:
+    * ← vitest
+  Functions:
+    arrow compute(maxTurns, agentCfg)
+    arrow compute(timeout, agentCfg)
+    arrow testLoop(effectiveMaxTurns)
+    arrow testLoop(effectiveMaxTurns)
+    arrow testLoop(effectiveMaxTurns)
+
+## tests/unit/ai-settings.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs/promises
+    * ← path
+    * ← fs
+  Functions:
+    async function readFileFrom(category, file)
+
+## tests/unit/auto-dispatch-shared.test.mjs [javascript]
+  Imports:
+    * ← vitest
+
+## tests/unit/coding-evidence.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← ../../packages/server/src/routes/coding-evidence.mjs
+    * ← node:fs
+    * ← node:path
+
+## tests/unit/coding-security-extended.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← os
+    * ← path
+    * ← ../../packages/server/src/lib/coding-security.mjs
+  Functions:
+    function createMockRes()
+
+## tests/unit/coding-security.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← os
+    * ← path
+    * ← ../../packages/server/src/lib/coding-security.mjs
+
+## tests/unit/context-engine.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← ../../packages/server/src/context-engine.mjs
+
+## tests/unit/context-truncation.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← ../../packages/server/src/lib/context-truncation.mjs
+
+## tests/unit/conversation-sanitize.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← ../../packages/server/src/lib/coding-security.mjs
+
+## tests/unit/dependency-context.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← @server/lib/dependency-context.mjs
+  Functions:
+    function setupCIMocks(fixtureKeys = ["callGraph", "depGraph", "fileMap", "testCodeMap"])
+
+## tests/unit/execution-plan.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← ../../packages/server/src/lib/execution-plan.mjs
+    * ← fs
+    * ← path
+    * ← os
+  Functions:
+    function makeTmpRoot()
+
+## tests/unit/i18n-consistency.test.ts [typescript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← path
+  Functions:
+    function loadLocale(lang: string)
+    function loadRaw(lang: string)
+    function checkLeaves(obj: Record<string, unknown>, prefix: string)
+
+## tests/unit/llm-utils.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← ../../packages/server/src/lib/llm-utils.mjs
+
+## tests/unit/providers.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs/promises
+    * ← path
+  Functions:
+    async function loadProviders()
+
+## tests/unit/repair-loop.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← ../../packages/server/src/routes/coding-tasks.mjs
+  Functions:
+    function seedTask(extra = {})
+
+## tests/unit/shared-utils.test.ts [typescript]
+  Imports:
+    * ← vitest
+    * ← @shared/utils
+
+## tests/unit/skill-format.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs/promises
+    * ← path
+    * ← fs/promises
+    * ← fs
+  Functions:
+    function parseSkillFrontmatter(content)
+    async function findSkillFiles()
+
+## vitest.config.ts [typescript]
+  Imports:
+    * ← vitest/config
+    * ← path

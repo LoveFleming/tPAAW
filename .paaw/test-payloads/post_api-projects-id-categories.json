@@ -1,0 +1,12 @@
+{
+  "method": "POST",
+  "path": "/api/projects/:id/categories",
+  "description": "新增分類",
+  "query": null,
+  "body": {
+    "name": "Frontend",
+    "color": "#4CAF50"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

@@ -1,0 +1,30 @@
+{
+  "method": "POST",
+  "path": "/api/coding-auto-dispatch/config",
+  "description": "更新 auto dispatch 設定（含 cron 排程註冊/停用）",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": {
+    "mode": "em",
+    "projectPhase": "bootstrap",
+    "schedule": {
+      "enabled": false,
+      "time": "22:00",
+      "tz": "Asia/Taipei"
+    },
+    "model": {
+      "primary": "",
+      "fallbacks": []
+    },
+    "tasks": [
+      "feature-map-refresh",
+      "security-scan",
+      "code-intelligence",
+      "test-intelligence",
+      "change-intelligence"
+    ]
+  },
+  "expectedStatus": 200,
+  "notes": "寫入 config.json，可能建立/停用 cron job"
+}

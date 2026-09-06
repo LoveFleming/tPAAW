@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "path": "/api/plugins",
+  "description": "列出 plugins",
+  "query": null,
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}

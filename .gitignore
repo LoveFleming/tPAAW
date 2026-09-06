@@ -59,8 +59,14 @@ data/llm-logs/
 data/agent-logs/
 data/cli-run-output/
 data/cron-output/
-# Dev workspace (per-machine, never versioned — .paaw 是開發該 release unit 的資料)
-.paaw/
+# Release unit 資產（2026-09-06 Fleming 定調：.paaw 進版控，跟程式一樣是資產）
+# 只排除 runtime 垃圾：logs / tmp / cache / debug log / api 執行記錄
+.paaw/logs/
+.paaw/tmp/
+.paaw/api-logs/
+.paaw/cu-debug.log
+.paaw/deps-cache.json
+.paaw/metrics-cache.json
 .openclaw/
 
 # PAAW temp/debug files

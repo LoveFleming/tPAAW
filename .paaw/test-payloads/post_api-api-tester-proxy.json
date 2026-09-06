@@ -1,0 +1,12 @@
+{
+  "method": "POST",
+  "path": "/api/api-tester/proxy",
+  "description": "API tester proxy",
+  "query": null,
+  "body": {
+    "url": "https://api.example.com",
+    "method": "GET"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

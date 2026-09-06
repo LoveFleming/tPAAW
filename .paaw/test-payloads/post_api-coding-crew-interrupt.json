@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/api/coding-crew/interrupt",
+  "description": "中斷正在執行的 agent",
+  "query": {},
+  "body": {
+    "agentId": "developer"
+  },
+  "expectedStatus": 200,
+  "notes": "⚠️ 中斷 AI agent"
+}

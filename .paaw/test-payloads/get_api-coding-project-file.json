@@ -1,0 +1,12 @@
+{
+  "method": "GET",
+  "path": "/api/coding-project/file",
+  "description": "讀取任意 .paaw/ 檔案",
+  "query": {
+    "path": "/Users/steward/App/tPAAW",
+    "file": "PROJECT.md"
+  },
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}

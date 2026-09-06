@@ -1,0 +1,22 @@
+[
+  {
+    "agent": "dev",
+    "title": "Test",
+    "type": "added",
+    "description": "Testing",
+    "files": "test.mjs",
+    "impact": "",
+    "testsRan": "",
+    "timestamp": "2026-07-21T13:27:35.106Z"
+  },
+  {
+    "agent": "dev",
+    "title": "Test",
+    "type": "added",
+    "description": "Full test",
+    "files": "a.mjs, b.mjs",
+    "impact": "",
+    "testsRan": "",
+    "timestamp": "2026-07-21T13:28:05.572Z"
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/api/coding-issues/import-known",
+  "description": "從 KNOWN-ISSUES.md 匯入 issues",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}
