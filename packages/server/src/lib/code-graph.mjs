@@ -18,6 +18,30 @@
 import { join, dirname, resolve as resolvePath } from "path";
 
 // ─────────────────────────────────────────────
+// 0. 測試檔判定（2026-09-06 Fleming：測試不是 feature — 分流給 Test Intelligence）
+// 對齊 test-intelligence.mjs 的判定：basename 慣例 + tests/__tests__ 目錄
+// ─────────────────────────────────────────────
+const TEST_DIR_RE = /(^|\/)(tests?|__tests__|spec)\//i;
+const TEST_BASE_RE = /\.(test|spec|e2e|integration)\.(js|mjs|cjs|jsx|ts|tsx|py|rb|go|java)$|(^|_|-)test[_-][^.]+\.(js|mjs|cjs|jsx|ts|tsx|py|go|java)$|(^|_)[^\/]+_test\.(go|py)$/i;
+
+/** 測試檔不是 feature 錨點、不做 feature 歸屬 — 決定論映射到它測的 feature */
+export function isTestFile(p) {
+  const path = String(p || "").replace(/\\/g, "/");
+  if (TEST_DIR_RE.test(path + "/") || TEST_DIR_RE.test(path)) return true;
+  return TEST_BASE_RE.test(path.split("/").pop() || "");
+}
+
+/** foo.test.mjs / test_foo.py / foo_test.go → foo（basename 慣例 fallback 用） */
+function _testStem(p) {
+  const base = String(p).replace(/\\/g, "/").split("/").pop() || "";
+  return base
+    .replace(/\.(test|spec|e2e|integration)\./i, ".")
+    .replace(/^test[_-]/i, "")
+    .replace(/[_-]test(\.[^.]+)?$/i, "$1")
+    .replace(/\.[^.]+$/, "");
+}
+
+// ─────────────────────────────────────────────
 // 1. Import 解析：source 字串 → repo 內檔案路徑
 // ─────────────────────────────────────────────
 const TS_EXTS = ["", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
@@ -323,6 +347,12 @@ export function buildDeterministicFeatureMap(parsed, { jaccardThreshold = 0.5 } 
   const clusters = clusterEntries(entries, reachSets, { threshold: jaccardThreshold });
   const { owned, shared, orphans } = assignFileOwnership(clusters, reachSets, graph, { margin: 0.2 });
 
+  // ── 測試檔分流（2026-09-06 Fleming）：測試不是 feature，不進 owned/shared/orphan pipeline ──
+  for (const set of owned) for (const f of [...set]) if (isTestFile(f)) set.delete(f);
+  const realShared = shared.filter(f => !isTestFile(f));
+  const testFiles = orphans.filter(isTestFile);
+  const realOrphans = orphans.filter(f => !isTestFile(f));
+
   const features = clusters.map((c, ci) => {
     const es = c.entryIdx.map(i => entries[i]);
     const apis = [...new Map(es.filter(e => e.kind === "http").map(e => [`${e.method} ${e.path}`, e])).values()]
@@ -341,14 +371,50 @@ export function buildDeterministicFeatureMap(parsed, { jaccardThreshold = 0.5 } 
     };
   }).filter(f => f.codeFiles.length > 0 || f.apis.length > 0);
 
+  // ── 決定論 test→feature 映射（零 token）：import 邊投票 → basename 慣例 → unmapped（交 Test Intelligence）──
+  const tests = mapTestsToFeatures(testFiles, features, graph);
+
+  const prodCount = graph.files.length - testFiles.length;
   const stats = {
     files: graph.files.length,
     edges: [...graph.edges.values()].reduce((s, x) => s + x.size, 0),
     entries: entries.length,
     clusters: features.length,
-    shared: shared.length,
-    orphans: orphans.length,
-    edgeCoverage: graph.files.length ? Math.round((graph.files.length - orphans.length) / graph.files.length * 100) : 0,
+    shared: realShared.length,
+    orphans: realOrphans.length,
+    tests: { total: testFiles.length, mapped: tests.featureTests.reduce((s, x) => s + x.length, 0), unmapped: tests.unmappedTests.length },
+    edgeCoverage: prodCount > 0 ? Math.round((prodCount - realOrphans.length) / prodCount * 100) : 0,
   };
-  return { features, shared, orphans, stats, graph };
+  return { features, shared: realShared, orphans: realOrphans, tests, stats, graph };
+}
+
+/**
+ * 測試檔 → feature（決定論）：
+ *   1) test import 的 production 檔的 owner cluster 投票（e2e 實測：gateway-backup-auth.test.mjs → src/server.mjs）
+ *   2) 無票 → basename 慣例（foo.test.mjs ↔ foo.*）
+ *   3) 再無 → unmappedTests（ honest：dynamic import / 跨 feature 測試歸不了就明說，Test Intelligence 頁自己看）
+ * 平手用最小 feature index 打破（features 已字典序排序 → 決定論）。
+ */
+function mapTestsToFeatures(testFiles, features, graph) {
+  const featureTests = features.map(() => []);
+  const unmappedTests = [];
+  const ownerOf = new Map(); // production file → feature idx（shared 檔不投票 — 多 feature 共用歸屬不明）
+  features.forEach((f, fi) => { for (const cf of f.codeFiles) { if (!ownerOf.has(cf)) ownerOf.set(cf, []); ownerOf.get(cf).push(fi); } });
+  for (const tf of testFiles) {
+    const votes = new Map();
+    const vote = (fi) => votes.set(fi, (votes.get(fi) || 0) + 1);
+    for (const target of graph.edges.get(tf) || []) for (const fi of ownerOf.get(target) || []) vote(fi);
+    if (votes.size === 0) {
+      const stem = _testStem(tf);
+      if (stem) for (const [f, fis] of ownerOf) {
+        if ((f.split("/").pop() || "").replace(/\.[^.]+$/, "") === stem) for (const fi of fis) vote(fi);
+      }
+    }
+    if (votes.size > 0) {
+      let bestFi = -1, bestV = -1;
+      for (const [fi, v] of [...votes].sort((a, b) => a[0] - b[0])) if (v > bestV) { bestFi = fi; bestV = v; }
+      featureTests[bestFi].push(tf);
+    } else unmappedTests.push(tf);
+  }
+  return { featureTests, unmappedTests };
 }

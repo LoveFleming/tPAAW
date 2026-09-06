@@ -18,6 +18,7 @@ import { readFile, writeFile, mkdir, readdir, unlink } from "fs/promises";
 import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { walkSourceFiles } from "../lib/cu-source-scan.mjs";
+import { isTestFile } from "../lib/code-graph.mjs";
 import { fileURLToPath } from "url";
 import { readBody, normalizePath } from "./shared.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
@@ -535,8 +536,10 @@ export default async function codingFeaturesRoute(req, res) {
 
     // Scan codebase: list all source files
     // 2026-09-06：改共用 walker（cu-source-scan）— 支援 .gitignore、刪掉 shell find 雙分支
+    // 2026-09-06：測試檔分流（isTestFile）— 測試不是 feature 的 code，只進 tests 欄位（與 CU 決定論分流一致）
     const _walked = walkSourceFiles(projRoot, { exts: new Set([".ts", ".tsx", ".mjs", ".js", ".jsx"]) });
-    const allFiles = _walked.files;
+    const allFiles = _walked.files.filter(f => !isTestFile(f));
+    const testFiles = _walked.files.filter(isTestFile);
 
     // Read API contract if exists
     let apiContract = "";
@@ -550,8 +553,11 @@ export default async function codingFeaturesRoute(req, res) {
 ## Current Features
 ${JSON.stringify(features.map(f => ({ id: f.id, name: f.name, description: f.description, currentCodeFiles: f.codeFiles, currentApis: f.apis, currentTests: f.tests, currentRunbooks: f.runbooks })), null, 2)}
 
-## All Source Files in Codebase
+## All Source Files in Codebase (production code only)
 ${allFiles.join("\n")}
+
+## Test Files (tests are NOT feature code — only map them into the \`tests\` field, never \`codeFiles\`)
+${testFiles.length ? testFiles.join("\n") : "(none)"}
 
 ## API Contract
 ${apiContract || "(not available)"}
@@ -567,7 +573,8 @@ Rules:
 5. Check test files — add new ones, remove deleted ones
 6. Check runbooks — same
 7. Do NOT change feature id, name, description, or status
-8. Do NOT invent files that don't exist in the file list above
+8. Do NOT invent files that don't exist in the file lists above
+9. Test files (list above) go ONLY into the tests field — never into codeFiles
 
 Output a JSON array with updated mappings. Each element:
 { "id": "F20260904-001", "codeFiles": [...], "apis": [{"method":"GET","path":"/api/x","file":"src/x.mjs"}], "tests": [...], "runbooks": [...] }

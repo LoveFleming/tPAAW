@@ -137,10 +137,12 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
   }
 
   // ── 4. work items：每個 feature 一個獨立 agent loop ──
+  // 測試檔已決定論映射到 feature 的 tests（code-graph 分流 — 測試不是 feature，2026-09-06）
   const workItems = [
-    ...dm.features.map(f => ({
+    ...dm.features.map((f, i) => ({
       kind: "deterministic", grade: "deterministic",
       files: f.codeFiles, apis: f.apis, kinds: f.kinds, entryCount: f.entryCount, reachFiles: f.reachFiles.length,
+      tests: (dm.tests?.featureTests?.[i] || []).slice(),
     })),
     ...orphanGroups.map(g => ({
       kind: "utility", grade: "utility",
@@ -180,6 +182,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
         entryCount: item.entryCount,
         fileCount: item.files.length,
         FILE_LIST: item.files.slice(0, 40),
+        ...(item.tests?.length ? { TESTS: item.tests.slice(0, 10), note: `TESTS 是此 feature 的測試檔（機器映射）— 讀它們幫助寫 bizLogic，但它們不是 feature 的 code 檔` } : {}),
         ...(item.files.length > 40 ? { note: `FILE LIST 只列前 40 檔（共 ${item.files.length}），其餘可用 glob 確認` } : {}),
         SHARED_LAYER: sharedBrief,
       };
@@ -235,7 +238,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
       status: "active",
       codeFiles: item.files,
       apis: item.apis,
-      tests: [],
+      tests: item.tests || [],
       runbooks: [],
       tags: _arr(fl.tags, 6),
       grade: item.grade,
@@ -276,6 +279,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
     stats: dm.stats,
     shared: dm.shared,
     orphans: dm.orphans.filter(x => !orphanAssigned.has(x)),
+    unmappedTests: dm.tests?.unmappedTests || [], // 測試檔歸不入任何 feature（dynamic import / 跨 feature）— Test Intelligence 頁看
     enrichment,
     note: "骨架 = 進入點 reach + Jaccard 聚類（數學決定論，重跑不變）；grade=deterministic。長肉 = 每 feature 一個獨立 agent loop（core-read，多輪讀 code）；orphan 分組 grade=utility（建議，人類定案）。",
   };

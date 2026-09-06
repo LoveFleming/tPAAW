@@ -324,10 +324,9 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   // ── CU lifecycle phase（派生，不存儲）──
   // missing=無 .paaw｜no-code=code 尚少不催（剛建立/剛 import 還沒寫 code）｜ready=該跑｜partial=跑一半｜done=完成
   const CU_NO_CODE_THRESHOLD = 5;
-  // ⚠️ no-code 判定優先於 missing：空專案 import（無 .paaw 且 code 尚少）不催 CU，
-  // 先寫 code；有料了（≥5 檔）才是 missing → 彈窗引導建立知識庫
+  // ⚠️ no-code 只在 CU 從未跑過時成立（doneCount===0）— 小專案跑完 CU 不該再被叫「先寫 code」（2026-09-06 Fleming）
   const cuPhase: "missing" | "no-code" | "ready" | "partial" | "done" | "stale" | null = cuMeta && rootPath
-    ? (cuMeta.sourceFiles < CU_NO_CODE_THRESHOLD ? "no-code"
+    ? (cuMeta.doneCount === 0 && cuMeta.sourceFiles < CU_NO_CODE_THRESHOLD ? "no-code"
       : !cuMeta.hasPaaw ? "missing"
       : cuMeta.doneCount >= CU_STEPS.length ? (
           // manual-only stale（人寫文件較舊）不算知識過期 — 進 done + 小字提示（2026-08-22）
