@@ -125,23 +125,23 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
         {/* 統計卡 */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2" data-testid="tests-stats">
           <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight }}>
-            <div className="text-[10px] text-stone-400 font-medium">{t("tests.totalFiles")}</div>
+            <div className="text-xs text-stone-400 font-medium">{t("tests.totalFiles")}</div>
             <div className="text-lg font-bold text-stone-700">{data?.summary?.totalTestFiles ?? "—"}</div>
           </div>
           <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight }}>
-            <div className="text-[10px] text-stone-400 font-medium">{t("tests.mappings")}</div>
+            <div className="text-xs text-stone-400 font-medium">{t("tests.mappings")}</div>
             <div className="text-lg font-bold text-stone-700">{data?.summary?.totalMappings ?? "—"}</div>
           </div>
           <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight }}>
-            <div className="text-[10px] text-stone-400 font-medium">{t("tests.coverage")}</div>
+            <div className="text-xs text-stone-400 font-medium">{t("tests.coverage")}</div>
             <div className="text-lg font-bold text-stone-700">{data?.summary?.coverageRate ?? "—"}</div>
           </div>
           <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight, background: (data?.summary?.coverageGapFiles || 0) > 0 ? "#fffbeb" : undefined }}>
-            <div className="text-[10px] text-stone-400 font-medium">{t("tests.gapFiles")}</div>
+            <div className="text-xs text-stone-400 font-medium">{t("tests.gapFiles")}</div>
             <div className={`text-lg font-bold ${(data?.summary?.coverageGapFiles || 0) > 0 ? "text-amber-600" : "text-stone-700"}`}>{data?.summary?.coverageGapFiles ?? "—"}</div>
           </div>
           <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight }}>
-            <div className="text-[10px] text-stone-400 font-medium">{t("tests.featuresWithTests")}</div>
+            <div className="text-xs text-stone-400 font-medium">{t("tests.featuresWithTests")}</div>
             <div className="text-lg font-bold text-stone-700">{featuresWithTests}<span className="text-xs text-stone-400 font-normal">/{(ruModel?.features || []).length || "—"}</span></div>
           </div>
         </div>
@@ -149,24 +149,24 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
         {/* kind 分佈 chips */}
         <div className="flex flex-wrap gap-1.5 items-center">
           <button onClick={() => setKindFilter("__all__")}
-            className={`text-[10px] px-2 py-1 rounded-full border font-semibold transition-colors ${kindFilter === "__all__" ? "bg-stone-800 text-white border-stone-800" : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"}`}
+            className={`text-xs px-2 py-1 rounded-full border font-semibold transition-colors ${kindFilter === "__all__" ? "bg-stone-800 text-white border-stone-800" : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"}`}
             data-testid="tests-kind-all">
             {t("tests.allKinds")} · {(data?.testToCode || []).length}
           </button>
           {kindChips.map(([kind, n]) => (
             <button key={kind} onClick={() => setKindFilter(kind)}
               data-testid={`tests-kind-${kind}`}
-              className={`text-[10px] px-2 py-1 rounded-full border font-semibold transition-colors ${kindFilter === kind ? "text-white border-transparent" : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"}`}
+              className={`text-xs px-2 py-1 rounded-full border font-semibold transition-colors ${kindFilter === kind ? "text-white border-transparent" : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"}`}
               style={kindFilter === kind ? { backgroundColor: KIND_COLORS[kind] || "#78716c" } : undefined}>
               {kind} · {n}
             </button>
           ))}
-          {loading && <span className="text-[10px] text-stone-400 animate-pulse">loading…</span>}
+          {loading && <span className="text-xs text-stone-400 animate-pulse">loading…</span>}
         </div>
 
         {/* 對照表 */}
         <div className="rounded-lg border overflow-hidden" style={{ borderColor: borderLight }} data-testid="tests-mapping">
-          <div className="px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50 flex items-center" style={{ borderBottom: `1px solid ${borderLight}` }}>
+          <div className="px-3 py-1.5 text-xs font-bold text-stone-400 bg-stone-50 flex items-center" style={{ borderBottom: `1px solid ${borderLight}` }}>
             🔗 {t("tests.mappingTitle")} · {rows.length}
           </div>
           {testGroups.map(g => {
@@ -177,18 +177,18 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
               <button onClick={() => setOpenTestGroup(prev => ({ ...prev, [g.key]: !gOpen }))}
                 className="w-full px-3 py-1.5 bg-stone-50 hover:bg-stone-100 flex items-center gap-2 text-left"
                 style={{ borderBottom: `1px solid ${borderLight}` }} data-testid="tests-group">
-                <span className="text-[10px]">{gOpen ? "▾" : "▸"}</span>
+                <span className="text-xs">{gOpen ? "▾" : "▸"}</span>
                 {g.key === "__others__" ? (
-                  <span className="text-[11px] font-bold text-stone-400">📦 {t("tests.otherGroup")}</span>
+                  <span className="text-xs font-bold text-stone-400">📦 {t("tests.otherGroup")}</span>
                 ) : (
                   <>
-                    <span className="text-[11px] font-mono font-bold" style={{ color: accentText }}>{g.key}</span>
-                    <span className="text-[11px] font-bold text-stone-700 truncate">{g.name}</span>
+                    <span className="text-xs font-mono font-bold" style={{ color: accentText }}>{g.key}</span>
+                    <span className="text-xs font-bold text-stone-700 truncate">{g.name}</span>
                   </>
                 )}
-                <span className="text-[9px] text-stone-400 shrink-0">🧪 {g.entries.length}</span>
+                <span className="text-[10px] text-stone-400 shrink-0">🧪 {g.entries.length}</span>
                 <span className="flex gap-1 shrink-0">
-                  {gKinds.map(k => <span key={k} className="text-[8px] px-1 py-0.5 rounded text-white font-bold" style={{ backgroundColor: KIND_COLORS[k] || "#78716c" }}>{k}</span>)}
+                  {gKinds.map(k => <span key={k} className="text-[9px] px-1 py-0.5 rounded text-white font-bold" style={{ backgroundColor: KIND_COLORS[k] || "#78716c" }}>{k}</span>)}
                 </span>
               </button>
               {gOpen && g.entries.map(e => {
@@ -199,26 +199,26 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
                 <button onClick={() => setExpanded(isOpen ? null : e.testFile)}
                   className="w-full text-left px-3 py-1.5 border-b hover:bg-stone-50 flex items-center gap-2"
                   style={{ borderColor: borderLight }} data-testid="tests-row">
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded text-white shrink-0" style={{ backgroundColor: KIND_COLORS[kind] || "#78716c" }}>{kind}</span>
-                  <span className="text-[11px] font-mono text-stone-700 truncate flex-1" title={e.testFile}>{e.testFile}</span>
-                  <span className="text-[9px] text-stone-400 shrink-0">→ {e.matches.length} file(s)</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white shrink-0" style={{ backgroundColor: KIND_COLORS[kind] || "#78716c" }}>{kind}</span>
+                  <span className="text-xs font-mono text-stone-700 truncate flex-1" title={e.testFile}>{e.testFile}</span>
+                  <span className="text-[10px] text-stone-400 shrink-0">→ {e.matches.length} file(s)</span>
                 </button>
                 {isOpen && (
                   <div className="px-3 py-2 border-b space-y-1.5" style={{ borderColor: borderLight, background: "#fafaf9" }}>
                     {e.matches.map((m, i) => (
                       <div key={`${m.productionFile}-${i}`} className="flex items-start gap-2 flex-wrap">
                         <button onClick={() => onOpenFile?.(`${rootPath}/${m.productionFile}`)}
-                          className="text-[10px] font-mono hover:underline break-all" style={{ color: accentText }}>
+                          className="text-xs font-mono hover:underline break-all" style={{ color: accentText }}>
                           📄 {m.productionFile}
                         </button>
-                        <span className="text-[9px] text-stone-400">[{m.matchType}{m.confidence ? `/${m.confidence}` : ""}]</span>
+                        <span className="text-[10px] text-stone-400">[{m.matchType}{m.confidence ? `/${m.confidence}` : ""}]</span>
                         {m.testedFunctions.length > 0 && (
-                          <span className="text-[9px] text-stone-500 font-mono">{m.testedFunctions.map(f => `${f}()`).join(", ")}</span>
+                          <span className="text-[10px] text-stone-500 font-mono">{m.testedFunctions.map(f => `${f}()`).join(", ")}</span>
                         )}
                       </div>
                     ))}
                     <button onClick={() => askMapping(e)}
-                      className="text-[10px] px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 font-medium"
+                      className="text-xs px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 font-medium"
                       data-testid="tests-ask-mapping">
                       💬 {t("tests.askCheckMapping")}
                     </button>
@@ -231,18 +231,18 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
             );
           })}
           {rows.length === 0 && !loading && (
-            <div className="px-3 py-6 text-[10px] text-stone-300 text-center">{t("tests.noTests")}</div>
+            <div className="px-3 py-6 text-xs text-stone-300 text-center">{t("tests.noTests")}</div>
           )}
         </div>
 
         {/* 缺口 */}
         <div className="rounded-lg border overflow-hidden" style={{ borderColor: borderLight }} data-testid="tests-gaps">
-          <div className="px-3 py-1.5 text-[10px] font-bold text-stone-400 bg-stone-50 flex items-center" style={{ borderBottom: `1px solid ${borderLight}` }}>
+          <div className="px-3 py-1.5 text-xs font-bold text-stone-400 bg-stone-50 flex items-center" style={{ borderBottom: `1px solid ${borderLight}` }}>
             🕳️ {t("tests.gapsTitle")} · {(data?.coverageGaps || []).length}
             <span className="flex-1" />
             {(data?.coverageGaps || []).length > 0 && (
               <button onClick={askGaps} data-testid="tests-ask-gaps"
-                className="text-[10px] px-2 py-0.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 font-medium">
+                className="text-xs px-2 py-0.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 font-medium">
                 💬 {t("tests.askPrioritize")}
               </button>
             )}
@@ -250,12 +250,12 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
           {(data?.coverageGaps || []).slice(0, 40).map(g => (
             <button key={g.file} onClick={() => onOpenFile?.(`${rootPath}/${g.file}`)}
               className="w-full text-left px-3 py-1 border-b hover:bg-stone-50 flex items-center gap-2 last:border-0" style={{ borderColor: borderLight }}>
-              <span className="text-[10px] font-mono text-stone-600 truncate flex-1">{g.file}</span>
-              <span className="text-[9px] text-stone-400 font-mono shrink-0">ƒ{g.functionCount ?? 0}</span>
+              <span className="text-xs font-mono text-stone-600 truncate flex-1">{g.file}</span>
+              <span className="text-[10px] text-stone-400 font-mono shrink-0">ƒ{g.functionCount ?? 0}</span>
             </button>
           ))}
           {(data?.coverageGaps || []).length === 0 && (
-            <div className="px-3 py-4 text-[10px] text-stone-300 text-center">{t("tests.noGaps")}</div>
+            <div className="px-3 py-4 text-xs text-stone-300 text-center">{t("tests.noGaps")}</div>
           )}
         </div>
       </div>
