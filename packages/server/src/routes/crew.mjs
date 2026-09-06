@@ -4,6 +4,7 @@
  */
 
 import { readdir, readFile, writeFile, mkdir, unlink, rm, stat } from "fs/promises";
+import { LOG_HOME } from "./data-home.mjs";
 import { existsSync } from "fs";
 import {
   join, resolve, dirname,
@@ -174,7 +175,7 @@ export default async function crewRoute(req, res) {
       const agentCfg = await loadAgentConfig();
       const effectiveMaxTurns = maxToolCalls || agentCfg.maxTurns;
       const effectiveTimeout = timeout || agentCfg.timeoutSeconds;
-      const workCwd = runCwd || resolve(DATA_HOME, "logs", "cli");
+      const workCwd = runCwd || resolve(LOG_HOME, "cli");
       // Ensure temp dir exists
       try { await mkdir(workCwd, { recursive: true }); } catch {}
 

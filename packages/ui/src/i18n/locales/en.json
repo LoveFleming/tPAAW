@@ -1242,7 +1242,7 @@
   "janitor.viewConsole": "Console",
   "janitor.viewJanitor": "Janitor",
   "janitor.title": "Disk Janitor",
-  "janitor.desc": "Auto-cleans runtime junk daily at 03:00; adjust retention, run now, view cleanup log",
+  "janitor.desc": "Auto-cleans the central log/ runtime dir daily at 03:00; .paaw holds assets only, llm/agent records never deleted",
   "janitor.enabledOn": "Enabled (daily auto-clean)",
   "janitor.enabledOff": "Disabled (no auto-clean)",
   "janitor.neverDelete": "Never deleted: all .paaw assets (chats/images/knowledge/decisions), LLM call logs, agent run logs (RU cost-accounting source), data/chats, images referenced by chats",

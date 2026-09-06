@@ -17,12 +17,14 @@ import { readFile, writeFile, mkdir, readdir, stat, unlink, rmdir } from "fs/pro
 import { existsSync } from "fs";
 import { resolve, join } from "path";
 import { readBody } from "./shared.mjs";
-import { DATA_HOME } from "../data-home.mjs";
+import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
 import { cleanupOldLogs } from "./llm-logs.mjs";
 import { cleanupOldAgentLogs } from "../lib/agent-exec-logger.mjs";
 
 const CONFIG_FILE = resolve(DATA_HOME, "config/log-retention.json");
-const LOGS_ROOT = resolve(DATA_HOME, "logs");
+const LOGS_ROOT = resolve(DATA_HOME, "logs"); // 資產級記錄（llm/agent — 永不刪）
+// runtime log 根（2026-09-06 架構：log/ = 純垃圾桶，data/logs 只剩資產）
+const RUNTIME_LOG_ROOT = LOG_HOME;
 const DEFAULTS = { llmDays: 0, agentDays: 0, otherDays: 7 }; // 0 = 永不刪（成本核算資產）
 
 async function loadRetention() {
@@ -69,13 +71,21 @@ async function purgeDirByMtime(dir, days) {
 }
 
 /** DATA_HOME/logs 下 llm/agent 以外的子目錄 + 頂層散檔 */
+/** runtime log（LOG_HOME/）purge — 跳過 janitor 管理區 + 活檔 */
+const JANITOR_MANAGED = new Set([
+  "llm", "agent",              // 資產級（不在 log/ 但防呆）
+  "tmp", "cache",              // session/janitor 管
+  "semgrep", "app-console", "versions", // janitor per-RU 組數管理
+  "server-console.log", "server-console.log.old", // tee 活檔（5MB 自輪替）
+]);
+
 async function purgeOtherLogs(days) {
   let deleted = 0;
-  if (!existsSync(LOGS_ROOT)) return deleted;
-  const entries = await readdir(LOGS_ROOT, { withFileTypes: true });
+  if (!existsSync(RUNTIME_LOG_ROOT)) return deleted;
+  const entries = await readdir(RUNTIME_LOG_ROOT, { withFileTypes: true });
   for (const e of entries) {
-    if (e.name === "llm" || e.name === "agent") continue;
-    const full = join(LOGS_ROOT, e.name);
+    if (JANITOR_MANAGED.has(e.name)) continue;
+    const full = join(RUNTIME_LOG_ROOT, e.name);
     if (e.isDirectory()) {
       deleted += await purgeDirByMtime(full, days);
     } else {

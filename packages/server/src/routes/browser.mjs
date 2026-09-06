@@ -10,7 +10,7 @@
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 
-import { DATA_HOME } from "../data-home.mjs";
+import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
 import {
   browserState, PLAYWRIGHT_INSTALL_HINT, getBrowserPage, trackPage, takeScreenshot, assertSafeUrl,
   attachStreamClient, detachStreamClient, applyBrowserInput, kickScreencast,
@@ -19,7 +19,7 @@ import {
 } from "../lib/browser-session.mjs";
 import { getBrowserSetupStatus } from "../lib/browser-setup.mjs";
 
-const SHOT_DIR = join(DATA_HOME, "logs", "browser");
+const SHOT_DIR = join(LOG_HOME, "browser");
 
 function readBody(req) {
   return new Promise((r) => {

@@ -20,7 +20,7 @@ import { fileURLToPath } from "url";
 import { randomUUID } from "crypto";
 import { tmpdir } from "os";
 import { shellExec, IS_WIN } from "./shell-exec.mjs";
-import { DATA_HOME } from "../data-home.mjs";
+import { DATA_HOME, LOG_HOME, logSlug } from "../data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -329,8 +329,8 @@ export async function runSemgrep(projectRoot, options = {}) {
   const fullCmd = buildSemgrepCmd(projectRoot, rulePacks, excludeArgs);
   LOG("runSemgrep: full command:", fullCmd);
 
-  // ── Step 3: Prepare log directory ──
-  const logDir = join(projectRoot, ".paaw", "logs");
+  // ── Step 3: Prepare log directory（log/ 中央目錄 — .paaw 只放資產，2026-09-06）──
+  const logDir = join(LOG_HOME, "semgrep", logSlug(projectRoot));
   try { if (!existsSync(logDir)) mkdirSync(logDir, { recursive: true }); } catch {}
   const scanTs = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const logBase = join(logDir, `semgrep-${scanTs}`);
@@ -338,10 +338,10 @@ export async function runSemgrep(projectRoot, options = {}) {
   // ── Step 4: Prepare execution ──
   // On Windows: semgrep command easily exceeds cmd.exe 8191-char limit.
   // Must write .bat file and run that instead of passing the raw command.
-  // The .bat is saved in .paaw/logs/ so users can also manually re-run it.
-  // On macOS/Linux: temp .sh script + copy to .paaw/logs/.
+  // The .bat is saved in log/semgrep/<ru>/ so users can also manually re-run it.
+  // On macOS/Linux: temp .sh script + copy to log/semgrep/<ru>/.
   let scriptPath = null;
-  let scriptLogPath = null; // persistent copy in .paaw/logs/
+  let scriptLogPath = null; // persistent copy in log/semgrep/<ru>/
   let runCmd;
   if (IS_WIN) {
     // Build .bat: derive semgrep dir from SEMGREP_PATH, append to PATH
@@ -376,7 +376,7 @@ export async function runSemgrep(projectRoot, options = {}) {
     scriptPath = join(tmpdir(), `semgrep-scan-${randomUUID()}${scriptExt}`);
     const scriptContent = `#!/bin/sh\nexport PYTHONUTF8=1\nexport PYTHONIOENCODING=utf-8\n${fullCmd}\n`;
     writeFileSync(scriptPath, scriptContent, "utf-8");
-    // Also save a copy to .paaw/logs/
+    // Also save a copy to log/semgrep/<ru>/
     scriptLogPath = `${logBase}.sh`;
     writeFileSync(scriptLogPath, scriptContent, "utf-8");
     LOG("runSemgrep: script written to:", safePath(scriptPath), "| log copy:", safePath(scriptLogPath));
@@ -412,7 +412,7 @@ export async function runSemgrep(projectRoot, options = {}) {
     if (stdout.length > 0) LOG("runSemgrep: stdout (error):", stdout.slice(0, 1000));
   }
 
-  // ── Step 6: Save raw output to .paaw/logs/ ──
+  // ── Step 6: Save raw output to log/semgrep/<ru>/ ──
   try {
     if (stdout.length > 0) writeFileSync(`${logBase}-stdout.json`, stdout, "utf-8");
     if (stderr.length > 0) writeFileSync(`${logBase}-stderr.txt`, stderr, "utf-8");
@@ -420,9 +420,9 @@ export async function runSemgrep(projectRoot, options = {}) {
     LOG("runSemgrep: raw output saved to", safePath(logBase) + "-*");
   } catch (saveErr) { LOG_ERR("runSemgrep: failed to save raw output:", saveErr.message); }
 
-  // ── Step 6b: Clean up temp script (keep .paaw/logs/ copy, delete tmp only) ──
-  // Windows: scriptPath is in .paaw/logs/ — keep it for debugging
-  // macOS/Linux: scriptPath is in tmpdir — delete after use (.paaw/logs/ copy stays)
+  // ── Step 6b: Clean up temp script (keep log/semgrep/<ru>/ copy, delete tmp only) ──
+  // Windows: scriptPath is in log dir — keep it for debugging
+  // macOS/Linux: scriptPath is in tmpdir — delete after use (log dir copy stays)
   if (scriptPath && !IS_WIN) { try { unlinkSync(scriptPath); } catch { LOG("runSemgrep: could not delete script:", safePath(scriptPath)); } }
 
   // ── Step 7: Parse results ──

@@ -1242,7 +1242,7 @@
   "janitor.viewConsole": "コンソール",
   "janitor.viewJanitor": "クリーンアップ",
   "janitor.title": "ディスククリーンアップ（janitor）",
-  "janitor.desc": "毎日 03:00 にランタイムゴミを自動削除。保持パラメータ調整・即時実行・ログ確認",
+  "janitor.desc": "毎日 03:00 に中央 log/ ランタイムディレクトリを自動クリーン。.paaw はアセット専用、llm/agent 記録は削除されません",
   "janitor.enabledOn": "有効（毎日自動実行）",
   "janitor.enabledOff": "無効（自動実行なし）",
   "janitor.neverDelete": "削除されないもの：.paaw 全アセット（対話・画像・知識・決定）、LLM 呼び出し記録、agent 実行記録（RU コスト集計ソース）、data/chats、対話から参照中の画像",

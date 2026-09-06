@@ -14,7 +14,7 @@
 import { mkdirSync, readdirSync, statSync, rmSync } from "fs";
 import { join } from "path";
 
-import { DATA_HOME } from "../data-home.mjs";
+import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
 import { resolveBrowserChannel } from "./browser-setup.mjs";
 
 let _ctx = null;          // Playwright BrowserContext（singleton）
@@ -48,7 +48,7 @@ export async function getBrowserContext(DATA_HOME) {
   _launching = (async () => {
     const { chromium } = await import("playwright");
     const profileDir = join(DATA_HOME, "browser-profile");
-    const shotDir = join(DATA_HOME, "logs", "browser");
+    const shotDir = join(LOG_HOME, "browser");
     mkdirSync(profileDir, { recursive: true });
     mkdirSync(shotDir, { recursive: true });
     // channel: "chrome" → 用系統已安裝的 Google Chrome / Chromium，不再下載自帶 chromium
@@ -135,7 +135,7 @@ export async function getBrowserPage(DATA_HOME) {
 
 /** 截圖：存時間戳檔 + 覆蓋 latest.png（IDE 輪詢用）*/
 export async function takeScreenshot(DATA_HOME, page) {
-  const shotDir = join(DATA_HOME, "logs", "browser");
+  const shotDir = join(LOG_HOME, "browser");
   mkdirSync(shotDir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const path = join(shotDir, `shot-${ts}.png`);

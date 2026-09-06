@@ -9,12 +9,13 @@
 //     * SIGKILL/斷電：heartbeat 停止、沒有 EXIT 行、crash log 也沒有
 //   - 檔案輪替：boot 時若超過 1MB，改名 .old（只留一代）
 //
-// 檔案位置：DATA_HOME/logs/server-heartbeat.log
+// 檔案位置：LOG_HOME/server-heartbeat.log（2026-09-06：runtime log 全集中 log/）
 import { appendFileSync, statSync, renameSync, existsSync } from "fs";
 import { join } from "path";
+import { LOG_HOME } from "../data-home.mjs";
 
-export function startFlightRecorder(DATA_HOME) {
-  const dir = join(DATA_HOME, "logs");
+export function startFlightRecorder() {
+  const dir = LOG_HOME;
   const path = join(dir, "server-heartbeat.log");
   const mark = (msg) => {
     try { appendFileSync(path, `${new Date().toISOString()} pid=${process.pid} ${msg}\n`); } catch { /* best effort */ }

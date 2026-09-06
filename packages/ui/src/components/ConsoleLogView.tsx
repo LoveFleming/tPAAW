@@ -3,7 +3,7 @@
  *
  * 資料：GET /api/logs/console?src=app|server&cwd=&offset=（既有的 offset 輪詢 API，首次接 UI）
  * 掛載：CodingIDE Terminal tab（📜 Console view）
- * app = {ru}/.paaw/logs/app-console-YYYY-MM-DD.log（agent 啟動的 app；讀最新一份）
+ * app = log/app-console/<ru>/app-console-YYYY-MM-DD.log（agent 啟動的 app；讀最新一份）
  * server = data/logs/server-console.log（PAAW server 自己）
  */
 import React, { useState, useEffect, useRef, useCallback } from "react";

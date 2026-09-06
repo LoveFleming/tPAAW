@@ -1242,7 +1242,7 @@
   "janitor.viewConsole": "Console",
   "janitor.viewJanitor": "清理",
   "janitor.title": "磁碟清理（janitor）",
-  "janitor.desc": "每天 03:00 自動清 runtime 垃圾；這裡可調保留參數、立即執行、看清理日誌",
+  "janitor.desc": "每天 03:00 自動清 log/ 中央 runtime 目錄；.paaw 只放資產，llm/agent 記錄永不刪",
   "janitor.enabledOn": "已啟用（每日自動清）",
   "janitor.enabledOff": "已停用（不自動清）",
   "janitor.neverDelete": "永遠不會刪：.paaw 全部資產（對話紀錄/圖/知識/決策）、LLM 呼叫記錄、agent 執行記錄（RU 成本核算資料源）、data/chats、被對話引用的圖",

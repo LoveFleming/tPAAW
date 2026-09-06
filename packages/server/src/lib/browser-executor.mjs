@@ -23,12 +23,12 @@ import { appendFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 import { pathToFileURL } from "url";
 
-import { DATA_HOME } from "../data-home.mjs";
+import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
 import { assertSafeUrl, readPageText, locateTarget } from "./browser-session.mjs";
 import { resolveBrowserChannel } from "./browser-setup.mjs";
 
 const PROFILE_ROOT = join(DATA_HOME, "browser-executor-profiles"); // 每 RU 獨立 profile
-const LOG_ROOT = join(DATA_HOME, "logs", "browser-executor");
+const LOG_ROOT = join(LOG_HOME, "browser-executor");
 
 const _MAX_LOG = 1000;      // in-memory 操作日誌上限（JSONL 不受影響）
 const _MAX_ERRORS = 500;    // console errors 上限

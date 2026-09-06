@@ -1,35 +1,46 @@
 /**
- * PAAW Janitor — per-RU runtime 垃圾清理（2026-09-06 Fleming 定調：硬碟不撐爆）
+ * PAAW Janitor — runtime log/垃圾清理（2026-09-06 Fleming 定調：三目錄架構）
  *
- * 白名單制 — 只碰以下位置，絕不碰 .paaw 資產：
- *   {ru}/.paaw/logs/semgrep-*          → 保留最新 N 組 timestamp（預設 3）
- *   {ru}/.paaw/logs/app-console-*.log  → 保留最新 N 份（log4j 式日期檔名，預設 7）
- *   {ru}/.paaw/logs/app-console.log / dev-console.log（舊固定名）→ 超過上限截尾（預設 5MB）
- *   {ru}/.paaw/cu-debug.log            → 刪（legacy 殘留；現行 CU debug 寫中央 data/logs/）
- *   {ru}/.paaw/tmp/*                   → 清（agent session 自動清之外的每日保險）
- *   {ru}/versions/*                    → 保留最新 N 個版本目錄（更新備份是最肥的殺手，預設 3）
- *   data/uploads/*                     → 超過 N 天刪（預設 90）
+ * 架構（2026-09-06）：
+ *   data/      = 使用者資產（每日備份）— logs/llm、logs/agent 永不刪（成本核算資料源）
+ *   log/       = PAAW runtime 垃圾（不備份、定時清）— 本模組主要戰場
+ *   {ru}/.paaw = RU 資產（版控）— 絕不碰
  *
- * 觸發：POST /api/logs/purge（每日 cron system-daily-log-purge 03:00 已接）
- * 設定：data/config/janitor.json（可調參數，出廠預設即用；enabled:false 全部跳過）
+ * 白名單制 — 只碰以下位置：
+ *   log/semgrep/<ru>/       → 保留最新 N 組 timestamp（預設 3）
+ *   log/app-console/<ru>/   → 保留最新 N 份日期檔（預設 7）
+ *   log/tmp/<ru>/           → 清空（agent loop 每 session 自動清之外的每日保險）
+ *   log/cu-debug.log        → 刪（CU debug 殘留）
+ *   log/versions/<ru>/      → 保留最新 N 個版本目錄（更新備份，預設 3）
+ *   {ru}/versions/          → 同上（legacy 位置 — 寫入者不明，雙保險都清）
+ *   data/uploads/           → 未被對話引用且超過 N 天才刪（預設 90）
+ *
+ * Legacy sweep（2026-09-06 架構搬家後的舊位置 — 直接刪，Fleming：刪掉都可以）：
+ *   {ru}/.paaw/logs/（整個目錄）、{ru}/.paaw/tmp/、{ru}/.paaw/api-logs/
+ *   {ru}/.paaw/{deps-cache,metrics-cache}.json、{ru}/.paaw/cu-debug.log
+ *   data/logs/ 的 runtime 殘留（cli/cron/browser/browser-executor/crash、
+ *   server-console*、server-heartbeat*、cu-debug.log、janitor.log）— 只留 llm/ agent/
+ *
+ * 觸發：POST /api/logs/purge（每日 cron system-daily-log-purge 03:00）或 POST /api/janitor/run
+ * 設定：data/config/janitor.json（UI：Terminal tab 🧹 清理面板）
  */
 
-import { readFile, writeFile, mkdir, readdir, stat, unlink, rm, appendFile } from "fs/promises";
+import { readFile, writeFile, mkdir, readdir, stat, unlink, rm, appendFile, rmdir } from "fs/promises";
 import { existsSync } from "fs";
 import { resolve, join } from "path";
-import { DATA_HOME } from "../data-home.mjs";
+import { DATA_HOME, LOG_HOME, logSlug } from "../data-home.mjs";
 
 const CONFIG_FILE = resolve(DATA_HOME, "config/janitor.json");
-const JANITOR_LOG = resolve(DATA_HOME, "logs/janitor.log");
+const JANITOR_LOG = join(LOG_HOME, "janitor.log");
 const RELEASE_UNITS_FILE = resolve(DATA_HOME, "config/release-units.json");
 
-const DEFAULTS = {
+export const DEFAULTS = {
   enabled: true,
-  semgrepKeep: 3,        // semgrep raw 輸出保留組數
-  appConsoleKeep: 7,     // app-console-YYYY-MM-DD.log 保留份數（log4j 式）
-  appConsoleMaxMb: 5,    // 舊固定名 console 截尾上限
-  versionsKeep: 3,       // versions/<v>/ 更新備份保留版數
-  uploadsDays: 90,       // data/uploads 保留天數
+  semgrepKeep: 3,        // log/semgrep/<ru>/ 保留組數
+  appConsoleKeep: 7,     // log/app-console/<ru>/app-console-YYYY-MM-DD.log 保留份數
+  appConsoleMaxMb: 5,    // 舊固定名 console 截尾上限（log/ 殘留用）
+  versionsKeep: 3,       // 更新備份保留版數（log/versions/<ru>/ + {ru}/versions/ legacy）
+  uploadsDays: 90,       // data/uploads 保留天數（未被引用才刪）
 };
 
 export async function loadConfig() {
@@ -39,7 +50,7 @@ export async function loadConfig() {
     for (const k of Object.keys(DEFAULTS)) {
       if (raw[k] !== undefined) {
         const n = Number(raw[k]);
-        if (Number.isFinite(n) && n >= 0) cfg[k] = raw[k];
+        if (Number.isFinite(n) && n >= 0) cfg[k] = n;
       }
     }
     if (raw.enabled === false) cfg.enabled = false;
@@ -61,9 +72,8 @@ export async function saveConfig(patch) {
       if (Number.isFinite(n) && n >= 0) cfg[k] = n;
     }
   }
-  const { writeFile: wf, mkdir: mk } = await import("fs/promises");
-  await mk(resolve(DATA_HOME, "config"), { recursive: true });
-  await wf(CONFIG_FILE, JSON.stringify(cfg, null, 2), "utf-8");
+  await mkdir(resolve(DATA_HOME, "config"), { recursive: true });
+  await writeFile(CONFIG_FILE, JSON.stringify(cfg, null, 2), "utf-8");
   return cfg;
 }
 
@@ -89,76 +99,18 @@ async function listRuRoots() {
   return [...roots];
 }
 
-/** .paaw/logs/ 清理：semgrep 組 + 日期版 app-console + 舊固定名截尾 + cu-debug 殘留 */
-async function cleanPaawLogs(root, cfg) {
-  const out = { semgrepDeleted: 0, appConsoleDeleted: 0, appConsoleTruncated: 0, legacyDeleted: 0 };
-  const dir = join(root, ".paaw", "logs");
-  if (!existsSync(dir)) { /* logs 不在仍可能要清 cu-debug 殘留 */ }
-  const files = await readdir(dir).catch(() => []);
-
-  // semgrep-<timestamp>-{stdout.json,sh} — 以 timestamp 前綴分組，保留最新 N 組
-  const prefixes = new Set(
-    files.filter(f => f.startsWith("semgrep-"))
-      .map(f => f.replace(/-(stdout\.json|\.sh)$/, ""))
-  );
-  const keepPrefixes = new Set([...prefixes].sort().slice(-cfg.segrepKeep));
-  for (const f of files) {
-    if (!f.startsWith("semgrep-")) continue;
-    const prefix = f.replace(/-(stdout\.json|\.sh)$/, "");
-    if (!keepPrefixes.has(prefix)) {
-      try { await unlink(join(dir, f)); out.semgrepDeleted++; } catch {}
-    }
+/** 目錄內檔案刪到剩最新 N 份（檔名排序，log4j 式日期檔名） */
+async function keepNewestFiles(dir, pattern, keep, out, key) {
+  if (!existsSync(dir)) return;
+  const files = (await readdir(dir).catch(() => [])).filter(f => pattern.test(f)).sort();
+  for (const f of files.slice(0, Math.max(0, files.length - keep))) {
+    try { await unlink(join(dir, f)); out[key]++; } catch {}
   }
-
-  // app-console-YYYY-MM-DD.log — 檔名排序保留最新 N 份
-  const dated = files.filter(f => /^app-console-\d{4}-\d{2}-\d{2}\.log$/.test(f)).sort();
-  for (const f of dated.slice(0, Math.max(0, dated.length - cfg.appConsoleKeep))) {
-    try { await unlink(join(dir, f)); out.appConsoleDeleted++; } catch {}
-  }
-
-  // 舊固定名（app-console.log / dev-console.log）— 超過上限截尾保留 tail（人看的是最後輸出）
-  const maxBytes = cfg.appConsoleMaxMb * 1024 * 1024;
-  for (const legacy of ["app-console.log", "dev-console.log"]) {
-    const p = join(dir, legacy);
-    try {
-      if (!existsSync(p)) continue;
-      const s = await stat(p);
-      if (s.size > maxBytes) {
-        const fh = await import("fs/promises").then(m => m.open(p, "r"));
-        const len = maxBytes;
-        const buf = Buffer.alloc(len);
-        await fh.read(buf, 0, len, s.size - len);
-        await fh.close();
-        await writeFile(p, buf);
-        out.appConsoleTruncated++;
-      }
-    } catch {}
-  }
-
-  // cu-debug.log legacy 殘留（.paaw 根目錄）— 現行寫中央 data/logs/cu-debug.log
-  const cuDebug = join(root, ".paaw", "cu-debug.log");
-  if (existsSync(cuDebug)) {
-    try { await unlink(cuDebug); out.legacyDeleted++; } catch {}
-  }
-  return out;
 }
 
-/** .paaw/tmp/ — 每日保險清空（agent loop 每次開 session 已自動清） */
-async function cleanTmp(root) {
-  let cleared = 0;
-  const dir = join(root, ".paaw", "tmp");
-  if (!existsSync(dir)) return cleared;
-  const entries = await readdir(dir).catch(() => []);
-  for (const e of entries) {
-    try { await rm(join(dir, e), { recursive: true, force: true }); cleared++; } catch {}
-  }
-  return cleared;
-}
-
-/** versions/<v>/ — 保留最新 N 個版本目錄（依 mtime，最新 = 最近被更新/使用） */
-async function cleanVersions(root, cfg) {
+/** 版本目錄群保留最新 N 個（mtime 排序） */
+async function keepNewestDirs(dir, keep, counter) {
   let deleted = 0;
-  const dir = join(root, "versions");
   if (!existsSync(dir)) return deleted;
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
   const dirs = [];
@@ -167,10 +119,125 @@ async function cleanVersions(root, cfg) {
     try { const s = await stat(join(dir, e.name)); dirs.push({ name: e.name, mtime: s.mtimeMs }); } catch {}
   }
   dirs.sort((a, b) => a.mtime - b.mtime); // 舊 → 新
-  for (const d of dirs.slice(0, Math.max(0, dirs.length - cfg.versionsKeep))) {
+  for (const d of dirs.slice(0, Math.max(0, dirs.length - keep))) {
     try { await rm(join(dir, d.name), { recursive: true, force: true }); deleted++; } catch {}
   }
+  counter.deleted += deleted;
   return deleted;
+}
+
+/** log/ 中央各 RU 子目錄清理：semgrep 組數 + app-console 份數 + versions 版數 */
+async function cleanLogGroups(slug, cfg, report) {
+  const out = { semgrepDeleted: 0, appConsoleDeleted: 0, appConsoleTruncated: 0, versionsDeleted: 0 };
+
+  // semgrep-<ts>-* — 以 timestamp 前綴分組保留最新 N 組
+  const sgDir = join(LOG_HOME, "semgrep", slug);
+  if (existsSync(sgDir)) {
+    // 檔名：semgrep-<ts>-stdout.json/-stderr.txt/-error.txt（dash）+ semgrep-<ts>.sh/.bat（無 dash）
+    const strip = (f) => f.replace(/-(stdout[.]json|stderr[.]txt|error[.]txt)$/, "").replace(/[.](sh|bat)$/, "");
+    const keepN = Math.max(0, Math.floor(Number(cfg.semgrepKeep) || 0));
+    const files = await readdir(sgDir).catch(() => []);
+    const prefixes = [...new Set(files.filter(f => f.startsWith("semgrep-")).map(strip))].sort();
+    const keepSet = new Set(prefixes.slice(Math.max(0, prefixes.length - keepN)));
+    for (const f of files) {
+      if (!f.startsWith("semgrep-")) continue;
+      if (!keepSet.has(strip(f))) {
+        try { await unlink(join(sgDir, f)); out.semgrepDeleted++; } catch {}
+      }
+    }
+  }
+
+  // app-console-YYYY-MM-DD.log — 保留最新 N 份
+  await keepNewestFiles(join(LOG_HOME, "app-console", slug), /^app-console-\d{4}-\d{2}-\d{2}\.log$/, cfg.appConsoleKeep, out, "appConsoleDeleted");
+
+  // 舊固定名殘留（app-console.log / dev-console.log）— 截尾不刪（人看最後輸出）
+  const maxBytes = cfg.appConsoleMaxMb * 1024 * 1024;
+  for (const legacy of ["app-console.log", "dev-console.log"]) {
+    const p = join(LOG_HOME, "app-console", slug, legacy);
+    try {
+      if (!existsSync(p)) continue;
+      const s = await stat(p);
+      if (s.size > maxBytes) {
+        const fh = await (await import("fs/promises")).open(p, "r");
+        const buf = Buffer.alloc(maxBytes);
+        await fh.read(buf, 0, maxBytes, s.size - maxBytes);
+        await fh.close();
+        await writeFile(p, buf);
+        out.appConsoleTruncated++;
+      }
+    } catch {}
+  }
+
+  // log/versions/<ru>/ 更新備份
+  await keepNewestDirs(join(LOG_HOME, "versions", slug), cfg.versionsKeep, out);
+
+  report.semgrepDeleted += out.semgrepDeleted;
+  report.appConsoleDeleted += out.appConsoleDeleted;
+  report.appConsoleTruncated += out.appConsoleTruncated;
+  report.versionsDeleted += out.versionsDeleted;
+  return out;
+}
+
+/** log/tmp/<ru>/ — 每日保險清空（agent loop 每 session 開頭已自動清） */
+async function cleanTmp(slug) {
+  let cleared = 0;
+  const dir = join(LOG_HOME, "tmp", slug);
+  if (!existsSync(dir)) return cleared;
+  const entries = await readdir(dir).catch(() => []);
+  for (const e of entries) {
+    try { await rm(join(dir, e), { recursive: true, force: true }); cleared++; } catch {}
+  }
+  return cleared;
+}
+
+/** Legacy sweep — 架構搬家後 .paaw 與 data/logs 的 runtime 殘留，直接刪 */
+async function legacySweep(root, cfg, report) {
+  let deleted = 0;
+  const slug = logSlug(root);
+
+  // {ru}/.paaw 內的 runtime 殘留（.paaw 現在只放資產）
+  const kill = [
+    join(root, ".paaw", "logs"),
+    join(root, ".paaw", "tmp"),
+    join(root, ".paaw", "api-logs"),
+    join(root, ".paaw", "cu-debug.log"),
+    join(root, ".paaw", "deps-cache.json"),
+    join(root, ".paaw", "metrics-cache.json"),
+  ];
+  for (const p of kill) {
+    if (!existsSync(p)) continue;
+    try { await rm(p, { recursive: true, force: true }); deleted++; } catch {}
+  }
+
+  // {ru}/versions/ legacy 位置（寫入者不明 — 有就照版數清）
+  const legacyVersions = { deleted: 0 };
+  await keepNewestDirs(join(root, "versions"), cfg.versionsKeep, legacyVersions);
+  report.versionsDeleted += legacyVersions.deleted;
+
+  // data/logs runtime 殘留（llm/agent 除外 — 資產）
+  const oldLogs = resolve(DATA_HOME, "logs");
+  if (existsSync(oldLogs)) {
+    const killNames = ["cli", "cron", "browser", "browser-executor", "crash",
+      "server-console.log", "server-console.log.old", "server-heartbeat.log", "server-heartbeat.log.old",
+      "cu-debug.log", "janitor.log"];
+    for (const n of killNames) {
+      const p = join(oldLogs, n);
+      if (!existsSync(p)) continue;
+      try { await rm(p, { recursive: true, force: true }); deleted++; } catch {}
+    }
+    // 空目錄收尾
+    for (const sub of ["cli", "cron", "browser", "browser-executor", "crash"]) {
+      try { await rmdir(join(oldLogs, sub)); } catch {}
+    }
+  }
+
+  report.legacyDeleted += deleted;
+  return deleted;
+}
+
+/** log/cu-debug.log — 刪（CU debug 不留） */
+async function cleanCuDebug() {
+  try { await unlink(join(LOG_HOME, "cu-debug.log")); return 1; } catch { return 0; }
 }
 
 /** 收集「仍被對話資產引用」的中央圖檔名 — 這些絕不刪（對話在圖就在）
@@ -179,7 +246,6 @@ async function collectReferencedUploadNames(ruRoots) {
   const refs = new Set();
   const dirs = [];
   for (const root of ruRoots) dirs.push(join(root, ".paaw", "coding-memory", "conversations"));
-  const { DATA_HOME } = await import("../data-home.mjs");
   dirs.push(resolve(DATA_HOME, "chats"));
   const re = /(?:paaw-)?uploads\/([A-Za-z0-9][A-Za-z0-9._-]*)/g;
   for (const dir of dirs) {
@@ -231,25 +297,43 @@ export async function runJanitor() {
   if (!cfg.enabled) return report;
 
   const ruRoots = await listRuRoots();
-  for (const root of ruRoots) {
-    try {
-      const logs = await cleanPaawLogs(root, cfg);
-      const tmp = await cleanTmp(root);
-      const versions = await cleanVersions(root, cfg);
-      report.semgrepDeleted += logs.semgrepDeleted;
-      report.appConsoleDeleted += logs.appConsoleDeleted;
-      report.appConsoleTruncated += logs.appConsoleTruncated;
-      report.legacyDeleted += logs.legacyDeleted;
-      report.tmpCleared += tmp;
-      report.versionsDeleted += versions;
-      report.roots.push({ root, ...logs, tmpCleared: tmp, versionsDeleted: versions });
-    } catch { /* 單一 RU 失敗不中斷 */ }
+
+  // slug 清單 = LOG_HOME 各管理子目錄實際存在的（孤兒也清）∪ 註冊 RU 的 slug
+  const slugs = new Set();
+  for (const sub of ["semgrep", "app-console", "versions", "tmp"]) {
+    const dir = join(LOG_HOME, sub);
+    if (!existsSync(dir)) continue;
+    for (const e of await readdir(dir, { withFileTypes: true }).catch(() => [])) {
+      if (e.isDirectory()) slugs.add(e.name);
+    }
   }
+  const rootBySlug = new Map();
+  for (const root of ruRoots) {
+    const slug = logSlug(root);
+    slugs.add(slug);
+    rootBySlug.set(slug, root);
+  }
+  for (const slug of slugs) {
+    try {
+      const groups = await cleanLogGroups(slug, cfg, report);
+      const tmp = await cleanTmp(slug);
+      report.tmpCleared += tmp;
+      const root = rootBySlug.get(slug);
+      if (root) report.roots.push({ root, slug, ...groups, tmpCleared: tmp });
+    } catch { /* 單一 slug 失敗不中斷 */ }
+  }
+
+  // legacy sweep（每 RU 一輪；data/logs 部分冪等）
+  for (const root of ruRoots) {
+    try { await legacySweep(root, cfg, report); } catch {}
+  }
+
+  try { report.legacyDeleted += await cleanCuDebug(); } catch {}
   try { report.uploadsDeleted += await cleanUploads(cfg, ruRoots); } catch {}
 
-  // 摘要落 data/logs/janitor.log（每日一行）
+  // 摘要落 log/janitor.log（每日一行）
   try {
-    await mkdir(resolve(JANITOR_LOG, ".."), { recursive: true });
+    await mkdir(LOG_HOME, { recursive: true });
     const total = report.semgrepDeleted + report.appConsoleDeleted + report.versionsDeleted
       + report.legacyDeleted + report.tmpCleared + report.uploadsDeleted;
     await appendFile(JANITOR_LOG,

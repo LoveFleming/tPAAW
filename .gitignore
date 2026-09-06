@@ -59,15 +59,11 @@ data/llm-logs/
 data/agent-logs/
 data/cli-run-output/
 data/cron-output/
-# Release unit 資產（2026-09-06 Fleming 定調：.paaw 進版控，跟程式一樣是資產）
-# 只排除 runtime 垃圾：logs / tmp / cache / debug log / api 執行記錄
-.paaw/logs/
-.paaw/tmp/
-.paaw/api-logs/
-.paaw/cu-debug.log
-.paaw/deps-cache.json
-.paaw/metrics-cache.json
+# Release unit 資產（2026-09-06：.paaw 100% 進版控 — runtime log 已全數遷到 log/ 中央目錄，零例外）
 .openclaw/
+
+# PAAW runtime log 根（機器本地垃圾 — janitor 定時清，不備份不版控）
+log/
 
 # PAAW temp/debug files
 packages/server/temp/
@@ -97,3 +93,6 @@ data/keys/
 logs/
 data/a2a-tasks/
 data/config/release-units.json
+# 機器本地 runtime 設定（UI 可改 — 不版控，出廠預設在程式碼 DEFAULTS）
+data/config/janitor.json
+data/config/log-retention.json

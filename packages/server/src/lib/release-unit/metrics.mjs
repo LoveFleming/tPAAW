@@ -5,9 +5,10 @@
  * 純靜態掃描，零 LLM 成本。快取 .paaw/metrics-cache.json（同 deps signature）。
  */
 
-import { readFile, writeFile } from "fs/promises";
+import { mkdir, readFile, writeFile } from "fs/promises";
+import { LOG_HOME, logSlug } from "../../data-home.mjs";
 import { existsSync } from "fs";
-import { join } from "path";
+import { join, dirname } from "path";
 import { detectAdapter } from "./adapters.mjs";
 import { walkSources } from "./dependencies.mjs";
 
@@ -34,7 +35,7 @@ export async function computeMetrics(root, opts = {}) {
   const files = await walkSources(root, adapter.sourceExts, opts.maxFiles);
   const signature = `v${CACHE_VERSION}:${adapter.id}:${files.length}:${Math.max(0, ...files.map(f => Math.floor(f.mtimeMs / 1000)))}`;
 
-  const cacheFile = join(root, ".paaw", "metrics-cache.json");
+  const cacheFile = join(LOG_HOME, "cache", logSlug(root), "metrics-cache.json");
   if (!opts.refresh && existsSync(cacheFile)) {
     try {
       const cached = JSON.parse(await readFile(cacheFile, "utf-8"));
@@ -98,6 +99,7 @@ export async function computeMetrics(root, opts = {}) {
   try {
     const paawDir = join(root, ".paaw");
     if (!existsSync(paawDir)) await (await import("fs/promises")).mkdir(paawDir, { recursive: true });
+    await mkdir(dirname(cacheFile), { recursive: true });
     await writeFile(cacheFile, JSON.stringify(result), "utf-8");
   } catch { /* 快取失敗不影響 */ }
 

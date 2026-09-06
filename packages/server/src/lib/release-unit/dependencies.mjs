@@ -13,6 +13,7 @@
  */
 
 import { readFile, writeFile, mkdir, stat, readdir } from "fs/promises";
+import { LOG_HOME, logSlug } from "../../data-home.mjs";
 import { existsSync } from "fs";
 import { join, relative, dirname, extname } from "path";
 import { detectAdapter, parsePathAliases } from "./adapters.mjs";
@@ -141,7 +142,7 @@ export async function buildDependencyGraph(root, opts = {}) {
   const signature = `${CACHE_VERSION}:${adapter.id}:${files.length}:${Math.max(0, ...files.map(f => Math.floor(f.mtimeMs / 1000)))}`;
 
   // 快取有效 → 直接回
-  const cacheFile = join(root, ".paaw", "deps-cache.json");
+  const cacheFile = join(LOG_HOME, "cache", logSlug(root), "deps-cache.json");
   if (!opts.refresh && existsSync(cacheFile)) {
     try {
       const cached = JSON.parse(await readFile(cacheFile, "utf-8"));

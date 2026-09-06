@@ -14,10 +14,10 @@ import { createServer } from "http";
 import { appendFileSync, mkdirSync, statSync, renameSync, existsSync, createWriteStream } from "fs";
 
 // ── Console log tee（2026-09-06 Fleming：Terminal 頁 📜 Console 要能看到 server console）──
-// stdout/stderr 全部 mirror 到 data/logs/server-console.log（async append，不 block 主流程）
+// stdout/stderr 全部 mirror 到 log/server-console.log（async append，不 block 主流程）
 // UI 用 GET /api/logs/console 輪詢讀取；PTY session 輸出不走 process.stdout，不會被 tee（正確）
 try {
-  const _logDir = join(DATA_HOME, "logs");
+  const _logDir = LOG_HOME;
   mkdirSync(_logDir, { recursive: true });
   const _logFile = join(_logDir, "server-console.log");
   // 輪侈：> 5MB → .old（舊檔保一份，再舊覆盖）
@@ -40,7 +40,7 @@ import {
   resolve, dirname, join,
 } from "./routes/shared.mjs";
 import { setupWebSocket } from "./websocket/ws-handler.mjs";
-import { DATA_HOME } from "./data-home.mjs";
+import { DATA_HOME, LOG_HOME } from "./data-home.mjs";
 
 // ── Process-level crash protection ──
 // Node 15+ terminates on unhandledRejection by default.
@@ -54,7 +54,7 @@ function _writeCrashLog(kind, detail) {
     const sig = `${kind}:${String(detail).slice(0, 200)}`;
     if (Date.now() - (_crashWriteLast.get(sig) || 0) < 5000) return; // 同簽名 5 秒內只寫一筆
     _crashWriteLast.set(sig, Date.now());
-    const crashDir = join(DATA_HOME, "logs", "crash");
+    const crashDir = join(LOG_HOME, "crash");
     mkdirSync(crashDir, { recursive: true });
     appendFileSync(join(crashDir, `crash-${ts.replace(/[:.]/g, "-")}.log`),
       `[${kind}] ${ts}\n${detail}\n\n`);
@@ -291,7 +291,7 @@ server.on("error", (err) => {
 
 // Flight recorder — 黑盒子：任何死法都留死亡時間 + heap 曲線（data/logs/server-heartbeat.log）
 import { startFlightRecorder } from "./lib/flight-recorder.mjs";
-startFlightRecorder(DATA_HOME);
+startFlightRecorder();
 
 server.listen(PORT, async () => {
   // Ensure required directories exist

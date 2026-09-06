@@ -101,16 +101,15 @@ function computeCuStaleness(root, steps, codeLastModifiedMs) {
   return staleSteps;
 }
 
-// Debug logger for Code Understanding — writes to data/logs/cu-debug.log
+// Debug logger for Code Understanding — writes to log/cu-debug.log
 // （不可寫產品根目錄 .paaw — 執行程式不能在安裝目錄長 .paaw）
 import { appendFileSync, existsSync as existsSyncSync, mkdirSync } from "fs";
 function cuLog(step, msg) {
   const line = `[${new Date().toISOString()}] [CU] step=${step} ${msg}\n`;
   console.log(line.trim());
   try {
-    const logDir = join(DATA_HOME, "logs");
-    mkdirSync(logDir, { recursive: true });
-    appendFileSync(join(logDir, "cu-debug.log"), line);
+    mkdirSync(LOG_HOME, { recursive: true });
+    appendFileSync(join(LOG_HOME, "cu-debug.log"), line);
   } catch {}
 }
 
@@ -165,7 +164,7 @@ import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 // ── Running agent tracking (for busy check + interrupt) ──
 import { runningCodingAgents } from "../lib/running-agents.mjs";
-import { DATA_HOME } from "../data-home.mjs";
+import { DATA_HOME, LOG_HOME, logSlug } from "../data-home.mjs";
 
 // ── LLM Call Helper for project routes ──
 // Resolves provider config and calls LLM with proper 4-arg signature
@@ -1110,89 +1109,8 @@ export default async function projectRoute(req, res) {
   // Run migration on first request
   await migrateFlatConversations(q.cwd || PAAW_ROOT);
 
-  // ── Console log 輪詢（2026-09-06 Fleming：Terminal 頁 📜 Console 看 server/app console）──
-  // GET /api/logs/console?src=server|app&cwd=...&offset=N → { data, nextOffset, size, exists }
-  // server = data/logs/server-console.log（paaw-server.mjs tee stdout/stderr）
-  // app = {cwd}/.paaw/logs/app-console.log（agent 重啟 app 時落檔 — developer prompt 有指引）
-  if (url.startsWith("/api/logs/console") && method === "GET") {
-    const src = q.src === "app" ? "app" : "server";
-    let file;
-    if (src === "app") {
-      // log4j 式日期檔名（2026-09-06）：讀最新的 app-console-YYYY-MM-DD.log；舊固定名 fallback
-      const logsDir = join(q.cwd || PAAW_ROOT, ".paaw", "logs");
-      let target = join(logsDir, "app-console.log");
-      try {
-        const ls = await readdir(logsDir);
-        const dated = ls.filter(f => /^app-console-\d{4}-\d{2}-\d{2}\.log$/.test(f)).sort();
-        if (dated.length > 0) target = join(logsDir, dated[dated.length - 1]);
-      } catch { /* 目錄不存在走 fallback */ }
-      file = target;
-    } else {
-      file = join(DATA_HOME, "logs", "server-console.log");
-    }
-    try {
-      let data = "";
-      let size = 0;
-      let exists = existsSync(file);
-      if (exists) {
-        const st = statSync(file);
-        size = st.size;
-        const offset = Math.max(0, Math.min(parseInt(q.offset || "0", 10) || 0, st.size));
-        // 只回傳 offset 之後的新內容；單次最多回 512KB（前端輪詢追上）
-        const fd = openSync(file, "r");
-        try {
-          const len = Math.min(st.size - offset, 512 * 1024);
-          const buf = Buffer.alloc(len);
-          fsReadSync(fd, buf, 0, len, offset);
-          data = buf.toString("utf-8");
-        } finally { fsCloseSync(fd); }
-        return res.writeHead(200, { "Content-Type": "application/json" })
-          .end(JSON.stringify({ src, file, exists: true, size, nextOffset: offset + Buffer.byteLength(data, "utf-8"), data }));
-      }
-      return res.writeHead(200, { "Content-Type": "application/json" })
-        .end(JSON.stringify({ src, file, exists: false, size: 0, nextOffset: 0, data: "" }));
-    } catch (err) {
-      return res.writeHead(500, { "Content-Type": "application/json" }).end(JSON.stringify({ error: err.message }));
-    }
-  }
+  // ── Console log 輪詢已移到 routes/janitor.mjs（GET /api/logs/console — 本檔 gate 擋不到）──
 
-  // GET /api/coding-crew/conversations?cwd=... — list all agents with conversations
-  if (url === "/api/coding-crew/conversations" && method === "GET") {
-    const cwd = q.cwd || PAAW_ROOT;
-    const convDir = join(cwd, ".paaw", "coding-memory", "conversations");
-    try {
-      if (!existsSync(convDir)) {
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ conversations: [] }));
-        return true;
-      }
-      const entries = await readdir(convDir);
-      const conversations = [];
-      for (const entry of entries) {
-        const entryPath = join(convDir, entry);
-        try {
-          const stat = await import("fs").then(fs => fs.statSync(entryPath));
-          if (!stat.isDirectory()) continue;
-          const activePath = join(entryPath, "active.json");
-          const data = await readConvFile(activePath);
-          const sessions = (await readdir(entryPath)).filter(f => f.startsWith("s-") && f.endsWith(".json"));
-          conversations.push({
-            crewId: entry,
-            messageCount: data.messages.length,
-            lastUpdated: data._meta?.lastUpdated || null,
-            preview: data.messages.slice(-1)[0]?.content?.slice(0, 100) || "",
-            sessionCount: sessions.length + (data.messages.length > 0 ? 1 : 0),
-          });
-        } catch {}
-      }
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ conversations }));
-    } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
-    }
-    return true;
-  }
 
   // GET /api/coding-crew/conversations/:crewId?cwd=... — load active conversation
   const convLoadMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/?]+)(?:\?.*)?$/);

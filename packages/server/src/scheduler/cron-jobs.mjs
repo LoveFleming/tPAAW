@@ -14,7 +14,7 @@ import {
 import { runAgentLoop, runAgentLoopStream } from "../lib/paaw-agent-loop.mjs";
 import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
-import { DATA_HOME } from "../data-home.mjs";
+import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
 
 // Lazy-load distill module
 let _distillMod = null;
@@ -568,7 +568,7 @@ async function agentLoopHandler(req, res) {
     const { loadAgentConfig } = await import("../routes/context.mjs");
     const agentCfg = await loadAgentConfig();
 
-    const workDir = cwd || resolve(DATA_HOME, "logs", "cron", `${Date.now()}`);
+    const workDir = cwd || resolve(LOG_HOME, "cron", `${Date.now()}`);
     try { mkdirSync(workDir, { recursive: true }); } catch {}
     let skillMd = "";
     let autoSystemPrompt = systemPrompt;
@@ -612,7 +612,7 @@ async function agentLoopHandler(req, res) {
     const { loadAgentConfig } = await import("../routes/context.mjs");
     const agentCfg = await loadAgentConfig();
 
-    const workDir = cwd || resolve(DATA_HOME, "logs", "cron", `${Date.now()}`);
+    const workDir = cwd || resolve(LOG_HOME, "cron", `${Date.now()}`);
     try { mkdirSync(workDir, { recursive: true }); } catch {}
     let skillMd = "";
     let autoSystemPrompt = systemPrompt;

@@ -41,7 +41,7 @@ import { createPaawProject } from "./paaw-project.mjs";
 import { PaawSnapshot } from "./paaw-snapshot.mjs";
 import { resolveDefaultModel } from "./llm-utils.mjs";
 import { toolRegistry } from "./tool-registry.mjs";
-import { DATA_HOME } from "../data-home.mjs";
+import { DATA_HOME, LOG_HOME, logSlug } from "../data-home.mjs";
 import {
   getBrowserPage, takeScreenshot, trackPage, readPageText, locateTarget,
   assertSafeUrl, browserState, PLAYWRIGHT_INSTALL_HINT,
@@ -1334,10 +1334,21 @@ async function _nativeGrep(searchPath, pattern, include, maxResults = 50, ignore
 
 async function runShell(command, cwd, timeoutMs = 30_000) {
   try {
+    // Runtime log 中央目錄注入（2026-09-06）：agents 在 RU 目錄跑，但要能寫 log/<sub>/<ru>/
+    // - $PAAW_LOG_HOME           → log/ 根（generic）
+    // - $PAAW_TMP                → log/tmp/<ru-slug>/（agent scratch，session 自動清）
+    // - $PAAW_APP_CONSOLE_DIR    → log/app-console/<ru-slug>/（developer 啟動 app 的 nohup 輸出）
+    const _ruSlug = logSlug(cwd);
     const { stdout, stderr } = await shellExec(command, {
       cwd,
       timeout: Math.min(timeoutMs, _agentCfg.shellTimeoutMs || 600_000),
       maxBuffer: 5 * 1024 * 1024,
+      env: {
+        ...process.env,
+        PAAW_LOG_HOME: LOG_HOME,
+        PAAW_TMP: join(LOG_HOME, "tmp", _ruSlug),
+        PAAW_APP_CONSOLE_DIR: join(LOG_HOME, "app-console", _ruSlug),
+      },
     });
     return (stdout || "") + (stderr ? "\n" + stderr : "") || "(no output)";
   } catch (e) {
@@ -1994,7 +2005,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           // 標記由 agent loop 攔截 → 圖進 message；沒 vision 能力時降級為文字提示
           let visionMarker = "";
           try {
-            const shotDir = join(DATA_HOME, "logs", "browser");
+            const shotDir = join(LOG_HOME, "browser");
             const visionPath = join(shotDir, `shot-${Date.now()}.vision.jpg`);
             await page.screenshot({ path: visionPath, type: "jpeg", quality: 80, fullPage: false });
             visionMarker = `\n[[PAAW_IMAGE:${visionPath.split(/[\\/]/).join("/")}]]`;
@@ -3483,7 +3494,7 @@ task_retrofit(priority?, featureIds?) → 上線前品質補強：從 feature ma
  * Clean up temporary/scratch files created by the agent during a session.
  *
  * Strategy:
- * 1. Files in .paaw/tmp/ — always cleaned (designated temp area)
+ * 1. Files in log/tmp/<ru-slug>/（$PAAW_TMP）— always cleaned (designated temp area)
  * 2. Created files matching temp patterns — cleaned (test-*.mjs, scratch.*, _temp.*, etc.)
  * 3. Created files that are legitimate source — kept (reported only)
  *
@@ -3496,8 +3507,8 @@ async function cleanupTempFiles(cwd, createdFiles, logFn) {
   const LOG = logFn || (() => {});
   let cleaned = 0;
 
-  // 1. Always clean .paaw/tmp/
-  const tmpDir = join(cwd, ".paaw", "tmp");
+  // 1. Always clean log/tmp/<ru-slug>/（$PAAW_TMP — 2026-09-06 起 scratch 不再進 .paaw）
+  const tmpDir = join(LOG_HOME, "tmp", logSlug(cwd));
   try {
     const tmpFiles = await readdir(tmpDir).catch(() => []);
     for (const f of tmpFiles) {
@@ -3622,10 +3633,10 @@ export async function runAgentLoop(config) {
   const modifiedFiles = new Set(); // track modified files for post-edit test verification
   const createdFiles = new Set(); // track NEW files (didn't exist before) for cleanup
 
-  // Ensure .paaw/tmp/ exists as designated temp area (auto-cleaned each session)
-  // 跟著 cwd（目標專案）：agents 拿相對路徑 .paaw/tmp/ 寫 scratch，清這裡才真的清得到；
-  // 絕不建在 rootDir（PAAW 產品安裝目錄）— 執行程式不能在安裝目錄長 .paaw
-  const tmpDir = join(cwd, ".paaw", "tmp");
+  // Ensure $PAAW_TMP exists as designated temp area (auto-cleaned each session)
+  // log/tmp/<ru-slug>/（2026-09-06 Fleming：.paaw 只放資產 — scratch 一律中央 log/）
+  // bash tool 已注入 $PAAW_TMP env；agents 寫 scratch 走這裡，不再碰 .paaw
+  const tmpDir = join(LOG_HOME, "tmp", logSlug(cwd));
   try {
     await mkdir(tmpDir, { recursive: true });
     // Clean up previous session's temp files
@@ -3633,7 +3644,7 @@ export async function runAgentLoop(config) {
     for (const f of oldTempFiles) {
       try { await rm(join(tmpDir, f), { recursive: true, force: true }); } catch {}
     }
-    LOG(`[cleanup] .paaw/tmp/ cleared ${oldTempFiles.length} leftover temp files`);
+    LOG(`[cleanup] log/tmp cleared ${oldTempFiles.length} leftover temp files`);
   } catch {}
 
   // Resolve LLM config — mutable: fallback success updates active model for subsequent turns
@@ -4064,16 +4075,16 @@ export async function runAgentLoopStream(config, res) {
   const streamModifiedFiles = new Set(); // track modified files for post-edit verification
   const streamCreatedFiles = new Set(); // track NEW files for cleanup
 
-  // Ensure .paaw/tmp/ exists as designated temp area (auto-cleaned each session)
-  // 跟著 cwd（目標專案）— 同 runAgentLoop；不碰 rootDir（產品安裝目錄）
-  const streamTmpDir = join(cwd, ".paaw", "tmp");
+  // Ensure $PAAW_TMP exists as designated temp area (auto-cleaned each session)
+  // log/tmp/<ru-slug>/（2026-09-06：.paaw 只放資產）— 同 runAgentLoop
+  const streamTmpDir = join(LOG_HOME, "tmp", logSlug(cwd));
   try {
     await mkdir(streamTmpDir, { recursive: true });
     const oldTempFiles = await readdir(streamTmpDir).catch(() => []);
     for (const f of oldTempFiles) {
       try { await rm(join(streamTmpDir, f), { recursive: true, force: true }); } catch {}
     }
-    console.log(`[cleanup] .paaw/tmp/ cleared ${oldTempFiles.length} leftover temp files`);
+    console.log(`[cleanup] log/tmp cleared ${oldTempFiles.length} leftover temp files`);
   } catch {}
 
   // ── Execution logger ──
