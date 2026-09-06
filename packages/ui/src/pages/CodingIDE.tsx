@@ -1560,9 +1560,10 @@ const sendChat = useCallback(async () => {
     // 👁 貼圖：壓縮檔先上傳 → uploads/ 路徑（agent mode 進 a2a parts、domain mode 進 images）
     let uploadedPaths: string[] = [];
     if (pendingImages.length > 0) {
+      // ruRoot：coding app 對話圖進該 RU 的 .paaw/uploads/（資產，跟著 RU 生命週期 — 2026-09-06 Fleming 定調）
       const results = await Promise.all(pendingImages.map(async (img) => {
         try {
-          const r = await fetch(`${API_BASE}/api/uploads`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataUrl: img.dataUrl }) });
+          const r = await fetch(`${API_BASE}/api/uploads`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataUrl: img.dataUrl, ruRoot: rootPath || undefined }) });
           const d = await r.json();
           return (d?.ok && d?.path) ? d.path as string : null;
         } catch { return null; }

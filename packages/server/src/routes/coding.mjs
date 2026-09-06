@@ -3700,16 +3700,18 @@ export default async function projectRoute(req, res) {
         // 👁 2026-09-06：domain AI 貼圖 — 有圖 → vision content array + 自動切 visionModel（沒設定則降級純文字附註）
         let effectiveModel = modelOverride;
         const imgPaths = Array.isArray(images)
-          ? [...new Set(images)].filter((p) => typeof p === "string" && /^uploads\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(p)).slice(0, 4)
+          ? [...new Set(images)].filter((p) => typeof p === "string" && /^(paaw-)?uploads\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(p)).slice(0, 4)
           : [];
         if (imgPaths.length > 0) {
           try {
             const { imageFileToDataUrl, getVisionModel, visionAvailable } = await import("../lib/vision-content.mjs");
-            const { uploadsDir } = await import("./uploads.mjs");
+            const { resolveUploadRef } = await import("./uploads.mjs");
             if (visionAvailable(null)) {
               const parts = [{ type: "text", text: prompt }];
               for (const p of imgPaths) {
-                const du = imageFileToDataUrl(join(uploadsDir(), p.slice("uploads/".length)));
+                const absPath = await resolveUploadRef(p);
+                if (!absPath) continue;
+                const du = imageFileToDataUrl(absPath);
                 if (du) parts.push({ type: "image_url", image_url: { url: du } });
               }
               if (parts.length > 1) {

@@ -147,17 +147,44 @@ async function cleanVersions(root, cfg) {
   return deleted;
 }
 
-/** data/uploads/ — 聊天上傳圖等，超過 N 天刪（mtime） */
-async function cleanUploads(cfg) {
+/** 收集「仍被對話資產引用」的中央圖檔名 — 這些絕不刪（對話在圖就在）
+ *  掃描：{ru}/.paaw/coding-memory/conversations/*.json + data/chats/*.json */
+async function collectReferencedUploadNames(ruRoots) {
+  const refs = new Set();
+  const dirs = [];
+  for (const root of ruRoots) dirs.push(join(root, ".paaw", "coding-memory", "conversations"));
+  const { DATA_HOME } = await import("../data-home.mjs");
+  dirs.push(resolve(DATA_HOME, "chats"));
+  const re = /(?:paaw-)?uploads\/([A-Za-z0-9][A-Za-z0-9._-]*)/g;
+  for (const dir of dirs) {
+    if (!existsSync(dir)) continue;
+    const files = await readdir(dir).catch(() => []);
+    for (const f of files) {
+      if (!f.endsWith(".json")) continue;
+      try {
+        const txt = await readFile(join(dir, f), "utf-8");
+        let m;
+        while ((m = re.exec(txt)) !== null) refs.add(m[1]);
+      } catch {}
+    }
+  }
+  return refs;
+}
+
+/** data/uploads/（中央）— 未被引用且超過 N 天才刪（mtime）
+ *  ⚠️ RU 資產圖在 {ru}/.paaw/uploads/ — 永不清理（不在本函式範圍，白名單制保證） */
+async function cleanUploads(cfg, ruRoots) {
   let deleted = 0;
   const { uploadsDir } = await import("../routes/uploads.mjs");
   const dir = uploadsDir();
   if (!existsSync(dir)) return deleted;
+  const referenced = await collectReferencedUploadNames(ruRoots);
   const cutoff = Date.now() - cfg.uploadsDays * 24 * 60 * 60 * 1000;
   const entries = await readdir(dir).catch(() => []);
   for (const e of entries) {
     const full = join(dir, e);
     try {
+      if (referenced.has(e)) continue; // 對話還在引用 — 保留
       const s = await stat(full);
       if (s.mtimeMs < cutoff && s.isFile()) { await unlink(full); deleted++; }
     } catch {}
@@ -177,7 +204,8 @@ export async function runJanitor() {
   };
   if (!cfg.enabled) return report;
 
-  for (const root of await listRuRoots()) {
+  const ruRoots = await listRuRoots();
+  for (const root of ruRoots) {
     try {
       const logs = await cleanPaawLogs(root, cfg);
       const tmp = await cleanTmp(root);
@@ -191,7 +219,7 @@ export async function runJanitor() {
       report.roots.push({ root, ...logs, tmpCleared: tmp, versionsDeleted: versions });
     } catch { /* 單一 RU 失敗不中斷 */ }
   }
-  try { report.uploadsDeleted += await cleanUploads(cfg); } catch {}
+  try { report.uploadsDeleted += await cleanUploads(cfg, ruRoots); } catch {}
 
   // 摘要落 data/logs/janitor.log（每日一行）
   try {

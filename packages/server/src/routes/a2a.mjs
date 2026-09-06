@@ -306,7 +306,7 @@ function extractText(message) {
 
 // 👁 2026-08-30：抽取 message.parts 裡的圖（coding app agent chat 貼圖）
 // 安全：只允許 uploads/<安全檔名> — 防路徑穿越（客戶端可傳任意 path）
-const UPLOADS_PATH_RE = /^uploads\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const UPLOADS_PATH_RE = /^(paaw-)?uploads\/[A-Za-z0-9][A-Za-z0-9._-]*$/; // paaw-uploads = RU 資產圖（2026-09-06）
 export function extractImages(message) {
   if (!message?.parts) return [];
   const paths = message.parts
@@ -323,8 +323,8 @@ export function extractImages(message) {
 async function appendImageMessages(messages, imagePaths, sourceLabel) {
   if (!imagePaths?.length) return;
   const { buildImageAttachmentMessage } = await import("../lib/vision-content.mjs");
-  const { uploadsDir } = await import("./uploads.mjs");
-  const abs = imagePaths.map(p => join(uploadsDir(), p.slice("uploads/".length)));
+  const { resolveUploadRef } = await import("./uploads.mjs");
+  const abs = (await Promise.all(imagePaths.map(p => resolveUploadRef(p)))).filter(Boolean);
   const imgMsg = buildImageAttachmentMessage(abs, `使用者貼的圖（${sourceLabel}）`);
   if (imgMsg) messages.push(imgMsg);
   else console.warn("[A2A] ⚠️ 圖片檔讀取失敗 — 降級為純文字輪");

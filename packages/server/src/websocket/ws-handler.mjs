@@ -260,7 +260,7 @@ export function setupWebSocket() {
           const userText = (msg.text || "").trim();
           // 👁 2026-09-06：AI Crew console 貼圖 — images: uploads/ 相對路徑（白名單防穿越，上限 4）
           const imgPaths = Array.isArray(msg.images)
-            ? [...new Set(msg.images)].filter((p) => typeof p === "string" && /^uploads\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(p)).slice(0, 4)
+            ? [...new Set(msg.images)].filter((p) => typeof p === "string" && /^(paaw-)?uploads\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(p)).slice(0, 4)
             : [];
           if ((!userText && imgPaths.length === 0) || agentState.busy) {
             if (agentState.busy) ws.send(JSON.stringify({ type: "agent_busy" }));
@@ -277,8 +277,8 @@ export function setupWebSocket() {
           if (imgPaths.length > 0) {
             try {
               const { buildImageAttachmentMessage } = await import("../lib/vision-content.mjs");
-              const { uploadsDir } = await import("../routes/uploads.mjs");
-              const abs = imgPaths.map((p) => join(uploadsDir(), p.slice("uploads/".length)));
+              const { resolveUploadRef } = await import("../routes/uploads.mjs");
+              const abs = (await Promise.all(imgPaths.map((p) => resolveUploadRef(p)))).filter(Boolean);
               imageAttachment = buildImageAttachmentMessage(abs, "使用者貼的圖（AI Crew console）");
             } catch { /* 讀檔失敗降級純文字 */ }
           }
