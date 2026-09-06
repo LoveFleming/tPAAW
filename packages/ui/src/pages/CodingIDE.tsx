@@ -478,19 +478,9 @@ export default function CodingIDE() {
 
   const openNewTerminal = useCallback(() => {
     if (!rootPath) return;
-    // VSCode-style numbering: reuse lowest available number
-    const existingNumbers = mainTabs
-      .filter(t => t.type === "terminal")
-      .map(t => {
-        const m = t.label.match(/^Terminal\s+(\d+)$/);
-        return m ? parseInt(m[1], 10) : 0;
-      })
-      .filter(n => n > 0);
-    let num = 1;
-    while (existingNumbers.includes(num)) num++;
-    const tabId = `tool:terminal#${num}-${Date.now()}`;
-    openMainTab({ id: tabId, type: "terminal", label: `Terminal ${num}`, icon: "\u2328\uFE0F", closable: true });
-  }, [openMainTab, rootPath, mainTabs]);
+    // 2026-09-06 Fleming：單一實例 — label 固定 "Terminal"、id 固定（已開就 reuse、不會重開）
+    openMainTab({ id: "tool:terminal", type: "terminal", label: "Terminal", icon: "⌨️", closable: true });
+  }, [openMainTab, rootPath]);
 
   const [loadingFile, setLoadingFile] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -608,6 +598,7 @@ export default function CodingIDE() {
       { id: "tool:code-intel", type: "code-intel", label: tt("codeIntel.toolbar"), icon: "📞", closable: true },
       { id: "tool:git", type: "git", label: "Git", icon: "🔀", closable: true },
       { id: "tool:security", type: "security", label: "Security", icon: "🔒", closable: true },
+      { id: "tool:terminal", type: "terminal", label: "Terminal", icon: "⌨️", closable: true },
     ]},
     { id: "verify", icon: "🧪", tools: [
       { id: "tool:api", type: "api", label: "API Tester", icon: "🌐", closable: true },
@@ -2763,24 +2754,9 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
         </div>
 
 
-        {/* ⌨️ Terminal — 單一實例（2026-09-06 Fleming）：沒開就開、已開就聚焦；原多實例下拉移除 */}
-        <button
-          onClick={() => {
-            if (!rootPath) return;
-            const t = mainTabs.find(x => x.type === "terminal");
-            if (t) setActiveMainTabId(t.id); else openNewTerminal();
-          }}
-          disabled={!rootPath}
-          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors", !rootPath && "opacity-20 cursor-not-allowed")}
-          style={{ backgroundColor: mainTabs.some(t => t.type === "terminal") ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.type === "terminal") ? tk.toolbarText : tk.toolbarTextMuted }}
-          onMouseEnter={e => { if (rootPath && !mainTabs.some(t => t.type === "terminal")) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = mainTabs.some(t => t.type === "terminal") ? tk.toolbarActive : "transparent"; }}>
-          ⌨️ Terminal
-        </button>
-
         {/* 🧰 工具分類下拉（2026-09-06 Fleming）：15 個 tool 收斂成 5 類，類內按英文 label 字母序 */}
         {TOOL_CATEGORIES.map(cat => {
-          const catActive = !!activeMainTab && cat.tools.some(tool => tool.id === activeMainTab.id);
+          const catActive = !!activeMainTab && cat.tools.some(tool => tool.id === activeMainTab.id || (tool.type === "terminal" && activeMainTab.type === "terminal"));
           return (
             <div key={cat.id} className="relative ml-1">
               <button
@@ -2794,10 +2770,16 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
               {openToolbarCat === cat.id && (
                 <div className="toolbar-dropdown-panel absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
                   {cat.tools.map(tool => {
-                    const active = activeMainTab?.id === tool.id;
-                    const opened = mainTabs.some(t => t.id === tool.id);
+                    // Terminal 單一實例：tabId 動態 → 用 type 匹配 active/opened（2026-09-06 Fleming：Terminal 移入開發分類）
+                    const isTerm = tool.type === "terminal";
+                    const active = activeMainTab?.id === tool.id || (isTerm && activeMainTab?.type === "terminal");
+                    const opened = mainTabs.some(t => (isTerm ? t.type === "terminal" : t.id === tool.id));
                     return (
-                      <button key={tool.id} onClick={() => { setOpenToolbarCat(null); openMainTab(tool); }}
+                      <button key={tool.id} onClick={() => {
+                        setOpenToolbarCat(null);
+                        if (isTerm) { const t = mainTabs.find(x => x.type === "terminal"); if (t) setActiveMainTabId(t.id); else openNewTerminal(); }
+                        else openMainTab(tool);
+                      }}
                         className={cn("w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center gap-2 truncate", active && "bg-blue-50 text-blue-700 font-semibold")}>
                         <span>{tool.icon}</span> <span>{tool.label}</span>
                         {opened && <span className="ml-auto text-[10px] text-stone-300">●</span>}
