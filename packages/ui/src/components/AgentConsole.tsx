@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { cn } from "../utils";
+import API_BASE from "../api";
+import { useI18n } from "../i18n";
 import { ChatMessages, type ChatMessageItem, type ChatToolBadge } from "./ChatMessages";
 
 // ── Types ──
@@ -277,23 +279,73 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
     }, 500);
   }, [handleWsMessage]);
 
-  const sendMessage = useCallback((text: string) => {
-    if (!text.trim() || busyRef.current) return;
+  const sendMessage = useCallback((text: string, images?: string[]) => {
+    if ((!text.trim() && !(images?.length)) || busyRef.current) return;
+    const display = text.trim() || "請看這張圖";
     const userMsg: ChatMessageItem = {
       role: "user",
-      content: text.trim(),
+      content: display,
       ts: new Date().toISOString(),
+      ...(images?.length ? { images } : {}),
     };
     setChatMessages(prev => [...prev, userMsg]);
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "input", text: text.trim() }));
+      wsRef.current.send(JSON.stringify({ type: "input", text: display, ...(images?.length ? { images } : {}) }));
     }
   }, []);
 
-  const handleChatSend = () => {
-    if (!chatInput.trim() || busy) return;
-    sendMessage(chatInput.trim());
+  // 👁 2026-09-06：貼圖/附圖（跟主 chat 同機制：壓縮 → /api/uploads → agent loop vision 自動路由）
+  const { t: tt } = useI18n();
+  const [pendingImages, setPendingImages] = useState<{ id: string; dataUrl: string }[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const compressImage = useCallback((file: File) => new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 1568; // 長邊 1568px jpeg q80 — vision API 甜蜜點
+      let { width, height } = img;
+      if (Math.max(width, height) > MAX) {
+        const r = MAX / Math.max(width, height);
+        width = Math.round(width * r); height = Math.round(height * r);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("image load fail")); };
+    img.src = url;
+  }), []);
+
+  const addImages = useCallback(async (files: File[]) => {
+    const imgs = files.filter(f => f.type.startsWith("image/"));
+    if (imgs.length === 0) return;
+    const room = 4 - pendingImages.length;
+    if (room <= 0) { alert(tt("chat.imageLimit")); return; }
+    const results = await Promise.all(imgs.slice(0, room).map(async f => {
+      try { return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, dataUrl: await compressImage(f) }; } catch { return null; }
+    }));
+    setPendingImages(prev => [...prev, ...results.filter((r): r is { id: string; dataUrl: string } => r !== null)]);
+  }, [compressImage, pendingImages.length, tt]);
+
+  const handleChatSend = async () => {
+    if ((!chatInput.trim() && pendingImages.length === 0) || busy) return;
+    let uploadedPaths: string[] = [];
+    if (pendingImages.length > 0) {
+      const results = await Promise.all(pendingImages.map(async (img) => {
+        try {
+          const r = await fetch(`${API_BASE}/api/uploads`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataUrl: img.dataUrl }) });
+          const d = await r.json();
+          return (d?.ok && d?.path) ? d.path as string : null;
+        } catch { return null; }
+      }));
+      uploadedPaths = results.filter(Boolean) as string[];
+    }
+    sendMessage(chatInput.trim(), uploadedPaths.length > 0 ? uploadedPaths : undefined);
     setChatInput("");
+    setPendingImages([]);
   };
 
   const handleInterrupt = () => {
@@ -363,7 +415,23 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
 
       {/* Input bar — matches Coding app style */}
       <div className="shrink-0 px-4 py-2.5 border-t" style={{ borderColor: "#e7e5e4", backgroundColor: "#fafaf9" }}>
+        {pendingImages.length > 0 && (
+          <div className="flex gap-2 mb-2 flex-wrap">
+            {pendingImages.map(img => (
+              <div key={img.id} className="relative group">
+                <img src={img.dataUrl} alt="pending" className="w-14 h-14 object-cover rounded-lg border border-stone-200" />
+                <button
+                  onClick={() => setPendingImages(prev => prev.filter(p => p.id !== img.id))}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-stone-600 text-white text-xs leading-none hidden group-hover:flex items-center justify-center"
+                  title="移除">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex items-end gap-2">
+          <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addImages(Array.from(e.target.files || [])); e.target.value = ""; }} />
+          <button onClick={() => imageInputRef.current?.click()} disabled={pendingImages.length >= 4} title={tt("chat.attachImage")}
+            className="text-xs px-2 py-2 rounded-lg border border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300 disabled:opacity-40 shrink-0 bg-stone-50">📎</button>
           <textarea
             ref={inputRef}
             value={chatInput}
@@ -377,6 +445,7 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
                 handleChatSend();
               }
             }}
+            onPaste={(e) => { const files = Array.from(e.clipboardData?.files || []); if (files.length > 0) { e.preventDefault(); addImages(files); } }}
             placeholder={busy ? "Agent 正在思考..." : "輸入訊息..."}
             disabled={!connected || !ready}
             rows={2}

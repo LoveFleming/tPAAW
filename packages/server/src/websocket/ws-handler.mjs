@@ -258,7 +258,11 @@ export function setupWebSocket() {
         const agentState = agentSessions.get(ws);
         if (agentState) {
           const userText = (msg.text || "").trim();
-          if (!userText || agentState.busy) {
+          // 👁 2026-09-06：AI Crew console 貼圖 — images: uploads/ 相對路徑（白名單防穿越，上限 4）
+          const imgPaths = Array.isArray(msg.images)
+            ? [...new Set(msg.images)].filter((p) => typeof p === "string" && /^uploads\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(p)).slice(0, 4)
+            : [];
+          if ((!userText && imgPaths.length === 0) || agentState.busy) {
             if (agentState.busy) ws.send(JSON.stringify({ type: "agent_busy" }));
             return;
           }
@@ -268,7 +272,18 @@ export function setupWebSocket() {
           runningAgents.set(ws, runCtx);
           ws.send(JSON.stringify({ type: "agent_running" }));
 
-          agentState.history.push({ role: "user", content: userText });
+          // 圖 → vision attachment message（僅本輪帶入，不留在 history — 避免 data URI 灌爆後續輪）
+          let imageAttachment = null;
+          if (imgPaths.length > 0) {
+            try {
+              const { buildImageAttachmentMessage } = await import("../lib/vision-content.mjs");
+              const { uploadsDir } = await import("../routes/uploads.mjs");
+              const abs = imgPaths.map((p) => join(uploadsDir(), p.slice("uploads/".length)));
+              imageAttachment = buildImageAttachmentMessage(abs, "使用者貼的圖（AI Crew console）");
+            } catch { /* 讀檔失敗降級純文字 */ }
+          }
+          const historyText = userText || "請看這張圖";
+          agentState.history.push({ role: "user", content: historyText });
 
           if (agentState.vibeLogFile) {
             try { appendFileSync(agentState.vibeLogFile, `\n## User\n${userText}\n`); } catch {}
@@ -293,7 +308,9 @@ export function setupWebSocket() {
             } catch {}
 
             const agentResult = await runAgentLoop({
-              prompt: userText,
+              ...(imageAttachment
+                ? { prompt: "", messages: [...agentState.history, imageAttachment] }
+                : { prompt: userText }),
               cwd: agentState.cwd,
               systemPrompt: agentState.systemPrompt || undefined,
               model: agentState.model || undefined,
