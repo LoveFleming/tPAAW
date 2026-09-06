@@ -436,6 +436,10 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
     }
   }, [rootPath, cuPhase]);
 
+  // 2026-09-06 Fleming：CU 開始跑（running false→true）自動開進度 modal — 任何入口（wizard 開始 Scan / 執行 CU 按鈕 / API）都會跳出
+  const cuRunningEdge = codeUnderstanding?.running;
+  useEffect(() => { if (cuRunningEdge) setShowCUModal(true); }, [cuRunningEdge]);
+
   // ── When bulk Code Understanding finishes (running false→true→false), refresh persisted steps + code status ──
   const prevRunningRef = useRef(false);
   useEffect(() => {
