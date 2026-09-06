@@ -425,18 +425,9 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   useEffect(() => { if (rootPath) loadPersistedSteps(); }, [rootPath]);
   useEffect(() => { if (showCUModal) loadCuSkillBindings(); }, [showCUModal, loadCuSkillBindings]);
 
-  // ── Auto-popup Code Understanding — 只有 ready / missing 才彈 ──
-  // no-code（code 尚少，第一次進來根本還沒開始寫）不催；partial/done 不打擾
-  // Per-project：切換專案（EMDashboard 不 unmount）重新判定
-  const autoCUTriggeredFor = useRef<string | null>(null);
-  useEffect(() => {
-    if (!rootPath) return;
-    if (autoCUTriggeredFor.current === rootPath) return;
-    if (cuPhase === "ready" || cuPhase === "missing") {
-      autoCUTriggeredFor.current = rootPath;
-      setShowCUModal(true);
-    }
-  }, [rootPath, cuPhase]);
+  // 2026-09-06 Fleming：移除 auto-popup CU modal（ready/missing 自動彈）— 與 onboarding wizard 疊 modal
+  // （没 .paaw 的專案進來：wizard 跳 + CU modal 也自動開 → 兩個 z-50 疊畫面全亂）
+  // 現在 CU modal 只由：wizard 最後一步「開始 Scan」/頂部按鈕/單步重跑 開啟
 
   // 2026-09-06 Fleming：外部請求開 CU modal（wizard「開始 Scan」）— 只開 modal 不直接跑，讓使用者先綁 skill 再按執行
   const cuModalReqRef = useRef(0);
