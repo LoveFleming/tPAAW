@@ -2445,7 +2445,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
         rootPath={onboardingPath}
         theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, text: tk.text }}
         onClose={() => setOnboardingPath(null)}
-        onOpenEm={() => openMainTab(DASHBOARD_TAB)}
         onStartCu={() => {
           // 2026-09-06 Fleming：wizard「開始 Scan」→ 開 CU modal 但不直接跑（可能要先綁 skill）— 使用者在 modal 裡綁完 skill 自己按執行
           openMainTab(DASHBOARD_TAB);

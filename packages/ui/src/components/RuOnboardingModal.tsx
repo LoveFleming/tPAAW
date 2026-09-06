@@ -18,14 +18,13 @@ interface Props {
   rootPath: string;
   theme: { bg: string; bgMuted: string; borderLight: string; accent: string; text: string };
   onClose: () => void;
-  onOpenEm?: () => void;
-  /** Step 3 主按鈕「開始 Scan」— 呼叫端負責：切到 dashboard + 觸發 CU + 關 wizard */
+  /** Step 3 主按鈕「開始 Scan」— 呼叫端負責：切到 dashboard + 開 CU modal + 關 wizard */
   onStartCu?: () => void;
 }
 
 const KIND_ICON: Record<string, string> = { language: "🔤", framework: "🧩", infra: "🏗️", test: "🧪" };
 
-export default function RuOnboardingModal({ rootPath, theme: t, onClose, onOpenEm, onStartCu }: Props) {
+export default function RuOnboardingModal({ rootPath, theme: t, onClose, onStartCu }: Props) {
   const { t: i18n } = useI18n();
   const [phase, setPhase] = useState<"loading" | "show" | "skip">("loading");
   const [stacks, setStacks] = useState<StackInfo[]>([]);
@@ -143,12 +142,11 @@ export default function RuOnboardingModal({ rootPath, theme: t, onClose, onOpenE
                 </div>
                 <div className="ml-7 space-y-2">
                   <div className="text-[10px] text-stone-400">{cuDone > 0 ? i18n("ru.obCuDone").replace("{n}", String(cuDone)) : i18n("ru.obCuPending")}</div>
-                  {onOpenEm && (
-                    <button onClick={() => { onOpenEm(); onClose(); }}
-                      className="text-[11px] px-3 py-1.5 rounded-lg border bg-white hover:bg-stone-50 text-stone-600" style={{ borderColor: t.borderLight }}>
-                      🎖️ {i18n("ru.obCuBtn")}
-                    </button>
-                  )}
+                  {/* 2026-09-06 Fleming：拿掉「打開 EM」鈕（開始 Scan 已直接開 CU modal）— 補第一次使用說明 */}
+                  <div className="rounded-lg bg-stone-50 border p-2.5 space-y-1.5" style={{ borderColor: t.borderLight }}>
+                    <div className="text-[10px] text-stone-600 leading-relaxed">🧠 {i18n("ru.obCuWhat")}</div>
+                    <div className="text-[10px] text-stone-500 leading-relaxed">💡 {i18n("ru.obCuWhy")}</div>
+                  </div>
                 </div>
               </div>
             )}
