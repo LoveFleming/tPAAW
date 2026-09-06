@@ -1227,5 +1227,10 @@
   "cu.skillBind": "スキル紐付け",
   "cu.skillBindTitle": "このステップに PAAW スキルを紐付け（任意）",
   "cu.skillBindHint": "任意：適したスキルがあれば紐付け、なければデフォルト処理で実行します",
-  "cu.serverRunHint": "CU はサーバー側で実行されます — 画面やブラウザを閉じても処理は続き、完了後に自動更新されます（実行中にサーバーを再起動しないでください）。Feature Map は機能数により 10〜30 分かかる場合があります。"
+  "cu.serverRunHint": "CU はサーバー側で実行されます — 画面やブラウザを閉じても処理は続き、完了後に自動更新されます（実行中にサーバーを再起動しないでください）。Feature Map は機能数により 10〜30 分かかる場合があります。",
+  "toolbar.cat.dev": "開発",
+  "toolbar.cat.verify": "検証",
+  "toolbar.cat.project": "プロジェクト",
+  "toolbar.cat.work": "作業",
+  "toolbar.cat.ops": "運用"
 }
