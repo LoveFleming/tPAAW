@@ -1223,5 +1223,8 @@
   "codeIntel.c4Empty": "Not organized yet — click Organize to collect deps/env/compose evidence and assemble the C4 model (uses LLM tokens), or run the CU C4 step",
   "codeIntel.c4Containers": "Containers",
   "codeIntel.c4External": "External Systems",
-  "codeIntel.c4Relations": "Relationships"
+  "codeIntel.c4Relations": "Relationships",
+  "cu.skillBind": "Bind skill",
+  "cu.skillBindTitle": "Bind a PAAW skill to this step (optional)",
+  "cu.skillBindHint": "Optional: bind a matching skill if you have one; otherwise the default pipeline runs"
 }

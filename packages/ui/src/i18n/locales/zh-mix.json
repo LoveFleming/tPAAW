@@ -1223,5 +1223,8 @@
   "codeIntel.c4Empty": "還沒整理 — 按「整理」收集 deps/env/compose 證據並組裝 C4 model（花 LLM token），或跑 CU 的 C4 步驟",
   "codeIntel.c4Containers": "Containers",
   "codeIntel.c4External": "External Systems",
-  "codeIntel.c4Relations": "Relationships"
+  "codeIntel.c4Relations": "Relationships",
+  "cu.skillBind": "綁定 skill",
+  "cu.skillBindTitle": "綁定 PAAW skill 到此步驟（選配）",
+  "cu.skillBindHint": "選配：有適合的 skill 再綁就好，沒綁就用預設流程跑"
 }

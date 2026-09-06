@@ -1223,5 +1223,8 @@
   "codeIntel.c4Empty": "未整理 — 「整理」で deps/env/compose の証拠を収集し C4 モデルを組み立て（LLM token 消費）、または CU の C4 ステップを実行",
   "codeIntel.c4Containers": "Containers",
   "codeIntel.c4External": "External Systems",
-  "codeIntel.c4Relations": "Relationships"
+  "codeIntel.c4Relations": "Relationships",
+  "cu.skillBind": "スキル紐付け",
+  "cu.skillBindTitle": "このステップに PAAW スキルを紐付け（任意）",
+  "cu.skillBindHint": "任意：適したスキルがあれば紐付け、なければデフォルト処理で実行します"
 }

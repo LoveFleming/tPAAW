@@ -1322,21 +1322,27 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                     {step.status === "running" && <span className="ml-2 inline-block animate-pulse">●</span>}
                   </div>
                   {/* Skill 綁定（2026-09-04：機械步無 LLM — CI/TI 不提供綁定）*/}
+                  {/* 2026-09-06：加提示 — 綁 skill 是選配，沒綁就用預設流程跑（Fleming：不然使用者會認為一定要綁）*/}
                   {step.id !== "code-intelligence" && step.id !== "test-intelligence" && (
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <button
-                      onClick={() => setCuSkillPickerStep(step.id)}
-                      disabled={isRunning}
-                      className={cn("text-[10px] px-1.5 py-0.5 rounded border transition-colors",
-                        (cuSkillBindings[step.id]?.length || 0) > 0
-                          ? "border-violet-300 bg-violet-50 text-violet-600 hover:bg-violet-100"
-                          : "border-stone-200 bg-stone-50 text-stone-400 hover:bg-stone-100")}
-                      title="綁定 PAAW skill 到此步驟"
-                    >🧩 {(cuSkillBindings[step.id]?.length || 0) > 0 ? `${cuSkillBindings[step.id].length} skills` : "綁定 skill"}</button>
-                    {(cuSkillBindings[step.id]?.length || 0) > 0 && (
-                      <span className="text-[10px] text-violet-400 truncate max-w-[240px]">
-                        {(cuSkillBindings[step.id] || []).map(id => cuSkillNames[id] || id).join("、")}
-                      </span>
+                  <div className="mt-0.5">
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setCuSkillPickerStep(step.id)}
+                        disabled={isRunning}
+                        className={cn("text-[10px] px-1.5 py-0.5 rounded border transition-colors",
+                          (cuSkillBindings[step.id]?.length || 0) > 0
+                            ? "border-violet-300 bg-violet-50 text-violet-600 hover:bg-violet-100"
+                            : "border-stone-200 bg-stone-50 text-stone-400 hover:bg-stone-100")}
+                        title={t("cu.skillBindTitle")}
+                      >🧩 {(cuSkillBindings[step.id]?.length || 0) > 0 ? `${cuSkillBindings[step.id].length} skills` : t("cu.skillBind")}</button>
+                      {(cuSkillBindings[step.id]?.length || 0) > 0 && (
+                        <span className="text-[10px] text-violet-400 truncate max-w-[240px]">
+                          {(cuSkillBindings[step.id] || []).map(id => cuSkillNames[id] || id).join("、")}
+                        </span>
+                      )}
+                    </div>
+                    {(cuSkillBindings[step.id]?.length || 0) === 0 && (
+                      <div className="text-[10px] text-stone-300 mt-0.5">💡 {t("cu.skillBindHint")}</div>
                     )}
                   </div>
                   )}
