@@ -475,11 +475,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
           const uniqueCount = g?.uniqueCount || codes.length;
           return (
             <Section title={`🔢 ${t("feature.ecTitle")}`} count={uniqueCount} theme={theme}>
-              {ecData.recommendation?.suggest && (
-                <div className="px-2 py-1.5 rounded text-xs whitespace-pre-wrap" style={{ background: "#fef3c7", color: "#b45309" }}>
-                  📋 {t("feature.ecRecommend")}{ecData.recommendation.plan ? `\n\n${ecData.recommendation.plan}` : ""}
-                </div>
-              )}
+              {/* 2026-09-06：ecRecommend 建議導入 banner 移除（Fleming：這段拿掉）— registry 建議改由 error-codes step 產物自行承載 */}
               {summary && <div className="px-2 py-1 text-xs" style={{ color: theme.text, opacity: 0.6 }}>{summary}</div>}
               {codes.length === 0 && <div className="text-xs px-2 py-1" style={{ color: theme.text, opacity: 0.45 }}>{t("feature.ecEmpty")}</div>}
               {codes.map((c: any, i: number) => (
