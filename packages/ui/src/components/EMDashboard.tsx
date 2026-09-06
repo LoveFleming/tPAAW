@@ -48,6 +48,7 @@ interface CodeUnderstandingStep {
   status: "pending" | "running" | "done" | "error" | "skip";
   size?: number;
   error?: string;
+  progress?: string; // 2026-09-06：step_progress 即時進度（如「🤖 feature 41/64」）
 }
 
 interface EMDashboardProps {
@@ -295,7 +296,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   ];
 
   // ── Load persisted step statuses when opening Modal ──
-  const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number; error?: string }>>([]);
+  const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number; error?: string; progress?: string }>>([]);
   // ── CU step skill 綁定（PAAW skill 綁到 cu.<stepId>）──
   const [cuSkillBindings, setCuSkillBindings] = useState<Record<string, string[]>>({});
   const [cuSkillNames, setCuSkillNames] = useState<Record<string, string>>({});
@@ -367,7 +368,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
 
   const loadPersistedSteps = useCallback(async () => {
     if (!rootPath) return [];
-    let steps: Array<{ id: string; name: string; status: string; size?: number; error?: string }> = [];
+    let steps: Array<{ id: string; name: string; status: string; size?: number; error?: string; progress?: string }> = [];
     try {
       const res = await fetch(`${API_BASE}/api/coding-project/cu-status?path=${encodeURIComponent(rootPath)}`);
       if (res.ok) {
@@ -1297,6 +1298,12 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
               className={cn("text-lg transition-colors", (codeUnderstanding?.running || singleStepRunning !== null) ? "text-stone-200 cursor-not-allowed" : "text-stone-400 hover:text-stone-600")}
             >✕</button>
           </div>
+          {/* 2026-09-06：執行中提示 — CU 在 server 端跑，關視窗不會中斷（Fleming 回饋：使用者不知道會等多久）*/}
+          {(codeUnderstanding?.running || singleStepRunning !== null) && (
+            <div className="mx-5 mt-3 px-3 py-2 rounded-lg text-[11px] leading-relaxed" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }}>
+              💡 {t("cu.serverRunHint")}
+            </div>
+          )}
           {/* Use live steps if bulk running, otherwise use persisted steps */}
           {(() => {
             const isBulkRunning = codeUnderstanding?.running && codeUnderstanding.steps.length > 0;
@@ -1321,6 +1328,10 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                     {step.name}
                     {step.status === "running" && <span className="ml-2 inline-block animate-pulse">●</span>}
                   </div>
+                  {/* 2026-09-06：即時進度（如「🤖 feature 41/64 …」）*/}
+                  {step.status === "running" && step.progress && (
+                    <div className="text-[10px] text-emerald-600 truncate" title={step.progress}>{step.progress}</div>
+                  )}
                   {/* Skill 綁定（2026-09-04：機械步無 LLM — CI/TI 不提供綁定）*/}
                   {/* 2026-09-06：加提示 — 綁 skill 是選配，沒綁就用預設流程跑（Fleming：不然使用者會認為一定要綁）*/}
                   {step.id !== "code-intelligence" && step.id !== "test-intelligence" && (

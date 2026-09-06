@@ -689,7 +689,7 @@ export default function CodingIDE() {
 
   // ── Code Understanding State ──
   const [aiInitializing, setAiInitializing] = useState(false);
-  const [aiInitSteps, setAiInitSteps] = useState<Array<{ id: string; name: string; status: "pending" | "running" | "done" | "error" | "skip"; size?: number; error?: string }>>([]);
+  const [aiInitSteps, setAiInitSteps] = useState<Array<{ id: string; name: string; status: "pending" | "running" | "done" | "error" | "skip"; size?: number; error?: string; progress?: string }>>([]);
   const [paawRefreshKey, setPaawRefreshKey] = useState(0);
   const [showAiInitPanel, setShowAiInitPanel] = useState(false);
 
@@ -748,12 +748,15 @@ export default function CodingIDE() {
                   } else if (data.error) {
                     // step_error
                     setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "error" as const, error: data.error } : s));
+                  } else if (data.message) {
+                    // step_progress（2026-09-06：抓進度文字，如「🤖 feature 41/64」）
+                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "running" as const, progress: data.message } : s));
                   } else if (data.preview !== undefined) {
                     // step_done
-                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "done" as const, size: data.size } : s));
+                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "done" as const, size: data.size, progress: undefined } : s));
                   } else {
                     // step_start
-                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "running" as const } : s));
+                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "running" as const, progress: undefined } : s));
                   }
                 }
                 if (data.message === "Code Understanding complete") {

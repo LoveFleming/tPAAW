@@ -1226,5 +1226,6 @@
   "codeIntel.c4Relations": "Relationships",
   "cu.skillBind": "綁定 skill",
   "cu.skillBindTitle": "綁定 PAAW skill 到此步驟（選配）",
-  "cu.skillBindHint": "選配：有適合的 skill 再綁就好，沒綁就用預設流程跑"
+  "cu.skillBindHint": "選配：有適合的 skill 再綁就好，沒綁就用預設流程跑",
+  "cu.serverRunHint": "CU 在 server 端執行 — 關掉視窗／瀏覽器都會繼續跑，完成後自動更新（過程中請勿重啟 server）。Feature Map 較花時間，看 feature 數量可能等 10-30 分鐘。"
 }

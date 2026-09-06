@@ -1226,5 +1226,6 @@
   "codeIntel.c4Relations": "Relationships",
   "cu.skillBind": "Bind skill",
   "cu.skillBindTitle": "Bind a PAAW skill to this step (optional)",
-  "cu.skillBindHint": "Optional: bind a matching skill if you have one; otherwise the default pipeline runs"
+  "cu.skillBindHint": "Optional: bind a matching skill if you have one; otherwise the default pipeline runs",
+  "cu.serverRunHint": "CU runs on the server — it keeps going even if you close this window/browser and updates automatically when done (don't restart the server mid-run). Feature Map takes time: expect 10-30 min depending on feature count."
 }
