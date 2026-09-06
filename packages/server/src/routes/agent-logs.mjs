@@ -65,12 +65,13 @@ export default async function agentLogsRoute(req, res) {
       const tasks = await listAgentTasks(200, {});
       const byRu = {};
       const _agg = (ruName, task) => {
-        if (!byRu[ruName]) byRu[ruName] = { ruName, tasks: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, byModel: {} };
+        if (!byRu[ruName]) byRu[ruName] = { ruName, tasks: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, durationMs: 0, byModel: {} };
         const agg = byRu[ruName];
         agg.tasks += 1;
         agg.tokensIn += task.usage?.prompt || 0;
         agg.tokensOut += task.usage?.completion || 0;
         agg.costUsd += task.costUsd || 0;
+        agg.durationMs += task.durationMs || 0; // 2026-09-06 Fleming：RU 統計加 AI 總耗時
         for (const m of (task.models || [])) {
           if (!agg.byModel[m.model]) agg.byModel[m.model] = { tokensIn: 0, tokensOut: 0, costUsd: 0 };
           agg.byModel[m.model].tokensIn += m.prompt || 0;
@@ -82,12 +83,13 @@ export default async function agentLogsRoute(req, res) {
       // 合併已 purge 的歷史累計
       const hist = await getRuCostHistory();
       for (const h of Object.values(hist)) {
-        if (!byRu[h.ruName]) byRu[h.ruName] = { ruName: h.ruName, tasks: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, byModel: {} };
+        if (!byRu[h.ruName]) byRu[h.ruName] = { ruName: h.ruName, tasks: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, durationMs: 0, byModel: {} };
         const agg = byRu[h.ruName];
         agg.tasks += h.tasks || 0;
         agg.tokensIn += h.tokensIn || 0;
         agg.tokensOut += h.tokensOut || 0;
         agg.costUsd += h.costUsd || 0;
+        agg.durationMs += h.durationMs || 0;
         for (const [model, s] of Object.entries(h.byModel || {})) {
           if (!agg.byModel[model]) agg.byModel[model] = { tokensIn: 0, tokensOut: 0, costUsd: 0 };
           agg.byModel[model].tokensIn += s.tokensIn || 0;
@@ -97,8 +99,9 @@ export default async function agentLogsRoute(req, res) {
       }
       const rows = Object.values(byRu).sort((a, b) => b.costUsd - a.costUsd);
       const totalCost = rows.reduce((s, r) => s + r.costUsd, 0);
+      const totalDurationMs = rows.reduce((s, r) => s + (r.durationMs || 0), 0);
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ rows, totalCostUsd: totalCost }));
+      res.end(JSON.stringify({ rows, totalCostUsd: totalCost, totalDurationMs }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));

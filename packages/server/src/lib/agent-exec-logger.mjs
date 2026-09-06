@@ -271,6 +271,7 @@ async function _accumulateRuCostHistory(expiredEntries) {
     h.tokensIn += e.usage?.prompt || 0;
     h.tokensOut += e.usage?.completion || 0;
     h.costUsd += e.costUsd || 0;
+    h.durationMs = (h.durationMs || 0) + (e.durationMs || 0); // 2026-09-06：AI 總耗時也進歷史累計
     for (const m of (e.models || [])) {
       if (!h.byModel[m.model]) h.byModel[m.model] = { tokensIn: 0, tokensOut: 0, costUsd: 0 };
       h.byModel[m.model].tokensIn += m.prompt || 0;

@@ -25,6 +25,7 @@ type RuSummaryRow = {
   tokensIn: number;
   tokensOut: number;
   costUsd: number;
+  durationMs?: number; // 2026-09-06：AI 總耗時（該 RU 全部 task 累計）
   byModel: Record<string, { tokensIn: number; tokensOut: number; costUsd: number }>;
 };
 
@@ -103,7 +104,7 @@ export default function AgentLogs() {
   const [steps, setSteps] = useState<LogStep[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState({ agent: "", status: "" });
-  const [ruSummary, setRuSummary] = useState<{ rows: RuSummaryRow[]; totalCostUsd: number } | null>(null);
+  const [ruSummary, setRuSummary] = useState<{ rows: RuSummaryRow[]; totalCostUsd: number; totalDurationMs?: number } | null>(null);
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -121,7 +122,7 @@ export default function AgentLogs() {
     try {
       const r = await fetch(`${API_BASE}/api/agent-logs/ru-summary`);
       const data = await r.json();
-      setRuSummary({ rows: data.rows || [], totalCostUsd: data.totalCostUsd || 0 });
+      setRuSummary({ rows: data.rows || [], totalCostUsd: data.totalCostUsd || 0, totalDurationMs: data.totalDurationMs || 0 });
     } catch {}
   }, []);
 
@@ -224,13 +225,14 @@ export default function AgentLogs() {
         <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
           <div className="px-4 py-2 bg-stone-50 border-b border-stone-200 text-sm font-medium text-stone-600 flex items-center justify-between">
             <span>📦 Release Unit 成本統計</span>
-            <span className="text-xs text-stone-400">總計 <span className="font-semibold text-stone-600">{fmtCost(ruSummary.totalCostUsd)}</span></span>
+            <span className="text-xs text-stone-400">總計 <span className="font-semibold text-stone-600">{fmtCost(ruSummary.totalCostUsd)}</span> · ⏱ {fmtDuration(ruSummary.totalDurationMs || 0)}</span>
           </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-stone-50/50 border-b border-stone-100 text-stone-400 text-xs uppercase">
                 <th className="px-3 py-1.5 text-left">RU / Project</th>
                 <th className="px-3 py-1.5 text-right">Tasks</th>
+                <th className="px-3 py-1.5 text-right">AI 總耗時</th>
                 <th className="px-3 py-1.5 text-right">Tokens In</th>
                 <th className="px-3 py-1.5 text-right">Tokens Out</th>
                 <th className="px-3 py-1.5 text-right">成本</th>
@@ -243,6 +245,7 @@ export default function AgentLogs() {
                 <tr key={r.ruName}>
                   <td className="px-3 py-1.5 font-medium text-stone-700">{r.ruName}</td>
                   <td className="px-3 py-1.5 text-right text-stone-500 tabular-nums">{r.tasks}</td>
+                  <td className="px-3 py-1.5 text-right text-amber-700 tabular-nums font-medium">{fmtDuration(r.durationMs || 0)}</td>
                   <td className="px-3 py-1.5 text-right text-sky-600 tabular-nums">{fmtTokens(r.tokensIn)}</td>
                   <td className="px-3 py-1.5 text-right text-violet-600 tabular-nums">{fmtTokens(r.tokensOut)}</td>
                   <td className="px-3 py-1.5 text-right text-emerald-700 tabular-nums font-semibold">{fmtCost(r.costUsd)}</td>
@@ -268,12 +271,11 @@ export default function AgentLogs() {
               <th className="px-3 py-2 text-right">Tokens In/Out</th>
               <th className="px-3 py-2 text-right">成本</th>
               <th className="px-3 py-2 text-left">Model</th>
-              <th className="px-3 py-2 text-left">Prompt</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100">
             {tasks.length === 0 && (
-              <tr><td colSpan={10} className="px-3 py-8 text-center text-stone-400">尚無執行記錄</td></tr>
+              <tr><td colSpan={9} className="px-3 py-8 text-center text-stone-400">尚無執行記錄</td></tr>
             )}
             {tasks.map(t => (
               <tr key={t.taskId} onClick={() => setSelected(t.taskId)} className="hover:bg-amber-50/50 cursor-pointer transition-colors">
