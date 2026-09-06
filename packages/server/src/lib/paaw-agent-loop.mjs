@@ -3400,6 +3400,18 @@ function refreshDynamicContext(messages) {
 function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) {
   const parts = [];
 
+  // ── 當前日期時間 + 時區（2026-09-06 Fleming：agent 預設要知道今天幾號、什麼時區）──
+  {
+    const _now = new Date();
+    const _tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const _offMin = -_now.getTimezoneOffset();
+    const _offStr = `UTC${_offMin >= 0 ? "+" : "-"}${String(Math.floor(Math.abs(_offMin) / 60)).padStart(2, "0")}${Math.abs(_offMin) % 60 ? ":" + String(Math.abs(_offMin) % 60).padStart(2, "0") : ""}`;
+    const _dateStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
+    const _weekday = ["日", "一", "二", "三", "四", "五", "六"][_now.getDay()];
+    const _timeStr = `${String(_now.getHours()).padStart(2, "0")}:${String(_now.getMinutes()).padStart(2, "0")}`;
+    parts.push(`=== 當前日期時間 ===\n今天是 ${_dateStr}（星期${_weekday}），時間 ${_timeStr}，時區 ${_tz} (${_offStr})`);
+  }
+
   // ── Inject .paaw/ project context (pre-loaded by caller) ──
   if (paawContext) {
     parts.push(paawContext);
