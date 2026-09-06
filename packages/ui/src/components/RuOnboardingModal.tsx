@@ -76,7 +76,7 @@ export default function RuOnboardingModal({ rootPath, theme: t, onClose, onOpenE
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.35)" }} onClick={onClose}>
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" style={{ border: `1px solid ${t.borderLight}` }} onClick={e => e.stopPropagation()}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" style={{ border: `1px solid ${t.borderLight}` }} onClick={e => e.stopPropagation()}>
           <div className="px-5 py-3.5 border-b" style={{ borderColor: t.borderLight, background: t.bgMuted }}>
             <div className="text-sm font-bold text-stone-800">🎉 {i18n("ru.onboardingTitle")}</div>
             <div className="text-[11px] text-stone-500 mt-0.5 font-mono truncate">{rootPath}</div>
@@ -158,27 +158,26 @@ export default function RuOnboardingModal({ rootPath, theme: t, onClose, onOpenE
             <span className="text-[10px] text-stone-400">{i18n("ru.obFreshHint")}</span>
             <div className="flex items-center gap-2">
               {wizardStep > 1 && (
-                <button onClick={() => setWizardStep(wizardStep === 3 ? 2 : 1)}
-                  className="text-xs px-3 py-1.5 rounded-lg border bg-white hover:bg-stone-50 text-stone-600" style={{ borderColor: t.borderLight }}>
+                <button onClick={() => setWizardStep(wizardStep === 3 ? 2 : 1)} className="text-xs px-3 py-1.5 rounded-lg border bg-white hover:bg-stone-50 text-stone-600 whitespace-nowrap" style={{ borderColor: t.borderLight }}>
                   {i18n("ru.obBack")}
                 </button>
               )}
               {wizardStep < 3 ? (
                 <button onClick={() => setWizardStep(wizardStep === 1 ? 2 : 3)}
-                  className="text-xs px-4 py-1.5 rounded-lg text-white font-semibold" style={{ background: t.accent }}>
+                  className="text-xs px-4 py-1.5 rounded-lg text-white font-semibold whitespace-nowrap" style={{ background: t.accent }}>
                   {i18n("ru.obNext")} →
                 </button>
               ) : onStartCu ? (
                 <>
-                  <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border bg-white hover:bg-stone-50 text-stone-600" style={{ borderColor: t.borderLight }}>
+                  <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border bg-white hover:bg-stone-50 text-stone-600 whitespace-nowrap" style={{ borderColor: t.borderLight }}>
                     {i18n("ru.obLater")}
                   </button>
-                  <button onClick={onStartCu} className="text-xs px-4 py-1.5 rounded-lg text-white font-semibold" style={{ background: t.accent }}>
+                  <button onClick={onStartCu} className="text-xs px-4 py-1.5 rounded-lg text-white font-semibold whitespace-nowrap" style={{ background: t.accent }}>
                     {i18n("ru.obStartScan")}
                   </button>
                 </>
               ) : (
-                <button onClick={onClose} className="text-xs px-4 py-1.5 rounded-lg text-white font-semibold" style={{ background: t.accent }}>
+                <button onClick={onClose} className="text-xs px-4 py-1.5 rounded-lg text-white font-semibold whitespace-nowrap" style={{ background: t.accent }}>
                   {i18n("ru.obDone")}
                 </button>
               )}
