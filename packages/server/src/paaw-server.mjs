@@ -11,7 +11,29 @@
 
 import "./lib/epipe-guard.mjs"; // EPIPE 防護 — 必須第一個 import（ESM import 先於 module body 執行）
 import { createServer } from "http";
-import { appendFileSync, mkdirSync } from "fs";
+import { appendFileSync, mkdirSync, statSync, renameSync, existsSync, createWriteStream } from "fs";
+
+// ── Console log tee（2026-09-06 Fleming：Terminal 頁 📜 Console 要能看到 server console）──
+// stdout/stderr 全部 mirror 到 data/logs/server-console.log（async append，不 block 主流程）
+// UI 用 GET /api/logs/console 輪詢讀取；PTY session 輸出不走 process.stdout，不會被 tee（正確）
+try {
+  const _logDir = join(DATA_HOME, "logs");
+  mkdirSync(_logDir, { recursive: true });
+  const _logFile = join(_logDir, "server-console.log");
+  // 輪侈：> 5MB → .old（舊檔保一份，再舊覆盖）
+  try { if (existsSync(_logFile) && statSync(_logFile).size > 5 * 1024 * 1024) renameSync(_logFile, _logFile + ".old"); } catch {}
+  const _ws = createWriteStream(_logFile, { flags: "a" });
+  _ws.write(`\n═══ PAAW server start ${new Date().toISOString()} pid=${process.pid} port=${PORT} ═══\n`);
+  for (const _stream of [process.stdout, process.stderr]) {
+    const _orig = _stream.write.bind(_stream);
+    _stream.write = (chunk, enc, cb) => {
+      try { _ws.write(chunk); } catch {}
+      return _orig(chunk, enc, cb);
+    };
+  }
+  process.on("exit", () => { try { _ws.end(); } catch {} });
+} catch { /* best effort — 絕不因 log 失敗阻断 server */ }
+
 import {
   PORT, PAAW_ROOT,
   readdir, readFile, writeFile, mkdir,

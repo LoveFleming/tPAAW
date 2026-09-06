@@ -23,6 +23,7 @@ import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import { cn } from "../utils";
 import ShellTerminal from "../components/ShellTerminal";
+import ConsoleLogView from "../components/ConsoleLogView"; // 2026-09-06：Terminal 頁 📜 Console（server / app console log）
 import JsonViewer from "../components/JsonViewer";
 import { fileEmoji } from "../components/FileEmoji";
 import hljs from "highlight.js";
@@ -418,6 +419,7 @@ export default function CodingIDE() {
 
   // ── Archive panel state (must be before useEffect that references them) ──
   const [showArchivePanel, setShowArchivePanel] = useState(false);
+  const [terminalMode, setTerminalMode] = useState<"shell" | "server" | "app">("shell"); // 2026-09-06：Terminal 頁模式 — ⌨️ Shell / 📜 Server / 📜 App console
   const [viewingArchive, setViewingArchive] = useState<string | null>(null);
 
   // Sync activeCrew when switching tabs (crew tabs have crewId)
@@ -3687,8 +3689,34 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                         zIndex: isActive ? 1 : 0,
                       }}
                     >
-                      <div className="flex-1 min-h-0 bg-[#1e1717]">
-                        {rootPath && <ShellTerminal key={tab.id} cwd={rootPath} active={isActive} />}
+                      {/* 2026-09-06 Fleming：Terminal 頁模式切換 — ⌨️ Shell / 📜 Server / 📜 App console */}
+                      <div className="flex items-center gap-1 px-2 py-1 bg-[#241c1c] border-b border-white/10 shrink-0">
+                        {(["shell", "server", "app"] as const).map(mode => (
+                          <button
+                            key={mode}
+                            onClick={() => setTerminalMode(mode)}
+                            className={`text-[11px] px-2 py-0.5 rounded font-mono transition-colors ${
+                              terminalMode === mode ? "bg-white/15 text-stone-100" : "text-stone-400 hover:text-stone-200"
+                            }`}
+                          >
+                            {mode === "shell" ? "⌨️ Shell" : mode === "server" ? "📜 Server" : "📜 App"}
+                          </button>
+                        ))}
+                        {terminalMode !== "shell" && (
+                          <span className="text-[10px] text-stone-500 ml-1">console log（agent 重啟 app 也不用你動手）</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-h-0 relative">
+                        {/* Shell 保持 mounted（切 console 不殺 PTY session），hidden 時不抢焦 */}
+                        <div className="absolute inset-0 bg-[#1e1717]" style={{ visibility: terminalMode === "shell" ? "visible" : "hidden" }}>
+                          {rootPath && <ShellTerminal key={tab.id} cwd={rootPath} active={isActive && terminalMode === "shell"} />}
+                        </div>
+                        {terminalMode === "server" && (
+                          <div className="absolute inset-0"><ConsoleLogView src="server" active={isActive} /></div>
+                        )}
+                        {terminalMode === "app" && (
+                          <div className="absolute inset-0"><ConsoleLogView src="app" cwd={rootPath || undefined} active={isActive} /></div>
+                        )}
                       </div>
                     </div>
                   );

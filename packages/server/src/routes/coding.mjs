@@ -35,7 +35,7 @@
 
 import { readFile, writeFile, readdir, mkdir, unlink, appendFile, stat as fsStat } from "fs/promises";
 import { nextFeatureIds } from "../lib/feature-registry.mjs"; // 2026-09-04：CU feature-map 產 F{YYYYMMDD}-{seq} 新格式 ID（原 F-001 舊格式的真正源頭）
-import { existsSync, readFileSync as readSync, readdirSync, statSync } from "fs";
+import { existsSync, readFileSync as readSync, readdirSync, statSync, openSync, readSync as fsReadSync, closeSync as fsCloseSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { exec as execCb } from "child_process";
@@ -1106,6 +1106,41 @@ export default async function projectRoute(req, res) {
 
   // Run migration on first request
   await migrateFlatConversations(q.cwd || PAAW_ROOT);
+
+  // ── Console log 輪詢（2026-09-06 Fleming：Terminal 頁 📜 Console 看 server/app console）──
+  // GET /api/logs/console?src=server|app&cwd=...&offset=N → { data, nextOffset, size, exists }
+  // server = data/logs/server-console.log（paaw-server.mjs tee stdout/stderr）
+  // app = {cwd}/.paaw/logs/app-console.log（agent 重啟 app 時落檔 — developer prompt 有指引）
+  if (url.startsWith("/api/logs/console") && method === "GET") {
+    const src = q.src === "app" ? "app" : "server";
+    const file = src === "app"
+      ? join(q.cwd || PAAW_ROOT, ".paaw", "logs", "app-console.log")
+      : join(DATA_HOME, "logs", "server-console.log");
+    try {
+      let data = "";
+      let size = 0;
+      let exists = existsSync(file);
+      if (exists) {
+        const st = statSync(file);
+        size = st.size;
+        const offset = Math.max(0, Math.min(parseInt(q.offset || "0", 10) || 0, st.size));
+        // 只回傳 offset 之後的新內容；單次最多回 512KB（前端輪詢追上）
+        const fd = openSync(file, "r");
+        try {
+          const len = Math.min(st.size - offset, 512 * 1024);
+          const buf = Buffer.alloc(len);
+          fsReadSync(fd, buf, 0, len, offset);
+          data = buf.toString("utf-8");
+        } finally { fsCloseSync(fd); }
+        return res.writeHead(200, { "Content-Type": "application/json" })
+          .end(JSON.stringify({ src, file, exists: true, size, nextOffset: offset + Buffer.byteLength(data, "utf-8"), data }));
+      }
+      return res.writeHead(200, { "Content-Type": "application/json" })
+        .end(JSON.stringify({ src, file, exists: false, size: 0, nextOffset: 0, data: "" }));
+    } catch (err) {
+      return res.writeHead(500, { "Content-Type": "application/json" }).end(JSON.stringify({ error: err.message }));
+    }
+  }
 
   // GET /api/coding-crew/conversations?cwd=... — list all agents with conversations
   if (url === "/api/coding-crew/conversations" && method === "GET") {
