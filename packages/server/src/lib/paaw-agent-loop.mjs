@@ -487,7 +487,7 @@ export const PAAW_TOOLS = [
       type: "function",
       function: {
         name: "staged_summary",
-        description: "記錄你剛才 git add 了什麼、為什麼、怎麼測試。每次 git add 後必須呼叫此工具。人類和 QA Agent 會在 Git tab 看到這份摘要。",
+        description: "記錄你這輪做了什麼、為什麼、怎麼測試。每次 git add / commit 前必須呼叫此工具（人類和 QA Agent 在 Git tab 看這份摘要決定可不可以 push）。",
         parameters: {
           type: "object",
           properties: {
