@@ -1027,9 +1027,12 @@ const _crewGroupCache = new Map();
  * @param {string} agentId - e.g. "developer", "architect"
  * @returns {string[]} tool group names
  */
-function getAgentGroupsFromConfig(agentId) {
+function getAgentGroupsFromConfig(agentId, cwd = null) {
+  // 2026-09-06：支援 project-level toolGroups（.paaw/agents/{crewId}.json）優先於 global
+  // cache key = agentId::cwd（project 覆寫 per-RU）
+  const cacheKey = `${agentId}::${cwd || ""}`;
   // Check cache first
-  if (_crewGroupCache.has(agentId)) return _crewGroupCache.get(agentId);
+  if (_crewGroupCache.has(cacheKey)) return _crewGroupCache.get(cacheKey);
 
   // agentId -> crewId mapping
   const crewMap = {
@@ -1040,16 +1043,33 @@ function getAgentGroupsFromConfig(agentId) {
     qa: "coding.qa",
     helpdesk: "coding.helpdesk",
     em: "coding.em",
+    rm: "coding.rm",          // 2026-09-06：補齊 10 crew 映射（原本缺 → fallback core+memory 全開）
+    ops: "coding.ops",
+    handover: "coding.handover",
   };
   const crewId = crewMap[agentId];
   if (!crewId) return AGENT_FALLBACK_GROUPS[agentId] || ["core", "memory"];
+
+  // ── Project-level override（.paaw/agents/{crewId}.json 的 toolGroups 優先）──
+  if (cwd) {
+    try {
+      const projPath = join(cwd, ".paaw", "agents", `${crewId}.json`);
+      if (existsSync(projPath)) {
+        const proj = JSON.parse(readSync(projPath, "utf-8"));
+        if (Array.isArray(proj.toolGroups) && proj.toolGroups.length > 0) {
+          _crewGroupCache.set(cacheKey, proj.toolGroups);
+          return proj.toolGroups;
+        }
+      }
+    } catch {}
+  }
 
   try {
     const crewPath = join(DATA_HOME, "crews", `${crewId}.json`);
     if (existsSync(crewPath)) {
       const crew = JSON.parse(readSync(crewPath, "utf-8"));
       if (Array.isArray(crew.toolGroups) && crew.toolGroups.length > 0) {
-        _crewGroupCache.set(agentId, crew.toolGroups);
+        _crewGroupCache.set(cacheKey, crew.toolGroups);
         return crew.toolGroups;
       }
     }
@@ -1059,7 +1079,7 @@ function getAgentGroupsFromConfig(agentId) {
 
   // Fallback
   const fallback = AGENT_FALLBACK_GROUPS[agentId] || ["core", "memory"];
-  _crewGroupCache.set(agentId, fallback);
+  _crewGroupCache.set(cacheKey, fallback);
   return fallback;
 }
 
@@ -1077,8 +1097,8 @@ export function clearCrewGroupCache() {
  * @param {string[]} extraGroups - Additional groups to include
  * @returns {object[]} Filtered tool definitions
  */
-export function getToolsForAgent(agentId, extraGroups = []) {
-  const agentGroups = getAgentGroupsFromConfig(agentId);
+export function getToolsForAgent(agentId, extraGroups = [], cwd = null) {
+  const agentGroups = getAgentGroupsFromConfig(agentId, cwd);
   const groups = new Set([...agentGroups, ...extraGroups]);
   const useCoreRead = groups.has("core-read");
 
@@ -3611,7 +3631,7 @@ export async function runAgentLoop(config) {
     let response;
     const _llmLog = _logger.llmCall({ turn: turns, model: turnLlm.model, messageCount: trimmedMessages.length, contextTokens: estimateMessageTokens(trimmedMessages) });
     try {
-      response = await callLLM(turnLlm.apiUrl, turnLlm.headers, turnLlm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, (evt, data) => {
+      response = await callLLM(turnLlm.apiUrl, turnLlm.headers, turnLlm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, (evt, data) => {
         if (onEvent) onEvent({ type: evt, ...data });
       }, agentId, turnLlm.maxTokens, abortSignal);
     } catch (err) {
@@ -3627,7 +3647,7 @@ export async function runAgentLoop(config) {
           console.log(`[Agent Loop] 429 rate-limited on ${llm.providerId}/${llm.model}, trying fallback: ${fb.providerId}/${fb.model}`);
           if (onEvent) onEvent({ type: "info", message: `⏳ ${llm.providerId} 限流，切換到 ${fb.providerId}/${fb.model}` });
           try {
-            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, (evt, data) => {
+            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, (evt, data) => {
               if (onEvent) onEvent({ type: evt, ...data });
             }, agentId, fb.maxTokens || llm.maxTokens, abortSignal);
             console.log(`[Agent Loop] Fallback to ${fb.providerId}/${fb.model} succeeded — switching active model for subsequent turns`);
@@ -4051,7 +4071,7 @@ export async function runAgentLoopStream(config, res) {
     if (usedLlm !== llm) console.log(`[Agent Loop Stream] 👁 vision routing: ${llm.providerId}/${llm.model} → ${usedLlm.providerId}/${usedLlm.model} (history has images)`);
     const _llmLog = _logger.llmCall({ turn: turns, model: usedLlm.model, messageCount: trimmedMessages.length, contextTokens: estimateMessageTokens(trimmedMessages) });
     try {
-      response = await callLLM(usedLlm.apiUrl, usedLlm.headers, usedLlm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId, usedLlm.maxTokens, abortSignal);
+      response = await callLLM(usedLlm.apiUrl, usedLlm.headers, usedLlm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, sendSSE, agentId, usedLlm.maxTokens, abortSignal);
     } catch (err) {
       // 使用者中斷 — 殺掉 in-flight LLM 呼叫後立即停止，不進 fallback/retry
       if (abortSignal?.aborted || err.name === "AbortError") {
@@ -4066,7 +4086,7 @@ export async function runAgentLoopStream(config, res) {
             _rateLimitCache.set(primaryKey, { until: Date.now() + RATE_LIMIT_COOLDOWN_MS, fallbackKey: _providerKey(fb.providerId, fb.model) });
             sendSSE("info", { message: `⏳ ${llm.providerId} 限流，切換到 ${fb.providerId}/${fb.model}` });
             try {
-              response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId, fb.maxTokens || llm.maxTokens, abortSignal);
+              response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, sendSSE, agentId, fb.maxTokens || llm.maxTokens, abortSignal);
               usedLlm = fb;
               // Update llm so subsequent turns use fallback directly
               llm = { ...llm, apiUrl: fb.apiUrl, headers: fb.headers, model: fb.model, providerId: fb.providerId, maxTokens: fb.maxTokens || llm.maxTokens, contextWindow: fb.contextWindow || llm.contextWindow };

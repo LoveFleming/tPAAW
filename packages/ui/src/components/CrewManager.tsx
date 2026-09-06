@@ -85,8 +85,10 @@ const TOOL_GROUPS = [
   { id: "project", name: "📂 Project Info", desc: "專案資訊、feature map" },
   { id: "project-edit", name: "✏️ Project Edit", desc: "修改專案設定" },
   { id: "tasks", name: "📌 Tasks", desc: "任務管理" },
-  { id: "docs", name: "📡 Docs", desc: "文檔生成" },
+  { id: "docs", name: "📡 Docs", desc: "文檔生成（cu_refresh）" },
   { id: "dispatch", name: "🚀 Dispatch", desc: "EM 調度" },
+  { id: "project-board", name: "🗂️ Project Board", desc: "專案看板維護" }, // 2026-09-06 補齊
+  { id: "notes", name: "📝 Notes", desc: "筆記讀寫" }, // 2026-09-06 補齊
 ];
 
 type DetailTab = "rules" | "model" | "context" | "skills" | "memory";

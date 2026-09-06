@@ -2043,6 +2043,9 @@ export default async function projectRoute(req, res) {
         const body = JSON.parse(await readBody(req) || "{}");
         try {
           const updated = updateProjectAgent(projectDir, agentIdParam, body);
+          // 2026-09-06：crew 變更（含 toolGroups / rolePrompt）→ 清 agent-loop 的 group 快取，免重啟生效
+          const { clearCrewGroupCache } = await import("../lib/paaw-agent-loop.mjs");
+          clearCrewGroupCache();
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify(updated));
         } catch (err) {
