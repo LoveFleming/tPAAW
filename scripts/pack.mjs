@@ -100,29 +100,56 @@ for (const entry of readdirSync(join(ROOT, "data/crews"))) {
 // 產品功能資產（2026-09-07 補齊 — 用 git ls-files 帶出，deterministic 且不含個人/runtime 內容）
 // 沒這批的話 fresh install：CU/C4 引擎沒 prompt、Code Intel 沒掃描規則、skill library 全空。
 const DATA_ASSETS = [
-  { dir: "prompts",       exclude: [".paaw/"] },                 // CU/C4/error-code 引擎 prompts
-  { dir: "semgrep-rules", exclude: [".paaw/"] },                 // Code Intel 掃描規則（含 golang 169）
-  { dir: "skills",        exclude: [".paaw/"] },                 // skill library（排除開發 session）
-  { dir: "apps",          exclude: [".paaw/", ".bak"] },         // 產品 demo apps（排除開發 session/.bak）
-  { dir: "workflows",     exclude: [".paaw/", "_exec-history/"] }, // 範例 workflows（排除執行歷史）
+  { dir: "prompts" },            // CU/C4/error-code 引擎 prompts
+  { dir: "semgrep-rules" },      // Code Intel 掃描規則（含 golang 169）
+  { dir: "skills" },             // skill library（physical/building）
+  { dir: "apps" },               // 產品 demo apps
+  { dir: "workflows" },          // 範例 workflows
 ];
 const SEED_CONFIG_ALLOW = ["providers.example.json", "plugins.json"]; // 出廠預設；backup.json/distilled-memory/user.json 是個人/runtime 不出貨
-const tracked = execSync("git ls-files data/", { cwd: ROOT, encoding: "utf8" })
-  .split("\n").map(s => s.trim()).filter(Boolean);
+
+// 直接掃目錄列舉（不依賴 git）— 公司機器可能是手動覆蓋檔案的非 git 工作區，
+// git ls-files 在那裡會列出 0 檔 → zip 靜默缺料。排除規則對齊 .gitignore 的 data 段。
+const skipAsset = (dir, sub) => {
+  const seg = sub.split("/");
+  if (seg.some(s => s === ".paaw" || s === ".DS_Store" || s === ".git")) return true; // 開發 session / 垃圾（任何層級）
+  if (seg.some(s => s === "myenglish.md" || s === "test-output" || s === ".test-output")) return true; // 個人輸出 / test 產物（對齊 gitignore）
+  if (dir === "skills" && (seg[0] === "lab" || seg[0] === ".test-output")) return true;   // gitignore: data/skills/lab, .test-output
+  if (dir === "skills" && seg[0] === "building" && (seg[2] || "").startsWith("test-")) return true; // gitignore: building/*/test-*
+  if (dir === "apps" && seg[0] === "lab") return true;                                   // gitignore: data/apps/lab
+  if (dir === "apps" && sub.endsWith(".bak")) return true;
+  if (dir === "workflows" && seg[0] === "_exec-history") return true;                     // runtime 執行歷史
+  return false;
+};
+const walk = (d, prefix = "") => {
+  const out = [];
+  for (const e of readdirSync(d, { withFileTypes: true })) {
+    const rel = prefix ? `${prefix}/${e.name}` : e.name;
+    if (e.isDirectory()) out.push(...walk(join(d, e.name), rel));
+    else out.push(rel);
+  }
+  return out;
+};
 let seeded = 0;
-for (const rel of tracked) {
-  // data/<dir>/<rest...>
-  const sub = rel.slice("data/".length);
-  const top = sub.split("/")[0];
-  const asset = DATA_ASSETS.find(a => a.dir === top);
-  let ship = false;
-  if (asset) ship = !asset.exclude.some(x => sub.includes(x));
-  else if (top === "config") ship = SEED_CONFIG_ALLOW.includes(sub.split("/")[1] || "");
-  if (!ship) continue;
-  const dest = join(STAGE, "data-seed", sub);
-  mkdirSync(dirname(dest), { recursive: true });
-  cpSync(join(ROOT, rel), dest);
-  seeded++;
+for (const asset of DATA_ASSETS) {
+  const srcDir = join(ROOT, "data", asset.dir);
+  if (!existsSync(srcDir)) { console.error(`✗ data/${asset.dir} 不存在`); process.exit(1); }
+  for (const sub of walk(srcDir)) {
+    if (skipAsset(asset.dir, sub)) continue;
+    const dest = join(STAGE, "data-seed", asset.dir, sub);
+    mkdirSync(dirname(dest), { recursive: true });
+    cpSync(join(srcDir, sub), dest);
+    seeded++;
+  }
+}
+mkdirSync(join(STAGE, "data-seed/config"), { recursive: true });
+for (const f of SEED_CONFIG_ALLOW) {
+  const src = join(ROOT, "data/config", f);
+  if (existsSync(src)) { cpSync(src, join(STAGE, "data-seed/config", f)); seeded++; }
+}
+if (seeded < 2000) {
+  console.error(`✗ 產品資產只有 ${seeded} 檔（預期 >2000）— data/ 不完整或缺目錄，拒絕打包`);
+  process.exit(1);
 }
 console.log(`  產品資產 overlay：${seeded} 檔（prompts/semgrep-rules/skills/apps/workflows/config 出廠預設）`);
 
