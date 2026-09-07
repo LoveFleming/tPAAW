@@ -25,7 +25,7 @@
 
 import { addActionLog } from "./action-log.mjs";
 import { addCostAttribution } from "./coding-task-cost.mjs";
-import { writeFileSync, existsSync, readFileSync } from "fs";
+import { writeFileSync, existsSync, readFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import {
   gatherContext,
@@ -732,7 +732,7 @@ export async function executeEMSession(opts = {}) {
     reportOpts.includeCodeChanges = emConfig.reporting.includeCodeChanges;
     reportOpts.includeActionLog = emConfig.reporting.includeActionLog;
   }
-  const report = generateEMReport(execList, results, situationReport, reportOpts);
+  const report = generateEMReport(execList, results, situationReport, { ...reportOpts, rootDir });
   saveAutoDispatchReport(rootDir, report, "em");
   console.log(`[AutoDispatch] Phase 4: Report saved (${report.length} chars)`);
   sendSSE("report", { report });
@@ -1121,6 +1121,7 @@ ${reviewRounds >= maxRounds && !approved ? "⚠️ **此文件變更需要人工
 
 function generateEMReport(workList, results, situationReport, opts = {}) {
   const now = new Date();
+  const rootDir = opts.rootDir; // 有 rootDir 才能落地溢位輸出（2026-09-07）
   const dateStr = now.toISOString().slice(0, 10);
   const succeeded = results.filter(r => r.success).length;
   const failed = results.filter(r => !r.success && !r._skipped).length;
@@ -1157,7 +1158,25 @@ function generateEMReport(workList, results, situationReport, opts = {}) {
     if (r?.success) {
       // Detailed format includes full output; summary/executive truncates more
       const maxLen = format === 'detailed' ? 3000 : (format === 'executive' ? 200 : 800);
-      report += `**結果：**\n\`\`\`\n${r.content.slice(0, maxLen)}\n\`\`\`\n\n`;
+      const content = r.content || "";
+      let overflowNote = "";
+      if (content.length > maxLen) {
+        // 2026-09-07 Fleming：QA 14 findings 被 800 字截斷、得手動分批重撈 — 超長輸出一律落地，報告只放截斷版+檔案指標
+        try {
+          if (rootDir) {
+            const outDir = join(rootDir, ".paaw", "coding-memory", "dispatch-outputs");
+            mkdirSync(outDir, { recursive: true });
+            const ts = now.toISOString().replace(/[:T]/g, "-").slice(0, 17);
+            const fname = `${ts}-${String(w.agent || "agent").replace(/[^a-zA-Z0-9._-]/g, "_")}.md`;
+            writeFileSync(join(outDir, fname), `# Dispatch 完整輸出\n\n- Task: ${w.task}\n- Agent: ${w.agent}\n- 時間: ${now.toISOString()}\n- 長度: ${content.length} 字元（報告内截斷至 ${maxLen}）\n\n---\n\n${content}\n`, "utf-8");
+            overflowNote = `\n\n📎 完整輸出（${content.length} 字元）：\".paaw/coding-memory/dispatch-outputs/${fname}\
+"`;
+          } else {
+            overflowNote = `\n\n⚠️ 完整輸出 ${content.length} 字元（報告截斷，無 rootDir 可落地）`;
+          }
+        } catch {}
+      }
+      report += `**結果：**\n\`\`\`\n${content.slice(0, maxLen)}${content.length > maxLen ? "\n…（截斷）" : ""}\n\`\`\`${overflowNote}\n\n`;
     } else if (r?.error) {
       report += `**錯誤：** ${r.error}\n\n`;
     }

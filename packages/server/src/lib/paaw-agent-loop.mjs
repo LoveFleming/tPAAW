@@ -1589,7 +1589,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
 
       case "read_file": {
         const filePath = resolvePath(args.path);
-        if (!isPathAllowed(args.path)) return `Error: path '${args.path}' is outside allowed directory. cwd='${cwd}'. Use a relative path instead.`;
+        if (!isPathAllowed(args.path)) return `Error: path '${args.path}' resolves to '${filePath}' which is outside all allowed roots. cwd='${cwd}'. Allowed roots: project dir (cwd), PAAW root${workspaceDirs.length ? ", workspaces: " + workspaceDirs.join(", ") : " (no extra workspaces mounted)"}, knowledge. Note: relative vs absolute doesn't matter — the resolved path must be INSIDE an allowed root. If you need a sibling directory, ask the user to add it to data/workspaces.json.`;
         if (!existsSync(filePath)) return `Error: file not found: ${args.path}`;
         const content = await readFile(filePath, "utf-8");
         // Line-based reading with offset/limit
@@ -1690,7 +1690,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
 
       case "glob": {
         const basePath = resolvePath(args.path);
-        if (!isPathAllowed(args.path || ".")) return `Error: path is outside allowed directory`;
+        if (!isPathAllowed(args.path || ".")) return `Error: path '${args.path}' resolves outside all allowed roots (cwd='${cwd}'${workspaceDirs.length ? ", workspaces: " + workspaceDirs.join(", ") : ""}). Ask user to add the directory to data/workspaces.json if needed.`;
         const pattern = args.pattern;
         let result;
         if (IS_WIN) {
@@ -1727,7 +1727,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
 
       case "grep": {
         const searchPath = resolvePath(args.path);
-        if (!isPathAllowed(args.path || ".")) return `Error: path is outside allowed directory`;
+        if (!isPathAllowed(args.path || ".")) return `Error: path '${args.path}' resolves outside all allowed roots (cwd='${cwd}'${workspaceDirs.length ? ", workspaces: " + workspaceDirs.join(", ") : ""}). Ask user to add the directory to data/workspaces.json if needed.`;
         const maxResults = args.max_results || 50;
         const caseFlag = args.case_sensitive ? "" : "-i";
         let result;
