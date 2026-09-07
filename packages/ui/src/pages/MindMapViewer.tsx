@@ -10,6 +10,7 @@ import { Transformer } from "markmap-lib";
 import { Markmap } from "markmap-view";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
+import Icon, { IconLabel } from "../components/Icon";
 import API_BASE from "../api";
 
 const transformer = new Transformer();
@@ -494,7 +495,7 @@ export default function MindMapViewer() {
         )}
         {markdown && <button onClick={zoomIn} style={btnStyle}>🔍+ 放大</button>}
         {markdown && <button onClick={zoomOut} style={btnStyle}>🔍− 縮小</button>}
-        {markdown && <button onClick={fitToScreen} style={btnStyle}>⛶ 符合視窗</button>}
+        {markdown && <button onClick={fitToScreen} style={btnStyle}><IconLabel name="expand" size={12}>符合視窗</IconLabel></button>}
         {markdown && <button onClick={exportSVG} style={btnStyle}>⬇ SVG</button>}
         {markdown && <button onClick={() => setShowSaveDialog(true)} style={btnStyle}>{tt("appBuilder.saveButton")}</button>}
         {markdown && <button

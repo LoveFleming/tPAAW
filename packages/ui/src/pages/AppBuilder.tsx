@@ -3,6 +3,7 @@ import { cn, fmtChatTime } from "../utils";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import { SkillDefinition } from "../types";
+import Icon from "../components/Icon";
 import AgentConsole, { AgentConsoleHandle } from "../components/AgentConsole";
 
 import API from "../api";
@@ -1090,7 +1091,7 @@ export default function AppBuilder() {
                                         className="text-xs text-stone-400 hover:text-stone-600" title="查看完整提示詞">📋 Prompt</button>
                                     {previewReady && previewUrl && (
                                         <button onClick={() => setFullscreen(f => !f)}
-                                            className="text-xs text-stone-400 hover:text-stone-600" title={fullscreen ? tt("common.exitFullscreen") : tt("appBuilder.fullscreenPreview")}>{fullscreen ? "✕" : "⛶"}</button>
+                                            className="text-xs text-stone-400 hover:text-stone-600" title={fullscreen ? tt("common.exitFullscreen") : tt("appBuilder.fullscreenPreview")}>{fullscreen ? <Icon name="cross" size={14} /> : <Icon name="expand" size={14} />}</button>
                                     )}
                                 </div>
                             </div>

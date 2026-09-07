@@ -23,6 +23,7 @@ import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import { cn } from "../utils";
 import ShellTerminal from "../components/ShellTerminal";
+import Icon from "../components/Icon";
 import ConsoleLogView from "../components/ConsoleLogView";
 import JanitorPanel from "../components/JanitorPanel";
 import JsonViewer from "../components/JsonViewer";
@@ -2857,7 +2858,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
           style={{ backgroundColor: focusMode ? tk.toolbarActive : "transparent", color: focusMode ? tk.accent : tk.toolbarTextMuted }}
           onMouseEnter={e => { if (!focusMode) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = focusMode ? tk.toolbarActive : "transparent"; }}
-          title={focusMode ? tt("vibe.focusOff") : tt("vibe.focusOn")}>{focusMode ? "🗗" : "⛶"}</button>
+          title={focusMode ? tt("vibe.focusOff") : tt("vibe.focusOn")}>{focusMode ? <Icon name="contract" size={14} /> : <Icon name="expand" size={14} />}</button>
 
       </div>
 

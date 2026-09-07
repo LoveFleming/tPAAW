@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import API from "../api";
+import Icon from "../components/Icon";
 
 // Inject marker pulse animation once
 if (typeof document !== "undefined" && !document.getElementById("briefing-anim")) {
@@ -921,7 +922,7 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
           <span className="text-[10px] text-stone-300 mx-1">|</span>
           <button onClick={() => setOverviewMode(true)} className={`px-2 py-1 rounded text-xs transition-colors ${overviewMode ? "text-white" : "text-stone-500 hover:text-stone-800 hover:bg-stone-100"}`} style={overviewMode ? { background: t.accent } : {}} title="Overview (O)">📊</button>
           <button onClick={() => setShowNotes(v => !v)} className={`px-2 py-1 rounded text-xs transition-colors ${showNotes ? "text-white" : "text-stone-500 hover:text-stone-800 hover:bg-stone-100"}`} style={showNotes ? { background: t.accent } : {}} title="Notes (N)">📝</button>
-          <button onClick={() => { if (!fullscreen) { containerRef.current?.requestFullscreen?.(); } else { document.exitFullscreen?.(); } }} className="px-2 py-1 rounded text-xs text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors" title="Fullscreen (F)">{fullscreen ? "🗗" : "⛶"}</button>
+          <button onClick={() => { if (!fullscreen) { containerRef.current?.requestFullscreen?.(); } else { document.exitFullscreen?.(); } }} className="px-2 py-1 rounded text-xs text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors" title="Fullscreen (F)">{fullscreen ? <Icon name="contract" size={14} /> : <Icon name="expand" size={14} />}</button>
         </div>
       </div>
 
