@@ -96,3 +96,6 @@ data/config/release-units.json
 # 機器本地 runtime 設定（UI 可改 — 不版控，出廠預設在程式碼 DEFAULTS）
 data/config/janitor.json
 data/config/log-retention.json
+
+# data 資產目錄內不版控開發 session（RU 資產版控零例外指專案根 .paaw；skill/app 資產裡的 .paaw 是開發垃圾）2026-09-07
+data/**/.paaw/
