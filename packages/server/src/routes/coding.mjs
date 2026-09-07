@@ -843,10 +843,10 @@ export default async function projectRoute(req, res) {
         } catch {}
       }
 
-      // Action log
-      const actionLog = await listActionLog(projRoot);
+      // Action log（2026-09-07 修正：listActionLog 簽名是 opts 物件，之前傳字串 → fallback PAAW 根永遠讀不到；欄位是 details 非 detail）
+      const { entries: actionLog } = await listActionLog({ cwd: projRoot, limit: 200 });
       if (actionLog.length > 0) {
-        const recent = actionLog.slice(-10).map(e => `- [${e.agent}] ${e.action}${e.detail ? ": " + e.detail : ""} (${e.ts})`).join("\n");
+        const recent = actionLog.slice(-10).map(e => `- [${e.agent}] ${e.action}${e.details ? ": " + e.details : ""} (${e.ts})`).join("\n");
         extraContext.push(`\n## Recent Action Log\n${recent}`);
       }
 

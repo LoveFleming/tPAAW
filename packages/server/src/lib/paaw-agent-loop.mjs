@@ -2604,18 +2604,23 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
       }
 
       // ── Agent Memory Tools ──
+      // 2026-09-07 修正：coding crew 的 memory 跟專案走（cwd），不是 PAAW root
+      // （之前 rootDir||cwd → crew chat 的 rootDir=PAAW_ROOT → memory 存到 PAAW 根，
+      //   EM auto-dispatch 讀專案根 → 永遠讀不到，agentMemoryInjected 永遠 (none)）
       case "agent_memory_save": {
         const { saveAgentMemory } = await import("./action-log.mjs");
-        const agentId = args._agentId || _agentCfg?.agentId || "agent";
-        await saveAgentMemory(agentId, args.content, rootDir || cwd);
-        if (onEvent) onEvent({ type: "tool_end", name, result: `${agentId}.md` });
-        return `✅ Memory saved for ${agentId} to ${(rootDir || cwd)}/.paaw/agent-memory/`;
+        const agentId2 = args._agentId || _agentCfg?.agentId || agentId || "agent";
+        const memRoot = (typeof agentId2 === "string" && agentId2.startsWith("coding.")) ? cwd : (rootDir || cwd);
+        await saveAgentMemory(agentId2, args.content, memRoot);
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${agentId2}.md` });
+        return `✅ Memory saved for ${agentId2} to ${memRoot}/.paaw/agent-memory/`;
       }
 
       case "agent_memory_load": {
         const { loadAgentMemory } = await import("./action-log.mjs");
-        const agentId = args._agentId || _agentCfg?.agentId || "agent";
-        const content = await loadAgentMemory(agentId, rootDir || cwd);
+        const agentId2 = args._agentId || _agentCfg?.agentId || agentId || "agent";
+        const memRoot = (typeof agentId2 === "string" && agentId2.startsWith("coding.")) ? cwd : (rootDir || cwd);
+        const content = await loadAgentMemory(agentId2, memRoot);
         if (onEvent) onEvent({ type: "tool_end", name, result: content ? `${content.length} chars` : "empty" });
         return content || "(No saved memory yet)";
       }

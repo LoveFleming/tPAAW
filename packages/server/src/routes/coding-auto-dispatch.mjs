@@ -339,7 +339,7 @@ export default async function codingAutoDispatchRoute(req, res) {
     // Also check action-log for EM activity
     try {
       const { listActionLog } = await import("../lib/action-log.mjs");
-      const logs = await listActionLog(projRoot, 20);
+      const logs = (await listActionLog({ cwd: projRoot, limit: 20 })).entries;
       const emLog = logs.find(e => e.agent === "em" && e.ts);
       if (emLog?.ts && (!lastRunAt || emLog.ts > lastRunAt)) {
         lastRunAt = emLog.ts;

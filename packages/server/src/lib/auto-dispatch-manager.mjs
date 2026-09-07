@@ -826,11 +826,11 @@ export async function runParallelSession(opts = {}) {
       .replace(/\{\{featuresSummary\}\}/g, ctx.featuresSummary || "(none)")
       .replace(/\{\{featureBoundary\}\}/g, ctx.featureBoundary || "(no feature boundary)");
 
-    // Load agent memory + action log
+    // Load agent memory + action log（2026-09-07 修正：loadAgentMemory 簽名是 (agentId, cwd)——之前參數對調導致 memory 永遠讀不到；listActionLog 簽名是 opts 物件）
     let memoryText = "";
-    try { memoryText = await loadAgentMemory(rootDir, config.crewId) || ""; } catch {}
+    try { memoryText = await loadAgentMemory(config.crewId, rootDir) || ""; } catch {}
     let actionLogText = "";
-    try { actionLogText = (await listActionLog(rootDir, 5)).map(e => `- ${e.agentId}: ${e.action}`).join("\n"); } catch {}
+    try { actionLogText = (await listActionLog({ cwd: rootDir, limit: 5 })).entries.map(e => `- ${e.agent}: ${e.action}`).join("\n"); } catch {}
 
     const systemPrompt = (crew?.rolePrompt || "") +
       (crew?.expertise ? `\n\n## 專業範圍\n${crew.expertise}` : "") +
