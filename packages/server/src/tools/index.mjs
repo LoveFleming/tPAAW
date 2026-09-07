@@ -1432,11 +1432,11 @@ function buildHandlers(apps) {
   };
 
   // ── Task Management handlers (global) ──
-  handlers.task_create = async ({ title, featureId, type, priority, description, assignee, labels, note, spec } = {}) => {
+  handlers.task_create = async ({ title, featureId, type, priority, description, assignee, labels, note, spec, _callerPath } = {}) => {
     try {
       if (!featureId) return { text: "❌ featureId 為必填（一切以 feature 為主 — 雜項掛 Utility & Platform Misc）", error: true };
       const workspaces = await loadWorkspaces();
-      const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
+      const projectPath = _callerPath || (workspaces.length > 0 ? workspaces[0] : PAAW_ROOT);
       const resp = await fetch(`${API}/api/coding-tasks?path=${encodeURIComponent(projectPath)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1457,10 +1457,10 @@ function buildHandlers(apps) {
     }
   };
 
-  handlers.task_update = async ({ id, status, priority, assignee, note, result } = {}) => {
+  handlers.task_update = async ({ id, status, priority, assignee, note, result, _callerPath } = {}) => {
     try {
       const workspaces = await loadWorkspaces();
-      const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
+      const projectPath = _callerPath || (workspaces.length > 0 ? workspaces[0] : PAAW_ROOT);
       const updateBody = {};
       if (status) updateBody.status = status;
       if (priority) updateBody.priority = priority;
@@ -1499,10 +1499,10 @@ function buildHandlers(apps) {
     }
   };
 
-  handlers.task_list = async ({ status, type, priority, search } = {}) => {
+  handlers.task_list = async ({ status, type, priority, search, _callerPath } = {}) => {
     try {
       const workspaces = await loadWorkspaces();
-      const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
+      const projectPath = _callerPath || (workspaces.length > 0 ? workspaces[0] : PAAW_ROOT);
       let url = `${API}/api/coding-tasks?path=${encodeURIComponent(projectPath)}`;
       const params = [];
       if (status) params.push(`status=${encodeURIComponent(status)}`);
@@ -1533,10 +1533,10 @@ function buildHandlers(apps) {
     }
   };
 
-  handlers.task_decompose = async ({ parentId, subTasks } = {}) => {
+  handlers.task_decompose = async ({ parentId, subTasks, _callerPath } = {}) => {
     try {
       const workspaces = await loadWorkspaces();
-      const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
+      const projectPath = _callerPath || (workspaces.length > 0 ? workspaces[0] : PAAW_ROOT);
       const resp = await fetch(`${API}/api/coding-tasks/decompose?path=${encodeURIComponent(projectPath)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1559,7 +1559,7 @@ function buildHandlers(apps) {
     }
   };
 
-  handlers.dispatch_agent = async ({ agentId, task, taskId } = {}) => {
+  handlers.dispatch_agent = async ({ agentId, task, taskId, _callerPath } = {}) => {
     if (!agentId || !task) return { text: "❌ dispatch_agent 需要 agentId 和 task" };
 
     const { getAgentByCrewId, buildSystemPrompt } = await import("../lib/domain-agent-registry.mjs");
@@ -1593,7 +1593,7 @@ function buildHandlers(apps) {
     if (taskId) {
       try {
         const workspaces = await loadWorkspaces();
-        const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
+        const projectPath = _callerPath || (workspaces.length > 0 ? workspaces[0] : PAAW_ROOT);
         await fetch(`${API}/api/coding-tasks/${taskId}?path=${encodeURIComponent(projectPath)}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -1605,7 +1605,10 @@ function buildHandlers(apps) {
     try {
       const { runAgentLoop } = await import("../lib/paaw-agent-loop.mjs");
       const workspaces = await loadWorkspaces();
-      const projRoot = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
+      // 2026-09-07 修正：派工 cwd = 呼叫者（EM）的專案路徑，不是 workspaces[0]
+      // （之前 QA 被派去 review tpaaw-gateway，cwd 卻是 agent-sre → 相對/絕對路徑全被邊界擋、
+      //   action log 落到錯的專案 — 「沙箱未掛載」的真相就是這個）
+      const projRoot = _callerPath || (workspaces.length > 0 ? workspaces[0] : PAAW_ROOT);
 
       // Build system prompt for the target agent
       const systemPrompt = await buildSystemPrompt(agent.agentId, { cwd: projRoot });
@@ -1622,13 +1625,28 @@ function buildHandlers(apps) {
 
       const success = result.success;
       const content = result.content || "";
-      const preview = content.slice(0, 500);
+      // 2026-09-07：preview 只回 500 字給呼叫者；超長輸出一律落地 dispatch-outputs，附檔案指標
+      // （之前 QA 14 findings 被截斷，EM 只能分批重撈）
+      let preview = content.slice(0, 500);
+      if (content.length > 500) {
+        try {
+          const { writeFileSync: _wf, mkdirSync: _mk } = await import("fs");
+          const { join: _j } = await import("path");
+          const outDir = _j(projRoot, ".paaw", "coding-memory", "dispatch-outputs");
+          _mk(outDir, { recursive: true });
+          const now = new Date();
+          const ts = now.toISOString().replace(/[:T]/g, "-").slice(0, 17);
+          const fname = `${ts}-${String(agentId).replace(/[^a-zA-Z0-9._-]/g, "_")}.md`;
+          _wf(_j(outDir, fname), `# Dispatch 完整輸出\n\n- Task: ${task}\n- Agent: ${agentId}\n- 時間: ${now.toISOString()}\n- 長度: ${content.length} 字元（回給呼叫者 500 字預覽）\n\n---\n\n${content}\n`, "utf-8");
+          preview += `\n\n📎 完整輸出（${content.length} 字元）：.paaw/coding-memory/dispatch-outputs/${fname}`;
+        } catch {}
+      }
 
       // Update task with result if taskId provided
       if (taskId) {
         try {
           const workspaces2 = await loadWorkspaces();
-          const projectPath2 = workspaces2.length > 0 ? workspaces2[0] : PAAW_ROOT;
+          const projectPath2 = _callerPath || (workspaces2.length > 0 ? workspaces2[0] : PAAW_ROOT);
           await fetch(`${API}/api/coding-tasks/${taskId}?path=${encodeURIComponent(projectPath2)}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -1659,7 +1677,7 @@ function buildHandlers(apps) {
       if (taskId) {
         try {
           const workspaces = await loadWorkspaces();
-          const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
+          const projectPath = _callerPath || (workspaces.length > 0 ? workspaces[0] : PAAW_ROOT);
           await fetch(`${API}/api/coding-tasks/${taskId}?path=${encodeURIComponent(projectPath)}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },

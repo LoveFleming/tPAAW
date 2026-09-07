@@ -1373,6 +1373,11 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
   if (agentId && ["action_log_add", "action_log_list", "agent_memory_save", "agent_memory_load"].includes(name)) {
     args._agentId = agentId;
   }
+  // 2026-09-07：EM 派工/任務工具必須落在「呼叫者的專案」（coding app import 的 release unit path），
+  // 不是 PAAW workspaces[0] — 否則跨專案派工時 QA cwd / task / action log 全落在錯的專案
+  if (["dispatch_agent", "task_create", "task_update", "task_list"].includes(name)) {
+    args._callerPath = cwd;
+  }
 
   // Resolve relative paths against cwd
   const resolvePath = (p) => {
