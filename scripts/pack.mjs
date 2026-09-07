@@ -71,6 +71,7 @@ const GLOBAL_EXCLUDES = [".git", "node_modules", ".DS_Store", ".paaw", "temp", "
 const ROOT_EXCLUDES = [
   "/data", "/.openclaw", "/backups",
   "/dist", "/storage", "/tmp", "/test-results", "/tests", "/coverage", "/nul",
+  "/log",  // 2026-09-06 三目錄架構：runtime 垃圾跟 code 走，開機自建，永不打包
   "/.env", "/.env.dev",
   "/packages/data", "/packages/server/data",
   "/docs-paaw-sync-*",
@@ -81,9 +82,9 @@ const EXCLUDES = [...GLOBAL_EXCLUDES, ...ROOT_EXCLUDES].map((e) => `--exclude=${
 
 execSync(`rsync -a ${EXCLUDES} ./ "${STAGE}/"`, { cwd: ROOT, stdio: "pipe" });
 
-// ---------- 3. data-seed（scripts/seed + 產品級 ai-settings overlay）----------
+// ---------- 3. data-seed（scripts/seed 骨架 + 產品資產 overlay）----------
 
-console.log("▸ data-seed 播種（scripts/seed + ai-settings + crews 模板）…");
+console.log("▸ data-seed 播種（骨架 + 產品資產）…");
 cpSync(join(ROOT, "scripts/seed"), join(STAGE, "data-seed"), { recursive: true });
 mkdirSync(join(STAGE, "data-seed/ai-settings"), { recursive: true });
 cpSync(join(ROOT, "data/ai-settings"), join(STAGE, "data-seed/ai-settings"), { recursive: true });
@@ -95,6 +96,77 @@ for (const entry of readdirSync(join(ROOT, "data/crews"))) {
   if (entry === "conversation") continue;
   cpSync(join(ROOT, "data/crews", entry), join(STAGE, "data-seed/crews", entry), { recursive: true });
 }
+
+// 產品功能資產（2026-09-07 補齊 — 用 git ls-files 帶出，deterministic 且不含個人/runtime 內容）
+// 沒這批的話 fresh install：CU/C4 引擎沒 prompt、Code Intel 沒掃描規則、skill library 全空。
+const DATA_ASSETS = [
+  { dir: "prompts",       exclude: [".paaw/"] },                 // CU/C4/error-code 引擎 prompts
+  { dir: "semgrep-rules", exclude: [".paaw/"] },                 // Code Intel 掃描規則（含 golang 169）
+  { dir: "skills",        exclude: [".paaw/"] },                 // skill library（排除開發 session）
+  { dir: "apps",          exclude: [".paaw/", ".bak"] },         // 產品 demo apps（排除開發 session/.bak）
+  { dir: "workflows",     exclude: [".paaw/", "_exec-history/"] }, // 範例 workflows（排除執行歷史）
+];
+const SEED_CONFIG_ALLOW = ["providers.example.json", "plugins.json"]; // 出廠預設；backup.json/distilled-memory/user.json 是個人/runtime 不出貨
+const tracked = execSync("git ls-files data/", { cwd: ROOT, encoding: "utf8" })
+  .split("\n").map(s => s.trim()).filter(Boolean);
+let seeded = 0;
+for (const rel of tracked) {
+  // data/<dir>/<rest...>
+  const sub = rel.slice("data/".length);
+  const top = sub.split("/")[0];
+  const asset = DATA_ASSETS.find(a => a.dir === top);
+  let ship = false;
+  if (asset) ship = !asset.exclude.some(x => sub.includes(x));
+  else if (top === "config") ship = SEED_CONFIG_ALLOW.includes(sub.split("/")[1] || "");
+  if (!ship) continue;
+  const dest = join(STAGE, "data-seed", sub);
+  mkdirSync(dirname(dest), { recursive: true });
+  cpSync(join(ROOT, rel), dest);
+  seeded++;
+}
+console.log(`  產品資產 overlay：${seeded} 檔（prompts/semgrep-rules/skills/apps/workflows/config 出廠預設）`);
+
+// ---------- 3.5 self-check：出貨包不該出現的東西 ----------
+
+const FORBIDDEN = [
+  "log",                       // runtime 垃圾（開機自建）
+  "node_modules",
+  ".paaw",
+  "data-seed/config/backup.json",
+  "data-seed/config/distilled-memory",
+  "data-seed/config/user.json",
+  "data-seed/config/ui-state.json",
+  "data-seed/config/recent-projects.json",
+  "data-seed/config/agentic-bindings.json",
+  "data-seed/notes/default",   // 個人筆記
+  "data-seed/distill/knowledge", // 個人蒸餾記憶
+  "data-seed/crews/conversation",
+];
+const violations = [];
+const scanDir = (d) => {
+  for (const e of readdirSync(d, { withFileTypes: true })) {
+    const p = join(d, e.name);
+    const rel = p.slice(STAGE.length + 1);
+    if (FORBIDDEN.includes(rel)) { violations.push(rel); continue; }
+    if (e.isDirectory()) {
+      if (e.name === "node_modules" || e.name === ".git" || e.name === ".paaw") { violations.push(rel); continue; }
+      scanDir(p);
+    }
+  }
+};
+scanDir(STAGE);
+// knowledge 骨架只允許 .gitkeep（個人知識庫絕不出貨）
+const kn = join(STAGE, "data-seed/knowledge");
+if (existsSync(kn)) {
+  const extra = readdirSync(kn).filter(f => f !== ".gitkeep");
+  if (extra.length) violations.push(`data-seed/knowledge 內容: ${extra.join(", ")}`);
+}
+if (violations.length) {
+  console.error("✗ self-check 失敗 — 出貨包出現不該有的內容:");
+  for (const v of violations) console.error("   " + v);
+  process.exit(1);
+}
+console.log("  self-check ✓（無 log/、無 .paaw、無 node_modules、無個人資料）");
 
 // ---------- 4. zip ----------
 
