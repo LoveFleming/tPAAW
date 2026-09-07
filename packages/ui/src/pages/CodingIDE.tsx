@@ -3912,31 +3912,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   rootPath={rootPath}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                   onOpenFile={openFile}
-                  onDispatchAgent={async (agentId, task) => {
-                    try {
-                      const res = await fetch(`${API_BASE}/api/coding-crew/dispatch`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ agentId, task, cwd: rootPath }),
-                      });
-                      const data = await res.json();
-                      if (res.status === 409 || data.busy) {
-                        alert(`⚠️ ${agentId} 正在忙碌中，請稍後再派工`);
-                      } else if (!data.ok && data.error) {
-                        alert(`❌ 派工失敗：${data.error}`);
-                      } else {
-                        // Switch to developer tab to see the result
-                        const devCrewId = "coding.developer";
-                        if (!mainTabs.some(t => t.id === `crew:${devCrewId}`)) {
-                          setMainTabs(prev => [...prev, { id: `crew:${devCrewId}`, type: "ai-crew", label: "💻 Developer", icon: "💻", closable: true }]);
-                        }
-                        setActiveMainTabId(`crew:${devCrewId}`);
-                      }
-                    } catch (err: any) {
-                      alert(`❌ 派工錯誤：${err.message}`);
-                    }
-                  }}
-                  agentBusy={(agentId: string) => !!crewAgentRunning[`coding.${agentId}`]}
                 />
               </div>
             )}
