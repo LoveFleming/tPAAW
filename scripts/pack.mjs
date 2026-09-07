@@ -195,6 +195,16 @@ if (violations.length) {
 }
 console.log("  self-check ✓（無 log/、無 .paaw、無 node_modules、無個人資料）");
 
+// 出貨包自描述（2026-09-07 Fleming：gateway 手動上傳安裝用）—
+// zip 內帶版本資訊，上傳時 gateway 讀它決定裝到 versions/<v>/；
+// paaw-package 下載流程照舊用外部 manifest 驗 sha256，兩者並存。
+writeFileSync(join(STAGE, "paaw-manifest.json"), JSON.stringify({
+  product: "paaw",
+  version: VERSION,
+  builtAt: new Date().toISOString(),
+  seedAssets: seeded,
+}, null, 2));
+
 // ---------- 4. zip ----------
 
 console.log("▸ zip …");
