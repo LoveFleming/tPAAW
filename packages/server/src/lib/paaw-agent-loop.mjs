@@ -346,6 +346,37 @@ export const PAAW_TOOLS = [
     },
   },
 
+  // ── Dev Server Controller（2026-09-10 Phase 1）──
+  {
+    type: "function",
+    function: {
+      name: "dev_server",
+      description: "Manage this Release Unit's dev server (long-running process like `npm run dev`). Detached background process — returns immediately, survives the agent session. Output goes to log/app-console/<ru>/app-console-YYYY-MM-DD.log which the human watches live in CodingIDE Terminal → Console → App view. Actions: start / stop / restart / status. restart has a crash-loop guard (max 5 per 10min). CRITICAL: after start/restart, ALWAYS call dev_log to verify the server actually booted (look for port listening / errors) before claiming success.",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["start", "stop", "restart", "status"], description: "What to do" },
+          command: { type: "string", description: "Command to run for start/restart (default: npm run dev). Ignored for stop/status." },
+        },
+        required: ["action"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "dev_log",
+      description: "Read the tail of this Release Unit's app console log (dev server output, agent-started app output). Use after dev_server start/restart to verify boot, or when debugging crashes/errors. Shows the last N lines (default 100).",
+      parameters: {
+        type: "object",
+        properties: {
+          lines: { type: "number", description: "Number of tail lines to return (default 100, max 400)" },
+        },
+        required: [],
+      },
+    },
+  },
+
   // ── User Interaction ──
   {
     type: "function",
@@ -975,6 +1006,9 @@ const TOOL_GROUP_MAP = {
   reference_read: "core",
   git: "core", bash: "core", ask_user: "core",
 
+  // Dev Server Controller（2026-09-10）— core：developer/tester 可用；core-read 只給 dev_log（唯讀）
+  dev_server: "core", dev_log: "core",
+
   // Browser testing
   browser_test: "browser",
   browser_navigate: "browser",
@@ -1015,7 +1049,7 @@ const TOOL_GROUP_MAP = {
 
 // ── core-read: read-only subset of core (no bash/write/edit/git) ──
 // For non-coding agents: architect, QA, helpdesk, EM
-const CORE_READ_TOOLS = new Set(["read_file", "reference_read", "glob", "grep", "diff", "ask_user"]);
+const CORE_READ_TOOLS = new Set(["read_file", "reference_read", "glob", "grep", "diff", "ask_user", "dev_log"]);
 
 // ── Fallback groups (used when crew.json has no toolGroups) ──
 const AGENT_FALLBACK_GROUPS = {
@@ -1835,6 +1869,27 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         // Smart truncate (head+tail — preserves build errors/test results at end)
         const truncated = smartTruncateToolResult(result, 12_000, { alwaysKeepTail: true });
         if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 500) });
+        return truncated;
+      }
+
+      // ══════════════════════════════════════════
+      // ── Dev Server Controller（2026-09-10 Phase 1）──
+      // 長駐程序管理：start/stop/restart/status + log 讀取（lib/dev-server.mjs）
+      // ══════════════════════════════════════════
+
+      case "dev_server": {
+        const { devServerAction } = await import("./dev-server.mjs");
+        const out = await devServerAction(cwd, args);
+        if (onEvent) onEvent({ type: "tool_end", name, result: out.slice(0, 500) });
+        return out;
+      }
+
+      case "dev_log": {
+        const { readDevLog } = await import("./dev-server.mjs");
+        const out = await readDevLog(cwd, args);
+        // log tail 可能很長 — smart truncate 保尾（error 通常在尾端）
+        const truncated = smartTruncateToolResult(out, 10_000, { alwaysKeepTail: true });
+        if (onEvent) onEvent({ type: "tool_end", name, result: `tail ${args.lines || 100} lines` });
         return truncated;
       }
 
