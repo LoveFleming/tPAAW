@@ -940,36 +940,23 @@ export default async function a2aRoutes(req, res) {
             const streamAbort = new AbortController();
             runningStreams.set(agentId, { abortController: streamAbort, res, startedAt: Date.now() });
 
-            // ── Stream State（2026-09-11 治本）：攔截 SSE 寫入 → buffer 起來，斷線後 client 可接回 ──
+            // ── Stream State（2026-09-11 治本）：onStreamEvent 側車 buffer — 斷線後 client 可接回 ──
+            // 注：不走 res.write 攔截 — sendSSE 在 res.destroyed 後直接 return（loop 4167），
+            // 攔截永遠收不到斷線後事件；改由 runAgentLoopStream 的 onStreamEvent hook 直送（2026-09-11 Test A 實測發現）
             _streamStateCleanup(agentId); // 同 agent 蓋掉舊紀錄（同 key 重複派工沿舊行為）
             const stState = {
               agentId, cwd: rootDir, startedAt: Date.now(), seq: 0,
               events: [], finalContent: null, done: false, error: null, timer: null,
             };
             streamStates.set(agentId, stState);
-            const _origWrite = res.write.bind(res);
-            res.write = (chunk, ...rest) => {
-              try {
-                if (typeof chunk === "string" || Buffer.isBuffer(chunk)) {
-                  const text = typeof chunk === "string" ? chunk : chunk.toString("utf-8");
-                  for (const frame of text.split("\n\n")) {
-                    let evName = null; let dataObj = null;
-                    for (const line of frame.split("\n")) {
-                      if (line.startsWith("event: ")) evName = line.slice(7).trim();
-                      else if (line.startsWith("data: ")) { try { dataObj = JSON.parse(line.slice(6)); } catch {} }
-                    }
-                    if (evName === null && dataObj === null) continue;
-                    stState.seq += 1;
-                    stState.events.push({ seq: stState.seq, event: evName, data: dataObj });
-                    if (stState.events.length > STREAM_STATE_MAX_EVENTS) stState.events.splice(0, stState.events.length - STREAM_STATE_MAX_EVENTS);
-                    if (evName === "content" && dataObj?.done && typeof dataObj.content === "string") {
-                      stState.finalContent = dataObj.content;
-                    }
-                    if (evName === "error" && dataObj?.error) stState.error = String(dataObj.error).slice(0, 500);
-                  }
-                }
-              } catch {}
-              try { return _origWrite(chunk, ...rest); } catch { return false; }
+            const _stBuffer = (evName, dataObj) => {
+              stState.seq += 1;
+              stState.events.push({ seq: stState.seq, event: evName, data: dataObj });
+              if (stState.events.length > STREAM_STATE_MAX_EVENTS) stState.events.splice(0, stState.events.length - STREAM_STATE_MAX_EVENTS);
+              if (evName === "content" && dataObj?.done && typeof dataObj.content === "string") {
+                stState.finalContent = dataObj.content; // 斷線期間完成的回覆 — 重連後靠這個補回 UI
+              }
+              if (evName === "error" && dataObj?.error) stState.error = String(dataObj.error).slice(0, 500);
             };
             // 完成後：標記 done + 落地回覆 + TTL 清理
             const _finishState = () => {
@@ -996,6 +983,7 @@ export default async function a2aRoutes(req, res) {
               rootDir,
               agentId,
               abortSignal: streamAbort.signal,
+              onStreamEvent: _stBuffer, // 2026-09-11：事件側車 — res.destroyed 後仍 buffer（斷線接回用）
             }, res);
 
             runningStreams.delete(agentId);

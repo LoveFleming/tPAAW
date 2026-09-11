@@ -4124,6 +4124,8 @@ export async function runAgentLoopStream(config, res) {
     agentId = null,
     abortSignal = null,
     featureBoundary = null,
+    // 2026-09-11 治本：事件側車 — 不管 res 生死都回報（a2a stream-state 靠這個在 client 斷線後繼續 buffer）
+    onStreamEvent = null,
   } = config;
 
   let agentCfg = { ..._agentCfgDefaults };
@@ -4163,6 +4165,7 @@ export async function runAgentLoopStream(config, res) {
 
   // SSE helper
   const sendSSE = (event, data) => {
+    try { if (onStreamEvent) onStreamEvent(event, data); } catch {} // 側車先送 — res.destroyed 後 finalContent 靠它落地
     try {
       if (res.writableEnded || res.destroyed) return;
       res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
