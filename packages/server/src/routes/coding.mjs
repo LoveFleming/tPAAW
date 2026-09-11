@@ -472,7 +472,7 @@ export default async function projectRoute(req, res) {
   // ── GET /api/coding-crew/:crewId — Load crew definition (no project required) ──
   // Exclude /running and /interrupt which are separate API endpoints
   const crewMatch = url.match(/^\/api\/coding-crew\/([^/?]+)$/);
-  if (crewMatch && method === "GET" && !['running', 'interrupt', 'dispatch', 'chat', 'conversations', 'context-window'].includes(crewMatch[1])) {
+  if (crewMatch && method === "GET" && !['running', 'interrupt', 'dispatch', 'chat', 'conversations', 'context-window', 'action-log'].includes(crewMatch[1])) {
     const crewId = decodeURIComponent(crewMatch[1]);
     const crewFile = join(DATA_HOME, "crews", `${crewId}.json`);
     try {
