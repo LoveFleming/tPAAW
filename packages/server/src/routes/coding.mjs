@@ -1465,7 +1465,8 @@ export default async function projectRoute(req, res) {
     const agent = params.get("agent") || undefined;
     const limit = parseInt(params.get("limit") || "20");
     const { entries, text } = await listActionLog({ cwd: projectPath || PAAW_ROOT, agent, limit });
-    sendJSON(res, 200, { entries, text });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ entries, text }));
     return true;
   }
 
