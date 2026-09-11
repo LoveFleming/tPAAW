@@ -31,6 +31,23 @@ function getAgentMemoryDir(cwd) {
 }
 
 /**
+ * Normalize affectedFiles to string[].
+ * 2026-09-11 fix: LLM 呼叫 action_log_add 時 schema 要求 array，但模型有時給單一字串
+ * （如 "packages/ui/src/foo.tsx" 或 "a.mjs, b.mjs"），原封寫入後 listActionLog 組 context 時
+ * `e.affectedFiles.join is not a function` 直接炸掉整個 chat turn。
+ * 寫入側（addActionLog）與讀取側（listActionLog）都要 normalize — 讀取側治已在檔案裡的爛資料。
+ */
+export function normalizeAffectedFiles(v) {
+  if (typeof v === "string") {
+    return v.split(/[,，;；、\n]/).map(s => s.trim()).filter(Boolean);
+  }
+  if (Array.isArray(v)) {
+    return v.map(x => (typeof x === "string" ? x.trim() : String(x ?? ""))).filter(Boolean);
+  }
+  return [];
+}
+
+/**
  * Append an action log entry
  * @param {Object} entry
  * @param {string} entry.agent - agent ID (e.g. "architect", "helpdesk")
@@ -50,7 +67,7 @@ export async function addActionLog(entry, cwd) {
     action: entry.action || "unknown",
     summary: entry.summary || "",
     details: entry.details || "",
-    affectedFiles: entry.affectedFiles || [],
+    affectedFiles: normalizeAffectedFiles(entry.affectedFiles),
     result: entry.result || "created",
     priority: entry.priority || "medium",
   };
@@ -81,6 +98,7 @@ export async function listActionLog(opts = {}) {
   for (const line of lines) {
     try {
       const record = JSON.parse(line);
+      record.affectedFiles = normalizeAffectedFiles(record.affectedFiles); // 防舊爛資料（string/object）炸 join
       // Filter
       if (agent && record.agent !== agent) continue;
       if (actions && actions.length && !actions.includes(record.action)) continue;
