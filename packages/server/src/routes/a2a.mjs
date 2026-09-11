@@ -108,6 +108,50 @@ await taskStore._ensureDir();
 // Maps agentId → { abortController, res, taskId } for active SSE streams
 export const runningStreams = new Map();
 
+// ── Stream State Registry（2026-09-11 治本：斷線不丟對話）──
+// client（Chrome refresh /斷網）斷線時 agent 繼續跑，回覆存這裡 + 落地 conversation。
+// GET /a2a/:agentId/stream-state 讓重連的 client 接回進度 / 拿 final reply。
+// key: agentId → { agentId, cwd, startedAt, seq, events: [{seq,event,data}], finalContent, done, error, timer }
+export const streamStates = new Map();
+const STREAM_STATE_TTL_MS = 15 * 60 * 1000; // 完成後保留 15 分鐘給 client 重連取回
+const STREAM_STATE_MAX_EVENTS = 300;
+
+function _streamStateCleanup(agentId) {
+  const st = streamStates.get(agentId);
+  if (!st) return;
+  if (st.timer) clearTimeout(st.timer);
+  streamStates.delete(agentId);
+}
+
+/** 完成（或出錯）後：把 assistant 回覆落地到 conversation active.json（coding.{agentId}）。
+ *  dedupe：檔案最後一筆 assistant 內容前 200 字相同就不重複加（client 正常存檔路徑不受影響）。*/
+async function _persistAssistantReply(agentId, cwd, content) {
+  try {
+    if (!content || typeof content !== "string") return;
+    const crewId = `coding.${agentId}`;
+    const crewFile = join(DATA_DIR, "crews", `${crewId}.json`);
+    if (!existsSync(crewFile)) return; // 非 coding crew 的 a2a agent 不落地（避免猜錯儲存位置）
+    const convDir = join(cwd, ".paaw", "coding-memory", "conversations", crewId);
+    const activeFile = join(convDir, "active.json");
+    let messages = [];
+    if (existsSync(activeFile)) {
+      try {
+        const data = JSON.parse(readSync(activeFile, "utf-8"));
+        messages = Array.isArray(data) ? data : (data.messages || []);
+      } catch {}
+    }
+    const last = messages[messages.length - 1];
+    if (last && last.role === "assistant" && typeof last.content === "string"
+        && last.content.slice(0, 200) === content.slice(0, 200)) return; // client 已存過
+    messages.push({ role: "assistant", content, ts: new Date().toISOString() });
+    const { writeFile } = await import("fs/promises");
+    await mkdir(convDir, { recursive: true });
+    await writeFile(activeFile, JSON.stringify({ messages, _meta: { updatedAt: new Date().toISOString(), savedBy: "a2a-stream-recovery" } }, null, 2), "utf-8");
+  } catch (err) {
+    console.warn(`[A2A:${agentId}] persist assistant reply failed: ${err.message}`);
+  }
+}
+
 // ── 啟動時快取 ──
 let _skillMd = null;
 let _providerConfig = null;
@@ -724,6 +768,30 @@ export default async function a2aRoutes(req, res) {
         return true;
       }
 
+      // GET /a2a/:agentId/stream-state?cwd=...&since=<seq> — 斷線重連：查執行狀態/事件/最終回覆（2026-09-11 治本）
+      if (req.method === "GET" && subPath === "/stream-state") {
+        const q = new URL(url, "http://localhost").searchParams;
+        const cwd = q.get("cwd") || "";
+        const since = parseInt(q.get("since") || "0", 10) || 0;
+        const st = streamStates.get(agentId);
+        if (!st || (cwd && st.cwd !== cwd)) {
+          sendJSON(res, 200, { running: false, done: false, exists: false });
+          return true;
+        }
+        const events = st.events.filter(e => e.seq > since).slice(-100);
+        sendJSON(res, 200, {
+          exists: true,
+          running: !st.done,
+          done: st.done,
+          startedAt: st.startedAt,
+          seq: st.seq,
+          events,
+          finalContent: st.done ? (st.finalContent || null) : null,
+          error: st.error || null,
+        });
+        return true;
+      }
+
       // POST /a2a/:agentId — Domain Agent JSON-RPC
       if (req.method === "POST" && !subPath) {
         let body;
@@ -871,7 +939,47 @@ export default async function a2aRoutes(req, res) {
             // Register running stream for interrupt support
             const streamAbort = new AbortController();
             runningStreams.set(agentId, { abortController: streamAbort, res, startedAt: Date.now() });
-            // Clean up on client disconnect
+
+            // ── Stream State（2026-09-11 治本）：攔截 SSE 寫入 → buffer 起來，斷線後 client 可接回 ──
+            _streamStateCleanup(agentId); // 同 agent 蓋掉舊紀錄（同 key 重複派工沿舊行為）
+            const stState = {
+              agentId, cwd: rootDir, startedAt: Date.now(), seq: 0,
+              events: [], finalContent: null, done: false, error: null, timer: null,
+            };
+            streamStates.set(agentId, stState);
+            const _origWrite = res.write.bind(res);
+            res.write = (chunk, ...rest) => {
+              try {
+                if (typeof chunk === "string" || Buffer.isBuffer(chunk)) {
+                  const text = typeof chunk === "string" ? chunk : chunk.toString("utf-8");
+                  for (const frame of text.split("\n\n")) {
+                    let evName = null; let dataObj = null;
+                    for (const line of frame.split("\n")) {
+                      if (line.startsWith("event: ")) evName = line.slice(7).trim();
+                      else if (line.startsWith("data: ")) { try { dataObj = JSON.parse(line.slice(6)); } catch {} }
+                    }
+                    if (evName === null && dataObj === null) continue;
+                    stState.seq += 1;
+                    stState.events.push({ seq: stState.seq, event: evName, data: dataObj });
+                    if (stState.events.length > STREAM_STATE_MAX_EVENTS) stState.events.splice(0, stState.events.length - STREAM_STATE_MAX_EVENTS);
+                    if (evName === "content" && dataObj?.done && typeof dataObj.content === "string") {
+                      stState.finalContent = dataObj.content;
+                    }
+                    if (evName === "error" && dataObj?.error) stState.error = String(dataObj.error).slice(0, 500);
+                  }
+                }
+              } catch {}
+              try { return _origWrite(chunk, ...rest); } catch { return false; }
+            };
+            // 完成後：標記 done + 落地回覆 + TTL 清理
+            const _finishState = () => {
+              if (stState.done) return;
+              stState.done = true;
+              _persistAssistantReply(agentId, rootDir, stState.finalContent).finally(() => {
+                stState.timer = setTimeout(() => _streamStateCleanup(agentId), STREAM_STATE_TTL_MS);
+              });
+            };
+            // Clean up on client disconnect — ⚠️ 不 abort：agent 繼續跑（Fleming 2026-09-11：refresh 後回覆不能丟）
             req.on("close", () => { runningStreams.delete(agentId); });
 
             // Run agent loop with streaming
@@ -891,10 +999,13 @@ export default async function a2aRoutes(req, res) {
             }, res);
 
             runningStreams.delete(agentId);
+            _finishState();
             if (!res.writableEnded) res.end();
             console.log(`[A2A:${agentId}] stream completed`);
           } catch (err) {
             console.error(`[A2A:${agentId}] stream error:`, err);
+            const stErr = streamStates.get(agentId);
+            if (stErr) { stErr.error = String(err.message || err).slice(0, 500); stErr.done = true; stErr.timer = setTimeout(() => _streamStateCleanup(agentId), STREAM_STATE_TTL_MS); }
             if (res.headersSent && !res.writableEnded) {
               try { res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`); res.end(); } catch {}
             } else if (!res.headersSent) {

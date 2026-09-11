@@ -28,6 +28,23 @@ export function setupWebSocket() {
   const ptySessions = new Map(); // ws -> { pty, id }
   const agentSessions = new Map(); // ws -> agent state for paaw-agent mode
   const runningAgents = new Map(); // ws -> { abortController } for interrupt
+  // ── 2026-09-11 治本：斷線可回復的 agent session（Chrome refresh/斷網後 resumeSessionId 接回）──
+  const resumableAgentSessions = new Map(); // sessionId -> { state, timer }
+  const RESUME_TTL_MS = 10 * 60 * 1000;
+  const _stashResumable = (state) => {
+    if (!state?.id) return;
+    const old = resumableAgentSessions.get(state.id);
+    if (old?.timer) clearTimeout(old.timer);
+    resumableAgentSessions.set(state.id, {
+      state,
+      timer: setTimeout(() => { resumableAgentSessions.delete(state.id); }, RESUME_TTL_MS),
+    });
+  };
+  const _dropResumable = (sessionId) => {
+    const old = resumableAgentSessions.get(sessionId);
+    if (old?.timer) clearTimeout(old.timer);
+    resumableAgentSessions.delete(sessionId);
+  };
 
   wss.on("connection", (ws, req) => {
     const sessionId = `pty-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -65,10 +82,18 @@ export function setupWebSocket() {
         // PAAW Agent Mode — no CLI spawn, uses runAgentLoop
         // ════════════════════════════════════════════════════════════
         if (opts.engine === "paaw-agent" || opts.cli === "paaw-agent") {
-          console.log(`[PTY] Agent mode session: ${sessionId} (cwd: ${opts.cwd || PAAW_ROOT}, systemPrompt: ${(opts.systemPrompt || "").length} chars)`);
+          // ── 2026-09-11 Resume：client 帶 resumeSessionId 且該 session 還在（斷線 10 分鐘內）→ 接回原 session（history/記憶體保留）──
+          let resumed = null;
+          if (opts.resumeSessionId && resumableAgentSessions.has(opts.resumeSessionId)) {
+            resumed = resumableAgentSessions.get(opts.resumeSessionId).state;
+            _dropResumable(opts.resumeSessionId);
+            resumed.ws = ws; // 之後事件改送新 ws
+            console.log(`[PTY] Agent session resumed: ${resumed.id} (history ${resumed.history.length} msgs, busy=${resumed.busy})`);
+          }
+          console.log(`[PTY] Agent mode session: ${sessionId} (cwd: ${opts.cwd || PAAW_ROOT}, systemPrompt: ${(opts.systemPrompt || "").length} chars${resumed ? `, resumed from ${resumed.id}` : ""})`);
           const agentCwd = opts.cwd || resolve(DATA_HOME, "vibe-sessions", sessionId);
           try { mkdirSync(agentCwd, { recursive: true }); } catch {}
-          const agentState = {
+          const agentState = resumed || {
             id: sessionId,
             mode: "paaw-agent",
             cwd: agentCwd,
@@ -78,26 +103,43 @@ export function setupWebSocket() {
             history: [],
             createdAt: new Date().toISOString(),
           };
+          agentState.ws = ws;
+          // resume 時更新 model/systemPrompt（新頁面帶新設定）
+          if (resumed) {
+            if (opts.model) agentState.model = opts.model;
+            if (opts.systemPrompt) agentState.systemPrompt = opts.systemPrompt;
+          }
           agentSessions.set(ws, agentState);
 
-          // Vibe session logging
+          // Vibe session logging（resume：沿用原 session 的 log 檔，只加 resume 標記，不覆蓋 meta）
           const vibeLogDir = resolve(PAAW_ROOT, "logs/vibe-sessions");
           mkdirSync(vibeLogDir, { recursive: true });
-          const vibeLogFile = resolve(vibeLogDir, `${sessionId}.log`);
-          const vibeMetaFile = resolve(vibeLogDir, `${sessionId}.json`);
-          writeFileSync(vibeMetaFile, JSON.stringify({
-            id: sessionId, cli: "paaw-agent", model: opts.model || null,
-            cwd: agentCwd, approvalMode: opts.approvalMode || null,
-            systemPrompt: opts.systemPrompt || null,
-            createdAt: new Date().toISOString(), lastActive: new Date().toISOString(),
-          }, null, 2));
-          appendFileSync(vibeLogFile, `# PAAW Agent Session: ${sessionId}\n`);
-          appendFileSync(vibeLogFile, `# Engine: paaw-agent | CWD: ${agentCwd} | Mode: ${opts.approvalMode || 'default'}\n`);
-          appendFileSync(vibeLogFile, `# Started: ${new Date().toISOString()}\n\n`);
-          agentState.vibeLogFile = vibeLogFile;
-          agentState.vibeMetaFile = vibeMetaFile;
+          if (resumed) {
+            if (!agentState.vibeLogFile) agentState.vibeLogFile = resolve(vibeLogDir, `${agentState.id}.log`);
+            if (!agentState.vibeMetaFile) agentState.vibeMetaFile = resolve(vibeLogDir, `${agentState.id}.json`);
+            try { appendFileSync(agentState.vibeLogFile, `\n# [${new Date().toISOString()}] Session resumed from ${agentState.id} (conn ${sessionId})\n\n`); } catch {}
+          } else {
+            const vibeLogFile = resolve(vibeLogDir, `${sessionId}.log`);
+            const vibeMetaFile = resolve(vibeLogDir, `${sessionId}.json`);
+            writeFileSync(vibeMetaFile, JSON.stringify({
+              id: sessionId, cli: "paaw-agent", model: opts.model || null,
+              cwd: agentCwd, approvalMode: opts.approvalMode || null,
+              systemPrompt: opts.systemPrompt || null,
+              createdAt: new Date().toISOString(), lastActive: new Date().toISOString(),
+            }, null, 2));
+            appendFileSync(vibeLogFile, `# PAAW Agent Session: ${sessionId}\n`);
+            appendFileSync(vibeLogFile, `# Engine: paaw-agent | CWD: ${agentCwd} | Mode: ${opts.approvalMode || 'default'}\n`);
+            appendFileSync(vibeLogFile, `# Started: ${new Date().toISOString()}\n\n`);
+            agentState.vibeLogFile = vibeLogFile;
+            agentState.vibeMetaFile = vibeMetaFile;
+          }
 
-          ws.send(JSON.stringify({ type: "ready", sessionId, platform: process.platform }));
+          // ready 围回原 session id（resume 時 client 端續用同一個 id，下次斷線還能接回）
+          // 2026-09-11：resume 帶回 history/busy — client 重連後重建對話、接回執行中狀態
+          ws.send(JSON.stringify({
+            type: "ready", sessionId: agentState.id, platform: process.platform,
+            ...(resumed ? { resumed: true, busy: !!agentState.busy, history: (agentState.history || []).slice(-50) } : {}),
+          }));
           ws.send(JSON.stringify({ type: "cliReady" }));
           return;
         }
@@ -239,38 +281,42 @@ export function setupWebSocket() {
         }
       }
       else if (msg.type === "interrupt") {
-        // ── Abort running agent ──
-        const running = runningAgents.get(ws);
+        // ── Abort running agent（resume 後 runCtx 在 agentState 上 — 2026-09-11）──
+        const agentState = agentSessions.get(ws);
+        const running = runningAgents.get(ws) || agentState?.runCtx;
         if (running) {
           running.aborted = true;
           running.controller?.abort(); // 即時殺 in-flight LLM 呼叫
           runningAgents.delete(ws);
+          if (agentState) agentState.runCtx = null;
           console.log(`[Agent] Interrupt received for session ${running.id}`);
         }
-        const agentState = agentSessions.get(ws);
         if (agentState) {
           agentState.busy = false;
-          ws.send(JSON.stringify({ type: "agent_done", content: "⏹️ Agent 已中斷。", turns: 0, toolCalls: 0, success: false, interrupted: true }));
+          try { (agentState.ws || ws).send(JSON.stringify({ type: "agent_done", content: "⏹️ Agent 已中斷。", turns: 0, toolCalls: 0, success: false, interrupted: true })); } catch {}
         }
       }
       else if (msg.type === "input") {
         // ── Agent mode: run PAAW Agent Loop ──
         const agentState = agentSessions.get(ws);
         if (agentState) {
+          // session-aware send：resume 後 state.ws 指向新連線（2026-09-11）
+          const asend = (obj) => { try { (agentState.ws || ws).send(JSON.stringify(obj)); } catch {} };
           const userText = (msg.text || "").trim();
           // 👁 2026-09-06：AI Crew console 貼圖 — images: uploads/ 相對路徑（白名單防穿越，上限 4）
           const imgPaths = Array.isArray(msg.images)
             ? [...new Set(msg.images)].filter((p) => typeof p === "string" && /^(paaw-)?uploads\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(p)).slice(0, 4)
             : [];
           if ((!userText && imgPaths.length === 0) || agentState.busy) {
-            if (agentState.busy) ws.send(JSON.stringify({ type: "agent_busy" }));
+            if (agentState.busy) asend({ type: "agent_busy" });
             return;
           }
           agentState.busy = true;
           const runAbort = new AbortController();
           const runCtx = { id: agentState.id, aborted: false, controller: runAbort };
           runningAgents.set(ws, runCtx);
-          ws.send(JSON.stringify({ type: "agent_running" }));
+          agentState.runCtx = runCtx; // resume 後 interrupt 用（2026-09-11）
+          asend({ type: "agent_running" });
 
           // 圖 → vision attachment message（僅本輪帶入，不留在 history — 避免 data URI 灌爆後續輪）
           let imageAttachment = null;
@@ -325,16 +371,16 @@ export function setupWebSocket() {
                 if (runCtx.aborted) throw new Error("Agent interrupted by user");
 
                 if (evt.type === "tool_start") {
-                  try { ws.send(JSON.stringify({ type: "agent_event", event: "tool_start", name: evt.name, args: evt.args })); } catch {}
+                  asend({ type: "agent_event", event: "tool_start", name: evt.name, args: evt.args });
                 }
                 if (evt.type === "tool_end") {
-                  try { ws.send(JSON.stringify({ type: "agent_event", event: "tool_end", name: evt.name, result: (evt.result || "").slice(0, 500) })); } catch {}
+                  asend({ type: "agent_event", event: "tool_end", name: evt.name, result: (evt.result || "").slice(0, 500) });
                 }
                 if (evt.type === "assistant_thinking") {
-                  try { ws.send(JSON.stringify({ type: "agent_event", event: "thinking", content: evt.content })); } catch {}
+                  asend({ type: "agent_event", event: "thinking", content: evt.content });
                 }
                 if (evt.type === "assistant") {
-                  try { ws.send(JSON.stringify({ type: "agent_event", event: "response", content: evt.content })); } catch {}
+                  asend({ type: "agent_event", event: "response", content: evt.content });
                 }
               },
             });
@@ -346,31 +392,32 @@ export function setupWebSocket() {
             }
 
             if (!runCtx.aborted) {
-              ws.send(JSON.stringify({
+              asend({
                 type: "agent_done",
                 content: agentResult.content,
                 turns: agentResult.turns,
                 toolCalls: agentResult.toolCalls?.length || 0,
                 success: agentResult.success,
-              }));
+              });
 
               const donePatterns = /\bDONE\b|已完成|完成！|✅.*完成|Task completed|finished|已寫入|已生成|創建完成|建立完成/i;
               if (donePatterns.test(agentResult.content)) {
-                ws.send(JSON.stringify({ type: "cliDone" }));
+                asend({ type: "cliDone" });
               }
             }
 
           } catch (err) {
             if (err.message === "Agent interrupted by user") {
               console.log(`[Agent] Interrupted for session ${agentState.id}`);
-              ws.send(JSON.stringify({ type: "agent_done", content: "⏹️ Agent 已中斷。", turns: 0, toolCalls: 0, success: false, interrupted: true }));
+              asend({ type: "agent_done", content: "⏹️ Agent 已中斷。", turns: 0, toolCalls: 0, success: false, interrupted: true });
             } else {
               console.error(`[Agent] Error for session ${agentState.id}:`, err.message);
-              ws.send(JSON.stringify({ type: "agent_error", message: err.message }));
+              asend({ type: "agent_error", message: err.message });
             }
           }
 
           agentState.busy = false;
+          agentState.runCtx = null;
           runningAgents.delete(ws);
 
           if (agentState.vibeMetaFile) {
@@ -421,6 +468,7 @@ export function setupWebSocket() {
         const agentState = agentSessions.get(ws);
         if (agentState) {
           console.log(`[Agent] Killing session: ${agentState.id}`);
+          _dropResumable(agentState.id); // 明確殺掉的不給 resume
           agentSessions.delete(ws);
           return;
         }
@@ -435,8 +483,12 @@ export function setupWebSocket() {
     ws.on("close", () => {
       const agentState = agentSessions.get(ws);
       if (agentState) {
-        console.log(`[Agent] Connection closed: ${agentState.id}`);
+        console.log(`[Agent] Connection closed: ${agentState.id} (busy=${agentState.busy}, history=${agentState.history.length}) → resumable ${RESUME_TTL_MS / 60000}min`);
+        agentState.ws = null;
         agentSessions.delete(ws);
+        runningAgents.delete(ws);
+        // 2026-09-11 治本：斷線不丟 session — stash 起來等 client 帶 resumeSessionId 接回
+        _stashResumable(agentState);
         return;
       }
       const session = ptySessions.get(ws);

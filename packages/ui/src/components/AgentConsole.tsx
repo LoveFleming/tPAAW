@@ -87,10 +87,44 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
     if (!mountedRef.current) return;
 
     switch (msg.type) {
-      case "ready":
+      case "ready": {
         setReady(true);
+        // 2026-09-11 resume：記住 session id（斷線重連用）+ 帶回 history 重建對話
+        if (msg.sessionId) {
+          wsSessionIdRef.current = msg.sessionId;
+          try {
+            const opts0 = optsRef.current;
+            sessionStorage.setItem(`paaw:agent-console:session:${opts0.cwd || "default"}`, msg.sessionId);
+          } catch {}
+        }
+        if (msg.resumed && Array.isArray(msg.history)) {
+          // 重連接回：server 帶回最近對話 — 只在本地面比 server 短時重建（補齊斷線期間的訊息）
+          setChatMessages(prev => {
+            if (msg.history.length > prev.length) {
+              return msg.history.map((h: { role: string; content: string }) => ({
+                role: h.role as "user" | "assistant",
+                content: h.content,
+                ts: new Date().toISOString(),
+              }));
+            }
+            return prev;
+          });
+          // 斷線期間 run 已結束：把最後回覆補上，解除 busy
+          if (!msg.busy && busyRef.current) {
+            const lastAssistant = [...msg.history].reverse().find((h: { role: string }) => h.role === "assistant");
+            if (lastAssistant) {
+              setChatMessages(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.role === "assistant" && last.content === lastAssistant.content) return prev;
+                return [...prev, { role: "assistant" as const, content: lastAssistant.content, ts: new Date().toISOString() }];
+              });
+            }
+            setBusy(false); busyRef.current = false; setAgentAction(""); setCurrentEvents([]);
+          }
+        }
         onReady?.();
         break;
+      }
       case "agent_running":
         setBusy(true);
         busyRef.current = true;
@@ -168,17 +202,27 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
     }
   }, [currentEvents]);
 
-  // Connect WebSocket
-  useEffect(() => {
-    mountedRef.current = true;
+  // ── WebSocket connect + auto-reconnect（2026-09-11 治本：斷線自動重連 + session resume）──
+  const wsSessionIdRef = useRef<string | null>(null);      // server session id（resume 用）
+  const manualCloseRef = useRef(false);                     // 卸載/手動重啟時不自動重連
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const backoffRef = useRef(1000);
+
+  const connectWs = useCallback(() => {
+    if (!mountedRef.current) return;
     const wsUrl = `ws://${window.location.hostname}:${WS_PORT}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current) { ws.close(); return; }
       setConnected(true);
+      backoffRef.current = 1000; // 連上重置 backoff
       const opts = optsRef.current;
+      // resume：帶上原 session id（server 保留 10 分鐘；vite full reload 後 sessionStorage 還拿得到）
+      const resumeKey = `paaw:agent-console:session:${opts.cwd || "default"}`;
+      const resumeSessionId = wsSessionIdRef.current
+        || (typeof sessionStorage !== "undefined" ? sessionStorage.getItem(resumeKey) : null);
       ws.send(JSON.stringify({
         type: "spawn",
         options: {
@@ -186,6 +230,7 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
           cwd: opts.cwd || undefined,
           model: opts.model || undefined,
           systemPrompt: opts.systemPrompt || undefined,
+          ...(resumeSessionId ? { resumeSessionId } : {}),
         },
       }));
     };
@@ -200,23 +245,38 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
       if (!mountedRef.current) return;
       setConnected(false);
       setReady(false);
+      if (manualCloseRef.current) return; // 手動關閉/重啟 — 不自動重連
+      const delay = backoffRef.current;
+      backoffRef.current = Math.min(backoffRef.current * 2, 15000);
+      reconnectTimerRef.current = setTimeout(connectWs, delay);
     };
 
     ws.onerror = () => {
       if (!mountedRef.current) return;
       setConnected(false);
     };
+  }, [handleWsMessage]);
 
+  // Connect WebSocket
+  useEffect(() => {
+    mountedRef.current = true;
+    manualCloseRef.current = false;
+    connectWs();
     return () => {
       mountedRef.current = false;
-      if (ws.readyState === WebSocket.CONNECTING) {
-        ws.onopen = () => ws.close();
-      } else {
-        ws.close();
+      manualCloseRef.current = true;
+      if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
+      const ws = wsRef.current;
+      if (ws) {
+        if (ws.readyState === WebSocket.CONNECTING) {
+          ws.onopen = () => ws.close();
+        } else {
+          ws.close();
+        }
       }
       wsRef.current = null;
     };
-  }, []);
+  }, [connectWs]);
 
   // Auto-send initial prompt
   useEffect(() => {
@@ -236,6 +296,7 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
   const restartSession = useCallback(() => {
     if (wsRef.current) {
       wsRef.current.send(JSON.stringify({ type: "kill" }));
+      manualCloseRef.current = true; // 手動重啟：擋掉舊 ws 的 auto-reconnect（server 端 kill 已 drop resumable）
       wsRef.current.close();
       wsRef.current = null;
     }
@@ -247,37 +308,19 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
     setCurrentEvents([]);
     setAgentAction("");
     initialSentRef.current = false;
+    // 清 resume 痕跡：重啟 = fresh session，不要接回舊 session
+    wsSessionIdRef.current = null;
+    try {
+      const opts0 = optsRef.current;
+      sessionStorage.removeItem(`paaw:agent-console:session:${opts0.cwd || "default"}`);
+    } catch {}
 
     setTimeout(() => {
       if (!mountedRef.current) return;
-      const wsUrl = `ws://${window.location.hostname}:${WS_PORT}`;
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        setConnected(true);
-        const opts = optsRef.current;
-        ws.send(JSON.stringify({
-          type: "spawn",
-          options: {
-            engine: "paaw-agent",
-            cwd: opts.cwd || undefined,
-            model: opts.model || undefined,
-            systemPrompt: opts.systemPrompt || undefined,
-          },
-        }));
-      };
-
-      ws.onmessage = (event) => {
-        let msg: any;
-        try { msg = JSON.parse(event.data as string); } catch { return; }
-        handleWsMessage(msg);
-      };
-
-      ws.onclose = () => { setConnected(false); setReady(false); };
-      ws.onerror = () => { setConnected(false); };
+      manualCloseRef.current = false; // 重新交給 connectWs（含 auto-reconnect + fresh spawn）
+      connectWs();
     }, 500);
-  }, [handleWsMessage]);
+  }, [connectWs]);
 
   const sendMessage = useCallback((text: string, images?: string[]) => {
     if ((!text.trim() && !(images?.length)) || busyRef.current) return;

@@ -61,6 +61,21 @@ import CrewManager from "../components/CrewManager";
 import SecurityTab from "../components/SecurityTab";
 import FileViewer from "../pages/FileViewer";
 
+// crewId → a2a agentId（chat 發送與 stream-state 重連共用 — 2026-09-11）
+const CREW_TO_AGENT: Record<string, string> = {
+  "coding.architect": "architect",
+  "coding.helpdesk": "helpdesk",
+  "coding.developer": "developer",
+  "coding.tester": "tester",
+  "coding.doc-writer": "doc-writer",
+  "coding.qa": "qa",
+  "coding.em": "em",
+  "coding.ops": "ops",
+  "coding.handover": "handover",
+  "coding.rm": "rm",
+};
+const crewToAgentId = (crewId: string) => CREW_TO_AGENT[crewId] || crewId.replace(/^coding\./, "");
+
 // ── Types ──
 interface FsItem {
   name: string;
@@ -1178,6 +1193,55 @@ export default function CodingIDE() {
     return () => { if (saveConversationTimerRef.current) clearTimeout(saveConversationTimerRef.current); };
   }, [crewConversations, activeCrew, rootPath]);
 
+  // ── 2026-09-11 治本：斷線重連 — refresh/斷網後接回執行中的 agent，完成後把回覆補進對話 ──
+  // a2a message/stream 斷線後 server 繼續跑；道裡輪詢 stream-state，done 時補 finalContent（server 端也會落地，雙保險 dedupe）
+  const reattachKeyRef = useRef<string>("");
+  useEffect(() => {
+    if (!activeCrew || !rootPath) return;
+    const a2aAgentId = crewToAgentId(activeCrew);
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+    const poll = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/a2a/${encodeURIComponent(a2aAgentId)}/stream-state?cwd=${encodeURIComponent(rootPath)}`);
+        const st = await res.json();
+        if (cancelled) return;
+        if (!st.exists || st.done) {
+          if (st.exists && st.done) {
+            const runKey = `${activeCrew}:${st.startedAt}`;
+            if (reattachKeyRef.current !== runKey) {
+              reattachKeyRef.current = runKey;
+              const content = st.finalContent || (st.error ? `❌ (斷線期間結束) ${st.error}` : null);
+              if (content) {
+                setCrewConversations(prev => {
+                  const cur = prev[activeCrew] || [];
+                  const last = cur[cur.length - 1];
+                  if (last?.role === "assistant" && typeof last.content === "string" && last.content.slice(0, 200) === content.slice(0, 200)) return prev;
+                  return { ...prev, [activeCrew]: [...cur, { role: "assistant", content, ts: new Date().toISOString() }] };
+                });
+              }
+            }
+            setCrewLoading(prev => ({ ...prev, [activeCrew]: false }));
+            setCrewAgentRunning(prev => ({ ...prev, [activeCrew]: false }));
+          }
+          return; // 沒有執行中的 run — 停止輪詢
+        }
+        // 執行中：標記 loading + 顯示最新動作
+        setCrewLoading(prev => ({ ...prev, [activeCrew]: true }));
+        setCrewAgentRunning(prev => ({ ...prev, [activeCrew]: true }));
+        const lastEv = st.events?.[st.events.length - 1];
+        if (lastEv?.event === "tool" && lastEv.data?.name) setCrewAgentAction(prev => ({ ...prev, [activeCrew]: `🔧 ${lastEv.data.name}...` }));
+        else if (lastEv?.event === "thinking") setCrewAgentAction(prev => ({ ...prev, [activeCrew]: "💭 思考中..." }));
+        else setCrewAgentAction(prev => ({ ...prev, [activeCrew]: "🔄 Agent 執行中（已接回串流）..." }));
+        pollTimer = setTimeout(poll, 3000);
+      } catch {
+        if (!cancelled) pollTimer = setTimeout(poll, 5000);
+      }
+    };
+    poll();
+    return () => { cancelled = true; if (pollTimer) clearTimeout(pollTimer); };
+  }, [activeCrew, rootPath]);
+
   // Reset loaded crews when project changes
   useEffect(() => {
     setLoadedCrews(new Set());
@@ -1185,6 +1249,7 @@ export default function CodingIDE() {
     setArchivedConversations({});
     setViewingArchive(null);
     setShowArchivePanel(false);
+    reattachKeyRef.current = "";
   }, [rootPath]);
 
   // ═══════════════════════════════════════════════
@@ -1661,20 +1726,8 @@ const sendChat = useCallback(async () => {
       let finalContent = ""; // hoisted：catch 也要讀（中斷時避免重複訊息）
       try {
         // ── A2A JSON-RPC: message/stream ──
-        // Map crewId → A2A agentId
-        const CREW_TO_AGENT: Record<string, string> = {
-          "coding.architect": "architect",
-          "coding.helpdesk": "helpdesk",
-          "coding.developer": "developer",
-          "coding.tester": "tester",
-          "coding.doc-writer": "doc-writer",
-          "coding.qa": "qa",
-          "coding.em": "em",
-          "coding.ops": "ops",
-          "coding.handover": "handover",
-          "coding.rm": "rm",
-        };
-        const a2aAgentId = CREW_TO_AGENT[activeCrew || ""] || activeCrew?.replace(/^coding\./, "") || "architect";
+        // Map crewId → A2A agentId（module-level crewToAgentId）
+        const a2aAgentId = crewToAgentId(activeCrew || "coding.architect");
         const a2aAbort = new AbortController();
         a2aAbortRef.current = a2aAbort;
         const res = await fetch(`${API_BASE}/a2a/${a2aAgentId}`, {
@@ -1990,20 +2043,8 @@ const sendChat = useCallback(async () => {
       [targetCrew.id]: [...(prev[targetCrew.id] || []), userMsg],
     }));
 
-    // 3. Send to target agent via A2A
-    const CREW_TO_AGENT: Record<string, string> = {
-      "coding.architect": "architect",
-      "coding.helpdesk": "helpdesk",
-      "coding.developer": "developer",
-      "coding.tester": "tester",
-      "coding.doc-writer": "doc-writer",
-      "coding.qa": "qa",
-      "coding.em": "em",
-      "coding.ops": "ops",
-      "coding.handover": "handover",
-      "coding.rm": "rm",
-    };
-    const a2aAgentId = CREW_TO_AGENT[targetCrew.id] || targetCrew.id.replace(/^coding\./, "");
+    // 3. Send to target agent via A2A（module-level crewToAgentId）
+    const a2aAgentId = crewToAgentId(targetCrew.id);
     const modelForCrew = crewModels[targetCrew.id] || "";
 
     setCrewAgentRunning(prev => ({ ...prev, [targetCrew.id]: true }));
