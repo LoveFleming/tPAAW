@@ -374,6 +374,7 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
           greeting={t("ho.agentGreeting")}
           cwd={rootPath}
           accent={tk.accent}
+          accentHover={tk.accentHover || tk.accent}
           height="100%"
           suggestions={[
             { label: t("ho.sug.brief"), prompt: t("ho.sug.briefPrompt") },

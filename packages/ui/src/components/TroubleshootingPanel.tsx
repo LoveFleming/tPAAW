@@ -189,6 +189,7 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
           greeting={t("ops.agentGreeting")}
           cwd={rootPath}
           accent={tk.accent}
+          accentHover={tk.accentHover || tk.accent}
           height="100%"
           suggestions={[
             { label: t("ops.sug.genRunbook"), prompt: t("ops.sug.genRunbookPrompt") },

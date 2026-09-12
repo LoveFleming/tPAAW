@@ -44,6 +44,7 @@ interface AgentSideChatProps {
   suggestions?: { label: string; prompt: string }[];
   placeholder?: string;
   accent?: string;          // theme accent color
+  accentHover?: string;     // theme accent hover color（「你」頭像漸層第二色，沒帶就用 accent）
   height?: string;          // e.g. "100%" — container height
 }
 
@@ -60,6 +61,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
   suggestions = [],
   placeholder = "問我任何問題…",
   accent = "#8b5e3c",
+  accentHover,
   height = "100%",
 }: AgentSideChatProps, ref) {
   const [messages, setMessages] = useState<SideChatMessage[]>([]);
@@ -71,6 +73,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
   const nearBottomRef = useRef(true);
   const composingRef = useRef(false); // IME 三層保護（可靠層）
   const avatarUrl = useCrewAvatar(agentId, true);
+  const youGrad = `linear-gradient(135deg, ${accent}, ${accentHover || accent})`; // 「你」頭像漸層（跟 ChatView 同形式）
   const { t: tt } = useI18n();
 
   // 👁 agent chat 貼圖（2026-08-30）：paste/drop/picker → 壓縮 → 上傳 → a2a parts 喜vision model
@@ -285,34 +288,56 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
           </div>
         )}
         {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[92%] rounded-xl px-3 py-2 ${m.role === "user" ? "bg-stone-800 text-white" : "bg-white border border-stone-200 text-stone-700"}`}
-              style={m.role === "assistant" ? { borderLeft: `2px solid ${accent}` } : undefined}>
-              <div className="text-[10px] text-stone-400 mb-0.5 flex items-center gap-1">
-                {m.role === "assistant" && avatarUrl && <img src={avatarUrl} className="w-3.5 h-3.5 rounded-full object-cover" alt="" />}
-                <span>{m.role === "user" ? "你" : agentName} · {fmtChatTime(m.ts)}</span>
+          <div key={i} className="flex gap-2.5">
+            {/* Avatar — 跟 ChatView/EMDashboard 同形式：左側頭像欄（user=accent 漸層「你」、assistant=avatar/emoji）*/}
+            <div className="flex-shrink-0 mt-0.5">
+              {m.role === "user" ? (
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-sm" style={{ background: youGrad }}>你</div>
+              ) : avatarUrl ? (
+                <img src={avatarUrl} className="w-7 h-7 rounded-full object-cover" style={{ border: `1px solid ${accent}33` }} alt="" />
+              ) : (
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: `${accent}22`, border: `1px solid ${accent}33` }}>{agentEmoji}</div>
+              )}
+            </div>
+            {/* Bubble — 全部靠左（跟其他 chat UI 一致；user 淺色泡泡不再是黑色靠右）*/}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-xs font-medium text-stone-600">{m.role === "assistant" ? agentName : "你"}</span>
+                <span className="text-[10px] text-stone-300">{fmtChatTime(m.ts)}</span>
               </div>
               {m.role === "assistant" ? (
-                <MarkdownText>{m.content}</MarkdownText>
+                <div className="px-3.5 py-2 rounded-2xl bg-white shadow-sm border border-stone-100 text-sm text-stone-700 leading-relaxed">
+                  <MarkdownText>{m.content}</MarkdownText>
+                </div>
               ) : (
                 <div>
                   {m.images && m.images.length > 0 && (
-                    <div className="flex gap-1.5 mb-1 flex-wrap justify-end">
+                    <div className="flex gap-1.5 mb-1 flex-wrap">
                       {m.images.map((p, j) => (
                         <img key={j} src={`${API_BASE}/api/${p}`} alt="" className="max-w-[140px] max-h-[140px] rounded-lg object-cover" />
                       ))}
                     </div>
                   )}
-                  <div className="text-xs whitespace-pre-wrap leading-relaxed">{m.content}</div>
+                  {m.content && <span className="inline-block px-3 py-1.5 rounded-2xl text-sm bg-stone-50 text-stone-700 max-w-[85%] whitespace-pre-wrap">{m.content}</span>}
                 </div>
               )}
             </div>
           </div>
         ))}
         {loading && messages[messages.length - 1]?.role === "user" && (
-          <div className="flex justify-start">
-            <div className="bg-white border border-stone-200 rounded-xl px-3 py-2" style={{ borderLeft: `2px solid ${accent}` }}>
-              <div className="text-xs text-stone-400 animate-pulse">{action || "💭 思考中…"}</div>
+          <div className="flex gap-2.5">
+            <div className="flex-shrink-0 mt-0.5">
+              {avatarUrl ? (
+                <img src={avatarUrl} className="w-7 h-7 rounded-full object-cover" style={{ border: `1px solid ${accent}33` }} alt="" />
+              ) : (
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: `${accent}22`, border: `1px solid ${accent}33` }}>{agentEmoji}</div>
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-xs font-medium text-stone-600">{agentName}</span>
+              </div>
+              <div className="px-3.5 py-2 rounded-2xl bg-white shadow-sm border border-stone-100 text-sm text-stone-400 animate-pulse">{action || "💭 思考中…"}</div>
             </div>
           </div>
         )}

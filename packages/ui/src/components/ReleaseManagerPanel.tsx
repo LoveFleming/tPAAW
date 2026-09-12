@@ -680,6 +680,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
           greeting={t("rm.agentGreeting")}
           cwd={rootPath}
           accent={tk.accent}
+          accentHover={tk.accentHover || tk.accent}
           height="100%"
           suggestions={[
             { label: t("rm.sug.review"), prompt: t("rm.sug.reviewPrompt") },

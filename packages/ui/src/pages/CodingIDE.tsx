@@ -3861,7 +3861,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 style={{ display: activeMainTab?.type === "release-manager" ? undefined : "none" }}>
                 <ReleaseManagerPanel
                   rootPath={rootPath}
-                  theme={{ borderLight: tk.borderLight, accent: tk.accent }}
+                  theme={{ borderLight: tk.borderLight, accent: tk.accent, accentHover: tk.accentHover || tk.accent }}
                   onOpenEMDashboard={() => openMainTab({ id: DASHBOARD_TAB_ID, type: "em-dashboard", label: "EM 大總管", icon: "🎖️", closable: false })}
                 />
               </div>
@@ -3871,7 +3871,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 style={{ display: activeMainTab?.type === "handover" ? undefined : "none" }}>
                 <HandoverPanel
                   rootPath={rootPath}
-                  theme={{ borderLight: tk.borderLight, accent: tk.accent }}
+                  theme={{ borderLight: tk.borderLight, accent: tk.accent, accentHover: tk.accentHover || tk.accent }}
                   onOpenEMDashboard={() => openMainTab({ id: DASHBOARD_TAB_ID, type: "em-dashboard", label: "EM 大總管", icon: "🎖️", closable: false })}
                 />
               </div>
@@ -3881,7 +3881,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 style={{ display: activeMainTab?.type === "troubleshooting" ? undefined : "none" }}>
                 <TroubleshootingPanel
                   rootPath={rootPath}
-                  theme={{ borderLight: tk.borderLight, accent: tk.accent }}
+                  theme={{ borderLight: tk.borderLight, accent: tk.accent, accentHover: tk.accentHover || tk.accent }}
                 />
               </div>
             )}
