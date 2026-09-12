@@ -1270,5 +1270,7 @@
   "browser.replayRefresh": "重新載入紀錄",
   "browser.replayHint": "🤖 agent · 👤 你",
   "notes.createFailed": "建立筆記失敗",
-  "notes.createSectionFailed": "建立分類失敗"
+  "notes.createSectionFailed": "建立分類失敗",
+  "settings.unsavedProviders": "有未儲存的變更 — 記得點上方儲存",
+  "settings.modelIdExists": "這個 model id 已存在（同 provider 內不能重複）"
 }

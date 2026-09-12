@@ -1270,5 +1270,7 @@
   "browser.replayRefresh": "履歴を再読み込み",
   "browser.replayHint": "🤖 エージェント · 👤 あなた",
   "notes.createFailed": "ノートの作成に失敗しました",
-  "notes.createSectionFailed": "セクションの作成に失敗しました"
+  "notes.createSectionFailed": "セクションの作成に失敗しました",
+  "settings.unsavedProviders": "未保存の変更があります — 上の保存を押してください",
+  "settings.modelIdExists": "この model id は既に存在します"
 }

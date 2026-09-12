@@ -60,6 +60,16 @@ async function ensurePrefsLoaded() {
   if (providersCache.length === 0) prefLoaded = false;
 }
 
+/** 2026-09-12 Fleming：設定頁新增 model 儲存後，既有 ModelSelector 要「選得到」新 model。
+ *  原本 module cache 永不刷新 → 要整頁 reload 才看得到。設定頁存檔成功後呼叫這個 →
+ *  下一次任何 dropdown 打開就重抓 /api/models（line 232 的 onClick 會 ensurePrefsLoaded）。 */
+export function invalidateModelSelectorCache() {
+  prefLoaded = false;
+  providersCache = [];
+  activeProviderCache = "";
+  defaultModelCache = "";
+}
+
 export async function getModelForFeature(feature: string): Promise<string> {
   await ensurePrefsLoaded();
   const pref = prefCache[feature] || "";

@@ -1270,5 +1270,7 @@
   "browser.replayRefresh": "Reload actions",
   "browser.replayHint": "🤖 agent · 👤 you",
   "notes.createFailed": "Failed to create note",
-  "notes.createSectionFailed": "Failed to create section"
+  "notes.createSectionFailed": "Failed to create section",
+  "settings.unsavedProviders": "Unsaved changes — click Save above",
+  "settings.modelIdExists": "This model id already exists in this provider"
 }

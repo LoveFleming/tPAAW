@@ -3,6 +3,7 @@ import { useTheme } from "../theme";
 import { useI18n, LOCALE_LABELS, Locale } from "../i18n";
 
 import API_BASE from "../api";
+import { invalidateModelSelectorCache } from "../components/ModelSelector";
 import BackupSettings from "./BackupSettings";
 import PluginManager from "./PluginManager";
 
@@ -44,6 +45,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   const [newModel, setNewModel] = useState<{ pid: string; id: string; name: string }>({ pid: "", id: "", name: "" });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false); // 2026-09-12：有未存變更（saved 會在 2s 後自動回 false，不能當 dirty 用）
   const [profile, setProfile] = useState<any>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
@@ -124,17 +126,17 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
 
   const handleApiKeyChange = (pid: string, key: string) => {
     setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], apiKey: key } }));
-    setSaved(false);
+    setSaved(false); setDirty(true);
   };
 
   const handleBaseURLChange = (pid: string, url: string) => {
     setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], baseURL: url } }));
-    setSaved(false);
+    setSaved(false); setDirty(true);
   };
 
   const handleProviderField = (pid: string, field: string, value: any) => {
     setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], [field]: value } }));
-    setSaved(false);
+    setSaved(false); setDirty(true);
   };
 
   const addProvider = () => {
@@ -143,7 +145,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
     setNewProviderId("");
     setNewProviderName("");
     setShowNewProvider(false);
-    setSaved(false);
+    setSaved(false); setDirty(true);
   };
 
   const removeProvider = (pid: string) => {
@@ -154,7 +156,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
       const remaining = Object.keys(rest);
       setActiveId(remaining.length > 0 ? remaining[0] : "");
     }
-    setSaved(false);
+    setSaved(false); setDirty(true);
   };
 
   const renameProvider = (oldPid: string, newPid: string) => {
@@ -164,42 +166,44 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
     setProviders({ ...rest, [newPid]: { ...p } });
     setPendingRemovals(prev => prev.includes(oldPid) ? prev : [...prev, oldPid]);
     if (activeId === oldPid) setActiveId(newPid);
-    setSaved(false);
+    setSaved(false); setDirty(true);
   };
 
   const addModelToProvider = (pid: string) => {
     const id = newModel.id.trim();
     if (!id || newModel.pid !== pid) return;
     const name = newModel.name.trim() || id;
-    setProviders(prev => {
-      if (!prev[pid] || prev[pid].models.some(m => m.id === id)) return prev;
-      return { ...prev, [pid]: { ...prev[pid], models: [...prev[pid].models, { id, name }] } };
-    });
+    // 2026-09-12：重複 id 原本靜默失敗（row 關掉、什麼都沒加、沒提示）— 給明確反饋
+    if (providers[pid]?.models.some(m => m.id === id)) {
+      alert(t("settings.modelIdExists"));
+      return;
+    }
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: [...prev[pid].models, { id, name }] } }));
     setNewModel({ pid: "", id: "", name: "" });
-    setSaved(false);
+    setSaved(false); setDirty(true);
   };
 
   const handleModelText = (pid: string, mid: string, field: string, value: string) => {
     setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.map(m => m.id === mid ? { ...m, [field]: value } : m) } }));
-    setSaved(false);
+    setSaved(false); setDirty(true);
   };
 
   const handleModelField = (pid: string, mid: string, field: string, raw: string) => {
     const value = raw === "" ? undefined : Number(raw);
     setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.map(m => m.id === mid ? { ...m, [field]: value } : m) } }));
-    setSaved(false);
+    setSaved(false); setDirty(true);
   };
 
   const handleModelPricing = (pid: string, mid: string, field: string, raw: string) => {
     const value = raw === "" ? undefined : Number(raw);
     setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.map(m => m.id === mid ? { ...m, pricing: { ...m.pricing, [field]: value } } : m) } }));
-    setSaved(false);
+    setSaved(false); setDirty(true);
   };
 
   const removeModelFromProvider = (pid: string, mid: string) => {
     setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.filter(m => m.id !== mid) } }));
     if (selectedModel === mid) setSelectedModel("");
-    setSaved(false);
+    setSaved(false); setDirty(true);
   };
 
   const handleSaveProviders = async () => {
@@ -210,7 +214,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: activeId, defaultModel: selectedModel, providers, fallbacks, removedProviderIds: pendingRemovals }),
       });
-      if (resp.ok) { setSaved(true); setPendingRemovals([]); setTimeout(() => setSaved(false), 2000); onProvidersSaved?.(); }
+      if (resp.ok) { setSaved(true); setDirty(false); setPendingRemovals([]); setTimeout(() => setSaved(false), 2000); invalidateModelSelectorCache(); onProvidersSaved?.(); }
     } catch {}
     setSaving(false);
   };
@@ -251,7 +255,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   const handleResetAvatar = () => {
     setProfile((p: any) => ({ ...p, assistantAvatar: "" }));
     setAvatarPreview(null);
-    setSaved(false);
+    setSaved(false); setDirty(true);
   };
 
   // Avatar display
@@ -336,21 +340,21 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
               <div className="space-y-4">
                 <div>
                   <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">{t("settings.assistantName", "助理名字")}</label>
-                  <input type="text" value={profile.assistantName || "林語晴"} onChange={(e) => { setProfile({ ...profile, assistantName: e.target.value }); setSaved(false); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <input type="text" value={profile.assistantName || "林語晴"} onChange={(e) => { setProfile({ ...profile, assistantName: e.target.value }); setSaved(false); setDirty(true); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">{t("settings.yourName", t("onboarding.name"))}</label>
-                  <input type="text" value={profile.name || ""} onChange={(e) => { setProfile({ ...profile, name: e.target.value }); setSaved(false); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <input type="text" value={profile.name || ""} onChange={(e) => { setProfile({ ...profile, name: e.target.value }); setSaved(false); setDirty(true); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">{t("settings.selfIntro", "自我介紹")}</label>
-                  <textarea value={profile.intro || ""} onChange={(e) => { setProfile({ ...profile, intro: e.target.value }); setSaved(false); }} rows={3} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400 resize-none" />
+                  <textarea value={profile.intro || ""} onChange={(e) => { setProfile({ ...profile, intro: e.target.value }); setSaved(false); setDirty(true); }} rows={3} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400 resize-none" />
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">{t("settings.replyStyle", "回覆風格")}</label>
                   <div className="flex gap-2">
                     {["concise", "detailed", "casual", "formal"].map(s => (
-                      <button key={s} onClick={() => { setProfile({ ...profile, style: s }); setSaved(false); }} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${profile.style === s ? "border-stone-400 bg-stone-50 text-stone-700" : "border-stone-200 text-stone-400 hover:border-stone-300"}`}>
+                      <button key={s} onClick={() => { setProfile({ ...profile, style: s }); setSaved(false); setDirty(true); }} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${profile.style === s ? "border-stone-400 bg-stone-50 text-stone-700" : "border-stone-200 text-stone-400 hover:border-stone-300"}`}>
                         {{ concise: t("settings.styleConcise"), detailed: t("settings.styleDetailed"), casual: t("settings.styleCasual"), formal: t("settings.styleFormal") }[s]}
                       </button>
                     ))}
@@ -373,7 +377,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
               <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3 block">啟用 Provider</label>
               <div className="flex flex-wrap gap-2">
                 {Object.keys(providers).map(pid => (
-                  <button key={pid} onClick={() => { setActiveId(pid); if (providers[pid].models.length > 0) setSelectedModel(providers[pid].models[0].id); setSaved(false); }}
+                  <button key={pid} onClick={() => { setActiveId(pid); if (providers[pid].models.length > 0) setSelectedModel(providers[pid].models[0].id); setSaved(false); setDirty(true); }}
                     className="px-3 py-2 rounded-lg text-sm font-medium border transition-all flex items-center gap-2"
                     style={activeId === pid ? { borderColor: themeInfo.accent, background: `${themeInfo.accent}08` } : { borderColor: "#e7e5e4" }}>
                     {activeId === pid && <span className="w-2 h-2 rounded-full" style={{ background: themeInfo.accent }} />}
@@ -433,7 +437,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                             <input type="text" value={m.id} onChange={e => handleModelText(pid, m.id, "id", e.target.value)}
                               className="w-[130px] shrink-0 text-[10px] font-mono text-stone-400 bg-transparent border-b border-transparent hover:border-stone-300 focus:border-stone-400 focus:outline-none" placeholder="model id" />
                             {activeId === pid && (
-                              <button onClick={() => { setSelectedModel(m.id); setSaved(false); }}
+                              <button onClick={() => { setSelectedModel(m.id); setSaved(false); setDirty(true); }}
                                 className={`text-[9px] px-1 rounded shrink-0 ${selectedModel === m.id ? "text-amber-600 bg-amber-50" : "text-stone-300 hover:text-stone-500"}`}
                                 title={t("settings.setDefault")}>{selectedModel === m.id ? "✓" : "📌"}</button>
                             )}
@@ -510,7 +514,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
             {activeId && providers[activeId]?.models.length > 0 && (
               <div className="bg-white rounded-xl border border-stone-200 p-5">
                 <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-2">預設 Model</label>
-                <select value={selectedModel} onChange={e => { setSelectedModel(e.target.value); setSaved(false); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none">
+                <select value={selectedModel} onChange={e => { setSelectedModel(e.target.value); setSaved(false); setDirty(true); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none">
                   {providers[activeId].models.map(m => (
                     <option key={m.id} value={m.id}>{m.name} ({m.id})</option>
                   ))}
@@ -523,7 +527,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
             <div className="bg-white rounded-xl border border-stone-200 p-5">
               <div className="flex items-center justify-between mb-1">
                 <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">{t("settings.fallbacks")}</label>
-                <button onClick={() => { const firstPid = Object.keys(providers)[0]; if (firstPid) setFallbacks(prev => [...prev, { provider: firstPid, model: providers[firstPid]?.models[0]?.id || "" }]); setSaved(false); }}
+                <button onClick={() => { const firstPid = Object.keys(providers)[0]; if (firstPid) setFallbacks(prev => [...prev, { provider: firstPid, model: providers[firstPid]?.models[0]?.id || "" }]); setSaved(false); setDirty(true); }}
                   className="text-xs text-stone-500 hover:text-stone-700 px-2 py-0.5 rounded hover:bg-stone-100">+ {t("settings.addFallback")}</button>
               </div>
               <p className="text-xs text-stone-400 mb-3">{t("settings.fallbacksDesc")}</p>
@@ -531,11 +535,11 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                 {fallbacks.map((f, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <span className="w-5 text-[10px] font-mono text-stone-300 text-center shrink-0">{i + 1}</span>
-                    <select value={f.provider} onChange={e => { const pid = e.target.value; setFallbacks(prev => prev.map((x, j) => j === i ? { ...x, provider: pid, model: providers[pid]?.models[0]?.id || "" } : x)); setSaved(false); }}
+                    <select value={f.provider} onChange={e => { const pid = e.target.value; setFallbacks(prev => prev.map((x, j) => j === i ? { ...x, provider: pid, model: providers[pid]?.models[0]?.id || "" } : x)); setSaved(false); setDirty(true); }}
                       className="px-2 py-1.5 rounded-lg border border-stone-200 text-xs focus:outline-none focus:border-stone-400">
                       {Object.keys(providers).map(pid => <option key={pid} value={pid}>{pid}</option>)}
                     </select>
-                    <select value={f.model} onChange={e => { const v = e.target.value; setFallbacks(prev => prev.map((x, j) => j === i ? { ...x, model: v } : x)); setSaved(false); }}
+                    <select value={f.model} onChange={e => { const v = e.target.value; setFallbacks(prev => prev.map((x, j) => j === i ? { ...x, model: v } : x)); setSaved(false); setDirty(true); }}
                       className="flex-1 px-2 py-1.5 rounded-lg border border-stone-200 text-xs font-mono focus:outline-none focus:border-stone-400">
                       <option value="">—</option>
                       {(providers[f.provider]?.models || []).map(m => <option key={m.id} value={m.id}>{m.name} ({m.id})</option>)}
@@ -544,7 +548,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                       className="text-stone-300 hover:text-stone-600 text-xs px-1 disabled:opacity-30" title="上移">↑</button>
                     <button onClick={() => setFallbacks(prev => { if (i === prev.length - 1) return prev.slice(0, -1); const c = [...prev]; [c[i], c[i + 1]] = [c[i + 1], c[i]]; return c; })} disabled={i === fallbacks.length - 1}
                       className="text-stone-300 hover:text-stone-600 text-xs px-1 disabled:opacity-30" title="下移">↓</button>
-                    <button onClick={() => { setFallbacks(prev => prev.filter((_, j) => j !== i)); setSaved(false); }}
+                    <button onClick={() => { setFallbacks(prev => prev.filter((_, j) => j !== i)); setSaved(false); setDirty(true); }}
                       className="text-stone-300 hover:text-rose-400 text-xs px-1" title={t("common.delete")}>✕</button>
                   </div>
                 ))}
@@ -552,9 +556,14 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
               </div>
             </div>
 
-            <button onClick={handleSaveProviders} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
+            <button onClick={handleSaveProviders} disabled={saving}
+              className={`w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50 ${dirty ? "animate-pulse" : ""}`}
+              style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
               {saving ? t("common.saving") : saved ? t("common.saved") : t("settings.saveProviders")}
             </button>
+            {dirty && Object.keys(providers).length > 0 && (
+              <p className="text-center text-amber-600 text-xs font-medium">⚠️ {t("settings.unsavedProviders")}</p>
+            )}
           </div>
         )}
 
@@ -567,22 +576,22 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-stone-600 mb-1">Max Turns（最大工具呼叫次數）</label>
-                  <input type="number" value={agentConfig.maxTurns} onChange={e=>{setAgentConfig(p=>({...p,maxTurns:Math.max(1,parseInt(e.target.value)||20)}));setSaved(false);}} min={1} max={500} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <input type="number" value={agentConfig.maxTurns} onChange={e=>{setAgentConfig(p=>({...p,maxTurns:Math.max(1,parseInt(e.target.value)||20)}));setSaved(false); setDirty(true);}} min={1} max={500} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
                   <p className="text-xs text-stone-400 mt-1">AI 在單次任務中最多能呼叫工具幾次（預設 100）</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-stone-600 mb-1">Timeout（秒）</label>
-                  <input type="number" value={agentConfig.timeoutSeconds} onChange={e=>{setAgentConfig(p=>({...p,timeoutSeconds:Math.max(10,parseInt(e.target.value)||120)}));setSaved(false);}} min={10} step={10} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <input type="number" value={agentConfig.timeoutSeconds} onChange={e=>{setAgentConfig(p=>({...p,timeoutSeconds:Math.max(10,parseInt(e.target.value)||120)}));setSaved(false); setDirty(true);}} min={10} step={10} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
                   <p className="text-xs text-stone-400 mt-1">任務總超時（預設 1800 = 30 分鐘）</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-stone-600 mb-1">Bash Timeout（秒）</label>
-                  <input type="number" value={agentConfig.bashTimeoutSeconds} onChange={e=>{setAgentConfig(p=>({...p,bashTimeoutSeconds:Math.max(5,parseInt(e.target.value)||60)}));setSaved(false);}} min={5} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <input type="number" value={agentConfig.bashTimeoutSeconds} onChange={e=>{setAgentConfig(p=>({...p,bashTimeoutSeconds:Math.max(5,parseInt(e.target.value)||60)}));setSaved(false); setDirty(true);}} min={5} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
                   <p className="text-xs text-stone-400 mt-1">每個 Shell 指令的超時（預設 300）</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-stone-600 mb-1">Shell Timeout（ms）</label>
-                  <input type="number" value={agentConfig.shellTimeoutMs} onChange={e=>{setAgentConfig(p=>({...p,shellTimeoutMs:Math.max(10000,parseInt(e.target.value)||600000)}));setSaved(false);}} min={10000} step={50000} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <input type="number" value={agentConfig.shellTimeoutMs} onChange={e=>{setAgentConfig(p=>({...p,shellTimeoutMs:Math.max(10000,parseInt(e.target.value)||600000)}));setSaved(false); setDirty(true);}} min={10000} step={50000} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
                   <p className="text-xs text-stone-400 mt-1">Shell session 總超時（毫秒，預設 600000 = 10 分鐘）</p>
                 </div>
               </div>
@@ -620,12 +629,12 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-stone-600 mb-1">⏱️ 測試逾時（秒）</label>
-                  <input type="number" value={skillConfig.testTimeout} onChange={e => { setSkillConfig(prev => ({ ...prev, testTimeout: Math.max(60, parseInt(e.target.value) || 600) })); setSaved(false); }} min={60} step={60} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <input type="number" value={skillConfig.testTimeout} onChange={e => { setSkillConfig(prev => ({ ...prev, testTimeout: Math.max(60, parseInt(e.target.value) || 600) })); setSaved(false); setDirty(true); }} min={60} step={60} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
                   <p className="text-xs text-stone-400 mt-1">預設 600 秒（10 分鐘），最少 60 秒</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-stone-600 mb-1">🔧 最大 Session Turn 次數</label>
-                  <input type="number" value={skillConfig.maxToolCalls} onChange={e => { setSkillConfig(prev => ({ ...prev, maxToolCalls: Math.max(1, parseInt(e.target.value) || 50) })); setSaved(false); }} min={1} max={200} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <input type="number" value={skillConfig.maxToolCalls} onChange={e => { setSkillConfig(prev => ({ ...prev, maxToolCalls: Math.max(1, parseInt(e.target.value) || 50) })); setSaved(false); setDirty(true); }} min={1} max={200} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
                   <p className="text-xs text-stone-400 mt-1">預設 50，AI Agent 的最大執行步數</p>
                 </div>
               </div>
@@ -675,7 +684,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                   <label className="text-sm font-semibold text-stone-700">🔬 AI 互動紀錄</label>
                   <p className="text-xs text-stone-400 mt-0.5">記錄所有跟 AI 的互動，包括聊天和 Coding IDE</p>
                 </div>
-                <button onClick={() => { setDistillConfig({ ...distillConfig, enabled: !distillConfig.enabled }); setSaved(false); }}
+                <button onClick={() => { setDistillConfig({ ...distillConfig, enabled: !distillConfig.enabled }); setSaved(false); setDirty(true); }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold ${distillConfig.enabled ? "bg-emerald-100 text-emerald-700" : "bg-stone-100 text-stone-400"}`}>
                   {distillConfig.enabled ? "✓ " + t("common.enabled") : t("common.disabled")}
                 </button>
@@ -698,7 +707,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                     <button onClick={() => {
                       const updated = { ...distillConfig };
                       updated.sources = { ...updated.sources, [key]: { ...updated.sources[key], enabled: !updated.sources[key].enabled } };
-                      setDistillConfig(updated); setSaved(false);
+                      setDistillConfig(updated); setSaved(false); setDirty(true);
                     }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold ${src.enabled ? "bg-blue-100 text-blue-700" : "bg-stone-100 text-stone-400"}`}>
                       {src.enabled ? "✓ " + t("common.on") : t("common.off")}
@@ -715,7 +724,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                   <label className="text-sm font-semibold text-stone-700">⚗️ 自動蒸餾</label>
                   <p className="text-xs text-stone-400">每天自動用 AI 精煉當天的互動紀錄</p>
                 </div>
-                <button onClick={() => { setDistillConfig({ ...distillConfig, autoDistill: !distillConfig.autoDistill }); setSaved(false); }}
+                <button onClick={() => { setDistillConfig({ ...distillConfig, autoDistill: !distillConfig.autoDistill }); setSaved(false); setDirty(true); }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold ${distillConfig.autoDistill ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-400"}`}>
                   {distillConfig.autoDistill ? "✓ " + t("common.on") : t("common.off")}
                 </button>
@@ -724,12 +733,12 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                 <div>
                   <label className="block text-sm font-medium text-stone-600 mb-1">排程時間（cron）</label>
                   <div className="flex gap-2 items-center">
-                    <input type="text" value={distillConfig.autoDistillSchedule} onChange={e => { setDistillConfig({ ...distillConfig, autoDistillSchedule: e.target.value }); setSaved(false); }} className="flex-1 px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono" />
+                    <input type="text" value={distillConfig.autoDistillSchedule} onChange={e => { setDistillConfig({ ...distillConfig, autoDistillSchedule: e.target.value }); setSaved(false); setDirty(true); }} className="flex-1 px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono" />
                     <span className="text-xs text-stone-400">{distillConfig.autoDistillSchedule === "0 2 * * *" ? t("settings.dailyAt") + " 02:00" : distillConfig.autoDistillSchedule === "0 3 * * *" ? t("settings.dailyAt") + " 03:00" : ""}</span>
                   </div>
                   <div className="flex gap-1.5 mt-2">
                     {[{l:"02:00",v:"0 2 * * *"},{l:"03:00",v:"0 3 * * *"},{l:"06:00",v:"0 6 * * *"},{l:t("cron.templateEvery6h"),v:"0 */6 * * *"}].map(p => (
-                      <button key={p.v} onClick={() => { setDistillConfig({ ...distillConfig, autoDistillSchedule: p.v }); setSaved(false); }}
+                      <button key={p.v} onClick={() => { setDistillConfig({ ...distillConfig, autoDistillSchedule: p.v }); setSaved(false); setDirty(true); }}
                         className={`text-xs px-2 py-1 rounded-md border ${distillConfig.autoDistillSchedule === p.v ? "border-amber-400 bg-amber-50 text-amber-600" : "border-stone-200 text-stone-500"}`}>
                         {p.l}
                       </button>
@@ -745,7 +754,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                 <summary className="text-[10px] font-bold text-stone-400 uppercase tracking-wider cursor-pointer flex items-center gap-1">
                   📝 自訂蒸餾提示詞 <span className="text-stone-300">▶</span>
                 </summary>
-                <textarea value={distillConfig.distillPrompt || ""} onChange={e => { setDistillConfig({ ...distillConfig, distillPrompt: e.target.value }); setSaved(false); }}
+                <textarea value={distillConfig.distillPrompt || ""} onChange={e => { setDistillConfig({ ...distillConfig, distillPrompt: e.target.value }); setSaved(false); setDirty(true); }}
                   className="w-full mt-2 px-3 py-2 rounded-lg border border-stone-200 text-xs font-mono resize-none" rows={8} />
               </details>
             </div>
