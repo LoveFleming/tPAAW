@@ -277,15 +277,33 @@ export async function readDevLog(ruRoot, opts = {}) {
   const lines = Math.min(Math.max(parseInt(opts.lines, 10) || 100, 1), 400);
   const dir = _dir(ruRoot);
 
+  // ── list 模式：列出有哪些日期檔（2026-09-12 Fleming：agent 看開發問題需要知道能查哪些天）──
+  const datedFiles = (() => {
+    try {
+      return readdirSync(dir)
+        .filter((f) => /^app-console-\d{4}-\d{2}-\d{2}\.log$/.test(f))
+        .sort()
+        .map((f) => { try { return { file: f, size: statSync(join(dir, f)).size }; } catch { return { file: f, size: 0 }; } });
+    } catch { return []; }
+  })();
+  if (opts.list) {
+    return datedFiles.length > 0
+      ? `【dev_log】${normalize(dir)} 可用 log 檔（由舊到新）：\n${datedFiles.map((f) => `- ${f.file} (${(f.size / 1024).toFixed(1)} KB)`).join("\n")}`
+      : `【dev_log】${normalize(dir)} 沒有任何 app-console-*.log。先 dev_server(action="start") 啟動。`;
+  }
+
   let file = null;
   const entry = _getEntry(ruRoot);
-  if (entry?.logPath && existsSync(entry.logPath)) file = entry.logPath;
-  else {
-    try {
-      const dated = readdirSync(dir).filter((f) => /^app-console-\d{4}-\d{2}-\d{2}\.log$/.test(f)).sort();
-      if (dated.length > 0) file = join(dir, dated[dated.length - 1]);
-      else file = join(dir, "app-console.log"); // janitor 同款 fallback
-    } catch {}
+  // 指定日期：讀該天的檔（歷史查問題用）
+  if (opts.date && /^\d{4}-\d{2}-\d{2}$/.test(opts.date)) {
+    const f = join(dir, `app-console-${opts.date}.log`);
+    if (existsSync(f)) file = f;
+    else return `【dev_log】指定日期 ${opts.date} 沒有 log 檔。可用日期用 list=true 查。`;
+  } else if (!opts.date && entry?.logPath && existsSync(entry.logPath)) {
+    file = entry.logPath;
+  } else {
+    if (datedFiles.length > 0) file = join(dir, datedFiles[datedFiles.length - 1].file);
+    else file = join(dir, "app-console.log"); // janitor 同款 fallback
   }
   if (!file || !existsSync(file)) {
     return `【dev_log】沒有 log 可讀（${normalize(dir)} 不存在或沒有 app-console-*.log）。先 dev_server(action="start") 啟動。`;
@@ -301,6 +319,21 @@ export async function readDevLog(ruRoot, opts = {}) {
   const text = buf.toString("utf-8");
 
   const all = text.split(/\r?\n/);
+
+  // ── grep 模式（2026-09-12 Fleming：看開發時產生的問題 — 直接過濾 error/exception/crash 等關鍵字）──
+  if (opts.grep) {
+    const kw = String(opts.grep).toLowerCase();
+    const matched = [];
+    for (let i = 0; i < all.length; i++) {
+      if (all[i].toLowerCase().includes(kw)) matched.push(`L${i + 1}: ${all[i]}`);
+      if (matched.length > 400) break; // 上限保護
+    }
+    const shown = matched.slice(-lines);
+    return shown.length > 0
+      ? `【dev_log】${normalize(file)} grep "${opts.grep}"：最後 ${shown.length} 個 match（共 ${matched.length}）：\n${shown.join("\n")}`
+      : `【dev_log】${normalize(file)} 檔尾 256KB 內沒有 "${opts.grep}" 的 match。`;
+  }
+
   const tail = all.slice(-lines).join("\n");
   return `【dev_log】${normalize(file)} 最後 ${Math.min(lines, all.length)} 行：\n${tail}`;
 }

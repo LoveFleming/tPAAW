@@ -1460,6 +1460,22 @@ export default async function projectRoute(req, res) {
   }
 
   // ── GET /api/coding-crew/action-log — Read action log ──
+  // ── GET /api/coding-project/ru-log — 讀 RU 的 app console log（人 UI + agent 經由 api 同源）──
+  // 2026-09-12 Fleming：agent 經由 api 看目前 RU 的 log，幫開發/看開發時產生的問題
+  if (url === "/api/coding-project/ru-log" && method === "GET") {
+    const { readDevLog } = await import("../lib/dev-server.mjs");
+    const ruRoot = projectPath ? resolve(projectPath) : PAAW_ROOT;
+    const out = await readDevLog(ruRoot, {
+      lines: q.lines || 100,
+      grep: q.grep || undefined,
+      date: q.date || undefined,
+      list: q.list === "1" || q.list === "true",
+    });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, ru: ruRoot, text: out }));
+    return true;
+  }
+
   if (url.startsWith("/api/coding-crew/action-log") && method === "GET") {
     const { listActionLog } = await import("../lib/action-log.mjs");
     const params = new URL(url, `http://localhost`).searchParams;

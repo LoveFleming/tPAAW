@@ -367,11 +367,14 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "dev_log",
-      description: "Read the tail of this Release Unit's app console log (dev server output, agent-started app output). Use after dev_server start/restart to verify boot, or when debugging crashes/errors. Shows the last N lines (default 100).",
+      description: "Read this Release Unit's app console log (dev server output, app stdout/stderr). Use after dev_server start/restart to verify boot, or when debugging runtime issues. Modes: (1) plain tail — last N lines; (2) grep=KEYWORD — filter lines containing keyword (e.g. grep=error, grep=EADDRINUSE) and show the last N matches — the fastest way to find dev-time problems; (3) date=YYYY-MM-DD — read a specific day's log (history); (4) list=true — list available log files. Same source as the human's CodingIDE Terminal → Console → App view.",
       parameters: {
         type: "object",
         properties: {
-          lines: { type: "number", description: "Number of tail lines to return (default 100, max 400)" },
+          lines: { type: "number", description: "Number of tail lines / matches to return (default 100, max 400)" },
+          grep: { type: "string", description: "Keyword filter (case-insensitive substring) — e.g. \"error\", \"exception\", \"fail\" to find dev-time problems fast" },
+          date: { type: "string", description: "Read a specific day's log file (YYYY-MM-DD). Default: latest." },
+          list: { type: "boolean", description: "List available log files (dates + sizes) instead of reading" },
         },
         required: [],
       },
