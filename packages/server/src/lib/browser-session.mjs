@@ -246,6 +246,40 @@ const SELECT_DROPDOWN_INIT = `(() => {
   window.addEventListener("resize", closePanel, true);
 })();`;
 
+// ── 幽靈游標（2026-09-12：Fleming 問「滑鼠會移動嗎」— screencast 只拍頁面渲染，游標不在畫面裡）──
+// agent 的虛擬滑鼠事件（Playwright mouse.move/down/up 走真實輸入管道）→ 畫一個箭頭游標跟著動 + 點擊涟漪。
+// 串流即時看得到、act-*.png 回放截圖也吃得到（閒置 1.8s 淡出但留半透明 — 截圖看得到最後位置）。
+// 只監聽不攔截（passive、pointer-events:none），不影響頁面行為。
+const GHOST_CURSOR_INIT = `(() => {
+  if (window.__paawGhostCur) return; window.__paawGhostCur = 1;
+  const cur = document.createElement("div");
+  cur.setAttribute("data-paaw-cursor", "1");
+  cur.style.cssText = "position:fixed;z-index:2147483647;pointer-events:none;left:0;top:0;width:19px;height:19px;opacity:0;transition:opacity .18s;will-change:transform;";
+  cur.innerHTML = '<svg width="19" height="19" viewBox="0 0 24 24" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))"><path d="M4 2l7 17 2.2-6.2L19 11z" fill="#1a73e8" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+  let hideT = null, cx = 0, cy = 0;
+  const place = (px, py, extra) => {
+    cx = px; cy = py;
+    cur.style.transform = "translate(" + px + "px," + py + "px) translate(-2px,-2px)" + (extra || "");
+    cur.style.opacity = "1";
+    if (hideT) clearTimeout(hideT);
+    hideT = setTimeout(() => { cur.style.opacity = ".35"; }, 1800);
+  };
+  const mount = () => { try { (document.documentElement || document.body).appendChild(cur); } catch (e) {} };
+  if (document.documentElement) mount();
+  else document.addEventListener("DOMContentLoaded", mount, { once: true });
+  document.addEventListener("mousemove", (e) => place(e.clientX, e.clientY), true);
+  document.addEventListener("mousedown", (e) => {
+    place(e.clientX, e.clientY, " scale(.78)");
+    const rip = document.createElement("div");
+    rip.setAttribute("data-paaw-ripple", "1");
+    rip.style.cssText = "position:fixed;z-index:2147483646;pointer-events:none;left:" + (e.clientX - 18) + "px;top:" + (e.clientY - 18) + "px;width:36px;height:36px;border-radius:50%;border:2.5px solid #1a73e8;opacity:.9;transform:scale(.3);transition:transform .45s ease-out,opacity .45s ease-out;";
+    (document.documentElement || document.body).appendChild(rip);
+    requestAnimationFrame(() => { rip.style.transform = "scale(1.7)"; rip.style.opacity = "0"; });
+    setTimeout(() => { try { rip.remove(); } catch (e2) {} }, 500);
+  }, true);
+  document.addEventListener("mouseup", () => place(cx, cy), true);
+})();`;
+
 /** 惰性啟動 persistent browser context（per instance）*/
 export async function getBrowserContext(key = "default", DATA_HOME_ARG) {
   const inst = _getInst(key);
@@ -289,6 +323,8 @@ export async function getBrowserContext(key = "default", DATA_HOME_ARG) {
     })();`).catch(() => {});
     // 2026-09-12：native select 客製下拉（screencast 看得到、點得到）
     await ctx.addInitScript(SELECT_DROPDOWN_INIT).catch(() => {});
+    // 2026-09-12：幽靈游標 + 點擊涟漪（agent 滑鼠動作視覺化 — 串流/回放都看得到）
+    await ctx.addInitScript(GHOST_CURSOR_INIT).catch(() => {});
     ctx.on("close", () => {
       inst.ctx = null; inst.state.ready = false;
       inst.pagesById.clear(); inst.titlesById.clear(); inst.activePageRef = null;
