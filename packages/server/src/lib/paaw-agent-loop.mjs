@@ -1775,29 +1775,19 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         if (!isPathAllowed(args.path || ".")) return `Error: path '${args.path}' resolves outside all allowed roots (cwd='${cwd}'${workspaceDirs.length ? ", workspaces: " + workspaceDirs.join(", ") : ""}). Ask user to add the directory to data/workspaces.json if needed.`;
         const pattern = args.pattern;
         let result;
-        if (IS_WIN) {
-          // Windows: use Node.js native FIRST (fast, no shell overhead, no path issues)
-          result = await _nativeGlob(basePath, pattern, 100, cwd);
-          // Only try rg if native returns nothing and rg might be installed
-          if (result === "(no files found)" || result.length < 10) {
-            const cmd = `rg --files --glob "${pattern}" --max-depth 15 "${basePath}"`;
-            const rgResult = await runShell(cmd, cwd, 8_000);
-            if (!rgResult.includes("not recognized") && !rgResult.includes("command not found") && !rgResult.includes("(no output)") && rgResult.length > result.length) {
-              // Convert rg absolute paths to relative, forward-slash paths
-              const normCwd = cwd.replace(/\\/g, "/");
-              result = rgResult.split("\n").filter(l => l.trim()).map(l => {
-                const norm = l.replace(/\\/g, "/");
-                return norm.startsWith(normCwd + "/") ? norm.slice(normCwd.length + 1) : l;
-              }).join("\n");
-            }
-          }
-        } else {
-          // Unix: use rg with glob, fallback to find
-          const cmd = `rg --files --glob '${pattern}' --max-depth 15 '${basePath}'`;
-          result = await runShell(cmd, cwd, 8_000);
-          if (result.includes("command not found")) {
-            const findCmd = `find '${basePath}' -name '${pattern}' -not -path '*/node_modules/*' -not -path '*/.git/*' -type f | head -100`;
-            result = await runShell(findCmd, cwd, 8_000);
+        // 跨平台 native-first（2026-09-12：公司 Linux 沒裝 rg → agent 拿到 command not found。
+        //   純 Node.js 遞迴，不依賴 rg/find/grep；rg 只在「有裝」時當加強 — command -v 靜默探測，agent 永遠不會看到 command not found）
+        result = await _nativeGlob(basePath, pattern, 100, cwd);
+        if (result === "(no files found)" || result.length < 10) {
+          const cmd = `command -v rg >/dev/null 2>&1 && rg --files --glob "${pattern}" --max-depth 15 "${basePath}"`;
+          const rgResult = await runShell(cmd, cwd, 8_000);
+          if (!rgResult.includes("not recognized") && !rgResult.includes("command not found") && !rgResult.includes("(no output)") && rgResult.length > result.length) {
+            // Convert rg absolute paths to relative, forward-slash paths
+            const normCwd = cwd.replace(/\\/g, "/");
+            result = rgResult.split("\n").filter(l => l.trim()).map(l => {
+              const norm = l.replace(/\\/g, "/");
+              return norm.startsWith(normCwd + "/") ? norm.slice(normCwd.length + 1) : l;
+            }).join("\n");
           }
         }
         // Smart truncate (head+tail, preserves errors at end)
@@ -1813,37 +1803,22 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         const maxResults = args.max_results || 50;
         const caseFlag = args.case_sensitive ? "" : "-i";
         let result;
-        if (IS_WIN) {
-          // Windows: use Node.js native FIRST (fast, no shell overhead, no path issues)
-          result = await _nativeGrep(searchPath, args.pattern, args.include, maxResults, !args.case_sensitive, cwd);
-          // Only try rg if native returns nothing and rg might be installed
-          if (result === "(no matches)" || result.length < 10) {
-            const includeFlag = args.include ? `--glob "${args.include}"` : "";
-            const cmd = `rg ${caseFlag} ${includeFlag} --max-count ${maxResults} --line-number --no-heading "${args.pattern}" "${searchPath}"`;
-            const rgResult = await runShell(cmd, cwd, 10_000);
-            if (!rgResult.includes("not recognized") && !rgResult.includes("command not found") && !rgResult.includes("(no output)") && rgResult.length > result.length) {
-              // Convert rg absolute paths to relative, forward-slash paths
-              const normCwd = cwd.replace(/\\/g, "/");
-              result = rgResult.split("\n").filter(l => l.trim()).map(l => {
-                const colonIdx = l.indexOf(":");
-                if (colonIdx > 0) {
-                  const norm = l.slice(0, colonIdx).replace(/\\/g, "/");
-                  const rel = norm.startsWith(normCwd + "/") ? norm.slice(normCwd.length + 1) : l.slice(0, colonIdx);
-                  return rel + l.slice(colonIdx);
-                }
-                return l;
-              }).join("\n");
-            }
-          }
-        } else {
-          // Unix: rg with fallback to grep
+        // 跨平台 native-first（2026-09-12 同 glob：不依賴 rg/grep；rg 有裝才加強，靜默探測）
+        result = await _nativeGrep(searchPath, args.pattern, args.include, maxResults, !args.case_sensitive, cwd);
+        if (result === "(no matches)" || result.length < 10) {
           const includeFlag = args.include ? `--glob '${args.include}'` : "";
-          const cmd = `rg ${caseFlag} ${includeFlag} --max-count ${maxResults} --line-number --no-heading '${args.pattern}' '${searchPath}'`;
-          result = await runShell(cmd, cwd, 10_000);
-          if (result.includes("command not found")) {
-            const grepInclude = args.include ? `--include='${args.include}'` : "";
-            const grepCmd = `grep -rn ${caseFlag} ${grepInclude} --max-count=${maxResults} '${args.pattern}' '${searchPath}'`;
-            result = await runShell(grepCmd, cwd, 10_000);
+          const cmd = `command -v rg >/dev/null 2>&1 && rg ${caseFlag} ${includeFlag} --max-count ${maxResults} --line-number --no-heading '${args.pattern}' '${searchPath}'`;
+          const rgResult = await runShell(cmd, cwd, 10_000);
+          if (!rgResult.includes("not recognized") && !rgResult.includes("command not found") && !rgResult.includes("(no output)") && rgResult.length > result.length) {
+            result = rgResult.split("\n").filter(l => l.trim()).map(l => {
+              const colonIdx = l.indexOf(":");
+              if (colonIdx > 0) {
+                const norm = l.slice(0, colonIdx).replace(/\\/g, "/");
+                const rel = norm.startsWith(cwd.replace(/\\/g, "/") + "/") ? norm.slice(cwd.replace(/\\/g, "/").length + 1) : l.slice(0, colonIdx);
+                return rel + l.slice(colonIdx);
+              }
+              return l;
+            }).join("\n");
           }
         }
         // Smart truncate (head+tail — preserves grep matches at end)
