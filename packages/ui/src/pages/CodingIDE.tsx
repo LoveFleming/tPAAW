@@ -560,6 +560,7 @@ export default function CodingIDE() {
   const [crewLoading, setCrewLoading] = useState<Record<string, boolean>>({}); // crewId → chatLoading
   const domainAbortRef = useRef<AbortController | null>(null); // abort for domain AI (spec/test/bug/docs/maintain)
   const [crewAgentRunning, setCrewAgentRunning] = useState<Record<string, boolean>>({}); // crewId → agentRunning
+  const pendingAssignRef = useRef<{ crewId: string; text: string } | null>(null); // 指派待送：切到目標 crew + 輸入就位後自動 Enter（2026-09-12）
   const [crewAgentAction, setCrewAgentAction] = useState<Record<string, string>>({}); // crewId → agentAction
   const [crewAgentToolLog, setCrewAgentToolLog] = useState<Record<string, Array<{name: string; args: string; result: string}>>>({}); // crewId → toolLog
   const chatLoading = activeCrew ? !!crewLoading[activeCrew] : false;
@@ -1968,6 +1969,18 @@ const sendChat = useCallback(async () => {
     }
   }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent, codingModel, activeCrew, pendingImages]);
 
+  // ── 指派給 Agent：自動送出（2026-09-12 Fleming：貼到輸入框 + 自動 Enter，等同親手操作）──
+  // 為什麼不直接呼叫 sendChat：assignToAgent 裡 setActiveCrew/setChatInput 是異步 — 直接呼叫會讀到舊 crew/舊輸入。
+  // pendingAssignRef 等 crew 切換 + 輸入框就位（同一 render batch 提交後）才觸發，走的完全是正常送出那一條路。
+  useEffect(() => {
+    const p = pendingAssignRef.current;
+    if (!p || activeCrew !== p.crewId) return;
+    if (chatInput.trim() !== p.text.trim()) return; // 輸入框尚未就位（或中途被清）
+    pendingAssignRef.current = null;
+    if (chatLoading || agentRunning) return; // 競態：剛忙起來 → 文字留在輸入框，人看得到 busy 自行決定
+    sendChat();
+  }, [activeCrew, chatInput, chatLoading, agentRunning, sendChat]);
+
   // 追蹤使用者是否在底部附近：串流中只在使用者没往上翻時跟底（onScroll 在容器 div 上）
 
   // 跟底捲動：新訊息 smooth；串流內容成長 instant（smooth 被 chunk 打斷重啟 → 抖動）
@@ -2025,102 +2038,25 @@ const sendChat = useCallback(async () => {
   }, [sendChat]);
 
   // ── Assign message to another agent: switch crew + auto-send ──
-  const assignToAgent = useCallback(async (agentId: string, messageContent: string) => {
+  // ── 指派給 Agent（2026-09-12 Fleming 定調：閒 → 貼輸入框+自動 Enter；忙 → 只跳頁不貼）──
+  const assignToAgent = useCallback((agentId: string, messageContent: string) => {
     const targetCrew = codingCrews.find(c => c.id === agentId);
     if (!targetCrew) return;
 
     const quotedContent = `> ${messageContent.slice(0, 500)}${messageContent.length > 500 ? "..." : ""}\n\n請幫我處理以上內容。`;
-    const userMsg: ChatMessage = { role: "user", content: quotedContent, ts: new Date().toISOString() };
 
-    // 1. Switch crew + tab
+    // 1. 跳到該 agent 的頁（兩種情況都跳）
     setActiveCrew(targetCrew.id);
     setChatMode(targetCrew.mode);
     openMainTab({ id: `crew:${targetCrew.id}`, type: "ai-crew", label: targetCrew.title, icon: targetCrew.emoji || "🤖", closable: true, crewId: targetCrew.id });
 
-    // 2. Add message to target crew's conversation
-    setCrewConversations(prev => ({
-      ...prev,
-      [targetCrew.id]: [...(prev[targetCrew.id] || []), userMsg],
-    }));
+    // 2. 忙 → 只跳頁不貼內容（人看到 busy 狀態自己決定；舊行為是照樣塞訊息+開 A2A — 兩條並行很亂）
+    if (crewAgentRunning[targetCrew.id] || crewLoading[targetCrew.id]) return;
 
-    // 3. Send to target agent via A2A（module-level crewToAgentId）
-    const a2aAgentId = crewToAgentId(targetCrew.id);
-    const modelForCrew = crewModels[targetCrew.id] || "";
-
-    setCrewAgentRunning(prev => ({ ...prev, [targetCrew.id]: true }));
-    setCrewAgentAction(prev => ({ ...prev, [targetCrew.id]: "thinking" }));
-
-    try {
-      const res = await fetch(`${API_BASE}/a2a/${a2aAgentId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          method: "message/stream",
-          params: {
-            message: { role: "user", parts: [{ type: "text", text: quotedContent }] },
-            context: { cwd: rootPath || undefined },
-            metadata: modelForCrew ? { model: modelForCrew } : undefined,
-            conversationHistory: (crewConversations[targetCrew.id] || []).map(({ _greeting, ...rest }: any) => rest),
-          },
-          id: `assign-${Date.now()}`,
-        }),
-      });
-
-      if (!res.ok || !res.body) {
-        const errText = await res.text();
-        setCrewConversations(prev => ({
-          ...prev,
-          [targetCrew.id]: [...(prev[targetCrew.id] || []), { role: "assistant", content: `❌ Agent error: ${errText.slice(0, 200)}`, ts: new Date().toISOString() }],
-        }));
-        return;
-      }
-
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let finalContent = "";
-      let buffer = "";
-
-      while (reader) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const evt = JSON.parse(line.slice(6));
-            if (evt.type === "thinking") {
-              setCrewAgentAction(prev => ({ ...prev, [targetCrew.id]: "thinking" }));
-            } else if (evt.type === "tool_call") {
-              setCrewAgentAction(prev => ({ ...prev, [targetCrew.id]: `tool:${evt.name || "?"}` }));
-            } else if (evt.type === "tool_result") {
-              setCrewAgentAction(prev => ({ ...prev, [targetCrew.id]: "thinking" }));
-            } else if (evt.type === "content" || evt.type === "text") {
-              finalContent += evt.text || evt.content || "";
-            } else if (evt.type === "done" || evt.type === "complete") {
-              finalContent += evt.text || evt.content || evt.result?.content || "";
-            }
-          } catch {}
-        }
-      }
-
-      const reply = finalContent.trim() || "(已完成，無輸出)";
-      setCrewConversations(prev => ({
-        ...prev,
-        [targetCrew.id]: [...(prev[targetCrew.id] || []), { role: "assistant", content: reply, ts: new Date().toISOString() }],
-      }));
-    } catch (err: any) {
-      setCrewConversations(prev => ({
-        ...prev,
-        [targetCrew.id]: [...(prev[targetCrew.id] || []), { role: "assistant", content: `❌ 指派失敗: ${err.message}`, ts: new Date().toISOString() }],
-      }));
-    } finally {
-      setCrewAgentRunning(prev => ({ ...prev, [targetCrew.id]: false }));
-      setCrewAgentAction(prev => ({ ...prev, [targetCrew.id]: "" }));
-    }
-  }, [codingCrews, rootPath, crewConversations, crewModels, openMainTab]);
+    // 3. 閒 → 文字貼進輸入框 + 自動 Enter（pendingAssign effect 等狀態就位後走 sendChat，跟親手送出同一條路）
+    pendingAssignRef.current = { crewId: targetCrew.id, text: quotedContent };
+    setChatInput(quotedContent);
+  }, [codingCrews, crewAgentRunning, crewLoading, openMainTab]);
 
   const handleChatKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return; // IME guard
