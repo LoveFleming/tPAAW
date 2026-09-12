@@ -1268,5 +1268,7 @@
   "browser.replayEmpty": "No recorded actions yet\nEach agent browser step (action + screenshot) will appear here",
   "browser.replayNoShot": "No screenshot for this step (e.g. read-only)",
   "browser.replayRefresh": "Reload actions",
-  "browser.replayHint": "🤖 agent · 👤 you"
+  "browser.replayHint": "🤖 agent · 👤 you",
+  "notes.createFailed": "Failed to create note",
+  "notes.createSectionFailed": "Failed to create section"
 }

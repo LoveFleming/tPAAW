@@ -60,6 +60,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
   const [newNbName, setNewNbName] = useState("");
   const [showNewSecInput, setShowNewSecInput] = useState(false);
   const [newSecName, setNewSecName] = useState("");
+  const newSecComposing = useRef(false); // IME 選字保護（2026-09-12：打中文分類名按 Enter 選字會誤觸建分類 — 三層保護紀律）
   const [showTagEditor, setShowTagEditor] = useState(false);
   const [tagsInput, setTagsInput] = useState("");
   const [zoomImg, setZoomImg] = useState<string | null>(null);
@@ -172,8 +173,19 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
   // ── CRUD ──
   const createNote = useCallback(async (sectionOverride?: string) => {
     const targetSection = sectionOverride || activeSection;
-    const data = await api.post("/api/notes/create", { notebookId: activeNotebook, sectionId: targetSection, title: tt("notes.newNote"), content: "" });
-    if (data.ok) {
+    let data: any = null;
+    try {
+      data = await api.post("/api/notes/create", { notebookId: activeNotebook, sectionId: targetSection, title: tt("notes.newNote"), content: "" });
+    } catch (err: any) {
+      alert(`${tt("notes.createFailed")}\n${err?.message || err}`);
+      return;
+    }
+    if (!data?.ok) {
+      // 2026-09-12：原本靜默失敗（沒有 else）— 點了沒反應也不知道原因。現在把 server 錯誤秀出來
+      alert(`${tt("notes.createFailed")}\n${data?.error || `HTTP ${data?.status || "?"}`}`);
+      return;
+    }
+    {
       // 如果指定了別的 section，先切過去再載入
       if (sectionOverride && sectionOverride !== activeSection) {
         setActiveSection(sectionOverride);
@@ -243,10 +255,20 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
 
   const createSection = useCallback(async () => {
     if (!newSecName.trim()) return;
-    await api.post("/api/notes/sections", { notebookId: activeNotebook, name: newSecName });
+    let data: any = null;
+    try {
+      data = await api.post("/api/notes/sections", { notebookId: activeNotebook, name: newSecName });
+    } catch (err: any) {
+      alert(`${tt("notes.createSectionFailed")}\n${err?.message || err}`);
+      return;
+    }
+    if (!data?.ok) {
+      alert(`${tt("notes.createSectionFailed")}\n${data?.error || `HTTP ${data?.status || "?"}`}`);
+      return;
+    }
     setNewSecName(""); setShowNewSecInput(false);
     await loadSections(activeNotebook);
-  }, [newSecName, activeNotebook, loadSections]);
+  }, [newSecName, activeNotebook, loadSections, tt]);
 
   const switchNotebook = useCallback(async (nbId: string) => {
     setActiveNotebook(nbId);
@@ -553,7 +575,13 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
             <input
               value={newSecName}
               onChange={e => setNewSecName(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") createSection(); if (e.key === "Escape") { setShowNewSecInput(false); setNewSecName(""); } }}
+              onCompositionStart={() => { newSecComposing.current = true; }}
+              onCompositionEnd={() => { newSecComposing.current = false; }}
+              onKeyDown={e => {
+                if (newSecComposing.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
+                if (e.key === "Enter") createSection();
+                if (e.key === "Escape") { setShowNewSecInput(false); setNewSecName(""); }
+              }}
               onBlur={() => { if (!newSecName.trim()) setShowNewSecInput(false); }}
               placeholder={tt("notes.sectionNamePlaceholder")}
               className="text-sm px-2 py-1 rounded border outline-none ml-1"

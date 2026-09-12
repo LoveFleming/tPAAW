@@ -1268,5 +1268,7 @@
   "browser.replayEmpty": "還沒有操作紀錄\nagent 用 browser 操作後這裡會留下每一步（動作 + 截圖）",
   "browser.replayNoShot": "這一步沒有截圖（例如純讀取）",
   "browser.replayRefresh": "重新載入紀錄",
-  "browser.replayHint": "🤖 agent · 👤 你"
+  "browser.replayHint": "🤖 agent · 👤 你",
+  "notes.createFailed": "建立筆記失敗",
+  "notes.createSectionFailed": "建立分類失敗"
 }
