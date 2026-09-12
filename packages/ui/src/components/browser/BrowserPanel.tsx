@@ -50,8 +50,11 @@ const KEY_MAP: Record<string, string> = {
   Home: "Home", End: "End", PageUp: "PageUp", PageDown: "PageDown", " ": " ",
 };
 
-export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
+export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPath?: string | null }) {
   const { t } = useI18n();
+  // 2026-09-12：per-RU browser instance — 兩個 Chrome 視窗開不同 RU 各自獨立 browser
+  const ruQ = rootPath ? `ru=${encodeURIComponent(rootPath)}` : "";
+  const withQ = (base: string) => ruQ ? `${base}?${ruQ}` : base;
   const [status, setStatus] = useState<BrowserStatus | null>(null);
   const [connected, setConnected] = useState(false);
   const [urlInput, setUrlInput] = useState("");
@@ -116,7 +119,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     let alive = true;
     const poll = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/browser/status`);
+        const res = await fetch(withQ(`${API_BASE}/api/browser/status`));
         const data = await res.json();
         if (!alive) return;
         setStatus(data);
@@ -128,7 +131,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     poll();
     timerRef.current = setInterval(poll, 2500);
     return () => { alive = false; if (timerRef.current) clearInterval(timerRef.current); };
-  }, [API_BASE]);
+  }, [API_BASE, ruQ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const shotTs = status?.lastScreenshot?.ts;
 
@@ -144,13 +147,13 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
 
   // dialog/下載初始清單（SSE 只在 stream 模式收，其他模式靠這個 + 動作回應同步）
   useEffect(() => {
-    fetch(`${API_BASE}/api/browser/downloads`).then(r => r.json()).then(d => { if (d.downloads) setDownloads(d.downloads.slice(0, 8)); }).catch(() => {});
-  }, [API_BASE]);
+    fetch(withQ(`${API_BASE}/api/browser/downloads`)).then(r => r.json()).then(d => { if (d.downloads) setDownloads(d.downloads.slice(0, 8)); }).catch(() => {});
+  }, [API_BASE, ruQ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 共用模式：SSE 串流（CDP screencast frames + dialog/download 事件）──
   useEffect(() => {
     if (mode !== "stream") { setLive(false); return; }
-    const es = new EventSource(`${API_BASE}/api/browser/stream`);
+    const es = new EventSource(withQ(`${API_BASE}/api/browser/stream`));
     let opened = false;
     es.onopen = () => { opened = true; setLive(true); };
     es.onmessage = (e) => {
@@ -184,9 +187,9 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     fetch(`${API_BASE}/api/browser/input`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, ru: rootPath || undefined }),
     }).catch(() => { /* best effort — 斷線由 SSE 狀態顯示 */ });
-  }, [API_BASE]);
+  }, [API_BASE, rootPath]);
 
   // 畫面座標 → page CSS 座標（頁面填滿寬度、頂端對齊：scale = 容器寬/viewport 寬，無水平偏移）
   const toPageXY = (clientX: number, clientY: number) => {
@@ -289,7 +292,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
       const res = await fetch(`${API_BASE}/api/browser/navigate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: target }),
+        body: JSON.stringify({ url: target, ru: rootPath || undefined }),
       });
       const data = await res.json();
       if (!res.ok) setNavError(data.error || `Error ${res.status}`);
@@ -409,7 +412,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
 
   // ── 導航控制 ──
   const navAction = async (act: "back" | "forward" | "reload") => {
-    try { await fetch(`${API_BASE}/api/browser/${act}`, { method: "POST" }); } catch {}
+    try { await fetch(withQ(`${API_BASE}/api/browser/${act}`), { method: "POST" }); } catch {}
   };
   const respondDialog = async (id: string, action: "accept" | "dismiss") => {
     const text = dialogText;
@@ -417,7 +420,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
     try {
       await fetch(`${API_BASE}/api/browser/dialog`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, action, text: text || undefined }),
+        body: JSON.stringify({ id, action, text: text || undefined, ru: rootPath || undefined }),
       });
     } catch {}
     setDlgList(prev => prev.filter(x => x.id !== id));
@@ -432,7 +435,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
   }, [clipMsg]);
   const grabClipboard = async () => {
     try {
-      const r = await fetch(`${API_BASE}/api/browser/clipboard`);
+      const r = await fetch(withQ(`${API_BASE}/api/browser/clipboard`));
       const d = await r.json();
       if (!d.ok) throw new Error(d.error || "fail");
       const text = String(d.text || "");
@@ -670,7 +673,7 @@ export function BrowserPanel({ API_BASE }: { API_BASE: string }) {
           shotTs ? (
             <img
               key={shotTs}
-              src={`${API_BASE}/api/browser/screenshot?t=${shotTs}`}
+              src={ruQ ? `${API_BASE}/api/browser/screenshot?${ruQ}&t=${shotTs}` : `${API_BASE}/api/browser/screenshot?t=${shotTs}`}
               alt="browser screenshot"
               className="w-full h-full object-contain"
             />

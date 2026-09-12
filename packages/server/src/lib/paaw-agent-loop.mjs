@@ -44,7 +44,7 @@ import { toolRegistry } from "./tool-registry.mjs";
 import { DATA_HOME, LOG_HOME, logSlug } from "../data-home.mjs";
 import {
   getBrowserPage, takeScreenshot, trackPage, readPageText, locateTarget,
-  assertSafeUrl, browserState, PLAYWRIGHT_INSTALL_HINT,
+  assertSafeUrl, browserState, PLAYWRIGHT_INSTALL_HINT, resolveBrowserKey,
 } from "./browser-session.mjs";
 
 // ── Types ──
@@ -494,6 +494,23 @@ export const PAAW_TOOLS = [
           submit: { type: "boolean", description: "Press Enter after typing (default false)" },
         },
         required: ["selector", "text"],
+      },
+    },
+  },
+  // 2026-09-12 Fleming：下拉式選單（native <select>）agent 竒操作 — 搭配 screencast 客製面板
+  {
+    type: "function",
+    function: {
+      name: "browser_select",
+      description: "Select an option in a native <select> dropdown on the current browser page. Provide the CSS selector of the <select> and either the visible option label or the option value. Returns page text excerpt after selecting.",
+      parameters: {
+        type: "object",
+        properties: {
+          selector: { type: "string", description: "CSS selector of the <select> element (e.g. \"select#country\", \"select[name=locale]\")" },
+          label: { type: "string", description: "Visible text of the option to select (e.g. \"Taiwan\")" },
+          value: { type: "string", description: "Value attribute of the option to select" },
+        },
+        required: ["selector"],
       },
     },
   },
@@ -1040,6 +1057,7 @@ const TOOL_GROUP_MAP = {
   browser_screenshot: "browser",
   browser_click: "browser",
   browser_type: "browser",
+  browser_select: "browser",
 
   // Memory & logging
   action_log_add: "memory", action_log_list: "memory",
@@ -2166,8 +2184,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         const url = assertSafeUrl(args.url);
         if (onEvent) onEvent({ type: "tool_start", name, args: url });
         try {
-          const page = await getBrowserPage(DATA_HOME);
-          trackPage(page);
+          const page = await getBrowserPage(resolveBrowserKey(cwd));
+          trackPage(resolveBrowserKey(cwd), page);
           await page.goto(url, { waitUntil: "domcontentloaded" });
           await page.waitForTimeout(args.waitMs ?? 800);
           const title = await page.title().catch(() => "(no title)");
@@ -2183,8 +2201,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
       case "browser_read": {
         if (onEvent) onEvent({ type: "tool_start", name, args: {} });
         try {
-          const page = await getBrowserPage(DATA_HOME);
-          trackPage(page);
+          const page = await getBrowserPage(resolveBrowserKey(cwd));
+          trackPage(resolveBrowserKey(cwd), page);
           const text = await readPageText(page, Math.min(args.maxLength || 8000, 20000));
           if (onEvent) onEvent({ type: "tool_end", name, result: `${text.length} chars` });
           return `URL: ${page.url()}\n\n${text || "(empty page)"}`;
@@ -2197,9 +2215,9 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
       case "browser_screenshot": {
         if (onEvent) onEvent({ type: "tool_start", name, args: {} });
         try {
-          const page = await getBrowserPage(DATA_HOME);
-          trackPage(page);
-          const path = await takeScreenshot(DATA_HOME, page);
+          const page = await getBrowserPage(resolveBrowserKey(cwd));
+          trackPage(resolveBrowserKey(cwd), page);
+          const path = await takeScreenshot(resolveBrowserKey(cwd), page);
           // Vision Phase 3（2026-08-30）：多拍一張 jpeg q80 給 LLM 看（png 留給 IDE Browser tab 人看）
           // 標記由 agent loop 攔截 → 圖進 message；沒 vision 能力時降級為文字提示
           let visionMarker = "";
@@ -2220,8 +2238,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
       case "browser_click": {
         if (onEvent) onEvent({ type: "tool_start", name, args });
         try {
-          const page = await getBrowserPage(DATA_HOME);
-          trackPage(page);
+          const page = await getBrowserPage(resolveBrowserKey(cwd));
+          trackPage(resolveBrowserKey(cwd), page);
           const target = locateTarget(page, args);
           await target.click({ timeout: 10_000 });
           await page.waitForTimeout(600);
@@ -2237,8 +2255,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
       case "browser_type": {
         if (onEvent) onEvent({ type: "tool_start", name, args });
         try {
-          const page = await getBrowserPage(DATA_HOME);
-          trackPage(page);
+          const page = await getBrowserPage(resolveBrowserKey(cwd));
+          trackPage(resolveBrowserKey(cwd), page);
           const input = page.locator(args.selector).first();
           await input.fill(String(args.text), { timeout: 10_000 });
           if (args.submit) await input.press("Enter");
@@ -2250,6 +2268,32 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           const hint = /playwright|Cannot find module/i.test(typeErr?.message || "") ? `\n\n${PLAYWRIGHT_INSTALL_HINT}` : "";
           if (onEvent) onEvent({ type: "tool_error", name, error: typeErr.message });
           return `❌ browser_type failed: ${typeErr.message}${hint}`;
+        }
+      }
+      // 2026-09-12：native select 下拉操作 — selectOption（label 或 value 二選一）
+      case "browser_select": {
+        if (onEvent) onEvent({ type: "tool_start", name, args: `${args.selector} → ${args.label || args.value}` });
+        try {
+          const page = await getBrowserPage(resolveBrowserKey(cwd));
+          trackPage(resolveBrowserKey(cwd), page);
+          const sel = page.locator(args.selector).first();
+          // 列出選項讓 agent 看得到有哪些（沒給 label/value 時直接回清單）
+          if (!args.label && !args.value) {
+            const opts = await sel.locator("option").evaluateAll(os => os.map(o => ({ value: o.value, label: o.textContent.trim(), selected: o.selected })));
+            if (onEvent) onEvent({ type: "tool_end", name, result: `${opts.length} options` });
+            return `Options in ${args.selector} (${opts.length}):\n${opts.map(o => `${o.selected ? "*" : " "} [${o.value}] ${o.label}`).join("\n")}\n(call again with label= or value= to select)`;
+          }
+          const choice = args.label !== undefined ? { label: String(args.label) } : { value: String(args.value) };
+          await sel.selectOption(choice, { timeout: 10_000 });
+          await page.waitForTimeout(400);
+          const chosen = await sel.inputValue();
+          const excerpt = (await readPageText(page, 1000)) || "(empty)";
+          if (onEvent) onEvent({ type: "tool_end", name, result: `selected ${chosen}` });
+          return `✅ Selected ${args.label || args.value} in ${args.selector} (current value: ${chosen})\nURL: ${page.url()}\n\n--- Text excerpt ---\n${excerpt.slice(0, 600)}`;
+        } catch (selErr) {
+          const hint = /playwright|Cannot find module/i.test(selErr?.message || "") ? `\n\n${PLAYWRIGHT_INSTALL_HINT}` : "";
+          if (onEvent) onEvent({ type: "tool_error", name, error: selErr.message });
+          return `❌ browser_select failed: ${selErr.message}${hint}`;
         }
       }
 

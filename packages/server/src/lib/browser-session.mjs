@@ -2,12 +2,25 @@
 // 架構對標 Claude Cowork 內建瀏覽器（2026-08-26 發布）：
 //   - Chromium（Playwright），不是使用者的瀏覽器，獨立 profile
 //   - persistent userDataDir → 登入狀態跨重啟保留（cookie 持久化）
-//   - headless、單一 context、所有 agent 共用（v1 簡化）
+//   - headless、每個 instance 一個 context
 //   - Cowork 級共用體驗：CDP Page.startScreencast 下行串流 + 輸入回注（人與 agent 操作同一個 browser）
+//
+// 2026-09-12 多實體（Fleming：兩個 Chrome 視窗各開一個 coding app tab，
+// 分別開發不同 release unit，browser 不能共用實體互相打架）：
+//   - browser instance 以「release unit 路徑」為 key（resolveBrowserKey(ru) → slug）
+//   - 不同 RU → 不同 Chromium instance（獨立 profile/login/分頁/串流）
+//   - 同 RU 的 UI 視窗 + agent tool 操作同一個 instance（人看 agent 操作的閉環不變）
+//   - 沒帶 ru 的呼叫 → "default" instance（沿用舊 browser-profile，登入狀態無縫保留）
+//   - 閒置自動回收：無 viewer 且 30 分鐘無動作 → 關 instance（profile 落盤，重開便宜）
 //
 // 安全邊界：
 //   - 只允許 http/https（block file: / javascript: / data:）
-//   - 截圖存 DATA_HOME/logs/browser/，最新一張固定檔名 latest.png（IDE Browser tab 輪詢用）
+//   - 截圖存 LOG_HOME/browser/（default）或 LOG_HOME/browser/<key>/，最新一張固定檔名 latest.png
+//
+// 2026-09-12 native <select> 下拉（Fleming：下拉式選單不能用）：
+//   - headless screencast 看不到 OS 級 select popup → 注入自訂 in-page dropdown
+//   - 點 <select> 開客製面板（DOM 渲染 → screencast 看得到、點得到、截圖吃得到）
+//   - agent 端另配 browser_select tool（selectOption）
 //
 // 跨平台：Playwright 支援 Windows / macOS / Linux — 統一 channel:"chrome" 操控系統已安裝的 Google Chrome
 //（不再下載自帶 chromium）。找不到系統 Chrome 時工具回覆清楚指引，不炸 server。
@@ -17,19 +30,79 @@ import { join } from "path";
 import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
 import { resolveBrowserChannel } from "./browser-setup.mjs";
 
-let _ctx = null;          // Playwright BrowserContext（singleton）
-let _launching = null;    // 進行中的 launch promise（防併發雙開）
-const _state = {
-  ready: false,
-  available: null,        // null=未檢查, true/false
-  error: null,
-  url: null,
-  title: null,
-  lastActionAt: null,
-  lastScreenshot: null,   // { path, ts }
-};
+// ── Instance key：release unit 路徑 → 安全 slug ──
+export function resolveBrowserKey(ru) {
+  if (!ru || typeof ru !== "string") return "default";
+  const slug = ru.replace(/[\\/:*?"<>|\s]+/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+  return slug || "default";
+}
 
-export function browserState() { return { ..._state, lastActionAt: _state.lastActionAt }; }
+const IDLE_CLOSE_MS = 30 * 60 * 1000; // 30 分鐘無 viewer + 無動作 → 回收 instance
+
+// ══════════════════════════════════════════════════════════════
+// 多實體狀態管理
+// ══════════════════════════════════════════════════════════════
+const _instances = new Map(); // key → instance state bundle
+
+function _newInstance(key) {
+  return {
+    key,
+    ctx: null,          // Playwright BrowserContext
+    launching: null,    // 進行中的 launch promise（防併發雙開）
+    state: {
+      ready: false,
+      available: null,  // null=未檢查, true/false
+      error: null,
+      url: null,
+      title: null,
+      lastActionAt: null,
+      lastScreenshot: null, // { path, ts }
+    },
+    // 多分頁狀態
+    pageSeq: 0,
+    pagesById: new Map(),   // pageId → Page
+    titlesById: new Map(),  // pageId → title（同步快取）
+    activePageRef: null,    // 目前的 active tab
+    dialogs: new Map(),     // dialogId → Dialog（等 UI 回應）
+    dialogSeq: 0,
+    downloads: [],          // 最近 30 筆下載
+    dlSeq: 0,
+    // 串流（per instance — 兩個 Chrome 視窗看不同的 browser）
+    stream: {
+      clients: new Set(),   // SSE res 物件
+      cdp: null,            // CDP session（綁定 castPage）
+      castPage: null,       // 目前串流的 page
+      starting: null,       // 防併發啟動 promise
+      watchdog: null,       // setInterval handle
+      lastFrameAt: 0,       // 廣播節流（≥50ms 一張，≈20fps 上限）
+    },
+    idleTimer: null,
+  };
+}
+
+export function _getInst(key = "default") {
+  let inst = _instances.get(key);
+  if (!inst) { inst = _newInstance(key); _instances.set(key, inst); }
+  return inst;
+}
+
+/** 目錄配置：default 沿用舊路徑（登入狀態/截圖輪詢無縫）；per-RU 用子目錄 */
+function _profileDir(key) {
+  return key === "default" ? join(DATA_HOME, "browser-profile") : join(DATA_HOME, "browser-profile", key);
+}
+export function browserShotDir(key = "default") {
+  return key === "default" ? join(LOG_HOME, "browser") : join(LOG_HOME, "browser", key);
+}
+
+export function browserState(key = "default") {
+  const inst = _instances.get(key);
+  return inst ? { ...inst.state, lastActionAt: inst.state.lastActionAt, key } : { ready: false, available: null, error: null, url: null, title: null, lastActionAt: null, lastScreenshot: null, key };
+}
+
+/** 全部 instance 狀態（管理/debug 用） */
+export function allBrowserStates() {
+  return [..._instances.keys()].map(k => browserState(k));
+}
 
 /** URL 安全檢查：只放行 http/https */
 export function assertSafeUrl(url) {
@@ -41,14 +114,64 @@ export function assertSafeUrl(url) {
   return u.href;
 }
 
-/** 惰性啟動 persistent browser context */
-export async function getBrowserContext(DATA_HOME) {
-  if (_ctx) return _ctx;
-  if (_launching) return _launching;
-  _launching = (async () => {
+// ── native <select> 客製下拉（init script — 每個 page 每次導航注入）──
+// headless 的 OS 級 select popup 不會出現在 screencast/截圖 → 換成 in-page DOM 面板。
+// 只攔 single-select（multiple/size>1 的清單本來就內嵌在頁面裡，正常點擊可操作）。
+const SELECT_DROPDOWN_INIT = `(() => {
+  if (window.__paawSelectDD) return; window.__paawSelectDD = 1;
+  let panel = null;
+  const closePanel = () => { if (panel) { panel.remove(); panel = null; } };
+  const openPanel = (sel) => {
+    closePanel();
+    const rect = sel.getBoundingClientRect();
+    panel = document.createElement("div");
+    panel.setAttribute("data-paaw-select-dd", "1");
+    panel.style.cssText = "position:fixed;z-index:2147483647;background:#fff;border:1px solid #c8c8ce;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);min-width:" + Math.max(120, rect.width) + "px;max-height:240px;overflow-y:auto;overscroll-behavior:contain;font:13px/1.4 system-ui,sans-serif;color:#202124;";
+    const below = rect.bottom + 240 <= window.innerHeight;
+    panel.style.top = (below ? rect.bottom + 4 : Math.max(8, rect.top - 244)) + "px";
+    panel.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - Math.max(120, rect.width) - 8)) + "px";
+    for (const opt of sel.options) {
+      const row = document.createElement("div");
+      row.textContent = opt.textContent || opt.value;
+      row.style.cssText = "padding:7px 14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" + (opt.disabled ? "color:#9aa0a6;cursor:default;" : "");
+      if (opt.selected) row.style.background = "#e8f0fe";
+      row.onmouseenter = () => { if (!opt.disabled) row.style.background = "#f1f3f4"; };
+      row.onmouseleave = () => { row.style.background = opt.selected ? "#e8f0fe" : ""; };
+      row.onmousedown = (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        if (opt.disabled) return;
+        sel.value = opt.value;
+        opt.selected = true;
+        sel.dispatchEvent(new Event("input", { bubbles: true }));
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+        closePanel();
+      };
+      panel.appendChild(row);
+    }
+    document.documentElement.appendChild(panel);
+  };
+  document.addEventListener("mousedown", (ev) => {
+    const t = ev.target;
+    if (panel && !panel.contains(t) && t !== panel) closePanel();
+    if (!(t instanceof HTMLSelectElement)) return;
+    if (t.multiple || t.size > 1) return; // 清單式 multi-select：正常操作即可
+    ev.preventDefault(); ev.stopPropagation(); // 不讓 Chromium 開 OS popup（screencast 看不到）
+    openPanel(t);
+  }, true);
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closePanel(); }, true);
+  window.addEventListener("scroll", closePanel, true);
+  window.addEventListener("resize", closePanel, true);
+})();`;
+
+/** 惰性啟動 persistent browser context（per instance）*/
+export async function getBrowserContext(key = "default", DATA_HOME_ARG) {
+  const inst = _getInst(key);
+  if (inst.ctx) return inst.ctx;
+  if (inst.launching) return inst.launching;
+  inst.launching = (async () => {
     const { chromium } = await import("playwright");
-    const profileDir = join(DATA_HOME, "browser-profile");
-    const shotDir = join(LOG_HOME, "browser");
+    const profileDir = _profileDir(key);
+    const shotDir = browserShotDir(key);
     mkdirSync(profileDir, { recursive: true });
     mkdirSync(shotDir, { recursive: true });
     // channel: "chrome" → 用系統已安裝的 Google Chrome / Chromium，不再下載自帶 chromium
@@ -81,16 +204,21 @@ export async function getBrowserContext(DATA_HOME) {
         mo.observe(document, { childList: true, subtree: false });
       }
     })();`).catch(() => {});
-    ctx.on("close", () => { _ctx = null; _state.ready = false; _pagesById.clear(); _titlesById.clear(); _activePageRef = null; });
+    // 2026-09-12：native select 客製下拉（screencast 看得到、點得到）
+    await ctx.addInitScript(SELECT_DROPDOWN_INIT).catch(() => {});
+    ctx.on("close", () => {
+      inst.ctx = null; inst.state.ready = false;
+      inst.pagesById.clear(); inst.titlesById.clear(); inst.activePageRef = null;
+    });
     ctx.setDefaultTimeout(15_000);
     ctx.setDefaultNavigationTimeout(25_000);
     // 下載：自動存 DATA_HOME/downloads + SSE 廣播（Cowork 級下載管理）
     mkdirSync(join(DATA_HOME, "downloads"), { recursive: true });
     ctx.on("download", async (dl) => {
-      const entry = { id: String(++_dlSeq), filename: dl.suggestedFilename() || `download-${Date.now()}`, state: "saving", path: null, ts: Date.now() };
-      _downloads.unshift(entry);
-      if (_downloads.length > 30) _downloads.pop();
-      broadcastToStream({ type: "download", ...entry });
+      const entry = { id: String(++inst.dlSeq), filename: dl.suggestedFilename() || `download-${Date.now()}`, state: "saving", path: null, ts: Date.now() };
+      inst.downloads.unshift(entry);
+      if (inst.downloads.length > 30) inst.downloads.pop();
+      broadcastToStream(inst, { type: "download", ...entry });
       try {
         const safe = entry.filename.replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
         const path = join(DATA_HOME, "downloads", `${Date.now()}-${safe}`);
@@ -100,55 +228,71 @@ export async function getBrowserContext(DATA_HOME) {
       } catch (e) {
         entry.state = "failed";
       }
-      broadcastToStream({ type: "download", ...entry });
+      broadcastToStream(inst, { type: "download", ...entry });
     });
-    // popup（target=_blank、window.open）→ 白動 wire + 切成 active（Chrome 行為：新分頁自動跳過去）
+    // popup（target=_blank、window.open）→ 自動 wire + 切成 active（Chrome 行為：新分頁自動跳過去）
     ctx.on("page", (p) => {
-      _wirePage(p);
-      _activePageRef = p;
-      broadcastTabs();
-      ensureScreencast().then(() => kickScreencast()).catch(() => {});
+      _wirePage(inst, p);
+      inst.activePageRef = p;
+      broadcastTabs(inst);
+      ensureScreencast(inst).then(() => kickScreencast(inst)).catch(() => {});
     });
     // 既有分頁（persistent profile 回復）全部 wire
-    for (const p of ctx.pages()) _wirePage(p);
-    _ctx = ctx;
-    _state.ready = true;
-    _state.available = true;
-    _state.error = null;
+    for (const p of ctx.pages()) _wirePage(inst, p);
+    inst.ctx = ctx;
+    inst.state.ready = true;
+    inst.state.available = true;
+    inst.state.error = null;
+    _armIdleClose(inst);
     return ctx;
   })().catch(err => {
-    _state.available = false;
-    _state.error = err?.message || String(err);
-    _launching = null;
+    inst.state.available = false;
+    inst.state.error = err?.message || String(err);
+    inst.launching = null;
     throw err;
   });
-  return _launching;
+  return inst.launching;
+}
+
+// ── 閒置回收：無 viewer + 30 分鐘無動作 → 關 context（profile 落盤保留）──
+function _armIdleClose(inst) {
+  if (inst.idleTimer) clearInterval(inst.idleTimer);
+  inst.idleTimer = setInterval(() => {
+    if (inst.stream.clients.size > 0) return; // 有人看就留著
+    const last = Math.max(inst.state.lastActionAt || 0, ...[...inst.downloads.map(d => d.ts || 0), 0]);
+    if (Date.now() - last < IDLE_CLOSE_MS) return;
+    clearInterval(inst.idleTimer); inst.idleTimer = null;
+    try { inst.ctx?.close(); } catch {}
+    _instances.delete(inst.key);
+  }, 60_000).unref?.();
 }
 
 /** 取得目前 active page（沒有就開新分頁）— 所有 tool/route/input 都操作 active tab */
-export async function getBrowserPage(DATA_HOME) {
-  const ctx = await getBrowserContext(DATA_HOME);
-  let page = _resolveActive();
+export async function getBrowserPage(key = "default", DATA_HOME_ARG) {
+  const inst = _getInst(key);
+  const ctx = await getBrowserContext(key);
+  let page = _resolveActive(inst);
   if (!page) page = await ctx.newPage();
-  return _wirePage(page);
+  return _wirePage(inst, page);
 }
 
-/** 截圖：存時間戳檔 + 覆蓋 latest.png（IDE 輪詢用）*/
-export async function takeScreenshot(DATA_HOME, page) {
-  const shotDir = join(LOG_HOME, "browser");
+/** 截圖：存時間戳檔 + 覆蓋 latest.png（IDE 輪詢用；per-instance 目錄）*/
+export async function takeScreenshot(key = "default", page) {
+  const shotDir = browserShotDir(key);
   mkdirSync(shotDir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
+  const inst = _getInst(key);
   const path = join(shotDir, `shot-${ts}.png`);
   await page.screenshot({ path, fullPage: false });
   const { copyFileSync } = await import("fs");
   try { copyFileSync(path, join(shotDir, "latest.png")); } catch { /* best effort */ }
-  _state.lastScreenshot = { path: path.split(/[\\/]/).join("/"), ts: Date.now() };
+  inst.state.lastScreenshot = { path: path.split(/[\\/]/).join("/"), ts: Date.now() };
   try { pruneBrowserShots(shotDir, 40); } catch { /* 清理失敗不影響截圖 */ }
-  return _state.lastScreenshot.path;
+  return inst.state.lastScreenshot.path;
 }
 
 /**
- * 磁碟清理（Vision Phase 4，2026-08-30）：data/logs/browser 只留最新 keep 張
+ * 磁碟清理（Vision Phase 4，2026-08-30）：只留最新 keep 張
  * — latest.png 永遠保留（IDE 輪詢用）；每次截圖順手清（純函數可單測）
  * @returns {{ removed: number, kept: number }}
  */
@@ -172,12 +316,13 @@ export function pruneBrowserShots(shotDir, keep = 40) {
 }
 
 /** 更新狀態（每次動作後呼叫）*/
-export function trackPage(page) {
+export function trackPage(key = "default", page) {
+  const inst = _getInst(key);
   const upd = () => {
-    _state.url = page.url();
-    _state.title = null;
-    page.title().then(t => { _state.title = t; }).catch(() => {});
-    _state.lastActionAt = Date.now();
+    inst.state.url = page.url();
+    inst.state.title = null;
+    page.title().then(t => { inst.state.title = t; }).catch(() => {});
+    inst.state.lastActionAt = Date.now();
   };
   page.on("framenavigated", upd);
   upd();
@@ -199,10 +344,12 @@ export function locateTarget(page, { selector, text }) {
 }
 
 /** 安裝 chromium 元件後重置「未安裝」狀態（UI 不再顯示未安裝；下次操作 lazy 重啟） */
-export function resetBrowserAvailability() {
-  if (!_ctx && _state.available === false) {
-    _state.available = null;
-    _state.error = null;
+export function resetBrowserAvailability(key = "default") {
+  const inst = _instances.get(key);
+  if (!inst) return;
+  if (!inst.ctx && inst.state.available === false) {
+    inst.state.available = null;
+    inst.state.error = null;
   }
 }
 
@@ -218,188 +365,187 @@ export const PLAYWRIGHT_INSTALL_HINT =
   "裝好後重試即可，Server 不用重啟（lazy load）。" + (process.platform === "linux" ? "\n\n（Linux 若缺系統依賴：sudo npx playwright install-deps chromium）" : "");
 
 // ══════════════════════════════════════════════════════════════
-// Cowork 級共用串流 — CDP screencast 下行 + 輸入回注上行
+// Cowork 級共用串流 — CDP screencast 下行 + 輸入回注上行（per instance）
 //
 // 下行：Page.startScreencast → Page.screencastFrame 事件（base64 JPEG + viewport metadata）
-//       → SSE 廣播給所有 viewer（IDE 共用模式）。ack 是 CDP 原生 flow control。
+//       → SSE 廣播給該 instance 的所有 viewer。ack 是 CDP 原生 flow control。
 // 上行：POST /api/browser/input → page.mouse / page.keyboard 回注（點擊/滾輪/按鍵/IME 文字）
 // 生命週期：第一個 SSE client 連上才開串流；全部斷線就停（headless 無人看不必耗資源）。
 //          watchdog 每 2s 確認 page 身分 — agent 換頁/關頁自動重綁 CDP。
 // ══════════════════════════════════════════════════════════════
-// 每個 page 專用的 CDP session（wheel 回注用 — WeakMap 隨 page 回收）
-const _cdpByPage = new WeakMap();
 
-// ── 多分頁狀態（Cowork 級 tab 管理）──
-let _pageSeq = 0;
-const _pagesById = new Map();     // pageId → Page
-const _titlesById = new Map();     // pageId → title（同步快取，title() 是 async）
-let _activePageRef = null;         // 目前的 active tab
-const _dialogs = new Map();       // dialogId → Dialog（等 UI 回應）
-let _dialogSeq = 0;
-const _downloads = [];            // 最近 30 筆下載
-let _dlSeq = 0;
-
-function _resolveActive() {
-  if (_activePageRef && !_activePageRef.isClosed()) return _activePageRef;
-  const open = [..._pagesById.values()].filter(p => !p.isClosed());
-  _activePageRef = open[0] || null;
-  return _activePageRef;
+function _resolveActive(inst) {
+  if (inst.activePageRef && !inst.activePageRef.isClosed()) return inst.activePageRef;
+  const open = [...inst.pagesById.values()].filter(p => !p.isClosed());
+  inst.activePageRef = open[0] || null;
+  return inst.activePageRef;
 }
 
 /** wire 一個 page：id、tab 狀態廣播、dialog、關閉清理。全部 page 都要過這個 */
-function _wirePage(page) {
+function _wirePage(inst, page) {
   if (!page || page.isClosed() || page.__paawWired) return page;
   page.__paawWired = true;
-  page.__paawId = String(++_pageSeq);
-  _pagesById.set(page.__paawId, page);
+  page.__paawId = String(++inst.pageSeq);
+  inst.pagesById.set(page.__paawId, page);
   const upd = () => {
-    if (_resolveActive() === page) { _state.url = page.url(); _state.lastActionAt = Date.now(); }
-    page.title().then(t => { _titlesById.set(page.__paawId, t || ""); broadcastTabs(); }).catch(() => {});
-    broadcastTabs();
+    if (_resolveActive(inst) === page) { inst.state.url = page.url(); inst.state.lastActionAt = Date.now(); }
+    page.title().then(t => { inst.titlesById.set(page.__paawId, t || ""); broadcastTabs(inst); }).catch(() => {});
+    broadcastTabs(inst);
   };
   page.on("framenavigated", upd);
   page.on("close", () => {
-    _pagesById.delete(page.__paawId);
-    _titlesById.delete(page.__paawId);
-    broadcastTabs();
+    inst.pagesById.delete(page.__paawId);
+    inst.titlesById.delete(page.__paawId);
+    broadcastTabs(inst);
   });
   page.on("dialog", (dlg) => {
-    const id = String(++_dialogSeq);
-    _dialogs.set(id, dlg);
+    const id = String(++inst.dialogSeq);
+    inst.dialogs.set(id, dlg);
     try {
-      broadcastToStream({ type: "dialog", id, kind: dlg.type(), message: dlg.message(), defaultValue: dlg.defaultValue() || "" });
+      broadcastToStream(inst, { type: "dialog", id, kind: dlg.type(), message: dlg.message(), defaultValue: dlg.defaultValue() || "" });
     } catch {}
   });
   upd();
   return page;
 }
 
-function broadcastTabs() {
-  broadcastToStream({ type: "tabs", ...browserTabs() });
+function broadcastTabs(inst) {
+  broadcastToStream(inst, { type: "tabs", ...browserTabs(inst.key) });
 }
 
-export function browserTabs() {
-  const active = _resolveActive();
-  const tabs = [..._pagesById.entries()]
+export function browserTabs(key = "default") {
+  const inst = _instances.get(key);
+  if (!inst) return { tabs: [], activeId: null };
+  const active = _resolveActive(inst);
+  const tabs = [...inst.pagesById.entries()]
     .filter(([, p]) => !p.isClosed())
-    .map(([id, p]) => ({ id, url: p.url(), title: _titlesById.get(id) || "" }));
+    .map(([id, p]) => ({ id, url: p.url(), title: inst.titlesById.get(id) || "" }));
   return { tabs, activeId: active ? active.__paawId : null };
 }
 
-export async function browserNewTab(DATA_HOME, url) {
-  const ctx = await getBrowserContext(DATA_HOME);
-  const page = _wirePage(await ctx.newPage());
-  _activePageRef = page;
+export async function browserNewTab(key = "default", url) {
+  const inst = _getInst(key);
+  const ctx = await getBrowserContext(key);
+  const page = _wirePage(inst, await ctx.newPage());
+  inst.activePageRef = page;
   if (url) {
     assertSafeUrl(url);
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 });
   }
-  await ensureScreencast().then(() => kickScreencast()).catch(() => {});
-  broadcastTabs();
+  await ensureScreencast(inst).then(() => kickScreencast(inst)).catch(() => {});
+  broadcastTabs(inst);
   return { id: page.__paawId, url: page.url() };
 }
 
-export async function browserSwitchTab(id) {
-  const page = _pagesById.get(String(id));
+export async function browserSwitchTab(key = "default", id) {
+  const inst = _instances.get(key) || _getInst(key);
+  const page = inst.pagesById.get(String(id));
   if (!page || page.isClosed()) throw new Error(`tab not found: ${id}`);
-  _activePageRef = page;
-  _state.url = page.url();
-  await ensureScreencast().then(() => kickScreencast()).catch(() => {});
-  broadcastTabs();
-  return browserTabs();
+  inst.activePageRef = page;
+  inst.state.url = page.url();
+  await ensureScreencast(inst).then(() => kickScreencast(inst)).catch(() => {});
+  broadcastTabs(inst);
+  return browserTabs(key);
 }
 
-export async function browserCloseTab(DATA_HOME, id) {
-  const page = _pagesById.get(String(id));
+export async function browserCloseTab(key = "default", id) {
+  const inst = _instances.get(key) || _getInst(key);
+  const page = inst.pagesById.get(String(id));
   if (!page || page.isClosed()) throw new Error(`tab not found: ${id}`);
-  const wasActive = _resolveActive() === page;
-  if (_pagesById.size <= 1) throw new Error("不能關最後一個分頁（瀏覽器至少保留一頁）");
+  const wasActive = _resolveActive(inst) === page;
+  if (inst.pagesById.size <= 1) throw new Error("不能關最後一個分頁（瀏覽器至少保留一頁）");
   await page.close();
   if (wasActive) {
-    _activePageRef = null;
-    await getBrowserPage(DATA_HOME); // 解出下一個 active 並確保 screencast 重綁
-    await ensureScreencast().then(() => kickScreencast()).catch(() => {});
+    inst.activePageRef = null;
+    await getBrowserPage(key); // 解出下一個 active 並確保 screencast 重綁
+    const cur = _resolveActive(inst);
+    if (cur) await ensureScreencast(inst).then(() => kickScreencast(inst)).catch(() => {});
   }
-  broadcastTabs();
-  return browserTabs();
+  broadcastTabs(inst);
+  return browserTabs(key);
 }
 
 /** 導航控制：back / forward / reload */
-export async function browserNavAction(action) {
-  const page = await getBrowserPage(DATA_HOME);
+export async function browserNavAction(key = "default", action) {
+  const page = await getBrowserPage(key);
   const opts = { waitUntil: "domcontentloaded", timeout: 20000 };
   if (action === "back") await page.goBack(opts).catch(e => { if (!/timed out/i.test(String(e))) throw e; });
   else if (action === "forward") await page.goForward(opts).catch(e => { if (!/timed out/i.test(String(e))) throw e; });
   else if (action === "reload") await page.reload(opts).catch(e => { if (!/timed out/i.test(String(e))) throw e; });
   else throw new Error(`Unknown nav action: ${action}`);
-  await takeScreenshot(DATA_HOME, page).catch(() => {});
-  await kickScreencast().catch(() => {});
+  await takeScreenshot(key, page).catch(() => {});
+  const inst = _instances.get(key);
+  if (inst) await kickScreencast(inst).catch(() => {});
   return { url: page.url() };
 }
 
-export function browserDownloads() { return _downloads.map(d => ({ ...d })); }
+export function browserDownloads(key = "default") {
+  const inst = _instances.get(key);
+  return inst ? inst.downloads.map(d => ({ ...d })) : [];
+}
 
-export async function browserHandleDialog(id, action, text) {
-  const dlg = _dialogs.get(String(id));
+export async function browserHandleDialog(key = "default", id, action, text) {
+  const inst = _instances.get(key) || _getInst(key);
+  const dlg = inst.dialogs.get(String(id));
   if (!dlg) throw new Error(`dialog not found: ${id}`);
-  _dialogs.delete(String(id));
+  inst.dialogs.delete(String(id));
   if (action === "accept") await dlg.accept(text || undefined).catch(() => {});
   else await dlg.dismiss().catch(() => {});
-  broadcastToStream({ type: "dialog", id: String(id), closed: true });
+  broadcastToStream(inst, { type: "dialog", id: String(id), closed: true });
   return { ok: true };
 }
 
-const _stream = {
-  clients: new Set(),      // SSE res 物件
-  cdp: null,               // CDP session（綁定 _castPage）
-  castPage: null,          // 目前串流的 page
-  starting: null,          // 防併發啟動 promise
-  watchdog: null,          // setInterval handle
-  lastFrameAt: 0,          // 廣播節流（≥50ms 一張，≈20fps 上限）
-};
-
-export function streamClientCount() { return _stream.clients.size; }
+export function streamClientCount() {
+  let n = 0;
+  for (const inst of _instances.values()) n += inst.stream.clients.size;
+  return n;
+}
 
 /** SSE client 上線 — 有 viewer 才開串流；馬上 kick 一張畫面給新 viewer */
-export function attachStreamClient(res) {
-  _stream.clients.add(res);
-  _ensureWatchdog();
-  ensureScreencast().then(() => kickScreencast()).catch(() => {});
-  broadcastTabs(); // 新 viewer 馬上拿到分頁快照
+export function attachStreamClient(key = "default", res) {
+  const inst = _getInst(key);
+  inst.stream.clients.add(res);
+  _ensureWatchdog(inst);
+  ensureScreencast(inst).then(() => kickScreencast(inst)).catch(() => {});
+  broadcastTabs(inst); // 新 viewer 馬上拿到分頁快照
 }
 
 /** SSE client 離線 — 最後一個斷線就停串流 */
-export function detachStreamClient(res) {
-  _stream.clients.delete(res);
-  if (_stream.clients.size === 0) stopScreencast();
+export function detachStreamClient(key = "default", res) {
+  const inst = _instances.get(key);
+  if (!inst) return;
+  inst.stream.clients.delete(res);
+  if (inst.stream.clients.size === 0) stopScreencast(inst);
 }
 
-/** 廣播 payload 給所有 SSE client（斷線的自動剔除）*/
-export function broadcastToStream(payload) {
-  for (const res of _stream.clients) {
+/** 廣播 payload 給該 instance 的所有 SSE client（斷線的自動剔除）*/
+export function broadcastToStream(instOrKey, payload) {
+  const inst = typeof instOrKey === "string" ? _instances.get(instOrKey) : instOrKey;
+  if (!inst) return;
+  for (const res of inst.stream.clients) {
     try {
       res.write(`data: ${JSON.stringify(payload)}\n\n`);
       if (typeof res.flush === "function") res.flush();
     } catch {
-      _stream.clients.delete(res);
+      inst.stream.clients.delete(res);
     }
   }
 }
 
 /** 確保 screencast 綁在「目前」page 上（page 換了/關了就重綁）*/
-export async function ensureScreencast() {
-  const page = await getBrowserPage(DATA_HOME);
-  trackPage(page);
-  if (_stream.cdp && _stream.castPage === page && !page.isClosed()) return; // 已綁定
-  if (_stream.starting) return _stream.starting;
-  _stream.starting = (async () => {
-    if (_stream.cdp) { try { await _stream.cdp.detach(); } catch {} _stream.cdp = null; }
+export async function ensureScreencast(inst) {
+  const page = await getBrowserPage(inst.key);
+  trackPage(inst.key, page);
+  if (inst.stream.cdp && inst.stream.castPage === page && !page.isClosed()) return; // 已綁定
+  if (inst.stream.starting) return inst.stream.starting;
+  inst.stream.starting = (async () => {
+    if (inst.stream.cdp) { try { await inst.stream.cdp.detach(); } catch {} inst.stream.cdp = null; }
     const cdp = await page.context().newCDPSession(page);
     cdp.on("Page.screencastFrame", async (ev) => {
       const { data, metadata = {}, sessionId } = ev;
       const now = Date.now();
-      if (now - _stream.lastFrameAt >= 50) { // 廣播節流；ack 永遠送（flow control）
-        _stream.lastFrameAt = now;
+      if (now - inst.stream.lastFrameAt >= 50) { // 廣播節流；ack 永遠送（flow control）
+        inst.stream.lastFrameAt = now;
         // 附上 document 層 scroll 狀態（headless Chrome overlay scrollbar 在 screencast 圖裡看不見 → UI 畫自訂 scrollbar）
         // 2026-09-04：加 hScroll 水平捲動狀態 — UI 畫水平捲軸
         let scroll = { top: 0, max: 0, h: 0, left: 0, maxX: 0, w: 0 };
@@ -414,7 +560,7 @@ export async function ensureScreencast() {
             return { top: p, max: Math.max(0, sh - ch), h: ch, left: lp, maxX: Math.max(0, sw - cw), w: cw };
           }).catch(() => scroll);
         } catch {}
-        broadcastToStream({
+        broadcastToStream(inst, {
           type: "frame",
           jpeg: data,
           w: metadata.deviceWidth || 1280,
@@ -432,52 +578,53 @@ export async function ensureScreencast() {
       maxHeight: 800,
       everyNthFrame: 1,
     });
-    _stream.cdp = cdp;
-    _stream.castPage = page;
+    inst.stream.cdp = cdp;
+    inst.stream.castPage = page;
   })().catch(err => {
-    _stream.starting = null;
+    inst.stream.starting = null;
     throw err;
   });
-  return _stream.starting;
+  return inst.stream.starting;
 }
 
 /** 強制重發一張畫面（新 viewer 連上 / 導航後用；CDP 重發 start 會立即產生一張 frame）*/
-export async function kickScreencast() {
-  if (!_stream.cdp) return;
+export async function kickScreencast(instOrKey) {
+  const inst = typeof instOrKey === "string" ? _instances.get(instOrKey) : instOrKey;
+  if (!inst || !inst.stream.cdp) return;
   try {
-    await _stream.cdp.send("Page.startScreencast", {
+    await inst.stream.cdp.send("Page.startScreencast", {
       format: "jpeg", quality: 70, maxWidth: 1280, maxHeight: 800, everyNthFrame: 1,
     });
   } catch {}
 }
 
-function _ensureWatchdog() {
-  if (_stream.watchdog) return;
-  _stream.watchdog = setInterval(() => {
-    if (_stream.clients.size === 0) return; // stopScreencast 會清
-    ensureScreencast().catch(() => {}); // page 換了自動重綁
+function _ensureWatchdog(inst) {
+  if (inst.stream.watchdog) return;
+  inst.stream.watchdog = setInterval(() => {
+    if (inst.stream.clients.size === 0) return; // stopScreencast 會清
+    ensureScreencast(inst).catch(() => {}); // page 換了自動重綁
   }, 2000);
 }
 
-function stopScreencast() {
-  if (_stream.watchdog) { clearInterval(_stream.watchdog); _stream.watchdog = null; }
-  const cdp = _stream.cdp;
-  _stream.cdp = null;
-  _stream.castPage = null;
-  _stream.starting = null;
+function stopScreencast(inst) {
+  if (inst.stream.watchdog) { clearInterval(inst.stream.watchdog); inst.stream.watchdog = null; }
+  const cdp = inst.stream.cdp;
+  inst.stream.cdp = null;
+  inst.stream.castPage = null;
+  inst.stream.starting = null;
   if (cdp) {
     cdp.send("Page.stopScreencast", {}).catch(() => {});
     cdp.detach().catch(() => {});
   }
 }
 
-// ── 輸入回注（人的滑鼠/鍵盤 → agent 的 browser）──
+// ── 輸入回注（人的滑鼠/鍵盤 → agent 的 browser；per instance）──
 const _BUTTON_MAP = { 0: "left", 1: "middle", 2: "right" };
 
-export async function applyBrowserInput(evt) {
+export async function applyBrowserInput(key = "default", evt) {
   if (!evt || typeof evt.type !== "string") throw new Error("input event requires `type`");
-  const page = await getBrowserPage(DATA_HOME);
-  trackPage(page);
+  const page = await getBrowserPage(key);
+  trackPage(key, page);
   const mods = [];
   if (evt.modifiers?.alt) mods.push("Alt");
   if (evt.modifiers?.ctrl) mods.push("Control");
@@ -534,5 +681,6 @@ export async function applyBrowserInput(evt) {
     default:
       throw new Error(`Unknown input type: ${evt.type}`);
   }
-  _state.lastActionAt = Date.now();
+  const inst = _instances.get(key);
+  if (inst) inst.state.lastActionAt = Date.now();
 }

@@ -3071,7 +3071,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
             {/* === GIT PANEL (New Component) === */}
             {activeMainTab?.type === "browser" && (
               <div className="absolute inset-0 flex flex-col overflow-hidden">
-                <BrowserPanel API_BASE={API_BASE} />
+                <BrowserPanel API_BASE={API_BASE} rootPath={rootPath} />
               </div>
             )}
             {activeMainTab?.type === "git" && (
@@ -3569,7 +3569,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 <div className="flex-1 flex min-h-0 min-w-0">
                 {chatBrowserOpen && isCrewActive && (
                   <div className="flex-1 flex flex-col min-h-0 min-w-0">
-                    <BrowserPanel API_BASE={API_BASE} />
+                    <BrowserPanel API_BASE={API_BASE} rootPath={rootPath} />
                   </div>
                 )}
                 <div
