@@ -560,7 +560,6 @@ export default function CodingIDE() {
   const [crewLoading, setCrewLoading] = useState<Record<string, boolean>>({}); // crewId → chatLoading
   const domainAbortRef = useRef<AbortController | null>(null); // abort for domain AI (spec/test/bug/docs/maintain)
   const [crewAgentRunning, setCrewAgentRunning] = useState<Record<string, boolean>>({}); // crewId → agentRunning
-  const pendingAssignRef = useRef<{ crewId: string; text: string } | null>(null); // 指派待送：切到目標 crew + 輸入就位後自動 Enter（2026-09-12）
   const [crewAgentAction, setCrewAgentAction] = useState<Record<string, string>>({}); // crewId → agentAction
   const [crewAgentToolLog, setCrewAgentToolLog] = useState<Record<string, Array<{name: string; args: string; result: string}>>>({}); // crewId → toolLog
   const chatLoading = activeCrew ? !!crewLoading[activeCrew] : false;
@@ -1969,18 +1968,6 @@ const sendChat = useCallback(async () => {
     }
   }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent, codingModel, activeCrew, pendingImages]);
 
-  // ── 指派給 Agent：自動送出（2026-09-12 Fleming：貼到輸入框 + 自動 Enter，等同親手操作）──
-  // 為什麼不直接呼叫 sendChat：assignToAgent 裡 setActiveCrew/setChatInput 是異步 — 直接呼叫會讀到舊 crew/舊輸入。
-  // pendingAssignRef 等 crew 切換 + 輸入框就位（同一 render batch 提交後）才觸發，走的完全是正常送出那一條路。
-  useEffect(() => {
-    const p = pendingAssignRef.current;
-    if (!p || activeCrew !== p.crewId) return;
-    if (chatInput.trim() !== p.text.trim()) return; // 輸入框尚未就位（或中途被清）
-    pendingAssignRef.current = null;
-    if (chatLoading || agentRunning) return; // 競態：剛忙起來 → 文字留在輸入框，人看得到 busy 自行決定
-    sendChat();
-  }, [activeCrew, chatInput, chatLoading, agentRunning, sendChat]);
-
   // 追蹤使用者是否在底部附近：串流中只在使用者没往上翻時跟底（onScroll 在容器 div 上）
 
   // 跟底捲動：新訊息 smooth；串流內容成長 instant（smooth 被 chunk 打斷重啟 → 抖動）
@@ -2053,8 +2040,7 @@ const sendChat = useCallback(async () => {
     // 2. 忙 → 只跳頁不貼內容（人看到 busy 狀態自己決定；舊行為是照樣塞訊息+開 A2A — 兩條並行很亂）
     if (crewAgentRunning[targetCrew.id] || crewLoading[targetCrew.id]) return;
 
-    // 3. 閒 → 文字貼進輸入框 + 自動 Enter（pendingAssign effect 等狀態就位後走 sendChat，跟親手送出同一條路）
-    pendingAssignRef.current = { crewId: targetCrew.id, text: quotedContent };
+    // 3. 閒 → 文字貼進輸入框就好，不按 Enter — 人自己補字/按下送出（2026-09-12 Fleming：可能要多加文字）
     setChatInput(quotedContent);
   }, [codingCrews, crewAgentRunning, crewLoading, openMainTab]);
 
