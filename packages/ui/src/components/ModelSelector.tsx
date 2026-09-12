@@ -92,11 +92,27 @@ export async function saveModelForFeature(feature: string, value: string) {
   } catch {}
 }
 
-/** 解析 value → { providerId, modelId } */
+/** 解析 value → { providerId, modelId }
+ *  2026-09-12 fix：model id 本身可能含 "/"（如 anthropic/opus4.6、z-ai/glm-5.1）。
+ *  舊邏輯 value.split("/", 2) 在 JS 會「截斷」後段（不是 Python 的保留）→
+ *  "anthropic/anthropic/opus4.6" 被解析成 modelId="anthropic"，下拉全比對不到、
+ *  ✓ 落到 custom row（文字剛好是 group name，看起來像打勾在 group name 上）。
+ *  改跟 server（coding.mjs / paaw-agent-loop.mjs）同邏輯：第一段是已知 provider
+ *  才剝 prefix，其餘整串當 model id；並優先採「能對上實際 model 條目」的解釋。 */
 function parseValue(value: string): { providerId: string; modelId: string } {
-  if (value.includes("/")) {
-    const [pid, mid] = value.split("/", 2);
-    return { providerId: pid, modelId: mid };
+  const slash = value.indexOf("/");
+  if (slash > 0) {
+    const pid = value.slice(0, slash);
+    const rest = value.slice(slash + 1);
+    const provider = providersCache.find(p => p.id === pid);
+    if (provider) {
+      if (provider.models.some(m => m.id === rest)) return { providerId: pid, modelId: rest };
+      // model id 自帶 provider prefix（如 "anthropic/opus4.6" 整串就是 model id）
+      if (provider.models.some(m => m.id === value)) return { providerId: pid, modelId: value };
+      return { providerId: pid, modelId: rest }; // custom model（provider 已知、model 不在清單）
+    }
+    // 第一段不是已知 provider → 整串是 model id（e.g. "deepseek/deepseek-v4-flash" 走 active provider）
+    return { providerId: activeProviderCache, modelId: value };
   }
   return { providerId: activeProviderCache, modelId: value };
 }
@@ -196,7 +212,8 @@ export default function ModelSelector({ feature, value, onChange, className, sty
   const { providerId: curPid, modelId: curMid } = parseValue(resolveValidModelWith(providers, value));
 
   const handleSelect = useCallback(async (pid: string, mid: string) => {
-    const v = formatValue(pid, mid);
+    // model id 自帶 provider prefix 時不重複加（"anthropic/opus4.6" 不要存成 "anthropic/anthropic/opus4.6"）
+    const v = mid.startsWith(pid + "/") ? mid : formatValue(pid, mid);
     onChange(v);
     setOpen(false);
     await saveModelForFeature(feature, v);
