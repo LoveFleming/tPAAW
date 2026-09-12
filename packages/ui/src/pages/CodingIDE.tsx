@@ -3501,14 +3501,15 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                       >
                         🔍
                       </button>
-                      {/* New conversation button */}
+                      {/* New conversation button — 2026-09-12 Fleming：參考林雨晴聊天視窗 ＋ icon + theme 色外框（原 ✨ 看不出功能） */}
                       <button
                         onClick={startNewConversation}
                         disabled={chatMessages.length === 0}
-                        className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30 transition-colors"
+                        className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50 disabled:opacity-30"
+                        style={{ borderColor: tk.accentBorder, color: tk.accent }}
                         title="開新對話"
                       >
-                        ✨
+                        ＋
                       </button>
                       <ModelSelector feature={`codingIDE.${activeCrew}`} value={codingModel} onChange={setCodingModel} />
                     </div>
