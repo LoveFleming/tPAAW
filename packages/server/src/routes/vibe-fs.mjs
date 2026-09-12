@@ -180,7 +180,7 @@ export default async function vibeFsRoute(req, res) {
     const mode = params.get("mode") || ""; // "HEAD" = show last commit diff, "staged" = cached
     if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return true; }
     const args = ["diff", "--no-color"];
-    if (commit) { args.push(commit); args.push("^!"); }
+    if (commit) { args.push(`${commit}^!`); } // ⚠️ 2026-09-12 修：commit 和 ^! 必須同一參數（拆明個參數 git 會把 ^! 當獨立 revision → bad revision → 永遠空 diff，commit 點擊從没 work 過）
     else if (mode === "HEAD") { args.push("HEAD~1"); args.push("HEAD"); }
     else if (cached || mode === "staged") args.push("--cached");
     if (file) args.push("--", file);

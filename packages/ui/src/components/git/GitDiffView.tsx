@@ -115,6 +115,10 @@ export default function GitDiffView({
   fmtTime,
   theme,
 }: GitDiffViewProps) {
+  // 2026-09-12：Commits 模式 — working tree 有變更時（幾乎永遠有，.paaw runtime 持續寫檔）
+  // 原本「最近提交」只在 diffText 空時 render，實務上永遠看不到 → 加獨立切換鈕常開
+  const [showCommits, setShowCommits] = useState(false);
+
   // Split diff into categorized groups
   const diffGroups = useMemo(() => splitDiffByCategory(diffText), [diffText]);
 
@@ -166,6 +170,17 @@ export default function GitDiffView({
           >
             Last Commit
           </button>
+          <button
+            onClick={() => setShowCommits(v => !v)}
+            className={cn(
+              "text-xs px-2.5 py-1 rounded-md font-medium transition-all",
+              showCommits
+                ? "bg-stone-700 text-white shadow-sm"
+                : "text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+            )}
+          >
+            📜 Commits
+          </button>
         </div>
 
         <span className="flex-1" />
@@ -190,7 +205,10 @@ export default function GitDiffView({
       </div>
 
       {/* ── Diff Content ── */}
-      {diffText ? (
+      {diffText && diffFile?.startsWith("__commit__") ? (
+        // Commit detail：左檔案 list / 右單檔 diff（2026-09-12 Fleming 要求的格局）
+        <CommitDetailView diffText={diffText} theme={theme} />
+      ) : diffText && !showCommits ? (
         <div className="flex-1 overflow-auto">
           {diffGroups.length > 1 ? (
             // Multiple categories — show grouped
@@ -230,6 +248,135 @@ export default function GitDiffView({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Commit Detail：per-file 拆分（左檔案 list / 右單檔 diff）──
+// 2026-09-12 Fleming：commit 點進去要看左邊檔案、右邊該檔 diff（GitHub/VSCode 風格），取代整包潑文字
+interface CommitFileEntry {
+  path: string;
+  oldPath?: string; // rename 用
+  status: "M" | "A" | "D" | "R";
+  adds: number;
+  dels: number;
+  diffText: string;
+}
+
+function splitDiffByFiles(diffText: string): CommitFileEntry[] {
+  if (!diffText) return [];
+  const lines = diffText.split("\n");
+  const chunks: string[][] = [];
+  let cur: string[] = [];
+  for (const line of lines) {
+    if (line.startsWith("diff --git ")) {
+      if (cur.length) chunks.push(cur);
+      cur = [line];
+    } else {
+      cur.push(line);
+    }
+  }
+  if (cur.length) chunks.push(cur);
+
+  const entries: CommitFileEntry[] = [];
+  for (const chunk of chunks) {
+    const head = chunk[0] || "";
+    const m = head.match(/^diff --git a\/(.+?) b\/(.+)$/);
+    let path = m ? m[2] : head;
+    let oldPath: string | undefined;
+    let status: CommitFileEntry["status"] = "M";
+    let adds = 0, dels = 0;
+    let inHunk = false;
+    for (const line of chunk) {
+      if (line.startsWith("new file mode")) status = "A";
+      else if (line.startsWith("deleted file mode")) status = "D";
+      else if (line.startsWith("rename from ")) {
+        status = "R";
+        oldPath = line.slice("rename from ".length).trim();
+      } else if (line.startsWith("@@ ")) {
+        inHunk = true;
+      } else if (inHunk) {
+        if (line.startsWith("+") && !line.startsWith("+++")) adds++;
+        else if (line.startsWith("-") && !line.startsWith("---")) dels++;
+      }
+    }
+    // rename 的 diff header b/ 可能是新名；path 取 b 側，oldPath 另記
+    entries.push({ path, oldPath, status, adds, dels, diffText: chunk.join("\n") });
+  }
+  return entries;
+}
+
+const STATUS_STYLE: Record<CommitFileEntry["status"], { icon: string; cls: string; title: string }> = {
+  M: { icon: "M", cls: "bg-amber-100 text-amber-600", title: "Modified" },
+  A: { icon: "A", cls: "bg-emerald-100 text-emerald-600", title: "Added" },
+  D: { icon: "D", cls: "bg-red-100 text-red-600", title: "Deleted" },
+  R: { icon: "R", cls: "bg-blue-100 text-blue-600", title: "Renamed" },
+};
+
+function CommitDetailView({ diffText, theme }: { diffText: string; theme: { accent: string; borderLight: string } }) {
+  const files = useMemo(() => splitDiffByFiles(diffText), [diffText]);
+  const [sel, setSel] = useState(0);
+  const selected = files[Math.min(sel, Math.max(0, files.length - 1))];
+
+  if (!files.length) {
+    return <div className="flex-1 flex items-center justify-center text-xs text-stone-400">No changes in this commit</div>;
+  }
+
+  const dirOf = (p: string) => {
+    const i = p.lastIndexOf("/");
+    return i > 0 ? p.slice(0, i + 1) : "";
+  };
+  const baseOf = (p: string) => p.split("/").pop() || p;
+
+  return (
+    <div className="flex-1 flex min-h-0">
+      {/* 左：檔案清單 */}
+      <div className="w-64 shrink-0 flex flex-col min-h-0 border-r" style={{ borderColor: theme.borderLight, backgroundColor: "#fafaf9" }}>
+        <div className="px-3 py-2 text-[11px] font-bold text-stone-500 sticky top-0 bg-[#fafaf9] z-10 border-b shrink-0" style={{ borderColor: theme.borderLight }}>
+          Files changed · {files.length}
+        </div>
+        <div className="flex-1 overflow-auto py-1">
+          {files.map((f, i) => {
+            const st = STATUS_STYLE[f.status];
+            const active = i === (selected ? files.indexOf(selected) : 0);
+            return (
+              <button
+                key={f.path + i}
+                onClick={() => setSel(i)}
+                className={cn(
+                  "w-full text-left px-3 py-1.5 flex items-center gap-2 transition-colors",
+                  active ? "bg-white shadow-sm" : "hover:bg-stone-100/60"
+                )}
+              >
+                <span className={cn("text-[10px] font-mono font-bold w-4 h-4 flex items-center justify-center rounded shrink-0", st.cls)} title={st.title}>{st.icon}</span>
+                <span className="flex-1 min-w-0">
+                  <span className={cn("block text-[11px] truncate font-medium", active ? "text-stone-800" : "text-stone-600")}>{baseOf(f.path)}</span>
+                  <span className="block text-[10px] text-stone-400 truncate">{dirOf(f.path)}</span>
+                </span>
+                <span className="text-[10px] font-mono shrink-0 leading-tight text-right">
+                  {f.adds > 0 && <span className="text-emerald-600">+{f.adds}</span>}
+                  {f.adds > 0 && f.dels > 0 && <br />}
+                  {f.dels > 0 && <span className="text-red-500">−{f.dels}</span>}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {/* 右：選中檔 diff */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {selected && (
+          <>
+            <div className="px-3 py-1.5 text-xs font-mono text-stone-500 border-b shrink-0 flex items-center gap-2" style={{ borderColor: theme.borderLight }}>
+              <span className={cn("text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded", STATUS_STYLE[selected.status].cls)}>{STATUS_STYLE[selected.status].icon}</span>
+              <span className="truncate">{selected.status === "R" && selected.oldPath ? `${selected.oldPath} → ${selected.path}` : selected.path}</span>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <DiffViewer diffText={selected.diffText} />
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
