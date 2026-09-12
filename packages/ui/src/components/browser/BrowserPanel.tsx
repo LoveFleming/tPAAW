@@ -33,7 +33,9 @@ interface CastFrame {
   scroll?: { top: number; max: number; h: number; left?: number; maxX?: number; w?: number }; // document 層 scroll 狀態（UI 畫 scrollbar，含水平）
 }
 
-type Mode = "stream" | "iframe" | "shot";
+type Mode = "stream" | "iframe" | "shot" | "replay";
+
+type ActionEntry = { seq: number; ts: number; actor: "agent" | "human"; kind: string; summary: string; url: string | null; shot: string | null };
 
 interface DlgInfo { id: string; kind: string; message: string; defaultValue: string }
 interface DlInfo { id: string; filename: string; state: string; path: string | null; ts: number }
@@ -90,6 +92,10 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
   const frameRef = useRef<CastFrame | null>(null);
   // ── Cowork 級：dialog / 下載（無分頁 — Fleming：不需要分頁）──
   const [dlgList, setDlgList] = useState<DlgInfo[]>([]);
+  // 🎬 回放（2026-09-12）：agent 在背景操作，人隨時回來看每一步（動作紀錄 + 步驟截圖）
+  const [actions, setActions] = useState<ActionEntry[] | null>(null);
+  const [replayIdx, setReplayIdx] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const [dialogText, setDialogText] = useState("");
   const [downloads, setDownloads] = useState<DlInfo[]>([]);
   // ── 可選元件：偵測系統 Chrome / Chromium（channel: "chrome"，不載自帶 chromium）──
@@ -408,6 +414,28 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
     });
   };
 
+  // 進入回放模式 → 拉一次動作紀錄（拉到最後一步）
+  useEffect(() => {
+    if (mode !== "replay") { setPlaying(false); return; }
+    let alive = true;
+    fetch(withQ(`${API_BASE}/api/browser/actions`)).then(r => r.json())
+      .then(d => { if (!alive) return; const list: ActionEntry[] = d.actions || []; setActions(list); setReplayIdx(Math.max(0, list.length - 1)); })
+      .catch(() => { if (alive) setActions([]); });
+    return () => { alive = false; };
+  }, [mode, ruQ]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 自動播放：每 0.9s 一步，到最後一步停止
+  useEffect(() => {
+    if (mode !== "replay" || !playing || !actions?.length) return;
+    const timer = setInterval(() => {
+      setReplayIdx(prev => {
+        if (prev >= actions.length - 1) { setPlaying(false); return prev; }
+        return prev + 1;
+      });
+    }, 900);
+    return () => clearInterval(timer);
+  }, [mode, playing, actions]);
+
   const dotOk = mode === "stream" ? live : connected;
 
   // ── 導航控制 ──
@@ -491,6 +519,7 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
           {modeBtn("stream", "🔗", "browser.modeStream")}
           {modeBtn("iframe", "🖐", "browser.modeInteractive")}
           {modeBtn("shot", "📸", "browser.modeShot")}
+          {modeBtn("replay", "🎬", "browser.modeReplay")}
           <button
             onClick={grabClipboard}
             title={t("browser.clipboardGet")}
@@ -669,6 +698,82 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
               {t("browser.empty")}
             </div>
           )
+        ) : mode === "replay" ? (
+          <div className="w-full h-full flex flex-col bg-gray-900 min-h-0">
+            {/* 主畫面：目前步驟截圖 */}
+            <div className="flex-1 min-h-0 flex items-center justify-center relative overflow-hidden">
+              {actions && actions.length > 0 && actions[replayIdx]?.shot ? (
+                <img
+                  src={`${API_BASE}/api/browser/shot?${ruQ ? ruQ + "&" : ""}f=${encodeURIComponent(actions[replayIdx].shot!)}`}
+                  alt={`step ${replayIdx + 1}`}
+                  className="max-w-full max-h-full object-contain select-none"
+                  draggable={false}
+                />
+              ) : (
+                <div className="text-center text-gray-400 text-sm leading-relaxed px-6">
+                  <div className="text-4xl mb-3">🎬</div>
+                  {actions === null ? "…" : actions.length > 0 ? t("browser.replayNoShot") : t("browser.replayEmpty")}
+                </div>
+              )}
+              {/* 步驟資訊條 */}
+              {actions && actions.length > 0 && (
+                <div className="absolute top-2 left-2 right-2 flex items-center gap-1.5 pointer-events-none">
+                  <span className="px-2 py-0.5 rounded-full bg-black/70 text-white text-[10px] font-mono shrink-0">
+                    {replayIdx + 1}/{actions.length}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-black/70 text-white text-[11px] truncate">
+                    {actions[replayIdx].actor === "agent" ? "🤖" : "👤"} {actions[replayIdx].kind} · {actions[replayIdx].summary}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-black/70 text-white text-[10px] text-gray-300 shrink-0">
+                    {new Date(actions[replayIdx].ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </span>
+                </div>
+              )}
+            </div>
+            {/* 控制列 + filmstrip */}
+            <div className="border-t border-gray-700 bg-gray-800/60 px-2 py-1.5 shrink-0 flex flex-col gap-1.5 min-h-0">
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => setReplayIdx(i => Math.max(0, i - 1))} disabled={!actions?.length || replayIdx <= 0}
+                  className="text-xs px-2 py-1 rounded-lg bg-gray-700 text-gray-100 hover:bg-gray-600 disabled:opacity-30">◀</button>
+                <button
+                  onClick={() => {
+                    if (!actions?.length) return;
+                    if (!playing && replayIdx >= actions.length - 1) setReplayIdx(0);
+                    setPlaying(p => !p);
+                  }}
+                  className="text-xs px-2.5 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-500">{playing ? "⏸" : "▶"}</button>
+                <button onClick={() => setReplayIdx(i => Math.min((actions?.length || 1) - 1, i + 1))} disabled={!actions?.length || replayIdx >= actions.length - 1}
+                  className="text-xs px-2 py-1 rounded-lg bg-gray-700 text-gray-100 hover:bg-gray-600 disabled:opacity-30">▶|</button>
+                <button
+                  onClick={() => {
+                    setActions(null);
+                    fetch(withQ(`${API_BASE}/api/browser/actions`)).then(r => r.json())
+                      .then(d => { const list: ActionEntry[] = d.actions || []; setActions(list); setReplayIdx(Math.max(0, list.length - 1)); })
+                      .catch(() => setActions([]));
+                  }}
+                  title={t("browser.replayRefresh")}
+                  className="text-xs px-2 py-1 rounded-lg bg-gray-700 text-gray-100 hover:bg-gray-600">🔄</button>
+                <span className="text-[10px] text-gray-400 ml-auto">{t("browser.replayHint")}</span>
+              </div>
+              <div className="flex gap-1 overflow-x-auto pb-1 min-h-0 shrink-0">
+                {actions?.map((a, i) => (
+                  <button
+                    key={a.seq}
+                    onClick={() => { setReplayIdx(i); setPlaying(false); }}
+                    title={`${a.actor === "agent" ? "🤖" : "👤"} ${a.kind} · ${a.summary}`}
+                    className={`relative shrink-0 h-11 w-16 rounded-md overflow-hidden border-2 transition-colors ${i === replayIdx ? "border-blue-500" : "border-gray-600 hover:border-gray-400"}`}
+                  >
+                    {a.shot ? (
+                      <img src={`${API_BASE}/api/browser/shot?${ruQ ? ruQ + "&" : ""}f=${encodeURIComponent(a.shot)}`} alt="" className="w-full h-full object-cover" draggable={false} />
+                    ) : (
+                      <span className="w-full h-full flex items-center justify-center text-base bg-gray-700">{a.actor === "agent" ? "🤖" : "👤"}</span>
+                    )}
+                    <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] truncate px-0.5">{a.kind}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         ) : (
           shotTs ? (
             <img

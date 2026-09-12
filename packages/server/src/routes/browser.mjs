@@ -18,6 +18,7 @@ import {
   attachStreamClient, detachStreamClient, applyBrowserInput, kickScreencast,
   browserTabs, browserNewTab, browserSwitchTab, browserCloseTab, browserNavAction,
   browserDownloads, browserHandleDialog, resolveBrowserKey, browserShotDir,
+  browserActions, recordBrowserAction,
 } from "../lib/browser-session.mjs";
 import { getBrowserSetupStatus } from "../lib/browser-setup.mjs";
 
@@ -60,6 +61,7 @@ export default async function browserRoute(req, res) {
       trackPage(bKey, page);
       await page.goto(target, { waitUntil: "domcontentloaded", timeout: 20000 });
       const shot = await takeScreenshot(bKey, page);
+      recordBrowserAction(bKey, { actor: "human", kind: "navigate", summary: `前往 ${target.slice(0, 120)}`, url: page.url() });
       kickScreencast(bKey); // viewer 立即看到新頁面（best effort，不 await）
       const s = browserState(bKey);
       json(res, 200, { ...s, screenshot: shot });
@@ -146,6 +148,28 @@ export default async function browserRoute(req, res) {
     try { body = JSON.parse(await readBody(req) || "{}"); } catch {}
     try { json(res, 200, await browserHandleDialog(resolveBrowserKey(body.ru || q.get("ru")), body.id, body.action, body.text)); }
     catch (e) { json(res, 400, { error: e.message }); }
+    return true;
+  }
+
+  // ── 操作錄影回放（2026-09-12：agent 在背景操作，人隨時回來看它做了什麼）──
+  // GET /api/browser/actions?ru=&limit= — 時間序動作紀錄（agent 🤖 / 人 👤）
+  if (url === "/api/browser/actions" && method === "GET") {
+    const limit = Math.min(parseInt(q.get("limit") || "100", 10) || 100, 200);
+    json(res, 200, { ok: true, actions: browserActions(key, limit) });
+    return true;
+  }
+  // GET /api/browser/shot?ru=&f=act-0001.png — 取指定步驟截圖（只允許同目錄檔名，防路徑穿越）
+  if (url === "/api/browser/shot" && method === "GET") {
+    const f = q.get("f") || "";
+    if (!/^[\w.-]+\.(png|jpe?g)$/i.test(f) || f.includes("..")) { json(res, 400, { error: "bad file name" }); return true; }
+    const { existsSync: _ex, readFileSync: _rd } = await import("fs");
+    const p = join(browserShotDir(key), f);
+    try {
+      if (!_ex(p)) { json(res, 404, { error: "shot not found" }); return true; }
+      const buf = _rd(p);
+      res.writeHead(200, { "Content-Type": "image/png", "Content-Length": buf.length, "Cache-Control": "public, max-age=3600" });
+      res.end(buf);
+    } catch (e) { json(res, 500, { error: e.message }); }
     return true;
   }
 

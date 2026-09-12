@@ -1263,5 +1263,10 @@
   "janitor.consoleServer": "Server コンソール",
   "janitor.consoleApp": "App コンソール",
   "janitor.consoleAppEmpty": "まだ app 起動記録がありません — Developer に起動を頼むとここに表示されます",
-  "janitor.followTip": "最新出力に自動スクロール"
+  "janitor.followTip": "最新出力に自動スクロール",
+  "browser.modeReplay": "再生モード：エージェントの操作履歴をステップごとに再生（後からでも見られます）",
+  "browser.replayEmpty": "まだ操作履歴がありません\nエージェントがブラウザ操作をするとここに記録されます",
+  "browser.replayNoShot": "このステップにスクリーンショットはありません（読み取りのみなど）",
+  "browser.replayRefresh": "履歴を再読み込み",
+  "browser.replayHint": "🤖 エージェント · 👤 あなた"
 }

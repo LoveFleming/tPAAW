@@ -24,7 +24,7 @@
 //
 // 跨平台：Playwright 支援 Windows / macOS / Linux — 統一 channel:"chrome" 操控系統已安裝的 Google Chrome
 //（不再下載自帶 chromium）。找不到系統 Chrome 時工具回覆清楚指引，不炸 server。
-import { mkdirSync, readdirSync, statSync, rmSync } from "fs";
+import { mkdirSync, readdirSync, statSync, rmSync, readFileSync, writeFileSync, appendFileSync } from "fs";
 import { join } from "path";
 
 import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
@@ -67,6 +67,10 @@ function _newInstance(key) {
     dialogSeq: 0,
     downloads: [],          // 最近 30 筆下載
     dlSeq: 0,
+    // 2026-09-12 操作錄影（Fleming：agent 操作 browser 我看不到 — 分頁 refresh 後什麼都不剩）
+    // 每一步（agent tool / 人的回注）自動記錄 + 截圖，UI 可回放
+    actionLog: [],          // [{seq, ts, actor: "agent"|"human", kind, summary, url, shot}]
+    actionSeq: 0,
     // 串流（per instance — 兩個 Chrome 視窗看不同的 browser）
     stream: {
       clients: new Set(),   // SSE res 物件
@@ -82,8 +86,87 @@ function _newInstance(key) {
 
 export function _getInst(key = "default") {
   let inst = _instances.get(key);
-  if (!inst) { inst = _newInstance(key); _instances.set(key, inst); }
+  if (!inst) { inst = _newInstance(key); _instances.set(key, inst); _loadActionLog(inst); }
   return inst;
+}
+
+// ── 操作錄影：紀錄每一步（agent tool / 人的操作）+ 步驟截圖，UI 可回放 ──
+const ACTION_LOG_MAX = 200;   // 記憶體/檔案保留上限（筆）
+const ACT_SHOT_MAX = 120;     // act-*.png 保留上限（shot-*.png 是即時截圖輪替，另計）
+
+function _actionFile(key) { return join(browserShotDir(key), "actions.jsonl"); }
+
+function _loadActionLog(inst) {
+  try {
+    const raw = readFileSync(_actionFile(inst.key), "utf-8");
+    const lines = raw.split("\n").filter(l => l.trim());
+    const start = Math.max(0, lines.length - ACTION_LOG_MAX);
+    for (const line of lines.slice(start)) {
+      try {
+        const e = JSON.parse(line);
+        inst.actionLog.push(e);
+        if (e.seq > inst.actionSeq) inst.actionSeq = e.seq;
+      } catch {}
+    }
+  } catch { /* 無檔案 = 首次 */ }
+}
+
+/** 記錄一步操作（actor: "agent" | "human"）。shot = 檔名（act-*.png，跟 actions.jsonl 同目錄） */
+export function recordBrowserAction(key = "default", { actor, kind, summary, url, shot }) {
+  const inst = _getInst(key);
+  const entry = {
+    seq: ++inst.actionSeq,
+    ts: Date.now(),
+    actor: actor === "human" ? "human" : "agent",
+    kind: String(kind || "action").slice(0, 24),
+    summary: String(summary || "").slice(0, 200),
+    url: url ? String(url).slice(0, 300) : null,
+    shot: shot ? String(shot).slice(0, 120) : null,
+  };
+  inst.actionLog.push(entry);
+  if (inst.actionLog.length > ACTION_LOG_MAX) inst.actionLog.shift();
+  // 持久化：JSONL append；超過 2x 上限就重寫裁切（小檔同步寫可接受）
+  try {
+    mkdirSync(browserShotDir(key), { recursive: true });
+    const f = _actionFile(key);
+    appendFileSync(f, JSON.stringify(entry) + "\n");
+    if (inst.actionLog.length >= ACTION_LOG_MAX && (inst.actionSeq % 20) === 0) {
+      writeFileSync(f, inst.actionLog.map(e => JSON.stringify(e)).join("\n") + "\n");
+    }
+  } catch { /* 紀錄失敗不影響操作 */ }
+  if (shot) { try { _pruneActShots(browserShotDir(key)); } catch {} }
+  return entry;
+}
+
+/** 回放用：最後 limit 筆（時間序，舊→新） */
+export function browserActions(key = "default", limit = 100) {
+  const inst = _instances.get(key);
+  if (!inst) return [];
+  return inst.actionLog.slice(-Math.min(limit, ACTION_LOG_MAX)).map(e => ({ ...e }));
+}
+
+function _pruneActShots(dir) {
+  let files;
+  try { files = readdirSync(dir); } catch { return; }
+  const acts = files
+    .filter(f => /^act-/.test(f) && /\.png$/i.test(f))
+    .map(f => { let m = 0; try { m = statSync(join(dir, f)).mtimeMs; } catch {} return { f, m }; })
+    .sort((a, b) => b.m - a.m);
+  for (const { f } of acts.slice(ACT_SHOT_MAX)) {
+    try { rmSync(join(dir, f), { force: true }); } catch {}
+  }
+}
+
+/** agent 步驟截圖：存 act-<seq>.png（不進入 shot-* 輪替，回放專用，獨立保留上限） */
+export async function takeActionShot(key = "default", page) {
+  const inst = _getInst(key);
+  const dir = browserShotDir(key);
+  mkdirSync(dir, { recursive: true });
+  const name = `act-${String(inst.actionSeq + 1).padStart(4, "0")}.png`;
+  try {
+    await page.screenshot({ path: join(dir, name) });
+    return name;
+  } catch { return null; }
 }
 
 /** 目錄配置：default 沿用舊路徑（登入狀態/截圖輪詢無縫）；per-RU 用子目錄 */
@@ -683,4 +766,9 @@ export async function applyBrowserInput(key = "default", evt) {
   }
   const inst = _instances.get(key);
   if (inst) inst.state.lastActionAt = Date.now();
+  // 操作錄影：人的操作也記錄（只記有意義的動作；mousemove/mouseup/wheel 太頻繁不記）
+  if (evt.type === "mousedown") recordBrowserAction(key, { actor: "human", kind: "click", summary: `點擊 (${Math.round(evt.x)},${Math.round(evt.y)})`, url: page.url() });
+  else if (evt.type === "contextmenu") recordBrowserAction(key, { actor: "human", kind: "contextmenu", summary: `右鍵 (${Math.round(evt.x)},${Math.round(evt.y)})`, url: page.url() });
+  else if (evt.type === "key") recordBrowserAction(key, { actor: "human", kind: "key", summary: `按鍵 ${evt.key}`, url: page.url() });
+  else if (evt.type === "text") recordBrowserAction(key, { actor: "human", kind: "type", summary: `輸入 "${String(evt.text).slice(0, 60)}"`, url: page.url() });
 }

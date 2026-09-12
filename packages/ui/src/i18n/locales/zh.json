@@ -1263,5 +1263,10 @@
   "janitor.consoleServer": "Server console",
   "janitor.consoleApp": "App console",
   "janitor.consoleAppEmpty": "還沒有 app 啟動記錄 — 叫 Developer 啟動 app 後這裡會顯示",
-  "janitor.followTip": "自動捲到最新輸出"
+  "janitor.followTip": "自動捲到最新輸出",
+  "browser.modeReplay": "回放模式：看 agent 每一步操作紀錄（在背景也能事後回看）",
+  "browser.replayEmpty": "還沒有操作紀錄\nagent 用瀏覽器操作後，這裡會留下每一步（動作 + 截圖）",
+  "browser.replayNoShot": "這一步沒有截圖（例如純讀取）",
+  "browser.replayRefresh": "重新載入紀錄",
+  "browser.replayHint": "🤖 agent · 👤 你"
 }

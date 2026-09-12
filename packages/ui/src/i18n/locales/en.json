@@ -1263,5 +1263,10 @@
   "janitor.consoleServer": "Server console",
   "janitor.consoleApp": "App console",
   "janitor.consoleAppEmpty": "No app run records yet — ask Developer to start the app",
-  "janitor.followTip": "Auto-scroll to latest output"
+  "janitor.followTip": "Auto-scroll to latest output",
+  "browser.modeReplay": "Replay mode: step-by-step record of agent's browser operations (watch anytime)",
+  "browser.replayEmpty": "No recorded actions yet\nEach agent browser step (action + screenshot) will appear here",
+  "browser.replayNoShot": "No screenshot for this step (e.g. read-only)",
+  "browser.replayRefresh": "Reload actions",
+  "browser.replayHint": "🤖 agent · 👤 you"
 }

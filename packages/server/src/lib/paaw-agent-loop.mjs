@@ -45,6 +45,7 @@ import { DATA_HOME, LOG_HOME, logSlug } from "../data-home.mjs";
 import {
   getBrowserPage, takeScreenshot, trackPage, readPageText, locateTarget,
   assertSafeUrl, browserState, PLAYWRIGHT_INSTALL_HINT, resolveBrowserKey,
+  recordBrowserAction, takeActionShot, browserShotDir,
 } from "./browser-session.mjs";
 
 // ── Types ──
@@ -433,7 +434,7 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "browser_navigate",
-      description: "Open a URL in the built-in headless Chromium browser (JS-rendered pages supported, unlike browser_test). Use for reading docs, npm/GitHub pages, or opening the local dev server preview to verify UI you built. Login sessions persist across runs. Returns page title + text excerpt.",
+      description: "Open a URL in the built-in headless Chromium browser (JS-rendered pages supported, unlike browser_test). Use for reading docs, npm/GitHub pages, or opening the local dev server preview to verify UI you built. Login sessions persist across runs. Returns page title + text excerpt. IMPORTANT: this browser is bound to the current release unit — open THE RELEASE UNIT'S own web pages (e.g. its dev server), NEVER the PAAW coding app's own UI. The human watches your steps as recorded replays, so navigate deliberately.",
       parameters: {
         type: "object",
         properties: {
@@ -2190,6 +2191,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           await page.waitForTimeout(args.waitMs ?? 800);
           const title = await page.title().catch(() => "(no title)");
           const excerpt = (await readPageText(page, 1500)) || "(empty page)";
+          const nvShot = await takeActionShot(resolveBrowserKey(cwd), page).catch(() => null);
+          recordBrowserAction(resolveBrowserKey(cwd), { actor: "agent", kind: "navigate", summary: `載入「${title}」`, url: page.url(), shot: nvShot });
           if (onEvent) onEvent({ type: "tool_end", name, result: title });
           return `✅ Loaded: ${title}\nURL: ${page.url()}\n\n--- Text excerpt ---\n${excerpt}\n\nUse browser_read for full content, browser_screenshot for visual capture.`;
         } catch (navErr) {
@@ -2204,6 +2207,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           const page = await getBrowserPage(resolveBrowserKey(cwd));
           trackPage(resolveBrowserKey(cwd), page);
           const text = await readPageText(page, Math.min(args.maxLength || 8000, 20000));
+          recordBrowserAction(resolveBrowserKey(cwd), { actor: "agent", kind: "read", summary: `讀取頁面文字（${text.length} 字）`, url: page.url() });
           if (onEvent) onEvent({ type: "tool_end", name, result: `${text.length} chars` });
           return `URL: ${page.url()}\n\n${text || "(empty page)"}`;
         } catch (readErr) {
@@ -2220,9 +2224,10 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           const path = await takeScreenshot(resolveBrowserKey(cwd), page);
           // Vision Phase 3（2026-08-30）：多拍一張 jpeg q80 給 LLM 看（png 留給 IDE Browser tab 人看）
           // 標記由 agent loop 攔截 → 圖進 message；沒 vision 能力時降級為文字提示
+          recordBrowserAction(resolveBrowserKey(cwd), { actor: "agent", kind: "screenshot", summary: "截圖存證", url: page.url() });
           let visionMarker = "";
           try {
-            const shotDir = join(LOG_HOME, "browser");
+            const shotDir = browserShotDir(resolveBrowserKey(cwd));
             const visionPath = join(shotDir, `shot-${Date.now()}.vision.jpg`);
             await page.screenshot({ path: visionPath, type: "jpeg", quality: 80, fullPage: false });
             visionMarker = `\n[[PAAW_IMAGE:${visionPath.split(/[\\/]/).join("/")}]]`;
@@ -2243,6 +2248,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           const target = locateTarget(page, args);
           await target.click({ timeout: 10_000 });
           await page.waitForTimeout(600);
+          const ckShot = await takeActionShot(resolveBrowserKey(cwd), page).catch(() => null);
+          recordBrowserAction(resolveBrowserKey(cwd), { actor: "agent", kind: "click", summary: `點擊 ${args.selector || JSON.stringify(args.text)}`, url: page.url(), shot: ckShot });
           const excerpt = (await readPageText(page, 1200)) || "(empty)";
           if (onEvent) onEvent({ type: "tool_end", name, result: `clicked @ ${page.url()}` });
           return `✅ Clicked (${args.selector || JSON.stringify(args.text)})\nURL now: ${page.url()}\n\n--- Text excerpt ---\n${excerpt}`;
@@ -2261,6 +2268,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           await input.fill(String(args.text), { timeout: 10_000 });
           if (args.submit) await input.press("Enter");
           await page.waitForTimeout(600);
+          recordBrowserAction(resolveBrowserKey(cwd), { actor: "agent", kind: "type", summary: `輸入 ${args.selector} ← "${String(args.text).slice(0, 40)}"${args.submit ? " +Enter" : ""}`, url: page.url() });
           const excerpt = (await readPageText(page, 1200)) || "(empty)";
           if (onEvent) onEvent({ type: "tool_end", name, result: `typed into ${args.selector}` });
           return `✅ Typed into ${args.selector}${args.submit ? " + Enter" : ""}\nURL now: ${page.url()}\n\n--- Text excerpt ---\n${excerpt}`;
@@ -2287,6 +2295,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           await sel.selectOption(choice, { timeout: 10_000 });
           await page.waitForTimeout(400);
           const chosen = await sel.inputValue();
+          const slShot = await takeActionShot(resolveBrowserKey(cwd), page).catch(() => null);
+          recordBrowserAction(resolveBrowserKey(cwd), { actor: "agent", kind: "select", summary: `下拉選 ${args.label || args.value}`, url: page.url(), shot: slShot });
           const excerpt = (await readPageText(page, 1000)) || "(empty)";
           if (onEvent) onEvent({ type: "tool_end", name, result: `selected ${chosen}` });
           return `✅ Selected ${args.label || args.value} in ${args.selector} (current value: ${chosen})\nURL: ${page.url()}\n\n--- Text excerpt ---\n${excerpt.slice(0, 600)}`;
