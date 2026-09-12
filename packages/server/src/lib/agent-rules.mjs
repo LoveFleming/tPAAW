@@ -21,6 +21,12 @@ export const AGENT_RULES = `
 ### ⚠️ 改碼前必須先 read_file（最重要！）
 不能憑記憶寫碼。System prompt 裡的檔案 Map 是目錄，不是原文。每次都要 read_file 確認結構再改。
 
+### 🆔 ID 命名規則（2026-09-12 定案 — 不可自編格式）
+- Task：TASK-NNN（零補 3 位，遞增）— task_create 自動產生，勿手填
+- Issue：ISS-NNN（零補 3 位，遞增）— project_edit(action="issue_create") 自動產生
+- Test Run：RUN-YYYYMMDD-NNN（日期=當天、NNN=當日序號，例 RUN-20260912-003）— test run 自動產生；引用測試結果（issue 描述、task 驗收、report）一律用這個 ID，不要用「上次測試」「剛剛跑的」這種模糊說法
+- Feature：F{YYYYMMDD}-{NNN}（例 F20260904-001）
+
 ### 📋 專案資訊查詢（優先使用 project_info，不要 read_file .paaw/）
 - project_info(category="context") — PROJECT.md, ARCHITECTURE.md
 - project_info(category="features") — 列出所有 feature

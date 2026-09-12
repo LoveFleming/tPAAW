@@ -232,6 +232,32 @@ export default async function releaseRoutes(req, res, next) {
     return res.json({ running: false, last: readLastTestRun(projectPath), detected: detectTestGroups(projectPath, { includeE2e: true }).map(g => ({ kind: g.kind, runner: g.runner })) });
   }
 
+  // GET test-runs — test run 歷史一覽（2026-09-12：RUN-YYYYMMDD-NNN 命名定案，歷史 runs/ 保 30 筆）
+  if (url === "/api/coding-releases/test-runs" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) {
+      return res.status(400).json({ error: "path required" });
+    }
+    const { readdirSync, readFileSync } = await import("fs");
+    const { join: _join } = await import("path");
+    const dir = _join(projectPath, ".paaw/test-runs/runs");
+    let runs = [];
+    try {
+      runs = readdirSync(dir)
+        .filter(f => /^RUN-\d{8}-\d{3}\.json$/.test(f))
+        .sort()
+        .reverse()
+        .map(f => {
+          try {
+            const r = JSON.parse(readFileSync(_join(dir, f), "utf-8"));
+            return { id: r.id, finishedAt: r.finishedAt, status: r.status, durationMs: r.durationMs, includeE2e: r.includeE2e || false, summary: r.summary, headSha: r.headSha };
+          } catch { return null; }
+        })
+        .filter(Boolean);
+    } catch { /* runs/ 尚未存在 */ }
+    res.json({ ok: true, runs });
+    return true;
+  }
+
   // GET readiness — 上線就緒報告（基準線 = 上次 release 時間；無 release = 首次發布，基準 = first commit）
   // 程式保證事實（diff/feature/api/gates），AI 只負責推理與報告 — No answer without evidence
   if (url === "/api/coding-releases/readiness" && method === "GET") {
@@ -407,6 +433,7 @@ async function lastTestRunSummary(projectPath) {
       } catch { /* git 不可用時不算 stale */ }
     }
     return {
+      runId: rec.id || null, // 2026-09-12：RUN-YYYYMMDD-NNN（ID 命名規則定案，readiness 引用它）
       finishedAt: rec.finishedAt,
       status: rec.status,
       includeE2e: rec.includeE2e || false,

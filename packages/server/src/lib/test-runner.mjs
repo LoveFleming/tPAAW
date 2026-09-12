@@ -312,12 +312,42 @@ const running = new Map(); // projectPath → { startedAt, groups: [...], curren
 
 export function getRunState(projectPath) { return running.get(projectPath) || null; }
 
+
+// ── Run ID（2026-09-12 Fleming：test 和 issue 的 ID 命名規則固定）──
+// Test run：RUN-YYYYMMDD-NNN（例：RUN-20260912-003）— 日期排序直覺 + 當日序號防撞 + 零補 3 位（跟 TASK-NNN / ISS-NNN 一致）
+function nextRunId(projectPath) {
+  const now = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  const ymd = `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`;
+  let max = 0;
+  try {
+    for (const f of readdirSync(join(projectPath, ".paaw/test-runs/runs"))) {
+      const m = /^RUN-(\d{8})-(\d{3})\.json$/.exec(f);
+      if (m && m[1] === ymd) max = Math.max(max, parseInt(m[2], 10));
+    }
+  } catch { /* runs/ 尚未存在 */ }
+  return `RUN-${ymd}-${String(max + 1).padStart(3, "0")}`;
+}
+
+// 歷史保存：runs/RUN-*.json 保最近 30 筆（最舊的自動清）
+function pruneRuns(projectPath, keep = 30) {
+  try {
+    const dir = join(projectPath, ".paaw/test-runs/runs");
+    const files = readdirSync(dir).filter(f => /^RUN-\d{8}-\d{3}\.json$/.test(f)).sort();
+    for (const f of files.slice(0, Math.max(0, files.length - keep))) {
+      try { unlinkSync(join(dir, f)); } catch {}
+    }
+  } catch {}
+}
+
 export async function startTestRun(projectPath, { includeE2e = false } = {}) {
   if (running.has(projectPath)) return { alreadyRunning: true, state: running.get(projectPath) };
   const groups = detectTestGroups(projectPath, { includeE2e });
   if (!groups.length) return { noRunner: true, detected: detectDetectedSummary(projectPath) };
   mkdirSync(join(projectPath, ".paaw/test-runs"), { recursive: true });
-  const state = { startedAt: new Date().toISOString(), groups: groups.map(g => ({ kind: g.kind, runner: g.runner, cmd: g.cmd.join(" "), status: "running" })), currentIdx: 0 };
+  // run ID 開跑時就定（同掃 runs/ 序號，兩處不會重號：並行已被 running 擋下）
+  const runId = nextRunId(projectPath);
+  const state = { id: runId, startedAt: new Date().toISOString(), groups: groups.map(g => ({ kind: g.kind, runner: g.runner, cmd: g.cmd.join(" "), status: "running" })), currentIdx: 0 };
   running.set(projectPath, state);
 
   (async () => {
@@ -347,6 +377,7 @@ export async function startTestRun(projectPath, { includeE2e = false } = {}) {
       }
     }
     const record = {
+      id: runId,
       finishedAt: new Date().toISOString(),
       headSha,
       status: results.some(r => r.status === "fail") ? "fail" : results.every(r => r.status === "error") ? "error" : "pass",
@@ -357,6 +388,10 @@ export async function startTestRun(projectPath, { includeE2e = false } = {}) {
       groups: results,
     };
     writeFileSync(join(projectPath, ".paaw/test-runs/last.json"), JSON.stringify(record, null, 2));
+    // 歷史保存（runs/RUN-*.json，保 30 筆）— last.json 只留最新，歷史靠 runs/ 追溯
+    try { mkdirSync(join(projectPath, ".paaw/test-runs/runs"), { recursive: true }); } catch {}
+    writeFileSync(join(projectPath, `.paaw/test-runs/runs/${runId}.json`), JSON.stringify(record, null, 2));
+    pruneRuns(projectPath);
     state.done = true;
     state.result = record;
     running.delete(projectPath);
