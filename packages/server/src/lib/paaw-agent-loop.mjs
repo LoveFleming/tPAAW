@@ -413,7 +413,7 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "api_test",
-      description: "Send an HTTP request (any method/headers/body) via the built-in API Tester — same as the human's 🌐 API Tester tab. Every call is saved to the shared API Tester history (📜 in UI) with a 🤖 agent marker, so the human sees what you tested and can replay it. Use this instead of bash curl for API testing. Use project_info category=api_history to look up past requests (yours and the human's) and replay them.",
+      description: "Send an HTTP request (any method/headers/body) via the built-in API Tester — same as the human's 🌐 API Tester tab. Every call is saved to the shared API Tester history (📜 in UI) with a 🤖 agent marker, so the human sees what you tested and can replay it. Use this instead of bash curl for API testing. E2E workflow (tester): use project_info category=api_history to look up past requests (source=human shows what the human manually tested — detail=<N> returns the full headers/body they entered), then use those real payloads as seed data for e2e Playwright scripts, and use api_test to verify each API call the script will make.",
       parameters: {
         type: "object",
         properties: {
@@ -588,6 +588,8 @@ export const PAAW_TOOLS = [
           days: { type: "number", description: "Days back for recent_changes (default: 30)." },
           limit: { type: "number", description: "Max results for sessions/api_history (default: 5/20)." },
           method: { type: "string", description: "Filter api_history by HTTP method." },
+          source: { type: "string", enum: ["human", "agent"], description: "Filter api_history by who ran it: human (manually in API Tester UI) or agent (via api_test tool)." },
+          detail: { type: "string", description: "api_history only: entry number (1-based) or req-id — returns the FULL request (headers/body/response) for e2e script generation." },
           path_contains: { type: "string", description: "Filter api_history by URL substring." },
           include_response: { type: "boolean", description: "Include response body in api_history (default: true)." },
         },
@@ -1028,6 +1030,8 @@ const TOOL_GROUP_MAP = {
 
   // Dev Server Controller（2026-09-10）— core：developer/tester 可用；core-read 只給 dev_log（唯讀）
   dev_server: "core", dev_log: "core",
+  // 2026-09-12：API Tester tool — developer/tester 都在 core group，可直接打 API 並存入 UI 共用歷史
+  api_test: "core",
 
   // Browser testing
   browser_test: "browser",
@@ -2540,18 +2544,38 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             } catch (err) { return `Error: ${err.message}`; }
           }
           case "api_history": {
-            const histFile = join(rootDir, "data", "api-tester-history.json");
+            // 2026-09-12：DATA_HOME 爲單一事實來源（跟 api-tester route / api_test tool 同檔）；
+            // 加 source 過濾 + detail 模式（回傳完整 headers/body — 拿人輸入過的資料產 e2e script）
+            const histFile = resolve(DATA_HOME, "api-tester-history.json");
             if (!existsSync(histFile)) return "No API Tester history found.";
             try {
               const raw = JSON.parse(readSync(histFile, "utf-8"));
               let items = Array.isArray(raw) ? raw : (raw.history || []);
+              if (args.source) items = items.filter(i => (i.source || "human") === args.source);
               if (args.method) items = items.filter(i => i.method?.toUpperCase() === args.method.toUpperCase());
               if (args.path_contains) { const needle = args.path_contains.toLowerCase(); items = items.filter(i => i.url?.toLowerCase().includes(needle)); }
+              // detail 模式：回傳單筆完整 request（headers/body/response）— e2e script 產生用
+              if (args.detail !== undefined && args.detail !== null && args.detail !== "") {
+                const d = args.detail;
+                const item = (typeof d === "string" && d.startsWith("req-"))
+                  ? items.find(i => i.id === d)
+                  : items[Number(d) - 1];
+                if (!item) return `No history entry for detail='${d}' (use api_history without detail to list).`;
+                const hArr = Array.isArray(item.headers) ? item.headers : Object.entries(item.headers || {}).map(([k, v]) => ({ key: k, value: String(v), enabled: true }));
+                const full = {
+                  id: item.id, ts: item.ts, source: item.source || "human", agent: item.agent,
+                  method: item.method, url: item.url, status: item.status, elapsed: item.elapsed,
+                  headers: hArr, body: item.body,
+                  response: item.response ? { status: item.response.status, statusText: item.response.statusText, body: String(item.response.body || "").slice(0, 2000) } : (item.streamResponse ? { status: item.status, body: String(item.streamResponse).slice(0, 2000) } : undefined),
+                };
+                if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${item.method} ${item.url}` });
+                return `API History Entry (full request — for e2e script generation):\n${JSON.stringify(full, null, 2)}`;
+              }
               const limit = Math.min(args.limit || 20, 50);
               items = items.slice(0, limit);
               if (items.length === 0) return "No matching API history.";
               if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${items.length} entries` });
-              return `API History (${items.length}):\n${items.map((item, idx) => `${idx+1}. ${item.method} ${item.url} → ${item.status} (${item.elapsed}ms)`).join("\n")}`;
+              return `API History (${items.length}):\n${items.map((item, idx) => `${idx+1}. [${item.source === "agent" ? "agent" : "human"}] ${item.method} ${item.url} → ${item.status} (${item.elapsed}ms)`).join("\n")}\n(tip: detail=<N or req-id> 回傳完整 headers/body — 拿人輸入過的資料產 e2e Playwright script；source=human|agent 過濾)`;
             } catch (err) { return `Error: ${err.message}`; }
           }
           default:
