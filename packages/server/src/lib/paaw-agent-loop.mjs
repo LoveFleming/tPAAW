@@ -408,6 +408,26 @@ export const PAAW_TOOLS = [
       },
     },
   },
+  // ── API Tester（2026-09-12 Fleming：developer agent 可用 API Tester，紀錄進 UI 歷史）──
+  {
+    type: "function",
+    function: {
+      name: "api_test",
+      description: "Send an HTTP request (any method/headers/body) via the built-in API Tester — same as the human's 🌐 API Tester tab. Every call is saved to the shared API Tester history (📜 in UI) with a 🤖 agent marker, so the human sees what you tested and can replay it. Use this instead of bash curl for API testing. Use project_info category=api_history to look up past requests (yours and the human's) and replay them.",
+      parameters: {
+        type: "object",
+        properties: {
+          method: { type: "string", enum: ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"], description: "HTTP method (default GET)" },
+          url: { type: "string", description: "Full URL to request (e.g. http://localhost:4318/api/crew)" },
+          headers: { type: "object", description: "Request headers as key-value object (e.g. {\"Content-Type\":\"application/json\", \"Authorization\":\"Bearer x\"})" },
+          body: { type: "string", description: "Request body (send JSON as string)" },
+          expectStatus: { type: "number", description: "Expected HTTP status code — report ✅/❌ pass/fail" },
+          expectText: { type: "string", description: "Text expected in response body — report ✅/❌ pass/fail" },
+        },
+        required: ["url"],
+      },
+    },
+  },
   // ── Real Browser Tools (Playwright, JS-rendered pages, docs lookup, UI self-verification) ──
   {
     type: "function",
@@ -2018,6 +2038,121 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             : `Failed to fetch ${testUrl}: ${fetchErr.message}`;
           if (onEvent) onEvent({ type: "tool_error", name, error: errMsg });
           return `❌ ${errMsg}\n\nThis usually means the dev server is not running. Check the port and try again.`;
+        }
+      }
+
+      // ═════════════════════════════════════════
+      // ── API Tester（2026-09-12）──
+      // developer agent 直接打 API：任5意 method/headers/body，
+      // 每次呼叫存入 data/api-tester-history.json（跟 UI 🌐 API Tester 同一份），
+      // 人從 UI 📜 History 看得到（帶 🤖 標記）、可點回來 replay。
+      // ═════════════════════════════════════════
+      case "api_test": {
+        const tUrl = String(args.url || "").trim();
+        const tMethod = String(args.method || "GET").toUpperCase();
+        if (!tUrl) return "Error: url is required for api_test";
+        if (!/^https?:\/\//i.test(tUrl)) return "Error: url must start with http:// or https://";
+
+        if (onEvent) onEvent({ type: "tool_start", name, args: `${tMethod} ${tUrl}` });
+
+        // headers: object → 略過 content-length 之類會被 fetch 拒統的
+        const rawHeaders = (args.headers && typeof args.headers === "object" && !Array.isArray(args.headers)) ? args.headers : {};
+        const reqHeaders = {};
+        for (const [k, v] of Object.entries(rawHeaders)) {
+          const lk = String(k).toLowerCase();
+          if (lk === "content-length" || lk === "host") continue; // fetch 會拒絕/覆寫
+          reqHeaders[String(k)] = String(v);
+        }
+        const tBody = args.body !== undefined && args.body !== null ? String(args.body) : undefined;
+        const expectStatus = args.expectStatus || null;
+        const expectText = args.expectText || null;
+
+        const startTime = Date.now();
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 20_000);
+          const fetchOpts = { method: tMethod, headers: reqHeaders, redirect: "follow", signal: controller.signal };
+          if (tBody && tMethod !== "GET" && tMethod !== "HEAD") fetchOpts.body = tBody;
+          const tRes = await fetch(tUrl, fetchOpts);
+          clearTimeout(timer);
+          const elapsed = Date.now() - startTime;
+
+          const respHeaders = {};
+          tRes.headers.forEach((v, k) => { respHeaders[k] = v; });
+          const contentType = tRes.headers.get("content-type") || "";
+          let respBody;
+          if (contentType.includes("json") || contentType.includes("text") || contentType.includes("xml") || contentType.includes("html") || contentType.includes("javascript")) {
+            respBody = await tRes.text();
+          } else {
+            const buf = await tRes.arrayBuffer();
+            respBody = `[Binary data: ${buf.byteLength} bytes]`;
+          }
+
+          // ── 存入共用 API Tester history（跟 UI 同一份檔、同一形狀）──
+          // UI 存的 headers 是 [{key,value,enabled}] — 沿用同形狀，人點回來才能 replay
+          const headerArr = Object.entries(reqHeaders).map(([k, v]) => ({ key: k, value: v, enabled: true }));
+          const histItem = {
+            id: `req-${Date.now()}`,
+            ts: new Date().toISOString(),
+            method: tMethod,
+            url: tUrl,
+            status: tRes.status,
+            elapsed,
+            headers: headerArr,
+            body: tBody || "",
+            streamMode: false,
+            response: { status: tRes.status, statusText: tRes.statusText, headers: respHeaders, body: respBody, elapsed, size: respBody.length },
+            source: "agent",
+            agent: agentId || undefined,
+          };
+          try {
+            const histFile = resolve(DATA_HOME, "api-tester-history.json");
+            let hist = [];
+            try { hist = JSON.parse(readSync(histFile, "utf-8")); } catch {}
+            hist.unshift(histItem);
+            if (hist.length > 100) hist = hist.slice(0, 100);
+            writeSync(histFile, JSON.stringify(hist, null, 2));
+          } catch {}
+
+          // ── Report ──
+          let report = `${tMethod} ${tUrl}\n`;
+          report += `Status: ${tRes.status} ${tRes.statusText}\n`;
+          report += `Elapsed: ${elapsed}ms · Body: ${respBody.length} chars\n`;
+          if (expectStatus !== null) {
+            report += tRes.status === expectStatus
+              ? `✅ Status ${tRes.status} matches expected ${expectStatus}\n`
+              : `❌ Status ${tRes.status} does NOT match expected ${expectStatus}\n`;
+          }
+          if (expectText) {
+            report += respBody.includes(expectText)
+              ? `✅ Found expected text: "${expectText.slice(0, 60)}"\n`
+              : `❌ Expected text not found: "${expectText.slice(0, 60)}"\n`;
+          }
+          report += `\n📜 Saved to API Tester history (visible in UI 🌐 API Tester → 📜).\n\n--- Body (first 2500 chars) ---\n${respBody.slice(0, 2500)}`;
+          if (respBody.length > 2500) report += `\n... (${respBody.length - 2500} more chars)`;
+
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${tRes.status} ${tRes.statusText} (${elapsed}ms)` });
+          return report;
+        } catch (err) {
+          const elapsed = Date.now() - startTime;
+          const errMsg = err.name === "AbortError" ? `timed out after 20s` : String(err.message || err);
+          // 失敗也記錄（status 0）— 人看得到 agent 打了什麼失敗
+          try {
+            const histFile = resolve(DATA_HOME, "api-tester-history.json");
+            let hist = [];
+            try { hist = JSON.parse(readSync(histFile, "utf-8")); } catch {}
+            hist.unshift({
+              id: `req-${Date.now()}`, ts: new Date().toISOString(), method: tMethod, url: tUrl,
+              status: 0, elapsed, headers: Object.entries(reqHeaders).map(([k, v]) => ({ key: k, value: v, enabled: true })),
+              body: tBody || "", streamMode: false,
+              response: { status: 0, statusText: "Network Error", headers: {}, body: errMsg, elapsed, size: 0, error: true },
+              source: "agent", agent: agentId || undefined,
+            });
+            if (hist.length > 100) hist = hist.slice(0, 100);
+            writeSync(histFile, JSON.stringify(hist, null, 2));
+          } catch {}
+          if (onEvent) onEvent({ type: "tool_error", name, error: errMsg });
+          return `❌ ${tMethod} ${tUrl} failed after ${elapsed}ms: ${errMsg}\n(Also saved to API Tester history with status 0.)`;
         }
       }
 

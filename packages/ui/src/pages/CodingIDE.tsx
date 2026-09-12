@@ -135,7 +135,7 @@ interface BlameLine { hash: string; author: string; authorMail: string; authorTi
 // API Tester types
 interface ApiHeader { key: string; value: string; enabled: boolean; }
 interface ApiResponse { status: number; statusText: string; headers: Record<string, string>; body: string; elapsed: number; size: number; error?: boolean; }
-interface ApiHistoryItem { id: string; ts: string; method: string; url: string; status: number; elapsed: number; headers?: ApiHeader[]; body?: string; streamMode?: boolean; response?: ApiResponse; streamResponse?: string; }
+interface ApiHistoryItem { id: string; ts: string; method: string; url: string; status: number; elapsed: number; headers?: ApiHeader[]; body?: string; streamMode?: boolean; response?: ApiResponse; streamResponse?: string; source?: "agent" | "human"; agent?: string; }
 
 // ── Constants ──
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
@@ -2404,7 +2404,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
         }
 
         const elapsed = Date.now() - startTime;
-        const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: status || 200, elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode, streamResponse: accumulated };
+        const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: status || 200, elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode, streamResponse: accumulated, source: "human" };
         setApiHistory(prev => [item, ...prev].slice(0, 50));
         try { await fetch(`${API_BASE}/api/api-tester/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }); } catch {}
       } catch (err: any) {
@@ -2433,7 +2433,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
       const data = await res.json();
       setApiResponse(data);
       // Save to history
-      const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: data.status, elapsed: data.elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode, response: data };
+      const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: data.status, elapsed: data.elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode, response: data, source: "human" };
       setApiHistory(prev => [item, ...prev].slice(0, 50));
       // Save to server
       try { await fetch(`${API_BASE}/api/api-tester/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }); } catch {}
@@ -3179,7 +3179,10 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                           <div className="flex items-center px-3 py-1.5 sticky top-0 bg-white z-10" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
                             <span className="text-xs font-bold text-stone-500">History</span>
                             <span className="flex-1" />
-                            <button onClick={() => setApiHistory([])} className="text-xs text-red-400 hover:text-red-600">Clear</button>
+                            <button onClick={async () => {
+                              setApiHistory([]);
+                              try { await fetch(`${API_BASE}/api/api-tester/history`, { method: "DELETE" }); } catch {}
+                            }} className="text-xs text-red-400 hover:text-red-600">Clear</button>
                           </div>
                           {apiHistory.map((h, hi) => (
                             <div key={h.id || hi} className="flex flex-col px-3 py-1.5 hover:bg-stone-50 cursor-pointer" style={{ borderBottom: "1px solid #f5f5f5" }}
@@ -3187,6 +3190,10 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold w-10 shrink-0" style={{ color: METHOD_COLORS[h.method] || "#6B7280" }}>{h.method}</span>
                                 <span className="text-stone-600 truncate flex-1 font-mono text-xs">{h.url}</span>
+                                {/* 2026-09-12：agent 打的 API test 帶 🤖 標記（來源 agent 名字在 title） */}
+                                {h.source === "agent" && (
+                                  <span className="text-[10px] px-1 py-0.5 rounded bg-violet-50 text-violet-500 shrink-0" title={`由 ${h.agent || "agent"} 執行`}>🤖</span>
+                                )}
                                 <span className="text-xs font-bold shrink-0" style={{ color: h.status < 300 ? "#10B981" : h.status < 400 ? "#F59E0B" : "#EF4444" }}>{h.status}</span>
                                 <span className="text-xs text-stone-400 shrink-0">{h.elapsed}ms</span>
                               </div>
