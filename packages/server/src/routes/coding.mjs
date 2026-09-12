@@ -38,7 +38,7 @@ import { fileURLToPath } from "url";
 import { exec as execCb } from "child_process";
 import { shellExec, IS_WIN } from "../lib/shell-exec.mjs";
 import { createPaawProject } from "../lib/paaw-project.mjs";
-import { callLLMWithRetry } from "../lib/llm-utils.mjs";
+import { callLLMWithRetry, dateTimeContextBlock } from "../lib/llm-utils.mjs";
 import { normalizePath, readBody } from "./shared.mjs";
 import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-parser.mjs";
@@ -778,7 +778,8 @@ export default async function projectRoute(req, res) {
 
     try {
       const crewDef = JSON.parse(readSync(crewFile, "utf-8"));
-      const systemPrompt = crewDef.rolePrompt || "";
+      // 2026-09-12 Fleming：crew agent 也要知道時間/時區（rolePrompt 是靜態 json，不會有時間）
+      const systemPrompt = dateTimeContextBlock() + "\n" + (crewDef.rolePrompt || "");
 
       // Build context same as chat endpoint (feature map, code intel, action log, agent memory)
       const extraContext = [];

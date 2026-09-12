@@ -37,6 +37,23 @@ const __dirname = dirname(__filename);
 
 // ── Resolve default model from provider config ──
 // Never hardcode a specific model. Chain: defaultModel → active provider's first model → "default"
+
+/**
+ * 當前日期時間 + 時區 block — 統一注入所有 LLM system prompt
+ *（2026-09-12 Fleming：coding app 所有 agent 都要知道時間/時區；
+ *  paaw-agent-loop 與 domain-agent-registry 各自 inline 了一份同格式，此處為缺口的入口共用）
+ */
+export function dateTimeContextBlock() {
+  const _now = new Date();
+  const _tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const _offMin = -_now.getTimezoneOffset();
+  const _offStr = `UTC${_offMin >= 0 ? "+" : "-"}${String(Math.floor(Math.abs(_offMin) / 60)).padStart(2, "0")}${Math.abs(_offMin) % 60 ? ":" + String(Math.abs(_offMin) % 60).padStart(2, "0") : ""}`;
+  const _dateStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
+  const _weekday = ["日", "一", "二", "三", "四", "五", "六"][_now.getDay()];
+  const _timeStr = `${String(_now.getHours()).padStart(2, "0")}:${String(_now.getMinutes()).padStart(2, "0")}`;
+  return `\n=== 當前日期時間 ===\n今天是 ${_dateStr}（星期${_weekday}），時間 ${_timeStr}，時區 ${_tz} (${_offStr})\n`;
+}
+
 export function resolveDefaultModel(providerConfig) {
   if (providerConfig?.defaultModel) return providerConfig.defaultModel;
   const activeId = providerConfig?.active;

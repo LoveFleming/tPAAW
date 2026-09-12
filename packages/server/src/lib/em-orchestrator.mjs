@@ -81,8 +81,11 @@ function _extractDecision(text) {
   return null;
 }
 
+import { dateTimeContextBlock } from "./llm-utils.mjs";
+
 function _controllerSystemPrompt() {
-  return `你是 EM（Engineering Manager）大總管，指揮一組 agent 完成一張 task。你看不到 agent 的完整對話，只看得到他們的結果摘要 — 這是你的決策證據。
+  return `${dateTimeContextBlock()}
+你是 EM（Engineering Manager）大總管，指揮一組 agent 完成一張 task。你看不到 agent 的完整對話，只看得到他們的結果摘要 — 這是你的決策證據。
 
 ## 每輪只輸出一個 JSON 決策（三選一）
 

@@ -21,7 +21,7 @@ import { walkSourceFiles } from "../lib/cu-source-scan.mjs";
 import { isTestFile } from "../lib/code-graph.mjs";
 import { fileURLToPath } from "url";
 import { readBody, normalizePath } from "./shared.mjs";
-import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { resolveDefaultModel, dateTimeContextBlock } from "../lib/llm-utils.mjs";
 import { callProjectLLM } from "./coding.mjs"; // 統一 LLM 咽喉：thinking 控制 + llm log 歸因 + 空回應診斷（2026-08-30）
 import { DATA_HOME } from "../data-home.mjs";
 import { nextFeatureId, inferFeatureType, touchFeature, ensureMiscFeature, featureExists } from "../lib/feature-registry.mjs";
@@ -173,7 +173,7 @@ Write in clear, concise markdown. Use the project's context if available.`;
     const data = await callProjectLLM({
       model,
       messages: [
-        { role: "system", content: "You are a senior code analyst. Provide clear, actionable code understanding in markdown." },
+        { role: "system", content: dateTimeContextBlock() + "\nYou are a senior code analyst. Provide clear, actionable code understanding in markdown." },
         { role: "user", content: prompt },
       ],
       temperature: 0.3,

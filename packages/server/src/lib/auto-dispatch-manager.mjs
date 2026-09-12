@@ -384,8 +384,10 @@ ${requireEstimate ? '- 每項必須附預估 effort（' + defaultEffort + ' 为�
 
  priorities: high / medium / low`;
 
+  // 2026-09-12 Fleming：EM 決策也要知道時間/時區（判斷緩急、夜間時段需要時間常識）
+  const { dateTimeContextBlock } = await import("./llm-utils.mjs");
   const messages = [
-    { role: "system", content: EM_PROMPT },
+    { role: "system", content: dateTimeContextBlock() + "\n" + EM_PROMPT },
     { role: "user", content: situationReport },
   ];
 
