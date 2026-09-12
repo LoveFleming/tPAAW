@@ -3461,27 +3461,28 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                       {viewingArchive && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">📂 歷史</span>
                       )}
-                      {/* Browser panel toggle — 2026-08-29 Fleming：agent chat 邊聊邊看 agent 操作 browser */}
+                      {/* Browser panel toggle — 2026-08-29 Fleming：agent chat 邊聊邊看 agent 操作 browser；2026-09-12 統一 accent 色外框 */}
                       <button
                         onClick={() => setChatBrowserOpen(!chatBrowserOpen)}
-                        className="text-xs px-2 py-1 rounded transition-colors"
-                        style={{ color: chatBrowserOpen ? tk.accent : undefined }}
+                        className={`text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50 ${chatBrowserOpen ? "bg-stone-100" : ""}`}
+                        style={{ borderColor: tk.accentBorder, color: tk.accent }}
                         title={tt("coding.chatBrowserToggle")}
                       >
                         🌐
                       </button>
-                      {/* History button */}
+                      {/* History button — 2026-09-12 統一 accent 色外框 */}
                       <button
                         onClick={() => {
                           if (!showArchivePanel && activeCrew && rootPath) loadArchivedConversations(activeCrew, rootPath);
                           setShowArchivePanel(!showArchivePanel);
                         }}
-                        className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
+                        className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50"
+                        style={{ borderColor: tk.accentBorder, color: tk.accent }}
                         title="歷史對話"
                       >
                         📋
                       </button>
-                      {/* Context debug button */}
+                      {/* Context debug button — 2026-09-12 Fleming：🔍 改 🧠（不是搜尋）；統一 accent 色外框 */}
                       <button
                         onClick={async () => {
                           if (!activeCrew) return;
@@ -3496,12 +3497,13 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                             setShowContextDebug(true);
                           }
                         }}
-                        className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
+                        className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50"
+                        style={{ borderColor: tk.accentBorder, color: tk.accent }}
                         title="查看注入的 Context & Prompts"
                       >
-                        🔍
+                        🧠
                       </button>
-                      {/* New conversation button — 2026-09-12 Fleming：參考林雨晴聊天視窗 ＋ icon + theme 色外框（原 ✨ 看不出功能） */}
+                      {/* New conversation button — 2026-09-12 Fleming：跟林雨晴一樣用 💬 chat 圖示；統一 accent 色外框 */}
                       <button
                         onClick={startNewConversation}
                         disabled={chatMessages.length === 0}
@@ -3509,7 +3511,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                         style={{ borderColor: tk.accentBorder, color: tk.accent }}
                         title="開新對話"
                       >
-                        ＋
+                        💬
                       </button>
                       <ModelSelector feature={`codingIDE.${activeCrew}`} value={codingModel} onChange={setCodingModel} />
                     </div>
@@ -3759,7 +3761,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
             >
               <EMDashboard
                 rootPath={rootPath}
-                theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
+                theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text, accentBorder: tk.accentBorder }}
                 onStartCodeUnderstanding={startAiInitialize}
                 cuModalRequest={cuModalRequest}
                 codeUnderstanding={{ running: aiInitializing, steps: aiInitSteps }}

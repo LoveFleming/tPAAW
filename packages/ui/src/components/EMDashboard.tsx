@@ -53,7 +53,7 @@ interface CodeUnderstandingStep {
 
 interface EMDashboardProps {
   rootPath: string;
-  theme: { bg: string; bgMuted: string; borderLight: string; accent: string; accentBg: string; text: string };
+  theme: { bg: string; bgMuted: string; borderLight: string; accent: string; accentBg: string; text: string; accentBorder?: string };
   // Code Understanding (was AI Initialize)
   onStartCodeUnderstanding?: (forceRerun?: boolean) => void;
   codeUnderstanding?: { running: boolean; steps: CodeUnderstandingStep[] };
@@ -706,11 +706,13 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
               <p className="text-[11px] text-stone-500 mt-0.5 line-clamp-1">規劃工作、調度 agent、審查進度</p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
+              {/* 2026-09-12 Fleming：agent chat icon 排統一 accent 色外框，跟 CodingIDE 主 chat / 林雨晴視窗一致 */}
               {/* EM Settings */}
               <button
                 onClick={() => { if (!showEmConfig) fetchEmConfig(); setShowEmConfig(!showEmConfig); }}
-                className={cn("text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors",
-                  showEmConfig && "bg-purple-100 text-purple-700")}
+                className={cn("text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50",
+                  showEmConfig && "bg-stone-100")}
+                style={{ borderColor: tk.accentBorder || tk.accent + "99", color: tk.accent }}
                 title="EM 調度設定"
               >
                 ⚙️
@@ -718,12 +720,13 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
               {/* History button */}
               <button
                 onClick={() => { setShowSessions(!showSessions); if (!showSessions) fetchEmSessions(); }}
-                className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
+                className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50"
+                style={{ borderColor: tk.accentBorder || tk.accent + "99", color: tk.accent }}
                 title="歷史對話"
               >
                 📋
               </button>
-              {/* Context debug button */}
+              {/* Context debug button — 2026-09-12：🔍 改 🧠（不是搜尋） */}
               <button
                 onClick={async () => {
                   try {
@@ -736,12 +739,13 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                     setShowEmContextDebug(true);
                   }
                 }}
-                className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
+                className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50"
+                style={{ borderColor: tk.accentBorder || tk.accent + "99", color: tk.accent }}
                 title="查看注入的 Context & Prompts"
               >
-                🔍
+                🧠
               </button>
-              {/* New conversation button */}
+              {/* New conversation button — 2026-09-12：✨ 改 💬（跟林雨晴 chat 圖示一致） */}
               <button
                 onClick={async () => {
                   if (messages.length <= 1) return;
@@ -755,10 +759,11 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                   }
                 }}
                 disabled={messages.length === 0}
-                className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30 transition-colors"
+                className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50 disabled:opacity-30"
+                style={{ borderColor: tk.accentBorder || tk.accent + "99", color: tk.accent }}
                 title="開新對話"
               >
-                ✨
+                💬
               </button>
               {/* Model selector */}
               {onModelChange && (
