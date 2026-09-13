@@ -62,25 +62,54 @@ const ZIP_PATH = join(ROOT, "dist", `paaw-${VERSION}.zip`);
 rmSync(STAGE, { recursive: true, force: true });
 mkdirSync(STAGE, { recursive: true });
 
-console.log("▸ stage 檔案（排除開發/個人資料）…");
-// rsync 規則：無斜前綴 = 任何層級 match；/ 前綴 = 只 match repo 根
+console.log("▸ stage 檔案（排除開發/個人資料）…（純 node 複製 — 跨平台，不再依賴 rsync）");
+// 排除規則語義對齊原 rsync 版：名稱 = 任何層級 match；/ 前綴 = 只 match repo 根
 // 「dist」必須根鎖定，否則 packages/ui/dist（UI build 產物）會被誤殺
 // .paaw / temp / logs 任何層級都不該出貨（packages/server/.paaw 的 master.key、
 // packages/*/temp 的 stream log 都曾漏進 zip）；data 只能根鎖定（packages/ui/src/data 是原始碼）
-const GLOBAL_EXCLUDES = [".git", "node_modules", ".DS_Store", ".paaw", "temp", "logs"];
+const GLOBAL_EXCLUDE_NAMES = new Set([".git", "node_modules", ".DS_Store", ".paaw", "temp", "logs"]);
 const ROOT_EXCLUDES = [
-  "/data", "/.openclaw", "/backups",
-  "/dist", "/storage", "/tmp", "/test-results", "/tests", "/coverage", "/nul",
-  "/log",  // 2026-09-06 三目錄架構：runtime 垃圾跟 code 走，開機自建，永不打包
-  "/.env", "/.env.dev",
-  "/packages/data", "/packages/server/data",
-  "/docs-paaw-sync-*",
-  "/AGENTS.md", "/SOUL.md", "/USER.md", "/IDENTITY.md", "/HEARTBEAT.md", "/TOOLS.md",
-  "/vitest.config.ts", "/playwright.config.ts",
+  { first: "data" }, { first: ".openclaw" }, { first: "backups" },
+  { first: "dist" }, { first: "storage" }, { first: "tmp" }, { first: "test-results" }, { first: "tests" }, { first: "coverage" }, { first: "nul" },
+  { first: "log" },  // 2026-09-06 三目錄架構：runtime 垃圾跟 code 走，開機自建，永不打包
+  { file: ".env" }, { file: ".env.dev" },
+  { path: "packages/data" }, { path: "packages/server/data" },
+  { prefix: "docs-paaw-sync-" },
+  { file: "AGENTS.md" }, { file: "SOUL.md" }, { file: "USER.md" }, { file: "IDENTITY.md" }, { file: "HEARTBEAT.md" }, { file: "TOOLS.md" },
+  { file: "vitest.config.ts" }, { file: "playwright.config.ts" },
 ];
-const EXCLUDES = [...GLOBAL_EXCLUDES, ...ROOT_EXCLUDES].map((e) => `--exclude=${e}`).join(" ");
-
-execSync(`rsync -a ${EXCLUDES} ./ "${STAGE}/"`, { cwd: ROOT, stdio: "pipe" });
+function excludedRoot(rel) {
+  const first = rel.split("/")[0];
+  const isRootChild = !rel.includes("/");
+  for (const r of ROOT_EXCLUDES) {
+    if (r.first && first === r.first) return true;                        // 根目錄下整個目錄
+    if (r.file && isRootChild && rel === r.file) return true;             // 只根層級的檔案
+    if (r.path && (rel === r.path || rel.startsWith(r.path + "/"))) return true;
+    if (r.prefix && isRootChild && first.startsWith(r.prefix)) return true;
+  }
+  return false;
+}
+let stagedFiles = 0;
+const copyWalk = (absDir, relDir) => {
+  for (const e of readdirSync(absDir, { withFileTypes: true })) {
+    const rel = relDir ? `${relDir}/${e.name}` : e.name;
+    if (GLOBAL_EXCLUDE_NAMES.has(e.name)) continue;
+    if (excludedRoot(rel)) continue;
+    const abs = join(absDir, e.name);
+    if (e.isSymbolicLink()) continue; // 出貨包不放 symlink（rsync -a 會複製連結本體，這裡直接跳過更安全）
+    if (e.isDirectory()) { copyWalk(abs, rel); continue; }
+    const dest = join(STAGE, rel);
+    mkdirSync(dirname(dest), { recursive: true });
+    cpSync(abs, dest);
+    stagedFiles++;
+  }
+};
+copyWalk(ROOT, "");
+if (stagedFiles < 300) {
+  console.error(`✗ stage 只有 ${stagedFiles} 檔（正常約 368）— repo 不完整？拒絕打包`);
+  process.exit(1);
+}
+console.log(`  stage ${stagedFiles} 檔`);
 
 // ---------- 3. data-seed（scripts/seed 骨架 + 產品資產 overlay）----------
 
@@ -207,9 +236,14 @@ writeFileSync(join(STAGE, "paaw-manifest.json"), JSON.stringify({
 
 // ---------- 4. zip ----------
 
-console.log("▸ zip …");
+console.log("▸ zip …（" + (process.platform === "win32" ? "Windows bsdtar" : "zip") + "）");
 rmSync(ZIP_PATH, { force: true });
-execSync(`zip -rq "${ZIP_PATH}" .`, { cwd: STAGE, stdio: "pipe" });
+if (process.platform === "win32") {
+  // Win10 1803+ 內建 bsdtar（libarchive）：-a 依副檔名 .zip 選 zip 格式，PowerShell Compress-Archive 有路徑長度坑不用
+  execSync(`tar -a -c -f "${ZIP_PATH}" .`, { cwd: STAGE, stdio: "pipe" });
+} else {
+  execSync(`zip -rq "${ZIP_PATH}" .`, { cwd: STAGE, stdio: "pipe" });
+}
 const size = statSync(ZIP_PATH).size;
 
 // ---------- 5. sha256 + manifest ----------
