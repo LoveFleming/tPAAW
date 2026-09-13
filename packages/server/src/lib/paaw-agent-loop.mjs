@@ -335,7 +335,7 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "bash",
-      description: "Run a shell command and return stdout/stderr. Use for build, test, install, npm, pip, and any general shell operations. Timeout default: 30s.",
+      description: "Run a shell command and return stdout/stderr. Use for build, test, install, npm, pip, and any general shell operations. Timeout default: 30s. PROCESS RULE (hard-enforced): you may only manage the CURRENT release unit's dev server via the dev_server tool — pkill/killall/taskkill are blocked, kill only allows this RU's tracked dev-server pid, and the PAAW coding app itself (paaw-server, tPAAW vite, ports 4097/4098/4100/5173) must NEVER be started or stopped.",
       parameters: {
         type: "object",
         properties: {
@@ -352,7 +352,7 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "dev_server",
-      description: "Manage this Release Unit's dev server (long-running process like `npm run dev`). Detached background process — returns immediately, survives the agent session. Output goes to log/app-console/<ru>/app-console-YYYY-MM-DD.log which the human watches live in CodingIDE Terminal → Console → App view. Actions: start / stop / restart / status. restart has a crash-loop guard (max 5 per 10min). CRITICAL: after start/restart, ALWAYS call dev_log to verify the server actually booted (look for port listening / errors) before claiming success.",
+      description: "Manage this Release Unit's dev server (long-running process like `npm run dev` or `mvn spring-boot:run`). Detached background process — returns immediately, survives the agent session. Output goes to log/app-console/<ru>/app-console-YYYY-MM-DD.log which the human watches live in CodingIDE Terminal → Console → App view. Actions: start / stop / restart / status. restart has a crash-loop guard (max 5 per 10min). Hard-scoped to the CURRENT RU only — outside processes and the PAAW coding app itself can never be touched here. CRITICAL: after start/restart, ALWAYS call dev_log to verify the server actually booted (look for port listening / errors) before claiming success.",
       parameters: {
         type: "object",
         properties: {
@@ -1884,6 +1884,14 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
       // ══════════════════════════════════════════
 
       case "bash": {
+        // 🚧 鐵律（Fleming 2026-09-13）：process 控制只限本 RU dev server（用 dev_server 工具），
+        // 外面的一律不可碰 —— 尤其 PAAW coding app 本身。硬防護見 lib/shell-guard.mjs
+        const { guardShellProcessScope } = await import("./shell-guard.mjs");
+        const guard = await guardShellProcessScope(args.command, cwd);
+        if (guard.blocked) {
+          if (onEvent) onEvent({ type: "tool_end", name, result: guard.message.slice(0, 500) });
+          return guard.message;
+        }
         const timeoutSec = Math.min(args.timeout || 120, _agentCfg.bashTimeoutSeconds || 300);
         const timeoutMs = timeoutSec * 1000;
         const result = await runShell(args.command, cwd, timeoutMs);

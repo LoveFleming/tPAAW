@@ -23,8 +23,24 @@ import {
   existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync,
   closeSync, openSync, writeSync, statSync, readSync,
 } from "fs";
-import { join } from "path";
+import { join, resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 import { LOG_HOME, logSlug } from "../data-home.mjs";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// PAAW coding app 本身的 repo root（dev-server.mjs 在 packages/server/src/lib/）
+const PAAW_ROOT = resolve(__dirname, "../../../../");
+
+/** Fleming 2026-09-13 鐵律：agent 不可啟停 PAAW coding app 自身 */
+export function isPaawSelf(ruRoot) {
+  try { return resolve(ruRoot || "") === PAAW_ROOT; } catch { return false; }
+}
+
+/** 本 RU 受控 dev-server 的 pid（沒在跑 → null）— 給 shell-guard 放行 kill 用 */
+export function devServerPid(ruRoot) {
+  const e = _getEntry(ruRoot);
+  return e?.pid || null;
+}
 
 const IS_WIN = process.platform === "win32";
 
@@ -136,6 +152,10 @@ function _fmtStatus(s) {
  * 啟動 dev server（detached，立即回傳）。
  */
 export async function devServerStart(ruRoot, opts = {}) {
+  // 🚫 鐵律（Fleming 2026-09-13）：PAAW coding app 本身不可由 agent 啟停（自殺行為）
+  if (isPaawSelf(ruRoot)) {
+    return "🚫【dev_server】這個 release unit 是 PAAW coding app 本身 — agent 不可啟動/重啟 coding app（會殺掉自己正在用的 session）。人類要重啟請自己在終端機做。（Fleming 2026-09-13）";
+  }
   const command = opts.command || "npm run dev";
   const slug = _slug(ruRoot);
 
