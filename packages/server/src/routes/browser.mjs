@@ -18,7 +18,7 @@ import {
   attachStreamClient, detachStreamClient, applyBrowserInput, kickScreencast,
   browserTabs, browserNewTab, browserSwitchTab, browserCloseTab, browserNavAction,
   browserDownloads, browserHandleDialog, resolveBrowserKey, browserShotDir,
-  browserActions, recordBrowserAction,
+  browserActions, recordBrowserAction, setVisualMode,
 } from "../lib/browser-session.mjs";
 import { getBrowserSetupStatus } from "../lib/browser-setup.mjs";
 
@@ -204,6 +204,16 @@ export default async function browserRoute(req, res) {
         installHint: s.available === false ? PLAYWRIGHT_INSTALL_HINT : null,
       });
     }
+    return true;
+  }
+
+  // POST /api/browser/visual {on: boolean, ru?} — 真人節奏開關（demo mode：agent 動作帶高亮/滑行/逐字打字）
+  if (url === "/api/browser/visual" && method === "POST") {
+    let body = {};
+    try { body = JSON.parse(await readBody(req) || "{}"); } catch {}
+    const bKey = resolveBrowserKey(body.ru || q.get("ru"));
+    try { json(res, 200, { ok: true, visualMode: setVisualMode(bKey, body.on === true) }); }
+    catch (e) { json(res, 400, { error: e.message }); }
     return true;
   }
 

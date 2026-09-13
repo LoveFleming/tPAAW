@@ -57,6 +57,7 @@ function _newInstance(key) {
       title: null,
       lastActionAt: null,
       lastScreenshot: null, // { path, ts }
+      visualMode: false,   // 真人節奏（demo mode）— agent 動作帶高亮/滑行/逐字（2026-09-13）
     },
     // 多分頁狀態
     pageSeq: 0,
@@ -475,6 +476,50 @@ export function locateTarget(page, { selector, text }) {
   if (selector) return page.locator(selector).first();
   if (text) return page.getByText(text, { exact: false }).first();
   throw new Error("Provide `selector` or `text` to identify the element");
+}
+
+// ── 真人節奏（demo mode，2026-09-13 Fleming：「像線上客服一樣操作畫面給使用者看」）──
+// 開啟後 agent 的 browser_click 走 visualClick（高亮 → 游標滑行 → 人頻按壓）、
+// browser_type 逐字打字。per-instance（跟著 RU 走）；instance 閒置回收後回復預設 off。
+export function getVisualMode(key = "default") {
+  return _getInst(key).state.visualMode === true;
+}
+export function setVisualMode(key = "default", on) {
+  const inst = _getInst(key);
+  inst.state.visualMode = on === true;
+  return inst.state.visualMode;
+}
+
+/**
+ * 真人節奏點擊：目標高亮框 → 停留讓眼睛跟上 → 游標平滑滑過去（ghost cursor 跟著一步步動）
+ * → 按下/放開（帶人類按壓時長）→ 收尾停頓。任何一步失敗 → fallback 原本 locator.click()。
+ */
+export async function visualClick(page, loc, { preDwellMs = 550, steps = 16, postClickMs = 400 } = {}) {
+  try {
+    await loc.scrollIntoViewIfNeeded({ timeout: 5000 });
+    const box = await loc.boundingBox({ timeout: 5000 });
+    if (!box) throw new Error("no bounding box");
+    const tx = box.x + box.width / 2;
+    const ty = box.y + box.height / 2;
+    // 目標高亮框（0.9s 後淡出）— 跟幽靈游標同一套視覺語言（藍色 #1a73e8）
+    await page.evaluate(([x, y, w, h]) => {
+      try {
+        const el = document.createElement("div");
+        el.setAttribute("data-paaw-highlight", "1");
+        el.style.cssText = "position:fixed;left:" + x + "px;top:" + y + "px;width:" + w + "px;height:" + h + "px;border:2.5px solid #1a73e8;border-radius:6px;box-shadow:0 0 0 4px rgba(26,115,232,.22);z-index:2147483645;pointer-events:none;opacity:1;transition:opacity .3s;";
+        (document.documentElement || document.body).appendChild(el);
+        setTimeout(() => { el.style.opacity = "0"; setTimeout(() => { try { el.remove(); } catch (e) {} }, 350); }, 900);
+      } catch (e) {}
+    }, [box.x, box.y, box.width, box.height]).catch(() => {});
+    await page.waitForTimeout(preDwellMs);
+    await page.mouse.move(tx, ty, { steps }); // 平滑滑行（steps 次插值 mousemove）
+    await page.mouse.down();
+    await page.waitForTimeout(55 + Math.floor(Math.random() * 60)); // 人類按壓時長
+    await page.mouse.up();
+    await page.waitForTimeout(postClickMs);
+  } catch {
+    await loc.click({ timeout: 10_000 }); // fallback：視覺化任一步失敗 → 原本可靠路徑
+  }
 }
 
 /** 安裝 chromium 元件後重置「未安裝」狀態（UI 不再顯示未安裝；下次操作 lazy 重啟） */

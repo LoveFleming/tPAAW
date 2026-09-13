@@ -45,7 +45,7 @@ import { DATA_HOME, LOG_HOME, logSlug } from "../data-home.mjs";
 import {
   getBrowserPage, takeScreenshot, trackPage, readPageText, locateTarget,
   assertSafeUrl, browserState, PLAYWRIGHT_INSTALL_HINT, resolveBrowserKey,
-  recordBrowserAction, takeActionShot, browserShotDir,
+  recordBrowserAction, takeActionShot, browserShotDir, getVisualMode, visualClick,
 } from "./browser-session.mjs";
 
 // ── Types ──
@@ -2224,7 +2224,11 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           const page = await getBrowserPage(resolveBrowserKey(cwd));
           trackPage(resolveBrowserKey(cwd), page);
           const target = locateTarget(page, args);
-          await target.click({ timeout: 10_000 });
+          if (getVisualMode(resolveBrowserKey(cwd))) {
+            await visualClick(page, target); // 真人節奏：高亮 → 滑行 → 按壓（fallback 內建）
+          } else {
+            await target.click({ timeout: 10_000 });
+          }
           await page.waitForTimeout(600);
           const ckShot = await takeActionShot(resolveBrowserKey(cwd), page).catch(() => null);
           recordBrowserAction(resolveBrowserKey(cwd), { actor: "agent", kind: "click", summary: `點擊 ${args.selector || JSON.stringify(args.text)}`, url: page.url(), shot: ckShot });
@@ -2243,7 +2247,14 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           const page = await getBrowserPage(resolveBrowserKey(cwd));
           trackPage(resolveBrowserKey(cwd), page);
           const input = page.locator(args.selector).first();
-          await input.fill(String(args.text), { timeout: 10_000 });
+          if (getVisualMode(resolveBrowserKey(cwd))) {
+            // 真人節奏：游標滑到欄位點進去 → 清空 → 逐字打字（字間帶隨機延遲）
+            await visualClick(page, input);
+            await input.fill("", { timeout: 10_000 });
+            await input.pressSequentially(String(args.text), { delay: 55 + Math.floor(Math.random() * 35) });
+          } else {
+            await input.fill(String(args.text), { timeout: 10_000 });
+          }
           if (args.submit) await input.press("Enter");
           await page.waitForTimeout(600);
           recordBrowserAction(resolveBrowserKey(cwd), { actor: "agent", kind: "type", summary: `輸入 ${args.selector} ← "${String(args.text).slice(0, 40)}"${args.submit ? " +Enter" : ""}`, url: page.url() });

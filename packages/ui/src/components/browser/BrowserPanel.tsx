@@ -23,6 +23,7 @@ interface BrowserStatus {
   lastActionAt: number | null;
   lastScreenshot: { path: string; ts: number } | null;
   installHint: string | null;
+  visualMode?: boolean; // 真人節奏（demo mode）— agent 動作帶高亮/滑行/逐字
 }
 
 interface CastFrame {
@@ -134,6 +135,7 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
         const data = await res.json();
         if (!alive) return;
         setStatus(data);
+        if (typeof data.visualMode === "boolean") setHumanMode(data.visualMode); // 🎭 跟實體同步
         setConnected(true);
       } catch {
         if (alive) setConnected(false);
@@ -491,6 +493,22 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
     }
   };
 
+  // 🎭 真人節奏（demo mode）開關 — agent 的 click/type 帶高亮、游標滑行、逐字打字
+  const [humanMode, setHumanMode] = useState(false);
+  const toggleHumanMode = async () => {
+    const next = !humanMode;
+    setHumanMode(next); // 樂觀更新（status poll 每 2.5s 會再校正）
+    try {
+      const r = await fetch(`${API_BASE}/api/browser/visual`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ on: next, ru: effRu || undefined }),
+      });
+      const d = await r.json();
+      if (typeof d.visualMode === "boolean") setHumanMode(d.visualMode);
+    } catch { setHumanMode(!next); }
+  };
+
   const modeBtn = (m: Mode, icon: string, titleKey: string) => (
     <button
       key={m}
@@ -536,6 +554,13 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
           {modeBtn("iframe", "🖐", "browser.modeInteractive")}
           {modeBtn("shot", "📸", "browser.modeShot")}
           {modeBtn("replay", "🎬", "browser.modeReplay")}
+          <button
+            onClick={toggleHumanMode}
+            title={t("browser.humanMode")}
+            className={`text-xs px-2 py-1 rounded-full shrink-0 border transition-colors ${
+              humanMode ? "bg-amber-500 border-amber-500 text-white" : "bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200"
+            }`}
+          >🎭</button>
           <button
             onClick={grabClipboard}
             title={t("browser.clipboardGet")}

@@ -108,6 +108,7 @@
   "browser.remoteSwitch": "見に行く",
   "browser.remoteWatching": "別インスタンスを閲覧中：{label}",
   "browser.remoteBack": "このプロジェクトに戻る",
+  "browser.humanMode": "人間らしい操作（デモモード）：ターゲット強調・カーソ移動・一文字ずつ入力 — ライブ客服のように",
   "chat.assistantDefault": "語晴",
   "chat.attachImage": "画像を添付（AIがビジョンモデルで確認）",
   "chat.errorMessage": "申し訳ありません、エラーが発生しました。後でもう一度お試しください。",

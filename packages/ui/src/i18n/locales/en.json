@@ -108,6 +108,7 @@
   "browser.remoteSwitch": "Watch it",
   "browser.remoteWatching": "Watching another instance: {label}",
   "browser.remoteBack": "Back to this project",
+  "browser.humanMode": "Human pace (demo mode): agent highlights targets, glides the cursor, and types char-by-char — like live customer service",
   "chat.assistantDefault": "Yuqing",
   "chat.attachImage": "Attach image (AI will use vision model)",
   "chat.errorMessage": "Sorry, something went wrong. Please try again later.",

@@ -108,6 +108,7 @@
   "browser.remoteSwitch": "切過去看",
   "browser.remoteWatching": "正在看另一個實體：{label}",
   "browser.remoteBack": "返回本專案",
+  "browser.humanMode": "真人節奏（演示模式）：agent 點擊前高亮目標、游標平滑滑行、打字逐字出現 — 像線上客服操作給你看",
   "chat.assistantDefault": "林語晴",
   "chat.attachImage": "附加圖片（AI 會用視覺模型看圖）",
   "chat.errorMessage": "抱歉，出了點問題。請稍後再試。",
