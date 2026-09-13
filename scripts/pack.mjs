@@ -115,6 +115,18 @@ console.log(`  stage ${stagedFiles} 檔`);
 
 console.log("▸ data-seed 播種（骨架 + 產品資產）…");
 cpSync(join(ROOT, "scripts/seed"), join(STAGE, "data-seed"), { recursive: true });
+// 防禦性清理：舊工作區（公司手動覆蓋環境）的 seed 骨架可能還留著 9/7 已刪的檔 —
+// 這裡直接清掉，不依賴人記得刪（self-check 是最後防線，這裡是讓它根本不發生）
+for (const stale of [
+  "config/agentic-bindings.json", "config/backup.json", "config/user.json",
+  "config/ui-state.json", "config/recent-projects.json",
+]) {
+  rmSync(join(STAGE, "data-seed", stale), { force: true });
+}
+rmSync(join(STAGE, "data-seed/config/distilled-memory"), { recursive: true, force: true });
+rmSync(join(STAGE, "data-seed/notes/default"), { recursive: true, force: true });
+rmSync(join(STAGE, "data-seed/distill/knowledge"), { recursive: true, force: true });
+rmSync(join(STAGE, "data-seed/crews/conversation"), { recursive: true, force: true });
 mkdirSync(join(STAGE, "data-seed/ai-settings"), { recursive: true });
 cpSync(join(ROOT, "data/ai-settings"), join(STAGE, "data-seed/ai-settings"), { recursive: true });
 
