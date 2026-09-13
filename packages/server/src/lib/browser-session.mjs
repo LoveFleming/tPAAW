@@ -125,6 +125,21 @@ export function recordBrowserAction(key = "default", { actor, kind, summary, url
   };
   inst.actionLog.push(entry);
   if (inst.actionLog.length > ACTION_LOG_MAX) inst.actionLog.shift();
+  // 2026-09-13 跨實體通知：agent 在這個實體操作 → 其他實體的 viewer 立刻收到 remote_activity
+  // （2026-09-12 案例：面板串 default、agent 打 tpaaw-gateway 實體 — 人完全看不到 AI 在操作哪個瀏覽器，
+  //   只看到游標不動、按鈕沒反應。現在面板會浮出「🤖 Agent 正在操作另一個瀏覽器」+ 一鍵切過去看）
+  if (entry.actor === "agent") {
+    for (const other of _instances.values()) {
+      if (other.key === key || other.stream.clients.size === 0) continue;
+      broadcastToStream(other, {
+        type: "remote_activity",
+        key,
+        label: key.split("_").join("/"), // slug → 類路徑顯示（僅供人眼辨識）
+        kind: entry.kind,
+        summary: entry.summary,
+      });
+    }
+  }
   // 持久化：JSONL append；超過 2x 上限就重寫裁切（小檔同步寫可接受）
   try {
     mkdirSync(browserShotDir(key), { recursive: true });

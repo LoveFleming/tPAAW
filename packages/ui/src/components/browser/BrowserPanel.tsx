@@ -55,7 +55,10 @@ const KEY_MAP: Record<string, string> = {
 export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPath?: string | null }) {
   const { t } = useI18n();
   // 2026-09-12：per-RU browser instance — 兩個 Chrome 視窗開不同 RU 各自獨立 browser
-  const ruQ = rootPath ? `ru=${encodeURIComponent(rootPath)}` : "";
+  // 2026-09-13：ruOverride — 收到 remote_activity 後可「切過去看」agent 正在操作的另一個實體
+  const [ruOverride, setRuOverride] = useState<string | null>(null);
+  const effRu = ruOverride ?? rootPath ?? "";
+  const ruQ = effRu ? `ru=${encodeURIComponent(effRu)}` : "";
   const withQ = (base: string) => ruQ ? `${base}?${ruQ}` : base;
   const [status, setStatus] = useState<BrowserStatus | null>(null);
   const [connected, setConnected] = useState(false);
@@ -96,6 +99,8 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
   const [actions, setActions] = useState<ActionEntry[] | null>(null);
   const [replayIdx, setReplayIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
+  // 🤖 跨實體通知（2026-09-13）：agent 在别的 browser 實體操作 → 這裡浮提示 + 一鍵切過去看
+  const [remoteActivity, setRemoteActivity] = useState<{ key: string; label: string; kind: string; summary: string; ts: number } | null>(null);
   const [dialogText, setDialogText] = useState("");
   const [downloads, setDownloads] = useState<DlInfo[]>([]);
   // ── 可選元件：偵測系統 Chrome / Chromium（channel: "chrome"，不載自帶 chromium）──
@@ -180,11 +185,22 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
         else if (d.type === "download") {
           setDownloads(prev => [{ id: d.id, filename: d.filename, state: d.state, path: d.path ?? null, ts: d.ts }, ...prev.filter(x => x.id !== d.id)].slice(0, 8));
         }
+        else if (d.type === "remote_activity") {
+          // agent 在另一個實體操作（例：面板看 default、agent 打某 RU 專屬 browser）— 浮提示防「看不到以為壞掉」
+          setRemoteActivity({ key: String(d.key || ""), label: String(d.label || d.key || ""), kind: String(d.kind || ""), summary: String(d.summary || ""), ts: Date.now() });
+        }
       } catch { /* ignore malformed */ }
     };
     es.onerror = () => setLive(false); // EventSource 內建自動重連
     return () => { es.close(); setLive(false); };
-  }, [API_BASE, mode]);
+  }, [API_BASE, mode, ruQ]); // 2026-09-13：ruQ 進 deps — rootPath 變了（或切換實體）要重接 SSE，否則一直串舊實體的畫面
+
+  // remote_activity 提示 12 秒無新動作自動淡出（新動作會重計時；手動 × 關閉）
+  useEffect(() => {
+    if (!remoteActivity) return;
+    const tm = setTimeout(() => setRemoteActivity(null), 12000);
+    return () => clearTimeout(tm);
+  }, [remoteActivity?.ts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 共用模式：object-contain 完整顯示（含 scrollbar，不裁切畫面）──
   // （Fleming 2026-09-02：要能看到頁面 scrollbar，不能裁切）
@@ -193,9 +209,9 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
     fetch(`${API_BASE}/api/browser/input`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, ru: rootPath || undefined }),
+      body: JSON.stringify({ ...payload, ru: effRu || undefined }),
     }).catch(() => { /* best effort — 斷線由 SSE 狀態顯示 */ });
-  }, [API_BASE, rootPath]);
+  }, [API_BASE, effRu]);
 
   // 畫面座標 → page CSS 座標（頁面填滿寬度、頂端對齊：scale = 容器寬/viewport 寬，無水平偏移）
   const toPageXY = (clientX: number, clientY: number) => {
@@ -298,7 +314,7 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
       const res = await fetch(`${API_BASE}/api/browser/navigate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: target, ru: rootPath || undefined }),
+        body: JSON.stringify({ url: target, ru: effRu || undefined }),
       });
       const data = await res.json();
       if (!res.ok) setNavError(data.error || `Error ${res.status}`);
@@ -606,6 +622,33 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
         )}
         {mode === "stream" ? (
           <div ref={stageRef} className="w-full h-full bg-gray-900 relative overflow-hidden flex items-center justify-center">
+          {/* 🤖 跨實體提示（2026-09-13）：agent 在另一個 browser 實體操作 — 這裡看不到它的畫面，可一鍵切過去看 */}
+          {remoteActivity && !ruOverride && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-blue-600/95 text-white text-[11px] shadow-lg max-w-[92%]">
+              <span className="truncate" title={`${remoteActivity.label} — ${remoteActivity.summary}`}>
+                🤖 {t("browser.remoteActivity").replace("{label}", remoteActivity.label)}
+              </span>
+              <button
+                onClick={() => { setRuOverride(remoteActivity.key); setRemoteActivity(null); }}
+                className="shrink-0 px-2 py-0.5 rounded-full bg-white/25 hover:bg-white/40 transition-colors"
+              >
+                {t("browser.remoteSwitch")}
+              </button>
+              <button onClick={() => setRemoteActivity(null)} className="shrink-0 opacity-70 hover:opacity-100 px-1" title="dismiss">×</button>
+            </div>
+          )}
+          {/* 👀 正在看別的實體（remote switch 後）— 一鍵返回本專案 */}
+          {ruOverride && (
+            <div className="absolute top-2 left-2 z-30 flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-amber-500/95 text-white text-[11px] shadow-lg max-w-[92%]">
+              <span className="truncate" title={ruOverride}>{t("browser.remoteWatching").replace("{label}", ruOverride.split("_").join("/"))}</span>
+              <button
+                onClick={() => setRuOverride(null)}
+                className="shrink-0 px-2 py-0.5 rounded-full bg-white/25 hover:bg-white/40 transition-colors"
+              >
+                {t("browser.remoteBack")}
+              </button>
+            </div>
+          )}
           {frame ? (
               <div className="relative overflow-hidden bg-white shrink-0"
                 style={fit ? { width: `${fit.w}px`, height: `${fit.h}px` } : undefined}>
