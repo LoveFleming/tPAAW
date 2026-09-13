@@ -195,7 +195,9 @@ export function browserShotDir(key = "default") {
 
 export function browserState(key = "default") {
   const inst = _instances.get(key);
-  return inst ? { ...inst.state, lastActionAt: inst.state.lastActionAt, key } : { ready: false, available: null, error: null, url: null, title: null, lastActionAt: null, lastScreenshot: null, key };
+  return inst
+    ? { ...inst.state, lastActionAt: inst.state.lastActionAt, key }
+    : { ready: false, available: null, error: null, url: null, title: null, lastActionAt: null, lastScreenshot: null, visualMode: false, key };
 }
 
 /** 全部 instance 狀態（管理/debug 用） */
