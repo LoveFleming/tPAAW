@@ -87,7 +87,63 @@ const RETRYABLE_ERR_CODES = new Set([
  * @returns {string} 清理後的文字
  */
 /**
- * 解析 ModelSelector 的 model 參照值 → { providerId, model }（2026-09-14 fix）
+ * 移除孤兒 surrogate（2026-09-14 fix — Fleming 回報：多輪開發後 LLM API 500）
+ *
+ * 根因鏈：工具輸出/上下文截斷切在 emoji 中間（\ud83d 高半被留下）→ 孤兒 surrogate
+ * 進入對話歷史 → JSON body 帶 \ud83d escape → LLM server（Python 後端）UTF-8 編碼炸
+ * → 500 Internal Server Error。歷史一旦中書，每輪都 500（多輪開發後才爆 = 截斷機率累積）。
+ *
+ * 策略：①源頭截斷不切 pair（cutSafeStart/cutSafeEnd）；②LLM 邊界統一清毒
+ * （jsonStringifySafe）——已存檔的中毒歷史靠這層自救。
+ */
+export function stripLoneSurrogates(s) {
+  if (typeof s !== "string" || !s) return s;
+  // 快速路徑：無 surrogate 直接回（絕大多數字串，免掃全文）
+  let hasSurrogate = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c >= 0xd800 && c <= 0xdfff) { hasSurrogate = true; break; }
+  }
+  if (!hasSurrogate) return s;
+  let out = "";
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c >= 0xd800 && c <= 0xdbff) {
+      const n = s.charCodeAt(i + 1) || 0;
+      if (n >= 0xdc00 && n <= 0xdfff) { out += s[i] + s[i + 1]; i++; } // 完整 pair 保留
+      // 孤兒 high（如截斷留下的 \ud83d）→ 丟棄
+    } else if (c >= 0xdc00 && c <= 0xdfff) {
+      // 孤兒 low → 丟棄
+    } else {
+      out += s[i];
+    }
+  }
+  return out;
+}
+
+/** 安全截斷：取前 n 字元，不切在 surrogate pair 中間 */
+export function cutSafeStart(s, n) {
+  if (typeof s !== "string" || s.length <= n) return s;
+  const cut = s.slice(0, n);
+  const last = cut.charCodeAt(cut.length - 1);
+  return last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut; // 尾巴是 high half → 多別 1
+}
+
+/** 安全截斷：取後 n 字元，不切在 surrogate pair 中間 */
+export function cutSafeEnd(s, n) {
+  if (typeof s !== "string" || s.length <= n) return s;
+  const cut = s.slice(s.length - n);
+  const first = cut.charCodeAt(0);
+  return first >= 0xdc00 && first <= 0xdfff ? cut.slice(1) : cut; // 頭是 low half → 多別 1
+}
+
+/** JSON.stringify 安全版：所有 string 值先清孤兒 surrogate（LLM request 邊界專用） */
+export function jsonStringifySafe(value) {
+  return JSON.stringify(value, (_k, v) => (typeof v === "string" ? stripLoneSurrogates(v) : v));
+}
+
+/**
+ * 解析 "providerId/modelId" 或純 modelId → { providerId, model }（2026-09-14 fix）
  *
  * 格式：「providerId/modelId」（UI ModelSelector 存的格式）或純 modelId（走 active provider）。
  *
@@ -413,7 +469,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
       const resp = await fetchWithRetry(apiUrl, {
         method: 'POST',
         headers,
-        body: JSON.stringify(body),
+        body: jsonStringifySafe(body), // 2026-09-14: 孤兒 surrogate 清毒（emoji 截斷殘骸 → LLM 500）
       }, {
         maxRetries: 0, // 內層不 retry，由外層統一控制
         timeoutMs,
@@ -567,7 +623,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
           const resp = await fetchWithRetry(fb.apiUrl, {
             method: 'POST',
             headers: fb.headers,
-            body: JSON.stringify(fbBody),
+            body: jsonStringifySafe(fbBody), // 2026-09-14: 同上
           }, { maxRetries: 0, timeoutMs });
 
           if (!resp.ok) {

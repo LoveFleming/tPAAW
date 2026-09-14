@@ -39,7 +39,7 @@ import { messagesForModel, isVisionModel, hasImages, extractImageMarkers, buildI
 import { startAgentLog } from "./agent-exec-logger.mjs";
 import { createPaawProject } from "./paaw-project.mjs";
 import { PaawSnapshot } from "./paaw-snapshot.mjs";
-import { resolveDefaultModel, parseModelReference } from "./llm-utils.mjs";
+import { resolveDefaultModel, parseModelReference, jsonStringifySafe, cutSafeStart } from "./llm-utils.mjs";
 import { toolRegistry } from "./tool-registry.mjs";
 import { DATA_HOME, LOG_HOME, logSlug } from "../data-home.mjs";
 import {
@@ -1606,8 +1606,9 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           try {
             const content = await readFile(filePath, "utf-8");
             const maxLen = 100_000;
+            // 2026-09-14: cutSafeStart 不切 surrogate pair（emoji 切半 → 孤兒 \ud83d → LLM 500）
             const result = content.length > maxLen
-              ? content.slice(0, maxLen) + `\n... (truncated, ${content.length} bytes total)`
+              ? cutSafeStart(content, maxLen) + `\n... (truncated, ${content.length} bytes total)`
               : content;
             if (onEvent) onEvent({ type: "tool_end", name, result: `${args.source}/${args.path} (${content.length} bytes)` });
             return result;
@@ -1675,8 +1676,9 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         }
         // Truncate very large files
         const maxLen = 100_000;
+        // 2026-09-14: cutSafeStart 不切 surrogate pair（emoji 切半 → 孤兒 \ud83d → LLM 500）
         const result = content.length > maxLen
-          ? content.slice(0, maxLen) + `\n... (truncated, ${content.length} bytes total)`
+          ? cutSafeStart(content, maxLen) + `\n... (truncated, ${content.length} bytes total)`
           : content;
         if (onEvent) onEvent({ type: "tool_end", name, result: `Read ${filePath} (${content.length} bytes)` });
         return result;
@@ -3588,7 +3590,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
     const resp = await fetchStreamWithRetry(apiUrl, {
       method: "POST",
       headers,
-      body: JSON.stringify(body),
+      body: jsonStringifySafe(body), // 2026-09-14: 孤兒 surrogate 清毒（emoji 截斷殘骸 → LLM 500）
     }, { timeoutMs: LLM_CALL_TIMEOUT_MS, readTimeoutMs: 600_000, maxRetries: 2, signal, onRetry: (info) => {
       if (onEvent) onEvent("info", { message: `⏳ API 暫時不可用 (HTTP ${info.status}), ${info.delayMs / 1000}s 後重試...` });
     } });

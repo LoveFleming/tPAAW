@@ -34,6 +34,8 @@ const TAIL_IMPORTANT_PATTERNS = [
   /warning/i, /deprecated/i,
 ];
 
+import { cutSafeStart, cutSafeEnd } from "./llm-utils.mjs";
+
 // ── Token Estimation ──
 
 /**
@@ -99,14 +101,14 @@ export function smartTruncateToolResult(text, maxChars = DEFAULT_MAX_TOOL_RESULT
       headChars = Math.floor(headChars * ratio);
       tailChars = Math.floor(tailChars * ratio);
     }
-    const head = text.slice(0, headChars);
-    const tail = text.slice(-tailChars);
+    const head = cutSafeStart(text, headChars); // 2026-09-14: 不切 surrogate pair（emoji 切半 → LLM 500）
+    const tail = cutSafeEnd(text, tailChars);
     const omitted = text.length - headChars - tailChars;
     return `${head}\n\n⚠️ [... ${omitted.toLocaleString()} chars omitted (middle content truncated) ...]\n\n${tail}`;
   }
 
   // Head-only truncation (tail has no important patterns)
-  const head = text.slice(0, budget);
+  const head = cutSafeStart(text, budget);
   return `${head}\n\n⚠️ [... ${((text.length - budget).toLocaleString())} chars truncated ...]`;
 }
 
@@ -265,14 +267,14 @@ export function limitHistoryTurns(messages, maxUserTurns = 10) {
   const summaryParts = evicted
     .filter(m => m.role === "assistant" || m.role === "user")
     .map(m => {
-      const content = (String(m.content && m.content.map ? m.content.filter(p => p.type === "text").map(p => p.text).join(" ") : m.content || "")).slice(0, 200);
+      const content = cutSafeStart(String(m.content && m.content.map ? m.content.filter(p => p.type === "text").map(p => p.text).join(" ") : m.content || ""), 200);
       const role = m.role === "assistant" ? "AI" : "User";
       return `[${role}] ${content}`;
     });
 
   const summaryMsg = {
     role: "system",
-    content: `[Earlier conversation (${evictedCount} messages) trimmed to manage context]\n${summaryParts.join("\n").slice(0, 2000)}\n[End of summary]`,
+    content: `[Earlier conversation (${evictedCount} messages) trimmed to manage context]\n${cutSafeStart(summaryParts.join("\n"), 2000)}\n[End of summary]`,
   };
 
   return [...head, summaryMsg, ...keptTail];

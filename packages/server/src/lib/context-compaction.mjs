@@ -20,6 +20,7 @@
  */
 
 import { estimateTokens } from "./context-truncation.mjs";
+import { cutSafeStart } from "./llm-utils.mjs"; // 2026-09-14: 截斷不切 surrogate pair
 import { contentToText, estimateContentTokens } from "./vision-content.mjs"; // vision array content 相容（2026-08-30 Phase 1）
 
 // ── Configuration ──
@@ -172,7 +173,7 @@ async function summarizeMessages(messages, llmConfig, originalPrompt) {
   // Build a compact representation of the messages
   const messageText = messages.map(m => {
     const role = m.role === "assistant" ? "Assistant" : m.role === "user" ? "User" : m.role === "tool" ? "Tool Result" : "System";
-    const content = contentToText(m.content).slice(0, 2000); // Cap each message's contribution（vision array → 文字+圖片標記）
+    const content = cutSafeStart(contentToText(m.content), 2000); // 2026-09-14 cutSafe + Cap each message's contribution（vision array → 文字+圖片標記）
     let text = `[${role}]`;
     if (m.tool_calls?.length) {
       text += ` (called ${m.tool_calls.map(tc => tc.function?.name).join(", ")})`;
@@ -188,7 +189,7 @@ Requirements:
 - Keep error messages and solutions
 - Note what was accomplished and what remains to be done
 - Be concise but lose no important information
-${originalPrompt ? `- The user's original task was: "${originalPrompt.slice(0, 500)}"` : ""}
+${originalPrompt ? `- The user's original task was: "${cutSafeStart(originalPrompt, 500)}"` : ""}
 
 Conversation to summarize:
 ${messageText}
@@ -230,10 +231,10 @@ Output a structured summary in markdown:`;
       .filter(m => m.role === "assistant" || m.role === "user")
       .map(m => {
         const role = m.role === "assistant" ? "AI" : "User";
-        return `[${role}] ${contentToText(m.content).slice(0, 300)}`;
+        return `[${role}] ${cutSafeStart(contentToText(m.content), 300)}`;
       });
 
-    return `Fallback summary (${messages.length} messages, LLM summarization failed: ${err.message}):\n${fallbackParts.join("\n").slice(0, 5000)}`;
+    return `Fallback summary (${messages.length} messages, LLM summarization failed: ${err.message}):\n${cutSafeStart(fallbackParts.join("\n"), 5000)}`;
   }
 }
 

@@ -1,4 +1,5 @@
 import { DATA_HOME } from "../../data-home.mjs";
+import { jsonStringifySafe } from '../llm-utils.mjs' // 2026-09-14: LLM request 清毒
 /**
  * Provider Adapter — AI Provider 抽象層 (.mjs)
  *
@@ -100,7 +101,7 @@ export class OpenAICompatibleAdapter {
       response = await fetchStreamWithRetry(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify(body),
+        body: jsonStringifySafe(body), // 2026-09-14: 孤兒 surrogate 清毒（emoji 截斷殘骸 → LLM 500）
       }, {
         maxRetries: 3,
         timeoutMs: 300_000,
