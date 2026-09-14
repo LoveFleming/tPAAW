@@ -30,6 +30,7 @@ export interface ChatMessageItem {
   content: string;
   ts?: string;
   timestamp?: number;
+  files?: { name: string; size: number }[]; // 📄 文字檔附件（agent chat 上傳，2026-09-14）
   _thinking?: boolean;
   _thinkingHistory?: string[];
   [k: string]: any;
@@ -297,13 +298,29 @@ const MessageRow = React.memo(function MessageRow({
                     ))}
                   </div>
                 )}
-                {userMarkdown ? (
-                  <div className="prose prose-stone prose-sm max-w-none prose-p:my-1">
-                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>{msg.content}</ReactMarkdown>
+                {/* 📄 文字檔附件 chip（2026-09-14）：氣泡只顯示使用者打的字，inline 檔案內容用 chip 代表 */}
+                {Array.isArray(msg.files) && msg.files.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {msg.files.map((f, fi) => (
+                      <span key={fi} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white border border-stone-200 text-xs text-stone-600 max-w-[240px] shadow-sm">
+                        <span>📄</span>
+                        <span className="truncate" title={f.name}>{f.name}</span>
+                        <span className="text-stone-400 shrink-0">{(f.size / 1024).toFixed(1)}KB</span>
+                      </span>
+                    ))}
                   </div>
-                ) : (
-                  <div className="whitespace-pre-wrap">{msg.content}</div>
                 )}
+                {(() => {
+                  const shown = msg.content.split("\n\n[User uploaded file:")[0].trim();
+                  if (!shown) return null;
+                  return userMarkdown ? (
+                    <div className="prose prose-stone prose-sm max-w-none prose-p:my-1">
+                      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>{shown}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <div className="whitespace-pre-wrap">{shown}</div>
+                  );
+                })()}
               </>
             )}
           </div>
