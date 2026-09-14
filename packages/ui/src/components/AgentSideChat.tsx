@@ -33,6 +33,7 @@ export interface SideChatMessage {
   content: string;
   ts: string;
   images?: string[]; // 👁 uploads/ 相對路徑（agent chat 貼圖，2026-08-30）
+  files?: { name: string; size: number }[]; // 📄 文字檔附件（2026-09-14）
 }
 
 interface AgentSideChatProps {
@@ -80,6 +81,34 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [pendingImages, setPendingImages] = useState<{ id: string; dataUrl: string }[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  // 📄 文字檔附件（2026-09-14）：picker/drop/paste → 讀文字 → 上傳 → read_file / inline
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingFiles, setPendingFiles] = useState<{ id: string; name: string; size: number; text: string }[]>([]);
+  const MAX_FILE_BYTES = 2 * 1024 * 1024;
+  const readAsText = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result ?? ""));
+      r.onerror = () => reject(new Error("read fail"));
+      r.readAsText(file, "utf-8");
+    });
+  }, []);
+  const addTextFiles = useCallback(async (files: File[]) => {
+    const texts = files.filter(f => !f.type.startsWith("image/"));
+    if (texts.length === 0) return;
+    const room = 4 - pendingFiles.length;
+    if (room <= 0) { alert(tt("chat.fileLimit")); return; }
+    const results: { id: string; name: string; size: number; text: string }[] = [];
+    for (const f of texts.slice(0, room)) {
+      if (f.size > MAX_FILE_BYTES) { alert(`${f.name}: ${tt("chat.fileTooLarge")}`); continue; }
+      try {
+        const text = await readAsText(f);
+        if (text.includes("\u0000")) { alert(`${f.name}: ${tt("chat.fileBinary")}`); continue; }
+        results.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: f.name, size: f.size, text });
+      } catch { alert(`${f.name}: ${tt("chat.fileReadFail")}`); }
+    }
+    if (results.length > 0) setPendingFiles(p => [...p, ...results].slice(0, 4));
+  }, [pendingFiles.length, readAsText, tt]);
   const compressImage = useCallback((file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -136,7 +165,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
 
   const send = useCallback(async (text?: string) => {
     const msg = (text ?? input).trim();
-    if ((!msg && pendingImages.length === 0) || loading) return;
+    if ((!msg && pendingImages.length === 0 && pendingFiles.length === 0) || loading) return;
     setInput("");
 
     // 👁 先上傳 pending 圖 → 換 path（失敗跳過）
@@ -152,10 +181,41 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
       uploadedPaths = results.filter(Boolean) as string[];
     }
     setPendingImages([]);
-    const textPart = msg || (uploadedPaths.length > 0 ? "請看這張圖" : "");
-    if (!textPart) return;
 
-    const userMsg: SideChatMessage = { role: "user", content: textPart, ts: new Date().toISOString(), ...(uploadedPaths.length > 0 ? { images: uploadedPaths } : {}) };
+    // 📄 上傳 pending 文字檔 → path（失敗 fallback：小檔直接 inline，大檔提示失敗）
+    const INLINE_LIMIT = 8000;
+    let textPart = msg;
+    const fileMeta: { name: string; size: number }[] = [];
+    if (pendingFiles.length > 0) {
+      const files = pendingFiles;
+      setPendingFiles([]);
+      for (const f of files) {
+        fileMeta.push({ name: f.name, size: f.size });
+        let uploaded: { abs?: string; rel?: string } | null = null;
+        try {
+          const r = await fetch(`${API_BASE}/api/uploads/text`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: f.text, filename: f.name, ruRoot: cwd }),
+          });
+          const j = await r.json();
+          if (j.ok) uploaded = { abs: j.abs, rel: j.rel };
+        } catch { /* fallback inline */ }
+        const ref = uploaded?.rel || uploaded?.abs;
+        if (f.text.length <= INLINE_LIMIT) {
+          const pathNote = ref ? `\npath: ${ref}（已存檔，可用 read_file 讀取）` : "";
+          textPart += `\n\n[User uploaded file: ${f.name}]${pathNote}\n\`\`\`\n${f.text}\n\`\`\``;
+        } else if (ref) {
+          textPart += `\n\n[User uploaded file: ${f.name} (${f.text.length} chars)]\npath: ${ref}\n(檔案較大未內嵌 — 請用 read_file 讀取完整內容)`;
+        } else {
+          textPart += `\n\n[Upload failed for ${f.name} — 檔案過大且上傳失敗，請提醒使用者重試]`;
+        }
+      }
+    }
+    if (!textPart && uploadedPaths.length > 0 && fileMeta.length === 0) textPart = "請看這張圖"; // 圖-only 保留原行為
+    if (!textPart) return;
+    if (!msg && fileMeta.length > 0) textPart = `${tt("chat.fileDefaultMsg")}${textPart}`;
+
+    const userMsg: SideChatMessage = { role: "user", content: textPart, ts: new Date().toISOString(), ...(uploadedPaths.length > 0 ? { images: uploadedPaths } : {}), ...(fileMeta.length > 0 ? { files: fileMeta } : {}) };
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
     setAction("💭 思考中…");
@@ -246,7 +306,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
       setAction("");
       abortRef.current = null;
     }
-  }, [input, loading, messages, agentId, cwd, pendingImages]);
+  }, [input, loading, messages, agentId, cwd, pendingImages, pendingFiles, tt]);
 
   // 外部注入訊息（Handover QA chips → AI；不改變內部訊息流）
   React.useImperativeHandle(ref, () => ({ send: (text: string) => { send(text); } }), [send]);
@@ -318,7 +378,23 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
                       ))}
                     </div>
                   )}
-                  {m.content && <span className="inline-block px-3 py-1.5 rounded-2xl text-sm bg-stone-50 text-stone-700 max-w-[85%] whitespace-pre-wrap">{m.content}</span>}
+                  {m.files && m.files.length > 0 && (
+                    <div className="flex gap-1.5 mb-1 flex-wrap">
+                      {m.files.map((f, j) => (
+                        <span key={j} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-stone-100 border border-stone-200 text-[10px] text-stone-600 max-w-[200px]">
+                          <span>📄</span>
+                          <span className="truncate" title={f.name}>{f.name}</span>
+                          <span className="text-stone-400 shrink-0">{(f.size / 1024).toFixed(1)}KB</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {(() => {
+                    // 氣泡只顯示使用者打的字（inline 檔案內容不重複渲染，用上方 chip 代表）
+                    const shown = m.content.split("\n\n[User uploaded file:")[0].trim();
+                    if (!shown) return null;
+                    return <span className="inline-block px-3 py-1.5 rounded-2xl text-sm bg-stone-50 text-stone-700 max-w-[85%] whitespace-pre-wrap">{shown}</span>;
+                  })()}
                 </div>
               )}
             </div>
@@ -347,7 +423,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
       <div className="border-t p-2 shrink-0" style={{ borderColor: "#e7e5e4" }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => { e.preventDefault(); setDragOver(false); addImages(Array.from(e.dataTransfer.files)); }}>
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); const files = Array.from(e.dataTransfer.files); addImages(files); addTextFiles(files); }}>
         {/* 👁 待送圖預覽 */}
         {pendingImages.length > 0 && (
           <div className="flex gap-1.5 mb-1.5 flex-wrap">
@@ -359,16 +435,35 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
             ))}
           </div>
         )}
+        {/* 📄 待送文字檔預覽 */}
+        {pendingFiles.length > 0 && (
+          <div className="flex gap-1.5 mb-1.5 flex-wrap">
+            {pendingFiles.map(f => (
+              <div key={f.id} className="relative group">
+                <span className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-white border border-stone-200 text-[10px] text-stone-600 max-w-[220px]">
+                  <span>📄</span>
+                  <span className="truncate" title={f.name}>{f.name}</span>
+                  <span className="text-stone-400 shrink-0">{(f.size / 1024).toFixed(1)}KB</span>
+                </span>
+                <button onClick={() => setPendingFiles(p => p.filter(x => x.id !== f.id))} className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-stone-700 text-white text-[9px] flex items-center justify-center opacity-80 hover:opacity-100">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
         {dragOver && <div className="mb-1.5 text-[10px] px-2 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">{tt("chat.imageDropHere")}</div>}
         <div className="flex gap-1.5 items-end">
           {/* 👁 📞 貼圖鈕 */}
           <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addImages(Array.from(e.target.files || [])); e.target.value = ""; }} />
           <button onClick={() => imageInputRef.current?.click()} disabled={pendingImages.length >= 4} title={tt("chat.attachImage")}
             className="text-xs px-2 py-2 rounded-lg border border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300 disabled:opacity-40 shrink-0 bg-stone-50">📎</button>
+          {/* 📄 文字檔鈕 */}
+          <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => { addTextFiles(Array.from(e.target.files || [])); e.target.value = ""; }} />
+          <button onClick={() => fileInputRef.current?.click()} disabled={pendingFiles.length >= 4} title={tt("chat.attachFile")}
+            className="text-xs px-2 py-2 rounded-lg border border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300 disabled:opacity-40 shrink-0 bg-stone-50">📄</button>
           <textarea
             value={input}
             onChange={e => setInput(e.target.value)}
-            onPaste={(e) => { const files = Array.from(e.clipboardData?.files || []); if (files.length > 0) { e.preventDefault(); addImages(files); } }}
+            onPaste={(e) => { const files = Array.from(e.clipboardData?.files || []); if (files.length > 0) { e.preventDefault(); addImages(files); addTextFiles(files); } }}
             onCompositionStart={() => { composingRef.current = true; }}
             onCompositionEnd={() => { composingRef.current = false; }}
             onKeyDown={e => {
@@ -383,7 +478,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
             <button onClick={() => abortRef.current?.abort()}
               className="text-xs px-3 py-2 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 shrink-0">停止</button>
           ) : (
-            <button onClick={() => send()} disabled={!input.trim() && pendingImages.length === 0}
+            <button onClick={() => send()} disabled={!input.trim() && pendingImages.length === 0 && pendingFiles.length === 0}
               className="text-xs px-3 py-2 rounded-lg text-white disabled:opacity-40 shrink-0" style={{ backgroundColor: accent }}>
               送出
             </button>

@@ -1277,5 +1277,11 @@
   "notes.createFailed": "Failed to create note",
   "notes.createSectionFailed": "Failed to create section",
   "settings.unsavedProviders": "Unsaved changes — click Save above",
-  "settings.modelIdExists": "This model id already exists in this provider"
+  "settings.modelIdExists": "This model id already exists in this provider",
+  "chat.attachFile": "Attach text file (AI can read it via read_file)",
+  "chat.fileLimit": "Max 4 files per message",
+  "chat.fileTooLarge": "File exceeds 2MB limit",
+  "chat.fileBinary": "Content looks binary — text files only",
+  "chat.fileReadFail": "Failed to read file",
+  "chat.fileDefaultMsg": "Please process my uploaded file(s)"
 }

@@ -1277,5 +1277,11 @@
   "notes.createFailed": "ノートの作成に失敗しました",
   "notes.createSectionFailed": "セクションの作成に失敗しました",
   "settings.unsavedProviders": "未保存の変更があります — 上の保存を押してください",
-  "settings.modelIdExists": "この model id は既に存在します"
+  "settings.modelIdExists": "この model id は既に存在します",
+  "chat.attachFile": "テキストファイルを添付（AIが read_file で読めます）",
+  "chat.fileLimit": "1回につき最大4ファイル",
+  "chat.fileTooLarge": "ファイルが2MBの上限を超えています",
+  "chat.fileBinary": "バイナリの可能性があります — テキストファイルのみ対応",
+  "chat.fileReadFail": "ファイルの読み込みに失敗しました",
+  "chat.fileDefaultMsg": "アップロードしたファイルを処理してください"
 }

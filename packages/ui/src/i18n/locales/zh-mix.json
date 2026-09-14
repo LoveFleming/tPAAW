@@ -1277,5 +1277,11 @@
   "notes.createFailed": "建立筆記失敗",
   "notes.createSectionFailed": "建立分類失敗",
   "settings.unsavedProviders": "有未儲存的變更 — 記得點上方儲存",
-  "settings.modelIdExists": "這個 model id 已存在（同 provider 內不能重複）"
+  "settings.modelIdExists": "這個 model id 已存在（同 provider 內不能重複）",
+  "chat.attachFile": "附加文字檔（AI 可用 read_file 讀取）",
+  "chat.fileLimit": "一次最多 4 個檔案",
+  "chat.fileTooLarge": "檔案超過 2MB 上限",
+  "chat.fileBinary": "內容疑似二進位，只支援文字檔",
+  "chat.fileReadFail": "檔案讀取失敗",
+  "chat.fileDefaultMsg": "請處理我上傳的檔案"
 }

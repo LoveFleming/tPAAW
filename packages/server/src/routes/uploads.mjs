@@ -36,6 +36,16 @@ await mkdir(UPLOADS_DIR, { recursive: true });
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB 上限（client 已壓縮，超過就是異常）
 const ALLOWED_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
 
+// ── 文字檔上傳（2026-09-14 agent chat 檔案附件）──
+const MAX_TEXT_BYTES = 2 * 1024 * 1024; // 2MB 上限
+
+/** 檔名消毒：去路徑、去控制碼、擋 ..、長度上限（保留中英文與常見符號） */
+function _safeTextName(name) {
+  const base = String(name || "file.txt").split(/[\\/]/).pop().trim() || "file.txt";
+  const cleaned = base.replace(/[\u0000-\u001f<>:"|?*]/g, "_").replace(/^\.+/, "_");
+  return cleaned.length > 80 ? cleaned.slice(0, 77) + "..." : cleaned;
+}
+
 function _safeName(name) {
   const ext = extname(name || "").toLowerCase();
   return { ext: ALLOWED_EXT.has(ext) ? ext : ".jpg", ok: ALLOWED_EXT.has(ext) };
@@ -76,6 +86,50 @@ export default async function uploadRoutes(req, res) {
       }
       await writeFile(join(targetDir, name), buf);
       json(res, { ok: true, path: rel, url: `/api/${rel}` });
+    } catch (err) {
+      json(res, { error: err.message }, 500);
+    }
+    return true;
+  }
+
+  // ── POST /api/uploads/text — 文字檔上傳（agent chat 附件，2026-09-14）──
+  // {content, filename, ruRoot?} → {ok, name, abs, rel?}
+  //   有 ruRoot（註冊過的 RU）→ 存 {ru}/.paaw/uploads/（RU 資產，agent read_file 可讀，rel 相對 ruRoot）
+  //   無 ruRoot → 中央 data/uploads/（絕對路徑回傳，read_file 靠 PAAW root 白名單可讀）
+  if (req.method === "POST" && path === "/api/uploads/text") {
+    try {
+      const body = JSON.parse((await readBody(req)) || "{}");
+      const content = typeof body.content === "string" ? body.content : "";
+      if (content.length === 0) { json(res, { error: "Empty content" }, 400); return true; }
+      const bytes = Buffer.byteLength(content, "utf8");
+      if (bytes > MAX_TEXT_BYTES) {
+        json(res, { error: `File too large (${(bytes / 1024).toFixed(0)}KB, max ${MAX_TEXT_BYTES / 1024}KB)` }, 400);
+        return true;
+      }
+      // 二進位防護：前 8k 字元含 NUL → 幾乎確定不是文字檔
+      if (content.slice(0, 8000).includes("\u0000")) {
+        json(res, { error: "Content looks binary — text files only" }, 400);
+        return true;
+      }
+
+      const safe = _safeTextName(body.filename);
+      const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+
+      // ruRoot 有給且是註冊過的 RU → 存 RU 資產目錄（跟對話圖同一套定調：檔案是 RU 資產）
+      if (typeof body.ruRoot === "string" && body.ruRoot.length > 0) {
+        const roots = await _listRuRoots();
+        const matched = roots.find((r) => r === resolve(body.ruRoot));
+        if (!matched) { json(res, { error: "ruRoot is not a registered release unit" }, 400); return true; }
+        const targetDir = join(matched, ".paaw", "uploads");
+        await mkdir(targetDir, { recursive: true });
+        const abs = join(targetDir, name);
+        await writeFile(abs, content, "utf8");
+        json(res, { ok: true, name: safe, abs, rel: `.paaw/uploads/${name}` });
+      } else {
+        const abs = join(UPLOADS_DIR, name);
+        await writeFile(abs, content, "utf8");
+        json(res, { ok: true, name: safe, abs });
+      }
     } catch (err) {
       json(res, { error: err.message }, 500);
     }
