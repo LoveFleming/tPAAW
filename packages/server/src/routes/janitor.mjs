@@ -39,22 +39,52 @@ export default async function janitorRoutes(req, res) {
     }
     try {
       let data = "";
-      let size = 0;
+      let rotated = false;
       const exists = existsSync(file);
       if (exists) {
         const st = statSync(file);
-        size = st.size;
-        const offset = Math.max(0, Math.min(parseInt(q.offset || "0", 10) || 0, st.size));
-        const len = Math.min(st.size - offset, 512 * 1024); // 單次最多 512KB
+        let size = st.size;
+        let offset = Math.max(0, parseInt(q.offset || "0", 10) || 0);
+        // 2026-09-14 fix：offset 超過檔案大小 = 檔案輪替/縮小 → 跳到新檔尾（否則永遠讀不到新內容）
+        if (offset > size) {
+          rotated = true;
+          offset = Math.max(0, size - 64 * 1024);
+        }
+        // 2026-09-14 fix：首次載入直接跳檔尾（tail=1，最後 256KB）— 大 log 不用從頭慢慢追
+        if (q.tail === "1" && offset === 0 && size > 256 * 1024) {
+          offset = size - 256 * 1024;
+        }
+        offset = Math.min(offset, size);
+        const len = Math.min(size - offset, 512 * 1024); // 單次最多 512KB
+        let consumed = 0;
         if (len > 0) {
           const fd = openSync(file, "r");
           try {
             const buf = Buffer.alloc(len);
             readSync(fd, buf, 0, len, offset);
-            data = buf.toString("utf-8");
+            // 2026-09-14 fix（真 bug）：位元組邊界切在多位元組字中間（中文/emoji）→
+            //   舊碼 buf.toString 產生 �，且 nextOffset 用重編碼長度會跳 byte（錯位）。
+            //   修：頭尾不完整序列各丢最多 1 字，offset 照全窗口推進（零錯位零無限迴圈）。
+            let start = 0;
+            // 頭：切在字中間（tail 跳尾/輪替後必中）→ 跳到下一個 lead byte
+            while (start < len && (buf[start] & 0xc0) === 0x80) start++;
+            // 尾：不完整序列 → 砍掉
+            let end = len;
+            for (let back = 1; back <= Math.min(3, end - start); back++) {
+              const b = buf[end - back];
+              if ((b & 0xc0) === 0x80) continue; // continuation byte → 往前找 lead
+              if (b >= 0xc0) {
+                const need = b >= 0xf0 ? (b >= 0xf8 ? 5 : 4) : b >= 0xe0 ? 3 : 2;
+                if (back < need) end = len - back; // 尾序列不完整 → 砍掉
+              }
+              break;
+            }
+            data = buf.toString("utf-8", start, end);
+            consumed = len; // 檔案 offset 照全窗口推進（丢的字元不重讀，防無限迴圈）
           } finally { try { closeSync(fd); } catch {} }
         }
-        return json(res, { src, file, exists: true, size, nextOffset: offset + Buffer.byteLength(data, "utf-8"), data });
+        if (rotated) data = `\n──── log rotated（檔案換新，跳到最新 64KB）────\n${data}`;
+        return json(res, { src, file, exists: true, size, rotated, nextOffset: offset + consumed, data });
       }
       return json(res, { src, file, exists: false, size: 0, nextOffset: 0, data: "" });
     } catch (err) {

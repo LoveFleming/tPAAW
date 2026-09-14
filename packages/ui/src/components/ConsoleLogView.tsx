@@ -27,15 +27,18 @@ export default function ConsoleLogView({ cwd, theme: tk }: { cwd?: string; theme
     reset();
     let stop = false;
     let timer: any = null;
+    const gotFirstRef = { current: false }; // 首次載入用 tail=1 直接跳檔尾（2026-09-14：大 log 不再從頭慢慢追）
 
     const poll = async () => {
       if (stop) return;
       try {
         const q = new URLSearchParams({ src, offset: String(offsetRef.current) });
         if (src === "app" && cwd) q.set("cwd", cwd);
+        if (!gotFirstRef.current) q.set("tail", "1");
         const r = await fetch(`${API_BASE}/api/logs/console?${q}`);
         const d = await r.json();
         if (!stop && d?.exists && d.data) {
+          gotFirstRef.current = true;
           offsetRef.current = d.nextOffset;
           setText((prev) => (prev + d.data).slice(-400_000)); // 上限 ~400KB 防 UI 爆
         }
