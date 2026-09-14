@@ -38,7 +38,7 @@ import { fileURLToPath } from "url";
 import { exec as execCb } from "child_process";
 import { shellExec, IS_WIN } from "../lib/shell-exec.mjs";
 import { createPaawProject } from "../lib/paaw-project.mjs";
-import { callLLMWithRetry, dateTimeContextBlock } from "../lib/llm-utils.mjs";
+import { callLLMWithRetry, dateTimeContextBlock, parseModelReference } from "../lib/llm-utils.mjs";
 import { normalizePath, readBody } from "./shared.mjs";
 import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-parser.mjs";
@@ -193,18 +193,11 @@ export async function callProjectLLM(body, opts = {}) {
   let providerConfig;
   try { providerConfig = JSON.parse(readSync(providersFile, "utf8")); } catch { return { content: null }; }
   // Parse "providerId/modelId" format (from ModelSelector) — 與 paaw-agent-loop resolveLLMConfig 同邏輯
-  // UI ModelSelector 的值是 "zai/glm-5.1" 這種格式；不剝 prefix 直接送 API 會 400 (unknown model)
+  // 2026-09-14 fix：改用 parseModelReference — model id 自帶 provider prefix（如 anthropic/claude-opus-4.8）
+  // 不再被 first-slash 剝過頭直送 API 400 (unknown model)
   let providerId = providerConfig.active || "zai";
   let model = body.model || resolveDefaultModel(providerConfig);
-  if (model && model.includes("/")) {
-    const firstSlash = model.indexOf("/");
-    const candidateProvider = model.slice(0, firstSlash);
-    if (providerConfig.providers[candidateProvider]) {
-      providerId = candidateProvider;
-      model = model.slice(firstSlash + 1);
-    }
-    // Otherwise keep the full model string (e.g. "deepseek/deepseek-v4-flash" via openrouter)
-  }
+  ({ providerId, model } = parseModelReference(providerConfig, model));
   const provider = providerConfig.providers[providerId];
   if (!provider?.apiKey || provider.apiKey === "na") { return { content: null }; }
 

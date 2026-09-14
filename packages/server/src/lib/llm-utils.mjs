@@ -86,6 +86,47 @@ const RETRYABLE_ERR_CODES = new Set([
  * @param {string} text
  * @returns {string} 清理後的文字
  */
+/**
+ * 解析 ModelSelector 的 model 參照值 → { providerId, model }（2026-09-14 fix）
+ *
+ * 格式：「providerId/modelId」（UI ModelSelector 存的格式）或純 modelId（走 active provider）。
+ *
+ * ⚠️ 2026-09-14 回歸修復（Fleming 回報：coding app 選 model id 如 anthropic/claude-opus-4.8 時 LLM API 回 400）：
+ * 舊邏輯「第一段是已知 provider 就剝 prefix」在「model id 本身自帶 provider 名前綴」時會剝過頭 —
+ * anthropic provider 的 model 清單是 ["anthropic/opus4.6", "anthropic/claude-opus-4.8", ...]（OpenAI 相容
+ * gateway 的 full-path model id）時，"anthropic/claude-opus-4.8" 被剝成 "claude-opus-4.8" 直送 API → 400 unknown model。
+ * 2026-09-12 ModelSelector handleSelect 修正雙 prefix（anthropic/anthropic/x → anthropic/x）後，
+ * 舊的「雙 prefix 碰巧讓 first-slash 剝對」保護消失，server 端解析必須自己認得 full-path model id。
+ *
+ * 解析規則（與 UI ModelSelector.parseValue 同邏輯，server 端權威版）：
+ * 1. 值不含 "/" → active provider + 原值
+ * 2. 第一段不是已知 provider → 整串是 model id（openrouter full-path 如 deepseek/deepseek-v4-flash）
+ * 3. 第一段是已知 provider X：
+ *    a. rest 在 X 的 model 清單 → {X, rest}（一般情況：zai/glm-5.1）
+ *    b. 整串值在 X 的 model 清單 → {X, 整串}（model id 自帶 provider prefix）
+ *    c. X 的 model 清單有 full-path 風格（任一 id 以 "X/" 開頭）→ {X, 整串}（未列出的自訂 full-path model）
+ *    d. 以上皆非 → {X, rest}（custom model，維持舊行為）
+ */
+export function parseModelReference(providerConfig, value) {
+  let providerId = providerConfig?.active;
+  let model = value;
+  if (typeof model === "string" && model.includes("/")) {
+    const firstSlash = model.indexOf("/");
+    const candidate = model.slice(0, firstSlash);
+    const rest = model.slice(firstSlash + 1);
+    const p = providerConfig?.providers?.[candidate];
+    if (p) {
+      const ids = new Set((p.models || []).map(m => (typeof m === "string" ? m : m?.id)).filter(Boolean));
+      if (ids.has(rest)) return { providerId: candidate, model: rest };
+      if (ids.has(model)) return { providerId: candidate, model };
+      if ([...ids].some(id => id.startsWith(candidate + "/"))) return { providerId: candidate, model };
+      return { providerId: candidate, model: rest };
+    }
+    // 第一段不是已知 provider → 整串是 model id（e.g. "deepseek/deepseek-v4-flash" 走 active provider）
+  }
+  return { providerId, model };
+}
+
 export function sanitizeContent(text) {
   if (!text || typeof text !== 'string') return '';
 

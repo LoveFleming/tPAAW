@@ -39,7 +39,7 @@ import { messagesForModel, isVisionModel, hasImages, extractImageMarkers, buildI
 import { startAgentLog } from "./agent-exec-logger.mjs";
 import { createPaawProject } from "./paaw-project.mjs";
 import { PaawSnapshot } from "./paaw-snapshot.mjs";
-import { resolveDefaultModel } from "./llm-utils.mjs";
+import { resolveDefaultModel, parseModelReference } from "./llm-utils.mjs";
 import { toolRegistry } from "./tool-registry.mjs";
 import { DATA_HOME, LOG_HOME, logSlug } from "../data-home.mjs";
 import {
@@ -108,18 +108,11 @@ export function resolveLLMConfig(_rootDir, modelOverride, fallbackModels) {
   }
 
   // Parse "providerId/modelId" format (from ModelSelector)
-  // Only split if providerId portion exists in providers config
+  // 2026-09-14 fix：改用 parseModelReference — model id 自帶 provider prefix（如 anthropic/claude-opus-4.8）
+  // 不再被剝過頭（first-slash 剝成 claude-opus-4.8 → LLM API 400 unknown model）
   let providerId = config.active;
   let model = modelOverride || resolveDefaultModel(config);
-  if (model && model.includes("/")) {
-    const firstSlash = model.indexOf("/");
-    const candidateProvider = model.slice(0, firstSlash);
-    if (config.providers[candidateProvider]) {
-      providerId = candidateProvider;
-      model = model.slice(firstSlash + 1);
-    }
-    // Otherwise keep the full model string (e.g. "deepseek/deepseek-v4-flash" via openrouter)
-  }
+  ({ providerId, model } = parseModelReference(config, model));
 
   const provider = config.providers[providerId];
   if (!provider) throw new Error(`Provider '${providerId}' not found`);
@@ -144,17 +137,10 @@ export function resolveLLMConfig(_rootDir, modelOverride, fallbackModels) {
   // 1. Caller-supplied fallback models (e.g. from user.json preferences or request body)
   if (fallbackModels && fallbackModels.length > 0) {
     for (const fbModel of fallbackModels) {
-      // Parse "providerId/modelId" format
-      let fbProviderId = config.active;
-      let fbModelId = fbModel;
-      if (fbModel && fbModel.includes("/")) {
-        const firstSlash = fbModel.indexOf("/");
-        const candidate = fbModel.slice(0, firstSlash);
-        if (config.providers[candidate]) {
-          fbProviderId = candidate;
-          fbModelId = fbModel.slice(firstSlash + 1);
-        }
-      }
+      // Parse "providerId/modelId" format — 2026-09-14 同 parseModelReference（full-path model id 不剝過頭）
+      const fbRef = parseModelReference(config, fbModel);
+      const fbProviderId = fbRef.providerId;
+      const fbModelId = fbRef.model;
       const fbProvider = config.providers[fbProviderId];
       if (!fbProvider) continue;
       const fbHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${fbProvider.apiKey}` };

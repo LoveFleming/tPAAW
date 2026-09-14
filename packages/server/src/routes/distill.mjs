@@ -144,7 +144,7 @@ export function recordCronExecution({ jobName, success, result, duration }) {
 
 // ── LLM Call Helper (with retry + sanitize) ──
 import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
-import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { resolveDefaultModel, parseModelReference } from "../lib/llm-utils.mjs";
 import { DATA_HOME } from "../data-home.mjs";
 
 async function callLLM(systemPrompt, userPrompt, maxTokens = 4096, modelOverride) {
@@ -152,13 +152,14 @@ async function callLLM(systemPrompt, userPrompt, maxTokens = 4096, modelOverride
     const providerConfig = JSON.parse(readFileSync(PROVIDERS_FILE, "utf8"));
     let providerId = providerConfig.active;
     let model = modelOverride || resolveDefaultModel(providerConfig);
-    // Parse "providerId/modelId" format
-    if (modelOverride && modelOverride.includes("/")) {
-      const idx = modelOverride.indexOf("/");
-      providerId = modelOverride.slice(0, idx);
-      model = modelOverride.slice(idx + 1);
-    } else if (!modelOverride && model.includes("/")) {
-      model = model.split("/").pop();
+    // Parse "providerId/modelId" format — 2026-09-14 fix：parseModelReference
+    //（舊碼無條件剝 first-slash：值"anthropic/claude-opus-4.8"→ providerId=anthropic+model=claude-opus-4.8，
+    //  provider 不存在直接壞 / model id 被剝過頭 → 400。現在同 resolveLLMConfig 權威解析）
+    ({ providerId, model } = parseModelReference(providerConfig, model));
+    if (modelOverride && !providerConfig.providers?.[providerId] && providerConfig.providers?.[providerConfig.active]) {
+      // 防禦：解析後 provider 不存在（舊資料存了已刪的 provider）→ 退回 active provider + 原值
+      providerId = providerConfig.active;
+      model = modelOverride;
     }
     const provider = providerConfig.providers[providerId];
     if (!provider?.apiKey || provider.apiKey === "na") {

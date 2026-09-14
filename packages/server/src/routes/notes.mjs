@@ -38,7 +38,7 @@ import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { readBody } from "./shared.mjs";
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent } from "../lib/llm-utils.mjs";
-import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { resolveDefaultModel, parseModelReference } from "../lib/llm-utils.mjs";
 import { DATA_HOME } from "../data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -72,13 +72,8 @@ function resolveLLM(modelOverride) {
   if (!config) throw new Error("No provider config found");
   let providerId = config.active;
   let modelId = modelOverride || resolveDefaultModel(config);
-  if (modelOverride && modelOverride.includes("/")) {
-    const idx = modelOverride.indexOf("/");
-    providerId = modelOverride.slice(0, idx);
-    modelId = modelOverride.slice(idx + 1);
-  } else if (!modelOverride && modelId.includes("/")) {
-    modelId = modelId.split("/").pop();
-  }
+  // 2026-09-14 fix：parseModelReference（舊碼無條件剝 first-slash — provider 不存在/被剝過頭都會壞）
+  ({ providerId, model: modelId } = parseModelReference(config, modelId));
   const provider = config.providers?.[providerId];
   if (!provider) throw new Error(`Provider '${providerId}' not found`);
   const model = modelId;

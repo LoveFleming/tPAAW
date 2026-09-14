@@ -16,6 +16,7 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { DATA_HOME } from "../data-home.mjs";
+import { parseModelReference } from "./llm-utils.mjs";
 import { estimateTokens } from "./context-truncation.mjs";
 
 /** 每張圖的 token 估算（client 端已壓縮：長邊 1568px jpeg q80 ≈ 1100-1700 tok） */
@@ -214,9 +215,8 @@ export function resolveVisionLlmConfig(llm, messagesHaveImages, providersFile = 
   const path = providersFile || resolve(DATA_HOME, "config", "providers.json");
   let config;
   try { config = JSON.parse(readFileSync(path, "utf-8")); } catch { return null; }
-  const i = vm.indexOf("/");
-  const providerId = vm.slice(0, i);
-  const model = vm.slice(i + 1);
+  // 2026-09-14 fix：改用 parseModelReference — visionModel 的 model id 自帶 provider prefix 時不剝過頭
+  const { providerId, model } = parseModelReference(config, vm);
   const p = config.providers?.[providerId];
   if (!p?.baseURL || !p.apiKey || p.apiKey === "na") return null;
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${p.apiKey}` };
