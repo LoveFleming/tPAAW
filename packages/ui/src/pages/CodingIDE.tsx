@@ -780,6 +780,7 @@ export default function CodingIDE() {
     setGitDiff("");
     setChatMessages(() => []);
     try { localStorage.removeItem("paaw.vibeide.rootPath"); } catch {}
+    try { sessionStorage.removeItem("paaw.vibeide.rootPath"); } catch {} // 2026-09-15：per-tab RU 記憶也要清
   }, [rootPath]);
 
   // ── Code Understanding State ──
@@ -972,8 +973,9 @@ export default function CodingIDE() {
   // ═══════════════════════════════════════════════
   useEffect(() => {
     (async () => {
-      // Load root path
-      const root = localStorage.getItem("paaw.vibeide.rootPath");
+      // Load root path — 2026-09-15：sessionStorage 優先（per-tab，refresh 不會被另一個 tab 的 RU 蓋掉）；localStorage 只當新 tab 預設
+      // （兩個 Chrome 分別開不同 RU 的情境：以前 refresh 後兩邊都讀到「最後寫入的 RU」→ 同 RU → 思考中/對話兩邊同步）
+      const root = sessionStorage.getItem("paaw.vibeide.rootPath") || localStorage.getItem("paaw.vibeide.rootPath");
       if (root) { setRootPath(root); expandDir(root); registerRu(root); setSidebarTab("files"); }
       // Load API history from server
       try {
@@ -1008,6 +1010,8 @@ export default function CodingIDE() {
   }, [rootPath]);
 
   useEffect(() => {
+    // 2026-09-15：sessionStorage = 這個 tab 自己的 RU（refresh 留住）；localStorage = 最後使用的 RU（新開 tab 的預設）
+    try { sessionStorage.setItem("paaw.vibeide.rootPath", rootPath); } catch {}
     try { localStorage.setItem("paaw.vibeide.rootPath", rootPath); } catch {}
   }, [rootPath]);
 
@@ -3707,10 +3711,10 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                             domainAbortRef.current.abort();
                             domainAbortRef.current = null;
                           }
-                          // Tell server to kill the running stream (agent mode)
+                          // Tell server to kill the running stream (agent mode) — 2026-09-15：帶 cwd 只殺這個 RU 的 run，不誤殺另一個 RU 同 agent
                           const aid = activeCrew?.replace(/^coding\./, "") || "architect";
-                          fetch(`${API_BASE}/api/coding-crew/interrupt`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId: aid }) }).catch(() => {});
-                          fetch(`${API_BASE}/api/a2a/interrupt`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId: aid }) }).catch(() => {});
+                          fetch(`${API_BASE}/api/coding-crew/interrupt`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId: aid, cwd: rootPath || undefined }) }).catch(() => {});
+                          fetch(`${API_BASE}/api/a2a/interrupt`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId: aid, cwd: rootPath || undefined }) }).catch(() => {});
 
                           // Add interrupted message if not already there
                           setChatMessages(prev => {

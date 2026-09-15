@@ -531,14 +531,23 @@ export default async function codingTasksRoute(req, res) {
         if (tasks[i].parentId === id) tasks.splice(i, 1);
       }
     }
-    // Try to abort running agent
+    // Try to abort running agent（2026-09-15：compound key agentId::projRoot — 先精準再 prefix fallback）
     try {
       const { runningCodingAgents } = await import("../lib/running-agents.mjs");
       const agentId = deleted.assignee;
-      if (agentId && runningCodingAgents.has(agentId)) {
-        const entry = runningCodingAgents.get(agentId);
-        entry?.abortController?.abort();
-        runningCodingAgents.delete(agentId);
+      if (agentId) {
+        let hitKey = `${agentId}::${projRoot}`;
+        if (!runningCodingAgents.has(hitKey)) {
+          hitKey = null;
+          for (const k of runningCodingAgents.keys()) {
+            if (k.startsWith(`${agentId}::`)) { hitKey = k; break; }
+          }
+        }
+        if (hitKey) {
+          const entry = runningCodingAgents.get(hitKey);
+          entry?.abortController?.abort();
+          runningCodingAgents.delete(hitKey);
+        }
       }
     } catch {}
     await saveTasks(projRoot, tasks, config);

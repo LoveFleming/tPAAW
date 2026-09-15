@@ -685,10 +685,11 @@ export default async function projectRoute(req, res) {
       if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
 
       const { runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
-      // Register running agent for busy check + interrupt support
+      // Register running agent for busy check + interrupt support（2026-09-15：key 帶 projRoot — 多 RU 不互蓋）
       const chatAbort = new AbortController();
-      runningCodingAgents.set(agent.agentId, { abortController: chatAbort, res, startedAt: Date.now(), source: "chat" });
-      const cleanupChatAgent = () => { runningCodingAgents.delete(agent.agentId); };
+      const chatKey = `${agent.agentId}::${projRoot}`;
+      runningCodingAgents.set(chatKey, { abortController: chatAbort, res, startedAt: Date.now(), source: "chat", projRoot });
+      const cleanupChatAgent = () => { runningCodingAgents.delete(chatKey); };
       res.on("close", cleanupChatAgent);
 
       // Feature boundary for Change Boundary (chat path)
@@ -864,13 +865,14 @@ export default async function projectRoute(req, res) {
       const useModel = llm.model;
 
       // Run the agent via runAgentLoopStream — it handles SSE and tool loop internally
-      // Busy check — reject if agent is already running
-      if (runningCodingAgents.has(agentId)) {
-        const running = runningCodingAgents.get(agentId);
+      // Busy check — reject if agent is already running（2026-09-15：同 RU 才算 busy — 另一個 RU 跑同一個 agent 不再擋這邊派工）
+      const busyKey = `${agentId}::${projRoot}`;
+      if (runningCodingAgents.has(busyKey)) {
+        const running = runningCodingAgents.get(busyKey);
         const elapsed = Math.round((Date.now() - running.startedAt) / 1000);
         if (!res.headersSent) {
           res.writeHead(409, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ ok: false, error: `Agent '${agentId}' is busy (running for ${elapsed}s, source: ${running.source})`, busy: true, agentId }));
+          res.end(JSON.stringify({ ok: false, error: `Agent '${agentId}' is busy in this RU (running for ${elapsed}s, source: ${running.source})`, busy: true, agentId, cwd: projRoot }));
         }
         return true;
       }
@@ -878,8 +880,9 @@ export default async function projectRoute(req, res) {
       const { runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
       // Register dispatched agent
       const dispatchAbort = new AbortController();
-      runningCodingAgents.set(agentId, { abortController: dispatchAbort, res, startedAt: Date.now(), source: "dispatch" });
-      const cleanupDispatch = () => { runningCodingAgents.delete(agentId); };
+      const dispatchKey = `${agentId}::${projRoot}`;
+      runningCodingAgents.set(dispatchKey, { abortController: dispatchAbort, res, startedAt: Date.now(), source: "dispatch", projRoot });
+      const cleanupDispatch = () => { runningCodingAgents.delete(dispatchKey); };
       res.on("close", cleanupDispatch);
 
       // Use task timeout if specified, otherwise 60 min safety net
@@ -1572,40 +1575,51 @@ export default async function projectRoute(req, res) {
 
   // ── POST /api/coding-crew/interrupt — Terminate a running agent ──
   // Must be BEFORE projectPath check — interrupt doesn't need a project path
+  // 2026-09-15：body 可帶 cwd 精準中斷該 RU 的 run；帶了 cwd 沒命中就不動（不誤殺其他 RU），沒帶 cwd 掃 agentId prefix（舊行為相容）
   if (url === "/api/coding-crew/interrupt" && method === "POST") {
     let body;
     try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
-    const { agentId: aid } = body;
+    const { agentId: aid, cwd: icwd } = body;
     if (!aid) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "Missing agentId" })); return true; }
 
-    const running = runningCodingAgents.get(aid);
-    if (!running) {
-      // Also check A2A running streams
-      let a2aRunning = null;
+    let hit = null; // { key, info }
+    if (icwd) {
+      const k = `${aid}::${resolve(icwd)}`;
+      const v = runningCodingAgents.get(k);
+      if (v) hit = { key: k, info: v };
+    } else {
+      for (const [k, v] of runningCodingAgents) {
+        if (k.startsWith(`${aid}::`)) { hit = { key: k, info: v }; break; }
+      }
+    }
+
+    if (!hit) {
+      // Also check A2A running streams（cwd-aware — 帶 cwd 精準、沒帶掃 prefix）
+      let a2aHit = null;
       try {
-        const { runningStreams: a2aStreams } = await import("./a2a.mjs");
-        a2aRunning = a2aStreams?.get(aid);
-        if (a2aRunning) {
-          a2aRunning.abortController.abort();
-          try { if (!a2aRunning.res.writableEnded) { a2aRunning.res.write("event: interrupted\ndata: " + JSON.stringify({ message: "Interrupted by user", agentId: aid }) + "\n\n"); a2aRunning.res.end(); } } catch {}
-          a2aStreams.delete(aid);
+        const a2aMod = await import("./a2a.mjs");
+        a2aHit = a2aMod.findRunningStream(aid, icwd);
+        if (a2aHit) {
+          a2aHit.stream.abortController.abort();
+          try { if (!a2aHit.stream.res.writableEnded) { a2aHit.stream.res.write("event: interrupted\ndata: " + JSON.stringify({ message: "Interrupted by user", agentId: aid }) + "\n\n"); a2aHit.stream.res.end(); } } catch {}
+          a2aMod.runningStreams.delete(a2aHit.key);
         }
       } catch {}
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, message: `No coding agent '${aid}' running${a2aRunning ? " (interrupted via A2A)" : ""}` }));
+      res.end(JSON.stringify({ ok: true, message: `No coding agent '${aid}' running${a2aHit ? ` (interrupted via A2A: ${a2aHit.key})` : ""}` }));
       return true;
     }
-    running.abortController.abort();
+    hit.info.abortController.abort();
     try {
-      if (!running.res.writableEnded) {
-        running.res.write("event: interrupted\ndata: " + JSON.stringify({ message: "Agent terminated by user", agentId: aid }) + "\n\n");
-        running.res.end();
+      if (!hit.info.res.writableEnded) {
+        hit.info.res.write("event: interrupted\ndata: " + JSON.stringify({ message: "Agent terminated by user", agentId: aid }) + "\n\n");
+        hit.info.res.end();
       }
     } catch {}
-    runningCodingAgents.delete(aid);
-    console.log(`[CodingCrew] Interrupted agent '${aid}'`);
+    runningCodingAgents.delete(hit.key);
+    console.log(`[CodingCrew] Interrupted agent '${hit.key}'`);
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, message: `Agent '${aid}' terminated` }));
+    res.end(JSON.stringify({ ok: true, message: `Agent '${hit.key}' terminated` }));
     return true;
   }
 
@@ -1614,7 +1628,10 @@ export default async function projectRoute(req, res) {
   if (url === "/api/coding-crew/running" && method === "GET") {
     const agents = [];
     for (const [id, info] of runningCodingAgents.entries()) {
-      agents.push({ agentId: id, source: info.source, startedAt: info.startedAt, elapsed: Math.round((Date.now() - info.startedAt) / 1000) });
+      const sep = id.indexOf("::"); // 2026-09-15：compound key agentId::projRoot 拆回兩欄
+      const agentId = sep > 0 ? id.slice(0, sep) : id;
+      const cwd = sep > 0 ? id.slice(sep + 2) : info.projRoot || null;
+      agents.push({ agentId, cwd, source: info.source, startedAt: info.startedAt, elapsed: Math.round((Date.now() - info.startedAt) / 1000) });
     }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, agents }));

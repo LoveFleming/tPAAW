@@ -105,22 +105,40 @@ const taskStore = new JsonTaskPersistence(TASKS_DIR);
 await taskStore._ensureDir();
 
 // ── Running Stream Tracker ──
-// Maps agentId → { abortController, res, taskId } for active SSE streams
+// Maps agentId::cwd → { abortController, res, taskId } for active SSE streams
+// 2026-09-15：key 從 agentId 改 agentId::cwd — 兩個 tab 開不同 RU 各自調度同一個 agent 時互不干擾（蓋掉註冊/誤刪/誤殺全修正）
 export const runningStreams = new Map();
+
+const _streamKey = (agentId, cwd) => `${agentId}::${cwd || PAAW_ROOT}`;
+
+/** 依 agentId（+可選 cwd）找 running stream — cwd 有帶就精準比對，沒帶掃 prefix 取第一個（舊行為相容） */
+export function findRunningStream(agentId, cwd) {
+  if (cwd) {
+    const k = _streamKey(agentId, cwd);
+    const v = runningStreams.get(k);
+    return v ? { key: k, stream: v } : null; // 帶了 cwd 但沒命中 = 不 fallback（避免誤殺別的 RU）
+  }
+  for (const [k, v] of runningStreams) {
+    if (k.startsWith(`${agentId}::`)) return { key: k, stream: v };
+  }
+  return null;
+}
 
 // ── Stream State Registry（2026-09-11 治本：斷線不丟對話）──
 // client（Chrome refresh /斷網）斷線時 agent 繼續跑，回覆存這裡 + 落地 conversation。
 // GET /a2a/:agentId/stream-state 讓重連的 client 接回進度 / 拿 final reply。
-// key: agentId → { agentId, cwd, startedAt, seq, events: [{seq,event,data}], finalContent, done, error, timer }
+// key: agentId::cwd → { agentId, cwd, startedAt, seq, events: [{seq,event,data}], finalContent, done, error, timer }
+// 2026-09-15：key 從 agentId 改 agentId::cwd — 同 agent 不同 RU 的 recovery state 各自獨立，第二次 dispatch 不再蓋掉第一次
 export const streamStates = new Map();
 const STREAM_STATE_TTL_MS = 15 * 60 * 1000; // 完成後保留 15 分鐘給 client 重連取回
 const STREAM_STATE_MAX_EVENTS = 300;
 
-function _streamStateCleanup(agentId) {
-  const st = streamStates.get(agentId);
+function _streamStateCleanup(agentId, cwd) {
+  const key = _streamKey(agentId, cwd);
+  const st = streamStates.get(key);
   if (!st) return;
   if (st.timer) clearTimeout(st.timer);
-  streamStates.delete(agentId);
+  streamStates.delete(key);
 }
 
 /** 完成（或出錯）後：把 assistant 回覆落地到 conversation active.json（coding.{agentId}）。
@@ -773,8 +791,9 @@ export default async function a2aRoutes(req, res) {
         const q = new URL(url, "http://localhost").searchParams;
         const cwd = q.get("cwd") || "";
         const since = parseInt(q.get("since") || "0", 10) || 0;
-        const st = streamStates.get(agentId);
-        if (!st || (cwd && st.cwd !== cwd)) {
+        // 2026-09-15：沒帶 cwd 一律 exists:false（舊版會回「任意一筆」— 多 RU 時另一邊會接錯線）
+        const st = cwd ? streamStates.get(_streamKey(agentId, cwd)) : null;
+        if (!st || st.cwd !== cwd) {
           sendJSON(res, 200, { running: false, done: false, exists: false });
           return true;
         }
@@ -938,17 +957,18 @@ export default async function a2aRoutes(req, res) {
 
             // Register running stream for interrupt support
             const streamAbort = new AbortController();
-            runningStreams.set(agentId, { abortController: streamAbort, res, startedAt: Date.now() });
+            const streamKey = _streamKey(agentId, rootDir); // 2026-09-15：agentId::cwd — 多 RU 併發不互蓋
+            runningStreams.set(streamKey, { abortController: streamAbort, res, startedAt: Date.now() });
 
             // ── Stream State（2026-09-11 治本）：onStreamEvent 側車 buffer — 斷線後 client 可接回 ──
             // 注：不走 res.write 攔截 — sendSSE 在 res.destroyed 後直接 return（loop 4167），
             // 攔截永遠收不到斷線後事件；改由 runAgentLoopStream 的 onStreamEvent hook 直送（2026-09-11 Test A 實測發現）
-            _streamStateCleanup(agentId); // 同 agent 蓋掉舊紀錄（同 key 重複派工沿舊行為）
+            _streamStateCleanup(agentId, rootDir); // 同 agent 同 RU 蓋掉舊紀錄（同 key 重複派工沿舊行為；不同 RU 不互蓋）
             const stState = {
               agentId, cwd: rootDir, startedAt: Date.now(), seq: 0,
               events: [], finalContent: null, done: false, error: null, timer: null,
             };
-            streamStates.set(agentId, stState);
+            streamStates.set(streamKey, stState);
             const _stBuffer = (evName, dataObj) => {
               stState.seq += 1;
               stState.events.push({ seq: stState.seq, event: evName, data: dataObj });
@@ -963,11 +983,11 @@ export default async function a2aRoutes(req, res) {
               if (stState.done) return;
               stState.done = true;
               _persistAssistantReply(agentId, rootDir, stState.finalContent).finally(() => {
-                stState.timer = setTimeout(() => _streamStateCleanup(agentId), STREAM_STATE_TTL_MS);
+                stState.timer = setTimeout(() => _streamStateCleanup(agentId, rootDir), STREAM_STATE_TTL_MS);
               });
             };
             // Clean up on client disconnect — ⚠️ 不 abort：agent 繼續跑（Fleming 2026-09-11：refresh 後回覆不能丟）
-            req.on("close", () => { runningStreams.delete(agentId); });
+            req.on("close", () => { runningStreams.delete(streamKey); });
 
             // Run agent loop with streaming
             const { runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
@@ -986,14 +1006,16 @@ export default async function a2aRoutes(req, res) {
               onStreamEvent: _stBuffer, // 2026-09-11：事件側車 — res.destroyed 後仍 buffer（斷線接回用）
             }, res);
 
-            runningStreams.delete(agentId);
+            runningStreams.delete(streamKey);
             _finishState();
             if (!res.writableEnded) res.end();
             console.log(`[A2A:${agentId}] stream completed`);
           } catch (err) {
             console.error(`[A2A:${agentId}] stream error:`, err);
-            const stErr = streamStates.get(agentId);
-            if (stErr) { stErr.error = String(err.message || err).slice(0, 500); stErr.done = true; stErr.timer = setTimeout(() => _streamStateCleanup(agentId), STREAM_STATE_TTL_MS); }
+            // 2026-09-15：streamKey/rootDir 是 try 內變數 — catch 裡重算（同一條 key）
+            const errRootDir = params?.context?.cwd || PAAW_ROOT;
+            const stErr = streamStates.get(_streamKey(agentId, errRootDir));
+            if (stErr) { stErr.error = String(err.message || err).slice(0, 500); stErr.done = true; stErr.timer = setTimeout(() => _streamStateCleanup(agentId, errRootDir), STREAM_STATE_TTL_MS); }
             if (res.headersSent && !res.writableEnded) {
               try { res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`); res.end(); } catch {}
             } else if (!res.headersSent) {
@@ -1532,18 +1554,19 @@ export default async function a2aRoutes(req, res) {
       } else {
         // Abort running stream if this agentId has an active stream
         const agentId = task.metadata?.agentId || taskId;
-        const running = runningStreams.get(agentId);
-        if (running) {
-          running.abortController.abort();
+        // 2026-09-15：compound key — task metadata 有 cwd 精準刪，沒有掃 prefix（舊行為相容）
+        const runningHit = findRunningStream(agentId, task.metadata?.cwd);
+        if (runningHit) {
+          runningHit.stream.abortController.abort();
           // Send interrupted event to SSE client
           try {
-            if (!running.res.writableEnded) {
-              running.res.write(`event: interrupted\ndata: ${JSON.stringify({ message: "Task canceled by user", taskId })}\n\n`);
-              running.res.end();
+            if (!runningHit.stream.res.writableEnded) {
+              runningHit.stream.res.write(`event: interrupted\ndata: ${JSON.stringify({ message: "Task canceled by user", taskId })}\n\n`);
+              runningHit.stream.res.end();
             }
           } catch {}
-          runningStreams.delete(agentId);
-          console.log(`[A2A] Aborted running stream for agentId=${agentId}`);
+          runningStreams.delete(runningHit.key);
+          console.log(`[A2A] Aborted running stream for ${runningHit.key}`);
         }
         task.status = { state: "canceled", timestamp: new Date().toISOString() };
         await saveTask(task);
@@ -1571,28 +1594,29 @@ export default async function a2aRoutes(req, res) {
   }
 
   // ── POST /api/a2a/interrupt — 直接中斷某個 agent 的 running stream (PAAW UI 用) ──
+  // 2026-09-15：body 可帶 cwd 精準中斷該 RU 的 run；帶了 cwd 但沒命中就不動（不誤殺其他 RU）
   if (req.method === "POST" && path === "/api/a2a/interrupt") {
     const body = await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); });
-    const { agentId: aid } = JSON.parse(body || "{}");
+    const { agentId: aid, cwd: icwd } = JSON.parse(body || "{}");
     if (!aid) {
       sendJSON(res, 400, { ok: false, error: "Missing agentId" });
       return true;
     }
-    const running = runningStreams.get(aid);
-    if (!running) {
-      sendJSON(res, 200, { ok: true, message: `No running stream for agentId=${aid}` });
+    const runningHit = findRunningStream(aid, icwd);
+    if (!runningHit) {
+      sendJSON(res, 200, { ok: true, message: `No running stream for agentId=${aid}${icwd ? ` cwd=${icwd}` : ""}` });
       return true;
     }
-    running.abortController.abort();
+    runningHit.stream.abortController.abort();
     try {
-      if (!running.res.writableEnded) {
-        running.res.write(`event: interrupted\ndata: ${JSON.stringify({ message: "Interrupted by user", agentId: aid })}\n\n`);
-        running.res.end();
+      if (!runningHit.stream.res.writableEnded) {
+        runningHit.stream.res.write(`event: interrupted\ndata: ${JSON.stringify({ message: "Interrupted by user", agentId: aid })}\n\n`);
+        runningHit.stream.res.end();
       }
     } catch {}
-    runningStreams.delete(aid);
-    console.log(`[A2A] Interrupted stream for agentId=${aid}`);
-    sendJSON(res, 200, { ok: true, message: `Interrupted agentId=${aid}` });
+    runningStreams.delete(runningHit.key);
+    console.log(`[A2A] Interrupted stream for ${runningHit.key}`);
+    sendJSON(res, 200, { ok: true, message: `Interrupted ${runningHit.key}` });
     return true;
   }
 
