@@ -1249,6 +1249,10 @@ export default function CodingIDE() {
       reattachMarkedRef.current = "";
     };
     const poll = async () => {
+      // 2026-09-15 17:00 Fleming：「思考中沒了、中斷鈕不見了」根因：送新訊息時（live SSE 在跑、新 run 尚未註冊），
+      // poll 讀到上一則訊息還在 TTL 窗内的 done entry → 誤判完成 → _collapseRunningUi() 砍掉 loading/running。
+      // 修法：live fetch 在跑（a2aAbortRef 有值）時 poll 不讀不寫（純等下一輪）— 顯示/收合全由 live SSE 的 tail 負責。
+      if (a2aAbortRef.current) { pollTimer = setTimeout(poll, 3000); return; }
       try {
         const res = await fetch(`${API_BASE}/a2a/${encodeURIComponent(a2aAgentId)}/stream-state?cwd=${encodeURIComponent(rootPath)}`);
         const st = await res.json();
@@ -1273,18 +1277,10 @@ export default function CodingIDE() {
             // run 憑空消失（server 重啟 streamStates 在記憶體、TTL 過期）— 一定要收起，不能卡著不收
             _collapseRunningUi();
             return;
-          } else if (!!a2aAbortRef.current) {
-            // 本 tab 的 live SSE 還在跑、stream-state 只是還没註冊好（數百 ms 空窗）— 繼續當 watchdog，不停不搶畫面
-            pollTimer = setTimeout(poll, 3000);
-            return;
           }
           return; // 沒有執行中的 run — 停止輪詢
         }
-        // 執行中 — 2026-09-15 16:33 Fleming：「很常出現已接回串流」根因：本 tab 自己的 live SSE 在跑時
-        // poll 也每 3s 搶寫 action（最後事件常是 content/start → 顯示「已接回串流」蓋掉真實的思考中/工具狀態）。
-        // 修法：live fetch 在跑（a2aAbortRef 有值）時 poll 純當 watchdog（只盯 done/消失，不碰畫面）；
-        // 「已接回串流」只在真正斷線接回（refresh/斷網後、無 live fetch）時才顯示。
-        if (!!a2aAbortRef.current) { pollTimer = setTimeout(poll, 3000); return; }
+        // 真正的斷線接回（無 live fetch — refresh/斷網後接回別處啟動的 run）：標記 + 顯示最新動作
         reattachMarkedRef.current = activeCrew;
         setCrewLoading(prev => ({ ...prev, [activeCrew]: true }));
         setCrewAgentRunning(prev => ({ ...prev, [activeCrew]: true }));
