@@ -671,7 +671,7 @@ export default function CodingIDE() {
   const TOOL_CATEGORIES: Array<{ id: string; icon: string; tools: MainTab[] }> = [
     { id: "dev", icon: "🖥️", tools: [
       { id: "tool:crew", type: "crew-manager", label: "AI Crew", icon: "👥", closable: true },
-      { id: "tool:browser", type: "browser", label: "Browser", icon: "🧭", closable: true },
+      { id: "tool:browser", type: "browser", label: "Browser · QA", icon: "🧭", closable: true },
       { id: "tool:code-intel", type: "code-intel", label: tt("codeIntel.toolbar"), icon: "📞", closable: true },
       { id: "tool:git", type: "git", label: "Git", icon: "🔀", closable: true },
       { id: "tool:security", type: "security", label: "Security", icon: "🔒", closable: true },
@@ -1656,9 +1656,7 @@ export default function CodingIDE() {
   // ═══════════════════════════════════════════════
   const [chatMode, setChatMode] = useState<"chat" | "agent" | "spec" | "test" | "bug" | "docs" | "maintain">("agent");
   // ── 2026-08-29 Fleming：agent chat 內建瀏規器面板（tester 邊聊邊看 agent 操作）──
-  const [chatBrowserOpen, setChatBrowserOpen] = useState(false);
-  const [chatPanelWidth, setChatPanelWidth] = useState(380);
-  const chatBrowserDragRef = useRef<{ startX: number; startW: number } | null>(null);
+  // （2026-09-15 移除 chatBrowserOpen/chatPanelWidth/chatBrowserDragRef — browser 側欄模式退役，browser 歸 Browser 頁）
   // agentRunning/agentToolLog are now per-crew (derived from crewAgentRunning/crewAgentToolLog above)
   const [crewModels, setCrewModels] = useState<Record<string, string>>({}); // crewId → model
   const [emModel, setEmModel] = useState<string>(""); // EM Dashboard has its own model
@@ -3071,10 +3069,28 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
               );
             })}
 
-            {/* === GIT PANEL (New Component) === */}
+            {/* === BROWSER PANEL + QA SIDE CHAT（2026-09-15 Fleming：browser page 掛 QA 武大安 side chat，像 Release Manager 頁掛 rm；其它 agent 只留 browser API）=== */}
             {activeMainTab?.type === "browser" && (
-              <div className="absolute inset-0 flex flex-col overflow-hidden">
-                <BrowserPanel API_BASE={API_BASE} rootPath={rootPath} />
+              <div className="absolute inset-0 flex overflow-hidden">
+                <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+                  <BrowserPanel API_BASE={API_BASE} rootPath={rootPath} />
+                </div>
+                <div className="shrink-0 border-l hidden md:flex flex-col" style={{ width: 360, borderColor: tk.borderLight }}>
+                  <AgentSideChat
+                    agentId="qa"
+                    agentName={tt("qaBrowser.agentName")}
+                    agentEmoji="🔬"
+                    greeting={tt("qaBrowser.greeting")}
+                    cwd={rootPath}
+                    accent={tk.accent}
+                    height="100%"
+                    suggestions={[
+                      { label: tt("qaBrowser.sugSmoke"), prompt: tt("qaBrowser.sugSmokePrompt") },
+                      { label: tt("qaBrowser.sugCheck"), prompt: tt("qaBrowser.sugCheckPrompt") },
+                      { label: tt("qaBrowser.sugShot"), prompt: tt("qaBrowser.sugShotPrompt") },
+                    ]}
+                  />
+                </div>
               </div>
             )}
             {activeMainTab?.type === "git" && (
@@ -3471,15 +3487,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                       {viewingArchive && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">📂 歷史</span>
                       )}
-                      {/* Browser panel toggle — 2026-08-29 Fleming：agent chat 邊聊邊看 agent 操作 browser；2026-09-12 統一 accent 色外框 */}
-                      <button
-                        onClick={() => setChatBrowserOpen(!chatBrowserOpen)}
-                        className={`text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50 ${chatBrowserOpen ? "bg-stone-100" : ""}`}
-                        style={{ borderColor: tk.accentBorder, color: tk.accent }}
-                        title={tt("coding.chatBrowserToggle")}
-                      >
-                        🌐
-                      </button>
+                      {/* Browser panel toggle 已移除（2026-09-15 Fleming）：browser 不再每個 agent chat 都能用，改掛在 Browser 頁的 QA 武大安 side chat（RM 同款）*/}
                       {/* History button — 2026-09-12 統一 accent 色外框 */}
                       <button
                         onClick={() => {
@@ -3568,17 +3576,9 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   </div>
                 )}
 
-                {/* v3（Fleming：跟其他 tab 一樣 chat 放右邊）：browser 左（flex-1 大畫面）｜chat 右 sidebar */}
+                {/* chat 全幅（2026-09-15：browser 側欄模式移除，browser 歸 Browser 頁的 QA side chat 管） */}
                 <div className="flex-1 flex min-h-0 min-w-0">
-                {chatBrowserOpen && isCrewActive && (
-                  <div className="flex-1 flex flex-col min-h-0 min-w-0">
-                    <BrowserPanel API_BASE={API_BASE} rootPath={rootPath} />
-                  </div>
-                )}
-                <div
-                  className={chatBrowserOpen && isCrewActive ? "shrink-0 flex flex-col min-h-0 relative" : "flex-1 flex flex-col min-h-0 min-w-0"}
-                  style={chatBrowserOpen && isCrewActive ? { width: chatPanelWidth, borderLeft: `1px solid ${tk.borderLight}` } : undefined}
-                >
+                <div className="flex-1 flex flex-col min-h-0 min-w-0">
                 {/* Chat messages */}
                 <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ scrollbarWidth: "thin" }} onScroll={(e) => {
                   const el = e.currentTarget;
@@ -3757,29 +3757,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   </div>
                 </div>
                 </div>
-                {/* chat sidebar 左緣拖曳調寬（300~640） */}
-                {chatBrowserOpen && isCrewActive && (
-                  <div
-                    className="shrink-0 w-1.5 cursor-col-resize hover:bg-stone-300/60 transition-colors absolute left-0 top-0 bottom-0 z-10"
-                    onMouseDown={e => {
-                      e.preventDefault();
-                      chatBrowserDragRef.current = { startX: e.clientX, startW: chatPanelWidth };
-                      const onMove = (ev: MouseEvent) => {
-                        const d = chatBrowserDragRef.current;
-                        if (!d) return;
-                        const maxW = Math.max(320, window.innerWidth - 480);
-                        setChatPanelWidth(Math.min(maxW, Math.max(300, d.startW - (ev.clientX - d.startX))));
-                      };
-                      const onUp = () => {
-                        chatBrowserDragRef.current = null;
-                        window.removeEventListener("mousemove", onMove);
-                        window.removeEventListener("mouseup", onUp);
-                      };
-                      window.addEventListener("mousemove", onMove);
-                      window.addEventListener("mouseup", onUp);
-                    }}
-                  />
-                )}
                 </div>
               </div>
               );
