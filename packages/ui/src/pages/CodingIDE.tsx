@@ -1224,13 +1224,30 @@ export default function CodingIDE() {
   }, [crewConversations, activeCrew, rootPath]);
 
   // ── 2026-09-11 治本：斷線重連 — refresh/斷網後接回執行中的 agent，完成後把回覆補進對話 ──
-  // a2a message/stream 斷線後 server 繼續跑；道裡輪詢 stream-state，done 時補 finalContent（server 端也會落地，雙保險 dedupe）
+  // a2a message/stream 斷線後 server 繼續跑；這裡輪詢 stream-state，done 時補 finalContent（server 端也會落地，雙保險 dedupe）
+  //
+  // 2026-09-15 Fleming 回報「AI 完成工作 tool call UI 不會收起來」— 根因：
+  //   舊碼只在 exists&&done 分支重置 UI；若 run 憑空消失（server 重啟在記憶體洗掉 streamStates /
+  //   TTL 過期），poll 靜默停止 → crewLoading/crewAgentRunning 卡 true → 思考中/tool call 永遠不收。
+  //   修法：(1) run 消失時也重置（曾標記過或超過 8s grace — 避開 sendChat 註冊前的瞬間誤判）
+  //         (2) deps 加 agentRunningNow — 卡住的 tab（flag true 但 poll 已停）重新點火 watchdog 自癒
   const reattachKeyRef = useRef<string>("");
+  const reattachMarkedRef = useRef<string>(""); // 這個 poll 標記過 running 的 crew
+  const agentRunningNow = !!(activeCrew && crewAgentRunning[activeCrew]);
+  const agentRunningSinceRef = useRef(0); // flag 變 true 的時間（sendChat 註冊 stream-state 有數百 ms 空窗，用 grace 避開）
+  useEffect(() => { if (agentRunningNow) agentRunningSinceRef.current = Date.now(); }, [agentRunningNow]);
   useEffect(() => {
     if (!activeCrew || !rootPath) return;
     const a2aAgentId = crewToAgentId(activeCrew);
     let cancelled = false;
     let pollTimer: ReturnType<typeof setTimeout> | null = null;
+    // 收起 UI：loading/running/action 全清 — 「AI 完成」的關鍵體驗，任何路徑都不能漏
+    const _collapseRunningUi = () => {
+      setCrewLoading(prev => ({ ...prev, [activeCrew]: false }));
+      setCrewAgentRunning(prev => ({ ...prev, [activeCrew]: false }));
+      setCrewAgentAction(prev => { const n = { ...prev }; delete n[activeCrew]; return n; });
+      reattachMarkedRef.current = "";
+    };
     const poll = async () => {
       try {
         const res = await fetch(`${API_BASE}/a2a/${encodeURIComponent(a2aAgentId)}/stream-state?cwd=${encodeURIComponent(rootPath)}`);
@@ -1251,12 +1268,15 @@ export default function CodingIDE() {
                 });
               }
             }
-            setCrewLoading(prev => ({ ...prev, [activeCrew]: false }));
-            setCrewAgentRunning(prev => ({ ...prev, [activeCrew]: false }));
+            _collapseRunningUi();
+          } else if (reattachMarkedRef.current === activeCrew || Date.now() - agentRunningSinceRef.current > 8000) {
+            // run 憑空消失（server 重啟 streamStates 在記憶體、TTL 過期）— 一定要收起，不能卡著不收
+            _collapseRunningUi();
           }
           return; // 沒有執行中的 run — 停止輪詢
         }
         // 執行中：標記 loading + 顯示最新動作
+        reattachMarkedRef.current = activeCrew;
         setCrewLoading(prev => ({ ...prev, [activeCrew]: true }));
         setCrewAgentRunning(prev => ({ ...prev, [activeCrew]: true }));
         const lastEv = st.events?.[st.events.length - 1];
@@ -1270,7 +1290,7 @@ export default function CodingIDE() {
     };
     poll();
     return () => { cancelled = true; if (pollTimer) clearTimeout(pollTimer); };
-  }, [activeCrew, rootPath]);
+  }, [activeCrew, rootPath, agentRunningNow]); // 2026-09-15：agentRunningNow 入 deps — 卡住不收的 tab（flag true 但 poll 已停）重新點火自癒
 
   // Reset loaded crews when project changes
   useEffect(() => {
