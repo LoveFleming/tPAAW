@@ -253,7 +253,15 @@ const server = createServer(async (req, res) => {
             ".map": "application/json",
           };
           const content = await readFile(filePath);
-          res.writeHead(200, { "Content-Type": mimeTypes[ext] || "application/octet-stream" });
+          // 2026-09-15：快取策略 — Fleming 改版後 refresh 拿不到新 bundle（Chrome 對無 cache header 的
+          // index.html 用啓發式快取 → 舊 JS 一直活着 → 思考中/已接回串流卡死不收看起來「修不好」）
+          // index.html 永遠重新驗證；assets/ 檔名帶 content hash 可永久快取；其他（avatars 等）no-cache
+          const cacheControl = ext === ".html"
+            ? "no-cache"
+            : reqPath.startsWith("/assets/")
+              ? "public, max-age=31536000, immutable"
+              : "no-cache";
+          res.writeHead(200, { "Content-Type": mimeTypes[ext] || "application/octet-stream", "Cache-Control": cacheControl });
           res.end(content);
           return;
         } catch {}
