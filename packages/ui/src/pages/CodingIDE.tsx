@@ -1272,16 +1272,26 @@ export default function CodingIDE() {
           } else if (reattachMarkedRef.current === activeCrew || Date.now() - agentRunningSinceRef.current > 8000) {
             // run 憑空消失（server 重啟 streamStates 在記憶體、TTL 過期）— 一定要收起，不能卡著不收
             _collapseRunningUi();
+            return;
+          } else if (!!a2aAbortRef.current) {
+            // 本 tab 的 live SSE 還在跑、stream-state 只是還没註冊好（數百 ms 空窗）— 繼續當 watchdog，不停不搶畫面
+            pollTimer = setTimeout(poll, 3000);
+            return;
           }
           return; // 沒有執行中的 run — 停止輪詢
         }
-        // 執行中：標記 loading + 顯示最新動作
+        // 執行中 — 2026-09-15 16:33 Fleming：「很常出現已接回串流」根因：本 tab 自己的 live SSE 在跑時
+        // poll 也每 3s 搶寫 action（最後事件常是 content/start → 顯示「已接回串流」蓋掉真實的思考中/工具狀態）。
+        // 修法：live fetch 在跑（a2aAbortRef 有值）時 poll 純當 watchdog（只盯 done/消失，不碰畫面）；
+        // 「已接回串流」只在真正斷線接回（refresh/斷網後、無 live fetch）時才顯示。
+        if (!!a2aAbortRef.current) { pollTimer = setTimeout(poll, 3000); return; }
         reattachMarkedRef.current = activeCrew;
         setCrewLoading(prev => ({ ...prev, [activeCrew]: true }));
         setCrewAgentRunning(prev => ({ ...prev, [activeCrew]: true }));
         const lastEv = st.events?.[st.events.length - 1];
         if (lastEv?.event === "tool" && lastEv.data?.name) setCrewAgentAction(prev => ({ ...prev, [activeCrew]: `🔧 ${lastEv.data.name}...` }));
         else if (lastEv?.event === "thinking") setCrewAgentAction(prev => ({ ...prev, [activeCrew]: "💭 思考中..." }));
+        else if (lastEv?.event === "content") setCrewAgentAction(prev => ({ ...prev, [activeCrew]: "✍️ 產出回應中..." }));
         else setCrewAgentAction(prev => ({ ...prev, [activeCrew]: "🔄 Agent 執行中（已接回串流）..." }));
         pollTimer = setTimeout(poll, 3000);
       } catch {
