@@ -18,7 +18,7 @@ import {
   attachStreamClient, detachStreamClient, applyBrowserInput, kickScreencast,
   browserTabs, browserNewTab, browserSwitchTab, browserCloseTab, browserNavAction,
   browserDownloads, browserHandleDialog, resolveBrowserKey, browserShotDir,
-  browserActions, recordBrowserAction, setVisualMode,
+  browserActions, recordBrowserAction, setVisualMode, resizeBrowserViewport,
 } from "../lib/browser-session.mjs";
 import { getBrowserSetupStatus } from "../lib/browser-setup.mjs";
 
@@ -44,6 +44,21 @@ export default async function browserRoute(req, res) {
       const setup = await getBrowserSetupStatus();
       json(res, 200, { ok: true, ...setup });
     } catch (e) { json(res, 500, { error: e.message }); }
+    return true;
+  }
+
+  // POST /api/browser/resize {w, h, ru?} — 面板尺寸同步 viewport（2026-09-15 Fleming：佔滿不留黑邊）
+  if (url === "/api/browser/resize" && method === "POST") {
+    let body = {};
+    try { body = JSON.parse(await readBody(req) || "{}"); } catch {}
+    const bKey = resolveBrowserKey(body.ru || q.get("ru"));
+    try {
+      const r = await resizeBrowserViewport(bKey, body.w, body.h);
+      kickScreencast(bKey); // 立即以新 viewport 重發 frame（best effort）
+      json(res, 200, { ok: true, ...r });
+    } catch (e) {
+      json(res, 400, { error: e?.message || String(e) });
+    }
     return true;
   }
 

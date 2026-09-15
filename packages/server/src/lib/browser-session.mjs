@@ -413,6 +413,21 @@ export async function getBrowserPage(key = "default", DATA_HOME_ARG) {
   return _wirePage(inst, page);
 }
 
+/** 2026-09-15 Fleming：Browser 頁佔滿畫面不留黑邊 — viewport 跟著面板尺寸走
+ *  （BrowserPanel ResizeObserver → POST /api/browser/resize，debounce 後同步）。
+ *  viewport = stage CSS px → screencast frame 尺寸 = stage 尺寸 → contain-fit scale=1 全填。*/
+export async function resizeBrowserViewport(key = "default", w, h) {
+  const width = Math.max(480, Math.min(2560, Math.round(Number(w) || 0)));
+  const height = Math.max(320, Math.min(1600, Math.round(Number(h) || 0)));
+  if (!Number(w) || !Number(h)) throw new Error("resize requires w/h");
+  const page = await getBrowserPage(key);
+  trackPage(key, page);
+  await page.setViewportSize({ width, height });
+  const inst = _getInst(key);
+  inst.state.lastActionAt = Date.now();
+  return { width, height };
+}
+
 /** 截圖：存時間戳檔 + 覆蓋 latest.png（IDE 輪詢用；per-instance 目錄）*/
 export async function takeScreenshot(key = "default", page) {
   const shotDir = browserShotDir(key);

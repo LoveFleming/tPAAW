@@ -92,6 +92,26 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
     const s = Math.min(stageSize.w / frame.w, stageSize.h / frame.h);
     return { w: Math.floor(frame.w * s), h: Math.floor(frame.h * s) };
   }, [frame?.w, frame?.h, stageSize.w, stageSize.h]);
+  // 2026-09-15 Fleming：佔滿不留黑邊 — stage 尺寸 debounce 後同步到 browser viewport（server setViewportSize），
+  // frame 尺寸 = stage 尺寸 → contain-fit scale=1 全填。拖曳視窗/側欄調整也會跟著同步（600ms 防抖）。
+  const vpSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastVpRef = useRef("");
+  useEffect(() => {
+    if (!stageSize.w || !stageSize.h || stageSize.w < 480 || stageSize.h < 320) return;
+    const w = Math.round(stageSize.w), h = Math.round(stageSize.h);
+    const k = `${effRu}:${w}x${h}`;
+    if (lastVpRef.current === k) return;
+    if (vpSyncTimerRef.current) clearTimeout(vpSyncTimerRef.current);
+    vpSyncTimerRef.current = setTimeout(() => {
+      lastVpRef.current = k;
+      fetch(`${API_BASE}/api/browser/resize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ w, h, ru: effRu }),
+      }).catch(() => {}); // best effort — 面板太小/沒開 browser 時靜默
+    }, 600);
+    return () => { if (vpSyncTimerRef.current) clearTimeout(vpSyncTimerRef.current); };
+  }, [stageSize.w, stageSize.h, effRu, API_BASE]);
   const lastMoveRef = useRef(0);
   const frameRef = useRef<CastFrame | null>(null);
   // ── Cowork 級：dialog / 下載（無分頁 — Fleming：不需要分頁）──
