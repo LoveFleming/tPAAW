@@ -24,7 +24,6 @@ export const LOG_DIR = join(DATA_HOME, "logs", "agent");
 export const INDEX_FILE = join(LOG_DIR, "index.json");
 const MAX_INDEX = 200;
 
-
 function ensureDir() {
   if (!existsSync(LOG_DIR)) mkdir(LOG_DIR, { recursive: true }).catch(() => {});
 }
