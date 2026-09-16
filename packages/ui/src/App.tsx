@@ -28,6 +28,7 @@ import AISettingsPage from "./pages/AISettingsPage";
 import HelpDesk from "./pages/HelpDesk";
 import LlmLogTab from "./components/LlmLogTab";
 import AgentLogs from "./components/AgentLogs";
+import UsageReportPanel from "./components/UsageReportPanel";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
 import { Crew } from "./types";
@@ -480,6 +481,12 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
+  const openUsageReport = useCallback(() => {
+    const tabId = `${currentScope}:usage-report`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
   const openSkillAppById = useCallback((skillId: string) => {
     const tabId = `${currentScope}:skillapp.${skillId}`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
@@ -524,6 +531,7 @@ function AppInner() {
     if (pageType === "helpdesk") return t("sidebar.helpDesk");
     if (pageType === "llm-log") return t("sidebar.llmLog", "LLM Log");
     if (pageType === "agent-log") return t("sidebar.agentLog", "Agent 執行記錄");
+    if (pageType === "usage-report") return t("sidebar.usageReport", "Agent 執行報表");
     if (pageType.startsWith("skillapp.")) {
       const appId = pageType.slice(9);
       return skillAppNav.find(n => n.skillId === appId)?.label ?? appId;
@@ -671,6 +679,9 @@ function AppInner() {
     }
     if (pageType === "agent-log") {
       return <AgentLogs />;
+    }
+    if (pageType === "usage-report") {
+      return <UsageReportPanel />;
     }
     if (pageType.startsWith("skillapp.")) {
       const skillId = pageType.slice(9);
@@ -875,6 +886,13 @@ function AppInner() {
                   active={activePage.endsWith(":agent-log")}
                   label={t("sidebar.agentLog")}
                   onClick={openAgentLog}
+                  accentColor={themeInfo.accent}
+                  accentBg={themeInfo.accentBg}
+                />
+                <NavItem
+                  active={activePage.endsWith(":usage-report")}
+                  label={t("sidebar.usageReport")}
+                  onClick={openUsageReport}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />

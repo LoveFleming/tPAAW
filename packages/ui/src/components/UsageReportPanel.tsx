@@ -135,7 +135,10 @@ function StackedDailyChart({ days, metric, theme, agents }: { days: DayRow[]; me
   );
 }
 
-export default function UsageReportPanel({ theme }: { theme: any }) {
+// PAAW Management 頁掛載時不傳 theme → 用預設淺色（與 AgentLogs 等管理頁一致）
+const DEFAULT_THEME = { bg: "#ffffff", bgMuted: "#fafaf9", borderLight: "#e7e5e4", accent: "#b45309", accentBg: "#fef3c7", text: "#374151" };
+
+export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: any }) {
   const { t } = useI18n();
   const [items, setItems] = useState<TaskItem[]>([]);
   const [from, setFrom] = useState<string>(() => isoDay(new Date(Date.now() - 29 * 86400_000).toISOString()) || "");

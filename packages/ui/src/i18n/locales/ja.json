@@ -1323,5 +1323,6 @@
   "report.error": "読み込み失敗",
   "report.generatedAt": "生成時刻",
   "report.range": "期間",
-  "report.sampleNote": "データ元：agent-logs index（全件保留、今後 Elasticsearch 接続予定）"
+  "report.sampleNote": "データ元：agent-logs index（全件保留、今後 Elasticsearch 接続予定）",
+  "sidebar.usageReport": "実行レポート"
 }

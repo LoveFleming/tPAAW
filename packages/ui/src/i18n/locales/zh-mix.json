@@ -1323,5 +1323,6 @@
   "report.error": "載入失敗",
   "report.generatedAt": "產生時間",
   "report.range": "區間",
-  "report.sampleNote": "資料來源：agent-logs index（完整保留，之後接 Elasticsearch）"
+  "report.sampleNote": "資料來源：agent-logs index（完整保留，之後接 Elasticsearch）",
+  "sidebar.usageReport": "Usage Report"
 }

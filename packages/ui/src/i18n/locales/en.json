@@ -1323,5 +1323,6 @@
   "report.error": "Load failed",
   "report.generatedAt": "Generated at",
   "report.range": "Range",
-  "report.sampleNote": "Source: agent-logs index (full retention; Elasticsearch planned)"
+  "report.sampleNote": "Source: agent-logs index (full retention; Elasticsearch planned)",
+  "sidebar.usageReport": "Usage Report"
 }
