@@ -59,6 +59,7 @@ import AgentSideChat, { type AgentSideChatHandle } from "../components/AgentSide
 import CrewManager from "../components/CrewManager";
 // ReportsTab removed — merged into AutoDispatchPanel
 import SecurityTab from "../components/SecurityTab";
+import UsageReportPanel from "../components/UsageReportPanel";
 import FileViewer from "../pages/FileViewer";
 
 // crewId → a2a agentId（chat 發送與 stream-state 重連共用 — 2026-09-11）
@@ -97,7 +98,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests" | "usage-report";
 
 interface MainTab {
   id: string;
@@ -689,6 +690,7 @@ export default function CodingIDE() {
       { id: "tool:handover", type: "handover", label: "Handover", icon: "🤝", closable: true },
       { id: "tool:issues", type: "issues", label: "Issues", icon: "📋", closable: true },
       { id: "tool:tasks", type: "tasks", label: "Tasks", icon: "📌", closable: true },
+      { id: "tool:usage-report", type: "usage-report", label: tt("report.toolbar"), icon: "📊", closable: true },
     ]},
     { id: "ops", icon: "🛡️", tools: [
       { id: "tool:release", type: "release-manager", label: "Release Manager", icon: "🚦", closable: true },
@@ -1098,7 +1100,7 @@ export default function CodingIDE() {
         console.log(`[CodingIDE] Parsed ${savedTabs?.length || 0} saved tabs, active=${savedActive}`);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
-          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "browser", "terminal", "ai-crew", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel", "tests"]);
+          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "browser", "terminal", "ai-crew", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel", "tests", "usage-report"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", "));
           // Restore tabs (dashboard is already present)
@@ -3971,6 +3973,16 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   rootPath={rootPath}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                   onOpenFile={openFile}
+                />
+              </div>
+            )}
+
+            {/* === Usage Report Tab === (global — 不需 rootPath) */}
+            {mainTabs.some(t => t.type === "usage-report") && (
+              <div key="tool:usage-report" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "usage-report" ? undefined : "none" }}>
+                <UsageReportPanel
+                  theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                 />
               </div>
             )}

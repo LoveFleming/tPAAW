@@ -1,0 +1,380 @@
+/**
+ * UsageReportPanel — Agent 執行報表（2026-09-16）
+ *
+ * 回答：「每個 Release Unit 每天每個 agent 接了多少 request、用多少 token、花多少錢、跑多久？」
+ * 資料：GET /api/agent-logs/usage-report（deterministic，零 LLM）
+ * 顯示：時間區間 + RU/Agent 過濾 → 總計卡、每日堆疊圖（by agent）、每日小計表、RU×Agent 明細表
+ */
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useI18n } from "../i18n";
+import API_BASE from "../api";
+
+interface Agg {
+  requests: number; tokensIn: number; tokensOut: number;
+  costUsd: number; durationMs: number; errors: number;
+}
+interface DayRow extends Agg { date: string; byAgent: Record<string, Agg> }
+interface RuRow extends Agg { ruName: string }
+interface AgentRow extends Agg { agentId: string }
+interface RuAgentRow extends Agg { ruName: string; agentId: string }
+interface UsageReport {
+  generatedAt: string; from: string | null; to: string | null;
+  filters: { ru: string | null; agent: string | null };
+  options: { agents: string[]; rus: string[] };
+  totals: Agg;
+  byDay: DayRow[];
+  byRu: RuRow[];
+  byAgent: AgentRow[];
+  byRuAgent: RuAgentRow[];
+}
+type Metric = "cost" | "requests" | "tokens" | "duration";
+
+const AGENT_COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#64748b", "#14b8a6", "#a855f7"];
+
+const fmtUsd = (n: number) => (n >= 1 ? `$${n.toFixed(2)}` : `$${n.toFixed(4)}`);
+const fmtTok = (n: number) => (n >= 1_000_000 ? `${(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${(n / 1e3).toFixed(1)}K` : String(Math.round(n)));
+const fmtInt = (n: number) => new Intl.NumberFormat("en-US").format(Math.round(n));
+const fmtDur = (ms: number) => {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60), rs = s % 60;
+  if (m < 60) return `${m}m${rs ? `${rs}s` : ""}`;
+  const h = Math.floor(m / 60);
+  return `${h}h${m % 60}m`;
+};
+const agentColor = (a: string, agents: string[]) => AGENT_COLORS[Math.max(0, agents.indexOf(a)) % AGENT_COLORS.length];
+
+function metricValue(row: Agg, metric: Metric): number {
+  if (metric === "cost") return row.costUsd;
+  if (metric === "requests") return row.requests;
+  if (metric === "tokens") return row.tokensIn + row.tokensOut;
+  return row.durationMs;
+}
+function metricLabel(v: number, metric: Metric): string {
+  if (metric === "cost") return fmtUsd(v);
+  if (metric === "requests") return fmtInt(v);
+  if (metric === "tokens") return fmtTok(v);
+  return fmtDur(v);
+}
+
+function isoDay(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** 每日堆疊長條圖（SVG，by agent） */
+function StackedDailyChart({ report, metric, theme }: { report: UsageReport; metric: Metric; theme: any }) {
+  const { t } = useI18n();
+  const agents = report.byAgent.map(a => a.agentId);
+  const days = report.byDay;
+  const chartAgents = useMemo(
+    () => agents.filter(a => days.some(d => d.byAgent[a] && metricValue(d.byAgent[a], metric) > 0)),
+    [agents, days, metric]
+  );
+
+  if (days.length === 0) return null;
+
+  const H = 210, padL = 56, padR = 10, padT = 14, padB = 26;
+  const barSlot = days.length > 40 ? 22 : 30;
+  const W = Math.max(560, days.length * barSlot + padL + padR);
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const maxVal = Math.max(1e-9, ...days.map(d => metricValue(d, metric)));
+  // y 軸刻度：漂亮的整數刻度
+  const pow = Math.pow(10, Math.floor(Math.log10(maxVal)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * pow).find(s => maxVal / s <= 4) || pow * 10;
+  const yMax = Math.ceil(maxVal / step) * step;
+  const y = (v: number) => padT + plotH * (1 - v / yMax);
+  const labelEvery = Math.max(1, Math.ceil(days.length / 14));
+
+  return (
+    <div>
+      {/* legend */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
+        {chartAgents.map(a => (
+          <span key={a} className="inline-flex items-center gap-1 text-[11px]" style={{ color: theme.text }}>
+            <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: agentColor(a, agents) }} />
+            {a}
+          </span>
+        ))}
+      </div>
+      <div className="overflow-x-auto" style={{ border: `1px solid ${theme.borderLight}`, borderRadius: 8, background: theme.bgMuted }}>
+        <svg width={W} height={H} role="img" style={{ display: "block" }}>
+          {/* gridlines + y labels */}
+          {Array.from({ length: Math.round(yMax / step) + 1 }, (_, i) => i * step).map(v => (
+            <g key={v}>
+              <line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} stroke={theme.borderLight} strokeWidth={1} strokeDasharray={v === 0 ? "" : "3,3"} />
+              <text x={padL - 6} y={y(v) + 3.5} textAnchor="end" fontSize={10} fill={theme.text} opacity={0.55}>
+                {metricLabel(v, metric)}
+              </text>
+            </g>
+          ))}
+          {/* stacked bars */}
+          {days.map((d, i) => {
+            const x = padL + (i * plotW) / days.length;
+            const barW = Math.min(barSlot - 6, (plotW / days.length) * 0.7);
+            let acc = 0;
+            return (
+              <g key={d.date}>
+                {chartAgents.map(a => {
+                  const seg = d.byAgent[a];
+                  const v = seg ? metricValue(seg, metric) : 0;
+                  if (v <= 0) return null;
+                  const y0 = y(acc), y1 = y(acc + v);
+                  acc += v;
+                  return (
+                    <rect key={a} x={x} y={y1} width={barW} height={Math.max(0, y0 - y1)} fill={agentColor(a, agents)} rx={1.5}>
+                      <title>{`${d.date} · ${a}: ${metricLabel(v, metric)} (${t("report.requests")}: ${seg!.requests}, ${fmtUsd(seg!.costUsd)})`}</title>
+                    </rect>
+                  );
+                })}
+                {i % labelEvery === 0 && (
+                  <text x={x + barW / 2} y={H - 8} textAnchor="middle" fontSize={9.5} fill={theme.text} opacity={0.55}>
+                    {d.date.slice(5)}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+export default function UsageReportPanel({ theme }: { theme: any }) {
+  const { t } = useI18n();
+  const today = useMemo(() => new Date(), []);
+  const [from, setFrom] = useState<string>(isoDay(new Date(today.getTime() - 29 * 86400_000)));
+  const [to, setTo] = useState<string>(isoDay(today));
+  const [ru, setRu] = useState<string>("");
+  const [agent, setAgent] = useState<string>("");
+  const [metric, setMetric] = useState<Metric>("cost");
+  const [report, setReport] = useState<UsageReport | null>(null);
+  const [options, setOptions] = useState<{ agents: string[]; rus: string[] }>({ agents: [], rus: [] });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const qs = new URLSearchParams();
+      if (from) qs.set("from", from);
+      if (to) qs.set("to", to);
+      if (ru) qs.set("ru", ru);
+      if (agent) qs.set("agent", agent);
+      const res = await fetch(`${API_BASE}/api/agent-logs/usage-report?${qs.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: UsageReport = await res.json();
+      if (data?.totals) {
+        setReport(data);
+        if (data.options) setOptions(data.options);
+      }
+    } catch (e: any) { setError(e.message || String(e)); }
+    finally { setLoading(false); }
+  }, [from, to, ru, agent]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const quickRange = (days: number | null) => {
+    if (days === null) { setFrom(""); setTo(""); return; }
+    setTo(isoDay(new Date()));
+    setFrom(isoDay(new Date(Date.now() - (days - 1) * 86400_000)));
+  };
+
+  const card: React.CSSProperties = {
+    background: theme.bgMuted, border: `1px solid ${theme.borderLight}`,
+    borderRadius: 10, padding: "10px 14px", minWidth: 130,
+  };
+  const th: React.CSSProperties = { textAlign: "left", fontWeight: 600, opacity: 0.55, fontSize: 11, padding: "6px 10px", whiteSpace: "nowrap" };
+  const td: React.CSSProperties = { padding: "5px 10px", whiteSpace: "nowrap", fontSize: 12 };
+  const inputStyle: React.CSSProperties = {
+    background: "transparent", color: theme.text, border: `1px solid ${theme.borderLight}`,
+    borderRadius: 6, padding: "3px 8px", fontSize: 12,
+  };
+
+  // RU × Agent 分組（RU 小計 + agent 明細）
+  const ruGroups = useMemo(() => {
+    if (!report) return [];
+    const map = new Map<string, { ruName: string; subtotal: RuAgentRow; rows: RuAgentRow[] }>();
+    for (const r of report.byRuAgent) {
+      if (!map.has(r.ruName)) map.set(r.ruName, {
+        ruName: r.ruName,
+        subtotal: { ruName: r.ruName, agentId: "", requests: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, durationMs: 0, errors: 0 },
+        rows: [],
+      });
+      const g = map.get(r.ruName)!;
+      g.rows.push(r);
+      g.subtotal.requests += r.requests; g.subtotal.tokensIn += r.tokensIn; g.subtotal.tokensOut += r.tokensOut;
+      g.subtotal.costUsd += r.costUsd; g.subtotal.durationMs += r.durationMs; g.subtotal.errors += r.errors;
+    }
+    return Array.from(map.values());
+  }, [report]);
+
+  const metrics: Array<{ id: Metric; label: string }> = [
+    { id: "cost", label: t("report.metric.cost") },
+    { id: "requests", label: t("report.metric.requests") },
+    { id: "tokens", label: t("report.metric.tokens") },
+    { id: "duration", label: t("report.metric.duration") },
+  ];
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4" style={{ background: theme.bg, color: theme.text }}>
+      {/* ── Header + filters ── */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <h2 className="text-sm font-bold mr-2">📊 {t("report.title")}</h2>
+        <span className="text-[11px]" style={{ opacity: 0.55 }}>{t("report.subtitle")}</span>
+        <span className="flex-1" />
+        <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={inputStyle} title={t("report.from")} />
+        <span className="text-[11px]" style={{ opacity: 0.55 }}>→</span>
+        <input type="date" value={to} onChange={e => setTo(e.target.value)} style={inputStyle} title={t("report.to")} />
+        {([[7, "7d"], [30, "30d"], [90, "90d"]] as Array<[number, string]>).map(([d, lbl]) => (
+          <button key={lbl} onClick={() => quickRange(d)} className="text-[11px] px-2 py-0.5 rounded border hover:opacity-80"
+            style={{ borderColor: theme.borderLight, color: theme.text }}>{lbl}</button>
+        ))}
+        <button onClick={() => quickRange(null)} className="text-[11px] px-2 py-0.5 rounded border hover:opacity-80"
+          style={{ borderColor: theme.borderLight, color: theme.text }}>{t("report.all")}</button>
+        <select value={ru} onChange={e => setRu(e.target.value)} style={inputStyle} title="Release Unit">
+          <option value="">{t("report.allRu")}</option>
+          {options.rus.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+        <select value={agent} onChange={e => setAgent(e.target.value)} style={inputStyle} title="Agent">
+          <option value="">{t("report.allAgents")}</option>
+          {options.agents.map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <button onClick={load} disabled={loading} className="text-[11px] px-2 py-0.5 rounded hover:opacity-80"
+          style={{ border: `1px solid ${theme.borderLight}`, color: theme.text }} title={t("report.refresh")}>
+          {loading ? "…" : "⟳"}
+        </button>
+      </div>
+
+      {error && <div className="mb-3 text-xs" style={{ color: "#ef4444" }}>{t("report.error")}: {error}</div>}
+      {!error && !report && loading && <div className="text-xs" style={{ opacity: 0.55 }}>{t("report.loading")}</div>}
+      {report && report.byDay.length === 0 && !loading && (
+        <div className="text-xs" style={{ opacity: 0.55 }}>{t("report.noData")}</div>
+      )}
+
+      {report && report.byDay.length > 0 && (
+        <>
+          {/* ── Summary cards ── */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <div style={card}><div className="text-[10px]" style={{ opacity: 0.55 }}>{t("report.requests")}</div><div className="text-lg font-bold">{fmtInt(report.totals.requests)}</div></div>
+            <div style={card}><div className="text-[10px]" style={{ opacity: 0.55 }}>{t("report.tokensIn")}</div><div className="text-lg font-bold">{fmtTok(report.totals.tokensIn)}</div></div>
+            <div style={card}><div className="text-[10px]" style={{ opacity: 0.55 }}>{t("report.tokensOut")}</div><div className="text-lg font-bold">{fmtTok(report.totals.tokensOut)}</div></div>
+            <div style={card}><div className="text-[10px]" style={{ opacity: 0.55 }}>{t("report.cost")}</div><div className="text-lg font-bold">{fmtUsd(report.totals.costUsd)}</div></div>
+            <div style={card}><div className="text-[10px]" style={{ opacity: 0.55 }}>{t("report.duration")}</div><div className="text-lg font-bold">{fmtDur(report.totals.durationMs)}</div></div>
+            <div style={card}><div className="text-[10px]" style={{ opacity: 0.55 }}>{t("report.avgDuration")}</div><div className="text-lg font-bold">{fmtDur(report.totals.durationMs / Math.max(1, report.totals.requests))}</div></div>
+            <div style={card}><div className="text-[10px]" style={{ opacity: 0.55 }}>{t("report.errors")}</div><div className="text-lg font-bold">{fmtInt(report.totals.errors)}</div></div>
+          </div>
+
+          {/* ── Chart ── */}
+          <div className="mb-2 flex items-center gap-2 flex-wrap">
+            <h3 className="text-xs font-bold">{t("report.chart.daily")}</h3>
+            <span className="flex-1" />
+            <div className="flex gap-1">
+              {metrics.map(m => (
+                <button key={m.id} onClick={() => setMetric(m.id)} className="text-[11px] px-2 py-0.5 rounded"
+                  style={{
+                    border: `1px solid ${metric === m.id ? theme.accent : theme.borderLight}`,
+                    background: metric === m.id ? theme.accentBg : "transparent",
+                    color: metric === m.id ? theme.accent : theme.text,
+                  }}>{m.label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="mb-5"><StackedDailyChart report={report} metric={metric} theme={theme} /></div>
+
+          {/* ── Table 1: 每日統計 ── */}
+          <h3 className="text-xs font-bold mb-2">{t("report.table.daily")}</h3>
+          <div className="overflow-x-auto mb-5" style={{ border: `1px solid ${theme.borderLight}`, borderRadius: 8 }}>
+            <table className="w-full border-collapse" style={{ background: theme.bgMuted }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
+                  <th style={th}>{t("report.date")}</th>
+                  <th style={{ ...th, textAlign: "right" }}>{t("report.requests")}</th>
+                  <th style={{ ...th, textAlign: "right" }}>{t("report.tokensIn")}</th>
+                  <th style={{ ...th, textAlign: "right" }}>{t("report.tokensOut")}</th>
+                  <th style={{ ...th, textAlign: "right" }}>{t("report.cost")}</th>
+                  <th style={{ ...th, textAlign: "right" }}>{t("report.duration")}</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono">
+                {[...report.byDay].reverse().map(d => (
+                  <tr key={d.date} style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
+                    <td style={td}>{d.date}</td>
+                    <td style={{ ...td, textAlign: "right" }}>{fmtInt(d.requests)}</td>
+                    <td style={{ ...td, textAlign: "right" }}>{fmtTok(d.tokensIn)}</td>
+                    <td style={{ ...td, textAlign: "right" }}>{fmtTok(d.tokensOut)}</td>
+                    <td style={{ ...td, textAlign: "right" }}>{fmtUsd(d.costUsd)}</td>
+                    <td style={{ ...td, textAlign: "right" }}>{fmtDur(d.durationMs)}</td>
+                  </tr>
+                ))}
+                <tr style={{ fontWeight: 700 }}>
+                  <td style={{ ...td, fontWeight: 700 }}>{t("report.total")}</td>
+                  <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtInt(report.totals.requests)}</td>
+                  <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtTok(report.totals.tokensIn)}</td>
+                  <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtTok(report.totals.tokensOut)}</td>
+                  <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtUsd(report.totals.costUsd)}</td>
+                  <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtDur(report.totals.durationMs)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* ── Table 2: RU × Agent ── */}
+          <h3 className="text-xs font-bold mb-2">{t("report.table.ruAgent")}</h3>
+          <div className="overflow-x-auto mb-4" style={{ border: `1px solid ${theme.borderLight}`, borderRadius: 8 }}>
+            <table className="w-full border-collapse" style={{ background: theme.bgMuted }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
+                  <th style={th}>Release Unit</th>
+                  <th style={th}>Agent</th>
+                  <th style={{ ...th, textAlign: "right" }}>{t("report.requests")}</th>
+                  <th style={{ ...th, textAlign: "right" }}>{t("report.tokens")}</th>
+                  <th style={{ ...th, textAlign: "right" }}>{t("report.cost")}</th>
+                  <th style={{ ...th, textAlign: "right" }}>{t("report.duration")}</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono">
+                {ruGroups.map(g => (
+                  <React.Fragment key={g.ruName}>
+                    <tr style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bg }}>
+                      <td style={{ ...td, fontWeight: 700 }}>{g.ruName}</td>
+                      <td style={{ ...td, fontWeight: 700, opacity: 0.65 }}>{t("report.subtotal")}</td>
+                      <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtInt(g.subtotal.requests)}</td>
+                      <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtTok(g.subtotal.tokensIn + g.subtotal.tokensOut)}</td>
+                      <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtUsd(g.subtotal.costUsd)}</td>
+                      <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtDur(g.subtotal.durationMs)}</td>
+                    </tr>
+                    {g.rows.map(r => (
+                      <tr key={`${r.ruName}/${r.agentId}`} style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
+                        <td style={{ ...td, opacity: 0.4 }}>└</td>
+                        <td style={td}>
+                          <span className="inline-block w-2 h-2 rounded-sm mr-1.5" style={{ background: agentColor(r.agentId, options.agents) }} />
+                          {r.agentId}
+                        </td>
+                        <td style={{ ...td, textAlign: "right" }}>{fmtInt(r.requests)}</td>
+                        <td style={{ ...td, textAlign: "right" }}>{fmtTok(r.tokensIn + r.tokensOut)}</td>
+                        <td style={{ ...td, textAlign: "right" }}>{fmtUsd(r.costUsd)}</td>
+                        <td style={{ ...td, textAlign: "right" }}>{fmtDur(r.durationMs)}</td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))}
+                <tr>
+                  <td colSpan={2} style={{ ...td, fontWeight: 700 }}>{t("report.total")}</td>
+                  <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtInt(report.totals.requests)}</td>
+                  <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtTok(report.totals.tokensIn + report.totals.tokensOut)}</td>
+                  <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtUsd(report.totals.costUsd)}</td>
+                  <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtDur(report.totals.durationMs)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="text-[10px]" style={{ opacity: 0.45 }}>
+            {t("report.generatedAt")}: {new Date(report.generatedAt).toLocaleString()} · {report.from || "–"} → {report.to || "–"}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
