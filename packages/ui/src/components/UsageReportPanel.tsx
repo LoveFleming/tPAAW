@@ -150,7 +150,7 @@ export default function UsageReportPanel({ theme }: { theme: any }) {
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/agent-logs?limit=200`);
+      const res = await fetch(`${API_BASE}/api/agent-logs?limit=100000`); // 2026-09-16：index 全保留（之後接 ES）
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setItems(Array.isArray(data?.items) ? data.items : []);

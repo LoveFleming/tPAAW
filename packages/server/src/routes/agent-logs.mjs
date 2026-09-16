@@ -42,7 +42,7 @@ export default async function agentLogsRoute(req, res) {
   // GET /api/agent-logs — list
   if (url === "/api/agent-logs" && method === "GET") {
     try {
-      const limit = Math.min(parseInt(q.get("limit") || "50", 10), 200);
+      const limit = Math.min(parseInt(q.get("limit") || "50", 10), 100000);
       const agentId = q.get("agent") || null;
       const status = q.get("status") || null;
       const ru = q.get("ru") || null;
@@ -62,7 +62,7 @@ export default async function agentLogsRoute(req, res) {
   // GET /api/agent-logs/ru-summary — per-RU cost aggregation（live index + 持久化歷史）
   if (url === "/api/agent-logs/ru-summary" && method === "GET") {
     try {
-      const tasks = await listAgentTasks(200, {});
+      const tasks = await listAgentTasks(100000, {});
       const byRu = {};
       const _agg = (ruName, task) => {
         if (!byRu[ruName]) byRu[ruName] = { ruName, tasks: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, durationMs: 0, byModel: {} };

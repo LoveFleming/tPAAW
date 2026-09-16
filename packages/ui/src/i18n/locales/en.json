@@ -1323,5 +1323,5 @@
   "report.error": "Load failed",
   "report.generatedAt": "Generated at",
   "report.range": "Range",
-  "report.sampleNote": "Source: last 200 executed tasks (agent-logs index)"
+  "report.sampleNote": "Source: agent-logs index (full retention; Elasticsearch planned)"
 }

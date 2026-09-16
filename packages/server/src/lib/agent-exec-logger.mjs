@@ -22,7 +22,8 @@ const __dirname = dirname(__filename);
 
 export const LOG_DIR = join(DATA_HOME, "logs", "agent");
 export const INDEX_FILE = join(LOG_DIR, "index.json");
-const MAX_INDEX = 200;
+// 2026-09-16 Fleming：執行記錄不刪（index 上限 100000 = 實務上全保留），之後要接 Elasticsearch 存放
+const MAX_INDEX = 100000;
 
 function ensureDir() {
   if (!existsSync(LOG_DIR)) mkdir(LOG_DIR, { recursive: true }).catch(() => {});
