@@ -75,6 +75,7 @@ const NAV_EMOJI_PATTERNS: { match: RegExp; emoji: string }[] = [
     { match: /helpdesk|客服/i, emoji: "🎧" },
     { match: /llm.*(?:log|日誌|ログ)|^llm$/i, emoji: "📡" },
     { match: /agent.*log|執行記錄/i, emoji: "📝" },
+    { match: /usage.*report|執行報表|実行レポート/i, emoji: "📊" },
 ];
 
 function findEmoji(label: string): string | undefined {

@@ -16,6 +16,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import API_BASE from "../api";
+import { useTheme } from "../theme";
 
 // ── Types ──
 interface ModelInfo { id: string; name: string; }
@@ -141,6 +142,7 @@ interface ModelSelectorProps {
 }
 
 export default function ModelSelector({ feature, value, onChange, className, style }: ModelSelectorProps) {
+  const { info: themeInfo } = useTheme(); // 2026-09-16：外框線跟 theme（accentBorder）
   const [providers, setProviders] = useState<ProviderInfo[]>(providersCache);
   const [open, setOpen] = useState(false);
   const [dropUp, setDropUp] = useState(false);
@@ -241,7 +243,7 @@ export default function ModelSelector({ feature, value, onChange, className, sty
         type="button"
         onClick={() => { ensurePrefsLoaded().then(() => setProviders(providersCache.length > 0 ? providersCache : [])); }}
         className="text-[11px] px-2 py-1 rounded-lg border text-stone-400"
-        style={{ borderColor: "#d6d3d1", ...style }}
+        style={{ borderColor: themeInfo.accentBorder || "#d6d3d1", ...style }}
       >
         🤖 model 載入中…
       </button>
@@ -254,7 +256,7 @@ export default function ModelSelector({ feature, value, onChange, className, sty
         type="button"
         onClick={() => setOpen(!open)}
         className={className ? `${className} flex items-center justify-between gap-1` : "text-[11px] px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50 flex items-center justify-between gap-1"}
-        style={!className ? { borderColor: "#d6d3d1", color: "#78716c" } : undefined}
+        style={!className ? { borderColor: themeInfo.accentBorder || "#d6d3d1", color: "#78716c" } : undefined}
       >
         🤖 {displayName}
         <svg width="8" height="8" viewBox="0 0 8 8" fill="none" className={`transition-transform ${open ? "rotate-180" : ""}`}>
@@ -266,6 +268,7 @@ export default function ModelSelector({ feature, value, onChange, className, sty
           className={dropUp
             ? "absolute right-0 bottom-full mb-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-[9999] max-h-80 overflow-y-auto"
             : "absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-[9999] max-h-80 overflow-y-auto"}
+          style={{ borderColor: themeInfo.accentBorder || "#e7e5e4" }}
         >
           {providers.map(p => {
             const isCurrentProvider = curPid === p.id;
