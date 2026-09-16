@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { pasteMayContainImage, extractPasteFiles } from "../utils/pasteFiles";
 import API_BASE from "../api";
 import { fmtChatTime } from "../utils";
 import { useI18n } from "../i18n";
@@ -463,7 +464,13 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
           <textarea
             value={input}
             onChange={e => setInput(e.target.value)}
-            onPaste={(e) => { const files = Array.from(e.clipboardData?.files || []); if (files.length > 0) { e.preventDefault(); addImages(files); addTextFiles(files); } }}
+            onPaste={async (e) => {
+              // 2026-09-16：貼圓修復 — files/items/text-html 全支援
+              if (!pasteMayContainImage(e.clipboardData)) return;
+              e.preventDefault();
+              const files = await extractPasteFiles(e.clipboardData);
+              if (files && files.length > 0) { addImages(files); addTextFiles(files); }
+            }}
             onCompositionStart={() => { composingRef.current = true; }}
             onCompositionEnd={() => { composingRef.current = false; }}
             onKeyDown={e => {

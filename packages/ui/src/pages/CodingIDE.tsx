@@ -59,6 +59,7 @@ import AgentSideChat, { type AgentSideChatHandle } from "../components/AgentSide
 import CrewManager from "../components/CrewManager";
 // ReportsTab removed — merged into AutoDispatchPanel
 import SecurityTab from "../components/SecurityTab";
+import { pasteMayContainImage, extractPasteFiles } from "../utils/pasteFiles";
 import FileViewer from "../pages/FileViewer";
 
 // crewId → a2a agentId（chat 發送與 stream-state 重連共用 — 2026-09-11）
@@ -3713,7 +3714,13 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                       onChange={e => setChatInput(e.target.value)}
                       onCompositionStart={() => { composingRef.current = true; }}
                       onCompositionEnd={() => { composingRef.current = false; }}
-                      onPaste={(e) => { const files = Array.from(e.clipboardData?.files || []); if (files.length > 0) { e.preventDefault(); addChatImages(files); addChatTextFiles(files); } }}
+                      onPaste={async (e) => {
+                        // 2026-09-16：貼圓修復 — files/items/text-html 全支援（browser 照相複製圖片不再變文字）
+                        if (!pasteMayContainImage(e.clipboardData)) return;
+                        e.preventDefault();
+                        const files = await extractPasteFiles(e.clipboardData);
+                        if (files && files.length > 0) { addChatImages(files); addChatTextFiles(files); }
+                      }}
                       onKeyDown={handleChatKeyDown}
                       placeholder={`問 ${crew?.title}...`}
                       className="flex-1 text-sm px-3 py-2 rounded-lg resize-none outline-none border focus:border-blue-400"
