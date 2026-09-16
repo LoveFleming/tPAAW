@@ -133,7 +133,11 @@ export async function loadAgentConfig() {
     _agentConfigCache = { ...DEFAULT_AGENT_CONFIG, ...JSON.parse(raw) };
     _agentConfigTs = stat.mtimeMs;
     return _agentConfigCache;
-  } catch {
+  } catch (e) {
+    // 2026-09-16：parse 失敗不再靜默 fallback — 大聲報錯（BOM/編碼/語法壞掉都會走到這）
+    if (e?.code !== "ENOENT") {
+      console.error(`⚠️ [agent-config] ${configPath} 解析失敗 → fallback 預設 maxTurns=${DEFAULT_AGENT_CONFIG.maxTurns}。請檢查 JSON 語法/編碼（UTF-8 無 BOM）:`, e.message);
+    }
     return DEFAULT_AGENT_CONFIG;
   }
 }
