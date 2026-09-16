@@ -10,7 +10,7 @@ import { useI18n } from "../i18n";
 import API_BASE from "../api";
 
 interface TaskItem {
-  taskId: string; agentId: string; model?: string; models?: string[]; cwd: string; ruName?: string;
+  taskId: string; agentId: string; model?: string; models?: Array<string | { model?: string }>; cwd: string; ruName?: string;
   startTime: string; durationMs: number; turns: number; status: string;
   usage?: { prompt: number; completion: number; total: number };
   costUsd?: number;
@@ -198,8 +198,9 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
       agg.costUsd += e.costUsd || 0;
       agg.durationMs += e.durationMs || 0;
       if (e.status && e.status !== "completed") agg.errors += 1;
-      const models = e.models?.length ? e.models : (e.model ? [e.model] : []);
-      for (const m of models) agg.modelCounts[m] = (agg.modelCounts[m] || 0) + 1;
+      const rawModels: Array<string | { model?: string }> = e.models?.length ? e.models : (e.model ? [e.model] : []);
+      const models = rawModels.map(x => (typeof x === "string" ? x : x?.model) ?? "").map(m => m.trim()).filter(m => m);
+      for (const m of new Set(models)) agg.modelCounts[m] = (agg.modelCounts[m] || 0) + 1;
     };
 
     const filtered = items.filter(e => {
