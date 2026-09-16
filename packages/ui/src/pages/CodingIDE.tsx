@@ -3975,7 +3975,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
               </div>
             )}
 
-
             {/* === Crew Manager Tab === */}
             {mainTabs.some(t => t.type === "crew-manager") && rootPath && (
               <div key="tool:crew" className="flex-1 flex flex-col min-w-0"
