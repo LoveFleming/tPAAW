@@ -15,6 +15,7 @@ export function sendSeedToChat(msg: string) {
 
 import API_BASE from "../api";
 import { fmtChatTime } from "../utils";
+import { pasteMayContainImage, extractPasteFiles } from "../utils/pasteFiles";
 
 interface Message {
   role: "user" | "assistant";
@@ -874,9 +875,13 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
               onCompositionStart={() => { composingRef.current = true; }}
               onCompositionEnd={() => { composingRef.current = false; }}
               onKeyDown={handleKeyDown}
-              onPaste={(e) => {
-                const files = Array.from(e.clipboardData.files || []).filter(f => f.type.startsWith("image/"));
-                if (files.length > 0) { e.preventDefault(); addImages(files); }
+              onPaste={async (e) => {
+                // 2026-09-16：貼圖升級 — files/items/text-html 全支援（跟 CodingIDE 同一套 pasteFiles）
+                if (!pasteMayContainImage(e.clipboardData)) return;
+                e.preventDefault();
+                const all = (await extractPasteFiles(e.clipboardData)) || [];
+                const files = all.filter(f => f.type.startsWith("image/"));
+                if (files.length > 0) await addImages(files);
               }}
               placeholder={`跟${assistantName}說點什麼...`}
               rows={1}
