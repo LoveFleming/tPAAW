@@ -1321,5 +1321,7 @@
   "report.loading": "Loading…",
   "report.noData": "No execution records in this range",
   "report.error": "Load failed",
-  "report.generatedAt": "Generated at"
+  "report.generatedAt": "Generated at",
+  "report.range": "Range",
+  "report.sampleNote": "Source: last 200 executed tasks (agent-logs index)"
 }

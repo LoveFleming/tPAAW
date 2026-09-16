@@ -1321,5 +1321,7 @@
   "report.loading": "読み込み中…",
   "report.noData": "この期間の実行記録はありません",
   "report.error": "読み込み失敗",
-  "report.generatedAt": "生成時刻"
+  "report.generatedAt": "生成時刻",
+  "report.range": "期間",
+  "report.sampleNote": "データ元：直近 200 件の実行記録（agent-logs index）"
 }

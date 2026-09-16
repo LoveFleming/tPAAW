@@ -24,11 +24,6 @@ export const LOG_DIR = join(DATA_HOME, "logs", "agent");
 export const INDEX_FILE = join(LOG_DIR, "index.json");
 const MAX_INDEX = 200;
 
-// ── Usage Report Events（2026-09-16 執行報表）──
-// append-only、每個完成 task 一行、永不刪（purge/index trim 都不碰這裡）
-// 放 report/ 子目錄：cleanupOldAgentLogs 只掃 LOG_DIR 頂層 *.jsonl，不會誤刪
-const REPORT_DIR = join(LOG_DIR, "report");
-const USAGE_EVENTS_FILE = join(REPORT_DIR, "usage-events.jsonl");
 
 function ensureDir() {
   if (!existsSync(LOG_DIR)) mkdir(LOG_DIR, { recursive: true }).catch(() => {});
@@ -171,23 +166,6 @@ export function startAgentLog(taskInfo) {
         models: Object.values(byModel),
       });
 
-      // ── 執行報表事件（append-only，永不被 purge）──
-      let _ruName = "";
-      try { const { resolveRuName } = await import("./ru-resolver.mjs"); _ruName = resolveRuName(taskInfo.cwd); } catch {}
-      await _appendUsageEvent({
-        taskId,
-        agentId: taskInfo.agentId || "unknown",
-        ruName: _ruName || "-",
-        cwd: taskInfo.cwd || "",
-        startTime: new Date(startTime).toISOString(),
-        model: taskInfo.model || "",
-        turns: result.turns || 0,
-        status: result.status || "completed",
-        durationMs: totalDuration,
-        usage,
-        costUsd,
-      });
-
       return { taskId, totalDuration, stepCount: steps.length, usage, costUsd };
     },
 
@@ -230,139 +208,6 @@ async function _updateIndex(entry) {
   } catch (e) {
     console.error("[agent-exec-logger] Failed to update index:", e.message);
   }
-}
-
-/**
- * Append one usage event（best-effort，失敗不影響主流程）。
- */
-async function _appendUsageEvent(entry) {
-  try {
-    if (!existsSync(REPORT_DIR)) await mkdir(REPORT_DIR, { recursive: true });
-    await appendFile(USAGE_EVENTS_FILE, JSON.stringify(entry) + "\n", "utf-8");
-  } catch (e) {
-    console.error("[agent-exec-logger] usage event append failed:", e.message);
-  }
-}
-
-let _usageBackfilled = false;
-
-/**
- * Backfill usage-events.jsonl：把現存 index.json + task-*.jsonl 的歷史任務補進事件檔。
- * 冪等（by taskId）；只在每個 process 第一次被叫時跑一次。
- * @returns {number} 補了幾筆
- */
-export async function backfillUsageEvents() {
-  if (_usageBackfilled) return 0;
-  _usageBackfilled = true;
-  try {
-    let existing = new Set();
-    try {
-      const raw = await readFile(USAGE_EVENTS_FILE, "utf-8");
-      for (const line of raw.split("\n")) {
-        if (!line.trim()) continue;
-        try { existing.add(JSON.parse(line).taskId); } catch {}
-      }
-    } catch {}
-
-    const events = [];
-    let ruResolver = null;
-    try { ruResolver = await import("./ru-resolver.mjs"); } catch {}
-    const ruOf = (cwd) => { try { return ruResolver ? ruResolver.resolveRuName(cwd) : (cwd ? String(cwd).split(/[\\/]/).filter(Boolean).pop() || "-" : "-"); } catch { return "-"; } };
-
-    // 1) index.json entries（有完整 summary）
-    try {
-      const entries = JSON.parse(await readFile(INDEX_FILE, "utf-8"));
-      for (const e of entries) {
-        if (!e || !e.taskId || existing.has(e.taskId)) continue;
-        events.push({
-          taskId: e.taskId, agentId: e.agentId || "unknown", ruName: ruOf(e.cwd), cwd: e.cwd || "",
-          startTime: e.startTime || "", model: e.model || "", turns: e.turns || 0,
-          status: e.status || "completed", durationMs: e.durationMs || 0,
-          usage: e.usage || { prompt: 0, completion: 0, total: 0 }, costUsd: e.costUsd || 0,
-        });
-        existing.add(e.taskId);
-      }
-    } catch {}
-
-    // 2) task-*.jsonl 檔（含已被 index trim 掉、或 abort 前有 task_end 的）
-    try {
-      const files = (await readdir(LOG_DIR)).filter(f => /^task-.*\.jsonl$/.test(f));
-      for (const f of files) {
-        const taskId = f.replace(/\.jsonl$/, "");
-        if (existing.has(taskId)) continue;
-        const ms = Number(taskId.split("-")[1]);
-        if (!Number.isFinite(ms)) continue;
-        let start = null, end = null;
-        try {
-          const rl = createInterface({ input: createReadStream(join(LOG_DIR, f)), crlfDelay: Infinity });
-          for await (const line of rl) {
-            if (!line.trim()) continue;
-            try {
-              const o = JSON.parse(line);
-              if (o.phase === "task_start" && !start) start = o.taskInfo || {};
-              if (o.phase === "task_end") end = o;
-            } catch {}
-          }
-        } catch {}
-        if (!start || !end) continue; // 沒跑完的（crash/abort 無 end）跳過 — 無 usage 可記
-        events.push({
-          taskId, agentId: start.agentId || "unknown", ruName: ruOf(start.cwd), cwd: start.cwd || "",
-          startTime: new Date(ms).toISOString(), model: start.model || "", turns: end.turns || 0,
-          status: end.status || "completed", durationMs: end.totalDuration || 0,
-          usage: end.usage || { prompt: 0, completion: 0, total: 0 }, costUsd: end.costUsd || 0,
-        });
-        existing.add(taskId);
-      }
-    } catch {}
-
-    if (events.length > 0) {
-      events.sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
-      await _appendUsageEventBulk(events);
-    }
-    return events.length;
-  } catch (e) {
-    console.error("[agent-exec-logger] usage backfill failed:", e.message);
-    return 0;
-  }
-}
-
-async function _appendUsageEventBulk(events) {
-  if (!existsSync(REPORT_DIR)) await mkdir(REPORT_DIR, { recursive: true });
-  await appendFile(USAGE_EVENTS_FILE, events.map(e => JSON.stringify(e)).join("\n") + "\n", "utf-8");
-}
-
-/**
- * Read all usage events（backfill 一次 + 與 live index 合併去重 — 即時跑的任務馬上進報表）。
- * @returns {Promise<Array>} events sorted by startTime asc
- */
-export async function getUsageEvents() {
-  await backfillUsageEvents();
-  const byId = new Map();
-  try {
-    const raw = await readFile(USAGE_EVENTS_FILE, "utf-8");
-    for (const line of raw.split("\n")) {
-      if (!line.trim()) continue;
-      try { const o = JSON.parse(line); if (o.taskId) byId.set(o.taskId, o); } catch {}
-    }
-  } catch {}
-  // live merge：index 有、events 檔沒有（剛結束、append 尚未落盤的邊角）
-  let ruResolver = null;
-  try { ruResolver = await import("./ru-resolver.mjs"); } catch {}
-  try {
-    const entries = JSON.parse(await readFile(INDEX_FILE, "utf-8"));
-    for (const e of entries) {
-      if (!e || !e.taskId || byId.has(e.taskId)) continue;
-      let ru = "-";
-      try { ru = ruResolver ? ruResolver.resolveRuName(e.cwd) : "-"; } catch {}
-      byId.set(e.taskId, {
-        taskId: e.taskId, agentId: e.agentId || "unknown", ruName: ru, cwd: e.cwd || "",
-        startTime: e.startTime || "", model: e.model || "", turns: e.turns || 0,
-        status: e.status || "completed", durationMs: e.durationMs || 0,
-        usage: e.usage || { prompt: 0, completion: 0, total: 0 }, costUsd: e.costUsd || 0,
-      });
-    }
-  } catch {}
-  return Array.from(byId.values()).sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
 }
 
 /**

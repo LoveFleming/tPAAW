@@ -2,13 +2,19 @@
  * UsageReportPanel — Agent 執行報表（2026-09-16）
  *
  * 回答：「每個 Release Unit 每天每個 agent 接了多少 request、用多少 token、花多少錢、跑多久？」
- * 資料：GET /api/agent-logs/usage-report（deterministic，零 LLM）
- * 顯示：時間區間 + RU/Agent 過濾 → 總計卡、每日堆疊圖（by agent）、每日小計表、RU×Agent 明細表
+ * 資料：GET /api/agent-logs?limit=200（現成 API，index.json 最近的任務摘要）
+ * 聚合全在前端（browser 本地時區分日）；無新 storage、無新 API。
  */
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useI18n } from "../i18n";
 import API_BASE from "../api";
 
+interface TaskItem {
+  taskId: string; agentId: string; model: string; cwd: string; ruName?: string;
+  startTime: string; durationMs: number; turns: number; status: string;
+  usage?: { prompt: number; completion: number; total: number };
+  costUsd?: number;
+}
 interface Agg {
   requests: number; tokensIn: number; tokensOut: number;
   costUsd: number; durationMs: number; errors: number;
@@ -17,16 +23,6 @@ interface DayRow extends Agg { date: string; byAgent: Record<string, Agg> }
 interface RuRow extends Agg { ruName: string }
 interface AgentRow extends Agg { agentId: string }
 interface RuAgentRow extends Agg { ruName: string; agentId: string }
-interface UsageReport {
-  generatedAt: string; from: string | null; to: string | null;
-  filters: { ru: string | null; agent: string | null };
-  options: { agents: string[]; rus: string[] };
-  totals: Agg;
-  byDay: DayRow[];
-  byRu: RuRow[];
-  byAgent: AgentRow[];
-  byRuAgent: RuAgentRow[];
-}
 type Metric = "cost" | "requests" | "tokens" | "duration";
 
 const AGENT_COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#64748b", "#14b8a6", "#a855f7"];
@@ -56,16 +52,15 @@ function metricLabel(v: number, metric: Metric): string {
   if (metric === "tokens") return fmtTok(v);
   return fmtDur(v);
 }
-
-function isoDay(d: Date): string {
+const isoDay = (iso: string): string | null => {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+};
 
 /** 每日堆疊長條圖（SVG，by agent） */
-function StackedDailyChart({ report, metric, theme }: { report: UsageReport; metric: Metric; theme: any }) {
+function StackedDailyChart({ days, metric, theme, agents }: { days: DayRow[]; metric: Metric; theme: any; agents: string[] }) {
   const { t } = useI18n();
-  const agents = report.byAgent.map(a => a.agentId);
-  const days = report.byDay;
   const chartAgents = useMemo(
     () => agents.filter(a => days.some(d => d.byAgent[a] && metricValue(d.byAgent[a], metric) > 0)),
     [agents, days, metric]
@@ -142,58 +137,107 @@ function StackedDailyChart({ report, metric, theme }: { report: UsageReport; met
 
 export default function UsageReportPanel({ theme }: { theme: any }) {
   const { t } = useI18n();
-  const today = useMemo(() => new Date(), []);
-  const [from, setFrom] = useState<string>(isoDay(new Date(today.getTime() - 29 * 86400_000)));
-  const [to, setTo] = useState<string>(isoDay(today));
+  const [items, setItems] = useState<TaskItem[]>([]);
+  const [from, setFrom] = useState<string>(() => isoDay(new Date(Date.now() - 29 * 86400_000).toISOString()) || "");
+  const [to, setTo] = useState<string>(() => isoDay(new Date().toISOString()) || "");
   const [ru, setRu] = useState<string>("");
   const [agent, setAgent] = useState<string>("");
   const [metric, setMetric] = useState<Metric>("cost");
-  const [report, setReport] = useState<UsageReport | null>(null);
-  const [options, setOptions] = useState<{ agents: string[]; rus: string[] }>({ agents: [], rus: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 一次拉現成 API 的最近任務（limit 上限 200 = index 全量）
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const qs = new URLSearchParams();
-      if (from) qs.set("from", from);
-      if (to) qs.set("to", to);
-      if (ru) qs.set("ru", ru);
-      if (agent) qs.set("agent", agent);
-      const res = await fetch(`${API_BASE}/api/agent-logs/usage-report?${qs.toString()}`);
+      const res = await fetch(`${API_BASE}/api/agent-logs?limit=200`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: UsageReport = await res.json();
-      if (data?.totals) {
-        setReport(data);
-        if (data.options) setOptions(data.options);
-      }
+      const data = await res.json();
+      setItems(Array.isArray(data?.items) ? data.items : []);
     } catch (e: any) { setError(e.message || String(e)); }
     finally { setLoading(false); }
-  }, [from, to, ru, agent]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const quickRange = (days: number | null) => {
     if (days === null) { setFrom(""); setTo(""); return; }
-    setTo(isoDay(new Date()));
-    setFrom(isoDay(new Date(Date.now() - (days - 1) * 86400_000)));
+    setTo(isoDay(new Date().toISOString()) || "");
+    setFrom(isoDay(new Date(Date.now() - (days - 1) * 86400_000).toISOString()) || "");
   };
 
-  const card: React.CSSProperties = {
-    background: theme.bgMuted, border: `1px solid ${theme.borderLight}`,
-    borderRadius: 10, padding: "10px 14px", minWidth: 130,
-  };
-  const th: React.CSSProperties = { textAlign: "left", fontWeight: 600, opacity: 0.55, fontSize: 11, padding: "6px 10px", whiteSpace: "nowrap" };
-  const td: React.CSSProperties = { padding: "5px 10px", whiteSpace: "nowrap", fontSize: 12 };
-  const inputStyle: React.CSSProperties = {
-    background: "transparent", color: theme.text, border: `1px solid ${theme.borderLight}`,
-    borderRadius: 6, padding: "3px 8px", fontSize: 12,
-  };
+  const options = useMemo(() => ({
+    agents: [...new Set(items.map(i => i.agentId))].sort(),
+    rus: [...new Set(items.map(i => i.ruName || "-"))].sort(),
+  }), [items]);
+
+  // ── 前端聚合：filter → byDay / byRu / byAgent / byRuAgent / totals ──
+  const report = useMemo(() => {
+    const newAgg = (): Agg => ({ requests: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, durationMs: 0, errors: 0 });
+    const add = (agg: Agg, e: TaskItem) => {
+      agg.requests += 1;
+      agg.tokensIn += e.usage?.prompt || 0;
+      agg.tokensOut += e.usage?.completion || 0;
+      agg.costUsd += e.costUsd || 0;
+      agg.durationMs += e.durationMs || 0;
+      if (e.status && e.status !== "completed") agg.errors += 1;
+    };
+
+    const filtered = items.filter(e => {
+      const d = isoDay(e.startTime);
+      if (!d) return false;
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      const ruName = e.ruName || "-";
+      if (ru && ruName !== ru) return false;
+      if (agent && e.agentId !== agent) return false;
+      return true;
+    });
+
+    const totals = newAgg();
+    const byDayMap = new Map<string, DayRow>();
+    const byRuMap = new Map<string, RuRow>();
+    const byAgentMap = new Map<string, AgentRow>();
+    const byRuAgentMap = new Map<string, RuAgentRow>();
+
+    for (const e of filtered) {
+      const d = isoDay(e.startTime)!;
+      const ruName = e.ruName || "-";
+      add(totals, e);
+
+      if (!byDayMap.has(d)) byDayMap.set(d, { date: d, ...newAgg(), byAgent: {} });
+      const day = byDayMap.get(d)!;
+      add(day, e);
+      if (!day.byAgent[e.agentId]) day.byAgent[e.agentId] = newAgg();
+      add(day.byAgent[e.agentId], e);
+
+      if (!byRuMap.has(ruName)) byRuMap.set(ruName, { ruName, ...newAgg() });
+      add(byRuMap.get(ruName)!, e);
+
+      if (!byAgentMap.has(e.agentId)) byAgentMap.set(e.agentId, { agentId: e.agentId, ...newAgg() });
+      add(byAgentMap.get(e.agentId)!, e);
+
+      const raKey = `${ruName}\u001f${e.agentId}`;
+      if (!byRuAgentMap.has(raKey)) byRuAgentMap.set(raKey, { ruName, agentId: e.agentId, ...newAgg() });
+      add(byRuAgentMap.get(raKey)!, e);
+    }
+
+    const sortCost = (a: { costUsd: number }, b: { costUsd: number }) => b.costUsd - a.costUsd;
+    const byDay = Array.from(byDayMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+    return {
+      totals,
+      byDay,
+      byRu: Array.from(byRuMap.values()).sort(sortCost),
+      byAgent: Array.from(byAgentMap.values()).sort(sortCost),
+      byRuAgent: Array.from(byRuAgentMap.values()).sort((a, b) => a.ruName.localeCompare(b.ruName) || sortCost(a, b)),
+      dateFrom: byDay[0]?.date || null,
+      dateTo: byDay[byDay.length - 1]?.date || null,
+      count: filtered.length,
+    };
+  }, [items, from, to, ru, agent]);
 
   // RU × Agent 分組（RU 小計 + agent 明細）
   const ruGroups = useMemo(() => {
-    if (!report) return [];
     const map = new Map<string, { ruName: string; subtotal: RuAgentRow; rows: RuAgentRow[] }>();
     for (const r of report.byRuAgent) {
       if (!map.has(r.ruName)) map.set(r.ruName, {
@@ -208,6 +252,17 @@ export default function UsageReportPanel({ theme }: { theme: any }) {
     }
     return Array.from(map.values());
   }, [report]);
+
+  const card: React.CSSProperties = {
+    background: theme.bgMuted, border: `1px solid ${theme.borderLight}`,
+    borderRadius: 10, padding: "10px 14px", minWidth: 130,
+  };
+  const th: React.CSSProperties = { textAlign: "left", fontWeight: 600, opacity: 0.55, fontSize: 11, padding: "6px 10px", whiteSpace: "nowrap" };
+  const td: React.CSSProperties = { padding: "5px 10px", whiteSpace: "nowrap", fontSize: 12 };
+  const inputStyle: React.CSSProperties = {
+    background: "transparent", color: theme.text, border: `1px solid ${theme.borderLight}`,
+    borderRadius: 6, padding: "3px 8px", fontSize: 12,
+  };
 
   const metrics: Array<{ id: Metric; label: string }> = [
     { id: "cost", label: t("report.metric.cost") },
@@ -247,12 +302,12 @@ export default function UsageReportPanel({ theme }: { theme: any }) {
       </div>
 
       {error && <div className="mb-3 text-xs" style={{ color: "#ef4444" }}>{t("report.error")}: {error}</div>}
-      {!error && !report && loading && <div className="text-xs" style={{ opacity: 0.55 }}>{t("report.loading")}</div>}
-      {report && report.byDay.length === 0 && !loading && (
+      {!error && items.length === 0 && loading && <div className="text-xs" style={{ opacity: 0.55 }}>{t("report.loading")}</div>}
+      {report && report.count === 0 && !loading && (
         <div className="text-xs" style={{ opacity: 0.55 }}>{t("report.noData")}</div>
       )}
 
-      {report && report.byDay.length > 0 && (
+      {report && report.count > 0 && (
         <>
           {/* ── Summary cards ── */}
           <div className="flex flex-wrap gap-2 mb-4">
@@ -280,7 +335,7 @@ export default function UsageReportPanel({ theme }: { theme: any }) {
               ))}
             </div>
           </div>
-          <div className="mb-5"><StackedDailyChart report={report} metric={metric} theme={theme} /></div>
+          <div className="mb-5"><StackedDailyChart days={report.byDay} metric={metric} theme={theme} agents={options.agents} /></div>
 
           {/* ── Table 1: 每日統計 ── */}
           <h3 className="text-xs font-bold mb-2">{t("report.table.daily")}</h3>
@@ -371,7 +426,7 @@ export default function UsageReportPanel({ theme }: { theme: any }) {
           </div>
 
           <div className="text-[10px]" style={{ opacity: 0.45 }}>
-            {t("report.generatedAt")}: {new Date(report.generatedAt).toLocaleString()} · {report.from || "–"} → {report.to || "–"}
+            {t("report.range")}: {report.dateFrom || "–"} → {report.dateTo || "–"} · {t("report.sampleNote")}
           </div>
         </>
       )}

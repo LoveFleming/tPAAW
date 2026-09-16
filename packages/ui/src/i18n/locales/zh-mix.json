@@ -1321,5 +1321,7 @@
   "report.loading": "載入中…",
   "report.noData": "此區間沒有執行紀錄",
   "report.error": "載入失敗",
-  "report.generatedAt": "產生時間"
+  "report.generatedAt": "產生時間",
+  "report.range": "區間",
+  "report.sampleNote": "資料來源：最近 200 筆執行記錄（agent-logs index）"
 }

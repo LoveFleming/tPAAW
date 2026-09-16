@@ -7,7 +7,7 @@
  * POST /api/agent-logs/purge     — cleanup old logs
  */
 
-import { listAgentTasks, getAgentTaskDetail, cleanupOldAgentLogs, getRuCostHistory, backfillIndexCwd, getUsageEvents, LOG_DIR, INDEX_FILE } from "../lib/agent-exec-logger.mjs";
+import { listAgentTasks, getAgentTaskDetail, cleanupOldAgentLogs, getRuCostHistory, backfillIndexCwd, LOG_DIR, INDEX_FILE } from "../lib/agent-exec-logger.mjs";
 import { resolveRuName } from "../lib/ru-resolver.mjs";
 import { readBody } from "./shared.mjs";
 import { join } from "node:path";
@@ -102,100 +102,6 @@ export default async function agentLogsRoute(req, res) {
       const totalDurationMs = rows.reduce((s, r) => s + (r.durationMs || 0), 0);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ rows, totalCostUsd: totalCost, totalDurationMs }));
-    } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
-    }
-    return true;
-  }
-
-  // GET /api/agent-logs/usage-report — 執行報表（2026-09-16）：RU × 日 × Agent 的 requests/tokens/cost/duration
-  // ?from=YYYY-MM-DD&to=YYYY-MM-DD（含端點，空 = 不限）&ru=&agent=（可選過濾）
-  if (url === "/api/agent-logs/usage-report" && method === "GET") {
-    try {
-      const events = await getUsageEvents();
-      const from = q.get("from") || null;
-      const to = q.get("to") || null;
-      const ruF = q.get("ru") || null;
-      const agentF = q.get("agent") || null;
-
-      // 日期用 server 本地時區分組（Mac mini = Asia/Taipei）
-      const localDate = (iso) => {
-        const d = new Date(iso);
-        if (isNaN(d.getTime())) return null;
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      };
-
-      const agents = [...new Set(events.map(e => e.agentId))].sort();
-      const rus = [...new Set(events.map(e => e.ruName))].sort();
-
-      const filtered = events.filter(e => {
-        const d = localDate(e.startTime);
-        if (!d) return false;
-        if (from && d < from) return false;
-        if (to && d > to) return false;
-        if (ruF && e.ruName !== ruF) return false;
-        if (agentF && e.agentId !== agentF) return false;
-        return true;
-      });
-
-      const _newAgg = () => ({ requests: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, durationMs: 0, errors: 0 });
-      const _add = (agg, e) => {
-        agg.requests += 1;
-        agg.tokensIn += e.usage?.prompt || 0;
-        agg.tokensOut += e.usage?.completion || 0;
-        agg.costUsd += e.costUsd || 0;
-        agg.durationMs += e.durationMs || 0;
-        if (e.status && e.status !== "completed") agg.errors += 1;
-      };
-
-      const totals = _newAgg();
-      const byDayMap = new Map();
-      const byRuMap = new Map();
-      const byAgentMap = new Map();
-      const byRuAgentMap = new Map(); // key: ru \u001f agent
-
-      for (const e of filtered) {
-        const d = localDate(e.startTime);
-        _add(totals, e);
-
-        if (!byDayMap.has(d)) byDayMap.set(d, { date: d, ..._newAgg(), byAgent: {} });
-        const day = byDayMap.get(d);
-        _add(day, e);
-        if (!day.byAgent[e.agentId]) day.byAgent[e.agentId] = _newAgg();
-        _add(day.byAgent[e.agentId], e);
-
-        if (!byRuMap.has(e.ruName)) byRuMap.set(e.ruName, { ruName: e.ruName, ..._newAgg() });
-        _add(byRuMap.get(e.ruName), e);
-
-        if (!byAgentMap.has(e.agentId)) byAgentMap.set(e.agentId, { agentId: e.agentId, ..._newAgg() });
-        _add(byAgentMap.get(e.agentId), e);
-
-        const raKey = `${e.ruName}\u001f${e.agentId}`;
-        if (!byRuAgentMap.has(raKey)) byRuAgentMap.set(raKey, { ruName: e.ruName, agentId: e.agentId, ..._newAgg() });
-        _add(byRuAgentMap.get(raKey), e);
-      }
-
-      const _sortCost = (a, b) => b.costUsd - a.costUsd;
-      const byDay = Array.from(byDayMap.values()).sort((a, b) => a.date.localeCompare(b.date));
-      const byRu = Array.from(byRuMap.values()).sort(_sortCost);
-      const byAgent = Array.from(byAgentMap.values()).sort(_sortCost);
-      const byRuAgent = Array.from(byRuAgentMap.values())
-        .sort((a, b) => a.ruName.localeCompare(b.ruName) || _sortCost(a, b));
-
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        generatedAt: new Date().toISOString(),
-        from: from || byDay[0]?.date || null,
-        to: to || byDay[byDay.length - 1]?.date || null,
-        filters: { ru: ruF, agent: agentF },
-        options: { agents, rus },
-        totals,
-        byDay,
-        byRu,
-        byAgent,
-        byRuAgent,
-      }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
