@@ -1310,6 +1310,7 @@
   "report.tokensOut": "Tokens Out",
   "report.cost": "Cost",
   "report.duration": "Total Time",
+    "report.models": "Models",
   "report.avgDuration": "Avg Time",
   "report.errors": "Non-completed",
   "report.chart.daily": "Daily Trend (by Agent)",

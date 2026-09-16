@@ -1310,6 +1310,7 @@
   "report.tokensOut": "Tokens Out",
   "report.cost": "成本",
   "report.duration": "總耗時",
+    "report.models": "模型",
   "report.avgDuration": "平均耗時",
   "report.errors": "非 completed",
   "report.chart.daily": "每日趨勢（by Agent）",

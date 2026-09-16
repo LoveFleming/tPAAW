@@ -10,7 +10,7 @@ import { useI18n } from "../i18n";
 import API_BASE from "../api";
 
 interface TaskItem {
-  taskId: string; agentId: string; model: string; cwd: string; ruName?: string;
+  taskId: string; agentId: string; model?: string; models?: string[]; cwd: string; ruName?: string;
   startTime: string; durationMs: number; turns: number; status: string;
   usage?: { prompt: number; completion: number; total: number };
   costUsd?: number;
@@ -18,6 +18,7 @@ interface TaskItem {
 interface Agg {
   requests: number; tokensIn: number; tokensOut: number;
   costUsd: number; durationMs: number; errors: number;
+  modelCounts: Record<string, number>;
 }
 interface DayRow extends Agg { date: string; byAgent: Record<string, Agg> }
 interface RuRow extends Agg { ruName: string }
@@ -59,6 +60,19 @@ const isoDay = (iso: string): string | null => {
 };
 
 /** 每日堆疊長條圖（SVG，by agent） */
+function ModelsCell({ modelCounts }: { modelCounts: Record<string, number> }) {
+  const entries = Object.entries(modelCounts).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) return <td style={{ padding: "5px 10px", whiteSpace: "nowrap", fontSize: 12, opacity: 0.35 }}>–</td>;
+  const full = entries.map(([m, c]) => `${m} ×${c}`).join("\n");
+  return (
+    <td style={{ padding: "5px 10px", whiteSpace: "normal", fontSize: 11, minWidth: 120 }} title={full}>
+      {entries.map(([m, c]) => (
+        <div key={m} className="whitespace-nowrap">{m.split("/").pop()} <span style={{ opacity: 0.5 }}>×{c}</span></div>
+      ))}
+    </td>
+  );
+}
+
 function StackedDailyChart({ days, metric, theme, agents }: { days: DayRow[]; metric: Metric; theme: any; agents: string[] }) {
   const { t } = useI18n();
   const chartAgents = useMemo(
@@ -176,7 +190,7 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
 
   // ── 前端聚合：filter → byDay / byRu / byAgent / byRuAgent / totals ──
   const report = useMemo(() => {
-    const newAgg = (): Agg => ({ requests: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, durationMs: 0, errors: 0 });
+    const newAgg = (): Agg => ({ requests: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, durationMs: 0, errors: 0, modelCounts: {} });
     const add = (agg: Agg, e: TaskItem) => {
       agg.requests += 1;
       agg.tokensIn += e.usage?.prompt || 0;
@@ -184,6 +198,8 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
       agg.costUsd += e.costUsd || 0;
       agg.durationMs += e.durationMs || 0;
       if (e.status && e.status !== "completed") agg.errors += 1;
+      const models = e.models?.length ? e.models : (e.model ? [e.model] : []);
+      for (const m of models) agg.modelCounts[m] = (agg.modelCounts[m] || 0) + 1;
     };
 
     const filtered = items.filter(e => {
@@ -245,13 +261,14 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
     for (const r of report.byRuAgent) {
       if (!map.has(r.ruName)) map.set(r.ruName, {
         ruName: r.ruName,
-        subtotal: { ruName: r.ruName, agentId: "", requests: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, durationMs: 0, errors: 0 },
+        subtotal: { ruName: r.ruName, agentId: "", requests: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, durationMs: 0, errors: 0, modelCounts: {} },
         rows: [],
       });
       const g = map.get(r.ruName)!;
       g.rows.push(r);
       g.subtotal.requests += r.requests; g.subtotal.tokensIn += r.tokensIn; g.subtotal.tokensOut += r.tokensOut;
       g.subtotal.costUsd += r.costUsd; g.subtotal.durationMs += r.durationMs; g.subtotal.errors += r.errors;
+      for (const [m, c] of Object.entries(r.modelCounts)) g.subtotal.modelCounts[m] = (g.subtotal.modelCounts[m] || 0) + c;
     }
     return Array.from(map.values());
   }, [report]);
@@ -352,6 +369,7 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
                   <th style={{ ...th, textAlign: "right" }}>{t("report.tokensOut")}</th>
                   <th style={{ ...th, textAlign: "right" }}>{t("report.cost")}</th>
                   <th style={{ ...th, textAlign: "right" }}>{t("report.duration")}</th>
+                  <th style={th}>{t("report.models")}</th>
                 </tr>
               </thead>
               <tbody className="font-mono">
@@ -363,6 +381,7 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
                     <td style={{ ...td, textAlign: "right" }}>{fmtTok(d.tokensOut)}</td>
                     <td style={{ ...td, textAlign: "right" }}>{fmtUsd(d.costUsd)}</td>
                     <td style={{ ...td, textAlign: "right" }}>{fmtDur(d.durationMs)}</td>
+                    <ModelsCell modelCounts={d.modelCounts} />
                   </tr>
                 ))}
                 <tr style={{ fontWeight: 700 }}>
@@ -372,6 +391,7 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
                   <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtTok(report.totals.tokensOut)}</td>
                   <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtUsd(report.totals.costUsd)}</td>
                   <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtDur(report.totals.durationMs)}</td>
+                  <ModelsCell modelCounts={report.totals.modelCounts} />
                 </tr>
               </tbody>
             </table>
@@ -389,6 +409,7 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
                   <th style={{ ...th, textAlign: "right" }}>{t("report.tokens")}</th>
                   <th style={{ ...th, textAlign: "right" }}>{t("report.cost")}</th>
                   <th style={{ ...th, textAlign: "right" }}>{t("report.duration")}</th>
+                  <th style={th}>{t("report.models")}</th>
                 </tr>
               </thead>
               <tbody className="font-mono">
@@ -401,6 +422,7 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
                       <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtTok(g.subtotal.tokensIn + g.subtotal.tokensOut)}</td>
                       <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtUsd(g.subtotal.costUsd)}</td>
                       <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtDur(g.subtotal.durationMs)}</td>
+                      <ModelsCell modelCounts={g.subtotal.modelCounts} />
                     </tr>
                     {g.rows.map(r => (
                       <tr key={`${r.ruName}/${r.agentId}`} style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
@@ -413,12 +435,14 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
                         <td style={{ ...td, textAlign: "right" }}>{fmtTok(r.tokensIn + r.tokensOut)}</td>
                         <td style={{ ...td, textAlign: "right" }}>{fmtUsd(r.costUsd)}</td>
                         <td style={{ ...td, textAlign: "right" }}>{fmtDur(r.durationMs)}</td>
+                        <ModelsCell modelCounts={r.modelCounts} />
                       </tr>
                     ))}
                   </React.Fragment>
                 ))}
                 <tr>
                   <td colSpan={2} style={{ ...td, fontWeight: 700 }}>{t("report.total")}</td>
+                  <td />
                   <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtInt(report.totals.requests)}</td>
                   <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtTok(report.totals.tokensIn + report.totals.tokensOut)}</td>
                   <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtUsd(report.totals.costUsd)}</td>
