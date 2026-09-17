@@ -48,6 +48,7 @@ import DecisionLog from "../components/DecisionLog";
 import ModelSelector from "../components/ModelSelector";
 import { ChatMessages, type ChatMessageItem } from "../components/ChatMessages";
 import IssueTracker from "../components/IssueTracker";
+import QaRecords from "../components/QaRecords";
 import TaskBoard from "../components/TaskBoard";
 import ReleaseManagerPanel from "../components/ReleaseManagerPanel";
 import HandoverPanel from "../components/HandoverPanel";
@@ -98,7 +99,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests" | "qa-records";
 
 interface MainTab {
   id: string;
@@ -680,6 +681,7 @@ export default function CodingIDE() {
     ]},
     { id: "verify", icon: "🧪", tools: [
       { id: "tool:api", type: "api", label: "API Tester", icon: "🌐", closable: true },
+      { id: "tool:qa-records", type: "qa-records", label: tt("qaRecords.toolbar"), icon: "🧾", closable: true },
       { id: "tool:tests", type: "tests", label: tt("tests.toolbar"), icon: "🧪", closable: true },
     ]},
     { id: "project", icon: "🗺️", tools: [
@@ -3943,6 +3945,17 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
               <div key="tool:decisions" className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTab?.type === "decisions" ? undefined : "none" }}>
                 <DecisionLog projectRoot={rootPath} />
+              </div>
+            )}
+
+            {/* === QA Records Tab（keep mounted，切 tab 不重抓）=== */}
+            {mainTabs.some(t => t.type === "qa-records") && rootPath && (
+              <div key="tool:qa-records" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "qa-records" ? undefined : "none" }}>
+                <QaRecords
+                  rootPath={rootPath}
+                  theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
+                />
               </div>
             )}
 
