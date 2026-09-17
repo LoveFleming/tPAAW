@@ -26,6 +26,11 @@ import { checkGates } from "../lib/release-unit/gates.mjs";
 import { shellExec } from "../lib/shell-exec.mjs";
 import { startTestRun, getRunState, readLastTestRun, detectTestGroups } from "../lib/test-runner.mjs";
 import { readFileSync } from "fs";
+import {
+  createReleaseRequest, listReleaseRequests, getReleaseRequest, updateReleaseRequest,
+  openReleaseRequest, reviewChecklistItem, closeReleaseRequest, cancelReleaseRequest,
+  baselineCandidates, refreshReleaseRequest,
+} from "../lib/release-requests.mjs";
 
 const PHASES_BEFORE_COMMIT = ["spec", "implement", "review", "test", "qa", "docs"];
 
@@ -404,6 +409,80 @@ export default async function releaseRoutes(req, res, next) {
       return res.json({ ok: true, scanned: result.scanned, createdCount: result.created.length, created: result.created, skipped: result.skipped, message: result.message });
     } catch (e) {
       return res.status(500).json({ error: e.message });
+    }
+  }
+
+  // ── Release Requests（RR）— 2026-09-17 Fleming：release 要先請一張 request 單，證據審查全過才能結案 ──
+
+  // GET baseline-candidates — 給 UI 挑 baseline（auto 建議 + 最近 20 個 commit）
+  if (url === "/api/coding-releases/baseline-candidates" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    try {
+      return res.json(await baselineCandidates(projectPath));
+    } catch (e) {
+      return res.status(e.status || 500).json({ error: e.message });
+    }
+  }
+
+  // POST /requests/:id/{open|checklist|close|cancel}
+  const rrAction = url.match(/^\/api\/coding-releases\/requests\/([^/]+)\/(open|checklist|close|cancel)$/);
+  if (rrAction && method === "POST") {
+    const body = JSON.parse(await readFileStream(req) || "{}");
+    const path = body.path || projectPath;
+    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" });
+    const [, id, action] = rrAction;
+    try {
+      if (action === "open") return res.json(await openReleaseRequest(path, id));
+      if (action === "checklist") {
+        const { itemId, verdict, note } = body;
+        if (!itemId || !verdict) return res.status(400).json({ error: "itemId and verdict required" });
+        return res.json(await reviewChecklistItem(path, id, itemId, verdict, note));
+      }
+      if (action === "close") return res.json(await closeReleaseRequest(path, id, { note: body.note }));
+      if (action === "cancel") return res.json(await cancelReleaseRequest(path, id, { reason: body.reason }));
+    } catch (e) {
+      return res.status(e.status || 500).json({ error: e.message, ...(e.extra || {}) });
+    }
+  }
+
+  // GET/PATCH /requests/:id — 單張（GET 順手 refresh：target 前進 + auto 重跑）
+  const rrOne = url.match(/^\/api\/coding-releases\/requests\/([^/]+)$/);
+  if (rrOne) {
+    const path = projectPath;
+    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" });
+    if (method === "GET") {
+      const rr = await refreshReleaseRequest(path, rrOne[1]);
+      if (!rr) return res.status(404).json({ error: "release request not found" });
+      return res.json(rr);
+    }
+    if (method === "PATCH") {
+      const body = JSON.parse(await readFileStream(req) || "{}");
+      try {
+        return res.json(await updateReleaseRequest(path, rrOne[1], { title: body.title, baseline: body.baseline }));
+      } catch (e) {
+        return res.status(e.status || 500).json({ error: e.message });
+      }
+    }
+  }
+
+  // GET /requests — 列表（?status= 過濾）
+  if (url === "/api/coding-releases/requests" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    const list = await listReleaseRequests(projectPath);
+    const status = q.get("status");
+    return res.json({ requests: status ? list.filter(r => r.status === status) : list });
+  }
+
+  // POST /request — 建單（baseline：auto = 上次 release head / first commit；或指定 SHA）
+  if (url === "/api/coding-releases/request" && method === "POST") {
+    const body = JSON.parse(await readFileStream(req) || "{}");
+    const path = body.path || projectPath;
+    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" });
+    try {
+      const rr = await createReleaseRequest(path, { title: body.title, baseline: body.baseline || "auto" });
+      return res.json(rr);
+    } catch (e) {
+      return res.status(e.status || 500).json({ error: e.message });
     }
   }
 

@@ -51,10 +51,13 @@ export async function buildChangeIntelligence(projectRoot, options = {}, { persi
 
   // ── 1. Recent commits ──
   // options.since（ISO）優先 — Release Readiness 用「上次 release 時間」當基準線
+  // options.fromSha（2026-09-17 Release Request）— 用 commit SHA 當基準線（<sha>..HEAD），比日期精確
   const sinceDate = options.since
     ? new Date(options.since).toISOString().slice(0, 10)
     : new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const logOutput = await git(projectRoot, `log --pretty='format:%H|%h|%an|%ad|%s' --date=iso --since="${sinceDate}" -${maxCommits} --name-only`);
+  const logOutput = options.fromSha
+    ? await git(projectRoot, `log ${options.fromSha}..${options.toSha || "HEAD"} --pretty='format:%H|%h|%an|%ad|%s' --date=iso -${maxCommits} --name-only`)
+    : await git(projectRoot, `log --pretty='format:%H|%h|%an|%ad|%s' --date=iso --since="${sinceDate}" -${maxCommits} --name-only`);
 
   const commits = [];
   let currentCommit = null;
