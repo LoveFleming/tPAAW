@@ -1,0 +1,4898 @@
+/**
+ * PAAW Agent Loop — Self-owned runtime for AI coding tasks
+ *
+ * Replaces external CLI agents (qwen code, opencode, claude code) with a
+ * lightweight tool-calling loop that runs against PAAW's configured LLM API.
+ *
+ * Core flow:
+ *   1. Assemble system prompt (skill + context)
+ *   2. Send to LLM API with tool definitions (function calling)
+ *   3. LLM responds with tool_calls → execute tools → feed results back
+ *   4. LLM responds with text → done
+ *   5. Repeat 2-4 until maxTurns
+ *
+ * Tool set aligned with Claude Code:
+ *   read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user
+ *
+ * Security: All tools are PAAW-owned. Every action is audit-logged.
+ * Future: wrap in Docker container for sandbox isolation.
+ */
+
+import { readFile, writeFile, readdir, stat, mkdir, rm } from "fs/promises";
+import { existsSync, readFileSync as readSync, mkdirSync, appendFileSync, writeFileSync as writeSync, readdirSync, statSync } from "fs";
+import { loadFeatureData, matchFeaturesForFiles, buildContextBoundary } from "./feature-boundary.mjs";
+import { exec as execCb } from "child_process";
+import { shellExec, IS_WIN as IS_WIN_SHARED } from "./shell-exec.mjs";
+import { resolve, join, dirname, relative } from "path";
+import { getDependencyContext, getAffectedTests } from "./dependency-context.mjs";
+import { runTaskRetrofit } from "./task-retrofit.mjs";
+import { fileURLToPath } from "url";
+import { readFileSync as _readSync, existsSync as _exSync } from "fs";
+import { join as _pathJoin, dirname as _pathDirname, basename as _pathBasename, extname as _pathExtname } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+import { callLLMWithRetry, sanitizeContent, isMeaningfulContent, fetchStreamWithRetry } from "./llm-utils.mjs";
+import { smartTruncateToolResult, truncateToolResultsInMessages, limitHistoryTurns, estimateTokens } from "./context-truncation.mjs";
+import { compactIfNeeded, estimateMessageTokens, shouldCompact } from "./context-compaction.mjs";
+import { messagesForModel, isVisionModel, hasImages, extractImageMarkers, buildImageAttachmentMessage, resolveVisionLlmConfig, visionAvailable } from "./vision-content.mjs";
+import { startAgentLog } from "./agent-exec-logger.mjs";
+import { createPaawProject } from "./paaw-project.mjs";
+import { PaawSnapshot } from "./paaw-snapshot.mjs";
+import { resolveDefaultModel, parseModelReference, jsonStringifySafe, cutSafeStart } from "./llm-utils.mjs";
+import { toolRegistry } from "./tool-registry.mjs";
+import { DATA_HOME, LOG_HOME, logSlug } from "../data-home.mjs";
+import {
+  getBrowserPage, takeScreenshot, trackPage, readPageText, locateTarget,
+  assertSafeUrl, browserState, PLAYWRIGHT_INSTALL_HINT, resolveBrowserKey,
+  recordBrowserAction, takeActionShot, browserShotDir, getVisualMode, visualClick,
+} from "./browser-session.mjs";
+
+// ── Types ──
+
+/**
+ * @typedef {Object} AgentRunConfig
+ * @property {string} prompt - User's task/prompt
+ * @property {string} [cwd] - Working directory (defaults to PAAW_ROOT)
+ * @property {string} [skillMd] - SKILL.md content to inject as system context
+ * @property {string} [systemPrompt] - Custom system prompt override
+ * @property {string} [model] - Model override (defaults to provider defaultModel)
+ * @property {number} [maxTurns=20] - Max agent loop iterations
+ * @property {number} [timeout=120] - Overall timeout in seconds
+ * @property {Object} [params] - Additional params to inject as context
+ * @property {Function} [onEvent] - Callback for streaming events (SSE)
+ * @property {string} [rootDir] - PAAW_ROOT for provider config
+ */
+
+/**
+ * @typedef {Object} AgentRunResult
+ * @property {boolean} success
+ * @property {string} content - Final LLM text response
+ * @property {number} turns - Number of loop iterations
+ * @property {Array} toolCalls - Log of all tool calls made
+ * @property {number} durationMs
+ * @property {string} [error]
+ */
+
+// ── Provider Resolution ──
+// providers.json is a PAAW server config file — always read from PAAW_ROOT,
+// never from an arbitrary project cwd. The bug was that rootDir (which
+// could be any project path) was used to find providers.json.
+
+const _PAAW_ROOT = resolve(__dirname, "../../../../");
+
+function loadProviderConfig() {
+  const configPath = resolve(DATA_HOME, "config/providers.json");
+  try {
+    return JSON.parse(readSync(configPath, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+export function resolveLLMConfig(_rootDir, modelOverride, fallbackModels) {
+  const config = loadProviderConfig();
+  if (!config) throw new Error("No provider config found — checked: " + resolve(DATA_HOME, "config/providers.json"));
+
+  // Auto-read fallback preferences from user.json if no explicit fallbackModels
+  if (!fallbackModels || fallbackModels.length === 0) {
+    try {
+      const userPrefs = JSON.parse(readSync(resolve(DATA_HOME, "config/user.json"), "utf-8"))?.preferences || {};
+      // Collect all *Fallback keys (e.g. autoDispatchFallback, codingIDEFallback)
+      const userFbs = Object.entries(userPrefs)
+        .filter(([k]) => k.endsWith("Fallback"))
+        .map(([, v]) => v)
+        .filter(Boolean);
+      if (userFbs.length > 0) fallbackModels = userFbs;
+    } catch {}
+  }
+
+  // Parse "providerId/modelId" format (from ModelSelector)
+  // 2026-09-14 fix：改用 parseModelReference — model id 自帶 provider prefix（如 anthropic/claude-opus-4.8）
+  // 不再被剝過頭（first-slash 剝成 claude-opus-4.8 → LLM API 400 unknown model）
+  let providerId = config.active;
+  let model = modelOverride || resolveDefaultModel(config);
+  ({ providerId, model } = parseModelReference(config, model));
+
+  const provider = config.providers[providerId];
+  if (!provider) throw new Error(`Provider '${providerId}' not found`);
+
+  const baseURL = provider.baseURL.replace(/\/+$/, "");
+  const apiUrl = `${baseURL}/chat/completions`;
+
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${provider.apiKey}`,
+  };
+
+  // OpenRouter requires extra headers
+  if (providerId === "openrouter") {
+    headers["HTTP-Referer"] = "https://paaw.ai";
+    headers["X-Title"] = "PAAW";
+  }
+
+  // Build fallback chain — priority: caller-supplied fallbackModels > providers.json fallbacks > hardcoded
+  const fallbacks = [];
+
+  // 1. Caller-supplied fallback models (e.g. from user.json preferences or request body)
+  if (fallbackModels && fallbackModels.length > 0) {
+    for (const fbModel of fallbackModels) {
+      // Parse "providerId/modelId" format — 2026-09-14 同 parseModelReference（full-path model id 不剝過頭）
+      const fbRef = parseModelReference(config, fbModel);
+      const fbProviderId = fbRef.providerId;
+      const fbModelId = fbRef.model;
+      const fbProvider = config.providers[fbProviderId];
+      if (!fbProvider) continue;
+      const fbHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${fbProvider.apiKey}` };
+      if (fbProviderId === "openrouter") { fbHeaders["HTTP-Referer"] = "https://paaw.ai"; fbHeaders["X-Title"] = "PAAW"; }
+      const fbModelDef = (fbProvider.models || []).find(m => (typeof m === "string" ? m : m.id) === fbModelId);
+      const fbMaxTokens = (typeof fbModelDef === "object" ? fbModelDef?.maxTokens : null) || 16384;
+      fallbacks.push({ providerId: fbProviderId, apiUrl: `${fbProvider.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: fbHeaders, model: fbModelId, contextWindow: DEFAULT_CONTEXT_WINDOW, maxTokens: fbMaxTokens });
+    }
+  }
+
+  // 2. providers.json fallbacks array (if no caller-supplied fallbacks)
+  if (fallbacks.length === 0) {
+    const configuredFallbacks = config.fallbacks || [];
+    for (const fb of configuredFallbacks) {
+      const fbProvider = config.providers[fb.provider];
+      if (!fbProvider) continue;
+      const fbHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${fbProvider.apiKey}` };
+      if (fb.provider === "openrouter") { fbHeaders["HTTP-Referer"] = "https://paaw.ai"; fbHeaders["X-Title"] = "PAAW"; }
+      const fbModelDef = (fbProvider.models || []).find(m => (typeof m === "string" ? m : m.id) === fb.model);
+      const fbMaxTokens = (typeof fbModelDef === "object" ? fbModelDef?.maxTokens : null) || 16384;
+      fallbacks.push({ providerId: fb.provider, apiUrl: `${fbProvider.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: fbHeaders, model: fb.model, contextWindow: DEFAULT_CONTEXT_WINDOW, maxTokens: fbMaxTokens });
+    }
+  }
+
+  // 3. Auto-build fallback from other providers' model lists (only if nothing else provided)
+  // Uses each provider's first model — never references a model name not in that provider's list
+  if (fallbacks.length === 0) {
+    for (const [pid, p] of Object.entries(config.providers)) {
+      if (pid === providerId) continue; // skip active provider
+      const pModels = p.models || [];
+      if (pModels.length === 0) continue;
+      const firstModel = pModels[0];
+      const fbModelId = typeof firstModel === "string" ? firstModel : firstModel.id;
+      if (!fbModelId) continue;
+      const fbHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${p.apiKey}` };
+      if (pid === "openrouter") { fbHeaders["HTTP-Referer"] = "https://paaw.ai"; fbHeaders["X-Title"] = "PAAW"; }
+      const fbModelDef = (p.models || []).find(m => (typeof m === "string" ? m : m.id) === fbModelId);
+      const fbMaxTokens = (typeof fbModelDef === "object" ? fbModelDef?.maxTokens : null) || 16384;
+      fallbacks.push({ providerId: pid, apiUrl: `${p.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: fbHeaders, model: fbModelId, contextWindow: DEFAULT_CONTEXT_WINDOW, maxTokens: fbMaxTokens });
+    }
+  }
+
+  // Get model's context window + max output tokens
+  // Note: model may be a custom ID not in the provider's models list (e.g. "aigw_gpt5.6-terra")
+  // In that case, modelDef is undefined and we use generous defaults
+  const modelDef = (provider.models || []).find(m => m.id === model);
+  if (!modelDef) {
+    console.log(`[resolveLLMConfig] Model "${model}" not in provider's model list — using defaults (contextWindow=${DEFAULT_CONTEXT_WINDOW})`);
+  }
+  const contextWindow = modelDef?.contextWindow || DEFAULT_CONTEXT_WINDOW;
+  const maxTokens = modelDef?.maxTokens || 16384;
+
+  return { apiUrl, headers, model, providerId, fallbacks, contextWindow, maxTokens };
+}
+
+// ── Tool Definitions (OpenAI function-calling format) ──
+// Aligned with Claude Code tool set
+
+export const PAAW_TOOLS = [
+  // ── File Operations ──
+  {
+    type: "function",
+    function: {
+      name: "read_file",
+      description: "Read file contents. Supports offset/limit for reading specific line ranges of large files.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "File path (relative to cwd or absolute)" },
+          offset: { type: "number", description: "Starting line number (1-indexed, default: 1)" },
+          limit: { type: "number", description: "Number of lines to read (default: all)" },
+        },
+        required: ["path"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "write_file",
+      description: "Write content to a file. Creates parent directories if needed.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "File path (relative to cwd or absolute)" },
+          content: { type: "string", description: "File content to write" },
+        },
+        required: ["path", "content"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "edit_file",
+      description: "Edit a file by replacing exact text matches. Safer than rewriting entire files. old_text must be unique in the file.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "File path" },
+          old_text: { type: "string", description: "Exact text to find (must be unique in file)" },
+          new_text: { type: "string", description: "Replacement text" },
+        },
+        required: ["path", "old_text", "new_text"],
+      },
+    },
+  },
+
+  // ── Search & Discovery ──
+  {
+    type: "function",
+    function: {
+      name: "glob",
+      description: "Find files matching a glob pattern. Returns matching file paths relative to cwd. Use to discover project structure, find config files, etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          pattern: { type: "string", description: "Glob pattern (e.g. '**/*.tsx', 'src/**/*.test.*', '*.json')" },
+          path: { type: "string", description: "Base directory to search (defaults to cwd)" },
+        },
+        required: ["pattern"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "grep",
+      description: "Search file contents using ripgrep (rg). Returns matching lines with file paths and line numbers. Supports regex patterns.",
+      parameters: {
+        type: "object",
+        properties: {
+          pattern: { type: "string", description: "Search pattern (regex supported by ripgrep)" },
+          path: { type: "string", description: "Directory or file to search (defaults to cwd)" },
+          include: { type: "string", description: "File glob to include (e.g. '*.tsx', '*.mjs')" },
+          case_sensitive: { type: "boolean", description: "Case-sensitive search (default: false)" },
+          max_results: { type: "number", description: "Max number of results (default: 50)" },
+        },
+        required: ["pattern"],
+      },
+    },
+  },
+
+  // ── Diff & Git ──
+  {
+    type: "function",
+    function: {
+      name: "diff",
+      description: "Show differences. Can diff two files, show git working-tree changes, or compare against a commit. Essential for reviewing changes before committing.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "File or directory to diff (for git diff)" },
+          against: { type: "string", description: "Git ref to diff against (e.g. 'HEAD', 'main', 'dev') — defaults to working tree vs HEAD" },
+          file_a: { type: "string", description: "First file path (for file-to-file diff)" },
+          file_b: { type: "string", description: "Second file path (for file-to-file diff)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "git",
+      description: "Run a git command. Common: status, log, diff, add, commit, push, branch, checkout. Returns stdout/stderr.",
+      parameters: {
+        type: "object",
+        properties: {
+          command: { type: "string", description: "Git subcommand and args (e.g. 'status', 'log --oneline -5', 'add -A', 'commit -m \"fix: typo\"')" },
+        },
+        required: ["command"],
+      },
+    },
+  },
+
+  // ── Shell ──
+  {
+    type: "function",
+    function: {
+      name: "bash",
+      description: "Run a shell command and return stdout/stderr. Use for build, test, install, npm, pip, and any general shell operations. Timeout default: 30s. PROCESS RULE (hard-enforced): you may only manage the CURRENT release unit's dev server via the dev_server tool — pkill/killall/taskkill are blocked, kill only allows this RU's tracked dev-server pid, and the PAAW coding app itself (paaw-server, tPAAW vite, ports 4097/4098/4100/5173) must NEVER be started or stopped.",
+      parameters: {
+        type: "object",
+        properties: {
+          command: { type: "string", description: "Shell command to execute" },
+          timeout: { type: "number", description: "Timeout in seconds (default: 30, max: 120)" },
+        },
+        required: ["command"],
+      },
+    },
+  },
+
+  // ── Dev Server Controller（2026-09-10 Phase 1）──
+  {
+    type: "function",
+    function: {
+      name: "dev_server",
+      description: "Manage this Release Unit's dev server (long-running process like `npm run dev` or `mvn spring-boot:run`). Detached background process — returns immediately, survives the agent session. Output goes to log/app-console/<ru>/app-console-YYYY-MM-DD.log which the human watches live in CodingIDE Terminal → Console → App view. Actions: start / stop / restart / status. restart has a crash-loop guard (max 5 per 10min). Hard-scoped to the CURRENT RU only — outside processes and the PAAW coding app itself can never be touched here. CRITICAL: after start/restart, ALWAYS call dev_log to verify the server actually booted (look for port listening / errors) before claiming success.",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["start", "stop", "restart", "status"], description: "What to do" },
+          command: { type: "string", description: "Command to run for start/restart (default: npm run dev). Ignored for stop/status." },
+        },
+        required: ["action"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "dev_log",
+      description: "Read this Release Unit's app console log (dev server output, app stdout/stderr). Use after dev_server start/restart to verify boot, or when debugging runtime issues. Modes: (1) plain tail — last N lines; (2) grep=KEYWORD — filter lines containing keyword (e.g. grep=error, grep=EADDRINUSE) and show the last N matches — the fastest way to find dev-time problems; (3) date=YYYY-MM-DD — read a specific day's log (history); (4) list=true — list available log files. Same source as the human's CodingIDE Terminal → Console → App view.",
+      parameters: {
+        type: "object",
+        properties: {
+          lines: { type: "number", description: "Number of tail lines / matches to return (default 100, max 400)" },
+          grep: { type: "string", description: "Keyword filter (case-insensitive substring) — e.g. \"error\", \"exception\", \"fail\" to find dev-time problems fast" },
+          date: { type: "string", description: "Read a specific day's log file (YYYY-MM-DD). Default: latest." },
+          list: { type: "boolean", description: "List available log files (dates + sizes) instead of reading" },
+        },
+        required: [],
+      },
+    },
+  },
+
+  // ── User Interaction ──
+  {
+    type: "function",
+    function: {
+      name: "ask_user",
+      description: "Ask the user a question when you need clarification or confirmation. Use sparingly.",
+      parameters: {
+        type: "object",
+        properties: {
+          question: { type: "string", description: "Question to ask the user" },
+        },
+        required: ["question"],
+      },
+    },
+  },
+    {
+      type: "function",
+      function: {
+        name: "browser_test",
+      description: "Test a web page by fetching its URL and checking the response. Use for verifying endpoints, checking if dev server is running, or inspecting page content. Returns status code, headers, and first 2000 chars of body.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "URL to test (e.g. http://localhost:5173)" },
+          expectStatus: { type: "number", description: "Expected HTTP status code (default: 200)" },
+          expectText: { type: "string", description: "Text that should appear in the response body" },
+        },
+        required: ["url"],
+      },
+    },
+  },
+  // ── API Tester（2026-09-12 Fleming：developer agent 可用 API Tester，紀錄進 UI 歷史）──
+  {
+    type: "function",
+    function: {
+      name: "api_test",
+      description: "Send an HTTP request (any method/headers/body) via the built-in API Tester — same as the human's 🌐 API Tester tab. Every call is saved to the shared API Tester history (📜 in UI) with a 🤖 agent marker, so the human sees what you tested and can replay it. Use this instead of bash curl for API testing. E2E workflow (tester): use project_info category=api_history to look up past requests (source=human shows what the human manually tested — detail=<N> returns the full headers/body they entered), then use those real payloads as seed data for e2e Playwright scripts, and use api_test to verify each API call the script will make.",
+      parameters: {
+        type: "object",
+        properties: {
+          method: { type: "string", enum: ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"], description: "HTTP method (default GET)" },
+          url: { type: "string", description: "Full URL to request (e.g. http://localhost:4318/api/crew)" },
+          headers: { type: "object", description: "Request headers as key-value object (e.g. {\"Content-Type\":\"application/json\", \"Authorization\":\"Bearer x\"})" },
+          body: { type: "string", description: "Request body (send JSON as string)" },
+          expectStatus: { type: "number", description: "Expected HTTP status code — report ✅/❌ pass/fail" },
+          expectText: { type: "string", description: "Text expected in response body — report ✅/❌ pass/fail" },
+        },
+        required: ["url"],
+      },
+    },
+  },
+  // ── Real Browser Tools (Playwright, JS-rendered pages, docs lookup, UI self-verification) ──
+  {
+    type: "function",
+    function: {
+      name: "browser_navigate",
+      description: "Open a URL in the built-in headless Chromium browser (JS-rendered pages supported, unlike browser_test). Use for reading docs, npm/GitHub pages, or opening the local dev server preview to verify UI you built. Login sessions persist across runs. Returns page title + text excerpt. IMPORTANT: this browser is bound to the current release unit — open THE RELEASE UNIT'S own web pages (e.g. its dev server), NEVER the PAAW coding app's own UI. The human watches your steps as recorded replays, so navigate deliberately.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "URL to open (http/https only)" },
+          waitMs: { type: "number", description: "Extra ms to wait for JS rendering after load (default 800)" },
+        },
+        required: ["url"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "browser_read",
+      description: "Read the visible text content of the current browser page (after JS rendering). Use after browser_navigate or actions to read page content.",
+      parameters: {
+        type: "object",
+        properties: {
+          maxLength: { type: "number", description: "Max chars to return (default 8000)" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "browser_screenshot",
+      description: "Take a screenshot of the current browser page. Saved to data/logs/browser/ and shown in the IDE Browser tab. If a vision model is configured, the screenshot is ALSO attached to your context as an image so you can visually verify the page. Use to verify UI you built.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "browser_click",
+      description: "Click an element on the current browser page. Identify by CSS selector or by visible text. Returns page text excerpt after click.",
+      parameters: {
+        type: "object",
+        properties: {
+          selector: { type: "string", description: "CSS selector (e.g. \"button.submit\", \"#login\")" },
+          text: { type: "string", description: "Visible text to click (e.g. \"Sign in\")" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "browser_type",
+      description: "Type text into an input field on the current browser page. Optionally press Enter to submit. Returns page text excerpt after typing.",
+      parameters: {
+        type: "object",
+        properties: {
+          selector: { type: "string", description: "CSS selector of the input (e.g. \"input[name=q]\")" },
+          text: { type: "string", description: "Text to type" },
+          submit: { type: "boolean", description: "Press Enter after typing (default false)" },
+        },
+        required: ["selector", "text"],
+      },
+    },
+  },
+  // 2026-09-12 Fleming：下拉式選單（native <select>）agent 竒操作 — 搭配 screencast 客製面板
+  {
+    type: "function",
+    function: {
+      name: "browser_select",
+      description: "Select an option in a native <select> dropdown on the current browser page. Provide the CSS selector of the <select> and either the visible option label or the option value. Returns page text excerpt after selecting.",
+      parameters: {
+        type: "object",
+        properties: {
+          selector: { type: "string", description: "CSS selector of the <select> element (e.g. \"select#country\", \"select[name=locale]\")" },
+          label: { type: "string", description: "Visible text of the option to select (e.g. \"Taiwan\")" },
+          value: { type: "string", description: "Value attribute of the option to select" },
+        },
+        required: ["selector"],
+      },
+    },
+  },
+    {
+      type: "function",
+      function: {
+        name: "record_decision",
+        description: "Record an architectural or technical decision (ADR) to .paaw/DECISIONS.md. Use when you make a non-trivial design choice, pick a library, or decide on a pattern.",
+        parameters: {
+          type: "object",
+          properties: {
+            title: { type: "string", description: "Short title for the decision" },
+            context: { type: "string", description: "Why this decision is being considered" },
+            decision: { type: "string", description: "What was decided" },
+            consequences: { type: "string", description: "Impact and trade-offs" },
+          },
+          required: ["title", "decision"],
+        },
+      },
+    },
+    // ── QA Results — QA 記錄共享存儲（2026-09-17 Fleming：qa agent 留記錄、其他 agent 讀寫）──
+    {
+      type: "function",
+      function: {
+        name: "qa_record_save",
+        description: "Save a QA result record to the shared QA log (.paaw/coding-memory/qa-results.jsonl) — visible to ALL agents and the human. Use after ANY testing/verification work: browser QA, smoke test, API test, code review verdict, e2e run. Records verdict (pass/fail), issues found (with severity + evidence like screenshot paths), and links to task/feature. This is the team's QA memory — ALWAYS record your test results here, never let them evaporate into chat history.",
+        parameters: {
+          type: "object",
+          properties: {
+            verdict: { type: "string", enum: ["pass", "fail", "warn", "blocked"], description: "Test verdict" },
+            target: { type: "string", description: "What was tested (page/feature/API name, e.g. 'Login — RBAC redirect')" },
+            summary: { type: "string", description: "One-paragraph conclusion of the test" },
+            type: { type: "string", enum: ["browser", "smoke", "api", "review", "e2e", "manual"], description: "Test type" },
+            url: { type: "string", description: "Tested URL (if applicable)" },
+            taskId: { type: "string", description: "Related task id in the task pipeline (if applicable)" },
+            feature: { type: "string", description: "Related feature name (if applicable)" },
+            issues: {
+              type: "array",
+              description: "Issues found (empty for pass)",
+              items: {
+                type: "object",
+                properties: {
+                  severity: { type: "string", enum: ["critical", "major", "minor"] },
+                  desc: { type: "string", description: "Issue description" },
+                  evidence: { type: "string", description: "Evidence path (screenshot path, log line, API response)" },
+                },
+                required: ["desc"],
+              },
+            },
+            evidence: { type: "array", items: { type: "string" }, description: "Evidence references (screenshot paths, api-tester ids)" },
+            durationMs: { type: "number", description: "Test duration in ms (if known)" },
+          },
+          required: ["verdict", "target", "summary"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "qa_record_list",
+        description: "Search the shared QA results log (.paaw/coding-memory/qa-results.jsonl). Use before retesting (check what was already tested and its verdict), when fixing a bug (find related open issues), or when the human asks about QA status/history. Returns records newest-first with id, verdict, target, summary, open issues.",
+        parameters: {
+          type: "object",
+          properties: {
+            verdict: { type: "string", enum: ["pass", "fail", "warn", "blocked"] },
+            status: { type: "string", enum: ["open", "resolved", "wontfix"], description: "Filter by record status (open = has unresolved issues)" },
+            actor: { type: "string", description: "Filter by who recorded it (qa/tester/developer/...)" },
+            taskId: { type: "string" },
+            feature: { type: "string" },
+            q: { type: "string", description: "Free-text search in target/summary/issues" },
+            limit: { type: "number", description: "Max records (default 10)" },
+          },
+          required: [],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "qa_record_update",
+        description: "Update an existing QA result record — mark an issue resolved/wontfix (after fixing it), change record status, or append a note (goes into history trail). Get the id from qa_record_list.",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Record id (qr-...)" },
+            issueIndex: { type: "number", description: "Issue index to update (0-based, from list output)" },
+            issueStatus: { type: "string", enum: ["resolved", "wontfix", "open"] },
+            status: { type: "string", enum: ["open", "resolved", "wontfix"], description: "Override record-level status (default: auto-resolved when all issues resolved)" },
+            note: { type: "string", description: "Note for the history trail (e.g. 'fixed in commit abc123')" },
+          },
+          required: ["id"],
+        },
+      },
+    },
+    // ── Release Requests — v3（2026-09-18）：RM agent 審 RR 證據、建議 verdict，人類做最終決定 ──
+    {
+      type: "function",
+      function: {
+        name: "rr_list",
+        description: "List release requests (RR) for this project — the formal batch-release path. Returns id, title, status (draft/reviewing/released/cancelled), baseline→target, scope counts, checklist verdicts. Use when the human asks about release requests or which RR is in review.",
+        parameters: {
+          type: "object",
+          properties: {
+            status: { type: "string", enum: ["draft", "reviewing", "released", "cancelled"], description: "Filter by status" },
+          },
+          required: [],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "rr_get",
+        description: "Get ONE release request with full evidence: scope (commits/files/features/APIs/tasks) + checklist with deterministic auto-check details (tests run numbers, gates status, open QA fails, risk reasons). Use BEFORE suggesting verdicts — your suggestions must be grounded in this evidence (No answer without evidence).",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "RR id (RR-...), from rr_list" },
+          },
+          required: ["id"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "rr_suggest",
+        description: "Write suggested verdicts for a release request's checklist items (pass/fail/waived + reason each). This records SUGGESTIONS ONLY — the human confirms in the Release Manager UI; you never decide a release. Every suggestion MUST have a reason grounded in rr_get evidence. waive suggestions need a justification of why it is safe to ship despite the signal.",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "RR id (RR-...)" },
+            items: {
+              type: "array",
+              description: "One entry per checklist item you want to suggest on",
+              items: {
+                type: "object",
+                properties: {
+                  itemId: { type: "string", enum: ["tests", "gates", "qa-records", "risk"], description: "Checklist item id" },
+                  verdict: { type: "string", enum: ["pass", "fail", "waived"], description: "Suggested verdict" },
+                  reason: { type: "string", description: "Why — grounded in rr_get evidence (required)" },
+                },
+                required: ["itemId", "verdict", "reason"],
+              },
+            },
+          },
+          required: ["id", "items"],
+        },
+      },
+    },
+    // ── Unified docs tool (replaces update_changelog + update_docs) ──
+    {
+      type: "function",
+      function: {
+        name: "docs",
+        description: "管理 .paaw/ 文件：更新 changelog、寫入/更新文件。用 action 指定操作。",
+        parameters: {
+          type: "object",
+          properties: {
+            action: { type: "string", enum: ["changelog", "write", "append"], description: "changelog=加 changelog 條目, write=寫入文件, append=追加內容" },
+            type: { type: "string", enum: ["added", "changed", "fixed", "removed", "deprecated"], description: "Changelog 類別（action=changelog 時必填）" },
+            description: { type: "string", description: "Changelog 描述（action=changelog）或文件摘要" },
+            file: { type: "string", description: "檔案名（action=write/append 時必填，如 PROJECT.md）" },
+            content: { type: "string", description: "文件內容（action=write/append 時必填）" },
+          },
+          required: ["action"],
+        },
+      },
+    },
+    // ── Staged Summary Tool (for agents to record why they staged files) ──
+    {
+      type: "function",
+      function: {
+        name: "staged_summary",
+        description: "記錄你這輪做了什麼、為什麼、怎麼測試。每次 git add / commit 前必須呼叫此工具（人類和 QA Agent 在 Git tab 看這份摘要決定可不可以 push）。",
+        parameters: {
+          type: "object",
+          properties: {
+            task: { type: "string", description: "原始任務描述（人類叫你做什麼）" },
+            summary: { type: "string", description: "Work Summary 完整內容" },
+            files: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  path: { type: "string", description: "檔案路徑" },
+                  reason: { type: "string", description: "這個檔案為什麼改，一句話" },
+                },
+                required: ["path", "reason"],
+              },
+              description: "你改了哪些檔案 + 每個檔案為什麼改",
+            },
+            howToTest: { type: "string", description: "具體測試步驟，讓非寫碼的人也能照著做" },
+            risk: { type: "string", description: "風險注意，沒有寫「無」" },
+          },
+          required: ["task", "summary", "files", "howToTest"],
+        },
+      },
+    },
+  {
+    type: "function",
+    function: {
+      name: "project_info",
+      description: "Query project knowledge from .paaw/ directory. Use this FIRST to understand the project before doing any work.",
+      parameters: {
+        type: "object",
+        properties: {
+          category: {
+            type: "string",
+            enum: ["context", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "error_codes", "c4_model", "security", "decisions", "changelog"],
+            description: "What to query: context=project overview (PROJECT.md+feature map), features=feature map, feature_detail=single feature, runbook=troubleshooting, sessions=work sessions, test_map=test intelligence, recent_changes=change intelligence, api_history=API tester logs, project_read=human-written PROJECT.md, error_codes=error codes by feature（寫碼前查既有 codes 不重複；debug 時帶 search=錯誤碼/訊息穩定片段反查 feature+file:line；帶 feature 看單一 feature）， c4_model=C4 對外連線全景（containers/external systems/relationships；帶 search 查特定服務）, security=security scan findings 明細（file:line + CWE + snippet + feature 對應；QA/SA 看 security 結果與開 task 的入口；帶 severity/file/search 過濾）, decisions=架構決策記錄 DECISIONS.md（ADR 清單與内文）, changelog=CHANGELOG.md 版本變更記錄"
+          },
+          id: { type: "string", description: "Feature/issue ID (正式格式 F{YYYYMMDD}-{NNN}，如 F20260904-001；issue 為 ISS-001). 一律用 project_info 查現況，勿自編. Used with category=feature_detail." },
+          search: { type: "string", description: "Search keyword. Used with: features (by name), runbook (by content), faq (by keyword), error_codes (錯誤碼/訊息片段反查 — debug 入口), c4_model (服務名/技術，如 redis)." },
+          code: { type: "string", description: "Error code for runbook lookup (e.g. ORD-001)." },
+          name: { type: "string", description: "Standard name to read (for category=standards). If omitted, lists all." },
+          status: { type: "string", description: "Filter issues by status (comma-separated): open,in-progress,resolved,closed,wontfix." },
+          priority: { type: "string", description: "Filter issues by priority (comma-separated): critical,high,medium,low." },
+          severity: { type: "string", description: "Filter security findings (case-insensitive): critical,error,warning,info." },
+          file: { type: "string", description: "File path filter. Used with: test_map (which tests cover this file), security (findings for file), recent_changes (impact of file)." },
+          feature: { type: "string", description: "Feature ID. Used with: test_map (list all tests for that feature), error_codes (codes for that feature)." },
+          days: { type: "number", description: "Days back for recent_changes (default: 30)." },
+          limit: { type: "number", description: "Max results for sessions/api_history (default: 5/20)." },
+          method: { type: "string", description: "Filter api_history by HTTP method." },
+          source: { type: "string", enum: ["human", "agent"], description: "Filter api_history by who ran it: human (manually in API Tester UI) or agent (via api_test tool)." },
+          detail: { type: "string", description: "api_history only: entry number (1-based) or req-id — returns the FULL request (headers/body/response) for e2e script generation." },
+          path_contains: { type: "string", description: "Filter api_history by URL substring." },
+          include_response: { type: "boolean", description: "Include response body in api_history (default: true)." },
+        },
+        required: ["category"],
+      },
+    },
+  },
+
+  // ── Unified project_edit tool (replaces 7 mutation tools) ──
+  {
+    type: "function",
+    function: {
+      name: "project_edit",
+      description: "Modify project data: create/update/delete issues, record changes, update feature docs/mapping, run safe commands.",
+      parameters: {
+        type: "object",
+        properties: {
+          action: {
+            type: "string",
+            enum: ["issue_create", "issue_update", "issue_delete", "change_record", "feature_update_docs", "feature_update_mapping", "feature_delete", "run_command"],
+            description: "Mutation action to perform",
+          },
+          // ── Issue create/update/delete ──
+          id: { type: "string", description: "Issue/feature ID (ISS-001；feature 正式格式 F{YYYYMMDD}-{NNN} 如 F20260904-001，勿自編)" },
+          title: { type: "string", description: "Issue title or change title" },
+          priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "Priority" },
+          status: { type: "string", enum: ["open", "in-progress", "resolved", "closed", "wontfix"], description: "Issue status" },
+          labels: { type: "array", items: { type: "string" }, description: "Labels" },
+          description: { type: "string", description: "Detailed description" },
+          note: { type: "string", description: "Add a note to issue" },
+          featureId: { type: "string", description: "Related feature ID" },
+          // ── Change record ──
+          type: { type: "string", enum: ["feature", "bugfix", "refactor", "security", "performance", "test", "docs", "config"], description: "Change type" },
+          files: { type: "array", items: { type: "string" }, description: "Changed file paths" },
+          impact: { type: "string", description: "Potential impact" },
+          testsRan: { type: "string", description: "Tests run to verify" },
+          // ── Feature update ──
+          documentation: { type: "string", description: "New documentation in markdown" },
+          codeFiles: { type: "array", items: { type: "string" }, description: "Updated code files" },
+          apis: { type: "array", items: { type: "object" }, description: "Updated API endpoints" },
+          tests: { type: "array", items: { type: "string" }, description: "Updated test files" },
+          runbooks: { type: "array", items: { type: "string" }, description: "Updated runbook files" },
+          // ── Run command ──
+          command: { type: "string", description: "Command to run (e.g. 'npm test')" },
+        },
+        required: ["action"],
+      },
+    },
+  },
+
+  // ── Project Board tool（維護 data/projects/ 的專案看板 — 一個 release unit 對應一個 project）──
+  {
+    type: "function",
+    function: {
+      name: "project_board",
+      description: "維護 PAAW Project Board（data/projects/）。一個 release unit 對應一個 project。新 RU 開始時用 create 建 project，之後用 task_create/task_update 維護任務進度。",
+      parameters: {
+        type: "object",
+        properties: {
+          action: {
+            type: "string",
+            enum: ["status", "create", "update", "category_create", "task_create", "task_update", "milestone_create"],
+            description: "status=查看全部專案現況, create=建新 project(新 RU), update=改專案欄位, category_create=加分類, task_create=加任務, task_update=改任務, milestone_create=加里程碑",
+          },
+          projectId: { type: "string", description: "目標 project ID（status/create 以外必填）" },
+          // create / update
+          id: { type: "string", description: "(create) 新 project ID，英文小寫" },
+          name: { type: "string", description: "(create/update) 專案名稱；task_create/task_update 為任務名稱" },
+          icon: { type: "string", description: "(create/category_create) emoji icon" },
+          description: { type: "string", description: "(create/update/category_create) 描述" },
+          status: { type: "string", description: "(update) planning|in-progress|completed|on-hold|cancelled；(task_update) todo|progress|done" },
+          startDate: { type: "string", description: "(create) YYYY-MM-DD" },
+          targetDate: { type: "string", description: "(create/update) YYYY-MM-DD" },
+          repo: { type: "string", description: "(create) GitHub repo URL" },
+          aliases: { type: "array", items: { type: "string" }, description: "(create) 本機資料夾名 alias（跨機器對應 RU 用，例如 ['tPAAW']）" },
+          // category
+          categoryId: { type: "string", description: "(task_create) 放進哪個分類，省略放第一個" },
+          // task
+          taskId: { type: "string", description: "(task_update) 任務 ID" },
+          priority: { type: "string", enum: ["high", "medium", "low"], description: "(task_create/task_update) 優先級" },
+          start: { type: "string", description: "(task_create) YYYY-MM-DD" },
+          end: { type: "string", description: "(task_create) YYYY-MM-DD" },
+          // milestone
+          date: { type: "string", description: "(milestone_create) YYYY-MM-DD" },
+        },
+        required: ["action"],
+      },
+    },
+  },
+
+  // ── CU Refresh ──
+  {
+    type: "function",
+    function: {
+      name: "cu_refresh",
+      description: "Refresh specific Code Understanding steps after code changes. Use this after making significant code changes instead of re-running the entire CU flow. Deterministic steps (code-intelligence, test-intelligence) are fast and safe to re-run. Add feature-map to re-run the feature map (LLM).",
+      parameters: {
+        type: "object",
+        properties: {
+          steps: {
+            type: "array",
+            items: { type: "string", enum: ["code-intelligence", "test-intelligence", "feature-map"] },
+            description: "Which steps to refresh. Default: deterministic steps (code-intelligence, test-intelligence). Add feature-map only if features/APIs changed significantly (costs LLM).",
+          },
+        },
+      },
+    },
+  },
+
+  // ── Action Log (Agent Memory / Handoff) ──
+  {
+    type: "function",
+    function: {
+      name: "action_log_add",
+      description: "Record your action to the project action log. This is the handoff log between agents — write after completing a task so other agents know what you did.",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["review", "fix", "decide", "support", "create", "refactor"], description: "Action type" },
+          summary: { type: "string", description: "One-line summary of what you did" },
+          details: { type: "string", description: "Detailed description (optional)" },
+          affectedFiles: { type: "array", items: { type: "string" }, description: "Files that were affected" },
+          result: { type: "string", enum: ["fixed", "suggestions", "adr", "clarified", "created"], description: "Result type" },
+          priority: { type: "string", enum: ["high", "medium", "low"], description: "Priority level" },
+        },
+        required: ["action", "summary", "result"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "action_log_list",
+      description: "Read recent action log entries. This shows what other agents (and you) have done recently — the project handoff log.",
+      parameters: {
+        type: "object",
+        properties: {
+          agent: { type: "string", description: "Filter by agent ID (e.g. 'architect', 'helpdesk')" },
+          limit: { type: "number", description: "Max entries to return (default 15)" },
+        },
+      },
+    },
+  },
+
+  // ── Agent Long-term Memory ──
+  {
+    type: "function",
+    function: {
+      name: "agent_memory_save",
+        description: "Save important insights or decisions to your long-term memory file. This persists across conversations.",
+      parameters: {
+        type: "object",
+        properties: {
+          content: { type: "string", description: "Markdown content to save (will replace existing memory)" },
+        },
+        required: ["content"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "agent_memory_load",
+      description: "Load your long-term memory. Returns insights and decisions saved from previous conversations.",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
+  // ── Conversation History（2026-09-06 Fleming：每個 agent 都能查過去聊天記錄，RU 開發紀錄全保留）──
+  {
+    type: "function",
+    function: {
+      name: "conversation_history",
+      description: "查過去的聊天記錄（跨 session，含已封存）。action: list=列出自己的對話 sessions；load=讀某 session 完整內容；search=關鍵字搜尋對話（預設搜全部 agent）。找「之前聊過什麼、決定了什麼」用這個。",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["list", "load", "search"], description: "list=列出 sessions；load=讀完整對話；search=關鍵字搜尋" },
+          sessionId: { type: "string", description: "load 時要讀的 session id（來自 list 結果；active=目前對話）" },
+          query: { type: "string", description: "search 時的關鍵字" },
+          crewId: { type: "string", description: "選配：指定查其他 agent（如 coding.em）；search 未指定時搜全部" },
+        },
+        required: ["action"],
+      },
+    },
+  },
+  // ── Unified notes tool ──
+  {
+    type: "function",
+    function: {
+      name: "notes",
+      description: "Manage notes: list notebooks, list sections, create notes/sections, search. Use action to specify operation.",
+      parameters: {
+        type: "object",
+        properties: {
+          action: {
+            type: "string",
+            enum: ["list_notebooks", "list_sections", "create", "create_section", "search"],
+            description: "Operation: list_notebooks, list_sections, create (note), create_section, search",
+          },
+          notebookId: { type: "string", description: "Notebook ID" },
+          sectionId: { type: "string", description: "Section ID (default: 'default')" },
+          title: { type: "string", description: "Note title" },
+          content: { type: "string", description: "Note content (markdown)" },
+          tags: { type: "array", items: { type: "string" }, description: "Tags" },
+          name: { type: "string", description: "Section name (for create_section)" },
+          icon: { type: "string", description: "Section icon emoji (for create_section)" },
+          query: { type: "string", description: "Search keyword (for search)" },
+        },
+        required: ["action"],
+      },
+    },
+  },
+
+  // ── Task Management Tools ──
+  {
+    type: "function",
+    function: {
+      name: "reference_read",
+      description: "Browse and read reference files from knowledge/ and project workspace directories (read-only). Use this to find existing code examples, architecture docs, templates, and reference materials. knowledge = data/knowledge/ (project docs), workspace = project root from workspaces.json (existing source code).",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["list", "read", "search"], description: "list: browse files in a directory, read: read a specific file, search: search file contents" },
+          source: { type: "string", enum: ["workspace", "knowledge"], description: "knowledge = data/knowledge/ project docs, workspace = project root directory with source code" },
+          path: { type: "string", description: "For list: subdirectory path (e.g. 'Pics' or ''). For read: file path. For search: search query." },
+          maxResults: { type: "number", description: "For search: max results (default 20)" },
+        },
+        required: ["action", "source"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "task_list",
+      description: "List coding tasks (feature-first). Filter by status, type, featureId, or priority. Read single task by ID. Status: open|close|pending|ignore. Type: dev|test|docs.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Get a single task by ID (e.g. 'TASK-014')" },
+          status: { type: "string", description: "Filter by status: open, close, pending, ignore" },
+          type: { type: "string", description: "Filter by type: dev, test, docs" },
+          featureId: { type: "string", description: "Filter by feature ID (e.g. 'F20260901-001')" },
+          priority: { type: "string", description: "Filter by priority: critical, high, medium, low" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "task_create",
+      description: "Create a new coding task. Every task MUST have a featureId (all work belongs to a feature). Status: open|close|pending|ignore. Type: dev|test|docs.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Task title" },
+          featureId: { type: "string", description: "REQUIRED. Feature this task belongs to (e.g. 'F20260901-001'). Misc work → use 'Utility & Platform Misc' feature." },
+          type: { type: "string", enum: ["dev", "test", "docs"], description: "Task type: dev (code/bugfix/refactor), test, docs" },
+          priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "Priority level" },
+          description: { type: "string", description: "Detailed description of what needs to be done" },
+          parentId: { type: "string", description: "Parent task ID (for subtasks from decompose)" },
+          source: { type: "string", enum: ["vibe", "discussion", "pm", "issue", "security", "manual"], description: "Where this task came from" },
+          labels: { type: "array", items: { type: "string" }, description: "Labels/tags" },
+        },
+        required: ["title", "featureId", "type"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "task_update",
+      description: "Update a coding task. Actions: update (change fields), note (add note), assign (assign agent). No pipeline — use status directly (open|close|pending|ignore).",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Task ID to update" },
+          action: { type: "string", enum: ["update", "note", "assign"], description: "What to do: update fields, add note, or assign agent" },
+          title: { type: "string", description: "New title (action=update)" },
+          status: { type: "string", description: "New status (action=update): open, close, pending, ignore" },
+          type: { type: "string", description: "New type (action=update): dev, test, docs" },
+          featureId: { type: "string", description: "Reassign to different feature (action=update)" },
+          priority: { type: "string", description: "New priority (action=update)" },
+          result: { type: "string", description: "Execution result summary (action=update)" },
+          note: { type: "string", description: "Note content (action=note)" },
+          assignTo: { type: "string", description: "Assign to agent (action=assign): developer, tester, doc-writer, architect" },
+        },
+        required: ["id", "action"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "task_decompose",
+      description: "將一個大 Task 拆分成多個子任務。子任務繼承父任務的 featureId。",
+      parameters: {
+        type: "object",
+        properties: {
+          parentId: { type: "string", description: "要拆分的父 Task ID" },
+          subTasks: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string", description: "子任務標題" },
+                type: { type: "string", enum: ["dev", "test", "docs"], description: "子任務類型" },
+                priority: { type: "string", enum: ["critical", "high", "medium", "low"] },
+                assignee: { type: "string", description: "指派對象" },
+                description: { type: "string", description: "子任務詳細說明" },
+              },
+              required: ["title"],
+            },
+            description: "拆分後的子任務列表",
+          },
+        },
+        required: ["parentId", "subTasks"],
+      },
+    },
+  },
+    {
+    type: "function",
+    function: {
+      name: "dispatch_agent",
+      description: "派工給其他 agent 執行任務。一次只派一個 agent，等結果回來再派下一個。",
+      parameters: {
+        type: "object",
+        properties: {
+          agentId: {
+            type: "string",
+            enum: ["architect", "developer", "tester", "doc-writer", "qa", "helpdesk"],
+            description: "目標 agent",
+          },
+          task: {
+            type: "string",
+            description: "具體任務說明（要明確：哪個檔案、哪個函數、要做什麼）",
+          },
+          taskId: {
+            type: "string",
+            description: "對應的 TASK-XXX ID（如果有）",
+          },
+        },
+        required: ["agentId", "task"],
+      },
+    },
+  },
+
+  // ── Auto Dispatch（task-driven，EM 自然語言確認制派工，2026-08-29）──
+  // 一律走 API（/preview、/start、/stop）— 跟 cron / panel / EM chat 同一條路
+  {
+    type: "function",
+    function: {
+      name: "auto_dispatch",
+      description: "自動派工（task-driven）：掃 TASKS.json 的 open task，背景逐一派給 agent 執行（每個 task 獨立 context，可長時間跑完，最後統整報告）。流程：action=preview 先看範圍（不執行）→ 向使用者展示待確認 → 使用者確認後 action=start 開始 → 要停就 action=stop（安全中斷點）。大範圍派工優先用這個，不要逐個 dispatch_agent。",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["preview", "start", "stop"], description: "preview=看派工範圍（不執行）；start=背景開始執行；stop=中斷（目前 task 完成後停止）" },
+          cwd: { type: "string", description: "專案 root 絕對路徑（帶 system prompt 裡 Current Project Root 的值）" },
+        },
+        required: ["action"],
+      },
+    },
+  },
+
+  // ── Release Unit Tools（Tool 化三防線：context / impact / verify）──
+  {
+    type: "function",
+    function: {
+      name: "ru_context",
+      description: "Release Unit context — 讀專案技術桡 + .paaw 三大文件（PROJECT/ARCHITECTURE/DECISIONS）。改碼前必讀。",
+      parameters: {
+        type: "object",
+        properties: {
+          withDocs: { type: "boolean", description: "是否帶入文件全文（預設只回清單+規範）" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "ru_dependencies",
+      description: "查檔案依賴：我 import 誰（forward）、誰 import 我（reverse）、用了哪些外部套件。",
+      parameters: {
+        type: "object",
+        properties: {
+          file: { type: "string", description: "檔案路徑（相對/絕對/檔名皆可）" },
+        },
+        required: ["file"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "ru_impact_analysis",
+      description: "改動影響分析（改前必跑）：給定檔案清單，回傳直接/間接受影響的檔案（含深度）與樞紐熱點。",
+      parameters: {
+        type: "object",
+        properties: {
+          files: { type: "array", items: { type: "string" }, description: "預計改動的檔案清單" },
+          changeType: { type: "string", enum: ["modify", "add", "delete"], description: "改動類型（預設 modify）" },
+        },
+        required: ["files"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "ru_verify",
+      description: "驗證（改完必跑）：執行 build/lint/type-check/test，回傳每關結果與失敗輸出。",
+      parameters: {
+        type: "object",
+        properties: {
+          checks: { type: "array", items: { type: "string", enum: ["build", "lint", "type-check", "test"] }, description: "指定關卡（預設全部）" },
+        },
+      },
+    },
+  },
+
+  ];
+
+// ── Tool Group System — load only what each agent needs ──
+
+// Tool name → group mapping
+const TOOL_GROUP_MAP = {
+  // Core: full file ops + shell + git
+  read_file: "core", write_file: "core", edit_file: "core",
+  glob: "core", grep: "core", diff: "core",
+  reference_read: "core",
+  git: "core", bash: "core", ask_user: "core",
+
+  // Dev Server Controller（2026-09-10）— core：developer/tester 可用；core-read 只給 dev_log（唯讀）
+  dev_server: "core", dev_log: "core",
+  // 2026-09-12：API Tester tool — developer/tester 都在 core group，可直接打 API 並存入 UI 共用歷史
+  api_test: "core",
+
+  // Browser testing
+  browser_test: "browser",
+  browser_navigate: "browser",
+  browser_read: "browser",
+  browser_screenshot: "browser",
+  browser_click: "browser",
+  browser_type: "browser",
+  browser_select: "browser",
+
+  // Memory & logging
+  action_log_add: "memory", action_log_list: "memory",
+  agent_memory_save: "memory", agent_memory_load: "memory",
+  conversation_history: "memory", // 2026-09-06：聊天記錄查詢（memory group → 全 crew 可用）
+
+  // Decision & changelog
+  record_decision: "decisions", docs: "decisions",
+
+  // QA Results — QA 記錄共享存儲（2026-09-17 Fleming：qa agent 留記錄、其他 agent 讀寫）
+  qa_record_save: "qa-records", qa_record_list: "qa-records", qa_record_update: "qa-records",
+
+  // Release Requests — v3（2026-09-18）：RM agent 讀 RR 證據、寫建議 verdict（人確認）
+  rr_list: "release-requests", rr_get: "release-requests", rr_suggest: "release-requests",
+
+  // Staged summary (agents record why they staged files)
+  staged_summary: "core",
+
+  // Project Info — unified tool (replaces 14 separate project_* read tools)
+  project_info: "project",
+
+  // Project edit — unified mutation tool
+  project_edit: "project-edit",
+
+  // Project Board — 維護 data/projects/ 專案看板（RU 對應 project）
+  project_board: "project-board",
+
+  // Notes
+  notes: "notes",
+
+  // Task management
+  task_create: "tasks", task_update: "tasks", task_list: "tasks", task_decompose: "tasks", dispatch_agent: "dispatch", auto_dispatch: "dispatch",
+
+  // Docs & CU
+  cu_refresh: "docs",
+};
+
+// ── core-read: read-only subset of core (no bash/write/edit/git) ──
+// For non-coding agents: architect, QA, helpdesk, EM
+const CORE_READ_TOOLS = new Set(["read_file", "reference_read", "glob", "grep", "diff", "ask_user", "dev_log"]);
+
+// ── Fallback groups (used when crew.json has no toolGroups) ──
+const AGENT_FALLBACK_GROUPS = {
+  // Architect: read-only + decisions + project + project-board（維護 RU project）+ tasks（security 修復開 task — 2026-09-06）
+  architect: ["core-read", "memory", "decisions", "project", "project-edit", "project-board", "tasks", "release-unit", "qa-records"],
+  // Developer: full core + memory + project + tasks
+  developer: ["core", "memory", "decisions", "project", "project-edit", "tasks", "release-unit", "qa-records"],
+  // Tester: full core + project
+  tester: ["core", "memory", "decisions", "project", "project-edit", "release-unit", "qa-records"],
+  // Doc-writer: full core + project-edit + docs
+  "doc-writer": ["core", "memory", "decisions", "project", "project-edit", "docs", "qa-records"],
+  // CU feature 長肉 agent（feature-map v2.1）：純唯讀分析 — read_file/glob/grep/diff，無寫檔無 shell
+  "cu-feature": ["core-read"],
+  // QA: read-only + project + project-edit + tasks（security findings 開修復 task — 2026-09-06）
+  qa: ["core-read", "memory", "project", "project-edit", "tasks", "release-unit", "qa-records"],
+  // Helpdesk: read-only + project
+  helpdesk: ["core-read", "memory", "decisions", "project", "project-edit", "qa-records"],
+  // RM（fallback）：v3（2026-09-18）+ release-requests（審 RR 證據、寫建議 verdict）
+  rm: ["core-read", "memory", "decisions", "project", "docs", "release-requests"],
+  // EM: read-only + project + project-edit + docs + tasks + dispatch (no notes/browser)
+  em: ["core-read", "memory", "decisions", "project", "project-edit", "project-board", "docs", "tasks", "dispatch", "release-unit", "qa-records", "release-requests"],
+};
+
+// ── Cache for crew toolGroups loaded from JSON ──
+const _crewGroupCache = new Map();
+
+/**
+ * Load toolGroups for an agent from crew.json.
+ * Falls back to AGENT_FALLBACK_GROUPS if crew.json has no toolGroups.
+ * @param {string} agentId - e.g. "developer", "architect"
+ * @returns {string[]} tool group names
+ */
+function getAgentGroupsFromConfig(agentId, cwd = null) {
+  // 2026-09-06：支援 project-level toolGroups（.paaw/agents/{crewId}.json）優先於 global
+  // cache key = agentId::cwd（project 覆寫 per-RU）
+  const cacheKey = `${agentId}::${cwd || ""}`;
+  // Check cache first
+  if (_crewGroupCache.has(cacheKey)) return _crewGroupCache.get(cacheKey);
+
+  // agentId -> crewId mapping
+  const crewMap = {
+    architect: "coding.architect",
+    developer: "coding.developer",
+    tester: "coding.tester",
+    "doc-writer": "coding.doc-writer",
+    qa: "coding.qa",
+    helpdesk: "coding.helpdesk",
+    em: "coding.em",
+    rm: "coding.rm",          // 2026-09-06：補齊 10 crew 映射（原本缺 → fallback core+memory 全開）
+    ops: "coding.ops",
+    handover: "coding.handover",
+  };
+  const crewId = crewMap[agentId];
+  if (!crewId) return AGENT_FALLBACK_GROUPS[agentId] || ["core", "memory"];
+
+  // ── Project-level override（.paaw/agents/{crewId}.json 的 toolGroups 優先）──
+  if (cwd) {
+    try {
+      const projPath = join(cwd, ".paaw", "agents", `${crewId}.json`);
+      if (existsSync(projPath)) {
+        const proj = JSON.parse(readSync(projPath, "utf-8"));
+        if (Array.isArray(proj.toolGroups) && proj.toolGroups.length > 0) {
+          _crewGroupCache.set(cacheKey, proj.toolGroups);
+          return proj.toolGroups;
+        }
+      }
+    } catch {}
+  }
+
+  try {
+    const crewPath = join(DATA_HOME, "crews", `${crewId}.json`);
+    if (existsSync(crewPath)) {
+      const crew = JSON.parse(readSync(crewPath, "utf-8"));
+      if (Array.isArray(crew.toolGroups) && crew.toolGroups.length > 0) {
+        _crewGroupCache.set(cacheKey, crew.toolGroups);
+        return crew.toolGroups;
+      }
+    }
+  } catch (err) {
+    console.warn(`[getToolsForAgent] Failed to load crew config for ${agentId}:`, err.message);
+  }
+
+  // Fallback
+  const fallback = AGENT_FALLBACK_GROUPS[agentId] || ["core", "memory"];
+  _crewGroupCache.set(cacheKey, fallback);
+  return fallback;
+}
+
+/**
+ * Clear crew group cache (call when crew.json is updated)
+ */
+export function clearCrewGroupCache() {
+  _crewGroupCache.clear();
+}
+
+/**
+ * Get tool definitions for a specific agent.
+ * Reads toolGroups from crew.json first, falls back to hardcoded defaults.
+ * @param {string} agentId - Agent identifier (e.g. "developer", "architect")
+ * @param {string[]} extraGroups - Additional groups to include
+ * @returns {object[]} Filtered tool definitions
+ */
+export function getToolsForAgent(agentId, extraGroups = [], cwd = null) {
+  const agentGroups = getAgentGroupsFromConfig(agentId, cwd);
+  const groups = new Set([...agentGroups, ...extraGroups]);
+  const useCoreRead = groups.has("core-read");
+
+  return PAAW_TOOLS.filter(tool => {
+    const name = tool.function?.name;
+    if (!name) return false;
+
+    // Handle core-read: only read-only core tools
+    if (useCoreRead && TOOL_GROUP_MAP[name] === "core") {
+      return CORE_READ_TOOLS.has(name);
+    }
+    // If agent has core-read but NOT core, skip full-core tools
+    if (useCoreRead && !groups.has("core") && TOOL_GROUP_MAP[name] === "core") {
+      return CORE_READ_TOOLS.has(name);
+    }
+
+    const group = TOOL_GROUP_MAP[name];
+    // 🌐 內建瀏覽器工具：所有 agent 一律可用（Fleming 2026-08-27 定調 — 讀網頁/操作/截圖是通用能力）
+    if (group === "browser") return true;
+    return group && groups.has(group);
+  });
+}
+
+/**
+ * Get list of available tool groups for debugging/UI
+ */
+export function getToolGroupInfo() {
+  const groups = {};
+  for (const [name, group] of Object.entries(TOOL_GROUP_MAP)) {
+    if (!groups[group]) groups[group] = [];
+    groups[group].push(name);
+  }
+  return groups;
+}
+
+/**
+ * Get the tool groups assigned to an agent
+ */
+export function getAgentGroups(agentId) {
+  return AGENT_FALLBACK_GROUPS[agentId] || ["core", "memory"];
+}
+
+// ── Shell Execution Helper ──
+
+const IS_WIN = process.platform === "win32";
+
+// Module-level debug logger (safe no-op if env var not set)
+const LOG = (...args) => { if (process.env.PAAW_DEBUG) console.log("[agent-loop]", ...args); };
+
+// Module-level agent config defaults (used by runShell + executeTool)
+const _agentCfgDefaults = { maxTurns: 200, timeoutSeconds: 0, bashTimeoutSeconds: 300, shellTimeoutMs: 1200000 };
+let _agentCfg = { ..._agentCfgDefaults };
+export function setAgentConfig(cfg) { _agentCfg = { ..._agentCfgDefaults, ...cfg }; }
+
+/** Build test command for affected test files */
+function _buildTestCommand(cwd, testFiles) {
+  // Detect test runner from project config
+  let testRunner = null;
+  try {
+    const pkg = JSON.parse(_readSync(_pathJoin(cwd, "package.json"), "utf-8"));
+    const scripts = pkg.scripts || {};
+    if (scripts.test) testRunner = "npm test";
+    if (scripts["test:ci"]) testRunner = "npm run test:ci";
+    if (scripts.vitest) testRunner = "npx vitest run";
+    if (scripts.jest) testRunner = "npx jest";
+  } catch {}
+
+  // Check for vitest/jest config directly
+  if (!testRunner) {
+    if (_exSync(_pathJoin(cwd, "vitest.config.ts")) || _exSync(_pathJoin(cwd, "vitest.config.js")) || _exSync(_pathJoin(cwd, "vitest.config.mjs"))) {
+      testRunner = "npx vitest run";
+    } else if (_exSync(_pathJoin(cwd, "jest.config.ts")) || _exSync(_pathJoin(cwd, "jest.config.js")) || _exSync(_pathJoin(cwd, "jest.config.mjs"))) {
+      testRunner = "npx jest";
+    }
+  }
+
+  if (!testRunner) return null;
+
+  // Build command with specific test files
+  const fileList = testFiles.map(f => `"${f}"`).join(" ");
+  if (testRunner.includes("vitest")) {
+    return `${testRunner} ${fileList} --reporter=verbose 2>&1`;
+  } else if (testRunner.includes("jest")) {
+    return `${testRunner} ${fileList} --verbose 2>&1`;
+  } else {
+    // Generic: just run the test command (can't filter files)
+    return `${testRunner} 2>&1`;
+  }
+}
+
+/** Parse test output to determine pass/fail */
+function _parseTestResult(output) {
+  const out = (output || "").toLowerCase();
+
+  // Vitest patterns
+  const vitestMatch = out.match(/(\d+)\s+failed/);
+  const vitestTotal = out.match(/(\d+)\s+tests?\s+(passed|total)/i);
+  if (vitestMatch) {
+    return { ok: false, failed: parseInt(vitestMatch[1]), total: parseInt(vitestTotal?.[1] || "0") };
+  }
+
+  // Jest patterns
+  const jestFailMatch = out.match(/tests?\s*:\s*(\d+)\s+failed/i) || out.match(/(\d+)\s+failed.*?(\d+)\s+passed/i);
+  if (jestFailMatch) {
+    return { ok: false, failed: parseInt(jestFailMatch[1]), total: parseInt(jestFailMatch[2] || "0") + parseInt(jestFailMatch[1]) };
+  }
+
+  // Generic: check for common failure patterns
+  if (out.includes("fail") || out.includes("error") || out.includes("✗") || out.includes("✘")) {
+    // Might be a real failure or just noise — be conservative
+    if (out.includes("failed") || out.includes("test suite failed")) {
+      return { ok: false, failed: 1, total: 1 };
+    }
+  }
+
+  // Check for success patterns
+  if (out.includes("passed") || out.includes("all tests passed") || out.includes("✓") || out.includes("✔")) {
+    const totalMatch = out.match(/(\d+)\s+passed/);
+    return { ok: true, failed: 0, total: parseInt(totalMatch?.[1] || "1") };
+  }
+
+  // No recognizable pattern — assume pass if exit code was ok (we already ran it successfully)
+  return { ok: true, failed: 0, total: 0 };
+}
+
+/** Find test files by convention (e.g., foo.mjs → foo.test.mjs, foo.spec.ts) */
+function _findConventionTests(cwd, changedFiles) {
+  const tests = [];
+  for (const f of changedFiles) {
+    const dir = _pathDirname(_pathJoin(cwd, f));
+    const base = _pathBasename(f, _pathExtname(f));
+    const ext = _pathExtname(f);
+    // Common test file patterns
+    const candidates = [
+      _pathJoin(dir, `${base}.test${ext}`),
+      _pathJoin(dir, `${base}.spec${ext}`),
+      _pathJoin(dir, `__tests__/${base}.test${ext}`),
+      // Mirror in test/ directory
+      _pathJoin(cwd, f.replace("/src/", "/test/").replace(ext, `.test${ext}`)),
+      _pathJoin(cwd, f.replace("/src/", "/tests/").replace(ext, `.test${ext}`)),
+      _pathJoin(cwd, f.replace("/src/", "/__tests__/").replace(ext, `.test${ext}`)),
+    ];
+    for (const c of candidates) {
+      if (_exSync(c)) tests.push(c.replace(cwd + "/", ""));
+    }
+  }
+  return [...new Set(tests)];
+}
+
+// ── Native Node.js helpers (Windows-safe, no shell) ──
+
+async function _nativeGlob(basePath, pattern, maxResults = 100, cwd = basePath) {
+  const results = [];
+  const normPattern = pattern.replace(/\*\*\//g, "").replace(/\*\*/g, "*").replace(/\*/g, ".*").replace(/\?/g, ".");
+  const regex = new RegExp(normPattern + "$", "i");
+  const skipDirs = new Set(["node_modules", ".git", "dist", ".next", ".paaw", "__pycache__", ".cache", ".turbo"]);
+  // Normalize cwd for relative path calculation (handle Windows backslashes)
+  const normCwd = cwd.replace(/\\/g, "/");
+  async function walk(dir, depth) {
+    if (results.length >= maxResults || depth > 15) return;
+    let entries;
+    try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (results.length >= maxResults) return;
+      if (e.isDirectory()) {
+        if (!skipDirs.has(e.name)) await walk(join(dir, e.name), depth + 1);
+      } else if (regex.test(e.name)) {
+        // Return relative path from cwd (use forward slashes for cross-platform)
+        const full = join(dir, e.name).replace(/\\/g, "/");
+        const rel = full.startsWith(normCwd + "/") ? full.slice(normCwd.length + 1) : e.name;
+        results.push(rel);
+      }
+    }
+  }
+  await walk(basePath, 0);
+  return results.join("\n") || "(no files found)";
+}
+
+async function _nativeGrep(searchPath, pattern, include, maxResults = 50, ignoreCase = true, cwd = searchPath) {
+  const results = [];
+  const flags = ignoreCase ? "i" : "";
+  let regex;
+  try { regex = new RegExp(pattern, flags); } catch { regex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), flags); }
+  const includeRegex = include ? new RegExp(include.replace(/\*/g, ".*").replace(/\?/g, ".") + "$", "i") : null;
+  const skipDirs = new Set(["node_modules", ".git", "dist", ".next", ".paaw", "__pycache__", ".cache", ".turbo"]);
+  const normCwd = cwd.replace(/\\/g, "/");
+  async function walk(dir, depth) {
+    if (results.length >= maxResults || depth > 15) return;
+    let entries;
+    try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (results.length >= maxResults) return;
+      if (e.isDirectory()) {
+        if (!skipDirs.has(e.name)) await walk(join(dir, e.name), depth + 1);
+      } else {
+        if (includeRegex && !includeRegex.test(e.name)) continue;
+        try {
+          const content = await readFile(join(dir, e.name), "utf-8");
+          const lines = content.split("\n");
+          for (let i = 0; i < lines.length && results.length < maxResults; i++) {
+            if (regex.test(lines[i])) {
+              const full = join(dir, e.name).replace(/\\/g, "/");
+              const rel = full.startsWith(normCwd + "/") ? full.slice(normCwd.length + 1) : e.name;
+              results.push(`${rel}:${i + 1}:${lines[i].trim().slice(0, 200)}`);
+            }
+          }
+        } catch {}
+      }
+    }
+  }
+  await walk(searchPath, 0);
+  return results.join("\n") || "(no matches)";
+}
+
+async function runShell(command, cwd, timeoutMs = 30_000) {
+  try {
+    // Runtime log 中央目錄注入（2026-09-06）：agents 在 RU 目錄跑，但要能寫 log/<sub>/<ru>/
+    // - $PAAW_LOG_HOME           → log/ 根（generic）
+    // - $PAAW_TMP                → log/tmp/<ru-slug>/（agent scratch，session 自動清）
+    // - $PAAW_APP_CONSOLE_DIR    → log/app-console/<ru-slug>/（developer 啟動 app 的 nohup 輸出）
+    const _ruSlug = logSlug(cwd);
+    const { stdout, stderr } = await shellExec(command, {
+      cwd,
+      timeout: Math.min(timeoutMs, _agentCfg.shellTimeoutMs || 600_000),
+      maxBuffer: 5 * 1024 * 1024,
+      env: {
+        ...process.env,
+        PAAW_LOG_HOME: LOG_HOME,
+        PAAW_TMP: join(LOG_HOME, "tmp", _ruSlug),
+        PAAW_APP_CONSOLE_DIR: join(LOG_HOME, "app-console", _ruSlug),
+      },
+    });
+    return (stdout || "") + (stderr ? "\n" + stderr : "") || "(no output)";
+  } catch (e) {
+    let output = e.stdout || "";
+    if (e.stderr) output += (output ? "\n" : "") + e.stderr;
+    output += (output ? "\n" : "") + `Exit code: ${e.code || 1}`;
+    return output || "(no output)";
+  }
+}
+
+// ── Tool Execution ──
+
+/**
+ * Execute a tool call and return the result string.
+ * All paths are resolved relative to cwd for safety.
+ */
+export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureBoundary = null) {
+  const { name, arguments: argsStr } = call.function;
+  let args;
+  try { args = JSON.parse(argsStr); } catch { return `Error: invalid JSON arguments`; }
+  // Inject agentId for action log / memory tools
+  if (agentId && ["action_log_add", "action_log_list", "agent_memory_save", "agent_memory_load"].includes(name)) {
+    args._agentId = agentId;
+  }
+  // 2026-09-07：EM 派工/任務工具必須落在「呼叫者的專案」（coding app import 的 release unit path），
+  // 不是 PAAW workspaces[0] — 否則跨專案派工時 QA cwd / task / action log 全落在錯的專案
+  if (["dispatch_agent", "task_create", "task_update", "task_list"].includes(name)) {
+    args._callerPath = cwd;
+  }
+
+  // Resolve relative paths against cwd
+  const resolvePath = (p) => {
+    if (!p) return cwd;
+    // Cross-platform: detect absolute paths on both Unix (/...) and Windows (C:\..., C:/...)
+    if (p.startsWith("/") || /^[A-Za-z]:[\\/]/.test(p)) return p;
+    return resolve(cwd, p);
+  };
+
+  // Load workspace directories (read + write allowed)
+  const workspaceDirs = [];
+  try {
+    const wsPath = resolve(rootDir, "data/workspaces.json");
+    if (existsSync(wsPath)) {
+      const ws = JSON.parse(readSync(wsPath, "utf-8"));
+      if (Array.isArray(ws.directories)) workspaceDirs.push(...ws.directories);
+    }
+  } catch {}
+
+  // Security: check path is within allowed dirs
+  // Read:  cwd + rootDir + workspaceDirs + knowledge
+  // Write: ONLY cwd (project directory)
+  //        rootDir blacklist + knowledge + external workspace dirs = read-only
+  const externalReadOnlyDirs = workspaceDirs
+    .map(d => d.replace(/\\/g, "/"))
+    .filter(d => d.toLowerCase() !== cwd.replace(/\\/g, "/").toLowerCase());
+  const WRITE_BLACKLIST = [
+    // Never allow writing to these directories (relative to rootDir)
+    "/packages/",
+    "/core/",
+    "/node_modules/",
+    "/.git/",
+    "/dist/",
+    "/.next/",
+    "/data/knowledge/",  // knowledge is read-only for agents
+  ];
+  const WRITE_BLACKLIST_EXTS = new Set([
+    // Never allow writing these file types to rootDir (but OK in cwd/data dirs)
+    "exe", "dll", "bat", "cmd", "ps1", "sh",
+  ]);
+
+  const isPathAllowed = (p, write = false) => {
+    const norm = (s) => s.replace(/\\/g, "/");
+    const abs = norm(resolvePath(p));
+    const normCwd = norm(cwd);
+    const normRoot = norm(rootDir);
+    const startsWith = (target, prefix) => {
+      const t = target.split("/");
+      const p = prefix.split("/");
+      if (p.length > t.length) return false;
+      return p.every((seg, i) => seg.toLowerCase() === t[i].toLowerCase());
+    };
+    if (write) {
+      // Write: must be inside cwd
+      if (!startsWith(abs, normCwd)) return false;
+      // Block writes to rootDir blacklist (packages, core, knowledge, etc.)
+      const relToRoot = abs.startsWith(normRoot + "/") ? abs.slice(normRoot.length) : "";
+      for (const bl of WRITE_BLACKLIST) {
+        if (relToRoot.toLowerCase().startsWith(bl.toLowerCase())) return false;
+      }
+      // Block writes to external workspace dirs (read-only references)
+      for (const rd of externalReadOnlyDirs) {
+        if (startsWith(abs, rd)) return false;
+      }
+      // Block dangerous extensions in rootDir top-level
+      const ext = (p.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || "";
+      const inRootButNotSubdir = relToRoot.startsWith("/") && !relToRoot.slice(1).includes("/");
+      if (inRootButNotSubdir && (ext === "js" || ext === "mjs" || ext === "cjs")) return false;
+      if (WRITE_BLACKLIST_EXTS.has(ext)) return false;
+      return true;
+    }
+    // Read: cwd + rootDir + workspace directories + PAAW knowledge
+    const normPaaw = norm(_PAAW_ROOT);
+    const inPaawKnowledge = startsWith(abs, normPaaw + "/data/knowledge");
+    return startsWith(abs, normCwd) || startsWith(abs, normRoot) || workspaceDirs.some((d) => startsWith(abs, norm(d))) || inPaawKnowledge;
+  };
+
+  // ── Feature Boundary helpers (must be BEFORE switch — const in switch causes TDZ) ──
+  const _checkBoundary = (filePath) => {
+    if (!featureBoundary || !featureBoundary.allowedFiles) return null; // no boundary active
+    const rel = filePath.replace(/\\/g, "/").replace(cwd.replace(/\\/g, "/").replace(/\/+$/, "") + "/", "");
+    // New file — always allow
+    if (!existsSync(filePath)) return null;
+    // File is in allowed scope
+    if (featureBoundary.allowedFiles.some(f => f.replace(/\\/g, "/") === rel)) return null;
+    // File is outside boundary — return violation
+    return rel;
+  };
+  const _recordViolation = (file, tool) => {
+    if (!featureBoundary) return;
+    if (!featureBoundary._violations) featureBoundary._violations = [];
+    featureBoundary._violations.push({ file, tool, ts: new Date().toISOString() });
+  };
+
+  // Emit tool event for SSE
+  if (onEvent) onEvent({ type: "tool_start", name, args });
+
+  try {
+    switch (name) {
+
+      // ══════════════════════════════════════════
+      // ── File Operations ──
+      // ══════════════════════════════════════════
+
+      // ── Reference Read Tool (workspace/ and knowledge/) ──
+      case "reference_read": {
+        // Always use PAAW_ROOT for knowledge/workspace — not cwd/rootDir
+        // because these directories live in the PAAW installation, not the project
+        const paawRoot = _PAAW_ROOT;
+        let refBase;
+        if (args.source === "knowledge") {
+          refBase = resolve(paawRoot, "data/knowledge");
+        } else {
+          // workspace: use first directory from workspaces.json
+          try {
+            const ws = JSON.parse(readSync(resolve(paawRoot, "data/workspaces.json"), "utf-8"));
+            refBase = ws.directories?.[0] || resolve(paawRoot, "data/workspace");
+          } catch {
+            refBase = resolve(paawRoot, "data/workspace");
+          }
+        }
+        if (!existsSync(refBase)) {
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${args.source}/ not found` });
+          return `(${args.source}/ directory does not exist yet)`;
+        }
+
+        if (args.action === "list") {
+          const subDir = args.path ? resolve(refBase, args.path) : refBase;
+          if (!isPathAllowed(subDir) && !subDir.startsWith(refBase)) {
+            return `Error: path '${args.path}' is outside ${args.source}/`;
+          }
+          try {
+            const { readdirSync, statSync } = await import("fs");
+            const entries = readdirSync(subDir).sort();
+            const lines = entries.map(e => {
+              const fp = join(subDir, e);
+              const stat = statSync(fp);
+              const rel = args.path ? `${args.path}/${e}` : e;
+              if (stat.isDirectory()) return `📁 ${rel}/`;
+              const sizeStr = stat.size > 1024 ? `${(stat.size/1024).toFixed(1)}KB` : `${stat.size}B`;
+              return `📄 ${rel} (${sizeStr})`;
+            });
+            const header = `${args.source}/${args.path ? args.path + "/" : ""} (${entries.length} items)`;
+            if (onEvent) onEvent({ type: "tool_end", name, result: `${entries.length} items` });
+            return `${header}\n${lines.join("\n")}`;
+          } catch (e) {
+            return `Error listing ${args.source}/${args.path || ""}: ${e.message}`;
+          }
+        }
+
+        if (args.action === "read") {
+          if (!args.path) return `Error: 'path' is required for read action.`;
+          const filePath = resolve(refBase, args.path);
+          if (!filePath.startsWith(refBase)) {
+            return `Error: path '${args.path}' is outside ${args.source}/`;
+          }
+          if (!existsSync(filePath)) {
+            return `Error: file not found: ${args.source}/${args.path}`;
+          }
+          try {
+            const content = await readFile(filePath, "utf-8");
+            const maxLen = 100_000;
+            // 2026-09-14: cutSafeStart 不切 surrogate pair（emoji 切半 → 孤兒 \ud83d → LLM 500）
+            const result = content.length > maxLen
+              ? cutSafeStart(content, maxLen) + `\n... (truncated, ${content.length} bytes total)`
+              : content;
+            if (onEvent) onEvent({ type: "tool_end", name, result: `${args.source}/${args.path} (${content.length} bytes)` });
+            return result;
+          } catch (e) {
+            return `Error reading ${args.source}/${args.path}: ${e.message}`;
+          }
+        }
+
+        if (args.action === "search") {
+          if (!args.path) return `Error: 'path' (search query) is required for search action.`;
+          const query = args.path.toLowerCase();
+          const maxResults = args.maxResults || 20;
+          const results = [];
+          const { readdirSync, readFileSync: readSync2, statSync } = await import("fs");
+          const searchDir = (dir, relBase) => {
+            if (results.length >= maxResults) return;
+            let entries;
+            try { entries = readdirSync(dir); } catch { return; }
+            for (const e of entries) {
+              if (results.length >= maxResults) return;
+              const fp = join(dir, e);
+              const rel = relBase ? `${relBase}/${e}` : e;
+              let stat;
+              try { stat = statSync(fp); } catch { continue; }
+              if (stat.isDirectory()) {
+                searchDir(fp, rel);
+              } else {
+                const ext = (e.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || "";
+                if (["png", "jpg", "jpeg", "gif", "webp", "ico", "pdf", "zip"].includes(ext)) continue;
+                try {
+                  const content = readSync2(fp, "utf-8").toLowerCase();
+                  if (content.includes(query)) {
+                    const idx = content.indexOf(query);
+                    const start = Math.max(0, idx - 50);
+                    const snippet = content.slice(start, idx + query.length + 50).replace(/\n/g, " ");
+                    results.push(`${rel}: ...${snippet}...`);
+                  }
+                } catch {}
+              }
+            }
+          };
+          searchDir(refBase, "");
+          const header = `Search '${args.path}' in ${args.source}/ (${results.length} matches, max ${maxResults})`;
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${results.length} matches` });
+          return results.length > 0 ? `${header}\n${results.join("\n")}` : `${header}\n(No matches found)`;
+        }
+
+        return `Error: unknown action '${args.action}'. Use list, read, or search.`;
+      }
+
+      case "read_file": {
+        const filePath = resolvePath(args.path);
+        if (!isPathAllowed(args.path)) return `Error: path '${args.path}' resolves to '${filePath}' which is outside all allowed roots. cwd='${cwd}'. Allowed roots: project dir (cwd), PAAW root${workspaceDirs.length ? ", workspaces: " + workspaceDirs.join(", ") : " (no extra workspaces mounted)"}, knowledge. Note: relative vs absolute doesn't matter — the resolved path must be INSIDE an allowed root. If you need a sibling directory, ask the user to add it to data/workspaces.json.`;
+        if (!existsSync(filePath)) return `Error: file not found: ${args.path}`;
+        const content = await readFile(filePath, "utf-8");
+        // Line-based reading with offset/limit
+        if (args.offset || args.limit) {
+          const lines = content.split("\n");
+          const start = (args.offset || 1) - 1;
+          const end = args.limit ? start + args.limit : lines.length;
+          const selected = lines.slice(start, end);
+          const result = selected.join("\n");
+          if (onEvent) onEvent({ type: "tool_end", name, result: `Read ${filePath} lines ${start+1}-${Math.min(end, lines.length)} of ${lines.length}` });
+          return result + (end < lines.length ? `\n... (lines ${end+1}-${lines.length} omitted)` : "");
+        }
+        // Truncate very large files
+        const maxLen = 100_000;
+        // 2026-09-14: cutSafeStart 不切 surrogate pair（emoji 切半 → 孤兒 \ud83d → LLM 500）
+        const result = content.length > maxLen
+          ? cutSafeStart(content, maxLen) + `\n... (truncated, ${content.length} bytes total)`
+          : content;
+        if (onEvent) onEvent({ type: "tool_end", name, result: `Read ${filePath} (${content.length} bytes)` });
+        return result;
+      }
+
+      case "write_file": {
+        const filePath = resolvePath(args.path);
+        if (!args.path) return `Error: write_file requires 'path' argument`;
+        if (args.content === undefined || args.content === null) return `Error: write_file requires 'content' argument. You must provide the file content as a string.`;
+        if (!isPathAllowed(args.path, true)) {
+          const hint = `cwd='${cwd}'. Use a relative path from PAAW root like 'data/apps/test/app.html'. Do NOT use Windows absolute paths like 'C:\\...'.`;
+          return `Error: path '${args.path}' is not writable. ${hint}`;
+        }
+        // ── Change Boundary: warn if outside feature scope, but allow ──
+        const boundaryViolation = _checkBoundary(filePath);
+        if (boundaryViolation) {
+          _recordViolation(boundaryViolation, "write_file");
+          if (onEvent) onEvent({ type: "boundary_violation", file: boundaryViolation, tool: "write_file" });
+        }
+        try {
+          // ── P0: Inject dependency context before write ──
+          const depCtx = getDependencyContext(cwd, filePath);
+          if (depCtx) {
+            LOG("[dependency-context] Pre-write impact analysis for", filePath);
+          }
+          const wasNew = !existsSync(filePath);
+          await mkdir(dirname(filePath), { recursive: true });
+          await writeFile(filePath, args.content, "utf-8");
+          // Track modified files for post-edit test verification
+          const relPath = filePath.replace(cwd + "/", "").replace(cwd + "\\", "");
+          if (onEvent) onEvent({ type: "tool_end", name, result: `Wrote ${filePath} (${args.content.length} bytes)${wasNew ? " [NEW]" : ""}` });
+          const baseResult = `Successfully wrote ${args.content.length} bytes to ${args.path}${wasNew ? " [NEW FILE]" : ""}${boundaryViolation ? `\n\n⚠️ **Feature Boundary**: \`${boundaryViolation}\` is outside your assigned feature scope (features: ${featureBoundary.featureIds?.join(", ") || "unknown"}). This change is recorded for human review.` : ""}`;
+          return depCtx ? `${baseResult}\n\n${depCtx}` : baseResult;
+        } catch (writeErr) {
+          const errMsg = `write_file error: ${writeErr.message}. path='${args.path}', resolved='${filePath}', cwd='${cwd}'`;
+          if (onEvent) onEvent({ type: "tool_end", name, result: errMsg });
+          return errMsg;
+        }
+      }
+
+      case "edit_file": {
+        const filePath = resolvePath(args.path);
+        if (!args.path) return `Error: edit_file requires 'path' argument`;
+        if (!args.old_text) return `Error: edit_file requires 'old_text' argument`;
+        if (args.new_text === undefined || args.new_text === null) return `Error: edit_file requires 'new_text' argument`;
+        if (!isPathAllowed(args.path, true)) {
+          const hint = `cwd='${cwd}'. Use a relative path from PAAW root like 'data/apps/test/app.html'. Do NOT use Windows absolute paths like 'C:\\...'.`;
+          return `Error: path '${args.path}' is not writable. ${hint}`;
+        }
+        if (!existsSync(filePath)) return `Error: file not found: ${args.path}`;
+        // ── Change Boundary: warn if outside feature scope, but allow ──
+        const editBoundaryViolation = _checkBoundary(filePath);
+        if (editBoundaryViolation) {
+          _recordViolation(editBoundaryViolation, "edit_file");
+          if (onEvent) onEvent({ type: "boundary_violation", file: editBoundaryViolation, tool: "edit_file" });
+        }
+        try {
+          // ── P0: Inject dependency context before edit ──
+          const depCtx = getDependencyContext(cwd, filePath);
+          if (depCtx) {
+            LOG("[dependency-context] Pre-edit impact analysis for", filePath);
+          }
+          const content = await readFile(filePath, "utf-8");
+          const occurrences = content.split(args.old_text).length - 1;
+          if (occurrences === 0) return `Error: old_text not found in ${args.path}`;
+          if (occurrences > 1) return `Error: old_text found ${occurrences} times in ${args.path} — must be unique`;
+          const newContent = content.replace(args.old_text, args.new_text);
+          await writeFile(filePath, newContent, "utf-8");
+          if (onEvent) onEvent({ type: "tool_end", name, result: `Edited ${filePath}` });
+          const baseResult = `Successfully edited ${args.path} (1 replacement)${editBoundaryViolation ? `\n\n⚠️ **Feature Boundary**: \`${editBoundaryViolation}\` is outside your assigned feature scope (features: ${featureBoundary.featureIds?.join(", ") || "unknown"}). This change is recorded for human review.` : ""}`;
+          return depCtx ? `${baseResult}\n\n${depCtx}` : baseResult;
+        } catch (editErr) {
+          const errMsg = `edit_file error: ${editErr.message}. path='${args.path}', resolved='${filePath}', cwd='${cwd}'`;
+          if (onEvent) onEvent({ type: "tool_end", name, result: errMsg });
+          return errMsg;
+        }
+      }
+
+      // ══════════════════════════════════════════
+      // ── Search & Discovery ──
+      // ══════════════════════════════════════════
+
+      case "glob": {
+        const basePath = resolvePath(args.path);
+        if (!isPathAllowed(args.path || ".")) return `Error: path '${args.path}' resolves outside all allowed roots (cwd='${cwd}'${workspaceDirs.length ? ", workspaces: " + workspaceDirs.join(", ") : ""}). Ask user to add the directory to data/workspaces.json if needed.`;
+        const pattern = args.pattern;
+        let result;
+        // 跨平台 native-first（2026-09-12：公司 Linux 沒裝 rg → agent 拿到 command not found。
+        //   純 Node.js 遞迴，不依賴 rg/find/grep；rg 只在「有裝」時當加強 — command -v 靜默探測，agent 永遠不會看到 command not found）
+        result = await _nativeGlob(basePath, pattern, 100, cwd);
+        if (result === "(no files found)" || result.length < 10) {
+          const cmd = `command -v rg >/dev/null 2>&1 && rg --files --glob "${pattern}" --max-depth 15 "${basePath}"`;
+          const rgResult = await runShell(cmd, cwd, 8_000);
+          if (!rgResult.includes("not recognized") && !rgResult.includes("command not found") && !rgResult.includes("(no output)") && rgResult.length > result.length) {
+            // Convert rg absolute paths to relative, forward-slash paths
+            const normCwd = cwd.replace(/\\/g, "/");
+            result = rgResult.split("\n").filter(l => l.trim()).map(l => {
+              const norm = l.replace(/\\/g, "/");
+              return norm.startsWith(normCwd + "/") ? norm.slice(normCwd.length + 1) : l;
+            }).join("\n");
+          }
+        }
+        // Smart truncate (head+tail, preserves errors at end)
+        const truncated = smartTruncateToolResult(result, 12_000);
+        const count = truncated.split("\n").filter(l => l.trim()).length;
+        if (onEvent) onEvent({ type: "tool_end", name, result: `Found ${count} files matching '${pattern}'` });
+        return truncated;
+      }
+
+      case "grep": {
+        const searchPath = resolvePath(args.path);
+        if (!isPathAllowed(args.path || ".")) return `Error: path '${args.path}' resolves outside all allowed roots (cwd='${cwd}'${workspaceDirs.length ? ", workspaces: " + workspaceDirs.join(", ") : ""}). Ask user to add the directory to data/workspaces.json if needed.`;
+        const maxResults = args.max_results || 50;
+        const caseFlag = args.case_sensitive ? "" : "-i";
+        let result;
+        // 跨平台 native-first（2026-09-12 同 glob：不依賴 rg/grep；rg 有裝才加強，靜默探測）
+        result = await _nativeGrep(searchPath, args.pattern, args.include, maxResults, !args.case_sensitive, cwd);
+        if (result === "(no matches)" || result.length < 10) {
+          const includeFlag = args.include ? `--glob '${args.include}'` : "";
+          const cmd = `command -v rg >/dev/null 2>&1 && rg ${caseFlag} ${includeFlag} --max-count ${maxResults} --line-number --no-heading '${args.pattern}' '${searchPath}'`;
+          const rgResult = await runShell(cmd, cwd, 10_000);
+          if (!rgResult.includes("not recognized") && !rgResult.includes("command not found") && !rgResult.includes("(no output)") && rgResult.length > result.length) {
+            result = rgResult.split("\n").filter(l => l.trim()).map(l => {
+              const colonIdx = l.indexOf(":");
+              if (colonIdx > 0) {
+                const norm = l.slice(0, colonIdx).replace(/\\/g, "/");
+                const rel = norm.startsWith(cwd.replace(/\\/g, "/") + "/") ? norm.slice(cwd.replace(/\\/g, "/").length + 1) : l.slice(0, colonIdx);
+                return rel + l.slice(colonIdx);
+              }
+              return l;
+            }).join("\n");
+          }
+        }
+        // Smart truncate (head+tail — preserves grep matches at end)
+        const truncated = smartTruncateToolResult(result, 12_000);
+        if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
+        return truncated;
+      }
+
+      // ══════════════════════════════════════════
+      // ── Diff & Git ──
+      // ══════════════════════════════════════════
+
+      case "diff": {
+        // File-to-file diff
+        if (args.file_a && args.file_b) {
+          const fileA = resolvePath(args.file_a);
+          const fileB = resolvePath(args.file_b);
+          if (!isPathAllowed(args.file_a) || !isPathAllowed(args.file_b)) return `Error: path outside allowed directory`;
+          if (IS_WIN) {
+            // Windows: fc.exe (file compare) is always available
+            const cmd = `fc "${fileA}" "${fileB}"`;
+            const result = await runShell(cmd, cwd, 10_000);
+            if (onEvent) onEvent({ type: "tool_end", name, result: result.slice(0, 300) });
+            return result;
+          }
+          const result = await runShell(`diff '${fileA}' '${fileB}'`, cwd, 10_000);
+          if (onEvent) onEvent({ type: "tool_end", name, result: result.slice(0, 300) });
+          return result;
+        }
+        // Git diff — git works on both platforms
+        const diffPath = args.path ? resolvePath(args.path) : cwd;
+        const against = args.against || "HEAD";
+        if (IS_WIN) {
+          const cmd = `git diff "${against}"${args.path ? ` -- "${diffPath}"` : ""}`;
+          const result = await runShell(cmd, cwd, 15_000);
+          const truncated = smartTruncateToolResult(result, 12_000);
+          if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
+          return truncated || "(no changes)";
+        }
+        const cmd = `git diff '${against}'${args.path ? ` -- '${diffPath}'` : ""}`;
+        const result = await runShell(cmd, cwd, 15_000);
+        const truncated = smartTruncateToolResult(result, 12_000);
+        if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
+        return truncated || "(no changes)";
+      }
+
+      case "git": {
+        // All git operations go through this tool
+        const cmd = `git ${args.command}`;
+        const timeoutMs = Math.min((args._timeout || 30) * 1000, 60_000);
+        const result = await runShell(cmd, cwd, timeoutMs);
+        const maxLen = 30_000;
+        const truncated = smartTruncateToolResult(result, 12_000);
+        if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
+        return truncated;
+      }
+
+      // ══════════════════════════════════════════
+      // ── Shell ──
+      // ══════════════════════════════════════════
+
+      case "bash": {
+        // 🚧 鐵律（Fleming 2026-09-13）：process 控制只限本 RU dev server（用 dev_server 工具），
+        // 外面的一律不可碰 —— 尤其 PAAW coding app 本身。硬防護見 lib/shell-guard.mjs
+        const { guardShellProcessScope } = await import("./shell-guard.mjs");
+        const guard = await guardShellProcessScope(args.command, cwd);
+        if (guard.blocked) {
+          if (onEvent) onEvent({ type: "tool_end", name, result: guard.message.slice(0, 500) });
+          return guard.message;
+        }
+        const timeoutSec = Math.min(args.timeout || 120, _agentCfg.bashTimeoutSeconds || 300);
+        const timeoutMs = timeoutSec * 1000;
+        const result = await runShell(args.command, cwd, timeoutMs);
+        // Smart truncate (head+tail — preserves build errors/test results at end)
+        const truncated = smartTruncateToolResult(result, 12_000, { alwaysKeepTail: true });
+        if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 500) });
+        return truncated;
+      }
+
+      // ══════════════════════════════════════════
+      // ── Dev Server Controller（2026-09-10 Phase 1）──
+      // 長駐程序管理：start/stop/restart/status + log 讀取（lib/dev-server.mjs）
+      // ══════════════════════════════════════════
+
+      case "dev_server": {
+        const { devServerAction } = await import("./dev-server.mjs");
+        const out = await devServerAction(cwd, args);
+        if (onEvent) onEvent({ type: "tool_end", name, result: out.slice(0, 500) });
+        return out;
+      }
+
+      case "dev_log": {
+        const { readDevLog } = await import("./dev-server.mjs");
+        const out = await readDevLog(cwd, args);
+        // log tail 可能很長 — smart truncate 保尾（error 通常在尾端）
+        const truncated = smartTruncateToolResult(out, 10_000, { alwaysKeepTail: true });
+        if (onEvent) onEvent({ type: "tool_end", name, result: `tail ${args.lines || 100} lines` });
+        return truncated;
+      }
+
+      // ══════════════════════════════════════════
+      // ── Release Unit Tools（三防線：context / impact / verify）──
+      // ══════════════════════════════════════════
+
+      case "ru_context": {
+        const { detectTechStack } = await import("./release-unit/adapters.mjs");
+        const tech = await detectTechStack(cwd);
+        const readDoc = async (rel) => {
+          const f = resolve(cwd, ".paaw", rel);
+          if (!existsSync(f)) return null;
+          try { return readSync(f, "utf-8"); } catch { return null; }
+        };
+        const docs = ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md", "CONTEXT.md"];
+        const found = [];
+        for (const d of docs) {
+          if (await readDoc(d)) found.push(d);
+        }
+        let out = `【Release Unit context】${cwd.split(/[\\/]/).pop()}\n技術桡：${tech.language} / ${tech.packageManager} / ${(tech.frameworks || []).join(", ") || "-"}\n.paaw 文件：${found.length ? found.join(", ") : "（尚未初始化）"}\n`;
+        if (args.withDocs) {
+          for (const d of ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md"]) {
+            const c = await readDoc(d);
+            if (c) out += `\n【${d}】\n${smartTruncateToolResult(c, 6000, { alwaysKeepTail: false })}`;
+          }
+        }
+        if (onEvent) onEvent({ type: "tool_end", name, result: `context ${found.length}/5 docs` });
+        return out;
+      }
+
+      case "ru_dependencies": {
+        const { buildDependencyGraph, queryGraph } = await import("./release-unit/dependencies.mjs");
+        const graph = await buildDependencyGraph(cwd);
+        const r = queryGraph(graph, args.file, "both");
+        if (!r.found) return `檔案不在依賴圖中：${args.file}（掃描 ${graph.fileCount} 檔，adapter=${graph.adapter}）。可用相對路徑或檔名重試。`;
+        const fmt = (list, label) => list?.length ? `\n【${label}】(${list.length})\n` + list.map(f => `  ${f}`).join("\n") : `\n【${label}】(0)`;
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${r.file}: fwd ${r.forward?.length || 0} / rev ${r.reverse?.length || 0}` });
+        return `檔案：${r.file}${fmt(r.forward, "我 import 誰")}${fmt(r.reverse, "誰 import 我")}${fmt(r.externals, "外部套件")}`;
+      }
+
+      case "ru_impact_analysis": {
+        const { impactAnalysis } = await import("./release-unit/impact.mjs");
+        const r = await impactAnalysis(cwd, args.files, { changeType: args.changeType });
+        if (r.unresolved.length) {
+          return `這些檔案不在依賴圖中，無法分析：${r.unresolved.join(", ")}。請確認路徑（相對於專案根）。`;
+        }
+        const lines = r.affected.map(a => `  d${a.depth} ${a.file}`);
+        if (onEvent) onEvent({ type: "tool_end", name, result: `affected ${r.affectedCount}` });
+        return `【影響分析】改動 ${r.changed.length} 檔（${r.changeType}）→ 受影響 ${r.affectedCount} 檔\n` +
+          (lines.length ? lines.join("\n") : "（無內部依賴者 — 安全）") +
+          (r.hotspots.length ? `\n【樞紐熱點（改動需特別小心）】\n` + r.hotspots.slice(0, 5).map(h => `  ${h.file}（${h.dependents} 依賴者）`).join("\n") : "");
+      }
+
+      case "ru_verify": {
+        const { runVerify } = await import("./release-unit/verify.mjs");
+        if (onEvent) onEvent({ type: "tool_end", name, result: "verify running…" });
+        const report = await runVerify(cwd, { checks: args.checks });
+        const lines = report.checks.map(c =>
+          `${c.ok ? "✅" : "❌"} ${c.check}（${Math.round(c.durationMs / 100) / 10}s）${c.ok ? "" : "\n" + (c.output || "").slice(-1500)}`);
+        if (onEvent) onEvent({ type: "tool_end", name, result: `verify ${report.overall}` });
+        return `【驗證結果】${report.overall.toUpperCase()}（${report.ran.join(", ") || "無可執行關卡"}）\n${lines.join("\n")}`;
+      }
+
+      // ══════════════════════════════════════════
+      // ── User Interaction ──
+      // ══════════════════════════════════════════
+
+      case "ask_user": {
+        if (onEvent) onEvent({ type: "tool_end", name, result: `Asked: ${args.question}` });
+        return `[User interaction not available in agent loop. Please make your best judgment and proceed. Question was: ${args.question}]`;
+      }
+
+      case "browser_test": {
+        const testUrl = args.url;
+        const expectStatus = args.expectStatus || 200;
+        const expectText = args.expectText;
+
+        if (!testUrl) return "Error: url is required for browser_test";
+
+        if (onEvent) onEvent({ type: "tool_start", name, args: testUrl });
+
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10_000);
+          const res = await fetch(testUrl, {
+            signal: controller.signal,
+            redirect: "follow",
+          });
+          clearTimeout(timeout);
+
+          const text = await res.text();
+          const headers = {};
+          res.headers.forEach((v, k) => { headers[k] = v; });
+
+          let report = `URL: ${testUrl}\n`;
+          report += `Status: ${res.status} ${res.statusText}\n`;
+          report += `Content-Type: ${headers["content-type"] || "(none)"}\n`;
+          report += `Body length: ${text.length} chars\n`;
+
+          // Status check
+          if (res.status === expectStatus) {
+            report += `✅ Status ${res.status} matches expected ${expectStatus}\n`;
+          } else {
+            report += `❌ Status ${res.status} does NOT match expected ${expectStatus}\n`;
+          }
+
+          // Text check
+          if (expectText) {
+            if (text.includes(expectText)) {
+              report += `✅ Found expected text: "${expectText.slice(0, 60)}"\n`;
+            } else {
+              report += `❌ Expected text not found: "${expectText.slice(0, 60)}"\n`;
+            }
+          }
+
+          // Body preview
+          report += `\n--- Body (first 2000 chars) ---\n${text.slice(0, 2000)}`;
+          if (text.length > 2000) report += `\n... (${text.length - 2000} more chars)`;
+
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${res.status} ${res.statusText}` });
+          return report;
+        } catch (fetchErr) {
+          const errMsg = fetchErr.name === "AbortError"
+            ? `Request to ${testUrl} timed out after 10s`
+            : `Failed to fetch ${testUrl}: ${fetchErr.message}`;
+          if (onEvent) onEvent({ type: "tool_error", name, error: errMsg });
+          return `❌ ${errMsg}\n\nThis usually means the dev server is not running. Check the port and try again.`;
+        }
+      }
+
+      // ═════════════════════════════════════════
+      // ── API Tester（2026-09-12）──
+      // developer agent 直接打 API：任5意 method/headers/body，
+      // 每次呼叫存入 data/api-tester-history.json（跟 UI 🌐 API Tester 同一份），
+      // 人從 UI 📜 History 看得到（帶 🤖 標記）、可點回來 replay。
+      // ═════════════════════════════════════════
+      case "api_test": {
+        const tUrl = String(args.url || "").trim();
+        const tMethod = String(args.method || "GET").toUpperCase();
+        if (!tUrl) return "Error: url is required for api_test";
+        if (!/^https?:\/\//i.test(tUrl)) return "Error: url must start with http:// or https://";
+
+        if (onEvent) onEvent({ type: "tool_start", name, args: `${tMethod} ${tUrl}` });
+
+        // headers: object → 略過 content-length 之類會被 fetch 拒統的
+        const rawHeaders = (args.headers && typeof args.headers === "object" && !Array.isArray(args.headers)) ? args.headers : {};
+        const reqHeaders = {};
+        for (const [k, v] of Object.entries(rawHeaders)) {
+          const lk = String(k).toLowerCase();
+          if (lk === "content-length" || lk === "host") continue; // fetch 會拒絕/覆寫
+          reqHeaders[String(k)] = String(v);
+        }
+        const tBody = args.body !== undefined && args.body !== null ? String(args.body) : undefined;
+        const expectStatus = args.expectStatus || null;
+        const expectText = args.expectText || null;
+
+        const startTime = Date.now();
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 20_000);
+          const fetchOpts = { method: tMethod, headers: reqHeaders, redirect: "follow", signal: controller.signal };
+          if (tBody && tMethod !== "GET" && tMethod !== "HEAD") fetchOpts.body = tBody;
+          const tRes = await fetch(tUrl, fetchOpts);
+          clearTimeout(timer);
+          const elapsed = Date.now() - startTime;
+
+          const respHeaders = {};
+          tRes.headers.forEach((v, k) => { respHeaders[k] = v; });
+          const contentType = tRes.headers.get("content-type") || "";
+          let respBody;
+          if (contentType.includes("json") || contentType.includes("text") || contentType.includes("xml") || contentType.includes("html") || contentType.includes("javascript")) {
+            respBody = await tRes.text();
+          } else {
+            const buf = await tRes.arrayBuffer();
+            respBody = `[Binary data: ${buf.byteLength} bytes]`;
+          }
+
+          // ── 存入共用 API Tester history（跟 UI 同一份檔、同一形狀）──
+          // UI 存的 headers 是 [{key,value,enabled}] — 沿用同形狀，人點回來才能 replay
+          const headerArr = Object.entries(reqHeaders).map(([k, v]) => ({ key: k, value: v, enabled: true }));
+          const histItem = {
+            id: `req-${Date.now()}`,
+            ts: new Date().toISOString(),
+            method: tMethod,
+            url: tUrl,
+            status: tRes.status,
+            elapsed,
+            headers: headerArr,
+            body: tBody || "",
+            streamMode: false,
+            response: { status: tRes.status, statusText: tRes.statusText, headers: respHeaders, body: respBody, elapsed, size: respBody.length },
+            source: "agent",
+            agent: agentId || undefined,
+          };
+          try {
+            const histFile = resolve(DATA_HOME, "api-tester-history.json");
+            let hist = [];
+            try { hist = JSON.parse(readSync(histFile, "utf-8")); } catch {}
+            hist.unshift(histItem);
+            if (hist.length > 100) hist = hist.slice(0, 100);
+            writeSync(histFile, JSON.stringify(hist, null, 2));
+          } catch {}
+
+          // ── Report ──
+          let report = `${tMethod} ${tUrl}\n`;
+          report += `Status: ${tRes.status} ${tRes.statusText}\n`;
+          report += `Elapsed: ${elapsed}ms · Body: ${respBody.length} chars\n`;
+          if (expectStatus !== null) {
+            report += tRes.status === expectStatus
+              ? `✅ Status ${tRes.status} matches expected ${expectStatus}\n`
+              : `❌ Status ${tRes.status} does NOT match expected ${expectStatus}\n`;
+          }
+          if (expectText) {
+            report += respBody.includes(expectText)
+              ? `✅ Found expected text: "${expectText.slice(0, 60)}"\n`
+              : `❌ Expected text not found: "${expectText.slice(0, 60)}"\n`;
+          }
+          report += `\n📜 Saved to API Tester history (visible in UI 🌐 API Tester → 📜).\n\n--- Body (first 2500 chars) ---\n${respBody.slice(0, 2500)}`;
+          if (respBody.length > 2500) report += `\n... (${respBody.length - 2500} more chars)`;
+
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${tRes.status} ${tRes.statusText} (${elapsed}ms)` });
+          return report;
+        } catch (err) {
+          const elapsed = Date.now() - startTime;
+          const errMsg = err.name === "AbortError" ? `timed out after 20s` : String(err.message || err);
+          // 失敗也記錄（status 0）— 人看得到 agent 打了什麼失敗
+          try {
+            const histFile = resolve(DATA_HOME, "api-tester-history.json");
+            let hist = [];
+            try { hist = JSON.parse(readSync(histFile, "utf-8")); } catch {}
+            hist.unshift({
+              id: `req-${Date.now()}`, ts: new Date().toISOString(), method: tMethod, url: tUrl,
+              status: 0, elapsed, headers: Object.entries(reqHeaders).map(([k, v]) => ({ key: k, value: v, enabled: true })),
+              body: tBody || "", streamMode: false,
+              response: { status: 0, statusText: "Network Error", headers: {}, body: errMsg, elapsed, size: 0, error: true },
+              source: "agent", agent: agentId || undefined,
+            });
+            if (hist.length > 100) hist = hist.slice(0, 100);
+            writeSync(histFile, JSON.stringify(hist, null, 2));
+          } catch {}
+          if (onEvent) onEvent({ type: "tool_error", name, error: errMsg });
+          return `❌ ${tMethod} ${tUrl} failed after ${elapsed}ms: ${errMsg}\n(Also saved to API Tester history with status 0.)`;
+        }
+      }
+
+      // ══════════════════════════════════════════
+      // ── Real Browser Tools (Playwright) ──
+      case "browser_navigate": {
+        const url = assertSafeUrl(args.url);
+        if (onEvent) onEvent({ type: "tool_start", name, args: url });
+        try {
+          const page = await getBrowserPage(resolveBrowserKey(cwd));
+          trackPage(resolveBrowserKey(cwd), page);
+          await page.goto(url, { waitUntil: "domcontentloaded" });
+          await page.waitForTimeout(args.waitMs ?? 800);
+          const title = await page.title().catch(() => "(no title)");
+          const excerpt = (await readPageText(page, 1500)) || "(empty page)";
+          const nvShot = await takeActionShot(resolveBrowserKey(cwd), page).catch(() => null);
+          recordBrowserAction(resolveBrowserKey(cwd), { actor: "agent", kind: "navigate", summary: `載入「${title}」`, url: page.url(), shot: nvShot });
+          if (onEvent) onEvent({ type: "tool_end", name, result: title });
+          return `✅ Loaded: ${title}\nURL: ${page.url()}\n\n--- Text excerpt ---\n${excerpt}\n\nUse browser_read for full content, browser_screenshot for visual capture.`;
+        } catch (navErr) {
+          const hint = /playwright|Cannot find module/i.test(navErr?.message || "") ? `\n\n${PLAYWRIGHT_INSTALL_HINT}` : "";
+          if (onEvent) onEvent({ type: "tool_error", name, error: navErr.message });
+          return `❌ browser_navigate failed: ${navErr.message}${hint}`;
+        }
+      }
+      case "browser_read": {
+        if (onEvent) onEvent({ type: "tool_start", name, args: {} });
+        try {
+          const page = await getBrowserPage(resolveBrowserKey(cwd));
+          trackPage(resolveBrowserKey(cwd), page);
+          const text = await readPageText(page, Math.min(args.maxLength || 8000, 20000));
+          recordBrowserAction(resolveBrowserKey(cwd), { actor: "agent", kind: "read", summary: `讀取頁面文字（${text.length} 字）`, url: page.url() });
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${text.length} chars` });
+          return `URL: ${page.url()}\n\n${text || "(empty page)"}`;
+        } catch (readErr) {
+          const hint = /playwright|Cannot find module/i.test(readErr?.message || "") ? `\n\n${PLAYWRIGHT_INSTALL_HINT}` : "";
+          if (onEvent) onEvent({ type: "tool_error", name, error: readErr.message });
+          return `❌ browser_read failed: ${readErr.message}${hint}`;
+        }
+      }
+      case "browser_screenshot": {
+        if (onEvent) onEvent({ type: "tool_start", name, args: {} });
+        try {
+          const page = await getBrowserPage(resolveBrowserKey(cwd));
+          trackPage(resolveBrowserKey(cwd), page);
+          const path = await takeScreenshot(resolveBrowserKey(cwd), page);
+          // Vision Phase 3（2026-08-30）：多拍一張 jpeg q80 給 LLM 看（png 留給 IDE Browser tab 人看）
+          // 標記由 agent loop 攔截 → 圖進 message；沒 vision 能力時降級為文字提示
+          recordBrowserAction(resolveBrowserKey(cwd), { actor: "agent", kind: "screenshot", summary: "截圖存證", url: page.url() });
+          let visionMarker = "";
+          try {
+            const shotDir = browserShotDir(resolveBrowserKey(cwd));
+            const visionPath = join(shotDir, `shot-${Date.now()}.vision.jpg`);
+            await page.screenshot({ path: visionPath, type: "jpeg", quality: 80, fullPage: false });
+            visionMarker = `\n[[PAAW_IMAGE:${visionPath.split(/[\\/]/).join("/")}]]`;
+          } catch { /* vision copy 失敗不影響主截圖 */ }
+          if (onEvent) onEvent({ type: "tool_end", name, result: path });
+          return `📸 Screenshot saved: ${path}${visionMarker}\nPNG 存檔（人看）：IDE Browser tab。若 vision 可用，畫面已直接附在你的上下文裡 — 請描述你看到的內容做視覺驗證；看不到圖就用 browser_read 讀文字。`;
+        } catch (shotErr) {
+          const hint = /playwright|Cannot find module/i.test(shotErr?.message || "") ? `\n\n${PLAYWRIGHT_INSTALL_HINT}` : "";
+          if (onEvent) onEvent({ type: "tool_error", name, error: shotErr.message });
+          return `❌ browser_screenshot failed: ${shotErr.message}${hint}`;
+        }
+      }
+      case "browser_click": {
+        if (onEvent) onEvent({ type: "tool_start", name, args });
+        try {
+          const page = await getBrowserPage(resolveBrowserKey(cwd));
+          trackPage(resolveBrowserKey(cwd), page);
+          const target = locateTarget(page, args);
+          if (getVisualMode(resolveBrowserKey(cwd))) {
+            await visualClick(page, target); // 真人節奏：高亮 → 滑行 → 按壓（fallback 內建）
+          } else {
+            await target.click({ timeout: 10_000 });
+          }
+          await page.waitForTimeout(600);
+          const ckShot = await takeActionShot(resolveBrowserKey(cwd), page).catch(() => null);
+          recordBrowserAction(resolveBrowserKey(cwd), { actor: "agent", kind: "click", summary: `點擊 ${args.selector || JSON.stringify(args.text)}`, url: page.url(), shot: ckShot });
+          const excerpt = (await readPageText(page, 1200)) || "(empty)";
+          if (onEvent) onEvent({ type: "tool_end", name, result: `clicked @ ${page.url()}` });
+          return `✅ Clicked (${args.selector || JSON.stringify(args.text)})\nURL now: ${page.url()}\n\n--- Text excerpt ---\n${excerpt}`;
+        } catch (clickErr) {
+          const hint = /playwright|Cannot find module/i.test(clickErr?.message || "") ? `\n\n${PLAYWRIGHT_INSTALL_HINT}` : "";
+          if (onEvent) onEvent({ type: "tool_error", name, error: clickErr.message });
+          return `❌ browser_click failed: ${clickErr.message}${hint}`;
+        }
+      }
+      case "browser_type": {
+        if (onEvent) onEvent({ type: "tool_start", name, args });
+        try {
+          const page = await getBrowserPage(resolveBrowserKey(cwd));
+          trackPage(resolveBrowserKey(cwd), page);
+          const input = page.locator(args.selector).first();
+          if (getVisualMode(resolveBrowserKey(cwd))) {
+            // 真人節奏：游標滑到欄位點進去 → 清空 → 逐字打字（字間帶隨機延遲）
+            await visualClick(page, input);
+            await input.fill("", { timeout: 10_000 });
+            await input.pressSequentially(String(args.text), { delay: 55 + Math.floor(Math.random() * 35) });
+          } else {
+            await input.fill(String(args.text), { timeout: 10_000 });
+          }
+          if (args.submit) await input.press("Enter");
+          await page.waitForTimeout(600);
+          recordBrowserAction(resolveBrowserKey(cwd), { actor: "agent", kind: "type", summary: `輸入 ${args.selector} ← "${String(args.text).slice(0, 40)}"${args.submit ? " +Enter" : ""}`, url: page.url() });
+          const excerpt = (await readPageText(page, 1200)) || "(empty)";
+          if (onEvent) onEvent({ type: "tool_end", name, result: `typed into ${args.selector}` });
+          return `✅ Typed into ${args.selector}${args.submit ? " + Enter" : ""}\nURL now: ${page.url()}\n\n--- Text excerpt ---\n${excerpt}`;
+        } catch (typeErr) {
+          const hint = /playwright|Cannot find module/i.test(typeErr?.message || "") ? `\n\n${PLAYWRIGHT_INSTALL_HINT}` : "";
+          if (onEvent) onEvent({ type: "tool_error", name, error: typeErr.message });
+          return `❌ browser_type failed: ${typeErr.message}${hint}`;
+        }
+      }
+      // 2026-09-12：native select 下拉操作 — selectOption（label 或 value 二選一）
+      case "browser_select": {
+        if (onEvent) onEvent({ type: "tool_start", name, args: `${args.selector} → ${args.label || args.value}` });
+        try {
+          const page = await getBrowserPage(resolveBrowserKey(cwd));
+          trackPage(resolveBrowserKey(cwd), page);
+          const sel = page.locator(args.selector).first();
+          // 列出選項讓 agent 看得到有哪些（沒給 label/value 時直接回清單）
+          if (!args.label && !args.value) {
+            const opts = await sel.locator("option").evaluateAll(os => os.map(o => ({ value: o.value, label: o.textContent.trim(), selected: o.selected })));
+            if (onEvent) onEvent({ type: "tool_end", name, result: `${opts.length} options` });
+            return `Options in ${args.selector} (${opts.length}):\n${opts.map(o => `${o.selected ? "*" : " "} [${o.value}] ${o.label}`).join("\n")}\n(call again with label= or value= to select)`;
+          }
+          const choice = args.label !== undefined ? { label: String(args.label) } : { value: String(args.value) };
+          await sel.selectOption(choice, { timeout: 10_000 });
+          await page.waitForTimeout(400);
+          const chosen = await sel.inputValue();
+          const slShot = await takeActionShot(resolveBrowserKey(cwd), page).catch(() => null);
+          recordBrowserAction(resolveBrowserKey(cwd), { actor: "agent", kind: "select", summary: `下拉選 ${args.label || args.value}`, url: page.url(), shot: slShot });
+          const excerpt = (await readPageText(page, 1000)) || "(empty)";
+          if (onEvent) onEvent({ type: "tool_end", name, result: `selected ${chosen}` });
+          return `✅ Selected ${args.label || args.value} in ${args.selector} (current value: ${chosen})\nURL: ${page.url()}\n\n--- Text excerpt ---\n${excerpt.slice(0, 600)}`;
+        } catch (selErr) {
+          const hint = /playwright|Cannot find module/i.test(selErr?.message || "") ? `\n\n${PLAYWRIGHT_INSTALL_HINT}` : "";
+          if (onEvent) onEvent({ type: "tool_error", name, error: selErr.message });
+          return `❌ browser_select failed: ${selErr.message}${hint}`;
+        }
+      }
+
+      // ══════════════════════════════════════════
+      // ── Staged Summary Tool ──
+      case "staged_summary": {
+        try {
+          const summaryPath = join(cwd, ".paaw", "staged-changes.json");
+          const summaryData = {
+            createdAt: new Date().toISOString(),
+            agent: agentId || "unknown",
+            task: args.task || "",
+            taskId: args.taskId || "",
+            summary: args.summary || "",
+            files: args.files || [],
+            howToTest: args.howToTest || "",
+            risk: args.risk || "無",
+          };
+          await mkdir(dirname(summaryPath), { recursive: true });
+          await writeFile(summaryPath, JSON.stringify(summaryData, null, 2) + "\n", "utf-8");
+          if (onEvent) onEvent({ type: "tool_end", name, result: `Staged summary saved to .paaw/staged-changes.json (${summaryData.files.length} files)` });
+          return `✅ Staged summary saved. ${summaryData.files.length} files recorded.\nHuman will see this in Git tab.`;
+        } catch (err) {
+          return `Error saving staged summary: ${err.message}`;
+        }
+      }
+
+      // ══════════════════════════════════════════
+      // ── Project Knowledge Read Tools (structured .paaw/ access) ──
+      // ── Unified project_info handler ──
+      case "project_info": {
+        // ── Alias mapping: old tool names → project_info category ──
+        const cat = args.category;
+        if (!cat) return "Error: 'category' parameter is required. Valid: context, issues, features, feature_detail, runbook, sessions, test_map, recent_changes, api_history, project_read, error_codes, c4_model, security, decisions, changelog";
+        const paaw = createPaawProject(cwd);
+
+        switch (cat) {
+          case "context": {
+            if (!paaw.exists) return "⚠️ .paaw/ not initialized for this project.";
+            const ctx = await paaw.loadContextText();
+            if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: ctx ? `${ctx.length} chars` : "empty" });
+            return ctx || "(No project context found)";
+          }
+          case "decisions": {
+            if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
+            try {
+              const content = await paaw.readFile("DECISIONS.md");
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: content ? `${content.length} chars` : "empty" });
+              return content || "(No decisions recorded yet)";
+            } catch { return "(No DECISIONS.md found)"; }
+          }
+          case "changelog": {
+            if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
+            try {
+              const content = await paaw.readFile("CHANGELOG.md");
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: content ? `${content.length} chars` : "empty" });
+              return content || "(No changelog yet)";
+            } catch { return "(No CHANGELOG.md found)"; }
+          }
+          case "project_read": {
+            if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
+            const proj = await paaw.readFile("PROJECT.md");
+            if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: proj ? `${proj.length} chars` : "empty" });
+            return proj || "(No PROJECT.md found)";
+          }
+          case "issues": {
+            const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
+            if (!existsSync(issuesFile)) return "(No issues tracking initialized)";
+            try {
+              const data = JSON.parse(readSync(issuesFile, "utf-8"));
+              let issues = data.issues || [];
+              if (args.status) { const statuses = args.status.split(",").map(s => s.trim()); issues = issues.filter(i => statuses.includes(i.status)); }
+              if (args.priority) { const priorities = args.priority.split(",").map(p => p.trim()); issues = issues.filter(i => priorities.includes(i.priority)); }
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${issues.length} issues` });
+              if (issues.length === 0) return "(No matching issues found)";
+              const summary = issues.map(i => `[${i.id}] ${i.status} | ${i.priority} | ${i.title}${i.labels?.length ? ` [${i.labels.join(",")}]` : ""}`).join("\n");
+              return `Issues (${issues.length}):\n${summary}`;
+            } catch (err) { return `Error reading issues: ${err.message}`; }
+          }
+          case "features": {
+            const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
+            if (!existsSync(featuresFile)) return "(No features registered yet.)";
+            try {
+              const data = JSON.parse(readSync(featuresFile, "utf-8"));
+              let features = data.features || [];
+              if (args.search) { const s = args.search.toLowerCase(); features = features.filter(f => f.name?.toLowerCase().includes(s) || f.description?.toLowerCase().includes(s)); }
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${features.length} features` });
+              if (features.length === 0) return "(No matching features found)";
+              const list = features.map(f => {
+                const parts = [`[${f.id}] ${f.name} (${f.status})`];
+                if (f.description) parts.push(`  ${f.description}`);
+                if (f.codeFiles?.length) parts.push(`  Code: ${f.codeFiles.join(", ")}`);
+                if (f.apis?.length) parts.push(`  API: ${f.apis.map(a => `${a.method} ${a.path}`).join(", ")}`);
+                if (f.tests?.length) parts.push(`  Tests: ${f.tests.join(", ")}`);
+                return parts.join("\n");
+              }).join("\n\n");
+              return `Features (${features.length}):\n\n${list}`;
+            } catch (err) { return `Error reading features: ${err.message}`; }
+          }
+          case "error_codes": { // 2026-09-05 v2：LLM 語意整理 — agent 寫碼前查既有 error 處理、helpdesk 從 code 追 feature
+            const ecFile = join(cwd, ".paaw", "error-codes.json");
+            if (!existsSync(ecFile)) return "(No error-codes.json — CU error-codes 步驟未跑。請跑 CU 或請人類在 FeatureMap panel 🔢 整理。注意：整理會花 LLM token。)";
+            try {
+              const data = JSON.parse(readSync(ecFile, "utf-8"));
+            if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${data.stats?.uniqueCodes || 0} codes` });
+              // 🔍 反查（debug 入口）：錯誤碼/訊息片段 → feature + file:line
+              if (args.search) {
+                const q = String(args.search).toLowerCase();
+                const hit = (c) => (c.code || "").toLowerCase().includes(q) || (c.message || "").toLowerCase().includes(q) || (c.file || "").toLowerCase().includes(q);
+                const groups = [];
+                for (const g of data.byFeature || []) {
+                  const matched = (g.codes || []).filter(hit);
+                  if (matched.length) groups.push({ g, matched });
+                }
+                const unmappedHits = (data.unmapped || []).filter(hit);
+                if (!groups.length && !unmappedHits.length) {
+                  return `🔍 沒有 hit「${args.search}」。建議：換更短的穩定片段（code 前綴或訊息關鍵字，避開變數值），或不帶 search 列出全部。`;
+                }
+                const lines = [`🔍 error codes 反查「${args.search}」：`];
+                for (const { g, matched } of groups.slice(0, 10)) {
+                  lines.push(``, `[${g.featureId}] ${g.featureName}${g.summary ? ` — ${g.summary.slice(0, 80)}` : ""}`);
+                  for (const c of matched.slice(0, 8)) {
+                    lines.push(`  ${c.code || `(無code)`}${c.message ? `「${c.message}」` : ""} @${c.file}${c.line ? ":" + c.line : ""}${c.httpStatus ? ` [HTTP ${c.httpStatus}]` : ""}${c.kind === "throw" ? " (throw)" : ""}`);
+                  }
+                }
+                if (unmappedHits.length) {
+                  lines.push(``, `(unmapped — 不屬於任何 feature:)`);
+                  for (const c of unmappedHits.slice(0, 5)) lines.push(`  ${c.code || `(無code)`}${c.message ? `「${c.message}」` : ""} @${c.file}${c.line ? ":" + c.line : ""}`);
+                }
+                return lines.join("\n");
+              }
+              if (args.feature) {
+                const g = (data.byFeature || []).find(f => f.featureId === args.feature || f.featureName?.toLowerCase().includes(String(args.feature).toLowerCase()));
+                if (!g) return `(No error codes found for feature '${args.feature}')`;
+                const lines = (g.codes || []).map(c => `  ${c.code || `(無code) ${c.message}`} — ${c.file}${c.line ? ":" + c.line : ""}${c.httpStatus ? ` [HTTP ${c.httpStatus}]` : ""}${c.kind === "throw" ? " (throw)" : ""}`);
+                return `Error handling for [${g.featureId}] ${g.featureName} (${g.uniqueCount} unique)${g.summary ? `\n摘要：${g.summary}` : ""}\n${lines.join("\n")}`;
+              }
+              const head = (data.byFeature || []).slice(0, args.limit ? Number(args.limit) : 15).map(g =>
+                `[${g.featureId}] ${g.featureName}: ${g.uniqueCount || (g.codes || []).length} codes`);
+              const extra = (data.byFeature || []).length > 15 ? `\n... 共 ${data.byFeature.length} 個 feature（帶 feature 參數看單一 feature）` : "";
+              const rec = data.recommendation?.suggest ? `\n⚠️ 建議導入 Error Code Rules v1（plan 詳見 error-codes.json / FeatureMap panel）` : "";
+              return `Error codes by feature (${data.stats?.uniqueCodes || 0} unique / ${data.byFeature?.length || 0} features / conventions: ${data.conventions || "unknown"})${data.conventionNote ? `\n慣例：${data.conventionNote}` : ""}${rec}\n${head.join("\n")}${extra}\nunmapped: ${(data.unmapped || []).length}`;
+            } catch (err) { return `Error reading error-codes: ${err.message}`; }
+          }
+          case "c4_model": { // 2026-09-05：對外連線全景 — ops/handover/architect 查 RU 連哪些 DB/服務
+            const c4File = join(cwd, ".paaw", "c4-model.json");
+            if (!existsSync(c4File)) return "(No c4-model.json — CU c4-model 步驟未跑。請跑 CU 或請人類在 Code Intel → Architecture tab 整理。注意：組裝會花 LLM token。)";
+            try {
+              const data = JSON.parse(readSync(c4File, "utf-8"));
+            if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${data.stats?.external || 0} external` });
+              const fmt = (c) => `  ${c.name} [${c.type || "?"}]${c.technology ? ` (${c.technology})` : ""} — ${c.description || ""}${c.evidence?.length ? ` | 證據: ${c.evidence.slice(0, 3).join("; ")}` : ""}`;
+              if (args.search) {
+                const q = String(args.search).toLowerCase();
+                const hit = (c) => [c.name, c.type, c.technology, c.description, ...(c.evidence || [])].join(" ").toLowerCase().includes(q);
+                const cont = (data.containers || []).filter(hit);
+                const ext = (data.externalSystems || []).filter(hit);
+                const rel = (data.relationships || []).filter(r => `${r.from} ${r.to} ${r.protocol} ${r.description}`.toLowerCase().includes(q));
+                if (!cont.length && !ext.length && !rel.length) return `🔍 c4 沒有 hit「${args.search}」。試更短的關鍵字（如 redis、db、佇列）。`;
+                const lines = [`🔍 C4 搜尋「${args.search}」：`];
+                if (cont.length) { lines.push(``, `Containers:`); cont.forEach(c => lines.push(fmt(c))); }
+                if (ext.length) { lines.push(``, `External systems:`); ext.forEach(c => lines.push(fmt(c))); }
+                if (rel.length) { lines.push(``, `Relationships:`); rel.forEach(r => lines.push(`  ${r.from} → ${r.to} (${r.protocol || "?"}) — ${r.description || ""}`)); }
+                return lines.join("\n");
+              }
+              const lines = [`# C4 對外連線：${data.system?.name || ""}`, data.system?.description || "", "", "## Containers", ...(data.containers || []).map(fmt), "", "## External systems", ...(data.externalSystems || []).map(fmt), "", "## Relationships", ...(data.relationships || []).map(r => `  ${r.from} → ${r.to} (${r.protocol || "?"}) — ${r.description || ""}`)];
+              if (data.notes) lines.push("", `Notes: ${data.notes}`);
+              return lines.join("\n");
+            } catch (err) { return `Error reading c4-model: ${err.message}`; }
+          }
+          case "feature_detail": {
+            if (!args.id) return "Error: 'id' parameter is required for feature_detail.";
+            const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
+            if (!existsSync(featuresFile)) return "(No features registered)";
+            try {
+              const data = JSON.parse(readSync(featuresFile, "utf-8"));
+              const feature = (data.features || []).find(f => f.id === args.id);
+              if (!feature) return `Feature ${args.id} not found`;
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: feature.name });
+              const parts = [`# Feature: ${feature.name} (${feature.id})`, `Status: ${feature.status}`, ``, `## Description`, feature.description || "(no description)"];
+              if (feature.codeFiles?.length) parts.push(``, `## Code Files`, feature.codeFiles.map(f => `- ${f}`).join("\n"));
+              if (feature.apis?.length) parts.push(``, `## API Endpoints`, feature.apis.map(a => `- ${a.method} ${a.path} (${a.file})`).join("\n"));
+              if (feature.tests?.length) parts.push(``, `## Tests`, feature.tests.map(f => `- ${f}`).join("\n"));
+              if (feature.issues?.length) parts.push(``, `## Linked Issues`, feature.issues.join(", "));
+              return parts.join("\n");
+            } catch (err) { return `Error: ${err.message}`; }
+          }
+          case "runbook": {
+            const rbDir = join(cwd, ".paaw", "runbook");
+            if (!existsSync(rbDir)) return "⚠️ No runbooks directory.";
+            try {
+              const { readdirSync, readFileSync: readSync2 } = await import("fs");
+              if (args.code) {
+                const rbFile = join(rbDir, `${args.code}.md`);
+                if (!existsSync(rbFile)) return `Runbook ${args.code} not found.`;
+                if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: args.code });
+                return readSync2(rbFile, "utf-8");
+              }
+              if (args.search) {
+                const files = readdirSync(rbDir).filter(f => f.endsWith(".md"));
+                const matches = [];
+                for (const f of files) { const content = readSync2(join(rbDir, f), "utf-8"); if (content.toLowerCase().includes(args.search.toLowerCase())) matches.push(`- ${f}`); }
+                if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${matches.length} matches` });
+                return matches.length > 0 ? `Runbook matches for '${args.search}':\n${matches.join("\n")}` : `No runbooks matching '${args.search}'.`;
+              }
+              const files = readdirSync(rbDir).filter(f => f.endsWith(".md"));
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${files.length} runbooks` });
+              return `Runbooks (${files.length}):\n${files.join("\n")}`;
+            } catch (err) { return `Error reading runbooks: ${err.message}`; }
+          }
+          case "sessions": {
+            if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
+            const sessions = await paaw.listSessions();
+            const recent = sessions.slice(0, args.limit || 5);
+            const list = recent.map(s => `- ${s.filename || s.name} (${s.date || "unknown"})`).join("\n");
+            if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${recent.length} sessions` });
+            return `Recent sessions (${recent.length} of ${sessions.length}):\n${list || "(none)"}`;
+          }
+          case "test_map": {
+            const tiFile = join(cwd, ".paaw", "code-intelligence", "test-intelligence.json");
+            if (!existsSync(tiFile)) return "⚠️ Test Intelligence not found.";
+            try {
+              const ti = JSON.parse(readSync(tiFile, "utf-8"));
+              if (args.file) {
+                const norm = args.file.replace(/\\\\/g, "/");
+                const entry = ti.codeToTest?.[norm];
+                if (!entry || entry.length === 0) return `No tests covering \`${norm}\`.`;
+                if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${entry.length} tests` });
+                return `Tests covering \`${norm}\`:\n${entry.map(t => `  - ${t.testFile} (${t.testType})`).join("\n")}`;
+              }
+              if (args.feature) {
+                const ft = ti.featureToTests?.find(f => f.featureId === args.feature);
+                if (!ft) return `No tests for feature ${args.feature}.`;
+                if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${ft.tests.length} tests` });
+                return `Tests for ${ft.featureName} (${ft.featureId}):\n${ft.tests.map(t => `  - ${t}`).join("\n")}`;
+              }
+              const s = ti.stats;
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${s.totalTestFiles} tests` });
+              return `Test Intelligence: ${s.totalTestFiles} test files, ${s.coverageRate} coverage, ${s.totalMappings} mappings`;
+            } catch (err) { return `Error: ${err.message}`; }
+          }
+          case "security": {
+            // 2026-09-06 Fleming：QA/SA 要能看到 security scan 明細並開 task 單 — 補 cwe/snippet/references/feature 對應
+            const secFile = join(cwd, ".paaw", "security", "scan-results.json");
+            if (!existsSync(secFile)) return "⚠️ Security scan results not found — 先跑 Security Scan（EM dashboard 或 CU security-scan step）。";
+            try {
+              const sec = JSON.parse(readSync(secFile, "utf-8"));
+              const total = (sec.findings || []).length;
+              let findings = sec.findings || [];
+              if (args.severity) {
+                const want = String(args.severity).toLowerCase();
+                findings = findings.filter(f => String(f.severity).toLowerCase() === want);
+              }
+              if (args.file) { const norm = args.file.replace(/\\/g, "/"); findings = findings.filter(f => f.file?.replace(/\\/g, "/").includes(norm)); }
+              if (args.search) { const q = String(args.search).toLowerCase(); findings = findings.filter(f => `${f.message || ""} ${f.id || ""} ${Array.isArray(f.cwe) ? f.cwe.join(" ") : f.cwe || ""}`.toLowerCase().includes(q)); }
+              if (findings.length === 0) { if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: "clean" }); return `No security findings${total ? " matching filter" : ""}. ✅`; }
+              // feature 對照（開 task 單掛 featureId 用）— FILE-FEATURES.json repo-relative key
+              let fileFeatures = {};
+              try { const ff = JSON.parse(readSync(join(cwd, ".paaw", "features", "FILE-FEATURES.json"), "utf-8")); fileFeatures = ff.files || {}; } catch {}
+              const cwdN = cwd.replace(/\\/g, "/");
+              const rel = (p) => { const n = String(p || "").replace(/\\/g, "/"); return n.startsWith(cwdN + "/") ? n.slice(cwdN.length + 1) : n; };
+              const header = `Security Findings（${findings.length}/${total}，scanned ${sec.scannedAt || "(unknown)"}${sec.stats?.bySeverity ? `，severity ${JSON.stringify(sec.stats.bySeverity)}` : ""}）`;
+              const lines = findings.map(f => {
+                const rf = rel(f.file);
+                const rule = String(f.id || "").split(".").pop();
+                const cwe = Array.isArray(f.cwe) ? f.cwe.join("; ") : f.cwe;
+                const feats = (fileFeatures[rf] || []).map(x => x.id).join(",");
+                const snip = String(f.snippet || "").replace(/\s+/g, " ").slice(0, 120);
+                const refs = (f.references || []).slice(0, 1).join("");
+                return `- [${String(f.severity || "?").toUpperCase()}] ${rf}:${f.line || "?"}${cwe ? `｜${cwe}` : ""}${feats ? `｜feature: ${feats}` : ""}${f.confidence ? `｜confidence ${f.confidence}` : ""}\n  rule: ${rule}｜${f.message}${snip ? `\n  code: ${snip}` : ""}${refs ? `\n  ref: ${refs}` : ""}`;
+              }).join("\n");
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${findings.length} findings` });
+              return `${header}\n${lines}\n（開 task 修復時掛對應 featureId；severity/file/search 可過濾）`;
+            } catch (err) { return `Error: ${err.message}`; }
+          }
+          case "recent_changes": {
+            const ciFile = join(cwd, ".paaw", "changes", "change-intelligence.json");
+            if (!existsSync(ciFile)) {
+              try { const { buildChangeIntelligence } = await import("./change-intelligence.mjs"); await buildChangeIntelligence(cwd, { days: args.days || 30, maxCommits: 50 }); } catch { return "⚠️ Change Intelligence not available."; }
+            }
+            try {
+              const ci = JSON.parse(readSync(ciFile, "utf-8"));
+              if (args.file) {
+                const norm = args.file.replace(/\\\\/g, "/");
+                const impact = ci.impactAnalysis?.find(i => i.changedFile === norm || i.changedFile?.includes(norm));
+                if (!impact) return `No impact data for \`${norm}\`.`;
+                if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${impact.affectedFiles.length} affected` });
+                return `Impact of changing \`${norm}\` (${impact.impactLevel}):\n${impact.affectedFiles.map(f => `  - ${f}`).join("\n")}`;
+              }
+              const s = ci.summary;
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${s.totalCommits} commits` });
+              return `Recent Changes (${s.period}): ${s.totalCommits} commits, ${s.totalFilesChanged} files, ${s.totalFeaturesChanged} features changed`;
+            } catch (err) { return `Error: ${err.message}`; }
+          }
+          case "api_history": {
+            // 2026-09-12：DATA_HOME 爲單一事實來源（跟 api-tester route / api_test tool 同檔）；
+            // 加 source 過濾 + detail 模式（回傳完整 headers/body — 拿人輸入過的資料產 e2e script）
+            const histFile = resolve(DATA_HOME, "api-tester-history.json");
+            if (!existsSync(histFile)) return "No API Tester history found.";
+            try {
+              const raw = JSON.parse(readSync(histFile, "utf-8"));
+              let items = Array.isArray(raw) ? raw : (raw.history || []);
+              if (args.source) items = items.filter(i => (i.source || "human") === args.source);
+              if (args.method) items = items.filter(i => i.method?.toUpperCase() === args.method.toUpperCase());
+              if (args.path_contains) { const needle = args.path_contains.toLowerCase(); items = items.filter(i => i.url?.toLowerCase().includes(needle)); }
+              // detail 模式：回傳單筆完整 request（headers/body/response）— e2e script 產生用
+              if (args.detail !== undefined && args.detail !== null && args.detail !== "") {
+                const d = args.detail;
+                const item = (typeof d === "string" && d.startsWith("req-"))
+                  ? items.find(i => i.id === d)
+                  : items[Number(d) - 1];
+                if (!item) return `No history entry for detail='${d}' (use api_history without detail to list).`;
+                const hArr = Array.isArray(item.headers) ? item.headers : Object.entries(item.headers || {}).map(([k, v]) => ({ key: k, value: String(v), enabled: true }));
+                const full = {
+                  id: item.id, ts: item.ts, source: item.source || "human", agent: item.agent,
+                  method: item.method, url: item.url, status: item.status, elapsed: item.elapsed,
+                  headers: hArr, body: item.body,
+                  response: item.response ? { status: item.response.status, statusText: item.response.statusText, body: String(item.response.body || "").slice(0, 2000) } : (item.streamResponse ? { status: item.status, body: String(item.streamResponse).slice(0, 2000) } : undefined),
+                };
+                if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${item.method} ${item.url}` });
+                return `API History Entry (full request — for e2e script generation):\n${JSON.stringify(full, null, 2)}`;
+              }
+              const limit = Math.min(args.limit || 20, 50);
+              items = items.slice(0, limit);
+              if (items.length === 0) return "No matching API history.";
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${items.length} entries` });
+              return `API History (${items.length}):\n${items.map((item, idx) => `${idx+1}. [${item.source === "agent" ? "agent" : "human"}] ${item.method} ${item.url} → ${item.status} (${item.elapsed}ms)`).join("\n")}\n(tip: detail=<N or req-id> 回傳完整 headers/body — 拿人輸入過的資料產 e2e Playwright script；source=human|agent 過濾)`;
+            } catch (err) { return `Error: ${err.message}`; }
+          }
+          default:
+            return `Unknown category '${cat}'. Valid: context, issues, features, feature_detail, runbook, sessions, test_map, recent_changes, api_history, project_read`;
+        }
+      }
+
+
+
+      // ══════════════════════════════════════════
+      // ── Project Board（維護 data/projects/ — 一個 RU 對應一個 project）──
+      // ══════════════════════════════════════════
+
+      case "project_board": {
+        const PROJECTS_DIR = join(DATA_HOME, "projects");
+        const action = args.action;
+
+        const _loadProject = (pid) => {
+          const f = join(PROJECTS_DIR, `${pid}.json`);
+          if (!existsSync(f)) return null;
+          try { return JSON.parse(readSync(f, "utf-8")); } catch { return null; }
+        };
+        const _saveProject = (p) => {
+          writeSync(join(PROJECTS_DIR, `${p.id}.json`), JSON.stringify(p, null, 2));
+        };
+
+        if (action === "status") {
+          const files = existsSync(PROJECTS_DIR) ? (await readdir(PROJECTS_DIR)).filter(f => f.endsWith(".json")).sort() : [];
+          if (files.length === 0) return "No projects found.";
+          const lines = [];
+          for (const f of files) {
+            const p = _loadProject(f.replace(/\.json$/, ""));
+            if (!p) continue;
+            const cats = p.categories || [];
+            const allTasks = cats.flatMap(c => c.tasks || []);
+            const done = allTasks.filter(t => t.status === "done").length;
+            const pct = allTasks.length ? Math.round((done / allTasks.length) * 100) : 0;
+            lines.push(`📦 ${p.name} (${p.id}) ${p.icon || ""} [${p.status || "?"}] ${pct}% (${done}/${allTasks.length})
+   目標日: ${p.targetDate || "-"} | categories: ${cats.map(c => `${c.name}(${(c.tasks||[]).length})`).join(", ") || "none"}`);
+          }
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${files.length} projects` });
+          return lines.join("\n");
+        }
+
+        if (action === "create") {
+          if (!args.id || !args.name) return "Error: 'id' and 'name' are required for create.";
+          if (!/^[a-z0-9][a-z0-9-_]*$/.test(args.id)) return "Error: id must be lowercase letters/digits/dash/underscore.";
+          if (_loadProject(args.id)) return `Error: project '${args.id}' already exists.`;
+          const proj = {
+            id: args.id, name: args.name, icon: args.icon || "📦", description: args.description || "",
+            status: "planning", startDate: args.startDate || new Date().toISOString().slice(0, 10),
+            targetDate: args.targetDate || "", repo: args.repo || "", aliases: args.aliases || [],
+            categories: [], milestones: [], createdAt: new Date().toISOString(),
+          };
+          await mkdir(PROJECTS_DIR, { recursive: true });
+          _saveProject(proj);
+          if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
+          return `✅ Created project ${args.id}: ${args.name}\n⚠️ 記得設定 aliases（本機資料夾名）讓 agent 執行紀錄能對應 RU 成本。`;
+        }
+
+        // 以下 actions 都需要 projectId
+        if (!args.projectId) return "Error: 'projectId' is required for this action.";
+        const proj = _loadProject(args.projectId);
+        if (!proj) return `Error: project '${args.projectId}' not found.`;
+
+        if (action === "update") {
+          for (const k of ["name", "icon", "description", "status", "startDate", "targetDate", "repo"]) {
+            if (args[k] !== undefined) proj[k] = args[k];
+          }
+          if (Array.isArray(args.aliases)) proj.aliases = args.aliases;
+          _saveProject(proj);
+          if (onEvent) onEvent({ type: "tool_end", name, result: "updated" });
+          return `✅ Updated project ${proj.id}.`;
+        }
+
+        if (action === "category_create") {
+          if (!args.name) return "Error: 'name' is required for category_create.";
+          proj.categories = proj.categories || [];
+          const cat = { id: `cat_${Date.now().toString(36)}`, name: args.name, icon: args.icon || "📁", description: args.description || "", tasks: [] };
+          proj.categories.push(cat);
+          _saveProject(proj);
+          if (onEvent) onEvent({ type: "tool_end", name, result: cat.id });
+          return `✅ Added category '${args.name}' to ${proj.id}.`;
+        }
+
+        if (action === "task_create") {
+          if (!args.name) return "Error: 'name' is required for task_create.";
+          proj.categories = proj.categories || [];
+          if (proj.categories.length === 0) return "Error: project has no categories. Create one with category_create first.";
+          const cat = args.categoryId ? proj.categories.find(c => c.id === args.categoryId) : proj.categories[proj.categories.length - 1];
+          if (!cat) return `Error: category '${args.categoryId}' not found.`;
+          cat.tasks = cat.tasks || [];
+          const task = {
+            id: `t_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+            name: args.name, status: "todo", priority: args.priority || "medium",
+            start: args.start || "", end: args.end || "",
+          };
+          cat.tasks.push(task);
+          _saveProject(proj);
+          if (onEvent) onEvent({ type: "tool_end", name, result: task.id });
+          return `✅ Added task '${args.name}' (${task.id}) to ${proj.id}/${cat.name}.`;
+        }
+
+        if (action === "task_update") {
+          if (!args.taskId) return "Error: 'taskId' is required for task_update.";
+          let found = null;
+          for (const c of (proj.categories || [])) {
+            const t = (c.tasks || []).find(t => t.id === args.taskId);
+            if (t) { found = t; break; }
+          }
+          if (!found) return `Error: task '${args.taskId}' not found in ${proj.id}.`;
+          for (const k of ["name", "status", "priority", "start", "end"]) {
+            if (args[k] !== undefined) found[k] = args[k];
+          }
+          _saveProject(proj);
+          if (onEvent) onEvent({ type: "tool_end", name, result: args.taskId });
+          return `✅ Updated task ${args.taskId}: ${found.name} [${found.status}]`;
+        }
+
+        if (action === "milestone_create") {
+          if (!args.name || !args.date) return "Error: 'name' and 'date' are required for milestone_create.";
+          proj.milestones = proj.milestones || [];
+          proj.milestones.push({ id: `ms_${Date.now().toString(36)}`, name: args.name, date: args.date, description: args.description || "" });
+          _saveProject(proj);
+          if (onEvent) onEvent({ type: "tool_end", name, result: "created" });
+          return `✅ Added milestone '${args.name}' (${args.date}) to ${proj.id}.`;
+        }
+
+        return `Unknown action '${action}'.`;
+      }
+
+
+
+      // ══════════════════════════════════════════
+      // ── CU Refresh (incremental, not full overwrite) ──
+      // ══════════════════════════════════════════
+
+      case "cu_refresh": {
+        const steps = Array.isArray(args.steps) ? args.steps : ["code-intelligence", "test-intelligence"];
+        const results = [];
+        const paawDir = join(cwd, ".paaw");
+        if (!existsSync(paawDir)) {
+          if (onEvent) onEvent({ type: "tool_end", name, result: "no .paaw" });
+          return "⚠️ .paaw/ not initialized. Run full Code Understanding first.";
+        }
+
+        // Deterministic steps — always safe to re-run, no LLM needed
+        if (steps.includes("code-intelligence")) {
+          try {
+            const { buildCodeIntelligence } = await import("./code-intelligence.mjs");
+            const { summary } = await buildCodeIntelligence(cwd, _PAAW_ROOT);
+            results.push(`🧠 Code Intelligence: ${summary.totalFunctions} functions, ${summary.totalRoutes} routes, ${summary.totalDependencies} deps`);
+          } catch (err) { results.push(`🧠 Code Intelligence: failed — ${err.message}`); }
+        }
+        if (steps.includes("test-intelligence")) {
+          try {
+            const { buildTestIntelligence } = await import("./test-intelligence.mjs");
+            const { summary } = await buildTestIntelligence(cwd, _PAAW_ROOT);
+            results.push(`🧪 Test Intelligence: ${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`);
+          } catch (err) { results.push(`🧪 Test Intelligence: failed — ${err.message}`); }
+        }
+
+        // LLM steps — these re-run the CU step via API (requires server running)
+        const llmSteps = steps.filter(s => !["code-intelligence", "test-intelligence"].includes(s));
+        if (llmSteps.length > 0) {
+          results.push(`\n⚠️ LLM steps (${llmSteps.join(", ")}) require calling POST /api/coding-project/ai-initial-step — use from Coding IDE or auto dispatch.`);
+        }
+
+        const output = results.length > 0 ? `CU Refresh Results:\n${results.join("\n")}` : "No steps to refresh.";
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${results.length} steps` });
+        return output;
+      }
+
+      // ══════════════════════════════════════════
+      // ── Project Knowledge Write Tools ──
+      // ══════════════════════════════════════════
+
+      case "record_decision": {
+        const paaw = createPaawProject(cwd);
+        if (!paaw.exists) {
+          return "⚠️ .paaw/ not initialized. Decision not recorded. (This is OK — the decision is still captured in the session log.)";
+        }
+        const result = await paaw.addDecision({
+          title: args.title,
+          context: args.context,
+          decision: args.decision,
+          consequences: args.consequences,
+        });
+        if (onEvent) onEvent({ type: "tool_end", name, result: `ADR-${result.adrNum}` });
+        return `✅ Decision recorded as ADR-${result.adrNum} in .paaw/DECISIONS.md\nTitle: ${args.title}`;
+      }
+
+      // ── Unified docs handler (replaces update_changelog + update_docs) ──
+      case "docs": {
+        const action = args.action;
+        if (!action) return "Error: action is required. Valid: changelog, write, append";
+        
+        if (action === "changelog") {
+          const paaw = createPaawProject(cwd);
+          if (!paaw.exists) return "⚠️ .paaw/ not initialized. Changelog not updated.";
+          if (!args.type || !args.description) return "Error: type and description are required for changelog.";
+          await paaw.appendChangelog({ type: args.type, description: args.description });
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${args.type}: ${args.description.slice(0, 50)}` });
+          return `✅ Changelog updated: [${args.type}] ${args.description}`;
+        }
+        
+        if (action === "write" || action === "append") {
+          const paaw = createPaawProject(cwd);
+          if (!paaw.exists) await paaw.init();
+          const docFile = args.file?.replace(/\.\.\//g, "").replace(/^\//, "");
+          if (!docFile) return "Error: file is required";
+          if (!args.content) return "Error: content is required";
+          if (action === "append") {
+            const existing = await paaw.readFile(docFile) || "";
+            await paaw.writeFile(docFile, existing + "\n" + args.content);
+          } else {
+            await paaw.writeFile(docFile, args.content);
+          }
+          if (onEvent) onEvent({ type: "tool_end", name, result: docFile });
+          return `✅ Documentation ${action === "append" ? "appended" : "updated"}: .paaw/${docFile}`;
+        }
+        
+        return `Unknown action '${action}'. Valid: changelog, write, append`;
+      }
+
+      // ── QA Results Tools（2026-09-17：qa agent 留記錄、全 agent 讀寫）──
+      case "qa_record_save": {
+        const { saveQaResult } = await import("./qa-results.mjs");
+        try {
+          const record = saveQaResult(cwd, { ...args, actor: agentId || "human" });
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${record.verdict} — ${record.target}` });
+          return `✅ QA result recorded: ${record.id} [${record.verdict}] ${record.target}\nStatus: ${record.status} | Issues: ${record.issues.length}\nSaved to .paaw/coding-memory/qa-results.jsonl — visible to all agents and the human.`;
+        } catch (e) {
+          return `❌ qa_record_save failed: ${e.message}`;
+        }
+      }
+      case "qa_record_list": {
+        const { listQaResults } = await import("./qa-results.mjs");
+        const list = listQaResults(cwd, { ...args, limit: args.limit || 10 });
+        if (list.length === 0) return "No QA results found (adjust filters, or the log is empty — record tests with qa_record_save).";
+        return list.map((r) => {
+          const issues = (r.issues || []).map(x => `    [${x.severity}]${x.status === "open" ? "🔴" : "✅"} ${x.desc}`).join("\n");
+          return `${r.id} [${r.verdict}/${r.status}] ${r.type} · ${r.target}\n   ${new Date(r.ts).toLocaleString()} by ${r.actor} — ${r.summary.slice(0, 150)}${issues ? "\n" + issues : ""}`;
+        }).join("\n\n");
+      }
+      case "qa_record_update": {
+        const { updateQaResult } = await import("./qa-results.mjs");
+        const rec = updateQaResult(cwd, args.id, args, agentId || "human");
+        if (!rec) return `❌ QA result not found: ${args.id} (use qa_record_list to find the id)`;
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${rec.id} → ${rec.status}` });
+        return `✅ Updated ${rec.id}: status=${rec.status}\nIssues: ${(rec.issues || []).map(x => `${x.status === "open" ? "🔴" : "✅"} ${x.desc.slice(0, 60)}`).join(" | ")}`;
+      }
+
+      // ── Release Request Tools（v3 2026-09-18：RM agent 審證據、寫建議，人類確認）──
+      case "rr_list": {
+        const { listReleaseRequests } = await import("./release-requests.mjs");
+        let list = await listReleaseRequests(cwd);
+        if (args.status) list = list.filter(r => r.status === args.status);
+        if (list.length === 0) return "No release requests found. (Create one from the Release Manager UI — 📋 Release Requests section.)";
+        return list.map(r =>
+          `${r.id} [${r.status}] ${r.title}\n   ${r.baseline?.short || "?"} → ${r.target?.short || "?"} · ${r.scope?.commits ?? 0} commits / ${r.scope?.files ?? 0} files / ${r.scope?.tasks ?? 0} tasks\n   checklist: ${(r.checklist || []).map(c => `${c.id}=${c.verdict}(auto:${c.auto})`).join(" · ")}${r.releaseId ? `\n   → ${r.releaseId}` : ""}`
+        ).join("\n\n");
+      }
+      case "rr_get": {
+        const { getReleaseRequest } = await import("./release-requests.mjs");
+        const rr = await getReleaseRequest(cwd, args.id);
+        if (!rr) return `❌ Release request not found: ${args.id} (use rr_list)`;
+        const cl = (rr.checklist || []).map(c =>
+          `  [${c.id}] verdict=${c.verdict} · auto=${c.auto?.status || "?"}\n    detail: ${c.auto?.detail || "—"}${c.note ? `\n    note: ${c.note}` : ""}${rr.suggested?.[c.id] ? `\n    🤖 suggested: ${rr.suggested[c.id].verdict} — ${rr.suggested[c.id].reason}` : ""}`
+        ).join("\n");
+        const feats = (rr.scope?.features || []).map(f => `  ${f.id} ${f.name}${f.hasTests ? "" : " (NO TESTS)"}${f.apiImpact ? " [API impact]" : ""}`).join("\n");
+        return [
+          `${rr.id} [${rr.status}] ${rr.title}`,
+          `baseline: ${rr.baseline?.short}（${rr.baseline?.source}）${rr.baseline?.subject || ""}`,
+          `target:  ${rr.target?.short} ${rr.target?.subject || ""}`,
+          `scope:   ${rr.scope?.commits?.count ?? 0} commits · ${(rr.scope?.files || []).length} files · ${(rr.scope?.features || []).length} features · ${(rr.scope?.apis || []).length} APIs · ${(rr.scope?.taskIds || []).length} pending tasks`,
+          `authors: ${(rr.scope?.commits?.authors || []).join(", ")}`,
+          "",
+          "Checklist (auto = deterministic evidence):",
+          cl,
+          "",
+          "Changed features:",
+          feats || "  (none)",
+          "",
+          "Recent commits:",
+          (rr.scope?.commits?.subjects || []).slice(0, 10).map(s => `  ${s}`).join("\n") || "  (none)",
+          "",
+          "Scope pending tasks (will batch-release on close):",
+          (rr.scope?.taskIds || []).map(x => `  ${typeof x === "string" ? x : `${x.id} ${x.title}`}`).join("\n") || "  (none)",
+        ].join("\n");
+      }
+      case "rr_suggest": {
+        const { suggestVerdicts } = await import("./release-requests.mjs");
+        try {
+          const rr = await suggestVerdicts(cwd, args.id, args.items, agentId || "rm-agent");
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${rr.id}: ${args.items.length} items` });
+          return `✅ Suggestions recorded on ${rr.id} (${args.items.map(it => `${it.itemId}:${it.verdict}`).join(", ")}).\nThe human will confirm in the Release Manager UI — you suggested, you did NOT decide.`;
+        } catch (e) {
+          return `❌ rr_suggest failed: ${e.message}`;
+        }
+      }
+
+      // ── Action Log Tools ──
+      case "action_log_add": {
+        const { addActionLog } = await import("./action-log.mjs");
+        const entry = { ...args, agent: args._agentId || rootDir?.split("/").pop() || "agent" };
+        const record = await addActionLog(entry, cwd);
+        if (onEvent) onEvent({ type: "tool_end", name, result: record.summary });
+        return `✅ Action logged: ${record.agent}/${record.action}: ${record.summary}`;
+      }
+
+      case "action_log_list": {
+        const { listActionLog } = await import("./action-log.mjs");
+        const { entries, text } = await listActionLog({ cwd, agent: args.agent, limit: args.limit || 15 });
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${entries.length} entries` });
+        return text || "(No action log entries yet)";
+      }
+
+      // ── Agent Memory Tools ──
+      // 2026-09-07 修正：coding crew 的 memory 跟專案走（cwd），不是 PAAW root
+      // （之前 rootDir||cwd → crew chat 的 rootDir=PAAW_ROOT → memory 存到 PAAW 根，
+      //   EM auto-dispatch 讀專案根 → 永遠讀不到，agentMemoryInjected 永遠 (none)）
+      case "agent_memory_save": {
+        const { saveAgentMemory } = await import("./action-log.mjs");
+        const agentId2 = args._agentId || _agentCfg?.agentId || agentId || "agent";
+        const memRoot = (typeof agentId2 === "string" && agentId2.startsWith("coding.")) ? cwd : (rootDir || cwd);
+        await saveAgentMemory(agentId2, args.content, memRoot);
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${agentId2}.md` });
+        return `✅ Memory saved for ${agentId2} to ${memRoot}/.paaw/agent-memory/`;
+      }
+
+      case "agent_memory_load": {
+        const { loadAgentMemory } = await import("./action-log.mjs");
+        const agentId2 = args._agentId || _agentCfg?.agentId || agentId || "agent";
+        const memRoot = (typeof agentId2 === "string" && agentId2.startsWith("coding.")) ? cwd : (rootDir || cwd);
+        const content = await loadAgentMemory(agentId2, memRoot);
+        if (onEvent) onEvent({ type: "tool_end", name, result: content ? `${content.length} chars` : "empty" });
+        return content || "(No saved memory yet)";
+      }
+
+      case "conversation_history": {
+        // 2026-09-06 Fleming：每個 agent 都能查過去聊天記錄（.paaw/coding-memory/conversations/）
+        // RU 開發紀錄全保留 — active.json 為進行中，s-*.json 為封存 session
+        const base = rootDir || cwd;
+        const convRoot = join(base, ".paaw", "coding-memory", "conversations");
+        const myAgentId = args._agentId || _agentCfg?.agentId || "agent";
+        const safe = (s) => /^[a-zA-Z0-9._-]+$/.test(s); // 防 path traversal
+        const targetCrew = args.crewId && safe(args.crewId) ? args.crewId : (myAgentId.startsWith("coding.") ? myAgentId : `coding.${myAgentId}`);
+        const readSess = (dir, f) => {
+          try { return JSON.parse(readSync(join(dir, f), "utf-8")); } catch { return null; }
+        };
+        const fmtTime = (t) => (t || "").slice(0, 16).replace("T", " ");
+
+        if (args.action === "list") {
+          const dir = join(convRoot, targetCrew);
+          if (!existsSync(dir)) return `(尚無 ${targetCrew} 的對話記錄)`;
+          const items = [];
+          const act = readSess(dir, "active.json");
+          if (act?.messages?.length) items.push({ id: "active", meta: act._meta, msgs: act.messages });
+          const sessFiles = existsSync(dir) ? readdirSync(dir).filter(f => f.startsWith("s-") && f.endsWith(".json")).sort().reverse() : [];
+          for (const f of sessFiles) {
+            const d = readSess(dir, f);
+            if (d?.messages?.length) items.push({ id: f.replace(".json", ""), meta: d._meta, msgs: d.messages });
+          }
+          if (!items.length) return "(尚無對話記錄)";
+          const lines = items.map(it => `  ${it.id.padEnd(24)} ${fmtTime(it.meta?.lastUpdated || it.meta?.archivedAt)}  ${String(it.msgs.length).padStart(3)}則  ${(it.meta?.title || "").slice(0, 40)}`);
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${items.length} sessions` });
+          return `📁 ${targetCrew} sessions（時間序）：\n${lines.join("\n")}\n\n用 conversation_history(action="load", sessionId="s-...") 讀完整內容`;
+        }
+
+        if (args.action === "load") {
+          if (!args.sessionId || !safe(args.sessionId)) return "Error: load 需要 sessionId（先 list 取得；active=目前對話）";
+          const dir = join(convRoot, targetCrew);
+          const file = args.sessionId === "active" ? "active.json" : `${args.sessionId}.json`;
+          if (!existsSync(join(dir, file))) return `找不到 session ${args.sessionId}（先 list 看有哪些）`;
+          const d = readSess(dir, file);
+          if (!d?.messages?.length) return "(空 session)";
+          const lines = d.messages.map(m => {
+            const c = typeof m.content === "string" ? m.content : JSON.stringify(m.content);
+            return `[${fmtTime(m.ts)}] ${m.role === "user" ? "👤" : "🤖"}: ${c.slice(0, 600)}`;
+          });
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${d.messages.length} msgs` });
+          return `📜 ${targetCrew}/${args.sessionId}（${d.messages.length} 則）\n${lines.join("\n")}`.slice(0, 12000);
+        }
+
+        if (args.action === "search") {
+          if (!args.query) return "Error: search 需要 query";
+          if (!existsSync(convRoot)) return "(尚無任何對話記錄)";
+          const crews = args.crewId && safe(args.crewId) ? [args.crewId] : readdirSync(convRoot).filter(safe);
+          const hits = [];
+          const q = String(args.query).toLowerCase();
+          for (const crew of crews) {
+            const dir = join(convRoot, crew);
+            if (!existsSync(dir)) continue;
+            for (const f of ["active.json", ...readdirSync(dir).filter(x => x.startsWith("s-") && x.endsWith(".json")).sort().reverse()]) {
+              const d = readSess(dir, f);
+              if (!d?.messages?.length) continue;
+              for (let i = 0; i < d.messages.length; i++) {
+                const c = typeof d.messages[i].content === "string" ? d.messages[i].content : "";
+                const idx = c.toLowerCase().indexOf(q);
+                if (idx >= 0) {
+                  hits.push(`${crew}/${f.replace(".json", "")} #${i} ${d.messages[i].role}: ...${c.slice(Math.max(0, idx - 60), idx + 120)}...`);
+                  if (hits.length >= 40) break;
+                }
+              }
+            }
+          }
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${hits.length} hits` });
+          return hits.length ? `🔍 「${args.query}」找到 ${hits.length} 筆：\n${hits.join("\n")}` : `🔍 「${args.query}」沒有找到`;
+        }
+        return "Error: action 必須是 list / load / search";
+      }
+
+      // ── Notes Tools ──
+      // ── Unified notes handler ──
+      case "notes": {
+        const action = args.action;
+        if (!action) return "Error: 'action' is required. Valid: list_notebooks, list_sections, create, create_section, search";
+        // Normalize unified schema params → legacy handler params
+        if (!args.notebookId && args.notebook) args.notebookId = args.notebook;
+        if (!args.sectionId && args.section) args.sectionId = args.section;
+        if (!args.query && args.q) args.query = args.q;
+        const notesDir = resolve(rootDir || cwd, "data", "notes");
+
+        switch (action) {
+          case "list_notebooks": {
+            try {
+              const entries = await readdir(notesDir);
+              const notebooks = [];
+              for (const entry of entries) {
+                if (!entry.endsWith(".json")) continue;
+                const nbId = entry.replace(".json", "");
+                try {
+                  const raw = await readFile(resolve(notesDir, entry), "utf-8");
+                  const nb = JSON.parse(raw);
+                  const sectionsFile = resolve(notesDir, "sections.json");
+                  let sections = [];
+                  try { const secRaw = await readFile(sectionsFile, "utf-8"); const allSecs = JSON.parse(secRaw); sections = (allSecs[nbId] || []).filter(s => s.id !== "default"); } catch {}
+                  notebooks.push({ id: nbId, name: nb.name || nbId, description: nb.description || "", sections: [{ id: "default", name: "Default" }, ...sections], noteCount: Array.isArray(nb.notes) ? nb.notes.length : 0 });
+                } catch {}
+              }
+              const text = notebooks.map(nb => `📁 ${nb.name} (${nb.id}) — ${nb.noteCount} 筆記\n  分類: ${nb.sections.map(s => s.name).join(", ")}`).join("\n");
+              if (onEvent) onEvent({ type: "tool_end", name, result: `${notebooks.length} notebooks` });
+              return text || "No notebooks found.";
+            } catch { return "No notes directory found."; }
+          }
+
+          case "list_sections": {
+            if (!args.notebookId) return "Error: notebookId is required";
+            const sectionsFile = resolve(notesDir, "sections.json");
+            try {
+              const raw = await readFile(sectionsFile, "utf-8");
+              const allSecs = JSON.parse(raw);
+              const sections = allSecs[args.notebookId] || [{ id: "default", name: "Default" }];
+              const nbFile = resolve(notesDir, `${args.notebookId}.json`);
+              let noteCounts = {};
+              try { const nb = JSON.parse(await readFile(nbFile, "utf-8")); for (const n of (nb.notes || [])) { const sid = n.sectionId || "default"; noteCounts[sid] = (noteCounts[sid] || 0) + 1; } } catch {}
+              const text = sections.map(s => `  ${s.id === "default" ? "📋" : "📁"} ${s.name} (${s.id}) — ${noteCounts[s.id] || 0} 筆記`).join("\n");
+              if (onEvent) onEvent({ type: "tool_end", name, result: `${sections.length} sections` });
+              return `Notebook '${args.notebookId}' sections:\n${text}`;
+            } catch { return `Notebook '${args.notebookId}' has only the Default section.`; }
+          }
+
+          case "create": {
+            const { notebookId, sectionId = "default", title, content, tags = [] } = args;
+            if (!notebookId) return "Error: notebookId is required";
+            if (!title) return "Error: title is required";
+            if (!content) return "Error: content is required";
+            const nbFile = resolve(notesDir, `${notebookId}.json`);
+            try {
+              let nb;
+              try { nb = JSON.parse(await readFile(nbFile, "utf-8")); } catch { nb = { id: notebookId, name: notebookId, notes: [] }; }
+              const note = { id: `note-${Date.now()}`, title, content, tags, sectionId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+              if (!Array.isArray(nb.notes)) nb.notes = [];
+              nb.notes.push(note);
+              await writeFile(nbFile, JSON.stringify(nb, null, 2), "utf-8");
+              if (onEvent) onEvent({ type: "tool_end", name, result: `Created '${title}'` });
+              return `✅ 筆記已建立: ${title} (${notebookId}/${sectionId})`;
+            } catch (err) { return `Error creating note: ${err.message}`; }
+          }
+
+          case "create_section": {
+            const { notebookId, name, icon } = args;
+            if (!notebookId) return "Error: notebookId is required";
+            if (!name) return "Error: name is required";
+            const sectionsFile = resolve(notesDir, "sections.json");
+            try {
+              let allSecs = {};
+              try { allSecs = JSON.parse(await readFile(sectionsFile, "utf-8")); } catch {}
+              if (!allSecs[notebookId]) allSecs[notebookId] = [{ id: "default", name: "Default" }];
+              const exists = allSecs[notebookId].find(s => s.name === name);
+              if (exists) return `Section '${name}' already exists in '${notebookId}'.`;
+              const secId = name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "") || `sec-${Date.now()}`;
+              allSecs[notebookId].push({ id: secId, name, icon: icon || "📁" });
+              await writeFile(sectionsFile, JSON.stringify(allSecs, null, 2), "utf-8");
+              if (onEvent) onEvent({ type: "tool_end", name, result: `Created section '${name}'` });
+              return `✅ 分類已建立: ${name} (${notebookId})`;
+            } catch (err) { return `Error creating section: ${err.message}`; }
+          }
+
+          case "search": {
+            if (!args.query) return "Error: query is required";
+            try {
+              const entries = await readdir(notesDir);
+              const results = [];
+              for (const entry of entries) {
+                if (!entry.endsWith(".json") || entry === "sections.json") continue;
+                const nbId = entry.replace(".json", "");
+                if (args.notebookId && nbId !== args.notebookId) continue;
+                try {
+                  const nb = JSON.parse(await readFile(resolve(notesDir, entry), "utf-8"));
+                  for (const note of (nb.notes || [])) {
+                    const haystack = `${note.title || ""} ${note.content || ""} ${(note.tags || []).join(" ")}`.toLowerCase();
+                    if (haystack.includes(args.query.toLowerCase())) {
+                      results.push({ notebook: nbId, section: note.sectionId || "default", title: note.title, preview: (note.content || "").slice(0, 100) });
+                    }
+                  }
+                } catch {}
+              }
+              if (onEvent) onEvent({ type: "tool_end", name, result: `${results.length} matches` });
+              return results.length
+                ? results.map(r => `📄 ${r.title}\n  📁 ${r.notebook}/${r.section}\n  ${r.preview}...`).join("\n")
+                : `No notes matching '${args.query}'.`;
+            } catch { return "No notes directory found."; }
+          }
+
+          default:
+            return `Unknown action '${action}'. Valid: list_notebooks, list_sections, create, create_section, search`;
+        }
+      }
+
+            // ══════════════════════════════════════════
+      // ── Unified project_edit handler ──
+      case "project_edit": {
+        const action = args.action;
+        if (!action) return "Error: 'action' parameter is required. Valid: issue_create, issue_update, issue_delete, change_record, feature_update_docs, feature_update_mapping, feature_delete, run_command";
+        const paaw = createPaawProject(cwd);
+
+        switch (action) {
+          case "issue_create": {
+            if (!args.title) return "Error: 'title' is required for issue_create.";
+            if (!args.priority) return "Error: 'priority' is required for issue_create.";
+            const issuesDir = join(cwd, ".paaw", "issues");
+            const issuesFile = join(issuesDir, "ISSUES.json");
+            await mkdir(issuesDir, { recursive: true });
+            let data = { issues: [], nextId: 1 };
+            if (existsSync(issuesFile)) { try { data = JSON.parse(readSync(issuesFile, "utf-8")); } catch {} }
+            const id = `ISS-${String(data.nextId || data.issues.length + 1).padStart(3, "0")}`;
+            const issue = {
+              id, title: args.title, priority: args.priority, status: "open",
+              labels: args.labels || [], description: args.description || "",
+              featureId: args.featureId || null, createdAt: new Date().toISOString(), notes: [],
+            };
+            data.issues.push(issue);
+            data.nextId = (data.nextId || data.issues.length) + 1;
+            writeSync(issuesFile, JSON.stringify(data, null, 2));
+            if (onEvent) onEvent({ type: "tool_end", name, result: id });
+            return `✅ Created issue ${id}: ${args.title} [${args.priority}]`;
+          }
+
+          case "issue_update": {
+            if (!args.id) return "Error: 'id' is required for issue_update.";
+            const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
+            if (!existsSync(issuesFile)) return "Error: No issues file found.";
+            let data;
+            try { data = JSON.parse(readSync(issuesFile, "utf-8")); } catch { return "Error: Could not parse issues file."; }
+            const issue = (data.issues || []).find(i => i.id === args.id);
+            if (!issue) return `Error: Issue ${args.id} not found.`;
+            if (args.status) issue.status = args.status;
+            if (args.priority) issue.priority = args.priority;
+            if (args.note) { issue.notes = issue.notes || []; issue.notes.push({ text: args.note, at: new Date().toISOString() }); }
+            issue.updatedAt = new Date().toISOString();
+            writeSync(issuesFile, JSON.stringify(data, null, 2));
+            if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
+            return `✅ Updated ${args.id}: ${[args.status && `status=${args.status}`, args.priority && `priority=${args.priority}`, args.note && "note added"].filter(Boolean).join(", ")}`;
+          }
+
+          case "issue_delete": {
+            if (!args.id) return "Error: 'id' is required for issue_delete.";
+            const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
+            if (!existsSync(issuesFile)) return "Error: No issues file found.";
+            let data;
+            try { data = JSON.parse(readSync(issuesFile, "utf-8")); } catch { return "Error: Could not parse issues file."; }
+            const before = data.issues.length;
+            data.issues = (data.issues || []).filter(i => i.id !== args.id);
+            if (data.issues.length === before) return `Error: Issue ${args.id} not found.`;
+            writeSync(issuesFile, JSON.stringify(data, null, 2));
+            if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
+            return `✅ Deleted issue ${args.id}`;
+          }
+
+          case "change_record": {
+            if (!args.title || !args.type || !args.description || !args.files) {
+              return "Error: title, type, description, and files are required for change_record.";
+            }
+            const logDir = join(cwd, ".paaw", "action-log");
+            await mkdir(logDir, { recursive: true });
+            const entry = {
+              agent: agentId, title: args.title, type: args.type,
+              description: args.description, files: args.files,
+              impact: args.impact || "", testsRan: args.testsRan || "",
+              timestamp: new Date().toISOString(),
+            };
+            const logFile = join(logDir, `${new Date().toISOString().slice(0, 10)}.json`);
+            let log = [];
+            if (existsSync(logFile)) { try { log = JSON.parse(readSync(logFile, "utf-8")); } catch {} }
+            log.push(entry);
+            writeSync(logFile, JSON.stringify(log, null, 2));
+            if (onEvent) onEvent({ type: "tool_end", name, result: args.title });
+            return `✅ Recorded change: ${args.title} (${args.type}) — ${args.files.length} file(s)`;
+          }
+
+          case "feature_update_docs": {
+            if (!args.id || !args.documentation) return "Error: id and documentation are required.";
+            const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
+            if (!existsSync(featuresFile)) return "Error: No features file found.";
+            let data;
+            try { data = JSON.parse(readSync(featuresFile, "utf-8")); } catch { return "Error: Could not parse features file."; }
+            const feature = (data.features || []).find(f => f.id === args.id);
+            if (!feature) return `Error: Feature ${args.id} not found.`;
+            feature.documentation = args.documentation;
+            feature.docsUpdatedAt = new Date().toISOString();
+            writeSync(featuresFile, JSON.stringify(data, null, 2));
+            if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
+            return `✅ Updated docs for ${args.id}: ${feature.name}`;
+          }
+
+          // ── feature_delete：移除 feature 記錄（2026-09-06 Fleming：刪 feature 走 agent tool，人不在 UI 手刪）──
+          // 標準流程：SA（architect）開 task 叫 developer 刪掉相關程式碼並 stage → SA 確認後才刪 feature 記錄 → 程式與 feature map 同步
+          case "feature_delete": {
+            if (!args.id) return "Error: id is required（featureId，如 F20260901-001）";
+            const { loadFeatures, saveFeatures } = await import("./feature-registry.mjs");
+            const features = await loadFeatures(cwd);
+            const idx = features.findIndex(f => f.id === args.id);
+            if (idx < 0) return `Error: Feature ${args.id} not found（先 project_info(category="features") 確認 id）`;
+            const deleted = features.splice(idx, 1)[0];
+            await saveFeatures(cwd, features);
+            const fileCount = (deleted.codeFiles || []).length;
+            if (onEvent) onEvent({ type: "tool_end", name, result: `feature ${args.id} deleted` });
+            return `已刪除 feature ${args.id}「${deleted.name || ""}」（原映射 ${fileCount} 個檔案）。\n⚠️ 請確認：相關程式碼是否已由 developer 移除（task 已 stage/commit）？若還沒，請先開 task 處理，程式與 feature map 才會同步。`;
+          }
+
+          case "feature_update_mapping": {
+            if (!args.id) return "Error: id is required.";
+            const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
+            if (!existsSync(featuresFile)) return "Error: No features file found.";
+            let data;
+            try { data = JSON.parse(readSync(featuresFile, "utf-8")); } catch { return "Error: Could not parse features file."; }
+            const feature = (data.features || []).find(f => f.id === args.id);
+            if (!feature) return `Error: Feature ${args.id} not found.`;
+            if (args.codeFiles) feature.codeFiles = args.codeFiles;
+            if (args.apis) feature.apis = args.apis;
+            if (args.tests) feature.tests = args.tests;
+            if (args.runbooks) feature.runbooks = args.runbooks;
+            writeSync(featuresFile, JSON.stringify(data, null, 2));
+            if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
+            return `✅ Updated mapping for ${args.id}: ${feature.name}`;
+          }
+
+          case "run_command": {
+            const cmd = args.command;
+            if (!cmd || typeof cmd !== "string") return "Error: 'command' is required for run_command.";
+            const ALLOWED_PREFIXES = ["npm", "npx", "yarn", "pnpm", "node", "tsc", "mvn", "gradle", "gradlew", "python", "python3", "py", "pip", "pip3", "cargo", "go", "make", "dotnet"];
+            const cmdTrimmed = cmd.trim();
+            const firstWord = cmdTrimmed.split(/\s+/)[0];
+            if (!ALLOWED_PREFIXES.includes(firstWord)) return `Error: command '${firstWord}' not allowed. Allowed: ${ALLOWED_PREFIXES.join(", ")}`;
+            const DANGER_PATTERNS = [/\brm\b/i, /\bdel\b/i, /git\s+push/i, /git\s+reset/i, /\bsudo\b/i, /\bcurl\b/i, /\bwget\b/i, />/i, /\|/i, /;/i, /&&/i];
+            for (const p of DANGER_PATTERNS) { if (p.test(cmdTrimmed)) return `Error: blocked pattern: ${p.source}`; }
+            if (onEvent) onEvent({ type: "tool_start", name, args: { command: cmdTrimmed } });
+            const output = await runShell(cmdTrimmed, rootDir, 60000);
+            const MAX_OUTPUT = 8000;
+            const truncated = output.length > MAX_OUTPUT ? output.slice(0, MAX_OUTPUT) + "\n... (truncated)" : output;
+            if (onEvent) onEvent({ type: "tool_end", name, result: "done" });
+            return `$ ${cmdTrimmed}\n${truncated}`;
+          }
+
+          default:
+            return `Unknown action '${action}'. Valid: issue_create, issue_update, issue_delete, change_record, feature_update_docs, feature_update_mapping, run_command`;
+        }
+      }
+
+      // ── Task Management Tools ──
+      case "task_list": {
+        const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
+        if (!existsSync(tasksFile)) {
+          if (onEvent) onEvent({ type: "tool_end", name, result: "no tasks file" });
+          return "(No tasks initialized. Use task_create to create the first task.)";
+        }
+        try {
+          const data = JSON.parse(readSync(tasksFile, "utf-8"));
+          let tasks = data.tasks || [];
+          // Normalize old statuses for display
+          const norm = s => { const st = String(s||"").trim().toLowerCase().replace(/[\s-]+/g,"_"); if (st==="open"||st==="todo") return "open"; if (["in_progress","review","testing","pending","awaiting_human"].includes(st)) return "pending"; if (["done","completed","resolved","closed"].includes(st)) return "close"; if (["skipped","wontfix","ignore"].includes(st)) return "ignore"; return "open"; };
+          const normType = t => { const ty = String(t||"").toLowerCase(); if (ty==="test"||ty==="testing") return "test"; if (ty==="docs"||ty==="doc"||ty==="documentation") return "docs"; return "dev"; };
+          // Single task by ID
+          if (args.id) {
+            const task = tasks.find(t => t.id === args.id);
+            if (!task) return `Task ${args.id} not found.`;
+            return JSON.stringify(task, null, 2);
+          }
+          // Filters
+          if (args.status) tasks = tasks.filter(t => norm(t.status) === args.status);
+          if (args.type) tasks = tasks.filter(t => normType(t.type) === args.type);
+          if (args.featureId) tasks = tasks.filter(t => t.featureId === args.featureId);
+          if (args.priority) tasks = tasks.filter(t => t.priority === args.priority);
+          if (tasks.length === 0) {
+            if (onEvent) onEvent({ type: "tool_end", name, result: "0 tasks" });
+            return "(No matching tasks found)";
+          }
+          const lines = tasks.map(t => {
+            const s = norm(t.status);
+            const icon = s === "open" ? "🟡" : s === "pending" ? "🔵" : s === "close" ? "✅" : "⏭️";
+            const ty = normType(t.type);
+            const fid = t.featureId || "(no feature)";
+            return `[${t.id}] ${icon} ${s} | ${ty} | ${t.priority} | ${fid}\n  ${t.title}`;
+          }).join("\n\n");
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${tasks.length} tasks` });
+          return `Tasks (${tasks.length}):
+${lines}`;
+        } catch (e) {
+          return `Error reading tasks: ${e.message}`;
+        }
+      }
+
+      case "task_create": {
+        // Feature-first：featureId 必填，status 只有 open/close/pending/ignore，type 只有 dev/test/docs
+        if (!args.featureId) {
+          return "Error: featureId is required. Every task must belong to a feature (misc work → 'Utility & Platform Misc' feature).";
+        }
+        const normType = t => { const ty = String(t||"").toLowerCase(); if (ty==="test"||ty==="testing") return "test"; if (ty==="docs"||ty==="doc"||ty==="documentation") return "docs"; return "dev"; };
+        const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
+        const tasksDir = join(cwd, ".paaw", "tasks");
+        if (!existsSync(tasksDir)) await mkdir(tasksDir, { recursive: true });
+        let data = { tasks: [], updatedAt: new Date().toISOString() };
+        if (existsSync(tasksFile)) {
+          try { data = JSON.parse(readSync(tasksFile, "utf-8")); } catch {}
+        }
+        const now = new Date().toISOString();
+        const nums = data.tasks.map(t => parseInt((t.id || "").replace(/^TASK-/, "")) || 0);
+        const nextNum = (nums.length > 0 ? Math.max(...nums) : 0) + 1;
+        const id = `TASK-${String(nextNum).padStart(3, "0")}`;
+        const task = {
+          id,
+          featureId: args.featureId,
+          title: args.title || "(untitled)",
+          type: normType(args.type),
+          status: "open",
+          priority: args.priority || "medium",
+          parentId: args.parentId || null,
+          description: args.description || "",
+          labels: args.labels || [],
+          assignee: null,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: "agent",
+          source: { type: args.source || "manual" },
+          notes: [],
+          result: null,
+          git: null,
+          timeoutSeconds: 0,
+          resolvedAt: null,
+        };
+        data.tasks.push(task);
+        data.updatedAt = now;
+        await writeFile(tasksFile, JSON.stringify(data, null, 2), "utf-8");
+        // touch feature updatedAt
+        try { const { touchFeature } = await import("./feature-registry.mjs"); touchFeature(cwd, args.featureId, now); } catch {}
+        if (onEvent) onEvent({ type: "tool_end", name, result: id });
+        return `✅ Task created: ${id} "${task.title}"
+Feature: ${task.featureId} | Type: ${task.type} | Priority: ${task.priority} | Status: open`;
+      }
+
+      case "task_update": {
+        // Feature-first：no pipeline, 4 statuses, 3 types
+        const TASK_STATUSES = ["open", "close", "pending", "ignore"];
+        const normStatus = s => { const st = String(s||"").trim().toLowerCase().replace(/[\s-]+/g,"_"); if (st==="open"||st==="todo") return "open"; if (["in_progress","review","testing","pending","awaiting_human"].includes(st)) return "pending"; if (["done","completed","resolved","closed"].includes(st)) return "close"; if (["skipped","wontfix","ignore"].includes(st)) return "ignore"; return "open"; };
+        const normType = t => { const ty = String(t||"").toLowerCase(); if (ty==="test"||ty==="testing") return "test"; if (ty==="docs"||ty==="doc"||ty==="documentation") return "docs"; return "dev"; };
+        const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
+        if (!existsSync(tasksFile)) return "Error: No tasks file. Create tasks first.";
+        const data = JSON.parse(readSync(tasksFile, "utf-8"));
+        const task = data.tasks.find(t => t.id === args.id);
+        if (!task) return `Error: Task ${args.id} not found.`;
+        const now = new Date().toISOString();
+        const action = args.action;
+
+        if (action === "update") {
+          if (args.title) task.title = args.title;
+          if (args.status) {
+            if (!TASK_STATUSES.includes(args.status)) return `Error: Invalid status '${args.status}'. Must be one of: ${TASK_STATUSES.join(", ")}`;
+            task.status = args.status;
+            if (args.status === "close" && !task.resolvedAt) task.resolvedAt = now;
+            if (args.status === "open" || args.status === "pending") task.resolvedAt = null;
+          }
+          if (args.type) task.type = normType(args.type);
+          if (args.featureId) task.featureId = args.featureId;
+          if (args.priority) task.priority = args.priority;
+          if (args.result) task.result = args.result;
+          task.updatedAt = now;
+          // touch feature on close
+          if (task.status === "close" && task.featureId) {
+            try { const { touchFeature } = await import("./feature-registry.mjs"); touchFeature(cwd, task.featureId, now); } catch {}
+          }
+        } else if (action === "note") {
+          if (!task.notes) task.notes = [];
+          task.notes.push({ by: "agent", at: now, content: args.note || "" });
+          task.updatedAt = now;
+        } else if (action === "assign") {
+          task.assignee = args.assignTo;
+          task.status = "pending"; // 派工 = pending（等人/agent處理）
+          if (!task.notes) task.notes = [];
+          task.notes.push({ by: "agent", at: now, content: `Assigned to ${args.assignTo}` });
+          task.updatedAt = now;
+        } else {
+          return `Error: Unknown action '${action}'. Valid: update, note, assign.`;
+        }
+
+        await writeFile(tasksFile, JSON.stringify(data, null, 2), "utf-8");
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${args.id} ${action}` });
+        return `✅ Task ${args.id} updated (${action}). Status: ${task.status}${task.featureId ? ` | Feature: ${task.featureId}` : ""}`;
+      }
+
+      case "task_decompose": {
+        const { getHandlers } = await import("../tools/index.mjs");
+        const handlers = await getHandlers();
+        if (handlers.task_decompose) {
+          const result = await handlers.task_decompose(args);
+          const resultText = typeof result === "string" ? result : result.text || JSON.stringify(result);
+          if (onEvent) onEvent({ type: "tool_end", name, result: resultText });
+          return resultText;
+        }
+        return "Error: task_decompose handler not available";
+      }
+
+      case "dispatch_agent": {
+        const { getHandlers: getH2 } = await import("../tools/index.mjs");
+        const handlers2 = await getH2();
+        if (handlers2.dispatch_agent) {
+          if (onEvent) onEvent({ type: "tool_start", name, args: JSON.stringify(args) });
+          const result = await handlers2.dispatch_agent(args);
+          const resultText = typeof result === "string" ? result : result.text || JSON.stringify(result);
+          if (onEvent) onEvent({ type: "tool_end", name, result: resultText });
+          return resultText;
+        }
+        return "Error: dispatch_agent handler not available";
+      }
+
+      case "auto_dispatch": {
+        // task-driven 自動派工（preview/start/stop）— handler 在 tools/index.mjs，一律走 API
+        const { getHandlers: getH3 } = await import("../tools/index.mjs");
+        const handlers3 = await getH3();
+        if (handlers3.auto_dispatch) {
+          if (onEvent) onEvent({ type: "tool_start", name, args: JSON.stringify(args) });
+          const result = await handlers3.auto_dispatch({ ...args, cwd: args.cwd || cwd });
+          const resultText = typeof result === "string" ? result : result.text || JSON.stringify(result);
+          if (onEvent) onEvent({ type: "tool_end", name, result: resultText });
+          return resultText;
+        }
+        return "Error: auto_dispatch handler not available";
+      }
+
+      default:
+        const unknownMsg = `Error: unknown tool '${name}'. Available tools: read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user, project_info, project_edit, staged_summary, record_decision, docs, action_log_add, action_log_list, task_list, task_create, task_update, task_decompose, task_retrofit, dispatch_agent, auto_dispatch.`;
+        if (onEvent) onEvent({ type: "tool_end", name, result: unknownMsg });
+        return unknownMsg;
+    }
+  } catch (err) {
+    const errMsg = `Error in ${name}: ${err.message}`;
+    if (onEvent) onEvent({ type: "tool_end", name, result: errMsg });
+    return errMsg;
+  }
+}
+
+// ── Context Window Management ──
+// Trims conversation history to fit within model's context window.
+// Strategy: keep system message + first user message + last N messages.
+// Middle messages are summarized into a compact note.
+
+const DEFAULT_CONTEXT_WINDOW = 262000; // 262k tokens default for company models
+const CONTEXT_SAFETY_MARGIN = 8000;   // reserve for system prompt + response
+const LLM_CALL_TIMEOUT_MS = 300_000;  // 5 min per LLM call (company models are slower, need more than 2 min)
+
+// ── OpenClaw-aligned context management ──
+// Like OpenClaw: reserve 50% for prompt budget, cap tool results at 30% of context
+const MIN_PROMPT_BUDGET_RATIO = 0.5;
+const TOOL_RESULT_CONTEXT_SHARE = 0.3;
+
+// estimateTokens is now imported from context-truncation.mjs (shared)
+// (previously a local function — removed to avoid duplication)
+
+/**
+ * Trim messages to fit context window.
+ * Strategy (aligned with OpenClaw):
+ *   1. Always keep system prompt (messages[0]) + first user message
+ *   2. Keep as many recent messages as fit (sliding window from tail)
+ *   3. Summarize evicted middle messages into a compact summary
+ *   4. Cap any single tool result at 30% of context window
+ */
+/**
+ * Enhanced trimMessagesToFit — now uses shared context-truncation.mjs
+ *
+ * Pipeline: smart tool result truncation (head+tail) → history limiting → token budget check
+ * Auto-compaction (LLM summarization) is handled separately in the agent loop.
+ */
+export function trimMessagesToFit(messages, contextWindow = DEFAULT_CONTEXT_WINDOW) {
+  if (messages.length <= 4) return messages;
+
+  const budget = contextWindow - CONTEXT_SAFETY_MARGIN;
+
+  // Pass 1: Smart tool result truncation (head+tail, preserves errors at end)
+  const afterToolTrunc = truncateToolResultsInMessages(messages);
+
+  // Pass 2: Limit history turns (keep recent N user turns)
+  const afterHistoryLimit = limitHistoryTurns(afterToolTrunc, 8);
+
+  // Pass 3: Check total fits
+  const totalTokens = estimateMessageTokens(afterHistoryLimit);
+  if (totalTokens <= budget) {
+    return afterHistoryLimit;
+  }
+
+  // Pass 4: Sliding window — keep head + as many tail messages as fit
+  const head = afterHistoryLimit.slice(0, 2); // system + first user
+  const tailMessages = afterHistoryLimit.slice(2);
+
+  const keptTail = [];
+  let tailTokens = estimateMessageTokens(head);
+  const tailBudget = budget - tailTokens;
+
+  for (let i = tailMessages.length - 1; i >= 0; i--) {
+    const msgTokens = estimateMessageTokens([tailMessages[i]]);
+    if (tailTokens + msgTokens > tailBudget) break;
+    keptTail.unshift(tailMessages[i]);
+    tailTokens += msgTokens;
+  }
+
+  const evicted = tailMessages.slice(0, tailMessages.length - keptTail.length);
+
+  if (evicted.length === 0) {
+    return [...head, ...keptTail];
+  }
+
+  // Build summary of evicted messages
+  const summaryParts = evicted
+    .filter(m => m.role === "assistant" || m.role === "user" || m.role === "system")
+    .map(m => {
+      const content = (m.content || "").slice(0, 300);
+      const role = m.role === "assistant" ? "AI" : m.role === "user" ? "User" : "System";
+      return `[${role}] ${content}`;
+    });
+
+  const summaryMsg = {
+    role: "system",
+    content: `[Context trimmed — ${evicted.length} earlier messages summarized]\n${summaryParts.join("\n").slice(0, 3000)}\n[End of summary — ${evicted.length} messages evicted to fit context window]`,
+  };
+
+  const trimmed = [...head, summaryMsg, ...keptTail];
+  const trimmedTokens = estimateMessageTokens(trimmed);
+  console.log(`[context-trim] ${messages.length} msgs → ${trimmed.length} msgs (est. ${totalTokens} tok → ~${trimmedTokens} tok, budget=${budget})`);
+  return trimmed;
+}
+
+// ── LLM API Call ──
+
+export async function callLLM(apiUrl, headers, model, messages, tools, stream = false, onEvent = null, agentId = null, maxTokens = 16384, signal = null) {
+  console.log(`[callLLM] model=${model}, stream=${stream}, apiUrl=${apiUrl}, messages=${messages.length}, max_tokens=${maxTokens}`);
+  // Vision 保護（2026-08-30 Phase 1）：非 vision model 收到含圖歷史 → 圖換佔位文字（防 API 400）
+  // 所有 agent surface 的 LLM 請求都走這裡 — 一處攔截全鏈生效
+  messages = messagesForModel(messages, isVisionModel(model));
+  const body = {
+    model,
+    messages,
+    ...(tools && tools.length > 0 ? { tools, tool_choice: "auto" } : {}),
+    max_tokens: maxTokens,
+    stream,
+  };
+
+  const callStartTime = Date.now();
+  const callId = `llm-${callStartTime}-${Math.random().toString(36).slice(2, 8)}`;
+
+  // ── LLM Request Logging ──
+  // NOTE: callLLMWithRetry (llm-utils.mjs) already logs request+response for non-stream.
+  // Only log here for the stream path (fetchStreamWithRetry doesn't log).
+  const _countImages = (msgs) => (msgs || []).reduce((n, m) => n + (Array.isArray(m?.content) ? m.content.filter(p => p?.type === "image_url").length : 0), 0);
+  const _previewMsg = (m) => {
+    const c = m?.content;
+    if (typeof c === "string") return { role: m.role, len: c.length, preview: c.slice(0, 200) };
+    if (Array.isArray(c)) return { role: m.role, len: c.length, images: c.filter(p => p?.type === "image_url").length, preview: c.map(p => p?.type === "text" ? p.text : "[圖片]").join(" ").slice(0, 200) };
+    return { role: m?.role, len: 0, preview: "" };
+  };
+  const _logStreamRequest = () => {
+    try {
+      const logDir = join(DATA_HOME, "logs", "llm");
+      mkdirSync(logDir, { recursive: true });
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const logPath = join(logDir, `${dateStr}.jsonl`);
+      const _imgTotal = _countImages(body.messages);
+      const logEntry = {
+        id: callId,
+        ts: new Date(callStartTime).toISOString(),
+        phase: "request",
+        agentId: agentId || null,
+        model: body.model,
+        stream,
+        apiUrl: apiUrl.replace(/\/v.*$/, "/..."), // don't log full URL with keys
+        messageCount: body.messages?.length,
+        messagesPreview: body.messages?.map(_previewMsg),
+        images: _imgTotal > 0 ? _imgTotal : undefined, // Vision Phase 4：圖片成本歸因（不記 base64）
+        toolsCount: body.tools?.length || 0,
+        toolNames: (body.tools || []).map(t => t.function?.name).filter(Boolean),
+        maxTokens: body.max_tokens,
+      };
+      appendFileSync(logPath, JSON.stringify(logEntry) + "\n");
+    } catch (_e) {}
+  };
+  // Stream path: log request now; non-stream path is handled by callLLMWithRetry
+  if (stream) _logStreamRequest();
+
+  // Helper to log stream response (only for stream path)
+  const _logStreamResponse = (response, error = null) => {
+    try {
+      const logDir = join(DATA_HOME, "logs", "llm");
+      mkdirSync(logDir, { recursive: true });
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const logPath = join(logDir, `${dateStr}.jsonl`);
+      const durationMs = Date.now() - callStartTime;
+      const logEntry = {
+        id: callId,
+        ts: new Date().toISOString(),
+        phase: "response",
+        agentId: agentId || null,
+        model: body.model,
+        stream,
+        durationMs,
+        error: error || null,
+        ...(response ? {
+          finishReason: response.choices?.[0]?.finish_reason || null,
+          contentLen: (response.choices?.[0]?.message?.content || "").length,
+          contentPreview: (response.choices?.[0]?.message?.content || "").slice(0, 500),
+          toolCalls: response.choices?.[0]?.message?.tool_calls?.map(tc => ({ name: tc.function?.name, argsLen: (tc.function?.arguments || "").length })) || [],
+          usage: response.usage || null,
+        } : {}),
+      };
+      appendFileSync(logPath, JSON.stringify(logEntry) + "\n");
+    } catch (_e) {}
+  };
+
+  if (stream) {
+    // 串流模式：用 fetchStreamWithRetry 取得連線，回傳 raw response
+    const { fetchStreamWithRetry } = await import("./llm-utils.mjs");
+    const resp = await fetchStreamWithRetry(apiUrl, {
+      method: "POST",
+      headers,
+      body: jsonStringifySafe(body), // 2026-09-14: 孤兒 surrogate 清毒（emoji 截斷殘骸 → LLM 500）
+    }, { timeoutMs: LLM_CALL_TIMEOUT_MS, readTimeoutMs: 600_000, maxRetries: 2, signal, onRetry: (info) => {
+      if (onEvent) onEvent("info", { message: `⏳ API 暫時不可用 (HTTP ${info.status}), ${info.delayMs / 1000}s 後重試...` });
+    } });
+
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => "");
+      _logStreamResponse(null, `HTTP ${resp.status}: ${text.slice(0, 200)}`);
+      throw new Error(`LLM API error ${resp.status}: ${text.slice(0, 500)}`);
+    }
+    // Stream response — log metadata later in runAgentLoopStream
+    // Attach callId so the loop can log the response
+    resp._llmCallId = callId;
+    resp._llmCallStart = callStartTime;
+    return resp; // Return raw response for SSE streaming
+  }
+
+  // 非串流：用 callLLMWithRetry 統一處理 retry + 內容驗證
+  const result = await callLLMWithRetry(apiUrl, headers, body, {
+    maxRetries: 3,
+    timeoutMs: LLM_CALL_TIMEOUT_MS,
+    signal,
+    validateContent: true,
+    sanitize: true,
+    agentId: agentId,
+    caller: agentId,
+    onRetry: (info) => {
+      if (onEvent) onEvent("info", { message: `⏳ API 暫時不可用 (HTTP ${info.status}), ${info.delayMs / 1000}s 後重試...` });
+    },
+  });
+
+  // callLLMWithRetry handles its own logging — no duplicate _logResponse here
+  // 回傳跟原本一樣的 shape（把 result.raw 當 json 回傳）
+  return result.raw;
+}
+
+// ── System Prompt Assembly ──
+
+/** Skill bindings — 把 project crew 綁定的技能整份展開，直接附加到 system prompt送 LLM
+ *  綁定存在 {cwd}/.paaw/agents/_config.json 的 skillBindings（Management 頁可設）
+ *  auto-dispatch / crew chat / cron 都走這裡，一處注入全部生效 */
+export async function appendSkillBindings(systemPrompt, cwd, agentId) {
+  if (!agentId || !cwd) return systemPrompt;
+  try {
+    const { readProjectSkills } = await import("./project-crew.mjs");
+    const bound = readProjectSkills(cwd, agentId);
+    if (!bound || bound.length === 0) return systemPrompt;
+    const section = bound.map(s => `### Skill: ${s.name}${s.path ? `\n（源路徑: ${s.path}）` : ""}\n${s.prompt}`).join("\n\n");
+    return systemPrompt + `\n\n## 已掛載技能 (Skills)\n以下是綁定到此 Agent 的技能定義，請在執行任務時遵循這些規則（skill 定義優先於一般做法）：\n\n${section}`;
+  } catch (err) {
+    console.warn("[AgentLoop] Skill binding injection failed:", err.message);
+    return systemPrompt;
+  }
+}
+
+/** Refresh dynamic context (MEMORY.md) in messages[0] after memory changes */
+function refreshDynamicContext(messages) {
+  if (!messages[0] || messages[0].role !== "system") return;
+  try {
+    const MEMORY_FILE = resolve(DATA_HOME, "config/MEMORY.md");
+    let mem = "";
+    try { mem = readSync(MEMORY_FILE, "utf-8"); } catch {}
+    const marker = "=== 長期記憶 (MEMORY.md) ===";
+    const content = messages[0].content;
+    const idx = content.indexOf(marker);
+    if (idx === -1) return; // no memory section in system prompt
+    // Find the next === section after memory
+    const afterMarker = content.indexOf("\n=== ", idx + marker.length);
+    const before = content.slice(0, idx);
+    const after = afterMarker === -1 ? "" : content.slice(afterMarker);
+    messages[0].content = before + marker + "\n" + (mem || "(記憶是空白的)") + "\n" + after;
+  } catch (err) {
+    console.warn("[AgentLoop] Failed to refresh dynamic context:", err.message);
+  }
+}
+
+function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) {
+  const parts = [];
+
+  // ── 當前日期時間 + 時區（2026-09-06 Fleming：agent 預設要知道今天幾號、什麼時區）──
+  {
+    const _now = new Date();
+    const _tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const _offMin = -_now.getTimezoneOffset();
+    const _offStr = `UTC${_offMin >= 0 ? "+" : "-"}${String(Math.floor(Math.abs(_offMin) / 60)).padStart(2, "0")}${Math.abs(_offMin) % 60 ? ":" + String(Math.abs(_offMin) % 60).padStart(2, "0") : ""}`;
+    const _dateStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
+    const _weekday = ["日", "一", "二", "三", "四", "五", "六"][_now.getDay()];
+    const _timeStr = `${String(_now.getHours()).padStart(2, "0")}:${String(_now.getMinutes()).padStart(2, "0")}`;
+    parts.push(`=== 當前日期時間 ===\n今天是 ${_dateStr}（星期${_weekday}），時間 ${_timeStr}，時區 ${_tz} (${_offStr})`);
+  }
+
+  // ── Inject .paaw/ project context (pre-loaded by caller) ──
+  if (paawContext) {
+    parts.push(paawContext);
+  }
+
+  // If customPrompt is provided, it replaces the default agent prompt entirely
+  // (customPrompt comes from contextEngine — e.g. skill-builder rules)
+  if (customPrompt) {
+    parts.push(customPrompt);
+  } else {
+    // Load agent loop system prompt from ai-settings
+    const AGENT_LOOP_PROMPT_PATH = resolve(DATA_HOME, "ai-settings/agent-loop/system-prompt.md");
+    let agentBase = "";
+    try { agentBase = readSync(AGENT_LOOP_PROMPT_PATH, "utf-8").trim(); } catch {}
+    if (agentBase) {
+      parts.push(agentBase);
+    } else {
+      parts.push(`You are PAAW Agent, an AI coding assistant. Always use ABSOLUTE paths. Working directory: ${cwd}`);
+    }
+  }
+
+  // Inject base context: knowledge listing + workspace paths (required for every AI request)
+  const PAAW_R = _PAAW_ROOT;
+  try {
+    const refPaths = [];
+
+    // 1. Knowledge: just the directory path, don't expand contents
+    const knowledgeDir = resolve(PAAW_R, "data/knowledge");
+    if (existsSync(knowledgeDir)) {
+      refPaths.push(`📖 Knowledge (data/knowledge/) — 使用 reference_read(action="list|read|search", source="knowledge") 存取（唯讀）`);
+    }
+
+    // 2. Workspace: external dirs from workspaces.json (just the paths)
+    try {
+      const ws = JSON.parse(readSync(resolve(PAAW_R, "data/workspaces.json"), "utf-8"));
+      if (ws.directories?.length) {
+        refPaths.push(`📂 Workspace 目錄（使用 reference_read(action="list|read|search", source="workspace", path="...") 存取）：\n${ws.directories.map(d => "  - " + d).join("\n")}`);
+      }
+    } catch {}
+
+    if (refPaths.length > 0) {
+      parts.push(`\n=== 參考資料路徑 ===\n${refPaths.join("\n\n")}\n\n使用 reference_read tool 瀏覽和搜尋以上資料。開發相似功能時，先用 reference_read(action="search", source="knowledge", path="關鍵字") 搜尋現有範例。`);
+    }
+  } catch {}
+
+  // Inject cwd dynamically
+  parts.push(`\nWorking directory: ${cwd}`);
+
+  // Release Unit Boundary（RU = 專案目錄；FileGuard 已在路徑層強制，此處是明示）
+  const _ruName = (cwd.replace(/\\/g, "/").split("/").filter(Boolean).pop() || "workspace");
+  parts.push(`\n## Release Unit Boundary\n你目前服務的 Release Unit：${_ruName}\n檔案讀寫已被路徑邊界強制限制在此專案目錄內（deterministic enforcement，非提醒）。其他 Release Unit（其他專案目錄）的檔案不可存取也不需存取。若使用者要求的內容需要其他 Release Unit，請說明邊界並請使用者切換到該 RU 操作。`);
+  if (IS_WIN) {
+    parts.push(`\n⚠️ Windows 環境重要規則：\n- 寫檔案請用 write_file/edit_file 工具，不要用 bash 的 echo/cat 重定向（cmd.exe 字元轉義會出問題）\n- **禁止用 bash 跑 Unix 指令**：find、grep、ls、cat、head、tail、wc、sed、awk、xargs、rm、cp、mv、mkdir、touch 等在 Windows cmd.exe 不可用或行為不同\n- 用內建工具代替：glob 找檔案、grep 工具搜尋內容、read_file 讀檔、write_file 寫檔\n- bash 只用於：git 命令、node/npm/npx 命令、python 命令、跨平台指令\n- 路徑一律用正斜線 / 不要用反斜線 \\\n- 檔案路徑一律用相對路徑（如 data/apps/report/app.html），不要用絕對路徑（如 C:\\Users\\...）\n- git 命令可以正常使用\n- **每個 tool 呼叫都有 30 秒 timeout**，如果操作需要更久請分步驟執行`);
+  }
+
+  // Tool overview (compact — full schemas are sent via function-calling format)
+  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/features/feature_detail/runbook/test_map/recent_changes/issues/api_history/project_read\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_docs/mapping/delete\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\nreference_read(action=list|read|search, source=workspace|knowledge) → browse/read/search reference files in workspace/ and knowledge/ (read-only, for finding existing code examples and docs)\ntask_list(id?, status?, pipelinePhase?, type?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task with pipeline\ntask_update(id, action=update|advance|reject|note|assign, ...) → update task, advance/reject pipeline phase, add notes\ntask_decompose(parentId, subTasks) → split a large task into sub-tasks
+task_retrofit(priority?, featureIds?) → 上線前品質補強：從 feature map 每個 active feature 建一個補 review/test/qa/docs 的全版 task（以代碼現況為準，非歷史 task）\ndispatch_agent(agentId, task, taskId?) → dispatch work to another agent (architect/developer/tester/doc-writer/qa/helpdesk)\ncu_refresh, record_decision, docs(action=...), action_log_add/list, agent_memory_save/load`);
+
+  if (skillMd) {
+    parts.push(`\n## Skill Instructions\n\n${skillMd}`);
+  }
+
+  if (params && Object.keys(params).length > 0) {
+    parts.push(`\n## User Parameters\n\n${JSON.stringify(params, null, 2)}`);
+  }
+
+  return parts.join("\n");
+}
+
+// ── Temp File Cleanup ──
+
+/**
+ * Clean up temporary/scratch files created by the agent during a session.
+ *
+ * Strategy:
+ * 1. Files in log/tmp/<ru-slug>/（$PAAW_TMP）— always cleaned (designated temp area)
+ * 2. Created files matching temp patterns — cleaned (test-*.mjs, scratch.*, _temp.*, etc.)
+ * 3. Created files that are legitimate source — kept (reported only)
+ *
+ * @param {string} cwd - project working directory
+ * @param {Set<string>} createdFiles - files tracked as newly created
+ * @param {Function} [logFn] - optional logger
+ * @returns {Promise<number>} number of files cleaned
+ */
+async function cleanupTempFiles(cwd, createdFiles, logFn) {
+  const LOG = logFn || (() => {});
+  let cleaned = 0;
+
+  // 1. Always clean log/tmp/<ru-slug>/（$PAAW_TMP — 2026-09-06 起 scratch 不再進 .paaw）
+  const tmpDir = join(LOG_HOME, "tmp", logSlug(cwd));
+  try {
+    const tmpFiles = await readdir(tmpDir).catch(() => []);
+    for (const f of tmpFiles) {
+      try {
+        await rm(join(tmpDir, f), { recursive: true, force: true });
+        cleaned++;
+      } catch {}
+    }
+  } catch {}
+
+  // 2. Clean created files that match temp patterns
+  // These are files the agent created during work but shouldn't persist
+  const tempPatterns = [
+    /^test-_tmp/,           // test-_tmp-xxx.mjs
+    /^_tmp/,                // _tmp-xxx.mjs, _tmp-xxx.js
+    /^scratch[._-]/,        // scratch-test.mjs, scratch_verify.js
+    /^tmp[._-]/,            // tmp-xxx.mjs
+    /^_temp[._-]/,          // _temp-xxx.mjs
+    /^temp[._-]/,           // temp-xxx.mjs
+    /\.tmp$/,               // anything.tmp
+    /\.scratch$/,           // anything.scratch
+    /^verify[._-]/,         // verify-xxx.mjs (agent verification scripts)
+    /^debug[._-]/,          // debug-xxx.mjs
+    /^check[._-]/,          // check-xxx.mjs
+    /^quick[._-]/,          // quick-test.mjs
+    /^probe[._-]/,          // probe-xxx.mjs
+    /^explore[._-]/,        // explore-xxx.mjs
+    /^inspect[._-]/,        // inspect-xxx.mjs
+    /^snippet[._-]/,        // snippet-xxx.mjs
+  ];
+
+  // Directories that should never have temp files cleaned (legit source)
+  const protectedDirs = new Set(["src", "lib", "packages", "components", "pages", "app", "routes", "docs"]);
+
+  for (const relPath of createdFiles) {
+    const baseName = relPath.split(/[\\/]/).pop();
+    const dirName = relPath.split(/[\\/]/).slice(-2, -1)[0] || "";
+
+    // Skip files in protected directories (legit source code)
+    if (protectedDirs.has(dirName)) continue;
+
+    // Check if it matches temp patterns
+    const isTemp = tempPatterns.some(p => p.test(baseName));
+    if (!isTemp) continue;
+
+    const fullPath = resolve(cwd, relPath);
+    try {
+      if (existsSync(fullPath)) {
+        await rm(fullPath, { force: true });
+        LOG(`[cleanup] Removed temp file: ${relPath}`);
+        cleaned++;
+      }
+    } catch (e) {
+      LOG(`[cleanup] Failed to remove ${relPath}: ${e.message}`);
+    }
+  }
+
+  if (cleaned > 0) {
+    LOG(`[cleanup] Session cleanup: removed ${cleaned} temp file(s)`);
+  }
+  return cleaned;
+}
+
+// ── Main Agent Loop ──
+
+// ── Rate-limit cache: remember which providers are throttled ──
+const _rateLimitCache = new Map();
+const RATE_LIMIT_COOLDOWN_MS = 5 * 60 * 1000; // 5 min cooldown before retrying primary
+
+function _providerKey(providerId, model) { return `${providerId}/${model}`; }
+
+/**
+ * Run the PAAW agent loop.
+ *
+ * @param {AgentRunConfig} config
+ * @returns {Promise<AgentRunResult>}
+ */
+export async function runAgentLoop(config) {
+  const {
+    prompt,
+    cwd = process.cwd(),
+    skillMd = "",
+    systemPrompt: customPrompt = "",
+    model: modelOverride,
+    fallbackModels,
+    maxTurns,
+    timeout,
+    params = {},
+    onEvent = null,
+    rootDir = _PAAW_ROOT,
+    agentId = null,
+    abortSignal = null, // 使用者中斷 — 傳進 callLLM，即時殺 in-flight LLM 呼叫
+    featureBoundary = null, // Context Boundary — { allowedFiles: string[], featureIds: string[] }
+  } = config;
+
+  // Load agent config for defaults (with fallback)
+  let agentCfg = { ..._agentCfgDefaults };
+  try {
+    const { loadAgentConfig } = await import("../routes/context.mjs");
+    agentCfg = await loadAgentConfig(); setAgentConfig(agentCfg);
+  } catch {}
+
+  const effectiveMaxTurns = maxTurns ?? agentCfg.maxTurns;
+  const effectiveTimeout = timeout ?? agentCfg.timeoutSeconds;
+
+  const startTime = Date.now();
+  const timeoutMs = effectiveTimeout > 0 ? effectiveTimeout * 1000 : 0; // 0 = no timeout
+  const toolCallLog = [];
+
+  // 2026-09-05 Fleming：每個 agent loop 的開始/結束要在 console 一眼看到
+  console.log(`[AgentLoop] ▶️ agent=${agentId || "agent"} model=${modelOverride || "default"} turns≤${effectiveMaxTurns} cwd=${String(cwd).split("/").slice(-2).join("/")} prompt=${prompt.length}字`);
+
+  // ── Execution logger ──
+  const _logger = startAgentLog({
+    agentId: agentId || "agent",
+    prompt,
+    model: modelOverride || "default",
+    cwd,
+    maxTurns: effectiveMaxTurns,
+  });
+  let snapshotTaken = false; // auto-snapshot before first file write
+  const modifiedFiles = new Set(); // track modified files for post-edit test verification
+  const createdFiles = new Set(); // track NEW files (didn't exist before) for cleanup
+
+  // Ensure $PAAW_TMP exists as designated temp area (auto-cleaned each session)
+  // log/tmp/<ru-slug>/（2026-09-06 Fleming：.paaw 只放資產 — scratch 一律中央 log/）
+  // bash tool 已注入 $PAAW_TMP env；agents 寫 scratch 走這裡，不再碰 .paaw
+  const tmpDir = join(LOG_HOME, "tmp", logSlug(cwd));
+  try {
+    await mkdir(tmpDir, { recursive: true });
+    // Clean up previous session's temp files
+    const oldTempFiles = await readdir(tmpDir).catch(() => []);
+    for (const f of oldTempFiles) {
+      try { await rm(join(tmpDir, f), { recursive: true, force: true }); } catch {}
+    }
+    LOG(`[cleanup] log/tmp cleared ${oldTempFiles.length} leftover temp files`);
+  } catch {}
+
+  // Resolve LLM config — mutable: fallback success updates active model for subsequent turns
+  let llm = resolveLLMConfig(rootDir, modelOverride, fallbackModels);
+
+  // ── Check rate-limit cache: skip primary if still throttled ──
+  const primaryKey = _providerKey(llm.providerId, llm.model);
+  const cached = _rateLimitCache.get(primaryKey);
+  if (cached && Date.now() < cached.until && llm.fallbacks?.length > 0) {
+    const fb = llm.fallbacks[0];
+    console.log(`[Agent Loop] Primary ${primaryKey} is rate-limited (cache expires ${new Date(cached.until).toLocaleTimeString()}), using fallback ${fb.providerId}/${fb.model} directly`);
+    llm = { ...llm, apiUrl: fb.apiUrl, headers: fb.headers, model: fb.model, providerId: fb.providerId, maxTokens: fb.maxTokens || llm.maxTokens, contextWindow: fb.contextWindow || llm.contextWindow };
+  }
+
+  if (onEvent) onEvent({ type: "start", model: llm.model, cwd, maxTurns: effectiveMaxTurns });
+
+  // Build system prompt (load .paaw/ project context first)
+  let paawContext = null;
+  let paaw = null;
+  try {
+    paaw = createPaawProject(cwd);
+    if (paaw.exists) {
+      paawContext = await paaw.loadContextText();
+    }
+  } catch {}
+
+  const systemPrompt = await appendSkillBindings(
+    buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }),
+    cwd, agentId,
+  );
+
+  // Allow pre-built messages (for A2A conversation history injection)
+  const messages = config.messages || [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: prompt },
+  ];
+
+  let finalContent = "";
+  let turns = 0;
+  let emptyRetryCount = 0;
+  let _totalUsage = { prompt: 0, completion: 0, total: 0 };
+
+  for (let i = 0; i < effectiveMaxTurns; i++) {
+    // Check abort signal (user interrupt)
+    if (abortSignal?.aborted) {
+      finalContent = "⏹️ Agent 已中斷。";
+      break;
+    }
+    // Check timeout (skip if timeout=0 = no limit)
+    if (timeoutMs > 0 && Date.now() - startTime > timeoutMs) {
+      finalContent += `\n\n---\n⏱️ 任務超時 (${effectiveTimeout}s)，但已完成 ${turns} 個步驟。\n已修改的檔案已保存。\n你可以跟我說「繼續」來接著完成。\n---`;
+      // Save progress so we can resume
+      try {
+        const paaw2 = createPaawProject(cwd);
+        if (paaw2.exists) {
+          await paaw2.addActionLog({
+            agent: agentId || "unknown",
+            action: "timeout",
+            summary: `任務超時，已完成 ${turns}/${effectiveMaxTurns} 步。已部分完成，可續接。`,
+            result: "partial",
+          });
+        }
+      } catch {}
+      if (onEvent) onEvent({ type: "timeout", turns, maxTurns: effectiveMaxTurns });
+      break;
+    }
+
+    turns++;
+
+    if (onEvent) onEvent({ type: "turn_start", turn: i + 1 });
+
+    // ── Auto-compaction: if context is getting full, summarize older messages via LLM ──
+    if (i > 0 && i % 2 === 0) { // check every 3 turns
+      const compactResult = await compactIfNeeded(messages, {
+        apiUrl: llm.apiUrl,
+        headers: llm.headers,
+        model: llm.model,
+        contextWindow: llm.contextWindow || DEFAULT_CONTEXT_WINDOW,
+        maxTokens: llm.maxTokens,
+      }, { originalPrompt: prompt, onEvent });
+      if (compactResult.compacted) {
+        // Replace messages array contents in-place
+        messages.length = 0;
+        messages.push(...compactResult.messages);
+      }
+    }
+
+    // Call LLM (with context window trimming — smart head+tail + history limit)
+    const trimmedMessages = trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW);
+    // ── Vision 路由（2026-08-30 Phase 3）：歷史含圖 + active model 非 vision + visionModel 可用 → 本輪換 vision model ──
+    // 每輪重算（compaction 收掉圖 → 自動換回原 model）；429 fallback 鏈照舊走原鏈（佔位保護接手）
+    const turnLlm = resolveVisionLlmConfig(llm, hasImages(messages)) || llm;
+    if (turnLlm !== llm) console.log(`[Agent Loop] 👁 vision routing: ${llm.providerId}/${llm.model} → ${turnLlm.providerId}/${turnLlm.model} (history has images)`);
+    let response;
+    const _llmLog = _logger.llmCall({ turn: turns, model: turnLlm.model, messageCount: trimmedMessages.length, contextTokens: estimateMessageTokens(trimmedMessages) });
+    try {
+      response = await callLLM(turnLlm.apiUrl, turnLlm.headers, turnLlm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, (evt, data) => {
+        if (onEvent) onEvent({ type: evt, ...data });
+      }, agentId, turnLlm.maxTokens, abortSignal);
+    } catch (err) {
+      // 使用者中斷 — 不進 fallback，直接結束
+      if (abortSignal?.aborted || err.name === "AbortError") {
+        finalContent = "⏹️ Agent 已中斷。";
+        break;
+      }
+      // ── Provider-level fallback on 429/rate-limit ──
+      const is429 = err.message && (err.message.includes("429") || err.message.includes("overloaded") || err.message.includes("rate") || err.message.includes("Limit Exhausted"));
+      if (is429 && llm.fallbacks && llm.fallbacks.length > 0) {
+        for (const fb of llm.fallbacks) {
+          console.log(`[Agent Loop] 429 rate-limited on ${llm.providerId}/${llm.model}, trying fallback: ${fb.providerId}/${fb.model}`);
+          if (onEvent) onEvent({ type: "info", message: `⏳ ${llm.providerId} 限流，切換到 ${fb.providerId}/${fb.model}` });
+          try {
+            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, (evt, data) => {
+              if (onEvent) onEvent({ type: evt, ...data });
+            }, agentId, fb.maxTokens || llm.maxTokens, abortSignal);
+            console.log(`[Agent Loop] Fallback to ${fb.providerId}/${fb.model} succeeded — switching active model for subsequent turns`);
+            // Cache rate-limit: remember primary is throttled
+            _rateLimitCache.set(primaryKey, { until: Date.now() + RATE_LIMIT_COOLDOWN_MS, fallbackKey: _providerKey(fb.providerId, fb.model) });
+            // Update active LLM config so next loop iteration uses the fallback model directly
+            llm = { ...llm, apiUrl: fb.apiUrl, headers: fb.headers, model: fb.model, providerId: fb.providerId, maxTokens: fb.maxTokens || llm.maxTokens, contextWindow: fb.contextWindow || llm.contextWindow };
+            break;
+          } catch (fbErr) {
+            console.log(`[Agent Loop] Fallback ${fb.providerId}/${fb.model} also failed:`, fbErr.message);
+            continue;
+          }
+        }
+        if (!response) {
+          finalContent = `LLM API error: All providers failed (429 rate-limited). ${err.message}`;
+          if (onEvent) onEvent({ type: "error", error: finalContent });
+          break;
+        }
+      } else {
+        finalContent = `LLM API error: ${err.message}`;
+        if (onEvent) onEvent({ type: "error", error: err.message });
+        break;
+      }
+    }
+
+    // Parse response
+    const choice = response.choices?.[0];
+    if (!choice) {
+      finalContent = "LLM returned empty response";
+      if (onEvent) onEvent({ type: "error", error: "LLM returned no choices" });
+      break;
+    }
+
+    const assistantMsg = choice.message;
+    _llmLog.done({ model: llm.model, finishReason: choice.finish_reason || null, toolCallCount: (assistantMsg.tool_calls || []).length, usage: response.usage || null });
+    // Accumulate token usage
+    if (response.usage) {
+      _totalUsage.prompt += response.usage.prompt_tokens || 0;
+      _totalUsage.completion += response.usage.completion_tokens || 0;
+      _totalUsage.total += response.usage.total_tokens || 0;
+    }
+    // sanitize content（清隱藏字元）
+    let content = sanitizeContent(assistantMsg.content || "");
+    const toolCalls = assistantMsg.tool_calls;
+
+    // Add assistant message to history
+    const historyMsg = { role: "assistant", content };
+    if (toolCalls) historyMsg.tool_calls = toolCalls;
+    // 思考連續性（2026-08-30）：reasoning_content 帶回下一輪 — 多步 tool loop 不每輪失憶重推
+    // - 只在「本輪有 tool call」時帶（純文字回應後 loop 結束，帶了沒人讀）
+    // - 截斷防膨脹：保結尾 4096 字（結論在尾端）
+    const _reasoning = assistantMsg.reasoning_content;
+    if (toolCalls && toolCalls.length > 0 && _reasoning && _reasoning.trim()) {
+      historyMsg.reasoning_content = _reasoning.length > 4096 ? "…(前略)… " + _reasoning.slice(-4096) : _reasoning;
+    }
+    messages.push(historyMsg);
+
+    // If LLM just responded with text (no tool calls), we're done
+    if (!toolCalls || toolCalls.length === 0 || choice.finish_reason === "stop") {
+      // 防禦：如果 content 是空的或只有隱藏字元，重試一次
+      if (!isMeaningfulContent(content)) {
+        if (emptyRetryCount < 1) {
+          emptyRetryCount++;
+          console.warn(`[Agent Loop] LLM returned empty/whitespace response, retrying... (attempt ${emptyRetryCount})`);
+          if (onEvent) onEvent({ type: "info", message: "⚠️ AI 回應為空，重新呼叫中..." });
+          // 移除剛加的 assistant message
+          messages.pop();
+          i--; // retry same turn
+          continue;
+        }
+        finalContent = "[LLM 回應為空或僅含隱藏字元，重試後仍失敗]";
+        if (onEvent) onEvent({ type: "assistant", content: finalContent });
+      } else {
+        finalContent = content;
+        if (onEvent) onEvent({ type: "assistant", content });
+      }
+      break;
+    }
+
+    // LLM wants to call tools
+    let _thinkLog = null;
+    if (content) {
+      if (onEvent) onEvent({ type: "assistant_thinking", content });
+      _thinkLog = _logger.thinking(content);
+    }
+
+    // Execute each tool call
+    for (const call of toolCalls) {
+      const _toolName = call.function?.name;
+      const _ctx = { cwd, rootDir, onEvent, agentId };
+      const _toolLog = _logger.toolCall({ tool: _toolName, argsSummary: (call.function.arguments || "").slice(0, 200) });
+      // Pre-check if file exists (for new-file tracking)
+      let _wasNewFile = false;
+      let _toolArgs = {};
+      try { _toolArgs = JSON.parse(call.function.arguments || "{}"); } catch {}
+      if (_toolName === "write_file" && _toolArgs.path) {
+        const _fullPath = resolve(cwd, _toolArgs.path);
+        _wasNewFile = !existsSync(_fullPath);
+      }
+      // Execute tool with timeout (prevent hanging on Windows)
+      // bash tool needs longer timeout (up to 5 min), others 30s
+      const _toolTimeoutMs = _toolName === "bash" ? Math.min((_toolArgs.timeout || 120) * 1000, _agentCfg.bashTimeoutSeconds * 1000, 300_000) : 30_000;
+      let toolResult;
+      let _toolEndSent = false;
+      // Wrap onEvent to track whether tool_end was emitted inside executeTool
+      const _wrappedOnEvent = onEvent ? (evt) => {
+        if (evt.type === "tool_end") _toolEndSent = true;
+        onEvent(evt);
+      } : null;
+      try {
+        toolResult = await Promise.race([
+          toolRegistry.initialized && toolRegistry.has(_toolName)
+            ? toolRegistry.execute(_toolName, JSON.parse(call.function.arguments || "{}"), { cwd, rootDir, onEvent: _wrappedOnEvent, agentId })
+            : executeTool(call, cwd, rootDir, _wrappedOnEvent, agentId, featureBoundary),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`Tool '${_toolName}' timed out after ${_toolTimeoutMs / 1000}s`)), _toolTimeoutMs)
+          )
+        ]);
+        toolResult = String(toolResult);
+      } catch (toolErr) {
+        toolResult = `Error: ${toolErr.message}`;
+      }
+      // GUARANTEE: always emit tool_end if executeTool didn't
+      // (fixes spinning when read_file/write_file hit error paths like isPathAllowed failures)
+      if (!_toolEndSent && onEvent) {
+        onEvent({ type: "tool_end", name: _toolName, result: toolResult.slice(0, 500) });
+      }
+      // Track modified/created files
+      if (_toolName === "write_file" || _toolName === "edit_file") {
+        const _p = _toolArgs.path || _toolArgs.file || "";
+        const _normP = _p.replace(cwd + "/", "").replace(cwd + "\\", "").replace(/^\//, "");
+        if (_normP) {
+          modifiedFiles.add(_normP);
+          if (_wasNewFile) createdFiles.add(_normP);
+        }
+      }
+      _toolLog.done({ resultLen: toolResult.length, resultPreview: toolResult.slice(0, 200) });
+      toolCallLog.push({
+        turn: i + 1,
+        name: call.function.name,
+        args: call.function.arguments,
+        result: toolResult.slice(0, 1000),
+      });
+      // ── Vision Phase 3（2026-08-30）：tool result 帶 [[PAAW_IMAGE:...]] → 圖進 agent message ──
+      // 有看圖能力（active model 是 vision 或 visionModel 可路由）→ tool 訊息帶乾淨文字 + 追加圖片訊息
+      // 沒有 → 標記降級為「已存檔」文字提示（呼叫 callLLM 時佔位保護也接不到圖，不白附 base64）
+      let _pushToolMsg = toolResult;
+      let _imageMsg = null;
+      const { text: _cleanText, imagePaths: _imgPaths } = extractImageMarkers(toolResult);
+      if (_imgPaths.length > 0) {
+        if (visionAvailable(llm)) {
+          _pushToolMsg = _cleanText;
+          _imageMsg = buildImageAttachmentMessage(
+            _imgPaths,
+            "📸 [系統附圖] 這是 browser_screenshot 拍的目前畫面（系統自動附上，非使用者輸入）— 請基於畫面內容做視覺驗證"
+          );
+          console.log(`[Agent Loop] 👁 vision attach: ${_imgPaths.length} image(s) from ${_toolName}`);
+        } else {
+          _pushToolMsg = _cleanText + "\n（圖片已存檔但本 run 無 vision 能力 — 請改用 browser_read 讀取文字內容）";
+        }
+      }
+      messages.push({
+        role: "tool",
+        tool_call_id: call.id,
+        content: _pushToolMsg,
+      });
+      if (_imageMsg) messages.push(_imageMsg);
+
+      // Refresh system prompt dynamic context after memory changes
+      if (call.function.name === "memory_add" || call.function.name === "memory_update") {
+        refreshDynamicContext(messages);
+      }
+    }
+  }
+
+  const durationMs = Date.now() - startTime;
+
+  if (onEvent) onEvent({ type: "end", turns, durationMs, toolCalls: toolCallLog.length });
+
+  // End thinking log if active (declared inside loop, safe no-op if already done)
+
+  // ── Finalize execution log ──
+  await _logger.end({ turns, status: "completed" });
+
+  // ── Record session to .paaw/sessions/ ──
+  if (paaw && paaw.exists) {
+    try {
+      await paaw.recordSession({
+        task: prompt.slice(0, 200),
+        prompt,
+        success: !finalContent.includes("[Agent loop timed out]") && !finalContent.startsWith("LLM API error"),
+        partial: finalContent.includes("[Agent loop timed out]"), // timed out but may have partial work
+        content: finalContent,
+        toolCalls: toolCallLog,
+        durationMs,
+      });
+      // Auto-generate changelog if there were file changes
+      if (toolCallLog.some(tc => tc.name === "write_file" || tc.name === "edit_file")) {
+        await paaw.generateChangelogFromSession({
+          task: prompt.slice(0, 200),
+          toolCalls: toolCallLog,
+        });
+
+        // ── P0: Auto-run affected tests after code changes ──
+        const changedFiles = [...modifiedFiles];
+        if (changedFiles.length > 0) {
+          try {
+            const affectedTests = getAffectedTests(cwd, changedFiles);
+            if (affectedTests.length > 0) {
+              LOG(`[post-edit-verify] Found ${affectedTests.length} affected test files for ${changedFiles.length} changed files`);
+              // Run the tests using the project's test runner
+              const testCmd = _buildTestCommand(cwd, affectedTests);
+              if (testCmd) {
+                LOG(`[post-edit-verify] Running: ${testCmd}`);
+                const testResult = await runShell(testCmd, cwd, 60_000);
+                const testPassed = _parseTestResult(testResult);
+                if (!testPassed.ok) {
+                  LOG(`[post-edit-verify] ⚠️ Tests FAILED: ${testPassed.failed}/${testPassed.total}`);
+                  // Append test failure info to the final content so the AI knows
+                  const failureNotice = [
+                    "",
+                    "━━━ ⚠️ Post-Edit Test Verification ━━━",
+                    testPassed.ok ? "✅ All affected tests passed!" : `❌ ${testPassed.failed}/${testPassed.total} tests FAILED after your changes:`,
+                    "",
+                    testResult.slice(0, 3000),
+                    "",
+                    "💡 Your changes may have broken these tests. Please review and fix.",
+                  ].join("\n");
+                  finalContent += failureNotice;
+                } else {
+                  LOG(`[post-edit-verify] ✅ All ${testPassed.total} affected tests passed`);
+                  finalContent += "\n\n✅ Post-edit verification: All affected tests passed.";
+                }
+              }
+            } else {
+              // Convention-based test lookup
+              const conventionTests = _findConventionTests(cwd, changedFiles);
+              if (conventionTests.length > 0) {
+                LOG(`[post-edit-verify] Found ${conventionTests.length} convention-based test files`);
+                const testCmd = _buildTestCommand(cwd, conventionTests);
+                if (testCmd) {
+                  const testResult = await runShell(testCmd, cwd, 60_000);
+                  const testPassed = _parseTestResult(testResult);
+                  if (!testPassed.ok) {
+                    const failureNotice = ["", "━━━ ⚠️ Post-Edit Test Verification ━━━", `❌ ${testPassed.failed}/${testPassed.total} tests FAILED:`, "", testResult.slice(0, 3000), "", "💡 Your changes may have broken these tests. Please review and fix."].join("\n");
+                    finalContent += failureNotice;
+                  } else {
+                    finalContent += "\n\n✅ Post-edit verification: All affected tests passed.";
+                  }
+                }
+              } else {
+                LOG("[post-edit-verify] No affected tests found — skipping auto-verify");
+              }
+            }
+          } catch (verifyErr) {
+            LOG("[post-edit-verify] Error:", verifyErr.message);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[paaw-project] Failed to record session:", e.message);
+    }
+  }
+
+  // ── Auto-cleanup temp files created during this session ──
+  await cleanupTempFiles(cwd, createdFiles, (msg) => console.log(msg));
+
+  const _loopOk = !finalContent.includes("[Agent loop timed out]") && !finalContent.startsWith("LLM API error");
+  console.log(`[AgentLoop] ${_loopOk ? "✅" : "❌"} agent=${agentId || "agent"} 結束（${turns} turns, ${((Date.now() - startTime) / 1000).toFixed(0)}s, ${_totalUsage.total || 0} tokens, 輸出 ${finalContent.length} 字）`);
+
+  return {
+    success: _loopOk,
+    partial: finalContent.includes("[Agent loop timed out]"),
+    content: finalContent,
+    turns,
+    toolCalls: toolCallLog,
+    durationMs,
+    usage: _totalUsage,
+    boundaryViolations: featureBoundary?._violations || [],
+  };
+}
+
+/**
+ * Run agent loop with streaming (SSE) support.
+ * Returns the raw fetch Response for the caller to pipe as SSE.
+ */
+export async function runAgentLoopStream(config, res) {
+  const {
+    prompt,
+    cwd = process.cwd(),
+    skillMd = "",
+    systemPrompt: customPrompt = "",
+    model: modelOverride,
+    fallbackModels,
+    maxTurns,
+    timeout,
+    params = {},
+    rootDir = _PAAW_ROOT,
+    agentId = null,
+    abortSignal = null,
+    featureBoundary = null,
+    // 2026-09-11 治本：事件側車 — 不管 res 生死都回報（a2a stream-state 靠這個在 client 斷線後繼續 buffer）
+    onStreamEvent = null,
+  } = config;
+
+  let agentCfg = { ..._agentCfgDefaults };
+  try {
+    const { loadAgentConfig } = await import("../routes/context.mjs");
+    agentCfg = await loadAgentConfig(); setAgentConfig(agentCfg);
+  } catch {}
+
+  const effectiveMaxTurns = maxTurns ?? agentCfg.maxTurns;
+  const effectiveTimeout = timeout ?? agentCfg.timeoutSeconds;
+
+  const startTime = Date.now();
+  const timeoutMs = timeout > 0 ? timeout * 1000 : 0; // 0 = no timeout
+  const streamModifiedFiles = new Set(); // track modified files for post-edit verification
+  const streamCreatedFiles = new Set(); // track NEW files for cleanup
+
+  // Ensure $PAAW_TMP exists as designated temp area (auto-cleaned each session)
+  // log/tmp/<ru-slug>/（2026-09-06：.paaw 只放資產）— 同 runAgentLoop
+  const streamTmpDir = join(LOG_HOME, "tmp", logSlug(cwd));
+  try {
+    await mkdir(streamTmpDir, { recursive: true });
+    const oldTempFiles = await readdir(streamTmpDir).catch(() => []);
+    for (const f of oldTempFiles) {
+      try { await rm(join(streamTmpDir, f), { recursive: true, force: true }); } catch {}
+    }
+    console.log(`[cleanup] log/tmp cleared ${oldTempFiles.length} leftover temp files`);
+  } catch {}
+
+  // ── Execution logger ──
+  const _logger = startAgentLog({
+    agentId: agentId || "coding",
+    prompt,
+    model: modelOverride || "default",
+    cwd,
+    maxTurns: effectiveMaxTurns,
+  });
+
+  // SSE helper
+  const sendSSE = (event, data) => {
+    try { if (onStreamEvent) onStreamEvent(event, data); } catch {} // 側車先送 — res.destroyed 後 finalContent 靠它落地
+    try {
+      if (res.writableEnded || res.destroyed) return;
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    } catch {}
+  };
+
+  // Resolve LLM config
+  // Resolve LLM config — mutable for fallback
+  let llm = resolveLLMConfig(rootDir, modelOverride, fallbackModels);
+
+  // ── Check rate-limit cache: skip primary if still throttled ──
+  const primaryKey = _providerKey(llm.providerId, llm.model);
+  const cached = _rateLimitCache.get(primaryKey);
+  if (cached && Date.now() < cached.until && llm.fallbacks?.length > 0) {
+    const fb = llm.fallbacks[0];
+    console.log(`[Agent Loop Stream] Primary ${primaryKey} is rate-limited (cache), using fallback ${fb.providerId}/${fb.model} directly`);
+    llm = { ...llm, apiUrl: fb.apiUrl, headers: fb.headers, model: fb.model, providerId: fb.providerId, maxTokens: fb.maxTokens || llm.maxTokens, contextWindow: fb.contextWindow || llm.contextWindow };
+  }
+
+  sendSSE("start", { model: llm.model, cwd, maxTurns });
+
+  // Build system prompt (load .paaw/ project context first)
+  let paawContext = null;
+  try {
+    const paaw = createPaawProject(cwd);
+    if (paaw.exists) {
+      paawContext = await paaw.loadContextText();
+    }
+  } catch {}
+  const systemPrompt = await appendSkillBindings(
+    buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }),
+    cwd, agentId,
+  );
+  // Allow pre-built messages (for conversation history injection)
+  // If provided, use them directly; otherwise build from prompt + systemPrompt
+  const messages = config.messages || [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: prompt },
+  ];
+
+  let turns = 0;
+  let contentEmitted = false;
+  let streamEmptyRetryCount = 0;
+
+  for (let i = 0; i < effectiveMaxTurns; i++) {
+    // Check abort signal (user interrupt)
+    if (abortSignal?.aborted) {
+      sendSSE("interrupted", { message: "Agent interrupted by user", turns });
+      break;
+    }
+    if (timeoutMs > 0 && Date.now() - startTime > timeoutMs) {
+      sendSSE("error", { error: `Agent loop timed out after ${Math.round(timeoutMs/60000)} min (${turns} turns completed). Work may be partially done — moving to next sub-task. Check action log for what was completed.` });
+      break;
+    }
+
+    turns++;
+    sendSSE("turn", { turn: i + 1 });
+
+    // ── Auto-compaction: if context is getting full, summarize older messages via LLM ──
+    if (i > 0 && i % 2 === 0) { // check every 3 turns
+      const compactResult = await compactIfNeeded(messages, {
+        apiUrl: llm.apiUrl,
+        headers: llm.headers,
+        model: llm.model,
+        contextWindow: llm.contextWindow || DEFAULT_CONTEXT_WINDOW,
+        maxTokens: llm.maxTokens,
+      }, { originalPrompt: prompt, onEvent: sendSSE });
+      if (compactResult.compacted) {
+        // Replace messages array contents in-place
+        messages.length = 0;
+        messages.push(...compactResult.messages);
+      }
+    }
+
+    // Call LLM with fallback chain on 429/rate-limit (with context window trimming)
+    const trimmedMessages = trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW);
+    let response;
+    let usedLlm = llm;
+    // ── Vision 路由（2026-08-30 Phase 3）：同 runAgentLoop — 歷史含圖 → 本輪換 vision model ──
+    usedLlm = resolveVisionLlmConfig(llm, hasImages(messages)) || llm;
+    if (usedLlm !== llm) console.log(`[Agent Loop Stream] 👁 vision routing: ${llm.providerId}/${llm.model} → ${usedLlm.providerId}/${usedLlm.model} (history has images)`);
+    const _llmLog = _logger.llmCall({ turn: turns, model: usedLlm.model, messageCount: trimmedMessages.length, contextTokens: estimateMessageTokens(trimmedMessages) });
+    try {
+      response = await callLLM(usedLlm.apiUrl, usedLlm.headers, usedLlm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, sendSSE, agentId, usedLlm.maxTokens, abortSignal);
+    } catch (err) {
+      // 使用者中斷 — 殺掉 in-flight LLM 呼叫後立即停止，不進 fallback/retry
+      if (abortSignal?.aborted || err.name === "AbortError") {
+        sendSSE("interrupted", { message: "Agent interrupted by user", turns });
+        break;
+      }
+      const is429 = err.message && (err.message.includes("429") || err.message.includes("overloaded") || err.message.includes("rate"));
+      if (is429 && llm.fallbacks && llm.fallbacks.length > 0) {
+        for (const fb of llm.fallbacks) {
+          console.log(`[callLLM] 429 rate-limited, trying fallback: ${fb.providerId}/${fb.model}`);
+            // Cache rate-limit: remember primary is throttled
+            _rateLimitCache.set(primaryKey, { until: Date.now() + RATE_LIMIT_COOLDOWN_MS, fallbackKey: _providerKey(fb.providerId, fb.model) });
+            sendSSE("info", { message: `⏳ ${llm.providerId} 限流，切換到 ${fb.providerId}/${fb.model}` });
+            try {
+              response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, sendSSE, agentId, fb.maxTokens || llm.maxTokens, abortSignal);
+              usedLlm = fb;
+              // Update llm so subsequent turns use fallback directly
+              llm = { ...llm, apiUrl: fb.apiUrl, headers: fb.headers, model: fb.model, providerId: fb.providerId, maxTokens: fb.maxTokens || llm.maxTokens, contextWindow: fb.contextWindow || llm.contextWindow };
+              break;
+          } catch (fbErr) {
+            console.log(`[callLLM] fallback ${fb.providerId} also failed:`, fbErr.message);
+            continue;
+          }
+        }
+        if (!response) {
+          sendSSE("error", { error: `All providers failed: ${err.message}` });
+          break;
+        }
+      } else {
+        sendSSE("error", { error: err.message });
+        break;
+      }
+    }
+
+    const choice = response.choices?.[0];
+    if (!choice) { sendSSE("error", { error: "Empty LLM response" }); break; }
+
+    // ── Log stream response ──
+    if (response._llmCallId) {
+      try {
+        const logDir = join(DATA_HOME, "logs", "llm");
+        mkdirSync(logDir, { recursive: true });
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const logPath = join(logDir, `${dateStr}.jsonl`);
+        const durationMs = Date.now() - (response._llmCallStart || Date.now());
+        appendFileSync(logPath, JSON.stringify({
+          id: response._llmCallId,
+          ts: new Date().toISOString(),
+          phase: "response",
+          agentId: agentId || null,
+          model: usedLlm.model,
+          stream: true,
+          durationMs,
+          finishReason: choice.finish_reason || null,
+          contentLen: (choice.message?.content || "").length,
+          contentPreview: (choice.message?.content || "").slice(0, 500),
+          toolCalls: (choice.message?.tool_calls || []).map(tc => ({ name: tc.function?.name, argsLen: (tc.function?.arguments || "").length })),
+          usage: response.usage || null,
+        }) + "\n");
+      } catch (_e) {}
+    }
+
+    // ── Log LLM result ──
+    _llmLog.done({
+      model: usedLlm.model,
+      finishReason: choice?.finish_reason || null,
+      toolCallCount: (choice?.message?.tool_calls || []).length,
+      usage: response.usage || null,
+    });
+
+    const assistantMsg = choice.message;
+    const content = sanitizeContent(assistantMsg.content || "");
+    const toolCalls = assistantMsg.tool_calls;
+
+    const historyMsg = { role: "assistant", content };
+    if (toolCalls) historyMsg.tool_calls = toolCalls;
+    // 思考連續性（2026-08-30）：同 runAgentLoop — reasoning_content 只在 tool 輪帶回、截尾 4096
+    const _reasoning = assistantMsg.reasoning_content;
+    if (toolCalls && toolCalls.length > 0 && _reasoning && _reasoning.trim()) {
+      historyMsg.reasoning_content = _reasoning.length > 4096 ? "…(前略)… " + _reasoning.slice(-4096) : _reasoning;
+    }
+    messages.push(historyMsg);
+
+    // Final text response — check for empty/whitespace, retry once
+    if (!toolCalls || toolCalls.length === 0 || choice.finish_reason === "stop") {
+      if (!isMeaningfulContent(content)) {
+        if (streamEmptyRetryCount < 1) {
+          streamEmptyRetryCount++;
+          console.warn(`[Agent Loop Streaming] LLM returned empty/whitespace response, retrying... (attempt ${streamEmptyRetryCount})`);
+          sendSSE("info", { message: "⚠️ AI 回應為空，重新呼叫中..." });
+          messages.pop();
+          i--;
+          continue;
+        }
+        sendSSE("content", { content: "[AI 回應為空或僅含隱藏字元，重試後仍失敗]", done: true });
+        contentEmitted = true;
+        break;
+      }
+      sendSSE("content", { content, done: true });
+      contentEmitted = true;
+      break;
+    }
+
+    // Intermediate thinking
+    let _thinkLog = null;
+    if (content) {
+      sendSSE("thinking", { content });
+      _thinkLog = _logger.thinking(content);
+    }
+
+    // Execute tools
+    for (const call of toolCalls) {
+      let args;
+      try { args = JSON.parse(call.function.arguments); } catch { args = {}; }
+      sendSSE("tool", { name: call.function.name, args });
+
+      const _toolLog = _logger.toolCall({ tool: call.function.name, argsSummary: JSON.stringify(args).slice(0, 200) });
+      const _toolName2 = call.function?.name;
+      const _ctx2 = { cwd, rootDir, onEvent: null, agentId };
+      // Pre-check if file exists (for new-file tracking)
+      let _streamWasNew = false;
+      if (_toolName2 === "write_file" && args.path) {
+        _streamWasNew = !existsSync(resolve(cwd, args.path));
+      }
+      const toolResult = toolRegistry.initialized && toolRegistry.has(_toolName2)
+        ? String(await toolRegistry.execute(_toolName2, args, _ctx2))
+        : await executeTool(call, cwd, rootDir, null, agentId, featureBoundary);
+      const _toolDuration = _toolLog.done({ resultLen: toolResult.length, resultPreview: toolResult.slice(0, 200) });
+      sendSSE("tool_result", { name: call.function.name, result: toolResult.slice(0, 2000) });
+
+      // Track modified files for post-edit verification + track new files for cleanup
+      if (_toolName2 === "write_file" || _toolName2 === "edit_file") {
+        try {
+          const p = args.path || args.file || "";
+          const normP = p.replace(cwd + "/", "").replace(cwd + "\\", "").replace(/^\//, "");
+          if (normP) {
+            streamModifiedFiles.add(normP);
+            if (_streamWasNew) streamCreatedFiles.add(normP);
+          }
+        } catch {}
+      }
+
+      // Refresh system prompt dynamic context after memory changes
+      if (call.function.name === "memory_add" || call.function.name === "memory_update") {
+        refreshDynamicContext(messages);
+      }
+
+      // ── Vision Phase 3（2026-08-30）：同 runAgentLoop — tool result 帶圖 → 進 agent message ──
+      let _pushToolMsg2 = toolResult;
+      let _imageMsg2 = null;
+      const { text: _cleanText2, imagePaths: _imgPaths2 } = extractImageMarkers(toolResult);
+      if (_imgPaths2.length > 0) {
+        if (visionAvailable(llm)) {
+          _pushToolMsg2 = _cleanText2;
+          _imageMsg2 = buildImageAttachmentMessage(
+            _imgPaths2,
+            "📸 [系統附圖] 這是 browser_screenshot 拍的目前畫面（系統自動附上，非使用者輸入）— 請基於畫面內容做視覺驗證"
+          );
+          console.log(`[Agent Loop Stream] 👁 vision attach: ${_imgPaths2.length} image(s) from ${_toolName2}`);
+        } else {
+          _pushToolMsg2 = _cleanText2 + "\n（圖片已存檔但本 run 無 vision 能力 — 請改用 browser_read 讀取文字內容）";
+        }
+      }
+
+      messages.push({
+        role: "tool",
+        tool_call_id: call.id,
+        content: _pushToolMsg2,
+      });
+      if (_imageMsg2) messages.push(_imageMsg2);
+    }
+
+    // End thinking log after all tools in this turn
+    if (_thinkLog) _thinkLog.done();
+  }
+
+  // If we exhausted maxTurns without a final content response, force one
+  if (!contentEmitted) {
+    try {
+      messages.push({
+        role: "user",
+        content: "你已經收集了足夠的資訊。現在請根據你看到的內容，直接給出完整的回答。不要使用任何工具。",
+      });
+      // Vision 路由同主 loop：尾輪含圖 → 換 vision model
+      const _finalLlm = resolveVisionLlmConfig(llm, hasImages(messages)) || llm;
+      const finalResponse = await callLLM(_finalLlm.apiUrl, _finalLlm.headers, _finalLlm.model, trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW), [], false, sendSSE, agentId, _finalLlm.maxTokens, abortSignal);
+      const finalContent = finalResponse.choices?.[0]?.message?.content || "";
+      if (finalContent) {
+        sendSSE("content", { content: finalContent, done: true });
+      }
+    } catch (err) {
+      sendSSE("error", { error: `Final summary failed: ${err.message}` });
+    }
+  }
+
+  // ── P0: Post-edit test verification for stream mode ──
+  if (streamModifiedFiles.size > 0) {
+    try {
+      const changedFiles = [...streamModifiedFiles];
+      const affectedTests = getAffectedTests(cwd, changedFiles);
+      const testsToRun = affectedTests.length > 0 ? affectedTests : _findConventionTests(cwd, changedFiles);
+      if (testsToRun.length > 0) {
+        sendSSE("info", { message: `🧪 Auto-verifying ${testsToRun.length} affected test files...` });
+        const testCmd = _buildTestCommand(cwd, testsToRun);
+        if (testCmd) {
+          const testResult = await runShell(testCmd, cwd, 60_000);
+          const testPassed = _parseTestResult(testResult);
+          if (!testPassed.ok) {
+            sendSSE("verify", { ok: false, failed: testPassed.failed, total: testPassed.total, output: testResult.slice(0, 2000) });
+          } else {
+            sendSSE("verify", { ok: true, total: testPassed.total, output: "All affected tests passed" });
+          }
+        }
+      }
+    } catch (verifyErr) {
+      sendSSE("verify", { ok: true, error: verifyErr.message });
+    }
+  }
+
+  // ── Auto-cleanup temp files created during this session ──
+  const cleanedFiles = await cleanupTempFiles(cwd, streamCreatedFiles);
+  if (cleanedFiles > 0) {
+    sendSSE("info", { message: `🧹 Cleaned up ${cleanedFiles} temporary file(s)` });
+  }
+
+  sendSSE("done", { turns, durationMs: Date.now() - startTime });
+
+  // ── Finalize execution log ──
+  await _logger.end({
+    turns,
+    status: abortSignal?.aborted ? "interrupted" : "completed",
+  });
+}

@@ -1,47 +1,65 @@
-# DEPLOY — 第 7 包：Release Request API（上游 5a7316b8）
+# DEPLOY — 第 8 包：Release Request v2（UI）+ v3（RM agent 建議 + per-task 自動 RR）
 
-> 日期：2026-09-17 ｜ 3 檔 ｜ 純 server，**免 npm run build，重啟 server 即生效**
+> 日期：2026-09-18 ｜ 上游 `8efd63ba`（v2）+ `ff0c08ad`（v3）｜ 15 檔
+> **含 UI 變更：蓋檔後要 `npm run build` + 重啟 server**
 
 ## 這包做什麼
 
-Release Manager 新增 **Release Request（RR）單**：準備 release 時先請一張單，
-baseline 用 commit SHA（上次 release 的 HEAD / 第一個 commit / 自選），
-checklist 四項證據（tests / gates / QA 記錄 / 風險）全部 pass 或 waive 才能結案。
-結案自動快照 REL + 批次放行範圍內 pending tasks。
+**v2 — Release Manager UI 操作面**：Release Manager 頁（🚦）新增「📋 Release Requests」區（最上方）：
+建單（baseline 下拉：自動建議 + 最近 20 commits）→ 開審（鎖 baseline）→ checklist 四項證據審查
+（pass / fail / waive，waive 必填原因）→ 結案放行。原本 per-task approve 待放行區保留共存。
+
+**v3 — RM agent 整合**：
+- 「🤖 請 AI 審查建議」：RM side chat 用 `rr_get` 讀證據 → `rr_suggest` 寫建議 verdict（每項附理由）
+- 每項建議顯示徽章；「⚡ 一鍵套用 AI 建議」只套 pending 項（人下過 verdict 不覆蓋）— **AI 只建議，人決定**
+- per-task approve（快速路徑）自動建一張已結案的 RR — 審計軌跡統一，scope 限定該 task 不誤放行
+- approve 寫的 REL 現在也存 target SHA（之後 auto baseline 精確銜接）
 
 ## 檔案清單（蓋到 tPAAW 相對路徑）
 
 | 狀態 | 檔案 |
 |---|---|
-| M | `packages/server/src/lib/change-intelligence.mjs` |
-| A | `packages/server/src/lib/release-requests.mjs` |
+| M | `packages/server/src/lib/release-requests.mjs` |
 | M | `packages/server/src/routes/coding-releases.mjs` |
+| M | `packages/server/src/lib/paaw-agent-loop.mjs` |
+| A | `packages/ui/src/components/ReleaseRequests.tsx` |
+| M | `packages/ui/src/components/ReleaseManagerPanel.tsx` |
+| M | `packages/ui/src/i18n/locales/zh.json` |
+| M | `packages/ui/src/i18n/locales/en.json` |
+| M | `packages/ui/src/i18n/locales/ja.json` |
+| M | `packages/ui/src/i18n/locales/zh-mix.json` |
+| M | `data/crews/coding.rm.json`（+release-requests group；rolePrompt 加 RR 審查流程） |
+| M | `data/crews/coding.em.json`（+release-requests group） |
+| M | `data/crews/coding.architect.json`（+release-requests group） |
+| M | `.paaw/agents/coding.rm.json`（override +release-requests group） |
+| M | `.paaw/agents/coding.em.json`（override +release-requests group） |
+| M | `.paaw/agents/coding.architect.json`（override +release-requests group） |
 
 ## 步驟
 
 1. 照上表蓋檔（A = 新檔）
-2. 重啟 server（`node src/paaw-server.mjs`）
-3. 冒煙：`GET /api/coding-releases/baseline-candidates?path=<專案>` 回 JSON 即可
+2. `npm run build`（UI 有變更）
+3. 重啟 server（`node src/paaw-server.mjs`）
+4. 冒煙：打開 Coding app → Release Manager 🚦 → 最上方出現「📋 Release Requests」區；
+   `GET /api/coding-releases/requests?path=<專案>` 回 JSON
 
-## 新 API 一覽
+## 新 API / 新 tool
 
 ```
-POST   /api/coding-releases/request                 建單 { path, title?, baseline?: "auto"|SHA }
-GET    /api/coding-releases/requests?path=&status=  列表
-GET    /api/coding-releases/requests/:id?path=      單張（自動 refresh：target 前進 + auto 重跑）
-PATCH  /api/coding-releases/requests/:id            draft 改 title / baseline
-POST   /api/coding-releases/requests/:id/open       draft → reviewing（鎖 baseline）
-POST   /api/coding-releases/requests/:id/checklist  審查一項 { path, itemId, verdict, note? }
-POST   /api/coding-releases/requests/:id/close      結案 { path, note? }（全 pass/waived 才准）
-POST   /api/coding-releases/requests/:id/cancel     作廢 { path, reason }
-GET    /api/coding-releases/baseline-candidates     挑 baseline 用（auto + 最近 20 commits）
+POST /api/coding-releases/requests/:id/suggest   AI 建議 verdict { path, items:[{itemId,verdict,reason}] }
+GET  /api/coding-releases/requests/:id?light=1   唯讀單張（不觸發 auto 重跑 — UI 輪詢用）
+
+agent tools（release-requests group — rm/em/architect）：
+  rr_list     列 RR（id/status/checklist verdicts）
+  rr_get      單張完整證據（scope + checklist auto 明細 + 既有建議）
+  rr_suggest  寫建議 { id, items:[{itemId, verdict, reason}] } — 只建議，人類 UI 確認
 ```
 
 ## 備註
 
-- baseline auto 順序：上次 release 的 target SHA（新 REL 有存）→ 舊 REL 用日期抓當時 HEAD → first commit
-- waiver 一定留 note；close 時 server 重跑自動檢查，fail 未 waive → 409 擋下
-- checklist 項目定位：`tests`=上次 test run 真實數字+stale、`gates`=verify 門檻、
-  `qa-records`=.paaw/coding-memory/qa-results.jsonl 未解決 fail、`risk`=readiness heuristic
-- gates 指令推斷：JS/TS 全套、Python（pytest+ruff）、Go（build/vet/test）；其他語言暫 not-run
+- ⚠️ 其他 RU（agent-sre 等）若有自己的 `.paaw/agents/*.json` override，要手動把
+  `release-requests` 加進 rm/em/architect 的 `toolGroups`（不加就沒這三個 tool，不影響其他功能）
+- per-task approve 自動 RR：在 approve 主流程「寫完 REL、寫 TASKS.json 之前」插入 —
+  此時磁碟上 task 仍 pending，scope 才抓得到；失敗不擋批准（console.warn）
+- AI 建議輪詢用 `?light=1`（5s × 最長 2.5 分），建議落地即停 — 不會狂重跑 auto 檢查
 - RR runtime 資料在 `.paaw/release-requests/`（不進 git）

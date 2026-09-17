@@ -29,7 +29,7 @@ import { readFileSync } from "fs";
 import {
   createReleaseRequest, listReleaseRequests, getReleaseRequest, updateReleaseRequest,
   openReleaseRequest, reviewChecklistItem, closeReleaseRequest, cancelReleaseRequest,
-  baselineCandidates, refreshReleaseRequest,
+  baselineCandidates, refreshReleaseRequest, suggestVerdicts, createAutoRrForTaskApproval,
 } from "../lib/release-requests.mjs";
 
 const PHASES_BEFORE_COMMIT = ["spec", "implement", "review", "test", "qa", "docs"];
@@ -185,6 +185,13 @@ export default async function releaseRoutes(req, res, next) {
       // 快照完整證據包
       let evidence = null;
       try { evidence = await gatherTaskEvidence(path, taskId); } catch { /* 盡力而為 */ }
+      // v3：target sha 進 REL — 下張 RR 的 auto baseline 直接用（不再靠日期 fallback）
+      let targetSha = null, targetShort = null;
+      try {
+        const { stdout } = await shellExec("git rev-parse HEAD", { cwd: path, timeout: 5000 });
+        targetSha = stdout.trim() || null;
+        if (targetSha) targetShort = targetSha.slice(0, 8);
+      } catch { /* git 不可用不擋 */ }
       const ts = new Date();
       const stamp = `${ts.getFullYear()}${String(ts.getMonth() + 1).padStart(2, "0")}${String(ts.getDate()).padStart(2, "0")}-${String(ts.getHours()).padStart(2, "0")}${String(ts.getMinutes()).padStart(2, "0")}`;
       const relId = `REL-${stamp}-${taskId}`;
@@ -197,8 +204,15 @@ export default async function releaseRoutes(req, res, next) {
         title: task.title,
         note: note || null,
         decidedBy: "release-manager",
+        target: targetSha ? { sha: targetSha, short: targetShort } : null, // v3：之後 baseline auto 直接用
         evidence, // 完整證據包快照 — 之後爭議可回溯
       }, null, 2), "utf-8");
+
+      // v3（2026-09-18）：per-task approve 自動建 RR（審計軌跡統一）
+      // 必須在 writeTasksFile 之前 — computeScope 從磁碟讀 pending tasks，此時 task 還在 pending
+      try {
+        await createAutoRrForTaskApproval(path, { taskId, taskTitle: task.title, relId, note });
+      } catch (e) { /* 自動 RR 失敗不擋批准 — REL 與 task 更新照常 */ console.warn("[rr] auto RR for task failed:", e.message); }
 
       task.pipeline.commit = { status: "done", by: "release-manager", at, result: "approved for release" };
       task.status = "released";
@@ -414,6 +428,19 @@ export default async function releaseRoutes(req, res, next) {
 
   // ── Release Requests（RR）— 2026-09-17 Fleming：release 要先請一張 request 單，證據審查全過才能結案 ──
 
+  // POST /requests/:id/suggest — v3（2026-09-18）：RM agent 寫入建議 verdict（人確認）
+  const rrSuggest = url.match(/^\/api\/coding-releases\/requests\/([^/]+)\/suggest$/);
+  if (rrSuggest && method === "POST") {
+    const body = JSON.parse(await readFileStream(req) || "{}");
+    const path = body.path || projectPath;
+    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" });
+    try {
+      return res.json(await suggestVerdicts(path, rrSuggest[1], body.items, body.by || "rm-agent"));
+    } catch (e) {
+      return res.status(e.status || 500).json({ error: e.message });
+    }
+  }
+
   // GET baseline-candidates — 給 UI 挑 baseline（auto 建議 + 最近 20 個 commit）
   if (url === "/api/coding-releases/baseline-candidates" && method === "GET") {
     if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
@@ -451,6 +478,12 @@ export default async function releaseRoutes(req, res, next) {
     const path = projectPath;
     if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" });
     if (method === "GET") {
+      // light=1：跳過 refresh（不自動重跑 auto 檢查）— UI 輪詢建議時用，經量級
+      if (q.get("light") === "1") {
+        const rr = await getReleaseRequest(path, rrOne[1]);
+        if (!rr) return res.status(404).json({ error: "release request not found" });
+        return res.json(rr);
+      }
       const rr = await refreshReleaseRequest(path, rrOne[1]);
       if (!rr) return res.status(404).json({ error: "release request not found" });
       return res.json(rr);
