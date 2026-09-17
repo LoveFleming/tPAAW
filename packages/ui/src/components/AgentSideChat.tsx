@@ -48,6 +48,8 @@ interface AgentSideChatProps {
   accent?: string;          // theme accent color
   accentHover?: string;     // theme accent hover color（「你」頭像漸層第二色，沒帶就用 accent）
   height?: string;          // e.g. "100%" — container height
+  persistCrewId?: string;   // 2026-09-17 Fleming：有帶 → 對話持久化到 .paaw/coding-memory/conversations/<id>/，
+                             //   並顯示三按鈕（📋 歷史 / 🧠 注入 prompt / 💬 新對話），跟 crew chat 同一套 API
 }
 
 export interface AgentSideChatHandle {
@@ -65,6 +67,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
   accent = "#8b5e3c",
   accentHover,
   height = "100%",
+  persistCrewId,
 }: AgentSideChatProps, ref) {
   const [messages, setMessages] = useState<SideChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -77,6 +80,107 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
   const avatarUrl = useCrewAvatar(agentId, true);
   const youGrad = `linear-gradient(135deg, ${accent}, ${accentHover || accent})`; // 「你」頭像漸層（跟 ChatView 同形式）
   const { t: tt } = useI18n();
+
+  // ══ 2026-09-17 Fleming：Browser QA side chat 對話持久化 + 三按鈕（跟 crew chat 同一套）══
+  // 📋 歷史對話 / 🧠 查看注入 prompt / 💬 新對話 — persistCrewId 有帶才启用
+  const [sessions, setSessions] = useState<{ sessionId: string; title: string; messageCount: number; lastUpdated: string | null; isActive: boolean }[]>([]);
+  const [showSessions, setShowSessions] = useState(false);
+  const [viewingArchive, setViewingArchive] = useState<string | null>(null); // 正在看的歷史 session（null=目前對話）
+  const [promptData, setPromptData] = useState<any>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const messagesRef = useRef<SideChatMessage[]>([]); // mount 載入號局保護（本地已有訊息就不破壞）
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  // 載入 active 對話（mount / cwd 變 → 讀指定 RU 的 .paaw/coding-memory；切 tab 不再清空）
+  useEffect(() => {
+    if (!persistCrewId || !cwd) return;
+    let alive = true;
+    fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(persistCrewId)}?cwd=${encodeURIComponent(cwd)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (!alive) return;
+        // 只在本地還空時套用 server 狀態（避免覆寫剛送出的訊息）
+        if (messagesRef.current.length === 0 && Array.isArray(d.messages) && d.messages.length > 0) {
+          setMessages(d.messages.map((m: any) => ({
+            role: m.role === "assistant" ? "assistant" as const : "user" as const,
+            content: String(m.content ?? ""),
+            ts: m.ts || new Date().toISOString(),
+            ...(Array.isArray(m.images) ? { images: m.images } : {}),
+            ...(Array.isArray(m.files) ? { files: m.files } : {}),
+          })));
+        }
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [persistCrewId, cwd]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 存檔（debounce 2s — 跟 crew chat 同節奏；有真實 user 訊息才存）
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!persistCrewId || !cwd) return;
+    if (!messages.some(m => m.role === "user")) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(persistCrewId)}?cwd=${encodeURIComponent(cwd)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages }),
+        });
+      } catch { /* best effort */ }
+    }, 2000);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [messages, persistCrewId, cwd]);
+
+  // 📋 歷史：拉 session 清單（active + 歸檔 s-*）
+  const loadSessions = useCallback(async () => {
+    if (!persistCrewId || !cwd) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(persistCrewId)}/sessions?cwd=${encodeURIComponent(cwd)}`);
+      const data = await res.json();
+      setSessions(data.sessions || []);
+    } catch { setSessions([]); }
+  }, [persistCrewId, cwd]);
+
+  // 載入指定 session（"active" = 回目前對話）
+  const openSession = useCallback(async (sessionId: string) => {
+    if (!persistCrewId || !cwd) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(persistCrewId)}/sessions/${encodeURIComponent(sessionId)}?cwd=${encodeURIComponent(cwd)}`);
+      const data = await res.json();
+      setMessages((data.messages || []).map((m: any) => ({
+        role: m.role === "assistant" ? "assistant" as const : "user" as const,
+        content: String(m.content ?? ""),
+        ts: m.ts || new Date().toISOString(),
+        ...(Array.isArray(m.images) ? { images: m.images } : {}),
+        ...(Array.isArray(m.files) ? { files: m.files } : {}),
+      })));
+      setViewingArchive(sessionId === "active" ? null : sessionId);
+    } catch { /* best effort */ }
+    setShowSessions(false);
+  }, [persistCrewId, cwd]);
+
+  // 💬 新對話：歸檔 active + 清空（跟 crew chat 的 startNewConversation 同 API）
+  const startNewChat = useCallback(async () => {
+    if (messages.length === 0) return;
+    if (persistCrewId && cwd) {
+      try { await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(persistCrewId)}/new-session?cwd=${encodeURIComponent(cwd)}`, { method: "POST" }); } catch {}
+    }
+    setMessages([]);
+    setViewingArchive(null);
+    setShowSessions(false);
+  }, [messages, persistCrewId, cwd]);
+
+  // 🧠 查看注入 prompt（/a2a/:agentId/system-prompt — 同 crew chat 的 Context debug）
+  const viewPrompt = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/a2a/${encodeURIComponent(agentId)}/system-prompt${cwd ? `?cwd=${encodeURIComponent(cwd)}` : ""}`);
+      setPromptData(await res.json());
+    } catch (e: any) {
+      setPromptData({ error: e?.message || "fetch failed" });
+    }
+    setShowPrompt(true);
+  }, [agentId, cwd]);
 
   // 👁 agent chat 貼圖（2026-08-30）：paste/drop/picker → 壓縮 → 上傳 → a2a parts 喜vision model
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -218,6 +322,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
 
     const userMsg: SideChatMessage = { role: "user", content: textPart, ts: new Date().toISOString(), ...(uploadedPaths.length > 0 ? { images: uploadedPaths } : {}), ...(fileMeta.length > 0 ? { files: fileMeta } : {}) };
     setMessages(prev => [...prev, userMsg]);
+    if (viewingArchive) setViewingArchive(null); // 在歷史裡接話 → 這條線變成新的目前對話（存檔寫 active）
     setLoading(true);
     setAction("💭 思考中…");
 
@@ -307,13 +412,61 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
       setAction("");
       abortRef.current = null;
     }
-  }, [input, loading, messages, agentId, cwd, pendingImages, pendingFiles, tt]);
+  }, [input, loading, messages, agentId, cwd, pendingImages, pendingFiles, tt, viewingArchive]);
 
   // 外部注入訊息（Handover QA chips → AI；不改變內部訊息流）
   React.useImperativeHandle(ref, () => ({ send: (text: string) => { send(text); } }), [send]);
 
   return (
-    <div className="flex flex-col border-l" style={{ borderColor: "#e7e5e4", height }}>
+    <div className="flex flex-col border-l relative" style={{ borderColor: "#e7e5e4", height }}>
+      {/* 🧠 注入 prompt 檢視器（fixed overlay — 跟 crew chat 的 Context debug 同款深色 modal）*/}
+      {showPrompt && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={() => { setShowPrompt(false); setPromptData(null); }}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative w-[640px] max-w-[90vw] max-h-[80vh] bg-[#1a1a2e] rounded-xl shadow-2xl border border-stone-700 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-stone-700">
+              <h3 className="text-sm font-bold text-stone-100 flex items-center gap-2">🧠 {tt("sideChat.prompt")}</h3>
+              <div className="flex items-center gap-3">
+                {typeof promptData?.totalLength === "number" && (
+                  <span className="text-xs text-stone-400">Total: {promptData.totalLength.toLocaleString()} chars</span>
+                )}
+                <button onClick={() => { setShowPrompt(false); setPromptData(null); }} className="text-stone-400 hover:text-white text-lg">✕</button>
+              </div>
+            </div>
+            {promptData?.error ? (
+              <div className="flex-1 flex items-center justify-center text-red-400 text-sm p-6">Error: {promptData.error}</div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollbarWidth: "thin" }}>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">🤖 {promptData?.agentName || agentName}</span>
+                  {promptData?.contextProviders?.length > 0 && (
+                    <span className="text-[10px] text-stone-500">providers: {promptData.contextProviders.join(", ")}</span>
+                  )}
+                </div>
+                {promptData?.baseSystemPrompt ? (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">📋 Base System Prompt</span>
+                      <span className="text-[10px] text-stone-500">{(promptData.baseSystemPrompt.length || 0).toLocaleString()} chars</span>
+                    </div>
+                    <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: 300, overflowY: "auto" }}>{String(promptData.baseSystemPrompt)}</pre>
+                  </div>
+                ) : promptData?.systemPromptPreview ? (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">📋 System Prompt Preview</span>
+                      <span className="text-[10px] text-stone-500">{promptData.systemPromptLength?.toLocaleString?.() || ""} chars total</span>
+                    </div>
+                    <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: 300, overflowY: "auto" }}>{String(promptData.systemPromptPreview)}</pre>
+                  </div>
+                ) : (
+                  <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: 400, overflowY: "auto" }}>{JSON.stringify(promptData, null, 2)}</pre>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="px-3 py-2 border-b flex items-center gap-2 shrink-0" style={{ borderColor: "#e7e5e4" }}>
         {avatarUrl ? (
@@ -323,7 +476,59 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
         )}
         <span className="text-xs font-bold text-stone-700">{agentName}</span>
         {loading && <span className="text-[10px] text-stone-400 animate-pulse ml-auto">{action || "處理中…"}</span>}
+        {/* 2026-09-17 Fleming：三按鈕（跟 crew chat 一致）— 📋 歷史 / 🧠 注入 prompt / 💬 新對話 */}
+        {persistCrewId && (
+          <div className={`${loading ? "" : "ml-auto"} flex items-center gap-1 shrink-0`}>
+            {viewingArchive && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200">📂 {tt("sideChat.archive")}</span>
+            )}
+            <button
+              onClick={() => { if (!showSessions) loadSessions(); setShowSessions(!showSessions); }}
+              className="text-xs px-2 py-1 rounded-lg border border-stone-200 text-stone-500 hover:text-stone-700 hover:bg-stone-50 transition-colors"
+              title={tt("sideChat.history")}
+            >📋</button>
+            <button
+              onClick={viewPrompt}
+              className="text-xs px-2 py-1 rounded-lg border border-stone-200 text-stone-500 hover:text-stone-700 hover:bg-stone-50 transition-colors"
+              title={tt("sideChat.prompt")}
+            >🧠</button>
+            <button
+              onClick={startNewChat}
+              disabled={messages.length === 0}
+              className="text-xs px-2 py-1 rounded-lg border border-stone-200 text-stone-500 hover:text-stone-700 hover:bg-stone-50 transition-colors disabled:opacity-30"
+              title={tt("sideChat.newChat")}
+            >💬</button>
+          </div>
+        )}
       </div>
+
+      {/* 📋 Sessions 下拉清單（active + 歷史）*/}
+      {persistCrewId && showSessions && (
+        <div className="border-b bg-white shadow-sm shrink-0" style={{ borderColor: "#e7e5e4", maxHeight: 220, overflowY: "auto" }}>
+          <div className="flex items-center justify-between px-3 py-2 border-b sticky top-0 bg-white z-10" style={{ borderColor: "#e7e5e4" }}>
+            <span className="text-xs font-semibold text-stone-600">📜 {tt("sideChat.sessions")}</span>
+            <button onClick={() => setShowSessions(false)} className="text-stone-400 hover:text-stone-600 text-sm">✕</button>
+          </div>
+          {sessions.length === 0 ? (
+            <div className="px-3 py-4 text-center text-xs text-stone-400">{tt("sideChat.noSessions")}</div>
+          ) : sessions.map(s => (
+            <button
+              key={s.sessionId}
+              onClick={() => openSession(s.sessionId)}
+              className={`w-full text-left px-3 py-2 hover:bg-stone-50 border-b last:border-b-0 transition-colors ${viewingArchive === s.sessionId || (!viewingArchive && s.isActive) ? "bg-amber-50/50" : ""}`}
+              style={{ borderColor: "#f5f5f4" }}
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-stone-700 truncate flex-1">{s.isActive ? "🟢" : "📂"} {s.title || (s.isActive ? tt("sideChat.current") : "對話")}</span>
+                <span className="text-[10px] text-stone-400 shrink-0">{s.messageCount} 則</span>
+              </div>
+              {s.lastUpdated && (
+                <div className="text-[10px] text-stone-400 mt-0.5">{new Date(s.lastUpdated).toLocaleString()}</div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Messages */}
       <div ref={scrollRef} onScroll={(e) => {

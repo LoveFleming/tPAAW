@@ -3077,8 +3077,15 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
             })}
 
             {/* === BROWSER PANEL + QA SIDE CHAT（2026-09-15 Fleming：browser page 掛 QA 武大安 side chat，像 Release Manager 頁掛 rm；其它 agent 只留 browser API）=== */}
-            {activeMainTab?.type === "browser" && (
-              <div className="absolute inset-0 flex overflow-hidden">
+            {/* 2026-09-17 Fleming：改 keep-alive（visibility 切換，同 file viewer）— 切 tab 不再 unmount，*/}
+            {/*   BrowserPanel 串流/畫面 + QA side chat 對話都保留；tab 關掉才真的卸載。*/}
+            {/*   side chat 加 persistCrewId="coding.qa-browser" → 對話存 .paaw/coding-memory（跟 crew chat 同一套），*/}
+            {/*   並有 📋 歷史 / 🧠 注入 prompt / 💬 新對話 三按鈕（重整/restart 也撐得性回來）*/}
+            {mainTabs.some(t => t.type === "browser") && (() => {
+              const browserActive = activeMainTab?.type === "browser";
+              return (
+              <div className="absolute inset-0 flex overflow-hidden"
+                style={{ visibility: browserActive ? "visible" : "hidden", zIndex: browserActive ? 1 : 0, pointerEvents: browserActive ? "auto" : "none" }}>
                 <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
                   <BrowserPanel API_BASE={API_BASE} rootPath={rootPath} />
                 </div>
@@ -3091,6 +3098,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                     cwd={rootPath}
                     accent={tk.accent}
                     height="100%"
+                    persistCrewId="coding.qa-browser"
                     suggestions={[
                       { label: tt("qaBrowser.sugSmoke"), prompt: tt("qaBrowser.sugSmokePrompt") },
                       { label: tt("qaBrowser.sugCheck"), prompt: tt("qaBrowser.sugCheckPrompt") },
@@ -3099,7 +3107,8 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   />
                 </div>
               </div>
-            )}
+              );
+            })()}
             {activeMainTab?.type === "git" && (
               <GitPanel
                 rootPath={rootPath!}
