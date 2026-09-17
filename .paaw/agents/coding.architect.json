@@ -23,7 +23,8 @@
     "decisions",
     "project",
     "project-edit",
-    "qa-records"
+    "qa-records",
+    "release-requests"
   ],
   "_source": "global",
   "_resetAt": "2026-08-01T05:41:53.348Z",

@@ -465,11 +465,12 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
         {/* ═══ 已初始化 ═══ */}
         {initialized === true && (
           <div className="p-5 space-y-6">
-            {/* Release Requests — 正式批次放行（v2 2026-09-18）*/}
+            {/* Release Requests — 正式批次放行（v2 2026-09-18；v3：AI 建議 verdict）*/}
             <ReleaseRequests
               rootPath={rootPath}
               theme={{ borderLight: tk.borderLight, accent: tk.accent, accentHover: tk.accentHover || tk.accent }}
               notify={(ok, text) => { setToast({ ok, text }); setTimeout(() => setToast(null), 6000); }}
+              chatRef={chatRef}
             />
 
             {/* 待放行 */}

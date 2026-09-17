@@ -30,7 +30,8 @@
     "project-edit",
     "project-board",
     "tasks",
-    "qa-records"
+    "qa-records",
+    "release-requests"
   ],
   "_promptRev": "2026-09-06-b"
 }

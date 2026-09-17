@@ -1403,5 +1403,14 @@
   "rr.releaseId": "Release snapshot",
   "rr.closedAt": "Closed at",
   "rr.scopeDetails": "Changes",
-  "rr.history": "Decision trail"
+  "rr.history": "Decision trail",
+  "rr.suggested": "AI suggestion",
+  "rr.askAi": "Ask AI to review",
+  "rr.applyAll": "Apply AI suggestions",
+  "rr.appliedToast": "AI suggestions applied",
+  "rr.noApplyToast": "No applicable suggestions (all items already have verdicts)",
+  "rr.aiDoneToast": "AI suggestions written — review then apply",
+  "rr.waitingAi": "Waiting for AI review…",
+  "rr.aiUnavailable": "RM AI assistant not mounted (window too narrow)",
+  "rr.draftPreview": "draft preview — verdicts unlocked after open"
 }

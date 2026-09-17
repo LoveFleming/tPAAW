@@ -1403,5 +1403,14 @@
   "rr.releaseId": "Release 快照",
   "rr.closedAt": "結案時間",
   "rr.scopeDetails": "變更內容",
-  "rr.history": "決策軌跡"
+  "rr.history": "決策軌跡",
+  "rr.suggested": "AI 建議",
+  "rr.askAi": "Ask AI review",
+  "rr.applyAll": "Apply AI suggestions",
+  "rr.appliedToast": "已套用 AI 建議",
+  "rr.noApplyToast": "沒有可套用的建議（各項已有人下 verdict）",
+  "rr.aiDoneToast": "AI 建議已寫入 — 確認後可一鍵套用",
+  "rr.waitingAi": "等待 AI 審查中…",
+  "rr.aiUnavailable": "RM AI 助理未掛載（視窗太窄）",
+  "rr.draftPreview": "draft preview — open 後才能下 verdict"
 }

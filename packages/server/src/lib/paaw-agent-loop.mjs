@@ -595,6 +595,62 @@ export const PAAW_TOOLS = [
         },
       },
     },
+    // ── Release Requests — v3（2026-09-18）：RM agent 審 RR 證據、建議 verdict，人類做最終決定 ──
+    {
+      type: "function",
+      function: {
+        name: "rr_list",
+        description: "List release requests (RR) for this project — the formal batch-release path. Returns id, title, status (draft/reviewing/released/cancelled), baseline→target, scope counts, checklist verdicts. Use when the human asks about release requests or which RR is in review.",
+        parameters: {
+          type: "object",
+          properties: {
+            status: { type: "string", enum: ["draft", "reviewing", "released", "cancelled"], description: "Filter by status" },
+          },
+          required: [],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "rr_get",
+        description: "Get ONE release request with full evidence: scope (commits/files/features/APIs/tasks) + checklist with deterministic auto-check details (tests run numbers, gates status, open QA fails, risk reasons). Use BEFORE suggesting verdicts — your suggestions must be grounded in this evidence (No answer without evidence).",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "RR id (RR-...), from rr_list" },
+          },
+          required: ["id"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "rr_suggest",
+        description: "Write suggested verdicts for a release request's checklist items (pass/fail/waived + reason each). This records SUGGESTIONS ONLY — the human confirms in the Release Manager UI; you never decide a release. Every suggestion MUST have a reason grounded in rr_get evidence. waive suggestions need a justification of why it is safe to ship despite the signal.",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "RR id (RR-...)" },
+            items: {
+              type: "array",
+              description: "One entry per checklist item you want to suggest on",
+              items: {
+                type: "object",
+                properties: {
+                  itemId: { type: "string", enum: ["tests", "gates", "qa-records", "risk"], description: "Checklist item id" },
+                  verdict: { type: "string", enum: ["pass", "fail", "waived"], description: "Suggested verdict" },
+                  reason: { type: "string", description: "Why — grounded in rr_get evidence (required)" },
+                },
+                required: ["itemId", "verdict", "reason"],
+              },
+            },
+          },
+          required: ["id", "items"],
+        },
+      },
+    },
     // ── Unified docs tool (replaces update_changelog + update_docs) ──
     {
       type: "function",
@@ -1134,6 +1190,9 @@ const TOOL_GROUP_MAP = {
   // QA Results — QA 記錄共享存儲（2026-09-17 Fleming：qa agent 留記錄、其他 agent 讀寫）
   qa_record_save: "qa-records", qa_record_list: "qa-records", qa_record_update: "qa-records",
 
+  // Release Requests — v3（2026-09-18）：RM agent 讀 RR 證據、寫建議 verdict（人確認）
+  rr_list: "release-requests", rr_get: "release-requests", rr_suggest: "release-requests",
+
   // Staged summary (agents record why they staged files)
   staged_summary: "core",
 
@@ -1176,8 +1235,10 @@ const AGENT_FALLBACK_GROUPS = {
   qa: ["core-read", "memory", "project", "project-edit", "tasks", "release-unit", "qa-records"],
   // Helpdesk: read-only + project
   helpdesk: ["core-read", "memory", "decisions", "project", "project-edit", "qa-records"],
+  // RM（fallback）：v3（2026-09-18）+ release-requests（審 RR 證據、寫建議 verdict）
+  rm: ["core-read", "memory", "decisions", "project", "docs", "release-requests"],
   // EM: read-only + project + project-edit + docs + tasks + dispatch (no notes/browser)
-  em: ["core-read", "memory", "decisions", "project", "project-edit", "project-board", "docs", "tasks", "dispatch", "release-unit", "qa-records"],
+  em: ["core-read", "memory", "decisions", "project", "project-edit", "project-board", "docs", "tasks", "dispatch", "release-unit", "qa-records", "release-requests"],
 };
 
 // ── Cache for crew toolGroups loaded from JSON ──
@@ -2943,6 +3004,55 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         if (!rec) return `❌ QA result not found: ${args.id} (use qa_record_list to find the id)`;
         if (onEvent) onEvent({ type: "tool_end", name, result: `${rec.id} → ${rec.status}` });
         return `✅ Updated ${rec.id}: status=${rec.status}\nIssues: ${(rec.issues || []).map(x => `${x.status === "open" ? "🔴" : "✅"} ${x.desc.slice(0, 60)}`).join(" | ")}`;
+      }
+
+      // ── Release Request Tools（v3 2026-09-18：RM agent 審證據、寫建議，人類確認）──
+      case "rr_list": {
+        const { listReleaseRequests } = await import("./release-requests.mjs");
+        let list = await listReleaseRequests(cwd);
+        if (args.status) list = list.filter(r => r.status === args.status);
+        if (list.length === 0) return "No release requests found. (Create one from the Release Manager UI — 📋 Release Requests section.)";
+        return list.map(r =>
+          `${r.id} [${r.status}] ${r.title}\n   ${r.baseline?.short || "?"} → ${r.target?.short || "?"} · ${r.scope?.commits ?? 0} commits / ${r.scope?.files ?? 0} files / ${r.scope?.tasks ?? 0} tasks\n   checklist: ${(r.checklist || []).map(c => `${c.id}=${c.verdict}(auto:${c.auto})`).join(" · ")}${r.releaseId ? `\n   → ${r.releaseId}` : ""}`
+        ).join("\n\n");
+      }
+      case "rr_get": {
+        const { getReleaseRequest } = await import("./release-requests.mjs");
+        const rr = await getReleaseRequest(cwd, args.id);
+        if (!rr) return `❌ Release request not found: ${args.id} (use rr_list)`;
+        const cl = (rr.checklist || []).map(c =>
+          `  [${c.id}] verdict=${c.verdict} · auto=${c.auto?.status || "?"}\n    detail: ${c.auto?.detail || "—"}${c.note ? `\n    note: ${c.note}` : ""}${rr.suggested?.[c.id] ? `\n    🤖 suggested: ${rr.suggested[c.id].verdict} — ${rr.suggested[c.id].reason}` : ""}`
+        ).join("\n");
+        const feats = (rr.scope?.features || []).map(f => `  ${f.id} ${f.name}${f.hasTests ? "" : " (NO TESTS)"}${f.apiImpact ? " [API impact]" : ""}`).join("\n");
+        return [
+          `${rr.id} [${rr.status}] ${rr.title}`,
+          `baseline: ${rr.baseline?.short}（${rr.baseline?.source}）${rr.baseline?.subject || ""}`,
+          `target:  ${rr.target?.short} ${rr.target?.subject || ""}`,
+          `scope:   ${rr.scope?.commits?.count ?? 0} commits · ${(rr.scope?.files || []).length} files · ${(rr.scope?.features || []).length} features · ${(rr.scope?.apis || []).length} APIs · ${(rr.scope?.taskIds || []).length} pending tasks`,
+          `authors: ${(rr.scope?.commits?.authors || []).join(", ")}`,
+          "",
+          "Checklist (auto = deterministic evidence):",
+          cl,
+          "",
+          "Changed features:",
+          feats || "  (none)",
+          "",
+          "Recent commits:",
+          (rr.scope?.commits?.subjects || []).slice(0, 10).map(s => `  ${s}`).join("\n") || "  (none)",
+          "",
+          "Scope pending tasks (will batch-release on close):",
+          (rr.scope?.taskIds || []).map(x => `  ${typeof x === "string" ? x : `${x.id} ${x.title}`}`).join("\n") || "  (none)",
+        ].join("\n");
+      }
+      case "rr_suggest": {
+        const { suggestVerdicts } = await import("./release-requests.mjs");
+        try {
+          const rr = await suggestVerdicts(cwd, args.id, args.items, agentId || "rm-agent");
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${rr.id}: ${args.items.length} items` });
+          return `✅ Suggestions recorded on ${rr.id} (${args.items.map(it => `${it.itemId}:${it.verdict}`).join(", ")}).\nThe human will confirm in the Release Manager UI — you suggested, you did NOT decide.`;
+        } catch (e) {
+          return `❌ rr_suggest failed: ${e.message}`;
+        }
       }
 
       // ── Action Log Tools ──

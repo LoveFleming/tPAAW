@@ -98,10 +98,15 @@ export async function listReleaseRequests(projectPath) {
         id: rr.id, title: rr.title, status: rr.status,
         createdAt: rr.createdAt, closedAt: rr.closedAt || null,
         releaseId: rr.releaseId || null,
+        createdBy: rr.createdBy || "human",
         baseline: { short: rr.baseline?.short, subject: rr.baseline?.subject, source: rr.baseline?.source },
         target: { short: rr.target?.short, subject: rr.target?.subject },
         scope: { commits: rr.scope?.commits?.count ?? 0, files: (rr.scope?.files || []).length, features: (rr.scope?.features || []).length, apis: (rr.scope?.apis || []).length, tasks: (rr.scope?.taskIds || []).length },
         checklist: (rr.checklist || []).map(c => ({ id: c.id, verdict: c.verdict, auto: c.auto?.status || "unknown" })),
+        // v3（2026-09-18）：RM agent 建議 verdict — 列表帶摘要，人在 UI 一鍵確認
+        suggested: rr.suggested && Object.keys(rr.suggested).length
+          ? Object.fromEntries(Object.entries(rr.suggested).map(([k, v]) => [k, v.verdict]))
+          : null,
       });
     } catch { /* skip corrupt */ }
   }
@@ -199,7 +204,7 @@ function pendingReleaseTasks(projectPath) {
   } catch { return []; }
 }
 
-export async function computeScope(projectPath, baselineSha, targetSha) {
+export async function computeScope(projectPath, baselineSha, targetSha, opts = {}) {
   // by-SHA 精確範圍（不再靠日期）
   const { data: ci } = await buildChangeIntelligence(projectPath, { fromSha: baselineSha, toSha: targetSha, maxCommits: 300 });
   const commits = ci?.commits || [];
@@ -228,6 +233,13 @@ export async function computeScope(projectPath, baselineSha, targetSha) {
     });
   }
 
+  let taskIds = pendingReleaseTasks(projectPath); // pending = 未放行，定義上都在 baseline 之後
+  // v3（2026-09-18）：per-task approve 自動建 RR 用 — scope 限定單一 task，避免誤放行其他 pending tasks
+  if (opts.onlyTaskIds) {
+    const want = new Set(opts.onlyTaskIds);
+    taskIds = taskIds.filter(x => want.has(x.id));
+  }
+
   return {
     computedAt: new Date().toISOString(),
     commits: {
@@ -238,7 +250,7 @@ export async function computeScope(projectPath, baselineSha, targetSha) {
     files: recentFiles,
     features: changedFeatures,
     apis: changedApis,
-    taskIds: pendingReleaseTasks(projectPath), // pending = 未放行，定義上都在 baseline 之後
+    taskIds, // pending = 未放行，定義上都在 baseline 之後
   };
 }
 
@@ -525,6 +537,90 @@ export async function cancelReleaseRequest(projectPath, id, { reason } = {}) {
   if (rr.status === "cancelled") return rr;
   rr.status = "cancelled";
   hist(rr, "human", "cancelled", reason || null);
+  await saveRR(projectPath, rr);
+  return rr;
+}
+
+// ── v3（2026-09-18）：RM agent 建議 verdict — AI 只建議，人在 UI 一鍵確認 ──
+
+/**
+ * 寫入 AI 建議（不動 verdict）：rr.suggested[itemId] = { verdict, reason, by, at }
+ * draft / reviewing 都可建議（建議不鎖任何東西）；released/cancelled 拒絕。
+ */
+export async function suggestVerdicts(projectPath, id, items, by = "rm-agent") {
+  const rr = await getReleaseRequest(projectPath, id);
+  if (!rr) { const e = new Error("release request not found"); e.status = 404; throw e; }
+  if (rr.status === "released" || rr.status === "cancelled") {
+    const e = new Error(`已 ${rr.status}，不接受新建議`); e.status = 400; throw e;
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    const e = new Error("items 必須是 [{ itemId, verdict, reason }]（至少一項）"); e.status = 400; throw e;
+  }
+  const valid = new Set((rr.checklist || []).map(c => c.id));
+  rr.suggested = rr.suggested || {};
+  const applied = [];
+  for (const it of items) {
+    if (!valid.has(it.itemId)) { const e = new Error(`checklist item 不存在：${it.itemId}（有效：${[...valid].join(", ")}）`); e.status = 404; throw e; }
+    if (!["pass", "fail", "waived"].includes(it.verdict)) {
+      const e = new Error(`verdict 只能是 pass / fail / waived（${it.itemId}）`); e.status = 400; throw e;
+    }
+    if (!it.reason) { const e = new Error(`${it.itemId} 缺 reason — No answer without evidence`); e.status = 400; throw e; }
+    rr.suggested[it.itemId] = { verdict: it.verdict, reason: it.reason, by, at: new Date().toISOString() };
+    applied.push(`${it.itemId}:${it.verdict}`);
+  }
+  hist(rr, by, "ai-suggested", applied.join(", "));
+  await saveRR(projectPath, rr);
+  return rr;
+}
+
+/**
+ * v3（2026-09-18）：per-task approve 自動建 RR — 統一審計軌跡。
+ *
+ * 人在待放行區單獨批准一個 task（快速路徑）時，approve 流程寫完 REL 後叫這個：
+ *  - baseline = auto（上次 release head / first commit）、target = 當下 HEAD
+ *  - scope.taskIds 限定該 task（不會誤放行其他 pending tasks — 放行由 approve 主流程負責）
+ *  - checklist：auto pass → verdict pass；auto fail/warn → waived（note 記快速路徑 + 自動證據）
+ *  - 直接 status=released，releaseId 掛 approve 寫的 REL — 歷史可回溯
+ */
+export async function createAutoRrForTaskApproval(projectPath, { taskId, taskTitle, relId, note } = {}) {
+  if (!taskId || !relId) { const e = new Error("taskId and relId required"); e.status = 400; throw e; }
+  const base = await resolveBaseline(projectPath, "auto");
+  const headSha = await gitOne(projectPath, "rev-parse HEAD");
+  if (!headSha) { const e = new Error("repo 沒有 HEAD"); e.status = 400; throw e; }
+  const target = await describeCommit(projectPath, headSha);
+  const scope = await computeScope(projectPath, base.sha, headSha, { onlyTaskIds: [taskId] });
+  const auto = await autoCheckAll(projectPath, scope);
+
+  const checklist = CHECKLIST_DEFS.map(def => {
+    const a = auto[def.id] || { status: "unknown", detail: "—" };
+    const ok = a.status === "pass";
+    return {
+      id: def.id,
+      label: def.label,
+      auto: a,
+      verdict: ok ? "pass" : "waived",
+      reviewedBy: "human",
+      reviewedAt: new Date().toISOString(),
+      note: ok ? "per-task approve 快速路徑（人類單獨批准）" : `per-task approve 快速路徑 — waive 自動證據：${a.detail}`,
+    };
+  });
+
+  const rr = {
+    id: newRRId(),
+    title: `Auto — ${taskTitle || taskId}`,
+    createdAt: new Date().toISOString(),
+    createdBy: "auto(per-task-approve)",
+    status: "released",
+    baseline: base,
+    target,
+    scope,
+    checklist,
+    releaseId: relId,
+    closedAt: new Date().toISOString(),
+    history: [],
+  };
+  hist(rr, "system", "created", `per-task approve 自動建單（${taskId}）— baseline=${base.short}（${base.source}）`);
+  hist(rr, "human", "closed", `${relId}（快速路徑：人在待放行區批准 ${taskId}${note ? `，note：${note}` : ""}）`);
   await saveRR(projectPath, rr);
   return rr;
 }

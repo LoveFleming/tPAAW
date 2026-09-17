@@ -22,7 +22,8 @@
     "core-read",
     "memory",
     "decisions",
-    "project"
+    "project",
+    "release-requests"
   ],
   "_source": "global",
   "_syncedAt": "2026-08-25T13:19:34.968Z"

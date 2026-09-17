@@ -1,5 +1,8 @@
 /**
- * ReleaseRequests — 📋 Release Request（RR）區（2026-09-18 v2）
+ * ReleaseRequests — 📋 Release Request（RR）區（2026-09-18 v2 + v3）
+ *
+ * v3：RM agent 整合 — 🤖 請 AI 審查（side chat 吃 rr_get 證據 → rr_suggest 寫建議）、
+ *     ⚡ 一鍵套用建議（AI 只建議，人確認）；per-task approve 自動建 RR（server 端）
  *
  * 正式批次放行路徑：建單（baseline by SHA）→ 開審 → checklist 證據審查 → 結案放行。
  * 與 per-task approve 共存（快速路徑，不走這裡）。
@@ -18,6 +21,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
+import type { AgentSideChatHandle } from "./AgentSideChat";
 
 // ── types ──
 
@@ -49,6 +53,8 @@ export interface RrDetail {
     taskIds: ({ id: string; title: string } | string)[];
   };
   checklist: RrChecklistItem[];
+  // v3（2026-09-18）：RM agent 建議 — { itemId: { verdict, reason, by, at } }
+  suggested?: Record<string, { verdict: string; reason: string; by?: string; at?: string }> | null;
   history: { ts: string; by: string; event: string; note?: string | null }[];
 }
 
@@ -74,6 +80,7 @@ interface Props {
   rootPath: string;
   theme: { borderLight: string; accent: string; accentHover?: string };
   notify?: (ok: boolean, text: string) => void; // 用父層 toast；沒帶就內建
+  chatRef?: React.RefObject<AgentSideChatHandle | null>; // v3：請 RM agent 審查建議用
 }
 
 // ── styles ──
@@ -99,7 +106,7 @@ const BASELINE_SOURCE_LABEL: Record<string, string> = {
   "user-selected": "自選",
 };
 
-export default function ReleaseRequests({ rootPath, theme: tk, notify }: Props) {
+export default function ReleaseRequests({ rootPath, theme: tk, notify, chatRef }: Props) {
   const { t } = useI18n();
   const [list, setList] = useState<RrListItem[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -118,6 +125,7 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify }: Props) 
   const [editTitle, setEditTitle] = useState("");
   const [pickBaseline, setPickBaseline] = useState("");
   const [showScope, setShowScope] = useState(false);
+  const [waitingSuggest, setWaitingSuggest] = useState(false); // v3：等 AI 寫建議（light 輪詢）
 
   const toast = useCallback((ok: boolean, text: string) => {
     if (notify) { notify(ok, text); return; }
@@ -247,6 +255,66 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify }: Props) 
     } finally { setBusy(false); }
   };
 
+  // ── v3：RM agent 建議 verdict（AI 只建議，人一鍵確認）──
+
+  const askAi = () => {
+    if (!detail) return;
+    chatRef?.current?.send(
+      `請審查 release request ${detail.id}（${detail.title}）：\n` +
+      `1. 先用 rr_get 讀完整證據（scope + checklist 自動檢查明細）\n` +
+      `2. 用 rr_suggest 寫入你對四項 checklist 的建議 verdict（pass / fail / waived + 理由）\n` +
+      `鐵律：你只建議，人類做最終決定；理由必須引用 rr_get 的證據，沒證據不建議。`
+    );
+    setWaitingSuggest(true);
+  };
+
+  const applySuggestions = async () => {
+    if (!detail?.suggested || busy) return;
+    setBusy(true);
+    try {
+      let applied = 0;
+      for (const item of detail.checklist) {
+        if (item.verdict !== "pending") continue; // 人已下過 verdict 的不覆蓋
+        const sug = detail.suggested?.[item.id];
+        if (!sug) continue;
+        const res = await fetch(`${base}/requests/${detail.id}/checklist`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: rootPath, itemId: item.id, verdict: sug.verdict, note: `🤖 套用 AI 建議 — ${sug.reason}` }),
+        });
+        if (res.ok) { const rr: RrDetail = await res.json(); setDetail(rr); applied++; }
+      }
+      toast(applied > 0, applied > 0 ? `🤖 ${t("rr.appliedToast")}（${applied}）` : t("rr.noApplyToast"));
+      refreshList();
+    } catch (e: any) {
+      toast(false, `❌ ${e?.message || "連線失敗"}`);
+    } finally { setBusy(false); }
+  };
+
+  // 等待 AI 寫建議：light 輪詢（5s × 最長 2.5 分），建議出現或超時停止
+  useEffect(() => {
+    if (!waitingSuggest || !detailId) return;
+    const started = Date.now();
+    const orig = detail ? JSON.stringify(detail.suggested || {}) : "{}";
+    const iv = setInterval(async () => {
+      try {
+        const res = await fetch(`${base}/requests/${detailId}?${qs}&light=1`);
+        if (!res.ok) return;
+        const rr: RrDetail = await res.json();
+        const now = JSON.stringify(rr.suggested || {});
+        if (now !== orig) {
+          setDetail(rr); setEditTitle(rr.title);
+          setWaitingSuggest(false);
+          toast(true, `🤖 ${t("rr.aiDoneToast")}`);
+          refreshList();
+          return;
+        }
+        if (Date.now() - started > 150_000) setWaitingSuggest(false);
+      } catch { /* 下輪再試 */ }
+    }, 5000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waitingSuggest, detailId]);
+
   // ── render helpers ──
 
   const checklistDone = (cl: { verdict: string }[]) => cl.filter(c => c.verdict === "pass" || c.verdict === "waived").length;
@@ -293,6 +361,11 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify }: Props) 
   };
 
   // ── render ──
+
+  // v3：可套用的建議數（項目仍 pending 且有建議）
+  const applicableSuggestions = detail?.status === "reviewing"
+    ? (detail.checklist || []).filter(c => c.verdict === "pending" && detail.suggested?.[c.id]).length
+    : 0;
 
   return (
     <section data-testid="rr-section">
@@ -412,11 +485,11 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify }: Props) 
                       </div>
                     )}
 
-                    {/* checklist */}
-                    {detail.status !== "draft" && (
+                    {/* checklist（draft 唯讀預覽；reviewing 可下 verdict）*/}
+                    {(
                       <div data-testid="rr-checklist">
                         <div className="text-[11px] font-bold text-stone-500 mb-1.5">
-                          {t("rr.checklistTitle")}（{checklistDone(detail.checklist)}/{detail.checklist.length}）
+                          {t("rr.checklistTitle")}（{checklistDone(detail.checklist)}/{detail.checklist.length}）{detail.status === "draft" ? ` · ${t("rr.draftPreview")}` : ""}
                         </div>
                         <div className="space-y-1.5">
                           {detail.checklist.map(item => (
@@ -434,6 +507,21 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify }: Props) 
                               <div className="text-[10px] text-stone-400 mt-1 font-mono leading-relaxed break-all">
                                 {t("rr.auto")}：{item.auto?.detail || "—"}
                               </div>
+                              {detail.suggested?.[item.id] && (() => {
+                                const s = detail.suggested[item.id];
+                                const vs = VERDICT_STYLES[s.verdict] || VERDICT_STYLES.pending;
+                                return (
+                                  <div className="mt-1.5 flex items-start gap-1.5 text-[10px] bg-violet-50 border border-violet-200 rounded-md px-2 py-1" data-testid={`rr-suggest-${item.id}`}>
+                                    <span>🤖</span>
+                                    <span className="text-violet-700 leading-relaxed">
+                                      <b>{t("rr.suggested")}</b>
+                                      <span className="font-mono font-bold mx-1" style={{ color: vs.text }}>{vs.icon} {s.verdict}</span>
+                                      — {s.reason}
+                                      {s.by && <span className="text-violet-300 ml-1.5">{s.by}{s.at ? ` · ${fmtShort(s.at)}` : ""}</span>}
+                                    </span>
+                                  </div>
+                                );
+                              })()}
                               {/* verdict controls — reviewing only */}
                               {detail.status === "reviewing" && (
                                 <div className="flex gap-1.5 mt-2 flex-wrap">
@@ -479,6 +567,24 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify }: Props) 
 
                     {/* actions by status */}
                     <div className="flex gap-2 flex-wrap items-center">
+                      {detail.status === "reviewing" && (
+                        <>
+                          {/* v3：RM agent 審查建議（AI 只建議，人一鍵確認） */}
+                          <button onClick={askAi} disabled={busy || !chatRef || waitingSuggest}
+                            title={chatRef ? undefined : t("rr.aiUnavailable")}
+                            className="text-[11px] px-2.5 py-1.5 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 disabled:opacity-40 font-bold"
+                            data-testid="rr-ask-ai">
+                            {waitingSuggest ? `⏳ ${t("rr.waitingAi")}` : `🤖 ${t("rr.askAi")}`}
+                          </button>
+                          {applicableSuggestions > 0 && (
+                            <button onClick={applySuggestions} disabled={busy}
+                              className="text-[11px] px-2.5 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 font-bold"
+                              data-testid="rr-apply-ai">
+                              ⚡ {t("rr.applyAll")}（{applicableSuggestions}）
+                            </button>
+                          )}
+                        </>
+                      )}
                       {detail.status === "draft" && (
                         <button onClick={() => act("open", {}, "🔍 " + t("rr.openedToast"))} disabled={busy}
                           className="text-xs px-3.5 py-1.5 rounded-lg bg-amber-500 text-white font-bold hover:bg-amber-600 disabled:opacity-40" data-testid="rr-open-btn">

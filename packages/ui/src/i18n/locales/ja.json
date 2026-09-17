@@ -1403,5 +1403,14 @@
   "rr.releaseId": "リリーススナップショット",
   "rr.closedAt": "クローズ日時",
   "rr.scopeDetails": "変更内容",
-  "rr.history": "意思決定履歴"
+  "rr.history": "意思決定履歴",
+  "rr.suggested": "AI 提案",
+  "rr.askAi": "AI レビューを依頼",
+  "rr.applyAll": "AI 提案を一括適用",
+  "rr.appliedToast": "AI 提案を適用しました",
+  "rr.noApplyToast": "適用可能な提案はありません（全項目に verdict 済み）",
+  "rr.aiDoneToast": "AI 提案を書き込みました — 確認して一括適用できます",
+  "rr.waitingAi": "AI レビュー待ち…",
+  "rr.aiUnavailable": "RM AI アシスタント未マウント（ウィンドウが狭い）",
+  "rr.draftPreview": "draft プレビュー — open 後に verdict 可能"
 }
