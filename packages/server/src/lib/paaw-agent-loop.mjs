@@ -521,6 +521,80 @@ export const PAAW_TOOLS = [
         },
       },
     },
+    // ── QA Results — QA 記錄共享存儲（2026-09-17 Fleming：qa agent 留記錄、其他 agent 讀寫）──
+    {
+      type: "function",
+      function: {
+        name: "qa_record_save",
+        description: "Save a QA result record to the shared QA log (.paaw/coding-memory/qa-results.jsonl) — visible to ALL agents and the human. Use after ANY testing/verification work: browser QA, smoke test, API test, code review verdict, e2e run. Records verdict (pass/fail), issues found (with severity + evidence like screenshot paths), and links to task/feature. This is the team's QA memory — ALWAYS record your test results here, never let them evaporate into chat history.",
+        parameters: {
+          type: "object",
+          properties: {
+            verdict: { type: "string", enum: ["pass", "fail", "warn", "blocked"], description: "Test verdict" },
+            target: { type: "string", description: "What was tested (page/feature/API name, e.g. 'Login — RBAC redirect')" },
+            summary: { type: "string", description: "One-paragraph conclusion of the test" },
+            type: { type: "string", enum: ["browser", "smoke", "api", "review", "e2e", "manual"], description: "Test type" },
+            url: { type: "string", description: "Tested URL (if applicable)" },
+            taskId: { type: "string", description: "Related task id in the task pipeline (if applicable)" },
+            feature: { type: "string", description: "Related feature name (if applicable)" },
+            issues: {
+              type: "array",
+              description: "Issues found (empty for pass)",
+              items: {
+                type: "object",
+                properties: {
+                  severity: { type: "string", enum: ["critical", "major", "minor"] },
+                  desc: { type: "string", description: "Issue description" },
+                  evidence: { type: "string", description: "Evidence path (screenshot path, log line, API response)" },
+                },
+                required: ["desc"],
+              },
+            },
+            evidence: { type: "array", items: { type: "string" }, description: "Evidence references (screenshot paths, api-tester ids)" },
+            durationMs: { type: "number", description: "Test duration in ms (if known)" },
+          },
+          required: ["verdict", "target", "summary"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "qa_record_list",
+        description: "Search the shared QA results log (.paaw/coding-memory/qa-results.jsonl). Use before retesting (check what was already tested and its verdict), when fixing a bug (find related open issues), or when the human asks about QA status/history. Returns records newest-first with id, verdict, target, summary, open issues.",
+        parameters: {
+          type: "object",
+          properties: {
+            verdict: { type: "string", enum: ["pass", "fail", "warn", "blocked"] },
+            status: { type: "string", enum: ["open", "resolved", "wontfix"], description: "Filter by record status (open = has unresolved issues)" },
+            actor: { type: "string", description: "Filter by who recorded it (qa/tester/developer/...)" },
+            taskId: { type: "string" },
+            feature: { type: "string" },
+            q: { type: "string", description: "Free-text search in target/summary/issues" },
+            limit: { type: "number", description: "Max records (default 10)" },
+          },
+          required: [],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "qa_record_update",
+        description: "Update an existing QA result record — mark an issue resolved/wontfix (after fixing it), change record status, or append a note (goes into history trail). Get the id from qa_record_list.",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Record id (qr-...)" },
+            issueIndex: { type: "number", description: "Issue index to update (0-based, from list output)" },
+            issueStatus: { type: "string", enum: ["resolved", "wontfix", "open"] },
+            status: { type: "string", enum: ["open", "resolved", "wontfix"], description: "Override record-level status (default: auto-resolved when all issues resolved)" },
+            note: { type: "string", description: "Note for the history trail (e.g. 'fixed in commit abc123')" },
+          },
+          required: ["id"],
+        },
+      },
+    },
     // ── Unified docs tool (replaces update_changelog + update_docs) ──
     {
       type: "function",
@@ -1057,6 +1131,9 @@ const TOOL_GROUP_MAP = {
   // Decision & changelog
   record_decision: "decisions", docs: "decisions",
 
+  // QA Results — QA 記錄共享存儲（2026-09-17 Fleming：qa agent 留記錄、其他 agent 讀寫）
+  qa_record_save: "qa-records", qa_record_list: "qa-records", qa_record_update: "qa-records",
+
   // Staged summary (agents record why they staged files)
   staged_summary: "core",
 
@@ -1086,21 +1163,21 @@ const CORE_READ_TOOLS = new Set(["read_file", "reference_read", "glob", "grep", 
 // ── Fallback groups (used when crew.json has no toolGroups) ──
 const AGENT_FALLBACK_GROUPS = {
   // Architect: read-only + decisions + project + project-board（維護 RU project）+ tasks（security 修復開 task — 2026-09-06）
-  architect: ["core-read", "memory", "decisions", "project", "project-edit", "project-board", "tasks", "release-unit"],
+  architect: ["core-read", "memory", "decisions", "project", "project-edit", "project-board", "tasks", "release-unit", "qa-records"],
   // Developer: full core + memory + project + tasks
-  developer: ["core", "memory", "decisions", "project", "project-edit", "tasks", "release-unit"],
+  developer: ["core", "memory", "decisions", "project", "project-edit", "tasks", "release-unit", "qa-records"],
   // Tester: full core + project
-  tester: ["core", "memory", "decisions", "project", "project-edit", "release-unit"],
+  tester: ["core", "memory", "decisions", "project", "project-edit", "release-unit", "qa-records"],
   // Doc-writer: full core + project-edit + docs
-  "doc-writer": ["core", "memory", "decisions", "project", "project-edit", "docs"],
+  "doc-writer": ["core", "memory", "decisions", "project", "project-edit", "docs", "qa-records"],
   // CU feature 長肉 agent（feature-map v2.1）：純唯讀分析 — read_file/glob/grep/diff，無寫檔無 shell
   "cu-feature": ["core-read"],
   // QA: read-only + project + project-edit + tasks（security findings 開修復 task — 2026-09-06）
-  qa: ["core-read", "memory", "project", "project-edit", "tasks", "release-unit"],
+  qa: ["core-read", "memory", "project", "project-edit", "tasks", "release-unit", "qa-records"],
   // Helpdesk: read-only + project
-  helpdesk: ["core-read", "memory", "decisions", "project", "project-edit"],
+  helpdesk: ["core-read", "memory", "decisions", "project", "project-edit", "qa-records"],
   // EM: read-only + project + project-edit + docs + tasks + dispatch (no notes/browser)
-  em: ["core-read", "memory", "decisions", "project", "project-edit", "project-board", "docs", "tasks", "dispatch", "release-unit"],
+  em: ["core-read", "memory", "decisions", "project", "project-edit", "project-board", "docs", "tasks", "dispatch", "release-unit", "qa-records"],
 };
 
 // ── Cache for crew toolGroups loaded from JSON ──
@@ -2838,6 +2915,34 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         }
         
         return `Unknown action '${action}'. Valid: changelog, write, append`;
+      }
+
+      // ── QA Results Tools（2026-09-17：qa agent 留記錄、全 agent 讀寫）──
+      case "qa_record_save": {
+        const { saveQaResult } = await import("./qa-results.mjs");
+        try {
+          const record = saveQaResult(cwd, { ...args, actor: agentId || "human" });
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${record.verdict} — ${record.target}` });
+          return `✅ QA result recorded: ${record.id} [${record.verdict}] ${record.target}\nStatus: ${record.status} | Issues: ${record.issues.length}\nSaved to .paaw/coding-memory/qa-results.jsonl — visible to all agents and the human.`;
+        } catch (e) {
+          return `❌ qa_record_save failed: ${e.message}`;
+        }
+      }
+      case "qa_record_list": {
+        const { listQaResults } = await import("./qa-results.mjs");
+        const list = listQaResults(cwd, { ...args, limit: args.limit || 10 });
+        if (list.length === 0) return "No QA results found (adjust filters, or the log is empty — record tests with qa_record_save).";
+        return list.map((r) => {
+          const issues = (r.issues || []).map(x => `    [${x.severity}]${x.status === "open" ? "🔴" : "✅"} ${x.desc}`).join("\n");
+          return `${r.id} [${r.verdict}/${r.status}] ${r.type} · ${r.target}\n   ${new Date(r.ts).toLocaleString()} by ${r.actor} — ${r.summary.slice(0, 150)}${issues ? "\n" + issues : ""}`;
+        }).join("\n\n");
+      }
+      case "qa_record_update": {
+        const { updateQaResult } = await import("./qa-results.mjs");
+        const rec = updateQaResult(cwd, args.id, args, agentId || "human");
+        if (!rec) return `❌ QA result not found: ${args.id} (use qa_record_list to find the id)`;
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${rec.id} → ${rec.status}` });
+        return `✅ Updated ${rec.id}: status=${rec.status}\nIssues: ${(rec.issues || []).map(x => `${x.status === "open" ? "🔴" : "✅"} ${x.desc.slice(0, 60)}`).join(" | ")}`;
       }
 
       // ── Action Log Tools ──

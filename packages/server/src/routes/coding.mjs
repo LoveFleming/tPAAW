@@ -45,6 +45,7 @@ import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-p
 import { runSemgrep } from "../lib/semgrep-runner.mjs";
 import { buildCodeIntelligence, buildContextPackage } from "../lib/code-intelligence.mjs";
 import { buildTestIntelligence } from "../lib/test-intelligence.mjs";
+import { saveQaResult, listQaResults, getQaResult, updateQaResult, deleteQaResult, qaStats } from "../lib/qa-results.mjs"; // QA 記錄共享存儲（2026-09-17 Fleming）
 import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
 import { rescanMechanicalLayer } from "../lib/cu-mechanical.mjs";
 
@@ -465,7 +466,7 @@ export default async function projectRoute(req, res) {
   // ── GET /api/coding-crew/:crewId — Load crew definition (no project required) ──
   // Exclude /running and /interrupt which are separate API endpoints
   const crewMatch = url.match(/^\/api\/coding-crew\/([^/?]+)$/);
-  if (crewMatch && method === "GET" && !['running', 'interrupt', 'dispatch', 'chat', 'conversations', 'context-window', 'action-log'].includes(crewMatch[1])) {
+  if (crewMatch && method === "GET" && !['running', 'interrupt', 'dispatch', 'chat', 'conversations', 'context-window', 'action-log', 'qa-results'].includes(crewMatch[1])) {
     const crewId = decodeURIComponent(crewMatch[1]);
     const crewFile = join(DATA_HOME, "crews", `${crewId}.json`);
     try {
@@ -1015,6 +1016,79 @@ export default async function projectRoute(req, res) {
 
   // ── Crew Conversation Persistence ──
   // ── Conversation / Session APIs ──
+  // ══ QA Results — QA 記錄共享存儲（2026-09-17 Fleming：qa agent 留記錄、其他 agent 讀寫）══
+  // 儲存 <cwd>/.paaw/coding-memory/qa-results.jsonl；設計文件見 OpenClaw memory/qa-results-api-design.md
+  //
+  // GET    /api/coding-crew/qa-results?cwd=&verdict=&status=&actor=&type=&taskId=&feature=&q=&limit= — 列表（新→舊）
+  // POST   /api/coding-crew/qa-results {cwd, actor?, type?, target, url?, taskId?, feature?, verdict, summary, issues?, evidence?, durationMs?}
+  // GET    /api/coding-crew/qa-results/:id?cwd=   — 單筆
+  // PATCH  /api/coding-crew/qa-results/:id {cwd, status?, issueIndex?|issueDesc?, issueStatus?, note?, summary?, addEvidence?, by?}
+  // DELETE /api/coding-crew/qa-results/:id?cwd=   — 刪除（清理用）
+  // GET    /api/coding-crew/qa-results?cwd=&stats=1 — 統計（total/open/failOpen/byVerdict）
+  const qaResultsMatch = url.match(/^\/api\/coding-crew\/qa-results\/([^/?]+)$/);
+  if (qaResultsMatch && (method === "GET" || method === "PATCH" || method === "DELETE")) {
+    let id;
+    try { id = sanitizeId(decodeURIComponent(qaResultsMatch[1])); } catch (err) { return sendPathTraversalError(res, err); }
+    let cwd = q.cwd || PAAW_ROOT;
+    if (method === "PATCH") {
+      let body;
+      try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
+      if (body.cwd) cwd = body.cwd;
+      const rec = updateQaResult(cwd, id, body, body.by || body.actor || "human");
+      if (!rec) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "QA result not found", id }));
+      } else {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, record: rec }));
+      }
+      return true;
+    }
+    if (method === "DELETE") {
+      const ok = deleteQaResult(cwd, id);
+      res.writeHead(ok ? 200 : 404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok }));
+      return true;
+    }
+    const rec = getQaResult(cwd, id);
+    if (!rec) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "QA result not found", id }));
+    } else {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, record: rec }));
+    }
+    return true;
+  }
+  if (url === "/api/coding-crew/qa-results" && method === "GET") {
+    const cwd = q.cwd || PAAW_ROOT;
+    if (q.stats === "1" || q.stats === "true") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, stats: qaStats(cwd) }));
+      return true;
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, results: listQaResults(cwd, q) }));
+    return true;
+  }
+  if (url === "/api/coding-crew/qa-results" && method === "POST") {
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    try {
+      const record = saveQaResult(body.cwd || q.cwd || PAAW_ROOT, body);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, record }));
+    } catch (e) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
   // New structure: .paaw/coding-memory/conversations/{agentId}/active.json + s-*.json history
   //
   // GET    /api/coding-crew/conversations?cwd=...                              — List all agents with conversations

@@ -24,7 +24,8 @@
     "memory",
     "project",
     "project-edit",
-    "docs"
+    "docs",
+    "qa-records"
   ],
   "_source": "global",
   "_clonedAt": "2026-08-01T05:31:46.158Z",

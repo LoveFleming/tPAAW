@@ -23,7 +23,8 @@
     "project-board",
     "docs",
     "tasks",
-    "dispatch"
+    "dispatch",
+    "qa-records"
   ],
   "greeting": "👋 我是 Ethan（陳哲宇），你的 Engineering Manager。\n\n讓我先看一下目前的工作狀況...",
   "_promptRev": "2026-09-06"
