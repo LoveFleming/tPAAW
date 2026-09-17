@@ -5,7 +5,7 @@
 
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, statSync } from "fs";
 import yaml from "js-yaml";
 import { DATA_HOME } from "../data-home.mjs";
 
@@ -127,16 +127,19 @@ let _agentConfigTs = 0;
 export async function loadAgentConfig() {
   const configPath = join(DATA_HOME, "ai-settings/agent-config.json");
   try {
-    const stat = await import("fs").then(fs => fs.statSync(configPath));
+    const stat = statSync(configPath);
     if (_agentConfigCache && stat.mtimeMs === _agentConfigTs) return _agentConfigCache;
-    const raw = await readFile(configPath, "utf-8");
+    // 2026-09-17 修：readFile 原本沒 import（只存在於 readSystemPrompt 的 scope）→ ReferenceError
+    // → 每次都摔進 fallback maxTurns=100，Fleming 改 JSON + 重開機都無效。改用已 import 的 readFileSync。
+    const raw = readFileSync(configPath, "utf-8").replace(/^\uFEFF/, ""); // 順便剃 BOM
     _agentConfigCache = { ...DEFAULT_AGENT_CONFIG, ...JSON.parse(raw) };
     _agentConfigTs = stat.mtimeMs;
     return _agentConfigCache;
   } catch (e) {
     // 2026-09-16：parse 失敗不再靜默 fallback — 大聲報錯（BOM/編碼/語法壞掉都會走到這）
+    // 2026-09-17：區分「檔案不存在」跟「讀取/解析出錯」— 後者印完整錯誤名，不再誤導成 JSON 語法問題
     if (e?.code !== "ENOENT") {
-      console.error(`⚠️ [agent-config] ${configPath} 解析失敗 → fallback 預設 maxTurns=${DEFAULT_AGENT_CONFIG.maxTurns}。請檢查 JSON 語法/編碼（UTF-8 無 BOM）:`, e.message);
+      console.error(`⚠️ [agent-config] ${configPath} 讀取/解析失敗（${e.name}: ${e.message}）→ fallback 預設 maxTurns=${DEFAULT_AGENT_CONFIG.maxTurns}`);
     }
     return DEFAULT_AGENT_CONFIG;
   }
