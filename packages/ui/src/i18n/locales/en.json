@@ -1361,5 +1361,7 @@
   "report.generatedAt": "Generated at",
   "report.range": "Range",
   "report.sampleNote": "Source: agent-logs index (full retention; Elasticsearch planned)",
-  "sidebar.usageReport": "Usage Report"
+  "sidebar.usageReport": "Usage Report",
+  "report.table.ruModel": "Release Unit × Model",
+  "report.model": "Model"
 }

@@ -1361,5 +1361,7 @@
   "report.generatedAt": "生成時刻",
   "report.range": "期間",
   "report.sampleNote": "データ元：agent-logs index（全件保留、今後 Elasticsearch 接続予定）",
-  "sidebar.usageReport": "実行レポート"
+  "sidebar.usageReport": "実行レポート",
+  "report.table.ruModel": "Release Unit × Model",
+  "report.model": "モデル"
 }

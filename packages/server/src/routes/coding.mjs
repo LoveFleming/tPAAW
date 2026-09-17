@@ -911,7 +911,8 @@ export default async function projectRoute(req, res) {
         featureBoundary: dispatchFeatureBoundary,
         agentId,
         model: useModel,
-        maxTurns: 30,
+        // 2026-09-17 Fleming：派工上限 30 → 300（大任務會被砍斷）
+        maxTurns: 300,
         timeout: effectiveTimeout,
         abortSignal: dispatchAbort.signal,
       }, res);

@@ -24,6 +24,7 @@ interface DayRow extends Agg { date: string; byAgent: Record<string, Agg> }
 interface RuRow extends Agg { ruName: string }
 interface AgentRow extends Agg { agentId: string }
 interface RuAgentRow extends Agg { ruName: string; agentId: string }
+interface RuModelRow { ruName: string; model: string; requests: number; costUsd: number; durationMs: number }
 type Metric = "cost" | "requests" | "tokens" | "duration";
 
 const AGENT_COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#64748b", "#14b8a6", "#a855f7"];
@@ -219,6 +220,7 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
     const byRuMap = new Map<string, RuRow>();
     const byAgentMap = new Map<string, AgentRow>();
     const byRuAgentMap = new Map<string, RuAgentRow>();
+    const byRuModelMap = new Map<string, RuModelRow>(); // 2026-09-17 Fleming：RU × Model 表（request / cost / duration）
 
     for (const e of filtered) {
       const d = isoDay(e.startTime)!;
@@ -240,6 +242,20 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
       const raKey = `${ruName}\u001f${e.agentId}`;
       if (!byRuAgentMap.has(raKey)) byRuAgentMap.set(raKey, { ruName, agentId: e.agentId, ...newAgg() });
       add(byRuAgentMap.get(raKey)!, e);
+
+      // RU × Model：cost/duration 依 model 呼叫數比例分攤（多模型任務總計不變）
+      const rmModels = ((e.models?.length ? e.models : (e.model ? [e.model] : [])) as Array<string | { model?: string }>)
+        .map(x => (typeof x === "string" ? x : x?.model) ?? "").map(m => m.trim()).filter(Boolean);
+      const rmKeys = rmModels.length ? [...new Set(rmModels)] : ["-"];
+      const rmShare = 1 / rmKeys.length;
+      for (const m of rmKeys) {
+        const rmKey = `${ruName}\u001f${m}`;
+        if (!byRuModelMap.has(rmKey)) byRuModelMap.set(rmKey, { ruName, model: m, requests: 0, costUsd: 0, durationMs: 0 });
+        const row = byRuModelMap.get(rmKey)!;
+        row.requests += 1;
+        row.costUsd += (e.costUsd || 0) * rmShare;
+        row.durationMs += (e.durationMs || 0) * rmShare;
+      }
     }
 
     const sortCost = (a: { costUsd: number }, b: { costUsd: number }) => b.costUsd - a.costUsd;
@@ -250,6 +266,7 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
       byRu: Array.from(byRuMap.values()).sort(sortCost),
       byAgent: Array.from(byAgentMap.values()).sort(sortCost),
       byRuAgent: Array.from(byRuAgentMap.values()).sort((a, b) => a.ruName.localeCompare(b.ruName) || sortCost(a, b)),
+      byRuModel: Array.from(byRuModelMap.values()).sort((a, b) => a.ruName.localeCompare(b.ruName) || b.costUsd - a.costUsd),
       dateFrom: byDay[0]?.date || null,
       dateTo: byDay[byDay.length - 1]?.date || null,
       count: filtered.length,
@@ -446,6 +463,39 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
                   <td />
                   <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtInt(report.totals.requests)}</td>
                   <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtTok(report.totals.tokensIn + report.totals.tokensOut)}</td>
+                  <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtUsd(report.totals.costUsd)}</td>
+                  <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtDur(report.totals.durationMs)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* ── Table 3: Release Unit × Model（2026-09-17 Fleming：RU / model / requests / cost / duration）── */}
+          <h3 className="text-xs font-bold mb-2">{t("report.table.ruModel")}</h3>
+          <div className="overflow-x-auto mb-4" style={{ border: `1px solid ${theme.borderLight}`, borderRadius: 8 }}>
+            <table className="w-full border-collapse" style={{ background: theme.bgMuted }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
+                  <th style={th}>Release Unit</th>
+                  <th style={th}>{t("report.model")}</th>
+                  <th style={{ ...th, textAlign: "right" }}>{t("report.requests")}</th>
+                  <th style={{ ...th, textAlign: "right" }}>{t("report.cost")}</th>
+                  <th style={{ ...th, textAlign: "right" }}>{t("report.duration")}</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono">
+                {[...report.byRuModel].sort((a, b) => b.costUsd - a.costUsd).map(r => (
+                  <tr key={`${r.ruName}/${r.model}`} style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
+                    <td style={td}>{r.ruName}</td>
+                    <td style={td}>{r.model}</td>
+                    <td style={{ ...td, textAlign: "right" }}>{fmtInt(r.requests)}</td>
+                    <td style={{ ...td, textAlign: "right" }}>{fmtUsd(r.costUsd)}</td>
+                    <td style={{ ...td, textAlign: "right" }}>{fmtDur(r.durationMs)}</td>
+                  </tr>
+                ))}
+                <tr style={{ fontWeight: 700 }}>
+                  <td colSpan={2} style={{ ...td, fontWeight: 700 }}>{t("report.total")}</td>
+                  <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtInt(report.totals.requests)}</td>
                   <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtUsd(report.totals.costUsd)}</td>
                   <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtDur(report.totals.durationMs)}</td>
                 </tr>
