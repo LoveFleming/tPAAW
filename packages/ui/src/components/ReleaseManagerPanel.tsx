@@ -18,6 +18,7 @@ import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
 import EvidenceCard from "./EvidenceCard";
+import ReleaseRequests from "./ReleaseRequests";
 
 const PHASES = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
 
@@ -464,6 +465,13 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
         {/* ═══ 已初始化 ═══ */}
         {initialized === true && (
           <div className="p-5 space-y-6">
+            {/* Release Requests — 正式批次放行（v2 2026-09-18）*/}
+            <ReleaseRequests
+              rootPath={rootPath}
+              theme={{ borderLight: tk.borderLight, accent: tk.accent, accentHover: tk.accentHover || tk.accent }}
+              notify={(ok, text) => { setToast({ ok, text }); setTimeout(() => setToast(null), 6000); }}
+            />
+
             {/* 待放行 */}
             <section>
               <h3 className="text-xs font-bold text-stone-600 mb-2 flex items-center gap-1.5">
