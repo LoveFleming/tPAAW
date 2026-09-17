@@ -513,6 +513,32 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
     }
   };
 
+  // 📸 拍目前畫面（2026-09-17 Fleming：shot 模式以前顯示 latest.png 舊圖 — 常停在最初開的首頁，
+  // 現在要拍「人正在看的這頁」。進 shot 模式自動拍一張 + 可手動重拍）
+  const [capturing, setCapturing] = useState(false);
+  const [captureFail, setCaptureFail] = useState(false);
+  const captureShot = useCallback(async () => {
+    if (capturing) return;
+    setCapturing(true); setCaptureFail(false);
+    try {
+      const res = await fetch(`${API_BASE}/api/browser/capture`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ru: effRu || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.lastScreenshot) throw new Error(data.error || "capture failed");
+      setStatus(data); // lastScreenshot.ts 更新 → <img> 換新圖
+    } catch {
+      setCaptureFail(true);
+    } finally {
+      setCapturing(false);
+    }
+  }, [API_BASE, effRu, capturing]);
+
+  // 進入 📸 模式 → 自動拍目前這頁（拍完關閉串流也不影響 — capture 走 server 主動截圖）
+  useEffect(() => { if (mode === "shot") captureShot(); }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 🎭 真人節奏（demo mode）開關 — agent 的 click/type 帶高亮、游標滑行、逐字打字
   const [humanMode, setHumanMode] = useState(false);
   const toggleHumanMode = async () => {
@@ -863,19 +889,44 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
             </div>
           </div>
         ) : (
-          shotTs ? (
-            <img
-              key={shotTs}
-              src={ruQ ? `${API_BASE}/api/browser/screenshot?${ruQ}&t=${shotTs}` : `${API_BASE}/api/browser/screenshot?t=${shotTs}`}
-              alt="browser screenshot"
-              className="w-full h-full object-contain"
-            />
-          ) : (
-            <div className="text-center text-gray-400 text-sm leading-relaxed px-6">
-              <div className="text-4xl mb-3">📸</div>
-              {t("browser.emptyShot")}
-            </div>
-          )
+          <div className="relative w-full h-full">
+            {shotTs ? (
+              <img
+                key={shotTs}
+                src={ruQ ? `${API_BASE}/api/browser/screenshot?${ruQ}&t=${shotTs}` : `${API_BASE}/api/browser/screenshot?t=${shotTs}`}
+                alt="browser screenshot"
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="text-center text-gray-400 text-sm leading-relaxed px-6">
+                  <div className="text-4xl mb-3">📸</div>
+                  {capturing ? t("browser.capturing") : t("browser.emptyShot")}
+                </div>
+              </div>
+            )}
+            {/* 拍目前畫面 — 進模式自動拍一張；換頁/捲動後回來按這裡重拍 */}
+            <button
+              onClick={captureShot}
+              disabled={capturing}
+              title={shotTs ? `${t("browser.captureNow")} — ${new Date(shotTs).toLocaleTimeString()}` : t("browser.captureNow")}
+              className={`absolute top-2 right-2 z-10 px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg transition-colors disabled:opacity-50 ${
+                captureFail ? "bg-red-600 hover:bg-red-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
+            >
+              {capturing ? `⏳ ${t("browser.capturing")}` : `📸 ${t("browser.captureNow")}`}
+            </button>
+            {captureFail && !capturing && (
+              <div className="absolute top-12 right-2 z-10 px-2.5 py-1 rounded-lg bg-red-50 border border-red-200 text-red-600 text-[11px]">
+                {t("browser.captureFail")}
+              </div>
+            )}
+            {shotTs && !capturing && (
+              <div className="absolute bottom-2 left-2 z-10 px-2.5 py-1 rounded-full bg-black/50 text-white text-[10px] font-mono">
+                🕒 {new Date(shotTs).toLocaleTimeString()}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

@@ -91,6 +91,25 @@ export default async function browserRoute(req, res) {
     return true;
   }
 
+  // POST /api/browser/capture {ru?} — 立即拍目前畫面（2026-09-17 Fleming：📸 模式顯示 latest.png 舊圖
+  //   （常停在首頁）→ 人要拍「現在看的這頁」。進 shot 模式自動拍 + 可手動重拍）
+  if (url === "/api/browser/capture" && method === "POST") {
+    let bKey = key;
+    try { const b = JSON.parse(await readBody(req) || "{}"); if (b.ru) bKey = resolveBrowserKey(b.ru); } catch {}
+    try {
+      const page = await getBrowserPage(bKey);
+      trackPage(bKey, page);
+      const shot = await takeScreenshot(bKey, page);
+      recordBrowserAction(bKey, { actor: "human", kind: "capture", summary: "📸 拍目前畫面", url: page.url(), shot: String(shot).split(/[\\/]/).pop() });
+      kickScreencast(bKey); // best effort — 若同時有人看串流也刷新
+      json(res, 200, { ok: true, ...browserState(bKey), screenshot: shot });
+    } catch (e) {
+      const s = browserState(bKey);
+      json(res, 400, { error: e?.message || String(e), installHint: s.available === false ? PLAYWRIGHT_INSTALL_HINT : null });
+    }
+    return true;
+  }
+
   // GET /api/browser/stream?ru= — SSE 共用串流（Cowork 級：人看 agent 瀏覽器即時畫面；per instance）
   if (url === "/api/browser/stream" && method === "GET") {
     res.writeHead(200, {
