@@ -1195,7 +1195,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                   {t.result !== "..." ? "✓" : "⏳"}
                 </span>
                 <span className="font-mono text-stone-600">{t.name}</span>
-                <span className="text-stone-400 truncate max-w-[200px]">{t.args}</span>
+                <span className="text-stone-400 truncate max-w-[480px]" title={t.args}>{t.args}</span>
               </div>
             ))}
           </div>
