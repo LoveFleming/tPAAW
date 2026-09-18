@@ -1,29 +1,30 @@
-# DEPLOY — 熱修：git push 紅❌無錯誤訊息
+# DEPLOY — RR checklist 擴充七項：security scan + ops + handover
 
-> 日期：2026-09-18 ｜ 上游 `3dbcce8d` ｜ 2 檔
-> **含 UI 變更：蓋檔後要 `npm run build` + 重啟 server**
+> 日期：2026-09-18 ｜ 上游 `12edf146` ｜ 3 檔
+> **純 server 變更：蓋檔後重啟 server 即可（UI 不用 rebuild）**
 
-## 症狀
-GitPanel 按 push，失敗時只顯示紅 ❌，後面沒有任何錯誤訊息。
+## 這包做什麼
 
-## 根因
-- runGit 沒設 `GIT_TERMINAL_PROMPT=0`：認證缺失時 git **靜默掛起**等輸入 → 15s timeout
-  殺掉 → stderr 空 → API 回 `{error:""}` → UI 顯示「❌ 」後面空白
-- push 只給 15s timeout，慢網/大 repo 會被誤殺
+Release Request checklist 從四項變七項（Fleming 定案：維運/交接/安全掃描進 release 流程，保持簡單不 加審批序列）：
 
-## 修復
-1. `runGit`：env 加 `GIT_TERMINAL_PROMPT=0` + `GIT_ASKPASS=echo`（認證問題立即報錯帶 stderr）；
-   timeout 改可調；SIGTERM 殺掉時組出 `git push timed out after Nms` 訊息 — errorText 永不空白
-2. push/pull timeout 15s → 60s；vibe-fs 全部 route 的 error return 都加 errorText fallback
-3. GitPanel push 顯示：error 空白時 fallback（output → message → HTTP status），前綴「push:」
+- 🔒 **security** — 讀 `.paaw/security/scan-results.json`（semgrep 掃描結果），只計這次 release 動到的檔案；ERROR→fail、WARNING→warn；掃描後有新 commits 會警告過期
+- 🔧 **ops** — 找部署/回滾文檔（DEPLOY.md / README）；依賴變更（package.json 等）會加提醒；verdict = 維運簽核
+- 🤝 **handover** — 讀 handover state 新鮮度；verdict = 接手方簽核
+
+既有 RR 單自動補齊新三項（已結案的舊單記 waived + 註記，進行中的等人審）。
 
 ## 檔案清單
 
 | 狀態 | 檔案 |
 |---|---|
-| M | `packages/server/src/routes/vibe-fs.mjs` |
-| M | `packages/ui/src/components/git/GitPanel.tsx` |
+| M | `packages/server/src/lib/release-requests.mjs` |
+| M | `data/crews/coding.rm.json`（rolePrompt 七項描述 + promptRev） |
+| M | `.paaw/agents/coding.rm.json`（override 補 RR 工作流 rolePrompt — override 是完整覆蓋，global 加了會被蓋掉） |
 
 ## 步驟
-1. 蓋 2 檔 → `npm run build` → 重啟 server
-2. 測：push 一個會失敗的 remote（如沒權限的 repo）→ ❌ 後面應該有完整 git 錯誤訊息
+1. 蓋 3 檔 → 重啟 server
+2. 測：打開 Coding app → Release Manager → 展開任一 RR → checklist 應為七項
+
+## 備註
+- ⚠️ 其他 RU 有自己的 `.paaw/agents/coding.rm.json` override 的，rolePrompt 也要手動補 RR 工作流段落（或刪掉 override 讀 global）
+- security 證據源是 `.paaw/security/scan-results.json` — 先跑過 semgrep 掃描（coding app 的 security 功能）才有數字
