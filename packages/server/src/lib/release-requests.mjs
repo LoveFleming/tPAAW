@@ -502,8 +502,20 @@ export async function openReleaseRequest(projectPath, id) {
   const rr = await getReleaseRequest(projectPath, id);
   if (!rr) { const e = new Error("release request not found"); e.status = 404; throw e; }
   if (rr.status !== "draft") { const e = new Error(`狀態是 ${rr.status}，只有 draft 可以 open`); e.status = 400; throw e; }
+  // 2026-09-18（tpaaw-gateway 首次實跑抓到）：draft 期間新進的 commit 必須納入 —
+  // 開審時 target 推進到當下 HEAD、scope 重算，否則漏放行
+  const head = await describeCommit(projectPath, "HEAD", "open-head");
+  const prevTarget = rr.target?.short;
+  if (head && head.sha !== rr.target?.sha) {
+    rr.target = head;
+    const scope = await computeScope(projectPath, rr.baseline.sha, head.sha);
+    rr.scope = scope;
+    const auto = await autoCheckAll(projectPath, scope);
+    rr.checklist = freshChecklist(auto); // target 變了 → 證據全部重算，verdict 重置
+    rr.suggested = undefined; // 舊證據的 AI 建議一併作廢（若有）
+  }
   rr.status = "reviewing";
-  hist(rr, "human", "opened", "baseline 鎖定，開始證據審查");
+  hist(rr, "human", "opened", `baseline 鎖定${prevTarget && rr.target?.short !== prevTarget ? `，target ${prevTarget} → ${rr.target.short}（draft 期間新 commit 納入）` : ""}，開始證據審查`);
   await saveRR(projectPath, rr);
   return rr;
 }
