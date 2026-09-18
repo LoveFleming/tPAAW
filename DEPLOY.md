@@ -1,20 +1,18 @@
-# DEPLOY — release prep 加理解層（code understanding 先行）
+# DEPLOY — EM 面板頂部空 bar 修復（間距不一致）
 
-> 日期：2026-09-18 ｜ 上游 commit ｜ 3 檔 ｜ 純 server，重啟即生效
+> 日期：2026-09-18 ｜ 上游 `d67146a9` ｜ 1 檔
+> **UI 變更：蓋檔後要 `npm run build` + 重啟 server**
 
-## 這包做什麼
-EM「準備 release」工作流補上 code understanding 步驟（在跑證據**之前**）：
-1. `ru_model_refresh` — 重建 feature map（RR scope 的 features/apis 統計靠它）
-2. `cu_refresh` — code intelligence 刷新
+## 症狀
+EM（陳哲宇）page 的 title panel 上方多一段間距，其他 agent page 沒有。
 
-`release_prep_status` 也會顯示 feature map 新鮮度（落後 commits 警告）。
+## 根因
+62fc78b8 refactor 殘留的空 div（無內容純佔 py-1.5 + border-b 高度）。
 
 ## 檔案
 | 狀態 | 檔案 |
 |---|---|
-| M | `packages/server/src/lib/paaw-agent-loop.mjs` |
-| M | `data/crews/coding.em.json` |
-| M | `.paaw/agents/coding.em.json` |
+| M | `packages/ui/src/components/EMDashboard.tsx` |
 
 ## 步驟
-蓋 3 檔 → 重啟 server。EM 說「準備 release」會先刷理解層再跑證據。
+蓋 1 檔 → `npm run build` → 重啟。EM page 頂部跟其他 agent page 對齊。
