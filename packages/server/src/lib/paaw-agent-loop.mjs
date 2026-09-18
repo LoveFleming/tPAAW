@@ -1153,6 +1153,45 @@ export const PAAW_TOOLS = [
     },
   },
 
+  // ── Release Prep（2026-09-18 Fleming：跟 EM 說「準備 release」→ 自動派工補齊證據）──
+  {
+    type: "function",
+    function: {
+      name: "release_prep_status",
+      description: "Release 準備盤點：git 乾淨度、open tasks、七項證據現況（測試/QA/掃描/verify/handover）一次看。準備 release 的第一步。",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "test_run",
+      description: "跑全套測試（unit + e2e），結果落檔 .paaw（Release Request tests 項證據）。",
+      parameters: {
+        type: "object",
+        properties: {
+          includeE2e: { type: "boolean", description: "含 e2e（預設 true）" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "security_scan",
+      description: "semgrep 安全掃描，結果落檔 .paaw/security/scan-results.json（Release Request security 項證據）。",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "handover_refresh",
+      description: "刷新 handover state（.paaw/handover-state.json 對齊當下 HEAD — Release Request handover 項證據）。",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+
   ];
 
 // ── Tool Group System — load only what each agent needs ──
@@ -1193,6 +1232,9 @@ const TOOL_GROUP_MAP = {
   // Release Requests — v3（2026-09-18）：RM agent 讀 RR 證據、寫建議 verdict（人確認）
   rr_list: "release-requests", rr_get: "release-requests", rr_suggest: "release-requests",
 
+  // Release Prep — v4（2026-09-18）：EM「準備 release」自動補證據（受控工具，不開 bash）
+  release_prep_status: "release-prep", test_run: "release-prep", security_scan: "release-prep", handover_refresh: "release-prep",
+
   // Staged summary (agents record why they staged files)
   staged_summary: "core",
 
@@ -1213,6 +1255,10 @@ const TOOL_GROUP_MAP = {
 
   // Docs & CU
   cu_refresh: "docs",
+
+  // Release Unit tools — 2026-09-18 修復：這四個一直沒掛進 TOOL_GROUP_MAP，
+  // release-unit group 是空的 → ru_verify 對所有 agent 都不可見（含 fallback 列了它的 em/developer/qa）
+  ru_context: "release-unit", ru_dependencies: "release-unit", ru_impact_analysis: "release-unit", ru_verify: "release-unit",
 };
 
 // ── core-read: read-only subset of core (no bash/write/edit/git) ──
@@ -1236,9 +1282,9 @@ const AGENT_FALLBACK_GROUPS = {
   // Helpdesk: read-only + project
   helpdesk: ["core-read", "memory", "decisions", "project", "project-edit", "qa-records"],
   // RM（fallback）：v3（2026-09-18）+ release-requests（審 RR 證據、寫建議 verdict）
-  rm: ["core-read", "memory", "decisions", "project", "docs", "release-requests"],
+  rm: ["core-read", "memory", "decisions", "project", "docs", "release-requests", "release-prep"],
   // EM: read-only + project + project-edit + docs + tasks + dispatch (no notes/browser)
-  em: ["core-read", "memory", "decisions", "project", "project-edit", "project-board", "docs", "tasks", "dispatch", "release-unit", "qa-records", "release-requests"],
+  em: ["core-read", "memory", "decisions", "project", "project-edit", "project-board", "docs", "tasks", "dispatch", "release-unit", "qa-records", "release-requests", "release-prep"],
 };
 
 // ── Cache for crew toolGroups loaded from JSON ──
@@ -2107,6 +2153,109 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           `${c.ok ? "✅" : "❌"} ${c.check}（${Math.round(c.durationMs / 100) / 10}s）${c.ok ? "" : "\n" + (c.output || "").slice(-1500)}`);
         if (onEvent) onEvent({ type: "tool_end", name, result: `verify ${report.overall}` });
         return `【驗證結果】${report.overall.toUpperCase()}（${report.ran.join(", ") || "無可執行關卡"}）\n${lines.join("\n")}`;
+      }
+
+      // ── Release Prep tools（2026-09-18）──
+      case "release_prep_status": {
+        const { execSync } = await import("child_process");
+        const { existsSync, readFileSync, statSync } = await import("fs");
+        const { join } = await import("path");
+        const git = (c) => { try { return execSync(`git ${c}`, { cwd, encoding: "utf-8", timeout: 15000 }).trim(); } catch { return ""; } };
+        const dirty = git("status --porcelain").split("\n").filter(Boolean);
+        const unpushed = git("log @{u}..HEAD --oneline").split("\n").filter(Boolean);
+        // open tasks
+        let openTasks = [];
+        try {
+          const tp = join(cwd, ".paaw", "tasks", "TASKS.json");
+          if (existsSync(tp)) {
+            const all = JSON.parse(readFileSync(tp, "utf-8")).tasks || [];
+            openTasks = all.filter(t => !["close", "released"].includes(t.status)).map(t => `${t.id}（${t.status}）${t.title ? " " + t.title.slice(0, 40) : ""}`);
+          }
+        } catch {}
+        // 證據快照
+        const ev = [];
+        const evPush = (label, ok, note) => ev.push(`${ok ? "✅" : "⚠️"} ${label}：${note}`);
+        try {
+          const { readLastTestRun } = await import("./test-runner.mjs");
+          const t = readLastTestRun(cwd);
+          if (t) {
+            const staleNote = t.headSha && git(`merge-base --is-ancestor ${t.headSha} HEAD`) !== "" && git(`rev-parse HEAD`) !== t.headSha ? "；落後 HEAD — 用 test_run 重跑" : "";
+            evPush("tests", t.status === "pass" && !staleNote, `${t.id} ${t.status} @ ${t.finishedAt || "?"}（${(t.summary || {}).passed ?? "?"}✓/${(t.summary || {}).failed ?? "?"}✗）${staleNote}`);
+          } else evPush("tests", false, "從未跑過 — 用 test_run 補");
+        } catch { evPush("tests", false, "讀取失敗"); }
+        try {
+          const sp = join(cwd, ".paaw", "security", "scan-results.json");
+          if (existsSync(sp)) {
+            const s = JSON.parse(readFileSync(sp, "utf-8"));
+            const sev = (s.stats || {}).bySeverity || {};
+            const when = s.scannedAt || new Date(statSync(sp).mtime).toISOString();
+            const stale = git(`rev-list --count HEAD --since="${(when || "").slice(0, 19).replace("T", " ")} +0000"`);
+            evPush("security", !(sev.ERROR > 0) && !(parseInt(stale || "0") > 0), `ERROR ${sev.ERROR || 0} / WARNING ${sev.WARNING || 0} @ ${when}${parseInt(stale || "0") > 0 ? `；掃描後又有 ${stale} commits` : ""}`);
+          } else evPush("security", false, "從未掃過 — 用 security_scan 補");
+        } catch { evPush("security", false, "讀取失敗"); }
+        try {
+          const vp = join(cwd, ".paaw", "verify-last.json");
+          if (existsSync(vp)) {
+            const v = JSON.parse(readFileSync(vp, "utf-8"));
+            evPush("verify", v.overall === "pass", `${v.overall} @ ${v.generatedAt || "?"}`);
+          } else evPush("verify", false, "從未驗證 — 用 ru_verify 補");
+        } catch { evPush("verify", false, "讀取失敗"); }
+        try {
+          const hp = join(cwd, ".paaw", "handover-state.json");
+          if (existsSync(hp)) {
+            const h = JSON.parse(readFileSync(hp, "utf-8"));
+            const when = h.generatedAt || new Date(statSync(hp).mtime).toISOString();
+            const stale = git(`rev-list --count HEAD --since="${(when || "").slice(0, 19).replace("T", " ")} +0000"`);
+            evPush("handover", !(parseInt(stale || "0") > 0), `@ ${when}${parseInt(stale || "0") > 0 ? `；落後 ${stale} commits — 用 handover_refresh 補` : "；新鮮"}`);
+          } else evPush("handover", false, "尚無 — 用 handover_refresh 補");
+        } catch { evPush("handover", false, "讀取失敗"); }
+        if (onEvent) onEvent({ type: "tool_end", name, result: `prep status：dirty ${dirty.length} / 證據 ${ev.length}` });
+        return `【Release 準備盤點】\n📦 git：${dirty.length ? `⚠️ ${dirty.length} 個未 commit 檔案` : "✅ 乾淨"}${unpushed.length ? `；⚠️ ${unpushed.length} 個未推 commit` : "；已推"}\n📋 open tasks（${openTasks.length}）：${openTasks.length ? "\n  - " + openTasks.join("\n  - ") : "無"}\n🧪 證據：\n  ${ev.join("\n  ")}\n💡 下一步：先收未 commit 的 code（dispatch developer），全部 push 後再跑證據工具。`;
+      }
+
+      case "test_run": {
+        const { startTestRun, getRunState, readLastTestRun } = await import("./test-runner.mjs");
+        if (onEvent) onEvent({ type: "tool_end", name, result: "測試執行中（含 e2e 可能數分鐘，等完成）…" });
+        try {
+          const started = await startTestRun(cwd, { includeE2e: args.includeE2e !== false });
+          if (started.noRunner) return `【測試結果】⚠️ 未偵測到測試 runner（${JSON.stringify(started.detected || {}).slice(0, 200)}）`;
+          // 同步等完成（3s 輪詢，上限 10 分鐘）— EM 派工流程需要結果才能往下走
+          const deadline = Date.now() + 600_000;
+          while (Date.now() < deadline) {
+            await new Promise(r => setTimeout(r, 3000));
+            if (!getRunState(cwd)) break;
+          }
+          const r = await readLastTestRun(cwd);
+          const s = (r && r.summary) || {};
+          if (onEvent) onEvent({ type: "tool_end", name, result: `test ${r?.status || "unknown"}` });
+          return `【測試結果】${r?.status === "pass" ? "✅" : "❌"} ${r?.id || "?"} — ${s.passed ?? "?"}✓ / ${s.failed ?? "?"}✗ @ ${r?.finishedAt || "?"}${r?.status !== "pass" ? "\n（有失敗 — dispatch developer 修完重跑）" : ""}`;
+        } catch (e) {
+          return `【測試結果】❌ 執行失敗：${e.message}`;
+        }
+      }
+
+      case "security_scan": {
+        const { runSemgrep } = await import("./semgrep-runner.mjs");
+        if (onEvent) onEvent({ type: "tool_end", name, result: "semgrep 掃描中…" });
+        try {
+          const r = await runSemgrep(cwd);
+          const sev = (r.stats || {}).bySeverity || {};
+          if (onEvent) onEvent({ type: "tool_end", name, result: `scan: E${sev.ERROR || 0}/W${sev.WARNING || 0}` });
+          return `【安全掃描】${(sev.ERROR || 0) > 0 ? "❌" : "✅"} ERROR ${sev.ERROR || 0} / WARNING ${sev.WARNING || 0} / INFO ${sev.INFO || 0}（落檔 .paaw/security/scan-results.json）${(sev.ERROR || 0) > 0 ? "\n（有 ERROR — dispatch developer 修完重掃）" : ""}`;
+        } catch (e) {
+          return `【安全掃描】❌ 執行失敗：${e.message}`;
+        }
+      }
+
+      case "handover_refresh": {
+        try {
+          const { writeHandoverState } = await import("./release-unit/handover-state.mjs");
+          const h = await writeHandoverState(cwd);
+          if (onEvent) onEvent({ type: "tool_end", name, result: "handover refreshed" });
+          return `【Handover】✅ 已刷新 @ ${h.generatedAt}（head ${((h.currentState || {}).headSha || "").slice(0, 8)}）`;
+        } catch (e) {
+          return `【Handover】❌ 刷新失敗：${e.message}`;
+        }
       }
 
       // ══════════════════════════════════════════
