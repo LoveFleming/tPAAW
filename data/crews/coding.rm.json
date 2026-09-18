@@ -24,7 +24,8 @@
     "decisions",
     "project",
     "docs",
-    "release-requests"
+    "release-requests",
+    "release-prep"
   ],
   "_promptRev": "2026-09-18-2"
 }

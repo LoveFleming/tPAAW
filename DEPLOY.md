@@ -1,30 +1,42 @@
-# DEPLOY — RR checklist 擴充七項：security scan + ops + handover
+# DEPLOY — release-prep 工具組：EM 一句話自動準備 release
 
-> 日期：2026-09-18 ｜ 上游 `12edf146` ｜ 3 檔
-> **純 server 變更：蓋檔後重啟 server 即可（UI 不用 rebuild）**
+> 日期：2026-09-18 ｜ 上游 `124b1b08` ｜ 5 檔
+> **純 server 變更：蓋檔後重啟 server（UI 不用 rebuild）**
 
 ## 這包做什麼
 
-Release Request checklist 從四項變七項（Fleming 定案：維運/交接/安全掃描進 release 流程，保持簡單不 加審批序列）：
+跟 EM side chat 說「**準備 release**」（或「下班前把 release 弄好」），EM 自動：
+1. 盤點（git 乾淨度 / open tasks / 證據缺口）
+2. dispatch developer 收未 commit 的 code
+3. 全部 commit 後依序補證據：測試全套 → semgrep 掃描 → verify → handover refresh
+4. dispatch qa 做 QA review 落檔
+5. 全綠回報「可以開 RR」
 
-- 🔒 **security** — 讀 `.paaw/security/scan-results.json`（semgrep 掃描結果），只計這次 release 動到的檔案；ERROR→fail、WARNING→warn；掃描後有新 commits 會警告過期
-- 🔧 **ops** — 找部署/回滾文檔（DEPLOY.md / README）；依賴變更（package.json 等）會加提醒；verdict = 維運簽核
-- 🤝 **handover** — 讀 handover state 新鮮度；verdict = 接手方簽核
+人的部分不變：Release Manager UI 開單 → AI 建議 → 簽核 → 結案。
 
-既有 RR 單自動補齊新三項（已結案的舊單記 waived + 註記，進行中的等人審）。
+## 新工具（release-prep group，em/rm 可用）
+- `release_prep_status` — 一鍵盤點證據現況
+- `test_run` — 跑全套測試落檔（同步等完成）
+- `security_scan` — semgrep 掃描落檔
+- `handover_refresh` — handover state 對齊 HEAD
+
+## 順帶修復
+`ru_verify` 等四個 release-unit 工具從未掛進 TOOL_GROUP_MAP（對所有 agent 不可見）— 已補。
 
 ## 檔案清單
 
 | 狀態 | 檔案 |
 |---|---|
-| M | `packages/server/src/lib/release-requests.mjs` |
-| M | `data/crews/coding.rm.json`（rolePrompt 七項描述 + promptRev） |
-| M | `.paaw/agents/coding.rm.json`（override 補 RR 工作流 rolePrompt — override 是完整覆蓋，global 加了會被蓋掉） |
+| M | `packages/server/src/lib/paaw-agent-loop.mjs` |
+| M | `data/crews/coding.em.json`（+工作流 rolePrompt + release-prep/release-unit group） |
+| M | `data/crews/coding.rm.json`（+release-prep group） |
+| M | `.paaw/agents/coding.em.json`（override 同步兩項） |
+| M | `.paaw/agents/coding.rm.json`（override 同步） |
 
 ## 步驟
-1. 蓋 3 檔 → 重啟 server
-2. 測：打開 Coding app → Release Manager → 展開任一 RR → checklist 應為七項
+1. 蓋 5 檔 → 重啟 server
+2. 測：EM side chat 輸入「準備 release」→ 看它跑 release_prep_status 開始盤點
 
 ## 備註
-- ⚠️ 其他 RU 有自己的 `.paaw/agents/coding.rm.json` override 的，rolePrompt 也要手動補 RR 工作流段落（或刪掉 override 讀 global）
-- security 證據源是 `.paaw/security/scan-results.json` — 先跑過 semgrep 掃描（coding app 的 security 功能）才有數字
+- ⚠️ 其他 RU 有自己的 coding.em/rm override 的要手動加 `release-prep`（要 verify 的話加 `release-unit`）進 toolGroups
+- 公司舊版：EM 沒這些工具就只會照舊回答，不會壞
