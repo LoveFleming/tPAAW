@@ -14,14 +14,27 @@ import { DATA_HOME } from "../data-home.mjs";
 const CODE_REVIEW_PROMPT_PATH = resolve(DATA_HOME, "ai-settings/coding/code-review.md");
 
 // ── Helper: run git command ──
-export async function runGit(args, cwd) {
+export async function runGit(args, cwd, timeoutMs = 15000) {
   return new Promise((resolve) => {
-    const child = spawn("git", args, { cwd, timeout: 15000 });
+    // GIT_TERMINAL_PROMPT=0：認證缺失時 git 立即報錯（stderr 有內容），
+    // 而不是靜默掛在 prompt 等輸入、timeout 被殺後 stderr 空 → UI 只見裸 ❌
+    const child = spawn("git", args, {
+      cwd, timeout: timeoutMs,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: "echo" },
+    });
     let stdout = "", stderr = "";
     child.stdout.on("data", d => stdout += d);
     child.stderr.on("data", d => stderr += d);
-    child.on("close", code => resolve({ ok: code === 0, stdout, stderr, code }));
-    child.on("error", err => resolve({ ok: false, stdout: "", stderr: err.message, code: -1 }));
+    child.stdout.on("error", () => {});
+    child.stderr.on("error", () => {});
+    child.on("close", (code, signal) => resolve({
+      ok: code === 0,
+      stdout, stderr, code,
+      killed: signal === "SIGTERM",
+      // timeout 殺掉時 stderr 常為空 — 組出可讀訊息讓 UI 有東西顯示
+      errorText: (stderr || "").trim() || (stdout || "").trim() || (signal === "SIGTERM" ? `git ${args[0]} timed out after ${timeoutMs}ms` : `git ${args.join(" ")} failed (exit ${code ?? "?"})`),
+    }));
+    child.on("error", err => resolve({ ok: false, stdout: "", stderr: err.message, code: -1, errorText: err.message }));
   });
 }
 
@@ -91,7 +104,7 @@ export default async function vibeFsRoute(req, res) {
     const cwd = params.get("path");
     if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return true; }
     const r = await runGit(["status", "--porcelain=v1", "--branch"], cwd);
-    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return true; }
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.errorText || r.stderr })); return true; }
     const branchMatch = r.stdout.match(/^## (.+?)(?:\.\.\.|$)/m);
     const branch = branchMatch ? branchMatch[1] : "(unknown)";
     const files = r.stdout.split("\n").filter(l => l && !l.startsWith("#")).map(l => ({
@@ -117,7 +130,7 @@ export default async function vibeFsRoute(req, res) {
       "log", `--max-count=${count}`, "--pretty=format:%H|%h|%an|%ae|%at|%s",
       "--date=unix",
     ], cwd);
-    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return true; }
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.errorText || r.stderr })); return true; }
     const commits = r.stdout.split("\n").filter(Boolean).map(line => {
       const [hash, short, author, email, ts, subject] = line.split("|");
       return { hash, short, author, email, date: new Date(parseInt(ts) * 1000).toISOString(), subject };
@@ -215,7 +228,7 @@ export default async function vibeFsRoute(req, res) {
     const file = params.get("file");
     if (!cwd || !file) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path or file" })); return true; }
     const r = await runGit(["blame", "--porcelain", "--", file], cwd);
-    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return true; }
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.errorText || r.stderr })); return true; }
     const lines = [];
     const blocks = r.stdout.split("\n");
     let current = null;
@@ -249,7 +262,7 @@ export default async function vibeFsRoute(req, res) {
     const files = body.files; // string[] or ["."] for all
     if (!files?.length) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing files" })); return true; }
     const r = await runGit(["add", ...files], cwd);
-    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return true; }
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.errorText || r.stderr })); return true; }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, message: `Added ${files.length} file(s)` }));
     return true;
@@ -267,7 +280,7 @@ export default async function vibeFsRoute(req, res) {
     const targets = files || (file ? [file] : []);
     if (!targets.length) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing file(s)" })); return true; }
     const r = await runGit(["restore", "--staged", ...targets], cwd);
-    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return true; }
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.errorText || r.stderr })); return true; }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, message: `Unstaged ${targets.length} file(s)` }));
     return true;
@@ -283,7 +296,7 @@ export default async function vibeFsRoute(req, res) {
     const message = body.message;
     if (!message) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing commit message" })); return true; }
     const r = await runGit(["commit", "-m", message], cwd);
-    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return true; }
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.errorText || r.stderr })); return true; }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, message: "Committed", output: r.stdout.trim() }));
     return true;
@@ -299,8 +312,8 @@ export default async function vibeFsRoute(req, res) {
     const args = ["push"];
     if (body.remote) args.push(body.remote);
     if (body.branch) args.push(body.branch);
-    const r = await runGit(args, cwd);
-    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return true; }
+    const r = await runGit(args, cwd, 60000); // push 慢（大 repo/慢網）— 60s
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.errorText })); return true; }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, message: "Pushed", output: r.stdout.trim() + (r.stderr ? "\n" + r.stderr.trim() : "") }));
     return true;
@@ -311,8 +324,8 @@ export default async function vibeFsRoute(req, res) {
     const params = new URL(req.url, "http://localhost").searchParams;
     const cwd = params.get("path");
     if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return true; }
-    const r = await runGit(["pull"], cwd);
-    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return true; }
+    const r = await runGit(["pull"], cwd, 60000);
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.errorText })); return true; }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, message: "Pulled", output: r.stdout.trim() + (r.stderr ? "\n" + r.stderr.trim() : "") }));
     return true;

@@ -304,8 +304,10 @@ export default function GitPanel(props: GitPanelProps) {
     setGitActionMsg("Pushing...");
     try {
       const r = await fetch(`${API_BASE}/api/vibe-git/push?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-      const d = await r.json();
-      setGitActionMsg(d.ok ? `✅ ${d.output || d.message}` : `❌ ${d.error}`);
+      const d = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+      // error 空白 fallback 鏈 — 不再出現裸 ❌ 無訊息（2026-09-18 Fleming 回報）
+      const errText = (d.error || "").trim() || (d.output || "").trim() || d.message || `HTTP ${r.status}`;
+      setGitActionMsg(d.ok ? `✅ ${d.output || d.message}` : `❌ push: ${errText}`);
       refreshGitStatus();
       refreshGitLog();
       fetchUnpushed();
