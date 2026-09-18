@@ -21,7 +21,7 @@
  */
 
 import { readFile, writeFile, mkdir, readdir } from "fs/promises";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 import { randomBytes } from "crypto";
 import { rename } from "fs/promises";
@@ -37,7 +37,10 @@ const CHECKLIST_DEFS = [
   { id: "tests", label: "測試全過（unit + e2e）" },
   { id: "gates", label: "品質門檻（build / type-check / test）" },
   { id: "qa-records", label: "QA 記錄無未解決 fail" },
+  { id: "security", label: "Security scan（semgrep，scope 內）" },
   { id: "risk", label: "風險評估（readiness heuristic）" },
+  { id: "ops", label: "維運就緒（部署/回滾文檔）— 簽核" },
+  { id: "handover", label: "交接（handover state 新鮮）— 簽核" },
 ];
 
 const PHASES_BEFORE_COMMIT = ["spec", "implement", "review", "test", "qa", "docs"];
@@ -54,6 +57,12 @@ async function gitLines(projectPath, args) {
 async function gitOne(projectPath, args) {
   const lines = await gitLines(projectPath, args);
   return lines[0] || null;
+}
+
+/** ISO 時間 → git --since 用的明確 UTC 格式（2026-09-18 04:25:18 +0000）。
+ *  注意 git 不認帶毫秒的 ISO 8601 — parse 失敗會靜默退化成「全部歷史」造成假 stale。 */
+function gitWhen(iso) {
+  try { return new Date(iso).toISOString().slice(0, 19).replace("T", " ") + " +0000"; } catch { return null; }
 }
 
 /** 完整描述一個 commit（不存在回 null） */
@@ -83,6 +92,23 @@ async function saveRR(projectPath, rr) {
   const tmp = `${file}.tmp`;
   await writeFile(tmp, JSON.stringify(rr, null, 2), "utf-8");
   await rename(tmp, file);
+  return rr;
+}
+
+/** 既有 RR 相容：checklist 定義擴充時（四項→七項）補齊缺項 + 同步 label。
+ *  已released/cancelled 的單也補（顯示完整七項），verdict 保持原樣。 */
+function normalizeChecklist(rr) {
+  const existing = new Map((rr.checklist || []).map(c => [c.id, c]));
+  const closedAlready = rr.status === "released" || rr.status === "cancelled";
+  rr.checklist = CHECKLIST_DEFS.map(def => existing.get(def.id) || {
+    id: def.id, label: def.label,
+    auto: { status: "unknown", detail: "此單建立時尚無此檢查項 — 重新整理（open/checklist/close 會重跑 auto）", checkedAt: null },
+    // 已結案的舊單補 waived（誠實記錄：結案時此檢查項尚不存在）；進行中補 pending 等人審
+    verdict: closedAlready ? "waived" : "pending",
+    note: closedAlready ? "單已結案時此檢查項尚不存在（2026-09-18 checklist 擴充七項）" : null,
+    by: "system-migration", at: new Date().toISOString(),
+  });
+  for (const c of rr.checklist) { const def = CHECKLIST_DEFS.find(d => d.id === c.id); if (def) c.label = def.label; }
   return rr;
 }
 
@@ -117,7 +143,7 @@ export async function listReleaseRequests(projectPath) {
 export async function getReleaseRequest(projectPath, id) {
   const file = join(rrDir(projectPath), `${id}.json`);
   if (!existsSync(file)) return null;
-  try { return JSON.parse(await readFile(file, "utf-8")); } catch { return null; }
+  try { return normalizeChecklist(JSON.parse(await readFile(file, "utf-8"))); } catch { return null; }
 }
 
 // ── baseline 解析 ──
@@ -315,6 +341,77 @@ export async function autoCheckAll(projectPath, scope) {
       ? { status: "fail", detail: `${opens.length} 筆未解決 fail：${opens.slice(0, 5).map(r => r.id).join(", ")}${opens.length > 5 ? "…" : ""}`, checkedAt: at }
       : { status: "pass", detail: "無未解決 QA fail 記錄", checkedAt: at };
   } catch { out["qa-records"] = { status: "unknown", detail: "QA 記錄讀取失敗", checkedAt: at }; }
+
+  // security — .paaw/security/scan-results.json（semgrep-runner 落檔），scope 過濾 + 新鮮度
+  // 哲學同 qa-records：程式只「找證據讀結果」，掃描本身是另一個動作（agent/人跑，結果落檔）
+  try {
+    const secPath = join(projectPath, ".paaw", "security", "scan-results.json");
+    if (!existsSync(secPath)) {
+      out.security = { status: "warn", detail: "從未執行 security scan — 先跑 semgrep 掃描（結果落 .paaw/security/）", checkedAt: at };
+    } else {
+      const scan = JSON.parse(readFileSync(secPath, "utf-8"));
+      const scannedAt = scan.scannedAt || (() => { try { return new Date(statSync(secPath).mtime).toISOString(); } catch { return null; } })();
+      // scope 過濾：只計這次 release 動到的檔案（兩邊都轉 posix 相對路徑比對）
+      // scope.files 是 {file, changeCount,...} 物件陣列（computeScope 回傳）；findings.file 是絕對路徑
+      const rel = p => String(p || "").replace(/\\/g, "/").replace(new RegExp(`^${String(projectPath).replace(/[.*+?^\${}()|[\]\\]/g, "\\$&")}/`), "");
+      const scopeSet = new Set((scope.files || []).map(f => rel(f?.file ?? f)));
+      const inScope = (scan.findings || []).filter(fd => scopeSet.size === 0 || scopeSet.has(rel(fd.file)));
+      const sev = {};
+      for (const fd of inScope) sev[fd.severity] = (sev[fd.severity] || 0) + 1;
+      // 新鮮度：掃描之後又有 commits → 結果可能過期
+      let staleCommits = 0;
+      const sinceS = gitWhen(scannedAt);
+      if (sinceS) staleCommits = parseInt(await gitOne(projectPath, `rev-list --count HEAD --since="${sinceS}"`) || "0", 10) || 0;
+      const errN = sev.ERROR || 0, warnN = sev.WARNING || 0;
+      let status = errN > 0 ? "fail" : warnN > 0 ? "warn" : "pass";
+      if (status === "pass" && staleCommits > 0) status = "warn";
+      out.security = {
+        status,
+        detail: `scope 內 findings：ERROR ${errN} / WARNING ${warnN} / INFO ${sev.INFO || 0}（全庫 ${scan.stats?.total ?? "?"}）；scanned ${scannedAt || "n/a"}${staleCommits > 0 ? `；⚠ 掃描後又有 ${staleCommits} commits` : ""}`,
+        checkedAt: at,
+      };
+    }
+  } catch { out.security = { status: "unknown", detail: "security scan 結果讀取失敗", checkedAt: at }; }
+
+  // ops — 維運文檔證據（部署/回滾步驟）+ 依賴變更提醒；verdict = 維運簽核
+  try {
+    const docs = [];
+    for (const f of ["DEPLOY.md", "README.md", "docs/DEPLOY.md", "docs/deploy.md"]) {
+      const p = join(projectPath, f);
+      if (!existsSync(p)) continue;
+      const txt = readFileSync(p, "utf-8");
+      const hasRollback = /rollback|回滾|還原步驟|revert/i.test(txt);
+      const hasDeploy = /deploy|部署|安裝步驟|build/i.test(txt);
+      if (hasDeploy || hasRollback) docs.push(`${f}${hasRollback ? "（含回滾）" : ""}`);
+    }
+    const depChanged = (scope.files || []).some(f => /(^|\/)(package(-lock)?\.json|pnpm-lock\.yaml|yarn\.lock|requirements[^/]*\.txt|go\.(mod|sum))$/i.test(String(f?.file ?? f)));
+    out.ops = docs.length
+      ? { status: "pass", detail: `維運文檔：${docs.join("、")}${depChanged ? "；⚠ 本次含依賴變更 — 注意鎖檔與安裝步驟" : ""}`, checkedAt: at }
+      : { status: "warn", detail: `未找到部署/回滾文檔（DEPLOY.md / README）${depChanged ? "；⚠ 本次含依賴變更 — 建議補文檔後再放行" : " — 小改動可 waive"}`, checkedAt: at };
+  } catch { out.ops = { status: "unknown", detail: "ops 檢查失敗", checkedAt: at }; }
+
+  // handover — .paaw/handover-state.json 存在 + 新鮮度；verdict = 接手方簽核
+  try {
+    const hp = join(projectPath, ".paaw", "handover-state.json");
+    if (!existsSync(hp)) {
+      out.handover = { status: "warn", detail: "尚無 handover state — 先產生交接包（handover/bundle）", checkedAt: at };
+    } else {
+      const hs = JSON.parse(readFileSync(hp, "utf-8"));
+      const genAt = hs.generatedAt || (() => { try { return new Date(statSync(hp).mtime).toISOString(); } catch { return null; } })();
+      let staleCommits = 0;
+      const sinceH = gitWhen(genAt);
+      if (sinceH) staleCommits = parseInt(await gitOne(projectPath, `rev-list --count HEAD --since="${sinceH}"`) || "0", 10) || 0;
+      // changes 可能是陣列或 {recentCommits:[...]} 結構（release-unit/handover-state 版本差異）
+      const ch = hs.changes;
+      const nChanges = Array.isArray(ch) ? ch.length : (ch?.recentCommits?.length ?? 0);
+      const nIssues = (hs.issues || []).length;
+      out.handover = {
+        status: staleCommits > 0 ? "warn" : "pass",
+        detail: `handover state ${genAt || "n/a"}（changes ${nChanges} / open issues ${nIssues}）${staleCommits > 0 ? `；⚠ 落後 ${staleCommits} commits — 交接包過期，建議 refresh` : "；新鮮"}`,
+        checkedAt: at,
+      };
+    }
+  } catch { out.handover = { status: "unknown", detail: "handover state 讀取失敗", checkedAt: at }; }
 
   // risk — readiness 同款 heuristic，對 scope 計算
   const { level, reasons } = scopeRisk(scope, out);
