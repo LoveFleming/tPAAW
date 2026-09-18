@@ -1186,6 +1186,14 @@ export const PAAW_TOOLS = [
   {
     type: "function",
     function: {
+      name: "ru_model_refresh",
+      description: "重建 release-unit model（feature map — features/apis 結構）。Release Request scope 的 features/apis 統計靠它，release 準備時先刷新再跑證據。",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "handover_refresh",
       description: "刷新 handover state（.paaw/handover-state.json 對齊當下 HEAD — Release Request handover 項證據）。",
       parameters: { type: "object", properties: {} },
@@ -1233,7 +1241,7 @@ const TOOL_GROUP_MAP = {
   rr_list: "release-requests", rr_get: "release-requests", rr_suggest: "release-requests",
 
   // Release Prep — v4（2026-09-18）：EM「準備 release」自動補證據（受控工具，不開 bash）
-  release_prep_status: "release-prep", test_run: "release-prep", security_scan: "release-prep", handover_refresh: "release-prep",
+  release_prep_status: "release-prep", test_run: "release-prep", security_scan: "release-prep", handover_refresh: "release-prep", ru_model_refresh: "release-prep",
 
   // Staged summary (agents record why they staged files)
   staged_summary: "core",
@@ -2194,6 +2202,17 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           } else evPush("security", false, "從未掃過 — 用 security_scan 補");
         } catch { evPush("security", false, "讀取失敗"); }
         try {
+          // CU 新鮮度（2026-09-18 Fleming 點出）：RR scope 的 features/apis 統計靠
+          // release-unit-model.json（feature map）+ code-intelligence（變更情報）— 舊了 scope 失真
+          const rup = join(cwd, ".paaw", "release-unit-model.json");
+          if (existsSync(rup)) {
+            const ru = JSON.parse(readFileSync(rup, "utf-8"));
+            const when = ru.generatedAt || new Date(statSync(rup).mtime).toISOString();
+            const stale = git(`rev-list --count HEAD --since="${(when || "").slice(0, 19).replace("T", " ")} +0000"`);
+            evPush("feature map（RU model）", !(parseInt(stale || "0") > 0), `features ${ru.features?.length ?? "?"} / apis ${ru.apis?.length ?? "?"} @ ${when}${parseInt(stale || "0") > 0 ? `；落後 ${stale} commits — 用 ru_model_refresh 補` : ""}`);
+          } else evPush("feature map（RU model）", false, "尚無 — 用 ru_model_refresh 建");
+        } catch { evPush("feature map（RU model）", false, "讀取失敗"); }
+        try {
           const vp = join(cwd, ".paaw", "verify-last.json");
           if (existsSync(vp)) {
             const v = JSON.parse(readFileSync(vp, "utf-8"));
@@ -2244,6 +2263,18 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           return `【安全掃描】${(sev.ERROR || 0) > 0 ? "❌" : "✅"} ERROR ${sev.ERROR || 0} / WARNING ${sev.WARNING || 0} / INFO ${sev.INFO || 0}（落檔 .paaw/security/scan-results.json）${(sev.ERROR || 0) > 0 ? "\n（有 ERROR — dispatch developer 修完重掃）" : ""}`;
         } catch (e) {
           return `【安全掃描】❌ 執行失敗：${e.message}`;
+        }
+      }
+
+      case "ru_model_refresh": {
+        try {
+          const { buildReleaseUnitModel } = await import("./release-unit/model.mjs");
+          if (onEvent) onEvent({ type: "tool_end", name, result: "RU model 重建中（含依賴掃描）…" });
+          const m = await buildReleaseUnitModel(cwd, { persist: true });
+          if (onEvent) onEvent({ type: "tool_end", name, result: `RU model: ${m?.features?.length ?? "?"} features` });
+          return `【RU Model】✅ 已重建 — features ${m?.features?.length ?? "?"} / apis ${m?.apis?.length ?? "?"} @ ${m?.generatedAt}（.paaw/release-unit-model.json）`;
+        } catch (e) {
+          return `【RU Model】❌ 重建失敗：${e.message}`;
         }
       }
 
