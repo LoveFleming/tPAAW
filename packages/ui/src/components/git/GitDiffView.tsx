@@ -34,8 +34,6 @@ interface GitDiffViewProps {
   /** Callbacks */
   onDiffModeChange: (mode: "working" | "staged" | "head") => void;
   onCommitClick: (hash: string) => void;
-  onQaReview: () => void;
-  qaReviewLoading: boolean;
   hasStagedChanges: boolean;
   /** Format time */
   fmtTime: (iso: string) => string;
@@ -109,8 +107,6 @@ export default function GitDiffView({
   gitLog,
   onDiffModeChange,
   onCommitClick,
-  onQaReview,
-  qaReviewLoading,
   hasStagedChanges,
   fmtTime,
   theme,
@@ -192,16 +188,6 @@ export default function GitDiffView({
         {diffFile?.startsWith("__commit__") && (
           <span className="text-xs font-mono text-stone-400">{diffFile.slice(10)}</span>
         )}
-
-        {/* QA Review button */}
-        <button
-          onClick={onQaReview}
-          disabled={qaReviewLoading || (!diffText && !hasStagedChanges)}
-          className="text-xs px-2.5 py-1 rounded-md text-white disabled:opacity-40 font-medium transition-all"
-          style={{ backgroundColor: theme.accent }}
-        >
-          {qaReviewLoading ? "⏳ Reviewing..." : "🔬 QA Review"}
-        </button>
       </div>
 
       {/* ── Diff Content ── */}

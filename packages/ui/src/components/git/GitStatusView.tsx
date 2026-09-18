@@ -49,7 +49,6 @@ interface GitStatusViewProps {
   onShowCode: (path?: string) => void;
   // ── Pipeline state ──
   pipeline: Record<string, { status: string; by?: string; at?: string; result?: string; reason?: string; feedback?: string }> | null;
-  qaVerdict: { verdict: string; issues: number; critical: number; summary: string; feedback: string } | null;
   onSpecApprove: () => void;
   onSpecReject: () => void;
   theme: { accent: string; borderLight: string; bg: string; };
@@ -78,7 +77,6 @@ export default function GitStatusView({
   evidenceLoading,
   onShowCode,
   pipeline,
-  qaVerdict,
   onSpecApprove,
   onSpecReject,
   theme,
@@ -212,16 +210,6 @@ export default function GitStatusView({
             {qaRework && (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-bold ml-1">
                 🔄 Rework
-              </span>
-            )}
-            {qaVerdict && (
-              <span className={cn(
-                "text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-1",
-                qaVerdict.verdict === "pass" ? "bg-emerald-100 text-emerald-700" :
-                qaVerdict.verdict === "conditional" ? "bg-amber-100 text-amber-700" :
-                "bg-red-100 text-red-700"
-              )}>
-                QA: {qaVerdict.verdict}
               </span>
             )}
           </div>

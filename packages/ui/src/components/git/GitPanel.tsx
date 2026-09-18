@@ -14,7 +14,6 @@ import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { cn } from "../../utils";
 import GitStatusView from "./GitStatusView";
 import GitDiffView from "./GitDiffView";
-import GitReviewView from "./GitReviewView";
 import GitCommitBar from "./GitCommitBar";
 import { classifyGitFile, fileKey, pathFromFileKey, FeatureFileMap } from "./git-helpers";
 import type { EvidenceDecisionCard } from "./DecisionCard";
@@ -32,17 +31,6 @@ interface GitCommit {
   email: string;
   date: string;
   subject: string;
-}
-
-interface BlameLine {
-  hash: string;
-  author: string;
-  authorMail: string;
-  authorTime: string;
-  summary: string;
-  finalLine: number;
-  content: string;
-  short?: string;
 }
 
 interface StagedChangeSummary {
@@ -79,20 +67,12 @@ interface GitPanelProps {
   selectedFiles: Set<string>;
   aiCommitLoading: boolean;
   stagedSummary: StagedChangeSummary | null;
-  qaReview: string | null;
-  qaVerdict: { verdict: string; issues: number; critical: number; summary: string; feedback: string } | null;
-  qaReviewLoading: boolean;
-  gitReviews: { id: string; ts: string; comment: string; branch?: string; files?: string[] }[];
-
-  // ── Blame ──
-  blameData: BlameLine[] | null;
-  blameFile: string;
 
   // ── Active task for pipeline actions ──
   activeCodingTask: { id: string; title: string; loopModeOverride?: string | null; effectiveLoopMode?: string; pipeline?: Record<string, any> } | null;  // ── Project-level loop mode ──
 
   // ── Setters (passed through) ──
-  setGitTab: (tab: "status" | "diff" | "blame" | "review") => void;
+  setGitTab: (tab: "status" | "diff") => void;
   setGitCommitMsg: (msg: string) => void;
   setGitActionMsg: (msg: string | null) => void;
   setSelectedFiles: (files: Set<string>) => void;
@@ -106,7 +86,6 @@ interface GitPanelProps {
   refreshGitStatus: () => void;
   refreshGitLog: () => void;
   loadGitDiff: (file?: string, cached?: boolean, commit?: string) => void;
-  runQaReview: () => void;
 
   // ── Helpers ──
   fmtTime: (iso: string) => string;
@@ -123,7 +102,7 @@ interface GitPanelProps {
   tt: (key: string, fallback?: string) => string;
 }
 
-type GitTab = "status" | "diff" | "blame" | "review";
+type GitTab = "status" | "diff";
 
 export default function GitPanel(props: GitPanelProps) {
   const {
@@ -138,12 +117,6 @@ export default function GitPanel(props: GitPanelProps) {
     gitActionMsg,
     selectedFiles,
     aiCommitLoading,
-    qaReview,
-    qaVerdict,
-    qaReviewLoading,
-    gitReviews,
-    blameData,
-    blameFile,
     activeCodingTask,
     setGitTab: setExternalGitTab,
     setGitCommitMsg,
@@ -157,7 +130,6 @@ export default function GitPanel(props: GitPanelProps) {
     refreshGitStatus,
     refreshGitLog,
     loadGitDiff,
-    runQaReview,
     fmtTime,
     theme,
     tt,
@@ -328,49 +300,7 @@ export default function GitPanel(props: GitPanelProps) {
     }
   }, [rootPath, API_BASE, refreshGitStatus, refreshGitLog, loadGitDiff, setStagedSummary]);
 
-  // ── QA Approve — human overrides, advance pipeline ──
-  const handleQaApprove = useCallback(async () => {
-    if (!activeCodingTask?.id || !rootPath) return;
-    setGitActionMsg("✅ Human approved — advancing pipeline...");
-    try {
-      // Advance QA phase (if not already done)
-      const pipeline = activeCodingTask.pipeline;
-      if (pipeline?.qa?.status !== "done") {
-        await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTask.id)}/pipeline/advance?path=${encodeURIComponent(rootPath)}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phase: "qa", result: "Human approved after review", by: "human" }),
-        });
-      }
-      setGitActionMsg("✅ Pipeline advanced to commit phase");
-    } catch (e: any) {
-      setGitActionMsg(`❌ ${e.message}`);
-    }
-  }, [activeCodingTask, rootPath, API_BASE, setGitActionMsg]);
 
-  // ── QA Rework — human triggers rework, reject pipeline ──
-  const handleQaRework = useCallback(async () => {
-    if (!activeCodingTask?.id || !rootPath) return;
-    const feedback = qaVerdict?.feedback || "Human requested rework";
-    setGitActionMsg("🔄 Rework — returning to implement phase...");
-    try {
-      await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTask.id)}/pipeline/reject?path=${encodeURIComponent(rootPath)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phase: "qa",
-          status: "rework",
-          reason: feedback,
-          feedback,
-          by: "human",
-          returnTo: "implement",
-        }),
-      });
-      setGitActionMsg("🔄 Rework — Dev will be re-dispatched");
-    } catch (e: any) {
-      setGitActionMsg(`❌ ${e.message}`);
-    }
-  }, [activeCodingTask, rootPath, API_BASE, qaVerdict, setGitActionMsg]);
 
   // ── Spec Approve — human confirms spec, advance to implement ──
   const handleSpecApprove = useCallback(async () => {
@@ -576,8 +506,6 @@ export default function GitPanel(props: GitPanelProps) {
   const tabConfig: { id: GitTab; label: string }[] = [
     { id: "status", label: tt("vibe.gitStatus") },
     { id: "diff", label: tt("vibe.gitDiff") },
-    { id: "blame", label: tt("vibe.gitBlame") },
-    { id: "review", label: "🔬 Review" },
   ];
 
   // Determine active diff mode
@@ -593,7 +521,6 @@ export default function GitPanel(props: GitPanelProps) {
             onClick={() => {
               setGitTab(t.id);
               if (t.id === "diff") setActiveSubPanel("diff");
-              if (t.id === "blame" && blameData) setActiveSubPanel("blame");
             }}
             className={cn(
               "px-2.5 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1",
@@ -636,7 +563,6 @@ export default function GitPanel(props: GitPanelProps) {
             onUnstageFile={handleUnstageFile}
             onStageFile={handleStageFile}
             pipeline={activeCodingTask?.pipeline || null}
-            qaVerdict={qaVerdict}
             onSpecApprove={handleSpecApprove}
             onSpecReject={handleSpecReject}
             featureMap={featureMap}
@@ -657,59 +583,12 @@ export default function GitPanel(props: GitPanelProps) {
             gitLog={gitLog}
             onDiffModeChange={handleDiffModeChange}
             onCommitClick={handleCommitClick}
-            onQaReview={runQaReview}
-            qaReviewLoading={qaReviewLoading}
             hasStagedChanges={!!gitStatus?.staged?.length}
             fmtTime={fmtTime as any}
             theme={theme}
           />
         )}
 
-        {/* Blame */}
-        {gitTab === "blame" && blameData && (
-          <div className="flex-1 overflow-auto">
-            <div className="flex items-center gap-2 px-3 py-1.5 sticky top-0 bg-white z-10" style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
-              <span className="text-xs font-bold text-stone-500">🔍 Blame — {blameFile}</span>
-            </div>
-            <table className="w-full text-sm font-mono" style={{ borderCollapse: "collapse" }}>
-              <tbody>
-                {blameData.map((line, i) => {
-                  const prevHash = i > 0 ? blameData[i - 1].hash : "";
-                  const showAuthor = line.hash !== prevHash;
-                  return (
-                    <tr key={i} style={{ borderTop: showAuthor ? "1px solid #e5e5e5" : "none" }}>
-                      <td className="px-2 py-0 text-right text-stone-300 select-none w-8 shrink-0">{line.finalLine}</td>
-                      <td className="px-2 py-0 w-32 shrink-0 truncate" style={{ color: showAuthor ? "#3B82F6" : "#c0c0c0" }}>
-                        {showAuthor ? (
-                          <span className="flex flex-col">
-                            <span className="truncate font-semibold">{line.author}</span>
-                            <span className="text-xs text-stone-400 truncate">{line.short || line.hash?.slice(0, 7)} · {fmtTime(line.authorTime)}</span>
-                          </span>
-                        ) : <span className="text-stone-200">│</span>}
-                      </td>
-                      <td className="px-2 py-0 text-stone-700 leading-5 whitespace-pre">{line.content}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Review */}
-        {gitTab === "review" && (
-          <GitReviewView
-            qaReview={qaReview}
-            qaVerdict={qaVerdict}
-            qaReviewLoading={qaReviewLoading}
-            gitReviews={gitReviews}
-            onRunReview={runQaReview}
-            onApprove={handleQaApprove}
-            onRework={handleQaRework}
-            fmtTime={fmtTime as any}
-            theme={theme}
-          />
-        )}
       </div>
 
       {/* ── Commit Bar (fixed bottom) ── */}

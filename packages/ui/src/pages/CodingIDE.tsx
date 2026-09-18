@@ -883,15 +883,12 @@ export default function CodingIDE() {
   const [gitDiff, setGitDiff] = useState("");
   const [gitDiffFile, setGitDiffFile] = useState("");
   const [gitDiffCached, setGitDiffCached] = useState(false);
-  const [blameData, setBlameData] = useState<BlameLine[] | null>(null);
-  const [blameFile, setBlameFile] = useState("");
 
-  const [gitTab, setGitTab] = useState<"status" | "log" | "diff" | "blame" | "review">("status");
+  const [gitTab, setGitTab] = useState<"status" | "diff">("status");
   const [gitCommitMsg, setGitCommitMsg] = useState("");
   const [gitActionMsg, setGitActionMsg] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [aiCommitLoading, setAiCommitLoading] = useState(false);
-  const [gitReviews, setGitReviews] = useState<{ id: string; ts: string; comment: string; branch?: string; files?: string[] }[]>([]);
 
   // ── Staged Changes Summary (from agents) ──
   interface StagedChangeSummary {
@@ -2176,163 +2173,9 @@ const sendChat = useCallback(async () => {
     try { const res = await fetch(`${API_BASE}/api/vibe-git/diff?${params}`); const data = await res.json(); setGitDiff(data.diff || ""); setGitDiffFile(file || ""); setGitDiffCached(!!cached); } catch {}
   }, [rootPath]);
 
-  const loadBlame = useCallback(async (filePath: string) => {
-    if (!rootPath) return;
-    try { const res = await fetch(`${API_BASE}/api/vibe-git/blame?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(filePath)}`); const data = await res.json(); setBlameData(data.lines || []); setBlameFile(filePath); setGitTab("blame"); setActiveSubPanel("blame"); } catch {}
-  }, [rootPath]);
 
   // ── QA Code Review: send staged diff to QA agent (武大安) ──
-  const [qaReviewLoading, setQaReviewLoading] = useState(false);
-  const [qaReview, setQaReview] = useState("");
-  const [qaVerdict, setQaVerdict] = useState<{ verdict: string; issues: number; critical: number; summary: string; feedback: string } | null>(null);
-  // ── Parse QA verdict from review text ──
-  function parseQaVerdict(text: string): { verdict: string; issues: number; critical: number; summary: string; feedback: string } | null {
-    const match = text.match(/---QA_VERDICT---[\s\S]*?---END_VERDICT---/);
-    if (!match) return null;
-    const block = match[0];
-    const verdict = (block.match(/verdict:\s*(pass|conditional|rework)/)?.[1] || "").toLowerCase();
-    const issues = parseInt(block.match(/issues:\s*(\d+)/)?.[1] || "0");
-    const critical = parseInt(block.match(/critical:\s*(\d+)/)?.[1] || "0");
-    const summary = (block.match(/summary:\s*(.+)/)?.[1] || "").trim();
-    const feedback = (block.match(/feedback:\s*([\s\S]*?)(?=---END_VERDICT---|$)/)?.[1] || "").trim();
-    if (!verdict) return null;
-    return { verdict, issues, critical, summary, feedback };
-  }
 
-  const runQaReview = useCallback(async () => {
-    if (!rootPath) return;
-    setQaReviewLoading(true);
-    setQaReview("");
-    setGitTab("review");
-    try {
-      // Get staged diff (fallback to working diff)
-      let diffText = gitDiff;
-      if (!diffText) {
-        const diffRes = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}&cached=true`);
-        const diffData = await diffRes.json();
-        diffText = diffData.diff || "";
-      }
-      if (!diffText) {
-        const diffRes = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}`);
-        diffText = (await diffRes.json()).diff || "";
-      }
-      // Build review request for QA agent — 強調結構化 verdict
-      const fileList = gitStatus?.staged?.map(f => f.path).join(", ") || gitStatus?.all?.map(f => f.path).join(", ") || "";
-      const reviewTask = `請 review 以下 staged diff，這是另一個 agent 剛完成的變更。
-
-**變更檔案：** ${fileList}
-**分支：** ${gitStatus?.branch || "unknown"}
-
-**Diff：**
-\n${'```'}diff
-${diffText.slice(0, 12000)}
-${'```'}\n
-請檢查：
-1. ⚠️ 潛在 bug 或邊界情況
-2. 🔒 安全問題
-3. 🔄 跨平台相容性
-4. ♿ 可訪問性
-5. 📝 缺漏的錯誤處理
-6. 🧪 建議的測試步驟
-
-⚠️ **重要：你的回覆最後必須包含結構化 verdict 區塊：**
-\`\`\`
----QA_VERDICT---
-verdict: pass 或 conditional 或 rework
-issues: 數字
-critical: 數字
-summary: 一句話總結
-feedback: 具體修正建議（rework 時必須給）
----END_VERDICT---
-\`\`\`
-
-${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : ""}`;
-
-      const res = await fetch(`${API_BASE}/api/coding-crew/dispatch`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId: "qa", task: reviewTask, cwd: rootPath }),
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        setQaReview(`❌ QA Agent 派工失敗: ${errText.slice(0, 200)}`);
-        setQaReviewLoading(false);
-        return;
-      }
-      // Read SSE stream
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let result = "";
-      let buffer = "";
-      let currentEvent = "";
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-          for (const line of lines) {
-            if (line.startsWith("event:")) currentEvent = line.slice(6).trim();
-            if (line.startsWith("data:")) {
-              try {
-                const evt = JSON.parse(line.slice(5).trim());
-                if (currentEvent === "text" && evt.text) {
-                  result += evt.text;
-                  setQaReview(result);
-                }
-              } catch {}
-            }
-          }
-        }
-      }
-
-      // ══ Parse QA verdict and drive pipeline ══
-      const verdict = parseQaVerdict(result);
-      if (verdict) {
-        setQaVerdict(verdict);
-        // Find active task to update pipeline
-        if (activeCodingTaskId) {
-          try {
-            if (verdict.verdict === "pass") {
-              // ✅ Pass → advance QA phase → commit phase awaits human
-              await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTaskId)}/pipeline/advance?path=${encodeURIComponent(rootPath)}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ phase: "qa", result: verdict.summary, by: "qa-agent" }),
-              });
-            } else if (verdict.verdict === "rework") {
-              // ❌ Rework → reject QA phase → return to implement
-              await fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTaskId)}/pipeline/reject?path=${encodeURIComponent(rootPath)}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  phase: "qa",
-                  status: "rework",
-                  reason: verdict.summary,
-                  feedback: verdict.feedback,
-                  by: "qa-agent",
-                  returnTo: "implement",
-                }),
-              });
-            }
-            // conditional → leave for human to decide
-          } catch (e: any) {
-            console.error("Pipeline action failed:", e.message);
-          }
-        }
-      }
-
-      // Save review to server
-      try {
-        await fetch(`${API_BASE}/api/vibe-git/reviews?path=${encodeURIComponent(rootPath)}`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ comment: result, branch: gitStatus?.branch, files: gitStatus?.staged?.map(f => f.path), diffLength: diffText?.length, verdict: verdict?.verdict || null }),
-        });
-      } catch {}
-    } catch (err: any) { setQaReview(`❌ Error: ${err.message}`); }
-    setQaReviewLoading(false);
-  }, [rootPath, gitDiff, gitLog, gitStatus, activeCodingTaskId]);
 
   // Auto-refresh git when panel opens or when switching to git tab
   useEffect(() => {
@@ -2363,13 +2206,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
     }
   }, [activeMainTab?.type, rootPath, showGitPanel]);
 
-  // Load git reviews when entering review tab
-  useEffect(() => {
-    if (gitTab === "review" && rootPath) {
-      fetch(`${API_BASE}/api/vibe-git/reviews?path=${encodeURIComponent(rootPath)}`)
-        .then(r => r.json()).then(data => { if (data.reviews) setGitReviews(data.reviews); }).catch(() => {});
-    }
-  }, [gitTab, rootPath]);
 
   // ═══════════════════════════════════════════════
   // API Tester
@@ -3125,12 +2961,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 selectedFiles={selectedFiles}
                 aiCommitLoading={aiCommitLoading}
                 stagedSummary={stagedSummary}
-                qaReview={qaReview}
-                qaVerdict={qaVerdict}
-                qaReviewLoading={qaReviewLoading}
-                gitReviews={gitReviews}
-                blameData={blameData}
-                blameFile={blameFile}
                 activeCodingTask={activeCodingTaskId ? { id: activeCodingTaskId, title: stagedSummary?.task || "", pipeline: activeTaskPipeline ?? undefined } : null}
                 setGitTab={setGitTab}
                 setGitCommitMsg={setGitCommitMsg}
@@ -3144,7 +2974,6 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 refreshGitStatus={refreshGitStatus}
                 refreshGitLog={refreshGitLog}
                 loadGitDiff={loadGitDiff}
-                runQaReview={runQaReview}
                 fmtTime={fmtTime}
                 theme={tk}
                 tt={tt}

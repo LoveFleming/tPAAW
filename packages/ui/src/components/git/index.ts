@@ -10,7 +10,6 @@
 export { default as GitPanel } from "./GitPanel";
 export { default as GitStatusView } from "./GitStatusView";
 export { default as GitDiffView } from "./GitDiffView";
-export { default as GitReviewView } from "./GitReviewView";
 export { default as GitCommitBar } from "./GitCommitBar";
 export { default as GitFileGroupCard } from "./GitFileGroup";
 export { default as FeatureGroupCard } from "./FeatureGroupCard";
