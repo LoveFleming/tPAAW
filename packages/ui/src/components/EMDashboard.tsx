@@ -687,7 +687,6 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   return (
     <>
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-      <div className="shrink-0 flex items-center gap-1 px-2 py-1.5 border-b" style={{ borderColor: tk.borderLight, background: tk.bg }} />
       {/* 2026-08-29: 兩個 view 常駐掛載，用 hidden 切換 — 保留雙方 scroll 位置與元件狀態 */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Header — matches crew agent header layout */}
