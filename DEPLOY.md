@@ -1,18 +1,27 @@
-# DEPLOY — EM 面板頂部空 bar 修復（間距不一致）
+# DEPLOY — Git 面板移除 Blame/Review tabs
 
-> 日期：2026-09-18 ｜ 上游 `d67146a9` ｜ 1 檔
-> **UI 變更：蓋檔後要 `npm run build` + 重啟 server**
+> 日期：2026-09-18 ｜ 上游 `c1b8ec9f` ｜ 5 檔 + 1 刪
+> **UI 變更：蓋檔後要 `npm run build` + 重啟；GitReviewView.tsx 要手動刪**
 
-## 症狀
-EM（陳哲宇）page 的 title panel 上方多一段間距，其他 agent page 沒有。
+## 為什麼
+Fleming：QA 等 agent 自己能看 git commit — git 面板內嵌的 Blame/Review 冗餘，移除。
 
-## 根因
-62fc78b8 refactor 殘留的空 div（無內容純佔 py-1.5 + border-b 高度）。
+## 移除內容
+- Git 面板只剩 **Status / Diff** 兩個 tab
+- Diff 視圖的「🔬 QA Review」按鈕
+- Review 結果徽章 / loadBlame 死碼
 
 ## 檔案
 | 狀態 | 檔案 |
 |---|---|
-| M | `packages/ui/src/components/EMDashboard.tsx` |
+| M | `packages/ui/src/components/git/GitPanel.tsx` |
+| M | `packages/ui/src/components/git/GitDiffView.tsx` |
+| M | `packages/ui/src/components/git/GitStatusView.tsx` |
+| M | `packages/ui/src/components/git/index.ts` |
+| M | `packages/ui/src/pages/CodingIDE.tsx` |
+| D | `packages/ui/src/components/git/GitReviewView.tsx`（手動刪除） |
 
 ## 步驟
-蓋 1 檔 → `npm run build` → 重啟。EM page 頂部跟其他 agent page 對齊。
+1. 蓋 5 個 M 檔
+2. 刪 `packages/ui/src/components/git/GitReviewView.tsx`
+3. `npm run build` → 重啟 server
