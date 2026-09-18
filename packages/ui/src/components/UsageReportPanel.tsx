@@ -291,6 +291,21 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
     return Array.from(map.values());
   }, [report]);
 
+  // 2026-09-18 Fleming：RU × Model 表改 group 模式 — 同 RU 的不同 model 集中（subtotal + 縮排明細）
+  const ruModelGroups = useMemo(() => {
+    const map = new Map<string, { ruName: string; subtotal: { requests: number; costUsd: number; durationMs: number }; rows: RuModelRow[] }>();
+    for (const r of report.byRuModel) {
+      if (!map.has(r.ruName)) map.set(r.ruName, { ruName: r.ruName, subtotal: { requests: 0, costUsd: 0, durationMs: 0 }, rows: [] });
+      const g = map.get(r.ruName)!;
+      g.rows.push(r);
+      g.subtotal.requests += r.requests; g.subtotal.costUsd += r.costUsd; g.subtotal.durationMs += r.durationMs;
+    }
+    const groups = Array.from(map.values());
+    for (const g of groups) g.rows.sort((a, b) => b.costUsd - a.costUsd);
+    groups.sort((a, b) => b.subtotal.costUsd - a.subtotal.costUsd);
+    return groups;
+  }, [report]);
+
   const card: React.CSSProperties = {
     background: theme.bgMuted, border: `1px solid ${theme.borderLight}`,
     borderRadius: 10, padding: "10px 14px", minWidth: 130,
@@ -484,14 +499,25 @@ export default function UsageReportPanel({ theme = DEFAULT_THEME }: { theme?: an
                 </tr>
               </thead>
               <tbody className="font-mono">
-                {[...report.byRuModel].sort((a, b) => b.costUsd - a.costUsd).map(r => (
-                  <tr key={`${r.ruName}/${r.model}`} style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
-                    <td style={td}>{r.ruName}</td>
-                    <td style={td}>{r.model}</td>
-                    <td style={{ ...td, textAlign: "right" }}>{fmtInt(r.requests)}</td>
-                    <td style={{ ...td, textAlign: "right" }}>{fmtUsd(r.costUsd)}</td>
-                    <td style={{ ...td, textAlign: "right" }}>{fmtDur(r.durationMs)}</td>
-                  </tr>
+                {ruModelGroups.map(g => (
+                  <React.Fragment key={g.ruName}>
+                    <tr style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bg }}>
+                      <td style={{ ...td, fontWeight: 700 }}>{g.ruName}</td>
+                      <td style={{ ...td, fontWeight: 700, opacity: 0.65 }}>{t("report.subtotal")}</td>
+                      <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtInt(g.subtotal.requests)}</td>
+                      <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtUsd(g.subtotal.costUsd)}</td>
+                      <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmtDur(g.subtotal.durationMs)}</td>
+                    </tr>
+                    {g.rows.map(r => (
+                      <tr key={`${r.ruName}/${r.model}`} style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
+                        <td style={{ ...td, opacity: 0.4 }}>└</td>
+                        <td style={td}>{r.model}</td>
+                        <td style={{ ...td, textAlign: "right" }}>{fmtInt(r.requests)}</td>
+                        <td style={{ ...td, textAlign: "right" }}>{fmtUsd(r.costUsd)}</td>
+                        <td style={{ ...td, textAlign: "right" }}>{fmtDur(r.durationMs)}</td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
                 ))}
                 <tr style={{ fontWeight: 700 }}>
                   <td colSpan={2} style={{ ...td, fontWeight: 700 }}>{t("report.total")}</td>
