@@ -169,7 +169,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     ).join("\n");
     const gates = (readiness.gates?.gates || []).map(g => `${g.gate}: ${g.status}`).join(", ") || "n/a";
     return [
-      `Release #${readiness.releaseId}`,
+      `Readiness Report #${readiness.releaseId}`,
       `Baseline: ${readiness.firstRelease ? "首次發布（first commit 起）" : `${readiness.sinceRelease?.id} @ ${readiness.sinceRelease?.releasedAt?.slice(0, 16)}`}`,
       `Ready: ${readiness.ready ? "READY" : "NOT READY"} · Risk: ${readiness.risk}（${readiness.riskReasons.join("; ") || "clean"}）`,
       `Commits since baseline: ${readiness.commits.count}（${readiness.commits.authors.join(", ")}）`,
@@ -322,7 +322,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
               <div className="px-4 py-3 flex items-center gap-3 flex-wrap" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: readiness.ready ? "#f0fdf4" : "#fff7ed" }}>
                 <div className="min-w-0">
                   <div className="text-sm font-bold text-stone-800 flex items-center gap-2">
-                    🚀 Release #{readiness.releaseId}
+                    📈 {t("rm.reportTitle")} #{readiness.releaseId}
                     <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold"
                       style={{ color: readiness.ready ? "#16a34a" : "#d97706", backgroundColor: readiness.ready ? "#dcfce7" : "#ffedd5" }}>
                       {readiness.ready ? t("rm.ready") : t("rm.notReady")}
