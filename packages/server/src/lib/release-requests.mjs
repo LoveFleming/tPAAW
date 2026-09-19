@@ -294,21 +294,28 @@ export async function computeScope(projectPath, baselineSha, targetSha, opts = {
 
 // ── checklist 自動檢查（程式保證事實）──
 
-function scopeRisk(scope, autoSoFar) {
+function scopeRisk(scope, autoSoFar, opts = {}) {
   let score = 0;
   const reasons = [];
   const feats = scope.features || [];
+  const firstRelease = !!opts.firstRelease; // baseline=first-commit（或無歷史 release）→ volume 是全歷史，資訊性不計分（2026-09-19 v2 對齊）
   if (feats.some(f => !f.hasTests && f.apiImpact)) { score += 2; reasons.push("API 變更的 feature 沒有測試"); }
   else if (feats.some(f => !f.hasTests)) { score += 1; reasons.push("有 feature 沒有測試"); }
-  if ((scope.files || []).length > 20) { score += 1; reasons.push(`${scope.files.length} 個檔案變更`); }
-  if ((scope.apis || []).length > 10) { score += 1; reasons.push(`${scope.apis.length} 個 API 變更`); }
+  if ((scope.files || []).length > 20) {
+    if (firstRelease) reasons.push(`first release: ${scope.files.length} 檔（首發基準線，不計分）`);
+    else { score += 1; reasons.push(`${scope.files.length} 個檔案變更`); }
+  }
+  if ((scope.apis || []).length > 10) {
+    if (firstRelease) reasons.push(`first release: ${scope.apis.length} API（首發基準線，不計分）`);
+    else { score += 1; reasons.push(`${scope.apis.length} 個 API 變更`); }
+  }
   if (autoSoFar.gates?.status === "fail") { score += 1; reasons.push("gates blocked"); }
   if (autoSoFar.tests?.status === "fail") { score += 1; reasons.push("上次測試有 fail"); }
   const level = score >= 3 ? "HIGH" : score >= 1 ? "MEDIUM" : "LOW";
   return { score, level, reasons };
 }
 
-export async function autoCheckAll(projectPath, scope) {
+export async function autoCheckAll(projectPath, scope, opts = {}) {
   const at = new Date().toISOString();
   const out = {};
 
@@ -320,15 +327,20 @@ export async function autoCheckAll(projectPath, scope) {
     } else {
       const s = rec.summary || {};
       const k = rec.byKind || {};
-      let stale = false, staleCommits = 0;
+      let stale = false, staleCommits = 0, ruOnly = 0;
       if (rec.headSha) {
         const c = await gitOne(projectPath, `rev-list ${rec.headSha}..HEAD --count`);
-        staleCommits = parseInt(c, 10) || 0;
+        const total = parseInt(c, 10) || 0;
+        if (total > 0) {
+          const lgRaw = await gitOne(projectPath, `log ${rec.headSha}..HEAD --name-only --pretty=format:%H`) || "";
+          staleCommits = countCodeCommitsSince(lgRaw); // 只有程式 commits 讓測試結果過期（.paaw 收編不算 — 2026-09-19）
+          ruOnly = total - staleCommits;
+        }
         stale = staleCommits > 0;
       }
       const kindPart = (k.unit || k.e2e)
         ? `（unit ${k.unit?.passed ?? 0}✓${k.unit?.failed ?? 0}✗ / e2e ${k.e2e?.passed ?? 0}✓${k.e2e?.failed ?? 0}✗）` : "";
-      const stalePart = stale ? `；⚠ 結果落後 ${staleCommits} commits` : "";
+      const stalePart = stale ? `；⚠ 結果落後 ${staleCommits} 個程式 commits` : (ruOnly > 0 ? `；（${ruOnly} 個 commits 皆 RU 資料，結果仍有效）` : "");
       out.tests = {
         status: rec.status === "fail" || (s.failed || 0) > 0 ? "fail" : stale ? "warn" : "pass",
         detail: `${s.passed ?? 0}✓ ${s.failed ?? 0}✗ ${s.skipped ?? 0}⋯${kindPart}${stalePart}；run at ${rec.finishedAt}`,
@@ -417,23 +429,30 @@ export async function autoCheckAll(projectPath, scope) {
     } else {
       const hs = JSON.parse(readFileSync(hp, "utf-8"));
       const genAt = hs.generatedAt || (() => { try { return new Date(statSync(hp).mtime).toISOString(); } catch { return null; } })();
-      let staleCommits = 0;
+      let staleCommits = 0, ruOnlyH = 0;
       const sinceH = gitWhen(genAt);
-      if (sinceH) staleCommits = parseInt(await gitOne(projectPath, `rev-list --count HEAD --since="${sinceH}"`) || "0", 10) || 0;
+      if (sinceH) {
+        const totalH = parseInt(await gitOne(projectPath, `rev-list --count HEAD --since="${sinceH}"`) || "0", 10) || 0;
+        if (totalH > 0) {
+          const lgH = await gitOne(projectPath, `log --since="${sinceH}" --name-only --pretty=format:%H`) || "";
+          staleCommits = countCodeCommitsSince(lgH); // 只算程式 commits（2026-09-19）
+          ruOnlyH = totalH - staleCommits;
+        }
+      }
       // changes 可能是陣列或 {recentCommits:[...]} 結構（release-unit/handover-state 版本差異）
       const ch = hs.changes;
       const nChanges = Array.isArray(ch) ? ch.length : (ch?.recentCommits?.length ?? 0);
       const nIssues = (hs.issues || []).length;
       out.handover = {
         status: staleCommits > 0 ? "warn" : "pass",
-        detail: `handover state ${genAt || "n/a"}（changes ${nChanges} / open issues ${nIssues}）${staleCommits > 0 ? `；⚠ 落後 ${staleCommits} commits — 交接包過期，建議 refresh` : "；新鮮"}`,
+        detail: `handover state ${genAt || "n/a"}（changes ${nChanges} / open issues ${nIssues}）${staleCommits > 0 ? `；⚠ 落後 ${staleCommits} 個程式 commits — 交接包過期，建議 refresh` : (ruOnlyH > 0 ? `；（${ruOnlyH} 個 commits 皆 RU 資料，仍新鮮）` : "；新鮮")}`,
         checkedAt: at,
       };
     }
   } catch { out.handover = { status: "unknown", detail: "handover state 讀取失敗", checkedAt: at }; }
 
   // risk — readiness 同款 heuristic，對 scope 計算
-  const { level, reasons } = scopeRisk(scope, out);
+  const { level, reasons } = scopeRisk(scope, out, opts);
   out.risk = {
     status: level === "HIGH" ? "fail" : level === "MEDIUM" ? "warn" : "pass",
     detail: `${level}${reasons.length ? "：" + reasons.join("；") : "（無風險訊號）"}`,
@@ -472,7 +491,7 @@ export async function createReleaseRequest(projectPath, { title, baseline = "aut
   }
   const target = await describeCommit(projectPath, headSha);
   const scope = await computeScope(projectPath, base.sha);
-  const auto = await autoCheckAll(projectPath, scope);
+  const auto = await autoCheckAll(projectPath, scope, { firstRelease: base.source === "first-commit" });
 
   const rr = {
     id: newRRId(),
@@ -508,7 +527,7 @@ export async function updateReleaseRequest(projectPath, id, { title, baseline } 
     const base = await resolveBaseline(projectPath, baseline);
     rr.baseline = base;
     rr.scope = await computeScope(projectPath, base.sha);
-    const auto = await autoCheckAll(projectPath, rr.scope);
+    const auto = await autoCheckAll(projectPath, rr.scope, { firstRelease: base.source === "first-commit" });
     for (const item of rr.checklist) item.auto = auto[item.id] || item.auto;
     hist(rr, "human", "baseline-changed", `${base.short}（${base.source}）`);
   }
@@ -529,7 +548,7 @@ export async function openReleaseRequest(projectPath, id) {
     rr.target = head;
     const scope = await computeScope(projectPath, rr.baseline.sha, head.sha);
     rr.scope = scope;
-    const auto = await autoCheckAll(projectPath, scope);
+    const auto = await autoCheckAll(projectPath, scope, { firstRelease: rr.baseline?.source === "first-commit" });
     rr.checklist = freshChecklist(auto); // target 變了 → 證據全部重算，verdict 重置
     rr.suggested = undefined; // 舊證據的 AI 建議一併作廢（若有）
   }
@@ -572,7 +591,7 @@ export async function refreshReleaseRequest(projectPath, id) {
     rr.scope = await computeScope(projectPath, rr.baseline.sha);
     hist(rr, "system", "target-advanced", `target 前進到 ${rr.target.short}，scope 重算`);
   }
-  const auto = await autoCheckAll(projectPath, rr.scope);
+  const auto = await autoCheckAll(projectPath, rr.scope, { firstRelease: rr.baseline?.source === "first-commit" });
   for (const item of rr.checklist) item.auto = auto[item.id] || item.auto;
   await saveRR(projectPath, rr);
   return rr;

@@ -53,9 +53,17 @@ export async function checkGates(root) {
 
   // git dirty（給 clean-tree gate 用）
   let dirtyCount = null;
+  let ruDirtyCount = 0;
   try {
     const { stdout } = await shellExec("git status --porcelain", { cwd: root, timeout: 10_000, maxBuffer: 1e6 });
-    dirtyCount = (stdout || "").split("\n").filter(Boolean).length;
+    const lines = (stdout || "").split("\n").filter(Boolean);
+    // 2026-09-19：.paaw RU 資料（EM 對話記憶/資產收編 churn）不算 dirty — clean-tree 顧程式樹
+    const codeLines = lines.filter((l) => {
+      const path = l.slice(3).split(" -> ").pop().trim();
+      return !path.startsWith(".paaw/");
+    });
+    ruDirtyCount = lines.length - codeLines.length;
+    dirtyCount = codeLines.length;
   } catch { /* 非 git repo */ }
 
   const results = [];
@@ -65,7 +73,7 @@ export async function checkGates(root) {
 
     if (name === "clean-tree") {
       if (dirtyCount === null) { item.status = "skip"; item.detail = "not a git repo"; }
-      else if (dirtyCount === 0) item.status = "pass";
+      else if (dirtyCount === 0) { item.status = "pass"; if (ruDirtyCount > 0) item.detail = `${ruDirtyCount} 個 .paaw RU 資料檔未 commit（不影響程式樹）`; }
       else { item.status = conf.required ? "fail" : "warn"; item.detail = `${dirtyCount} uncommitted files`; }
       results.push(item);
       continue;
