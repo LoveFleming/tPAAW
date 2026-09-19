@@ -61,6 +61,18 @@ async function gitOne(projectPath, args) {
 
 /** ISO 時間 → git --since 用的明確 UTC 格式（2026-09-18 04:25:18 +0000）。
  *  注意 git 不認帶毫秒的 ISO 8601 — parse 失敗會靜默退化成「全部歷史」造成假 stale。 */
+function countCodeCommitsSince(gitOut) {
+  // gitOut = git log --since=... --name-only --pretty=format:%H 的輸出；只數含非 .paaw 檔的 commits
+  let n = 0, curHasCode = false;
+  for (const raw of String(gitOut || "").split("\n")) {
+    const l = raw.trim();
+    if (/^[0-9a-f]{40}$/.test(l)) { if (curHasCode) n++; curHasCode = false; }
+    else if (l && !l.startsWith(".paaw/")) curHasCode = true;
+  }
+  if (curHasCode) n++;
+  return n;
+}
+
 function gitWhen(iso) {
   try { return new Date(iso).toISOString().slice(0, 19).replace("T", " ") + " +0000"; } catch { return null; }
 }
@@ -358,16 +370,23 @@ export async function autoCheckAll(projectPath, scope) {
       const inScope = (scan.findings || []).filter(fd => scopeSet.size === 0 || scopeSet.has(rel(fd.file)));
       const sev = {};
       for (const fd of inScope) sev[fd.severity] = (sev[fd.severity] || 0) + 1;
-      // 新鮮度：掃描之後又有 commits → 結果可能過期
-      let staleCommits = 0;
+      // 新鮮度（2026-09-19 Fleming 定調）：只看「程式 commits」— 掃描後僅 .paaw/RU 資料 commits 不算過期（semgrep scope 不含 .paaw）
+      let staleCommits = 0, ruOnlyCommits = 0;
       const sinceS = gitWhen(scannedAt);
-      if (sinceS) staleCommits = parseInt(await gitOne(projectPath, `rev-list --count HEAD --since="${sinceS}"`) || "0", 10) || 0;
+      if (sinceS) {
+        const total = parseInt(await gitOne(projectPath, `rev-list --count HEAD --since="${sinceS}"`) || "0", 10) || 0;
+        if (total > 0) {
+          const lgRaw = await gitOne(projectPath, `log --since="${sinceS}" --name-only --pretty=format:%H`) || "";
+          staleCommits = countCodeCommitsSince(lgRaw);
+          ruOnlyCommits = total - staleCommits;
+        }
+      }
       const errN = sev.ERROR || 0, warnN = sev.WARNING || 0;
       let status = errN > 0 ? "fail" : warnN > 0 ? "warn" : "pass";
       if (status === "pass" && staleCommits > 0) status = "warn";
       out.security = {
         status,
-        detail: `scope 內 findings：ERROR ${errN} / WARNING ${warnN} / INFO ${sev.INFO || 0}（全庫 ${scan.stats?.total ?? "?"}）；scanned ${scannedAt || "n/a"}${staleCommits > 0 ? `；⚠ 掃描後又有 ${staleCommits} commits` : ""}`,
+        detail: `scope 內 findings：ERROR ${errN} / WARNING ${warnN} / INFO ${sev.INFO || 0}（全庫 ${scan.stats?.total ?? "?"}）；scanned ${scannedAt || "n/a"}${staleCommits > 0 ? `；⚠ 掃描後又有 ${staleCommits} 個程式 commits` : (ruOnlyCommits > 0 ? `；（掃描後 ${ruOnlyCommits} 個 commits 皆 RU 資料，掃描仍有效）` : "")}`,
         checkedAt: at,
       };
     }

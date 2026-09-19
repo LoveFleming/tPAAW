@@ -2213,7 +2213,11 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             const s = JSON.parse(readFileSync(sp, "utf-8"));
             const sev = (s.stats || {}).bySeverity || {};
             const when = s.scannedAt || new Date(statSync(sp).mtime).toISOString();
-            const stale = git(`rev-list --count HEAD --since="${(when || "").slice(0, 19).replace("T", " ")} +0000"`);
+            const staleRaw = git(`rev-list --count HEAD --since="${(when || "").slice(0, 19).replace("T", " ")} +0000"`);
+            const stale = parseInt(staleRaw || "0", 10) > 0
+              ? String(git(`log --since="${(when || "").slice(0, 19).replace("T", " ")} +0000" --name-only --pretty=format:%H`) || "")
+                  .split("\n").some((l) => { const t = l.trim(); return t && !/^[0-9a-f]{40}$/.test(t) && !t.startsWith(".paaw/"); }) ? staleRaw : "0"
+              : "0";
             evPush("security", !(sev.ERROR > 0) && !(parseInt(stale || "0") > 0), `ERROR ${sev.ERROR || 0} / WARNING ${sev.WARNING || 0} @ ${when}${parseInt(stale || "0") > 0 ? `；掃描後又有 ${stale} commits` : ""}`);
           } else evPush("security", false, "從未掃過 — 用 security_scan 補");
         } catch { evPush("security", false, "讀取失敗"); }
