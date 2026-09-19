@@ -440,7 +440,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
   const ruFeature = (ruModel?.features || []).find((x: any) => x.id === feature.id) || null;
   // Cockpit 用 FileLink（點檔開 editor tab）
   const CockpitFileLink = useCallback(({ file, children }: { file: string; children?: React.ReactNode }) => (
-    <button onClick={() => onOpenFile?.(file)} className="font-mono text-sm text-left hover:underline break-all" style={{ color: theme.accent }} title={file}>
+    <button onClick={() => onOpenFile?.(file)} className="font-mono text-xs text-left hover:underline break-all" style={{ color: theme.accent }} title={file}>
       {children ?? file}
     </button>
   ), [onOpenFile, theme.accent]);
@@ -477,7 +477,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
               {summary && <div className="px-2 py-1 text-xs" style={{ color: theme.text, opacity: 0.6 }}>{summary}</div>}
               {codes.length === 0 && <div className="text-xs px-2 py-1" style={{ color: theme.text, opacity: 0.45 }}>{t("feature.ecEmpty")}</div>}
               {codes.map((c: any, i: number) => (
-                <div key={`${c.code || c.message}-${c.file}-${c.line}-${i}`} className="flex items-center gap-2 text-sm px-2 py-1 rounded flex-wrap" style={{ background: theme.bgMuted }}>
+                <div key={`${c.code || c.message}-${c.file}-${c.line}-${i}`} className="flex items-center gap-2 text-xs px-2 py-1 rounded flex-wrap" style={{ background: theme.bgMuted }}>
                   <span title={c.kind === "throw" ? "throw / raise 位置" : c.kind === "http" ? "HTTP status 回應" : "error 參考/調用"}>{c.kind === "throw" ? "🚨" : c.kind === "http" ? "🌐" : "📄"}</span>
                   {c.code
                     ? <span className="font-mono font-bold" style={{ color: theme.accent }}>{c.code}</span>
@@ -506,7 +506,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
         {/* Code Files */}
         <Section title={`📄 ${t("feature.codeFiles")}`} count={(feature.codeFiles || []).length} theme={theme}>
           {(feature.codeFiles || []).map(f => (
-            <button key={f} onClick={() => onOpenFile?.(f)} className="block text-sm text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
+            <button key={f} onClick={() => onOpenFile?.(f)} className="block text-xs text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
               {f}
             </button>
           ))}
@@ -515,7 +515,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
         {/* API Endpoints */}
         <Section title={`🌐 ${t("feature.apis")}`} count={(feature.apis || []).length} theme={theme}>
           {(feature.apis || []).map((a, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm px-2 py-1 rounded" style={{ background: theme.bgMuted }}>
+            <div key={i} className="flex items-center gap-2 text-xs px-2 py-1 rounded" style={{ background: theme.bgMuted }}>
               <span className="font-mono font-bold text-xs px-1.5 py-0.5 rounded" style={{ background: theme.bg, color: HTTP_COLORS[a.method] || theme.text }}>{a.method}</span>
               <span className="font-mono" style={{ color: theme.text }}>{a.path}</span>
               <span className="text-xs ml-auto" style={{ color: theme.text, opacity: 0.4 }}>{a.file}</span>
@@ -526,7 +526,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
         {/* Tests */}
         <Section title={`🧪 ${t("feature.tests")}`} count={(feature.tests || []).length} theme={theme}>
           {(feature.tests || []).map(f => (
-            <button key={f} onClick={() => onOpenFile?.(f)} className="block text-sm text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
+            <button key={f} onClick={() => onOpenFile?.(f)} className="block text-xs text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
               {f}
             </button>
           ))}
@@ -536,7 +536,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
         {/* Runbooks */}
         <Section title={`📖 ${t("feature.runbooks")}`} count={(feature.runbooks || []).length} theme={theme}>
           {(feature.runbooks || []).map(f => (
-            <button key={f} onClick={() => onOpenFile?.(f)} className="block text-sm text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
+            <button key={f} onClick={() => onOpenFile?.(f)} className="block text-xs text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
               {f}
             </button>
           ))}

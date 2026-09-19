@@ -50,7 +50,7 @@ function KindBadge({ kind }: { kind?: string | null }) {
 
 function CallChainTree({ chain, t, borderLight }: { chain: { function: string; depth: number; file?: string; resolved?: boolean }[]; t: any; borderLight: string }) {
   return (
-    <div className="font-mono text-sm leading-relaxed border-l-2 pl-2" style={{ borderColor: borderLight }} data-testid="ru-callchain">
+    <div className="font-mono text-xs leading-relaxed border-l-2 pl-2" style={{ borderColor: borderLight }} data-testid="ru-callchain">
       {chain.map((c: any, j: number) => (
         <div key={j} style={{ paddingLeft: (c.depth || 0) * 12 }} className={c.resolved ? "text-stone-600" : "text-stone-300"}>
           {"· ".repeat(Math.min(c.depth || 0, 1))}{c.function}()
@@ -126,7 +126,7 @@ export function FeatureCockpit({ feature, model, callChainMap, t, accent, border
               aiMd === null
                 ? <div className="text-xs text-stone-300 mt-1">{t("ru.view.intelLoading")}</div>
                 : aiMd
-                  ? <pre className="text-sm text-stone-500 whitespace-pre-wrap mt-1 max-h-72 overflow-y-auto font-mono leading-relaxed">{aiMd}</pre>
+                  ? <pre className="text-xs text-stone-500 whitespace-pre-wrap mt-1 max-h-72 overflow-y-auto font-mono leading-relaxed">{aiMd}</pre>
                   : <div className="text-xs text-stone-300 mt-1">{t("ru.view.noAiUnderstanding")}</div>
             )}
           </div>
@@ -229,7 +229,7 @@ export function EntryRow({ api, chain, t, borderLight }: any) {
             title={t("ru.view.callChain")}>▼</button>
         )}
         <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded shrink-0" style={{ color: METHOD_COLOR[method?.toUpperCase()] || "#57534e", backgroundColor: "#f5f5f4" }}>{method}</span>
-        <span className="text-sm font-mono text-stone-700 break-all">{rest.join(" ")}</span>
+        <span className="text-xs font-mono text-stone-700 break-all">{rest.join(" ")}</span>
       </div>
       {open && chain && <div className="px-3 pb-2"><CallChainTree chain={chain} t={t} borderLight={borderLight} /></div>}
     </div>
