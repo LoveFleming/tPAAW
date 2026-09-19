@@ -119,9 +119,13 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const refreshAll = useCallback(async () => {
     setRefreshing(true);
     setRrRefreshKey((k) => k + 1);
-    try { await Promise.all([refresh(), fetchReadiness()]); } catch {}
+    let ok = true;
+    try { await Promise.all([refresh(), fetchReadiness()]); } catch { ok = false; }
     setRefreshing(false);
-  }, [refresh, fetchReadiness]);
+    const now = new Date().toLocaleTimeString("zh-TW", { hour12: false });
+    setToast({ ok, text: `${ok ? t("rm.refreshDone") : t("rm.refreshFail")} · ${now}` });
+    setTimeout(() => setToast(null), 4000);
+  }, [refresh, fetchReadiness, t]);
 
   // ▶ 執行測試：POST 背景跑 → 輪詢到結束 → 重抓 readiness（真實數字）
   const runTests = async () => {
@@ -235,7 +239,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
               title={t("rm.refreshAll")}
               className="text-xs px-2.5 py-1 rounded-lg border font-semibold transition-colors disabled:opacity-40"
               style={{ borderColor: tk.borderLight }}>
-              {refreshing ? "⏳" : "↻"} {t("rm.refreshAll")}
+              {refreshing ? `⏳ ${t("rm.refreshing")}` : `↻ ${t("rm.refreshAll")}`}
             </button>
           </div>
           <p className="text-[11px] text-stone-400 mt-0.5">{t("rm.subtitle")}</p>

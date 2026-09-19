@@ -1403,5 +1403,8 @@
   "report.tokens": "Tokens",
   "task.done": "完成",
   "task.notes": "備註",
-  "rm.refreshAll": "重新整理"
+  "rm.refreshAll": "重新整理",
+  "rm.refreshing": "更新中…",
+  "rm.refreshDone": "✅ 已更新完成",
+  "rm.refreshFail": "❌ 更新失敗"
 }

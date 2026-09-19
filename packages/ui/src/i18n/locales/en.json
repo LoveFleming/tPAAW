@@ -1403,5 +1403,8 @@
   "report.tokens": "Tokens",
   "task.done": "Done",
   "task.notes": "Notes",
-  "rm.refreshAll": "Refresh"
+  "rm.refreshAll": "Refresh",
+  "rm.refreshing": "Refreshing…",
+  "rm.refreshDone": "✅ Refresh complete",
+  "rm.refreshFail": "❌ Refresh failed"
 }
