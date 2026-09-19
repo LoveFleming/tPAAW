@@ -553,7 +553,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
                 {feature.aiUnderstandingAt ? new Date(feature.aiUnderstandingAt).toLocaleString() : ""}
               </span>
             </div>
-            <pre className="text-sm whitespace-pre-wrap font-sans" style={{ color: theme.text }}>{feature.aiUnderstanding}</pre>
+            <div className="text-sm" style={{ color: theme.text }}><MarkdownText>{feature.aiUnderstanding}</MarkdownText></div>
           </div>
         )}
 
