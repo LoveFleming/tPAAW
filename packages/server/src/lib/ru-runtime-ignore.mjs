@@ -9,7 +9,7 @@
  *      隨下一次收尾 commit 一起進版）— 不自動 commit，避免捲走使用者 staged 的東西
  *
  * 排除（自動生成、每次跑就覆蓋；證據摘要內嵌 RR，放行夠用）：
- *   .paaw/sessions/ .paaw/test-runs/ .paaw/changes/ .paaw/security/
+ *   .paaw/sessions/ .paaw/auto-dispatch/ .paaw/test-runs/ .paaw/changes/ .paaw/security/
  *   .paaw/cu-status.json .paaw/scan.json .paaw/gates.json .paaw/verify-last.json
  *
  * 保留資產（跟 release unit 走、人定時 push）：
@@ -24,6 +24,7 @@ import { shellExecSync } from "./shell-exec.mjs";
 const MARKER = "PAAW runtime 層";
 const RUNTIME_PATHS = [
   ".paaw/sessions/",
+  ".paaw/auto-dispatch/",
   ".paaw/test-runs/",
   ".paaw/changes/",
   ".paaw/security/",
