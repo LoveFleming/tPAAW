@@ -1402,5 +1402,6 @@
   "rr.draftPreview": "draft 預覽 — 開審後才可下 verdict",
   "report.tokens": "Tokens",
   "task.done": "完成",
-  "task.notes": "備註"
+  "task.notes": "備註",
+  "rm.refreshAll": "重新整理"
 }

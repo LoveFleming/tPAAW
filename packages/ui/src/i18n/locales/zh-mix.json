@@ -1402,5 +1402,6 @@
   "rr.draftPreview": "draft preview — open 後才能下 verdict",
   "report.tokens": "Tokens",
   "task.done": "Done",
-  "task.notes": "Notes"
+  "task.notes": "Notes",
+  "rm.refreshAll": "重新整理"
 }

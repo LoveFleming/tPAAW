@@ -1402,5 +1402,6 @@
   "rr.draftPreview": "draft preview — verdicts unlocked after open",
   "report.tokens": "Tokens",
   "task.done": "Done",
-  "task.notes": "Notes"
+  "task.notes": "Notes",
+  "rm.refreshAll": "Refresh"
 }

@@ -1402,5 +1402,6 @@
   "rr.draftPreview": "draft プレビュー — open 後に verdict 可能",
   "report.tokens": "トークン",
   "task.done": "完了",
-  "task.notes": "メモ"
+  "task.notes": "メモ",
+  "rm.refreshAll": "更新"
 }

@@ -113,6 +113,16 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
 
   useEffect(() => { fetchReadiness(); }, [fetchReadiness]);
 
+  // 整頁刷新（2026-09-19 Fleming）：現況報告 + RR 清單 + 品質債 + 歷史一次重讀；RR 用 key remount 重抓
+  const [rrRefreshKey, setRrRefreshKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshAll = useCallback(async () => {
+    setRefreshing(true);
+    setRrRefreshKey((k) => k + 1);
+    try { await Promise.all([refresh(), fetchReadiness()]); } catch {}
+    setRefreshing(false);
+  }, [refresh, fetchReadiness]);
+
   // ▶ 執行測試：POST 背景跑 → 輪詢到結束 → 重抓 readiness（真實數字）
   const runTests = async () => {
     if (!rootPath || testing) return;
@@ -220,6 +230,13 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
             <span className="text-lg">🚦</span>
             <h2 className="text-sm font-bold text-stone-800">{t("rm.title")}</h2>
             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">.paaw/releases/</span>
+            <span className="flex-1" />
+            <button onClick={refreshAll} disabled={refreshing}
+              title={t("rm.refreshAll")}
+              className="text-xs px-2.5 py-1 rounded-lg border font-semibold transition-colors disabled:opacity-40"
+              style={{ borderColor: tk.borderLight }}>
+              {refreshing ? "⏳" : "↻"} {t("rm.refreshAll")}
+            </button>
           </div>
           <p className="text-[11px] text-stone-400 mt-0.5">{t("rm.subtitle")}</p>
         </div>
@@ -382,6 +399,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
           <div className="p-5 space-y-6">
             {/* Release Requests — 正式批次放行（v2 2026-09-18；v3：AI 建議 verdict）*/}
             <ReleaseRequests
+              key={rrRefreshKey}
               rootPath={rootPath}
               theme={{ borderLight: tk.borderLight, accent: tk.accent, accentHover: tk.accentHover || tk.accent }}
               notify={(ok, text) => { setToast({ ok, text }); setTimeout(() => setToast(null), 6000); }}
