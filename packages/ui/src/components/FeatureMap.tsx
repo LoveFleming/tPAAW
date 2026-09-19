@@ -457,7 +457,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
               <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: theme.bg, color: theme.text, opacity: 0.6 }}>🏷️ {tag}</span>
             ))}
           </div>
-          <h2 className="text-base font-bold" style={{ color: theme.text }}>{feature.name}</h2>
+          <h2 className="text-sm font-bold" style={{ color: theme.text }}>{feature.name}</h2>
           {feature.description && <p className="text-xs mt-1 leading-relaxed" style={{ color: theme.text, opacity: 0.6 }}>{feature.description}</p>}
         </div>
         {/* 2026-09-06 Fleming：刪 feature 不從 UI 手删 — SA 開單叫 developer 刪碼後，
