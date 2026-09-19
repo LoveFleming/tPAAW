@@ -66,7 +66,7 @@ export function ensureRuntimeIgnores(projectPath) {
     const spec = RUNTIME_PATHS.join(" ");
     const tracked = String(shellExecSync(`git ls-files -- ${spec}`, { cwd: projectPath, timeout: 10000 }) || "").trim();
     if (tracked) {
-      shellExecSync(`git rm -r -q --cached -- ${spec}`, { cwd: projectPath, timeout: 15000 });
+      shellExecSync(`git rm -r -q --cached --ignore-unmatch -- ${spec}`, { cwd: projectPath, timeout: 15000 });
       out.untrackedCount = tracked.split("\n").filter(Boolean).length;
     }
     return out;
