@@ -606,7 +606,7 @@
   "rm.qd.noTests": "without tests",
   "rm.qd.openRetrofit": "retrofit tasks open",
   "rm.qd.refresh": "Refresh",
-  "rm.qd.subtitle": "Debt from bootstrap speed-run; repay from feature map before release",
+  "rm.qd.subtitle": "Debt from rapid development — sweep and fix it all before shipping",
   "rm.qd.title": "Quality Debt",
   "rm.ready": "READY ✓",
   "rm.reportTitle": "Status Report",
