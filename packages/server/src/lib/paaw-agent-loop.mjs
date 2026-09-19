@@ -19,6 +19,7 @@
  */
 
 import { readFile, writeFile, readdir, stat, mkdir, rm } from "fs/promises";
+import { cleanupProjectTempFiles } from "./temp-janitor.mjs";
 import { existsSync, readFileSync as readSync, mkdirSync, appendFileSync, writeFileSync as writeSync, readdirSync, statSync } from "fs";
 import { loadFeatureData, matchFeaturesForFiles, buildContextBoundary } from "./feature-boundary.mjs";
 import { exec as execCb } from "child_process";
@@ -4132,7 +4133,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   }
 
   // Tool overview (compact — full schemas are sent via function-calling format)
-  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/features/feature_detail/runbook/test_map/recent_changes/issues/api_history/project_read\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_docs/mapping/delete\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\nreference_read(action=list|read|search, source=workspace|knowledge) → browse/read/search reference files in workspace/ and knowledge/ (read-only, for finding existing code examples and docs)\ntask_list(id?, status?, type?, featureId?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task（feature-first，無 pipeline）\ntask_update(id, action=update|note|assign, ...) → 改 task 欄位/狀態、加 note、派工\ntask_decompose(parentId, subTasks) → split a large task into sub-tasks
+  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/features/feature_detail/runbook/test_map/recent_changes/issues/api_history/project_read\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_docs/mapping/delete\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\n🧹 暫存規則（鐵律）：測試/驗證/debug 用的暫存腳本一律寫 $PAAW_TMP/ 目錄（env 已注入，session 結束自動清）— 不要寫專案根目錄；寫進專案的 test-*.mjs / debug-* / tmp-* / scratch-* 等 session 結束會被自動刪\nreference_read(action=list|read|search, source=workspace|knowledge) → browse/read/search reference files in workspace/ and knowledge/ (read-only, for finding existing code examples and docs)\ntask_list(id?, status?, type?, featureId?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task（feature-first，無 pipeline）\ntask_update(id, action=update|note|assign, ...) → 改 task 欄位/狀態、加 note、派工\ntask_decompose(parentId, subTasks) → split a large task into sub-tasks
 task_retrofit(priority?, featureIds?) → 上線前品質補強：從 feature map 每個 active feature 建一個補 review/test/qa/docs 的全版 task（以代碼現況為準，非歷史 task）\ndispatch_agent(agentId, task, taskId?) → dispatch work to another agent (architect/developer/tester/doc-writer/qa/helpdesk)\ncu_refresh, record_decision, docs(action=...), action_log_add/list, agent_memory_save/load`);
 
   if (skillMd) {
@@ -4161,7 +4162,7 @@ task_retrofit(priority?, featureIds?) → 上線前品質補強：從 feature ma
  * @param {Function} [logFn] - optional logger
  * @returns {Promise<number>} number of files cleaned
  */
-async function cleanupTempFiles(cwd, createdFiles, logFn) {
+async function cleanupTempFiles(cwd, createdFiles, logFn, sinceMs) {
   const LOG = logFn || (() => {});
   let cleaned = 0;
 
@@ -4222,6 +4223,15 @@ async function cleanupTempFiles(cwd, createdFiles, logFn) {
     } catch (e) {
       LOG(`[cleanup] Failed to remove ${relPath}: ${e.message}`);
     }
+  }
+
+  // 3. 專案掃描（2026-09-19）：bash 創的檔不走 write_file → createdFiles 追蹤不到；
+  //    git untracked + 暫存 pattern + mtime 在 session 窗內 → 刪（temp-janitor.mjs）
+  try {
+    const report = cleanupProjectTempFiles(cwd, sinceMs || (Date.now() - 30 * 60 * 1000), LOG);
+    cleaned += report.removed.length;
+  } catch (e) {
+    LOG(`[cleanup] project scan failed: ${e.message}`);
   }
 
   if (cleaned > 0) {
@@ -4681,7 +4691,7 @@ export async function runAgentLoop(config) {
   }
 
   // ── Auto-cleanup temp files created during this session ──
-  await cleanupTempFiles(cwd, createdFiles, (msg) => console.log(msg));
+  await cleanupTempFiles(cwd, createdFiles, (msg) => console.log(msg), startTime);
 
   const _loopOk = !finalContent.includes("[Agent loop timed out]") && !finalContent.startsWith("LLM API error");
   console.log(`[AgentLoop] ${_loopOk ? "✅" : "❌"} agent=${agentId || "agent"} 結束（${turns} turns, ${((Date.now() - startTime) / 1000).toFixed(0)}s, ${_totalUsage.total || 0} tokens, 輸出 ${finalContent.length} 字）`);
@@ -5063,7 +5073,7 @@ export async function runAgentLoopStream(config, res) {
   }
 
   // ── Auto-cleanup temp files created during this session ──
-  const cleanedFiles = await cleanupTempFiles(cwd, streamCreatedFiles);
+  const cleanedFiles = await cleanupTempFiles(cwd, streamCreatedFiles, undefined, startTime);
   if (cleanedFiles > 0) {
     sendSSE("info", { message: `🧹 Cleaned up ${cleanedFiles} temporary file(s)` });
   }

@@ -93,6 +93,7 @@ export class OpenAICompatibleAdapter {
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true })
     const payloadPath = nodePath.join(tempDir, `payload-${Date.now()}.json`)
     fs.writeFileSync(payloadPath, JSON.stringify(body, null, 2))
+    try { const { pruneProviderTemp } = await import('../temp-janitor.mjs'); pruneProviderTemp(tempDir, 60) } catch {} // 2026-09-19：payload/stream 各留最新 60 個
     console.log(`[Provider] Payload: ${payloadPath}`)
     console.log(`[Provider] URL: ${url}`)
 
