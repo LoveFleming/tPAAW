@@ -50,7 +50,7 @@ function KindBadge({ kind }: { kind?: string | null }) {
 
 function CallChainTree({ chain, t, borderLight }: { chain: { function: string; depth: number; file?: string; resolved?: boolean }[]; t: any; borderLight: string }) {
   return (
-    <div className="font-mono text-xs leading-relaxed border-l-2 pl-2" style={{ borderColor: borderLight }} data-testid="ru-callchain">
+    <div className="font-mono text-sm leading-relaxed border-l-2 pl-2" style={{ borderColor: borderLight }} data-testid="ru-callchain">
       {chain.map((c: any, j: number) => (
         <div key={j} style={{ paddingLeft: (c.depth || 0) * 12 }} className={c.resolved ? "text-stone-600" : "text-stone-300"}>
           {"· ".repeat(Math.min(c.depth || 0, 1))}{c.function}()
@@ -111,7 +111,7 @@ export function FeatureCockpit({ feature, model, callChainMap, t, accent, border
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={onBack} data-testid="ru-cockpit-back" className="text-xs px-2 py-0.5 rounded border bg-white hover:bg-stone-50" style={{ borderColor: borderLight }}>← {t("ru.view.backToList")}</button>
             <span className="text-xs font-mono font-bold" style={{ color: accentText }}>{f.id}</span>
-            <span className="text-base font-bold text-stone-800">{f.name}</span>
+            <span className="text-sm font-bold text-stone-800">{f.name}</span>
             {f.status === "active" && <span className="text-xs text-emerald-500 font-bold">● active</span>}
             <span className="ml-auto text-xs font-mono text-stone-400">{t("ru.view.modelFresh")} @ {sha || "?"}</span>
           </div>
@@ -126,7 +126,7 @@ export function FeatureCockpit({ feature, model, callChainMap, t, accent, border
               aiMd === null
                 ? <div className="text-xs text-stone-300 mt-1">{t("ru.view.intelLoading")}</div>
                 : aiMd
-                  ? <pre className="text-xs text-stone-500 whitespace-pre-wrap mt-1 max-h-72 overflow-y-auto font-mono leading-relaxed">{aiMd}</pre>
+                  ? <pre className="text-sm text-stone-500 whitespace-pre-wrap mt-1 max-h-72 overflow-y-auto font-mono leading-relaxed">{aiMd}</pre>
                   : <div className="text-xs text-stone-300 mt-1">{t("ru.view.noAiUnderstanding")}</div>
             )}
           </div>
@@ -184,11 +184,11 @@ export function FeatureCockpit({ feature, model, callChainMap, t, accent, border
           <button onClick={() => setShowChanges(v => !v)}
             className={`text-xs px-1.5 py-0.5 rounded border font-bold flex items-center gap-1 ${showChanges ? "bg-stone-700 text-white border-stone-700" : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"}`}
             title="展開變更明細">
-            <span className="text-[15px] font-bold text-stone-600">{f.changeCount ?? 0}</span>
+            <span className="text-sm font-bold text-stone-600">{f.changeCount ?? 0}</span>
             <span>▼</span>
           </button>
         ) : (
-          <span className="text-[15px] text-stone-600 font-bold">{f.changeCount ?? 0}</span>
+          <span className="text-sm text-stone-600 font-bold">{f.changeCount ?? 0}</span>
         )}
         {f.lastChangeAt && <span className="text-xs text-stone-400 font-mono">{f.lastChangeAt.slice(0, 10)}</span>}
         <span className="ml-auto flex gap-1.5">
@@ -229,7 +229,7 @@ export function EntryRow({ api, chain, t, borderLight }: any) {
             title={t("ru.view.callChain")}>▼</button>
         )}
         <span className="text-xs font-bold px-1.5 py-0.5 rounded text-white shrink-0" style={{ backgroundColor: METHOD_COLOR[method?.toUpperCase()] || "#6b7280" }}>{method}</span>
-        <span className="text-xs font-mono text-stone-700 break-all">{rest.join(" ")}</span>
+        <span className="text-sm font-mono text-stone-700 break-all">{rest.join(" ")}</span>
       </div>
       {open && chain && <div className="px-3 pb-2"><CallChainTree chain={chain} t={t} borderLight={borderLight} /></div>}
     </div>
