@@ -2,7 +2,7 @@
  * task-retrofit.mjs — 上線前品質補強（feature map 版）
  *
  * 2026-08-16 Fleming 定調：
- * - bootstrap 階段 task 走短版 pipeline（spec→implement→commit），快速看功能
+ * - bootstrap 階段 feature-first：task 無 pipeline（open/close/pending/ignore），commit 完即結案
  * - 上線前一次補品質債（review/test/qa/docs）
  * - 補強單位從 feature map 建（代碼現況），不從歷史 task 建
  *   （早期 task 的產出可能已被後來的 task 蓋掉）
@@ -13,8 +13,6 @@
 import { readFile, writeFile } from "fs/promises";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-
-const FULL = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
 
 function loadFeatures(cwd) {
   const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
@@ -87,8 +85,8 @@ export async function qualityDebtSummary(cwd) {
 }
 
 /**
- * 執行補強：每個 active feature 建一張全版 pipeline task
- * （spec/implement 預 done refer feature 現況；已有 tests/docs 的階段預 done）
+ * 執行補強：每個 active feature 建一張補強 task（feature-first，無 pipeline 欄位）
+ * （已有 tests/docs 的階段不列入需補清單）
  * 冪等：該 feature 已有未結案 retrofit task 就跳過
  */
 export async function runTaskRetrofit(cwd, opts = {}) {
@@ -135,19 +133,12 @@ export async function runTaskRetrofit(cwd, opts = {}) {
     if (openRetrofitFor.has(feat.id)) { skipped.push(feat.id); continue; }
     const hasTests = (feat.tests?.length || 0) > 0;
     const hasDocs = Boolean(feat.documentation && String(feat.documentation).trim());
+    // feature-first：task 無 pipeline 欄位，需補階段只寫進 description/spec 當驗收
+    const needPhases = ["review", "test", "qa", "docs"].filter(ph =>
+      !((ph === "test" && hasTests) || (ph === "docs" && hasDocs)));
     const related = [...new Set((feat.codeFiles || []).flatMap(cf => fileToTasks.get(cf) || []))].slice(0, 5);
     nextNum++;
     const id = `TASK-${String(nextNum).padStart(3, "0")}`;
-    const pipe = {
-      spec:      { status: "done", by: "agent", at: now, note: `feature ${feat.id} 已存在，不重做規格` },
-      implement: { status: "done", by: "agent", at: now, note: "既有實作（feature map 現況）" },
-      review:    { status: "pending" },
-      test:      hasTests ? { status: "done", by: "agent", at: now, note: `已有測試：${(feat.tests || []).join(", ")}` } : { status: "pending" },
-      qa:        { status: "pending" },
-      docs:      hasDocs ? { status: "done", by: "agent", at: now, note: "documentation 已存在" } : { status: "pending" },
-      commit:    { status: "pending" },
-    };
-    const needPhases = FULL.filter(ph => pipe[ph].status === "pending");
     tasks.push({
       id,
       title: `【品質補強】${feat.id} ${feat.name}`,
@@ -178,9 +169,6 @@ ${(feat.codeFiles || []).map(cf => "- " + cf).join("\n") || "(從 FEATURES.json 
         fileScope: feat.codeFiles || [],
         outOfScope: ["重新實作功能", "大幅重構"],
       },
-      pipeline: pipe,
-      pipelinePhases: FULL,
-      pipelineMode: "full",
       changes: { filesAdded: [], filesModified: [], filesDeleted: [] },
       git: { baseCommit: null, branch: null, staged: false, committedSha: null },
       notes: [{ text: `由 task_retrofit 自動生成，來源 feature ${feat.id}`, at: now, by: "agent" }],

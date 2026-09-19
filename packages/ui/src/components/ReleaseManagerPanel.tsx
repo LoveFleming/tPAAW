@@ -3,39 +3,20 @@
  *
  * 「要 release 時打開這頁，讓 Release Manager 同意上線」
  *
- * 左：待放行清單（full mode 七關走完、等 commit 批准的 task）
- *     + Release 歷史時間線
+ * 左：現況報告（readiness 即時快照）
+ *     + Release Requests（正式批次放行 — 證據審查全過才能 close）
+ *     + 品質債現況 + Release 歷史時間線
  * 右：RM AI 助理（審證據不審碼）
  *
- * 空狀態設計：
- *   - 專案未初始化（無 TASKS.json 也沒跑過 CU）→ 引導先跑 CU / mini loop 開發
- *   - CU 已跑過但還沒派工（無 TASKS.json）→ 告知知識庫就緒，引導切 Full + 派工
- *   - 已初始化但無待放行 → 說明什麼會出現在這裡
+ * 2026-09-19：待放行（per-task approve）移除 — task 已無 pipeline（feature-first），
+ * 放行一律走 Release Request（close 自動放行範圍內 pending tasks）
  */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
-import EvidenceCard from "./EvidenceCard";
 import ReleaseRequests from "./ReleaseRequests";
-
-const PHASES = ["spec", "implement", "review", "test", "qa", "docs", "commit"];
-
-interface PendingTask {
-  taskId: string;
-  title: string;
-  status: string;
-  priority?: string;
-  updatedAt?: string;
-  pipeline: Record<string, { status: string }>;
-  evidenceSummary: {
-    trustScore: number | null;
-    risk: { category: string; level: string } | null;
-    diffStat: { files: number; insertions: number | null; deletions: number | null } | null;
-    testResult: { passed?: number; failed?: number; status?: string } | null;
-  } | null;
-}
 
 interface ReleaseRecord {
   id: string;
@@ -91,17 +72,9 @@ const RISK_COLORS: Record<string, string> = { LOW: "#16a34a", MEDIUM: "#d97706",
 
 export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashboard }: Props) {
   const { t } = useI18n();
-  const [pending, setPending] = useState<PendingTask[]>([]);
   const [releases, setReleases] = useState<ReleaseRecord[]>([]);
   const [initialized, setInitialized] = useState<boolean | null>(null); // null = loading
-  const [hasTasksFile, setHasTasksFile] = useState(true); // false = CU 已跑但還沒派工（無 TASKS.json）
-  const [cuDone, setCuDone] = useState(0); // CU 已完成步驟數
-  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
-  const [rejecting, setRejecting] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
-  const [acting, setActing] = useState<string | null>(null);
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
-  const [approveNote, setApproveNote] = useState("");
   const [qd, setQd] = useState<QualityDebt | null>(null);
   const [retrofitting, setRetrofitting] = useState(false);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
@@ -120,10 +93,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
       const pData = await pRes.json();
       const lData = await lRes.json();
       const qdData = await qdRes.json().catch(() => null);
-      setInitialized(!!pData.initialized);
-      setHasTasksFile(pData.hasTasksFile !== false);
-      setCuDone(pData.cuDone || 0);
-      setPending(pData.pending || []);
+      setInitialized(!!pData.initialized); // pending endpoint 只剩初始化偵測用途（待放行已移除）
       setReleases(lData.releases || []);
       setQd(qdData);
     } catch {
@@ -141,7 +111,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
       .catch(() => {});
   }, [rootPath]);
 
-  useEffect(() => { fetchReadiness(); }, [fetchReadiness, pending.length]); // 批准後 pending 變動 → 基準線變 → 重抓
+  useEffect(() => { fetchReadiness(); }, [fetchReadiness]);
 
   // ▶ 執行測試：POST 背景跑 → 輪詢到結束 → 重抓 readiness（真實數字）
   const runTests = async () => {
@@ -238,60 +208,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     }
   };
 
-  const approve = async (taskId: string) => {
-    setActing(taskId);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-releases/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: rootPath, taskId, note: approveNote.trim() || undefined }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setToast({ ok: true, text: `🚀 已批准上線 — ${data.releaseId}` });
-        setDetailTaskId(null);
-        setApproveNote("");
-        refresh();
-      } else {
-        setToast({ ok: false, text: `❌ ${data.error || "批准失敗"}` });
-      }
-    } catch (e: any) {
-      setToast({ ok: false, text: `❌ ${e?.message || "連線失敗"}` });
-    } finally {
-      setActing(null);
-      setTimeout(() => setToast(null), 5000);
-    }
-  };
-
-  const reject = async (taskId: string) => {
-    if (!rejectReason.trim()) return;
-    setActing(taskId);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-releases/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: rootPath, taskId, reason: rejectReason.trim() }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setToast({ ok: true, text: "↩️ 已退回，原因已回饋到 task" });
-        setRejecting(null);
-        setRejectReason("");
-        setDetailTaskId(null);
-        refresh();
-      } else {
-        setToast({ ok: false, text: `❌ ${data.error || "退回失敗"}` });
-      }
-    } catch (e: any) {
-      setToast({ ok: false, text: `❌ ${e?.message || "連線失敗"}` });
-    } finally {
-      setActing(null);
-      setTimeout(() => setToast(null), 5000);
-    }
-  };
-
-  const phaseBadge = (st: string) => st === "done" ? "✅" : st === "awaiting_human" ? "🖐️" : st === "rework" ? "🔁" : st === "failed" || st === "needs_human" ? "❌" : "⚪";
-  const riskColor = (lv: string | null | undefined) => lv === "high" ? "#dc2626" : lv === "medium" ? "#d97706" : "#16a34a";
   const trustColor = (s: number | null) => s === null ? "#a8a29e" : s >= 80 ? "#16a34a" : s >= 60 ? "#d97706" : "#dc2626";
 
   return (
@@ -450,7 +366,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
               <div className="text-left bg-white rounded-lg border p-3 text-[11px] text-stone-500 space-y-1.5" style={{ borderColor: tk.borderLight }}>
                 <div>1️⃣ {t("rm.emptyInit.step1")}</div>
                 <div>2️⃣ {t("rm.emptyInit.step2")}</div>
-                <div>3️⃣ {t("rm.emptyInit.step3")}</div>
               </div>
               {onOpenEMDashboard && (
                 <button onClick={onOpenEMDashboard}
@@ -472,131 +387,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
               notify={(ok, text) => { setToast({ ok, text }); setTimeout(() => setToast(null), 6000); }}
               chatRef={chatRef}
             />
-
-            {/* 待放行 */}
-            <section>
-              <h3 className="text-xs font-bold text-stone-600 mb-2 flex items-center gap-1.5">
-                ⏳ {t("rm.pending.title")}
-                {pending.length > 0 && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">{pending.length}</span>}
-              </h3>
-
-              {pending.length === 0 && !hasTasksFile ? (
-                <div className="border rounded-xl p-4 bg-stone-50" style={{ borderColor: tk.borderLight }}>
-                  <div className="text-sm font-bold text-stone-700 mb-1">🧠 {t("rm.emptyNoTasks.title")}</div>
-                  <p className="text-xs text-stone-500 leading-relaxed mb-3">{t("rm.emptyNoTasks.desc").replace("{n}", String(cuDone))}</p>
-                  <div className="text-left bg-white rounded-lg border p-3 text-[11px] text-stone-500 space-y-1.5" style={{ borderColor: tk.borderLight }}>
-                    <div>2️⃣ {t("rm.emptyInit.step2")}</div>
-                    <div>3️⃣ {t("rm.emptyInit.step3")}</div>
-                  </div>
-                  {onOpenEMDashboard && (
-                    <button onClick={onOpenEMDashboard}
-                      className="mt-3 text-xs px-4 py-2 rounded-lg text-white" style={{ backgroundColor: tk.accent }}>
-                      {t("rm.emptyInit.goEM")}
-                    </button>
-                  )}
-                </div>
-              ) : pending.length === 0 && (
-                <div className="border border-dashed rounded-lg p-4 text-center text-xs text-stone-400" style={{ borderColor: tk.borderLight }}>
-                  {t("rm.pending.empty")}
-                </div>
-              )}
-
-              {pending.map(task => (
-                <div key={task.taskId} className="border rounded-xl mb-2.5 bg-white overflow-hidden" style={{ borderColor: tk.borderLight }}>
-                  <div className="p-3.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-sm font-bold text-stone-800 truncate">{task.title}</div>
-                        <div className="text-[10px] font-mono text-stone-400 mt-0.5">
-                          {task.taskId} · {task.priority || "normal"}{task.updatedAt ? ` · 更新 ${fmtShort(task.updatedAt)}` : ""}
-                        </div>
-                      </div>
-                      {task.evidenceSummary?.trustScore != null && (
-                        <div className="text-right shrink-0">
-                          <div className="text-lg font-bold font-mono" style={{ color: trustColor(task.evidenceSummary.trustScore) }}>
-                            {task.evidenceSummary.trustScore}
-                          </div>
-                          <div className="text-[9px] text-stone-400">{t("rm.trustScore")}</div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 七關 pipeline 徽章 */}
-                    <div className="flex flex-wrap gap-1 mt-2.5">
-                      {PHASES.map(ph => (
-                        <span key={ph} className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${task.pipeline?.[ph]?.status === "done" ? "bg-green-50 text-green-700" : "bg-stone-100 text-stone-400"}`}>
-                          {phaseBadge(task.pipeline?.[ph]?.status)} {ph}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* 證據摘要列 */}
-                    {task.evidenceSummary && (
-                      <div className="flex flex-wrap gap-3 mt-2 text-[10px] text-stone-500">
-                        {task.evidenceSummary.risk && (
-                          <span>風險 <b style={{ color: riskColor(task.evidenceSummary.risk.level) }}>{task.evidenceSummary.risk.level}</b></span>
-                        )}
-                        {task.evidenceSummary.diffStat && (
-                          <span>{task.evidenceSummary.diffStat.files} 檔案{task.evidenceSummary.diffStat.insertions != null ? ` · +${task.evidenceSummary.diffStat.insertions}/-${task.evidenceSummary.diffStat.deletions}` : ""}</span>
-                        )}
-                        {task.evidenceSummary.testResult && (
-                          <span>測試 {task.evidenceSummary.testResult.status === "pass" ? "✅" : `⚠️ ${task.evidenceSummary.testResult.passed ?? "?"}/${(task.evidenceSummary.testResult.passed ?? 0) + (task.evidenceSummary.testResult.failed ?? 0)}`}</span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* 行動列 */}
-                    <div className="flex gap-2 mt-3">
-                      <button onClick={() => setDetailTaskId(detailTaskId === task.taskId ? null : task.taskId)}
-                        className="text-[11px] px-3 py-1.5 rounded-lg border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
-                        🧾 {detailTaskId === task.taskId ? t("rm.hideEvidence") : t("rm.viewEvidence")}
-                      </button>
-                      <button onClick={() => { setRejecting(rejecting === task.taskId ? null : task.taskId); setApproveNote(""); }}
-                        disabled={!!acting}
-                        className="text-[11px] px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-40">
-                        {acting === task.taskId ? "…" : "✅ " + t("rm.approve")}
-                      </button>
-                      <button onClick={() => { setRejecting(rejecting === task.taskId ? null : task.taskId); setRejectReason(""); }}
-                        className="text-[11px] px-3 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100">
-                        ❌ {t("rm.reject")}
-                      </button>
-                    </div>
-
-                    {/* 退回原因輸入 */}
-                    {rejecting === task.taskId && (
-                      <div className="mt-2.5 flex gap-1.5">
-                        <input value={rejectReason} onChange={e => setRejectReason(e.target.value)}
-                          placeholder={t("rm.rejectReasonPh")}
-                          className="flex-1 text-xs rounded-lg border border-red-200 px-2.5 py-1.5 focus:outline-none focus:border-red-400"
-                          onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) reject(task.taskId); }} />
-                        <button onClick={() => reject(task.taskId)} disabled={!rejectReason.trim() || !!acting}
-                          className="text-xs px-3 py-1.5 rounded-lg bg-red-600 text-white disabled:opacity-40">
-                          {t("rm.confirmReject")}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 展開完整證據卡 */}
-                  {detailTaskId === task.taskId && (
-                    <div className="border-t px-4 py-3 bg-stone-50" style={{ borderColor: tk.borderLight }}>
-                      <EvidenceCard rootPath={rootPath} taskId={task.taskId} theme={tk}
-                        onClose={() => setDetailTaskId(null)} />
-                      {/* Release 批准含 note */}
-                      <div className="mt-3 flex gap-1.5 items-center">
-                        <input value={approveNote} onChange={e => setApproveNote(e.target.value)}
-                          placeholder={t("rm.approveNotePh")}
-                          className="flex-1 text-xs rounded-lg border px-2.5 py-1.5 focus:outline-none" style={{ borderColor: tk.borderLight }} />
-                        <button onClick={() => approve(task.taskId)} disabled={!!acting}
-                          className="text-xs px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-40 shrink-0">
-                          🚀 {t("rm.approveRelease")}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </section>
 
             {/* 品質債現況 */}
             <section>
