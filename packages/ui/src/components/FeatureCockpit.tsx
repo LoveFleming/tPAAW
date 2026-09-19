@@ -135,7 +135,7 @@ export function FeatureCockpit({ feature, model, callChainMap, t, accent, border
 
       {/* Entry Points + Call Path */}
       <div className="rounded-lg border bg-white overflow-hidden" style={{ borderColor: borderLight }}>
-        <div className="px-3 py-1.5 text-sm font-bold text-stone-400 bg-stone-50 flex items-center gap-2 flex-wrap" style={{ borderBottom: `1px solid ${borderLight}` }}>
+        <div className="px-3 py-1.5 text-sm font-semibold text-stone-400 flex items-center gap-2 flex-wrap" style={{ borderBottom: `1px solid ${borderLight}` }}>
           <span>⚡ {t("ru.view.entryPoints")} · {(f.apis || []).length}</span>
           {chainFns.size > 0 && <span className="font-normal">{t("ru.view.callPath")}：{chainFns.size} fns · {chainFiles.size} files</span>}
           {!onBack && <span className="ml-auto font-mono font-normal">{t("ru.view.modelFresh")} @ {sha || "?"}</span>}
@@ -150,14 +150,14 @@ export function FeatureCockpit({ feature, model, callChainMap, t, accent, border
       {/* Code + Tests 兩欄 */}
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-lg border bg-white overflow-hidden" style={{ borderColor: borderLight }}>
-          <div className="px-3 py-1.5 text-sm font-bold text-stone-400 bg-stone-50" style={{ borderBottom: `1px solid ${borderLight}` }}>📁 {t("ru.view.codeStructure")} · {(f.files || []).length}</div>
+          <div className="px-3 py-1.5 text-sm font-semibold text-stone-400" style={{ borderBottom: `1px solid ${borderLight}` }}>📁 {t("ru.view.codeStructure")} · {(f.files || []).length}</div>
           <div className="px-3 py-2 space-y-0.5 max-h-64 overflow-y-auto">
             {(f.files || []).map((file: string) => <div key={file}><FileLink file={file}>{file}</FileLink></div>)}
             {!(f.files || []).length && <span className="text-sm text-stone-300">—</span>}
           </div>
         </div>
         <div className="rounded-lg border bg-white overflow-hidden" style={{ borderColor: borderLight }}>
-          <div className="px-3 py-1.5 text-sm font-bold text-stone-400 bg-stone-50 flex items-center gap-2" style={{ borderBottom: `1px solid ${borderLight}` }}>
+          <div className="px-3 py-1.5 text-sm font-semibold text-stone-400 flex items-center gap-2" style={{ borderBottom: `1px solid ${borderLight}` }}>
             <span>🧪 {t("ruTree.tests")} · {f.testCount ?? 0}</span>
             <span className="ml-auto flex gap-1.5">
               {Object.entries(kindCounts).map(([k, n]) => (
@@ -179,7 +179,7 @@ export function FeatureCockpit({ feature, model, callChainMap, t, accent, border
 
       {/* Changes */}
       <div className="rounded-lg border bg-white px-3 py-2 flex items-center gap-3 flex-wrap" style={{ borderColor: borderLight }}>
-        <span className="text-sm font-bold text-stone-400">🕘 {t("ruTree.changeHistory")}</span>
+        <span className="text-sm font-semibold text-stone-400">🕘 {t("ruTree.changeHistory")}</span>
         {(f.changeCount ?? 0) > 0 ? (
           <button onClick={() => setShowChanges(v => !v)}
             className={`text-xs px-1.5 py-0.5 rounded border font-bold flex items-center gap-1 ${showChanges ? "bg-stone-700 text-white border-stone-700" : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"}`}
@@ -228,7 +228,7 @@ export function EntryRow({ api, chain, t, borderLight }: any) {
             className={`text-xs px-1 rounded border shrink-0 ${open ? "bg-stone-700 text-white border-stone-700" : "bg-white text-stone-400 border-stone-200 hover:border-stone-400"}`}
             title={t("ru.view.callChain")}>▼</button>
         )}
-        <span className="text-xs font-bold px-1.5 py-0.5 rounded text-white shrink-0" style={{ backgroundColor: METHOD_COLOR[method?.toUpperCase()] || "#6b7280" }}>{method}</span>
+        <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded shrink-0" style={{ color: METHOD_COLOR[method?.toUpperCase()] || "#57534e", backgroundColor: "#f5f5f4" }}>{method}</span>
         <span className="text-sm font-mono text-stone-700 break-all">{rest.join(" ")}</span>
       </div>
       {open && chain && <div className="px-3 pb-2"><CallChainTree chain={chain} t={t} borderLight={borderLight} /></div>}
