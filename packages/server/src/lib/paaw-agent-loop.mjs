@@ -652,6 +652,21 @@ export const PAAW_TOOLS = [
         },
       },
     },
+    {
+      type: "function",
+      function: {
+        name: "rr_create",
+        description: "Create a NEW release request (RR) in draft status — the formal batch-release path. Baseline auto-resolves (last release > first commit). Agent may create the draft and review evidence, but NEVER apply/confirm/close — sign-off is human-only in the Release Manager UI. Refuses if a draft/reviewing RR already exists (use that one).",
+        parameters: {
+          type: "object",
+          properties: {
+            title: { type: "string", description: "RR title, e.g. 'tpaaw-gateway 0.2.1 — Server Log 面板 + ISS-001'. Auto-generated if omitted." },
+            baseline: { type: "string", enum: ["auto", "first-commit", "last-release"], description: "Baseline resolution (default auto)" },
+          },
+          required: [],
+        },
+      },
+    },
     // ── Unified docs tool (replaces update_changelog + update_docs) ──
     {
       type: "function",
@@ -1239,7 +1254,7 @@ const TOOL_GROUP_MAP = {
   qa_record_save: "qa-records", qa_record_list: "qa-records", qa_record_update: "qa-records",
 
   // Release Requests — v3（2026-09-18）：RM agent 讀 RR 證據、寫建議 verdict（人確認）
-  rr_list: "release-requests", rr_get: "release-requests", rr_suggest: "release-requests",
+  rr_list: "release-requests", rr_get: "release-requests", rr_suggest: "release-requests", rr_create: "release-requests",
 
   // Release Prep — v4（2026-09-18）：EM「準備 release」自動補證據（受控工具，不開 bash）
   release_prep_status: "release-prep", test_run: "release-prep", security_scan: "release-prep", handover_refresh: "release-prep", ru_model_refresh: "release-prep",
@@ -3233,6 +3248,31 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           return `✅ Suggestions recorded on ${rr.id} (${args.items.map(it => `${it.itemId}:${it.verdict}`).join(", ")}).\nThe human will confirm in the Release Manager UI — you suggested, you did NOT decide.`;
         } catch (e) {
           return `❌ rr_suggest failed: ${e.message}`;
+        }
+      }
+
+      case "rr_create": {
+        const { createReleaseRequest, listReleaseRequests } = await import("./release-requests.mjs");
+        try {
+          const existing = (await listReleaseRequests(cwd)).filter(r => r.status === "draft" || r.status === "reviewing");
+          if (existing.length > 0) {
+            return `⚠️ 已有進行中的 RR，不自動多開（避免重複放行範圍）：
+${existing.map(r => `${r.id} [${r.status}] ${r.title}`).join("\n")}
+
+請人類決定：用這張繼續（rr_get 看證據 → rr_suggest 給建議），或先在 UI 處理掉再建新的。`;
+          }
+          const rr = await createReleaseRequest(cwd, {
+            title: args.title,
+            baseline: args.baseline || "auto",
+            createdBy: `agent:${agentId || "em"}`,
+          });
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${rr.id} draft` });
+          return `✅ 已建立 RR 草稿：${rr.id} 「${rr.title}」
+baseline ${rr.baseline?.short}（${rr.baseline?.source}）→ target ${rr.target?.short} · ${rr.scope?.commits?.count ?? 0} commits / ${(rr.scope?.files || []).length} files
+
+下一步：rr_get ${rr.id} 讀證據 → rr_suggest 給建議 → 人類在 Release Manager UI 確認結案（你只建議，不放行）。`;
+        } catch (e) {
+          return `❌ rr_create failed: ${e.message}`;
         }
       }
 

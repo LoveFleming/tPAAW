@@ -443,7 +443,7 @@ function hist(rr, by, event, note = null) {
   rr.history.push({ ts: new Date().toISOString(), by: by || "human", event, note });
 }
 
-export async function createReleaseRequest(projectPath, { title, baseline = "auto" } = {}) {
+export async function createReleaseRequest(projectPath, { title, baseline = "auto", createdBy = "human" } = {}) {
   const base = await resolveBaseline(projectPath, baseline);
   const headSha = await gitOne(projectPath, "rev-parse HEAD");
   if (!headSha) {
@@ -459,7 +459,7 @@ export async function createReleaseRequest(projectPath, { title, baseline = "aut
     id: newRRId(),
     title: title || `Release ${new Date().toISOString().slice(0, 10)} — ${scope.commits.count} commits`,
     createdAt: new Date().toISOString(),
-    createdBy: "human",
+    createdBy,
     status: "draft",
     baseline: base,
     target,
@@ -469,7 +469,7 @@ export async function createReleaseRequest(projectPath, { title, baseline = "aut
     closedAt: null,
     history: [],
   };
-  hist(rr, "human", "created", `baseline=${base.short}（${base.source}）→ target=${target.short}，${scope.commits.count} commits`);
+  hist(rr, createdBy, "created", `baseline=${base.short}（${base.source}）→ target=${target.short}，${scope.commits.count} commits`);
   await saveRR(projectPath, rr);
   return rr;
 }
