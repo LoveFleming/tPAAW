@@ -76,10 +76,10 @@ const HTTP_COLORS: Record<string, string> = {
 // ── md-compact：FeatureMap 右側用 — 標題/行距縮到與左側列表一致（chat 的 MarkdownText 不受影響）──
 const MD_COMPACT_STYLE = `
 .md-content.md-compact { line-height: 1.5; }
-.md-content.md-compact h1 { font-size: 1rem; margin: 0.625rem 0 0.375rem; }
-.md-content.md-compact h2 { font-size: 0.9375rem; margin: 0.5rem 0 0.25rem; }
-.md-content.md-compact h3 { font-size: 0.875rem; margin: 0.375rem 0 0.25rem; }
-.md-content.md-compact h4 { font-size: 0.8125rem; margin: 0.375rem 0 0.25rem; }
+.md-content.md-compact h1 { font-size: 0.875rem; font-weight: 700; margin: 0.625rem 0 0.375rem; }
+.md-content.md-compact h2 { font-size: 0.875rem; font-weight: 600; margin: 0.5rem 0 0.25rem; }
+.md-content.md-compact h3 { font-size: 0.8125rem; font-weight: 600; margin: 0.375rem 0 0.25rem; }
+.md-content.md-compact h4 { font-size: 0.8125rem; font-weight: 600; margin: 0.375rem 0 0.25rem; }
 .md-content.md-compact p { margin: 0.25rem 0; }
 .md-content.md-compact ul, .md-content.md-compact ol { margin: 0.25rem 0; }
 `;
@@ -477,7 +477,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
               {summary && <div className="px-2 py-1 text-xs" style={{ color: theme.text, opacity: 0.6 }}>{summary}</div>}
               {codes.length === 0 && <div className="text-xs px-2 py-1" style={{ color: theme.text, opacity: 0.45 }}>{t("feature.ecEmpty")}</div>}
               {codes.map((c: any, i: number) => (
-                <div key={`${c.code || c.message}-${c.file}-${c.line}-${i}`} className="flex items-center gap-2 text-xs px-2 py-1 rounded flex-wrap" style={{ background: theme.bgMuted }}>
+                <div key={`${c.code || c.message}-${c.file}-${c.line}-${i}`} className="flex items-center gap-2 text-sm px-2 py-1 rounded flex-wrap" style={{ background: theme.bgMuted }}>
                   <span title={c.kind === "throw" ? "throw / raise 位置" : c.kind === "http" ? "HTTP status 回應" : "error 參考/調用"}>{c.kind === "throw" ? "🚨" : c.kind === "http" ? "🌐" : "📄"}</span>
                   {c.code
                     ? <span className="font-mono font-bold" style={{ color: theme.accent }}>{c.code}</span>
@@ -560,7 +560,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
         {feature.aiUnderstanding && (
           <div className="rounded-lg p-4" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold" style={{ color: theme.text }}>🤖 {t("feature.aiUnderstanding")}</h3>
+              <h3 className="text-sm font-semibold" style={{ color: theme.text, opacity: 0.75 }}>🤖 {t("feature.aiUnderstanding")}</h3>
               <span className="text-xs" style={{ color: theme.text, opacity: 0.4 }}>
                 {feature.aiUnderstandingAt ? new Date(feature.aiUnderstandingAt).toLocaleString() : ""}
               </span>
@@ -572,7 +572,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
         {/* Documentation */}
         <div className="rounded-lg p-4" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold" style={{ color: theme.text }}>📖 {t("feature.documentation")}</h3>
+            <h3 className="text-sm font-semibold" style={{ color: theme.text, opacity: 0.75 }}>📖 {t("feature.documentation")}</h3>
             <div className="flex items-center gap-2">
               {feature.docsUpdatedAt && <span className="text-xs" style={{ color: theme.text, opacity: 0.4 }}>{new Date(feature.docsUpdatedAt).toLocaleString()}</span>}
               {!editingDocs ? (
@@ -722,7 +722,7 @@ function Section({ title, count, theme, children }: {
   if (count === 0) return null;
   return (
     <div>
-      <h3 className="text-sm font-semibold uppercase mb-2" style={{ color: theme.text, opacity: 0.5 }}>
+      <h3 className="text-sm font-semibold mb-2" style={{ color: theme.text, opacity: 0.75 }}>
         {title} <span style={{ opacity: 0.5 }}>({count})</span>
       </h3>
       <div className="flex flex-col gap-1">{children}</div>
