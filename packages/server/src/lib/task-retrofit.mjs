@@ -36,7 +36,7 @@ async function loadTasks(cwd) {
 }
 
 function isOpen(t) {
-  return !["resolved", "closed", "released", "rejected"].includes(t.status);
+  return !["resolved", "closed", "close", "released", "rejected"].includes(t.status); // 2026-09-19 補 close（canonical 值漏掉 → 已結 task 被誤判活躍）
 }
 
 /**

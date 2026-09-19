@@ -361,7 +361,7 @@ export function scanTasksForDispatch(rootDir, opts = {}) {
     const st = norm(s);
     if (st === "open" || st === "todo") return "open";
     if (["in_progress", "review", "testing", "pending", "awaiting_human"].includes(st)) return "pending";
-    if (["done", "completed", "resolved", "closed"].includes(st)) return "close";
+    if (["done", "completed", "resolved", "closed", "close"].includes(st)) return "close";
     if (["skipped", "wontfix", "ignore"].includes(st)) return "ignore";
     return "open";
   };

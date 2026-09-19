@@ -3625,7 +3625,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           const data = JSON.parse(readSync(tasksFile, "utf-8"));
           let tasks = data.tasks || [];
           // Normalize old statuses for display
-          const norm = s => { const st = String(s||"").trim().toLowerCase().replace(/[\s-]+/g,"_"); if (st==="open"||st==="todo") return "open"; if (["in_progress","review","testing","pending","awaiting_human"].includes(st)) return "pending"; if (["done","completed","resolved","closed"].includes(st)) return "close"; if (["skipped","wontfix","ignore"].includes(st)) return "ignore"; return "open"; };
+          const norm = s => { const st = String(s||"").trim().toLowerCase().replace(/[\s-]+/g,"_"); if (st==="open"||st==="todo") return "open"; if (["in_progress","review","testing","pending","awaiting_human"].includes(st)) return "pending"; if (["done","completed","resolved","closed","close"].includes(st)) return "close"; if (["skipped","wontfix","ignore"].includes(st)) return "ignore"; return "open"; };
           const normType = t => { const ty = String(t||"").toLowerCase(); if (ty==="test"||ty==="testing") return "test"; if (ty==="docs"||ty==="doc"||ty==="documentation") return "docs"; return "dev"; };
           // Single task by ID
           if (args.id) {
@@ -3708,7 +3708,7 @@ Feature: ${task.featureId} | Type: ${task.type} | Priority: ${task.priority} | S
       case "task_update": {
         // Feature-first：no pipeline, 4 statuses, 3 types
         const TASK_STATUSES = ["open", "close", "pending", "ignore"];
-        const normStatus = s => { const st = String(s||"").trim().toLowerCase().replace(/[\s-]+/g,"_"); if (st==="open"||st==="todo") return "open"; if (["in_progress","review","testing","pending","awaiting_human"].includes(st)) return "pending"; if (["done","completed","resolved","closed"].includes(st)) return "close"; if (["skipped","wontfix","ignore"].includes(st)) return "ignore"; return "open"; };
+        const normStatus = s => { const st = String(s||"").trim().toLowerCase().replace(/[\s-]+/g,"_"); if (st==="open"||st==="todo") return "open"; if (["in_progress","review","testing","pending","awaiting_human"].includes(st)) return "pending"; if (["done","completed","resolved","closed","close"].includes(st)) return "close"; if (["skipped","wontfix","ignore"].includes(st)) return "ignore"; return "open"; };
         const normType = t => { const ty = String(t||"").toLowerCase(); if (ty==="test"||ty==="testing") return "test"; if (ty==="docs"||ty==="doc"||ty==="documentation") return "docs"; return "dev"; };
         const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
         if (!existsSync(tasksFile)) return "Error: No tasks file. Create tasks first.";
