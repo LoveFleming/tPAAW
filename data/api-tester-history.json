@@ -1,5 +1,251 @@
 [
   {
+    "id": "req-1789723409755",
+    "ts": "2026-09-18T09:23:29.755Z",
+    "method": "POST",
+    "url": "http://127.0.0.1:4290/api/settings",
+    "status": 200,
+    "elapsed": 1,
+    "headers": [],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "connection": "keep-alive",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Fri, 18 Sep 2026 09:23:29 GMT",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": "{\n  \"ok\": true,\n  \"changed\": [],\n  \"ignored\": [],\n  \"home\": \"/users/steward/App/my-paaw\",\n  \"packageServer\": \"http://localhost:4180\"\n}",
+      "elapsed": 1,
+      "size": 134
+    },
+    "source": "agent",
+    "agent": "developer"
+  },
+  {
+    "id": "req-1789723409752",
+    "ts": "2026-09-18T09:23:29.752Z",
+    "method": "POST",
+    "url": "http://127.0.0.1:4290/api/settings",
+    "status": 200,
+    "elapsed": 11,
+    "headers": [],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "connection": "keep-alive",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Fri, 18 Sep 2026 09:23:29 GMT",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": "{\n  \"ok\": true,\n  \"changed\": [],\n  \"ignored\": [],\n  \"home\": \"/users/steward/App/my-paaw\",\n  \"packageServer\": \"http://localhost:4180\"\n}",
+      "elapsed": 11,
+      "size": 134
+    },
+    "source": "agent",
+    "agent": "developer"
+  },
+  {
+    "id": "req-1789283056594",
+    "ts": "2026-09-13T07:04:16.594Z",
+    "method": "GET",
+    "url": "http://127.0.0.1:4290/api/status",
+    "status": 200,
+    "elapsed": 9,
+    "headers": [],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "connection": "keep-alive",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Sun, 13 Sep 2026 07:04:16 GMT",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": "{\n  \"home\": \"/users/steward/App/my-paaw\",\n  \"packageServer\": \"http://localhost:4180\",\n  \"current\": \"0.6.1\",\n  \"installed\": [\n    \"0.6.1\",\n    \"0.6.0\",\n    \"0.3.9\",\n    \"0.3.8\",\n    \"0.3.7\",\n    \"0.3.6\",\n    \"0.3.5\",\n    \"0.3.4\",\n    \"0.3.3\",\n    \"0.3.2\",\n    \"0.3.1\",\n    \"0.3.0\",\n    \"0.2.0\"\n  ],\n  \"stable\": null,\n  \"stableSize\": null,\n  \"stableNewer\": false,\n  \"dataSeeded\": true,\n  \"autoUpdate\": false,\n  \"running\": false,\n  \"runningVersion\": null,\n  \"paawUrl\": \"http://127.0.0.1:4097/\",\n  \"job\": {\n    \"active\": false,\n    \"kind\": \"start\",\n    \"error\": null,\n    \"message\": \"PAAW 0.6.1 已上線 → http://127.0.0.1:4097/\"\n  }\n}",
+      "elapsed": 9,
+      "size": 626
+    },
+    "source": "agent",
+    "agent": "developer"
+  },
+  {
+    "id": "req-1789282751436",
+    "ts": "2026-09-13T06:59:11.436Z",
+    "method": "GET",
+    "url": "http://127.0.0.1:4290/api/status",
+    "status": 200,
+    "elapsed": 4,
+    "headers": [],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "connection": "keep-alive",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Sun, 13 Sep 2026 06:59:11 GMT",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": "{\n  \"home\": \"/users/steward/App/my-paaw\",\n  \"packageServer\": \"http://localhost:4180\",\n  \"current\": \"0.6.1\",\n  \"installed\": [\n    \"0.6.1\",\n    \"0.6.0\",\n    \"0.3.9\",\n    \"0.3.8\",\n    \"0.3.7\",\n    \"0.3.6\",\n    \"0.3.5\",\n    \"0.3.4\",\n    \"0.3.3\",\n    \"0.3.2\",\n    \"0.3.1\",\n    \"0.3.0\",\n    \"0.2.0\"\n  ],\n  \"stable\": null,\n  \"stableSize\": null,\n  \"stableNewer\": false,\n  \"dataSeeded\": true,\n  \"autoUpdate\": false,\n  \"running\": false,\n  \"runningVersion\": null,\n  \"paawUrl\": \"http://127.0.0.1:4097/\",\n  \"job\": {\n    \"active\": false,\n    \"kind\": \"start\",\n    \"error\": null,\n    \"message\": \"PAAW 0.6.1 已上線 → http://127.0.0.1:4097/\"\n  }\n}",
+      "elapsed": 4,
+      "size": 626
+    },
+    "source": "agent",
+    "agent": "tester"
+  },
+  {
+    "id": "req-1789189370198",
+    "ts": "2026-09-12T05:02:50.198Z",
+    "method": "GET",
+    "url": "http://127.0.0.1:4290/api/status",
+    "status": 200,
+    "elapsed": 6,
+    "headers": [],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "connection": "keep-alive",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Sat, 12 Sep 2026 05:02:50 GMT",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": "{\n  \"home\": \"/users/steward/App/my-paaw\",\n  \"packageServer\": \"http://localhost:4180\",\n  \"current\": \"0.6.1\",\n  \"installed\": [\n    \"0.6.1\",\n    \"0.6.0\",\n    \"0.3.9\",\n    \"0.3.8\",\n    \"0.3.7\",\n    \"0.3.6\",\n    \"0.3.5\",\n    \"0.3.4\",\n    \"0.3.3\",\n    \"0.3.2\",\n    \"0.3.1\",\n    \"0.3.0\",\n    \"0.2.0\"\n  ],\n  \"stable\": null,\n  \"stableSize\": null,\n  \"stableNewer\": false,\n  \"dataSeeded\": true,\n  \"autoUpdate\": false,\n  \"running\": false,\n  \"runningVersion\": null,\n  \"paawUrl\": \"http://127.0.0.1:4097/\",\n  \"job\": {\n    \"active\": false,\n    \"kind\": \"start\",\n    \"error\": null,\n    \"message\": \"PAAW 0.6.1 已上線 → http://127.0.0.1:4097/\"\n  }\n}",
+      "elapsed": 6,
+      "size": 626
+    },
+    "source": "agent",
+    "agent": "developer"
+  },
+  {
+    "id": "req-1789189280894",
+    "ts": "2026-09-12T05:01:20.894Z",
+    "method": "GET",
+    "url": "http://127.0.0.1:4290/api/status",
+    "status": 200,
+    "elapsed": 9,
+    "headers": [],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "connection": "keep-alive",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Sat, 12 Sep 2026 05:01:20 GMT",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": "{\n  \"home\": \"/users/steward/App/my-paaw\",\n  \"packageServer\": \"http://localhost:4180\",\n  \"current\": \"0.6.1\",\n  \"installed\": [\n    \"0.6.1\",\n    \"0.6.0\",\n    \"0.3.9\",\n    \"0.3.8\",\n    \"0.3.7\",\n    \"0.3.6\",\n    \"0.3.5\",\n    \"0.3.4\",\n    \"0.3.3\",\n    \"0.3.2\",\n    \"0.3.1\",\n    \"0.3.0\",\n    \"0.2.0\"\n  ],\n  \"stable\": null,\n  \"stableSize\": null,\n  \"stableNewer\": false,\n  \"dataSeeded\": true,\n  \"autoUpdate\": false,\n  \"running\": false,\n  \"runningVersion\": null,\n  \"paawUrl\": \"http://127.0.0.1:4097/\",\n  \"job\": {\n    \"active\": false,\n    \"kind\": \"start\",\n    \"error\": null,\n    \"message\": \"PAAW 0.6.1 已上線 → http://127.0.0.1:4097/\"\n  }\n}",
+      "elapsed": 9,
+      "size": 626
+    },
+    "source": "agent",
+    "agent": "developer"
+  },
+  {
+    "id": "req-1789185832453",
+    "ts": "2026-09-12T04:03:52.453Z",
+    "method": "GET",
+    "url": "http://127.0.0.1:4097/",
+    "status": 200,
+    "elapsed": 5,
+    "headers": [],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "access-control-allow-headers": "Content-Type",
+        "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+        "access-control-allow-origin": "*",
+        "connection": "keep-alive",
+        "content-type": "text/html; charset=utf-8",
+        "date": "Sat, 12 Sep 2026 04:03:52 GMT",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>PAAW - Personal AI Assistant Workspace</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-rSK92xLy.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-DwJSOfTc.css\">\n  </head>\n  <body class=\"bg-zinc-50\">\n    <div id=\"root\"></div>\n  </body>\n</html>\n",
+      "elapsed": 5,
+      "size": 442
+    },
+    "source": "agent",
+    "agent": "tester"
+  },
+  {
+    "id": "req-1789185829016",
+    "ts": "2026-09-12T04:03:49.016Z",
+    "method": "GET",
+    "url": "http://127.0.0.1:4290/api/status",
+    "status": 200,
+    "elapsed": 6,
+    "headers": [],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "connection": "keep-alive",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Sat, 12 Sep 2026 04:03:49 GMT",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": "{\n  \"home\": \"/users/steward/App/my-paaw\",\n  \"packageServer\": \"http://localhost:4180\",\n  \"current\": \"0.6.1\",\n  \"installed\": [\n    \"0.6.1\",\n    \"0.6.0\",\n    \"0.3.9\",\n    \"0.3.8\",\n    \"0.3.7\",\n    \"0.3.6\",\n    \"0.3.5\",\n    \"0.3.4\",\n    \"0.3.3\",\n    \"0.3.2\",\n    \"0.3.1\",\n    \"0.3.0\",\n    \"0.2.0\"\n  ],\n  \"stable\": null,\n  \"stableSize\": null,\n  \"stableNewer\": false,\n  \"dataSeeded\": true,\n  \"autoUpdate\": false,\n  \"running\": false,\n  \"runningVersion\": null,\n  \"paawUrl\": \"http://127.0.0.1:4097/\",\n  \"job\": {\n    \"active\": false,\n    \"kind\": \"start\",\n    \"error\": null,\n    \"message\": \"PAAW 0.6.1 已上線 → http://127.0.0.1:4097/\"\n  }\n}",
+      "elapsed": 6,
+      "size": 626
+    },
+    "source": "agent",
+    "agent": "tester"
+  },
+  {
+    "id": "req-1789185797032",
+    "ts": "2026-09-12T04:03:17.032Z",
+    "method": "GET",
+    "url": "http://127.0.0.1:4290/api/status",
+    "status": 200,
+    "elapsed": 12,
+    "headers": [],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "connection": "keep-alive",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Sat, 12 Sep 2026 04:03:17 GMT",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": "{\n  \"home\": \"/users/steward/App/my-paaw\",\n  \"packageServer\": \"http://localhost:4180\",\n  \"current\": \"0.6.1\",\n  \"installed\": [\n    \"0.6.1\",\n    \"0.6.0\",\n    \"0.3.9\",\n    \"0.3.8\",\n    \"0.3.7\",\n    \"0.3.6\",\n    \"0.3.5\",\n    \"0.3.4\",\n    \"0.3.3\",\n    \"0.3.2\",\n    \"0.3.1\",\n    \"0.3.0\",\n    \"0.2.0\"\n  ],\n  \"stable\": null,\n  \"stableSize\": null,\n  \"stableNewer\": false,\n  \"dataSeeded\": true,\n  \"autoUpdate\": false,\n  \"running\": false,\n  \"runningVersion\": null,\n  \"paawUrl\": \"http://127.0.0.1:4097/\",\n  \"job\": {\n    \"active\": false,\n    \"kind\": null,\n    \"error\": null,\n    \"message\": null\n  }\n}",
+      "elapsed": 12,
+      "size": 586
+    },
+    "source": "agent",
+    "agent": "tester"
+  },
+  {
     "id": "req-1787037982960",
     "ts": "2026-08-18T07:26:22.960Z",
     "method": "GET",

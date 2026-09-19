@@ -5,5 +5,19 @@
     "name": "AI",
     "icon": "🤖",
     "createdAt": "2026-07-14T12:23:32.041Z"
+  },
+  {
+    "id": "sec_mtxy4gt50jaq",
+    "notebookId": "default",
+    "name": "debug-1230",
+    "icon": "📁",
+    "createdAt": "2026-09-12T05:29:57.017Z"
+  },
+  {
+    "id": "sec_mtxy6hr2jsvx",
+    "notebookId": "default",
+    "name": "proxy-測試",
+    "icon": "📁",
+    "createdAt": "2026-09-12T05:31:31.550Z"
   }
 ]
