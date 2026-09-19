@@ -135,6 +135,12 @@ export default async function releaseUnitRoutes(req, res, next) {
       readProjectCrew(absPath); // 未初始化 → auto-init；已初始化 → sync 新 global crews + seed skills
       crewProvisioned = true;
     } catch {} // crew provision 失敗不阻斷 RU 註冊
+    // 2026-09-19：RU 註冊自動 ensure runtime 層退出版控（冪等 — gitignore 區塊 + 已追蹤的 runtime 檔退出 index）
+    let runtimeIgnored = null;
+    try {
+      const { ensureRuntimeIgnores } = await import("../lib/ru-runtime-ignore.mjs");
+      runtimeIgnored = ensureRuntimeIgnores(absPath);
+    } catch {} // 失敗不阻斷註冊
     // Label 優先序：body.label > git repo name（git toplevel basename）> 根目錄名
     let label = (body.label || "").trim();
     if (!label) {
@@ -155,7 +161,7 @@ export default async function releaseUnitRoutes(req, res, next) {
         found.label = label;
         _saveRuRegistry(units);
       }
-      return json(res, 200, { unit: { ...found, exists: true }, crewProvisioned });
+      return json(res, 200, { unit: { ...found, exists: true }, crewProvisioned, runtimeIgnored });
     }
     const unit = {
       id: randomUUID(),
@@ -165,7 +171,7 @@ export default async function releaseUnitRoutes(req, res, next) {
     };
     units.push(unit);
     _saveRuRegistry(units);
-    return json(res, 200, { unit: { ...unit, exists: true }, crewProvisioned });
+    return json(res, 200, { unit: { ...unit, exists: true }, crewProvisioned, runtimeIgnored });
   }
 
   // DELETE /api/ru/workspaces?id= — 取消註冊（不刪檔案）
