@@ -73,6 +73,17 @@ const HTTP_COLORS: Record<string, string> = {
   DELETE: "#dc2626",
 };
 
+// ── md-compact：FeatureMap 右側用 — 標題/行距縮到與左側列表一致（chat 的 MarkdownText 不受影響）──
+const MD_COMPACT_STYLE = `
+.md-content.md-compact { line-height: 1.5; }
+.md-content.md-compact h1 { font-size: 1rem; margin: 0.625rem 0 0.375rem; }
+.md-content.md-compact h2 { font-size: 0.9375rem; margin: 0.5rem 0 0.25rem; }
+.md-content.md-compact h3 { font-size: 0.875rem; margin: 0.375rem 0 0.25rem; }
+.md-content.md-compact h4 { font-size: 0.8125rem; margin: 0.375rem 0 0.25rem; }
+.md-content.md-compact p { margin: 0.25rem 0; }
+.md-content.md-compact ul, .md-content.md-compact ol { margin: 0.25rem 0; }
+`;
+
 export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: Props) {
   const { t } = useI18n();
   const [features, setFeatures] = useState<Feature[]>([]);
@@ -223,6 +234,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
 
   return (
     <div className="flex h-full" style={{ background: theme.bg }}>
+      <style>{MD_COMPACT_STYLE}</style>
       {/* === Left: Feature List === */}
       <div className="w-80 flex flex-col border-r shrink-0" style={{ borderColor: theme.borderLight }}>
         {/* Header */}
@@ -553,7 +565,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
                 {feature.aiUnderstandingAt ? new Date(feature.aiUnderstandingAt).toLocaleString() : ""}
               </span>
             </div>
-            <div className="text-sm" style={{ color: theme.text }}><MarkdownText>{feature.aiUnderstanding}</MarkdownText></div>
+            <div className="text-sm" style={{ color: theme.text }}><MarkdownText className="md-compact">{feature.aiUnderstanding}</MarkdownText></div>
           </div>
         )}
 
@@ -589,7 +601,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
               placeholder={t("feature.docsPlaceholder")}
             />
           ) : feature.documentation ? (
-            <div className="text-sm" style={{ color: theme.text }}><MarkdownText>{feature.documentation}</MarkdownText></div>
+            <div className="text-sm" style={{ color: theme.text }}><MarkdownText className="md-compact">{feature.documentation}</MarkdownText></div>
           ) : (
             <p className="text-sm" style={{ color: theme.text, opacity: 0.3 }}>{t("feature.noDocs")}</p>
           )}
