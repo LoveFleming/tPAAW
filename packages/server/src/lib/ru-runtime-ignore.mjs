@@ -24,6 +24,8 @@ import { shellExecSync } from "./shell-exec.mjs";
 const MARKER = "PAAW runtime 層";
 const RUNTIME_PATHS = [
   ".paaw/sessions/",
+  ".paaw/features/backups/", // feature map 自動備份（每次存檔長一顆，epoch 檔名 — 會自己變的 runtime）
+  ".paaw/coding-memory/dispatch-outputs/", // dispatch 逐次輸出記錄（蒸餾記憶在 conversations/actions.jsonl — 那些才是資產）,
   ".paaw/auto-dispatch/",
   ".paaw/test-runs/",
   ".paaw/changes/",
@@ -60,6 +62,17 @@ export function ensureRuntimeIgnores(projectPath) {
       gi = gi.replace(/\n*$/, "\n") + "\n" + IGNORE_BLOCK + "\n";
       writeFileSync(giPath, gi, "utf-8");
       out.gitignoreAdded = true;
+    } else {
+      // 區塊已存在但清單擴充過 → 逐路徑補齊（冪等：只補缺的，在結束標記前插入）
+      const missing = RUNTIME_PATHS.filter((p) => !gi.includes(p));
+      if (missing.length > 0) {
+        const endMark = "# ── PAAW runtime 層結束 ──";
+        gi = gi.includes(endMark)
+          ? gi.replace(endMark, missing.join("\n") + "\n" + endMark)
+          : gi.replace(/\n*$/, "\n") + "\n" + missing.join("\n") + "\n";
+        writeFileSync(giPath, gi, "utf-8");
+        out.gitignoreAdded = true;
+      }
     }
 
     // 2) 已追蹤的 runtime 檔 → 退出 index（檔案留磁碟）

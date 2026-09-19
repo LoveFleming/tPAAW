@@ -70,7 +70,7 @@ export interface GitFileGroup {
  * 核心原則：程式碼最重要，.paaw 退讓
  */
 export function classifyGitFile(path: string): FileCategory {
-  // .paaw/ — AI workspace files
+  // .paaw/ — Release unit related data（資產/證據/記憶 — 2026-09-19 Fleming 定調）
   if (/^\.paaw[/\\]/.test(path)) return "paaw";
 
   // Config files
@@ -135,7 +135,7 @@ const GROUP_CONFIG: Record<FileCategory, Omit<GitFileGroup, "files">> = {
   },
   paaw: {
     category: "paaw",
-    label: "AI Workspace",
+    label: "Release unit data",
     emoji: "🤖",
     defaultExpanded: false,
     color: "stone",

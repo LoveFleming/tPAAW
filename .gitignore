@@ -109,4 +109,7 @@ data/**/.paaw/
 .paaw/scan.json
 .paaw/gates.json
 .paaw/verify-last.json
+.paaw/features/backups/
+.paaw/coding-memory/dispatch-outputs/
+.paaw/auto-dispatch/
 # ── PAAW runtime 層結束 ──
