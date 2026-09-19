@@ -303,6 +303,12 @@ function CommitDetailView({ diffText, theme }: { diffText: string; theme: { acce
   const files = useMemo(() => splitDiffByFiles(diffText), [diffText]);
   const [sel, setSel] = useState(0);
   const selected = files[Math.min(sel, Math.max(0, files.length - 1))];
+  // ── 分組（2026-09-19 Fleming：點程式 commit 不想看到一堆 .paaw 項目）──
+  const isRu = (p: string) => p.startsWith(".paaw/");
+  const codeFiles = files.filter((f) => !isRu(f.path));
+  const ruFiles = files.filter((f) => isRu(f.path));
+  const [ruOpen, setRuOpen] = useState(false);
+  const visibleFiles = ruOpen ? [...codeFiles, ...ruFiles] : codeFiles;
 
   if (!files.length) {
     return <div className="flex-1 flex items-center justify-center text-xs text-stone-400">No changes in this commit</div>;
@@ -320,9 +326,19 @@ function CommitDetailView({ diffText, theme }: { diffText: string; theme: { acce
       <div className="w-64 shrink-0 flex flex-col min-h-0 border-r" style={{ borderColor: theme.borderLight, backgroundColor: "#fafaf9" }}>
         <div className="px-3 py-2 text-[11px] font-bold text-stone-500 sticky top-0 bg-[#fafaf9] z-10 border-b shrink-0" style={{ borderColor: theme.borderLight }}>
           Files changed · {files.length}
+{ruFiles.length > 0 && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-200 text-stone-600 font-bold ml-1">💻 {codeFiles.length}</span>
+          )}
+          {ruFiles.length > 0 && (
+            <button onClick={() => setRuOpen(!ruOpen)}
+              className="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500 font-bold ml-0.5 hover:bg-stone-200 transition-colors">
+              📦 RU data {ruFiles.length} {ruOpen ? "▾" : "▸"}
+            </button>
+          )}
         </div>
         <div className="flex-1 overflow-auto py-1">
-          {files.map((f, i) => {
+          {visibleFiles.map((f) => {
+                const i = files.indexOf(f);
             const st = STATUS_STYLE[f.status];
             const active = i === (selected ? files.indexOf(selected) : 0);
             return (
