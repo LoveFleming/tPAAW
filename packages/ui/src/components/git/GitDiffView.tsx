@@ -82,7 +82,7 @@ function splitDiffByCategory(diffText: string): DiffFileGroup[] {
     config: { label: "Config", emoji: "⚙️", defaultExpanded: true },
     docs: { label: "Docs", emoji: "📖", defaultExpanded: true },
     other: { label: "Other", emoji: "📎", defaultExpanded: true },
-    paaw: { label: "AI Workspace (.paaw)", emoji: "🤖", defaultExpanded: false },
+    paaw: { label: "Release unit data (.paaw)", emoji: "📦", defaultExpanded: false },
   };
 
   const grouped = new Map<FileCategory, string[]>();

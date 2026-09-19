@@ -168,18 +168,34 @@ export default async function vibeFsRoute(req, res) {
     }
 
     const base = upstream || "HEAD";
+    // ── commit 分類（2026-09-19 Fleming）：只動 .paaw/** 的 = ru-data（Release unit data），其餘 = code ──
+    const nameMap = {};
+    const nm = await runGit(["log", `${base}..HEAD`, "--max-count=50", "--name-only", "--pretty=format:@@%H"], cwd);
+    if (nm.ok) {
+      let cur = null;
+      for (const line of nm.stdout.split("\n")) {
+        if (line.startsWith("@@")) { cur = line.slice(2); nameMap[cur] = []; }
+        else if (cur && line.trim()) nameMap[cur].push(line.trim());
+      }
+    }
     const lg = await runGit([
       "log", `${base}..HEAD`, "--max-count=50", "--pretty=format:%H|%h|%an|%at|%s", "--date=unix",
     ], cwd);
     if (lg.ok) {
       commits = lg.stdout.split("\n").filter(Boolean).map(line => {
         const [hash, short, author, ts, subject] = line.split("|");
-        return { hash, short, author, date: new Date(parseInt(ts) * 1000).toISOString(), subject };
+        const files = nameMap[hash] || [];
+        const cat = files.length > 0 && files.every(f => f.startsWith(".paaw/")) ? "ru-data" : "code";
+        return { hash, short, author, date: new Date(parseInt(ts) * 1000).toISOString(), subject, cat };
       });
     }
 
+    const lastCode = commits.find(c => c.cat === "code");
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ branch, upstream, ahead, behind, commits }));
+    res.end(JSON.stringify({ branch, upstream, ahead, behind, commits,
+      lastCodeSha: lastCode ? lastCode.hash : null,
+      codeCount: commits.filter(c => c.cat === "code").length,
+      ruCount: commits.filter(c => c.cat === "ru-data").length }));
     return true;
   }
 
@@ -310,8 +326,16 @@ export default async function vibeFsRoute(req, res) {
     let body = {};
     try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch {}
     const args = ["push"];
-    if (body.remote) args.push(body.remote);
-    if (body.branch) args.push(body.branch);
+    if (body.upto) {
+      // 選擇性 push（2026-09-19 Fleming）：推到指定 commit 為止（含），之後的留本地
+      const br = await runGit(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
+      const branchName = br.ok ? br.stdout.trim() : body.branch;
+      if (!branchName) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "upto push 需要分支名（無法偵測當前分支）" })); return true; }
+      args.push(body.remote || "origin", `${body.upto}:refs/heads/${branchName}`);
+    } else {
+      if (body.remote) args.push(body.remote);
+      if (body.branch) args.push(body.branch);
+    }
     const r = await runGit(args, cwd, 60000); // push 慢（大 repo/慢網）— 60s
     if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.errorText })); return true; }
     res.writeHead(200, { "Content-Type": "application/json" });

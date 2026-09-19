@@ -272,14 +272,14 @@ export default function GitPanel(props: GitPanelProps) {
     } catch (e: any) { setGitActionMsg(`❌ ${e.message}`); }
   }, [rootPath, API_BASE, setGitActionMsg, refreshGitStatus, refreshGitLog, fetchUnpushed]);
 
-  const handlePush = useCallback(async () => {
+  const handlePush = useCallback(async (upto?: string) => {
     setGitActionMsg("Pushing...");
     try {
-      const r = await fetch(`${API_BASE}/api/vibe-git/push?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const r = await fetch(`${API_BASE}/api/vibe-git/push?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(upto ? { upto } : {}) });
       const d = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
       // error 空白 fallback 鏈 — 不再出現裸 ❌ 無訊息（2026-09-18 Fleming 回報）
       const errText = (d.error || "").trim() || (d.output || "").trim() || d.message || `HTTP ${r.status}`;
-      setGitActionMsg(d.ok ? `✅ ${d.output || d.message}` : `❌ push: ${errText}`);
+      setGitActionMsg(d.ok ? `✅ ${upto ? "已推送（到指定 commit 為止）" : "已全部推送"}${d.output ? " — " + d.output : ""}` : `❌ push: ${errText}`);
       refreshGitStatus();
       refreshGitLog();
       fetchUnpushed();
