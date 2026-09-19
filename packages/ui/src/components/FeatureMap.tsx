@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { cn } from "../utils";
 import { useI18n } from "../i18n";
+import MarkdownText from "./MarkdownText";
 import { FeatureCockpit } from "./FeatureCockpit";
 import API_BASE from "../api";
 
@@ -588,7 +589,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
               placeholder={t("feature.docsPlaceholder")}
             />
           ) : feature.documentation ? (
-            <pre className="text-sm whitespace-pre-wrap font-sans" style={{ color: theme.text }}>{feature.documentation}</pre>
+            <div className="text-sm" style={{ color: theme.text }}><MarkdownText>{feature.documentation}</MarkdownText></div>
           ) : (
             <p className="text-sm" style={{ color: theme.text, opacity: 0.3 }}>{t("feature.noDocs")}</p>
           )}
