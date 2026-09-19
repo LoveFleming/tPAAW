@@ -17,7 +17,7 @@
  */
 
 import { readFile, writeFile, mkdir, readdir } from "fs/promises";
-import { existsSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import { join } from "path";
 import { gatherTaskEvidence } from "./coding-evidence.mjs";
 import { runTaskRetrofit, qualityDebtSummary } from "../lib/task-retrofit.mjs";
@@ -312,6 +312,39 @@ export default async function releaseRoutes(req, res, next) {
       const changedApis = (model?.apis || []).filter(a => a.file && changedSet.has(a.file))
         .map(a => ({ method: a.method, path: a.path, file: a.file, featureIds: a.featureIds || [] }));
 
+      // ── e2e 內容覆蓋（2026-09-19）：黑盒 e2e 不 import 原始碼，test-code-map 連不到；
+      // 測試檔「內容含 API path 字串」= deterministic 覆蓋證據。template 參數正規化（/<name> → [^/]+）──
+      const apiCoveredByTests = (() => {
+        let corpus = null;
+        const build = () => {
+          let buf = "";
+          const TEST_DIR = new Set(["tests", "test", "e2e", "__tests__"]);
+          const SKIP = new Set(["node_modules", "dist", "build", "coverage", "versions", "raw", "crops", ".paaw"]);
+          const isTestFile = (n) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(n) || /^test[-_]/.test(n);
+          const walk = (dir, depth) => {
+            if (depth > 5) return;
+            let ents; try { ents = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+            for (const e of ents) {
+              if (e.name.startsWith(".") || SKIP.has(e.name)) continue;
+              const p2 = join(dir, e.name);
+              if (e.isDirectory()) walk(p2, depth + 1);
+              else if (isTestFile(e.name) || dir.split(/[\\/]/).some((seg2) => TEST_DIR.has(seg2))) {
+                try { const c = readFileSync(p2, "utf-8"); if (c.length < 500000) buf += "\n" + c; } catch {}
+              }
+            }
+          };
+          walk(projectPath, 0);
+          return buf;
+        };
+        return (apiPath) => {
+          if (!apiPath) return false;
+          if (corpus === null) corpus = build();
+          const norm = apiPath.replace(/\/<[^/>]+>/g, "/__P__").replace(/\/:[A-Za-z0-9_]+/g, "/__P__");
+          const re = new RegExp(norm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/__P__/g, "[^/]+"));
+          return re.test(corpus);
+        };
+      })();
+
       const changedFeatures = [];
       for (const f of model?.features || []) {
         const files = (f.files || []).filter(x => changedSet.has(x));
@@ -331,7 +364,8 @@ export default async function releaseRoutes(req, res, next) {
           apis: apis.map(a => `${a.method} ${a.path}`),
           apiImpact: apis.length > 0,
           tests: (f.tests || []).map(tf => ({ file: tf.file, kind: tf.kind })),
-          hasTests: (f.tests || []).length > 0,
+          hasTests: (f.tests || []).length > 0 || apis.some((a) => apiCoveredByTests(a.path)),
+          e2eCoveredApis: apis.filter((a) => apiCoveredByTests(a.path)).length,
           knowledgeGaps: f.knowledgeGaps || [],
           recentSubjects: subjects.reverse(),
         });
@@ -354,10 +388,21 @@ export default async function releaseRoutes(req, res, next) {
       // ── Risk（deterministic heuristic）──
       let riskScore = 0;
       const riskReasons = [];
-      if (changedFeatures.some(f => !f.hasTests && f.apiImpact)) { riskScore += 2; riskReasons.push("changed feature with API impact has no tests"); }
-      else if (changedFeatures.some(f => !f.hasTests)) { riskScore += 1; riskReasons.push("changed feature without tests"); }
-      if (recentFiles.length > 20) { riskScore += 1; riskReasons.push(`${recentFiles.length} changed files`); }
-      if (changedApis.length > 10) { riskScore += 1; riskReasons.push(`${changedApis.length} changed APIs`); }
+      // v2（2026-09-19）：API 覆蓋率分級（mapper + e2e 內容比對）— 62% 覆蓋不該跟 0% 同罪
+      const coveredApis = changedApis.filter(a => apiCoveredByTests(a.path)).length;
+      if (changedApis.length > 0) {
+        const pct = Math.round((coveredApis / changedApis.length) * 100);
+        if (pct < 50) { riskScore += 2; riskReasons.push(`API test coverage ${pct}% (${coveredApis}/${changedApis.length}, incl. e2e content match)`); }
+        else if (pct < 80) { riskScore += 1; riskReasons.push(`API test coverage ${pct}% (${coveredApis}/${changedApis.length}, incl. e2e content match)`); }
+        // ≥80% 不罰分
+      } else if (changedFeatures.some(f => !f.hasTests)) { riskScore += 1; riskReasons.push("changed feature without tests"); }
+      // 首發基準線 = first commit → 全 repo 都算變更，volume 資訊性標註不計分（避免首發恆 HIGH 的警報疲勞）
+      if (!firstRelease) {
+        if (recentFiles.length > 20) { riskScore += 1; riskReasons.push(`${recentFiles.length} changed files`); }
+        if (changedApis.length > 10) { riskScore += 1; riskReasons.push(`${changedApis.length} changed APIs`); }
+      } else if (recentFiles.length > 20 || changedApis.length > 10) {
+        riskReasons.push(`first release: ${recentFiles.length} files / ${changedApis.length} APIs since first commit（首發基準線，不計分）`);
+      }
       if (blockedGates.length > 0) { riskScore += 1; riskReasons.push(`${blockedGates.length} blocked gates`); }
       if (openItems > 0) { riskScore += 1; riskReasons.push(`${openItems} open rework/failed items`); }
       const ltr = await lastTestRunSummary(projectPath);
