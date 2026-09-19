@@ -25,7 +25,8 @@ const MARKER = "PAAW runtime 層";
 const RUNTIME_PATHS = [
   ".paaw/sessions/",
   ".paaw/features/backups/", // feature map 自動備份（每次存檔長一顆，epoch 檔名 — 會自己變的 runtime）
-  ".paaw/coding-memory/dispatch-outputs/", // dispatch 逐次輸出記錄（蒸餾記憶在 conversations/actions.jsonl — 那些才是資產）,
+  ".paaw/coding-memory/dispatch-outputs/",
+  ".paaw/staged-changes.json", // UI staged 摘要（stage 時寫、commit 完即刪 — 曾被收編誤 commit 才會每次 commit 顯示 D）, // dispatch 逐次輸出記錄（蒸餾記憶在 conversations/actions.jsonl — 那些才是資產）,
   ".paaw/auto-dispatch/",
   ".paaw/test-runs/",
   ".paaw/changes/",
