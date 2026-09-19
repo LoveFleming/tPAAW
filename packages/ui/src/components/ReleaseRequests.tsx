@@ -117,6 +117,7 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify, chatRef }
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detail, setDetail] = useState<RrDetail | null>(null);
   const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null); // close/open/cancel 失敗原因常駐顯示（toast 一閃即逝的補救）
   const [waiveItem, setWaiveItem] = useState<string | null>(null);
   const [waiveNote, setWaiveNote] = useState("");
   const [closeNote, setCloseNote] = useState("");
@@ -223,7 +224,8 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify, chatRef }
         body: JSON.stringify({ path: rootPath, ...body }),
       });
       const data = await res.json();
-      if (!res.ok) return toast(false, `❌ ${data.error || "操作失敗"}`);
+      if (!res.ok) { const msg = `❌ ${data.error || "操作失敗"}`; setActionError(msg); return toast(false, msg); }
+      setActionError(null);
       toast(true, okText);
       if (action === "close" && data.releaseId) {
         toast(true, `🚀 ${data.releaseId} — ${t("rr.releasedBanner")}${data.releasedTasks ? `（${data.releasedTasks} tasks）` : ""}`);
@@ -584,6 +586,12 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify, chatRef }
                             </button>
                           )}
                         </>
+                      )}
+                      {actionError && (
+                        <div className="w-full mb-2 px-3 py-2 rounded-lg text-xs font-semibold" data-testid="rr-action-error"
+                          style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca" }}>
+                          {actionError}
+                        </div>
                       )}
                       {detail.status === "draft" && (
                         <button onClick={() => act("open", {}, "🔍 " + t("rr.openedToast"))} disabled={busy}
