@@ -1399,5 +1399,8 @@
   "rr.aiDoneToast": "AI 建議已寫入 — 確認後可一鍵套用",
   "rr.waitingAi": "等待 AI 審查中…",
   "rr.aiUnavailable": "RM AI 助理未掛載（視窗太窄）",
-  "rr.draftPreview": "draft preview — open 後才能下 verdict"
+  "rr.draftPreview": "draft preview — open 後才能下 verdict",
+  "report.tokens": "Tokens",
+  "task.done": "Done",
+  "task.notes": "Notes"
 }

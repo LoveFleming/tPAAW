@@ -1399,5 +1399,8 @@
   "rr.aiDoneToast": "AI suggestions written — review then apply",
   "rr.waitingAi": "Waiting for AI review…",
   "rr.aiUnavailable": "RM AI assistant not mounted (window too narrow)",
-  "rr.draftPreview": "draft preview — verdicts unlocked after open"
+  "rr.draftPreview": "draft preview — verdicts unlocked after open",
+  "report.tokens": "Tokens",
+  "task.done": "Done",
+  "task.notes": "Notes"
 }
