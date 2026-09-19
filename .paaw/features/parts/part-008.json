@@ -1,0 +1,27 @@
+{
+  "flesh": {
+    "name": "A2A 代理協作協定服務",
+    "description": "以 JSON-RPC 2.0 實作 Agent2Agent (A2A) v1.0 協定的伺服端路由，對外提供 Agent Card 探索（/.well-known/agent-card.json、/api/a2a/agent-card）與 /a2a 端點。支援同步回覆、SSE 串流、webhook 非同步通知三種模式，讓外部 agent 與 PAAW 內部 domain agent（crew）互相派工與對話。",
+    "bizLogic": "核心是 message/send、message/stream、tasks/get、tasks/list、tasks/cancel 五個 JSON-RPC method，並以路徑上的 agentId 區分預設 PAAW agent 與各 coding domain agent（透過 domain-agent-registry 載入對應 crew）。每個請求建立/沿用 Task（以 contextId 串多輪對話），Task 狀態機依序為 submitted→working→(input-required|completed|failed|canceled)，並透過 JsonTaskPersistence 落地為 data/a2a-tasks/*.json。Task 內容會反向同步為 HelpDesk ticket（tag a2a:<taskId>），使 agent 對話可在客服面板追蹤；message.parts 可夾帶 uploads/ 圖片（正則白名單防路徑穿越、上限 4 張），交由 vision 機制路由。串流模式維護 runningStreams 與斷線可續傳的 streamStates（完成後保留 15 分鐘、事件上限 300 筆），並在完成時把 assistant 回覆去重落地回 crew 的 conversation active.json；tasks/cancel 與 /api/a2a/interrupt 可中止進行中的 SSE 串流。webhook 模式先即刻回 working，再於背景執行並以 JSON-RPC 格式 POST 進度與最終結果到 pushNotification.url。",
+    "tags": [
+      "a2a",
+      "json-rpc",
+      "agent-to-agent",
+      "sse-streaming",
+      "task-lifecycle",
+      "webhook",
+      "agent-card",
+      "helpdesk-bridge"
+    ]
+  },
+  "turns": 3,
+  "durationMs": 23753,
+  "wallMs": 23854,
+  "usage": {
+    "prompt": 89634,
+    "completion": 996,
+    "total": 90630
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:54:58.977Z"
+}

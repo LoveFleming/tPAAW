@@ -1,0 +1,25 @@
+{
+  "flesh": {
+    "name": "Next.js Route Handler API 範本（後端最佳實務技能素材）",
+    "description": "這是 nextjs-backend-best-practices 這個 physical-skill 底下的一份 Route Handler 程式碼範本（app/api/[...]/route.ts）。它不是平台的執行期程式，而是技能包內給 AI agent 產生 Next.js 16 後端 API 端點時參照與複製的教學型樣板檔。",
+    "bizLogic": "檔案以純教學範例形式，涵蓋 Next.js 16 App Router Route Handler 的十種常見後端模式：基本 CRUD（GET/POST）、動態路由（await params）、query 參數搜尋與分頁（searchParams、offset 計算）、以 httpOnly cookie 進行登入與驗證（await cookies）、Webhook 簽章驗證與事件分派、SSE 串流回應、FormData 檔案上傳、CORS 設定、try/catch 錯誤處理與回傳正確 HTTP 狀態碼、以及以記憶體 Map 實作的簡易 IP 速率限制（每分鐘 10 次）。核心規則貫穿 Next.js 16 的破壞性變更：params/cookies/headers 皆須 await，回應統一用 NextResponse.json()。作為 skill 素材，它的價值在於被 skill runner／agent 讀取後作為程式碼骨架來源，讓生成的後端端點符合團隊約定的最佳實務，而非被伺服器直接匯入執行。",
+    "tags": [
+      "nextjs",
+      "route-handler",
+      "api-template",
+      "skill-asset",
+      "backend-best-practices",
+      "code-scaffold"
+    ]
+  },
+  "turns": 3,
+  "durationMs": 20461,
+  "wallMs": 20565,
+  "usage": {
+    "prompt": 56426,
+    "completion": 882,
+    "total": 57308
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:53:22.108Z"
+}

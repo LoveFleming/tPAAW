@@ -1,0 +1,27 @@
+{
+  "flesh": {
+    "name": "上線放行與證據決策卡（Release Manager）",
+    "description": "涵蓋「要 release 時打開 Release Manager 同意上線」的完整放行流程：由 coding-releases 路由提供待放行清單、批准/退回、上線就緒報告、品質債補強與真實測試執行，由 coding-evidence 路由把分散的驗證資料聚合成一份可決策的證據卡（含 Trust Score 與風險分類）。核心理念是「人不 review 碼，人 review 證據」。",
+    "bizLogic": "待放行條件是 full pipeline 前六關（spec→implement→review→test→qa→docs）全部 done、只剩 commit 等人批准的 task；mini loop 的快速 commit 沒有證據流，不進 release gate。批准時會用 gatherTaskEvidence 快照完整證據包寫入 .paaw/releases/REL-<時間>-<taskId>.json、把 commit 階段標 done、task 狀態轉 released；退回則需帶 reason，將 commit 標 rework、task 回 in-progress 並回饋原因。Evidence 決策卡即時聚合唯讀事實（spec 對照、git diff 統計、testResult/qaResult、test-intelligence coverage、pipeline 完成度、Review Boundary），並用透明加權算出 0–100 的 Trust Score（pipeline 56 分 + 測試 25 + QA 10 + diff 規模 5 + scope 9，再按風險 high/medium 扣 10/5 分）；scope 外有變更會標 needsHumanDecision 紅旗。Readiness 報告以上次 release 時間（首次則取 repo 首個 commit）為基準，用 change-intelligence 算出變更檔/feature/API、跑 gates 檢查與 deterministic 風險啟發式（無測試的 API 變更、大量變更、blocked gates、open rework、失敗測試）得出 LOW/MEDIUM/HIGH 與 ready 判定。品質債與 retrofit 從 feature map 現況批次建 review/test/qa/docs 補強 task；test-run 走背景 job 真實執行測試，結果寫 .paaw/test-runs/ 並保留歷史（RUN-YYYYMMDD-NNN 命名）供 readiness 引用與 stale 偵測。",
+    "tags": [
+      "release-management",
+      "evidence-package",
+      "trust-score",
+      "release-readiness",
+      "quality-debt",
+      "risk-classification",
+      "pipeline-gate",
+      "test-run"
+    ]
+  },
+  "turns": 3,
+  "durationMs": 24352,
+  "wallMs": 24460,
+  "usage": {
+    "prompt": 77617,
+    "completion": 1156,
+    "total": 78773
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T02:00:50.103Z"
+}

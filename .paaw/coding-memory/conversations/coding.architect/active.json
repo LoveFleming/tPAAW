@@ -1,9 +1,4 @@
 {
-  "_meta": {
-    "crewId": "coding.architect",
-    "lastUpdated": "2026-08-18T01:29:57.072Z",
-    "messageCount": 4
-  },
   "messages": [
     {
       "role": "user",
@@ -24,6 +19,40 @@
       "role": "assistant",
       "content": "| 姓名 | 年齡 | 城市 |\n|------|------|------|\n| 小明 | 12 | 台北 |\n| 小華 | 15 | 新竹 |\n| 小美 | 13 | 台中 |",
       "ts": "2026-08-18T01:02:14.655Z"
+    },
+    {
+      "role": "assistant",
+      "content": "OK",
+      "ts": "2026-09-14T01:50:03.054Z"
+    },
+    {
+      "role": "assistant",
+      "content": "MOCK_OK",
+      "ts": "2026-09-14T02:07:24.076Z"
+    },
+    {
+      "role": "assistant",
+      "content": "👌",
+      "ts": "2026-09-14T05:52:27.767Z"
+    },
+    {
+      "role": "assistant",
+      "content": "👍",
+      "ts": "2026-09-14T06:01:28.341Z"
+    },
+    {
+      "role": "assistant",
+      "content": "第 2 項是：**寫測試**",
+      "ts": "2026-09-14T10:52:23.242Z"
+    },
+    {
+      "role": "assistant",
+      "content": "紅色",
+      "ts": "2026-09-14T11:43:11.454Z"
     }
-  ]
+  ],
+  "_meta": {
+    "updatedAt": "2026-09-14T11:43:11.454Z",
+    "savedBy": "a2a-stream-recovery"
+  }
 }

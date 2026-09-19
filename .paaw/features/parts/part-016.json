@@ -1,0 +1,27 @@
+{
+  "flesh": {
+    "name": "編碼團隊派工與專案知識後端（Code Understanding）",
+    "description": "tPAAW 編碼 IDE 的核心後端路由層（coding.mjs），統籌 AI 編碼團隊（Coding Crew）的對話派工、EM 規劃/執行、agent 生命週期管理，以及 .paaw/ 專案知識庫的讀寫。搭配 code-intelligence（tree-sitter call graph／依賴圖／符號索引）、cu-mechanical（機械層免-token 重掃）、running-agents（執行中 agent 追蹤）與 coding-security／security-rules（路徑穿越防護與 agent 安全護欄）等核心模組。",
+    "bizLogic": "crew chat（POST /api/coding-crew/chat）依 crewId 解析出 domain agent，動態組裝 system prompt：注入 action log、agent 長期記憶、Feature Map + 檔案→feature 反向索引（上限 50 檔）、Code Intelligence 目錄摘要、Security Scan 摘要，再加上 AGENT_RULES 與 SECURITY_RULES，經 trimMessagesToFit（262K token 預算）裁切後以 SSE 串流跑 agent loop；每次派工寫 dispatch-log.jsonl，並以 runningCodingAgents Map 註冊執行狀態供 running/interrupt 使用。EM 流程分兩段：em-plan 產出 workList + situationReport（不執行），em-execute 才依確認的 workList 實際派工，模型優先序為 request > auto-dispatch/config.json > 預設。專案知識端（/api/coding-project/*）管理 .paaw/ context、agent-memory（依 agentId 讀寫 markdown）、以及 Code Understanding 管線（ai-initial-step：scan → feature-map → code-intelligence → test-intelligence → error-codes → c4-model；智能層由 LLM 生成、機械層由 rescanMechanicalLayer 秒級全量覆蓋且同專案 in-flight 去重）。所有使用者提供的 id 與路徑一律經 sanitizeId／safeResolve 強制擋 path traversal（錯誤碼 PATH_TRAVERSAL）。",
+    "tags": [
+      "coding-crew",
+      "agent-dispatch",
+      "code-understanding",
+      "code-intelligence",
+      "path-safety",
+      "sse",
+      "em-orchestration",
+      "agent-memory"
+    ]
+  },
+  "turns": 8,
+  "durationMs": 46590,
+  "wallMs": 46697,
+  "usage": {
+    "prompt": 232794,
+    "completion": 2622,
+    "total": 235416
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:58:43.856Z"
+}

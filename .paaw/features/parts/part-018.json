@@ -1,0 +1,25 @@
+{
+  "flesh": {
+    "name": "工程經理（EM）調度設定管理",
+    "description": "管理 Engineering Manager 這個編排者（orchestrator）的行為設定，涵蓋讀取、部分更新（deep merge）與重設為預設值三個 API。設定以專案為單位存於 {project}/.paaw/em/config.json，由路由層（coding-em-config.mjs）與設定管理層（em-config.mjs）兩部分構成，並提供解析模型、過濾可派工 agent、判斷自動執行等消費端輔助函式。",
+    "bizLogic": "EM 是編排者而非一般 crew agent，其基礎人設（prompt/頭像/問候語）仍來自 coding.em.json，本 feature 只控制編排行為。核心設定包含：派工積極度 dispatchStrategy（conservative 只規劃等人工核可 / balanced 規劃後確認再執行 / aggressive 收到目標就全跑完再回報）、autoExecute 自動執行白名單（tests 與 docs 預設可自動跑，refactor、securityFix、breakingChange 預設須詢問人）、任務拆解 taskDecomposition（maxSubtasks 上限、預設 effort、是否要估時）、reporting 報告格式與內容、per-context 模型覆寫（planning/dispatch）、可派工/封鎖 agent 清單，以及規劃時納入考量的 planningScope（git 變更、issue、task、安全發現、測試覆蓋等）。讀取時若檔案不存在會自動用 DEFAULT_EM_CONFIG 初始化並建立目錄，回傳值一律為預設值與已存覆寫的 deep merge 結果；更新採部分 patch deep merge，重設則直接寫回預設。auto-dispatch-manager 會讀此設定取得 taskDecomposition.maxSubtasks 等參數來限制自動派工行為。",
+    "tags": [
+      "engineering-manager",
+      "orchestration",
+      "config-management",
+      "auto-dispatch",
+      "deep-merge",
+      "per-project-settings"
+    ]
+  },
+  "turns": 3,
+  "durationMs": 22425,
+  "wallMs": 22532,
+  "usage": {
+    "prompt": 56252,
+    "completion": 1082,
+    "total": 57334
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:59:29.244Z"
+}

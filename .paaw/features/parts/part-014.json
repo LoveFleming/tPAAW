@@ -1,0 +1,27 @@
+{
+  "flesh": {
+    "name": "AI 助理對話後端（訊息串流、圖片上傳與提示詞管理）",
+    "description": "這個 feature 是聊天助理的伺服器端核心，由 chat 路由與 uploads 路由兩支構成。它負責對話 session 的 CRUD（存成 data/chats/*.json）、以 SSE 串流方式驅動一次對話補全、處理使用者上傳的圖片（Vision），以及讀寫聊天助理的系統提示詞檔案。",
+    "bizLogic": "對話補全走 POST /api/paaw/chat：先把訊息中的 images 路徑引用讀檔轉成 base64 data URI 組成 OpenAI vision content（訊息本身只存路徑不存 base64，避免 storage 膨脹）；接著解析 provider/model（支援 'providerId/modelId' 前綴，且含圖時自動切換到 providers.json 頂層設定的 visionModel 並關 thinking、拉高 max_tokens 至 8192）；透過 Context Engine 組 system prompt，建立含 Security Kernel 的 ToolEngine 跑 ReAct loop（maxToolRounds=5），並以 SSE 逐塊回傳 text/tool_start/tool_end/done/error，每 3 秒送 heartbeat 保活；偵測 client 斷線即中止 agent loop 停止燒 token，且中途停止不記錄 distill 半成品。聊天助理套用 CHAT_BLOCKED_TOOLS 黑名單（read_file/write_file/bash/git/browser_*/dispatch_agent 等 coding 專用工具）以隔離能力邊界。圖片上傳（POST /api/uploads）限 5MB、限 jpg/png/webp/gif，無 ruRoot 存中央 data/uploads/（90 天 purge），指定已註冊的 release unit root 則存進該 RU 的 .paaw/uploads/（視為 RU 資產、隨版控、永不 purge），並以只取 basename 防路徑穿越。系統提示詞（/api/system-prompts）讀寫 data/ai-settings/chat/ 下的 identity/tool-rules/system-prompt/guardrails/reply-rules 五個 md 檔。",
+    "tags": [
+      "chat",
+      "sse-streaming",
+      "tool-engine",
+      "vision",
+      "image-upload",
+      "system-prompts",
+      "llm",
+      "release-unit-assets"
+    ]
+  },
+  "turns": 4,
+  "durationMs": 27774,
+  "wallMs": 27877,
+  "usage": {
+    "prompt": 86046,
+    "completion": 1354,
+    "total": 87400
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:57:29.976Z"
+}

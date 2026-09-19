@@ -1,0 +1,27 @@
+{
+  "flesh": {
+    "name": "個人助理設定與工作區中樞",
+    "description": "以單一路由檔承載所有 /api/paaw/* 個人助理與應用平台設定端點：使用者檔案與助理頭像、LLM Provider/模型與 fallback 鏈設定、工作區目錄清單、UI 狀態、App Builder 規則、App/技能匯入匯出、Workflow CRUD 與執行歷史、以及 Skill 輸入宣告讀取。所有狀態以 JSON／Markdown 檔持久化於 DATA_HOME 及 PAAW_DATA_DIR 下。",
+    "bizLogic": "路由以 method+path 逐一比對分派，資料一律讀寫檔案系統而非資料庫：user.json、workspaces.json、ui-state.json、providers.json、apps/*、workflows/*。Provider 設定回傳時 apiKey 一律截斷為前 8 碼加「...」，PUT 時若傳入值以「...」結尾則視為未變更不覆蓋真 key，並支援 removedProviderIds 明確刪除、刪到 active 時自動改指第一個 provider、同步清理 fallback 鏈。App 匯入須驗證 manifest 為 paaw-app-v1 且含 app.id，會把 app 定義、skills（每個一個 SKILL.md）、app.html 與 app-data 一併還原並使快取失效。Workflow 支援 CRUD 與每個 workflow 最多保留 50 筆執行歷史（unshift 後截斷）。UI 狀態支援 PUT 全量覆蓋與 PATCH 逐鍵合併。Skill inputs 從 SKILL.md 的 YAML front-matter 解析 userInputs，先找 app 專屬技能再退回共用 skills/pool。頭像上傳存為 assistant.<ext> 並回寫 user.json 的 assistantAvatar 指向 /api/paaw/avatar/assistant。",
+    "tags": [
+      "personal-assistant",
+      "settings",
+      "llm-providers",
+      "workspaces",
+      "workflows",
+      "app-import-export",
+      "file-based-storage",
+      "ui-state"
+    ]
+  },
+  "turns": 3,
+  "durationMs": 24610,
+  "wallMs": 24715,
+  "usage": {
+    "prompt": 71435,
+    "completion": 1160,
+    "total": 72595
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:56:31.961Z"
+}

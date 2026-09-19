@@ -1,0 +1,26 @@
+{
+  "flesh": {
+    "name": "Next.js 16 非同步路由參數技能範本",
+    "description": "此 feature 為單一 TSX 範本檔，隸屬於 nextjs-backend-best-practices 技能包（skill bundle）。它以可複製的程式碼範例，示範 Next.js 16 中 params、searchParams、cookies()、headers()、draftMode() 全面改為非同步（async/await）後的正確寫法，供 AI agent 在產出或遷移 Next.js 後端程式碼時作為權威參考。",
+    "bizLogic": "範本針對 Next.js 15→16 的破壞性變更提供對照式教學：所有路由參數（params/searchParams）與 next/headers 函式（cookies/headers/draftMode）皆須 await，且使用這些 API 的元件必須改為 async 函式。內容以八個具名範例涵蓋 Page、Layout、generateMetadata、generateStaticParams 與 Route Handler（GET/DELETE），並附上遷移前後對照（BEFORE/AFTER）、正確的 TypeScript 型別（Params/SearchParams 皆為 Promise 泛型）與 codemod 自動遷移指令。它本身不含執行期業務邏輯，而是技能系統的知識資產——被 skill-suggest 檢索並注入 agent context，以避免同步存取路由參數這類 Next.js 16 常見錯誤，達成節省 token 與預防遷移錯誤的效果。",
+    "tags": [
+      "nextjs",
+      "app-router",
+      "async-params",
+      "server-components",
+      "skill-template",
+      "code-reference",
+      "nextjs-16"
+    ]
+  },
+  "turns": 4,
+  "durationMs": 23038,
+  "wallMs": 23152,
+  "usage": {
+    "prompt": 74435,
+    "completion": 981,
+    "total": 75416
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:52:05.421Z"
+}

@@ -1,0 +1,27 @@
+{
+  "flesh": {
+    "name": "自動派工控制端點（Auto Dispatch 啟停與狀態）",
+    "description": "這個 feature 是 Auto Dispatch（夜班自動派工）系統的 HTTP 控制面，由單一路由檔提供 7 個端點：start/stop/reset/preview 與 status/report/last-run。它只負責觸發、中斷、查詢與狀態檔管理，真正的多 agent 派工編排邏輯委派給 lib/auto-dispatch-manager.mjs（EM 模式）與 lib/auto-dispatch-shared.mjs（共用 context/task 掃描/報告），本身不執行派工。",
+    "bizLogic": "start 會讀 .paaw/auto-dispatch/config.json 決定模式（預設 em，另有 parallel 6-agent），寫入 status.json 標記 running 後立即回應、非同步執行派工；並用 module-level 的 _activeRuns Set 做同專案單例 guard，重複 start 回 409 防重複派工。所有 status.json 寫入都經 updateStatusFile 做原子 read-modify-write，且一旦狀態為 interrupted 就拒絕被進度更新覆蓋，避免與 timeout/error/reset 競態。核心可靠度規則是「殭屍偵測」：server 重啟後 _activeRuns 清空，若 status 仍是 running 但無活躍 dispatch，status 查詢與 stop 會自動把它降為 interrupted，讓 UI 4 秒內解鎖並允許重新 start 續跑（plan 檔不受影響）。stop 為協作式中斷（設 stopRequested，於當前 task 完成後停止），reset 為強制標記 interrupted。報告統一存到 .paaw/auto-dispatch/reports/YYYY-MM-DD.md，last-run 綜合 status.json、reports 目錄與 action-log 推算最近執行時間與建議 since 日期。派工挑單採 feature-first：只派 open 且有 spec 或 featureId 的 task，依 type 決定 agent（test→tester、docs→doc-writer、其餘→developer）並按 priority 排序。",
+    "tags": [
+      "auto-dispatch",
+      "night-shift",
+      "orchestration",
+      "http-routes",
+      "status-management",
+      "zombie-recovery",
+      "task-dispatch",
+      "concurrency-guard"
+    ]
+  },
+  "turns": 4,
+  "durationMs": 27078,
+  "wallMs": 27183,
+  "usage": {
+    "prompt": 113258,
+    "completion": 1270,
+    "total": 114528
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:57:57.159Z"
+}

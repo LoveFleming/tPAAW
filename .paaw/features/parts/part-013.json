@@ -1,0 +1,29 @@
+{
+  "flesh": {
+    "name": "共用內建瀏覽器 API（人機同框操作與即時串流）",
+    "description": "IDE Browser 分頁的後端 HTTP 介面，提供內建瀏覽器（Playwright + 系統 Chrome，headless）的狀態查詢、手動導航、即時畫面串流、輸入回注、分頁/下載/對話框管理、操作錄影回放與截圖。由單一路由檔 browser.mjs 承載 14 個 endpoint，實際狀態機與 CDP 串流邏輯落在 SHARED_LAYER 的 browser-session.mjs，環境偵測落在 browser-setup.mjs。",
+    "bizLogic": "每個 endpoint 以 release unit 路徑（ru query 或 body）解析出瀏覽器實體 key（resolveBrowserKey，slug 化；無 ru → default 向後相容），不同 RU 對應獨立 Chromium 實體（獨立 profile/登入/分頁/串流），確保多視窗開發不互相打架。核心閉環是「人機同框」：agent 與人操作同一個 page — GET /stream 以 SSE 下行 CDP screencast JPEG frames（附 scroll 狀態，節流約 20fps），POST /input 把人的滑鼠/滾輪/鍵盤/IME 文字回注到同一頁；wheel 走 scrollBy 繞開 CDP mouseWheel latching 問題。導航（/navigate、/back|forward|reload）強制補 https 前綴並經 assertSafeUrl 只放行 http/https（封鎖 file:/javascript:/data:）；native <select> 以注入面板取代 OS popup 讓 headless 串流看得見。每一步操作（agent 或 human）由 recordBrowserAction 寫入 actions.jsonl 並存 act-*.png，供 GET /actions 與 /shot 回放；跨實體會發 remote_activity 提醒人 agent 正在操作哪個瀏覽器。其餘 endpoint 管分頁（/tabs）、下載清單（/downloads）、對話框回應（/dialog）、剪貼簿讀取（/clipboard）、真人節奏 demo 開關（/visual）、環境就緒偵測（/setup）與最新截圖（/screenshot、/status）；串流採惰性生命週期（有 viewer 才開、全斷線即停、30 分鐘閒置回收實體並落盤 profile）。",
+    "tags": [
+      "browser",
+      "playwright",
+      "cdp-screencast",
+      "sse-streaming",
+      "input-injection",
+      "multi-instance",
+      "release-unit",
+      "http-api",
+      "screenshot",
+      "url-safety"
+    ]
+  },
+  "turns": 4,
+  "durationMs": 30025,
+  "wallMs": 30137,
+  "usage": {
+    "prompt": 115117,
+    "completion": 1323,
+    "total": 116440
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:57:02.098Z"
+}

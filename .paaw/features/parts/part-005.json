@@ -1,0 +1,25 @@
+{
+  "flesh": {
+    "name": "Next.js Server Actions 表單範本（技能參考素材）",
+    "description": "隸屬於 nextjs-backend-best-practices 技能包 templates 目錄下的單一教學範本檔，示範 Next.js 16 Server Actions 處理表單的完整寫法。它不是可執行的應用程式碼，而是供技能系統/開發者參照複製的最佳實務樣板。",
+    "bizLogic": "檔案以 7 個獨立範例，把 Server Actions 表單處理由淺入深攤開：基本 formData 提交、Zod safeParse 伺服端驗證並回傳 fieldErrors、useFormStatus 載入狀態、useFormState 錯誤呈現、useOptimistic 樂觀更新、檔案上傳（類型與 5MB 大小檢核）、無 JS 的漸進增強、多步驟表單、以及以記憶體 Map 做的 IP rate limit（每小時 5 次）。貫穿的規則是「永遠在伺服端驗證、絕不信任 client 輸入」，並區分 revalidateTag（背景重驗）與 updateTag（即時 read-your-writes）兩種快取更新時機；likePost 範例特別對使用者提供的路徑參數做 encodeURIComponent 以防 request-forgery。作為技能素材，它的價值在於被 AI agent 或開發者當作生成 Next.js 後端表單邏輯的權威樣板參考，本身無對外 API、無 runtime 相依。",
+    "tags": [
+      "nextjs",
+      "server-actions",
+      "skill-template",
+      "form-handling",
+      "zod-validation",
+      "reference-material"
+    ]
+  },
+  "turns": 3,
+  "durationMs": 21911,
+  "wallMs": 22016,
+  "usage": {
+    "prompt": 58394,
+    "completion": 937,
+    "total": 59331
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:53:44.124Z"
+}

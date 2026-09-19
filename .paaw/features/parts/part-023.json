@@ -1,0 +1,26 @@
+{
+  "flesh": {
+    "name": "Release Unit 技能實例管理（Skill Instance Model）",
+    "description": "把 skill 當成 Release Unit 的資產來管理：從全域模板庫（data/skills 的 physical-skill/input-prompt/building）clone 進 {ru}/.paaw/skills/{skillId}/，讓技能跟著 RU 存檔、移機、handover。由 HTTP 路由（add/sync/list/delete）、實例引擎（provision/sync/status/resolve）與 crew 綁定整合三部分構成。",
+    "bizLogic": "核心規則是「模板→實例」的跟版偵測：provision 時把模板整目錄複製進 RU 並寫 sidecar _paaw.json 記錄 sourceKind 與 templateHash；sync 時比對本地主檔（SKILL.md 或 inputs.json）的 sha256：本地 hash 等於種入 hash 視為未客製化，模板有新版就整目錄重 copy 跟版（updated）；本地 hash 不等於種入 hash 判定為已客製化（customized），一律不動以保護使用者編輯。狀態機涵蓋 synced/behind/customized/orphan(模板已刪)/broken(主檔遺失) 五態；主檔遺失但模板仍在會自動 restore。技能解析走單一路徑 readRuSkillContent，只讀 {ru}/.paaw/skills/，無全域 fallback。skillId 含斜線會被擋以防 path traversal。刪除 RU 技能前會先掃 _config.json 的 skillBindings，把該 skill 從所有 crew agent 解綁避免 dangling reference；反之 crew 綁定新 skill（updateAgentSkills/initProjectCrew）會自動 provision 對應實例進 RU。",
+    "tags": [
+      "skills",
+      "release-unit",
+      "template-sync",
+      "hash-versioning",
+      "crew-binding",
+      "paaw-assets",
+      "provisioning"
+    ]
+  },
+  "turns": 3,
+  "durationMs": 22030,
+  "wallMs": 22135,
+  "usage": {
+    "prompt": 72579,
+    "completion": 983,
+    "total": 73562
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T02:01:12.238Z"
+}

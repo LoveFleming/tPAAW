@@ -1,0 +1,26 @@
+{
+  "flesh": {
+    "name": "交接狀態彙整與交接包生成",
+    "description": "此 feature 讓新工程師或接手的 AI agent 能以最小上下文接手一個 Release Unit。由兩部分組成：coding-handover.mjs 提供 on-demand 交接包 API（bundle/generate/state），handover-state.mjs 提供持續保鮮、零 LLM 的 deterministic 交接狀態彙整器，隨 task 變動自動落地 handover-state.json 與 HANDOVER.md。",
+    "bizLogic": "交接資料全由 git 指令與 .paaw 檔案聚合而成（無 LLM）。bundle 是人按才生成的即時快照，讀 PROJECT.md、git log/status、package scripts、active tasks 與 releases 歷史；state 則以六段結構（currentState/workingPlan/changes/issues/decisions/nextAction）持續保鮮：dirty/unpushed commit 由 git 判定，workingPlan 過濾未完成 task 並用 pipeline 順序（spec→implement→review→test→qa→docs→commit）算下一階段，issues 偵測卡關（in_progress 超過 24h、repair loop、out-of-scope 檔案、blocked），decisions 解析 DECISIONS.md 的 ADR 條目。nextAction 依固定衍生鏈決定下一步：未 commit > 未 push > 進行中 phase > scope 違規待決 > 下一 pending phase > idle。state 讀取時會判過期（HEAD SHA 或 TASKS.json mtime 比 generatedAt 新即重建），並提供 2 秒 debounce 的 fire-and-forget 自動刷新。",
+    "tags": [
+      "handover",
+      "release-unit",
+      "git-aggregation",
+      "deterministic",
+      "onboarding",
+      "task-pipeline",
+      "next-action"
+    ]
+  },
+  "turns": 2,
+  "durationMs": 17116,
+  "wallMs": 17222,
+  "usage": {
+    "prompt": 40846,
+    "completion": 839,
+    "total": 41685
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:59:46.467Z"
+}

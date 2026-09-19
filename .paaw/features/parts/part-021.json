@@ -1,0 +1,25 @@
+{
+  "flesh": {
+    "name": "維運狀態與 Runbook 管理",
+    "description": "提供專案「可維運性」的 deterministic API：回報服務現況（git 狀態、npm 腳本、runbook 清單、近期 release 摘要），以及讀取與儲存 .paaw/runbook 下的維運手冊。由單一路由檔 coding-ops.mjs 實作，供前端 TroubleshootingPanel 與 Ops AI 助理診斷使用。",
+    "bizLogic": "GET /api/coding-ops/status 需帶 path 參數指向專案根目錄，並行收集：git 資訊（分支、是否 dirty、dirty 檔案清單前 15 筆、最近 5 筆 commit）、package.json 的 scripts、.paaw/runbook 下所有 .md 手冊（以第一個 # 當 title、抽取前 8 個 ## 標題，依 mtime 新到舊排序）、以及 .paaw/releases 下最新 3 筆 release 摘要。GET /api/coding-ops/runbook 依 id 讀取單份手冊內容，id 會去除 / 與 \\ 以防 path traversal，找不到回 404。POST /api/coding-ops/runbook/save 將 AI 生成或人工編輯的 runbook 寫入 .paaw/runbook/{id}.md（同樣 sanitize id、必要時建立目錄），要求 path/id/content 皆存在否則回 400。runbook 與 release 資料皆以檔案系統的 .paaw 目錄為單一事實來源，所有讀寫都需外部傳入專案 path 且驗證其存在。",
+    "tags": [
+      "ops",
+      "runbook",
+      "troubleshooting",
+      "git-status",
+      "paaw",
+      "diagnostics"
+    ]
+  },
+  "turns": 3,
+  "durationMs": 18828,
+  "wallMs": 18934,
+  "usage": {
+    "prompt": 52418,
+    "completion": 890,
+    "total": 53308
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T02:00:25.642Z"
+}

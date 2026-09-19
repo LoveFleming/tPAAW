@@ -1,0 +1,26 @@
+{
+  "flesh": {
+    "name": "Agent 執行日誌與日誌保留政策",
+    "description": "管理 AI agent 每次任務執行的追蹤紀錄與整個平台的日誌保留清理策略。由兩支 API 路由組成：agent-logs 提供任務列表／單筆完整步驟明細／per-Release-Unit 的 token 與成本統計及清理；log-retention 讀寫 llm/agent/其他三類日誌的保留天數並依政策執行 purge。",
+    "bizLogic": "每個 agent 任務以 JSONL 逐行記錄 task_start、llm_start/end、tool_start/end、thinking、error、task_end 等步驟，並在結束時依各 LLM 步驟的 prompt/completion tokens 與模型單價累加出 usage 與 costUsd，寫入最多保留 200 筆的 index.json。/api/agent-logs 依 cwd 用 resolveRuName 反解出所屬 Release Unit，ru-summary 將 live index 與已 purge 的持久化歷史（ru-cost-history.json）合併，彙總每個 RU 的 tokensIn/tokensOut/costUsd/durationMs 及 byModel 明細——這是成本核算資產，故 LLM 與 agent 日誌預設 days=0（永不刪），只有其他 runtime 垃圾日誌預設 7 天。清理時 llm 可依明確日期（before=YYYY-MM-DD）刪除、agent 依 mtime，且過期前先把成本累計進歷史避免統計歸零；purge 會跳過 janitor 管理區與活檔，並額外觸發 janitor 清理 per-RU runtime 垃圾。cwd 缺失時可透過 backfill 從 jsonl 首行回補。",
+    "tags": [
+      "agent-logs",
+      "observability",
+      "cost-tracking",
+      "log-retention",
+      "release-unit",
+      "purge",
+      "token-usage"
+    ]
+  },
+  "turns": 3,
+  "durationMs": 21505,
+  "wallMs": 21609,
+  "usage": {
+    "prompt": 66803,
+    "completion": 1008,
+    "total": 67811
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:55:20.586Z"
+}

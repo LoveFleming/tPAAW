@@ -1,0 +1,27 @@
+{
+  "flesh": {
+    "name": "Next.js 16 「use cache」快取範本教材",
+    "description": "這個 feature 是一份獨立的技能教材檔（physical-skill 下的範本），用註解式範例教導開發者如何在 Next.js 16 使用明確 opt-in 的 \"use cache\" 指令做快取。內容由 8 段可匯出的示範函式構成：元件級、函式級、頁面級快取，以及部分預渲染（PPR）、標籤失效、條件式快取與 inline 快取等情境。",
+    "bizLogic": "此檔不是應用執行邏輯，而是被 skill 系統當作參考範本提供給 agent／開發者的知識資產。核心規則來自 Next.js 16 的快取模型變更：Server Component 預設不再自動快取（相對 Next.js 15），需以 \"use cache\" 明確 opt-in；而 fetch() 仍預設快取。範例展示快取可套用於元件、函式、頁面、layout 與 inline async 函式；並用 next.tags 標記資料、以 revalidateTag()/updateTag() 失效快取，達成 read-your-writes。同時給出決策準則：昂貴運算與穩定資料應快取，即時或使用者專屬資料不應快取，並附 Next.js 15→16 的遷移對照。",
+    "tags": [
+      "nextjs",
+      "use-cache",
+      "caching",
+      "server-components",
+      "template",
+      "skill-asset",
+      "partial-prerendering",
+      "revalidation"
+    ]
+  },
+  "turns": 2,
+  "durationMs": 16894,
+  "wallMs": 17000,
+  "usage": {
+    "prompt": 35127,
+    "completion": 709,
+    "total": 35836
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:52:42.174Z"
+}

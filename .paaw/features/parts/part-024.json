@@ -1,0 +1,25 @@
+{
+  "flesh": {
+    "name": "暫存變更摘要儲存（Staged Changes Summary）",
+    "description": "管理單一 JSON 檔 `{project}/.paaw/staged-changes.json` 的讀寫與清除，用來保存目前這批待提交程式碼變更的摘要。由三支 REST 端點（GET/POST/DELETE）組成，供 Git 面板在檢視變更、提交前後同步這份摘要。",
+    "bizLogic": "所有操作都以查詢參數 `path`（專案根目錄）定位，缺少 path 一律回 400；實體檔固定落在該專案的 `.paaw/staged-changes.json`。GET 讀檔並攤平回傳（附 exists=true），檔案不存在時回 { exists:false } 而非錯誤，JSON 解析失敗則回 { exists:false, error }，永遠是 200，讓前端可安全輪詢。POST 會先 mkdir 建立 `.paaw` 目錄再把 request body 原樣寫入（縮排 2 空白），不驗證欄位結構，等於前端定義摘要形態。DELETE 在提交完成後由 Git 面板呼叫，存在則刪檔以清空本批暫存摘要，刪除失敗也靜默吞掉並回 { ok:true }。整體是一份無 schema 約束、以檔案為單一真實來源的變更暫存狀態，生命週期跟著一次 commit 週期走。",
+    "tags": [
+      "staged-changes",
+      "git-workflow",
+      "rest-api",
+      "json-file-store",
+      "paaw-metadata",
+      "commit-lifecycle"
+    ]
+  },
+  "turns": 4,
+  "durationMs": 22727,
+  "wallMs": 22827,
+  "usage": {
+    "prompt": 68642,
+    "completion": 942,
+    "total": 69584
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T02:01:35.065Z"
+}

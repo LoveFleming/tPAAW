@@ -1,0 +1,25 @@
+{
+  "flesh": {
+    "name": "外部整合設定：Plugins 與 Agentic 綁定",
+    "description": "管理 PAAW 與外部服務整合的設定 API，涵蓋兩類外掛：一般 Plugin（外部工具的 iframe/URL 嵌入）與 Agentic Binding（把外部 Agentic Platform 的 workflow 註冊成聊天可呼叫的工具）。兩者皆以 data/config 下的 JSON 檔為單一資料源，提供列表與整批儲存的端點。",
+    "bizLogic": "Plugins：GET /api/plugins 讀 plugins.json，逐筆正規化成 {id,name,icon,url,enabled}（enabled 預設 true），POST 則整批覆寫存回。Agentic Bindings：GET /api/agentic-bindings 讀 agentic-bindings.json 展平成含 defaults 的陣列，POST 整批覆寫後立即呼叫 reloadBindings() 熱重載工具註冊表；另有 GET /:id/runs 代理到綁定的 Agentic Platform（預設 http://localhost:4200）拉取執行歷史。存檔採「缺檔/壞檔回空、不自動寫預設」策略，寫入前 mkdir 建立 CONFIG_ROOT。每個 enabled 的 binding 會被 initAgenticBindings 動態組出 tool definition（menu/participants/deadline/roomId 參數）與 handler，handler 於呼叫時 POST 到外部 /api/workflows/:id/run 啟動 workflow 並回傳 runId 與輪詢 URL，讓聊天助理能以自然語言觸發外部代理工作流。",
+    "tags": [
+      "plugins",
+      "integrations",
+      "agentic-workflow",
+      "config-crud",
+      "tool-registry",
+      "external-api"
+    ]
+  },
+  "turns": 3,
+  "durationMs": 20408,
+  "wallMs": 20512,
+  "usage": {
+    "prompt": 54754,
+    "completion": 1072,
+    "total": 55826
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:55:41.098Z"
+}

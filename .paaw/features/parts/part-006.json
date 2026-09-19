@@ -1,0 +1,28 @@
+{
+  "flesh": {
+    "name": "PAAW Bridge — 沙箱外的宿主守門橋接器",
+    "description": "運行在 Docker 沙箱之外（宿主機）的獨立 HTTP 服務（預設 :4100），作為沙箱與外部世界之間的唯一守門通道。由單一檔案 paaw-bridge.mjs 承載，對外暴露三組職責：資料同步審查（/api/sync/*）、外部 API 代理（/api/tool/*）與容器生命週期管理（/api/update/*），另含 /health 健康檢查。",
+    "bizLogic": "SYNC 審查閘門：透過 docker cp 把沙箱容器內 /paaw/data/<subPath> 拷到宿主暫存區，與宿主 baseline data 目錄做 diff（優先用系統 diff -rq，失敗則退回 sha256 逐檔雜湊比對），產生 added/modified/removed 變更清單存為 pending 請求；人工檢視 diff 後 approve 才會把變更 copyFile/rm 寫入宿主 data，reject 則清掉暫存 — 沙箱永遠不能直接寫宿主資料，必經人工核准。TOOL 代理：沙箱呼叫 /api/tool/proxy 才能連外部 API，API 金鑰只存在宿主的 TOOL_TOKENS_FILE（.tool-tokens.json）並依目標 hostname 自動注入 Authorization header，金鑰永不進入沙箱；/api/tool/tokens 只回傳已註冊 hostname 不洩漏金鑰值，且代理端點受 BRIDGE_TOKEN Bearer 驗證保護。UPDATE 管理：以 docker restart/stop/start/rebuild/status 管理 paaw 容器生命週期。設計核心是信任邊界隔離 — 敏感憑證與宿主檔案系統寫入權留在沙箱外，沙箱只能透過受控代理與人工審查閘門與外界互動。",
+    "tags": [
+      "bridge",
+      "docker",
+      "sandbox-isolation",
+      "sync-gate",
+      "api-proxy",
+      "secret-management",
+      "human-review",
+      "container-management",
+      "security-boundary"
+    ]
+  },
+  "turns": 2,
+  "durationMs": 20258,
+  "wallMs": 20372,
+  "usage": {
+    "prompt": 40336,
+    "completion": 886,
+    "total": 41222
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:54:04.496Z"
+}

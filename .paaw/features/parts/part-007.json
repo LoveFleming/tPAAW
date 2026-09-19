@@ -1,0 +1,27 @@
+{
+  "flesh": {
+    "name": "Skill / Workflow / Agent 執行運行時與 API",
+    "description": "這個 feature 是 PAAW 把 AI agent、skill、workflow 實際跑起來的統一運行時與其對外 API。它由核心執行引擎（PAAW Agent Loop 多輪 tool-calling、共用 Tool Registry、對話自動壓縮/截斷、依賴與 feature 邊界注入、專案快照）與路由層（workflow.mjs 的 skill/tool/workflow 執行與 CRUD、crew.mjs 的 skill 測試與 agent-run 串流、apps.mjs 的 app 建立與 report 訓練/發佈）組成。",
+    "bizLogic": "對外提供兩種執行模式：Full Agent Loop（多輪、含 read_file/bash/grep 等探索工具、有 maxTurns 與 timeout）用於 skill-test 與 agent-run 串流；以及 Skill Mini Loop（全 context 預載 SKILL.md 與整個 skill 目錄，只掛 run_script 一個工具、無 turn 上限、靠 timeout 兜底）用於 workflow-trigger 與 skill-exec。Workflow 執行時會過濾出 skill/tool 節點做拓撲排序（topoSort），依 inputMapping 用 {{key}} 樣板把前一節點 output 串到下一節點，tool 節點走 toolRegistry.getHandler、skill 節點走 Mini Loop，若 end 節點 outputTarget 為 chat 則把結果回送 workflow-output-chat。所有 LLM 呼叫從 providers.json 解析 provider/model（支援 providerId/modelId 格式與 *Fallback 備援），長對話在超過 context window 比例（觸發 0.55、尾段保留 0.35）時自動 LLM 摘要壓縮。run_script 強制腳本路徑不得逃出 skill 目錄、限定 python3/node/bash/tsx 執行器並設 30s timeout；skill-config 端點已 deprecated，改寫入 agent-config.json 的 timeoutSeconds/maxTurns。report-train/report-publish 負責 app 產出的訓練與發佈流程。",
+    "tags": [
+      "agent-runtime",
+      "skill-execution",
+      "workflow-engine",
+      "tool-calling",
+      "llm-orchestration",
+      "context-compaction",
+      "topological-sort",
+      "sse-streaming"
+    ]
+  },
+  "turns": 4,
+  "durationMs": 30520,
+  "wallMs": 30627,
+  "usage": {
+    "prompt": 134633,
+    "completion": 1635,
+    "total": 136268
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:54:35.123Z"
+}

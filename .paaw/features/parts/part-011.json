@@ -1,0 +1,28 @@
+{
+  "flesh": {
+    "name": "AI 設定與記憶蒸餾中心",
+    "description": "統一管理平台所有 AI 的設定與知識沉澱：一端是 AI Settings（各功能的系統提示詞檔案、Provider 供應商設定、Agent 執行設定、使用者模型偏好、Workspace 目錄），另一端是 Distill 記憶蒸餾引擎（把每日對話/CLI/Cron 等原始紀錄用 LLM 精煉成結構化知識）。兩者共用 data/ai-settings/ 目錄，蒸餾器的提示詞就存放在其中。",
+    "bizLogic": "AI Settings 以固定分類（chat、crew、skill-builder、app-builder、notes、mindmap、coding、domain-ai、project、distill）為骨架，但每類底下的 .md 提示詞檔全動態 CRUD，有 subcategory（如 skill-builder 的 build/test）時會掃描子目錄並加前綴；建檔時強制 .md 副檔名、擋 .. 路徑穿越、驗證 subcategory 合法性。Provider 設定寫入 config/providers.json、Agent 設定寫 agent-config.json、使用者偏好合併進 config/user.json 的 preferences（承載各功能的模型覆寫），Workspace 目錄則以 workspaces.json 加上預設 PAAW 路徑合併回傳。Distill 引擎走 Collectors→Registry→Distillers→Store 管線：record() 依來源與 enabled 狀態把互動追加成每日 JSONL（raw/{source}/{date}.jsonl），distillAll() 逐日檢查若尚未產出 knowledge/{source}/{date}.md 就呼叫 LLM 蒸餾——組合的系統提示由 contextEngine base + distill 系統提示 + 各來源提示疊成，內容依來源型別（chat/vibe/cron）格式化、超過 maxLogSizeForLLM 截斷、以 maxEntriesPerDistill 取尾段，蒸餾用 disableThinking 省額度；蒸餾失敗則保留原始摘要。config 含 autoDistill 排程（cron 表達式）與 keepRawDays 保留天數，並提供 raw/knowledge 的列表、讀取、刪除與統計。",
+    "tags": [
+      "ai-settings",
+      "system-prompts",
+      "provider-config",
+      "user-preferences",
+      "memory-distillation",
+      "llm",
+      "knowledge-base",
+      "prompt-management",
+      "cron"
+    ]
+  },
+  "turns": 3,
+  "durationMs": 26044,
+  "wallMs": 26148,
+  "usage": {
+    "prompt": 86603,
+    "completion": 1203,
+    "total": 87806
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:56:07.246Z"
+}

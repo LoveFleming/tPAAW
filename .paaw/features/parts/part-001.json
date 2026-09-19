@@ -1,0 +1,26 @@
+{
+  "flesh": {
+    "name": "Next.js 16 非同步 Params 頁面範本",
+    "description": "此 feature 是一個 Next.js 16 App Router 頁面的程式碼範本檔，隸屬於「nextjs-backend-best-practices」physical skill 的 templates 目錄。它示範在 Next.js 16 中 params/searchParams 改為 Promise 後的正確頁面寫法，供 AI agent 或開發者在生成/遷移 Next.js 頁面時作為可貼上的骨架參考。",
+    "bizLogic": "範本以一個 async 頁面元件 PostPage 為核心，強制展示 Next.js 16 的破壞性變更：params 與 searchParams 皆為 Promise，必須先 await 才能取值。內容涵蓋動態路由頁面的完整生命週期——await 解構 id/query、server-side fetch 取資料、資料缺失時呼叫 notFound()、以及 generateMetadata（同樣 async）、generateStaticParams 的靜態生成寫法，並以 dynamic 與 revalidate 常數設定渲染/快取行為。檔尾以註解列出 Next.js 15→16 的遷移對照（cookies/headers 也改為 async）與官方 codemod 指令。此檔不含執行期業務資料，屬教學型範本，資料形態即 Next.js 頁面模組的標準 export 契約（default 元件 + metadata/params 產生器 + route segment config）。",
+    "tags": [
+      "nextjs",
+      "app-router",
+      "template",
+      "async-params",
+      "skill",
+      "code-scaffold",
+      "server-components"
+    ]
+  },
+  "turns": 3,
+  "durationMs": 19648,
+  "wallMs": 19753,
+  "usage": {
+    "prompt": 51215,
+    "completion": 867,
+    "total": 52082
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:52:25.174Z"
+}

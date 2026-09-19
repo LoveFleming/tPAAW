@@ -1,0 +1,25 @@
+{
+  "flesh": {
+    "name": "程式碼問題追蹤 API（Coding Issues）",
+    "description": "以 HTTP 路由提供 .paaw/ 專案的問題（Issue）追蹤後端，管 issue 的建立、查詢、更新、刪除、加註記與統計。issues 為問題／需求紀錄（記錄、分類、追蹤），與 tasks（可派工執行的工作項）分屬不同端點；所有資料以每專案的 .paaw/issues/ISSUES.json 檔為單一儲存來源。",
+    "bizLogic": "Issue 資料模型含 id（ISS-NNN 三位零補流水號，由現存最大號 +1 產生）、type（bug/security/requirement/enhancement）、status（open/in-progress/resolved/closed/wontfix）、priority（critical/high/medium/low）、severity、labels、linkedTaskIds、relatedFiles、notes 與時間戳。所有請求必須帶 path query 指向專案根目錄，資料讀寫落在 <path>/.paaw/issues/ISSUES.json；更新時 status 轉為 resolved/closed 會自動補 resolvedAt，轉回 open/in-progress 則清空 resolvedAt。列表 GET 支援 status/priority/label/type/search 過濾，並依 status 序（open→wontfix）再依 priority 序（critical→low）排序。import-known 端點會讀取 PaawProject 解析出的 KNOWN-ISSUES.md，解析 ### KI-N 標題與影響／workaround／優先級／相關欄位轉為 issue（KI- 前綴改寫為 ISS-），以 id 去重後只匯入新項目。stats 端點回傳依狀態、優先級、類型的彙總計數。",
+    "tags": [
+      "issue-tracking",
+      "crud-api",
+      "paaw",
+      "json-storage",
+      "known-issues-import",
+      "bug-management"
+    ]
+  },
+  "turns": 3,
+  "durationMs": 20134,
+  "wallMs": 20241,
+  "usage": {
+    "prompt": 59831,
+    "completion": 931,
+    "total": 60762
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T02:00:06.708Z"
+}

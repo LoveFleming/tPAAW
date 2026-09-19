@@ -1,0 +1,26 @@
+{
+  "flesh": {
+    "name": "Next.js 16 平行路由範例教材（技能知識庫）",
+    "description": "本 feature 只含一份存放在技能知識庫（data/skills/physical-skill/nextjs-backend-best-practices/templates/）內的 Next.js 平行路由（Parallel Routes）程式碼範例教材。它不是平台的執行程式，而是供 AI agent 或開發者在寫 Next.js 後端／App Router 程式時可參照、複製的最佳實踐樣板集合。",
+    "bizLogic": "檔案以註解區塊分成七個獨立範例，示範 App Router 的平行路由用法：Modal＋主內容、多面板 Dashboard、商品頁＋評論／推薦、Auth 閘門內容、依 slot 條件渲染、loading.tsx 載入狀態與 error.tsx 錯誤邊界。核心規則是 Next.js 16 的破壞性變更——每個 @folder 平行插槽都『必須』提供 default.tsx，否則 client 端軟導航（soft navigation）時未匹配的插槽會報錯；範例並附 Next.js 15→16 遷移指南與 default.tsx 的四種常見寫法（return null／骨架／fallback／redirect）。資料形態純為 React/TSX 元件原始碼字串，作為技能模板被讀取而非被執行，透過 layout 的 children 與具名 slot props 傳遞 React 節點。",
+    "tags": [
+      "nextjs",
+      "app-router",
+      "parallel-routes",
+      "skill-template",
+      "reference-code",
+      "best-practices",
+      "tsx"
+    ]
+  },
+  "turns": 2,
+  "durationMs": 19255,
+  "wallMs": 19368,
+  "usage": {
+    "prompt": 35764,
+    "completion": 778,
+    "total": 36542
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:53:01.542Z"
+}

@@ -1,0 +1,26 @@
+{
+  "flesh": {
+    "name": "檔案系統與 Git 操作服務（含文件覆蓋率追蹤）",
+    "description": "此 feature 是 Coding IDE 的底層檔案與版控服務層，涵蓋兩塊：(1) vibe-fs 提供檔案列目錄/讀/寫、原生目錄選取對話框、ripgrep 全域內容搜尋，以及一整套 git 操作（status/log/diff/blame/add/unstage/commit/push/pull/unpushed 及 AI 產生 commit message 與 review 意見）；(2) 建立在 git plumbing 之上的『文件覆蓋率』追蹤，記錄哪些 commit 已被 Doc Writer 寫過文件、找出尚未寫文件的 commit。",
+    "bizLogic": "檔案寫入以絕對路徑 resolve 後自動建立父目錄再寫入；git 操作統一透過 runGit（spawn git，15 秒 timeout）執行，porcelain v1 的 XY 兩欄分別代表 staged/unstaged 狀態並據此分類 staged/unstaged/untracked。unpushed queue 反映『agent 只 commit 不 push、由人 push』的流程——用 upstream 的 rev-list --left-right 算 ahead/behind，無 upstream 時整支分支視為待推。commit diff 必須用 `commit^!` 同一參數（拆開會被當獨立 revision 導致空 diff）。文件覆蓋率狀態存於 {project}/.paaw/doc-coverage.json，以 lastDocumentedCommit 為水位線，getUndocumentedCommits 用 `lastDocumentedCommit..HEAD` 撈出未寫文件的 commit（首次則取最近 10 筆），documentedCommits 只保留最後 200 筆。AI commit message 與 review 走 LLM（關閉 thinking、失敗有 fallback 分析），確保 reasoning model 不會把 token 用光導致空回應。",
+    "tags": [
+      "filesystem",
+      "git",
+      "doc-coverage",
+      "code-search",
+      "commit-message",
+      "code-review",
+      "backend-api"
+    ]
+  },
+  "turns": 3,
+  "durationMs": 22750,
+  "wallMs": 22856,
+  "usage": {
+    "prompt": 67228,
+    "completion": 1129,
+    "total": 68357
+  },
+  "degraded": false,
+  "finishedAt": "2026-09-14T01:59:06.712Z"
+}
