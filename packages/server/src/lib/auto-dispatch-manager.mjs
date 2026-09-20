@@ -678,12 +678,35 @@ export async function executeEMSession(opts = {}) {
     console.log(`[AutoDispatch] Phase 3: [${i + 1}/${execList.length}]${subtaskId ? ` ${subtaskId}` : ''} → ${task.agent}${agentModel ? ` (model: ${agentModel})` : ""}: ${task.task.slice(0, 80)}...`);
     sendSSE("task_start", { index: i + 1, total: execList.length, subtaskId, ...task });
 
-        const result = await a2aCallAgent(baseUrl, task.agent, task.task, {
+        // ── Deterministic 驗收 + 假成功自動重派（2026-09-20 Fleming；lib/dispatch-verifier.mjs 共用）──
+    // Phase 3 主路徑（A2A 呼叫）。retry 在 client 端做（重呼叫一次 a2aCallAgent），不動 A2A stream 協議
+    const { takeDispatchSnapshot: _tds, verifyDispatchWork: _vdw, dispatchRetrySuffix: _drs } = await import("./dispatch-verifier.mjs");
+    const _verifyAgents = new Set(["developer", "tester", "doc-writer"]);
+    const _doVerify = _verifyAgents.has(task.agent);
+    const _snap = _doVerify ? await _tds(rootDir) : null;
+
+    let result = await a2aCallAgent(baseUrl, task.agent, task.task, {
       cwd: rootDir,
       timeout: 7200000, // 2h per sub-task
       modelOverride: agentModel || dispatchModel,
       fallbackModels: agentFallbacks,
     });
+
+    let _verdict = { pass: true, why: "role-skip-verify" };
+    if (_doVerify) {
+      _verdict = await _vdw(rootDir, _snap);
+      if (!_verdict.pass) {
+        sendSSE("info", { message: `⚠️ [${task.agent}] 宣稱完成但零 commit 零 diff（假成功）— 驗收退回，自動重派第 2 次` });
+        console.log(`[AutoDispatch:${task.agent}] deterministic verify FAIL (${_verdict.why}) — auto retry once`);
+        result = await a2aCallAgent(baseUrl, task.agent, task.task + _drs(_verdict, 1), {
+          cwd: rootDir,
+          timeout: 7200000,
+          modelOverride: agentModel || dispatchModel,
+          fallbackModels: agentFallbacks,
+        });
+        _verdict = await _vdw(rootDir, _snap);
+      }
+    }
 
     const _endTime = Date.now();
     const _durationMs = _endTime - _startTime;
@@ -706,7 +729,7 @@ export async function executeEMSession(opts = {}) {
       } catch {}
     }
 
-    if (result.success) {
+    if (result.success && _verdict.pass) {
       console.log(`[AutoDispatch] Phase 3: [${i + 1}/${execList.length}] ✅ ${task.agent} done (${result.content.length} chars, ${(_durationMs / 1000).toFixed(0)}s, ${_tokens.total} tokens)`);
       sendSSE("task_done", { index: i + 1, agent: task.agent, subtaskId, preview: result.content.slice(0, 200), durationMs: _durationMs, tokens: _tokens, costUsd: _cost });
 
@@ -715,7 +738,7 @@ export async function executeEMSession(opts = {}) {
       await _syncTaskAfterDispatch(rootDir, _taskRef, true, `subtaskId=${subtaskId || 'n/a'}`);
     } else {
       const timedOut = _durationMs >= 7200000; // 2h
-      const stStatus = timedOut ? 'timeout' : 'fail';
+      const stStatus = !_verdict.pass ? 'fake-success' : (timedOut ? 'timeout' : 'fail');
       console.log(`[AutoDispatch] Phase 3: [${i + 1}/${execList.length}] ❌ ${task.agent} ${stStatus}: ${result.error}`);
       sendSSE("task_error", { index: i + 1, agent: task.agent, subtaskId, error: result.error, status: stStatus });
 
@@ -841,15 +864,24 @@ export async function runParallelSession(opts = {}) {
       (actionLogText ? `\n\n## Recent Action Log\n${actionLogText}` : "");
 
     try {
-      const result = await runAgentLoop({
-        prompt: taskPrompt,
+      // ── Deterministic 驗收 + 假成功自動重派（2026-09-20 Fleming；lib/dispatch-verifier.mjs 共用）──
+      // 病灶：大檔任務 turn 用盡收尾硬報成功（TASK-003 兩次零 commit 零 diff）。
+      // 只驗「改碼角色」；architect/qa 等產出型角色報告檔本身就是 diff，不誤殺。
+      const { takeDispatchSnapshot, verifyDispatchWork, dispatchRetrySuffix } = await import("./dispatch-verifier.mjs");
+      const VERIFY_ROLES = new Set(["developer", "tester", "doc-writer"]);
+      const doVerify = VERIFY_ROLES.has(role);
+      const snap = doVerify ? await takeDispatchSnapshot(rootDir) : null;
+      let verdict = { pass: true, why: "role-skip-verify" };
+
+      const runArgs = {
         cwd: rootDir,
         rootDir: PAAW_ROOT,
         systemPrompt,
         agentId: config.crewId,
         model: nsModel || effectiveModel,
         fallbackModels: nsFallbacks,
-        maxTurns: 15,
+        // 2026-09-20：15 turns 大任務必被砍斷（假成功幫兇）— 對齊 dispatch endpoint 上限
+        maxTurns: 300,
         timeout: 0, // no timeout — let agent complete task
         featureBoundary: ctx.featureBoundary ? {
           allowedFiles: ctx.allowedFiles || [],
@@ -864,7 +896,23 @@ export async function runParallelSession(opts = {}) {
             sendSSE("boundary_violation", { role, file: event.file, tool: event.tool });
           }
         },
-      });
+      };
+
+      let result = await runAgentLoop({ prompt: taskPrompt, ...runArgs });
+
+      if (doVerify) {
+        verdict = await verifyDispatchWork(rootDir, snap);
+        if (!verdict.pass) {
+          sendSSE("info", { message: `⚠️ [${role}] 宣稱完成但零 commit 零 diff（假成功）— deterministic 驗收退回，自動重派第 2 次` });
+          console.log(`[AutoDispatch:${role}] deterministic verify FAIL (${verdict.why}) — auto retry once`);
+          result = await runAgentLoop({ prompt: taskPrompt + dispatchRetrySuffix(verdict, 1), ...runArgs });
+          verdict = await verifyDispatchWork(rootDir, snap);
+          if (!verdict.pass) {
+            // 兩次零證據 → 判 FAILED（不自動 close；Fleming：再失敗再判 fail，交 EM/人協調）
+            return { role, status: "failed", fakeSuccess: true, codename: crew?.codename || role, result: typeof result === "string" ? result.slice(-500) : "", verdict };
+          }
+        }
+      }
 
       // Read agent's report file if it wrote one
       const reportFile = join(rootDir, ".paaw", "auto-dispatch", `${role}-report.md`);

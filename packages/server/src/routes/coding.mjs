@@ -905,24 +905,11 @@ export default async function projectRoute(req, res) {
       } catch {}
 
       // ── Deterministic 驗收基準（2026-09-20 Fleming：EM 派工假成功偵測）──
-      // 原病灶：agent 宣稱完成但零 commit 零 diff，post-dispatch 仍無條件 close task。
-      // 驗收信號（純 git 事實，不信 agent 嘴）：新 commit 或 working diff（排除 .paaw//data/config 峖音）。
-      // 只對帶 taskId 的開發派工驗收（純分析/問答 dispatch 不驗，避免誤殺）。
-      const gitOut = async (args) => {
-        try { const r = await shellExec(`git ${args}`, { cwd: projRoot }); return `${r.stdout || ""}${r.stderr || ""}`; } catch { return ""; }
-      };
-      const preHead = (await gitOut("rev-parse HEAD")).trim();
-      const verifyWork = async () => {
-        const postHead = (await gitOut("rev-parse HEAD")).trim();
-        if (postHead && preHead && postHead !== preHead) return { pass: true, why: "new-commit" };
-        const st = await gitOut("status --porcelain -uall"); // -uall：untracked 展開到檔案級，否則整目錄一列（?? .paaw/）噪音過濾會失效
-        // 只排除 runtime 自動寫檔峖音（chat/session/memory/log/config）；
-        // .paaw/specs、.paaw/tasks 等 agent 真產出不排除（否則 architect 寫 spec 會被誤殺）
-        const NOISE_RE = /\s\.paaw\/(chats|coding-memory|agent-memory|action-log|memory|sessions|logs)\/|\s\.paaw\/project\/PROJECT\.md|\sdata\/config\//;
-        const changed = st.split("\n").filter(l => l.trim() && !NOISE_RE.test(l));
-        if (changed.length > 0) return { pass: true, why: "working-diff", files: changed.slice(0, 5) };
-        return { pass: false, why: "no-commit-no-diff" };
-      };
+      // 共用模組 lib/dispatch-verifier.mjs — 三條派工路徑（dispatch endpoint /
+      // auto-dispatch / dispatch_agent tool）同一套驗收規則
+      const { takeDispatchSnapshot, verifyDispatchWork, dispatchRetrySuffix } = await import("../lib/dispatch-verifier.mjs");
+      const verifySnap = await takeDispatchSnapshot(projRoot);
+      const verifyWork = () => verifyDispatchWork(projRoot, verifySnap);
 
       let attempts = 1;
       let loopStats = await runAgentLoopStream({
@@ -949,7 +936,7 @@ export default async function projectRoute(req, res) {
           systemPrompt: fullSystemPrompt,
           messages: [
             { role: "system", content: fullSystemPrompt },
-            { role: "user", content: `${task}\n\n⚠️【Deterministic 驗收退回（第 1 次嘗試失敗）】你上一輪宣稱完成，但程式驗收發現：零新 commit、零 working diff — 任務沒有實際產出。請重做，並遵守：\n1. 大檔案（>1000 行）分塊處理：先 grep 定位、逐段 edit_file，不要一次 read_file 全文\n2. 每完成一個區塊就驗證（grep 確認刪除/修改生效）\n3. 完成後必須留下實際產出（commit 或 working tree 變更）\n4. 若真的做不到，誠實回報做不到與原因 — 絕不宣稱成功` },
+            { role: "user", content: `${task}${dispatchRetrySuffix(verdict, 1)}` },
           ],
           cwd: projRoot,
           featureBoundary: dispatchFeatureBoundary,

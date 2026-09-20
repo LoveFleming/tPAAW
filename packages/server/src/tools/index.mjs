@@ -1613,17 +1613,36 @@ function buildHandlers(apps) {
       // Build system prompt for the target agent
       const systemPrompt = await buildSystemPrompt(agent.agentId, { cwd: projRoot });
 
-      const result = await runAgentLoop({
-        prompt: task,
+      // ── Deterministic 驗收 + 假成功自動重派（2026-09-20 Fleming；lib/dispatch-verifier.mjs 共用）──
+      // EM chat 派工主路徑。病灶：大檔任務（如 3900 行 CodingIDE 手術）在緊 maxTurns 下
+      // 做不完 → 收尾硬報成功（TASK-003 兩次零 commit 零 diff）。
+      const { takeDispatchSnapshot, verifyDispatchWork, dispatchRetrySuffix } = await import("../lib/dispatch-verifier.mjs");
+      const VERIFY_AGENTS = new Set(["developer", "tester", "doc-writer"]);
+      const doVerify = VERIFY_AGENTS.has(agentId);
+      const snap = doVerify ? await takeDispatchSnapshot(projRoot) : null;
+      // 2026-09-20：30 turns 大任務必被砍斷 — 對齊 dispatch endpoint（Fleming 9/17：300）
+      const _dispatchRunArgs = {
         systemPrompt,
         cwd: projRoot,
         agentId: agent.agentId,
-        maxTurns: 30,
+        maxTurns: 300,
         timeout: 0, // no timeout — dispatched tasks may need extended time
         rootDir: projRoot,
-      });
+      };
 
-      const success = result.success;
+      let result = await runAgentLoop({ prompt: task, ..._dispatchRunArgs });
+
+      let verdict = { pass: true, why: "role-skip-verify" };
+      if (doVerify) {
+        verdict = await verifyDispatchWork(projRoot, snap);
+        if (!verdict.pass) {
+          console.log(`[dispatch_agent:${agentId}] deterministic verify FAIL (${verdict.why}) — auto retry once`);
+          result = await runAgentLoop({ prompt: task + dispatchRetrySuffix(verdict, 1), ..._dispatchRunArgs });
+          verdict = await verifyDispatchWork(projRoot, snap);
+        }
+      }
+
+      const success = result.success && verdict.pass;
       const content = result.content || "";
       // 2026-09-07：preview 只回 500 字給呼叫者；超長輸出一律落地 dispatch-outputs，附檔案指標
       // （之前 QA 14 findings 被截斷，EM 只能分批重撈）
@@ -1668,9 +1687,9 @@ function buildHandlers(apps) {
       // Execution plan update removed (feature-first)
 
       if (success) {
-        return { text: `✅ ${name} (${agentId}) 完成任務！\n\n${preview}`, taskId };
+        return { text: `✅ ${name} (${agentId}) 完成任務！（deterministic 驗收 PASS：${verdict.why}${verdict.files?.length ? ` — ${verdict.files.slice(0, 3).join(", ")}` : ""}）\n\n${preview}`, taskId };
       } else {
-        return { text: `❌ ${name} (${agentId}) 執行失敗：\n\n${preview}`, taskId, error: true };
+        return { text: `❌ ${name} (${agentId}) 執行失敗${!verdict.pass ? `（deterministic 驗收 FAILED：${verdict.why} — 兩次皆零 commit 零 diff，判定假成功，請 EM 拆小任務重派或回報人類）` : ""}：\n\n${preview}`, taskId, error: true };
       }
     } catch (err) {
       // Mark task as failed
