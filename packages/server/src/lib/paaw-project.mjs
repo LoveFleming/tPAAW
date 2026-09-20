@@ -238,9 +238,10 @@ export class PaawProject {
     const parts = [];
 
     if (ctx.project) {
-      // placeholder 偵測（2026-09-20）：Initialize 空模板不算已初始化 — 明確標讓 agent 看下一節 Feature Map
+      // placeholder 不輸出內容（省 token、避免誤導）；auto-draft/人寫內容照常輸出（2026-09-20 Fleming：不想維護 PROJECT.md，專案知識主軸 = feature map）
       const isPlaceholder = ctx.project.includes("(待補充)") || ctx.project.trim().length < 400;
-      parts.push(`\n=== 專案概覽 (PROJECT.md)${isPlaceholder ? "（placeholder，人類尚未填寫 — 現況看下方 Feature Map）" : ""} ===\n${ctx.project}`);
+      if (isPlaceholder) parts.push("\n=== 專案概覽 ===\n（PROJECT.md 未填寫 — 專案現況直接看下方 Feature Map）");
+      else parts.push(`\n=== 專案概覽 (PROJECT.md${ctx.project.includes("🤖 CU 自動生成初稿") ? "，CU 自動生成" : "，人寫"}) ===\n${ctx.project}`);
     }
     // Feature Map: feature → files（保留，加 Hint）
     if (ctx.featureMap && ctx.featureMap.length > 0) {
@@ -873,7 +874,9 @@ function _isPlaceholderProjectMd(content) {
 export async function maybeWriteProjectDraft(root) {
   const paaw = createPaawProject(root);
   const existing = await paaw.readFile("PROJECT.md");
-  if (existing && !_isPlaceholderProjectMd(existing)) {
+  // auto-draft 簽名 = 機器生成、重跑 CU 跟著 feature map 更新；人編輯過（無簽名、非 placeholder）永不覆蓋
+  const isAutoDraft = existing && existing.includes("🤖 CU 自動生成初稿");
+  if (existing && !isAutoDraft && !_isPlaceholderProjectMd(existing)) {
     return { written: false, reason: "human-content" };
   }
 
@@ -915,7 +918,7 @@ export async function maybeWriteProjectDraft(root) {
   const L = [];
   L.push(`# ${root.split(/[\\/]/).pop() || pkg?.name || "Project"}`);
   L.push("");
-  L.push("> 🤖 CU 自動生成初稿（deterministic — 零 LLM token）。人類可直接編輯；編輯後 CU 不再覆蓋。");
+  L.push("> 🤖 CU 自動生成初稿（deterministic — 零 LLM token）。重跑 CU 會覆蓋本檔；要自己維護就先刪除這行。");
   L.push(`> 生成：${new Date().toISOString().slice(0, 16).replace("T", " ")}｜Feature Map：${features.length} features（${files.length} 檔已映射）`);
   L.push("");
   L.push("## Quick Facts");
@@ -946,5 +949,5 @@ export async function maybeWriteProjectDraft(root) {
 
   const draft = L.join("\n") + "\n";
   await paaw.writeFile("PROJECT.md", draft);
-  return { written: true, reason: existing ? "placeholder-replaced" : "created", features: features.length, files: files.length };
+  return { written: true, reason: existing ? (isAutoDraft ? "auto-updated" : "placeholder-replaced") : "created", features: features.length, files: files.length };
 }
