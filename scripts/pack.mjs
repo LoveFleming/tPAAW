@@ -188,10 +188,8 @@ for (const f of SEED_CONFIG_ALLOW) {
   const src = join(ROOT, "data/config", f);
   if (existsSync(src)) { cpSync(src, join(STAGE, "data-seed/config", f)); seeded++; }
 }
-if (seeded < 2000) {
-  console.error(`✗ 產品資產只有 ${seeded} 檔（預期 >2000）— data/ 不完整或缺目錄，拒絕打包`);
-  process.exit(1);
-}
+// 2026-09-20 Fleming：移除 seeded < 2000 硬門檻 — 公司 data/ 刻意不含 semgrep-rules/golang
+// 169 檔（2026-09-08 要求移除），門檻會誤擋公司打包。缺料風險由 self-check + zip 抽查把關。
 console.log(`  產品資產 overlay：${seeded} 檔（prompts/semgrep-rules/skills/apps/workflows/config 出廠預設）`);
 
 // ---------- 3.5 self-check：出貨包不該出現的東西 ----------
