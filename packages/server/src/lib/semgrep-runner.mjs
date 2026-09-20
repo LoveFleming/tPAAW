@@ -107,6 +107,14 @@ function _semgrepEnv() {
       } catch {}
     }
     env.PATH = pathParts.join(";");
+  } else {
+    // Linux/macOS：pipx / pip --user 裝在 ~/.local/bin — nohup/systemd 啟動的 server
+    // 不吃 .bashrc 的 PATH，照 Windows Python Scripts 模式自動補（2026-09-20 公司 Linux：裝了也說找不到）
+    const localBin = join(process.env.HOME || "", ".local", "bin");
+    if (process.env.HOME && existsSync(localBin) && !(env.PATH || "").split(":").includes(localBin)) {
+      env.PATH = `${localBin}:${env.PATH || ""}`;
+      LOG("_semgrepEnv: added ~/.local/bin to PATH:", localBin);
+    }
   }
   LOG("_semgrepEnv: PYTHONUTF8=", env.PYTHONUTF8, "PYTHONIOENCODING=", env.PYTHONIOENCODING);
   return env;
