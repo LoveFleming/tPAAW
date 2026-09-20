@@ -72,7 +72,7 @@ const ROOT_EXCLUDES = [
   { first: "data" }, { first: ".openclaw" }, { first: "backups" },
   { first: "dist" }, { first: "storage" }, { first: "tmp" }, { first: "test-results" }, { first: "tests" }, { first: "coverage" }, { first: "nul" },
   { first: "log" },  // 2026-09-06 三目錄架構：runtime 垃圾跟 code 走，開機自建，永不打包
-  { file: ".env" }, { file: ".env.dev" },
+  { file: ".env" }, { file: ".env.dev" }, { file: ".env.prod" },
   { path: "packages/data" }, { path: "packages/server/data" },
   { prefix: "docs-paaw-sync-" },
   { file: "AGENTS.md" }, { file: "SOUL.md" }, { file: "USER.md" }, { file: "IDENTITY.md" }, { file: "HEARTBEAT.md" }, { file: "TOOLS.md" },
