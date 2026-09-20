@@ -80,7 +80,9 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   // ── Recent Dispatch (health tasks) ──
     // ── Chat State ──
   const EM_CHAT_ID = "coding.em";
-  const [messagesLoaded, setMessagesLoaded] = useState(false);
+  // 2026-09-20：loadedForRoot 取代 messagesLoaded — RU 切換（rootPath 變）要重載對話。
+  // 舊的一次性 flag 載入後永遠 true，換 RU 時不會重載（Fleming 回報：chat 不隨 RU 切換）
+  const [loadedForRoot, setLoadedForRoot] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -94,28 +96,33 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Load persisted EM chat on mount
+  // Load persisted EM chat — rootPath 變（換 RU）就重載；載入中又換 RU 的舊回應直接丢掉
   useEffect(() => {
-    if (!rootPath || messagesLoaded) return;
+    if (!rootPath || loadedForRoot === rootPath) return;
+    let cancelled = false;
     (async () => {
+      let msgs: ChatMessage[];
       try {
         const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(EM_CHAT_ID)}?cwd=${encodeURIComponent(rootPath)}`);
         const data = await res.json();
-        if (data.messages?.length > 0) {
-          setMessages(data.messages);
-        } else {
-          setMessages([{ role: "assistant", content: "🎖️ 我是陳哲宇 Ethan，EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() }]);
-        }
+        msgs = data.messages?.length > 0
+          ? data.messages
+          : [{ role: "assistant", content: "🎖️ 我是陳哲宇 Ethan，EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() }];
       } catch {
-        setMessages([{ role: "assistant", content: "🎖️ 我是陳哲宇 Ethan，EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() }]);
+        msgs = [{ role: "assistant", content: "🎖️ 我是陳哲宇 Ethan，EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() }];
       }
-      setMessagesLoaded(true);
+      if (cancelled) return;
+      setMessages(msgs);
+      setActiveSessionId("active"); // 換 RU 回到 active session（不看舊 RU 的歷史檢視）
+      setLoadedForRoot(rootPath);
     })();
-  }, [rootPath, messagesLoaded]);
+    return () => { cancelled = true; };
+  }, [rootPath, loadedForRoot]);
 
-  // Save EM chat (debounced) — only when viewing active session
+  // Save EM chat (debounced) — only when viewing active session，且只存「已載入完成的 RU」
+  // （換 RU 空檔不把舊 RU 的 messages 寫進新 rootPath — 防跨 RU 汙染）
   useEffect(() => {
-    if (!rootPath || !messagesLoaded || messages.length === 0) return;
+    if (!rootPath || loadedForRoot !== rootPath || messages.length === 0) return;
     if (activeSessionId !== "active") return; // Don't save when viewing history
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
@@ -128,7 +135,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
       } catch {}
     }, 2000);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [messages, rootPath, messagesLoaded]);
+  }, [messages, rootPath, loadedForRoot]);
 
   // ── Project Status ──
   // Project status state removed — was only for git/unpushed display
