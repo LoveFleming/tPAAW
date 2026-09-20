@@ -238,7 +238,9 @@ export class PaawProject {
     const parts = [];
 
     if (ctx.project) {
-      parts.push(`\n=== 專案概覽 (PROJECT.md) ===\n${ctx.project}`);
+      // placeholder 偵測（2026-09-20）：Initialize 空模板不算已初始化 — 明確標讓 agent 看下一節 Feature Map
+      const isPlaceholder = ctx.project.includes("(待補充)") || ctx.project.trim().length < 400;
+      parts.push(`\n=== 專案概覽 (PROJECT.md)${isPlaceholder ? "（placeholder，人類尚未填寫 — 現況看下方 Feature Map）" : ""} ===\n${ctx.project}`);
     }
     // Feature Map: feature → files（保留，加 Hint）
     if (ctx.featureMap && ctx.featureMap.length > 0) {

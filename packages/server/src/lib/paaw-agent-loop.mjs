@@ -2133,9 +2133,21 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         const docs = ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md", "CONTEXT.md"];
         const found = [];
         for (const d of docs) {
-          if (await readDoc(d)) found.push(d);
+          const c = await readDoc(d);
+          // placeholder 偵測（2026-09-20 Fleming：Initialize 生成的空模板不算已初始化 —
+          // agent 看到模板誤判「還沒初始化」就去讀 raw code，其實 CU 早就做完了）
+          if (c && !(d === "PROJECT.md" && (c.includes("(待補充)") || c.trim().length < 400))) found.push(d);
         }
-        let out = `【Release Unit context】${cwd.split(/[\\/]/).pop()}\n技術桡：${tech.language} / ${tech.packageManager} / ${(tech.frameworks || []).join(", ") || "-"}\n.paaw 文件：${found.length ? found.join(", ") : "（尚未初始化）"}\n`;
+        let out = `【Release Unit context】${cwd.split(/[\\/]/).pop()}\n技術桡：${tech.language} / ${tech.packageManager} / ${(tech.frameworks || []).join(", ") || "-"}\n.paaw 文件：${found.length ? found.join(", ") : "（尚未初始化 — PROJECT.md 等為人寫文件，不影響 CU 產出）"}\n`;
+        // Feature Map 可用性提示 — CU 做完 agent 就該用它定位功能，不要從 raw code 開始讀
+        try {
+          const fmPath = resolve(cwd, ".paaw", "features", "FEATURES.json");
+          if (existsSync(fmPath)) {
+            const fm = JSON.parse(readSync(fmPath, "utf-8"));
+            const n = (fm.features || []).length;
+            if (n > 0) out += `Feature Map：✅ 已建立（${n} features）— 用 project_info(category=context) 取得專案全貌（feature → files + file → feature），定位功能從這裡開始\n`;
+          }
+        } catch {}
         if (args.withDocs) {
           for (const d of ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md"]) {
             const c = await readDoc(d);
