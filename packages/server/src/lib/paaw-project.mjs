@@ -859,3 +859,92 @@ const DEFAULT_CHANGELOG_MD = `# Changelog
 export function createPaawProject(projectRoot) {
   return new PaawProject(projectRoot);
 }
+
+// ══════════════════════════════════════════════════════════
+// CU 收尾：PROJECT.md 確定性初稿（2026-09-20 Fleming）
+// 全部從 CU 產出檔案組成 — 零 LLM token，與 ru_context/loadContextText 的
+// placeholder 判定同規則：只在「缺失或 placeholder」時寫，人寫過永不覆蓋。
+// ══════════════════════════════════════════════════════════
+
+function _isPlaceholderProjectMd(content) {
+  return !content || content.includes("(待補充)") || content.trim().length < 400;
+}
+
+export async function maybeWriteProjectDraft(root) {
+  const paaw = createPaawProject(root);
+  const existing = await paaw.readFile("PROJECT.md");
+  if (existing && !_isPlaceholderProjectMd(existing)) {
+    return { written: false, reason: "human-content" };
+  }
+
+  const readJson = async (rel) => {
+    try { return JSON.parse(await paaw.readFile(rel) || "null"); } catch { return null; }
+  };
+  const [fm, ffm, ti, ec] = await Promise.all([
+    readJson("features/FEATURES.json"),
+    readJson("features/FILE-FEATURES.json"),
+    readJson("code-intelligence/test-intelligence.json"),
+    readJson("error-codes.json"),
+  ]);
+  const features = fm?.features || [];
+  if (features.length === 0) return { written: false, reason: "no-feature-map" };
+
+  // package.json — 名稱/啟動方式/框架（純讀取，不猜測）
+  let pkg = null;
+  try { pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8")); } catch {}
+  const scripts = pkg?.scripts ? Object.entries(pkg.scripts).filter(([k]) => ["dev", "dev:ui", "dev:server", "build", "start", "start:prod", "test", "typecheck"].includes(k)) : [];
+  const deps = { ...(pkg?.dependencies || {}), ...(pkg?.devDependencies || {}) };
+  const knownFw = [["next", "Next.js"], ["react", "React"], ["vue", "Vue"], ["svelte", "Svelte"], ["express", "Express"], ["fastify", "Fastify"], ["nestjs", "NestJS"], ["@nestjs/core", "NestJS"], ["electron", "Electron"], ["vite", "Vite"], ["tailwindcss", "Tailwind CSS"]];
+  const frameworks = knownFw.filter(([k]) => deps[k]).map(([, n]) => n);
+
+  // 語言但從 FILE-FEATURES 副檔名統計（確定性）
+  const files = Object.keys(ffm?.files || {});
+  const extCount = {};
+  for (const f of files) { const e = f.split(".").pop() || "?"; extCount[e] = (extCount[e] || 0) + 1; }
+  const topExts = Object.entries(extCount).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+  // 目錄分佈（依 FILE-FEATURES 路徑第一段；根目錄散檔不列避免噪音）
+  const dirCount = {};
+  for (const f of files) { if (!f.includes("/")) continue; const d = f.split("/")[0]; dirCount[d] = (dirCount[d] || 0) + 1; }
+  const topDirs = Object.entries(dirCount).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+  // Feature 摘要（按 codeFiles 多→少，前 12）
+  const topFeatures = [...features].sort((a, b) => (b.codeFiles?.length || 0) - (a.codeFiles?.length || 0)).slice(0, 12);
+  const unmapped = features.filter(f => !f.codeFiles?.length).length;
+
+  const L = [];
+  L.push(`# ${root.split(/[\\/]/).pop() || pkg?.name || "Project"}`);
+  L.push("");
+  L.push("> 🤖 CU 自動生成初稿（deterministic — 零 LLM token）。人類可直接編輯；編輯後 CU 不再覆蓋。");
+  L.push(`> 生成：${new Date().toISOString().slice(0, 16).replace("T", " ")}｜Feature Map：${features.length} features（${files.length} 檔已映射）`);
+  L.push("");
+  L.push("## Quick Facts");
+  L.push("| | |");
+  L.push("|---|---|");
+  L.push(`| Path | ${root} |`);
+  L.push(`| 主要語言 | ${topExts.map(([e, n]) => "." + e + " ×" + n).join(", ") || "—"} |`);
+  L.push(`| 框架 | ${frameworks.join(", ") || "—"} |`);
+  L.push(`| Package Manager | ${pkg?.packageManager?.split("@")[0] || (existsSync(join(root, "pnpm-lock.yaml")) ? "pnpm" : existsSync(join(root, "yarn.lock")) ? "yarn" : "npm")} |`);
+  L.push(`| Tests | ${ti?.stats?.totalTestFiles ?? "（尚未跑 test-intelligence）"}${ti?.stats ? `（unit ${ti.stats.byType?.unit ?? 0} / e2e ${ti.stats.byType?.e2e ?? 0}）` : ""} |`);
+  L.push(`| Error Codes | ${ec?.stats?.uniqueCodes ?? "（尚未跑 error-codes）"} |`);
+  L.push("");
+  L.push("## 啟動方式");
+  if (scripts.length) { for (const [k, v] of scripts) L.push(`- \`npm run ${k}\`${v.length < 60 ? " — " + v : ""}`); }
+  else L.push("- （package.json 無常用 script — 補充實際啟動方式）");
+  L.push("");
+  L.push("## 專案結構（依 Feature Map 檔案分佈）");
+  if (topDirs.length) { for (const [d, n] of topDirs) L.push(`- ${d}/ — ${n} 檔`); }
+  else L.push("- （根目錄專案 — 無子目錄結構，補充實際結構）");
+  L.push("");
+  L.push(`## Feature Map 摘要（前 ${topFeatures.length}/${features.length} — 完整用 project_info(category=context)）`);
+  for (const f of topFeatures) L.push(`- [${f.id}] ${f.name}（${f.codeFiles?.length || 0} 檔${f.apis?.length ? `, ${f.apis.length} APIs` : ""}）`);
+  if (unmapped) L.push(`- （另有 ${unmapped} 個 feature 尚無 code 檔映射）`);
+  L.push("");
+  L.push("## 待人類補充");
+  L.push("- 一句話專案定位（這是什麼、給誰用）");
+  L.push("- 架構決策與注意事項（可另寫 DECISIONS.md）");
+
+  const draft = L.join("\n") + "\n";
+  await paaw.writeFile("PROJECT.md", draft);
+  return { written: true, reason: existing ? "placeholder-replaced" : "created", features: features.length, files: files.length };
+}

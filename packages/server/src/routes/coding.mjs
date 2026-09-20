@@ -37,7 +37,7 @@ import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { exec as execCb } from "child_process";
 import { shellExec, IS_WIN } from "../lib/shell-exec.mjs";
-import { createPaawProject } from "../lib/paaw-project.mjs";
+import { createPaawProject, maybeWriteProjectDraft } from "../lib/paaw-project.mjs";
 import { callLLMWithRetry, dateTimeContextBlock, parseModelReference } from "../lib/llm-utils.mjs";
 import { normalizePath, readBody } from "./shared.mjs";
 import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
@@ -3097,6 +3097,14 @@ export default async function projectRoute(req, res) {
               sendEvent("info", { message: `L3 validation: ${s.mappingErrors} errors, ${s.coveragePct}% coverage, ${s.orphanFiles} orphans` });
             }
           } catch {}
+          // CU 收尾：PROJECT.md 確定性初稿（2026-09-20 — placeholder/缺失才寫，人寫過永不覆蓋）
+          try {
+            const draft = await maybeWriteProjectDraft(root);
+            if (draft.written) {
+              cuLog("overview", `PROJECT.md draft written (${draft.features} features)`);
+              sendEvent("info", { message: `📝 PROJECT.md 已生成確定性初稿（${draft.features} features 摘要，零 LLM token）— 人類可直接編輯` });
+            }
+          } catch (e) { cuLog("overview", `draft failed: ${e.message}`); }
         }
         sendEvent("done", { message: "Step complete" });
       } catch (err) {
@@ -3598,6 +3606,15 @@ export default async function projectRoute(req, res) {
         } catch (err) {
           sendEvent("step_done", { step: "validate", name: "🔍 L3 驗證", summary: `Skipped: ${err.message}` });
         }
+
+        // CU 收尾：PROJECT.md 確定性初稿（2026-09-20 Fleming — 零 LLM token；placeholder/缺失才寫）
+        try {
+          const draft = await maybeWriteProjectDraft(root);
+          if (draft.written) {
+            cuLog("overview", `PROJECT.md draft written (${draft.features} features)`);
+            sendEvent("info", { message: `📝 PROJECT.md 已生成確定性初稿（${draft.features} features 摘要，零 LLM token）— 人類可直接編輯` });
+          }
+        } catch (e) { cuLog("overview", `draft failed: ${e.message}`); }
 
         sendEvent("done", { message: "Code Understanding complete" });
       } catch (err) {
