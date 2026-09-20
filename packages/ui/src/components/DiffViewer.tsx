@@ -125,17 +125,44 @@ export function DiffViewer({ diffText, theme }: { diffText: string; theme?: "lig
     fileBorder: dark ? "#30363d" : "#d0d7de",
   };
 
+  // 2026-09-20：檔案數上限 — 整包 diff（working/staged）檔案太多時也會撐爆 DOM
+  const MAX_FILES = 30;
+  const shownFiles = files.length > MAX_FILES ? files.slice(0, MAX_FILES) : files;
+
   return (
     <div className="overflow-x-auto" style={{ fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace", fontSize: "12px", lineHeight: "20px" }}>
-      {files.map((file, fi) => (
+      {shownFiles.map((file, fi) => (
         <FileDiff key={fi} file={file} colors={colors} />
       ))}
+      {files.length > MAX_FILES && (
+        <div className="px-3 py-2 text-xs text-stone-500 bg-stone-50 text-center">
+          ⋯ 另有 {files.length - MAX_FILES} 檔未顯示（共 {files.length} 檔；縮小 diff 範圍或逐檔查看）
+        </div>
+      )}
     </div>
   );
 }
 
 function FileDiff({ file, colors }: { file: DiffFile; colors: any }) {
   const [collapsed, setCollapsed] = useState(false);
+  // 2026-09-20 Fleming：大 diff（數千行）全渲染 → DOM 爆量畫面凍結、push 按鈕按不到
+  // 每檔超過 MAX_DIFF_ROWS 行先截斷，「顯示其餘」手動展開
+  const [expanded, setExpanded] = useState(false);
+  const MAX_DIFF_ROWS = 800;
+  const totalLines = useMemo(() => file.hunks.reduce((s, h) => s + h.lines.length, 0), [file]);
+  const isTruncated = !expanded && totalLines > MAX_DIFF_ROWS;
+  const renderHunks = useMemo(() => {
+    if (!isTruncated) return file.hunks.map(h => ({ header: h.header, lines: h.lines }));
+    let budget = MAX_DIFF_ROWS;
+    const out: { header: string; lines: DiffLine[] }[] = [];
+    for (const h of file.hunks) {
+      if (budget <= 0) break;
+      const take = h.lines.slice(0, budget);
+      budget -= take.length;
+      out.push({ header: h.header, lines: take });
+    }
+    return out;
+  }, [file, isTruncated]);
   const fileName = file.newPath !== "/dev/null" ? file.newPath : file.oldPath;
   const isDeleted = file.newPath === "/dev/null";
   const isAdded = file.oldPath === "/dev/null" || file.oldPath === "dev/null";
@@ -165,7 +192,7 @@ function FileDiff({ file, colors }: { file: DiffFile; colors: any }) {
       {/* Diff body */}
       {!collapsed && (
         <div style={{ backgroundColor: colors.bg }}>
-          {file.hunks.map((hunk, hi) => (
+          {renderHunks.map((hunk, hi) => (
             <div key={hi}>
               {/* Hunk header */}
               <div
@@ -180,6 +207,14 @@ function FileDiff({ file, colors }: { file: DiffFile; colors: any }) {
               ))}
             </div>
           ))}
+          {isTruncated && (
+            <button
+              onClick={() => setExpanded(true)}
+              className="w-full px-3 py-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors text-center"
+            >
+              ⋯ 顯示其餘 {totalLines - MAX_DIFF_ROWS} 行（共 {totalLines} 行，全開可能卡）
+            </button>
+          )}
         </div>
       )}
     </div>
