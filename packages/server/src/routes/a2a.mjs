@@ -977,6 +977,7 @@ export default async function a2aRoutes(req, res) {
                 stState.finalContent = dataObj.content; // 斷線期間完成的回覆 — 重連後靠這個補回 UI
               }
               if (evName === "error" && dataObj?.error) stState.error = String(dataObj.error).slice(0, 500);
+              if (evName === "interrupted") stState.interrupted = true; // 2026-09-21：使用者中斷 — poller 據此顯示中斷訊息而非錯誤
             };
             // 完成後：標記 done + 落地回覆 + TTL 清理
             const _finishState = () => {

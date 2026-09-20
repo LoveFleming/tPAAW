@@ -1262,11 +1262,17 @@ export default function CodingIDE() {
             const runKey = `${activeCrew}:${st.startedAt}`;
             if (reattachKeyRef.current !== runKey) {
               reattachKeyRef.current = runKey;
-              const content = st.finalContent || (st.error ? `❌ (斷線期間結束) ${st.error}` : null);
+              // 2026-09-21 fix：使用者中斷 → 顯示中斷訊息而非 ❌ 錯誤（以前會播出第三則「Final summary failed: Aborted by user interrupt」）
+              const isInterrupted = !!st.interrupted || /Aborted by user interrupt|Agent interrupted by user/i.test(String(st.error || ""));
+              const content = st.finalContent
+                || (isInterrupted ? "⏹️ Agent 已中斷。你可以繼續對話來恢復。" : null)
+                || (st.error ? `❌ (斷線期間結束) ${st.error}` : null);
               if (content) {
                 setCrewConversations(prev => {
                   const cur = prev[activeCrew] || [];
                   const last = cur[cur.length - 1];
+                  // dedup：中斷類訊息只要一則（live SSE / 中斷鈕可能已先加過）
+                  if (isInterrupted && last?.role === "assistant" && typeof last.content === "string" && last.content.includes("已中斷")) return prev;
                   if (last?.role === "assistant" && typeof last.content === "string" && last.content.slice(0, 200) === content.slice(0, 200)) return prev;
                   return { ...prev, [activeCrew]: [...cur, { role: "assistant", content, ts: new Date().toISOString() }] };
                 });
@@ -1938,7 +1944,12 @@ const sendChat = useCallback(async () => {
                   if (currentEvent === "interrupted" || data.message?.includes?.("interrupted") || data.message?.includes?.("Interrupted")) {
                     const intMsg: ChatMessage = { role: "assistant", content: `⏹️ Agent 已中斷${data.turns ? ` (執行了 ${data.turns} 輪)` : ""}。你可以繼續對話來恢復。`, ts: new Date().toISOString() };
                     if (silentToolCalls.length > 0) intMsg._toolCalls = silentToolCalls;
-                    setChatMessages(prev => [...prev, intMsg]);
+                    // 2026-09-21 fix dedup：中斷鈕通常已先加過一則 → 只留一則，不重複
+                    setChatMessages(prev => {
+                      const last = prev[prev.length - 1];
+                      if (last?.role === "assistant" && typeof last.content === "string" && last.content.includes("已中斷")) return prev;
+                      return [...prev, intMsg];
+                    });
                     finalContent = "[interrupted]"; // prevent "no output" fallback
                     break; // exit while(reader) loop
                   }
@@ -2040,8 +2051,13 @@ const sendChat = useCallback(async () => {
         if (err.name === "AbortError") {
           // User interrupted — already handled via SSE interrupted event
           // If no interrupted event was received, show a message
+          // 2026-09-21 fix dedup：中斷鈕已立即加過一則 → 只留一則，不重複
           if (finalContent !== "[interrupted]") {
-            setChatMessages(prev => [...prev, { role: "assistant" as const, content: "⏹️ Agent 已中斷。你可以繼續對話來恢復。", ts: new Date().toISOString() }]);
+            setChatMessages(prev => {
+              const last = prev[prev.length - 1];
+              if (last?.role === "assistant" && typeof last.content === "string" && last.content.includes("已中斷")) return prev;
+              return [...prev, { role: "assistant" as const, content: "⏹️ Agent 已中斷。你可以繼續對話來恢復。", ts: new Date().toISOString() }];
+            });
           }
         } else {
           setChatMessages(prev => [...prev, { role: "assistant" as const, content: `❌ Error: ${err.message}`, ts: new Date().toISOString() }]);
@@ -3590,9 +3606,10 @@ const sendChat = useCallback(async () => {
                           fetch(`${API_BASE}/api/a2a/interrupt`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId: aid, cwd: rootPath || undefined }) }).catch(() => {});
 
                           // Add interrupted message if not already there
+                          // 2026-09-21 fix：只檢查 assistant 訊息（user 訊息內含「中斷」二字不该誤判）
                           setChatMessages(prev => {
                             const last = prev[prev.length - 1];
-                            if (last?.content?.includes("中斷")) return prev; // already has interrupt msg
+                            if (last?.role === "assistant" && last?.content?.includes("中斷")) return prev; // already has interrupt msg
                             return [...prev, { role: "assistant" as const, content: "⏹️ Agent 已中斷。", ts: new Date().toISOString() }];
                           });
                         }}

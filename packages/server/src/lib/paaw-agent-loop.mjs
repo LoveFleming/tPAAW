@@ -5085,7 +5085,10 @@ export async function runAgentLoopStream(config, res) {
   }
 
   // If we exhausted maxTurns without a final content response, force one
-  if (!contentEmitted) {
+  // 2026-09-21 fix:使用者中斷時跳過 — 這個強制總結用同一個 abortSignal,必然立刻被殺掉,
+  // 只會送出假的 "Final summary failed: Aborted by user interrupt" error(被 stream-state 記錄、
+  // 斷線接回 poller 撿到後在 chat 顯示第三則錯誤訊息)。中斷已由 interrupted 事件表達,不需總結。
+  if (!contentEmitted && !abortSignal?.aborted) {
     try {
       messages.push({
         role: "user",
@@ -5099,7 +5102,10 @@ export async function runAgentLoopStream(config, res) {
         sendSSE("content", { content: finalContent, done: true });
       }
     } catch (err) {
-      sendSSE("error", { error: `Final summary failed: ${err.message}` });
+      // 使用者中斷不是錯誤 — 不送 error(防 race:abort 檢查後才觸發 abort 的窗口期)
+      if (!(abortSignal?.aborted || err.name === "AbortError")) {
+        sendSSE("error", { error: `Final summary failed: ${err.message}` });
+      }
     }
   }
 
