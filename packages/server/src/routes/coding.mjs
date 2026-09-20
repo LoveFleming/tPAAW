@@ -904,7 +904,28 @@ export default async function projectRoute(req, res) {
         }
       } catch {}
 
-      await runAgentLoopStream({
+      // ── Deterministic 驗收基準（2026-09-20 Fleming：EM 派工假成功偵測）──
+      // 原病灶：agent 宣稱完成但零 commit 零 diff，post-dispatch 仍無條件 close task。
+      // 驗收信號（純 git 事實，不信 agent 嘴）：新 commit 或 working diff（排除 .paaw//data/config 峖音）。
+      // 只對帶 taskId 的開發派工驗收（純分析/問答 dispatch 不驗，避免誤殺）。
+      const gitOut = async (args) => {
+        try { const r = await shellExec(`git ${args}`, { cwd: projRoot }); return `${r.stdout || ""}${r.stderr || ""}`; } catch { return ""; }
+      };
+      const preHead = (await gitOut("rev-parse HEAD")).trim();
+      const verifyWork = async () => {
+        const postHead = (await gitOut("rev-parse HEAD")).trim();
+        if (postHead && preHead && postHead !== preHead) return { pass: true, why: "new-commit" };
+        const st = await gitOut("status --porcelain -uall"); // -uall：untracked 展開到檔案級，否則整目錄一列（?? .paaw/）噪音過濾會失效
+        // 只排除 runtime 自動寫檔峖音（chat/session/memory/log/config）；
+        // .paaw/specs、.paaw/tasks 等 agent 真產出不排除（否則 architect 寫 spec 會被誤殺）
+        const NOISE_RE = /\s\.paaw\/(chats|coding-memory|agent-memory|action-log|memory|sessions|logs)\/|\s\.paaw\/project\/PROJECT\.md|\sdata\/config\//;
+        const changed = st.split("\n").filter(l => l.trim() && !NOISE_RE.test(l));
+        if (changed.length > 0) return { pass: true, why: "working-diff", files: changed.slice(0, 5) };
+        return { pass: false, why: "no-commit-no-diff" };
+      };
+
+      let attempts = 1;
+      let loopStats = await runAgentLoopStream({
         systemPrompt: fullSystemPrompt,
         messages,
         cwd: projRoot,
@@ -916,9 +937,37 @@ export default async function projectRoute(req, res) {
         timeout: effectiveTimeout,
         abortSignal: dispatchAbort.signal,
       }, res);
+
+      let verdict = taskId ? await verifyWork() : { pass: true, why: "no-task-skip-verify" };
+
+      // ── 驗收退回 → 自動重派一次（2026-09-20 Fleming：第二次通常會成功；重做不該由人觸發，
+      //    server 內建機械重試，兩次都失敗才判 FAILED 交 EM 協調）──
+      if (taskId && !verdict.pass && !dispatchAbort.signal.aborted && !res.destroyed) {
+        attempts = 2;
+        try { res.write(`data: ${JSON.stringify({ type: "dispatch_retry", attempts, message: `⚠️ Deterministic 驗收退回：${verdict.why}（零 commit 零 diff）— 自動重派第 2 次` })}\n\n`); } catch {}
+        loopStats = await runAgentLoopStream({
+          systemPrompt: fullSystemPrompt,
+          messages: [
+            { role: "system", content: fullSystemPrompt },
+            { role: "user", content: `${task}\n\n⚠️【Deterministic 驗收退回（第 1 次嘗試失敗）】你上一輪宣稱完成，但程式驗收發現：零新 commit、零 working diff — 任務沒有實際產出。請重做，並遵守：\n1. 大檔案（>1000 行）分塊處理：先 grep 定位、逐段 edit_file，不要一次 read_file 全文\n2. 每完成一個區塊就驗證（grep 確認刪除/修改生效）\n3. 完成後必須留下實際產出（commit 或 working tree 變更）\n4. 若真的做不到，誠實回報做不到與原因 — 絕不宣稱成功` },
+          ],
+          cwd: projRoot,
+          featureBoundary: dispatchFeatureBoundary,
+          agentId,
+          model: useModel,
+          maxTurns: 300,
+          timeout: effectiveTimeout,
+          abortSignal: dispatchAbort.signal,
+        }, res);
+        verdict = await verifyWork();
+      }
+
       cleanupDispatch();
 
-      // ── Post-dispatch: record result to task — 成功 → close（feature-first 簡化後語意）──
+      // ── 驗收結果通知 EM（SSE 尾事件；EM 讀到 fail 會知道要協調）──
+      try { res.write(`data: ${JSON.stringify({ type: "dispatch_verdict", pass: verdict.pass, attempts, why: verdict.why, files: verdict.files || [] })}\n\n`); } catch {}
+
+      // ── Post-dispatch: record result to task — 驗收 PASS 才 close（feature-first 簡化後語意）──
       if (taskId) {
         try {
           const tasksDir = join(projRoot, ".paaw", "tasks");
@@ -929,13 +978,23 @@ export default async function projectRoute(req, res) {
             const tIdx = allTasks.findIndex(t => t.id === taskId);
             if (tIdx >= 0) {
               if (!Array.isArray(allTasks[tIdx].notes)) allTasks[tIdx].notes = [];
-              allTasks[tIdx].notes.push({
-                by: agentId,
-                at: new Date().toISOString(),
-                content: `✅ Agent ${agentId} completed dispatched task`,
-              });
-              allTasks[tIdx].status = "close";
-              if (!allTasks[tIdx].resolvedAt) allTasks[tIdx].resolvedAt = new Date().toISOString();
+              if (verdict.pass) {
+                allTasks[tIdx].notes.push({
+                  by: agentId,
+                  at: new Date().toISOString(),
+                  content: `✅ Agent ${agentId} completed dispatched task（deterministic 驗收 PASS：${verdict.why}，嘗試 ${attempts} 次）`,
+                });
+                allTasks[tIdx].status = "close";
+              } else {
+                // 兩次都零證據 → 判 FAILED（2026-09-20 Fleming：再失敗再判 fail，交 EM/人協調；不自動 close 假成功）
+                allTasks[tIdx].notes.push({
+                  by: "system-verifier",
+                  at: new Date().toISOString(),
+                  content: `❌ Deterministic 驗收 FAILED（${attempts} 次嘗試皆零 commit 零 diff）— agent 宣稱完成但無實際產出，判定假成功。等 EM 協調（拆小任務重派）或人處理。`,
+                });
+                allTasks[tIdx].status = "pending";
+              }
+              if (verdict.pass && !allTasks[tIdx].resolvedAt) allTasks[tIdx].resolvedAt = new Date().toISOString();
               allTasks[tIdx].updatedAt = new Date().toISOString();
               allData.tasks = allTasks;
               const { writeFileSync } = await import("node:fs");
@@ -945,7 +1004,7 @@ export default async function projectRoute(req, res) {
         } catch (e) { console.error("post-dispatch task update error:", e.message); }
       }
 
-      // ── Sub-task completion → close；全部子任務 close → parent close（feature-first：無 chain、無 advance）──
+      // ── Sub-task completion → 驗收 PASS 才 close；全部子任務 close → parent close（feature-first：無 chain、無 advance）──
       if (subTaskId && taskId) {
         try {
           const tasksFile = join(projRoot, ".paaw", "tasks", "TASKS.json");
@@ -954,9 +1013,16 @@ export default async function projectRoute(req, res) {
             const allTasks = allData.tasks || [];
             const sub = allTasks.find(t => t.id === subTaskId);
             if (sub) {
-              sub.status = "close";
-              if (!sub.resolvedAt) sub.resolvedAt = new Date().toISOString();
-              sub.updatedAt = new Date().toISOString();
+              if (verdict.pass) {
+                sub.status = "close";
+                if (!sub.resolvedAt) sub.resolvedAt = new Date().toISOString();
+                sub.updatedAt = new Date().toISOString();
+              } else {
+                sub.status = "pending";
+                sub.updatedAt = new Date().toISOString();
+                if (!Array.isArray(sub.notes)) sub.notes = [];
+                sub.notes.push({ by: "system-verifier", at: new Date().toISOString(), content: `❌ Deterministic 驗收 FAILED（${attempts} 次皆零 commit 零 diff）— 假成功退回，等 EM/人協調` });
+              }
             }
             const parent = allTasks.find(t => t.id === taskId);
             if (parent && parent.id !== subTaskId) {
