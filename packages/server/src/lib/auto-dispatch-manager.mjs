@@ -1348,13 +1348,13 @@ export async function runAutoDispatch(opts = {}) {
   // ── 2026-09-23 Fleming：EM 閉環多輪 ──
   // 品管閉環：review/qa 開的新單在「同一個 run」内自動接續處理，直到沒新單／沒進展／輪數上限。
   // 之前：qa review 開的單要等下一次手動/cron 派工才會被撿起來 — 下班白跑一輪就停。
-  // 停止條件（任一）：①重掃沒有新 open task ②上一輪 0 成功（失敗迴圈防護）③使用者中斷 ④maxRounds（預設 3）
+  // 停止條件（任一）：①重掃沒有新 open task ②上一輪 0 成功（失敗迴圈防護）③使用者中斷 ④maxRounds（預設 30）
   let emConfig = null;
   try { const { readEMConfig } = await import("./em-config.mjs"); emConfig = readEMConfig(opts.rootDir); } catch {}
   const closedLoop = emConfig?.closedLoop || {};
   const maxRounds = closedLoop.enabled === false
     ? 1
-    : (Number.isFinite(Number(closedLoop.maxRounds)) && Number(closedLoop.maxRounds) >= 1 ? Number(closedLoop.maxRounds) : 3);
+    : (Number.isFinite(Number(closedLoop.maxRounds)) && Number(closedLoop.maxRounds) >= 1 ? Number(closedLoop.maxRounds) : 30);
 
   let lastResult = null;
   let totalSucceeded = 0, totalFailed = 0, roundsRun = 0;

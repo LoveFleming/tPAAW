@@ -61,7 +61,7 @@ const DEFAULT_EM_CONFIG = {
   // EM 閉环多輪（2026-09-23 Fleming）：review/qa 開的新單同一個 run 自動接續處理
   closedLoop: {
     enabled: true,  // false = 回到舊行為（單輪，新單等下次派工）
-    maxRounds: 3,   // 最多幾輪（每輪 = 掃單 → 執行全部 open task）
+    maxRounds: 30,  // 最多幾輪（每輪 = 掃單 → 執行全部 open task）— Fleming 2026-09-23：下所跑整夜，3 不够改 30
   },
 
   // Agent dispatch constraints
