@@ -1336,7 +1336,7 @@ export async function runAutoDispatch(opts = {}) {
     }
   } catch { /* execution-plan not available */ }
   // Task-driven：掃 TASKS.json → 有就執行，沒有就回報理由
-  const { workList, situationReport } = await planEMSession({ ...opts, focusTaskId });
+  let { workList, situationReport } = await planEMSession({ ...opts, focusTaskId });
   if (!workList.length) {
     opts.sendSSE?.("info", { message: "✅ 沒有需要調度的 task。" });
     const report = generateEMReport([], [], situationReport);
@@ -1344,5 +1344,57 @@ export async function runAutoDispatch(opts = {}) {
     opts.sendSSE?.("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
     return { report, workList: [], results: [] };
   }
-  return executeEMSession({ ...opts, workList, situationReport });
+
+  // ── 2026-09-23 Fleming：EM 閉環多輪 ──
+  // 品管閉環：review/qa 開的新單在「同一個 run」内自動接續處理，直到沒新單／沒進展／輪數上限。
+  // 之前：qa review 開的單要等下一次手動/cron 派工才會被撿起來 — 下班白跑一輪就停。
+  // 停止條件（任一）：①重掃沒有新 open task ②上一輪 0 成功（失敗迴圈防護）③使用者中斷 ④maxRounds（預設 3）
+  let emConfig = null;
+  try { const { readEMConfig } = await import("./em-config.mjs"); emConfig = readEMConfig(opts.rootDir); } catch {}
+  const closedLoop = emConfig?.closedLoop || {};
+  const maxRounds = closedLoop.enabled === false
+    ? 1
+    : (Number.isFinite(Number(closedLoop.maxRounds)) && Number(closedLoop.maxRounds) >= 1 ? Number(closedLoop.maxRounds) : 3);
+
+  let lastResult = null;
+  let totalSucceeded = 0, totalFailed = 0, roundsRun = 0;
+  for (let round = 1; round <= maxRounds; round++) {
+    if (round > 1) {
+      if (_stopRequested(opts.rootDir)) {
+        opts.sendSSE?.("info", { message: `⹹️ 閉环：收到中斷請求 — 第 ${round} 輪不執行` });
+        break;
+      }
+      // 上輪 0 成功 → 失敗迴圈防護（同樣的單重派也不會好，交給人看報告）
+      const prevSucceeded = (lastResult?.results || []).filter(r => r.success).length;
+      if (prevSucceeded === 0) {
+        opts.sendSSE?.("info", { message: `⏸️ 閉环停止：上一輪 0 成功（失敗迴圈防護）— 詳情看派工報告` });
+        break;
+      }
+      const rescan = await planEMSession({ ...opts, focusTaskId: undefined }); // 閉环輪不看 focus — 接續所有新單
+      workList = rescan.workList;
+      situationReport = rescan.situationReport;
+      if (!workList.length) {
+        opts.sendSSE?.("info", { message: `✅ 閉环完成（${roundsRun} 輪）：沒有新開的單，工作收乾淨了。` });
+        break;
+      }
+      opts.sendSSE?.("info", { message: `🔁 EM 閉环第 ${round}/${maxRounds} 輪：agent 開了 ${workList.length} 張新單，接續處理` });
+    }
+    roundsRun = round;
+    // 每輪的 done 降級成 info（run 還没結束）— 統一在循環外送一次總 done，UI 只看到一個 🏁
+    const roundSSE = (type, data) => {
+      if (type === "done") {
+        opts.sendSSE?.("info", { message: `🏁 閉环第 ${round}/${maxRounds} 輪完成：✅ ${data?.succeeded || 0} / ❌ ${data?.failed || 0}` });
+        return;
+      }
+      opts.sendSSE?.(type, data);
+    };
+    lastResult = await executeEMSession({ ...opts, workList, situationReport, sendSSE: roundSSE });
+    const rs = (lastResult?.results || []).filter(r => r.success).length;
+    totalSucceeded += rs;
+    totalFailed += (lastResult?.results || []).length - rs;
+  }
+  if (lastResult) {
+    opts.sendSSE?.("done", { totalTasks: totalSucceeded + totalFailed, succeeded: totalSucceeded, failed: totalFailed, ...(roundsRun > 1 ? { rounds: roundsRun } : {}) });
+  }
+  return lastResult;
 }

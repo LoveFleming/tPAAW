@@ -58,6 +58,12 @@ const DEFAULT_EM_CONFIG = {
     dispatch: "",   // Model for dispatch calls (can be cheaper)
   },
 
+  // EM 閉环多輪（2026-09-23 Fleming）：review/qa 開的新單同一個 run 自動接續處理
+  closedLoop: {
+    enabled: true,  // false = 回到舊行為（單輪，新單等下次派工）
+    maxRounds: 3,   // 最多幾輪（每輪 = 掃單 → 執行全部 open task）
+  },
+
   // Agent dispatch constraints
   dispatchableAgents: [],  // empty = all available; otherwise restrict to these IDs
   blockedAgents: [],       // never dispatch to these agents

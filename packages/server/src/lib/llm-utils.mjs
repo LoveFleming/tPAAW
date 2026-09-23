@@ -180,6 +180,21 @@ export function parseModelReference(providerConfig, value) {
     }
     // 第一段不是已知 provider → 整串是 model id（e.g. "deepseek/deepseek-v4-flash" 走 active provider）
   }
+  // 2026-09-23 fix：bare/整串 model id 不在 active provider 清單 → 跨 provider 找擁有者自動路由。
+  // 公司事件：per-agent/_config 存了 bare "gpt5.6"，gpt5.6 實際掛在非 active provider 下 →
+  // 舊邏輯送錯 provider 直接 400 unknown model（EM 聊天正常、派工全滅的元凶）。
+  if (typeof model === "string" && model) {
+    const inActive = (providerConfig?.providers?.[providerId]?.models || [])
+      .some(m => (typeof m === "string" ? m : m?.id) === model);
+    if (!inActive) {
+      const owner = Object.entries(providerConfig?.providers || {})
+        .find(([, p]) => (p.models || []).some(m => (typeof m === "string" ? m : m?.id) === model));
+      if (owner && owner[0] !== providerId) {
+        console.log(`[parseModelReference] Model "${model}" not in active provider "${providerId}" — auto-routing to owner provider "${owner[0]}"`);
+        providerId = owner[0];
+      }
+    }
+  }
   return { providerId, model };
 }
 

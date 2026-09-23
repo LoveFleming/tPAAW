@@ -69,3 +69,30 @@ describe("parseModelReference", () => {
     expect(parseModelReference(CONFIG, "zai/custom-xyz")).toEqual({ providerId: "zai", model: "custom-xyz" });
   });
 });
+
+describe("parseModelReference — 2026-09-23 bare id 跨 provider 自動路由（公司 gpt5.6 事件）", () => {
+  const CFG2 = {
+    active: "glm",
+    defaultModel: "glm5.2",
+    providers: {
+      glm: { baseURL: "https://gw/v1", apiKey: "k", models: [{ id: "glm5.2" }] },
+      gpt: { baseURL: "https://gw2/v1", apiKey: "k", models: [{ id: "gpt5.6" }, { id: "gpt5.6-mini" }] },
+    },
+  };
+
+  it("🔴 回歸案例：bare id 在非 active provider → 自動路由到擁有者（不再送錯 provider 400）", () => {
+    expect(parseModelReference(CFG2, "gpt5.6")).toEqual({ providerId: "gpt", model: "gpt5.6" });
+  });
+
+  it("bare id 在 active provider 清單 → 照舊走 active（不誤路由）", () => {
+    expect(parseModelReference(CFG2, "glm5.2")).toEqual({ providerId: "glm", model: "glm5.2" });
+  });
+
+  it("bare id 沒有任何 provider 擁有 → 照舊走 active（custom id 直送）", () => {
+    expect(parseModelReference(CFG2, "aigw_gpt5.6-terra")).toEqual({ providerId: "glm", model: "aigw_gpt5.6-terra" });
+  });
+
+  it("整串 full-path（第一段非 provider）恰為某 provider 的 model id → 路由過去", () => {
+    expect(parseModelReference(CFG2, "gpt/gpt5.6")).toEqual({ providerId: "gpt", model: "gpt5.6" });
+  });
+});
