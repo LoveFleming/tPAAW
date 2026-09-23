@@ -840,6 +840,7 @@ export default async function a2aRoutes(req, res) {
 
             const clientContext = params?.context || {};
             const modelOverride = params?.metadata?.model;
+            const modelFallbacks = Array.isArray(params?.metadata?.fallbacks) ? params.metadata.fallbacks : undefined; // 2026-09-23：a2aCallAgent 帶的 per-agent fallbacks
             const conversationHistory = params?.conversationHistory || null;
             const rootDir = clientContext.cwd || PAAW_ROOT;
 
@@ -998,6 +999,7 @@ export default async function a2aRoutes(req, res) {
               systemPrompt: "", // handled by messages array
               messages: finalMessages, // trimmed with 262K budget
               model: effectiveModel,
+              fallbackModels: modelFallbacks, // 2026-09-23：per-agent fallback 鏈不再被 A2A 邊界丟掉
               cwd: clientContext.cwd,
               maxTurns: agent.maxTurns,
               timeout: 0, // no timeout — complex agent tasks may take arbitrarily long
@@ -1037,6 +1039,7 @@ export default async function a2aRoutes(req, res) {
 
             const clientContext = params?.context || {};
             const modelOverride = params?.metadata?.model;
+            const modelFallbacks = Array.isArray(params?.metadata?.fallbacks) ? params.metadata.fallbacks : undefined; // 2026-09-23：同 message/stream
             const conversationHistory = params?.conversationHistory || null;
             const rootDir = clientContext.cwd || PAAW_ROOT;
 
@@ -1123,6 +1126,7 @@ export default async function a2aRoutes(req, res) {
               systemPrompt: "", // handled by messages array
               messages: finalMessages, // trimmed with 262K budget
               model: effectiveModel,
+              fallbackModels: modelFallbacks, // 2026-09-23：per-agent fallback 鏈不再被 A2A 邊界丟掉
               cwd: clientContext.cwd,
               maxTurns: agent.maxTurns,
               timeout: 0, // no timeout — complex agent tasks may take arbitrarily long

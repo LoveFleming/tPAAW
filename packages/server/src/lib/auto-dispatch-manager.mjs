@@ -39,15 +39,20 @@ import {
 // ── A2A Client ──
 
 export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
-  const { cwd, timeout = 0, modelOverride } = opts; // 0 = no HTTP timeout, agent loop handles its own
+  const { cwd, timeout = 0, modelOverride, fallbackModels } = opts; // 0 = no HTTP timeout, agent loop handles its own
 
   const params = {
     message: { role: "user", parts: [{ type: "text", text: message }] },
     context: { cwd },
   };
   // Pass model override so A2A agents use the configured model, not the global default
-  if (modelOverride) {
-    params.metadata = { model: modelOverride };
+  // 2026-09-23 fix：fallbackModels 之前在這裡被默默丟掉 — 派工 agent 只帶 model 不帶 fallback，
+  // model 炸掉（400 unknown model 等）時整個 task 硬死，EM 派工全滅（公司 gpt5.6 事件）
+  if (modelOverride || (Array.isArray(fallbackModels) && fallbackModels.length > 0)) {
+    params.metadata = {
+      ...(modelOverride ? { model: modelOverride } : {}),
+      ...(Array.isArray(fallbackModels) && fallbackModels.length > 0 ? { fallbacks: fallbackModels } : {}),
+    };
   }
 
   const body = {
