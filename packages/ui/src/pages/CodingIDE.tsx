@@ -236,7 +236,7 @@ function ApiResponseBody({ body }: { body: string }) {
         <button onClick={copy} className={cn(btn, "ml-auto bg-white text-stone-600 border-stone-300 hover:bg-stone-50")}>{copied ? "✅" : "📋"} {tt("vibe.apiCopy")}</button>
       </div>
       {isJson && view === "tree" ? (
-        <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-stone-300 bg-white">
+        <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-stone-300 bg-white flex flex-col">
           <JsonViewer data={parsed} compact />
         </div>
       ) : (
