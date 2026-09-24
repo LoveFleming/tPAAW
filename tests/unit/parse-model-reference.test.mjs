@@ -96,3 +96,54 @@ describe("parseModelReference — 2026-09-23 bare id 跨 provider 自動路由�
     expect(parseModelReference(CFG2, "gpt/gpt5.6")).toEqual({ providerId: "gpt", model: "gpt5.6" });
   });
 });
+
+describe("parseModelReference — 2026-09-24 保守化（林雨晴聊天找不到 provider model 事件）", () => {
+  it("🔴 回歸案例：active provider 空清單（passthrough gateway）→ 不搶路由，照舊走 active", () => {
+    const CFG3 = {
+      active: "gw",
+      defaultModel: "glm5.2",
+      providers: {
+        gw: { baseURL: "https://gw/v1", apiKey: "k", models: [] },  // 清單不完整照樣能打的 gateway
+        other: { baseURL: "https://other/v1", apiKey: "k", models: [{ id: "glm5.2" }] },
+      },
+    };
+    expect(parseModelReference(CFG3, "glm5.2")).toEqual({ providerId: "gw", model: "glm5.2" });
+  });
+
+  it("🔴 回歸案例：擁有者 provider 沒有可用 key（na）→ 不路由，照舊走 active", () => {
+    const CFG4 = {
+      active: "glm",
+      defaultModel: "glm5.2",
+      providers: {
+        glm: { baseURL: "https://gw/v1", apiKey: "k", models: [{ id: "glm5.2" }] },
+        dead: { baseURL: "https://dead/v1", apiKey: "na", models: [{ id: "gpt5.6" }] },
+      },
+    };
+    expect(parseModelReference(CFG4, "gpt5.6")).toEqual({ providerId: "glm", model: "gpt5.6" });
+  });
+
+  it("擁有者清單有列但沒宣告 baseURL → 不路由", () => {
+    const CFG5 = {
+      active: "glm",
+      defaultModel: "glm5.2",
+      providers: {
+        glm: { baseURL: "https://gw/v1", apiKey: "k", models: [{ id: "glm5.2" }] },
+        nobase: { apiKey: "k", models: [{ id: "gpt5.6" }] },
+      },
+    };
+    expect(parseModelReference(CFG5, "gpt5.6")).toEqual({ providerId: "glm", model: "gpt5.6" });
+  });
+
+  it("多個擁有者時跳過不可用的、路由到第一個可用的", () => {
+    const CFG6 = {
+      active: "glm",
+      defaultModel: "glm5.2",
+      providers: {
+        glm: { baseURL: "https://gw/v1", apiKey: "k", models: [{ id: "glm5.2" }] },
+        dead: { baseURL: "https://dead/v1", apiKey: "na", models: [{ id: "gpt5.6" }] },
+        alive: { baseURL: "https://alive/v1", apiKey: "k", models: [{ id: "gpt5.6" }] },
+      },
+    };
+    expect(parseModelReference(CFG6, "gpt5.6")).toEqual({ providerId: "alive", model: "gpt5.6" });
+  });
+});

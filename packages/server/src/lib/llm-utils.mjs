@@ -183,14 +183,26 @@ export function parseModelReference(providerConfig, value) {
   // 2026-09-23 fix：bare/整串 model id 不在 active provider 清單 → 跨 provider 找擁有者自動路由。
   // 公司事件：per-agent/_config 存了 bare "gpt5.6"，gpt5.6 實際掛在非 active provider 下 →
   // 舊邏輯送錯 provider 直接 400 unknown model（EM 聊天正常、派工全滅的元凶）。
+  //
+  // ⚠️ 2026-09-24 保守化（林雨晴聊天找不到 provider model 事件）：路由太激進會把
+  // 「清單不完整的 passthrough gateway」的請求搶去「清單剛好有列」但不可用的 provider。
+  // 只有同時滿足三個條件才路由：
+  //   ① active provider 有「明確非空」model 白名單（空清單/未宣告 = passthrough gateway，信任 active）
+  //   ② model 不在 active 白名單
+  //   ③ 擁有者 provider 真的可用（有 baseURL + 非 "na" apiKey）
   if (typeof model === "string" && model) {
-    const inActive = (providerConfig?.providers?.[providerId]?.models || [])
-      .some(m => (typeof m === "string" ? m : m?.id) === model);
-    if (!inActive) {
-      const owner = Object.entries(providerConfig?.providers || {})
-        .find(([, p]) => (p.models || []).some(m => (typeof m === "string" ? m : m?.id) === model));
-      if (owner && owner[0] !== providerId) {
-        console.log(`[parseModelReference] Model "${model}" not in active provider "${providerId}" — auto-routing to owner provider "${owner[0]}"`);
+    const activeModels = providerConfig?.providers?.[providerId]?.models;
+    const hasWhitelist = Array.isArray(activeModels) && activeModels.length > 0;
+    const idOf = (m) => (typeof m === "string" ? m : m?.id);
+    if (hasWhitelist && !activeModels.some((m) => idOf(m) === model)) {
+      const owner = Object.entries(providerConfig?.providers || {}).find(
+        ([pid, p]) =>
+          pid !== providerId &&
+          (p.models || []).some((m) => idOf(m) === model) &&
+          p?.apiKey && p.apiKey !== "na" && p?.baseURL
+      );
+      if (owner) {
+        console.log(`[parseModelReference] Model "${model}" not in active provider "${providerId}" whitelist — auto-routing to owner provider "${owner[0]}"`);
         providerId = owner[0];
       }
     }
