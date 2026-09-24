@@ -56,6 +56,7 @@ import TroubleshootingPanel from "../components/TroubleshootingPanel";
 import TabErrorBoundary from "../components/TabErrorBoundary";
 import FeatureMap from "../components/FeatureMap";
 import ApiMapSidebar from "../components/ApiMapSidebar";
+import ApiTesterTabs from "../components/ApiTesterTabs";
 import AgentSideChat, { type AgentSideChatHandle } from "../components/AgentSideChat";
 import CrewManager from "../components/CrewManager";
 // ReportsTab removed — merged into AutoDispatchPanel
@@ -927,6 +928,29 @@ export default function CodingIDE() {
   const [apiGroupCollapsed, setApiGroupCollapsed] = useState<Record<string, boolean>>({});
   const apiStreamAbortRef = useRef<AbortController | null>(null);
   const a2aAbortRef = useRef<AbortController | null>(null); // for interrupting A2A agent streams
+
+  // ── API Tester Collections（2026-09-24 Fleming：payload 存入 collection，左欄 tab 顯示）──
+  const [saveColOpen, setSaveColOpen] = useState(false);
+  const [saveColName, setSaveColName] = useState("");
+  const [savePayloadName, setSavePayloadName] = useState("");
+  const saveColComposingRef = useRef(false); // IME 三層保護
+  const doSaveToCollection = async () => {
+    const col = saveColName.trim();
+    const pname = savePayloadName.trim();
+    if (!col || !pname || !apiUrl) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/api-tester/collections`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          collection: col,
+          payload: { name: pname, method: apiMethod, url: apiUrl, headers: apiHeaders, body: apiBody, streamMode: apiStreamMode },
+        }),
+      });
+      if (res.ok) { setSaveColOpen(false); setSavePayloadName(""); alert(tt("apiTester.saved")); }
+      else alert(tt("apiTester.saveFailed"));
+    } catch { alert(tt("apiTester.saveFailed")); }
+  };
 
   // ── Coding Behavior Tracking ──
   const codingLogRef = useRef<CodingEvent[]>([]);
@@ -3000,9 +3024,9 @@ const sendChat = useCallback(async () => {
             {/* === API TESTER（三欄：API 地圖 | 測試台 | Developer AI）=== */}
             {activeMainTab?.type === "api" && (
               <div className="flex-1 flex min-w-0 overflow-hidden" data-testid="api-tester-page">
-                {/* 左欄：API 地圖宮殿 */}
+                {/* 左欄：tab sheet — Feature / Collection / History（2026-09-24 Fleming）*/}
                 <div className="shrink-0 border-r hidden lg:flex flex-col" style={{ width: 264, borderColor: tk.borderLight }}>
-                  <ApiMapSidebar
+                  <ApiTesterTabs
                     rootPath={rootPath}
                     onPick={(m, p) => {
                       const base = rootPath ? `http://localhost:${new URL(API_BASE).port}` : API_BASE;
@@ -3012,7 +3036,23 @@ const sendChat = useCallback(async () => {
                     }}
                     onOpenFile={(abs) => { openFile(abs); }}
                     onAskAi={(prompt) => { apiDevChatRef.current?.send(prompt); }}
+                    onLoadPayload={(p) => {
+                      setApiMethod(p.method || "GET");
+                      setApiUrl(p.url);
+                      setApiHeaders(Array.isArray(p.headers) && p.headers.length ? p.headers : [{ key: "Content-Type", value: "application/json", enabled: true }]);
+                      setApiBody(p.body ?? "");
+                      setApiStreamMode(!!p.streamMode);
+                    }}
+                    apiHistory={apiHistory}
+                    onClearHistory={async () => {
+                      setApiHistory([]);
+                      try { await fetch(`${API_BASE}/api/api-tester/history`, { method: "DELETE" }); } catch {}
+                    }}
+                    refreshHistory={async () => {
+                      try { const res = await fetch(`${API_BASE}/api/api-tester/history`); const data = await res.json(); if (data.history) setApiHistory(data.history); } catch {}
+                    }}
                     borderLight={tk.borderLight}
+                    borderInput={tk.borderInput}
                   />
                 </div>
                 {/* 中欄：request builder + response（原有）*/}
@@ -3051,43 +3091,35 @@ const sendChat = useCallback(async () => {
                         🧪 AI
                       </button>
                     )}
-                    {apiHistory.length > 0 && (
-                      <div className="relative group">
-                        <button className="text-xs px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 hover:bg-stone-200 font-semibold">
-                          📜 {apiHistory.length}
-                        </button>
-                        {/* Dropdown */}
-                        <div className="absolute right-0 top-full mt-1 w-80 max-h-64 overflow-y-auto bg-white rounded-lg shadow-xl border z-50 hidden group-hover:block" style={{ borderColor: tk.borderInput }}>
-                          <div className="flex items-center px-3 py-1.5 sticky top-0 bg-white z-10" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-                            <span className="text-xs font-bold text-stone-500">History</span>
-                            <span className="flex-1" />
-                            <button onClick={async () => {
-                              setApiHistory([]);
-                              try { await fetch(`${API_BASE}/api/api-tester/history`, { method: "DELETE" }); } catch {}
-                            }} className="text-xs text-red-400 hover:text-red-600">Clear</button>
-                          </div>
-                          {apiHistory.map((h, hi) => (
-                            <div key={h.id || hi} className="flex flex-col px-3 py-1.5 hover:bg-stone-50 cursor-pointer" style={{ borderBottom: "1px solid #f5f5f5" }}
-                              onClick={() => { setApiMethod(h.method); setApiUrl(h.url); if (h.headers) setApiHeaders(h.headers); if (h.body !== undefined) setApiBody(h.body); if (h.streamMode !== undefined) setApiStreamMode(h.streamMode); }}>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold w-10 shrink-0" style={{ color: METHOD_COLORS[h.method] || "#6B7280" }}>{h.method}</span>
-                                <span className="text-stone-600 truncate flex-1 font-mono text-xs">{h.url}</span>
-                                {/* 2026-09-12：agent 打的 API test 帶 🤖 標記（來源 agent 名字在 title） */}
-                                {h.source === "agent" && (
-                                  <span className="text-[10px] px-1 py-0.5 rounded bg-violet-50 text-violet-500 shrink-0" title={`由 ${h.agent || "agent"} 執行`}>🤖</span>
-                                )}
-                                <span className="text-xs font-bold shrink-0" style={{ color: h.status < 300 ? "#10B981" : h.status < 400 ? "#F59E0B" : "#EF4444" }}>{h.status}</span>
-                                <span className="text-xs text-stone-400 shrink-0">{h.elapsed}ms</span>
-                              </div>
-                              {/* Response preview for e2e */}
-                              {(h.response?.body || h.streamResponse) && (
-                                <pre className="text-xs font-mono text-stone-400 mt-0.5 truncate">{tryFormatJson(h.response?.body || h.streamResponse || "").slice(0, 120)}</pre>
-                              )}
-                            </div>
-                          ))}
+                    <div className="relative">
+                      <button onClick={() => setSaveColOpen(v => !v)} className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 hover:bg-amber-200 font-bold" title={tt("apiTester.saveToCollection")}>
+                        💾+
+                      </button>
+                      {/* 存入 Collection popover */}
+                      {saveColOpen && (
+                        <div className="absolute right-0 top-full mt-1 w-64 bg-white rounded-lg shadow-xl border p-2 space-y-1.5 z-50" style={{ borderColor: tk.borderInput }}>
+                        <div className="text-xs font-bold text-stone-500">{tt("apiTester.saveToCollection")}</div>
+                        <input value={saveColName} onChange={e => setSaveColName(e.target.value)}
+                          onCompositionStart={() => { saveColComposingRef.current = true; }}
+                          onCompositionEnd={() => { saveColComposingRef.current = false; }}
+                          placeholder={tt("apiTester.collectionNamePh")} className="w-full text-xs px-2 py-1 rounded border bg-transparent outline-none focus:border-amber-400" style={{ borderColor: tk.borderInput }} />
+                        <input value={savePayloadName} onChange={e => setSavePayloadName(e.target.value)}
+                          onCompositionStart={() => { saveColComposingRef.current = true; }}
+                          onCompositionEnd={() => { saveColComposingRef.current = false; }}
+                          onKeyDown={async (e) => {
+                            if (saveColComposingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
+                            if (e.key === "Enter") { e.preventDefault(); await doSaveToCollection(); }
+                          }}
+                          placeholder={tt("apiTester.payloadNamePh")} className="w-full text-xs px-2 py-1 rounded border bg-transparent outline-none focus:border-amber-400" style={{ borderColor: tk.borderInput }} />
+                        <div className="flex gap-1.5">
+                          <button onClick={doSaveToCollection} disabled={!saveColName.trim() || !savePayloadName.trim() || !apiUrl}
+                            className="flex-1 text-xs px-2 py-1 rounded bg-amber-500 text-white font-bold hover:bg-amber-600 disabled:opacity-40">{tt("apiTester.save")}</button>
+                          <button onClick={() => setSaveColOpen(false)} className="text-xs px-2 py-1 rounded text-stone-400 hover:text-stone-600">{tt("apiTester.cancel")}</button>
                         </div>
-                      </div>
-                    )}
+                        </div>
+                      )}
+                    </div>
+                        {/* Dropdown */}
                   </div>
                   {/* Quick URLs */}
                   <div className="flex flex-wrap gap-1 mb-1">

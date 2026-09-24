@@ -3,11 +3,109 @@
  * Routes: /api/api-tester/*
  */
 
-import { readFileSync, writeFileSync, unlinkSync } from "fs";
+import { readFileSync, writeFileSync, unlinkSync, existsSync } from "fs";
 import { resolve } from "path";
 import { DATA_ROOT } from "./shared.mjs";
 
+// ── Collection storage ──
+// data/api-tester-collections.json：{ [name]: { name, createdAt, updatedAt, payloads: [{id,name,method,url,headers,body,streamMode,createdAt}] } }
+// 2026-09-24 Fleming：使用者可請 AI 新增 api test payload by collection；UI 左欄 tab 顯示
+const COLLECTIONS_FILE = () => resolve(DATA_ROOT, "api-tester-collections.json");
+
+function _loadCollections() {
+  try { return JSON.parse(readFileSync(COLLECTIONS_FILE(), "utf-8")) || {}; } catch { return {}; }
+}
+
+function _saveCollections(data) {
+  writeFileSync(COLLECTIONS_FILE(), JSON.stringify(data, null, 2));
+}
+
+function _payloadSummary(p) {
+  return { id: p.id, name: p.name, method: p.method, url: p.url, createdAt: p.createdAt };
+}
+
 export default async function apiTesterRoute(req, res) {
+
+  // ── GET /api/api-tester/collections（無 name：摘要清單；有 name：完整 collection）──
+  if (req.method === "GET" && req.url?.startsWith("/api/api-tester/collections")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const name = params.get("name");
+    const data = _loadCollections();
+    if (name) {
+      const col = data[name];
+      if (!col) { res.writeHead(404, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: `Collection not found: ${name}` })); return true; }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ collection: col }));
+    } else {
+      const collections = Object.values(data).map(c => ({
+        name: c.name, count: (c.payloads || []).length, createdAt: c.createdAt, updatedAt: c.updatedAt,
+        payloads: (c.payloads || []).map(_payloadSummary),
+      }));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ collections }));
+    }
+    return true;
+  }
+
+  // ── POST /api/api-tester/collections — 新增/覆寫 payload 進 collection（同名 payload 覆蓋）──
+  // body: { collection, payload: { name, method, url, headers, body, streamMode } } 或 { collection, payloads: [...] } 批次
+  if (req.method === "POST" && req.url === "/api/api-tester/collections") {
+    let body;
+    try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Invalid JSON" })); return true; }
+    const colName = String(body.collection || "").trim();
+    if (!colName) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing collection name" })); return true; }
+    const incoming = Array.isArray(body.payloads) ? body.payloads : (body.payload ? [body.payload] : []);
+    if (incoming.length === 0) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing payload(s)" })); return true; }
+    const data = _loadCollections();
+    if (!data[colName]) data[colName] = { name: colName, createdAt: new Date().toISOString(), payloads: [] };
+    const col = data[colName];
+    const savedIds = [];
+    for (const p of incoming) {
+      const pname = String(p.name || "").trim();
+      if (!pname || !p.url) continue; // name + url 必填
+      const normalized = {
+        id: `pl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: pname,
+        method: String(p.method || "GET").toUpperCase(),
+        url: String(p.url),
+        headers: p.headers || [],
+        body: p.body !== undefined && p.body !== null ? String(p.body) : "",
+        streamMode: !!p.streamMode,
+        createdAt: new Date().toISOString(),
+      };
+      const idx = col.payloads.findIndex(x => x.name === pname); // 同名覆蓋
+      if (idx >= 0) { normalized.id = col.payloads[idx].id; normalized.createdAt = col.payloads[idx].createdAt; col.payloads[idx] = normalized; }
+      else col.payloads.push(normalized);
+      savedIds.push(normalized.id);
+    }
+    col.updatedAt = new Date().toISOString();
+    _saveCollections(data);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, collection: colName, saved: savedIds.length, ids: savedIds }));
+    return true;
+  }
+
+  // ── DELETE /api/api-tester/collections?name=X[&payloadId=Y] — 刪整個 collection 或單一 payload ──
+  if (req.method === "DELETE" && req.url?.startsWith("/api/api-tester/collections")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const name = params.get("name");
+    const payloadId = params.get("payloadId");
+    if (!name) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing name" })); return true; }
+    const data = _loadCollections();
+    if (!data[name]) { res.writeHead(404, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: `Collection not found: ${name}` })); return true; }
+    if (payloadId) {
+      data[name].payloads = data[name].payloads.filter(p => p.id !== payloadId);
+      data[name].updatedAt = new Date().toISOString();
+      if (data[name].payloads.length === 0) delete data[name]; // 清空就刪 collection
+      _saveCollections(data);
+    } else {
+      delete data[name];
+      _saveCollections(data);
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return true;
+  }
 
   // ── GET /api/api-tester/project-apis ──
   // Returns the code project's own API routes + examples

@@ -404,18 +404,22 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "api_test",
-      description: "Send an HTTP request (any method/headers/body) via the built-in API Tester - same as the human's 🌐 API Tester tab. Every call is saved to the shared API Tester history (📜 in UI) with a 🤖 agent marker, so the human sees what you tested and can replay it. Use this instead of bash curl for API testing. E2E workflow (tester): use project_info category=api_history to look up past requests (source=human shows what the human manually tested - detail=<N> returns the full headers/body they entered), then use those real payloads as seed data for e2e Playwright scripts, and use api_test to verify each API call the script will make.",
+      description: "Send an HTTP request via the built-in API Tester - same as the human's 🌐 API Tester tab. Every call is saved to the shared API Tester history (📜 in UI) with a 🤖 agent marker, so the human sees what you tested and can replay it. Use this instead of bash curl for API testing. Collections (2026-09-24): (1) listCollections=true lists all collections and their payloads; (2) run a saved payload by collection+name without url; (3) save=true with collection+name+method+url(+headers/body) saves a payload into a collection so the human can replay/organize it in the Collections tab - use this when the human asks you to add API test payloads. E2E workflow (tester): use project_info category=api_history to look up past requests (source=human shows what the human manually tested - detail=<N> returns the full headers/body they entered), then use those real payloads as seed data for e2e Playwright scripts, and use api_test to verify each API call the script will make.",
       parameters: {
         type: "object",
         properties: {
           method: { type: "string", enum: ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"], description: "HTTP method (default GET)" },
-          url: { type: "string", description: "Full URL to request (e.g. http://localhost:4318/api/crew)" },
+          url: { type: "string", description: "Full URL to request (e.g. http://localhost:4318/api/crew). Omit when running a saved payload via collection+name" },
           headers: { type: "object", description: "Request headers as key-value object (e.g. {\"Content-Type\":\"application/json\", \"Authorization\":\"Bearer x\"})" },
           body: { type: "string", description: "Request body (send JSON as string)" },
+          collection: { type: "string", description: "Collection name - with name: run that saved payload; with save=true: target collection to store into" },
+          name: { type: "string", description: "Payload name within the collection" },
+          save: { type: "boolean", description: "true = save this request (method/url/headers/body) into collection+name instead of sending it. Overwrites same-name payload" },
+          listCollections: { type: "boolean", description: "true = list all collections with their payloads (names/methods/urls)" },
           expectStatus: { type: "number", description: "Expected HTTP status code - report ✅/❌ pass/fail" },
           expectText: { type: "string", description: "Text expected in response body - report ✅/❌ pass/fail" },
         },
-        required: ["url"],
+        required: [],
       },
     },
   },
@@ -2394,9 +2398,69 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
       // 人從 UI 📜 History 看得到(帶 🤖 標記)、可點回來 replay。
       // ═════════════════════════════════════════
       case "api_test": {
-        const tUrl = String(args.url || "").trim();
-        const tMethod = String(args.method || "GET").toUpperCase();
-        if (!tUrl) return "Error: url is required for api_test";
+        // ── 2026-09-24 collection 三模式：list / run-by-name / save（Fleming：使用者可請 AI 新增 payload by collection）──
+        const _collectionsFile = () => resolve(DATA_HOME, "api-tester-collections.json");
+        const _loadCols = () => { try { return JSON.parse(readSync(_collectionsFile(), "utf-8")) || {}; } catch { return {}; } };
+        const tCollection = String(args.collection || "").trim();
+        const tPayloadName = String(args.name || "").trim();
+        const tUrl0 = String(args.url || "").trim();
+        const tMethod0 = String(args.method || "GET").toUpperCase();
+
+        // (1) listCollections：列全部 collection + payload 摘要
+        if (args.listCollections) {
+          const cols = _loadCols();
+          const names = Object.keys(cols);
+          if (names.length === 0) return "(No collections yet - use save=true + collection + name + url to create the first one)";
+          return "Collections (" + names.length + "):\n" + names.map(n => {
+            const ps = cols[n].payloads || [];
+            return `📁 ${n} (${ps.length} payloads)\n` + ps.map(p => `  - ${p.name} [${p.method}] ${p.url}`).join("\n");
+          }).join("\n\n");
+        }
+
+        // (2) save：把這次要的 payload 存進 collection（同名覆蓋）
+        if (args.save) {
+          if (!tCollection || !tPayloadName || !tUrl0) return "Error: save requires collection + name + url (method/headers/body optional)";
+          if (!/^https?:\/\//i.test(tUrl0)) return "Error: url must start with http:// or https://";
+          const rawH = (args.headers && typeof args.headers === "object" && !Array.isArray(args.headers)) ? args.headers : {};
+          const headerArr = Object.entries(rawH).map(([k, v]) => ({ key: k, value: v, enabled: true }));
+          const cols = _loadCols();
+          if (!cols[tCollection]) cols[tCollection] = { name: tCollection, createdAt: new Date().toISOString(), payloads: [] };
+          const col = cols[tCollection];
+          const entry = {
+            id: `pl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            name: tPayloadName,
+            method: tMethod0,
+            url: tUrl0,
+            headers: headerArr,
+            body: args.body !== undefined && args.body !== null ? String(args.body) : "",
+            streamMode: false,
+            createdAt: new Date().toISOString(),
+          };
+          const idx = col.payloads.findIndex(x => x.name === tPayloadName);
+          if (idx >= 0) { entry.id = col.payloads[idx].id; entry.createdAt = col.payloads[idx].createdAt; col.payloads[idx] = entry; }
+          else col.payloads.push(entry);
+          col.updatedAt = new Date().toISOString();
+          try { writeSync(_collectionsFile(), JSON.stringify(cols, null, 2)); } catch (e) { return `Error saving collection: ${e.message}`; }
+          return `💾 Saved "${tPayloadName}" [${tMethod0}] into collection "${tCollection}" (${col.payloads.length} payloads) - the human can see/replay it in API Tester → Collections tab.`;
+        }
+
+        // (3) run by collection+name（無 url）：從 collection 讀 payload 執行
+        let tUrl = tUrl0, tMethod = tMethod0, ranFromCollection = null;
+        if (!tUrl && tCollection && tPayloadName) {
+          const cols = _loadCols();
+          const col = cols[tCollection];
+          if (!col) return `Error: collection "${tCollection}" not found. Use listCollections=true to see available collections.`;
+          const p = (col.payloads || []).find(x => x.name === tPayloadName);
+          if (!p) return `Error: payload "${tPayloadName}" not found in collection "${tCollection}". Available: ${(col.payloads || []).map(x => x.name).join(", ") || "(none)"}`;
+          tUrl = String(p.url || "").trim();
+          tMethod = String(p.method || "GET").toUpperCase();
+          // headers: [{key,value,enabled}] → object
+          const hdrs = {};
+          for (const h of (p.headers || [])) { if (h && h.key && h.enabled !== false) hdrs[h.key] = h.value; }
+          args = { ...args, headers: hdrs, body: p.body !== undefined && p.body !== null ? String(p.body) : args.body };
+          ranFromCollection = tCollection;
+        }
+        if (!tUrl) return "Error: url is required for api_test (or provide collection + name to run a saved payload)";
         if (!/^https?:\/\//i.test(tUrl)) return "Error: url must start with http:// or https://";
 
         if (onEvent) onEvent({ type: "tool_start", name, args: `${tMethod} ${tUrl}` });
@@ -2450,6 +2514,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             response: { status: tRes.status, statusText: tRes.statusText, headers: respHeaders, body: respBody, elapsed, size: respBody.length },
             source: "agent",
             agent: agentId || undefined,
+            collection: ranFromCollection || undefined,
           };
           try {
             const histFile = resolve(DATA_HOME, "api-tester-history.json");
@@ -2462,6 +2527,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
 
           // ── Report ──
           let report = `${tMethod} ${tUrl}\n`;
+          if (ranFromCollection) report = `📁 collection "${ranFromCollection}"
+` + report;
           report += `Status: ${tRes.status} ${tRes.statusText}\n`;
           report += `Elapsed: ${elapsed}ms · Body: ${respBody.length} chars\n`;
           if (expectStatus !== null) {
