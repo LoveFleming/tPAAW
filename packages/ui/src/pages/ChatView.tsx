@@ -281,8 +281,24 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
         // 優先讀 localStorage per-session 偏好，没有才用全局 default
         const savedProvider = (() => { try { return localStorage.getItem("paaw.chat.provider"); } catch { return null; } })();
         const savedModel = (() => { try { return localStorage.getItem("paaw.chat.model"); } catch { return null; } })();
-        setActiveProviderId(savedProvider || data.active);
-        setActiveModel(savedModel || data.defaultModel);
+        // 2026-09-24 fix：驗證 localStorage 偏好還存在於目前 providers —
+        // 過期偏好（provider 改名/刪除、model 下架）會讓 /api/paaw/chat 回 Unknown provider 400，
+        // UI 誤判「需要設定」直接跳設定頁（公司林雨晴聊天事件）。壞值自動回退 active/default 並修回 localStorage。
+        const provEntries = Object.entries(data.providers || {});
+        const idOf = (m: any) => (typeof m === "string" ? m : m?.id);
+        let useProvider = savedProvider && provEntries.some(([id]) => id === savedProvider) ? savedProvider : data.active;
+        const provObj: any = provEntries.find(([id]) => id === useProvider)?.[1] || {};
+        const modelIds: Set<string> = new Set((provObj.models || []).map(idOf).filter(Boolean));
+        let useModel = savedModel && modelIds.has(savedModel) ? savedModel : (data.defaultModel && modelIds.has(data.defaultModel) ? data.defaultModel : ([...modelIds][0] || ""));
+        if (useProvider !== savedProvider || useModel !== savedModel) {
+          console.warn(`[ChatView] 過期的聊天 model 偏好（${savedProvider}/${savedModel}）→ 回退 ${useProvider}/${useModel}`);
+          try {
+            localStorage.setItem("paaw.chat.provider", useProvider);
+            localStorage.setItem("paaw.chat.model", useModel);
+          } catch {}
+        }
+        setActiveProviderId(useProvider);
+        setActiveModel(useModel);
         const list: ProviderInfo[] = [];
         for (const [id, p] of Object.entries(data.providers || {})) {
           const prov = p as any;

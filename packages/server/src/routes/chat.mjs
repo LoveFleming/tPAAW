@@ -160,13 +160,22 @@ export default async function chatRoutes(req, res) {
         }
       }
       let resolvedProvider = providerConfig.providers[resolvedProviderId];
-      if (!resolvedProvider) {
-        json(res, { error: `Unknown provider: ${resolvedProviderId}` }, 400);
-        return true;
-      }
-      if (!resolvedProvider.apiKey || resolvedProvider.apiKey === "na") {
-        json(res, { error: `No API key configured for provider: ${resolvedProviderId}` }, 400);
-        return true;
+      // 2026-09-24 fix：請求的 provider/model 過期（e.g. 瀏覽器 localStorage 舊偏好）→
+      // 降級 active provider + default model，不再直接 400。
+      // 舊行為：400 "Unknown provider" → UI 誤判需要設定 → 跳設定頁（公司林雨晴聊天事件：怎麼重啟都一樣，因為壞的是瀏覽器存量）。
+      // 只有連 active provider 都沒 key 時才回 400（真的需要去設定）。
+      const activeProvider = providerConfig.providers[providerConfig.active];
+      if (!resolvedProvider || !resolvedProvider.apiKey || resolvedProvider.apiKey === "na") {
+        const reason = !resolvedProvider ? `Unknown provider: ${resolvedProviderId}` : `No API key configured for provider: ${resolvedProviderId}`;
+        if (activeProvider?.apiKey && activeProvider.apiKey !== "na" && resolvedProviderId !== providerConfig.active) {
+          console.warn(`[chat] ⚠️ ${reason} — 降級到 active provider "${providerConfig.active}" + default model（請求的偏好已過期）`);
+          resolvedProviderId = providerConfig.active;
+          resolvedProvider = activeProvider;
+          model = resolveDefaultModel(providerConfig);
+        } else {
+          json(res, { error: reason }, 400);
+          return true;
+        }
       }
 
       // ── Vision 路由（2026-08-30 Phase 2）：訊含圖 → 自動切 visionModel ──
