@@ -4937,6 +4937,9 @@ export async function runAgentLoopStream(config, res) {
   let turns = 0;
   let contentEmitted = false;
   let streamEmptyRetryCount = 0;
+  // 2026-09-25 fix：主 loop 已因 LLM 掛掉（429 全 fallback 失敗 / model 硬錯）送出 error →
+  // 結尾的強制總結（final summary）不再重打同一條註定失敗的鏈，避免 UI 顯示兩筆錯誤（Fleming 公司 429 事件）
+  let llmFatalError = false;
 
   for (let i = 0; i < effectiveMaxTurns; i++) {
     // Check abort signal (user interrupt)
@@ -5006,10 +5009,12 @@ export async function runAgentLoopStream(config, res) {
         }
         if (!response) {
           sendSSE("error", { error: `All providers failed: ${err.message}` });
+          llmFatalError = true;
           break;
         }
       } else {
         sendSSE("error", { error: err.message });
+        llmFatalError = true;
         break;
       }
     }
@@ -5160,7 +5165,9 @@ export async function runAgentLoopStream(config, res) {
   // 2026-09-21 fix:使用者中斷時跳過 — 這個強制總結用同一個 abortSignal,必然立刻被殺掉,
   // 只會送出假的 "Final summary failed: Aborted by user interrupt" error(被 stream-state 記錄、
   // 斷線接回 poller 撿到後在 chat 顯示第三則錯誤訊息)。中斷已由 interrupted 事件表達,不需總結。
-  if (!contentEmitted && !abortSignal?.aborted) {
+  // 2026-09-25 fix：llmFatalError 時跳過強制總結 — 同一條 LLM 鏈剛剛才全掛，再打一次只會多送一筆
+  // 「Final summary failed: LLM API error: 429...」錯誤訊息（UI 顯示兩筆幾乎相同的錯誤）
+  if (!contentEmitted && !llmFatalError && !abortSignal?.aborted) {
     try {
       messages.push({
         role: "user",

@@ -1298,6 +1298,9 @@ export default function CodingIDE() {
                   // dedup：中斷類訊息只要一則（live SSE / 中斷鈕可能已先加過）
                   if (isInterrupted && last?.role === "assistant" && typeof last.content === "string" && last.content.includes("已中斷")) return prev;
                   if (last?.role === "assistant" && typeof last.content === "string" && last.content.slice(0, 200) === content.slice(0, 200)) return prev;
+                  // 2026-09-25 fix：live SSE 已顯示過同一筆錯誤（❌ Error: X）時，poller 的「❌ (斷線期間結束) X」不再補第二筆
+                  // 兩邊 prefix 不同（前 200 字全等比不到）→ 改比錯誤本文（st.error 前 120 字是否已出現在最後一則）
+                  if (st.error && last?.role === "assistant" && typeof last.content === "string" && last.content.includes(String(st.error).slice(0, 120))) return prev;
                   return { ...prev, [activeCrew]: [...cur, { role: "assistant", content, ts: new Date().toISOString() }] };
                 });
               }
