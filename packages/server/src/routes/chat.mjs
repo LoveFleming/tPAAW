@@ -55,6 +55,19 @@ export default async function chatRoutes(req, res) {
   // Chat Session CRUD
   // ════════════════════════════════════════
 
+  // ── GET /api/chat/context — 林雨晴聊天實際注入的完整 system prompt（debug；2026-09-26 Fleming：🧠 按鈕跟 coding app 對齊）──
+  if (req.method === "GET" && path === "/api/chat/context") {
+    try {
+      const { contextEngine } = await import("../context-engine.mjs");
+      const ctx = await contextEngine.build({ target: "chat" });
+      const sp = ctx.systemPrompt || "";
+      json(res, { systemPrompt: sp, totalLength: sp.length });
+    } catch (err) {
+      json(res, { error: err.message }, 500);
+    }
+    return true;
+  }
+
   // GET /api/paaw/chats — list all chat sessions
   if (req.method === "GET" && path === "/api/paaw/chats") {
     try {

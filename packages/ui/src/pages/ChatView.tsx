@@ -186,6 +186,9 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   const [showChatList, setShowChatList] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [showAppLauncher, setShowAppLauncher] = useState(false);
+  // 🧠 Context debug（2026-09-26 Fleming：prompt 按鈕跟 coding app agent chat 對齊）
+  const [showContextDebug, setShowContextDebug] = useState(false);
+  const [contextDebug, setContextDebug] = useState<any>(null);
   const [activeTools, setActiveTools] = useState<{ name: string; status: 'running' | 'done' | 'error' }[]>([]);
 
   // Provider / model
@@ -725,9 +728,29 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
             <p className="text-[11px] text-stone-400">你的個人助理 · 在線</p>
           </div>
           <div className="flex items-center gap-1.5">
-            <button onClick={() => setShowChatList(!showChatList)} className="text-[11px] px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accentHover }}>
-              💬
+            {/* ── 按鈕 trio 跟 coding app agent chat 同款（2026-09-26 Fleming）：📋 歷史對話 / 🧠 看 context / 💬 開新對話，統一 accent 色外框 ── */}
+            <button onClick={() => setShowChatList(!showChatList)} className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accent }} title="歷史對話">
+              📋
             </button>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`${API_BASE}/api/chat/context`);
+                  const data = await res.json();
+                  setContextDebug(data);
+                  setShowContextDebug(true);
+                } catch (e: any) {
+                  setContextDebug({ error: e.message });
+                  setShowContextDebug(true);
+                }
+              }}
+              className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50"
+              style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accent }}
+              title="查看注入的 Context & Prompts"
+            >
+              🧠
+            </button>
+            <button onClick={createNewChat} className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accent }} title="開新對話">💬</button>
             {/* App Launcher */}
             {onOpenApp && apps.length > 0 && (
               <div className="relative">
@@ -782,7 +805,6 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
                 </>
               )}
             </div>
-            <button onClick={createNewChat} className="text-[11px] px-2 py-1 rounded-lg text-white font-medium transition-colors" style={{ background: themeInfo.accent }}>＋</button>
           </div>
         </div>
 
@@ -908,6 +930,35 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
               <button onClick={() => handleSend()} disabled={!input.trim() && pendingImages.length === 0} className="px-4 py-2.5 rounded-xl text-white font-medium text-sm disabled:opacity-40 flex-shrink-0 transition-all" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 005.135 9.25h6.115a.75.75 0 010 1.5H5.135a1.5 1.5 0 00-1.442 1.086l-1.414 4.926a.75.75 0 00.826.95 28.896 28.896 0 0015.293-7.154.75.75 0 000-1.115A28.897 28.897 0 003.105 2.289z" /></svg>
               </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 🧠 Context & Prompts debug modal（2026-09-26：跟 coding app agent chat 同款） */}
+      {showContextDebug && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={() => { setShowContextDebug(false); setContextDebug(null); }}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative w-[700px] max-w-[90vw] max-h-[80vh] bg-[#1a1a2e] rounded-xl shadow-2xl border border-stone-700 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-stone-700">
+              <h3 className="text-sm font-bold text-stone-100 flex items-center gap-2">🧠 Context & Prompts</h3>
+              <div className="flex items-center gap-3">
+                {typeof contextDebug?.totalLength === "number" && (
+                  <span className="text-xs text-stone-400">Total: {contextDebug.totalLength.toLocaleString()} chars</span>
+                )}
+                <button onClick={() => { setShowContextDebug(false); setContextDebug(null); }} className="text-stone-400 hover:text-white text-lg">✕</button>
+              </div>
+            </div>
+            {contextDebug?.error ? (
+              <div className="flex-1 flex items-center justify-center text-red-400 text-sm p-6">Error: {contextDebug.error}</div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: "thin" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">📋 System Prompt</span>
+                  <span className="text-[10px] text-stone-500">{(contextDebug?.systemPrompt?.length || 0).toLocaleString()} chars</span>
+                </div>
+                <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: "55vh", overflowY: "auto" }}>{contextDebug?.systemPrompt || ""}</pre>
+              </div>
             )}
           </div>
         </div>
