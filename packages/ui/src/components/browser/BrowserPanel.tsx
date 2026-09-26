@@ -532,13 +532,15 @@ export function BrowserPanel({ API_BASE, rootPath, onCaptureFile }: { API_BASE: 
       // 2026-09-26 Fleming：拍完直接把圖送進聊天區 attachment area（免手動複製貼上）
       if (onCaptureFile) {
         try {
-          const f = String(data.screenshot || data.lastScreenshot?.path || "").split(/[\\/]/).pop();
-          const imgRes = await fetch(`${API_BASE}/api/browser/shot?${ruQ ? ruQ + "&" : ""}f=${encodeURIComponent(f)}`);
-          if (imgRes.ok) {
-            const blob = await imgRes.blob();
-            if (blob.type.startsWith("image/")) {
-              const hhmm = new Date(data.lastScreenshot.ts || Date.now()).toTimeString().slice(0, 8).replace(/:/g, "");
-              onCaptureFile(new File([blob], `capture-${hhmm}.png`, { type: blob.type }));
+          const f = String(data.screenshot || data.lastScreenshot?.path || "").split(/[\\/]/).pop() || "";
+          if (f) {
+            const imgRes = await fetch(`${API_BASE}/api/browser/shot?${ruQ ? ruQ + "&" : ""}f=${encodeURIComponent(f)}`);
+            if (imgRes.ok) {
+              const blob = await imgRes.blob();
+              if (blob.type.startsWith("image/")) {
+                const hhmm = new Date(data.lastScreenshot.ts || Date.now()).toTimeString().slice(0, 8).replace(/:/g, "");
+                onCaptureFile(new File([blob], `capture-${hhmm}.png`, { type: blob.type }));
+              }
             }
           }
         } catch { /* best effort — 附件失敗不影響截圖顯示 */ }
