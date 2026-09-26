@@ -391,6 +391,17 @@ export async function buildSystemPrompt(agentId, opts = {}) {
   const _timeStr = `${String(_now.getHours()).padStart(2, "0")}:${String(_now.getMinutes()).padStart(2, "0")}`;
   parts.push(`=== 當前日期時間 ===\n今天是 ${_dateStr}（星期${_weekday}），時間 ${_timeStr}，時區 ${_tz} (${_offStr})`);
 
+  // 0b. 使用者設定（2026-09-26 Fleming 定調：固定讀 data/user.json — 設定頁「使用者設定」API 同一份，注入所有 agent）
+  try {
+    const userProfilePath = resolve(DATA_HOME, "user.json");
+    if (existsSync(userProfilePath)) {
+      const _u = JSON.parse(readSync(userProfilePath, "utf-8"));
+      if (_u && (_u.name || _u.intro || _u.style)) {
+        parts.push(`=== 使用者資訊 ===\n- 名字：${_u.name || "未知"}\n- 介紹：${_u.intro || ""}\n- 偏好風格：${_u.style || "casual"}`);
+      }
+    }
+  } catch {}
+
   // 0. If ai-settings/{agentId}/system-prompt.md exists, use it as base prompt
   const aiSettingsPromptPath = resolve(DATA_HOME, "ai-settings", agentId, "system-prompt.md");
   if (existsSync(aiSettingsPromptPath)) {

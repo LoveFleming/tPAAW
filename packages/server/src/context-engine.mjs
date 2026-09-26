@@ -99,9 +99,12 @@ function readCategoryFiles(categoryName) {
 // ══════════════════════════════════════════════════════════
 
 function loadUserProfile() {
-  return safeReadJSON(resolve(CONFIG_DIR, "user.json"), {
-    name: "使用者", intro: "", style: "casual", assistantName: "林語晴",
-  });
+  // 2026-09-26 Fleming 定調：事實來源 = data/user.json（設定頁「使用者設定」API 讀寫的同一份）
+  // 舊版讀 data/config/user.json — 與設定頁寫入的分岔，改過的 profile 永遠吃不到；config 那份只留 preferences 用
+  const defaults = { name: "使用者", intro: "", style: "casual", assistantName: "林語晴" };
+  const main = safeReadJSON(resolve(DATA_DIR, "user.json"), null);
+  if (main) return main;
+  return safeReadJSON(resolve(CONFIG_DIR, "user.json"), defaults) || defaults;
 }
 
 function loadMemory() {
