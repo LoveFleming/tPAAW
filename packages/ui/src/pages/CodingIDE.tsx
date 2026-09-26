@@ -1480,6 +1480,8 @@ export default function CodingIDE() {
   // ═══════════════════════════════════════════════
   // API Tester 右欄 Developer AI（外部注入訊息用）
   const apiDevChatRef = useRef<AgentSideChatHandle>(null);
+  // browser 頁 QA 武大安 side chat — 📸 拍目前畫面直接把圖丢進他的 attachment area（2026-09-26）
+  const qaBrowserChatRef = useRef<AgentSideChatHandle>(null);
   const openFile = useCallback(async (path: string) => {
     if (loadingFileRef.current) return; // prevent double-click race
 
@@ -2968,10 +2970,11 @@ const sendChat = useCallback(async () => {
               <div className="absolute inset-0 flex overflow-hidden"
                 style={{ visibility: browserActive ? "visible" : "hidden", zIndex: browserActive ? 1 : 0, pointerEvents: browserActive ? "auto" : "none" }}>
                 <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-                  <BrowserPanel API_BASE={API_BASE} rootPath={rootPath} />
+                  <BrowserPanel API_BASE={API_BASE} rootPath={rootPath} onCaptureFile={f => qaBrowserChatRef.current?.addFiles([f])} />
                 </div>
                 <div className="shrink-0 border-l hidden md:flex flex-col" style={{ width: 360, borderColor: tk.borderLight }}>
                   <AgentSideChat
+                    ref={qaBrowserChatRef}
                     agentId="qa"
                     agentName={tt("qaBrowser.agentName")}
                     agentEmoji="🔬"

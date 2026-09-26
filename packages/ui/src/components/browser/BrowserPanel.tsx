@@ -53,7 +53,7 @@ const KEY_MAP: Record<string, string> = {
   Home: "Home", End: "End", PageUp: "PageUp", PageDown: "PageDown", " ": " ",
 };
 
-export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPath?: string | null }) {
+export function BrowserPanel({ API_BASE, rootPath, onCaptureFile }: { API_BASE: string; rootPath?: string | null; onCaptureFile?: (file: File) => void }) {
   const { t } = useI18n();
   // 2026-09-12：per-RU browser instance — 兩個 Chrome 視窗開不同 RU 各自獨立 browser
   // 2026-09-13：ruOverride — 收到 remote_activity 後可「切過去看」agent 正在操作的另一個實體
@@ -529,12 +529,26 @@ export function BrowserPanel({ API_BASE, rootPath }: { API_BASE: string; rootPat
       const data = await res.json();
       if (!res.ok || !data.lastScreenshot) throw new Error(data.error || "capture failed");
       setStatus(data); // lastScreenshot.ts 更新 → <img> 換新圖
+      // 2026-09-26 Fleming：拍完直接把圖送進聊天區 attachment area（免手動複製貼上）
+      if (onCaptureFile) {
+        try {
+          const f = String(data.screenshot || data.lastScreenshot?.path || "").split(/[\\/]/).pop();
+          const imgRes = await fetch(`${API_BASE}/api/browser/shot?${ruQ ? ruQ + "&" : ""}f=${encodeURIComponent(f)}`);
+          if (imgRes.ok) {
+            const blob = await imgRes.blob();
+            if (blob.type.startsWith("image/")) {
+              const hhmm = new Date(data.lastScreenshot.ts || Date.now()).toTimeString().slice(0, 8).replace(/:/g, "");
+              onCaptureFile(new File([blob], `capture-${hhmm}.png`, { type: blob.type }));
+            }
+          }
+        } catch { /* best effort — 附件失敗不影響截圖顯示 */ }
+      }
     } catch {
       setCaptureFail(true);
     } finally {
       setCapturing(false);
     }
-  }, [API_BASE, effRu, capturing]);
+  }, [API_BASE, effRu, capturing, ruQ, onCaptureFile]);
 
   // 進入 📸 模式 → 自動拍目前這頁（拍完關閉串流也不影響 — capture 走 server 主動截圖）
   useEffect(() => { if (mode === "shot") captureShot(); }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps

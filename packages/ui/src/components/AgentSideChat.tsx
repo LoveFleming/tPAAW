@@ -54,6 +54,7 @@ interface AgentSideChatProps {
 
 export interface AgentSideChatHandle {
   send: (text: string) => void;   // 外部注入訊息（Handover QA → AI）
+  addFiles: (files: File[]) => void; // 外部注入附件（📸 拍目前畫面 → 直接入 attachment area，2026-09-26）
 }
 
 export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(function AgentSideChat({
@@ -415,7 +416,10 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
   }, [input, loading, messages, agentId, cwd, pendingImages, pendingFiles, tt, viewingArchive]);
 
   // 外部注入訊息（Handover QA chips → AI；不改變內部訊息流）
-  React.useImperativeHandle(ref, () => ({ send: (text: string) => { send(text); } }), [send]);
+  React.useImperativeHandle(ref, () => ({
+    send: (text: string) => { send(text); },
+    addFiles: (files: File[]) => { addImages(files); addTextFiles(files); },
+  }), [send, addImages, addTextFiles]);
 
   return (
     <div className="flex flex-col border-l relative" style={{ borderColor: "#e7e5e4", height }}>

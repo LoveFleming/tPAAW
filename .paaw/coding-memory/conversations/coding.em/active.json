@@ -1,9 +1,4 @@
 {
-  "_meta": {
-    "crewId": "coding.em",
-    "lastUpdated": "2026-08-25T13:36:03.994Z",
-    "messageCount": 3
-  },
   "messages": [
     {
       "role": "assistant",
@@ -19,6 +14,15 @@
       "role": "assistant",
       "content": "❌ EM 規劃失敗：PaawProject is not defined",
       "ts": "2026-08-23T04:23:14.332Z"
+    },
+    {
+      "role": "assistant",
+      "content": "✅ MCP 橋接測試完成，只跑了 preview 沒有 start。\n\n**Preview 結果**：\n- **可派工 task：0 個** — 目前沒有任何 open task\n- 現有 5 個主 task 的狀態分佈：close 3、pending 2、ignore 0\n\n**總結**：0 個 task 可派、無派工對象。那 2 個 pending task 不在 auto_dispatch 的掃描範圍（只掃 open），如果你想看 pending 的內容或想把它們轉為 open 再派工，跟我說一聲即可。",
+      "ts": "2026-09-25T10:03:01.018Z"
     }
-  ]
+  ],
+  "_meta": {
+    "updatedAt": "2026-09-25T10:03:01.018Z",
+    "savedBy": "a2a-stream-recovery"
+  }
 }
