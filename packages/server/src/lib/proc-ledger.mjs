@@ -28,6 +28,10 @@
 
 import { spawn, execSync } from "child_process";
 import { AsyncLocalStorage } from "async_hooks";
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import { LOG_HOME } from "../data-home.mjs";
 
 const IS_WIN = process.platform === "win32";
 
@@ -39,6 +43,43 @@ export const runContextALS = new AsyncLocalStorage(); // { runId, ruSlug }
 //   key     = `${runId || "orphan"}#${pgid}`（唯一；同 runId 重複記同 pgid 會覆蓋）
 //   pgid    = POSIX process group id（= spawn 的 shell pid）；Windows 記 shell pid（PPID 查詢用）
 const _entries = new Map();
+
+// ── 持久化：PAAW server 重啟後帳本歸零 → 重啟前的孤兒沒人管 ──
+// 記帳/掃殺時同步落盤；module init 時重新領養（group 還活著的 entry）。
+// 進守跨平台紀律：路徑操作一律 fileURLToPath / normalize。
+const _STATE_PATH = join(LOG_HOME, "tmp", "proc-ledger-state.json");
+function _saveState() {
+  try {
+    mkdirSync(dirname(_STATE_PATH), { recursive: true });
+    const arr = [..._entries.values()].map((e) => ({
+      runId: e.runId, ruSlug: e.ruSlug, pgid: e.pgid,
+      command: String(e.command).slice(0, 300), at: e.at,
+    }));
+    writeFileSync(_STATE_PATH, JSON.stringify(arr));
+  } catch {}
+}
+function _loadState() {
+  try {
+    if (!existsSync(_STATE_PATH)) return;
+    const arr = JSON.parse(readFileSync(_STATE_PATH, "utf-8"));
+    if (!Array.isArray(arr)) return;
+    let adopted = 0;
+    for (const e of arr) {
+      if (!e || typeof e.pgid !== "number") continue;
+      // 只領養 group 還活著的（server 重啟期間自然退出的就不算了）
+      const alive = IS_WIN ? true /* Windows 孤兒採掃時才查，先收 */ : (() => { try { process.kill(-e.pgid, 0); return true; } catch (err) { return err.code === "EPERM"; } })();
+      if (!alive) continue;
+      _entries.set(`${e.runId || "orphan"}#${e.pgid}`, {
+        key: `${e.runId || "orphan"}#${e.pgid}`,
+        runId: e.runId || null, ruSlug: e.ruSlug, pgid: e.pgid,
+        command: e.command, at: e.at || _now(),
+      });
+      adopted++;
+    }
+    if (adopted > 0) console.log(`[proc-ledger] ♻️ 重啟領養 ${adopted} 個殘留 process group（帳本狀態從 ${dirname(_STATE_PATH).split(/[\\/]/).pop()}/proc-ledger-state.json 恢復）`);
+  } catch {}
+}
+_loadState();
 
 const _now = () => Date.now();
 const _ts = () => new Date().toISOString();
@@ -63,6 +104,7 @@ function _groupAlive(pgid) {
 function _record(runId, ruSlug, pgid, command) {
   const key = `${runId || "orphan"}#${pgid}`;
   _entries.set(key, { key, runId: runId || null, ruSlug, pgid, command, at: _now() });
+  _saveState();
 }
 
 /** 指令結束後檢查殘留並記帳（小延遲避開 spawn race） */
@@ -233,6 +275,7 @@ async function _sweep(matchFn, reason) {
       console.log(`[proc-ledger] 🧹 swept pgid=${entry.pgid} reason=${reason} cmd="${String(entry.command).slice(0, 80)}"`);
     } catch {}
   }
+  _saveState();
   return swept;
 }
 
