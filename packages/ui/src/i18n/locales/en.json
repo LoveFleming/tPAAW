@@ -912,6 +912,8 @@
   "sideChat.sessions": "Sessions",
   "sideChat.noSessions": "No conversations yet",
   "sideChat.current": "Current conversation",
+  "sideChat.backToActive": "Back to current chat",
+  "sideChat.activeBadge": "Current",
   "qaRecords.toolbar": "QA Records",
   "qaRecords.total": "Total",
   "qaRecords.statusOpen": "Open",

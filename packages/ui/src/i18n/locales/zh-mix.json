@@ -912,6 +912,8 @@
   "sideChat.sessions": "Sessions",
   "sideChat.noSessions": "尚無對話記錄",
   "sideChat.current": "目前對話",
+  "sideChat.backToActive": "回到目前對話",
+  "sideChat.activeBadge": "目前",
   "qaRecords.toolbar": "QA 記錄",
   "qaRecords.total": "Total",
   "qaRecords.statusOpen": "Open",

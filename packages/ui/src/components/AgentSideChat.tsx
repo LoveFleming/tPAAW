@@ -120,6 +120,9 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
   useEffect(() => {
     if (!persistCrewId || !cwd) return;
     if (!messages.some(m => m.role === "user")) return;
+    // 🛡 2026-09-27 治本：看歷史（viewingArchive）時絕不 auto-save —
+    // 否則歷史內容 2 秒後被寮回 active 對話，目前對話被歷史覆蓋（切不回來的根因）
+    if (viewingArchive) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       try {
@@ -131,7 +134,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
       } catch { /* best effort */ }
     }, 2000);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [messages, persistCrewId, cwd]);
+  }, [messages, persistCrewId, cwd, viewingArchive]);
 
   // 📋 歷史：拉 session 清單（active + 歸檔 s-*）
   const loadSessions = useCallback(async () => {
@@ -484,6 +487,13 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
         {persistCrewId && (
           <div className={`${loading ? "" : "ml-auto"} flex items-center gap-1 shrink-0`}>
             {viewingArchive && (
+              <button
+                onClick={() => openSession("active")}
+                className="text-[10px] px-2 py-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 font-semibold transition-colors"
+                title={tt("sideChat.backToActive")}
+              >↩ {tt("sideChat.backToActive")}</button>
+            )}
+            {viewingArchive && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200">📂 {tt("sideChat.archive")}</span>
             )}
             <button
@@ -515,22 +525,29 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
           </div>
           {sessions.length === 0 ? (
             <div className="px-3 py-4 text-center text-xs text-stone-400">{tt("sideChat.noSessions")}</div>
-          ) : sessions.map(s => (
+          ) : sessions.map(s => {
+            const isCurrent = !viewingArchive && s.isActive;
+            const isViewing = viewingArchive === s.sessionId || isCurrent;
+            return (
             <button
               key={s.sessionId}
               onClick={() => openSession(s.sessionId)}
-              className={`w-full text-left px-3 py-2 hover:bg-stone-50 border-b last:border-b-0 transition-colors ${viewingArchive === s.sessionId || (!viewingArchive && s.isActive) ? "bg-amber-50/50" : ""}`}
+              className={`w-full text-left px-3 py-2 border-b last:border-b-0 transition-colors ${s.isActive ? "border-l-[3px] border-l-green-500" : "border-l-[3px] border-l-transparent"} ${isViewing ? "bg-amber-50" : "hover:bg-stone-50"}`}
               style={{ borderColor: "#f5f5f4" }}
             >
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-700 truncate flex-1">{s.isActive ? "🟢" : "📂"} {s.title || (s.isActive ? tt("sideChat.current") : "對話")}</span>
+                <span className={`text-[11px] truncate flex-1 ${s.isActive ? "text-green-700 font-semibold" : "text-stone-700"}`}>{s.isActive ? "🟢" : "📂"} {s.title || (s.isActive ? tt("sideChat.current") : "對話")}</span>
+                {s.isActive && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-300 font-semibold shrink-0">{tt("sideChat.activeBadge")}</span>
+                )}
                 <span className="text-[10px] text-stone-400 shrink-0">{s.messageCount} 則</span>
               </div>
               {s.lastUpdated && (
                 <div className="text-[10px] text-stone-400 mt-0.5">{new Date(s.lastUpdated).toLocaleString()}</div>
               )}
             </button>
-          ))}
+            );
+          })}
         </div>
       )}
 
