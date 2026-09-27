@@ -23,6 +23,8 @@ import { cleanupProjectTempFiles } from "./temp-janitor.mjs";
 import { existsSync, readFileSync as readSync, mkdirSync, appendFileSync, writeFileSync as writeSync, readdirSync, statSync } from "fs";
 import { loadFeatureData, matchFeaturesForFiles, buildContextBoundary } from "./feature-boundary.mjs";
 import { exec as execCb } from "child_process";
+// 2026-09-27 OOM 治本：bash 殘留程序帳本（背景程序跨 run 累積 → RAM 爆 → OOM 砍 Chrome/VSCode）
+import { runShellGrouped, runContextALS, sweepRunProcesses } from "./proc-ledger.mjs";
 import { shellExec, IS_WIN as IS_WIN_SHARED } from "./shell-exec.mjs";
 import { resolve, join, dirname, relative } from "path";
 import { getDependencyContext, getAffectedTests } from "./dependency-context.mjs";
@@ -1617,18 +1619,22 @@ async function runShell(command, cwd, timeoutMs = 30_000) {
     // - $PAAW_TMP                → log/tmp/<ru-slug>/(agent scratch,session 自動清)
     // - $PAAW_APP_CONSOLE_DIR    → log/app-console/<ru-slug>/(developer 啟動 app 的 nohup 輸出)
     const _ruSlug = logSlug(cwd);
-    const { stdout, stderr } = await shellExec(command, {
+    // 2026-09-27 OOM 治本：改走 proc-ledger 的 process group 執行 —
+    // timeout 殺整棵樹（不留孤兒）；背景殘留記帳，agent run 結束時精準掃殺
+    // （runId 由 proc-ledger 從 AsyncLocalStorage 讀 — runAgentLoop 進場時掛的）
+    const { stdout, stderr, code } = await runShellGrouped(command, {
       cwd,
-      timeout: Math.min(timeoutMs, _agentCfg.shellTimeoutMs || 600_000),
-      maxBuffer: 5 * 1024 * 1024,
+      timeoutMs: Math.min(timeoutMs, _agentCfg.shellTimeoutMs || 600_000),
       env: {
-        ...process.env,
         PAAW_LOG_HOME: LOG_HOME,
         PAAW_TMP: join(LOG_HOME, "tmp", _ruSlug),
         PAAW_APP_CONSOLE_DIR: join(LOG_HOME, "app-console", _ruSlug),
       },
+      ruSlug: _ruSlug,
     });
-    return (stdout || "") + (stderr ? "\n" + stderr : "") || "(no output)";
+    let out = (stdout || "") + (stderr ? "\n" + stderr : "");
+    if (code !== 0) out += (out ? "\n" : "") + `Exit code: ${code ?? 1}`;
+    return out || "(no output)";
   } catch (e) {
     let output = e.stdout || "";
     if (e.stderr) output += (output ? "\n" : "") + e.stderr;
@@ -4408,6 +4414,10 @@ export async function runAgentLoop(config) {
   const timeoutMs = effectiveTimeout > 0 ? effectiveTimeout * 1000 : 0; // 0 = no timeout
   const toolCallLog = [];
 
+  // 2026-09-27 OOM 治本：本 run 的 bash 殘留 process 群歸屬（結束時精準掃殺，lib/proc-ledger.mjs）
+  const _runId = `run-${startTime.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  runContextALS.enterWith({ runId: _runId, ruSlug: logSlug(cwd) });
+
   // 2026-09-05 Fleming:每個 agent loop 的開始/結束要在 console 一眼看到
   console.log(`[AgentLoop] ▶️ agent=${agentId || "agent"} model=${modelOverride || "default"} turns≤${effectiveMaxTurns} cwd=${String(cwd).split("/").slice(-2).join("/")} prompt=${prompt.length}字`);
 
@@ -4818,6 +4828,15 @@ export async function runAgentLoop(config) {
   // ── Auto-cleanup temp files created during this session ──
   await cleanupTempFiles(cwd, createdFiles, (msg) => console.log(msg), startTime);
 
+  // ── OOM 治本（2026-09-27）：掃掉本 run bash 殘留的背景 process（test harness / verify server…）──
+  // 只殺本 run 帳本裡的 process group — dev_server 工具起的（自帶生命週期）與系統程序不受影響
+  try {
+    const _swept = await sweepRunProcesses(_runId, { reason: `run-end ${agentId || "agent"}` });
+    if (_swept.length > 0) {
+      console.log(`[AgentLoop] 🧹 殘留背景程序掃除 ×${_swept.length}（run=${_runId}）：${_swept.map((s) => String(s.command).slice(0, 50)).join(" | ")}`);
+    }
+  } catch (e) { console.error("[AgentLoop] proc-ledger sweep error:", e.message); }
+
   const _loopOk = !finalContent.includes("[Agent loop timed out]") && !finalContent.startsWith("LLM API error");
   console.log(`[AgentLoop] ${_loopOk ? "✅" : "❌"} agent=${agentId || "agent"} 結束(${turns} turns, ${((Date.now() - startTime) / 1000).toFixed(0)}s, ${_totalUsage.total || 0} tokens, 輸出 ${finalContent.length} 字)`);
 
@@ -4869,6 +4888,10 @@ export async function runAgentLoopStream(config, res) {
   const timeoutMs = timeout > 0 ? timeout * 1000 : 0; // 0 = no timeout
   const streamModifiedFiles = new Set(); // track modified files for post-edit verification
   const streamCreatedFiles = new Set(); // track NEW files for cleanup
+
+  // 2026-09-27 OOM 治本：本 run 的 bash 殘留 process 群歸屬（同 runAgentLoop，lib/proc-ledger.mjs）
+  const _runId = `run-${startTime.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  runContextALS.enterWith({ runId: _runId, ruSlug: logSlug(cwd) });
 
   // Ensure $PAAW_TMP exists as designated temp area (auto-cleaned each session)
   // log/tmp/<ru-slug>/(2026-09-06:.paaw 只放資產)- 同 runAgentLoop
@@ -5217,6 +5240,15 @@ export async function runAgentLoopStream(config, res) {
   if (cleanedFiles > 0) {
     sendSSE("info", { message: `🧹 Cleaned up ${cleanedFiles} temporary file(s)` });
   }
+
+  // ── OOM 治本（2026-09-27）：掃掉本 run bash 殘留的背景 process（同 runAgentLoop）──
+  try {
+    const _swept = await sweepRunProcesses(_runId, { reason: `run-end ${agentId || "agent"}` });
+    if (_swept.length > 0) {
+      console.log(`[AgentLoopStream] 🧹 殘留背景程序掃除 ×${_swept.length}（run=${_runId}）：${_swept.map((s) => String(s.command).slice(0, 50)).join(" | ")}`);
+      sendSSE("info", { message: `🧹 已清理 ${_swept.length} 個殘留背景程序` });
+    }
+  } catch (e) { console.error("[AgentLoopStream] proc-ledger sweep error:", e.message); }
 
   sendSSE("done", { turns, durationMs: Date.now() - startTime });
 

@@ -51,6 +51,7 @@ function _normPath(p) { return p ? p.split(/[\\/]/).join("/") : null; }
 function _get(releaseUnitId) {
   const s = _sessions.get(releaseUnitId);
   if (!s) throw new Error(`BrowserExecutor: release unit "${releaseUnitId}" 沒有開啟的 session — 先呼叫 open()`);
+  s.lastActivityAt = Date.now(); // 2026-09-27 OOM 治本：idle timeout 計時用（每個 session = 一個完整 Chrome instance，忘了關就是背景記憶體怪獸）
   return s;
 }
 
@@ -81,6 +82,7 @@ async function _ensureSession(releaseUnitId) {
   const s2 = {
     ru, id: releaseUnitId, ctx, page: null, traceId: _newTraceId(),
     consoleErrors: [], failedRequests: [], log: [], openedAt: _nowTs(),
+    lastActivityAt: Date.now(), // 2026-09-27 OOM 治本：idle timeout 計時
   };
   _attachHooks(s2);
   s2.page = ctx.pages().find(p => !p.isClosed()) || await ctx.newPage();
@@ -255,13 +257,13 @@ export async function getFailedRequests({ releaseUnitId, traceId } = {}) {
 }
 
 /** close — 關閉 RU 瀏覽器（先留最後一張畫面再關）*/
-export async function close({ releaseUnitId, traceId } = {}) {
+export async function close({ releaseUnitId, traceId, reason = "manual" } = {}) {
   const s = _get(releaseUnitId);
   const lastUrl = s.page?.url() || null;
   const shot = await _shot(s, "close");
   try {
     await s.ctx.close();
-    _log(s, { action: "close", url: lastUrl, detail: { durationMs: Date.now() - Date.parse(s.openedAt) }, screenshotPath: shot, traceId });
+    _log(s, { action: "close", url: lastUrl, detail: { durationMs: Date.now() - Date.parse(s.openedAt), reason }, screenshotPath: shot, traceId });
     _sessions.delete(releaseUnitId);
     return { ok: true, closedAt: _nowTs(), screenshot: shot };
   } catch (e) {
@@ -270,6 +272,34 @@ export async function close({ releaseUnitId, traceId } = {}) {
     throw e;
   }
 }
+
+// ── OOM 治本（2026-09-27）：browser session idle timeout ──
+// agent 開了 browser session 驗證 UI 後忘了 close → 完整 Chrome instance 背景常駐，
+// 跨 RU 累積 → RAM 爆 → OOM killer 砍使用者的 Chrome/VSCode（2026-09-27 兩台機器同日中獎）。
+// 30 分鐘沒有任何 tool 動作 → 自動 close（有 log 落盤，人可在瀏覽器 log 看到原因）。
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+const IDLE_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+let _idleSweepStarted = false;
+function _startIdleSweeper() {
+  if (_idleSweepStarted) return;
+  _idleSweepStarted = true;
+  const t = setInterval(async () => {
+    const now = Date.now();
+    for (const [ru, s] of [..._sessions]) {
+      if (now - (s.lastActivityAt || 0) <= IDLE_TIMEOUT_MS) continue;
+      try {
+        await close({ releaseUnitId: ru, reason: "idle-timeout(30min)" });
+        console.log(`[browser-executor] ⏰ idle-timeout 關閉 session：${ru}（開了 ${Math.round((now - Date.parse(s.openedAt)) / 60000)} 分鐘，30 分鐘無動作）`);
+      } catch (e) {
+        // close 失敗（瀏覽器已掛等）— 確保 session 從 map 拿掉，不留殭屍 entry
+        _sessions.delete(ru);
+        try { await s.ctx.close(); } catch {}
+      }
+    }
+  }, IDLE_SWEEP_INTERVAL_MS);
+  if (t.unref) t.unref();
+}
+_startIdleSweeper();
 
 /** status — 目前開啟中的 sessions（管理/除錯用，不落盤）*/
 export function status() {
