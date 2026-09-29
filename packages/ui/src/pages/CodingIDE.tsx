@@ -1319,6 +1319,7 @@ export default function CodingIDE() {
         setCrewAgentRunning(prev => ({ ...prev, [activeCrew]: true }));
         const lastEv = st.events?.[st.events.length - 1];
         if (lastEv?.event === "tool" && lastEv.data?.name) setCrewAgentAction(prev => ({ ...prev, [activeCrew]: `🔧 ${lastEv.data.name}...` }));
+        else if (lastEv?.event === "tool_result") setCrewAgentAction(prev => ({ ...prev, [activeCrew]: "💭 思考中..." })); // 2026-09-29：工具完成回思考中（以前接回時卡在🔧）
         else if (lastEv?.event === "thinking") setCrewAgentAction(prev => ({ ...prev, [activeCrew]: "💭 思考中..." }));
         else if (lastEv?.event === "content") setCrewAgentAction(prev => ({ ...prev, [activeCrew]: "✍️ 產出回應中..." }));
         else setCrewAgentAction(prev => ({ ...prev, [activeCrew]: "🔄 Agent 執行中（已接回串流）..." }));

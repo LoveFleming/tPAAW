@@ -541,7 +541,10 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
             if (currentEvent === "thinking" && d.content) {
               // Update action indicator — no message bubble
               setEmAction("💭 思考中...");
-            } else if (currentEvent === "tool" && d.name) {
+            } else if ((currentEvent === "tool" || currentEvent === "tool_result") && d.name) {
+              // 2026-09-29 fix：server 的 tool 結果是獨立 event:tool_result（非 event:tool 帶 result）
+              // 舊碼只配對 currentEvent==="tool" → tool_result 永遠進不來 → ⚡ 面板全部卡 ⏳ 不轉 ✓、
+              // 指示器停在上一個工具標籤不回「思考中」（Fleming 2026-09-29 回報 tool calls 顯示內容不對）
               // Tool call — track in tool log (like CodingIDE agentToolLog)
               if (d.args !== undefined) {
                 // tool_start: add entry with result = "..."

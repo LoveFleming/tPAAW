@@ -371,7 +371,8 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
 
             if (currentEvent === "thinking" && d.content) {
               setAction("💭 思考中…");
-            } else if (currentEvent === "tool" && d.name) {
+            } else if ((currentEvent === "tool" || currentEvent === "tool_result") && d.name) {
+              // 2026-09-29 fix：tool 結果是獨立 event:tool_result — 舊碼配不到 → 執行完不回「思考中」
               const labels: Record<string, string> = {
                 read_file: "📖 讀取", write_file: "✏️ 寫入", edit_file: "✏️ 編輯",
                 glob: "🔍 找檔案", grep: "🔍 搜內容", bash: "⚡ 執行", git: "🔄 Git",
