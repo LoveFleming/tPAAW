@@ -12,10 +12,9 @@ import { DATA_ROOT } from "./shared.mjs";
 // 2026-09-24 Fleming：使用者可請 AI 新增 api test payload by collection；UI 左欄 tab 顯示
 const COLLECTIONS_FILE = () => resolve(DATA_ROOT, "api-tester-collections.json");
 
-// ── RU-scoped storage（2026-09-29 Fleming：collections/history 屬於 RU，放 {ru}/.paaw/api-tester/ 才對，不放 data/）──
-// 讀：RU 檔優先，還沒有 → 舊全域檔 fallback（歷史資料不中斷）
-// 寫：一律 RU 檔（load 已 fallback 全域 → 第一次寫入 = 自動把舊資料遷進 RU，無縫接軌）
-// 沒帶 path → 舊全域行為（兼容 curl / 舊 UI）
+// ── RU-scoped storage（2026-09-29 Fleming：collections/history 屬於 RU → {ru}/.paaw/api-tester/；
+//   21:16 定調：不自動遷移舊全域資料 — 讀寫都只看該看的檔，程式乾淨）──
+// 沒帶 path → 舊全域行為（兼容 curl / 舊腳本）
 const RU_DIR = (ru) => resolve(ru, ".paaw/api-tester");
 export const _collectionsFileFor = (ru) => (ru ? resolve(RU_DIR(ru), "collections.json") : COLLECTIONS_FILE());
 export const _historyFileFor = (ru) => (ru ? resolve(RU_DIR(ru), "history.json") : resolve(DATA_ROOT, "api-tester-history.json"));
@@ -23,25 +22,13 @@ export const _historyFileFor = (ru) => (ru ? resolve(RU_DIR(ru), "history.json")
 export function _loadCollectionsFor(ru) {
   try { return JSON.parse(readFileSync(_collectionsFileFor(ru), "utf-8")) || {}; } catch { return {}; }
 }
-// RU 檔不存在 → fallback 讀舊全域（顯示不中斷；第一次寫入後就固定用 RU 檔）
-export function _loadCollectionsWithFallback(ru) {
-  if (!ru) return _loadCollectionsFor(null);
-  if (existsSync(_collectionsFileFor(ru))) return _loadCollectionsFor(ru);
-  return _loadCollectionsFor(null);
-}
 export function _saveCollectionsFor(ru, data) {
   const f = _collectionsFileFor(ru);
   if (ru && !existsSync(dirname(f))) mkdirSync(dirname(f), { recursive: true });
   writeFileSync(f, JSON.stringify(data, null, 2));
 }
 export function _loadHistoryFor(ru) {
-  const f = _historyFileFor(ru);
-  if (ru && !existsSync(f)) {
-    // RU history 還沒有 → 舊全域 fallback
-    const g = _historyFileFor(null);
-    try { return JSON.parse(readFileSync(g, "utf-8")) || []; } catch { return []; }
-  }
-  try { return JSON.parse(readFileSync(f, "utf-8")) || []; } catch { return []; }
+  try { return JSON.parse(readFileSync(_historyFileFor(ru), "utf-8")) || []; } catch { return []; }
 }
 export function _saveHistoryFor(ru, data) {
   const f = _historyFileFor(ru);
@@ -68,7 +55,7 @@ export default async function apiTesterRoute(req, res) {
     const params = new URL(req.url, "http://localhost").searchParams;
     const name = params.get("name");
     const ru = params.get("path") || null; // 2026-09-29：RU-scoped（.paaw/api-tester/）
-    const data = _loadCollectionsWithFallback(ru);
+    const data = _loadCollectionsFor(ru);
     if (name) {
       const col = data[name];
       if (!col) { res.writeHead(404, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: `Collection not found: ${name}` })); return true; }
@@ -95,7 +82,7 @@ export default async function apiTesterRoute(req, res) {
     if (!colName) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing collection name" })); return true; }
     const incoming = Array.isArray(body.payloads) ? body.payloads : (body.payload ? [body.payload] : []);
     if (incoming.length === 0) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing payload(s)" })); return true; }
-    const data = _loadCollectionsWithFallback(ru);
+    const data = _loadCollectionsFor(ru);
     if (!data[colName]) data[colName] = { name: colName, createdAt: new Date().toISOString(), payloads: [] };
     const col = data[colName];
     const savedIds = [];
@@ -131,7 +118,7 @@ export default async function apiTesterRoute(req, res) {
     const payloadId = params.get("payloadId");
     const ru = params.get("path") || null; // 2026-09-29：RU-scoped
     if (!name) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing name" })); return true; }
-    const data = _loadCollectionsWithFallback(ru);
+    const data = _loadCollectionsFor(ru);
     if (!data[name]) { res.writeHead(404, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: `Collection not found: ${name}` })); return true; }
     if (payloadId) {
       data[name].payloads = data[name].payloads.filter(p => p.id !== payloadId);

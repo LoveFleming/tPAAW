@@ -2409,7 +2409,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         const _atHelpers = await import("../routes/api-tester.mjs");
         const _ruRoot = cwd || null;
         const _collectionsFile = () => _atHelpers._collectionsFileFor(_ruRoot);
-        const _loadCols = () => _atHelpers._loadCollectionsWithFallback(_ruRoot);
+        const _loadCols = () => _atHelpers._loadCollectionsFor(_ruRoot);
         const tCollection = String(args.collection || "").trim();
         const tPayloadName = String(args.name || "").trim();
         const tUrl0 = String(args.url || "").trim();
@@ -2526,7 +2526,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             collection: ranFromCollection || undefined,
           };
           try {
-            // 2026-09-29：RU-scoped（{cwd}/.paaw/api-tester/history.json；寫入自動遷移）
+            // 2026-09-29：RU-scoped（{cwd}/.paaw/api-tester/history.json）
             let hist = _atHelpers._loadHistoryFor(_ruRoot);
             hist.unshift(histItem);
             if (hist.length > 100) hist = hist.slice(0, 100);
@@ -3008,7 +3008,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           }
           case "api_history": {
             // 2026-09-12:單一事實來源(跟 api-tester route / api_test tool 同檔);
-            // 2026-09-29：RU-scoped 讀取（RU 檔沒有 → fallback 舊全域）
+            // 2026-09-29：RU-scoped 讀取
             // 加 source 過濾 + detail 模式(回傳完整 headers/body - 拿人輸入過的資料產 e2e script)
             try {
             const _atH = await import("../routes/api-tester.mjs");
