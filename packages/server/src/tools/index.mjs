@@ -1625,6 +1625,13 @@ function buildHandlers(apps) {
       // （以前 child run 完全不可見：Developer tab 靜默，看不到 Priya 在做什麼）
       const { attachDispatchVisibility } = await import("../lib/dispatch-stream-state.mjs");
       _vis = await attachDispatchVisibility(agent.agentId, projRoot);
+      // 2026-09-29：EM 派工吃 per-agent model 設定（漏接修正）—
+      // CrewManager 可設每個 agent 的 EM Dispatch Model + fallbacks，但 dispatch_agent
+      // 工具這條（EM chat 直接派）一直沒接 → 全部用全域預設，成本策略失效。
+      // 語義對齊 em-orchestrator（context "em"：emModel || primary || 全域預設）。
+      const { resolveAgentModel, resolveAgentFallbacks } = await import("../lib/project-crew.mjs");
+      const dispatchModel = resolveAgentModel(projRoot, `coding.${agentId}`, "em", "") || undefined;
+      const dispatchFallbacks = resolveAgentFallbacks(projRoot, `coding.${agentId}`, []);
       // 2026-09-20：30 turns 大任務必被砍斷 — 對齊 dispatch endpoint（Fleming 9/17：300）
       const _dispatchRunArgs = {
         systemPrompt,
@@ -1634,6 +1641,8 @@ function buildHandlers(apps) {
         timeout: 0, // no timeout — dispatched tasks may need extended time
         rootDir: projRoot,
         onEvent: _vis.onEvent,
+        ...(dispatchModel ? { model: dispatchModel } : {}),
+        ...(dispatchFallbacks.length ? { fallbackModels: dispatchFallbacks } : {}),
       };
 
       let result = await runAgentLoop({ prompt: task, ..._dispatchRunArgs });
