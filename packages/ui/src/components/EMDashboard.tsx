@@ -5,7 +5,7 @@
  *   左側 (60%): EM Chat 對話視窗
  *   全寬 sub-tab：💬 EM Chat | 🏛 派工 Auto Dispatch（CU 狀態 slim bar 在 chat 頂部）
  */
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import API_BASE from "../api";
 import ChatMessages from "./ChatMessages"; // kept for reference — EM chat now uses custom rich renderer
 import ModelSelector from "./ModelSelector";
@@ -239,6 +239,27 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   const [emConfig, setEmConfig] = useState<any>(null);
   const [showEmConfig, setShowEmConfig] = useState(false);
   const [emConfigDirty, setEmConfigDirty] = useState(false);
+  const [emProviders, setEmProviders] = useState<any[]>([]); // 2026-09-29：EM model 設定用
+
+  // 2026-09-29 Fleming：em-config 的 model.planning / model.dispatch 加進 UI（原本只能手改檔）
+  useEffect(() => {
+    fetch(`${API_BASE}/api/models`)
+      .then(r => r.json())
+      .then(data => { if (data.providers) setEmProviders(data.providers); })
+      .catch(() => {});
+  }, []);
+
+  const emModelOptions = useMemo(() => {
+    const opts: Array<{ value: string; label: string; group: string }> = [
+      { value: "", label: "（使用全域預設）", group: "" },
+    ];
+    for (const p of emProviders) {
+      for (const m of (p.models || [])) {
+        opts.push({ value: `${p.id}/${m.id}`, label: m.name || m.id, group: p.name });
+      }
+    }
+    return opts;
+  }, [emProviders]);
 
   const fetchEmConfig = useCallback(async () => {
     if (!rootPath) return;
@@ -862,6 +883,32 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                     >{s.label}</button>
                   ))}
                 </div>
+              </div>
+
+              {/* EM Models（2026-09-29：.paaw/em/em-config.json 的 model 區塊 — 原本只能手改檔）*/}
+              <div>
+                <label className="text-xs font-bold text-stone-600 block mb-1.5">🧠 Model 設定（排程模式）</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-stone-500 block mb-0.5">🧠 Planning（EM 規劃決策 — 建議強模型）</label>
+                    <select value={emConfig.model?.planning ?? ""}
+                      onChange={e => patchEmConfigDeep("model", "planning", e.target.value)}
+                      className="w-full px-2 py-1 rounded border border-stone-200 text-xs bg-white"
+                    >
+                      {emModelOptions.map(m => <option key={`pl_${m.value || "_default"}`} value={m.value}>{m.group ? `[${m.group}] ` : ""}{m.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-stone-500 block mb-0.5">🚀 Dispatch（EM 派工呼叫 — 可用便宜模型）</label>
+                    <select value={emConfig.model?.dispatch ?? ""}
+                      onChange={e => patchEmConfigDeep("model", "dispatch", e.target.value)}
+                      className="w-full px-2 py-1 rounded border border-stone-200 text-xs bg-white"
+                    >
+                      {emModelOptions.map(m => <option key={`dp_${m.value || "_default"}`} value={m.value}>{m.group ? `[${m.group}] ` : ""}{m.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <p className="text-[10px] text-stone-400 mt-1">空 = 全域預設。Dispatch 是全部 agent 的下限：個別 agent 有設 EM Dispatch Model 的以該 agent 爲優先（Crew 管理員 → 各成員）。</p>
               </div>
 
               {/* Auto-Execute Rules */}
