@@ -1602,6 +1602,7 @@ function buildHandlers(apps) {
       } catch {}
     }
 
+    let _vis = null; // 2026-09-29：派工可見性（hoist 到 try 外 — catch 也要能 finish）
     try {
       const { runAgentLoop } = await import("../lib/paaw-agent-loop.mjs");
       const workspaces = await loadWorkspaces();
@@ -1620,6 +1621,10 @@ function buildHandlers(apps) {
       const VERIFY_AGENTS = new Set(["developer", "tester", "doc-writer"]);
       const doVerify = VERIFY_AGENTS.has(agentId);
       const snap = doVerify ? await takeDispatchSnapshot(projRoot) : null;
+      // 2026-09-29：派工 child run 接上 stream-state — UI 切到該 agent tab 能看到 ⚡ 面板/指示器
+      // （以前 child run 完全不可見：Developer tab 靜默，看不到 Priya 在做什麼）
+      const { attachDispatchVisibility } = await import("../lib/dispatch-stream-state.mjs");
+      _vis = await attachDispatchVisibility(agent.agentId, projRoot);
       // 2026-09-20：30 turns 大任務必被砍斷 — 對齊 dispatch endpoint（Fleming 9/17：300）
       const _dispatchRunArgs = {
         systemPrompt,
@@ -1628,6 +1633,7 @@ function buildHandlers(apps) {
         maxTurns: 300,
         timeout: 0, // no timeout — dispatched tasks may need extended time
         rootDir: projRoot,
+        onEvent: _vis.onEvent,
       };
 
       let result = await runAgentLoop({ prompt: task, ..._dispatchRunArgs });
@@ -1684,6 +1690,8 @@ function buildHandlers(apps) {
       const agentNames = { architect: "林曉薇", developer: "Priya", tester: "Divya", "doc-writer": "Megan", qa: "武大安", helpdesk: "小春" };
       const name = agentNames[agentId] || agentId;
 
+      try { _vis.finish(); } catch {} // 2026-09-29：結束可見性 entry（finalContent 保持 null — 不落地直接對話）
+
       // Execution plan update removed (feature-first)
 
       if (success) {
@@ -1692,6 +1700,7 @@ function buildHandlers(apps) {
         return { text: `❌ ${name} (${agentId}) 執行失敗${!verdict.pass ? `（deterministic 驗收 FAILED：${verdict.why} — 兩次皆零 commit 零 diff，判定假成功，請 EM 拆小任務重派或回報人類）` : ""}：\n\n${preview}`, taskId, error: true };
       }
     } catch (err) {
+      try { _vis?.finish(err?.message || String(err)); } catch {}
       // Mark task as failed
       if (taskId) {
         try {

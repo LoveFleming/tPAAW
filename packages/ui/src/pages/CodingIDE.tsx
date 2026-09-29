@@ -1259,6 +1259,9 @@ export default function CodingIDE() {
   //         (2) deps 加 agentRunningNow — 卡住的 tab（flag true 但 poll 已停）重新點火 watchdog 自癒
   const reattachKeyRef = useRef<string>("");
   const reattachMarkedRef = useRef<string>(""); // 這個 poll 標記過 running 的 crew
+  // 2026-09-29：接回重播進度 — 每個 crew 記錄已消費到哪個 seq（按 runKey 重置）
+  // 用途：EM 派工/別處啟動的 run，切到該 crew tab 看時 ⚡ Tool Calls 面板也能重建（以前只更新指示器、面板永遠不出現）
+  const reattachSeqRef = useRef<Record<string, { runKey: string; seq: number }>>({});
   const agentRunningNow = !!(activeCrew && crewAgentRunning[activeCrew]);
   const agentRunningSinceRef = useRef(0); // flag 變 true 的時間（sendChat 註冊 stream-state 有數百 ms 空窗，用 grace 避開）
   useEffect(() => { if (agentRunningNow) agentRunningSinceRef.current = Date.now(); }, [agentRunningNow]);
@@ -1280,11 +1283,15 @@ export default function CodingIDE() {
       // 修法：live fetch 在跑（a2aAbortRef 有值）時 poll 不讀不寫（純等下一輪）— 顯示/收合全由 live SSE 的 tail 負責。
       if (a2aAbortRef.current) { pollTimer = setTimeout(poll, 3000); return; }
       try {
-        const res = await fetch(`${API_BASE}/a2a/${encodeURIComponent(a2aAgentId)}/stream-state?cwd=${encodeURIComponent(rootPath)}`);
-        const st = await res.json();
+        // 2026-09-29：帶 since 增量拉事件 — 接回時重播 tool events 重建 ⚡ 面板
+        const _rs = reattachSeqRef.current[activeCrew];
+        const since = _rs ? _rs.seq : 0;
+        const res = await fetch(`${API_BASE}/a2a/${encodeURIComponent(a2aAgentId)}/stream-state?cwd=${encodeURIComponent(rootPath)}&since=${since}`);
+        let st = await res.json();
         if (cancelled) return;
         if (!st.exists || st.done) {
           if (st.exists && st.done) {
+            delete reattachSeqRef.current[activeCrew]; // run 結束 — 清消費進度
             const runKey = `${activeCrew}:${st.startedAt}`;
             if (reattachKeyRef.current !== runKey) {
               reattachKeyRef.current = runKey;
@@ -1315,10 +1322,41 @@ export default function CodingIDE() {
           }
           return; // 沒有執行中的 run — 停止輪詢
         }
-        // 真正的斷線接回（無 live fetch — refresh/斷網後接回別處啟動的 run）：標記 + 顯示最新動作
+        // 真正的斷線接回（無 live fetch — refresh/斷網後接回別處啟動的 run）：標記 + 重播事件 + 顯示最新動作
         reattachMarkedRef.current = activeCrew;
         setCrewLoading(prev => ({ ...prev, [activeCrew]: true }));
         setCrewAgentRunning(prev => ({ ...prev, [activeCrew]: true }));
+        // 2026-09-29：重播緩衝事件 → 重建 ⚡ Tool Calls 面板（以前接回只更新指示器，面板永遠不出現 —
+        // Fleming 看 EM 派工的 developer tab 只剩思考中、工具全看不到）
+        const _runKey = `${activeCrew}:${st.startedAt}`;
+        if (!_rs || _rs.runKey !== _runKey) {
+          // 新 run（不是上次接回那個）— 歸零重播：清舊 log 從頭吃
+          setCrewAgentToolLog(prev => ({ ...prev, [activeCrew]: [] }));
+          reattachSeqRef.current[activeCrew] = { runKey: _runKey, seq: 0 };
+          if (since > 0) {
+            // 剛才那次 fetch 帶的是舊 run 的 since — 重拉一次從 0，免得漏掉新 run 開頭的事件
+            const res2 = await fetch(`${API_BASE}/a2a/${encodeURIComponent(a2aAgentId)}/stream-state?cwd=${encodeURIComponent(rootPath)}&since=0`);
+            const st2 = await res2.json();
+            if (!cancelled && st2.exists && !st2.done) st = st2;
+          }
+        }
+        const evs: Array<{ seq: number; event: string; data?: any }> = st.events || [];
+        if (evs.length > 0) {
+          setCrewAgentToolLog(prev => {
+            const log = [...(prev[activeCrew] || [])];
+            for (const ev of evs) {
+              if (ev.event === "tool" && ev.data?.name && ev.data?.args !== undefined) {
+                log.push({ name: ev.data.name, args: typeof ev.data.args === "string" ? ev.data.args : JSON.stringify(ev.data.args), result: "..." });
+              } else if (ev.event === "tool_result" && ev.data?.name && ev.data?.result !== undefined && ev.data.result !== "...") {
+                for (let k = log.length - 1; k >= 0; k--) {
+                  if (log[k].name === ev.data.name) { log[k] = { ...log[k], result: String(ev.data.result) }; break; }
+                }
+              }
+            }
+            return { ...prev, [activeCrew]: log };
+          });
+          reattachSeqRef.current[activeCrew] = { runKey: _runKey, seq: evs[evs.length - 1].seq };
+        }
         const lastEv = st.events?.[st.events.length - 1];
         if (lastEv?.event === "tool" && lastEv.data?.name) setCrewAgentAction(prev => ({ ...prev, [activeCrew]: `🔧 ${lastEv.data.name}...` }));
         else if (lastEv?.event === "tool_result") setCrewAgentAction(prev => ({ ...prev, [activeCrew]: "💭 思考中..." })); // 2026-09-29：工具完成回思考中（以前接回時卡在🔧）

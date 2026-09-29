@@ -868,6 +868,7 @@ export async function runParallelSession(opts = {}) {
       (memoryText ? `\n\n## Your Long-term Memory\n${memoryText}` : "") +
       (actionLogText ? `\n\n## Recent Action Log\n${actionLogText}` : "");
 
+    let _vis = null; // 2026-09-29：派工可見性（hoist 到 try 外 — catch 也要能 finish）
     try {
       // ── Deterministic 驗收 + 假成功自動重派（2026-09-20 Fleming；lib/dispatch-verifier.mjs 共用）──
       // 病灶：大檔任務 turn 用盡收尾硬報成功（TASK-003 兩次零 commit 零 diff）。
@@ -877,6 +878,10 @@ export async function runParallelSession(opts = {}) {
       const doVerify = VERIFY_ROLES.has(role);
       const snap = doVerify ? await takeDispatchSnapshot(rootDir) : null;
       let verdict = { pass: true, why: "role-skip-verify" };
+
+      // 2026-09-29：派工 child run 接上 stream-state — UI 切到該 agent tab 能看 ⚡ 面板
+      const { attachDispatchVisibility } = await import("./dispatch-stream-state.mjs");
+      _vis = await attachDispatchVisibility(crewId, rootDir);
 
       const runArgs = {
         cwd: rootDir,
@@ -893,6 +898,7 @@ export async function runParallelSession(opts = {}) {
           featureIds: ctx.matchedFeatureIds || [],
         } : null,
         onEvent: (event) => {
+          _vis.onEvent(event); // 2026-09-29：同步進 stream-state — UI 能看 ⚡ 面板
           if (event.type === "tool_call") {
             console.log(`[AutoDispatch:${role}] tool: ${event.name}`);
           }
@@ -914,6 +920,7 @@ export async function runParallelSession(opts = {}) {
           verdict = await verifyDispatchWork(rootDir, snap);
           if (!verdict.pass) {
             // 兩次零證據 → 判 FAILED（不自動 close；Fleming：再失敗再判 fail，交 EM/人協調）
+            try { _vis.finish(); } catch {}
             return { role, status: "failed", fakeSuccess: true, codename: crew?.codename || role, result: typeof result === "string" ? result.slice(-500) : "", verdict };
           }
         }
@@ -926,6 +933,7 @@ export async function runParallelSession(opts = {}) {
         agentReport = readFileSync(reportFile, "utf-8");
       }
 
+      try { _vis.finish(); } catch {} // 2026-09-29：結束可見性 entry（finalContent null — 不落地直接對話）
       return {
         role,
         status: "completed",
@@ -936,6 +944,7 @@ export async function runParallelSession(opts = {}) {
         tokenUsage: result?.usage || null, // R3: 讓 cost 歸集拿得到每 crew 用量
       };
     } catch (err) {
+      try { _vis?.finish(err?.message || String(err)); } catch {}
       console.error(`[AutoDispatch:${role}] failed:`, err.message);
       return { role, status: "failed", codename: crew?.codename || role, error: err.message };
     }
