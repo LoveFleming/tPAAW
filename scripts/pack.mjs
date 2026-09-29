@@ -35,7 +35,15 @@ const TOKEN = TOKENIdx >= 0 ? args[TOKENIdx + 1] : process.env.PUBLISH_TOKEN || 
 
 // ---------- 0. 版本 ----------
 
-const pkg = JSON.parse(readFileSync(join(ROOT, "package.json")));
+let pkg;
+try {
+  pkg = JSON.parse(readFileSync(join(ROOT, "package.json")));
+} catch (e) {
+  console.error(`✗ package.json 壞了（JSON parse 失敗：${e.message}）`);
+  console.error(`  常見原因：公司更新時從 GitHub 下載到 HTML 頁面而非 raw 檔 / 存檔帶 BOM / 下載不完整`);
+  console.error(`  檢查：node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"`);
+  process.exit(1);
+}
 const VERSION = pkg.version;
 if (!/^\d+\.\d+\.\d+/.test(VERSION)) {
   console.error(`✗ package.json version "${VERSION}" 不合法（需 x.y.z）`);
