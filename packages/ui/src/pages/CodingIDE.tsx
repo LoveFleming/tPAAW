@@ -720,16 +720,18 @@ export default function CodingIDE() {
   }, []);
 
   // ── Coding Crew Definitions (dynamic from project crew API) ──
-  const [codingCrews, setCodingCrews] = useState<Array<{ id: string; emoji: string; title: string; mode: "chat"; agentId: string; imageUrl?: string }>>([
-    { id: "coding.architect", emoji: "🏛️", title: "架構師", mode: "chat" as const, agentId: "architect" },
-    { id: "coding.developer", emoji: "💻", title: "Developer", mode: "chat" as const, agentId: "developer" },
-    { id: "coding.tester", emoji: "🧪", title: "Tester", mode: "chat" as const, agentId: "tester" },
-    { id: "coding.doc-writer", emoji: "📝", title: "Doc Writer", mode: "chat" as const, agentId: "doc-writer" },
+  // 2026-09-29：mode "chat"→"agent" — crew chat 恢復 ⚡ Tool Calls 面板 + interrupt/watchdog 生命週期
+  // （chat 模式 isAgentMode=false → tool log 永不填充、面板永不顯示；請求 payload 兩模式完全相同）
+  const [codingCrews, setCodingCrews] = useState<Array<{ id: string; emoji: string; title: string; mode: "agent"; agentId: string; imageUrl?: string }>>([
+    { id: "coding.architect", emoji: "🏛️", title: "架構師", mode: "agent" as const, agentId: "architect" },
+    { id: "coding.developer", emoji: "💻", title: "Developer", mode: "agent" as const, agentId: "developer" },
+    { id: "coding.tester", emoji: "🧪", title: "Tester", mode: "agent" as const, agentId: "tester" },
+    { id: "coding.doc-writer", emoji: "📝", title: "Doc Writer", mode: "agent" as const, agentId: "doc-writer" },
     // Helpdesk hidden from sidebar
-    { id: "coding.qa", emoji: "🔬", title: "QA", mode: "chat" as const, agentId: "qa" },
-    { id: "coding.ops", emoji: "🔧", title: "Ops 維運", mode: "chat" as const, agentId: "ops" },
-    { id: "coding.handover", emoji: "🤝", title: "Handover 交接", mode: "chat" as const, agentId: "handover" },
-    { id: "coding.rm", emoji: "🚦", title: "Release Manager", mode: "chat" as const, agentId: "rm" },
+    { id: "coding.qa", emoji: "🔬", title: "QA", mode: "agent" as const, agentId: "qa" },
+    { id: "coding.ops", emoji: "🔧", title: "Ops 維運", mode: "agent" as const, agentId: "ops" },
+    { id: "coding.handover", emoji: "🤝", title: "Handover 交接", mode: "agent" as const, agentId: "handover" },
+    { id: "coding.rm", emoji: "🚦", title: "Release Manager", mode: "agent" as const, agentId: "rm" },
   ]);
   // 效能：badge 衍生陣列 useMemo（inline .map 每鍵新建身分 → 打爆 ChatMessages 的 MessageRow memo）
   const agentToolBadges = useMemo(() => agentToolLog.map(t => ({ name: t.name, status: t.result !== "..." ? "done" as const : "running" as const })), [agentToolLog]);
@@ -750,7 +752,7 @@ export default function CodingIDE() {
             id: a.id,
             emoji: a.emoji || "🤖",
             title: `${a.codename || a.title || a.id}`,
-            mode: "chat" as const,
+            mode: "agent" as const, // 2026-09-29：跟預設 crew 一致 — 恢復 ⚡ Tool Calls 面板
             agentId: a.id.replace(/^(coding\.|custom\.)/, ""),
             imageUrl: a.imageUrl || undefined,
           }));
