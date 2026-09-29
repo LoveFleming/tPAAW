@@ -3,14 +3,51 @@
  * Routes: /api/api-tester/*
  */
 
-import { readFileSync, writeFileSync, unlinkSync, existsSync } from "fs";
-import { resolve } from "path";
+import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync } from "fs";
+import { resolve, dirname } from "path";
 import { DATA_ROOT } from "./shared.mjs";
 
 // ── Collection storage ──
-// data/api-tester-collections.json：{ [name]: { name, createdAt, updatedAt, payloads: [{id,name,method,url,headers,body,streamMode,createdAt}] } }
+// data/api-tester-collections.json：{ [name]: { name, createdAt, updatedAt, payloads: [...] } }
 // 2026-09-24 Fleming：使用者可請 AI 新增 api test payload by collection；UI 左欄 tab 顯示
 const COLLECTIONS_FILE = () => resolve(DATA_ROOT, "api-tester-collections.json");
+
+// ── RU-scoped storage（2026-09-29 Fleming：collections/history 屬於 RU，放 {ru}/.paaw/api-tester/ 才對，不放 data/）──
+// 讀：RU 檔優先，還沒有 → 舊全域檔 fallback（歷史資料不中斷）
+// 寫：一律 RU 檔（load 已 fallback 全域 → 第一次寫入 = 自動把舊資料遷進 RU，無縫接軌）
+// 沒帶 path → 舊全域行為（兼容 curl / 舊 UI）
+const RU_DIR = (ru) => resolve(ru, ".paaw/api-tester");
+export const _collectionsFileFor = (ru) => (ru ? resolve(RU_DIR(ru), "collections.json") : COLLECTIONS_FILE());
+export const _historyFileFor = (ru) => (ru ? resolve(RU_DIR(ru), "history.json") : resolve(DATA_ROOT, "api-tester-history.json"));
+
+export function _loadCollectionsFor(ru) {
+  try { return JSON.parse(readFileSync(_collectionsFileFor(ru), "utf-8")) || {}; } catch { return {}; }
+}
+// RU 檔不存在 → fallback 讀舊全域（顯示不中斷；第一次寫入後就固定用 RU 檔）
+export function _loadCollectionsWithFallback(ru) {
+  if (!ru) return _loadCollectionsFor(null);
+  if (existsSync(_collectionsFileFor(ru))) return _loadCollectionsFor(ru);
+  return _loadCollectionsFor(null);
+}
+export function _saveCollectionsFor(ru, data) {
+  const f = _collectionsFileFor(ru);
+  if (ru && !existsSync(dirname(f))) mkdirSync(dirname(f), { recursive: true });
+  writeFileSync(f, JSON.stringify(data, null, 2));
+}
+export function _loadHistoryFor(ru) {
+  const f = _historyFileFor(ru);
+  if (ru && !existsSync(f)) {
+    // RU history 還沒有 → 舊全域 fallback
+    const g = _historyFileFor(null);
+    try { return JSON.parse(readFileSync(g, "utf-8")) || []; } catch { return []; }
+  }
+  try { return JSON.parse(readFileSync(f, "utf-8")) || []; } catch { return []; }
+}
+export function _saveHistoryFor(ru, data) {
+  const f = _historyFileFor(ru);
+  if (ru && !existsSync(dirname(f))) mkdirSync(dirname(f), { recursive: true });
+  writeFileSync(f, JSON.stringify(data, null, 2));
+}
 
 function _loadCollections() {
   try { return JSON.parse(readFileSync(COLLECTIONS_FILE(), "utf-8")) || {}; } catch { return {}; }
@@ -30,7 +67,8 @@ export default async function apiTesterRoute(req, res) {
   if (req.method === "GET" && req.url?.startsWith("/api/api-tester/collections")) {
     const params = new URL(req.url, "http://localhost").searchParams;
     const name = params.get("name");
-    const data = _loadCollections();
+    const ru = params.get("path") || null; // 2026-09-29：RU-scoped（.paaw/api-tester/）
+    const data = _loadCollectionsWithFallback(ru);
     if (name) {
       const col = data[name];
       if (!col) { res.writeHead(404, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: `Collection not found: ${name}` })); return true; }
@@ -52,11 +90,12 @@ export default async function apiTesterRoute(req, res) {
   if (req.method === "POST" && req.url === "/api/api-tester/collections") {
     let body;
     try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Invalid JSON" })); return true; }
+    const ru = body.path || null; // 2026-09-29：RU-scoped
     const colName = String(body.collection || "").trim();
     if (!colName) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing collection name" })); return true; }
     const incoming = Array.isArray(body.payloads) ? body.payloads : (body.payload ? [body.payload] : []);
     if (incoming.length === 0) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing payload(s)" })); return true; }
-    const data = _loadCollections();
+    const data = _loadCollectionsWithFallback(ru);
     if (!data[colName]) data[colName] = { name: colName, createdAt: new Date().toISOString(), payloads: [] };
     const col = data[colName];
     const savedIds = [];
@@ -79,7 +118,7 @@ export default async function apiTesterRoute(req, res) {
       savedIds.push(normalized.id);
     }
     col.updatedAt = new Date().toISOString();
-    _saveCollections(data);
+    _saveCollectionsFor(ru, data);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, collection: colName, saved: savedIds.length, ids: savedIds }));
     return true;
@@ -90,17 +129,18 @@ export default async function apiTesterRoute(req, res) {
     const params = new URL(req.url, "http://localhost").searchParams;
     const name = params.get("name");
     const payloadId = params.get("payloadId");
+    const ru = params.get("path") || null; // 2026-09-29：RU-scoped
     if (!name) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing name" })); return true; }
-    const data = _loadCollections();
+    const data = _loadCollectionsWithFallback(ru);
     if (!data[name]) { res.writeHead(404, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: `Collection not found: ${name}` })); return true; }
     if (payloadId) {
       data[name].payloads = data[name].payloads.filter(p => p.id !== payloadId);
       data[name].updatedAt = new Date().toISOString();
       if (data[name].payloads.length === 0) delete data[name]; // 清空就刪 collection
-      _saveCollections(data);
+      _saveCollectionsFor(ru, data);
     } else {
       delete data[name];
-      _saveCollections(data);
+      _saveCollectionsFor(ru, data);
     }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true }));
@@ -164,22 +204,19 @@ export default async function apiTesterRoute(req, res) {
 
   // ── GET /api/api-tester/history ──
   if (req.method === "GET" && req.url?.startsWith("/api/api-tester/history")) {
-    const histFile = resolve(DATA_ROOT, "api-tester-history.json");
-    try {
-      const data = JSON.parse(readFileSync(histFile, "utf-8"));
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ history: data }));
-    } catch {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ history: [] }));
-    }
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const ru = params.get("path") || null; // 2026-09-29：RU-scoped
+    const history = _loadHistoryFor(ru);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ history }));
     return true;
   }
 
   // ── DELETE /api/api-tester/history ──
   if (req.method === "DELETE" && req.url?.startsWith("/api/api-tester/history")) {
-    const histFile = resolve(DATA_ROOT, "api-tester-history.json");
-    try { unlinkSync(histFile); } catch {}
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const ru = params.get("path") || null;
+    try { unlinkSync(_historyFileFor(ru)); } catch {}
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true }));
     return true;
@@ -189,12 +226,12 @@ export default async function apiTesterRoute(req, res) {
   if (req.method === "POST" && req.url === "/api/api-tester/save") {
     let body;
     try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
-    const histFile = resolve(DATA_ROOT, "api-tester-history.json");
-    let history = [];
-    try { history = JSON.parse(readFileSync(histFile, "utf-8")); } catch {}
-    history.unshift({ ...body, id: `req-${Date.now()}`, ts: new Date().toISOString() });
+    const ru = body.path || null; // 2026-09-29：RU-scoped
+    const history = _loadHistoryFor(ru);
+    const { path: _ruPath, ...histItem } = body; // path 是路由參數，不存進 history item
+    history.unshift({ ...histItem, id: `req-${Date.now()}`, ts: new Date().toISOString() });
     if (history.length > 100) history = history.slice(0, 100);
-    writeFileSync(histFile, JSON.stringify(history, null, 2));
+    _saveHistoryFor(ru, history);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true }));
     return true;

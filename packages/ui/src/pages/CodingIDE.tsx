@@ -946,6 +946,7 @@ export default function CodingIDE() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           collection: col,
+          path: rootPath, // 2026-09-29：RU-scoped collections
           payload: { name: pname, method: apiMethod, url: apiUrl, headers: apiHeaders, body: apiBody, streamMode: apiStreamMode },
         }),
       });
@@ -1003,9 +1004,9 @@ export default function CodingIDE() {
       // （兩個 Chrome 分別開不同 RU 的情境：以前 refresh 後兩邊都讀到「最後寫入的 RU」→ 同 RU → 思考中/對話兩邊同步）
       const root = sessionStorage.getItem("paaw.vibeide.rootPath") || localStorage.getItem("paaw.vibeide.rootPath");
       if (root) { setRootPath(root); expandDir(root); registerRu(root); setSidebarTab("files"); }
-      // Load API history from server
+      // Load API history from server（注意：這裡 root 才剛 setRootPath — closure 還是舊值，直接用 root）
       try {
-        const res = await fetch(`${API_BASE}/api/api-tester/history`);
+        const res = await fetch(`${API_BASE}/api/api-tester/history?path=${encodeURIComponent(root || rootPath)}`);
         const data = await res.json();
         if (data.history?.length) setApiHistory(data.history);
       } catch {
@@ -2374,8 +2375,8 @@ const sendChat = useCallback(async () => {
   }, [apiMethod, apiUrl, apiHeaders, apiBody, apiLoading, apiStreamMode]);
 
   const loadApiHistory = useCallback(async () => {
-    try { const res = await fetch(`${API_BASE}/api/api-tester/history`); const data = await res.json(); if (data.history) setApiHistory(data.history); } catch {}
-  }, []);
+    try { const res = await fetch(`${API_BASE}/api/api-tester/history?path=${encodeURIComponent(rootPath)}`); const data = await res.json(); if (data.history) setApiHistory(data.history); } catch {}
+  }, [rootPath]);
 
   const addHeader = useCallback(() => setApiHeaders(prev => [...prev, { key: "", value: "", enabled: true }]), []);
   const removeHeader = useCallback((i: number) => setApiHeaders(prev => prev.filter((_, idx) => idx !== i)), []);
@@ -3093,10 +3094,10 @@ const sendChat = useCallback(async () => {
                     apiHistory={apiHistory}
                     onClearHistory={async () => {
                       setApiHistory([]);
-                      try { await fetch(`${API_BASE}/api/api-tester/history`, { method: "DELETE" }); } catch {}
+                      try { await fetch(`${API_BASE}/api/api-tester/history?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" }); } catch {}
                     }}
                     refreshHistory={async () => {
-                      try { const res = await fetch(`${API_BASE}/api/api-tester/history`); const data = await res.json(); if (data.history) setApiHistory(data.history); } catch {}
+                      try { const res = await fetch(`${API_BASE}/api/api-tester/history?path=${encodeURIComponent(rootPath)}`); const data = await res.json(); if (data.history) setApiHistory(data.history); } catch {}
                     }}
                     borderLight={tk.borderLight}
                     borderInput={tk.borderInput}

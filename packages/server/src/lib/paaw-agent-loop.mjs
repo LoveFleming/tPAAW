@@ -2405,8 +2405,11 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
       // ═════════════════════════════════════════
       case "api_test": {
         // ── 2026-09-24 collection 三模式：list / run-by-name / save（Fleming：使用者可請 AI 新增 payload by collection）──
-        const _collectionsFile = () => resolve(DATA_HOME, "api-tester-collections.json");
-        const _loadCols = () => { try { return JSON.parse(readSync(_collectionsFile(), "utf-8")) || {}; } catch { return {}; } };
+        // 2026-09-29 Fleming：collections/history 屬於 RU → 存 {cwd}/.paaw/api-tester/（讀 fallback 舊全域、寫自動遷入）
+        const _atHelpers = await import("../routes/api-tester.mjs");
+        const _ruRoot = cwd || null;
+        const _collectionsFile = () => _atHelpers._collectionsFileFor(_ruRoot);
+        const _loadCols = () => _atHelpers._loadCollectionsWithFallback(_ruRoot);
         const tCollection = String(args.collection || "").trim();
         const tPayloadName = String(args.name || "").trim();
         const tUrl0 = String(args.url || "").trim();
@@ -2446,7 +2449,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           if (idx >= 0) { entry.id = col.payloads[idx].id; entry.createdAt = col.payloads[idx].createdAt; col.payloads[idx] = entry; }
           else col.payloads.push(entry);
           col.updatedAt = new Date().toISOString();
-          try { writeSync(_collectionsFile(), JSON.stringify(cols, null, 2)); } catch (e) { return `Error saving collection: ${e.message}`; }
+          try { _atHelpers._saveCollectionsFor(_ruRoot, cols); } catch (e) { return `Error saving collection: ${e.message}`; }
           return `💾 Saved "${tPayloadName}" [${tMethod0}] into collection "${tCollection}" (${col.payloads.length} payloads) - the human can see/replay it in API Tester → Collections tab.`;
         }
 
@@ -2523,12 +2526,11 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             collection: ranFromCollection || undefined,
           };
           try {
-            const histFile = resolve(DATA_HOME, "api-tester-history.json");
-            let hist = [];
-            try { hist = JSON.parse(readSync(histFile, "utf-8")); } catch {}
+            // 2026-09-29：RU-scoped（{cwd}/.paaw/api-tester/history.json；寫入自動遷移）
+            let hist = _atHelpers._loadHistoryFor(_ruRoot);
             hist.unshift(histItem);
             if (hist.length > 100) hist = hist.slice(0, 100);
-            writeSync(histFile, JSON.stringify(hist, null, 2));
+            _atHelpers._saveHistoryFor(_ruRoot, hist);
           } catch {}
 
           // ── Report ──
@@ -3005,13 +3007,13 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             } catch (err) { return `Error: ${err.message}`; }
           }
           case "api_history": {
-            // 2026-09-12:DATA_HOME 爲單一事實來源(跟 api-tester route / api_test tool 同檔);
+            // 2026-09-12:單一事實來源(跟 api-tester route / api_test tool 同檔);
+            // 2026-09-29：RU-scoped 讀取（RU 檔沒有 → fallback 舊全域）
             // 加 source 過濾 + detail 模式(回傳完整 headers/body - 拿人輸入過的資料產 e2e script)
-            const histFile = resolve(DATA_HOME, "api-tester-history.json");
-            if (!existsSync(histFile)) return "No API Tester history found.";
             try {
-              const raw = JSON.parse(readSync(histFile, "utf-8"));
-              let items = Array.isArray(raw) ? raw : (raw.history || []);
+            const _atH = await import("../routes/api-tester.mjs");
+            const raw = _atH._loadHistoryFor(cwd || null);
+            let items = Array.isArray(raw) ? raw : (raw.history || []);
               if (args.source) items = items.filter(i => (i.source || "human") === args.source);
               if (args.method) items = items.filter(i => i.method?.toUpperCase() === args.method.toUpperCase());
               if (args.path_contains) { const needle = args.path_contains.toLowerCase(); items = items.filter(i => i.url?.toLowerCase().includes(needle)); }

@@ -57,7 +57,7 @@ export default function ApiTesterTabs({
 
   const loadCollections = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/api-tester/collections`);
+      const res = await fetch(`${API_BASE}/api/api-tester/collections?path=${encodeURIComponent(rootPath)}`);
       const data = await res.json();
       if (Array.isArray(data.collections)) setCollections(data.collections);
     } catch { /* 靜默 — 空狀態顯示 */ }
@@ -82,7 +82,7 @@ export default function ApiTesterTabs({
 
   const loadPayloadDetail = async (colName: string, payloadId: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/api-tester/collections?name=${encodeURIComponent(colName)}`);
+      const res = await fetch(`${API_BASE}/api/api-tester/collections?name=${encodeURIComponent(colName)}&path=${encodeURIComponent(rootPath)}`);
       const data = await res.json();
       const p = (data.collection?.payloads || []).find((x: any) => x.id === payloadId);
       if (!p) return;
@@ -98,12 +98,12 @@ export default function ApiTesterTabs({
 
   const deleteCollection = async (name: string) => {
     if (!confirm(`${t("apiTester.delCollectionConfirm")}: ${name}?`)) return;
-    try { await fetch(`${API_BASE}/api/api-tester/collections?name=${encodeURIComponent(name)}`, { method: "DELETE" }); } catch {}
+    try { await fetch(`${API_BASE}/api/api-tester/collections?name=${encodeURIComponent(name)}&path=${encodeURIComponent(rootPath)}`, { method: "DELETE" }); } catch {}
     loadCollections();
   };
 
   const deletePayload = async (colName: string, payloadId: string) => {
-    try { await fetch(`${API_BASE}/api/api-tester/collections?name=${encodeURIComponent(colName)}&payloadId=${encodeURIComponent(payloadId)}`, { method: "DELETE" }); } catch {}
+    try { await fetch(`${API_BASE}/api/api-tester/collections?name=${encodeURIComponent(colName)}&payloadId=${encodeURIComponent(payloadId)}&path=${encodeURIComponent(rootPath)}`, { method: "DELETE" }); } catch {}
     loadCollections();
   };
 
