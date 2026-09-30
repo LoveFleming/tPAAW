@@ -1338,9 +1338,10 @@ export default function CodingIDE() {
           reattachSeqRef.current[activeCrew] = { runKey: _runKey, seq: 0 };
           if (since > 0) {
             // 剛才那次 fetch 帶的是舊 run 的 since — 重拉一次從 0，免得漏掉新 run 開頭的事件
+            // 2026-09-30 fix：新 run 在重拉前就 done 也照樣吃事件（舊條件 !st2.done 會把整包丟掉 → 短 run 的 tool calls 憑空消失）
             const res2 = await fetch(`${API_BASE}/a2a/${encodeURIComponent(a2aAgentId)}/stream-state?cwd=${encodeURIComponent(rootPath)}&since=0`);
             const st2 = await res2.json();
-            if (!cancelled && st2.exists && !st2.done) st = st2;
+            if (!cancelled && st2.exists && (st2.events?.length || 0) > 0) st = st2;
           }
         }
         const evs: Array<{ seq: number; event: string; data?: any }> = st.events || [];
