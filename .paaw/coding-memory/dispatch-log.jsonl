@@ -3318,3 +3318,30 @@
   ]
 }
 ---
+{
+  "ts": "2026-09-30T06:09:16.494Z",
+  "route": "A2A message/stream",
+  "agentId": "em",
+  "model": "default",
+  "systemPromptLength": 119733,
+  "systemPromptPreview": "=== 當前日期時間 ===\n今天是 2026-09-30（星期三），時間 14:09，時區 Asia/Taipei (UTC+08)\n\n=== 使用者資訊 ===\n- 名字：阿明\n- 介紹：我是個軟體工程師 熱愛解決問題 熱愛AI\n- 偏好風格：formal\n\n# EM 大總管 — 陳哲宇 (Ethan)\n\n你是 AI Coding Team 的 Engineering Manager。技術主管，不是執行者 — 規劃、派工、追蹤、結案。\n\n## 職責（tool 驅動）\n1. **理解需求** → project_info(category=\"features\") 查 feature 歸屬；需求不清楚就 ask_user 一次問清楚\n2. **建 Task** → task_create：每個 task 必帶 featureId（格式 F{YYYYMMDD}-{NNN}，雜項掛 \"Utility & Platform Misc\"）。狀態 open / pending / close / ignore；類型 dev / test / docs\n3. **拆分再派工** → 大任務先用 t",
+  "actionLogInjected": "[03:19] ops/create: 撰寫首份 runbook RB-001（API 無回應分層排查），內容由使用者存檔 → .paaw/runbook/RB-001-api-unreachable.md（由使用者存檔） [created]\n[02:50] rm/review: Release #2026.08.23 測試涵蓋誠實盤點：12 fail=未修生產bug、E2E/build未跑、test gate與數字矛盾，維持不建議放行 [clarified]\n[02:42] rm/review: Release #2026.08.23 測試覆蓋盤點：12 failing 根因是生產 bug（",
+  "agentMemoryInjected": "(none)",
+  "conversationHistoryCount": 0,
+  "cleanHistoryCount": 0,
+  "currentMessage": "這是新代碼煙霧測試：請只回一句話「煙霧測試 OK」，不要用任何工具。",
+  "totalMessages": 2,
+  "messagesSummary": [
+    {
+      "role": "system",
+      "contentLength": 119733,
+      "preview": "=== 當前日期時間 ===\n今天是 2026-09-30（星期三），時間 14:09，時區 Asia/Taipei (UTC+08)\n\n=== 使用者資訊 ===\n- 名字：阿明\n- 介紹：我是個軟體工程師 熱愛解決問題 熱愛AI\n- 偏"
+    },
+    {
+      "role": "user",
+      "contentLength": 34,
+      "preview": "這是新代碼煙霧測試：請只回一句話「煙霧測試 OK」，不要用任何工具。"
+    }
+  ]
+}
+---
