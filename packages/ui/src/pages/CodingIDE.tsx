@@ -1291,8 +1291,7 @@ export default function CodingIDE() {
         let st = await res.json();
         if (cancelled) return;
         if (!st.exists || st.done) {
-          if (st.exists && st.done) {
-            delete reattachSeqRef.current[activeCrew]; // run 結束 — 清消費進度
+          if (st.exists && st.done) {            delete reattachSeqRef.current[activeCrew]; // run 結束 — 清消費進度
             const runKey = `${activeCrew}:${st.startedAt}`;
             if (reattachKeyRef.current !== runKey) {
               reattachKeyRef.current = runKey;
@@ -1319,9 +1318,12 @@ export default function CodingIDE() {
           } else if (reattachMarkedRef.current === activeCrew || Date.now() - agentRunningSinceRef.current > 8000) {
             // run 憑空消失（server 重啟 streamStates 在記憶體、TTL 過期）— 一定要收起，不能卡著不收
             _collapseRunningUi();
-            return;
           }
-          return; // 沒有執行中的 run — 停止輪詢
+          // 2026-09-30 fix：done ≠ 派工結束 — route 層驗收退回會自動重派 run 2（不同 startedAt）、EM 也會對同一 agent
+          // 連續派多張 task。以前這裡直接 return 停止輪詢 → 後續 run 的 ⚡ Tool Calls 面板永遠接不回（凍結只剩思考中）。
+          // 改為收合 UI 後轉慢速輪詢（10s），新 run 出現（startedAt 不同）自動接回；切 tab/專案由 effect cleanup 收掉。
+          pollTimer = setTimeout(poll, 10000);
+          return;
         }
         // 真正的斷線接回（無 live fetch — refresh/斷網後接回別處啟動的 run）：標記 + 重播事件 + 顯示最新動作
         reattachMarkedRef.current = activeCrew;
