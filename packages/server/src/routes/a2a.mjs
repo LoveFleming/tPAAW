@@ -1121,6 +1121,26 @@ export default async function a2aRoutes(req, res) {
 
             const { runAgentLoop } = await import("../lib/paaw-agent-loop.mjs");
 
+            // ── Stream State 側車（2026-09-30）：message/send（EM 派工主路徑）也要註冊 ──
+            // 以前只有 message/stream 註冊 → EM 派工的 developer/tester tab 查 /stream-state 永遠 exists:false
+            // → ⚡ Tool Calls 面板永遠不出現（Fleming：「EM 的 chat ui 有 tool calls 但開發只顯示思考中」）
+            _streamStateCleanup(agentId, rootDir);
+            const _sendSt = { agentId, cwd: rootDir, startedAt: Date.now(), seq: 0, events: [], finalContent: null, done: false, error: null, timer: null };
+            streamStates.set(_streamKey(agentId, rootDir), _sendSt);
+            const _stBuf = (evName, dataObj) => {
+              _sendSt.seq += 1;
+              _sendSt.events.push({ seq: _sendSt.seq, event: evName, data: dataObj });
+              if (_sendSt.events.length > STREAM_STATE_MAX_EVENTS) _sendSt.events.splice(0, _sendSt.events.length - STREAM_STATE_MAX_EVENTS);
+              if (evName === "content" && dataObj?.done && typeof dataObj.content === "string") _sendSt.finalContent = dataObj.content;
+              if (evName === "error" && dataObj?.error) _sendSt.error = String(dataObj.error).slice(0, 500);
+            };
+            const _finishSendState = () => {
+              if (_sendSt.done) return;
+              _sendSt.done = true;
+              if (_sendSt.timer) clearTimeout(_sendSt.timer);
+              _sendSt.timer = setTimeout(() => { if (streamStates.get(_streamKey(agentId, rootDir)) === _sendSt) streamStates.delete(_streamKey(agentId, rootDir)); }, STREAM_STATE_TTL_MS);
+            };
+
             const result = await runAgentLoop({
               prompt: "", // handled by messages array
               systemPrompt: "", // handled by messages array
@@ -1132,7 +1152,19 @@ export default async function a2aRoutes(req, res) {
               timeout: 0, // no timeout — complex agent tasks may take arbitrarily long
               rootDir,
               agentId,
+              // 2026-09-30：runAgentLoop 的 onEvent（tool_start/tool_end/tool_error/turn_start/error）
+              // 映射成 stream 事件形狀進側車 — agent tab 的 reattach poller 才吃得到
+              onEvent: (ev) => {
+                if (!ev) return;
+                if (ev.type === "tool_start") _stBuf("tool", { name: ev.name, args: ev.args });
+                else if (ev.type === "tool_end") _stBuf("tool_result", { name: ev.name, result: ev.result });
+                else if (ev.type === "tool_error") _stBuf("tool_result", { name: ev.name, result: String(ev.error || "tool error") });
+                else if (ev.type === "turn_start") _stBuf("thinking", {});
+                else if (ev.type === "error") _stBuf("error", { error: String(ev.message || ev.error || "agent loop error") });
+              },
             });
+            _stBuf("content", { content: String(result.content || ""), done: true }); // 斷線期間完成的回覆
+            _finishSendState();
 
             sendJSON(res, 200, {
               jsonrpc: "2.0",
@@ -1147,6 +1179,7 @@ export default async function a2aRoutes(req, res) {
               id,
             });
           } catch (err) {
+            try { _stBuf("error", { error: String(err.message || err) }); _finishSendState(); } catch {} // 2026-09-30：側車也要收尾 — 否則 UI 卡在執行中
             sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32603, message: err.message }, id });
           }
           return true;
