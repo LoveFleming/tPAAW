@@ -590,6 +590,7 @@ export default function CodingIDE() {
   const domainAbortRef = useRef<AbortController | null>(null); // abort for domain AI (spec/test/bug/docs/maintain)
   const [crewAgentRunning, setCrewAgentRunning] = useState<Record<string, boolean>>({}); // crewId → agentRunning
   const [crewAgentAction, setCrewAgentAction] = useState<Record<string, string>>({}); // crewId → agentAction
+  const [crewAgentRunMeta, setCrewAgentRunMeta] = useState<Record<string, { agent: string; startedAt: number } | undefined>>({}); // 2026-09-30：crewId → 目前接回的 run 身份（⚡ 面板標籤用 — Fleming 需能辨識内容屬於哪個 agent/run）
   const [crewAgentToolLog, setCrewAgentToolLog] = useState<Record<string, Array<{name: string; args: string; result: string}>>>({}); // crewId → toolLog
   const chatLoading = activeCrew ? !!crewLoading[activeCrew] : false;
   const agentRunning = activeCrew ? !!crewAgentRunning[activeCrew] : false;
@@ -1329,6 +1330,7 @@ export default function CodingIDE() {
         reattachMarkedRef.current = activeCrew;
         setCrewLoading(prev => ({ ...prev, [activeCrew]: true }));
         setCrewAgentRunning(prev => ({ ...prev, [activeCrew]: true }));
+        setCrewAgentRunMeta(prev => ({ ...prev, [activeCrew]: { agent: a2aAgentId, startedAt: st.startedAt } })); // 2026-09-30：面板身份標籤
         // 2026-09-29：重播緩衝事件 → 重建 ⚡ Tool Calls 面板（以前接回只更新指示器，面板永遠不出現 —
         // Fleming 看 EM 派工的 developer tab 只剩思考中、工具全看不到）
         const _runKey = `${activeCrew}:${st.startedAt}`;
@@ -1886,7 +1888,7 @@ const sendChat = useCallback(async () => {
       // ── Both agent + chat mode: A2A domain agent dispatch ──
       const isAgentMode = chatMode === "agent";
       setChatLoading(true);
-      if (isAgentMode) { setAgentRunning(true); setAgentToolLog([]); }
+      if (isAgentMode) { setAgentRunning(true); setAgentToolLog([]); setCrewAgentRunMeta(prev => ({ ...prev, [activeCrew]: { agent: a2aAgentId, startedAt: Date.now() } })); } // 2026-09-30：live 送出也記 run 身份（面板標籤）
 
       let finalContent = ""; // hoisted：catch 也要讀（中斷時避免重複訊息）
       try {
@@ -3593,7 +3595,10 @@ const sendChat = useCallback(async () => {
                 {/* Agent tool log */}
                 {agentRunning && agentToolLog.length > 0 && (
                   <div className="shrink-0 max-h-32 overflow-y-auto border-t px-3 py-2 space-y-1" style={{ borderColor: tk.borderLight, scrollbarWidth: "thin" }}>
-                    <div className="text-xs font-semibold text-stone-400 mb-1">⚡ Tool Calls</div>
+                    <div className="text-xs font-semibold text-stone-400 mb-1">
+                      ⚡ Tool Calls
+                      {(() => { const m = crewAgentRunMeta[activeCrew]; return m ? <span className="ml-2 font-mono font-normal text-stone-500">{m.agent} · {new Date(m.startedAt).toLocaleTimeString("zh-TW", { hour12: false })} · {agentToolLog.length} calls</span> : null; })()}
+                    </div>
                     {agentToolLog.slice(-8).map((t, i) => (
                       <div key={i} className="flex items-center gap-1.5 text-[10px]">
                         <span className={t.result !== "..." ? "text-green-500" : "text-blue-400 animate-pulse"}>
