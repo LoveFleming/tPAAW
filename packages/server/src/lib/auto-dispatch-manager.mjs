@@ -398,7 +398,12 @@ ${requireEstimate ? '- 每項必須附預估 effort（' + defaultEffort + ' 为�
 
   // ── LLM call with model fallback ──
   async function callWithFallback(body, opts = {}) {
-    const models = [planningModel, ...fallbackModels].filter(Boolean);
+    // 2026-09-30 fix：fallbacks 沒帶時用預設鏈（user.json *Fallback / providers.json fallbacks）— 公司 LLM 502 時規劃不中斷
+    let _fbModels = fallbackModels || [];
+    if (_fbModels.length === 0) {
+      try { _fbModels = resolveLLMConfig(rootDir).fallbacks.map(f => `${f.providerId}/${f.model}`); } catch {}
+    }
+    const models = [planningModel, ..._fbModels].filter(Boolean);
     if (models.length === 0) {
       const result = await callLLMWithRetry(llm.apiUrl, llm.headers, body, {
         maxRetries: 3,

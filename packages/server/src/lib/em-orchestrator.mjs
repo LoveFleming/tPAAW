@@ -160,7 +160,12 @@ export async function orchestrateTask({ rootDir, task, baseUrl, modelOverride, f
 
   // ── 決策模型設定 ──
   const llm = resolveLLMConfig(rootDir, modelOverride);
-  const fallbackCfgs = (fallbackModels || []).filter(Boolean).map(m => resolveLLMConfig(rootDir, m));
+  // 2026-09-30 fix：caller 沒帶 fallbacks 時用預設鏈（user.json *Fallback / providers.json fallbacks）— 公司 LLM 502 時決策不降級成笨鏈
+  let _fbm = (fallbackModels || []).filter(Boolean);
+  if (_fbm.length === 0) {
+    try { _fbm = resolveLLMConfig(rootDir).fallbacks.map(f => `${f.providerId}/${f.model}`); } catch {}
+  }
+  const fallbackCfgs = _fbm.map(m => resolveLLMConfig(rootDir, m));
 
   // 2026-09-05 Fleming：console + action log 都要清楚看到每個 agent loop 的開始與結束
   const { addActionLog } = await import("./action-log.mjs");
