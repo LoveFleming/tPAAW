@@ -641,9 +641,11 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
   // ── Primary provider exhausted — try fallbacks ──
   if (fallbacks && fallbacks.length > 0 && lastError) {
     const is429 = lastError.message && (lastError.message.includes("429") || lastError.message.includes("Limit Exhausted") || lastError.message.includes("rate"));
-    if (is429) {
+    // 2026-09-30 fix：同 agent loop — model 硬錯（400/401/403/404）與 5xx/408（公司 LLM service 常見 502）也進 fallback，不再只限 429
+    const isHardErr = lastError.message && /LLM API error [45]\d\d/.test(lastError.message);
+    if (is429 || isHardErr) {
       for (const fb of fallbacks) {
-        console.log(`[callLLMWithRetry] Primary failed (429), trying fallback: ${fb.model} via ${fb.apiUrl.replace(/\/v.*$/, "/...")}`);
+        console.log(`[callLLMWithRetry] Primary failed (${is429 ? "429 rate-limited" : "hard error"}), trying fallback: ${fb.model} via ${fb.apiUrl.replace(/\/v.*$/, "/...")}`);
         try {
           const fbBody = { ...body, model: fb.model };
           if (fb.maxTokens) fbBody.max_tokens = Math.min(fb.maxTokens, body.max_tokens || 16384);

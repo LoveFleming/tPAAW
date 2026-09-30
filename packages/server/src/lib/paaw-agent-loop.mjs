@@ -4557,9 +4557,12 @@ export async function runAgentLoop(config) {
       // EM 派工選到壞 model 時 qa/tester 全滅（公司 gpt5.6 事件）。跟 EM 規劃路徑對齊：任何 model 掛了都試下一個。
       const is429 = err.message && (err.message.includes("429") || err.message.includes("overloaded") || err.message.includes("rate") || err.message.includes("Limit Exhausted"));
       const isModelReject = err.message && /LLM API error (400|401|403|404)/.test(err.message);
-      if ((is429 || isModelReject) && llm.fallbacks && llm.fallbacks.length > 0) {
+      // 2026-09-30 fix：公司 LLM service 常見 502 — callLLMWithRetry 內部重試 3 次仍掛 → 之前不進 fallback 直接整單死（tool call UI 卡住）
+      const isServerErr = err.message && /LLM API error (5\d\d|408)/.test(err.message);
+      const _reason = is429 ? "429 rate-limited" : isServerErr ? "server error (5xx/408)" : "model rejected";
+      if ((is429 || isModelReject || isServerErr) && llm.fallbacks && llm.fallbacks.length > 0) {
         for (const fb of llm.fallbacks) {
-          console.log(`[Agent Loop] ${is429 ? "429 rate-limited" : "model rejected"} on ${llm.providerId}/${llm.model}, trying fallback: ${fb.providerId}/${fb.model}`);
+          console.log(`[Agent Loop] ${_reason} on ${llm.providerId}/${llm.model}, trying fallback: ${fb.providerId}/${fb.model}`);
           if (onEvent) onEvent({ type: "info", message: `${is429 ? "⏳ " + llm.providerId + " 限流" : "⚠️ " + llm.providerId + "/" + llm.model + " 不可用（" + String(err.message).slice(0, 120) + "）"},切換到 ${fb.providerId}/${fb.model}` });
           try {
             response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, (evt, data) => {
@@ -4577,7 +4580,7 @@ export async function runAgentLoop(config) {
           }
         }
         if (!response) {
-          finalContent = `LLM API error: All providers failed (${is429 ? "429 rate-limited" : "model rejected"}). ${err.message}`;
+          finalContent = `LLM API error: All providers failed (${_reason}). ${err.message}`;
           if (onEvent) onEvent({ type: "error", error: finalContent });
           break;
         }
@@ -5013,11 +5016,13 @@ export async function runAgentLoopStream(config, res) {
         break;
       }
       // 2026-09-23 fix：同 runAgentLoop — model 硬錯（400/401/403/404）也要走 fallback，不再只限 429
+      // 2026-09-30 fix：同 runAgentLoop — 5xx/408（公司 LLM service 502）也走 fallback，不再整單死
       const is429 = err.message && (err.message.includes("429") || err.message.includes("overloaded") || err.message.includes("rate"));
       const isModelReject = err.message && /LLM API error (400|401|403|404)/.test(err.message);
-      if ((is429 || isModelReject) && llm.fallbacks && llm.fallbacks.length > 0) {
+      const isServerErr = err.message && /LLM API error (5\d\d|408)/.test(err.message);
+      if ((is429 || isModelReject || isServerErr) && llm.fallbacks && llm.fallbacks.length > 0) {
         for (const fb of llm.fallbacks) {
-          console.log(`[callLLM] ${is429 ? "429 rate-limited" : "model rejected"}, trying fallback: ${fb.providerId}/${fb.model}`);
+          console.log(`[callLLM] ${is429 ? "429 rate-limited" : isServerErr ? "server error (5xx/408)" : "model rejected"}, trying fallback: ${fb.providerId}/${fb.model}`);
             // Cache rate-limit: remember primary is throttled
             _rateLimitCache.set(primaryKey, { until: Date.now() + RATE_LIMIT_COOLDOWN_MS, fallbackKey: _providerKey(fb.providerId, fb.model) });
             sendSSE("info", { message: `${is429 ? "⏳ " + llm.providerId + " 限流" : "⚠️ " + llm.providerId + "/" + llm.model + " 不可用"},切換到 ${fb.providerId}/${fb.model}` });
