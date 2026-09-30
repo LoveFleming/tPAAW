@@ -1888,7 +1888,7 @@ const sendChat = useCallback(async () => {
       // ── Both agent + chat mode: A2A domain agent dispatch ──
       const isAgentMode = chatMode === "agent";
       setChatLoading(true);
-      if (isAgentMode) { setAgentRunning(true); setAgentToolLog([]); setCrewAgentRunMeta(prev => ({ ...prev, [activeCrew]: { agent: a2aAgentId, startedAt: Date.now() } })); } // 2026-09-30：live 送出也記 run 身份（面板標籤）
+      if (isAgentMode) { setAgentRunning(true); setAgentToolLog([]); setCrewAgentRunMeta(prev => ({ ...prev, [activeCrew || "coding"]: { agent: crewToAgentId(activeCrew || "coding.architect"), startedAt: Date.now() } })); } // 2026-09-30：live 送出也記 run 身份（面板標籤；a2aAgentId 此時尚未宣告 → 直接用 crewToAgentId）
 
       let finalContent = ""; // hoisted：catch 也要讀（中斷時避免重複訊息）
       try {
