@@ -645,6 +645,25 @@ async function buildToolDefinitions() {
     },
   });
 
+  // ── EM 工頭工作入口（2026-10-01 柱三：deterministic job types — NL 說得出就觸發得到）──
+  tools.push({
+    type: "function",
+    function: {
+      name: "em_job",
+      description: "EM 工頭工作入口（deterministic 掃描 → LLM triage → 開單，有單可循）：cu-scan=CU 掃描補洞（重掃機械層+feature 缺測試/文件）、security-fix=semgrep 安全掃描分組、test-gen=測試覆蓋缺口、release-prep=release 現況 checklist（未 push/未文件化/聯單）。使用者說「掃 CU」「跑安全掃描開單」「補測試缺口」「release 準備」就用這個。action=preview 只看掃描結果+開單建議（不寫檔）；action=run 掃描+開單進 TASKS.json（之後 auto_dispatch 派工）。排程也可用 config jobTypes 自動跑。",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["preview", "run"], description: "preview=掃描+開單建議（不寫檔）；run=掃描+開單（寫入 TASKS.json）" },
+          job: { type: "string", enum: ["cu-scan", "security-fix", "test-gen", "release-prep"], description: "入口類型" },
+          maxTickets: { type: "number", description: "單輪最多開幾張單（預設 5）" },
+          cwd: { type: "string", description: "專案 root 絕對路徑（帶 system prompt 裡 Current Project Root 的值）" },
+        },
+        required: ["action", "job"],
+      },
+    },
+  });
+
   // ── Cron Job tools (global, always available) ──
   tools.push({
     type: "function",
@@ -1229,6 +1248,41 @@ function buildHandlers(apps) {
       }
     }
     return { text: "❌ action 必須是 preview / start / stop" };
+  };
+
+  // ── EM 工頭工作入口 handler（2026-10-01 柱三）──
+  handlers.em_job = async ({ action, job, maxTickets, cwd } = {}) => {
+    const root = cwd || PAAW_ROOT;
+    if (!["preview", "run"].includes(action)) return { text: "❌ action 必須是 preview / run" };
+    if (!["cu-scan", "security-fix", "test-gen", "release-prep"].includes(job)) {
+      return { text: "❌ job 必須是 cu-scan / security-fix / test-gen / release-prep" };
+    }
+    try {
+      const { runJobEntrypoint, triageToTickets, JOB_TYPE_META } = await import("../lib/em-job-entrypoints.mjs");
+      const result = await runJobEntrypoint(root, job);
+      if (!result.ok) return { text: `❌ ${job} 入口失敗：${result.error}` };
+      let head = `${JOB_TYPE_META[job].emoji} **${JOB_TYPE_META[job].label}** 掃描完成（${((result.durationMs || 0) / 1000).toFixed(0)}s）\n${result.summary}\n`;
+      if (!result.findings?.length) {
+        return { text: `${head}\n✅ 掃描乾淨，沒有值得開單的 findings。` };
+      }
+      const triage = await triageToTickets({
+        rootDir: root, type: job, result,
+        maxTickets: Math.max(1, Math.min(10, Number(maxTickets) || 5)),
+        sendSSE: () => {}, dryRun: action === "preview",
+      });
+      if (!triage.ok) return { text: `${head}\n❌ triage 失敗：${triage.error}（掃描結果如上，可稍後再試）` };
+      const lines = (triage.tickets || []).map((t, i) =>
+        `${i + 1}. [${t.priority || "medium"}/${t.type || "dev"}] ${t.id ? `${t.id} ` : ""}${String(t.title).slice(0, 70)}${t.reason ? `\n   ↳ ${String(t.reason).slice(0, 90)}` : ""}`);
+      const body = lines.length
+        ? `並建議開 ${lines.length} 張單${triage.skipped ? `（${triage.skipped} 張重複跳過）` : ""}：\n${lines.join("\n")}`
+        : "✅ triage 結論：沒有值得開單的項目（資訊不足或影響太小）。";
+      if (action === "preview") {
+        return { text: `${head}\n📋【預覽，未寫檔】${body}\n\n（確認後用 action=run 真正開單；開完單用 auto_dispatch 派工）` };
+      }
+      return { text: `${head}\n🎫【已開單】${body}\n\n單已寫入 TASKS.json，說「派工」或等夜間排程就會執行。` };
+    } catch (err) {
+      return { text: `❌ em_job 失敗：${err.message}`, error: true };
+    }
   };
 
   // ── Cron Job handlers (global) ──

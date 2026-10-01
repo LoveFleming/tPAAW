@@ -230,7 +230,7 @@ async function runCronJob(job) {
       const resp = await fetch(`http://127.0.0.1:${PORT}/api/coding-auto-dispatch/start?path=${encodeURIComponent(projectPath)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode }),
+        body: JSON.stringify({ mode, scheduled: true }),
       });
       const data = await resp.json();
       console.log(`[cron] Auto Dispatch result:`, JSON.stringify(data).slice(0, 200));

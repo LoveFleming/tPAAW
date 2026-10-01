@@ -1332,6 +1332,29 @@ function generateParallelReport(agentResults, ctx, dynamicLabels = null) {
 export async function runAutoDispatch(opts = {}) {
   const mode = opts.mode || "em";
   const focusTaskId = opts.focusTaskId; // 指定單號（自然語言觸發）
+
+  // ── 工頭柱三（2026-10-01）：排程觸發 → 先跑啟用的 job 入口（cu-scan 等）→ triage 開單 → 再進 task-driven 閉環 ──
+  // NL 觸發（非 scheduled）不自動跑入口 — em_job 工具明示觸發；入口開的單由下方閉環接手派工
+  if (opts.scheduled && mode === "em") {
+    try {
+      const { runJobEntrypoint, triageToTickets, readJobTypesConfig } = await import("./em-job-entrypoints.mjs");
+      const jobTypes = readJobTypesConfig(opts.rootDir);
+      if (jobTypes.length > 0) {
+        console.log(`[AutoDispatch] 🧰 工頭入口（scheduled）：${jobTypes.join(", ")}`);
+        for (const jt of jobTypes) {
+          if (_stopRequested(opts.rootDir)) break;
+          try {
+            const result = await runJobEntrypoint(opts.rootDir, jt);
+            console.log(`[AutoDispatch] 🧰 ${jt}: ${result.summary || result.error || "done"} (${((result.durationMs || 0) / 1000).toFixed(0)}s)`);
+            if (result.ok) {
+              await triageToTickets({ rootDir: opts.rootDir, type: jt, result, modelOverride: opts.modelOverride, fallbackModels: opts.fallbackModels, sendSSE: opts.sendSSE });
+            }
+          } catch (err) { console.log(`[AutoDispatch] job ${jt} failed (non-fatal): ${err.message}`); }
+        }
+      }
+    } catch (err) { console.log(`[AutoDispatch] job entrypoints unavailable: ${err.message}`); }
+  }
+
   if (mode === "parallel") {
     return runParallelSession(opts);
   }

@@ -45,6 +45,9 @@ const DEFAULT_CONFIG = {
     'test-intelligence',
     'change-intelligence',
   ],
+  // 工頭柱三（2026-10-01）：排程觸發時先跑的工作入口（deterministic 掃描 → triage 開單 → 派工閉環）
+  // 可用：cu-scan / security-fix / test-gen / release-prep；空 = 排程不跑入口（NL 用 em_job 工具明示觸發）
+  jobTypes: [],
 };
 
 async function getConfig(rootDir) {
@@ -99,6 +102,7 @@ export default async function autoDispatchConfigRoutes(req, res) {
         schedule: { ...existing.schedule, ...(body.schedule || {}) },
         model: { ...existing.model, ...(body.model || {}) },
         tasks: body.tasks || existing.tasks,
+        jobTypes: Array.isArray(body.jobTypes) ? body.jobTypes : (existing.jobTypes || []),
       };
 
       await saveConfig(rootDir, merged);

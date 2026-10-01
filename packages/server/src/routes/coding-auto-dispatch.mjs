@@ -180,6 +180,7 @@ export default async function codingAutoDispatchRoute(req, res) {
         sendSSE,
         projectPhase: nsConfig?.projectPhase || 'bootstrap',
         focusTaskId, // 指定單號（自然語言觸發）→ 只派那張
+        scheduled: reqBody.scheduled === true || urlObj.searchParams.get("scheduled") === "true", // 排程觸發（工頭柱三：先跑 job 入口）
         existingPlanId: reqBody.planId || urlObj.searchParams.get('planId') || null,
       });
 
