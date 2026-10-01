@@ -619,8 +619,68 @@
       "featureId": null,
       "createdAt": "2026-08-01T07:58:23.372Z",
       "notes": []
+    },
+    {
+      "id": "ISS-028",
+      "title": "Pre-existing test failures: repair-loop (8) + auto-dispatch-shared (2) — npm test 非 F-007 原因不全綠",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "pre-existing",
+        "test-failure",
+        "TASK-041"
+      ],
+      "description": "TASK-041 R2 驗證時發現 npm test 有 10 個 pre-existing failures（stash R1 變更後重跑 baseline 仍失敗，確認與 F-007 測試無關）：\n\n1. tests/unit/repair-loop.test.mjs — 8 失敗：`TypeError: applyRepairLoopRule is not a function`（tests/unit/repair-loop.test.mjs:86）。測試 import 的 applyRepairLoopRule 在目標模組中不存在或未 export。\n2. tests/unit/auto-dispatch-shared.test.mjs — 2 失敗：`should parse commitCount as integer from git log count`、`should limit commitCount to 50 for HEAD~N diff commands`（gatherContext 相關）。\n\n影響：npm test 無法全綠，阻塞所有以「npm test 全數通過」為驗收標準的任務。\n建議：developer 確認 repair-loop 的 export 狀態與 auto-dispatch-shared 的 git 環境依賴。",
+      "featureId": "F-015",
+      "createdAt": "2026-10-01T15:48:22.223Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-029",
+      "title": "createDb() 拋 TypeError：SqlJsDialect 不符合 Kysely 0.29.2 Dialect 介面",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "bug",
+        "found-by:TASK-042",
+        "severity:high"
+      ],
+      "description": "## 問題\n`packages/db/src/connection.ts` 的 `SqlJsDialect` 類只實作了 `createAdapter()` 回傳 `{query, run}` 物件，不符合 kysely 0.29.2 的 `Dialect` 介面（需 `createDriver()` / `createQueryCompiler()` / `createIntrospector()`，且 `createAdapter()` 需回傳 `DialectAdapter`）。\n\n## 實證（TASK-042 測試過程，2026-10-01）\n`await createDb(path)` 立即拋出：\n```\nTypeError: dialect.createDriver is not a function\n```\n重現：`npx tsx` 下 `new Kysely({ dialect: new SqlJsDialect(db) })`。\n\n## 影響\n- `createDb` / `getDb` / `closeDb` 全部不可用（F-003 connection 層是 dead code）\n- 三個 repository（RunsRepo/ChatsRepo/DataStoreRepo）無法經由正式入口取得 Kysely instance；目前 server 端僅 code-intelligence.mjs 參考到 `@paaw/db` 名稱，未實際使用 createDb\n\n## 建議修法\n實作完整 `Dialect` 介面（driver 的 `acquireConnection` 回傳帶 `executeQuery(compiledQuery)` 的 connection，query compiler 用 `SqliteQueryCompiler`，adapter 用 `SqliteAdapter`，introspector 用 `SqliteIntrospector`）。TASK-042 的 `tests/unit/db-repositories.test.ts` 內已有可直接參考的正確 harness 實作。\n\n## 測試標記\n`tests/unit/db-repositories.test.ts` 有 `test.todo` 記錄修復後應補的契約（createDb 回傳可查詢 instance、getDb 單例、closeDb 持久化）。",
+      "featureId": "F-003",
+      "createdAt": "2026-10-01T16:01:20.863Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-030",
+      "title": "ChatsRepo.addMessage 用 db.fn(\"message_count + 1\") 產生非法 SQL：訊息落庫但統計永不更新",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "bug",
+        "found-by:TASK-042",
+        "severity:high"
+      ],
+      "description": "## 問題\n`packages/db/src/repositories/chats.ts` 的 `addMessage()` 使用：\n```ts\nmessage_count: this.db.fn(\"message_count + 1\"),\n```\n`Kysely.fn` 是 `FunctionModule` 物件（提供 `fn.count()`、`fn.sum()` 等），不是 callable，且此用法會讓 raw 字串進入 query compiler，產生非法 SQL：\n```sql\nupdate \"conversations\" set \"message_count\" = message_count + 1 ...\n```\n實際編譯結果語法錯誤（near \"(\" syntax error）。\n\n## 實證（TASK-042 測試過程，2026-10-01，in-memory sql.js + 正確 Kysely dialect harness）\n- `addMessage()` 拋出 `Error: near \"(\": syntax error`\n- **部分寫入**：`chat_messages` 的 INSERT 先成功落庫，`conversations` 的 UPDATE 失敗 → `message_count` 與 `last_message_at`/`updated_at` 永不更新，且呼叫端看到的是 reject（訊息是否存在不一致）\n\n## 建議修法\n```ts\nimport { sql } from \"kysely\";\nmessage_count: sql`message_count + 1`,\n```\n\n## 測試標記\n`tests/unit/db-repositories.test.ts` 的 ChatsRepo 區塊有 characterization test 固定現狀（addMessage rejects + 訊息已落庫 + message_count 不變），修復時請將該測試改回正向斷言（addMessage 成功、回傳 msg_ id、message_count 遞增、last_message_at 更新）。",
+      "featureId": "F-003",
+      "createdAt": "2026-10-01T16:01:20.865Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-031",
+      "title": "migrate.ts 頂層 migrate() 呼叫造成 import 副作用；getProjectRoot 從 root 執行時解析到專案外",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "found-by:TASK-042",
+        "severity:medium"
+      ],
+      "description": "## 問題\n`packages/db/src/migrate.ts` 檔尾：\n```ts\n// Run if called directly\nmigrate().catch(console.error);\n```\n沒有「是否直接執行」的判斷 — 任何 `import` 都會立即觸發一次完整 migrate。\n\n## 實證（TASK-042 測試過程，2026-10-01）\n- 在 repo root 以 tsx 動態 import migrate.ts，即對 `/Users/steward/data/db/paaw.sqlite`（**專案目錄外**）執行寫檔\n- 原因鏈：`getProjectRoot()` 無條件回傳 `resolve(process.cwd(), \"../../\")`（註解寫「From root (fallback), . = root」但程式碼未實作 fallback）；從 repo root 執行時解析到專案上一層之外的 `/Users/steward/data/db/`\n\n## 影響\n- 測試與任何 library 消費者 import 模組即產生檔案系統副作用（測試已被迫 vi.mock paths.ts 隔離）\n- 可能覆寫開發環境資料庫檔案（migrate 本身 CREATE IF NOT EXISTS 不毀資料，但 mtime 與檔案內容 export 回寫有風險）\n\n## 建議修法\n1. migrate.ts 頂層呼叫改為直接執行判斷（如比較 `import.meta.url` 與 `process.argv[1]`，或改由 package.json script 顯式呼叫）\n2. `getProjectRoot()` 修正：偵測 cwd 是否已為專案 root（例如檢查 `packages/db` 是否存在），是則回傳 cwd 本身\n\n## 測試對應\n`tests/unit/db-migrate.test.ts` 以 `vi.mock(\"../../packages/db/src/paths.ts\")` 隔離此副作用；修復後可移除 mock 改測真實路徑計算。",
+      "featureId": "F-003",
+      "createdAt": "2026-10-01T16:01:20.867Z",
+      "notes": []
     }
   ],
   "updatedAt": "2026-07-22T13:37:37.561Z",
-  "nextId": 28
+  "nextId": 32
 }
