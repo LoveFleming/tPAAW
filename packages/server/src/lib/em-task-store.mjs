@@ -197,7 +197,8 @@ export function buildTaskDigest(task, opts = {}) {
 
 /**
  * Resumable：從 progress log 重建 orchestration 狀態（上一輪掛掉 → 這輪從檔案恢復）。
- * @returns {{runs, agents, history, bugCount, patternTags, devNeedsQA, lastDevRange}}
+ * 雙門檻：devNeedsQA（qa 看碼回歸）+ devNeedsTests（tester 補 UT/E2E 鞏固）。
+ * @returns {{runs, agents, history, bugCount, patternTags, devNeedsQA, devNeedsTests, lastDevRange}}
  */
 export function hydrateFromProgress(task) {
   const log = Array.isArray(task.progressLog) ? task.progressLog : [];
@@ -207,6 +208,7 @@ export function hydrateFromProgress(task) {
   const patternTags = new Map(); // tag → count
   let bugCount = 0;
   let devNeedsQA = false;
+  let devNeedsTests = false;
   let lastDevRange = null;
 
   for (const e of log) {
@@ -216,9 +218,11 @@ export function hydrateFromProgress(task) {
       history.push({ round: e.round, agent: e.agent, outcome: String(e.outcome || "").slice(0, 300) });
       if (e.agent === "developer" && e.outcome?.startsWith("✅")) {
         devNeedsQA = true;
+        devNeedsTests = true;
         if (e.devRange) lastDevRange = e.devRange;
       }
-      if (e.agent === "qa" || e.agent === "tester") devNeedsQA = false;
+      if (e.agent === "qa" && e.outcome?.startsWith("✅")) devNeedsQA = false;      // qa 過 → 看碼門檻解除
+      if (e.agent === "tester" && e.outcome?.startsWith("✅")) devNeedsTests = false; // tester 過 → 測試鞏固門檻解除
     }
     if (e.action === "open_ticket") {
       if (e.ticketType === "bug") {
@@ -227,17 +231,41 @@ export function hydrateFromProgress(task) {
       }
     }
   }
-  return { runs, agents, history, bugCount, patternTags, devNeedsQA, lastDevRange };
+  return { runs, agents, history, bugCount, patternTags, devNeedsQA, devNeedsTests, lastDevRange };
 }
 
-// ── 柱二純函數：QA 鐵律 / bug 保險絲 / 治本規則（deterministic — 可單測）──
+// ── 柱二純函數：驗收雙門檻 / bug 保險絲 / 治本規則（deterministic — 可單測）──
+
+/** 任務是否需要 tester 鞏固（UT/E2E）：dev 型任務或 spec 明定 tests。docs/test 型不重複要求。 */
+export function taskNeedsTests(task = {}) {
+  if (task.type === "docs") return false;
+  if (task.type === "test") return false; // 任務本身就是測試工作，不重複開門檻
+  return task.type === "dev" || (task.spec || {}).tests === true;
+}
 
 /**
- * QA 鐵律：developer 成功後未經 qa/tester 回歸，EM 不得 complete。
- * @returns {boolean} true = 強制先派一次 qa（程式蓋掉 complete 決策）
+ * 驗收雙門檻：developer 成功後，(1) qa 看碼回歸 (2) dev 型任務 tester 補 UT/E2E 鞏固 —
+ * 兩關都過才能 complete（Fleming 2026-10-01：不是只有開發 and qa，tester 用 UT/E2E 把寫好的程式鞏固起來）。
+ * @param {{devNeedsQA?: boolean, devNeedsTests?: boolean}} state
+ * @param {object} task 任務（判斷要不要 tester 門檻）
+ * @returns {{blocked: boolean, needQA: boolean, needTests: boolean, forcedAgent: "qa"|"tester"|null, reason: string}}
  */
-export function shouldForceQA(state) {
-  return state?.devNeedsQA === true;
+export function completionGate(state, task = {}) {
+  const needQA = state?.devNeedsQA === true;
+  const needTests = taskNeedsTests(task) && state?.devNeedsTests === true;
+  if (!needQA && !needTests) return { blocked: false, needQA: false, needTests: false, forcedAgent: null, reason: "" };
+  if (needQA) {
+    return { blocked: true, needQA: true, needTests, forcedAgent: "qa", reason: "🔒 鐵律：developer 完成後必經 qa 看碼回歸（程式強制）" };
+  }
+  return { blocked: true, needQA: false, needTests: true, forcedAgent: "tester", reason: "🔒 鐵律：dev 型任務必經 tester 用 UT+E2E 鞏固（程式強制）" };
+}
+
+/**
+ * QA 鐵律（舊介面保留）：developer 成功後未過驗收門檻，EM 不得 complete。
+ * @returns {boolean}
+ */
+export function shouldForceQA(state, task = {}) {
+  return completionGate(state, task).blocked;
 }
 
 /**

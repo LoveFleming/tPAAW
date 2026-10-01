@@ -21,12 +21,13 @@ import {
   appendProgress,
   buildTaskDigest,
   hydrateFromProgress,
-  shouldForceQA,
   bugFuseVerdict,
   rootCauseVerdict,
   createTicket,
   loadTasksFile,
   saveTasksFile,
+  completionGate,
+  taskNeedsTests,
 } from "./em-task-store.mjs";
 import { shellExec } from "./shell-exec.mjs";
 import { takeDispatchSnapshot } from "./dispatch-verifier.mjs";
@@ -41,6 +42,7 @@ export function buildAgentChain(spec = {}, type = "dev") {
   if (chain.length === 1) {
     if (type === "test") chain.push("tester");
     if (type === "docs") chain.push("doc-writer");
+    if (type === "dev") chain.push("qa", "tester"); // 雙門檻保底：qa 看碼 + tester 鞏固
   }
   return chain;
 }
@@ -128,7 +130,7 @@ ${range.stat || "(空)"}
 }
 
 function _forcedQAInstruction(task, range) {
-  return `QA 回歸驗收（EM 鐵律強制 — developer 完成後未經 QA 不得結案）
+  return `QA 回歸驗收（EM 鐵律強制 — developer 完成後未經 QA 看碼不得結案）
 Task：${task.id} ${task.title || ""}
 ${(task.description || "").slice(0, 1200)}
 ${_evidenceBlock(range)}
@@ -137,6 +139,20 @@ ${_evidenceBlock(range)}
 1. 對照 task 驗收標準逐項檢查上述 diff
 2. 檢查明顯 bug（邏輯錯誤、邊界、路徑處理、錯誤處理）
 3. 輸出格式：一行 verdict — 「✅ 通過」或「❌ 未過」，❌ 時列問題清單（每項：檔案/位置/嚴重度/復現方式/建議修法）`;
+}
+
+function _forcedTestInstruction(task, range) {
+  return `測試鞏固（EM 鐵律強制 — dev 型任務寫好的程式必須用 UT + E2E 鞏固才能結案）
+Task：${task.id} ${task.title || ""}
+${(task.description || "").slice(0, 1200)}
+${_evidenceBlock(range)}
+
+請把這次完成的程式用測試鞏固起來：
+1. 先跑專案既有測試套件（如 vitest）— 確認現況全綠，紀錄失敗項
+2. 為本次新增/變更的功能補單元測試（UT）：覆蓋驗收標準的每個行為，含邊界與錯誤路徑
+3. 補 E2E/整合測試：按專案既有的 e2e 慣例驗證完整使用流程（若專案無 e2e 框架，寫可直接用 node 跑的整合腳本並註明）
+4. 全部測試跑過全綠
+5. 輸出格式：一行 verdict — 「✅ 鞏固完成」或「❌ 未過」，接著列測試檔清單（每項：檔案/覆蓋行為/UT或E2E）與最終通過率；發現 bug 不要自己修，列出來（檔案/位置/復現方式），交回 developer 修`;
 }
 
 import { dateTimeContextBlock } from "./llm-utils.mjs";
@@ -165,9 +181,12 @@ function _controllerSystemPrompt() {
 - developer 連續失敗 2 次 → escalate，不要無限重試
 - 需要人類決策（刪資料、破壞性變更、外部服務帳密、方向不明）→ escalate
 
-## QA 看碼鐵律（程式強制）
-- developer 成功後，必先派 qa（或 tester）回歸驗收才能 complete — 你直接 complete 的話程式會攔下來強制派 qa
-- 派 qa 時程式會自動附上 developer 派工的 git commit diff 範圍 — QA 看的是碼不是 developer 自述
+## 驗收雙門檻鐵律（程式強制）
+developer 成功後，兩關都過才能 complete（缺哪關程式就攔下你並強制補派）：
+1. **qa 看碼回歸** — 派 qa 對照驗收標準審 diff；程式自動附上 developer 派工的 git commit diff 範圍，QA 看的是碼不是 developer 自述
+2. **tester 鞏固（dev 型任務）** — 派 tester 把寫好的程式用 UT + E2E 鞏固起來：跑既有套件、補單元測試、補 E2E/整合測試、全綠。不是只有開發 and qa — 沒測試鞏固的完成不算完成
+- 你直接 complete 的話，程式會依序強制派 qa → tester
+- tester 發現 bug → 跟 QA 打回一樣：open_ticket(type:"bug") 帶復現方式 → 派 developer 修 → 修完重跑 qa + tester
 
 ## Bug 單迴圈
 - QA 審查發現問題（❌ 未過）→ open_ticket(type:"bug", patternTag 填 bug 類別) 帶 QA 證據（復現方式+位置）→ 派 developer 修這張 bug 單 → 修完再派 qa 回歸
@@ -175,7 +194,7 @@ function _controllerSystemPrompt() {
 - 治本（程式自動）：同 patternTag 第二張 bug 單 → 程式自動開治本 parent 單（refactor/回歸測試）— 你專心修 bug，治本單之後派工處理
 
 ## 驗收標準
-- task 核心目標達成，且 QA 已回歸通過 → complete（程式會自動結案本次 orchestration 開的 bug 單）
+- task 核心目標達成，且雙門檻已過（qa 看碼 ✓ + dev 型任務 tester UT/E2E 鞏固 ✓）→ complete（程式會自動結案本次 orchestration 開的 bug 單）
 - 無法再推進 → escalate（寫清楚卡在哪、已試過什麼）`;
 }
 
@@ -190,7 +209,8 @@ function _roundUserPrompt(task, rosterText, digest) {
   const bugLine = digest.bugTicketsOpened > 0
     ? `\n已開 bug 單：${digest.bugTicketsOpened} 張${Object.keys(digest.bugPatterns).length ? `（pattern: ${Object.entries(digest.bugPatterns).map(([k, v]) => `${k}×${v}`).join(", ")}）` : ""} — 保險絲上限 3 張`
     : "";
-  const rangeLine = digest.lastDevRange ? `\ndeveloper 最新 diff 範圍：${digest.lastDevRange.short}（派 qa 時程式自動附證據）` : "";
+  const rangeLine = digest.lastDevRange ? `\ndeveloper 最新 diff 範圍：${digest.lastDevRange.short}（派 qa/tester 時程式自動附證據）` : "";
+  const gate = digest.gate ? `\n完成門檻（程式強制）：qa 看碼 ${digest.gate.needQA ? "❌ 未過" : "✅"} / tester UT+E2E 鞏固 ${digest.gate.needTests ? "❌ 未過" : "✅ 或不需"}` : "";
   return `## TASK
 id: ${task.id}
 title: ${task.title || "(無標題)"}
@@ -204,7 +224,7 @@ ${task.description || "(無描述)"}
 ${rosterText}
 
 ## 進度 digest（來自任務檔 progress log — 唯一事實來源；掛掉重跑也從這裡恢復）
-${prog}${bugLine}${rangeLine}
+${prog}${bugLine}${rangeLine}${gate}
 
 ## 你的決策（一個 JSON）`;
 }
@@ -266,6 +286,7 @@ export async function orchestrateTask({ rootDir, task, baseUrl, modelOverride, f
     bugCount: hydrated.bugCount,
     patternTags: new Map(hydrated.patternTags),
     devNeedsQA: hydrated.devNeedsQA,
+    devNeedsTests: hydrated.devNeedsTests,
     lastDevRange: hydrated.lastDevRange,
   };
 
@@ -288,6 +309,8 @@ export async function orchestrateTask({ rootDir, task, baseUrl, modelOverride, f
 
     // ── 決策 prompt：digest（柱一 — 不讀整段對話）──
     const digest = buildTaskDigest(readTask(rootDir, taskId) || task, { maxLines: 40 });
+    // 完成門檻現況（供 EM 決策與人類除錯）
+    digest.gate = { needQA: state.devNeedsQA, needTests: taskNeedsTests(task0) && state.devNeedsTests };
 
     // ── EM 決策（每輪一次結構化 call；decisionOverride 供測試注入）──
     let decision = null;
@@ -335,15 +358,23 @@ export async function orchestrateTask({ rootDir, task, baseUrl, modelOverride, f
       }
     }
 
-    // ── 柱二：QA 鐵律（程式強制 — developer 成功未經 QA 不得 complete）──
-    if (decision.action === "complete" && shouldForceQA(state)) {
-      const qaAgent = rosterIds.has("qa") ? "qa" : (rosterIds.has("tester") ? "tester" : null);
-      if (qaAgent) {
-        decision = { action: "dispatch", agent: qaAgent, instruction: _forcedQAInstruction(task0, state.lastDevRange), reason: "🔒 鐵律：developer 完成必排 qa（程式強制）", _evidenceAttached: true };
-        appendProgress(rootDir, taskId, { round: loopCount, agent: "em", action: "force_qa", outcome: `🔒 developer 完成未經 QA — 程式強制 dispatch ${qaAgent}` });
-        _log(`🔒 R${loopCount} 鐵律強制：complete 被攔下 → dispatch ${qaAgent}`);
-        sendSSE("info", { message: `🔒 [${taskId}] 鐵律：developer 完成必排 QA — 強制派 ${qaAgent}` });
-        // 落到下方 dispatch 處理（不 return）
+    // ── 柱二：驗收雙門檻鐵律（程式強制 — developer 成功後 qa 看碼 + tester UT/E2E 鞏固，兩關都過才能 complete）──
+    if (decision.action === "complete") {
+      const gate = completionGate(state, task0);
+      if (gate.blocked) {
+        let forced = gate.forcedAgent;
+        if (forced === "qa" && !rosterIds.has("qa")) forced = rosterIds.has("tester") ? "tester" : null;
+        if (forced === "tester" && !rosterIds.has("tester")) forced = rosterIds.has("qa") ? "qa" : null;
+        if (forced) {
+          const instruction = forced === "qa"
+            ? _forcedQAInstruction(task0, state.lastDevRange)
+            : _forcedTestInstruction(task0, state.lastDevRange);
+          decision = { action: "dispatch", agent: forced, instruction, reason: gate.reason, _evidenceAttached: true };
+          appendProgress(rootDir, taskId, { round: loopCount, agent: "em", action: forced === "qa" ? "force_qa" : "force_test", outcome: `🔒 ${gate.reason} — 程式強制 dispatch ${forced}` });
+          _log(`🔒 R${loopCount} 鐵律強制：complete 被攔下 → dispatch ${forced}（${gate.needQA ? "qa 未過" : "tester 未過"}${gate.needQA && gate.needTests ? "+tester 未過" : ""}）`);
+          sendSSE("info", { message: `🔒 [${taskId}] 鐵律：${gate.forcedAgent === "qa" ? "developer 完成必排 QA 看碼" : "dev 完成必排 tester 鞏固"} — 強制派 ${forced}` });
+          // 落到下方 dispatch 處理（不 return）
+        }
       }
     }
 
@@ -481,10 +512,12 @@ export async function orchestrateTask({ rootDir, task, baseUrl, modelOverride, f
         // 柱一：progress log 落檔（含 devRange 證據 — resumable 的載體）
         if (isDev) {
           state.devNeedsQA = true;
+          state.devNeedsTests = true;
           state.lastDevRange = await _gitEvidence(rootDir, snap?.preHead) || { short: "(無新 commit — working diff)", log: [], stat: "" };
           appendProgress(rootDir, taskId, { round: loopCount, agent, action: "dispatch", outcome: `✅ ${brief || "(空回報)"}`, durationMs: _loopDur, tokens: _loopTokens, devRange: state.lastDevRange });
         } else {
-          if (isVerifier) state.devNeedsQA = false; // QA 鐵律解除（EM 看 QA 結果決定下一步）
+          if (agent === "qa") state.devNeedsQA = false;           // qa 過 → 看碼門檻解除
+          if (agent === "tester") state.devNeedsTests = false;     // tester 過 → 鞏固門檻解除
           appendProgress(rootDir, taskId, { round: loopCount, agent, action: "dispatch", outcome: `✅ ${brief || "(空回報)"}`, durationMs: _loopDur, tokens: _loopTokens });
         }
         history.push({ round: loopCount, agent, outcome: `✅ ${brief || "(空回報)"}` });

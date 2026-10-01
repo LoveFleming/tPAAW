@@ -15,7 +15,7 @@ import { join } from "path";
 
 import {
   genTaskId, createTicket, appendProgress, getProgress, buildTaskDigest,
-  hydrateFromProgress, shouldForceQA, bugFuseVerdict, rootCauseVerdict,
+  hydrateFromProgress, shouldForceQA, completionGate, taskNeedsTests, bugFuseVerdict, rootCauseVerdict,
   resolveFeatureForFiles, loadTasksFile,
 } from "../../packages/server/src/lib/em-task-store.mjs";
 import { orchestrateTask } from "../../packages/server/src/lib/em-orchestrator.mjs";
@@ -146,21 +146,39 @@ describe("柱一：em-task-store 狀態機", () => {
     expect(d.acceptance).toContain("功能可用");
   });
 
-  it("hydrateFromProgress：developer 成功 → devNeedsQA=true；qa 後解除", () => {
+  it("hydrateFromProgress：developer 成功 → devNeedsQA + devNeedsTests 都 arm；qa 只解 qa 門、tester 只解測試門", () => {
     const task = seedTask(root);
     appendProgress(root, "TASK-100", { round: 1, agent: "developer", action: "dispatch", outcome: "✅ done", devRange: { short: "a..b", log: [], stat: "" } });
     let h = hydrateFromProgress(loadTasksFile(root).tasks.find(t => t.id === "TASK-100"));
     expect(h.devNeedsQA).toBe(true);
-    expect(h.runs.developer).toBe(1);
-    expect(h.lastDevRange.short).toBe("a..b");
+    expect(h.devNeedsTests).toBe(true);
     appendProgress(root, "TASK-100", { round: 2, agent: "qa", action: "dispatch", outcome: "✅ 通過" });
     h = hydrateFromProgress(loadTasksFile(root).tasks.find(t => t.id === "TASK-100"));
     expect(h.devNeedsQA).toBe(false);
+    expect(h.devNeedsTests).toBe(true); // qa 過不能解測試門
+    appendProgress(root, "TASK-100", { round: 3, agent: "tester", action: "dispatch", outcome: "✅ 鞏固完成" });
+    h = hydrateFromProgress(loadTasksFile(root).tasks.find(t => t.id === "TASK-100"));
+    expect(h.devNeedsQA).toBe(false);
+    expect(h.devNeedsTests).toBe(false);
   });
 
-  it("柱二純函數：shouldForceQA / bugFuseVerdict / rootCauseVerdict", () => {
-    expect(shouldForceQA({ devNeedsQA: true })).toBe(true);
-    expect(shouldForceQA({ devNeedsQA: false })).toBe(false);
+  it("柱二純函數：completionGate 雙門檻 / taskNeedsTests / bugFuseVerdict / rootCauseVerdict", () => {
+    // taskNeedsTests：dev 型要、spec.tests 要；docs/test 型不重複
+    expect(taskNeedsTests({ type: "dev" })).toBe(true);
+    expect(taskNeedsTests({ type: "dev", spec: { tests: false } })).toBe(true); // dev 型無法 opt-out
+    expect(taskNeedsTests({ type: "docs" })).toBe(false);
+    expect(taskNeedsTests({ type: "test" })).toBe(false);
+    expect(taskNeedsTests({ type: "dev", spec: { tests: true } })).toBe(true);
+    // completionGate：兩關都過才放行；缺 qa 先補 qa，qa 過了缺 tester 補 tester
+    expect(completionGate({ devNeedsQA: true, devNeedsTests: true }, { type: "dev" })).toMatchObject({ blocked: true, forcedAgent: "qa" });
+    expect(completionGate({ devNeedsQA: false, devNeedsTests: true }, { type: "dev" })).toMatchObject({ blocked: true, forcedAgent: "tester" });
+    expect(completionGate({ devNeedsQA: false, devNeedsTests: true }, { type: "docs" }).blocked).toBe(false); // docs 不需 tester
+    expect(completionGate({ devNeedsQA: false, devNeedsTests: true }, { type: "test" }).blocked).toBe(false);
+    expect(completionGate({ devNeedsQA: false, devNeedsTests: false }, { type: "dev" }).blocked).toBe(false);
+    expect(completionGate({ devNeedsQA: true }, { type: "dev" }).reason).toContain("qa");
+    expect(completionGate({ devNeedsQA: false, devNeedsTests: true }, { type: "dev" }).reason).toContain("UT+E2E");
+    expect(shouldForceQA({ devNeedsQA: true }, { type: "dev" })).toBe(true);
+    expect(shouldForceQA({ devNeedsQA: false, devNeedsTests: false }, { type: "dev" })).toBe(false);
     expect(bugFuseVerdict({ bugCount: 0 }).fuse).toBe(false);
     expect(bugFuseVerdict({ bugCount: 1 }).fuse).toBe(false); // 第 2 張還能開
     expect(bugFuseVerdict({ bugCount: 2 }).fuse).toBe(true);  // 第 3 次打回 = 燒保險絲
@@ -178,7 +196,7 @@ describe("柱二：em-orchestrator 工頭迴圈", () => {
   let root;
   beforeEach(() => { root = makeFixture(); });
 
-  it("QA 鐵律：developer 成功後 complete 被攔 → 強制 dispatch qa → qa 過了才 complete", async () => {
+  it("驗收雙門檻：developer 成功後 complete 依序被攔 → 強制 qa → 強制 tester（UT+E2E）→ 才 complete", async () => {
     seedTask(root);
     const result = await orchestrateTask({
       rootDir: root, task: { id: "TASK-100", title: "測試任務", type: "dev", description: "d", spec: {} },
@@ -186,19 +204,21 @@ describe("柱二：em-orchestrator 工頭迴圈", () => {
       sendSSE: () => {}, maxLoops: 10,
       decisionOverride: seqDecisions([
         { action: "dispatch", agent: "developer", instruction: "做 A" },
-        { action: "complete", summary: "提前想結案" },      // ← 鐵律攔下
-        { action: "complete", summary: "QA 已過，結案" },   // ← 這次放行
+        { action: "complete", summary: "提前想結案" },      // ← 攔下 → 強制 qa
+        { action: "complete", summary: "QA 過了想結案" },   // ← 再攔 → 強制 tester
+        { action: "complete", summary: "雙門檻都過，結案" }, // ← 放行
       ]),
       _deps: { a2aCallAgent: OK_AGENT },
     });
     expect(result.ok).toBe(true);
     expect(result.status).toBe("done");
-    expect(result.chain).toEqual(["developer", "qa"]); // complete 被換成 qa
+    expect(result.chain).toEqual(["developer", "qa", "tester"]); // 兩次 complete 各被換成 qa / tester
     const log = getProgress(root, "TASK-100");
     expect(log.some(e => e.action === "force_qa")).toBe(true);
+    expect(log.some(e => e.action === "force_test")).toBe(true);
   }, 30000);
 
-  it("qa 指令自動帶 git 證據區塊（QA 看碼不是看自述）", async () => {
+  it("qa / tester 指令自動帶 git 證據區塊；強制 tester 帶 UT+E2E 鞏固要求（看碼不是看自述）", async () => {
     seedTask(root);
     const calls = [];
     const spyAgent = async (_b, agent, prompt) => { calls.push({ agent, prompt }); return { success: true, content: "✅", usage: {} }; };
@@ -209,12 +229,18 @@ describe("柱二：em-orchestrator 工頭迴圈", () => {
       decisionOverride: seqDecisions([
         { action: "dispatch", agent: "developer", instruction: "做 A" },
         { action: "dispatch", agent: "qa", instruction: "QA 審查" },
+        { action: "complete", summary: "想結案" },   // ← 測試門未過 → 強制 tester（帶 UT+E2E 鞏固指令）
         { action: "complete", summary: "ok" },
       ]),
       _deps: { a2aCallAgent: spyAgent },
     });
     const qaCall = calls.find(c => c.agent === "qa");
     expect(qaCall.prompt).toContain("程式證據"); // 程式附加的證據區塊
+    const testerCall = calls.find(c => c.agent === "tester");
+    expect(testerCall.prompt).toContain("程式證據");
+    expect(testerCall.prompt).toContain("UT");
+    expect(testerCall.prompt).toContain("E2E");
+    expect(testerCall.prompt).toContain("鞏固");
     // fixture 無 git → 證據顯示無新 commit，但區塊存在（機制在）
   }, 30000);
 
@@ -263,18 +289,19 @@ describe("柱二：em-orchestrator 工頭迴圈", () => {
     expect(tasks.filter(t => (t.labels || []).includes("bug"))).toHaveLength(2); // 第 3 張沒開成
   }, 30000);
 
-  it("complete 自動結案 orchestration 開的 bug 單", async () => {
+  it("complete 自動結案 orchestration 開的 bug 單（含 tester 鞏固關）", async () => {
     seedTask(root);
     await orchestrateTask({
       rootDir: root, task: { id: "TASK-100", title: "t", type: "dev", description: "d", spec: {} },
       baseUrl: "http://127.0.0.1:1", modelOverride: MODEL, fallbackModels: FALLBACKS,
-      sendSSE: () => {}, maxLoops: 10,
+      sendSSE: () => {}, maxLoops: 12,
       decisionOverride: seqDecisions([
         { action: "dispatch", agent: "developer", instruction: "做" },
-        { action: "dispatch", agent: "qa", instruction: "QA", },
+        { action: "dispatch", agent: "qa", instruction: "QA" },
         { action: "open_ticket", title: "bug found", description: "d", type: "bug", patternTag: "x" },
         { action: "dispatch", agent: "developer", instruction: "修 bug" },
         { action: "dispatch", agent: "qa", instruction: "回歸" },
+        { action: "complete", summary: "想結案" },          // ← 攔下 → 強制 tester（第二輪 developer 重新 arm 兩門）
         { action: "complete", summary: "全過" },
       ]),
       _deps: { a2aCallAgent: OK_AGENT },
@@ -285,7 +312,7 @@ describe("柱二：em-orchestrator 工頭迴圈", () => {
     expect(bug.resolvedAt).toBeTruthy();
   }, 30000);
 
-  it("resumable：progressLog 有 developer 成功紀錄 → 新一輪 complete 仍被鐵律攔下", async () => {
+  it("resumable：progressLog 有 developer 成功紀錄 → 新一輪 complete 仍被雙門檻攔下（先 qa 後 tester）", async () => {
     seedTask(root);
     // 模擬上一輪掛掉前的紀錄
     appendProgress(root, "TASK-100", { round: 1, agent: "developer", action: "dispatch", outcome: "✅ done", devRange: { short: "a..b", log: [], stat: "" } });
@@ -294,13 +321,31 @@ describe("柱二：em-orchestrator 工頭迴圈", () => {
       baseUrl: "http://127.0.0.1:1", modelOverride: MODEL, fallbackModels: FALLBACKS,
       sendSSE: () => {}, maxLoops: 10,
       decisionOverride: seqDecisions([
-        { action: "complete", summary: "上輪做完想結案" }, // ← hydrate 恢復 devNeedsQA → 攔
-        { action: "complete", summary: "QA 過了" },
+        { action: "complete", summary: "上輪做完想結案" }, // ← hydrate 恢復雙門檻 → 攔下強制 qa
+        { action: "complete", summary: "qa 過了" },       // ← 測試門還沒過 → 攔下強制 tester
+        { action: "complete", summary: "雙門檻都過" },
       ]),
       _deps: { a2aCallAgent: OK_AGENT },
     });
     expect(result.ok).toBe(true);
-    expect(result.chain).toEqual(["qa"]); // 第一個決策被換成 qa
+    expect(result.chain).toEqual(["qa", "tester"]); // 兩次 complete 各被換成 qa / tester
+  }, 30000);
+
+  it("docs 型任務：developer 成功後只要 qa 過就能 complete（不強制 tester）", async () => {
+    seedTask(root, { type: "docs" });
+    const result = await orchestrateTask({
+      rootDir: root, task: { id: "TASK-100", title: "t", type: "docs", description: "d", spec: {} },
+      baseUrl: "http://127.0.0.1:1", modelOverride: MODEL, fallbackModels: FALLBACKS,
+      sendSSE: () => {}, maxLoops: 10,
+      decisionOverride: seqDecisions([
+        { action: "dispatch", agent: "developer", instruction: "做" },
+        { action: "dispatch", agent: "qa", instruction: "QA" },
+        { action: "complete", summary: "ok" }, // qa 已過、docs 不需 tester → 放行
+      ]),
+      _deps: { a2aCallAgent: OK_AGENT },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.chain).toEqual(["developer", "qa"]);
   }, 30000);
 });
 
