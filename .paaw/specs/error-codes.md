@@ -40,7 +40,7 @@ sendJSON(500, { error: err.message });
 | 413 | 3 | Payload too large | oversized upload | uploads/notes image |
 | 403 | 3 | Forbidden: path safety / security policy rejection | path traversal blocked (F-021), policy pipeline (F-022) | coding-security, security/* |
 | 401 | 1 | Unauthorized | provider auth failure | provider-related route |
-| 405 | 1 | Method not allowed | wrong verb on known path | a2a.mjs |
+| 405 | 1 | Method not allowed | wrong verb on known path | pocket.mjs |
 | 502 | 1 | Bad gateway | upstream proxy failure | api-tester proxy |
 
 Total measured: ~553 explicit `writeHead`/`json`/`sendJSON` error calls (273× 4xx + 163× 5xx via writeHead alone; remainder via helpers).

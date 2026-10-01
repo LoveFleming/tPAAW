@@ -14,7 +14,9 @@ PAAW (Personal AI Assistant Workspace) is a self-hosted AI agent platform built 
 
 Core constraints (by design): no external database server (embedded SQLite), no Express/framework (raw Node HTTP), all project knowledge version-controlled in `.paaw/` (ADR-001).
 
-## Repository Layout (8 packages)
+## Repository Layout (6 npm packages)
+
+> `packages/*` 目錄下有 8 個子目錄，但僅 6 個含 `package.json` 為 npm workspace；`data/` 與 `temp/` 是 runtime 資料/暫存目錄（無 `package.json`，非 workspace）。
 
 ```
 tPAAW/                          # npm workspaces monorepo — "paaw" v1.0.0
@@ -25,8 +27,8 @@ tPAAW/                          # npm workspaces monorepo — "paaw" v1.0.0
 │   ├── context/                # @paaw/context — context assembler, memory store, refinery
 │   ├── db/                     # @paaw/db — SQLite (sql.js + Kysely): connection, migrations, repositories
 │   ├── shared/                 # @paaw/shared — shared types, typebox schemas, ID/utils
-│   ├── data/                   # @paaw/data — data package
-│   └── temp/                   # scratch (not part of runtime)
+│   ├── data/                   # runtime data (app-data/, helpdesk/, llm-logs/, logs/) — no package.json, not a workspace
+│   └── temp/                   # temp LLM/API-tester payload files — no package.json, not a workspace
 ├── scripts/                    # dev-server, pack, paaw-sync, postinstall, runtime-guard-scanner
 ├── tests/                      # vitest unit tests + Playwright e2e (tests/unit/, tests/e2e/)
 └── .paaw/                      # file-based knowledge store (ADR-001) — see "Knowledge Layer"

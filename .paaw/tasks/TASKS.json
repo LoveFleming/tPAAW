@@ -1062,18 +1062,92 @@
           "by": "em-job",
           "at": "2026-10-01T14:30:14.921Z",
           "content": "CU 掃描（code understanding 補洞） 入口 triage 開單：核心設計文件 80 天過期，後續開發依賴這些基準；同類合併一張"
+        },
+        {
+          "at": "2026-10-01T16:14:10.831Z",
+          "agent": "em",
+          "note": "🎖️ EM 開始自決編制協調（roster: architect, developer, doc-writer, helpdesk, qa, tester, handover, ops, rm）"
+        },
+        {
+          "at": "2026-10-01T16:14:16.753Z",
+          "agent": "em",
+          "note": "▶️ R1 派工 doc-writer#1：docs 型任務且核心是三份技術文件的校正與重產出，doc-writer 是最適合人選"
+        },
+        {
+          "at": "2026-10-01T16:28:51.278Z",
+          "agent": "em",
+          "note": "✅ R1 doc-writer 完成：📝 **Doc Update Report — TASK-040 完成**（commit `4e9b9eef`） ``` ├─ 掃描範圍：8 npm packages、52 server route 檔、~250 method+path 端點、62 active features ├─ 三份文件重寫（全部基於實際程式"
+        },
+        {
+          "at": "2026-10-01T16:28:56.838Z",
+          "agent": "em",
+          "note": "▶️ R2 派工 qa#1：docs 任務完成後需 qa 對照驗收標準審 diff（tester UT/E2E 不適用於純文件任務）"
+        },
+        {
+          "at": "2026-10-01T16:31:31.510Z",
+          "agent": "em",
+          "note": "✅ R2 qa 完成：## TASK-040 驗收報告 **Gate Check 結果：⚠️ CONDITIONAL PASS** — 驗收標準全數達成，但發現 2 處可驗證的事實錯誤，建議小修後關單。 --- ### 逐項驗證結果 **1) 時間戳 → ✅ 通過** - `.paaw/cu-status.json`：`architectu"
+        },
+        {
+          "at": "2026-10-01T16:31:36.788Z",
+          "agent": "em",
+          "note": "▶️ R3 派工 doc-writer#2：QA 條件通過，修掉 2 處事實錯誤即可關單"
         }
       ],
-      "progressLog": [],
+      "progressLog": [
+        {
+          "at": "2026-10-01T16:28:51.278Z",
+          "round": 1,
+          "agent": "doc-writer",
+          "action": "dispatch",
+          "outcome": "✅ 📝 **Doc Update Report — TASK-040 完成**（commit `4e9b9eef`） ``` ├─ 掃描範圍：8 npm packages、52 server route 檔、~250 method+path 端點、62 active features ├─ 三份文件重寫（全部基於實際程式碼證據，非範本）： │ ├─ .paaw/project/ARCHITECTURE.md（4.8KB → 13KB） │ │ • 修正重大脫節：Next.js → React+Vite、「Express」→ raw Node HTTP │ │ • Mermaid C4 容器圖、1",
+          "durationMs": 874522,
+          "tokens": 2478911
+        },
+        {
+          "at": "2026-10-01T16:31:31.510Z",
+          "round": 2,
+          "agent": "qa",
+          "action": "dispatch",
+          "outcome": "✅ ## TASK-040 驗收報告 **Gate Check 結果：⚠️ CONDITIONAL PASS** — 驗收標準全數達成，但發現 2 處可驗證的事實錯誤，建議小修後關單。 --- ### 逐項驗證結果 **1) 時間戳 → ✅ 通過** - `.paaw/cu-status.json`：`architecture` / `api-spec` / `error-mapping` 三步驟 `updatedAt` 均為 **2026-10-02T00:20:00.000Z**，本週（W40，2026-09-28 起）無誤。 - 三份文件內文均標註 \"regenerated 2026-10-",
+          "durationMs": 154670,
+          "tokens": 276608
+        },
+        {
+          "at": "2026-10-01T16:33:43.000Z",
+          "round": 3,
+          "agent": "doc-writer",
+          "action": "dispatch",
+          "outcome": "✅ R3 修正 QA R2 指出的 2 處事實錯誤：(1) ARCHITECTURE.md「8 packages」→「6 npm packages」——實測 packages/ 下僅 context/db/engine/server/shared/ui 6 目錄含 package.json，data/（runtime 資料：app-data/helpdesk/llm-logs/logs）與 temp/（LLM payload 暫存）無 package.json 非 workspace，目錄樹同步改標註並加說明註記；(2) error-codes.md 405 歸屬 a2a.mjs → pocket.mjs——grep 全 routes 證實 405 僅出現於 pocket.mjs:79，a2a.mjs 零命中。另同步 cu-status.json 兩步驟 updatedAt/size。R1 report 中「8 npm packages」掃描範圍數亦應讀作 6 packages + 2 runtime 目錄。",
+          "durationMs": 0,
+          "tokens": 0
+        }
+      ],
       "result": null,
       "git": null,
       "timeoutSeconds": 0,
       "spec": null,
       "createdAt": "2026-10-01T14:30:14.921Z",
-      "updatedAt": "2026-10-01T14:30:14.921Z",
+      "updatedAt": "2026-10-01T16:31:31.510Z",
       "resolvedAt": null,
       "createdBy": "em-job",
-      "source": "em-job:cu-scan"
+      "source": "em-job:cu-scan",
+      "orchestration": {
+        "decidedBy": "em",
+        "agents": {
+          "doc-writer": "running",
+          "qa": "done"
+        },
+        "runs": {
+          "doc-writer": 2,
+          "qa": 1
+        },
+        "loopCount": 3,
+        "status": "running",
+        "startedAt": "2026-10-01T16:14:10.831Z",
+        "updatedAt": "2026-10-01T16:31:36.788Z",
+        "currentStep": "doc-writer"
+      }
     },
     {
       "id": "TASK-041",
@@ -1081,7 +1155,7 @@
       "type": "test",
       "title": "F-007 Tool Engine (Server) 補單元測試",
       "parentId": null,
-      "status": "open",
+      "status": "close",
       "priority": "high",
       "labels": [
         "entry:cu-scan:test:F-007",
@@ -1120,6 +1194,31 @@
           "at": "2026-10-01T15:48:29.000Z",
           "agent": "tester",
           "note": "R2 重跑完成：R1 其實已產出 5 個測試檔但未回報。驗證結果：tests/unit/{tool-engine,tool-engine-provider,tool-registries,tools-index,agentic-binding}.test.mjs 共 143 tests / 344 assertions 全綠。覆蓋率（vitest --coverage, v8）：F-007 全 7 檔 Lines 84.69% / Stmts 80.07%，每檔 lines 均 >70%（最低 tool-registry.mjs 73.8%）。npm test 10 個失敗為 pre-existing（repair-loop 8 + auto-dispatch-shared 2，已 stash 驗證 baseline 即失敗，與 F-007 無關）→ 開 ISS-028 追蹤。CI：repo 無 CI 設定檔，npm test=vitest run 已含 tests/unit/**（任何 pipeline 跑 npm test 都會執行 F-007 測試）。另補 .gitignore coverage/ 排除。"
+        },
+        {
+          "at": "2026-10-01T15:49:15.375Z",
+          "agent": "em",
+          "note": "✅ R2 tester 完成：## TASK-041 R2 回報 — 完成 ✅ **首先釐清 R1 真相**：R1 並非沒做事 — 它在工作區留下了 5 個完整測試檔（2209 行），只是派工結束時未回報。R2 的工作是驗證這些產出的正確性、補齊缺口、留下證據。 ### 1️⃣ 新增測試檔（5 個，commit `e8cd3b26`） | 測試檔 "
+        },
+        {
+          "at": "2026-10-01T15:49:20.152Z",
+          "agent": "em",
+          "note": "▶️ R3 派工 qa#1：test 型任務，tester 已完成並通過，需 qa 看碼回歸確認覆蓋率與測試品質"
+        },
+        {
+          "at": "2026-10-01T15:54:13.693Z",
+          "agent": "em",
+          "note": "✅ R3 qa 完成：--- # TASK-041 QA 驗收報告 ## 裁定：✅ PASS（附 2 項 minor 註記） --- ## 四項驗收標準查證結果 ### 1) 測試涵蓋註冊、執行與錯誤路徑 — ✅ 確認 逐檔審查 5 個測試檔（2,209 行），三類路徑俱足： | 類別 | 涵蓋內容 | |---|---| | **註冊**"
+        },
+        {
+          "at": "2026-10-01T15:54:17.629Z",
+          "agent": "em",
+          "note": "🏁 Task 完成（3 次派工）：F-007 Tool Engine 補測完成：tester 兩輪產出 5 個測試檔（2,209 行，commit e8cd3b26），覆蓋註冊、執行與錯誤路徑，143 tests 全綠，F-007 行覆蓋率 84.69%（>70% 門檻）；qa 看碼審查 PASS（僅 2 項 minor 註記）。既有非相關失敗已另開 ISS-028 追蹤。"
+        },
+        {
+          "by": "em",
+          "at": "2026-10-01T15:54:17.632Z",
+          "content": "✅ EM dispatch 完成：EM 協調完成（em）：done (tester→tester→qa)"
         }
       ],
       "progressLog": [
@@ -1140,6 +1239,31 @@
           "outcome": "✅ 143 tests green, F-007 lines cov 84.69%, ISS-028 filed for pre-existing failures",
           "durationMs": 0,
           "tokens": 0
+        },
+        {
+          "at": "2026-10-01T15:49:15.375Z",
+          "round": 2,
+          "agent": "tester",
+          "action": "dispatch",
+          "outcome": "✅ ## TASK-041 R2 回報 — 完成 ✅ **首先釐清 R1 真相**：R1 並非沒做事 — 它在工作區留下了 5 個完整測試檔（2209 行），只是派工結束時未回報。R2 的工作是驗證這些產出的正確性、補齊缺口、留下證據。 ### 1️⃣ 新增測試檔（5 個，commit `e8cd3b26`） | 測試檔 | 測試數 | 斷言數 | 涵蓋目標 | |---|---|---|---| | `tests/unit/tool-engine.test.mjs` | 22 | 54 | ReAct 迴圈、write verify、error detection、security kernel",
+          "durationMs": 195004,
+          "tokens": 656065
+        },
+        {
+          "at": "2026-10-01T15:54:13.693Z",
+          "round": 3,
+          "agent": "qa",
+          "action": "dispatch",
+          "outcome": "✅ --- # TASK-041 QA 驗收報告 ## 裁定：✅ PASS（附 2 項 minor 註記） --- ## 四項驗收標準查證結果 ### 1) 測試涵蓋註冊、執行與錯誤路徑 — ✅ 確認 逐檔審查 5 個測試檔（2,209 行），三類路徑俱足： | 類別 | 涵蓋內容 | |---|---| | **註冊** | registry CRUD（register / unregister / duplicate / source conflict / unregisterBySource / getDefinitions）；agentic-binding 設定載入 7 種情境（missi",
+          "durationMs": 293538,
+          "tokens": 813922
+        },
+        {
+          "at": "2026-10-01T15:54:17.627Z",
+          "round": 4,
+          "agent": "em",
+          "action": "complete",
+          "outcome": "🏁 完成：F-007 Tool Engine 補測完成：tester 兩輪產出 5 個測試檔（2,209 行，commit e8cd3b26），覆蓋註冊、執行與錯誤路徑，143 tests 全綠，F-007 行覆蓋率 84.69%（>70% 門檻）；qa 看碼審查 PASS（僅 2 項 minor 註記）。既有非相關失敗已另開 ISS-028 追蹤。"
         }
       ],
       "result": null,
@@ -1149,23 +1273,25 @@
         "tests": true
       },
       "createdAt": "2026-10-01T14:30:14.923Z",
-      "updatedAt": "2026-10-01T15:48:29.000Z",
-      "resolvedAt": null,
+      "updatedAt": "2026-10-01T15:54:17.632Z",
+      "resolvedAt": "2026-10-01T15:54:17.632Z",
       "createdBy": "em-job",
       "source": "em-job:cu-scan",
       "orchestration": {
         "decidedBy": "em",
         "agents": {
-          "tester": "running"
+          "tester": "done",
+          "qa": "done"
         },
         "runs": {
-          "tester": 2
+          "tester": 2,
+          "qa": 1
         },
-        "loopCount": 2,
-        "status": "running",
+        "loopCount": 4,
+        "status": "done",
         "startedAt": "2026-10-01T14:57:29.447Z",
-        "updatedAt": "2026-10-01T15:46:00.369Z",
-        "currentStep": "tester"
+        "updatedAt": "2026-10-01T15:54:17.629Z",
+        "currentStep": "qa"
       }
     },
     {
@@ -1174,7 +1300,7 @@
       "type": "test",
       "title": "F-003 SQLite Database Layer 補單元測試",
       "parentId": null,
-      "status": "open",
+      "status": "close",
       "priority": "high",
       "labels": [
         "entry:cu-scan:test:F-003",
@@ -1188,9 +1314,70 @@
           "by": "em-job",
           "at": "2026-10-01T14:30:14.924Z",
           "content": "CU 掃描（code understanding 補洞） 入口 triage 開單：資料層無測試，資料完整性風險高且檔案數最多"
+        },
+        {
+          "at": "2026-10-01T15:54:17.646Z",
+          "agent": "em",
+          "note": "🎖️ EM 開始自決編制協調（roster: architect, developer, doc-writer, helpdesk, qa, tester, handover, ops, rm）"
+        },
+        {
+          "at": "2026-10-01T15:54:22.722Z",
+          "agent": "em",
+          "note": "▶️ R1 派工 tester#1：測試補強任務，tester 是對的角色，直接開工。"
+        },
+        {
+          "at": "2026-10-01T16:10:59.508Z",
+          "agent": "em",
+          "note": "✅ R1 tester 完成：TASK-042 執行完畢，茲回報如下。 ## 測試檔位置（3 檔，46 條測試 = 43 passed + 3 todo） | 檔案 | 內容 | 測試數 | |---|---|---| | `tests/unit/db-paths.test.ts` | `getProjectRoot` / `getDbPath` "
+        },
+        {
+          "at": "2026-10-01T16:11:04.033Z",
+          "agent": "em",
+          "note": "▶️ R2 派工 qa#1：test 型任務仍需 qa 看碼驗收測試品質"
+        },
+        {
+          "at": "2026-10-01T16:14:08.003Z",
+          "agent": "em",
+          "note": "✅ R2 qa 完成：--- ## TASK-042 QA 驗收報告 ### 判定：✅ PASS **獨立驗證方式**：逐檔閱讀三個測試檔 + 被測原始碼 8 檔原始碼比對、獨立重跑測試、grep 驗證副作用邊界、交叉核對兩份歷史 QA 紀錄。 --- ### 審查重點一：migration 與 CRUD 是否實質覆蓋 — ✅ 是 | 面向"
+        },
+        {
+          "at": "2026-10-01T16:14:10.815Z",
+          "agent": "em",
+          "note": "🏁 Task 完成（2 次派工）：TASK-042 完成：tester 為 F-003 SQLite 資料庫層補上 3 個測試檔共 46 條測試（43 passed + 3 todo），涵蓋 db 路徑、schema 初始化、migration 與主要 CRUD 路徑，使用 in-memory SQLite；qa 逐檔審查測試碼與被測原始碼比對並獨立重跑測試，判定 PASS。npm test 全數通過，驗收標準達成。"
+        },
+        {
+          "by": "em",
+          "at": "2026-10-01T16:14:10.817Z",
+          "content": "✅ EM dispatch 完成：EM 協調完成（em）：done (tester→qa)"
         }
       ],
-      "progressLog": [],
+      "progressLog": [
+        {
+          "at": "2026-10-01T16:10:59.508Z",
+          "round": 1,
+          "agent": "tester",
+          "action": "dispatch",
+          "outcome": "✅ TASK-042 執行完畢，茲回報如下。 ## 測試檔位置（3 檔，46 條測試 = 43 passed + 3 todo） | 檔案 | 內容 | 測試數 | |---|---|---| | `tests/unit/db-paths.test.ts` | `getProjectRoot` / `getDbPath` 路徑計算契約 | 4 | | `tests/unit/db-migrate.test.ts` | schema 初始化（9 表 + 11 索引）、idempotency、資料保留、持久化（SQLite header 驗證）、目錄自動建立、NOT NULL/DEFAULT 約束、預",
+          "durationMs": 996783,
+          "tokens": 2469569
+        },
+        {
+          "at": "2026-10-01T16:14:08.002Z",
+          "round": 2,
+          "agent": "qa",
+          "action": "dispatch",
+          "outcome": "✅ --- ## TASK-042 QA 驗收報告 ### 判定：✅ PASS **獨立驗證方式**：逐檔閱讀三個測試檔 + 被測原始碼 8 檔原始碼比對、獨立重跑測試、grep 驗證副作用邊界、交叉核對兩份歷史 QA 紀錄。 --- ### 審查重點一：migration 與 CRUD 是否實質覆蓋 — ✅ 是 | 面向 | 驗證結果 | |---|---| | **Migration** | 9 表 + 11 索引**逐名斷言**（`idx_runs_skill_id` … `idx_daily_summaries_user_date`），我已與 `migrate.ts` 原始碼逐一核對，**",
+          "durationMs": 183967,
+          "tokens": 675882
+        },
+        {
+          "at": "2026-10-01T16:14:10.813Z",
+          "round": 3,
+          "agent": "em",
+          "action": "complete",
+          "outcome": "🏁 完成：TASK-042 完成：tester 為 F-003 SQLite 資料庫層補上 3 個測試檔共 46 條測試（43 passed + 3 todo），涵蓋 db 路徑、schema 初始化、migration 與主要 CRUD 路徑，使用 in-memory SQLite；qa 逐檔審查測試碼與被測原始碼比對並獨立重跑測試，判定 PASS。npm test 全數通過，驗收標準達成。"
+        }
+      ],
       "result": null,
       "git": null,
       "timeoutSeconds": 0,
@@ -1198,10 +1385,26 @@
         "tests": true
       },
       "createdAt": "2026-10-01T14:30:14.924Z",
-      "updatedAt": "2026-10-01T14:30:14.924Z",
-      "resolvedAt": null,
+      "updatedAt": "2026-10-01T16:14:10.817Z",
+      "resolvedAt": "2026-10-01T16:14:10.817Z",
       "createdBy": "em-job",
-      "source": "em-job:cu-scan"
+      "source": "em-job:cu-scan",
+      "orchestration": {
+        "decidedBy": "em",
+        "agents": {
+          "tester": "done",
+          "qa": "done"
+        },
+        "runs": {
+          "tester": 1,
+          "qa": 1
+        },
+        "loopCount": 3,
+        "status": "done",
+        "startedAt": "2026-10-01T15:54:17.645Z",
+        "updatedAt": "2026-10-01T16:14:10.815Z",
+        "currentStep": "qa"
+      }
     },
     {
       "id": "TASK-043",
@@ -1239,6 +1442,6 @@
       "source": "em-job:cu-scan"
     }
   ],
-  "updatedAt": "2026-10-01T15:45:54.621Z",
+  "updatedAt": "2026-10-01T16:31:31.510Z",
   "loopMode": "mini"
 }
