@@ -1336,7 +1336,8 @@ export default async function projectRoute(req, res) {
       }
       // Move active.json → s-{timestamp}.json
       const ts = new Date();
-      const tsStr = ts.toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      // 2026-10-01 治本：帶毫秒 — 同秒兩次歸檔檔名碰撞會靜默覆蓋（實測踩到）
+      const tsStr = ts.toISOString().replace(/[:.]/g, "-").slice(0, 23);
       const firstUser = data.messages.find(m => m.role === "user");
       const preview = firstUser ? firstUser.content.slice(0, 40).replace(/[^\w\u4e00-\u9fff -]/g, "").trim() : "conversation";
       const sessionFile = join(agentDir, `s-${tsStr}.json`);
@@ -1494,7 +1495,8 @@ export default async function projectRoute(req, res) {
       const activeData = await readConvFile(activeFile);
       if (activeData.messages.length > 0) {
         const ts = new Date();
-        const tsStr = ts.toISOString().replace(/[:.]/g, "-").slice(0, 19);
+        // 2026-10-01 治本：帶毫秒 — 同秒兩次歸檔檔名碰撞會靜默覆蓋
+        const tsStr = ts.toISOString().replace(/[:.]/g, "-").slice(0, 23);
         activeData._meta.archivedAt = ts.toISOString();
         activeData._meta.sessionId = `s-${tsStr}`;
         const archiveFile = join(agentDir, `s-${tsStr}.json`);

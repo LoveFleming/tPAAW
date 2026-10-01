@@ -1233,6 +1233,9 @@ export default function CodingIDE() {
     if (!activeCrew || !rootPath) return;
     const messages = crewConversations[activeCrew];
     if (!messages || messages.length === 0) return;
+    // 🛡 2026-10-01 治本：看歷史（viewingArchive）時絕不 auto-save —
+    // 否則歷史內容 2 秒後被寫回 active 對話，目前對話被歷史覆蓋（歷史切換行為異常的根因）
+    if (viewingArchive) return;
     // Don't save if only greeting messages (no real conversation yet)
     const hasRealMessages = messages.some(m => !m._greeting && m.role === "user");
     if (!hasRealMessages) return;
@@ -1249,7 +1252,7 @@ export default function CodingIDE() {
       } catch {}
     }, 2000);
     return () => { if (saveConversationTimerRef.current) clearTimeout(saveConversationTimerRef.current); };
-  }, [crewConversations, activeCrew, rootPath]);
+  }, [crewConversations, activeCrew, rootPath, viewingArchive]);
 
   // ── 2026-09-11 治本：斷線重連 — refresh/斷網後接回執行中的 agent，完成後把回覆補進對話 ──
   // a2a message/stream 斷線後 server 繼續跑；這裡輪詢 stream-state，done 時補 finalContent（server 端也會落地，雙保險 dedupe）
@@ -1430,7 +1433,8 @@ export default function CodingIDE() {
       const data = await res.json();
       if (data.messages) {
         setCrewConversations(prev => ({ ...prev, [activeCrew]: data.messages }));
-        setViewingArchive(sessionId);
+        // 2026-10-01 治本："active" = 回目前對話（不標 📂）；歷史才設 viewingArchive
+        setViewingArchive(sessionId === "active" ? null : sessionId);
         setShowArchivePanel(false);
       }
     } catch {}
@@ -3497,9 +3501,9 @@ const sendChat = useCallback(async () => {
                         (archivedConversations[activeCrew] || []).map((sess: any) => (
                           <button
                             key={sess.sessionId}
-                            onClick={() => !sess.isActive && loadArchivedConversation(sess.sessionId)}
-                            className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b transition-colors"
-                            style={{ borderColor: tk.borderLight, opacity: sess.isActive ? 0.7 : 1 }}
+                            onClick={() => loadArchivedConversation(sess.sessionId)}
+                            className={`w-full text-left px-4 py-3 border-b transition-colors ${viewingArchive === sess.sessionId || (!viewingArchive && sess.isActive) ? "bg-amber-50" : "hover:bg-blue-50"}`}
+                            style={{ borderColor: tk.borderLight }}
                           >
                             {/* 2026-09-06 Fleming：時間帶頭欄位 — 找過去聊天記錄方便 */}
                             <div className="flex items-start gap-2.5">
