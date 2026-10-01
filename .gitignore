@@ -114,3 +114,6 @@ data/**/.paaw/
 .paaw/auto-dispatch/
 .paaw/staged-changes.json
 # ── PAAW runtime 層結束 ──
+
+# ── Test coverage output (TASK-041) ──
+coverage/

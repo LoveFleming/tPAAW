@@ -1,5 +1,6 @@
 import { DATA_HOME } from "../../data-home.mjs";
-import { jsonStringifySafe } from '../llm-utils.mjs' // 2026-09-14: LLM request 清毒
+// 2026-09-14: LLM request 清毒
+import { jsonStringifySafe } from '../llm-utils.mjs'
 /**
  * Provider Adapter — AI Provider 抽象層 (.mjs)
  *
