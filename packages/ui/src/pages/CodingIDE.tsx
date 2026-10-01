@@ -2211,7 +2211,8 @@ const sendChat = useCallback(async () => {
     const targetCrew = codingCrews.find(c => c.id === agentId);
     if (!targetCrew) return;
 
-    const quotedContent = `> ${messageContent.slice(0, 500)}${messageContent.length > 500 ? "..." : ""}\n\n請幫我處理以上內容。`;
+    // 2026-10-02 Fleming：取消 500 字上限 — selection 多少文字就貼多少（多行逐行加 > 保持引用格式）
+    const quotedContent = `> ${messageContent.split("\n").join("\n> ")}\n\n請幫我處理以上內容。`;
 
     // 1. 跳到該 agent 的頁（兩種情況都跳）
     setActiveCrew(targetCrew.id);
