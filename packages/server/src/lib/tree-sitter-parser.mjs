@@ -23,6 +23,7 @@ const LANG_MAP = {
   ".py": "python",
   ".java": "java",
   ".go": "go",
+  ".rs": "rust",
 };
 
 // Go route 註冊物件名白名單（gin/echo/chi/fiber/gorilla/net-http 慣例變數名）
@@ -58,6 +59,7 @@ function getGrammarWasmPath(lang, paawRoot) {
     python: join(paawRoot, "node_modules", "tree-sitter-python", "tree-sitter-python.wasm"),
     java: join(paawRoot, "node_modules", "tree-sitter-java", "tree-sitter-java.wasm"),
     go: join(paawRoot, "node_modules", "tree-sitter-go", "tree-sitter-go.wasm"),
+    rust: join(paawRoot, "node_modules", "tree-sitter-rust", "tree-sitter-rust.wasm"),
   };
   return paths[lang] || null;
 }
@@ -231,6 +233,18 @@ function extractFileInfo(tree, filePath, language) {
       }
     }
 
+    // ── Imports (Rust) ──
+    if (node.type === "use_declaration" && language === "rust") {
+      // use std::collections::HashMap; / use crate::util::{a, b};
+      const source = node.childForFieldName("argument")?.text || node.children.find(c => c.type !== "use" && c.type !== ";")?.text || "";
+      if (source) {
+        const clean = source.replace(/\s+/g, " ").replace(/\s*\{[^}]*\}/g, "").trim();
+        const parts = clean.split("::");
+        const lastName = parts[parts.length - 1] || parts[0] || clean;
+        info.imports.push({ source: clean, names: [lastName || "use"] });
+      }
+    }
+
     // ── Java class-level @RequestMapping prefix（classes 清單由下方既有 class 分支處理）──
     if (language === "java" && node.type === "class_declaration") {
       const mods = node.children.find(c => c.type === "modifiers");
@@ -335,6 +349,19 @@ function extractFileInfo(tree, filePath, language) {
     }
 
     // ── Function declarations（JS/TS 專用 — Go 走上方 Go branch，避免重複 push）──
+    // ── Rust functions（含 impl 內 method，由 walkNode 自然走訪）──
+    if (node.type === "function_item" && language === "rust") {
+      const name = node.childForFieldName("name")?.text || "";
+      const params = node.childForFieldName("parameters")?.text || "";
+      if (name) info.functions.push({ name, kind: "function", async: false, params });
+    }
+
+    // ── Rust struct/enum/trait → classes（對齊 feature-map 的 class 概念）──
+    if (language === "rust" && (node.type === "struct_item" || node.type === "enum_item" || node.type === "trait_item")) {
+      const name = node.childForFieldName("name")?.text || "";
+      if (name) info.classes.push({ name, methods: [] });
+    }
+
     if (node.type === "function_declaration" && language !== "go") {
       const name = node.childForFieldName("name")?.text || "";
       const asyncKw = node.children.find(c => c.type === "async");

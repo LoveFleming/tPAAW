@@ -145,6 +145,67 @@ export const goAdapter = {
   },
 };
 
+// ── Rust adapter ──
+export const rustAdapter = {
+  id: "rust",
+  label: "Rust",
+  async detect(root) {
+    return existsSync(join(root, "Cargo.toml"));
+  },
+  sourceExts: [".rs"],
+  // use std::collections::HashMap; / pub use crate::util::helper; / extern crate foo;
+  importRegexes: [
+    /(?:^|\n)\s*(?:pub\s+)?use\s+([\w:]+)/g,
+    /(?:^|\n)\s*extern\s+crate\s+(\w+)/g,
+  ],
+  stripComments(content) {
+    return content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/[^\n]*/g, "$1");
+  },
+  async verifyCommands() {
+    return {
+      build: "cargo build",
+      test: "cargo test",
+      "type-check": "cargo check", // rustc 前置檢查即型別檢查（比 build 快）
+    };
+  },
+};
+
+// ── Java adapter（Quarkus / Maven）──
+export const javaAdapter = {
+  id: "java",
+  label: "Java (Quarkus / Maven)",
+  async detect(root) {
+    const pom = join(root, "pom.xml");
+    if (!existsSync(pom)) return false;
+    try {
+      const text = readFileSync(pom, "utf-8");
+      // Quarkus 專案：pom 內含 io.quarkus groupId 或 quarkus-maven-plugin
+      if (text.includes("io.quarkus") || text.includes("quarkus-maven-plugin")) return true;
+    } catch {}
+    // 一般 Maven 專案：pom + src/main/java
+    return existsSync(join(root, "src", "main", "java"));
+  },
+  sourceExts: [".java"],
+  // import java.util.List; / import static x.y.Z.member;（static 捕捉到 class 段，剝成員名）
+  importRegexes: [
+    /(?:^|\n)\s*import\s+static\s+([\w.]+)\.[\w]+\s*;/g,
+    /(?:^|\n)\s*import\s+(?!static\b)([\w.]+)\s*;/g,
+  ],
+  stripComments(content) {
+    return content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/[^\n]*/g, "$1");
+  },
+  async verifyCommands(root) {
+    // 跨平台：有 wrapper 用 wrapper（win32 = mvnw.cmd），否則系統 mvn
+    const hasWrapper = existsSync(join(root, "mvnw")) || existsSync(join(root, "mvnw.cmd"));
+    const mvn = hasWrapper ? (process.platform === "win32" ? "mvnw.cmd" : "./mvnw") : "mvn";
+    return {
+      build: `${mvn} package -DskipTests -q`,
+      test: `${mvn} test`,
+      "type-check": `${mvn} compile -q`, // javac 編譯即型別檢查
+    };
+  },
+};
+
 // ── Generic fallback（其他語言：regex 掃 import，無 verify 指令推斷）──
 export const genericAdapter = {
   id: "generic",
@@ -162,7 +223,7 @@ export const genericAdapter = {
 };
 
 // ── Registry ──
-const ADAPTERS = [jsTsAdapter, pythonAdapter, goAdapter, genericAdapter];
+const ADAPTERS = [jsTsAdapter, pythonAdapter, goAdapter, rustAdapter, javaAdapter, genericAdapter];
 
 /** 偵測專案語言 → 回傳第一個 detect 通過的 adapter（generic 兜底） */
 export async function detectAdapter(root) {
