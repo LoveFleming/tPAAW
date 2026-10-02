@@ -34,18 +34,6 @@ export interface RunResult {
   durationMs: number;
 }
 
-// ── Workflow Node State ─────────────────────────────────
-
-export interface WorkflowNodeState {
-  id: string;
-  skillId: string;
-  status: RunStatus;
-  input: Record<string, any>;
-  output?: Record<string, any>;
-  error?: string;
-  durationMs?: number;
-}
-
 // ── Context Engine ──────────────────────────────────────
 
 export interface UserProfile {

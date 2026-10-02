@@ -304,7 +304,6 @@ export const contextEngine = {
     switch (params.target) {
       case "chat":          return this._buildChat(params);
       case "skill-exec":    return this._buildSkillExec(params);
-      case "workflow":      return this._buildWorkflow(params);
       case "crew":          return this._buildCrew(params);
       case "skill-builder": return this._buildSkillBuilder(params);
       case "mindmap":       return this._buildMindmap(params);

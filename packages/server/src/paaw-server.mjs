@@ -92,7 +92,6 @@ if (shouldStartBridge) {
 const ROUTE_MODULES = [
   "./routes/skill.mjs",
   "./routes/ai-settings.mjs",
-  "./routes/workflow.mjs",
   "./routes/chat.mjs",
   "./routes/uploads.mjs",
   "./routes/distill.mjs",

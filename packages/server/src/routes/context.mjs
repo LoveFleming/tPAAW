@@ -28,7 +28,6 @@ export const PATHS = {
   SKILL_POOL_ROOT: resolve(DATA_HOME, "skills/pool"),
   BUILDING_ROOT:   resolve(DATA_HOME, "skills/building"),
   APPS_ROOT:       resolve(DATA_HOME, "apps"),
-  WORKFLOWS_ROOT:  resolve(DATA_HOME, "workflows"),
   CONFIG_ROOT:     resolve(DATA_HOME, "config"),
   CHAT_DIR:        resolve(DATA_HOME, "chats"),
   SYSTEM_DIR:      resolve(DATA_HOME, "ai-settings/_base"), // legacy name kept, now points to ai-settings/_base
@@ -101,9 +100,6 @@ export async function readSystemPrompt(type, id, fallback = "") {
       candidates.push(join(PATHS.SKILL_POOL_ROOT, id, "SYSTEM.md"));
       candidates.push(join(PATHS.INPUT_PROMPT_ROOT, id, "SYSTEM.md"));
     }
-  } else if (type === "workflow") {
-    // workflow system prompt could be embedded or separate
-    candidates.push(join(PATHS.WORKFLOWS_ROOT, `${id}-system.md`));
   }
 
   const parts = [];

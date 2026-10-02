@@ -15,8 +15,6 @@ import MindMapViewer from "./pages/MindMapViewer";
 import Notes from "./pages/Notes";
 import ProjectBoard from "./pages/ProjectBoard";
 import FileEditor from "./pages/FileEditor";
-import WorkflowEditor from "./pages/WorkflowEditor";
-import WorkflowExec from "./pages/WorkflowExec";
 import PluginManager from "./pages/PluginManager";
 import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";
@@ -451,18 +449,6 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
-  const openWorkflowEditor = useCallback(() => {
-    const tabId = `${currentScope}:wf-editor`;
-    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
-    setActivePage(tabId);
-  }, [currentScope]);
-
-  const openWorkflowExec = useCallback(() => {
-    const tabId = `${currentScope}:wf-exec`;
-    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
-    setActivePage(tabId);
-  }, [currentScope]);
-
   const openHelpDesk = useCallback(() => {
     const tabId = `${currentScope}:helpdesk`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
@@ -526,8 +512,6 @@ function AppInner() {
       return p ? `${p.icon || "🔌"} ${p.name}` : "Plugin";
     }
     if (pageType === "projects") return "Project Board";
-    if (pageType === "wf-editor") return t("sidebar.workflowBuilder");
-    if (pageType === "wf-exec") return t("sidebar.workflows");
     if (pageType === "helpdesk") return t("sidebar.helpDesk");
     if (pageType === "llm-log") return t("sidebar.llmLog", "LLM Log");
     if (pageType === "agent-log") return t("sidebar.agentLog", "Agent 執行記錄");
@@ -648,12 +632,6 @@ function AppInner() {
     }
     if (pageType === "projects") {
       return <ProjectBoard />;
-    }
-    if (pageType === "wf-editor") {
-      return <WorkflowEditor />;
-    }
-    if (pageType === "wf-exec") {
-      return <WorkflowExec />;
     }
     if (pageType === "helpdesk") {
       return <HelpDesk active={!!active} />;
@@ -840,7 +818,6 @@ function AppInner() {
               <div>
                 <NavItem active={false} label={t("sidebar.skillBuilder")} onClick={openSkillBuilder} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":appbuilder")} label={t("sidebar.appBuilder")} onClick={openAppBuilder} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                {/* Workflow Builder hidden */}
               </div>
             </SidebarSection>
 
@@ -857,7 +834,6 @@ function AppInner() {
                 <NavItem active={activePage.endsWith(":notes")} label={t("sidebar.notes")} onClick={openNotes} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":projects")} label={t("sidebar.projects")} onClick={() => { const tabId = `${currentScope}:projects`; setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]); setActivePage(tabId); }} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                {/* Workflows (wf-exec) hidden */}
                 {/* HelpDesk hidden */}
               </div>
             </SidebarSection>

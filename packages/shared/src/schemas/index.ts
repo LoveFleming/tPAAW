@@ -166,41 +166,6 @@ export const AppDefinition = Type.Object({
   }),
 });
 
-// ── Workflow Schemas ────────────────────────────────────
-
-export const WorkflowNode = Type.Object({
-  id: Type.String(),
-  skillId: Type.String(),
-  input: Type.Record(Type.String(), Type.Any(), { description: "Static input or {{ref}} template vars" }),
-});
-
-export const WorkflowDefinition = Type.Object({
-  id: Type.String(),
-  name: Type.String(),
-  description: Type.String(),
-  nodes: Type.Array(WorkflowNode),
-  onError: Type.Union([Type.Literal("stop"), Type.Literal("skip"), Type.Literal("retry")], { default: "stop" }),
-  trigger: Type.Optional(Type.Object({
-    type: Type.Literal("cron"),
-    schedule: Type.String({ description: "Cron expression in wall-clock time" }),
-    tz: Type.String({ description: "IANA timezone", default: "Asia/Taipei" }),
-  })),
-});
-
-export const WorkflowRunResponse = Type.Object({
-  runId: Type.String(),
-  workflowId: Type.String(),
-  status: Type.Union([Type.Literal("completed"), Type.Literal("running"), Type.Literal("failed"), Type.Literal("cancelled")]),
-  nodes: Type.Array(Type.Object({
-    id: Type.String(),
-    skillId: Type.String(),
-    status: Type.Union([Type.Literal("completed"), Type.Literal("running"), Type.Literal("failed"), Type.Literal("pending")]),
-    output: Type.Optional(Type.Record(Type.String(), Type.Any())),
-    durationMs: Type.Optional(Type.Number()),
-  })),
-  startedAt: Type.String(),
-  completedAt: Type.Optional(Type.String()),
-});
 
 // ── Cron Schemas ────────────────────────────────────────
 
@@ -252,8 +217,6 @@ export type SkillDefinition = Static<typeof SkillDefinition>;
 export type SkillRunRequest = Static<typeof SkillRunRequest>;
 export type SkillRunResponse = Static<typeof SkillRunResponse>;
 export type AppDefinition = Static<typeof AppDefinition>;
-export type WorkflowDefinition = Static<typeof WorkflowDefinition>;
-export type WorkflowRunResponse = Static<typeof WorkflowRunResponse>;
 export type CronDefinition = Static<typeof CronDefinition>;
 export type ChatMessage = Static<typeof ChatMessage>;
 export type Conversation = Static<typeof Conversation>;

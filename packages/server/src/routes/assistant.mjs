@@ -1,8 +1,8 @@
 /**
  * PAAW Personal Assistant APIs
  * Routes: /api/paaw/* (user, avatar, providers, workspaces, knowledge,
- *          ui-state, app-rules, app-skills, app import/export, workflows,
- *          skills inputs, workflow-output-chat, file-write)
+ *          ui-state, app-rules, app import/export, file-write,
+ *          file-write)
  */
 
 import { readdir, readFile, writeFile, mkdir, unlink } from "fs/promises";
@@ -12,7 +12,7 @@ import { DATA_HOME } from "../data-home.mjs";
 import {
   PAAW_ROOT, PAAW_DATA_DIR, PAAW_USER_FILE, PAAW_CHAT_DIR,
   PAAW_WORKSPACES_FILE, PAAW_KNOWLEDGE_DIR, UI_STATE_FILE,
-  APP_RULES_PATH, APPS_ROOT, WORKFLOWS_ROOT,
+  APP_RULES_PATH, APPS_ROOT,
   readBody, yaml,
 } from "./shared.mjs";
 import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
@@ -46,6 +46,15 @@ async function saveUiState(state) {
 export default async function assistantRoute(req, res) {
   const url = new URL(req.url, "http://localhost");
   const path = url.pathname;
+
+  // ── PAAW Root ──
+
+  // GET /api/paaw-root — return PAAW_ROOT absolute path（原址 workflow.mjs，功能與 workflow 無關）
+  if (req.method === "GET" && path === "/api/paaw-root") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ paawRoot: PAAW_ROOT }));
+    return true;
+  }
 
   // ── User profile ──
 
@@ -144,46 +153,6 @@ export default async function assistantRoute(req, res) {
     } catch (err) {
       res.writeHead(500);
       res.end(JSON.stringify({ error: err.message }));
-    }
-    return true;
-  }
-
-  // ── App Skills for Workflow Builder ──
-
-  // GET /api/paaw/app-skills
-  if (req.method === "GET" && path === "/api/paaw/app-skills") {
-    try {
-      const appFiles = await readdir(APPS_ROOT);
-      const result = [];
-      for (const f of appFiles) {
-        if (!f.endsWith(".json")) continue;
-        try {
-          const app = JSON.parse(await readFile(resolve(APPS_ROOT, f), "utf-8"));
-          const skills = [];
-          const appSkillsDir = resolve(APPS_ROOT, app.id, "skills");
-          try {
-            const dirs = await readdir(appSkillsDir);
-            for (const d of dirs) {
-              if (existsSync(resolve(appSkillsDir, d, "SKILL.md"))) skills.push(d);
-            }
-          } catch {}
-          result.push({ id: app.id, name: app.name || app.id, icon: app.icon || "📦", skills });
-        } catch {}
-      }
-      const poolSkills = [];
-      try {
-        const dirs = await readdir(resolve(DATA_HOME, "skills/pool"));
-        for (const d of dirs) {
-          if (existsSync(resolve(DATA_HOME, "skills/pool", d, "SKILL.md"))) poolSkills.push(d);
-        }
-      } catch {}
-      if (poolSkills.length > 0) {
-        result.push({ id: "_pool", name: "Skill Pool", icon: "🗂️", skills: poolSkills });
-      }
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(result));
-    } catch (err) {
-      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
     }
     return true;
   }
@@ -461,185 +430,7 @@ export default async function assistantRoute(req, res) {
     return true;
   }
 
-  // ── Workflow API ──
-
-  // GET /api/paaw/workflows
-  if (req.method === "GET" && path === "/api/paaw/workflows") {
-    try {
-      await mkdir(WORKFLOWS_ROOT, { recursive: true });
-      const files = await readdir(WORKFLOWS_ROOT);
-      const wfs = [];
-      for (const f of files) {
-        if (!f.endsWith(".json")) continue;
-        try {
-          const data = JSON.parse(await readFile(resolve(WORKFLOWS_ROOT, f), "utf-8"));
-          wfs.push(data);
-        } catch {}
-      }
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(wfs));
-    } catch (err) {
-      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
-    }
-    return true;
-  }
-
-  // GET /api/paaw/workflows/:id
-  const wfGetMatch = req.method === "GET" && path.match(/^\/api\/paaw\/workflows\/([\w.-]+)$/);
-  if (wfGetMatch) {
-    let wfId;
-    try { wfId = sanitizeId(wfGetMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
-    try {
-      const data = JSON.parse(await readFile(resolve(WORKFLOWS_ROOT, `${wfId}.json`), "utf-8"));
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(data));
-    } catch {
-      res.writeHead(404); res.end(JSON.stringify({ error: "Workflow not found" }));
-    }
-    return true;
-  }
-
-  // PUT /api/paaw/workflows/:id
-  const wfPutMatch = req.method === "PUT" && path.match(/^\/api\/paaw\/workflows\/([\w.-]+)$/);
-  if (wfPutMatch) {
-    let wfId;
-    try { wfId = sanitizeId(wfPutMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
-    try {
-      const body = JSON.parse(await readBody(req));
-      await mkdir(WORKFLOWS_ROOT, { recursive: true });
-      await writeFile(resolve(WORKFLOWS_ROOT, `${wfId}.json`), JSON.stringify(body, null, 2), "utf-8");
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true }));
-    } catch (err) {
-      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
-    }
-    return true;
-  }
-
-  // POST /api/paaw/workflows
-  if (req.method === "POST" && path === "/api/paaw/workflows") {
-    try {
-      const body = JSON.parse(await readBody(req));
-      if (!body.id || !body.name) {
-        res.writeHead(400); res.end(JSON.stringify({ error: "id and name required" }));
-        return true;
-      }
-      await mkdir(WORKFLOWS_ROOT, { recursive: true });
-      await writeFile(resolve(WORKFLOWS_ROOT, `${body.id}.json`), JSON.stringify(body, null, 2), "utf-8");
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true }));
-    } catch (err) {
-      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
-    }
-    return true;
-  }
-
-  // DELETE /api/paaw/workflows/:id
-  const wfDelMatch = req.method === "DELETE" && path.match(/^\/api\/paaw\/workflows\/([\w.-]+)$/);
-  if (wfDelMatch) {
-    let wfId;
-    try { wfId = sanitizeId(wfDelMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
-    try {
-      const fp = resolve(WORKFLOWS_ROOT, `${wfId}.json`);
-      await unlink(fp);
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true }));
-    } catch {
-      res.writeHead(404); res.end(JSON.stringify({ error: "Workflow not found" }));
-    }
-    return true;
-  }
-
-  // ── Workflow Execution History ──
-
-  // GET /api/paaw/workflows/:id/exec-history
-  const wfExecMatch = path.match(/^\/api\/paaw\/workflows\/([^/]+)\/exec-history$/);
-  if (req.method === "GET" && wfExecMatch) {
-    let wfId;
-    try { wfId = sanitizeId(wfExecMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
-    try {
-      const histDir = resolve(WORKFLOWS_ROOT, "_exec-history");
-      await mkdir(histDir, { recursive: true });
-      const histFile = resolve(histDir, wfId + ".json");
-      let history = [];
-      try { history = JSON.parse(await readFile(histFile, "utf-8")); } catch {}
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(history));
-    } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
-    return true;
-  }
-
-  // POST /api/paaw/workflows/:id/exec-history
-  if (req.method === "POST" && wfExecMatch) {
-    let wfId;
-    try { wfId = sanitizeId(wfExecMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
-    try {
-      const entry = JSON.parse(await readBody(req));
-      const histDir = resolve(WORKFLOWS_ROOT, "_exec-history");
-      await mkdir(histDir, { recursive: true });
-      const histFile = resolve(histDir, wfId + ".json");
-      let history = [];
-      try { history = JSON.parse(await readFile(histFile, "utf-8")); } catch {}
-      history.unshift(entry);
-      if (history.length > 50) history = history.slice(0, 50);
-      await writeFile(histFile, JSON.stringify(history, null, 2));
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true }));
-    } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
-    return true;
-  }
-
-  // ── Skill Inputs ──
-
-  // GET /api/paaw/skills/:appId/:skillId/inputs
-  const skillInputsMatch = path.match(/^\/api\/paaw\/skills\/([^/]+)\/([^/]+)\/inputs$/);
-  if (req.method === "GET" && skillInputsMatch) {
-    try {
-      const [, rawAppId, rawSkillId] = skillInputsMatch;
-      let appId, skillId;
-      try { appId = sanitizeId(rawAppId); skillId = sanitizeId(rawSkillId); }
-      catch (err) { sendPathTraversalError(res, err); return true; }
-      let skillPath = resolve(DATA_HOME, "apps", appId, "skills", skillId, "SKILL.md");
-      let content;
-      try { content = await readFile(skillPath, "utf-8"); } catch {
-        skillPath = resolve(DATA_HOME, "skills/pool", skillId, "SKILL.md");
-        try { content = await readFile(skillPath, "utf-8"); } catch {
-          res.writeHead(404); res.end(JSON.stringify({ error: "Skill not found" })); return true;
-        }
-      }
-      const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
-      let userInputs = [];
-      if (fmMatch) {
-        const fm = yaml.load(fmMatch[1]);
-        userInputs = fm.userInputs || [];
-      }
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ skillId, appId, userInputs }));
-    } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
-    return true;
-  }
-
-  // ── Workflow Output Chat ──
-
-  // POST /api/paaw/workflow-output-chat
-  if (req.method === "POST" && path === "/api/paaw/workflow-output-chat") {
-    try {
-      const { chatId, content: msgContent, workflowName } = JSON.parse(await readBody(req));
-      const cid = chatId || "default";
-      const filePath = resolve(PAAW_CHAT_DIR, `${cid}.json`);
-      let chat;
-      try { chat = JSON.parse(await readFile(filePath, "utf-8")); } catch {
-        chat = { id: cid, title: "PAAW 交談", messages: [], createdAt: new Date().toISOString() };
-      }
-      const text = typeof msgContent === "string" ? msgContent : JSON.stringify(msgContent, null, 2);
-      chat.messages.push({ role: "assistant", content: `🔗 **Workflow: ${workflowName || "未命名"}**\n\n${text}`, timestamp: new Date().toISOString() });
-      chat.updatedAt = new Date().toISOString();
-      await writeFile(filePath, JSON.stringify(chat, null, 2), "utf-8");
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, chatId: cid }));
-    } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
-    return true;
-  }
+  // ── File Write ──
 
   // POST /api/paaw/file-write
   if (req.method === "POST" && path === "/api/paaw/file-write") {
