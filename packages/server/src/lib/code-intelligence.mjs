@@ -171,6 +171,18 @@ function resolveCallTarget(calleeName, currentFile, parsedResult) {
 /**
  * Resolve an import source path to a file in the parsed results
  */
+
+// 線性判斷式（避免 ReDoS star-of-star：semgrep detect-redos）
+function _isJavaFqcn(s) {
+  const parts = s.split(".");
+  if (parts.length < 3 || !/^[A-Z]\w*$/.test(parts[parts.length - 1])) return false;
+  return parts.slice(0, -1).every(p => /^[a-z]\w*$/.test(p));
+}
+function _isPyModulePath(s) {
+  const parts = s.split(".");
+  return parts.length >= 2 && parts.every(p => /^[a-z_]\w*$/i.test(p));
+}
+
 function resolveImportPath(source, fromFile, parsedResult, projectRoot) {
   const EXTS = ["", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".py", ".rs", ".java",
     "/index.js", "/index.mjs", "/index.ts", "/index.py", "/__init__.py", "/mod.rs"];
@@ -222,7 +234,7 @@ function resolveImportPath(source, fromFile, parsedResult, projectRoot) {
   }
 
   // Java FQCN：com.x.y.Z → 副檔名 .java、路徑後綴比對（JDK/外部庫自然無命中）
-  if (/^[a-z]\w*(\.[a-z]\w*)*\.[A-Z]\w*$/.test(source)) {
+  if (_isJavaFqcn(source)) {
     const rel = source.replace(/\./g, "/") + ".java";
     return findBy(f => f.file === rel || f.file.endsWith("/" + rel));
   }
@@ -242,7 +254,7 @@ function resolveImportPath(source, fromFile, parsedResult, projectRoot) {
   }
 
   // Python 絕對 import：x.y.z → x/y/z.py 或 x/y/z/__init__.py（root 相對）
-  if (/^[a-z_]\w*(\.[a-z_]\w*)+$/i.test(source)) {
+  if (_isPyModulePath(source)) {
     const p = source.replace(/\./g, "/");
     const found = findByPath(p) || findByPath(p + "/__init__");
     if (found) return found;
