@@ -138,7 +138,7 @@ export const toolRegistry = {
   },
 
   /**
-   * 依 source 批次取消註冊（例如 reload agentic-bindings）
+   * 依 source 批次取消註冊（例如重載某 provider 的工具）
    */
   unregisterBySource(source) {
     let removed = 0;

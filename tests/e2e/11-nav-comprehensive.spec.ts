@@ -226,7 +226,6 @@ test.describe("Sidebar Sections", () => {
 
     // Check for known plugin
     const hasPlugin =
-      asideText?.includes("Agentic") ||
       asideText?.includes("Platform") ||
       asideText?.includes("No plugins") ||
       asideText?.includes("🔌");

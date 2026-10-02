@@ -139,7 +139,6 @@ const ROUTE_MODULES = [
   "./routes/log-retention.mjs",
   "./routes/janitor.mjs",
   "./routes/plugins.mjs",
-  "./routes/agentic-bindings.mjs",
 ];
 
 // Pre-import all route modules (avoids repeated dynamic import overhead)

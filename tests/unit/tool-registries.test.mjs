@@ -283,12 +283,8 @@ describe("initLoopATools / initLoopBTools", () => {
     expect(dupRes).toEqual({ text: "loop-a ok" });
   });
 
-  it("initAllTools wires Loop A + Loop B + agentic bindings", async () => {
-    const agenticMock = vi.fn();
-    vi.doMock("@server/lib/agentic-binding.mjs", () => ({ initAgenticBindings: agenticMock }));
-    // re-import to pick up the doMock for the dynamic import inside initAllTools
+  it("initAllTools wires Loop A + Loop B", async () => {
     const mod = await import("@server/lib/tool-registry-init.mjs");
-    vi.doUnmock("@server/lib/agentic-binding.mjs");
 
     loopATools.push({ type: "function", function: { name: "all_a", description: "d", parameters: {} } });
     loopBGetTools.mockResolvedValue({

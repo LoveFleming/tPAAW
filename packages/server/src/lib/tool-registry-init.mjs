@@ -88,11 +88,6 @@ export async function initAllTools() {
   initLoopATools();
   await initLoopBTools();
 
-  // Agentic workflow bindings — register chat tools for agentic workflows
-  const { initAgenticBindings } = await import("./agentic-binding.mjs");
-  const { PATHS } = await import("../routes/context.mjs");
-  initAgenticBindings(PATHS.CONFIG_ROOT);
-
   console.log(`[ToolRegistry] Total tools: ${toolRegistry.getNames().length}`);
   console.log(`[ToolRegistry] Tools: ${toolRegistry.getNames().join(", ")}`);
 }
