@@ -189,7 +189,8 @@ function resolveImportPath(source, fromFile, parsedResult, projectRoot) {
   };
 
   // Relative imports: ./foo, ../bar（JS/TS + Python from .x import）
-  if (source === "." || source === "..") return null; // 套件自身目錄，無單一檔案標的
+  // 注意："." / ".." 不可跳過 — TS 的 import from '.' 是 import 目錄 index.ts（hono 慣用），
+  // Python 的 from . 是 package __init__.py，走下面正規相對解析即可命中
   if (source.startsWith(".")) {
     // Python 風格 ".x" / "..x" → "./x" / "../x"
     const src = source.replace(/^(\.{1,2})(?=\w)/, "$1/"); // 僅 Python 風格 .mod → ./mod；JS ../x 第三字是 / 不命中
