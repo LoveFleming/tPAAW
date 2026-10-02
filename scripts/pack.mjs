@@ -146,6 +146,15 @@ for (const entry of readdirSync(join(ROOT, "data/crews"))) {
   cpSync(join(ROOT, "data/crews", entry), join(STAGE, "data-seed/crews", entry), { recursive: true });
 }
 
+// knowledge 產品文件（2026-10-02 補 — 公司落地：林雨晴靠 about-paaw.md 回答 PAAW/coding app 問題）
+// 只帶策展清單；Pics/簡報/test.txt 等個人內容不追踪。
+const KNOWLEDGE_DOCS = ["about-paaw.md", "paaw-intro.md", "coding-app.md"];
+mkdirSync(join(STAGE, "data-seed/knowledge"), { recursive: true });
+for (const doc of KNOWLEDGE_DOCS) {
+  const src = join(ROOT, "data/knowledge", doc);
+  if (existsSync(src)) cpSync(src, join(STAGE, "data-seed/knowledge", doc));
+}
+
 // 產品功能資產（2026-09-07 補齊 — 用 git ls-files 帶出，deterministic 且不含個人/runtime 內容）
 // 沒這批的話 fresh install：CU/C4 引擎沒 prompt、Code Intel 沒掃描規則、skill library 全空。
 const DATA_ASSETS = [
@@ -229,10 +238,10 @@ const scanDir = (d) => {
   }
 };
 scanDir(STAGE);
-// knowledge 骨架只允許 .gitkeep（個人知識庫絕不出貨）
+// knowledge 骨架：只允許 .gitkeep + 策展產品文件（2026-10-02 公司落地：about-paaw 等三份給林雨晴；個人知識庫其他內容絕不出貨）
 const kn = join(STAGE, "data-seed/knowledge");
 if (existsSync(kn)) {
-  const extra = readdirSync(kn).filter(f => f !== ".gitkeep");
+  const extra = readdirSync(kn).filter(f => f !== ".gitkeep" && !KNOWLEDGE_DOCS.includes(f));
   if (extra.length) violations.push(`data-seed/knowledge 內容: ${extra.join(", ")}`);
 }
 if (violations.length) {
