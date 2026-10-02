@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { cn, badgeClasses } from "../../utils";
-import { Risk } from "../../types";
+import { cn } from "../../utils";
 import Icon from "../Icon";
 
 export { cn };
@@ -28,23 +27,6 @@ export function Card({
             )}
             {children}
         </div>
-    );
-}
-
-export function RiskBadge({ risk }: { risk: Risk }) {
-    return (
-        <span className={cn("inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs", badgeClasses(risk))}>
-            <span className="inline-block h-2 w-2 rounded-full bg-current opacity-60" />
-            {risk}
-        </span>
-    );
-}
-
-export function CodeBlock({ text }: { text: string }) {
-    return (
-        <pre className="overflow-auto whitespace-pre-wrap rounded-xl border border-zinc-200 bg-zinc-950 p-3 font-mono text-xs text-zinc-100">
-            {text}
-        </pre>
     );
 }
 
