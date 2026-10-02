@@ -14,6 +14,7 @@ import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readBody } from "./shared.mjs";
+import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -86,8 +87,8 @@ export default async function codingMemoryRoute(req, res) {
   const memDir = getMemoryDir(projectPath);
 
   // Ensure dir exists
-  if (!existsSync(memDir)) {
-    await mkdir(memDir, { recursive: true });
+  if (!existsSync(memDir)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    await mkdir(memDir, { recursive: true }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
   }
 
   // ── GET /api/coding-memory (list all) ──
@@ -98,23 +99,23 @@ export default async function codingMemoryRoute(req, res) {
       const memDir_ = memDir;
       
       // Merge: all crew agents + any extra .md files in agent-memory/
-      const existingFiles = existsSync(memDir_) ? (await readdir(memDir_)).filter(f => f.endsWith(".md")) : [];
+      const existingFiles = existsSync(memDir_) ? (await readdir(memDir_)).filter(f => f.endsWith(".md")) : []; // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       const existingAgentIds = new Set(existingFiles.map(f => f.replace(/\.md$/, "")));
       const allAgentIds = new Set([...crewAgentIds, ...existingAgentIds]);
 
       const memories = [];
       for (const agentId of allAgentIds) {
         const crew = crews[agentId] || null;
-        const filePath = join(memDir_, `${agentId}.md`);
+        const filePath = join(memDir_, `${agentId}.md`); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
         const hasFile = existingAgentIds.has(agentId);
         let size = 0, preview = "", lines = 0, updatedAt = null;
         if (hasFile) {
           try {
-            const content = await readFile(filePath, "utf-8");
+            const content = await readFile(filePath, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
             size = content.length;
             preview = content.slice(0, 300);
             lines = content.split("\n").length;
-            try { updatedAt = (await stat(filePath)).mtime.toISOString(); } catch {}
+            try { updatedAt = (await stat(filePath)).mtime.toISOString(); } catch {} // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
           } catch {}
         }
         memories.push({
@@ -143,14 +144,15 @@ export default async function codingMemoryRoute(req, res) {
   // ── GET /api/coding-memory/:agentId ──
   const singleMatch = url.match(/^\/api\/coding-memory\/([^/?]+)$/);
   if (singleMatch && method === "GET") {
-    const agentId = decodeURIComponent(singleMatch[1]);
-    const filePath = join(memDir, `${agentId}.md`);
-    if (!existsSync(filePath)) {
+    let agentId;
+    try { agentId = sanitizeId(decodeURIComponent(singleMatch[1])); } catch (err) { sendPathTraversalError(res, err); return true; }
+    const filePath = join(memDir, `${agentId}.md`); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (!existsSync(filePath)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Memory file not found", agentId }));
       return true;
     }
-    const content = await readFile(filePath, "utf-8");
+    const content = await readFile(filePath, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ agentId, content, size: content.length }));
     return true;
@@ -158,15 +160,16 @@ export default async function codingMemoryRoute(req, res) {
 
   // ── PUT /api/coding-memory/:agentId (write/replace) ──
   if (singleMatch && method === "PUT") {
-    const agentId = decodeURIComponent(singleMatch[1]);
+    let agentId;
+    try { agentId = sanitizeId(decodeURIComponent(singleMatch[1])); } catch (err) { sendPathTraversalError(res, err); return true; }
     let body;
     try { body = JSON.parse(await readBody(req)); } catch {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Invalid JSON" }));
       return true;
     }
-    const filePath = join(memDir, `${agentId}.md`);
-    await writeFile(filePath, body.content || "", "utf-8");
+    const filePath = join(memDir, `${agentId}.md`); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    await writeFile(filePath, body.content || "", "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, agentId, size: (body.content || "").length }));
     return true;
@@ -174,14 +177,15 @@ export default async function codingMemoryRoute(req, res) {
 
   // ── DELETE /api/coding-memory/:agentId ──
   if (singleMatch && method === "DELETE") {
-    const agentId = decodeURIComponent(singleMatch[1]);
-    const filePath = join(memDir, `${agentId}.md`);
-    if (!existsSync(filePath)) {
+    let agentId;
+    try { agentId = sanitizeId(decodeURIComponent(singleMatch[1])); } catch (err) { sendPathTraversalError(res, err); return true; }
+    const filePath = join(memDir, `${agentId}.md`); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (!existsSync(filePath)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Memory file not found" }));
       return true;
     }
-    await unlink(filePath);
+    await unlink(filePath); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, deleted: agentId }));
     return true;
@@ -190,21 +194,22 @@ export default async function codingMemoryRoute(req, res) {
   // ── POST /api/coding-memory/:agentId/append ──
   const appendMatch = url.match(/^\/api\/coding-memory\/([^/?]+)\/append$/);
   if (appendMatch && method === "POST") {
-    const agentId = decodeURIComponent(appendMatch[1]);
+    let agentId;
+    try { agentId = sanitizeId(decodeURIComponent(appendMatch[1])); } catch (err) { sendPathTraversalError(res, err); return true; }
     let body;
     try { body = JSON.parse(await readBody(req)); } catch {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Invalid JSON" }));
       return true;
     }
-    const filePath = join(memDir, `${agentId}.md`);
+    const filePath = join(memDir, `${agentId}.md`); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
     let existing = "";
-    if (existsSync(filePath)) {
-      existing = await readFile(filePath, "utf-8");
+    if (existsSync(filePath)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      existing = await readFile(filePath, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     }
     const separator = existing && !existing.endsWith("\n") ? "\n" : "";
     const newContent = existing + separator + (body.content || "");
-    await writeFile(filePath, newContent, "utf-8");
+    await writeFile(filePath, newContent, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, agentId, size: newContent.length }));
     return true;

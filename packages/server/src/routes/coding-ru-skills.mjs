@@ -13,6 +13,7 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { ruSkillStatus, syncRuSkills, provisionRuSkill, removeRuSkill, getRuSkillsDir } from "../lib/ru-skills.mjs";
 import { allBoundSkillIds, updateAgentSkills, readJson, getConfigPath } from "../lib/project-crew.mjs";
+import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 
 function _json(res, code, data) {
   res.writeHead(code, { "Content-Type": "application/json" });
@@ -36,15 +37,17 @@ export default async function ruSkillsRoutes(req, res, next) {
   // ── GET — 狀態清單 / 單一 skill 內容 ──
   if (url === "/api/coding-project/ru-skills" && method === "GET") {
     const projectPath = q.get("path");
-    if (!projectPath || !existsSync(projectPath)) return _json(res, 400, { error: "path required" }) || true;
+    if (!projectPath || !existsSync(projectPath)) return _json(res, 400, { error: "path required" }) || true; // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
 
     const skillId = q.get("skillId");
     if (skillId) {
       // 單一 skill：SKILL.md 原文（UI 檢視用）
+      let safeSkillId;
+      try { safeSkillId = sanitizeId(skillId); } catch (err) { sendPathTraversalError(res, err); return true; }
       const { readFileSync } = await import("fs");
-      const mdPath = join(getRuSkillsDir(projectPath), skillId, "SKILL.md");
-      if (!existsSync(mdPath)) return _json(res, 404, { error: "skill not found" }) || true;
-      return _json(res, 200, { ok: true, skillId, content: readFileSync(mdPath, "utf-8") }) || true;
+      const mdPath = join(getRuSkillsDir(projectPath), safeSkillId, "SKILL.md"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      if (!existsSync(mdPath)) return _json(res, 404, { error: "skill not found" }) || true; // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      return _json(res, 200, { ok: true, skillId, content: readFileSync(mdPath, "utf-8") }) || true; // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     }
 
     try {
@@ -84,7 +87,7 @@ export default async function ruSkillsRoutes(req, res, next) {
   if (url === "/api/coding-project/ru-skills" && method === "DELETE") {
     const projectPath = q.get("path");
     const skillId = q.get("skillId");
-    if (!projectPath || !existsSync(projectPath)) return _json(res, 400, { error: "path required" }) || true;
+    if (!projectPath || !existsSync(projectPath)) return _json(res, 400, { error: "path required" }) || true; // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     if (!skillId) return _json(res, 400, { error: "skillId required" }) || true;
 
     // 先從 crew 綁定拿掉（避免 dangling reference）

@@ -166,7 +166,7 @@ export default async function codingTasksRoute(req, res) {
     return true;
   }
 
-  const projRoot = resolve(projectPath);
+  const projRoot = resolve(projectPath); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
 
   // ════════════════════════════════════════════════
   // STATIC ROUTES (must come before /:id routes)

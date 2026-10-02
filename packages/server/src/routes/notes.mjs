@@ -40,6 +40,7 @@ import { readBody } from "./shared.mjs";
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent } from "../lib/llm-utils.mjs";
 import { resolveDefaultModel, parseModelReference } from "../lib/llm-utils.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -347,7 +348,13 @@ async function handleNotesRoutes(req, res) {
   }
 
   if (path === "/api/notes/notebooks" && method === "DELETE") {
-    const id = parsedUrl.searchParams.get("id");
+    let id;
+    try {
+      id = sanitizeId(parsedUrl.searchParams.get("id"));
+    } catch (err) {
+      sendPathTraversalError(res, err);
+      return true;
+    }
     const notebooks = await loadNotebooks();
     const idx = notebooks.findIndex(n => n.id === id);
     if (idx === -1) { res.writeHead(404); res.end(JSON.stringify({ error: "Not found" })); return true; }

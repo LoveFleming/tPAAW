@@ -16,6 +16,7 @@ import {
 import { json } from "./context.mjs";
 import { runAgentLoop } from "../lib/paaw-agent-loop.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 
 export default async function crewRoute(req, res) {
   const url = new URL(req.url, "http://localhost");
@@ -153,7 +154,7 @@ export default async function crewRoute(req, res) {
       const qs = new URL(req.url, "http://localhost").searchParams;
       const filePath = qs.get("path");
       if (!filePath) { res.writeHead(400); res.end(JSON.stringify({ error: "Missing path" })); return true; }
-      const content = await readFile(resolve(filePath), "utf-8");
+      const content = await readFile(resolve(filePath), "utf-8"); // nosemgrep: path-join-resolve-traversal, detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, content }));
     } catch (err) {
@@ -398,9 +399,10 @@ export default async function crewRoute(req, res) {
   // GET /api/conversations/:employeeId
   const convListMatch = req.method === "GET" && req.url?.match(/^\/api\/conversations\/([\w.-]+)(?:\?.*)?$/);
   if (convListMatch) {
-    const employeeId = convListMatch[1];
+    let employeeId;
+    try { employeeId = sanitizeId(convListMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     const u = new URL(req.url, "http://localhost");
-    const root = u.searchParams.get("root") || "";
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
     const convDir = getConvDir(employeeId, root);
     try {
       await mkdir(convDir, { recursive: true });
@@ -434,9 +436,12 @@ export default async function crewRoute(req, res) {
   // GET /api/conversations/:employeeId/:convId
   const convGetMatch = req.method === "GET" && req.url?.match(/^\/api\/conversations\/([\w.-]+)\/([\w.-]+)(?:\?.*)?$/);
   if (convGetMatch) {
-    const [, employeeId, convId] = convGetMatch;
+    const [, rawEmployeeId, rawConvId] = convGetMatch;
+    let employeeId, convId;
+    try { employeeId = sanitizeId(rawEmployeeId); convId = sanitizeId(rawConvId); }
+    catch (err) { sendPathTraversalError(res, err); return true; }
     const u = new URL(req.url, "http://localhost");
-    const root = u.searchParams.get("root") || "";
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
     const filePath = join(getConvDir(employeeId, root), `${convId}.json`);
     try {
       const content = await readFile(filePath, "utf-8");
@@ -452,9 +457,10 @@ export default async function crewRoute(req, res) {
   // POST /api/conversations/:employeeId
   const convSaveMatch = req.method === "POST" && req.url?.match(/^\/api\/conversations\/([\w.-]+)(?:\?.*)?$/);
   if (convSaveMatch) {
-    const employeeId = convSaveMatch[1];
+    let employeeId;
+    try { employeeId = sanitizeId(convSaveMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     const u = new URL(req.url, "http://localhost");
-    const root = u.searchParams.get("root") || "";
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
     let parsed;
     const convBody = await readBody(req);
     try { parsed = JSON.parse(convBody); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
@@ -505,9 +511,12 @@ export default async function crewRoute(req, res) {
   // DELETE /api/conversations/:employeeId/:convId
   const convDeleteMatch = req.method === "DELETE" && req.url?.match(/^\/api\/conversations\/([\w.-]+)\/([\w.-]+)(?:\?.*)?$/);
   if (convDeleteMatch) {
-    const [, employeeId, convId] = convDeleteMatch;
+    const [, rawEmployeeId, rawConvId] = convDeleteMatch;
+    let employeeId, convId;
+    try { employeeId = sanitizeId(rawEmployeeId); convId = sanitizeId(rawConvId); }
+    catch (err) { sendPathTraversalError(res, err); return true; }
     const u = new URL(req.url, "http://localhost");
-    const root = u.searchParams.get("root") || "";
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
     const filePath = join(getConvDir(employeeId, root), `${convId}.json`);
     try {
       await unlink(filePath);
@@ -525,9 +534,10 @@ export default async function crewRoute(req, res) {
   // GET /api/saved-inputs/:employeeId
   const savedInputsGetMatch = req.method === "GET" && req.url?.match(/^\/api\/saved-inputs\/([\w.-]+)(?:\?.*)?$/);
   if (savedInputsGetMatch) {
-    const employeeId = savedInputsGetMatch[1];
+    let employeeId;
+    try { employeeId = sanitizeId(savedInputsGetMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     const u = new URL(req.url, "http://localhost");
-    const root = u.searchParams.get("root") || "";
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
     const hash = projectPathHash(root);
     const dir = resolve(CONVERSATIONS_ROOT, hash, employeeId);
     const filePath = join(dir, "saved-inputs.json");
@@ -545,9 +555,10 @@ export default async function crewRoute(req, res) {
   // POST /api/saved-inputs/:employeeId
   const savedInputsPostMatch = req.method === "POST" && req.url?.match(/^\/api\/saved-inputs\/([\w.-]+)(?:\?.*)?$/);
   if (savedInputsPostMatch) {
-    const employeeId = savedInputsPostMatch[1];
+    let employeeId;
+    try { employeeId = sanitizeId(savedInputsPostMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     const u = new URL(req.url, "http://localhost");
-    const root = u.searchParams.get("root") || "";
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
     let parsed;
     const siBody = await readBody(req);
     try { parsed = JSON.parse(siBody); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
@@ -585,12 +596,13 @@ export default async function crewRoute(req, res) {
   // GET /api/work-log/:employeeId
   const workLogGetMatch = req.method === "GET" && req.url?.match(/^\/api\/work-log\/([\w.-]+)(?:\?.*)?$/);
   if (workLogGetMatch) {
-    const employeeId = workLogGetMatch[1];
+    let employeeId;
+    try { employeeId = sanitizeId(workLogGetMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     const u = new URL(req.url, "http://localhost");
-    const root = u.searchParams.get("root");
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
     const dir = root
       ? join(CONVERSATIONS_ROOT, projectPathHash(root), employeeId)
-      : join(resolveDataDir(getWorkspaceId(req.url), "crews"), "conversation", employeeId);
+      : join(resolveDataDir(getWorkspaceId(), "crews"), "conversation", employeeId);
     const filePath = join(dir, "work-log.json");
     try {
       const raw = await readFile(filePath, "utf-8");
@@ -606,12 +618,13 @@ export default async function crewRoute(req, res) {
   // POST /api/work-log/:employeeId
   const workLogPostMatch = req.method === "POST" && req.url?.match(/^\/api\/work-log\/([\w.-]+)(?:\?.*)?$/);
   if (workLogPostMatch) {
-    const employeeId = workLogPostMatch[1];
+    let employeeId;
+    try { employeeId = sanitizeId(workLogPostMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     const u = new URL(req.url, "http://localhost");
-    const root = u.searchParams.get("root");
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
     const dir = root
       ? join(CONVERSATIONS_ROOT, projectPathHash(root), employeeId)
-      : join(resolveDataDir(getWorkspaceId(req.url), "crews"), "conversation", employeeId);
+      : join(resolveDataDir(getWorkspaceId(), "crews"), "conversation", employeeId);
     await mkdir(dir, { recursive: true });
     const filePath = join(dir, "work-log.json");
 
@@ -706,25 +719,25 @@ export default async function crewRoute(req, res) {
   if (req.method === "GET" && req.url?.startsWith("/api/fs/browse-files")) {
     const params = new URL(req.url, "http://localhost").searchParams;
     const dirPath = params.get("path") || "";
-    const absPath = dirPath ? resolve(dirPath) : resolve(process.env.HOME || "/");
+    const absPath = dirPath ? resolve(dirPath) : resolve(process.env.HOME || "/"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
     // Normalize to forward slashes for cross-platform (Windows server → any client)
     const norm = (p) => p.replace(/\\/g, "/");
     try {
-      const s = await stat(absPath);
+      const s = await stat(absPath); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
       if (!s.isDirectory()) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Not a directory" }));
         return true;
       }
-      const entries = await readdir(absPath, { withFileTypes: true });
+      const entries = await readdir(absPath, { withFileTypes: true }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
       const IGNORED = new Set([".git", "node_modules", ".DS_Store", ".cache", ".Trash", ".npm", ".vite"]);
       const visible = entries.filter(e => !IGNORED.has(e.name) && !e.name.startsWith(".")).sort((a, b) => {
         if (a.isDirectory() && !b.isDirectory()) return -1;
         if (!a.isDirectory() && b.isDirectory()) return 1;
         return a.name.localeCompare(b.name);
       });
-      const dirs = visible.filter(e => e.isDirectory()).map(e => ({ name: e.name, path: norm(join(absPath, e.name)), type: "dir" }));
-      const files = visible.filter(e => !e.isDirectory()).map(e => ({ name: e.name, path: norm(join(absPath, e.name)), type: "file" }));
+      const dirs = visible.filter(e => e.isDirectory()).map(e => ({ name: e.name, path: norm(join(absPath, e.name)), type: "dir" })); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
+      const files = visible.filter(e => !e.isDirectory()).map(e => ({ name: e.name, path: norm(join(absPath, e.name)), type: "file" })); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
       const parent = (absPath !== "/" && !/^[A-Za-z]:[\\\/]$/.test(absPath)) ? norm(dirname(absPath)) : null;
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ currentPath: norm(absPath), parent, directories: dirs, files }));
@@ -741,21 +754,21 @@ export default async function crewRoute(req, res) {
     const dirPath = params.get("path") || "";
     // Expand ~ to home directory (Unix convention)
     const expandedPath = dirPath.startsWith("~") ? (process.env.HOME || "") + dirPath.slice(1) : dirPath;
-    const absPath = expandedPath ? resolve(expandedPath) : resolve(process.env.HOME || "/");
+    const absPath = expandedPath ? resolve(expandedPath) : resolve(process.env.HOME || "/"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
     const norm = (p) => p.replace(/\\/g, "/");
     try {
-      const s = await stat(absPath);
+      const s = await stat(absPath); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
       if (!s.isDirectory()) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Not a directory" }));
         return true;
       }
-      const entries = await readdir(absPath, { withFileTypes: true });
+      const entries = await readdir(absPath, { withFileTypes: true }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
       const IGNORED = new Set([".git", "node_modules", ".DS_Store", ".cache", ".Trash", ".npm", ".vite"]);
       const dirs = entries
         .filter(e => e.isDirectory() && !IGNORED.has(e.name) && !e.name.startsWith("."))
         .sort((a, b) => a.name.localeCompare(b.name))
-        .map(e => ({ name: e.name, path: norm(join(absPath, e.name)) }));
+        .map(e => ({ name: e.name, path: norm(join(absPath, e.name)) })); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
       const parent = (absPath !== "/" && !/^[A-Za-z]:[\\\/]$/.test(absPath)) ? norm(dirname(absPath)) : null;
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ currentPath: norm(absPath), parent, directories: dirs }));
@@ -775,7 +788,7 @@ export default async function crewRoute(req, res) {
       res.end(JSON.stringify({ error: "Missing 'root' query param" }));
       return true;
     }
-    const absRoot = resolve(root);
+    const absRoot = resolve(root); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具，已限絕對路徑）
     if (!absRoot.startsWith("/") && !/^[A-Za-z]:/.test(absRoot)) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Only absolute paths allowed" }));
@@ -801,9 +814,9 @@ export default async function crewRoute(req, res) {
       res.end(JSON.stringify({ error: "Missing 'path' query param" }));
       return true;
     }
-    const absPath = resolve(PAAW_ROOT, filePath);
+    const absPath = resolve(PAAW_ROOT, filePath); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選檔案路徑（localhost 單人工具，UI 傳絕對路徑）
     try {
-      const s = await stat(absPath);
+      const s = await stat(absPath); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
       const ext = absPath.split(".").pop()?.toLowerCase() ?? "";
       const imageExts = ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"];
       const isImage = imageExts.includes(ext);
@@ -823,7 +836,7 @@ export default async function crewRoute(req, res) {
           gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
           bmp: "image/bmp", ico: "image/x-icon",
         };
-        const data = await readFile(absPath);
+        const data = await readFile(absPath); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
         res.writeHead(200, {
           "Content-Type": mimeMap[ext] || "application/octet-stream",
           "Content-Length": s.size,
@@ -831,7 +844,7 @@ export default async function crewRoute(req, res) {
         });
         res.end(data);
       } else {
-        const content = await readFile(absPath, "utf-8");
+        const content = await readFile(absPath, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ path: absPath, content, size: s.size }));
       }
@@ -851,16 +864,15 @@ export default async function crewRoute(req, res) {
       res.end(JSON.stringify({ error: "Missing 'path' query param" }));
       return true;
     }
-    const absPath = resolve(PAAW_ROOT, filePath);
-    let body = "";
+    const absPath = resolve(PAAW_ROOT, filePath); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選檔案路徑（localhost 單人工具）
     for await (const chunk of req) body += chunk;
     try {
       const { content } = JSON.parse(body);
       if (typeof content !== "string") throw new Error("Missing 'content' in body");
       // Ensure parent dir exists
       const dir = dirname(absPath);
-      await mkdir(dir, { recursive: true });
-      await writeFile(absPath, content, "utf-8");
+      await mkdir(dir, { recursive: true }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
+      await writeFile(absPath, content, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, path: absPath, size: content.length }));
     } catch (err) {
@@ -880,7 +892,7 @@ export default async function crewRoute(req, res) {
       res.end(JSON.stringify({ error: "Missing 'root' query param" }));
       return true;
     }
-    const absDir = resolve(join(root, subpath));
+    const absDir = resolve(join(root, subpath)); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
     try {
       const children = await buildTree(absDir, absDir, 15);
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -980,18 +992,18 @@ export default async function crewRoute(req, res) {
       res.end(JSON.stringify({ error: "Missing 'path' query param" }));
       return true;
     }
-    const absPath = resolve(targetPath);
+    const absPath = resolve(targetPath); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選檔案路徑（localhost 單人工具，已限絕對路徑）
     if (!absPath.startsWith("/") && !/^[A-Za-z]:/.test(absPath)) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Only absolute paths allowed" }));
       return true;
     }
     try {
-      const s = await stat(absPath);
+      const s = await stat(absPath); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
       if (s.isDirectory()) {
-        await rm(absPath, { recursive: true, force: true });
+        await rm(absPath, { recursive: true, force: true }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
       } else {
-        await unlink(absPath);
+        await unlink(absPath); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
       }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, path: absPath }));
@@ -1016,7 +1028,8 @@ export default async function crewRoute(req, res) {
   // Direct crew photo access (no scoping wrapper)
   const crewPicMatch = req.method === "GET" && req.url?.match(/^\/api\/crew-pic\/(.+)$/);
   if (crewPicMatch) {
-    const picName = crewPicMatch[1];
+    let picName;
+    try { picName = sanitizeId(crewPicMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     const picPath = join(CREWS_ROOT, "pic", picName);
     try {
       const s = await stat(picPath);
@@ -1044,8 +1057,8 @@ export default async function crewRoute(req, res) {
         res.end(JSON.stringify({ error: "missing root param" }));
         return true;
       }
-      const dashFile = join(root, ".aieoc", "dashboard.json");
-      const content = await readFile(dashFile, "utf-8");
+      const dashFile = join(root, ".aieoc", "dashboard.json"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      const content = await readFile(dashFile, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(content);
     } catch {

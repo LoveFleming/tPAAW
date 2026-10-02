@@ -14,6 +14,7 @@ import {
 import { runAgentLoop, runAgentLoopStream } from "../lib/paaw-agent-loop.mjs";
 import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
 
 // Lazy-load distill module
@@ -460,7 +461,8 @@ async function cronApiHandler(req, res) {
   // GET /api/cron-jobs/:id/logs
   if (req.method === "GET" && req.url?.match(/^\/api\/cron-jobs\/[^/]+\/logs$/)) {
     const parts = req.url.split("/");
-    const id = parts[parts.length - 2];
+    let id;
+    try { id = sanitizeId(parts[parts.length - 2]); } catch (err) { sendPathTraversalError(res, err); return true; }
     const logFile = join(CRON_LOGS_DIR, id, "history.jsonl");
     try {
       const raw = await readFile(logFile, "utf-8");
@@ -476,7 +478,8 @@ async function cronApiHandler(req, res) {
   // GET /api/cron-jobs/:id/results
   if (req.method === "GET" && req.url?.match(/^\/api\/cron-jobs\/[^/]+\/results$/)) {
     const parts = req.url.split("/");
-    const id = parts[parts.length - 2];
+    let id;
+    try { id = sanitizeId(parts[parts.length - 2]); } catch (err) { sendPathTraversalError(res, err); return true; }
     const resultDir = join(CRON_RESULTS_DIR, id);
     try {
       const files = await readdir(resultDir);
@@ -502,7 +505,7 @@ async function cronApiHandler(req, res) {
       res.writeHead(403); res.end("Forbidden"); return true;
     }
     try {
-      const content = await readFile(filePath, "utf-8");
+      const content = await readFile(filePath, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選產出檔（已限制 /cron-results/ 前綴，localhost 單人工具）
       const isHtml = filePath.endsWith(".html");
       res.writeHead(200, { "Content-Type": isHtml ? "text/html; charset=utf-8" : "text/plain; charset=utf-8" });
       res.end(content);
@@ -681,7 +684,7 @@ async function vibeSessionsApiHandler(req, res) {
   const logMatch = url.match(/^\/api\/vibe-sessions\/([\w.-]+)\/log(?:\?.*)?$/);
   if (req.method === "GET" && logMatch) {
     try {
-      const id = logMatch[1];
+      const id = sanitizeId(logMatch[1]);
       const logPath = resolve(VIBE_SESSIONS_DIR, `${id}.log`);
       if (!existsSync(logPath)) {
         res.writeHead(404, { "Content-Type": "application/json" });
@@ -692,6 +695,7 @@ async function vibeSessionsApiHandler(req, res) {
       res.writeHead(200, { "Content-Type": "text/plain" });
       res.end(content);
     } catch (err) {
+      if (err?.code === "PATH_TRAVERSAL") { sendPathTraversalError(res, err); return true; }
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
     }
@@ -702,7 +706,7 @@ async function vibeSessionsApiHandler(req, res) {
   const oneMatch = url.match(/^\/api\/vibe-sessions\/([\w.-]+)(?:\?.*)?$/);
   if (req.method === "GET" && oneMatch) {
     try {
-      const id = oneMatch[1];
+      const id = sanitizeId(oneMatch[1]);
       const metaPath = resolve(VIBE_SESSIONS_DIR, `${id}.json`);
       if (!existsSync(metaPath)) {
         res.writeHead(404, { "Content-Type": "application/json" });
@@ -715,6 +719,7 @@ async function vibeSessionsApiHandler(req, res) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(meta));
     } catch (err) {
+      if (err?.code === "PATH_TRAVERSAL") { sendPathTraversalError(res, err); return true; }
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
     }
@@ -725,7 +730,7 @@ async function vibeSessionsApiHandler(req, res) {
   const distillMatch = url.match(/^\/api\/vibe-sessions\/([\w.-]+)\/distill(?:\?.*)?$/);
   if (req.method === "POST" && distillMatch) {
     try {
-      const id = distillMatch[1];
+      const id = sanitizeId(distillMatch[1]);
       const metaPath = resolve(VIBE_SESSIONS_DIR, `${id}.json`);
       const logPath = resolve(VIBE_SESSIONS_DIR, `${id}.log`);
       if (!existsSync(metaPath) || !existsSync(logPath)) {
@@ -811,6 +816,7 @@ async function vibeSessionsApiHandler(req, res) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true, file: distillFile, content: md }));
     } catch (err) {
+      if (err?.code === "PATH_TRAVERSAL") { sendPathTraversalError(res, err); return true; }
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
     }
@@ -821,7 +827,7 @@ async function vibeSessionsApiHandler(req, res) {
   const delMatch = url.match(/^\/api\/vibe-sessions\/([\w.-]+)(?:\?.*)?$/);
   if (req.method === "DELETE" && delMatch) {
     try {
-      const id = delMatch[1];
+      const id = sanitizeId(delMatch[1]);
       const metaPath = resolve(VIBE_SESSIONS_DIR, `${id}.json`);
       const logPath = resolve(VIBE_SESSIONS_DIR, `${id}.log`);
       try { unlinkSync(metaPath); } catch {}
@@ -829,6 +835,7 @@ async function vibeSessionsApiHandler(req, res) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true }));
     } catch (err) {
+      if (err?.code === "PATH_TRAVERSAL") { sendPathTraversalError(res, err); return true; }
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
     }

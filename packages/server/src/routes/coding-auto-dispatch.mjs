@@ -90,8 +90,8 @@ export default async function codingAutoDispatchRoute(req, res) {
     }
     _activeRuns.add(projRoot);
     try {
-    const nsDir = join(projRoot, AUTO_DISPATCH_DIR);
-    if (!existsSync(nsDir)) mkdirSync(nsDir, { recursive: true });
+    const nsDir = join(projRoot, AUTO_DISPATCH_DIR); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (!existsSync(nsDir)) mkdirSync(nsDir, { recursive: true }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
 
     let reqBody = {};
     try { reqBody = JSON.parse(await readBody(req) || "{}"); } catch {}
@@ -99,9 +99,9 @@ export default async function codingAutoDispatchRoute(req, res) {
     // Load auto dispatch config for mode + model
     let nsConfig = null;
     try {
-      const nsConfigPath = join(projRoot, ".paaw", "auto-dispatch", "config.json");
-      if (existsSync(nsConfigPath)) {
-        nsConfig = JSON.parse(readSync(nsConfigPath, "utf-8"));
+      const nsConfigPath = join(projRoot, ".paaw", "auto-dispatch", "config.json"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      if (existsSync(nsConfigPath)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        nsConfig = JSON.parse(readSync(nsConfigPath, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       }
     } catch {}
 
@@ -122,7 +122,7 @@ export default async function codingAutoDispatchRoute(req, res) {
       totalAgents: mode === "parallel" ? 6 : 0,
       completedAgents: 0,
     };
-    writeFileSync(join(nsDir, STATUS_FILE), JSON.stringify(status, null, 2));
+    writeFileSync(join(nsDir, STATUS_FILE), JSON.stringify(status, null, 2)); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
 
     // Respond immediately — run async
     sendJSON(res, 200, { ok: true, message: `Night shift started (mode: ${mode})`, startedAt: status.startedAt, mode });
@@ -130,7 +130,7 @@ export default async function codingAutoDispatchRoute(req, res) {
     // 2026-08-29 Fleming 定調：拿掉全域 timeout（20/30min）— task-driven 長時間執行
     // （上限 100 task × 每 task 2h）；安全機制改為：每 task 2h timeout（a2aCallAgent）+
     //   使用者中斷按鈕（/stop，task 間安全中斷點）
-    const statusPath = join(nsDir, STATUS_FILE);
+    const statusPath = join(nsDir, STATUS_FILE); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
 
     // ── Run via auto-dispatch-manager ──
     try {
@@ -198,7 +198,7 @@ export default async function codingAutoDispatchRoute(req, res) {
       });
 
       // Save latest report for quick access
-      writeFileSync(join(nsDir, REPORT_FILE), result.report, "utf-8");
+      writeFileSync(join(nsDir, REPORT_FILE), result.report, "utf-8"); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
 
       const finalDuration = Date.now() - startTime;
       console.log(`[AutoDispatch] Complete in ${finalDuration}ms (mode: ${mode})`);
@@ -256,7 +256,7 @@ export default async function codingAutoDispatchRoute(req, res) {
       let reqBody = {};
       try { reqBody = JSON.parse(await readBody(req) || "{}"); } catch {}
       const root = urlObj.searchParams.get("path") || reqBody.cwd || projRoot;
-      const statusPath = join(root, AUTO_DISPATCH_DIR, STATUS_FILE);
+      const statusPath = join(root, AUTO_DISPATCH_DIR, STATUS_FILE); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
       // 2026-08-30 殭屍救援：沒有活的 dispatch process 時，stop 直接把殭屍標 interrupted
       // （否則 stopRequested 掛著永遠等不到「task 完成後停止」的中斷點 — Fleming 實案例）
       if (!_activeRuns.has(root)) {
@@ -286,14 +286,14 @@ export default async function codingAutoDispatchRoute(req, res) {
 
   // ── POST /api/coding-auto-dispatch/reset — Force reset stuck status ──
   if (urlObj.pathname === "/api/coding-auto-dispatch/reset" && method === "POST") {
-    const statusFile = join(projRoot, AUTO_DISPATCH_DIR, STATUS_FILE);
-    if (existsSync(statusFile)) {
+    const statusFile = join(projRoot, AUTO_DISPATCH_DIR, STATUS_FILE); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (existsSync(statusFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       try {
-        const current = JSON.parse(readSync(statusFile, "utf-8"));
+        const current = JSON.parse(readSync(statusFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
         current.status = "interrupted";
         current.completedAt = new Date().toISOString();
         current.error = "Manually reset by user";
-        writeFileSync(statusFile, JSON.stringify(current, null, 2));
+        writeFileSync(statusFile, JSON.stringify(current, null, 2)); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
         sendJSON(res, 200, { ok: true, message: "Status reset" });
       } catch {
         sendJSON(res, 500, { error: "Failed to reset status" });
@@ -311,21 +311,21 @@ export default async function codingAutoDispatchRoute(req, res) {
     let lastRunMode = null;
 
     // Auto Dispatch status.json
-    const nsStatusFile = join(projRoot, AUTO_DISPATCH_DIR, STATUS_FILE);
-    if (existsSync(nsStatusFile)) {
+    const nsStatusFile = join(projRoot, AUTO_DISPATCH_DIR, STATUS_FILE); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (existsSync(nsStatusFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       try {
-        const ns = JSON.parse(readSync(nsStatusFile, "utf-8"));
+        const ns = JSON.parse(readSync(nsStatusFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
         if (ns.completedAt) { lastRunAt = ns.completedAt; lastRunBy = "auto-dispatch"; lastRunMode = ns.mode; }
         else if (ns.startedAt) { lastRunAt = ns.startedAt; lastRunBy = "auto-dispatch"; lastRunMode = ns.mode; }
       } catch {}
     }
 
     // Also check reports dir for latest
-    const reportsDir = join(projRoot, ".paaw", "auto-dispatch", "reports");
-    if (existsSync(reportsDir)) {
+    const reportsDir = join(projRoot, ".paaw", "auto-dispatch", "reports"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (existsSync(reportsDir)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       try {
         const { readdirSync } = await import("fs");
-        const files = readdirSync(reportsDir).filter(f => f.endsWith(".md")).sort().reverse();
+        const files = readdirSync(reportsDir).filter(f => f.endsWith(".md")).sort().reverse(); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
         if (files.length > 0) {
           const fileDate = files[0].replace(".md", "");
           const reportTime = new Date(fileDate + "T23:59:59").toISOString();
@@ -355,13 +355,13 @@ export default async function codingAutoDispatchRoute(req, res) {
 
   // ── GET /api/coding-auto-dispatch/status ──
   if (urlObj.pathname === "/api/coding-auto-dispatch/status" && method === "GET") {
-    const statusFile = join(projRoot, AUTO_DISPATCH_DIR, STATUS_FILE);
-    if (!existsSync(statusFile)) {
+    const statusFile = join(projRoot, AUTO_DISPATCH_DIR, STATUS_FILE); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (!existsSync(statusFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       sendJSON(res, 200, { status: "never", message: "No auto dispatch has been run yet." });
       return true;
     }
     try {
-      const data = JSON.parse(readSync(statusFile, "utf-8"));
+      const data = JSON.parse(readSync(statusFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       // 2026-08-30 孤兒偵測：status 說 running 但本 process 没有活的 dispatch（重啟後殭屍）
       // → 自動降為 interrupted，UI 下一次輪詢（≤4s）就停止閃爕「中斷」/解鎖 input；
       // plan 檔不受影響，下次 start 照常續跑（findIncompletePlans 看 plans/*.json）
@@ -372,7 +372,7 @@ export default async function codingAutoDispatchRoute(req, res) {
           return { ...current, status: "interrupted", completedAt: new Date().toISOString(), error: "Server restarted while dispatch was running", events, lastEvent: events[events.length - 1] };
         });
         if (fixed) sendJSON(res, 200, fixed);
-        else sendJSON(res, 200, JSON.parse(readSync(statusFile, "utf-8")));
+        else sendJSON(res, 200, JSON.parse(readSync(statusFile, "utf-8"))); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
         return true;
       }
       sendJSON(res, 200, data);
@@ -384,12 +384,12 @@ export default async function codingAutoDispatchRoute(req, res) {
 
   // ── GET /api/coding-auto-dispatch/report ──
   if (urlObj.pathname === "/api/coding-auto-dispatch/report" && method === "GET") {
-    const reportFile = join(projRoot, AUTO_DISPATCH_DIR, REPORT_FILE);
-    if (!existsSync(reportFile)) {
+    const reportFile = join(projRoot, AUTO_DISPATCH_DIR, REPORT_FILE); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (!existsSync(reportFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       sendJSON(res, 200, { report: "" });
       return true;
     }
-    const report = readSync(reportFile, "utf-8");
+    const report = readSync(reportFile, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
     res.end(report);
     return true;

@@ -19,6 +19,7 @@ import { callLLMWithRetry, sanitizeContent, isMeaningfulContent } from "../lib/l
 import { readBody } from "./shared.mjs";
 import { resolveDefaultModel, parseModelReference } from "../lib/llm-utils.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -425,8 +426,15 @@ async function handleMindMapRoutes(req, res) {
       res.end(JSON.stringify({ error: "Missing id" }));
       return true;
     }
+    let safeId;
     try {
-      const filePath = join(MINDMAP_DIR, `${id}.json`);
+      safeId = sanitizeId(id);
+    } catch (err) {
+      sendPathTraversalError(res, err);
+      return true;
+    }
+    try {
+      const filePath = join(MINDMAP_DIR, `${safeId}.json`);
       const data = JSON.parse(await readFile(filePath, "utf-8"));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));

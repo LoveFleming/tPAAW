@@ -190,7 +190,7 @@ export default async function handoverRoutes(req, res, next) {
   const projectPath = q.get("path");
 
   if (url === "/api/coding-handover/state" && method === "GET") {
-    if (!projectPath || !existsSync(projectPath)) {
+    if (!projectPath || !existsSync(projectPath)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       return res.status(400).json({ error: "path required" });
     }
     // ?refresh=1 → 現場重建並落地；否則讓快取（自動保鮮的 handover-state.json）優先
@@ -203,7 +203,7 @@ export default async function handoverRoutes(req, res, next) {
   }
 
   if (url === "/api/coding-handover/bundle" && method === "GET") {
-    if (!projectPath || !existsSync(projectPath)) {
+    if (!projectPath || !existsSync(projectPath)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       return res.status(400).json({ error: "path required" });
     }
     const bundle = await buildBundle(projectPath);
@@ -214,14 +214,14 @@ export default async function handoverRoutes(req, res, next) {
     let body = {};
     try { body = JSON.parse(await readBody(req) || "{}"); } catch { /* empty */ }
     const path = body.path || projectPath;
-    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" });
+    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     const bundle = await buildBundle(path);
     const md = renderHandoverMd(bundle);
     const { mkdir } = await import("fs/promises");
-    const paawDir = join(path, ".paaw");
-    if (!existsSync(paawDir)) await mkdir(paawDir, { recursive: true });
-    const file = join(paawDir, "HANDOVER.md");
-    await writeFile(file, md, "utf-8");
+    const paawDir = join(path, ".paaw"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (!existsSync(paawDir)) await mkdir(paawDir, { recursive: true }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    const file = join(paawDir, "HANDOVER.md"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    await writeFile(file, md, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     return res.json({ ok: true, file: ".paaw/HANDOVER.md", bytes: md.length });
   }
 

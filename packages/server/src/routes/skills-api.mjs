@@ -13,6 +13,7 @@ import {
 } from "./shared.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 
 // ── Helper: parse YAML frontmatter from SKILL.md ──
 function parseSkillFrontmatter(raw) {
@@ -113,7 +114,8 @@ export default async function skillsApiRoute(req, res) {
   // ── GET /api/skills/:id — get single skill ──
   const skillGetMatch = req.method === "GET" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/);
   if (skillGetMatch) {
-    const skillId = skillGetMatch[1];
+    let skillId;
+    try { skillId = sanitizeId(skillGetMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     const inputsJsonPath = join(INPUT_PROMPT_ROOT, skillId, "inputs.json");
     let inputsData = null;
     try {
@@ -141,7 +143,8 @@ export default async function skillsApiRoute(req, res) {
 
   // ── PUT /api/skills/:id — create or update ──
   if (req.method === "PUT" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/)) {
-    const skillId = req.url.match(/^\/api\/skills\/([\w.-]+)/)?.[1];
+    let skillId;
+    try { skillId = sanitizeId(req.url.match(/^\/api\/skills\/([\w.-]+)/)?.[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     try {
       const raw = await readBody(req);
       const payload = JSON.parse(raw);
@@ -167,7 +170,8 @@ export default async function skillsApiRoute(req, res) {
 
   // ── DELETE /api/skills/:id — delete ──
   if (req.method === "DELETE" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/)) {
-    const skillId = req.url.match(/^\/api\/skills\/([\w.-]+)/)?.[1];
+    let skillId;
+    try { skillId = sanitizeId(req.url.match(/^\/api\/skills\/([\w.-]+)/)?.[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     try {
       const roots = [INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT, SKILL_POOL_ROOT];
       let deleted = false;
@@ -190,7 +194,8 @@ export default async function skillsApiRoute(req, res) {
   // ── GET /api/skill-app/:id — serve app.html from skill ──
   const skillAppMatch = req.method === "GET" && req.url?.match(/^\/api\/skill-app\/([\w.-]+)(?:\?.*)?$/);
   if (skillAppMatch) {
-    const skillId = skillAppMatch[1];
+    let skillId;
+    try { skillId = sanitizeId(skillAppMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     const roots = [PHYSICAL_SKILL_ROOT, INPUT_PROMPT_ROOT];
     try {
       for (const root of roots) {
@@ -214,7 +219,8 @@ export default async function skillsApiRoute(req, res) {
   // ── GET /api/skills/:id/export — export single skill as bundle ──
   const exportMatch = req.method === "GET" && req.url?.match(/^\/api\/skills\/([\w.-]+)\/export(?:\?.*)?$/);
   if (exportMatch) {
-    const skillId = exportMatch[1];
+    let skillId;
+    try { skillId = sanitizeId(exportMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     const bundle = {
       manifest: "paaw-skill-v1",
       exportedAt: new Date().toISOString(),
@@ -429,6 +435,7 @@ export default async function skillsApiRoute(req, res) {
         res.end(JSON.stringify({ error: "無法決定 skill id（可加 ?id= 指定）" }));
         return true;
       }
+      try { skillId = sanitizeId(skillId); } catch (err) { sendPathTraversalError(res, err); return true; }
 
       const kind = kindParam || (hasSkillMd ? "physical-skill" : "input-prompt");
       const targetRoot = kind === "input-prompt" ? INPUT_PROMPT_ROOT

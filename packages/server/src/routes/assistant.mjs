@@ -15,6 +15,7 @@ import {
   APP_RULES_PATH, APPS_ROOT, WORKFLOWS_ROOT,
   readBody, yaml,
 } from "./shared.mjs";
+import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 
 // Invalidate cache helper — re-export from apps module if needed
 let _invalidateCacheFn = null;
@@ -192,7 +193,8 @@ export default async function assistantRoute(req, res) {
   // GET /api/paaw/apps/:id/export
   const appExportMatch = req.method === "GET" && path.match(/^\/api\/paaw\/apps\/([\w.-]+)\/export$/);
   if (appExportMatch) {
-    const appId = appExportMatch[1];
+    let appId;
+    try { appId = sanitizeId(appExportMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     const bundle = {
       manifest: "paaw-app-v1",
       exportedAt: new Date().toISOString(),
@@ -485,8 +487,9 @@ export default async function assistantRoute(req, res) {
   // GET /api/paaw/workflows/:id
   const wfGetMatch = req.method === "GET" && path.match(/^\/api\/paaw\/workflows\/([\w.-]+)$/);
   if (wfGetMatch) {
+    let wfId;
+    try { wfId = sanitizeId(wfGetMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     try {
-      const wfId = wfGetMatch[1];
       const data = JSON.parse(await readFile(resolve(WORKFLOWS_ROOT, `${wfId}.json`), "utf-8"));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
@@ -499,8 +502,9 @@ export default async function assistantRoute(req, res) {
   // PUT /api/paaw/workflows/:id
   const wfPutMatch = req.method === "PUT" && path.match(/^\/api\/paaw\/workflows\/([\w.-]+)$/);
   if (wfPutMatch) {
+    let wfId;
+    try { wfId = sanitizeId(wfPutMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     try {
-      const wfId = wfPutMatch[1];
       const body = JSON.parse(await readBody(req));
       await mkdir(WORKFLOWS_ROOT, { recursive: true });
       await writeFile(resolve(WORKFLOWS_ROOT, `${wfId}.json`), JSON.stringify(body, null, 2), "utf-8");
@@ -533,8 +537,9 @@ export default async function assistantRoute(req, res) {
   // DELETE /api/paaw/workflows/:id
   const wfDelMatch = req.method === "DELETE" && path.match(/^\/api\/paaw\/workflows\/([\w.-]+)$/);
   if (wfDelMatch) {
+    let wfId;
+    try { wfId = sanitizeId(wfDelMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     try {
-      const wfId = wfDelMatch[1];
       const fp = resolve(WORKFLOWS_ROOT, `${wfId}.json`);
       await unlink(fp);
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -550,8 +555,9 @@ export default async function assistantRoute(req, res) {
   // GET /api/paaw/workflows/:id/exec-history
   const wfExecMatch = path.match(/^\/api\/paaw\/workflows\/([^/]+)\/exec-history$/);
   if (req.method === "GET" && wfExecMatch) {
+    let wfId;
+    try { wfId = sanitizeId(wfExecMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     try {
-      const wfId = wfExecMatch[1];
       const histDir = resolve(WORKFLOWS_ROOT, "_exec-history");
       await mkdir(histDir, { recursive: true });
       const histFile = resolve(histDir, wfId + ".json");
@@ -565,8 +571,9 @@ export default async function assistantRoute(req, res) {
 
   // POST /api/paaw/workflows/:id/exec-history
   if (req.method === "POST" && wfExecMatch) {
+    let wfId;
+    try { wfId = sanitizeId(wfExecMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     try {
-      const wfId = wfExecMatch[1];
       const entry = JSON.parse(await readBody(req));
       const histDir = resolve(WORKFLOWS_ROOT, "_exec-history");
       await mkdir(histDir, { recursive: true });
@@ -588,7 +595,10 @@ export default async function assistantRoute(req, res) {
   const skillInputsMatch = path.match(/^\/api\/paaw\/skills\/([^/]+)\/([^/]+)\/inputs$/);
   if (req.method === "GET" && skillInputsMatch) {
     try {
-      const [, appId, skillId] = skillInputsMatch;
+      const [, rawAppId, rawSkillId] = skillInputsMatch;
+      let appId, skillId;
+      try { appId = sanitizeId(rawAppId); skillId = sanitizeId(rawSkillId); }
+      catch (err) { sendPathTraversalError(res, err); return true; }
       let skillPath = resolve(DATA_HOME, "apps", appId, "skills", skillId, "SKILL.md");
       let content;
       try { content = await readFile(skillPath, "utf-8"); } catch {

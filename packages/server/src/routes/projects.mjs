@@ -28,6 +28,7 @@ import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { readBody } from "./shared.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -198,7 +199,13 @@ async function handleProjectRoutes(req, res) {
 
   // DELETE /api/projects/:id
   if (detailMatch && method === "DELETE") {
-    const id = detailMatch[1];
+    let id;
+    try {
+      id = sanitizeId(detailMatch[1]);
+    } catch (err) {
+      sendPathTraversalError(res, err);
+      return true;
+    }
     const file = resolve(DATA_DIR, `${id}.json`);
     if (existsSync(file)) {
       const { rm } = await import("fs/promises");

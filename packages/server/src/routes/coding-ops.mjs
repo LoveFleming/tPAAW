@@ -100,7 +100,7 @@ export default async function opsRoutes(req, res, next) {
   const projectPath = q.get("path");
 
   if (url === "/api/coding-ops/status" && method === "GET") {
-    if (!projectPath || !existsSync(projectPath)) {
+    if (!projectPath || !existsSync(projectPath)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       return res.status(400).json({ error: "path required" });
     }
     const [git, runbooks, scripts, releases] = await Promise.all([
@@ -110,7 +110,7 @@ export default async function opsRoutes(req, res, next) {
       loadRecentReleases(projectPath),
     ]);
     return res.json({
-      initialized: existsSync(join(projectPath, ".paaw")),
+      initialized: existsSync(join(projectPath, ".paaw")), // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
       git,
       runbooks,
       scripts,
@@ -122,9 +122,9 @@ export default async function opsRoutes(req, res, next) {
   if (url === "/api/coding-ops/runbook" && method === "GET") {
     const id = (q.get("id") || "").replace(/[/\\]/g, ""); // 防 path traversal
     if (!projectPath || !id) return res.status(400).json({ error: "path and id required" });
-    const file = join(projectPath, ".paaw", "runbook", `${id}.md`);
-    if (!existsSync(file)) return res.status(404).json({ error: "runbook not found" });
-    return res.json({ id, content: await readFile(file, "utf-8") });
+    const file = join(projectPath, ".paaw", "runbook", `${id}.md`); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (!existsSync(file)) return res.status(404).json({ error: "runbook not found" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    return res.json({ id, content: await readFile(file, "utf-8") }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
   }
 
   if (url === "/api/coding-ops/runbook/save" && method === "POST") {

@@ -23,6 +23,7 @@ import { createGzip, createGunzip } from "zlib";
 import { pipeline } from "stream/promises";
 import { Readable } from "stream";
 import { readBody } from "./shared.mjs";
+import { safeResolve, sendPathTraversalError } from "../lib/coding-security.mjs";
 import { DATA_HOME } from "../data-home.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -515,7 +516,13 @@ async function handleBackupRoutes(req, res) {
     }
     const config = await loadConfig();
     const backupDir = config.backupDir || BACKUP_DIR_DEFAULT;
-    const tarPath = resolve(backupDir, filename);
+    let tarPath;
+    try {
+      tarPath = safeResolve(backupDir, filename);
+    } catch (err) {
+      sendPathTraversalError(res, err);
+      return true;
+    }
     const metaPath = tarPath.replace(".tar.gz", ".json");
 
     try {

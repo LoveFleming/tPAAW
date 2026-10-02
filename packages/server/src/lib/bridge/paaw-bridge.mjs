@@ -46,6 +46,7 @@ import { promisify } from "util";
 import { createHash } from "crypto";
 import { fileURLToPath } from "url";
 import { DATA_HOME } from "../../data-home.mjs";
+import { sanitizeId, sendPathTraversalError } from "../coding-security.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -388,7 +389,13 @@ const server = createServer(async (req, res) => {
 
   // Get diff detail
   if (req.method === "GET" && path.startsWith("/api/sync/diff/")) {
-    const id = path.split("/").pop();
+    let id;
+    try {
+      id = sanitizeId(path.split("/").pop());
+    } catch (err) {
+      sendPathTraversalError(res, err);
+      return;
+    }
     const req2 = syncRequests.get(id);
     if (!req2) {
       res.writeHead(404, { "Content-Type": "application/json" });

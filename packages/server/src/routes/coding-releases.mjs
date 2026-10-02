@@ -107,7 +107,7 @@ export default async function releaseRoutes(req, res, next) {
 
   // GET pending — 待放行清單
   if (url === "/api/coding-releases/pending" && method === "GET") {
-    if (!projectPath || !existsSync(projectPath)) {
+    if (!projectPath || !existsSync(projectPath)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       return res.status(400).json({ error: "path required" });
     }
     const data = await readTasksFile(projectPath);
@@ -116,7 +116,7 @@ export default async function releaseRoutes(req, res, next) {
       // （EM 跑完 CU 但還沒派工時，RM 不該再叫人跑 CU，2026-09-05）
       let cuDone = 0;
       try {
-        const cu = JSON.parse(readFileSync(join(projectPath, ".paaw", "cu-status.json"), "utf-8"));
+        const cu = JSON.parse(readFileSync(join(projectPath, ".paaw", "cu-status.json"), "utf-8")); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
         cuDone = Object.values(cu.steps || {}).filter(s => s?.status === "done").length;
       } catch { /* 無 cu-status → 0 */ }
       return res.json({
@@ -160,11 +160,11 @@ export default async function releaseRoutes(req, res, next) {
 
   // GET list — release 歷史
   if (url === "/api/coding-releases/list" && method === "GET") {
-    if (!projectPath || !existsSync(projectPath)) {
+    if (!projectPath || !existsSync(projectPath)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       return res.status(400).json({ error: "path required" });
     }
     const releases = await listReleases(projectPath);
-    return res.json({ initialized: existsSync(join(projectPath, ".paaw")), releases });
+    return res.json({ initialized: existsSync(join(projectPath, ".paaw")), releases }); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
   }
 
   // POST approve / reject
@@ -236,7 +236,7 @@ export default async function releaseRoutes(req, res, next) {
 
   // POST test-run — 真實執行測試（背景 job，結果寫 .paaw/test-runs/last.json）
   if (url === "/api/coding-releases/test-run" && method === "POST") {
-    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     let body = {};
     let _buf = ""; await new Promise((resolve) => { req.on("data", (c) => { _buf += c; }); req.on("end", resolve); req.on("error", resolve); });
     try { body = JSON.parse(_buf || "{}"); } catch { /* empty body ok */ }
@@ -245,7 +245,7 @@ export default async function releaseRoutes(req, res, next) {
   }
   // GET test-run — 執行狀態 / 最後結果
   if (url === "/api/coding-releases/test-run" && method === "GET") {
-    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     const runningState = getRunState(projectPath);
     if (runningState) return res.json({ running: true, ...runningState });
     return res.json({ running: false, last: readLastTestRun(projectPath), detected: detectTestGroups(projectPath, { includeE2e: true }).map(g => ({ kind: g.kind, runner: g.runner })) });
@@ -253,7 +253,7 @@ export default async function releaseRoutes(req, res, next) {
 
   // GET test-runs — test run 歷史一覽（2026-09-12：RUN-YYYYMMDD-NNN 命名定案，歷史 runs/ 保 30 筆）
   if (url === "/api/coding-releases/test-runs" && method === "GET") {
-    if (!projectPath || !existsSync(projectPath)) {
+    if (!projectPath || !existsSync(projectPath)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       return res.status(400).json({ error: "path required" });
     }
     const { readdirSync, readFileSync } = await import("fs");
@@ -261,13 +261,13 @@ export default async function releaseRoutes(req, res, next) {
     const dir = _join(projectPath, ".paaw/test-runs/runs");
     let runs = [];
     try {
-      runs = readdirSync(dir)
+      runs = readdirSync(dir) // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
         .filter(f => /^RUN-\d{8}-\d{3}\.json$/.test(f))
         .sort()
         .reverse()
         .map(f => {
           try {
-            const r = JSON.parse(readFileSync(_join(dir, f), "utf-8"));
+            const r = JSON.parse(readFileSync(_join(dir, f), "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
             return { id: r.id, finishedAt: r.finishedAt, status: r.status, durationMs: r.durationMs, includeE2e: r.includeE2e || false, summary: r.summary, headSha: r.headSha };
           } catch { return null; }
         })
@@ -280,7 +280,7 @@ export default async function releaseRoutes(req, res, next) {
   // GET readiness — 上線就緒報告（基準線 = 上次 release 時間；無 release = 首次發布，基準 = first commit）
   // 程式保證事實（diff/feature/api/gates），AI 只負責推理與報告 — No answer without evidence
   if (url === "/api/coding-releases/readiness" && method === "GET") {
-    if (!projectPath || !existsSync(projectPath)) {
+    if (!projectPath || !existsSync(projectPath)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       return res.status(400).json({ error: "path required" });
     }
     try {
@@ -306,7 +306,7 @@ export default async function releaseRoutes(req, res, next) {
       // ── Feature Map（release-unit-model）──
       let model = null;
       try {
-        model = JSON.parse(readFileSync(join(projectPath, ".paaw", "release-unit-model.json"), "utf-8"));
+        model = JSON.parse(readFileSync(join(projectPath, ".paaw", "release-unit-model.json"), "utf-8")); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
       } catch { /* no model */ }
 
       const changedApis = (model?.apis || []).filter(a => a.file && changedSet.has(a.file))
@@ -443,7 +443,7 @@ export default async function releaseRoutes(req, res, next) {
 
   // GET quality-debt — 品質債現況（bootstrap 衝功能後，上線前看這頁）
   if (url === "/api/coding-releases/quality-debt" && method === "GET") {
-    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     try {
       const summary = await qualityDebtSummary(projectPath);
       if (!summary.ok) {
@@ -461,7 +461,7 @@ export default async function releaseRoutes(req, res, next) {
     let body = {};
     try { body = JSON.parse(await readFileStream(req) || "{}"); } catch { /* empty body ok */ }
     const path = body.path || projectPath;
-    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" });
+    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     try {
       const result = await runTaskRetrofit(path, { priority: body.priority, featureIds: body.featureIds });
       if (!result.ok) return res.json({ ok: false, error: result.error });
@@ -478,7 +478,7 @@ export default async function releaseRoutes(req, res, next) {
   if (rrSuggest && method === "POST") {
     const body = JSON.parse(await readFileStream(req) || "{}");
     const path = body.path || projectPath;
-    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" });
+    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     try {
       return res.json(await suggestVerdicts(path, rrSuggest[1], body.items, body.by || "rm-agent"));
     } catch (e) {
@@ -488,7 +488,7 @@ export default async function releaseRoutes(req, res, next) {
 
   // GET baseline-candidates — 給 UI 挑 baseline（auto 建議 + 最近 20 個 commit）
   if (url === "/api/coding-releases/baseline-candidates" && method === "GET") {
-    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     try {
       return res.json(await baselineCandidates(projectPath));
     } catch (e) {
@@ -501,7 +501,7 @@ export default async function releaseRoutes(req, res, next) {
   if (rrAction && method === "POST") {
     const body = JSON.parse(await readFileStream(req) || "{}");
     const path = body.path || projectPath;
-    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" });
+    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     const [, id, action] = rrAction;
     try {
       if (action === "open") return res.json(await openReleaseRequest(path, id));
@@ -521,7 +521,7 @@ export default async function releaseRoutes(req, res, next) {
   const rrOne = url.match(/^\/api\/coding-releases\/requests\/([^/]+)$/);
   if (rrOne) {
     const path = projectPath;
-    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" });
+    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     if (method === "GET") {
       // light=1：跳過 refresh（不自動重跑 auto 檢查）— UI 輪詢建議時用，經量級
       if (q.get("light") === "1") {
@@ -545,7 +545,7 @@ export default async function releaseRoutes(req, res, next) {
 
   // GET /requests — 列表（?status= 過濾）
   if (url === "/api/coding-releases/requests" && method === "GET") {
-    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     const list = await listReleaseRequests(projectPath);
     const status = q.get("status");
     return res.json({ requests: status ? list.filter(r => r.status === status) : list });
@@ -555,7 +555,7 @@ export default async function releaseRoutes(req, res, next) {
   if (url === "/api/coding-releases/request" && method === "POST") {
     const body = JSON.parse(await readFileStream(req) || "{}");
     const path = body.path || projectPath;
-    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" });
+    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     try {
       const rr = await createReleaseRequest(path, { title: body.title, baseline: body.baseline || "auto" });
       return res.json(rr);

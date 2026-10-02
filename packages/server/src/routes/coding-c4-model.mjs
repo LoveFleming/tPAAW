@@ -31,11 +31,11 @@ export default async function c4ModelRoutes(req, res, next) {
 
   if (url === "/api/coding-project/c4-model" && method === "GET") {
     const projectPath = q.get("path");
-    if (!projectPath || !existsSync(projectPath)) return _json(res, 400, { error: "path required" }) || true;
-    const p = join(resolve(projectPath), ".paaw", "c4-model.json");
-    if (!existsSync(p)) return _json(res, 200, { ok: true, missing: true }) || true;
+    if (!projectPath || !existsSync(projectPath)) return _json(res, 400, { error: "path required" }) || true; // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    const p = join(resolve(projectPath), ".paaw", "c4-model.json"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (!existsSync(p)) return _json(res, 200, { ok: true, missing: true }) || true; // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     try {
-      const data = JSON.parse(readFileSync(p, "utf-8"));
+      const data = JSON.parse(readFileSync(p, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       return _json(res, 200, { ok: true, ...data }) || true;
     } catch (e) {
       return _json(res, 200, { ok: true, missing: true, error: e.message }) || true;

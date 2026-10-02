@@ -153,7 +153,7 @@ export default async function codingIssuesRoute(req, res) {
     return true;
   }
 
-  const projRoot = resolve(projectPath);
+  const projRoot = resolve(projectPath); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
 
   // ── GET /api/coding-issues/stats ──
   if (url === "/api/coding-issues/stats" && method === "GET") {
@@ -187,12 +187,12 @@ export default async function codingIssuesRoute(req, res) {
   if (url === "/api/coding-issues/import-known" && method === "POST") {
     const paaw = new PaawProject(projRoot);
     const knownFile = paaw._resolvePath("KNOWN-ISSUES.md");
-    if (!existsSync(knownFile)) {
+    if (!existsSync(knownFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "KNOWN-ISSUES.md not found" }));
       return true;
     }
-    const md = readSync(knownFile, "utf-8");
+    const md = readSync(knownFile, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     const imported = parseKnownIssues(md);
     const existing = await loadIssues(projRoot);
     const existingIds = new Set(existing.map(i => i.id));

@@ -729,10 +729,10 @@ export default async function a2aRoutes(req, res) {
           const featureSummary = await getFeatureSummary(cwd || PAAW_ROOT);
           if (featureSummary) extraContext.push({ source: "feature-map", content: featureSummary });
           // Code Intelligence
-          const ciFile = join(cwd || PAAW_ROOT, ".paaw", "code-intelligence", "code-intelligence.json");
-          if (existsSync(ciFile)) {
+          const ciFile = join(cwd || PAAW_ROOT, ".paaw", "code-intelligence", "code-intelligence.json"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          if (existsSync(ciFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
             try {
-              const ci = JSON.parse(readSync(ciFile, "utf-8"));
+              const ci = JSON.parse(readSync(ciFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
               if (ci.files?.length) {
                 const fileLines = ci.files.slice(0, 200).map(f => {
                   const parts = [`- ${f.path}`];
@@ -745,10 +745,10 @@ export default async function a2aRoutes(req, res) {
             } catch {}
           }
           // Security Scan
-          const secFile = join(cwd || PAAW_ROOT, ".paaw", "security", "scan-results.json");
-          if (existsSync(secFile)) {
+          const secFile = join(cwd || PAAW_ROOT, ".paaw", "security", "scan-results.json"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          if (existsSync(secFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
             try {
-              const sec = JSON.parse(readSync(secFile, "utf-8"));
+              const sec = JSON.parse(readSync(secFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
               if (sec.stats?.total > 0) {
                 extraContext.push({ source: "security-scan", content: `Security Scan Summary (${sec.stats.total} findings, scanned ${sec.scannedAt || "unknown"})\nBy severity: ${JSON.stringify(sec.stats.bySeverity)}\nBy category: ${JSON.stringify(sec.stats.byCategory)}` });
               }

@@ -15,6 +15,7 @@ import {
 import { parseSkillFrontmatter } from "./skills-api.mjs";
 import { runAgentLoop, runAgentLoopStream } from "../lib/paaw-agent-loop.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 
 export default async function appsRoute(req, res) {
   // ── GET /api/apps — list apps ──
@@ -84,7 +85,8 @@ export default async function appsRoute(req, res) {
   // ── PATCH /api/apps/:id — update metadata ──
   const appPatchMatch = req.method === "PATCH" && req.url?.match(/^\/api\/apps\/([\w.-]+)$/);
   if (appPatchMatch) {
-    const appId = appPatchMatch[1];
+    let appId;
+    try { appId = sanitizeId(appPatchMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
     const patchBody = await readBody(req);
     let changes;
     try { changes = JSON.parse(patchBody); } catch { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Invalid JSON" })); return true; }
@@ -112,7 +114,8 @@ export default async function appsRoute(req, res) {
   {
     const m = req.method === "GET" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
     if (m) {
-      const appId = m[1];
+      let appId;
+      try { appId = sanitizeId(m[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
       const dataDir = resolve(DATA_HOME, "app-data");
       await mkdir(dataDir, { recursive: true });
       try {
@@ -131,7 +134,8 @@ export default async function appsRoute(req, res) {
   {
     const m = req.method === "PUT" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
     if (m) {
-      const appId = m[1];
+      let appId;
+      try { appId = sanitizeId(m[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
       const dataDir = resolve(DATA_HOME, "app-data");
       await mkdir(dataDir, { recursive: true });
       const filePath = join(dataDir, `${appId}.json`);
@@ -153,7 +157,8 @@ export default async function appsRoute(req, res) {
   {
     const m = req.method === "POST" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
     if (m) {
-      const appId = m[1];
+      let appId;
+      try { appId = sanitizeId(m[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
       const dataDir = resolve(DATA_HOME, "app-data");
       await mkdir(dataDir, { recursive: true });
       const filePath = join(dataDir, `${appId}.json`);
@@ -182,7 +187,9 @@ export default async function appsRoute(req, res) {
   {
     const m = req.method === "DELETE" && req.url?.match(/^\/api\/app-data\/([\w.-]+)\/([\w.-]+)(?:\?.*)?$/);
     if (m) {
-      const [, appId, itemId] = m;
+      const [, rawAppId, itemId] = m;
+      let appId;
+      try { appId = sanitizeId(rawAppId); } catch (err) { sendPathTraversalError(res, err); return true; }
       const dataDir = resolve(DATA_HOME, "app-data");
       await mkdir(dataDir, { recursive: true });
       const filePath = join(dataDir, `${appId}.json`);
@@ -206,7 +213,9 @@ export default async function appsRoute(req, res) {
   {
     const m = req.method === "PATCH" && req.url?.match(/^\/api\/app-data\/([\w.-]+)\/([\w.-]+)(?:\?.*)?$/);
     if (m) {
-      const [, appId, itemId] = m;
+      const [, rawAppId, itemId] = m;
+      let appId;
+      try { appId = sanitizeId(rawAppId); } catch (err) { sendPathTraversalError(res, err); return true; }
       const dataDir = resolve(DATA_HOME, "app-data");
       await mkdir(dataDir, { recursive: true });
       const filePath = join(dataDir, `${appId}.json`);
@@ -235,7 +244,8 @@ export default async function appsRoute(req, res) {
   {
     const m = req.method === "POST" && req.url?.match(/^\/api\/apps\/([\w.-]+)\/exec(?:\?.*)?$/);
     if (m) {
-      const appId = m[1];
+      let appId;
+      try { appId = sanitizeId(m[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
       const appDir = join(APPS_ROOT, appId);
       const result = { appId, output: "", error: null, exitCode: null };
       try {
@@ -325,7 +335,8 @@ export default async function appsRoute(req, res) {
   {
     const m = req.method === "POST" && req.url?.match(/^\/api\/app-run\/([\w.-]+)(?:\?.*)?$/);
     if (m) {
-      const appId = m[1];
+      let appId;
+      try { appId = sanitizeId(m[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
       const raw = await readBody(req);
       let parsed = {};
       try { parsed = JSON.parse(raw); } catch {}
@@ -426,7 +437,8 @@ export default async function appsRoute(req, res) {
   {
     const m = (req.method === "GET" || req.method === "HEAD") && req.url?.match(/^\/api\/app\/([\w.-]+)(?:\?.*)?$/);
     if (m) {
-      const appId = m[1];
+      let appId;
+      try { appId = sanitizeId(m[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
       try {
         const html = await readFile(join(APPS_ROOT, appId, "app.html"), "utf-8");
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate" });
@@ -443,7 +455,8 @@ export default async function appsRoute(req, res) {
   {
     const m = req.method === "DELETE" && req.url?.match(/^\/api\/app\/([\w.-]+)(?:\?.*)?$/);
     if (m) {
-      const appId = m[1];
+      let appId;
+      try { appId = sanitizeId(m[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
       const appDir = join(APPS_ROOT, appId);
       try {
         await unlink(join(appDir, "app.html")).catch(() => {});
@@ -466,7 +479,8 @@ export default async function appsRoute(req, res) {
   {
     const m = req.method === "DELETE" && req.url?.match(/^\/api\/paaw\/apps\/([\w.-]+)$/);
     if (m) {
-      const appId = m[1];
+      let appId;
+      try { appId = sanitizeId(m[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
       const appDir = join(APPS_ROOT, appId);
       try {
         if (!existsSync(appDir)) {
@@ -490,7 +504,8 @@ export default async function appsRoute(req, res) {
   {
     const m = req.method === "GET" && req.url?.match(/^\/api\/paaw\/app-chat\/([\w.-]+)$/);
     if (m) {
-      const appId = m[1];
+      let appId;
+      try { appId = sanitizeId(m[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
       try {
         const chatPath = join(APPS_ROOT, appId, "builder-chat.json");
         const data = await readFile(chatPath, "utf-8");
@@ -506,7 +521,8 @@ export default async function appsRoute(req, res) {
   {
     const m = req.method === "PUT" && req.url?.match(/^\/api\/paaw\/app-chat\/([\w.-]+)$/);
     if (m) {
-      const appId = m[1];
+      let appId;
+      try { appId = sanitizeId(m[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
       try {
         const body = JSON.parse(await readBody(req));
         const appDir = join(APPS_ROOT, appId);
@@ -526,7 +542,8 @@ export default async function appsRoute(req, res) {
   {
     const m = req.method === "POST" && req.url?.match(/^\/api\/app\/([\w.-]+)\/publish(?:\?.*)?$/);
     if (m) {
-      const appId = m[1];
+      let appId;
+      try { appId = sanitizeId(m[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
       const appDir = join(APPS_ROOT, appId);
       try {
         const jsonPath = join(appDir, "app.json");
@@ -550,7 +567,8 @@ export default async function appsRoute(req, res) {
   {
     const m = req.method === "GET" && req.url?.match(/^\/api\/app\/([\w.-]+)\/status(?:\?.*)?$/);
     if (m) {
-      const appId = m[1];
+      let appId;
+      try { appId = sanitizeId(m[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
       try {
         const filePath = join(APPS_ROOT, appId, "app.html");
         const s = await stat(filePath);
@@ -627,7 +645,7 @@ export default async function appsRoute(req, res) {
     if (!htmlPath || !htmlPath.startsWith("/")) { res.writeHead(400); res.end("Missing path"); return true; }
     if (!htmlPath.includes("/paaw/") && !htmlPath.includes(PHYSICAL_SKILL_ROOT)) { res.writeHead(403); res.end("Forbidden"); return true; }
     try {
-      const html = await readFile(htmlPath, "utf-8");
+      const html = await readFile(htmlPath, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選報表路徑（localhost 單人工具，已限 /paaw/ 前綴）
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(html);
     } catch { res.writeHead(404); res.end("Not found"); }

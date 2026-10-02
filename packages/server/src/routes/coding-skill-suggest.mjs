@@ -26,7 +26,7 @@ export default async function skillSuggestRoutes(req, res, next) {
 
   // ── GET — deterministic 建議清單（零 token、秒級）──
   if (url === "/api/coding-project/skill-suggest" && method === "GET") {
-    if (!projectPath || !existsSync(projectPath)) {
+    if (!projectPath || !existsSync(projectPath)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "path required" }));
       return true;
@@ -53,7 +53,7 @@ export default async function skillSuggestRoutes(req, res, next) {
       body = JSON.parse(buf || "{}");
     } catch { /* empty ok */ }
     const path = body.path || projectPath;
-    if (!path || !existsSync(path)) {
+    if (!path || !existsSync(path)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "path required" }));
       return true;

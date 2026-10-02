@@ -27,11 +27,11 @@ export default async function janitorRoutes(req, res) {
     let file;
     if (src === "app") {
       // log4j 式日期檔名：讀最新的 app-console-YYYY-MM-DD.log（log/ 中央目錄）
-      const logsDir = join(LOG_HOME, "app-console", logSlug(q.cwd || PAAW_ROOT));
-      let target = join(logsDir, "app-console.log");
+      const logsDir = join(LOG_HOME, "app-console", logSlug(q.cwd || PAAW_ROOT)); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具；logSlug 已 slug 化）
+      let target = join(logsDir, "app-console.log"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具；logSlug 已 slug 化）
       try {
-        const dated = readdirSync(logsDir).filter(f => /^app-console-\d{4}-\d{2}-\d{2}\.log$/.test(f)).sort();
-        if (dated.length > 0) target = join(logsDir, dated[dated.length - 1]);
+        const dated = readdirSync(logsDir).filter(f => /^app-console-\d{4}-\d{2}-\d{2}\.log$/.test(f)).sort(); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具；logSlug 已 slug 化）
+        if (dated.length > 0) target = join(logsDir, dated[dated.length - 1]); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具；logSlug 已 slug 化）
       } catch { /* 目錄不存在走 fallback */ }
       file = target;
     } else {
@@ -40,9 +40,9 @@ export default async function janitorRoutes(req, res) {
     try {
       let data = "";
       let rotated = false;
-      const exists = existsSync(file);
+      const exists = existsSync(file); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具；logSlug 已 slug 化）
       if (exists) {
-        const st = statSync(file);
+        const st = statSync(file); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具；logSlug 已 slug 化）
         let size = st.size;
         let offset = Math.max(0, parseInt(q.offset || "0", 10) || 0);
         // 2026-09-14 fix：offset 超過檔案大小 = 檔案輪替/縮小 → 跳到新檔尾（否則永遠讀不到新內容）
@@ -58,10 +58,10 @@ export default async function janitorRoutes(req, res) {
         const len = Math.min(size - offset, 512 * 1024); // 單次最多 512KB
         let consumed = 0;
         if (len > 0) {
-          const fd = openSync(file, "r");
+          const fd = openSync(file, "r"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具；logSlug 已 slug 化）
           try {
             const buf = Buffer.alloc(len);
-            readSync(fd, buf, 0, len, offset);
+            readSync(fd, buf, 0, len, offset); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具；logSlug 已 slug 化）
             // 2026-09-14 fix（真 bug）：位元組邊界切在多位元組字中間（中文/emoji）→
             //   舊碼 buf.toString 產生 �，且 nextOffset 用重編碼長度會跳 byte（錯位）。
             //   修：頭尾不完整序列各丢最多 1 字，offset 照全窗口推進（零錯位零無限迴圈）。
@@ -81,7 +81,7 @@ export default async function janitorRoutes(req, res) {
             }
             data = buf.toString("utf-8", start, end);
             consumed = len; // 檔案 offset 照全窗口推進（丢的字元不重讀，防無限迴圈）
-          } finally { try { closeSync(fd); } catch {} }
+          } finally { try { closeSync(fd); } catch {} } // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具；logSlug 已 slug 化）
         }
         if (rotated) data = `\n──── log rotated（檔案換新，跳到最新 64KB）────\n${data}`;
         return json(res, { src, file, exists: true, size, rotated, nextOffset: offset + consumed, data });

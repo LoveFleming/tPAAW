@@ -21,6 +21,7 @@ import {
   browserActions, recordBrowserAction, setVisualMode, resizeBrowserViewport,
 } from "../lib/browser-session.mjs";
 import { getBrowserSetupStatus } from "../lib/browser-setup.mjs";
+import { safeResolve, sendPathTraversalError } from "../lib/coding-security.mjs";
 
 function readBody(req) {
   return new Promise((r) => {
@@ -197,7 +198,13 @@ export default async function browserRoute(req, res) {
     const f = q.get("f") || "";
     if (!/^[\w.-]+\.(png|jpe?g)$/i.test(f) || f.includes("..")) { json(res, 400, { error: "bad file name" }); return true; }
     const { existsSync: _ex, readFileSync: _rd } = await import("fs");
-    const p = join(browserShotDir(key), f);
+    let p;
+    try {
+      p = safeResolve(browserShotDir(key), f);
+    } catch (err) {
+      sendPathTraversalError(res, err);
+      return true;
+    }
     try {
       if (!_ex(p)) { json(res, 404, { error: "shot not found" }); return true; }
       const buf = _rd(p);
@@ -263,7 +270,7 @@ export default async function browserRoute(req, res) {
 
   // GET /api/browser/screenshot?ru= — latest.png（per instance 目錄）
   if (url === "/api/browser/screenshot" && method === "GET") {
-    const latest = join(browserShotDir(key), "latest.png");
+    const latest = safeResolve(browserShotDir(key), "latest.png");
     try {
       if (!existsSync(latest)) { json(res, 404, { error: "no screenshot yet" }); return true; }
       const buf = readFileSync(latest);
