@@ -8,7 +8,7 @@
 import { describe, it, expect } from "vitest";
 import { tmpdir } from "os";
 import { join } from "path";
-import { safeResolve } from "../../packages/server/src/lib/coding-security.mjs";
+import { safeResolve, sanitizeId } from "../../packages/server/src/lib/coding-security.mjs";
 
 describe("safeResolve — path traversal guard", () => {
   const root = join(tmpdir(), "paaw-saferesolve-root");
@@ -57,5 +57,32 @@ describe("safeResolve — path traversal guard", () => {
         expect(result.startsWith(root)).toBe(true);
       }
     });
+  });
+});
+
+// ── 2026-10-02 補：sanitizeId 覆蓋（crewId/sessionId 白名單）──
+describe("sanitizeId — identifier 白名單", () => {
+  it("允許合法 id（含 dot crewId）", () => {
+    expect(sanitizeId("coding.architect")).toBe("coding.architect");
+    expect(sanitizeId("s-2026-10-02-ab12")).toBe("s-2026-10-02-ab12");
+    expect(sanitizeId("task_42")).toBe("task_42");
+  });
+
+  it("拒絕路徑字元與穿越", () => {
+    expect(() => sanitizeId("../etc/passwd")).toThrow();
+    expect(() => sanitizeId("a/b")).toThrow();
+    expect(() => sanitizeId("a\\b")).toThrow();
+    expect(() => sanitizeId("..")).toThrow();
+  });
+
+  it("拒絕非字串與空值", () => {
+    expect(() => sanitizeId(null)).toThrow();
+    expect(() => sanitizeId("")).toThrow();
+    expect(() => sanitizeId(42)).toThrow();
+  });
+
+  it("錯誤帶 PATH_TRAVERSAL code", () => {
+    try { sanitizeId("../x"); expect.unreachable(); }
+    catch (e) { expect(e.code).toBe("PATH_TRAVERSAL"); }
   });
 });

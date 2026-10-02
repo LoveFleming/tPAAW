@@ -200,7 +200,8 @@ describe("gatherContext()", () => {
 
   it("should parse commitCount as integer from git log count", async () => {
     mockShellExecSync.mockImplementation(function mockShellExecSyncImpl(cmd) {
-      if (cmd.includes("find")) return "5";
+      // 2026-08-29 起 countCmd 平台分支：win=find /c、posix=wc -l（mock 對齊兩者）
+      if (cmd.includes("wc -l") || cmd.includes("find /c")) return "5";
       if (cmd.includes("origin/dev")) return "";
       return "";
     });
@@ -210,7 +211,7 @@ describe("gatherContext()", () => {
 
   it("should fallback commitCount to 0 on parse failure", async () => {
     mockShellExecSync.mockImplementation(function mockShellExecSyncImpl(cmd) {
-      if (cmd.includes("find")) throw new Error("git failed");
+      if (cmd.includes("wc -l") || cmd.includes("find /c")) throw new Error("git failed");
       if (cmd.includes("origin/dev")) return "";
       return "";
     });
@@ -247,7 +248,7 @@ describe("gatherContext()", () => {
 
   it("should limit commitCount to 50 for HEAD~N diff commands", async () => {
     mockShellExecSync.mockImplementation(function mockShellExecSyncImpl(cmd) {
-      if (cmd.includes("find")) return "200";
+      if (cmd.includes("wc -l") || cmd.includes("find /c")) return "200";
       return "";
     });
     const ctx = await mod.gatherContext(rootDir);
