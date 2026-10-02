@@ -80,14 +80,14 @@ export function buildCallGraph(parsedResult) {
   }
 
   // Build reverse index: callee → callers (who calls me?)
-  const callersOf = {};
+  const callersOf = Object.create(null); // null-proto：防 toString/__proto__/constructor 等 symbol 名稱撞 Object.prototype
   for (const edge of edges) {
     if (!callersOf[edge.callee]) callersOf[edge.callee] = [];
     callersOf[edge.callee].push(edge.caller);
   }
 
   // Build forward index: caller → callees (who do I call?)
-  const calleesOf = {};
+  const calleesOf = Object.create(null);
   for (const edge of edges) {
     if (!calleesOf[edge.caller]) calleesOf[edge.caller] = [];
     calleesOf[edge.caller].push(edge.callee);
@@ -171,27 +171,80 @@ function resolveCallTarget(calleeName, currentFile, parsedResult) {
 /**
  * Resolve an import source path to a file in the parsed results
  */
-function resolveImportPath(source, fromFile, parsedResult) {
-  // Relative imports: ./foo, ../bar
+function resolveImportPath(source, fromFile, parsedResult, projectRoot) {
+  const EXTS = ["", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".py", ".rs", ".java",
+    "/index.js", "/index.mjs", "/index.ts", "/index.py", "/__init__.py", "/mod.rs"];
+
+  const findBy = (pred) => {
+    // 決定性：先按路徑排序再找
+    const sorted = [...parsedResult.files].sort((a, b) => a.file.localeCompare(b.file));
+    return sorted.find(pred) || null;
+  };
+  const findByPath = (base) => {
+    for (const ext of EXTS) {
+      const found = findBy(f => f.file === base + ext);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  // Relative imports: ./foo, ../bar（JS/TS + Python from .x import）
+  if (source === "." || source === "..") return null; // 套件自身目錄，無單一檔案標的
   if (source.startsWith(".")) {
+    // Python 風格 ".x" / "..x" → "./x" / "../x"
+    const src = source.replace(/^(\.{1,2})(?=\w)/, "$1/"); // 僅 Python 風格 .mod → ./mod；JS ../x 第三字是 / 不命中
     const fromDir = dirname(fromFile);
-    // Resolve relative to project root (not absolute path)
-    // fromFile is like "packages/server/src/routes/chat.mjs"
-    // fromDir is "packages/server/src/routes"
-    // source "../lib/llm-utils.mjs" → "packages/server/src/lib/llm-utils.mjs"
-    let resolved = join(fromDir, source).replace(/\\/g, "/");
-    // Normalize ../
+    let resolved = join(fromDir, src).replace(/\\/g, "/");
     while (resolved.includes("/../")) {
       resolved = resolved.replace(/[^/]+\/\.\.\//, "");
     }
-    resolved = resolved.replace(/^\.\//, "");
+    resolved = resolved.replace(/^\.\//, "").replace(/\/\.\//g, "/").replace(/\/$/, "");
+    return findByPath(resolved);
+  }
 
-    // Try with extensions
-    for (const ext of ["", ".js", ".mjs", ".ts", ".tsx", ".jsx", "/index.js", "/index.mjs", "/index.ts"]) {
-      const candidate = resolved + ext;
-      const found = parsedResult.files.find(f => f.file === candidate);
+  // Rust crate:: / self:: — crate 對應 src/ 樹（含自 crate 名引用：serde_json::x → src/x）
+  let rustSource = source;
+  if (projectRoot && /^[\w_]+::/.test(source)) {
+    try {
+      const cargo = readFileSync(join(projectRoot, "Cargo.toml"), "utf-8");
+      const m = /^\s*name\s*=\s*"([\w-]+)"/m.exec(cargo);
+      if (m && source.startsWith(m[1] + "::")) rustSource = "crate::" + source.slice(m[1].length + 2);
+    } catch {}
+  }
+  if (/^(crate|self)::/.test(rustSource)) {
+    const p = rustSource.replace(/^(crate|self)::/, "").replace(/::/g, "/").replace(/\/+$/, "");
+    for (const base of [`src/${p}`, p]) {
+      const found = findByPath(base);
       if (found) return found;
     }
+    return null;
+  }
+
+  // Java FQCN：com.x.y.Z → 副檔名 .java、路徑後綴比對（JDK/外部庫自然無命中）
+  if (/^[a-z]\w*(\.[a-z]\w*)*\.[A-Z]\w*$/.test(source)) {
+    const rel = source.replace(/\./g, "/") + ".java";
+    return findBy(f => f.file === rel || f.file.endsWith("/" + rel));
+  }
+
+  // Go：module path（go.mod module X）+ 子路徑 → 目錄下第一個 .go（排序決定性）
+  if (projectRoot && /^[a-z][\w.-]*\//i.test(source)) {
+    try {
+      const goMod = readFileSync(join(projectRoot, "go.mod"), "utf-8");
+      const m = /^module\s+(\S+)/m.exec(goMod);
+      if (m && (source === m[1] || source.startsWith(m[1] + "/"))) {
+        const rest = source === m[1] ? "" : source.slice(m[1].length + 1);
+        const dirPrefix = rest ? rest + "/" : "";
+        const found = findBy(f => f.file.endsWith(".go") && (dirPrefix ? (f.file.startsWith(dirPrefix) && !f.file.slice(dirPrefix.length).includes("/")) : !f.file.includes("/")) && !f.file.endsWith("_test.go"));
+        if (found) return found;
+      }
+    } catch {}
+  }
+
+  // Python 絕對 import：x.y.z → x/y/z.py 或 x/y/z/__init__.py（root 相對）
+  if (/^[a-z_]\w*(\.[a-z_]\w*)+$/i.test(source)) {
+    const p = source.replace(/\./g, "/");
+    const found = findByPath(p) || findByPath(p + "/__init__");
+    if (found) return found;
   }
 
   // Absolute/package imports — try to match by package name
@@ -204,7 +257,7 @@ function resolveImportPath(source, fromFile, parsedResult) {
       `packages/${pkgName}/index.ts`,
     ];
     for (const c of candidates) {
-      const found = parsedResult.files.find(f => f.file === c);
+      const found = findBy(f => f.file === c);
       if (found) return found;
     }
   }
@@ -313,8 +366,8 @@ function traceCallChain(funcId, callGraph, visited, maxDepth) {
 /**
  * Build file-level dependency graph from imports/exports
  */
-export function buildDependencyGraph(parsedResult) {
-  const files = {};
+export function buildDependencyGraph(parsedResult, projectRoot) {
+  const files = Object.create(null);
   const edges = [];
 
   for (const file of parsedResult.files) {
@@ -330,7 +383,7 @@ export function buildDependencyGraph(parsedResult) {
     }
 
     for (const imp of file.imports) {
-      const targetFile = resolveImportPath(imp.source, file.file, parsedResult);
+      const targetFile = resolveImportPath(imp.source, file.file, parsedResult, projectRoot);
       const targetPath = targetFile ? targetFile.file : imp.source;
 
       files[fileId].imports.push({
@@ -554,7 +607,7 @@ export function buildSymbolIndex(parsedResult) {
   }
 
   // Build name → symbols index
-  const byName = {};
+  const byName = Object.create(null); // Java 專案必有 toString/equals/hashCode — 撞 prototype 會 crash
   for (const sym of symbols) {
     if (!byName[sym.name]) byName[sym.name] = [];
     byName[sym.name].push(sym);
@@ -590,7 +643,7 @@ export async function buildCodeIntelligence(projectRoot, paawRoot, { persist = t
   // Build all intelligence layers
   const callGraph = buildCallGraph(parsedResult);
   const apiFunctionMap = buildApiFunctionMap(parsedResult, callGraph);
-  const dependencyGraph = buildDependencyGraph(parsedResult);
+  const dependencyGraph = buildDependencyGraph(parsedResult, projectRoot);
   const testCodeMap = buildTestCodeMap(parsedResult);
   const symbolIndex = buildSymbolIndex(parsedResult);
 

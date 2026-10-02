@@ -157,7 +157,7 @@ function javaAnnotationRoute(annoNode) {
   // web-tree-sitter childForFieldName 對部分 field 失效 — 掃 children fallback
   if (annoNode.type !== "annotation" && annoNode.type !== "marker_annotation") return null; // @Xxx(...) vs @Xxx
   const annoName = ((annoNode.childForFieldName("name") || annoNode.children.find(c => c.type === "identifier" || c.type === "scoped_identifier"))?.text || "").split(".").pop();
-  const MAPPING = { GetMapping: "GET", PostMapping: "POST", PutMapping: "PUT", DeleteMapping: "DELETE", PatchMapping: "PATCH", RequestMapping: "" };
+  const MAPPING = { GetMapping: "GET", PostMapping: "POST", PutMapping: "PUT", DeleteMapping: "DELETE", PatchMapping: "PATCH", RequestMapping: "", Path: "" };
   if (!(annoName in MAPPING)) return null;
   const args = annoNode.childForFieldName("arguments") || annoNode.children.find(c => c.type === "annotation_argument_list");
   let pathStr = "";
@@ -166,6 +166,10 @@ function javaAnnotationRoute(annoNode) {
     for (const child of args.children) {
       if (child.type === "string_literal") {
         if (!pathStr) pathStr = child.text.replace(/^"|"$/g, "");
+      } else if (child.type === "array_initializer" || child.type === "element_value_array_initializer") {
+        // @GetMapping({ "/vets" }) 陣列形式 → 取第一個 path
+        const first = child.children.find(c => c.type === "string_literal");
+        if (first && !pathStr) pathStr = first.text.replace(/^"|"$/g, "");
       } else if (child.type === "assignment_expression" || child.type === "element_value_pair") {
         const l = child.childForFieldName("left")?.text || child.children[0]?.text || "";
         const r = child.childForFieldName("right") || child.children[2];
@@ -238,7 +242,7 @@ function extractFileInfo(tree, filePath, language) {
       // use std::collections::HashMap; / use crate::util::{a, b};
       const source = node.childForFieldName("argument")?.text || node.children.find(c => c.type !== "use" && c.type !== ";")?.text || "";
       if (source) {
-        const clean = source.replace(/\s+/g, " ").replace(/\s*\{[^}]*\}/g, "").trim();
+        const clean = source.replace(/\s+/g, " ").replace(/\s*\{[^}]*\}/g, "").replace(/::\*$/, "").replace(/:+$/, "").trim();
         const parts = clean.split("::");
         const lastName = parts[parts.length - 1] || parts[0] || clean;
         info.imports.push({ source: clean, names: [lastName || "use"] });
@@ -250,7 +254,9 @@ function extractFileInfo(tree, filePath, language) {
       const mods = node.children.find(c => c.type === "modifiers");
       if (mods) {
         for (const c of mods.children) {
-          if (c.type === "annotation" && (c.childForFieldName("name")?.text || c.children.find(x => x.type === "identifier")?.text || "").endsWith("RequestMapping")) {
+          const annoName = (c.childForFieldName("name")?.text || c.children.find(x => x.type === "identifier")?.text || "").split(".").pop();
+          // Spring @RequestMapping / JAX-RS @Path 都作為 class-level prefix
+          if (c.type === "annotation" && (annoName === "RequestMapping" || annoName === "Path")) {
             const ri = javaAnnotationRoute(c);
             if (ri && ri.path) javaRoutePrefix = ri.path;
           }
@@ -268,11 +274,21 @@ function extractFileInfo(tree, filePath, language) {
       // Spring routes：@GetMapping("/x") / @RequestMapping(value="/x", method=RequestMethod.POST)
       const mods = node.children.find(c => c.type === "modifiers");
       if (mods) {
+        let jaxMethod = "", jaxPath = "";
         for (const c of mods.children) {
           if (c.type !== "annotation" && c.type !== "marker_annotation") continue;
-          const ri = javaAnnotationRoute(c);
-          if (ri && (ri.path || javaRoutePrefix)) info.routes.push({ method: ri.method, path: (javaRoutePrefix || "") + ri.path, handler: name });
+          const annoName = ((c.childForFieldName("name") || c.children.find(x => x.type === "identifier" || x.type === "scoped_identifier"))?.text || "").split(".").pop();
+          // Spring mapping 註解（Path 留給 JAX-RS 分支，避免 phantom route）
+          const SPRING_MAPS = new Set(["GetMapping", "PostMapping", "PutMapping", "DeleteMapping", "PatchMapping", "RequestMapping"]);
+          if (SPRING_MAPS.has(annoName)) {
+            const ri = javaAnnotationRoute(c);
+            if (ri && (ri.path || javaRoutePrefix)) info.routes.push({ method: ri.method, path: (javaRoutePrefix || "") + ri.path, handler: name });
+          }
+          // JAX-RS（Quarkus）：@GET/@POST 裸註解定動詞 + @Path 定路徑
+          if (["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"].includes(annoName)) jaxMethod = annoName;
+          if (annoName === "Path") { const pi = javaAnnotationRoute(c); if (pi && pi.path) jaxPath = pi.path; }
         }
+        if (jaxMethod) info.routes.push({ method: jaxMethod, path: (javaRoutePrefix || "") + jaxPath, handler: name });
       }
     }
 
@@ -313,6 +329,9 @@ function extractFileInfo(tree, filePath, language) {
         c.type === "function_declaration" ||
         c.type === "lexical_declaration" ||
         c.type === "class_declaration" ||
+        c.type === "type_alias_declaration" ||
+        c.type === "interface_declaration" ||
+        c.type === "enum_declaration" ||
         c.type === "arrow_function" ||
         c.type === "identifier"
       );
@@ -323,6 +342,11 @@ function extractFileInfo(tree, filePath, language) {
         } else if (decl.type === "class_declaration") {
           const name = decl.childForFieldName("name")?.text || "";
           info.exports.push({ kind: "class", name, isDefault: !!defaultKw });
+        } else if (decl.type === "type_alias_declaration" || decl.type === "interface_declaration" || decl.type === "enum_declaration") {
+          // export type X = ... / export interface I {...} / export enum E {...}
+          // 純型別檔（hono src/utils/headers.ts 等）過去 exports=0 被 hasContent 過濾掉 → 依賴全懸空
+          const name = decl.childForFieldName("name")?.text || "";
+          if (name) info.exports.push({ kind: "type", name, isDefault: !!defaultKw });
         } else if (decl.type === "lexical_declaration") {
           // export const X = ...
           for (const child of decl.children) {
