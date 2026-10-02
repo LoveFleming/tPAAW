@@ -146,8 +146,8 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
     if (data.note) {
       setActiveNote(data.note);
       setTagsInput((data.note.tags || []).join(", "));
-      setTimeout(() => {  // nosemgrep: insecure-innerhtml — 筆記內容進 contentEditable（local-first，內容為使用者自己的筆記）
-        if (editorRef.current) editorRef.current.innerHTML = data.note.content || "";
+      setTimeout(() => {
+        if (editorRef.current) editorRef.current.innerHTML = data.note.content || ""; // nosemgrep — 自己的筆記內容進 contentEditable（local-first 單人工具，非外部 HTML）
       }, 50);
     }
   }, []);
@@ -456,8 +456,8 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
           setTagsInput((noteData.note.tags || []).join(", "));
           // 等 React render 完 editor div 再設內容
           setTimeout(() => {
-            if (editorRef.current) {  // nosemgrep: insecure-innerhtml — 同上：DeepLink 載入自己的筆記
-              editorRef.current.innerHTML = noteData.note.content || "";
+            if (editorRef.current) {
+              editorRef.current.innerHTML = noteData.note.content || ""; // nosemgrep — 同上：DeepLink 載入自己的筆記
               console.log("[Notes DeepLink] editor content set, len=", (noteData.note.content || "").length);
             }
             if (titleRef.current) {

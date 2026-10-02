@@ -26,7 +26,7 @@ interface RunReport {
 }
 
 const NUM_FIELDS: { key: keyof JanitorConfig; labelKey: string; hint?: string }[] = [
-  { key: "semgrepKeep", labelKey: "janitor.segrepKeep" },
+  { key: "semgrepKeep", labelKey: "janitor.semgrepKeep" },
   { key: "appConsoleKeep", labelKey: "janitor.appConsoleKeep" },
   { key: "appConsoleMaxMb", labelKey: "janitor.appConsoleMaxMb" },
   { key: "versionsKeep", labelKey: "janitor.versionsKeep" },

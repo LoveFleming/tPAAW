@@ -100,15 +100,15 @@ const markdownComponents = (accent?: string, onDeepLink?: (type: string, params:
         const u = new URL("http://dummy" + href.slice(1));
         const params: Record<string, string> = {};
         u.searchParams.forEach((v: string, k: string) => { params[k] = v; });
-        return <a {...props} href={href} onClick={(e) => { e.preventDefault(); onDeepLink("notes", params); }} style={{ color: "inherit", textDecoration: "underline", cursor: "pointer" }} />;
+        return <a /* nosemgrep: react-props-spreading — react-markdown <a> renderer 傳遞 props */ {...props} href={href} onClick={(e) => { e.preventDefault(); onDeepLink("notes", params); }} style={{ color: "inherit", textDecoration: "underline", cursor: "pointer" }} />;
       } catch { /* fallback */ }
     }
     // 攔截 App deep link
     if (href && href.startsWith("#/app:") && onDeepLink) {
       const appId = href.slice(6);
-      return <a {...props} href={href} onClick={(e) => { e.preventDefault(); onDeepLink("app", { id: appId }); }} style={{ color: accent, textDecoration: "underline", cursor: "pointer", fontWeight: 500 }} />;
+      return <a /* nosemgrep: react-props-spreading — react-markdown <a> renderer 傳遞 props */ {...props} href={href} onClick={(e) => { e.preventDefault(); onDeepLink("app", { id: appId }); }} style={{ color: accent, textDecoration: "underline", cursor: "pointer", fontWeight: 500 }} />;
     }
-    return <a {...props} href={href} target="_blank" rel="noopener noreferrer" />;
+    return <a /* nosemgrep: react-props-spreading — react-markdown <a> renderer 傳遞 props */ {...props} href={href} target="_blank" rel="noopener noreferrer" />;
   },
 });
 

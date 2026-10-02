@@ -341,7 +341,7 @@ export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: 
             rows={3}
             className="flex-1 text-sm outline-none resize-none bg-transparent leading-relaxed"
             style={{ color: tk.textPrimary, maxHeight: 200 }}
-            onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; }}
+            onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; /* nosemgrep: useless-assignment — autoresize reset-then-measure */ t.style.height = Math.min(t.scrollHeight, 200) + "px"; }}
           />
           <button
             onClick={() => handleSend()}

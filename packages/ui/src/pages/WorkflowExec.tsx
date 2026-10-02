@@ -62,7 +62,7 @@ function resolveTemplate(t: string, ctx: Record<string, any>): any {
   for (const p of parts) {
     if (v == null) return undefined;
     if (p === "__proto__" || p === "constructor" || p === "prototype") return undefined;
-    v = v[p];
+    v = v[p]; // nosemgrep: prototype-pollution-loop — p 已過濾 __proto__/constructor/prototype
   } return v;
 }
 

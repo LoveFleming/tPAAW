@@ -156,3 +156,94 @@ export function uiConfirm(message: string, opts: { title?: string; confirmText?:
     root.appendChild(overlay);
   });
 }
+
+export function uiPrompt(message: string, opts: { title?: string; confirmText?: string; cancelText?: string; placeholder?: string; defaultValue?: string } = {}): Promise<string | null> {
+  return new Promise((resolve) => {
+    const root = _ensureContainer();
+    const overlay = document.createElement("div");
+    Object.assign(overlay.style, {
+      position: "fixed",
+      inset: "0",
+      zIndex: "9998",
+      background: "rgba(0,0,0,.25)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      pointerEvents: "auto",
+    } satisfies Partial<CSSStyleDeclaration>);
+
+    const dialog = document.createElement("div");
+    dialog.setAttribute("role", "dialog");
+    Object.assign(dialog.style, {
+      background: "#fff",
+      border: "1px solid #e7e5e4",
+      borderRadius: "10px",
+      boxShadow: "0 12px 32px rgba(0,0,0,.18)",
+      padding: "18px 20px",
+      maxWidth: "400px",
+      width: "calc(100vw - 48px)",
+      fontFamily: "inherit",
+    } satisfies Partial<CSSStyleDeclaration>);
+
+    const title = document.createElement("div");
+    title.textContent = opts.title || "輸入";
+    Object.assign(title.style, { fontWeight: "600", fontSize: "14px", color: "#1c1917", marginBottom: "8px" } satisfies Partial<CSSStyleDeclaration>);
+    dialog.appendChild(title);
+
+    const body = document.createElement("div");
+    body.textContent = String(message ?? "");
+    Object.assign(body.style, { fontSize: "13px", color: "#57534e", whiteSpace: "pre-wrap", lineHeight: "1.6", marginBottom: "10px" } satisfies Partial<CSSStyleDeclaration>);
+    dialog.appendChild(body);
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = opts.defaultValue ?? "";
+    input.placeholder = opts.placeholder || "";
+    Object.assign(input.style, {
+      width: "100%",
+      boxSizing: "border-box",
+      border: "1px solid #d6d3d1",
+      borderRadius: "6px",
+      padding: "7px 10px",
+      fontSize: "13px",
+      marginBottom: "16px",
+      outline: "none",
+    } satisfies Partial<CSSStyleDeclaration>);
+    dialog.appendChild(input);
+
+    const actions = document.createElement("div");
+    Object.assign(actions.style, { display: "flex", justifyContent: "flex-end", gap: "8px" } satisfies Partial<CSSStyleDeclaration>);
+
+    const mkBtn = (label: string, primary: boolean, onClick: () => void) => {
+      const b = document.createElement("button");
+      b.textContent = label;
+      Object.assign(b.style, {
+        border: "1px solid " + (primary ? "#0ea5e9" : "#d6d3d1"),
+        background: primary ? "#0ea5e9" : "#fff",
+        color: primary ? "#fff" : "#44403c",
+        borderRadius: "6px",
+        padding: "6px 14px",
+        fontSize: "13px",
+        cursor: "pointer",
+      } satisfies Partial<CSSStyleDeclaration>);
+      b.onclick = (e) => { e.stopPropagation(); onClick(); };
+      return b;
+    };
+
+    const done = (v: string | null) => { overlay.remove(); resolve(v); };
+    actions.appendChild(mkBtn(opts.cancelText || "取消", false, () => done(null)));
+    actions.appendChild(mkBtn(opts.confirmText || "確定", true, () => done(input.value)));
+    dialog.appendChild(actions);
+
+    input.onkeydown = (e) => {
+      if (e.key === "Enter") { e.preventDefault(); done(input.value); }
+      if (e.key === "Escape") { e.preventDefault(); done(null); }
+    };
+
+    overlay.appendChild(dialog);
+    overlay.onclick = () => done(null);
+    dialog.onclick = (e) => e.stopPropagation();
+    root.appendChild(overlay);
+    setTimeout(() => { input.focus(); input.select(); }, 0);
+  });
+}

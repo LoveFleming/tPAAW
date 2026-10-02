@@ -113,7 +113,7 @@ export default function CronJobsPage() {
         console.log(`[CronJobs] Loading skill inputs for: ${formSkillId}`);
         fetch(`${API}/api/skills/${encodeURIComponent(formSkillId)}`)
             .then(r => {
-                console.log(`[CronJobs] /api/skills/${formSkillId} status:`, r.status);
+                console.log(`[CronJobs] /api/skills/${formSkillId} status:`, r.status); // nosemgrep: unsafe-formatstring — 模板無 % 指示符
                 return r.ok ? r.json() : null;
             })
             .then((data: any) => {

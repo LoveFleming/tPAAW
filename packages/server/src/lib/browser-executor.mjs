@@ -358,7 +358,7 @@ if (_isMain && process.argv.includes("--self-test")) {
     const ce = await getConsoleErrors({ releaseUnitId: RU });
     step("getConsoleErrors", ce.items.some(x => /selftest-console-error/.test(x.text)), `${ce.count} errors`);
     // 6. failed request（連不通的 port）
-    await page.evaluate(() => { fetch("http://127.0.0.1:59999/x").catch(() => {}); });
+    await page.evaluate(() => { fetch("http://127.0.0.1:59999/x").catch(() => {}); }); // nosemgrep: react-insecure-request — self-test 刻意 fetch 死 port 驗證 failed-request 捕捉
     await new Promise(r => setTimeout(r, 800));
     const fr = await getFailedRequests({ releaseUnitId: RU });
     step("getFailedRequests", fr.items.length > 0, `${fr.count} failed`);

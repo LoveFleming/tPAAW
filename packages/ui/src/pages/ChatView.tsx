@@ -259,15 +259,15 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
           const u = new URL("http://dummy" + href.slice(1)); // /notes?note=xxx
           const params: Record<string, string> = {};
           u.searchParams.forEach((v, k) => { params[k] = v; });
-          return <a {...props} href={href} onClick={(e) => { e.preventDefault(); onDeepLink?.("notes", params); }} style={{ color: "inherit", textDecoration: "underline", cursor: "pointer" }} />;
+          return <a /* nosemgrep: react-props-spreading — react-markdown <a> renderer 傳遞 props */ {...props} href={href} onClick={(e) => { e.preventDefault(); onDeepLink?.("notes", params); }} style={{ color: "inherit", textDecoration: "underline", cursor: "pointer" }} />;
         } catch { /* fallback */ }
       }
       // 攔截 App deep link: #/app:bookmarks
       if (href && href.startsWith("#/app:")) {
         const appId = href.slice(6);
-        return <a {...props} href={href} onClick={(e) => { e.preventDefault(); onOpenApp?.(appId); }} style={{ color: accentColor, textDecoration: "underline", cursor: "pointer", fontWeight: 500 }} />;
+        return <a /* nosemgrep: react-props-spreading — react-markdown <a> renderer 傳遞 props */ {...props} href={href} onClick={(e) => { e.preventDefault(); onOpenApp?.(appId); }} style={{ color: accentColor, textDecoration: "underline", cursor: "pointer", fontWeight: 500 }} />;
       }
-      return <a {...props} href={href} target="_blank" rel="noopener noreferrer" />;
+      return <a /* nosemgrep: react-props-spreading — react-markdown <a> renderer 傳遞 props */ {...props} href={href} target="_blank" rel="noopener noreferrer" />;
     },
   }), [accentColor, onDeepLink, onOpenApp]);
 
@@ -398,7 +398,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
 
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = "auto"; // nosemgrep: useless-assignment — autoresize 必要的 reset-then-measure 模式
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 150) + "px";
     }
   }, [input]);

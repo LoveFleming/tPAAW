@@ -717,7 +717,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                         value={taskInput}
                                         onChange={e => {
                                             setTaskInput(e.target.value);
-                                            e.target.style.height = "auto";
+                                            e.target.style.height = "auto"; // nosemgrep: useless-assignment — autoresize reset-then-measure
                                             e.target.style.height = Math.min(e.target.scrollHeight, 400) + "px";
                                         }}
                                         onKeyDown={e => {

@@ -52,6 +52,7 @@ import { AGENT_RULES } from "../lib/agent-rules.mjs";
 import { readFileSync as readSync } from "fs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { stableStringify } from "../lib/stable-stringify.mjs";
 
 // ── Feature Map Summary (injected into system prompt) ──
 async function getFeatureSummary(cwd) {
@@ -644,7 +645,7 @@ ${memoryContext}
         "Authorization": `Bearer ${provider.apiKey}`,
         ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
       },
-      body: JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, ...summaryMessages], temperature: 0.3 }),
+      body: stableStringify({ model, messages: [{ role: "system", content: systemPrompt }, ...summaryMessages], temperature: 0.3 }),
     });
     const data = await res.json();
     fullText = data.choices?.[0]?.message?.content || fullText;
@@ -729,7 +730,7 @@ export default async function a2aRoutes(req, res) {
           const featureSummary = await getFeatureSummary(cwd || PAAW_ROOT);
           if (featureSummary) extraContext.push({ source: "feature-map", content: featureSummary });
           // Code Intelligence
-          const ciFile = join(cwd || PAAW_ROOT, ".paaw", "code-intelligence", "code-intelligence.json"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          const ciFile = join(cwd || PAAW_ROOT, ".paaw", "code-intelligence", "code-intelligence.json"); // nosemgrep: express-path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
           if (existsSync(ciFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
             try {
               const ci = JSON.parse(readSync(ciFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
@@ -745,7 +746,7 @@ export default async function a2aRoutes(req, res) {
             } catch {}
           }
           // Security Scan
-          const secFile = join(cwd || PAAW_ROOT, ".paaw", "security", "scan-results.json"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          const secFile = join(cwd || PAAW_ROOT, ".paaw", "security", "scan-results.json"); // nosemgrep: express-path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
           if (existsSync(secFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
             try {
               const sec = JSON.parse(readSync(secFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）

@@ -13,7 +13,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useI18n } from "../i18n";
 import API_BASE from "../api";
 import MarkdownText from "./MarkdownText";
-import { uiAlertError, uiConfirm } from "./ui/uiFeedback";
+import { uiAlertError, uiConfirm, uiPrompt } from "./ui/uiFeedback";
 
 // ── Types ──
 // ── Feature-first Task Model (2026-09-01) ──
@@ -538,7 +538,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
             <div className="flex gap-2 mb-3">
               <button onClick={() => handleViewDiff(selected.id)} className="text-xs px-2 py-1 rounded" style={{ background: theme.bgMuted, color: theme.text }}>Diff</button>
               <button onClick={() => handleGitStage(selected.id)} className="text-xs px-2 py-1 rounded" style={{ background: theme.bgMuted, color: theme.text }}>Stage</button>
-              <button onClick={() => { const msg = prompt("Commit message:"); if (msg) handleGitCommit(selected.id, msg, true); }} className="text-xs px-2 py-1 rounded" style={{ background: theme.bgMuted, color: theme.text }}>Commit</button>
+              <button onClick={() => { void (async () => { const msg = await uiPrompt("Commit message:", { title: "Git Commit" }); if (msg) handleGitCommit(selected.id, msg, true); })(); }} className="text-xs px-2 py-1 rounded" style={{ background: theme.bgMuted, color: theme.text }}>Commit</button>
               <button onClick={() => handleDelete(selected.id)} className="text-xs px-2 py-1 rounded" style={{ background: "#fef2f2", color: "#dc2626" }}>Delete</button>
             </div>
           </div>

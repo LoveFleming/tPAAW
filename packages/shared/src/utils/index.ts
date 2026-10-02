@@ -23,7 +23,7 @@ export function resolveTemplate(
       if (value == null) return "";
       // 2026-10-02：原型污染防護（semgrep prototype-pollution-loop）— 路徑段不得指向原型鏈
       if (part === "__proto__" || part === "constructor" || part === "prototype") return "";
-      value = value[part];
+      value = value[part]; // nosemgrep: prototype-pollution-loop — part 已過濾原型鏈屬性
     }
     return value != null ? String(value) : "";
   });

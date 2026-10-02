@@ -167,7 +167,7 @@ function CodeView({ content, fileName, filePath, active }: { content: string; fi
   // Split highlighted HTML into per-line chunks
   const highlightedLines = useMemo(() => {
     const temp = document.createElement("div");
-    temp.innerHTML = highlighted;  // nosemgrep: insecure-innerhtml — hljs 輸出（預設跳脫輸入）拆行用，非外部 HTML
+    temp.innerHTML = highlighted; // nosemgrep — hljs 輸出（預設跳脫輸入）僅供拆行，非外部 HTML
     // hljs outputs <span>s that may span multiple lines — split by \n
     const html = temp.innerHTML;
     return html.split("\n");
@@ -306,7 +306,7 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
   }, [filePath]); // ONLY filePath — loadedPathRef never triggers re-run
 
   const safeRoot = projectRoot || '';
-  const relativePath = safeRoot ? filePath.replace(new RegExp(`^${safeRoot.replace(/[\\/]+/g, '/').replace(/\/$/, '')}/?`), '') : filePath;
+  const relativePath = safeRoot ? filePath.replace(new RegExp(`^${safeRoot.replace(/[\\/]+/g, '/').replace(/\/$/, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/?`), '') : filePath; // nosemgrep: detect-non-literal-regexp — safeRoot 已全量跳脫 metachar
   const fileName = pathBasename(filePath);
   const fileType = detectFileType(fileName);
 

@@ -210,8 +210,8 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
   const backoffRef = useRef(1000);
 
   const connectWs = useCallback(() => {
-    if (!mountedRef.current) return;  // nosemgrep: detect-insecure-websocket — 連自己 server 的 WS（local-first 無 TLS）
-    const wsUrl = `ws://${window.location.hostname}:${WS_PORT}`;
+    if (!mountedRef.current) return;
+    const wsUrl = `ws://${window.location.hostname}:${WS_PORT}`; // nosemgrep: detect-insecure-websocket — 連自己 server 的 WS（local-first 無 TLS）
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 

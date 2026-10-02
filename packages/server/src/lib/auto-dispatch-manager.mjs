@@ -950,7 +950,7 @@ export async function runParallelSession(opts = {}) {
       };
     } catch (err) {
       try { _vis?.finish(err?.message || String(err)); } catch {}
-      console.error(`[AutoDispatch:${role}] failed:`, err.message);
+      console.error(`[AutoDispatch:${role}] failed:`, err.message); // nosemgrep: unsafe-formatstring — 模板無 % 指示符，內部 log
       return { role, status: "failed", codename: crew?.codename || role, error: err.message };
     }
   }));

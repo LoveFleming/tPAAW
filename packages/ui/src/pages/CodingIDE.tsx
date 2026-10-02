@@ -1072,7 +1072,7 @@ export default function CodingIDE() {
     }
     try {
       localStorage.setItem(`paaw.vibeide.tabs:${rootPath}`, JSON.stringify({ tabs: tabsToSave, activeMainTabId }));
-      console.log(`[CodingIDE] Saved ${tabsToSave.length} tabs to localStorage, active=${activeMainTabId}`, tabsToSave.map(t => `${t.type}:${t.id}`).join(", "));
+      console.log(`[CodingIDE] Saved ${tabsToSave.length} tabs to localStorage, active=${activeMainTabId}`, tabsToSave.map(t => `${t.type}:${t.id}`).join(", ")); // nosemgrep: unsafe-formatstring — 模板無 % 指示符，內部 log
     } catch (e) {
       console.warn(`[CodingIDE] Failed to save tabs:`, e);
     }
@@ -1129,7 +1129,7 @@ export default function CodingIDE() {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
           const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "browser", "terminal", "ai-crew", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel", "tests"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
-          console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", "));
+          console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", ")); // nosemgrep: unsafe-formatstring — 模板無 % 指示符，內部 log
           // Restore tabs (dashboard is already present)
           // RU 切換後 prev 已是乾淨 dashboard — functional update 不吃 stale ref
           setMainTabs(prev => {
@@ -3511,7 +3511,7 @@ const sendChat = useCallback(async () => {
                             <div className="flex items-start gap-2.5">
                               <span className="text-[11px] font-mono font-semibold text-stone-500 shrink-0 pt-0.5" style={{ minWidth: "78px" }}>
                                 {sess.lastUpdated
-                                  ? new Date(sess.lastUpdated).toLocaleString("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).replace("\n", " ")
+                                  ? new Date(sess.lastUpdated).toLocaleString("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).replace("\n", " ") /* nosemgrep: incomplete-sanitization — 日期格式化斷行替換，非安全跳脫 */
                                   : "—"}
                               </span>
                               <span className="flex-1 min-w-0">
@@ -4252,7 +4252,7 @@ function highlightMatch(text: string, query: string, caseSensitive: boolean): Re
   try {
     const flags = caseSensitive ? "g" : "gi";
     const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const parts = text.split(new RegExp(`(${escaped})`, flags));
+    const parts = text.split(new RegExp(`(${escaped})`, flags)); // nosemgrep: detect-non-literal-regexp — escaped 已全量跳脫（L4254）
     return parts.map((part, i) =>
       part.toLowerCase() === query.toLowerCase()
         ? <mark key={i} className="bg-yellow-200 text-stone-900 rounded px-0.5">{part}</mark>
