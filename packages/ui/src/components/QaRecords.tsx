@@ -11,6 +11,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import MarkdownText from "./MarkdownText";
+import { uiConfirm } from "./ui/uiFeedback";
 
 interface QaIssue {
   severity: "critical" | "major" | "minor";
@@ -139,7 +140,7 @@ export default function QaRecords({ rootPath, theme }: Props) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(`Delete ${id}?`)) return;
+    if (!(await uiConfirm(`Delete ${id}?`, { danger: true }))) return;
     setBusy(true);
     try {
       await fetch(`${base}/${encodeURIComponent(id)}?cwd=${encodeURIComponent(rootPath)}`, { method: "DELETE" });

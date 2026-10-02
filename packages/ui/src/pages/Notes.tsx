@@ -12,6 +12,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import API_BASE from "../api";
+import { uiAlertError, uiConfirm } from "../components/ui/uiFeedback";
 
 // ── Types ──
 
@@ -145,7 +146,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
     if (data.note) {
       setActiveNote(data.note);
       setTagsInput((data.note.tags || []).join(", "));
-      setTimeout(() => {
+      setTimeout(() => {  // nosemgrep: insecure-innerhtml — 筆記內容進 contentEditable（local-first，內容為使用者自己的筆記）
         if (editorRef.current) editorRef.current.innerHTML = data.note.content || "";
       }, 50);
     }
@@ -177,12 +178,12 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
     try {
       data = await api.post("/api/notes/create", { notebookId: activeNotebook, sectionId: targetSection, title: tt("notes.newNote"), content: "" });
     } catch (err: any) {
-      alert(`${tt("notes.createFailed")}\n${err?.message || err}`);
+      uiAlertError(`${tt("notes.createFailed")}\n${err?.message || err}`);
       return;
     }
     if (!data?.ok) {
       // 2026-09-12：原本靜默失敗（沒有 else）— 點了沒反應也不知道原因。現在把 server 錯誤秀出來
-      alert(`${tt("notes.createFailed")}\n${data?.error || `HTTP ${data?.status || "?"}`}`);
+      uiAlertError(`${tt("notes.createFailed")}\n${data?.error || `HTTP ${data?.status || "?"}`}`);
       return;
     }
     {
@@ -201,7 +202,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
 
   const deleteNote = useCallback(async (id: string, nbId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(tt("notes.confirmDelete"))) return;
+    if (!(await uiConfirm(tt("notes.confirmDelete"), { danger: true }))) return;
     await api.del(`/api/notes/delete?id=${id}&notebook=${encodeURIComponent(nbId)}`);
     if (activeNote?.id === id) setActiveNote(null);
     await loadNotes(activeNotebook, activeSection);
@@ -259,11 +260,11 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
     try {
       data = await api.post("/api/notes/sections", { notebookId: activeNotebook, name: newSecName });
     } catch (err: any) {
-      alert(`${tt("notes.createSectionFailed")}\n${err?.message || err}`);
+      uiAlertError(`${tt("notes.createSectionFailed")}\n${err?.message || err}`);
       return;
     }
     if (!data?.ok) {
-      alert(`${tt("notes.createSectionFailed")}\n${data?.error || `HTTP ${data?.status || "?"}`}`);
+      uiAlertError(`${tt("notes.createSectionFailed")}\n${data?.error || `HTTP ${data?.status || "?"}`}`);
       return;
     }
     setNewSecName(""); setShowNewSecInput(false);
@@ -299,7 +300,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
         body: JSON.stringify({ content, prompt: aiPrompt.trim() || undefined, model: fullModelForApi() }),
       });
       const data = await resp.json();
-      if (!data.ok) { alert(data.error || "AI 寫筆記失敗"); return; }
+      if (!data.ok) { uiAlertError(data.error || "AI 寫筆記失敗"); return; }
 
       // 建立新筆記並寫入 AI 產生的內容
       const createResp = await api.post("/api/notes/create", {
@@ -313,7 +314,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
         await loadNote(createResp.note.id, activeNotebook);
       }
     } catch (err) {
-      alert(`AI 寫筆記失敗：${err}`);
+      uiAlertError(`AI 寫筆記失敗：${err}`);
     } finally {
       setAiWriting(false);
     }
@@ -455,7 +456,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
           setTagsInput((noteData.note.tags || []).join(", "));
           // 等 React render 完 editor div 再設內容
           setTimeout(() => {
-            if (editorRef.current) {
+            if (editorRef.current) {  // nosemgrep: insecure-innerhtml — 同上：DeepLink 載入自己的筆記
               editorRef.current.innerHTML = noteData.note.content || "";
               console.log("[Notes DeepLink] editor content set, len=", (noteData.note.content || "").length);
             }

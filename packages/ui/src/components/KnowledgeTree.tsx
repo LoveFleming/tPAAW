@@ -7,6 +7,7 @@ import { fileEmoji } from "./FileEmoji";
 import API_BASE from "../api";
 import FileImportPicker from "./FileImportPicker";
 import MoveFolderPicker from "./MoveFolderPicker";
+import { uiAlertError, uiConfirm } from "./ui/uiFeedback";
 
 // ── Types ──
 interface TreeNode {
@@ -454,7 +455,7 @@ export default function KnowledgeTree({ onOpenFile, onEditFile, onOpenInBriefing
         break;
       }
       case "delete": {
-        if (confirm(`${t("knowledge.confirmDelete", "確定要刪除")} ${node.name}?`)) {
+        if (await uiConfirm(`${t("knowledge.confirmDelete", "確定要刪除")} ${node.name}?`, { danger: true })) {
           await fetch(`${API_BASE}/api/fs/item?path=${encodeURIComponent(node.path)}`, { method: "DELETE" });
           refresh();
         }
@@ -541,10 +542,10 @@ export default function KnowledgeTree({ onOpenFile, onEditFile, onOpenInBriefing
         refresh();
       } else {
         const err = await resp.json().catch(() => ({}));
-        alert(`匯入失敗: ${err.error || resp.statusText}`);
+        uiAlertError(`匯入失敗: ${err.error || resp.statusText}`);
       }
     } catch (e) {
-      alert(`匯入失敗: ${e}`);
+      uiAlertError(`匯入失敗: ${e}`);
     }
   }, [ROOT, importTargetDir, refresh]);
 
@@ -568,10 +569,10 @@ export default function KnowledgeTree({ onOpenFile, onEditFile, onOpenInBriefing
         refresh();
       } else {
         const err = await resp.json().catch(() => ({}));
-        alert(`移動失敗: ${err.error || resp.statusText}`);
+        uiAlertError(`移動失敗: ${err.error || resp.statusText}`);
       }
     } catch (e) {
-      alert(`移動失敗: ${e}`);
+      uiAlertError(`移動失敗: ${e}`);
     }
     setMoveTarget(null);
   }, [moveTarget, refresh]);

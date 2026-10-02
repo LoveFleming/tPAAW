@@ -8,6 +8,7 @@ import AgentConsole, { AgentConsoleHandle } from "../components/AgentConsole";
 
 import API from "../api";
 import ModelSelector from "../components/ModelSelector";
+import { uiAlert, uiAlertError, uiConfirm } from "../components/ui/uiFeedback";
 
 const TEMPLATE_ICONS: Record<string, string> = {
     custom: "✨",
@@ -584,8 +585,8 @@ export default function AppBuilder() {
     }, [loadAppChat]);
 
     // ── Unpublish app ──
-    const handleUnpublish = useCallback((appId: string) => {
-        if (!confirm(`確定要下架「${appId}」嗎?app.html 會被移除,但 app.json 會保留。`)) return;
+    const handleUnpublish = useCallback(async (appId: string) => {
+        if (!(await uiConfirm(`確定要下架「${appId}」嗎?app.html 會被移除,但 app.json 會保留。`, { danger: true }))) return;
         fetch(`${API}/api/app/${appId}`, { method: "DELETE" })
             .then(r => r.json())
             .then(() => loadExistingApps())
@@ -593,15 +594,15 @@ export default function AppBuilder() {
     }, [loadExistingApps]);
 
     // ── Hard delete a draft app ──
-    const handleDeleteApp = useCallback((appId: string) => {
-        if (!confirm(`確定要刪除「${appId}」嗎？所有檔案都會被移除，無法復原。`)) return;
+    const handleDeleteApp = useCallback(async (appId: string) => {
+        if (!(await uiConfirm(`確定要刪除「${appId}」嗎？所有檔案都會被移除，無法復原。`, { danger: true }))) return;
         fetch(`${API}/api/paaw/apps/${appId}`, { method: "DELETE" })
             .then(r => r.json())
             .then((data) => {
                 if (data.ok) loadExistingApps();
-                else alert(`刪除失敗: ${data.error}`);
+                else uiAlertError(`刪除失敗: ${data.error}`);
             })
-            .catch(() => alert("刪除失敗"));
+            .catch(() => uiAlertError("刪除失敗"));
     }, [loadExistingApps]);
 
     // ── Continue building a draft app ──
@@ -830,13 +831,13 @@ export default function AppBuilder() {
                                             e.stopPropagation();
                                             try {
                                                 const resp = await fetch(`${API}/api/paaw/apps/${app.id}/export`);
-                                                if (!resp.ok) { alert(tt("appBuilder.exportFailed")); return; }
+                                                if (!resp.ok) { uiAlertError(tt("appBuilder.exportFailed")); return; }
                                                 const blob = await resp.blob();
                                                 const url = URL.createObjectURL(blob);
                                                 const a = document.createElement("a");
                                                 a.href = url; a.download = `${app.id}-bundle.json`; a.click();
                                                 URL.revokeObjectURL(url);
-                                            } catch (err: any) { alert(`匯出失敗: ${err.message}`); }
+                                            } catch (err: any) { uiAlertError(`匯出失敗: ${err.message}`); }
                                         }}
                                             className="text-stone-300 group-hover:text-blue-400 transition-colors text-xs ml-1"
                                             title={tt("common.export")}>📦</button>
@@ -861,8 +862,8 @@ export default function AppBuilder() {
                                                 method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bundle),
                                             });
                                             const data = await resp.json();
-                                            if (data.ok) { alert(`✅ ${data.message}`); loadExistingApps(); } else { alert(`❌ ${data.error}`); }
-                                        } catch (err: any) { alert(`❌ 匯入失敗: ${err.message}`); }
+                                            if (data.ok) { uiAlert(`✅ ${data.message}`); loadExistingApps(); } else { uiAlertError(`❌ ${data.error}`); }
+                                        } catch (err: any) { uiAlertError(`❌ 匯入失敗: ${err.message}`); }
                                         e.target.value = "";
                                     }} />
                                 </label>

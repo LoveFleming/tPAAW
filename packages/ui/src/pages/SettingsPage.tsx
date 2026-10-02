@@ -6,6 +6,7 @@ import API_BASE from "../api";
 import { invalidateModelSelectorCache } from "../components/ModelSelector";
 import BackupSettings from "./BackupSettings";
 import PluginManager from "./PluginManager";
+import { uiAlertError, uiConfirm } from "../components/ui/uiFeedback";
 
 interface ModelData {
   id: string;
@@ -175,7 +176,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
     const name = newModel.name.trim() || id;
     // 2026-09-12：重複 id 原本靜默失敗（row 關掉、什麼都沒加、沒提示）— 給明確反饋
     if (providers[pid]?.models.some(m => m.id === id)) {
-      alert(t("settings.modelIdExists"));
+      uiAlertError(t("settings.modelIdExists"));
       return;
     }
     setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: [...prev[pid].models, { id, name }] } }));
@@ -406,7 +407,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                       </div>
                     </div>
                   </div>
-                  <button onClick={() => { if (confirm(`刪除 provider「${p.name}」？`)) removeProvider(pid); }}
+                  <button onClick={async () => { if (await uiConfirm(`刪除 provider「${p.name}」？`, { danger: true })) removeProvider(pid); }}
                     className="text-xs px-2 py-1 rounded-md text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-all">{t("common.delete")}</button>
                 </div>
                 <div className="px-5 py-3 space-y-3">

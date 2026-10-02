@@ -16,6 +16,7 @@ export function sendSeedToChat(msg: string) {
 import API_BASE from "../api";
 import { fmtChatTime } from "../utils";
 import { pasteMayContainImage, extractPasteFiles } from "../utils/pasteFiles";
+import { uiAlert } from "../components/ui/uiFeedback";
 
 interface Message {
   role: "user" | "assistant";
@@ -232,7 +233,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
     const imgs = files.filter(f => f.type.startsWith("image/"));
     if (imgs.length === 0) return;
     const room = 4 - pendingImages.length;
-    if (room <= 0) { alert(tt("chat.imageLimit")); return; }
+    if (room <= 0) { uiAlert(tt("chat.imageLimit")); return; }
     const results: { id: string; dataUrl: string }[] = [];
     for (const f of imgs.slice(0, room)) {
       try { results.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, dataUrl: await compressImage(f) }); } catch {}

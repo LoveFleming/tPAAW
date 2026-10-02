@@ -134,7 +134,7 @@ export default function ShellTerminal({ cwd, fontSize = 13, active = true }: She
     });
 
     // ── WebSocket connect ──
-    const wsUrl = `ws://${window.location.hostname}:${WS_PORT}`;
+    const wsUrl = `ws://${window.location.hostname}:${WS_PORT}`;  // nosemgrep: detect-insecure-websocket — 連自己 server 的 WS（local-first 無 TLS）
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 

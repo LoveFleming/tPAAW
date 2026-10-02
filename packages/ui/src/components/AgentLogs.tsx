@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { uiAlertError, uiConfirm } from "./ui/uiFeedback";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 type AgentTask = {
@@ -127,13 +128,13 @@ export default function AgentLogs() {
   }, []);
 
   const deleteRu = useCallback(async (ruName: string) => {
-    if (!confirm(`確定刪除 ${ruName} 的所有執行記錄？`)) return;
+    if (!(await uiConfirm(`確定刪除 ${ruName} 的所有執行記錄？`, { danger: true }))) return;
     try {
       const r = await fetch(`${API_BASE}/api/agent-logs/ru/${encodeURIComponent(ruName)}`, { method: "DELETE" });
       const data = await r.json();
       if (data.ok) { fetchTasks(); fetchRuSummary(); }
-      else { alert(data.error || "刪除失敗"); }
-    } catch { alert("刪除失敗"); }
+      else { uiAlertError(data.error || "刪除失敗"); }
+    } catch { uiAlertError("刪除失敗"); }
   }, [fetchTasks, fetchRuSummary]);
 
   useEffect(() => { fetchTasks(); fetchRuSummary(); }, [fetchTasks, fetchRuSummary]);

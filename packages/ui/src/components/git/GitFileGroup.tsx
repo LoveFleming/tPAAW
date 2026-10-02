@@ -51,7 +51,7 @@ export default function GitFileGroupCard({
         onClick={() => setExpanded(!expanded)}
         className={cn(
           "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors",
-          isCode ? "bg-emerald-50 hover:bg-emerald-100" : isPaaw ? "bg-stone-50 hover:bg-stone-100" : "bg-stone-50 hover:bg-stone-100"
+          isCode ? "bg-emerald-50 hover:bg-emerald-100" : "bg-stone-50 hover:bg-stone-100"
         )}
       >
         <span className={cn("text-[10px] transition-transform", expanded ? "rotate-0" : "-rotate-90")}>▼</span>

@@ -11,6 +11,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
+import { uiConfirm } from "./ui/uiFeedback";
 
 interface SkillItem { id: string; name: string; status: string; bound: boolean; syncedAt: string | null }
 interface AvailItem { id: string; name: string }
@@ -53,7 +54,7 @@ export default function RuSkillManagerModal({ rootPath, theme: t, onClose, onCha
   useEffect(() => { load(); }, [load]);
 
   const act = async (id: string, kind: "sync" | "add" | "remove") => {
-    if (kind === "remove" && !confirm(i18n("rusk.removeConfirm").replace("{id}", id))) return;
+    if (kind === "remove" && !(await uiConfirm(i18n("rusk.removeConfirm").replace("{id}", id), { danger: true }))) return;
     setBusyId(id + kind); setMsg("");
     try {
       let res: Response;

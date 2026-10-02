@@ -167,7 +167,7 @@ function CodeView({ content, fileName, filePath, active }: { content: string; fi
   // Split highlighted HTML into per-line chunks
   const highlightedLines = useMemo(() => {
     const temp = document.createElement("div");
-    temp.innerHTML = highlighted;
+    temp.innerHTML = highlighted;  // nosemgrep: insecure-innerhtml — hljs 輸出（預設跳脫輸入）拆行用，非外部 HTML
     // hljs outputs <span>s that may span multiple lines — split by \n
     const html = temp.innerHTML;
     return html.split("\n");

@@ -13,6 +13,7 @@ import API_BASE from "../api";
 import { fmtChatTime } from "../utils";
 import { useI18n } from "../i18n";
 import MarkdownText from "./MarkdownText"; // markdown 渲染（含 GFM table）
+import { uiAlert, uiAlertError } from "./ui/uiFeedback";
 
 // fetch crew 大頭照（AI Crew 頁面同一張）；失敗 fallback emoji
 function useCrewAvatar(agentId: string, enabled: boolean) {
@@ -206,15 +207,15 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
     const texts = files.filter(f => !f.type.startsWith("image/"));
     if (texts.length === 0) return;
     const room = 4 - pendingFiles.length;
-    if (room <= 0) { alert(tt("chat.fileLimit")); return; }
+    if (room <= 0) { uiAlert(tt("chat.fileLimit")); return; }
     const results: { id: string; name: string; size: number; text: string }[] = [];
     for (const f of texts.slice(0, room)) {
-      if (f.size > MAX_FILE_BYTES) { alert(`${f.name}: ${tt("chat.fileTooLarge")}`); continue; }
+      if (f.size > MAX_FILE_BYTES) { uiAlertError(`${f.name}: ${tt("chat.fileTooLarge")}`); continue; }
       try {
         const text = await readAsText(f);
-        if (text.includes("\u0000")) { alert(`${f.name}: ${tt("chat.fileBinary")}`); continue; }
+        if (text.includes("\u0000")) { uiAlertError(`${f.name}: ${tt("chat.fileBinary")}`); continue; }
         results.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: f.name, size: f.size, text });
-      } catch { alert(`${f.name}: ${tt("chat.fileReadFail")}`); }
+      } catch { uiAlertError(`${f.name}: ${tt("chat.fileReadFail")}`); }
     }
     if (results.length > 0) setPendingFiles(p => [...p, ...results].slice(0, 4));
   }, [pendingFiles.length, readAsText, tt]);
@@ -244,7 +245,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
     const imgs = files.filter(f => f.type.startsWith("image/"));
     if (imgs.length === 0) return;
     const room = 4 - pendingImages.length;
-    if (room <= 0) { alert(tt("chat.imageLimit")); return; }
+    if (room <= 0) { uiAlert(tt("chat.imageLimit")); return; }
     const results: { id: string; dataUrl: string }[] = [];
     for (const f of imgs.slice(0, room)) {
       try { results.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, dataUrl: await compressImage(f) }); } catch {}

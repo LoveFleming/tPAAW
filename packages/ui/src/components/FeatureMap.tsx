@@ -11,6 +11,7 @@ import { useI18n } from "../i18n";
 import MarkdownText from "./MarkdownText";
 import { FeatureCockpit } from "./FeatureCockpit";
 import API_BASE from "../api";
+import { uiAlertError } from "./ui/uiFeedback";
 
 interface ApiEntry {
   method: string;
@@ -204,7 +205,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
       setFeatures(prev => prev.map(f => f.id === selectedId ? { ...f, documentation: docsContent, docsUpdatedAt: new Date().toISOString() } : f));
       setEditingDocs(false);
     } catch (err) {
-      alert("Save failed: " + (err instanceof Error ? err.message : String(err)));
+      uiAlertError("Save failed: " + (err instanceof Error ? err.message : String(err)));
     }
     setSavingDocs(false);
   };
@@ -222,7 +223,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
         await fetchFeatures();
       }
     } catch (err) {
-      alert("Create failed: " + (err instanceof Error ? err.message : String(err)));
+      uiAlertError("Create failed: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 

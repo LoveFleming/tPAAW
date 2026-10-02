@@ -58,7 +58,12 @@ function topoSort(nodes: WFNode[], edges: WFEdge[]): WFNode[] {
 function resolveTemplate(t: string, ctx: Record<string, any>): any {
   if (!t.startsWith("{{") || !t.endsWith("}}")) return t;
   const parts = t.slice(2, -2).trim().split("."); let v: any = ctx;
-  for (const p of parts) { if (v == null) return undefined; v = v[p]; } return v;
+  // 2026-10-02：原型污染防護（semgrep prototype-pollution-loop）
+  for (const p of parts) {
+    if (v == null) return undefined;
+    if (p === "__proto__" || p === "constructor" || p === "prototype") return undefined;
+    v = v[p];
+  } return v;
 }
 
 function typeIcon(type?: WFNodeType) {

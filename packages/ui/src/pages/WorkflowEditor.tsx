@@ -26,6 +26,7 @@ interface AppSkill { id: string; name: string; icon: string; skills: string[]; }
 interface ProviderTool { name: string; description: string; provider: string; parameters: { type: string; properties: Record<string, any> }; }
 
 import API from "../api";
+import { uiConfirm } from "../components/ui/uiFeedback";
 
 // ── Start Node ──
 function StartNode({ data, selected }: NodeProps) {
@@ -402,7 +403,7 @@ export default function WorkflowEditor() {
   }, [currentWf, autoSave, setRfNodes]);
 
   const deleteWorkflow = useCallback(async (id: string, name: string) => {
-    if (!confirm(`確定刪除「${name}」？此操作無法復原。`)) return;
+    if (!(await uiConfirm(`確定刪除「${name}」？此操作無法復原。`, { danger: true }))) return;
     try {
       await fetch(`${API}/api/paaw/workflows/${id}`, { method: "DELETE" });
       setWorkflows(prev => prev.filter(w => w.id !== id));

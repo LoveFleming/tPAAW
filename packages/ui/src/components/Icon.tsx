@@ -198,7 +198,7 @@ export default function Icon({ name, size = 16, className = "", style }: IconPro
     }
 
     // If it's a theme icon, render the colorful version with unique gradient IDs
-    const themeRenderer = THEME_ICONS[icon.path];
+    const themeRenderer = THEME_ICONS[icon.path];  // nosemgrep: unsafe-dynamic-method — THEME_ICONS 固定 registry 查表 dispatch
     if (themeRenderer) {
         return <span className={`inline-block shrink-0 ${className}`} style={{ verticalAlign: "middle", ...style }}>{themeRenderer(size, uid)}</span>;
     }

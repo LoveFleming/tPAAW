@@ -3,6 +3,7 @@ import { cn } from "../utils";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import { ChatMessages, type ChatMessageItem, type ChatToolBadge } from "./ChatMessages";
+import { uiAlert } from "./ui/uiFeedback";
 
 // ── Types ──
 
@@ -209,7 +210,7 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
   const backoffRef = useRef(1000);
 
   const connectWs = useCallback(() => {
-    if (!mountedRef.current) return;
+    if (!mountedRef.current) return;  // nosemgrep: detect-insecure-websocket — 連自己 server 的 WS（local-first 無 TLS）
     const wsUrl = `ws://${window.location.hostname}:${WS_PORT}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -366,7 +367,7 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
     const imgs = files.filter(f => f.type.startsWith("image/"));
     if (imgs.length === 0) return;
     const room = 4 - pendingImages.length;
-    if (room <= 0) { alert(tt("chat.imageLimit")); return; }
+    if (room <= 0) { uiAlert(tt("chat.imageLimit")); return; }
     const results = await Promise.all(imgs.slice(0, room).map(async f => {
       try { return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, dataUrl: await compressImage(f) }; } catch { return null; }
     }));

@@ -103,7 +103,7 @@ export default function FileImportPicker({
     }
   };
 
-  const filteredDirs = showHidden ? dirs : dirs;
+  const filteredDirs = dirs;
   const filteredFiles = showHidden
     ? files
     : files.filter((f) => !f.name.startsWith("."));
@@ -255,7 +255,7 @@ export default function FileImportPicker({
                     }}
                     onClick={() => setSelectedFile(f.path)}
                   >
-                    <span className="text-base">{isSelected ? "📄" : "📄"}</span>
+                    <span className="text-base">📄</span>
                     <span
                       className="truncate"
                       style={{

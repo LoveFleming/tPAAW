@@ -11,6 +11,7 @@ import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import API from "../api";
 import { cn } from "../utils";
+import { uiAlert, uiConfirm } from "../components/ui/uiFeedback";
 
 // ── Types ──
 interface Message {
@@ -60,7 +61,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 function formatTime(ts: string | number | undefined): string {
   if (!ts) return "";
-  const d = typeof ts === "number" ? new Date(ts) : new Date(ts);
+  const d = new Date(ts);
   if (isNaN(d.getTime())) return "";
   const now = new Date();
   const diff = now.getTime() - d.getTime();
@@ -401,7 +402,7 @@ export default function HelpDesk({ active = true }: { active?: boolean }) {
   }, [tickets, activeId]);
 
   const deleteTicket = useCallback(async (ticketId: string) => {
-    if (!confirm("確定刪除這個對話？此操作無法復原。")) return;
+    if (!(await uiConfirm("確定刪除這個對話？此操作無法復原。", { danger: true }))) return;
     setTickets((prev) => prev.filter((t) => t.ticketId !== ticketId));
     if (activeId === ticketId) {
       setActiveId(null);
@@ -426,7 +427,7 @@ export default function HelpDesk({ active = true }: { active?: boolean }) {
 
   const createTicket = useCallback(async () => {
     if (!fAgentName.trim() || !fSubject.trim() || !fMessage.trim()) {
-      alert("請填寫 Agent 名稱、主旨和問題內容");
+      uiAlert("請填寫 Agent 名稱、主旨和問題內容");
       return;
     }
     try {

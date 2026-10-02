@@ -6,6 +6,7 @@ import { useI18n } from "../i18n";
 import API_BASE from "../api";
 import FileImportPicker from "./FileImportPicker";
 import MoveFolderPicker from "./MoveFolderPicker";
+import { uiAlertError } from "./ui/uiFeedback";
 
 // ── Types ──
 interface TreeNode {
@@ -651,10 +652,10 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
         refreshTree();
       } else {
         const err = await resp.json().catch(() => ({}));
-        alert(`匯入失敗: ${err.error || resp.statusText}`);
+        uiAlertError(`匯入失敗: ${err.error || resp.statusText}`);
       }
     } catch (e) {
-      alert(`匯入失敗: ${e}`);
+      uiAlertError(`匯入失敗: ${e}`);
     }
   }, [importTargetDir, projectRoot, refreshTree]);
 
@@ -677,10 +678,10 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
         refreshTree();
       } else {
         const err = await resp.json().catch(() => ({}));
-        alert(`移動失敗: ${err.error || resp.statusText}`);
+        uiAlertError(`移動失敗: ${err.error || resp.statusText}`);
       }
     } catch (e) {
-      alert(`移動失敗: ${e}`);
+      uiAlertError(`移動失敗: ${e}`);
     }
     setMoveTarget(null);
   }, [moveTarget, refreshTree]);

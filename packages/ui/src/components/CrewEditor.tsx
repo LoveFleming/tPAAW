@@ -4,6 +4,7 @@ import CrewAvatar from "./CrewAvatar";
 import Icon from "./Icon";
 import { useTheme } from "../theme";
 import API_BASE from "../api";
+import { uiConfirm } from "./ui/uiFeedback";
 
 interface CrewEditorProps {
     crew?: Crew | null;
@@ -87,7 +88,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
 
     const handleDelete = async () => {
         if (!crew || !onDelete) return;
-        if (!confirm(`確定要刪除 ${crew.title} (${crew.id})？這個操作無法復原。`)) return;
+        if (!(await uiConfirm(`確定要刪除 ${crew.title} (${crew.id})？這個操作無法復原。`, { danger: true }))) return;
         setSaving(true);
         try { await onDelete(crew.id); }
         catch (err: any) { setError(err.message || "Delete failed"); }

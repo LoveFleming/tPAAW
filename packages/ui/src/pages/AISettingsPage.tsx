@@ -11,6 +11,7 @@ import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 
 import API_BASE from "../api";
+import { uiConfirm } from "../components/ui/uiFeedback";
 
 interface CategoryFile {
   file: string;
@@ -311,8 +312,8 @@ export default function AISettingsPage() {
                           Edit
                         </button>
                         <button
-                          onClick={() => {
-                            if (confirm(`刪除 ${file}？`)) handleDelete(file);
+                          onClick={async () => {
+                            if (await uiConfirm(`刪除 ${file}？`, { danger: true })) handleDelete(file);
                           }}
                           disabled={deleting === file}
                           className="text-xs px-2 py-1.5 rounded-lg border transition-all"

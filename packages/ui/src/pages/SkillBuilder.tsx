@@ -28,6 +28,7 @@ interface OutputFile { name: string; path: string; size: number; type: string; e
 // ── Constants ──
 import ModelSelector from "../components/ModelSelector";
 import API_BASE from "../api";
+import { uiAlertError } from "../components/ui/uiFeedback";
 
 const EMPTY_FIELD: InputField = { id: "", label: "", description: "", placeholder: "", required: false, multiline: false };
 const DEFAULT_OUTPUT_FIELD: InputField = { id: "output_path", label: "輸出路徑", description: "Skill 執行結果的儲存路徑", placeholder: "例：output/report.html", required: true, multiline: false };
@@ -482,7 +483,7 @@ export default function SkillBuilder() {
     await fetch(`${API_BASE}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: pkgPath, content: buildSkillMd(newForm) }) });
     setShowNewDialog(false); setNewFileName(""); loadFiles(); setSelectedPath(fullPath); setForm(newForm);
     const initInputs: Record<string, string> = {};
-    newForm.inputs.forEach(inp => { initInputs[inp.id] = inp.id === "output_path" ? "" : ""; });
+    newForm.inputs.forEach(inp => { initInputs[inp.id] = ""; });
     setTestInputs(initInputs);
     setSaveStatus("saved"); setTab("builder");
   };
@@ -507,7 +508,7 @@ export default function SkillBuilder() {
         body: JSON.stringify({ requirement, model: model || undefined }),
       });
       const data = await res.json();
-      if (data.error) { alert("AI 生成失敗：" + data.error); return; }
+      if (data.error) { uiAlertError("AI 生成失敗：" + data.error); return; }
 
       // Save prompt info for preview
       if (data.systemPrompt || data.userMessage) {
@@ -540,7 +541,7 @@ export default function SkillBuilder() {
 
       setShowAIGen(false); setAiGenName(""); setAiGenDesc("");
     } catch (err: any) {
-      alert("AI 生成失敗：" + err.message);
+      uiAlertError("AI 生成失敗：" + err.message);
     } finally {
       setAiGenLoading(false);
     }

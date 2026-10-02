@@ -392,7 +392,7 @@ function DiffGroupSection({ group, fileCount }: { group: DiffFileGroup; fileCoun
   return (
     <div className={cn(
       "rounded-lg overflow-hidden border",
-      isCode ? "border-emerald-200" : isPaaw ? "border-stone-200" : "border-stone-200"
+      isCode ? "border-emerald-200" : "border-stone-200"
     )}>
       {/* Group header */}
       <button

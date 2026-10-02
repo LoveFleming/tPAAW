@@ -17,6 +17,7 @@ import { cn } from "../utils";
 import { useI18n } from "../i18n";
 import API_BASE from "../api";
 import MarkdownText from "./MarkdownText";
+import { uiAlert, uiAlertError, uiConfirm } from "./ui/uiFeedback";
 
 // ── Types ──
 interface Issue {
@@ -147,7 +148,7 @@ export default function IssueTracker({ rootPath, theme, onOpenFile, onNavigateTa
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(`Delete ${id}?`)) return;
+    if (!(await uiConfirm(`Delete ${id}?`, { danger: true }))) return;
     try {
       await fetch(`${API_BASE}/api/coding-issues/${id}?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" });
       setSelectedId(null); await fetchIssues(); await fetchStats();
@@ -166,9 +167,9 @@ export default function IssueTracker({ rootPath, theme, onOpenFile, onNavigateTa
     try {
       const res = await fetch(`${API_BASE}/api/coding-issues/import-known?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
       const data = await res.json();
-      alert(data.imported > 0 ? `✅ Imported ${data.imported} issues` : `No new issues`);
+      uiAlert(data.imported > 0 ? `✅ Imported ${data.imported} issues` : `No new issues`);
       await fetchIssues(); await fetchStats();
-    } catch (err) { alert("Import failed: " + (err as Error).message); }
+    } catch (err) { uiAlertError("Import failed: " + (err as Error).message); }
   };
 
   const startEdit = (issue: Issue) => {

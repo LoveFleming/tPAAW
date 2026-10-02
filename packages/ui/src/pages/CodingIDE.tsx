@@ -63,6 +63,7 @@ import CrewManager from "../components/CrewManager";
 import SecurityTab from "../components/SecurityTab";
 import { pasteMayContainImage, extractPasteFiles } from "../utils/pasteFiles";
 import FileViewer from "../pages/FileViewer";
+import { uiAlert, uiAlertError, uiConfirm } from "../components/ui/uiFeedback";
 
 // crewId → a2a agentId（chat 發送與 stream-state 重連共用 — 2026-09-11）
 const CREW_TO_AGENT: Record<string, string> = {
@@ -542,15 +543,15 @@ export default function CodingIDE() {
     const texts = files.filter(f => !f.type.startsWith("image/"));
     if (texts.length === 0) return;
     const room = 4 - pendingChatFiles.length;
-    if (room <= 0) { alert(tt("chat.fileLimit")); return; }
+    if (room <= 0) { uiAlert(tt("chat.fileLimit")); return; }
     const results: { id: string; name: string; size: number; text: string }[] = [];
     for (const f of texts.slice(0, room)) {
-      if (f.size > 2 * 1024 * 1024) { alert(`${f.name}: ${tt("chat.fileTooLarge")}`); continue; }
+      if (f.size > 2 * 1024 * 1024) { uiAlertError(`${f.name}: ${tt("chat.fileTooLarge")}`); continue; }
       try {
         const text = await readChatFileAsText(f);
-        if (text.includes("\u0000")) { alert(`${f.name}: ${tt("chat.fileBinary")}`); continue; }
+        if (text.includes("\u0000")) { uiAlertError(`${f.name}: ${tt("chat.fileBinary")}`); continue; }
         results.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: f.name, size: f.size, text });
-      } catch { alert(`${f.name}: ${tt("chat.fileReadFail")}`); }
+      } catch { uiAlertError(`${f.name}: ${tt("chat.fileReadFail")}`); }
     }
     if (results.length > 0) setPendingChatFiles(prev => [...prev, ...results].slice(0, 4));
   }, [pendingChatFiles.length, readChatFileAsText, tt]);
@@ -577,7 +578,7 @@ export default function CodingIDE() {
     const imgs = files.filter(f => f.type.startsWith("image/"));
     if (imgs.length === 0) return;
     const room = 4 - pendingImages.length;
-    if (room <= 0) { alert(tt("chat.imageLimit")); return; }
+    if (room <= 0) { uiAlert(tt("chat.imageLimit")); return; }
     const results = await Promise.all(imgs.slice(0, room).map(async f => {
       try { return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, dataUrl: await compressChatImage(f) }; } catch { return null; }
     }));
@@ -951,9 +952,9 @@ export default function CodingIDE() {
           payload: { name: pname, method: apiMethod, url: apiUrl, headers: apiHeaders, body: apiBody, streamMode: apiStreamMode },
         }),
       });
-      if (res.ok) { setSaveColOpen(false); setSavePayloadName(""); alert(tt("apiTester.saved")); }
-      else alert(tt("apiTester.saveFailed"));
-    } catch { alert(tt("apiTester.saveFailed")); }
+      if (res.ok) { setSaveColOpen(false); setSavePayloadName(""); uiAlert(tt("apiTester.saved")); }
+      else uiAlertError(tt("apiTester.saveFailed"));
+    } catch { uiAlertError(tt("apiTester.saveFailed")); }
   };
 
   // ── Coding Behavior Tracking ──
@@ -1519,8 +1520,8 @@ export default function CodingIDE() {
   }, [rootPath, expandDir, registerRu]);
 
   // 移除 RU（只移 tab，不碰檔案）
-  const removeRu = useCallback((unit: { id: string; path: string; label: string }) => {
-    if (!window.confirm(tt("ru.removeConfirm"))) return;
+  const removeRu = useCallback(async (unit: { id: string; path: string; label: string }) => {
+    if (!(await uiConfirm(tt("ru.removeConfirm"), { danger: true }))) return;
     setReleaseUnits(prev => prev.filter(u => u.id !== unit.id));
     fetch(`${API_BASE}/api/ru/workspaces?id=${unit.id}`, { method: "DELETE" }).catch(() => {});
     if (rootPath === unit.path) { setRootPath(""); setSidebarTab("ru"); }
@@ -3136,15 +3137,15 @@ const sendChat = useCallback(async () => {
                                   setApiUrl(t.request.path || "");
                                   if (t.request.headers) setApiHeaders(Object.entries(t.request.headers).map(([k, v]) => ({ key: k, value: String(v), enabled: true })));
                                   if (t.request.body) setApiBody(typeof t.request.body === "string" ? t.request.body : JSON.stringify(t.request.body, null, 2));
-                                  alert(`已載入第 1 個 test payload（共 ${payloads.tests.length} 個）`);
+                                  uiAlert(`已載入第 1 個 test payload（共 ${payloads.tests.length} 個）`);
                                 } else if (payloads.endpoint) {
                                   setApiMethod(payloads.tests?.[0]?.request?.method || payloads.request?.method || "GET");
                                   setApiUrl(payloads.endpoint.split(" ").pop() || payloads.request?.path || "");
                                 }
-                              } catch { alert("AI test payload 格式有誤，請在 .paaw/test-payloads/ 檢查"); }
-                            } else { alert("尚未產出 API Test Payload。先點 🧠 Code Understanding"); }
-                          } else { alert("尚未產出 API Test Payload。先點 🧠 Code Understanding"); }
-                        } catch { alert("載入失敗"); }
+                              } catch { uiAlertError("AI test payload 格式有誤，請在 .paaw/test-payloads/ 檢查"); }
+                            } else { uiAlert("尚未產出 API Test Payload。先點 🧠 Code Understanding"); }
+                          } else { uiAlert("尚未產出 API Test Payload。先點 🧠 Code Understanding"); }
+                        } catch { uiAlertError("載入失敗"); }
                       }} className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 font-bold" title="載入 AI 產出的 test payload">
                         🧪 AI
                       </button>

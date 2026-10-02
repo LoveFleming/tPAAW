@@ -62,14 +62,17 @@ export default function ConsoleLogView({ cwd, theme: tk }: { cwd?: string; theme
       border: `1px solid ${active ? "#8b5cf655" : "transparent"}`,
     },
   });
+  const serverBtn = btn(src === "server");
+  const appBtn = btn(src === "app");
+  const followBtn = btn(follow);
 
   return (
     <div className="h-full flex flex-col min-h-0">
       <div className="shrink-0 flex items-center gap-1.5 px-3 py-2 border-b" style={{ borderColor: tk.borderLight }}>
-        <button {...btn(src === "server")} onClick={() => setSrc("server")}>🖥 {t("janitor.consoleServer")}</button>
-        <button {...btn(src === "app")} onClick={() => setSrc("app")}>📦 {t("janitor.consoleApp")}</button>
+        <button className={serverBtn.className} style={serverBtn.style} onClick={() => setSrc("server")}>🖥 {t("janitor.consoleServer")}</button>
+        <button className={appBtn.className} style={appBtn.style} onClick={() => setSrc("app")}>📦 {t("janitor.consoleApp")}</button>
         <div className="flex-1" />
-        <button onClick={() => setFollow(!follow)} {...btn(follow)} title={t("janitor.followTip")}>
+        <button onClick={() => setFollow(!follow)} className={followBtn.className} style={followBtn.style} title={t("janitor.followTip")}>
           {follow ? "⬇ following" : "⏸ paused"}
         </button>
         <button onClick={reset} className="text-xs px-2 py-1 rounded-lg" style={{ color: "#a8a29e" }}>↻</button>

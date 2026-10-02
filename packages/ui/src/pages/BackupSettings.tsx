@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useI18n } from "../i18n";
 import { useTheme } from "../theme";
 import API_BASE from "../api";
+import { uiConfirm } from "../components/ui/uiFeedback";
 
 interface BackupConfig {
   backupDir: string;
@@ -138,7 +139,7 @@ export default function BackupSettings() {
 
   // 還原
   const doRestore = async (filename: string) => {
-    if (!confirm(`確定要從 ${filename} 還原嗎？\n\n⚠️ 現有資料會被覆蓋，系統會先自動建立一份還原前備份。`)) return;
+    if (!(await uiConfirm(`確定要從 ${filename} 還原嗎？\n\n⚠️ 現有資料會被覆蓋，系統會先自動建立一份還原前備份。`, { danger: true }))) return;
     setRestoring(filename);
     try {
       const data = await api.post(`${API_BASE}/api/backup/restore`, { filename });
@@ -157,7 +158,7 @@ export default function BackupSettings() {
 
   // 刪除備份
   const deleteBackup = async (filename: string) => {
-    if (!confirm(`確定刪除 ${filename}？`)) return;
+    if (!(await uiConfirm(`確定刪除 ${filename}？`, { danger: true }))) return;
     const data = await api.del(`${API_BASE}/api/backup/delete?filename=${encodeURIComponent(filename)}`);
     if (data.ok) {
       msg("ok", tt("backup.deleted"));

@@ -13,6 +13,7 @@ import { cn } from "../utils";
 import { useI18n } from "../i18n";
 import MarkdownText from "./MarkdownText";
 import SkillPicker from "./SkillPicker";
+import { uiAlertError, uiConfirm } from "./ui/uiFeedback";
 
 interface ChatMessage {
   role: string;
@@ -297,20 +298,20 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
       });
       setEmConfigDirty(false);
     } catch (e: any) {
-      alert("儲存 EM 設定失敗: " + e.message);
+      uiAlertError("儲存 EM 設定失敗: " + e.message);
     }
   };
 
   const resetEmConfig = async () => {
     if (!rootPath) return;
-    if (!confirm("重置 EM 設定為預設值？")) return;
+    if (!(await uiConfirm("重置 EM 設定為預設值？", { danger: true }))) return;
     try {
       const res = await fetch(`${API_BASE}/api/coding-em/config/reset?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
       const d = await res.json();
       setEmConfig(d.config);
       setEmConfigDirty(false);
     } catch (e: any) {
-      alert("重置失敗: " + e.message);
+      uiAlertError("重置失敗: " + e.message);
     }
   };
 
@@ -785,7 +786,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                     setActiveSessionId("active");
                     await fetchEmSessions();
                   } catch (e: any) {
-                    alert("切換新對話失敗: " + e.message);
+                    uiAlertError("切換新對話失敗: " + e.message);
                   }
                 }}
                 disabled={messages.length === 0}

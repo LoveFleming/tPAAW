@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import ApiMapSidebar from "./ApiMapSidebar";
 import { METHOD_COLORS } from "./ApiMapSidebar";
+import { uiConfirm } from "./ui/uiFeedback";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4097";
 
@@ -97,7 +98,7 @@ export default function ApiTesterTabs({
   };
 
   const deleteCollection = async (name: string) => {
-    if (!confirm(`${t("apiTester.delCollectionConfirm")}: ${name}?`)) return;
+    if (!(await uiConfirm(`${t("apiTester.delCollectionConfirm")}: ${name}?`, { danger: true }))) return;
     try { await fetch(`${API_BASE}/api/api-tester/collections?name=${encodeURIComponent(name)}&path=${encodeURIComponent(rootPath)}`, { method: "DELETE" }); } catch {}
     loadCollections();
   };

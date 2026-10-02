@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { uiAlertError, uiConfirm } from "../components/ui/uiFeedback";
 
 const API = "";
 
@@ -38,7 +39,7 @@ export default function PluginManager() {
       });
       setPlugins(list);
       setEditing(null);
-    } catch (err) { alert(String(err)); }
+    } catch (err) { uiAlertError(String(err)); }
     setSaving(false);
   }, []);
 
@@ -47,8 +48,8 @@ export default function PluginManager() {
     saveAll(updated);
   }, [plugins, saveAll]);
 
-  const remove = useCallback((p: Plugin) => {
-    if (!confirm(`Delete plugin "${p.name}"?`)) return;
+  const remove = useCallback(async (p: Plugin) => {
+    if (!(await uiConfirm(`Delete plugin "${p.name}"?`, { danger: true }))) return;
     const updated = plugins.filter(x => x.id !== p.id);
     saveAll(updated);
   }, [plugins, saveAll]);

@@ -3,6 +3,7 @@ import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 
 import API from "../api";
+import { uiConfirm } from "../components/ui/uiFeedback";
 
 interface AppItem {
     id: string;
@@ -32,16 +33,16 @@ export default function AppPool({ onOpenApp }: { onOpenApp: (appId: string) => v
 
     useEffect(() => { loadApps(); }, []);
 
-    const handleUnpublish = (appId: string) => {
-        if (!confirm(`確定要下架「${appId}」嗎？app.html 會被移除，但 metadata 會保留。`)) return;
+    const handleUnpublish = async (appId: string) => {
+        if (!(await uiConfirm(`確定要下架「${appId}」嗎？app.html 會被移除，但 metadata 會保留。`, { danger: true }))) return;
         fetch(`${API}/api/app/${appId}`, { method: "DELETE" })
             .then(r => r.json())
             .then(() => loadApps())
             .catch(() => {});
     };
 
-    const handleDelete = (appId: string) => {
-        if (!confirm(`確定要完全刪除「${appId}」嗎？這個動作無法復原。`)) return;
+    const handleDelete = async (appId: string) => {
+        if (!(await uiConfirm(`確定要完全刪除「${appId}」嗎？這個動作無法復原。`, { danger: true }))) return;
         fetch(`${API}/api/app/${appId}/delete`, { method: "DELETE" })
             .then(r => r.json())
             .then(() => loadApps())

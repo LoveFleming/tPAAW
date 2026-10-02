@@ -13,6 +13,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useI18n } from "../i18n";
 import API_BASE from "../api";
 import MarkdownText from "./MarkdownText";
+import { uiAlertError, uiConfirm } from "./ui/uiFeedback";
 
 // ── Types ──
 // ── Feature-first Task Model (2026-09-01) ──
@@ -205,7 +206,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(`Delete ${id}?`)) return;
+    if (!(await uiConfirm(`Delete ${id}?`, { danger: true }))) return;
     try {
       await fetch(`${API_BASE}/api/coding-tasks/${id}?path=${pathParam}`, { method: "DELETE" });
       setSelectedId(null);
@@ -231,10 +232,10 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
         fetchTasks();
         fetchStats();
       } else {
-        alert(`Failed: ${data.error}`);
+        uiAlertError(`Failed: ${data.error}`);
       }
     } catch (err) {
-      alert("Failed: " + (err as Error).message);
+      uiAlertError("Failed: " + (err as Error).message);
     }
   };
 
@@ -280,7 +281,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
   };
 
   const handleGitRestore = async (taskId: string) => {
-    if (!confirm("Restore to base commit? This will discard all changes.")) return;
+    if (!(await uiConfirm("Restore to base commit? This will discard all changes.", { danger: true }))) return;
     try {
       const res = await fetch(`${API_BASE}/api/coding-tasks/${taskId}/git/restore?path=${pathParam}`, { method: "POST" });
       if (res.ok) {

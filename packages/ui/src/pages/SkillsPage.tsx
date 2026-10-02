@@ -5,6 +5,7 @@ import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 
 import API from "../api";
+import { uiAlertError, uiConfirm } from "../components/ui/uiFeedback";
 
 const EMPTY_INPUT: UserInput = { id: "", label: "", description: "", placeholder: "", required: false };
 
@@ -127,7 +128,7 @@ export default function SkillsPage() {
     };
 
     const handleDelete = async (sk: SkillDefinition) => {
-        if (!confirm(`確定要刪除 ${sk.name} (${sk.id})？`)) return;
+        if (!(await uiConfirm(`確定要刪除 ${sk.name} (${sk.id})？`, { danger: true }))) return;
         await fetch(`${API}/api/skills/${sk.id}`, { method: "DELETE" });
         loadSkills(); if (selectedSkill?.id === sk.id) cancelEdit();
         showToast("🗑 已刪除");
@@ -138,14 +139,14 @@ export default function SkillsPage() {
         e?.stopPropagation();
         try {
             const resp = await fetch(`${API}/api/skills/${sk.id}/export`);
-            if (!resp.ok) { const d = await resp.json(); alert(`匯出失敗: ${d.error}`); return; }
+            if (!resp.ok) { const d = await resp.json(); uiAlertError(`匯出失敗: ${d.error}`); return; }
             const blob = await resp.blob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url; a.download = `${sk.id}-skill.json`; a.click();
             URL.revokeObjectURL(url);
             showToast(`📦 ${sk.id} 已匯出`);
-        } catch (err: any) { alert(`匯出失敗: ${err.message}`); }
+        } catch (err: any) { uiAlertError(`匯出失敗: ${err.message}`); }
     };
 
     // ── Import skill（.json bundle 或 .zip）──
@@ -165,8 +166,8 @@ export default function SkillsPage() {
                 });
             }
             const data = await resp.json();
-            if (data.ok) { showToast(`✅ ${data.message}`); loadSkills(); } else { alert(`❌ ${data.error}`); }
-        } catch (err: any) { alert(`❌ 匯入失敗: ${err.message}`); }
+            if (data.ok) { showToast(`✅ ${data.message}`); loadSkills(); } else { uiAlertError(`❌ ${data.error}`); }
+        } catch (err: any) { uiAlertError(`❌ 匯入失敗: ${err.message}`); }
     };
 
     const hasRightPanel = selectedSkill || isCreating;

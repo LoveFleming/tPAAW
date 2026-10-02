@@ -14,6 +14,7 @@ import AgentBuilder from "./AgentBuilder";
 import SkillSuggestModal from "./SkillSuggestModal";
 import RuSkillManagerModal from "./RuSkillManagerModal";
 import SkillPicker from "./SkillPicker";
+import { uiConfirm } from "./ui/uiFeedback";
 
 // ── Types ──
 interface AgentDef {
@@ -319,7 +320,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
   // ── Reset agent ──
   const resetAgent = async () => {
     if (!selectedAgentId || !rootPath) return;
-    if (!confirm(`重置 ${selectedAgentId} 為全域預設？這會清除所有客製設定。`)) return;
+    if (!(await uiConfirm(`重置 ${selectedAgentId} 為全域預設？這會清除所有客製設定。`, { danger: true }))) return;
     setSaving(true);
     try {
       const res = await fetch(`${API_BASE}/api/coding-project/crew/${encodeURIComponent(selectedAgentId)}/reset?path=${encodeURIComponent(rootPath)}`, {
@@ -345,7 +346,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
   const deleteAgent = async () => {
     if (!selectedAgentId || !rootPath) return;
     if (!selectedAgentId.startsWith("custom.")) return;
-    if (!confirm(`刪除 ${selectedAgentId}？此操作無法復原。`)) return;
+    if (!(await uiConfirm(`刪除 ${selectedAgentId}？此操作無法復原。`, { danger: true }))) return;
     setSaving(true);
     try {
       await fetch(`${API_BASE}/api/coding-project/crew/${encodeURIComponent(selectedAgentId)}?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" });
@@ -471,7 +472,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  if (!confirm("匯入會覆寫現有 crew 設定，確定？")) return;
+                  if (!(await uiConfirm("匯入會覆寫現有 crew 設定，確定？", { danger: true }))) return;
                   const text = await file.text();
                   const data = JSON.parse(text);
                   const res = await fetch(`${API_BASE}/api/coding-project/crew-import`, {
@@ -873,7 +874,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                       <button
                         onClick={async () => {
                           if (!selectedAgentId || !rootPath) return;
-                          if (!confirm(`清空 ${selectedAgentId} 的記憶？此操作無法復原。`)) return;
+                          if (!(await uiConfirm(`清空 ${selectedAgentId} 的記憶？此操作無法復原。`, { danger: true }))) return;
                           setSaving(true);
                           try {
                             await fetch(`${API_BASE}/api/coding-project/agent-memory?path=${encodeURIComponent(rootPath)}&agentId=${encodeURIComponent(selectedAgentId)}`, { method: "DELETE" });

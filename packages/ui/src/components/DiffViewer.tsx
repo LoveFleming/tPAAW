@@ -116,7 +116,7 @@ export function DiffViewer({ diffText, theme }: { diffText: string; theme?: "lig
     addText: dark ? "#7ee787" : "#1a7f37",
     delBg: dark ? "#3a1a1a" : "#ffebe9",
     delText: dark ? "#ffa198" : "#cf222e",
-    contextBg: dark ? "transparent" : "transparent",
+    contextBg: "transparent",
     contextText: dark ? "#adbac7" : "#24292f",
     lineNumberBg: dark ? "#22272e" : "#f6f8fa",
     lineNumberText: dark ? "#636c76" : "#8c959f",

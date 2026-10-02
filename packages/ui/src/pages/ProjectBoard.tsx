@@ -9,6 +9,7 @@ import { useI18n } from "../i18n";
 import API_BASE from "../api";
 import GanttChart from "./GanttChart";
 import ProjectAiPanel from "../components/ProjectAiPanel";
+import { uiConfirm } from "../components/ui/uiFeedback";
 
 // ── Types ──
 interface Task {
@@ -133,7 +134,7 @@ export default function ProjectBoard() {
   };
 
   const deleteProject = async (id: string) => {
-    if (!confirm(tt("project.confirmDeleteProject"))) return;
+    if (!(await uiConfirm(tt("project.confirmDeleteProject"), { danger: true }))) return;
     await api.del(`/api/projects/${id}`);
     setView("dashboard");
     setActive(null);
@@ -152,7 +153,7 @@ export default function ProjectBoard() {
   };
 
   const deleteCategory = async (catId: string) => {
-    if (!confirm(tt("project.confirmDeleteCategory"))) return;
+    if (!(await uiConfirm(tt("project.confirmDeleteCategory"), { danger: true }))) return;
     await api.del(`/api/projects/${active!.id}/categories/${catId}`);
     await refresh();
   };
@@ -169,7 +170,7 @@ export default function ProjectBoard() {
   };
 
   const deleteTask = async (taskId: string) => {
-    if (!confirm(tt("project.confirmDeleteTask"))) return;
+    if (!(await uiConfirm(tt("project.confirmDeleteTask"), { danger: true }))) return;
     await api.del(`/api/projects/${active!.id}/tasks/${taskId}`);
     await refresh();
   };
@@ -192,7 +193,7 @@ export default function ProjectBoard() {
   };
 
   const deleteMilestone = async (msId: string) => {
-    if (!confirm(tt("project.confirmDeleteMilestone"))) return;
+    if (!(await uiConfirm(tt("project.confirmDeleteMilestone"), { danger: true }))) return;
     await api.del(`/api/projects/${active!.id}/milestones/${msId}`);
     await refresh();
   };

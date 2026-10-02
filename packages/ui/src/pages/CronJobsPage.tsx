@@ -328,7 +328,7 @@ export default function CronJobsPage() {
             } else {
                 fetch(path).then(r => r.text()).then(text => {
                     doc.open();
-                    doc.write(`<html><body style="font-family:monospace;font-size:14px;white-space:pre-wrap;padding:20px;background:#1e1e1e;color:#d4d4d4;">${text.replace(/</g, "&lt;")}</body></html>`);
+                    doc.write(`<html><body style="font-family:monospace;font-size:14px;white-space:pre-wrap;padding:20px;background:#1e1e1e;color:#d4d4d4;">${text.replace(/</g, "&lt;")}</body></html>`);  // nosemgrep: html-in-template-string — text 已先 replace < 跳脫才進模板
                     doc.close();
                 });
             }
