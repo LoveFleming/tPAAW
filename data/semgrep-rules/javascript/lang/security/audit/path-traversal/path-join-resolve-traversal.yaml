@@ -30,14 +30,53 @@ rules:
   - typescript
   severity: WARNING
   mode: taint
+  # 2026-10-02 PAAW 產品調校：source 從「任何函數參數」收緊到 HTTP 信任邊界（req.*）。
+  # 原版對 local-first 工具的內部 lib（參數是常數路徑）全面誤報；PAAW 的外部輸入
+  # 只從 HTTP handler 進來。內部函數參數不再是 source；guard helper 是 sanitizer。
   pattern-sources:
   - patterns:
     - focus-metavariable: $X
     - pattern-either:
-      - pattern-inside: |
-          function ... (...,$X,...) {...}
-      - pattern-inside: |
-          function ... (...,{...,$X,...},...) {...}
+      - pattern: req.query.$X
+      - pattern: req.params.$X
+      - pattern: req.body.$X
+      - pattern: req.headers.$X
+  - pattern-either:
+      - pattern: req.url
+      - pattern: req.query
+      - pattern: req.body
+      - pattern: req.params
+      - pattern: req.headers
+      - pattern-either:
+        - patterns:
+          - pattern: $REQ.query.$X
+          - metavariable-regex:
+              metavariable: $REQ
+              regex: ^_?req(uest)?$
+          - focus-metavariable: $X
+        - patterns:
+          - pattern: $REQ.params.$X
+          - metavariable-regex:
+              metavariable: $REQ
+              regex: ^_?req(uest)?$
+          - focus-metavariable: $X
+        - patterns:
+          - pattern: $REQ.body.$X
+          - metavariable-regex:
+              metavariable: $REQ
+              regex: ^_?req(uest)?$
+          - focus-metavariable: $X
+        - patterns:
+          - pattern: $REQ.headers.$X
+          - metavariable-regex:
+              metavariable: $REQ
+              regex: ^_?req(uest)?$
+          - focus-metavariable: $X
+        - patterns:
+          - pattern: $REQ.url
+          - metavariable-regex:
+              metavariable: $REQ
+              regex: ^_?req(uest)?$
   pattern-sinks:
   - patterns:
     - focus-metavariable: $SINK
@@ -73,3 +112,8 @@ rules:
     - metavariable-regex:
         metavariable: $FUNC
         regex: sanitize
+  # 2026-10-02 PAAW canonical guards（coding-security.mjs / semgrep-runner safePath）
+  - pattern: safeResolve(...)
+  - pattern: sanitizeId(...)
+  - pattern: safePath(...)
+  - pattern: assertSafeUrl(...)

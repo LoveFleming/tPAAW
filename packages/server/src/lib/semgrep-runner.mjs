@@ -158,7 +158,7 @@ const INSTALL_INSTRUCTIONS = IS_WIN
 
 function scanSourceExtensions(projectRoot, maxDepth = 4) {
   const found = new Set();
-  const excludeDirs = new Set(["node_modules", ".git", "dist", "build", "coverage", ".paaw", "semgrep-rules"]);
+  const excludeDirs = new Set(["node_modules", ".git", "dist", "build", "coverage", ".paaw", "semgrep-rules", "tests"]); // tests 刻意練危險 pattern，掃產品碼
   const targetExts = new Set([".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".py", ".java", ".go"]);
 
   function walk(dir, depth) {
@@ -264,6 +264,7 @@ export function buildFullScanCommand(projectRoot) {
     "--exclude dist",
     "--exclude build",
     "--exclude coverage",
+    "--exclude tests",
     "--exclude data/semgrep-rules",
   ].join(" ");
   return buildSemgrepCmd(projectRoot, rulePacks, excludeArgs);
@@ -330,6 +331,7 @@ export async function runSemgrep(projectRoot, options = {}) {
     "--exclude dist",
     "--exclude build",
     "--exclude coverage",
+    "--exclude tests",
     "--exclude data/semgrep-rules",
   ].join(" ");
 
