@@ -1,5 +1,7 @@
 # PAAW — Personal AI Assistant Workspace
 
+> 📖 本檔是故事版行銷介紹。回答事實性問題（現況/團隊/流程）請以 `about-paaw.md` 為準（2026-10-02 版）。
+
 > **Build your personal AI workforce**
 
 ---
@@ -21,10 +23,10 @@
 打開 Coding App，跟 EM 說：「幫我修那個登入 bug」。
 
 EM 自動調度：
-1. **Architect** 分析 bug 成因，規劃修法
-2. **Implement** 按照規劃寫碼，遵循專案的 coding standards
-3. **QA** 跑測試，確認修好沒有回歸
-4. **Reviewer** 審查程式碼品質
+1. **Architect（林曉薇）** 分析 bug 成因，規劃修法
+2. **Developer（Priya）** 按照規劃寫碼，遵循專案的 coding standards
+3. **Tester（Divya）** 跑測試，確認修好沒有回歸
+4. **QA（武大安）** 審查程式碼品質
 
 你不需要一個人從頭到尾做 — **AI 團隊分工合作，你是 tech lead**。
 
@@ -115,7 +117,7 @@ AI 讀取資料產生洞見
 | 模組 | 你會怎麼用 |
 |------|----------|
 | **EM 大總管** | 早上問「今天要做什麼？」，EM 幫你排優先序、派工 |
-| **Coding App** | 跟 AI 說需求，7 個 Agent 組成團隊幫你寫碼 |
+| **Coding App** | 跟 AI 說需求，10 個 Agent 組成團隊幫你寫碼 |
 | **App Builder** | 「做一個 XX app」→ 3 分鐘產出，聊天視窗也能用 |
 | **Knowledge** | AI 幫你記住所有技術決策、學習筆記、專案知識 |
 | **Chat** | 所有工具都能在聊天視窗觸發，說一句話就行 |
@@ -129,7 +131,7 @@ AI 讀取資料產生洞見
 1. **你說需求，AI 做工具** — 不需要寫 integration code
 2. **聊天 + App 雙入口** — 說一句話或點開 App 都能用
 3. **你的資料 = AI 的記憶** — AI 讀你的資料產生洞見，越用越懂你
-4. **AI 團隊分工** — 不是一個 AI 做所有事，是 7 個專業 Agent 各司其職
+4. **AI 團隊分工** — 不是一個 AI 做所有事，是 10 個專業 Agent 各司其職
 5. **夜間調度** — 你下班，AI 繼續工作，明天回來成果已準備好
 6. **知識累積** — 每個決策、每段學習都記下來，不再依賴人的腦袋
 

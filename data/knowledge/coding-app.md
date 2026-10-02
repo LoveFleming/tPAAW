@@ -1,5 +1,7 @@
 # Coding App — AI 輔助軟體工廠
 
+> 📖 流程細節版。最新現況（團隊編制、驗收雙門檻、EM 三柱、browser 工具）請以 `about-paaw.md` 為準（2026-10-02 版）。
+
 > **把軟體開發流程變成一條 AI 驅動的生產線**
 
 ---
@@ -26,7 +28,7 @@ Coding App 把這些問題全部交給 AI 團隊處理。人類只需要：
 
 ## AI 開發團隊
 
-Coding App 內建 7 個 AI Agent，各有專長、各有護欄，像真正的軟體團隊一樣分工協作：
+Coding App 內建 10 個 AI Agent，各有專長、各有護欄，像真正的軟體團隊一樣分工協作：
 
 | Agent | 代號 | 專長 | 護欄 |
 |-------|------|------|------|
@@ -37,6 +39,9 @@ Coding App 內建 7 個 AI Agent，各有專長、各有護欄，像真正的軟
 | 📝 **Doc Writer** | Megan | README、API docs、changelog | 不寫碼、不做架構決策 |
 | 🔬 **QA** | 武大安 | Code Review、品質把關、安全掃描 | 不寫碼、不做架構決策 |
 | 🌸 **Helpdesk** | 小春 | 技術支援、排查問題 | 不寫碼、不做架構決策 |
+| 🛠️ **Ops** | Greta | 運維、troubleshooting | — |
+| 🚢 **Release Manager** | Piotr | Release 流程、打包 | — |
+| 🤝 **Handover** | Zofia | 交接文件、狀態保存 | — |
 
 ### 派工流程
 
