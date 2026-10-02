@@ -10,6 +10,7 @@ import { resolve, dirname, join, isAbsolute, relative } from "path";
 import { fileURLToPath } from "url";
 import { PAAW_ROOT } from "../routes/shared.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { stableStringify } from "../lib/stable-stringify.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PAAW_DATA_DIR = DATA_HOME;
@@ -1043,7 +1044,7 @@ function buildHandlers(apps) {
           const resp = await fetch(`${API}/api/app-data/${appId}/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(updates),
+            body: stableStringify(updates),
           });
           if (!resp.ok) return { text: `❌ 找不到 ID: ${id}`, error: true };
           const record = await resp.json();
@@ -1133,7 +1134,7 @@ function buildHandlers(apps) {
         const resp = await fetch(`${API}/api/apps/${appId}/exec`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(args),
+          body: stableStringify(args),
         });
         const result = await resp.json();
         if (result.error) return { text: `❌ ${result.error}`, error: true };
@@ -1576,7 +1577,7 @@ function buildHandlers(apps) {
       const resp = await fetch(`${API}/api/coding-tasks/decompose?path=${encodeURIComponent(projectPath)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ parentId, subTasks, createdBy: "agent" }),
+        body: stableStringify({ parentId, subTasks, createdBy: "agent" }),
       });
       const data = await resp.json();
       if (data.subTasks) {

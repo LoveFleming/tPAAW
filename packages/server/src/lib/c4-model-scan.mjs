@@ -13,6 +13,7 @@
 import { existsSync, readFileSync, writeFileSync, readdirSync } from "fs";
 import { join, resolve, relative, extname } from "path";
 import { DATA_HOME } from "../data-home.mjs";
+import { stableStringify } from "./stable-stringify.mjs";
 
 // ── 已知外部服務依賴表（不足的自動 heuristic 補） ──
 const DEP_RULES = [
@@ -275,7 +276,7 @@ export async function organizeC4Model(root, { callLLM, onProgress, timeoutMs = 6
 
   const userContent = template
     + `\n\n--- EXTERNAL SIGNALS（機器收集的證據 — env 只含 KEY 名，值不入庫）---\n`
-    + JSON.stringify(material);
+    + stableStringify(material);
 
   onProgress?.(`LLM assembling C4 from ${material.deps.length} deps / ${material.envKeys.length} env keys / ${material.compose.length} compose services...`);
   const res = await callLLM({

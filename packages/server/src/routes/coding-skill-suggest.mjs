@@ -14,6 +14,7 @@
 import { existsSync } from "fs";
 import { suggestSkills, loadSkillCatalog } from "../lib/skill-suggest.mjs";
 import { callProjectLLM } from "./coding.mjs";
+import { stableStringify } from "../lib/stable-stringify.mjs";
 
 export default async function skillSuggestRoutes(req, res, next) {
   const method = req.method;
@@ -81,7 +82,7 @@ export default async function skillSuggestRoutes(req, res, next) {
       const llm = await callProjectLLM({
         messages: [
           { role: "system", content: system },
-          { role: "user", content: JSON.stringify(compact) },
+          { role: "user", content: stableStringify(compact) },
         ],
         temperature: 0.2,
         thinking: { type: "disabled" },

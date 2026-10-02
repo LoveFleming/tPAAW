@@ -19,6 +19,7 @@ import { join, resolve, relative } from "path";
 import { fileURLToPath } from "url";
 import { shellExec } from "./shell-exec.mjs";
 import { createTicket, loadTasksFile } from "./em-task-store.mjs";
+import { stableStringify } from "./stable-stringify.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const PAAW_ROOT = resolve(__filename, "..", "..", "..", "..");
@@ -302,7 +303,7 @@ export async function triageToTickets(p = {}) {
     }
     const fallbackCfgs = _fbm.map(m => resolveLLMConfig(rootDir, m));
     const prompt = TRIAGE_PROMPT.replace("{{maxTickets}}", String(maxTickets))
-      + `\n\n## 掃描結果（type: ${type}）\n摘要：${result.summary}\n\n## 已開的 open 單 labels（避免重複）\n${[...openLabels].filter(l => l.startsWith("entry:")).join("\n") || "(無)"}\n\n## findings\n\`\`\`json\n${JSON.stringify(result.findings, null, 1).slice(0, 24000)}\n\`\`\`\n\n你的 triage（JSON array）：`;
+      + `\n\n## 掃描結果（type: ${type}）\n摘要：${result.summary}\n\n## 已開的 open 單 labels（避免重複）\n${[...openLabels].filter(l => l.startsWith("entry:")).join("\n") || "(無)"}\n\n## findings\n\`\`\`json\n${stableStringify(result.findings).slice(0, 24000)}\n\`\`\`\n\n你的 triage（JSON array）：`;
     try {
       sendSSE("llm_start", { message: `${JOB_TYPE_META[type]?.emoji || "📡"} ${type} triage 中...` });
       const res = await callLLMWithRetry(llm.apiUrl, llm.headers, {

@@ -25,6 +25,7 @@ import { resolveDefaultModel, dateTimeContextBlock } from "../lib/llm-utils.mjs"
 import { callProjectLLM } from "./coding.mjs"; // 統一 LLM 咽喉：thinking 控制 + llm log 歸因 + 空回應診斷（2026-08-30）
 import { DATA_HOME } from "../data-home.mjs";
 import { nextFeatureId, inferFeatureType, touchFeature, ensureMiscFeature, featureExists } from "../lib/feature-registry.mjs";
+import { stableStringify } from "../lib/stable-stringify.mjs";
 
 function getMaxTokens(providerConfig, providerId, model) {
   const provider = providerConfig.providers?.[providerId];
@@ -281,7 +282,7 @@ export default async function codingFeaturesRoute(req, res) {
       await saveFeatures(projRoot, features);
     }
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, understanding, feature: features[idx] }));
+    res.end(stableStringify({ ok: true, understanding, feature: features[idx] }));
     return true;
   }
 
@@ -309,7 +310,7 @@ export default async function codingFeaturesRoute(req, res) {
       await saveFeatures(projRoot, features);
     }
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, feature: features[idx] }));
+    res.end(stableStringify({ ok: true, feature: features[idx] }));
     return true;
   }
 
@@ -334,7 +335,7 @@ export default async function codingFeaturesRoute(req, res) {
     features[idx].updatedAt = now();
     await saveFeatures(projRoot, features);
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, feature: features[idx] }));
+    res.end(stableStringify({ ok: true, feature: features[idx] }));
     return true;
   }
 
@@ -360,7 +361,7 @@ export default async function codingFeaturesRoute(req, res) {
     features[idx].updatedAt = now();
     await saveFeatures(projRoot, features);
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, feature: features[idx] }));
+    res.end(stableStringify({ ok: true, feature: features[idx] }));
     return true;
   }
 
@@ -551,7 +552,7 @@ export default async function codingFeaturesRoute(req, res) {
     const prompt = `You are a code analyst. Update the file mappings for existing features based on the current codebase.
 
 ## Current Features
-${JSON.stringify(features.map(f => ({ id: f.id, name: f.name, description: f.description, currentCodeFiles: f.codeFiles, currentApis: f.apis, currentTests: f.tests, currentRunbooks: f.runbooks })), null, 2)}
+${stableStringify(features.map(f => ({ id: f.id, name: f.name, description: f.description, currentCodeFiles: f.codeFiles, currentApis: f.apis, currentTests: f.tests, currentRunbooks: f.runbooks })))}
 
 ## All Source Files in Codebase (production code only)
 ${allFiles.join("\n")}
@@ -693,7 +694,7 @@ Output ONLY the JSON array, no markdown fences.`;
     const prompt = `You are a software architect analyzing unmapped source files in a codebase.
 
 ## Existing Features (DO NOT duplicate these)
-${JSON.stringify(existingNames, null, 2)}
+${stableStringify(existingNames)}
 
 ## Unmapped Source Files (${orphans.length} files)
 ${orphans.join("\n")}

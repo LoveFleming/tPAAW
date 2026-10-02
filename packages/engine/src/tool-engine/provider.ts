@@ -88,7 +88,7 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
 
           try {
             const parsed = JSON.parse(data)
-            const choice = parsed.choices?.[0]
+            const choice = parsed.choices?.[0] // nosemgrep: no-stringify-keys — 誤報：JSON.parse HTTP 回應的陣列存取，非 stringify 當 key
             if (!choice) continue
 
             const finishReason = choice.finish_reason

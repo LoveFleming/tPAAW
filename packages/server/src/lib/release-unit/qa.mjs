@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { shellExec } from "../shell-exec.mjs";
 import { loadReleaseUnitModel, queryModelByFeature, queryModelByFile, queryModelByApi } from "./model.mjs";
 import { askCodebase } from "./ask.mjs";
+import { stableStringify } from "../stable-stringify.mjs";
 
 const EV = {
   doc: (ref, detail) => ({ type: "doc", ref, detail }),
@@ -315,7 +316,7 @@ async function _fileImpact(root, model, q) {
   if (fq.tests.length) {
     bullets.push(`測試：${fq.tests.map(t => t.file).join("、")}`);
   }
-  const last = await _git(root, `git log -1 --format='%h|%aI|%s' -- ${JSON.stringify(file)}`);
+  const last = await _git(root, `git log -1 --format='%h|%aI|%s' -- ${stableStringify(file)}`);
   if (last) {
     const [hash, date, ...r] = last.split("|");
     ev.push(EV.commit(hash, `${date?.slice(0, 10)} ${r.join("|")}`));

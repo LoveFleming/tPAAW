@@ -9,6 +9,7 @@ import { join, resolve, extname } from "path";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
 import { runAgentLoop, resolveLLMConfig, callLLM } from "../lib/paaw-agent-loop.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { stableStringify } from "../lib/stable-stringify.mjs";
 
 const PAAW_ROOT = process.env.PAAW_ROOT || PATHS.PAAW_ROOT;
 
@@ -128,7 +129,7 @@ async function runSkillMiniLoop({ skillPath, input, appId, systemContext, model,
   // Replace {{key}} placeholders
   if (input && typeof input === "object") {
     for (const [k, v] of Object.entries(input)) {
-      prompt = prompt.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), typeof v === "string" ? v : JSON.stringify(v));
+      prompt = prompt.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), typeof v === "string" ? v : stableStringify(v));
     }
   }
 

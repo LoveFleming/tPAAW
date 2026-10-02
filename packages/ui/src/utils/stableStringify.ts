@@ -8,7 +8,7 @@ export function stableStringify(value: unknown): string | undefined {
             ? Object.keys(v as Record<string, unknown>)
                   .sort()
                   .reduce<Record<string, unknown>>((acc, key) => {
-                      acc[key] = (v as Record<string, unknown>)[key];
+                      acc[key] = (v as Record<string, unknown>)[key]; // nosemgrep: no-stringify-keys — stable-stringify helper 本體實作
                       return acc;
                   }, {})
             : v

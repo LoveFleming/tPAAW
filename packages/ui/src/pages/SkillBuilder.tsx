@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { cn } from "../utils";
+import { stableStringify, cn } from "../utils";
 import { useI18n } from "../i18n";
 import { useTheme } from "../theme";
 import AgentConsole, { AgentConsoleHandle } from "../components/AgentConsole";
@@ -654,7 +654,7 @@ ${userInputLines.join("\n")}
       const res = await fetch(`${API_BASE}/api/skill-test/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skillId: form.id || "untitled", prompt, cwd: agentCwd || undefined, timeout: skillConfig.testTimeout, maxToolCalls: skillConfig.maxToolCalls, model: model || undefined }),
+        body: stableStringify({ skillId: form.id || "untitled", prompt, cwd: agentCwd || undefined, timeout: skillConfig.testTimeout, maxToolCalls: skillConfig.maxToolCalls, model: model || undefined }),
       });
 
       const reader = res.body?.getReader();

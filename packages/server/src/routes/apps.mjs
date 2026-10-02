@@ -16,6 +16,7 @@ import { parseSkillFrontmatter } from "./skills-api.mjs";
 import { runAgentLoop, runAgentLoopStream } from "../lib/paaw-agent-loop.mjs";
 import { DATA_HOME } from "../data-home.mjs";
 import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
+import { stableStringify } from "../lib/stable-stringify.mjs";
 
 export default async function appsRoute(req, res) {
   // ── GET /api/apps — list apps ──
@@ -231,7 +232,7 @@ export default async function appsRoute(req, res) {
         items[idx] = { ...items[idx], ...patch, id: itemId };
         await writeFile(filePath, JSON.stringify(items, null, 2), "utf-8");
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(items[idx]));
+        res.end(stableStringify(items[idx]));
       } catch (err) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message }));

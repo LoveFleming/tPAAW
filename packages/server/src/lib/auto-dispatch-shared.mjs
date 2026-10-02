@@ -20,6 +20,7 @@ import { join } from "path";
 import { loadFeatureData, matchFeaturesForFiles, buildFeatureFileTree, buildContextBoundary } from "./feature-boundary.mjs";
 import { PaawProject } from "./paaw-project.mjs";
 import { listActionLog } from "./action-log.mjs";
+import { stableStringify } from "./stable-stringify.mjs";
 
 
 // ── Context Gathering（統一版） ──
@@ -562,7 +563,7 @@ export async function refreshFeatureMapping(projRoot, modelOverride, fallbackMod
   const prompt = `You are a code analyst. Update the file mappings for existing features based on the current codebase.
 
 ## Current Features
-${JSON.stringify(features.map(f => ({ id: f.id, name: f.name, description: f.description, currentCodeFiles: f.codeFiles, currentApis: f.apis, currentTests: f.tests, currentRunbooks: f.runbooks })), null, 2)}
+${stableStringify(features.map(f => ({ id: f.id, name: f.name, description: f.description, currentCodeFiles: f.codeFiles, currentApis: f.apis, currentTests: f.tests, currentRunbooks: f.runbooks })))}
 
 ## All Source Files in Codebase (${allFiles.length} files)
 ${allFiles.join("\n")}

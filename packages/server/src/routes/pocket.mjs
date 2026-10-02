@@ -7,6 +7,7 @@ import { readdir, readFile, writeFile, mkdir } from "fs/promises";
 import { join, resolve, dirname } from "path";
 import { readBody } from "./shared.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { stableStringify } from "../lib/stable-stringify.mjs";
 
 export default async function pocketRoute(req, res) {
   const url = req.url || "";
@@ -63,7 +64,7 @@ export default async function pocketRoute(req, res) {
       arr[idx] = { ...arr[idx], ...updated, updatedAt: new Date().toISOString() };
       await saveArr(arr);
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, note: arr[idx] }));
+      res.end(stableStringify({ ok: true, note: arr[idx] }));
       return true;
     }
 

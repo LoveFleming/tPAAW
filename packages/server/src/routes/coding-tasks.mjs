@@ -36,6 +36,7 @@ import { readBody } from "./shared.mjs";
 import { TaskGit } from "../lib/task-git.mjs";
 import { buildReviewBoundary } from "../lib/review-boundary.mjs";
 import { featureExists, touchFeature } from "../lib/feature-registry.mjs";
+import { stableStringify } from "../lib/stable-stringify.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -299,7 +300,7 @@ export default async function codingTasksRoute(req, res) {
     tasks[idx].updatedAt = now();
     await saveTasks(projRoot, tasks, config);
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(tasks[idx]));
+    res.end(stableStringify(tasks[idx]));
     return true;
   }
 

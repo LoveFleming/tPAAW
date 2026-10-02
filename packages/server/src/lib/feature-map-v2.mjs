@@ -27,6 +27,7 @@ import { parseProject } from "./tree-sitter-parser.mjs";
 import { buildDeterministicFeatureMap } from "./code-graph.mjs";
 import { nextFeatureIds } from "./feature-registry.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { stableStringify } from "./stable-stringify.mjs";
 
 const _str = (v, max = 300) => (typeof v === "string" ? v.slice(0, max) : "");
 const _arr = (v, max = 40) => (Array.isArray(v) ? v.filter(x => typeof x === "string").slice(0, max).map(x => x.slice(0, 160)) : []);
@@ -189,7 +190,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
       const userPrompt = (item.kind === "utility"
         ? `這是一個孤兒分組（utility 級）— 系統建議的暫定組名「${item.groupName}」。請讀檔後給正式命名與描述。\n\n--- GROUP SKELETON (machine) ---\n`
         : `請長肉這一個 feature（檔案歸屬數學已定，不可更改）。\n\n--- FEATURE SKELETON (machine) ---\n`)
-        + JSON.stringify(material, null, 1)
+        + stableStringify(material)
         + "\n\n用 read_file 實際讀程式碼（至少進入點檔 + 1-3 個核心檔），最後一輪輸出 JSON（name/description/bizLogic/tags）。";
 
       let flesh = null, last = null, turns = 0, dur = 0, usage = null;

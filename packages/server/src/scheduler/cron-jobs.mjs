@@ -16,6 +16,7 @@ import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
+import { stableStringify } from "../lib/stable-stringify.mjs";
 
 // Lazy-load distill module
 let _distillMod = null;
@@ -445,7 +446,7 @@ async function cronApiHandler(req, res) {
     if (patch.chatId !== undefined) jobs[idx].chatId = patch.chatId;
     await saveCronJobs(jobs);
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(jobs[idx]));
+    res.end(stableStringify(jobs[idx]));
     return true;
   }
   // DELETE /api/cron-jobs/:id

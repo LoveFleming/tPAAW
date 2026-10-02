@@ -1,3 +1,4 @@
+export { stableStringify } from "./stableStringify";
 import { Risk } from "../types";
 
 export function fmtTime(iso: string) {

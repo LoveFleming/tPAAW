@@ -21,7 +21,7 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
-import { cn } from "../utils";
+import { stableStringify, cn } from "../utils";
 import ShellTerminal from "../components/ShellTerminal";
 import Icon from "../components/Icon";
 import ConsoleLogView from "../components/ConsoleLogView";
@@ -1794,7 +1794,7 @@ const sendChat = useCallback(async () => {
         try {
           const r = await fetch(`${API_BASE}/api/uploads/text`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content: f.text, filename: f.name, ruRoot: rootPath || undefined }),
+            body: stableStringify({ content: f.text, filename: f.name, ruRoot: rootPath || undefined }),
           });
           const j = await r.json();
           if (j.ok) uploaded = { abs: j.abs, rel: j.rel };
@@ -1905,7 +1905,7 @@ const sendChat = useCallback(async () => {
         const res = await fetch(`${API_BASE}/a2a/${a2aAgentId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          body: stableStringify({
             jsonrpc: "2.0",
             method: "message/stream",
             params: {

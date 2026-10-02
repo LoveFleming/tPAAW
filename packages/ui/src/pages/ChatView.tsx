@@ -14,7 +14,7 @@ export function sendSeedToChat(msg: string) {
 }
 
 import API_BASE from "../api";
-import { fmtChatTime } from "../utils";
+import { stableStringify, fmtChatTime } from "../utils";
 import { pasteMayContainImage, extractPasteFiles } from "../utils/pasteFiles";
 import { uiAlert } from "../components/ui/uiFeedback";
 
@@ -557,7 +557,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
       const resp = await fetch(`${API_BASE}/api/paaw/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: stableStringify({
           messages: newMessages.map(m => ({ role: m.role, content: m.content, ...(m.images?.length ? { images: m.images } : {}) })),
           model: activeModel,
           provider: activeProviderId,

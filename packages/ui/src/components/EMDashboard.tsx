@@ -9,7 +9,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import API_BASE from "../api";
 import ChatMessages from "./ChatMessages"; // kept for reference — EM chat now uses custom rich renderer
 import ModelSelector from "./ModelSelector";
-import { cn } from "../utils";
+import { stableStringify, cn } from "../utils";
 import { useI18n } from "../i18n";
 import MarkdownText from "./MarkdownText";
 import SkillPicker from "./SkillPicker";
@@ -527,7 +527,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
       const res = await fetch(`${API_BASE}/a2a/em`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: stableStringify({
           jsonrpc: "2.0",
           method: "message/stream",
           params: {

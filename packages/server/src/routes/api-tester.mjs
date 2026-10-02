@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { DATA_ROOT } from "./shared.mjs";
+import { stableStringify } from "../lib/stable-stringify.mjs";
 
 // ── Collection storage ──
 // data/api-tester-collections.json：{ [name]: { name, createdAt, updatedAt, payloads: [...] } }
@@ -233,7 +234,7 @@ export default async function apiTesterRoute(req, res) {
 
     try {
       const fetchOpts = { method: tMethod || "GET", headers: tHeaders, redirect: "follow" };
-      if (tBody && tMethod !== "GET" && tMethod !== "HEAD") fetchOpts.body = typeof tBody === "string" ? tBody : JSON.stringify(tBody);
+      if (tBody && tMethod !== "GET" && tMethod !== "HEAD") fetchOpts.body = typeof tBody === "string" ? tBody : stableStringify(tBody);
 
       const tRes = await fetch(tUrl, fetchOpts);
 

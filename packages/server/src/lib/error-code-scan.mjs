@@ -18,6 +18,7 @@ import { existsSync, readFileSync, writeFileSync, readdirSync } from "fs";
 import { join, resolve, relative, extname } from "path";
 import { DATA_HOME } from "../data-home.mjs";
 import { loadProjectIgnore } from "./cu-source-scan.mjs";
+import { stableStringify } from "./stable-stringify.mjs";
 
 // ── 語言泛用的 error 訊號（不認任何命名慣例） ──
 const SIGNAL_RULES = [
@@ -184,7 +185,7 @@ export async function organizeErrorCodes(root, { callLLM, onProgress, timeoutMs 
 
   const userContent = template
     + `\n\n--- ERROR SIGNALS（機器收集，可能含雜訊 — 由你判讀過濾）---\n`
-    + JSON.stringify({
+    + stableStringify({
         features: material.features,
         unmappedCount: material.unmappedCount,
         unmappedSample: material.unmappedSample,

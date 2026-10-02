@@ -12,6 +12,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import { uiConfirm } from "./ui/uiFeedback";
+import { stableStringify } from "../utils";
 
 interface SkillItem { id: string; name: string; status: string; bound: boolean; syncedAt: string | null }
 interface AvailItem { id: string; name: string }
@@ -61,12 +62,12 @@ export default function RuSkillManagerModal({ rootPath, theme: t, onClose, onCha
       if (kind === "sync") {
         res = await fetch(`${API_BASE}/api/coding-project/ru-skills/sync`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ path: rootPath, skillId: id }),
+          body: stableStringify({ path: rootPath, skillId: id }),
         });
       } else if (kind === "add") {
         res = await fetch(`${API_BASE}/api/coding-project/ru-skills/add`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ path: rootPath, skillId: id }),
+          body: stableStringify({ path: rootPath, skillId: id }),
         });
       } else {
         res = await fetch(`${API_BASE}/api/coding-project/ru-skills?path=${encodeURIComponent(rootPath)}&skillId=${encodeURIComponent(id)}`, { method: "DELETE" });

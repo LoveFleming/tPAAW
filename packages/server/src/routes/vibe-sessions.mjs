@@ -20,6 +20,7 @@ import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { stableStringify } from "../lib/stable-stringify.mjs";
 
 async function readBodyStr(req) {
   return new Promise((ok) => {
@@ -361,7 +362,7 @@ export default async function vibeSessionsRoute(req, res) {
     if (reviews.length > 50) reviews = reviews.slice(0, 50);
     writeFileSync(reviewFile, JSON.stringify(reviews, null, 2));
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, review: reviews[0] }));
+    res.end(stableStringify({ ok: true, review: reviews[0] }));
     return true;
   }
 

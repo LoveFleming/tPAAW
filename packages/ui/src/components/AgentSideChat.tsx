@@ -10,7 +10,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { pasteMayContainImage, extractPasteFiles } from "../utils/pasteFiles";
 import API_BASE from "../api";
-import { fmtChatTime } from "../utils";
+import { stableStringify, fmtChatTime } from "../utils";
 import { useI18n } from "../i18n";
 import MarkdownText from "./MarkdownText"; // markdown 渲染（含 GFM table）
 import { uiAlert, uiAlertError } from "./ui/uiFeedback";
@@ -305,7 +305,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
         try {
           const r = await fetch(`${API_BASE}/api/uploads/text`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content: f.text, filename: f.name, ruRoot: cwd }),
+            body: stableStringify({ content: f.text, filename: f.name, ruRoot: cwd }),
           });
           const j = await r.json();
           if (j.ok) uploaded = { abs: j.abs, rel: j.rel };
@@ -338,7 +338,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
       const res = await fetch(`${API_BASE}/a2a/${agentId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: stableStringify({
           jsonrpc: "2.0",
           method: "message/stream",
           params: {

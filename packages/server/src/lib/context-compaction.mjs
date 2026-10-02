@@ -22,6 +22,7 @@
 import { estimateTokens } from "./context-truncation.mjs";
 import { cutSafeStart } from "./llm-utils.mjs"; // 2026-09-14: 截斷不切 surrogate pair
 import { contentToText, estimateContentTokens } from "./vision-content.mjs"; // vision array content 相容（2026-08-30 Phase 1）
+import { stableStringify } from "./stable-stringify.mjs";
 
 // ── Configuration ──
 
@@ -200,7 +201,7 @@ Output a structured summary in markdown:`;
     const response = await fetch(llmConfig.apiUrl, {
       method: "POST",
       headers: llmConfig.headers,
-      body: JSON.stringify({
+      body: stableStringify({
         model: llmConfig.model,
         messages: [
           { role: "system", content: "You are a helpful assistant that summarizes conversations. You are concise, accurate, and never lose important technical details." },

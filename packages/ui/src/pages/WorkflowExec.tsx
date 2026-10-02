@@ -29,6 +29,7 @@ interface ExecHistoryEntry {
 }
 
 import API from "../api";
+import { stableStringify } from "../utils";
 
 function ResultCards({ output }: { output: any }) {
   if (!output) return <div className="text-xs text-stone-400 italic">無結果</div>;
@@ -209,7 +210,7 @@ export default function WorkflowExec() {
           : { appId: node.appName || "translate", skillId: node.skillId, input: ri };
         const resp = await fetch(`${API}${endpoint}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: stableStringify(payload),
         });
         const result = await resp.json(); const dur = Date.now() - start;
         if (result.error) {

@@ -21,6 +21,7 @@ import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readBody } from "./shared.mjs";
 import { PaawProject } from "../lib/paaw-project.mjs";
+import { stableStringify } from "../lib/stable-stringify.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -231,7 +232,7 @@ export default async function codingIssuesRoute(req, res) {
     issues[idx].updatedAt = now();
     await saveIssues(projRoot, issues);
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(issues[idx]));
+    res.end(stableStringify(issues[idx]));
     return true;
   }
 
