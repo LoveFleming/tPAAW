@@ -98,7 +98,7 @@ async function runCronJob(job) {
       console.log(`[cron] Delivered to chat: ${chatId}`);
       return true;
     } catch (err) {
-      console.error(`[cron] Failed to deliver to chat ${chatId}:`, err.message);
+      console.error(`[cron] Failed to deliver to chat ${chatId}:`, err.message);  // nosemgrep: unsafe-formatstring
       return false;
     }
   }
@@ -337,7 +337,7 @@ async function runCronJob(job) {
       jobs[idx].lastStatus = "error";
       await saveCronJobs(jobs);
     }
-    console.log(`[cron] Job ${job.id} error:`, err.message);
+    console.log(`[cron] Job ${job.id} error:`, err.message);  // nosemgrep: unsafe-formatstring
   }
 }
 
@@ -639,7 +639,7 @@ async function agentLoopHandler(req, res) {
         maxTurns: maxTurns || agentCfg.maxTurns, timeout: timeout || agentCfg.timeoutSeconds, params, rootDir: PAAW_ROOT, agentId: `cron:${job.id}`,
       }, res);
     } catch (err) {
-      try { res.write(`event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`); } catch {}
+      try { res.write(`event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`); } catch {} // nosemgrep: missing-template-string-indicator
     }
     try { res.end(); } catch {}
     return true;

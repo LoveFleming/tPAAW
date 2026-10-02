@@ -122,7 +122,7 @@ export default async function browserRoute(req, res) {
     if (typeof res.flushHeaders === "function") res.flushHeaders();
     if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
     res.write(`retry: 2000\n\n`);
-    res.write(`data: ${JSON.stringify({ type: "hello" })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: "hello" })}\n\n`); // nosemgrep: missing-template-string-indicator
     attachStreamClient(key, res);
     const ping = setInterval(() => {
       try {

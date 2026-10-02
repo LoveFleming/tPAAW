@@ -242,7 +242,7 @@ export async function runJobEntrypoint(rootDir, type, opts = {}) {
   }
   const t0 = Date.now();
   try {
-    const fn = { "cu-scan": _entryCuScan, "security-fix": _entrySecurityFix, "test-gen": _entryTestGen, "release-prep": _entryReleasePrep }[type];
+    const fn = { "cu-scan": _entryCuScan, "security-fix": _entrySecurityFix, "test-gen": _entryTestGen, "release-prep": _entryReleasePrep }[type];  // nosemgrep: unsafe-dynamic-method — 固定 literal 查表 dispatch（四入口白名單）
     const result = await fn(rootDir, opts);
     result.durationMs = Date.now() - t0;
     return result;

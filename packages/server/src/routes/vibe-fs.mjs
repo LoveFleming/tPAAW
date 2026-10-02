@@ -570,7 +570,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     args.push(query, cwd);
 
     try {
-      const child = spawn("rg", args, { cwd, timeout: 15000, shell: process.platform === "win32" });
+      const child = spawn("rg", args, { cwd, timeout: 15000, shell: process.platform === "win32" });  // nosemgrep: spawn-shell-true — rg ripgrep args 陣列；Windows shell 解執行檔
       let stdout = "", stderr = "", resultCount = 0;
       let responded = false; // guard against double response (error + close both firing)
       const results = [];
@@ -688,7 +688,7 @@ async function nativeSearch(cwd, query, opts, maxResults, res) {
             if (!caseSensitive) flags += "i";
             if (!useRegex) searchStr = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
             if (wholeWord) searchStr = `\\b${searchStr}\\b`;
-            const re = new RegExp(searchStr, flags);
+            const re = new RegExp(searchStr, flags);  // nosemgrep: detect-non-literal-regexp
             for (let i = 0; i < lines.length && matches.length < 20; i++) {
               if (re.test(lines[i])) {
                 matches.push({ line: i + 1, content: lines[i].trimEnd(), before: 0, after: 0 });

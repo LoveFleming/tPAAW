@@ -151,7 +151,7 @@ async function loadRoutes() {
     catch (err) {
       // 2026-09-06 教訓：crew.mjs 打錯 import 路徑被 ERR_MODULE_NOT_FOUND 靜默吞掉，
       // AI Crew 整頁 API 無預警 404 — route 模組載入失敗一律大聲報，不得跳過
-      console.error(`[Route] Failed to load ${p}:`, err.message);
+      console.error(`[Route] Failed to load ${p}:`, err.message);  // nosemgrep: unsafe-formatstring
     }
   }
   try { _loaded["./scheduler/cron-jobs.mjs"] = await import("./scheduler/cron-jobs.mjs"); }
@@ -184,7 +184,7 @@ const server = createServer(async (req, res) => {
     try {
       if (await mod.default(req, res)) return;
     } catch (err) {
-      console.error(`[Route] ${p} error:`, err.message);
+      console.error(`[Route] ${p} error:`, err.message);  // nosemgrep: unsafe-formatstring
       if (!res.headersSent) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Internal server error", detail: err.message }));

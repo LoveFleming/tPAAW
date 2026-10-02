@@ -241,7 +241,7 @@ export async function devServerStop(ruRoot) {
   let killed = true;
   if (IS_WIN) {
     // taskkill /T = 連子程序整棵樹，/F = 強制（npm → node 樹）
-    try { execSync(`taskkill /pid ${pid} /T /F`, { stdio: "ignore" }); }
+    try { execSync(`taskkill /pid ${pid} /T /F`, { stdio: "ignore" }); }  // nosemgrep: detect-child-process — 殺自己 spawn 的 process group（帳本 pid，非任意輸入）
     catch { killed = false; }
   } else {
     // 群殺（detached 讓 child 是 group leader）；fallback 單殺

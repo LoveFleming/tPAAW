@@ -183,7 +183,7 @@ async function lastReleaseRecord(projectPath) {
  */
 export async function resolveBaseline(projectPath, shaOrAuto = "auto") {
   if (shaOrAuto && shaOrAuto !== "auto") {
-    const verified = await gitOne(projectPath, `rev-parse --verify ${shaOrAuto}^{commit}`);
+    const verified = await gitOne(projectPath, `rev-parse --verify ${shaOrAuto}^{commit}`); // nosemgrep: missing-template-string-indicator
     if (!verified) {
       const e = new Error(`baseline commit 不存在：${shaOrAuto}`);
       e.status = 400;
@@ -377,7 +377,7 @@ export async function autoCheckAll(projectPath, scope, opts = {}) {
       const scannedAt = scan.scannedAt || (() => { try { return new Date(statSync(secPath).mtime).toISOString(); } catch { return null; } })();
       // scope 過濾：只計這次 release 動到的檔案（兩邊都轉 posix 相對路徑比對）
       // scope.files 是 {file, changeCount,...} 物件陣列（computeScope 回傳）；findings.file 是絕對路徑
-      const rel = p => String(p || "").replace(/\\/g, "/").replace(new RegExp(`^${String(projectPath).replace(/[.*+?^\${}()|[\]\\]/g, "\\$&")}/`), "");
+      const rel = p => String(p || "").replace(/\\/g, "/").replace(new RegExp(`^${String(projectPath).replace(/[.*+?^\${}()|[\]\\]/g, "\\$&")}/`), "");  // nosemgrep: detect-non-literal-regexp
       const scopeSet = new Set((scope.files || []).map(f => rel(f?.file ?? f)));
       const inScope = (scan.findings || []).filter(fd => scopeSet.size === 0 || scopeSet.has(rel(fd.file)));
       const sev = {};

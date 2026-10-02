@@ -60,7 +60,7 @@ function buildBaseContext() {
 
   const lines = [
     `=== 檔案路徑 ===`,
-    `📖 Knowledge：使用 file_list({ workspace: "knowledge" }) 和 file_read({ workspace: "knowledge", path: "檔名" }) 透過 API 存取。`,
+    '📖 Knowledge：使用 file_list({ workspace: "knowledge" }) 和 file_read({ workspace: "knowledge", path: "檔名" }) 透過 API 存取。',
   ];
 
   if (workspaces.length > 0) {

@@ -78,9 +78,9 @@ function scanTDZ(filePath, src) {
       if (line.trim().startsWith("//") || line.trim().startsWith("*")) continue;
 
       // Check for useRef(name) or useState(name) — the exact bug pattern
-      const useRefPattern = new RegExp(`\\buseRef\\(${name}\\b`);
-      const useStatePattern = new RegExp(`\\buseState\\(${name}\\b`);
-      const directRefPattern = new RegExp(`\\b${name}\\b`);
+      const useRefPattern = new RegExp(`\\buseRef\\(${name}\\b`);  // nosemgrep: detect-non-literal-regexp
+      const useStatePattern = new RegExp(`\\buseState\\(${name}\\b`);  // nosemgrep: detect-non-literal-regexp
+      const directRefPattern = new RegExp(`\\b${name}\\b`);  // nosemgrep: detect-non-literal-regexp
 
       if (useRefPattern.test(line) || useStatePattern.test(line)) {
         findings.push({

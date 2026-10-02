@@ -37,7 +37,7 @@ async function loadCrew(crewId, projectDir = null) {
       crew = JSON.parse(readSync(crewFile, "utf-8"));
       _crewCache[crewId] = crew;
     } catch (err) {
-      console.error(`[DomainAgent] Failed to load crew ${crewId}:`, err.message);
+      console.error(`[DomainAgent] Failed to load crew ${crewId}:`, err.message);  // nosemgrep: unsafe-formatstring
       return null;
     }
   }
@@ -450,7 +450,7 @@ export async function buildSystemPrompt(agentId, opts = {}) {
         }
       }
     } catch (err) {
-      console.error(`[DomainAgent] Context provider "${providerName}" error:`, err.message);
+      console.error(`[DomainAgent] Context provider "${providerName}" error:`, err.message);  // nosemgrep: unsafe-formatstring
     }
   }
 
@@ -474,7 +474,7 @@ export async function buildSystemPrompt(agentId, opts = {}) {
         parts.push(`\n## 已掛載技能 (Skills)\n以下是綁定到此 Agent 的技能定義，請在對話中遵循這些規則（skill 定義優先於一般做法）：\n\n${skillSection}`);
       }
     } catch (err) {
-      console.error(`[DomainAgent] Skill injection error for ${agent.crewId}:`, err.message);
+      console.error(`[DomainAgent] Skill injection error for ${agent.crewId}:`, err.message);  // nosemgrep: unsafe-formatstring
     }
   }
 

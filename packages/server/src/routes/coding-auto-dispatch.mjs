@@ -138,7 +138,7 @@ export default async function codingAutoDispatchRoute(req, res) {
 
       // SSE-like: collect progress into status updates
       const sendSSE = (type, data) => {
-        console.log(`[AutoDispatch:${mode}] ${type}:`, typeof data === "string" ? data : JSON.stringify(data).slice(0, 200));
+        console.log(`[AutoDispatch:${mode}] ${type}:`, typeof data === "string" ? data : JSON.stringify(data).slice(0, 200));  // nosemgrep: unsafe-formatstring
 
         // 2026-08-29: 所有事件寫入 status.json events ring buffer — UI（EM Chat slim bar / 派工頁）
         // 輪詢 /status 就看得到進度，不用只靠 terminal console；task_* 事件同時更新 agents map

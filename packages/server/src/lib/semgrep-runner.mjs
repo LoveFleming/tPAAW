@@ -32,8 +32,8 @@ const exec = promisify(execCb);
 // ── Logging ──
 // Always log — these go to server console and are critical for debugging Windows issues
 
-const LOG = (...args) => console.log(`[semgrep ${new Date().toISOString().slice(11, 19)}]`, ...args);
-const LOG_ERR = (...args) => console.error(`[semgrep ${new Date().toISOString().slice(11, 19)}]`, ...args);
+const LOG = (...args) => console.log(`[semgrep ${new Date().toISOString().slice(11, 19)}]`, ...args);  // nosemgrep: unsafe-formatstring
+const LOG_ERR = (...args) => console.error(`[semgrep ${new Date().toISOString().slice(11, 19)}]`, ...args);  // nosemgrep: unsafe-formatstring
 
 /** Normalize path: Windows backslashes → forward slashes */
 function safePath(p) {

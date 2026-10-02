@@ -539,7 +539,7 @@ export async function refreshFeatureMapping(projRoot, modelOverride, fallbackMod
   // Scan ALL source files
   const isWin = process.platform === "win32";
   const scanCmd = isWin
-    ? `node -e "const{readdirSync:r,statSync:s}=require('fs');const{join:j}=require('path');function walk(d,a){for(const e of r(d)){const p=j(d,e);try{if(s(p).isDirectory()){if(!e.includes('node_modules')&&!e.includes('dist')&&!e.startsWith('.'))walk(p,a)}else if(/\\.(ts|tsx|mjs|js|jsx)$/.test(e))a.push(p.replace(/\\\\\\\\/g,'/'))}}catch{}}const f=[];walk('.',f);console.log(f.join('\\n'))"`
+    ? `node -e "const{readdirSync:r,statSync:s}=require('fs');const{join:j}=require('path');function walk(d,a){for(const e of r(d)){const p=j(d,e);try{if(s(p).isDirectory()){if(!e.includes('node_modules')&&!e.includes('dist')&&!e.startsWith('.'))walk(p,a)}else if(/\\.(ts|tsx|mjs|js|jsx)$/.test(e))a.push(p.replace(/\\\\\\\\/g,'/'))}}catch{}}const f=[];walk('.',f);console.log(f.join('\\n'))"` // nosemgrep: missing-template-string-indicator
     : "find . -type f \\( -name '*.ts' -o -name '*.tsx' -o -name '*.mjs' -o -name '*.js' -o -name '*.jsx' \\) -not -path '*/node_modules/*' -not -path '*/dist/*' -not -path '*/.paaw/*'";
 
   const allFiles = await new Promise((resolve) => {

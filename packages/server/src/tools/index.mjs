@@ -845,7 +845,7 @@ function buildHandlers(apps) {
           if (args.severity) { const want = String(args.severity).toLowerCase(); findings = findings.filter(f => String(f.severity).toLowerCase() === want); }
           if (args.file) { const norm = String(args.file).replace(/\\/g, "/"); findings = findings.filter(f => String(f.file || "").replace(/\\/g, "/").includes(norm)); }
           if (findings.length === 0) return "No security findings. ✅";
-          const summary = sec.stats ? ` (stats: ${JSON.stringify(sec.stats.bySeverity || {})})` : "";
+          const summary = sec.stats ? ` (stats: ${JSON.stringify(sec.stats.bySeverity || {})})` : ""; // nosemgrep: missing-template-string-indicator
           return `Security Findings (${findings.length})${summary}:\n` + findings.map(f => `- [${String(f.severity).toUpperCase()}] ${f.file}:${f.line || "?"} — ${f.message}`).join("\n");
         } catch (err) { return `Error: ${err.message}`; }
       }
@@ -916,24 +916,6 @@ function buildHandlers(apps) {
       return { text: list || "目前沒有任何 App", apps: apps.map(a => ({ id: a.id, name: a.name, icon: a.icon, dataShape: a.dataShape })) };
     } catch (err) {
       return { text: `❌ 讀取失敗：${err.message}`, error: true };
-    }
-  };
-
-  // app_create — create new app via REST API
-  handlers.app_create = async ({ id, name, icon, description, dataShape, schema, aiPrompt, type, triggers, skills }) => {
-    try {
-      const resp = await fetch(`http://127.0.0.1:${PAAW_PORT}/api/apps`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, name, icon, description, dataShape, schema, aiPrompt, type, triggers, skills }),
-      });
-      const result = await resp.json();
-      if (!result.ok) return { text: `❌ ${result.error}`, error: true };
-      invalidateCache();
-      const extra = type === "skill-based" ? "（Skill-based，已自動產生 Tool + SKILL.md）" : "";
-      return { text: `✅ 已建立 App「${name}」${icon || "📦"}${extra}`, app: result.app };
-    } catch (err) {
-      return { text: `❌ 建立失敗：${err.message}`, error: true };
     }
   };
 
@@ -1435,12 +1417,12 @@ function buildHandlers(apps) {
       try { mem = await readFile(MEMORY_FILE, "utf-8"); } catch {}
       const header = `## ${section}`;
       const escSection = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const sectionRegex = new RegExp(`^## ${escSection}\\s*$`, "m");
+      const sectionRegex = new RegExp(`^## ${escSection}\\s*$`, "m");  // nosemgrep: detect-non-literal-regexp
       if (sectionRegex.test(mem)) {
         const lines = mem.split("\n");
         let startIdx = -1, endIdx = lines.length;
         for (let i = 0; i < lines.length; i++) {
-          if (lines[i].match(new RegExp(`^## ${escSection}\\s*$`))) { startIdx = i; }
+          if (lines[i].match(new RegExp(`^## ${escSection}\\s*$`))) { startIdx = i; }  // nosemgrep: detect-non-literal-regexp
           else if (startIdx >= 0 && lines[i].startsWith("## ")) { endIdx = i; break; }
         }
         if (startIdx >= 0) {
@@ -1463,12 +1445,12 @@ function buildHandlers(apps) {
       try { mem = await readFile(MEMORY_FILE, "utf-8"); } catch {}
       const header = `## ${section}`;
       const escSection = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const sectionRegex = new RegExp(`^## ${escSection}\\s*$`, "m");
+      const sectionRegex = new RegExp(`^## ${escSection}\\s*$`, "m");  // nosemgrep: detect-non-literal-regexp
       if (sectionRegex.test(mem)) {
         const lines = mem.split("\n");
         let startIdx = -1, endIdx = lines.length;
         for (let i = 0; i < lines.length; i++) {
-          if (lines[i].match(new RegExp(`^## ${escSection}\\s*$`))) { startIdx = i; }
+          if (lines[i].match(new RegExp(`^## ${escSection}\\s*$`))) { startIdx = i; }  // nosemgrep: detect-non-literal-regexp
           else if (startIdx >= 0 && lines[i].startsWith("## ")) { endIdx = i; break; }
         }
         if (startIdx >= 0) {
@@ -1930,91 +1912,6 @@ function buildHandlers(apps) {
       return { text: `找不到檔案「${filePath}」${wsHint}`, error: true };
     } catch (err) {
       return { text: `讀取失敗: ${err.message}`, error: true };
-    }
-  };
-
-  // ── Notes handlers (built-in) ──
-    // ── Unified notes handler ──
-  handlers.notes = async (args = {}) => {
-    const action = args.action;
-    if (!action) return "Error: action is required.";
-    
-    switch (action) {
-      case "list_notebooks": {
-        try {
-          const dir = join(DATA_HOME, "notes");
-          if (!existsSync(dir)) return "目前沒有任何筆記本。";
-          const entries = (await readdir(dir)).filter(e => e.endsWith(".json") && e !== "sections.json");
-          if (entries.length === 0) return "目前沒有任何筆記本。";
-          const result = [];
-          for (const e of entries) {
-            try {
-              const nb = JSON.parse(readFileSync(join(dir, e), "utf-8"));
-              result.push({ id: nb.id || e.replace(".json", ""), name: nb.name || nb.id, noteCount: (nb.notes || []).length });
-            } catch {}
-          }
-          return { text: result.map(r => `📁 ${r.name} (${r.id}) — ${r.noteCount} 筆記`).join("\n"), notebooks: result };
-        } catch { return "讀取筆記本失敗"; }
-      }
-      case "create": {
-        const notebook = args.notebook || "personal";
-        const section = args.section || "default";
-        const title = args.title;
-        const content = args.content || args.prompt || "";
-        const tags = args.tags || [];
-        if (!title && !content) return { text: "❌ 請提供標題或內容", error: true };
-        try {
-          const dir = join(DATA_HOME, "notes");
-          if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-          const file = join(dir, `${notebook}.json`);
-          let nb = { id: notebook, name: notebook, notes: [] };
-          if (existsSync(file)) { try { nb = JSON.parse(readFileSync(file, "utf-8")); } catch {} }
-          const note = { id: `note-${Date.now()}`, title: title || "未命名筆記", content, tags, sectionId: section, createdAt: new Date().toISOString() };
-          if (!Array.isArray(nb.notes)) nb.notes = [];
-          nb.notes.push(note);
-          writeFileSync(file, JSON.stringify(nb, null, 2), "utf-8");
-          return { text: `✅ 筆記已建立：${note.title}`, noteId: note.id, notebook, link: `#/notes?note=${note.id}&notebook=${notebook}` };
-        } catch (err) { return { text: `❌ 建立失敗：${err.message}`, error: true }; }
-      }
-      case "create_section": {
-        const notebook = args.notebook;
-        const name = args.name;
-        const icon = args.icon || "📁";
-        if (!notebook || !name) return "❌ 需要 notebook 和 name";
-        try {
-          const file = join(DATA_HOME, "notes", "sections.json");
-          let all = {};
-          if (existsSync(file)) { try { all = JSON.parse(readFileSync(file, "utf-8")); } catch {} }
-          if (!all[notebook]) all[notebook] = [{ id: "default", name: "Default" }];
-          const secId = name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || `sec-${Date.now()}`;
-          all[notebook].push({ id: secId, name, icon });
-          writeFileSync(file, JSON.stringify(all, null, 2), "utf-8");
-          return `✅ 分類已建立：${name} (${notebook})`;
-        } catch (err) { return `❌ 建立失敗：${err.message}`; }
-      }
-      case "search": {
-        const q = args.q || "";
-        if (!q) return "❌ 請提供搜尋關鍵字";
-        try {
-          const dir = join(DATA_HOME, "notes");
-          if (!existsSync(dir)) return "沒有筆記";
-          const entries = (await readdir(dir)).filter(e => e.endsWith(".json") && e !== "sections.json");
-          const results = [];
-          for (const e of entries) {
-            try {
-              const nb = JSON.parse(readFileSync(join(dir, e), "utf-8"));
-              for (const n of (nb.notes || [])) {
-                if (`${n.title} ${n.content}`.toLowerCase().includes(q.toLowerCase())) {
-                  results.push({ notebook: nb.id, title: n.title, id: n.id, preview: (n.content || "").slice(0, 100) });
-                }
-              }
-            } catch {}
-          }
-          if (results.length === 0) return `找不到包含「${q}」的筆記`;
-          return { text: results.map(r => `📄 ${r.title} (${r.notebook})\n  ${r.preview}...`).join("\n"), results };
-        } catch { return "搜尋失敗"; }
-      }
-      default: return `未知操作 '${action}'。可用：list_notebooks, create, create_section, search`;
     }
   };
 

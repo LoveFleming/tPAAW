@@ -61,7 +61,7 @@ export function shellExecSync(command, options = {}) {
     env: mergedEnv,
     ...restOpts,
   };
-  return execSync(command, opts);
+  return execSync(command, opts);  // nosemgrep: detect-child-process — 此模組即受控 shell 執行器本身（shell-guard 管轄）
 }
 
 /**

@@ -49,7 +49,7 @@ export function parseGitignore(text) {
     const anchored = pat.includes("/") && !pat.startsWith("/"); // 含 / = 相對 root
     const body = globToRegExp(pat.startsWith("/") ? pat.slice(1) : pat);
     out.push({
-      re: new RegExp(anchored ? `^${body}(/.*)?$` : `(^|/)${body}(/.*)?$`),
+      re: new RegExp(anchored ? `^${body}(/.*)?$` : `(^|/)${body}(/.*)?$`),  // nosemgrep: detect-non-literal-regexp
       negated,
       dirOnly,
     });

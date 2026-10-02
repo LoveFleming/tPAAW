@@ -297,7 +297,7 @@ async function runGroup(projectPath, group) {
 
 function spawnCapture(cwd, cmd, timeoutMs) {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd[0], cmd.slice(1), { cwd, env: { ...process.env, CI: "1", NO_COLOR: "1" }, shell: process.platform === "win32" });
+    const child = spawn(cmd[0], cmd.slice(1), { cwd, env: { ...process.env, CI: "1", NO_COLOR: "1" }, shell: process.platform === "win32" });  // nosemgrep: detect-child-process — spawnCapture 跑測試指令（args 陣列，CI env）
     let stdout = "", stderr = "";
     const timer = setTimeout(() => { child.kill("SIGKILL"); reject(new Error(`timeout after ${timeoutMs / 1000}s`)); }, timeoutMs);
     child.stdout.on("data", (d) => { stdout += d; if (stdout.length > 20e6) stdout = stdout.slice(-10e6); });

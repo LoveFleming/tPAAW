@@ -140,7 +140,7 @@ async function aiWriteNote(userPrompt, content, modelOverride) {
       .replace(/^## (.+)$/gm, "<h2>$1</h2>")
       .replace(/^# (.+)$/gm, "<h2>$1</h2>")
       .replace(/^- (.+)$/gm, "<li>$1</li>")
-      .replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
+      .replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`)  // nosemgrep: html-in-template-string — 自建 md→html 轉換；內容為使用者自己的筆記（local-first）
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/^> (.+)$/gm, "<blockquote>$1</blockquote>")
       .replace(/\n{2,}/g, "</p><p>")

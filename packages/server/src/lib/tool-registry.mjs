@@ -96,7 +96,7 @@ export const toolRegistry = {
     try {
       return await entry.handler(args, ctx);
     } catch (err) {
-      console.error(`[ToolRegistry] Tool "${name}" error:`, err.message);
+      console.error(`[ToolRegistry] Tool "${name}" error:`, err.message);  // nosemgrep: unsafe-formatstring
       return { error: `Tool "${name}" failed: ${err.message}` };
     }
   },

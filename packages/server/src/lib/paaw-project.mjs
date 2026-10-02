@@ -111,7 +111,7 @@ export class PaawProject {
           await rename(flatFilePath, mappedFilePath);
           console.log(`[paaw-migrate] ${flatName} → ${mappedPath}`);
         } catch (e) {
-          console.error(`[paaw-migrate] Failed to move ${flatName}:`, e.message);
+          console.error(`[paaw-migrate] Failed to move ${flatName}:`, e.message);  // nosemgrep: unsafe-formatstring
         }
       }
     }

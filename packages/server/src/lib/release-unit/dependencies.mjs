@@ -68,7 +68,7 @@ export function packageNameOf(spec) {
 function resolveAlias(spec, aliases) {
   for (const a of aliases) {
     if (spec === a.prefix) {
-      return a.isWildcard ? a.target : a.target;
+      return a.target;
     }
     if (a.isWildcard && spec.startsWith(a.prefix + "/")) {
       const rest = spec.slice(a.prefix.length + 1);

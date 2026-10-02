@@ -189,7 +189,7 @@ function startWatcher(root, sseRes) {
     awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 },
   });
   const send = (type, path) => {
-    try { sseRes.write(`data: ${JSON.stringify({ type, path })}\n\n`); } catch {}
+    try { sseRes.write(`data: ${JSON.stringify({ type, path })}\n\n`); } catch {} // nosemgrep: missing-template-string-indicator
   };
   w.on("add", (p) => send("add", p));
   w.on("unlink", (p) => send("unlink", p));

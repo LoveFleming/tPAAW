@@ -313,7 +313,7 @@ if (PUBLISH_URL) {
   });
   const out = await res.json().catch(() => ({}));
   if (!res.ok) {
-    console.error(`✗ publish 失敗 ${res.status}:`, JSON.stringify(out));
+    console.error(`✗ publish 失敗 ${res.status}:`, JSON.stringify(out));  // nosemgrep: unsafe-formatstring
     process.exit(1);
   }
   console.log(`✓ published → stable=${out.stable?.version} sha256=${out.published?.sha256?.slice(0, 16)}…`);

@@ -150,7 +150,7 @@ export function validateFeatureMapping(projectRoot, features) {
         const wildcardPattern = api.path
           .replace(/\{[^}]+\}/g, "[^/]+")
           .replace(/:[^/]+/g, "[^/]+");
-        const regex = new RegExp(`^${api.method} ${wildcardPattern}$`);
+        const regex = new RegExp(`^${api.method} ${wildcardPattern}$`);  // nosemgrep: detect-non-literal-regexp
         const found = [...apiSet].some(k => regex.test(k));
         if (!found) {
           warnings.push({

@@ -349,20 +349,20 @@ export default async function chatRoutes(req, res) {
         switch (chunk.type) {
           case 'text':
             fullText += chunk.delta
-            res.write(`data: ${JSON.stringify({ content: chunk.delta })}\n\n`)
+            res.write(`data: ${JSON.stringify({ content: chunk.delta })}\n\n`) // nosemgrep: missing-template-string-indicator
             if (typeof res.flush === 'function') res.flush()
             if (chunkCount <= 5 || chunkCount % 20 === 0) console.log(`[${chatReqId}] text chunk #${chunkCount} ${elapsed}ms len=${chunk.delta.length}`)
             break
 
           case 'tool_start':
             toolsUsed.push(chunk.name)
-            res.write(`data: ${JSON.stringify({ tool_call: { name: chunk.name, args: chunk.args, status: 'executing' } })}\n\n`)
+            res.write(`data: ${JSON.stringify({ tool_call: { name: chunk.name, args: chunk.args, status: 'executing' } })}\n\n`) // nosemgrep: missing-template-string-indicator
             if (typeof res.flush === 'function') res.flush()
             console.log(`[${chatReqId}] tool_start: ${chunk.name} ${elapsed}ms`)
             break
 
           case 'tool_end':
-            res.write(`data: ${JSON.stringify({ tool_result: { name: chunk.name, result: chunk.result } })}\n\n`)
+            res.write(`data: ${JSON.stringify({ tool_result: { name: chunk.name, result: chunk.result } })}\n\n`) // nosemgrep: missing-template-string-indicator
             if (typeof res.flush === 'function') res.flush()
             console.log(`[${chatReqId}] tool_end: ${chunk.name} error=${!!chunk.result?.error} ${elapsed}ms`)
             break
@@ -376,7 +376,7 @@ export default async function chatRoutes(req, res) {
             break
 
           case 'error':
-            res.write(`data: ${JSON.stringify({ error: true, message: chunk.message })}\n\n`)
+            res.write(`data: ${JSON.stringify({ error: true, message: chunk.message })}\n\n`) // nosemgrep: missing-template-string-indicator
             if (typeof res.flush === 'function') res.flush()
             res.end()
             sseEnded = true
@@ -409,7 +409,7 @@ export default async function chatRoutes(req, res) {
       if (!res.headersSent) {
         json(res, { error: err.message }, 500);
       } else {
-        res.write(`data: ${JSON.stringify({ error: true, message: err.message })}\n\n`);
+        res.write(`data: ${JSON.stringify({ error: true, message: err.message })}\n\n`); // nosemgrep: missing-template-string-indicator
         if (typeof res.flush === 'function') res.flush();
         res.end();
       }

@@ -340,7 +340,7 @@ export default async function releaseRoutes(req, res, next) {
           if (!apiPath) return false;
           if (corpus === null) corpus = build();
           const norm = apiPath.replace(/\/<[^/>]+>/g, "/__P__").replace(/\/:[A-Za-z0-9_]+/g, "/__P__");
-          const re = new RegExp(norm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/__P__/g, "[^/]+"));
+          const re = new RegExp(norm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/__P__/g, "[^/]+"));  // nosemgrep: detect-non-literal-regexp
           return re.test(corpus);
         };
       })();

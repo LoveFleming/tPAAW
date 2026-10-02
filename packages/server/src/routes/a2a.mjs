@@ -1014,13 +1014,13 @@ export default async function a2aRoutes(req, res) {
             if (!res.writableEnded) res.end();
             console.log(`[A2A:${agentId}] stream completed`);
           } catch (err) {
-            console.error(`[A2A:${agentId}] stream error:`, err);
+            console.error(`[A2A:${agentId}] stream error:`, err);  // nosemgrep: unsafe-formatstring
             // 2026-09-15：streamKey/rootDir 是 try 內變數 — catch 裡重算（同一條 key）
             const errRootDir = params?.context?.cwd || PAAW_ROOT;
             const stErr = streamStates.get(_streamKey(agentId, errRootDir));
             if (stErr) { stErr.error = String(err.message || err).slice(0, 500); stErr.done = true; stErr.timer = setTimeout(() => _streamStateCleanup(agentId, errRootDir), STREAM_STATE_TTL_MS); }
             if (res.headersSent && !res.writableEnded) {
-              try { res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`); res.end(); } catch {}
+              try { res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`); res.end(); } catch {} // nosemgrep: missing-template-string-indicator
             } else if (!res.headersSent) {
               sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32603, message: err.message }, id });
             }
@@ -1599,7 +1599,7 @@ export default async function a2aRoutes(req, res) {
           // Send interrupted event to SSE client
           try {
             if (!runningHit.stream.res.writableEnded) {
-              runningHit.stream.res.write(`event: interrupted\ndata: ${JSON.stringify({ message: "Task canceled by user", taskId })}\n\n`);
+              runningHit.stream.res.write(`event: interrupted\ndata: ${JSON.stringify({ message: "Task canceled by user", taskId })}\n\n`); // nosemgrep: missing-template-string-indicator
               runningHit.stream.res.end();
             }
           } catch {}
@@ -1648,7 +1648,7 @@ export default async function a2aRoutes(req, res) {
     runningHit.stream.abortController.abort();
     try {
       if (!runningHit.stream.res.writableEnded) {
-        runningHit.stream.res.write(`event: interrupted\ndata: ${JSON.stringify({ message: "Interrupted by user", agentId: aid })}\n\n`);
+        runningHit.stream.res.write(`event: interrupted\ndata: ${JSON.stringify({ message: "Interrupted by user", agentId: aid })}\n\n`); // nosemgrep: missing-template-string-indicator
         runningHit.stream.res.end();
       }
     } catch {}

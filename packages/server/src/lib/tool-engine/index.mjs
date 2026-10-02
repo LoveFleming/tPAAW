@@ -165,7 +165,7 @@ export class ToolEngine {
         if (round > 0) {
           // Round 2+ — 印最後幾個 messages 看 tool result 格式
           const last3 = messages.slice(-3).map(m => ({ role: m.role, contentLen: typeof m.content === 'string' ? m.content.length : JSON.stringify(m.content).length, tool_call_id: m.tool_call_id, tool_calls: m.tool_calls?.length }))
-          console.log(`[ToolEngine] Round ${round + 1} last 3 msgs:`, JSON.stringify(last3))
+          console.log(`[ToolEngine] Round ${round + 1} last 3 msgs:`, JSON.stringify(last3))  // nosemgrep: unsafe-formatstring
         }
 
         for await (const chunk of this.provider.chat(messages, tools, model)) {

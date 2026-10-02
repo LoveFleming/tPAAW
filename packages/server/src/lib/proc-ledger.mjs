@@ -127,12 +127,12 @@ function _winChildrenOf(rootPid, maxDepth = 3) {
       `$frontier=@(${rootPid}); $found=@()`,
       `for($i=0; $i -lt ${maxDepth} -and $frontier.Count -gt 0; $i++){`,
       `  $next=@()`,
-      `  foreach($p in $frontier){ $next += Get-CimInstance Win32_Process -Filter "ParentProcessId=$p" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty ProcessId }`,
+      '  foreach($p in $frontier){ $next += Get-CimInstance Win32_Process -Filter "ParentProcessId=$p" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty ProcessId }',
       `  $found += $next; $frontier=@($next)`,
       `}`,
       `$found -join ','`,
     ].join(" ");
-    const out = execSync(`powershell -NoProfile -Command "${ps.replace(/"/g, '`"')}"`, { timeout: 10_000, encoding: "utf-8" }).trim();
+    const out = execSync(`powershell -NoProfile -Command "${ps.replace(/"/g, '`"')}"`, { timeout: 10_000, encoding: "utf-8" }).trim();  // nosemgrep: detect-child-process — powershell 查自己 spawn 的 pgid（內部帳本）
     return out ? out.split(",").map((s) => parseInt(s, 10)).filter((n) => Number.isFinite(n)) : [];
   } catch { return []; }
 }
@@ -144,7 +144,7 @@ async function _killEntry(entry, signal = "SIGTERM") {
     const pids = _winChildrenOf(entry.pgid);
     let any = false;
     for (const pid of pids) {
-      try { execSync(`taskkill /PID ${pid} /T /F`, { stdio: "ignore", timeout: 10_000 }); any = true; } catch {}
+      try { execSync(`taskkill /PID ${pid} /T /F`, { stdio: "ignore", timeout: 10_000 }); any = true; } catch {}  // nosemgrep: detect-child-process — taskkill 帳本內 pid（Windows 分支）
     }
     return any;
   }
@@ -229,7 +229,7 @@ export function runShellGrouped(command, opts = {}) {
         timedOut = true;
         // 整個 group 殺：TERM → 1.5s → KILL（exit event 會觸發 finish）
         const killAll = (sig) => {
-          if (IS_WIN) { try { execSync(`taskkill /PID ${child.pid} /T /F`, { stdio: "ignore", timeout: 10_000 }); } catch {} }
+          if (IS_WIN) { try { execSync(`taskkill /PID ${child.pid} /T /F`, { stdio: "ignore", timeout: 10_000 }); } catch {} }  // nosemgrep: detect-child-process — taskkill 整棵 group（帳本 pid）
           else { try { process.kill(-child.pid, sig); } catch { try { process.kill(child.pid, sig); } catch {} } }
         };
         killAll("SIGTERM");

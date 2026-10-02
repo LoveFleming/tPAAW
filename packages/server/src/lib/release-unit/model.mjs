@@ -22,6 +22,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { shellExec } from "../shell-exec.mjs";
 import { hashObject } from "../stable-hash.mjs";
+import { stableStringify } from "../stable-stringify.mjs";
 
 // ── Content-addressed（2026-08-22）：entry 指紋 _h + table 指紋 + 寫檔 gate ──
 // 全量重建照舊（不漂保證）；落盤前比指紋 — 內容不變就不寫（git 零 diff）。
@@ -305,7 +306,7 @@ export async function buildReleaseUnitModel(root, opts = {}) {
     };
   }
   const headChanged = !oldModel || oldModel.headSha !== headSha;
-  const contentChanged = !oldModel || JSON.stringify(oldModel.tableHashes || {}) !== JSON.stringify(tableHashes);
+  const contentChanged = !oldModel || stableStringify(oldModel.tableHashes || {}) !== stableStringify(tableHashes);
   if (save && (headChanged || contentChanged)) {
     const outDir = join(root, ".paaw");
     if (existsSync(outDir)) {
