@@ -204,7 +204,6 @@ EM 設定 `reviewConfig`：`multiAgentReview: true` + `reviewModels: ["zai/glm-5
 - **分歧不消失，往上升** — 委員吵架不是壞事，是品質訊號，紅標給人裁
 
 ---
----
 
 ## AI 產出物
 

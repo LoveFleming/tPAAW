@@ -461,9 +461,15 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
   const _startTime = Date.now();
   const _callId = `llm-${_startTime}-${Math.random().toString(36).slice(2, 8)}`;
 
-  // thinking off 咽喉處理：僅 zai（url 判別）、僅 caller 沒自己帶 thinking 時
+  // thinking off 咽喉處理：僅 zai / openrouter（url 判別）、僅 caller 沒自己帶參數時
   if (disableThinking && body.thinking === undefined && /z\.ai/.test(apiUrl)) {
     body.thinking = { type: "disabled" };
+  }
+  // 2026-10-03 委員會實測：OpenRouter 上的 reasoning model（deepseek v4）同樣會把
+  // max_tokens 全燒在 reasoning（16384/16384、0 字輸出、6.4min/$0.007 白花）—
+  // OpenRouter 統一參數 reasoning.enabled=false 關閉；不支援 reasoning 的 model 會忽略
+  if (disableThinking && body.reasoning === undefined && /openrouter\.ai/.test(apiUrl)) {
+    body.reasoning = { enabled: false };
   }
 
   // ── LLM Request Log ──
