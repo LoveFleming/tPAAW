@@ -81,7 +81,7 @@ export function analyzeDisputes(perModel, merged) {
   if (alive.length >= 2) {
     for (const g of merged) {
       if (g.severity !== "critical" || g.models.length > 1) continue;
-      const othersSilent = !merged.some(o => o !== g && o.file === g.file && Math.abs(o.line - g.line) <= 3);
+      const othersSilent = !merged.some(o => o !== g && o.file === g.file && Math.abs(o.line - g.line) <= 3 && o.models.some(mm => !g.models.includes(mm)));
       if (othersSilent) {
         disputes.push({
           kind: "critical-unconfirmed", file: g.file, line: g.line,
@@ -225,6 +225,7 @@ export async function runMultiModelReview(opts = {}) {
   const results = await Promise.allSettled(reviewers.map(async (m) => {
     const label = m || "default";
     const t0 = Date.now();
+    let wdTimer = null;
     try {
       const llm = resolveLLMConfig(projectDir, m || undefined, []);
       console.log(`[mm-review] reviewer ${label} → ${llm.model}（diff ${Math.round(ctx.diff.length / 1024)}KB）`);
@@ -239,13 +240,15 @@ export async function runMultiModelReview(opts = {}) {
           ],
           temperature: 0.2,
           max_tokens: 16384,
-        }, { maxRetries: 2, timeoutMs: 240000, caller: "mm-review", agentId: "coding.qa" }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error(`watchdog timeout ${REVIEWER_WATCHDOG_MS / 60000}min`)), REVIEWER_WATCHDOG_MS)),
+        }, { maxRetries: 2, timeoutMs: 240000, caller: "mm-review", agentId: "coding.qa", disableThinking: true }),
+        new Promise((_, rej) => { wdTimer = setTimeout(() => rej(new Error(`watchdog timeout ${REVIEWER_WATCHDOG_MS / 60000}min`)), REVIEWER_WATCHDOG_MS); }),
       ]);
+      clearTimeout(wdTimer); // race 已出結果，計時器不留（防洩漏 — reviewer 自查意見）
       const text = r?.content || "";
       const { findings, parseError } = _parseFindings(text);
       return { model: label, ms: Date.now() - t0, findings, parseError, raw: text };
     } catch (e) {
+      clearTimeout(wdTimer);
       // 失敗不 throw：帶 model 標籤回報（多 model 交叉驗證要知道是誰掉線）
       return { model: label, ms: Date.now() - t0, findings: [], parseError: `LLM error: ${String(e.message || e).slice(0, 160)}`, raw: "" };
     }
@@ -333,7 +336,16 @@ export async function runMultiModelReview(opts = {}) {
     const spec = buildReworkTicket(merged, { range: ctx.range }, reportPath);
     if (spec.mustFix.length) {
       try {
-        const { createTicket } = await import("./em-task-store.mjs");
+        const { createTicket, loadTasksFile } = await import("./em-task-store.mjs");
+        // 冪等（reviewer 自查意見）：同 range 已有 open 打回單 → 不重複開
+        const { tasks } = loadTasksFile(projectDir);
+        const dup = (tasks || []).find(t => t.status === "open"
+          && Array.isArray(t.labels) && t.labels.includes("multi-model-review")
+          && String(t.title || "").includes(ctx.range));
+        if (dup) {
+          reworkTicket = { ok: true, id: dup.id, title: dup.title, deduped: true };
+          onProgress(`🎫 同 range 已有 open 打回單 #${dup.id}，不重複開`);
+        } else {
         const created = createTicket(projectDir, {
           title: spec.title,
           description: spec.description,
@@ -349,6 +361,7 @@ export async function runMultiModelReview(opts = {}) {
         reworkTicket = created.ok
           ? { ok: true, id: created.task.id, title: created.task.title }
           : { ok: false, error: created.error };
+        }
       } catch (e) {
         reworkTicket = { ok: false, error: String(e.message || e).slice(0, 160) };
       }

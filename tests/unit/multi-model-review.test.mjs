@@ -144,3 +144,30 @@ describe("reviewConfig.autoRework", () => {
     expect(resolveReviewConfig(tmp).autoRework).toBe(false);
   });
 });
+
+describe("analyzeDisputes 邊界（reviewer 自查意見補測）", () => {
+  const F = (file, line, severity, model, claim = "x") => ({
+    file, line, severity, claim, fix: "",
+    models: [model], claims: [{ model, claim, fix: "" }], consensus: false,
+  });
+
+  it("同 model 自己在critical 位置也報 minor → 不算其他 model 打破靜默 → 仍判 critical-unconfirmed", async () => {
+    const { analyzeDisputes } = await import("@server/lib/coding-review-runner.mjs");
+    const perModel = [
+      { model: "m1", error: null, findings: [F("a.ts", 100, "critical", "m1"), F("a.ts", 101, "minor", "m1")] },
+      { model: "m2", error: null, findings: [] },
+    ];
+    const { disputes } = analyzeDisputes(perModel, perModel.flatMap(p => p.findings));
+    expect(disputes.some(d => d.kind === "critical-unconfirmed" && d.file === "a.ts")).toBe(true);
+  });
+
+  it("位移恰好 4 行（±3 邊界外）→ 不判 severity-conflict", async () => {
+    const { analyzeDisputes } = await import("@server/lib/coding-review-runner.mjs");
+    const perModel = [
+      { model: "m1", error: null, findings: [F("a.ts", 10, "critical", "m1")] },
+      { model: "m2", error: null, findings: [F("a.ts", 14, "minor", "m2")] },
+    ];
+    const { disputes } = analyzeDisputes(perModel, perModel.flatMap(p => p.findings));
+    expect(disputes.filter(d => d.kind === "severity-conflict")).toHaveLength(0);
+  });
+});
