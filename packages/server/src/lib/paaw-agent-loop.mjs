@@ -1200,6 +1200,20 @@ export const PAAW_TOOLS = [
   {
     type: "function",
     function: {
+      name: "multi_model_review",
+      description: "多 model 並行 code review（EM reviewConfig 控制：multiAgentReview 開數才多 model，沒開就單 model default）。審指定 git range（預設最後一個 commit）。回：findings（共識/單獨標記）+ decision + report 路徑。收到「審一下 / code review」類請求時用這個。",
+      parameters: {
+        type: "object",
+        properties: {
+          ref: { type: "string", description: "git range，預設 HEAD~1..HEAD（最後一個 commit）。例：HEAD~3..HEAD" },
+          path: { type: "string", description: "限定審查路徑（可選），例 packages/server/" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "security_scan",
       description: "semgrep 安全掃描,結果落檔 .paaw/security/scan-results.json(Release Request security 項證據)。",
       parameters: { type: "object", properties: {} },
@@ -1255,6 +1269,9 @@ const TOOL_GROUP_MAP = {
 
   // Decision & changelog
   record_decision: "decisions", docs: "decisions",
+
+  // Multi-model code review (MR1 2026-10-03) — qa-records group：QA/EM/architect 可用
+  multi_model_review: "qa-records",
 
   // QA Results - QA 記錄共享存儲(2026-09-17 Fleming:qa agent 留記錄、其他 agent 讀寫)
   qa_record_save: "qa-records", qa_record_list: "qa-records", qa_record_update: "qa-records",
@@ -2291,6 +2308,23 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           return `【測試結果】${r?.status === "pass" ? "✅" : "❌"} ${r?.id || "?"} - ${s.passed ?? "?"}✓ / ${s.failed ?? "?"}✗ @ ${r?.finishedAt || "?"}${r?.status !== "pass" ? "\n(有失敗 - dispatch developer 修完重跑)" : ""}`;
         } catch (e) {
           return `【測試結果】❌ 執行失敗:${e.message}`;
+        }
+      }
+
+      case "multi_model_review": {
+        const { runMultiModelReview, formatReviewResult } = await import("./coding-review-runner.mjs");
+        try {
+          if (onEvent) onEvent({ type: "tool_end", name, result: `multi-model review 啟動（${args.ref || "HEAD~1..HEAD"}）...` });
+          const r = await runMultiModelReview({
+            projectDir: cwd,
+            ref: args.ref,
+            pathFilter: args.path,
+            onProgress: (m) => { if (onEvent) onEvent({ type: "tool_end", name, result: m }); },
+          });
+          if (onEvent) onEvent({ type: "tool_end", name, result: `review 完成：${r.decision}` });
+          return formatReviewResult(r);
+        } catch (e) {
+          return `【Multi-Model Review】❌ ${e.message}`;
         }
       }
 
