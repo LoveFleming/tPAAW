@@ -30,6 +30,7 @@ import { resolve, join, dirname, relative } from "path";
 import { getDependencyContext, getAffectedTests } from "./dependency-context.mjs";
 import { runTaskRetrofit } from "./task-retrofit.mjs";
 import { fileURLToPath } from "url";
+import { SECRETARY_TOOL_DEFS, runSecretaryTool } from "./secretary-tools.mjs"; // 🕴️ secret module tools（2026-10-03）
 import { readFileSync as _readSync, existsSync as _exSync } from "fs";
 import { join as _pathJoin, dirname as _pathDirname, basename as _pathBasename, extname as _pathExtname } from "path";
 
@@ -1211,6 +1212,7 @@ export const PAAW_TOOLS = [
       },
     },
   },
+  ...SECRETARY_TOOL_DEFS,
   {
     type: "function",
     function: {
@@ -1266,6 +1268,10 @@ const TOOL_GROUP_MAP = {
   action_log_add: "memory", action_log_list: "memory",
   agent_memory_save: "memory", agent_memory_load: "memory",
   conversation_history: "memory", // 2026-09-06:聊天記錄查詢(memory group → 全 crew 可用)
+
+  // 🕴️ Secretary module tools — 秘書分類檔案櫃 + Excel 引擎（2026-10-03 secret module）
+  category_list: "secretary", dossier_read: "secretary", dossier_write: "secretary",
+  read_sheet: "secretary", write_sheet: "secretary",
 
   // Decision & changelog
   record_decision: "decisions", docs: "decisions",
@@ -2325,6 +2331,21 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           return formatReviewResult(r);
         } catch (e) {
           return `【Multi-Model Review】❌ ${e.message}`;
+        }
+      }
+
+      case "category_list":
+      case "dossier_read":
+      case "dossier_write":
+      case "read_sheet":
+      case "write_sheet": {
+        const { runSecretaryTool } = await import("./secretary-tools.mjs");
+        try {
+          const r = await runSecretaryTool(name, args, agentId);
+          if (onEvent) onEvent({ type: "tool_end", name, result: String(r).slice(0, 120) });
+          return String(r);
+        } catch (e) {
+          return `【秘書工具】❌ ${e.message}`;
         }
       }
 

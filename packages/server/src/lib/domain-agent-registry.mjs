@@ -344,7 +344,13 @@ const DOMAIN_AGENTS = {
 
 /** Get agent definition by agentId */
 export function getAgent(agentId) {
-  return DOMAIN_AGENTS[agentId] || null;
+  const a = DOMAIN_AGENTS[agentId];
+  if (a) return a;
+  // 🕴️ secret module（2026-10-03）：secret.* 直接對應同名 crew — 動態分類生成的 agent 免註冊即用
+  if (agentId && agentId.startsWith("secret.") && /^[a-z][a-z0-9.-]*$/.test(agentId)) {
+    return { agentId, crewId: agentId, secret: true, contextProviders: [], tools: null, skills: [] };
+  }
+  return null;
 }
 
 /** List all registered agents */
