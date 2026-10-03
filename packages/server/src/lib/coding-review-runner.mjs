@@ -13,6 +13,8 @@
  *
  * 鐵律：LLM 只推理，事實靠程式 — reviewer 只看程式組好的 diff，
  * finding 行號不在 diff 檔案內 = 自動退件。
+ * 鐵律2（TASK-049）：全數 reviewer 失敗（LLM/parse error）→ decision="inconclusive"，
+ * 絕不回 approve — 沒有任何 reviewer 真正看過 diff，approve 等於憑空背書（不靜默降級）。
  */
 
 import { join } from "node:path";
@@ -131,6 +133,19 @@ export function buildReworkTicket(merged, ctxInfo, reportPath) {
     ].join("\n"),
     acceptance: "每條必修項完成（或附誤報證明）；npm run build 綠；相關測試過",
   };
+}
+
+/**
+ * decision 判定（純函式，TASK-049 抽出可測）：
+ * - 全數 reviewer 失敗（okCount === 0）→ "inconclusive"（不靜默降級為 approve）
+ * - 有 critical → request-changes；有 major → review-notes；否則 approve
+ * @param {Array<{model:string,error:string|null,findings:Array}>} perModel
+ * @param {{critical:number,major:number,minor:number}} sevCount
+ */
+export function resolveDecision(perModel, sevCount) {
+  const okCount = perModel.filter(p => !p.error).length;
+  if (okCount === 0) return "inconclusive";
+  return sevCount.critical > 0 ? "request-changes" : sevCount.major > 0 ? "review-notes" : "approve";
 }
 
 /** 組 deterministic context：commit range 的 changed files + diff（截斷保護） */
@@ -277,7 +292,11 @@ export async function runMultiModelReview(opts = {}) {
       if (fileSet.has(fp)) valid.push({ ...f, file: fp, line: Number(f.line) || 0, severity: ["critical", "major", "minor"].includes(f.severity) ? f.severity : "minor" });
       else dropped.push({ model: rv.model, file: f.file, line: f.line, claim: String(f.claim || "").slice(0, 80) });
     }
-    perModel.push({ model: rv.model, error: rv.parseError && !(rv.findings || []).length ? rv.parseError : null, findings: valid, ms: rv.ms, dropped: (rv.findings || []).length - valid.length });
+    // TASK-049（review 打回）：crashed fallback 帶的是 rv.error（parseError=null），先前只讀 parseError
+    // 會把 crashed reviewer 誤標成成功 → 「全數失敗」判定失準（report minor #185 一併修）
+    const err = rv.error && !(rv.findings || []).length ? String(rv.error).slice(0, 160)
+      : rv.parseError && !(rv.findings || []).length ? rv.parseError : null;
+    perModel.push({ model: rv.model, error: err, findings: valid, ms: rv.ms, dropped: (rv.findings || []).length - valid.length });
   }
 
   // 共識判定：同 file + 同行（±3 行內）+ 同 severity → 併成一條，記 models[]
@@ -289,7 +308,8 @@ export async function runMultiModelReview(opts = {}) {
       else merged.push({ ...f, models: [pm.model], claims: [{ model: pm.model, claim: f.claim, fix: f.fix }] });
     }
   }
-  const multiModel = perModel.filter(p => !p.error).length > 1;
+  const okCount = perModel.filter(p => !p.error).length;
+  const multiModel = okCount > 1;
   for (const g of merged) g.consensus = multiModel && g.models.length > 1;
 
   // MR2：分歧紅標（純函式：analyzeDisputes）
@@ -298,7 +318,8 @@ export async function runMultiModelReview(opts = {}) {
 
   const sevCount = { critical: 0, major: 0, minor: 0 };
   for (const g of merged) sevCount[g.severity]++;
-  const decision = sevCount.critical > 0 ? "request-changes" : sevCount.major > 0 ? "review-notes" : "approve";
+  // TASK-049：全數 reviewer 失敗 → inconclusive，不得回 approve（不靜默降級）
+  const decision = resolveDecision(perModel, sevCount);
 
   // ── report 落檔 ──
   const stamp = new Date();
@@ -318,7 +339,9 @@ export async function runMultiModelReview(opts = {}) {
     ``,
     `## Findings`,
     ``,
-    ...(merged.length === 0 ? ["（無 finding — 全數 reviewer 通過）"] : merged
+    ...(merged.length === 0 ? [decision === "inconclusive"
+      ? "（⛔ inconclusive — 全數 reviewer 失敗，無人真正審過此 diff，不得視為通過）"
+      : "（無 finding — 全數 reviewer 通過）"] : merged
       .sort((a, b) => ({ critical: 0, major: 1, minor: 2 })[a.severity] - ({ critical: 0, major: 1, minor: 2 })[b.severity] || a.file.localeCompare(b.file))
       .map(g => [
         `### ${sevIcon[g.severity]} ${g.file}:${g.line} ${g.consensus ? "🤝 共識" : "◇ 單獨"}${g.disputed ? " 🚩分歧" : ""}`,
@@ -395,7 +418,7 @@ export async function runMultiModelReview(opts = {}) {
 /** 給 agent loop tool 用的精簡文字輸出 */
 export function formatReviewResult(r) {
   const lines = [
-    `【Multi-Model Review】${r.decision === "approve" ? "✅ approve" : r.decision === "review-notes" ? "🟠 review-notes" : "🔴 request-changes"}`,
+    `【Multi-Model Review】${r.decision === "approve" ? "✅ approve" : r.decision === "inconclusive" ? "⛔ inconclusive（全數 reviewer 失敗，不得視為通過 — 查 reviewer 明細後重試）" : r.decision === "review-notes" ? "🟠 review-notes" : "🔴 request-changes"}`,
     `range ${r.range}｜${r.files} 檔｜reviewers：${r.reviewers.join("、")}`,
     `critical ${r.sevCount.critical} / major ${r.sevCount.major} / minor ${r.sevCount.minor}${r.disputes?.length ? `｜🚩分歧 ${r.disputes.length}` : ""}${r.dropped.length ? `｜⚠️ 幻覺退件 ${r.dropped.length}` : ""}`,
   ];

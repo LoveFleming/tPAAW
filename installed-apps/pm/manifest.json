@@ -1,0 +1,8 @@
+{
+  "id": "pm",
+  "name": "專案辦公室",
+  "version": "0.1.0",
+  "enabled": true,
+  "nav": { "label": "專案辦公室", "emoji": "📊", "page": "ProjectOffice" },
+  "server": { "entry": "server/entry.mjs" }
+}

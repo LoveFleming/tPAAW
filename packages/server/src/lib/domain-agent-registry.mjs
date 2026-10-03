@@ -350,6 +350,10 @@ export function getAgent(agentId) {
   if (agentId && agentId.startsWith("secret.") && /^[a-z][a-z0-9.-]*$/.test(agentId)) {
     return { agentId, crewId: agentId, secret: true, contextProviders: [], tools: null, skills: [] };
   }
+  // 📊 pm module（2026-10-03）：pm.* 直接對應同名 crew — 動態專案生成的 agent 免註冊即用
+  if (agentId && agentId.startsWith("pm.") && /^[a-z][a-z0-9.-]*$/.test(agentId)) {
+    return { agentId, crewId: agentId, pm: true, contextProviders: [], tools: null, skills: [] };
+  }
   return null;
 }
 

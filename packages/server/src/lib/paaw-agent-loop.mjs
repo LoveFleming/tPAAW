@@ -31,6 +31,7 @@ import { getDependencyContext, getAffectedTests } from "./dependency-context.mjs
 import { runTaskRetrofit } from "./task-retrofit.mjs";
 import { fileURLToPath } from "url";
 import { SECRETARY_TOOL_DEFS, runSecretaryTool } from "./secretary-tools.mjs"; // 🕴️ secret module tools（2026-10-03）
+import { PM_TOOL_DEFS, runPmTool } from "./secretary-tools.mjs"; // 📊 pm module tools（2026-10-03）
 import { readFileSync as _readSync, existsSync as _exSync } from "fs";
 import { join as _pathJoin, dirname as _pathDirname, basename as _pathBasename, extname as _pathExtname } from "path";
 
@@ -1213,6 +1214,7 @@ export const PAAW_TOOLS = [
     },
   },
   ...SECRETARY_TOOL_DEFS,
+  ...PM_TOOL_DEFS,
   {
     type: "function",
     function: {
@@ -1272,6 +1274,8 @@ const TOOL_GROUP_MAP = {
   // 🕴️ Secretary module tools — 秘書分類檔案櫃 + Excel 引擎（2026-10-03 secret module）
   category_list: "secretary", dossier_read: "secretary", dossier_write: "secretary",
   read_sheet: "secretary", write_sheet: "secretary",
+  project_list: "pm", project_read: "pm", project_write: "pm",
+  project_read_sheet: "pm", project_write_sheet: "pm",
 
   // Decision & changelog
   record_decision: "decisions", docs: "decisions",
@@ -2346,6 +2350,21 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           return String(r);
         } catch (e) {
           return `【秘書工具】❌ ${e.message}`;
+        }
+      }
+
+      case "project_list":
+      case "project_read":
+      case "project_write":
+      case "project_read_sheet":
+      case "project_write_sheet": {
+        const { runPmTool } = await import("./secretary-tools.mjs");
+        try {
+          const r = await runPmTool(name, args, agentId);
+          if (onEvent) onEvent({ type: "tool_end", name, result: String(r).slice(0, 120) });
+          return String(r);
+        } catch (e) {
+          return `【PM工具】❌ ${e.message}`;
         }
       }
 
