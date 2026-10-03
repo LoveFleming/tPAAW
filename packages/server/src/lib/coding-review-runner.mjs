@@ -21,6 +21,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { readProjectAgent } from "./project-crew.mjs";
 
 const MAX_DIFF_CHARS = 160000; // diff 注入上限（超過截斷標註）
+const REVIEWER_WATCHDOG_MS = 8 * 60 * 1000; // MR2 實測教訓：fetch headers 到連後 timeout 被清、body 讀取無界 → 硬看門狗兜底
 
 function _git(dir, args) {
   const r = spawnSync("git", args, { cwd: dir, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
@@ -36,14 +37,87 @@ export function resolveReviewConfig(projectDir) {
   const models = Array.isArray(rc.reviewModels)
     ? [...new Set(rc.reviewModels.filter(m => typeof m === "string" && m.trim()))]
     : [];
-  if (!flag) return { mode: "single", flag, models: [] };
+  // autoRework（MR2）：request-changes 時自動開單打回 developer，預設開；設 false 關
+  const autoRework = rc.autoRework !== false;
+  if (!flag) return { mode: "single", flag, models: [], autoRework };
   if (models.length < 2) {
     return {
-      mode: "error", flag, models,
+      mode: "error", flag, models, autoRework,
       error: "❌ reviewConfig.multiAgentReview 已開啟，但 reviewModels 去重後不足 2 個不同 model。請在 EM 設定（coding.em.json reviewConfig.reviewModels）補齊後重試。不靜默降級為單 model — 你以為有交叉驗證實際沒有，比報錯危險。",
     };
   }
-  return { mode: "multi", flag, models };
+  return { mode: "multi", flag, models, autoRework };
+}
+
+/**
+ * MR2：分歧偵測（純函式，deterministic）
+ * A) severity 衝突：同檔案同行（±3）不同 severity，出自不同 model → 分歧（誰對？待人/EM 仲裁）
+ * B) 單邊 critical：某 model 报 critical，其他存活 reviewer 同位置（±3）完全沒 finding → 分歧（可能是真雷也可能幻覺殘渣）
+ * @returns {{ disputes: Array, disputed: Set<string> }} disputed = merged 索引鍵（"file:line:severity"）
+ */
+export function analyzeDisputes(perModel, merged) {
+  const disputes = [];
+  const disputed = new Set();
+  const alive = perModel.filter(p => !p.error);
+  // A) severity 衝突
+  for (let i = 0; i < merged.length; i++) {
+    for (let j = i + 1; j < merged.length; j++) {
+      const a = merged[i], b = merged[j];
+      if (a.file !== b.file || Math.abs(a.line - b.line) > 3 || a.severity === b.severity) continue;
+      const modelsA = new Set(a.models), overlap = b.models.some(m => modelsA.has(m));
+      if (overlap) continue; // 同 model 自相矛盾不當跨 model 分歧
+      disputes.push({
+        kind: "severity-conflict", file: a.file, line: Math.round((a.line + b.line) / 2),
+        sides: [
+          { severity: a.severity, models: a.models, claim: a.claims[0]?.claim || "" },
+          { severity: b.severity, models: b.models, claim: b.claims[0]?.claim || "" },
+        ],
+      });
+      disputed.add(`${a.file}:${a.line}:${a.severity}`);
+      disputed.add(`${b.file}:${b.line}:${b.severity}`);
+    }
+  }
+  // B) 單邊 critical（≥2 個存活 reviewer 才有意義）
+  if (alive.length >= 2) {
+    for (const g of merged) {
+      if (g.severity !== "critical" || g.models.length > 1) continue;
+      const othersSilent = !merged.some(o => o !== g && o.file === g.file && Math.abs(o.line - g.line) <= 3);
+      if (othersSilent) {
+        disputes.push({
+          kind: "critical-unconfirmed", file: g.file, line: g.line,
+          sides: [
+            { severity: "critical", models: g.models, claim: g.claims[0]?.claim || "" },
+            { severity: "(silent)", models: alive.filter(p => !g.models.includes(p.model)).map(p => p.model), claim: "同位置未報任何問題" },
+          ],
+        });
+        disputed.add(`${g.file}:${g.line}:${g.severity}`);
+      }
+    }
+  }
+  return { disputes, disputed };
+}
+
+/** MR2：自動打回單内容（純函式）— 必修清單給 developer */
+export function buildReworkTicket(merged, ctxInfo, reportPath) {
+  const mustFix = merged.filter(g => g.severity === "critical");
+  const files = [...new Set(mustFix.map(g => g.file))].slice(0, 20);
+  const checklist = mustFix.map((g, i) => {
+    const flag = g.models.length > 1 ? "🤝共識" : "🚩單邊（待仲裁但先修）";
+    const fix = g.claims.map(c => `${c.model}：${c.claim}${c.fix ? ` → 修法：${c.fix}` : ""}`).join("；");
+    return `- [ ] ${i + 1}. 🔴 \`${g.file}:${g.line}\` [${flag}] ${fix}`;
+  });
+  return {
+    mustFix, files,
+    title: `[Review 打回] ${ctxInfo.range}：${mustFix.length} critical`,
+    description: [
+      `Multi-Model Review 對 \`${ctxInfo.range}\` 判 **request-changes**，必修清單如下（report：${reportPath}）。`,
+      "",
+      ...checklist,
+      "",
+      "分岐項先修再說 — 共識項是多方同看出的雷，單邊項修完若證實誤報請在 notes 註明供仲裁。",
+    ].join("\n"),
+    acceptance: "每條必修項完成（或附誤報證明）；npm run build 綠；相關測試過",
+  };
 }
 
 /** 組 deterministic context：commit range 的 changed files + diff（截斷保護） */
@@ -153,15 +227,21 @@ export async function runMultiModelReview(opts = {}) {
     const t0 = Date.now();
     try {
       const llm = resolveLLMConfig(projectDir, m || undefined, []);
-      const r = await callLLMWithRetry(llm.apiUrl, llm.headers, {
-        model: llm.model,
-        messages: [
-          { role: "system", content: "你是嚴謹的資深 code reviewer。只看使用者給的 diff 事實，不虚構行號。回覆必須以 ```json 陣列結尾。" },
-          { role: "user", content: _reviewerPrompt(ctx, label) },
-        ],
-        temperature: 0.2,
-        max_tokens: 16384,
-      }, { maxRetries: 2, timeoutMs: 240000, caller: "mm-review", agentId: "coding.qa" });
+      console.log(`[mm-review] reviewer ${label} → ${llm.model}（diff ${Math.round(ctx.diff.length / 1024)}KB）`);
+      // 硬看門狗：fetchWithRetry 在 headers 到達後會清掉 per-attempt timeout，body 讀取無界 —
+      // 大 diff 慢回應會無限掛住，這裡用 Promise.race 從外層兌底
+      const r = await Promise.race([
+        callLLMWithRetry(llm.apiUrl, llm.headers, {
+          model: llm.model,
+          messages: [
+            { role: "system", content: "你是嚴謹的資深 code reviewer。只看使用者給的 diff 事實，不虚構行號。回覆必須以 ```json 陣列結尾。" },
+            { role: "user", content: _reviewerPrompt(ctx, label) },
+          ],
+          temperature: 0.2,
+          max_tokens: 16384,
+        }, { maxRetries: 2, timeoutMs: 240000, caller: "mm-review", agentId: "coding.qa" }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error(`watchdog timeout ${REVIEWER_WATCHDOG_MS / 60000}min`)), REVIEWER_WATCHDOG_MS)),
+      ]);
       const text = r?.content || "";
       const { findings, parseError } = _parseFindings(text);
       return { model: label, ms: Date.now() - t0, findings, parseError, raw: text };
@@ -170,7 +250,6 @@ export async function runMultiModelReview(opts = {}) {
       return { model: label, ms: Date.now() - t0, findings: [], parseError: `LLM error: ${String(e.message || e).slice(0, 160)}`, raw: "" };
     }
   }));
-
   // ── 驗證 + 彙總（deterministic）──
   const dropped = [];
   const perModel = [];
@@ -197,6 +276,10 @@ export async function runMultiModelReview(opts = {}) {
   const multiModel = perModel.filter(p => !p.error).length > 1;
   for (const g of merged) g.consensus = multiModel && g.models.length > 1;
 
+  // MR2：分歧紅標（純函式：analyzeDisputes）
+  const { disputes, disputed } = analyzeDisputes(perModel, merged);
+  for (const g of merged) g.disputed = disputed.has(`${g.file}:${g.line}:${g.severity}`);
+
   const sevCount = { critical: 0, major: 0, minor: 0 };
   for (const g of merged) sevCount[g.severity]++;
   const decision = sevCount.critical > 0 ? "request-changes" : sevCount.major > 0 ? "review-notes" : "approve";
@@ -222,11 +305,20 @@ export async function runMultiModelReview(opts = {}) {
     ...(merged.length === 0 ? ["（無 finding — 全數 reviewer 通過）"] : merged
       .sort((a, b) => ({ critical: 0, major: 1, minor: 2 })[a.severity] - ({ critical: 0, major: 1, minor: 2 })[b.severity] || a.file.localeCompare(b.file))
       .map(g => [
-        `### ${sevIcon[g.severity]} ${g.file}:${g.line} ${g.consensus ? "🤝 共識" : "◇ 單獨"}`,
+        `### ${sevIcon[g.severity]} ${g.file}:${g.line} ${g.consensus ? "🤝 共識" : "◇ 單獨"}${g.disputed ? " 🚩分歧" : ""}`,
         `- **severity**：${g.severity}　**models**：${g.models.map(m => `\`${m}\``).join("、")}`,
         ...g.claims.map(c => `- \`${c.model}\`：${c.claim}${c.fix ? `　→ 修法：${c.fix}` : ""}`),
         ``,
       ].join("\n"))),
+    ...(disputes.length ? [
+      `## 🚩 分歧（待人/EM 仲裁）`,
+      ``,
+      ...disputes.map(d => [
+        `- **${d.kind === "severity-conflict" ? "severity 衝突" : "單邊 critical 未獲共識"}** \`${d.file}:${d.line}\``,
+        ...d.sides.map(s => `  - ${s.severity === "(silent)" ? "⬜" : "🔴"} \`${s.models.join("、")}\` 說 ${s.severity === "(silent)" ? s.claim : `${s.severity}：${s.claim}`}`),
+      ].join("\n")),
+      ``,
+    ] : []),
     ``,
     `## 各 Reviewer 明細`,
     ``,
@@ -235,8 +327,40 @@ export async function runMultiModelReview(opts = {}) {
   ].join("\n");
   writeFileSync(reportPath, reportMd, "utf8");
 
+  // ── MR2：request-changes → 自動開單打回 developer（進既有 task pool，派工照原本機制）──
+  let reworkTicket = null;
+  if (decision === "request-changes" && cfg.autoRework) {
+    const spec = buildReworkTicket(merged, { range: ctx.range }, reportPath);
+    if (spec.mustFix.length) {
+      try {
+        const { createTicket } = await import("./em-task-store.mjs");
+        const created = createTicket(projectDir, {
+          title: spec.title,
+          description: spec.description,
+          acceptance: spec.acceptance,
+          type: "dev",
+          priority: "critical",
+          affectedFiles: spec.files,
+          labels: ["multi-model-review", "rework"],
+          createdBy: "mm-review",
+          source: "multi-model-review",
+          note: `自動打回：${ctx.range} review 判 request-changes（report：${reportPath}）`,
+        });
+        reworkTicket = created.ok
+          ? { ok: true, id: created.task.id, title: created.task.title }
+          : { ok: false, error: created.error };
+      } catch (e) {
+        reworkTicket = { ok: false, error: String(e.message || e).slice(0, 160) };
+      }
+      onProgress(reworkTicket.ok
+        ? `🎫 已自動開單 #${reworkTicket.id} 打回 developer（${spec.mustFix.length} critical）`
+        : `⚠️ 自動開單失敗：${reworkTicket.error}`);
+    }
+  }
+
   return {
-    decision, sevCount, merged, perModel, dropped,
+    decision, sevCount, merged, perModel, dropped, disputes,
+    reworkTicket, autoRework: cfg.autoRework,
     reviewers: perModel.map(p => p.model),
     reportPath, range: ctx.range, files: ctx.files.length,
   };
@@ -247,12 +371,17 @@ export function formatReviewResult(r) {
   const lines = [
     `【Multi-Model Review】${r.decision === "approve" ? "✅ approve" : r.decision === "review-notes" ? "🟠 review-notes" : "🔴 request-changes"}`,
     `range ${r.range}｜${r.files} 檔｜reviewers：${r.reviewers.join("、")}`,
-    `critical ${r.sevCount.critical} / major ${r.sevCount.major} / minor ${r.sevCount.minor}${r.dropped.length ? `｜⚠️ 幻覺退件 ${r.dropped.length}` : ""}`,
+    `critical ${r.sevCount.critical} / major ${r.sevCount.major} / minor ${r.sevCount.minor}${r.disputes?.length ? `｜🚩分歧 ${r.disputes.length}` : ""}${r.dropped.length ? `｜⚠️ 幻覺退件 ${r.dropped.length}` : ""}`,
   ];
   for (const g of r.merged.slice(0, 12)) {
-    lines.push(`- ${g.severity === "critical" ? "🔴" : g.severity === "major" ? "🟠" : "🟡"} ${g.file}:${g.line} ${g.consensus ? "[共識] " : ""}${(g.claims[0]?.claim || "").slice(0, 100)}`);
+    lines.push(`- ${g.severity === "critical" ? "🔴" : g.severity === "major" ? "🟠" : "🟡"} ${g.file}:${g.line} ${g.consensus ? "[共識] " : ""}${g.disputed ? "[🚩分歧] " : ""}${(g.claims[0]?.claim || "").slice(0, 100)}`);
   }
   if (r.merged.length > 12) lines.push(`- ...共 ${r.merged.length} 條，詳見 report`);
+  if (r.reworkTicket) {
+    lines.push(r.reworkTicket.ok
+      ? `🎫 已自動開單 #${r.reworkTicket.id} 打回 developer（必修清單在單内，派工照既有機制）`
+      : `⚠️ 自動開單失敗：${r.reworkTicket.error}（手動處理必修清單）`);
+  }
   lines.push(`📄 完整 report：${r.reportPath}`);
   return lines.join("\n");
 }
