@@ -1201,7 +1201,7 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "multi_model_review",
-      description: "多 model 並行 code review（EM reviewConfig 控制：multiAgentReview 開數才多 model，沒開就單 model default）。審指定 git range（預設最後一個 commit）。回：findings（共識/單獨標記）+ decision + report 路徑。收到「審一下 / code review」類請求時用這個。",
+      description: "🏛️ 召開 review 委員會 — 多位 AI 資深 reviewer（EM reviewConfig.reviewModels 指定，沒開 multiAgentReview 就單席）各自獨立審同一段 code，互不通氣；程式當仲裁：行號驗證退件幻覺、同位置 ±3 行併合標「🤝共識」、跨 model 意見相左標「🚩分歧」待人裁。判 critical → 自動開打回單派給 developer 帶必修清單。report 落檔 .paaw/review-board/。使用者說「審一下 / 委員會 review / review board / 幫我 review 這個 commit」就開會，預設審最後一個 commit。",
       parameters: {
         type: "object",
         properties: {

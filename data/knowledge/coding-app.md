@@ -163,6 +163,49 @@ Auto Dispatch 是自動化的夜間開發流程：
 
 ---
 
+## 🏛️ Review 委員會 — Multi-Model Code Review
+
+**一段 code，多位 AI 委員各自獨立審查，程式當仲裁。**
+
+跟 EM 說「**審一下**」「**委員會 review**」就開會（QA chat、developer chat 也召得動 — 委員會是公共工具）。預設審最後一個 commit，也可以指定範圍（如 `HEAD~3..HEAD`）。
+
+### 開會流程
+
+```
+「審一下」
+  ↓
+🏛️ 委員入場 — EM 設定的多位 AI reviewer（不同 model，各有所長）
+  ↓
+各自獨立審同一段 diff，互不通氣、互不知道彼此結論
+  ↓
+⚖️ 程式仲裁（deterministic，不是 AI 說了算）：
+  ├─ 行號不在 diff 內 → 幻覺，退件
+  ├─ 同位置多位同時指出 → 🤝 共識（可信度最高）
+  ├─ 委員意見相左 → 🚩 分歧紅標，待人/EM 仲裁
+  └─ 有人喊 critical 有人沒事 → 🚩 單邊雷，浮上來裁
+  ↓
+判決：critical → 🔴 request-changes → 🎫 自動開打回單
+      （必修清單直達 developer，進既有派工，修完才結案）
+  ↓
+📄 會議記錄落檔 .paaw/review-board/（共識、分歧、誰說什麼，全留痕）
+```
+
+### 委員怎麼來的
+
+EM 設定 `reviewConfig`：`multiAgentReview: true` + `reviewModels: ["zai/glm-5.1", "另一個 model"]`。
+- 沒開 → 單席委員（server 預設 model）
+- 開了但湊不滿兩個不同 model → **直接報錯，不偷偷降級** — 你以為有交叉驗證實際沒有，比報錯危險
+- `autoRework: false` 可關自動打回（預設開）
+
+### 為什麼這樣設計
+
+- **LLM 只推理，事實靠程式** — diff 是 git 給的、行號驗證是程式做的、共識/分歧是程式算的，委員只負責「看出問題」
+- **不同 model = 不同視角** — 同血緣的模型會有一樣的偏見，混血委員會才能互相抓盲點
+- **分歧不消失，往上升** — 委員吵架不是壞事，是品質訊號，紅標給人裁
+
+---
+---
+
 ## AI 產出物
 
 Coding App 的 AI 不只寫碼，還能自動產出完整的專案知識：
