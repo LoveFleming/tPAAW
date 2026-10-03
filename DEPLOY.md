@@ -1,43 +1,36 @@
-# Deploy — EM 派工 ⚡ Tool Calls 全修復包（2026-09-30 v5）
+# tPAAW 更新包（packages only）— 2026-10-03
 
-上游：dev `be582cfc`
+**內容**：`packages/**` + `package.json`（= dev `9116fb02`）— 專為 security scan 縮到最小面積。
 
-## 症狀 → 修復對照
+含 **chat 輸入凍結修復**（貼文字/打字不再讓 Chrome「頁面沒有反應」）、移除 Workflow Builder、移除 Agentic Binding、Rust/Java 多語言 code understanding。
 
-| 症狀 | 修復 |
-|---|---|
-| 502 → run 死掉要手動開新對話 | 5xx/408 全鏈路進 fallback，同一 run 跑完 |
-| EM chat 有 tool calls、開發 tab 只顯示思考中 | **message/send（EM 派工路徑）註冊 streamState 側車** — agent tab 面板復活（本包核心） |
-| 面板凍結（run done 後不再更新） | poller done 後 10s 慢速續投，新 run 自動接回 |
-| 接回時短 run 事件消失 | 重拉不再要求 run 未結束 |
-| 分不清內容是哪個 agent 的 | 面板標題顯示 `agent · 時間 · N calls` |
+## 步驟
 
-## 覆蓋檔案（6 檔：5M server + 1M UI）
-
-| 狀態 | 路徑 | 說明 |
-|---|---|---|
-| M | `packages/server/src/routes/a2a.mjs` | **本包核心** — message/send 註冊側車 + onEvent 映射 |
-| M | `packages/server/src/lib/paaw-agent-loop.mjs` | agent 執行層 5xx/408 fallback |
-| M | `packages/server/src/lib/llm-utils.mjs` | callLLMWithRetry 4xx/5xx fallback |
-| M | `packages/server/src/lib/em-orchestrator.mjs` | EM 決策 fallbacks 空時用預設鏈 |
-| M | `packages/server/src/lib/auto-dispatch-manager.mjs` | EM 規劃同上 |
-| M | `packages/ui/src/pages/CodingIDE.tsx` | 面板凍結 + 接回 race + run 身份標籤 |
-
-## 步驟（公司 SOP）
-
-1. 六個檔案照相對路徑蓋到 tPAAW
-2. `npm run build`（有 UI 檔，必跑）
-3. 重啟 server（有 server 檔，必跑）
-4. `node scripts\pack.mjs --skip-build`
-5. 瀏覽器 **Ctrl+Shift+R** 硬重整
+```
+1. 備份公司現有 tPAAW 資料夾（覆蓋會蓋掉公司自研修改）
+2. packages/ 整個資料夾覆蓋進 tPAAW（保持相對路徑）
+3. 蓋 package.json（root）
+4. 刪除 6 個舊檔（packages 內殘骸）：
+   packages/engine/src/workflow/index.ts
+   packages/server/src/lib/agentic-binding.mjs
+   packages/server/src/routes/agentic-bindings.mjs
+   packages/server/src/routes/workflow.mjs
+   packages/ui/src/pages/WorkflowEditor.tsx
+   packages/ui/src/pages/WorkflowExec.tsx
+   （若 tests/unit/agentic-binding.test.mjs 存在也刪）
+5. npm install          ← 必要（tree-sitter-rust 新依賴）
+6. npm run build
+7. npm start            ← 重啟 server 吃新 dist
+```
 
 ## 驗收
 
-- EM 派工期間切到 developer tab：⚡ 面板出現（標籤：`developer · 時間 · N calls`），工具即時更新
-- 502 → log `trying fallback` → 同一任務跑完，不用開新對話
-- 已在本機煙霧測試：message/send 派工中 `exists:true`，事件鏈 tool→tool_result→thinking→content 齊全
+- **coding app 開個對話多的 chat，貼一大段文字 / 連續打字** — 不再出現「頁面沒有反應」
+- 側邊欄 Workflow 選單已消失
+- coding app import 非 JS 專案 → dependency map 有數字（Rust/Java）
 
-## 備註
+## 沒帶的（公司沿用現有檔案，皆無變動）
 
-- `data/config/user.json` → `preferences.*Fallback` 舊值（無 -0731）補 `-0731` 或刪 key
-- 502 fallback 前提：providers.json / user.json 至少一組公司 LLM 以外的備援
+- `tsconfig.base.json`、`vitest.config.ts`、`.env*` — dev 上自 6-9 月後未變
+- `data/`、`tests/`、`scripts/`、`docs/` — 產品定義與測試，需要時另出包
+- `.paaw/`、`logs/` — Mac mini runtime，公司絕不帶

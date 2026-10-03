@@ -1,9 +1,0 @@
-{
-  "method": "GET",
-  "path": "/api/user/preferences",
-  "description": "取得使用者偏好",
-  "query": null,
-  "body": null,
-  "expectedStatus": 200,
-  "notes": ""
-}

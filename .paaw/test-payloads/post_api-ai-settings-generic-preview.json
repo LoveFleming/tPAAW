@@ -1,9 +1,0 @@
-{
-  "method": "POST",
-  "path": "/api/ai-settings/generic-preview",
-  "description": "Generic preview",
-  "query": null,
-  "body": {},
-  "expectedStatus": 200,
-  "notes": ""
-}

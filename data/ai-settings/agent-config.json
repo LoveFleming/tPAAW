@@ -1,6 +1,0 @@
-{
-  "maxTurns": 200,
-  "timeoutSeconds": 0,
-  "bashTimeoutSeconds": 300,
-  "shellTimeoutMs": 600000
-}
