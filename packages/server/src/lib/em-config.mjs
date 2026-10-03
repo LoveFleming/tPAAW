@@ -68,6 +68,13 @@ const DEFAULT_EM_CONFIG = {
   dispatchableAgents: [],  // empty = all available; otherwise restrict to these IDs
   blockedAgents: [],       // never dispatch to these agents
 
+  // 🏛️ Review 委員會（2026-10-03）：multi-model code review — EM dashboard 設定面
+  reviewConfig: {
+    multiAgentReview: false,  // 多席交叉驗證（要 ≥2 個不同 model，不足啟動報錯不降級）
+    reviewModels: [],         // 委員名單，例 ["zai/glm-5.1", "openrouter/deepseek/deepseek-v4-flash-0731"]
+    autoRework: true,         // review 判 critical → 自動開打回單給 developer
+  },
+
   // Planning scope: what EM considers when planning
   planningScope: {
     gitChanges: true,

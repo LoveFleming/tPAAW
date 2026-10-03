@@ -19,6 +19,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { readProjectAgent } from "./project-crew.mjs";
+import { readEMConfig } from "./em-config.mjs";
 
 const MAX_DIFF_CHARS = 160000; // diff 注入上限（超過截斷標註）
 const REVIEWER_WATCHDOG_MS = 8 * 60 * 1000; // MR2 實測教訓：fetch headers 到連後 timeout 被清、body 讀取無界 → 硬看門狗兜底
@@ -28,11 +29,23 @@ function _git(dir, args) {
   return r.status === 0 ? r.stdout.trim() : "";
 }
 
-/** 讀 EM reviewConfig（.paaw 專案覆蓋 → data/crews global，走既有 readProjectAgent 鏈） */
+/**
+ * 讀 reviewConfig — 來源優先序（2026-10-03 Fleming：要在 EM dashboard 看得到）：
+ * 1. `.paaw/em/config.json`（EM dashboard「⚙️ EM 調度設定 → 🏛️ Review 委員會」— 主要管理面）
+ * 2. agent json（.paaw/agents/coding.em.json 專案覆蓋 → data/crews/coding.em.json global — 手改檔舊路，相容保留）
+ * dashboard「看起來沒設」（flag off + 空名單）才回落 agent json。
+ */
 export function resolveReviewConfig(projectDir) {
-  let em = null;
-  try { em = readProjectAgent(projectDir, "coding.em"); } catch { /* read fail → 預設關 */ }
-  const rc = (em && em.reviewConfig) || {};
+  let rc = null;
+  try {
+    rc = readEMConfig(projectDir)?.reviewConfig || null;
+    if (rc && !rc.multiAgentReview && !(Array.isArray(rc.reviewModels) && rc.reviewModels.length)) rc = null; // dashboard 未設
+  } catch { /* em-config read fail → 走 agent json */ }
+  if (!rc) {
+    let em = null;
+    try { em = readProjectAgent(projectDir, "coding.em"); } catch { /* read fail → 預設關 */ }
+    rc = (em && em.reviewConfig) || {};
+  }
   const flag = !!rc.multiAgentReview;
   const models = Array.isArray(rc.reviewModels)
     ? [...new Set(rc.reviewModels.filter(m => typeof m === "string" && m.trim()))]

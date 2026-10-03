@@ -912,6 +912,49 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                 <p className="text-[10px] text-stone-400 mt-1">空 = 全域預設。Dispatch 是全部 agent 的下限：個別 agent 有設 EM Dispatch Model 的以該 agent 爲優先（Crew 管理員 → 各成員）。</p>
               </div>
 
+              {/* 🏛️ Review 委員會（2026-10-03）：multiAgentReview / reviewModels / autoRework */}
+              <div>
+                <label className="text-xs font-bold text-stone-600 block mb-1.5">🏛️ Review 委員會（多 Model 交叉審查）</label>
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer mb-2">
+                  <input type="checkbox"
+                    checked={!!emConfig.reviewConfig?.multiAgentReview}
+                    onChange={e => patchEmConfigDeep("reviewConfig", "multiAgentReview", e.target.checked)}
+                    className="accent-purple-500"
+                  />
+                  <span className={emConfig.reviewConfig?.multiAgentReview ? "text-stone-700 font-medium" : "text-stone-400"}>多席交叉驗證</span>
+                </label>
+                {emConfig.reviewConfig?.multiAgentReview && (
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    {[0, 1].map(i => (
+                      <div key={`rm_${i}`}>
+                        <label className="text-[10px] text-stone-500 block mb-0.5">{i === 0 ? "👤 委員 1" : "👤 委員 2"}</label>
+                        <select
+                          value={emConfig.reviewConfig?.reviewModels?.[i] ?? ""}
+                          onChange={e => {
+                            const cur = Array.isArray(emConfig.reviewConfig?.reviewModels) ? [...emConfig.reviewConfig.reviewModels] : ["", ""];
+                            cur[i] = e.target.value;
+                            patchEmConfigDeep("reviewConfig", "reviewModels", cur.filter(Boolean));
+                          }}
+                          className="w-full px-2 py-1 rounded border border-stone-200 text-xs bg-white"
+                        >
+                          <option value="">（未選）</option>
+                          {emModelOptions.filter(m => m.value).map(m => <option key={`rm${i}_${m.value}`} value={m.value}>{m.group ? `[${m.group}] ` : ""}{m.label}</option>)}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                  <input type="checkbox"
+                    checked={emConfig.reviewConfig?.autoRework !== false}
+                    onChange={e => patchEmConfigDeep("reviewConfig", "autoRework", e.target.checked)}
+                    className="accent-purple-500"
+                  />
+                  <span className={emConfig.reviewConfig?.autoRework !== false ? "text-stone-700 font-medium" : "text-stone-400"}>判 critical 自動開打回單</span>
+                </label>
+                <p className="text-[10px] text-stone-400 mt-1">開啟後要選滿 2 個不同 model，不足時委員會啟動會報錯（不偷偷降級）。跟 EM 或 QA 說「審一下」開會，會議記錄在 .paaw/review-board/。</p>
+              </div>
+
               {/* Auto-Execute Rules */}
               <div>
                 <label className="text-xs font-bold text-stone-600 block mb-1.5">⚡ 自動執行規則</label>
