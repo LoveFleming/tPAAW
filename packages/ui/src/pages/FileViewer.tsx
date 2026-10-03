@@ -224,7 +224,9 @@ interface Props {
   active?: boolean;
 }
 
-export default function FileViewer({ filePath, projectRoot, active }: Props) {
+// 2026-10-03 效能修復：React.memo — props 全 primitive（filePath/projectRoot/active），
+// memo 後 chat 輸入事件不再重 render keep-alive 的檔案 viewer 分頁
+export default React.memo(function FileViewer({ filePath, projectRoot, active }: Props) {
   const { t: tt } = useI18n();
   const { info: t } = useTheme();
   const [content, setContent] = useState<string | null>(null);
@@ -355,4 +357,4 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
       ) : null}
     </div>
   );
-}
+});

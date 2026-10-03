@@ -150,6 +150,8 @@ const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"
 const _chatScrollCache = new Map<string, number>();
 // 效能：空陣列模組級身分（inline [] 每鍵新建 → agentToolLog 身分變 → 打爆 ChatMessages memo）
 const EMPTY_TOOL_LOG: Array<{ name: string; args: string; result: string }> = [];
+// 2026-10-03：檔案樹 onOpenInBriefingPlayer 佔位 — 模組級常數避免每次 render 新身分打爆 memo
+const TREE_NOOP = () => {};
 const METHOD_COLORS: Record<string, string> = {
   GET: "#10B981", POST: "#3B82F6", PUT: "#F59E0B", PATCH: "#8B5CF6",
   DELETE: "#EF4444", HEAD: "#6B7280", OPTIONS: "#6B7280",
@@ -1600,6 +1602,19 @@ export default function CodingIDE() {
   }, [logEvent]);
 
   const startEditing = useCallback(() => { setIsEditing(true); setTimeout(() => textareaRef.current?.focus(), 50); }, []);
+
+  // ── 2026-10-03 效能修復：檔案樹 props 身分穩定化 ──
+  // TreeNodeView 有 React.memo，但 CodingIDE 每次 render 傳新的 new Set / inline 箭頭函式
+  // → memo 全打爆 → chat 輸入框每打一字/貼一次，整棵檔案樹每個節點重 render（大專案幾百節點
+  // = 秒級凍結，Chrome「頁面沒有反應」）。這些 hooks 讓身分穩定，輸入事件不再碰檔案樹。
+  const treeOpenFilePaths = useMemo(() => new Set(mainTabs.filter(t => t.filePath).map(t => t.filePath!)), [mainTabs]);
+  const treeSelectFile = useCallback((path: string) => { openFile(path); }, [openFile]);
+  const treeEditFile = useCallback((path: string) => { openFile(path); }, [openFile]);
+  const treeAiSummary = useCallback((path: string, _name: string, isDir: boolean) => {
+    setChatMessages(prev => [...prev, {
+      role: "user", content: isDir ? `請幫我摘要這個資料夾的內容：${path}` : `請幫我摘要這個檔案的內容：${path}`, ts: new Date().toISOString()
+    }]);
+  }, [setChatMessages]);
   const stopEditing = useCallback(() => { setIsEditing(false); if (activeTab?.modified) saveFile(activeTab); }, [activeTab, saveFile]);
   const handleCodeViewClick = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only left click
@@ -2882,15 +2897,11 @@ const sendChat = useCallback(async () => {
               <SidebarFileTree
                 projectRoot={rootPath}
                 activeFilePath={activeMainTab?.filePath || activeTabId}
-                openFilePaths={new Set(mainTabs.filter(t => t.filePath).map(t => t.filePath!))}
-                onSelectFile={(path) => openFile(path)}
-                onEditFile={(path) => openFile(path)}
-                onOpenInBriefingPlayer={() => {}}
-                onAiSummary={(path, name, isDir) => {
-                  setChatMessages(prev => [...prev, {
-                    role: "user", content: isDir ? `請幫我摘要這個資料夾的內容：${path}` : `請幫我摘要這個檔案的內容：${path}`, ts: new Date().toISOString()
-                  }]);
-                }}
+                openFilePaths={treeOpenFilePaths}
+                onSelectFile={treeSelectFile}
+                onEditFile={treeEditFile}
+                onOpenInBriefingPlayer={TREE_NOOP}
+                onAiSummary={treeAiSummary}
               />
             ) : (
               <div className="flex flex-col h-full p-3 gap-2 overflow-y-auto">

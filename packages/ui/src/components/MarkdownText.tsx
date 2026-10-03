@@ -9,8 +9,12 @@ import remarkBreaks from "remark-breaks";
  * Use className="md-dark" for dark-themed parents (AgentConsole).
  * remark-breaks：單換行 → <br> — agent 常用樹狀圖（├─ │ └─）等單換行排版，
  * 標準 markdown 會把單換行摺疊成空格導致整團擠在一起（Discord/ChatGPT 同樣用 breaks 行為）
+ *
+ * 2026-10-03 效能修復：React.memo 包裹 — children 是 string，內容沒變就整個跳過 re-parse。
+ * 之前沒 memo：chat 輸入框每打一個字/貼一次 → 所在 chat 面积全部歷史訊息的 ReactMarkdown
+ * 重新 parse 一遍（長訊息 × 幾百則 = 秒級凍結，Chrome「頁面沒有回應」的元兇之一）。
  */
-export default function MarkdownText({ children, className = "" }: { children: string; className?: string }) {
+const MarkdownText = React.memo(function MarkdownText({ children, className = "" }: { children: string; className?: string }) {
   return (
     <div className={`md-content text-sm leading-relaxed ${className}`}>
       <style>{`
@@ -67,4 +71,5 @@ export default function MarkdownText({ children, className = "" }: { children: s
       </ReactMarkdown>
     </div>
   );
-}
+});
+export default MarkdownText;
