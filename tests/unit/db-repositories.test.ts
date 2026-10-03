@@ -521,7 +521,156 @@ describe("F-003 DataStoreRepo", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+// 交易行為（commit / rollback）— TASK-044 驗收項目 4
+//
+// 被測標的：Kysely `db.transaction()` 在本專案 sql.js SQLite 上的語意
+// （BEGIN / COMMIT / ROLLBACK 由 harness driver 送到底層 sql.js）。
+// sql.js 不支援巢狀交易（"cannot start a transaction within a transaction"），
+// 因此每個 case 都是獨立單層交易。
+// ═══════════════════════════════════════════════════════════════
+
+describe("F-003 transactions (commit/rollback)", () => {
+  it("committed transaction persists inserted rows", async () => {
+    await db.transaction().execute(async (trx) => {
+      await trx.insertInto("runs").values({
+        id: "tx-commit-1", skill_id: "s", user_id: "u1",
+        status: "completed", runner_type: "prompt",
+        input_json: "{}", started_at: "2026-01-01T00:00:00Z",
+      }).execute();
+    });
+
+    const row = await db.selectFrom("runs").where("id", "=", "tx-commit-1").selectAll().executeTakeFirst();
+    expect(row).toBeDefined();
+    expect(row!.status).toBe("completed");
+  });
+
+  it("committed transaction persists updates (update visible after commit)", async () => {
+    await insertRun({ id: "tx-commit-2", skillId: "s", userId: "u1", startedAt: "2026-01-01T00:00:00Z", status: "pending" });
+
+    await db.transaction().execute(async (trx) => {
+      await trx.updateTable("runs").set({ status: "running" }).where("id", "=", "tx-commit-2").execute();
+    });
+
+    expect((await db.selectFrom("runs").where("id", "=", "tx-commit-2").selectAll().executeTakeFirst())!.status)
+      .toBe("running");
+  });
+
+  it("controlled transaction: explicit rollback().execute() discards inserted rows", async () => {
+    // Kysely 0.29.2 的 callback 式 db.transaction() 不提供 trx.rollback()；
+    // 明確控制交易用 ControlledTransaction（startTransaction）。
+    const trx = await db.startTransaction().execute();
+    await trx.insertInto("runs").values({
+      id: "tx-rollback-1", skill_id: "s", user_id: "u1",
+      status: "completed", runner_type: "prompt",
+      input_json: "{}", started_at: "2026-01-01T00:00:00Z",
+    }).execute();
+    await trx.rollback().execute();
+
+    const row = await db.selectFrom("runs").where("id", "=", "tx-rollback-1").selectAll().executeTakeFirst();
+    expect(row).toBeUndefined();
+  });
+
+  it("controlled transaction: explicit commit().execute() persists inserted rows", async () => {
+    const trx = await db.startTransaction().execute();
+    await trx.insertInto("runs").values({
+      id: "tx-commit-ctrl", skill_id: "s", user_id: "u1",
+      status: "completed", runner_type: "prompt",
+      input_json: "{}", started_at: "2026-01-01T00:00:00Z",
+    }).execute();
+    await trx.commit().execute();
+
+    expect(await db.selectFrom("runs").where("id", "=", "tx-commit-ctrl").selectAll().executeTakeFirst())
+      .toBeDefined();
+  });
+
+  it("throwing inside db.transaction() auto-rollbacks and rethrows", async () => {
+    await expect(
+      db.transaction().execute(async (trx) => {
+        await trx.insertInto("runs").values({
+          id: "tx-auto-rollback", skill_id: "s", user_id: "u1",
+          status: "completed", runner_type: "prompt",
+          input_json: "{}", started_at: "2026-01-01T00:00:00Z",
+        }).execute();
+        throw new Error("boom mid-transaction");
+      })
+    ).rejects.toThrow("boom mid-transaction");
+
+    expect(await db.selectFrom("runs").where("id", "=", "tx-auto-rollback").selectAll().executeTakeFirst())
+      .toBeUndefined();
+  });
+
+  it("rollback discards the whole transaction — earlier writes in the same trx are undone too", async () => {
+    await expect(
+      db.transaction().execute(async (trx) => {
+        await trx.insertInto("runs").values({
+          id: "tx-early", skill_id: "s", user_id: "u1",
+          status: "completed", runner_type: "prompt",
+          input_json: "{}", started_at: "2026-01-01T00:00:00Z",
+        }).execute();
+        // 第二筆違反 PRIMARY KEY（同 id）→ 拋錯 → 第一筆也必須回滾
+        await trx.insertInto("runs").values({
+          id: "tx-early", skill_id: "s", user_id: "u1",
+          status: "failed", runner_type: "prompt",
+          input_json: "{}", started_at: "2026-01-02T00:00:00Z",
+        }).execute();
+      })
+    ).rejects.toThrow();
+
+    expect(await db.selectFrom("runs").where("id", "=", "tx-early").selectAll().executeTakeFirst())
+      .toBeUndefined();
+  });
+
+  it("RunsRepo operations participate in a committed transaction", async () => {
+    const runsRepo = new RunsRepo(db);
+    await db.transaction().execute(async (trx) => {
+      const repo = new RunsRepo(trx as unknown as Kysely<PaawDB>);
+      const id = await repo.create({ skillId: "s", userId: "u1", runnerType: "prompt", input: { q: 1 } });
+      await repo.start(id);
+      await repo.complete(id, { answer: "ok" }, 42);
+    });
+
+    const rows = await runsRepo.listByUser("u1");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe("completed");
+    expect(rows[0].duration_ms).toBe(42);
+    expect(JSON.parse(rows[0].output_json!)).toEqual({ answer: "ok" });
+  });
+
+  it("RunsRepo writes are discarded when the transaction rolls back", async () => {
+    const runsRepo = new RunsRepo(db);
+    await expect(
+      db.transaction().execute(async (trx) => {
+        const repo = new RunsRepo(trx as unknown as Kysely<PaawDB>);
+        await repo.create({ skillId: "s", userId: "u1", runnerType: "prompt", input: {} });
+        await repo.create({ skillId: "s", userId: "u1", runnerType: "script", input: {} });
+        throw new Error("abort after two repo writes");
+      })
+    ).rejects.toThrow("abort after two repo writes");
+
+    expect(await runsRepo.listByUser("u1")).toHaveLength(0);
+  });
+
+  it("database remains usable for new queries after a rollback", async () => {
+    await expect(
+      db.transaction().execute(async (trx) => {
+        await trx.insertInto("runs").values({
+          id: "tx-doomed", skill_id: "s", user_id: "u1",
+          status: "completed", runner_type: "prompt",
+          input_json: "{}", started_at: "2026-01-01T00:00:00Z",
+        }).execute();
+        throw new Error("rollback please");
+      })
+    ).rejects.toThrow();
+
+    // rollback 後同一連線可繼續正常讀寫
+    await insertRun({ id: "after-rollback", skillId: "s", userId: "u1", startedAt: "2026-01-02T00:00:00Z" });
+    expect(await db.selectFrom("runs").selectAll().execute()).toHaveLength(1);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
 // connection.ts — 目前被 ISS-029 阻斷，先以 todo 記錄應補的契約
+// （detail 見 tests/unit/db-connection.test.ts — 本任務已補 characterization）
 // ═══════════════════════════════════════════════════════════════
 
 describe("F-003 connection (blocked by ISS-029)", () => {
