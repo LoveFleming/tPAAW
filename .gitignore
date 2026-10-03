@@ -117,3 +117,6 @@ data/**/.paaw/
 
 # ── Test coverage output (TASK-041) ──
 coverage/
+
+# App Modules 資料（不進 git；備份走 vault-backup 外部 repo）
+data/installed-apps/

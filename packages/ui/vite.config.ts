@@ -16,6 +16,14 @@ export default defineConfig(({ mode, command }) => {
 
   return {
     plugins: [react()],
+    // App Modules（可組裝底座，2026-10-03）：模組頁面住在 repo 根 installed-apps/<id>/ui/
+    // @paaw-ui/* → 主 UI 共用元件（theme/components/utils...）
+    resolve: {
+      alias: {
+        "@paaw-ui": resolve(__dirname, "src"),
+        "@apps": resolve(REPO_ROOT, "installed-apps"),
+      },
+    },
     // API/WS port 只在 dev server（vite serve）烙入 — 5173 頁面要指到真 API port。
     // production build（vite build）不烙：UI 由 PAAW server 自己 serve，
     // 前端 fallback 用頁面 host / port+1，部署在任何 port 都正確。

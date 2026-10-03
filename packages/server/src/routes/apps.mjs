@@ -18,7 +18,43 @@ import { DATA_HOME } from "../data-home.mjs";
 import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 import { stableStringify } from "../lib/stable-stringify.mjs";
 
+import { listAppModules, scaffoldAppModule, patchAppModule } from "../lib/app-modules.mjs";
+
+export async function appModulesRoutes(req, res) {
+  const urlObj = new URL(req.url, "http://localhost");
+  const path = urlObj.pathname;
+  if (!path.startsWith("/api/apps/modules")) return false;
+  const { readBody } = await import("./shared.mjs");
+
+  // GET /api/apps/modules — 清單（UI nav 用）
+  if (req.method === "GET" && path === "/api/apps/modules") {
+    const mods = listAppModules().map(m => ({ id: m.id, name: m.name, version: m.version, nav: m.nav, enabled: m.enabled, error: m.error || null }));
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ modules: mods }));
+    return true;
+  }
+  // POST /api/apps/modules — scaffold 新模組
+  if (req.method === "POST" && path === "/api/apps/modules") {
+    const body = JSON.parse(await readBody(req) || "{}");
+    const r = scaffoldAppModule(body);
+    res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(r));
+    return true;
+  }
+  // PATCH /api/apps/modules/:id — enable/disable / nav
+  const mPatch = path.match(/^\/api\/apps\/modules\/([a-z0-9-]+)$/);
+  if (req.method === "PATCH" && mPatch) {
+    const body = JSON.parse(await readBody(req) || "{}");
+    const r = patchAppModule(mPatch[1], body);
+    res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(r));
+    return true;
+  }
+  return false;
+}
+
 export default async function appsRoute(req, res) {
+  if (await appModulesRoutes(req, res)) return true;
   // ── GET /api/apps — list apps ──
   if (req.method === "GET" && req.url?.match(/^\/api\/apps(?:\?.*)?$/)) {
     try {

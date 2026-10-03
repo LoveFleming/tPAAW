@@ -143,6 +143,8 @@ const ROUTE_MODULES = [
 
 // Pre-import all route modules (avoids repeated dynamic import overhead)
 const _loaded = {};
+const _appModuleHandlers = []; // App Modules（可組裝底座）— loadRoutes() 填入
+let _appModulesLoaded = false;
 async function loadRoutes() {
   for (const p of ROUTE_MODULES) {
     try { _loaded[p] = await import(p); }
@@ -154,6 +156,15 @@ async function loadRoutes() {
   }
   try { _loaded["./scheduler/cron-jobs.mjs"] = await import("./scheduler/cron-jobs.mjs"); }
   catch (err) { console.error("[Scheduler] Failed to load:", err.message); }
+  // App Modules — 動態掛載（壞模組大聲報、不炸主體）
+  try {
+    if (!_appModulesLoaded) { // 冪等 flag（loadRoutes 可能被併發喚兩次）
+      _appModulesLoaded = true;
+      const { loadAppModuleRoutes } = await import("./lib/app-modules.mjs");
+      const hs = await loadAppModuleRoutes();
+      for (const h of hs) _appModuleHandlers.push(h);
+    }
+  } catch (err) { console.error("[AppModule] registry 載入失敗：", err.message); }
 }
 
 // ── HTTP Server ──
@@ -188,6 +199,20 @@ const server = createServer(async (req, res) => {
         res.end(JSON.stringify({ error: "Internal server error", detail: err.message }));
       }
       return; // ← stop processing, don't fall through to next route/404
+    }
+  }
+
+  // ── App Modules（可組裝底座 M1，2026-10-03）— persona app 模組動態掛載 ──
+  for (const am of _appModuleHandlers) {
+    try {
+      if (await am.handler(req, res)) return;
+    } catch (err) {
+      console.error(`[AppModule] ${am.id} error:`, err.message);  // nosemgrep: unsafe-formatstring
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Internal server error", detail: err.message }));
+      }
+      return;
     }
   }
 

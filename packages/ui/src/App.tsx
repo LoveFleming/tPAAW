@@ -1,6 +1,6 @@
 import Icon from "./components/Icon";
 import DirectoryExplorer from "./components/DirectoryExplorer";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import ChatView, { sendSeedToChat } from "./pages/ChatView";
 import AICrew from "./pages/AICrew";
@@ -9,7 +9,8 @@ import SkillBuilder from "./pages/SkillBuilder";
 import AppBuilder from "./pages/AppBuilder";
 import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
-import CodingIDE from "./pages/CodingIDE";
+import CodingIDE from "./pages/CodingIDE";import AppModules from "./pages/AppModules";
+
 import BriefingPlayer from "./pages/BriefingPlayer";
 import MindMapViewer from "./pages/MindMapViewer";
 import Notes from "./pages/Notes";
@@ -360,6 +361,19 @@ function AppInner() {
     return [crewItem];
   }, [currentScope, t]);
 
+  // ── App Modules（可組裝底座，2026-10-03）：persona app 模組 nav ──
+  const [appModules, setAppModules] = useState<Array<{ id: string; name: string; nav?: { label: string; emoji?: string; page: string }; enabled?: boolean }>>([]);
+  useEffect(() => {
+    fetch(`${API_BASE}/api/apps/modules`).then(r => r.json()).then(d => setAppModules((d.modules || []).filter((m: any) => m.enabled && m.nav))).catch(() => {});
+  }, []);
+  const openAppModule = useCallback((moduleId: string) => {
+    const tabId = `${currentScope}:module:${moduleId}`;
+    startTransition(() => { // lazy 頁面懸掛走 transition（React #426）— 開頁+切頁都要包
+      setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+      setActivePage(tabId);
+    });
+  }, [currentScope]);
+
   const skillBuilderCounterRef = useRef(0);
   const openSystemPrompts = useCallback(() => {
     const tabId = `${currentScope}:ai-settings`;
@@ -380,6 +394,12 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
+
+  const openAppModules = useCallback(() => {
+    const tabId = `${currentScope}:appmodules`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
 
   const openAppPool = useCallback(() => {
     const tabId = `${currentScope}:reportapps`;
@@ -495,6 +515,10 @@ function AppInner() {
     if (fullId === "_chat") return "💬 交談";
     if (fullId === "_settings") return t("sidebar.settings");
     const { wsId, pageType } = parseTabId(fullId);
+    if (pageType.startsWith("module:")) {
+      const mid = pageType.slice("module:".length).split(":")[0];
+      return appModulesById[mid]?.nav?.label || mid;
+    }
     if (pageType === "crew") return t("sidebar.aiCrew");
     if (pageType === "skills") return t("sidebar.skillPool");
     if (pageType.startsWith("skillbuilder")) return t("sidebar.skillBuilder");
@@ -565,7 +589,20 @@ function AppInner() {
     document.addEventListener("mouseup", handleUp);
   }, [sidebarWidth]);
 
-  const renderPage = useCallback((fullId: string, active?: boolean) => {
+  // App Modules 頁面表：vite build 時掃 installed-apps/*/ui/pages/*.tsx（manifest.nav.page 指名）
+const MODULE_PAGES: Record<string, React.LazyExoticComponent<React.ComponentType>> = Object.fromEntries(
+  Object.entries(import.meta.glob("../../../installed-apps/*/ui/pages/*.tsx")).map(([path, load]) => {
+    const m = path.match(/installed-apps\/([a-z0-9-]+)\/ui\/pages\/(.+)\.tsx$/);
+    return m ? [`${m[1]}:${m[2]}`, React.lazy(load as any)] : null;
+  }).filter(Boolean) as Array<[string, React.LazyExoticComponent<React.ComponentType>]>
+);
+const getModulePage = (moduleId: string) => {
+  const exact = MODULE_PAGES[`${moduleId}:${(appModulesById[moduleId]?.nav?.page || "Main")}`];
+  return exact || Object.entries(MODULE_PAGES).find(([k]) => k.startsWith(`${moduleId}:`))?.[1] || null;
+};
+
+const appModulesById = Object.fromEntries(appModules.map(m => [m.id, m]));
+const renderPage = useCallback((fullId: string, active?: boolean) => {
     // Parse tab ID early for pageType checks
     const parsed = parseTabId(fullId);
     const pageType = parsed.pageType;
@@ -612,6 +649,9 @@ function AppInner() {
     if (pageType === "appbuilder") {
       return <AppBuilder />;
     }
+    if (pageType === "appmodules") {
+      return <AppModules />;
+    }
     if (pageType === "reportapps") {
       return <AppPool onOpenApp={openSkillAppById} />;
     }
@@ -620,6 +660,11 @@ function AppInner() {
     }
     if (pageType === "coding") {
       return <CodingIDE />;
+    }
+    if (pageType.startsWith("module:")) {
+      const Page = getModulePage(pageType.slice("module:".length).split(":")[0]);
+      if (Page) return <Page />;
+      return <div style={{ padding: 24 }}>📦 模組頁面不存在（{pageType}）</div>;
     }
     if (pageType === "briefing-player") {
       return <BriefingPlayer key={briefingInitialDir ?? "default"} initialDir={briefingInitialDir} />;
@@ -829,7 +874,11 @@ function AppInner() {
                 ))}
                 <NavItem active={activePage.endsWith(":reportapps")} label={t("sidebar.appPool")} onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":briefing-player")} label={t("sidebar.briefingPlayer", "Briefing Player")} onClick={() => openBriefingPlayer()} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":appmodules")} label={t("sidebar.appModules")} onClick={openAppModules} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":coding")} label={t("sidebar.coding")} onClick={openCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                {appModules.map(m => (
+                  <NavItem key={`mod-${m.id}`} active={activePage.endsWith(`:module:${m.id}`)} label={`${m.nav?.emoji || "📦"} ${m.nav?.label || m.name}`} onClick={() => openAppModule(m.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                ))}
                 <NavItem active={activePage.endsWith(":mind-map")} label={t("sidebar.mindMap")} onClick={openMindMap} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":notes")} label={t("sidebar.notes")} onClick={openNotes} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":projects")} label={t("sidebar.projects")} onClick={() => { const tabId = `${currentScope}:projects`; setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]); setActivePage(tabId); }} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
