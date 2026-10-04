@@ -157,6 +157,18 @@ export default function Secretary() {
             <span>🕴️</span><span className="truncate">{t("secret.chief", "總管秘書")}</span>
           </button>
 
+          {/* 專家團隊（每個秘書領域一個 AI 專家 — 同 PM 方案 B 展現） */}
+          <div className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-stone-400">{t("secret.experts", "專家團隊")}</div>
+          {cats.filter(c => c.enabled !== false).map(c => (
+            <button
+              key={c.id}
+              onClick={() => pickCategory(c)}
+              className={`w-full flex items-center gap-2 px-5 py-1.5 text-sm text-left transition-colors ${activeAgent === (c.agentId || `secret.${c.id}`) && tab === "chat" ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
+            >
+              <span>{c.emoji}</span><span className="truncate">{c.name}</span>
+            </button>
+          ))}
+
           <div className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-stone-400">{t("secret.cats", "分類檔案櫃")}</div>
           {/* 檔案樹：同 File Mounts（SidebarFileTree）— 展開/右鍵（新增/匯入/移動/改名/刪除）/自動刷新 */}
           {dossierRoot ? (

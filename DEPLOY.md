@@ -1,12 +1,12 @@
 # DEPLOY — 2026-10-05（週一）更新包
 
-> 範圍：dev `e2dbbe5b..1ff8b362`（10/3 App Module Platform 起兩日全部）
+> 範圍：dev `e2dbbe5b..7f825890`（10/3 App Module Platform 起兩日全部）
 > 本次主打：**秘書室 + 產品經理室 兩個 profession package（demo 用）**，公司端開箱即用
 
 ## 內容摘要
 
 1. **App Module Platform S1-S5** — installed-apps/ 可組裝模組底座（掛載/scaffold/manifest/nav）
-2. **🕴️ Secret module（秘書室）** — 總管 + 6 builtin 分類專家（行程/報表/會議/公文/行政/人事）+ 檔案樹側欄；掛載時自動 ensure 分類（空機開箱即用）
+2. **🕴️ Secret module（秘書室）**（側欄含專家團隊區，結構同 PM） — 總管 + 6 builtin 分類專家（行程/報表/會議/公文/行政/人事）+ 檔案樹側欄；掛載時自動 ensure 分類（空機開箱即用）
 3. **🎯 PM module（產品經理室）** — 首席 PM + 6 職能專家（策略/研究/需求/數據/上市/對齊）+ 報表官 + 產品檔案櫃（一產品一管家）+ 需求池/截止雷達/晨間簡報/產品總覽；掛載時自動 ensure 職能櫃
 4. **📚 Learning module** — 小元寶學習空間模組掛載（課程目錄樹）
 5. **Multi-model review MR1/MR2 + Review 委員會**（EM dashboard 設定 UI）
