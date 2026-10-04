@@ -13,7 +13,7 @@ import SheetPreview from "../components/SheetPreview";
 
 const SHEET_RE = /\.(xlsx|csv)$/i;
 
-type ProjNode = { id: string; name: string; emoji: string; agentId: string; enabled: boolean; files: { name: string; size: number; mtime: string; sheet: boolean }[] };
+type ProjNode = { id: string; name: string; emoji: string; agentId: string; enabled: boolean; kind?: "function" | "product"; files: { name: string; size: number; mtime: string; sheet: boolean }[] };
 type Tab = "chat" | "todos" | "radar" | "briefing" | "board";
 type OpenFile = { proj: string; name: string; sheet: boolean };
 type BoardRow = { id: string; name?: string; status: string; stage?: string; risks: number; openBacklog: number; nextMilestone: string | null; files: number };
@@ -25,6 +25,7 @@ export default function ProjectOffice() {
   const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("chat");
   const [projects, setProjects] = useState<ProjNode[]>([]);
+  const functions = projects.filter(p => p.enabled !== false && p.kind === "function");
   const [dossierRoot, setDossierRoot] = useState<string>("");
   const [activeAgent, setActiveAgent] = useState<string>(CHIEF);
   const [activeAgentLabel, setActiveAgentLabel] = useState<string>("🎯 首席產品經理");
@@ -162,6 +163,18 @@ export default function ProjectOffice() {
           >
             <span>🎯</span><span className="truncate">{t("pm.chief", "首席產品經理")}</span>
           </button>
+
+          {/* 專家團隊（橫向職能：每個工作領域一個 AI 專家，方案 B）*/}
+          <div className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-stone-400">{t("pm.experts", "專家團隊")}</div>
+          {functions.map(p => (
+            <button
+              key={p.id}
+              onClick={() => pickProject(p)}
+              className={`w-full flex items-center gap-2 px-5 py-1.5 text-sm text-left transition-colors ${activeAgent === (p.agentId || `pm.${p.id}`) && tab === "chat" ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
+            >
+              <span>{p.emoji}</span><span className="truncate">{p.id === "_global" ? t("pm.global", "全域報表") : p.name}</span>
+            </button>
+          ))}
 
           <div className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-stone-400">{t("pm.projects", "產品檔案櫃")}</div>
           {/* 檔案樹：同 File Mounts（SidebarFileTree）— 展開/右鍵（新增/匯入/移動/改名/刪除）/自動刷新 */}

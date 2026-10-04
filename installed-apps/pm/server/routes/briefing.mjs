@@ -19,6 +19,8 @@ const MARKER_RE = /\[(due|milestone|expires):(2\d{3}-\d{2}-\d{2})\]\s*(.+)/g;
 const TODO_RE = /^[-*]\s+\[( |x|X)\]\s+(.+)$/gm;
 const STATUS_RE = /^>\s*status:.*?(🟢|🟡|🔴)/m;
 const STAGE_RE = /^>\s*stage:.*?(🌱|🏗️|🚀|📈|🔧)/m;
+/** 職能櫃（kind:function）不進產品總覽 board — 只在樹/專家區出現 */
+const FUNCTION_DIRS = new Set(["strategy", "research", "requirements", "data", "launch", "alignment"]);
 
 function today() {
   const d = new Date();
@@ -74,7 +76,7 @@ function scanAll() {
         const gm = STAGE_RE.exec(md); if (gm) stage = gm[1];
       }
     }
-    if (proj !== "_global") board.push({ id: proj, status, stage, risks, openBacklog, nextMilestone, files: files.length });
+    if (proj !== "_global" && !FUNCTION_DIRS.has(proj)) board.push({ id: proj, status, stage, risks, openBacklog, nextMilestone, files: files.length });
   }
   // config/expirations.json 補充項
   try {

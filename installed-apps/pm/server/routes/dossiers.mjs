@@ -19,6 +19,36 @@ async function parseBody(req) {
 const DOSSIER_DIR = (proj) => join(PAAW_ROOT, "dossiers", proj);
 /** 檔案櫃根（sidebar SidebarFileTree projectRoot 用） */
 const DOSSIER_BASE = join(PAAW_ROOT, "dossiers");
+
+/** 職能專家編制（方案 B：橫向參謀）— 掛載時 ensure（資料夾+README+registry），冪等 */
+const BUILTIN_FUNCTIONS = [
+  { id: "strategy", name: "產品策略師", emoji: "🧭", agentId: "pm.strategy", duty: "產品定位、願景、北極星指標、版本路線圖與優先序仲裁" },
+  { id: "research", name: "用戶研究員", emoji: "🔍", agentId: "pm.research", duty: "用戶訪談整理、競品分析、市場趨勢、VOC 需求驗證" },
+  { id: "requirements", name: "需求管理師", emoji: "📋", agentId: "pm.requirements", duty: "backlog 排序、PRD/用戶故事撰寫、驗收條件定義" },
+  { id: "data", name: "數據分析師", emoji: "📊", agentId: "pm.data", duty: "KPI 追蹤、指標覆盤、A/B 結論解讀、異常警示" },
+  { id: "launch", name: "上市指揮官", emoji: "🚀", agentId: "pm.launch", duty: "發布計畫、上市公告文案、上市後檢討（post-launch review）" },
+  { id: "alignment", name: "對齊窗口", emoji: "🤝", agentId: "pm.alignment", duty: "跨部門會議記錄、決議追蹤、老闆需求緩衝與轉譯" },
+];
+function ensureBuiltinFunctions() {
+  try {
+    let reg = loadRegistry();
+    let changed = false;
+    for (const f of BUILTIN_FUNCTIONS) {
+      const dir = DOSSIER_DIR(f.id);
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      const readme = join(dir, "README.md");
+      if (!existsSync(readme)) {
+        writeFileSync(readme, `# ${f.emoji} ${f.name}（${f.agentId}）\n\n職責：${f.duty}\n\n## 檔案慣例\n- 產出檔帶主題與日期：\`主題-YYYY-MM-DD.md\`\n- 跨產品通用知識（模板、checklist、方法論）放這裡\n- 引用產品事實時註明來源櫃與檔名（如 \`ai-portal/product.md\`）\n`);
+      }
+      if (!reg.some(r => r.id === f.id)) {
+        reg.push({ ...f, description: f.duty, kind: "function", builtin: true, enabled: true });
+        changed = true;
+      }
+    }
+    if (changed) writeFileSync(join(PAAW_ROOT, "projects.json"), JSON.stringify(reg, null, 2));
+  } catch { /* 唯讀環境静默 */ }
+}
+ensureBuiltinFunctions();
 /** 檔名白名單：中英文/數字/底線/連字/點，禁路徑分隔與 .. */
 const SAFE_NAME = /^[^\\/:*?"<>|]+$/;
 function safeName(n) {
@@ -60,9 +90,9 @@ export default async function handler(req, res) {
               return { name: f, size: st.size, mtime: st.mtime.toISOString(), sheet: SHEET_RE.test(f) };
             }).sort((a, b) => a.name.localeCompare(b.name))
           : [];
-        tree.push({ id: c.id, name: c.name, emoji: c.emoji, agentId: c.agentId, enabled: c.enabled !== false, files });
+        tree.push({ id: c.id, name: c.name, emoji: c.emoji, agentId: c.agentId, enabled: c.enabled !== false, kind: c.kind === "function" ? "function" : "product", files });
       };
-      pushDir({ id: "_global", name: "全域報表", emoji: "📊", agentId: "pm.reports" });
+      pushDir({ id: "_global", name: "全域報表", emoji: "📊", agentId: "pm.reports", kind: "function" });
       for (const c of registry) pushDir(c);
       return json(200, { root: normalizePath(DOSSIER_BASE), projects: tree });
     }
