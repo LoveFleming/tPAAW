@@ -3,9 +3,11 @@
  * 殼：左 sidebar（總管 + 分類檔案櫃 + 新增分類/管理）× 上方功能 tabs（對話/交辦/效期/簡報）
  * 架構同 LearningSpace 精神：檔案是事實來源，專家負責讀寫自己的櫃。
  */
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MarkdownText from "@paaw-ui/components/MarkdownText";
+import Icon from "@paaw-ui/components/Icon";
 import { useI18n } from "@paaw-ui/i18n";
+import { useTheme } from "@paaw-ui/theme";
 import SidebarFileTree from "@paaw-ui/components/SidebarFileTree";
 import ExpertChatPanel from "../components/ExpertChatPanel";
 import SheetPreview from "../components/SheetPreview";
@@ -22,6 +24,19 @@ const LANDING: TabInst = { key: "chief", kind: "chat", agentId: CHIEF, label: "�
 
 export default function Secretary() {
   const { t } = useI18n();
+  const { info: themeInfo } = useTheme();
+  // tk token — 同 LearningSpace（toolbar 系列由 accent 衍生，跟著 PAAW theme 走）
+  const tk = useMemo(() => ({
+    bgMuted: themeInfo.accentLight || "#f5f5f4",
+    borderLight: themeInfo.accentBorder || "#f0f0f0",
+    accent: themeInfo.accent,
+    toolbarBg: themeInfo.accentText || "#1e1e1e",
+    toolbarBorder: themeInfo.accentBorder || "#333",
+    toolbarText: "rgba(255,255,255,0.9)",
+    toolbarTextMuted: "rgba(255,255,255,0.5)",
+    toolbarHover: "rgba(255,255,255,0.1)",
+    toolbarActive: "rgba(255,255,255,0.15)",
+  }), [themeInfo]);
   // 動態 tabs：landing 固定總管；點專家/工具列才開 tab（可關）
   const [tabs, setTabs] = useState<TabInst[]>([LANDING]);
   const [activeKey, setActiveKey] = useState<string>("chief");
@@ -164,40 +179,38 @@ export default function Secretary() {
 
   return (
     <div className={`h-full w-full flex flex-col min-h-0 bg-stone-100 ${focusMode ? "fixed inset-0 z-[9999]" : ""}`}>
-      {/* ═══ Top 工具列（同學習空間：最左收合側欄 / tabs 併入工具列 / 最右 ⛶ 專注模式）═══ */}
-      <div className="flex items-center h-9 px-2 border-b border-stone-700 bg-stone-800 shrink-0 select-none gap-1">
+      {/* ═══ Top 工具列（同學習空間：tk.toolbarBg theme 色 / 最左收合側欄 / 最右 ⛶ 專注模式）═══ */}
+      <div className="flex items-center h-9 px-2 shrink-0 select-none gap-1" style={{ backgroundColor: tk.toolbarBg, borderBottom: `1px solid ${tk.toolbarBorder}` }}>
         <button onClick={() => setTreeHidden(v => !v)}
           title={treeHidden ? "顯示檔案樹" : "收合檔案樹"}
-          className="text-xs px-2 py-1 rounded text-stone-400 hover:text-stone-200 hover:bg-stone-700"
+          className="text-xs px-2 py-1 rounded transition-colors shrink-0"
+          style={{ backgroundColor: treeHidden ? tk.toolbarActive : "transparent", color: tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (!treeHidden) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = treeHidden ? tk.toolbarActive : "transparent"; }}
         >{treeHidden ? "📁" : "📚"}</button>
-        {tabs.map(tb => (
-          <div
-            key={tb.key}
-            onClick={() => setActiveKey(tb.key)}
-            className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded cursor-pointer transition-colors ${activeKey === tb.key ? "bg-stone-600 font-bold text-white" : "text-stone-400 hover:bg-stone-700 hover:text-stone-200"}`}
-          >
-            <span>{tb.label}</span>
-            {tb.key !== "chief" && (
-              <button
-                onClick={e => { e.stopPropagation(); closeTab(tb.key); }}
-                className="text-stone-500 hover:text-stone-200 text-[10px] leading-none"
-              >✕</button>
-            )}
-          </div>
-        ))}
-        {TOOLS.filter(x => !tabs.some(tb => tb.key === x.kind)).map(x => (
-          <button
-            key={x.kind}
-            onClick={() => openTab({ key: x.kind, kind: x.kind, agentId: "", label: x.label })}
-            className="text-xs text-stone-400 hover:text-white px-2 py-1 rounded hover:bg-stone-700 whitespace-nowrap"
-          >{x.label} +</button>
-        ))}
+        {/* 工具：點選才開 tab（同學習空間工具列模式） */}
+        {TOOLS.map(x => {
+          const opened = tabs.some(tb => tb.key === x.kind);
+          return (
+            <button
+              key={x.kind}
+              onClick={() => openTab({ key: x.kind, kind: x.kind, agentId: "", label: x.label })}
+              className="text-xs px-2 py-1 rounded transition-colors whitespace-nowrap shrink-0"
+              style={{ backgroundColor: opened ? tk.toolbarActive : "transparent", color: opened ? tk.toolbarText : tk.toolbarTextMuted }}
+              onMouseEnter={e => { if (!opened) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = opened ? tk.toolbarActive : "transparent"; }}
+            >{x.label}</button>
+          );
+        })}
         <div className="flex-1" />
-        {active.kind === "chat" && <div className="text-[11px] text-stone-500 pr-1 shrink-0">{active.label}</div>}
+        {active.kind === "chat" && <div className="text-[11px] pr-1 shrink-0" style={{ color: tk.toolbarTextMuted }}>{active.label}</div>}
         <button onClick={() => setFocusMode(v => !v)}
           title={focusMode ? "縮回（Esc）" : "放大蓋住整個 PAAW"}
-          className="text-xs px-2 py-1 rounded text-stone-400 hover:text-stone-200 hover:bg-stone-700 shrink-0"
-        >{focusMode ? "🗗" : "⛶"}</button>
+          className="flex items-center text-xs px-2 py-1 rounded transition-colors shrink-0"
+          style={{ backgroundColor: focusMode ? tk.toolbarActive : "transparent", color: focusMode ? tk.accent : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (!focusMode) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = focusMode ? tk.toolbarActive : "transparent"; }}
+        >{focusMode ? <Icon name="contract" size={14} /> : <Icon name="expand" size={14} />}</button>
       </div>
 
       <div className="flex-1 flex min-h-0">
@@ -256,6 +269,27 @@ export default function Secretary() {
 
       {/* ═══ 主區 ═══ */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Tab Bar — 同學習空間：landing 總管固定第一頁不可關，其他開 tab sheet */}
+        <div className="flex items-end shrink-0 overflow-x-auto" style={{ backgroundColor: tk.bgMuted, borderBottom: `1px solid ${tk.borderLight}` }}>
+          {tabs.map(tb => {
+            const isActive = activeKey === tb.key;
+            const closable = tb.key !== "chief";
+            return (
+              <div key={tb.key}
+                onClick={() => setActiveKey(tb.key)}
+                className={`group flex items-center gap-1 px-3 py-1 cursor-pointer select-none text-xs shrink-0 transition-colors ${isActive ? "bg-white text-stone-800 font-bold" : "text-stone-400 hover:bg-stone-100"}`}
+                style={isActive ? { borderTop: `2px solid ${tk.accent}` } : { borderTop: "2px solid transparent" }}
+              >
+                <span className="truncate max-w-[120px]">{tb.label}</span>
+                {closable && (
+                  <button onClick={e => { e.stopPropagation(); closeTab(tb.key); }}
+                    className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-500 text-xs ml-1"
+                  >✕</button>
+                )}
+              </div>
+            );
+          })}
+        </div>
         {/* content */}
         <div className="flex-1 min-h-0">
           {active.kind === "chat" && (
