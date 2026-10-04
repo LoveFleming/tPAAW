@@ -13,19 +13,22 @@ import SheetPreview from "../components/SheetPreview";
 const SHEET_RE = /\.(xlsx|csv)$/i;
 
 type CatNode = { id: string; name: string; emoji: string; agentId: string; enabled: boolean; files: { name: string; size: number; mtime: string; sheet: boolean }[] };
-type Tab = "chat" | "todos" | "expirations" | "briefing";
+type TabKind = "chat" | "todos" | "expirations" | "briefing";
+type TabInst = { key: string; kind: TabKind; agentId: string; label: string };
 type OpenFile = { cat: string; name: string; sheet: boolean };
 
 const CHIEF = "secret.chief";
+const LANDING: TabInst = { key: "chief", kind: "chat", agentId: CHIEF, label: "🕴️ 總管秘書" };
 
 export default function Secretary() {
   const { t } = useI18n();
-  const [tab, setTab] = useState<Tab>("chat");
+  // 動態 tabs：landing 固定總管；點專家/工具列才開 tab（可關）
+  const [tabs, setTabs] = useState<TabInst[]>([LANDING]);
+  const [activeKey, setActiveKey] = useState<string>("chief");
+  const active = tabs.find(x => x.key === activeKey) || LANDING;
+  const [openFile, setOpenFile] = useState<OpenFile | null>(null);
   const [cats, setCats] = useState<CatNode[]>([]);
   const [dossierRoot, setDossierRoot] = useState<string>("");
-  const [activeAgent, setActiveAgent] = useState<string>(CHIEF);
-  const [activeAgentLabel, setActiveAgentLabel] = useState<string>("🕴️ 總管秘書");
-  const [openFile, setOpenFile] = useState<OpenFile | null>(null);
   const [mdContent, setMdContent] = useState("");
   const [mdDirty, setMdDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -47,7 +50,7 @@ export default function Secretary() {
 
   useEffect(() => { loadTree(); }, [loadTree]);
 
-  const loadPanel = useCallback(async (which: Tab) => {
+  const loadPanel = useCallback(async (which: TabKind) => {
     if (which === "todos") {
       const d = await fetch("/api/secret/briefing?part=todos").then(r => r.json()).catch(() => null);
       if (d) setTodosMd(d.markdown || "");
@@ -60,7 +63,17 @@ export default function Secretary() {
     }
   }, []);
 
-  useEffect(() => { loadPanel(tab); }, [tab, loadPanel]);
+  useEffect(() => { if (active.kind !== "chat") loadPanel(active.kind); }, [active.key, active.kind, loadPanel]);
+
+  // ── 動態 tabs ──
+  const openTab = useCallback((tb: TabInst) => {
+    setTabs(prev => prev.some(x => x.key === tb.key) ? prev : [...prev, tb]);
+    setActiveKey(tb.key);
+  }, []);
+  const closeTab = useCallback((key: string) => {
+    setTabs(prev => prev.filter(x => x.key === key).length ? prev.filter(x => x.key !== key) : [LANDING]);
+  }, []);
+  useEffect(() => { if (!tabs.some(x => x.key === activeKey)) setActiveKey("chief"); }, [tabs, activeKey]);
 
   // 開檔
   const openDossier = useCallback(async (cat: string, name: string, sheet: boolean) => {
@@ -88,10 +101,8 @@ export default function Secretary() {
   }, [openFile, mdContent, loadTree]);
 
   const pickCategory = useCallback((c: CatNode) => {
-    setActiveAgent(c.agentId || `secret.${c.id}`);
-    setActiveAgentLabel(`${c.emoji} ${c.name}`);
-    setTab("chat");
-  }, []);
+    openTab({ key: `expert:${c.id}`, kind: "chat", agentId: c.agentId || `secret.${c.id}`, label: `${c.emoji} ${c.name}` });
+  }, [openTab]);
 
   // ── 檔案樹回呼（SidebarFileTree 同款）──
   // 檔案：root/<cat>/<name...> → 開檔（md 編輯 / sheet 預覽）；頂層檔不屬於任何分類 → 靜默
@@ -102,9 +113,10 @@ export default function Secretary() {
     if (seg.length < 2) return;
     const cat = seg[0];
     const name = seg[seg.length - 1];
+    const c = cats.find(x => x.id === cat);
+    if (c && c.enabled !== false) pickCategory(c);
     openDossier(cat, name, SHEET_RE.test(name));
-    setTab("chat");
-  }, [dossierRoot, openDossier]);
+  }, [dossierRoot, openDossier, cats, pickCategory]);
 
   // 目錄：頂層分類資料夾 → 切換專家（保留原 點分類=挑專家 行為）；底層子目錄只展開
   const handleTreeSelectDir = useCallback((path: string) => {
@@ -134,11 +146,11 @@ export default function Secretary() {
     loadTree();
   }, [loadTree]);
 
-  const TABS: { id: Tab; label: string }[] = [
-    { id: "chat", label: t("secret.tab.chat", "💬 專家對話") },
-    { id: "todos", label: t("secret.tab.todos", "📋 交辦清單") },
-    { id: "expirations", label: t("secret.tab.expiry", "🔔 效期雷達") },
-    { id: "briefing", label: t("secret.tab.briefing", "🌅 晨間簡報") },
+  // 工具列：點選才開 tab（不常駐）
+  const TOOLS: { kind: TabKind; label: string }[] = [
+    { kind: "todos", label: t("secret.tab.todos", "📋 交辦清單") },
+    { kind: "expirations", label: t("secret.tab.expiry", "🔔 效期雷達") },
+    { kind: "briefing", label: t("secret.tab.briefing", "🌅 晨間簡報") },
   ];
 
   return (
@@ -151,8 +163,8 @@ export default function Secretary() {
         <div className="flex-1 overflow-y-auto py-1" style={{ scrollbarWidth: "thin" }}>
           {/* 總管（landing） */}
           <button
-            onClick={() => { setActiveAgent(CHIEF); setActiveAgentLabel("🕴️ 總管秘書"); setTab("chat"); setOpenFile(null); }}
-            className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${activeAgent === CHIEF && tab === "chat" ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
+            onClick={() => { setActiveKey("chief"); setOpenFile(null); }}
+            className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${activeKey === "chief" ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
           >
             <span>🕴️</span><span className="truncate">{t("secret.chief", "總管秘書")}</span>
           </button>
@@ -163,7 +175,7 @@ export default function Secretary() {
             <button
               key={c.id}
               onClick={() => pickCategory(c)}
-              className={`w-full flex items-center gap-2 px-5 py-1.5 text-sm text-left transition-colors ${activeAgent === (c.agentId || `secret.${c.id}`) && tab === "chat" ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
+              className={`w-full flex items-center gap-2 px-5 py-1.5 text-sm text-left transition-colors ${active.kind === "chat" && active.agentId === (c.agentId || `secret.${c.id}`) ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
             >
               <span>{c.emoji}</span><span className="truncate">{c.name}</span>
             </button>
@@ -198,22 +210,37 @@ export default function Secretary() {
 
       {/* ═══ 主區 ═══ */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* tabs */}
+        {/* tabs：動態（landing 總管固定）＋ 右側工具列（點選才開） */}
         <div className="flex items-center gap-1 px-3 pt-2 pb-0 border-b border-stone-200 bg-white shrink-0">
-          {TABS.map(tb => (
-            <button
-              key={tb.id}
-              onClick={() => setTab(tb.id)}
-              className={`px-3.5 py-2 text-sm rounded-t-lg transition-colors ${tab === tb.id ? "font-bold text-stone-900 border-b-2 border-stone-800" : "text-stone-500 hover:text-stone-800"}`}
-            >{tb.label}</button>
+          {tabs.map(tb => (
+            <div
+              key={tb.key}
+              onClick={() => setActiveKey(tb.key)}
+              className={`flex items-center gap-1.5 pl-3.5 pr-2 py-2 text-sm rounded-t-lg cursor-pointer transition-colors ${activeKey === tb.key ? "font-bold text-stone-900 border-b-2 border-stone-800" : "text-stone-500 hover:text-stone-800"}`}
+            >
+              <span>{tb.label}</span>
+              {tb.key !== "chief" && (
+                <button
+                  onClick={e => { e.stopPropagation(); closeTab(tb.key); }}
+                  className="text-stone-300 hover:text-stone-600 text-xs leading-none"
+                >✕</button>
+              )}
+            </div>
           ))}
           <div className="flex-1" />
-          {tab === "chat" && <div className="text-[11px] text-stone-400 pr-2">{activeAgentLabel}</div>}
+          {TOOLS.filter(x => !tabs.some(tb => tb.key === x.kind)).map(x => (
+            <button
+              key={x.kind}
+              onClick={() => openTab({ key: x.kind, kind: x.kind, agentId: "", label: x.label })}
+              className="text-xs text-stone-500 hover:text-stone-800 px-2 py-1 rounded-lg hover:bg-stone-100 mr-1"
+            >{x.label} +</button>
+          ))}
+          {active.kind === "chat" && <div className="text-[11px] text-stone-400 pr-2">{active.label}</div>}
         </div>
 
         {/* content */}
         <div className="flex-1 min-h-0">
-          {tab === "chat" && (
+          {active.kind === "chat" && (
             openFile ? (
               <div className="flex h-full">
                 <div className="w-1/2 min-w-0 border-r border-stone-200 bg-white flex flex-col">
@@ -242,15 +269,15 @@ export default function Secretary() {
                   )}
                 </div>
                 <div className="w-1/2 min-w-0">
-                  <ExpertChatPanel agentId={activeAgent} />
+                  <ExpertChatPanel agentId={active.agentId} />
                 </div>
               </div>
             ) : (
-              <ExpertChatPanel agentId={activeAgent} />
+              <ExpertChatPanel agentId={active.agentId} />
             )
           )}
 
-          {tab === "todos" && (
+          {active.kind === "todos" && (
             <div className="h-full overflow-y-auto bg-white p-6" style={{ scrollbarWidth: "thin" }}>
               <div className="max-w-3xl mx-auto">
                 <div className="text-xs text-stone-400 mb-2">{t("secret.todosHint", "checkbox 落在檔案櫃裡 — 勾掉請找對應專家（點左邊分類），這裡是總掃描")}</div>
@@ -259,7 +286,7 @@ export default function Secretary() {
             </div>
           )}
 
-          {tab === "expirations" && (
+          {active.kind === "expirations" && (
             <div className="h-full overflow-y-auto bg-white p-6" style={{ scrollbarWidth: "thin" }}>
               <div className="max-w-3xl mx-auto space-y-2">
                 <div className="text-xs text-stone-400 mb-2">{t("secret.expiryHint", "來源：檔案櫃內 [expires:YYYY-MM-DD] 標記 — 公文管理專家維護")}</div>
@@ -278,7 +305,7 @@ export default function Secretary() {
             </div>
           )}
 
-          {tab === "briefing" && (
+          {active.kind === "briefing" && (
             <div className="h-full overflow-y-auto bg-white p-6" style={{ scrollbarWidth: "thin" }}>
               <div className="max-w-3xl mx-auto">
                 <div className="flex items-center gap-2 mb-3">
