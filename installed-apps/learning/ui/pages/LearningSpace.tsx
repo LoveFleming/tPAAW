@@ -1,29 +1,24 @@
 /**
- * LearningSpace — All-in-one AI coding environment
+ * LearningSpace — 小元寶學習空間（profession module）
+ *
+ * 2026-10-04 瘦身：原本 fork 自 CodingIDE，已移除全部 coding 專用死碼 —
+ * EMDashboard landing / Git / API Tester / Terminal / CU wizard / RU clone+onboarding /
+ * EM 自動調度 / coding telemetry（logEvent+distill）。保留：課程總覽/練習/模擬考/考古題/
+ * 檔案檢視+編輯/搜尋/Agent 聊天（A2A）。
  *
  * Layout:
  *  ┌──────┬──────────────────────────┬─────────┐
- *  │ File │  Tab Bar                 │  AI     │
- *  │ Exp  │──────────────────────────│ Chat    │
- *  │      │  Code Editor (highlight) │ Sidebar │
- *  │      │  / Diff View / Blame     │         │
- *  │      │  / API Tester            │         │
- *  │      │──────────────────────────│         │
- *  │      │  Terminal Panel (resize) │         │
+ *  │ 課程  │  Tab Bar                 │  Agent  │
+ *  │ 目錄  │──────────────────────────│  Chat   │
+ *  │      │  學習總覽 / 課程 / 練習    │ Sidebar │
+ *  │      │  / 模擬考 / 檔案檢視      │         │
  *  └──────┴──────────────────────────┴─────────┘
- *
- * Panels (top bar toggle):
- *  - 🤖 AI Chat — PAAW chat integration with file context
- *  - 🔀 Git — status, diff, blame, AI auto-comment
- *  - 🌐 API Tester — Postman-like request builder
- *  - ⌨️ Terminal — Real shell terminal (resizable)
  */
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useTheme } from "@paaw-ui/theme";
 import { useI18n } from "@paaw-ui/i18n";
 import { uiAlert, uiConfirm } from "@paaw-ui/components/ui/uiFeedback";
 import { cn } from "@paaw-ui/utils";
-import ShellTerminal from "@paaw-ui/components/ShellTerminal";
 import Icon from "@paaw-ui/components/Icon";
 import JsonViewer from "@paaw-ui/components/JsonViewer";
 import { fileEmoji } from "@paaw-ui/components/FileEmoji";
@@ -31,9 +26,6 @@ import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 
 import API_BASE from "@paaw-ui/api";
-import DirectoryExplorer from "@paaw-ui/components/DirectoryExplorer";
-import RuCloneModal from "@paaw-ui/components/RuCloneModal";
-import RuOnboardingModal from "@paaw-ui/components/RuOnboardingModal";
 
 import ModelSelector from "@paaw-ui/components/ModelSelector";
 import { ChatMessages } from "@paaw-ui/components/ChatMessages";
@@ -94,34 +86,11 @@ interface ChatMessage {
   _greeting?: boolean; // true for auto-generated greeting bubbles (excluded from conversationHistory)
 }
 
-interface CodingEvent {
-  type: "open_file" | "edit_file" | "save_file" | "close_file" | "terminal_cmd" | "session_start" | "ai_chat";
-  ts: string;
-  data: Record<string, any>;
-}
-
-// Git types
-interface GitCommit { hash: string; short: string; author: string; email: string; date: string; subject: string; }
-interface BlameLine { hash: string; author: string; authorMail: string; authorTime: string; summary: string; finalLine: number; content: string; }
-
-// API Tester types
-interface ApiHeader { key: string; value: string; enabled: boolean; }
-interface ApiResponse { status: number; statusText: string; headers: Record<string, string>; body: string; elapsed: number; size: number; error?: boolean; }
-interface ApiHistoryItem { id: string; ts: string; method: string; url: string; status: number; elapsed: number; headers?: ApiHeader[]; body?: string; streamMode?: boolean; response?: ApiResponse; streamResponse?: string; source?: "agent" | "human"; agent?: string; }
-
-// ── Constants ──
-const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
-
 // Chat scroll cache — crewId → scrollTop（FileViewer scroll cache 同款）
 // 切換 agent tab 時 remount（key={activeCrew}）會丟失捲動位置，用 cache 還原
 const _chatScrollCache = new Map<string, number>();
 // 效能：空陣列模組級身分（inline [] 每鍵新建 → agentToolLog 身分變 → 打爆 ChatMessages memo）
 const EMPTY_TOOL_LOG: Array<{ name: string; args: string; result: string }> = [];
-const METHOD_COLORS: Record<string, string> = {
-  GET: "#10B981", POST: "#3B82F6", PUT: "#F59E0B", PATCH: "#8B5CF6",
-  DELETE: "#EF4444", HEAD: "#6B7280", OPTIONS: "#6B7280",
-};
-
 // ── Helpers ──
 function getFileIcon(name: string): string {
   if (name === "package.json") return "📦";
@@ -171,64 +140,6 @@ function fmtBytes(n: number) {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function tryFormatJson(str: string): string {
-  try { return JSON.stringify(JSON.parse(str), null, 2); } catch { return str; }
-}
-
-// ── API Tester response body：JSON 自動 pretty / 樹狀檢視，非 JSON 原樣顯示 ──
-function ApiResponseBody({ body }: { body: string }) {
-  const { t: tt } = useI18n();
-  const [view, setView] = useState<"tree" | "raw">("tree");
-  const [copied, setCopied] = useState(false);
-  let parsed: unknown = null;
-  try { parsed = JSON.parse(body); } catch { /* not JSON */ }
-  const isJson = parsed !== null && typeof parsed === "object"; // object/array 才進樹狀；純量/文字用 pretty raw
-  const pretty = tryFormatJson(body);
-  const copy = () => {
-    navigator.clipboard.writeText(pretty).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  const btn = "text-xs px-2 py-1 rounded-md border transition-colors";
-  return (
-    <div className="flex-1 min-h-0 flex flex-col gap-2">
-      {/* Toolbar: Tree/Raw 切換 + 複製 */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        {isJson && (
-          <>
-            <button onClick={() => setView("tree")} className={cn(btn, view === "tree" ? "bg-stone-800 text-white border-stone-800" : "bg-white text-stone-600 border-stone-300 hover:bg-stone-50")}>🌳 {tt("vibe.api.viewTree")}</button>
-            <button onClick={() => setView("raw")} className={cn(btn, view === "raw" ? "bg-stone-800 text-white border-stone-800" : "bg-white text-stone-600 border-stone-300 hover:bg-stone-50")}>📄 {tt("vibe.api.viewRaw")}</button>
-          </>
-        )}
-        <button onClick={copy} className={cn(btn, "ml-auto bg-white text-stone-600 border-stone-300 hover:bg-stone-50")}>{copied ? "✅" : "📋"} {tt("vibe.api.copy")}</button>
-      </div>
-      {isJson && view === "tree" ? (
-        <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-stone-300 bg-white">
-          <JsonViewer data={parsed} compact />
-        </div>
-      ) : (
-        <pre className="flex-1 text-sm font-mono bg-stone-800 text-green-300 rounded-lg p-3 overflow-auto whitespace-pre-wrap break-words min-h-0">
-          {pretty}
-        </pre>
-      )}
-    </div>
-  );
-}
-
-// Safety: ensure value is a renderable string (not object/array/null)
-function safeStr(v: any): string {
-  if (v == null) return "";
-  if (typeof v === "string") return v;
-  if (typeof v === "number" || typeof v === "boolean") return String(v);
-  if (typeof v === "object") { try { return JSON.stringify(v, null, 2); } catch { return "{}"; } }
-  return String(v);
-}
-
-// ═══════════════════════════════════════════════
-// Main Component
-// ═══════════════════════════════════════════════
-// ── Editor Tab Content (extracted so each tab can have its own useMemo/hljs) ──
 function EditorTabContent({ tabId, filePath, tabData, isActive, isEditing, textareaRef, lineNumWidth, handleContentChange, stopEditing, handleCodeViewClick, startEditing, tk, tt, openFile }: {
   tabId: string;
   filePath: string;
@@ -355,7 +266,6 @@ export default function LearningSpace() {
   const [fileTreeHidden, setFileTreeHidden] = useState(false);
   // ⛶ 專注模式（2026-09-01 Fleming 要求）— Coding App 鋪滿整個視窗（蓋掉 PAAW header/sidebar），Esc 或再按一次縮回
   const [focusMode, setFocusMode] = useState(false);
-  const [showTerminal, setShowTerminal] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [activeSubPanel, setActiveSubPanel] = useState<"editor" | "diff" | "blame" | "api-tester">("editor");
   const resizingRef = useRef<{ type: "sidebar"; startX: number; startY: number; startSize: number } | null>(null);
@@ -586,7 +496,6 @@ export default function LearningSpace() {
   const handleTabDragEnd = useCallback(() => { dragTabIdRef.current = null; }, []);
   const tabBarRef = useRef<HTMLDivElement>(null);
   // Crew profile data
-  const [crewProfile, setCrewProfile] = useState<Record<string, any>>({});
   const [loadedCrews, setLoadedCrews] = useState<Set<string>>(new Set()); // track which crew conversations have been loaded from server
   const [archivedConversations, setArchivedConversations] = useState<Record<string, any[]>>({}); // crewId → list of archives
   // (showArchivePanel & viewingArchive moved above — before the useEffect that references them)
@@ -594,11 +503,9 @@ export default function LearningSpace() {
   const [contextDebug, setContextDebug] = useState<any>(null);
 
   // ── Right Panel Tab State ──
-  const [rightTab, setRightTab] = useState<"chat" | "sessions" | "decisions" | "prompts" | "status">("chat");
 
 
   // ── Project Menu State ──
-  const [showProjectMenu, setShowProjectMenu] = useState(false);
   const [showSearchMenu, setShowSearchMenu] = useState(false);
   const [showCrewMenu, setShowCrewMenu] = useState(false);
   const [openToolbarCat, setOpenToolbarCat] = useState<string | null>(null);
@@ -620,7 +527,6 @@ export default function LearningSpace() {
       const target = e.target as HTMLElement;
       // If click is outside any toolbar dropdown trigger AND outside dropdown panels, close all menus
       if (!target.closest(".toolbar-dropdown-trigger") && !target.closest(".toolbar-dropdown-panel")) {
-        setShowProjectMenu(false);
         setShowSearchMenu(false);
         setShowCrewMenu(false);
         setOpenToolbarCat(null);
@@ -672,163 +578,16 @@ export default function LearningSpace() {
   useEffect(() => { refreshCodingCrew(); }, [refreshCodingCrew]);
 
   // ── EM Orchestration State ──
-  const [emRunning, setEmRunning] = useState(false);
-  const [emLog, setEmLog] = useState<string[]>([]);
-
-  // Close / unload project
-  const closeProject = useCallback(() => {
-    if (!rootPath) return;
-    // Clear state
-    setRootPath("");
-    setOpenTabs([]);
-    setActiveTabId(null);
-    setMainTabs([DASHBOARD_TAB]);
-    setActiveMainTabId(DASHBOARD_TAB_ID);
-    tabsRestoredRef.current = null;
-    setExpandedDirs(new Set());
-    setDirContents({});
-    dirContentsRef.current = {};
-    setGitLog([]);
-    setGitDiff("");
-    setChatMessages(() => []);
-    try { localStorage.removeItem("paaw.vibeide.rootPath"); } catch {}
-    try { sessionStorage.removeItem("paaw.vibeide.rootPath"); } catch {} // 2026-09-15：per-tab RU 記憶也要清
-  }, [rootPath]);
 
   // ── Code Understanding State ──
-  const [aiInitializing, setAiInitializing] = useState(false);
-  const [aiInitSteps, setAiInitSteps] = useState<Array<{ id: string; name: string; status: "pending" | "running" | "done" | "error" | "skip"; size?: number; error?: string; progress?: string }>>([]);
-  const [paawRefreshKey, setPaawRefreshKey] = useState(0);
-  const [showAiInitPanel, setShowAiInitPanel] = useState(false);
 
   // ── AI Prompt Management State ──
-  const [aiPrompts, setAiPrompts] = useState<Array<{ filename: string; name: string; defaultContent: string; customContent: string | null; activeContent: string; hasOverride: boolean; size: number }>>([]);
-  const [editingPrompt, setEditingPrompt] = useState<string | null>(null);
-  const [editingPromptContent, setEditingPromptContent] = useState("");
-  const [promptSaving, setPromptSaving] = useState(false);
 
   // ── Code Status Dashboard State ──
-  const [domainAutoPrompt, setDomainAutoPrompt] = useState<{ mode: string; prompt: string } | null>(null);
 
-  // emModelRef moved after emModel declaration (line ~1306) to avoid TDZ
-
-  const startAiInitialize = useCallback(async (forceRerun = false) => {
-    if (!rootPath || aiInitializing) return;
-    setAiInitializing(true);
-    const currentModel = emModelRef.current || emModel;
-    const steps = [
-      { id: "scan", name: "🔍 掃描專案結構" },
-    ];
-    setAiInitSteps(steps.map(s => ({ ...s, status: "pending" as const })));
-
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-project/ai-initial?path=${encodeURIComponent(rootPath)}${forceRerun ? "&force=1" : ""}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: currentModel || undefined }) });
-      if (!res.ok || !res.body) {
-        setAiInitSteps(prev => prev.map(s => ({ ...s, status: "error" as const, error: `HTTP ${res.status}` })));
-        setAiInitializing(false); return;
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-        for (const line of lines) {
-          if (line.startsWith("event: ") || line.startsWith("data: ")) {
-            try {
-              if (line.startsWith("data: ")) {
-                const data = JSON.parse(line.slice(6));
-                // Handle events based on the event type from the previous line
-                if (data.step) {
-                  if (data.reason) {
-                    // step_skip
-                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "skip" as const } : s));
-                  } else if (data.error) {
-                    // step_error
-                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "error" as const, error: data.error } : s));
-                  } else if (data.message) {
-                    // step_progress（2026-09-06：抓進度文字，如「🤖 feature 41/64」）
-                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "running" as const, progress: data.message } : s));
-                  } else if (data.preview !== undefined) {
-                    // step_done
-                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "done" as const, size: data.size, progress: undefined } : s));
-                  } else {
-                    // step_start
-                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "running" as const, progress: undefined } : s));
-                  }
-                }
-                if (data.message === "Code Understanding complete") {
-                  setAiInitializing(false);
-                  setPaawRefreshKey(k => k + 1);
-                }
-              }
-            } catch {}
-          }
-        }
-      }
-    } catch (err: any) {
-      setAiInitSteps(prev => prev.map(s => ({ ...s, status: "error" as const, error: err.message })));
-      setPaawRefreshKey(k => k + 1);
-    }
-    setAiInitializing(false);
-  }, [rootPath, aiInitializing]);
-
-  // ── Git State ──（gitStatus 已刪 2026-09-20：永遠 null、無 populate 路徑、JSX 讀取點永不渲染）
-  const [gitLog, setGitLog] = useState<GitCommit[]>([]);
-  const [gitDiff, setGitDiff] = useState("");
-  const [gitDiffFile, setGitDiffFile] = useState("");
-  const [gitDiffCached, setGitDiffCached] = useState(false);
-
-  const [gitTab, setGitTab] = useState<"status" | "diff">("status");
-  const [gitCommitMsg, setGitCommitMsg] = useState("");
-  const [gitActionMsg, setGitActionMsg] = useState<string | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
-  const [aiCommitLoading, setAiCommitLoading] = useState(false);
-
-  // ── Staged Changes Summary (from agents) ──
-  interface StagedChangeSummary {
-    exists: boolean;
-    agent?: string;
-    codename?: string;
-    task?: string;
-    taskId?: string;
-    summary?: string;
-    files?: { path: string; reason: string }[];
-    howToTest?: string;
-    risk?: string;
-    createdAt?: string;
-  }
-  const [stagedSummary, setStagedSummary] = useState<StagedChangeSummary | null>(null);
-  const [activeCodingTaskId, setActiveCodingTaskId] = useState<string | null>(null);
-  const [activeTaskPipeline, setActiveTaskPipeline] = useState<Record<string, any> | null>(null);
-  const [showStagedDetail, setShowStagedDetail] = useState(false);
-
-  // ── API Tester State ──
-  const [apiMethod, setApiMethod] = useState("GET");
-  const [apiUrl, setApiUrl] = useState("");
-  const [apiHeaders, setApiHeaders] = useState<ApiHeader[]>([
-    { key: "Content-Type", value: "application/json", enabled: true },
-  ]);
-  const [apiBody, setApiBody] = useState("");
-  const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
-  const [apiLoading, setApiLoading] = useState(false);
-  const [apiHistory, setApiHistory] = useState<ApiHistoryItem[]>([]);
-  const [apiTab, setApiTab] = useState<"request" | "response" | "history">("request");
-  const [apiStreamMode, setApiStreamMode] = useState(false);
-  const [apiStreamContent, setApiStreamContent] = useState("");
-  const [apiStreamInfo, setApiStreamInfo] = useState<{ status: number; statusText: string; contentType: string } | null>(null);
-  const [projectApis, setProjectApis] = useState<{ method: string; path: string; file: string }[]>([]);
-  const [projectApiExamples, setProjectApiExamples] = useState<{ method: string; endpoint: string; description: string; request: any; response: any }[]>([]);
-  const [apiGroupCollapsed, setApiGroupCollapsed] = useState<Record<string, boolean>>({});
-  const apiStreamAbortRef = useRef<AbortController | null>(null);
   const a2aAbortRef = useRef<AbortController | null>(null); // for interrupting A2A agent streams
 
   // ── Coding Behavior Tracking ──
-  const codingLogRef = useRef<CodingEvent[]>([]);
-  const distillTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [showDirExplorer, setShowDirExplorer] = useState(false);
   const [showRuClone, setShowRuClone] = useState(false);
@@ -860,38 +619,9 @@ export default function LearningSpace() {
       // Load root path — 2026-09-15：sessionStorage 優先（per-tab，refresh 不會被另一個 tab 的 RU 蓋掉）；localStorage 只當新 tab 預設
       // （兩個 Chrome 分別開不同 RU 的情境：以前 refresh 後兩邊都讀到「最後寫入的 RU」→ 同 RU → 思考中/對話兩邊同步）
       const root = sessionStorage.getItem("paaw.vibeide.rootPath") || localStorage.getItem("paaw.vibeide.rootPath");
-      if (root) { setRootPath(root); expandDir(root); registerRu(root); }
-      // Load API history from server
-      try {
-        const res = await fetch(`${API_BASE}/api/api-tester/history`);
-        const data = await res.json();
-        if (data.history?.length) setApiHistory(data.history);
-      } catch {
-        try { const hist = localStorage.getItem("paaw.api-tester.history"); if (hist) setApiHistory(JSON.parse(hist)); } catch {}
-      }
+      if (root) { setRootPath(root); expandDir(root); }
     })();
   }, []);
-
-  // Load active task pipeline when activeCodingTaskId changes
-  useEffect(() => {
-    if (!activeCodingTaskId || !rootPath) { setActiveTaskPipeline(null); return; }
-    fetch(`${API_BASE}/api/coding-tasks/${encodeURIComponent(activeCodingTaskId)}?path=${encodeURIComponent(rootPath)}`)
-      .then(r => r.json())
-      .then(data => { if (data.pipeline) setActiveTaskPipeline(data.pipeline); })
-      .catch(() => {});
-  }, [activeCodingTaskId, rootPath]);
-
-  // Load project APIs when rootPath changes
-  useEffect(() => {
-    if (!rootPath) { setProjectApis([]); return; }
-    fetch(`${API_BASE}/api/api-tester/project-apis?root=${encodeURIComponent(rootPath)}`)
-      .then(r => r.json())
-      .then(data => {
-        setProjectApis(data.routes || []);
-        setProjectApiExamples(data.examples || []);
-      })
-      .catch(() => { setProjectApis([]); setProjectApiExamples([]); });
-  }, [rootPath]);
 
   useEffect(() => {
     // 2026-09-15：sessionStorage = 這個 tab 自己的 RU（refresh 留住）；localStorage = 最後使用的 RU（新開 tab 的預設）
@@ -1018,31 +748,6 @@ export default function LearningSpace() {
     } catch {} finally { tabsRestoreDoneRef.current = rootPath; }
     })();
   }, [rootPath]);
-
-  useEffect(() => {
-    try { localStorage.setItem("paaw.api-tester.history", JSON.stringify(apiHistory.slice(0, 50))); } catch {}
-  }, [apiHistory]);
-
-  // ═══════════════════════════════════════════════
-  // Coding Behavior Tracking → Distillation Engine
-  // ═══════════════════════════════════════════════
-  const logEvent = useCallback((type: CodingEvent["type"], data: Record<string, any>) => {
-    codingLogRef.current = [...codingLogRef.current, { type, ts: new Date().toISOString(), data }];
-  }, []);
-
-  useEffect(() => {
-    distillTimerRef.current = setInterval(async () => {
-      const events = codingLogRef.current;
-      if (events.length === 0) return;
-      codingLogRef.current = [];
-      try {
-        await fetch(`${API_BASE}/api/distill/record`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-        });
-      } catch {}
-    }, 30_000);
-    return () => { if (distillTimerRef.current) clearInterval(distillTimerRef.current); };
-  }, [rootPath, openTabs]);
 
   // ═══════════════════════════════════════════════
   // Crew Conversation Persistence — load on crew switch, save after each turn
@@ -1269,8 +974,6 @@ export default function LearningSpace() {
   // ═══════════════════════════════════════════════
   // curriculum 型別與 SUBJECT_EMOJI 移至 components/CurriculumView.tsx（2026-09-20：科目點擊開課程內容 tab）
 
-  const [releaseUnits, setReleaseUnits] = useState<{ id: string; path: string; label: string; exists?: boolean }[]>([]);
-  const ruTreeCacheRef = useRef<Map<string, { expandedDirs: Set<string>; dirContents: Record<string, FsItem[]> }>>(new Map());
 
   // ── 科目目錄樹（GET /api/learning/curriculum）──
   const [curriculum, setCurriculum] = useState<CurriculumSubject[]>([]);
@@ -1330,50 +1033,8 @@ export default function LearningSpace() {
   }, [curriculum, openMainTab]);
 
   // 註冊 RU（票等，伺服器以 resolved path 去重）
-  const registerRu = useCallback((path: string) => {
-    fetch(`${API_BASE}/api/ru/workspaces`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path }),
-    })
-      .then(r => r.json())
-      .then(d => {
-        if (d.unit) setReleaseUnits(prev => prev.some(u => u.path === d.unit.path) ? prev : [...prev, d.unit]);
-      })
-      .catch(() => {});
-  }, []);
-
-  // 切換 RU：快取目前樹狀態 → 還原目標樹狀態（沒快體就展開 root）→ 註冊
-  const switchRu = useCallback((path: string) => {
-    if (rootPath && rootPath !== path) {
-      ruTreeCacheRef.current.set(rootPath, { expandedDirs: expandedDirsRef.current, dirContents: dirContentsRef.current });
-    }
-    const cached = ruTreeCacheRef.current.get(path);
-    if (cached) {
-      setExpandedDirs(cached.expandedDirs); expandedDirsRef.current = cached.expandedDirs;
-      setDirContents(cached.dirContents); dirContentsRef.current = cached.dirContents;
-    } else {
-      setExpandedDirs(new Set()); expandedDirsRef.current = new Set();
-      setDirContents({}); dirContentsRef.current = {};
-    }
-    loadingDirsRef.current = new Set();
-    setRootPath(path);
-    expandDir(path);
-    registerRu(path);
-  }, [rootPath, expandDir, registerRu]);
-
-  // 移除 RU（只移 tab，不碰檔案）
-  const removeRu = useCallback(async (unit: { id: string; path: string; label: string }) => {
-    if (!(await uiConfirm({ message: tt("ru.clone.removeConfirm"), danger: true }))) return;
-    setReleaseUnits(prev => prev.filter(u => u.id !== unit.id));
-    fetch(`${API_BASE}/api/ru/workspaces?id=${unit.id}`, { method: "DELETE" }).catch(() => {});
-    if (rootPath === unit.path) { setRootPath(""); }
-  }, [rootPath, tt]);
-
-  // ═══════════════════════════════════════════════
   // File Operations
   // ═══════════════════════════════════════════════
-  // API Tester 右欄 Developer AI（外部注入訊息用）
   const openFile = useCallback(async (path: string) => {
     if (loadingFileRef.current) return; // prevent double-click race
 
@@ -1413,12 +1074,11 @@ export default function LearningSpace() {
         setIsEditing(false);
         // Open as main tab too
         openMainTab({ id: mainTabId, type: "editor", label: name, icon: getFileIcon(name), closable: true, filePath: path });
-        logEvent("open_file", { path, language: tab.language });
       }
     } catch {}
     setLoadingFile(false);
     loadingFileRef.current = false;
-  }, [logEvent, openMainTab]);
+  }, [openMainTab]);
 
   const closeTab = useCallback((id: string) => {
     setOpenTabs(prev => prev.filter(ot => ot.id !== id));
@@ -1427,17 +1087,15 @@ export default function LearningSpace() {
       setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : null);
     }
     closeMainTab(`file:${id}`);
-    logEvent("close_file", { path: id });
-  }, [activeTabId, logEvent, closeMainTab]);
+  }, [activeTabId, closeMainTab]);
 
   const saveFile = useCallback(async (tab: OpenTab) => {
     if (!tab.modified) return;
     try {
       await fetch(`${API_BASE}/api/vibe-fs/write`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: tab.path, content: tab.content }) });
       setOpenTabs(prev => prev.map(ot => ot.id === tab.id ? { ...ot, originalContent: ot.content, modified: false, lastSaved: new Date().toISOString() } : ot));
-      logEvent("save_file", { path: tab.path, size: tab.content.length });
     } catch {}
-  }, [logEvent]);
+  }, []);
 
   const startEditing = useCallback(() => { setIsEditing(true); setTimeout(() => textareaRef.current?.focus(), 50); }, []);
   const stopEditing = useCallback(() => { setIsEditing(false); if (activeTab?.modified) saveFile(activeTab); }, [activeTab, saveFile]);
@@ -1452,10 +1110,9 @@ export default function LearningSpace() {
   const handleContentChange = useCallback((newContent: string) => {
     if (!activeTabId) return;
     setOpenTabs(prev => prev.map(ot => ot.id === activeTabId ? { ...ot, content: newContent, modified: newContent !== ot.originalContent } : ot));
-    logEvent("edit_file", { path: activeTabId });
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => { const current = openTabs.find(ot => ot.id === activeTabId); if (current?.modified) saveFile(current); }, 3000);
-  }, [activeTabId, openTabs, saveFile, logEvent]);
+  }, [activeTabId, openTabs, saveFile]);
 
   // Cmd+S
   useEffect(() => {
@@ -1592,9 +1249,6 @@ export default function LearningSpace() {
   // （2026-09-15 移除 chatBrowserOpen/chatPanelWidth/chatBrowserDragRef — browser 側欄模式退役，browser 歸 Browser 頁）
   // agentRunning/agentToolLog are now per-crew (derived from crewAgentRunning/crewAgentToolLog above)
   const [crewModels, setCrewModels] = useState<Record<string, string>>({}); // crewId → model
-  const [emModel, setEmModel] = useState<string>(""); // EM Dashboard has its own model
-  const emModelRef = useRef(emModel);
-  emModelRef.current = emModel;
   const [adRefreshTrigger, setAdRefreshTrigger] = useState(0);
   const codingModel = activeCrew ? (crewModels[activeCrew] || "") : "";
   const setCodingModel = useCallback((model: string) => {
@@ -1660,7 +1314,6 @@ const sendChat = useCallback(async () => {
     setChatInput("");
     setPendingImages([]);
     setViewingArchive(null); // exit archive viewing when user sends a message
-    logEvent("ai_chat", { prompt: sendText.slice(0, 200) });
 
     // ── Domain AI mode (spec, test, bug, docs, maintain) ──
     if (["spec", "test", "bug", "docs", "maintain"].includes(chatMode)) {
@@ -1922,7 +1575,7 @@ const sendChat = useCallback(async () => {
       if (isAgentMode) setAgentRunning(false);
       a2aAbortRef.current = null;
     }
-  }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent, codingModel, activeCrew, pendingImages, pendingChatFiles, tt]);
+  }, [chatInput, chatLoading, chatMode, activeTab, rootPath, codingModel, activeCrew, pendingImages, pendingChatFiles, tt]);
 
   // 追蹤使用者是否在底部附近：串流中只在使用者没往上翻時跟底（onScroll 在容器 div 上）
 
@@ -2008,115 +1661,6 @@ const sendChat = useCallback(async () => {
     }
   }, [sendChat]);
 
-  // Handle domain AI auto-prompt from Dashboard
-  useEffect(() => {
-    if (domainAutoPrompt && showAiPanel) {
-      const { prompt } = domainAutoPrompt;
-      setDomainAutoPrompt(null);
-      setChatInput(prompt);
-      // Auto-send after a short delay to let state settle
-      setTimeout(() => {
-        const sendBtn = document.querySelector("[data-send-chat]") as HTMLButtonElement;
-        if (sendBtn) sendBtn.click();
-      }, 100);
-    }
-  }, [domainAutoPrompt, showAiPanel]);
-
-
-  // ═══════════════════════════════════════════════
-  // API Tester
-  // ═══════════════════════════════════════════════
-  const sendApiRequest = useCallback(async () => {
-    if (!apiUrl.trim() || apiLoading) return;
-
-    // ── Streaming mode ──
-    if (apiStreamMode) {
-      setApiLoading(true);
-      setApiTab("response");
-      setApiStreamContent("");
-      setApiStreamInfo(null);
-      const startTime = Date.now();
-      const ac = new AbortController();
-      apiStreamAbortRef.current = ac;
-      const headersObj: Record<string, string> = {};
-      apiHeaders.filter(h => h.enabled && h.key).forEach(h => { headersObj[h.key] = h.value; });
-      try {
-        const res = await fetch(`${API_BASE}/api/api-tester/stream`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ method: apiMethod, url: apiUrl.trim(), headers: headersObj, body: apiBody }),
-          signal: ac.signal,
-        });
-        const status = parseInt(res.headers.get("X-Response-Status") || "0", 10);
-        const statusText = res.headers.get("X-Response-Status-Text") || "";
-        const contentType = res.headers.get("Content-Type") || "";
-        setApiStreamInfo({ status, statusText, contentType });
-
-        const reader = res.body?.getReader();
-        if (!reader) { setApiStreamContent("No response body"); setApiLoading(false); return; }
-        const decoder = new TextDecoder();
-        let accumulated = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          accumulated += chunk;
-          setApiStreamContent(accumulated);
-        }
-
-        const elapsed = Date.now() - startTime;
-        const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: status || 200, elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode, streamResponse: accumulated, source: "human" };
-        setApiHistory(prev => [item, ...prev].slice(0, 50));
-        try { await fetch(`${API_BASE}/api/api-tester/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }); } catch {}
-      } catch (err: any) {
-        if (err.name === "AbortError") {
-          setApiStreamContent(prev => prev + "\n\n[⏹ Aborted by user]");
-        } else {
-          setApiStreamContent(`❌ Error: ${err.message}`);
-        }
-      }
-      apiStreamAbortRef.current = null;
-      setApiLoading(false);
-      return;
-    }
-
-    // ── Normal (non-streaming) mode ──
-    setApiLoading(true);
-    setApiResponse(null);
-    setApiTab("response");
-    const headersObj: Record<string, string> = {};
-    apiHeaders.filter(h => h.enabled && h.key).forEach(h => { headersObj[h.key] = h.value; });
-    try {
-      const res = await fetch(`${API_BASE}/api/api-tester/proxy`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ method: apiMethod, url: apiUrl.trim(), headers: headersObj, body: apiBody }),
-      });
-      const data = await res.json();
-      setApiResponse(data);
-      // Save to history
-      const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: data.status, elapsed: data.elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode, response: data, source: "human" };
-      setApiHistory(prev => [item, ...prev].slice(0, 50));
-      // Save to server
-      try { await fetch(`${API_BASE}/api/api-tester/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }); } catch {}
-    } catch (err: any) { setApiResponse({ status: 0, statusText: "Error", headers: {}, body: err.message, elapsed: 0, size: 0, error: true }); }
-    setApiLoading(false);
-  }, [apiMethod, apiUrl, apiHeaders, apiBody, apiLoading, apiStreamMode]);
-
-  const loadApiHistory = useCallback(async () => {
-    try { const res = await fetch(`${API_BASE}/api/api-tester/history`); const data = await res.json(); if (data.history) setApiHistory(data.history); } catch {}
-  }, []);
-
-  const addHeader = useCallback(() => setApiHeaders(prev => [...prev, { key: "", value: "", enabled: true }]), []);
-  const removeHeader = useCallback((i: number) => setApiHeaders(prev => prev.filter((_, idx) => idx !== i)), []);
-  const updateHeader = useCallback((i: number, field: "key" | "value" | "enabled", val: string | boolean) => {
-    setApiHeaders(prev => prev.map((h, idx) => idx === i ? { ...h, [field]: val } : h));
-  }, []);
-
-  // ═══════════════════════════════════════════════
-  // ═══════════════════════════════════════════════
-  // Resize Handlers
-  // ═══════════════════════════════════════════════
   const startResize = useCallback((type: "sidebar", e: React.MouseEvent) => {
     e.preventDefault();
     const startX = e.clientX; const startY = e.clientY;
@@ -2141,13 +1685,6 @@ const sendChat = useCallback(async () => {
     catch { return escapeHtml(activeTab.content); }
   }, [activeTab?.content, activeTab?.hljsLang]);
 
-  // Diff highlighting
-  const highlightedDiff = useMemo(() => {
-    if (!gitDiff) return "";
-    try { return hljs.highlight(gitDiff, { language: "diff", ignoreIllegals: true }).value; }
-    catch { return escapeHtml(gitDiff); }
-  }, [gitDiff]);
-
   const lines = useMemo(() => (activeTab?.content || "").split("\n"), [activeTab?.content]);
   const lineCount = lines.length;
   const lineNumWidth = Math.max(3, String(lineCount).length) * 10 + 16;
@@ -2159,56 +1696,6 @@ const sendChat = useCallback(async () => {
   // ═══════════════════════════════════════════════
   return (
     <div className={cn("h-full w-full coding-app-root", focusMode && "fixed inset-0 z-[9999]")}>
-    {/* EM Orchestration Floating Panel */}
-    {(emRunning || emLog.length > 0) && (
-      <div className="fixed bottom-4 right-4 w-96 max-h-80 bg-white border border-amber-300 rounded-lg shadow-xl z-50 overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2 bg-amber-50 border-b border-amber-200">
-          <span className="text-sm font-semibold text-amber-800">🎖️ EM 自動調度</span>
-          <button onClick={() => { if (!emRunning) { setEmLog([]); } }} className="text-xs text-stone-400 hover:text-stone-600">{emRunning ? "執行中..." : "關閉 ✕"}</button>
-        </div>
-        <div className="overflow-y-auto max-h-64 p-3 space-y-1">
-          {emLog.map((line, i) => (
-            <div key={i} className="text-xs text-stone-700 leading-relaxed">{line}</div>
-          ))}
-          {emRunning && <div className="text-xs text-amber-600 animate-pulse">⏳ 執行中...</div>}
-        </div>
-      </div>
-    )}
-
-    {/* Directory Explorer Modal */}
-    {showDirExplorer && (
-      <DirectoryExplorer
-        initialPath={rootPath || undefined}
-        onSelect={(path) => { switchRu(path); setShowDirExplorer(false); setOnboardingPath(path); }}
-        onClose={() => setShowDirExplorer(false)}
-        title="📂 選擇專案目錄"
-      />
-    )}
-
-    {/* Git Clone Modal（Phase 2 wizard：🌐 從 Git Repo 建 RU）*/}
-    {showRuClone && (
-      <RuCloneModal
-        theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, text: tk.text }}
-        onClose={() => setShowRuClone(false)}
-        onCloned={(path) => { setShowRuClone(false); switchRu(path); setOnboardingPath(path); }}
-      />
-    )}
-
-    {/* RU Onboarding Modal（import/clone 後：掃描 → Skill 建議 → CU）*/}
-    {onboardingPath && (
-      <RuOnboardingModal
-        rootPath={onboardingPath}
-        theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, text: tk.text }}
-        onClose={() => setOnboardingPath(null)}
-        onStartCu={() => {
-          // 2026-09-06 Fleming：wizard「開始 Scan」→ 開 CU modal 但不直接跑（可能要先綁 skill）— 使用者在 modal 裡綁完 skill 自己按執行
-          openMainTab(DASHBOARD_TAB);
-          setCuModalRequest(n => n + 1);
-          setOnboardingPath(null);
-        }}
-      />
-    )}
-
     <div className="h-full flex flex-col w-full overflow-hidden" style={{ backgroundColor: "#fff" }}>
       {/* ── Top Bar ── */}
       <div className="flex items-center h-9 px-2 border-b shrink-0 select-none" style={{ backgroundColor: tk.toolbarBg, borderColor: tk.toolbarBorder }}>
@@ -2226,9 +1713,9 @@ const sendChat = useCallback(async () => {
         <div className="relative ml-1">
           <button onClick={() => setShowCrewMenu(!showCrewMenu)}
             className={cn("toolbar-dropdown-trigger flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
-            style={{ backgroundColor: (activeCrew || aiInitializing) ? tk.accent + "33" : "transparent", color: (activeCrew || aiInitializing) ? tk.accent : tk.toolbarText }}
-            onMouseEnter={e => { if (!activeCrew && !aiInitializing) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
-            onMouseLeave={e => { if (!activeCrew && !aiInitializing) e.currentTarget.style.backgroundColor = activeCrew ? tk.accent + "33" : "transparent"; }}>
+            style={{ backgroundColor: activeCrew ? tk.accent + "33" : "transparent", color: activeCrew ? tk.accent : tk.toolbarText }}
+            onMouseEnter={e => { if (!activeCrew) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+            onMouseLeave={e => { if (!activeCrew) e.currentTarget.style.backgroundColor = "transparent"; }}>
             <span className="text-xs">🤖</span> Agent
             <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
           </button>
@@ -2243,13 +1730,10 @@ const sendChat = useCallback(async () => {
                     setChatMode(crew.mode);
                     setChatInput(""); // clear chat input when switching crews
                     openMainTab({ id: `crew:${crew.id}`, type: "ai-crew", label: crew.title, icon: crew.emoji || "🤖", closable: true, crewId: crew.id });
-                    fetch(`${API_BASE}/api/crew/${crew.id}`).then(r => r.json()).then(data => {
-                      setCrewProfile(prev => ({ ...prev, [crew.id]: data }));
-                      if (!crewConversations[crew.id] || crewConversations[crew.id].length === 0) {
-                        const greeting = data?.chatConfig?.greeting || `嗨！我是${data?.codename || crew.title}，有什麼我可以幫忙的嗎？`;
-                        setCrewConversations(prev => ({ ...prev, [crew.id]: [{ role: "assistant", content: greeting, ts: new Date().toISOString(), _greeting: true }] }));
-                      }
-                    }).catch(() => {});
+                    // 2026-10-04 瘦身：原 fetch /api/crew/:id 端點不存在（fork 殘留，永遠 404）→ greeting 改本地產生
+                    if (!crewConversations[crew.id] || crewConversations[crew.id].length === 0) {
+                      setCrewConversations(prev => ({ ...prev, [crew.id]: [{ role: "assistant", content: `嗨！我是${crew.title}，有什麼我可以幫忙的嗎？`, ts: new Date().toISOString(), _greeting: true }] }));
+                    }
                   }}
                     className={cn("flex-1 text-left flex items-center gap-2 truncate",
                       activeCrew === crew.id && "text-emerald-700 font-semibold")}>
@@ -2481,7 +1965,7 @@ const sendChat = useCallback(async () => {
             {/* === AI CREW / EMPLOYEE CHAT TAB === */}
             {activeCrew && (() => {
               const crew = codingCrews.find(c => c.id === activeCrew);
-              const profile = crewProfile[activeCrew] as any;
+              const profile = crew as any; // 2026-10-04：crewProfile 本來只靠已刪的 /api/crew/:id populate（永遠空）→ 直接用 builtin crew
               const rolePrompt = profile?.rolePrompt || "";
               const roleSummary = rolePrompt.split('\n').find((l: string) => l.trim() && !l.startsWith('#') && !l.startsWith('你是') && l.length > 5) || rolePrompt.slice(0, 80);
               const hasProject = !!rootPath;
