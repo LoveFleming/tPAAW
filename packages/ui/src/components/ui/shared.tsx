@@ -40,6 +40,7 @@ const NAV_EMOJI_PATTERNS: { match: RegExp; emoji: string }[] = [
     { match: /skill.*builder|技能建構|スキルビルダ/i, emoji: "🧠" },
     { match: /skill/i, emoji: "✨" },
     { match: /app.*builder|app builder/i, emoji: "🚀" },
+    { match: /app.*module|模組|モジュール/i, emoji: "🧩" },
     { match: /app.*pool|應用程式池|^apps$|^app$/i, emoji: "📊" },
     { match: /report.*lab|報告實驗/i, emoji: "🧪" },
     { match: /cron|schedul|定期実行|排程/i, emoji: "⏰" },
