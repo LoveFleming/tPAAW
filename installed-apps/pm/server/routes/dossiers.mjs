@@ -8,7 +8,7 @@
  */
 import { readFileSync, writeFileSync, unlinkSync, readdirSync, statSync, existsSync, mkdirSync } from "fs";
 import { join, basename } from "path";
-import { readBody, PAAW_ROOT } from "./shared.mjs";
+import { readBody, normalizePath, PAAW_ROOT } from "./shared.mjs";
 
 /** readBody 回 raw string — 這裡 parse + 空 body 容錯（同 learning module 慣例） */
 async function parseBody(req) {
@@ -17,6 +17,8 @@ async function parseBody(req) {
 }
 
 const DOSSIER_DIR = (proj) => join(PAAW_ROOT, "dossiers", proj);
+/** 檔案櫃根（sidebar SidebarFileTree projectRoot 用） */
+const DOSSIER_BASE = join(PAAW_ROOT, "dossiers");
 /** 檔名白名單：中英文/數字/底線/連字/點，禁路徑分隔與 .. */
 const SAFE_NAME = /^[^\\/:*?"<>|]+$/;
 function safeName(n) {
@@ -62,7 +64,7 @@ export default async function handler(req, res) {
       };
       pushDir({ id: "_global", name: "全域報表", emoji: "📊", agentId: "pm.reports" });
       for (const c of registry) pushDir(c);
-      return json(200, { projects: tree });
+      return json(200, { root: normalizePath(DOSSIER_BASE), projects: tree });
     }
 
     safeProj(proj, registry);

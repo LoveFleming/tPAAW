@@ -3,7 +3,7 @@
  * readBody 沿用 tPAAW 本體。目錄形狀：
  *   <root>/projects.json、<root>/dossiers/<projectId>/（含固定 _global 櫃）、<root>/config/expirations.json
  */
-export { readBody } from "../../../../packages/server/src/routes/shared.mjs";
+export { readBody, normalizePath } from "../../../../packages/server/src/routes/shared.mjs";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 const _here = dirname(fileURLToPath(import.meta.url));
