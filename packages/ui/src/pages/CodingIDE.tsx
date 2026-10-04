@@ -967,6 +967,12 @@ export default function CodingIDE() {
   const [showDirExplorer, setShowDirExplorer] = useState(false);
   const [showRuClone, setShowRuClone] = useState(false);
   const [showModulePicker, setShowModulePicker] = useState(false);
+  const [showNewModule, setShowNewModule] = useState(false);
+  const [newModId, setNewModId] = useState("");
+  const [newModName, setNewModName] = useState("");
+  const [newModEmoji, setNewModEmoji] = useState("");
+  const [newModErr, setNewModErr] = useState("");
+  const [newModBusy, setNewModBusy] = useState(false);
   const [onboardingPath, setOnboardingPath] = useState<string | null>(null);
   // 2026-09-06：wizard「開始 Scan」→ 開 CU modal（不直接跑）；遞增觸發 EMDashboard 開 modal
   const [cuModalRequest, setCuModalRequest] = useState(0);
@@ -2504,6 +2510,60 @@ const sendChat = useCallback(async () => {
       />
     )}
 
+    {/* 🧩➕ New Module — scaffold 新模組骨架 → 自動註冊 RU → 切過去（一鍵到底）*/}
+    {showNewModule && (() => {
+      const createNewModule = async () => {
+        if (newModBusy) return;
+        const id = newModId.trim();
+        if (!id || !/^[a-z][a-z0-9-]*$/.test(id)) { setNewModErr("id 必填：小寫字母開頭，只含 a-z0-9-"); return; }
+        setNewModBusy(true); setNewModErr("");
+        try {
+          const name = newModName.trim() || id;
+          const emoji = newModEmoji.trim() || "📦";
+          const r = await fetch(`${API_BASE}/api/apps/modules`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, name, emoji }),
+          }).then(x => x.json()).catch(() => null);
+          if (!r?.ok) throw new Error(r?.error || "scaffold failed");
+          const label = `🧩 ${emoji} ${name}`.slice(0, 40);
+          const res = await fetch(`${API_BASE}/api/ru/workspaces`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: r.dir, label }),
+          });
+          const data = await res.json().catch(() => null);
+          if (!res.ok || !data?.unit) throw new Error(data?.error || `HTTP ${res.status}`);
+          setShowNewModule(false);
+          switchRu(data.unit.path, label);
+          setOnboardingPath(data.unit.path);
+        } catch (e: any) { setNewModErr(e?.message || "failed"); } finally { setNewModBusy(false); }
+      };
+      const inp = "text-xs px-2 py-1.5 rounded border border-stone-200 focus:outline-none focus:ring-1 focus:ring-blue-300";
+      return (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={newModBusy ? undefined : () => setShowNewModule(false)}>
+          <div className="rounded-xl shadow-2xl w-[420px] overflow-hidden" style={{ background: tk.bg, border: `1px solid ${tk.borderLight}` }} onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-3.5 border-b flex items-center" style={{ borderColor: tk.borderLight }}>
+              <div className="font-bold text-sm" style={{ color: tk.text }}>🧩➕ {tt("ru.newModule", "New Module")}</div>
+              <div className="flex-1" />
+              <button onClick={() => setShowNewModule(false)} className="text-stone-400 hover:text-stone-700 text-xl leading-none">✕</button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="grid grid-cols-12 gap-2">
+                <input value={newModId} onChange={e => setNewModId(e.target.value)} placeholder="id（小寫，如 finance）" className={`col-span-5 ${inp}`} />
+                <input value={newModName} onChange={e => setNewModName(e.target.value)} placeholder={tt("ru.newModNamePh", "名稱（如財務室）")} className={`col-span-5 ${inp}`} />
+                <input value={newModEmoji} onChange={e => setNewModEmoji(e.target.value)} placeholder="📦" className={`col-span-2 ${inp} text-center`} />
+              </div>
+              <p className="text-[10px] text-stone-400">{tt("ru.newModHint", "scaffold：manifest + server entry + UI 頁骨架（installed-apps/<id>/）→ 自動註冊為 Release Unit 並切過去")}</p>
+              {newModErr && <div className="text-xs text-red-500">⚠️ {newModErr}</div>}
+              <button onClick={createNewModule} disabled={newModBusy}
+                className="w-full rounded-lg text-white px-4 py-2 text-sm font-semibold disabled:opacity-40" style={{ background: tk.accent }}>
+                {newModBusy ? "…" : tt("ru.newModCreate", "建立並載入")}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
+
     {/* RU Onboarding Modal（import/clone 後：掃描 → Skill 建議 → CU）*/}
     {onboardingPath && (
       <RuOnboardingModal
@@ -2928,6 +2988,10 @@ const sendChat = useCallback(async () => {
                   <button onClick={() => setShowModulePicker(true)}
                     className="w-full text-xs px-2 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-center whitespace-nowrap">
                     🧩 {tt("ru.loadFromModule", "Load from Module")}
+                  </button>
+                  <button onClick={() => { setNewModId(""); setNewModName(""); setNewModEmoji(""); setNewModErr(""); setShowNewModule(true); }}
+                    className="w-full text-xs px-2 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-center whitespace-nowrap">
+                    🧩➕ {tt("ru.newModule", "New Module")}
                   </button>
                   <button onClick={() => setShowRuClone(true)}
                     className="w-full text-xs px-2 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-center whitespace-nowrap">
