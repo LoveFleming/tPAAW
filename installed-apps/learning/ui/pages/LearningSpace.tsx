@@ -835,21 +835,7 @@ export default function LearningSpace() {
   const [onboardingPath, setOnboardingPath] = useState<string | null>(null);
   // 2026-09-06：wizard「開始 Scan」→ 開 CU modal（不直接跑）；遞增觸發 EMDashboard 開 modal
   const [cuModalRequest, setCuModalRequest] = useState(0);
-  // 🎉 Onboarding 觸發補洞（2026-09-06 Fleming 回報）：wizard 原本只在 DirExplorer/Clone 觸發，
-  // 「刪 .paaw 後重開 RU」或「bootstrap 過但 CU 從沒跑」不會跳 → 與 spec 0.4「刪掉重跑=重建」預期不符。
-  // 開專案時檢 cu-status：CU 從未 done（doneCount=0）且有 source 檔 → 自動跳 onboarding。
-  useEffect(() => {
-    if (!rootPath) return;
-    let alive = true;
-    fetch(`${API_BASE}/api/coding-project/cu-status?path=${encodeURIComponent(rootPath)}`)
-      .then(r => r.json())
-      .then(d => {
-        if (!alive) return;
-        if ((d?.doneCount ?? 0) === 0 && (d?.sourceFiles ?? 0) > 0) setOnboardingPath(rootPath);
-      })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [rootPath]);
+  // 🎉 Onboarding 自動觸發 — 2026-10-04 移除：這是 coding app 的 CU wizard，學習空間載入資料目錄會誤跳（Fleming 回報 bug）
 
   // ── Derived: sync activeTab with activeMainTab ──
   // activeTabId is the sidebar tab; but the MAIN panel is driven by activeMainTab.
@@ -2234,28 +2220,7 @@ const sendChat = useCallback(async () => {
           onMouseEnter={e => { if (!fileTreeHidden) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = fileTreeHidden ? tk.toolbarActive : "transparent"; }}
           title={fileTreeHidden ? "顯示課程目錄" : "隱藏課程目錄"}>{fileTreeHidden ? "📁" : "📚"}</button>
-        {/* ⚡ Project */}
-        <div className="relative ml-1">
-          <button onClick={() => setShowProjectMenu(!showProjectMenu)}
-            className="toolbar-dropdown-trigger flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors" style={{ color: tk.toolbarText }} onMouseEnter={e => e.currentTarget.style.backgroundColor = tk.toolbarHover} onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
-            <span className="text-xs">⚡</span> {tt("vibe.project.projectMenu", "Project")}
-            <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
-          </button>
-          {showProjectMenu && (
-            <div className="toolbar-dropdown-panel absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
-              <button onClick={() => { setShowProjectMenu(false); setShowDirExplorer(true); }}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-stone-700 flex items-center gap-2">
-                <span>📂</span> {tt("vibe.project.importProject", "Import Project")}
-              </button>
-              {rootPath && (
-                <button onClick={() => { setShowProjectMenu(false); closeProject(); }}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2">
-                  <span>✕</span> {tt("vibe.project.closeProject")}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        {/* ⚡ Project 下拉 — 2026-10-04 移除：Import/Close Project 是 coding 概念，學習空間誤導（Fleming 回報 bug） */}
 
         {/* 🤖 AI dropdown (AI Crew menu) */}
         <div className="relative ml-1">
@@ -2469,8 +2434,7 @@ const sendChat = useCallback(async () => {
                 </div>
               );
             })}
-            {/* Show hint only when dashboard is the sole tab */}
-            {mainTabs.length === 1 && mainTabs[0].id === DASHBOARD_TAB_ID && <div className="px-4 py-1.5 text-xs text-stone-300">{tt("vibe.editor.noFilesOpen")}</div>}
+            {/* （原 coding fork 的 "No files open" hint 已移除 — landing 學習總覽本身就是內容，2026-10-04） */}
           </div>
           {/* ── Content Area ── */}
           <div className="flex-1 flex min-h-0 overflow-hidden relative">
