@@ -4,9 +4,11 @@
  * tabs：💬 對話 / 📋 需求池 / 🔔 截止雷達 / 🌅 晨間簡報 / 🗺️ 產品總覽
  * 架構同 Secretary（綠地模板）：檔案是事實來源，產品管家寫自己的櫃。
  */
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MarkdownText from "@paaw-ui/components/MarkdownText";
+import Icon from "@paaw-ui/components/Icon";
 import { useI18n } from "@paaw-ui/i18n";
+import { useTheme } from "@paaw-ui/theme";
 import SidebarFileTree from "@paaw-ui/components/SidebarFileTree";
 import ExpertChatPanel from "../components/ExpertChatPanel";
 import SheetPreview from "../components/SheetPreview";
@@ -14,21 +16,46 @@ import SheetPreview from "../components/SheetPreview";
 const SHEET_RE = /\.(xlsx|csv)$/i;
 
 type ProjNode = { id: string; name: string; emoji: string; agentId: string; enabled: boolean; kind?: "function" | "product"; files: { name: string; size: number; mtime: string; sheet: boolean }[] };
-type Tab = "chat" | "todos" | "radar" | "briefing" | "board";
+type TabKind = "chat" | "todos" | "radar" | "briefing" | "board";
+type TabInst = { key: string; kind: TabKind; agentId: string; label: string };
 type OpenFile = { proj: string; name: string; sheet: boolean };
 type BoardRow = { id: string; name?: string; status: string; stage?: string; risks: number; openBacklog: number; nextMilestone: string | null; files: number };
 type RadarItem = { type: string; label: string; date: string; text: string; source: string; inDays: number; status: string };
 
 const CHIEF = "pm.chief";
+const LANDING: TabInst = { key: "chief", kind: "chat", agentId: CHIEF, label: "🎯 首席產品經理" };
 
 export default function ProjectOffice() {
   const { t } = useI18n();
-  const [tab, setTab] = useState<Tab>("chat");
+  const { info: themeInfo } = useTheme();
+  // tk token — 同 LearningSpace（toolbar 系列由 accent 衍生，跟著 PAAW theme 走）
+  const tk = useMemo(() => ({
+    bgMuted: themeInfo.accentLight || "#f5f5f4",
+    borderLight: themeInfo.accentBorder || "#f0f0f0",
+    accent: themeInfo.accent,
+    toolbarBg: themeInfo.accentText || "#1e1e1e",
+    toolbarBorder: themeInfo.accentBorder || "#333",
+    toolbarText: "rgba(255,255,255,0.9)",
+    toolbarTextMuted: "rgba(255,255,255,0.5)",
+    toolbarHover: "rgba(255,255,255,0.1)",
+    toolbarActive: "rgba(255,255,255,0.15)",
+  }), [themeInfo]);
+  // 動態 tabs：landing 固定首席（不可關）；點專家/工具列才開 tab（可關）
+  const [tabs, setTabs] = useState<TabInst[]>([LANDING]);
+  const [activeKey, setActiveKey] = useState<string>("chief");
+  const active = tabs.find(x => x.key === activeKey) || LANDING;
+  // 學習空間同款：最左收合側欄樹、最右 ⛶ 專注模式蓋掉整個 PAAW（Esc 縮回）
+  const [treeHidden, setTreeHidden] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  useEffect(() => {
+    if (!focusMode) return;
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") setFocusMode(false); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [focusMode]);
   const [projects, setProjects] = useState<ProjNode[]>([]);
   const functions = projects.filter(p => p.enabled !== false && p.kind === "function");
   const [dossierRoot, setDossierRoot] = useState<string>("");
-  const [activeAgent, setActiveAgent] = useState<string>(CHIEF);
-  const [activeAgentLabel, setActiveAgentLabel] = useState<string>("🎯 首席產品經理");
   const [openFile, setOpenFile] = useState<OpenFile | null>(null);
   const [mdContent, setMdContent] = useState("");
   const [mdDirty, setMdDirty] = useState(false);
@@ -68,7 +95,17 @@ export default function ProjectOffice() {
     }
   }, []);
 
-  useEffect(() => { loadPanel(tab); }, [tab, loadPanel]);
+  useEffect(() => { if (active.kind !== "chat") loadPanel(active.kind); }, [active.key, active.kind, loadPanel]);
+
+  // ── 動態 tabs（同學習空間/秘書）──
+  const openTab = useCallback((tb: TabInst) => {
+    setTabs(prev => prev.some(x => x.key === tb.key) ? prev : [...prev, tb]);
+    setActiveKey(tb.key);
+  }, []);
+  const closeTab = useCallback((key: string) => {
+    setTabs(prev => prev.filter(x => x.key === key).length ? prev.filter(x => x.key !== key) : [LANDING]);
+  }, []);
+  useEffect(() => { if (!tabs.some(x => x.key === activeKey)) setActiveKey("chief"); }, [tabs, activeKey]);
 
   const openDossier = useCallback(async (proj: string, name: string, sheet: boolean) => {
     setOpenFile({ proj, name, sheet });
@@ -95,10 +132,8 @@ export default function ProjectOffice() {
   }, [openFile, mdContent, loadTree]);
 
   const pickProject = useCallback((p: ProjNode) => {
-    setActiveAgent(p.agentId || `pm.${p.id}`);
-    setActiveAgentLabel(`${p.emoji} ${p.id === "_global" ? t("pm.global", "全域報表") : p.name}`);
-    setTab("chat");
-  }, [t]);
+    openTab({ key: `expert:${p.id}`, kind: "chat", agentId: p.agentId || `pm.${p.id}`, label: `${p.emoji} ${p.id === "_global" ? t("pm.global", "全域報表") : p.name}` });
+  }, [t, openTab]);
 
   // ── 檔案樹回呼（SidebarFileTree 同款）──
   // 檔案：root/<proj>/<name...> → 開檔（md 編輯 / sheet 預覽）；頂層檔不屬於任何產品櫃 → 靜默
@@ -109,9 +144,10 @@ export default function ProjectOffice() {
     if (seg.length < 2) return;
     const proj = seg[0];
     const name = seg[seg.length - 1];
+    const p = projects.find(x => x.id === proj);
+    if (p && p.enabled !== false) pickProject(p);
     openDossier(proj, name, SHEET_RE.test(name));
-    setTab("chat");
-  }, [dossierRoot, openDossier]);
+  }, [dossierRoot, openDossier, projects, pickProject]);
 
   // 目錄：頂層產品櫃 → 切換該產品管家（保留原 點產品=挑管家 行為）；子目錄只展開
   const handleTreeSelectDir = useCallback((path: string) => {
@@ -140,26 +176,60 @@ export default function ProjectOffice() {
     loadTree();
   }, [loadTree]);
 
-  const TABS: { id: Tab; label: string }[] = [
-    { id: "chat", label: t("pm.tab.chat", "💬 專家對話") },
-    { id: "board", label: t("pm.tab.board", "🗺️ 產品總覽") },
-    { id: "todos", label: t("pm.tab.todos", "📋 需求池") },
-    { id: "radar", label: t("pm.tab.radar", "🔔 截止雷達") },
-    { id: "briefing", label: t("pm.tab.briefing", "🌅 晨間簡報") },
+  // 工具列：點選才開 tab（不常駐）
+  const TOOLS: { kind: TabKind; label: string }[] = [
+    { kind: "board", label: t("pm.tab.board", "🗺️ 產品總覽") },
+    { kind: "todos", label: t("pm.tab.todos", "📋 需求池") },
+    { kind: "radar", label: t("pm.tab.radar", "🔔 截止雷達") },
+    { kind: "briefing", label: t("pm.tab.briefing", "🌅 晨間簡報") },
   ];
 
   return (
-    <div className="flex h-full min-h-0 bg-stone-100">
+    <div className={`h-full w-full flex flex-col min-h-0 bg-stone-100 ${focusMode ? "fixed inset-0 z-[9999]" : ""}`}>
+      {/* ═══ Top 工具列（同學習空間：tk.toolbarBg theme 色 / 最左收合側欄 / 最右 ⛶ 專注模式）═══ */}
+      <div className="flex items-center h-9 px-2 shrink-0 select-none gap-1" style={{ backgroundColor: tk.toolbarBg, borderBottom: `1px solid ${tk.toolbarBorder}` }}>
+        <button onClick={() => setTreeHidden(v => !v)}
+          title={treeHidden ? "顯示檔案樹" : "收合檔案樹"}
+          className="text-xs px-2 py-1 rounded transition-colors shrink-0"
+          style={{ backgroundColor: treeHidden ? tk.toolbarActive : "transparent", color: tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (!treeHidden) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = treeHidden ? tk.toolbarActive : "transparent"; }}
+        >{treeHidden ? "📁" : "📚"}</button>
+        {TOOLS.map(x => {
+          const opened = tabs.some(tb => tb.key === x.kind);
+          return (
+            <button
+              key={x.kind}
+              onClick={() => openTab({ key: x.kind, kind: x.kind, agentId: "", label: x.label })}
+              className="text-xs px-2 py-1 rounded transition-colors whitespace-nowrap shrink-0"
+              style={{ backgroundColor: opened ? tk.toolbarActive : "transparent", color: opened ? tk.toolbarText : tk.toolbarTextMuted }}
+              onMouseEnter={e => { if (!opened) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = opened ? tk.toolbarActive : "transparent"; }}
+            >{x.label}</button>
+          );
+        })}
+        <div className="flex-1" />
+        {active.kind === "chat" && <div className="text-[11px] pr-1 shrink-0" style={{ color: tk.toolbarTextMuted }}>{active.label}</div>}
+        <button onClick={() => setFocusMode(v => !v)}
+          title={focusMode ? "縮回（Esc）" : "放大蓋住整個 PAAW"}
+          className="flex items-center text-xs px-2 py-1 rounded transition-colors shrink-0"
+          style={{ backgroundColor: focusMode ? tk.toolbarActive : "transparent", color: focusMode ? tk.accent : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (!focusMode) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = focusMode ? tk.toolbarActive : "transparent"; }}
+        >{focusMode ? <Icon name="contract" size={14} /> : <Icon name="expand" size={14} />}</button>
+      </div>
+
+      <div className="flex-1 flex min-h-0">
       {/* ═══ 左 sidebar ═══ */}
-      <aside className="w-60 shrink-0 flex flex-col border-r border-stone-200 bg-white overflow-hidden">
+      {!treeHidden && (<aside className="w-60 shrink-0 flex flex-col border-r border-stone-200 bg-white overflow-hidden">
         <div className="px-3 py-2.5 border-b border-stone-100">
           <div className="text-[11px] font-bold uppercase tracking-wider text-stone-400">{t("pm.title", "🎯 產品經理室")}</div>
         </div>
         <div className="flex-1 overflow-y-auto py-1" style={{ scrollbarWidth: "thin" }}>
           {/* 總管（landing） */}
           <button
-            onClick={() => { setActiveAgent(CHIEF); setActiveAgentLabel("🎯 首席產品經理"); setTab("chat"); setOpenFile(null); }}
-            className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${activeAgent === CHIEF && tab === "chat" ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
+            onClick={() => { setActiveKey("chief"); setOpenFile(null); }}
+            className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${activeKey === "chief" ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
           >
             <span>🎯</span><span className="truncate">{t("pm.chief", "首席產品經理")}</span>
           </button>
@@ -170,7 +240,7 @@ export default function ProjectOffice() {
             <button
               key={p.id}
               onClick={() => pickProject(p)}
-              className={`w-full flex items-center gap-2 px-5 py-1.5 text-sm text-left transition-colors ${activeAgent === (p.agentId || `pm.${p.id}`) && tab === "chat" ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
+              className={`w-full flex items-center gap-2 px-5 py-1.5 text-sm text-left transition-colors ${active.kind === "chat" && active.agentId === (p.agentId || `pm.${p.id}`) ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
             >
               <span>{p.emoji}</span><span className="truncate">{p.id === "_global" ? t("pm.global", "全域報表") : p.name}</span>
             </button>
@@ -201,26 +271,35 @@ export default function ProjectOffice() {
           </button>
         </div>
         <input ref={uploadRef} type="file" multiple hidden onChange={e => doUpload(e.target.files)} />
-      </aside>
+      </aside>)}
 
       {/* ═══ 主區 ═══ */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* tabs */}
-        <div className="flex items-center gap-1 px-3 pt-2 pb-0 border-b border-stone-200 bg-white shrink-0">
-          {TABS.map(tb => (
-            <button
-              key={tb.id}
-              onClick={() => setTab(tb.id)}
-              className={`px-3.5 py-2 text-sm rounded-t-lg transition-colors ${tab === tb.id ? "font-bold text-stone-900 border-b-2 border-stone-800" : "text-stone-500 hover:text-stone-800"}`}
-            >{tb.label}</button>
-          ))}
-          <div className="flex-1" />
-          {tab === "chat" && <div className="text-[11px] text-stone-400 pr-2">{activeAgentLabel}</div>}
+        {/* Tab Bar — 同學習空間：landing 首席固定第一頁不可關，其他開 tab sheet */}
+        <div className="flex items-end shrink-0 overflow-x-auto" style={{ backgroundColor: tk.bgMuted, borderBottom: `1px solid ${tk.borderLight}` }}>
+          {tabs.map(tb => {
+            const isActive = activeKey === tb.key;
+            const closable = tb.key !== "chief";
+            return (
+              <div key={tb.key}
+                onClick={() => setActiveKey(tb.key)}
+                className={`group flex items-center gap-1 px-3 py-1 cursor-pointer select-none text-xs shrink-0 transition-colors ${isActive ? "bg-white text-stone-800 font-bold" : "text-stone-400 hover:bg-stone-100"}`}
+                style={isActive ? { borderTop: `2px solid ${tk.accent}` } : { borderTop: "2px solid transparent" }}
+              >
+                <span className="truncate max-w-[120px]">{tb.label}</span>
+                {closable && (
+                  <button onClick={e => { e.stopPropagation(); closeTab(tb.key); }}
+                    className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-500 text-xs ml-1"
+                  >✕</button>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* content */}
         <div className="flex-1 min-h-0">
-          {tab === "chat" && (
+          {active.kind === "chat" && (
             openFile ? (
               <div className="flex h-full">
                 <div className="w-1/2 min-w-0 border-r border-stone-200 bg-white flex flex-col">
@@ -249,15 +328,15 @@ export default function ProjectOffice() {
                   )}
                 </div>
                 <div className="w-1/2 min-w-0">
-                  <ExpertChatPanel agentId={activeAgent} />
+                  <ExpertChatPanel agentId={active.agentId} />
                 </div>
               </div>
             ) : (
-              <ExpertChatPanel agentId={activeAgent} />
+              <ExpertChatPanel agentId={active.agentId} />
             )
           )}
 
-          {tab === "board" && (
+          {active.kind === "board" && (
             <div className="h-full overflow-y-auto bg-white p-6" style={{ scrollbarWidth: "thin" }}>
               <div className="max-w-4xl mx-auto">
                 <div className="text-xs text-stone-400 mb-3">{t("pm.boardHint", "燈號與階段來自各產品 product.md（管家維護）— 統計由程式掃描，零 LLM")}</div>
@@ -292,7 +371,7 @@ export default function ProjectOffice() {
             </div>
           )}
 
-          {tab === "todos" && (
+          {active.kind === "todos" && (
             <div className="h-full overflow-y-auto bg-white p-6" style={{ scrollbarWidth: "thin" }}>
               <div className="max-w-3xl mx-auto">
                 <div className="text-xs text-stone-400 mb-2">{t("pm.todosHint", "checkbox 落在各產品櫃（backlog 為主）— 勾掉請找該產品管家（點左邊產品），這裡是總掃描")}</div>
@@ -301,7 +380,7 @@ export default function ProjectOffice() {
             </div>
           )}
 
-          {tab === "radar" && (
+          {active.kind === "radar" && (
             <div className="h-full overflow-y-auto bg-white p-6" style={{ scrollbarWidth: "thin" }}>
               <div className="max-w-3xl mx-auto space-y-2">
                 <div className="text-xs text-stone-400 mb-2">{t("pm.radarHint", "來源：各產品櫃 [milestone:] / [due:] / [expires:] 標記 — 30 天內全部列出")}</div>
@@ -320,7 +399,7 @@ export default function ProjectOffice() {
             </div>
           )}
 
-          {tab === "briefing" && (
+          {active.kind === "briefing" && (
             <div className="h-full overflow-y-auto bg-white p-6" style={{ scrollbarWidth: "thin" }}>
               <div className="max-w-3xl mx-auto">
                 <div className="flex items-center gap-2 mb-3">
@@ -340,12 +419,13 @@ export default function ProjectOffice() {
           )}
         </div>
       </div>
+      </div>
 
       {/* ═══ 新增產品 modal ═══ */}
       {newOpen && (
         <NewProjectModal
           onClose={() => setNewOpen(false)}
-          onCreated={(p) => { setActiveAgent(p.agentId); setActiveAgentLabel(`${p.emoji} ${p.name}`); setTab("chat"); loadTree(); }}
+          onCreated={(p) => { openTab({ key: `expert:${p.id}`, kind: "chat", agentId: p.agentId, label: `${p.emoji} ${p.name}` }); loadTree(); }}
         />
       )}
 
