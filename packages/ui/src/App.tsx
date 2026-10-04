@@ -874,8 +874,10 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
                 ))}
                 <NavItem active={activePage.endsWith(":reportapps")} label={t("sidebar.appPool")} onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":briefing-player")} label={t("sidebar.briefingPlayer", "Briefing Player")} onClick={() => openBriefingPlayer()} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":appmodules")} label={t("sidebar.appModules")} onClick={openAppModules} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":coding")} label={t("sidebar.coding")} onClick={openCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                {appModules.map(m => (
+                  <NavItem key={`mod-${m.id}`} active={activePage.endsWith(`:module:${m.id}`)} label={m.nav?.label || m.name} emoji={m.nav?.emoji || "📦"} onClick={() => openAppModule(m.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                ))}
                 <NavItem active={activePage.endsWith(":mind-map")} label={t("sidebar.mindMap")} onClick={openMindMap} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":notes")} label={t("sidebar.notes")} onClick={openNotes} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":projects")} label={t("sidebar.projects")} onClick={() => { const tabId = `${currentScope}:projects`; setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]); setActivePage(tabId); }} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
@@ -918,9 +920,7 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />
-                {appModules.map(m => (
-                  <NavItem key={`mod-${m.id}`} active={activePage.endsWith(`:module:${m.id}`)} label={m.nav?.label || m.name} emoji={m.nav?.emoji || "📦"} onClick={() => openAppModule(m.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                ))}
+                <NavItem active={activePage.endsWith(":appmodules")} label={t("sidebar.appModules")} onClick={openAppModules} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
 
               </div>
             </SidebarSection>
