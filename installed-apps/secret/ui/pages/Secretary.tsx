@@ -26,6 +26,15 @@ export default function Secretary() {
   const [tabs, setTabs] = useState<TabInst[]>([LANDING]);
   const [activeKey, setActiveKey] = useState<string>("chief");
   const active = tabs.find(x => x.key === activeKey) || LANDING;
+  // 學習空間同款：最左收合側欄樹、最右 ⛶ 專注模式蓋掉整個 PAAW（Esc 縮回）
+  const [treeHidden, setTreeHidden] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  useEffect(() => {
+    if (!focusMode) return;
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") setFocusMode(false); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [focusMode]);
   const [openFile, setOpenFile] = useState<OpenFile | null>(null);
   const [cats, setCats] = useState<CatNode[]>([]);
   const [dossierRoot, setDossierRoot] = useState<string>("");
@@ -154,9 +163,46 @@ export default function Secretary() {
   ];
 
   return (
-    <div className="flex h-full min-h-0 bg-stone-100">
+    <div className={`h-full w-full flex flex-col min-h-0 bg-stone-100 ${focusMode ? "fixed inset-0 z-[9999]" : ""}`}>
+      {/* ═══ Top 工具列（同學習空間：最左收合側欄 / tabs 併入工具列 / 最右 ⛶ 專注模式）═══ */}
+      <div className="flex items-center h-9 px-2 border-b border-stone-700 bg-stone-800 shrink-0 select-none gap-1">
+        <button onClick={() => setTreeHidden(v => !v)}
+          title={treeHidden ? "顯示檔案樹" : "收合檔案樹"}
+          className="text-xs px-2 py-1 rounded text-stone-400 hover:text-stone-200 hover:bg-stone-700"
+        >{treeHidden ? "📁" : "📚"}</button>
+        {tabs.map(tb => (
+          <div
+            key={tb.key}
+            onClick={() => setActiveKey(tb.key)}
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded cursor-pointer transition-colors ${activeKey === tb.key ? "bg-stone-600 font-bold text-white" : "text-stone-400 hover:bg-stone-700 hover:text-stone-200"}`}
+          >
+            <span>{tb.label}</span>
+            {tb.key !== "chief" && (
+              <button
+                onClick={e => { e.stopPropagation(); closeTab(tb.key); }}
+                className="text-stone-500 hover:text-stone-200 text-[10px] leading-none"
+              >✕</button>
+            )}
+          </div>
+        ))}
+        {TOOLS.filter(x => !tabs.some(tb => tb.key === x.kind)).map(x => (
+          <button
+            key={x.kind}
+            onClick={() => openTab({ key: x.kind, kind: x.kind, agentId: "", label: x.label })}
+            className="text-xs text-stone-400 hover:text-white px-2 py-1 rounded hover:bg-stone-700 whitespace-nowrap"
+          >{x.label} +</button>
+        ))}
+        <div className="flex-1" />
+        {active.kind === "chat" && <div className="text-[11px] text-stone-500 pr-1 shrink-0">{active.label}</div>}
+        <button onClick={() => setFocusMode(v => !v)}
+          title={focusMode ? "縮回（Esc）" : "放大蓋住整個 PAAW"}
+          className="text-xs px-2 py-1 rounded text-stone-400 hover:text-stone-200 hover:bg-stone-700 shrink-0"
+        >{focusMode ? "🗗" : "⛶"}</button>
+      </div>
+
+      <div className="flex-1 flex min-h-0">
       {/* ═══ 左 sidebar ═══ */}
-      <aside className="w-60 shrink-0 flex flex-col border-r border-stone-200 bg-white overflow-hidden">
+      {!treeHidden && (<aside className="w-60 shrink-0 flex flex-col border-r border-stone-200 bg-white overflow-hidden">
         <div className="px-3 py-2.5 border-b border-stone-100">
           <div className="text-[11px] font-bold uppercase tracking-wider text-stone-400">{t("secret.title", "🕴️ 秘書 · 處長室")}</div>
         </div>
@@ -206,38 +252,10 @@ export default function Secretary() {
           </button>
         </div>
         <input ref={uploadRef} type="file" multiple hidden onChange={e => doUpload(e.target.files)} />
-      </aside>
+      </aside>)}
 
       {/* ═══ 主區 ═══ */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* tabs：動態（landing 總管固定）＋ 右側工具列（點選才開） */}
-        <div className="flex items-center gap-1 px-3 pt-2 pb-0 border-b border-stone-200 bg-white shrink-0">
-          {tabs.map(tb => (
-            <div
-              key={tb.key}
-              onClick={() => setActiveKey(tb.key)}
-              className={`flex items-center gap-1.5 pl-3.5 pr-2 py-2 text-sm rounded-t-lg cursor-pointer transition-colors ${activeKey === tb.key ? "font-bold text-stone-900 border-b-2 border-stone-800" : "text-stone-500 hover:text-stone-800"}`}
-            >
-              <span>{tb.label}</span>
-              {tb.key !== "chief" && (
-                <button
-                  onClick={e => { e.stopPropagation(); closeTab(tb.key); }}
-                  className="text-stone-300 hover:text-stone-600 text-xs leading-none"
-                >✕</button>
-              )}
-            </div>
-          ))}
-          <div className="flex-1" />
-          {TOOLS.filter(x => !tabs.some(tb => tb.key === x.kind)).map(x => (
-            <button
-              key={x.kind}
-              onClick={() => openTab({ key: x.kind, kind: x.kind, agentId: "", label: x.label })}
-              className="text-xs text-stone-500 hover:text-stone-800 px-2 py-1 rounded-lg hover:bg-stone-100 mr-1"
-            >{x.label} +</button>
-          ))}
-          {active.kind === "chat" && <div className="text-[11px] text-stone-400 pr-2">{active.label}</div>}
-        </div>
-
         {/* content */}
         <div className="flex-1 min-h-0">
           {active.kind === "chat" && (
@@ -323,6 +341,7 @@ export default function Secretary() {
             </div>
           )}
         </div>
+      </div>
       </div>
 
       {/* ═══ 管理分類 modal ═══ */}
