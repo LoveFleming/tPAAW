@@ -440,7 +440,7 @@ ${list}`;
       storageKey="curriculum.teacherChatWidth"
       borderLight="#e7e5e4"
       chat={teacherId ? (
-        <TeacherChatPanel key={teacherId} fitContainer agentId={teacherId} unitLabel={pageLabel} pageMd={pageMd} rootPath={rootPath} onClose={() => setTeacherOpen(false)} />
+        <TeacherChatPanel key={teacherId} fitContainer teacherName={subject.name} agentId={teacherId} unitLabel={pageLabel} pageMd={pageMd} rootPath={rootPath} onClose={() => setTeacherOpen(false)} />
       ) : null}
     >
       {/* 🏫 教室功能列 — 固定頂部（三層共通）：捲動教學內容不會把它捲走 */}

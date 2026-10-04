@@ -122,7 +122,7 @@ function ThinkingDots({ label }: { label: string }) {
   );
 }
 
-export default function TeacherChatPanel({ agentId, unitLabel, pageMd, onClose, kickoff, fitContainer, rootPath }: {
+export default function TeacherChatPanel({ teacherName, agentId, unitLabel, pageMd, onClose, kickoff, fitContainer, rootPath }: {
   agentId: string;
   /** 學生目前位置（動態：科目總覽／單元／知識點），換頁即更新 */
   unitLabel: string;
@@ -133,6 +133,7 @@ export default function TeacherChatPanel({ agentId, unitLabel, pageMd, onClose, 
   kickoff?: { text: string; seq: number };
   /** 塞進 SplitChatLayout 這種自適寬容器用（根元素改 w-full） */
   fitContainer?: boolean;
+  teacherName?: string; // 顯示名（/api/crew 端點不存在，本地 fallback 用）
   /** 專案根（有的話啟用對話持久化：存 .paaw/conversations/<hash>/classroom-{agentId}/） */
   rootPath?: string;
 }) {
@@ -159,29 +160,28 @@ export default function TeacherChatPanel({ agentId, unitLabel, pageMd, onClose, 
   useEffect(() => {
     setMsgs([]); setCrew(null); setSessionId("active"); setShowHistory(false); setSessions([]);
     let cancelled = false;
-    fetch(`/api/crew/${encodeURIComponent(agentId)}`)
-      .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
-      .then(async (d: CrewInfo) => {
-        if (cancelled) return;
-        setCrew(d);
-        const g = d.chatConfig?.greeting;
-        // 有開持久化 → 先還原 server 上的 active 對話（refresh/關面板重開不流失）；無則 greeting
-        let restored = false;
-        if (rootPath) {
-          try {
-            const conv = await fetch(`/api/conversations/${encodeURIComponent(`classroom-${agentId}`)}/active?root=${encodeURIComponent(rootPath)}`).then(r => r.json());
-            const loaded = (Array.isArray(conv?.messages) ? conv.messages : [])
-              .map((m: { role?: string; content?: string; ts?: string }) => ({
-                role: m.role === "user" ? ("user" as const) : ("assistant" as const),
-                content: String(m.content || ""), ts: m.ts,
-              }))
-              .filter((m: Msg) => m.content);
-            if (loaded.length > 0) { setMsgs(loaded); restored = true; }
-          } catch { /* 還原失敗退回 greeting */ }
-        }
-        if (!restored && g) setMsgs([{ role: "assistant", content: g, ts: new Date().toISOString() }]);
-      })
-      .catch(() => {});
+    // 2026-10-04 瘦身：/api/crew/:id 端點不存在（CodingIDE fork 殘留，永遠 404）→ 直接本地 fallback crew
+    (async () => {
+      const d: CrewInfo = { id: agentId, title: teacherName || agentId, codename: "", imageUrl: "" };
+      if (cancelled) return;
+      setCrew(d);
+      const g = d.chatConfig?.greeting;
+      // 有開持久化 → 先還原 server 上的 active 對話（refresh/關面板重開不流失）；無則 greeting
+      let restored = false;
+      if (rootPath) {
+        try {
+          const conv = await fetch(`/api/conversations/${encodeURIComponent(`classroom-${agentId}`)}/active?root=${encodeURIComponent(rootPath)}`).then(r => r.json());
+          const loaded = (Array.isArray(conv?.messages) ? conv.messages : [])
+            .map((m: { role?: string; content?: string; ts?: string }) => ({
+              role: m.role === "user" ? ("user" as const) : ("assistant" as const),
+              content: String(m.content || ""), ts: m.ts,
+            }))
+            .filter((m: Msg) => m.content);
+          if (loaded.length > 0) { setMsgs(loaded); restored = true; }
+        } catch { /* 還原失敗退回 greeting */ }
+      }
+      if (!restored) setMsgs([{ role: "assistant", content: g || `嗨！我是${d.title}，有什麼我可以幫忙的嗎？`, ts: new Date().toISOString() }]);
+    })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId, rootPath]);
@@ -416,7 +416,7 @@ export default function TeacherChatPanel({ agentId, unitLabel, pageMd, onClose, 
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
-  const teacherName = crew ? (crew.codename ? `${crew.title} · ${crew.codename}` : crew.title) : "…";
+  const displayName = crew ? (crew.codename ? `${crew.title} · ${crew.codename}` : crew.title) : "…";
   const hasPending = pendingImages.length > 0 || pendingFiles.length > 0;
 
   return (
@@ -429,7 +429,7 @@ export default function TeacherChatPanel({ agentId, unitLabel, pageMd, onClose, 
           <div className="w-9 h-9 rounded-full bg-white border border-stone-200 flex items-center justify-center text-lg">👩‍🏫</div>
         )}
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-bold text-stone-800 truncate">{teacherName}</div>
+          <div className="text-sm font-bold text-stone-800 truncate">{displayName}</div>
           <div className="text-[11px] text-stone-400 truncate">
             {unitLabel}{pageMd && pageMd.trim() ? ` · 📖 ${t("classroom.page.pageSync")}` : ""}
           </div>
@@ -475,10 +475,10 @@ export default function TeacherChatPanel({ agentId, unitLabel, pageMd, onClose, 
       {/* messages — 全靠左，與林雨晴 chat 相同結構 */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3" style={{ scrollbarWidth: "thin" }}>
         {msgs.map((m, i) => (
-          <MessageRow key={i} msg={m} assistantName={teacherName} imageUrl={crew?.imageUrl} />
+          <MessageRow key={i} msg={m} assistantName={displayName} imageUrl={crew?.imageUrl} />
         ))}
         {live && (
-          <MessageRow msg={{ role: "assistant", content: live }} assistantName={teacherName} imageUrl={crew?.imageUrl} />
+          <MessageRow msg={{ role: "assistant", content: live }} assistantName={displayName} imageUrl={crew?.imageUrl} />
         )}
         {thinking && <ThinkingDots label={t("classroom.chat.thinking")} />}
       </div>
