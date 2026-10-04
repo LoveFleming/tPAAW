@@ -1,0 +1,844 @@
+/**
+ * LLM API Utilities — Retry, Sanitize, Validate
+ *
+ * 解決公司 LLM model 常見問題：
+ * 1. API 回空白內容或只有隱藏字元（zero-width space, BOM 等）
+ * 2. 連線失敗、timeout、ECONNRESET
+ * 3. HTTP 5xx 暫時性錯誤
+ * 4. response JSON 壞掉
+ *
+ * 使用方式：
+ *   import { callLLMWithRetry, sanitizeContent, isMeaningfulContent } from '../lib/llm-utils.mjs'
+ *
+ * 2026-06-27 初版
+ */
+
+// ── 配置 ──
+
+// undici 預設 headersTimeout=300s：非串流 LLM 呼叫（大 prompt + 深思考）常超過 5 分鐘才回 headers，
+// 會在整 300s 被 TypeError: fetch failed 掐死（2026-08-28 Code Understanding 實測兩次 301s 死亡）。
+// 解除 undici 內建 timeout，改由各呼叫端的 AbortController（timeoutMs）全權管理。
+import { Agent as _UndiciAgent } from "undici";
+const _llmDispatcher = new _UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 });
+
+const DEFAULT_MAX_RETRIES = 2;           // reduced from 5 — most providers handle 429 internally now, no need to retry 5 times
+const DEFAULT_BASE_DELAY_MS = 1000;     // first retry wait 1s (was 2s — most providers don't need long waits)
+const DEFAULT_MAX_DELAY_MS = 10000;     // max 10s between retries (was 30s — too long for non-rate-limited providers)
+const DEFAULT_TIMEOUT_MS = 60_000;    // API call timeout 60s
+
+// ── AI Call Logging ──
+import { resolve, join } from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+import { mkdirSync, appendFileSync } from "fs";
+import { DATA_HOME } from "../data-home.mjs";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// ── Resolve default model from provider config ──
+// Never hardcode a specific model. Chain: defaultModel → active provider's first model → "default"
+
+/**
+ * 當前日期時間 + 時區 block — 統一注入所有 LLM system prompt
+ *（2026-09-12 Fleming：coding app 所有 agent 都要知道時間/時區；
+ *  paaw-agent-loop 與 domain-agent-registry 各自 inline 了一份同格式，此處為缺口的入口共用）
+ */
+export function dateTimeContextBlock() {
+  const _now = new Date();
+  const _tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const _offMin = -_now.getTimezoneOffset();
+  const _offStr = `UTC${_offMin >= 0 ? "+" : "-"}${String(Math.floor(Math.abs(_offMin) / 60)).padStart(2, "0")}${Math.abs(_offMin) % 60 ? ":" + String(Math.abs(_offMin) % 60).padStart(2, "0") : ""}`;
+  const _dateStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
+  const _weekday = ["日", "一", "二", "三", "四", "五", "六"][_now.getDay()];
+  const _timeStr = `${String(_now.getHours()).padStart(2, "0")}:${String(_now.getMinutes()).padStart(2, "0")}`;
+  return `\n=== 當前日期時間 ===\n今天是 ${_dateStr}（星期${_weekday}），時間 ${_timeStr}，時區 ${_tz} (${_offStr})\n`;
+}
+
+export function resolveDefaultModel(providerConfig) {
+  if (providerConfig?.defaultModel) return providerConfig.defaultModel;
+  const activeId = providerConfig?.active;
+  const active = providerConfig?.providers?.[activeId];
+  const firstModel = active?.models?.[0];
+  if (firstModel) return typeof firstModel === "string" ? firstModel : firstModel.id;
+  return "default"; // last resort — never a hardcoded model name
+}
+
+// 判定為 retryable 的 HTTP status
+const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
+
+// 判定為 retryable 的 error code
+const RETRYABLE_ERR_CODES = new Set([
+  'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND',
+  'EAI_AGAIN', 'EPIPE', 'EHOSTUNREACH', 'ENETUNREACH',
+  'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET',
+]);
+
+// ── 隱藏字元清理 ──
+
+/**
+ * 清理 LLM 回應中的隱藏/無形字元
+ * - Zero-width space (U+200B, U+200C, U+200D)
+ * - Zero-width non-joiner (U+200C)
+ * - BOM (U+FEFF)
+ * - Soft hyphen (U+00AD)
+ * - 各種 invisible Unicode
+ *
+ * @param {string} text
+ * @returns {string} 清理後的文字
+ */
+/**
+ * 移除孤兒 surrogate（2026-09-14 fix — Fleming 回報：多輪開發後 LLM API 500）
+ *
+ * 根因鏈：工具輸出/上下文截斷切在 emoji 中間（\ud83d 高半被留下）→ 孤兒 surrogate
+ * 進入對話歷史 → JSON body 帶 \ud83d escape → LLM server（Python 後端）UTF-8 編碼炸
+ * → 500 Internal Server Error。歷史一旦中書，每輪都 500（多輪開發後才爆 = 截斷機率累積）。
+ *
+ * 策略：①源頭截斷不切 pair（cutSafeStart/cutSafeEnd）；②LLM 邊界統一清毒
+ * （jsonStringifySafe）——已存檔的中毒歷史靠這層自救。
+ */
+export function stripLoneSurrogates(s) {
+  if (typeof s !== "string" || !s) return s;
+  // 快速路徑：無 surrogate 直接回（絕大多數字串，免掃全文）
+  let hasSurrogate = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c >= 0xd800 && c <= 0xdfff) { hasSurrogate = true; break; }
+  }
+  if (!hasSurrogate) return s;
+  let out = "";
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c >= 0xd800 && c <= 0xdbff) {
+      const n = s.charCodeAt(i + 1) || 0;
+      if (n >= 0xdc00 && n <= 0xdfff) { out += s[i] + s[i + 1]; i++; } // 完整 pair 保留
+      // 孤兒 high（如截斷留下的 \ud83d）→ 丟棄
+    } else if (c >= 0xdc00 && c <= 0xdfff) {
+      // 孤兒 low → 丟棄
+    } else {
+      out += s[i];
+    }
+  }
+  return out;
+}
+
+/** 安全截斷：取前 n 字元，不切在 surrogate pair 中間 */
+export function cutSafeStart(s, n) {
+  if (typeof s !== "string" || s.length <= n) return s;
+  const cut = s.slice(0, n);
+  const last = cut.charCodeAt(cut.length - 1);
+  return last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut; // 尾巴是 high half → 多別 1
+}
+
+/** 安全截斷：取後 n 字元，不切在 surrogate pair 中間 */
+export function cutSafeEnd(s, n) {
+  if (typeof s !== "string" || s.length <= n) return s;
+  const cut = s.slice(s.length - n);
+  const first = cut.charCodeAt(0);
+  return first >= 0xdc00 && first <= 0xdfff ? cut.slice(1) : cut; // 頭是 low half → 多別 1
+}
+
+/** JSON.stringify 安全版：所有 string 值先清孤兒 surrogate（LLM request 邊界專用） */
+export function jsonStringifySafe(value) {
+  return JSON.stringify(value, (_k, v) => (typeof v === "string" ? stripLoneSurrogates(v) : v));
+}
+
+/**
+ * 解析 "providerId/modelId" 或純 modelId → { providerId, model }（2026-09-14 fix）
+ *
+ * 格式：「providerId/modelId」（UI ModelSelector 存的格式）或純 modelId（走 active provider）。
+ *
+ * ⚠️ 2026-09-14 回歸修復（Fleming 回報：coding app 選 model id 如 anthropic/claude-opus-4.8 時 LLM API 回 400）：
+ * 舊邏輯「第一段是已知 provider 就剝 prefix」在「model id 本身自帶 provider 名前綴」時會剝過頭 —
+ * anthropic provider 的 model 清單是 ["anthropic/opus4.6", "anthropic/claude-opus-4.8", ...]（OpenAI 相容
+ * gateway 的 full-path model id）時，"anthropic/claude-opus-4.8" 被剝成 "claude-opus-4.8" 直送 API → 400 unknown model。
+ * 2026-09-12 ModelSelector handleSelect 修正雙 prefix（anthropic/anthropic/x → anthropic/x）後，
+ * 舊的「雙 prefix 碰巧讓 first-slash 剝對」保護消失，server 端解析必須自己認得 full-path model id。
+ *
+ * 解析規則（與 UI ModelSelector.parseValue 同邏輯，server 端權威版）：
+ * 1. 值不含 "/" → active provider + 原值
+ * 2. 第一段不是已知 provider → 整串是 model id（openrouter full-path 如 deepseek/deepseek-v4-flash）
+ * 3. 第一段是已知 provider X：
+ *    a. rest 在 X 的 model 清單 → {X, rest}（一般情況：zai/glm-5.1）
+ *    b. 整串值在 X 的 model 清單 → {X, 整串}（model id 自帶 provider prefix）
+ *    c. X 的 model 清單有 full-path 風格（任一 id 以 "X/" 開頭）→ {X, 整串}（未列出的自訂 full-path model）
+ *    d. 以上皆非 → {X, rest}（custom model，維持舊行為）
+ */
+export function parseModelReference(providerConfig, value) {
+  let providerId = providerConfig?.active;
+  let model = value;
+  if (typeof model === "string" && model.includes("/")) {
+    const firstSlash = model.indexOf("/");
+    const candidate = model.slice(0, firstSlash);
+    const rest = model.slice(firstSlash + 1);
+    const p = providerConfig?.providers?.[candidate];
+    if (p) {
+      const ids = new Set((p.models || []).map(m => (typeof m === "string" ? m : m?.id)).filter(Boolean));
+      if (ids.has(rest)) return { providerId: candidate, model: rest };
+      if (ids.has(model)) return { providerId: candidate, model };
+      if ([...ids].some(id => id.startsWith(candidate + "/"))) return { providerId: candidate, model };
+      return { providerId: candidate, model: rest };
+    }
+    // 第一段不是已知 provider → 整串是 model id（e.g. "deepseek/deepseek-v4-flash" 走 active provider）
+  }
+  // 2026-09-23 fix：bare/整串 model id 不在 active provider 清單 → 跨 provider 找擁有者自動路由。
+  // 公司事件：per-agent/_config 存了 bare "gpt5.6"，gpt5.6 實際掛在非 active provider 下 →
+  // 舊邏輯送錯 provider 直接 400 unknown model（EM 聊天正常、派工全滅的元凶）。
+  //
+  // ⚠️ 2026-09-24 保守化（林雨晴聊天找不到 provider model 事件）：路由太激進會把
+  // 「清單不完整的 passthrough gateway」的請求搶去「清單剛好有列」但不可用的 provider。
+  // 只有同時滿足三個條件才路由：
+  //   ① active provider 有「明確非空」model 白名單（空清單/未宣告 = passthrough gateway，信任 active）
+  //   ② model 不在 active 白名單
+  //   ③ 擁有者 provider 真的可用（有 baseURL + 非 "na" apiKey）
+  if (typeof model === "string" && model) {
+    const activeModels = providerConfig?.providers?.[providerId]?.models;
+    const hasWhitelist = Array.isArray(activeModels) && activeModels.length > 0;
+    const idOf = (m) => (typeof m === "string" ? m : m?.id);
+    if (hasWhitelist && !activeModels.some((m) => idOf(m) === model)) {
+      const owner = Object.entries(providerConfig?.providers || {}).find(
+        ([pid, p]) =>
+          pid !== providerId &&
+          (p.models || []).some((m) => idOf(m) === model) &&
+          p?.apiKey && p.apiKey !== "na" && p?.baseURL
+      );
+      if (owner) {
+        console.log(`[parseModelReference] Model "${model}" not in active provider "${providerId}" whitelist — auto-routing to owner provider "${owner[0]}"`);
+        providerId = owner[0];
+      }
+    }
+  }
+  return { providerId, model };
+}
+
+export function sanitizeContent(text) {
+  if (!text || typeof text !== 'string') return '';
+
+  return text
+    // BOM
+    .replace(/\uFEFF/g, '')
+    // Zero-width characters
+    .replace(/[\u200B\u200C\u200D\u200E\u200F]/g, '')
+    // Zero-width no-break space (NBSP sometimes used as zero-width)
+    .replace(/\u2060/g, '')
+    // Word joiner
+    .replace(/\u2063/g, '')
+    // Invisible characters
+    .replace(/[\u00AD\u2061\u2062\u2064]/g, '')
+    // 左右 text direction marks
+    .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    // 連續多個空行壓成兩個
+    .replace(/\n{4,}/g, '\n\n\n')
+    // trim 頭尾
+    .trim();
+}
+
+/**
+ * 檢查 LLM 回應是否有實質內容
+ * 不只是空白、隱藏字元、或單獨標點
+ *
+ * @param {string} content
+ * @returns {boolean}
+ */
+export function isMeaningfulContent(content) {
+  if (!content) return false;
+  const cleaned = sanitizeContent(content);
+  if (cleaned.length === 0) return false;
+
+  // 全部是空白/換行/tab
+  if (/^\s*$/.test(cleaned)) return false;
+
+  // 去掉所有空白後長度為 0
+  const noSpace = cleaned.replace(/\s+/g, '');
+  if (noSpace.length === 0) return false;
+
+  // 只剩標點符號
+  if (/^[。，．.、,;；!！?？\s]+$/.test(cleaned)) return false;
+
+  return true;
+}
+
+// ── Sleep helper ──
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+// ── 計算 backoff delay（exponential + jitter）──
+
+function calcBackoff(attempt, baseDelay, maxDelay) {
+  const exp = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
+  // jitter: 50%~100% of exponential
+  return Math.floor(exp * (0.5 + Math.random() * 0.5));
+}
+
+// ── 判定是否該 retry ──
+
+function isRetryableError(err, respStatus) {
+  // HTTP status 判定
+  if (respStatus && RETRYABLE_STATUS.has(respStatus)) return true;
+
+  // Error code 判定
+  if (err) {
+    const code = err.code || err.cause?.code;
+    if (code && RETRYABLE_ERR_CODES.has(code)) return true;
+
+    // TypeError: fetch failed (Node.js undici)
+    if (err.name === 'TypeError' && err.message?.includes('fetch')) return true;
+
+    // 通用 network error 關鍵字
+    const msg = err.message?.toLowerCase() || '';
+    if (msg.includes('network') || msg.includes('timeout') || msg.includes('socket')) return true;
+  }
+
+  return false;
+}
+
+// ── AbortController timeout ──
+
+function createTimeoutController(timeoutMs, externalSignal = null) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  // 不要讓 timer 卡住 process 退出
+  if (timer.unref) timer.unref();
+  // 使用者中斷（user interrupt）：外部 signal 觸發時立即 abort — 殺掉進行中的 LLM 呼叫
+  const onExternalAbort = () => { clearTimeout(timer); controller.abort(); };
+  if (externalSignal) {
+    if (externalSignal.aborted) onExternalAbort();
+    else externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+  }
+  return {
+    controller,
+    timer,
+    cleanup: () => { if (externalSignal) externalSignal.removeEventListener("abort", onExternalAbort); },
+  };
+}
+
+/** 建立使用者中斷專用的 AbortError（呼叫端用 err.name === "AbortError" 判斷） */
+function _userAbortError() {
+  const e = new Error("Aborted by user interrupt");
+  e.name = "AbortError";
+  return e;
+}
+
+// ── 核心：帶 retry 的 fetch ──
+
+/**
+ * 帶 retry + timeout 的 fetch
+ *
+ * @param {string} url
+ * @param {Object} options - fetch options
+ * @param {Object} [opts] - 額外設定
+ * @param {number} [opts.maxRetries=3]
+ * @param {number} [opts.baseDelayMs=1000]
+ * @param {number} [opts.maxDelayMs=15000]
+ * @param {number} [opts.timeoutMs=60000]
+ * @param {Function} [opts.onRetry] - callback(retryInfo) for logging
+ * @returns {Promise<Response>}
+ */
+export async function fetchWithRetry(url, options = {}, opts = {}) {
+  const {
+    maxRetries = DEFAULT_MAX_RETRIES,
+    baseDelayMs = DEFAULT_BASE_DELAY_MS,
+    maxDelayMs = DEFAULT_MAX_DELAY_MS,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    onRetry = null,
+  } = opts;
+  const _startTime = Date.now();
+  let _body = null;
+  try { _body = JSON.parse(options.body || '{}'); } catch {}
+
+  let lastError = null;
+  const userSignal = opts.signal || null; // 使用者中斷 — abort 立即停止，不 retry
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (userSignal?.aborted) throw _userAbortError();
+    const { controller, timer, cleanup } = createTimeoutController(timeoutMs, userSignal);
+
+    try {
+      const resp = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        dispatcher: _llmDispatcher,
+      });
+      clearTimeout(timer);
+
+      // 如果是 retryable HTTP status，retry
+      if (isRetryableError(null, resp.status) && attempt < maxRetries) {
+        const retryAfter = resp.headers.get('Retry-After');
+        let delay;
+        if (retryAfter) {
+          const parsed = Number(retryAfter);
+          delay = parsed > 0 ? parsed * 1000 : calcBackoff(attempt, baseDelayMs, maxDelayMs);
+          delay = Math.min(delay, 60_000);
+        } else {
+          delay = calcBackoff(attempt, baseDelayMs, maxDelayMs);
+        }
+        const retryInfo = {
+          attempt: attempt + 1,
+          maxRetries,
+          status: resp.status,
+          delayMs: delay,
+          retryAfter: !!retryAfter,
+          url,
+        };
+        if (onRetry) onRetry(retryInfo);
+        console.warn(`[LLM-Utils] Retry ${attempt + 1}/${maxRetries} in ${delay}ms (HTTP ${resp.status}${retryAfter ? ', Retry-After: ' + retryAfter : ''})`);
+        // 釋放 429 response body，避免 undici socket/記憶體 leak（多 agent 併發 + 高頻 retry 時會累積）
+        try { await resp.body?.cancel().catch(() => {}); } catch {}
+        await sleep(delay);
+        continue;
+      }
+
+      // Log result before returning
+      return resp;
+
+    } catch (err) {
+      clearTimeout(timer);
+
+      // 使用者中斷 — 立即抛出不 retry
+      if (userSignal?.aborted) { cleanup(); throw _userAbortError(); }
+
+      // AbortError = timeout
+      if (err.name === 'AbortError') {
+        lastError = new Error(`Request timeout after ${timeoutMs}ms`);
+        lastError.code = 'TIMEOUT';
+      } else {
+        lastError = err;
+      }
+
+      // 判定是否 retryable
+      if (attempt < maxRetries && isRetryableError(lastError)) {
+        const delay = calcBackoff(attempt, baseDelayMs, maxDelayMs);
+        const retryInfo = {
+          attempt: attempt + 1,
+          maxRetries,
+          error: lastError.message,
+          code: lastError.code,
+          delayMs: delay,
+          url,
+        };
+        if (onRetry) onRetry(retryInfo);
+        console.warn(`[LLM-Utils] Retry ${attempt + 1}/${maxRetries} in ${delay}ms (${lastError.message})`);
+        await sleep(delay);
+        continue;
+      }
+
+      // Log error before throwing
+
+      throw lastError;
+    }
+  }
+
+  // 不應該到這裡，但以防萬一
+  throw lastError || new Error('fetchWithRetry: unknown failure');
+}
+
+// ── 核心：帶 retry 的 LLM chat completion call（非串流）──
+
+/**
+ * 完整的 LLM call 包裝：retry + timeout + 內容驗證 + sanitize
+ *
+ * @param {string} apiUrl - 完整 API URL
+ * @param {Object} headers - request headers
+ * @param {Object} body - request body (model, messages, etc.)
+ * @param {Object} [opts] - 額外設定
+ * @param {number} [opts.maxRetries=3]
+ * @param {number} [opts.timeoutMs=60000]
+ * @param {boolean} [opts.validateContent=true] - 驗證回應有實質內容
+ * @param {boolean} [opts.sanitize=true] - 清理隱藏字元
+ * @returns {Promise<{content: string, raw: Object, attempts: number}>}
+ */
+export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
+  const {
+    maxRetries = 2,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    validateContent = true,
+    sanitize = true,
+    agentId = null,
+    fallbacks = [], // [{ apiUrl, headers, model, maxTokens? }]
+    disableThinking = false, // 2026-08-30：結構化/大輸出任務用 — zai 才注入 thinking disabled（其他 provider 不帶免得格式不符）
+  } = opts;
+  const _startTime = Date.now();
+  const _callId = `llm-${_startTime}-${Math.random().toString(36).slice(2, 8)}`;
+
+  // thinking off 咽喉處理：僅 zai / openrouter（url 判別）、僅 caller 沒自己帶參數時
+  if (disableThinking && body.thinking === undefined && /z\.ai/.test(apiUrl)) {
+    body.thinking = { type: "disabled" };
+  }
+  // 2026-10-03 委員會實測：OpenRouter 上的 reasoning model（deepseek v4）同樣會把
+  // max_tokens 全燒在 reasoning（16384/16384、0 字輸出、6.4min/$0.007 白花）—
+  // OpenRouter 統一參數 reasoning.enabled=false 關閉；不支援 reasoning 的 model 會忽略
+  if (disableThinking && body.reasoning === undefined && /openrouter\.ai/.test(apiUrl)) {
+    body.reasoning = { enabled: false };
+  }
+
+  // ── LLM Request Log ──
+  const caller = opts.caller || agentId || "unknown";
+  console.log(`[callLLMWithRetry] ${caller} → ${body.model || "?"} (${body.messages?.length} msgs, max_tokens=${body.max_tokens})`);
+  _writeLlmLog({
+    id: _callId,
+    ts: new Date(_startTime).toISOString(),
+    phase: "request",
+    agentId: agentId || opts.caller || null,
+    model: body.model || "?",
+    stream: false,
+    apiUrl: apiUrl.replace(/\/v.*$/, "/..."),
+    messageCount: body.messages?.length,
+    images: (body.messages || []).reduce((n, m) => n + (Array.isArray(m?.content) ? m.content.filter(p => p?.type === "image_url").length : 0), 0) || undefined, // Vision Phase 4：含圖請求歸因（0 → undefined 不記）
+    messagesPreview: body.messages?.map(m => ({ role: m.role, len: typeof m.content === "string" ? m.content.length : Array.isArray(m.content) ? m.content.length + 1000 * m.content.filter(p => p?.type === "image_url").length : 0, preview: (typeof m.content === "string" ? m.content : (m.content || []).map(p => p?.type === "text" ? p.text : "[圖片]").join(" "))?.slice?.(0, 200) || "" })),
+    toolsCount: body.tools?.length || 0,
+    toolNames: (body.tools || []).map(t => t.function?.name).filter(Boolean),
+    maxTokens: body.max_tokens,
+    caller: opts.caller || null,
+    taskId: opts.taskId || null, // R3: cost 歸集 tag（caller 有帶才生效）
+  });
+
+  let lastError = null;
+  const userSignal = opts.signal || null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (userSignal?.aborted) throw _userAbortError();
+    try {
+      const resp = await fetchWithRetry(apiUrl, {
+        method: 'POST',
+        headers,
+        body: jsonStringifySafe(body), // 2026-09-14: 孤兒 surrogate 清毒（emoji 截斷殘骸 → LLM 500）
+      }, {
+        maxRetries: 0, // 內層不 retry，由外層統一控制
+        timeoutMs,
+        signal: opts.signal || null,
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => '');
+        throw new Error(`LLM API error ${resp.status}: ${errText.slice(0, 500)}`);
+      }
+
+      // 解析 JSON（防壞）
+      let data;
+      try {
+        data = await resp.json();
+      } catch (jsonErr) {
+        throw new Error(`LLM API returned invalid JSON: ${jsonErr.message}`);
+      }
+
+      // 取出 content
+      const choice = data.choices?.[0];
+      if (!choice) {
+        throw new Error('LLM API returned no choices');
+      }
+
+      let content = choice.message?.content || '';
+
+      // ── LLM Response Log ──
+      const durationMs = Date.now() - _startTime;
+      console.log(`[callLLMWithRetry] ${caller} ← ${body.model} ${durationMs}ms (${content.length} chars, usage=${JSON.stringify(data.usage || {})} )`); // nosemgrep: missing-template-string-indicator
+
+      // sanitize 隱藏字元
+      if (sanitize) {
+        content = sanitizeContent(content);
+      }
+
+      // 驗證有實質內容（只對純文字回應做，tool_calls 可能 content 為空）
+      const hasToolCalls = choice.message?.tool_calls?.length > 0;
+      if (validateContent && !hasToolCalls && !isMeaningfulContent(content)) {
+        // ── 空回應診斷（2026-08-30）：死法要寫清楚，讓人一看就知道要改什麼 ──
+        // 實例：reasoning_tokens=15989/16000 + finish=length → thinking 燒光額度，重試 4 次全同樣死法
+        const _finish = choice.finish_reason || "unknown";
+        const _usage = data.usage || {};
+        const _completion = _usage.completion_tokens ?? 0;
+        const _reasoning = _usage.completion_tokens_details?.reasoning_tokens ?? 0;
+        const _cap = body.max_tokens ?? null;
+        const _burn = _completion > 0 ? Math.round((_reasoning / _completion) * 100) : 0;
+        let _diag;
+        if (_finish === "length" && _reasoning > 0 && _burn >= 90) {
+          _diag = `模型思考燒光輸出額度：reasoning_tokens=${_reasoning}${_cap != null ? ` / max_tokens=${_cap}` : ""}, finish=length, model=${body.model}, caller=${opts.caller || "?"} → 解法：調高 providers.json 的 model maxTokens（建議 ≥65536）或該呼叫停用 thinking`;
+        } else if (_finish === "length") {
+          _diag = `回應被 max_tokens 截斷（finish=length, completion_tokens=${_completion}${_cap != null ? `, max_tokens=${_cap}` : ""}, model=${body.model}）→ 解法：調高 providers.json 的 model maxTokens`;
+        } else {
+          _diag = `回應內容為空（finish=${_finish}, completion_tokens=${_completion}, model=${body.model}）→ 解法：換 model 或檢查 provider 設定`;
+        }
+        console.warn(`[LLM-Utils] Attempt ${attempt + 1}: 空回應 — ${_diag}`);
+        if (attempt < maxRetries) {
+          const delay = calcBackoff(attempt, DEFAULT_BASE_DELAY_MS, DEFAULT_MAX_DELAY_MS);
+          console.warn(`[LLM-Utils] Retrying in ${delay}ms...`);
+          await sleep(delay);
+          continue;
+        }
+        // 最後一次還是空 — 帶診斷 throw（route 的 catch 會把 err.message 送到 UI，不再只看到「AI 回應為空」）
+        console.warn(`[LLM-Utils] All retries exhausted on empty content — ${_diag}`);
+        try {
+          _writeLlmLog({
+            id: _callId, ts: new Date().toISOString(), phase: "response", agentId: agentId || opts.caller || null,
+            model: body.model || "?", stream: false, durationMs: Date.now() - _startTime,
+            error: _diag, finishReason: _finish, contentLen: 0, caller: opts.caller || null,
+            taskId: opts.taskId || null, attempts: attempt + 1,
+          });
+        } catch {}
+        throw new Error(`LLM 空回應：${_diag}`);
+      }
+
+      // Log successful call
+      _writeLlmLog({
+        id: _callId,
+        ts: new Date().toISOString(),
+        phase: "response",
+        agentId: agentId || opts.caller || null,
+        model: body.model || "?",
+        stream: false,
+        durationMs: Date.now() - _startTime,
+        error: null,
+        finishReason: choice.finish_reason || null,
+        contentLen: content.length,
+        contentPreview: content.slice(0, 2000),
+        toolCalls: (choice.message?.tool_calls || []).map(tc => ({ name: tc.function?.name, argsLen: (tc.function?.arguments || "").length, args: (tc.function?.arguments || "").slice(0, 2000) })),
+        usage: data.usage || null,
+        caller: opts.caller || null,
+        taskId: opts.taskId || null, // R3: cost 歸集 tag
+        attempts: attempt + 1,
+      });
+
+      return {
+        content,
+        raw: data,
+        choices: data.choices,
+        finishReason: choice.finish_reason,
+        toolCalls: choice.message?.tool_calls || null,
+        attempts: attempt + 1,
+      };
+
+    } catch (err) {
+      // 使用者中斷 — 立即抛出不 retry
+      if (userSignal?.aborted || (err.name === "AbortError" && opts.signal)) throw _userAbortError();
+      lastError = err;
+
+      // Log error
+      _writeLlmLog({
+        id: _callId,
+        ts: new Date().toISOString(),
+        phase: "response",
+        agentId: agentId || opts.caller || null,
+        model: body.model || "?",
+        stream: false,
+        durationMs: Date.now() - _startTime,
+        error: err.message?.slice(0, 500) || String(err),
+        caller: opts.caller || null,
+        attempts: attempt + 1,
+      });
+
+      // 如果是 retryable 且還有 retry 次數
+      if (attempt < maxRetries) {
+        const status = err.message?.match(/HTTP (\d+)/)?.[1];
+        const isRetryable = isRetryableError(err, status ? parseInt(status) : null);
+
+        if (isRetryable) {
+          const delay = calcBackoff(attempt, DEFAULT_BASE_DELAY_MS, DEFAULT_MAX_DELAY_MS);
+          console.warn(`[LLM-Utils] Retry ${attempt + 1}/${maxRetries} in ${delay}ms (${err.message.slice(0, 100)})`);
+          await sleep(delay);
+          continue;
+        }
+      }
+
+      // 非 retryable 或最後一次 — 跳出迴圈交給 fallback 區塊處理（2026-09-03 fix：原本直接 throw，fallback 永遠執行不到）
+      break;
+    }
+  }
+
+  // ── Primary provider exhausted — try fallbacks ──
+  if (fallbacks && fallbacks.length > 0 && lastError) {
+    const is429 = lastError.message && (lastError.message.includes("429") || lastError.message.includes("Limit Exhausted") || lastError.message.includes("rate"));
+    // 2026-09-30 fix：同 agent loop — model 硬錯（400/401/403/404）與 5xx/408（公司 LLM service 常見 502）也進 fallback，不再只限 429
+    const isHardErr = lastError.message && /LLM API error [45]\d\d/.test(lastError.message);
+    if (is429 || isHardErr) {
+      for (const fb of fallbacks) {
+        console.log(`[callLLMWithRetry] Primary failed (${is429 ? "429 rate-limited" : "hard error"}), trying fallback: ${fb.model} via ${fb.apiUrl.replace(/\/v.*$/, "/...")}`);
+        try {
+          const fbBody = { ...body, model: fb.model };
+          if (fb.maxTokens) fbBody.max_tokens = Math.min(fb.maxTokens, body.max_tokens || 16384);
+          const resp = await fetchWithRetry(fb.apiUrl, {
+            method: 'POST',
+            headers: fb.headers,
+            body: jsonStringifySafe(fbBody), // 2026-09-14: 同上
+          }, { maxRetries: 0, timeoutMs });
+
+          if (!resp.ok) {
+            const errText = await resp.text().catch(() => '');
+            throw new Error(`LLM API error ${resp.status}: ${errText.slice(0, 500)}`);
+          }
+
+          let data;
+          try { data = await resp.json(); } catch (jsonErr) { throw new Error(`Invalid JSON: ${jsonErr.message}`); }
+
+          const choice = data.choices?.[0];
+          if (!choice) throw new Error('LLM API returned no choices');
+
+          let content = choice.message?.content || '';
+          if (sanitize) content = sanitizeContent(content);
+
+          const durationMs = Date.now() - _startTime;
+          console.log(`[callLLMWithRetry] ${caller} ← FALLBACK ${fb.model} ${durationMs}ms (${content.length} chars, finish=${data.choices?.[0]?.finish_reason})`);
+          _writeLlmLog({
+            id: _callId, ts: new Date().toISOString(), phase: "response-fallback",
+            agentId: agentId || opts.caller || null, model: fb.model, stream: false, durationMs,
+            fallback: true, caller: opts.caller || null,
+            finishReason: choice.finish_reason || null, contentLen: content.length,
+            contentPreview: content.slice(0, 300), usage: data.usage || null,
+          });
+
+          const hasToolCalls = choice.message?.tool_calls?.length > 0;
+          if (validateContent && !hasToolCalls && !isMeaningfulContent(content)) {
+            console.warn(`[LLM-Utils] Fallback ${fb.model}: empty/meaningless response (finish=${choice.finish_reason}, len=${content.length}) — trying next fallback`);
+            lastError = new Error(`Fallback ${fb.model} 回應無實質內容（finish=${choice.finish_reason}, len=${content.length}）`);
+            continue; // try next fallback
+          }
+
+          return { content, raw: data };
+        } catch (fbErr) {
+          console.log(`[callLLMWithRetry] Fallback ${fb.model} failed:`, fbErr.message?.slice(0, 100));  // nosemgrep: unsafe-formatstring
+          continue;
+        }
+      }
+    }
+  }
+
+  throw lastError || new Error('callLLMWithRetry: exhausted all retries');
+}
+
+// ── 串流用：帶 retry 的 fetch（給 streaming provider 用）──
+
+/**
+ * 串流版的 retry fetch
+ * 只在「連線階段」retry，串流開始後不 retry
+ *
+ * @param {string} url
+ * @param {Object} options - fetch options
+ * @param {Object} [opts]
+ * @returns {Promise<Response>}
+ */
+export async function fetchStreamWithRetry(url, options = {}, opts = {}) {
+  const {
+    maxRetries = 2,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    onRetry = null,
+  } = opts;
+  const _startTime = Date.now();
+  let _body = null;
+  try { _body = JSON.parse(options.body || '{}'); } catch {}
+
+  let lastError = null;
+  const userSignal = opts.signal || null; // 使用者中斷 — abort 立即停止，不 retry
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (userSignal?.aborted) throw _userAbortError();
+    const { controller, timer, cleanup } = createTimeoutController(timeoutMs, userSignal);
+
+    try {
+      let resp = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      // retryable status → retry
+      if (isRetryableError(null, resp.status) && attempt < maxRetries) {
+        // Respect Retry-After header if present
+        const retryAfter = resp.headers.get('Retry-After');
+        let delay;
+        if (retryAfter) {
+          const parsed = Number(retryAfter);
+          // Retry-After can be seconds or HTTP-date
+          delay = parsed > 0 ? parsed * 1000 : calcBackoff(attempt, DEFAULT_BASE_DELAY_MS, DEFAULT_MAX_DELAY_MS);
+          delay = Math.min(delay, 60_000); // cap at 60s even with Retry-After
+        } else {
+          delay = calcBackoff(attempt, DEFAULT_BASE_DELAY_MS, DEFAULT_MAX_DELAY_MS);
+        }
+        if (onRetry) onRetry({ attempt: attempt + 1, status: resp.status, delayMs: delay, retryAfter: !!retryAfter });
+        console.warn(`[LLM-Utils] Stream retry ${attempt + 1}/${maxRetries} in ${delay}ms (HTTP ${resp.status}${retryAfter ? ', Retry-After: ' + retryAfter : ''})`);
+        // 釋放 429 response body，避免 undici socket/記憶體 leak
+        try { await resp.body?.cancel().catch(() => {}); } catch {}
+        await sleep(delay);
+        continue;
+      }
+
+      // 非 retryable status 或最後一次 → 回傳
+      // Log stream request (success or final non-retryable error)
+      if (resp.ok) {
+        // Wrap the stream with a read-side timeout so slow streams don't hang forever.
+        // The connect timeout only covers fetch(); once we get headers, we need a
+        // separate guard for the body read phase (e.g. model slowly emitting tokens).
+        const readTimeoutMs = opts.readTimeoutMs || timeoutMs; // default: same as connect timeout
+        if (resp.body && readTimeoutMs > 0) {
+          const origBody = resp.body;
+          let readTimer = null;
+          const resetReadTimer = () => {
+            clearTimeout(readTimer);
+            readTimer = setTimeout(() => {
+              origBody.cancel?.(new Error(`Stream read timeout after ${readTimeoutMs}ms (no data received)`));
+            }, readTimeoutMs);
+          };
+          resetReadTimer();
+          const wrappedStream = new ReadableStream({
+            async start(ctrl) {
+              const reader = origBody.getReader();
+              try {
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) { clearTimeout(readTimer); ctrl.close(); return; }
+                  resetReadTimer(); // got data, reset the read timer
+                  ctrl.enqueue(value);
+                }
+              } catch (e) {
+                clearTimeout(readTimer);
+                ctrl.error(e);
+              }
+            },
+            cancel(reason) {
+              clearTimeout(readTimer);
+              origBody.cancel?.(reason);
+            },
+          });
+          resp = new Response(wrappedStream, { headers: resp.headers, status: resp.status, statusText: resp.statusText });
+        }
+      } else {
+      }
+      return resp;
+
+    } catch (err) {
+      clearTimeout(timer);
+
+      // 使用者中斷 — 立即抛出不 retry
+      if (userSignal?.aborted) { cleanup(); throw _userAbortError(); }
+
+      lastError = err.name === 'AbortError'
+        ? Object.assign(new Error(`Stream timeout after ${timeoutMs}ms`), { code: 'TIMEOUT' })
+        : err;
+
+      if (attempt < maxRetries && isRetryableError(lastError)) {
+        const delay = calcBackoff(attempt, DEFAULT_BASE_DELAY_MS, DEFAULT_MAX_DELAY_MS);
+        if (onRetry) onRetry({ attempt: attempt + 1, error: lastError.message, code: lastError.code, delayMs: delay });
+        console.warn(`[LLM-Utils] Stream retry ${attempt + 1}/${maxRetries} in ${delay}ms (${lastError.message})`);
+        await sleep(delay);
+        continue;
+      }
+
+      // Log timeout/connection error
+
+      throw lastError;
+    }
+  }
+
+  throw lastError || new Error('fetchStreamWithRetry: exhausted all retries');
+}
+
+// ── LLM Log Writer (shared by callLLMWithRetry and callLLM) ──
+const _PAAW_ROOT = resolve(dirname(__filename), "../../../../");
+
+function _writeLlmLog(entry) {
+  try {
+    const logDir = join(DATA_HOME, "logs", "llm");
+    mkdirSync(logDir, { recursive: true });
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const logPath = join(logDir, `${dateStr}.jsonl`);
+    appendFileSync(logPath, JSON.stringify(entry) + "\n");
+  } catch (_e) { /* never fail the LLM call for a logging error */ }
+}

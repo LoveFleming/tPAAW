@@ -1,0 +1,437 @@
+/**
+ * PAAW Server — Slim Entry Point
+ *
+ * All route logic lives in ./routes/*.mjs modules.
+ * WebSocket lives in ./websocket/ws-handler.mjs.
+ * Cron/scheduler lives in ./scheduler/cron-jobs.mjs.
+ *
+ * Original: 4620 lines (monolith)
+ * Refactored: ~120 lines (dispatch + listen)
+ */
+
+import "./lib/epipe-guard.mjs"; // EPIPE 防護 — 必須第一個 import（ESM import 先於 module body 執行）
+import { createServer } from "http";
+import { appendFileSync, mkdirSync, statSync, renameSync, existsSync, createWriteStream } from "fs";
+
+// ── Console log tee（2026-09-06 Fleming：Terminal 頁 📜 Console 要能看到 server console）──
+// stdout/stderr 全部 mirror 到 log/server-console.log（async append，不 block 主流程）
+// UI 用 GET /api/logs/console 輪詢讀取；PTY session 輸出不走 process.stdout，不會被 tee（正確）
+try {
+  const _logDir = LOG_HOME;
+  mkdirSync(_logDir, { recursive: true });
+  const _logFile = join(_logDir, "server-console.log");
+  // 輪侈：> 5MB → .old（舊檔保一份，再舊覆盖）
+  try { if (existsSync(_logFile) && statSync(_logFile).size > 5 * 1024 * 1024) renameSync(_logFile, _logFile + ".old"); } catch {}
+  const _ws = createWriteStream(_logFile, { flags: "a" });
+  _ws.write(`\n═══ PAAW server start ${new Date().toISOString()} pid=${process.pid} port=${PORT} ═══\n`);
+  for (const _stream of [process.stdout, process.stderr]) {
+    const _orig = _stream.write.bind(_stream);
+    _stream.write = (chunk, enc, cb) => {
+      try { _ws.write(chunk); } catch {}
+      return _orig(chunk, enc, cb);
+    };
+  }
+  process.on("exit", () => { try { _ws.end(); } catch {} });
+} catch { /* best effort — 絕不因 log 失敗阻断 server */ }
+
+import {
+  PORT, PAAW_ROOT,
+  readdir, readFile, writeFile, mkdir,
+  resolve, dirname, join,
+} from "./routes/shared.mjs";
+import { setupWebSocket } from "./websocket/ws-handler.mjs";
+import { DATA_HOME, LOG_HOME } from "./data-home.mjs";
+
+// ── Process-level crash protection ──
+// Node 15+ terminates on unhandledRejection by default.
+// These handlers LOG the error + write crash log to disk,
+// preventing "整個 server 當掉" from a single stray async error.
+// （EPIPE 防護在 lib/epipe-guard.mjs，第一個 import）
+const _crashWriteLast = new Map(); // error signature → last write ts（防風暴寫爆磁碟）
+function _writeCrashLog(kind, detail) {
+  try {
+    const ts = new Date().toISOString();
+    const sig = `${kind}:${String(detail).slice(0, 200)}`;
+    if (Date.now() - (_crashWriteLast.get(sig) || 0) < 5000) return; // 同簽名 5 秒內只寫一筆
+    _crashWriteLast.set(sig, Date.now());
+    const crashDir = join(LOG_HOME, "crash");
+    mkdirSync(crashDir, { recursive: true });
+    appendFileSync(join(crashDir, `crash-${ts.replace(/[:.]/g, "-")}.log`),
+      `[${kind}] ${ts}\n${detail}\n\n`);
+  } catch { /* best effort */ }
+}
+process.on('unhandledRejection', (reason, promise) => {
+  try { console.error(`🚨 [PAAW] UNHANDLED REJECTION — server stays alive:`, reason); } catch {}
+  _writeCrashLog('UNHANDLED REJECTION', reason?.stack || String(reason));
+});
+process.on('uncaughtException', (err) => {
+  try { console.error(`🚨 [PAAW] UNCAUGHT EXCEPTION — server stays alive:`, err?.stack || err); } catch {}
+  _writeCrashLog('UNCAUGHT EXCEPTION', err?.stack || String(err));
+});
+
+// ── Startup import check — catch missing exports (runs in background) ──
+import("./lib/import-check.mjs").catch(() => {}); // non-blocking, best-effort
+
+// ── Backfill agent-logs index cwd（data/logs 不連 git，每台機器首次啟動要自救一次）──
+import("./lib/agent-exec-logger.mjs").then(m => m.backfillIndexCwd?.())
+  .then(n => { if (n > 0) console.log(`[agent-logs] backfilled cwd for ${n} entries`); })
+  .catch(() => {});
+
+// ── ES log shipping（2026-10-04）：.env 設 PAAW_ES_URL 才開啟，沒設 = 完全關閉 ──
+import("./lib/es-shipper.mjs").then(m => m.initEsShipper?.()).catch(e => {
+  console.warn("[es-shipper] init 失敗：", e.message);
+});
+
+// ── Start bridge AFTER .env is loaded (shared.mjs already loaded via static import) ──
+// Bridge no longer auto-listens on import; we start it explicitly here.
+const shouldStartBridge = process.env.BRIDGE_PORT && process.env.BRIDGE_PORT !== "0";
+if (shouldStartBridge) {
+  import("./lib/bridge/paaw-bridge.mjs").then(mod => {
+    mod.startBridge();
+  }).catch(err => {
+    console.warn("[PAAW] Bridge failed to start:", err.message);
+  });
+}
+
+// ── Lazy-loaded route modules (existing) ──
+const ROUTE_MODULES = [
+  "./routes/skill.mjs",
+  "./routes/ai-settings.mjs",
+  "./routes/chat.mjs",
+  "./routes/uploads.mjs",
+  "./routes/distill.mjs",
+  // ── New modules (split from monolith) ──
+  "./routes/vibe-fs.mjs",
+  "./routes/vibe-sessions.mjs",
+  "./routes/api-tester.mjs",
+  "./routes/skills-api.mjs",
+  "./routes/apps.mjs",
+  "./routes/crew.mjs",
+  "./routes/assistant.mjs",
+  "./routes/pocket.mjs",
+  "./routes/mindmap.mjs",
+  "./routes/notes.mjs",
+  "./routes/backup.mjs",
+  "./routes/projects.mjs",
+  "./routes/a2a.mjs",
+  "./routes/helpdesk.mjs",
+  "./routes/coding-skill-suggest.mjs",
+  "./routes/coding-ru-skills.mjs",
+  "./routes/coding-error-codes.mjs",
+  "./routes/coding-c4-model.mjs",
+  "./routes/coding.mjs",
+  "./routes/coding-issues.mjs",
+  "./routes/coding-tasks.mjs",
+  "./routes/coding-memory.mjs",
+  "./routes/coding-features.mjs",
+  "./routes/coding-auto-dispatch.mjs",
+  "./routes/coding-auto-dispatch-config.mjs",
+  "./routes/execution-plan-routes.mjs",
+  "./routes/coding-auto-dispatch-prompts.mjs",
+  "./routes/coding-em-config.mjs",
+  "./routes/coding-doc-coverage.mjs",
+  "./routes/coding-staged-changes.mjs",
+  "./routes/coding-health.mjs",
+  "./routes/coding-evidence.mjs",
+  "./routes/coding-releases.mjs",
+  "./routes/coding-handover.mjs",
+  "./routes/coding-ops.mjs",
+  "./routes/coding-reports.mjs",
+  "./routes/release-unit.mjs",
+  "./routes/llm-logs.mjs",
+  "./routes/browser.mjs",
+  "./routes/agent-logs.mjs",
+  "./routes/log-retention.mjs",
+  "./routes/janitor.mjs",
+  "./routes/plugins.mjs",
+];
+
+// Pre-import all route modules (avoids repeated dynamic import overhead)
+const _loaded = {};
+const _appModuleHandlers = []; // App Modules（可組裝底座）— loadRoutes() 填入
+let _appModulesLoaded = false;
+async function loadRoutes() {
+  for (const p of ROUTE_MODULES) {
+    try { _loaded[p] = await import(p); }
+    catch (err) {
+      // 2026-09-06 教訓：crew.mjs 打錯 import 路徑被 ERR_MODULE_NOT_FOUND 靜默吞掉，
+      // AI Crew 整頁 API 無預警 404 — route 模組載入失敗一律大聲報，不得跳過
+      console.error(`[Route] Failed to load ${p}:`, err.message);  // nosemgrep: unsafe-formatstring
+    }
+  }
+  try { _loaded["./scheduler/cron-jobs.mjs"] = await import("./scheduler/cron-jobs.mjs"); }
+  catch (err) { console.error("[Scheduler] Failed to load:", err.message); }
+  // App Modules — 動態掛載（壞模組大聲報、不炸主體）
+  try {
+    if (!_appModulesLoaded) { // 冪等 flag（loadRoutes 可能被併發喚兩次）
+      _appModulesLoaded = true;
+      const { loadAppModuleRoutes } = await import("./lib/app-modules.mjs");
+      const hs = await loadAppModuleRoutes();
+      for (const h of hs) _appModuleHandlers.push(h);
+    }
+  } catch (err) { console.error("[AppModule] registry 載入失敗：", err.message); }
+}
+
+// ── HTTP Server ──
+const server = createServer(async (req, res) => {
+  // CORS
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
+
+  // Express-style response helpers（4e4e597f 起部分 route 用 res.status().json()；
+  // raw http 沒這兩個方法，統一在這裡裝飾，向後相容 writeHead 用法）
+  if (typeof res.status !== "function") {
+    res.status = (code) => { res.statusCode = code; return res; };
+    res.json = (data) => {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify(data));
+      return res;
+    };
+  }
+
+  // Try each route module in order
+  for (const p of ROUTE_MODULES) {
+    const mod = _loaded[p];
+    if (!mod?.default) continue;
+    try {
+      if (await mod.default(req, res)) return;
+    } catch (err) {
+      console.error(`[Route] ${p} error:`, err.message);  // nosemgrep: unsafe-formatstring
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Internal server error", detail: err.message }));
+      }
+      return; // ← stop processing, don't fall through to next route/404
+    }
+  }
+
+  // ── App Modules（可組裝底座 M1，2026-10-03）— persona app 模組動態掛載 ──
+  for (const am of _appModuleHandlers) {
+    try {
+      if (await am.handler(req, res)) return;
+    } catch (err) {
+      console.error(`[AppModule] ${am.id} error:`, err.message);  // nosemgrep: unsafe-formatstring
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Internal server error", detail: err.message }));
+      }
+      return;
+    }
+  }
+
+  // Scheduler module (cron + agent loop + vibe sessions APIs)
+  const sched = _loaded["./scheduler/cron-jobs.mjs"];
+  if (sched?.default) {
+    try {
+      if (await sched.default(req, res)) return;
+    } catch (err) {
+      console.error("[Scheduler] error:", err.message);
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Internal server error", detail: err.message }));
+      }
+      return;
+    }
+  }
+
+  // ── Static frontend (production) — serve UI dist from PAAW server ──
+  if (!res.headersSent && req.method === "GET") {
+    const UI_DIST = resolve(PAAW_ROOT, "packages/ui/dist");
+    const { existsSync: _exists } = await import("fs");
+    if (_exists(UI_DIST)) {
+      let reqPath = req.url?.split("?")[0] || "/";
+      // Don't serve static for /api/ routes
+      if (!reqPath.startsWith("/api/") && !reqPath.startsWith("/.well-known/")) {
+        // Security: prevent path traversal — use a strict containment guard.
+        // resolve() expands "..", so a naive startsWith(UI_DIST) prefix check
+        // can be bypassed with UI_DIST/../secret. safeResolve throws on escape.
+        let filePath;
+        try {
+          const { safeResolve } = await import("./lib/coding-security.mjs");
+          filePath = reqPath === "/" ? resolve(UI_DIST, "index.html") : safeResolve(UI_DIST, reqPath.slice(1).replace(/^\/+/, ""));
+        } catch {
+          // traversal blocked or missing module → fall through to 404
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Not found", path: req.url }));
+          return;
+        }
+        if (!_exists(filePath)) {
+          filePath = resolve(UI_DIST, "index.html");
+        }
+        try {
+          const { extname } = await import("path");
+          const ext = extname(filePath);
+          const mimeTypes = {
+            ".html": "text/html; charset=utf-8",
+            ".js": "text/javascript",
+            ".css": "text/css",
+            ".json": "application/json",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".gif": "image/gif",
+            ".svg": "image/svg+xml",
+            ".ico": "image/x-icon",
+            ".webp": "image/webp",
+            ".woff": "font/woff",
+            ".woff2": "font/woff2",
+            ".ttf": "font/ttf",
+            ".map": "application/json",
+          };
+          const content = await readFile(filePath);
+          // 2026-09-15：快取策略 — Fleming 改版後 refresh 拿不到新 bundle（Chrome 對無 cache header 的
+          // index.html 用啓發式快取 → 舊 JS 一直活着 → 思考中/已接回串流卡死不收看起來「修不好」）
+          // index.html 永遠重新驗證；assets/ 檔名帶 content hash 可永久快取；其他（avatars 等）no-cache
+          const cacheControl = ext === ".html"
+            ? "no-cache"
+            : reqPath.startsWith("/assets/")
+              ? "public, max-age=31536000, immutable"
+              : "no-cache";
+          res.writeHead(200, { "Content-Type": mimeTypes[ext] || "application/octet-stream", "Cache-Control": cacheControl });
+          res.end(content);
+          return;
+        } catch {}
+      }
+    }
+  }
+
+  // 404
+  if (!res.headersSent) {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Not found", path: req.url }));
+  }
+});
+
+// ── Start ──
+await loadRoutes();
+
+// ── Initialize shared tool registry ──
+try {
+  const { initAllTools } = await import("./lib/tool-registry-init.mjs");
+  await initAllTools();
+  console.log("[PAAW] Tool registry initialized");
+} catch (err) {
+  console.warn("[PAAW] Tool registry init failed (non-blocking):", err.message);
+}
+
+setupWebSocket();   // WebSocket on port 4098
+
+// EADDRINUSE 清楚報錯 + 乾淨退出，不要炸 exception 風暴
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    try { console.error(`❌ [PAAW] Port ${PORT} 已被佔用 — 已有另一個 paaw-server 實體在跑，本實體退出。`); } catch {}
+    process.exit(1);
+  }
+  try { console.error("❌ [PAAW] HTTP server error:", err); } catch {}
+});
+
+// Flight recorder — 黑盒子：任何死法都留死亡時間 + heap 曲線（data/logs/server-heartbeat.log）
+import { startFlightRecorder } from "./lib/flight-recorder.mjs";
+startFlightRecorder();
+
+server.listen(PORT, async () => {
+  // Ensure required directories exist
+  await mkdir(resolve(DATA_HOME, "knowledge"), { recursive: true });
+
+  // 2026-09-05 Skill Instance Model 啓動遷移：所有已註冊 RU → 綁定的 skills clone 進
+  // {ru}/.paaw/skills/（冪等；之後 readRuSkillContent 單一路徑只讀 RU 內副本）
+  try {
+    const { readFileSync: rf, existsSync: ee } = await import("fs");
+    const { join: jj } = await import("path");
+    const regPath = resolve(DATA_HOME, "config", "release-units.json");
+    const { provisionRuSkills, syncRuSkills } = await import("./lib/ru-skills.mjs");
+    const { allBoundSkillIds } = await import("./lib/project-crew.mjs");
+    if (ee(regPath)) {
+      const units = JSON.parse(rf(regPath, "utf-8")).units || [];
+      let provTotal = 0;
+      for (const u of units) {
+        if (!u?.path || !ee(u.path)) continue;
+        try {
+          const r = provisionRuSkills(u.path, allBoundSkillIds(u.path));
+          provTotal += r.provisioned.length;
+          syncRuSkills(u.path);
+        } catch (e) {
+          console.warn(`[PAAW] RU skill 遷移失敗 ${u.path}: ${e.message}`);
+        }
+      }
+      console.log(`[PAAW] RU skill 遷移完成：${units.length} 個 RU（新 clone ${provTotal} 個 skill）`);
+    }
+  } catch (err) {
+    console.warn(`[PAAW] RU skill 遷移跳過：${err.message}`);
+  }
+
+  // Sync daily backup cron job (schedule/enabled follow backup config)
+  try {
+    const { syncBackupCronJob } = await import("./routes/backup.mjs");
+    await syncBackupCronJob();
+  } catch (err) {
+    console.error(`[PAAW] Failed to create backup cron job:`, err.message);
+  }
+
+  // Ensure daily LLM log purge cron job exists
+  try {
+    const cronPath = resolve(DATA_HOME, "cron/cron-jobs.json");
+    let cronJobs = [];
+    try { cronJobs = JSON.parse(await readFile(cronPath, "utf-8")); } catch {}
+    const existingPurge = cronJobs.find(j => j.id === "system-daily-log-purge");
+    if (!existingPurge) {
+      cronJobs.push({
+        id: "system-daily-log-purge",
+        name: "🧹 清理舊日誌（依保留政策）",
+        type: "reminder",
+        reminderText: "",
+        skillId: "",
+        schedule: "0 3 * * *",
+        prompt: "",
+        params: {},
+        outputTarget: "none",
+        outputPath: "",
+        enabled: true,
+        createdAt: new Date().toISOString(),
+        lastRun: null,
+        lastStatus: null,
+        _systemLogPurge: true,
+      });
+      await writeFile(cronPath, JSON.stringify(cronJobs, null, 2), "utf-8");
+      console.log(`[PAAW] Daily LLM log purge cron job created (03:00 daily)`);
+    }
+  } catch (err) {
+    console.error(`[PAAW] Failed to create log purge cron job:`, err.message);
+  }
+
+  console.log(`[PAAW] Listening on http://127.0.0.1:${PORT}`);
+  console.log(`[PAAW] ${ROUTE_MODULES.length} route modules + scheduler loaded`);
+
+  // ── Check for interrupted execution plans ──
+  try {
+    const { markInterruptedPlans } = await import('./lib/execution-plan.mjs');
+    const { existsSync } = await import('fs');
+    const projectPaths = new Set([PAAW_ROOT]); // Always check PAAW root
+    // From workspaces.json
+    try {
+      const workspacesPath = join(DATA_HOME, 'workspaces.json');
+      if (existsSync(workspacesPath)) {
+        const ws = JSON.parse(await readFile(workspacesPath, 'utf-8'));
+        if (Array.isArray(ws)) ws.forEach(w => { if (w.path) projectPaths.add(w.path); });
+        if (ws.directories) ws.directories.forEach((p) => projectPaths.add(p));
+      }
+    } catch {}
+    // From recent-projects.json
+    try {
+      const recentPath = join(DATA_HOME, 'config', 'recent-projects.json');
+      if (existsSync(recentPath)) {
+        const recent = JSON.parse(await readFile(recentPath, 'utf-8'));
+        if (Array.isArray(recent)) recent.forEach((r) => { if (r.path) projectPaths.add(r.path); });
+      }
+    } catch {}
+    // Also check recent projects from .paaw/tasks/TASKS.json locations
+    for (const pp of projectPaths) {
+      try {
+        const marked = await markInterruptedPlans(pp);
+        if (marked > 0) console.log(`[PAAW] 📋 ${marked} interrupted plan(s) found in ${pp}`);
+      } catch {}
+    }
+  } catch {}
+});

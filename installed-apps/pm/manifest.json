@@ -1,0 +1,8 @@
+{
+  "id": "pm",
+  "name": "產品經理室",
+  "version": "0.2.0",
+  "enabled": true,
+  "nav": { "label": "產品經理室", "emoji": "🎯", "page": "ProjectOffice" },
+  "server": { "entry": "server/entry.mjs" }
+}
