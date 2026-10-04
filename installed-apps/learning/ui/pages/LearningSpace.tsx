@@ -2408,7 +2408,7 @@ const sendChat = useCallback(async () => {
                     </div>
                     {expandedSubjects.has(s.key) && s.units.map(u => (
                       <div key={u.id}>
-                        <div className="flex items-center gap-1 pl-7 pr-1.5 py-1 rounded hover:bg-blue-50 cursor-pointer text-xs"
+                        <div className="flex items-center gap-1 pl-10 pr-1.5 py-1 rounded hover:bg-blue-50 cursor-pointer text-xs"
                           onClick={() => { toggleUnitRow(u.id); openCurriculum(s.key, u.id); }}>
                           <span className="text-[10px] text-stone-300 shrink-0 w-3">{expandedUnits.has(u.id) ? "▾" : "▸"}</span>
                           <span className="text-stone-500 shrink-0" title={u.name}>{u.grade}{u.semester === 1 ? "上" : "下"}·{u.seq}</span>
@@ -2417,7 +2417,7 @@ const sendChat = useCallback(async () => {
                         </div>
                         {expandedUnits.has(u.id) && u.concepts.map(c => (
                           <div key={c.id} onClick={() => openCurriculum(s.key, u.id, c.id)}
-                            className="flex items-center gap-1 pl-11 pr-2 py-0.5 text-[11px] text-stone-500 hover:text-blue-700 hover:bg-blue-50 rounded cursor-pointer">
+                            className="flex items-center gap-1 pl-[60px] pr-2 py-0.5 text-[11px] text-stone-500 hover:text-blue-700 hover:bg-blue-50 rounded cursor-pointer">
                             <span className="text-stone-300">·</span>
                             <span className="truncate" title={c.name}>{c.name}</span>
                           </div>
