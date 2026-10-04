@@ -36,6 +36,36 @@ function loadRegistry() {
 
 const SHEET_RE = /\.(xlsx|csv)$/i;
 
+/** builtin 分類編制 — 掛載時 ensure（categories.json+櫃+README），冪等：公司端開箱即用 */
+const BUILTIN_CATS = [
+  { id: "schedule", name: "行程管家", emoji: "📅", agentId: "secret.schedule", duty: "處長日曆、會議安排、差旅" },
+  { id: "reports", name: "報表專家", emoji: "📊", agentId: "secret.reports", duty: "Excel/CSV 彙整與產出" },
+  { id: "meetings", name: "會議秘書", emoji: "📝", agentId: "secret.meetings", duty: "議程、記錄、決議追蹤" },
+  { id: "documents", name: "公文管理", emoji: "📄", agentId: "secret.documents", duty: "簽呈、歸檔、效期" },
+  { id: "admin", name: "行政總務", emoji: "💰", agentId: "secret.admin", duty: "請購、報帳、設備" },
+  { id: "hrliaison", name: "人事窗口", emoji: "👥", agentId: "secret.hrliaison", duty: "出缺勤彙整、跨部門" }
+];
+function ensureBuiltinCategories() {
+  try {
+    let reg = loadRegistry();
+    let changed = false;
+    for (const c of BUILTIN_CATS) {
+      const dir = DOSSIER_DIR(c.id);
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      const readme = join(dir, "README.md");
+      if (!existsSync(readme)) {
+        writeFileSync(readme, `# ${c.emoji} ${c.name}（${c.agentId}）\n\n職責：${c.duty}\n\n## 檔案慣例\n- 產出檔帶主題與日期：\`主題-YYYY-MM-DD.md\`\n- xlsx/csv 報表直接上傳，側欄可預覽\n`);
+      }
+      if (!reg.some(r => r.id === c.id)) {
+        reg.push({ id: c.id, name: c.name, emoji: c.emoji, agentId: c.agentId, builtin: true, description: c.duty, enabled: true, createdAt: new Date().toISOString() });
+        changed = true;
+      }
+    }
+    if (changed) writeFileSync(join(PAAW_ROOT, "categories.json"), JSON.stringify(reg, null, 2));
+  } catch { /* 唯讀環境静默 */ }
+}
+ensureBuiltinCategories();
+
 export default async function handler(req, res) {
   const url = new URL(req.url, "http://x");
   const p = decodeURIComponent(url.pathname);
