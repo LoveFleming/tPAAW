@@ -957,7 +957,7 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
               </div>
             </SidebarSection>
 
-            {/* 📁 Workspaces */}
+            {/* 📁 File Mounts（外部檔案掛載 — API/變數仍叫 workspaces，只改顯示）*/}
             <SidebarSection
               title={t("sidebar.workspaces")}
               right={
@@ -967,7 +967,7 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
                   tabIndex={0}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); setShowDirExplorer(true); } }}
                   className="text-stone-400 hover:text-stone-600 transition-colors text-sm leading-none cursor-pointer select-none"
-                  title="加入目錄"
+                  title={t("sidebar.addDirectory")}
                 >＋</span>
               }
             >
