@@ -217,6 +217,31 @@ export default async function learningPracticeRoute(req, res) {
       });
     }
 
+    // ── GET /api/learning/practice/last?keys=cq:1,cq:2 — 每題最後一次作答狀態（章節測驗重進還原用；2026-10-04 Gap 補）──
+    if (req.method === "GET" && path === "/api/learning/practice/last") {
+      const q = new URL(url, "http://x").searchParams;
+      const keys = (q.get("keys") || "").split(",").map(s => s.trim()).filter(Boolean).slice(0, 50);
+      if (keys.length === 0) return json(res, 400, { error: "keys required" });
+      const ph = keys.map(() => "?").join(",");
+      const rows = db().prepare(`
+        SELECT la.question_key, la.answer, la.is_correct, la.attempted_at
+        FROM learner_attempt la
+        WHERE la.question_key IN (${ph})
+          AND la.id = (SELECT MAX(id) FROM learner_attempt WHERE question_key = la.question_key)
+          AND TRIM(la.answer) <> ''
+      `).all(...keys);
+      const out = {};
+      for (const r of rows) {
+        const item = { answer: r.answer, isCorrect: !!r.is_correct, attemptedAt: r.attempted_at };
+        if (r.question_key.startsWith("cq:")) {
+          const cq = db().prepare("SELECT correct, explanation_md FROM concept_question WHERE id = ?").get(Number(r.question_key.slice(3)));
+          if (cq) { item.correctChoice = cq.correct; item.explanation = cq.explanation_md || null; }
+        }
+        out[r.question_key] = item;
+      }
+      return json(res, 200, { status: out });
+    }
+
     // ── POST /api/learning/practice/submit — 判定 + 記錄 ──
     if (req.method === "POST" && path === "/api/learning/practice/submit") {
       const body = await readBody(req);

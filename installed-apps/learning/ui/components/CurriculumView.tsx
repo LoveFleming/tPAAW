@@ -24,13 +24,40 @@ function QuizPanel({ conceptId }: { conceptId: number }) {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [results, setResults] = useState<Record<string, QuizResult>>({});
   const [busy, setBusy] = useState(false);
+  const [restored, setRestored] = useState(false); // 有還原上次記錄時 true（重作後 false）
 
   useEffect(() => {
     let cancelled = false;
-    setQuestions(null); setAnswers({}); setResults({});
+    setQuestions(null); setAnswers({}); setResults({}); setRestored(false);
     fetch(`/api/learning/concept/${conceptId}/questions`)
       .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
-      .then(d => { if (!cancelled) setQuestions(d.questions || []); })
+      .then(async (d) => {
+        if (cancelled) return;
+        const qs: QuizQ[] = d.questions || [];
+        setQuestions(qs);
+        // 還原上次作答（learner_attempt 最後一筆）：✅/❌ + 上次選項 + 詳解
+        const keys = qs.map(q => q.questionKey);
+        if (keys.length === 0) return;
+        try {
+          const r = await fetch(`/api/learning/practice/last?keys=${encodeURIComponent(keys.join(","))}`);
+          if (!r.ok) return;
+          const d2 = await r.json();
+          const st = d2?.status || {};
+          const res: Record<string, QuizResult> = {};
+          const ans: Record<string, number> = {};
+          let n = 0, c = 0;
+          for (const q of qs) {
+            const s = st[q.questionKey];
+            if (!s) continue;
+            const idx = Number(s.answer);
+            if (!s.answer || !Number.isInteger(idx) || idx < 0) continue;
+            res[q.questionKey] = { isCorrect: !!s.isCorrect, correctChoice: typeof s.correctChoice === "number" ? s.correctChoice : Number(s.correctChoice), explanation: s.explanation || null };
+            ans[q.questionKey] = idx;
+            n++; if (s.isCorrect) c++;
+          }
+          if (n > 0) { setResults(res); setAnswers(ans); setRestored(true); }
+        } catch { /* 還原失敗就當新答 */ }
+      })
       .catch(() => { if (!cancelled) setQuestions([]); });
     return () => { cancelled = true; };
   }, [conceptId]);
@@ -63,7 +90,16 @@ function QuizPanel({ conceptId }: { conceptId: number }) {
       <div className="flex items-center justify-between mb-3">
         <div className="text-sm font-bold text-amber-800">🧪 隨堂測驗（{questions.length} 題）</div>
         {answeredCount > 0 && (
-          <div className="text-sm text-amber-700">{answeredCount}/{questions.length} 已答 · 答對 {correctCount}</div>
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-amber-700">
+              {restored && <span className="text-[11px] text-stone-400 mr-1">上次記錄</span>}
+              {answeredCount}/{questions.length} 已答 · 答對 {correctCount}
+            </div>
+            {restored && (
+              <button onClick={() => { setResults({}); setAnswers({}); setRestored(false); }}
+                className="text-xs px-2 py-0.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors">🔄 重新作答</button>
+            )}
+          </div>
         )}
       </div>
       <div className="space-y-4">
