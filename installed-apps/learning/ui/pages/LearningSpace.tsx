@@ -32,7 +32,6 @@ import "highlight.js/styles/github.css";
 
 import API_BASE from "@paaw-ui/api";
 import DirectoryExplorer from "@paaw-ui/components/DirectoryExplorer";
-import EMDashboard from "@paaw-ui/components/EMDashboard";
 import RuCloneModal from "@paaw-ui/components/RuCloneModal";
 import RuOnboardingModal from "@paaw-ui/components/RuOnboardingModal";
 
@@ -70,7 +69,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "practice" | "quiz" | "exam-vault" | "curriculum" | "editor" | "viewer" | "ai-crew" | "em-dashboard";
+type MainTabType = "practice" | "quiz" | "exam-vault" | "curriculum" | "home" | "editor" | "viewer" | "ai-crew";
 
 interface MainTab {
   id: string;
@@ -397,7 +396,8 @@ export default function LearningSpace() {
   // ── Main Tabs (unified: editor files + tools + AI crew) ──
   // Code Dashboard is always the first tab (landing page, not closable)
   const DASHBOARD_TAB_ID = "tool:code-dashboard";
-  const DASHBOARD_TAB: MainTab = { id: DASHBOARD_TAB_ID, type: "em-dashboard", label: "教務台", icon: "🎖️", closable: false };
+  // 🏠 學習總覽 = landing（2026-10-04：原本 fork 自 CodingIDE 的教務台 render EMDashboard → 看起來像 coding app，改學習自己的總覽）
+  const DASHBOARD_TAB: MainTab = { id: DASHBOARD_TAB_ID, type: "home", label: tt("learning.home.title", "學習總覽"), icon: "🏠", closable: false };
   const [mainTabs, setMainTabs] = useState<MainTab[]>([DASHBOARD_TAB]);
   const [activeMainTabId, setActiveMainTabId] = useState<string>(DASHBOARD_TAB_ID);
   const activeMainTab = useMemo(() => mainTabs.find(t => t.id === activeMainTabId), [mainTabs, activeMainTabId]);
@@ -996,7 +996,7 @@ export default function LearningSpace() {
         console.log(`[LearningSpace] Parsed ${savedTabs?.length || 0} saved tabs, active=${savedActive}`);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
-          const VALID_TYPES = new Set(["editor", "viewer", "ai-crew", "em-dashboard", "curriculum"]);
+          const VALID_TYPES = new Set(["editor", "viewer", "ai-crew", "home", "curriculum"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[LearningSpace] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", ")); // nosemgrep: unsafe-formatstring — 本地 debug log，同 L943
           // Restore tabs (dashboard is already present)
@@ -2828,41 +2828,44 @@ const sendChat = useCallback(async () => {
               );
             })()}
 
-            {/* === EM DASHBOARD (Landing Page) === */}
-            {/* Always mounted, hidden with CSS to preserve chat state across tab switches */}
+            {/* === 🏠 HOME 學習總覽（Landing）===
+            Always mounted, hidden with CSS to preserve state across tab switches */}
             <div
-              className="contents"
-              style={activeMainTab?.type !== "em-dashboard" ? { display: "none" } : undefined}
+              style={activeMainTab?.type !== "home" ? { display: "none" } : undefined}
             >
-              <EMDashboard
-                rootPath={rootPath}
-                theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text, accentBorder: tk.accentBorder }}
-                onStartCodeUnderstanding={startAiInitialize}
-                cuModalRequest={cuModalRequest}
-                codeUnderstanding={{ running: aiInitializing, steps: aiInitSteps }}
-                model={emModel}
-                onModelChange={setEmModel}
-                onDispatchToCrew={(crewId, message) => {
-                  // Switch to the crew tab and pre-fill the chat input
-                  const crew = codingCrews.find(c => c.id === crewId);
-                  if (crew) {
-                    setActiveCrew(crew.id);
-                    setChatMode(crew.mode);
-                    openMainTab({ id: `crew:${crew.id}`, type: "ai-crew", label: crew.title, icon: crew.emoji || "🤖", closable: true, crewId: crew.id });
-                    // Fetch crew profile if not already loaded
-                    if (!crewProfile[crew.id]) {
-                      fetch(`${API_BASE}/api/crew/${crew.id}`).then(r => r.json()).then(data => {
-                        setCrewProfile(prev => ({ ...prev, [crew.id]: data }));
-                      });
-                    }
-                    // Pre-fill the message
-                    setChatInput(message);
-                    setTimeout(() => chatInputRef.current?.focus(), 300);
-                  }
-                }}
-                openMainTab={openMainTab}
-                adRefreshTrigger={adRefreshTrigger}
-              />
+              <div className="h-full overflow-y-auto bg-white p-6" style={{ scrollbarWidth: "thin" }}>
+                <div className="max-w-4xl mx-auto">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="text-lg font-bold text-stone-800">🏠 {tt("learning.home.title", "學習總覽")}</div>
+                    {curriculum.length > 0 && (
+                      <span className="text-xs text-stone-400">{curriculum.length} {tt("learning.home.subjects", "科目")}</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {curriculum.map(s => (
+                      <div key={s.key}
+                        onClick={() => openCurriculum(s.key)}
+                        className="group cursor-pointer rounded-xl border border-stone-200 p-4 hover:border-blue-300 hover:shadow-sm transition-all"
+                      >
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-2xl">{SUBJECT_EMOJI[s.name] || "📘"}</span>
+                          <span className="text-sm font-bold text-stone-800">{s.name}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-stone-400">{s.unitCount} {tt("learning.home.units", "單元")}</span>
+                          <button
+                            onClick={e => { e.stopPropagation(); openPractice(s.key, s.name); }}
+                            className="opacity-0 group-hover:opacity-100 text-xs px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-opacity"
+                          >📝 {tt("learning.home.practice", "練習")}</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {curriculum.length === 0 && (
+                    <div className="text-sm text-stone-400">（課程載入中…）</div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* === TASKS TAB === */}
