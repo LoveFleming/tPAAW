@@ -6,8 +6,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import MarkdownText from "@paaw-ui/components/MarkdownText";
 import { useI18n } from "@paaw-ui/i18n";
+import SidebarFileTree from "@paaw-ui/components/SidebarFileTree";
 import ExpertChatPanel from "../components/ExpertChatPanel";
 import SheetPreview from "../components/SheetPreview";
+
+const SHEET_RE = /\.(xlsx|csv)$/i;
 
 type CatNode = { id: string; name: string; emoji: string; agentId: string; enabled: boolean; files: { name: string; size: number; mtime: string; sheet: boolean }[] };
 type Tab = "chat" | "todos" | "expirations" | "briefing";
@@ -19,14 +22,15 @@ export default function Secretary() {
   const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("chat");
   const [cats, setCats] = useState<CatNode[]>([]);
+  const [dossierRoot, setDossierRoot] = useState<string>("");
   const [activeAgent, setActiveAgent] = useState<string>(CHIEF);
   const [activeAgentLabel, setActiveAgentLabel] = useState<string>("🕴️ 總管秘書");
-  const [expanded, setExpanded] = useState<string>("");
   const [openFile, setOpenFile] = useState<OpenFile | null>(null);
   const [mdContent, setMdContent] = useState("");
   const [mdDirty, setMdDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [managerOpen, setManagerOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [todosMd, setTodosMd] = useState("");
   const [briefing, setBriefing] = useState<{ markdown: string; stats?: Record<string, number> }>({ markdown: "" });
   const [expiryItems, setExpiryItems] = useState<{ date: string; text: string; source: string; inDays: number; status: string }[]>([]);
@@ -37,6 +41,7 @@ export default function Secretary() {
     try {
       const d = await fetch("/api/secret/dossiers").then(r => r.json());
       setCats(d.categories || []);
+      if (d.root) setDossierRoot(String(d.root).replace(/\\/g, "/").replace(/\/+$/, ""));
     } catch { /* server 未掛載時靜默 */ }
   }, []);
 
@@ -86,8 +91,29 @@ export default function Secretary() {
     setActiveAgent(c.agentId || `secret.${c.id}`);
     setActiveAgentLabel(`${c.emoji} ${c.name}`);
     setTab("chat");
-    setExpanded(e => (e === c.id ? "" : c.id));
   }, []);
+
+  // ── 檔案樹回呼（SidebarFileTree 同款）──
+  // 檔案：root/<cat>/<name...> → 開檔（md 編輯 / sheet 預覽）；頂層檔不屬於任何分類 → 靜默
+  const handleTreeSelectFile = useCallback((path: string) => {
+    if (!dossierRoot || !path.startsWith(dossierRoot + "/")) return;
+    const rel = path.slice(dossierRoot.length + 1);
+    const seg = rel.split("/");
+    if (seg.length < 2) return;
+    const cat = seg[0];
+    const name = seg[seg.length - 1];
+    openDossier(cat, name, SHEET_RE.test(name));
+    setTab("chat");
+  }, [dossierRoot, openDossier]);
+
+  // 目錄：頂層分類資料夾 → 切換專家（保留原 點分類=挑專家 行為）；底層子目錄只展開
+  const handleTreeSelectDir = useCallback((path: string) => {
+    if (!dossierRoot || !path.startsWith(dossierRoot + "/")) return;
+    const rel = path.slice(dossierRoot.length + 1);
+    if (rel.includes("/")) return;
+    const c = cats.find(x => x.id === rel);
+    if (c && c.enabled !== false) pickCategory(c);
+  }, [dossierRoot, cats, pickCategory]);
 
   // 上傳（xlsx/csv/md）
   const doUpload = useCallback(async (files: FileList | null) => {
@@ -132,40 +158,25 @@ export default function Secretary() {
           </button>
 
           <div className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-stone-400">{t("secret.cats", "分類檔案櫃")}</div>
-          {cats.filter(c => c.enabled !== false).map(c => (
-            <div key={c.id}>
-              <div className="flex items-center group">
-                <button
-                  onClick={() => pickCategory(c)}
-                  className={`flex-1 min-w-0 flex items-center gap-2 px-5 py-2 text-sm text-left transition-colors ${activeAgent === (c.agentId || `secret.${c.id}`) && tab === "chat" ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
-                >
-                  <span className="text-sm">{expanded === c.id ? "▾" : "▸"}</span>
-                  <span>{c.emoji}</span>
-                  <span className="truncate">{c.name}</span>
-                  <span className="text-[10px] text-stone-300 shrink-0">{c.files.length}</span>
-                </button>
-                <button
-                  title={t("secret.upload", "上傳檔案")}
-                  onClick={() => { uploadCat.current = c.id; uploadRef.current?.click(); }}
-                  className="px-2 py-2 text-stone-300 hover:text-stone-600 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                >⬆️</button>
-              </div>
-              {expanded === c.id && (
-                <div className="pb-1">
-                  {c.files.length === 0 && <div className="px-11 py-1 text-[11px] text-stone-300">{t("secret.emptyCat", "空櫃 — 上傳或請專家記錄")}</div>}
-                  {c.files.map(f => (
-                    <button
-                      key={f.name}
-                      onClick={() => { openDossier(c.id, f.name, f.sheet); setTab("chat"); }}
-                      className={`w-full text-left px-11 py-1 text-xs truncate transition-colors ${openFile && openFile.cat === c.id && openFile.name === f.name ? "text-stone-900 font-semibold bg-stone-50" : "text-stone-500 hover:text-stone-800"}`}
-                    >{f.sheet ? "📊 " : "📄 "}{f.name}</button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+          {/* 檔案樹：同 File Mounts（SidebarFileTree）— 展開/右鍵（新增/匯入/移動/改名/刪除）/自動刷新 */}
+          {dossierRoot ? (
+            <SidebarFileTree
+              projectRoot={dossierRoot}
+              activeFilePath={openFile && openFile.cat && openFile.name ? `${dossierRoot}/${openFile.cat}/${openFile.name}` : null}
+              openFilePaths={new Set(openFile && openFile.name ? [`${dossierRoot}/${openFile.cat}/${openFile.name}`] : [])}
+              onSelectFile={handleTreeSelectFile}
+              onEditFile={handleTreeSelectFile}
+              onSelectDir={handleTreeSelectDir}
+              menuMode="files"
+            />
+          ) : (
+            <div className="px-5 py-2 text-[11px] text-stone-300">{t("secret.treeLoading", "載入檔案樹…")}</div>
+          )}
         </div>
-        <div className="border-t border-stone-100 p-2">
+        <div className="border-t border-stone-100 p-2 space-y-0.5">
+          <button onClick={() => setUploadOpen(true)} className="w-full text-xs text-stone-500 hover:text-stone-800 py-1.5 px-2 rounded hover:bg-stone-50 text-left">
+            ⬆️ {t("secret.uploadPick", "上傳檔案到分類")}
+          </button>
           <button onClick={() => setManagerOpen(true)} className="w-full text-xs text-stone-500 hover:text-stone-800 py-1.5 px-2 rounded hover:bg-stone-50 text-left">
             ⚙️ {t("secret.manage", "管理分類 / 新增")}
           </button>
@@ -283,6 +294,43 @@ export default function Secretary() {
           onChanged={loadTree}
         />
       )}
+
+      {uploadOpen && (
+        <UploadModal
+          cats={cats.filter(c => c.enabled !== false)}
+          onClose={() => setUploadOpen(false)}
+          onPickCat={(catId) => { uploadCat.current = catId; setUploadOpen(false); setTimeout(() => uploadRef.current?.click(), 50); }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** 上傳：選分類 → 開檔案挑選器（沿用原 doUpload 流程） */
+function UploadModal({ cats, onClose, onPickCat }: { cats: CatNode[]; onClose: () => void; onPickCat: (catId: string) => void }) {
+  const { t } = useI18n();
+  const [cat, setCat] = useState(cats[0]?.id || "");
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-[380px] overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3.5 border-b border-stone-100 flex items-center">
+          <div className="font-bold text-stone-800">⬆️ {t("secret.uploadPick", "上傳檔案到分類")}</div>
+          <div className="flex-1" />
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 text-xl leading-none">✕</button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div className="text-xs text-stone-500">{t("secret.uploadHint", "選一個分類檔案櫃，然後挑選要上傳的檔案（xlsx / csv / md…）")}</div>
+          <select value={cat} onChange={e => setCat(e.target.value)} className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm">
+            {cats.length === 0 && <option value="">{t("secret.noCat", "（沒有可用分類 — 先到管理新增）")}</option>}
+            {cats.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.name}（{c.files.length}）</option>)}
+          </select>
+          <button
+            onClick={() => cat && onPickCat(cat)}
+            disabled={!cat}
+            className="w-full rounded-lg bg-stone-800 text-white px-4 py-2 text-sm font-semibold disabled:opacity-40"
+          >{t("secret.pickFiles", "選擇檔案…")}</button>
+        </div>
+      </div>
     </div>
   );
 }

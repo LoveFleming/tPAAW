@@ -88,10 +88,11 @@ interface CtxMenuState {
   isWsRoot?: boolean;
 }
 
-function ContextMenu({ menu, onAction, onClose }: {
+function ContextMenu({ menu, onAction, onClose, simple }: {
   menu: CtxMenuState;
   onAction: (action: string, menu: CtxMenuState) => void;
   onClose: () => void;
+  simple?: boolean; // menuMode="files"：模組内嵌樹用 — 隱藏 移除目錄/開啟簡報/AI 摘要
 }) {
   const { info: t } = useTheme();
   const { t: ti18n } = useI18n();
@@ -148,11 +149,13 @@ function ContextMenu({ menu, onAction, onClose }: {
     wsItems.push({ label: ti18n("knowledge.newFile", "新增檔案"), icon: "📄", action: "newFile" });
     wsItems.push({ label: "匯入檔案", icon: "📥", action: "importFile" });
     wsItems.push({ label: "移動到...", icon: "📦", action: "move" });
-    wsItems.push({ label: "開啟簡報", icon: "🎤", action: "briefingPlayer" });
+    if (!simple) {
+      wsItems.push({ label: "開啟簡報", icon: "🎤", action: "briefingPlayer" });
+      wsItems.push({ label: "AI 摘要", icon: "🤖", action: "aiSummary" });
+    }
     wsItems.push({ label: "編輯檔案", icon: "✏️", action: "edit" });
     wsItems.push({ label: "複製路徑", icon: "📎", action: "copyPath" });
-    wsItems.push({ label: "AI 摘要", icon: "🤖", action: "aiSummary" });
-    wsItems.push({ label: "🗑️ 移除目錄", icon: "🗑️", action: "removeWorkspace", danger: true });
+    if (!simple) wsItems.push({ label: "🗑️ 移除目錄", icon: "🗑️", action: "removeWorkspace", danger: true });
 
     return (
       <div
@@ -193,14 +196,14 @@ function ContextMenu({ menu, onAction, onClose }: {
   items.push({ label: ti18n("knowledge.newFile", "新增檔案"), icon: "📄", action: "newFile" });
   items.push({ label: "匯入檔案", icon: "📥", action: "importFile" });
   items.push({ label: "移動到...", icon: "📦", action: "move" });
-  if (menu.isDir) {
+  if (!simple && menu.isDir) {
     items.push({ label: "開啟簡報", icon: "🎤", action: "briefingPlayer" });
   }
   items.push({ label: "編輯檔案", icon: "✏️", action: "edit" });
   items.push({ label: ti18n("knowledge.rename", "重新命名"), icon: "✏️", action: "rename" });
   items.push({ label: ti18n("knowledge.copy", "複製"), icon: "📋", action: "duplicate" });
   items.push({ label: "複製路徑", icon: "📎", action: "copyPath" });
-  items.push({ label: "AI 摘要", icon: "🤖", action: "aiSummary" });
+  if (!simple) items.push({ label: "AI 摘要", icon: "🤖", action: "aiSummary" });
   items.push({ label: ti18n("knowledge.delete", "刪除"), icon: "🗑️", action: "delete", danger: true });
 
   return (
@@ -276,7 +279,7 @@ const MAX_INDENT_DEPTH = 30;
 
 const TreeNodeView = React.memo(function TreeNodeView({
   node, depth, activeFilePath, openFilePaths, onSelectFile, onToggleDir, expandedPaths, projectRoot,
-  isWorkspaceRoot, onCtx, renamingNode, onRename,
+  isWorkspaceRoot, onCtx, renamingNode, onRename, onSelectDir,
 }: {
   node: TreeNode; depth: number; activeFilePath: string | null; openFilePaths: Set<string>;
   onSelectFile: (path: string) => void; onToggleDir: (path: string) => void; expandedPaths: Set<string>;
@@ -285,6 +288,7 @@ const TreeNodeView = React.memo(function TreeNodeView({
   onCtx: (e: React.MouseEvent, fullPath: string, relativePath: string, isDir: boolean, name: string, isWsRoot?: boolean) => void;
   renamingNode: string | null;
   onRename: (oldPath: string, newName: string) => void;
+  onSelectDir?: (path: string) => void;
 }) {
   const { info: t } = useTheme();
   const isDir = node.type === "dir";
@@ -320,7 +324,7 @@ const TreeNodeView = React.memo(function TreeNodeView({
   return (
     <div>
       <button
-        onClick={() => isDir ? onToggleDir(node.path) : onSelectFile(node.path)}
+        onClick={() => { if (isDir) { onToggleDir(node.path); onSelectDir?.(node.path); } else onSelectFile(node.path); }}
         onContextMenu={handleCtx}
         className={cn("flex w-full items-center pr-2 text-left text-sm leading-tight transition-colors")}
         style={{
@@ -379,6 +383,7 @@ const TreeNodeView = React.memo(function TreeNodeView({
               onCtx={onCtx}
               renamingNode={renamingNode}
               onRename={onRename}
+              onSelectDir={onSelectDir}
             />
           ))}
         </div>
@@ -398,9 +403,13 @@ interface Props {
   onEditFile?: (path: string) => void;
   onOpenInBriefingPlayer?: (dir: string) => void;
   onAiSummary?: (path: string, name: string, isDir: boolean) => void;
+  /** dir 點擊時額外回呼（模組内嵌樹：切換專家/active 對象用）；不影響展開行為 */
+  onSelectDir?: (path: string) => void;
+  /** "files" = 精簡右鍵選單（隱藏 移除目錄/開啟簡報/AI 摘要）*/
+  menuMode?: "full" | "files";
 }
 
-export default function SidebarFileTree({ projectRoot, activeFilePath, openFilePaths, onSelectFile, startDepth = 0, onRemoveWorkspace, onEditFile, onOpenInBriefingPlayer, onAiSummary }: Props) {
+export default function SidebarFileTree({ projectRoot, activeFilePath, openFilePaths, onSelectFile, startDepth = 0, onRemoveWorkspace, onEditFile, onOpenInBriefingPlayer, onAiSummary, onSelectDir, menuMode }: Props) {
   const { info: t } = useTheme();
   const { t: ti18n } = useI18n();
   const [tree, setTree] = useState<TreeNode | null>(null);
@@ -726,6 +735,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
         onCtx={handleCtx}
         renamingNode={renamingNode}
         onRename={handleRename}
+        onSelectDir={onSelectDir}
       />
 
       {/* New item inline input */}
@@ -765,6 +775,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
           menu={ctxMenu}
           onAction={handleAction}
           onClose={() => setCtxMenu(null)}
+          simple={menuMode === "files"}
         />
       )}
 
