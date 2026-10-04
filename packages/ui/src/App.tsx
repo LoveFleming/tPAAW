@@ -877,7 +877,7 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
                 <NavItem active={activePage.endsWith(":appmodules")} label={t("sidebar.appModules")} onClick={openAppModules} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":coding")} label={t("sidebar.coding")} onClick={openCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 {appModules.map(m => (
-                  <NavItem key={`mod-${m.id}`} active={activePage.endsWith(`:module:${m.id}`)} label={`${m.nav?.emoji || "📦"} ${m.nav?.label || m.name}`} onClick={() => openAppModule(m.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                  <NavItem key={`mod-${m.id}`} active={activePage.endsWith(`:module:${m.id}`)} label={m.nav?.label || m.name} emoji={m.nav?.emoji || "📦"} onClick={() => openAppModule(m.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
                 <NavItem active={activePage.endsWith(":mind-map")} label={t("sidebar.mindMap")} onClick={openMindMap} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":notes")} label={t("sidebar.notes")} onClick={openNotes} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
