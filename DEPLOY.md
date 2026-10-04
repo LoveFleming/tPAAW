@@ -1,6 +1,6 @@
 # DEPLOY — 2026-10-05（週一）更新包
 
-> 範圍：dev `e2dbbe5b..+NEW`（10/3 App Module Platform 起兩日全部）
+> 範圍：dev `e2dbbe5b..f16ef86e`（10/3 App Module Platform 起兩日全部）
 > 本次主打：**秘書室 + 產品經理室 兩個 profession package（demo 用）**，公司端開箱即用
 
 ## 內容摘要
