@@ -1,8 +1,8 @@
 /**
- * ProjectOffice — 📊 專案辦公室主頁（landing = 總管）
- * 側欄：總管 + 全域報表櫃 + 專案清單（可展開檔案/上傳）+ 新增專案
- * tabs：💬 對話 / 📋 待辦 / 🔔 截止雷達 / 🌅 晨間簡報 / 🗺️ 專案總覽
- * 架構同 Secretary（綠地模板）：檔案是事實來源，專案管家寫自己的櫃。
+ * ProjectOffice — 🎯 產品經理室主頁（landing = 首席產品經理）
+ * 側欄：首席 + 全域報表櫃 + 產品清單（可展開檔案/上傳）+ 新增產品
+ * tabs：💬 對話 / 📋 需求池 / 🔔 截止雷達 / 🌅 晨間簡報 / 🗺️ 產品總覽
+ * 架構同 Secretary（綠地模板）：檔案是事實來源，產品管家寫自己的櫃。
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import MarkdownText from "@paaw-ui/components/MarkdownText";
@@ -13,7 +13,7 @@ import SheetPreview from "../components/SheetPreview";
 type ProjNode = { id: string; name: string; emoji: string; agentId: string; enabled: boolean; files: { name: string; size: number; mtime: string; sheet: boolean }[] };
 type Tab = "chat" | "todos" | "radar" | "briefing" | "board";
 type OpenFile = { proj: string; name: string; sheet: boolean };
-type BoardRow = { id: string; name: string; status: string; risks: number; openIssues: number; nextMilestone: string | null; files: number };
+type BoardRow = { id: string; name?: string; status: string; stage?: string; risks: number; openBacklog: number; nextMilestone: string | null; files: number };
 type RadarItem = { type: string; label: string; date: string; text: string; source: string; inDays: number; status: string };
 
 const CHIEF = "pm.chief";
@@ -23,7 +23,7 @@ export default function ProjectOffice() {
   const [tab, setTab] = useState<Tab>("chat");
   const [projects, setProjects] = useState<ProjNode[]>([]);
   const [activeAgent, setActiveAgent] = useState<string>(CHIEF);
-  const [activeAgentLabel, setActiveAgentLabel] = useState<string>("👔 專案辦公室總管");
+  const [activeAgentLabel, setActiveAgentLabel] = useState<string>("🎯 首席產品經理");
   const [expanded, setExpanded] = useState<string>("");
   const [openFile, setOpenFile] = useState<OpenFile | null>(null);
   const [mdContent, setMdContent] = useState("");
@@ -115,8 +115,8 @@ export default function ProjectOffice() {
 
   const TABS: { id: Tab; label: string }[] = [
     { id: "chat", label: t("pm.tab.chat", "💬 專家對話") },
-    { id: "board", label: t("pm.tab.board", "🗺️ 專案總覽") },
-    { id: "todos", label: t("pm.tab.todos", "📋 待辦") },
+    { id: "board", label: t("pm.tab.board", "🗺️ 產品總覽") },
+    { id: "todos", label: t("pm.tab.todos", "📋 需求池") },
     { id: "radar", label: t("pm.tab.radar", "🔔 截止雷達") },
     { id: "briefing", label: t("pm.tab.briefing", "🌅 晨間簡報") },
   ];
@@ -126,18 +126,18 @@ export default function ProjectOffice() {
       {/* ═══ 左 sidebar ═══ */}
       <aside className="w-60 shrink-0 flex flex-col border-r border-stone-200 bg-white overflow-hidden">
         <div className="px-3 py-2.5 border-b border-stone-100">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-stone-400">{t("pm.title", "📊 專案辦公室")}</div>
+          <div className="text-[11px] font-bold uppercase tracking-wider text-stone-400">{t("pm.title", "🎯 產品經理室")}</div>
         </div>
         <div className="flex-1 overflow-y-auto py-1" style={{ scrollbarWidth: "thin" }}>
           {/* 總管（landing） */}
           <button
-            onClick={() => { setActiveAgent(CHIEF); setActiveAgentLabel("👔 專案辦公室總管"); setTab("chat"); setOpenFile(null); }}
+            onClick={() => { setActiveAgent(CHIEF); setActiveAgentLabel("🎯 首席產品經理"); setTab("chat"); setOpenFile(null); }}
             className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${activeAgent === CHIEF && tab === "chat" ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
           >
-            <span>👔</span><span className="truncate">{t("pm.chief", "總管")}</span>
+            <span>🎯</span><span className="truncate">{t("pm.chief", "首席產品經理")}</span>
           </button>
 
-          <div className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-stone-400">{t("pm.projects", "專案檔案櫃")}</div>
+          <div className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-stone-400">{t("pm.projects", "產品檔案櫃")}</div>
           {projects.map(p => (
             <div key={p.id} className={p.id === "_global" ? "opacity-90" : ""}>
               <div className="flex items-center group">
@@ -173,7 +173,7 @@ export default function ProjectOffice() {
         </div>
         <div className="border-t border-stone-100 p-2">
           <button onClick={() => setNewOpen(true)} className="w-full text-xs text-stone-500 hover:text-stone-800 py-1.5 px-2 rounded hover:bg-stone-50 text-left">
-            ➕ {t("pm.newProject", "新增專案（自動配管家）")}
+            ➕ {t("pm.newProject", "新增產品（自動配管家）")}
           </button>
         </div>
         <input ref={uploadRef} type="file" multiple hidden onChange={e => doUpload(e.target.files)} />
@@ -236,17 +236,18 @@ export default function ProjectOffice() {
           {tab === "board" && (
             <div className="h-full overflow-y-auto bg-white p-6" style={{ scrollbarWidth: "thin" }}>
               <div className="max-w-4xl mx-auto">
-                <div className="text-xs text-stone-400 mb-3">{t("pm.boardHint", "狀態燈來自各專案 charter.md（管家維護）— 統計由程式掃描，零 LLM")}</div>
-                {board.length === 0 && <div className="text-sm text-stone-400">{t("pm.boardEmpty", "尚無專案 — 左下「新增專案」開一個")}</div>}
+                <div className="text-xs text-stone-400 mb-3">{t("pm.boardHint", "燈號與階段來自各產品 product.md（管家維護）— 統計由程式掃描，零 LLM")}</div>
+                {board.length === 0 && <div className="text-sm text-stone-400">{t("pm.boardEmpty", "尚無產品 — 左下「新增產品」開一個")}</div>}
                 {board.length > 0 && (
                   <table className="w-full text-sm border-collapse">
                     <thead>
                       <tr className="text-left text-xs text-stone-400 border-b border-stone-200">
-                        <th className="py-2 pr-3">{t("pm.colProject", "專案")}</th>
+                        <th className="py-2 pr-3">{t("pm.colProject", "產品")}</th>
                         <th className="py-2 pr-3">{t("pm.colStatus", "狀態")}</th>
+                        <th className="py-2 pr-3">{t("pm.colStage", "階段")}</th>
                         <th className="py-2 pr-3">{t("pm.colRisks", "風險")}</th>
-                        <th className="py-2 pr-3">{t("pm.colIssues", "未結議題")}</th>
-                        <th className="py-2">{t("pm.colMilestone", "下個里程碑")}</th>
+                        <th className="py-2 pr-3">{t("pm.colIssues", "未結需求")}</th>
+                        <th className="py-2">{t("pm.colMilestone", "下個版本")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -254,8 +255,9 @@ export default function ProjectOffice() {
                         <tr key={b.id} className="border-b border-stone-100 hover:bg-stone-50">
                           <td className="py-2.5 pr-3 font-semibold text-stone-800">{b.name}</td>
                           <td className="py-2.5 pr-3 text-lg">{b.status}</td>
+                          <td className="py-2.5 pr-3">{b.stage || "—"}</td>
                           <td className="py-2.5 pr-3 text-stone-600">{b.risks > 0 ? `⚠️ ${b.risks}` : "0"}</td>
-                          <td className="py-2.5 pr-3 text-stone-600">{b.openIssues > 0 ? `🔶 ${b.openIssues}` : "0"}</td>
+                          <td className="py-2.5 pr-3 text-stone-600">{b.openBacklog > 0 ? `🔶 ${b.openBacklog}` : "0"}</td>
                           <td className="py-2.5 font-mono text-xs text-stone-600">{b.nextMilestone || "—"}</td>
                         </tr>
                       ))}
@@ -269,7 +271,7 @@ export default function ProjectOffice() {
           {tab === "todos" && (
             <div className="h-full overflow-y-auto bg-white p-6" style={{ scrollbarWidth: "thin" }}>
               <div className="max-w-3xl mx-auto">
-                <div className="text-xs text-stone-400 mb-2">{t("pm.todosHint", "checkbox 落在各專案櫃 — 勾掉請找該專案管家（點左邊專案），這裡是總掃描")}</div>
+                <div className="text-xs text-stone-400 mb-2">{t("pm.todosHint", "checkbox 落在各產品櫃（backlog 為主）— 勾掉請找該產品管家（點左邊產品），這裡是總掃描")}</div>
                 <MarkdownText>{todosMd || "（掃描中…）"}</MarkdownText>
               </div>
             </div>
@@ -278,7 +280,7 @@ export default function ProjectOffice() {
           {tab === "radar" && (
             <div className="h-full overflow-y-auto bg-white p-6" style={{ scrollbarWidth: "thin" }}>
               <div className="max-w-3xl mx-auto space-y-2">
-                <div className="text-xs text-stone-400 mb-2">{t("pm.radarHint", "來源：各專案櫃 [milestone:] / [due:] / [expires:] 標記 — 30 天內全部列出")}</div>
+                <div className="text-xs text-stone-400 mb-2">{t("pm.radarHint", "來源：各產品櫃 [milestone:] / [due:] / [expires:] 標記 — 30 天內全部列出")}</div>
                 {radar.length === 0 && <div className="text-sm text-stone-400">✅ {t("pm.radarClean", "雷達乾淨 — 沒有 30 天內到期項")}</div>}
                 {radar.map((it, i) => (
                   <div key={i} className="flex items-center gap-3 rounded-xl border border-stone-200 px-3 py-2">
@@ -301,7 +303,7 @@ export default function ProjectOffice() {
                   <button onClick={() => loadPanel("briefing")} className="text-xs rounded-lg border border-stone-300 px-3 py-1 hover:bg-stone-50">🔄 {t("pm.refresh", "重新掃描")}</button>
                   {briefing.stats && (
                     <div className="flex gap-2 text-[11px] flex-wrap">
-                      <span className="rounded-full bg-stone-100 px-2 py-0.5 text-stone-600">🗺️ {briefing.stats.projects ?? 0}</span>
+                      <span className="rounded-full bg-stone-100 px-2 py-0.5 text-stone-600">🗺️ {briefing.stats.products ?? briefing.stats.projects ?? 0}</span>
                       <span className="rounded-full bg-stone-100 px-2 py-0.5 text-stone-600">🎯 {briefing.stats.milestones ?? 0}</span>
                       <span className="rounded-full bg-stone-100 px-2 py-0.5 text-stone-600">🚨 {briefing.stats.overdue ?? 0}</span>
                       <span className="rounded-full bg-stone-100 px-2 py-0.5 text-stone-600">✅ {briefing.stats.todos ?? 0}</span>
@@ -315,7 +317,7 @@ export default function ProjectOffice() {
         </div>
       </div>
 
-      {/* ═══ 新增專案 modal ═══ */}
+      {/* ═══ 新增產品 modal ═══ */}
       {newOpen && (
         <NewProjectModal
           onClose={() => setNewOpen(false)}
@@ -326,7 +328,7 @@ export default function ProjectOffice() {
   );
 }
 
-/** 新增專案：自動 scaffold 四模板檔 + 專屬管家 agent */
+/** 新增產品：自動 scaffold 四模板檔（定位/路線圖/需求池/指標）+ 專屬管家 agent */
 function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: (p: { id: string; name: string; emoji: string; agentId: string }) => void }) {
   const { t } = useI18n();
   const [pid, setPid] = useState("");
@@ -349,7 +351,7 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
       });
       const d = await r.json();
       if (d.error) { setMsg(`❌ ${d.error}`); return; }
-      setMsg(`✅ ${d.project.emoji} ${d.project.name} 已開案 — 專屬管家 ${d.project.agentId} 上線（左邊清單可聊）`);
+      setMsg(`✅ ${d.project.emoji} ${d.project.name} 已建立 — 專屬產品管家 ${d.project.agentId} 上線（左邊清單可聊）`);
       setTimeout(() => { onCreated(d.project); onClose(); }, 900);
       setPid(""); setName(""); setGoal(""); setOwner(""); setStart(""); setEnd("");
     } finally { setBusy(false); }
@@ -359,25 +361,25 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={busy ? undefined : onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-[520px] max-h-[85vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="px-5 py-3.5 border-b border-stone-100 flex items-center">
-          <div className="font-bold text-stone-800">➕ {t("pm.newProject", "新增專案")}</div>
+          <div className="font-bold text-stone-800">➕ {t("pm.newProject", "新增產品")}</div>
           <div className="flex-1" />
           <button onClick={onClose} className="text-stone-400 hover:text-stone-700 text-xl leading-none">✕</button>
         </div>
         <div className="p-5 overflow-y-auto space-y-2.5" style={{ scrollbarWidth: "thin" }}>
-          <div className="text-xs text-stone-400">{t("pm.newHint", "自動生成：章程/時程/風險/議題四模板檔 + 專屬 AI 管家（只能寫這個專案的櫃）")}</div>
+          <div className="text-xs text-stone-400">{t("pm.newHint", "自動生成：定位/路線圖/需求池/指標四模板檔 + 專屬 AI 產品管家（只能寫這個產品的櫃）")}</div>
           <div className="flex gap-2">
             <input value={emoji} onChange={e => setEmoji(e.target.value)} className="w-16 rounded-lg border border-stone-200 px-2 py-1.5 text-sm text-center" placeholder="🗂️" />
-            <input value={name} onChange={e => setName(e.target.value)} className="flex-1 rounded-lg border border-stone-200 px-3 py-1.5 text-sm" placeholder={t("pm.projName", "專案名稱，如：AI 工廠入口")} />
+            <input value={name} onChange={e => setName(e.target.value)} className="flex-1 rounded-lg border border-stone-200 px-3 py-1.5 text-sm" placeholder={t("pm.projName", "產品名稱，如：AI 工廠入口")} />
           </div>
           <input value={pid} onChange={e => setPid(e.target.value)} className="w-full rounded-lg border border-stone-200 px-3 py-1.5 text-sm font-mono" placeholder={t("pm.projId", "英文 id（可選，如 ai-portal；留空自動編號）")} />
-          <input value={goal} onChange={e => setGoal(e.target.value)} className="w-full rounded-lg border border-stone-200 px-3 py-1.5 text-sm" placeholder={t("pm.projGoal", "一句話目標（什麼算成功）— 進章程與管家 prompt")} />
-          <input value={owner} onChange={e => setOwner(e.target.value)} className="w-full rounded-lg border border-stone-200 px-3 py-1.5 text-sm" placeholder={t("pm.projOwner", "Owner（承辦人）")} />
+          <input value={goal} onChange={e => setGoal(e.target.value)} className="w-full rounded-lg border border-stone-200 px-3 py-1.5 text-sm" placeholder={t("pm.projGoal", "一句話目標（什麼算成功）— 進定位檔與管家 prompt")} />
+          <input value={owner} onChange={e => setOwner(e.target.value)} className="w-full rounded-lg border border-stone-200 px-3 py-1.5 text-sm" placeholder={t("pm.projOwner", "Owner（產品負責人）")} />
           <div className="flex gap-2">
             <input value={start} onChange={e => setStart(e.target.value)} className="flex-1 rounded-lg border border-stone-200 px-3 py-1.5 text-sm font-mono" placeholder="起 2026-10-01" />
             <input value={end} onChange={e => setEnd(e.target.value)} className="flex-1 rounded-lg border border-stone-200 px-3 py-1.5 text-sm font-mono" placeholder="迄 2026-12-31" />
           </div>
           <button onClick={create} disabled={busy || !name.trim()} className="rounded-lg bg-stone-800 text-white px-4 py-1.5 text-sm font-semibold disabled:opacity-40">
-            {busy ? "開案中…" : t("pm.createProject", "開案")}
+            {busy ? "建立中…" : t("pm.createProject", "建立產品")}
           </button>
           {msg && <div className="text-xs text-stone-600">{msg}</div>}
         </div>

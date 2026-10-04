@@ -51,6 +51,7 @@ const NAV_EMOJI_PATTERNS: { match: RegExp; emoji: string }[] = [
     { match: /briefing|簡報/i, emoji: "🎤" },
     { match: /mind.*map|心智圖/i, emoji: "🗺️" },
     { match: /notes|筆記|ノート/i, emoji: "📓" },
+    { match: /product.*office|產品|プロダクト/i, emoji: "🎯" },
     { match: /projects|專案|プロジェクト/i, emoji: "📋" },
     { match: /helpdesk|客服/i, emoji: "🎧" },
     { match: /llm.*(?:log|日誌|ログ)|^llm$/i, emoji: "📡" },

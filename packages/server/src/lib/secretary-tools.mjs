@@ -231,7 +231,7 @@ export async function runSecretaryTool(name, args, agentId) {
  * 範圍強制（程式保證）：
  *   - pm.chief → 全櫃
  *   - pm.reports → 寫僅 _global（彙整報表櫃；讀全櫃）
- *   - pm.<projectId> → 寫僅自己專案櫃（讀跨櫃放行）
+ *   - pm.<productId> → 寫僅自己產品櫃（讀跨櫃放行）
  * 資料根 = data/installed-apps/pm
  * ═══════════════════════════════════════════════════════════════ */
 const PM_ROOT = join(_repoRoot, "data", "installed-apps", "pm");
@@ -251,14 +251,14 @@ function enforceWriteProject(proj, agentId) {
   const id = agentId.slice("pm.".length);
   if (id === "chief") return;
   if (id === "reports") {
-    if (proj !== "_global") throw new Error(`範圍限制：pm.reports 只能寫「_global」報表櫃（嘗試寫「${proj}」被擋）。各專案檔案歸該專案管家。`);
+    if (proj !== "_global") throw new Error(`範圍限制：pm.reports 只能寫「_global」報表櫃（嘗試寫「${proj}」被擋）。各產品檔案歸該產品管家。`);
     return;
   }
-  if (id !== proj) throw new Error(`範圍限制：${agentId} 只能寫「${id}」專案櫃（嘗試寫「${proj}」被擋）。跨櫃寫入請找總管 pm.chief。`);
+  if (id !== proj) throw new Error(`範圍限制：${agentId} 只能寫「${id}」產品櫃（嘗試寫「${proj}」被擋）。跨櫃寫入請找首席 pm.chief。`);
 }
 function safeProject(proj) {
-  if (proj !== "_global" && !/^[a-z0-9][a-z0-9-]*$/.test(proj)) throw new Error(`非法專案 id：${proj}`);
-  if (proj !== "_global" && !pmRegistry().some(p => p.id === proj)) throw new Error(`專案不存在：${proj}（project_list 查現有專案）`);
+  if (proj !== "_global" && !/^[a-z0-9][a-z0-9-]*$/.test(proj)) throw new Error(`非法產品 id：${proj}`);
+  if (proj !== "_global" && !pmRegistry().some(p => p.id === proj)) throw new Error(`產品不存在：${proj}（project_list 查現有產品）`);
   return proj;
 }
 
@@ -267,7 +267,7 @@ export const PM_TOOL_DEFS = [
     type: "function",
     function: {
       name: "project_list",
-      description: "🗺️ 列出全部專案（檔案櫃+對應專案管家 agent）+ 全域報表櫃。回答「有哪些專案/找誰辦」用。",
+      description: "🎯 列出全部產品（檔案櫃+對應產品管家 agent）+ 全域報表櫃。回答「有哪些產品/找誰辦」用。",
       parameters: { type: "object", properties: {} },
     },
   },
@@ -275,11 +275,11 @@ export const PM_TOOL_DEFS = [
     type: "function",
     function: {
       name: "project_read",
-      description: "📖 讀專案檔案櫃裡的檔案（.md 全文；charter/schedule/risks/issues 是標準四件）。回答事實前先讀檔，不憑記憶。",
+      description: "📖 讀產品檔案櫃裡的檔案（.md 全文；product/roadmap/backlog/metrics 是標準四件）。回答事實前先讀檔，不憑記憶。",
       parameters: {
         type: "object",
         properties: {
-          project: { type: "string", description: "專案 id（project_list 查；_global=全域報表櫃）" },
+          project: { type: "string", description: "產品 id（project_list 查；_global=全域報表櫃）" },
           file: { type: "string", description: "檔名；留空列出該櫃檔案清單" },
         },
         required: ["project"],
@@ -290,12 +290,12 @@ export const PM_TOOL_DEFS = [
     type: "function",
     function: {
       name: "project_write",
-      description: "✍️ 寫檔進專案檔案櫃（.md）— 記錄落檔是鐵律。⚠️ 程式強制：專案管家只能寫自己的櫃、報表官只能寫 _global。",
+      description: "✍️ 寫檔進產品檔案櫃（.md）— 記錄落檔是鐵律。⚠️ 程式強制：產品管家只能寫自己的櫃、報表官只能寫 _global。",
       parameters: {
         type: "object",
         properties: {
-          project: { type: "string", description: "專案 id" },
-          file: { type: "string", description: "檔名（含 .md），如 schedule.md、2026-10-08-review會議.md" },
+          project: { type: "string", description: "產品 id" },
+          file: { type: "string", description: "檔名（含 .md），如 roadmap.md、prd-v1.md、2026-10-08-review會議.md" },
           content: { type: "string", description: "完整檔案內容（覆蓋寫）" },
         },
         required: ["project", "file", "content"],
@@ -306,11 +306,11 @@ export const PM_TOOL_DEFS = [
     type: "function",
     function: {
       name: "project_read_sheet",
-      description: "📊 讀專案櫃的 Excel/CSV → 回 markdown 表格（header 偵測+數值統計）。彙整/比對前必用；沒讀過的表不下結論。",
+      description: "📊 讀產品櫃的 Excel/CSV → 回 markdown 表格（header 偵測+數值統計）。彙整/比對前必用；沒讀過的表不下結論。",
       parameters: {
         type: "object",
         properties: {
-          project: { type: "string", description: "專案 id" },
+          project: { type: "string", description: "產品 id" },
           file: { type: "string", description: "xlsx/csv 檔名" },
           maxRows: { type: "number", description: "回傳列數上限（預設 30，最大 200）" },
         },
@@ -322,11 +322,11 @@ export const PM_TOOL_DEFS = [
     type: "function",
     function: {
       name: "project_write_sheet",
-      description: "📤 產出 Excel 落指定專案櫃（headers+rows → xlsx）。⚠️ 範圍同 project_write；來源檔永不改動，永遠產新檔（檔名帶日期）。",
+      description: "📤 產出 Excel 落指定產品櫃（headers+rows → xlsx）。⚠️ 範圍同 project_write；來源檔永不改動，永遠產新檔（檔名帶日期）。",
       parameters: {
         type: "object",
         properties: {
-          project: { type: "string", description: "專案 id" },
+          project: { type: "string", description: "產品 id" },
           file: { type: "string", description: "輸出檔名（自動補 .xlsx）" },
           headers: { type: "array", items: { type: "string" }, description: "表頭" },
           rows: { type: "array", items: { type: "array" }, description: "資料列（二維）" },
@@ -341,8 +341,8 @@ export async function runPmTool(name, args, agentId) {
   try {
     if (name === "project_list") {
       const projs = pmRegistry();
-      const lines = ["📊 _global「全域報表」→ pm.reports：跨專案週報/月報"];
-      if (!projs.length) lines.push("（尚無專案 — UI「新增專案」開一個，自動配管家）");
+      const lines = ["📊 _global「全域報表」→ pm.reports：跨產品週報/月報"];
+      if (!projs.length) lines.push("（尚無產品 — UI「新增產品」開一個，自動配管家）");
       for (const p of projs) lines.push(`${p.emoji || "🗂️"} ${p.id}「${p.name}」→ ${p.agentId}${p.enabled === false ? "（停用）" : ""}：${p.goal || ""}`);
       return lines.join("\n");
     }
@@ -351,9 +351,9 @@ export async function runPmTool(name, args, agentId) {
       const proj = safeProject(String(args.project || ""));
       const dir = PM_DIR(proj);
       if (!args.file) {
-        if (!existsSync(dir)) return `專案「${proj}」檔案櫃不存在`;
+        if (!existsSync(dir)) return `產品「${proj}」檔案櫃不存在`;
         const files = readdirSync(dir).filter(f => !f.startsWith("."));
-        if (!files.length) return `專案「${proj}」櫃是空的`;
+        if (!files.length) return `產品「${proj}」櫃是空的`;
         return files.map(f => {
           const st = statSync(join(dir, f));
           return `- ${f}（${(st.size / 1024).toFixed(1)}KB）`;

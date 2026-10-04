@@ -1,6 +1,6 @@
 /**
- * dossiers — 專案檔案櫃 CRUD + 上傳（_global 櫃固定存在）
- *   GET    /api/pm/dossiers                          → 全專案檔案樹（含 _global）
+ * dossiers — 產品檔案櫃 CRUD + 上傳（_global 櫃固定存在）
+ *   GET    /api/pm/dossiers                          → 全產品檔案樹（含 _global）
  *   GET    /api/pm/dossiers/<proj>/<file>            → md 原文 / sheet 預覽
  *   PUT    /api/pm/dossiers/<proj>/<file> {content}  → 存 md
  *   POST   /api/pm/dossiers/<proj> {filename, dataBase64} → 上傳（xlsx/csv/md）
@@ -26,7 +26,7 @@ function safeName(n) {
 function safeProj(proj, registry) {
   if (proj === "_global") return { id: "_global", name: "全域報表", emoji: "📊", agentId: "pm.reports" };
   const c = registry.find(x => x.id === proj);
-  if (!c) throw new Error(`專案不存在：${proj}`);
+  if (!c) throw new Error(`產品不存在：${proj}`);
   return c;
 }
 function loadRegistry() {
