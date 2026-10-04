@@ -1643,5 +1643,10 @@
   "pm.projId": "英文 id（可選，如 ai-portal；留空自動編號）",
   "pm.projGoal": "一句話目標（什麼算成功）— 進定位檔與管家 prompt",
   "pm.projOwner": "Owner（產品負責人）",
-  "pm.createProject": "建立產品"
+  "pm.createProject": "建立產品",
+  "ru.loadFromModule": "從模組載入",
+  "ru.modulePicker.title": "載入 App 模組",
+  "ru.modulePicker.hint": "把 installed-apps 的模組註冊成 Release Unit — 用 coding app 直接開發模組本體（EM 派工 → 委員會 review），改完重啟生效",
+  "ru.modulePicker.empty": "沒有可載入的模組 — 先到 📦 App Modules scaffold 一個",
+  "ru.modulePicker.disabled": "停用"
 }

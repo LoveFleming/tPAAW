@@ -137,7 +137,7 @@ export default function Secretary() {
               <div className="flex items-center group">
                 <button
                   onClick={() => pickCategory(c)}
-                  className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${activeAgent === (c.agentId || `secret.${c.id}`) && tab === "chat" ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
+                  className={`flex-1 min-w-0 flex items-center gap-2 px-5 py-2 text-sm text-left transition-colors ${activeAgent === (c.agentId || `secret.${c.id}`) && tab === "chat" ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
                 >
                   <span className="text-sm">{expanded === c.id ? "▾" : "▸"}</span>
                   <span>{c.emoji}</span>
@@ -152,12 +152,12 @@ export default function Secretary() {
               </div>
               {expanded === c.id && (
                 <div className="pb-1">
-                  {c.files.length === 0 && <div className="px-9 py-1 text-[11px] text-stone-300">{t("secret.emptyCat", "空櫃 — 上傳或請專家記錄")}</div>}
+                  {c.files.length === 0 && <div className="px-11 py-1 text-[11px] text-stone-300">{t("secret.emptyCat", "空櫃 — 上傳或請專家記錄")}</div>}
                   {c.files.map(f => (
                     <button
                       key={f.name}
                       onClick={() => { openDossier(c.id, f.name, f.sheet); setTab("chat"); }}
-                      className={`w-full text-left px-9 py-1 text-xs truncate transition-colors ${openFile && openFile.cat === c.id && openFile.name === f.name ? "text-stone-900 font-semibold bg-stone-50" : "text-stone-500 hover:text-stone-800"}`}
+                      className={`w-full text-left px-11 py-1 text-xs truncate transition-colors ${openFile && openFile.cat === c.id && openFile.name === f.name ? "text-stone-900 font-semibold bg-stone-50" : "text-stone-500 hover:text-stone-800"}`}
                     >{f.sheet ? "📊 " : "📄 "}{f.name}</button>
                   ))}
                 </div>

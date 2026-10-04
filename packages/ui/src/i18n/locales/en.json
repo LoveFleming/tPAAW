@@ -1643,5 +1643,10 @@
   "pm.projId": "English id (optional, e.g. ai-portal; auto-numbered if blank)",
   "pm.projGoal": "One-line goal (what counts as success) — goes into product.md & the steward prompt",
   "pm.projOwner": "Owner (product owner)",
-  "pm.createProject": "Create Product"
+  "pm.createProject": "Create Product",
+  "ru.loadFromModule": "Load from Module",
+  "ru.modulePicker.title": "Load App Module",
+  "ru.modulePicker.hint": "Register an installed-apps module as a Release Unit — develop the module itself in the coding app (EM dispatch → committee review); restart to apply changes",
+  "ru.modulePicker.empty": "No modules to load — scaffold one in 📦 App Modules first",
+  "ru.modulePicker.disabled": "disabled"
 }

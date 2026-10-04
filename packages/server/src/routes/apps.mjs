@@ -28,7 +28,7 @@ export async function appModulesRoutes(req, res) {
 
   // GET /api/apps/modules — 清單（UI nav 用）
   if (req.method === "GET" && path === "/api/apps/modules") {
-    const mods = listAppModules().map(m => ({ id: m.id, name: m.name, version: m.version, nav: m.nav, enabled: m.enabled, error: m.error || null }));
+    const mods = listAppModules().map(m => ({ id: m.id, name: m.name, version: m.version, nav: m.nav, enabled: m.enabled, error: m.error || null, dir: m.dir || null }));
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ modules: mods }));
     return true;

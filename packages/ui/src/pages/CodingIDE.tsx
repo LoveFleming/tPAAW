@@ -38,6 +38,7 @@ import CodeIntelPage from "../components/CodeIntelPage";
 import TestsPage from "../components/TestsPage";
 import EMDashboard from "../components/EMDashboard";
 import RuCloneModal from "../components/RuCloneModal";
+import ModulePickerModal from "../components/ModulePickerModal";
 import RuOnboardingModal from "../components/RuOnboardingModal";
 import { GitPanel } from "../components/git";
 import { BrowserPanel } from "../components/browser/BrowserPanel";
@@ -965,6 +966,7 @@ export default function CodingIDE() {
 
   const [showDirExplorer, setShowDirExplorer] = useState(false);
   const [showRuClone, setShowRuClone] = useState(false);
+  const [showModulePicker, setShowModulePicker] = useState(false);
   const [onboardingPath, setOnboardingPath] = useState<string | null>(null);
   // 2026-09-06：wizard「開始 Scan」→ 開 CU modal（不直接跑）；遞增觸發 EMDashboard 開 modal
   const [cuModalRequest, setCuModalRequest] = useState(0);
@@ -1487,12 +1489,12 @@ export default function CodingIDE() {
       .catch(() => {});
   }, []);
 
-  // 註冊 RU（票等，伺服器以 resolved path 去重）
-  const registerRu = useCallback((path: string) => {
+  // 註冊 RU（票等，伺服器以 resolved path 去重；label 可選 — 模組載入帶 🧩 前綴，避免被 git toplevel 蓋掉）
+  const registerRu = useCallback((path: string, label?: string) => {
     fetch(`${API_BASE}/api/ru/workspaces`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path }),
+      body: JSON.stringify({ path, label }),
     })
       .then(r => r.json())
       .then(d => {
@@ -1502,7 +1504,7 @@ export default function CodingIDE() {
   }, []);
 
   // 切換 RU：快取目前樹狀態 → 還原目標樹狀態（沒快體就展開 root）→ 註冊
-  const switchRu = useCallback((path: string) => {
+  const switchRu = useCallback((path: string, label?: string) => {
     if (rootPath && rootPath !== path) {
       ruTreeCacheRef.current.set(rootPath, { expandedDirs: expandedDirsRef.current, dirContents: dirContentsRef.current });
     }
@@ -1518,7 +1520,7 @@ export default function CodingIDE() {
     setRootPath(path);
     setSidebarTab("files");
     expandDir(path);
-    registerRu(path);
+    registerRu(path, label);
   }, [rootPath, expandDir, registerRu]);
 
   // 移除 RU（只移 tab，不碰檔案）
@@ -2493,6 +2495,15 @@ const sendChat = useCallback(async () => {
       />
     )}
 
+    {/* Module Picker Modal（🧩 從 App Module 建 RU — FDE 工作台）*/}
+    {showModulePicker && (
+      <ModulePickerModal
+        theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, text: tk.text }}
+        onClose={() => setShowModulePicker(false)}
+        onPicked={(path, label) => { setShowModulePicker(false); switchRu(path, label); setOnboardingPath(path); }}
+      />
+    )}
+
     {/* RU Onboarding Modal（import/clone 後：掃描 → Skill 建議 → CU）*/}
     {onboardingPath && (
       <RuOnboardingModal
@@ -2913,6 +2924,10 @@ const sendChat = useCallback(async () => {
                   <button onClick={() => setShowDirExplorer(true)}
                     className="w-full text-xs px-2 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-center whitespace-nowrap">
                     📂 {tt("ru.import", "Import")}
+                  </button>
+                  <button onClick={() => setShowModulePicker(true)}
+                    className="w-full text-xs px-2 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-center whitespace-nowrap">
+                    🧩 {tt("ru.loadFromModule", "Load from Module")}
                   </button>
                   <button onClick={() => setShowRuClone(true)}
                     className="w-full text-xs px-2 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-center whitespace-nowrap">

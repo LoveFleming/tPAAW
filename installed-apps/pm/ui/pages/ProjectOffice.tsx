@@ -143,7 +143,7 @@ export default function ProjectOffice() {
               <div className="flex items-center group">
                 <button
                   onClick={() => pickProject(p)}
-                  className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${activeAgent === (p.agentId || `pm.${p.id}`) && tab === "chat" ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
+                  className={`flex-1 min-w-0 flex items-center gap-2 px-5 py-2 text-sm text-left transition-colors ${activeAgent === (p.agentId || `pm.${p.id}`) && tab === "chat" ? "bg-stone-100 font-bold text-stone-900" : "text-stone-600 hover:bg-stone-50"}`}
                 >
                   <span className="text-sm">{expanded === p.id ? "▾" : "▸"}</span>
                   <span>{p.emoji}</span>
@@ -158,12 +158,12 @@ export default function ProjectOffice() {
               </div>
               {expanded === p.id && (
                 <div className="pb-1">
-                  {p.files.length === 0 && <div className="px-9 py-1 text-[11px] text-stone-300">{t("pm.emptyProj", "空櫃 — 上傳或請管家記錄")}</div>}
+                  {p.files.length === 0 && <div className="px-11 py-1 text-[11px] text-stone-300">{t("pm.emptyProj", "空櫃 — 上傳或請管家記錄")}</div>}
                   {p.files.map(f => (
                     <button
                       key={f.name}
                       onClick={() => { openDossier(p.id, f.name, f.sheet); setTab("chat"); }}
-                      className={`w-full text-left px-9 py-1 text-xs truncate transition-colors ${openFile && openFile.proj === p.id && openFile.name === f.name ? "text-stone-900 font-semibold bg-stone-50" : "text-stone-500 hover:text-stone-800"}`}
+                      className={`w-full text-left px-11 py-1 text-xs truncate transition-colors ${openFile && openFile.proj === p.id && openFile.name === f.name ? "text-stone-900 font-semibold bg-stone-50" : "text-stone-500 hover:text-stone-800"}`}
                     >{f.sheet ? "📊 " : "📄 "}{f.name}</button>
                   ))}
                 </div>

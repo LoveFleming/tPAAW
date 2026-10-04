@@ -120,3 +120,5 @@ coverage/
 
 # App Modules 資料（不進 git；備份走 vault-backup 外部 repo）
 data/installed-apps/
+# 模組 RU 開發 runtime（Load from Module 註冊時 crew provision 產生）
+installed-apps/*/.paaw/
