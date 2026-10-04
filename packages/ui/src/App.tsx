@@ -899,6 +899,14 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />
+                <NavItem active={activePage.endsWith(":appmodules")} label={t("sidebar.appModules")} onClick={openAppModules} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+
+              </div>
+            </SidebarSection>
+
+            {/* 📊 Reports */}
+            <SidebarSection title={t("sidebar.reports")}>
+              <div>
                 <NavItem
                   active={activePage.endsWith(":llm-log")}
                   label={t("sidebar.llmLog")}
@@ -920,8 +928,6 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />
-                <NavItem active={activePage.endsWith(":appmodules")} label={t("sidebar.appModules")} onClick={openAppModules} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-
               </div>
             </SidebarSection>
 
