@@ -16,6 +16,7 @@ import { DATA_HOME } from "../data-home.mjs";
 import { fileURLToPath } from "url";
 import { createInterface } from "readline";
 import { stepCostUsd } from "./ru-resolver.mjs";
+import { shipAgentLogEvent } from "./es-shipper.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -39,8 +40,14 @@ export function startAgentLog(taskInfo) {
   const startTime = Date.now();
   const logFile = join(LOG_DIR, `${taskId}.jsonl`);
   const steps = [];
+  // ES shipping（PAAW_ES_URL 有設定才生效）：_id 行號與檔案對齊，與外部 shipper 冪等相容
+  let esRecNo = 0;
+  let esTaskInfo = null;
 
   const log = (entry) => {
+    if (entry.phase === "task_start" && entry.taskInfo) esTaskInfo = entry.taskInfo;
+    esRecNo += 1;
+    shipAgentLogEvent({ taskId, recNo: esRecNo, entry, startTime, taskInfo: esTaskInfo });
     const line = JSON.stringify({ ...entry, _ts: Date.now() - startTime }) + "\n";
     appendFile(logFile, line).catch(() => {});
   };

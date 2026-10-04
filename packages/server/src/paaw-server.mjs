@@ -77,6 +77,11 @@ import("./lib/agent-exec-logger.mjs").then(m => m.backfillIndexCwd?.())
   .then(n => { if (n > 0) console.log(`[agent-logs] backfilled cwd for ${n} entries`); })
   .catch(() => {});
 
+// ── ES log shipping（2026-10-04）：.env 設 PAAW_ES_URL 才開啟，沒設 = 完全關閉 ──
+import("./lib/es-shipper.mjs").then(m => m.initEsShipper?.()).catch(e => {
+  console.warn("[es-shipper] init 失敗：", e.message);
+});
+
 // ── Start bridge AFTER .env is loaded (shared.mjs already loaded via static import) ──
 // Bridge no longer auto-listens on import; we start it explicitly here.
 const shouldStartBridge = process.env.BRIDGE_PORT && process.env.BRIDGE_PORT !== "0";
