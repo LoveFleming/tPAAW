@@ -77,6 +77,9 @@ import("./lib/agent-exec-logger.mjs").then(m => m.backfillIndexCwd?.())
   .then(n => { if (n > 0) console.log(`[agent-logs] backfilled cwd for ${n} entries`); })
   .catch(() => {});
 
+// ── Log 統一（2026-10-05）：舊 data/logs/{llm,agent,cron} 搬去 log/logs/（一次性冪等遷移）──
+import("./lib/asset-log-migrate.mjs").then(m => m.migrateAssetLogs?.()).catch(() => {});
+
 // ── ES log shipping（2026-10-04）：.env 設 PAAW_ES_URL 才開啟，沒設 = 完全關閉 ──
 import("./lib/es-shipper.mjs").then(m => m.initEsShipper?.()).catch(e => {
   console.warn("[es-shipper] init 失敗：", e.message);

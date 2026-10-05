@@ -46,7 +46,7 @@ import { createPaawProject } from "./paaw-project.mjs";
 import { PaawSnapshot } from "./paaw-snapshot.mjs";
 import { resolveDefaultModel, parseModelReference, jsonStringifySafe, cutSafeStart } from "./llm-utils.mjs";
 import { toolRegistry } from "./tool-registry.mjs";
-import { DATA_HOME, LOG_HOME, logSlug } from "../data-home.mjs";
+import { DATA_HOME, LOG_HOME, ASSET_LOGS_ROOT, logSlug } from "../data-home.mjs";
 import {
   getBrowserPage, takeScreenshot, trackPage, readPageText, locateTarget,
   assertSafeUrl, browserState, PLAYWRIGHT_INSTALL_HINT, resolveBrowserKey,
@@ -4129,7 +4129,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
   };
   const _logStreamRequest = () => {
     try {
-      const logDir = join(DATA_HOME, "logs", "llm");
+      const logDir = join(ASSET_LOGS_ROOT, "llm");
       mkdirSync(logDir, { recursive: true });
       const dateStr = new Date().toISOString().slice(0, 10);
       const logPath = join(logDir, `${dateStr}.jsonl`);
@@ -4158,7 +4158,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
   // Helper to log stream response (only for stream path)
   const _logStreamResponse = (response, error = null) => {
     try {
-      const logDir = join(DATA_HOME, "logs", "llm");
+      const logDir = join(ASSET_LOGS_ROOT, "llm");
       mkdirSync(logDir, { recursive: true });
       const dateStr = new Date().toISOString().slice(0, 10);
       const logPath = join(logDir, `${dateStr}.jsonl`);
@@ -5128,7 +5128,7 @@ export async function runAgentLoopStream(config, res) {
     // ── Log stream response ──
     if (response._llmCallId) {
       try {
-        const logDir = join(DATA_HOME, "logs", "llm");
+        const logDir = join(ASSET_LOGS_ROOT, "llm");
         mkdirSync(logDir, { recursive: true });
         const dateStr = new Date().toISOString().slice(0, 10);
         const logPath = join(logDir, `${dateStr}.jsonl`);

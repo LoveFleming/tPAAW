@@ -17,12 +17,12 @@ import { readFile, writeFile, mkdir, readdir, stat, unlink, rmdir } from "fs/pro
 import { existsSync } from "fs";
 import { resolve, join } from "path";
 import { readBody } from "./shared.mjs";
-import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
+import { DATA_HOME, LOG_HOME, ASSET_LOGS_ROOT } from "../data-home.mjs";
 import { cleanupOldLogs } from "./llm-logs.mjs";
 import { cleanupOldAgentLogs } from "../lib/agent-exec-logger.mjs";
 
 const CONFIG_FILE = resolve(DATA_HOME, "config/log-retention.json");
-const LOGS_ROOT = resolve(DATA_HOME, "logs"); // 資產級記錄（llm/agent — 永不刪）
+const LOGS_ROOT = ASSET_LOGS_ROOT; // 資產級記錄（llm/agent — 永不刪）；2026-10-05 log 統一 → log/logs
 // runtime log 根（2026-09-06 架構：log/ = 純垃圾桶，data/logs 只剩資產）
 const RUNTIME_LOG_ROOT = LOG_HOME;
 const DEFAULTS = { llmDays: 0, agentDays: 0, otherDays: 7 }; // 0 = 永不刪（成本核算資產）
@@ -70,10 +70,11 @@ async function purgeDirByMtime(dir, days) {
   return deleted;
 }
 
-/** DATA_HOME/logs 下 llm/agent 以外的子目錄 + 頂層散檔 */
-/** runtime log（LOG_HOME/）purge — 跳過 janitor 管理區 + 活檔 */
+/** ASSET_LOGS_ROOT（log/logs）下 llm/agent 以外的子目錄 + 頂層散檔 */
+/** runtime log（LOG_HOME/）purge — 跳過 janitor 管理區 + 活檔 + 資產區 log/logs */
 const JANITOR_MANAGED = new Set([
-  "llm", "agent",              // 資產級（不在 log/ 但防呆）
+  "logs",                      // 資產區（ASSET_LOGS_ROOT）— 另由 purgeAssetLogs 管
+  "llm", "agent",              // 資產級（防呆，舊位置名稱）
   "tmp", "cache",              // session/janitor 管
   "semgrep", "app-console", "versions", // janitor per-RU 組數管理
   "server-console.log", "server-console.log.old", // tee 活檔（5MB 自輪替）
@@ -114,6 +115,26 @@ async function purgeLlmBefore(before) {
   return deleted;
 }
 
+/** log/logs 下 llm/agent 以外的子目錄 + 頂層散檔 — otherDays purge */
+async function purgeAssetOtherLogs(days) {
+  let deleted = 0;
+  if (!existsSync(LOGS_ROOT)) return deleted;
+  const entries = await readdir(LOGS_ROOT, { withFileTypes: true });
+  for (const e of entries) {
+    if (e.name === "llm" || e.name === "agent") continue;
+    const full = join(LOGS_ROOT, e.name);
+    if (e.isDirectory()) {
+      deleted += await purgeDirByMtime(full, days);
+    } else {
+      try {
+        const s = await stat(full);
+        if (s.mtimeMs < Date.now() - days * 24 * 60 * 60 * 1000) { await unlink(full); deleted++; }
+      } catch {}
+    }
+  }
+  return deleted;
+}
+
 export async function runLogPurge(options = {}) {
   const cfg = await loadRetention();
   let llmDeleted = 0;
@@ -124,6 +145,7 @@ export async function runLogPurge(options = {}) {
   }
   const agentDeleted = cfg.agentDays > 0 ? await cleanupOldAgentLogs(cfg.agentDays) : 0;
   const otherDeleted = await purgeOtherLogs(cfg.otherDays);
+  otherDeleted += await purgeAssetOtherLogs(cfg.otherDays); // log/logs 內非資產子目錄（cron 等）
   return { cfg, llmDeleted, agentDeleted, otherDeleted };
 }
 

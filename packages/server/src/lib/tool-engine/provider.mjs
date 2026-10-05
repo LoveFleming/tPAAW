@@ -1,4 +1,4 @@
-import { DATA_HOME } from "../../data-home.mjs";
+import { DATA_HOME, ASSET_LOGS_ROOT } from "../../data-home.mjs";
 // 2026-09-14: LLM request 清毒
 import { jsonStringifySafe } from '../llm-utils.mjs'
 /**
@@ -23,7 +23,7 @@ const PAAW_ROOT = pathResolve(__providerDir, '../../../../')
 /** Append an LLM log entry to data/llm-logs/YYYY-MM-DD.jsonl */
 function _llmLog(entry) {
   try {
-    const logDir = join(DATA_HOME, "logs", "llm")
+    const logDir = join(ASSET_LOGS_ROOT, "llm")
     if (!existsSync(logDir)) mkdirSync(logDir, { recursive: true })
     const dateStr = new Date().toISOString().slice(0, 10)
     const logPath = join(logDir, `${dateStr}.jsonl`)

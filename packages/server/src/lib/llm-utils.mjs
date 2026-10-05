@@ -31,7 +31,7 @@ import { resolve, join } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { mkdirSync, appendFileSync } from "fs";
-import { DATA_HOME } from "../data-home.mjs";
+import { DATA_HOME, ASSET_LOGS_ROOT } from "../data-home.mjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -835,7 +835,7 @@ const _PAAW_ROOT = resolve(dirname(__filename), "../../../../");
 
 function _writeLlmLog(entry) {
   try {
-    const logDir = join(DATA_HOME, "logs", "llm");
+    const logDir = join(ASSET_LOGS_ROOT, "llm");
     mkdirSync(logDir, { recursive: true });
     const dateStr = new Date().toISOString().slice(0, 10);
     const logPath = join(logDir, `${dateStr}.jsonl`);

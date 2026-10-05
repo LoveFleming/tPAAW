@@ -12,7 +12,7 @@
 import { mkdir, appendFile, readFile, writeFile, readdir, stat, open } from "fs/promises";
 import { existsSync, createReadStream } from "fs";
 import { join, resolve, dirname } from "path";
-import { DATA_HOME } from "../data-home.mjs";
+import { ASSET_LOGS_ROOT } from "../data-home.mjs";
 import { fileURLToPath } from "url";
 import { createInterface } from "readline";
 import { stepCostUsd } from "./ru-resolver.mjs";
@@ -21,7 +21,7 @@ import { shipAgentLogEvent } from "./es-shipper.mjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export const LOG_DIR = join(DATA_HOME, "logs", "agent");
+export const LOG_DIR = join(ASSET_LOGS_ROOT, "agent");
 export const INDEX_FILE = join(LOG_DIR, "index.json");
 // 2026-09-16 Fleming：執行記錄不刪（index 上限 100000 = 實務上全保留），之後要接 Elasticsearch 存放
 const MAX_INDEX = 100000;

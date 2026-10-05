@@ -225,10 +225,11 @@ async function legacySweep(root, cfg, report) {
       if (!existsSync(p)) continue;
       try { await rm(p, { recursive: true, force: true }); deleted++; } catch {}
     }
-    // 空目錄收尾
-    for (const sub of ["cli", "cron", "browser", "browser-executor", "crash"]) {
+    // 空目錄收尾（2026-10-05 log 統一後 llm/agent 也搬去 log/logs，剩空殼就收掉）
+    for (const sub of ["cli", "cron", "browser", "browser-executor", "crash", "llm", "agent"]) {
       try { await rmdir(join(oldLogs, sub)); } catch {}
     }
+    try { await rmdir(oldLogs); } catch {}
   }
 
   report.legacyDeleted += deleted;

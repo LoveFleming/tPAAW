@@ -9,8 +9,8 @@
 import { readdirSync, readFileSync, unlinkSync, statSync, mkdirSync } from "fs";
 import { join, resolve } from "path";
 
-import { DATA_HOME } from "../data-home.mjs";
-const LOG_DIR = resolve(DATA_HOME, "logs", "llm");
+import { DATA_HOME, ASSET_LOGS_ROOT } from "../data-home.mjs";
+const LOG_DIR = join(ASSET_LOGS_ROOT, "llm");
 
 function ensureLogDir() {
   mkdirSync(LOG_DIR, { recursive: true });

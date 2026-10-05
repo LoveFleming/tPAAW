@@ -127,7 +127,7 @@ function _scopeToFeatures(fileScope, idx) {
 
 /**
  * 建 Cost Report。
- * @param {string} paawRoot — PAAW root（llm logs 在 data/logs/llm）
+ * @param {string} paawRoot — PAAW root（llm logs 在 log/logs/llm，2026-10-05 統一）
  * @param {object} [opts] — { days=30, projectRoot=null }
  */
 export function buildCostReport(paawRoot, opts = {}) {
@@ -135,7 +135,7 @@ export function buildCostReport(paawRoot, opts = {}) {
   const projectRoot = opts.projectRoot || null;
 
   // 1. LLM logs
-  const llmDir = join(paawRoot, "data", "logs", "llm");
+  const llmDir = join(paawRoot, "log", "logs", "llm");
   const todayStr = new Date().toISOString().slice(0, 10);
   let logDays = [];
   try { logDays = readdirSync(llmDir).filter(f => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(f)).map(f => f.replace(".jsonl", "")); } catch {}

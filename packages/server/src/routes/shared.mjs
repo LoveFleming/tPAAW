@@ -14,7 +14,7 @@ import { fileURLToPath } from "url";
 import { spawn } from "child_process";
 import yaml from "js-yaml";
 import chokidar from "chokidar";
-import { DATA_HOME } from "../data-home.mjs";
+import { DATA_HOME, ASSET_LOGS_ROOT } from "../data-home.mjs";
 
 // ── Path constants ──
 const __filename = fileURLToPath(import.meta.url);
@@ -43,7 +43,7 @@ const APP_RULES_PATH = resolve(DATA_HOME, "config/app-builder-rules.md");
 
 // Cron / scheduler paths
 const CRON_JOBS_FILE = resolve(DATA_HOME, "cron/cron-jobs.json");
-const CRON_LOGS_DIR = resolve(DATA_HOME, "logs/cron"); // Fleming 政策：cron 紀錄 7 天清（log-retention）— DATA_HOME 跨版本
+const CRON_LOGS_DIR = join(ASSET_LOGS_ROOT, "cron"); // Fleming 政策：cron 紀錄 7 天清（log-retention）；2026-10-05 log 統一 → log/logs/cron
 const CRON_RESULTS_DIR = resolve(PAAW_ROOT, "logs/cron-results");
 const CRON_CHAT_DIR = resolve(DATA_HOME, "chats");
 

@@ -5,7 +5,7 @@
  * 設 PAAW_DATA_HOME 環境變數可把 data 指到版本目錄之外 —
  * tpaaw-gateway 用這個讓 versions/<v>/ 裡的 code 讀寫 HOME/data（更新永不覆蓋使用者資料）。
  */
-import { resolve, dirname } from "node:path";
+import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -28,3 +28,10 @@ export const LOG_HOME = process.env.PAAW_LOG_HOME
 export function logSlug(root) {
   return (root || "").toString().replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "ru";
 }
+
+/**
+ * ASSET_LOGS_ROOT — 資產級 log 根（2026-10-05 Fleming：log 只用一個目錄）
+ * log/logs/ 下：llm（成本核算，永不刪）、agent（ES 資料源，永不刪）、cron（7 天清）。
+ * 舊 data/logs/ 已遷移；janitor 對 data/logs 做 legacy sweep、不碰 log/logs。
+ */
+export const ASSET_LOGS_ROOT = join(LOG_HOME, "logs");
