@@ -175,6 +175,42 @@ function _normCode(c) {
  * 完整整理：收集 → LLM 語意整理 → normalize → 寫 .paaw/error-codes.json
  * @param callLLM async ({messages, temperature, thinking}) => {content}
  */
+/**
+ * 截斷 JSON 修復：LLM 回應被 max_tokens 砍半時，從最後一個完整元素切斷、
+ * 補上未閉合的 }/]，儘量救回已完成的部分。回傳 null = 救不回來。
+ */
+function repairTruncatedJson(txt) {
+  const CLOSER = { "{": "}", "[": "]" };
+  const stack = [];
+  let inStr = false, esc = false;
+  const safePos = [0]; // 可安全截斷的位置（完整元素/逗號之後）
+  for (let i = 0; i < txt.length; i++) {
+    const ch = txt[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') { inStr = false; safePos.push(i + 1); }
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === "{" || ch === "[") stack.push(ch);
+    else if (ch === "}" || ch === "]") { stack.pop(); safePos.push(i + 1); }
+    else if (ch === ",") safePos.push(i);
+  }
+  // 從最後一個安全位置往回試：切斷 → 砍殘尾 → 補 closers → parse；第一個成功的就採用
+  for (let k = safePos.length - 1; k >= 0; k--) {
+    let out = txt.slice(0, safePos[k]).replace(/,\s*$/, "");
+    // 尾端殘留半個 key（"xxx" 後面沒有 : value）也砍掉
+    out = out.replace(/,\s*"[^"\\]*(?:\\.[^"\\]*)*"\s*$/, "");
+    const closers = [...stack].reverse().map(c => CLOSER[c]).join("");
+    try {
+      const v = JSON.parse(out + closers);
+      if (v && typeof v === "object") return v;
+    } catch { /* 往前一個安全點再試 */ }
+  }
+  return null;
+}
+
 export async function organizeErrorCodes(root, { callLLM, onProgress, timeoutMs = 600_000 } = {}) {
   const material = collectErrorSignals(root);
   if (!material.totalSignals) {
@@ -203,7 +239,17 @@ export async function organizeErrorCodes(root, { callLLM, onProgress, timeoutMs 
   if (!txt) throw new Error("empty LLM response");
   const fence = txt.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fence) txt = fence[1].trim();
-  const parsed = JSON.parse(txt);
+  // 2026-10-06：LLM 回應被 max_tokens 截斷 → JSON.parse 炸 "Unterminated string at position N"；先原樣試，失敗用截斷修復救回已完成部分
+  let parsed;
+  try {
+    parsed = JSON.parse(txt);
+  } catch (firstErr) {
+    parsed = repairTruncatedJson(txt);
+    if (!parsed) {
+      throw new Error(`error-codes LLM JSON parse failed: ${firstErr.message}（回應可能被 max_tokens 截斷 — 調高 providers.json 的 model maxTokens 或縮小掃描範圍後重試）`);
+    }
+    console.warn(`[error-code-scan] LLM JSON truncated — repaired partial result (original error: ${firstErr.message})`);
+  }
 
   // normalize + 驗證：只留素材中存在的 featureId；codes 必須帶 file
   const validIds = new Set(material.features.map(f => f.featureId));
