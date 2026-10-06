@@ -40,6 +40,7 @@ interface ScanStats {
 interface ScanResult {
   findings: Finding[];
   stats: ScanStats;
+  scannedAt?: string;
   error?: string;
   warning?: string;
 }
@@ -150,6 +151,9 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
 
   const findings = scanResult?.findings || [];
   const stats = scanResult?.stats;
+  // 舊版 scan-results.json 的 filesScanned 可能是 semgrep 原生的檔案路徑陣列 — 防禦性處理
+  const filesScanned = Array.isArray(stats?.filesScanned) ? stats.filesScanned.length : (stats?.filesScanned || 0);
+  const lastScanAt = scanResult?.scannedAt;
 
   // Filter findings
   const filteredFindings = findings.filter(f => {
@@ -281,7 +285,10 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
         <div className="flex-1 flex flex-col items-center justify-center gap-3">
           <div className="text-5xl">✅</div>
           <div className="text-green-600 text-sm font-semibold">No issues found!</div>
-          <div className="text-stone-400 text-xs">Scanned {stats?.filesScanned || 0} files with {stats?.rulesRun || 0} rules</div>
+          <div className="text-stone-400 text-xs">
+            {lastScanAt ? `Last scan: ${new Date(lastScanAt).toLocaleString()}` : null}
+            {lastScanAt ? " · " : ""}Scanned {filesScanned} files with {stats?.rulesRun || 0} rules
+          </div>
           {scanResult.warning && (
             <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-1.5 max-w-lg whitespace-pre-wrap">
               ⚠️ {scanResult.warning}

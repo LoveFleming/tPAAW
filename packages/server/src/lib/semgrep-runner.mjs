@@ -555,6 +555,8 @@ export async function runSemgrep(projectRoot, options = {}) {
   LOG("runSemgrep: done —", findings.length, "findings,", filesAffected.size, "files affected, parsed from:", parseSource);
 
   // ── Step 10: Save results ──
+  // semgrep 的 raw.paths.scanned 是檔案路徑「陣列」，不是數字 — 只存數量，避免 UI 顯示密密麻麻檔案列表
+  const filesScannedCount = Array.isArray(raw.paths?.scanned) ? raw.paths.scanned.length : (raw.paths?.scanned || 0);
   const secDir = join(projectRoot, ".paaw", "security");
   try {
     if (!existsSync(secDir)) mkdirSync(secDir, { recursive: true });
@@ -564,12 +566,12 @@ export async function runSemgrep(projectRoot, options = {}) {
         total: findings.length,
         bySeverity,
         byCategory,
-        filesScanned: raw.paths?.scanned || 0,
+        filesScanned: filesScannedCount,
         filesAffected: filesAffected.size,
         rulesRun: raw.checks?.performed || rulePacks.length,
         rulePacks,
       },
-      raw: { version: raw.version, paths: raw.paths },
+      raw: { version: raw.version, paths: { scanned: filesScannedCount } },
       scannedAt: new Date().toISOString(),
     };
     writeFileSync(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
@@ -585,12 +587,12 @@ export async function runSemgrep(projectRoot, options = {}) {
       total: findings.length,
       bySeverity,
       byCategory,
-      filesScanned: raw.paths?.scanned || 0,
+      filesScanned: filesScannedCount,
       filesAffected: filesAffected.size,
       rulesRun: raw.checks?.performed || rulePacks.length,
       rulePacks,
     },
-    raw: { version: raw.version, paths: raw.paths },
+    raw: { version: raw.version, paths: { scanned: filesScannedCount } },
   };
 
   if (execError && findings.length === 0) {
