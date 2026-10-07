@@ -825,7 +825,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                 style={{ borderColor: tk.accentBorder || tk.accent + "99", color: tk.accent }}
                 title={t("emDash.reportsTitle")}
               >
-                📋
+                📄
               </button>
               {/* New conversation button — 2026-09-12：✨ 改 💬（跟林雨晴 chat 圖示一致） */}
               <button
