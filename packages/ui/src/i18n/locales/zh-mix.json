@@ -182,6 +182,8 @@
   "cu.stale.mechanical": "項機械層待重掃",
   "cu.stale.smart": "項智能層待重跑",
   "emDash.dispatchDone": "自動派工完成",
+  "emDash.reportsTitle": "派工報告",
+  "emDash.reportsEmpty": "尚無報告",
   "emDash.dispatchFailed": "自動派工失敗",
   "emDash.dispatchRunning": "自動派工執行中",
   "emDash.dispatchStarted": "自動派工已啟動（背景執行，每個 task 獨立 context 逐一處理）",

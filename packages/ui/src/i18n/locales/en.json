@@ -182,6 +182,8 @@
   "cu.stale.mechanical": "mechanical steps to rescan",
   "cu.stale.smart": "smart steps to rerun",
   "emDash.dispatchDone": "Auto dispatch completed",
+  "emDash.reportsTitle": "Dispatch Reports",
+  "emDash.reportsEmpty": "No reports yet",
   "emDash.dispatchFailed": "Auto dispatch failed",
   "emDash.dispatchRunning": "Auto dispatch running",
   "emDash.dispatchStarted": "Auto-dispatch started (background, each task runs in its own context)",

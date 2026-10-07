@@ -239,6 +239,12 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   // ── EM Config ──
   const [emConfig, setEmConfig] = useState<any>(null);
   const [showEmConfig, setShowEmConfig] = useState(false);
+  // 📋 派工報告 viewer（2026-10-07：reports API 一直在，UI 在 dispatch view 移除時被清掉 — 補回）
+  const [reportsOpen, setReportsOpen] = useState(false);
+  const [reportsList, setReportsList] = useState<{ date: string; size?: number; summary?: string }[]>([]);
+  const [reportDate, setReportDate] = useState<string | null>(null);
+  const [reportContent, setReportContent] = useState<string>("");
+  const [reportLoading, setReportLoading] = useState(false);
   const [emConfigDirty, setEmConfigDirty] = useState(false);
   const [emProviders, setEmProviders] = useState<any[]>([]); // 2026-09-29：EM model 設定用
 
@@ -327,6 +333,42 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
 
   // ── Load persisted step statuses when opening Modal ──
   const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number; error?: string; progress?: string }>>([]);
+  const openReports = useCallback(async (date?: string | null) => {
+    setReportsOpen(true);
+    setReportLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-reports/list?path=${encodeURIComponent(rootPath || "")}`);
+      const d = await res.json();
+      const list = (d.reports || []) as { date: string; size?: number; summary?: string }[];
+      setReportsList(list);
+      const pick = date || list[0]?.date || null;
+      setReportDate(pick);
+      if (pick) {
+        const r2 = await fetch(`${API_BASE}/api/coding-reports/${pick}?path=${encodeURIComponent(rootPath || "")}`);
+        const d2 = await r2.json();
+        setReportContent(d2.content || t("emDash.reportsEmpty"));
+      } else {
+        setReportContent(t("emDash.reportsEmpty"));
+      }
+    } catch (e: any) {
+      setReportContent(`❌ ${e.message}`);
+    } finally {
+      setReportLoading(false);
+    }
+  }, [rootPath]);
+  const pickReport = useCallback(async (date: string) => {
+    setReportDate(date);
+    setReportLoading(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-reports/${date}?path=${encodeURIComponent(rootPath || "")}`);
+      const d = await r.json();
+      setReportContent(d.content || t("emDash.reportsEmpty"));
+    } catch (e: any) {
+      setReportContent(`❌ ${e.message}`);
+    } finally {
+      setReportLoading(false);
+    }
+  }, [rootPath]);
   // ── CU step skill 綁定（PAAW skill 綁到 cu.<stepId>）──
   const [cuSkillBindings, setCuSkillBindings] = useState<Record<string, string[]>>({});
   const [cuSkillNames, setCuSkillNames] = useState<Record<string, string>>({});
@@ -776,6 +818,15 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
               >
                 🧠
               </button>
+              {/* 📋 派工報告 viewer（2026-10-07 補回） */}
+              <button
+                onClick={() => openReports()}
+                className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50"
+                style={{ borderColor: tk.accentBorder || tk.accent + "99", color: tk.accent }}
+                title={t("emDash.reportsTitle")}
+              >
+                📋
+              </button>
               {/* New conversation button — 2026-09-12：✨ 改 💬（跟林雨晴 chat 圖示一致） */}
               <button
                 onClick={async () => {
@@ -1174,7 +1225,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                 ? (adStatus?.lastEvent?.message || "...")
                 : (adStatus?.status === "failed" ? (adStatus?.error || "") : (adStatus?.duration ? `${Math.round(adStatus.duration / 1000)}s` : ""))}
             </span>
-            <button onClick={() => {}} className="shrink-0 px-2 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold">{t("emDash.view")} →</button>
+            <button onClick={() => openReports()} className="shrink-0 px-2 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold">{t("emDash.view")} →</button>
           </div>
         )}
 
@@ -1231,8 +1282,8 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                             if (el2) el2.scrollTop = el2.scrollHeight;
                             }
                             if (action.type === "openReport" && action.reportId) {
-                              // Open Auto Dispatch tab (reports live there)
-                              // dispatch view removed;
+                              // 📋 派工報告 viewer（2026-10-07 補回）
+                              openReports(String(action.reportId));
                             }
                           }}
                           disabled={action.type === "confirmPlan" && emRunning}
@@ -1527,6 +1578,40 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                 <pre className="whitespace-pre-wrap text-xs bg-stone-50 p-3 rounded-lg max-h-48 overflow-y-auto border border-stone-200">{typeof ctx.content === "string" ? ctx.content : JSON.stringify(ctx.content, null, 2) || "(empty)"}</pre>
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+    )}
+    {/* 📋 派工報告 viewer modal（2026-10-07 補回） */}
+    {reportsOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={() => setReportsOpen(false)}>
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col overflow-hidden border border-stone-200" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-stone-200 shrink-0">
+            <span className="text-sm font-bold text-stone-700">📋 {t("emDash.reportsTitle")}</span>
+            <button onClick={() => setReportsOpen(false)} className="text-xs text-stone-400 hover:text-stone-600">✕</button>
+          </div>
+          <div className="flex-1 flex min-h-0">
+            {/* 左側：報告清單 */}
+            <div className="w-52 shrink-0 border-r border-stone-200 overflow-y-auto py-2" style={{ scrollbarWidth: "thin" }}>
+              {reportsList.length === 0 && !reportLoading && (
+                <p className="text-xs text-stone-400 px-3 py-2">{t("emDash.reportsEmpty")}</p>
+              )}
+              {reportsList.map(r => (
+                <button key={r.date} onClick={() => pickReport(r.date)}
+                  className={cn("w-full text-left px-3 py-2 text-xs hover:bg-stone-50 transition-colors", reportDate === r.date ? "bg-purple-50 font-bold text-purple-700" : "text-stone-600")}>
+                  <div>🗓️ {r.date}</div>
+                  {r.summary && <div className="text-[10px] text-stone-400 truncate" title={r.summary}>{r.summary}</div>}
+                </button>
+              ))}
+            </div>
+            {/* 右側：報告內容 */}
+            <div className="flex-1 min-w-0 overflow-y-auto px-5 py-4" style={{ scrollbarWidth: "thin" }}>
+              {reportLoading ? (
+                <p className="text-xs text-stone-400 animate-pulse">⏳ …</p>
+              ) : (
+                <MarkdownText>{reportContent}</MarkdownText>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -182,6 +182,8 @@
   "cu.stale.mechanical": "件の機械層の再スキャンが必要",
   "cu.stale.smart": "件の智能層の再実行が必要",
   "emDash.dispatchDone": "自動ディスパッチ完了",
+  "emDash.reportsTitle": "ディスパッチレポート",
+  "emDash.reportsEmpty": "レポートはまだありません",
   "emDash.dispatchFailed": "自動ディスパッチ失敗",
   "emDash.dispatchRunning": "自動ディスパッチ実行中",
   "emDash.dispatchStarted": "自動ディスパッチを開始しました（バックグラウンド、各タスク独立コンテキスト）",
