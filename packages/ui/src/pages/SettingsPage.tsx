@@ -7,10 +7,12 @@ import { invalidateModelSelectorCache } from "../components/ModelSelector";
 import BackupSettings from "./BackupSettings";
 import PluginManager from "./PluginManager";
 import { uiAlertError, uiConfirm } from "../components/ui/uiFeedback";
+import { cn } from "../utils";
 
 interface ModelData {
   id: string;
   name: string;
+  vision?: boolean;
   contextWindow?: number;
   maxTokens?: number;
   pricing?: { inputPerMillion?: number; outputPerMillion?: number };
@@ -198,6 +200,11 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   const handleModelPricing = (pid: string, mid: string, field: string, raw: string) => {
     const value = raw === "" ? undefined : Number(raw);
     setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.map(m => m.id === mid ? { ...m, pricing: { ...m.pricing, [field]: value } } : m) } }));
+    setSaved(false); setDirty(true);
+  };
+
+  const handleModelBool = (pid: string, mid: string, field: "vision", value: boolean) => {
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.map(m => m.id === mid ? { ...m, [field]: value } : m) } }));
     setSaved(false); setDirty(true);
   };
 
@@ -447,6 +454,15 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                               title={t("settings.deleteModel")}>✕</button>
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div>
+              <label className="text-[9px] font-bold text-stone-300 uppercase tracking-wider block mb-0.5">👁 Vision</label>
+              <button onClick={() => handleModelBool(pid, m.id, "vision", !m.vision)}
+                className={cn("w-full px-2 py-1 rounded border text-[11px] font-medium transition-colors",
+                  m.vision ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "bg-white border-stone-200 text-stone-400 hover:border-stone-300")}
+                title="此 model 能吃圖（vision routing 用）">
+                {m.vision ? "✓ 支援影像" : "純文字"}
+              </button>
+            </div>
             <div>
               <label className="text-[9px] font-bold text-stone-300 uppercase tracking-wider block mb-0.5">{t("settings.modelCtx")}</label>
               <input type="number" value={m.contextWindow ?? ""} onChange={e => handleModelField(pid, m.id, "contextWindow", e.target.value)}
