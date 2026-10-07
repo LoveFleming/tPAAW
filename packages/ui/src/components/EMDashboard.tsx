@@ -1587,7 +1587,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={() => setReportsOpen(false)}>
         <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col overflow-hidden border border-stone-200" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-stone-200 shrink-0">
-            <span className="text-sm font-bold text-stone-700">📋 {t("emDash.reportsTitle")}</span>
+            <span className="text-sm font-bold text-stone-700">📄 {t("emDash.reportsTitle")}</span>
             <button onClick={() => setReportsOpen(false)} className="text-xs text-stone-400 hover:text-stone-600">✕</button>
           </div>
           <div className="flex-1 flex min-h-0">
