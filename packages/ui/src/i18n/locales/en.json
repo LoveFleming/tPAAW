@@ -575,6 +575,7 @@
   "sideChat.current": "Current conversation",
   "sideChat.backToActive": "Back to current chat",
   "sideChat.activeBadge": "Current",
+  "sideChat.resize": "Drag to resize",
   "qaRecords.toolbar": "QA Records",
   "qaRecords.total": "Total",
   "qaRecords.statusOpen": "Open",

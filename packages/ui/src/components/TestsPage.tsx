@@ -13,6 +13,7 @@ import React, { useEffect, useMemo, useRef, useState, forwardRef } from "react";
 import { useI18n } from "../i18n";
 import { useTheme } from "../theme";
 import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
+import { useColResize, ColResizer } from "./ColResizer"; // 2026-10-09：side chat 左右 splitter
 import { useRuModel } from "./useRuModel";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4097";
@@ -46,6 +47,8 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
   const [kindFilter, setKindFilter] = useState<string>("__all__");
   const [expanded, setExpanded] = useState<string | null>(null); // testFile
   const chatRef = useRef<AgentSideChatHandle>(null);
+  // 2026-10-09 Fleming：Tester side chat 左右 splitter + 對話持久化 + model selector（跟 QA browser 同款）
+  const testerPane = useColResize(340, 260, 640);
   React.useImperativeHandle(ref, () => ({
     send: (text: string) => { chatRef.current?.send(text); },
     addFiles: (files: File[]) => { chatRef.current?.addFiles(files); },
@@ -262,7 +265,9 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
       </div>
 
       {/* 右：神 — Tester AI */}
-      <div className="shrink-0 border-l hidden xl:flex flex-col" style={{ width: 340, borderColor: borderLight }}>
+      {/* 2026-10-09 Fleming：跟 QA browser 同款 — splitter 可拖寬 + 三按鈕（persistCrewId）+ model selector */}
+      <ColResizer onDown={testerPane.startDrag} className="hidden xl:block" />
+      <div className="shrink-0 border-l hidden xl:flex flex-col" style={{ width: testerPane.width, borderColor: borderLight }}>
         <AgentSideChat
           ref={chatRef}
           agentId="tester"
@@ -272,6 +277,8 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
           cwd={rootPath}
           accent="#16a34a"
           height="100%"
+          persistCrewId="coding.tester-side"
+          modelFeature="sideChat.tester"
           placeholder={t("tests.testerPlaceholder")}
           suggestions={[
             { label: t("tests.sug1Label"), prompt: t("tests.sug1Prompt") },

@@ -575,6 +575,7 @@
   "sideChat.current": "目前對話",
   "sideChat.backToActive": "回到目前對話",
   "sideChat.activeBadge": "目前",
+  "sideChat.resize": "拖曳調整寬度",
   "qaRecords.toolbar": "QA 記錄",
   "qaRecords.total": "總數",
   "qaRecords.statusOpen": "未結",

@@ -13,6 +13,7 @@ import API_BASE from "../api";
 import { stableStringify, fmtChatTime } from "../utils";
 import { useI18n } from "../i18n";
 import MarkdownText from "./MarkdownText"; // markdown 渲染（含 GFM table）
+import ModelSelector from "./ModelSelector"; // 2026-10-09 Fleming：side chat 跟 crew chat 同款 model selector
 import { uiAlert, uiAlertError } from "./ui/uiFeedback";
 
 // fetch crew 大頭照（AI Crew 頁面同一張）；失敗 fallback emoji
@@ -51,6 +52,8 @@ interface AgentSideChatProps {
   height?: string;          // e.g. "100%" — container height
   persistCrewId?: string;   // 2026-09-17 Fleming：有帶 → 對話持久化到 .paaw/coding-memory/conversations/<id>/，
                              //   並顯示三按鈕（📋 歷史 / 🧠 注入 prompt / 💬 新對話），跟 crew chat 同一套 API
+  modelFeature?: string;    // 2026-10-09 Fleming：有帶 → header 顯示 ModelSelector（跟 crew chat / QA browser 同款），
+                             //   選的 model 透過 a2a params.metadata.model 送出（per-chat user preference）
 }
 
 export interface AgentSideChatHandle {
@@ -70,11 +73,13 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
   accentHover,
   height = "100%",
   persistCrewId,
+  modelFeature,
 }: AgentSideChatProps, ref) {
   const [messages, setMessages] = useState<SideChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [action, setAction] = useState<string>("");
+  const [model, setModel] = useState(""); // 2026-10-09：per-side-chat model override（ModelSelector 初始値讀 user preference）
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null); // 聊天容器：用容器 scrollTo，不用 scrollIntoView（會拖祖先容器）
   const nearBottomRef = useRef(true);
@@ -344,6 +349,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
           params: {
             message: { role: "user", parts: [{ type: "text", text: textPart }, ...uploadedPaths.map(p => ({ type: "image", path: p }))] },
             context: { cwd },
+            metadata: model ? { model } : undefined, // 2026-10-09：跟 crew chat 同協議（params.metadata.model）
             conversationHistory: [...messages, { role: "user", content: textPart }],
           },
           id: `${agentId}-chat-${Date.now()}`,
@@ -418,7 +424,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
       setAction("");
       abortRef.current = null;
     }
-  }, [input, loading, messages, agentId, cwd, pendingImages, pendingFiles, tt, viewingArchive]);
+  }, [input, loading, messages, agentId, cwd, pendingImages, pendingFiles, tt, viewingArchive, model]);
 
   // 外部注入訊息（Handover QA chips → AI；不改變內部訊息流）
   React.useImperativeHandle(ref, () => ({
@@ -486,7 +492,8 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
         <span className="text-xs font-bold text-stone-700">{agentName}</span>
         {loading && <span className="text-[10px] text-stone-400 animate-pulse ml-auto">{action || "處理中…"}</span>}
         {/* 2026-09-17 Fleming：三按鈕（跟 crew chat 一致）— 📋 歷史 / 🧠 注入 prompt / 💬 新對話 */}
-        {persistCrewId && (
+        {/* 2026-10-09 Fleming：加 ModelSelector（modelFeature 有帶就顯示，跟 QA browser / crew chat 同款）*/}
+        {(persistCrewId || modelFeature) && (
           <div className={`${loading ? "" : "ml-auto"} flex items-center gap-1 shrink-0`}>
             {viewingArchive && (
               <button
@@ -514,6 +521,9 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
               className="text-xs px-2 py-1 rounded-lg border border-stone-200 text-stone-500 hover:text-stone-700 hover:bg-stone-50 transition-colors disabled:opacity-30"
               title={tt("sideChat.newChat")}
             >💬</button>
+            {modelFeature && (
+              <ModelSelector feature={modelFeature} value={model} onChange={setModel} />
+            )}
           </div>
         )}
       </div>

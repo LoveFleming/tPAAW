@@ -15,6 +15,7 @@ import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import RuQaSection from "./RuQaSection";
 import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
+import { useColResize, ColResizer } from "./ColResizer"; // 2026-10-09：side chat 左右 splitter
 import MarkdownText from "./MarkdownText";
 
 class HandoverErrorBoundary extends Component<{ children: React.ReactNode }, { error: Error | null }> {
@@ -104,6 +105,8 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
   // Handover tab view：Main Info（交接包）| 新人 12 問（2026-08-22 Fleming）
   const [hoTab, setHoTab] = useState<"main" | "qa">("main");
   const chatRef = useRef<AgentSideChatHandle>(null);
+  // 2026-10-09 Fleming：Handover side chat 左右 splitter + 對話持久化 + model selector（跟 QA browser 同款）
+  const hoPane = useColResize(320, 260, 640);
 
   const refresh = useCallback(async () => {
     if (!rootPath) return;
@@ -366,7 +369,9 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
       </div>
 
       {/* ── 右：Handover AI 助理 ── */}
-      <div className="w-[320px] shrink-0 hidden md:block">
+      {/* 2026-10-09 Fleming：跟 QA browser 同款 — splitter 可拖寬 + 三按鈕（persistCrewId）+ model selector */}
+      <ColResizer onDown={hoPane.startDrag} className="hidden md:block" />
+      <div className="shrink-0 hidden md:block" style={{ width: hoPane.width }}>
         <AgentSideChat ref={chatRef}
           agentId="handover"
           agentName={t("ho.agentName")}
@@ -376,6 +381,8 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
           accent={tk.accent}
           accentHover={tk.accentHover || tk.accent}
           height="100%"
+          persistCrewId="coding.handover-side"
+          modelFeature="sideChat.handover"
           suggestions={[
             { label: t("ho.sug.brief"), prompt: t("ho.sug.briefPrompt") },
             { label: t("ho.sug.why"), prompt: t("ho.sug.whyPrompt") },

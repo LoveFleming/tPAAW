@@ -59,6 +59,7 @@ import FeatureMap from "../components/FeatureMap";
 import ApiMapSidebar from "../components/ApiMapSidebar";
 import ApiTesterTabs from "../components/ApiTesterTabs";
 import AgentSideChat, { type AgentSideChatHandle } from "../components/AgentSideChat";
+import { useColResize, ColResizer } from "../components/ColResizer"; // 2026-10-09：side chat 左右 splitter
 import CrewManager from "../components/CrewManager";
 // ReportsTab removed — merged into AutoDispatchPanel
 import SecurityTab from "../components/SecurityTab";
@@ -1544,6 +1545,8 @@ export default function CodingIDE() {
   const apiDevChatRef = useRef<AgentSideChatHandle>(null);
   // browser 頁 QA 武大安 side chat — 📸 拍目前畫面直接把圖丢進他的 attachment area（2026-09-26）
   const qaBrowserChatRef = useRef<AgentSideChatHandle>(null);
+  // 2026-10-09 Fleming：QA browser side chat 左右 splitter（可拖曳調寬）
+  const qaBrowserPane = useColResize(360, 260, 640);
   const openFile = useCallback(async (path: string) => {
     if (loadingFileRef.current) return; // prevent double-click race
 
@@ -3115,7 +3118,9 @@ const sendChat = useCallback(async () => {
                 <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
                   <BrowserPanel API_BASE={API_BASE} rootPath={rootPath} onCaptureFile={f => qaBrowserChatRef.current?.addFiles([f])} />
                 </div>
-                <div className="shrink-0 border-l hidden md:flex flex-col" style={{ width: 360, borderColor: tk.borderLight }}>
+                {/* 2026-10-09 Fleming：左右 splitter（拖曳調 side chat 寬度）*/}
+                <ColResizer onDown={qaBrowserPane.startDrag} className="hidden md:block" />
+                <div className="shrink-0 border-l hidden md:flex flex-col" style={{ width: qaBrowserPane.width, borderColor: tk.borderLight }}>
                   <AgentSideChat
                     ref={qaBrowserChatRef}
                     agentId="qa"
@@ -3126,6 +3131,7 @@ const sendChat = useCallback(async () => {
                     accent={tk.accent}
                     height="100%"
                     persistCrewId="coding.qa-browser"
+                    modelFeature="sideChat.qaBrowser"
                     suggestions={[
                       { label: tt("qaBrowser.sugSmoke"), prompt: tt("qaBrowser.sugSmokePrompt") },
                       { label: tt("qaBrowser.sugCheck"), prompt: tt("qaBrowser.sugCheckPrompt") },

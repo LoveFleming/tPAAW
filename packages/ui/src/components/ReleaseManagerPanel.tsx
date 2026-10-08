@@ -16,6 +16,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
+import { useColResize, ColResizer } from "./ColResizer"; // 2026-10-09：side chat 左右 splitter
 import ReleaseRequests from "./ReleaseRequests";
 
 interface ReleaseRecord {
@@ -81,6 +82,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const [testing, setTesting] = useState(false);
   const [includeE2e, setIncludeE2e] = useState(false);
   const chatRef = useRef<AgentSideChatHandle>(null);
+  // 2026-10-09 Fleming：RM side chat 左右 splitter + 對話持久化 + model selector（跟 QA browser 同款）
+  const rmPane = useColResize(340, 260, 640);
 
   const refresh = useCallback(async () => {
     if (!rootPath) return;
@@ -492,7 +495,9 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
       </div>
 
       {/* ── 右：RM AI 助理 ── */}
-      <div className="w-[340px] shrink-0 hidden md:block">
+      {/* 2026-10-09 Fleming：跟 QA browser 同款 — splitter 可拖寬 + 三按鈕（persistCrewId）+ model selector */}
+      <ColResizer onDown={rmPane.startDrag} className="hidden md:block" />
+      <div className="shrink-0 hidden md:block" style={{ width: rmPane.width }}>
         <AgentSideChat
           ref={chatRef}
           agentId="rm"
@@ -503,6 +508,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
           accent={tk.accent}
           accentHover={tk.accentHover || tk.accent}
           height="100%"
+          persistCrewId="coding.rm-side"
+          modelFeature="sideChat.rm"
           suggestions={[
             { label: t("rm.sug.review"), prompt: t("rm.sug.reviewPrompt") },
             { label: t("rm.sug.whySafe"), prompt: t("rm.sug.whySafePrompt") },

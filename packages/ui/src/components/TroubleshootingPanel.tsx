@@ -15,6 +15,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
+import { useColResize, ColResizer } from "./ColResizer"; // 2026-10-09：side chat 左右 splitter
 
 interface OpsStatus {
   initialized: boolean;
@@ -43,6 +44,8 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
   const [openRb, setOpenRb] = useState<string | null>(null);
   const [rbContent, setRbContent] = useState<string | null>(null);
   const chatRef = useRef<AgentSideChatHandle>(null);
+  // 2026-10-09 Fleming：Ops side chat 左右 splitter + 對話持久化 + model selector（跟 QA browser 同款）
+  const opsPane = useColResize(320, 260, 640);
 
   const refresh = useCallback(async () => {
     if (!rootPath) return;
@@ -180,7 +183,9 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
       </div>
 
       {/* ── 右：Ops AI 助理 ── */}
-      <div className="w-[320px] shrink-0 hidden md:block">
+      {/* 2026-10-09 Fleming：跟 QA browser 同款 — splitter 可拖寬 + 三按鈕（persistCrewId）+ model selector */}
+      <ColResizer onDown={opsPane.startDrag} className="hidden md:block" />
+      <div className="shrink-0 hidden md:block" style={{ width: opsPane.width }}>
         <AgentSideChat
           ref={chatRef}
           agentId="ops"
@@ -191,6 +196,8 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
           accent={tk.accent}
           accentHover={tk.accentHover || tk.accent}
           height="100%"
+          persistCrewId="coding.ops-side"
+          modelFeature="sideChat.ops"
           suggestions={[
             { label: t("ops.sug.genRunbook"), prompt: t("ops.sug.genRunbookPrompt") },
             { label: t("ops.sug.diagnose"), prompt: t("ops.sug.diagnosePrompt") },

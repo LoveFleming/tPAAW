@@ -575,6 +575,7 @@
   "sideChat.current": "現在の会話",
   "sideChat.backToActive": "現在の会話に戻る",
   "sideChat.activeBadge": "現在",
+  "sideChat.resize": "ドラッグで幅を調整",
   "qaRecords.toolbar": "QA 記録",
   "qaRecords.total": "合計",
   "qaRecords.statusOpen": "未解決",
