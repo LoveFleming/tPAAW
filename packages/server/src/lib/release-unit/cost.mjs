@@ -233,4 +233,146 @@ export function buildCostReport(paawRoot, opts = {}) {
   };
 }
 
+// ── Release-window Cost Report（2026-10-08 Fleming：AI 治理 — 上次 release → 這次 release 花了多少、哪些角色花了多少）──
+
+/** agentId → 治理角色顯示名（agentId 可能是 'developer'/'coding.em' — 取最後段對應） */
+const ROLE_LABELS = {
+  em: "EM 調度", developer: "Developer 開發", architect: "Architect 架構",
+  qa: "QA 品質", tester: "Tester 測試", reviewer: "Reviewer 審查",
+  "doc-writer": "Doc Writer 文檔", ops: "Ops 維運", rm: "Release Manager",
+  handover: "Handover 交接", janitor: "Janitor 清理", helpdesk: "Helpdesk 支援",
+};
+function _roleLabel(agentId) {
+  const seg = String(agentId || "").split(/[./]/).filter(Boolean).pop() || "";
+  return ROLE_LABELS[seg] || seg || "未標記（tool/engine 直呼）";
+}
+
+/**
+ * 解析 release 視窗（讀 .paaw/release-requests/RR-*.json，純檔案零 LLM）：
+ * - 本次（to）：指定 rrId → 該張；未指定 → 最新一張（closedAt||createdAt 最新）
+ * - 上次（from）：最近一張 status=released 且 closedAt < 本次錯點（closedAt||createdAt）
+ * - toTs：本次已結案 = closedAt；否則 = 現在（進行中的單 = 即時累計）
+ * - fromTs：上次 closedAt；首次（無前次 released）= null → 從頭統計全部歷史
+ */
+export function resolveReleaseWindow(projectRoot, opts = {}) {
+  const dir = join(projectRoot, ".paaw", "release-requests");
+  let rrs = [];
+  try {
+    rrs = readdirSync(dir).filter(f => /^RR-.*\.json$/.test(f))
+      .map(f => _readJsonSafe(join(dir, f), null)).filter(Boolean);
+  } catch { return null; }
+  if (!rrs.length) return null;
+  const anchor = r => String(r.closedAt || r.createdAt || "");
+  let to = opts.rrId ? rrs.find(r => r.id === opts.rrId) : null;
+  if (!to) {
+    to = [...rrs].sort((a, b) => anchor(b).localeCompare(anchor(a)))[0] || null;
+  }
+  if (!to) return null;
+  const anchorTs = anchor(to) || new Date().toISOString();
+  const from = rrs
+    .filter(r => r.status === "released" && r.closedAt && r.closedAt < anchorTs)
+    .sort((a, b) => String(b.closedAt).localeCompare(String(a.closedAt)))[0] || null;
+  return {
+    to: { id: to.id, title: to.title || "", status: to.status, createdAt: to.createdAt || null, closedAt: to.closedAt || null },
+    from: from ? { id: from.id, title: from.title || "", status: "released", closedAt: from.closedAt } : null,
+    fromTs: from ? from.closedAt : null,
+    toTs: to.closedAt || new Date().toISOString(),
+    firstRelease: !from,
+  };
+}
+
+/**
+ * 兩個時間點之間的成本報表（AI 治理視角）：
+ * totals / byRole（治理角色維度）/ byModel / byDay / byTask（TASKS.json costLog 的時間切片）
+ * byRole 的角色標籤 = LLM log 的 agentId（llm-utils 落檔，coding crew 角色）。
+ */
+export function buildCostReportBetween(paawRoot, opts = {}) {
+  const fromTs = opts.fromTs || null;
+  const toTs = opts.toTs || new Date().toISOString();
+  const projectRoot = opts.projectRoot || null;
+
+  // 1. LLM logs：先按檔案日粗選，再 call 級 ts 過濾（fromTs < ts <= toTs）
+  const llmDir = join(paawRoot, "log", "logs", "llm");
+  let logDays = [];
+  try { logDays = readdirSync(llmDir).filter(f => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(f)).map(f => f.replace(".jsonl", "")).sort(); } catch {}
+  const fromDay = fromTs ? fromTs.slice(0, 10) : null;
+  const toDay = toTs.slice(0, 10);
+  logDays = logDays.filter(d => (!fromDay || d >= fromDay) && d <= toDay);
+
+  const calls = [];
+  for (const d of logDays) {
+    for (const c of _extractCalls(_readLogDay(llmDir, d))) {
+      if (!c.ts) continue;
+      if (fromTs && c.ts <= fromTs) continue;
+      if (c.ts > toTs) continue;
+      calls.push(c);
+    }
+  }
+
+  const totals = {
+    calls: calls.length,
+    tokens: calls.reduce((s, c) => s + c.total, 0),
+    promptTokens: calls.reduce((s, c) => s + c.prompt, 0),
+    completionTokens: calls.reduce((s, c) => s + c.completion, 0),
+    costUsd: calls.reduce((s, c) => s + c.costUsd, 0),
+    unknownCostCalls: calls.filter(c => c.costSource === "unknown-pricing").length,
+  };
+
+  const _grp = (pick) => {
+    const m = new Map();
+    for (const c of calls) {
+      const k = pick(c);
+      const g = m.get(k) || { calls: 0, tokens: 0, costUsd: 0 };
+      g.calls += 1; g.tokens += c.total; g.costUsd += c.costUsd;
+      m.set(k, g);
+    }
+    return [...m.entries()].map(([k, g]) => ({ key: k, ...g, costUsd: round6(g.costUsd) }))
+      .sort((a, b) => b.costUsd - a.costUsd);
+  };
+
+  const byRole = (() => {
+    const m = new Map();
+    for (const c of calls) {
+      const g = m.get(c.agentId || "") || { agentId: c.agentId || null, role: _roleLabel(c.agentId), calls: 0, tokens: 0, costUsd: 0 };
+      g.calls += 1; g.tokens += c.total; g.costUsd += c.costUsd;
+      m.set(c.agentId || "", g);
+    }
+    return [...m.values()].map(g => ({ ...g, costUsd: round6(g.costUsd) })).sort((a, b) => b.costUsd - a.costUsd);
+  })();
+
+  // 2. byTask：TASKS.json costLog 的 at 落在視窗内 → per-task 時間切片
+  let byTask = [];
+  if (projectRoot) {
+    const m = new Map();
+    for (const t of _loadCodingTasks(projectRoot)) {
+      for (const cl of (Array.isArray(t.costLog) ? t.costLog : [])) {
+        if (!cl?.at) continue;
+        if (fromTs && cl.at <= fromTs) continue;
+        if (cl.at > toTs) continue;
+        const g = m.get(t.id) || { taskId: t.id, title: (t.title || "").slice(0, 60), calls: 0, tokens: 0, costUsd: 0 };
+        g.calls += 1; g.tokens += cl.tokens?.total || 0; g.costUsd += cl.costUsd || 0;
+        m.set(t.id, g);
+      }
+    }
+    byTask = [...m.values()].map(g => ({ ...g, costUsd: round6(g.costUsd) })).sort((a, b) => b.costUsd - a.costUsd);
+  }
+
+  return {
+    window: { fromTs, toTs, days: Math.max(1, Math.ceil((new Date(toTs) - new Date(fromTs || toTs)) / 86_400_000)) || 1 },
+    totals, byRole,
+    byModel: _grp(c => c.model),
+    byDay: (() => {
+      const m = new Map();
+      for (const c of calls) {
+        const k = String(c.ts).slice(0, 10);
+        const g = m.get(k) || { day: k, calls: 0, tokens: 0, costUsd: 0 };
+        g.calls += 1; g.tokens += c.total; g.costUsd += c.costUsd;
+        m.set(k, g);
+      }
+      return [...m.values()].map(g => ({ ...g, costUsd: round6(g.costUsd) })).sort((a, b) => a.day.localeCompare(b.day));
+    })(),
+    byTask,
+  };
+}
+
 function round6(n) { return Math.round((n || 0) * 1e6) / 1e6; }

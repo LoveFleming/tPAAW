@@ -1660,5 +1660,14 @@
   "ru.modulePicker.title": "アプリモジュールを読み込み",
   "ru.modulePicker.hint": "installed-apps のモジュールを Release Unit として登録 — coding app でモジュール本体を直接開発（EM 派工 → 委員会 review）、変更は再起動で反映",
   "ru.modulePicker.empty": "読み込めるモジュールなし — 📦 App Modules で scaffold してから",
-  "ru.modulePicker.disabled": "無効"
+  "ru.modulePicker.disabled": "無効",
+  "rr.costTitle": "💰 コストレポート（前回→今回）",
+  "rr.costWindow": "期間",
+  "rr.costFromStart": "（履歴の起点）",
+  "rr.costFirstNote": "初回リリース — 全履歴を集計",
+  "rr.costErr": "読み込み失敗",
+  "rr.costRole": "役割",
+  "rr.costTotal": "費用",
+  "rr.costByTask": "タスク別",
+  "rr.costUnknown": "件は価格不明"
 }

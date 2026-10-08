@@ -1660,5 +1660,14 @@
   "ru.modulePicker.title": "載入 App Module",
   "ru.modulePicker.hint": "把 installed-apps 模組註冊成 Release Unit — 用 coding app 直接開發模組本體（EM dispatch → committee review），改完重啟生效",
   "ru.modulePicker.empty": "沒有可載入的 module — 先到 📦 App Modules scaffold 一個",
-  "ru.modulePicker.disabled": "disabled"
+  "ru.modulePicker.disabled": "disabled",
+  "rr.costTitle": "💰 成本報表（上次 release → 這次）",
+  "rr.costWindow": "視窗",
+  "rr.costFromStart": "（歷史起點）",
+  "rr.costFirstNote": "首次 release — 視窗涵蓋全部歷史",
+  "rr.costErr": "讀取失敗",
+  "rr.costRole": "角色",
+  "rr.costTotal": "花費",
+  "rr.costByTask": "依 task 切分",
+  "rr.costUnknown": "筆無法計價"
 }

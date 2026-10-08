@@ -34,7 +34,7 @@ import { checkGates } from "../lib/release-unit/gates.mjs";
 import { askCodebase } from "../lib/release-unit/ask.mjs";
 import { extractAPIs } from "../lib/release-unit/apis.mjs";
 import { loadReleaseUnitModel, queryModelByFeature, queryModelByFile, queryModelByApi } from "../lib/release-unit/model.mjs";
-import { buildCostReport } from "../lib/release-unit/cost.mjs";
+import { buildCostReport, buildCostReportBetween, resolveReleaseWindow } from "../lib/release-unit/cost.mjs";
 import { answerQuestion } from "../lib/release-unit/qa.mjs";
 import { DATA_HOME } from "../data-home.mjs";
 
@@ -231,6 +231,19 @@ export default async function releaseUnitRoutes(req, res, next) {
       return json(res, 200, { root: normalizePath(path), ...a });
     } catch (e) {
       return json(res, 500, { error: "qa failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/cost/release-window — AI 治理：上次 release → 這次 release 花了多少（by 角色/model/task）──
+  if (url === "/api/ru/cost/release-window" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    try {
+      const win = resolveReleaseWindow(path, { rrId: q.get("rr") || undefined });
+      if (!win) return json(res, 404, { error: "no release requests found", detail: "這個專案還沒有任何 release request — 先建單" });
+      const report = buildCostReportBetween(PAAW_ROOT, { fromTs: win.fromTs, toTs: win.toTs, projectRoot: path });
+      return json(res, 200, { root: normalizePath(path), ...win, ...report });
+    } catch (e) {
+      return json(res, 500, { error: "release-window cost failed", detail: e.message });
     }
   }
 

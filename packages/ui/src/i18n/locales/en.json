@@ -1660,5 +1660,14 @@
   "ru.modulePicker.title": "Load App Module",
   "ru.modulePicker.hint": "Register an installed-apps module as a Release Unit — develop the module itself in the coding app (EM dispatch → committee review); restart to apply changes",
   "ru.modulePicker.empty": "No modules to load — scaffold one in 📦 App Modules first",
-  "ru.modulePicker.disabled": "disabled"
+  "ru.modulePicker.disabled": "disabled",
+  "rr.costTitle": "💰 Cost report (prev release → this)",
+  "rr.costWindow": "Window",
+  "rr.costFromStart": "(history start)",
+  "rr.costFirstNote": "first release — window covers all history",
+  "rr.costErr": "Load failed",
+  "rr.costRole": "Role",
+  "rr.costTotal": "Cost",
+  "rr.costByTask": "By task",
+  "rr.costUnknown": "calls unpriced"
 }

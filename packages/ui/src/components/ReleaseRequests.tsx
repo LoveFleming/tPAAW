@@ -93,6 +93,88 @@ const STATUS_STYLES: Record<string, { icon: string; bg: string; text: string }> 
 };
 
 const AUTO_ICON: Record<string, string> = { pass: "✅", fail: "❌", warn: "⚠️", unknown: "❔" };
+
+// ── 💰 AI 治理成本卡（2026-10-08 Fleming）：上次 release → 這次 release 花了多少、哪些角色花了多少 ──
+// 資料源 GET /api/ru/cost/release-window — llm log byRole（agentId）+ TASKS costLog 視窗切片，全 deterministic
+function RrCostCard({ rrId, rootPath }: { rrId: string; rootPath: string }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<any>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true); setErr(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/ru/cost/release-window?path=${encodeURIComponent(rootPath)}&rr=${encodeURIComponent(rrId)}`);
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.detail || j.error || `HTTP ${res.status}`);
+      setData(j);
+    } catch (e: any) { setErr(String(e?.message || e)); }
+    setLoading(false);
+  }, [rootPath, rrId]);
+
+  useEffect(() => { if (open && !data && !loading) load(); }, [open, data, loading, load]);
+
+  const fmtUsd = (n: number) => `$${(n || 0).toFixed((n || 0) >= 1 ? 2 : 4)}`;
+  const fmtTok = (n: number) => (n || 0) >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : (n || 0) >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n || 0);
+  const roles: any[] = (data?.byRole || []).slice(0, 12);
+
+  return (
+    <div className="border border-stone-200 rounded-lg bg-white overflow-hidden" data-testid="rr-cost-card">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-2.5 py-2 text-left hover:bg-stone-50">
+        <span className="text-[11px] font-bold text-stone-500">💰 {t("rr.costTitle")}</span>
+        <span className="text-[10px] text-stone-400">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <div className="px-2.5 pb-2.5 space-y-1.5">
+          {loading && <div className="text-[11px] text-stone-400">⏳ …</div>}
+          {err && <div className="text-[11px] text-red-600">{t("rr.costErr")}：{err}</div>}
+          {data && (
+            <>
+              <div className="text-[10.5px] text-stone-500">
+                {t("rr.costWindow")}：{data.from ? data.from.id : t("rr.costFromStart")} → {data.to?.id}（{data.to?.status}）
+                {data.firstRelease ? ` · ${t("rr.costFirstNote")}` : ""}
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-[15px] font-bold text-stone-800">{fmtUsd(data.totals?.costUsd || 0)}</span>
+                <span className="text-[10.5px] text-stone-500">{data.totals?.calls || 0} calls · {fmtTok(data.totals?.tokens)} tokens{data.totals?.unknownCostCalls ? ` · ⚠️ ${data.totals.unknownCostCalls} ${t("rr.costUnknown")}` : ""}</span>
+              </div>
+              {roles.length > 0 && (
+                <div className="border border-stone-100 rounded-md overflow-hidden">
+                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 px-2 py-1 bg-stone-50 text-[9.5px] font-bold text-stone-500">
+                    <span>{t("rr.costRole")}</span><span>calls</span><span>tokens</span><span>{t("rr.costTotal")}</span>
+                  </div>
+                  {roles.map((r, i) => (
+                    <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 px-2 py-1 text-[10.5px] text-stone-700 border-t border-stone-100">
+                      <span className="truncate" title={r.agentId || ""}>{r.role}</span>
+                      <span className="text-stone-400 tabular-nums">{r.calls}</span>
+                      <span className="text-stone-400 tabular-nums">{fmtTok(r.tokens)}</span>
+                      <span className="font-bold tabular-nums">{fmtUsd(r.costUsd)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {data.byTask?.length > 0 && (
+                <details className="text-[10.5px] text-stone-500">
+                  <summary className="cursor-pointer font-bold">{t("rr.costByTask")}（{data.byTask.length}）</summary>
+                  <div className="mt-1 space-y-0.5 pl-1">
+                    {data.byTask.slice(0, 10).map((x: any, i: number) => (
+                      <div key={i} className="flex justify-between gap-2">
+                        <span className="truncate">{x.taskId} {x.title}</span>
+                        <span className="tabular-nums font-bold">{fmtUsd(x.costUsd)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 const VERDICT_STYLES: Record<string, { icon: string; bg: string; text: string }> = {
   pass: { icon: "✅", bg: "#f0fdf4", text: "#16a34a" },
   fail: { icon: "❌", bg: "#fef2f2", text: "#dc2626" },
@@ -566,6 +648,9 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify, chatRef }
                         ⚠️ {t("rr.tasksLabel")}：{(detail.scope.taskIds || []).map(x => typeof x === "string" ? x : x.id).join(", ")}
                       </div>
                     )}
+
+                    {/* 💰 AI 治理：上次 release → 這次 release 的成本報表（2026-10-08 Fleming）*/}
+                    <RrCostCard rrId={detail.id} rootPath={rootPath} />
 
                     {/* actions by status */}
                     <div className="flex gap-2 flex-wrap items-center">
