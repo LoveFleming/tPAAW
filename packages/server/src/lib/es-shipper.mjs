@@ -15,7 +15,12 @@
  * 失敗策略：ES 不可達時 console.error（60s 冷卻）後丟棄該批 — 檔案仍是事實來源，
  * 外部 shipper 可補灌；絕不影響 agent loop。
  */
+import os from "node:os";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { resolveRuName } from "./ru-resolver.mjs";
+import { getModelPricing, calcCostUsd } from "./ru-resolver.mjs";
+import { agentRoleLabel } from "./release-unit/cost.mjs";
 
 const FLUSH_SIZE = 50;
 const FLUSH_MS = 5000;
@@ -28,6 +33,92 @@ const state = {
   timer: null,
   lastErrAt: 0,
 };
+
+// ── ship-time enrichment（2026-10-08 Fleming：log 檔不動，ES 端自帶機器/release 資訊，單一 index 免 join）──
+
+/** 機器資訊（startup 解析一次）：hostname + 首個非 internal IPv4 — 多機部署分得清誰 */
+let HOST = null;
+function hostInfo() {
+  if (HOST) return HOST;
+  let ip = "";
+  try {
+    for (const list of Object.values(os.networkInterfaces())) {
+      const hit = (list || []).find(n => n.family === "IPv4" && !n.internal);
+      if (hit) { ip = hit.address; break; }
+    }
+  } catch { /* ip stamp best-effort */ }
+  HOST = { hostName: os.hostname() || "unknown", hostIp: ip || "unknown" };
+  return HOST;
+}
+
+/**
+ * Release anchor：事件自帶「發生當下的 release 週期」— releaseId = 最近一次已結案 released 的 RR。
+ * 同一週期的事件共享同 releaseId → Kibana 端 filter releaseId=X 就是「上次 release → 這次 release」視窗，零 join。
+ * releaseId="pre-first-release" = 首次 release 前的週期。
+ */
+const RR_CACHE = new Map(); // projectDir → { at, released: [{id, closedAt}] }（5min TTL）
+function releasedRRs(projectDir) {
+  const now = Date.now();
+  let c = RR_CACHE.get(projectDir);
+  if (!c || now - c.at > 300_000) {
+    const out = [];
+    try {
+      const dir = join(projectDir, ".paaw", "release-requests");
+      for (const f of readdirSync(dir)) {
+        if (!/^RR-.*\.json$/.test(f)) continue;
+        try {
+          const rr = JSON.parse(readFileSync(join(dir, f), "utf-8"));
+          if (rr?.status === "released" && rr.closedAt) out.push({ id: rr.id, closedAt: rr.closedAt });
+        } catch { /* 單檔壞損不影響其他 */ }
+      }
+      out.sort((a, b) => a.closedAt.localeCompare(b.closedAt));
+    } catch { /* 專案沒有 release-requests → pre-first-release */ }
+    c = { at: now, released: out };
+    RR_CACHE.set(projectDir, c);
+  }
+  return c.released;
+}
+function releaseAnchorAt(projectDir, isoTs) {
+  if (!projectDir) return null;
+  let pick = null;
+  for (const r of releasedRRs(projectDir)) {
+    if (r.closedAt <= isoTs) pick = r; else break;
+  }
+  return pick ? { releaseId: pick.id, releaseAt: pick.closedAt } : { releaseId: "pre-first-release", releaseAt: null };
+}
+
+/** 金額攤平（ship 時結算，與 cost.mjs 同優先序：provider cost > 定價估算 > unknown）— log 檔本身不動 */
+function stampMoney(doc, usage, model) {
+  if (!usage) return;
+  doc.promptTokens = usage.prompt_tokens ?? usage.prompt ?? 0;
+  doc.completionTokens = usage.completion_tokens ?? usage.completion ?? 0;
+  doc.totalTokens = usage.total_tokens ?? usage.total ?? (doc.promptTokens + doc.completionTokens);
+  if (typeof usage.cost === "number") {
+    doc.costUsd = usage.cost; doc.costSource = "provider";
+  } else {
+    const pricing = getModelPricing(model);
+    if (pricing && (pricing.input || pricing.output)) {
+      doc.costUsd = calcCostUsd({ prompt: doc.promptTokens, completion: doc.completionTokens }, pricing);
+      doc.costSource = "estimated";
+    } else {
+      doc.costUsd = 0; doc.costSource = "unknown-pricing";
+    }
+  }
+}
+
+/** 逐 doc stamp：host + release 週期 + roleLabel + 攤平 tokens/金額（只加欄位，不改原值） */
+function enrichDoc(doc) {
+  const h = hostInfo();
+  doc.hostName = h.hostName;
+  doc.hostIp = h.hostIp;
+  const anchor = releaseAnchorAt(doc.cwd || null, doc["@timestamp"]);
+  if (anchor) {
+    doc.releaseId = anchor.releaseId;
+    if (anchor.releaseAt) doc.releaseAt = anchor.releaseAt;
+  }
+  if (doc.agentId) doc.roleLabel = agentRoleLabel(doc.agentId);
+  if (doc.usage) stampMoney(doc, doc.usage, doc.model);
+}
 
 function esUrl() {
   return (process.env.PAAW_ES_URL || process.env.ELASTICSEARCH_URL || "").trim().replace(/\/+$/, "");
@@ -50,10 +141,20 @@ async function putTemplate() {
       template: {
         settings: { number_of_shards: 1, number_of_replicas: 0 },
         mappings: {
+          // 未顯式映射的字串一律 keyword（著 en enrich 欄位在舊動態 text mapping 下 term query 會失準）
+          dynamic_templates: [
+            { strings_as_keyword: { match_mapping_type: "string", mapping: { type: "keyword" } } },
+          ],
           properties: {
             source: { type: "keyword" }, phase: { type: "keyword" }, model: { type: "keyword" },
             agentId: { type: "keyword" }, taskId: { type: "keyword" }, route: { type: "keyword" },
             ruName: { type: "keyword" }, _source_file: { type: "keyword" },
+            // ship-time enrichment（2026-10-08）：單一 index 免 join
+            hostName: { type: "keyword" }, hostIp: { type: "keyword" },
+            releaseId: { type: "keyword" }, releaseAt: { type: "date" },
+            roleLabel: { type: "keyword" }, costSource: { type: "keyword" },
+            costUsd: { type: "double" },
+            promptTokens: { type: "long" }, completionTokens: { type: "long" }, totalTokens: { type: "long" },
           },
         },
       },
@@ -124,6 +225,7 @@ export function shipAgentLogEvent({ taskId, recNo, entry, startTime, taskInfo })
       }
     }
     doc["@timestamp"] = new Date(tsMs).toISOString();
+    enrichDoc(doc); // ship-time stamp：host/release/role/金額 — 單一 index 免 join
     state.buf.push({ id: `agent-logs:${taskId}.jsonl:${recNo}`, doc });
     if (state.buf.length >= FLUSH_SIZE) flush().catch(() => {});
   } catch {

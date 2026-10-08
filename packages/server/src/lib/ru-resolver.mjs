@@ -152,8 +152,10 @@ export function getModelPricing(modelId) {
  */
 export function calcCostUsd(usage, pricing) {
   if (!usage || !pricing) return 0;
-  const inTok = usage.prompt_tokens || 0;
-  const outTok = usage.completion_tokens || 0;
+  // 兩種 key 都吃（2026-10-08 修）：cost.mjs/es-shipper 傳 {prompt, completion}，
+  // LLM 原始 usage 是 {prompt_tokens, completion_tokens} — 之前只讀後者，估算路徑永遠 $0
+  const inTok = usage.prompt_tokens ?? usage.prompt ?? 0;
+  const outTok = usage.completion_tokens ?? usage.completion ?? 0;
   return (inTok / 1_000_000) * pricing.input + (outTok / 1_000_000) * pricing.output;
 }
 

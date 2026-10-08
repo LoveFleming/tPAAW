@@ -246,6 +246,7 @@ function _roleLabel(agentId) {
   const seg = String(agentId || "").split(/[./]/).filter(Boolean).pop() || "";
   return ROLE_LABELS[seg] || seg || "未標記（tool/engine 直呼）";
 }
+export { ROLE_LABELS as AGENT_ROLE_LABELS, _roleLabel as agentRoleLabel };
 
 /**
  * 解析 release 視窗（讀 .paaw/release-requests/RR-*.json，純檔案零 LLM）：
