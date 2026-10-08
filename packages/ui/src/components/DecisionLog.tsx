@@ -186,7 +186,7 @@ export default function DecisionLog({ projectRoot, refreshKey = 0 }: DecisionLog
       {/* ADR list + detail */}
       <div className="flex flex-1 min-h-0">
         {/* List */}
-        <div className="w-48 border-r border-stone-200 overflow-y-auto bg-white" style={{ scrollbarWidth: "thin" }}>
+        <div className="w-80 border-r border-stone-200 overflow-y-auto bg-white" style={{ scrollbarWidth: "thin" }}>
           {loading && <div className="px-2 py-1 text-xs text-stone-400 animate-pulse">Loading...</div>}
           {adrs.length === 0 && !loading && (
             <div className="px-2 py-4 text-xs text-stone-400 text-center">
