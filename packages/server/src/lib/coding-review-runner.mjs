@@ -327,12 +327,18 @@ export async function runMultiModelReview(opts = {}) {
   const outDir = join(projectDir, ".paaw", "review-board");
   mkdirSync(outDir, { recursive: true });
   const reportPath = join(outDir, `${ts}-${ctx.range.replace(/[^\w.-]/g, "_")}.md`);
+  // CommitSHAs（2026-10-08）：當下解析 range 的絕對 sha 清單 — release request 覆蓋率計算用。
+  // 相對 range（HEAD~1..HEAD）事後無法重解（HEAD 會漂移），審查當下落絕對值才可靠。
+  // path 過濾的 review 語義是子集，release-requests 端已跳過不計覆蓋。
+  const commitShas = _git(projectDir, ["rev-list", ctx.range]).split(/\s+/).filter(Boolean).slice(0, 100);
+
   const sevIcon = { critical: "🔴", major: "🟠", minor: "🟡" };
   const reportMd = [
     `# Multi-Model Code Review Report`,
     ``,
     `- 時間：${stamp.toISOString()}`,
     `- Range：\`${ctx.range}\`${pathFilter ? `（path: \`${pathFilter}\`）` : ""}`,
+    ...(commitShas.length ? [`- CommitSHAs：${commitShas.join(" ")}`] : []),
     `- 檔案數：${ctx.files.length}${ctx.truncated ? "（diff 截斷）" : ""}`,
     `- Reviewers：${perModel.map(p => `\`${p.model}\`${p.error ? " ⚠️" : ""}`).join("、")}`,
     `- 結論：**${decision}**（critical ${sevCount.critical} / major ${sevCount.major} / minor ${sevCount.minor}）`,

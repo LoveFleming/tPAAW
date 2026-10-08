@@ -11,9 +11,13 @@
  *   - reviewing：baseline 鎖定；checklist 逐項審查（pass / fail / waive，waive 必留 note）
  *   - released：結案（不可逆）— 快照 REL 到 .paaw/releases/ + 批次放行範圍內 pending tasks
  *
- * checklist 四項（2026-09-17 Fleming 定案）：
- *   tests（unit + e2e）/ gates（build・type-check・test 門檻）/ qa-records / risk
+ * checklist（2026-09-17 定四項，後續演進）：
+ *   tests / gates / qa-records / security / review-board（2026-10-08）/ risk / ops / handover
  * 程式保證事實（deterministic），人下 verdict — No answer without evidence。
+ *
+ * review-board（2026-10-08 Fleming）：code review 委員會 report 是第五類證據 —
+ * 程式算「哪些 commits 被審過、結論為何」，覆蓋判準用 report 內嵌 CommitSHAs
+ * （審查當下的絕對 sha，免 HEAD 漂移）；同 commit 多份 report 以最新為準（打回→重審→approve 可翻案）。
  *
  * gates 語言支援：verify 指令由 adapter 推斷（js-ts 全套 / python pytest+ruff / go 全套）；
  * 其他語言走 generic adapter 無指令 → gates 顯示 not-run（不硬猜）。之後可加 adapter 或
@@ -21,7 +25,7 @@
  */
 
 import { readFile, writeFile, mkdir, readdir } from "fs/promises";
-import { existsSync, readFileSync, statSync } from "fs";
+import { existsSync, readFileSync, statSync, readdirSync } from "fs";
 import { join } from "path";
 import { randomBytes } from "crypto";
 import { rename } from "fs/promises";
@@ -38,6 +42,7 @@ const CHECKLIST_DEFS = [
   { id: "gates", label: "品質門檻（build / type-check / test）" },
   { id: "qa-records", label: "QA 記錄無未解決 fail" },
   { id: "security", label: "Security scan（semgrep，scope 內）" },
+  { id: "review-board", label: "Review 委員會（report 覆蓋放行範圍）" },
   { id: "risk", label: "風險評估（readiness heuristic）" },
   { id: "ops", label: "維運就緒（部署/回滾文檔）— 簽核" },
   { id: "handover", label: "交接（handover state 新鮮）— 簽核" },
@@ -404,6 +409,68 @@ export async function autoCheckAll(projectPath, scope, opts = {}) {
     }
   } catch { out.security = { status: "unknown", detail: "security scan 結果讀取失敗", checkedAt: at }; }
 
+  // review-board — .paaw/review-board/*.md（coding-review-runner 落檔）：委員會審查覆蓋 + 結論
+  // 2026-10-08 Fleming：release manager 的第五類證據。path 過濾的 review 是子集語義不計覆蓋；
+  // 舊格式 report（無 CommitSHAs 欄位）不猜 — 不計覆蓋，detail 註明重跑即可補上。
+  try {
+    const rbDir = join(projectPath, ".paaw", "review-board");
+    const rbWarn = s => { out["review-board"] = { status: "warn", detail: s, checkedAt: at }; };
+    if (!existsSync(rbDir)) rbWarn("從未召開 review 委員會 — 先跑 review（report 落 .paaw/review-board/）");
+    else {
+      const mdFiles = readdirSync(rbDir).filter(f => f.endsWith(".md")).sort(); // 檔名 ts 前綴 = 時間排序，舊→新
+      const reports = [];
+      let pathSkipped = 0;
+      for (const f of mdFiles.slice(-100)) {
+        const txt = readFileSync(join(rbDir, f), "utf-8");
+        const decM = txt.match(/- 結論：\*\*([a-z-]+)\*\*（critical (\d+) \/ major (\d+) \/ minor (\d+)）/);
+        if (!decM || !/- Range：`[^`]+`/.test(txt)) continue; // 非 runner 格式 — 跳過不硬猜
+        if (/- Range：`[^`]+`（path:/.test(txt)) { pathSkipped++; continue; } // path 過濾 = 子集，不計覆蓋
+        const shasM = txt.match(/- CommitSHAs：\s*([0-9a-f ]+)/);
+        reports.push({
+          file: f, decision: decM[1],
+          crit: +decM[2], maj: +decM[3], min: +decM[4],
+          shas: shasM ? shasM[1].trim().split(/\s+/) : null,
+          disputes: txt.includes("## 🚩 分歧")
+            ? (txt.split("## 🚩 分歧")[1] || "").split("\n").filter(l => l.startsWith("- **")).length : 0,
+        });
+      }
+      if (!reports.length) rbWarn(`review-board/ 無可計覆蓋的 report${pathSkipped ? `（${pathSkipped} 份為 path 過濾 review，子集語義不計）` : "（缺 Range/結論欄位）"}`);
+      else if (!opts.baselineSha) {
+        out["review-board"] = { status: "unknown", detail: `reports ${reports.length} 份，但無法計算覆蓋（缺 baselineSha）`, checkedAt: at };
+      } else {
+        const rrShas = new Set(await gitLines(projectPath, `rev-list ${opts.baselineSha}..${opts.targetSha || "HEAD"}`));
+        if (!rrShas.size) {
+          out["review-board"] = { status: "pass", detail: `範圍內無 commits（reports ${reports.length} 份不影響本單）`, checkedAt: at };
+        } else {
+          // 舊→新套用：後一份 report 對同 commit 翻案（request-changes → 重審 approve）
+          const approved = new Set(), blocked = new Set(), seen = new Set();
+          let noSha = 0;
+          for (const rep of reports) {
+            if (!rep.shas) { noSha++; continue; }
+            for (const sha of rep.shas) {
+              if (!rrShas.has(sha)) continue;
+              seen.add(sha);
+              if (rep.decision === "approve") { approved.add(sha); blocked.delete(sha); }
+              else blocked.add(sha); // request-changes / inconclusive — 絕不視為通過
+            }
+          }
+          const uncovered = rrShas.size - seen.size;
+          const last = reports[reports.length - 1];
+          const status = blocked.size ? "fail" : uncovered ? "warn" : "pass";
+          out["review-board"] = {
+            status,
+            detail: `委員會 approve 覆蓋 ${approved.size}/${rrShas.size} commits；reports ${reports.length} 份`
+              + (noSha ? `（${noSha} 份舊格式無 CommitSHAs 不計覆蓋，重跑 review 即可補）` : "")
+              + (blocked.size ? `；❌ ${blocked.size} commits 最新結論 request-changes/inconclusive` : "")
+              + (uncovered ? `；⚠ ${uncovered} commits 未被任何 review 覆蓋` : "")
+              + `；最新 report ${last.file.slice(0, 15)}：${last.decision}（critical ${last.crit}/major ${last.maj}/minor ${last.min}，分歧 ${last.disputes} 待仲裁）`,
+            checkedAt: at,
+          };
+        }
+      }
+    }
+  } catch { out["review-board"] = { status: "unknown", detail: "review-board 證據讀取失敗", checkedAt: at }; }
+
   // ops — 維運文檔證據（部署/回滾步驟）+ 依賴變更提醒；verdict = 維運簽核
   try {
     const docs = [];
@@ -491,7 +558,7 @@ export async function createReleaseRequest(projectPath, { title, baseline = "aut
   }
   const target = await describeCommit(projectPath, headSha);
   const scope = await computeScope(projectPath, base.sha);
-  const auto = await autoCheckAll(projectPath, scope, { firstRelease: base.source === "first-commit" });
+  const auto = await autoCheckAll(projectPath, scope, { firstRelease: base.source === "first-commit", baselineSha: base.sha, targetSha: headSha });
 
   const rr = {
     id: newRRId(),
@@ -527,7 +594,7 @@ export async function updateReleaseRequest(projectPath, id, { title, baseline } 
     const base = await resolveBaseline(projectPath, baseline);
     rr.baseline = base;
     rr.scope = await computeScope(projectPath, base.sha);
-    const auto = await autoCheckAll(projectPath, rr.scope, { firstRelease: base.source === "first-commit" });
+    const auto = await autoCheckAll(projectPath, rr.scope, { firstRelease: base.source === "first-commit", baselineSha: base.sha, targetSha: rr.target?.sha });
     for (const item of rr.checklist) item.auto = auto[item.id] || item.auto;
     hist(rr, "human", "baseline-changed", `${base.short}（${base.source}）`);
   }
@@ -548,7 +615,7 @@ export async function openReleaseRequest(projectPath, id) {
     rr.target = head;
     const scope = await computeScope(projectPath, rr.baseline.sha, head.sha);
     rr.scope = scope;
-    const auto = await autoCheckAll(projectPath, scope, { firstRelease: rr.baseline?.source === "first-commit" });
+    const auto = await autoCheckAll(projectPath, scope, { firstRelease: rr.baseline?.source === "first-commit", baselineSha: rr.baseline.sha, targetSha: head.sha });
     rr.checklist = freshChecklist(auto); // target 變了 → 證據全部重算，verdict 重置
     rr.suggested = undefined; // 舊證據的 AI 建議一併作廢（若有）
   }
@@ -591,7 +658,7 @@ export async function refreshReleaseRequest(projectPath, id) {
     rr.scope = await computeScope(projectPath, rr.baseline.sha);
     hist(rr, "system", "target-advanced", `target 前進到 ${rr.target.short}，scope 重算`);
   }
-  const auto = await autoCheckAll(projectPath, rr.scope, { firstRelease: rr.baseline?.source === "first-commit" });
+  const auto = await autoCheckAll(projectPath, rr.scope, { firstRelease: rr.baseline?.source === "first-commit", baselineSha: rr.baseline.sha, targetSha: rr.target.sha });
   for (const item of rr.checklist) item.auto = auto[item.id] || item.auto;
   await saveRR(projectPath, rr);
   return rr;
@@ -736,7 +803,7 @@ export async function createAutoRrForTaskApproval(projectPath, { taskId, taskTit
   if (!headSha) { const e = new Error("repo 沒有 HEAD"); e.status = 400; throw e; }
   const target = await describeCommit(projectPath, headSha);
   const scope = await computeScope(projectPath, base.sha, headSha, { onlyTaskIds: [taskId] });
-  const auto = await autoCheckAll(projectPath, scope);
+  const auto = await autoCheckAll(projectPath, scope, { baselineSha: base.sha, targetSha: headSha });
 
   const checklist = CHECKLIST_DEFS.map(def => {
     const a = auto[def.id] || { status: "unknown", detail: "—" };
