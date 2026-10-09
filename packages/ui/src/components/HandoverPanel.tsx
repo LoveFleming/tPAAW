@@ -92,18 +92,14 @@ interface Props {
   rootPath: string;
   theme: any;
   onOpenEMDashboard?: () => void;
-  /** 2026-10-09：查看 HANDOVER.md — 開 CodingIDE viewer tab */
-  onOpenFile?: (path: string) => void;
   /** 2026-10-09：keep-mounted 下切回 tab 時要重新拉 state（commit 後畫面不再停在舊快照） */
   active?: boolean;
 }
 
-export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, onOpenFile, active = true }: Props) {
+export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, active = true }: Props) {
   const { t } = useI18n();
   const [bundle, setBundle] = useState<HandoverBundle | null>(null);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
   const [expandSection, setExpandSection] = useState<string | null>("project");
   // Handover tab view：Main Info（交接包）| 新人 12 問（2026-08-22 Fleming）
   const [hoTab, setHoTab] = useState<"main" | "qa">("main");
@@ -142,26 +138,6 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
   useEffect(() => { refresh(); }, [refresh]);
   // 2026-10-09 Fleming：keep-mounted 模式下切回 handover tab 時重新拉 — 否則 commit 後畫面還在舊快照（「都 commit 了為何還有 9 個未提交」）
   useEffect(() => { if (active) refresh(); }, [active, refresh]);
-
-  const generate = async () => {
-    setGenerating(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-handover/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: rootPath }),
-      });
-      const data = await res.json();
-      setToast(data.ok
-        ? { ok: true, text: `✅ ${t("ho.generated")}: ${data.file} (${(data.bytes / 1024).toFixed(1)} KB)` }
-        : { ok: false, text: `❌ ${data.error || "生成失敗"}` });
-    } catch (e: any) {
-      setToast({ ok: false, text: `❌ ${e?.message || "連線失敗"}` });
-    } finally {
-      setGenerating(false);
-      setTimeout(() => setToast(null), 5000);
-    }
-  };
 
   const section = (key: string, icon: string, title: string, content: string | null) => {
     const has = !!content?.trim();
@@ -237,24 +213,7 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
           <span className="text-lg">🤝</span>
           <h2 className="text-sm font-bold text-stone-800">{t("ho.title")}</h2>
           {bundle?.package?.name && <span className="text-[10px] font-mono text-stone-400">{bundle.package.name}</span>}
-          <button onClick={generate} disabled={generating || !bundle?.initialized}
-            className="ml-auto text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-40" style={{ backgroundColor: tk.accent }}>
-            {generating ? "…" : `📝 ${t("ho.generate")}`}
-          </button>
-          {onOpenFile && (
-            <button onClick={() => onOpenFile(`${rootPath}/.paaw/HANDOVER.md`)} disabled={!bundle?.initialized}
-              title={t("ho.viewHandoverHint")}
-              className="text-xs px-2.5 py-1.5 rounded-lg border disabled:opacity-40" style={{ borderColor: tk.borderLight, color: tk.accent }}>
-              📄
-            </button>
-          )}
         </div>
-
-        {toast && (
-          <div className={`mx-5 mt-3 px-3 py-2 rounded-lg text-xs ${toast.ok ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
-            {toast.text}
-          </div>
-        )}
 
         {loading && <div className="p-8 text-center text-xs text-stone-400 animate-pulse">{t("common.loading")}</div>}
 

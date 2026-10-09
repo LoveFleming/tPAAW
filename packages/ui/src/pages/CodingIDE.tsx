@@ -3936,7 +3936,6 @@ const sendChat = useCallback(async () => {
                 <HandoverPanel
                   rootPath={rootPath}
                   active={activeMainTab?.type === "handover"}
-                  onOpenFile={(p) => openFile(p)}
                   theme={{ borderLight: tk.borderLight, accent: tk.accent, accentHover: tk.accentHover || tk.accent }}
                   onOpenEMDashboard={() => openMainTab({ id: DASHBOARD_TAB_ID, type: "em-dashboard", label: "EM 大總管", icon: "🎖️", closable: false })}
                 />
