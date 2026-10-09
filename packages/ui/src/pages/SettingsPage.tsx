@@ -39,7 +39,7 @@ interface SettingsPageProps {
 export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved }: SettingsPageProps = {}) {
   const { info: themeInfo } = useTheme();
   const { t, locale, setLocale } = useI18n();
-  const [tab, setTabState] = useState<"profile" | "assistant" | "providers" | "agentConfig" | "preferences" | "skill" | "distill" | "tools" | "language" | "backup" | "plugins">((initialTab as any) || "profile");
+  const [tab, setTabState] = useState<"profile" | "assistant" | "providers" | "agentConfig" | "preferences" | "skill" | "distill" | "language" | "backup" | "plugins">((initialTab as any) || "profile");
   const [providers, setProviders] = useState<Record<string, ProviderData>>({});
   const [activeId, setActiveId] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
@@ -359,9 +359,6 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
           </button>
           <button onClick={() => setTab("distill")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "distill" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             ⚗️ AI 蒸餾
-          </button>
-          <button onClick={() => setTab("tools")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "tools" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
-            🛠️ System Tools
           </button>
           <button onClick={() => setTab("backup")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "backup" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             💾 備份還原
@@ -961,7 +958,6 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
         )}
 
         {/* Tools tab */}
-        {tab === "tools" && <ToolsTab />}
 
         {/* Backup tab */}
         {tab === "backup" && <BackupSettings />}
@@ -1006,113 +1002,3 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
 }
 
 // ── Tools Tab Component ──
-function ToolsTab() {
-  const { t: tt } = useI18n();
-  const [tools, setTools] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("");
-
-  useEffect(() => {
-    fetch(`${API_BASE}/api/tool-registry`)
-      .then(r => r.json())
-      .then(data => { setTools(data.routes || []); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
-
-  const toggleEnabled = async (routeId: string, enabled: boolean) => {
-    await fetch(`${API_BASE}/api/tool-registry/${routeId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled: !enabled }),
-    });
-    setTools(prev => prev.map(t => t.routeId === routeId ? { ...t, enabled: !enabled } : t));
-  };
-
-  const filtered = tools.filter(t =>
-    filter === "" ||
-    t.name.toLowerCase().includes(filter.toLowerCase()) ||
-    t.route.toLowerCase().includes(filter.toLowerCase()) ||
-    t.category.toLowerCase().includes(filter.toLowerCase())
-  );
-
-  const categories = Array.from(new Set(tools.map(t => t.category))).sort();
-
-  if (loading) return <div className="p-8 text-stone-400">Loading...</div>;
-
-  const totalGenerated = tools.filter(t => t.generated).length;
-  const totalTools = tools.length;
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="text-lg font-bold text-stone-800">🛠️ System Tools</h3>
-        <p className="text-sm text-stone-500">已註冊的 API Contract，自動產生 AI Tool。</p>
-      </div>
-
-      {/* Category stats — show skill coverage */}
-      <div className="flex flex-wrap gap-1.5">
-        {categories.map(cat => {
-          const inCat = tools.filter(t => t.category === cat);
-          const hasSkill = inCat.filter(t => t.generated).length;
-          const total = inCat.length;
-          const allDone = hasSkill === total;
-          return (
-            <span
-              key={cat}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium ${allDone ? "bg-emerald-50 text-emerald-700" : "bg-stone-50 text-stone-500"}`}
-            >
-              {cat}: {hasSkill}/{total}
-            </span>
-          );
-        })}
-      </div>
-
-      {/* Summary */}
-      <div className="text-xs text-stone-400">
-        {totalGenerated}/{totalTools} 已有 Skill
-      </div>
-
-      {/* Filter */}
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={filter}
-          onChange={e => setFilter(e.target.value)}
-          placeholder={tt("settings.searchToolsPlaceholder")}
-          className="flex-1 px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400"
-        />
-        <button
-          onClick={() => setFilter("")}
-          className="px-3 py-2 rounded-lg border border-stone-200 text-sm text-stone-500 hover:bg-stone-50"
-        >
-          清除
-        </button>
-      </div>
-
-      {/* Tools list */}
-      <div className="bg-white rounded-xl border border-stone-200 divide-y divide-stone-100">
-        {filtered.map(tool => (
-          <div key={tool.routeId} className="flex items-center gap-3 px-4 py-2.5 hover:bg-stone-50 transition-colors">
-            <input
-              type="checkbox"
-              checked={tool.enabled}
-              onChange={() => toggleEnabled(tool.routeId, tool.enabled)}
-              className="w-4 h-4 rounded border-stone-300 text-stone-800 focus:ring-stone-500 shrink-0"
-            />
-            <span className="text-xs font-mono text-stone-500 w-[200px] shrink-0 truncate">{tool.route}</span>
-            <span className="flex-1 text-sm font-medium text-stone-700 truncate">{tool.name}</span>
-            <span className="px-2 py-0.5 rounded bg-stone-50 text-[10px] text-stone-500 shrink-0">{tool.category}</span>
-            {tool.generated ? (
-              <span className="text-[10px] font-medium text-emerald-600 shrink-0 w-[60px] text-right">✓ Skill</span>
-            ) : (
-              <span className="text-[10px] text-stone-300 shrink-0 w-[60px] text-right">—</span>
-            )}
-          </div>
-        ))}
-        {filtered.length === 0 && (
-          <div className="p-8 text-center text-stone-400 text-sm">沒有符合條件的工具</div>
-        )}
-      </div>
-    </div>
-  );
-}
