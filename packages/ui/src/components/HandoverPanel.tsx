@@ -174,7 +174,9 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
         {isOpen && (
           <div className="border-t px-3.5 py-2.5" style={{ borderColor: tk.borderLight }}>
             {shown ? (
-              <div className="text-[11px] text-stone-600 leading-relaxed">
+              /* 2026-10-09 Fleming：main info 內容字級與 Troubleshooting/Release Manager 對齊（11px）—
+                 MarkdownText root 的 text-sm(14px) 會蓋掉外層，這裡用 arbitrary variants 壓回來（不動共用元件） */
+              <div className="text-[11px] text-stone-600 leading-relaxed [&_.md-content]:!text-[11px] [&_.md-content_h1]:!text-xs [&_.md-content_h2]:!text-xs [&_.md-content_h3]:!text-[11px] [&_.md-content_h4]:!text-[11px] [&_.md-content_h5]:!text-[11px] [&_.md-content_p]:!text-[11px] [&_.md-content_li]:!text-[11px] [&_.md-content_td]:!text-[11px]">
                 <SafeMarkdown content={shown} />
               </div>
             ) : (
