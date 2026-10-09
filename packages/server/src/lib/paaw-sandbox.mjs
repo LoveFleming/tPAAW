@@ -6,11 +6,18 @@
 // 逃生口：PAAW_SANDBOX=off 環境變數（debug 用）。
 // 不可用時自動退回原樣執行（script-guard pattern 掃描仍在）。
 
+import { readFileSync } from "fs";
+import { resolve } from "path";
+import { DATA_HOME } from "../data-home.mjs";
+
 let _SM = null;
 let _inited = false;
 let _unavailable = false;
 
-const ALLOWED_DOMAINS = [
+// ── 白名單分兩層（2026-10-10 Fleming：不要寫死，data/ 可設 + Settings UI 管理）──
+// 內建 = 系統必要（npm/pip/git/localhost），碼裡保底不能被 UI 刪掉
+// 自訂 = data/config/network-whitelist.json { domains: [...] }，即時生效（buildConfig 每次讀）
+const BUILTIN_DOMAINS = [
   "registry.npmjs.org",
   "registry.yarnpkg.com",
   "github.com",
@@ -21,6 +28,20 @@ const ALLOWED_DOMAINS = [
   "localhost",
   "127.0.0.1",
 ];
+
+function loadCustomWhitelist() {
+  try {
+    const cfg = JSON.parse(readFileSync(resolve(DATA_HOME, "config/network-whitelist.json"), "utf-8"));
+    return Array.isArray(cfg?.domains) ? cfg.domains.filter(d => typeof d === "string" && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(d.trim())) : [];
+  } catch { return []; } // 無檔/壞檔 = 空自訂（內建照常）
+}
+
+// 對外 API 用：內建 + 自訂（去重）
+export function effectiveAllowedDomains() {
+  return [...new Set([...BUILTIN_DOMAINS, ...loadCustomWhitelist()])];
+}
+export function builtinAllowedDomains() { return [...BUILTIN_DOMAINS]; }
+export function customAllowedDomains() { return loadCustomWhitelist(); }
 
 const DENY_READ = [
   "~/.ssh",
@@ -74,7 +95,7 @@ export async function wrapWithSrt(command, cwd) {
 function buildConfig(cwd) {
   return {
     network: {
-      allowedDomains: ALLOWED_DOMAINS,
+      allowedDomains: effectiveAllowedDomains(),
       deniedDomains: [],
       allowLocalBinding: true,   // dev server bind + loopback 測試
       allowAllUnixSockets: true, // 本地 IPC（docker socket 等）

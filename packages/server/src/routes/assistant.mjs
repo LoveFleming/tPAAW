@@ -251,6 +251,28 @@ export default async function assistantRoute(req, res) {
     return true;
   }
 
+  // ── 網路白名單（2026-10-10）：srt 沙箱對外域名 — data/config/network-whitelist.json ──
+  if (path === "/api/paaw/network-whitelist" && req.method === "GET") {
+    const { builtinAllowedDomains, customAllowedDomains } = await import("../lib/paaw-sandbox.mjs");
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ builtin: builtinAllowedDomains(), custom: customAllowedDomains(), sandboxNote: "AI bash 沙箱只允許連這些域名（內建=系統必要不可刪；自訂=加你需要的 API）" }));
+    return true;
+  }
+  if (path === "/api/paaw/network-whitelist" && req.method === "PUT") {
+    const body = JSON.parse(await readBody(req) || "{}");
+    const { builtinAllowedDomains } = await import("../lib/paaw-sandbox.mjs");
+    const builtinSet = new Set(builtinAllowedDomains());
+    const clean = [...new Set((Array.isArray(body.domains) ? body.domains : [])
+      .map((d) => String(d || "").trim().toLowerCase())
+      .filter((d) => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(d) && !builtinSet.has(d)))]; // 域名形狀 + 內建去重
+    const cfgDir = resolve(PAAW_DATA_DIR, "config");
+    await mkdir(cfgDir, { recursive: true });
+    await writeFile(resolve(cfgDir, "network-whitelist.json"), JSON.stringify({ domains: clean, _note: "AI bash 沙箱對外白名單（Settings UI 管理）" }, null, 2) + "\n", "utf-8");
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, custom: clean }));
+    return true;
+  }
+
   // GET /api/paaw/providers
   if (req.method === "GET" && path === "/api/paaw/providers") {
     try {

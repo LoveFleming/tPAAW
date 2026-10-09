@@ -39,7 +39,12 @@ interface SettingsPageProps {
 export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved }: SettingsPageProps = {}) {
   const { info: themeInfo } = useTheme();
   const { t, locale, setLocale } = useI18n();
-  const [tab, setTabState] = useState<"profile" | "providers" | "agentConfig" | "preferences" | "skill" | "language" | "backup" | "plugins">((initialTab as any) || "profile");
+  const [tab, setTabState] = useState<"profile" | "providers" | "agentConfig" | "preferences" | "security" | "skill" | "language" | "backup" | "plugins">((initialTab as any) || "profile");
+  // 🛡 網路白名單（2026-10-10）：srt 沙箱對外域名
+  const [wlBuiltin, setWlBuiltin] = useState<string[]>([]);
+  const [wlCustom, setWlCustom] = useState<string[]>([]);
+  const [wlInput, setWlInput] = useState("");
+  const [wlSaving, setWlSaving] = useState(false);
   const [providers, setProviders] = useState<Record<string, ProviderData>>({});
   const [activeId, setActiveId] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
@@ -70,7 +75,14 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   }, [initialTab]);
 
   // Tab setter that syncs with parent
-  const setTab = (newTab: typeof tab) => { setTabState(newTab); onTabChange?.(newTab); };
+  const setTab = (newTab: typeof tab) => {
+    setTabState(newTab); onTabChange?.(newTab);
+    if (newTab === "security") {
+      fetch(`${API_BASE}/api/paaw/network-whitelist`).then(r => r.json()).then((d) => {
+        setWlBuiltin(d.builtin || []); setWlCustom(d.custom || []);
+      }).catch(() => {});
+    }
+  };
 
   useEffect(() => {
     fetch(`${API_BASE}/api/paaw/providers`)
@@ -255,6 +267,9 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
           </button>
           <button onClick={() => setTab("agentConfig")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "agentConfig" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             ⚡ Agent 設定
+          </button>
+          <button onClick={() => setTab("security")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "security" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            🛡 {t("settings.security")}
           </button>
           <button onClick={() => setTab("preferences")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "preferences" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             📌 Model 偏好
@@ -543,6 +558,70 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
               </div>
             </div>
             <button onClick={async()=>{setSaving(true);try{await fetch(`${API_BASE}/api/ai-settings/agent-config`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(agentConfig)});setSaved(true);setTimeout(()=>setSaved(false),2000);}catch{}setSaving(false);}} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{background:`linear-gradient(135deg,${themeInfo.accent},${themeInfo.accentHover})`}}>{saving ? t("common.saving") : saved ? t("common.saved") : t("settings.saveAgent")}</button>
+          </div>
+        )}
+
+        {/* Security tab — 網路白名單（2026-10-10） */}
+        {tab === "security" && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <h3 className="text-base font-bold text-stone-700">🛡 {t("settings.netWhitelist.title")}</h3>
+              <p className="text-sm text-stone-400 mb-4">{t("settings.netWhitelist.desc")}</p>
+
+              <div className="mb-4">
+                <div className="text-xs font-semibold text-stone-500 mb-2">🔒 {t("settings.netWhitelist.builtin")}</div>
+                <div className="flex flex-wrap gap-2">
+                  {wlBuiltin.map((d) => (
+                    <span key={d} className="px-2.5 py-1 rounded-full bg-stone-100 text-stone-500 text-xs font-mono">{d}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <div className="text-xs font-semibold text-stone-500 mb-2">➕ {t("settings.netWhitelist.custom")}</div>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {wlCustom.length === 0 && <span className="text-xs text-stone-300">{t("settings.netWhitelist.empty")}</span>}
+                  {wlCustom.map((d) => (
+                    <span key={d} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-mono border border-emerald-200">
+                      {d}
+                      <button onClick={() => setWlCustom(prev => prev.filter(x => x !== d))} className="text-emerald-400 hover:text-rose-500 font-bold" title={t("settings.netWhitelist.remove")}>×</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={wlInput}
+                    onChange={(e) => setWlInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(wlInput.trim())) {
+                        setWlCustom(prev => prev.includes(wlInput.trim().toLowerCase()) ? prev : [...prev, wlInput.trim().toLowerCase()]);
+                        setWlInput("");
+                      }
+                    }}
+                    placeholder={t("settings.netWhitelist.placeholder")}
+                    className="flex-1 px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono focus:outline-none focus:border-stone-400"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={async () => {
+                  setWlSaving(true);
+                  try {
+                    const r = await fetch(`${API_BASE}/api/paaw/network-whitelist`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ domains: wlCustom }) });
+                    const d = await r.json();
+                    if (d.ok) { setWlCustom(d.custom); setSaved(true); setTimeout(() => setSaved(false), 2000); }
+                  } catch {}
+                  setWlSaving(false);
+                }}
+                disabled={wlSaving}
+                className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50"
+                style={{ background: `linear-gradient(135deg,${themeInfo.accent},${themeInfo.accentHover})` }}
+              >
+                {wlSaving ? t("common.saving") : saved ? t("common.saved") : t("settings.netWhitelist.save")}
+              </button>
+              <p className="text-xs text-stone-400 mt-3">{t("settings.netWhitelist.note")}</p>
+            </div>
           </div>
         )}
 

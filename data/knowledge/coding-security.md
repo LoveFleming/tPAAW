@@ -85,6 +85,10 @@ PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
 - 逃生口：`PAAW_SANDBOX=off`；套件不可用（公司 Windows 未裝）自動退回 pattern 掃描
 - 實測 6/6：混淆攔 / localhost 200 / npm install 成功 / vitest 全跑 / ~/.ssh 雙層擋 / ~/.zshrc 雙層擋
 
+**白名單管理（2026-10-10 Fleming 拍板：不寫死，data/ + Settings UI）**
+- 內建（碼裡保底，UI 不可刪）：npm/pypi/GitHub/localhost；自訂：`data/config/network-whitelist.json`
+- Settings → 🛡 安全 tab 管理（GET/PUT `/api/paaw/network-whitelist`）；儲存即時生效（buildConfig 每次重讀，不需重啟）
+
 ## ④¾ doom_loop 防呆（2026-10-09，抄 OpenCode 預設 ask）
 
 同 tool call（name + arguments 完全相同）第 3 次 → 攔截 + 引導（換做法/ask_user）。防 agent 卡死燒 token。
