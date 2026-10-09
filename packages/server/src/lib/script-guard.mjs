@@ -81,12 +81,22 @@ function blockMsg(r, file) {
 // ── C. bash 指令的 script 執行掃描 ──
 const SCRIPT_EXTS = "mjs|cjs|js|ts|mts|cts|tsx|jsx|py|pyw|sh|zsh|bash|rb|pl|pm|php|lua|ps1|psm1|tcl";
 
+// ── 越權與機密防護（2026-10-09 v3）──
+// no-push 紀律技術化：AI 永遠不 push，push 是人的動作
+const GIT_PUSH = /\bgit\b[^&|;\n]{0,40}?\bpush\b/;
+// bash 指令碰機密路徑 = 幾乎只有竊取/搬運場景（讀值 debug 走 ask_user）
+const SECRET_PATH = /(~\/\.ssh|\/\.ssh\/|\.ssh\/id_|data\/config\/providers\.json|(?:^|[\s"'])\.env(?:\s|"|$))/;
+
 export function guardScriptExecution(command, cwd) {
   const cmd = String(command || "");
 
   // 0) raw 指令本身先掃（語言無關）— 直接 curl|sh、osascript、外部 URL 下載等，不管什麼語言/形式
   const rawScan = scanScriptContent(cmd, "bash command");
   if (rawScan.dangerous) return { blocked: true, message: blockMsg(rawScan, null) };
+  // 0a) 越權：git push 一律擋（no-push 紀律技術化）
+  if (GIT_PUSH.test(cmd)) return { blocked: true, message: "🚫 安全攔截（script-guard）：git push 是人的動作，AI 不執行 push（no-push 紀律）。commit 完留給使用者決定。若你判斷必須 push，請用 ask_user 說明理由取得同意。" };
+  // 0b) 機密路徑：~/.ssh / providers.json / .env — 竊取場景（複製進專案等人 push = git 外傳）
+  if (SECRET_PATH.test(cmd)) return { blocked: true, message: "🚫 安全攔截（script-guard）：bash 指令涉及機密路徑（SSH 金鑰 / AI provider 金鑰 / .env）。AI 不經 bash 觸碰這些檔案。若確有需要（debug），請用 ask_user 向使用者說明，由人工執行。" };
 
   // inline code: node -e / python -c / ruby -e / perl -e / php -r / powershell -Command
   const inlineMatch = cmd.match(/\b(node|python3?|deno|bun|ruby|perl|php|powershell|pwsh)\s+(?:-e|-c|-r|-Command)\s+(['"`])([\s\S]*?)\2/);

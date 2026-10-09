@@ -91,6 +91,8 @@ PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
 | 持久化 | launchd / crontab / git hooks / shell rc / osascript |
 | 破壞性 | `rm -rf /`·`~`、killall、pkill、diskutil erase、dd、mkfs |
 | 下載即執行 | `curl ... \| sh` 管線 |
+| **越權 push** | `git push`（v3 起一律擋 — no-push 紀律技術化，push 是人的動作） |
+| **機密路徑** | bash 碰 `~/.ssh` / `data/config/providers.json` / `.env`（v3 起擋 — 防「搬進專案等人 push」的 git 外傳） |
 
 命中 → 擋下 + 引導 agent 用 `ask_user` 向人說明意圖；未命中 → 直接執行。
 
