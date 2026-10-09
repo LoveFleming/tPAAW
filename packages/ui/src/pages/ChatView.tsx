@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
+import AssistantProfileModal from "../components/AssistantProfileModal";
 
 // ── Module-level pending seed message ──
 let _pendingSeed: string | null = null;
@@ -175,7 +176,16 @@ const MessageRow = React.memo(function MessageRow({
 export default function ChatView({ profile, embedded = false, onTitleChange, onDeepLink, seedMessage, onSeedConsumed, apps = [], onOpenApp, providerReady, onProviderNotReady }: Props) {
   const { t: tt } = useI18n();
   const { info: themeInfo } = useTheme();
-  const assistantName = profile.assistantName || tt("chat.assistantDefault");
+  // 個人助理（林雨晴）personal profile — 名/像來源（2026-10-09 Fleming：從 assistant module + crew-preferences）
+  const [crewInfo, setCrewInfo] = useState<{ name?: string; avatar?: string; greeting?: string } | null>(null);
+  const loadCrewInfo = useCallback(() => {
+    fetch(`${API_BASE}/api/crew/my.assistant`)
+      .then(r => r.json())
+      .then(d => { if (d && !d.error) setCrewInfo({ name: d.displayName || d.codename, avatar: d.imageUrl, greeting: d.greeting }); })
+      .catch(() => {});
+  }, []);
+  useEffect(() => { loadCrewInfo(); }, [loadCrewInfo]);
+  const assistantName = crewInfo?.name || profile.assistantName || tt("chat.assistantDefault");
 
   // ── State ──
   const [chats, setChats] = useState<Chat[]>([]);
@@ -185,6 +195,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   const [chatAction, setChatAction] = useState(""); // thinking vs tool action
   const [isLoading, setIsLoading] = useState(false);
   const [showChatList, setShowChatList] = useState(false);
+  const [showAssistantSettings, setShowAssistantSettings] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [showAppLauncher, setShowAppLauncher] = useState(false);
   // 🧠 Context debug（2026-09-26 Fleming：prompt 按鈕跟 coding app agent chat 對齊）
@@ -245,9 +256,11 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   const chatAreaRef = useRef<HTMLDivElement | null>(null);
 
   // ── Assistant avatar ──
-  const avatarSrc = profile.assistantAvatar
-    ? (profile.assistantAvatar.startsWith("/") ? `${API_BASE}${profile.assistantAvatar}` : profile.assistantAvatar)
-    : "/avatars/assistant-default.png";
+  const avatarSrc = crewInfo?.avatar
+    ? (crewInfo.avatar.startsWith("/") ? `${API_BASE}${crewInfo.avatar}` : crewInfo.avatar)
+    : profile.assistantAvatar
+      ? (profile.assistantAvatar.startsWith("/") ? `${API_BASE}${profile.assistantAvatar}` : profile.assistantAvatar)
+      : "/avatars/assistant-default.png";
 
   // ── 效能：md components 身分穩定（typing 時不重建 → MessageRow memo 成立）──
   const accentColor = themeInfo.accent;
@@ -729,6 +742,10 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
             <p className="text-[11px] text-stone-400">你的個人助理 · 在線</p>
           </div>
           <div className="flex items-center gap-1.5">
+            {/* 🧑‍💼 個人助理設定（2026-10-09 Fleming：從 PAAW 設定頁移到此處）*/}
+            <button onClick={() => setShowAssistantSettings(true)} className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accent }} title="個人助理設定（名字/照片/開場白/語氣）">
+              🧑‍💼
+            </button>
             {/* ── 按鈕 trio 跟 coding app agent chat 同款（2026-09-26 Fleming）：📋 歷史對話 / 🧠 看 context / 💬 開新對話，統一 accent 色外框 ── */}
             <button onClick={() => setShowChatList(!showChatList)} className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accent }} title="歷史對話">
               📋
@@ -935,6 +952,15 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
             )}
           </div>
         </div>
+      )}
+
+      {/* 🧑‍💼 個人助理設定 modal（2026-10-09 Fleming：從 PAAW 設定頁移來）*/}
+      {showAssistantSettings && (
+        <AssistantProfileModal
+          themeInfo={{ accent: themeInfo.accent, accentBorder: themeInfo.accentBorder, accentBg: themeInfo.accentBg }}
+          onClose={() => setShowAssistantSettings(false)}
+          onSaved={loadCrewInfo}
+        />
       )}
 
       {/* 🧠 Context & Prompts debug modal（2026-09-26：跟 coding app agent chat 同款） */}
