@@ -164,7 +164,7 @@ export function saveCrewPrefs(prefs) {
 export function applyCrewPrefs(crew) {
   if (!crew) return crew;
   const p = loadCrewPrefs()[crew.id];
-  if (!p) return { ...crew, prefs: undefined };
+  if (!p || Object.keys(p).length === 0) return { ...crew, prefs: undefined };  // 空物件視為無偏好
   return {
     ...crew,
     displayName: p.displayName || undefined,  // 2026-10-09：不可 fallback crew.title（只有 tone/notes 的偏好會讓名字變 title）；未設定就交給 codename

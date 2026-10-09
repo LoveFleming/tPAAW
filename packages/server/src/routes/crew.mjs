@@ -285,8 +285,9 @@ export default async function crewRoute(req, res) {
       const prefs = _loadPrefs();
       prefs[crewId] = { ...(prefs[crewId] || {}), ...clean };
       for (const k of allowed) if (!prefs[crewId][k]) delete prefs[crewId][k];
+      if (Object.keys(prefs[crewId]).length === 0) delete prefs[crewId];  // 2026-10-09：清空 = 移除，不留 {}（否則列表誤顯 ✏️）
       _savePrefs(prefs);
-      json(res, { ok: true, prefs: prefs[crewId] });
+      json(res, { ok: true, prefs: prefs[crewId] || {} });
     } catch (err) { json(res, { error: err.message }, 500); }
     return true;
   }
