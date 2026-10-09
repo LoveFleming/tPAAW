@@ -136,7 +136,7 @@ PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
 
 ## 已知限制（誠實講）
 
-1. **掃描式非密不通風** — 混淆過的 payload（base64 編碼、動態組 URL、分段下載）理論上可繞過 pattern；v2 起直譯器/編譯/raw 指令三層都掃（語言無關），但這是纵深防禦不是密不通風 — 殘餘風險靠 ⑥ 人審 + ⑦ 審計兜底
+1. **掃描式非密不通風** — 混淆 payload（base64、動態組 URL）可繞過 pattern **掃描**；但 v4 網路沙箱後，macOS 上這些 payload 就算執行也**連不出去**（網路層死）。殘餘：安裝類 egress 白名單（npm/pip/npx）內的供應鏈風險、非 macOS 平台無沙箱層
 2. **網路 egress 沒擋** — bash 仍可 curl 下載（只有內容掃描事前攔 script 檔；直接 curl 指令靠 shell-guard 不含此項）— 如需更強可上 sandbox-exec / 容器，目前判定過度設計
 3. **npx 可跑任意套件** — env_exec 白名單含 npx；供應鏈信任靠 npm registry + lockfile（npm ci）
 4. **dev_server / ru_verify 跑的 npm script** 未掛 C 掃描（只跑白名單 action：build/lint/test/dev）— script 值仍可能被改過，靠 ② 路徑限制 + 人審補
