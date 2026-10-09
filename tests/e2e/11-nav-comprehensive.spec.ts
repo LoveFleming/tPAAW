@@ -237,8 +237,11 @@ test.describe("Sidebar Sections", () => {
     const aside = page.locator("aside");
     const asideText = await aside.textContent();
 
-    // Workspaces section
-    expect(asideText?.includes("工作區") || asideText?.includes("Workspaces")).toBeTruthy();
+    // Workspaces → File Mounts（5fe23403 更名；舊新名都接受）
+    expect(
+      asideText?.includes("工作區") || asideText?.includes("Workspaces") ||
+      asideText?.includes("File Mounts") || asideText?.includes("檔案掛載")
+    ).toBeTruthy();
 
     // Should show workspace directories or empty state
     const hasWorkspace =
