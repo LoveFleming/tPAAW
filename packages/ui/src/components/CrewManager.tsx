@@ -675,6 +675,12 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                     照片、名字、開場白、語氣 — personal profile（data/，跟著使用者走）；行為（Role Prompt / 工具）由 coding module 維護。
                   </div>
 
+                  {!(prefs.avatarUrl || prefs.displayName || prefs.tone || prefs.greeting || prefs.notes) && (
+                    <div className="text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-700">
+                      ℹ️ 目前尚未設定個人資料 — 以下全部使用<b>系統預設</b>（來自 coding module）。
+                    </div>
+                  )}
+
                   {/* Avatar */}
                   <div className="flex items-center gap-4">
                     <div className="w-16 h-16 rounded-xl border overflow-hidden flex items-center justify-center shrink-0"
@@ -683,12 +689,17 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                         <img src={prefs.avatarUrl.startsWith("/") ? `${API_BASE}${prefs.avatarUrl}` : prefs.avatarUrl}
                           className="w-full h-full object-contain"
                           onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      ) : editData?.imageUrl ? (
+                        <img src={`${API_BASE}${editData.imageUrl}`} className="w-full h-full object-contain" />
                       ) : (
                         <span className="text-2xl">{editData?.emoji || "👤"}</span>
                       )}
                     </div>
                     <div className="flex-1">
-                      <label className={labelCls}>頭像照片（存 data/，跟著使用者走）</label>
+                      <label className={labelCls}>
+                        頭像照片（存 data/，跟著使用者走）
+                        {prefs.avatarUrl ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-600 font-normal">已自訂</span> : <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-normal">系統預設</span>}
+                      </label>
                       <div className="flex gap-2">
                         <input
                           value={prefs.avatarUrl || ""}
@@ -708,14 +719,20 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className={labelCls}>顯示名稱（留空 = 原名）</label>
+                      <label className={labelCls}>
+                        顯示名稱
+                        {prefs.displayName ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-600 font-normal">已自訂</span> : <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-normal">系統預設：{editData?.codename || selectedAgent?.id}</span>}
+                      </label>
                       <input value={prefs.displayName || ""}
                         onChange={e => setPrefs(p => ({ ...p, displayName: e.target.value }))}
                         placeholder={editData?.codename || selectedAgent?.id}
                         className={inputCls} style={inputStyle} />
                     </div>
                     <div>
-                      <label className={labelCls}>語氣</label>
+                      <label className={labelCls}>
+                        語氣
+                        {prefs.tone ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-600 font-normal">已自訂</span> : <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-normal">系統預設（不調整）</span>}
+                      </label>
                       <select value={prefs.tone || ""}
                         onChange={e => setPrefs(p => ({ ...p, tone: e.target.value }))}
                         className={inputCls} style={inputStyle}>
@@ -729,7 +746,10 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                   </div>
 
                   <div>
-                    <label className={labelCls}>開場白（新對話第一句）</label>
+                    <label className={labelCls}>
+                      開場白（新對話第一句）
+                      {prefs.greeting ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-600 font-normal">已自訂</span> : <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-normal">系統預設（無）</span>}
+                    </label>
                     <input value={prefs.greeting || ""}
                       onChange={e => setPrefs(p => ({ ...p, greeting: e.target.value }))}
                       placeholder="例：今天要交接什麼？"
@@ -737,7 +757,10 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                   </div>
 
                   <div>
-                    <label className={labelCls}>備註（只有你看）</label>
+                    <label className={labelCls}>
+                      備註（只有你看）
+                      {prefs.notes ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-600 font-normal">已自訂</span> : <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-normal">系統預設（無）</span>}
+                    </label>
                     <textarea value={prefs.notes || ""}
                       onChange={e => setPrefs(p => ({ ...p, notes: e.target.value }))}
                       rows={2}
@@ -748,7 +771,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                     <button onClick={savePrefs} disabled={prefsSaving}
                       className="px-4 py-2 text-sm font-bold text-white rounded-lg disabled:opacity-50"
                       style={{ backgroundColor: t.accent }}>
-                      {prefsSaving ? "儲存中..." : "🎨 儲存偏好"}
+                      {prefsSaving ? "儲存中..." : "💾 儲存基本資料"}
                     </button>
                     <span className="text-[11px] text-stone-400">即時套用：側欄、組織圖、聊天頁頭像名字</span>
                   </div>

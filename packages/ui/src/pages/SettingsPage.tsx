@@ -462,10 +462,16 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                 照片、名字、開場白、語氣 — personal profile（data/，跟著使用者走）；行為由 assistant module 維護。
               </div>
 
+              {!(assistantPrefs.avatarUrl || assistantPrefs.displayName || assistantPrefs.tone || assistantPrefs.greeting || assistantPrefs.notes) && (
+                <div className="text-[11px] bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-700 mb-4">
+                  ℹ️ 目前尚未設定 — 以下全部使用<b>系統預設</b>（來自 assistant module）。
+                </div>
+              )}
+
               <div className="space-y-3">
                 <div className="flex items-end gap-2">
                   <div className="flex-1">
-                    <label className="text-xs font-semibold text-stone-500 block mb-1">頭像網址</label>
+                    <label className="text-xs font-semibold text-stone-500 block mb-1">頭像網址{assistantPrefs.avatarUrl ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-600 font-normal">已自訂</span> : <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-normal">系統預設</span>}</label>
                     <input value={assistantPrefs.avatarUrl || ""} onChange={e => setAssistantPrefs(p => ({ ...p, avatarUrl: e.target.value }))}
                       placeholder={assistantInfo?.imageUrl ? `預設：${assistantInfo.imageUrl}` : "/api/uploads/…"}
                       className="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 focus:border-stone-400 outline-none" />
@@ -478,13 +484,13 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-stone-500 block mb-1">顯示名稱（留空 = 原名）</label>
+                    <label className="text-xs font-semibold text-stone-500 block mb-1">顯示名稱{assistantPrefs.displayName ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-600 font-normal">已自訂</span> : <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-normal">系統預設：{assistantInfo?.codename || "林雨晴"}</span>}</label>
                     <input value={assistantPrefs.displayName || ""} onChange={e => setAssistantPrefs(p => ({ ...p, displayName: e.target.value }))}
                       placeholder={assistantInfo?.codename || "林雨晴 Rainy Lin"}
                       className="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 focus:border-stone-400 outline-none" />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-stone-500 block mb-1">語氣偏好</label>
+                    <label className="text-xs font-semibold text-stone-500 block mb-1">語氣偏好{assistantPrefs.tone ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-600 font-normal">已自訂</span> : <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-normal">系統預設（不調整）</span>}</label>
                     <select value={assistantPrefs.tone || ""} onChange={e => setAssistantPrefs(p => ({ ...p, tone: e.target.value }))}
                       className="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 bg-white focus:border-stone-400 outline-none">
                       <option value="">預設（不調整）</option>
@@ -497,14 +503,14 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-stone-500 block mb-1">開場白（新對話第一句）</label>
+                  <label className="text-xs font-semibold text-stone-500 block mb-1">開場白（新對話第一句）{assistantPrefs.greeting ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-600 font-normal">已自訂</span> : <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-normal">系統預設（無）</span>}</label>
                   <input value={assistantPrefs.greeting || ""} onChange={e => setAssistantPrefs(p => ({ ...p, greeting: e.target.value }))}
                     placeholder="例：嗨！我是林雨晴 ☔"
                     className="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 focus:border-stone-400 outline-none" />
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-stone-500 block mb-1">備註（只有你看）</label>
+                  <label className="text-xs font-semibold text-stone-500 block mb-1">備註（只有你看）{assistantPrefs.notes ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-600 font-normal">已自訂</span> : <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-normal">系統預設（無）</span>}</label>
                   <textarea value={assistantPrefs.notes || ""} onChange={e => setAssistantPrefs(p => ({ ...p, notes: e.target.value }))} rows={2}
                     className="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 focus:border-stone-400 outline-none resize-none" />
                 </div>
