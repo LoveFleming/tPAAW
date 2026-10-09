@@ -47,7 +47,9 @@ export function persistentEntryBlock(pathStr) {
 }
 
 // ── 危險 pattern（內容掃描 — B/C 共用）──
-const NET_TOOLS = /(\bfetch\s*\(|\bcurl\b|\bwget\b|http\.request|https\.request|net\.connect|axios|node-fetch|got\()/;
+// 跨語言網路 API：JS(fetch/axios/node-fetch/got)、Python(requests/urllib/http.client/socket)、
+// Ruby(Net::HTTP/open-uri)、PHP(file_get_contents/curl_init)、PowerShell(Invoke-WebRequest/iwr)、通用 curl/wget
+const NET_TOOLS = /(\bfetch\s*\(|\bcurl\b|\bwget\b|http\.request|https\.request|net\.connect|\baxios\b|node-fetch|\bgot\(|\brequests\.(get|post|put)|urllib\.(request|urlopen)|http\.client|socket\.connect|Net::HTTP|open-uri|file_get_contents|curl_init|Invoke-WebRequest|\biwr\b|\birm\b|Invoke-RestMethod)/;
 const EXT_URL = /https?:\/\/(?!localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|\$\{?[A-Z_])/i;
 const PERSISTENCE = /(LaunchAgents|launchctl|crontab|\.git[\\/]hooks|\.zshrc|autostart|osascript)/;
 const DESTRUCTIVE = /(rm\s+-[rf]{1,2}\s+(\/|~|\$HOME|C:\\)|killall|pkill|diskutil\s+erase|\bdd\s+if=|mkfs|shutdown\s+-|reboot\b)/;
@@ -77,18 +79,31 @@ function blockMsg(r, file) {
 }
 
 // ── C. bash 指令的 script 執行掃描 ──
+const SCRIPT_EXTS = "mjs|cjs|js|ts|mts|cts|tsx|jsx|py|pyw|sh|zsh|bash|rb|pl|pm|php|lua|ps1|psm1|tcl";
+
 export function guardScriptExecution(command, cwd) {
   const cmd = String(command || "");
 
-  // inline code: node -e / python -c
-  const inlineMatch = cmd.match(/\b(node|python3?|deno|bun)\s+(?:-e|-c)\s+(['"])([\s\S]*?)\2/);
+  // 0) raw 指令本身先掃（語言無關）— 直接 curl|sh、osascript、外部 URL 下載等，不管什麼語言/形式
+  const rawScan = scanScriptContent(cmd, "bash command");
+  if (rawScan.dangerous) return { blocked: true, message: blockMsg(rawScan, null) };
+
+  // inline code: node -e / python -c / ruby -e / perl -e / php -r / powershell -Command
+  const inlineMatch = cmd.match(/\b(node|python3?|deno|bun|ruby|perl|php|powershell|pwsh)\s+(?:-e|-c|-r|-Command)\s+(['"`])([\s\S]*?)\2/);
   if (inlineMatch) {
     const r = scanScriptContent(inlineMatch[3], "inline code");
     if (r.dangerous) return { blocked: true, message: blockMsg(r, null) };
   }
 
-  // script file: node/python/sh 執行檔案（含 npx tsx）
-  const fileMatches = [...cmd.matchAll(/\b(node|python3?|deno|bun|tsx|npx\s+tsx|bash|sh|zsh)\s+((?:[\w./-]*\/)?[\w.-]+\.(?:mjs|cjs|js|ts|py|sh|zsh))\b/g)];
+  // script file: 直譯器執行檔案（node/python/ruby/perl/php/lua/powershell/tsx…）
+  const fileMatches = [...cmd.matchAll(new RegExp(`\\b(node|python3?|deno|bun|tsx|npx\\s+tsx|bash|sh|zsh|ruby|perl|php|lua|powershell|pwsh|osascript)\\s+((?:[\\w./-]*\\/)?[\\w.-]+\\.(?:${SCRIPT_EXTS}))\\b`, "g"))];
+  // shebang 直跑：./xxx.sh ./xxx.py（chmod +x 後直接執行也算）
+  fileMatches.push(...[...cmd.matchAll(new RegExp(`(^|[&;|\\s])((?:\\./|/)[\\w./-]+\\.(?:${SCRIPT_EXTS}))(?:\\s|$)`, "g"))].map(m => [null, null, m[2]]));
+  // 編譯型（C/C++/Go/Rust/Java）：編譯時掃 source（binary 掃不了，原始碼掃得到）
+  const compileMatches = [...cmd.matchAll(/\b(gcc|clang|g\+\+|cc\+\+|go\\s+build|cargo\\s+build|javac)\b[^&|;]*/g)].map(m => m[0]);
+  for (const ccmd of compileMatches) {
+    fileMatches.push(...[...ccmd.matchAll(/((?:[\w./-]*\/)?[\w.-]+\.(?:c|cc|cpp|cxx|h|go|rs|java))\b/g)].map(m => [null, null, m[1]]));
+  }
   for (const m of fileMatches) {
     const f = isAbsolute(m[2]) ? m[2] : resolvePath(cwd || process.cwd(), m[2]);
     if (!existsSync(f)) continue; // 還沒寫出來的檔案掃不到，交給寫入攔截

@@ -71,12 +71,17 @@ PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
 
 **該快的全速跑**：正常 AI coding（寫測試腳本、跑 build、乾淨專案 npm install）零摩擦。
 
-### C：bash 執行前掃描（掛在 shell-guard 之後）
+### C：bash 執行前掃描（掛在 shell-guard 之後；v2 起語言無關）
 
 觸發點：
-- `node|python|deno|bun|tsx` 執行 **.mjs/.js/.ts/.py/.sh 檔案** → 讀檔掃內容
-- `node -e` / `python -c` **inline code** → 掃字串
+- **raw bash 指令本身先掃**（語言無關）— 直接 `curl|x` 下載即執行、`osascript`、外部 URL 組合，不管什麼語言形式
+- **直譯器執行檔案**：node / python / ruby / perl / php / lua / deno / bun / tsx / powershell / osascript → 讀檔掃內容
+- **shebang 直跑**：`./xxx.sh`、`./xxx.py`（chmod +x 後直接執行）也掃
+- **inline code**：`node -e` / `python -c` / `ruby -e` / `php -r` / `powershell -Command` → 掃字串
+- **編譯型**：gcc / clang / g++ / go build / cargo build / javac → 編譯前掃 **source 檔**（binary 掃不了，原始碼掃得到）
 - `npm run <script>` → 解析 package.json scripts 值掃描（防 AI 先加惡意 script 再跑）
+
+網路 API 偵測跨語言：JS(fetch/axios/node-fetch/got) · Python(requests/urllib/http.client/socket) · Ruby(Net::HTTP/open-uri) · PHP(file_get_contents/curl_init) · PowerShell(Invoke-WebRequest/iwr/irm) · 通用 curl/wgit
 
 危險 pattern（故意粗爆 — injection payload 通常就是這三件套）：
 
@@ -118,7 +123,7 @@ PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
 
 ## 已知限制（誠實講）
 
-1. **掃描式非密不通風** — 混淆過的 payload 理論上可繞過 pattern；但 injection 攻擊通常粗爆（curl+持久化），且 localhost 單人場景殘餘風險可接受
+1. **掃描式非密不通風** — 混淆過的 payload（base64 編碼、動態組 URL、分段下載）理論上可繞過 pattern；v2 起直譯器/編譯/raw 指令三層都掃（語言無關），但這是纵深防禦不是密不通風 — 殘餘風險靠 ⑥ 人審 + ⑦ 審計兜底
 2. **網路 egress 沒擋** — bash 仍可 curl 下載（只有內容掃描事前攔 script 檔；直接 curl 指令靠 shell-guard 不含此項）— 如需更強可上 sandbox-exec / 容器，目前判定過度設計
 3. **npx 可跑任意套件** — env_exec 白名單含 npx；供應鏈信任靠 npm registry + lockfile（npm ci）
 4. **dev_server / ru_verify 跑的 npm script** 未掛 C 掃描（只跑白名單 action：build/lint/test/dev）— script 值仍可能被改過，靠 ② 路徑限制 + 人審補
