@@ -21,8 +21,8 @@ import { scanScriptContent, isPackageJsonClean } from "./script-guard.mjs";
 const WHITELIST = {
   npm: null,            // install/ci/update/uninstall/ls/outdated/run/test/--version
   npx: null,
-  node: ["--version", "-v", "-e"], // -e 供快速檢查（如 console.log(process.version)）
-  python3: ["--version", "-V", "-c"],
+  node: ["--version", "-v"], // 2026-10-09 23:10 拿掉 -e：scanScriptContent 未覆蓋 inline code，node 25 全域 fetch = 外傳面；要跑碼找 coding agent
+  python3: ["--version", "-V"], // 同上拿掉 -c
   pip3: null,           // install/list/show/--version
   brew: null,           // install/upgrade/list/info/--version
   which: null,
