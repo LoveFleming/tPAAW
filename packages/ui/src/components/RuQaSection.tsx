@@ -79,26 +79,9 @@ export default function RuQaSection({ rootPath, theme, onAskAi }: { rootPath: st
 
   return (
     <section>
-      <h3 className="text-xs font-bold text-stone-600 mb-2">❓ {t("ru.qa.title")}</h3>
+      {/* 2026-10-09 Fleming：input/標題/小標拿掉 — 只留 12 題按鈕點了即問 */}
       <div style={box}>
-        <input
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          onCompositionStart={() => { composingRef.current = true; }}
-          onCompositionEnd={() => { composingRef.current = false; }}
-          onKeyDown={e => {
-            if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
-            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(q); }
-          }}
-          placeholder={t("ru.qa.placeholder")}
-          className="w-full text-xs px-2.5 py-1.5 rounded-lg border outline-none focus:border-stone-400 transition-colors"
-          style={{ borderColor: theme.borderLight, background: "#fff", color: theme.text }}
-        />
-
-        {/* 新人 12 問 — 兩欄 grid，點了即問 */}
-        <div className="mt-2">
-          <div className="text-[9px] font-semibold text-stone-400 mb-1">{t("ru.qa.sugTitle")}</div>
-          <div className="grid grid-cols-2 gap-1">
+        <div className="grid grid-cols-2 gap-1">
             {SUGGESTIONS.map((s, i) => (
               <button key={s} onClick={() => ask(t(s))}
                 className="text-left text-[10px] px-2 py-1 rounded-md border text-stone-600 hover:bg-stone-50 hover:border-stone-300 transition-colors truncate"
@@ -107,7 +90,6 @@ export default function RuQaSection({ rootPath, theme, onAskAi }: { rootPath: st
               </button>
             ))}
           </div>
-        </div>
 
         {/* 答案卡 */}
         {loading && (

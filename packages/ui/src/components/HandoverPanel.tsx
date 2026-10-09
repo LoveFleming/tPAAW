@@ -191,7 +191,7 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
     if (!chatRef.current) return;
     let prompt = question;
     if (result) {
-      const lines: string[] = [`${question}`, "", "[Release Unit 引擎查證結果（deterministic，回答請以此為依據，不要編造；證據不足處誠實說明）]"];
+      const lines: string[] = [`${question}`, "", "[Release Unit 引擎查證結果（deterministic，回答請以此為依據，不要編造。引擎證據只是起點 — 不足處先用工具讀 .paaw/ 的 release unit 文件（features/decisions/error-codes/PROJECT.md/release-unit-model）與 source code 查證後再回答；查不到就誠實說明，禁止用記憶或猜測補洞)]"];
       lines.push(result.summary || "");
       for (const b of (result.bullets || []) as string[]) lines.push(`- ${b}`);
       const ev = (result.evidence || []) as { type?: string; ref?: string; detail?: string }[];
