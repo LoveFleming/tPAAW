@@ -1712,5 +1712,8 @@
   "crew.prefs.toneDetailed": "詳細",
   "crew.prefs.toneCasual": "輕鬆",
   "crew.prefs.toneProfessional": "專業",
-  "crew.prefs.notes": "備註（只有你看）"
+  "crew.prefs.notes": "備註（只有你看）",
+  "crew.orgSubtitleRo": "各部門唯讀總覽；頭像、名字等偏好設定請到各 module 的 AI Crew 頁編輯",
+  "crew.prefs.pageTitle": "AI Crew 偏好設定",
+  "crew.prefs.pageSubtitle": "頭像、顯示名、開場白、語氣 — 純外觀設定，行為由 module 維護"
 }

@@ -151,6 +151,31 @@ export function resolveCrew(crewId, projectDir = null) {
 }
 
 /** 清快取（dev 熱載入用） */
+// ── 使用者偏好層（2026-10-09 Fleming：外觀設定與功能無關，data/crew-preferences.json）──
+// 讓 crew.mjs（全域組織圖）、coding.mjs（chat profile）、project-crew.mjs（側欄列表）共用同一份疊加
+import { writeFileSync } from "node:fs";
+const PREFS_FILE = resolve(PAAW_ROOT, "data", "crew-preferences.json");
+export function loadCrewPrefs() {
+  try { return JSON.parse(readFileSync(PREFS_FILE, "utf-8")); } catch { return {}; }
+}
+export function saveCrewPrefs(prefs) {
+  writeFileSync(PREFS_FILE, JSON.stringify(prefs, null, 2), "utf-8");
+}
+export function applyCrewPrefs(crew) {
+  if (!crew) return crew;
+  const p = loadCrewPrefs()[crew.id];
+  if (!p) return { ...crew, prefs: undefined };
+  return {
+    ...crew,
+    displayName: p.displayName || crew.title,
+    imageUrl: p.avatarUrl || crew.imageUrl,
+    greeting: p.greeting,
+    tone: p.tone,
+    userNotes: p.notes,
+    _hasPrefs: true,
+  };
+}
+
 export function clearRegistryCache() {
   _moduleCache.clear();
   _crewCache.clear();

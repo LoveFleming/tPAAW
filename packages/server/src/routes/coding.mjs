@@ -469,10 +469,13 @@ export default async function projectRoute(req, res) {
   const crewMatch = url.match(/^\/api\/coding-crew\/([^/?]+)$/);
   if (crewMatch && method === "GET" && !['running', 'interrupt', 'dispatch', 'chat', 'conversations', 'context-window', 'action-log', 'qa-results'].includes(crewMatch[1])) {
     const crewId = decodeURIComponent(crewMatch[1]);
-    const crewFile = join(DATA_HOME, "crews", `${crewId}.json`);
     try {
-      if (existsSync(crewFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
-        const crew = JSON.parse(readSync(crewFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      // 2026-10-09 Module Registry：crew 本體在 packages/modules（firmware）→ .paaw override → user crew；
+      // 偏好（頭像/顯示名/開場白/語氣）疊加 — 側欄與 chat header 直接吃到
+      const { resolveCrew, applyCrewPrefs } = await import("../lib/module-registry.mjs");
+      const resolved = resolveCrew(crewId, projectPath ? resolve(projectPath) : null);
+      if (resolved) {
+        const crew = applyCrewPrefs(resolved.crew || resolved);
         // If crew has injectProjectContext and we have a project path, append .paaw/ context
         if (crew.injectProjectContext && projectPath) {
           const projRoot = resolve(projectPath);

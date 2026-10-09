@@ -17,7 +17,7 @@ import { join, resolve } from "path";
 import { fileURLToPath } from "url";
 import { DATA_HOME } from "../data-home.mjs";
 import { hashObject } from "./stable-hash.mjs"; // 2026-09-05：模板跟版 hash
-import { getModuleCrew, listModuleCrews } from "./module-registry.mjs"; // 2026-10-09：firmware 模板來源
+import { getModuleCrew, listModuleCrews, applyCrewPrefs } from "./module-registry.mjs"; // 2026-10-09：firmware 模板來源 + 偏好疊加
 import { readRuSkillContent, provisionRuSkills } from "./ru-skills.mjs"; // 2026-09-05：Skill Instance Model — skills 是 RU 資產
 
 const __filename = fileURLToPath(import.meta.url);
@@ -304,12 +304,12 @@ export function readProjectCrew(projectDir) {
     // Project layer takes priority
     const projectAgent = readJson(getAgentPath(projectDir, agentId), null);
     if (projectAgent) {
-      agents.push(stripInternal(projectAgent));
+      agents.push(applyCrewPrefs(stripInternal(projectAgent)));
     } else {
       // Fallback to global
       const globalAgent = readGlobalCrew(agentId);
       if (globalAgent) {
-        agents.push(stripInternal(globalAgent));
+        agents.push(applyCrewPrefs(stripInternal(globalAgent)));
       }
     }
   }
@@ -331,11 +331,11 @@ export function readProjectCrew(projectDir) {
 export function readProjectAgent(projectDir, agentId) {
   // Project layer first
   const projectAgent = readJson(getAgentPath(projectDir, agentId), null);
-  if (projectAgent) return stripInternal(projectAgent);
+  if (projectAgent) return applyCrewPrefs(stripInternal(projectAgent));
 
   // Fallback to global
   const globalAgent = readGlobalCrew(agentId);
-  if (globalAgent) return stripInternal(globalAgent);
+  if (globalAgent) return applyCrewPrefs(stripInternal(globalAgent));
 
   return null;
 }

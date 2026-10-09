@@ -21,27 +21,8 @@ import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 import { listModules, listModuleCrews, getModuleCrew, isFirmwareCrew } from "../lib/module-registry.mjs";
 
 // ── 使用者偏好層（2026-10-09：外觀/語氣偏好 — data/crew-preferences.json，firmware 蓋不到）──
-function _prefsPath() { return resolve(DATA_HOME, "crew-preferences.json"); }
-function _loadPrefs() {
-  try { return JSON.parse(readFileSync(_prefsPath(), "utf-8")); } catch { return {}; }
-}
-function _savePrefs(prefs) {
-  writeFileSync(_prefsPath(), JSON.stringify(prefs, null, 2), "utf-8");
-}
-function _applyPrefs(crew) {
-  const prefs = _loadPrefs();
-  const p = prefs[crew.id];
-  if (!p) return { ...crew, prefs: undefined };
-  return {
-    ...crew,
-    displayName: p.displayName || crew.title,
-    imageUrl: p.avatarUrl || crew.imageUrl,
-    greeting: p.greeting,
-    tone: p.tone,
-    userNotes: p.notes,
-    _hasPrefs: true,
-  };
-}
+// 實作移到 module-registry.mjs（applyCrewPrefs）— coding app / project-crew 共用同一份疊加
+import { applyCrewPrefs as _applyPrefs, loadCrewPrefs as _loadPrefs, saveCrewPrefs as _savePrefs } from "../lib/module-registry.mjs";
 
 export default async function crewRoute(req, res) {
   const url = new URL(req.url, "http://localhost");

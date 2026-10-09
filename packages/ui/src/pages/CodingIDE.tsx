@@ -62,6 +62,7 @@ import ApiTesterTabs from "../components/ApiTesterTabs";
 import AgentSideChat, { type AgentSideChatHandle } from "../components/AgentSideChat";
 import { useColResize, ColResizer } from "../components/ColResizer"; // 2026-10-09：side chat 左右 splitter
 import CrewManager from "../components/CrewManager";
+import CodingCrewPrefsPage from "../components/CodingCrewPrefsPage";
 // ReportsTab removed — merged into AutoDispatchPanel
 import SecurityTab from "../components/SecurityTab";
 import { pasteMayContainImage, extractPasteFiles } from "../utils/pasteFiles";
@@ -104,7 +105,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests" | "qa-records" | "project";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "crew-prefs" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests" | "qa-records" | "project";
 
 interface MainTab {
   id: string;
@@ -1140,7 +1141,7 @@ export default function CodingIDE() {
         console.log(`[CodingIDE] Parsed ${savedTabs?.length || 0} saved tabs, active=${savedActive}`);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
-          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "browser", "terminal", "ai-crew", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel", "tests", "project"]);
+          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "browser", "terminal", "ai-crew", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "crew-prefs", "release-manager", "handover", "troubleshooting", "code-intel", "tests", "project"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", ")); // nosemgrep: unsafe-formatstring — 模板無 % 指示符，內部 log
           // Restore tabs (dashboard is already present)
@@ -2865,6 +2866,15 @@ const sendChat = useCallback(async () => {
                   </button>
                 </div>
               ))}
+              {/* 2026-10-09：偏好編輯入口在 module 內（全域組織圖唯讀） */}
+              <div className="border-t border-stone-100 mt-1 pt-1">
+                <button onClick={() => {
+                  setShowCrewMenu(false);
+                  openMainTab({ id: "tool:crew-prefs", type: "crew-prefs", label: tt("crew.prefs.pageTitle", "AI Crew 偏好"), icon: "⚙️", closable: true });
+                }} className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 text-stone-700 flex items-center gap-2">
+                  <span>⚙️</span> {tt("crew.prefs.pageTitle", "AI Crew 偏好")}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -4063,6 +4073,14 @@ const sendChat = useCallback(async () => {
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, border: tk.borderInput, accent: tk.accent, accentLight: tk.accentLight, accentText: tk.accentText, text: tk.textPrimary }}
                   onCrewChanged={refreshCodingCrew}
                 />
+              </div>
+            )}
+
+            {/* === AI Crew 偏好頁（2026-10-09：頭像/名字/開場白/語氣 — module 內編輯入口） === */}
+            {mainTabs.some(t => t.type === "crew-prefs") && (
+              <div key="tool:crew-prefs" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "crew-prefs" ? undefined : "none" }}>
+                <CodingCrewPrefsPage onCrewChanged={refreshCodingCrew} />
               </div>
             )}
 

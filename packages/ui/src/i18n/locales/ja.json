@@ -1712,5 +1712,8 @@
   "crew.prefs.toneDetailed": "詳細",
   "crew.prefs.toneCasual": "カジュアル",
   "crew.prefs.toneProfessional": "プロフェッショナル",
-  "crew.prefs.notes": "メモ（自分のみ）"
+  "crew.prefs.notes": "メモ（自分のみ）",
+  "crew.orgSubtitleRo": "読み取り専用の概要；アバターや名前は各モジュールのAIクルーページで編集",
+  "crew.prefs.pageTitle": "AIクルー設定",
+  "crew.prefs.pageSubtitle": "アバター・表示名・挨拶・トーン — 外観のみ、動作はモジュール管理"
 }
