@@ -2253,6 +2253,23 @@ export default async function projectRoute(req, res) {
     return true;
   }
 
+    // ── POST /api/coding-project/exec-approval（2026-10-09 審批卡決策）──
+    if (url.startsWith("/api/coding-project/exec-approval") && method === "POST") {
+      const body = await readBody(req);
+      const { id, action } = JSON.parse(body || "{}");
+      const { decideApproval, listPending } = await import("../lib/exec-approvals.mjs");
+      if (action === "list") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ pending: listPending() }));
+        return true;
+      }
+      const r = decideApproval(String(id || ""), String(action || ""));
+      res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(r));
+      return true;
+    }
+
+
   if (!projectPath) {
     res.writeHead(400, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Missing 'path' query parameter" }));
@@ -2337,22 +2354,6 @@ export default async function projectRoute(req, res) {
       const sessions = await paaw.listSessions();
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(sessions));
-      return true;
-    }
-
-    // ── POST /api/coding-project/exec-approval（2026-10-09 審批卡決策）──
-    if (url.startsWith("/api/coding-project/exec-approval") && method === "POST") {
-      const body = await readBody(req);
-      const { id, action } = JSON.parse(body || "{}");
-      const { decideApproval, listPending } = await import("../lib/exec-approvals.mjs");
-      if (action === "list") {
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ pending: listPending() }));
-        return true;
-      }
-      const r = decideApproval(String(id || ""), String(action || ""));
-      res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(r));
       return true;
     }
 

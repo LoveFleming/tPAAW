@@ -9,7 +9,7 @@
 
 - **公司開發機本來就連不到 production**（公司網路政策）— PAAW 跑在公司機上時，這層隔離由公司環境提供
 - **家裡 Mac mini 與公司無關** — 防護 = script-guard 系（pattern 掃描/越權攔截，跨平台自帶）
-- 網路層沙箱（macOS sandbox-exec / Linux unshare-net / Windows AppContainer）為**未實作選項**，需要時另行拍板
+- 網路沙箱已上（v5 srt）：macOS Seatbelt / Linux bubblewrap 原生支援；Windows 需跑 `srt windows-install`（公司端要裝再說）
 ## 威脅模型
 
 PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
@@ -28,6 +28,8 @@ PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
 ② 檔案邊界      哪些路徑寫得到        isPathAllowed（cwd 限制 + WRITE_BLACKLIST）
 ③ 執行入口攔截  哪些檔案絕不能寫      script-guard A
 ④ Process 鐵律  哪些 process 碰不得   shell-guard（pkill/killall 擋、PAAW 自身不可啟停）
+④½ 網路沙箱   哪些網路連得到      srt（@anthropic-ai/sandbox-runtime）— domain 白名單 + 檔案讀寫隔離
+④¾ 防呆迴圈    同 call 重複偵測      doom_loop — 同 tool call 第 3 次攔（防卡死燒 token）
 ⑤ 內容掃描      執行前掃 script 內容  script-guard C（bash）+ B（env_exec）
 ⑥ 人審流程      出了事誰把關          ask_user / QA·RM review / no-push 紀律
 ⑦ 審計追蹤      事後怎麼查            action log / agent memory / LLM log → ES
@@ -71,6 +73,28 @@ PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
 - `pkill` / `killall` / `taskkill` 一律擋
 - `kill` 只放行**本 RU 受控 dev-server pid**
 - PAAW coding app 自身（paaw-server / tPAAW vite / port 4097·4098·4100·5173）永遠不可啟停
+
+## ④½ 網路沙箱（srt — 2026-10-09 v5，Fleming 23:15 拍板）
+
+**Anthropic 開源沙箱 `@anthropic-ai/sandbox-runtime`（Claude Code 同款）：macOS Seatbelt / Linux bubblewrap / Windows WFP。**
+
+- AI bash **全部包**：domain 白名單（npm/pypi/github/localhost）+ denyRead（~/.ssh/.env/providers.json/~/.openclaw）+ allowWrite（RU cwd + /tmp + ~/.npm）
+- **npm install 沙箱內完整可用**（registry 在白名單）— 不需要 egress 旁路
+- allowLocalBinding + allowAllUnixSockets：dev server bind + loopback 測試照常
+- 混淆 payload（base64+eval、字串拼接）在 OS 層死 — 不靠 pattern 猜意圖
+- 逃生口：`PAAW_SANDBOX=off`；套件不可用（公司 Windows 未裝）自動退回 pattern 掃描
+- 實測 6/6：混淆攔 / localhost 200 / npm install 成功 / vitest 全跑 / ~/.ssh 雙層擋 / ~/.zshrc 雙層擋
+
+## ④¾ doom_loop 防呆（2026-10-09，抄 OpenCode 預設 ask）
+
+同 tool call（name + arguments 完全相同）第 3 次 → 攔截 + 引導（換做法/ask_user）。防 agent 卡死燒 token。
+
+## ⑤½ 審批卡（2026-10-09，抄 OpenClaw exec approvals UX）
+
+script-guard 攔截 → chat 出現 🛡 審批卡（✅ 准許一次 / ♾️ 永遠准 / ❌ 拒絕）：
+- once = 記憶體單次消耗（10 分鐘 TTL）；always = `<RU>/.paaw/exec-approvals.json` 永久（指令雜湊）
+- 核准後 agent 重試同一指令即可執行；SSE `approval_request` 事件 + POST /api/coding-project/exec-approval
+- A 層（git hooks/launchd 等執行入口檔案寫入）**不可審批** — 永遠擋
 
 ## ⑤ 內容掃描（script-guard B+C — 2026-10-09 上線）
 
