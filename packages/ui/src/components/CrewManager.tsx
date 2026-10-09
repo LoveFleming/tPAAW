@@ -92,9 +92,9 @@ const TOOL_GROUPS = [
   { id: "notes", name: "📝 Notes", desc: "筆記讀寫" }, // 2026-09-06 補齊
 ];
 
-type DetailTab = "rules" | "model" | "context" | "skills" | "memory" | "prefs";
+type DetailTab = "profile" | "memory" | "system";
 
-// 使用者偏好（2026-10-09 Fleming：照片等無關功能設定 — 全域 data/crew-preferences.json，非 RU override）
+// 使用者基本資料（2026-10-09 Fleming：personal profile — 照片/名字等，全域 data/crew-preferences.json，跟著使用者走）
 interface CrewPrefs {
   displayName?: string;
   avatarUrl?: string;
@@ -132,7 +132,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [showSuggest, setShowSuggest] = useState(false);
   const [showRuSkills, setShowRuSkills] = useState(false);
-  const [detailTab, setDetailTab] = useState<DetailTab>("rules");
+  const [detailTab, setDetailTab] = useState<DetailTab>("profile");
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
 
@@ -161,7 +161,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
     return opts;
   }, [providers]);
 
-  // ── Load preferences（全域偏好層，與 .paaw override 分離）──
+  // ── Load 基本資料（personal profile 層，與 .paaw override 分離）──
   useEffect(() => {
     if (!selectedAgentId) { setPrefs({}); return; }
     let alive = true;
@@ -182,7 +182,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
         body: JSON.stringify(prefs),
       });
       if (!resp.ok) throw new Error("save failed");
-      setSavedMsg("✅ 偏好已儲存");
+      setSavedMsg("✅ 基本資料已儲存");
       setTimeout(() => setSavedMsg(""), 2000);
       loadCrew();
     } catch {
@@ -373,49 +373,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
     setSaving(false);
   };
 
-  // ── Reset agent ──
-  const resetAgent = async () => {
-    if (!selectedAgentId || !rootPath) return;
-    if (!(await uiConfirm(`重置 ${selectedAgentId} 為全域預設？這會清除所有客製設定。`, { danger: true }))) return;
-    setSaving(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-project/crew/${encodeURIComponent(selectedAgentId)}/reset?path=${encodeURIComponent(rootPath)}`, {
-        method: "POST",
-      });
-      const data = await res.json();
-      if (data.id) {
-        setEditData(JSON.parse(JSON.stringify(data)));
-        setEditModel({ primary: "", fallbacks: [], emModel: "", autoDispatchModel: "" });
-        setEditSkills([]);
-        setSavedMsg("✅ 已重置為預設");
-        setTimeout(() => setSavedMsg(""), 2500);
-        await loadCrew();
-        onCrewChanged?.();
-      }
-    } catch (err: any) {
-      setSavedMsg(`❌ ${err.message}`);
-    }
-    setSaving(false);
-  };
-
   // ── Delete custom agent ──
-  const deleteAgent = async () => {
-    if (!selectedAgentId || !rootPath) return;
-    if (!selectedAgentId.startsWith("custom.")) return;
-    if (!(await uiConfirm(`刪除 ${selectedAgentId}？此操作無法復原。`, { danger: true }))) return;
-    setSaving(true);
-    try {
-      await fetch(`${API_BASE}/api/coding-project/crew/${encodeURIComponent(selectedAgentId)}?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" });
-      const remaining = agents.filter(a => a.id !== selectedAgentId);
-      setSelectedAgentId(remaining[0]?.id || null);
-      await loadCrew();
-      onCrewChanged?.();
-    } catch (err: any) {
-      setSavedMsg(`❌ ${err.message}`);
-    }
-    setSaving(false);
-  };
-
   // ── AgentBuilder wizard ──
   const [showBuilder, setShowBuilder] = useState(false);
 
@@ -576,23 +534,14 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                 </div>
                 <p className="text-[11px] text-stone-500 mt-0.5">{editData.description || "(無描述)"}</p>
               </div>
-              <div className="flex items-center gap-1">
-                <button onClick={resetAgent} disabled={saving} className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors" title="重置為全域預設">↩️ 重置</button>
-                {isCustom && (
-                  <button onClick={deleteAgent} disabled={saving} className="text-xs px-2 py-1 rounded text-red-500 hover:bg-red-50 transition-colors" title="刪除（僅自訂）">🗑️ 刪除</button>
-                )}
-              </div>
             </div>
 
             {/* Detail Tabs */}
             <div className="shrink-0 px-5 flex items-center gap-1 border-b" style={{ borderColor: t.borderLight }}>
               {([
-                { key: "rules" as const, label: "⚙️ 規則" },
-                { key: "model" as const, label: "🤖 模型" },
-                { key: "context" as const, label: "🧠 Context" },
-                { key: "skills" as const, label: "🔧 技能" },
+                { key: "profile" as const, label: "🪪 基本資料" },
                 { key: "memory" as const, label: "💾 記憶" },
-                { key: "prefs" as const, label: "🎨 偏好" },
+                { key: "system" as const, label: "⚙️ 系統（唯讀）" },
               ]).map(tab => (
                 <button key={tab.key} onClick={() => setDetailTab(tab.key)}
                   className={cn("px-3 py-2 text-xs font-medium border-b-2 transition-colors", detailTab === tab.key ? "text-stone-800" : "text-stone-400 hover:text-stone-600")}
@@ -607,317 +556,6 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
             {/* Tab Content */}
             <div className="flex-1 overflow-y-auto p-5">
               {/* ════ Rules Tab ════ */}
-              {detailTab === "rules" && (
-                <div className="space-y-4 max-w-3xl">
-                  {/* Basic info */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className={labelCls}>Codename（名字）</label>
-                      <input value={editData.codename} onChange={e => patchEdit({ codename: e.target.value })} className={inputCls} style={inputStyle} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Emoji</label>
-                      <input value={editData.emoji || ""} onChange={e => patchEdit({ emoji: e.target.value })} className={inputCls} style={inputStyle} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className={labelCls}>描述</label>
-                    <input value={editData.description} onChange={e => patchEdit({ description: e.target.value })} className={inputCls} style={inputStyle} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>專業能力</label>
-                    <textarea value={editData.expertise} onChange={e => patchEdit({ expertise: e.target.value })} rows={2} className={cn(inputCls, "resize-none")} style={inputStyle} />
-                  </div>
-
-                  {/* Role Prompt */}
-                  <div>
-                    <label className={labelCls}>
-                      Role Prompt（系統提示詞）
-                      <span className="text-stone-400 font-normal ml-2">{editData.rolePrompt.length} chars</span>
-                    </label>
-                    <textarea value={editData.rolePrompt} onChange={e => patchEdit({ rolePrompt: e.target.value })} rows={16}
-                      className="w-full px-3 py-2 text-xs border rounded-lg resize-y font-mono" style={inputStyle} />
-                  </div>
-
-                  {/* Guardrails */}
-                  <Section title="Guardrails（護欄）" icon="🛡️">
-                    <div className="space-y-3">
-                      <div>
-                        <label className={labelCls}>轉導規則（什麼問題該轉給誰）</label>
-                        <textarea
-                          value={editData.guardrails?.redirectRules || ""}
-                          onChange={e => patchGuardrails("redirectRules", e.target.value)}
-                          rows={4}
-                          className="w-full px-2 py-2 text-xs border rounded resize-none"
-                          style={inputStyle}
-                          placeholder="實作程式碼 → Developer&#10;寫測試 → Tester"
-                        />
-                      </div>
-                      <div>
-                        <label className={labelCls}>拒絕主題（不回答的問題）</label>
-                        <textarea
-                          value={editData.guardrails?.refuseTopics || ""}
-                          onChange={e => patchGuardrails("refuseTopics", e.target.value)}
-                          rows={3}
-                          className="w-full px-2 py-2 text-xs border rounded resize-none"
-                          style={inputStyle}
-                          placeholder="非技術問題&#10;人事與流程管理"
-                        />
-                      </div>
-                    </div>
-                  </Section>
-
-                  {/* Chat Config */}
-                  <Section title="Chat Config（聊天行為）" icon="💬">
-                    <div className="space-y-3">
-                      <div>
-                        <label className={labelCls}>問候語（Greeting）</label>
-                        <textarea
-                          value={editData.chatConfig?.greeting || ""}
-                          onChange={e => patchChatConfig("greeting", e.target.value)}
-                          rows={3}
-                          className="w-full px-2 py-2 text-xs border rounded resize-none"
-                          style={inputStyle}
-                          placeholder="嗨！我是..."
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className={labelCls}>
-                            Temperature
-                            <span className="text-stone-400 font-normal ml-1">({editData.chatConfig?.temperature ?? 0.4})</span>
-                          </label>
-                          <input
-                            type="range" min="0" max="1" step="0.1"
-                            value={editData.chatConfig?.temperature ?? 0.4}
-                            onChange={e => patchChatConfig("temperature", parseFloat(e.target.value))}
-                            className="w-full accent-emerald-500"
-                          />
-                          <div className="flex justify-between text-[10px] text-stone-400 mt-0.5">
-                            <span>精確</span><span>創意</span>
-                          </div>
-                        </div>
-                        <div>
-                          <label className={labelCls}>Max Tokens</label>
-                          <select
-                            value={editData.chatConfig?.maxTokens ?? 4096}
-                            onChange={e => patchChatConfig("maxTokens", parseInt(e.target.value))}
-                            className={inputCls} style={inputStyle}
-                          >
-                            <option value={2048}>2,048</option>
-                            <option value={4096}>4,096</option>
-                            <option value={8192}>8,192</option>
-                            <option value={16384}>16,384</option>
-                            <option value={32768}>32,768</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  </Section>
-
-                  {/* Source indicator */}
-                  {editData._source === "project" && editData._updatedAt && (
-                    <div className="text-[11px] text-stone-400 flex items-center gap-1">
-                      📝 已客製化 · 最後更新: {new Date(editData._updatedAt).toLocaleString("zh-TW")}
-                    </div>
-                  )}
-
-                  <button onClick={saveRules} disabled={saving}
-                    className="px-4 py-2 text-sm font-bold text-white rounded-lg transition-opacity"
-                    style={{ backgroundColor: t.accent, opacity: saving ? 0.6 : 1 }}>
-                    {saving ? "儲存中..." : "💾 儲存規則"}
-                  </button>
-                </div>
-              )}
-
-              {/* ════ Model Tab ════ */}
-              {detailTab === "model" && (
-                <div className="space-y-5 max-w-2xl">
-                  <div className="text-xs text-stone-500 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    💡 留空 = 使用全域預設模型。可為每個 agent 設定不同模型，實現成本優化。
-                  </div>
-
-                  {/* Interactive Model */}
-                  <div>
-                    <label className={labelCls}>🎙️ Interactive Model（聊天 / 直接對話）</label>
-                    <select value={editModel.primary} onChange={e => setEditModel({ ...editModel, primary: e.target.value })}
-                      className={cn(inputCls, "bg-white")} style={inputStyle}>
-                      {modelOptions.map(m => <option key={m.value || "_default"} value={m.value}>{m.group ? `[${m.group}] ` : ""}{m.label}</option>)}
-                    </select>
-                  </div>
-
-                  {/* Fallback Chain */}
-                  <Section title="Fallback Chain（限流時依序切換）" icon="🔄" defaultOpen={!!editModel.fallbacks.length}>
-                    {(() => {
-                      const fallbackCandidates = modelOptions.filter(m => m.value && m.value !== editModel.primary);
-                      return (
-                        <div className="space-y-1">
-                          <div className="text-[11px] text-stone-400 mb-2">
-                            勾選的模型會在主模型限流或失敗時依序切換。
-                          </div>
-                          {/* Current fallback order */}
-                          {editModel.fallbacks.length > 0 && (
-                            <div className="mb-2 p-2 bg-stone-50 rounded border" style={{ borderColor: t.borderLight }}>
-                              <div className="text-[10px] text-stone-400 mb-1">目前順序:</div>
-                              <div className="flex flex-wrap gap-1">
-                                {editModel.fallbacks.map((fb, i) => (
-                                  <span key={fb} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-white border" style={{ borderColor: t.borderLight }}>
-                                    <span className="text-stone-400">{i + 1}.</span>
-                                    {fb}
-                                    <button onClick={() => toggleFallback(fb)} className="text-red-400 hover:text-red-600 ml-1">✕</button>
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          <div className="max-h-40 overflow-y-auto space-y-1">
-                            {fallbackCandidates.map(m => {
-                              const checked = editModel.fallbacks.includes(m.value);
-                              return (
-                                <label key={m.value} className={cn("flex items-center gap-2 px-2 py-1 rounded cursor-pointer transition-colors text-xs", checked ? "bg-emerald-50" : "hover:bg-stone-50")}>
-                                  <input type="checkbox" checked={checked} onChange={() => toggleFallback(m.value)} className="w-3.5 h-3.5 accent-emerald-500" />
-                                  <span className="flex-1">{m.group ? `[${m.group}] ` : ""}{m.label}</span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </Section>
-
-                  {/* EM / Auto Dispatch */}
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <label className={labelCls}>🚀 EM Dispatch Model（EM 調度執行時）</label>
-                      <select value={editModel.emModel} onChange={e => setEditModel({ ...editModel, emModel: e.target.value })}
-                        className={cn(inputCls, "bg-white")} style={inputStyle}>
-                        {modelOptions.map(m => <option key={`em_${m.value || "_default"}`} value={m.value}>{m.group ? `[${m.group}] ` : ""}{m.label}</option>)}
-                      </select>
-                      <p className="text-[11px] text-stone-400 mt-1">空 = 使用 Interactive Model</p>
-                    </div>
-                    <div>
-                      <label className={labelCls}>🌙 Auto Dispatch Model（夜間批次）</label>
-                      <select value={editModel.autoDispatchModel} onChange={e => setEditModel({ ...editModel, autoDispatchModel: e.target.value })}
-                        className={cn(inputCls, "bg-white")} style={inputStyle}>
-                        {modelOptions.map(m => <option key={`ns_${m.value || "_default"}`} value={m.value}>{m.group ? `[${m.group}] ` : ""}{m.label}</option>)}
-                      </select>
-                      <p className="text-[11px] text-stone-400 mt-1">建議用便宜模型省成本</p>
-                    </div>
-                  </div>
-
-                  {/* Cost strategy hint */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <div className="text-xs font-semibold text-blue-700 mb-1">💡 成本策略建議</div>
-                    <div className="text-[11px] text-blue-600 space-y-0.5">
-                      <div>🔴 <b>架構/開發/QA</b> → 用強模型（需要品質）</div>
-                      <div>🟢 <b>測試/文件/客服</b> → 用經濟模型（省成本）</div>
-                      <div>🌙 <b>Auto Dispatch</b> → 建議用經濟模型（高頻省成本）</div>
-                      <div className="text-stone-400 mt-1">以上為建議，實際可用模型取決於你的 Provider 設定</div>
-                    </div>
-                  </div>
-
-                  <button onClick={saveModel} disabled={saving}
-                    className="px-4 py-2 text-sm font-bold text-white rounded-lg"
-                    style={{ backgroundColor: t.accent, opacity: saving ? 0.6 : 1 }}>
-                    {saving ? "儲存中..." : "💾 儲存模型設定"}
-                  </button>
-                </div>
-              )}
-
-              {/* ════ Context Tab ════ */}
-              {detailTab === "context" && (
-                <div className="space-y-4 max-w-2xl">
-                  <div className="text-xs text-stone-500 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                    🧠 選擇要注入到此 Agent 的 Context 來源（對話時自動附加到 system prompt）
-                  </div>
-
-                  {/* Project context injection */}
-                  <div className={cn("rounded-lg border p-3 transition-colors", editData.injectProjectContext ? "bg-emerald-50 border-emerald-200" : "")}
-                    style={!editData.injectProjectContext ? { borderColor: t.borderLight } : {}}>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" checked={editData.injectProjectContext}
-                        onChange={e => patchEdit({ injectProjectContext: e.target.checked })}
-                        className="w-4 h-4 accent-emerald-500" />
-                      <div className="flex-1">
-                        <div className="text-sm font-semibold text-stone-700">📂 專案知識 (.paaw/)</div>
-                        <div className="text-[11px] text-stone-400">PROJECT.md, KNOWN-ISSUES.md</div>
-                      </div>
-                    </label>
-                  </div>
-
-                  {/* Tool Groups = which data sources agent can access */}
-                  <div>
-                    <label className="text-xs font-semibold text-stone-600 mb-2 block">
-                      🔧 Tool Groups（資料存取權限）
-                      <span className="text-stone-400 font-normal ml-2">{(editData.toolGroups || []).length} 個已啟用</span>
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {TOOL_GROUPS.map(tg => {
-                        const enabled = (editData.toolGroups || []).includes(tg.id);
-                        return (
-                          <label key={tg.id}
-                            className={cn("flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-all",
-                              enabled ? "bg-indigo-50 border-indigo-200 shadow-sm" : "hover:bg-stone-50")}
-                            style={!enabled ? { borderColor: t.borderLight } : {}}>
-                            <input type="checkbox" checked={enabled} onChange={() => toggleToolGroup(tg.id)}
-                              className="w-3.5 h-3.5 accent-indigo-500" />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-medium text-stone-700">{tg.name}</div>
-                              <div className="text-[10px] text-stone-400 truncate">{tg.desc}</div>
-                            </div>
-                            {enabled && <span className="text-[9px] text-indigo-500">✓</span>}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Context preview */}
-                  <div className="bg-stone-50 border rounded-lg p-3" style={{ borderColor: t.borderLight }}>
-                    <div className="text-xs font-semibold text-stone-600 mb-2">📋 Context 來源預覽</div>
-                    <div className="space-y-1 text-[11px] text-stone-500">
-                      {editData.injectProjectContext && <div>✅ .paaw/PROJECT.md</div>}
-                      {(editData.toolGroups || []).includes("decisions") && <div>✅ .paaw/decision-log.json</div>}
-                      {(editData.toolGroups || []).includes("project") && <div>✅ .paaw/project.json (feature map)</div>}
-                      {(editData.toolGroups || []).includes("issues") && <div>✅ .paaw/issues.json</div>}
-                      {(editData.toolGroups || []).includes("tasks") && <div>✅ .paaw/tasks.json</div>}
-                      {(editData.toolGroups || []).includes("security") && <div>✅ .paaw/security/scan-results.json</div>}
-                      {!editData.injectProjectContext && (editData.toolGroups || []).length === 0 && (
-                        <div className="text-stone-400">（未啟用任何 Context）</div>
-                      )}
-                    </div>
-                  </div>
-
-                  <button onClick={saveRules} disabled={saving}
-                    className="px-4 py-2 text-sm font-bold text-white rounded-lg"
-                    style={{ backgroundColor: t.accent, opacity: saving ? 0.6 : 1 }}>
-                    {saving ? "儲存中..." : "💾 儲存 Context 設定"}
-                  </button>
-                </div>
-              )}
-
-              {/* ════ Skills Tab ════ */}
-              {detailTab === "skills" && (
-                <div className="space-y-3 max-w-2xl">
-                  <div className="text-xs text-stone-500 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
-                    🔧 掛載技能後，Skill 的定義會注入到此 Agent 的 system prompt。\n                    Agent 對話時會自動遵循技能的規則和流程。
-                  </div>
-                  <SkillPicker
-                    rootPath={rootPath}
-                    selected={editSkills}
-                    onChange={setEditSkills}
-                    theme={{ bg: t.bg, bgMuted: t.bgMuted, borderLight: t.borderLight, accent: t.accent, text: t.text }}
-                  />
-                  <button onClick={saveSkills} disabled={saving}
-                    className="px-4 py-2 text-sm font-bold text-white rounded-lg"
-                    style={{ backgroundColor: t.accent, opacity: saving ? 0.6 : 1 }}>
-                    {saving ? "儲存中..." : "💾 儲存技能綁定"}
-                  </button>
-                </div>
-              )}
-
-              {/* ════ Memory Tab ════ */}
               {detailTab === "memory" && (
                 <div className="space-y-3 max-w-2xl">
                   <div className="flex items-center justify-between">
@@ -995,11 +633,46 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                 </div>
               )}
 
-              {/* ════ 🎨 偏好 Tab（2026-10-09：外觀層 — 全域偏好，跨 RU；行為由 module firmware 維護）════ */}
-              {detailTab === "prefs" && (
+              {/* ════ 🪪 基本資料 Tab（2026-10-09 Fleming：personal profile — 照片/名字/開場白/語氣，data/ 跟 user 走）════ */}
+
+              {/* ════ System Tab（唯讀）— 2026-10-09 Fleming：coding app 功能 = module firmware，使用者不可改 ════ */}
+              {detailTab === "system" && editData && (
                 <div className="space-y-4 max-w-3xl">
                   <div className="text-xs text-stone-400 border-l-2 pl-3 py-1" style={{ borderColor: t.borderLight }}>
-                    頭像、顯示名、開場白、語氣 — 純外觀設定，套用所有專案的這個員工；行為（Role Prompt / 工具）由 module 維護。
+                    這些是 coding module 的功能定義（firmware）— 隨 release 走，使用者不可修改。要改 = 改 module。
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><span className={labelCls}>Codename</span><p className="text-sm text-stone-700">{editData.codename}</p></div>
+                    <div><span className={labelCls}>模型</span><p className="text-sm text-stone-700">{editModel.primary || "全域預設"}</p></div>
+                  </div>
+                  <div><span className={labelCls}>描述</span><p className="text-sm text-stone-700">{editData.description || "—"}</p></div>
+                  <div><span className={labelCls}>專業能力</span><p className="text-sm text-stone-700 whitespace-pre-wrap">{editData.expertise || "—"}</p></div>
+
+                  <div>
+                    <span className={labelCls}>Role Prompt（系統提示詞）<span className="text-stone-400 font-normal ml-2">{editData.rolePrompt.length} chars</span></span>
+                    <pre className="text-xs font-mono whitespace-pre-wrap p-3 rounded-lg border bg-stone-50 max-h-72 overflow-y-auto text-stone-600"
+                      style={{ borderColor: t.borderLight }}>{editData.rolePrompt}</pre>
+                  </div>
+
+                  {editSkills.length > 0 && (
+                    <div>
+                      <span className={labelCls}>技能</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {editSkills.map(sk => (
+                          <span key={sk} className="text-xs px-2 py-0.5 rounded-full bg-stone-100 text-stone-600">{sk}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+
+              {detailTab === "profile" && (
+                <div className="space-y-4 max-w-3xl">
+                  <div className="text-xs text-stone-400 border-l-2 pl-3 py-1" style={{ borderColor: t.borderLight }}>
+                    照片、名字、開場白、語氣 — personal profile（data/，跟著使用者走）；行為（Role Prompt / 工具）由 coding module 維護。
                   </div>
 
                   {/* Avatar */}
@@ -1015,7 +688,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                       )}
                     </div>
                     <div className="flex-1">
-                      <label className={labelCls}>頭像（照片無關功能 — Fleming）</label>
+                      <label className={labelCls}>頭像照片（存 data/，跟著使用者走）</label>
                       <div className="flex gap-2">
                         <input
                           value={prefs.avatarUrl || ""}
@@ -1042,7 +715,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                         className={inputCls} style={inputStyle} />
                     </div>
                     <div>
-                      <label className={labelCls}>語氣偏好</label>
+                      <label className={labelCls}>語氣</label>
                       <select value={prefs.tone || ""}
                         onChange={e => setPrefs(p => ({ ...p, tone: e.target.value }))}
                         className={inputCls} style={inputStyle}>

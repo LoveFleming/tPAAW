@@ -459,7 +459,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
               </div>
 
               <div className="text-[11px] text-stone-400 border-l-2 border-stone-200 pl-3 py-1 mb-4">
-                頭像、名字、開場白、語氣 — 使用者可變層；系統提示詞（行為）由 assistant module 維護。
+                照片、名字、開場白、語氣 — personal profile（data/，跟著使用者走）；行為由 assistant module 維護。
               </div>
 
               <div className="space-y-3">
@@ -513,7 +513,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                   <button onClick={saveAssistantPrefs} disabled={assistantSaving}
                     className="px-4 py-2 text-sm font-bold text-white rounded-lg disabled:opacity-50"
                     style={{ backgroundColor: themeInfo.accent }}>
-                    {assistantSaving ? "儲存中..." : "🎨 儲存偏好"}
+                    {assistantSaving ? "儲存中..." : "💾 儲存基本資料"}
                   </button>
                   {assistantMsg && <span className="text-xs text-stone-600">{assistantMsg}</span>}
                 </div>

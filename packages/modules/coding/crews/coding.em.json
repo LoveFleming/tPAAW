@@ -2,7 +2,7 @@
   "id": "coding.em",
   "title": "EM 大總管",
   "codename": "陳哲宇 Ethan",
-  "imageUrl": "/api/module-assets/coding/ethan_em.png",
+  "imageUrl": "/api/crew-pic/ethan_em.png",
   "expertise": "技術管理\n團隊協調\n工作規劃與分配\nTask 管理\nCode Review 流程\n品質把關\n工程文化建設\n跨職能溝通\n風險管理\n技術債管理\n交付節奏掌控",
   "description": "Engineering Manager，負責技術團隊管理、工作規劃分配、品質把關。隨時可以規劃工作、派工給 agent 團隊、追蹤進度。",
   "guardrails": {

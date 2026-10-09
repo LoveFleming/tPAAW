@@ -1059,39 +1059,22 @@ export default async function crewRoute(req, res) {
     }
   };
 
-  // GET /api/module-assets/:module/:file — module 自持資產（packages/modules/*/assets/）
-  const modAssetMatch = req.method === "GET" && req.url?.match(/^\/api\/module-assets\/([\w-]+)\/([\w.-]+)$/);
-  if (modAssetMatch) {
-    const [, modId, fileName] = modAssetMatch;
-    try {
-      sanitizeId(fileName);
-    } catch (err) { sendPathTraversalError(res, err); return true; }
-    const { PAAW_ROOT: ROOT } = await import("./shared.mjs");
-    const assetPath = join(ROOT, "packages", "modules", modId, "assets", fileName);
-    const resolved = await import("node:path").then(m => m.resolve(assetPath));
-    const assetsRoot = join(ROOT, "packages", "modules", modId, "assets") + "/";
-    if (!resolved.startsWith(assetsRoot)) { sendPathTraversalError(res, new Error("path traversal")); return true; }
-    await serveAsset(resolved, res);
-    return true;
-  }
-
-  // GET /api/crew-pic/:file — legacy 相容：掃各 module assets 找同名檔
+  // GET /api/crew-pic/:file — crew 頭像（2026-10-09 Fleming：照片 = personal profile，放 data/crew-pictures 跟 user 走）
   const crewPicMatch = req.method === "GET" && req.url?.match(/^\/api\/crew-pic\/(.+)$/);
   if (crewPicMatch) {
     let picName;
     try { picName = sanitizeId(crewPicMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
-    const { PAAW_ROOT: LEGACY_ROOT } = await import("./shared.mjs");
-    for (const m of listModules()) {
-      const assetPath = join(LEGACY_ROOT, "packages", "modules", m.id, "assets", picName);
-      try {
-        const s = await stat(assetPath);
-        if (s.isFile()) { await serveAsset(assetPath, res); return true; }
-      } catch { /* next module */ }
-    }
-    res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "no-cache" });
-    res.end(transparentPng);
+    try {
+      const picsDir = resolve(DATA_HOME, "crew-pictures");
+      const picPath = resolve(picsDir, picName);
+      if (!picPath.startsWith(picsDir)) { sendPathTraversalError(res, new Error("path traversal")); return true; }
+      const s = await stat(picPath).catch(() => null);
+      if (s?.isFile()) { await serveAsset(picPath, res); return true; }
+      json(res, { error: "not found" }, 404);
+    } catch { json(res, { error: "not found" }, 404); }
     return true;
   }
+
 
   // GET /api/project-dashboard
   if (req.method === "GET" && req.url?.startsWith("/api/project-dashboard")) {

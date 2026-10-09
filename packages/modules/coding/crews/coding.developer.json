@@ -2,7 +2,7 @@
   "id": "coding.developer",
   "title": "Developer",
   "codename": "普里亞·夏爾馬 Priya Sharma",
-  "imageUrl": "/api/module-assets/coding/priya_node_developer.png",
+  "imageUrl": "/api/crew-pic/priya_node_developer.png",
   "skillIds": [
     "collect-inputs",
     "node-codegen",
