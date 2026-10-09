@@ -9,6 +9,7 @@ import { useI18n } from "../i18n";
 import API_BASE from "../api";
 import GanttChart from "./GanttChart";
 import ProjectAiPanel from "../components/ProjectAiPanel";
+import { useColResize, ColResizer } from "../components/ColResizer"; // 2026-10-09：AI side panel 左右 splitter
 import { uiConfirm } from "../components/ui/uiFeedback";
 
 // ── Types ──
@@ -90,6 +91,7 @@ export default function ProjectBoard() {
   const [detailTab, setDetailTab] = useState<"board" | "gantt">("board");
   const [modal, setModal] = useState<null | { type: string; data?: any }>(null);
   const [aiPanel, setAiPanel] = useState<{ open: boolean; context: string; prompt?: string }>({ open: false, context: "" });
+  const aiPane = useColResize(420, 300, 760); // AI 專案助理面板寬度（可拖曳）
 
   // API helpers
   const api = {
@@ -286,9 +288,11 @@ export default function ProjectBoard() {
         )}
       </div>
 
-      {/* AI Side Panel — inside Project App */}
+      {/* AI Side Panel — inside Project App（左右 splitter，2026-10-09）*/}
       {aiPanel.open && (
-        <div className="w-[420px] shrink-0 border-l" style={{ borderColor: tk.borderLight }}>
+        <>
+        <ColResizer onDown={aiPane.startDrag} />
+        <div className="shrink-0 border-l h-full" style={{ width: aiPane.width, borderColor: tk.borderLight }}>
           <ProjectAiPanel
             context={aiPanel.context}
             initialPrompt={aiPanel.prompt}
@@ -296,6 +300,7 @@ export default function ProjectBoard() {
             onClose={() => setAiPanel({ open: false, context: "" })}
           />
         </div>
+        </>
       )}
     </div>
     );
@@ -512,9 +517,11 @@ export default function ProjectBoard() {
       )}
     </div> {/* end flex-1 */}
 
-    {/* AI Side Panel — inside Project App */}
+    {/* AI Side Panel — inside Project App（左右 splitter，2026-10-09）*/}
     {aiPanel.open && (
-      <div className="w-[420px] shrink-0 border-l" style={{ borderColor: tk.borderLight }}>
+      <>
+      <ColResizer onDown={aiPane.startDrag} />
+      <div className="shrink-0 border-l h-full" style={{ width: aiPane.width, borderColor: tk.borderLight }}>
         <ProjectAiPanel
           context={aiPanel.context}
           initialPrompt={aiPanel.prompt}
@@ -522,6 +529,7 @@ export default function ProjectBoard() {
           onClose={() => setAiPanel({ open: false, context: "" })}
         />
       </div>
+      </>
     )}
     </div>
     );

@@ -12,6 +12,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import AgentSideChat from "../components/AgentSideChat"; // 2026-10-09 Fleming：AI 寫筆記改用 side chat 共用元件
+import { useColResize, ColResizer } from "../components/ColResizer"; // 2026-10-09：左右 splitter
 import { uiAlertError, uiConfirm } from "../components/ui/uiFeedback";
 
 // ── Types ──
@@ -67,6 +68,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
   const [zoomImg, setZoomImg] = useState<string | null>(null);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const aiPane = useColResize(400, 280, 720); // AI 寫筆記面板寬度（可拖曳）
 
   // ── Refs ──
   const editorRef = useRef<HTMLDivElement>(null);
@@ -738,7 +740,9 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
 
         {/* ── AI 寫筆記 Panel — AgentSideChat 共用元件（跟 coding app side chat / AI 專案助理完全一致，2026-10-09）── */}
         {aiPanelOpen && (
-          <div className="shrink-0 flex flex-col border-l" style={{ width: 400, background: tk.bg, borderColor: tk.borderLight }}>
+          <>
+          <ColResizer onDown={aiPane.startDrag} />
+          <div className="shrink-0 flex flex-col border-l" style={{ width: aiPane.width, background: tk.bg, borderColor: tk.borderLight }}>
             <AgentSideChat
               agentId="notes-ai"
               agentName="AI 寫筆記"
@@ -766,6 +770,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
               onClose={() => setAiPanelOpen(false)}
             />
           </div>
+          </>
         )}
         {/* ── 右側：Search Panel（可收合） ── */}
         {searchPanelOpen && (
