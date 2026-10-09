@@ -908,7 +908,8 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
             {/* 👁 📎 貼圖鈕 */}
             <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addImages(Array.from(e.target.files || [])); e.target.value = ""; }} />
             <button onClick={() => imageInputRef.current?.click()} disabled={pendingImages.length >= 4} title={tt("chat.attachImage")} className="p-2.5 rounded-xl border border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300 disabled:opacity-40 flex-shrink-0 transition-colors bg-stone-50">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M10 2a.75.75 0 01.75.75v5.59l1.72-1.72a.75.75 0 111.06 1.06l-3 3a.75.75 0 01-1.06 0l-3-3a.75.75 0 111.06-1.06l1.72 1.72V2.75A.75.75 0 0110 2zM4.5 10.5a.75.75 0 00-1.5 0v4A2.5 2.5 0 005.5 17h9a2.5 2.5 0 002.5-2.5v-4a.75.75 0 00-1.5 0v4a1 1 0 01-1 1h-9a1 1 0 01-1-1v-4z" /></svg>
+              {/* 2026-10-09 Fleming：迴紋針/下載 icon 不直覺 → 標準圖片 icon（山+太陽） */}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             </button>
             <textarea ref={textareaRef} value={input} onChange={(e) => setInput(e.target.value)}
               onCompositionStart={() => { composingRef.current = true; }}
