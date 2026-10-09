@@ -10,7 +10,6 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { cn } from "../utils";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
-import AgentBuilder from "./AgentBuilder";
 import SkillSuggestModal from "./SkillSuggestModal";
 import RuSkillManagerModal from "./RuSkillManagerModal";
 import SkillPicker from "./SkillPicker";
@@ -373,21 +372,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
     setSaving(false);
   };
 
-  // ── Delete custom agent ──
-  // ── AgentBuilder wizard ──
-  const [showBuilder, setShowBuilder] = useState(false);
-
-  const handleAgentCreated = async (agentId: string) => {
-    setShowBuilder(false);
-    await loadCrew();
-    setSelectedAgentId(agentId);
-    onCrewChanged?.();
-    setSavedMsg("✅ Agent 建立成功！");
-    setTimeout(() => setSavedMsg(""), 3000);
-  };
-
   const selectedAgent = agents.find(a => a.id === selectedAgentId);
-  const isCustom = selectedAgentId?.startsWith("custom.") || false;
 
   // ═══════════════════════════════════════════════
   if (loading) {
@@ -453,62 +438,6 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
           ))}
         </div>
 
-        {/* Create agent + Import/Export */}
-        <div className="p-2 border-t space-y-1.5" style={{ borderColor: t.borderLight }}>
-          <button onClick={() => setShowBuilder(true)} className="w-full px-3 py-2 text-xs font-medium text-white rounded-lg flex items-center justify-center gap-1 transition-colors"
-            style={{ backgroundColor: t.accent }}>
-            ➕ 新增 Agent
-          </button>
-          <div className="flex gap-1.5">
-            <button
-              onClick={async () => {
-                try {
-                  const res = await fetch(`${API_BASE}/api/coding-project/crew-export?path=${encodeURIComponent(rootPath)}`);
-                  const data = await res.json();
-                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `crew-${new Date().toISOString().slice(0,10)}.json`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                  setSavedMsg("✅ 已匯出");
-                  setTimeout(() => setSavedMsg(""), 2000);
-                } catch { setSavedMsg("❌ 匯出失敗"); }
-              }}
-              className="flex-1 px-2 py-1.5 text-[11px] text-stone-600 rounded-lg border hover:bg-stone-50"
-              style={{ borderColor: t.borderLight }}
-            >📥 匯出</button>
-            <label className="flex-1 px-2 py-1.5 text-[11px] text-stone-600 rounded-lg border hover:bg-stone-50 cursor-pointer text-center"
-              style={{ borderColor: t.borderLight }}>
-              📤 匯入
-              <input
-                type="file"
-                accept=".json"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  if (!(await uiConfirm("匯入會覆寫現有 crew 設定，確定？", { danger: true }))) return;
-                  const text = await file.text();
-                  const data = JSON.parse(text);
-                  const res = await fetch(`${API_BASE}/api/coding-project/crew-import`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ path: rootPath, data }),
-                  });
-                  const result = await res.json();
-                  if (result.ok) {
-                    setSavedMsg(`✅ 匯入成功（${result.imported} agents）`);
-                    loadCrew();
-                    onCrewChanged?.();
-                  } else { setSavedMsg("❌ 匯入失敗"); }
-                  setTimeout(() => setSavedMsg(""), 3000);
-                }}
-              />
-            </label>
-          </div>
-        </div>
       </div>
 
       {/* ── Right: Agent Detail ── */}
@@ -560,7 +489,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
               {/* ════ Rules Tab ════ */}
               {/* ════ 🔧 技能 Tab（2026-10-09 Fleming：綁定存 RU .paaw；實體種入 {ru}/.paaw/skills/）════ */}
               {detailTab === "skills" && (
-                <div className="space-y-3 max-w-2xl">
+                <div className="space-y-3">
                   <div className="text-xs text-stone-500 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
                     🔧 技能<b>綁定</b>存在 release unit 的 .paaw（跟著這個專案走）；技能<b>實體</b>種入 <code>{'{ru}'}/.paaw/skills/</code>。<br />
                     Agent 對話時，已綁定技能的定義會注入 system prompt。
@@ -584,16 +513,11 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                     onChange={setEditSkills}
                     theme={{ bg: t.bg, bgMuted: t.bgMuted, borderLight: t.borderLight, accent: t.accent, text: t.text }}
                   />
-                  <button onClick={saveSkills} disabled={saving}
-                    className="px-4 py-2 text-sm font-bold text-white rounded-lg"
-                    style={{ backgroundColor: t.accent, opacity: saving ? 0.6 : 1 }}>
-                    {saving ? "儲存中..." : "💾 儲存技能綁定"}
-                  </button>
                 </div>
               )}
 
               {detailTab === "memory" && (
-                <div className="space-y-3 max-w-2xl">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="text-xs text-stone-500">
                       💾 Agent 長期記憶 — 對話後自動累積、也可手動編輯
@@ -673,7 +597,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
 
               {/* ════ System Tab（唯讀）— 2026-10-09 Fleming：coding app 功能 = module firmware，使用者不可改 ════ */}
               {detailTab === "system" && editData && (
-                <div className="space-y-4 max-w-3xl">
+                <div className="space-y-4">
                   <div className="text-xs text-stone-400 border-l-2 pl-3 py-1" style={{ borderColor: t.borderLight }}>
                     這些是 coding module 的功能定義（firmware）— 隨 release 走，使用者不可修改。要改 = 改 module。
                   </div>
@@ -706,7 +630,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
 
 
               {detailTab === "model" && (
-                <div className="space-y-5 max-w-2xl">
+                <div className="space-y-5">
                   <div className="text-xs text-stone-500 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                     💡 模型設定存在 <b>release unit 的 .paaw/agents/</b>（跟著這個專案走）；<b>留空 = 使用系統預設模型</b>。可為每個 agent 設不同模型做成本優化。
                   </div>
@@ -802,18 +726,13 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                     </div>
                   </div>
 
-                  <button onClick={saveModel} disabled={saving}
-                    className="px-4 py-2 text-sm font-bold text-white rounded-lg"
-                    style={{ backgroundColor: t.accent, opacity: saving ? 0.6 : 1 }}>
-                    {saving ? "儲存中..." : "💾 儲存模型設定"}
-                  </button>
                 </div>
               )}
 
               {/* ════ Context Tab ════ */}
 
               {detailTab === "profile" && (
-                <div className="space-y-4 max-w-3xl">
+                <div className="space-y-4">
                   <div className="text-xs text-stone-400 border-l-2 pl-3 py-1" style={{ borderColor: t.borderLight }}>
                     照片、名字、開場白、語氣 — personal profile（data/，跟著使用者走）；行為（Role Prompt / 工具）由 coding module 維護。
                   </div>
@@ -910,15 +829,41 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                       className={cn(inputCls, "resize-none")} style={inputStyle} />
                   </div>
 
-                  <div className="flex items-center gap-3 pt-1">
-                    <button onClick={savePrefs} disabled={prefsSaving}
-                      className="px-4 py-2 text-sm font-bold text-white rounded-lg disabled:opacity-50"
-                      style={{ backgroundColor: t.accent }}>
-                      {prefsSaving ? "儲存中..." : "💾 儲存基本資料"}
-                    </button>
-                    <span className="text-[11px] text-stone-400">即時套用：側欄、組織圖、聊天頁頭像名字</span>
-                  </div>
                 </div>
+              )}
+            </div>
+
+            {/* Tab Footer — 儲存鈕固定在 tab sheet 底部（2026-10-09 Fleming：整體 UX）*/}
+            <div className="shrink-0 px-5 py-3 border-t flex items-center gap-3"
+              style={{ borderColor: t.borderLight }}>
+              {detailTab === "profile" && (
+                <>
+                  <button onClick={savePrefs} disabled={prefsSaving}
+                    className="px-5 py-2 text-sm font-bold text-white rounded-lg disabled:opacity-50"
+                    style={{ backgroundColor: t.accent }}>
+                    {prefsSaving ? "儲存中..." : "💾 儲存基本資料"}
+                  </button>
+                  <span className="text-[11px] text-stone-400">即時套用：側欄、聊天頁頭像名字</span>
+                </>
+              )}
+              {detailTab === "model" && (
+                <button onClick={saveModel} disabled={saving}
+                  className="px-5 py-2 text-sm font-bold text-white rounded-lg"
+                  style={{ backgroundColor: t.accent, opacity: saving ? 0.6 : 1 }}>
+                  {saving ? "儲存中..." : "💾 儲存模型設定"}
+                </button>
+              )}
+              {detailTab === "skills" && (
+                <button onClick={saveSkills} disabled={saving}
+                  className="px-5 py-2 text-sm font-bold text-white rounded-lg"
+                  style={{ backgroundColor: t.accent, opacity: saving ? 0.6 : 1 }}>
+                  {saving ? "儲存中..." : "💾 儲存技能綁定"}
+                </button>
+              )}
+              {(detailTab === "memory" || detailTab === "system") && (
+                <span className="text-[11px] text-stone-400">
+                  {detailTab === "memory" ? "記憶自動累積，編輯即儲存" : "系統定義唯讀 — 由 module 維護"}
+                </span>
               )}
             </div>
           </>
@@ -927,15 +872,6 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
         )}
       </div>
 
-      {/* AgentBuilder Modal */}
-      {showBuilder && (
-        <AgentBuilder
-          rootPath={rootPath}
-          theme={{ bg: t.bg, bgMuted: t.bgMuted, borderLight: t.borderLight, border: t.border, accent: t.accent, accentLight: t.accentLight, accentText: t.accentText, text: t.text }}
-          onClose={() => setShowBuilder(false)}
-          onCreated={handleAgentCreated}
-        />
-      )}
       {showSuggest && (
         <SkillSuggestModal rootPath={rootPath}
           theme={{ bg: t.bg, bgMuted: t.bgMuted, borderLight: t.borderLight, accent: t.accent, text: t.text }}
