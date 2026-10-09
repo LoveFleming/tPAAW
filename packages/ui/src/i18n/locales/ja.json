@@ -1689,5 +1689,6 @@
   "rr.costRole": "役割",
   "rr.costTotal": "費用",
   "rr.costByTask": "タスク別",
-  "rr.costUnknown": "件は価格不明"
+  "rr.costUnknown": "件は価格不明",
+  "ho.viewHandoverHint": ".paaw/HANDOVER.md を表示（生成後にここで全文確認）"
 }

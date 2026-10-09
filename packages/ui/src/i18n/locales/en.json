@@ -1689,5 +1689,6 @@
   "rr.costRole": "Role",
   "rr.costTotal": "Cost",
   "rr.costByTask": "By task",
-  "rr.costUnknown": "calls unpriced"
+  "rr.costUnknown": "calls unpriced",
+  "ho.viewHandoverHint": "View .paaw/HANDOVER.md (full content after generate)"
 }

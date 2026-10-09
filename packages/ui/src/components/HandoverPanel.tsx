@@ -92,11 +92,13 @@ interface Props {
   rootPath: string;
   theme: any;
   onOpenEMDashboard?: () => void;
+  /** 2026-10-09：查看 HANDOVER.md — 開 CodingIDE viewer tab */
+  onOpenFile?: (path: string) => void;
   /** 2026-10-09：keep-mounted 下切回 tab 時要重新拉 state（commit 後畫面不再停在舊快照） */
   active?: boolean;
 }
 
-export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, active = true }: Props) {
+export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, onOpenFile, active = true }: Props) {
   const { t } = useI18n();
   const [bundle, setBundle] = useState<HandoverBundle | null>(null);
   const [loading, setLoading] = useState(true);
@@ -161,7 +163,7 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
     }
   };
 
-  const section = (key: string, icon: string, title: string, content: string | null, maxLines: number) => {
+  const section = (key: string, icon: string, title: string, content: string | null) => {
     const has = !!content?.trim();
     const isOpen = expandSection === key;
     // 2026-10-09 Fleming：knowledge 顯示清洗 — schema marker/元資料/placeholder 濾掉、連續重複行去重、標題降兩級（字體跟其他區塊一致）
@@ -194,10 +196,10 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
           <span className="ml-auto text-[10px] text-stone-400">{isOpen ? "▾" : "▸"}</span>
         </button>
         {isOpen && (
-          <div className="border-t px-3.5 py-2.5 max-h-64 overflow-y-auto" style={{ borderColor: tk.borderLight, scrollbarWidth: "thin" }}>
+          <div className="border-t px-3.5 py-2.5" style={{ borderColor: tk.borderLight }}>
             {shown ? (
               <div className="text-[11px] text-stone-600 leading-relaxed">
-                <SafeMarkdown content={shown.split("\n").slice(0, maxLines).join("\n") + (shown.split("\n").length > maxLines ? `\n… (${shown.split("\n").length - maxLines} more lines)` : "")} />
+                <SafeMarkdown content={shown} />
               </div>
             ) : (
               <div className="text-[11px] text-stone-400">{t("ho.missingDesc")}</div>
@@ -239,6 +241,13 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
             className="ml-auto text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-40" style={{ backgroundColor: tk.accent }}>
             {generating ? "…" : `📝 ${t("ho.generate")}`}
           </button>
+          {onOpenFile && (
+            <button onClick={() => onOpenFile(`${rootPath}/.paaw/HANDOVER.md`)} disabled={!bundle?.initialized}
+              title={t("ho.viewHandoverHint")}
+              className="text-xs px-2.5 py-1.5 rounded-lg border disabled:opacity-40" style={{ borderColor: tk.borderLight, color: tk.accent }}>
+              📄
+            </button>
+          )}
         </div>
 
         {toast && (
@@ -293,7 +302,7 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
               <StatCard label={t("ho.stat.git")} value={bundle.git.status.dirty ? t("ho.stat.dirty") : t("ho.stat.clean")} icon={bundle.git.status.dirty ? "⚠️" : "✅"} />
             </div>
 
-            {section("project", "🎯", t("ho.sec.project"), bundle.knowledge.project, 40)}
+            {section("project", "🎯", t("ho.sec.project"), bundle.knowledge.project)}
 
             {/* Git 歷史 */}
             <div className="border rounded-xl overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>

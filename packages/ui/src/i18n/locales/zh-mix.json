@@ -1689,5 +1689,6 @@
   "rr.costRole": "角色",
   "rr.costTotal": "花費",
   "rr.costByTask": "依 task 切分",
-  "rr.costUnknown": "筆無法計價"
+  "rr.costUnknown": "筆無法計價",
+  "ho.viewHandoverHint": "查看 .paaw/HANDOVER.md（生成後點這裡看完整內容）"
 }
