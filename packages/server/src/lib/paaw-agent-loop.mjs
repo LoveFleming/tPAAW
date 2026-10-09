@@ -1706,7 +1706,15 @@ async function runShell(command, cwd, timeoutMs = 30_000) {
     // 2026-09-27 OOM 治本：改走 proc-ledger 的 process group 執行 —
     // timeout 殺整棵樹（不留孤兒）；背景殘留記帳，agent run 結束時精準掃殺
     // （runId 由 proc-ledger 從 AsyncLocalStorage 讀 — runAgentLoop 進場時掛的）
-    const { stdout, stderr, code } = await runShellGrouped(command, {
+    // ── srt 沙箱（2026-10-09 v5，Fleming 拍板）── AI bash 全包：
+    // domain 白名單（npm/pypi/github/localhost）+ 機密 denyRead + 專案外禁寫。
+    // 包不成（非支援平台/套件未裝/PAAW_SANDBOX=off）= 原樣執行，pattern 掃描仍在。
+    let _cmd = command;
+    try {
+      const { wrapWithSrt } = await import("./paaw-sandbox.mjs");
+      _cmd = await wrapWithSrt(command, cwd);
+    } catch { /* 沙箱失敗不擋路 */ }
+    const { stdout, stderr, code } = await runShellGrouped(_cmd, {
       cwd,
       timeoutMs: Math.min(timeoutMs, _agentCfg.shellTimeoutMs || 600_000),
       env: {
@@ -4822,8 +4830,21 @@ export async function runAgentLoop(config) {
     }
 
     // Execute each tool call
+    // ── doom_loop 防呆（2026-10-09，抄 OpenCode 預設 ask；PAAW 版=第 3 次攔）──
+    // 同一個 tool call（name + arguments 完全相同）重複 3 次 = agent 卡死燒 token，硬停
+    const _doomSeen = new Map();
     for (const call of toolCalls) {
       const _toolName = call.function?.name;
+      const _doomKey = _toolName + "::" + (call.function?.arguments || "");
+      const _doomN = (_doomSeen.get(_doomKey) || 0) + 1;
+      _doomSeen.set(_doomKey, _doomN);
+      if (_doomN >= 3) {
+        if (onEvent) onEvent({ type: "tool_start", name: _toolName, args: (call.function.arguments || "").slice(0, 120) });
+        const _doomMsg = `🛑 doom_loop 攔截：工具「${_toolName}」以完全相同的參數重複呼叫第 ${_doomN} 次 — 你在原地打轉。停止重試同一個呼叫。改變做法：換參數、換工具、換路徑，或用 ask_user 向使用者說明卡住的原因。`;
+        if (onEvent) onEvent({ type: "tool_end", name: _toolName, result: _doomMsg });
+        _loopMessages.push({ role: "tool", tool_call_id: call.id, content: _doomMsg });
+        continue;
+      }
       const _ctx = { cwd, rootDir, onEvent, agentId };
       const _toolLog = _logger.toolCall({ tool: _toolName, argsSummary: (call.function.arguments || "").slice(0, 200) });
       // Pre-check if file exists (for new-file tracking)

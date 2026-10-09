@@ -1,4 +1,5 @@
 import { describe, it, expect, afterAll } from "vitest";
+import { wrapWithSrt, sandboxAvailable, sandboxKillSwitchOn } from "../../packages/server/src/lib/paaw-sandbox.mjs";
 import { persistentEntryBlock, scanScriptContent, guardScriptExecution, isPackageJsonClean } from "../../packages/server/src/lib/script-guard.mjs";
 import { mkdtempSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
@@ -160,5 +161,23 @@ describe("script-guard B：package.json 乾淨檢查", () => {
     writeFileSync(join(d, "package.json"), "{}");
     expect(isPackageJsonClean(d)).toBe(true);
     rmSync(d, { recursive: true, force: true });
+  });
+});
+
+
+describe("paaw-sandbox v5：srt 沙箱", () => {
+  it("kill switch：PAAW_SANDBOX=off 直接回原指令", async () => {
+    process.env.PAAW_SANDBOX = "off";
+    expect(await wrapWithSrt("echo hi", "/tmp")).toBe("echo hi");
+    expect(sandboxKillSwitchOn()).toBe(true);
+    delete process.env.PAAW_SANDBOX;
+  });
+  it("macOS 可用時 wrap 回字串（含沙箱包裝）", async () => {
+    if (process.platform === "darwin") {
+      expect(await sandboxAvailable()).toBe(true);
+      const w = await wrapWithSrt("echo 'x'", "/tmp");
+      expect(typeof w).toBe("string");
+      expect(w.length).toBeGreaterThan("echo 'x'".length); // 有包裝
+    }
   });
 });
