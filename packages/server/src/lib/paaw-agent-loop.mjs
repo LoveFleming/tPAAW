@@ -860,6 +860,22 @@ export const PAAW_TOOLS = [
     },
   },
 
+  // ── Handover 沉澱寫入（2026-10-09 Fleming：AI 對話式把盤點/地雷圖寫進 HANDOVER.md，需使用者同意）──
+  {
+    type: "function",
+    function: {
+      name: "handover_write",
+      description: "將交接沉澱（接手者地雷圖、風險盤點、接手指南）寫入 .paaw/HANDOVER.md。僅在使用者明確同意後呼叫；寫入前自動備份舊檔（.bak）。內容會整檔覆寫。",
+      parameters: {
+        type: "object",
+        properties: {
+          content: { type: "string", description: "完整 markdown 內容" },
+        },
+        required: ["content"],
+      },
+    },
+  },
+
   // ── Action Log (Agent Memory / Handoff) ──
   {
     type: "function",
@@ -1266,6 +1282,9 @@ const TOOL_GROUP_MAP = {
   browser_type: "browser",
   browser_select: "browser",
 
+  // Handover 沉澱（handover agent 專用）
+  handover_write: "handover",
+
   // Memory & logging
   action_log_add: "memory", action_log_list: "memory",
   agent_memory_save: "memory", agent_memory_load: "memory",
@@ -1346,6 +1365,40 @@ const AGENT_FALLBACK_GROUPS = {
 
 // ── Cache for crew toolGroups loaded from JSON ──
 const _crewGroupCache = new Map();
+// ── Cache for crew toolsDeny（2026-10-09：per-crew 工具黑名單 — 代碼保證，不靠 prompt 自律）──
+const _crewDenyCache = new Map();
+const _AGENT_CREW_MAP = {
+  architect: "coding.architect",
+  developer: "coding.developer",
+  tester: "coding.tester",
+  "doc-writer": "coding.doc-writer",
+  qa: "coding.qa",
+  helpdesk: "coding.helpdesk",
+  em: "coding.em",
+  rm: "coding.rm",
+  ops: "coding.ops",
+  handover: "coding.handover",
+};
+
+function getAgentToolsDeny(agentId, cwd = null) {
+  const cacheKey = `${agentId}::${cwd || ""}`;
+  if (_crewDenyCache.has(cacheKey)) return _crewDenyCache.get(cacheKey);
+  const deny = new Set();
+  const crewId = _AGENT_CREW_MAP[agentId];
+  if (crewId) {
+    const candidates = cwd ? [join(cwd, ".paaw", "agents", `${crewId}.json`)] : [];
+    candidates.push(join(DATA_HOME, "crews", `${crewId}.json`));
+    for (const p of candidates) {
+      try {
+        if (!existsSync(p)) continue;
+        const cfg = JSON.parse(readSync(p, "utf-8"));
+        if (Array.isArray(cfg.toolsDeny)) { for (const n of cfg.toolsDeny) deny.add(n); break; }
+      } catch { /* bad json → skip */ }
+    }
+  }
+  _crewDenyCache.set(cacheKey, deny);
+  return deny;
+}
 
 /**
  * Load toolGroups for an agent from crew.json.
@@ -1360,20 +1413,7 @@ function getAgentGroupsFromConfig(agentId, cwd = null) {
   // Check cache first
   if (_crewGroupCache.has(cacheKey)) return _crewGroupCache.get(cacheKey);
 
-  // agentId -> crewId mapping
-  const crewMap = {
-    architect: "coding.architect",
-    developer: "coding.developer",
-    tester: "coding.tester",
-    "doc-writer": "coding.doc-writer",
-    qa: "coding.qa",
-    helpdesk: "coding.helpdesk",
-    em: "coding.em",
-    rm: "coding.rm",          // 2026-09-06:補齊 10 crew 映射(原本缺 → fallback core+memory 全開)
-    ops: "coding.ops",
-    handover: "coding.handover",
-  };
-  const crewId = crewMap[agentId];
+  const crewId = _AGENT_CREW_MAP[agentId];
   if (!crewId) return AGENT_FALLBACK_GROUPS[agentId] || ["core", "memory"];
 
   // ── Project-level override(.paaw/agents/{crewId}.json 的 toolGroups 優先)──
@@ -1427,10 +1467,12 @@ export function getToolsForAgent(agentId, extraGroups = [], cwd = null) {
   const agentGroups = getAgentGroupsFromConfig(agentId, cwd);
   const groups = new Set([...agentGroups, ...extraGroups]);
   const useCoreRead = groups.has("core-read");
+  const deny = getAgentToolsDeny(agentId, cwd); // 2026-10-09：crew toolsDeny 黑名單
 
   return PAAW_TOOLS.filter(tool => {
     const name = tool.function?.name;
     if (!name) return false;
+    if (deny.has(name)) return false; // 代碼保證：黑名單工具物理拿不到
 
     // Handle core-read: only read-only core tools
     if (useCoreRead && TOOL_GROUP_MAP[name] === "core") {
@@ -3441,6 +3483,19 @@ baseline ${rr.baseline?.short}(${rr.baseline?.source})→ target ${rr.target?.sh
       }
 
       // ── Action Log Tools ──
+      case "handover_write": {
+        // 交接沉澱寫入（2026-10-09）：僅 handover agent（group 掛載）+ 使用者同意後呼叫
+        const { dirname } = await import("node:path");
+        const target = join(cwd || rootDir || process.cwd(), ".paaw", "HANDOVER.md");
+        const dir = dirname(target);
+        if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+        if (existsSync(target)) writeSync(target + ".bak", readSync(target, "utf-8")); // 自動備份
+        const content = String(args.content || "");
+        writeSync(target, content, "utf-8");
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${content.length} bytes` });
+        return `✅ Handover written: ${target} (${content.length} bytes, 舊檔已備份 .bak)`;
+      }
+
       case "action_log_add": {
         const { addActionLog } = await import("./action-log.mjs");
         const entry = { ...args, agent: args._agentId || rootDir?.split("/").pop() || "agent" };
