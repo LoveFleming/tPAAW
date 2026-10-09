@@ -40,11 +40,13 @@ async function _currentState(root) {
   const branch = await _git(root, "git rev-parse --abbrev-ref HEAD");
   const headSha = await _git(root, "git rev-parse --short HEAD");
   const statusLines = await _gitLines(root, "git status --porcelain -uall");
+  // 2026-10-09：排除自己 — 寫 handover-state.json 會立刻把自己弄鵡，否則永遠「至少 1 個未提交」無限循環
+  const dirtyLines = statusLines.filter(l => !l.trimEnd().endsWith(".paaw/handover-state.json"));
   const unpushed = await _gitLines(root, "git log @{u}..HEAD --oneline --no-decorate 2>/dev/null || git log origin/dev..HEAD --oneline --no-decorate 2>/dev/null || true");
   return {
     branch, headSha,
-    dirtyCount: statusLines.length,
-    dirtyFiles: statusLines.slice(0, 30),
+    dirtyCount: dirtyLines.length,
+    dirtyFiles: dirtyLines.slice(0, 30),
     unpushedCount: unpushed.length,
     unpushedCommits: unpushed.slice(0, 10),
   };

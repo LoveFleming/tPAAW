@@ -92,9 +92,11 @@ interface Props {
   rootPath: string;
   theme: any;
   onOpenEMDashboard?: () => void;
+  /** 2026-10-09：keep-mounted 下切回 tab 時要重新拉 state（commit 後畫面不再停在舊快照） */
+  active?: boolean;
 }
 
-export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }: Props) {
+export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, active = true }: Props) {
   const { t } = useI18n();
   const [bundle, setBundle] = useState<HandoverBundle | null>(null);
   const [hState, setHState] = useState<any | null>(null);
@@ -142,6 +144,8 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard }
   }, [rootPath]);
 
   useEffect(() => { refresh(); }, [refresh]);
+  // 2026-10-09 Fleming：keep-mounted 模式下切回 handover tab 時重新拉 — 否則 commit 後畫面還在舊快照（「都 commit 了為何還有 9 個未提交」）
+  useEffect(() => { if (active) refresh(); }, [active, refresh]);
 
   const generate = async () => {
     setGenerating(true);
