@@ -176,6 +176,34 @@ function _normCode(c) {
  * @param callLLM async ({messages, temperature, thinking}) => {content}
  */
 /**
+ * 非法 escape 修復（2026-10-09）：LLM 在 JSON 字串裡寫 Windows 路徑（src\utils\x.mjs）
+ * 或 regex（\d+）等未雙跳脫 → JSON.parse 炸 "Bad escaped character"。
+ * 字串感知地把非法 `\X` 補成 `\\X`（保留字面），合法 escape 不動。
+ */
+function fixInvalidEscapes(txt) {
+  let out = "", inStr = false;
+  for (let i = 0; i < txt.length; i++) {
+    const ch = txt[i];
+    if (!inStr) {
+      if (ch === '"') inStr = true;
+      out += ch;
+      continue;
+    }
+    if (ch === '"') { inStr = false; out += ch; continue; }
+    if (ch === "\\") {
+      const nxt = txt[i + 1];
+      if (nxt === "u" && /^[0-9a-fA-F]{4}$/.test(txt.slice(i + 2, i + 6))) {
+        out += ch + txt.slice(i + 1, i + 6); i += 5; continue; // 完整 \uXXXX
+      }
+      if (nxt && '"\\/bfnrt'.includes(nxt)) { out += ch + nxt; i += 1; continue; } // 合法 escape
+      out += "\\\\"; continue; // 非法：補成 \\ 保留字面（nxt 下一輪當普通字元）
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/**
  * 截斷 JSON 修復：LLM 回應被 max_tokens 砍半時，從最後一個完整元素切斷、
  * 補上未閉合的 }/]，儘量救回已完成的部分。回傳 null = 救不回來。
  */
@@ -240,15 +268,20 @@ export async function organizeErrorCodes(root, { callLLM, onProgress, timeoutMs 
   const fence = txt.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fence) txt = fence[1].trim();
   // 2026-10-06：LLM 回應被 max_tokens 截斷 → JSON.parse 炸 "Unterminated string at position N"；先原樣試，失敗用截斷修復救回已完成部分
+  // 2026-10-09：另一種失敗模式 — "Bad escaped character"（LLM 字串裡寫 \U、\d 等未雙跳脫）→ 先修非法 escape 再試，仍失敗才做截斷修復
   let parsed;
   try {
     parsed = JSON.parse(txt);
   } catch (firstErr) {
-    parsed = repairTruncatedJson(txt);
+    const fixed = fixInvalidEscapes(txt);
+    if (fixed !== txt) {
+      try { parsed = JSON.parse(fixed); } catch {}
+    }
+    if (!parsed) parsed = repairTruncatedJson(fixed); // escape 修完後掃描器狀態才正確
     if (!parsed) {
       throw new Error(`error-codes LLM JSON parse failed: ${firstErr.message}（回應可能被 max_tokens 截斷 — 調高 providers.json 的 model maxTokens 或縮小掃描範圍後重試）`);
     }
-    console.warn(`[error-code-scan] LLM JSON truncated — repaired partial result (original error: ${firstErr.message})`);
+    console.warn(`[error-code-scan] LLM JSON 修復後成功（original error: ${firstErr.message}）`);
   }
 
   // normalize + 驗證：只留素材中存在的 featureId；codes 必須帶 file
