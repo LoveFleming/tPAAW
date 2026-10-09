@@ -52,6 +52,7 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
   React.useImperativeHandle(ref, () => ({
     send: (text: string) => { chatRef.current?.send(text); },
     addFiles: (files: File[]) => { chatRef.current?.addFiles(files); },
+    setText: (text: string) => { chatRef.current?.setText(text); },
   }));
 
   const fetchDetail = React.useCallback(async () => {

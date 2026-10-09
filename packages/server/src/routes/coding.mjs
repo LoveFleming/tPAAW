@@ -1119,7 +1119,7 @@ export default async function projectRoute(req, res) {
     return true;
   }
   if (url === "/api/coding-crew/qa-results" && method === "GET") {
-    const cwd = q.cwd || PAAW_ROOT;
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
     if (q.stats === "1" || q.stats === "true") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, stats: qaStats(cwd) }));
@@ -1250,7 +1250,7 @@ export default async function projectRoute(req, res) {
     } catch (err) {
       return sendPathTraversalError(res, err);
     }
-    const cwd = q.cwd || PAAW_ROOT;
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
     const { activeFile } = getConvPaths(cwd, crewId);
     try {
       const data = await readConvFile(activeFile);
@@ -1271,7 +1271,7 @@ export default async function projectRoute(req, res) {
     } catch (err) {
       return sendPathTraversalError(res, err);
     }
-    const cwd = q.cwd || PAAW_ROOT;
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
     const { agentDir, activeFile } = getConvPaths(cwd, crewId);
     let body;
     try { body = JSON.parse(await readBody(req)); } catch {
@@ -1307,7 +1307,7 @@ export default async function projectRoute(req, res) {
     } catch (err) {
       return sendPathTraversalError(res, err);
     }
-    const cwd = q.cwd || PAAW_ROOT;
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
     const { activeFile } = getConvPaths(cwd, crewId);
     try {
       if (existsSync(activeFile)) { await unlink(activeFile); } // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
@@ -1329,7 +1329,7 @@ export default async function projectRoute(req, res) {
     } catch (err) {
       return sendPathTraversalError(res, err);
     }
-    const cwd = q.cwd || PAAW_ROOT;
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
     const { agentDir, activeFile } = getConvPaths(cwd, crewId);
     try {
       const data = await readConvFile(activeFile);
@@ -1370,7 +1370,7 @@ export default async function projectRoute(req, res) {
     } catch (err) {
       return sendPathTraversalError(res, err);
     }
-    const cwd = q.cwd || PAAW_ROOT;
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
     const { agentDir, activeFile } = getConvPaths(cwd, crewId);
     try {
       const sessions = [];
@@ -1425,7 +1425,7 @@ export default async function projectRoute(req, res) {
     } catch (err) {
       return sendPathTraversalError(res, err);
     }
-    const cwd = q.cwd || PAAW_ROOT;
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
     const { agentDir, activeFile } = getConvPaths(cwd, crewId);
     try {
       const filePath = sessionId === "active" ? activeFile : join(agentDir, `${sessionId}.json`);
@@ -1453,7 +1453,7 @@ export default async function projectRoute(req, res) {
     } catch (err) {
       return sendPathTraversalError(res, err);
     }
-    const cwd = q.cwd || PAAW_ROOT;
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
     const { agentDir } = getConvPaths(cwd, crewId);
     try {
       if (sessionId === "active") {
@@ -1487,7 +1487,7 @@ export default async function projectRoute(req, res) {
     } catch (err) {
       return sendPathTraversalError(res, err);
     }
-    const cwd = q.cwd || PAAW_ROOT;
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
     const { agentDir, activeFile } = getConvPaths(cwd, crewId);
     try {
       if (sessionId === "active") {

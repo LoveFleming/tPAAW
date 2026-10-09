@@ -1,10 +1,16 @@
 /**
- * AgentSideChat — 側欄 AI 助理對話（共用元件）
+ * AgentSideChat — 側欄 AI 對話（全站共用元件）
  *
- * Release Manager / Handover / Troubleshooting 三個頁面共用。
- * 打 /a2a/:agentId 的 message/stream（與 EM Dashboard chat 同協議）。
+ * 兩種 transport：
+ *   1. a2a（預設）— 打 /a2a/:agentId 的 message/stream（coding crews / EM chat 同協議）
+ *   2. paawChat    — 打 /api/paaw/chat（contextTarget: "project" / "notes" / ...，
+ *                    server context-engine 已支援；與 ChatView 林雨晴同協議）
  *
- * 注意：textarea 有 IME composition 三層保護（TOOLS.md 紀律）。
+ * 共用對象：RM / Handover / Troubleshooting / QA Browser side chat、
+ *           ProjectAiPanel（AI 專案助理）、Notes（AI 寫筆記）、未來新 module。
+ * 功能：📋 歷史 / 🧠 prompt 檢視 / 💬 新對話 / ModelSelector / 🖼️📄 上傳 / tool badges / 停止。
+ *
+ * 注意：textarea 有 IME composition 三層保護（TOOLS.md 紀律，在 ChatInputBar 內）。
  */
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
@@ -63,11 +69,21 @@ interface AgentSideChatProps {
                              //   並顯示三按鈕（📋 歷史 / 🧠 注入 prompt / 💬 新對話），跟 crew chat 同一套 API
   modelFeature?: string;    // 2026-10-09 Fleming：有帶 → header 顯示 ModelSelector（跟 crew chat / QA browser 同款），
                              //   選的 model 透過 a2a params.metadata.model 送出（per-chat user preference）
+  paawChat?: {              // 2026-10-09 Fleming：AI 專案助理 / AI 寫筆記 統一用 side chat — 走 /api/paaw/chat
+    contextTarget: string;  //   "project" | "notes" | ...（context-engine build target）
+    contextSeed?: string;   //   訊息區頂部的 📋 context 提示條（原本 ProjectAiPanel 的 context hint）
+  };
+  onClose?: () => void;     // 有帶 → header 右側 ✕（Panel 形式）
+  headerActions?: (ctx: {   // header 擴充鈕（如 Notes 的「💾 存成筆記」）
+    getLastAssistant: () => string | undefined;
+    loading: boolean;
+  }) => React.ReactNode;
 }
 
 export interface AgentSideChatHandle {
   send: (text: string) => void;   // 外部注入訊息（Handover QA → AI）
   addFiles: (files: File[]) => void; // 外部注入附件（📸 拍目前畫面 → 直接入 attachment area，2026-09-26）
+  setText: (text: string) => void;  // 外部預填輸入框（ProjectAiPanel initialPrompt，不自動送出）
 }
 
 export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(function AgentSideChat({
@@ -83,6 +99,9 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
   height = "100%",
   persistCrewId,
   modelFeature,
+  paawChat,
+  onClose,
+  headerActions,
 }: AgentSideChatProps, ref) {
   const [messages, setMessages] = useState<SideChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -95,7 +114,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
   const scrollRef = useRef<HTMLDivElement>(null); // 聊天容器：用容器 scrollTo，不用 scrollIntoView（會拖祖先容器）
   const nearBottomRef = useRef(true);
   const composingRef = useRef(false); // IME 三層保護（可靠層）
-  const { avatarUrl, displayName: prefName, greeting: prefGreeting } = useCrewAvatar(agentId, true);
+  const { avatarUrl, displayName: prefName, greeting: prefGreeting } = useCrewAvatar(paawChat ? "" : agentId, !paawChat);
   const shownName = prefName || agentName;
   const shownGreeting = prefGreeting || greeting;
   const youGrad = `linear-gradient(135deg, ${accent}, ${accentHover || accent})`; // 「你」頭像漸層（跟 ChatView 同形式）
@@ -194,8 +213,23 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
     setShowSessions(false);
   }, [messages, persistCrewId, cwd]);
 
-  // 🧠 查看注入 prompt（/a2a/:agentId/system-prompt — 同 crew chat 的 Context debug）
+  // 🧠 查看注入 prompt — paawChat 走 generic-preview（同 ProjectAiPanel 原本的 📋 Prompt）；a2a 走 system-prompt
   const viewPrompt = useCallback(async () => {
+    if (paawChat) {
+      const lastUser = [...messages].reverse().find(m => m.role === "user")?.content || "";
+      try {
+        const res = await fetch(`${API_BASE}/api/ai-settings/generic-preview`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target: paawChat.contextTarget, prompt: lastUser }),
+        });
+        const d = await res.json();
+        setPromptData({ agentName, systemPrompt: d.systemPrompt || "", userPrompt: d.userPrompt || "", totalLength: (d.systemPrompt || "").length + (d.userPrompt || "").length });
+      } catch (e: any) {
+        setPromptData({ error: e?.message || "fetch failed" });
+      }
+      setShowPrompt(true);
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE}/a2a/${encodeURIComponent(agentId)}/system-prompt${cwd ? `?cwd=${encodeURIComponent(cwd)}` : ""}`);
       setPromptData(await res.json());
@@ -203,7 +237,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
       setPromptData({ error: e?.message || "fetch failed" });
     }
     setShowPrompt(true);
-  }, [agentId, cwd]);
+  }, [agentId, cwd, paawChat, messages, agentName]);
 
   // 👁 agent chat 貼圖（2026-08-30）：paste/drop/picker → 壓縮 → 上傳 → a2a parts 喜vision model
 
@@ -285,23 +319,51 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
     const ac = new AbortController();
     abortRef.current = ac;
 
+    // paaw-chat 模式的 tool badge 標籤（跟 a2a 同款中文 action labels）
+    const actionLabels: Record<string, string> = {
+      read_file: "📖 讀取檔案", write_file: "✏️ 寫入檔案", edit_file: "✏️ 編輯檔案",
+      glob: "🔍 搜尋檔案", grep: "🔍 搜尋內容", bash: "⚡ 執行指令", git: "🔄 Git",
+      create_note: "📝 建立筆記", search_notes: "🔍 搜尋筆記",
+    };
+
     try {
-      const res = await fetch(`${API_BASE}/a2a/${agentId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: stableStringify({
-          jsonrpc: "2.0",
-          method: "message/stream",
-          params: {
-            message: { role: "user", parts: [{ type: "text", text: textPart }, ...uploadedPaths.map(p => ({ type: "image", path: p }))] },
-            context: { cwd },
-            metadata: model ? { model } : undefined, // 2026-10-09：跟 crew chat 同協議（params.metadata.model）
-            conversationHistory: [...messages, { role: "user", content: textPart }],
-          },
-          id: `${agentId}-chat-${Date.now()}`,
-        }),
-        signal: ac.signal,
-      });
+      let res: Response;
+      if (paawChat) {
+        // ── paawChat transport：/api/paaw/chat（與 ChatView 林雨晴同協議）──
+        res = await fetch(`${API_BASE}/api/paaw/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: stableStringify({
+            messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content, ...(m.images?.length ? { images: m.images } : {}) })),
+            model: model || undefined,
+            contextTarget: paawChat.contextTarget,
+          }),
+          signal: ac.signal,
+        });
+        if (!res.ok) {
+          const err = await res.text();
+          setMessages(prev => [...prev, { role: "assistant", content: `❌ API 錯誤: ${res.status} — ${err.slice(0, 200)}`, ts: new Date().toISOString() }]);
+          return;
+        }
+      } else {
+        // ── a2a transport（原本路徑）──
+        res = await fetch(`${API_BASE}/a2a/${agentId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: stableStringify({
+            jsonrpc: "2.0",
+            method: "message/stream",
+            params: {
+              message: { role: "user", parts: [{ type: "text", text: textPart }, ...uploadedPaths.map(p => ({ type: "image", path: p }))] },
+              context: { cwd },
+              metadata: model ? { model } : undefined, // 2026-10-09：跟 crew chat 同協議（params.metadata.model）
+              conversationHistory: [...messages, { role: "user", content: textPart }],
+            },
+            id: `${agentId}-chat-${Date.now()}`,
+          }),
+          signal: ac.signal,
+        });
+      }
 
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
@@ -321,6 +383,36 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
           if (!line.startsWith("data: ")) continue;
           try {
             const d = JSON.parse(line.slice(6));
+
+            if (paawChat) {
+              // ── paaw-chat 事件：{content}（delta 累積）/ {tool_call} / {tool_result} / {error} ──
+              if (d.content) {
+                fullText += d.content;
+                setMessages(prev => {
+                  const last = prev[prev.length - 1];
+                  if (last?.role === "assistant" && (last as any)._streaming) {
+                    return [...prev.slice(0, -1), { ...last, content: fullText }];
+                  }
+                  return [...prev, { role: "assistant", content: fullText, ts: new Date().toISOString(), _streaming: true } as SideChatMessage];
+                });
+                nearBottomRef.current && scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "instant" });
+              } else if (d.tool_call?.name) {
+                const argsObj = typeof d.tool_call.args === "string" ? (() => { try { return JSON.parse(d.tool_call.args); } catch { return {}; } })() : (d.tool_call.args || {});
+                const detail = argsObj?.path || argsObj?.pattern || argsObj?.command || argsObj?.query || "";
+                setAction(`${actionLabels[d.tool_call.name] || `🔧 ${d.tool_call.name}`} ${String(detail).split(/[\/]/).pop()}`);
+                setActiveTools(prev => [...prev, { name: d.tool_call.name, status: "running" }]);
+              } else if (d.tool_result?.name) {
+                setActiveTools(prev => prev.map(t => t.name === d.tool_result.name ? { ...t, status: d.tool_result.result?.error ? "error" : "done" } : t));
+                setTimeout(() => setActiveTools(prev => prev.filter(t => t.name !== d.tool_result.name)), 1500);
+                setAction("💭 思考中…");
+              } else if (d.error) {
+                // server 形狀：{ error: true, message: "..." }（message 在頂層，chat.mjs:381）
+                const errText = typeof d.error === "string" ? d.error : (d.message || d.error?.message || d.error?.error || "unknown");
+                setMessages(prev => [...prev, { role: "assistant", content: `❌ ${errText}`, ts: new Date().toISOString() }]);
+                fullText = "__error__";
+              }
+              continue;
+            }
 
             if (currentEvent === "thinking" && d.content) {
               setAction("💭 思考中…");
@@ -377,12 +469,13 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
       setAction("");
       abortRef.current = null;
     }
-  }, [loading, messages, agentId, cwd, tt, viewingArchive, model]);
+  }, [loading, messages, agentId, cwd, tt, viewingArchive, model, paawChat]);
 
   // 外部注入訊息（Handover QA chips → AI；不改變內部訊息流）
   React.useImperativeHandle(ref, () => ({
     send: (text: string) => { submit({ text, images: [], files: [] }); },
     addFiles: (files: File[]) => { inputRef.current?.addFiles(files); },
+    setText: (text: string) => { inputRef.current?.setText(text); },
   }), [submit]);
 
   return (
@@ -411,7 +504,26 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
                     <span className="text-[10px] text-stone-500">providers: {promptData.contextProviders.join(", ")}</span>
                   )}
                 </div>
-                {promptData?.baseSystemPrompt ? (
+                {promptData?.systemPrompt !== undefined ? (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">📋 System Prompt（{paawChat?.contextTarget}）</span>
+                        <span className="text-[10px] text-stone-500">{(promptData.systemPrompt || "").length.toLocaleString()} chars</span>
+                      </div>
+                      <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: 300, overflowY: "auto" }}>{String(promptData.systemPrompt || "(空)")}</pre>
+                    </div>
+                    {promptData?.userPrompt ? (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">💬 User Prompt</span>
+                          <span className="text-[10px] text-stone-500">{promptData.userPrompt.length.toLocaleString()} chars</span>
+                        </div>
+                        <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: 200, overflowY: "auto" }}>{String(promptData.userPrompt)}</pre>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : promptData?.baseSystemPrompt ? (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">📋 Base System Prompt</span>
@@ -476,6 +588,17 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
             {modelFeature && (
               <ModelSelector feature={modelFeature} value={model} onChange={setModel} />
             )}
+            {headerActions?.({
+              getLastAssistant: () => [...messages].reverse().find(m => m.role === "assistant")?.content,
+              loading,
+            })}
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="text-lg leading-none px-1 text-stone-400 hover:text-stone-600 transition-colors"
+                title="關閉"
+              >✕</button>
+            )}
           </div>
         )}
       </div>
@@ -520,6 +643,11 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
         const el = e.currentTarget;
         nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
       }} className="flex-1 overflow-y-auto px-3 py-3 space-y-3" style={{ scrollbarWidth: "thin" }}>
+        {paawChat?.contextSeed && (
+          <div className="text-xs px-3 py-2 rounded-lg border border-dashed border-stone-200 bg-stone-50 text-stone-400 leading-relaxed" title={paawChat.contextSeed}>
+            📋 {paawChat.contextSeed.length > 110 ? paawChat.contextSeed.slice(0, 110) + "…" : paawChat.contextSeed}
+          </div>
+        )}
         {messages.length === 0 && (
           <div className="text-center py-8">
             <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center text-2xl mb-2 overflow-hidden" style={{ backgroundColor: accent + "15" }}>

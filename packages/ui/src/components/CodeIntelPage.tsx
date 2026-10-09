@@ -73,6 +73,7 @@ function CodeIntelPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: Re
   React.useImperativeHandle(ref, () => ({
     send: (text: string) => { chatRef.current?.send(text); },
     addFiles: (files: File[]) => { chatRef.current?.addFiles(files); },
+    setText: (text: string) => { chatRef.current?.setText(text); },
   }));
 
   // ── Call Graph state ──

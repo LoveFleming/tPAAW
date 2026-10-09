@@ -11,7 +11,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
-import API_BASE from "../api";
+import AgentSideChat from "../components/AgentSideChat"; // 2026-10-09 Fleming：AI 寫筆記改用 side chat 共用元件
 import { uiAlertError, uiConfirm } from "../components/ui/uiFeedback";
 
 // ── Types ──
@@ -66,44 +66,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
   const [tagsInput, setTagsInput] = useState("");
   const [zoomImg, setZoomImg] = useState<string | null>(null);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
-  const [aiWriting, setAiWriting] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
-  const [aiInput, setAiInput] = useState("");
-  const [aiPrompt, setAiPrompt] = useState("");
-
-  // ── Model selector state ──
-  const [providers, setProviders] = useState<Record<string, any>>({});
-  const [activeProviderId, setActiveProviderId] = useState("");
-  const [selectedModel, setSelectedModel] = useState("");
-  const [showModelDropdown, setShowModelDropdown] = useState(false);
-
-  useEffect(() => {
-    fetch(`${API_BASE}/api/paaw/providers`)
-      .then(r => r.json())
-      .then(data => {
-        setProviders(data.providers || {});
-        setActiveProviderId(data.active || "");
-        setSelectedModel(data.defaultModel || "");
-      })
-      .catch(() => {});
-  }, []);
-
-  const allModels = useCallback(() => {
-    const result: { providerId: string; providerName: string; modelId: string; modelName: string }[] = [];
-    for (const [pid, p] of Object.entries(providers)) {
-      for (const m of (p.models || [])) {
-        result.push({ providerId: pid, providerName: p.name, modelId: m.id, modelName: m.name });
-      }
-    }
-    return result;
-  }, [providers]);
-
-  const activeModelName = allModels().find(m => `${m.providerId}/${m.modelId}` === selectedModel || m.modelId === selectedModel)?.modelName || selectedModel || tt("common.defaultModel");
-  const fullModelForApi = useCallback(() => {
-    if (!selectedModel) return undefined;
-    if (selectedModel.includes("/")) return selectedModel;
-    return `${activeProviderId}/${selectedModel}`;
-  }, [selectedModel, activeProviderId]);
 
   // ── Refs ──
   const editorRef = useRef<HTMLDivElement>(null);
@@ -288,37 +251,27 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
     await loadNotes(activeNotebook, secId);
   }, [activeNotebook, loadNotes]);
 
-  // ── AI 寫筆記 ──
-  const aiWrite = useCallback(async () => {
-    const content = aiInput.trim();
-    if (!content || content.length < 5) return;
-    setAiWriting(true);
+  // ── AI 寫筆記（2026-10-09 Fleming：改用 AgentSideChat 共用元件 — 貼上內容跟 AI 對話整理，💾 存成筆記）──
+  const saveAiNote = useCallback(async (text?: string) => {
+    const content = (text || "").trim();
+    if (!content) { uiAlertError(tt("notes.aiSaveEmpty")); return; }
+    const title = content.match(/^#\s+(.+)$/m)?.[1]?.trim()
+      || content.split("\n").map(l => l.replace(/^[#>*\-\s]+/, "").trim()).find(l => l.length > 0)?.slice(0, 30)
+      || tt("notes.aiNoteTitle");
     try {
-      const resp = await fetch("/api/notes/ai-write", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, prompt: aiPrompt.trim() || undefined, model: fullModelForApi() }),
-      });
-      const data = await resp.json();
-      if (!data.ok) { uiAlertError(data.error || "AI 寫筆記失敗"); return; }
-
-      // 建立新筆記並寫入 AI 產生的內容
       const createResp = await api.post("/api/notes/create", {
         notebookId: activeNotebook, sectionId: activeSection,
-        title: data.title || "AI 筆記", content: data.content || "",
-        tags: data.tags || [],
+        title, content, tags: [],
       });
       if (createResp.ok) {
-        setAiInput(""); setAiPrompt(""); setAiPanelOpen(false);
+        setAiPanelOpen(false);
         await loadNotes(activeNotebook, activeSection);
         await loadNote(createResp.note.id, activeNotebook);
       }
     } catch (err) {
-      uiAlertError(`AI 寫筆記失敗：${err}`);
-    } finally {
-      setAiWriting(false);
+      uiAlertError(`存成筆記失敗：${err}`);
     }
-  }, [aiInput, aiPrompt, activeNotebook, activeSection, loadNotes, loadNote]);
+  }, [activeNotebook, activeSection, loadNotes, loadNote, tt]);
 
   // ── Image ──
   const uploadImage = useCallback(async (file: File | Blob): Promise<string | null> => {
@@ -613,32 +566,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
           }}
         >✨ AI 寫筆記</button>
 
-        {/* Model selector */}
-        <div className="relative shrink-0">
-          <button
-            onClick={() => setShowModelDropdown(!showModelDropdown)}
-            className="px-2.5 py-1.5 rounded-lg text-sm flex items-center gap-1"
-            style={{ background: showModelDropdown ? tk.accentBg : "transparent", color: showModelDropdown ? tk.accentText : tk.textMuted, border: `1px solid ${showModelDropdown ? tk.accent : tk.borderInput}` }}
-            title="AI Model 偏好"
-          >🤖 {activeModelName} ▾</button>
-          {showModelDropdown && (
-            <div className="absolute top-full right-0 mt-1 rounded-lg shadow-lg border py-1 z-50" style={{ background: tk.bg, borderColor: tk.borderLight, minWidth: 200, maxHeight: 300, overflow: "auto" }}>
-              {allModels().map(m => {
-                const fullId = `${m.providerId}/${m.modelId}`;
-                const isActive = fullId === selectedModel || m.modelId === selectedModel;
-                return (
-                  <div key={fullId} onClick={() => { setSelectedModel(fullId); setShowModelDropdown(false); }}
-                    className="flex items-center gap-2 px-3 py-2 cursor-pointer text-sm" style={{ background: isActive ? tk.accentBg : "transparent", color: tk.textPrimary }}
-                    onMouseEnter={e => e.currentTarget.style.background = tk.bgHover}
-                    onMouseLeave={e => e.currentTarget.style.background = isActive ? tk.accentBg : "transparent"}>
-                    {isActive && <span style={{ color: tk.accent }}>✓</span>}
-                    <div><div style={{ fontWeight: 500 }}>{m.modelName}</div><div className="text-xs" style={{ color: tk.textMuted }}>{m.providerName}</div></div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        {/* Model selector 已移入 AI 寫筆記 side chat（AgentSideChat 內建 ModelSelector，2026-10-09）*/}
 
         {/* Search toggle */}
         <button
@@ -808,64 +736,37 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
           </div>
         </div>
 
-        {/* ── AI 寫筆記 Panel（可收合） ── */}
+        {/* ── AI 寫筆記 Panel — AgentSideChat 共用元件（跟 coding app side chat / AI 專案助理完全一致，2026-10-09）── */}
         {aiPanelOpen && (
-          <div className="shrink-0 flex flex-col border-l" style={{ width: 340, background: tk.bg, borderColor: tk.borderLight }}>
-            <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: tk.borderLight }}>
-              <span className="text-sm font-semibold" style={{ color: tk.textPrimary }}>✨ AI 寫筆記</span>
-              <button onClick={() => setAiPanelOpen(false)} className="text-xs px-1.5 rounded" style={{ color: tk.textMuted }}>✕</button>
-            </div>
-
-            <div className="flex-1 flex flex-col p-3 gap-3 overflow-auto">
-              <div className="flex flex-col flex-1">
-                <label className="text-xs font-medium mb-1" style={{ color: tk.textSecondary }}>貼上要整理的內容</label>
-                <textarea
-                  value={aiInput}
-                  onChange={e => setAiInput(e.target.value)}
-                  placeholder={tt("notes.aiPlaceholder")}
-                  className="flex-1 w-full px-3 py-2 rounded-lg border outline-none text-sm"
-                  style={{ background: tk.bgMuted, borderColor: tk.borderInput, color: tk.textPrimary, resize: "none", minHeight: 160, lineHeight: 1.6 }}
-                />
-              </div>
-
-              <div className="flex flex-col">
-                <label className="text-xs font-medium mb-1" style={{ color: tk.textSecondary }}>AI 提示詞（選填）<span style={{ color: tk.textMuted, fontWeight: 400 }}> · Shift+Enter 換行</span></label>
-                <textarea
-                  value={aiPrompt}
-                  onChange={e => setAiPrompt(e.target.value)}
-                  placeholder={tt("notes.aiExamplePlaceholder")}
-                  rows={3}
-                  className="w-full px-3 py-2 rounded-lg border outline-none text-sm"
-                  style={{ background: tk.bgMuted, borderColor: tk.borderInput, color: tk.textPrimary, resize: "none", lineHeight: 1.6 }}
-                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); aiWrite(); } }}
-                />
-              </div>
-
-              <button
-                onClick={aiWrite}
-                disabled={aiWriting || aiInput.trim().length < 5}
-                className="w-full py-2.5 rounded-lg text-sm font-medium text-white transition-colors flex items-center justify-center gap-2"
-                style={{
-                  background: aiWriting || aiInput.trim().length < 5 ? tk.bgMuted : tk.accent,
-                  color: aiWriting || aiInput.trim().length < 5 ? tk.textMuted : "#fff",
-                  cursor: aiWriting || aiInput.trim().length < 5 ? "not-allowed" : "pointer",
-                }}
-              >
-                {aiWriting ? (
-                  <>
-                    <span className="ai-spinner" style={{ fontSize: 18 }}>⏳</span>
-                    AI 整理中...
-                  </>
-                ) : tt("notes.aiButton")}
-              </button>
-
-              <div className="text-xs text-center" style={{ color: tk.textMuted }}>
-                AI 會自動建立一則新筆記
-              </div>
-            </div>
+          <div className="shrink-0 flex flex-col border-l" style={{ width: 400, background: tk.bg, borderColor: tk.borderLight }}>
+            <AgentSideChat
+              agentId="notes-ai"
+              agentName="AI 寫筆記"
+              agentEmoji="✨"
+              greeting={tt("notes.aiGreeting")}
+              cwd="@paaw"
+              persistCrewId="notes-ai"
+              modelFeature="notes-ai"
+              paawChat={{ contextTarget: "notes" }}
+              height="100%"
+              accent={tk.accent}
+              placeholder={tt("notes.aiChatPlaceholder")}
+              suggestions={[
+                { label: "📝 整理筆記", prompt: tt("notes.aiSuggestOrganize") },
+                { label: "📋 會議紀錄", prompt: tt("notes.aiSuggestMeeting") },
+                { label: "💡 想法收斂", prompt: tt("notes.aiSuggestIdeas") },
+              ]}
+              headerActions={({ getLastAssistant }) => (
+                <button
+                  onClick={() => saveAiNote(getLastAssistant())}
+                  className="text-[10px] px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-semibold transition-colors"
+                  title={tt("notes.saveAsNote")}
+                >💾 {tt("notes.saveAsNote")}</button>
+              )}
+              onClose={() => setAiPanelOpen(false)}
+            />
           </div>
         )}
-
         {/* ── 右側：Search Panel（可收合） ── */}
         {searchPanelOpen && (
           <div className="shrink-0 flex flex-col border-l" style={{ width: 280, background: tk.bg, borderColor: tk.borderLight }}>
