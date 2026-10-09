@@ -8,7 +8,7 @@ import SkillBuilder from "./pages/SkillBuilder";
 import AppBuilder from "./pages/AppBuilder";
 import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
-import CodingIDE from "./pages/CodingIDE";import AppModules from "./pages/AppModules";
+import CodingIDE from "./pages/CodingIDE";
 
 import BriefingPlayer from "./pages/BriefingPlayer";
 import MindMapViewer from "./pages/MindMapViewer";
@@ -386,12 +386,6 @@ function AppInner() {
   }, [currentScope]);
 
 
-  const openAppModules = useCallback(() => {
-    const tabId = `${currentScope}:appmodules`;
-    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
-    setActivePage(tabId);
-  }, [currentScope]);
-
   const openAppPool = useCallback(() => {
     const tabId = `${currentScope}:reportapps`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
@@ -630,7 +624,8 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
       return <AppBuilder />;
     }
     if (pageType === "appmodules") {
-      return <AppModules />;
+      // 2026-10-09 Fleming：App Modules 管理頁退場（installed-apps 三模組已停用）
+      return <div className="p-8 text-sm text-stone-500">App Modules 管理頁已移除。</div>;
     }
     if (pageType === "reportapps") {
       return <AppPool onOpenApp={openSkillAppById} />;
@@ -864,8 +859,6 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />
-                <NavItem active={activePage.endsWith(":appmodules")} label={t("sidebar.appModules")} onClick={openAppModules} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-
               </div>
             </SidebarSection>
 
