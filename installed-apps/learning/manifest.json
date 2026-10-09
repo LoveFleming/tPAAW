@@ -2,8 +2,14 @@
   "id": "learning",
   "name": "學習空間",
   "version": "1.0.0",
-  "enabled": true,
-  "nav": { "label": "學習空間", "emoji": "📚", "page": "LearningSpace" },
-  "server": { "entry": "server/entry.mjs" },
+  "enabled": false,
+  "nav": {
+    "label": "學習空間",
+    "emoji": "📚",
+    "page": "LearningSpace"
+  },
+  "server": {
+    "entry": "server/entry.mjs"
+  },
   "source": "LoveFleming/learning-space fork 模組化搬遷（2026-10-03 S1-S5）"
 }
