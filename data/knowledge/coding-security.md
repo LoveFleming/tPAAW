@@ -7,10 +7,9 @@
 
 ## 部署環境的隔離脈絡（2026-10-09 Fleming 補充）
 
-- **公司開發機本來就連不到 production**（公司網路政策）— PAAW 跑在公司機上時，這層「能力沙箱」由公司環境提供，AI 就算失控也碰不到 production
-- **家裡 Mac mini** 沒有公司那種網路隔離 — 所以 v4 在 Mac mini 補 sandbox-exec 網路沙箱
-- 結論：防護是疊加的 — script-guard 系（pattern/越權攔截）跨平台自帶；網路層隔離按環境（公司=網路政策，Mac mini=sandbox-exec）
-
+- **公司開發機本來就連不到 production**（公司網路政策）— PAAW 跑在公司機上時，這層隔離由公司環境提供
+- **家裡 Mac mini 與公司無關** — 防護 = script-guard 系（pattern 掃描/越權攔截，跨平台自帶）
+- 網路層沙箱（macOS sandbox-exec / Linux unshare-net / Windows AppContainer）為**未實作選項**，需要時另行拍板
 ## 威脅模型
 
 PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
@@ -29,7 +28,6 @@ PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
 ② 檔案邊界      哪些路徑寫得到        isPathAllowed（cwd 限制 + WRITE_BLACKLIST）
 ③ 執行入口攔截  哪些檔案絕不能寫      script-guard A
 ④ Process 鐵律  哪些 process 碰不得   shell-guard（pkill/killall 擋、PAAW 自身不可啟停）
-④½ 網路沙箱   哪些網路連得到      sandbox-exec（macOS）— deny network*，只放行 localhost
 ⑤ 內容掃描      執行前掃 script 內容  script-guard C（bash）+ B（env_exec）
 ⑥ 人審流程      出了事誰把關          ask_user / QA·RM review / no-push 紀律
 ⑦ 審計追蹤      事後怎麼查            action log / agent memory / LLM log → ES
@@ -73,16 +71,6 @@ PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
 - `pkill` / `killall` / `taskkill` 一律擋
 - `kill` 只放行**本 RU 受控 dev-server pid**
 - PAAW coding app 自身（paaw-server / tPAAW vite / port 4097·4098·4100·5173）永遠不可啟停
-
-## ④½ 網路沙箱（paaw-sandbox — 2026-10-09 v4，Fleming 定調「只能透過受控通道連出去」）
-
-**macOS `sandbox-exec`（Seatbelt）包住 agent 的 bash：`(deny network*)` + localhost loopback 放行。**
-
-- 效果：外部 URL 外傳、混淆 payload（base64+eval、字串拼接、環境變數帶 URL）、DNS 外解 — **在網路層死，不靠 pattern 猜意圖**（實測 12 場景 + executeTool 整合 6 案全過）
-- 零影響：npm test / git commit / localhost API 測試 / 起 dev server（network-inbound localhost 放行）照常
-- **受控 egress 白名單**（不包沙箱、需要網路的指令）：npm/yarn/pnpm install、pip install、npx、git clone/fetch/pull、brew install — npm install 前由 script-guard 掃 package.json **全部 scripts**（preinstall/postinstall 是 npm 自動執行點 — 「AI 塞惡意 hook 再 install」的鏈在這裡斷）
-- 非 macOS（公司 Windows/Linux）：本層不生效，退回 pattern 掃描防護（升級路徑：Windows Job Objects / AppContainer）
-- profile：`/tmp/paaw-sandbox/agent-net-off.sb`（runtime 生成，lib/paaw-sandbox.mjs）
 
 ## ⑤ 內容掃描（script-guard B+C — 2026-10-09 上線）
 
@@ -142,7 +130,7 @@ PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
 
 ## 已知限制（誠實講）
 
-1. **掃描式非密不通風** — 混淆 payload（base64、動態組 URL）可繞過 pattern **掃描**；但 v4 網路沙箱後，macOS 上這些 payload 就算執行也**連不出去**（網路層死）。殘餘：安裝類 egress 白名單（npm/pip/npx）內的供應鏈風險、非 macOS 平台無沙箱層
+1. **掃描式非密不通風** — 混淆過的 payload（base64 編碼、動態組 URL、分段下載）理論上可繞過 pattern；v2 起直譯器/編譯/raw 指令三層都掃（語言無關），但這是縱深防禦不是密不通風 — 殘餘風險靠 ⑥ 人審 + ⑦ 審計兜底
 2. **網路 egress 沒擋** — bash 仍可 curl 下載（只有內容掃描事前攔 script 檔；直接 curl 指令靠 shell-guard 不含此項）— 如需更強可上 sandbox-exec / 容器，目前判定過度設計
 3. **npx 可跑任意套件** — env_exec 白名單含 npx；供應鏈信任靠 npm registry + lockfile（npm ci）
 4. **dev_server / ru_verify 跑的 npm script** 未掛 C 掃描（只跑白名單 action：build/lint/test/dev）— script 值仍可能被改過，靠 ② 路徑限制 + 人審補

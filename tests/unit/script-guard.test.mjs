@@ -1,5 +1,4 @@
 import { describe, it, expect, afterAll } from "vitest";
-import * as sandboxMod from "../../packages/server/src/lib/paaw-sandbox.mjs";
 import { persistentEntryBlock, scanScriptContent, guardScriptExecution, isPackageJsonClean } from "../../packages/server/src/lib/script-guard.mjs";
 import { mkdtempSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
@@ -161,36 +160,5 @@ describe("script-guard B：package.json 乾淨檢查", () => {
     writeFileSync(join(d, "package.json"), "{}");
     expect(isPackageJsonClean(d)).toBe(true);
     rmSync(d, { recursive: true, force: true });
-  });
-});
-
-
-describe("paaw-sandbox v4：網路沙箱", () => {
-  it("macOS 上 sandbox 可用且 profile 生成", () => {
-    const { sandboxAvailable, sandboxProfilePath } = sandboxMod;
-    if (process.platform === "darwin") {
-      expect(sandboxAvailable()).toBe(true);
-      expect(sandboxProfilePath()).toMatch(/agent-net-off\.sb$/);
-    }
-  });
-  it("egress 分類：安裝/git 遠端/npx 要網路；其他不要", () => {
-    const { needsNetworkEgress } = sandboxMod;
-    expect(needsNetworkEgress("npm install lodash")).toBe(true);
-    expect(needsNetworkEgress("npm ci")).toBe(true);
-    expect(needsNetworkEgress("pip3 install requests")).toBe(true);
-    expect(needsNetworkEgress("git pull origin dev")).toBe(true);
-    expect(needsNetworkEgress("npx tsx run.ts")).toBe(true);
-    expect(needsNetworkEgress("node test.mjs")).toBe(false);
-    expect(needsNetworkEgress("npm test")).toBe(false);
-    expect(needsNetworkEgress("npm run build")).toBe(false);
-    expect(needsNetworkEgress("git commit -m x")).toBe(false);
-    expect(needsNetworkEgress("curl localhost:4097/api")).toBe(false); // localhost 不需要 egress
-  });
-  it("wrap 指令 quoting roundtrip（單引號內容不壞）", () => {
-    const { wrapSandboxCommand } = sandboxMod;
-    const tricky = "echo \"it's ok\"";
-    const w = wrapSandboxCommand(tricky);
-    expect(w).toMatch(/^sandbox-exec -f '/);
-    expect(w).toContain("zsh");
   });
 });

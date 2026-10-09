@@ -1706,16 +1706,7 @@ async function runShell(command, cwd, timeoutMs = 30_000) {
     // 2026-09-27 OOM 治本：改走 proc-ledger 的 process group 執行 —
     // timeout 殺整棵樹（不留孤兒）；背景殘留記帳，agent run 結束時精準掃殺
     // （runId 由 proc-ledger 從 AsyncLocalStorage 讀 — runAgentLoop 進場時掛的）
-    // ── sandbox-exec 網路沙箱（2026-10-09 v4）── macOS 上無網路需求的指令一律包：
-    // 外部 egress 全斷（含混淆 payload），localhost 放行。安裝類（npm install 等）不包，走受控通道。
-    let _cmd = command;
-    try {
-      const { sandboxAvailable, needsNetworkEgress, wrapSandboxCommand } = await import("./paaw-sandbox.mjs");
-      if (sandboxAvailable() && !needsNetworkEgress(command)) {
-        _cmd = wrapSandboxCommand(command, process.env.SHELL || "/bin/zsh");
-      }
-    } catch { /* sandbox 包不成 = 原樣執行，pattern 掃描防護仍在 */ }
-    const { stdout, stderr, code } = await runShellGrouped(_cmd, {
+    const { stdout, stderr, code } = await runShellGrouped(command, {
       cwd,
       timeoutMs: Math.min(timeoutMs, _agentCfg.shellTimeoutMs || 600_000),
       env: {
