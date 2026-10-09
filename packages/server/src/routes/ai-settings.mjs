@@ -38,7 +38,6 @@ const CATEGORIES = [
   { id: "coding",         label: "Coding",         icon: "💻", desc: "AI Coding — 程式碼審查、Code Understanding 步驟提示（掃描、架構、Feature Map 等）" },
   { id: "domain-ai",      label: "Domain AI",     icon: "🔬", desc: "領域 AI — Spec/Test/Bug/Docs/Maintain 分析提示", subcategories: ["spec", "test", "bug", "docs", "maintain"] },
   { id: "project",       label: "Project",       icon: "📋", desc: "專案管理 — 建專案、分析狀態、建議任務" },
-  { id: "distill",       label: "Distill",       icon: "⚗️", desc: "蒸餾器 — 對話摘要規則" },
 ];
 
 // Default icon for unknown file types
@@ -200,7 +199,6 @@ export default async function aiSettingsRoutes(req, res) {
         "project": "project",
         "coding": "coding",
         "domain-ai": "domain-ai",
-        "distill": "distill",
       };
       const engineTarget = targetMap[target] || "chat";
       const buildParams = { target: engineTarget };
@@ -471,8 +469,6 @@ export default async function aiSettingsRoutes(req, res) {
       resolve(DATA_DIR, "skills"),
       resolve(DATA_DIR, "knowledge"),
       resolve(DATA_DIR, "ai-settings"),
-      resolve(DATA_DIR, "distill/knowledge"),
-      resolve(DATA_DIR, "config/distilled-memory"),
     ].filter(d => existsSync(d));
     const allDirs = [...new Set([...dirs, ...defaultDirs])];
     json(res, { directories: allDirs });

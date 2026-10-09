@@ -145,7 +145,6 @@ export default async function chatRoutes(req, res) {
   //   2. 載入 context（system prompt）
   //   3. 把 tools/index.mjs 的 handlers → ToolExecutor 格式
   //   4. 建立 ToolEngine，stream 結果給前端
-  //   5. 記錄 distill 資料
 
   // POST /api/paaw/chat
   if (req.method === "POST" && path === "/api/paaw/chat") {
@@ -392,19 +391,7 @@ export default async function chatRoutes(req, res) {
       // 清掉 heartbeat
       clearInterval(heartbeatTimer);
 
-      // ── Log AI interaction for distillation（使用者中途停止不記錄半成品）──
-      if (!clientGone) try {
-        const { recordChatInteraction } = await import("./distill.mjs");
-        const userMsgs = (messages || []).filter(m => m.role === "user");
-        const lastUser = userMsgs.length > 0 ? userMsgs[userMsgs.length - 1].content : "";
-        recordChatInteraction({
-          user: typeof lastUser === "string" ? lastUser.slice(0, 1000) : JSON.stringify(lastUser).slice(0, 1000),
-          assistant: fullText.slice(0, 3000),
-          model,
-          provider: providerId,
-          tools: toolsUsed,
-        });
-      } catch {}
+      // 2026-10-09 Fleming：AI 蒸餾功能移除 — 不再記錄互動（省 token）
     } catch (err) {
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       console.error("[chat] Error:", err.message, "\nStack:", err.stack);

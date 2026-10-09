@@ -39,7 +39,7 @@ interface SettingsPageProps {
 export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved }: SettingsPageProps = {}) {
   const { info: themeInfo } = useTheme();
   const { t, locale, setLocale } = useI18n();
-  const [tab, setTabState] = useState<"profile" | "providers" | "agentConfig" | "preferences" | "skill" | "distill" | "language" | "backup" | "plugins">((initialTab as any) || "profile");
+  const [tab, setTabState] = useState<"profile" | "providers" | "agentConfig" | "preferences" | "skill" | "language" | "backup" | "plugins">((initialTab as any) || "profile");
   const [providers, setProviders] = useState<Record<string, ProviderData>>({});
   const [activeId, setActiveId] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
@@ -63,8 +63,6 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   const [userPrefs, setUserPrefs] = useState<Record<string, string>>({});
 
   const [skillConfig, setSkillConfig] = useState({ testTimeout: 600, maxToolCalls: 50 });
-  const [distillConfig, setDistillConfig] = useState<any>(null);
-  const [distillRunning, setDistillRunning] = useState(false);
 
   // Sync tab when parent changes initialTab (e.g. redirect to providers)
   useEffect(() => {
@@ -120,10 +118,6 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
     fetch(`${API_BASE}/api/paaw/skill-config`)
       .then(r => r.json())
       .then(data => { if (data) setSkillConfig({ testTimeout: data.testTimeout || 600, maxToolCalls: data.maxToolCalls || 50 }); })
-      .catch(() => {});
-    fetch(`${API_BASE}/api/distill/config`)
-      .then(r => r.json())
-      .then(data => { if (data) setDistillConfig(data); })
       .catch(() => {});
   }, []);
 
@@ -267,9 +261,6 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
           </button>
           <button onClick={() => setTab("skill")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "skill" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             🔨 Skill Builder
-          </button>
-          <button onClick={() => setTab("distill")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "distill" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
-            ⚗️ AI 蒸餾
           </button>
           <button onClick={() => setTab("backup")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "backup" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             💾 備份還原
@@ -606,146 +597,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
           </div>
         )}
 
-        {/* Distill tab */}
-        {tab === "distill" && distillConfig && (
-          <div className="space-y-4">
-            {/* Stats */}
-            <div className="bg-white rounded-xl border border-stone-200 p-5">
-              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3 block">📊 紀錄統計</label>
-              <div className="grid grid-cols-4 gap-3">
-                <div className="text-center p-3 rounded-lg bg-stone-50">
-                  <div className="text-xl font-bold text-stone-700">{Object.keys(distillConfig.stats?.sources || {}).reduce((s, k) => s + (distillConfig.stats?.sources?.[k]?.rawFiles || 0), 0)}</div>
-                  <div className="text-[10px] text-stone-400 mt-1">紀錄天數</div>
-                </div>
-                <div className="text-center p-3 rounded-lg bg-stone-50">
-                  <div className="text-xl font-bold text-stone-700">{distillConfig.stats?.totalRawEntries || 0}</div>
-                  <div className="text-[10px] text-stone-400 mt-1">互動次數</div>
-                </div>
-                <div className="text-center p-3 rounded-lg bg-stone-50">
-                  <div className="text-xl font-bold text-stone-700">{(distillConfig.stats?.totalRawSize || 0) > 1024 * 1024 ? `${((distillConfig.stats?.totalRawSize || 0) / (1024 * 1024)).toFixed(1)} MB` : `${Math.round((distillConfig.stats?.totalRawSize || 0) / 1024)} KB`}</div>
-                  <div className="text-[10px] text-stone-400 mt-1">原始紀錄</div>
-                </div>
-                <div className="text-center p-3 rounded-lg bg-amber-50">
-                  <div className="text-xl font-bold text-amber-600">{distillConfig.stats?.totalKnowledgeFiles || 0}</div>
-                  <div className="text-[10px] text-amber-500 mt-1">已蒸餾</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Global toggle */}
-            <div className="bg-white rounded-xl border border-stone-200 p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="text-sm font-semibold text-stone-700">🔬 AI 互動紀錄</label>
-                  <p className="text-xs text-stone-400 mt-0.5">記錄所有跟 AI 的互動，包括聊天和 Coding IDE</p>
-                </div>
-                <button onClick={() => { setDistillConfig({ ...distillConfig, enabled: !distillConfig.enabled }); setSaved(false); setDirty(true); }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold ${distillConfig.enabled ? "bg-emerald-100 text-emerald-700" : "bg-stone-100 text-stone-400"}`}>
-                  {distillConfig.enabled ? "✓ " + t("common.enabled") : t("common.disabled")}
-                </button>
-              </div>
-            </div>
-
-            {/* Source toggles */}
-            <div className="bg-white rounded-xl border border-stone-200 p-5">
-              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3 block">記錄來源</label>
-              <div className="space-y-3">
-                {Object.entries(distillConfig.sources || {}).map(([key, src]: [string, any]) => (
-                  <div key={key} className="flex items-center justify-between">
-                    <div>
-                      <span className="text-sm font-medium text-stone-700">{src.label || key}</span>
-                      <p className="text-xs text-stone-400">{src.description || ""}</p>
-                      {distillConfig.stats?.sources?.[key] && (
-                        <span className="text-[10px] text-stone-300">{distillConfig.stats.sources[key].rawEntries || 0} 筆紀錄 · {distillConfig.stats.sources[key].knowledgeFiles || 0} 已蒸餾</span>
-                      )}
-                    </div>
-                    <button onClick={() => {
-                      const updated = { ...distillConfig };
-                      updated.sources = { ...updated.sources, [key]: { ...updated.sources[key], enabled: !updated.sources[key].enabled } };
-                      setDistillConfig(updated); setSaved(false); setDirty(true);
-                    }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold ${src.enabled ? "bg-blue-100 text-blue-700" : "bg-stone-100 text-stone-400"}`}>
-                      {src.enabled ? "✓ " + t("common.on") : t("common.off")}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Auto distill */}
-            <div className="bg-white rounded-xl border border-stone-200 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <label className="text-sm font-semibold text-stone-700">⚗️ 自動蒸餾</label>
-                  <p className="text-xs text-stone-400">每天自動用 AI 精煉當天的互動紀錄</p>
-                </div>
-                <button onClick={() => { setDistillConfig({ ...distillConfig, autoDistill: !distillConfig.autoDistill }); setSaved(false); setDirty(true); }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold ${distillConfig.autoDistill ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-400"}`}>
-                  {distillConfig.autoDistill ? "✓ " + t("common.on") : t("common.off")}
-                </button>
-              </div>
-              {distillConfig.autoDistill && (
-                <div>
-                  <label className="block text-sm font-medium text-stone-600 mb-1">排程時間（cron）</label>
-                  <div className="flex gap-2 items-center">
-                    <input type="text" value={distillConfig.autoDistillSchedule} onChange={e => { setDistillConfig({ ...distillConfig, autoDistillSchedule: e.target.value }); setSaved(false); setDirty(true); }} className="flex-1 px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono" />
-                    <span className="text-xs text-stone-400">{distillConfig.autoDistillSchedule === "0 2 * * *" ? t("settings.dailyAt") + " 02:00" : distillConfig.autoDistillSchedule === "0 3 * * *" ? t("settings.dailyAt") + " 03:00" : ""}</span>
-                  </div>
-                  <div className="flex gap-1.5 mt-2">
-                    {[{l:"02:00",v:"0 2 * * *"},{l:"03:00",v:"0 3 * * *"},{l:"06:00",v:"0 6 * * *"},{l:t("cron.templateEvery6h"),v:"0 */6 * * *"}].map(p => (
-                      <button key={p.v} onClick={() => { setDistillConfig({ ...distillConfig, autoDistillSchedule: p.v }); setSaved(false); setDirty(true); }}
-                        className={`text-xs px-2 py-1 rounded-md border ${distillConfig.autoDistillSchedule === p.v ? "border-amber-400 bg-amber-50 text-amber-600" : "border-stone-200 text-stone-500"}`}>
-                        {p.l}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Custom distill prompt */}
-            <div className="bg-white rounded-xl border border-stone-200 p-5">
-              <details>
-                <summary className="text-[10px] font-bold text-stone-400 uppercase tracking-wider cursor-pointer flex items-center gap-1">
-                  📝 自訂蒸餾提示詞 <span className="text-stone-300">▶</span>
-                </summary>
-                <textarea value={distillConfig.distillPrompt || ""} onChange={e => { setDistillConfig({ ...distillConfig, distillPrompt: e.target.value }); setSaved(false); setDirty(true); }}
-                  className="w-full mt-2 px-3 py-2 rounded-lg border border-stone-200 text-xs font-mono resize-none" rows={8} />
-              </details>
-            </div>
-
-            {/* Manual trigger */}
-            <button onClick={async () => {
-              setDistillRunning(true);
-              try { await fetch(`${API_BASE}/api/distill/run`, { method: "POST" }); } catch {}
-              // Reload stats
-              try {
-                const r = await fetch(`${API_BASE}/api/distill/config`);
-                if (r.ok) setDistillConfig(await r.json());
-              } catch {}
-              setDistillRunning(false);
-            }} disabled={distillRunning}
-              className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50"
-              style={{ background: `linear-gradient(135deg, #F59E0B, #D97706)` }}>
-              {distillRunning ? t("settings.distilling") : t("settings.distillNow")}
-            </button>
-
-            <button onClick={async () => {
-              setSaving(true);
-              try {
-                await fetch(`${API_BASE}/api/distill/config`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(distillConfig),
-                });
-                setSaved(true); setTimeout(() => setSaved(false), 2000);
-              } catch {} setSaving(false);
-            }} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50"
-              style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
-              {saving ? t("common.saving") : saved ? t("common.saved") : t("settings.saveDistill")}
-            </button>
-          </div>
-        )}
+        {/* 2026-10-09 Fleming：AI 蒸餾 tab 已移除 */}
 
         {/* Tools tab */}
 

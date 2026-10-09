@@ -965,7 +965,6 @@ export default function CodingIDE() {
 
   // ── Coding Behavior Tracking ──
   const codingLogRef = useRef<CodingEvent[]>([]);
-  const distillTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [showDirExplorer, setShowDirExplorer] = useState(false);
   const [showRuClone, setShowRuClone] = useState(false);
@@ -1194,25 +1193,12 @@ export default function CodingIDE() {
   }, [apiHistory]);
 
   // ═══════════════════════════════════════════════
-  // Coding Behavior Tracking → Distillation Engine
+  // Coding Behavior Tracking（本地 ref，cap 200；2026-10-09 蒸餾上傳已移除）
   // ═══════════════════════════════════════════════
   const logEvent = useCallback((type: CodingEvent["type"], data: Record<string, any>) => {
-    codingLogRef.current = [...codingLogRef.current, { type, ts: new Date().toISOString(), data }];
+    const next = [...codingLogRef.current, { type, ts: new Date().toISOString(), data }];
+    codingLogRef.current = next.slice(-200); // cap：不再上傳 distill，防記憶體成長
   }, []);
-
-  useEffect(() => {
-    distillTimerRef.current = setInterval(async () => {
-      const events = codingLogRef.current;
-      if (events.length === 0) return;
-      codingLogRef.current = [];
-      try {
-        await fetch(`${API_BASE}/api/distill/record`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-        });
-      } catch {}
-    }, 30_000);
-    return () => { if (distillTimerRef.current) clearInterval(distillTimerRef.current); };
-  }, [rootPath, openTabs]);
 
   // ═══════════════════════════════════════════════
   // Crew Conversation Persistence — load on crew switch, save after each turn

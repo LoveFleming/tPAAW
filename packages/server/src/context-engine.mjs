@@ -310,7 +310,6 @@ export const contextEngine = {
       case "mindmap":       return this._buildMindmap(params);
       case "notes":         return this._buildNotes(params);
       case "project":       return this._buildProject(params);
-      case "distill":       return this._buildDistill(params);
       case "app-exec":     return this._buildAppExec(params);
       case "app-builder":   return this._buildAppBuilder(params);
       case "coding":        return this._buildCoding(params);
@@ -543,15 +542,7 @@ export const contextEngine = {
     return { systemPrompt: parts.join("\n\n"), provider };
   },
 
-  // ── Distill：base + distill/ rules ──
-  _buildDistill() {
-    const provider = loadProviderConfig();
-    const parts = [
-      buildBaseContext(),
-      ...readCategoryFiles("distill"),
-    ];
-    return { systemPrompt: parts.join("\n\n"), provider };
-  },
+  // 2026-10-09 Fleming：AI 蒸餾功能移除（_buildDistill 已刪）
 };
 
 export default contextEngine;

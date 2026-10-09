@@ -133,7 +133,6 @@ for (const stale of [
 }
 rmSync(join(STAGE, "data-seed/config/distilled-memory"), { recursive: true, force: true });
 rmSync(join(STAGE, "data-seed/notes/default"), { recursive: true, force: true });
-rmSync(join(STAGE, "data-seed/distill/knowledge"), { recursive: true, force: true });
 rmSync(join(STAGE, "data-seed/crews/conversation"), { recursive: true, force: true });
 mkdirSync(join(STAGE, "data-seed/ai-settings"), { recursive: true });
 cpSync(join(ROOT, "data/ai-settings"), join(STAGE, "data-seed/ai-settings"), { recursive: true });
@@ -222,7 +221,6 @@ const FORBIDDEN = [
   "data-seed/config/recent-projects.json",
   "data-seed/config/agentic-bindings.json",
   "data-seed/notes/default",   // 個人筆記
-  "data-seed/distill/knowledge", // 個人蒸餾記憶
   "data-seed/crews/conversation",
 ];
 const violations = [];

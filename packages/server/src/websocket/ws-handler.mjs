@@ -11,15 +11,6 @@ import {
   PAAW_ROOT, readFileSync, writeFileSync, appendFileSync, resolve, join, mkdirSync,
 } from "../routes/shared.mjs";
 
-// Lazy-load distill module for vibe session logging
-let _distillMod = null;
-async function getDistillModule() {
-  if (!_distillMod) {
-    try { _distillMod = await import("../routes/distill.mjs"); } catch { _distillMod = { recordVibeOutput: () => {} }; }
-  }
-  return _distillMod;
-}
-
 // PAAW_WS_PORT env 優先；否則跟 PAAW_PORT+1 慣例（前端 fallback 同邏輯：頁面 port+1）
 const WS_PORT = parseInt(process.env.PAAW_WS_PORT || String(parseInt(process.env.PAAW_PORT || "4097", 10) + 1), 10);
 
@@ -226,14 +217,6 @@ export function setupWebSocket() {
               if (plain.trim()) {
                 appendFileSync(vibeLogFile, plain);
                 vibeLogSize += plain.length;
-                if (vibeLogSize % 4000 < plain.length) {
-                  getDistillModule().then(m => m.recordVibeOutput({
-                    sessionId,
-                    cli: cliType,
-                    cwd: opts.cwd || null,
-                    output: plain.slice(-2000),
-                  })).catch(() => {});
-                }
               }
             } catch {}
             // Detect CLI ready from output

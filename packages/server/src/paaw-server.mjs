@@ -102,7 +102,6 @@ const ROUTE_MODULES = [
   "./routes/ai-settings.mjs",
   "./routes/chat.mjs",
   "./routes/uploads.mjs",
-  "./routes/distill.mjs",
   // ── New modules (split from monolith) ──
   "./routes/vibe-fs.mjs",
   "./routes/vibe-sessions.mjs",

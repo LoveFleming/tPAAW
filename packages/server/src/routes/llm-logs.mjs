@@ -55,8 +55,6 @@ function _callerToAgentId(caller) {
     "mindmap": "assistant",
     "skill-builder": "skill-builder",
     "vibe-sessions": "assistant",
-    "distill": "distill",
-    "cron-distill": "cron",
     "overnight": "overnight",
     "a2a": "a2a-server",
     "a2a-helpdesk": "a2a-helpdesk",
