@@ -43,6 +43,8 @@ export interface AssignableAgent {
 }
 
 export interface ChatMessagesProps {
+  /** 審批卡決策（2026-10-09）：AI 危險指令被攔時 ✅/♾️/❌ */
+  onApprovalDecide?: (id: string, action: "once" | "always" | "deny") => void;
   messages: ChatMessageItem[];
   /** Accent color for avatars, buttons, etc. */
   accent?: string;
@@ -173,6 +175,45 @@ export function LoadingIndicator({ accent, label = "思考中" }: { accent?: str
 
 // ── Tool Badges ──
 
+// ── 審批卡（2026-10-09，抄 OpenClaw exec approvals UX）── AI 危險指令被攔 → 使用者 ✅/♾️/❌ 決策
+export interface ApprovalData { id: string; command: string; reason?: string; decided?: string | null }
+
+export function ApprovalCard({ approval, onDecide, accent }: { approval: ApprovalData; onDecide?: (id: string, action: "once" | "always" | "deny") => void; accent?: string }) {
+  const decided = approval.decided;
+  return (
+    <div className="mb-2 p-3 rounded-xl border border-amber-200 bg-amber-50/70">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 mb-1.5">
+        🛡 安全審批
+        {decided && (
+          <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${decided === "deny" ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-700"}`}>
+            {decided === "once" ? "已核准（一次）" : decided === "always" ? "已永久核准" : "已拒絕"}
+          </span>
+        )}
+      </div>
+      <div className="font-mono text-[11px] bg-white/80 border border-amber-100 rounded px-2 py-1.5 mb-1 break-all text-stone-700">
+        {approval.command}
+      </div>
+      {approval.reason && <div className="text-[11px] text-amber-700/80 mb-2">{approval.reason}</div>}
+      {!decided && (
+        <div className="flex gap-2">
+          <button onClick={() => onDecide?.(approval.id, "once")} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors">
+            ✅ 准許一次
+          </button>
+          <button onClick={() => onDecide?.(approval.id, "always")} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-500 text-white hover:bg-blue-600 transition-colors">
+            ♾️ 永遠准許
+          </button>
+          <button onClick={() => onDecide?.(approval.id, "deny")} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-stone-400 text-white hover:bg-stone-500 transition-colors">
+            ❌ 拒絕
+          </button>
+        </div>
+      )}
+      {decided && decided !== "deny" && (
+        <div className="text-[11px] text-stone-400">Agent 重試同一指令即可執行</div>
+      )}
+    </div>
+  );
+}
+
 export function ToolBadges({ tools }: { tools: ChatToolBadge[] }) {
   if (!tools.length) return null;
   return (
@@ -198,7 +239,7 @@ export function ToolBadges({ tools }: { tools: ChatToolBadge[] }) {
 // （沒有 memo 時每個 SSE chunk 都重跑全部歷史訊息的 react-markdown parse → 掉帧+高度跳動）
 const MessageRow = React.memo(function MessageRow({
   msg, isLastAssistant, assistantName, userName, assistantAvatar, assistantEmoji,
-  accent, accentHover, userMarkdown, loading, activeTools, mdComponents, onContextMenu,
+  accent, accentHover, userMarkdown, loading, activeTools, mdComponents, onContextMenu, onApprovalDecide,
 }: {
   msg: ChatMessageItem;
   isLastAssistant: boolean;
@@ -210,6 +251,7 @@ const MessageRow = React.memo(function MessageRow({
   activeTools: ChatToolBadge[];
   mdComponents: Record<string, any>;
   onContextMenu: (e: React.MouseEvent, msg: ChatMessageItem) => void;
+  onApprovalDecide?: (id: string, action: "once" | "always" | "deny") => void;
 }) {
   return (
     <div className="flex justify-start">
@@ -263,6 +305,9 @@ const MessageRow = React.memo(function MessageRow({
                   ))}
                 </div>
               </details>
+            )}
+            {msg._approval && (
+              <ApprovalCard approval={msg._approval} onDecide={onApprovalDecide} accent={accent} />
             )}
             {msg.role === "assistant" ? (
               <div className="prose prose-stone prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
@@ -349,6 +394,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
   className = "",
   assignableAgents = EMPTY_AGENTS,
   onAssignToAgent,
+  onApprovalDecide,
 }) => {
   // 穩定身分：讓 MessageRow 的 memo 不會被每次 render 新建的 function 打破
   const mdComponents = React.useMemo(() => markdownComponents(accent, onDeepLink), [accent, onDeepLink]);
@@ -411,6 +457,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
           loading={loading}
           activeTools={activeTools}
           mdComponents={mdComponents}
+          onApprovalDecide={onApprovalDecide}
           onContextMenu={handleMessageContextMenu}
         />
       ))}

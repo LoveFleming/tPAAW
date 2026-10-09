@@ -2340,6 +2340,22 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
+    // ── POST /api/coding-project/exec-approval（2026-10-09 審批卡決策）──
+    if (url.startsWith("/api/coding-project/exec-approval") && method === "POST") {
+      const body = await readBody(req);
+      const { id, action } = JSON.parse(body || "{}");
+      const { decideApproval, listPending } = await import("../lib/exec-approvals.mjs");
+      if (action === "list") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ pending: listPending() }));
+        return true;
+      }
+      const r = decideApproval(String(id || ""), String(action || ""));
+      res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(r));
+      return true;
+    }
+
     // ── GET /api/coding-project/decisions ──
     if (url.startsWith("/api/coding-project/decisions") && method === "GET") {
       // 2026-08-30: 讀取前先觸發 flat 遺產搬移（舊版寫 .paaw/DECISIONS.md → decisions/DECISIONS.md）

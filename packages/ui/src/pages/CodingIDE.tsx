@@ -127,6 +127,7 @@ interface ChatMessage {
   _toolCalls?: { name: string; args?: string; result?: string }[]; // tool calls made in this turn
   _streaming?: boolean; // true while content is being streamed in (OpenClaw style)
   _greeting?: boolean; // true for auto-generated greeting bubbles (excluded from conversationHistory)
+  _approval?: { id: string; command: string; reason?: string; decided?: string | null }; // 🛡 審批卡（2026-10-09）
 }
 
 interface CodingEvent {
@@ -521,7 +522,22 @@ export default function CodingIDE() {
   // ── AI Chat State (per-crew conversations) ──
   const [crewConversations, setCrewConversations] = useState<Record<string, ChatMessage[]>>({});
   const chatMessages = useMemo(() => activeCrew ? (crewConversations[activeCrew] || []) : [], [activeCrew, crewConversations]);
-  const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[]) => {
+    // ── 審批卡決策（2026-10-09）—— AI 危險指令被攔 → 使用者 ✅/♾️/❌ → server exec-approvals ──
+  const handleApprovalDecide = useCallback((id: string, action: "once" | "always" | "deny") => {
+    fetch(`${API_BASE}/api/coding-project/exec-approval`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action }),
+    }).then(r => r.json()).then((res) => {
+      if (res?.ok) {
+        setChatMessages(prev => prev.map(m => m._approval?.id === id ? { ...m, _approval: { ...m._approval!, decided: action } } : m));
+      } else {
+        setChatMessages(prev => prev.map(m => m._approval?.id === id ? { ...m, _approval: { ...m._approval!, decided: "expired" } } : m));
+      }
+    }).catch(() => {});
+  }, []);
+
+const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[]) => {
     if (!activeCrew) return;
     setCrewConversations(prev => {
       const current = prev[activeCrew] || [];
@@ -2033,6 +2049,12 @@ const sendChat = useCallback(async () => {
                     if (data.message.includes("壓縮") || data.message.includes("compact")) {
                       setAgentAction(data.message);
                     }
+                  }
+
+                  // ── 審批卡（2026-10-09）：AI 危險指令被攔 → 插入 ✅/♾️/❌ 決策卡 ──
+                  if (currentEvent === "approval_request" && data.id) {
+                    const aprMsg: ChatMessage = { role: "assistant", content: "", _approval: { id: data.id, command: String(data.command || ""), reason: String(data.reason || ""), decided: null }, ts: new Date().toISOString() };
+                    setChatMessages(prev => [...prev, aprMsg]);
                   }
 
                   // interrupted event — agent was stopped by user
@@ -3679,6 +3701,7 @@ const sendChat = useCallback(async () => {
                     endRef={chatEndRef}
                     assignableAgents={assignableChatAgents}
                     onAssignToAgent={assignToAgent}
+                    onApprovalDecide={handleApprovalDecide}
                   />
                 </div>
 

@@ -2210,8 +2210,18 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         const { guardScriptExecution } = await import("./script-guard.mjs");
         const sGuard = guardScriptExecution(args.command, cwd);
         if (sGuard.blocked) {
-          if (onEvent) onEvent({ type: "tool_end", name, result: sGuard.message.slice(0, 500) });
-          return sGuard.message;
+          // ── 審批卡（2026-10-09）：使用者已核准（once/always）= 放行重試 ──
+          const { consumeApproval, requestApproval } = await import("./exec-approvals.mjs");
+          const approved = consumeApproval(args.command, cwd);
+          if (approved) {
+            if (onEvent) onEvent({ type: "tool_end", name, result: `✅ 已依使用者核准（${approved}）放行：${args.command.slice(0, 120)}` });
+            // 跳過攔截繼續執行（落到下面 runShell）
+          } else {
+            const aprId = requestApproval(args.command, cwd, sGuard.message.split("\n")[0].slice(0, 200));
+            if (onEvent) onEvent({ type: "approval_request", id: aprId, command: String(args.command).slice(0, 300), reason: sGuard.message.split("\n")[0].slice(0, 300) });
+            if (onEvent) onEvent({ type: "tool_end", name, result: sGuard.message.slice(0, 500) });
+            return sGuard.message + `\n（已送出審批卡 ${aprId} 給使用者。若使用者核准，直接重試同一個指令即可執行。）`;
+          }
         }
         const timeoutSec = Math.min(args.timeout || 120, _agentCfg.bashTimeoutSeconds || 300);
         const timeoutMs = timeoutSec * 1000;
@@ -5330,7 +5340,10 @@ export async function runAgentLoopStream(config, res) {
       }
       const toolResult = toolRegistry.initialized && toolRegistry.has(_toolName2)
         ? String(await toolRegistry.execute(_toolName2, args, _ctx2))
-        : await executeTool(call, cwd, rootDir, null, agentId, featureBoundary);
+        : await executeTool(call, cwd, rootDir, (ev) => {
+            // ── 審批卡（2026-10-09）：streaming 路徑的 approval_request 事件直送 SSE ──
+            if (ev?.type === "approval_request") sendSSE("approval_request", { id: ev.id, command: ev.command, reason: ev.reason });
+          }, agentId, featureBoundary);
       const _toolDuration = _toolLog.done({ resultLen: toolResult.length, resultPreview: toolResult.slice(0, 200) });
       sendSSE("tool_result", { name: call.function.name, result: toolResult.slice(0, 2000) });
 
