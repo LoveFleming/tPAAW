@@ -92,7 +92,7 @@ const TOOL_GROUPS = [
   { id: "notes", name: "📝 Notes", desc: "筆記讀寫" }, // 2026-09-06 補齊
 ];
 
-type DetailTab = "profile" | "memory" | "system";
+type DetailTab = "profile" | "model" | "memory" | "system";
 
 // 使用者基本資料（2026-10-09 Fleming：personal profile — 照片/名字等，全域 data/crew-preferences.json，跟著使用者走）
 interface CrewPrefs {
@@ -540,6 +540,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
             <div className="shrink-0 px-5 flex items-center gap-1 border-b" style={{ borderColor: t.borderLight }}>
               {([
                 { key: "profile" as const, label: "🪪 基本資料" },
+                { key: "model" as const, label: "🤖 模型" },
                 { key: "memory" as const, label: "💾 記憶" },
                 { key: "system" as const, label: "⚙️ 系統（唯讀）" },
               ]).map(tab => (
@@ -644,7 +645,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
 
                   <div className="grid grid-cols-2 gap-3">
                     <div><span className={labelCls}>Codename</span><p className="text-sm text-stone-700">{editData.codename}</p></div>
-                    <div><span className={labelCls}>模型</span><p className="text-sm text-stone-700">{editModel.primary || "全域預設"}</p></div>
+                    <div><span className={labelCls}>Emoji</span><p className="text-sm text-stone-700">{editData.emoji || "—"}</p></div>
                   </div>
                   <div><span className={labelCls}>描述</span><p className="text-sm text-stone-700">{editData.description || "—"}</p></div>
                   <div><span className={labelCls}>專業能力</span><p className="text-sm text-stone-700 whitespace-pre-wrap">{editData.expertise || "—"}</p></div>
@@ -668,6 +669,113 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                 </div>
               )}
 
+
+              {detailTab === "model" && (
+                <div className="space-y-5 max-w-2xl">
+                  <div className="text-xs text-stone-500 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    💡 模型設定存在 <b>release unit 的 .paaw/agents/</b>（跟著這個專案走）；<b>留空 = 使用系統預設模型</b>。可為每個 agent 設不同模型做成本優化。
+                  </div>
+
+                  {!(editModel.primary || editModel.fallbacks.length || editModel.emModel || editModel.autoDispatchModel) && (
+                    <div className="text-[11px] bg-stone-50 border rounded-lg px-3 py-1.5 text-stone-500" style={{ borderColor: t.borderLight }}>
+                      ℹ️ 目前全部使用<b>系統預設模型</b>（未在此 release unit 設定）。
+                    </div>
+                  )}
+
+                  {/* Interactive Model */}
+                  <div>
+                    <label className={labelCls}>
+                      🎙️ Interactive Model（聊天 / 直接對話）
+                      {editModel.primary
+                        ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-600 font-normal">.paaw 已設定</span>
+                        : <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-normal">系統預設</span>}
+                    </label>
+                    <select value={editModel.primary} onChange={e => setEditModel({ ...editModel, primary: e.target.value })}
+                      className={cn(inputCls, "bg-white")} style={inputStyle}>
+                      {modelOptions.map(m => <option key={m.value || "_default"} value={m.value}>{m.group ? `[${m.group}] ` : ""}{m.label}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Fallback Chain */}
+                  <Section title="Fallback Chain（限流時依序切換）" icon="🔄" defaultOpen={!!editModel.fallbacks.length}>
+                    {(() => {
+                      const fallbackCandidates = modelOptions.filter(m => m.value && m.value !== editModel.primary);
+                      return (
+                        <div className="space-y-1">
+                          <div className="text-[11px] text-stone-400 mb-2">
+                            勾選的模型會在主模型限流或失敗時依序切換。
+                          </div>
+                          {/* Current fallback order */}
+                          {editModel.fallbacks.length > 0 && (
+                            <div className="mb-2 p-2 bg-stone-50 rounded border" style={{ borderColor: t.borderLight }}>
+                              <div className="text-[10px] text-stone-400 mb-1">目前順序:</div>
+                              <div className="flex flex-wrap gap-1">
+                                {editModel.fallbacks.map((fb, i) => (
+                                  <span key={fb} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-white border" style={{ borderColor: t.borderLight }}>
+                                    <span className="text-stone-400">{i + 1}.</span>
+                                    {fb}
+                                    <button onClick={() => toggleFallback(fb)} className="text-red-400 hover:text-red-600 ml-1">✕</button>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className="max-h-40 overflow-y-auto space-y-1">
+                            {fallbackCandidates.map(m => {
+                              const checked = editModel.fallbacks.includes(m.value);
+                              return (
+                                <label key={m.value} className={cn("flex items-center gap-2 px-2 py-1 rounded cursor-pointer transition-colors text-xs", checked ? "bg-emerald-50" : "hover:bg-stone-50")}>
+                                  <input type="checkbox" checked={checked} onChange={() => toggleFallback(m.value)} className="w-3.5 h-3.5 accent-emerald-500" />
+                                  <span className="flex-1">{m.group ? `[${m.group}] ` : ""}{m.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </Section>
+
+                  {/* EM / Auto Dispatch */}
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className={labelCls}>🚀 EM Dispatch Model（EM 調度執行時）</label>
+                      <select value={editModel.emModel} onChange={e => setEditModel({ ...editModel, emModel: e.target.value })}
+                        className={cn(inputCls, "bg-white")} style={inputStyle}>
+                        {modelOptions.map(m => <option key={`em_${m.value || "_default"}`} value={m.value}>{m.group ? `[${m.group}] ` : ""}{m.label}</option>)}
+                      </select>
+                      <p className="text-[11px] text-stone-400 mt-1">空 = 使用 Interactive Model</p>
+                    </div>
+                    <div>
+                      <label className={labelCls}>🌙 Auto Dispatch Model（夜間批次）</label>
+                      <select value={editModel.autoDispatchModel} onChange={e => setEditModel({ ...editModel, autoDispatchModel: e.target.value })}
+                        className={cn(inputCls, "bg-white")} style={inputStyle}>
+                        {modelOptions.map(m => <option key={`ns_${m.value || "_default"}`} value={m.value}>{m.group ? `[${m.group}] ` : ""}{m.label}</option>)}
+                      </select>
+                      <p className="text-[11px] text-stone-400 mt-1">建議用便宜模型省成本</p>
+                    </div>
+                  </div>
+
+                  {/* Cost strategy hint */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="text-xs font-semibold text-blue-700 mb-1">💡 成本策略建議</div>
+                    <div className="text-[11px] text-blue-600 space-y-0.5">
+                      <div>🔴 <b>架構/開發/QA</b> → 用強模型（需要品質）</div>
+                      <div>🟢 <b>測試/文件/客服</b> → 用經濟模型（省成本）</div>
+                      <div>🌙 <b>Auto Dispatch</b> → 建議用經濟模型（高頻省成本）</div>
+                      <div className="text-stone-400 mt-1">以上為建議，實際可用模型取決於你的 Provider 設定</div>
+                    </div>
+                  </div>
+
+                  <button onClick={saveModel} disabled={saving}
+                    className="px-4 py-2 text-sm font-bold text-white rounded-lg"
+                    style={{ backgroundColor: t.accent, opacity: saving ? 0.6 : 1 }}>
+                    {saving ? "儲存中..." : "💾 儲存模型設定"}
+                  </button>
+                </div>
+              )}
+
+              {/* ════ Context Tab ════ */}
 
               {detailTab === "profile" && (
                 <div className="space-y-4 max-w-3xl">
