@@ -17,9 +17,10 @@ import { LoadingIndicator, ToolBadges, type ChatToolBadge } from "./ChatMessages
 import ModelSelector from "./ModelSelector"; // 2026-10-09 Fleming：side chat 跟 crew chat 同款 model selector
 import { uiAlert, uiAlertError } from "./ui/uiFeedback";
 
-// fetch crew 大頭照（AI Crew 頁面同一張）；失敗 fallback emoji
+// fetch crew 大頭照（AI Crew 頁面同一張）+ 使用者偏好覆蓋（2026-10-09：頭像/顯示名/開場白偏好層）
 function useCrewAvatar(agentId: string, enabled: boolean) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [identity, setIdentity] = useState<{ displayName?: string; greeting?: string }>({});
   useEffect(() => {
     if (!enabled || !agentId) return;
     let alive = true;
@@ -27,9 +28,17 @@ function useCrewAvatar(agentId: string, enabled: boolean) {
       .then(r => (r.ok ? r.json() : null))
       .then(d => { if (alive && d?.imageUrl) setAvatarUrl(`${API_BASE}${d.imageUrl}`); })
       .catch(() => {});
+    fetch(`${API_BASE}/api/crew-preferences/coding.${agentId}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (!alive || !d) return;
+        if (d.avatarUrl) setAvatarUrl(d.avatarUrl.startsWith("/") ? `${API_BASE}${d.avatarUrl}` : d.avatarUrl);
+        setIdentity({ displayName: d.displayName, greeting: d.greeting });
+      })
+      .catch(() => {});
     return () => { alive = false; };
   }, [agentId, enabled]);
-  return avatarUrl;
+  return { avatarUrl, ...identity };
 }
 
 export interface SideChatMessage {
@@ -87,7 +96,9 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
   const scrollRef = useRef<HTMLDivElement>(null); // 聊天容器：用容器 scrollTo，不用 scrollIntoView（會拖祖先容器）
   const nearBottomRef = useRef(true);
   const composingRef = useRef(false); // IME 三層保護（可靠層）
-  const avatarUrl = useCrewAvatar(agentId, true);
+  const { avatarUrl, displayName: prefName, greeting: prefGreeting } = useCrewAvatar(agentId, true);
+  const shownName = prefName || agentName;
+  const shownGreeting = prefGreeting || greeting;
   const youGrad = `linear-gradient(135deg, ${accent}, ${accentHover || accent})`; // 「你」頭像漸層（跟 ChatView 同形式）
   const { t: tt } = useI18n();
 
@@ -500,7 +511,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
         ) : (
           <span className="text-base">{agentEmoji}</span>
         )}
-        <span className="text-xs font-bold text-stone-700">{agentName}</span>
+        <span className="text-xs font-bold text-stone-700">{shownName}</span>
         {/* 2026-09-17 Fleming：三按鈕（跟 crew chat 一致）— 📋 歷史 / 🧠 注入 prompt / 💬 新對話 */}
         {/* 2026-10-09 Fleming：加 ModelSelector（modelFeature 有帶就顯示，跟 QA browser / crew chat 同款）*/}
         {(persistCrewId || modelFeature) && (
@@ -583,7 +594,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
             <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center text-2xl mb-2 overflow-hidden" style={{ backgroundColor: accent + "15" }}>
               {avatarUrl ? <img src={avatarUrl} className="w-full h-full object-cover" alt="" /> : agentEmoji}
             </div>
-            <p className="text-xs text-stone-500 leading-relaxed max-w-[220px] mx-auto">{greeting}</p>
+            <p className="text-xs text-stone-500 leading-relaxed max-w-[220px] mx-auto">{shownGreeting}</p>
             {suggestions.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-3 justify-center">
                 {suggestions.map(s => (
@@ -611,7 +622,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
             {/* Bubble — 全部靠左（跟其他 chat UI 一致；user 淺色泡泡不再是黑色靠右）*/}
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-xs font-medium text-stone-600">{m.role === "assistant" ? agentName : "你"}</span>
+                <span className="text-xs font-medium text-stone-600">{m.role === "assistant" ? shownName : "你"}</span>
                 <span className="text-[10px] text-stone-300">{fmtChatTime(m.ts)}</span>
               </div>
               {m.role === "assistant" ? (
@@ -660,7 +671,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
             </div>
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-xs font-medium text-stone-600">{agentName}</span>
+                <span className="text-xs font-medium text-stone-600">{shownName}</span>
               </div>
               <div>
                 <LoadingIndicator accent={accent} label={action || "💭 思考中…"} />

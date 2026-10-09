@@ -11,6 +11,7 @@
 
 import { readFile, writeFile, readdir, unlink, mkdir, stat } from "fs/promises";
 import { existsSync, readFileSync as readSync } from "fs";
+import { listModuleCrews } from "../lib/module-registry.mjs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readBody } from "./shared.mjs";
@@ -24,28 +25,22 @@ let _crewCache = null;
 let _crewCacheTime = 0;
 
 function loadCrewMetadata() {
-  const CREWS_DIR = resolve(__dirname, "..", "..", "..", "..", "data", "crews");
+  // 2026-10-09：coding crews 已 firmware 化（packages/modules/coding/crews/）— 走 module registry
   const now = Date.now();
   if (_crewCache && now - _crewCacheTime < 10_000) return _crewCache;
   _crewCache = {};
   _crewCacheTime = now;
   try {
-    const files = readdirSync(CREWS_DIR);
-    for (const f of files) {
-      if (f.startsWith("coding.") && f.endsWith(".json")) {
-        try {
-          const crew = JSON.parse(readSync(join(CREWS_DIR, f), "utf-8"));
-          const agentId = crew.id?.replace(/^coding\./, "");
-          if (agentId) {
-            _crewCache[agentId] = {
-              crewId: crew.id,
-              title: crew.title || agentId,
-              codename: crew.codename || "",
-              imageUrl: crew.imageUrl || "",
-              description: crew.description || "",
-            };
-          }
-        } catch {}
+    for (const crew of listModuleCrews("coding") || []) {
+      const agentId = crew.id?.replace(/^coding\./, "");
+      if (agentId) {
+        _crewCache[agentId] = {
+          crewId: crew.id,
+          title: crew.title || agentId,
+          codename: crew.codename || "",
+          imageUrl: crew.imageUrl || "",
+          description: crew.description || "",
+        };
       }
     }
   } catch {}

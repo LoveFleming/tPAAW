@@ -296,12 +296,6 @@ function AppInner() {
   };
 
   const instanceCounterRef = useRef(0);
-  const openEmployee = useCallback((employeeId: string) => {
-    const count = instanceCounterRef.current++;
-    const tabId = `${currentScope}:employee.${employeeId}#${count}`;
-    setOpenTabs((prev) => [...prev, tabId]);
-    setActivePage(tabId);
-  }, [currentScope]);
 
   const handleSelectFile = (path: string) => {
     const fullId = `workspace:workspace:wfile://${path}`;
@@ -568,7 +562,6 @@ function AppInner() {
     return pageType.startsWith("wfile://") ? pageType.slice(8) : null;
   })();
 
-  const EmployeeWorkspaceLazy = useMemo(() => React.lazy(() => import("./pages/EmployeeWorkspace")), []);
 
   const sidebarDragRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const handleSidebarDragStart = useCallback((e: React.MouseEvent) => {
@@ -638,7 +631,7 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
     const { scopeKey, wsId } = parsed;
 
     if (pageType === "crew") {
-      return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} />;
+      return <AICrew onCrewChanged={loadCrew} />;
     }
     if (pageType === "skills") {
       return <SkillsPage />;
@@ -735,18 +728,6 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
     if (pageType.startsWith("wedit://")) {
       const filePath = pageType.slice(8);
       return <FileEditor filePath={filePath} active={active} />;
-    }
-    if (pageType.startsWith("employee.")) {
-      const employeeId = pageType.split("#")[0].slice(9);
-      const tabCrew = crew;
-      const tabProjectRoot = scopeStateRef.current[scopeKey]?.projectRoot
-        ?? normPath(uiStateRef.current?.projectPaths?.default || null)
-        ?? projectRoot;
-      return (
-        <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
-          <EmployeeWorkspaceLazy employeeId={employeeId} projectRoot={tabProjectRoot || undefined} crew={tabCrew} />
-        </React.Suspense>
-      );
     }
     return <div className="p-8 text-stone-400">Page not found: {pageType}</div>;
   }, [projectRoot, paawRoot, crew, profile, skillAppNav, briefingInitialDir, deepLinkNote]);

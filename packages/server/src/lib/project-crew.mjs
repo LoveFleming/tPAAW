@@ -17,6 +17,7 @@ import { join, resolve } from "path";
 import { fileURLToPath } from "url";
 import { DATA_HOME } from "../data-home.mjs";
 import { hashObject } from "./stable-hash.mjs"; // 2026-09-05：模板跟版 hash
+import { getModuleCrew, listModuleCrews } from "./module-registry.mjs"; // 2026-10-09：firmware 模板來源
 import { readRuSkillContent, provisionRuSkills } from "./ru-skills.mjs"; // 2026-09-05：Skill Instance Model — skills 是 RU 資產
 
 const __filename = fileURLToPath(import.meta.url);
@@ -94,20 +95,19 @@ function getAgentPath(projectDir, agentId) {
 }
 
 function readGlobalCrew(crewId) {
-  const filePath = join(GLOBAL_CREWS_DIR, `${crewId}.json`);
-  return readJson(filePath, null);
+  // 2026-10-09：firmware crew 模板來源 = module registry（packages/modules/*/crews）
+  const mod = getModuleCrew(crewId);
+  if (mod) return mod.crew;
+  return readJson(join(GLOBAL_CREWS_DIR, `${crewId}.json`), null);
 }
 
 function listGlobalCrewIds() {
-  try {
-    const files = readdirSync(GLOBAL_CREWS_DIR);
-    return files
-      .filter(f => f.endsWith(".json") && !f.startsWith("_"))
-      .map(f => f.replace(/\.json$/, ""))
-      .filter(id => id.startsWith("coding.") && id !== EM_CREW_ID);
-  } catch {
-    return [...DEFAULT_CREW_IDS];
-  }
+  // 2026-10-09：coding crew 清單來源 = module registry（coding.* 已 firmware 化）
+  const modIds = (listModuleCrews("coding") || [])
+    .map(c => c.id)
+    .filter(id => id !== EM_CREW_ID);
+  if (modIds.length > 0) return modIds;
+  return [...DEFAULT_CREW_IDS];
 }
 
 // ── Public API ──
@@ -355,6 +355,17 @@ export function updateProjectAgent(projectDir, agentId, patch) {
   const current = readJson(getAgentPath(projectDir, agentId), null) || readGlobalCrew(agentId);
   if (!current) {
     throw new Error(`Agent not found: ${agentId}`);
+  }
+
+  // 2026-10-09 firmware 保護：module 擁有的 crew 不可改行為欄位（多人 release 紀律）
+  // rolePrompt 客製請用 rolePromptAppend；顯示/model/skills 類放行
+  if (getModuleCrew(agentId)) {
+    const forbidden = ["rolePrompt", "toolGroups", "toolsDeny"];
+    for (const k of forbidden) {
+      if (k in patch) {
+        throw new Error(`Firmware crew '${agentId}' 的 ${k} 為 module 唯讀（多人 release 紀律）。rolePrompt 客製請改用 rolePromptAppend。`);
+      }
+    }
   }
 
   // Merge patch

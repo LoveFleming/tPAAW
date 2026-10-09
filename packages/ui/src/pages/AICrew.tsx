@@ -5,14 +5,22 @@ import { Crew, SkillDefinition } from "../types";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import CrewEditor from "../components/CrewEditor";
+import CrewPrefsEditor from "../components/CrewPrefsEditor";
 import Icon from "../components/Icon";
 
+// 2026-10-09 組織圖模式：by module 分組顯示（firmware 🔒 唯讀 + 偏好編輯；user crew 可編輯）
+// EmployeeWorkspace 退場 — 員工互動在 module UI（coding app side chat 等）
 interface AICrewProps {
-    openEmployee: (employeeId: string) => void;
     onCrewChanged?: () => void;
 }
 
-export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
+const MODULE_LABELS: Record<string, string> = {
+    coding: "💻 Coding 部門",
+    pm: "📋 產品經理室",
+    secretary: "📝 秘書處",
+};
+
+export default function AICrew({ onCrewChanged }: AICrewProps) {
   const { t: tt } = useI18n();
     const { info: t } = useTheme();
     const [crew, setCrew] = useState<Crew[]>([]);
@@ -20,6 +28,7 @@ export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
     const [loading, setLoading] = useState(true);
     const [editorOpen, setEditorOpen] = useState(false);
     const [editingCrew, setEditingCrew] = useState<Crew | null>(null);
+    const [prefsCrew, setPrefsCrew] = useState<{ id: string; title?: string; codename?: string; imageUrl?: string } | null>(null);
 
     const loadCrew = useCallback(async () => {
         try {
@@ -109,8 +118,8 @@ export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
             {/* Header with Add button */}
             <div className="flex items-center justify-between pt-2">
                 <div>
-                    <h2 className="text-sm font-semibold text-stone-800">AI Crew Members</h2>
-                    <p className="text-xs text-stone-400">點選 Crew 開啟工作區，可以同時開多個員工的 tab</p>
+                    <h2 className="text-sm font-semibold text-stone-800">{tt("crew.orgTitle")}</h2>
+                    <p className="text-xs text-stone-400">{tt("crew.orgSubtitle")}</p>
                 </div>
                 <button
                     onClick={handleAdd}
@@ -123,21 +132,40 @@ export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
                 </button>
             </div>
 
-            {/* Crew grid */}
+            {/* 組織圖：by module 分組（2026-10-09） */}
+            {(() => {
+                const locked = crew.filter(s => (s as any).locked);
+                const userCrews = crew.filter(s => !(s as any).locked);
+                const modIds = Array.from(new Set(locked.map(s => (s as any).moduleId as string)));
+                const sections: { key: string; label: string; list: typeof crew }[] = [
+                    ...modIds.map(mid => ({ key: mid, label: MODULE_LABELS[mid] || `📦 ${mid}`, list: locked.filter(s => (s as any).moduleId === mid) })),
+                    ...(userCrews.length > 0 ? [{ key: "user", label: "🧑‍💼 " + tt("crew.myCrews"), list: userCrews }] : []),
+                ];
+                return sections.map(sec => (
+                <div key={sec.key}>
+                    <div className="flex items-center gap-2 pt-2 pb-1">
+                        <div className="text-xs font-bold text-stone-700">{sec.label}</div>
+                        <div className="text-[10px] text-stone-400">{sec.list.length}</div>
+                        {sec.key !== "user" && <div className="text-[9px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-400 border border-stone-200">🔒 {tt("crew.moduleOwned")}</div>}
+                    </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-2 w-full">
-                {crew.map((s) => (
+                {sec.list.map((s) => (
                     <div key={s.id} className="group relative">
-                        {/* Edit button overlay */}
+                        {/* 動作按鈕 overlay：firmware=偏好 / user=編輯 */}
                         <button
-                            onClick={(e) => { e.stopPropagation(); handleEdit(s); }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if ((s as any).locked) setPrefsCrew(s);
+                                else handleEdit(s);
+                            }}
                             className="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1 rounded-lg text-[10px] font-bold bg-white/90 text-stone-600 border border-stone-300 shadow-sm hover:bg-stone-100"
                             title={tt("crew.editEmployee")}
                         >
-                            <Icon name="edit" size={12} /> 編輯
+                            <Icon name="edit" size={12} /> {(s as any).locked ? tt("crew.customize") : tt("crew.edit")}
                         </button>
 
                         <button
-                            onClick={() => openEmployee(s.id)}
+                            onClick={() => { if ((s as any).locked) setPrefsCrew(s); else handleEdit(s); }}
                             className={cn(
                                 "w-full flex flex-col rounded-2xl border bg-white p-0 overflow-hidden shadow-sm transition-all hover:shadow-md hover:-translate-y-1 group text-left"
                             )}
@@ -154,7 +182,13 @@ export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
                                         (e.target as HTMLImageElement).style.display = 'none';
                                     }}
                                 />
-                                <div className="absolute top-2 right-2 scale-75 origin-top-right">
+                                <div className="absolute top-2 right-2 scale-75 origin-top-right flex flex-col items-end gap-1">
+                                    {(s as any).locked && (
+                                        <span className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs bg-stone-50 border-stone-300 text-stone-500">🔒</span>
+                                    )}
+                                    {(s as any)._hasPrefs && (
+                                        <span className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs bg-amber-50 border-amber-300 text-amber-600">✏️ {tt("crew.customized")}</span>
+                                    )}
                                     {s.expertise && s.expertise.length > 0 && (
                                         <span className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs bg-blue-50 border-blue-300 text-blue-600">
                                             🛡️ {s.expertise.length}
@@ -163,7 +197,7 @@ export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
                                 </div>
                             </div>
                             <div className="p-4 flex flex-col flex-1 border-t" style={{ borderColor: t.accentBorder + "60" }}>
-                                <div className="text-base font-bold text-stone-800 truncate">{s.title}</div>
+                                <div className="text-base font-bold text-stone-800 truncate">{(s as any).displayName || s.title}</div>
                                 <div className="font-mono text-[10px] font-semibold uppercase tracking-widest truncate mt-1" style={{ color: t.accent }}>{s.codename}</div>
                                 <div className="text-xs text-zinc-500 mt-2 line-clamp-2">{s.description}</div>
                                 <div className="flex flex-wrap gap-1 mt-3">
@@ -190,7 +224,7 @@ export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
                     </div>
                 ))}
 
-                {/* Add new card placeholder */}
+                {sec.key === "user" && (
                 <button
                     onClick={handleAdd}
                     className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed bg-white/30 hover:bg-white/60 transition-colors min-h-[240px] group"
@@ -199,17 +233,30 @@ export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
                     onMouseLeave={e => { e.currentTarget.style.borderColor = t.accentBorder; }}
                 >
                     <div className="text-4xl group-hover:scale-110 transition-all mb-2" style={{ color: t.accentBorder }}>+</div>
-                    <div className="text-sm font-bold transition-colors" style={{ color: t.accent + "aa" }}>新增員工</div>
+                    <div className="text-sm font-bold transition-colors" style={{ color: t.accent + "aa" }}>{tt("crew.addEmployee")}</div>
                 </button>
+                )}
             </div>
+                </div>
+                ));
+            })()}
 
-            {/* Editor Modal */}
+            {/* Editor Modal（user crew） */}
             {editorOpen && (
                 <CrewEditor
                     crew={editingCrew}
                     onSave={handleSave}
                     onDelete={handleDelete}
                     onCancel={() => { setEditorOpen(false); setEditingCrew(null); }}
+                />
+            )}
+
+            {/* 偏好編輯 Modal（firmware crew 外觀層） */}
+            {prefsCrew && (
+                <CrewPrefsEditor
+                    crew={prefsCrew}
+                    onSaved={() => { setPrefsCrew(null); loadCrew(); }}
+                    onCancel={() => setPrefsCrew(null)}
                 />
             )}
         </div>

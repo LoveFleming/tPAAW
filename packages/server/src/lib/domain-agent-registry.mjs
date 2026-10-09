@@ -28,7 +28,12 @@ const CREWS_DIR = resolve(DATA_HOME, "crews");
 const _crewCache = {};
 
 async function loadCrew(crewId, projectDir = null) {
-  // Always read from cache or global file first
+  // 2026-10-09：module registry 優先（firmware crew 在 packages/modules/*/crews/）
+  const { resolveCrew } = await import("./module-registry.mjs");
+  const modResolved = resolveCrew(crewId, projectDir);
+  if (modResolved.crew) return modResolved.crew;
+
+  // fallback：user crew（data/crews）+ .paaw 顯示欄位疊加
   let crew = _crewCache[crewId];
   if (!crew) {
     const crewFile = join(CREWS_DIR, `${crewId}.json`);
@@ -43,15 +48,13 @@ async function loadCrew(crewId, projectDir = null) {
   }
   if (!crew) return null;
 
-  // If projectDir provided, check for project-level overrides
+  // user crew 的 project 顯示覆蓋（title/imageUrl 等；非治理欄位）
   if (projectDir) {
-    const projectAgentPath = join(projectDir, ".paaw", "agents", `${crewId}.json`);
-    if (existsSync(projectAgentPath)) {
-      try {
-        const projectOverride = JSON.parse(readSync(projectAgentPath, "utf-8"));
-        // Deep merge: project fields override global fields
-        return { ...crew, ...projectOverride, id: crewId };
-      } catch {}
+    const { readProjectOverride } = await import("./module-registry.mjs");
+    const projectOverride = readProjectOverride(crewId, projectDir);
+    if (projectOverride) {
+      const { rolePrompt, toolGroups, toolsDeny, ...displayOnly } = projectOverride; // eslint-disable-line no-unused-vars
+      return { ...crew, ...displayOnly, id: crewId };
     }
   }
 
@@ -420,6 +423,25 @@ export async function buildSystemPrompt(agentId, opts = {}) {
       if (promptText) parts.push(promptText);
     } catch {}
   }
+
+  // 0c. 使用者偏好（2026-10-09：語氣偏好 — data/crew-preferences.json，結構化注入非自由 prompt）
+  try {
+    const prefsPath = resolve(DATA_HOME, "crew-preferences.json");
+    if (existsSync(prefsPath)) {
+      const prefs = JSON.parse(readSync(prefsPath, "utf-8"));
+      const pref = prefs[agent.crewId];
+      if (pref && typeof pref.tone === "string" && pref.tone) {
+        const toneMap = {
+          concise: "回答盡量簡潔，重點優先，不重複贅述",
+          detailed: "回答可以詳細展開，附背景與脈絡",
+          casual: "語氣輕鬆自然，像同事聊天",
+          professional: "語氣專業正式，條理分明",
+        };
+        const toneText = toneMap[pref.tone] || "";
+        if (toneText) parts.push(`=== 使用者偏好 ===\n${toneText}`);
+      }
+    }
+  } catch {}
 
   // 1. Crew rolePrompt (fallback if no ai-settings prompt)
   if (crew.rolePrompt) parts.push(crew.rolePrompt);

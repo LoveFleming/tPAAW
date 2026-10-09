@@ -4,6 +4,7 @@
  */
 
 import { readdir, readFile, writeFile, mkdir, unlink, rm, stat } from "fs/promises";
+import { readFileSync, writeFileSync, existsSync as _exists } from "fs";
 import { LOG_HOME } from "../data-home.mjs";
 import { existsSync } from "fs";
 import {
@@ -17,6 +18,30 @@ import { json } from "./context.mjs";
 import { runAgentLoop } from "../lib/paaw-agent-loop.mjs";
 import { DATA_HOME } from "../data-home.mjs";
 import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
+import { listModules, listModuleCrews, getModuleCrew, isFirmwareCrew } from "../lib/module-registry.mjs";
+
+// ── 使用者偏好層（2026-10-09：外觀/語氣偏好 — data/crew-preferences.json，firmware 蓋不到）──
+function _prefsPath() { return resolve(DATA_HOME, "crew-preferences.json"); }
+function _loadPrefs() {
+  try { return JSON.parse(readFileSync(_prefsPath(), "utf-8")); } catch { return {}; }
+}
+function _savePrefs(prefs) {
+  writeFileSync(_prefsPath(), JSON.stringify(prefs, null, 2), "utf-8");
+}
+function _applyPrefs(crew) {
+  const prefs = _loadPrefs();
+  const p = prefs[crew.id];
+  if (!p) return { ...crew, prefs: undefined };
+  return {
+    ...crew,
+    displayName: p.displayName || crew.title,
+    imageUrl: p.avatarUrl || crew.imageUrl,
+    greeting: p.greeting,
+    tone: p.tone,
+    userNotes: p.notes,
+    _hasPrefs: true,
+  };
+}
 
 export default async function crewRoute(req, res) {
   const url = new URL(req.url, "http://localhost");
@@ -253,11 +278,47 @@ export default async function crewRoute(req, res) {
     return files.filter(f => f.endsWith(".json") && !f.includes("conversation")).sort();
   }
 
-  // GET /api/crew — list all crew members
+  // ── Module Registry API（2026-10-09：firmware crews 跟著 module 走）──
+  if (req.method === "GET" && path === "/api/modules") {
+    json(res, listModules());
+    return true;
+  }
+  const modCrewsMatch = req.url?.match(/^\/api\/modules\/([\w-]+)\/crews(?:\?.*)?$/);
+  if (req.method === "GET" && modCrewsMatch) {
+    const crews = listModuleCrews(modCrewsMatch[1]);
+    if (!crews) { json(res, { error: "Module not found" }, 404); return true; }
+    json(res, crews.map(_applyPrefs));
+    return true;
+  }
+
+  // 偏好 CRUD（外觀/語氣 — firmware crew 也可用）
+  const prefMatch = req.url?.match(/^\/api\/crew-preferences\/([\w.-]+)(?:\?.*)?$/);
+  if (prefMatch && (req.method === "GET" || req.method === "PUT")) {
+    const crewId = prefMatch[1];
+    if (req.method === "GET") {
+      const prefs = _loadPrefs();
+      json(res, prefs[crewId] || {});
+      return true;
+    }
+    try {
+      const body = JSON.parse(await readBody(req));
+      const allowed = ["displayName", "avatarUrl", "notes", "greeting", "tone"];
+      const clean = {};
+      for (const k of allowed) if (typeof body[k] === "string") clean[k] = body[k].slice(0, 2000);
+      const prefs = _loadPrefs();
+      prefs[crewId] = { ...(prefs[crewId] || {}), ...clean };
+      for (const k of allowed) if (!prefs[crewId][k]) delete prefs[crewId][k];
+      _savePrefs(prefs);
+      json(res, { ok: true, prefs: prefs[crewId] });
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
+// GET /api/crew — list all crew members（module firmware + user crews 合併 + 偏好疊加）
   if (req.method === "GET" && req.url?.match(/^\/api\/crew(?:\?.*)?$/)) {
     try {
       const files = await listCrewFiles();
-      const crew = await Promise.all(
+      const userCrew = await Promise.all(
         files.map(async (name) => {
           try {
             const raw = await readFile(join(crewDirForRequest(), name), "utf-8");
@@ -265,8 +326,11 @@ export default async function crewRoute(req, res) {
           } catch { return null; }
         })
       );
+      // 2026-10-09：合併 module firmware crews（locked）+ user crews（可編輯）+ 偏好疊加
+      const modCrews = listModules().flatMap(m => listModuleCrews(m.id) || []);
+      const all = [...modCrews, ...userCrew.filter(Boolean).map(c => ({ ...c, locked: false, source: "user" }))].map(_applyPrefs);
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(crew.filter(Boolean)));
+      res.end(JSON.stringify(all));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
@@ -278,6 +342,12 @@ export default async function crewRoute(req, res) {
   const crewGetMatch = req.method === "GET" && req.url?.match(/^\/api\/crew\/([\w.-]+)(?:\?.*)?$/);
   if (crewGetMatch) {
     const crewId = crewGetMatch[1];
+    // firmware crew（module）唯讀回傳
+    const mod = getModuleCrew(crewId);
+    if (mod) {
+      json(res, _applyPrefs({ ...mod.crew, id: crewId, locked: true, moduleId: mod.moduleId, source: "module" }));
+      return true;
+    }
     try {
       const files = await listCrewFiles();
       let target = null;
@@ -340,6 +410,10 @@ export default async function crewRoute(req, res) {
   const crewPutMatch = req.method === "PUT" && req.url?.match(/^\/api\/crew\/([\w.-]+)(?:\?.*)?$/);
   if (crewPutMatch) {
     const crewId = crewPutMatch[1];
+    if (isFirmwareCrew(crewId)) {
+      json(res, { error: "Firmware crew is module-owned and read-only. Use /api/crew-preferences to customize appearance." }, 403);
+      return true;
+    }
     let parsed;
     try { parsed = JSON.parse(await readBody(req)); } catch { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Invalid JSON" })); return true; }
 
@@ -371,6 +445,10 @@ export default async function crewRoute(req, res) {
   const crewDeleteMatch = req.method === "DELETE" && req.url?.match(/^\/api\/crew\/([\w.-]+)(?:\?.*)?$/);
   if (crewDeleteMatch) {
     const crewId = crewDeleteMatch[1];
+    if (isFirmwareCrew(crewId)) {
+      json(res, { error: "Firmware crew is module-owned and cannot be deleted." }, 403);
+      return true;
+    }
     try {
       const files = await listCrewFiles();
       let targetFile = null;

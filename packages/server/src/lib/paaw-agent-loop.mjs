@@ -21,6 +21,7 @@
 import { readFile, writeFile, readdir, stat, mkdir, rm } from "fs/promises";
 import { cleanupProjectTempFiles } from "./temp-janitor.mjs";
 import { existsSync, readFileSync as readSync, mkdirSync, appendFileSync, writeFileSync as writeSync, readdirSync, statSync } from "fs";
+import { getModuleCrew } from "./module-registry.mjs";
 import { loadFeatureData, matchFeaturesForFiles, buildContextBoundary } from "./feature-boundary.mjs";
 import { exec as execCb } from "child_process";
 // 2026-09-27 OOM 治本：bash 殘留程序帳本（背景程序跨 run 累積 → RAM 爆 → OOM 砍 Chrome/VSCode）
@@ -1386,14 +1387,21 @@ function getAgentToolsDeny(agentId, cwd = null) {
   const deny = new Set();
   const crewId = _AGENT_CREW_MAP[agentId];
   if (crewId) {
-    const candidates = cwd ? [join(cwd, ".paaw", "agents", `${crewId}.json`)] : [];
-    candidates.push(join(DATA_HOME, "crews", `${crewId}.json`));
-    for (const p of candidates) {
-      try {
-        if (!existsSync(p)) continue;
-        const cfg = JSON.parse(readSync(p, "utf-8"));
-        if (Array.isArray(cfg.toolsDeny)) { for (const n of cfg.toolsDeny) deny.add(n); break; }
-      } catch { /* bad json → skip */ }
+    // 2026-10-09：firmware crew 的 toolsDeny 只認 module 定義（.paaw 蓋不掉）
+    const mod = getModuleCrew(crewId);
+    if (mod) {
+      if (Array.isArray(mod.crew.toolsDeny)) for (const n of mod.crew.toolsDeny) deny.add(n);
+    } else {
+      // user crew：.paaw override → data/crews（舊行為相容）
+      const candidates = cwd ? [join(cwd, ".paaw", "agents", `${crewId}.json`)] : [];
+      candidates.push(join(DATA_HOME, "crews", `${crewId}.json`));
+      for (const p of candidates) {
+        try {
+          if (!existsSync(p)) continue;
+          const cfg = JSON.parse(readSync(p, "utf-8"));
+          if (Array.isArray(cfg.toolsDeny)) { for (const n of cfg.toolsDeny) deny.add(n); break; }
+        } catch { /* bad json → skip */ }
+      }
     }
   }
   _crewDenyCache.set(cacheKey, deny);
@@ -1407,8 +1415,8 @@ function getAgentToolsDeny(agentId, cwd = null) {
  * @returns {string[]} tool group names
  */
 function getAgentGroupsFromConfig(agentId, cwd = null) {
-  // 2026-09-06:支援 project-level toolGroups(.paaw/agents/{crewId}.json)優先於 global
-  // cache key = agentId::cwd(project 覆寫 per-RU)
+  // 2026-10-09：module registry 優先 — firmware crew 的 toolGroups 來自 packages/modules/*/crews/
+  // 治理欄位（toolGroups/toolsDeny）為 firmware 專屬：.paaw/agents 覆蓋不了（多人 release 紀律）
   const cacheKey = `${agentId}::${cwd || ""}`;
   // Check cache first
   if (_crewGroupCache.has(cacheKey)) return _crewGroupCache.get(cacheKey);
@@ -1416,13 +1424,20 @@ function getAgentGroupsFromConfig(agentId, cwd = null) {
   const crewId = _AGENT_CREW_MAP[agentId];
   if (!crewId) return AGENT_FALLBACK_GROUPS[agentId] || ["core", "memory"];
 
-  // ── Project-level override(.paaw/agents/{crewId}.json 的 toolGroups 優先)──
+  // ── 1. Firmware crew（module）優先 ──
+  const mod = getModuleCrew(crewId);
+  if (mod && Array.isArray(mod.crew.toolGroups) && mod.crew.toolGroups.length > 0) {
+    _crewGroupCache.set(cacheKey, mod.crew.toolGroups);
+    return mod.crew.toolGroups;
+  }
+
+  // ── 2. .paaw override（僅 user crew 適用 — firmware 的治理欄位不認）──
   if (cwd) {
     try {
       const projPath = join(cwd, ".paaw", "agents", `${crewId}.json`);
       if (existsSync(projPath)) {
         const proj = JSON.parse(readSync(projPath, "utf-8"));
-        if (Array.isArray(proj.toolGroups) && proj.toolGroups.length > 0) {
+        if (!mod && Array.isArray(proj.toolGroups) && proj.toolGroups.length > 0) {
           _crewGroupCache.set(cacheKey, proj.toolGroups);
           return proj.toolGroups;
         }
