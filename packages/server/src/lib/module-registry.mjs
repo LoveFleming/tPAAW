@@ -167,7 +167,7 @@ export function applyCrewPrefs(crew) {
   if (!p) return { ...crew, prefs: undefined };
   return {
     ...crew,
-    displayName: p.displayName || crew.title,
+    displayName: p.displayName || undefined,  // 2026-10-09：不可 fallback crew.title（只有 tone/notes 的偏好會讓名字變 title）；未設定就交給 codename
     imageUrl: p.avatarUrl || crew.imageUrl,
     greeting: p.greeting,
     tone: p.tone,
