@@ -6,7 +6,9 @@
  *   - 多人 release：使用者不可編 firmware crew（行為/toolGroups/toolsDeny），
  *     只可編外觀偏好（data/crew-preferences.json）與 .paaw append
  *   - 讀取鏈：module 本體 → .paaw/agents append（rolePromptAppend/model/顯示欄位；
- *     治理欄位 toolGroups/toolsDeny 蓋不掉）→ legacy rolePrompt 整份覆蓋（向後相容，標 deprecated）
+ *     治理欄位 toolGroups/toolsDeny 蓋不掉）
+ *   - 2026-10-09 Fleming 拍板：firmware rolePrompt 永遠權威 — legacy「整份 rolePrompt 覆蓋」
+ *     路徑已移除（殘留 clone 檔已全機清除，備份於 ~/App/paaw-legacy-agents-backup-20261009/）
  *
  * 員工互動面在 module UI（coding app side chat 等）；全域 AICrew 頁 = 組織圖（唯讀總覽）。
  */
@@ -108,7 +110,7 @@ export function readProjectOverride(crewId, projectDir) {
 
 /**
  * 解析 crew（完整鏈）：
- *   module firmware base + .paaw 疊加規則（新 append 制 / legacy 整份覆蓋相容）
+ *   module firmware base + .paaw 疊加（append 制；整份 rolePrompt 覆蓋已移除 — firmware 永遠權威）
  * 回傳 { crew, moduleId, legacyOverride, sources }
  */
 export function resolveCrew(crewId, projectDir = null) {
@@ -127,19 +129,8 @@ export function resolveCrew(crewId, projectDir = null) {
     return { crew: { ...base, id: crewId }, moduleId: mod.moduleId, legacyOverride: false, sources };
   }
 
-  // 新制：rolePromptAppend / model / 顯示欄位；治理欄位（toolGroups/toolsDeny）一律忽略
-  const hasLegacyPrompt = typeof override.rolePrompt === "string" && override.rolePrompt.trim().length > 0;
-  if (hasLegacyPrompt && !("rolePromptAppend" in override)) {
-    // legacy：整份覆蓋（向後相容既有 RU override），標記供 UI 警告
-    const { rolePrompt, ...rest } = override;
-    return {
-      crew: { ...base, ...rest, rolePrompt, id: crewId },
-      moduleId: mod.moduleId,
-      legacyOverride: true,
-      sources,
-    };
-  }
-
+  // .paaw 疊加：rolePromptAppend / model / 顯示欄位；治理欄位（toolGroups/toolsDeny）一律忽略；
+  // 整份 rolePrompt 覆蓋已移除（2026-10-09）— 即使 override 內有 rolePrompt 也忽略，firmware 永遠權威
   // append 制
   const merged = { ...base };
   const allowed = ["model", "title", "codename", "imageUrl", "description", "chatConfig", "skillIds", "expertise", "guardrails"];
