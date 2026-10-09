@@ -15,6 +15,7 @@ import { execFile } from "child_process";
 import { existsSync } from "fs";
 import { isAbsolute, resolve as resolvePath } from "path";
 import { guardShellProcessScope } from "./shell-guard.mjs";
+import { scanScriptContent, isPackageJsonClean } from "./script-guard.mjs";
 
 // 白名單：指令 → 允許的 subcommand/模式（null = 全部子指令皆可）
 const WHITELIST = {
@@ -73,15 +74,46 @@ export const ENV_EXEC_TOOL_DEF = {
         command: { type: "string", description: "單一指令（不含 shell 管線/重導向），如：npm install" },
         cwd: { type: "string", description: "工作目錄絕對路徑（npm 相關必帶，如 /Users/xxx/App/learning-space）" },
         timeoutMs: { type: "number", description: "逾時毫秒，預設 600000（10 分鐘）" },
+        confirmDirty: { type: "boolean", description: "package.json 有未 commit 變更仍要 npm install 時，先跟使用者確認後帶 true" },
       },
       required: ["command"],
     },
   },
 };
 
-export async function envExecHandler({ command, cwd, timeoutMs }) {
+export async function envExecHandler({ command, cwd, timeoutMs, confirmDirty }) {
   const v = validate(command);
   if (!v.ok) return v.error;
+
+  // ── script-guard B（2026-10-09）：npm 延遲執行防護 ──
+  const sub = v.args[0] || "";
+  if (v.bin === "npm" && ["install", "i", "ci", "update"].includes(sub)) {
+    // npm install 會跑套件 postinstall（任意代碼）— package.json/lock 有未 commit 變更時要求先跟使用者確認
+    if (!confirmDirty && !isPackageJsonClean(cwd || process.cwd())) {
+      return `⚠️ 安全檢查：這個專案的 package.json / package-lock.json 有未 commit 的變更（可能是 AI 剛改的）。
+npm install 會執行套件的 postinstall 腳本（任意代碼）。
+請先跟使用者確認要安裝，確認後帶 confirmDirty: true 重跑。`;
+    }
+  }
+  if (v.bin === "npm" && sub === "run") {
+    // npm run <script> — 解析 package.json scripts 值掃描（AI 可先加惡意 script 再跑）
+    const scriptName = v.args[1];
+    if (scriptName) {
+      try {
+        const { readFileSync } = await import("fs");
+        const { resolve: rp } = await import("path");
+        const pkgPath = rp(cwd || process.cwd(), "package.json");
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+        const scriptVal = (pkg.scripts || {})[scriptName];
+        if (!scriptVal) return `❌ package.json 裡沒有 script「${scriptName}」`;
+        const r = scanScriptContent(scriptVal, `npm run ${scriptName}`);
+        if (r.dangerous) return `🚫 安全攔截：npm run ${scriptName} — ${r.reason}。這類 script 需人工執行。`;
+      } catch (e) {
+        if (String(e.message).includes("ENOENT")) return `❌ ${cwd} 下沒有 package.json`;
+        // 其他解析錯誤放行，npm 自己會報
+      }
+    }
+  }
 
   // shell-guard：process 越界防護（pkill/kill PAAW 鐵律）
   const guard = await guardShellProcessScope(command, cwd || process.cwd());

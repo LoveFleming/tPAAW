@@ -1990,6 +1990,13 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         const filePath = resolvePath(args.path);
         if (!args.path) return `Error: write_file requires 'path' argument`;
         if (args.content === undefined || args.content === null) return `Error: write_file requires 'content' argument. You must provide the file content as a string.`;
+        // ── script-guard A（2026-10-09）：執行入口檔案（git hooks/launchd/shell rc/ssh）AI 不可寫 ──
+        const { persistentEntryBlock } = await import("./script-guard.mjs");
+        const persistBlock = persistentEntryBlock(filePath);
+        if (persistBlock) {
+          if (onEvent) onEvent({ type: "tool_end", name, result: persistBlock.message.slice(0, 500) });
+          return persistBlock.message;
+        }
         if (!isPathAllowed(args.path, true)) {
           const hint = `cwd='${cwd}'. Use a relative path from PAAW root like 'data/apps/test/app.html'. Do NOT use Windows absolute paths like 'C:\\...'.`;
           return `Error: path '${args.path}' is not writable. ${hint}`;
@@ -2026,6 +2033,15 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         if (!args.path) return `Error: edit_file requires 'path' argument`;
         if (!args.old_text) return `Error: edit_file requires 'old_text' argument`;
         if (args.new_text === undefined || args.new_text === null) return `Error: edit_file requires 'new_text' argument`;
+        // ── script-guard A：執行入口檔案攔截（同 write_file）──
+        {
+          const { persistentEntryBlock } = await import("./script-guard.mjs");
+          const pb = persistentEntryBlock(filePath);
+          if (pb) {
+            if (onEvent) onEvent({ type: "tool_end", name, result: pb.message.slice(0, 500) });
+            return pb.message;
+          }
+        }
         if (!isPathAllowed(args.path, true)) {
           const hint = `cwd='${cwd}'. Use a relative path from PAAW root like 'data/apps/test/app.html'. Do NOT use Windows absolute paths like 'C:\\...'.`;
           return `Error: path '${args.path}' is not writable. ${hint}`;
@@ -2181,6 +2197,13 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         if (guard.blocked) {
           if (onEvent) onEvent({ type: "tool_end", name, result: guard.message.slice(0, 500) });
           return guard.message;
+        }
+        // ── script-guard C（2026-10-09）：AI 寫的 script 執行前掃內容（危險 pattern 才攔，正常 coding 零摩擦）──
+        const { guardScriptExecution } = await import("./script-guard.mjs");
+        const sGuard = guardScriptExecution(args.command, cwd);
+        if (sGuard.blocked) {
+          if (onEvent) onEvent({ type: "tool_end", name, result: sGuard.message.slice(0, 500) });
+          return sGuard.message;
         }
         const timeoutSec = Math.min(args.timeout || 120, _agentCfg.bashTimeoutSeconds || 300);
         const timeoutMs = timeoutSec * 1000;
