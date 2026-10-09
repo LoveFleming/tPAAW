@@ -16,6 +16,7 @@ import { existsSync } from "fs";
 import { isAbsolute, resolve as resolvePath } from "path";
 import { guardShellProcessScope } from "./shell-guard.mjs";
 import { scanScriptContent, isPackageJsonClean } from "./script-guard.mjs";
+import { logAuditEvent, scanCommandOutput } from "./audit-log.mjs";
 
 // 白名單：指令 → 允許的 subcommand/模式（null = 全部子指令皆可）
 const WHITELIST = {
@@ -83,16 +84,18 @@ export const ENV_EXEC_TOOL_DEF = {
 
 export async function envExecHandler({ command, cwd, timeoutMs, confirmDirty }) {
   const v = validate(command);
-  if (!v.ok) return v.error;
+  if (!v.ok) {
+    logAuditEvent({ kind: "env_exec_block", severity: "block", tool: "env_exec", command, reason: v.error, detail: { caller: "chat" } });
+    return v.error;
+  }
 
   // ── script-guard B（2026-10-09）：npm 延遲執行防護 ──
   const sub = v.args[0] || "";
   if (v.bin === "npm" && ["install", "i", "ci", "update"].includes(sub)) {
     // npm install 會跑套件 postinstall（任意代碼）— package.json/lock 有未 commit 變更時要求先跟使用者確認
     if (!confirmDirty && !isPackageJsonClean(cwd || process.cwd())) {
-      return `⚠️ 安全檢查：這個專案的 package.json / package-lock.json 有未 commit 的變更（可能是 AI 剛改的）。
-npm install 會執行套件的 postinstall 腳本（任意代碼）。
-請先跟使用者確認要安裝，確認後帶 confirmDirty: true 重跑。`;
+      logAuditEvent({ kind: "script_guard", severity: "block", tool: "env_exec", command, reason: "package.json 有未 commit 變更時 npm install（需 confirmDirty）", detail: { caller: "chat" }, cwd });
+      return `⚠️ 安全檢查：這個專案的 package.json / package-lock.json 有未 commit 的變更（可能是 AI 剛改的）。npm install 會執行套件的 postinstall 腳本（任意代碼）。請先跟使用者確認要安裝，確認後帶 confirmDirty: true 重跑。`;
     }
   }
   if (v.bin === "npm" && sub === "run") {
@@ -107,7 +110,10 @@ npm install 會執行套件的 postinstall 腳本（任意代碼）。
         const scriptVal = (pkg.scripts || {})[scriptName];
         if (!scriptVal) return `❌ package.json 裡沒有 script「${scriptName}」`;
         const r = scanScriptContent(scriptVal, `npm run ${scriptName}`);
-        if (r.dangerous) return `🚫 安全攔截：npm run ${scriptName} — ${r.reason}。這類 script 需人工執行。`;
+        if (r.dangerous) {
+          logAuditEvent({ kind: "script_guard", severity: "block", tool: "env_exec", command, reason: `npm run ${scriptName} — ${r.reason}`, detail: { caller: "chat", scriptVal }, cwd });
+          return `🚫 安全攔截：npm run ${scriptName} — ${r.reason}。這類 script 需人工執行。`;
+        }
       } catch (e) {
         if (String(e.message).includes("ENOENT")) return `❌ ${cwd} 下沒有 package.json`;
         // 其他解析錯誤放行，npm 自己會報
@@ -117,7 +123,10 @@ npm install 會執行套件的 postinstall 腳本（任意代碼）。
 
   // shell-guard：process 越界防護（pkill/kill PAAW 鐵律）
   const guard = await guardShellProcessScope(command, cwd || process.cwd());
-  if (guard.blocked) return guard.message;
+  if (guard.blocked) {
+    logAuditEvent({ kind: "shell_guard", severity: "block", tool: "env_exec", command, reason: guard.message, detail: { caller: "chat" }, cwd });
+    return guard.message;
+  }
 
   // cwd 必須存在
   let workDir = process.cwd();
@@ -130,8 +139,32 @@ npm install 會執行套件的 postinstall 腳本（任意代碼）。
   const timeout = Math.min(Number(timeoutMs) || 600_000, 900_000); // cap 15 分鐘
   const startedAt = Date.now();
 
+  // ── srt 沙箱包裹（2026-10-10 Fleming：所有 agent loop 安全係數最高）──
+  // env_exec 原本裸 execFile — 惡意套件 postinstall 有完整網路外傳面。
+  // 沙箱可用（macOS/Linux + 套件已裝）→ 包白名單網域 + 機密 denyRead + 專案外禁寫；
+  // 不可用（公司 Windows 未裝 srt）→ 維持原 execFile（白名單+shell-guard+script-guard 仍在）。
+  let sandboxed = false;
+  let shellBin = v.bin, shellArgs = v.args;
+  let _allowedDomains = null; // 掃描用白名單（沙箱開著才有意義，先取好 — callback 不是 async）
+  try {
+    if (process.platform !== "win32") {
+      const { wrapWithSrt, sandboxAvailable, effectiveAllowedDomains } = await import("./paaw-sandbox.mjs");
+      if (await sandboxAvailable()) _allowedDomains = effectiveAllowedDomains();
+      if (_allowedDomains) {
+        const quote = (a) => `'${String(a).replace(/'/g, `'\\''`)}'`; // POSIX 單引號跳脱
+        const quotedCmd = [v.bin, ...v.args].map(quote).join(" ");
+        const wrapped = await wrapWithSrt(quotedCmd, workDir);
+        if (wrapped && wrapped !== quotedCmd) {
+          shellBin = "/bin/zsh";
+          shellArgs = ["-c", wrapped];
+          sandboxed = true;
+        }
+      }
+    }
+  } catch { /* 沙箱失敗不擋路 — 退回原樣 */ }
+
   return await new Promise((resolveP) => {
-    execFile(v.bin, v.args, {
+    execFile(shellBin, shellArgs, {
       cwd: workDir,
       timeout,
       maxBuffer: 8 * 1024 * 1024,
@@ -143,14 +176,20 @@ npm install 會執行套件的 postinstall 腳本（任意代碼）。
     }, (err, stdout, stderr) => {
       const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
       const tail = (s) => String(s || "").slice(-6000);
-      const out = [tail(stdout), stderr ? `stderr:\n${tail(stderr)}` : ""].filter(Boolean).join("\n");
+      let out = [tail(stdout), stderr ? `stderr:\n${tail(stderr)}` : ""].filter(Boolean).join("\n");
+      if (err && !err.killed) out += `\nExit code: ${err.code ?? 1}`;
+      // ── 安全審計（2026-10-10）：白名單阻擋/沙箱拒絕 → 引導 + audit（同 bash 工具）──
+      try {
+        const secHit = scanCommandOutput({ command, output: out, allowedDomains: _allowedDomains || [], agentId: "assistant", cwd: workDir, tool: "env_exec" });
+        if (secHit) out += secHit.agentNotice;
+      } catch { /* 審計失敗不影響 */ }
       if (err && err.killed) {
         resolveP(`⏱ 指令逾時（${elapsed}s，被中止）：\n${out}`);
       } else if (err) {
         // npm 等非零退出碼 = 有錯誤訊息可讀，把輸出帶回給 AI 診斷
-        resolveP(`⚠️ 退出碼 ${err.code ?? "?"}（${elapsed}s）\n${out || err.message}`);
+        resolveP(`⚠️ 退出碼 ${err.code ?? "?"}（${elapsed}s）${sandboxed ? " 🛡沙箱内" : ""}\n${out || err.message}`);
       } else {
-        resolveP(`✅ 完成（${elapsed}s）\n${out || "（無輸出）"}`);
+        resolveP(`✅ 完成（${elapsed}s）${sandboxed ? " 🛡沙箱内" : ""}\n${out || "（無輸出）"}`);
       }
     });
   });

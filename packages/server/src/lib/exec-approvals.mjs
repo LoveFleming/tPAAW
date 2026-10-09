@@ -60,7 +60,7 @@ export function decideApproval(id, action) {
   } else if (action !== "deny") {
     return { ok: false, error: "action 必須是 once / always / deny" };
   }
-  return { ok: true, action, command: entry.command };
+  return { ok: true, action, command: entry.command, cwd: entry.cwd };
 }
 
 /** bash 執行前檢查：已被核准？回 "once"（消耗）/"always"/null */

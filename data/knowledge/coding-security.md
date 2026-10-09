@@ -89,9 +89,14 @@ PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
 - 內建（碼裡保底，UI 不可刪）：npm/pypi/GitHub/localhost；自訂：`data/config/network-whitelist.json`
 - Settings → 🛡 安全 tab 管理（GET/PUT `/api/paaw/network-whitelist`）；儲存即時生效（buildConfig 每次重讀，不需重啟）
 
+**阻擋翻譯與引導（2026-10-10 Fleming 需求：被擋時要告訴使用者去哪設定）**
+- 沙箱擋連線的原始輸出只有 cryptic 簽名（curl 000 exit 28 / Could not resolve host / EPERM）— bash/env_exec 執行後由 `lib/audit-log.mjs` scanCommandOutput 掃描翻譯
+- 命中「非白名單網域 + 網路失敗簽名」→ ① tool result 附 agent 引導（用 ask_user、去「設定 → 🛡 安全」加網域）② SSE `security_notice` 事件 → UI 🛡 安全通知卡（使用者即時看到）③ 記 audit（見 ⑦）
+- 「Operation not permitted / EPERM」（機密 denyRead / 專案外禁寫）→ 同樣三件套（npm 自家 cache EPERM unlink 誤報已排除）
+
 ## ④¾ doom_loop 防呆（2026-10-09，抄 OpenCode 預設 ask）
 
-同 tool call（name + arguments 完全相同）第 3 次 → 攔截 + 引導（換做法/ask_user）。防 agent 卡死燒 token。
+同 tool call（name + arguments 完全相同）第 3 次 → 攔截 + 引導（換做法/ask_user）。防 agent 卡死燒 token。2026-10-10 起兩條 loop（runAgentLoop + runAgentLoopStream）同規格，並記 audit。
 
 ## ⑤½ 審批卡（2026-10-09，抄 OpenClaw exec approvals UX）
 
@@ -146,6 +151,13 @@ script-guard 攔截 → chat 出現 🛡 審批卡（✅ 准許一次 / ♾️ �
 - LLM log / coding actions → Elasticsearch（paaw-agent-logs 索引，Kibana Dashboard「PAAW Agent 執行報表」）
 - conversation_history：每個 agent 可查自己 RU 的歷史對話（含工具行為）
 
+**AI 犯傻審計（2026-10-10 Fleming 需求：犯傻要留完整資訊，獨立 ES index）**
+- `lib/audit-log.mjs` — 任何防護觸發都記一筆：白名單阻擋 / 沙箱檔案拒絕 / shell-guard / script-guard（A/C）/ 路徑違規 / doom_loop / 審批請求與決策 / env_exec 白名單攔截
+- 雙落地：① `log/logs/audit/audit-YYYY-MM-DD.jsonl`（事實來源，永不刪）② Elasticsearch **paaw-audit-YYYY.MM.dd**（獨立 index，與 agent-logs 分流；command/reason 開 text 全文搜）
+- 每筆自帶：kind/severity/layer/tool/完整指令/攔截理由/網域/agentId/runId/ruSlug/cwd/hostName/hostIp/@timestamp/eid
+- 審計永不影響主流程（全部 try/catch）；PAAW_ES_URL 未設定 = ES 側關閉，檔案照寫
+- 查詢例：`curl localhost:9200/paaw-audit-*/_search -d '{"aggs":{"k":{"terms":{"field":"kind"}}}}'`
+
 ---
 
 ## 測試與驗證
@@ -159,7 +171,7 @@ script-guard 攔截 → chat 出現 🛡 審批卡（✅ 准許一次 / ♾️ �
 ## 已知限制（誠實講）
 
 1. **掃描式非密不通風** — 混淆過的 payload（base64 編碼、動態組 URL、分段下載）理論上可繞過 pattern；v2 起直譯器/編譯/raw 指令三層都掃（語言無關），但這是縱深防禦不是密不通風 — 殘餘風險靠 ⑥ 人審 + ⑦ 審計兜底
-2. **網路 egress 沒擋** — bash 仍可 curl 下載（只有內容掃描事前攔 script 檔；直接 curl 指令靠 shell-guard 不含此項）— 如需更強可上 sandbox-exec / 容器，目前判定過度設計
+2. **沙箱依賴 srt 套件** — bash/env_exec 都包 srt（macOS Seatbelt）；公司 Windows 未裝 `@anthropic-ai/sandbox-runtime` 時自動退回 pattern 掃描（網路/檔案 OS 層防護失效，靠 ①-⑤ 掃描 + 人審兜底）；`PAAW_SANDBOX=off` 爲 debug 逃生口
 3. **npx 可跑任意套件** — env_exec 白名單含 npx；供應鏈信任靠 npm registry + lockfile（npm ci）
 4. **dev_server / ru_verify 跑的 npm script** 未掛 C 掃描（只跑白名單 action：build/lint/test/dev）— script 值仍可能被改過，靠 ② 路徑限制 + 人審補
 5. **MCP 未接入** — 未來接入時規則：只接自己寫的或信任的 MCP server（tool description 是 prompt injection 入口）；能力邊界由 MCP server 定義，PAAW 端用 toolGroups/toolsDeny 控可見性

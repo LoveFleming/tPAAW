@@ -42,6 +42,7 @@ import { parseProjectMd, buildProjectMd, regenerateProjectMd, USER_START, USER_E
 import { callLLMWithRetry, dateTimeContextBlock, parseModelReference } from "../lib/llm-utils.mjs";
 import { normalizePath, readBody } from "./shared.mjs";
 import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
+import { logAuditEvent } from "../lib/audit-log.mjs"; // 審批決策審計（2026-10-10）
 import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-parser.mjs";
 import { runSemgrep } from "../lib/semgrep-runner.mjs";
 import { buildCodeIntelligence, buildContextPackage } from "../lib/code-intelligence.mjs";
@@ -2264,6 +2265,10 @@ export default async function projectRoute(req, res) {
         return true;
       }
       const r = decideApproval(String(id || ""), String(action || ""));
+      // 🔴 審計（2026-10-10）：使用者的審批決策也進 audit log（誰准了什麼指令）
+      if (r.ok) {
+        logAuditEvent({ kind: "approval_decision", severity: "info", tool: "bash", command: r.command, reason: `使用者決策：${action}`, detail: { approvalId: id, action }, cwd: r.cwd });
+      }
       res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
       res.end(JSON.stringify(r));
       return true;

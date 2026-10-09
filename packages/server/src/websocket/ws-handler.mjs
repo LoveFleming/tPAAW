@@ -359,6 +359,13 @@ export function setupWebSocket() {
                 if (evt.type === "tool_end") {
                   asend({ type: "agent_event", event: "tool_end", name: evt.name, result: (evt.result || "").slice(0, 500) });
                 }
+                // 安全通知（2026-10-10）：白名單阻擋/沙箱拒絕 → 使用者即時看到 + 引導去安全 tab
+                if (evt.type === "security_notice") {
+                  asend({ type: "agent_event", event: "security_notice", kind: evt.kind, domains: evt.domains, message: evt.message });
+                }
+                if (evt.type === "approval_request") {
+                  asend({ type: "agent_event", event: "approval_request", id: evt.id, command: evt.command, reason: evt.reason });
+                }
                 if (evt.type === "assistant_thinking") {
                   asend({ type: "agent_event", event: "thinking", content: evt.content });
                 }

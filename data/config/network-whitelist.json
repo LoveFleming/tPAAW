@@ -1,0 +1,6 @@
+{
+  "domains": [
+    "api.openai.com"
+  ],
+  "_note": "AI bash 沙箱對外白名單（Settings UI 管理）"
+}

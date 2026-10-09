@@ -12,6 +12,10 @@
  *               agentId, taskId, cwd, ruName, @timestamp }
  *   index     = paaw-agent-logs-YYYY.MM.dd（@timestamp 分日）
  *
+ * 審計串流（2026-10-10 Fleming：AI 犯傻事件用不同 index 存完整資訊）：
+ *   logAuditEvent（lib/audit-log.mjs）→ shipAuditEvent → paaw-audit-YYYY.MM.dd
+ *   獨立 buffer / 獨立 template，與 agent-logs 完全分流；_id = audit:<eid>（冪等）
+ *
  * 失敗策略：ES 不可達時 console.error（60s 冷卻）後丟棄該批 — 檔案仍是事實來源，
  * 外部 shipper 可補灌；絕不影響 agent loop。
  */
@@ -30,6 +34,7 @@ const state = {
   enabled: false,
   url: "",
   buf: [],
+  auditBuf: [], // 審計事件（paaw-audit-*，2026-10-10）
   timer: null,
   lastErrAt: 0,
 };
@@ -162,6 +167,35 @@ async function putTemplate() {
   });
 }
 
+/** 審計 index template（paaw-audit-*，2026-10-10）— command/reason 開 text 才搜得到全文 */
+async function putAuditTemplate() {
+  await es("/_index_template/paaw-audit", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      index_patterns: ["paaw-audit-*"],
+      template: {
+        settings: { number_of_shards: 1, number_of_replicas: 0 },
+        mappings: {
+          dynamic_templates: [
+            { strings_as_keyword: { match_mapping_type: "string", mapping: { type: "keyword" } } },
+          ],
+          properties: {
+            "@timestamp": { type: "date" },
+            source: { type: "keyword" },
+            kind: { type: "keyword" }, severity: { type: "keyword" }, layer: { type: "keyword" },
+            tool: { type: "keyword" }, agentId: { type: "keyword" }, runId: { type: "keyword" },
+            ruSlug: { type: "keyword" }, hostName: { type: "keyword" }, hostIp: { type: "keyword" },
+            domains: { type: "keyword" }, eid: { type: "keyword" }, version: { type: "long" },
+            // 全文欄位：指令內容 / 攔截理由要能全文搜（match query）
+            command: { type: "text" }, reason: { type: "text" },
+          },
+        },
+      },
+    }),
+  });
+}
+
 function logErr(scope, e) {
   const now = Date.now();
   if (now - state.lastErrAt < ERR_COOLDOWN_MS) return;
@@ -186,6 +220,24 @@ async function flush() {
   }
 }
 
+/** 審計事件 flush（paaw-audit-* 獨立 index，2026-10-10）— 與 agent-logs 分流互不影響 */
+async function flushAudit() {
+  if (!state.enabled || state.auditBuf.length === 0) return;
+  const batch = state.auditBuf.splice(0, state.auditBuf.length);
+  const nd = [];
+  for (const { id, doc } of batch) {
+    nd.push(JSON.stringify({ index: { _index: `paaw-audit-${doc["@timestamp"].slice(0, 10).replace(/-/g, ".")}`, _id: id } }));
+    nd.push(JSON.stringify(doc));
+  }
+  try {
+    const body = await es("/_bulk", { method: "POST", headers: { "Content-Type": "application/x-ndjson" }, body: nd.join("\n") + "\n" });
+    const errors = (JSON.parse(body).items || []).filter(it => it.index?.error).length;
+    if (errors) logErr("audit-bulk", new Error(`${errors}/${batch.length} 筆被 ES 拒絕`));
+  } catch (e) {
+    logErr("audit-bulk", e);
+  }
+}
+
 /** server 啟動時呼叫一次。回傳是否啟用 */
 export function initEsShipper() {
   const url = esUrl();
@@ -195,11 +247,15 @@ export function initEsShipper() {
   }
   state.url = url;
   state.enabled = true;
-  state.timer = setInterval(flush, FLUSH_MS);
+  state.timer = setInterval(() => { flush().catch(() => {}); flushAudit().catch(() => {}); }, FLUSH_MS);
   state.timer.unref?.(); // 不阻擋 process 結束
   putTemplate().then(
     () => console.log(`[es-shipper] ES log shipping 開啟 → ${url}`),
     e => logErr("template", e),
+  );
+  putAuditTemplate().then(
+    () => console.log(`[es-shipper] 審計事件 shipping 開啟 → paaw-audit-*`),
+    e => logErr("audit-template", e),
   );
   return true;
 }
@@ -235,4 +291,20 @@ export function shipAgentLogEvent({ taskId, recNo, entry, startTime, taskInfo })
 
 export function isEsShipperEnabled() {
   return state.enabled;
+}
+
+/**
+ * 審計事件入列（lib/audit-log.mjs 呼叫，2026-10-10）— paaw-audit-* 獨立 index。
+ * doc 已是完整形狀（audit-log 端 stamp 過 host/runId/@timestamp）— 這裡只加 source 標記。
+ * 關閉時 no-op；永不影響主流程。
+ */
+export function shipAuditEvent(doc) {
+  if (!state.enabled) return;
+  try {
+    const d = { ...doc, source: "audit" };
+    state.auditBuf.push({ id: `audit:${doc.eid}`, doc: d });
+    if (state.auditBuf.length >= FLUSH_SIZE) flushAudit().catch(() => {});
+  } catch {
+    /* shipping 永不影響主流程 */
+  }
 }

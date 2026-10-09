@@ -175,6 +175,25 @@ export function LoadingIndicator({ accent, label = "思考中" }: { accent?: str
 
 // ── Tool Badges ──
 
+// ── 安全通知卡（2026-10-10）── 白名單阻擋/沙箱拒絕 → 🛡 通知 + 引導去安全 tab
+export interface SecurityNoticeData { kind: string; domains?: string[]; message: string }
+
+export function SecurityNoticeCard({ notice }: { notice: SecurityNoticeData }) {
+  const isNet = notice.kind === "network_block";
+  return (
+    <div className={`mb-2 p-3 rounded-xl border ${isNet ? "border-sky-200 bg-sky-50/70" : "border-violet-200 bg-violet-50/70"}`}>
+      <div className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${isNet ? "text-sky-700" : "text-violet-700"}`}>
+        {isNet ? "🌐 網路白名單防護" : "🔒 沙箱防護"}
+        <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/60 text-stone-500">已記錄審計</span>
+      </div>
+      <div className="text-[12px] text-stone-600 leading-relaxed">{notice.message}</div>
+      {isNet && (
+        <div className="text-[11px] text-stone-400 mt-1.5">設定 → 🛡 安全 → 網路白名單（儲存後立即生效）</div>
+      )}
+    </div>
+  );
+}
+
 // ── 審批卡（2026-10-09，抄 OpenClaw exec approvals UX）── AI 危險指令被攔 → 使用者 ✅/♾️/❌ 決策
 export interface ApprovalData { id: string; command: string; reason?: string; decided?: string | null }
 
@@ -308,6 +327,9 @@ const MessageRow = React.memo(function MessageRow({
             )}
             {msg._approval && (
               <ApprovalCard approval={msg._approval} onDecide={onApprovalDecide} accent={accent} />
+            )}
+            {msg._security && (
+              <SecurityNoticeCard notice={msg._security} />
             )}
             {msg.role === "assistant" ? (
               <div className="prose prose-stone prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">

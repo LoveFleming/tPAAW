@@ -26,6 +26,7 @@ import { loadFeatureData, matchFeaturesForFiles, buildContextBoundary } from "./
 import { exec as execCb } from "child_process";
 // 2026-09-27 OOM 治本：bash 殘留程序帳本（背景程序跨 run 累積 → RAM 爆 → OOM 砍 Chrome/VSCode）
 import { runShellGrouped, runContextALS, sweepRunProcesses } from "./proc-ledger.mjs";
+import { logAuditEvent, scanCommandOutput } from "./audit-log.mjs"; // AI 犯傻審計（2026-10-10）
 import { shellExec, IS_WIN as IS_WIN_SHARED } from "./shell-exec.mjs";
 import { resolve, join, dirname, relative } from "path";
 import { getDependencyContext, getAffectedTests } from "./dependency-context.mjs";
@@ -1971,7 +1972,10 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
 
       case "read_file": {
         const filePath = resolvePath(args.path);
-        if (!isPathAllowed(args.path)) return `Error: path '${args.path}' resolves to '${filePath}' which is outside all allowed roots. cwd='${cwd}'. Allowed roots: project dir (cwd), PAAW root${workspaceDirs.length ? ", workspaces: " + workspaceDirs.join(", ") : " (no extra workspaces mounted)"}, knowledge. Note: relative vs absolute doesn't matter - the resolved path must be INSIDE an allowed root. If you need a sibling directory, ask the user to add it to data/workspaces.json.`;
+        if (!isPathAllowed(args.path)) {
+          logAuditEvent({ kind: "path_violation", severity: "warn", tool: "read_file", command: args.path, reason: `讀取路徑不在允許範圍：${filePath}`, agentId, cwd });
+          return `Error: path '${args.path}' resolves to '${filePath}' which is outside all allowed roots. cwd='${cwd}'. Allowed roots: project dir (cwd), PAAW root${workspaceDirs.length ? ", workspaces: " + workspaceDirs.join(", ") : " (no extra workspaces mounted)"}, knowledge. Note: relative vs absolute doesn't matter - the resolved path must be INSIDE an allowed root. If you need a sibling directory, ask the user to add it to data/workspaces.json.`;
+        }
         if (!existsSync(filePath)) return `Error: file not found: ${args.path}`;
         const content = await readFile(filePath, "utf-8");
         // Line-based reading with offset/limit
@@ -2002,11 +2006,13 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         const { persistentEntryBlock } = await import("./script-guard.mjs");
         const persistBlock = persistentEntryBlock(filePath);
         if (persistBlock) {
+          logAuditEvent({ kind: "script_guard_entry", severity: "block", tool: "write_file", command: args.path, reason: persistBlock.message.split("\n")[0], agentId, cwd });
           if (onEvent) onEvent({ type: "tool_end", name, result: persistBlock.message.slice(0, 500) });
           return persistBlock.message;
         }
         if (!isPathAllowed(args.path, true)) {
           const hint = `cwd='${cwd}'. Use a relative path from PAAW root like 'data/apps/test/app.html'. Do NOT use Windows absolute paths like 'C:\\...'.`;
+          logAuditEvent({ kind: "path_violation", severity: "block", tool: "write_file", command: args.path, reason: `寫入路徑不在允許範圍（cwd 外）：${filePath}`, agentId, cwd });
           return `Error: path '${args.path}' is not writable. ${hint}`;
         }
         // ── Change Boundary: warn if outside feature scope, but allow ──
@@ -2046,12 +2052,14 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           const { persistentEntryBlock } = await import("./script-guard.mjs");
           const pb = persistentEntryBlock(filePath);
           if (pb) {
+            logAuditEvent({ kind: "script_guard_entry", severity: "block", tool: "edit_file", command: args.path, reason: pb.message.split("\n")[0], agentId, cwd });
             if (onEvent) onEvent({ type: "tool_end", name, result: pb.message.slice(0, 500) });
             return pb.message;
           }
         }
         if (!isPathAllowed(args.path, true)) {
           const hint = `cwd='${cwd}'. Use a relative path from PAAW root like 'data/apps/test/app.html'. Do NOT use Windows absolute paths like 'C:\\...'.`;
+          logAuditEvent({ kind: "path_violation", severity: "block", tool: "edit_file", command: args.path, reason: `寫入路徑不在允許範圍（cwd 外）：${filePath}`, agentId, cwd });
           return `Error: path '${args.path}' is not writable. ${hint}`;
         }
         if (!existsSync(filePath)) return `Error: file not found: ${args.path}`;
@@ -2203,6 +2211,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         const { guardShellProcessScope } = await import("./shell-guard.mjs");
         const guard = await guardShellProcessScope(args.command, cwd);
         if (guard.blocked) {
+          // 🔴 審計（2026-10-10）：AI 犯傻 = process 越界 → audit log + ES paaw-audit-*
+          logAuditEvent({ kind: "shell_guard", severity: "block", tool: "bash", command: args.command, reason: guard.message, agentId, cwd });
           if (onEvent) onEvent({ type: "tool_end", name, result: guard.message.slice(0, 500) });
           return guard.message;
         }
@@ -2218,6 +2228,9 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             // 跳過攔截繼續執行（落到下面 runShell）
           } else {
             const aprId = requestApproval(args.command, cwd, sGuard.message.split("\n")[0].slice(0, 200));
+            // 🔴 審計（2026-10-10）：危險指令被攔 + 送審批卡
+            logAuditEvent({ kind: "script_guard", severity: "block", tool: "bash", command: args.command, reason: sGuard.message.split("\n")[0], agentId, cwd });
+            logAuditEvent({ kind: "approval_request", severity: "info", tool: "bash", command: args.command, reason: sGuard.message.split("\n")[0], detail: { approvalId: aprId }, agentId, cwd });
             if (onEvent) onEvent({ type: "approval_request", id: aprId, command: String(args.command).slice(0, 300), reason: sGuard.message.split("\n")[0].slice(0, 300) });
             if (onEvent) onEvent({ type: "tool_end", name, result: sGuard.message.slice(0, 500) });
             return sGuard.message + `\n（已送出審批卡 ${aprId} 給使用者。若使用者核准，直接重試同一個指令即可執行。）`;
@@ -2226,8 +2239,19 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         const timeoutSec = Math.min(args.timeout || 120, _agentCfg.bashTimeoutSeconds || 300);
         const timeoutMs = timeoutSec * 1000;
         const result = await runShell(args.command, cwd, timeoutMs);
+        // ── 安全審計（2026-10-10 Fleming）：輸出掃描 — 白名單阻擋/沙箱拒絕 →
+        //    agent 引導（去安全 tab 設定）+ 使用者 security_notice + ES paaw-audit-* ──
+        let finalResult = result;
+        try {
+          const { effectiveAllowedDomains } = await import("./paaw-sandbox.mjs");
+          const secHit = scanCommandOutput({ command: args.command, output: result, allowedDomains: effectiveAllowedDomains(), agentId, cwd, tool: "bash" });
+          if (secHit) {
+            finalResult = result + secHit.agentNotice;
+            if (onEvent) onEvent({ type: "security_notice", kind: secHit.type, domains: secHit.domains, message: secHit.userNotice });
+          }
+        } catch { /* 審計掃描失敗不影響工具結果 */ }
         // Smart truncate (head+tail - preserves build errors/test results at end)
-        const truncated = smartTruncateToolResult(result, 12_000, { alwaysKeepTail: true });
+        const truncated = smartTruncateToolResult(finalResult, 12_000, { alwaysKeepTail: true });
         if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 500) });
         return truncated;
       }
@@ -4851,6 +4875,7 @@ export async function runAgentLoop(config) {
       if (_doomN >= 3) {
         if (onEvent) onEvent({ type: "tool_start", name: _toolName, args: (call.function.arguments || "").slice(0, 120) });
         const _doomMsg = `🛑 doom_loop 攔截：工具「${_toolName}」以完全相同的參數重複呼叫第 ${_doomN} 次 — 你在原地打轉。停止重試同一個呼叫。改變做法：換參數、換工具、換路徑，或用 ask_user 向使用者說明卡住的原因。`;
+        logAuditEvent({ kind: "doom_loop", severity: "block", tool: _toolName, command: (call.function?.arguments || "").slice(0, 2000), reason: `同參數重複呼叫第 ${_doomN} 次`, detail: { repeatCount: _doomN }, agentId, cwd });
         if (onEvent) onEvent({ type: "tool_end", name: _toolName, result: _doomMsg });
         _loopMessages.push({ role: "tool", tool_call_id: call.id, content: _doomMsg });
         continue;
@@ -5325,14 +5350,35 @@ export async function runAgentLoopStream(config, res) {
     }
 
     // Execute tools
+    // ── doom_loop 防呆（2026-10-10 補 stream 版 — 與 runAgentLoop 同規格，全 loop 安全係數最高）──
+    const _doomSeenS = new Map();
     for (const call of toolCalls) {
       let args;
       try { args = JSON.parse(call.function.arguments); } catch { args = {}; }
+      const _sToolName = call.function?.name;
+      const _sDoomKey = _sToolName + "::" + (call.function?.arguments || "");
+      const _sDoomN = (_doomSeenS.get(_sDoomKey) || 0) + 1;
+      _doomSeenS.set(_sDoomKey, _sDoomN);
+      if (_sDoomN >= 3) {
+        const _sDoomMsg = `🛑 doom_loop 攔截：工具「${_sToolName}」以完全相同的參數重複呼叫第 ${_sDoomN} 次 — 你在原地打轉。停止重試同一個呼叫。改變做法：換參數、換工具、換路徑，或用 ask_user 向使用者說明卡住的原因。`;
+        logAuditEvent({ kind: "doom_loop", severity: "block", tool: _sToolName, command: (call.function?.arguments || "").slice(0, 2000), reason: `同參數重複呼叫第 ${_sDoomN} 次`, detail: { repeatCount: _sDoomN, loop: "stream" }, agentId, cwd });
+        sendSSE("tool", { name: _sToolName, args: (call.function.arguments || "").slice(0, 120) });
+        sendSSE("tool_result", { name: _sToolName, result: _sDoomMsg.slice(0, 2000) });
+        messages.push({ role: "tool", tool_call_id: call.id, content: _sDoomMsg });
+        continue;
+      }
       sendSSE("tool", { name: call.function.name, args });
 
       const _toolLog = _logger.toolCall({ tool: call.function.name, argsSummary: JSON.stringify(args).slice(0, 200) });
       const _toolName2 = call.function?.name;
-      const _ctx2 = { cwd, rootDir, onEvent: null, agentId };
+      const _ctx2 = {
+        cwd, rootDir, agentId,
+        // 2026-10-10：registry 路徑也接事件 — 安全通知（白名單/沙箱）不因 registry adapter 而丟失
+        onEvent: (ev) => {
+          if (ev?.type === "approval_request") sendSSE("approval_request", { id: ev.id, command: ev.command, reason: ev.reason });
+          if (ev?.type === "security_notice") sendSSE("security_notice", { kind: ev.kind, domains: ev.domains, message: ev.message });
+        },
+      };
       // Pre-check if file exists (for new-file tracking)
       let _streamWasNew = false;
       if (_toolName2 === "write_file" && args.path) {
@@ -5343,6 +5389,8 @@ export async function runAgentLoopStream(config, res) {
         : await executeTool(call, cwd, rootDir, (ev) => {
             // ── 審批卡（2026-10-09）：streaming 路徑的 approval_request 事件直送 SSE ──
             if (ev?.type === "approval_request") sendSSE("approval_request", { id: ev.id, command: ev.command, reason: ev.reason });
+            // ── 安全通知（2026-10-10）：白名單阻擋/沙箱拒絕 → 使用者看得到 + 引導去安全 tab ──
+            if (ev?.type === "security_notice") sendSSE("security_notice", { kind: ev.kind, domains: ev.domains, message: ev.message });
           }, agentId, featureBoundary);
       const _toolDuration = _toolLog.done({ resultLen: toolResult.length, resultPreview: toolResult.slice(0, 200) });
       sendSSE("tool_result", { name: call.function.name, result: toolResult.slice(0, 2000) });

@@ -128,6 +128,7 @@ interface ChatMessage {
   _streaming?: boolean; // true while content is being streamed in (OpenClaw style)
   _greeting?: boolean; // true for auto-generated greeting bubbles (excluded from conversationHistory)
   _approval?: { id: string; command: string; reason?: string; decided?: string | null }; // 🛡 審批卡（2026-10-09）
+  _security?: { kind: string; domains?: string[]; message: string }; // 🛡 安全通知卡（2026-10-10）
 }
 
 interface CodingEvent {
@@ -2055,6 +2056,17 @@ const sendChat = useCallback(async () => {
                   if (currentEvent === "approval_request" && data.id) {
                     const aprMsg: ChatMessage = { role: "assistant", content: "", _approval: { id: data.id, command: String(data.command || ""), reason: String(data.reason || ""), decided: null }, ts: new Date().toISOString() };
                     setChatMessages(prev => [...prev, aprMsg]);
+                  }
+
+                  // ── 安全通知（2026-10-10）：白名單阻擋/沙箱拒絕 → 插入 🛡 通知卡（引導去安全 tab）──
+                  if (currentEvent === "security_notice" && data.message) {
+                    const secMsg: ChatMessage = { role: "assistant", content: "", _security: { kind: String(data.kind || ""), domains: Array.isArray(data.domains) ? data.domains : [], message: String(data.message) }, ts: new Date().toISOString() };
+                    setChatMessages(prev => {
+                      // 去重：同一則不連續插兩張
+                      const last = prev[prev.length - 1];
+                      if (last?._security?.message === secMsg._security!.message) return prev;
+                      return [...prev, secMsg];
+                    });
                   }
 
                   // interrupted event — agent was stopped by user
