@@ -253,14 +253,6 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
           </div>
           {hoTab === "main" ? (
           <div className="p-5 space-y-4">
-            {/* 快覽列 */}
-            <div className="grid grid-cols-4 gap-2">
-              <StatCard label={t("ho.stat.tasks")} value={String(bundle.activeTasks.length)} icon="📋" />
-              <StatCard label={t("ho.stat.releases")} value={String(bundle.releases.length)} icon="🚀" />
-              <StatCard label={t("ho.stat.deps")} value={bundle.package ? String(bundle.package.dependencies.length) : "—"} icon="📦" />
-              <StatCard label={t("ho.stat.git")} value={bundle.git.status.dirty ? t("ho.stat.dirty") : t("ho.stat.clean")} icon={bundle.git.status.dirty ? "⚠️" : "✅"} />
-            </div>
-
             {section("project", "🎯", t("ho.sec.project"), bundle.knowledge.project)}
 
             {/* Git 歷史 */}
@@ -367,12 +359,3 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
   );
 }
 
-function StatCard({ label, value, icon }: { label: string; value: string; icon: string }) {
-  return (
-    <div className="border rounded-lg px-2.5 py-2 bg-white text-center" style={{ borderColor: "#e7e5e4" }}>
-      <div className="text-sm">{icon}</div>
-      <div className="text-sm font-bold text-stone-700 font-mono">{value}</div>
-      <div className="text-[9px] text-stone-400">{label}</div>
-    </div>
-  );
-}
