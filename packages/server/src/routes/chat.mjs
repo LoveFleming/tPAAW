@@ -73,12 +73,14 @@ export default async function chatRoutes(req, res) {
     try {
       const files = await readdir(PAAW_CHAT_DIR);
       const chats = [];
-      for (const f of files.filter(f => f.endsWith(".json")).sort().reverse()) {
+      for (const f of files.filter(f => f.endsWith(".json"))) {
         try {
           const raw = JSON.parse(await readFile(resolve(PAAW_CHAT_DIR, f), "utf-8"));
           chats.push({ id: raw.id, title: raw.title || "新對話", messages: raw.messages || [], createdAt: raw.createdAt, updatedAt: raw.updatedAt });
         } catch {}
       }
+      // 2026-10-09：按 updatedAt 由新到舊排序（原按檔名字串，ms/sec 混用會誤排 → UI 選錯對話）
+      chats.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
       json(res, chats);
     } catch {
       json(res, []);
