@@ -90,11 +90,11 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto" style={{ background: tk.bg || "#fff" }}>
-      <div className="max-w-3xl mx-auto w-full px-4 py-4 space-y-5">
+    <div className="flex flex-col h-full overflow-hidden" style={{ background: tk.bg || "#fff" }}>
+      <div className="w-full h-full px-6 py-4 space-y-5 flex flex-col">
 
         {/* ── 上半：User Remarks（人寫區）── */}
-        <section className="rounded-xl border" style={{ borderColor: tk.borderLight || "#e7e5e4" }}>
+        <section className="rounded-xl border flex-none" style={{ borderColor: tk.borderLight || "#e7e5e4" }}>
           <div className="px-4 py-2.5 flex items-center gap-2 border-b" style={{ borderColor: tk.borderLight || "#e7e5e4", background: tk.bgMuted || "#fafaf9" }}>
             <span className="text-sm font-bold">📌 {t("projectMd.userRemarks")}</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">{t("projectMd.humanOnly")}</span>
@@ -127,8 +127,8 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
         </section>
 
         {/* ── 下半：AI Overview（CU 生成區）── */}
-        <section className="rounded-xl border" style={{ borderColor: tk.borderLight || "#e7e5e4" }}>
-          <div className="px-4 py-2.5 flex items-center gap-2 border-b" style={{ borderColor: tk.borderLight || "#e7e5e4", background: tk.bgMuted || "#fafaf9" }}>
+        <section className="rounded-xl border flex-1 min-h-0 flex flex-col" style={{ borderColor: tk.borderLight || "#e7e5e4" }}>
+          <div className="px-4 py-2.5 flex items-center gap-2 border-b flex-none" style={{ borderColor: tk.borderLight || "#e7e5e4", background: tk.bgMuted || "#fafaf9" }}>
             <span className="text-sm font-bold">🤖 {t("projectMd.aiOverview")}</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">{t("projectMd.autoGen")}</span>
             <div className="flex-1" />
@@ -140,7 +140,7 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
               title={t("projectMd.regenTitle")}
             >{regen ? `⏳ ${t("projectMd.regening")}` : "🔄"}</button>
           </div>
-          <div className="p-4">
+          <div className="p-4 overflow-y-auto flex-1 min-h-0">
             {aiSection ? (
               <div className="text-sm leading-relaxed" style={{ color: tk.text || "#44403c" }}>
                 <MarkdownText>{aiSection}</MarkdownText>
