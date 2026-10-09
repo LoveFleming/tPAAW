@@ -177,7 +177,7 @@ const ChatInputBar = forwardRef<ChatInputBarHandle, Props>(function ChatInputBar
           }}
           rows={2}
           placeholder={placeholder}
-          className="flex-1 text-xs rounded-lg border border-stone-200 px-2.5 py-2 resize-none focus:outline-none focus:border-stone-400 bg-white"
+          className="flex-1 text-sm rounded-lg border border-stone-200 px-3 py-2 resize-none focus:outline-none focus:border-stone-400 bg-white"
         />
         {loading ? (
           <button onClick={() => onStop?.()}

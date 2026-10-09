@@ -3751,7 +3751,7 @@ const sendChat = useCallback(async () => {
                   <div className="flex items-end gap-2">
                     <input ref={crewImageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addChatImages(Array.from(e.target.files || [])); e.target.value = ""; }} />
                     <button onClick={() => crewImageInputRef.current?.click()} disabled={pendingImages.length >= 4} title={tt("chat.attachImage")}
-                      className="text-xs px-2 py-2 rounded-lg border border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300 disabled:opacity-40 shrink-0 bg-stone-50">📎</button>
+                      className="text-xs px-2 py-2 rounded-lg border border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300 disabled:opacity-40 shrink-0 bg-stone-50">🖼️</button>
                     {/* 📄 文字檔鈕（2026-09-14）*/}
                     <input ref={crewFileInputRef} type="file" multiple className="hidden" onChange={(e) => { addChatTextFiles(Array.from(e.target.files || [])); e.target.value = ""; }} />
                     <button onClick={() => crewFileInputRef.current?.click()} disabled={pendingChatFiles.length >= 4} title={tt("chat.attachFile")}
