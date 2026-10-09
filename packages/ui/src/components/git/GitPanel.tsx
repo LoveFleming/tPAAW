@@ -541,10 +541,10 @@ export default function GitPanel(props: GitPanelProps) {
         </button>
       </div>
 
-      {/* ── Tab Content ── */}
+      {/* ── Tab Content（keep-mounted — 切換不 remount，保留滾動/展開/選取狀態；2026-10-09 Fleming：切 tab 不要 reload）── */}
       <div className="flex-1 overflow-hidden flex flex-col">
         {/* Status */}
-        {gitTab === "status" && (
+        <div className="flex-1 overflow-hidden flex flex-col" style={{ display: gitTab === "status" ? undefined : "none" }}>
           <GitStatusView
             gitStatus={gitStatus}
             unpushed={unpushed}
@@ -572,10 +572,10 @@ export default function GitPanel(props: GitPanelProps) {
             theme={theme}
             tt={tt}
           />
-        )}
+        </div>
 
         {/* Diff */}
-        {gitTab === "diff" && (
+        <div className="flex-1 overflow-hidden flex flex-col" style={{ display: gitTab === "diff" ? undefined : "none" }}>
           <GitDiffView
             diffText={gitDiff}
             diffMode={activeDiffMode}
@@ -587,7 +587,7 @@ export default function GitPanel(props: GitPanelProps) {
             fmtTime={fmtTime as any}
             theme={theme}
           />
-        )}
+        </div>
 
       </div>
 
