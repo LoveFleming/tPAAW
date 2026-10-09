@@ -1,13 +1,1 @@
-{
-  "coding.handover": {
-    "displayName": "Zosia 測試",
-    "greeting": "嗨",
-    "tone": "concise"
-  },
-  "coding.developer": {
-    "tone": "concise"
-  },
-  "my.assistant": {
-    "displayName": "小雨"
-  }
-}
+{}
