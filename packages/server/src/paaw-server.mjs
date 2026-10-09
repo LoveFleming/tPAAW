@@ -111,6 +111,7 @@ const ROUTE_MODULES = [
   "./routes/apps.mjs",
   "./routes/crew.mjs",
   "./routes/assistant.mjs",
+  "./routes/assistant-skills.mjs",
   "./routes/pocket.mjs",
   "./routes/mindmap.mjs",
   "./routes/notes.mjs",

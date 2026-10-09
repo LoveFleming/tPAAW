@@ -5,6 +5,7 @@ import remarkBreaks from "remark-breaks";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import AssistantProfileModal from "../components/AssistantProfileModal";
+import AssistantSkillsModal from "../components/AssistantSkillsModal";
 
 // ── Module-level pending seed message ──
 let _pendingSeed: string | null = null;
@@ -196,6 +197,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   const [isLoading, setIsLoading] = useState(false);
   const [showChatList, setShowChatList] = useState(false);
   const [showAssistantSettings, setShowAssistantSettings] = useState(false);
+  const [showAssistantSkills, setShowAssistantSkills] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [showAppLauncher, setShowAppLauncher] = useState(false);
   // 🧠 Context debug（2026-09-26 Fleming：prompt 按鈕跟 coding app agent chat 對齊）
@@ -746,6 +748,10 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
             <button onClick={() => setShowAssistantSettings(true)} className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accent }} title="個人助理設定（名字/照片/開場白/語氣）">
               🧑‍💼
             </button>
+            {/* 🧩 個人助理技能設定（2026-10-09 Fleming：勾選 skill，存 paaw data）*/}
+            <button onClick={() => setShowAssistantSkills(true)} className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accent }} title="個人助理技能設定（勾選可用 skill）">
+              🧩
+            </button>
             {/* ── 按鈕 trio 跟 coding app agent chat 同款（2026-09-26 Fleming）：📋 歷史對話 / 🧠 看 context / 💬 開新對話，統一 accent 色外框 ── */}
             <button onClick={() => setShowChatList(!showChatList)} className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accent }} title="歷史對話">
               📋
@@ -960,6 +966,13 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
           themeInfo={{ accent: themeInfo.accent, accentBorder: themeInfo.accentBorder, accentBg: themeInfo.accentBg }}
           onClose={() => setShowAssistantSettings(false)}
           onSaved={loadCrewInfo}
+        />
+      )}
+
+      {showAssistantSkills && (
+        <AssistantSkillsModal
+          themeInfo={{ accent: themeInfo.accent, accentBg: themeInfo.accentBg }}
+          onClose={() => setShowAssistantSkills(false)}
         />
       )}
 

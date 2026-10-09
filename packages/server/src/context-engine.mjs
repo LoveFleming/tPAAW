@@ -21,6 +21,7 @@ import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { resolveDefaultModel } from "./lib/llm-utils.mjs";
 import { DATA_HOME } from "./data-home.mjs";
+import { buildAssistantSkillsPrompt } from "./lib/assistant-skills.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -325,6 +326,11 @@ export const contextEngine = {
       buildDynamicContext(),
       ...readCategoryFiles("chat"),
     ];
+    // 2026-10-09 Fleming：林雨晴可掛技能 — 注入已啟用技能清單 + 路徑 + 內容
+    try {
+      const skillsSection = buildAssistantSkillsPrompt();
+      if (skillsSection) parts.push(skillsSection);
+    } catch (err) { console.warn("[Context] assistant skills injection failed:", err.message); }
     const tools = buildRuntimeTools();
     if (tools) parts.push(tools);
 
