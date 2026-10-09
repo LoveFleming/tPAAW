@@ -12,7 +12,8 @@ import { pasteMayContainImage, extractPasteFiles } from "../utils/pasteFiles";
 import API_BASE from "../api";
 import { stableStringify, fmtChatTime } from "../utils";
 import { useI18n } from "../i18n";
-import MarkdownText from "./MarkdownText"; // markdown 渲染（含 GFM table）
+import MarkdownText from "./MarkdownText";
+import { LoadingIndicator, ToolBadges, type ChatToolBadge } from "./ChatMessages"; // 2026-10-09：side chat 與 agent chat UI 一致（Fleming 要求） // markdown 渲染（含 GFM table）
 import ModelSelector from "./ModelSelector"; // 2026-10-09 Fleming：side chat 跟 crew chat 同款 model selector
 import { uiAlert, uiAlertError } from "./ui/uiFeedback";
 
@@ -79,6 +80,8 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [action, setAction] = useState<string>("");
+  // 2026-10-09：tool badges — 跟 agent chat（ChatView）同款
+  const [activeTools, setActiveTools] = useState<ChatToolBadge[]>([]);
   const [model, setModel] = useState(""); // 2026-10-09：per-side-chat model override（ModelSelector 初始値讀 user preference）
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null); // 聊天容器：用容器 scrollTo，不用 scrollIntoView（會拖祖先容器）
@@ -335,6 +338,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
     if (viewingArchive) setViewingArchive(null); // 在歷史裡接話 → 這條線變成新的目前對話（存檔寫 active）
     setLoading(true);
     setAction("💭 思考中…");
+    setActiveTools([]);
 
     const ac = new AbortController();
     abortRef.current = ac;
@@ -379,17 +383,24 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
             if (currentEvent === "thinking" && d.content) {
               setAction("💭 思考中…");
             } else if ((currentEvent === "tool" || currentEvent === "tool_result") && d.name) {
-              // 2026-09-29 fix：tool 結果是獨立 event:tool_result — 舊碼配不到 → 執行完不回「思考中」
-              const labels: Record<string, string> = {
-                read_file: "📖 讀取", write_file: "✏️ 寫入", edit_file: "✏️ 編輯",
-                glob: "🔍 找檔案", grep: "🔍 搜內容", bash: "⚡ 執行", git: "🔄 Git",
+              // 2026-10-09：跟 agent chat（ChatView）同款 — badges + 中文 action labels
+              const label = d.name.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+              const labelShort = label.replace(/ App/g, "");
+              const actionLabels: Record<string, string> = {
+                read_file: "📖 讀取檔案", write_file: "✏️ 寫入檔案", edit_file: "✏️ 編輯檔案",
+                glob: "🔍 搜尋檔案", grep: "🔍 搜尋內容", bash: "⚡ 執行指令", git: "🔄 Git",
               };
               if (d.args !== undefined) {
                 const argsObj = typeof d.args === "string" ? (() => { try { return JSON.parse(d.args); } catch { return {}; } })() : d.args;
                 const detail = argsObj?.path || argsObj?.pattern || argsObj?.command || "";
-                setAction(`${labels[d.name] || `🔧 ${d.name}`} ${String(detail).split(/[\/\\]/).pop()}`);
+                setAction(`${actionLabels[d.name] || `🔧 ${labelShort}`} ${String(detail).split(/[\/\\]/).pop()}`);
+                setActiveTools(prev => [...prev, { name: labelShort, status: "running" }]);
               }
-              if (d.result !== undefined) setAction("💭 思考中…");
+              if (d.result !== undefined) {
+                setActiveTools(prev => prev.map(t => t.name === labelShort ? { ...t, status: d.result?.error ? "error" : "done" } : t));
+                setTimeout(() => setActiveTools(prev => prev.filter(t => t.name !== labelShort)), 1500);
+                setAction("💭 思考中…");
+              }
             } else if (currentEvent === "content" && d.content) {
               fullText = d.content;
               setMessages(prev => [...prev, { role: "assistant", content: d.content, ts: new Date().toISOString() }]);
@@ -490,7 +501,6 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
           <span className="text-base">{agentEmoji}</span>
         )}
         <span className="text-xs font-bold text-stone-700">{agentName}</span>
-        {loading && <span className="text-[10px] text-stone-400 animate-pulse ml-auto">{action || "處理中…"}</span>}
         {/* 2026-09-17 Fleming：三按鈕（跟 crew chat 一致）— 📋 歷史 / 🧠 注入 prompt / 💬 新對話 */}
         {/* 2026-10-09 Fleming：加 ModelSelector（modelFeature 有帶就顯示，跟 QA browser / crew chat 同款）*/}
         {(persistCrewId || modelFeature) && (
@@ -652,7 +662,10 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
               <div className="flex items-center gap-2 mb-0.5">
                 <span className="text-xs font-medium text-stone-600">{agentName}</span>
               </div>
-              <div className="px-3.5 py-2 rounded-2xl bg-white shadow-sm border border-stone-100 text-sm text-stone-400 animate-pulse">{action || "💭 思考中…"}</div>
+              <div>
+                <LoadingIndicator accent={accent} label={action || "💭 思考中…"} />
+                {activeTools.length > 0 && <ToolBadges tools={activeTools} />}
+              </div>
             </div>
           </div>
         )}

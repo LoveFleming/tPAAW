@@ -150,7 +150,7 @@ function ChatAvatar({
 
 // ── Loading Indicator ──
 
-function LoadingIndicator({ accent, label = "思考中" }: { accent?: string; label?: string }) {
+export function LoadingIndicator({ accent, label = "思考中" }: { accent?: string; label?: string }) {
   const color = accent || "#10b981";
   const isThinking = label.includes("思考") || label.includes("thinking") || label.includes("規劃") || label === "思考中";
   return (
@@ -173,7 +173,7 @@ function LoadingIndicator({ accent, label = "思考中" }: { accent?: string; la
 
 // ── Tool Badges ──
 
-function ToolBadges({ tools }: { tools: ChatToolBadge[] }) {
+export function ToolBadges({ tools }: { tools: ChatToolBadge[] }) {
   if (!tools.length) return null;
   return (
     <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-stone-100">
