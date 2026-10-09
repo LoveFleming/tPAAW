@@ -5,6 +5,12 @@
 
 ---
 
+## 部署環境的隔離脈絡（2026-10-09 Fleming 補充）
+
+- **公司開發機本來就連不到 production**（公司網路政策）— PAAW 跑在公司機上時，這層「能力沙箱」由公司環境提供，AI 就算失控也碰不到 production
+- **家裡 Mac mini** 沒有公司那種網路隔離 — 所以 v4 在 Mac mini 補 sandbox-exec 網路沙箱
+- 結論：防護是疊加的 — script-guard 系（pattern/越權攔截）跨平台自帶；網路層隔離按環境（公司=網路政策，Mac mini=sandbox-exec）
+
 ## 威脅模型
 
 PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
