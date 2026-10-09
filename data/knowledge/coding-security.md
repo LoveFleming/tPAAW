@@ -23,6 +23,7 @@ PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
 ② 檔案邊界      哪些路徑寫得到        isPathAllowed（cwd 限制 + WRITE_BLACKLIST）
 ③ 執行入口攔截  哪些檔案絕不能寫      script-guard A
 ④ Process 鐵律  哪些 process 碰不得   shell-guard（pkill/killall 擋、PAAW 自身不可啟停）
+④½ 網路沙箱   哪些網路連得到      sandbox-exec（macOS）— deny network*，只放行 localhost
 ⑤ 內容掃描      執行前掃 script 內容  script-guard C（bash）+ B（env_exec）
 ⑥ 人審流程      出了事誰把關          ask_user / QA·RM review / no-push 紀律
 ⑦ 審計追蹤      事後怎麼查            action log / agent memory / LLM log → ES
@@ -66,6 +67,16 @@ PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
 - `pkill` / `killall` / `taskkill` 一律擋
 - `kill` 只放行**本 RU 受控 dev-server pid**
 - PAAW coding app 自身（paaw-server / tPAAW vite / port 4097·4098·4100·5173）永遠不可啟停
+
+## ④½ 網路沙箱（paaw-sandbox — 2026-10-09 v4，Fleming 定調「只能透過受控通道連出去」）
+
+**macOS `sandbox-exec`（Seatbelt）包住 agent 的 bash：`(deny network*)` + localhost loopback 放行。**
+
+- 效果：外部 URL 外傳、混淆 payload（base64+eval、字串拼接、環境變數帶 URL）、DNS 外解 — **在網路層死，不靠 pattern 猜意圖**（實測 12 場景 + executeTool 整合 6 案全過）
+- 零影響：npm test / git commit / localhost API 測試 / 起 dev server（network-inbound localhost 放行）照常
+- **受控 egress 白名單**（不包沙箱、需要網路的指令）：npm/yarn/pnpm install、pip install、npx、git clone/fetch/pull、brew install — npm install 前由 script-guard 掃 package.json **全部 scripts**（preinstall/postinstall 是 npm 自動執行點 — 「AI 塞惡意 hook 再 install」的鏈在這裡斷）
+- 非 macOS（公司 Windows/Linux）：本層不生效，退回 pattern 掃描防護（升級路徑：Windows Job Objects / AppContainer）
+- profile：`/tmp/paaw-sandbox/agent-net-off.sb`（runtime 生成，lib/paaw-sandbox.mjs）
 
 ## ⑤ 內容掃描（script-guard B+C — 2026-10-09 上線）
 

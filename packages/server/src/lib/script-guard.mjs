@@ -124,6 +124,21 @@ export function guardScriptExecution(command, cwd) {
     } catch { /* 讀不到就放行給 shell 自然報錯 */ }
   }
 
+  // install 類（npm/pip install 等）：執行前掃 package.json「全部」scripts —
+  // npm install 會自動跑 preinstall/install/postinstall/prepare — AI 先塞惡意 hook 再 install 的鏈在這裡斷
+  if (/\b(npm|yarn|pnpm|bun)\s+(install|i|ci|update|add)\b/.test(cmd)) {
+    try {
+      const pkgPath = resolvePath(cwd || process.cwd(), "package.json");
+      if (existsSync(pkgPath)) {
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+        for (const [k, v] of Object.entries(pkg.scripts || {})) {
+          const r = scanScriptContent(String(v), `package.json:scripts.${k}`);
+          if (r.dangerous) return { blocked: true, message: blockMsg(r, `package.json scripts.${k}（npm install 會自動執行）`) };
+        }
+      }
+    } catch { /* package.json 讀不到 → npm 自己會失敗，放行 */ }
+  }
+
   // npm run <script>：解析 package.json scripts 值掃描
   const npmRun = cmd.match(/\bnpm\s+run\s+([\w:-]+)/);
   if (npmRun) {
