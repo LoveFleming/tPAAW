@@ -46,6 +46,7 @@ import DiffViewer from "../components/DiffViewer";
 import SessionHistory from "../components/SessionHistory";
 
 import DecisionLog from "../components/DecisionLog";
+import ProjectMdPage from "../components/ProjectMdPage"; // 📖 PROJECT.md（schema v2 — 2026-10-09）
 import ModelSelector from "../components/ModelSelector";
 import { ChatMessages, type ChatMessageItem } from "../components/ChatMessages";
 import IssueTracker from "../components/IssueTracker";
@@ -103,7 +104,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests" | "qa-records";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests" | "qa-records" | "project";
 
 interface MainTab {
   id: string;
@@ -692,6 +693,7 @@ export default function CodingIDE() {
       { id: "tool:tests", type: "tests", label: tt("tests.toolbar"), icon: "🧪", closable: true },
     ]},
     { id: "project", icon: "🗺️", tools: [
+      { id: "tool:project", type: "project", label: tt("projectMd.toolbar"), icon: "📖", closable: true },
       { id: "tool:decisions", type: "decisions", label: "Decisions", icon: "📜", closable: true },
       { id: "tool:features", type: "features", label: "Features", icon: "🗺️", closable: true },
     ]},
@@ -1138,7 +1140,7 @@ export default function CodingIDE() {
         console.log(`[CodingIDE] Parsed ${savedTabs?.length || 0} saved tabs, active=${savedActive}`);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
-          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "browser", "terminal", "ai-crew", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel", "tests"]);
+          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "browser", "terminal", "ai-crew", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel", "tests", "project"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", ")); // nosemgrep: unsafe-formatstring — 模板無 % 指示符，內部 log
           // Restore tabs (dashboard is already present)
@@ -3981,6 +3983,17 @@ const sendChat = useCallback(async () => {
               <div key="tool:decisions" className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTab?.type === "decisions" ? undefined : "none" }}>
                 <DecisionLog projectRoot={rootPath} />
+              </div>
+            )}
+
+            {/* === 📖 PROJECT.md Tab（schema v2 — User Remarks + AI Overview，2026-10-09）=== */}
+            {mainTabs.some(t => t.type === "project") && rootPath && (
+              <div key="tool:project" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "project" ? undefined : "none" }}>
+                <ProjectMdPage
+                  rootPath={rootPath}
+                  theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
+                />
               </div>
             )}
 

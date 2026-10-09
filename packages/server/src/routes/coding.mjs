@@ -38,6 +38,7 @@ import { fileURLToPath } from "url";
 import { exec as execCb } from "child_process";
 import { shellExec, IS_WIN } from "../lib/shell-exec.mjs";
 import { createPaawProject, maybeWriteProjectDraft } from "../lib/paaw-project.mjs";
+import { parseProjectMd, buildProjectMd, regenerateProjectMd, USER_START, USER_END, AI_START, AI_END } from "../lib/project-md.mjs";
 import { callLLMWithRetry, dateTimeContextBlock, parseModelReference } from "../lib/llm-utils.mjs";
 import { normalizePath, readBody } from "./shared.mjs";
 import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
@@ -73,10 +74,10 @@ const CU_STEP_FILES = {
   "error-codes": "error-codes.json",
   "c4-model": "c4-model.json",
   // 人寫的非自動 step（給健康檢查參考）
-  overview: "project/PROJECT.md",
+  overview: "project/PROJECT.md", // ⚠️ FILE_MAP 映射：PaawProject 讀寫 PROJECT.md 實際落在 project/ 子目錄（含自動遷移）— staleness 要看實體路徑
 };
 const CU_MECHANICAL_STEPS = new Set(["code-intelligence", "test-intelligence"]);
-const CU_MANUAL_STEPS = new Set(["overview", "standards"]); // 人寫文件 — CU 重跑不會更新，過期只能人工改
+const CU_MANUAL_STEPS = new Set(["standards"]); // 2026-10-09：overview 改 AI 生成（每次 CU 重寫 AI 區、USER 區保護），不再是人寫文件
 const STALE_TOLERANCE_MS = 2000; // 同步競態容差
 function computeCuStaleness(root, steps, codeLastModifiedMs) {
   const staleSteps = [];
@@ -2513,6 +2514,45 @@ export default async function projectRoute(req, res) {
       }
     }
 
+    // ── PROJECT.md（schema v2 — User Remarks + AI Overview）2026-10-09 ──
+    // GET：讀兩區內容；POST：只寫 User Remarks 區（AI 區保留）；POST /regenerate：重寫 AI 區
+    if (url.startsWith("/api/coding-project/project-md") && method === "GET") {
+      if (!paaw.exists) await paaw.init();
+      const md = await paaw.readFile("PROJECT.md");
+      const respond = (obj) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
+      if (md == null) {
+        respond({ exists: false, userSection: "", aiSection: "" });
+      } else {
+        const parsed = parseProjectMd(md);
+        respond({ exists: true, ...parsed, full: md });
+      }
+      return true;
+    }
+    if (url.startsWith("/api/coding-project/project-md/regenerate") && method === "POST") {
+      if (!paaw.exists) await paaw.init();
+      let modelOverride = null;
+      try { const b = JSON.parse(await readBody(req) || "{}"); modelOverride = b.model || null; } catch {}
+      const r = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: modelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
+      try { await paaw.setCuStepStatus("overview", "done", { summary: `${r.features} features（${r.aiSource}）` }); } catch {}
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(r));
+      return true;
+    }
+    if (url.startsWith("/api/coding-project/project-md") && method === "POST") {
+      if (!paaw.exists) await paaw.init();
+      const body = JSON.parse(await readBody(req) || "{}");
+      const md = await paaw.readFile("PROJECT.md");
+      const parsed = parseProjectMd(md);
+      // 檔名：package.json name > root basename
+      let name = root.split(/[\\/]/).pop() || "Project";
+      try { const pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8")); if (pkg.name) name = pkg.name; } catch {}
+      const next = buildProjectMd(name, String(body.userSection ?? ""), parsed.aiSection);
+      await paaw.writeFile("PROJECT.md", next);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+      return true;
+    }
+
     // ── POST /api/coding-project/generate-overview ──
     if (url.startsWith("/api/coding-project/generate-overview") && method === "POST") {
       // Ensure .paaw/ exists first
@@ -3152,14 +3192,15 @@ export default async function projectRoute(req, res) {
               sendEvent("info", { message: `L3 validation: ${s.mappingErrors} errors, ${s.coveragePct}% coverage, ${s.orphanFiles} orphans` });
             }
           } catch {}
-          // CU 收尾：PROJECT.md 確定性初稿（2026-09-20 — placeholder/缺失才寫，人寫過永不覆蓋）
+          // CU 收尾：PROJECT.md 重生成（2026-10-09 Fleming — schema v2：AI 區每次重寫、USER 區絕不覆蓋）
           try {
-            const draft = await maybeWriteProjectDraft(root);
+            const draft = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
+            try { await paaw.setCuStepStatus("overview", "done", { summary: `${draft.features} features（${draft.aiSource}）` }); } catch {}
             if (draft.written) {
-              cuLog("overview", `PROJECT.md draft written (${draft.features} features)`);
-              sendEvent("info", { message: `📝 PROJECT.md 已生成確定性初稿（${draft.features} features 摘要，零 LLM token）— 人類可直接編輯` });
+              cuLog("overview", `PROJECT.md ${draft.reason} (${draft.features} features, ${draft.aiSource})`);
+              sendEvent("info", { message: `📝 PROJECT.md 已更新（${draft.reason}，${draft.features} features，${draft.aiSource === "llm" ? "AI 生成" : "確定性骨架"}）— User Remarks 區不受影響` });
             }
-          } catch (e) { cuLog("overview", `draft failed: ${e.message}`); }
+          } catch (e) { cuLog("overview", `regenerate failed: ${e.message}`); }
         }
         sendEvent("done", { message: "Step complete" });
       } catch (err) {
@@ -3662,14 +3703,15 @@ export default async function projectRoute(req, res) {
           sendEvent("step_done", { step: "validate", name: "🔍 L3 驗證", summary: `Skipped: ${err.message}` });
         }
 
-        // CU 收尾：PROJECT.md 確定性初稿（2026-09-20 Fleming — 零 LLM token；placeholder/缺失才寫）
+        // CU 收尾：PROJECT.md 重生成（2026-10-09 Fleming — schema v2：AI 區每次重寫、USER 區絕不覆蓋）
         try {
-          const draft = await maybeWriteProjectDraft(root);
+          const draft = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
+          try { await paaw.setCuStepStatus("overview", "done", { summary: `${draft.features} features（${draft.aiSource}）` }); } catch {}
           if (draft.written) {
-            cuLog("overview", `PROJECT.md draft written (${draft.features} features)`);
-            sendEvent("info", { message: `📝 PROJECT.md 已生成確定性初稿（${draft.features} features 摘要，零 LLM token）— 人類可直接編輯` });
+            cuLog("overview", `PROJECT.md ${draft.reason} (${draft.features} features, ${draft.aiSource})`);
+            sendEvent("info", { message: `📝 PROJECT.md 已更新（${draft.reason}，${draft.features} features，${draft.aiSource === "llm" ? "AI 生成" : "確定性骨架"}）— User Remarks 區不受影響` });
           }
-        } catch (e) { cuLog("overview", `draft failed: ${e.message}`); }
+        } catch (e) { cuLog("overview", `regenerate failed: ${e.message}`); }
 
         sendEvent("done", { message: "Code Understanding complete" });
       } catch (err) {
