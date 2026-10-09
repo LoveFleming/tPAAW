@@ -92,7 +92,7 @@ const TOOL_GROUPS = [
   { id: "notes", name: "📝 Notes", desc: "筆記讀寫" }, // 2026-09-06 補齊
 ];
 
-type DetailTab = "profile" | "model" | "memory" | "system";
+type DetailTab = "profile" | "model" | "skills" | "memory" | "system";
 
 // 使用者基本資料（2026-10-09 Fleming：personal profile — 照片/名字等，全域 data/crew-preferences.json，跟著使用者走）
 interface CrewPrefs {
@@ -541,6 +541,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
               {([
                 { key: "profile" as const, label: "🪪 基本資料" },
                 { key: "model" as const, label: "🤖 模型" },
+                { key: "skills" as const, label: "🔧 技能" },
                 { key: "memory" as const, label: "💾 記憶" },
                 { key: "system" as const, label: "⚙️ 系統（唯讀）" },
               ]).map(tab => (
@@ -557,6 +558,40 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
             {/* Tab Content */}
             <div className="flex-1 overflow-y-auto p-5">
               {/* ════ Rules Tab ════ */}
+              {/* ════ 🔧 技能 Tab（2026-10-09 Fleming：綁定存 RU .paaw；實體種入 {ru}/.paaw/skills/）════ */}
+              {detailTab === "skills" && (
+                <div className="space-y-3 max-w-2xl">
+                  <div className="text-xs text-stone-500 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
+                    🔧 技能<b>綁定</b>存在 release unit 的 .paaw（跟著這個專案走）；技能<b>實體</b>種入 <code>{'{ru}'}/.paaw/skills/</code>。<br />
+                    Agent 對話時，已綁定技能的定義會注入 system prompt。
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-stone-500">
+                      已綁定 <b>{editSkills.length}</b> 個技能
+                      {editSkills.length === 0 && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">系統預設（無）</span>}
+                    </div>
+                    <button onClick={() => setShowRuSkills(true)}
+                      className="text-xs px-3 py-1.5 rounded-lg border hover:bg-stone-50"
+                      style={{ borderColor: t.borderLight, color: t.accent }}>
+                      🧩 RU 技能實例管理（種入 / 跟版 / 客製狀態）
+                    </button>
+                  </div>
+
+                  <SkillPicker
+                    rootPath={rootPath}
+                    selected={editSkills}
+                    onChange={setEditSkills}
+                    theme={{ bg: t.bg, bgMuted: t.bgMuted, borderLight: t.borderLight, accent: t.accent, text: t.text }}
+                  />
+                  <button onClick={saveSkills} disabled={saving}
+                    className="px-4 py-2 text-sm font-bold text-white rounded-lg"
+                    style={{ backgroundColor: t.accent, opacity: saving ? 0.6 : 1 }}>
+                    {saving ? "儲存中..." : "💾 儲存技能綁定"}
+                  </button>
+                </div>
+              )}
+
               {detailTab === "memory" && (
                 <div className="space-y-3 max-w-2xl">
                   <div className="flex items-center justify-between">
