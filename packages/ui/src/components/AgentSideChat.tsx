@@ -8,14 +8,13 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { pasteMayContainImage, extractPasteFiles } from "../utils/pasteFiles";
 import API_BASE from "../api";
 import { stableStringify, fmtChatTime } from "../utils";
 import { useI18n } from "../i18n";
 import MarkdownText from "./MarkdownText";
 import { LoadingIndicator, ToolBadges, type ChatToolBadge } from "./ChatMessages"; // 2026-10-09：side chat 與 agent chat UI 一致（Fleming 要求） // markdown 渲染（含 GFM table）
-import ModelSelector from "./ModelSelector"; // 2026-10-09 Fleming：side chat 跟 crew chat 同款 model selector
-import { uiAlert, uiAlertError } from "./ui/uiFeedback";
+import ModelSelector from "./ModelSelector";
+import ChatInputBar, { type ChatInputBarHandle, type PendingImage, type PendingFile } from "./ChatInputBar"; // 2026-10-09 Fleming：side chat 跟 crew chat 同款 model selector
 
 // fetch crew 大頭照（AI Crew 頁面同一張）+ 使用者偏好覆蓋（2026-10-09：頭像/顯示名/開場白偏好層）
 function useCrewAvatar(agentId: string, enabled: boolean) {
@@ -86,13 +85,13 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
   modelFeature,
 }: AgentSideChatProps, ref) {
   const [messages, setMessages] = useState<SideChatMessage[]>([]);
-  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [action, setAction] = useState<string>("");
   // 2026-10-09：tool badges — 跟 agent chat（ChatView）同款
   const [activeTools, setActiveTools] = useState<ChatToolBadge[]>([]);
   const [model, setModel] = useState(""); // 2026-10-09：per-side-chat model override（ModelSelector 初始値讀 user preference）
   const abortRef = useRef<AbortController | null>(null);
+  const inputRef = useRef<ChatInputBarHandle>(null);
   const scrollRef = useRef<HTMLDivElement>(null); // 聊天容器：用容器 scrollTo，不用 scrollIntoView（會拖祖先容器）
   const nearBottomRef = useRef(true);
   const composingRef = useRef(false); // IME 三層保護（可靠層）
@@ -207,70 +206,6 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
   }, [agentId, cwd]);
 
   // 👁 agent chat 貼圖（2026-08-30）：paste/drop/picker → 壓縮 → 上傳 → a2a parts 喜vision model
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const [pendingImages, setPendingImages] = useState<{ id: string; dataUrl: string }[]>([]);
-  const [dragOver, setDragOver] = useState(false);
-  // 📄 文字檔附件（2026-09-14）：picker/drop/paste → 讀文字 → 上傳 → read_file / inline
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [pendingFiles, setPendingFiles] = useState<{ id: string; name: string; size: number; text: string }[]>([]);
-  const MAX_FILE_BYTES = 2 * 1024 * 1024;
-  const readAsText = useCallback((file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(String(r.result ?? ""));
-      r.onerror = () => reject(new Error("read fail"));
-      r.readAsText(file, "utf-8");
-    });
-  }, []);
-  const addTextFiles = useCallback(async (files: File[]) => {
-    const texts = files.filter(f => !f.type.startsWith("image/"));
-    if (texts.length === 0) return;
-    const room = 4 - pendingFiles.length;
-    if (room <= 0) { uiAlert(tt("chat.fileLimit")); return; }
-    const results: { id: string; name: string; size: number; text: string }[] = [];
-    for (const f of texts.slice(0, room)) {
-      if (f.size > MAX_FILE_BYTES) { uiAlertError(`${f.name}: ${tt("chat.fileTooLarge")}`); continue; }
-      try {
-        const text = await readAsText(f);
-        if (text.includes("\u0000")) { uiAlertError(`${f.name}: ${tt("chat.fileBinary")}`); continue; }
-        results.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: f.name, size: f.size, text });
-      } catch { uiAlertError(`${f.name}: ${tt("chat.fileReadFail")}`); }
-    }
-    if (results.length > 0) setPendingFiles(p => [...p, ...results].slice(0, 4));
-  }, [pendingFiles.length, readAsText, tt]);
-  const compressImage = useCallback((file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const img = new Image();
-        img.onload = () => {
-          const MAX = 1568;
-          const scale = Math.min(1, MAX / Math.max(img.width, img.height));
-          const w = Math.max(1, Math.round(img.width * scale));
-          const h = Math.max(1, Math.round(img.height * scale));
-          const canvas = document.createElement("canvas");
-          canvas.width = w; canvas.height = h;
-          canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL("image/jpeg", 0.8));
-        };
-        img.onerror = () => reject(new Error("image load fail"));
-        img.src = String(reader.result);
-      };
-      reader.onerror = () => reject(new Error("file read fail"));
-      reader.readAsDataURL(file);
-    });
-  }, []);
-  const addImages = useCallback(async (files: File[]) => {
-    const imgs = files.filter(f => f.type.startsWith("image/"));
-    if (imgs.length === 0) return;
-    const room = 4 - pendingImages.length;
-    if (room <= 0) { uiAlert(tt("chat.imageLimit")); return; }
-    const results: { id: string; dataUrl: string }[] = [];
-    for (const f of imgs.slice(0, room)) {
-      try { results.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, dataUrl: await compressImage(f) }); } catch {}
-    }
-    if (results.length > 0) setPendingImages(p => [...p, ...results].slice(0, 4));
-  }, [compressImage, pendingImages.length, tt]);
 
 
   // 串流抖動修復：新訊息 smooth；同一訊息內容增長（串流 chunk）用 instant + 只在使用者在底部附近時
@@ -292,15 +227,14 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
     }
   }, [messages, loading]);
 
-  const send = useCallback(async (text?: string) => {
-    const msg = (text ?? input).trim();
-    if ((!msg && pendingImages.length === 0 && pendingFiles.length === 0) || loading) return;
-    setInput("");
+  const submit = useCallback(async ({ text, images, files }: { text: string; images: PendingImage[]; files: PendingFile[] }) => {
+    const msg = text.trim();
+    if ((!msg && images.length === 0 && files.length === 0) || loading) return;
 
     // 👁 先上傳 pending 圖 → 換 path（失敗跳過）
     let uploadedPaths: string[] = [];
-    if (pendingImages.length > 0) {
-      const results = await Promise.all(pendingImages.map(async (img) => {
+    if (images.length > 0) {
+      const results = await Promise.all(images.map(async (img) => {
         try {
           const r = await fetch(`${API_BASE}/api/uploads`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataUrl: img.dataUrl }) });
           const j = await r.json();
@@ -309,15 +243,12 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
       }));
       uploadedPaths = results.filter(Boolean) as string[];
     }
-    setPendingImages([]);
 
     // 📄 上傳 pending 文字檔 → path（失敗 fallback：小檔直接 inline，大檔提示失敗）
     const INLINE_LIMIT = 8000;
     let textPart = msg;
     const fileMeta: { name: string; size: number }[] = [];
-    if (pendingFiles.length > 0) {
-      const files = pendingFiles;
-      setPendingFiles([]);
+    if (files.length > 0) {
       for (const f of files) {
         fileMeta.push({ name: f.name, size: f.size });
         let uploaded: { abs?: string; rel?: string } | null = null;
@@ -446,13 +377,13 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
       setAction("");
       abortRef.current = null;
     }
-  }, [input, loading, messages, agentId, cwd, pendingImages, pendingFiles, tt, viewingArchive, model]);
+  }, [loading, messages, agentId, cwd, tt, viewingArchive, model]);
 
   // 外部注入訊息（Handover QA chips → AI；不改變內部訊息流）
   React.useImperativeHandle(ref, () => ({
-    send: (text: string) => { send(text); },
-    addFiles: (files: File[]) => { addImages(files); addTextFiles(files); },
-  }), [send, addImages, addTextFiles]);
+    send: (text: string) => { submit({ text, images: [], files: [] }); },
+    addFiles: (files: File[]) => { inputRef.current?.addFiles(files); },
+  }), [submit]);
 
   return (
     <div className="flex flex-col border-l relative" style={{ borderColor: "#e7e5e4", height }}>
@@ -598,7 +529,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
             {suggestions.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-3 justify-center">
                 {suggestions.map(s => (
-                  <button key={s.label} onClick={() => send(s.prompt)}
+                  <button key={s.label} onClick={() => submit({ text: s.prompt, images: [], files: [] })}
                     className="text-[10px] px-2.5 py-1 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300 transition-colors">
                     {s.label}
                   </button>
@@ -682,78 +613,15 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
         )}
       </div>
 
-      {/* Input — IME 三層保護：composingRef → isComposing → keyCode 229 */}
-      <div className="border-t p-2 shrink-0" style={{ borderColor: "#e7e5e4" }}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => { e.preventDefault(); setDragOver(false); const files = Array.from(e.dataTransfer.files); addImages(files); addTextFiles(files); }}>
-        {/* 👁 待送圖預覽 */}
-        {pendingImages.length > 0 && (
-          <div className="flex gap-1.5 mb-1.5 flex-wrap">
-            {pendingImages.map(img => (
-              <div key={img.id} className="relative group">
-                <img src={img.dataUrl} alt="" className="w-14 h-14 object-cover rounded-lg border border-stone-200" />
-                <button onClick={() => setPendingImages(p => p.filter(x => x.id !== img.id))} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-stone-700 text-white text-[9px] flex items-center justify-center opacity-80 hover:opacity-100">✕</button>
-              </div>
-            ))}
-          </div>
-        )}
-        {/* 📄 待送文字檔預覽 */}
-        {pendingFiles.length > 0 && (
-          <div className="flex gap-1.5 mb-1.5 flex-wrap">
-            {pendingFiles.map(f => (
-              <div key={f.id} className="relative group">
-                <span className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-white border border-stone-200 text-[10px] text-stone-600 max-w-[220px]">
-                  <span>📄</span>
-                  <span className="truncate" title={f.name}>{f.name}</span>
-                  <span className="text-stone-400 shrink-0">{(f.size / 1024).toFixed(1)}KB</span>
-                </span>
-                <button onClick={() => setPendingFiles(p => p.filter(x => x.id !== f.id))} className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-stone-700 text-white text-[9px] flex items-center justify-center opacity-80 hover:opacity-100">✕</button>
-              </div>
-            ))}
-          </div>
-        )}
-        {dragOver && <div className="mb-1.5 text-[10px] px-2 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">{tt("chat.imageDropHere")}</div>}
-        <div className="flex gap-1.5 items-end">
-          {/* 👁 📞 貼圖鈕 */}
-          <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addImages(Array.from(e.target.files || [])); e.target.value = ""; }} />
-          <button onClick={() => imageInputRef.current?.click()} disabled={pendingImages.length >= 4} title={tt("chat.attachImage")}
-            className="text-xs px-2 py-2 rounded-lg border border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300 disabled:opacity-40 shrink-0 bg-stone-50">🖼️</button>
-          {/* 📄 文字檔鈕 */}
-          <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => { addTextFiles(Array.from(e.target.files || [])); e.target.value = ""; }} />
-          <button onClick={() => fileInputRef.current?.click()} disabled={pendingFiles.length >= 4} title={tt("chat.attachFile")}
-            className="text-xs px-2 py-2 rounded-lg border border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300 disabled:opacity-40 shrink-0 bg-stone-50">📄</button>
-          <textarea
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onPaste={async (e) => {
-              // 2026-09-16：貼圓修復 — files/items/text-html 全支援
-              if (!pasteMayContainImage(e.clipboardData)) return;
-              e.preventDefault();
-              const files = await extractPasteFiles(e.clipboardData);
-              if (files && files.length > 0) { addImages(files); addTextFiles(files); }
-            }}
-            onCompositionStart={() => { composingRef.current = true; }}
-            onCompositionEnd={() => { composingRef.current = false; }}
-            onKeyDown={e => {
-              if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
-            }}
-            rows={2}
-            placeholder={placeholder}
-            className="flex-1 text-xs rounded-lg border border-stone-200 px-2.5 py-2 resize-none focus:outline-none focus:border-stone-400 bg-white"
-          />
-          {loading ? (
-            <button onClick={() => abortRef.current?.abort()}
-              className="text-xs px-3 py-2 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 shrink-0">停止</button>
-          ) : (
-            <button onClick={() => send()} disabled={!input.trim() && pendingImages.length === 0 && pendingFiles.length === 0}
-              className="text-xs px-3 py-2 rounded-lg text-white disabled:opacity-40 shrink-0" style={{ backgroundColor: accent }}>
-              送出
-            </button>
-          )}
-        </div>
-      </div>
+      {/* Input — 共用元件 ChatInputBar（與林雨晴 chat 完全一致，2026-10-09 Fleming）*/}
+      <ChatInputBar
+        ref={inputRef}
+        placeholder={placeholder}
+        accent={accent}
+        loading={loading}
+        onSubmit={submit}
+        onStop={() => abortRef.current?.abort()}
+      />
     </div>
   );
 });

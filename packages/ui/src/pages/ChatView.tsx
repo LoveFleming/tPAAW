@@ -6,6 +6,7 @@ import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import AssistantProfileModal from "../components/AssistantProfileModal";
 import AssistantSkillsModal from "../components/AssistantSkillsModal";
+import ChatInputBar, { type ChatInputBarHandle, type PendingImage, type PendingFile } from "../components/ChatInputBar";
 
 // ── Module-level pending seed message ──
 let _pendingSeed: string | null = null;
@@ -17,8 +18,6 @@ export function sendSeedToChat(msg: string) {
 
 import API_BASE from "../api";
 import { stableStringify, fmtChatTime } from "../utils";
-import { pasteMayContainImage, extractPasteFiles } from "../utils/pasteFiles";
-import { uiAlert } from "../components/ui/uiFeedback";
 
 interface Message {
   role: "user" | "assistant";
@@ -192,7 +191,6 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
   const [chatAction, setChatAction] = useState(""); // thinking vs tool action
   const [isLoading, setIsLoading] = useState(false);
   const [showChatList, setShowChatList] = useState(false);
@@ -211,50 +209,8 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   const [activeModel, setActiveModel] = useState("");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  // 👁 Vision Phase 2：待送圖片（{id, dataUrl} — client 已壓縮；送出時上傳換 path）
-  const [pendingImages, setPendingImages] = useState<{ id: string; dataUrl: string }[]>([]);
-  const [dragOver, setDragOver] = useState(false);
-
-  /** 圖片壓縮：長邊 1568px、jpeg q80（各家 vision API 甜蜜點，一張約 1-2k tokens）*/
-  const compressImage = useCallback((file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const img = new Image();
-        img.onload = () => {
-          const MAX = 1568;
-          const scale = Math.min(1, MAX / Math.max(img.width, img.height));
-          const w = Math.max(1, Math.round(img.width * scale));
-          const h = Math.max(1, Math.round(img.height * scale));
-          const canvas = document.createElement("canvas");
-          canvas.width = w; canvas.height = h;
-          canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL("image/jpeg", 0.8));
-        };
-        img.onerror = () => reject(new Error("image load fail"));
-        img.src = String(reader.result);
-      };
-      reader.onerror = () => reject(new Error("file read fail"));
-      reader.readAsDataURL(file);
-    });
-  }, []);
-
-  /** 加圖（paste/drop/picker 共用）：壓縮後排進 pendingImages，上限 4 張 */
-  const addImages = useCallback(async (files: File[]) => {
-    const imgs = files.filter(f => f.type.startsWith("image/"));
-    if (imgs.length === 0) return;
-    const room = 4 - pendingImages.length;
-    if (room <= 0) { uiAlert(tt("chat.imageLimit")); return; }
-    const results: { id: string; dataUrl: string }[] = [];
-    for (const f of imgs.slice(0, room)) {
-      try { results.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, dataUrl: await compressImage(f) }); } catch {}
-    }
-    if (results.length > 0) setPendingImages(p => [...p, ...results].slice(0, 4));
-  }, [compressImage, pendingImages.length, tt]);
+  const inputRef = useRef<ChatInputBarHandle>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const composingRef = useRef(false);
   const chatAreaRef = useRef<HTMLDivElement | null>(null);
 
   // ── Assistant avatar ──
@@ -411,13 +367,6 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
     });
   }, []);
 
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto"; // nosemgrep: useless-assignment — autoresize 必要的 reset-then-measure 模式
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 150) + "px";
-    }
-  }, [input]);
-
   // ── Seed message from outside (e.g. AI 摘要 from file tree) ──
   // Strategy: fill input → ensure chat exists → call handleSend directly
   const pendingSeedTextRef = useRef<string | null>(null);
@@ -429,8 +378,6 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
       const text = _pendingSeed.trim();
       _pendingSeed = null;
       if (!text) return;
-
-      setInput(text);
 
       if (!activeChatId) {
         // Create a new chat first; store text for the effect below
@@ -519,10 +466,11 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   };
 
   // ── Send message (SSE streaming) ──
-  const handleSend = async (overrideText?: string) => {
-    const text = (overrideText ?? input).trim();
-    const sending = pendingImages;
-    if ((!text && sending.length === 0) || !activeChatId || isLoading) return;
+  const handleSend = async (overrideText?: string, imgs?: PendingImage[], fts?: PendingFile[]) => {
+    let text = (overrideText ?? "").trim();
+    const sending = imgs ?? [];
+    const sendingFiles = fts ?? [];
+    if ((!text && sending.length === 0 && sendingFiles.length === 0) || !activeChatId || isLoading) return;
 
     // 👁 有圖 → 先上傳拿路徑（uploads/xxx.jpg），失敗的跳過並提示
     let uploadedPaths: string[] = [];
@@ -535,7 +483,29 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
         } catch { return null; }
       }));
       uploadedPaths = results.filter(Boolean) as string[];
-      if (uploadedPaths.length === 0 && !text) { setPendingImages([]); return; }
+      if (uploadedPaths.length === 0 && !text && sendingFiles.length === 0) return;
+    }
+
+    // 📄 文字檔附件（跟 coding app agent chat 一致）：上傳取 path；小檔 inline 內容
+    const INLINE_LIMIT = 8000;
+    if (sendingFiles.length > 0) {
+      for (const f of sendingFiles) {
+        let ref: string | undefined;
+        try {
+          const r = await fetch(`${API_BASE}/api/uploads/text`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: f.text, filename: f.name }),
+          });
+          const j = await r.json();
+          if (j.ok) ref = j.rel || j.abs;
+        } catch {}
+        if (f.text.length <= INLINE_LIMIT) {
+          text += `\n\n[User uploaded file: ${f.name}]${ref ? `\npath: ${ref}（已存檔，可用 read_file 讀取）` : ""}\n\`\`\`\n${f.text}\n\`\`\``;
+        } else if (ref) {
+          text += `\n\n[User uploaded file: ${f.name} (${f.text.length} chars)]\npath: ${ref}\n(檔案較大未內嵌 — 請用 read_file 讀取完整內容)`;
+        }
+      }
+      if (!text) text = "（已上傳附件）";
     }
 
     // Provider not ready — show message and prompt user to settings
@@ -544,7 +514,6 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
       const assistantMsg: Message = { role: "assistant", content: tt("chat.noProviderInitial"), timestamp: new Date().toISOString() };
       const newMessages = [...messages, userMsg, assistantMsg];
       setMessages(newMessages);
-      setInput("");
       saveMessages(activeChatId, newMessages);
       onProviderNotReady?.();
       return;
@@ -553,8 +522,6 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
     const userMsg: Message = { role: "user", content: text, timestamp: new Date().toISOString(), ...(uploadedPaths.length > 0 ? { images: uploadedPaths } : {}) };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
-    setInput("");
-    setPendingImages([]);
     setIsLoading(true);
     scrollToBottom(false);
 
@@ -706,10 +673,6 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
 
   const handleStop = () => { abortRef.current?.abort(); };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (composingRef.current || e.nativeEvent?.isComposing || e.keyCode === 229) return;
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
-  };
 
   const formatTime = fmtChatTime;
 
@@ -909,55 +872,16 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
         )}
       </div>
 
-      {/* ── Input bar ── */}
+      {/* ── Input bar（共用元件 ChatInputBar — 與 coding app agent chat 完全一致，2026-10-09 Fleming）── */}
       {activeChatId && (
-        <div className="shrink-0 px-4 py-3 border-t bg-white/80 backdrop-blur-sm" style={{ borderColor: themeInfo.accentBorder + "30" }}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => { e.preventDefault(); setDragOver(false); addImages(Array.from(e.dataTransfer.files)); }}>
-          {/* 👁 待送圖片預覽（2026-08-30）*/}
-          {pendingImages.length > 0 && (
-            <div className="flex gap-2 mb-2 flex-wrap">
-              {pendingImages.map(img => (
-                <div key={img.id} className="relative group">
-                  <img src={img.dataUrl} alt="" className="w-20 h-20 object-cover rounded-lg border border-stone-200" />
-                  <button onClick={() => setPendingImages(p => p.filter(x => x.id !== img.id))} className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-stone-700 text-white text-xs flex items-center justify-center opacity-80 hover:opacity-100">✕</button>
-                </div>
-              ))}
-            </div>
-          )}
-          {dragOver && <div className="mb-2 text-xs px-3 py-2 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">{tt("chat.imageDropHere")}</div>}
-          <div className="flex gap-2 items-end">
-            {/* 👁 📎 貼圖鈕 */}
-            <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addImages(Array.from(e.target.files || [])); e.target.value = ""; }} />
-            <button onClick={() => imageInputRef.current?.click()} disabled={pendingImages.length >= 4} title={tt("chat.attachImage")} className="p-2.5 rounded-xl border border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300 disabled:opacity-40 flex-shrink-0 transition-colors bg-stone-50">
-              {/* 2026-10-09 Fleming：迴紋針/下載 icon 不直覺 → 標準圖片 icon（山+太陽） */}
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            </button>
-            <textarea ref={textareaRef} value={input} onChange={(e) => setInput(e.target.value)}
-              onCompositionStart={() => { composingRef.current = true; }}
-              onCompositionEnd={() => { composingRef.current = false; }}
-              onKeyDown={handleKeyDown}
-              onPaste={async (e) => {
-                // 2026-09-16：貼圖升級 — files/items/text-html 全支援（跟 CodingIDE 同一套 pasteFiles）
-                if (!pasteMayContainImage(e.clipboardData)) return;
-                e.preventDefault();
-                const all = (await extractPasteFiles(e.clipboardData)) || [];
-                const files = all.filter(f => f.type.startsWith("image/"));
-                if (files.length > 0) await addImages(files);
-              }}
-              placeholder={`跟${assistantName}說點什麼...`}
-              rows={1}
-              className="flex-1 px-4 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:border-stone-400 resize-none transition-colors bg-stone-50" style={{ maxHeight: 120 }} />
-            {isLoading ? (
-              <button onClick={handleStop} className="px-4 py-2.5 rounded-xl text-white font-medium text-sm bg-rose-500 hover:bg-rose-600 flex-shrink-0 transition-colors">停止</button>
-            ) : (
-              <button onClick={() => handleSend()} disabled={!input.trim() && pendingImages.length === 0} className="px-4 py-2.5 rounded-xl text-white font-medium text-sm disabled:opacity-40 flex-shrink-0 transition-all" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 005.135 9.25h6.115a.75.75 0 010 1.5H5.135a1.5 1.5 0 00-1.442 1.086l-1.414 4.926a.75.75 0 00.826.95 28.896 28.896 0 0015.293-7.154.75.75 0 000-1.115A28.897 28.897 0 003.105 2.289z" /></svg>
-              </button>
-            )}
-          </div>
-        </div>
+        <ChatInputBar
+          ref={inputRef}
+          placeholder={`跟${assistantName}說點什麼...`}
+          accent={themeInfo.accent}
+          loading={isLoading}
+          onSubmit={({ text, images, files }) => handleSend(text, images, files)}
+          onStop={handleStop}
+        />
       )}
 
       {/* 🧑‍💼 個人助理設定 modal（2026-10-09 Fleming：從 PAAW 設定頁移來）*/}
