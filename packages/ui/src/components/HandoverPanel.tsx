@@ -99,7 +99,6 @@ interface Props {
 export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, active = true }: Props) {
   const { t } = useI18n();
   const [bundle, setBundle] = useState<HandoverBundle | null>(null);
-  const [hState, setHState] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
@@ -113,11 +112,6 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
   const refresh = useCallback(async () => {
     if (!rootPath) return;
     setLoading(true);
-    // R4: handover state 並行拉（獨立失败不影響 bundle）
-    fetch(`${API_BASE}/api/coding-handover/state?path=${encodeURIComponent(rootPath)}`)
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (d?.nextAction) setHState(d); })
-      .catch(() => {});
     try {
       const res = await fetch(`${API_BASE}/api/coding-handover/bundle?path=${encodeURIComponent(rootPath)}`);
       if (!res.ok) {
@@ -170,6 +164,26 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
   const section = (key: string, icon: string, title: string, content: string | null, maxLines: number) => {
     const has = !!content?.trim();
     const isOpen = expandSection === key;
+    // 2026-10-09 Fleming：knowledge 顯示清洗 — schema marker/元資料/placeholder 濾掉、連續重複行去重、標題降兩級（字體跟其他區塊一致）
+    const cleanKnowledge = (raw: string) => {
+      const lines = raw.split("\n").filter(l => {
+        const s = l.trim();
+        if (/^<!--[\s\S]*-->$/.test(s)) return false;              // <!-- ... --> marker 註解
+        if (/^>\s*📄/.test(l)) return false;                          // > 📄 Schema v2 ·… 元資料
+        if (/^（人在 UI 或直接編輯/.test(s)) return false;               // user 區 placeholder
+        return true;
+      });
+      const dedup: string[] = [];
+      for (const l of lines) {
+        if (l.trim() !== "" && dedup.length && dedup[dedup.length - 1].trim() === l.trim()) continue;
+        dedup.push(l);
+      }
+      return dedup.join("\n")
+        .replace(/^### /gm, "##### ")   // 先長後短（避免二次替換）
+        .replace(/^## /gm, "#### ")
+        .replace(/^# /gm, "### ");
+    };
+    const shown = has ? cleanKnowledge(content!) : null;
     return (
       <div key={key} className="border rounded-xl overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
         <button onClick={() => setExpandSection(isOpen ? null : key)}
@@ -181,9 +195,9 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
         </button>
         {isOpen && (
           <div className="border-t px-3.5 py-2.5 max-h-64 overflow-y-auto" style={{ borderColor: tk.borderLight, scrollbarWidth: "thin" }}>
-            {has ? (
+            {shown ? (
               <div className="text-[11px] text-stone-600 leading-relaxed">
-                <SafeMarkdown content={content!.split("\n").slice(0, maxLines).join("\n") + (content!.split("\n").length > maxLines ? `\n… (${content!.split("\n").length - maxLines} more lines)` : "")} />
+                <SafeMarkdown content={shown.split("\n").slice(0, maxLines).join("\n") + (shown.split("\n").length > maxLines ? `\n… (${shown.split("\n").length - maxLines} more lines)` : "")} />
               </div>
             ) : (
               <div className="text-[11px] text-stone-400">{t("ho.missingDesc")}</div>
@@ -230,20 +244,6 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
         {toast && (
           <div className={`mx-5 mt-3 px-3 py-2 rounded-lg text-xs ${toast.ok ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
             {toast.text}
-          </div>
-        )}
-
-        {hState && (
-          <div className="mx-5 mt-3 px-3.5 py-2.5 rounded-xl border flex items-center gap-3 flex-wrap"
-            style={{ borderColor: hState.nextAction.step === "idle" ? tk.borderLight : "#d9770655", background: hState.nextAction.step === "idle" ? "#fafaf9" : "#fffbeb" }}>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-stone-800 text-white">{t("ho.state.title")}</span>
-            <span className="text-xs font-bold text-stone-800">{hState.nextAction.step} — {hState.nextAction.reason}</span>
-            {hState.currentState && (
-              <span className="text-[10px] text-stone-500 font-mono ml-auto">
-                {hState.currentState.branch}@{hState.currentState.headSha} · {t("ho.state.dirty")} {hState.currentState.dirtyCount} · {t("ho.state.unpushed")} {hState.currentState.unpushedCount}
-                {hState.issues?.length > 0 && ` · ⚠️ ${hState.issues.length}`}
-              </span>
-            )}
           </div>
         )}
 

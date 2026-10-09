@@ -39,7 +39,27 @@ export function parseProjectMd(md) {
     return { userSection: "", aiSection: "", migrated: true }; // auto-draft：全丟，重生 AI 區
   }
   // 人寫過的（或 placeholder）→ 整檔內容搬進 USER 區保護
-  return { userSection: md.trim(), aiSection: "", migrated: true };
+  // 2026-10-09 防滾雪球：marker 被剝掉的 schema v2 檔（公司端回存常見）再 migrate 會把整包骨架
+  // 一層層疊進 USER 區 — 偵測 v2 特徵時按標題切兩區，不用「整檔當人寫」
+  const hasV2 = /^##\s*📌\s*User Remarks/m.test(md) || /^##\s*🤖\s*AI Overview/m.test(md) || /^>\s*📄\s*Schema v2/m.test(md);
+  const stripSkeleton = (s) => s.split("\n").filter(l => {
+    const t = l.trim();
+    if (/^<!--[\s\S]*-->$/.test(t)) return false;
+    if (/^>\s*📄\s*Schema v2/.test(l)) return false;
+    if (/^##\s*📌\s*User Remarks$/.test(t)) return false;
+    if (/^##\s*🤖\s*AI Overview$/.test(t)) return false;
+    return true;
+  }).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  if (hasV2) {
+    const mUser = md.match(/[\s\S]*?^##\s*📌\s*User Remarks[^\n]*\n([\s\S]*?)(?=^##\s*🤖\s*AI Overview|\s*$)/m);
+    const mAi = md.match(/^##\s*🤖\s*AI Overview[^\n]*\n([\s\S]*)/m);
+    return { userSection: mUser ? stripSkeleton(mUser[1]) : "", aiSection: mAi ? stripSkeleton(mAi[1]) : "", migrated: true };
+  }
+  const stripped = stripSkeleton(md);
+  // 剝完只剩 H1 專案名（或空）→ 沒有人寫內容，當全新檔重生
+  const onlyTitle = stripped.split("\n").filter(l => l.trim()).every(l => /^#\s+\S/.test(l.trim()));
+  if (!stripped || onlyTitle) return { userSection: "", aiSection: "", migrated: true };
+  return { userSection: stripped, aiSection: "", migrated: true };
 }
 
 /** 合成整檔（schema v2） */
