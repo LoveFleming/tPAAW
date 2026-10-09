@@ -325,6 +325,17 @@ export default async function chatRoutes(req, res) {
         engine.unregisterTool(tn);
       }
 
+      // ── 2026-10-09 Fleming：林雨晴環境安裝能力 — env_exec 白名單工具（bash 續擋）──
+      // 不是開放任意 shell：白名單（npm/npx/node/python3/pip3/brew/which…）+ execFile(shell:false)
+      // + shell-guard process 防護。長駐指令（npm run dev/start）仍歸 dev_server。
+      const { ENV_EXEC_TOOL_DEF, envExecHandler } = await import("../lib/env-exec-tool.mjs");
+      engine.registerTool({
+        name: ENV_EXEC_TOOL_DEF.function.name,
+        description: ENV_EXEC_TOOL_DEF.function.description,
+        parameters: ENV_EXEC_TOOL_DEF.function.parameters,
+        execute: envExecHandler,
+      });
+
       // ── 執行 ReAct loop，stream 給前端 ──
       let fullText = ''
       let toolsUsed = []
