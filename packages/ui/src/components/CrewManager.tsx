@@ -92,7 +92,16 @@ const TOOL_GROUPS = [
   { id: "notes", name: "📝 Notes", desc: "筆記讀寫" }, // 2026-09-06 補齊
 ];
 
-type DetailTab = "rules" | "model" | "context" | "skills" | "memory";
+type DetailTab = "rules" | "model" | "context" | "skills" | "memory" | "prefs";
+
+// 使用者偏好（2026-10-09 Fleming：照片等無關功能設定 — 全域 data/crew-preferences.json，非 RU override）
+interface CrewPrefs {
+  displayName?: string;
+  avatarUrl?: string;
+  greeting?: string;
+  tone?: string;
+  notes?: string;
+}
 
 // Collapsible section wrapper
 function Section({ title, icon, children, defaultOpen = false }: { title: string; icon: string; children: React.ReactNode; defaultOpen?: boolean }) {
@@ -130,6 +139,8 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
   // Editable state for selected agent
   const [editData, setEditData] = useState<AgentDef | null>(null);
   const [editModel, setEditModel] = useState({ primary: "", fallbacks: [] as string[], emModel: "", autoDispatchModel: "" });
+  const [prefs, setPrefs] = useState<CrewPrefs>({});
+  const [prefsSaving, setPrefsSaving] = useState(false);
   const [editSkills, setEditSkills] = useState<string[]>([]);
   const [agentMemory, setAgentMemory] = useState("");
   const [memoryLoading, setMemoryLoading] = useState(false);
@@ -149,6 +160,51 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
     }
     return opts;
   }, [providers]);
+
+  // ── Load preferences（全域偏好層，與 .paaw override 分離）──
+  useEffect(() => {
+    if (!selectedAgentId) { setPrefs({}); return; }
+    let alive = true;
+    fetch(`${API_BASE}/api/crew-preferences/${selectedAgentId}`)
+      .then(r => (r.ok ? r.json() : {}))
+      .then(d => { if (alive) setPrefs(d || {}); })
+      .catch(() => { if (alive) setPrefs({}); });
+    return () => { alive = false; };
+  }, [selectedAgentId]);
+
+  const savePrefs = async () => {
+    if (!selectedAgentId) return;
+    setPrefsSaving(true);
+    try {
+      const resp = await fetch(`${API_BASE}/api/crew-preferences/${selectedAgentId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(prefs),
+      });
+      if (!resp.ok) throw new Error("save failed");
+      setSavedMsg("✅ 偏好已儲存");
+      setTimeout(() => setSavedMsg(""), 2000);
+      loadCrew();
+    } catch {
+      setSavedMsg("❌ 儲存失敗");
+      setTimeout(() => setSavedMsg(""), 2000);
+    }
+    setPrefsSaving(false);
+  };
+
+  const uploadAvatar = async (file: File) => {
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const resp = await fetch(`${API_BASE}/api/uploads`, { method: "POST", body: form });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "upload failed");
+      setPrefs(p => ({ ...p, avatarUrl: data.url || data.path || "" }));
+    } catch {
+      setSavedMsg("❌ 上傳失敗");
+      setTimeout(() => setSavedMsg(""), 2000);
+    }
+  };
 
   // ── Load providers ──
   useEffect(() => {
@@ -426,7 +482,10 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-xs font-semibold text-stone-700 truncate">{agent.codename}</div>
+                <div className="text-xs font-semibold text-stone-700 truncate">
+                  {(agent as any).displayName || agent.codename}
+                  {(agent as any)._hasPrefs && <span className="text-[9px] text-amber-600 ml-1">✏️</span>}
+                </div>
                 <div className="text-[10px] text-stone-400 truncate">{agent.title}</div>
               </div>
               {agent._source === "custom" && (
@@ -533,6 +592,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                 { key: "context" as const, label: "🧠 Context" },
                 { key: "skills" as const, label: "🔧 技能" },
                 { key: "memory" as const, label: "💾 記憶" },
+                { key: "prefs" as const, label: "🎨 偏好" },
               ]).map(tab => (
                 <button key={tab.key} onClick={() => setDetailTab(tab.key)}
                   className={cn("px-3 py-2 text-xs font-medium border-b-2 transition-colors", detailTab === tab.key ? "text-stone-800" : "text-stone-400 hover:text-stone-600")}
@@ -932,6 +992,93 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                       </div>
                     </>
                   )}
+                </div>
+              )}
+
+              {/* ════ 🎨 偏好 Tab（2026-10-09：外觀層 — 全域偏好，跨 RU；行為由 module firmware 維護）════ */}
+              {detailTab === "prefs" && (
+                <div className="space-y-4 max-w-3xl">
+                  <div className="text-xs text-stone-400 border-l-2 pl-3 py-1" style={{ borderColor: t.borderLight }}>
+                    頭像、顯示名、開場白、語氣 — 純外觀設定，套用所有專案的這個員工；行為（Role Prompt / 工具）由 module 維護。
+                  </div>
+
+                  {/* Avatar */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-xl border overflow-hidden flex items-center justify-center shrink-0"
+                      style={{ borderColor: t.borderLight, backgroundColor: (t.accent || "#10b981") + "11" }}>
+                      {prefs.avatarUrl ? (
+                        <img src={prefs.avatarUrl.startsWith("/") ? `${API_BASE}${prefs.avatarUrl}` : prefs.avatarUrl}
+                          className="w-full h-full object-contain"
+                          onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      ) : (
+                        <span className="text-2xl">{editData?.emoji || "👤"}</span>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <label className={labelCls}>頭像（照片無關功能 — Fleming）</label>
+                      <div className="flex gap-2">
+                        <input
+                          value={prefs.avatarUrl || ""}
+                          onChange={e => setPrefs(p => ({ ...p, avatarUrl: e.target.value }))}
+                          placeholder="/api/uploads/… 或 https://…"
+                          className={inputCls} style={inputStyle}
+                        />
+                        <label className="px-3 py-1.5 rounded-lg border text-xs cursor-pointer shrink-0 hover:bg-stone-50"
+                          style={{ borderColor: t.borderLight, color: t.accent }}>
+                          📷 上傳
+                          <input type="file" accept="image/*" className="hidden"
+                            onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); }} />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>顯示名稱（留空 = 原名）</label>
+                      <input value={prefs.displayName || ""}
+                        onChange={e => setPrefs(p => ({ ...p, displayName: e.target.value }))}
+                        placeholder={editData?.codename || selectedAgent?.id}
+                        className={inputCls} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>語氣偏好</label>
+                      <select value={prefs.tone || ""}
+                        onChange={e => setPrefs(p => ({ ...p, tone: e.target.value }))}
+                        className={inputCls} style={inputStyle}>
+                        <option value="">預設（不調整）</option>
+                        <option value="concise">簡潔</option>
+                        <option value="detailed">詳細</option>
+                        <option value="casual">輕鬆</option>
+                        <option value="professional">專業</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={labelCls}>開場白（新對話第一句）</label>
+                    <input value={prefs.greeting || ""}
+                      onChange={e => setPrefs(p => ({ ...p, greeting: e.target.value }))}
+                      placeholder="例：今天要交接什麼？"
+                      className={inputCls} style={inputStyle} />
+                  </div>
+
+                  <div>
+                    <label className={labelCls}>備註（只有你看）</label>
+                    <textarea value={prefs.notes || ""}
+                      onChange={e => setPrefs(p => ({ ...p, notes: e.target.value }))}
+                      rows={2}
+                      className={cn(inputCls, "resize-none")} style={inputStyle} />
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-1">
+                    <button onClick={savePrefs} disabled={prefsSaving}
+                      className="px-4 py-2 text-sm font-bold text-white rounded-lg disabled:opacity-50"
+                      style={{ backgroundColor: t.accent }}>
+                      {prefsSaving ? "儲存中..." : "🎨 儲存偏好"}
+                    </button>
+                    <span className="text-[11px] text-stone-400">即時套用：側欄、組織圖、聊天頁頭像名字</span>
+                  </div>
                 </div>
               )}
             </div>
