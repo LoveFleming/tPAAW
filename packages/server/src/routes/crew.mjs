@@ -252,12 +252,8 @@ export default async function crewRoute(req, res) {
 
   function crewDirForRequest() { return resolveDataDir(getWorkspaceId(req.url), "crews"); }
 
-  async function listCrewFiles() {
-    const dir = crewDirForRequest();
-    await mkdir(dir, { recursive: true });
-    const files = await readdir(dir);
-    return files.filter(f => f.endsWith(".json") && !f.includes("conversation")).sort();
-  }
+  // 2026-10-09 Fleming：user crew（data/crews）退場 — 只剩 module firmware；回空清單
+  async function listCrewFiles() { return []; }
 
   // ── Module Registry API（2026-10-09：firmware crews 跟著 module 走）──
   if (req.method === "GET" && path === "/api/modules") {
@@ -295,21 +291,10 @@ export default async function crewRoute(req, res) {
     return true;
   }
 
-// GET /api/crew — list all crew members（module firmware + user crews 合併 + 偏好疊加）
+  // GET /api/crew — list all crew members（2026-10-09 Fleming：純 module firmware crews；user crew/data 退場）
   if (req.method === "GET" && req.url?.match(/^\/api\/crew(?:\?.*)?$/)) {
     try {
-      const files = await listCrewFiles();
-      const userCrew = await Promise.all(
-        files.map(async (name) => {
-          try {
-            const raw = await readFile(join(crewDirForRequest(), name), "utf-8");
-            return JSON.parse(raw);
-          } catch { return null; }
-        })
-      );
-      // 2026-10-09：合併 module firmware crews（locked）+ user crews（可編輯）+ 偏好疊加
-      const modCrews = listModules().flatMap(m => listModuleCrews(m.id) || []);
-      const all = [...modCrews, ...userCrew.filter(Boolean).map(c => ({ ...c, locked: false, source: "user" }))].map(_applyPrefs);
+      const all = listModules().flatMap(m => listModuleCrews(m.id) || []).map(_applyPrefs);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(all));
     } catch (err) {
@@ -354,36 +339,9 @@ export default async function crewRoute(req, res) {
     return true;
   }
 
-  // POST /api/crew
+  // POST /api/crew — 410 Gone（2026-10-09：user crew 退場，crew 一律 module firmware）
   if (req.method === "POST" && req.url?.match(/^\/api\/crew(?:\?.*)?$/)) {
-    let parsed;
-    try { parsed = JSON.parse(await readBody(req)); } catch { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Invalid JSON" })); return true; }
-    if (!parsed.id) { res.writeHead(400); res.end("Missing 'id'"); return true; }
-    if (!parsed.title) { res.writeHead(400); res.end("Missing 'title'"); return true; }
-
-    try {
-      const files = await listCrewFiles();
-      for (const f of files) {
-        const raw = await readFile(join(crewDirForRequest(), f), "utf-8");
-        const existing = JSON.parse(raw);
-        if (existing.id === parsed.id) {
-          res.writeHead(409, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: `Crew id '${parsed.id}' already exists` }));
-          return true;
-        }
-      }
-
-      const numPrefix = files.length > 0
-        ? String(Math.max(...files.map(f => parseInt(f.split("-")[0]) || 0)) + 1).padStart(2, "0")
-        : "00";
-      const filename = `${numPrefix}-${parsed.id}.json`;
-      await writeFile(join(crewDirForRequest(), filename), JSON.stringify(parsed, null, 4), "utf-8");
-      res.writeHead(201, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, filename, crew: parsed }));
-    } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
-    }
+    json(res, { error: "User crews retired — crews are module firmware (packages/modules/*/crews)." }, 410);
     return true;
   }
 
@@ -661,7 +619,7 @@ export default async function crewRoute(req, res) {
     const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
     const dir = root
       ? join(CONVERSATIONS_ROOT, projectPathHash(root), employeeId)
-      : join(resolveDataDir(getWorkspaceId(), "crews"), "conversation", employeeId);
+      : join(resolveDataDir(getWorkspaceId(), "crew-conversations"), employeeId);
     const filePath = join(dir, "work-log.json");
     try {
       const raw = await readFile(filePath, "utf-8");
@@ -683,7 +641,7 @@ export default async function crewRoute(req, res) {
     const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
     const dir = root
       ? join(CONVERSATIONS_ROOT, projectPathHash(root), employeeId)
-      : join(resolveDataDir(getWorkspaceId(), "crews"), "conversation", employeeId);
+      : join(resolveDataDir(getWorkspaceId(), "crew-conversations"), employeeId);
     await mkdir(dir, { recursive: true });
     const filePath = join(dir, "work-log.json");
 
@@ -1083,26 +1041,55 @@ export default async function crewRoute(req, res) {
     return true;
   }
 
-  // ── Crew Photo endpoint ──
-  // Direct crew photo access (no scoping wrapper)
+  // ── Crew Photo / Module Assets endpoints（2026-10-09：照片隨 module 走，data/crews 退場）──
+  const MIME_MAP = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml" };
+  const transparentPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQABNjN9GQAAAABJRUEFTkSuQmCC", "base64");
+
+  const serveAsset = async (assetPath, res) => {
+    try {
+      const s = await stat(assetPath);
+      if (!s.isFile()) throw new Error("Not a file");
+      const ext = assetPath.split(".").pop()?.toLowerCase();
+      res.writeHead(200, { "Content-Type": MIME_MAP[ext] || "application/octet-stream" });
+      const { createReadStream } = await import("fs");
+      createReadStream(assetPath).pipe(res);
+    } catch {
+      res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "no-cache" });
+      res.end(transparentPng);
+    }
+  };
+
+  // GET /api/module-assets/:module/:file — module 自持資產（packages/modules/*/assets/）
+  const modAssetMatch = req.method === "GET" && req.url?.match(/^\/api\/module-assets\/([\w-]+)\/([\w.-]+)$/);
+  if (modAssetMatch) {
+    const [, modId, fileName] = modAssetMatch;
+    try {
+      sanitizeId(fileName);
+    } catch (err) { sendPathTraversalError(res, err); return true; }
+    const { PAAW_ROOT: ROOT } = await import("./shared.mjs");
+    const assetPath = join(ROOT, "packages", "modules", modId, "assets", fileName);
+    const resolved = await import("node:path").then(m => m.resolve(assetPath));
+    const assetsRoot = join(ROOT, "packages", "modules", modId, "assets") + "/";
+    if (!resolved.startsWith(assetsRoot)) { sendPathTraversalError(res, new Error("path traversal")); return true; }
+    await serveAsset(resolved, res);
+    return true;
+  }
+
+  // GET /api/crew-pic/:file — legacy 相容：掃各 module assets 找同名檔
   const crewPicMatch = req.method === "GET" && req.url?.match(/^\/api\/crew-pic\/(.+)$/);
   if (crewPicMatch) {
     let picName;
     try { picName = sanitizeId(crewPicMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
-    const picPath = join(CREWS_ROOT, "pic", picName);
-    try {
-      const s = await stat(picPath);
-      if (!s.isFile()) throw new Error("Not a file");
-      const ext = picName.split(".").pop()?.toLowerCase();
-      const mimeMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml" };
-      res.writeHead(200, { "Content-Type": mimeMap[ext] || "application/octet-stream" });
-      const { createReadStream } = await import("fs");
-      createReadStream(picPath).pipe(res);
-    } catch {
-      const transparentPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQABNjN9GQAAAABJRUEFTkSuQmCC", "base64");
-      res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "no-cache" });
-      res.end(transparentPng);
+    const { PAAW_ROOT: LEGACY_ROOT } = await import("./shared.mjs");
+    for (const m of listModules()) {
+      const assetPath = join(LEGACY_ROOT, "packages", "modules", m.id, "assets", picName);
+      try {
+        const s = await stat(assetPath);
+        if (s.isFile()) { await serveAsset(assetPath, res); return true; }
+      } catch { /* next module */ }
     }
+    res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "no-cache" });
+    res.end(transparentPng);
     return true;
   }
 

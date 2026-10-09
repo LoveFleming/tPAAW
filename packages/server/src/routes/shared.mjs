@@ -23,7 +23,7 @@ const SERVER_SRC = dirname(__dirname);           // .../packages/server/src
 
 const DASHBOARD_ROOT = resolve(SERVER_SRC, "../../ui");
 const PAAW_ROOT = resolve(SERVER_SRC, "../../../");
-const CONVERSATIONS_ROOT = resolve(DATA_HOME, "crews/conversation");
+const CONVERSATIONS_ROOT = resolve(DATA_HOME, "crew-conversations");
 const CREWS_ROOT = resolve(DATA_HOME, "crews");
 const SKILLS_ROOT = resolve(DATA_HOME, "skills");
 const INPUT_PROMPT_ROOT = resolve(SKILLS_ROOT, "input-prompt");

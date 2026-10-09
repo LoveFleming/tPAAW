@@ -1,0 +1,10 @@
+{
+  "id": "assistant",
+  "name": "個人助理",
+  "icon": "🧑‍💼",
+  "version": "1.0.0",
+  "crews": [
+    "my.assistant"
+  ],
+  "_rev": "2026-10-09"
+}

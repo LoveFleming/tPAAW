@@ -3,7 +3,6 @@ import DirectoryExplorer from "./components/DirectoryExplorer";
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import ChatView, { sendSeedToChat } from "./pages/ChatView";
-import AICrew from "./pages/AICrew";
 import SkillsPage from "./pages/SkillsPage";
 import SkillBuilder from "./pages/SkillBuilder";
 import AppBuilder from "./pages/AppBuilder";
@@ -248,7 +247,7 @@ function AppInner() {
     const currentScopeTabs = openTabs.filter(t => t.startsWith(currentPrefix));
     scopeStateRef.current[currentScope] = {
       projectRoot,
-      activePage: currentScopeTabs.length > 0 ? activePage : currentPrefix + "crew",
+      activePage: currentScopeTabs.length > 0 ? activePage : currentPrefix + "chat",
       openTabs: currentScopeTabs,
     };
     setProjectRoot(path);
@@ -264,11 +263,11 @@ function AppInner() {
       const seen = new Set<string>();
       const unique = merged.filter(t => { if (seen.has(t)) return false; seen.add(t); return true; });
       setOpenTabs(unique);
-      setActivePage(saved.activePage && unique.includes(saved.activePage) ? saved.activePage : `${newScope}:crew`);
+      setActivePage(saved.activePage && unique.includes(saved.activePage) ? saved.activePage : `${newScope}:chat`);
     } else {
-      const crewTab = `${newScope}:crew`;
-      setOpenTabs(prev => prev.includes(crewTab) ? prev : [...prev, crewTab]);
-      setActivePage(crewTab);
+      const chatTab = `${newScope}:chat`;
+      setOpenTabs(prev => prev.includes(chatTab) ? prev : [...prev, chatTab]);
+      setActivePage(chatTab);
     }
     const normalized = normPath(path)!;
     // Save to server
@@ -350,10 +349,8 @@ function AppInner() {
     setShowDirExplorer(false);
   }, [handleSelectProject]);
 
-  const sidebarNav = useMemo(() => {
-    const crewItem = { sortKey: `01-crew`, id: `${currentScope}:crew`, label: t("sidebar.aiCrew") };
-    return [crewItem];
-  }, [currentScope, t]);
+  // 2026-10-09 Fleming：全域「AI 員工組織圖」退場 — 員工管理在各 module AI Crew 頁；此 nav 暫空
+  const sidebarNav = useMemo(() => [], []);
 
   // ── App Modules（可組裝底座，2026-10-03）：persona app 模組 nav ──
   const [appModules, setAppModules] = useState<Array<{ id: string; name: string; nav?: { label: string; emoji?: string; page: string }; enabled?: boolean }>>([]);
@@ -513,7 +510,6 @@ function AppInner() {
       const mid = pageType.slice("module:".length).split(":")[0];
       return appModulesById[mid]?.nav?.label || mid;
     }
-    if (pageType === "crew") return t("sidebar.aiCrew");
     if (pageType === "skills") return t("sidebar.skillPool");
     if (pageType.startsWith("skillbuilder")) return t("sidebar.skillBuilder");
     if (pageType === "appbuilder") return t("sidebar.appBuilder");
@@ -537,12 +533,6 @@ function AppInner() {
     if (pageType.startsWith("skillapp.")) {
       const appId = pageType.slice(9);
       return skillAppNav.find(n => n.skillId === appId)?.label ?? appId;
-    }
-    if (pageType.startsWith("employee.")) {
-      const empId = pageType.split("#")[0].slice(9);
-      const tabCrew = crew;
-      const emp = tabCrew.find(s => s.id === empId);
-      return emp ? emp.codename : empId;
     }
     if (pageType.startsWith("wfile://")) {
       return pathBasename(pageType.slice(8));
@@ -630,9 +620,6 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
 
     const { scopeKey, wsId } = parsed;
 
-    if (pageType === "crew") {
-      return <AICrew onCrewChanged={loadCrew} />;
-    }
     if (pageType === "skills") {
       return <SkillsPage />;
     }
@@ -850,9 +837,6 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
             {/* ▶ Execution */}
             <SidebarSection title={t("sidebar.execution")}>
               <div>
-                {sidebarNav.filter(item => item.id.includes(":crew")).map((item) => (
-                  <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                ))}
                 <NavItem active={activePage.endsWith(":reportapps")} label={t("sidebar.appPool")} onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":briefing-player")} label={t("sidebar.briefingPlayer", "Briefing Player")} onClick={() => openBriefingPlayer()} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":coding")} label={t("sidebar.coding")} onClick={openCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />

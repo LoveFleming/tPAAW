@@ -39,7 +39,7 @@ interface SettingsPageProps {
 export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved }: SettingsPageProps = {}) {
   const { info: themeInfo } = useTheme();
   const { t, locale, setLocale } = useI18n();
-  const [tab, setTabState] = useState<"profile" | "providers" | "agentConfig" | "preferences" | "skill" | "distill" | "tools" | "language" | "backup" | "plugins">((initialTab as any) || "profile");
+  const [tab, setTabState] = useState<"profile" | "assistant" | "providers" | "agentConfig" | "preferences" | "skill" | "distill" | "tools" | "language" | "backup" | "plugins">((initialTab as any) || "profile");
   const [providers, setProviders] = useState<Record<string, ProviderData>>({});
   const [activeId, setActiveId] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
@@ -100,6 +100,64 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
       })
       .catch(() => {});
   }, []);
+
+  // ── 🧑‍💼 個人助理（林雨晴）偏好 — 2026-10-09 Fleming：assistant module 的使用者可變層 ──
+  const [assistantPrefs, setAssistantPrefs] = useState<{ displayName?: string; avatarUrl?: string; greeting?: string; tone?: string; notes?: string }>({});
+  const [assistantInfo, setAssistantInfo] = useState<{ codename?: string; imageUrl?: string; description?: string } | null>(null);
+  const [assistantSaving, setAssistantSaving] = useState(false);
+  const [assistantMsg, setAssistantMsg] = useState("");
+  useEffect(() => {
+    fetch(`${API_BASE}/api/crew/my.assistant`)
+      .then(r => r.json())
+      .then(d => { if (d && !d.error) setAssistantInfo(d); })
+      .catch(() => {});
+    fetch(`${API_BASE}/api/crew-preferences/my.assistant`)
+      .then(r => r.json())
+      .then(d => setAssistantPrefs(d && !d.error ? d : {}))
+      .catch(() => {});
+    fetch(`${API_BASE}/api/paaw/user`)
+      .then(r => r.json())
+      .then(d => {
+        if (d?.assistantName || d?.assistantAvatar) {
+          setAssistantPrefs(prev => ({
+            ...prev,
+            displayName: prev.displayName || d.assistantName,
+            avatarUrl: prev.avatarUrl || d.assistantAvatar,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+  const saveAssistantPrefs = async () => {
+    setAssistantSaving(true);
+    try {
+      const resp = await fetch(`${API_BASE}/api/crew-preferences/my.assistant`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(assistantPrefs),
+      });
+      if (!resp.ok) throw new Error("save failed");
+      // 同步主聊天顯示（UserProfile.assistantName/assistantAvatar — ChatView 用）
+      if (profile) {
+        await fetch(`${API_BASE}/api/paaw/user`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...profile, assistantName: assistantPrefs.displayName || profile.assistantName, assistantAvatar: assistantPrefs.avatarUrl || profile.assistantAvatar }),
+        });
+      }
+      setAssistantMsg("✅ 已儲存（主聊天同步生效）");
+    } catch { setAssistantMsg("❌ 儲存失敗"); }
+    setTimeout(() => setAssistantMsg(""), 2500);
+    setAssistantSaving(false);
+  };
+  const uploadAssistantAvatar = async (file: File) => {
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const resp = await fetch(`${API_BASE}/api/uploads`, { method: "POST", body: form });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "upload failed");
+      setAssistantPrefs(p => ({ ...p, avatarUrl: data.url || data.path || "" }));
+    } catch { setAssistantMsg("❌ 上傳失敗"); setTimeout(() => setAssistantMsg(""), 2000); }
+  };
 
   useEffect(() => {
     fetch(`${API_BASE}/api/user/preferences`)
@@ -284,6 +342,9 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
           <button onClick={() => setTab("profile")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "profile" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             👤 個人資料
           </button>
+          <button onClick={() => setTab("assistant")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "assistant" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            🧑‍💼 個人助理
+          </button>
           <button onClick={() => setTab("providers")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "providers" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             🤖 Provider
           </button>
@@ -374,6 +435,90 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
             <button onClick={handleSaveProfile} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
               {saving ? t("common.saving") : saved ? t("common.saved") : t("settings.saveProfile")}
             </button>
+          </div>
+        )}
+
+        {/* 🧑‍💼 個人助理 tab（2026-10-09 Fleming：林雨晴 assistant module — 系統提示詞不可變，偏好可變） */}
+        {tab === "assistant" && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 rounded-xl border border-stone-200 overflow-hidden flex items-center justify-center bg-stone-50 shrink-0">
+                  {assistantPrefs.avatarUrl ? (
+                    <img src={assistantPrefs.avatarUrl.startsWith("/") ? `${API_BASE}${assistantPrefs.avatarUrl}` : assistantPrefs.avatarUrl} className="w-full h-full object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  ) : assistantInfo?.imageUrl ? (
+                    <img src={`${API_BASE}${assistantInfo.imageUrl}`} className="w-full h-full object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  ) : (
+                    <span className="text-2xl">🧑‍💼</span>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-bold text-stone-800">{assistantPrefs.displayName || assistantInfo?.codename || "林雨晴"}</div>
+                  <div className="text-xs text-stone-400 mt-0.5">{assistantInfo?.description || "個人助理"}</div>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-stone-400 border-l-2 border-stone-200 pl-3 py-1 mb-4">
+                頭像、名字、開場白、語氣 — 使用者可變層；系統提示詞（行為）由 assistant module 維護。
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <label className="text-xs font-semibold text-stone-500 block mb-1">頭像網址</label>
+                    <input value={assistantPrefs.avatarUrl || ""} onChange={e => setAssistantPrefs(p => ({ ...p, avatarUrl: e.target.value }))}
+                      placeholder={assistantInfo?.imageUrl ? `預設：${assistantInfo.imageUrl}` : "/api/uploads/…"}
+                      className="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 focus:border-stone-400 outline-none" />
+                  </div>
+                  <label className="px-3 py-2 rounded-lg border border-stone-200 text-sm cursor-pointer hover:bg-stone-50 shrink-0">
+                    📷 上傳
+                    <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadAssistantAvatar(f); }} />
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-stone-500 block mb-1">顯示名稱（留空 = 原名）</label>
+                    <input value={assistantPrefs.displayName || ""} onChange={e => setAssistantPrefs(p => ({ ...p, displayName: e.target.value }))}
+                      placeholder={assistantInfo?.codename || "林雨晴 Rainy Lin"}
+                      className="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 focus:border-stone-400 outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-stone-500 block mb-1">語氣偏好</label>
+                    <select value={assistantPrefs.tone || ""} onChange={e => setAssistantPrefs(p => ({ ...p, tone: e.target.value }))}
+                      className="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 bg-white focus:border-stone-400 outline-none">
+                      <option value="">預設（不調整）</option>
+                      <option value="concise">簡潔</option>
+                      <option value="detailed">詳細</option>
+                      <option value="casual">輕鬆</option>
+                      <option value="professional">專業</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-stone-500 block mb-1">開場白（新對話第一句）</label>
+                  <input value={assistantPrefs.greeting || ""} onChange={e => setAssistantPrefs(p => ({ ...p, greeting: e.target.value }))}
+                    placeholder="例：嗨！我是林雨晴 ☔"
+                    className="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 focus:border-stone-400 outline-none" />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-stone-500 block mb-1">備註（只有你看）</label>
+                  <textarea value={assistantPrefs.notes || ""} onChange={e => setAssistantPrefs(p => ({ ...p, notes: e.target.value }))} rows={2}
+                    className="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 focus:border-stone-400 outline-none resize-none" />
+                </div>
+
+                <div className="flex items-center gap-3 pt-1">
+                  <button onClick={saveAssistantPrefs} disabled={assistantSaving}
+                    className="px-4 py-2 text-sm font-bold text-white rounded-lg disabled:opacity-50"
+                    style={{ backgroundColor: themeInfo.accent }}>
+                    {assistantSaving ? "儲存中..." : "🎨 儲存偏好"}
+                  </button>
+                  {assistantMsg && <span className="text-xs text-stone-600">{assistantMsg}</span>}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

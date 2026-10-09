@@ -6,5 +6,8 @@
   },
   "coding.developer": {
     "tone": "concise"
+  },
+  "my.assistant": {
+    "displayName": "小雨"
   }
 }

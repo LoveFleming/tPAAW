@@ -21,7 +21,7 @@ export const PATHS = {
   PAAW_ROOT,
   DASHBOARD_ROOT,
   CREWS_ROOT:      resolve(DATA_HOME, "crews"),
-  CONVERSATIONS_ROOT: resolve(DATA_HOME, "crews/conversation"),
+  CONVERSATIONS_ROOT: resolve(DATA_HOME, "crew-conversations"),
   SKILLS_ROOT:     resolve(DATA_HOME, "skills"),
   INPUT_PROMPT_ROOT: resolve(DATA_HOME, "skills/input-prompt"),
   PHYSICAL_SKILL_ROOT: resolve(DATA_HOME, "skills/physical-skill"),
