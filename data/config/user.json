@@ -15,6 +15,7 @@
     "appBuilder": "openrouter/z-ai/glm-5.1",
     "codingIDE.coding.developer": "zai/glm-5.1",
     "codingIDE.coding.architect": "zai/glm-5.1",
-    "codingIDE.emDashboard": "zai/glm-5.1"
+    "codingIDE.emDashboard": "zai/glm-5.1",
+    "sideChat.ops": "openrouter/deepseek/deepseek-v4.1-flash"
   }
 }

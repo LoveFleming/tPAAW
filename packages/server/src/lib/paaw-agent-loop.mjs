@@ -1738,7 +1738,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
   let args;
   try { args = JSON.parse(argsStr); } catch { return `Error: invalid JSON arguments`; }
   // Inject agentId for action log / memory tools
-  if (agentId && ["action_log_add", "action_log_list", "agent_memory_save", "agent_memory_load"].includes(name)) {
+  if (agentId && ["action_log_add", "action_log_list", "agent_memory_save", "agent_memory_load", "conversation_history"].includes(name)) {
     args._agentId = agentId;
   }
   // 2026-09-07:EM 派工/任務工具必須落在「呼叫者的專案」(coding app import 的 release unit path),
@@ -3551,7 +3551,9 @@ baseline ${rr.baseline?.short}(${rr.baseline?.source})→ target ${rr.target?.sh
       case "conversation_history": {
         // 2026-09-06 Fleming:每個 agent 都能查過去聊天記錄(.paaw/coding-memory/conversations/)
         // RU 開發紀錄全保留 - active.json 為進行中,s-*.json 為封存 session
-        const base = rootDir || cwd;
+        // 2026-10-09 修：對話屬於 RU（agent 的專案 cwd，如 tpaaw-gateway），不是 PAAW root —
+        // 之前 base=rootDir 永遠指到 tPAAW，跨 RU 查不到（coding app 開 tpaaw-gateway 時 AI 說「查無記錄」）
+        const base = cwd;
         const convRoot = join(base, ".paaw", "coding-memory", "conversations");
         const myAgentId = args._agentId || _agentCfg?.agentId || "agent";
         const safe = (s) => /^[a-zA-Z0-9._-]+$/.test(s); // 防 path traversal
