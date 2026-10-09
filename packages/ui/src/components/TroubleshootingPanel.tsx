@@ -45,7 +45,7 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
   const [rbContent, setRbContent] = useState<string | null>(null);
   const chatRef = useRef<AgentSideChatHandle>(null);
   // 2026-10-09 Fleming：Ops side chat 左右 splitter + 對話持久化 + model selector（跟 QA browser 同款）
-  const opsPane = useColResize(320, 260, 640);
+  const opsPane = useColResize(520, 300, 760); // 2026-10-09：與 Handover/Release Manager 統一
 
   const refresh = useCallback(async () => {
     if (!rootPath) return;

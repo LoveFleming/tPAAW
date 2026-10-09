@@ -83,7 +83,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const [includeE2e, setIncludeE2e] = useState(false);
   const chatRef = useRef<AgentSideChatHandle>(null);
   // 2026-10-09 Fleming：RM side chat 左右 splitter + 對話持久化 + model selector（跟 QA browser 同款）
-  const rmPane = useColResize(340, 260, 640);
+  const rmPane = useColResize(520, 300, 760); // 2026-10-09：與 Handover/Troubleshooting 統一
 
   const refresh = useCallback(async () => {
     if (!rootPath) return;

@@ -105,7 +105,7 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
   const [hoTab, setHoTab] = useState<"main" | "qa">("main");
   const chatRef = useRef<AgentSideChatHandle>(null);
   // 2026-10-09 Fleming：Handover side chat 左右 splitter + 對話持久化 + model selector（跟 QA browser 同款）
-  const hoPane = useColResize(320, 260, 640);
+  const hoPane = useColResize(520, 300, 760); // 2026-10-09：與 Troubleshooting/Release Manager 統一
 
   const refresh = useCallback(async () => {
     if (!rootPath) return;
