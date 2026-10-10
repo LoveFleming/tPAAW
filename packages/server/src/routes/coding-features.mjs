@@ -25,6 +25,7 @@ import { resolveDefaultModel, dateTimeContextBlock } from "../lib/llm-utils.mjs"
 import { callProjectLLM } from "./coding.mjs"; // 統一 LLM 咽喉：thinking 控制 + llm log 歸因 + 空回應診斷（2026-08-30）
 import { DATA_HOME } from "../data-home.mjs";
 import { nextFeatureId, inferFeatureType, touchFeature, ensureMiscFeature, featureExists } from "../lib/feature-registry.mjs";
+import { scanFeatureRisk, isValidSeverity } from "../lib/feature-risk-scan.mjs";
 import { stableStringify } from "../lib/stable-stringify.mjs";
 
 function getMaxTokens(providerConfig, providerId, model) {
@@ -187,6 +188,69 @@ Write in clear, concise markdown. Use the project's context if available.`;
   }
 }
 
+// ── LLM Call for Severity Suggestion（2026-10-10：事實靠掃描，LLM 只推理嚴重度）──
+
+async function suggestSeverity(feature, scan, providersFile) {
+  let providerConfig;
+  try { providerConfig = JSON.parse(readSync(providersFile, "utf-8")); } catch { return null; }
+  const providerId = providerConfig.active || "zai";
+  const model = resolveDefaultModel(providerConfig);
+  const provider = providerConfig.providers?.[providerId];
+  if (!provider?.apiKey || provider.apiKey === "na") return null;
+
+  const profile = [
+    `### 資料異動（deterministic 掃描）`,
+    scan.dataTouch.length
+      ? scan.dataTouch.map(d => `- ${d.target}：${d.ops.join("/")}`).join("\n")
+      : "- （無偵測到 SQL 異動）",
+    scan.migration ? "- ⚠ 含 schema migration / DDL" : "",
+    scan.mutatingOutbound ? "- ⚠ 含對外 mutating 呼叫（POST/PUT/PATCH/DELETE）" : "",
+    `### API 介面`,
+    scan.apiSurface.length ? scan.apiSurface.slice(0, 30).map(p => `- ${p}`).join("\n") : "- （無）",
+    `### 外部服務`,
+    scan.externalCalls.length ? scan.externalCalls.slice(0, 20).map(h => `- ${h}`).join("\n") : "- （無）",
+    `### 規則掃描結果`,
+    `${scan.computedSeverity}（${scan.computedReason}）`,
+  ].filter(Boolean).join("\n");
+
+  const prompt = `你是軟體風險分析師。根據以下 feature 的構成面事實，建議它的變更嚴重度。
+
+## Feature: ${feature.name}
+${feature.description || ""}
+
+${profile}
+
+嚴重度定義：
+- S0 🟢 低風險：純讀取/UI/config，做壞了影響小且可快速修復
+- S1 🟡 中風險：新增資料（INSERT）或對外 mutating 呼叫，做壞了產生髒資料但可清理
+- S2 🔴 高風險：修改/刪除資料（UPDATE/DELETE）、schema migration、觸及 PII/金流，做壞了難以回滚
+
+規則掃描已給出 baseline。你可以根據語意上下升級（例如：SELECT 但讀的是 PII 且外傳、外部服務是金流），但必須給理由；不確定時沿用 baseline。
+
+只回覆 JSON（不要 markdown code fence）：{"severity":"S0|S1|S2","reason":"一句話理由","notes":"補充（可空）"}`;
+
+  try {
+    const data = await callProjectLLM({
+      model,
+      messages: [
+        { role: "system", content: dateTimeContextBlock() + "\nYou are a risk analyst. Reply with strict JSON only." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.2,
+      maxTokens: 500,
+      thinking: { type: "disabled" },
+    }, { caller: "features-risk", agentId: "features" });
+    const raw = (data.content || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    const parsed = JSON.parse(m[0]);
+    if (!isValidSeverity(parsed.severity)) return null;
+    return { severity: parsed.severity, reason: String(parsed.reason || scan.computedReason).slice(0, 300), notes: String(parsed.notes || "").slice(0, 200) };
+  } catch {
+    return null;
+  }
+}
+
 // ── Route Handler ──
 
 export default async function codingFeaturesRoute(req, res) {
@@ -260,6 +324,87 @@ export default async function codingFeaturesRoute(req, res) {
     };
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(stats));
+    return true;
+  }
+
+  // ── POST /api/coding-features/:id/risk-profile — 構成面掃描 + AI 嚴重度建議（2026-10-10）──
+  const riskMatch = url.match(/^\/api\/coding-features\/([^/?]+)\/risk-profile$/);
+  if (riskMatch && method === "POST") {
+    const id = decodeURIComponent(riskMatch[1]);
+    let body = {};
+    try { body = JSON.parse(await readBody(req) || "{}"); } catch { body = {}; }
+    const features = await loadFeatures(projRoot);
+    const idx = features.findIndex(f => f.id === id);
+    if (idx < 0) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Feature not found" }));
+      return true;
+    }
+    const feature = features[idx];
+    const scan = await scanFeatureRisk(projRoot, feature);
+    feature.riskProfile = scan;
+    feature.riskProfileScannedAt = now();
+    feature.severityComputed = scan.computedSeverity;
+
+    let suggestedBy = "scan";
+    if (body.ai !== false) {
+      const ai = await suggestSeverity(feature, scan, providersFile);
+      if (ai) {
+        feature.severitySuggested = ai.severity;
+        feature.severitySuggestedReason = ai.reason;
+        feature.severitySuggestedNotes = ai.notes || "";
+        feature.severitySuggestedBy = "ai";
+        suggestedBy = "ai";
+      } else {
+        feature.severitySuggested = scan.computedSeverity;
+        feature.severitySuggestedReason = scan.computedReason;
+        feature.severitySuggestedNotes = "";
+        feature.severitySuggestedBy = "scan";
+      }
+      feature.severitySuggestedAt = now();
+    }
+    feature.updatedAt = now();
+    await saveFeatures(projRoot, features);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(stableStringify({ ok: true, suggestedBy, feature }));
+    return true;
+  }
+
+  // ── PUT /api/coding-features/:id/severity — 人員確認嚴重度（2026-10-10）──
+  const sevMatch = url.match(/^\/api\/coding-features\/([^/?]+)\/severity$/);
+  if (sevMatch && method === "PUT") {
+    const id = decodeURIComponent(sevMatch[1]);
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    if (body.severity !== null && !isValidSeverity(body.severity)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "severity must be one of: S0, S1, S2 (or null to clear)" }));
+      return true;
+    }
+    const features = await loadFeatures(projRoot);
+    const idx = features.findIndex(f => f.id === id);
+    if (idx < 0) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Feature not found" }));
+      return true;
+    }
+    if (body.severity === null) {
+      delete features[idx].severity;
+      delete features[idx].severityConfirmedAt;
+      delete features[idx].severityConfirmedBy;
+    } else {
+      features[idx].severity = body.severity;
+      features[idx].severityConfirmedAt = now();
+      features[idx].severityConfirmedBy = "user";
+    }
+    features[idx].updatedAt = now();
+    await saveFeatures(projRoot, features);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(stableStringify({ ok: true, feature: features[idx] }));
     return true;
   }
 

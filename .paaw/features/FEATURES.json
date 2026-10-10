@@ -529,7 +529,27 @@
       "documentation": "",
       "docsUpdatedAt": null,
       "createdAt": "2026-08-30T05:37:35.909Z",
-      "updatedAt": "2026-08-30T05:37:35.909Z"
+      "updatedAt": "2026-10-10T04:00:04.319Z",
+      "riskProfile": {
+        "dataTouch": [],
+        "apiSurface": [
+          "/api/coding-features",
+          "/api/coding-features/file-map",
+          "/api/coding-features/validate",
+          "/api/coding-features/stats",
+          "/api/coding-features/refresh-mapping",
+          "/api/x",
+          "/api/coding-features/discover"
+        ],
+        "externalCalls": [],
+        "mutatingOutbound": true,
+        "migration": false,
+        "fileCount": 5,
+        "computedSeverity": "S1",
+        "computedReason": "含對外 mutating 呼叫（POST/PUT/PATCH/DELETE）— 外部副作用"
+      },
+      "riskProfileScannedAt": "2026-10-10T03:59:44.996Z",
+      "severityComputed": "S1"
     },
     {
       "name": "Code Intelligence",
@@ -2253,5 +2273,5 @@
       "updatedAt": "2026-08-30T05:37:35.909Z"
     }
   ],
-  "updatedAt": "2026-08-30T05:37:35.909Z"
+  "updatedAt": "2026-10-10T04:00:04.320Z"
 }

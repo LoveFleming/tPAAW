@@ -26,6 +26,17 @@ interface IssueSummary {
   priority: string;
 }
 
+interface RiskProfile {
+  dataTouch: { target: string; ops: string[]; migration: boolean }[];
+  apiSurface: string[];
+  externalCalls: string[];
+  mutatingOutbound: boolean;
+  migration: boolean;
+  fileCount: number;
+  computedSeverity: string;
+  computedReason: string;
+}
+
 interface Feature {
   id: string;
   name: string;
@@ -43,6 +54,17 @@ interface Feature {
   docsUpdatedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // 🛡 嚴重度（2026-10-10：by feature 標示 — deterministic 掃描 + AI 建議、人確認）
+  severity?: "S0" | "S1" | "S2" | null;
+  severitySuggested?: string | null;
+  severitySuggestedReason?: string | null;
+  severitySuggestedNotes?: string | null;
+  severitySuggestedBy?: string | null; // "ai" | "scan"
+  severityComputed?: string | null;
+  severitySuggestedAt?: string | null;
+  severityConfirmedAt?: string | null;
+  riskProfile?: RiskProfile | null;
+  riskProfileScannedAt?: string | null;
   _issueSummaries?: IssueSummary[];
 }
 
@@ -65,6 +87,13 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
   deprecated: { bg: "#f5f5f4", text: "#78716c", label: "Deprecated" },
   planned: { bg: "#eff6ff", text: "#2563eb", label: "Planned" },
 };
+
+const SEV_STYLES: Record<string, { bg: string; text: string; dot: string; desc: string }> = {
+  S0: { bg: "#f0fdf4", text: "#16a34a", dot: "🟢", desc: "低風險（純讀取/UI）" },
+  S1: { bg: "#fefce8", text: "#ca8a04", dot: "🟡", desc: "中風險（INSERT/外部 mutating）" },
+  S2: { bg: "#fef2f2", text: "#dc2626", dot: "🔴", desc: "高風險（UPDATE/DELETE/migration）" },
+};
+const OP_COLOR: Record<string, string> = { select: "#16a34a", insert: "#2563eb", update: "#d97706", delete: "#dc2626" };
 
 const HTTP_COLORS: Record<string, string> = {
   GET: "#16a34a",
@@ -322,6 +351,11 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="text-xs font-mono shrink-0" style={{ color: theme.text, opacity: 0.5 }}>{f.id}</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: st.bg, color: st.text }}>{st.label}</span>
+                    {(f.severity || f.severitySuggested) && (() => {
+                      const sev = f.severity || f.severitySuggested!;
+                      const sv = SEV_STYLES[sev] || SEV_STYLES.S0;
+                      return <span title={sv.desc + (f.severity ? "" : `（${t("feature.severityUnconfirmed")}）`)} className="text-[10px] px-1.5 py-0.5 rounded shrink-0 font-bold" style={{ background: sv.bg, color: sv.text }}>{sv.dot} {sev}{f.severity ? "" : "?"}</span>;
+                    })()}
                   </div>
                   <div className="text-sm font-medium truncate" style={{ color: theme.text }}>{f.name}</div>
                   {f.description && (
@@ -356,6 +390,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
         ) : (
           <FeatureDetail
             feature={selected}
+            onFeatureUpdate={(f) => setFeatures(prev => prev.map(x => x.id === f.id ? f : x))}
             ecData={ecData}
             theme={theme}
             t={t}
@@ -419,7 +454,150 @@ function CreateFeatureForm({ onCreate, onCancel, theme, t }: {
 }
 
 // ── Feature Detail ──
-function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callChainMap, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, rootPath }: {
+// ── 🛡 Severity Section：deterministic 構成面 + AI 建議 + 人員確認（2026-10-10）──
+function SeveritySection({ feature, theme, t, rootPath, onFeatureUpdate }: {
+  feature: Feature;
+  theme: any;
+  t: (k: string) => string;
+  rootPath: string;
+  onFeatureUpdate?: (f: Feature) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const rp = feature.riskProfile;
+  const activeSev = feature.severity || null;
+  const suggested = feature.severitySuggested || null;
+
+  const rescan = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-features/${encodeURIComponent(feature.id)}/risk-profile?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: rootPath }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        if (d.feature && onFeatureUpdate) onFeatureUpdate(d.feature as Feature);
+      }
+    } catch { /* silent */ }
+    setBusy(false);
+  };
+  const confirm = async (sev: string) => {
+    if (busy || activeSev === sev) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-features/${encodeURIComponent(feature.id)}/severity?path=${encodeURIComponent(rootPath)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ severity: sev }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        if (d.feature && onFeatureUpdate) onFeatureUpdate(d.feature as Feature);
+      }
+    } catch { /* silent */ }
+    setBusy(false);
+  };
+
+  const boxStyle = { border: `1px solid ${theme.borderLight}`, background: theme.bgMuted };
+
+  return (
+    <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${theme.borderLight}` }}>
+      <div className="px-3 py-1.5 flex items-center gap-2 flex-wrap" style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
+        <span className="text-sm font-semibold" style={{ color: theme.text, opacity: 0.55 }}>🛡 {t("feature.severity")}</span>
+        {/* AI 建議 */}
+        {suggested && (() => {
+          const sv = SEV_STYLES[suggested] || SEV_STYLES.S0;
+          return (
+            <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: sv.bg, color: sv.text }}>
+              {t("feature.severitySuggest")}：{sv.dot} {suggested}
+            </span>
+          );
+        })()}
+        <span className="text-[10px]" style={{ color: theme.text, opacity: 0.45 }}>
+          {feature.severitySuggestedBy === "ai" ? t("feature.severityByAi") : feature.severitySuggestedBy === "scan" ? t("feature.severityByScan") : ""}
+        </span>
+        <button onClick={rescan} disabled={busy} className="ml-auto text-xs px-2 py-0.5 rounded disabled:opacity-40" style={{ background: theme.accentBg, color: theme.accent }} data-testid="severity-rescan">
+          {busy ? "…" : `↻ ${t("feature.severityRescan")}`}
+        </button>
+      </div>
+
+      {/* 建議理由 */}
+      {(feature.severitySuggestedReason || rp?.computedReason) && (
+        <div className="px-3 py-1.5 text-xs" style={{ color: theme.text, opacity: 0.7 }}>
+          💬 {feature.severitySuggestedReason || rp?.computedReason}
+          {feature.severitySuggestedNotes ? <span style={{ opacity: 0.6 }}>（{feature.severitySuggestedNotes}）</span> : null}
+        </div>
+      )}
+
+      {/* 人員確認 */}
+      <div className="px-3 py-2 flex items-center gap-2 flex-wrap">
+        <span className="text-xs" style={{ color: theme.text, opacity: 0.55 }}>{t("feature.severityConfirm")}：</span>
+        {(["S0", "S1", "S2"] as const).map(sev => {
+          const sv = SEV_STYLES[sev];
+          const active = activeSev === sev;
+          return (
+            <button key={sev} onClick={() => confirm(sev)} disabled={busy}
+              className={`text-xs px-2 py-0.5 rounded font-bold border ${active ? "" : "hover:opacity-80"}`}
+              style={{ background: active ? sv.bg : theme.bg, color: active ? sv.text : theme.text, borderColor: active ? sv.text : theme.borderLight, opacity: active ? 1 : 0.6 }}
+              data-testid={`severity-confirm-${sev}`}>
+              {sv.dot} {sev}
+            </button>
+          );
+        })}
+        {activeSev && <span className="text-[10px]" style={{ color: theme.text, opacity: 0.4 }}>✓ {feature.severityConfirmedAt?.slice(0, 16).replace("T", " ")}</span>}
+      </div>
+
+      {/* 構成面（deterministic 掃描） */}
+      {!rp ? (
+        <div className="px-3 py-2 text-xs" style={{ color: theme.text, opacity: 0.4 }}>{t("feature.severityEmpty")}</div>
+      ) : (
+        <div className="grid grid-cols-3 gap-2 px-3 pb-2">
+          {/* 資料異動 */}
+          <div className="rounded p-2" style={boxStyle}>
+            <div className="text-[11px] font-bold mb-1" style={{ color: theme.text, opacity: 0.55 }}>🗄 {t("feature.severityData")} · {rp.dataTouch.length}</div>
+            {rp.migration && <div className="text-[10px] mb-1 font-bold" style={{ color: "#dc2626" }}>⚠ schema migration / DDL</div>}
+            <div className="space-y-0.5 max-h-40 overflow-y-auto">
+              {rp.dataTouch.map((d, i) => (
+                <div key={i} className="flex items-center gap-1 text-[10px]">
+                  <span className="font-mono truncate" style={{ color: theme.text }} title={d.target}>{d.target}</span>
+                  <span className="ml-auto flex gap-0.5">
+                    {d.ops.map(op => <span key={op} className="px-1 rounded font-bold font-mono" style={{ background: theme.bg, color: OP_COLOR[op] || "#a8a29e" }}>{op}</span>)}
+                  </span>
+                </div>
+              ))}
+              {rp.dataTouch.length === 0 && <div className="text-[10px]" style={{ color: theme.text, opacity: 0.35 }}>—</div>}
+            </div>
+          </div>
+          {/* API */}
+          <div className="rounded p-2" style={boxStyle}>
+            <div className="text-[11px] font-bold mb-1" style={{ color: theme.text, opacity: 0.55 }}>🌐 {t("feature.severityApi")} · {rp.apiSurface.length}</div>
+            <div className="space-y-0.5 max-h-40 overflow-y-auto">
+              {rp.apiSurface.map((a, i) => <div key={i} className="font-mono text-[10px] truncate" style={{ color: theme.text }} title={a}>{a}</div>)}
+              {rp.apiSurface.length === 0 && <div className="text-[10px]" style={{ color: theme.text, opacity: 0.35 }}>—</div>}
+            </div>
+          </div>
+          {/* 外部服務 */}
+          <div className="rounded p-2" style={boxStyle}>
+            <div className="text-[11px] font-bold mb-1" style={{ color: theme.text, opacity: 0.55 }}>📡 {t("feature.severityExt")} · {rp.externalCalls.length}{rp.mutatingOutbound ? " ⚠ mutating" : ""}</div>
+            <div className="space-y-0.5 max-h-40 overflow-y-auto">
+              {rp.externalCalls.map((h, i) => <div key={i} className="font-mono text-[10px] truncate" style={{ color: theme.text }} title={h}>{h}</div>)}
+              {rp.externalCalls.length === 0 && <div className="text-[10px]" style={{ color: theme.text, opacity: 0.35 }}>—</div>}
+            </div>
+          </div>
+        </div>
+      )}
+      {rp && (
+        <div className="px-3 pb-2 text-[10px]" style={{ color: theme.text, opacity: 0.35 }}>
+          {t("feature.severityScanAt")} {feature.riskProfileScannedAt?.slice(0, 16).replace("T", " ")} · {rp.fileCount} files · rule={rp.computedSeverity}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callChainMap, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, rootPath, onFeatureUpdate }: {
   feature: Feature;
   ecData?: any;
   theme: any;
@@ -434,6 +612,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
   onSaveDocs: () => void;
   savingDocs: boolean;
   rootPath: string;
+  onFeatureUpdate?: (f: Feature) => void;
 }) {
   const st = STATUS_STYLES[feature.status] || STATUS_STYLES.active;
 
@@ -466,6 +645,9 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
       </div>
 
       <div className="p-4 flex flex-col gap-4">
+        {/* 🛡 Severity（2026-10-10：構成面掃描 + AI 建議 + 人員確認）*/}
+        <SeveritySection feature={feature} theme={theme} t={t} rootPath={rootPath} onFeatureUpdate={onFeatureUpdate} />
+
         {/* 🔢 Error Codes by feature（v2 — LLM 語意整理，不認命名慣例；只讀掃描產物）*/}
         {ecData && (() => {
           const g = ecData.byFeature?.find((x: any) => x.featureId === feature.id);
