@@ -53,6 +53,7 @@ import IssueTracker from "../components/IssueTracker";
 import QaRecords from "../components/QaRecords";
 import TaskBoard from "../components/TaskBoard";
 import ReleaseManagerPanel from "../components/ReleaseManagerPanel";
+import CodeReviewBoardPanel from "../components/CodeReviewBoardPanel";
 import HandoverPanel from "../components/HandoverPanel";
 import TroubleshootingPanel from "../components/TroubleshootingPanel";
 import TabErrorBoundary from "../components/TabErrorBoundary";
@@ -104,7 +105,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "handover" | "troubleshooting" | "code-intel" | "tests" | "qa-records" | "project";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "review-board" | "handover" | "troubleshooting" | "code-intel" | "tests" | "qa-records" | "project";
 
 interface MainTab {
   id: string;
@@ -721,6 +722,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
     ]},
     { id: "ops", icon: "🛡️", tools: [
       { id: "tool:release", type: "release-manager", label: "Release Manager", icon: "🚦", closable: true },
+      { id: "tool:review-board", type: "review-board", label: tt("crb.toolbar"), icon: "🏛️", closable: true },
       { id: "tool:troubleshooting", type: "troubleshooting", label: "Troubleshooting", icon: "🔧", closable: true },
     ]},
   ];
@@ -1156,7 +1158,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
         console.log(`[CodingIDE] Parsed ${savedTabs?.length || 0} saved tabs, active=${savedActive}`);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
-          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "browser", "terminal", "ai-crew", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "release-manager", "handover", "troubleshooting", "code-intel", "tests", "project"]);
+          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "browser", "terminal", "ai-crew", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "release-manager", "review-board", "handover", "troubleshooting", "code-intel", "tests", "project"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", ")); // nosemgrep: unsafe-formatstring — 模板無 % 指示符，內部 log
           // Restore tabs (dashboard is already present)
@@ -3948,7 +3950,20 @@ const sendChat = useCallback(async () => {
                   rootPath={rootPath}
                   theme={{ borderLight: tk.borderLight, accent: tk.accent, accentHover: tk.accentHover || tk.accent }}
                   onOpenEMDashboard={() => openMainTab({ id: DASHBOARD_TAB_ID, type: "em-dashboard", label: "EM 大總管", icon: "🎖️", closable: false })}
+                  onOpenReviewBoard={() => openMainTab({ id: "tool:review-board", type: "review-board", label: tt("crb.toolbar"), icon: "🏛️", closable: true })}
                 />
+              </div>
+            )}
+            {mainTabs.some(t => t.type === "review-board") && rootPath && (
+              <div key="tool:review-board" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "review-board" ? undefined : "none" }}>
+                <TabErrorBoundary label="Review Board">
+                  <CodeReviewBoardPanel
+                    rootPath={rootPath}
+                    theme={{ bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent }}
+                    onBackToReleaseManager={() => openMainTab({ id: "tool:release", type: "release-manager", label: "Release Manager", icon: "🚦", closable: true })}
+                  />
+                </TabErrorBoundary>
               </div>
             )}
             {mainTabs.some(t => t.type === "handover") && rootPath && (

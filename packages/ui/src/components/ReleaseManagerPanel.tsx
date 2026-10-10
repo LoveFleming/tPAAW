@@ -33,6 +33,7 @@ interface Props {
   rootPath: string;
   theme: any;
   onOpenEMDashboard?: () => void;
+  onOpenReviewBoard?: () => void;
 }
 
 interface QualityDebt {
@@ -80,7 +81,7 @@ interface Readiness {
 
 const RISK_COLORS: Record<string, string> = { LOW: "#16a34a", MEDIUM: "#d97706", HIGH: "#dc2626" };
 
-export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashboard }: Props) {
+export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashboard, onOpenReviewBoard }: Props) {
   const { t } = useI18n();
   const [releases, setReleases] = useState<ReleaseRecord[]>([]);
   const [initialized, setInitialized] = useState<boolean | null>(null); // null = loading
@@ -354,13 +355,14 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                     <div className="flex items-center gap-2 flex-wrap mb-2">
                       <span className="text-xs font-bold text-stone-700">⚖️ {t("rm.ev.title")}</span>
                       <span className="text-[10px] text-stone-400">{t("rm.ev.hint")}</span>
+                      {onOpenReviewBoard && <button type="button" onClick={onOpenReviewBoard} className="text-[10px] px-2 py-0.5 rounded-full border font-bold text-violet-600 hover:bg-violet-50" style={{ borderColor: "#ddd6fe" }} data-testid="rm-open-review-board">{t("rm.ev.openBoard")} →</button>}
                       <span className="ml-auto flex gap-1.5 text-[10px] font-mono">
                         {readiness.evidenceMatrix.summary.bySeverity.S2 > 0 && <span className="px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-bold">S2 {readiness.evidenceMatrix.summary.bySeverity.S2}</span>}
                         {readiness.evidenceMatrix.summary.bySeverity.S1 > 0 && <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold">S1 {readiness.evidenceMatrix.summary.bySeverity.S1}</span>}
                         {readiness.evidenceMatrix.summary.bySeverity.S0 > 0 && <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 font-bold">S0 {readiness.evidenceMatrix.summary.bySeverity.S0}</span>}
                         {readiness.evidenceMatrix.summary.bySeverity.humanOverride > 0 && <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 font-bold" title={t("rm.ev.humanTip")}>👤 {readiness.evidenceMatrix.summary.bySeverity.humanOverride}</span>}
                         {readiness.evidenceMatrix.summary.bySeverity.aiDefault > 0 && <span className="px-1.5 py-0.5 rounded bg-sky-50 text-sky-600 font-bold" title={t("rm.ev.aiTip")}>🤖 {readiness.evidenceMatrix.summary.bySeverity.aiDefault}</span>}
-                        {readiness.evidenceMatrix.summary.reviewBoard && <span className="px-1.5 py-0.5 rounded bg-violet-50 text-violet-600" title={readiness.evidenceMatrix.summary.reviewBoard.latest.models.join("、")}>🏛 {readiness.evidenceMatrix.summary.reviewBoard.latest.models.length}m</span>}
+                        {readiness.evidenceMatrix.summary.reviewBoard && <button type="button" onClick={onOpenReviewBoard} disabled={!onOpenReviewBoard} className="px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 enabled:hover:bg-violet-100 disabled:cursor-default" title={readiness.evidenceMatrix.summary.reviewBoard.latest.models.join("、")}>🏛 {readiness.evidenceMatrix.summary.reviewBoard.latest.models.length}m</button>}
                         {readiness.evidenceMatrix.summary.sgScan && <span className={`px-1.5 py-0.5 rounded ${readiness.evidenceMatrix.summary.sgScan.high > 0 ? "bg-red-50 text-red-600 font-bold" : "bg-green-50 text-green-700"}`}>🛡 {readiness.evidenceMatrix.summary.sgScan.total}·{readiness.evidenceMatrix.summary.sgScan.high}hi</span>}
                       </span>
                     </div>

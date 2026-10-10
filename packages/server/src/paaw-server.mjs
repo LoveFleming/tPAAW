@@ -141,6 +141,7 @@ const ROUTE_MODULES = [
   "./routes/coding-ops.mjs",
   "./routes/coding-trouble.mjs",
   "./routes/coding-reports.mjs",
+  "./routes/coding-review-board.mjs",
   "./routes/release-unit.mjs",
   "./routes/llm-logs.mjs",
   "./routes/browser.mjs",
