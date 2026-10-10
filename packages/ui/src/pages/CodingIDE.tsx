@@ -838,7 +838,6 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
     const steps = [
       { id: "scan", name: "🔍 掃描專案結構" },
       { id: "feature-map", name: "🗺️ Feature Map" },
-      { id: "code-intelligence", name: "🧠 Code Intelligence" },
       { id: "test-intelligence", name: "🧪 Test Intelligence" },
       // 2026-09-06 Fleming 回報：bulk 執行後 UI 少 2 項 — 此清單沒跟上 server 6 步
       // （server ai-initial 有跑 error-codes + c4-model，前端寫死 4 步導致後兩項在跑時消失）

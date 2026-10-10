@@ -325,7 +325,6 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   const CU_STEPS = [
     { id: "scan", name: "🔍 掃描專案結構", file: "scan.json" },
     { id: "feature-map", name: "🗺️ Feature Map", file: "features/FEATURES.json" },
-    { id: "code-intelligence", name: "🧠 Code Intelligence", file: "code-intelligence/summary.json" },
     { id: "test-intelligence", name: "🧪 Test Intelligence", file: "code-intelligence/test-intelligence.json" },
     { id: "error-codes", name: "🔢 Error Codes", file: "error-codes.json" },
     { id: "c4-model", name: "🏛️ C4 Model", file: "c4-model.json" },
@@ -1425,7 +1424,8 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
           {/* Use live steps if bulk running, otherwise use persisted steps */}
           {(() => {
             const isBulkRunning = codeUnderstanding?.running && codeUnderstanding.steps.length > 0;
-            const steps = isBulkRunning ? codeUnderstanding.steps : persistedSteps;
+            // 2026-10-10 21:06 Fleming：Code Intelligence UI 退場 — 步驟照跑（下游消費：agent context/QA/RU model），UI 不再顯示
+            const steps = (isBulkRunning ? codeUnderstanding.steps : persistedSteps).filter(s => s.id !== "code-intelligence");
             const isRunning = isBulkRunning;
             if (steps.length === 0) return (
               <div className="flex-1 flex items-center justify-center text-sm text-stone-400 py-12">
@@ -1451,7 +1451,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                   )}
                   {/* Skill 綁定（2026-09-04：機械步無 LLM — CI/TI 不提供綁定）*/}
                   {/* 2026-09-06：加提示 — 綁 skill 是選配，沒綁就用預設流程跑（Fleming：不然使用者會認為一定要綁）*/}
-                  {step.id !== "code-intelligence" && step.id !== "test-intelligence" && (
+                  {step.id !== "test-intelligence" && (
                   <div className="mt-0.5">
                     <div className="flex items-center gap-1">
                       <button
