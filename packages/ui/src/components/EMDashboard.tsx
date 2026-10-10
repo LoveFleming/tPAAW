@@ -1497,12 +1497,22 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
               {/* Run All button — always available when not bulk running */}
               {!isBulkRunning && (
                 <button
+                  onClick={() => { if (onStartCodeUnderstanding) { onStartCodeUnderstanding(true); } }}
+                  title="忽略 watermark，全部 step 重跑（會燒 token）"
+                  className="px-3 py-1.5 text-sm font-bold rounded-lg border transition-colors"
+                  style={{ borderColor: "#fde68a", color: "#b45309", backgroundColor: "#fffbeb" }}
+                >
+                  🔄 全量重跑
+                </button>
+              )}
+              {!isBulkRunning && (
+                <button
                   onClick={() => { if (onStartCodeUnderstanding) { onStartCodeUnderstanding(false); } }} // 2026-09-06：增量模式 — server 只重跑有變更的步驟（watermark 比對）；force 全量留給特殊情況
                   
                   className="px-4 py-1.5 text-sm font-bold rounded-lg border transition-colors disabled:opacity-50"
                   style={{ borderColor: "#bbf7d0", color: "#059669", backgroundColor: "#f0fdf4" }}
                 >
-                  🚀 執行
+                  🚀 執行（增量）
                 </button>
               )}
               {/* Close button — replaces 完成 ✅ */}

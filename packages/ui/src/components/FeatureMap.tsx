@@ -472,22 +472,8 @@ function SeveritySection({ feature, theme, t, rootPath, onFeatureUpdate }: {
   const activeSev = latestHuman?.severity || feature.severity || null; // 生效 = 最新人判定（並存）
   const suggested = feature.severitySuggested || null;
 
-  const rescan = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-features/${encodeURIComponent(feature.id)}/risk-profile?path=${encodeURIComponent(rootPath)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: rootPath }),
-      });
-      if (res.ok) {
-        const d = await res.json();
-        if (d.feature && onFeatureUpdate) onFeatureUpdate(d.feature as Feature);
-      }
-    } catch { /* silent */ }
-    setBusy(false);
-  };
+  // 2026-10-10 Fleming：移除「↻ 重新分析 risk profile」按鈕 — CU 重掃後 severity 自動落地
+  // （autoScanAllFeatureSeverities），不需逐個 refresh
   const confirm = async (sev: string) => {
     if (busy) return;
     setBusy(true);
@@ -536,9 +522,6 @@ function SeveritySection({ feature, theme, t, rootPath, onFeatureUpdate }: {
         <span className="text-[10px]" style={{ color: theme.text, opacity: 0.45 }}>
           {feature.severitySuggestedBy === "ai" ? t("feature.severityByAi") : feature.severitySuggestedBy === "scan" ? t("feature.severityByScan") : ""}
         </span>
-        <button onClick={rescan} disabled={busy} className="ml-auto text-xs px-2 py-0.5 rounded disabled:opacity-40" style={{ background: theme.accentBg, color: theme.accent }} data-testid="severity-rescan">
-          {busy ? "…" : `↻ ${t("feature.severityRescan")}`}
-        </button>
       </div>
 
       {/* 建議理由 */}
