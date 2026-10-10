@@ -131,6 +131,39 @@ describe("confirm + merge 鐵律（confirmed = 人確認過的資產）", () => 
     expect(JSON.parse(res2.body).guide.entries[0].status).toBe("ai-draft");
   });
 
+  it("POST entry — 手動新增 → status=human（AI 漏寫 SOP 人直接補）", async () => {
+    const res = mockRes();
+    await codingTroubleRoutes(mockReq("POST", `/api/coding-trouble/entry?path=${encodeURIComponent(dir)}`, {
+      symptom: "port 4097 被佔", cause: "殘留 server", fixSteps: ["lsof -ti:4097", "kill 後重啟"], evidenceText: "今天踩過",
+    }), res);
+    expect(res.code).toBe(200);
+    const j = JSON.parse(res.body);
+    const e = j.guide.entries.find(x => x.status === "human");
+    expect(e?.symptom).toContain("4097");
+    expect(e?.fixSteps).toHaveLength(2);
+    expect(e?.evidence[0].type).toBe("human");
+  });
+
+  it("PUT entry — 編輯既有條目補 SOP", async () => {
+    const res0 = mockRes();
+    await codingTroubleRoutes(mockReq("GET", `/api/coding-trouble/guide?path=${encodeURIComponent(dir)}`), res0);
+    const id = JSON.parse(res0.body).guide.entries.find(e => e.status === "human").id;
+    const res = mockRes();
+    await codingTroubleRoutes(mockReq("PUT", `/api/coding-trouble/entry?path=${encodeURIComponent(dir)}`, {
+      id, fixSteps: ["步驟A", "步驟B", "步驟C"],
+    }), res);
+    expect(res.code).toBe(200);
+    const e2 = JSON.parse(res.body).guide.entries.find(x => x.id === id);
+    expect(e2.fixSteps).toHaveLength(3);
+    expect(e2.lastEditAt).toBeTruthy();
+  });
+
+  it("POST entry 無 symptom → 400", async () => {
+    const res = mockRes();
+    await codingTroubleRoutes(mockReq("POST", `/api/coding-trouble/entry?path=${encodeURIComponent(dir)}`, { symptom: "" }), res);
+    expect(res.code).toBe(400);
+  });
+
   it("path 不存在 → 400", async () => {
     const res = mockRes();
     await codingTroubleRoutes(mockReq("GET", `/api/coding-trouble/guide?path=/nonexistent-xyz`), res);

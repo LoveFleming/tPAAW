@@ -71,13 +71,15 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
   useEffect(() => { refresh(); }, [refresh]);
 
   // ═══ 🧯 TS Guide（2026-10-10 Fleming：up-to-date 排障條目庫 — 純手動觸發，絕不自動燒 token）═══
-  interface TsgEntry { id: string; symptom: string; cause: string; fixSteps: string[]; feature?: string | null; evidence: { type: string; ref: string }[]; status: "ai-draft" | "confirmed"; confirmedAt?: string }
+  interface TsgEntry { id: string; symptom: string; cause: string; fixSteps: string[]; feature?: string | null; evidence: { type: string; ref: string }[]; status: "ai-draft" | "confirmed" | "human"; confirmedAt?: string; lastEditAt?: string }
   interface TsgGuide { generatedAt: string; entries: TsgEntry[]; gaps: string[]; factsSummary?: { fixCommits: number; bugTasks: number; agentLogErrors: number }; aiError?: string }
   const [tsg, setTsg] = useState<TsgGuide | null>(null);
   const [tsgLoading, setTsgLoading] = useState(false);
   const [tsgOpen, setTsgOpen] = useState<string | null>(null);
   const [tsgRemarks, setTsgRemarks] = useState<{ id: string; text: string; at: string }[]>([]);
   const [tsgRemarkText, setTsgRemarkText] = useState("");
+  // 條目新增/編輯（2026-10-10 Fleming 17:03：AI 漏寫 SOP 人隨時補）
+  const [entryForm, setEntryForm] = useState<{ mode: "add" | "edit"; id?: string; symptom: string; cause: string; fixStepsText: string; evidenceText: string; feature: string } | null>(null);
   const [tsgRemarkSaving, setTsgRemarkSaving] = useState(false);
   const composingRef = useRef(false); // IME 三層保護
 
@@ -129,6 +131,22 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
       if (r.ok) { const d = await r.json(); setTsgRemarks(d.remarks || []); }
     } catch { /* silent */ }
   }, [rootPath]);
+
+  const saveEntry = useCallback(async () => {
+    if (!entryForm || !rootPath || !entryForm.symptom.trim()) return;
+    const fixSteps = entryForm.fixStepsText.split("\n").map(x => x.trim()).filter(Boolean);
+    const payload: Record<string, unknown> = {
+      symptom: entryForm.symptom, cause: entryForm.cause, fixSteps,
+      evidenceText: entryForm.evidenceText, feature: entryForm.feature || null,
+    };
+    try {
+      const url = `${API_BASE}/api/coding-trouble/entry?path=${encodeURIComponent(rootPath)}`;
+      const r = entryForm.mode === "add"
+        ? await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+        : await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, id: entryForm.id }) });
+      if (r.ok) { const d = await r.json(); setTsg(d.guide || null); setEntryForm(null); }
+    } catch { /* silent */ }
+  }, [entryForm, rootPath]);
 
   useEffect(() => { loadTsg(); }, [loadTsg]);
 
@@ -231,6 +249,10 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
                   </button>
                 </>}
                 <span className="ml-auto" />
+                <button onClick={() => setEntryForm({ mode: "add", symptom: "", cause: "", fixStepsText: "", evidenceText: "", feature: "" })}
+                  className="text-[10px] px-2 py-0.5 rounded border hover:bg-stone-50" style={{ borderColor: tk.borderLight }}>
+                  + {t("tsg.addEntry")}
+                </button>
                 {!tsg && !tsgLoading && (
                   <button onClick={generateTsg} className="text-[11px] px-3 py-1.5 rounded-lg text-white font-medium" style={{ backgroundColor: "#ea580c" }}>
                     ✨ {t("tsg.generate")}
@@ -248,8 +270,8 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
                   <div key={e.id} className="border rounded-lg overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
                     <button onClick={() => setTsgOpen(tsgOpen === e.id ? null : e.id)} className="w-full text-left px-3 py-2 flex items-start gap-2 hover:bg-stone-50">
                       <span className="text-[11px] font-medium text-stone-800 flex-1 leading-snug">{e.symptom}</span>
-                      <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${e.status === "confirmed" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                        {e.status === "confirmed" ? `✓ ${t("tsg.confirmed")}` : t("tsg.draft")}
+                      <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${e.status === "confirmed" ? "bg-green-100 text-green-700" : e.status === "human" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                        {e.status === "confirmed" ? `✓ ${t("tsg.confirmed")}` : e.status === "human" ? `✍️ ${t("tsg.human")}` : t("tsg.draft")}
                       </span>
                     </button>
                     {tsgOpen === e.id && (
@@ -269,15 +291,42 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
                             ))}
                           </div>
                         )}
-                        <button onClick={() => confirmTsg(e.id, e.status === "confirmed")}
-                          className={`text-[10px] px-2.5 py-1 rounded-lg font-bold ${e.status === "confirmed" ? "border hover:bg-stone-50" : "text-white hover:opacity-90"}`}
-                          style={e.status === "confirmed" ? { borderColor: tk.borderLight } : { backgroundColor: "#16a34a" }}>
-                          {e.status === "confirmed" ? t("tsg.unconfirm") : `✓ ${t("tsg.confirm")}`}
-                        </button>
+                        <div className="flex gap-2">
+                          <button onClick={() => setEntryForm({ mode: "edit", id: e.id, symptom: e.symptom, cause: e.cause, fixStepsText: e.fixSteps.join("\n"), evidenceText: e.evidence.find(x => x.type === "human")?.ref || "", feature: e.feature || "" })}
+                            className="text-[10px] px-2.5 py-1 rounded-lg border hover:bg-stone-50" style={{ borderColor: tk.borderLight }}>
+                            ✏️ {t("tsg.edit")}
+                          </button>
+                          <button onClick={() => confirmTsg(e.id, e.status === "confirmed")}
+                            className={`text-[10px] px-2.5 py-1 rounded-lg font-bold ${e.status === "confirmed" ? "border hover:bg-stone-50" : "text-white hover:opacity-90"}`}
+                            style={e.status === "confirmed" ? { borderColor: tk.borderLight } : { backgroundColor: "#16a34a" }}>
+                            {e.status === "confirmed" ? t("tsg.unconfirm") : `✓ ${t("tsg.confirm")}`}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
                 ))}
+                {entryForm && (
+                  <div className="border rounded-lg bg-white p-2.5 space-y-2" style={{ borderColor: "#ea580c" }} data-testid="tsg-entry-form">
+                    <div className="text-[10px] font-bold text-stone-600">{entryForm.mode === "add" ? `➕ ${t("tsg.addEntry")}` : `✏️ ${t("tsg.edit")}`}</div>
+                    <textarea value={entryForm.symptom} onChange={(ev) => setEntryForm({ ...entryForm, symptom: ev.target.value })} placeholder={t("tsg.symptomPh")} rows={2}
+                      className="w-full text-[11px] rounded-lg border px-2 py-1.5 focus:outline-none focus:ring-1" style={{ borderColor: tk.borderLight }} />
+                    <textarea value={entryForm.cause} onChange={(ev) => setEntryForm({ ...entryForm, cause: ev.target.value })} placeholder={t("tsg.causePh")} rows={2}
+                      className="w-full text-[11px] rounded-lg border px-2 py-1.5 focus:outline-none focus:ring-1" style={{ borderColor: tk.borderLight }} />
+                    <textarea value={entryForm.fixStepsText} onChange={(ev) => setEntryForm({ ...entryForm, fixStepsText: ev.target.value })} placeholder={t("tsg.stepsPh")} rows={4}
+                      className="w-full text-[11px] rounded-lg border px-2 py-1.5 font-mono focus:outline-none focus:ring-1" style={{ borderColor: tk.borderLight }} />
+                    <div className="flex gap-2">
+                      <input value={entryForm.feature} onChange={(ev) => setEntryForm({ ...entryForm, feature: ev.target.value })} placeholder={t("tsg.featurePh")}
+                        className="flex-1 text-[11px] rounded-lg border px-2 py-1 focus:outline-none focus:ring-1" style={{ borderColor: tk.borderLight }} />
+                      <input value={entryForm.evidenceText} onChange={(ev) => setEntryForm({ ...entryForm, evidenceText: ev.target.value })} placeholder={t("tsg.evidencePh")}
+                        className="flex-1 text-[11px] rounded-lg border px-2 py-1 focus:outline-none focus:ring-1" style={{ borderColor: tk.borderLight }} />
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={() => setEntryForm(null)} className="text-[11px] px-3 py-1 rounded-lg border hover:bg-stone-50" style={{ borderColor: tk.borderLight }}>{t("tsg.cancel")}</button>
+                      <button onClick={saveEntry} disabled={!entryForm.symptom.trim()} className="text-[11px] px-3 py-1 rounded-lg text-white font-bold disabled:opacity-40" style={{ backgroundColor: "#ea580c" }}>{t("tsg.save")}</button>
+                    </div>
+                  </div>
+                )}
                 {tsg?.gaps && tsg.gaps.length > 0 && (
                   <div className="bg-amber-50 rounded-lg p-2 space-y-0.5">
                     <div className="text-[10px] font-bold text-amber-700">⚠️ {t("tsg.gaps")}</div>

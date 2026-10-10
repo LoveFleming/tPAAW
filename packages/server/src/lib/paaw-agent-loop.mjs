@@ -878,6 +878,28 @@ export const PAAW_TOOLS = [
     },
   },
 
+  // ── TS Guide 沉澱（ops/helpdesk agent — 2026-10-10 Fleming：AI 漏寫 SOP 隨時補）──
+  {
+    type: "function",
+    function: {
+      name: "trouble_write",
+      description: "新增或更新 TS Guide 排障條目（.paaw/troubleshooting/TSGUIDE.json）。action=add 新增（status=human 人工權威，重新生成永不覆蓋）；action=update 補修既有條目的 SOP（symptom/fixSteps）。使用者說「把這個修法加進 TS guide」「補一下這條的步驟」時呼叫。fixSteps 每一步是陣列一項。",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["add", "update"], description: "add=新條目 / update=改既有（需 id）" },
+          id: { type: "string", description: "update 時的條目 id" },
+          symptom: { type: "string", description: "症狀 — 使用者看得到的（錯誤訊息/異常行為）" },
+          cause: { type: "string", description: "根本原因" },
+          fixSteps: { type: "array", items: { type: "string" }, description: "修復步驟（每步一項）" },
+          evidenceText: { type: "string", description: "證據出處（git hash / 今天修的 / 對話脈絡 — 沒有就寫來源描述）" },
+          feature: { type: "string", description: "相關 feature 名（選填）" },
+        },
+        required: ["action", "symptom"],
+      },
+    },
+  },
+
   // ── Action Log (Agent Memory / Handoff) ──
   {
     type: "function",
@@ -1286,6 +1308,9 @@ const TOOL_GROUP_MAP = {
 
   // Handover 沉澱（handover agent 專用）
   handover_write: "handover",
+
+  // TS Guide 沉澱（ops/helpdesk agent — 2026-10-10）
+  trouble_write: "trouble",
 
   // Memory & logging
   action_log_add: "memory", action_log_list: "memory",
@@ -3600,6 +3625,41 @@ baseline ${rr.baseline?.short}(${rr.baseline?.source})→ target ${rr.target?.sh
         writeSync(target, content, "utf-8");
         if (onEvent) onEvent({ type: "tool_end", name, result: `${content.length} bytes` });
         return `✅ Handover written: ${target} (${content.length} bytes, 舊檔已備份 .bak)`;
+      }
+
+      case "trouble_write": {
+        // TS Guide 條目沉澱（2026-10-10）：add → status=human（重生成永不覆蓋）；update → 補 SOP
+        const tsgPath = join(cwd || rootDir || process.cwd(), ".paaw", "troubleshooting", "TSGUIDE.json");
+        let guide;
+        try { guide = JSON.parse(readSync(tsgPath, "utf-8")); }
+        catch { guide = { version: 1, generatedAt: null, entries: [], gaps: [] }; }
+        const { dirname } = await import("node:path");
+        if (!existsSync(dirname(tsgPath))) mkdirSync(dirname(tsgPath), { recursive: true }); // nosemgrep: detect-non-literal-fs-filename — local-first
+        const action = String(args.action || "add");
+        const symptom = String(args.symptom || "").trim().slice(0, 300);
+        if (!symptom) return "❌ symptom 必填";
+        const fixSteps = Array.isArray(args.fixSteps) ? args.fixSteps.map(x => String(x).slice(0, 240)).filter(Boolean).slice(0, 10) : [];
+        const evidence = args.evidenceText ? [{ type: "human", ref: String(args.evidenceText).slice(0, 160) }] : [];
+        if (action === "update") {
+          const entry = (guide.entries || []).find(e => e.id === String(args.id || ""));
+          if (!entry) return `❌ 找不到條目 id=${args.id}（action=update 需先讀 TSGUIDE.json 拿 id）`;
+          if (symptom) entry.symptom = symptom;
+          if (args.cause) entry.cause = String(args.cause).slice(0, 400);
+          if (fixSteps.length) entry.fixSteps = fixSteps;
+          if (evidence.length) entry.evidence = [...(entry.evidence || []), ...evidence];
+          entry.lastEditAt = new Date().toISOString(); entry.lastEditBy = args._agentId || "agent";
+        } else {
+          guide.entries.push({
+            id: `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+            symptom, cause: String(args.cause || "").slice(0, 400), fixSteps,
+            feature: args.feature ? String(args.feature).slice(0, 80) : null,
+            evidence, status: "human",
+            createdBy: args._agentId || "agent", createdAt: new Date().toISOString(),
+          });
+        }
+        writeSync(tsgPath, JSON.stringify(guide, null, 2) + "\n", "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${action} ${symptom.slice(0, 40)}` });
+        return `✅ TS Guide ${action === "update" ? "更新" : "新增"}條目：${symptom.slice(0, 60)}（${guide.entries.length} 條）`;
       }
 
       case "action_log_add": {

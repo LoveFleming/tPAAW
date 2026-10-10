@@ -193,8 +193,8 @@ export default function codingTroubleRoutes(req, res) {
       const facts = await collectTroubleFacts(projectPath);
       const mined = await mineEntries(facts);
       const old = await loadGuide(projectPath);
-      // merge 鐵律：confirmed 是人確認過的資產原封保留；舊 draft 丟掉換新
-      const confirmed = (old?.entries || []).filter(e => e.status === "confirmed");
+      // merge 鐵律：confirmed/human 是人確認或人寫的資產原封保留；舊 draft 丟掉換新
+      const confirmed = (old?.entries || []).filter(e => e.status === "confirmed" || e.status === "human");
       const guide = {
         version: 1,
         generatedAt: new Date().toISOString(),
@@ -221,6 +221,46 @@ export default function codingTroubleRoutes(req, res) {
       entry.status = body.unconfirm ? "ai-draft" : "confirmed";
       if (body.unconfirm) { delete entry.confirmedAt; delete entry.confirmedBy; }
       else { entry.confirmedAt = new Date().toISOString(); entry.confirmedBy = "user"; }
+      await saveJson(guideFilePath(projectPath), guide);
+      return res.json({ ok: true, guide });
+    }
+
+    // ── entry：手動新增/編輯條目（AI 漏寫 SOP 時人直接補 — 2026-10-10 Fleming 17:03）──
+    if (url === "/api/coding-trouble/entry" && method === "POST") {
+      let body = {};
+      try { body = JSON.parse(await readBody(req) || "{}"); } catch { /* empty */ }
+      const symptom = String(body.symptom || "").trim().slice(0, 300);
+      if (!symptom) return res.status(400).json({ error: "symptom required" });
+      const guide = (await loadGuide(projectPath)) || { version: 1, generatedAt: null, entries: [], gaps: [] };
+      const entry = {
+        id: `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+        symptom,
+        cause: String(body.cause || "").slice(0, 400),
+        fixSteps: Array.isArray(body.fixSteps) ? body.fixSteps.map(x => String(x).slice(0, 240)).filter(Boolean).slice(0, 10) : [],
+        feature: body.feature ? String(body.feature).slice(0, 80) : null,
+        evidence: Array.isArray(body.evidence) ? body.evidence.map(e => ({ type: String(e?.type || "human").slice(0, 10), ref: String(e?.ref || "").slice(0, 160) })).filter(e => e.ref).slice(0, 6)
+          : (body.evidenceText ? [{ type: "human", ref: String(body.evidenceText).slice(0, 160) }] : []),
+        status: "human", // 人工權威 — 重生成永不覆蓋（同 confirmed 地位）
+        createdBy: "user", createdAt: new Date().toISOString(),
+      };
+      guide.entries.push(entry);
+      await saveJson(guideFilePath(projectPath), guide);
+      return res.json({ ok: true, guide });
+    }
+    if (url === "/api/coding-trouble/entry" && method === "PUT") {
+      let body = {};
+      try { body = JSON.parse(await readBody(req) || "{}"); } catch { /* empty */ }
+      const guide = await loadGuide(projectPath);
+      if (!guide) return res.status(404).json({ error: "guide not generated" });
+      const entry = (guide.entries || []).find(e => e.id === body.id);
+      if (!entry) return res.status(404).json({ error: "entry not found" });
+      if (body.symptom !== undefined) entry.symptom = String(body.symptom).trim().slice(0, 300);
+      if (body.cause !== undefined) entry.cause = String(body.cause).slice(0, 400);
+      if (Array.isArray(body.fixSteps)) entry.fixSteps = body.fixSteps.map(x => String(x).slice(0, 240)).filter(Boolean).slice(0, 10);
+      if (body.feature !== undefined) entry.feature = body.feature ? String(body.feature).slice(0, 80) : null;
+      if (body.evidenceText !== undefined) entry.evidence = String(body.evidenceText).trim()
+        ? [{ type: "human", ref: String(body.evidenceText).slice(0, 160) }] : [];
+      entry.lastEditAt = new Date().toISOString(); entry.lastEditBy = "user";
       await saveJson(guideFilePath(projectPath), guide);
       return res.json({ ok: true, guide });
     }
