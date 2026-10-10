@@ -139,58 +139,60 @@ export async function envExecHandler({ command, cwd, timeoutMs, confirmDirty }) 
   const timeout = Math.min(Number(timeoutMs) || 600_000, 900_000); // cap 15 分鐘
   const startedAt = Date.now();
 
-  // ── srt 沙箱包裹（2026-10-10 Fleming：所有 agent loop 安全係數最高）──
+  // ── 沙箱 v3（2026-10-10）：統一 execSandboxed 入口 ──
   // env_exec 原本裸 execFile — 惡意套件 postinstall 有完整網路外傳面。
-  // 沙箱可用（macOS/Linux + 套件已裝）→ 包白名單網域 + 機密 denyRead + 專案外禁寫；
-  // 不可用（公司 Windows 未裝 srt）→ 維持原 execFile（白名單+shell-guard+script-guard 仍在）。
+  // v2：macOS/Linux srt 包白名單網域 + 機密 denyRead + 專案外禁寫
+  // v3：win32/linux 有 @microsoft/mxc-sdk → MXC（fs allowlist + egress deny-by-default，
+  //      npm/pip/git 等 needsNetworkAllow 命令 → allow + 事後審計）
+  // 不可用 → raw 原樣執行（白名單+shell-guard+script-guard 仍在）
   let sandboxed = false;
-  let shellBin = v.bin, shellArgs = v.args;
-  let _allowedDomains = null; // 掃描用白名單（沙箱開著才有意義，先取好 — callback 不是 async）
+  let backend = "none";
+  let _allowedDomains = null; // 掃描用白名單（沙箱開著才有意義）
+  let result = null;          // { code, stdout, stderr, timedOut, sandboxed, backend }
+  const quote = (a) => `'${String(a).replace(/'/g, `'\\''`)}'`; // POSIX 單引號跳脱
+  const quotedCmd = [v.bin, ...v.args].map(quote).join(" ");
   try {
-    if (process.platform !== "win32") {
-      const { wrapWithSrt, sandboxAvailable, effectiveAllowedDomains } = await import("./paaw-sandbox.mjs");
-      if (await sandboxAvailable()) _allowedDomains = effectiveAllowedDomains();
-      if (_allowedDomains) {
-        const quote = (a) => `'${String(a).replace(/'/g, `'\\''`)}'`; // POSIX 單引號跳脱
-        const quotedCmd = [v.bin, ...v.args].map(quote).join(" ");
-        const wrapped = await wrapWithSrt(quotedCmd, workDir);
-        if (wrapped && wrapped !== quotedCmd) {
-          shellBin = "/bin/zsh";
-          shellArgs = ["-c", wrapped];
-          sandboxed = true;
-        }
-      }
-    }
-  } catch { /* 沙箱失敗不擋路 — 退回原樣 */ }
-
-  return await new Promise((resolveP) => {
-    execFile(shellBin, shellArgs, {
+    const { execSandboxed, effectiveAllowedDomains, sandboxAvailable, needsNetworkAllow } = await import("./paaw-sandbox.mjs");
+    if (await sandboxAvailable()) _allowedDomains = effectiveAllowedDomains(); // 掃描翻譯用（兩種後端輸出簽名相同）
+    result = await execSandboxed(quotedCmd, {
       cwd: workDir,
-      timeout,
-      maxBuffer: 8 * 1024 * 1024,
-      env: {
-        ...process.env,
-        // brew / nvm 裝的 binary 在 homebrew 路徑（execFile 不吃 shell rc）
-        PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ""}`,
-      },
-    }, (err, stdout, stderr) => {
-      const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
-      const tail = (s) => String(s || "").slice(-6000);
-      let out = [tail(stdout), stderr ? `stderr:\n${tail(stderr)}` : ""].filter(Boolean).join("\n");
-      if (err && !err.killed) out += `\nExit code: ${err.code ?? 1}`;
-      // ── 安全審計（2026-10-10）：白名單阻擋/沙箱拒絕 → 引導 + audit（同 bash 工具）──
-      try {
-        const secHit = scanCommandOutput({ command, output: out, allowedDomains: _allowedDomains || [], agentId: "assistant", cwd: workDir, tool: "env_exec" });
-        if (secHit) out += secHit.agentNotice;
-      } catch { /* 審計失敗不影響 */ }
-      if (err && err.killed) {
-        resolveP(`⏱ 指令逾時（${elapsed}s，被中止）：\n${out}`);
-      } else if (err) {
-        // npm 等非零退出碼 = 有錯誤訊息可讀，把輸出帶回給 AI 診斷
-        resolveP(`⚠️ 退出碼 ${err.code ?? "?"}（${elapsed}s）${sandboxed ? " 🛡沙箱内" : ""}\n${out || err.message}`);
-      } else {
-        resolveP(`✅ 完成（${elapsed}s）${sandboxed ? " 🛡沙箱内" : ""}\n${out || "（無輸出）"}`);
-      }
+      timeoutMs: timeout,
+      network: needsNetworkAllow(command) ? "allow" : "deny",
     });
-  });
+    sandboxed = result.sandboxed;
+    backend = result.backend;
+  } catch { /* 沙箱失敗不擋路 — 退回原樣 */ }
+  if (!result) {
+    // raw fallback：原 execFile（v2 不可用時行為）
+    result = await new Promise((resolveP) => {
+      execFile(v.bin, v.args, {
+        cwd: workDir,
+        timeout,
+        maxBuffer: 8 * 1024 * 1024,
+        env: {
+          ...process.env,
+          // brew / nvm 裝的 binary 在 homebrew 路徑（execFile 不吃 shell rc）
+          PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ""}`,
+        },
+      }, (err, stdout, stderr) => {
+        resolveP({ code: err ? (err.code ?? 1) : 0, stdout: String(stdout || ""), stderr: String(stderr || ""), timedOut: !!(err && err.killed) });
+      });
+    });
+  }
+
+  // ── 輸出組裝 + 安全審計（同 bash 工具）：白名單阻擋/沙箱拒絕 → 引導 + audit ──
+  {
+    const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+    const tail = (s) => String(s || "").slice(-6000);
+    let out = [tail(result.stdout), result.stderr ? `stderr:\n${tail(result.stderr)}` : ""].filter(Boolean).join("\n");
+    if (result.code !== 0 && !result.timedOut) out += `\nExit code: ${result.code ?? 1}`;
+    try {
+      const secHit = scanCommandOutput({ command, output: out, allowedDomains: _allowedDomains || [], agentId: "assistant", cwd: workDir, tool: "env_exec" });
+      if (secHit) out += secHit.agentNotice;
+    } catch { /* 審計失敗不影響 */ }
+    const badge = sandboxed ? ` 🛡沙箱内${backend === "mxc" ? "（MXC）" : ""}` : "";
+    if (result.timedOut) return `⏱ 指令逾時（${elapsed}s，被中止）${badge}：\n${out}`;
+    if (result.code !== 0) return `⚠️ 退出碼 ${result.code ?? "?"}（${elapsed}s）${badge}\n${out || "（無錯誤訊息）"}`;
+    return `✅ 完成（${elapsed}s）${badge}\n${out || "（無輸出）"}`;
+  }
 }

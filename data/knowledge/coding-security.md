@@ -28,7 +28,7 @@ PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
 ② 檔案邊界      哪些路徑寫得到        isPathAllowed（cwd 限制 + WRITE_BLACKLIST）
 ③ 執行入口攔截  哪些檔案絕不能寫      script-guard A
 ④ Process 鐵律  哪些 process 碰不得   shell-guard（pkill/killall 擋、PAAW 自身不可啟停）
-④½ 網路沙箱   哪些網路連得到      srt（@anthropic-ai/sandbox-runtime）— domain 白名單 + 檔案讀寫隔離
+④½ 網路沙箱   哪些網路連得到      srt（Mac，domain 白名單）/ MXC（Linux/Win，fs allowlist + egress 開關）
 ④¾ 防呆迴圈    同 call 重複偵測      doom_loop — 同 tool call 第 3 次攔（防卡死燒 token）
 ⑤ 內容掃描      執行前掃 script 內容  script-guard C（bash）+ B（env_exec）
 ⑥ 人審流程      出了事誰把關          ask_user / QA·RM review / no-push 紀律
@@ -93,6 +93,31 @@ PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
 - 沙箱擋連線的原始輸出只有 cryptic 簽名（curl 000 exit 28 / Could not resolve host / EPERM）— bash/env_exec 執行後由 `lib/audit-log.mjs` scanCommandOutput 掃描翻譯
 - 命中「非白名單網域 + 網路失敗簽名」→ ① tool result 附 agent 引導（用 ask_user、去「設定 → 🛡 安全」加網域）② SSE `security_notice` 事件 → UI 🛡 安全通知卡（使用者即時看到）③ 記 audit（見 ⑦）
 - 「Operation not permitted / EPERM」（機密 denyRead / 專案外禁寫）→ 同樣三件套（npm 自家 cache EPERM unlink 誤報已排除）
+
+## ④⅝ MXC 沙箱後端（2026-10-10 v3，Fleming 拍板：公司 Linux+Windows 統一攔截層）
+
+Microsoft **MXC**（`@microsoft/mxc-sdk`，root package.json optionalDependencies）— Windows ProcessContainer / Linux bubblewrap / macOS seatbelt。
+
+### 後端選擇（paaw-sandbox v3 `activeBackend()`）
+- `PAAW_SANDBOX_BACKEND=auto`（預設）：**darwin → srt**（per-domain 白名單較精細、已實測）；**win32/linux → mxc**（公司端從裸奔變有攔截）
+- 可強制 `mxc` / `srt` / `off`；mxc 啟動失敗自動 fallback srt → raw（可用性優先）
+
+### MXC 模式 policy（`execSandboxed()`）
+- **filesystem：default-deny allowlist**（未列路徑一律 EPERM — 比 srt 黑名單更嚴）
+  - readonly：/usr /bin /etc /opt home 專案根 node-bin-dir；`deniedPaths` 優先蓋敏感：`~/.ssh` `~/.openclaw` `~/.aws` `~/.gnupg` `<cwd>/.env` `<cwd>/data/config/providers.json`
+  - readwrite：專案 cwd、TMPDIR、~/.npm、~/Library/Caches、~/.cache
+- **network：egress deny-by-default** — 命令含套件管理/下載工具（`needsNetworkAllow()`：npm/pip/git clone|fetch|pull/curl/wget/brew/cargo/go…）→ egress allow + 事後 scanCommandOutput 審計；其餘命令全關
+  - macOS seatbelt 不支援 egress allow 規則（只能全開/全關）— per-domain 精細白名單只有 srt 有，這是 Mac 留 srt 的原因
+- **環境**：MXC 內建極簡 PATH/HOME — `buildMxcEnv()` 顯式傳 PATH/HOME/TMPDIR + PAAW_LOG_HOME 等
+
+### 消費端（統一入口 `execSandboxed(command, {cwd, timeoutMs, env, network})`）
+- bash 工具（paaw-agent-loop runShell）：mxc 可用 → execSandboxed（MXC 自管 timeout 殺組，不走 proc-ledger 記帳）；否則照舊 srt+runShellGrouped
+- env_exec（林雨晴）：一律走 execSandboxed；回傳帶 `🛡沙箱内（MXC）` 標記；raw fallback 行為同 v2
+
+### 部署需求（公司端）
+- **Node ≥ 24**（SDK 硬需求）；`npm install` 自動裝（101MB native assets，optionalDependencies 裝失敗不擋）
+- Linux 需 `bwrap`（bubblewrap）存在；Windows ProcessContainer 為內建預設後端
+- 驗證：跑 `npx vitest run tests/unit/paaw-sandbox-mxc.test.mjs`（無 SDK 自動 skip live 段）
 
 ## ④¾ doom_loop 防呆（2026-10-09，抄 OpenCode 預設 ask）
 
@@ -171,7 +196,7 @@ script-guard 攔截 → chat 出現 🛡 審批卡（✅ 准許一次 / ♾️ �
 ## 已知限制（誠實講）
 
 1. **掃描式非密不通風** — 混淆過的 payload（base64 編碼、動態組 URL、分段下載）理論上可繞過 pattern；v2 起直譯器/編譯/raw 指令三層都掃（語言無關），但這是縱深防禦不是密不通風 — 殘餘風險靠 ⑥ 人審 + ⑦ 審計兜底
-2. **沙箱依賴 srt 套件** — bash/env_exec 都包 srt（macOS Seatbelt）；公司 Windows 未裝 `@anthropic-ai/sandbox-runtime` 時自動退回 pattern 掃描（網路/檔案 OS 層防護失效，靠 ①-⑤ 掃描 + 人審兜底）；`PAAW_SANDBOX=off` 爲 debug 逃生口
+2. **沙箱後端依賴套件**（2026-10-10 v3 改制）— macOS 包 srt（Seatbelt，per-domain 白名單）；Linux/Windows 走 MXC（`@microsoft/mxc-sdk`，Node ≥ 24 + Linux 需 bwrap）— 沒裝時自動退回 pattern 掃描（OS 層防護失效，靠 ①-⑤ 掃描 + 人審兜底）；`PAAW_SANDBOX=off` / `PAAW_SANDBOX_BACKEND=off` 爲 debug 逃生口；MXC egress 只有全開/全關（seatbelt 限制）— per-domain 精細白名單僅 srt（Mac）有
 3. **npx 可跑任意套件** — env_exec 白名單含 npx；供應鏈信任靠 npm registry + lockfile（npm ci）
 4. **dev_server / ru_verify 跑的 npm script** 未掛 C 掃描（只跑白名單 action：build/lint/test/dev）— script 值仍可能被改過，靠 ② 路徑限制 + 人審補
 5. **MCP 未接入** — 未來接入時規則：只接自己寫的或信任的 MCP server（tool description 是 prompt injection 入口）；能力邊界由 MCP server 定義，PAAW 端用 toolGroups/toolsDeny 控可見性

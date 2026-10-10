@@ -49,5 +49,8 @@
     "@anthropic-ai/sandbox-runtime": "^0.0.79",
     "adm-zip": "^0.6.0",
     "tree-sitter-rust": "^0.24.0"
+  },
+  "optionalDependencies": {
+    "@microsoft/mxc-sdk": "^1.0.0"
   }
 }

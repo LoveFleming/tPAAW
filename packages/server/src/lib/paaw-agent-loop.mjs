@@ -1707,7 +1707,33 @@ async function runShell(command, cwd, timeoutMs = 30_000) {
     // 2026-09-27 OOM 治本：改走 proc-ledger 的 process group 執行 —
     // timeout 殺整棵樹（不留孤兒）；背景殘留記帳，agent run 結束時精準掃殺
     // （runId 由 proc-ledger 從 AsyncLocalStorage 讀 — runAgentLoop 進場時掛的）
-    // ── srt 沙箱（2026-10-09 v5，Fleming 拍板）── AI bash 全包：
+    // ── 沙箱 v3（2026-10-10 Fleming 拍板：公司 Linux+Windows 統一攔截層）──
+    // MXC backend 可用（win32/linux 裝了 @microsoft/mxc-sdk）→ execSandboxed：
+    //   fs default-deny allowlist + egress deny-by-default（npm/pip/git 等命令 needsNetworkAllow → allow）
+    //   注意：MXC 路徑不走 proc-ledger 記帳（MXC SDK 自管 timeout 殺整組）
+    // macOS / MXC 未裝 → 照舊 srt wrap + runShellGrouped（行為不變）
+    try {
+      const { activeBackend, mxcAvailable, execSandboxed, needsNetworkAllow } = await import("./paaw-sandbox.mjs");
+      const backend = activeBackend();
+      const wantMxc = backend === "mxc" || (backend !== "srt" && process.platform !== "darwin");
+      if (wantMxc && await mxcAvailable()) {
+        const r = await execSandboxed(command, {
+          cwd,
+          timeoutMs: Math.min(timeoutMs, _agentCfg.shellTimeoutMs || 600_000),
+          env: {
+            PAAW_LOG_HOME: LOG_HOME,
+            PAAW_TMP: join(LOG_HOME, "tmp", _ruSlug),
+            PAAW_APP_CONSOLE_DIR: join(LOG_HOME, "app-console", _ruSlug),
+          },
+          network: needsNetworkAllow(command) ? "allow" : "deny",
+        });
+        let out = (r.stdout || "") + (r.stderr ? "\n" + r.stderr : "");
+        if (r.timedOut) out += (out ? "\n" : "") + "⏱ 沙箱內逾時（MXC）";
+        if (r.code !== 0) out += (out ? "\n" : "") + `Exit code: ${r.code ?? 1}`;
+        return (out || "(no output)") + "\n🛡沙箱内（MXC）";
+      }
+    } catch { /* MXC 路徑失敗 → fallback srt（下方原路徑） */ }
+    // ── srt 沙箱（2026-10-09 v5）── AI bash 全包：
     // domain 白名單（npm/pypi/github/localhost）+ 機密 denyRead + 專案外禁寫。
     // 包不成（非支援平台/套件未裝/PAAW_SANDBOX=off）= 原樣執行，pattern 掃描仍在。
     let _cmd = command;
