@@ -4,8 +4,8 @@
  * 「可維運」— 出事知道怎麼查、怎麼修、怎麼退。
  *
  * 左（2026-10-09 Fleming 改版，像 Handover 的資訊層次）：
- * 左（2026-10-09 21:00 Fleming 二次修正：概覽/Release 卡拿掉，只留兩區）：
- *   ① 🚨 排障 12 問 — 點擊帶維運證據送維運助理（概覽/release 事實仍在證據裡，只是不佔畫面）
+ * 左（2026-10-10 17:17 Fleming：排障 12 問移除 — TS Guide 條目 + side chat 已覆蓋）：
+ *   ① 🧯 TS Guide 條目庫（症狀→原因→修法→證據；human/confirmed 重生成保留）
  *   ② 📚 Runbook — 人寫 ✍️ 權威在前、AI 🤖 草稿在後（檔頭 source: human 標記）
  * 右：Ops AI 助理（讀 runbook + log 幫診斷、生成 runbook）
  *
@@ -161,29 +161,6 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
     } catch (e: any) {
       setRbContent(`❌ ${e?.message || "讀取失敗"}`);
     }
-  };
-
-  // ── 🚨 排障 12 問：deterministic 維運證據 + 問題 → 維運助理（No answer without evidence）──
-  const buildOpsEvidence = () => {
-    if (!status) return "";
-    const ov = status.overview;
-    return [
-      "維運事實（程式產生，deterministic）：",
-      `專案: ${ov?.name || "（無 package.json）"}${ov?.version ? ` v${ov.version}` : ""} @ ${rootPath}`,
-      `git: ${status.git.isRepo ? `${status.git.branch}${status.git.dirty ? `（⚠ ${status.git.dirtyFiles.length} 未 commit）` : "（clean）"}` : "非 git repo"}${status.git.lastCommits?.[0] ? ` · HEAD: ${status.git.lastCommits[0]}` : ""}`,
-      ov?.startCmd ? `啟動: ${ov.startCmd}${ov.testCmd ? ` · 測試: ${ov.testCmd}` : ""}` : "",
-      ov?.ports?.length ? `偵測 ports: ${ov.ports.join(", ")}` : "",
-      ov?.dataDirs?.length ? `資料目錄: ${ov.dataDirs.join(", ")}` : "",
-      ov?.deps?.length ? `相依: ${ov.deps.join(", ")}` : "",
-      status.runbooks.length ? `runbooks:\n${status.runbooks.map(rb => `- ${rb.title}（${rb.source === "human" ? "人寫" : "AI 草稿"}）`).join("\n")}` : "runbooks:（無）",
-      status.releases.length ? `最近 releases:\n${status.releases.slice(0, 3).map(r => `- ${r.releasedAt?.slice(0, 10)} ${r.id} ${r.title}`).join("\n")}` : "",
-    ].filter(Boolean).join("\n");
-  };
-
-  const askOq = (q: string) => {
-    chatRef.current?.send(
-      `${buildOpsEvidence()}\n\n排障問題：${q}\n請根據上面事實回答（可讀 .paaw/runbook/ 補充）；查不到的事實明確說「查無證據」，不要用猜的。`
-    );
   };
 
   // ── AI 寫 Runbook：注入 deterministic 證據（含真 API 路徑 — 不憑空掰 URL）──
@@ -367,21 +344,6 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
                     </button>
                   </div>
                 </div>
-              </div>
-            </section>
-
-            {/* ═══ ② 排障 12 問（點擊帶證據送維運助理）═══ */}
-            <section data-testid="ops-12q">
-              <h3 className="text-xs font-bold text-stone-600 mb-1 flex items-center gap-1.5">🚨 {t("ops.oq.title")}</h3>
-              <div className="text-[10px] text-stone-400 mb-2">{t("ops.oq.hint")}</div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {Array.from({ length: 12 }, (_, i) => t(`ops.oq${i + 1}`)).map((q, i) => (
-                  <button key={i} onClick={() => askOq(q)}
-                    className="text-left text-[11px] px-2.5 py-2 rounded-lg border bg-white hover:border-stone-400 hover:bg-stone-50 text-stone-700 leading-snug transition-colors"
-                    style={{ borderColor: tk.borderLight }}>
-                    <span className="text-stone-400 font-mono mr-1">{i + 1}.</span>{q}
-                  </button>
-                ))}
               </div>
             </section>
 
