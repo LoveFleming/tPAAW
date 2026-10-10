@@ -17,6 +17,7 @@
  */
 
 import { readFile, writeFile, mkdir, readdir } from "fs/promises";
+import { buildEvidenceMatrix } from "../lib/release-evidence.mjs";
 import { existsSync, readdirSync } from "fs";
 import { join } from "path";
 import { gatherTaskEvidence } from "./coding-evidence.mjs";
@@ -413,6 +414,15 @@ export default async function releaseRoutes(req, res, next) {
       const risk = riskScore >= 3 ? "HIGH" : riskScore >= 1 ? "MEDIUM" : "LOW";
       const ready = blockedGates.length === 0 && risk !== "HIGH";
 
+      // ── Evidence Matrix（2026-10-10 Fleming：老闆 review 要有證據 — 全 deterministic 重掃不變）──
+      let evidenceMatrix = null;
+      try {
+        const ltr2 = await lastTestRunSummary(projectPath);
+        evidenceMatrix = await buildEvidenceMatrix(projectPath, changedFeatures, {
+          lastTestRunGreen: !(ltr2?.summary?.failed > 0),
+        });
+      } catch (e) { console.error("[readiness] evidence matrix:", e.message); } // nosemgrep: unsafe-formatstring
+
       const authors = [...new Set(commits.map(c => c.author))];
       return res.json({
         releaseId: new Date().toISOString().slice(0, 10).replace(/-/g, "."),
@@ -435,6 +445,7 @@ export default async function releaseRoutes(req, res, next) {
         openItems,
         risk, riskReasons,
         ready,
+        evidenceMatrix,
       });
     } catch (e) {
       return res.status(500).json({ error: "readiness failed", detail: e.message });

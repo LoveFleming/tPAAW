@@ -51,9 +51,17 @@ interface ReadinessFeature {
   apis: string[]; apiImpact: boolean; tests: { file: string; kind?: string | null }[];
   hasTests: boolean; knowledgeGaps: string[]; recentSubjects: string[];
 }
+interface EvCell { ok: boolean; reason?: string; tests?: number; covered?: number; total?: number; high?: number; actor?: string; models?: string[]; at?: string; decision?: string; summary?: string }
+interface EvFeature extends ReadinessFeature {
+  severity: string | null; severitySuggested: string | null; severityConfirmed: boolean;
+  evidence: { unit: EvCell; e2e: EvCell; sg: EvCell; qa: EvCell; aiReview: EvCell; human: EvCell };
+  gaps: { unknownSeverity: boolean; missing: string[] };
+}
+interface EvidenceMatrix { features: EvFeature[]; summary: { features: number; bySeverity: Record<string, number>; withGaps: number; sgScan: { scannedAt: string | null; total: number; high: number } | null; reviewBoard: { latest: { at: string | null; decision: string | null; models: string[] }; total: number } | null } }
 interface Readiness {
   releaseId: string; since: string; sinceRelease: { id: string; releasedAt: string; title: string } | null;
   firstRelease: boolean;
+  evidenceMatrix?: EvidenceMatrix | null;
   commits: { count: number; authors: string[]; subjects: string[] };
   changedFiles: { file: string; changeCount: number }[];
   changedFeatures: ReadinessFeature[];
@@ -339,6 +347,60 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                   <span className="text-[10px] text-amber-600 truncate" title={readiness.riskReasons.join("; ")}>{t("rm.riskWhy")}: {readiness.riskReasons.join("; ")}</span>
                 )}
               </div>
+
+                {readiness.evidenceMatrix && (
+                  <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight }} data-testid="rm-evidence-matrix">
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <span className="text-xs font-bold text-stone-700">⚖️ {t("rm.ev.title")}</span>
+                      <span className="text-[10px] text-stone-400">{t("rm.ev.hint")}</span>
+                      <span className="ml-auto flex gap-1.5 text-[10px] font-mono">
+                        {readiness.evidenceMatrix.summary.bySeverity.S2 > 0 && <span className="px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-bold">S2 {readiness.evidenceMatrix.summary.bySeverity.S2}</span>}
+                        {readiness.evidenceMatrix.summary.bySeverity.S1 > 0 && <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold">S1 {readiness.evidenceMatrix.summary.bySeverity.S1}</span>}
+                        {readiness.evidenceMatrix.summary.bySeverity.S0 > 0 && <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 font-bold">S0 {readiness.evidenceMatrix.summary.bySeverity.S0}</span>}
+                        {readiness.evidenceMatrix.summary.bySeverity.unconfirmed > 0 && <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-bold" title={t("rm.ev.unconfirmedTip")}>❓ {readiness.evidenceMatrix.summary.bySeverity.unconfirmed}</span>}
+                        {readiness.evidenceMatrix.summary.reviewBoard && <span className="px-1.5 py-0.5 rounded bg-violet-50 text-violet-600" title={readiness.evidenceMatrix.summary.reviewBoard.latest.models.join("、")}>🏛 {readiness.evidenceMatrix.summary.reviewBoard.latest.models.length}m</span>}
+                        {readiness.evidenceMatrix.summary.sgScan && <span className={`px-1.5 py-0.5 rounded ${readiness.evidenceMatrix.summary.sgScan.high > 0 ? "bg-red-50 text-red-600 font-bold" : "bg-green-50 text-green-700"}`}>🛡 {readiness.evidenceMatrix.summary.sgScan.total}·{readiness.evidenceMatrix.summary.sgScan.high}hi</span>}
+                      </span>
+                    </div>
+                    <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 pb-1" style={{ gridTemplateColumns: "1.6fr 0.6fr 0.8fr 0.9fr 0.8fr 0.8fr 1.5fr 1.2fr" }}>
+                      <span>{t("rm.ev.feature")}</span><span>Sev</span><span>Unit</span><span>E2E</span><span>SG</span><span>QA</span><span>{t("rm.ev.board")}</span><span>{t("rm.ev.human")}</span>
+                    </div>
+                    {readiness.evidenceMatrix.features.map(f => {
+                      const ev = f.evidence;
+                      const cell = (c: EvCell, label: string) => (
+                        <span className={`text-[10px] font-mono ${c.ok ? "text-green-600" : "text-red-500 font-bold"}`} title={String(c.reason || (c.ok ? "✓" : "missing"))}>{label}</span>
+                      );
+                      return (
+                        <div key={f.id} className="grid gap-1 items-center px-2 py-1.5 rounded-lg hover:bg-stone-50" style={{ gridTemplateColumns: "1.6fr 0.6fr 0.8fr 0.9fr 0.8fr 0.8fr 1.5fr 1.2fr", background: f.gaps.missing.length ? "#fff7ed" : undefined }}>
+                          <span className="text-[10px] font-bold text-stone-700 truncate" title={f.name}>{f.name}</span>
+                          <span className={`text-[10px] font-bold ${f.severity === "S2" ? "text-red-600" : f.severity === "S1" ? "text-amber-600" : f.severity === "S0" ? "text-green-600" : "text-stone-400"}`}>
+                            {f.severityConfirmed ? f.severity : `❓${f.severitySuggested || ""}`}
+                          </span>
+                          {cell(ev.unit, ev.unit.ok ? `✓${ev.unit.tests || 0}t` : "✗")}
+                          {cell(ev.e2e, ev.e2e.ok ? (ev.e2e.total ? `${ev.e2e.covered}/${ev.e2e.total}` : "—") : `✗${ev.e2e.covered ?? 0}/${ev.e2e.total ?? 0}`)}
+                          {cell(ev.sg, ev.sg.ok ? ((ev.sg.total ?? 0) > 0 ? `⚠${ev.sg.total}` : "✓0") : `✗${ev.sg.high ?? 0}hi`)}
+                          {cell(ev.qa, ev.qa.ok ? `✓${String(ev.qa.actor || "").slice(0, 4)}` : "✗")}
+                          {ev.aiReview.ok
+                            ? <span className="text-[9px] text-green-600 font-mono truncate" title={`${ev.aiReview.models?.join("、")} @ ${String(ev.aiReview.at || "").slice(0, 10)}`}>✓{ev.aiReview.models?.length}m {String(ev.aiReview.decision || "").slice(0, 8)}</span>
+                            : <span className="text-[9px] text-red-500 font-bold truncate" title={String(ev.aiReview.reason || "")}>✗ {t("rm.ev.notRun")}</span>}
+                          {ev.human.ok
+                            ? <span className="text-[9px] text-green-700 truncate" title={String(ev.human.summary || "")}>✍ {String(ev.human.summary || "").slice(0, 22)}</span>
+                            : <span className="text-[9px] text-stone-400">—</span>}
+                        </div>
+                      );
+                    })}
+                    {readiness.evidenceMatrix.features.some(f => f.gaps.missing.length || f.gaps.unknownSeverity) && (
+                      <div className="mt-2 rounded-lg bg-orange-50 px-3 py-2 space-y-0.5" data-testid="rm-evidence-gaps">
+                        <div className="text-[10px] font-bold text-orange-700">⚠️ {t("rm.ev.gapsTitle")}</div>
+                        {readiness.evidenceMatrix.features.filter(f => f.gaps.missing.length || f.gaps.unknownSeverity).map(f => (
+                          <div key={f.id} className="text-[10px] text-orange-600">
+                            • {f.name}{f.severity ? `（${f.severity}）` : "（❓）"}：{f.gaps.unknownSeverity ? t("rm.ev.needConfirm") : `缺 ${f.gaps.missing.join("、")}`}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
               {/* Changed Features */}
               {readiness.changedFeatures.length > 0 && (
