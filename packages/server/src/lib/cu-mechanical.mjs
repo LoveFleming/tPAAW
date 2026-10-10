@@ -18,6 +18,7 @@ import { createPaawProject } from "./paaw-project.mjs";
 import { buildCodeIntelligence } from "./code-intelligence.mjs";
 import { buildTestIntelligence } from "./test-intelligence.mjs";
 import { buildChangeIntelligence } from "./change-intelligence.mjs";
+import { autoScanAllFeatureSeverities } from "./feature-risk-scan.mjs";
 
 // In-flight lock — 同一專案不並發重掃（commit hook 高頻觸發時 dedupe）
 const inFlight = new Map();
@@ -65,6 +66,14 @@ export async function rescanMechanicalLayer(projectRoot, paawRoot) {
       await paaw.setCuStepStatus("change-intelligence", "done", { summary: `${summary?.totalCommits ?? 0} commits` });
     } catch (e) {
       results["change-intelligence"] = { ok: false, error: e.message };
+    }
+
+    // ── 4. Severity 自動落地（2026-10-10 20:52 Fleming：每次 CU 後自動標示，零 token）──
+    try {
+      const sev = await autoScanAllFeatureSeverities(root);
+      results["severity-scan"] = { ok: true, summary: `${sev.updated}/${sev.total} features` };
+    } catch (e) {
+      results["severity-scan"] = { ok: false, error: e?.message || String(e) };
     }
 
     return { ok: true, durationMs: Date.now() - t0, results };

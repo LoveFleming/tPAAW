@@ -13,6 +13,7 @@
 import { readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { resolve, basename } from "path";
+import { loadFeatures, saveFeatures } from "./feature-registry.mjs";
 
 const MAX_FILE_BYTES = 800_000; // 單檔掃描上限（超大檔只掃前 800KB）
 const MAX_FILES = 80;           // 單 feature 最多掃描檔數
@@ -157,3 +158,46 @@ function buildReason(sev, { hasMigration, dataTouch, hasMutatingOutbound, hosts 
 
 export const SEVERITY_LEVELS = ["S0", "S1", "S2"];
 export function isValidSeverity(s) { return SEVERITY_LEVELS.includes(s); }
+
+/**
+ * autoScanAllFeatureSeverities — CU 後自動落地 severity（2026-10-10 20:52 Fleming：
+ * 「每次做 CU 後都會標示 ai 判的 risk，不需要逐個 refresh 的按鈕」）
+ *
+ * 全量構成面掃描（deterministic、零 token、idempotent）：
+ *   - riskProfile / severityComputed：一律重算（CU 後 codeFiles 可能變）
+ *   - severitySuggested：空或 by:scan → 落地新掃描值（by: "scan"）；
+ *     by:ai（LLM 深度建議，按鈕觸發的）→ 不覆蓋
+ *   - retired / 無 codeFiles → skip；單個失敗不擋全批
+ *
+ * 掛點：feature-map-v2 第 5 步 merge 後 + cu-mechanical 重掃尾端。
+ * 不跑 LLM — 零自動燒 token 鐵律不變（深度 AI 建議仍靠 per-feature ↻ 按鈕）。
+ */
+export async function autoScanAllFeatureSeverities(projectRoot) {
+  const features = loadFeatures(projectRoot);
+  const at = new Date().toISOString();
+  let updated = 0;
+  for (const f of features) {
+    if (f.status === "retired") continue;
+    if (!Array.isArray(f.codeFiles) || f.codeFiles.length === 0) continue;
+    try {
+      const scan = await scanFeatureRisk(projectRoot, f);
+      f.riskProfile = scan;
+      f.riskProfileScannedAt = at;
+      f.severityComputed = scan.computedSeverity;
+      const keepAi = f.severitySuggestedBy === "ai" && !!f.severitySuggested;
+      if (!keepAi) {
+        f.severitySuggested = scan.computedSeverity;
+        f.severitySuggestedReason = scan.computedReason;
+        f.severitySuggestedNotes = "";
+        f.severitySuggestedBy = "scan";
+        f.severitySuggestedAt = at;
+      }
+      updated++;
+    } catch { /* 單個失敗不擋全批 */ }
+  }
+  if (updated > 0) {
+    for (const f of features) f.updatedAt = f.updatedAt || at;
+    await saveFeatures(projectRoot, features);
+  }
+  return { updated, total: features.length };
+}

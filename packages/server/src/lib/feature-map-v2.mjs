@@ -26,6 +26,7 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { parseProject } from "./tree-sitter-parser.mjs";
 import { buildDeterministicFeatureMap } from "./code-graph.mjs";
 import { nextFeatureIds, loadFeatures, saveFeatures, mergeFeaturesWithExisting } from "./feature-registry.mjs";
+import { autoScanAllFeatureSeverities } from "./feature-risk-scan.mjs";
 import { DATA_HOME } from "../data-home.mjs";
 import { stableStringify } from "./stable-stringify.mjs";
 
@@ -268,6 +269,12 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
   const featuresDir = join(projectRoot, ".paaw", "features");
   mkdirSync(featuresDir, { recursive: true });
   saveFeatures(projectRoot, features); // 走 registry（備份輪替 + 標準形狀）
+
+  // ── 5.5 CU 後自動落地 severity（2026-10-10 20:52 Fleming：不需要逐個 refresh 按鈕）──
+  // 全量構成面掃描（deterministic 零 token）：by:scan/空 → 落地；by:ai 深度建議保留
+  try { await autoScanAllFeatureSeverities(projectRoot); } catch (e) {
+    console.error("[feature-map] auto severity scan:", e?.message || e);
+  }
 
   const fileFeatureMap = {};
   for (const feat of features) {
