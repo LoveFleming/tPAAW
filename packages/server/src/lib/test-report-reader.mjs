@@ -8,11 +8,14 @@
  * 啟發式推測永不冒充事實。找不到 report = 誠實顯示「無」。
  *
  * 支援格式（per-language/per-runner 標準輸出）：
- *   JS/TS   coverage/coverage-summary.json（istanbul — vitest/jest --coverage 標準落地）
- *   JS/TS   coverage/lcov.info（lcov — 广泛通用）
- *   e2e     Playwright JSON（--reporter=json 落地 or playwright-report/*.json）
- *   Java    JaCoCo XML（target/site/jacoco/jacoco.xml、根目錄 jacoco*.xml — Maven/Gradle）
+ *   JS/TS    coverage/coverage-summary.json（istanbul — vitest/jest --coverage 標準落地）
+ *   JS/TS    coverage/lcov.info（lcov — 广泛通用）
+ *   e2e      Playwright JSON（--reporter=json 落地 or playwright-report/*.json）
+ *   Java     JaCoCo XML（target/site/jacoco/jacoco.xml、根目錄 jacoco*.xml — Maven/Gradle）
  *   Java/通用 JUnit XML（TEST-*.xml — surefire/gradle test；pytest 也能出）
+ *   Python   Cobertura XML（coverage.py 的 coverage.xml）+ JUnit XML（pytest --junitxml）
+ *   Go       原生 coverprofile（go test -coverprofile=coverage.out）+ JUnit XML（go-junit-report）
+ *   Rust     Cobertura XML（tarpaulin/llvm-cov）+ JUnit XML（cargo-nextest）+ LCOV（llvm-cov）
  *
  * 全部 deterministic、只讀不寫、每源獨立 try/catch（一個壞檔不擋其他）。
  */
@@ -35,9 +38,22 @@ const CANDIDATES = [
   // JaCoCo（Maven/Gradle 慣例）
   { kind: "jacoco", file: "target/site/jacoco/jacoco.xml", runner: "jacoco" },
   { kind: "jacoco", file: "build/reports/jacoco/test/jacocoTestReport.xml", runner: "jacoco" },
-  // JUnit XML（Gradle/Maven/surefire 慣例）
+  // JUnit XML（Gradle/Maven/surefire 慣例 — dir 收 TEST-*.xml）
   { kind: "junit", file: "build/test-results/test", runner: "junit", dir: true },
   { kind: "junit", file: "target/surefire-reports", runner: "junit", dir: true },
+  // JUnit XML 單檔（pytest --junitxml / go-junit-report / cargo-nextest）
+  { kind: "junit-file", file: "report.xml", runner: "junit" },
+  { kind: "junit-file", file: "junit.xml", runner: "junit" },
+  { kind: "junit-file", file: "test-results.xml", runner: "junit" },
+  { kind: "junit-file", file: "target/nextest/ci/junit.xml", runner: "junit (nextest)" },
+  // Cobertura XML（Python coverage.py / Rust tarpaulin・llvm-cov）
+  { kind: "cobertura", file: "coverage.xml", runner: "cobertura" },
+  { kind: "cobertura", file: "cobertura.xml", runner: "cobertura" },
+  { kind: "cobertura", file: "target/cobertura.xml", runner: "cobertura" },
+  // Go 原生 coverprofile（go test -coverprofile=coverage.out）
+  { kind: "go-cover", file: "coverage.out", runner: "go" },
+  { kind: "go-cover", file: "cover.out", runner: "go" },
+  { kind: "go-cover", file: "coverage.txt", runner: "go" },
 ];
 
 /** 找出專案實際存在的 report（deterministic 掃標準路徑） */
@@ -166,11 +182,64 @@ function parseJacocoXml(filePath) {
   };
 }
 
+// ── Cobertura XML（Python coverage.py / Rust tarpaulin・llvm-cov）──
+// <coverage line-rate="0.85"><packages><package><classes><class filename="a.py" line-rate="1.0">
+function parseCoberturaXml(projectRoot, filePath) {
+  const st = statSync(filePath);
+  if (st.size > MAX_XML_BYTES) return null;
+  const xml = readFileSync(filePath, "utf-8");
+  const out = { runner: "cobertura", kind: "coverage", at: st.mtime.toISOString(), fileCoverage: {}, totalLinePct: null };
+  const g = xml.match(/<coverage\b[^>]*\bline-rate="([0-9.]+)"/);
+  if (g) out.totalLinePct = Math.round(parseFloat(g[1]) * 1000) / 10;
+  // 逐檔：屬性子順序不定（filename / line-rate 誰先都可能）→ 整 tag 抽
+  for (const m of xml.matchAll(/<class\b[^>]*>/g)) {
+    const tag = m[0];
+    const fn = (tag.match(/filename="([^"]+)"/) || [])[1];
+    if (!fn) continue;
+    const lr = (tag.match(/line-rate="([0-9.]+)"/) || [])[1];
+    // filename 可能已是相對路徑（coverage.py 慣例）或絕對路徑 → 兩種都要處理
+    const isAbs = fn.startsWith("/") || /^[A-Za-z]:[\\/]/.test(fn);
+    const rel = (isAbs ? relative(projectRoot, fn) : fn).replace(/\\/g, "/");
+    out.fileCoverage[rel] = lr != null ? Math.round(parseFloat(lr) * 1000) / 10 : null;
+  }
+  // 找不到全域 line-rate 時，用逐檔平均還沒意义 — 只信 XML 自帶的總計
+  if (out.totalLinePct === null && !Object.keys(out.fileCoverage).length) return null;
+  return out;
+}
+
+// ── Go coverprofile（go test -coverprofile=coverage.out）──
+// mode: atomic\npath/a.go:3.14,5.2 3 1  （file:start.end numStmt count）
+function parseGoCoverprofile(filePath) {
+  const st = statSync(filePath);
+  if (st.size > MAX_XML_BYTES) return null;
+  const text = readFileSync(filePath, "utf-8");
+  if (!text.startsWith("mode:")) return null; // 不是 coverprofile 格式
+  const out = { runner: "go", kind: "coverage", at: st.mtime.toISOString(), fileCoverage: {}, totalLinePct: null, stmtsCovered: 0, stmtsTotal: 0 };
+  const perFile = {};
+  let covered = 0, total = 0, lines = 0;
+  for (const line of text.split("\n")) {
+    if (!line || line.startsWith("mode:")) continue;
+    const m = line.match(/^(.*?):\d+\.\d+,\d+\.\d+\s+(\d+)\s+(\d+)\s*$/);
+    if (!m) continue;
+    const f = m[1], numStmt = +m[2], count = +m[3];
+    perFile[f] = perFile[f] || { c: 0, t: 0 };
+    perFile[f].t += numStmt;
+    if (count > 0) perFile[f].c += numStmt;
+    total += numStmt;
+    if (count > 0) covered += numStmt;
+    lines++;
+  }
+  if (total === 0) return null;
+  for (const [f, v] of Object.entries(perFile)) out.fileCoverage[f] = v.t > 0 ? Math.round((v.c / v.t) * 1000) / 10 : null;
+  out.stmtsCovered = covered; out.stmtsTotal = total;
+  out.totalLinePct = Math.round((covered / total) * 1000) / 10;
+  return out;
+}
+
 /**
  * readTestReports — 讀全部找得到的 report → 標準化清單
  * 一個壞檔 try/catch 跳過，絕不炸整批。
- */
-export function readTestReports(projectRoot) {
+ */export function readTestReports(projectRoot) {
   const found = findTestReports(projectRoot);
   const reports = [];
   for (const f of found) {
@@ -178,7 +247,10 @@ export function readTestReports(projectRoot) {
       if (f.kind === "coverage-summary") reports.push(parseCoverageSummary(projectRoot, f.path));
       else if (f.kind === "lcov") reports.push(parseLcov(projectRoot, f.path));
       else if (f.kind === "playwright-json") reports.push(parsePlaywrightJson(f.path));
+      else if (f.kind === "cobertura") { const r = parseCoberturaXml(projectRoot, f.path); if (r) reports.push(r); }
+      else if (f.kind === "go-cover") { const r = parseGoCoverprofile(f.path); if (r) reports.push(r); }
       else if (f.kind === "junit") for (const x of f.files) { const r = parseJunitXml(x); if (r) reports.push(r); }
+      else if (f.kind === "junit-file") { const r = parseJunitXml(f.path); if (r) reports.push({ ...r, runner: f.runner }); }
       else if (f.kind === "jacoco") { const r = parseJacocoXml(f.path); if (r) reports.push(r); }
     } catch { /* 壞檔 = 這份不算 */ }
   }

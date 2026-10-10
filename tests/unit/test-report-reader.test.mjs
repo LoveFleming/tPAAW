@@ -29,6 +29,13 @@ beforeAll(() => {
   writeFileSync(join(dir, "e2e-results.json"), JSON.stringify({
     suites: [{ title: "login", specs: [{ title: "ok", tests: [{ results: [{ status: "passed" }] }] }, { title: "bad", tests: [{ results: [{ status: "failed" }] }] }] }],
   }));
+  // cobertura xml（Python coverage.py / Rust）
+  writeFileSync(join(dir, "coverage.xml"), `<coverage line-rate="0.87" version="7"><packages><package name="app"><classes><class filename="app/main.py" line-rate="0.9"></class></classes></package></packages></coverage>`);
+  // go coverprofile
+  writeFileSync(join(dir, "coverage.out"), `mode: atomic
+app/a.go:3.14,5.2 3 1
+app/a.go:8.1,9.5 2 0
+app/b.go:1.1,2.2 5 5\n`);
 });
 afterAll(() => { rmSync(dir, { recursive: true, force: true }); rmSync(emptyDir, { recursive: true, force: true }); });
 
@@ -66,6 +73,20 @@ describe("test-report-reader", () => {
     expect(r.total).toBe(2);
     expect(r.passed).toBe(1);
     expect(r.failed).toBe(1);
+  });
+
+  it("cobertura xml（Python/Rust）→ line-rate + per-file", () => {
+    const r = readTestReports(dir).find(x => x.runner === "cobertura");
+    expect(r.totalLinePct).toBe(87);
+    expect(r.fileCoverage["app/main.py"]).toBe(90);
+  });
+
+  it("go coverprofile → statement 覆蓋率", () => {
+    const r = readTestReports(dir).find(x => x.runner === "go");
+    // app/a.go: 3 stmts covered + 2 not = 3/5; app/b.go: 5/5
+    expect(r.fileCoverage["app/a.go"]).toBe(60);
+    expect(r.fileCoverage["app/b.go"]).toBe(100);
+    expect(r.totalLinePct).toBe(80); // covered 8 / total 10
   });
 
   it("summary 分段（coverage/e2e/unit）", () => {
