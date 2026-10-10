@@ -11,11 +11,16 @@
  * 5. Coverage Gaps — production code with no tests
  *
  * Output: .paaw/code-intelligence/test-intelligence.json
+ *
+ * 2026-10-10 21:14 Fleming 修正：真實 report 優先 — coverage/執行狀態只信工具
+ * 真實產出（istanbul/lcov/Playwright JSON/JaCoCo/JUnit XML，見 test-report-reader）。
+ * 檔名對映的 coverage 降級為 estimate 標記，不冒充真實。找不到 report 誠實顯示無。
  */
 
 import { join, basename, dirname, extname, relative, resolve } from "path";
 import { readFileSync, existsSync, readdirSync, statSync, mkdirSync } from "fs";
 import { diffWriteJson } from "./stable-hash.mjs";
+import { testReportSummary } from "./test-report-reader.mjs";
 import { parseProject } from "./tree-sitter-parser.mjs";
 
 // ── Test file patterns ──
@@ -286,11 +291,16 @@ export async function buildTestIntelligence(projectRoot, paawRoot, { persist = t
     },
     totalMappings: testToCode.reduce((s, t) => s + t.matches.length, 0),
     coverageGapFiles: coverageGaps.length,
-    coverageRate: productionFiles.length > 0
+    // ⚠️ 啟發式估算（檔名對映 — 有沒有測試檔鄰居），非真實執行覆蓋率。
+    // 真實數據在 testReports 段（工具 report 讀取）；找不到 report = 顯示無。
+    estimatedCoverageRate: productionFiles.length > 0
       ? `${((1 - coverageGaps.length / productionFiles.length) * 100).toFixed(1)}%`
       : "N/A",
     featureTestCoverage: featureToTests.length,
   };
+
+  // ── 真實工具 report（2026-10-10 21:14 Fleming：找沒有就顯示沒有，不亂編）──
+  const testReports = testReportSummary(projectRoot);
 
   const data = {
     testFiles: testFiles.map(t => ({
@@ -304,6 +314,7 @@ export async function buildTestIntelligence(projectRoot, paawRoot, { persist = t
     whatToRun,
     coverageGaps,
     featureToTests,
+    testReports, // 真實 report（istanbul/lcov/playwright/jacoco/junit）；found=0 = 無
     stats,
   };
 

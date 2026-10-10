@@ -1792,5 +1792,11 @@
   "feature.severityBy": "判定人",
   "feature.severityRemark": "remark（為什麼判這個等級）",
   "feature.severityAppendHint": "每次判定都會保留 — 與 AI 判定並存",
-  "feature.severityRemove": "刪除此判定"
+  "feature.severityRemove": "刪除此判定",
+  "tests.realReports": "真實測試報告（工具產出）",
+  "tests.noReport": "無 report",
+  "tests.noRealReport": "找不到任何測試報告",
+  "tests.noRealReportHint": "未跑測試或 report 路徑未配置 — 誠實顯示，不用推測數字",
+  "tests.foundN": "找到 {n} 份",
+  "tests.testsN": "{p}/{t} passed"
 }

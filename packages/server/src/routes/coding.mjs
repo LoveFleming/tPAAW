@@ -2457,9 +2457,10 @@ export default async function projectRoute(req, res) {
         // detail=1 → 帶明細（Tests 頁用：testToCode 對照 + coverageGaps）
         const wantsDetail = new URL(rawUrl, "http://localhost").searchParams.get("detail") === "1";
         res.writeHead(200, { "Content-Type": "application/json" });
+        const summaryWithReports = { ...summary, testReports: data.testReports || null }; // 2026-10-10：真實 report 段 — UI 誠實顯示（找不到 = 無）
         res.end(JSON.stringify(wantsDetail
-          ? { summary, testToCode: data.testToCode || [], coverageGaps: (data.coverageGaps || []).slice(0, 100), featureToTests: data.featureToTests || [] }
-          : summary));
+          ? { summary: summaryWithReports, testToCode: data.testToCode || [], coverageGaps: (data.coverageGaps || []).slice(0, 100), featureToTests: data.featureToTests || [] }
+          : summaryWithReports));
       } catch (err) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message }));

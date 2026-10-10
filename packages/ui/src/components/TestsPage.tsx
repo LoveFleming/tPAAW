@@ -26,7 +26,17 @@ interface TestMatch { productionFile: string; matchType: string; testedFunctions
 interface TestToCodeEntry { testFile: string; testType?: string; functionCount?: number; matches: TestMatch[] }
 interface GapEntry { file: string; functionCount?: number; exportCount?: number }
 interface DetailData {
-  summary?: { totalTestFiles?: number; byType?: Record<string, number>; totalMappings?: number; coverageGapFiles?: number; coverageRate?: string; featureTestCoverage?: number };
+  summary?: {
+    totalTestFiles?: number; byType?: Record<string, number>; totalMappings?: number;
+    coverageGapFiles?: number; estimatedCoverageRate?: string; featureTestCoverage?: number;
+    testReports?: {
+      found: number;
+      reports: { runner: string; kind: string; at: string | null; total?: number | null; passed?: number | null; failed?: number | null; skipped?: number | null; totalLinePct?: number | null }[];
+      coverage: { runner: string; at: string | null; totalLinePct?: number | null }[];
+      e2e: { runner: string; at: string | null; total?: number | null; passed?: number | null; failed?: number | null }[];
+      unit: { runner: string; at: string | null; total?: number | null; passed?: number | null; failed?: number | null }[];
+    } | null;
+  };
   testToCode?: TestToCodeEntry[];
   coverageGaps?: GapEntry[];
 }
@@ -68,6 +78,12 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
   useEffect(() => { fetchDetail(); }, [fetchDetail]);
 
   const byType = data?.summary?.byType || {};
+  const tr = data?.summary?.testReports || null;
+  // 真實 coverage（工具 report）— 找不到 = null（誠實顯示無）
+  const covReport = tr?.coverage?.[0] || null;
+  const realCov = covReport?.totalLinePct ?? null;
+  const realCovSrc = covReport?.runner || null;
+  const realCovAt = covReport?.at || null;
   const kindChips = useMemo(() => {
     const entries = Object.entries(byType).filter(([, n]) => (n || 0) > 0);
     return entries.sort((a, b) => b[1] - a[1]);
@@ -137,9 +153,19 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
             <div className="text-xs text-stone-400 font-medium">{t("tests.mappings")}</div>
             <div className="text-lg font-bold text-stone-700">{data?.summary?.totalMappings ?? "—"}</div>
           </div>
-          <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight }}>
+          <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight }} data-testid="tests-coverage-card">
             <div className="text-xs text-stone-400 font-medium">{t("tests.coverage")}</div>
-            <div className="text-lg font-bold text-stone-700">{data?.summary?.coverageRate ?? "—"}</div>
+            {realCov !== null ? (
+              <>
+                <div className="text-lg font-bold text-green-700">{realCov}%</div>
+                <div className="text-[9px] text-stone-400 truncate" title={realCovSrc || ""}>📊 {realCovSrc} · {realCovAt?.slice(5, 16).replace("T", " ")}</div>
+              </>
+            ) : (
+              <>
+                <div className="text-lg font-bold text-stone-400">{t("tests.noReport")}</div>
+                {data?.summary?.estimatedCoverageRate && <div className="text-[9px] text-stone-400">估算 {data.summary.estimatedCoverageRate}</div>}
+              </>
+            )}
           </div>
           <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight, background: (data?.summary?.coverageGapFiles || 0) > 0 ? "#fffbeb" : undefined }}>
             <div className="text-xs text-stone-400 font-medium">{t("tests.gapFiles")}</div>
@@ -149,6 +175,33 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
             <div className="text-xs text-stone-400 font-medium">{t("tests.featuresWithTests")}</div>
             <div className="text-lg font-bold text-stone-700">{featuresWithTests}<span className="text-xs text-stone-400 font-normal">/{(ruModel?.features || []).length || "—"}</span></div>
           </div>
+        </div>
+
+        {/* 📊 真實工具 report（2026-10-10 Fleming：找沒有就顯示沒有，不亂編）*/}
+        <div className="rounded-lg border" style={{ borderColor: borderLight }} data-testid="tests-reports">
+          <div className="px-3 py-1.5 text-xs font-bold text-stone-400 bg-stone-50 flex items-center" style={{ borderBottom: `1px solid ${borderLight}` }}>
+            📊 {t("tests.realReports")}
+            {tr && tr.found > 0 && <span className="ml-auto text-[10px] text-green-600">{t("tests.foundN").replace("{n}", String(tr.found))}</span>}
+          </div>
+          {tr && tr.found > 0 ? (
+            <div className="divide-y" style={{ borderColor: borderLight }}>
+              {tr.reports.map((r, i) => (
+                <div key={i} className="px-3 py-1.5 flex items-center gap-2 text-xs">
+                  <span className="font-bold text-stone-700 shrink-0">{r.runner}</span>
+                  <span className="text-[9px] px-1 py-0.5 rounded bg-stone-100 text-stone-500 shrink-0">{r.kind}</span>
+                  {r.total != null && <span className="font-mono text-stone-600">{t("tests.testsN").replace("{p}", String(r.passed ?? "?")).replace("{t}", String(r.total))}</span>}
+                  {r.failed != null && r.failed > 0 && <span className="font-bold text-red-500">✗ {r.failed}</span>}
+                  {r.totalLinePct != null && <span className="font-mono text-green-700">LINE {r.totalLinePct}%</span>}
+                  {r.at && <span className="ml-auto text-[10px] text-stone-400 shrink-0">{r.at.slice(5, 16).replace("T", " ")}</span>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="px-3 py-3 text-xs text-stone-400 text-center" data-testid="tests-reports-empty">
+              {t("tests.noRealReport")}
+              <div className="text-[10px] mt-0.5 opacity-70">{t("tests.noRealReportHint")}</div>
+            </div>
+          )}
         </div>
 
         {/* kind 分佈 chips */}

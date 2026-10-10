@@ -1792,5 +1792,11 @@
   "feature.severityBy": "判定者",
   "feature.severityRemark": "remark（このレベルの理由）",
   "feature.severityAppendHint": "全判定を保持 — AI と併存",
-  "feature.severityRemove": "この判定を削除"
+  "feature.severityRemove": "この判定を削除",
+  "tests.realReports": "実テストレポート（ツール出力）",
+  "tests.noReport": "レポートなし",
+  "tests.noRealReport": "テストレポートが見つかりません",
+  "tests.noRealReportHint": "未実行かパス未設定 — 推測せず正直に表示",
+  "tests.foundN": "{n} 件",
+  "tests.testsN": "{p}/{t} passed"
 }

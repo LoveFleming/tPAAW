@@ -1792,5 +1792,11 @@
   "feature.severityBy": "by",
   "feature.severityRemark": "remark (why this level)",
   "feature.severityAppendHint": "every verdict kept — coexists with AI",
-  "feature.severityRemove": "remove this verdict"
+  "feature.severityRemove": "remove this verdict",
+  "tests.realReports": "Real test reports (tool output)",
+  "tests.noReport": "no report",
+  "tests.noRealReport": "No test reports found",
+  "tests.noRealReportHint": "tests not run or report paths not configured — shown honestly, never guessed",
+  "tests.foundN": "{n} found",
+  "tests.testsN": "{p}/{t} passed"
 }
