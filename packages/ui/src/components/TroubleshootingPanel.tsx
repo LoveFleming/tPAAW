@@ -70,6 +70,68 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  // ═══ 🧯 TS Guide（2026-10-10 Fleming：up-to-date 排障條目庫 — 純手動觸發，絕不自動燒 token）═══
+  interface TsgEntry { id: string; symptom: string; cause: string; fixSteps: string[]; feature?: string | null; evidence: { type: string; ref: string }[]; status: "ai-draft" | "confirmed"; confirmedAt?: string }
+  interface TsgGuide { generatedAt: string; entries: TsgEntry[]; gaps: string[]; factsSummary?: { fixCommits: number; bugTasks: number; agentLogErrors: number }; aiError?: string }
+  const [tsg, setTsg] = useState<TsgGuide | null>(null);
+  const [tsgLoading, setTsgLoading] = useState(false);
+  const [tsgOpen, setTsgOpen] = useState<string | null>(null);
+  const [tsgRemarks, setTsgRemarks] = useState<{ id: string; text: string; at: string }[]>([]);
+  const [tsgRemarkText, setTsgRemarkText] = useState("");
+  const [tsgRemarkSaving, setTsgRemarkSaving] = useState(false);
+  const composingRef = useRef(false); // IME 三層保護
+
+  const loadTsg = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-trouble/guide?path=${encodeURIComponent(rootPath)}`);
+      if (r.ok) { const d = await r.json(); setTsg(d.guide || null); setTsgRemarks(d.remarks || []); }
+    } catch { /* silent */ }
+  }, [rootPath]);
+
+  const generateTsg = useCallback(async () => {
+    if (!rootPath || tsgLoading) return;
+    setTsgLoading(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-trouble/guide?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+      if (r.ok) { const d = await r.json(); setTsg(d.guide || null); setTsgRemarks(d.remarks || []); }
+    } catch { /* silent */ }
+    setTsgLoading(false);
+  }, [rootPath, tsgLoading]);
+
+  const confirmTsg = useCallback(async (id: string, unconfirm = false) => {
+    if (!rootPath) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-trouble/confirm?path=${encodeURIComponent(rootPath)}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, unconfirm }),
+      });
+      if (r.ok) { const d = await r.json(); setTsg(d.guide || null); }
+    } catch { /* silent */ }
+  }, [rootPath]);
+
+  const addTsgRemark = useCallback(async () => {
+    const text = tsgRemarkText.trim();
+    if (!text || tsgRemarkSaving || !rootPath) return;
+    setTsgRemarkSaving(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-trouble/remark?path=${encodeURIComponent(rootPath)}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }),
+      });
+      if (r.ok) { const d = await r.json(); setTsgRemarks(d.remarks || []); setTsgRemarkText(""); }
+    } catch { /* silent */ }
+    setTsgRemarkSaving(false);
+  }, [tsgRemarkText, tsgRemarkSaving, rootPath]);
+
+  const delTsgRemark = useCallback(async (id: string) => {
+    if (!rootPath) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-trouble/remark?path=${encodeURIComponent(rootPath)}&id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (r.ok) { const d = await r.json(); setTsgRemarks(d.remarks || []); }
+    } catch { /* silent */ }
+  }, [rootPath]);
+
+  useEffect(() => { loadTsg(); }, [loadTsg]);
+
   const openRunbook = async (id: string) => {
     if (openRb === id) { setOpenRb(null); setRbContent(null); return; }
     setOpenRb(id);
@@ -155,6 +217,110 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
 
         {!loading && status && (
           <div className="p-5 space-y-5">
+            {/* ═══ ① 🧯 TS Guide — up-to-date 排障條目庫（2026-10-10）═══ */}
+            <section data-testid="tsg-section" className="border rounded-xl overflow-hidden bg-gradient-to-b from-orange-50/50 to-white" style={{ borderColor: tk.borderLight }}>
+              <div className="flex items-center gap-2 px-3.5 py-2.5">
+                <span>🧯</span>
+                <span className="text-xs font-bold text-stone-700">{t("tsg.title")}</span>
+                {tsg && <>
+                  <span className="px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500 text-[10px] font-bold">{tsg.entries.filter(e => e.status === "confirmed").length}/{tsg.entries.length} {t("tsg.confirmedShort")}</span>
+                  <span className="text-[10px] text-stone-400">{tsg.generatedAt.slice(0, 16).replace("T", " ")}</span>
+                  <button onClick={generateTsg} disabled={tsgLoading}
+                    className="text-[10px] px-2 py-0.5 rounded border disabled:opacity-40 hover:bg-stone-50" style={{ borderColor: tk.borderLight }}>
+                    {tsgLoading ? "…" : `↻ ${t("tsg.regenerate")}`}
+                  </button>
+                </>}
+                <span className="ml-auto" />
+                {!tsg && !tsgLoading && (
+                  <button onClick={generateTsg} className="text-[11px] px-3 py-1.5 rounded-lg text-white font-medium" style={{ backgroundColor: "#ea580c" }}>
+                    ✨ {t("tsg.generate")}
+                  </button>
+                )}
+              </div>
+              <div className="border-t px-3.5 py-2.5 space-y-2.5" style={{ borderColor: tk.borderLight }}>
+                {tsgLoading && !tsg && <div className="text-[11px] text-stone-400 animate-pulse">{t("tsg.generating")}</div>}
+                {!tsgLoading && !tsg && <div className="text-[11px] text-stone-400">{t("tsg.none")}</div>}
+                {tsg?.aiError && <div className="text-[11px] text-amber-600">⚠️ {tsg.aiError}</div>}
+                {tsg?.factsSummary && (
+                  <div className="text-[10px] text-stone-400">{t("tsg.minedFrom")}: git fix ×{tsg.factsSummary.fixCommits} · bug task ×{tsg.factsSummary.bugTasks} · log err ×{tsg.factsSummary.agentLogErrors}</div>
+                )}
+                {tsg?.entries.map(e => (
+                  <div key={e.id} className="border rounded-lg overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
+                    <button onClick={() => setTsgOpen(tsgOpen === e.id ? null : e.id)} className="w-full text-left px-3 py-2 flex items-start gap-2 hover:bg-stone-50">
+                      <span className="text-[11px] font-medium text-stone-800 flex-1 leading-snug">{e.symptom}</span>
+                      <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${e.status === "confirmed" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                        {e.status === "confirmed" ? `✓ ${t("tsg.confirmed")}` : t("tsg.draft")}
+                      </span>
+                    </button>
+                    {tsgOpen === e.id && (
+                      <div className="border-t px-3 py-2.5 space-y-2" style={{ borderColor: tk.borderLight }}>
+                        {e.feature && <div className="text-[10px] text-stone-400">📦 {e.feature}</div>}
+                        <div className="text-[11px] text-stone-600 leading-relaxed"><span className="font-bold">{t("tsg.cause")}</span>{e.cause}</div>
+                        {e.fixSteps.length > 0 && (
+                          <div className="bg-stone-50 rounded-lg p-2 space-y-0.5">
+                            <div className="text-[10px] font-bold text-stone-500 mb-0.5">🔧 {t("tsg.fixSteps")}</div>
+                            {e.fixSteps.map((st, i) => <div key={i} className="text-[11px] text-stone-600 flex gap-1.5"><span className="text-stone-400 font-mono">{i + 1}.</span><span>{st}</span></div>)}
+                          </div>
+                        )}
+                        {e.evidence.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {e.evidence.map((ev, i) => (
+                              <span key={i} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-500" title={ev.ref}>{ev.type}: {ev.ref.slice(0, 36)}</span>
+                            ))}
+                          </div>
+                        )}
+                        <button onClick={() => confirmTsg(e.id, e.status === "confirmed")}
+                          className={`text-[10px] px-2.5 py-1 rounded-lg font-bold ${e.status === "confirmed" ? "border hover:bg-stone-50" : "text-white hover:opacity-90"}`}
+                          style={e.status === "confirmed" ? { borderColor: tk.borderLight } : { backgroundColor: "#16a34a" }}>
+                          {e.status === "confirmed" ? t("tsg.unconfirm") : `✓ ${t("tsg.confirm")}`}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {tsg?.gaps && tsg.gaps.length > 0 && (
+                  <div className="bg-amber-50 rounded-lg p-2 space-y-0.5">
+                    <div className="text-[10px] font-bold text-amber-700">⚠️ {t("tsg.gaps")}</div>
+                    {tsg.gaps.map((g, i) => <div key={i} className="text-[11px] text-amber-600">• {g}</div>)}
+                  </div>
+                )}
+                {/* ✍️ 人員注記（獨立檔 — 重生成永不覆蓋）*/}
+                <div className="pt-1">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="text-[10px] font-bold text-stone-500">✍️ {t("tsg.remarkTitle")}</span>
+                    {tsgRemarks.length > 0 && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-bold">{tsgRemarks.length}</span>}
+                  </div>
+                  {tsgRemarks.map(r => (
+                    <div key={r.id} className="flex items-start gap-2 group mb-1">
+                      <span className="text-[9px] text-amber-600 font-mono mt-0.5">{(r.at || "").slice(5, 10)}</span>
+                      <div className="text-[11px] text-stone-700 leading-relaxed flex-1">{r.text}</div>
+                      <button onClick={() => delTsgRemark(r.id)} className="opacity-0 group-hover:opacity-100 text-[10px] text-stone-400 hover:text-red-500">✕</button>
+                    </div>
+                  ))}
+                  <div className="flex gap-2 items-start">
+                    <textarea
+                      value={tsgRemarkText}
+                      onChange={(ev) => setTsgRemarkText(ev.target.value)}
+                      onCompositionStart={() => (composingRef.current = true)}
+                      onCompositionEnd={() => (composingRef.current = false)}
+                      onKeyDown={(ev) => {
+                        if (composingRef.current || ev.nativeEvent.isComposing || ev.keyCode === 229) return;
+                        if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); addTsgRemark(); }
+                      }}
+                      placeholder={t("tsg.remarkPlaceholder")}
+                      rows={2}
+                      className="flex-1 text-[11px] rounded-lg border px-2.5 py-1.5 resize-y focus:outline-none focus:ring-1"
+                      style={{ borderColor: tk.borderLight }}
+                    />
+                    <button onClick={addTsgRemark} disabled={!tsgRemarkText.trim() || tsgRemarkSaving}
+                      className="text-[11px] px-3 py-1.5 rounded-lg text-white disabled:opacity-40 shrink-0" style={{ backgroundColor: "#ea580c" }}>
+                      {tsgRemarkSaving ? "…" : t("tsg.remarkAdd")}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             {/* ═══ ② 排障 12 問（點擊帶證據送維運助理）═══ */}
             <section data-testid="ops-12q">
               <h3 className="text-xs font-bold text-stone-600 mb-1 flex items-center gap-1.5">🚨 {t("ops.oq.title")}</h3>
