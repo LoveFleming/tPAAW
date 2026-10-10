@@ -94,29 +94,28 @@ function CodeIntelPageInner({ rootPath, refreshKey, theme }: Props, ref: React.R
 
   return (
     <div className="flex h-full min-h-0" data-testid="code-intel-page">
-      {/* 左：C4 全景 */}
+      {/* 左：C4 全景 — 2026-10-10 Fleming：跟 Handover 同款 sticky header 排版 */}
       <div className="flex-1 min-w-0 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
-        <div className="p-4" data-testid="ci-panel-c4">
-          <div className="space-y-3 max-w-4xl">
-            {/* header：系統名 + 整理按鈕 */}
-            <div className="flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold text-stone-800">{c4?.system?.name || t("codeIntel.c4Title")}</div>
-                {c4?.system?.description && <div className="text-xs text-stone-500 mt-0.5">{c4.system.description}</div>}
-              </div>
-              {c4 && (
-                <button onClick={askC4} className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 font-medium">
-                  💬 {t("codeIntel.askAi")}
-                </button>
-              )}
-              <button onClick={c4Organize} disabled={c4Busy} className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-stone-800 text-white disabled:opacity-50">
-                {c4Busy ? "⏳" : "🏛"} {t("codeIntel.c4Organize")}
+        <div className="px-5 py-3 border-b sticky top-0 bg-white/95 backdrop-blur z-10 flex items-center gap-2" style={{ borderColor: borderLight }}>
+          <span className="text-lg">🏛</span>
+          <h2 className="text-sm font-bold text-stone-800">{c4?.system?.name || t("codeIntel.c4Title")}</h2>
+          {c4?.system?.description && <span className="text-[10px] text-stone-400 truncate max-w-[420px]">{c4.system.description}</span>}
+          <div className="ml-auto flex items-center gap-2">
+            {c4 && (
+              <button onClick={askC4} className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 font-medium">
+                💬 {t("codeIntel.askAi")}
               </button>
-            </div>
-
-            {!c4 && !c4Busy && (
-              <div className="text-xs text-stone-400 p-4 text-center">{t("codeIntel.c4Empty")}</div>
             )}
+            <button onClick={c4Organize} disabled={c4Busy} className="shrink-0 text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50" style={{ backgroundColor: accent }}>
+              {c4Busy ? "⏳" : "🏛"} {t("codeIntel.c4Organize")}
+            </button>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-4" data-testid="ci-panel-c4">
+          {!c4 && !c4Busy && (
+            <div className="text-xs text-stone-400 p-8 text-center">{t("codeIntel.c4Empty")}</div>
+          )}
 
             {c4 && (
               <>
@@ -182,7 +181,6 @@ function CodeIntelPageInner({ rootPath, refreshKey, theme }: Props, ref: React.R
                 {c4.notes && <div className="text-[11px] text-stone-500 bg-stone-50 rounded-lg p-2 whitespace-pre-wrap">📝 {c4.notes}</div>}
               </>
             )}
-          </div>
         </div>
       </div>
 
