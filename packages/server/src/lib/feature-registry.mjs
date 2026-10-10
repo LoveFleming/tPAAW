@@ -79,6 +79,84 @@ export function nextFeatureIds(projRoot, count = 1) {
   return Array.from({ length: n }, (_, i) => `${prefix}-${String(start + i).padStart(3, "0")}`);
 }
 
+// ── CU 重掃 merge 鐵律（2026-10-10 19:29 Fleming 拍板）──
+// 智能層 feature-map 重跑不再是毀滅性重建：新 cluster × 舊 feature by 檔案交集匹配，
+// 匹配者繼承舊 ID + 所有人員欄位（severityDecisions/severity/status/knowledgeGaps/…
+// 跟 TSGuide confirmed / handover-remarks 同哲學：人的輸入是資產，程式只負責不丟）。
+// 消失的舊 feature 標 retired 不刪。寫入一律走 saveFeatures（備份輪替生效）。
+
+/** 人員/權威欄位 — 重掃永遠繼承，絕不用空值洗掉 */
+export const FEATURE_INHERIT_FIELDS = [
+  "severityDecisions", "severity", "severitySuggested", "severitySuggestedReason",
+  "severitySuggestedNotes", "severitySuggestedBy", "severitySuggestedAt", "severityComputed",
+  "severityConfirmedAt", "severityConfirmedBy", "riskProfile",
+  "status", "type", "knowledgeGaps", "runbooks", "documentation", "docsUpdatedAt",
+  "aiUnderstanding", "aiUnderstandingAt", "createdAt", "createdBy", "assignee",
+];
+
+const _norm = (f) => String(f || "").replace(/\\/g, "/");
+
+/**
+ * mergeFeaturesWithExisting — CU 重掃合併（純函式，冪等）
+ * @param {Array} newFeatures CU 新產出（無 id；具 codeFiles + AI 長肉欄位）
+ * @param {Array} existing 現有 FEATURES.json（可能空）
+ * @param {Function} makeId (idx) => 新 ID（延遲配置：只有需要時才拿號）
+ * @returns {Array} 合併後 features（匹配繼承 + 新 ID + 舊的標 retired 排尾）
+ *
+ * 匹配規則：新 cluster 的檔案有 ≥50% 來自某舊 feature → 同一 feature（取 overlap 最高者）。
+ * ID 繼承一對一（每舊 ID 最多被繼承一次 — 拆分時主體拿 ID，分出去的發新 ID）。
+ */
+export function mergeFeaturesWithExisting(newFeatures, existing, makeId) {
+  const now = new Date().toISOString();
+  // 舊 feature 索引：檔案集合
+  const oldList = (existing || []).map(f => ({
+    f,
+    files: new Set((f.codeFiles || []).map(_norm)),
+    size: (f.codeFiles || []).length,
+  }));
+
+  const merged = [];
+  const claimed = new Set(); // 已被繼承的舊 feature id（一對一）
+
+  newFeatures.forEach((nf, i) => {
+    const nfFiles = new Set((nf.codeFiles || []).map(_norm));
+    if (nfFiles.size === 0) {
+      merged.push({ ...nf, id: makeId(i), createdAt: now, updatedAt: now });
+      return;
+    }
+    // 找 overlap 最高的舊 feature（新 cluster 檔案歸屬比例）
+    let best = null, bestRatio = 0;
+    for (const o of oldList) {
+      if (claimed.has(o.f.id) || o.size === 0) continue;
+      let hit = 0;
+      for (const x of nfFiles) if (o.files.has(x)) hit++;
+      const ratio = hit / nfFiles.size;
+      if (ratio > bestRatio) { bestRatio = ratio; best = o; }
+    }
+    if (best && bestRatio >= 0.5) {
+      // 繼承：舊 ID + 人員欄位；骨架（codeFiles/apis/tests/grade/evidence）+ AI 長肉用新值
+      const inherited = {};
+      for (const k of FEATURE_INHERIT_FIELDS) {
+        if (best.f[k] !== undefined && best.f[k] !== null && !(Array.isArray(best.f[k]) && best.f[k].length === 0)) inherited[k] = best.f[k];
+      }
+      // status 繼承但 retired 不繼承（回來的 feature 復活為 active）
+      if (inherited.status === "retired") inherited.status = "active";
+      merged.push({ ...nf, ...inherited, id: best.f.id, updatedAt: now });
+      claimed.add(best.f.id);
+    } else {
+      merged.push({ ...nf, id: makeId(i), createdAt: now, updatedAt: now });
+    }
+  });
+
+  // 消失的舊 feature → retired（不刪，歷史保留；qa-results/handover 引用不斷鏈）
+  for (const o of oldList) {
+    if (!claimed.has(o.f.id)) {
+      merged.push({ ...o.f, status: "retired", retiredAt: now, updatedAt: now });
+    }
+  }
+  return merged;
+}
+
 // ── type heuristic：packages/ui → frontend、packages/server → backend、共用 → "" ──
 export function inferFeatureType(files = []) {
   let fe = 0, be = 0;

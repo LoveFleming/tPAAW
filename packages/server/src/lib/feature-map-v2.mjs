@@ -25,7 +25,7 @@ import { join, resolve as resolvePath } from "path";
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { parseProject } from "./tree-sitter-parser.mjs";
 import { buildDeterministicFeatureMap } from "./code-graph.mjs";
-import { nextFeatureIds } from "./feature-registry.mjs";
+import { nextFeatureIds, loadFeatures, saveFeatures, mergeFeaturesWithExisting } from "./feature-registry.mjs";
 import { DATA_HOME } from "../data-home.mjs";
 import { stableStringify } from "./stable-stringify.mjs";
 
@@ -226,13 +226,14 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
     }
   }
 
-  // ── 5. 合併：骨架 + 肉 → FEATURES.json（schema 相容 v1 + 新欄位）──
-  const ids = nextFeatureIds(projectRoot, workItems.length);
+  // ── 5. 合併：骨架 + 肉 → FEATURES.json（2026-10-10 19:29 Fleming：merge 鐵律 — 不再毀滅性重建）──
+  // 新 cluster × 舊 feature by 檔案交集（≥50% = 同一個）→ 繼承舊 ID + 所有人員欄位
+  // （severityDecisions/severity/status/knowledgeGaps/documentation/…）。
+  // 消失的舊 feature 標 retired 不刪。寫入走 saveFeatures（備份輪替生效）。
   const now = new Date().toISOString();
-  const features = workItems.map((item, i) => {
+  const fresh = workItems.map((item, i) => {
     const fl = parts.get(i)?.flesh || {};
     return {
-      id: ids[i],
       name: _str(fl.name, 80) || `Feature ${i + 1}`,
       description: _str(fl.description),
       bizLogic: _str(fl.bizLogic, 500),
@@ -260,9 +261,13 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
     };
   });
 
+  const existing = loadFeatures(projectRoot);
+  const newIds = nextFeatureIds(projectRoot, fresh.length); // 惰性拿號：只有真的新 feature 用
+  const features = mergeFeaturesWithExisting(fresh, existing, (i) => newIds[i]);
+
   const featuresDir = join(projectRoot, ".paaw", "features");
   mkdirSync(featuresDir, { recursive: true });
-  writeFileSync(join(featuresDir, "FEATURES.json"), JSON.stringify({ features, updatedAt: now }, null, 2));
+  saveFeatures(projectRoot, features); // 走 registry（備份輪替 + 標準形狀）
 
   const fileFeatureMap = {};
   for (const feat of features) {
