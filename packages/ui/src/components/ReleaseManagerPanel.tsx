@@ -53,9 +53,9 @@ interface ReadinessFeature {
 }
 interface EvCell { ok: boolean; reason?: string; tests?: number; covered?: number; total?: number; high?: number; actor?: string; models?: string[]; at?: string; decision?: string; summary?: string }
 interface EvFeature extends ReadinessFeature {
-  severity: string | null; severitySuggested: string | null; severityConfirmed: boolean;
+  severity: string | null; severitySource: string; // human=人覆寫 | ai/scan/auto=AI 判定預設生效
   evidence: { unit: EvCell; e2e: EvCell; sg: EvCell; qa: EvCell; aiReview: EvCell; human: EvCell };
-  gaps: { unknownSeverity: boolean; missing: string[] };
+  gaps: { missing: string[] };
 }
 interface EvidenceMatrix { features: EvFeature[]; summary: { features: number; bySeverity: Record<string, number>; withGaps: number; sgScan: { scannedAt: string | null; total: number; high: number } | null; reviewBoard: { latest: { at: string | null; decision: string | null; models: string[] }; total: number } | null } }
 interface Readiness {
@@ -357,7 +357,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                         {readiness.evidenceMatrix.summary.bySeverity.S2 > 0 && <span className="px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-bold">S2 {readiness.evidenceMatrix.summary.bySeverity.S2}</span>}
                         {readiness.evidenceMatrix.summary.bySeverity.S1 > 0 && <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold">S1 {readiness.evidenceMatrix.summary.bySeverity.S1}</span>}
                         {readiness.evidenceMatrix.summary.bySeverity.S0 > 0 && <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 font-bold">S0 {readiness.evidenceMatrix.summary.bySeverity.S0}</span>}
-                        {readiness.evidenceMatrix.summary.bySeverity.unconfirmed > 0 && <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-bold" title={t("rm.ev.unconfirmedTip")}>❓ {readiness.evidenceMatrix.summary.bySeverity.unconfirmed}</span>}
+                        {readiness.evidenceMatrix.summary.bySeverity.humanOverride > 0 && <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 font-bold" title={t("rm.ev.humanTip")}>👤 {readiness.evidenceMatrix.summary.bySeverity.humanOverride}</span>}
+                        {readiness.evidenceMatrix.summary.bySeverity.aiDefault > 0 && <span className="px-1.5 py-0.5 rounded bg-sky-50 text-sky-600 font-bold" title={t("rm.ev.aiTip")}>🤖 {readiness.evidenceMatrix.summary.bySeverity.aiDefault}</span>}
                         {readiness.evidenceMatrix.summary.reviewBoard && <span className="px-1.5 py-0.5 rounded bg-violet-50 text-violet-600" title={readiness.evidenceMatrix.summary.reviewBoard.latest.models.join("、")}>🏛 {readiness.evidenceMatrix.summary.reviewBoard.latest.models.length}m</span>}
                         {readiness.evidenceMatrix.summary.sgScan && <span className={`px-1.5 py-0.5 rounded ${readiness.evidenceMatrix.summary.sgScan.high > 0 ? "bg-red-50 text-red-600 font-bold" : "bg-green-50 text-green-700"}`}>🛡 {readiness.evidenceMatrix.summary.sgScan.total}·{readiness.evidenceMatrix.summary.sgScan.high}hi</span>}
                       </span>
@@ -373,8 +374,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                       return (
                         <div key={f.id} className="grid gap-1 items-center px-2 py-1.5 rounded-lg hover:bg-stone-50" style={{ gridTemplateColumns: "1.6fr 0.6fr 0.8fr 0.9fr 0.8fr 0.8fr 1.5fr 1.2fr", background: f.gaps.missing.length ? "#fff7ed" : undefined }}>
                           <span className="text-[10px] font-bold text-stone-700 truncate" title={f.name}>{f.name}</span>
-                          <span className={`text-[10px] font-bold ${f.severity === "S2" ? "text-red-600" : f.severity === "S1" ? "text-amber-600" : f.severity === "S0" ? "text-green-600" : "text-stone-400"}`}>
-                            {f.severityConfirmed ? f.severity : `❓${f.severitySuggested || ""}`}
+                          <span className={`text-[10px] font-bold ${f.severity === "S2" ? "text-red-600" : f.severity === "S1" ? "text-amber-600" : f.severity === "S0" ? "text-green-600" : "text-stone-400"}`} title={f.severitySource === "human" ? t("rm.ev.humanTip") : t("rm.ev.aiTip")}>
+                            {f.severity}{f.severitySource === "human" ? "👤" : "🤖"}
                           </span>
                           {cell(ev.unit, ev.unit.ok ? `✓${ev.unit.tests || 0}t` : "✗")}
                           {cell(ev.e2e, ev.e2e.ok ? (ev.e2e.total ? `${ev.e2e.covered}/${ev.e2e.total}` : "—") : `✗${ev.e2e.covered ?? 0}/${ev.e2e.total ?? 0}`)}
@@ -389,12 +390,12 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                         </div>
                       );
                     })}
-                    {readiness.evidenceMatrix.features.some(f => f.gaps.missing.length || f.gaps.unknownSeverity) && (
+                    {readiness.evidenceMatrix.features.some(f => f.gaps.missing.length > 0) && (
                       <div className="mt-2 rounded-lg bg-orange-50 px-3 py-2 space-y-0.5" data-testid="rm-evidence-gaps">
                         <div className="text-[10px] font-bold text-orange-700">⚠️ {t("rm.ev.gapsTitle")}</div>
-                        {readiness.evidenceMatrix.features.filter(f => f.gaps.missing.length || f.gaps.unknownSeverity).map(f => (
+                        {readiness.evidenceMatrix.features.filter(f => f.gaps.missing.length > 0).map(f => (
                           <div key={f.id} className="text-[10px] text-orange-600">
-                            • {f.name}{f.severity ? `（${f.severity}）` : "（❓）"}：{f.gaps.unknownSeverity ? t("rm.ev.needConfirm") : `缺 ${f.gaps.missing.join("、")}`}
+                            • {f.name}（{f.severity}{f.severitySource === "human" ? "👤" : "🤖"}）：缺 {f.gaps.missing.join("、")}
                           </div>
                         ))}
                       </div>

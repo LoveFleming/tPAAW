@@ -354,7 +354,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
                     {(f.severity || f.severitySuggested) && (() => {
                       const sev = f.severity || f.severitySuggested!;
                       const sv = SEV_STYLES[sev] || SEV_STYLES.S0;
-                      return <span title={sv.desc + (f.severity ? "" : `（${t("feature.severityUnconfirmed")}）`)} className="text-[10px] px-1.5 py-0.5 rounded shrink-0 font-bold" style={{ background: sv.bg, color: sv.text }}>{sv.dot} {sev}{f.severity ? "" : "?"}</span>;
+                      return <span title={sv.desc + (f.severity ? "" : `（${t("feature.severityAiDefault")}）`)} className="text-[10px] px-1.5 py-0.5 rounded shrink-0 font-bold" style={{ background: sv.bg, color: sv.text }}>{sv.dot} {sev}{f.severity ? "👤" : "🤖"}</span>;
                     })()}
                   </div>
                   <div className="text-sm font-medium truncate" style={{ color: theme.text }}>{f.name}</div>
@@ -511,7 +511,7 @@ function SeveritySection({ feature, theme, t, rootPath, onFeatureUpdate }: {
           const sv = SEV_STYLES[suggested] || SEV_STYLES.S0;
           return (
             <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: sv.bg, color: sv.text }}>
-              {t("feature.severitySuggest")}：{sv.dot} {suggested}
+              {t("feature.severitySuggest")}：{sv.dot} {suggested}{feature.severity ? "" : `（${t("feature.severityAiDefault")}）`}
             </span>
           );
         })()}
@@ -533,7 +533,7 @@ function SeveritySection({ feature, theme, t, rootPath, onFeatureUpdate }: {
 
       {/* 人員確認 */}
       <div className="px-3 py-2 flex items-center gap-2 flex-wrap">
-        <span className="text-xs" style={{ color: theme.text, opacity: 0.55 }}>{t("feature.severityConfirm")}：</span>
+        <span className="text-xs" style={{ color: theme.text, opacity: 0.55 }} title={t("feature.severityOverrideTip")}>{t("feature.severityConfirm")}：</span>
         {(["S0", "S1", "S2"] as const).map(sev => {
           const sv = SEV_STYLES[sev];
           const active = activeSev === sev;

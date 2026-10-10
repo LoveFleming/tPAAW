@@ -22,7 +22,7 @@ beforeAll(() => {
   mkdirSync(join(dir, ".paaw", "features"), { recursive: true });
   writeFileSync(join(dir, ".paaw", "features", "FEATURES.json"), JSON.stringify([
     { id: "F-001", name: "sandbox", severity: "S2", severitySuggested: "S2" },
-    { id: "F-002", name: "docs", severitySuggested: "S0" }, // 未確認
+    { id: "F-002", name: "docs", severitySuggested: "S0", severitySuggestedBy: "scan" }, // AI 判定預設生效
   ]));
   // semgrep 掃描結果
   mkdirSync(join(dir, ".paaw", "security"), { recursive: true });
@@ -60,10 +60,10 @@ beforeAll(() => {
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("severity join", () => {
-  it("confirmed 與未確認分辨", async () => {
+  it("生效順序：人覆寫 > AI 落地（Fleming 18:08：預設信任 AI，人後改）", async () => {
     const m = await loadSeverityMap(dir);
-    expect(m.get("F-001")).toMatchObject({ severity: "S2", confirmed: true });
-    expect(m.get("F-002")).toMatchObject({ severity: null, confirmed: false, suggested: "S0" });
+    expect(m.get("F-001")).toMatchObject({ severity: "S2", source: "human" });   // 人覆寫最高
+    expect(m.get("F-002")).toMatchObject({ severity: "S0", source: "scan" });    // AI/掃描落地直接生效
   });
 });
 
@@ -117,8 +117,10 @@ describe("分級 gaps", () => {
   it("S1 兩者都缺 → 缺一項（擇一）", () => {
     expect(evidenceGaps("S1", { ...evFull, qa: { ok: false }, aiReview: { ok: false } }).missing.length).toBe(1);
   });
-  it("未確認 severity → unknownSeverity", () => {
-    expect(evidenceGaps(null, evFull).unknownSeverity).toBe(true);
+  it("無 severity 防禦從嚴 S1（unit+e2e+sg+擇一）", () => {
+    const g = evidenceGaps(null, evFull);
+    expect(g.missing).toEqual([]);
+    expect(evidenceGaps(null, { ...evFull, qa: { ok: false }, aiReview: { ok: false } }).missing.length).toBe(1);
   });
 });
 
@@ -137,11 +139,14 @@ describe("buildEvidenceMatrix（整合）", () => {
     expect(f.gaps.missing).toContain("aiReview");
     expect(mx.summary.bySeverity.S2).toBe(1);
   });
-  it("未確認 severity feature → unknownSeverity 導引", async () => {
+  it("AI 判定預設生效：F-002（S0 scan）直接算分級，humanOverride/aiDefault 統計", async () => {
     const mx = await buildEvidenceMatrix(dir, [
       { id: "F-002", name: "docs", changedFiles: ["src/docs.tsx"], hasTests: true, tests: [], apiImpact: false, e2eCoveredApis: 0, apis: [] },
     ], {});
-    expect(mx.features[0].gaps.unknownSeverity).toBe(true);
-    expect(mx.summary.bySeverity.unconfirmed).toBe(1);
+    expect(mx.features[0].severity).toBe("S0"); // AI 落地值直接生效
+    expect(mx.features[0].severitySource).toBe("scan");
+    expect(mx.features[0].gaps.missing).toEqual(["qa"]); // S0 = unit+qa → unit✓（hasTests+綠燈）；qa 無記錄→缺
+    expect(mx.summary.bySeverity.aiDefault).toBe(1);
+    expect(mx.summary.bySeverity.humanOverride).toBe(0);
   });
 });

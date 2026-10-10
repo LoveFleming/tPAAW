@@ -220,8 +220,8 @@
   "feature.tests": "Tests",
   "feature.title": "Feature Map",
   "feature.severity": "Change Severity",
-  "feature.severitySuggest": "AI Suggestion",
-  "feature.severityConfirm": "Human Confirmation",
+  "feature.severitySuggest": "AI verdict (default)",
+  "feature.severityConfirm": "Human override",
   "feature.severityRescan": "Re-scan risk profile",
   "feature.severityData": "Data Touch",
   "feature.severityApi": "API Surface",
@@ -999,7 +999,6 @@
   "rm.ev.human": "Human",
   "rm.ev.notRun": "not run",
   "rm.ev.gapsTitle": "Gaps (Exception Review)",
-  "rm.ev.needConfirm": "severity unconfirmed",
   "rm.ev.unconfirmedTip": "severity unconfirmed",
   "apiTester.tabFeature": "Feature",
   "apiTester.tabCollection": "Collection",
@@ -1793,5 +1792,9 @@
   "crew.orgSubtitleRo": "Read-only overview; customize avatar/name in each module's AI Crew page",
   "crew.prefs.pageTitle": "AI Crew Preferences",
   "crew.prefs.pageSubtitle": "Avatar, display name, greeting, tone — appearance only; behavior is module-maintained",
-  "ho.brief.generate": "Generate AI Brief"
+  "ho.brief.generate": "Generate AI Brief",
+  "feature.severityAiDefault": "AI verdict in effect — override if wrong",
+  "feature.severityOverrideTip": "AI verdict is default; override only when wrong",
+  "rm.ev.humanTip": "human-overridden severity",
+  "rm.ev.aiTip": "AI verdict (default)"
 }

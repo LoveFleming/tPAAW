@@ -3,7 +3,11 @@
  *
  * 老闆 review 的重點要有證據 — 全部限 PAAW coding app 內部 deterministic 來源，
  * 每次重掃結果不變（idempotent）：
- *   Sev      ← .paaw/features/FEATURES.json severity（人確認；未確認顯 ?）
+ *   Sev      ← .paaw/features/FEATURES.json — 生效值三層（2026-10-10 18:08 Fleming：
+ *              預設信任 AI 判定直接生效，人發現問題再覆寫）：
+ *              1. severity（人覆寫 — PUT /severity）
+ *              2. severitySuggested（AI 分析 / 規則掃描落地）
+ *              3. 即時 scanFeatureRisk（deterministic 構成面、零 token、不寫檔）
  *   Unit     ← feature.tests + lastTestRun 綠燈（測試檔數）
  *   E2E      ← changed APIs 的 e2e 內容覆蓋（readiness apiCoveredByTests）
  *   SG       ← .paaw/security/scan-results.json（semgrep findings × feature files）
@@ -22,20 +26,23 @@ import { readFile, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { listQaResults } from "./qa-results.mjs";
+import { scanFeatureRisk } from "./feature-risk-scan.mjs";
 
 // ── severity（FEATURES.json by feature id/name）──
 export async function loadSeverityMap(projectPath) {
-  const map = new Map(); // key: feature id, value: { severity, confirmed }
+  const map = new Map(); // key: feature id, value: { severity, source, raw }
   try {
     const raw = JSON.parse(await readFile(join(projectPath, ".paaw", "features", "FEATURES.json"), "utf-8"));
     const features = Array.isArray(raw) ? raw : (raw.features || []);
     for (const f of features) {
       if (!f?.id) continue;
-      map.set(String(f.id), {
-        severity: f.severity || null,           // 人確認過的
-        suggested: f.severitySuggested || f.riskProfile?.suggested || null,
-        confirmed: !!f.severity,                 // severity 欄 = 人確認（PUT /severity 寫入）
-      });
+      if (f.severity) {
+        map.set(String(f.id), { severity: f.severity, source: "human", raw: f }); // 人覆寫（最高權威）
+      } else if (f.severitySuggested) {
+        map.set(String(f.id), { severity: f.severitySuggested, source: f.severitySuggestedBy === "ai" ? "ai" : "scan", raw: f }); // AI 判定預設生效
+      } else {
+        map.set(String(f.id), { severity: null, source: "none", raw: f }); // 現場即時掃描 fallback
+      }
     }
   } catch { /* 無 FEATURES.json */ }
   return map;
@@ -129,8 +136,7 @@ const REQUIREMENTS = {
 };
 
 export function evidenceGaps(sev, ev) {
-  if (!sev) return { unknownSeverity: true, missing: [] };
-  const req = REQUIREMENTS[sev] || [];
+  const req = REQUIREMENTS[sev || "S1"] || []; // 無值防禦從嚴 S1
   const missing = [];
   for (const r of req) {
     if (r.startsWith("either:")) {
@@ -140,7 +146,7 @@ export function evidenceGaps(sev, ev) {
       missing.push(r);
     }
   }
-  return { unknownSeverity: false, missing };
+  return { missing };
 }
 
 // ── 主入口：changedFeatures × 證據 join ──
@@ -148,9 +154,17 @@ export async function buildEvidenceMatrix(projectPath, changedFeatures, opts = {
   const [sevMap, scan, board] = await Promise.all([loadSeverityMap(projectPath), loadSecurityScan(projectPath), loadReviewBoard(projectPath)]);
   const unitGreen = opts.lastTestRunGreen !== false; // 全套綠 → unit 證據成立
 
-  const features = changedFeatures.map(f => {
-    const sevInfo = sevMap.get(String(f.id)) || null;
-    const sev = sevInfo?.confirmed ? sevInfo.severity : null;
+  const features = [];
+  for (const f of changedFeatures) {
+    let sevInfo = sevMap.get(String(f.id)) || { severity: null, source: "none", raw: null };
+    // 第三層 fallback：即時 deterministic 構成面掃描（零 token、idempotent、不寫檔）
+    if (!sevInfo.severity) {
+      try {
+        const scan = await scanFeatureRisk(projectPath, sevInfo.raw || f);
+        if (scan?.computedSeverity) sevInfo = { severity: scan.computedSeverity, source: "auto", raw: sevInfo.raw };
+      } catch { /* 掃描失敗從嚴 S1（evidenceGaps 防禦） */ }
+    }
+    const sev = sevInfo.severity;
     const ev = {
       unit: f.hasTests
         ? { ok: unitGreen, tests: f.tests?.length || 0 }
@@ -164,15 +178,14 @@ export async function buildEvidenceMatrix(projectPath, changedFeatures, opts = {
     };
     ev.human = ev.qa.human ? { ok: ev.qa.human.verdict === "pass", ...ev.qa.human } : { ok: false, reason: "無人員記錄" };
     const gaps = evidenceGaps(sev, ev);
-    return {
+    features.push({
       ...f,
       severity: sev,
-      severitySuggested: sevInfo?.suggested || null,
-      severityConfirmed: !!sev,
+      severitySource: sevInfo.source, // human（人覆寫）| ai | scan | auto（即時掃描）
       evidence: ev,
       gaps,
-    };
-  });
+    });
+  }
 
   const summary = {
     features: features.length,
@@ -180,7 +193,8 @@ export async function buildEvidenceMatrix(projectPath, changedFeatures, opts = {
       S2: features.filter(x => x.severity === "S2").length,
       S1: features.filter(x => x.severity === "S1").length,
       S0: features.filter(x => x.severity === "S0").length,
-      unconfirmed: features.filter(x => !x.severity).length,
+      humanOverride: features.filter(x => x.severitySource === "human").length, // 人覆寫
+      aiDefault: features.filter(x => x.severitySource !== "human").length,     // AI 判定直接生效
     },
     withGaps: features.filter(x => x.gaps.missing.length > 0).length,
     sgScan: scan ? { scannedAt: scan.scannedAt, total: scan.findings.length, high: scan.findings.filter(x => x.severity === "ERROR").length } : null,

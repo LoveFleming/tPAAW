@@ -220,8 +220,8 @@
   "feature.tests": "測試",
   "feature.title": "功能地圖",
   "feature.severity": "變更嚴重度",
-  "feature.severitySuggest": "AI 建議",
-  "feature.severityConfirm": "人員確認",
+  "feature.severitySuggest": "AI 判定（預設生效）",
+  "feature.severityConfirm": "人員覆寫",
   "feature.severityRescan": "重新分析構成面",
   "feature.severityData": "資料異動",
   "feature.severityApi": "API 介面",
@@ -999,7 +999,6 @@
   "rm.ev.human": "Human",
   "rm.ev.notRun": "未跑",
   "rm.ev.gapsTitle": "缺口（Exception Review — 老闆看這裡）",
-  "rm.ev.needConfirm": "severity 未確認 — 去 Features 頁確認",
   "rm.ev.unconfirmedTip": "severity 未確認（有 AI 建議未拍板）",
   "apiTester.tabFeature": "Feature",
   "apiTester.tabCollection": "Collection",
@@ -1793,5 +1792,9 @@
   "crew.orgSubtitleRo": "各部門唯讀總覽；頭像、名字等偏好設定請到各 module 的 AI Crew 頁編輯",
   "crew.prefs.pageTitle": "AI Crew 偏好設定",
   "crew.prefs.pageSubtitle": "頭像、顯示名、開場白、語氣 — 純外觀設定，行為由 module 維護",
-  "ho.brief.generate": "生成 AI 摘要"
+  "ho.brief.generate": "生成 AI 摘要",
+  "feature.severityAiDefault": "AI 判定預設生效 — 發現問題再覆寫",
+  "feature.severityOverrideTip": "預設信任 AI 判定；人覆寫僅在發現問題時使用",
+  "rm.ev.humanTip": "人覆寫的嚴重度",
+  "rm.ev.aiTip": "AI 判定（預設生效）"
 }
