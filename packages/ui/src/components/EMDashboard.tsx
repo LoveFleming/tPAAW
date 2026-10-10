@@ -1105,7 +1105,6 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                     { key: "openIssues", label: "Open Issues" },
                     { key: "openTasks", label: "Open Tasks" },
                     { key: "securityFindings", label: "安全發現" },
-                    { key: "codeIntelligence", label: "Code Intelligence" },
                     { key: "testCoverage", label: "測試覆蓋率" },
                   ].map(r => (
                     <label key={r.key} className="flex items-center gap-1.5 text-xs cursor-pointer">

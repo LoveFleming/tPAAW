@@ -18,6 +18,7 @@
     "codingIDE.emDashboard": "zai/glm-5.1",
     "sideChat.ops": "openrouter/deepseek/deepseek-v4.1-flash",
     "codingIDE.coding.tester": "zai/glm-5.1",
-    "sideChat.handover": "zai/glm-5.1"
+    "sideChat.handover": "zai/glm-5.1",
+    "sideChat.tester": "openrouter/deepseek/deepseek-v4.1-flash"
   }
 }

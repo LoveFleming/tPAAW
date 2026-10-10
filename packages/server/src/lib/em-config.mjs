@@ -81,7 +81,6 @@ const DEFAULT_EM_CONFIG = {
     openIssues: true,
     openTasks: true,
     securityFindings: true,
-    codeIntelligence: false,  // heavy, off by default
     testCoverage: true,
   },
 };

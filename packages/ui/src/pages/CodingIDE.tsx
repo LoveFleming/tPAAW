@@ -699,7 +699,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
     { id: "dev", icon: "🖥️", tools: [
       { id: "tool:crew", type: "crew-manager", label: "AI Crew", icon: "👥", closable: true },
       { id: "tool:browser", type: "browser", label: "Browser · QA", icon: "🧭", closable: true },
-      { id: "tool:code-intel", type: "code-intel", label: tt("codeIntel.toolbar"), icon: "📞", closable: true },
+      { id: "tool:code-intel", type: "code-intel", label: tt("codeIntel.toolbar"), icon: "🏛", closable: true },
       { id: "tool:git", type: "git", label: "Git", icon: "🔀", closable: true },
       { id: "tool:security", type: "security", label: "Security", icon: "🔒", closable: true },
       { id: "tool:terminal", type: "terminal", label: "Terminal", icon: "⌨️", closable: true },
@@ -3971,7 +3971,7 @@ const sendChat = useCallback(async () => {
                 />
               </div>
             )}
-            {/* === Code Intelligence 頁（📞 Call Graph / 🔗 Deps / 🎯 Impact / 🩺 Health + Architect AI）=== */}
+            {/* === Architecture 頁（🏛 C4 對外連線全景 + Architect AI）— 2026-10-10 統計 tab 退場 === */}
             {mainTabs.filter(t => t.type === "code-intel").map(tab => (
               <div key={tab.id} className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTabId === tab.id ? undefined : "none" }}>
