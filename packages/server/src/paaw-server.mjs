@@ -127,6 +127,7 @@ const ROUTE_MODULES = [
   "./routes/coding-tasks.mjs",
   "./routes/coding-memory.mjs",
   "./routes/coding-features.mjs",
+  "./routes/coding-handover.mjs",
   "./routes/coding-auto-dispatch.mjs",
   "./routes/coding-auto-dispatch-config.mjs",
   "./routes/execution-plan-routes.mjs",
