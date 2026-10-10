@@ -1736,7 +1736,7 @@
   "ho.brief.title": "AI Brief 摘要包",
   "ho.brief.regenerate": "Regenerate 重新生成",
   "ho.brief.generating": "Generating AI brief…",
-  "ho.brief.none": "尚未生成 — 按 Regenerate",
+  "ho.brief.none": "尚未生成 — 按 Generate 才會生成（不會自動跑）",
   "ho.brief.danger": "Danger Zones 地雷區",
   "ho.brief.quickstart": "Quickstart 起手步驟",
   "ho.brief.decisions": "Design Decisions 決策考古",
@@ -1770,5 +1770,6 @@
   "crew.prefs.notes": "備註（只有你看）",
   "crew.orgSubtitleRo": "各部門唯讀總覽；頭像、名字等偏好設定請到各 module 的 AI Crew 頁編輯",
   "crew.prefs.pageTitle": "AI Crew 偏好設定",
-  "crew.prefs.pageSubtitle": "頭像、顯示名、開場白、語氣 — 純外觀設定，行為由 module 維護"
+  "crew.prefs.pageSubtitle": "頭像、顯示名、開場白、語氣 — 純外觀設定，行為由 module 維護",
+  "ho.brief.generate": "Generate AI 摘要"
 }

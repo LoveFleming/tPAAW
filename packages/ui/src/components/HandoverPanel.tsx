@@ -193,18 +193,20 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
     );
   };
 
-  // ── brief 懶生成（2026-10-10 Fleming：進頁才觸發、有快取用快取）──
-  const ensureBrief = useCallback(async (force = false) => {
+  // ── brief 懶生成（2026-10-10 16:20 Fleming 修正：進頁只讀快取，不自動生成 — 按按鈕才觸發）──
+  const loadBrief = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-handover/brief?path=${encodeURIComponent(rootPath)}`);
+      if (r.ok) {
+        const d = await r.json();
+        setBrief(d.brief || null); setRemarks(d.remarks || []);
+      }
+    } catch { /* silent */ }
+  }, [rootPath]);
+
+  const generateBrief = useCallback(async () => {
     if (!rootPath || briefLoading) return;
-    if (!force) {
-      try {
-        const r = await fetch(`${API_BASE}/api/coding-handover/brief?path=${encodeURIComponent(rootPath)}`);
-        if (r.ok) {
-          const d = await r.json();
-          if (d.brief) { setBrief(d.brief); setRemarks(d.remarks || []); return; }
-        }
-      } catch { /* fallthrough 生成 */ }
-    }
     setBriefLoading(true);
     try {
       const r = await fetch(`${API_BASE}/api/coding-handover/brief?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
@@ -216,7 +218,8 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
     setBriefLoading(false);
   }, [rootPath, briefLoading]);
 
-  useEffect(() => { if (active && bundle?.initialized && bundle.hasKnowledge) ensureBrief(); }, [active, bundle?.initialized, bundle?.hasKnowledge, ensureBrief]);
+  // 進頁：只讀快取 + remarks，絕不碰 LLM
+  useEffect(() => { if (active && bundle?.initialized && bundle.hasKnowledge) loadBrief(); }, [active, bundle?.initialized, bundle?.hasKnowledge, loadBrief]);
 
   const addRemark = useCallback(async () => {
     const text = remarkText.trim();
@@ -286,15 +289,20 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
                 <span className="text-xs font-bold text-stone-700">{t("ho.brief.title")}</span>
                 <span className="ml-auto flex items-center gap-2">
                   {brief?.generatedAt && <span className="text-[10px] text-stone-400">{brief.generatedAt.slice(0, 16).replace("T", " ")}</span>}
-                  <button onClick={() => ensureBrief(true)} disabled={briefLoading}
+                  {brief && <button onClick={generateBrief} disabled={briefLoading}
                     className="text-[10px] px-2 py-0.5 rounded border disabled:opacity-40 hover:bg-stone-50" style={{ borderColor: tk.borderLight }}>
                     {briefLoading ? "…" : `↻ ${t("ho.brief.regenerate")}`}
-                  </button>
+                  </button>}
                 </span>
               </div>
               <div className="border-t px-3.5 py-2.5 space-y-2.5" style={{ borderColor: tk.borderLight }}>
                 {briefLoading && !brief && <div className="text-[11px] text-stone-400 animate-pulse">{t("ho.brief.generating")}</div>}
-                {!briefLoading && !brief && <div className="text-[11px] text-stone-400">{t("ho.brief.none")}</div>}
+                {!briefLoading && !brief && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] text-stone-400">{t("ho.brief.none")}</span>
+                    <button onClick={generateBrief} className="text-[11px] px-3 py-1.5 rounded-lg text-white font-medium" style={{ backgroundColor: tk.accent }}>✨ {t("ho.brief.generate")}</button>
+                  </div>
+                )}
                 {brief?.ai?.error && <div className="text-[11px] text-amber-600">⚠️ {brief.ai.error}</div>}
                 {brief?.ai?.summary && <div className="text-[12px] text-stone-700 font-medium leading-relaxed">{brief.ai.summary}</div>}
                 {brief?.ai?.dangerZones?.length > 0 && (

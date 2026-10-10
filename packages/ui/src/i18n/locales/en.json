@@ -1736,7 +1736,7 @@
   "ho.brief.title": "AI Brief",
   "ho.brief.regenerate": "Regenerate",
   "ho.brief.generating": "Generating AI brief (first visit)…",
-  "ho.brief.none": "Not generated yet — click Regenerate",
+  "ho.brief.none": "Not generated — click Generate (never auto-runs)",
   "ho.brief.danger": "Danger Zones (High Severity)",
   "ho.brief.quickstart": "Quickstart",
   "ho.brief.decisions": "Design Decisions (with evidence)",
@@ -1770,5 +1770,6 @@
   "crew.prefs.notes": "Notes (only you see)",
   "crew.orgSubtitleRo": "Read-only overview; customize avatar/name in each module's AI Crew page",
   "crew.prefs.pageTitle": "AI Crew Preferences",
-  "crew.prefs.pageSubtitle": "Avatar, display name, greeting, tone — appearance only; behavior is module-maintained"
+  "crew.prefs.pageSubtitle": "Avatar, display name, greeting, tone — appearance only; behavior is module-maintained",
+  "ho.brief.generate": "Generate AI Brief"
 }

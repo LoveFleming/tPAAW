@@ -1736,7 +1736,7 @@
   "ho.brief.title": "AI 摘要包",
   "ho.brief.regenerate": "重新生成",
   "ho.brief.generating": "AI 摘要生成中（首次進頁觸發一次）…",
-  "ho.brief.none": "尚未生成 — 按「重新生成」產生 AI 摘要",
+  "ho.brief.none": "尚未生成 — 按下生成才會產生 AI 摘要（不會自動生成）",
   "ho.brief.danger": "地雷區（Severity 高風險）",
   "ho.brief.quickstart": "起手步驟",
   "ho.brief.decisions": "設計決策考古（附證據）",
@@ -1770,5 +1770,6 @@
   "crew.prefs.notes": "備註（只有你看）",
   "crew.orgSubtitleRo": "各部門唯讀總覽；頭像、名字等偏好設定請到各 module 的 AI Crew 頁編輯",
   "crew.prefs.pageTitle": "AI Crew 偏好設定",
-  "crew.prefs.pageSubtitle": "頭像、顯示名、開場白、語氣 — 純外觀設定，行為由 module 維護"
+  "crew.prefs.pageSubtitle": "頭像、顯示名、開場白、語氣 — 純外觀設定，行為由 module 維護",
+  "ho.brief.generate": "生成 AI 摘要"
 }

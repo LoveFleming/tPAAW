@@ -1736,7 +1736,7 @@
   "ho.brief.title": "AI 要約",
   "ho.brief.regenerate": "再生成",
   "ho.brief.generating": "AI 要約を生成中…",
-  "ho.brief.none": "未生成 — 再生成を押してください",
+  "ho.brief.none": "未生成 — 生成ボタンを押したときだけ生成されます",
   "ho.brief.danger": "危険箇所（高 Severity）",
   "ho.brief.quickstart": "クイックスタート",
   "ho.brief.decisions": "設計判断（証拠付き）",
@@ -1770,5 +1770,6 @@
   "crew.prefs.notes": "メモ（自分のみ）",
   "crew.orgSubtitleRo": "読み取り専用の概要；アバターや名前は各モジュールのAIクルーページで編集",
   "crew.prefs.pageTitle": "AIクルー設定",
-  "crew.prefs.pageSubtitle": "アバター・表示名・挨拶・トーン — 外観のみ、動作はモジュール管理"
+  "crew.prefs.pageSubtitle": "アバター・表示名・挨拶・トーン — 外観のみ、動作はモジュール管理",
+  "ho.brief.generate": "AI 要約を生成"
 }
