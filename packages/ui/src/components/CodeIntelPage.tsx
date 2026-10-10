@@ -19,6 +19,7 @@
 import React, { useEffect, useRef, useState, useCallback, forwardRef } from "react";
 import { useI18n } from "../i18n";
 import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
+import { useColResize, ColResizer } from "./ColResizer"; // 2026-10-10 Fleming：跟 Handover 同款左右 splitter
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4097";
 
@@ -36,11 +37,16 @@ interface Props {
   rootPath: string;
   onOpenFile?: (absPath: string) => void;
   refreshKey?: number; // CU 完成後重抓（mount-only fetch 會 stale）
+  theme?: { borderLight?: string; accent?: string; accentHover?: string }; // 2026-10-10：跟 Handover 同款（splitter + side chat 色）
 }
 
-function CodeIntelPageInner({ rootPath, refreshKey }: Props, ref: React.Ref<AgentSideChatHandle | null>) {
+function CodeIntelPageInner({ rootPath, refreshKey, theme }: Props, ref: React.Ref<AgentSideChatHandle | null>) {
   const { t } = useI18n();
-  const borderLight = "#f0f0f0";
+  const borderLight = theme?.borderLight || "#f0f0f0";
+  const accent = theme?.accent || "#7c3aed";
+  const accentHover = theme?.accentHover || theme?.accent || "#7c3aed";
+  // 2026-10-10 Fleming：跟 Handover 一模一樣的 side chat（splitter default 520 寬）
+  const pane = useColResize(520, 300, 760);
 
   const chatRef = useRef<AgentSideChatHandle>(null);
   React.useImperativeHandle(ref, () => ({
@@ -87,10 +93,10 @@ function CodeIntelPageInner({ rootPath, refreshKey }: Props, ref: React.Ref<Agen
   }
 
   return (
-    <div className="flex-1 flex min-w-0 overflow-hidden" data-testid="code-intel-page">
+    <div className="flex h-full min-h-0" data-testid="code-intel-page">
       {/* 左：C4 全景 */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-4" data-testid="ci-panel-c4">
+      <div className="flex-1 min-w-0 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+        <div className="p-4" data-testid="ci-panel-c4">
           <div className="space-y-3 max-w-4xl">
             {/* header：系統名 + 整理按鈕 */}
             <div className="flex items-center gap-3">
@@ -180,8 +186,10 @@ function CodeIntelPageInner({ rootPath, refreshKey }: Props, ref: React.Ref<Agen
         </div>
       </div>
 
-      {/* 右：神 — Architect AI */}
-      <div className="shrink-0 border-l hidden xl:flex flex-col" style={{ width: 340, borderColor: borderLight }}>
+      {/* 右：Architect AI — 2026-10-10 Fleming：跟 Handover 一模一樣的 side chat
+          （splitter + tool icons + 上傳文字/圖片 + model selector + 對話持久化）*/}
+      <ColResizer onDown={pane.startDrag} className="hidden md:block" />
+      <div className="shrink-0 hidden md:block" style={{ width: pane.width }}>
         <AgentSideChat
           ref={chatRef}
           agentId="architect"
@@ -189,8 +197,11 @@ function CodeIntelPageInner({ rootPath, refreshKey }: Props, ref: React.Ref<Agen
           agentEmoji="🏛️"
           greeting={t("codeIntel.architectGreeting")}
           cwd={rootPath}
-          accent="#7c3aed"
+          accent={accent}
+          accentHover={accentHover}
           height="100%"
+          persistCrewId="coding.architect-side"
+          modelFeature="sideChat.architect"
           placeholder={t("codeIntel.architectPlaceholder")}
           suggestions={[
             { label: t("codeIntel.sug1Label"), prompt: t("codeIntel.sug1Prompt") },

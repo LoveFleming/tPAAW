@@ -3976,7 +3976,7 @@ const sendChat = useCallback(async () => {
               <div key={tab.id} className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTabId === tab.id ? undefined : "none" }}>
                 <TabErrorBoundary label={tab.label}>
-                  <CodeIntelPage rootPath={rootPath} onOpenFile={openFile} refreshKey={paawRefreshKey} />
+                  <CodeIntelPage rootPath={rootPath} onOpenFile={openFile} refreshKey={paawRefreshKey} theme={{ borderLight: tk.borderLight, accent: tk.accent, accentHover: tk.accentHover || tk.accent }} />
                 </TabErrorBoundary>
               </div>
             ))}
