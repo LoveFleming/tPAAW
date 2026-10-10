@@ -27,6 +27,8 @@
     "decisions",
     "project",
     "project-edit",
+    "project-board",
+    "tasks",
     "qa-records",
     "release-requests"
   ],

@@ -31,6 +31,7 @@ interface AgentDef {
     maxTokens?: number;
   };
   toolGroups?: string[];
+  tools?: string[]; // 2026-10-11：伺服器回傳的實際可用工具清單（唯讀）
   guardrails?: {
     redirectRules?: string;
     refuseTopics?: string;
@@ -623,6 +624,31 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                           <span key={sk} className="text-xs px-2 py-0.5 rounded-full bg-stone-100 text-stone-600">{sk}</span>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {(editData.tools || editData.toolGroups) && (
+                    <div>
+                      <span className={labelCls}>可用工具
+                        {editData.tools ? <span className="text-stone-400 font-normal ml-2">{editData.tools.length} 個</span> : null}
+                        <span className="text-stone-400 font-normal ml-2">（唯讀 — 由 module firmware 決定）</span>
+                      </span>
+                      {editData.toolGroups && editData.toolGroups.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {editData.toolGroups.map(g => (
+                            <span key={g} className="text-[11px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 font-mono">{g}</span>
+                          ))}
+                        </div>
+                      )}
+                      {editData.tools && editData.tools.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {editData.tools.map(tn => (
+                            <span key={tn} className="text-[11px] px-2 py-0.5 rounded bg-sky-50 text-sky-700 border font-mono" style={{ borderColor: t.borderLight }}>{tn}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-stone-400">（工具清單載入失敗，重開此頁再試）</p>
+                      )}
                     </div>
                   )}
                 </div>

@@ -22,6 +22,7 @@
     "memory",
     "project",
     "project-edit",
+    "tasks",
     "qa-records"
   ],
   "_promptRev": "2026-10-09-module",

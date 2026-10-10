@@ -2084,6 +2084,19 @@ export default async function projectRoute(req, res) {
     if ((method === "GET") && !agentIdParam) {
       try {
         const result = readProjectCrew(projectDir);
+        // 2026-10-11 Fleming：每個 agent「可用工具」唯讀呈現（firmware toolGroups → 實際工具清單）
+        // 純檢視用途 — 只加到回應，不寫回 crew json（PATCH 白名單不含 tools）
+        try {
+          const { getAgentByCrewId } = await import("../lib/domain-agent-registry.mjs");
+          const { getToolsForAgent } = await import("../lib/paaw-agent-loop.mjs");
+          for (const a of result.agents) {
+            const ag = getAgentByCrewId(a.id);
+            if (!ag) continue;
+            try {
+              a.tools = getToolsForAgent(ag.agentId, [], projectDir).map(t => t.function?.name).filter(Boolean);
+            } catch { a.tools = null; }
+          }
+        } catch { /* 工具清單非必要 — 失敗不影響 crew 讀取 */ }
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(result));
       } catch (err) {
