@@ -56,6 +56,7 @@ interface Feature {
   updatedAt: string;
   // 🛡 嚴重度（2026-10-10：by feature 標示 — deterministic 掃描 + AI 建議、人確認）
   severity?: "S0" | "S1" | "S2" | null;
+  severityDecisions?: { id: string; by: string; at: string; severity: string; remark?: string }[];
   severitySuggested?: string | null;
   severitySuggestedReason?: string | null;
   severitySuggestedNotes?: string | null;
@@ -463,8 +464,12 @@ function SeveritySection({ feature, theme, t, rootPath, onFeatureUpdate }: {
   onFeatureUpdate?: (f: Feature) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [byName, setByName] = useState("human");
+  const [remark, setRemark] = useState("");
   const rp = feature.riskProfile;
-  const activeSev = feature.severity || null;
+  const decisions = feature.severityDecisions || [];
+  const latestHuman = decisions.length ? decisions[decisions.length - 1] : null;
+  const activeSev = latestHuman?.severity || feature.severity || null; // 生效 = 最新人判定（並存）
   const suggested = feature.severitySuggested || null;
 
   const rescan = async () => {
@@ -484,14 +489,27 @@ function SeveritySection({ feature, theme, t, rootPath, onFeatureUpdate }: {
     setBusy(false);
   };
   const confirm = async (sev: string) => {
-    if (busy || activeSev === sev) return;
+    if (busy) return;
     setBusy(true);
     try {
       const res = await fetch(`${API_BASE}/api/coding-features/${encodeURIComponent(feature.id)}/severity?path=${encodeURIComponent(rootPath)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ severity: sev }),
+        body: JSON.stringify({ severity: sev, by: byName.trim() || "human", remark: remark.trim() }),
       });
+      if (res.ok) {
+        const d = await res.json();
+        if (d.feature && onFeatureUpdate) onFeatureUpdate(d.feature as Feature);
+        setRemark("");
+      }
+    } catch { /* silent */ }
+    setBusy(false);
+  };
+  const removeDecision = async (did: string) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-features/${encodeURIComponent(feature.id)}/severity-decision/${encodeURIComponent(did)}?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" });
       if (res.ok) {
         const d = await res.json();
         if (d.feature && onFeatureUpdate) onFeatureUpdate(d.feature as Feature);
@@ -531,22 +549,47 @@ function SeveritySection({ feature, theme, t, rootPath, onFeatureUpdate }: {
         </div>
       )}
 
-      {/* 人員確認 */}
-      <div className="px-3 py-2 flex items-center gap-2 flex-wrap">
-        <span className="text-xs" style={{ color: theme.text, opacity: 0.55 }} title={t("feature.severityOverrideTip")}>{t("feature.severityConfirm")}：</span>
-        {(["S0", "S1", "S2"] as const).map(sev => {
-          const sv = SEV_STYLES[sev];
-          const active = activeSev === sev;
-          return (
-            <button key={sev} onClick={() => confirm(sev)} disabled={busy}
-              className={`text-xs px-2 py-0.5 rounded font-bold border ${active ? "" : "hover:opacity-80"}`}
-              style={{ background: active ? sv.bg : theme.bg, color: active ? sv.text : theme.text, borderColor: active ? sv.text : theme.borderLight, opacity: active ? 1 : 0.6 }}
-              data-testid={`severity-confirm-${sev}`}>
-              {sv.dot} {sev}
-            </button>
-          );
-        })}
-        {activeSev && <span className="text-[10px]" style={{ color: theme.text, opacity: 0.4 }}>✓ {feature.severityConfirmedAt?.slice(0, 16).replace("T", " ")}</span>}
+      {/* 人員判定（append-only 並存 — 人跟 AI 判定都保留） */}
+      <div className="px-3 py-2 space-y-1.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs" style={{ color: theme.text, opacity: 0.55 }} title={t("feature.severityOverrideTip")}>{t("feature.severityConfirm")}：</span>
+          <input value={byName} onChange={e => setByName(e.target.value)} placeholder={t("feature.severityBy")}
+            className="text-[10px] px-1.5 py-0.5 rounded w-24" style={{ background: theme.bg, color: theme.text, border: `1px solid ${theme.borderLight}` }} data-testid="severity-by-input" />
+          <input value={remark} onChange={e => setRemark(e.target.value)} placeholder={t("feature.severityRemark")}
+            className="text-[10px] px-1.5 py-0.5 rounded flex-1 min-w-[120px]" style={{ background: theme.bg, color: theme.text, border: `1px solid ${theme.borderLight}` }} data-testid="severity-remark-input" />
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {(["S0", "S1", "S2"] as const).map(sev => {
+            const sv = SEV_STYLES[sev];
+            const active = activeSev === sev;
+            return (
+              <button key={sev} onClick={() => confirm(sev)} disabled={busy}
+                className={`text-xs px-2 py-0.5 rounded font-bold border ${active ? "" : "hover:opacity-80"}`}
+                style={{ background: active ? sv.bg : theme.bg, color: active ? sv.text : theme.text, borderColor: active ? sv.text : theme.borderLight, opacity: active ? 1 : 0.6 }}
+                data-testid={`severity-confirm-${sev}`}>
+                {sv.dot} {sev}
+              </button>
+            );
+          })}
+          <span className="text-[10px]" style={{ color: theme.text, opacity: 0.4 }}>{t("feature.severityAppendHint")}</span>
+        </div>
+        {/* 判定歷史（並存 — 全保留，新→舊） */}
+        {decisions.length > 0 && (
+          <div className="space-y-0.5" data-testid="severity-decisions">
+            {decisions.slice().reverse().map(d => {
+              const sv = SEV_STYLES[d.severity as "S0" | "S1" | "S2"] || SEV_STYLES.S0;
+              return (
+                <div key={d.id} className="flex items-center gap-1.5 text-[10px]" style={{ color: theme.text, opacity: 0.75 }}>
+                  <span className="px-1 py-0.5 rounded font-bold shrink-0" style={{ background: sv.bg, color: sv.text }}>{sv.dot} {d.severity}</span>
+                  <span className="font-bold shrink-0">👤 {d.by}</span>
+                  <span className="truncate" title={d.remark || ""}>{d.remark || "—"}</span>
+                  <span className="ml-auto shrink-0" style={{ opacity: 0.5 }}>{d.at?.slice(0, 16).replace("T", " ")}</span>
+                  <button onClick={() => removeDecision(d.id)} disabled={busy} className="shrink-0 hover:opacity-100" style={{ opacity: 0.5 }} title={t("feature.severityRemove")} data-testid={`severity-del-${d.id}`}>🗑</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* 構成面（deterministic 掃描） */}

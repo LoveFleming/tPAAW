@@ -370,7 +370,9 @@ export default async function codingFeaturesRoute(req, res) {
     return true;
   }
 
-  // ── PUT /api/coding-features/:id/severity — 人員確認嚴重度（2026-10-10）──
+  // ── PUT /api/coding-features/:id/severity — 新增人員判定（append-only，2026-10-10 18:18 Fleming：並存）──
+  // 人跟 AI 的判定並存：AI 判定在 severitySuggested；人的每次判定（by/severity/remark）
+  // append 進 severityDecisions 永不覆蓋 — 生效值 = 最新人判定 || AI 判定 || 即時掃描（release-evidence 三層）
   const sevMatch = url.match(/^\/api\/coding-features\/([^/?]+)\/severity$/);
   if (sevMatch && method === "PUT") {
     const id = decodeURIComponent(sevMatch[1]);
@@ -380,9 +382,9 @@ export default async function codingFeaturesRoute(req, res) {
       res.end(JSON.stringify({ error: "Invalid JSON" }));
       return true;
     }
-    if (body.severity !== null && !isValidSeverity(body.severity)) {
+    if (!isValidSeverity(body.severity)) {
       res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "severity must be one of: S0, S1, S2 (or null to clear)" }));
+      res.end(JSON.stringify({ error: "severity must be one of: S0, S1, S2" }));
       return true;
     }
     const features = await loadFeatures(projRoot);
@@ -392,14 +394,40 @@ export default async function codingFeaturesRoute(req, res) {
       res.end(JSON.stringify({ error: "Feature not found" }));
       return true;
     }
-    if (body.severity === null) {
-      delete features[idx].severity;
-      delete features[idx].severityConfirmedAt;
-      delete features[idx].severityConfirmedBy;
-    } else {
-      features[idx].severity = body.severity;
-      features[idx].severityConfirmedAt = now();
-      features[idx].severityConfirmedBy = "user";
+    const decisions = features[idx].severityDecisions || [];
+    decisions.push({
+      id: `sd-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      by: String(body.by || "human").slice(0, 40),
+      at: now(),
+      severity: body.severity,
+      remark: String(body.remark || "").slice(0, 300),
+    });
+    features[idx].severityDecisions = decisions.slice(-50); // cap 50 防爆
+    features[idx].updatedAt = now();
+    await saveFeatures(projRoot, features);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(stableStringify({ ok: true, feature: features[idx] }));
+    return true;
+  }
+
+  // ── DELETE /api/coding-features/:id/severity-decision/:did — 刪單筆判定（寫錯移除）──
+  const delSevMatch = url.match(/^\/api\/coding-features\/([^/?]+)\/severity-decision\/([^/?]+)$/);
+  if (delSevMatch && method === "DELETE") {
+    const id = decodeURIComponent(delSevMatch[1]);
+    const did = decodeURIComponent(delSevMatch[2]);
+    const features = await loadFeatures(projRoot);
+    const idx = features.findIndex(f => f.id === id);
+    if (idx < 0) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Feature not found" }));
+      return true;
+    }
+    const before = features[idx].severityDecisions?.length || 0;
+    features[idx].severityDecisions = (features[idx].severityDecisions || []).filter(d => d.id !== did);
+    if (features[idx].severityDecisions.length === before) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Decision not found" }));
+      return true;
     }
     features[idx].updatedAt = now();
     await saveFeatures(projRoot, features);

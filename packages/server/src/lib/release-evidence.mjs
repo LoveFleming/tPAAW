@@ -5,7 +5,7 @@
  * 每次重掃結果不變（idempotent）：
  *   Sev      ← .paaw/features/FEATURES.json — 生效值三層（2026-10-10 18:08 Fleming：
  *              預設信任 AI 判定直接生效，人發現問題再覆寫）：
- *              1. severity（人覆寫 — PUT /severity）
+ *              1. severityDecisions 最新人判定（append-only 並存 — 18:18 Fleming）
  *              2. severitySuggested（AI 分析 / 規則掃描落地）
  *              3. 即時 scanFeatureRisk（deterministic 構成面、零 token、不寫檔）
  *   Unit     ← feature.tests + lastTestRun 綠燈（測試檔數）
@@ -36,12 +36,16 @@ export async function loadSeverityMap(projectPath) {
     const features = Array.isArray(raw) ? raw : (raw.features || []);
     for (const f of features) {
       if (!f?.id) continue;
-      if (f.severity) {
-        map.set(String(f.id), { severity: f.severity, source: "human", raw: f }); // 人覆寫（最高權威）
+      const decisions = Array.isArray(f.severityDecisions) ? f.severityDecisions : [];
+      if (decisions.length) {
+        const latest = decisions[decisions.length - 1]; // 最新人判定生效（並存保留全部）
+        map.set(String(f.id), { severity: latest.severity, source: "human", decisions, raw: f });
+      } else if (f.severity) {
+        map.set(String(f.id), { severity: f.severity, source: "human", decisions, raw: f }); // 舊欄位相容
       } else if (f.severitySuggested) {
-        map.set(String(f.id), { severity: f.severitySuggested, source: f.severitySuggestedBy === "ai" ? "ai" : "scan", raw: f }); // AI 判定預設生效
+        map.set(String(f.id), { severity: f.severitySuggested, source: f.severitySuggestedBy === "ai" ? "ai" : "scan", decisions, raw: f }); // AI 判定預設生效
       } else {
-        map.set(String(f.id), { severity: null, source: "none", raw: f }); // 現場即時掃描 fallback
+        map.set(String(f.id), { severity: null, source: "none", decisions, raw: f }); // 現場即時掃描 fallback
       }
     }
   } catch { /* 無 FEATURES.json */ }
@@ -161,7 +165,7 @@ export async function buildEvidenceMatrix(projectPath, changedFeatures, opts = {
     if (!sevInfo.severity) {
       try {
         const scan = await scanFeatureRisk(projectPath, sevInfo.raw || f);
-        if (scan?.computedSeverity) sevInfo = { severity: scan.computedSeverity, source: "auto", raw: sevInfo.raw };
+        if (scan?.computedSeverity) sevInfo = { severity: scan.computedSeverity, source: "auto", decisions: sevInfo.decisions || [], raw: sevInfo.raw };
       } catch { /* 掃描失敗從嚴 S1（evidenceGaps 防禦） */ }
     }
     const sev = sevInfo.severity;
@@ -181,7 +185,8 @@ export async function buildEvidenceMatrix(projectPath, changedFeatures, opts = {
     features.push({
       ...f,
       severity: sev,
-      severitySource: sevInfo.source, // human（人覆寫）| ai | scan | auto（即時掃描）
+      severitySource: sevInfo.source, // human（最新人判定）| ai | scan | auto（即時掃描）
+      severityDecisions: sevInfo.decisions || [], // 並存：全部人員判定歷史（永不覆蓋）
       evidence: ev,
       gaps,
     });

@@ -221,7 +221,7 @@
   "feature.title": "功能地圖",
   "feature.severity": "變更嚴重度",
   "feature.severitySuggest": "AI 判定（預設生效）",
-  "feature.severityConfirm": "人員覆寫",
+  "feature.severityConfirm": "人員判定（並存）",
   "feature.severityRescan": "重新分析構成面",
   "feature.severityData": "資料異動",
   "feature.severityApi": "API 介面",
@@ -1794,7 +1794,11 @@
   "crew.prefs.pageSubtitle": "頭像、顯示名、開場白、語氣 — 純外觀設定，行為由 module 維護",
   "ho.brief.generate": "生成 AI 摘要",
   "feature.severityAiDefault": "AI 判定預設生效 — 發現問題再覆寫",
-  "feature.severityOverrideTip": "預設信任 AI 判定；人覆寫僅在發現問題時使用",
-  "rm.ev.humanTip": "人覆寫的嚴重度",
-  "rm.ev.aiTip": "AI 判定（預設生效）"
+  "feature.severityOverrideTip": "人跟 AI 判定並存；生效值 = 最新人判定，否則 AI 判定",
+  "rm.ev.humanTip": "最新人員判定生效（歷史全保留）",
+  "rm.ev.aiTip": "AI 判定（預設生效）",
+  "feature.severityBy": "判定人",
+  "feature.severityRemark": "remark（為什麼判這個等級）",
+  "feature.severityAppendHint": "每次判定都會保留 — 與 AI 判定並存",
+  "feature.severityRemove": "刪除此判定"
 }

@@ -21,7 +21,10 @@ beforeAll(() => {
   // FEATURES.json（severity 確認態）
   mkdirSync(join(dir, ".paaw", "features"), { recursive: true });
   writeFileSync(join(dir, ".paaw", "features", "FEATURES.json"), JSON.stringify([
-    { id: "F-001", name: "sandbox", severity: "S2", severitySuggested: "S2" },
+    { id: "F-001", name: "sandbox", severitySuggested: "S0", severityDecisions: [
+      { id: "sd-1", by: "ming", at: "2026-10-10T09:00:00Z", severity: "S1", remark: "有 fs 寫入" },
+      { id: "sd-2", by: "zosia", at: "2026-10-10T10:00:00Z", severity: "S2", remark: "會刪檔" },
+    ] }, // 人判定並存兩筆 — 最新（zosia S2）生效
     { id: "F-002", name: "docs", severitySuggested: "S0", severitySuggestedBy: "scan" }, // AI 判定預設生效
   ]));
   // semgrep 掃描結果
@@ -60,10 +63,12 @@ beforeAll(() => {
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("severity join", () => {
-  it("生效順序：人覆寫 > AI 落地（Fleming 18:08：預設信任 AI，人後改）", async () => {
+  it("並存生效順序：最新人判定 > AI 落地（18:18 Fleming：不覆寫，全保留）", async () => {
     const m = await loadSeverityMap(dir);
-    expect(m.get("F-001")).toMatchObject({ severity: "S2", source: "human" });   // 人覆寫最高
-    expect(m.get("F-002")).toMatchObject({ severity: "S0", source: "scan" });    // AI/掃描落地直接生效
+    const f1 = m.get("F-001");
+    expect(f1).toMatchObject({ severity: "S2", source: "human" }); // 兩筆人判定並存 — 最新 zosia S2 生效
+    expect(f1.decisions).toHaveLength(2);                          // 歷史全保留（ming S1 + zosia S2）
+    expect(m.get("F-002")).toMatchObject({ severity: "S0", source: "scan" }); // AI/掃描落地直接生效
   });
 });
 
@@ -131,6 +136,8 @@ describe("buildEvidenceMatrix（整合）", () => {
     ], { lastTestRunGreen: true });
     const f = mx.features[0];
     expect(f.severity).toBe("S2");
+    expect(f.severitySource).toBe("human");
+    expect(f.severityDecisions).toHaveLength(2); // 並存歷史完整帶進矩陣
     expect(f.evidence.qa.ok).toBe(true);
     expect(f.evidence.human.ok).toBe(true); // human 證據欄（= qa 記錄裡 actor=human 的 verdict）
     expect(f.evidence.sg.ok).toBe(false);

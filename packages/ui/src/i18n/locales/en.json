@@ -221,7 +221,7 @@
   "feature.title": "Feature Map",
   "feature.severity": "Change Severity",
   "feature.severitySuggest": "AI verdict (default)",
-  "feature.severityConfirm": "Human override",
+  "feature.severityConfirm": "Human verdicts (coexist)",
   "feature.severityRescan": "Re-scan risk profile",
   "feature.severityData": "Data Touch",
   "feature.severityApi": "API Surface",
@@ -1794,7 +1794,11 @@
   "crew.prefs.pageSubtitle": "Avatar, display name, greeting, tone — appearance only; behavior is module-maintained",
   "ho.brief.generate": "Generate AI Brief",
   "feature.severityAiDefault": "AI verdict in effect — override if wrong",
-  "feature.severityOverrideTip": "AI verdict is default; override only when wrong",
-  "rm.ev.humanTip": "human-overridden severity",
-  "rm.ev.aiTip": "AI verdict (default)"
+  "feature.severityOverrideTip": "human & AI verdicts coexist; effective = latest human else AI",
+  "rm.ev.humanTip": "latest human verdict in effect (history kept)",
+  "rm.ev.aiTip": "AI verdict (default)",
+  "feature.severityBy": "by",
+  "feature.severityRemark": "remark (why this level)",
+  "feature.severityAppendHint": "every verdict kept — coexists with AI",
+  "feature.severityRemove": "remove this verdict"
 }

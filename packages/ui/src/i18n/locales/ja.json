@@ -221,7 +221,7 @@
   "feature.title": "フィーチャーマップ",
   "feature.severity": "変更深刻度",
   "feature.severitySuggest": "AI 判定（デフォルト）",
-  "feature.severityConfirm": "人オーバーライド",
+  "feature.severityConfirm": "人判定（併存）",
   "feature.severityRescan": "リスク構成を再スキャン",
   "feature.severityData": "データ操作",
   "feature.severityApi": "API インターフェース",
@@ -1794,7 +1794,11 @@
   "crew.prefs.pageSubtitle": "アバター・表示名・挨拶・トーン — 外観のみ、動作はモジュール管理",
   "ho.brief.generate": "AI 要約を生成",
   "feature.severityAiDefault": "AI 判定が有効 — 問題あれば上書き",
-  "feature.severityOverrideTip": "AI 判定をデフォルト信用。問題時のみ上書き",
-  "rm.ev.humanTip": "人が上書きした重要度",
-  "rm.ev.aiTip": "AI 判定（デフォルト）"
+  "feature.severityOverrideTip": "人と AI の判定は併存。有効値=最新の人判定、なければ AI",
+  "rm.ev.humanTip": "最新の人判定が有効（履歴全保持）",
+  "rm.ev.aiTip": "AI 判定（デフォルト）",
+  "feature.severityBy": "判定者",
+  "feature.severityRemark": "remark（このレベルの理由）",
+  "feature.severityAppendHint": "全判定を保持 — AI と併存",
+  "feature.severityRemove": "この判定を削除"
 }

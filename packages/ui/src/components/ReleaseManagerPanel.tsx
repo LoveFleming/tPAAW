@@ -53,7 +53,8 @@ interface ReadinessFeature {
 }
 interface EvCell { ok: boolean; reason?: string; tests?: number; covered?: number; total?: number; high?: number; actor?: string; models?: string[]; at?: string; decision?: string; summary?: string }
 interface EvFeature extends ReadinessFeature {
-  severity: string | null; severitySource: string; // human=人覆寫 | ai/scan/auto=AI 判定預設生效
+  severity: string | null; severitySource: string; // human=最新人判定 | ai/scan/auto=AI 判定預設生效
+  severityDecisions?: { id: string; by: string; at: string; severity: string; remark?: string }[];
   evidence: { unit: EvCell; e2e: EvCell; sg: EvCell; qa: EvCell; aiReview: EvCell; human: EvCell };
   gaps: { missing: string[] };
 }
@@ -374,7 +375,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                       return (
                         <div key={f.id} className="grid gap-1 items-center px-2 py-1.5 rounded-lg hover:bg-stone-50" style={{ gridTemplateColumns: "1.6fr 0.6fr 0.8fr 0.9fr 0.8fr 0.8fr 1.5fr 1.2fr", background: f.gaps.missing.length ? "#fff7ed" : undefined }}>
                           <span className="text-[10px] font-bold text-stone-700 truncate" title={f.name}>{f.name}</span>
-                          <span className={`text-[10px] font-bold ${f.severity === "S2" ? "text-red-600" : f.severity === "S1" ? "text-amber-600" : f.severity === "S0" ? "text-green-600" : "text-stone-400"}`} title={f.severitySource === "human" ? t("rm.ev.humanTip") : t("rm.ev.aiTip")}>
+                          <span className={`text-[10px] font-bold ${f.severity === "S2" ? "text-red-600" : f.severity === "S1" ? "text-amber-600" : f.severity === "S0" ? "text-green-600" : "text-stone-400"}`} title={[t("rm.ev.aiTip"), ...((f.severityDecisions || []).map(d => `👤${d.by}: ${d.severity}${d.remark ? `（${d.remark}）` : ""}`))].join("\n")}>
                             {f.severity}{f.severitySource === "human" ? "👤" : "🤖"}
                           </span>
                           {cell(ev.unit, ev.unit.ok ? `✓${ev.unit.tests || 0}t` : "✗")}

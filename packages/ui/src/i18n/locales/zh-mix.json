@@ -221,7 +221,7 @@
   "feature.title": "Feature Map",
   "feature.severity": "Change Severity 變更嚴重度",
   "feature.severitySuggest": "AI 判定（預設生效）",
-  "feature.severityConfirm": "人員覆寫",
+  "feature.severityConfirm": "人員判定（並存）",
   "feature.severityRescan": "重新分析 risk profile",
   "feature.severityData": "Data Touch 資料異動",
   "feature.severityApi": "API Surface",
@@ -1794,7 +1794,11 @@
   "crew.prefs.pageSubtitle": "頭像、顯示名、開場白、語氣 — 純外觀設定，行為由 module 維護",
   "ho.brief.generate": "Generate AI 摘要",
   "feature.severityAiDefault": "AI 判定預設生效 — 有問題再 override",
-  "feature.severityOverrideTip": "預設信任 AI 判定；人 override 僅在發現問題時",
-  "rm.ev.humanTip": "人 override 的 severity",
-  "rm.ev.aiTip": "AI 判定（預設生效）"
+  "feature.severityOverrideTip": "人跟 AI 判定並存；生效值 = 最新人判定，否則 AI",
+  "rm.ev.humanTip": "最新人員判定生效（歷史全保留）",
+  "rm.ev.aiTip": "AI 判定（預設生效）",
+  "feature.severityBy": "判定人",
+  "feature.severityRemark": "remark（為什麼判這個等級）",
+  "feature.severityAppendHint": "每次判定都保留 — 跟 AI 判定並存",
+  "feature.severityRemove": "刪除此判定"
 }
