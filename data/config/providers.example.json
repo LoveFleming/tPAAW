@@ -74,7 +74,8 @@
           "pricing": {
             "inputPerMillion": 0.6,
             "outputPerMillion": 2.5
-          }
+          },
+          "reasoning": "low"
         },
         {
           "id": "deepseek/deepseek-v4-flash-0731",
@@ -84,7 +85,8 @@
           "pricing": {
             "inputPerMillion": 0.07,
             "outputPerMillion": 0.28
-          }
+          },
+          "reasoning": "low"
         },
         {
           "id": "z-ai/glm-5.1",
@@ -94,7 +96,8 @@
           "pricing": {
             "inputPerMillion": 1,
             "outputPerMillion": 3.2
-          }
+          },
+          "reasoning": "low"
         }
       ]
     }

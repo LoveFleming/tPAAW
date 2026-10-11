@@ -489,6 +489,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
     toolsCount: body.tools?.length || 0,
     toolNames: (body.tools || []).map(t => t.function?.name).filter(Boolean),
     maxTokens: body.max_tokens,
+    reasoning: body.reasoning || body.thinking || null,
     caller: opts.caller || null,
     taskId: opts.taskId || null, // R3: cost 歸集 tag（caller 有帶才生效）
   });
@@ -655,6 +656,10 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
         try {
           const fbBody = { ...body, model: fb.model };
           if (fb.maxTokens) fbBody.max_tokens = Math.min(fb.maxTokens, body.max_tokens || 16384);
+          // 2026-10-11：reasoning/thinking 是 provider-specific 參數 → 跨 provider fallback 要清掉免得格式不符
+          if (/openrouter\.ai/.test(fb.apiUrl)) { delete fbBody.thinking; }
+          else if (/z\.ai/.test(fb.apiUrl)) { delete fbBody.reasoning; }
+          else { delete fbBody.reasoning; delete fbBody.thinking; }
           const resp = await fetchWithRetry(fb.apiUrl, {
             method: 'POST',
             headers: fb.headers,

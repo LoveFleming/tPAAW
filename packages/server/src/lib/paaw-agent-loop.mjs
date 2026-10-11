@@ -1544,6 +1544,8 @@ function getAgentGroupsFromConfig(agentId, cwd = null) {
  */
 export function clearCrewGroupCache() {
   _crewGroupCache.clear();
+  _crewDenyCache.clear();
+  _crewReasoningCache.clear();
 }
 
 /**
@@ -4390,7 +4392,63 @@ export function trimMessagesToFit(messages, contextWindow = DEFAULT_CONTEXT_WIND
 
 // ── LLM API Call ──
 
-export async function callLLM(apiUrl, headers, model, messages, tools, stream = false, onEvent = null, agentId = null, maxTokens = 16384, signal = null) {
+// ── Reasoning 控制（2026-10-11）— 兩層解析：crew > providers.json(model) > 軟預設 ──
+// 值："off" | "low" | "medium" | "high" | "minimal" | {…object…}；undefined = 不注入
+// 背景：deepseek-v4.1-flash 在 OpenRouter 預設 effort=high 且無法封頂（實測 max_tokens / effort 多數上游不甩）
+//   → 會把整個 max_tokens 燒在 reasoning、回空答案。OpenClaw 同模型每輪都送 reasoning:{effort:…}，PAAW 過去完全不送。
+// "off" 是硬開關（上游必生效）；"low/medium…" 是軟的（看 provider 路由，可能被忽略）。
+const REASONING_DEFAULT_FOR_OPENROUTER = "low";
+const _crewReasoningCache = new Map();
+
+function _normalizeReasoningValue(v) {
+  if (v === undefined || v === null || v === "") return undefined;
+  if (v === false) return "off";
+  if (typeof v === "object") return v;
+  return String(v).toLowerCase();
+}
+
+/** crew 層 reasoning 覆寫（firmware crew 優先，其次 .paaw / data/crews） */
+function getAgentReasoning(agentId, cwd = null) {
+  if (!agentId) return undefined;
+  const cacheKey = `${agentId}::${cwd || ""}`;
+  if (_crewReasoningCache.has(cacheKey)) return _crewReasoningCache.get(cacheKey);
+  let val;
+  const crewId = _AGENT_CREW_MAP[agentId];
+  if (crewId) {
+    const mod = getModuleCrew(crewId);
+    if (mod && mod.crew && mod.crew.reasoning !== undefined) val = mod.crew.reasoning;
+    if (val === undefined) {
+      const candidates = cwd ? [join(cwd, ".paaw", "agents", `${crewId}.json`)] : [];
+      candidates.push(join(DATA_HOME, "crews", `${crewId}.json`));
+      for (const p of candidates) {
+        try {
+          if (!existsSync(p)) continue;
+          const cfg = JSON.parse(readSync(p, "utf-8"));
+          if (cfg.reasoning !== undefined) { val = cfg.reasoning; break; }
+        } catch { /* bad json → skip */ }
+      }
+    }
+  }
+  const norm = _normalizeReasoningValue(val);
+  _crewReasoningCache.set(cacheKey, norm);
+  return norm;
+}
+
+/** 把 reasoning 指示轉成 provider-specific 參數寫進 body */
+function applyReasoningDirective(body, providerId, val) {
+  if (val === undefined) return;
+  if (providerId === "openrouter") {
+    if (val === "off") body.reasoning = { enabled: false };
+    else if (typeof val === "object") body.reasoning = val;
+    else body.reasoning = { effort: val };
+  } else if (providerId === "zai") {
+    if (val === "off") body.thinking = { type: "disabled" };
+    else if (typeof val === "object") body.thinking = val;
+    // zai 無 effort 分級 → 非 off 不注入（維持 provider 預設）
+  }
+}
+
+export async function callLLM(apiUrl, headers, model, messages, tools, stream = false, onEvent = null, agentId = null, maxTokens = 16384, signal = null, reasoningDirective = undefined) {
   console.log(`[callLLM] model=${model}, stream=${stream}, apiUrl=${apiUrl}, messages=${messages.length}, max_tokens=${maxTokens}`);
   // Vision 保護(2026-08-30 Phase 1):非 vision model 收到含圖歷史 → 圖換佔位文字(防 API 400)
   // 所有 agent surface 的 LLM 請求都走這裡 - 一處攔截全鏈生效
@@ -4402,6 +4460,19 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
     max_tokens: maxTokens,
     stream,
   };
+
+  // reasoning 控制（2026-10-11）：crew 覆寫 > providers.json(model) > 軟預設
+  const _reasoningProvider = /openrouter\.ai/.test(apiUrl) ? "openrouter" : (/z\.ai/.test(apiUrl) ? "zai" : null);
+  let _reasoningVal = reasoningDirective !== undefined ? _normalizeReasoningValue(reasoningDirective) : getAgentReasoning(agentId, null);
+  if (_reasoningVal === undefined && _reasoningProvider) {
+    try {
+      const _pc = loadProviderConfig();
+      const _md = (_pc?.providers?.[_reasoningProvider]?.models || []).find(m => (typeof m === "string" ? m : m.id) === model);
+      if (_md && typeof _md === "object" && _md.reasoning !== undefined) _reasoningVal = _normalizeReasoningValue(_md.reasoning);
+    } catch {}
+  }
+  if (_reasoningVal === undefined && _reasoningProvider === "openrouter") _reasoningVal = REASONING_DEFAULT_FOR_OPENROUTER;
+  applyReasoningDirective(body, _reasoningProvider, _reasoningVal);
 
   const callStartTime = Date.now();
   const callId = `llm-${callStartTime}-${Math.random().toString(36).slice(2, 8)}`;
@@ -4437,6 +4508,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
         toolsCount: body.tools?.length || 0,
         toolNames: (body.tools || []).map(t => t.function?.name).filter(Boolean),
         maxTokens: body.max_tokens,
+        reasoning: body.reasoning || body.thinking || null,
       };
       appendFileSync(logPath, JSON.stringify(logEntry) + "\n");
     } catch (_e) {}
@@ -4908,7 +4980,7 @@ export async function runAgentLoop(config) {
     try {
       response = await callLLM(turnLlm.apiUrl, turnLlm.headers, turnLlm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, (evt, data) => {
         if (onEvent) onEvent({ type: evt, ...data });
-      }, agentId, turnLlm.maxTokens, abortSignal);
+      }, agentId, turnLlm.maxTokens, abortSignal, getAgentReasoning(agentId, cwd));
     } catch (err) {
       // 使用者中斷 - 不進 fallback,直接結束
       if (abortSignal?.aborted || err.name === "AbortError") {
@@ -4930,7 +5002,7 @@ export async function runAgentLoop(config) {
           try {
             response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, (evt, data) => {
               if (onEvent) onEvent({ type: evt, ...data });
-            }, agentId, fb.maxTokens || llm.maxTokens, abortSignal);
+            }, agentId, fb.maxTokens || llm.maxTokens, abortSignal, getAgentReasoning(agentId, cwd));
             console.log(`[Agent Loop] Fallback to ${fb.providerId}/${fb.model} succeeded - switching active model for subsequent turns`);
             // Cache rate-limit: remember primary is throttled
             _rateLimitCache.set(primaryKey, { until: Date.now() + RATE_LIMIT_COOLDOWN_MS, fallbackKey: _providerKey(fb.providerId, fb.model) });
@@ -4977,13 +5049,10 @@ export async function runAgentLoop(config) {
     // Add assistant message to history
     const historyMsg = { role: "assistant", content };
     if (toolCalls) historyMsg.tool_calls = toolCalls;
-    // 思考連續性(2026-08-30):reasoning_content 帶回下一輪 - 多步 tool loop 不每輪失憶重推
-    // - 只在「本輪有 tool call」時帶(純文字回應後 loop 結束,帶了沒人讀)
-    // - 截斷防膨脹:保結尾 4096 字(結論在尾端)
-    const _reasoning = assistantMsg.reasoning_content;
-    if (toolCalls && toolCalls.length > 0 && _reasoning && _reasoning.trim()) {
-      historyMsg.reasoning_content = _reasoning.length > 4096 ? "...(前略)... " + _reasoning.slice(-4096) : _reasoning;
-    }
+    // 2026-10-11：不再把 reasoning_content 帶回下一輪（原 2026-08-30 思考連續性）。
+    // 理由：deepseek 在 OpenRouter 上，歷史 reasoning 會被模型當示範 → 推理越滾越大、甚至燒光 max_tokens 變空回答。
+    // OpenClaw 同模型反而會 stripDeepSeekV4ReasoningContent() 把歷史 reasoning 刪掉 — 對齊它。
+    delete historyMsg.reasoning_content;
     messages.push(historyMsg);
 
     // If LLM just responded with text (no tool calls), we're done
@@ -5402,7 +5471,7 @@ export async function runAgentLoopStream(config, res) {
     if (usedLlm !== llm) console.log(`[Agent Loop Stream] 👁 vision routing: ${llm.providerId}/${llm.model} → ${usedLlm.providerId}/${usedLlm.model} (history has images)`);
     const _llmLog = _logger.llmCall({ turn: turns, model: usedLlm.model, messageCount: trimmedMessages.length, contextTokens: estimateMessageTokens(trimmedMessages) });
     try {
-      response = await callLLM(usedLlm.apiUrl, usedLlm.headers, usedLlm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, sendSSE, agentId, usedLlm.maxTokens, abortSignal);
+      response = await callLLM(usedLlm.apiUrl, usedLlm.headers, usedLlm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, sendSSE, agentId, usedLlm.maxTokens, abortSignal, getAgentReasoning(agentId, cwd));
     } catch (err) {
       // 使用者中斷 - 殺掉 in-flight LLM 呼叫後立即停止,不進 fallback/retry
       if (abortSignal?.aborted || err.name === "AbortError") {
@@ -5421,7 +5490,7 @@ export async function runAgentLoopStream(config, res) {
             _rateLimitCache.set(primaryKey, { until: Date.now() + RATE_LIMIT_COOLDOWN_MS, fallbackKey: _providerKey(fb.providerId, fb.model) });
             sendSSE("info", { message: `${is429 ? "⏳ " + llm.providerId + " 限流" : "⚠️ " + llm.providerId + "/" + llm.model + " 不可用"},切換到 ${fb.providerId}/${fb.model}` });
             try {
-              response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, sendSSE, agentId, fb.maxTokens || llm.maxTokens, abortSignal);
+              response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, sendSSE, agentId, fb.maxTokens || llm.maxTokens, abortSignal, getAgentReasoning(agentId, cwd));
               usedLlm = fb;
               // Update llm so subsequent turns use fallback directly
               llm = { ...llm, apiUrl: fb.apiUrl, headers: fb.headers, model: fb.model, providerId: fb.providerId, maxTokens: fb.maxTokens || llm.maxTokens, contextWindow: fb.contextWindow || llm.contextWindow };
@@ -5485,11 +5554,8 @@ export async function runAgentLoopStream(config, res) {
 
     const historyMsg = { role: "assistant", content };
     if (toolCalls) historyMsg.tool_calls = toolCalls;
-    // 思考連續性(2026-08-30):同 runAgentLoop - reasoning_content 只在 tool 輪帶回、截尾 4096
-    const _reasoning = assistantMsg.reasoning_content;
-    if (toolCalls && toolCalls.length > 0 && _reasoning && _reasoning.trim()) {
-      historyMsg.reasoning_content = _reasoning.length > 4096 ? "...(前略)... " + _reasoning.slice(-4096) : _reasoning;
-    }
+    // 2026-10-11：同 runAgentLoop — 不再帶回 reasoning_content（對齊 OpenClaw 的 strip 行為）
+    delete historyMsg.reasoning_content;
     messages.push(historyMsg);
 
     // Final text response - check for empty/whitespace, retry once
@@ -5660,7 +5726,7 @@ export async function runAgentLoopStream(config, res) {
       });
       // Vision 路由同主 loop:尾輪含圖 → 換 vision model
       const _finalLlm = resolveVisionLlmConfig(llm, hasImages(messages)) || llm;
-      const finalResponse = await callLLM(_finalLlm.apiUrl, _finalLlm.headers, _finalLlm.model, trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW), [], false, sendSSE, agentId, _finalLlm.maxTokens, abortSignal);
+      const finalResponse = await callLLM(_finalLlm.apiUrl, _finalLlm.headers, _finalLlm.model, trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW), [], false, sendSSE, agentId, _finalLlm.maxTokens, abortSignal, getAgentReasoning(agentId, cwd));
       const finalContent = finalResponse.choices?.[0]?.message?.content || "";
       if (finalContent) {
         sendSSE("content", { content: finalContent, done: true });
