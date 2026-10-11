@@ -187,7 +187,7 @@ for (const doc of KNOWLEDGE_DOCS) {
 // 沒這批的話 fresh install：CU/C4 引擎沒 prompt、Code Intel 沒掃描規則、skill library 全空。
 const DATA_ASSETS = [
   { dir: "prompts" },            // CU/C4/error-code 引擎 prompts
-  { dir: "semgrep-rules" },      // Code Intel 掃描規則（含 golang 169）
+  { dir: "semgrep-rules" },      // Security scan（Semgrep）規則集（不是 Code Intel；Code Intel 是另一套引擎）
   { dir: "skills" },             // skill library（physical/building）
   { dir: "apps" },               // 產品 demo apps
   { dir: "workflows" },          // 範例 workflows
