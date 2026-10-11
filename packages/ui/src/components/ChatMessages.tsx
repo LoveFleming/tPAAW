@@ -347,7 +347,9 @@ const MessageRow = React.memo(function MessageRow({
                       {msg.content}
                     </ReactMarkdown>
                   )
-                ) : (
+                ) : (msg._security || msg._approval) ? null : (
+                  // 卡片類訊息（🛡 安全通知 / ✅ 審批卡）content 為空 — 不可畫 LoadingIndicator，
+                  // 否則每張卡片都會黏一個永遠轉不完的「思考中」（2026-10-11 Fleming 反映）
                   <LoadingIndicator accent={accent} />
                 )}
                 {/* Tool badges only on non-thinking messages */}

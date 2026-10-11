@@ -146,6 +146,7 @@ const ROUTE_MODULES = [
   "./routes/llm-logs.mjs",
   "./routes/browser.mjs",
   "./routes/agent-logs.mjs",
+  "./routes/audit-log.mjs",
   "./routes/log-retention.mjs",
   "./routes/janitor.mjs",
   "./routes/plugins.mjs",

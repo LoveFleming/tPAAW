@@ -6,6 +6,7 @@ import API_BASE from "../api";
 import { invalidateModelSelectorCache } from "../components/ModelSelector";
 import BackupSettings from "./BackupSettings";
 import PluginManager from "./PluginManager";
+import AuditLogPanel from "../components/AuditLogPanel";
 import { uiAlertError, uiConfirm } from "../components/ui/uiFeedback";
 import { cn } from "../utils";
 
@@ -622,6 +623,8 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
               </button>
               <p className="text-xs text-stone-400 mt-3">{t("settings.netWhitelist.note")}</p>
             </div>
+            {/* 🛡 安全審計紀錄報表（2026-10-11 Fleming）— audit-*.jsonl 事實來源，PAAW 內即可看 */}
+            <AuditLogPanel />
           </div>
         )}
 
