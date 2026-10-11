@@ -12,6 +12,7 @@
 
 import { readFileSync, mkdirSync } from "fs";
 import { execFile } from "node:child_process";
+import { tmpdir } from "node:os";
 import { resolve } from "path";
 import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
 
@@ -22,6 +23,26 @@ let _unavailable = false;
 // 確保沙箱 TMPDIR（$PAAW_TMP 上層）存在 — mktemp 對不存在的 TMPDIR 也是硬錯
 function ensureSandboxTmp() {
   try { mkdirSync(resolve(LOG_HOME, "tmp"), { recursive: true }); } catch {}
+}
+
+/**
+ * 沙箱可寫的「暫存根」—— 跨平台一份清單（srt allowWrite / MXC readwritePaths 共用）
+ *   - $PAAW_TMP 上層（log/tmp）：agent 指定暫存區，session 結束 + janitor 每日清
+ *   - 宿主 TMPDIR/TMP/TEMP 與 os.tmpdir()：各平台真正的 temp 根
+ *     （Linux 通常 /tmp；Windows %TEMP% = C:\Users\…\AppData\Local\Temp）
+ *   - macOS 再加 /var/folders：/usr/bin/mktemp **無 template 時硬走
+ *     _CS_DARWIN_USER_TEMP_DIR**（/var/folders/…），TMPDIR 設了也照去（2026-10-11 實測）
+ */
+function sandboxTempRoots() {
+  const roots = new Set([resolve(LOG_HOME, "tmp")]);
+  for (const k of ["TMPDIR", "TMP", "TEMP"]) {
+    const v = process.env[k];
+    if (v && v.trim()) { roots.add(v.trim()); roots.add(resolve(v.trim())); }
+  }
+  try { const t = tmpdir(); if (t) { roots.add(t); roots.add(resolve(t)); } } catch {}
+  if (process.platform === "darwin") { roots.add("/var/folders"); roots.add("/private/var/folders"); }
+  if (process.platform !== "win32") { roots.add("/tmp"); roots.add("/private/tmp"); }
+  return [...roots].filter(Boolean);
 }
 
 // ── 白名單分兩層（2026-10-10 Fleming：不要寫死，data/ 可設 + Settings UI 管理）──
@@ -132,7 +153,9 @@ function buildConfig(cwd) {
       denyRead: DENY_READ,
       // 2026-10-11：$PAAW_TMP（log/tmp/<ru>，agent 指定的暫存區）必須可寫，否則我們自己的
       // 「暫存一律寫 $PAAW_TMP」規則被自己的沙箱擋掉（實測 EPERM，白燒回合）。
-      allowWrite: [cwd, resolve(LOG_HOME, "tmp"), "/tmp", "/private/tmp", "/var/folders", "/private/var/folders", ...(process.env.TMPDIR ? [process.env.TMPDIR, resolve(process.env.TMPDIR)] : []), "~/.npm", "~/Library/Caches", "~/.cache"], // macOS /tmp 是 /private/tmp symlink — Seatbelt 看真實路徑；/var/folders = macOS per-user temp（mktemp 硬走那裡，實測 TMPDIR 設了也不理）
+      // 2026-10-11 再修：mktemp/暫存根跨平台全列（sandboxTempRoots）— macOS mktemp 硬走
+      // /var/folders 不看 TMPDIR，被擋過。
+      allowWrite: [cwd, ...sandboxTempRoots(), "~/.npm", "~/Library/Caches", "~/.cache"],
     },
   };
 }
@@ -190,7 +213,6 @@ export function needsNetworkAllow(command) {
 function buildMxcFsPolicy(cwd) {
   const home = process.env.HOME || process.env.USERPROFILE || "";
   const nodeDir = resolve(process.execPath, "..");
-  const tmp = process.env.TMPDIR || "/tmp";
   const cwdReal = resolve(cwd || process.cwd());
   // ⚠️ /private/var 不可列入 — 實測（2026-10-10 bisect）：列入後 MXC 內建的系統服務 socket
   // 通道（mDNSResponder）被覆蓋，DNS 全死（ENOTFOUND）；不列反而保留內建通道
@@ -203,8 +225,7 @@ function buildMxcFsPolicy(cwd) {
   ])].filter(Boolean);
   const readwritePaths = [...new Set([
     cwdReal,       // 專案可寫（RU 工作區）
-    resolve(LOG_HOME, "tmp"), // $PAAW_TMP（agent 指定暫存區，2026-10-11）
-    tmp, resolve(tmp), "/tmp", "/private/tmp",
+    ...sandboxTempRoots(), // $PAAW_TMP 上層 + 各平台 temp 根（含 Windows %TEMP%）— 2026-10-11
     home ? `${home}/.npm` : null,
     home ? `${home}/.cache` : null,
     home ? `${home}/Library/Caches` : null, // macOS npm cache
@@ -234,12 +255,16 @@ function wrapForMxc(command) {
 }
 
 function buildMxcEnv(extraEnv = {}) {
+  // 2026-10-11：沙箱內 TMPDIR/TMP/TEMP 一律導到 $PAAW_TMP（log/tmp，已授權可寫）—
+  // 宿主 temp 根不在 readwritePaths 時暫存寫入會 EPERM（macOS /var/folders、Windows %TEMP%）；
+  // 這個目錄 agent loop 每 session 清、janitor 每日再保險清（Fleming 2026-10-11：放外面可以，記得清）。
+  const sbTmp = resolve(LOG_HOME, "tmp");
   return {
     PATH: process.env.PATH || "/usr/bin:/bin",
     HOME: process.env.HOME || "",
-    // 2026-10-11：沙箱內 TMPDIR 一律導到 $PAAW_TMP（log/tmp）— 宿主 TMPDIR 不在
-    // readwritePaths 時 mktemp 會 EPERM（macOS /var/folders、Windows %TEMP% 皆然）
-    TMPDIR: resolve(LOG_HOME, "tmp"),
+    TMPDIR: sbTmp,
+    TMP: sbTmp,
+    TEMP: sbTmp,
     LANG: process.env.LANG || "en_US.UTF-8",
     ...extraEnv,
   };
