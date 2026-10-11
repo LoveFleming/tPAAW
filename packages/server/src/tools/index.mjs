@@ -1596,6 +1596,29 @@ function buildHandlers(apps) {
     }
   };
 
+  // ── 網路白名單自動放行（2026-10-11 Fleming：晚上自動跑沒人能 approve，不能卡）──
+  // 沙箱擋住非白名單網域 → EM 可自行把目標 host 加入自訂白名單（寫 audit），再重派。
+  handlers.network_allow = async ({ host, reason } = {}) => {
+    const { builtinAllowedDomains } = await import("../lib/paaw-sandbox.mjs");
+    const builtinSet = new Set(builtinAllowedDomains());
+    const raw = Array.isArray(host) ? host : [host];
+    const add = [...new Set(raw
+      .map((d) => String(d || "").trim().toLowerCase())
+      .filter((d) => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(d) && !builtinSet.has(d)))];
+    if (add.length === 0) return { text: `❌ 無有效可加入的網域（需為 domain 形狀且非內建）。收到：${JSON.stringify(host)}` };
+    const cfgPath = resolve(PAAW_DATA_DIR, "config/network-whitelist.json");
+    let cur = [];
+    try { const c = JSON.parse(await readFile(cfgPath, "utf-8")); if (Array.isArray(c?.domains)) cur = c.domains; } catch {}
+    const merged = [...new Set([...cur, ...add])];
+    await mkdir(resolve(PAAW_DATA_DIR, "config"), { recursive: true });
+    await writeFile(cfgPath, JSON.stringify({ domains: merged, _note: "AI bash 沙箱對外白名單（Settings UI 管理）" }, null, 2) + "\n", "utf-8");
+    try {
+      const { logAuditEvent } = await import("../lib/audit-log.mjs");
+      for (const d of add) logAuditEvent({ kind: "network_allow", severity: "info", tool: "network_allow", domains: [d], reason: String(reason || "EM 自動放行以解除沙箱阻擋"), agentId: "em", cwd: process.cwd() });
+    } catch {}
+    return { text: `✅ 已加入網路白名單：${add.join("、")}\n目前自訂白名單：${merged.join("、") || "(空)"}\n（立即生效，無需重啟；已寫 audit）` };
+  };
+
   handlers.dispatch_agent = async ({ agentId, task, taskId, _callerPath } = {}) => {
     if (!agentId || !task) return { text: "❌ dispatch_agent 需要 agentId 和 task" };
 
@@ -1662,6 +1685,13 @@ function buildHandlers(apps) {
       // （以前 child run 完全不可見：Developer tab 靜默，看不到 Priya 在做什麼）
       const { attachDispatchVisibility } = await import("../lib/dispatch-stream-state.mjs");
       _vis = await attachDispatchVisibility(agent.agentId, projRoot);
+      // ── 安全訊號收集（2026-10-11 Fleming）：子 agent 被沙箱/白名單擋 → 結構化回報 EM ──
+      // 不能只靠 500 字預覽關鍵字撈；直接被擋/漏看 → EM 自動解除（見 EM prompt）。
+      const _secHits = [];
+      const _secOnEvent = (ev) => {
+        try { if (ev?.type === "security_hit") _secHits.push({ kind: ev.kind, hosts: Array.isArray(ev.domains) ? ev.domains : [] }); } catch {}
+        _vis.onEvent(ev);
+      };
       // 2026-09-29：EM 派工吃 per-agent model 設定（漏接修正）—
       // CrewManager 可設每個 agent 的 EM Dispatch Model + fallbacks，但 dispatch_agent
       // 工具這條（EM chat 直接派）一直沒接 → 全部用全域預設，成本策略失效。
@@ -1677,7 +1707,7 @@ function buildHandlers(apps) {
         maxTurns: 300,
         timeout: 0, // no timeout — dispatched tasks may need extended time
         rootDir: projRoot,
-        onEvent: _vis.onEvent,
+        onEvent: _secOnEvent,
         ...(dispatchModel ? { model: dispatchModel } : {}),
         ...(dispatchFallbacks.length ? { fallbackModels: dispatchFallbacks } : {}),
       };
@@ -1738,12 +1768,19 @@ function buildHandlers(apps) {
 
       try { _vis.finish(); } catch {} // 2026-09-29：結束可見性 entry（finalContent 保持 null — 不落地直接對話）
 
+      // ── 結構化安全訊號（2026-10-11 Fleming）── 放在最前面，EM 100% 看得到、不用關鍵字撈
+      const _secKinds = [...new Set(_secHits.map(h => h.kind))];
+      const _secHosts = [...new Set(_secHits.flatMap(h => h.hosts))];
+      const _secLine = _secHits.length
+        ? `🛡 SECURITY_BLOCK ${JSON.stringify({ blocked: true, kinds: _secKinds, hosts: _secHosts })}\n→ EM：先看下面「沙箱/白名單處理」，能自己解除就解除（network_block → network_allow 加 host 後重派；fs/path → 重派並限定專案 cwd），真的不行才 task blocked + 報告標示。\n\n`
+        : "";
+
       // Execution plan update removed (feature-first)
 
       if (success) {
-        return { text: `✅ ${name} (${agentId}) 完成任務！（deterministic 驗收 PASS：${verdict.why}${verdict.files?.length ? ` — ${verdict.files.slice(0, 3).join(", ")}` : ""}）\n\n${preview}`, taskId };
+        return { text: `${_secLine}✅ ${name} (${agentId}) 完成任務！（deterministic 驗收 PASS：${verdict.why}${verdict.files?.length ? ` — ${verdict.files.slice(0, 3).join(", ")}` : ""}）\n\n${preview}`, taskId, security: _secHits.length ? { blocked: true, kinds: _secKinds, hosts: _secHosts } : undefined };
       } else {
-        return { text: `❌ ${name} (${agentId}) 執行失敗${!verdict.pass ? `（deterministic 驗收 FAILED：${verdict.why} — 兩次皆零 commit 零 diff，判定假成功，請 EM 拆小任務重派或回報人類）` : ""}：\n\n${preview}`, taskId, error: true };
+        return { text: `${_secLine}❌ ${name} (${agentId}) 執行失敗${!verdict.pass ? `（deterministic 驗收 FAILED：${verdict.why} — 兩次皆零 commit 零 diff，判定假成功，請 EM 拆小任務重派或回報人類）` : ""}：\n\n${preview}`, taskId, error: true, security: _secHits.length ? { blocked: true, kinds: _secKinds, hosts: _secHosts } : undefined };
       }
     } catch (err) {
       try { _vis?.finish(err?.message || String(err)); } catch {}

@@ -33,6 +33,7 @@ const SEV: Record<string, { color: string; bg: string; label: string }> = {
 
 const KIND_LABEL: Record<string, string> = {
   network_block: "🌐 網路白名單",
+  network_allow: "🔓 白名單放行",
   sandbox_fs_deny: "🔒 沙箱防護",
   shell_guard: "🛡 Shell 護欄",
   script_guard: "🛡 Script 護欄",

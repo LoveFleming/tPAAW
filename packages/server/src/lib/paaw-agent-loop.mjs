@@ -1142,6 +1142,23 @@ export const PAAW_TOOLS = [
     },
   },
 
+  // ── 網路白名單自動放行（2026-10-11 Fleming）：沙箱擋住時 EM 自行解除，避免夜間自動卡住 ──
+  {
+    type: "function",
+    function: {
+      name: "network_allow",
+      description: "把目標網域加入 PAAW 沙箱對外白名單（自訂層）— 立即生效、免重啟。當子 agent 被沙箱擋住非白名單網域（dispatch 結果出現 🛡 SECURITY_BLOCK / network_block）而該服務是任務必要時使用；加完重新派工即可。只放行必要的單一 host，不要一次全開。",
+      parameters: {
+        type: "object",
+        properties: {
+          host: { type: "string", description: "要放行的網域（host），例如 api.example.com" },
+          reason: { type: "string", description: "為什麼要放行（會寫入 audit）" },
+        },
+        required: ["host"],
+      },
+    },
+  },
+
   // ── Auto Dispatch(task-driven,EM 自然語言確認制派工,2026-08-29)──
   // 一律走 API(/preview、/start、/stop)- 跟 cron / panel / EM chat 同一條路
   {
@@ -1355,6 +1372,9 @@ const TOOL_GROUP_MAP = {
 
   // Task management
   task_create: "tasks", task_update: "tasks", task_list: "tasks", task_decompose: "tasks", dispatch_agent: "dispatch", auto_dispatch: "dispatch",
+
+  // Security - 網路白名單管理（EM 自動解除沙箱阻擋，2026-10-11）
+  network_allow: "security",
 
   // Docs & CU
   cu_refresh: "docs",
@@ -2299,6 +2319,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           if (secHit) {
             finalResult = result + secHit.agentNotice;
             if (onEvent) onEvent({ type: "security_notice", kind: secHit.type, domains: secHit.domains, message: secHit.userNotice });
+            // 2026-10-11：結構化安全訊號 — 呼叫端（dispatch_agent）收集後回報 EM，不靠關鍵字撈
+            if (onEvent) onEvent({ type: "security_hit", kind: secHit.type, domains: secHit.domains || [], command: String(args.command || "").slice(0, 300) });
           }
         } catch { /* 審計掃描失敗不影響工具結果 */ }
         // Smart truncate (head+tail - preserves build errors/test results at end)
@@ -4205,6 +4227,19 @@ Feature: ${task.featureId} | Type: ${task.type} | Priority: ${task.priority} | S
           return resultText;
         }
         return "Error: dispatch_agent handler not available";
+      }
+
+      case "network_allow": {
+        const { getHandlers: getHNet } = await import("../tools/index.mjs");
+        const hNet = await getHNet();
+        if (hNet.network_allow) {
+          if (onEvent) onEvent({ type: "tool_start", name, args: JSON.stringify(args) });
+          const res = await hNet.network_allow(args);
+          const txt = typeof res === "string" ? res : res.text || JSON.stringify(res);
+          if (onEvent) onEvent({ type: "tool_end", name, result: txt });
+          return txt;
+        }
+        return "Error: network_allow handler not available";
       }
 
       case "auto_dispatch": {
