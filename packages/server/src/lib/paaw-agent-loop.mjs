@@ -1147,7 +1147,7 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "network_allow",
-      description: "把目標網域加入 PAAW 沙箱對外白名單（自訂層）— 立即生效、免重啟。當子 agent 被沙箱擋住非白名單網域（dispatch 結果出現 🛡 SECURITY_BLOCK / network_block）而該服務是任務必要時使用；加完重新派工即可。只放行必要的單一 host，不要一次全開。",
+      description: "把目標網域加入 PAAW 沙箱對外白名單（自訂層）— 人類專用，未授權任何 agent；白名單不可自我解除（Fleming 2026-10-11）。",
       parameters: {
         type: "object",
         properties: {
@@ -2321,6 +2321,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             if (onEvent) onEvent({ type: "security_notice", kind: secHit.type, domains: secHit.domains, message: secHit.userNotice });
             // 2026-10-11：結構化安全訊號 — 呼叫端（dispatch_agent）收集後回報 EM，不靠關鍵字撈
             if (onEvent) onEvent({ type: "security_hit", kind: secHit.type, domains: secHit.domains || [], command: String(args.command || "").slice(0, 300) });
+            // 明知故犯第 3 次（被擋後仍重試）→ 停這個 run（2026-10-11 Fleming：白名單不可自我解除）
+            if (secHit.stopRun) { try { const _st = runContextALS.getStore(); if (_st) _st.stopReason = `重複嘗試已被沙箱/白名單擋下的資源（${secHit.type}）`; } catch { /* no ALS */ } }
           }
         } catch { /* 審計掃描失敗不影響工具結果 */ }
         // Smart truncate (head+tail - preserves build errors/test results at end)
@@ -5085,6 +5087,17 @@ export async function runAgentLoop(config) {
         refreshDynamicContext(messages);
       }
     }
+
+    // ── 安全停止（2026-10-11 Fleming）：被擋後仍重複嘗試 → 停此工作（audit 已於 executeTool 記）──
+    try {
+      const _st = runContextALS.getStore();
+      if (_st?.stopReason) {
+        finalContent = `⛔ 已停止此工作：${_st.stopReason}。已記錄審計，需人工處理（設定 → 🛡 安全）。`;
+        if (onEvent) onEvent({ type: "security_stop", reason: _st.stopReason });
+        if (onEvent) onEvent({ type: "assistant", content: finalContent });
+        break;
+      }
+    } catch { /* no ALS */ }
   }
 
   const durationMs = Date.now() - startTime;
@@ -5557,6 +5570,17 @@ export async function runAgentLoopStream(config, res) {
       });
       if (_imageMsg2) messages.push(_imageMsg2);
     }
+
+    // ── 安全停止（2026-10-11 Fleming）：被擋後仍重複嘗試 → 停此工作（audit 已於 executeTool 記）──
+    try {
+      const _sst = runContextALS.getStore();
+      if (_sst?.stopReason) {
+        const _smsg = `⛔ 已停止此工作：${_sst.stopReason}。已記錄審計，需人工處理（設定 → 🛡 安全）。`;
+        sendSSE("assistant", { content: _smsg });
+        contentEmitted = true;
+        break;
+      }
+    } catch { /* no ALS */ }
 
     // End thinking log after all tools in this turn
     if (_thinkLog) _thinkLog.done();

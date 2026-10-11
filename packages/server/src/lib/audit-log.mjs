@@ -26,6 +26,7 @@ const KIND_LAYER = {
   script_guard_entry: "script-guard",   // 執行入口檔寫入（A 層：git hooks/launchd/rc）
   path_violation: "path-guard",         // 讀寫越界（allowed roots 之外）
   doom_loop: "doom-loop",               // 同參數重複呼叫第 3 次起
+  block_retry: "policy-violation",      // 被擋後仍重試同一目標（明知故犯）
   approval_request: "approval",         // 危險指令送審批卡
   approval_decision: "approval",        // 使用者審批決策（once/always/deny）
   env_exec_block: "env-exec",           // chat 助理環境工具白名單攔截
@@ -119,6 +120,24 @@ const LOCAL_RE = /(localhost|127\.0\.0\.1|0\.0\.0\.0|::1|\[::1\])/i;
 // npm 自己的 EPERM（cache 檔鎖 unlink/rename）不是沙箱事件 — 排除
 const FS_DENY_FALSE_POSITIVE_RE = /EPERM:\s*operation not permitted,\s*(unlink|rename|mkdir)/i;
 
+// ── 明知故犯偵測（2026-10-11 Fleming）──
+// 原則：白名單/護欄有意義的前提是「被擋就不能自己繞」。AI 被明確告知不可後仍重試 →
+// 第 2 次起記 audit，第 3 次直接停這個 run（executeTool 設 stopReason）。
+const _blockAttempts = new Map(); // runId::kind::targets -> count
+function _noteBlockAttempt(kind, targets) {
+  let runId = "norun";
+  try { runId = runContextALS.getStore()?.runId || "norun"; } catch { /* no ALS */ }
+  if (_blockAttempts.size > 1000) _blockAttempts.clear();
+  const key = `${runId}::${kind}::${(targets || []).join(",")}`;
+  const n = (_blockAttempts.get(key) || 0) + 1;
+  _blockAttempts.set(key, n);
+  return n;
+}
+function _repeatNote(attempt, what) {
+  if (attempt < 2) return "";
+  return `\n\n⛔ 這是你第 ${attempt} 次嘗試已被擋的${what} — 已記錄審計。${attempt >= 3 ? "本工作已停止。" : "立刻停止重試；"}改用 ask_user 請人處理（設定 → 🛡 安全）。`;
+}
+
 /** 從指令抽出候選外部 host：URL / git@host: / net 工具參數 */
 export function extractHosts(command) {
   const cmd = String(command || "");
@@ -174,11 +193,14 @@ export function scanCommandOutput({ command, output, allowedDomains, agentId, cw
   const hosts = [...new Set([...nonWhitelistedHosts(command, allowed), ...nonWhitelistedHosts(out, allowed)])];
   if (hosts.length > 0 && netFailed) {
     const hostList = hosts.slice(0, 5).join("、");
-    if (audit) logAuditEvent({ kind: "network_block", severity: "block", tool, command, domains: hosts, reason: `連線非白名單網域被沙箱阻擋（exit=${exitCode ?? "?"}）`, detail: { exitCode, outputTail: out.slice(-600) }, agentId, cwd });
+    const attempt = _noteBlockAttempt("network_block_host", hosts);
+    const repeat = attempt >= 2;
+    if (audit) logAuditEvent({ kind: "network_block", severity: "block", tool, command, domains: hosts, reason: `連線非白名單網域被沙箱阻擋（exit=${exitCode ?? "?"}）` + (repeat ? ` — 第 ${attempt} 次重試（明知故犯）` : ""), detail: { exitCode, attempt, outputTail: out.slice(-600) }, agentId, cwd });
+    if (repeat && audit) logAuditEvent({ kind: "block_retry", severity: "block", tool, command, domains: hosts, reason: `被擋後仍重試非白名單網域（第 ${attempt} 次）— 明知故犯`, detail: { attempt }, agentId, cwd });
     return {
-      type: "network_block", domains: hosts, exitCode,
-      agentNotice: `\n\n🌐 [PAAW 網路白名單] 偵測到對非白名單網域的連線被沙箱阻擋：${hostList}。這不是網路故障，是 PAAW 安全防護。若這是任務必要的外部服務，請用 ask_user 向使用者說明，請他到「設定 → 🛡 安全」分頁把該網域加入網路白名單（儲存後立即生效，無需重啟）。在此之前不要重試同一個連線。`,
-      userNotice: `🌐 安全防護：AI 嘗試連線到非白名單網域 ${hostList}，已阻擋並記錄審計。若為必要服務，可到「設定 → 🛡 安全 → 網路白名單」加入該網域。`,
+      type: "network_block", domains: hosts, exitCode, attempt, repeatOffense: repeat, stopRun: attempt >= 3,
+      agentNotice: `\n\n🌐 [PAAW 網路白名單] 偵測到對非白名單網域的連線被沙箱阻擋：${hostList}。這不是網路故障，是 PAAW 安全防護。**不要重試同一個連線**；若這是任務必要的外部服務，說明白要連哪個 host、為什麼，請人去「設定 → 🛡 安全 → 網路白名單」加上（儲存後立即生效）。${_repeatNote(attempt, "網域")}`,
+      userNotice: `🌐 安全防護：AI 嘗試連線到非白名單網域 ${hostList}，已阻擋並記錄審計。若為必要服務，可到「設定 → 🛡 安全 → 網路白名單」加入該網域。` + (repeat ? `（AI 已重試第 ${attempt} 次）` : ""),
     };
   }
 
@@ -193,19 +215,25 @@ export function scanCommandOutput({ command, output, allowedDomains, agentId, cw
     !LOCAL_RE.test(String(command || "")) && !LOCAL_RE.test(out)
   ) {
     if (audit) logAuditEvent({ kind: "network_block", severity: "warn", tool, command, reason: `對外連線失敗（未能從指令解析出網域）— 疑似沙箱網路白名單阻擋（exit=${exitCode ?? "?"}）`, detail: { exitCode, outputTail: out.slice(-600) }, agentId, cwd });
+    const attempt = _noteBlockAttempt("network_block_generic", []);
+    const repeat = attempt >= 2;
+    if (repeat && audit) logAuditEvent({ kind: "block_retry", severity: "block", tool, command, reason: `被擋後仍重試對外連線（第 ${attempt} 次）— 明知故犯`, detail: { attempt }, agentId, cwd });
     return {
-      type: "network_block", domains: [], exitCode,
-      agentNotice: `\n\n🌐 [PAAW 網路白名單] 偵測到對外連線失敗。這很可能是 PAAW 沙箱白名單阻擋（不是一般網路故障）。若這是任務必要的外部服務，請用 ask_user 向使用者說明，請他到「設定 → 🛡 安全 → 網路白名單」加入目標 host（網域），儲存後立即生效、無需重啟。在此之前不要重複重試同一個連線。`,
+      type: "network_block", domains: [], exitCode, attempt, repeatOffense: repeat, stopRun: attempt >= 3,
+      agentNotice: `\n\n🌐 [PAAW 網路白名單] 偵測到對外連線失敗。這很可能是 PAAW 沙箱白名單阻擋（不是一般網路故障）。**不要重複重試**；若這是任務必要的外部服務，說明白要連哪個 host、為什麼，請人去「設定 → 🛡 安全 → 網路白名單」加上目標 host。${_repeatNote(attempt, "對外連線")}`,
       userNotice: `🌐 網路防護：AI 的對外連線失敗，可能被沙箱白名單阻擋。若為必要服務，請到「設定 → 🛡 安全 → 網路白名單」加入目標網域（host），儲存後立即生效。`,
     };
   }
 
   // ── 沙箱檔案系統拒絕：機密 denyRead / 專案外禁寫（EPERM 家族，排除 npm 誤報）──
   if (FS_DENY_RE.test(out) && !FS_DENY_FALSE_POSITIVE_RE.test(out)) {
-    if (audit) logAuditEvent({ kind: "sandbox_fs_deny", severity: "warn", tool, command, reason: "指令觸發 OS 權限拒絕（Operation not permitted / EPERM）— 可能讀取受保護檔案（~/.ssh、.env、providers.json）或寫入專案外路徑", detail: { exitCode, outputTail: out.slice(-600) }, agentId, cwd });
+    const attempt = _noteBlockAttempt("sandbox_fs_deny", []);
+    const repeat = attempt >= 2;
+    if (audit) logAuditEvent({ kind: "sandbox_fs_deny", severity: "warn", tool, command, reason: "指令觸發 OS 權限拒絕（Operation not permitted / EPERM）— 可能讀取受保護檔案（~/.ssh、.env、providers.json）或寫入專案外路徑" + (repeat ? ` — 第 ${attempt} 次重試` : ""), detail: { exitCode, attempt, outputTail: out.slice(-600) }, agentId, cwd });
+    if (repeat && audit) logAuditEvent({ kind: "block_retry", severity: "block", tool, command, reason: `被擋後仍重試受限路徑（第 ${attempt} 次）— 明知故犯`, detail: { attempt }, agentId, cwd });
     return {
-      type: "sandbox_fs_deny", exitCode,
-      agentNotice: `\n\n🔒 [PAAW 沙箱防護] 指令觸發 OS 權限拒絕（Operation not permitted / EPERM）— 可能是讀取受保護檔案（~/.ssh、.env、providers.json）或寫入專案目錄外的路徑。此事件已記錄安全審計。請調整做法：在專案目錄內操作；需要機密設定時請使用者手動處理。`,
+      type: "sandbox_fs_deny", exitCode, attempt, repeatOffense: repeat, stopRun: attempt >= 3,
+      agentNotice: `\n\n🔒 [PAAW 沙箱防護] 指令觸發 OS 權限拒絕（Operation not permitted / EPERM）— 可能是讀取受保護檔案（~/.ssh、.env、providers.json）或寫入專案目錄外的路徑。此事件已記錄安全審計。**不要重試**：一律在專案目錄內操作；需要機密設定時請使用者手動處理。${_repeatNote(attempt, "路徑")}`,
       userNotice: `🔒 沙箱防護：AI 指令觸發權限拒絕（機密檔案防讀 / 專案外禁寫），已記錄安全審計。`,
     };
   }

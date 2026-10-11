@@ -40,6 +40,7 @@ const KIND_LABEL: Record<string, string> = {
   script_guard_entry: "🛡 執行入口寫入",
   path_violation: "📁 路徑越界",
   doom_loop: "🔁 重複迴圈",
+  block_retry: "⛔ 被擋後重試",
   approval_request: "✅ 審批請求",
   approval_decision: "⚖️ 審批決策",
   env_exec_block: "🧰 環境工具攔截",

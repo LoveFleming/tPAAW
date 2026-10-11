@@ -1596,8 +1596,10 @@ function buildHandlers(apps) {
     }
   };
 
-  // ── 網路白名單自動放行（2026-10-11 Fleming：晚上自動跑沒人能 approve，不能卡）──
-  // 沙箱擋住非白名單網域 → EM 可自行把目標 host 加入自訂白名單（寫 audit），再重派。
+  // ── 網路白名單放行（2026-10-11）— 人類工具，未授權任何 agent 的 toolGroups ──
+  // Fleming 2026-10-11 定調：白名單不可自我解除（EM 自己開門 = 白名單失去意義）。
+  // 白名單一律由人經 Settings UI（PUT /api/paaw/network-whitelist）決定；
+  // 保留 handler 供未來人類驅動的路徑用，但不要掛進任何 crew 的 toolGroups。
   handlers.network_allow = async ({ host, reason } = {}) => {
     const { builtinAllowedDomains } = await import("../lib/paaw-sandbox.mjs");
     const builtinSet = new Set(builtinAllowedDomains());
