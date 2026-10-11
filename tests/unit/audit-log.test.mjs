@@ -93,7 +93,7 @@ describe("scanCommandOutput — 輸出安全掃描", () => {
     expect(r.type).toBe("network_block");
     expect(r.domains).toEqual(["example.com"]);
     expect(r.agentNotice).toContain("設定 → 🛡 安全");
-    expect(r.agentNotice).toContain("ask_user");
+    expect(r.agentNotice).toContain("不要重試"); // 2026-10-11 aa2b2093：SECURITY_BLOCK 指引改「不可自行放行/不要重試」（原 ask_user 已移除）
     expect(r.userNotice).toContain("example.com");
   });
 
