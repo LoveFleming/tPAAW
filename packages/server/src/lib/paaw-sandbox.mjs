@@ -13,7 +13,7 @@
 import { readFileSync } from "fs";
 import { execFile } from "node:child_process";
 import { resolve } from "path";
-import { DATA_HOME } from "../data-home.mjs";
+import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
 
 let _SM = null;
 let _inited = false;
@@ -122,7 +122,9 @@ function buildConfig(cwd) {
     },
     filesystem: {
       denyRead: DENY_READ,
-      allowWrite: [cwd, "/tmp", "/private/tmp", "~/.npm", "~/Library/Caches", "~/.cache"], // macOS /tmp 是 /private/tmp symlink — Seatbelt 看真實路徑
+      // 2026-10-11：$PAAW_TMP（log/tmp/<ru>，agent 指定的暫存區）必須可寫，否則我們自己的
+      // 「暫存一律寫 $PAAW_TMP」規則被自己的沙箱擋掉（實測 EPERM，白燒回合）。
+      allowWrite: [cwd, resolve(LOG_HOME, "tmp"), "/tmp", "/private/tmp", "~/.npm", "~/Library/Caches", "~/.cache"], // macOS /tmp 是 /private/tmp symlink — Seatbelt 看真實路徑
     },
   };
 }
@@ -193,6 +195,7 @@ function buildMxcFsPolicy(cwd) {
   ])].filter(Boolean);
   const readwritePaths = [...new Set([
     cwdReal,       // 專案可寫（RU 工作區）
+    resolve(LOG_HOME, "tmp"), // $PAAW_TMP（agent 指定暫存區，2026-10-11）
     tmp, "/tmp", "/private/tmp",
     home ? `${home}/.npm` : null,
     home ? `${home}/.cache` : null,
