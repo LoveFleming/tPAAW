@@ -187,7 +187,7 @@ export async function envExecHandler({ command, cwd, timeoutMs, confirmDirty }) 
     let out = [tail(result.stdout), result.stderr ? `stderr:\n${tail(result.stderr)}` : ""].filter(Boolean).join("\n");
     if (result.code !== 0 && !result.timedOut) out += `\nExit code: ${result.code ?? 1}`;
     try {
-      const secHit = scanCommandOutput({ command, output: out, allowedDomains: _allowedDomains || [], agentId: "assistant", cwd: workDir, tool: "env_exec" });
+      const secHit = scanCommandOutput({ command, output: out, allowedDomains: _allowedDomains || [], agentId: "assistant", cwd: workDir, tool: "env_exec", sandboxActive: !!sandboxed });
       if (secHit) out += secHit.agentNotice;
     } catch { /* 審計失敗不影響 */ }
     const badge = sandboxed ? ` 🛡沙箱内${backend === "mxc" ? "（MXC）" : ""}` : "";

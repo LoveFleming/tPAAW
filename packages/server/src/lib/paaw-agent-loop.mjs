@@ -2294,8 +2294,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         //    agent 引導（去安全 tab 設定）+ 使用者 security_notice + ES paaw-audit-* ──
         let finalResult = result;
         try {
-          const { effectiveAllowedDomains } = await import("./paaw-sandbox.mjs");
-          const secHit = scanCommandOutput({ command: args.command, output: result, allowedDomains: effectiveAllowedDomains(), agentId, cwd, tool: "bash" });
+          const { effectiveAllowedDomains, sandboxAvailable } = await import("./paaw-sandbox.mjs");
+          const secHit = scanCommandOutput({ command: args.command, output: result, allowedDomains: effectiveAllowedDomains(), agentId, cwd, tool: "bash", sandboxActive: await sandboxAvailable() });
           if (secHit) {
             finalResult = result + secHit.agentNotice;
             if (onEvent) onEvent({ type: "security_notice", kind: secHit.type, domains: secHit.domains, message: secHit.userNotice });

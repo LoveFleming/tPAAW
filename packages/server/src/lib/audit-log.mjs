@@ -110,6 +110,12 @@ export function logAuditEvent(evt) {
 
 const NET_FAIL_RE = /(curl:\s*\((?:6|7|28|35)\)|Could not resolve host|unable to resolve|Connection timed out|Connection refused|connection timed out; no servers could be reached|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|Network is unreachable|fetch failed)/i;
 const FS_DENY_RE = /(operation not permitted|EPERM)/i;
+// ── 通用網路阻擋偵測（2026-10-11 Fleming）──
+// 指令含網路意圖（URL / 網路工具）但解析不出具體網域時（例如 host 寫在 script/config 裡），
+// 仍要發通知告訴使用者去哪裡設白名單 — 不能默默卡住。
+const NET_HINT_RE = /(https?:\/\/|git@|ssh:\/\/|\b(curl|wget|ping|dig|nslookup|traceroute|npm|npx|yarn|pnpm|bun|pip3?|uv|cargo|go|git|brew|apt|apt-get|yum|dnf|docker|wrangler|aws|gcloud|az|kubectl|helm|terraform|node|python3?|deno|ruby|php|java|dotnet|requests|httpx|axios|fetch)\b)/i;
+// 本機連線（localhost/loopback）不是「對外」— 不要誤報成白名單問題
+const LOCAL_RE = /(localhost|127\.0\.0\.1|0\.0\.0\.0|::1|\[::1\])/i;
 // npm 自己的 EPERM（cache 檔鎖 unlink/rename）不是沙箱事件 — 排除
 const FS_DENY_FALSE_POSITIVE_RE = /EPERM:\s*operation not permitted,\s*(unlink|rename|mkdir)/i;
 
@@ -123,6 +129,11 @@ export function extractHosts(command) {
   for (const m of cmd.matchAll(/(?:git@|ssh:\/\/)([a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]):/g)) hosts.add(m[1].toLowerCase());
   // curl/wget/ping/dig 的裸網域參數（避免誤抓檔名 — 只認這幾個工具後面的 token）
   for (const m of cmd.matchAll(/(?:curl|wget|ping|dig|nslookup|host)\s+(?:-[a-zA-Z-]+\s+)*((?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,})/g)) hosts.add(m[1].toLowerCase());
+  // 錯誤訊息裡的裸網域（ENOTFOUND api.foo.com / Failed to connect to api.foo.com port 443）
+  for (const m of cmd.matchAll(/(?:ENOTFOUND|getaddrinfo|resolve host:?|Failed to connect to|Unable to connect to|connect to)\s*:?\s*(?:ENOTFOUND\s+)?([a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9])/gi)) {
+    const h = m[1].toLowerCase();
+    if (/^[a-z0-9.-]+\.[a-z]{2,}$/.test(h)) hosts.add(h);
+  }
   // localhost / IP 不是「外部網域」
   return [...hosts].filter(h => h !== "localhost" && !/^\d+\.\d+\.\d+\.\d+$/.test(h));
 }
@@ -142,24 +153,46 @@ export function nonWhitelistedHosts(command, allowedDomains) {
 
 /**
  * 掃 bash/env_exec 輸出 → 偵測「被安全防護擋掉」的跡象。
+ * @param sandboxActive 沙箱此刻是否生效（通用網路阻擋分支只在沙箱有效時才發，避免純離線誤報）
  * @returns null | { type: "network_block"|"sandbox_fs_deny", domains?, exitCode, agentNotice, userNotice }
  * 回傳的物件已附帶給 agent 的引導（tool result 附加）與給使用者的通知（security_notice SSE）。
  */
-export function scanCommandOutput({ command, output, allowedDomains, agentId, cwd, tool = "bash", audit = true }) {
+export function scanCommandOutput({ command, output, allowedDomains, agentId, cwd, tool = "bash", audit = true, sandboxActive = true }) {
   const out = String(output || "");
   if (!out) return null;
   const exitMatch = out.match(/Exit code:\s*(\d+)\s*$/);
   const exitCode = exitMatch ? Number(exitMatch[1]) : null;
+  const netFailed = NET_FAIL_RE.test(out);
+  const allowed = allowedDomains || [];
 
-  // ── 網路白名單阻擋：指令含非白名單網域 + 網路失敗簽名 ──
-  const hosts = nonWhitelistedHosts(command, allowedDomains || []);
-  if (hosts.length > 0 && NET_FAIL_RE.test(out)) {
+  // ── 網路白名單阻擋（精確）：非白名單網域（指令或錯誤訊息中）+ 網路失敗簽名 ──
+  // 同時掃 output — host 常只出現在錯誤訊息裡（"Could not resolve host: x"）
+  const hosts = [...new Set([...nonWhitelistedHosts(command, allowed), ...nonWhitelistedHosts(out, allowed)])];
+  if (hosts.length > 0 && netFailed) {
     const hostList = hosts.slice(0, 5).join("、");
     if (audit) logAuditEvent({ kind: "network_block", severity: "block", tool, command, domains: hosts, reason: `連線非白名單網域被沙箱阻擋（exit=${exitCode ?? "?"}）`, detail: { exitCode, outputTail: out.slice(-600) }, agentId, cwd });
     return {
       type: "network_block", domains: hosts, exitCode,
       agentNotice: `\n\n🌐 [PAAW 網路白名單] 偵測到對非白名單網域的連線被沙箱阻擋：${hostList}。這不是網路故障，是 PAAW 安全防護。若這是任務必要的外部服務，請用 ask_user 向使用者說明，請他到「設定 → 🛡 安全」分頁把該網域加入網路白名單（儲存後立即生效，無需重啟）。在此之前不要重試同一個連線。`,
-      userNotice: `🌐 安全防護：AI 嘗試連線到非白名單網域 ${hostList}，已阻擋並記錄審計。若為必要服務，可到「設定 → 🛡 安全」加入該網域。`,
+      userNotice: `🌐 安全防護：AI 嘗試連線到非白名單網域 ${hostList}，已阻擋並記錄審計。若為必要服務，可到「設定 → 🛡 安全 → 網路白名單」加入該網域。`,
+    };
+  }
+
+  // ── 網路阻擋（通用）：有網路意圖但完全解析不出網域（host 藏在 script/config 裡）+ 網路失敗簽名 ──
+  // 目的（Fleming 2026-10-11）：只要對外連線被卡，一定要有訊息告訴使用者去哪裡設定允許的對外 host。
+  // 防誤報：若錯誤訊息裡的網域都在白名單内（例如 npm 離線但 registry 已允許）→ 是真斷網不是阻擋，不發。
+  const outHosts = extractHosts(out);
+  const failureHostLooksAllowed = outHosts.length > 0 && outHosts.every(h => isHostAllowed(h, allowed));
+  if (
+    hosts.length === 0 && netFailed && sandboxActive && !failureHostLooksAllowed &&
+    NET_HINT_RE.test(String(command || "")) &&
+    !LOCAL_RE.test(String(command || "")) && !LOCAL_RE.test(out)
+  ) {
+    if (audit) logAuditEvent({ kind: "network_block", severity: "warn", tool, command, reason: `對外連線失敗（未能從指令解析出網域）— 疑似沙箱網路白名單阻擋（exit=${exitCode ?? "?"}）`, detail: { exitCode, outputTail: out.slice(-600) }, agentId, cwd });
+    return {
+      type: "network_block", domains: [], exitCode,
+      agentNotice: `\n\n🌐 [PAAW 網路白名單] 偵測到對外連線失敗。這很可能是 PAAW 沙箱白名單阻擋（不是一般網路故障）。若這是任務必要的外部服務，請用 ask_user 向使用者說明，請他到「設定 → 🛡 安全 → 網路白名單」加入目標 host（網域），儲存後立即生效、無需重啟。在此之前不要重複重試同一個連線。`,
+      userNotice: `🌐 網路防護：AI 的對外連線失敗，可能被沙箱白名單阻擋。若為必要服務，請到「設定 → 🛡 安全 → 網路白名單」加入目標網域（host），儲存後立即生效。`,
     };
   }
 
