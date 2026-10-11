@@ -32,6 +32,7 @@ interface DetailData {
     testReports?: {
       found: number;
       reports: { runner: string; kind: string; at: string | null; total?: number | null; passed?: number | null; failed?: number | null; skipped?: number | null; totalLinePct?: number | null }[];
+      run?: { runner: string; kind: string; at: string | null; status?: string | null; total?: number | null; passed?: number | null; failed?: number | null; skipped?: number | null; durationMs?: number | null; id?: string | null; headSha?: string | null; commands?: string[] | null }[];
       coverage: { runner: string; at: string | null; totalLinePct?: number | null }[];
       e2e: { runner: string; at: string | null; total?: number | null; passed?: number | null; failed?: number | null }[];
       unit: { runner: string; at: string | null; total?: number | null; passed?: number | null; failed?: number | null }[];
@@ -184,8 +185,31 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
             {tr && tr.found > 0 && <span className="ml-auto text-[10px] text-green-600">{t("tests.foundN").replace("{n}", String(tr.found))}</span>}
           </div>
           {tr && tr.found > 0 ? (
+            <div>
+              {/* 🧾 最近一次 PAAW 測試執行（2026-10-11：真實跑過的結果優先顯示）*/}
+              {tr.run?.[0] && (() => {
+                const r = tr.run![0];
+                const ok = (r.status || "pass") === "pass";
+                return (
+                  <div className="px-3 py-2 flex items-center gap-2 text-xs flex-wrap"
+                    style={{ borderBottom: `1px solid ${borderLight}`, background: ok ? "#f0fdf4" : "#fef2f2" }}
+                    data-testid="tests-last-run">
+                    <span className="font-bold shrink-0" style={{ color: ok ? "#15803d" : "#b91c1c" }}>
+                      {ok ? "✅" : "❌"} {t("tests.lastRun")}
+                    </span>
+                    {r.id && <span className="font-mono text-[10px] text-stone-500 shrink-0">{r.id}</span>}
+                    <span className="font-mono shrink-0">{r.passed ?? "?"}/{r.total ?? "?"} {t("tests.passed")}</span>
+                    {r.failed != null && r.failed > 0 && <span className="font-bold text-red-500 shrink-0">✗ {r.failed}</span>}
+                    {r.skipped ? <span className="text-stone-400 shrink-0">⏭ {r.skipped}</span> : null}
+                    {r.durationMs != null && <span className="text-stone-500 shrink-0">{(r.durationMs / 1000).toFixed(1)}s</span>}
+                    {r.headSha && <span className="font-mono text-[10px] text-stone-400 shrink-0">{r.headSha}</span>}
+                    {r.commands?.length ? <span className="font-mono text-[10px] text-stone-400 truncate">{r.commands.join(" · ")}</span> : null}
+                    {r.at && <span className="ml-auto text-[10px] text-stone-400 shrink-0" title={r.at}>{r.at.slice(5, 16).replace("T", " ")}</span>}
+                  </div>
+                );
+              })()}
             <div className="divide-y" style={{ borderColor: borderLight }}>
-              {tr.reports.map((r, i) => (
+              {tr.reports.filter(r => r.kind !== "run").map((r, i) => (
                 <div key={i} className="px-3 py-1.5 flex items-center gap-2 text-xs">
                   <span className="font-bold text-stone-700 shrink-0">{r.runner}</span>
                   <span className="text-[9px] px-1 py-0.5 rounded bg-stone-100 text-stone-500 shrink-0">{r.kind}</span>
@@ -195,6 +219,7 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
                   {r.at && <span className="ml-auto text-[10px] text-stone-400 shrink-0">{r.at.slice(5, 16).replace("T", " ")}</span>}
                 </div>
               ))}
+            </div>
             </div>
           ) : (
             <div className="px-3 py-3 text-xs text-stone-400 text-center" data-testid="tests-reports-empty">
@@ -259,7 +284,7 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
                   style={{ borderColor: borderLight }} data-testid="tests-row">
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white shrink-0" style={{ backgroundColor: KIND_COLORS[kind] || "#78716c" }}>{kind}</span>
                   <span className="text-xs font-mono text-stone-700 truncate flex-1" title={e.testFile}>{e.testFile}</span>
-                  <span className="text-[10px] text-stone-400 shrink-0">→ {e.matches.length} file(s)</span>
+                  <span className="text-[10px] shrink-0" style={{ color: e.matches.length ? undefined : "#a8a29e" }}>→ {e.matches.length > 0 ? `${e.matches.length} file(s)` : t("tests.unmapped")}</span>
                 </button>
                 {isOpen && (
                   <div className="px-3 py-2 border-b space-y-1.5" style={{ borderColor: borderLight, background: "#fafaf9" }}>

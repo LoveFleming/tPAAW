@@ -102,6 +102,42 @@ function findTestedFunctions(testFile, productionFile) {
   return [...tested];
 }
 
+/**
+ * 測試原始碼「引用的專案檔」— 黑箱 e2e 的證據式對映（2026-10-11）
+ *
+ * 進程級測試不 import 受測模組（spawn gateway.mjs 打 HTTP），命名對映也對不上，
+ * 導致「→ 0 file(s)」且受測檔被誤列缺口。用測試原始碼中出現的字串片段當證據：
+ *   join(__dirname,"..","..","src","server.mjs") → 連續字串片段 ["src","server.mjs"]
+ *   join(__dirname,"..","..","gateway.mjs")     → 單段檔名 ["gateway.mjs"]
+ * deterministic、只信原始碼，中等信心；命中 >2 檔視為發散而不收（避免亂配）。
+ */
+function referencedProductionFiles(projectRoot, testFile, productionFiles) {
+  let src = "";
+  try { src = readFileSync(join(projectRoot, testFile), "utf-8"); } catch { return []; }
+  const lits = [];
+  for (const m of src.matchAll(/["'`]([^"'`\n]{1,160})["'`]/g)) {
+    const v = m[1];
+    lits.push(v);
+    if (v.includes("/") || v.includes("\\")) lits.push(...v.split(/[\\/]+/).filter(Boolean));
+  }
+  const out = [];
+  for (const pf of productionFiles) {
+    const segs = String(pf.file).split("/");
+    let hit = false;
+    if (segs.length === 1) {
+      hit = lits.includes(segs[0]);
+    } else {
+      for (let i = 0; i + segs.length <= lits.length && !hit; i++) {
+        let ok = true;
+        for (let j = 0; j < segs.length; j++) if (lits[i + j] !== segs[j]) { ok = false; break; }
+        hit = ok;
+      }
+    }
+    if (hit) out.push(pf);
+  }
+  return out.length > 2 ? [] : out;
+}
+
 // ── Main: Build Test Intelligence ──
 
 /**
@@ -222,6 +258,25 @@ export async function buildTestIntelligence(projectRoot, paawRoot, { persist = t
       }
     }
 
+    // Strategy 4: 黑箱/進程級測試 — 測試原始碼直接引用的專案檔（2026-10-11）
+    if (matches.length === 0) {
+      for (const prodFile of referencedProductionFiles(projectRoot, testFile.file, productionFiles)) {
+        const testedFns = findTestedFunctions(testFile, prodFile);
+        matches.push({
+          productionFile: prodFile.file,
+          matchType: "reference",
+          testedFunctions: testedFns,
+          confidence: "medium",
+        });
+        if (!codeToTest[prodFile.file]) codeToTest[prodFile.file] = [];
+        codeToTest[prodFile.file].push({
+          testFile: testFile.file,
+          testType: testFile.testType,
+          testedFunctions: testedFns,
+        });
+      }
+    }
+
     testToCode.push({
       testFile: testFile.file,
       testType: testFile.testType,
@@ -287,6 +342,7 @@ export async function buildTestIntelligence(projectRoot, paawRoot, { persist = t
     byType: {
       unit: testFiles.filter(t => t.testType === "unit").length,
       integration: testFiles.filter(t => t.testType === "integration").length,
+      contract: testFiles.filter(t => t.testType === "contract").length,
       e2e: testFiles.filter(t => t.testType === "e2e").length,
     },
     totalMappings: testToCode.reduce((s, t) => s + t.matches.length, 0),

@@ -54,6 +54,9 @@ const CANDIDATES = [
   { kind: "go-cover", file: "coverage.out", runner: "go" },
   { kind: "go-cover", file: "cover.out", runner: "go" },
   { kind: "go-cover", file: "coverage.txt", runner: "go" },
+  // PAAW 自身的測試執行結果（test-runner.mjs → .paaw/test-runs/last.json）
+  // 2026-10-11：這是 PAAW 內部真實跑過的結果，比外部慣例路徑更該優先顯示
+  { kind: "run", file: ".paaw/test-runs/last.json", runner: "PAAW test-run" },
 ];
 
 /** 找出專案實際存在的 report（deterministic 掃標準路徑） */
@@ -236,6 +239,29 @@ function parseGoCoverprofile(filePath) {
   return out;
 }
 
+// ── PAAW 自身測試執行（.paaw/test-runs/last.json — test-runner.mjs 產出）──
+// { id, finishedAt, headSha, status, durationMs, includeE2e, summary:{passed,failed,skipped,total},
+//   byKind, groups:[{kind,runner,cmd,status,passed,failed,skipped}] }
+function parsePaawTestRun(filePath) {
+  const j = JSON.parse(readFileSync(filePath, "utf-8"));
+  const s = j.summary || {};
+  const total = s.total ?? null;
+  if (total === null && !j.groups?.length) return null; // 空/壞檔不算數
+  return {
+    runner: "PAAW test-run",
+    kind: "run",
+    at: j.finishedAt || null,
+    status: j.status || ((s.failed ?? 0) > 0 ? "fail" : "pass"),
+    total, passed: s.passed ?? null, failed: s.failed ?? null, skipped: s.skipped ?? null,
+    durationMs: j.durationMs ?? null,
+    id: j.id || null,
+    headSha: j.headSha ? String(j.headSha).slice(0, 7) : null,
+    includeE2e: !!j.includeE2e,
+    byKind: j.byKind || null,
+    commands: [...new Set((j.groups || []).map(g => g.cmd).filter(Boolean))].slice(0, 6),
+  };
+}
+
 /**
  * readTestReports — 讀全部找得到的 report → 標準化清單
  * 一個壞檔 try/catch 跳過，絕不炸整批。
@@ -244,7 +270,8 @@ function parseGoCoverprofile(filePath) {
   const reports = [];
   for (const f of found) {
     try {
-      if (f.kind === "coverage-summary") reports.push(parseCoverageSummary(projectRoot, f.path));
+      if (f.kind === "run") { const r = parsePaawTestRun(f.path); if (r) reports.push(r); }
+      else if (f.kind === "coverage-summary") reports.push(parseCoverageSummary(projectRoot, f.path));
       else if (f.kind === "lcov") reports.push(parseLcov(projectRoot, f.path));
       else if (f.kind === "playwright-json") reports.push(parsePlaywrightJson(f.path));
       else if (f.kind === "cobertura") { const r = parseCoberturaXml(projectRoot, f.path); if (r) reports.push(r); }
@@ -267,7 +294,11 @@ export function testReportSummary(projectRoot) {
       runner: r.runner, kind: r.kind, at: r.at,
       total: r.total ?? null, passed: r.passed ?? null, failed: r.failed ?? null, skipped: r.skipped ?? null,
       totalLinePct: r.totalLinePct ?? null,
+      // PAAW 自身執行（kind=run）額外欄位
+      status: r.status ?? null, durationMs: r.durationMs ?? null, id: r.id ?? null,
+      headSha: r.headSha ?? null, includeE2e: r.includeE2e ?? null, commands: r.commands ?? null,
     })),
+    run: pick(r => r.kind === "run"),
     coverage: pick(r => r.kind === "coverage"),
     e2e: pick(r => r.kind === "e2e"),
     unit: pick(r => r.kind === "unit"),
