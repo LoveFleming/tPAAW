@@ -82,16 +82,31 @@ export async function sandboxAvailable() {
 }
 
 // 包指令：cwd = RU 專案目錄（allowWrite 主體）。失敗 = 回原指令（上層 pattern 掃描仍在）。
+let _lastAllowedSig = null;
 export async function wrapWithSrt(command, cwd) {
   if (sandboxKillSwitchOn()) return command;
   try {
     const SM = await loadSM();
+    const cfg = buildConfig(cwd);
+    const sig = cfg.network.allowedDomains.join(",");
     if (!_inited) {
-      await SM.initialize(buildConfig(cwd));
+      await SM.initialize(cfg);
       _inited = true;
+      _lastAllowedSig = sig;
+    } else if (sig !== _lastAllowedSig) {
+      // 白名單熱更新（2026-10-11 Fleming）：Settings UI / EM network_allow 改完立即生效。
+      // srt 的 network policy 在 initialize() 時固定 — 不 updateConfig 就得重啟 server
+      // 才生效，EM 晚上自動放行就永遠沒用（實測踩到）。
+      SM.updateConfig(cfg);
+      _lastAllowedSig = sig;
     }
     // per-call 完整 config（allowWrite 隨 RU cwd 變）
-    return await SM.wrapWithSandbox(command, process.env.SHELL || "/bin/zsh", buildConfig(cwd));
+    const wrapped = await SM.wrapWithSandbox(command, process.env.SHELL || "/bin/zsh", cfg);
+    // Node ≥24：global fetch / undici 預設不理 proxy env → 直連被 seatbelt 擋（EPERM），
+    // 即使網域在白名單也連不上。加 NODE_USE_ENV_PROXY=1 讓它走 srt 代理（2026-10-11 實測）。
+    return wrapped.startsWith("env ")
+      ? "env NODE_USE_ENV_PROXY=1 " + wrapped.slice(4)
+      : "NODE_USE_ENV_PROXY=1 " + wrapped;
   } catch {
     return command;
   }

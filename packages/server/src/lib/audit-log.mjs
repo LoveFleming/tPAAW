@@ -108,7 +108,7 @@ export function logAuditEvent(evt) {
 // 這裡翻譯成人話：agent 知道去哪設定、使用者收到 security_notice、audit 落 ES。
 // ══════════════════════════════════════════
 
-const NET_FAIL_RE = /(curl:\s*\((?:6|7|28|35)\)|Could not resolve host|unable to resolve|Connection timed out|Connection refused|connection timed out; no servers could be reached|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|Network is unreachable|fetch failed)/i;
+const NET_FAIL_RE = /(curl:\s*\((?:6|7|28|35|56|60)\)|CONNECT tunnel failed|Could not resolve host|unable to resolve|Connection timed out|Connection refused|connection timed out; no servers could be reached|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|Network is unreachable|fetch failed)/i;
 const FS_DENY_RE = /(operation not permitted|EPERM)/i;
 // ── 通用網路阻擋偵測（2026-10-11 Fleming）──
 // 指令含網路意圖（URL / 網路工具）但解析不出具體網域時（例如 host 寫在 script/config 裡），
@@ -133,6 +133,10 @@ export function extractHosts(command) {
   for (const m of cmd.matchAll(/(?:ENOTFOUND|getaddrinfo|resolve host:?|Failed to connect to|Unable to connect to|connect to)\s*:?\s*(?:ENOTFOUND\s+)?([a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9])/gi)) {
     const h = m[1].toLowerCase();
     if (/^[a-z0-9.-]+\.[a-z]{2,}$/.test(h)) hosts.add(h);
+  }
+  // env-var 指定外部 host（DEMO_HOST=api.foo.com / API_URL=api.foo.com）
+  for (const m of cmd.matchAll(/\b[A-Za-z_][A-Za-z0-9_]*(?:HOST|URL|DOMAIN|ENDPOINT|API)[A-Za-z0-9_]*=([a-z0-9][a-z0-9.-]*\.[a-z]{2,})/gi)) {
+    hosts.add(m[1].toLowerCase());
   }
   // localhost / IP 不是「外部網域」
   return [...hosts].filter(h => h !== "localhost" && !/^\d+\.\d+\.\d+\.\d+$/.test(h));
