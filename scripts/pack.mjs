@@ -9,6 +9,8 @@
  *                                            # 打包後直接推到 tpaaw-package
  *   node scripts/pack.mjs --no-semgrep       # 公司版：data-seed 不帶 data/semgrep-rules
  *                                            #（掃描規則含故意違規樣本，會被公司 security scan 誤判）
+ *   node scripts/pack.mjs --semgrep-src DIR  # 指定外部 semgrep 規則來源目錄
+ *                                            #（公司自備規則集；deploy5 分支本身沒有 data/semgrep-rules）
  *
  * 產出:
  *   dist/paaw-<version>.zip                  # 完整 code + data-seed/（不含 node_modules、不含 data/）
@@ -37,6 +39,12 @@ const TOKEN = TOKENIdx >= 0 ? args[TOKENIdx + 1] : process.env.PUBLISH_TOKEN || 
 // 2026-10-11 Fleming：公司 security scan 會把 data/semgrep-rules 的「故意違規樣本」誤判 →
 // 需要出「公司版」包時用 --no-semgrep（或 env PAAW_PACK_NO_SEMGREP=1）跳過 semgrep 規則。
 const NO_SEMGREP = args.includes("--no-semgrep") || process.env.PAAW_PACK_NO_SEMGREP === "1";
+// 2026-10-11 Fleming：公司自備一份 semgrep rules，打包時要包進 zip（不然新使用者裝完沒規則）。
+// deploy5 分支沒有 data/semgrep-rules → 用 --semgrep-src DIR（或 env PAAW_SEMGREP_RULES_DIR）指定。
+const SEMGREP_SRC_IDX = args.indexOf("--semgrep-src");
+const SEMGREP_SRC = (SEMGREP_SRC_IDX >= 0 ? args[SEMGREP_SRC_IDX + 1] : null)
+  || process.env.PAAW_SEMGREP_RULES_DIR
+  || join(ROOT, "data/semgrep-rules");
 
 // ---------- 0. 版本 ----------
 
@@ -211,8 +219,17 @@ const walk = (d, prefix = "") => {
 let seeded = 0;
 for (const asset of DATA_ASSETS) {
   if (asset.dir === "semgrep-rules" && NO_SEMGREP) { console.log("  ⏭ 跳過 data/semgrep-rules（--no-semgrep，公司版不出掃描規則）"); continue; }
-  const srcDir = join(ROOT, "data", asset.dir);
-  if (!existsSync(srcDir)) { console.error(`✗ data/${asset.dir} 不存在`); process.exit(1); }
+  const srcDir = asset.dir === "semgrep-rules" ? resolve(SEMGREP_SRC) : join(ROOT, "data", asset.dir);
+  if (!existsSync(srcDir)) {
+    if (asset.dir === "semgrep-rules") {
+      console.error(`✗ semgrep 規則目錄不存在：${srcDir}`);
+      console.error(`  公司自備規則集請指定：node scripts/pack.mjs --semgrep-src <規則目錄>（或 env PAAW_SEMGREP_RULES_DIR）`);
+      console.error(`  真的不要規則（腳本不會報錯但新使用者沒規則）才用：--no-semgrep`);
+    } else {
+      console.error(`✗ data/${asset.dir} 不存在`);
+    }
+    process.exit(1);
+  }
   for (const sub of walk(srcDir)) {
     if (skipAsset(asset.dir, sub)) continue;
     const dest = join(STAGE, "data-seed", asset.dir, sub);
@@ -229,6 +246,7 @@ for (const f of SEED_CONFIG_ALLOW) {
 // 2026-09-20 Fleming：移除 seeded < 2000 硬門檻 — 公司 data/ 刻意不含 semgrep-rules/golang
 // 169 檔（2026-09-08 要求移除），門檻會誤擋公司打包。缺料風險由 self-check + zip 抽查把關。
 console.log(`  產品資產 overlay：${seeded} 檔（prompts/semgrep-rules/skills/apps/workflows/config 出廠預設）`);
+if (!NO_SEMGREP) console.log(`  semgrep 規則來源：${resolve(SEMGREP_SRC)}`);
 
 // ---------- 3.5 self-check：出貨包不該出現的東西 ----------
 
