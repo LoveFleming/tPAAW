@@ -10,7 +10,7 @@
 // 逃生口：PAAW_SANDBOX=off 環境變數（debug 用）。
 // 不可用時自動退回原樣執行（script-guard pattern 掃描仍在）。
 
-import { readFileSync } from "fs";
+import { readFileSync, mkdirSync } from "fs";
 import { execFile } from "node:child_process";
 import { resolve } from "path";
 import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
@@ -18,6 +18,11 @@ import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
 let _SM = null;
 let _inited = false;
 let _unavailable = false;
+
+// 確保沙箱 TMPDIR（$PAAW_TMP 上層）存在 — mktemp 對不存在的 TMPDIR 也是硬錯
+function ensureSandboxTmp() {
+  try { mkdirSync(resolve(LOG_HOME, "tmp"), { recursive: true }); } catch {}
+}
 
 // ── 白名單分兩層（2026-10-10 Fleming：不要寫死，data/ 可設 + Settings UI 管理）──
 // 內建 = 系統必要（npm/pip/git/localhost），碼裡保底不能被 UI 刪掉
@@ -88,6 +93,7 @@ export async function wrapWithSrt(command, cwd) {
   try {
     const SM = await loadSM();
     const cfg = buildConfig(cwd);
+    ensureSandboxTmp();
     const sig = cfg.network.allowedDomains.join(",");
     if (!_inited) {
       await SM.initialize(cfg);
@@ -104,6 +110,8 @@ export async function wrapWithSrt(command, cwd) {
     const wrapped = await SM.wrapWithSandbox(command, process.env.SHELL || "/bin/zsh", cfg);
     // Node ≥24：global fetch / undici 預設不理 proxy env → 直連被 seatbelt 擋（EPERM），
     // 即使網域在白名單也連不上。加 NODE_USE_ENV_PROXY=1 讓它走 srt 代理（2026-10-11 實測）。
+    // （TMPDIR 不用我們設：srt 自己在 env 串裡塞 TMPDIR=/tmp/claude；macOS 的 mktemp 反而硬走
+    //   _CS_DARWIN_USER_TEMP_DIR（/var/folders/...）→ 已在 allowWrite 放行，2026-10-11）
     return wrapped.startsWith("env ")
       ? "env NODE_USE_ENV_PROXY=1 " + wrapped.slice(4)
       : "NODE_USE_ENV_PROXY=1 " + wrapped;
@@ -124,7 +132,7 @@ function buildConfig(cwd) {
       denyRead: DENY_READ,
       // 2026-10-11：$PAAW_TMP（log/tmp/<ru>，agent 指定的暫存區）必須可寫，否則我們自己的
       // 「暫存一律寫 $PAAW_TMP」規則被自己的沙箱擋掉（實測 EPERM，白燒回合）。
-      allowWrite: [cwd, resolve(LOG_HOME, "tmp"), "/tmp", "/private/tmp", "~/.npm", "~/Library/Caches", "~/.cache"], // macOS /tmp 是 /private/tmp symlink — Seatbelt 看真實路徑
+      allowWrite: [cwd, resolve(LOG_HOME, "tmp"), "/tmp", "/private/tmp", "/var/folders", "/private/var/folders", ...(process.env.TMPDIR ? [process.env.TMPDIR, resolve(process.env.TMPDIR)] : []), "~/.npm", "~/Library/Caches", "~/.cache"], // macOS /tmp 是 /private/tmp symlink — Seatbelt 看真實路徑；/var/folders = macOS per-user temp（mktemp 硬走那裡，實測 TMPDIR 設了也不理）
     },
   };
 }
@@ -196,7 +204,7 @@ function buildMxcFsPolicy(cwd) {
   const readwritePaths = [...new Set([
     cwdReal,       // 專案可寫（RU 工作區）
     resolve(LOG_HOME, "tmp"), // $PAAW_TMP（agent 指定暫存區，2026-10-11）
-    tmp, "/tmp", "/private/tmp",
+    tmp, resolve(tmp), "/tmp", "/private/tmp",
     home ? `${home}/.npm` : null,
     home ? `${home}/.cache` : null,
     home ? `${home}/Library/Caches` : null, // macOS npm cache
@@ -229,7 +237,9 @@ function buildMxcEnv(extraEnv = {}) {
   return {
     PATH: process.env.PATH || "/usr/bin:/bin",
     HOME: process.env.HOME || "",
-    TMPDIR: process.env.TMPDIR || "/tmp",
+    // 2026-10-11：沙箱內 TMPDIR 一律導到 $PAAW_TMP（log/tmp）— 宿主 TMPDIR 不在
+    // readwritePaths 時 mktemp 會 EPERM（macOS /var/folders、Windows %TEMP% 皆然）
+    TMPDIR: resolve(LOG_HOME, "tmp"),
     LANG: process.env.LANG || "en_US.UTF-8",
     ...extraEnv,
   };
@@ -246,6 +256,7 @@ export async function execSandboxed(command, opts = {}) {
   if (backend === "mxc" || (backend !== "srt" && process.platform !== "darwin")) {
     if (await mxcAvailable()) {
       try {
+        ensureSandboxTmp();
         const m = await loadMXC();
         const egress = network === "allow" ? "allow" : "deny";
         const child = await m.spawn({
