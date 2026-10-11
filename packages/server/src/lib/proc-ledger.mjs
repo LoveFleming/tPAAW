@@ -105,6 +105,7 @@ function _record(runId, ruSlug, pgid, command) {
   const key = `${runId || "orphan"}#${pgid}`;
   _entries.set(key, { key, runId: runId || null, ruSlug, pgid, command, at: _now() });
   _saveState();
+  return key;
 }
 
 /** 指令結束後檢查殘留並記帳（小延遲避開 spawn race） */
@@ -189,6 +190,13 @@ export function runShellGrouped(command, opts = {}) {
       return;
     }
 
+    // ── 立即記帳（2026-10-11）──
+    // 舊設計只在「工具跑完後偵測到殘留」才記帳 → 被中斷/放棄的 in-flight 工具永遠不進帳本，
+    // run-end sweep 掃不到 → 變孤兒（例：interrupt 時正在跑的 `sleep 90`，實測會漏掉）。
+    // spawn 即記帳；正常結束（exit）再移除，殘留仍由 _checkLinger 重新記錄。
+    let _ledgerKey = null;
+    try { _ledgerKey = _record(runId, ruSlug, child.pid, command); } catch {}
+
     // 輸出收集（bytes cap，防爆記憶體；截斷加註記）
     const outBufs = [], errBufs = [];
     let outLen = 0, errLen = 0;
@@ -203,6 +211,8 @@ export function runShellGrouped(command, opts = {}) {
       if (settled) return;
       settled = true;
       clearTimeout(killTimer); clearTimeout(forceTimer); clearTimeout(graceTimer);
+      // 正常結束 → 移出帳本（若程序本身還在/有殘留，下面的 _checkLinger 會重新記）
+      if (_ledgerKey) { try { _entries.delete(_ledgerKey); _saveState(); } catch {} }
       const stdout = Buffer.concat(outBufs).toString("utf-8") + (outLen >= maxBufferBytes ? "\n[proc-ledger] output truncated" : "");
       const stderr = Buffer.concat(errBufs).toString("utf-8") + (errLen >= maxBufferBytes ? "\n[proc-ledger] output truncated" : "");
       const result = {

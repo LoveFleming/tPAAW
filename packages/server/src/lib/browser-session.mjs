@@ -30,6 +30,23 @@ import { join } from "path";
 import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
 import { resolveBrowserChannel } from "./browser-setup.mjs";
 
+// ── 通用逾時（2026-10-11 Fleming：browser_click 卡死、無法中斷）──
+// Playwright 的 page.evaluate / screenshot 沒有內建 timeout，頁面一旦被 dialog
+// 或掛掉的導航卡住就會無限等待，把整個 agent run 拖死。一律包硬上限。
+function withTimeout(promise, ms, label) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms);
+    if (t.unref) t.unref();
+    Promise.resolve(promise).then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); },
+    );
+  });
+}
+
+// dialog 沒人處理時的自動關閉上限（> 此秒數 → 自動 dismiss，避免 page 永久阻塞）
+const DIALOG_WATCHDOG_MS = 120_000;
+
 // ── Instance key：release unit 路徑 → 安全 slug ──
 export function resolveBrowserKey(ru) {
   if (!ru || typeof ru !== "string") return "default";
@@ -180,7 +197,7 @@ export async function takeActionShot(key = "default", page) {
   mkdirSync(dir, { recursive: true });
   const name = `act-${String(inst.actionSeq + 1).padStart(4, "0")}.png`;
   try {
-    await page.screenshot({ path: join(dir, name) });
+    await withTimeout(page.screenshot({ path: join(dir, name) }), 15_000, "takeActionShot");
     return name;
   } catch { return null; }
 }
@@ -435,7 +452,7 @@ export async function takeScreenshot(key = "default", page) {
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const inst = _getInst(key);
   const path = join(shotDir, `shot-${ts}.png`);
-  await page.screenshot({ path, fullPage: false });
+  await withTimeout(page.screenshot({ path, fullPage: false }), 20_000, "takeScreenshot");
   const { copyFileSync } = await import("fs");
   try { copyFileSync(path, join(shotDir, "latest.png")); } catch { /* best effort */ }
   inst.state.lastScreenshot = { path: path.split(/[\\/]/).join("/"), ts: Date.now() };
@@ -482,7 +499,7 @@ export function trackPage(key = "default", page) {
 
 /** 頁面文字內容（截斷）*/
 export async function readPageText(page, maxLength = 8000) {
-  const text = await page.evaluate(() => document?.body?.innerText || "");
+  const text = await withTimeout(page.evaluate(() => document?.body?.innerText || ""), 15_000, "readPageText");
   const clean = text.replace(/\n{3,}/g, "\n\n").trim();
   if (clean.length <= maxLength) return clean;
   return clean.slice(0, maxLength) + `\n... (truncated, ${clean.length - maxLength} more chars)`;
@@ -600,6 +617,17 @@ function _wirePage(inst, page) {
     try {
       broadcastToStream(inst, { type: "dialog", id, kind: dlg.type(), message: dlg.message(), defaultValue: dlg.defaultValue() || "" });
     } catch {}
+    // ── dialog watchdog（2026-10-11）──
+    // Playwright：一旦掛了 dialog listener，dialog 就不會自動關 → 頁面永久阻塞，
+    // 後續 click/evaluate/screenshot 全部無限卡死（本來就是 browser_click 卡死的主因之一）。
+    // 保留時間給人處理；逾時未處理 → 自動 dismiss，讓 page 解鎖，agent 才走得下去。
+    const _wd = setTimeout(() => {
+      if (!inst.dialogs.has(id)) return; // 人已處理
+      inst.dialogs.delete(id);
+      try { dlg.dismiss().catch(() => {}); } catch {}
+      try { broadcastToStream(inst, { type: "dialog", id, closed: true, autoDismissed: true, message: `⚠️ 對話框 ${Math.round(DIALOG_WATCHDOG_MS / 1000)}s 無人處理，已自動關閉（dismiss）以免卡住 agent` }); } catch {}
+    }, DIALOG_WATCHDOG_MS);
+    if (_wd.unref) _wd.unref();
   });
   upd();
   return page;
@@ -683,7 +711,7 @@ export function browserDownloads(key = "default") {
 export async function browserHandleDialog(key = "default", id, action, text) {
   const inst = _instances.get(key) || _getInst(key);
   const dlg = inst.dialogs.get(String(id));
-  if (!dlg) throw new Error(`dialog not found: ${id}`);
+  if (!dlg) return { ok: false, message: "dialog 已不存在（可能已逾時自動關閉）" };
   inst.dialogs.delete(String(id));
   if (action === "accept") await dlg.accept(text || undefined).catch(() => {});
   else await dlg.dismiss().catch(() => {});

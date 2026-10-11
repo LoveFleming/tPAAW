@@ -1302,6 +1302,35 @@ export const PAAW_TOOLS = [
 // ── Tool Group System - load only what each agent needs ──
 
 // Tool name → group mapping
+// ── 工具執行逾時 / 中斷競速（2026-10-11 Fleming：browser_click 卡死且無法中斷）──
+// stream 路徑原本完全沒有工具逾時 → 工具一卡（Playwright 卡在 dialog/導航）= run 永遠卡死；
+// 且 abortSignal 只傳給 callLLM，工具在跑時「中斷」等於沒按。
+function toolExecTimeoutMs(toolName, args, agentCfg) {
+  const n = String(toolName || "");
+  if (n === "bash") return Math.min(((args?.timeout || 120) * 1000), (agentCfg?.bashTimeoutSeconds || 300) * 1000, 300_000);
+  if (n === "test_run" || n === "security_scan" || n === "handover_refresh" || n === "release_prep_status" || n === "ru_model_refresh") return 660_000;
+  if (n === "api_test" || n === "multi_model_review") return 180_000;
+  if (n === "browser_navigate") return 60_000;
+  if (n.startsWith("browser_")) return 45_000;
+  if (n === "dev_server" || n === "dev_log") return 60_000;
+  return 120_000;
+}
+
+/** 讓工具執行可被 abortSignal 立即中斷（底層 op 可能還在跑，但 loop 不再等它）*/
+function raceAbortTool(promise, abortSignal, toolName) {
+  if (!abortSignal) return promise;
+  return new Promise((resolve, reject) => {
+    const mk = () => Object.assign(new Error(`Tool '${toolName}' aborted by user`), { name: "AbortError" });
+    if (abortSignal.aborted) return reject(mk());
+    const onAbort = () => reject(mk());
+    abortSignal.addEventListener("abort", onAbort, { once: true });
+    Promise.resolve(promise).then(
+      (v) => { abortSignal.removeEventListener("abort", onAbort); resolve(v); },
+      (e) => { abortSignal.removeEventListener("abort", onAbort); reject(e); },
+    );
+  });
+}
+
 const TOOL_GROUP_MAP = {
   // Core: full file ops + shell + git
   read_file: "core", write_file: "core", edit_file: "core",
@@ -5013,29 +5042,36 @@ export async function runAgentLoop(config) {
         const _fullPath = resolve(cwd, _toolArgs.path);
         _wasNewFile = !existsSync(_fullPath);
       }
-      // Execute tool with timeout (prevent hanging on Windows)
-      // bash tool needs longer timeout (up to 5 min), others 30s
-      const _toolTimeoutMs = _toolName === "bash" ? Math.min((_toolArgs.timeout || 120) * 1000, _agentCfg.bashTimeoutSeconds * 1000, 300_000) : 30_000;
+      // Execute tool with timeout (prevent hanging) + abort race (中斷可即時生效)
+      // 2026-10-11：改用共用 toolExecTimeoutMs（bash ≤5min、test_run/scan 11min、browser_* 45s、其他 2min）
+      const _toolTimeoutMs = toolExecTimeoutMs(_toolName, _toolArgs, _agentCfg);
       let toolResult;
       let _toolEndSent = false;
+      let _toolTimer = null;
       // Wrap onEvent to track whether tool_end was emitted inside executeTool
       const _wrappedOnEvent = onEvent ? (evt) => {
         if (evt.type === "tool_end") _toolEndSent = true;
         onEvent(evt);
       } : null;
       try {
-        toolResult = await Promise.race([
+        toolResult = await raceAbortTool(Promise.race([
           toolRegistry.initialized && toolRegistry.has(_toolName)
             ? toolRegistry.execute(_toolName, JSON.parse(call.function.arguments || "{}"), { cwd, rootDir, onEvent: _wrappedOnEvent, agentId })
             : executeTool(call, cwd, rootDir, _wrappedOnEvent, agentId, featureBoundary),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error(`Tool '${_toolName}' timed out after ${_toolTimeoutMs / 1000}s`)), _toolTimeoutMs)
-          )
-        ]);
+          new Promise((_, reject) => {
+            _toolTimer = setTimeout(() => reject(new Error(`Tool '${_toolName}' timed out after ${Math.round(_toolTimeoutMs / 1000)}s`)), _toolTimeoutMs);
+            if (_toolTimer.unref) _toolTimer.unref();
+          })
+        ]), abortSignal, _toolName);
         toolResult = String(toolResult);
       } catch (toolErr) {
+        if (toolErr?.name === "AbortError" || abortSignal?.aborted) {
+          if (!_toolEndSent && onEvent) onEvent({ type: "tool_end", name: _toolName, result: "(interrupted by user)" });
+          try { _toolLog.done({ resultLen: 0, resultPreview: "(interrupted by user)" }); } catch {}
+          break; // 上層 for 頂端偵測 abortSignal → 收尾
+        }
         toolResult = `Error: ${toolErr.message}`;
-      }
+      } finally { if (_toolTimer) clearTimeout(_toolTimer); }
       // GUARANTEE: always emit tool_end if executeTool didn't
       // (fixes spinning when read_file/write_file hit error paths like isPathAllowed failures)
       if (!_toolEndSent && onEvent) {
@@ -5518,14 +5554,38 @@ export async function runAgentLoopStream(config, res) {
       if (_toolName2 === "write_file" && args.path) {
         _streamWasNew = !existsSync(resolve(cwd, args.path));
       }
-      const toolResult = toolRegistry.initialized && toolRegistry.has(_toolName2)
-        ? String(await toolRegistry.execute(_toolName2, args, _ctx2))
-        : await executeTool(call, cwd, rootDir, (ev) => {
-            // ── 審批卡（2026-10-09）：streaming 路徑的 approval_request 事件直送 SSE ──
-            if (ev?.type === "approval_request") sendSSE("approval_request", { id: ev.id, command: ev.command, reason: ev.reason });
-            // ── 安全通知（2026-10-10）：白名單阻擋/沙箱拒絕 → 使用者看得到 + 引導去安全 tab ──
-            if (ev?.type === "security_notice") sendSSE("security_notice", { kind: ev.kind, domains: ev.domains, message: ev.message });
-          }, agentId, featureBoundary);
+      // ── 工具執行：逾時 + 中斷競速（2026-10-11 Fleming：browser_click 卡死且無法中斷）──
+      const _stTimeoutMs = toolExecTimeoutMs(_toolName2, args, agentCfg);
+      let toolResult;
+      let _stInterrupted = false;
+      let _stTimer = null;
+      try {
+        const _stExec = toolRegistry.initialized && toolRegistry.has(_toolName2)
+          ? toolRegistry.execute(_toolName2, args, _ctx2)
+          : executeTool(call, cwd, rootDir, (ev) => {
+              // ── 審批卡（2026-10-09）：streaming 路徑的 approval_request 事件直送 SSE ──
+              if (ev?.type === "approval_request") sendSSE("approval_request", { id: ev.id, command: ev.command, reason: ev.reason });
+              // ── 安全通知（2026-10-10）：白名單阻擋/沙箱拒絕 → 使用者看得到 + 引導去安全 tab ──
+              if (ev?.type === "security_notice") sendSSE("security_notice", { kind: ev.kind, domains: ev.domains, message: ev.message });
+            }, agentId, featureBoundary);
+        toolResult = String(await raceAbortTool(Promise.race([
+          Promise.resolve(_stExec),
+          new Promise((_, rej) => {
+            _stTimer = setTimeout(() => rej(new Error(`Tool '${_toolName2}' timed out after ${Math.round(_stTimeoutMs / 1000)}s`)), _stTimeoutMs);
+            if (_stTimer.unref) _stTimer.unref();
+          }),
+        ]), abortSignal, _toolName2));
+      } catch (_stErr) {
+        if (_stErr?.name === "AbortError" || abortSignal?.aborted) {
+          console.log(`[Agent Loop Stream] ⏹ tool ${_toolName2} interrupted by user`);
+          try { _toolLog.done({ resultLen: 0, resultPreview: "(interrupted by user)" }); } catch {}
+          _stInterrupted = true;
+        } else {
+          toolResult = `Error: ${_stErr.message}`;
+          console.log(`[Agent Loop Stream] ⚠️ tool ${_toolName2} failed/timed out: ${_stErr.message}`);
+        }
+      } finally { if (_stTimer) clearTimeout(_stTimer); }
+      if (_stInterrupted) break; // 上層 for 頂端會偵測 abortSignal 並送 interrupted 事件
       const _toolDuration = _toolLog.done({ resultLen: toolResult.length, resultPreview: toolResult.slice(0, 200) });
       sendSSE("tool_result", { name: call.function.name, result: toolResult.slice(0, 2000) });
 
