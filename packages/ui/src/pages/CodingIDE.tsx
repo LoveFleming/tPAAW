@@ -524,7 +524,22 @@ export default function CodingIDE() {
   // ── AI Chat State (per-crew conversations) ──
   const [crewConversations, setCrewConversations] = useState<Record<string, ChatMessage[]>>({});
   const chatMessages = useMemo(() => activeCrew ? (crewConversations[activeCrew] || []) : [], [activeCrew, crewConversations]);
-    // ── 審批卡決策（2026-10-09）—— AI 危險指令被攔 → 使用者 ✅/♾️/❌ → server exec-approvals ──
+    // ── 審批歷史（2026-10-11 E）：決策留存於 <RU>/.paaw/exec-approval-log.jsonl，reload 後仍看得到 ──
+  const [approvalHistory, setApprovalHistory] = useState<{ id: string; command: string; reason?: string; decided?: string | null; at?: string }[]>([]);
+  const loadApprovalHistory = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-project/exec-approval`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "history", path: rootPath }),
+      });
+      const d = await r.json();
+      if (Array.isArray(d.items)) setApprovalHistory(d.items);
+    } catch { /* 拿不到就維持空 */ }
+  }, [rootPath]);
+  useEffect(() => { loadApprovalHistory(); }, [loadApprovalHistory]);
+
+  // ── 審批卡決策（2026-10-09）—— AI 危險指令被攔 → 使用者 ✅/♾️/❌ → server exec-approvals ──
   const handleApprovalDecide = useCallback((id: string, action: "once" | "always" | "deny") => {
     fetch(`${API_BASE}/api/coding-project/exec-approval`, {
       method: "POST",
@@ -536,8 +551,9 @@ export default function CodingIDE() {
       } else {
         setChatMessages(prev => prev.map(m => m._approval?.id === id ? { ...m, _approval: { ...m._approval!, decided: "expired" } } : m));
       }
+      loadApprovalHistory();
     }).catch(() => {});
-  }, []);
+  }, [loadApprovalHistory]);
 
 const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[]) => {
     if (!activeCrew) return;
@@ -3701,6 +3717,25 @@ const sendChat = useCallback(async () => {
                       </div>
                     </div>
                   )}
+                  {/* 審批歷史（2026-10-11 E）— 決策寫進紀錄，reload 後仍看得到「當時准了什麼」（最新的在上面） */}
+                  {approvalHistory.length > 0 ? (
+                    <details className="mb-2 rounded-xl border border-stone-200 bg-stone-50/70" open={false}>
+                      <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-stone-500 select-none">
+                        🛡 審批紀錄（{approvalHistory.length}）— 來源 .paaw/exec-approval-log.jsonl
+                      </summary>
+                      <div className="px-3 pb-2 space-y-1.5 max-h-64 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+                        {approvalHistory.slice(0, 20).map(h => (
+                          <div key={h.id} className="text-[11px] flex items-start gap-2">
+                            <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium ${h.decided === "deny" || h.decided === "revoked" ? "bg-rose-100 text-rose-600" : h.decided === "always" ? "bg-blue-100 text-blue-700" : h.decided === "once" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                              {h.decided === "once" ? "准許一次" : h.decided === "always" ? "永久准許" : h.decided === "deny" ? "已拒絕" : h.decided === "revoked" ? "已撤銷" : "待決"}
+                            </span>
+                            <span className="font-mono text-stone-600 break-all flex-1">{h.command}</span>
+                            {h.at && <span className="shrink-0 text-stone-400">{new Date(h.at).toLocaleString("zh-TW", { hour12: false })}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  ) : null}
                   <ChatMessages
                     messages={chatMessages}
                     accent={tk.accent}

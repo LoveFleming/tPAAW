@@ -2272,11 +2272,33 @@ export default async function projectRoute(req, res) {
     // ── POST /api/coding-project/exec-approval（2026-10-09 審批卡決策）──
     if (url.startsWith("/api/coding-project/exec-approval") && method === "POST") {
       const body = await readBody(req);
-      const { id, action } = JSON.parse(body || "{}");
-      const { decideApproval, listPending } = await import("../lib/exec-approvals.mjs");
+      const { id, action, path: bodyPath, hash } = JSON.parse(body || "{}");
+      const { decideApproval, listPending, listAlways, revokeAlways, listApprovalHistory } = await import("../lib/exec-approvals.mjs");
+      const qPath = new URL(rawUrl, "http://localhost").searchParams.get("path");
+      const aprPath = bodyPath || qPath || null;
       if (action === "list") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ pending: listPending() }));
+        return true;
+      }
+      // ── D. 永久准許清單 / 撤銷（2026-10-11 Fleming）──
+      if (action === "list-always") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, path: aprPath, items: aprPath ? listAlways(aprPath) : [] }));
+        return true;
+      }
+      if (action === "revoke") {
+        if (!aprPath) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "缺少 path" })); return true; }
+        const rv = revokeAlways(aprPath, String(hash || ""));
+        if (rv.ok) logAuditEvent({ kind: "approval_decision", severity: "info", tool: "bash", command: rv.command, reason: "使用者撤銷永久准許", detail: { hash: rv.hash, action: "revoke" }, cwd: aprPath });
+        res.writeHead(rv.ok ? 200 : 400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(rv));
+        return true;
+      }
+      // ── E. 審批紀錄（ reload 後仍可看到當時准了什麼）──
+      if (action === "history") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, path: aprPath, items: aprPath ? listApprovalHistory(aprPath, 50) : [] }));
         return true;
       }
       const r = decideApproval(String(id || ""), String(action || ""));

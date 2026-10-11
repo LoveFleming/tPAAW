@@ -204,8 +204,8 @@ export function ApprovalCard({ approval, onDecide, accent }: { approval: Approva
       <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 mb-1.5">
         🛡 安全審批
         {decided && (
-          <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${decided === "deny" ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-700"}`}>
-            {decided === "once" ? "已核准（一次）" : decided === "always" ? "已永久核准" : "已拒絕"}
+          <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${decided === "deny" || decided === "revoked" ? "bg-rose-100 text-rose-600" : decided === "expired" ? "bg-stone-200 text-stone-600" : "bg-emerald-100 text-emerald-700"}`}>
+            {decided === "once" ? "已核准（一次）" : decided === "always" ? "已永久核准" : decided === "expired" ? "已過期（重新執行會再問）" : decided === "revoked" ? "已撤銷永久准許" : "已拒絕"}
           </span>
         )}
       </div>

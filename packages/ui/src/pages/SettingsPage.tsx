@@ -84,7 +84,45 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
       fetch(`${API_BASE}/api/paaw/network-whitelist`).then(r => r.json()).then((d) => {
         setWlBuiltin(d.builtin || []); setWlCustom(d.custom || []);
       }).catch(() => {});
+      loadAlwaysApprovals();
     }
+  };
+
+  // ── D. 永久准許清單（2026-10-11 Fleming）── 列出/撤銷 <RU>/.paaw/exec-approvals.json
+  const [aprPath, setAprPath] = useState<string>(() => { try { return localStorage.getItem("paaw.vibeide.rootPath") || ""; } catch { return ""; } });
+  const [aprItems, setAprItems] = useState<{ hash: string; command: string; allowedAt: string }[]>([]);
+  const [aprNote, setAprNote] = useState<string>("");
+  const [aprBusy, setAprBusy] = useState(false);
+
+  const loadAlwaysApprovals = async (p?: string) => {
+    const path = (p ?? aprPath).trim();
+    if (!path) { setAprNote(t("settings.alwaysApprovals.needPath")); setAprItems([]); return; }
+    setAprBusy(true); setAprNote("");
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-project/exec-approval`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "list-always", path }),
+      });
+      const d = await r.json();
+      setAprItems(Array.isArray(d.items) ? d.items : []);
+      if (!d.items?.length) setAprNote(t("settings.alwaysApprovals.empty"));
+    } catch { setAprNote(t("settings.alwaysApprovals.error")); }
+    setAprBusy(false);
+  };
+
+  const revokeApproval = async (hash: string, command: string) => {
+    if (!(await uiConfirm(t("settings.alwaysApprovals.revokeConfirm"), { danger: true }))) return;
+    setAprBusy(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-project/exec-approval`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "revoke", path: aprPath.trim(), hash }),
+      });
+      const d = await r.json();
+      if (d.ok) { setAprItems(prev => prev.filter(x => x.hash !== hash)); setAprNote(t("settings.alwaysApprovals.revoked")); }
+      else uiAlertError(d.error || t("settings.alwaysApprovals.error"));
+    } catch { uiAlertError(t("settings.alwaysApprovals.error")); }
+    setAprBusy(false);
   };
 
   useEffect(() => {
@@ -656,6 +694,49 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                 {wlSaving ? t("common.saving") : saved ? t("common.saved") : t("settings.netWhitelist.save")}
               </button>
               <p className="text-xs text-stone-400 mt-3">{t("settings.netWhitelist.note")}</p>
+            </div>
+            {/* ── D. 永久准許清單（2026-10-11 Fleming）— 之前完全看不到也撤不掉 ── */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <h3 className="text-base font-bold text-stone-700">♾️ {t("settings.alwaysApprovals.title")}</h3>
+              <p className="text-sm text-stone-400 mb-4">{t("settings.alwaysApprovals.desc")}</p>
+              <div className="flex gap-2 mb-3">
+                <input
+                  value={aprPath}
+                  onChange={(e) => setAprPath(e.target.value)}
+                  placeholder={t("settings.alwaysApprovals.pathPlaceholder")}
+                  className="flex-1 px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono focus:outline-none focus:border-stone-400"
+                />
+                <button
+                  onClick={() => loadAlwaysApprovals()}
+                  disabled={aprBusy}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
+                  style={{ background: themeInfo.accent }}
+                >
+                  {aprBusy ? t("common.loading") : t("settings.alwaysApprovals.load")}
+                </button>
+              </div>
+              {aprItems.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {aprItems.map(it => (
+                    <div key={it.hash} className="flex items-start gap-2 p-2 rounded-lg bg-stone-50 border border-stone-200">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-mono text-[11px] text-stone-700 break-all">{it.command}</div>
+                        <div className="text-[10px] text-stone-400 mt-0.5">
+                          {t("settings.alwaysApprovals.allowedAt")} {it.allowedAt ? new Date(it.allowedAt).toLocaleString() : "—"}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => revokeApproval(it.hash, it.command)}
+                        disabled={aprBusy}
+                        className="px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50 shrink-0"
+                      >
+                        {t("settings.alwaysApprovals.revoke")}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {aprNote && <p className="text-xs text-stone-400">{aprNote}</p>}
             </div>
             {/* 🛡 安全審計紀錄報表（2026-10-11 Fleming）— audit-*.jsonl 事實來源，PAAW 內即可看 */}
             <AuditLogPanel />

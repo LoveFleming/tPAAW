@@ -6,7 +6,7 @@
 //   deny   = 不記錄（本來就是擋的狀態）
 
 import { createHash } from "crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "fs";
 import { join, dirname } from "path";
 
 const ONCE_TTL_MS = 10 * 60 * 1000;
@@ -43,6 +43,7 @@ export function requestApproval(command, cwd, reason) {
   _pending.set(id, { command: String(command), cwd, reason: String(reason || ""), createdAt: Date.now() });
   // pending 清理：超過 30 分鐘的丟掉
   for (const [k, v] of _pending) if (Date.now() - v.createdAt > 30 * 60 * 1000) _pending.delete(k);
+  appendLog(cwd, { type: "request", id, command: String(command), reason: String(reason || ""), decided: null });
   return id;
 }
 
@@ -60,6 +61,7 @@ export function decideApproval(id, action) {
   } else if (action !== "deny") {
     return { ok: false, error: "action 必須是 once / always / deny" };
   }
+  appendLog(entry.cwd, { type: "decision", id, command: entry.command, reason: entry.reason, decided: action });
   return { ok: true, action, command: entry.command, cwd: entry.cwd };
 }
 
@@ -84,4 +86,57 @@ export function consumeApproval(command, cwd) {
 /** 目前 pending 清單（UI/debug 用） */
 export function listPending() {
   return [..._pending.entries()].map(([id, v]) => ({ id, ...v }));
+}
+
+// ── 永久准許清單（2026-10-11 Fleming：現在完全看不到也撤不掉 = 最大盲點）──
+
+/** 列出該 RU 已永久准許的指令 */
+export function listAlways(cwd) {
+  const map = readAlways(cwd);
+  return Object.entries(map)
+    .map(([hash, v]) => ({ hash, command: String(v?.command || ""), allowedAt: v?.allowedAt || "" }))
+    .sort((a, b) => String(b.allowedAt).localeCompare(String(a.allowedAt)));
+}
+
+/** 撤銷一筆永久准許（依雜湊） */
+export function revokeAlways(cwd, hash) {
+  const map = readAlways(cwd);
+  if (!map[hash]) return { ok: false, error: "找不到此紀錄（可能已撤銷）" };
+  const command = String(map[hash]?.command || "");
+  delete map[hash];
+  writeAlways(cwd, map);
+  appendLog(cwd, { type: "decision", id: "revoke_" + hash, command, reason: "使用者撤銷永久准許", decided: "revoked" });
+  return { ok: true, command, hash };
+}
+
+// ── 審批紀錄（2026-10-11 E：決策要留存，reload 後看得到當時准了什麼）──
+
+function logPath(cwd) {
+  return join(cwd || process.cwd(), ".paaw", "exec-approval-log.jsonl");
+}
+
+function appendLog(cwd, rec) {
+  try {
+    const p = logPath(cwd);
+    mkdirSync(dirname(p), { recursive: true });
+    appendFileSync(p, JSON.stringify({ ...rec, at: new Date().toISOString() }) + "\n", "utf-8");
+  } catch { /* 記錄失敗不擋主流程 */ }
+}
+
+/** 讀審批紀錄（request + decision 合併成卡片資料；最近 limit 筆，新→舊） */
+export function listApprovalHistory(cwd, limit = 50) {
+  try {
+    const p = logPath(cwd);
+    if (!existsSync(p)) return [];
+    const lines = readFileSync(p, "utf-8").split("\n").filter(Boolean);
+    const byId = new Map();
+    for (const l of lines) {
+      let r; try { r = JSON.parse(l); } catch { continue; }
+      const cur = byId.get(r.id) || { id: r.id, command: r.command || "", reason: r.reason || "", decided: null, at: r.at };
+      if (r.type === "request") { cur.command = r.command || cur.command; cur.reason = r.reason || cur.reason; cur.at = r.at; }
+      if (r.type === "decision") { cur.decided = r.decided; cur.decidedAt = r.at; }
+      byId.set(r.id, cur);
+    }
+    return [...byId.values()].slice(-limit).reverse();
+  } catch { return []; }
 }
