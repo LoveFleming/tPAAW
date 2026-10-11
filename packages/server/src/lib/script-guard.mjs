@@ -52,17 +52,52 @@ export function persistentEntryBlock(pathStr) {
 const NET_TOOLS = /(\bfetch\s*\(|\bcurl\b|\bwget\b|http\.request|https\.request|net\.connect|\baxios\b|node-fetch|\bgot\(|\brequests\.(get|post|put)|urllib\.(request|urlopen)|http\.client|socket\.connect|Net::HTTP|open-uri|file_get_contents|curl_init|Invoke-WebRequest|\biwr\b|\birm\b|Invoke-RestMethod)/;
 const EXT_URL = /https?:\/\/(?!localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|\$\{?[A-Z_])/i;
 const PERSISTENCE = /(LaunchAgents|launchctl|crontab|\.git[\\/]hooks|\.zshrc|autostart|osascript)/;
-const DESTRUCTIVE = /(rm\s+-[rf]{1,2}\s+(\/|~|\$HOME|C:\\)|killall|pkill|diskutil\s+erase|\bdd\s+if=|mkfs|shutdown\s+-|reboot\b)/;
+// 非 rm 類的破壞性操作（一律擋）
+const DESTRUCTIVE_NONRM = /(killall|pkill|diskutil\s+erase|\bdd\s+if=|mkfs|shutdown\s+-|reboot\b)/;
 
-export function scanScriptContent(content, source = "script") {
+// ── rm 目標分級（2026-10-11 Fleming：AI 在 tmp 刪暫存檔不該被擋）──
+// 舊規則 `rm -[rf]+ (/|~|$HOME|C:\)` 把任何絕對路徑都算破壞性 → `rm -f /tmp/flake.txt` 誤判
+// 新規則：只有「系統根 / 家目錄 / 磁碟根 / RU 以外的絕對路徑」才危險；temp 區一律放行
+const TEMP_ROOTS = /^(?:\/tmp|\/private\/tmp|\/var\/folders|\/private\/var\/folders|\$TMPDIR|\$TMP|\$TEMP|\$\{[A-Z_]*TMP[A-Z_]*\}|\$PAAW_TMP|\$\{PAAW_TMP\})(?:[\/]|$)/i;
+const WIN_TEMP = /^[A-Za-z]:\\[^\n]*\\AppData\\Local\\Temp(?:\\|$)/i;
+
+function rmTargetDangerous(t, cwd) {
+  if (/^(?:~|\$HOME|\$\{HOME\})(?:[\/]|$)/.test(t)) return true;   // ~ / $HOME
+  if (/^[A-Za-z]:\\/.test(t)) return !WIN_TEMP.test(t);              // Windows 磁碟根（%TEMP% 放行）
+  if (t === "/" || t === "/*") return true;                          // 根目錄
+  if (!t.startsWith("/")) return false;                              // 相對路徑 → RU 內，放行
+  if (TEMP_ROOTS.test(t)) return false;                              // /tmp、$TMPDIR、$PAAW_TMP…
+  if (/[\/]log[\/]tmp(?:[\/]|$)/.test(t)) return false;               // PAAW 自己的 log/tmp（$PAAW_TMP 實體路徑）
+  if (cwd) {                                                          // RU 工作區內 → 視為 AI 的合法活動範圍
+    try {
+      const abs = resolvePath(t);
+      const base = resolvePath(cwd);
+      if (abs === base || abs.startsWith(base + "/")) return false;
+    } catch { /* ignore */ }
+  }
+  return true;
+}
+
+function rmDangerous(text, cwd) {
+  for (const m of text.matchAll(/\brm\s+((?:-[a-zA-Z]+\s+)*)([^&|;\n]*)/g)) {
+    if (!/[rf]/.test(m[1] || "")) continue;                          // 無 -r/-f → 非此規則
+    const targets = String(m[2]).trim().split(/\s+/).filter(t => t && !t.startsWith("-"));
+    if (!targets.length) continue;
+    for (const t of targets) if (rmTargetDangerous(t.replace(/["']/g, ""), cwd)) return true;
+  }
+  return false;
+}
+
+export function scanScriptContent(content, source = "script", opts = {}) {
   const text = String(content || "");
+  const cwd = opts && opts.cwd;
   if (!text) return { dangerous: false, reason: "" };
 
   if (PERSISTENCE.test(text)) {
     return { dangerous: true, reason: `偵測到持久化操作（launchd/crontab/git hooks/shell rc/osascript）`, source };
   }
-  if (DESTRUCTIVE.test(text)) {
-    return { dangerous: true, reason: `偵測到破壞性操作（rm -rf 系統路徑/killall/diskutil/dd）`, source };
+  if (DESTRUCTIVE_NONRM.test(text) || rmDangerous(text, cwd)) {
+    return { dangerous: true, reason: `偵測到破壞性操作（rm 系統/家目錄路徑、killall、diskutil、dd）`, source };
   }
   if (NET_TOOLS.test(text) && EXT_URL.test(text)) {
     // 同時出現網路工具 + 外部 URL 才擋（測試打 localhost 放行）
@@ -91,7 +126,7 @@ export function guardScriptExecution(command, cwd) {
   const cmd = String(command || "");
 
   // 0) raw 指令本身先掃（語言無關）— 直接 curl|sh、osascript、外部 URL 下載等，不管什麼語言/形式
-  const rawScan = scanScriptContent(cmd, "bash command");
+  const rawScan = scanScriptContent(cmd, "bash command", { cwd });
   if (rawScan.dangerous) return { blocked: true, message: blockMsg(rawScan, null) };
   // 0a) 越權：git push 一律擋（no-push 紀律技術化）
   if (GIT_PUSH.test(cmd)) return { blocked: true, message: "🚫 安全攔截（script-guard）：git push 是人的動作，AI 不執行 push（no-push 紀律）。commit 完留給使用者決定。若你判斷必須 push，請用 ask_user 說明理由取得同意。" };
@@ -101,7 +136,7 @@ export function guardScriptExecution(command, cwd) {
   // inline code: node -e / python -c / ruby -e / perl -e / php -r / powershell -Command
   const inlineMatch = cmd.match(/\b(node|python3?|deno|bun|ruby|perl|php|powershell|pwsh)\s+(?:-e|-c|-r|-Command)\s+(['"`])([\s\S]*?)\2/);
   if (inlineMatch) {
-    const r = scanScriptContent(inlineMatch[3], "inline code");
+    const r = scanScriptContent(inlineMatch[3], "inline code", { cwd });
     if (r.dangerous) return { blocked: true, message: blockMsg(r, null) };
   }
 
@@ -119,7 +154,7 @@ export function guardScriptExecution(command, cwd) {
     if (!existsSync(f)) continue; // 還沒寫出來的檔案掃不到，交給寫入攔截
     try {
       const content = readFileSync(f, "utf-8").slice(0, 200_000);
-      const r = scanScriptContent(content, f);
+      const r = scanScriptContent(content, f, { cwd });
       if (r.dangerous) return { blocked: true, message: blockMsg(r, m[2]) };
     } catch { /* 讀不到就放行給 shell 自然報錯 */ }
   }
@@ -132,7 +167,7 @@ export function guardScriptExecution(command, cwd) {
       if (existsSync(pkgPath)) {
         const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
         for (const [k, v] of Object.entries(pkg.scripts || {})) {
-          const r = scanScriptContent(String(v), `package.json:scripts.${k}`);
+          const r = scanScriptContent(String(v), `package.json:scripts.${k}`, { cwd });
           if (r.dangerous) return { blocked: true, message: blockMsg(r, `package.json scripts.${k}（npm install 會自動執行）`) };
         }
       }
@@ -148,7 +183,7 @@ export function guardScriptExecution(command, cwd) {
         const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
         const scriptVal = (pkg.scripts || {})[npmRun[1]];
         if (scriptVal) {
-          const r = scanScriptContent(scriptVal, `npm run ${npmRun[1]}`);
+          const r = scanScriptContent(scriptVal, `npm run ${npmRun[1]}`, { cwd });
           if (r.dangerous) return { blocked: true, message: blockMsg(r, `package.json:scripts.${npmRun[1]}`) };
         }
       } catch { /* package.json 壞掉 → npm 自己會報錯 */ }

@@ -214,17 +214,23 @@ export function ApprovalCard({ approval, onDecide, accent }: { approval: Approva
       </div>
       {approval.reason && <div className="text-[11px] text-amber-700/80 mb-2">{approval.reason}</div>}
       {!decided && (
-        <div className="flex gap-2">
-          <button onClick={() => onDecide?.(approval.id, "once")} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors">
-            ✅ 准許一次
-          </button>
-          <button onClick={() => onDecide?.(approval.id, "always")} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-500 text-white hover:bg-blue-600 transition-colors">
-            ♾️ 永遠准許
-          </button>
-          <button onClick={() => onDecide?.(approval.id, "deny")} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-stone-400 text-white hover:bg-stone-500 transition-colors">
-            ❌ 拒絕
-          </button>
-        </div>
+        <>
+          <div className="text-[10px] text-amber-700/70 mb-2 leading-relaxed">
+            ♾️「永遠准許」= 只放行<b>這一模一樣的指令</b>（存在本專案 <span className="font-mono">.paaw/exec-approvals.json</span>）；
+            改一個字就會重新詢問。✅ 准許一次 = 10 分鐘內可用一次。
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => onDecide?.(approval.id, "once")} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors" title="10 分鐘內可執行這條指令一次">
+              ✅ 准許一次
+            </button>
+            <button onClick={() => onDecide?.(approval.id, "always")} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-500 text-white hover:bg-blue-600 transition-colors" title="永久放行『這一模一樣』的指令（僅本專案）— 不是放行 rm 這類指令">
+              ♾️ 永遠准許（僅這條）
+            </button>
+            <button onClick={() => onDecide?.(approval.id, "deny")} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-stone-400 text-white hover:bg-stone-500 transition-colors" title="拒絕；指令不會執行">
+              ❌ 拒絕
+            </button>
+          </div>
+        </>
       )}
       {decided && decided !== "deny" && (
         <div className="text-[11px] text-stone-400">Agent 重試同一指令即可執行</div>
