@@ -55,6 +55,10 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
   const [data, setData] = useState<DetailData | null>(null);
   const ruModel = useRuModel(rootPath);
   const [loading, setLoading] = useState(false);
+  const [lastAt, setLastAt] = useState<number | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const autoRefreshRef = useRef(true);
+  useEffect(() => { autoRefreshRef.current = autoRefresh; }, [autoRefresh]);
   const [kindFilter, setKindFilter] = useState<string>("__all__");
   const [expanded, setExpanded] = useState<string | null>(null); // testFile
   const chatRef = useRef<AgentSideChatHandle>(null);
@@ -72,11 +76,24 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
     try {
       const res = await fetch(`${API_BASE}/api/coding-project/test-intelligence?path=${encodeURIComponent(rootPath)}&detail=1`);
       const d = await res.json();
-      if (d && !d.error) setData(d);
+      if (d && !d.error) { setData(d); setLastAt(Date.now()); }
     } catch { /* keep old */ } finally { setLoading(false); }
   }, [rootPath, refreshKey]); // 2026-09-04：CU 完成後重抓
 
   useEffect(() => { fetchDetail(); }, [fetchDetail]);
+
+  // 2026-10-11 Fleming：不用切分頁 — 視窗 focus + 每 30s 自動重抓（只在頁面可見時）
+  useEffect(() => {
+    const onFocus = () => { if (autoRefreshRef.current) fetchDetail(); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [fetchDetail]);
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (autoRefreshRef.current && document.visibilityState === "visible") fetchDetail();
+    }, 30000);
+    return () => clearInterval(id);
+  }, [fetchDetail]);
 
   const byType = data?.summary?.byType || {};
   const tr = data?.summary?.testReports || null;
@@ -144,6 +161,23 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
     <div className="flex-1 flex min-w-0 overflow-hidden" data-testid="tests-page">
       {/* 左：宮殿 */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto p-4 space-y-4">
+        {/* 工具列（2026-10-11 Fleming：手動刷新 + 自動刷新開關 + 更新時間） */}
+        <div className="flex items-center gap-2 flex-wrap" data-testid="tests-toolbar-refresh">
+          <div className="text-sm font-bold text-stone-600">{t("tests.title")}</div>
+          <button
+            onClick={() => fetchDetail()}
+            disabled={loading}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium border bg-white hover:bg-stone-50 disabled:opacity-50"
+            style={{ borderColor: borderLight, color: accentText }}
+          >
+            🔄 {loading ? t("common.loading") : t("tests.refresh")}
+          </button>
+          <label className="text-[11px] text-stone-400 flex items-center gap-1 select-none cursor-pointer">
+            <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+            {t("tests.autoRefresh")}
+          </label>
+          {lastAt && <span className="text-[11px] text-stone-400 ml-auto">{t("tests.updatedAt")} {new Date(lastAt).toLocaleTimeString("zh-TW", { hour12: false })}</span>}
+        </div>
         {/* 統計卡 */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2" data-testid="tests-stats">
           <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight }}>
