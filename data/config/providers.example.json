@@ -1,6 +1,6 @@
 {
-  "active": "zai",
-  "defaultModel": "glm-5.1",
+  "active": "openrouter",
+  "defaultModel": "deepseek/deepseek-v4.1-flash",
   "fallbacks": [
     {
       "provider": "openrouter",
@@ -8,7 +8,7 @@
     },
     {
       "provider": "openrouter",
-      "model": "deepseek/deepseek-v4-flash-0731"
+      "model": "moonshotai/kimi-k2.6"
     }
   ],
   "providers": {
@@ -78,7 +78,7 @@
           "reasoning": "low"
         },
         {
-          "id": "deepseek/deepseek-v4-flash-0731",
+          "id": "deepseek/deepseek-v4.1-flash",
           "name": "DeepSeek V4 Flash",
           "contextWindow": 262000,
           "maxTokens": 65536,
@@ -86,11 +86,11 @@
             "inputPerMillion": 0.07,
             "outputPerMillion": 0.28
           },
-          "reasoning": "low"
+          "reasoning": "off"
         },
         {
           "id": "z-ai/glm-5.1",
-          "name": "GLM-5.1 (via OpenRouter)",
+          "name": "E2E Test",
           "contextWindow": 128000,
           "maxTokens": 65536,
           "pricing": {
@@ -98,9 +98,17 @@
             "outputPerMillion": 3.2
           },
           "reasoning": "low"
+        },
+        {
+          "id": "z-ai/glm-5.3-flash",
+          "name": "GLM 5.3 Flash (OR, Vision)",
+          "vision": true,
+          "contextWindow": 131072,
+          "maxTokens": 32768,
+          "reasoning": "low"
         }
       ]
     }
   },
-  "visionModel": "zai/glm-4.6v"
+  "visionModel": "openrouter/z-ai/glm-5.3-flash"
 }
