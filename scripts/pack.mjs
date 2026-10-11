@@ -7,6 +7,8 @@
  *   node scripts/pack.mjs --skip-build       # 跳過 vite build（UI 已建）
  *   node scripts/pack.mjs --publish URL --token XXX
  *                                            # 打包後直接推到 tpaaw-package
+ *   node scripts/pack.mjs --no-semgrep       # 公司版：data-seed 不帶 data/semgrep-rules
+ *                                            #（掃描規則含故意違規樣本，會被公司 security scan 誤判）
  *
  * 產出:
  *   dist/paaw-<version>.zip                  # 完整 code + data-seed/（不含 node_modules、不含 data/）
@@ -32,6 +34,9 @@ const PUBIdx = args.indexOf("--publish");
 const TOKENIdx = args.indexOf("--token");
 const PUBLISH_URL = PUBIdx >= 0 ? args[PUBIdx + 1] : null;
 const TOKEN = TOKENIdx >= 0 ? args[TOKENIdx + 1] : process.env.PUBLISH_TOKEN || "";
+// 2026-10-11 Fleming：公司 security scan 會把 data/semgrep-rules 的「故意違規樣本」誤判 →
+// 需要出「公司版」包時用 --no-semgrep（或 env PAAW_PACK_NO_SEMGREP=1）跳過 semgrep 規則。
+const NO_SEMGREP = args.includes("--no-semgrep") || process.env.PAAW_PACK_NO_SEMGREP === "1";
 
 // ---------- 0. 版本 ----------
 
@@ -137,13 +142,29 @@ rmSync(join(STAGE, "data-seed/crews/conversation"), { recursive: true, force: tr
 mkdirSync(join(STAGE, "data-seed/ai-settings"), { recursive: true });
 cpSync(join(ROOT, "data/ai-settings"), join(STAGE, "data-seed/ai-settings"), { recursive: true });
 
-// crews 模板（coding.* + my.assistant + pic 頭像）— 沒播種的話 fresh install
-// 的 coding app 0 個 agent、crew 系統全空。conversation/ 是 runtime 對話狀態，不播種。
+// crews 模板（coding.* + my.assistant）— 沒播種的話 fresh install 的 coding app 0 個 agent、crew 系統全空。
+// 2026-10-11 修：crew 定義已從 data/crews 搬到 packages/modules/<m>/crews（data/crews 不存在了）。
+// 來源 = 所有 module crews 目錄（+ 舊佈局 data/crews fallback）；conversation/ 是 runtime 狀態，不播種。
 mkdirSync(join(STAGE, "data-seed/crews"), { recursive: true });
-for (const entry of readdirSync(join(ROOT, "data/crews"))) {
-  if (entry === "conversation") continue;
-  cpSync(join(ROOT, "data/crews", entry), join(STAGE, "data-seed/crews", entry), { recursive: true });
+const crewSources = [];
+const modulesDir = join(ROOT, "packages/modules");
+if (existsSync(modulesDir)) {
+  for (const m of readdirSync(modulesDir)) {
+    const cd = join(modulesDir, m, "crews");
+    if (existsSync(cd)) crewSources.push(cd);
+  }
 }
+if (existsSync(join(ROOT, "data/crews"))) crewSources.push(join(ROOT, "data/crews")); // 舊佈局 fallback
+let seededCrews = 0;
+for (const cd of crewSources) {
+  for (const entry of readdirSync(cd)) {
+    if (entry === "conversation") continue;
+    cpSync(join(cd, entry), join(STAGE, "data-seed/crews", entry), { recursive: true });
+    if (entry.endsWith(".json")) seededCrews++;
+  }
+}
+console.log(`  crews 播種 ${seededCrews} 個（來源 ${crewSources.length} 目錄）`);
+if (seededCrews === 0) { console.error("✗ crews 播種 0 個 — fresh install 會沒有任何 agent（coding app 全空）"); process.exit(1); }
 
 // knowledge 產品文件（2026-10-02 補 — 公司落地：林雨晴靠 about-paaw.md 回答 PAAW/coding app 問題）
 // 只帶策展清單；Pics/簡報/test.txt 等個人內容不追踪。
@@ -189,6 +210,7 @@ const walk = (d, prefix = "") => {
 };
 let seeded = 0;
 for (const asset of DATA_ASSETS) {
+  if (asset.dir === "semgrep-rules" && NO_SEMGREP) { console.log("  ⏭ 跳過 data/semgrep-rules（--no-semgrep，公司版不出掃描規則）"); continue; }
   const srcDir = join(ROOT, "data", asset.dir);
   if (!existsSync(srcDir)) { console.error(`✗ data/${asset.dir} 不存在`); process.exit(1); }
   for (const sub of walk(srcDir)) {
