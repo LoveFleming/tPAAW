@@ -1688,10 +1688,10 @@ function buildHandlers(apps) {
       const { attachDispatchVisibility } = await import("../lib/dispatch-stream-state.mjs");
       _vis = await attachDispatchVisibility(agent.agentId, projRoot);
       // ── 安全訊號收集（2026-10-11 Fleming）：子 agent 被沙箱/白名單擋 → 結構化回報 EM ──
-      // 不能只靠 500 字預覽關鍵字撈；直接被擋/漏看 → EM 自動解除（見 EM prompt）。
+      // 不能只靠 500 字預覽關鍵字撈；直接被擋/漏看 → EM 收到結構化訊號（見 EM prompt：不可自行放行）
       const _secHits = [];
       const _secOnEvent = (ev) => {
-        try { if (ev?.type === "security_hit") _secHits.push({ kind: ev.kind, hosts: Array.isArray(ev.domains) ? ev.domains : [] }); } catch {}
+        try { if (ev?.type === "security_hit") _secHits.push({ kind: ev.kind, hosts: Array.isArray(ev.domains) ? ev.domains : [], stop: !!ev.stopRun }); } catch {}
         _vis.onEvent(ev);
       };
       // 2026-09-29：EM 派工吃 per-agent model 設定（漏接修正）—
@@ -1774,7 +1774,7 @@ function buildHandlers(apps) {
       const _secKinds = [...new Set(_secHits.map(h => h.kind))];
       const _secHosts = [...new Set(_secHits.flatMap(h => h.hosts))];
       const _secLine = _secHits.length
-        ? `🛡 SECURITY_BLOCK ${JSON.stringify({ blocked: true, kinds: _secKinds, hosts: _secHosts })}\n→ EM：先看下面「沙箱/白名單處理」，能自己解除就解除（network_block → network_allow 加 host 後重派；fs/path → 重派並限定專案 cwd），真的不行才 task blocked + 報告標示。\n\n`
+        ? `🛡 SECURITY_BLOCK ${JSON.stringify({ blocked: true, kinds: _secKinds, hosts: _secHosts, forcedStop: _secHits.some(h => h.stop) })}\n→ 這是政策阻擋，不是能力問題。**鐵律：不可自己放寬權限**（不加白名單、不繞沙箱、不替人同意審批）。請把該子任務 task blocked、寫清楚要開哪個 host / 哪條路徑，回報人（設定 → 🛡 安全）決定，並繼續跑其他不相關的子任務；報告的「遺留/待處理」列出被擋項 + 需要的設定。${_secHits.some(h => h.stop) ? "\n   ⛔ 此工作已被強制停止（同 RU 內同一目標重複被擋多次）— 不要重派此目標。" : ""}\n\n`
         : "";
 
       // Execution plan update removed (feature-first)

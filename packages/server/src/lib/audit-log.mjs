@@ -123,14 +123,19 @@ const FS_DENY_FALSE_POSITIVE_RE = /EPERM:\s*operation not permitted,\s*(unlink|r
 // ── 明知故犯偵測（2026-10-11 Fleming）──
 // 原則：白名單/護欄有意義的前提是「被擋就不能自己繞」。AI 被明確告知不可後仍重試 →
 // 第 2 次起記 audit，第 3 次直接停這個 run（executeTool 設 stopReason）。
-const _blockAttempts = new Map(); // runId::kind::targets -> count
+const _blockAttempts = new Map(); // ruSlug::kind::targets -> {n, at}
+const BLOCK_ATTEMPT_TTL_MS = 30 * 60 * 1000; // 同一 RU 30 分鐘內的被擋嘗試累計（跨 run、跨重派）
 function _noteBlockAttempt(kind, targets) {
-  let runId = "norun";
-  try { runId = runContextALS.getStore()?.runId || "norun"; } catch { /* no ALS */ }
+  // key 用 ruSlug（同一專案的父/子 agent 共用）而非 runId，
+  // 否則 EM 每次重派都是新 run → 計數歸零 → 重派永遠抓不到（2026-10-11 漏洞修正）。
+  let ru = "norun";
+  try { const st = runContextALS.getStore(); ru = st?.ruSlug || st?.runId || "norun"; } catch { /* no ALS */ }
   if (_blockAttempts.size > 1000) _blockAttempts.clear();
-  const key = `${runId}::${kind}::${(targets || []).join(",")}`;
-  const n = (_blockAttempts.get(key) || 0) + 1;
-  _blockAttempts.set(key, n);
+  const key = `${ru}::${kind}::${(targets || []).join(",")}`;
+  const now = Date.now();
+  const cur = _blockAttempts.get(key);
+  const n = (cur && now - cur.at < BLOCK_ATTEMPT_TTL_MS) ? cur.n + 1 : 1;
+  _blockAttempts.set(key, { n, at: now });
   return n;
 }
 function _repeatNote(attempt, what) {

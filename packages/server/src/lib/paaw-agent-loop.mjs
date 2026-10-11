@@ -2320,7 +2320,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             finalResult = result + secHit.agentNotice;
             if (onEvent) onEvent({ type: "security_notice", kind: secHit.type, domains: secHit.domains, message: secHit.userNotice });
             // 2026-10-11：結構化安全訊號 — 呼叫端（dispatch_agent）收集後回報 EM，不靠關鍵字撈
-            if (onEvent) onEvent({ type: "security_hit", kind: secHit.type, domains: secHit.domains || [], command: String(args.command || "").slice(0, 300) });
+            if (onEvent) onEvent({ type: "security_hit", kind: secHit.type, domains: secHit.domains || [], command: String(args.command || "").slice(0, 300), stopRun: !!secHit.stopRun });
             // 明知故犯第 3 次（被擋後仍重試）→ 停這個 run（2026-10-11 Fleming：白名單不可自我解除）
             if (secHit.stopRun) { try { const _st = runContextALS.getStore(); if (_st) _st.stopReason = `重複嘗試已被沙箱/白名單擋下的資源（${secHit.type}）`; } catch { /* no ALS */ } }
           }
