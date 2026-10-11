@@ -47,7 +47,7 @@ interface CrewConfig {
   initialized: boolean;
   globalCrewIds: string[];
   customAgents: string[];
-  models: Record<string, { primary: string; fallbacks: string[]; emModel: string; autoDispatchModel: string }>;
+  models: Record<string, { primary: string; fallbacks: string[]; emModel: string; autoDispatchModel: string; reasoning?: string }>;
   skillBindings: Record<string, string[]>;
   contextOverrides: Record<string, any>;
 }
@@ -139,7 +139,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
 
   // Editable state for selected agent
   const [editData, setEditData] = useState<AgentDef | null>(null);
-  const [editModel, setEditModel] = useState({ primary: "", fallbacks: [] as string[], emModel: "", autoDispatchModel: "" });
+  const [editModel, setEditModel] = useState({ primary: "", fallbacks: [] as string[], emModel: "", autoDispatchModel: "", reasoning: "" });
   const [prefs, setPrefs] = useState<CrewPrefs>({});
   const [prefsSaving, setPrefsSaving] = useState(false);
   const [editSkills, setEditSkills] = useState<string[]>([]);
@@ -248,9 +248,9 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
       setEditData(JSON.parse(JSON.stringify(agent)));
     }
     if (config?.models?.[selectedAgentId]) {
-      setEditModel({ ...config.models[selectedAgentId], fallbacks: config.models[selectedAgentId].fallbacks || [] });
+      setEditModel({ ...config.models[selectedAgentId], fallbacks: config.models[selectedAgentId].fallbacks || [], reasoning: config.models[selectedAgentId].reasoning || "" });
     } else {
-      setEditModel({ primary: "", fallbacks: [], emModel: "", autoDispatchModel: "" });
+      setEditModel({ primary: "", fallbacks: [], emModel: "", autoDispatchModel: "", reasoning: "" });
     }
     if (config?.skillBindings?.[selectedAgentId]) {
       setEditSkills([...config.skillBindings[selectedAgentId]]);
@@ -750,6 +750,24 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                       <p className="text-[11px] text-stone-400 mt-1">建議用便宜模型省成本</p>
                     </div>
                   </div>
+
+                  {/* 思考（reasoning）— 2026-10-11 Fleming：產品面該做 */}
+                  <Section title="思考（Reasoning）" icon="🧠" defaultOpen={!!editModel.reasoning}>
+                    <div className="space-y-2">
+                      <select value={editModel.reasoning || ""} onChange={e => setEditModel({ ...editModel, reasoning: e.target.value })}
+                        className={cn(inputCls, "bg-white")} style={inputStyle}>
+                        <option value="">跟隨系統預設（模型層值）</option>
+                        <option value="off">off — 關閉（最快最穩，推薦 deepseek）</option>
+                        <option value="low">low</option>
+                        <option value="medium">medium</option>
+                        <option value="high">high</option>
+                      </select>
+                      <p className="text-[11px] text-stone-400">
+                        off = 不送推理參數（硬開關，最可靠）。low/medium/high = 軟設定，上游不一定聽（部分 provider 不支援分級）。
+                        空 = 給 providers.json 的 model 設定，再退回系統軟預設（openrouter: low）。
+                      </p>
+                    </div>
+                  </Section>
 
                   {/* Cost strategy hint */}
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

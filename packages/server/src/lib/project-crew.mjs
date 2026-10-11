@@ -49,7 +49,7 @@ const DEFAULT_CONFIG = {
   initializedAt: null,
   globalCrewIds: [...DEFAULT_CREW_IDS],
   customAgents: [],
-  models: {},        // { "coding.architect": { "primary": "", "fallbacks": [], "emModel": "", "autoDispatchModel": "" } }
+  models: {},        // { "coding.architect": { "primary": "", "fallbacks": [], "emModel": "", "autoDispatchModel": "", "reasoning": "" } }
   skillBindings: {}, // { "coding.architect": ["skill-id-1", "skill-id-2"] }
   contextOverrides: {}, // { "coding.architect": { "injectProjectContext": true, "extraContext": "" } }
 };
@@ -260,7 +260,7 @@ function syncNewGlobalCrews(projectDir, config) {
   config.models = config.models || {};
   for (const crewId of added) {
     if (!config.models[crewId]) {
-      config.models[crewId] = { primary: "", fallbacks: [], emModel: "", autoDispatchModel: "" };
+      config.models[crewId] = { primary: "", fallbacks: [], emModel: "", autoDispatchModel: "", reasoning: "" };
     }
   }
   // 2026-09-04：新 sync 進來的 crew 也預設帶入模板 skillIds（使用者已自訂不覆蓋）
@@ -438,7 +438,7 @@ export function createCustomAgent(projectDir, def) {
   }
   // Initialize model entry
   if (!config.models[agentId]) {
-    config.models[agentId] = { primary: "", fallbacks: [], emModel: "", autoDispatchModel: "" };
+    config.models[agentId] = { primary: "", fallbacks: [], emModel: "", autoDispatchModel: "", reasoning: "" };
   }
   writeJson(configPath, config);
 
@@ -497,7 +497,7 @@ export function resetProjectAgent(projectDir, agentId) {
   const configPath = getConfigPath(projectDir);
   const config = readJson(configPath, { ...DEFAULT_CONFIG });
   if (config.models[agentId]) {
-    config.models[agentId] = { primary: "", fallbacks: [], emModel: "", autoDispatchModel: "" };
+    config.models[agentId] = { primary: "", fallbacks: [], emModel: "", autoDispatchModel: "", reasoning: "" };
   }
   delete config.skillBindings[agentId];
   delete config.contextOverrides[agentId];
@@ -511,7 +511,7 @@ export function resetProjectAgent(projectDir, agentId) {
  *
  * @param {string} projectDir
  * @param {string} agentId
- * @param {object} modelConfig — { primary?, fallbacks?, emModel?, autoDispatchModel? }
+ * @param {object} modelConfig — { primary?, fallbacks?, emModel?, autoDispatchModel?, reasoning? }
  * @returns {object} updated model config for this agent
  */
 export function updateAgentModel(projectDir, agentId, modelConfig) {
@@ -520,7 +520,7 @@ export function updateAgentModel(projectDir, agentId, modelConfig) {
   const config = readJson(configPath, { ...DEFAULT_CONFIG });
 
   if (!config.models[agentId]) {
-    config.models[agentId] = { primary: "", fallbacks: [], emModel: "", autoDispatchModel: "" };
+    config.models[agentId] = { primary: "", fallbacks: [], emModel: "", autoDispatchModel: "", reasoning: "" };
   }
 
   // Merge patch
@@ -529,6 +529,8 @@ export function updateAgentModel(projectDir, agentId, modelConfig) {
   if (modelConfig.fallbacks !== undefined) current.fallbacks = modelConfig.fallbacks;
   if (modelConfig.emModel !== undefined) current.emModel = modelConfig.emModel;
   if (modelConfig.autoDispatchModel !== undefined) current.autoDispatchModel = modelConfig.autoDispatchModel;
+  // 2026-10-11（B）：reasoning 覆寫（"" = 清除 → 回退 providers.json model / 軟預設）
+  if (modelConfig.reasoning !== undefined) current.reasoning = modelConfig.reasoning;
 
   writeJson(configPath, config);
 

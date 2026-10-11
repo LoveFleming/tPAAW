@@ -16,6 +16,7 @@ interface ModelData {
   vision?: boolean;
   contextWindow?: number;
   maxTokens?: number;
+  reasoning?: string; // ""=未設（用軟預設）| "off" | "low" | "medium" | "high"（2026-10-11）
   pricing?: { inputPerMillion?: number; outputPerMillion?: number };
 }
 
@@ -50,6 +51,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   const [activeId, setActiveId] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   const [fallbacks, setFallbacks] = useState<FallbackEntry[]>([]);
+  const [preferenceFallbacks, setPreferenceFallbacks] = useState<{ key: string; model: string }[]>([]); // 2026-10-11（C）：user.json 的 *Fallback 偏好（優先於上方清單）
   const [pendingRemovals, setPendingRemovals] = useState<string[]>([]);
   const [newModel, setNewModel] = useState<{ pid: string; id: string; name: string }>({ pid: "", id: "", name: "" });
   const [saving, setSaving] = useState(false);
@@ -93,6 +95,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
         if (data.active) setActiveId(data.active);
         if (data.defaultModel) setSelectedModel(data.defaultModel);
         if (Array.isArray(data.fallbacks)) setFallbacks(data.fallbacks);
+        if (Array.isArray(data.preferenceFallbacks)) setPreferenceFallbacks(data.preferenceFallbacks);
       })
       .catch(() => {});
   }, []);
@@ -212,6 +215,17 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
 
   const handleModelBool = (pid: string, mid: string, field: "vision", value: boolean) => {
     setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.map(m => m.id === mid ? { ...m, [field]: value } : m) } }));
+    setSaved(false); setDirty(true);
+  };
+
+  const handleModelReasoning = (pid: string, mid: string, value: string) => {
+    // "" = 移除欄位（回退軟預設），不寫空字串
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.map(m => {
+      if (m.id !== mid) return m;
+      const next: ModelData = { ...m };
+      if (value) next.reasoning = value; else delete next.reasoning;
+      return next;
+    }) } }));
     setSaved(false); setDirty(true);
   };
 
@@ -428,6 +442,18 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
               <input type="number" step="0.01" value={m.pricing?.outputPerMillion ?? ""} onChange={e => handleModelPricing(pid, m.id, "outputPerMillion", e.target.value)}
                 className="w-full px-2 py-1 rounded border border-stone-200 text-[11px] font-mono text-stone-600 focus:outline-none focus:border-stone-400 bg-white" placeholder="2.2" />
             </div>
+            <div>
+              <label className="text-[9px] font-bold text-stone-300 uppercase tracking-wider block mb-0.5" title={t("settings.modelReasoningDesc")}>🧠 {t("settings.modelReasoning")}</label>
+              <select value={m.reasoning ?? ""} onChange={e => handleModelReasoning(pid, m.id, e.target.value)}
+                title={t("settings.modelReasoningDesc")}
+                className="w-full px-2 py-1 rounded border border-stone-200 text-[11px] text-stone-600 focus:outline-none focus:border-stone-400 bg-white">
+                <option value="">{t("settings.reasoningDefault")}</option>
+                <option value="off">off（關）</option>
+                <option value="low">low</option>
+                <option value="medium">medium</option>
+                <option value="high">high</option>
+              </select>
+            </div>
                           </div>
                         </div>
                       ))}
@@ -493,6 +519,14 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                   className="text-xs text-stone-500 hover:text-stone-700 px-2 py-0.5 rounded hover:bg-stone-100">+ {t("settings.addFallback")}</button>
               </div>
               <p className="text-xs text-stone-400 mb-3">{t("settings.fallbacksDesc")}</p>
+              {preferenceFallbacks.length > 0 && (
+                <div className="mb-3 text-[11px] bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800">
+                  <b>⚠️ {t("settings.prefFallbackTitle")}</b> {t("settings.prefFallbackDesc")}
+                  <div className="mt-1 font-mono text-[10px]">
+                    {preferenceFallbacks.map(p => <div key={p.key}>{p.key} → {p.model}</div>)}
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 {fallbacks.map((f, i) => (
                   <div key={i} className="flex items-center gap-2">

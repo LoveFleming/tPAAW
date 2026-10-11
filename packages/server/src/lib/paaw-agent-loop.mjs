@@ -113,6 +113,16 @@ export function resolveLLMConfig(_rootDir, modelOverride, fallbackModels) {
       if (userFbs.length > 0) fallbackModels = userFbs;
     } catch {}
   }
+  // 2026-10-11（C）：user.json 的 *Fallback 偏好 + providers.json.fallbacks 合併成「一條」鏈
+  // 舊行為：user.json 有 *Fallback 就完全蓋掉 providers.json.fallbacks（Settings UI 設的永遠不生效 → 幽靈 fallback）
+  if (fallbackModels && fallbackModels.length > 0) {
+    const merged = [...fallbackModels];
+    for (const fb of (config.fallbacks || [])) {
+      const ref = `${fb.provider}/${fb.model}`;
+      if (!merged.includes(ref)) merged.push(ref);
+    }
+    fallbackModels = merged;
+  }
 
   // Parse "providerId/modelId" format (from ModelSelector)
   // 2026-09-14 fix:改用 parseModelReference - model id 自帶 provider prefix(如 anthropic/claude-opus-4.8)
@@ -153,6 +163,9 @@ export function resolveLLMConfig(_rootDir, modelOverride, fallbackModels) {
       const fbHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${fbProvider.apiKey}` };
       if (fbProviderId === "openrouter") { fbHeaders["HTTP-Referer"] = "https://paaw.ai"; fbHeaders["X-Title"] = "PAAW"; }
       const fbModelDef = (fbProvider.models || []).find(m => (typeof m === "string" ? m : m.id) === fbModelId);
+      // 2026-10-11（C）：provider 清單裡沒有的 model 直接跳過（幽靈 fallback）—
+      // 教訓：user.json 曾指向已下架的 deepseek-v4-flash-0731 → 限流時回空內容，整步報錯
+      if (!fbModelDef) { console.warn(`[resolveLLMConfig] fallback model not in ${fbProviderId} list — skipped: ${fbModelId}`); continue; }
       const fbMaxTokens = (typeof fbModelDef === "object" ? fbModelDef?.maxTokens : null) || 16384;
       fallbacks.push({ providerId: fbProviderId, apiUrl: `${fbProvider.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: fbHeaders, model: fbModelId, contextWindow: DEFAULT_CONTEXT_WINDOW, maxTokens: fbMaxTokens });
     }
@@ -4407,7 +4420,11 @@ function _normalizeReasoningValue(v) {
   return String(v).toLowerCase();
 }
 
-/** crew 層 reasoning 覆寫（firmware crew 優先，其次 .paaw / data/crews） */
+/** crew 層 reasoning 覆寫。優先序（2026-10-11 二修）：
+ *   RU 設定(.paaw/agents/_config.json models[id].reasoning，UI 可改)
+ *   > .paaw/agents/<crew>.json > module firmware crew > data/crews
+ *   reasoning 跟 model 同性質（行為偏好，非治理欄位）→ 使用者設定優先。
+ */
 function getAgentReasoning(agentId, cwd = null) {
   if (!agentId) return undefined;
   const cacheKey = `${agentId}::${cwd || ""}`;
@@ -4415,8 +4432,17 @@ function getAgentReasoning(agentId, cwd = null) {
   let val;
   const crewId = _AGENT_CREW_MAP[agentId];
   if (crewId) {
-    const mod = getModuleCrew(crewId);
-    if (mod && mod.crew && mod.crew.reasoning !== undefined) val = mod.crew.reasoning;
+    // 1. RU 設定（Crew 編輯器 → 模型 tab）
+    if (cwd) {
+      try {
+        const p = join(cwd, ".paaw", "agents", "_config.json");
+        if (existsSync(p)) {
+          const v = JSON.parse(readSync(p, "utf-8"))?.models?.[crewId]?.reasoning;
+          if (v !== undefined && v !== "") val = v;
+        }
+      } catch { /* bad json → skip */ }
+    }
+    // 2. crew JSON（.paaw override > firmware > data/crews global）
     if (val === undefined) {
       const candidates = cwd ? [join(cwd, ".paaw", "agents", `${crewId}.json`)] : [];
       candidates.push(join(DATA_HOME, "crews", `${crewId}.json`));
@@ -4427,6 +4453,10 @@ function getAgentReasoning(agentId, cwd = null) {
           if (cfg.reasoning !== undefined) { val = cfg.reasoning; break; }
         } catch { /* bad json → skip */ }
       }
+    }
+    if (val === undefined) {
+      const mod = getModuleCrew(crewId);
+      if (mod && mod.crew && mod.crew.reasoning !== undefined) val = mod.crew.reasoning;
     }
   }
   const norm = _normalizeReasoningValue(val);

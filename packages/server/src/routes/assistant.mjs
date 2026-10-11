@@ -278,7 +278,13 @@ export default async function assistantRoute(req, res) {
     try {
       const config = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "config/providers.json"), "utf-8"));
       const hasAnyKey = Object.values(config.providers).some((p) => p.apiKey && p.apiKey.length > 0);
-      const safe = { active: config.active, defaultModel: config.defaultModel, fallbacks: config.fallbacks || [], configured: hasAnyKey, providers: {} };
+      // 2026-10-11（C）：把 user.json 的 *Fallback 偏好也回給前端 — 讓 UI 看得到「真正生效的優先 fallback」
+      let preferenceFallbacks = [];
+      try {
+        const prefs = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "config/user.json"), "utf-8"))?.preferences || {};
+        preferenceFallbacks = Object.entries(prefs).filter(([k]) => k.endsWith("Fallback")).map(([k, v]) => ({ key: k, model: v })).filter(x => !!x.model);
+      } catch {}
+      const safe = { active: config.active, defaultModel: config.defaultModel, fallbacks: config.fallbacks || [], preferenceFallbacks, configured: hasAnyKey, providers: {} };
       for (const [k, v] of Object.entries(config.providers)) {
         safe.providers[k] = { ...v, apiKey: v.apiKey ? v.apiKey.slice(0, 8) + "..." : "" };
       }
@@ -286,7 +292,7 @@ export default async function assistantRoute(req, res) {
       res.end(JSON.stringify(safe));
     } catch {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ active: "", defaultModel: "", fallbacks: [], configured: false, providers: {} }));
+      res.end(JSON.stringify({ active: "", defaultModel: "", fallbacks: [], preferenceFallbacks: [], configured: false, providers: {} }));
     }
     return true;
   }

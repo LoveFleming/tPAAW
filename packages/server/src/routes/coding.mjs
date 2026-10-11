@@ -2140,6 +2140,8 @@ export default async function projectRoute(req, res) {
         const body = JSON.parse(await readBody(req) || "{}");
         try {
           const result = updateAgentModel(projectDir, agentIdParam, body);
+          // 2026-10-11（B）：清 crew 快取（含 _crewReasoningCache）→ reasoning/model 改完免重啟即生效
+          try { (await import("../lib/paaw-agent-loop.mjs")).clearCrewGroupCache(); } catch {}
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify(result));
         } catch (err) {
