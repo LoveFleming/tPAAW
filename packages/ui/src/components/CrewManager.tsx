@@ -32,6 +32,7 @@ interface AgentDef {
   };
   toolGroups?: string[];
   tools?: string[]; // 2026-10-11：伺服器回傳的實際可用工具清單（唯讀）
+  _em?: boolean; // 2026-10-11：EM 大總管（同樣列進 crew 管理，但專屬設定在 EM Dashboard）
   guardrails?: {
     redirectRules?: string;
     refuseTopics?: string;
@@ -435,6 +436,9 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
               {agent._source === "custom" && (
                 <span className="text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-600 font-medium">CUSTOM</span>
               )}
+              {(agent as any)._em && (
+                <span className="text-[9px] px-1 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium shrink-0">大總管</span>
+              )}
             </button>
           ))}
         </div>
@@ -487,6 +491,12 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
 
             {/* Tab Content */}
             <div className="flex-1 overflow-y-auto p-5">
+              {(editData as any)._em && (
+                <div className="mb-3 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                  🧭 <b>EM 大總管</b> — 這裡可維護名字 / 照片 / 開場白 / 語氣 / 模型 / 技能（與其他 AI Crew 一致）。
+                  EM 專屬設定（派工規則、編排、Dashboard 等）請到 <b>EM Dashboard</b>。
+                </div>
+              )}
               {/* ════ Rules Tab ════ */}
               {/* ════ 🔧 技能 Tab（2026-10-09 Fleming：綁定存 RU .paaw；實體種入 {ru}/.paaw/skills/）════ */}
               {detailTab === "skills" && (

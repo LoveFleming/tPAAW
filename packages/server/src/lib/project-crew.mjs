@@ -314,6 +314,14 @@ export function readProjectCrew(projectDir) {
     }
   }
 
+  // 2026-10-11 Fleming：EM 大總管也是 AI Crew — 也要有一致的管理介面（名字/照片/開場白/語氣/工具…）。
+  // 附加 EM 到清單尾端並標記 _em:true；EM 專屬設定仍在 EM Dashboard。
+  // 聊天 tab / dispatch / getDispatchableAgents 各自已排除 EM，不受影響。
+  const emDef = readEMAgent(projectDir);
+  if (emDef && !agents.some(a => a.id === EM_CREW_ID)) {
+    agents.push({ ...emDef, _em: true });
+  }
+
   return {
     agents,
     config: updatedConfig,
