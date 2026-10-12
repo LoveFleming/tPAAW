@@ -1,10 +1,17 @@
 /**
  * ES Log Shipper（原生版，2026-10-04 Fleming 需求）
  *
- * 環境變數（.env）：
- *   PAAW_ES_URL（或相容別名 ELASTICSEARCH_URL）= ES 位址，例：http://127.0.0.1:9200
- *   → 有設定才開啟：agent 執行 log（LLM 呼叫 / tokens / 成本）即時送 Elasticsearch
- *   → 沒設定 = 功能完全關閉，零开销、零報錯
+ * 環境變數（.env，全部可自行修改）：
+ *   PAAW_ES_URL（別名 ELASTICSEARCH_URL）        ES 位址，例：http://127.0.0.1:9200（也可寫 http://user:pass@host，會自動轉成 header）
+ *   PAAW_ES_USERNAME（別名 ES_USERNAME）         帳號（Basic Auth；留空＝不帶認證）
+ *   PAAW_ES_PASSWORD（別名 ES_PASSWORD）         密碼
+ *   PAAW_ES_INDEX_PREFIX                         agent log index 前綴（預設 paaw-agent-logs）
+ *   PAAW_ES_AUDIT_PREFIX                         審計 index 前綴（預設 paaw-audit）
+ *   → 有設 URL 才開啟：agent 執行 log（LLM 呼叫 / tokens / 成本）即時送 Elasticsearch
+ *   → 沒設 = 功能完全關閉，零开销、零報錯
+ *
+ * Index 命名規則（2026-10-12 Fleming）＝ prefix + yyyymm（月滾動，例：paaw-agent-logs-202610）
+ *   prefix 結尾非 -/_/. 時自動補一個「-」；想完全自控就把分隔符寫進 prefix。
  *
  * 資料契約（與外部 ship-agent-logs.mjs v3 冪等相容，dashboard 通用）：
  *   _id       = agent-logs:<taskId>.jsonl:<recNo>（1-based，與檔案行號對齊）
@@ -33,6 +40,9 @@ const ERR_COOLDOWN_MS = 60000;
 const state = {
   enabled: false,
   url: "",
+  auth: "",            // "Basic xxx"（帳密來自環境變數；空＝不帶 Authorization）
+  prefix: "paaw-agent-logs",   // agent log index 前綴（PAAW_ES_INDEX_PREFIX）
+  auditPrefix: "paaw-audit",   // 審計 index 前綴（PAAW_ES_AUDIT_PREFIX）
   buf: [],
   auditBuf: [], // 審計事件（paaw-audit-*，2026-10-10）
   timer: null,
@@ -125,12 +135,47 @@ function enrichDoc(doc) {
   if (doc.usage) stampMoney(doc, doc.usage, doc.model);
 }
 
-function esUrl() {
-  return (process.env.PAAW_ES_URL || process.env.ELASTICSEARCH_URL || "").trim().replace(/\/+$/, "");
+function envAny(...names) {
+  for (const n of names) { const v = (process.env[n] || "").trim(); if (v) return v; }
+  return "";
 }
 
-async function es(path, opts) {
-  const r = await fetch(state.url + path, opts);
+/** 解析 ES 連線設定：URL + Basic Auth（帳密可放環境變數，或直接內嵌在 URL） */
+function esConfig() {
+  let url = envAny("PAAW_ES_URL", "ELASTICSEARCH_URL");
+  let auth = "";
+  const u = envAny("PAAW_ES_USERNAME", "ES_USERNAME");
+  const p = envAny("PAAW_ES_PASSWORD", "ES_PASSWORD");
+  if (u) auth = "Basic " + Buffer.from(`${u}:${p}`).toString("base64");
+  try {
+    const parsed = new URL(url);
+    if (parsed.username) {   // http://user:pass@host → 轉 header，避免帳密留在 URL/log
+      if (!auth) {
+        auth = "Basic " + Buffer.from(`${decodeURIComponent(parsed.username)}:${decodeURIComponent(parsed.password)}`).toString("base64");
+      }
+      parsed.username = "";
+      parsed.password = "";
+      url = parsed.toString();
+    }
+  } catch { /* 非標準 URL → 原樣使用 */ }
+  return { url: url.replace(/\/+$/, ""), auth };
+}
+
+/** index 前綴合法字元（ES 要求小寫；不得以 -/_/+ 開頭） */
+function validPrefix(s) { return /^[a-z0-9][a-z0-9._-]*$/.test(s); }
+
+/** index 命名規則：prefix + yyyymm（prefix 未以分隔符結尾 → 自動補一格「-」） */
+function idxName(prefix, isoTs) {
+  const ym = String(isoTs || "").slice(0, 7).replace(/-/g, "");
+  if (!/^\d{6}$/.test(ym)) return null;
+  const sep = /[-_.]$/.test(prefix) ? "" : "-";
+  return `${prefix}${sep}${ym}`;
+}
+
+async function es(path, opts = {}) {
+  const headers = { ...(opts.headers || {}) };
+  if (state.auth) headers.Authorization = state.auth;
+  const r = await fetch(state.url + path, { ...opts, headers });
   const body = await r.text();
   if (!r.ok) throw new Error(`HTTP ${r.status}: ${body.slice(0, 200)}`);
   return body;
@@ -138,11 +183,11 @@ async function es(path, opts) {
 
 /** 冪等建立 index template（keyword mappings，與外部 shipper 相同） */
 async function putTemplate() {
-  await es("/_index_template/paaw-agent-logs", {
+  await es(`/_index_template/${state.prefix}-template`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      index_patterns: ["paaw-agent-logs-*"],
+      index_patterns: [`${state.prefix}*`],
       template: {
         settings: { number_of_shards: 1, number_of_replicas: 0 },
         mappings: {
@@ -169,11 +214,11 @@ async function putTemplate() {
 
 /** 審計 index template（paaw-audit-*，2026-10-10）— command/reason 開 text 才搜得到全文 */
 async function putAuditTemplate() {
-  await es("/_index_template/paaw-audit", {
+  await es(`/_index_template/${state.auditPrefix}-template`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      index_patterns: ["paaw-audit-*"],
+      index_patterns: [`${state.auditPrefix}*`],
       template: {
         settings: { number_of_shards: 1, number_of_replicas: 0 },
         mappings: {
@@ -208,9 +253,12 @@ async function flush() {
   const batch = state.buf.splice(0, state.buf.length);
   const nd = [];
   for (const { id, doc } of batch) {
-    nd.push(JSON.stringify({ index: { _index: `paaw-agent-logs-${doc["@timestamp"].slice(0, 10).replace(/-/g, ".")}`, _id: id } }));
+    const idx = idxName(state.prefix, doc["@timestamp"]);
+    if (!idx) continue;
+    nd.push(JSON.stringify({ index: { _index: idx, _id: id } }));
     nd.push(JSON.stringify(doc));
   }
+  if (!nd.length) return;
   try {
     const body = await es("/_bulk", { method: "POST", headers: { "Content-Type": "application/x-ndjson" }, body: nd.join("\n") + "\n" });
     const errors = (JSON.parse(body).items || []).filter(it => it.index?.error).length;
@@ -226,9 +274,12 @@ async function flushAudit() {
   const batch = state.auditBuf.splice(0, state.auditBuf.length);
   const nd = [];
   for (const { id, doc } of batch) {
-    nd.push(JSON.stringify({ index: { _index: `paaw-audit-${doc["@timestamp"].slice(0, 10).replace(/-/g, ".")}`, _id: id } }));
+    const idx = idxName(state.auditPrefix, doc["@timestamp"]);
+    if (!idx) continue;
+    nd.push(JSON.stringify({ index: { _index: idx, _id: id } }));
     nd.push(JSON.stringify(doc));
   }
+  if (!nd.length) return;
   try {
     const body = await es("/_bulk", { method: "POST", headers: { "Content-Type": "application/x-ndjson" }, body: nd.join("\n") + "\n" });
     const errors = (JSON.parse(body).items || []).filter(it => it.index?.error).length;
@@ -240,21 +291,28 @@ async function flushAudit() {
 
 /** server 啟動時呼叫一次。回傳是否啟用 */
 export function initEsShipper() {
-  const url = esUrl();
+  const { url, auth } = esConfig();
   if (!url) {
     console.log("[es-shipper] 未設定 PAAW_ES_URL — ES log shipping 關閉");
     return false;
   }
+  const pRaw = envAny("PAAW_ES_INDEX_PREFIX") || "paaw-agent-logs";
+  const aRaw = envAny("PAAW_ES_AUDIT_PREFIX") || "paaw-audit";
+  state.prefix = validPrefix(pRaw) ? pRaw : "paaw-agent-logs";
+  state.auditPrefix = validPrefix(aRaw) ? aRaw : "paaw-audit";
+  if (state.prefix !== pRaw) console.error(`[es-shipper] PAAW_ES_INDEX_PREFIX 不合法（${pRaw}）→ 回退 ${state.prefix}`);
+  if (state.auditPrefix !== aRaw) console.error(`[es-shipper] PAAW_ES_AUDIT_PREFIX 不合法（${aRaw}）→ 回退 ${state.auditPrefix}`);
   state.url = url;
+  state.auth = auth;
   state.enabled = true;
   state.timer = setInterval(() => { flush().catch(() => {}); flushAudit().catch(() => {}); }, FLUSH_MS);
   state.timer.unref?.(); // 不阻擋 process 結束
   putTemplate().then(
-    () => console.log(`[es-shipper] ES log shipping 開啟 → ${url}`),
+    () => console.log(`[es-shipper] ES log shipping 開啟 → ${url} | index ${state.prefix}-YYYYMM | 認證 ${auth ? "Basic(已設定)" : "無"}`),
     e => logErr("template", e),
   );
   putAuditTemplate().then(
-    () => console.log(`[es-shipper] 審計事件 shipping 開啟 → paaw-audit-*`),
+    () => console.log(`[es-shipper] 審計事件 shipping 開啟 → ${state.auditPrefix}-YYYYMM`),
     e => logErr("audit-template", e),
   );
   return true;
