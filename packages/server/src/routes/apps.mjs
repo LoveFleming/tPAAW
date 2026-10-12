@@ -18,7 +18,7 @@ import { DATA_HOME } from "../data-home.mjs";
 import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 import { stableStringify } from "../lib/stable-stringify.mjs";
 
-import { listAppModules, scaffoldAppModule, patchAppModule } from "../lib/app-modules.mjs";
+import { listAppModules, scaffoldAppModule, patchAppModule, exportAppModule, importAppModule, removeAppModule } from "../lib/app-modules.mjs";
 
 export async function appModulesRoutes(req, res) {
   const urlObj = new URL(req.url, "http://localhost");
@@ -37,6 +37,31 @@ export async function appModulesRoutes(req, res) {
   if (req.method === "POST" && path === "/api/apps/modules") {
     const body = JSON.parse(await readBody(req) || "{}");
     const r = scaffoldAppModule(body);
+    res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(r));
+    return true;
+  }
+  // GET /api/apps/modules/:id/export — 匯出模組 zip（M2）
+  const mExport = path.match(/^\/api\/apps\/modules\/([a-z0-9-]+)\/export$/);
+  if (req.method === "GET" && mExport) {
+    const r = exportAppModule(mExport[1]);
+    if (!r.ok) { res.writeHead(404, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.error })); return true; }
+    res.writeHead(200, { "Content-Type": "application/zip", "Content-Disposition": `attachment; filename="${r.filename}"`, "Content-Length": r.buffer.length });
+    res.end(r.buffer);
+    return true;
+  }
+  // POST /api/apps/modules/import — 匯入模組 zip（M2；raw body = zip binary）
+  if (req.method === "POST" && path === "/api/apps/modules/import") {
+    const buf = await readRawBody(req);
+    const r = importAppModule(buf);
+    res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(r));
+    return true;
+  }
+  // DELETE /api/apps/modules/:id — 移除模組（code 移到 .removed/，資料保留）
+  const mDel = path.match(/^\/api\/apps\/modules\/([a-z0-9-]+)$/);
+  if (req.method === "DELETE" && mDel) {
+    const r = removeAppModule(mDel[1]);
     res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
     res.end(JSON.stringify(r));
     return true;
@@ -725,4 +750,14 @@ export default async function appsRoute(req, res) {
   }
 
   return false;
+}
+
+/** 讀 raw binary body（匯入模組 zip 用；不動 shared 的 readBody） */
+function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
 }

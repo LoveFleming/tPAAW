@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import { uiAlertError, uiConfirm } from "../components/ui/uiFeedback";
@@ -28,6 +28,8 @@ export default function AppModules() {
   const [newId, setNewId] = useState("");
   const [newName, setNewName] = useState("");
   const [newEmoji, setNewEmoji] = useState("📦");
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -49,6 +51,31 @@ export default function AppModules() {
     if (r?.ok) {
       load();
     } else uiAlertError(`切換失敗：${r?.error || "unknown"}`);
+  };
+
+  const doImport = async (file: File) => {
+    setBusy(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/apps/modules/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/zip" },
+        body: file,
+      }).then(x => x.json()).catch(() => null);
+      if (r?.ok) {
+        uiConfirm(`匯入成功：${r.id} v${r.version}。\n\nUI 頁面需跑 npm run build 後才會出現；server routes 重啟後掛載。`).then(() => load());
+      } else uiAlertError(`匯入失敗：${r?.error || "unknown"}`);
+    } finally { setBusy(false); if (fileRef.current) fileRef.current.value = ""; }
+  };
+
+  const doExport = (m: AppModule) => {
+    window.open(`${API_BASE}/api/apps/modules/${m.id}/export`, "_blank");
+  };
+
+  const doRemove = async (m: AppModule) => {
+    const ok = await uiConfirm(`移除模組 ${m.name}（installed-apps/${m.id}）？\n\ncode 會移到 installed-apps/.removed/（可還原）；data/installed-apps/${m.id} 資料保留。\nUI 頁面需重新 build、server 需重啟後才會完全消失。`);
+    if (!ok) return;
+    const r = await fetch(`${API_BASE}/api/apps/modules/${m.id}`, { method: "DELETE" }).then(x => x.json()).catch(() => null);
+    if (r?.ok) load(); else uiAlertError(`移除失敗：${r?.error || "unknown"}`);
   };
 
   const create = async () => {
@@ -74,11 +101,25 @@ export default function AppModules() {
               可組裝底座 — persona app 模組管理（installed-apps/）· 資料各模組自帶（data/installed-apps/&lt;id&gt;/）
             </p>
           </div>
-          <button
-            onClick={() => setCreating(v => !v)}
-            className="text-xs px-3 py-1.5 rounded-md text-white hover:opacity-90"
-            style={{ background: th.accent }}
-          >➕ Create Module</button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={busy}
+              className="text-xs px-3 py-1.5 rounded-md border border-stone-300 text-stone-700 hover:border-stone-400 disabled:opacity-50"
+            >📥 {t("appModules.import")}</button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".zip,application/zip"
+              className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) doImport(f); }}
+            />
+            <button
+              onClick={() => setCreating(v => !v)}
+              className="text-xs px-3 py-1.5 rounded-md text-white hover:opacity-90"
+              style={{ background: th.accent }}
+            >➕ Create Module</button>
+          </div>
         </div>
 
         {creating && (
@@ -110,18 +151,28 @@ export default function AppModules() {
                     {m.error ? `⚠️ ${m.error}` : `${m.enabled ? "🟢 啟用中" : "⚪ 已停用"}${m.nav ? ` · nav: ${m.nav.label}` : " · 無 nav"}`}
                   </p>
                 </div>
-                <button
-                  onClick={() => uiConfirm(`要${m.enabled ? "停用" : "啟用"} ${m.name} 嗎？（server routes 重啟後生效）`).then(ok => { if (ok) toggle(m); })}
-                  className={cn("text-xs px-3 py-1.5 rounded-md border border-stone-200 hover:border-stone-300",
-                    m.enabled ? "text-stone-500" : "text-emerald-600 font-medium")}
-                >{m.enabled ? "停用" : "啟用"}</button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => doExport(m)}
+                    className="text-xs px-2.5 py-1.5 rounded-md border border-stone-200 text-stone-600 hover:border-stone-300"
+                  >📤 {t("appModules.export")}</button>
+                  <button
+                    onClick={() => doRemove(m)}
+                    className="text-xs px-2.5 py-1.5 rounded-md border border-stone-200 text-rose-500 hover:border-rose-300"
+                  >🗑 {t("appModules.remove")}</button>
+                  <button
+                    onClick={() => uiConfirm(`要${m.enabled ? "停用" : "啟用"} ${m.name} 嗎？（server routes 重啟後生效）`).then(ok => { if (ok) toggle(m); })}
+                    className={cn("text-xs px-3 py-1.5 rounded-md border border-stone-200 hover:border-stone-300",
+                      m.enabled ? "text-stone-500" : "text-emerald-600 font-medium")}
+                  >{m.enabled ? "停用" : "啟用"}</button>
+                </div>
               </div>
             ))}
           </div>
         )}
 
         <p className="text-[10px] text-stone-400 mt-6">
-          出貨流程：模組目錄 zip（installed-apps/&lt;id&gt;/，不含 data）→ 客戶 PAAW 解開 → npm run build → 重啟 → 掛載。資料各機自帶，永不隨碼出走。
+          出貨流程：模組目錄 zip（installed-apps/&lt;id&gt;/，不含 data）→ 客戶 📥 匯入 → npm run build → 重啟 → 掛載。資料各機自帶，永不隨碼出走。
         </p>
       </div>
     </div>

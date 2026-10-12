@@ -15,8 +15,9 @@
  * 鐵律：模組挂載失敗大聲報（沿 2026-09-06 route 載入教訓），不得靜默跳過。
  */
 
-import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync } from "fs";
-import { join, resolve } from "path";
+import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync, rmSync, renameSync } from "fs";
+import { join, resolve, dirname, sep } from "path";
+import AdmZip from "adm-zip";
 
 import { PAAW_ROOT } from "../routes/shared.mjs"; // 走本體同一顆 root（2026-10-03 教訓：自己算層數少爬一層=模組全部隱形）
 const MODULES_DIR = join(PAAW_ROOT, "installed-apps");
@@ -97,6 +98,88 @@ export default async function handler(req, res) {
 }
 `);
   return { ok: true, dir, dataDir: MODULE_DATA_ROOT(id) };
+}
+
+/** M2：匯出模組為 zip（頂層目錄 = <id>/，解開即 installed-apps/<id>/；不含 data） */
+export function exportAppModule(id) {
+  if (!/^[a-z][a-z0-9-]*$/.test(id || "")) return { ok: false, error: "模組 id 不合法" };
+  const dir = join(MODULES_DIR, id);
+  if (!existsSync(dir)) return { ok: false, error: `installed-apps/${id} 不存在` };
+  let version = "0.0.0";
+  try { version = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")).version || "0.0.0"; } catch {}
+  try {
+    const zip = new AdmZip();
+    zip.addLocalFolder(dir, id);
+    return { ok: true, buffer: zip.toBuffer(), filename: `${id}-${version}.zip` };
+  } catch (e) {
+    return { ok: false, error: `打包失敗：${e.message}` };
+  }
+}
+
+/** M2：匯入模組 zip（buffer）→ installed-apps/<id>/；已存在則拒絕；逐檔 resolve 邊界檢查防 zip-slip */
+export function importAppModule(buffer) {
+  if (!buffer || !buffer.length) return { ok: false, error: "空檔案" };
+  let zip;
+  try { zip = new AdmZip(buffer); } catch (e) { return { ok: false, error: `不是有效的 zip：${e.message}` }; }
+  const rels = [];
+  for (const entry of zip.getEntries()) {
+    const n = entry.entryName.replace(/\\/g, "/").replace(/^\.\//, "");
+    if (!n || n === "/") continue;
+    if (n.startsWith("__MACOSX/") || n.endsWith(".DS_Store")) continue;
+    if (n.startsWith("/") || /^[a-zA-Z]:/.test(n) || n.split("/").includes("..")) {
+      return { ok: false, error: `不安全的 zip 路徑：${entry.entryName}` };
+    }
+    rels.push({ entry, rel: n });
+  }
+  if (!rels.length) return { ok: false, error: "zip 內沒有檔案" };
+  // 決定 id：優先 <top>/manifest.json；否則讀頂層 manifest.json 的 id
+  const tops = [...new Set(rels.map(r => r.rel.split("/")[0]))];
+  let id, prefix = "";
+  if (tops.length === 1 && rels.some(r => r.rel === `${tops[0]}/manifest.json`)) {
+    id = tops[0]; prefix = `${id}/`;
+  } else {
+    const mf = rels.find(r => r.rel === "manifest.json");
+    if (!mf) return { ok: false, error: "zip 內找不到 manifest.json（需在頂層或 <id>/manifest.json）" };
+    try { id = JSON.parse(mf.entry.getData().toString("utf8")).id; } catch (e) { return { ok: false, error: `manifest.json 解析失敗：${e.message}` }; }
+  }
+  if (!id || !/^[a-z][a-z0-9-]*$/.test(id)) return { ok: false, error: `模組 id 不合法：${id}` };
+  const dir = join(MODULES_DIR, id);
+  if (existsSync(dir)) return { ok: false, error: `installed-apps/${id} 已存在（請先移除再匯入）` };
+  try {
+    mkdirSync(dir, { recursive: true });
+    for (const { entry, rel } of rels) {
+      const sub = prefix && rel.startsWith(prefix) ? rel.slice(prefix.length) : rel;
+      if (!sub) continue;
+      const target = resolve(dir, sub);
+      if (target !== dir && !target.startsWith(dir + sep)) throw new Error(`路徑逃逸：${rel}`);
+      if (entry.isDirectory) { mkdirSync(target, { recursive: true }); continue; }
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, entry.getData());
+    }
+  } catch (e) {
+    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+    return { ok: false, error: `解壓失敗：${e.message}` };
+  }
+  const mf = join(dir, "manifest.json");
+  if (!existsSync(mf)) { try { rmSync(dir, { recursive: true, force: true }); } catch {} return { ok: false, error: "解壓後找不到 manifest.json" }; }
+  let man; try { man = JSON.parse(readFileSync(mf, "utf8")); } catch (e) { return { ok: false, error: `manifest.json 解析失敗：${e.message}` }; }
+  return { ok: true, id, name: man.name || id, version: man.version || "0.0.0", nav: man.nav || null, buildRequired: true, restartRequired: true };
+}
+
+/** M2：移除模組（code）— 移到 installed-apps/.removed/（可還原；不動 data/installed-apps/<id>） */
+export function removeAppModule(id) {
+  if (!/^[a-z][a-z0-9-]*$/.test(id || "")) return { ok: false, error: "模組 id 不合法" };
+  const dir = join(MODULES_DIR, id);
+  if (!existsSync(dir)) return { ok: false, error: `installed-apps/${id} 不存在` };
+  try {
+    const bin = join(MODULES_DIR, ".removed");
+    mkdirSync(bin, { recursive: true });
+    const dest = join(bin, `${id}-${Date.now()}`);
+    renameSync(dir, dest);
+    return { ok: true, id, movedTo: dest, dataKept: MODULE_DATA_ROOT(id) };
+  } catch (e) {
+    return { ok: false, error: `移除失敗：${e.message}` };
+  }
 }
 
 /** S5：manifest patch（enable/disable / 改 nav） */
