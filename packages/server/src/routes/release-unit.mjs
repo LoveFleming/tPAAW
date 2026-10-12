@@ -1,0 +1,746 @@
+/**
+ * release-unit.mjs — Release Unit Tool API Routes（/api/ru/*）
+ *
+ * 總計畫：把 Release Unit API 化 — AI 派工前必讀 context、
+ * 改前跑 impact、改後跑 verify。Tier 1（理解力）+ Tier 3 核心（執行力）。
+ *
+ * Routes:
+ *   GET  /api/ru                                  — 列出所有 Release Unit（recent projects）
+ *   GET  /api/ru/overview?path=                   — 高層摘要（tech stack + 規模 + .paaw 狀態）
+ *   GET  /api/ru/context?path=                    — AI 完整 context（.paaw 四大文件 + standards）
+ *   GET  /api/ru/architecture?path=[&refresh=1]   — 模組邊界視圖
+ *   GET  /api/ru/dependencies?path=&file=&direction=[&refresh=1]
+ *   POST /api/ru/impact-analysis { path, files[], changeType? }
+ *   POST /api/ru/verify { path, checks[]?, skip[]? }
+ *
+ * 跨平台鐵律：路徑一律 normalizePath() 回前端；fs 遞迴不用 find。
+ */
+
+import { readFile, readdir, stat } from "fs/promises";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import { join, resolve, dirname, basename } from "path";
+import { fileURLToPath } from "url";
+import { randomUUID } from "crypto";
+import { normalizePath } from "./shared.mjs";
+import { shellExec } from "../lib/shell-exec.mjs";
+import { detectTechStack } from "../lib/release-unit/adapters.mjs";
+import { buildDependencyGraph, queryGraph } from "../lib/release-unit/dependencies.mjs";
+import { impactAnalysis } from "../lib/release-unit/impact.mjs";
+import { architectureView } from "../lib/release-unit/architecture.mjs";
+import { runVerify, readLastVerify } from "../lib/release-unit/verify.mjs";
+import { computeMetrics, isTestFile } from "../lib/release-unit/metrics.mjs";
+import { analyzeUnit } from "../lib/release-unit/analyze.mjs";
+import { checkGates } from "../lib/release-unit/gates.mjs";
+import { askCodebase } from "../lib/release-unit/ask.mjs";
+import { extractAPIs } from "../lib/release-unit/apis.mjs";
+import { loadReleaseUnitModel, queryModelByFeature, queryModelByFile, queryModelByApi } from "../lib/release-unit/model.mjs";
+import { buildCostReport, buildCostReportBetween, resolveReleaseWindow } from "../lib/release-unit/cost.mjs";
+import { answerQuestion } from "../lib/release-unit/qa.mjs";
+import { DATA_HOME } from "../data-home.mjs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
+
+function json(res, code, data) {
+  res.status(code).json(data);
+  return true;
+}
+
+function readBody(req) {
+  return new Promise((r) => {
+    let buf = "";
+    req.on("data", (c) => { buf += c; if (buf.length > 1e6) req.destroy(); });
+    req.on("end", () => { try { r(JSON.parse(buf || "{}")); } catch { r({}); } });
+    req.on("error", () => r({}));
+  });
+}
+
+function validRoot(p) {
+  return p && existsSync(p) && p.split(/[\\/]/).length >= 2; // 必須是存在的目錄路徑
+}
+
+/** 400 回應 — 區分「沒給 path」與「path 不存在」，方便 UI/除錯分辨 */
+function badPath(res, p) {
+  return json(res, 400, { error: p ? `path not found or invalid: ${p}` : "path required" });
+}
+
+/** .paaw 核心文件清單（context 用） */
+const CONTEXT_DOCS = [
+  { file: "PROJECT.md", label: "專案概述" },
+  { file: "ARCHITECTURE.md", label: "架構" },
+  { file: "DECISIONS.md", label: "技術決策" },
+  { file: "CONTEXT.md", label: "長期 context" },
+];
+
+async function readDoc(root, rel) {
+  const f = join(root, ".paaw", rel);
+  if (!existsSync(f)) return null;
+  try { return await readFile(f, "utf-8"); } catch { return null; }
+}
+
+// 讀專案 loop mode（.paaw/tasks/TASKS.json top-level loopMode，預設 mini）
+// 與 coding-tasks.mjs loadTasksAndConfig 同源，但只讀欄位不觸發 pipeline 重算
+function readLoopMode(root) {
+  try {
+    const f = join(root, ".paaw", "tasks", "TASKS.json");
+    if (!existsSync(f)) return "mini";
+    const data = JSON.parse(readFileSync(f, "utf-8"));
+    return data.loopMode === "full" ? "full" : "mini";
+  } catch { return "mini"; }
+}
+
+export default async function releaseUnitRoutes(req, res, next) {
+  const method = req.method;
+  const rawUrl = req.url || "";
+  const url = rawUrl.split("?")[0];
+  const q = new URL(rawUrl, "http://localhost").searchParams;
+  const path = q.get("path");
+  const refresh = q.get("refresh") === "1";
+
+  if (!url.startsWith("/api/ru")) return next?.() ?? false;
+
+  // ═══ Release Unit Workspace Registry（sidebar RU tabs 用）═══
+  // 一個 RU = 一個專案目錄。註冊表存在 DATA_HOME/config/release-units.json
+  // registry 只管「分頁存在與否」— 移除不碰任何檔案
+  const RU_REGISTRY = join(DATA_HOME, "config", "release-units.json");
+  const _loadRuRegistry = () => {
+    try {
+      const raw = JSON.parse(readFileSync(RU_REGISTRY, "utf-8"));
+      return Array.isArray(raw.units) ? raw.units : [];
+    } catch { return []; }
+  };
+  const _saveRuRegistry = (units) => {
+    mkdirSync(dirname(RU_REGISTRY), { recursive: true });
+    writeFileSync(RU_REGISTRY, JSON.stringify({ units }, null, 2));
+  };
+
+  // GET /api/ru/workspaces — 已註冊的 RU 清單（exists 標記路徑還在不在）
+  if (url === "/api/ru/workspaces" && method === "GET") {
+    const units = _loadRuRegistry().map(u => ({ ...u, exists: existsSync(u.path) }));
+    return json(res, 200, { units });
+  }
+
+  // POST /api/ru/workspaces {path, label?} — 註冊（以 resolved path 去重）
+  if (url === "/api/ru/workspaces" && method === "POST") {
+    const body = await readBody(req);
+    const rawPath = (body.path || "").trim();
+    if (!rawPath || !existsSync(rawPath)) return json(res, 400, { error: "path required and must exist" });
+    const absPath = resolve(rawPath);
+    // 2026-09-04：import RU 時自動把 PAAW AI crew 帶進專案 .paaw/agents/
+    // （prompts 複製成專案層 agent 檔 + 各 crew 模板 skillIds 預設綁定；已初始化的專案做 add-only sync）
+    let crewProvisioned = false;
+    try {
+      const { readProjectCrew } = await import("../lib/project-crew.mjs");
+      readProjectCrew(absPath); // 未初始化 → auto-init；已初始化 → sync 新 global crews + seed skills
+      crewProvisioned = true;
+    } catch {} // crew provision 失敗不阻斷 RU 註冊
+    // 2026-09-19：RU 註冊自動 ensure runtime 層退出版控（冪等 — gitignore 區塊 + 已追蹤的 runtime 檔退出 index）
+    let runtimeIgnored = null;
+    try {
+      const { ensureRuntimeIgnores } = await import("../lib/ru-runtime-ignore.mjs");
+      runtimeIgnored = ensureRuntimeIgnores(absPath);
+    } catch {} // 失敗不阻斷註冊
+    // Label 優先序：body.label > git repo name（git toplevel basename）> 根目錄名
+    let label = (body.label || "").trim();
+    if (!label) {
+      try {
+        const topLevel = String(shellExecSync(`git -C "${absPath}" rev-parse --show-toplevel`, { timeout: 5000 })).trim();
+        label = (topLevel && existsSync(topLevel) ? basename(topLevel) : basename(absPath)).slice(0, 40);
+      } catch {
+        label = basename(absPath).slice(0, 40); // 沒 git → 用根目錄名
+      }
+    } else {
+      label = label.slice(0, 40);
+    }
+    const units = _loadRuRegistry();
+    const found = units.find(u => resolve(u.path) === absPath);
+    if (found) {
+      // 已註冊過：沒指定 label 時也用 git repo name 刷新 label（補齊舊資料）
+      if (!(body.label || "").trim() && found.label !== label) {
+        found.label = label;
+        _saveRuRegistry(units);
+      }
+      return json(res, 200, { unit: { ...found, exists: true }, crewProvisioned, runtimeIgnored });
+    }
+    const unit = {
+      id: randomUUID(),
+      path: normalizePath(absPath),
+      label,
+      addedAt: new Date().toISOString(),
+    };
+    units.push(unit);
+    _saveRuRegistry(units);
+    return json(res, 200, { unit: { ...unit, exists: true }, crewProvisioned, runtimeIgnored });
+  }
+
+  // DELETE /api/ru/workspaces?id= — 取消註冊（不刪檔案）
+  if (url === "/api/ru/workspaces" && method === "DELETE") {
+    const id = q.get("id");
+    if (!id) return json(res, 400, { error: "id required" });
+    const units = _loadRuRegistry();
+    const next2 = units.filter(u => u.id !== id);
+    if (next2.length === units.length) return json(res, 404, { error: "not found" });
+    _saveRuRegistry(next2);
+    return json(res, 200, { ok: true });
+  }
+
+  // POST /api/ru/clone — Git URL → clone 成新 Release Unit（2026-09-05 Phase 2 wizard）
+  // 只接受 https:// / http:// / git@ 遠端 URL；本地路徑請用 Import。
+  // clone 完丟回 path，註冊由 client 走 POST /api/ru/workspaces（crew provisioning 在那邊）
+  if (url === "/api/ru/clone" && method === "POST") {
+    const body = await readBody(req);
+    const gitUrl = String(body.gitUrl || "").trim();
+    const parentDirRaw = String(body.parentDir || "").trim();
+    if (!gitUrl) return json(res, 400, { error: "gitUrl required" });
+    if (!parentDirRaw || !existsSync(parentDirRaw)) return json(res, 400, { error: "parentDir required and must exist" });
+    // 防注入：URL 只准安全字元（git URL 常見字符）；擋 shell metacharacters
+    if (!/^(https?:\/\/|git@)[A-Za-z0-9._~:@\/%+-]+$/.test(gitUrl) || /[\s;`$&|<>"']/.test(gitUrl)) {
+      return json(res, 400, { error: "invalid gitUrl — 只接受 https:// 或 git@ 開頭的遠端 URL" });
+    }
+    const parentDir = resolve(parentDirRaw);
+    // repo 名：URL 尾段去 .git；防空 → fallback "repo"
+    const tail = gitUrl.split("/").pop() || "";
+    let repoName = tail.endsWith(".git") ? tail.slice(0, -4) : tail;
+    // git@host:path 形式尾段可能帶 ':'
+    repoName = (repoName.split(":").pop() || "").replace(/[^A-Za-z0-9._-]/g, "") || "repo";
+    const target = join(parentDir, repoName);
+    if (existsSync(target)) {
+      return json(res, 409, { error: `目錄已存在：${normalizePath(target)}（要嘛先刪，要嘛直接 Import 它）` });
+    }
+    try {
+      const { stdout, stderr } = await shellExec(`git clone -- ${JSON.stringify(gitUrl)} ${JSON.stringify(target)}`, { timeout: 600_000, maxBuffer: 10 * 1024 * 1024 });
+      if (!existsSync(join(target, ".git"))) {
+        return json(res, 500, { error: "clone 失敗", detail: String(stderr || stdout || "").slice(-500) });
+      }
+      return json(res, 200, { ok: true, path: normalizePath(target), label: repoName.slice(0, 40) });
+    } catch (e) {
+      // clone 了一半失敗 → 清掉殘骸，不留半成品
+      try { await shellExec(process.platform === "win32" ? `rmdir /s /q ${JSON.stringify(target)}` : `rm -rf ${JSON.stringify(target)}`, { timeout: 30_000 }); } catch {}
+      return json(res, 500, { error: "clone 失敗", detail: String(e.stderr || e.stdout || e.message || "").slice(-500) });
+    }
+  }
+
+  // ── GET /api/ru/qa — 新人 12 問 deterministic 引擎（R5：no answer without evidence）──
+  if (url === "/api/ru/qa" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    const q2 = q.get("q") || "";
+    if (!q2.trim()) return json(res, 400, { error: "q required" });
+    try {
+      const a = await answerQuestion(path, q2);
+      return json(res, 200, { root: normalizePath(path), ...a });
+    } catch (e) {
+      return json(res, 500, { error: "qa failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/cost/release-window — AI 治理：上次 release → 這次 release 花了多少（by 角色/model/task）──
+  if (url === "/api/ru/cost/release-window" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    try {
+      const win = resolveReleaseWindow(path, { rrId: q.get("rr") || undefined });
+      if (!win) return json(res, 404, { error: "no release requests found", detail: "這個專案還沒有任何 release request — 先建單" });
+      const report = buildCostReportBetween(PAAW_ROOT, { fromTs: win.fromTs, toTs: win.toTs, projectRoot: path });
+      return json(res, 200, { root: normalizePath(path), ...win, ...report });
+    } catch (e) {
+      return json(res, 500, { error: "release-window cost failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/cost — Cost 歸集（R3：per day/model/agent/task/feature）──
+  if (url === "/api/ru/cost" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    try {
+      const days = Math.max(1, Math.min(365, Number(q.get("days")) || 30));
+      const report = buildCostReport(PAAW_ROOT, { days, projectRoot: path });
+      return json(res, 200, { root: normalizePath(path), ...report });
+    } catch (e) {
+      return json(res, 500, { error: "cost report failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/code-intel — Code Intelligence 原料（call graph + API call chain）──
+  // 直接讀 .paaw/code-intelligence/*.json（不重建）— RuView 的 APIs callChain 與 📞 Call Graph 分類用
+  if (url === "/api/ru/code-intel" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    try {
+      const ciDir = join(path, ".paaw", "code-intelligence"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      const apiMapFile = join(ciDir, "api-function-map.json"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      const callGraphFile = join(ciDir, "call-graph.json"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      if (!existsSync(apiMapFile) || !existsSync(callGraphFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        return json(res, 404, { error: "code-intelligence not built", hint: "Run ⚡重掃機械層 first" });
+      }
+      const apiMap = JSON.parse(readFileSync(apiMapFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      const callGraph = JSON.parse(readFileSync(callGraphFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      // 瘦身：nodes 只留顯示需要的欄位；edges 不回（callersOf/calleesOf 已涵蓋）
+      const nodes = (callGraph.nodes || []).map(n => ({ id: n.id, name: n.name, file: n.file, kind: n.kind }));
+      return json(res, 200, {
+        root: normalizePath(path),
+        apiMap: {
+          routes: (apiMap.routes || []).map(r => ({
+            method: r.method, path: r.path, file: r.file, handler: r.handler,
+            callChain: r.callChain || null,
+          })),
+        },
+        callGraph: { nodes, callersOf: callGraph.callersOf || {}, calleesOf: callGraph.calleesOf || {}, stats: callGraph.stats || null },
+      });
+    } catch (e) {
+      return json(res, 500, { error: "code-intel failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/model — Release Unit Model（R2：單一事實來源，零 LLM）──
+  if ((url === "/api/ru/model" || url === "/api/ru/model/query") && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    try {
+      if (url === "/api/ru/model") {
+        const m = await loadReleaseUnitModel(path, { refresh });
+        m.root = normalizePath(path);
+        // 查詢參數可縮小回傳：?view=summary 只給 summary + gaps
+        if (q.get("view") === "summary") {
+          return json(res, 200, {
+            root: m.root, version: m.version, generatedAt: m.generatedAt, headSha: m.headSha, stale: m.stale,
+            summary: m.summary, knowledgeGaps: m.knowledgeGaps,
+            features: (m.features || []).map(f => ({
+              id: f.id, name: f.name, status: f.status, fileCount: f.fileCount,
+              apiCount: f.apiCount, testCount: f.testCount, changeCount: f.changeCount,
+              lastChangeAt: f.lastChangeAt, knowledgeGaps: f.knowledgeGaps,
+            })),
+          });
+        }
+        return json(res, 200, m);
+      }
+      // /api/ru/model/query?type=feature|file|api
+      const m = await loadReleaseUnitModel(path, { refresh });
+      const type = q.get("type");
+      if (type === "feature") {
+        const r = queryModelByFeature(m, q.get("id") || "");
+        if (!r) return json(res, 404, { error: `feature not found: ${q.get("id")}` });
+        return json(res, 200, { root: normalizePath(path), type, result: r });
+      }
+      if (type === "file") {
+        const r = queryModelByFile(m, q.get("file") || "");
+        return json(res, 200, { root: normalizePath(path), type, result: r });
+      }
+      if (type === "api") {
+        const r = queryModelByApi(m, q.get("method") || "GET", q.get("route") || "");
+        if (!r) return json(res, 404, { error: `api not found: ${q.get("method")} ${q.get("route")}` });
+        return json(res, 200, { root: normalizePath(path), type, result: r });
+      }
+      return json(res, 400, { error: "type must be feature | file | api" });
+    } catch (e) {
+      return json(res, 500, { error: "model build failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru — 列出所有 Release Unit ──
+  if (url === "/api/ru" && method === "GET") {
+    const recentFile = join(DATA_HOME, "config", "recent-projects.json");
+    let recent = [];
+    try { recent = JSON.parse(readFileSync(recentFile, "utf-8")); } catch {}
+    const units = [];
+    for (const r of recent) {
+      if (!r?.path || !existsSync(r.path)) continue;
+      units.push({
+        path: normalizePath(r.path),
+        name: r.name || r.path.split(/[\\/]/).pop(),
+        initialized: existsSync(join(r.path, ".paaw")),
+        loopMode: readLoopMode(r.path),
+        lastOpened: r.lastOpened || r.openedAt || null,
+      });
+    }
+    return json(res, 200, { units, count: units.length });
+  }
+
+  // ── GET /api/ru/overview — 高層摘要 ──
+  if (url === "/api/ru/overview" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    // ⚠️ 先快照 .paaw 是否存在 — buildDependencyGraph 會自動建 .paaw/ 放快取，
+    // 快照在後會把新專案誤判成 initialized（empty state 判定依賴這個 flag）
+    const hadPaaw = existsSync(join(path, ".paaw")); // nosemgrep: path-join-resolve-traversal, detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    const tech = await detectTechStack(path);
+    const projectMd = (await readDoc(path, "PROJECT.md")) ?? (await readDoc(path, "project/PROJECT.md"));
+    // 一句話描述：PROJECT.md 第一個標題/段落
+    let summary = null;
+    if (projectMd) {
+      const m = projectMd.match(/^#\s+(.+)$/m) || projectMd.match(/^(.+)$/m);
+      summary = m ? m[1].slice(0, 200) : null;
+    }
+    const graph = await buildDependencyGraph(path);
+    return json(res, 200, {
+      path: normalizePath(path),
+      name: path.split(/[\\/]/).pop(),
+      tech,
+      summary,
+      scale: { sourceFiles: graph.fileCount, edges: Object.values(graph.deps).reduce((s, a) => s + a.length, 0) },
+      initialized: hadPaaw,
+      loopMode: readLoopMode(path),
+      depsGraphFromCache: graph.fromCache,
+    });
+  }
+
+  // ── GET /api/ru/context — AI 完整 context（派工前必讀）──
+  if (url === "/api/ru/context" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    const tech = await detectTechStack(path);
+    const docs = [];
+    let totalChars = 0;
+    for (const d of CONTEXT_DOCS) {
+      let content = await readDoc(path, d.file);
+      if (content == null && d.altDir) content = await readDoc(path, `${d.altDir}/${d.file}`);
+      docs.push({ file: d.file, label: d.label, found: content != null, chars: content?.length || 0 });
+      if (content) totalChars += content.length;
+    }
+    // 實際內容：docs 參數 content=1 才帶（預設只給清單，省 payload）
+    const withContent = q.get("content") === "1";
+    const payload = {
+      path: normalizePath(path),
+      tech,
+      docs,
+      totalChars,
+    };
+    if (withContent) {
+      payload.docContents = {};
+      for (const d of CONTEXT_DOCS) {
+        const c = await readDoc(path, d.file) ?? (d.altDir ? await readDoc(path, `${d.altDir}/${d.file}`) : null);
+        if (c) payload.docContents[d.file] = c.slice(0, 20000); // 單檔上限 20k chars
+      }
+    }
+    return json(res, 200, payload);
+  }
+
+  // ── GET /api/ru/architecture — 模組邊界視圖 ──
+  if (url === "/api/ru/architecture" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    try {
+      const view = await architectureView(path, { refresh });
+      view.path = normalizePath(path);
+      return json(res, 200, view);
+    } catch (e) {
+      return json(res, 500, { error: "architecture scan failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/dependencies — 依賴查詢 ──
+  if (url === "/api/ru/dependencies" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    try {
+      const graph = await buildDependencyGraph(path, { refresh });
+      const file = q.get("file");
+      const direction = q.get("direction") || "both";
+      const out = {
+        path: normalizePath(path),
+        adapter: graph.adapter,
+        fileCount: graph.fileCount,
+        fromCache: graph.fromCache,
+        generatedAt: graph.generatedAt,
+      };
+      if (file) {
+        out.query = queryGraph(graph, file, direction);
+      } else {
+        // 無 file：回圖統計 + top hubs（不回整圖 — 可能幾 MB）
+        const hubs = Object.entries(graph.rdeps)
+          .map(([f, d]) => ({ file: f, dependents: d.length }))
+          .sort((a, b) => b.dependents - a.dependents).slice(0, 20);
+        out.stats = {
+          edges: Object.values(graph.deps).reduce((s, a) => s + a.length, 0),
+          externalPackages: Object.keys(graph.pkgCount).length,
+          topPackages: Object.entries(graph.pkgCount).sort((a, b) => b[1] - a[1]).slice(0, 15)
+            .map(([pkg, n]) => ({ pkg, importers: n })),
+        };
+        out.hubs = hubs;
+      }
+      return json(res, 200, out);
+    } catch (e) {
+      return json(res, 500, { error: "dependency scan failed", detail: e.message });
+    }
+  }
+
+  // ── POST /api/ru/impact-analysis — 改動影響分析（改前必跑）──
+  if (url === "/api/ru/impact-analysis" && method === "POST") {
+    const body = await readBody(req);
+    if (!validRoot(body.path)) return badPath(res, body.path);
+    const files = Array.isArray(body.files) ? body.files : [];
+    if (!files.length) return json(res, 400, { error: "files[] required" });
+    try {
+      const result = await impactAnalysis(body.path, files, {
+        changeType: body.changeType || "modify",
+        refresh: body.refresh === true,
+      });
+      result.path = normalizePath(body.path);
+      return json(res, 200, result);
+    } catch (e) {
+      return json(res, 500, { error: "impact analysis failed", detail: e.message });
+    }
+  }
+
+  // ── POST /api/ru/verify — 驗證（build/lint/test/type-check，改完必跑）──
+  if (url === "/api/ru/verify" && method === "POST") {
+    const body = await readBody(req);
+    if (!validRoot(body.path)) return badPath(res, body.path);
+    try {
+      const report = await runVerify(body.path, {
+        checks: body.checks,
+        skip: body.skip,
+        timeoutMs: body.timeoutMs,
+      });
+      report.path = normalizePath(body.path);
+      return json(res, 200, report);
+    } catch (e) {
+      return json(res, 500, { error: "verify failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/verify — 上次 verify 結果（沒跑過回 null）──
+  if (url === "/api/ru/verify" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    const last = await readLastVerify(path);
+    if (last) last.path = normalizePath(path);
+    return json(res, 200, { last, found: !!last });
+  }
+
+  // ══════ Phase 2 — 觀測 + 治理 ══════
+
+  // ── GET /api/ru/metrics — 代碼指標 ──
+  if (url === "/api/ru/metrics" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    try {
+      const m = await computeMetrics(path, { refresh });
+      m.path = normalizePath(path);
+      return json(res, 200, m);
+    } catch (e) {
+      return json(res, 500, { error: "metrics failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/analyze — 深度分析（Code Health 2.0）──
+  if (url === "/api/ru/analyze" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    try {
+      const a = await analyzeUnit(path, { refresh });
+      a.path = normalizePath(path);
+      return json(res, 200, a);
+    } catch (e) {
+      return json(res, 500, { error: "analyze failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/gates — 發布門檻檢查 ──
+  if (url === "/api/ru/gates" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    try {
+      const g = await checkGates(path);
+      g.path = normalizePath(path);
+      return json(res, 200, g);
+    } catch (e) {
+      return json(res, 500, { error: "gates check failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/tests — 測試檔清單 + 上次 test 結果 ──
+  if (url === "/api/ru/tests" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    try {
+      const graph = await buildDependencyGraph(path, { refresh });
+      const testFiles = Object.keys(graph.deps).filter(isTestFile).sort();
+      const last = await readLastVerify(path);
+      return json(res, 200, {
+        path: normalizePath(path),
+        testFiles,
+        testCount: testFiles.length,
+        sourceCount: graph.fileCount,
+        testRatio: graph.fileCount ? +(testFiles.length / graph.fileCount).toFixed(3) : 0,
+        lastRun: last?.checks?.find(c => c.check === "test") || null,
+      });
+    } catch (e) {
+      return json(res, 500, { error: "tests scan failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/features — 功能清單（.paaw/features/）──
+  if (url === "/api/ru/features" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    const dir = join(path, ".paaw", "features"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    const features = [];
+    if (existsSync(dir)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      for (const f of (await readdir(dir)).filter(f => f.endsWith(".json")).sort()) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        try {
+          const d = JSON.parse(await readFile(join(dir, f), "utf-8")); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          features.push({
+            id: d.id || f.replace(/\.json$/, ""),
+            name: d.name || d.title || null,
+            status: d.status || null,
+            files: Array.isArray(d.files) ? d.files.length : 0,
+            updatedAt: d.updatedAt || null,
+          });
+        } catch { /* skip corrupt */ }
+      }
+    }
+    return json(res, 200, { path: normalizePath(path), features, count: features.length });
+  }
+
+  // ── GET /api/ru/runbooks — 操作手冊清單（.paaw/runbook/）──
+  if (url === "/api/ru/runbooks" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    const dir = join(path, ".paaw", "runbook"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    const runbooks = [];
+    if (existsSync(dir)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      for (const f of (await readdir(dir)).filter(f => f.endsWith(".md")).sort()) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        const content = await readFile(join(dir, f), "utf-8").catch(() => ""); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        const title = content.match(/^#\s+(.+)$/m)?.[1] || f.replace(/\.md$/, "");
+        runbooks.push({ id: f.replace(/\.md$/, ""), title, file: f, chars: content.length });
+      }
+    }
+    return json(res, 200, { path: normalizePath(path), runbooks, count: runbooks.length });
+  }
+
+  // ── GET /api/ru/changes — 變更紀錄（git log 分類）──
+  if (url === "/api/ru/changes" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    const limit = Math.min(parseInt(q.get("limit") || "50", 10) || 50, 200);
+    try {
+      const { stdout } = await shellExec(
+        `git log -${limit} --format='%h~|~%aI~|~%s'`,
+        { cwd: path, timeout: 15_000, maxBuffer: 4 * 1024 * 1024 },
+      );
+      const lines = (stdout || "").split("\n").filter(Boolean);
+      const commits = lines.map(l => {
+        const [hash, date, ...msg] = l.split("~|~");
+        const subject = msg.join("|||");
+        const kind = /^feat/i.test(subject) ? "feat" : /^fix/i.test(subject) ? "fix"
+          : /^(refactor|perf)/i.test(subject) ? "refactor" : /^(doc|chore|style|test)/i.test(subject) ? "chore" : "other";
+        return { hash, date, subject: subject.slice(0, 160), kind };
+      });
+      const byKind = {};
+      for (const c of commits) byKind[c.kind] = (byKind[c.kind] || 0) + 1;
+      return json(res, 200, { path: normalizePath(path), commits, byKind, count: commits.length });
+    } catch (e) {
+      return json(res, 500, { error: "git log failed", detail: e.message });
+    }
+  }
+
+  // ══════ Phase 3 — AI 互動 + 契約 ══════
+
+  // ── GET /api/ru/ask?path=&q= — 自然語言問 codebase（檢索層，零 LLM）──
+  if (url === "/api/ru/ask" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    const q2 = q.get("q") || "";
+    if (!q2.trim()) return json(res, 400, { error: "q required" });
+    try {
+      const r = await askCodebase(path, q2, { maxHits: parseInt(q.get("hits") || "15", 10) });
+      r.path = normalizePath(path);
+      return json(res, 200, r);
+    } catch (e) {
+      return json(res, 500, { error: "ask failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/apis?path= — API 契約掃描 ──
+  if (url === "/api/ru/apis" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    try {
+      const r = await extractAPIs(path, { refresh });
+      r.path = normalizePath(path);
+      return json(res, 200, r);
+    } catch (e) {
+      return json(res, 500, { error: "apis scan failed", detail: e.message });
+    }
+  }
+
+  // ── GET /api/ru/specs?path=[&id=] — 規格文件（.paaw/specs/）──
+  if (url === "/api/ru/specs" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    const dir = join(path, ".paaw", "specs"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (!existsSync(dir)) return json(res, 200, { path: normalizePath(path), specs: [], count: 0 }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    const id = q.get("id");
+    if (id) {
+      const f = join(dir, `${id.replace(/\.md$|\.json$/, "")}.md`); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      const fj = join(dir, `${id.replace(/\.md$|\.json$/, "")}.json`); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      for (const cand of [f, fj]) {
+        if (existsSync(cand)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          const content = await readFile(cand, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          return json(res, 200, { path: normalizePath(path), id, file: normalizePath(cand), content });
+        }
+      }
+      return json(res, 404, { error: `spec not found: ${id}` });
+    }
+    const specs = [];
+    for (const f of (await readdir(dir)).sort()) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      if (!/\.(md|json)$/.test(f)) continue;
+      const st = await stat(join(dir, f)).catch(() => null); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      const head = await readFile(join(dir, f), "utf-8").then(c => c.match(/^#\s+(.+)$/m)?.[1] || null).catch(() => null); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      specs.push({ id: f.replace(/\.(md|json)$/, ""), file: f, title: head, mtime: st?.mtime?.toISOString() || null });
+    }
+    return json(res, 200, { path: normalizePath(path), specs, count: specs.length });
+  }
+
+  // ── GET /api/ru/releases?path= — 發布紀錄（.paaw/releases/）──
+  if (url === "/api/ru/releases" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    const dir = join(path, ".paaw", "releases"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    const releases = [];
+    if (existsSync(dir)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      for (const f of (await readdir(dir)).filter(f => f.endsWith(".json")).sort().reverse()) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        try {
+          const r = JSON.parse(await readFile(join(dir, f), "utf-8")); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          releases.push({
+            id: r.id || f.replace(/\.json$/, ""),
+            releasedAt: r.releasedAt || null,
+            taskId: r.taskId || null,
+            title: r.title || r.evidence?.title || null,
+            trustScore: r.evidence?.trustScore?.score ?? null,
+            riskLevel: r.evidence?.risk?.level ?? null,
+          });
+        } catch { /* skip corrupt */ }
+      }
+    }
+    releases.sort((a, b) => (b.releasedAt || "").localeCompare(a.releasedAt || ""));
+    return json(res, 200, { path: normalizePath(path), releases, count: releases.length });
+  }
+
+  // ── GET /api/ru/evidence?path=[&taskId=] — 變更證據鏈 ──
+  if (url === "/api/ru/evidence" && method === "GET") {
+    if (!validRoot(path)) return badPath(res, path);
+    // releases 證據 + task pipeline 證據（TASKS.json 裡有 pipeline 的 task）
+    const out = { path: normalizePath(path), releases: [], tasks: [] };
+    const relDir = join(path, ".paaw", "releases"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (existsSync(relDir)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      for (const f of (await readdir(relDir)).filter(f => f.endsWith(".json")).sort().reverse()) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        try {
+          const r = JSON.parse(await readFile(join(relDir, f), "utf-8")); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          out.releases.push({
+            id: r.id || f.replace(/\.json$/, ""),
+            releasedAt: r.releasedAt,
+            taskId: r.taskId,
+            evidence: r.evidence ? {
+              trustScore: r.evidence.trustScore?.score ?? null,
+              risk: r.evidence.risk?.level ?? null,
+              diffStat: r.evidence.changes?.diffStat ?? null,
+              testResult: r.evidence.verification?.testResult ?? null,
+            } : null,
+          });
+        } catch { /* skip */ }
+      }
+    }
+    out.releases.sort((a, b) => (b.releasedAt || "").localeCompare(a.releasedAt || ""));
+    const tasksFile = join(path, ".paaw", "tasks", "TASKS.json"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (existsSync(tasksFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      try {
+        const data = JSON.parse(await readFile(tasksFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        for (const t of (data.tasks || [])) {
+          if (!t?.pipeline) continue;
+          const phases = Object.entries(t.pipeline)
+            .filter(([, p]) => p?.status === "done")
+            .map(([ph]) => ph);
+          if (!phases.length) continue;
+          out.tasks.push({ id: t.id, title: t.title, status: t.status, donePhases: phases, updatedAt: t.updatedAt });
+        }
+        out.tasks.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+        out.tasks = out.tasks.slice(0, 30);
+      } catch { /* skip */ }
+    }
+    return json(res, 200, out);
+  }
+
+  return next?.() ?? false;
+}

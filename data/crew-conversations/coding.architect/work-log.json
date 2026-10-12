@@ -1,0 +1,14 @@
+{
+  "entries": [
+    {
+      "id": "work-1784028869248",
+      "skillIds": [],
+      "inputSummary": "hello",
+      "cli": "paaw-agent",
+      "inputData": {
+        "task": "hello"
+      },
+      "timestamp": "2026-07-14T11:34:29.248Z"
+    }
+  ]
+}

@@ -1,0 +1,210 @@
+# Coding App — AI Coding 安全防護
+
+> 2026-10-09 版。對應實作：`lib/script-guard.mjs`、`lib/shell-guard.mjs`、`lib/env-exec-tool.mjs`（commit afee4540 等）。
+> 原則一句話：**該快的全速跑，該問的才問 — 擋越權靠代碼，不靠 AI 自律。**
+
+---
+
+## 部署環境的隔離脈絡（2026-10-09 Fleming 補充）
+
+- **公司開發機本來就連不到 production**（公司網路政策）— PAAW 跑在公司機上時，這層隔離由公司環境提供
+- **家裡 Mac mini 與公司無關** — 防護 = script-guard 系（pattern 掃描/越權攔截，跨平台自帶）
+- 網路沙箱已上（v5 srt）：macOS Seatbelt / Linux bubblewrap 原生支援；Windows 需跑 `srt windows-install`（公司端要裝再說）
+## 威脅模型
+
+PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
+
+1. **AI 被操縱** — prompt injection（網頁 / 檔案 / issue 內容夾帶指令，讓 AI 執行惡意操作）
+2. **AI 出錯** — 自信地跑出毀滅性指令（rm 錯目錄、kill 錯 process）
+
+攻擊鏈永遠是同一條：**寫檔（write_file）→ 執行（bash / npm / 未來某次 build）**
+
+---
+
+## 防線總覽（由外到內）
+
+```
+① 最小權限      哪些工具看得到        toolGroups / toolsDeny / CHAT_BLOCKED_TOOLS
+② 檔案邊界      哪些路徑寫得到        isPathAllowed（cwd 限制 + WRITE_BLACKLIST）
+③ 執行入口攔截  哪些檔案絕不能寫      script-guard A
+④ Process 鐵律  哪些 process 碰不得   shell-guard（pkill/killall 擋、PAAW 自身不可啟停）
+④½ 網路沙箱   哪些網路連得到      srt（Mac，domain 白名單）/ MXC（Linux/Win，fs allowlist + egress 開關）
+④¾ 防呆迴圈    同 call 重複偵測      doom_loop — 同 tool call 第 3 次攔（防卡死燒 token）
+⑤ 內容掃描      執行前掃 script 內容  script-guard C（bash）+ B（env_exec）
+⑥ 人審流程      出了事誰把關          ask_user / QA·RM review / no-push 紀律
+⑦ 審計追蹤      事後怎麼查            action log / agent memory / LLM log → ES
+```
+
+---
+
+## ① 最小權限（工具層）
+
+- **toolGroups**：每個 crew 只拿需要的工具組
+  - coding 系（developer/tester 等）：core-read + write + bash
+  - 維運系（ops/helpdesk/qa）：core-read 為主，**沒有 bash**
+- **toolsDeny**：firmware 級工具黑名單，`.paaw` 覆蓋不了（module crew 定義）
+- **CHAT_BLOCKED_TOOLS**：chat 助理（林雨晴）看不到 bash / write_file / edit_file / git — 她只有 `env_exec` 白名單工具
+
+## ② 檔案邊界（路徑層）
+
+- 寫入只限 **cwd（該 RU 專案目錄）內**，跨目錄要使用者加 workspace
+- PAAW 自身的 packages/core/knowledge 目錄有 WRITE_BLACKLIST
+- 外部 workspace 掛載為 read-only reference
+
+## ③ 執行入口檔案攔截（script-guard A）
+
+**這些檔案 AI 永遠不可寫** — 因為它們會在「人不在場」時被執行：
+
+| 類型 | 路徑 |
+|---|---|
+| Git hooks | `.git/hooks/**` |
+| Launchd | `~/Library/LaunchAgents/*.plist`、`/Library/LaunchDaemons/**` |
+| Crontab | `/etc/crontab` 等 |
+| Shell rc | `~/.zshrc`、`~/.zprofile`、`~/.bashrc`、`~/.profile`（限 home） |
+| SSH | `~/.ssh/**` |
+| 偽裝執行檔 | `node_modules/.bin/**` |
+| 自啟動 | `~/.config/autostart/**` |
+
+掛在 `write_file` / `edit_file` handler — 命中即擋，訊息引導 agent 請人工處理。
+`package.json` **不在此列**（AI coding 常態需要加 dependency）→ 由 ⑤ 的執行時掃描補防。
+
+## ④ Process 鐵律（shell-guard，2026-09-13 定調）
+
+- `pkill` / `killall` / `taskkill` 一律擋
+- `kill` 只放行**本 RU 受控 dev-server pid**
+- PAAW coding app 自身（paaw-server / tPAAW vite / port 4097·4098·4100·5173）永遠不可啟停
+
+## ④½ 網路沙箱（srt — 2026-10-09 v5，Fleming 23:15 拍板）
+
+**Anthropic 開源沙箱 `@anthropic-ai/sandbox-runtime`（Claude Code 同款）：macOS Seatbelt / Linux bubblewrap / Windows WFP。**
+
+- AI bash **全部包**：domain 白名單（npm/pypi/github/localhost）+ denyRead（~/.ssh/.env/providers.json/~/.openclaw）+ allowWrite（RU cwd + /tmp + ~/.npm）
+- **npm install 沙箱內完整可用**（registry 在白名單）— 不需要 egress 旁路
+- allowLocalBinding + allowAllUnixSockets：dev server bind + loopback 測試照常
+- 混淆 payload（base64+eval、字串拼接）在 OS 層死 — 不靠 pattern 猜意圖
+- 逃生口：`PAAW_SANDBOX=off`；套件不可用（公司 Windows 未裝）自動退回 pattern 掃描
+- 實測 6/6：混淆攔 / localhost 200 / npm install 成功 / vitest 全跑 / ~/.ssh 雙層擋 / ~/.zshrc 雙層擋
+
+**白名單管理（2026-10-10 Fleming 拍板：不寫死，data/ + Settings UI）**
+- 內建（碼裡保底，UI 不可刪）：npm/pypi/GitHub/localhost；自訂：`data/config/network-whitelist.json`
+- Settings → 🛡 安全 tab 管理（GET/PUT `/api/paaw/network-whitelist`）；儲存即時生效（buildConfig 每次重讀，不需重啟）
+
+**阻擋翻譯與引導（2026-10-10 Fleming 需求：被擋時要告訴使用者去哪設定）**
+- 沙箱擋連線的原始輸出只有 cryptic 簽名（curl 000 exit 28 / Could not resolve host / EPERM）— bash/env_exec 執行後由 `lib/audit-log.mjs` scanCommandOutput 掃描翻譯
+- 命中「非白名單網域 + 網路失敗簽名」→ ① tool result 附 agent 引導（用 ask_user、去「設定 → 🛡 安全」加網域）② SSE `security_notice` 事件 → UI 🛡 安全通知卡（使用者即時看到）③ 記 audit（見 ⑦）
+- 「Operation not permitted / EPERM」（機密 denyRead / 專案外禁寫）→ 同樣三件套（npm 自家 cache EPERM unlink 誤報已排除）
+
+## ④⅝ MXC 沙箱後端（2026-10-10 v3，Fleming 拍板：公司 Linux+Windows 統一攔截層）
+
+Microsoft **MXC**（`@microsoft/mxc-sdk`，root package.json optionalDependencies）— Windows ProcessContainer / Linux bubblewrap / macOS seatbelt。
+
+### 後端選擇（paaw-sandbox v3 `activeBackend()`）
+- `PAAW_SANDBOX_BACKEND=auto`（預設）：**darwin → srt**（per-domain 白名單較精細、已實測）；**win32/linux → mxc**（公司端從裸奔變有攔截）
+- 可強制 `mxc` / `srt` / `off`；mxc 啟動失敗自動 fallback srt → raw（可用性優先）
+
+### MXC 模式 policy（`execSandboxed()`）
+- **filesystem：default-deny allowlist**（未列路徑一律 EPERM — 比 srt 黑名單更嚴）
+  - readonly：/usr /bin /etc /opt home 專案根 node-bin-dir；`deniedPaths` 優先蓋敏感：`~/.ssh` `~/.openclaw` `~/.aws` `~/.gnupg` `<cwd>/.env` `<cwd>/data/config/providers.json`
+  - readwrite：專案 cwd、TMPDIR、~/.npm、~/Library/Caches、~/.cache
+- **network：egress deny-by-default** — 命令含套件管理/下載工具（`needsNetworkAllow()`：npm/pip/git clone|fetch|pull/curl/wget/brew/cargo/go…）→ egress allow + 事後 scanCommandOutput 審計；其餘命令全關
+  - macOS seatbelt 不支援 egress allow 規則（只能全開/全關）— per-domain 精細白名單只有 srt 有，這是 Mac 留 srt 的原因
+- **環境**：MXC 內建極簡 PATH/HOME — `buildMxcEnv()` 顯式傳 PATH/HOME/TMPDIR + PAAW_LOG_HOME 等
+
+### 消費端（統一入口 `execSandboxed(command, {cwd, timeoutMs, env, network})`）
+- bash 工具（paaw-agent-loop runShell）：mxc 可用 → execSandboxed（MXC 自管 timeout 殺組，不走 proc-ledger 記帳）；否則照舊 srt+runShellGrouped
+- env_exec（林雨晴）：一律走 execSandboxed；回傳帶 `🛡沙箱内（MXC）` 標記；raw fallback 行為同 v2
+
+### 部署需求（公司端）
+- **Node ≥ 24**（SDK 硬需求）；`npm install` 自動裝（101MB native assets，optionalDependencies 裝失敗不擋）
+- Linux 需 `bwrap`（bubblewrap）存在；Windows ProcessContainer 為內建預設後端
+- 驗證：跑 `npx vitest run tests/unit/paaw-sandbox-mxc.test.mjs`（無 SDK 自動 skip live 段）
+
+## ④¾ doom_loop 防呆（2026-10-09，抄 OpenCode 預設 ask）
+
+同 tool call（name + arguments 完全相同）第 3 次 → 攔截 + 引導（換做法/ask_user）。防 agent 卡死燒 token。2026-10-10 起兩條 loop（runAgentLoop + runAgentLoopStream）同規格，並記 audit。
+
+## ⑤½ 審批卡（2026-10-09，抄 OpenClaw exec approvals UX）
+
+script-guard 攔截 → chat 出現 🛡 審批卡（✅ 准許一次 / ♾️ 永遠准 / ❌ 拒絕）：
+- once = 記憶體單次消耗（10 分鐘 TTL）；always = `<RU>/.paaw/exec-approvals.json` 永久（指令雜湊）
+- 核准後 agent 重試同一指令即可執行；SSE `approval_request` 事件 + POST /api/coding-project/exec-approval
+- A 層（git hooks/launchd 等執行入口檔案寫入）**不可審批** — 永遠擋
+
+## ⑤ 內容掃描（script-guard B+C — 2026-10-09 上線）
+
+**該快的全速跑**：正常 AI coding（寫測試腳本、跑 build、乾淨專案 npm install）零摩擦。
+
+### C：bash 執行前掃描（掛在 shell-guard 之後；v2 起語言無關）
+
+觸發點：
+- **raw bash 指令本身先掃**（語言無關）— 直接 `curl|x` 下載即執行、`osascript`、外部 URL 組合，不管什麼語言形式
+- **直譯器執行檔案**：node / python / ruby / perl / php / lua / deno / bun / tsx / powershell / osascript → 讀檔掃內容
+- **shebang 直跑**：`./xxx.sh`、`./xxx.py`（chmod +x 後直接執行）也掃
+- **inline code**：`node -e` / `python -c` / `ruby -e` / `php -r` / `powershell -Command` → 掃字串
+- **編譯型**：gcc / clang / g++ / go build / cargo build / javac → 編譯前掃 **source 檔**（binary 掃不了，原始碼掃得到）
+- `npm run <script>` → 解析 package.json scripts 值掃描（防 AI 先加惡意 script 再跑）
+
+網路 API 偵測跨語言：JS(fetch/axios/node-fetch/got) · Python(requests/urllib/http.client/socket) · Ruby(Net::HTTP/open-uri) · PHP(file_get_contents/curl_init) · PowerShell(Invoke-WebRequest/iwr/irm) · 通用 curl/wgit
+
+危險 pattern（故意粗爆 — injection payload 通常就是這三件套）：
+
+| Pattern | 偵測 |
+|---|---|
+| 網路外傳 | curl/wget/fetch/http.request + **外部 URL**（localhost 放行） |
+| 持久化 | launchd / crontab / git hooks / shell rc / osascript |
+| 破壞性 | `rm -rf /`·`~`、killall、pkill、diskutil erase、dd、mkfs |
+| 下載即執行 | `curl ... \| sh` 管線 |
+| **越權 push** | `git push`（v3 起一律擋 — no-push 紀律技術化，push 是人的動作） |
+| **機密路徑** | bash 碰 `~/.ssh` / `data/config/providers.json` / `.env`（v3 起擋 — 防「搬進專案等人 push」的 git 外傳） |
+
+命中 → 擋下 + 引導 agent 用 `ask_user` 向人說明意圖；未命中 → 直接執行。
+
+### B：env_exec（林雨晴專用）補釘
+
+- `npm install / ci / update`：package.json 或 lock 有**未 commit 變更** → 要求先跟使用者確認（npm install 會跑套件 postinstall = 任意代碼）→ 使用者同意後帶 `confirmDirty: true` 才放行
+- `npm run`：script 必須已存在於 package.json + 內容掃描同 C
+
+## ⑥ 人審流程
+
+- ask_user：危險操作（⑤ 攔截後）由人決定
+- QA / RM reviewer + 決策卡：release 前 review
+- **no-push 紀律**：AI commit 不 push，push 是人的動作（bug 流向：公司↔home 分兩邊各自修）
+
+## ⑦ 審計追蹤
+
+- action log（agent 交接簿）+ agent memory — 每 RU 保留
+- LLM log / coding actions → Elasticsearch（paaw-agent-logs 索引，Kibana Dashboard「PAAW Agent 執行報表」）
+- conversation_history：每個 agent 可查自己 RU 的歷史對話（含工具行為）
+
+**AI 犯傻審計（2026-10-10 Fleming 需求：犯傻要留完整資訊，獨立 ES index）**
+- `lib/audit-log.mjs` — 任何防護觸發都記一筆：白名單阻擋 / 沙箱檔案拒絕 / shell-guard / script-guard（A/C）/ 路徑違規 / doom_loop / 審批請求與決策 / env_exec 白名單攔截
+- 雙落地：① `log/logs/audit/audit-YYYY-MM-DD.jsonl`（事實來源，永不刪）② Elasticsearch **paaw-audit-YYYY.MM.dd**（獨立 index，與 agent-logs 分流；command/reason 開 text 全文搜）
+- 每筆自帶：kind/severity/layer/tool/完整指令/攔截理由/網域/agentId/runId/ruSlug/cwd/hostName/hostIp/@timestamp/eid
+- 審計永不影響主流程（全部 try/catch）；PAAW_ES_URL 未設定 = ES 側關閉，檔案照寫
+- 查詢例：`curl localhost:9200/paaw-audit-*/_search -d '{"aggs":{"k":{"terms":{"field":"kind"}}}}'`
+
+---
+
+## 測試與驗證
+
+- 單元測試：`tests/unit/script-guard.test.mjs`（21 cases — 攔截/放行/邊界）
+- 整合實測：executeTool 真實路徑 4 案（寫 git hook 攔 / 正常 script 直跑 / 惡意 script 攔 / npm run evil 攔）
+- 全套 unit 665 tests + E2E 135 tests 定期跑（`npm test` / `npm run test:e2e`，E2E 走隔離 instance）
+
+---
+
+## 已知限制（誠實講）
+
+1. **掃描式非密不通風** — 混淆過的 payload（base64 編碼、動態組 URL、分段下載）理論上可繞過 pattern；v2 起直譯器/編譯/raw 指令三層都掃（語言無關），但這是縱深防禦不是密不通風 — 殘餘風險靠 ⑥ 人審 + ⑦ 審計兜底
+2. **沙箱後端依賴套件**（2026-10-10 v3 改制）— macOS 包 srt（Seatbelt，per-domain 白名單）；Linux/Windows 走 MXC（`@microsoft/mxc-sdk`，Node ≥ 24 + Linux 需 bwrap）— 沒裝時自動退回 pattern 掃描（OS 層防護失效，靠 ①-⑤ 掃描 + 人審兜底）；`PAAW_SANDBOX=off` / `PAAW_SANDBOX_BACKEND=off` 爲 debug 逃生口；MXC egress 只有全開/全關（seatbelt 限制）— per-domain 精細白名單僅 srt（Mac）有
+3. **npx 可跑任意套件** — env_exec 白名單含 npx；供應鏈信任靠 npm registry + lockfile（npm ci）
+4. **dev_server / ru_verify 跑的 npm script** 未掛 C 掃描（只跑白名單 action：build/lint/test/dev）— script 值仍可能被改過，靠 ② 路徑限制 + 人審補
+5. **MCP 未接入** — 未來接入時規則：只接自己寫的或信任的 MCP server（tool description 是 prompt injection 入口）；能力邊界由 MCP server 定義，PAAW 端用 toolGroups/toolsDeny 控可見性
+
+---
+
+## 擴充原則（未來加防護時）
+
+- 新工具上線 → 檢查：需要 agentId 嗎（executeTool 注入名單）？路徑基底是 RU 還是 PAAW root？
+- 新掃描 pattern → 加進 `script-guard.mjs` 共用庫，別散落各 handler
+- 判斷準則不變：**擋越權 / 擋捏造證據 = 代碼；教 AI 做事的規則 = 廢話**（重複犯才沉澱條目）
