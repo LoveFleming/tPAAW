@@ -10,6 +10,7 @@ import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
 import CodingIDE from "./pages/CodingIDE";
 import AppModules from "./pages/AppModules";
+import ModulePageLoader from "./components/ModulePageLoader";
 
 import BriefingPlayer from "./pages/BriefingPlayer";
 import MindMapViewer from "./pages/MindMapViewer";
@@ -573,18 +574,7 @@ function AppInner() {
     document.addEventListener("mouseup", handleUp);
   }, [sidebarWidth]);
 
-  // App Modules 頁面表：vite build 時掃 installed-apps/*/ui/pages/*.tsx（manifest.nav.page 指名）
-const MODULE_PAGES: Record<string, React.LazyExoticComponent<React.ComponentType>> = Object.fromEntries(
-  Object.entries(import.meta.glob("../../../installed-apps/*/ui/pages/*.tsx")).map(([path, load]) => {
-    const m = path.match(/installed-apps\/([a-z0-9-]+)\/ui\/pages\/(.+)\.tsx$/);
-    return m ? [`${m[1]}:${m[2]}`, React.lazy(load as any)] : null;
-  }).filter(Boolean) as Array<[string, React.LazyExoticComponent<React.ComponentType>]>
-);
-const getModulePage = (moduleId: string) => {
-  const exact = MODULE_PAGES[`${moduleId}:${(appModulesById[moduleId]?.nav?.page || "Main")}`];
-  return exact || Object.entries(MODULE_PAGES).find(([k]) => k.startsWith(`${moduleId}:`))?.[1] || null;
-};
-
+  // App Modules 頁面：runtime 動態 import（M3，2026-10-12）—— 免 build，匯入後即可用
 const appModulesById = Object.fromEntries(appModules.map(m => [m.id, m]));
 const renderPage = useCallback((fullId: string, active?: boolean) => {
     // Parse tab ID early for pageType checks
@@ -644,9 +634,8 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
       return <CodingIDE />;
     }
     if (pageType.startsWith("module:")) {
-      const Page = getModulePage(pageType.slice("module:".length).split(":")[0]);
-      if (Page) return <Page />;
-      return <div style={{ padding: 24 }}>📦 模組頁面不存在（{pageType}）</div>;
+      const mid = pageType.slice("module:".length).split(":")[0];
+      return <ModulePageLoader moduleId={mid} />;
     }
     if (pageType === "briefing-player") {
       return <BriefingPlayer key={briefingInitialDir ?? "default"} initialDir={briefingInitialDir} />;

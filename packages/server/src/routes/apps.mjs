@@ -19,6 +19,7 @@ import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 import { stableStringify } from "../lib/stable-stringify.mjs";
 
 import { listAppModules, scaffoldAppModule, patchAppModule, exportAppModule, importAppModule, removeAppModule } from "../lib/app-modules.mjs";
+import { bundleModuleUi, invalidateModuleUiBundle } from "../lib/module-ui-bundle.mjs";
 
 export async function appModulesRoutes(req, res) {
   const urlObj = new URL(req.url, "http://localhost");
@@ -50,10 +51,20 @@ export async function appModulesRoutes(req, res) {
     res.end(r.buffer);
     return true;
   }
+  // GET /api/apps/modules/:id/ui-bundle.js?page=X — 模組 UI runtime bundle（M3，免 build）
+  const mUi = path.match(/^\/api\/apps\/modules\/([a-z0-9-]+)\/ui-bundle\.js$/);
+  if (req.method === "GET" && mUi) {
+    const page = urlObj.searchParams.get("page") || "Main";
+    const r = await bundleModuleUi(mUi[1], page);
+    res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(r));
+    return true;
+  }
   // POST /api/apps/modules/import — 匯入模組 zip（M2；raw body = zip binary）
   if (req.method === "POST" && path === "/api/apps/modules/import") {
     const buf = await readRawBody(req);
     const r = importAppModule(buf);
+    if (r.ok) invalidateModuleUiBundle(r.id);
     res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
     res.end(JSON.stringify(r));
     return true;
@@ -62,6 +73,7 @@ export async function appModulesRoutes(req, res) {
   const mDel = path.match(/^\/api\/apps\/modules\/([a-z0-9-]+)$/);
   if (req.method === "DELETE" && mDel) {
     const r = removeAppModule(mDel[1]);
+    if (r.ok) invalidateModuleUiBundle(mDel[1]);
     res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
     res.end(JSON.stringify(r));
     return true;
