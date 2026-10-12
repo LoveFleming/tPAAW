@@ -10,7 +10,8 @@
 1. 逐檔下載 → 照相同相對路徑覆蓋 tPAAW
 2. 「刪除清單」的檔案**真的刪掉**
 3. 「搬移」：把公司自己舊位置的資料搬到新位置
-4. `npm install`（有新增依賴，一定要跑）
+4. **清乾淨再裝**：`npm run clean`（全刪 node_modules 含 packages/*）→ `npm install`
+   ⚠️ 只 `rm -rf node_modules` 不夠！子目錄殘留會害 `rollup` 沒裝 → build 失敗
 5. `npm run build`
 6. 重啟 server（`npm start`）
 7. 裝完自檢 MXC：`bash scripts/check-mxc-linux.sh`（紅綠結論）

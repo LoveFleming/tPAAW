@@ -54,6 +54,17 @@ sudo apt-get install -y build-essential python3 bubblewrap
 - **`npm install`** = 照 `package-lock.json` 的 `resolved` 網址抓檔 **＋ 跑 install 腳本（gyp 編譯）＋ reify 整棵樹**。
 - 所以「tarball 抓得到」但「install 失敗」= 卡在 **build（gyp）** 或 **optional 靜默丟棄**。
 
+### 症狀 6：`npm run build` 失敗 `Cannot find package 'rollup'`（vite build）
+- **真因**：`rm -rf node_modules` **只清根目錄**，**沒清 `packages/ui/node_modules`、`packages/server/node_modules`**。npm 看到子目錄殘留樹就以為裝好了 → **`rollup` 從沒被裝**（vite 5 明明依賴它）。
+- **修法**（root 本來就有 `clean` script）：
+  ```bash
+  npm run clean     # = find 全專案 node_modules 刪光（含 packages/*）
+  npm install
+  npm run build     # ✅
+  ```
+  或 `rm -rf node_modules packages/*/node_modules && npm install`。
+- 驗證：`npm ls rollup` 應顯示 `@paaw/ui → vite@5.4.21 → rollup@4.x`。
+
 ---
 
 ## 診斷指令（由淺到深）
