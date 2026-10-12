@@ -89,9 +89,17 @@ rm -rf node_modules && npm install
 bash scripts/check-mxc-linux.sh      # 要看到「MXC 就緒 ✅」
 ```
 
-### B. 免編譯：把 node-pty 統一成有 linux prebuild 的版本（推薦）
+### B. 免編譯：把 node-pty 統一成有 linux prebuild 的版本（✅ 2026-10-12 採用）
 - 事實：`mxc-sdk` 要 `node-pty@^1.1.0`（**沒 linux prebuild**），但 PAAW `packages/server` 本來就用 `node-pty@^1.2.0-beta.13`（→ **1.2.0-beta.15，有 linux prebuild**）。
-- 在 root `package.json` 的 `overrides` 加 `"node-pty": "1.2.0-beta.15"` → 全樹統一 → **完全免 gyp 編譯**。
+- 在 root `package.json` 的 `overrides` 加（**nested 形式才吃，flat 對 optional 子樹無效**）：
+  ```json
+  "overrides": {
+    "node-pty": "1.2.0-beta.15",
+    "@microsoft/mxc-sdk": { "node-pty": "1.2.0-beta.15" }
+  }
+  ```
+- `rm -rf node_modules && npm install` → 全樹統一 1.2.0-beta.15 → **完全免 gyp 編譯**。
+- 註：`package-lock.json` 是 **gitignored、不進 repo / deploy6**（公司本機自己產生）→ 只要 `package.json` 的 override 對即可。
 
 ### C. mirror 沒 proxy `@microsoft` / `@koromix` scope → 離線包
 - `deploy6` 的 `vendor/mxc-offline/`（官方原始 tarball + SHA256）：
@@ -117,6 +125,7 @@ bash scripts/check-mxc-linux.sh      # 要看到「MXC 就緒 ✅」
 
 - 症狀：`npm install` 無錯但 `@microsoft` 空 → 追到 `node-pty@1.1.0` 無 linux prebuild + 缺 `build-essential/python3`。
 - 裝完工具鏈後：**自檢全綠，僅 LXC 未裝（有 bubblewrap，OK）→ MXC 就緒**。
+- 最終採用：**免編譯路線 B**（`overrides` node-pty→1.2.0-beta.15，nested 形式）—— 徹底避開 gyp 編譯。
 - 帶走的心法：
   1. **只信 `npm ls`**，不信「npm install 沒報錯」。
   2. `npm pack` OK ≠ install OK（差在 build 與 optional 靜默丟棄）。
