@@ -122,3 +122,6 @@ coverage/
 data/installed-apps/
 # 模組 RU 開發 runtime（Load from Module 註冊時 crew provision 產生）
 installed-apps/*/.paaw/
+
+# 模組移除的暫存（可還原）
+installed-apps/.removed/
