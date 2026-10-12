@@ -163,6 +163,10 @@ export function importAppModule(buffer) {
   const mf = join(dir, "manifest.json");
   if (!existsSync(mf)) { try { rmSync(dir, { recursive: true, force: true }); } catch {} return { ok: false, error: "解壓後找不到 manifest.json" }; }
   let man; try { man = JSON.parse(readFileSync(mf, "utf8")); } catch (e) { return { ok: false, error: `manifest.json 解析失敗：${e.message}` }; }
+  if (man.id && man.id !== id) {
+    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+    return { ok: false, error: `manifest.id(${man.id}) 與 zip 目錄(${id}) 不符` };
+  }
   return { ok: true, id, name: man.name || id, version: man.version || "0.0.0", nav: man.nav || null, buildRequired: true, restartRequired: true };
 }
 
