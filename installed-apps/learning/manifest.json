@@ -2,7 +2,7 @@
   "id": "learning",
   "name": "學習空間",
   "version": "1.0.0",
-  "enabled": false,
+  "enabled": true,
   "nav": {
     "label": "學習空間",
     "emoji": "📚",
