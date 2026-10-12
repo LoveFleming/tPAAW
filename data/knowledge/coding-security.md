@@ -10,6 +10,7 @@
 - **公司開發機本來就連不到 production**（公司網路政策）— PAAW 跑在公司機上時，這層隔離由公司環境提供
 - **家裡 Mac mini 與公司無關** — 防護 = script-guard 系（pattern 掃描/越權攔截，跨平台自帶）
 - 網路沙箱已上（v5 srt）：macOS Seatbelt / Linux bubblewrap 原生支援；Windows 需跑 `srt windows-install`（公司端要裝再說）
+- 公司 Linux MXC 安裝實戰（Node≥24 / bubblewrap / optional dep 靜默失敗等坑）：見 `data/knowledge/mxc-linux-install.md`
 ## 威脅模型
 
 PAAW 是 localhost 單人工具，防的不是駭客，是兩種情況：
