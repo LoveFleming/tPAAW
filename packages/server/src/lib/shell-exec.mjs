@@ -14,8 +14,23 @@
 
 import { exec as execCb, execSync } from "child_process";
 import { promisify } from "util";
+import { existsSync } from "fs";
 
 const IS_WIN = process.platform === "win32";
+
+/**
+ * 跨平台挑一個「真的存在」的 POSIX shell。
+ * ⚠️ 2026-10-13：舊碼一律 fallback "/bin/zsh" — Linux 多半沒有 zsh，且 server 由
+ * launchd/systemd/pm2 啟動時 $SHELL 常是空的 → spawn ENOENT，整條 sandbox/dev-server 掛掉。
+ * 順序：$SHELL → /bin/bash → /bin/sh → /bin/zsh，取第一個存在的；都不在就 /bin/sh。
+ */
+export function posixShellBin() {
+  if (IS_WIN) return process.env.ComSpec || "cmd.exe";
+  for (const c of [process.env.SHELL, "/bin/bash", "/bin/sh", "/bin/zsh"]) {
+    if (c && existsSync(c)) return c;
+  }
+  return "/bin/sh";
+}
 
 // Windows 用 shell: true (Node 自動解析 cmd.exe，不會 ENOENT)
 // Mac/Linux 用系統 shell
@@ -68,8 +83,8 @@ export function shellExecSync(command, options = {}) {
  * 回傳目前平台的 shell 名稱（給 spawn/terminal 用）
  */
 export function getShell() {
-  if (IS_WIN) return { bin: "cmd.exe", args: [] };
-  return { bin: process.env.SHELL || "/bin/zsh", args: [] };
+  if (IS_WIN) return { bin: process.env.ComSpec || "cmd.exe", args: [] };
+  return { bin: posixShellBin(), args: [] };
 }
 
 export { IS_WIN };

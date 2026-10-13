@@ -37,6 +37,19 @@ const WHITELIST = {
 // 禁字（雙保險：execFile 下這些只是字面參數，但先擋掉避免誤導）
 const DENY_ARGS = ["sudo", "rm", "kill", "pkill", "killall", "launchctl", "osascript", "curl", "wget", "ssh", "scp"];
 
+// ⚠️ 2026-10-13：execFile 不吃 shell rc → 手動補路徑。舊碼硬寫 macOS homebrew 路徑
+// （Linux/Windows 上這些目錄不存在且用了 ":" 分隔 — 在 Windows 是錯的）。
+function execPath() {
+  const isWin = process.platform === "win32";
+  const extra = [
+    process.platform === "darwin" ? "/opt/homebrew/bin" : null,
+    process.platform === "linux" ? "/home/linuxbrew/.linuxbrew/bin" : null,
+    "/usr/local/bin",
+    process.env.PATH || "",
+  ].filter(Boolean);
+  return extra.join(isWin ? ";" : ":");
+}
+
 function validate(command) {
   const parts = String(command || "").trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return { ok: false, error: "空指令" };
@@ -171,8 +184,8 @@ export async function envExecHandler({ command, cwd, timeoutMs, confirmDirty }) 
         maxBuffer: 8 * 1024 * 1024,
         env: {
           ...process.env,
-          // brew / nvm 裝的 binary 在 homebrew 路徑（execFile 不吃 shell rc）
-          PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ""}`,
+          // brew / nvm 裝的 binary 在 homebrew 路徑（execFile 不吃 shell rc）— 跨平台
+          PATH: execPath(),
         },
       }, (err, stdout, stderr) => {
         resolveP({ code: err ? (err.code ?? 1) : 0, stdout: String(stdout || ""), stderr: String(stderr || ""), timedOut: !!(err && err.killed) });

@@ -7,6 +7,7 @@ import { WebSocketServer } from "ws";
 import { spawn as ptySpawn } from "node-pty";
 import { runAgentLoop } from "../lib/paaw-agent-loop.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { posixShellBin } from "../lib/shell-exec.mjs";
 import {
   PAAW_ROOT, readFileSync, writeFileSync, appendFileSync, resolve, join, mkdirSync,
 } from "../routes/shared.mjs";
@@ -152,7 +153,7 @@ export function setupWebSocket() {
             shellBin = process.env.PAAW_SHELL || "powershell.exe";
             shellArgs = process.env.PAAW_SHELL ? [] : ["-NoLogo"];
           } else {
-            shellBin = process.env.SHELL || "/bin/zsh";
+            shellBin = posixShellBin();
             shellArgs = [];
           }
           const resolvedCwd = opts.cwd || process.env.QWEN_CWD || PAAW_ROOT;

@@ -26,6 +26,7 @@ import {
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { LOG_HOME, logSlug } from "../data-home.mjs";
+import { posixShellBin } from "./shell-exec.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // PAAW coding app 本身的 repo root（dev-server.mjs 在 packages/server/src/lib/）
@@ -188,7 +189,7 @@ export async function devServerStart(ruRoot, opts = {}) {
       cwd: ruRoot, detached: true, stdio: ["ignore", fd, fd], env,
     });
   } else {
-    const shellBin = process.env.SHELL || "/bin/zsh";
+    const shellBin = posixShellBin();
     child = spawn(shellBin, ["-c", command], {
       cwd: ruRoot, detached: true, stdio: ["ignore", fd, fd], env,
     });

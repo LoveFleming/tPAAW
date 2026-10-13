@@ -15,6 +15,7 @@ import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
 import { resolve } from "path";
 import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
+import { posixShellBin } from "./shell-exec.mjs";
 
 let _SM = null;
 let _inited = false;
@@ -132,7 +133,7 @@ export async function wrapWithSrt(command, cwd) {
       _lastAllowedSig = sig;
     }
     // per-call 完整 config（allowWrite 隨 RU cwd 變）
-    const wrapped = await SM.wrapWithSandbox(command, process.env.SHELL || "/bin/zsh", cfg);
+    const wrapped = await SM.wrapWithSandbox(command, posixShellBin(), cfg);
     // Node ≥24：global fetch / undici 預設不理 proxy env → 直連被 seatbelt 擋（EPERM），
     // 即使網域在白名單也連不上。加 NODE_USE_ENV_PROXY=1 讓它走 srt 代理（2026-10-11 實測）。
     // （TMPDIR 不用我們設：srt 自己在 env 串裡塞 TMPDIR=/tmp/claude；macOS 的 mktemp 反而硬走
@@ -159,7 +160,8 @@ function buildConfig(cwd) {
       // 「暫存一律寫 $PAAW_TMP」規則被自己的沙箱擋掉（實測 EPERM，白燒回合）。
       // 2026-10-11 再修：mktemp/暫存根跨平台全列（sandboxTempRoots）— macOS mktemp 硬走
       // /var/folders 不看 TMPDIR，被擋過。
-      allowWrite: [cwd, ...sandboxTempRoots(), "~/.npm", "~/Library/Caches", "~/.cache"],
+      allowWrite: [cwd, ...sandboxTempRoots(), "~/.npm", "~/.cache",
+        ...(process.platform === "darwin" ? ["~/Library/Caches"] : [])], // 2026-10-13：~/Library/Caches 只在 macOS
     },
   };
 }
@@ -266,7 +268,7 @@ function posixQuote(s) {
 // win32：MXC ProcessContainer 用 cmd 解譯（公司端命令本就以該 shell 為準）
 function wrapForMxc(command) {
   if (process.platform === "win32") return command; // ProcessContainer 自帶 shell 解譯
-  return `/bin/bash -c ${posixQuote(command)}`;
+  return `${posixQuote(posixShellBin())} -c ${posixQuote(command)}`; // 2026-10-13：不硬寫 /bin/bash（極簡 Linux 可能沒有）
 }
 
 function buildMxcEnv(extraEnv = {}) {
@@ -329,10 +331,15 @@ export async function execSandboxed(command, opts = {}) {
       const quoted = command; // bash 工具傳入已是完整 shell 字串
       const wrapped = await wrapWithSrt(quoted, cwd);
       if (wrapped && wrapped !== quoted) {
+        // 2026-10-13：shell 與 PATH 都要跨平台 — 舊碼硬寫 /bin/zsh + homebrew PATH
+        // （Linux 沒 zsh / 沒 /opt/homebrew → spawn ENOENT）。
+        const srtPath = process.platform === "darwin"
+          ? `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ""}`
+          : (process.env.PATH || "/usr/local/bin:/usr/bin:/bin");
         return await new Promise((res) => {
-          execFile("/bin/zsh", ["-c", wrapped], {
+          execFile(posixShellBin(), ["-c", wrapped], {
             cwd, timeout: cap, maxBuffer: 16 * 1024 * 1024,
-            env: { ...process.env, PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ""}`, ...env },
+            env: { ...process.env, PATH: srtPath, ...env },
           }, (err, stdout, stderr) => {
             res({
               code: err ? (err.code ?? 1) : 0, stdout: String(stdout || ""), stderr: String(stderr || ""),
@@ -349,7 +356,7 @@ export async function execSandboxed(command, opts = {}) {
 // raw：無沙箱原樣執行（跟 v2 不可用時行為一致 — pattern 掃描/審計仍在消費端）
 async function rawShellExec(command, { cwd, timeoutMs, env }) {
   const isWin = process.platform === "win32";
-  const shellBin = isWin ? (process.env.ComSpec || "cmd.exe") : "/bin/bash";
+  const shellBin = posixShellBin(); // Windows→ComSpec/cmd.exe；POSIX→存在的 shell（bash→sh→zsh）
   const args = isWin ? ["/c", command] : ["-c", command];
   return await new Promise((res) => {
     execFile(shellBin, args, {

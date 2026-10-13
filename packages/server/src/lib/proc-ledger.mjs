@@ -32,6 +32,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { LOG_HOME } from "../data-home.mjs";
+import { posixShellBin } from "./shell-exec.mjs";
 
 const IS_WIN = process.platform === "win32";
 
@@ -180,7 +181,7 @@ export function runShellGrouped(command, opts = {}) {
           cwd, detached: true, stdio: ["ignore", "pipe", "pipe"], env: mergedEnv, windowsHide: true,
         });
       } else {
-        const shellBin = process.env.SHELL || "/bin/zsh";
+        const shellBin = posixShellBin();
         child = spawn(shellBin, ["-c", command], {
           cwd, detached: true, stdio: ["ignore", "pipe", "pipe"], env: mergedEnv,
         });
