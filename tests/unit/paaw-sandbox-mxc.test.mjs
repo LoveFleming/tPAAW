@@ -7,6 +7,8 @@
 
 import { describe, it, expect } from "vitest";
 import { existsSync } from "node:fs";
+import os from "node:os";
+import { join } from "node:path";
 import { needsNetworkAllow, activeBackend, buildMxcFsPolicy, sandboxTempRoots } from "../../packages/server/src/lib/paaw-sandbox.mjs";
 
 describe("needsNetworkAllow（MXC egress 判定）", () => {
@@ -96,6 +98,23 @@ describe("buildMxcFsPolicy（跨平台路徑過濾）", () => {
   it("RU cwd 一定在 readwritePaths（coding app 要能寫 packages）", () => {
     expect(pol.readwritePaths).toContain(cwd);
   });
+  // 2026-10-13（公司 Linux 第二修）：readwrite 若被 readonly 祖先/自身蓋掉 → cwd 變 EROFS
+  it("readonly 與 readwrite 絕不重疊（自身/祖先/子孫都不行）", () => {
+    const home = os.homedir();
+    for (const cwd of [home, "/tmp", join(home, ".npm")]) {
+      const p = buildMxcFsPolicy(cwd);
+      const ov = p.readonlyPaths.filter((r) =>
+        p.readwritePaths.some((w) => r === w || r.startsWith(w + "/") || w.startsWith(r + "/")));
+      expect(ov, `${cwd} 重疊：${ov.join(",")}`).toEqual([]);
+    }
+  });
+  it("cwd 在 home 底下：home 不整包 ro（防蓋掉 cwd），cwd 本身不在 readonly", () => {
+    const home = os.homedir();
+    const p = buildMxcFsPolicy(home);
+    expect(p.readonlyPaths).not.toContain(home);
+    expect(p.readwritePaths).toContain(home);
+  });
+
   it("sandboxTempRoots 全部存在，且非 darwin 不含 /private/tmp", () => {
     const roots = sandboxTempRoots();
     for (const p of roots) expect(existsSync(p), `不存在：${p}`).toBe(true);

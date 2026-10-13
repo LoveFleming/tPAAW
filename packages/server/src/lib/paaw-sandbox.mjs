@@ -10,7 +10,7 @@
 // 逃生口：PAAW_SANDBOX=off 環境變數（debug 用）。
 // 不可用時自動退回原樣執行（script-guard pattern 掃描仍在）。
 
-import { readFileSync, mkdirSync, existsSync } from "fs";
+import { readFileSync, mkdirSync, existsSync, readdirSync } from "fs";
 import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
 import { resolve, join } from "path";
@@ -231,14 +231,15 @@ export function buildMxcFsPolicy(cwd) {
   }).filter(Boolean))];
   // ⚠️ /private/var 不可列入 — 實測（2026-10-10 bisect）：列入後 MXC 內建的系統服務 socket
   // 通道（mDNSResponder）被覆蓋，DNS 全死（ENOTFOUND）；不列反而保留內建通道
-  const readonlyPaths = keep([
+  const sep = process.platform === "win32" ? "\\" : "/";
+  const inside = (child, parent) => !!child && !!parent &&
+    (child === parent || child.startsWith(parent.endsWith(sep) ? parent : parent + sep));
+  const baseReadonly = keep([
     "/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc",
     isMac ? "/private/etc" : null,
     "/opt", "/usr/local",
     isMac ? "/opt/homebrew" : null,
     nodeDir,       // node 執行檔目錄（nvm/brew 裝的都在 home 或 /opt）
-    home,          // HOME readonly（敏感子路徑用 deniedPaths 蓋 — 實測 denied 優先）
-    cwdReal,       // 專案根 readonly
   ]);
   const readwritePaths = keep([
     cwdReal,       // 專案可寫（RU 工作區）
@@ -257,6 +258,22 @@ export function buildMxcFsPolicy(cwd) {
     join(cwdReal, ".env"),
     join(cwdReal, "data", "config", "providers.json"), // PAAW AI 金鑰
   ]);
+  // ⚠️ 2026-10-13（公司 Linux 第二修—cwd 變唯讀）：MXC 把這些清單變成**掛載**；若 readwrite
+  // 路徑落在某個 readonly 路徑底下（或同一路徑同時在兩邊），後套用的 ro 掛載會蓋掉 rw
+  // → 工作目錄變 RO（"Read-only file system"）。規則：
+  //   1) readonly 不得含 readwrite 的自身/祖先/子孫
+  //   2) HOME 若包含任何 rw 路徑 → 展開成「子項目」逐一 ro（~/.gitconfig 等仍可讀），
+  //      不再整包 ro home（否則會蓋掉 cwd）
+  const homeRo = (() => {
+    if (!home || !existsSync(home)) return [];
+    if (!readwritePaths.some((p) => inside(p, home))) return [home];
+    try { return readdirSync(home).map((n) => join(home, n)); }
+    catch { return [home]; }
+  })();
+  const overlapsRw = (p) => readwritePaths.some((rw) => inside(p, rw) || inside(rw, p));
+  const readonlyPaths = keep([...baseReadonly, ...homeRo])
+    .filter((p) => !overlapsRw(p))
+    .filter((p) => !deniedPaths.some((d) => inside(p, d)));
   return { readonlyPaths, readwritePaths, deniedPaths };
 }
 
