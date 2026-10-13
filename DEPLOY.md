@@ -286,3 +286,16 @@
   - `data/knowledge/mxc-linux-install.md`　（症狀＋修法文件，選配）
 - ⚠️ 覆蓋後**一定要重啟 server**（server code 無 --watch）。本批**無新依賴、無 UI 變動**，不用 npm install、不用 build。
 - 來源 dev `ea989d83`；已過 `npx vitest run tests/unit`（815 passed）+ import 檢查。
+
+## 📁 `filemount-fix/`（2026-10-13 File Mounts / reference_read 修正）
+- 症狀：coding app agent `reference_read(source="workspace")` 回「(workspace/ directory does not exist yet)」。
+- 根因：`data/workspaces.json` 被版控，內容是 Mac 絕對路徑（`/Users/steward/...`）→ 公司 Linux 不存在。
+- 路徑同 deploy6 規則：`filemount-fix/` 下照 tPAAW 相對路徑鋪，下載後去掉 `filemount-fix/` 前綴即為覆蓋路徑。
+- 內容（5 檔）：
+  - `packages/server/src/lib/paaw-agent-loop.mjs`（reference_read / workspaceDirs 只認本機存在的目錄）
+  - `packages/server/src/context-engine.mjs`
+  - `packages/server/src/tools/index.mjs`
+  - `packages/server/src/lib/domain-agent-registry.mjs`
+  - `.gitignore`（加 `data/workspaces.json`、`data/config/workspaces.json` — 之後不進版控）
+- ⚠️ 覆蓋後**重啟 server**。**另外要手動處理本機的 `data/workspaces.json`**：改成公司本機真實路徑，或直接刪掉再用「設定 → 📁 File Mounts」重新加（這個檔從此不再由更新包提供）。
+- 來源 dev `350448e0`；`npx vitest run tests/unit` 817 passed。
