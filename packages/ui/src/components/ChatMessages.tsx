@@ -218,6 +218,7 @@ export function ApprovalCard({ approval, onDecide, accent }: { approval: Approva
       {approval.reason && <div className={`text-[11px] mb-2 ${decided ? "text-stone-400" : "text-amber-700/80"}`}>{approval.reason}</div>}
       {!decided && (
         <>
+          <div className="text-[11px] font-medium text-amber-800 mb-1.5">⏳ agent 已暫停，正在等待你的決定（按鈕後才繼續執行）</div>
           <div className="text-[10px] text-amber-700/70 mb-2 leading-relaxed">
             ♾️「永遠准許」= 只放行<b>這一模一樣的指令</b>（存在本專案 <span className="font-mono">.paaw/exec-approvals.json</span>）；
             改一個字就會重新詢問。✅ 准許一次 = 10 分鐘內可用一次。
@@ -236,7 +237,7 @@ export function ApprovalCard({ approval, onDecide, accent }: { approval: Approva
         </>
       )}
       {decided && decided !== "deny" && decided !== "revoked" && decided !== "expired" && (
-        <div className="text-[11px] text-emerald-700/80 font-medium">✔ 已生效 — agent 執行同一條指令即可通過（不會再問）</div>
+        <div className="text-[11px] text-emerald-700/80 font-medium">✔ 已生效 — agent 已繼續執行這條指令</div>
       )}
     </div>
   );

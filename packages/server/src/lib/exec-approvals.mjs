@@ -14,6 +14,28 @@ const ONCE_TTL_MS = 10 * 60 * 1000;
 // in-memory
 const _pending = new Map(); // id → { command, cwd, reason, agentId, createdAt }
 const _once = new Map();    // hash → { createdAt, expiresAt }
+const _waiters = new Map(); // id → (action) => void  （2026-10-13：agent loop 停在這裡等使用者決定）
+
+/** 預設等待上限（使用者決策前 agent loop 暫停的時間）。可用 PAAW_APPROVAL_WAIT_MS 覆寫。 */
+export const APPROVAL_WAIT_MS = Math.max(10_000, Number(process.env.PAAW_APPROVAL_WAIT_MS) || 180_000);
+
+/**
+ * 等待某張審批卡的決策（2026-10-13 Fleming：以前審批卡只是「通知」，agent 根本沒停 ——
+ * 按了准許 agent 也早跑掉了。改成「真的暫停」：agent loop await 這支，等使用者按鈕或逾時）。
+ * 回 "once" | "always" | "deny" | "timeout" | "gone"（卡片已不存在/已被決策）
+ */
+export function waitForDecision(id, timeoutMs = APPROVAL_WAIT_MS) {
+  return new Promise((resolve) => {
+    if (!_pending.has(id)) return resolve("gone");
+    const timer = setTimeout(() => { _waiters.delete(id); resolve("timeout"); }, timeoutMs);
+    _waiters.set(id, (action) => { clearTimeout(timer); _waiters.delete(id); resolve(action); });
+  });
+}
+
+function _resolveWaiter(id, action) {
+  const w = _waiters.get(id);
+  if (w) { try { w(action); } catch { /* noop */ } _waiters.delete(id); }
+}
 
 function hashOf(command) {
   return createHash("sha256").update(String(command).trim()).digest("hex").slice(0, 24);
@@ -57,6 +79,7 @@ export function decideApproval(id, action) {
     return { ok: false, error: "action 必須是 once / always / deny" };
   }
   _pending.delete(id);
+  _resolveWaiter(id, action); // 叫醒在等這張卡的 agent loop
   if (action === "once") {
     _once.set(hashOf(entry.command), { createdAt: Date.now(), expiresAt: Date.now() + ONCE_TTL_MS });
   } else if (action === "always") {
@@ -72,6 +95,7 @@ export function decideApproval(id, action) {
   for (const [k, v] of _pending) {
     if (v.command === entry.command) {
       _pending.delete(k);
+      _resolveWaiter(k, action);
       alsoIds.push(k);
       appendLog(v.cwd, { type: "decision", id: k, command: v.command, reason: v.reason, agentId: v.agentId || null, decided: action, note: "同指令批次結案" });
     }

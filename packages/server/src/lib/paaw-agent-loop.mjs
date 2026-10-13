@@ -1318,9 +1318,13 @@ export const PAAW_TOOLS = [
 // ── 工具執行逾時 / 中斷競速（2026-10-11 Fleming：browser_click 卡死且無法中斷）──
 // stream 路徑原本完全沒有工具逾時 → 工具一卡（Playwright 卡在 dialog/導航）= run 永遠卡死；
 // 且 abortSignal 只傳給 callLLM，工具在跑時「中斷」等於沒按。
+/** 2026-10-13：審批卡等待預算 — bash 工具執行上限要額外加上「等人按鈕」的時間，
+ *  否則 120s 的 tool timeout 會在等待中途把 agent 砍掉。與 exec-approvals.waitForDecision 同口徑。*/
+const APPROVAL_WAIT_BUDGET_MS = Math.max(10_000, Number(process.env.PAAW_APPROVAL_WAIT_MS) || 180_000);
+
 function toolExecTimeoutMs(toolName, args, agentCfg) {
   const n = String(toolName || "");
-  if (n === "bash") return Math.min(((args?.timeout || 120) * 1000), (agentCfg?.bashTimeoutSeconds || 300) * 1000, 300_000);
+  if (n === "bash") return Math.min(((args?.timeout || 120) * 1000), (agentCfg?.bashTimeoutSeconds || 300) * 1000, 300_000) + APPROVAL_WAIT_BUDGET_MS;
   if (n === "test_run" || n === "security_scan" || n === "handover_refresh" || n === "release_prep_status" || n === "ru_model_refresh") return 660_000;
   if (n === "api_test" || n === "multi_model_review") return 180_000;
   if (n === "browser_navigate") return 60_000;
@@ -2364,7 +2368,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           if (onEvent) onEvent({ type: "security_notice", kind: "script_guard_bypassed", message: `🛠 開發模式：略過安全審批 — ${sGuard.message.split("\n")[0]}` });
         } else if (sGuard.blocked) {
           // ── 審批卡（2026-10-09）：使用者已核准（once/always）= 放行重試 ──
-          const { consumeApproval, requestApproval } = await import("./exec-approvals.mjs");
+          const { consumeApproval, requestApproval, waitForDecision } = await import("./exec-approvals.mjs");
           const approved = consumeApproval(args.command, cwd);
           if (approved) {
             if (onEvent) onEvent({ type: "tool_end", name, result: `✅ 已依使用者核准（${approved}）放行：${args.command.slice(0, 120)}` });
@@ -2376,8 +2380,22 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             logAuditEvent({ kind: "approval_request", severity: "info", tool: "bash", command: args.command, reason: sGuard.message.split("\n")[0], detail: { approvalId: aprId }, agentId, cwd });
             // agentId（2026-10-13）：審批卡的歸屬 agent —— UI 只在其所属 crew 的視窗顯示
             if (onEvent) onEvent({ type: "approval_request", id: aprId, command: String(args.command).slice(0, 300), reason: sGuard.message.split("\n")[0].slice(0, 300), agentId: agentId || null });
-            if (onEvent) onEvent({ type: "tool_end", name, result: sGuard.message.slice(0, 500) });
-            return sGuard.message + `\n（已送出審批卡 ${aprId} 給使用者。若使用者核准，直接重試同一個指令即可執行。）`;
+            // ⏳ 2026-10-13 Fleming：審批卡要「真的暫停」agent loop（以前只是通知卡，agent 早跑掉了）
+            const _waitMin = Math.round(APPROVAL_WAIT_BUDGET_MS / 60000);
+            if (onEvent) onEvent({ type: "tool_end", name, result: `⏳ 已送出審批卡 ${aprId} — agent 暫停中，等待你的決定（最長 ${_waitMin} 分鐘）…` });
+            const decision = await waitForDecision(aprId, APPROVAL_WAIT_BUDGET_MS);
+            const okNow = (decision === "once" || decision === "always") ? decision : consumeApproval(args.command, cwd);
+            if (okNow) {
+              logAuditEvent({ kind: "approval_granted", severity: "info", tool: "bash", command: args.command, detail: { approvalId: aprId, decision: okNow }, agentId, cwd });
+              if (onEvent) onEvent({ type: "tool_end", name, result: `✅ 使用者已核准（${okNow}）— 執行中…` });
+              // 落到下面 runShell 真的執行
+            } else {
+              const _why = decision === "timeout"
+                ? `審批逾時（${_waitMin} 分鐘內未決策）`
+                : (decision === "deny" ? "使用者拒絕" : "審批未成立");
+              if (onEvent) onEvent({ type: "tool_end", name, result: sGuard.message.slice(0, 400) });
+              return sGuard.message + `\n（${_why}，指令未執行。審批卡 ${aprId}）`;
+            }
           }
         }
         const timeoutSec = Math.min(args.timeout || 120, _agentCfg.bashTimeoutSeconds || 300);

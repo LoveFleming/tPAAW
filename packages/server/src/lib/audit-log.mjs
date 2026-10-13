@@ -29,6 +29,8 @@ const KIND_LAYER = {
   block_retry: "policy-violation",      // 被擋後仍重試同一目標（明知故犯）
   approval_request: "approval",         // 危險指令送審批卡
   approval_decision: "approval",        // 使用者審批決策（once/always/deny）
+  approval_granted: "approval",         // 批核後命令真的執行（2026-10-13：審批卡改為真暫停等待）
+  script_guard_bypassed: "script-guard", // 開發模式略過 script-guard 審批（有記錄可查）
   env_exec_block: "env-exec",           // chat 助理環境工具白名單攔截
 };
 

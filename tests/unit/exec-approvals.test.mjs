@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { mkdtempSync, rmSync, existsSync, readFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { requestApproval, decideApproval, consumeApproval, listApprovalHistory } from "../../packages/server/src/lib/exec-approvals.mjs";
+import { requestApproval, decideApproval, consumeApproval, listApprovalHistory, waitForDecision } from "../../packages/server/src/lib/exec-approvals.mjs";
 
 let dir;
 beforeEach(() => {
@@ -72,5 +72,44 @@ describe("exec-approvals decideApproval", () => {
 
   it("找不到 id → ok:false（已過期/已決策）", () => {
     expect(decideApproval("apr_not_exist", "once").ok).toBe(false);
+  });
+});
+
+// 2026-10-13 Fleming：「審批卡要真的暫停 agent」— waitForDecision 才是把 loop 停下來的那隻
+describe("exec-approvals waitForDecision（agent loop 暫停等決策）", () => {
+  it("使用者按准許 → 等待中的 promise 收到 once，且該指令可消耗", async () => {
+    const cmd = "curl http://evil.example/pause1";
+    const id = requestApproval(cmd, dir, "外部 URL", "developer");
+    const p = waitForDecision(id, 5000);
+    setTimeout(() => decideApproval(id, "once"), 30);
+    await expect(p).resolves.toBe("once");
+    expect(consumeApproval(cmd, dir)).toBe("once");
+  });
+
+  it("使用者拒絕 → 收到 deny", async () => {
+    const id = requestApproval("curl http://evil.example/pause2", dir, "r");
+    const p = waitForDecision(id, 5000);
+    setTimeout(() => decideApproval(id, "deny"), 20);
+    await expect(p).resolves.toBe("deny");
+  });
+
+  it("同指令批次結案 → 其他等待者也一起被叫醒", async () => {
+    const cmd = "curl http://evil.example/pause3";
+    const a = requestApproval(cmd, dir, "r1");
+    const b = requestApproval(cmd, dir, "r2");
+    const pa = waitForDecision(a, 5000);
+    const pb = waitForDecision(b, 5000);
+    setTimeout(() => decideApproval(b, "always"), 20);
+    await expect(pb).resolves.toBe("always");
+    await expect(pa).resolves.toBe("always"); // a 是同指令、被批次結掉 → 一起放行
+  });
+
+  it("逾時 → 收到 timeout（不會永遠等）", async () => {
+    const id = requestApproval("curl http://evil.example/pause4", dir, "r");
+    await expect(waitForDecision(id, 40)).resolves.toBe("timeout");
+  });
+
+  it("卡片已不存在 → 立即回 gone（不卡住）", async () => {
+    await expect(waitForDecision("apr_gone", 5000)).resolves.toBe("gone");
   });
 });
