@@ -364,7 +364,7 @@
 - ⚠️ 有動 UI → 覆蓋後 **`npm run build`** 然後**重啟 server**。
 - 來源 dev `b5b800bd`；843 tests passed。真 agent 驗證：送審批 → stream 未結束/檔案未產生（真的停住）→ 按永遠准許 → 當場接續執行；按拒絕 → 結束且未執行。
 
-## 🛡 `security-coding/`（2026-10-13 總包 v5：沙箱＋審批＋開發模式＋script-guard＋安全審計紀錄搬家＋MXC 單後端）
+## 🛡 `security-coding/`（2026-10-13 總包 v6：沙箱＋審批＋開發模式＋script-guard＋安全審計紀錄搬家＋MXC 單後端）
 > **這一包把今天所有「coding app 安全/開發體驗」的修正合併成一個目錄**，涵蓋並取代前面的
 > `sandbox-fix/`、`filemount-fix/`、`approval-fix/`、`devmode-switch/`、`guard-fix/`、`approval-wait/`
 > （那些目錄留著當歷史，內容都是較舊版本）。**只要蓋 `security-coding/` 這 25 檔就好。**
@@ -422,3 +422,11 @@
 - **不走 MXC（在 PAAW server process 內跑）**：`read_file`、`write_file`、`edit_file`、`reference_read`、
   `dossier_*`、`sheet_*`、`browser_*`、`project_*` → 這些由 PAAW 自己的 `isPathAllowed`（cwd / PAAW root /
   workspaces / knowledge）+ `persistentEntryBlock` 管，MXC 管不到（也不會被它卡）。
+
+### 🆕 v6 追加（2026-10-13 晚五，來源 dev `858b9fc3`）— 第 4 個 bug（實測抓到）
+- **沙箱標記污染結構化輸出**：MXC 模式下 `runShell` 對每個回傳都附 `🛡沙箱內（MXC）`，但
+  `glob` / `grep` / `diff` / `git` / `test_run` 是**把 stdout 當資料解析**的 →
+  glob 會多一個假檔名、grep 多一行。修法：標記只給 user 可見的 `bash` tool（`opts.marker`）。
+- 真 agent 實測（MXC 開）：glob `a.js\nsub/b.js` ✓、grep `a.js:1:hello fetch` ✓、
+  無匹配 `(no files found)` ✓、bash `hi\n\n🛡沙箱內（MXC）` ✓
+- 更新檔：`packages/server/src/lib/paaw-agent-loop.mjs`。844 tests passed。
