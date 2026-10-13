@@ -7,6 +7,7 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import os from "node:os";
 import { join } from "node:path";
 import { needsNetworkAllow, activeBackend, buildMxcFsPolicy, sandboxTempRoots } from "../../packages/server/src/lib/paaw-sandbox.mjs";
@@ -147,5 +148,15 @@ describe("execSandboxed（有 SDK 才跑 — live 煙霧）", () => {
     const r = await execSandboxed("curl -s -m 6 -o /dev/null -w %{http_code} https://registry.npmjs.org", { cwd: "/tmp", timeoutMs: 25_000, network: "allow" });
     expect(r.code).toBe(0);
     expect(String(r.stdout)).toMatch(/200|301|302/);
+  });
+});
+
+// 2026-10-13 bug #4 回歸守門：沙箱標記不得污染結構化工具輸出
+describe("runShell 沙箱標記守門", () => {
+  it("標記只在 opts.marker（bash tool）分支出現", async () => {
+    const src = await readFile(new URL("../../packages/server/src/lib/paaw-agent-loop.mjs", import.meta.url), "utf8");
+    assert.match(src, /opts\.marker \?/, "runShell 應有 opts.marker 守門");
+    const hits = [...src.matchAll(/🛡沙箱[內内]（MXC）/g)];
+    assert.ok(hits.length <= 2, `標記字串出現 ${hits.length} 次，疑似又加回到共用路徑`);
   });
 });
