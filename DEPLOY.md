@@ -309,3 +309,21 @@
   - `packages/ui/src/components/ChatMessages.tsx`（已決策整張卡變色 + 「✔ 已生效」）
 - ⚠️ 有動 UI → 覆蓋後要 **`npm run build`** 然後**重啟 server**。
 - 來源 dev `d2d4f2c7`；822 tests passed。
+
+## 🛠 `devmode-switch/`（2026-10-13 開發模式總開關：趕碼時關沙箱＋關審批）
+- 需求：沙箱／安全審批用起來摩擦大，趕碼時想整個跳過，有空再打開來測 → 一個總開關。
+- 位置：PAAW → ⚙️ 設定 → 🛡 安全 → 最上方「🛠 開發模式 master switch」。
+- 開啟後：AI 的 bash 不進 MXC / srt 沙箱、script-guard 命中也不再跳審批卡（直接放行）。
+- 仍保留（刻意不關）：shell-guard（AI 動不了本 RU 以外的 process，尤其 PAAW 自己）、執行入口檔（git hooks / shell rc）寫入攔截。
+- ⚠️ 開啟期間的「本應被攔」指令會記到審計（`script_guard_bypassed`），安全 tab 下方的審計報表看得到。
+- 設定存在 `data/config/security.json`（每台機器各自設定，不進版控），**切換免重啟**。
+- 路徑同 deploy6 規則：`devmode-switch/` 下照 tPAAW 相對路徑鋪，下載後**去掉 `devmode-switch/` 前綴**即為覆蓋路徑。
+- 內容（9 檔）：
+  - `packages/server/src/lib/security-mode.mjs`　（**新增**：讀寫 data/config/security.json + mtime 快取 + env 覆寫）
+  - `packages/server/src/lib/paaw-sandbox.mjs`　（sandboxKillSwitchOn 併入 devMode → 沙箱整組關）
+  - `packages/server/src/lib/paaw-agent-loop.mjs`　（devMode 時 script-guard 放行 + 記 script_guard_bypassed 審計）
+  - `packages/server/src/routes/assistant.mjs`　（GET/PUT /api/paaw/security-mode）
+  - `packages/ui/src/pages/SettingsPage.tsx`　（安全 tab 開關卡）
+  - `packages/ui/src/i18n/locales/{zh,en,ja,zh-mix}.json`　（settings.devMode.* 文案）
+- ⚠️ 有動 UI → 覆蓋後要 **`npm run build`** 然後**重啟 server**。
+- 來源 dev `827e5a9a`；`npx vitest run tests/unit` 834 passed。
