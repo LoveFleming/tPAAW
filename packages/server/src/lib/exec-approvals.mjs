@@ -12,7 +12,7 @@ import { join, dirname } from "path";
 const ONCE_TTL_MS = 10 * 60 * 1000;
 
 // in-memory
-const _pending = new Map(); // id → { command, cwd, reason, createdAt }
+const _pending = new Map(); // id → { command, cwd, reason, agentId, createdAt }
 const _once = new Map();    // hash → { createdAt, expiresAt }
 
 function hashOf(command) {
@@ -37,13 +37,15 @@ function writeAlways(cwd, map) {
   writeFileSync(p, JSON.stringify(map, null, 2), "utf-8");
 }
 
-/** 註冊待審批（bash 被攔時呼叫）→ 回 approval id */
-export function requestApproval(command, cwd, reason) {
+/** 註冊待審批（bash 被攔時呼叫）→ 回 approval id。
+ *  agentId（2026-10-13 Fleming）：審批是「某個 agent 的請求」，要記下來 ——
+ *  否則審批紀錄會在各 crew 的聊天視窗都出現（使用者在 SA 視窗看到 developer 的審批紀錄）。 */
+export function requestApproval(command, cwd, reason, agentId) {
   const id = "apr_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6);
-  _pending.set(id, { command: String(command), cwd, reason: String(reason || ""), createdAt: Date.now() });
+  _pending.set(id, { command: String(command), cwd, reason: String(reason || ""), agentId: agentId ? String(agentId) : null, createdAt: Date.now() });
   // pending 清理：超過 30 分鐘的丟掉
   for (const [k, v] of _pending) if (Date.now() - v.createdAt > 30 * 60 * 1000) _pending.delete(k);
-  appendLog(cwd, { type: "request", id, command: String(command), reason: String(reason || ""), decided: null });
+  appendLog(cwd, { type: "request", id, command: String(command), reason: String(reason || ""), agentId: agentId ? String(agentId) : null, decided: null });
   return id;
 }
 
@@ -62,7 +64,7 @@ export function decideApproval(id, action) {
     map[hashOf(entry.command)] = { command: entry.command, allowedAt: new Date().toISOString() };
     writeAlways(entry.cwd, map);
   }
-  appendLog(entry.cwd, { type: "decision", id, command: entry.command, reason: entry.reason, decided: action });
+  appendLog(entry.cwd, { type: "decision", id, command: entry.command, reason: entry.reason, agentId: entry.agentId || null, decided: action });
   // 2026-10-13（Fleming）：agent 重試同一條被攔指令 → 每次都送一張新卡（不同 id、同 command）→
   // UI 會一次出現多張卡，按了一張其他張還掛著，使用者以為沒生效。
   // 審批效力本來就是「整條指令」為單位（once/always 都按 sha256(指令) 記）→ 決策一次就把同指令的待審批一起結掉。
@@ -71,7 +73,7 @@ export function decideApproval(id, action) {
     if (v.command === entry.command) {
       _pending.delete(k);
       alsoIds.push(k);
-      appendLog(v.cwd, { type: "decision", id: k, command: v.command, reason: v.reason, decided: action, note: "同指令批次結案" });
+      appendLog(v.cwd, { type: "decision", id: k, command: v.command, reason: v.reason, agentId: v.agentId || null, decided: action, note: "同指令批次結案" });
     }
   }
   return { ok: true, action, command: entry.command, cwd: entry.cwd, alsoIds };
@@ -144,8 +146,8 @@ export function listApprovalHistory(cwd, limit = 50) {
     const byId = new Map();
     for (const l of lines) {
       let r; try { r = JSON.parse(l); } catch { continue; }
-      const cur = byId.get(r.id) || { id: r.id, command: r.command || "", reason: r.reason || "", decided: null, at: r.at };
-      if (r.type === "request") { cur.command = r.command || cur.command; cur.reason = r.reason || cur.reason; cur.at = r.at; }
+      const cur = byId.get(r.id) || { id: r.id, command: r.command || "", reason: r.reason || "", agentId: r.agentId || null, decided: null, at: r.at };
+      if (r.type === "request") { cur.command = r.command || cur.command; cur.reason = r.reason || cur.reason; cur.agentId = r.agentId || cur.agentId; cur.at = r.at; }
       if (r.type === "decision") { cur.decided = r.decided; cur.decidedAt = r.at; }
       byId.set(r.id, cur);
     }

@@ -525,7 +525,13 @@ export default function CodingIDE() {
   const [crewConversations, setCrewConversations] = useState<Record<string, ChatMessage[]>>({});
   const chatMessages = useMemo(() => activeCrew ? (crewConversations[activeCrew] || []) : [], [activeCrew, crewConversations]);
     // ── 審批歷史（2026-10-11 E）：決策留存於 <RU>/.paaw/exec-approval-log.jsonl，reload 後仍看得到 ──
-  const [approvalHistory, setApprovalHistory] = useState<{ id: string; command: string; reason?: string; decided?: string | null; at?: string }[]>([]);
+  const [approvalHistory, setApprovalHistory] = useState<{ id: string; command: string; reason?: string; agentId?: string | null; decided?: string | null; at?: string }[]>([]);
+  // 2026-10-13：審批是「某個 agent 發起的」→ 只在那個 crew 的視窗顯示（以前任何 crew 都看得到別人的審批紀錄）
+  const myAgentId = crewToAgentId(activeCrew || "coding.architect");
+  const visibleApprovalHistory = useMemo(
+    () => approvalHistory.filter((h) => (h.agentId || "developer") === myAgentId),
+    [approvalHistory, myAgentId],
+  );
   const loadApprovalHistory = useCallback(async () => {
     if (!rootPath) return;
     try {
@@ -2090,7 +2096,8 @@ const sendChat = useCallback(async () => {
                   }
 
                   // ── 審批卡（2026-10-09）：AI 危險指令被攔 → 插入 ✅/♾️/❌ 決策卡 ──
-                  if (currentEvent === "approval_request" && data.id) {
+                  // 2026-10-13：審批卡只屬於發起的那個 agent（例如 developer）→ 別的 crew 視窗（SA/qa/ops…）不插卡
+                  if (currentEvent === "approval_request" && data.id && (!data.agentId || data.agentId === crewToAgentId(activeCrew || "coding.architect"))) {
                     const aprMsg: ChatMessage = { role: "assistant", content: "", _approval: { id: data.id, command: String(data.command || ""), reason: String(data.reason || ""), decided: null }, ts: new Date().toISOString() };
                     setChatMessages(prev => {
                       // 2026-10-13：agent 重試同一條被攔指令會再送 approval_request（新 id、同 command）
@@ -3743,13 +3750,13 @@ const sendChat = useCallback(async () => {
                     </div>
                   )}
                   {/* 審批歷史（2026-10-11 E）— 決策寫進紀錄，reload 後仍看得到「當時准了什麼」（最新的在上面） */}
-                  {approvalHistory.length > 0 ? (
+                  {visibleApprovalHistory.length > 0 ? (
                     <details className="mb-2 rounded-xl border border-stone-200 bg-stone-50/70" open={false}>
                       <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-stone-500 select-none">
-                        🛡 審批紀錄（{approvalHistory.length}）— 來源 .paaw/exec-approval-log.jsonl
+                        🛡 審批紀錄（{visibleApprovalHistory.length}）— 來源 .paaw/exec-approval-log.jsonl
                       </summary>
                       <div className="px-3 pb-2 space-y-1.5 max-h-64 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
-                        {approvalHistory.slice(0, 20).map(h => (
+                        {visibleApprovalHistory.slice(0, 20).map(h => (
                           <div key={h.id} className="text-[11px] flex items-start gap-2">
                             <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium ${h.decided === "deny" || h.decided === "revoked" ? "bg-rose-100 text-rose-600" : h.decided === "always" ? "bg-blue-100 text-blue-700" : h.decided === "once" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
                               {h.decided === "once" ? "准許一次" : h.decided === "always" ? "永久准許" : h.decided === "deny" ? "已拒絕" : h.decided === "revoked" ? "已撤銷" : "待決"}

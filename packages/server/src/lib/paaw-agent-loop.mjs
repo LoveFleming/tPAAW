@@ -2370,11 +2370,12 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             if (onEvent) onEvent({ type: "tool_end", name, result: `✅ 已依使用者核准（${approved}）放行：${args.command.slice(0, 120)}` });
             // 跳過攔截繼續執行（落到下面 runShell）
           } else {
-            const aprId = requestApproval(args.command, cwd, sGuard.message.split("\n")[0].slice(0, 200));
+            const aprId = requestApproval(args.command, cwd, sGuard.message.split("\n")[0].slice(0, 200), agentId);
             // 🔴 審計（2026-10-10）：危險指令被攔 + 送審批卡
             logAuditEvent({ kind: "script_guard", severity: "block", tool: "bash", command: args.command, reason: sGuard.message.split("\n")[0], agentId, cwd });
             logAuditEvent({ kind: "approval_request", severity: "info", tool: "bash", command: args.command, reason: sGuard.message.split("\n")[0], detail: { approvalId: aprId }, agentId, cwd });
-            if (onEvent) onEvent({ type: "approval_request", id: aprId, command: String(args.command).slice(0, 300), reason: sGuard.message.split("\n")[0].slice(0, 300) });
+            // agentId（2026-10-13）：審批卡的歸屬 agent —— UI 只在其所属 crew 的視窗顯示
+            if (onEvent) onEvent({ type: "approval_request", id: aprId, command: String(args.command).slice(0, 300), reason: sGuard.message.split("\n")[0].slice(0, 300), agentId: agentId || null });
             if (onEvent) onEvent({ type: "tool_end", name, result: sGuard.message.slice(0, 500) });
             return sGuard.message + `\n（已送出審批卡 ${aprId} 給使用者。若使用者核准，直接重試同一個指令即可執行。）`;
           }
@@ -5669,7 +5670,7 @@ export async function runAgentLoopStream(config, res) {
         cwd, rootDir, agentId,
         // 2026-10-10：registry 路徑也接事件 — 安全通知（白名單/沙箱）不因 registry adapter 而丟失
         onEvent: (ev) => {
-          if (ev?.type === "approval_request") sendSSE("approval_request", { id: ev.id, command: ev.command, reason: ev.reason });
+          if (ev?.type === "approval_request") sendSSE("approval_request", { id: ev.id, command: ev.command, reason: ev.reason, agentId: ev.agentId || agentId || null }); // 2026-10-13 agentId
           if (ev?.type === "security_notice") sendSSE("security_notice", { kind: ev.kind, domains: ev.domains, message: ev.message });
         },
       };
@@ -5688,7 +5689,7 @@ export async function runAgentLoopStream(config, res) {
           ? toolRegistry.execute(_toolName2, args, _ctx2)
           : executeTool(call, cwd, rootDir, (ev) => {
               // ── 審批卡（2026-10-09）：streaming 路徑的 approval_request 事件直送 SSE ──
-              if (ev?.type === "approval_request") sendSSE("approval_request", { id: ev.id, command: ev.command, reason: ev.reason });
+              if (ev?.type === "approval_request") sendSSE("approval_request", { id: ev.id, command: ev.command, reason: ev.reason, agentId: ev.agentId || agentId || null }); // 2026-10-13 agentId
               // ── 安全通知（2026-10-10）：白名單阻擋/沙箱拒絕 → 使用者看得到 + 引導去安全 tab ──
               if (ev?.type === "security_notice") sendSSE("security_notice", { kind: ev.kind, domains: ev.domains, message: ev.message });
             }, agentId, featureBoundary);

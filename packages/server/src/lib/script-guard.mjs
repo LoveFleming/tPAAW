@@ -51,8 +51,18 @@ export function persistentEntryBlock(pathStr) {
 // ── 危險 pattern（內容掃描 — B/C 共用）──
 // 跨語言網路 API：JS(fetch/axios/node-fetch/got)、Python(requests/urllib/http.client/socket)、
 // Ruby(Net::HTTP/open-uri)、PHP(file_get_contents/curl_init)、PowerShell(Invoke-WebRequest/iwr)、通用 curl/wget
-const NET_TOOLS = /(\bfetch\s*\(|\bcurl\b|\bwget\b|http\.request|https\.request|net\.connect|\baxios\b|node-fetch|\bgot\(|\brequests\.(get|post|put)|urllib\.(request|urlopen)|http\.client|socket\.connect|Net::HTTP|open-uri|file_get_contents|curl_init|Invoke-WebRequest|\biwr\b|\birm\b|Invoke-RestMethod)/;
-const EXT_URL = /https?:\/\/(?!localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|\$\{?[A-Z_])/i;
+// 2026-10-13 大改（Fleming）：原本 NET_TOOLS(fetch/axios/requests…) + EXT_URL「同時出現就擋」
+// 會把正常程式碼全部誤判 —— 原始碼裡有 fetch + 外部 API 網址是常態（monitor.mjs、SDK client…），
+// 連 `grep -n slice(-10) ./monitor.mjs` 都因讀檔掃描被擋，等於不能開發。
+// 新原則：
+//   1) 只看「真的在對外連」：網路工具出現在指令位置（行首/&&/;/|/( 之後）且帶外部 URL
+//   2) 檔案內容不再用寬鬆的網路 API 啟發式 —— 對外連線的守門交給沙箱（srt 白名單 / MXC deny-by-default）
+//      ＋執行後輸出審計（audit-log scanCommandOutput）。事實靠機制，不靠猜字串。
+// localhost / 127.0.0.1 / 變數開頭不算（測試常打本地 API）
+const EXT_URL_SRC = "https?:\\/\\/(?!localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0|\\[::1\\]|\\$\\{?[A-Z_])";
+const EXT_URL = new RegExp(EXT_URL_SRC, "i");
+// NET_CMD：網路工具在「指令位置」（含引號內，如 execSync("curl https://…")）且帶外部 URL 才算外傳
+const NET_CMD = new RegExp("(?:^|[\\n;&|(=]|\\|\\|)\\s*[\"'\x60]?\\s*(?:sudo\\s+)?(?:curl|wget|nc|ncat|telnet|Invoke-WebRequest|iwr|Invoke-RestMethod|irm)\\b[^\\n]{0,400}?" + EXT_URL_SRC, "i");
 // 跨平台持久化（2026-10-13 加 Windows：schtasks / Register-ScheduledTask / reg add / sc create）
 const PERSISTENCE = /(LaunchAgents|launchctl|crontab|\.git[\\/]hooks|\.zshrc|\.bashrc|autostart|osascript|schtasks|Register-ScheduledTask|reg\s+add\b|sc\s+create\b)/i;
 // 非 rm 類的破壞性操作（一律擋）
@@ -102,9 +112,9 @@ export function scanScriptContent(content, source = "script", opts = {}) {
   if (DESTRUCTIVE_NONRM.test(text) || rmDangerous(text, cwd)) {
     return { dangerous: true, reason: `偵測到破壞性操作（rm 系統/家目錄路徑、killall、diskutil、dd）`, source };
   }
-  if (NET_TOOLS.test(text) && EXT_URL.test(text)) {
-    // 同時出現網路工具 + 外部 URL 才擋（測試打 localhost 放行）
-    return { dangerous: true, reason: `偵測到對外部 URL 的網路請求（外傳通道）— localhost 以外`, source };
+  if (NET_CMD.test(text)) {
+    // 只有「直接在指令位置對外用網路工具」才擋（localhost 放行）；原始碼裡的 URL 不擋
+    return { dangerous: true, reason: `偵測到直接對外部 URL 發出的網路請求（外傳通道）— localhost 以外`, source };
   }
   if (/\b(curl|wget)\b[^|;&]*\|[^\n]*(sh|bash|zsh|python)/i.test(text)) {
     return { dangerous: true, reason: `偵測到「下載即執行」管線（curl|sh）`, source };
@@ -113,8 +123,27 @@ export function scanScriptContent(content, source = "script", opts = {}) {
 }
 
 function blockMsg(r, file) {
-  return `🚫 安全攔截（script-guard）：${file ? `即將執行的 ${file}` : "即將執行的指令"} — ${r.reason}。\n這類內容需要人工確認。請改用 ask_user 向使用者說明意圖並取得同意後，由人工執行。\n（若為誤判，請調整腳本：外部下載改人工、localhost 測試照常）`;
+  return `🚫 安全攔截（script-guard）：${file ? `即將執行的 ${file}` : "即將執行的指令"} — ${r.reason}。\n這類內容需要人工確認。請改用 ask_user 向使用者說明意圖並取得同意後，由人工執行。\n（若為誤判：外部下載改人工、localhost 測試照常。趕碼時可在 設定 → 🛡 安全 → 開發模式 暫時關閉審批）`;
 }
+
+// ── 指令分段（粗略、保守：不特別處理引號內的分隔符；只用來判斷「誰在被執行」）──
+function splitSegments(cmd) {
+  return String(cmd).split(/\s*(?:&&|\|\||;|\n|\|)\s*/).map((s) => s.trim()).filter(Boolean);
+}
+
+// 該段的第一個指令（跳過 sudo / VAR=VAL 前綴）
+function firstWord(seg) {
+  const toks = String(seg).trim().split(/\s+/).filter(Boolean);
+  let i = 0;
+  while (i < toks.length && (/^[A-Za-z_][A-Za-z0-9_]*=\S*$/.test(toks[i]) || toks[i] === "sudo" || toks[i] === "command" || toks[i] === "exec" || toks[i] === "time")) i++;
+  return toks[i] || "";
+}
+
+// 純讀取/非直譯器指令：參數裡的檔案只是被「看」或被工具處理，不是被直譯器執行 → 不做內容掃描
+const READONLY_CMDS = /^(?:grep|egrep|fgrep|rg|ag|cat|bat|head|tail|sed|awk|gawk|less|more|find|fd|wc|sort|uniq|diff|echo|printf|ls|tree|stat|file|which|type|jq|xxd|od|nl|strings|test|true|false|dirname|basename|realpath|readlink|column|cut|tr|tee|touch|mkdir|rm|mv|cp|chmod|chown|git|npm|yarn|pnpm|bun|pip|pip3|cargo|go|make|npx)$/i;
+// 直譯器（後面接檔名 = 真的在執行該檔）
+const INTERPRETER = /^(?:node|nodejs|python3?|deno|bun|tsx|bash|sh|zsh|dash|ruby|perl|php|lua|powershell|pwsh|osascript)$/i;
+const COMPILER = /^(?:gcc|clang|clang\+\+|g\+\+|cc|cc\+|go|cargo|javac)$/i;
 
 // ── C. bash 指令的 script 執行掃描 ──
 const SCRIPT_EXTS = "mjs|cjs|js|ts|mts|cts|tsx|jsx|py|pyw|sh|zsh|bash|rb|pl|pm|php|lua|ps1|psm1|tcl";
@@ -143,14 +172,25 @@ export function guardScriptExecution(command, cwd) {
     if (r.dangerous) return { blocked: true, message: blockMsg(r, null) };
   }
 
-  // script file: 直譯器執行檔案（node/python/ruby/perl/php/lua/powershell/tsx…）
-  const fileMatches = [...cmd.matchAll(new RegExp(`\\b(node|python3?|deno|bun|tsx|npx\\s+tsx|bash|sh|zsh|ruby|perl|php|lua|powershell|pwsh|osascript)\\s+((?:[\\w./-]*\\/)?[\\w.-]+\\.(?:${SCRIPT_EXTS}))\\b`, "g"))];
-  // shebang 直跑：./xxx.sh ./xxx.py（chmod +x 後直接執行也算）
-  fileMatches.push(...[...cmd.matchAll(new RegExp(`(^|[&;|\\s])((?:\\./|/)[\\w./-]+\\.(?:${SCRIPT_EXTS}))(?:\\s|$)`, "g"))].map(m => [null, null, m[2]]));
-  // 編譯型（C/C++/Go/Rust/Java）：編譯時掃 source（binary 掃不了，原始碼掃得到）
-  const compileMatches = [...cmd.matchAll(/\b(gcc|clang|g\+\+|cc\+\+|go\\s+build|cargo\\s+build|javac)\b[^&|;]*/g)].map(m => m[0]);
-  for (const ccmd of compileMatches) {
-    fileMatches.push(...[...ccmd.matchAll(/((?:[\w./-]*\/)?[\w.-]+\.(?:c|cc|cpp|cxx|h|go|rs|java))\b/g)].map(m => [null, null, m[1]]));
+  // script file: **只在「該段真的在執行這個檔」時才掃內容**（2026-10-13）
+  //   舊碼用 `\b(node|bash|…)\s+file` 整條指令比對 + `(^|[&;|\s])…/x.sh`，
+  //   結果 `grep -n slice(-10) ./monitor.mjs`（檔案只是 grep 的參數）也被當成「即將執行」而讀檔掃描 → 正常開發被擋。
+  //   現在改成逐段判斷：只有該段的第一個指令是直譯器，或該段本身就是執行一個檔案，才掃。
+  const fileMatches = [];
+  for (const seg of splitSegments(cmd)) {
+    const w = firstWord(seg);
+    if (!w) continue;
+    const base = w.split(/[\\/]/).pop() || w;
+    if (READONLY_CMDS.test(base)) continue; // grep/cat/find/git… 參數裡的檔只是被讀 → 不掃
+    // 直譯器直跑：node x.mjs / python x.py / ruby x.rb
+    const interp = INTERPRETER.test(base) ? seg.match(new RegExp(`\\b${base}\\s+(?:"[^"]*"\\s+)?((?:[\\w./-]*\\/)?[\\w.-]+\\.(?:${SCRIPT_EXTS}))\\b`)) : null;
+    if (interp) fileMatches.push([null, null, interp[1]]);
+    // 直接執行檔：./x.sh、/abs/x.py（該段第一個字就是檔名）
+    if (/^(?:\.\/|\/)/.test(w) && new RegExp(`\\.(?:${SCRIPT_EXTS})$`, "i").test(base)) fileMatches.push([null, null, w]);
+    // 編譯型：編譯時掃 source（binary 掃不了，原始碼掃得到）
+    if (COMPILER.test(base)) {
+      for (const cm of seg.matchAll(/((?:[\w./-]*\/)?[\w.-]+\.(?:c|cc|cpp|cxx|h|go|rs|java))\b/g)) fileMatches.push([null, null, cm[1]]);
+    }
   }
   for (const m of fileMatches) {
     const f = isAbsolute(m[2]) ? m[2] : resolvePath(cwd || process.cwd(), m[2]);

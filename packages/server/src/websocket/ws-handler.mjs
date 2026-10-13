@@ -365,7 +365,7 @@ export function setupWebSocket() {
                   asend({ type: "agent_event", event: "security_notice", kind: evt.kind, domains: evt.domains, message: evt.message });
                 }
                 if (evt.type === "approval_request") {
-                  asend({ type: "agent_event", event: "approval_request", id: evt.id, command: evt.command, reason: evt.reason });
+                  asend({ type: "agent_event", event: "approval_request", id: evt.id, command: evt.command, reason: evt.reason, agentId: evt.agentId || null });
                 }
                 if (evt.type === "assistant_thinking") {
                   asend({ type: "agent_event", event: "thinking", content: evt.content });

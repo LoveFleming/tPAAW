@@ -1162,7 +1162,7 @@ export default async function a2aRoutes(req, res) {
                 else if (ev.type === "tool_error") _stBuf("tool_result", { name: ev.name, result: String(ev.error || "tool error") });
                 else if (ev.type === "turn_start") _stBuf("thinking", {});
                 else if (ev.type === "error") _stBuf("error", { error: String(ev.message || ev.error || "agent loop error") });
-                else if (ev.type === "approval_request") _stBuf("approval_request", { id: ev.id, command: ev.command, reason: ev.reason }); // 2026-10-09 審批卡
+                else if (ev.type === "approval_request") _stBuf("approval_request", { id: ev.id, command: ev.command, reason: ev.reason, agentId: ev.agentId || null }); // 2026-10-09 審批卡；2026-10-13 加 agentId（審批只在其 crew 視窗顯示）
               },
             });
             _stBuf("content", { content: String(result.content || ""), done: true }); // 斷線期間完成的回覆
