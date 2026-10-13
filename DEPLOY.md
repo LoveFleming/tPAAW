@@ -363,3 +363,18 @@
   - `packages/ui/src/components/ChatMessages.tsx`　（⚠️ 與 `approval-fix/` 同一檔，用本批最新版）
 - ⚠️ 有動 UI → 覆蓋後 **`npm run build`** 然後**重啟 server**。
 - 來源 dev `b5b800bd`；843 tests passed。真 agent 驗證：送審批 → stream 未結束/檔案未產生（真的停住）→ 按永遠准許 → 當場接續執行；按拒絕 → 結束且未執行。
+
+## 🛡 `security-coding/`（2026-10-13 總包：沙箱＋審批＋開發模式＋script-guard 一次蓋完）
+> **這一包把今天所有「coding app 安全/開發體驗」的修正合併成一個目錄**，涵蓋並取代前面的
+> `sandbox-fix/`、`filemount-fix/`、`approval-fix/`、`devmode-switch/`、`guard-fix/`、`approval-wait/`
+> （那些目錄留著當歷史，內容都是較舊版本）。**只要蓋 `security-coding/` 這 25 檔就好。**
+- 路徑照 deploy6 規則：`security-coding/` 下載後**去掉前綴**即為覆蓋路徑。
+- ⚠️ **有動 UI → 覆蓋後一定要 `npm run build` 然後重啟 server**。
+- 內容（25 檔）：
+  - **沙箱（Linux bwrap 修復＋跨平台）**：`packages/server/src/lib/paaw-sandbox.mjs`、`shell-exec.mjs`、`env-exec-tool.mjs`、`dev-server.mjs`、`proc-ledger.mjs`、`packages/server/src/websocket/ws-handler.mjs`、`packages/server/src/lib/audit-log.mjs`、`data/knowledge/mxc-linux-install.md`
+  - **script-guard（誤擋正常開發修正）**：`packages/server/src/lib/script-guard.mjs`
+  - **審批卡（agentId 歸屬＋真的暫停等待）**：`packages/server/src/lib/exec-approvals.mjs`、`packages/server/src/lib/paaw-agent-loop.mjs`、`packages/server/src/routes/a2a.mjs`、`packages/ui/src/components/ChatMessages.tsx`、`packages/ui/src/pages/CodingIDE.tsx`
+  - **🛠 開發模式總開關**：`packages/server/src/lib/security-mode.mjs`、`packages/server/src/routes/assistant.mjs`、`packages/ui/src/pages/SettingsPage.tsx`、`packages/ui/src/i18n/locales/{zh,en,ja,zh-mix}.json`
+  - **File Mounts / believed workspace 修復**：`packages/server/src/lib/context-engine.mjs`、`packages/server/src/lib/domain-agent-registry.mjs`、`packages/server/src/tools/index.mjs`、`.gitignore`
+- 來源 dev `b5b800bd`（843 tests passed）。
+- 蓋完可驗證：① `grep -n slice(-10) ./monitor.mjs` 不再跳審批卡 ② 審批卡只出現在發起的那個 crew 視窗、按鈕後 agent 會接續執行 ③ 設定 → 🛡 安全 看到「開發模式」開關 ④ coding app 在 Linux 能正常寫檔。

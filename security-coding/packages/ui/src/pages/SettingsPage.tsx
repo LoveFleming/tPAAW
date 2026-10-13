@@ -1,0 +1,899 @@
+import React, { useState, useEffect } from "react";
+import { useTheme } from "../theme";
+import { useI18n, LOCALE_LABELS, Locale } from "../i18n";
+
+import API_BASE from "../api";
+import { invalidateModelSelectorCache } from "../components/ModelSelector";
+import BackupSettings from "./BackupSettings";
+import PluginManager from "./PluginManager";
+import AuditLogPanel from "../components/AuditLogPanel";
+import { uiAlertError, uiConfirm } from "../components/ui/uiFeedback";
+import { cn } from "../utils";
+
+interface ModelData {
+  id: string;
+  name: string;
+  vision?: boolean;
+  contextWindow?: number;
+  maxTokens?: number;
+  reasoning?: string; // ""=未設（用軟預設）| "off" | "low" | "medium" | "high"（2026-10-11）
+  pricing?: { inputPerMillion?: number; outputPerMillion?: number };
+}
+
+interface ProviderData {
+  name: string;
+  baseURL: string;
+  apiKey: string;
+  models: ModelData[];
+}
+
+interface FallbackEntry {
+  provider: string;
+  model: string;
+}
+
+interface SettingsPageProps {
+  initialTab?: string;
+  onTabChange?: (tab: string) => void;
+  onProvidersSaved?: () => void;
+}
+
+export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved }: SettingsPageProps = {}) {
+  const { info: themeInfo } = useTheme();
+  const { t, locale, setLocale } = useI18n();
+  const [tab, setTabState] = useState<"profile" | "providers" | "agentConfig" | "preferences" | "security" | "skill" | "language" | "backup" | "plugins">((initialTab as any) || "profile");
+  // 🛡 網路白名單（2026-10-10）：srt 沙箱對外域名
+  const [wlBuiltin, setWlBuiltin] = useState<string[]>([]);
+  const [wlCustom, setWlCustom] = useState<string[]>([]);
+  const [wlInput, setWlInput] = useState("");
+  const [wlSaving, setWlSaving] = useState(false);
+  const [providers, setProviders] = useState<Record<string, ProviderData>>({});
+  const [activeId, setActiveId] = useState("");
+  const [selectedModel, setSelectedModel] = useState("");
+  const [fallbacks, setFallbacks] = useState<FallbackEntry[]>([]);
+  const [preferenceFallbacks, setPreferenceFallbacks] = useState<{ key: string; model: string }[]>([]); // 2026-10-11（C）：user.json 的 *Fallback 偏好（優先於上方清單）
+  const [pendingRemovals, setPendingRemovals] = useState<string[]>([]);
+  const [newModel, setNewModel] = useState<{ pid: string; id: string; name: string }>({ pid: "", id: "", name: "" });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false); // 2026-09-12：有未存變更（saved 會在 2s 後自動回 false，不能當 dirty 用）
+  const [profile, setProfile] = useState<any>(null);
+
+  // Provider CRUD state
+  const [newProviderName, setNewProviderName] = useState("");
+  const [newProviderId, setNewProviderId] = useState("");
+  const [showNewProvider, setShowNewProvider] = useState(false);
+
+  // Agent Config state
+  const [agentConfig, setAgentConfig] = useState({ maxTurns: 100, timeoutSeconds: 1800, bashTimeoutSeconds: 300, shellTimeoutMs: 600000 });
+
+  // User Preferences state
+  const [userPrefs, setUserPrefs] = useState<Record<string, string>>({});
+
+  const [skillConfig, setSkillConfig] = useState({ testTimeout: 600, maxToolCalls: 50 });
+
+  // Sync tab when parent changes initialTab (e.g. redirect to providers)
+  useEffect(() => {
+    if (initialTab && initialTab !== tab) setTabState(initialTab as typeof tab);
+  }, [initialTab]);
+
+  // Tab setter that syncs with parent
+  const setTab = (newTab: typeof tab) => {
+    setTabState(newTab); onTabChange?.(newTab);
+    if (newTab === "security") {
+      fetch(`${API_BASE}/api/paaw/network-whitelist`).then(r => r.json()).then((d) => {
+        setWlBuiltin(d.builtin || []); setWlCustom(d.custom || []);
+      }).catch(() => {});
+      loadAlwaysApprovals();
+      loadSecurityMode();
+    }
+  };
+
+  // ── D. 永久准許清單（2026-10-11 Fleming）── 列出/撤銷 <RU>/.paaw/exec-approvals.json
+  const [aprPath, setAprPath] = useState<string>(() => { try { return localStorage.getItem("paaw.vibeide.rootPath") || ""; } catch { return ""; } });
+  const [aprItems, setAprItems] = useState<{ hash: string; command: string; allowedAt: string }[]>([]);
+  const [aprNote, setAprNote] = useState<string>("");
+  const [aprBusy, setAprBusy] = useState(false);
+
+  // ── 🛠 開發模式總開關（2026-10-13 Fleming）：關沙箱 + 關安全審批，趕碼用 ──
+  const [devMode, setDevMode] = useState(false);
+  const [devModeInfo, setDevModeInfo] = useState<any>(null);
+  const [devModeBusy, setDevModeBusy] = useState(false);
+
+  const loadSecurityMode = async () => {
+    try {
+      const d = await (await fetch(`${API_BASE}/api/paaw/security-mode`)).json();
+      setDevMode(!!d.devMode); setDevModeInfo(d);
+    } catch { /* 讀不到就照預設（安全） */ }
+  };
+
+  const toggleDevMode = async (next: boolean) => {
+    setDevModeBusy(true);
+    try {
+      const d = await (await fetch(`${API_BASE}/api/paaw/security-mode`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ devMode: next }),
+      })).json();
+      setDevMode(!!d.devMode); setDevModeInfo((p: any) => ({ ...(p || {}), ...d }));
+      setSaved(true); setTimeout(() => setSaved(false), 2000);
+    } catch { /* 失敗維持原狀 */ }
+    setDevModeBusy(false);
+  };
+
+  const loadAlwaysApprovals = async (p?: string) => {
+    const path = (p ?? aprPath).trim();
+    if (!path) { setAprNote(t("settings.alwaysApprovals.needPath")); setAprItems([]); return; }
+    setAprBusy(true); setAprNote("");
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-project/exec-approval`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "list-always", path }),
+      });
+      const d = await r.json();
+      setAprItems(Array.isArray(d.items) ? d.items : []);
+      if (!d.items?.length) setAprNote(t("settings.alwaysApprovals.empty"));
+    } catch { setAprNote(t("settings.alwaysApprovals.error")); }
+    setAprBusy(false);
+  };
+
+  const revokeApproval = async (hash: string, command: string) => {
+    if (!(await uiConfirm(t("settings.alwaysApprovals.revokeConfirm"), { danger: true }))) return;
+    setAprBusy(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-project/exec-approval`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "revoke", path: aprPath.trim(), hash }),
+      });
+      const d = await r.json();
+      if (d.ok) { setAprItems(prev => prev.filter(x => x.hash !== hash)); setAprNote(t("settings.alwaysApprovals.revoked")); }
+      else uiAlertError(d.error || t("settings.alwaysApprovals.error"));
+    } catch { uiAlertError(t("settings.alwaysApprovals.error")); }
+    setAprBusy(false);
+  };
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/paaw/providers`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.providers) setProviders(data.providers);
+        if (data.active) setActiveId(data.active);
+        if (data.defaultModel) setSelectedModel(data.defaultModel);
+        if (Array.isArray(data.fallbacks)) setFallbacks(data.fallbacks);
+        if (Array.isArray(data.preferenceFallbacks)) setPreferenceFallbacks(data.preferenceFallbacks);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/ai-settings/agent-config`)
+      .then(r => r.json())
+      .then(data => {
+        if (data && !data.error) setAgentConfig({
+          maxTurns: data.maxTurns ?? 100,
+          timeoutSeconds: data.timeoutSeconds ?? 1800,
+          bashTimeoutSeconds: data.bashTimeoutSeconds ?? 300,
+          shellTimeoutMs: data.shellTimeoutMs ?? 600000,
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/user/preferences`)
+      .then(r => r.json())
+      .then(data => { if (data && !data.error) setUserPrefs(data); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/paaw/user`)
+      .then(r => r.json())
+      .then(data => { if (data) setProfile(data); })
+      .catch(() => {});
+  }, []);
+
+  // Load Engine Config
+  useEffect(() => {
+    fetch(`${API_BASE}/api/paaw/skill-config`)
+      .then(r => r.json())
+      .then(data => { if (data) setSkillConfig({ testTimeout: data.testTimeout || 600, maxToolCalls: data.maxToolCalls || 50 }); })
+      .catch(() => {});
+  }, []);
+
+  const handleApiKeyChange = (pid: string, key: string) => {
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], apiKey: key } }));
+    setSaved(false); setDirty(true);
+  };
+
+  const handleBaseURLChange = (pid: string, url: string) => {
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], baseURL: url } }));
+    setSaved(false); setDirty(true);
+  };
+
+  const handleProviderField = (pid: string, field: string, value: any) => {
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], [field]: value } }));
+    setSaved(false); setDirty(true);
+  };
+
+  const addProvider = () => {
+    if (!newProviderId.trim()) return;
+    setProviders(prev => ({ ...prev, [newProviderId]: { name: newProviderName || newProviderId, baseURL: "", apiKey: "", models: [] } }));
+    setNewProviderId("");
+    setNewProviderName("");
+    setShowNewProvider(false);
+    setSaved(false); setDirty(true);
+  };
+
+  const removeProvider = (pid: string) => {
+    const { [pid]: removed, ...rest } = providers;
+    setProviders(rest);
+    setPendingRemovals(prev => prev.includes(pid) ? prev : [...prev, pid]);
+    if (activeId === pid) {
+      const remaining = Object.keys(rest);
+      setActiveId(remaining.length > 0 ? remaining[0] : "");
+    }
+    setSaved(false); setDirty(true);
+  };
+
+  const renameProvider = (oldPid: string, newPid: string) => {
+    if (newPid === oldPid || !newPid.trim()) return;
+    const p = providers[oldPid];
+    const { [oldPid]: removed, ...rest } = providers;
+    setProviders({ ...rest, [newPid]: { ...p } });
+    setPendingRemovals(prev => prev.includes(oldPid) ? prev : [...prev, oldPid]);
+    if (activeId === oldPid) setActiveId(newPid);
+    setSaved(false); setDirty(true);
+  };
+
+  const addModelToProvider = (pid: string) => {
+    const id = newModel.id.trim();
+    if (!id || newModel.pid !== pid) return;
+    const name = newModel.name.trim() || id;
+    // 2026-09-12：重複 id 原本靜默失敗（row 關掉、什麼都沒加、沒提示）— 給明確反饋
+    if (providers[pid]?.models.some(m => m.id === id)) {
+      uiAlertError(t("settings.modelIdExists"));
+      return;
+    }
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: [...prev[pid].models, { id, name }] } }));
+    setNewModel({ pid: "", id: "", name: "" });
+    setSaved(false); setDirty(true);
+  };
+
+  const handleModelText = (pid: string, mid: string, field: string, value: string) => {
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.map(m => m.id === mid ? { ...m, [field]: value } : m) } }));
+    setSaved(false); setDirty(true);
+  };
+
+  const handleModelField = (pid: string, mid: string, field: string, raw: string) => {
+    const value = raw === "" ? undefined : Number(raw);
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.map(m => m.id === mid ? { ...m, [field]: value } : m) } }));
+    setSaved(false); setDirty(true);
+  };
+
+  const handleModelPricing = (pid: string, mid: string, field: string, raw: string) => {
+    const value = raw === "" ? undefined : Number(raw);
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.map(m => m.id === mid ? { ...m, pricing: { ...m.pricing, [field]: value } } : m) } }));
+    setSaved(false); setDirty(true);
+  };
+
+  const handleModelBool = (pid: string, mid: string, field: "vision", value: boolean) => {
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.map(m => m.id === mid ? { ...m, [field]: value } : m) } }));
+    setSaved(false); setDirty(true);
+  };
+
+  const handleModelReasoning = (pid: string, mid: string, value: string) => {
+    // "" = 移除欄位（回退軟預設），不寫空字串
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.map(m => {
+      if (m.id !== mid) return m;
+      const next: ModelData = { ...m };
+      if (value) next.reasoning = value; else delete next.reasoning;
+      return next;
+    }) } }));
+    setSaved(false); setDirty(true);
+  };
+
+  const removeModelFromProvider = (pid: string, mid: string) => {
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.filter(m => m.id !== mid) } }));
+    if (selectedModel === mid) setSelectedModel("");
+    setSaved(false); setDirty(true);
+  };
+
+  const handleSaveProviders = async () => {
+    setSaving(true);
+    try {
+      const resp = await fetch(`${API_BASE}/api/paaw/providers`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: activeId, defaultModel: selectedModel, providers, fallbacks, removedProviderIds: pendingRemovals }),
+      });
+      if (resp.ok) { setSaved(true); setDirty(false); setPendingRemovals([]); setTimeout(() => setSaved(false), 2000); invalidateModelSelectorCache(); onProvidersSaved?.(); }
+    } catch {}
+    setSaving(false);
+  };
+
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    try {
+      await fetch(`${API_BASE}/api/paaw/user`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profile),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {}
+    setSaving(false);
+  };
+
+  return (
+    <div className="h-full w-full flex-1 min-h-0 overflow-y-auto" style={{ backgroundColor: themeInfo.accentBg }}>
+      <div className="px-6 py-5 pb-24">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold" style={{ color: "#1c1917" }}>{t("sidebar.settings")}</h2>
+            <p className="text-xs mt-0.5" style={{ color: "#a8a29e" }}>系統設定與偏好管理。修改後即時生效。</p>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 mb-6 bg-stone-100 p-1 rounded-xl w-fit flex-wrap">
+          <button onClick={() => setTab("profile")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "profile" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            👤 個人資料
+          </button>
+          <button onClick={() => setTab("providers")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "providers" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            🤖 Provider
+          </button>
+          <button onClick={() => setTab("agentConfig")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "agentConfig" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            ⚡ Agent 設定
+          </button>
+          <button onClick={() => setTab("security")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "security" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            🛡 {t("settings.security")}
+          </button>
+          <button onClick={() => setTab("preferences")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "preferences" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            📌 Model 偏好
+          </button>
+          <button onClick={() => setTab("skill")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "skill" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            🔨 Skill Builder
+          </button>
+          <button onClick={() => setTab("backup")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "backup" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            💾 備份還原
+          </button>
+          <button onClick={() => setTab("plugins")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "plugins" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            🔌 Plugins
+          </button>
+          <button onClick={() => setTab("language")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "language" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            🌐 {t("settings.language")}
+          </button>
+        </div>
+
+        {/* Profile tab */}
+        {tab === "profile" && profile && (
+          <div className="space-y-4">
+            {/* User info */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">{t("settings.yourName", t("onboarding.name"))}</label>
+                  <input type="text" value={profile.name || ""} onChange={(e) => { setProfile({ ...profile, name: e.target.value }); setSaved(false); setDirty(true); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">{t("settings.selfIntro", "自我介紹")}</label>
+                  <textarea value={profile.intro || ""} onChange={(e) => { setProfile({ ...profile, intro: e.target.value }); setSaved(false); setDirty(true); }} rows={3} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400 resize-none" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">{t("settings.replyStyle", "回覆風格")}</label>
+                  <div className="flex gap-2">
+                    {["concise", "detailed", "casual", "formal"].map(s => (
+                      <button key={s} onClick={() => { setProfile({ ...profile, style: s }); setSaved(false); setDirty(true); }} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${profile.style === s ? "border-stone-400 bg-stone-50 text-stone-700" : "border-stone-200 text-stone-400 hover:border-stone-300"}`}>
+                        {{ concise: t("settings.styleConcise"), detailed: t("settings.styleDetailed"), casual: t("settings.styleCasual"), formal: t("settings.styleFormal") }[s]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button onClick={handleSaveProfile} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
+              {saving ? t("common.saving") : saved ? t("common.saved") : t("settings.saveProfile")}
+            </button>
+          </div>
+        )}
+
+        {/* Provider tab — full CRUD */}
+        {tab === "providers" && (
+          <div className="space-y-4">
+            {/* Active provider selector */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3 block">啟用 Provider</label>
+              <div className="flex flex-wrap gap-2">
+                {Object.keys(providers).map(pid => (
+                  <button key={pid} onClick={() => { setActiveId(pid); if (providers[pid].models.length > 0) setSelectedModel(providers[pid].models[0].id); setSaved(false); setDirty(true); }}
+                    className="px-3 py-2 rounded-lg text-sm font-medium border transition-all flex items-center gap-2"
+                    style={activeId === pid ? { borderColor: themeInfo.accent, background: `${themeInfo.accent}08` } : { borderColor: "#e7e5e4" }}>
+                    {activeId === pid && <span className="w-2 h-2 rounded-full" style={{ background: themeInfo.accent }} />}
+                    {providers[pid]?.name || pid}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Provider cards */}
+            {Object.entries(providers).map(([pid, p]) => (
+              <div key={pid} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+                <div className="px-5 py-3 flex items-center justify-between border-b border-stone-100" style={activeId === pid ? { background: `${themeInfo.accent}08` } : {}}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center" style={{ borderColor: activeId === pid ? themeInfo.accent : "#d6d3d1" }}>
+                      {activeId === pid && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: themeInfo.accent }} />}
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <input type="text" value={p.name} onChange={e => handleProviderField(pid, "name", e.target.value)} className="text-sm font-semibold text-stone-700 bg-transparent border-b border-transparent hover:border-stone-300 focus:border-stone-400 focus:outline-none w-[160px]" />
+                        {activeId === pid && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600">啟用中</span>}
+                      </div>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-[10px] font-mono text-stone-400">ID:</span>
+                        <input type="text" value={pid} onChange={e => renameProvider(pid, e.target.value)} className="text-[10px] font-mono text-stone-400 bg-transparent border-b border-transparent hover:border-stone-300 focus:border-stone-400 focus:outline-none w-[120px]" />
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={async () => { if (await uiConfirm(`刪除 provider「${p.name}」？`, { danger: true })) removeProvider(pid); }}
+                    className="text-xs px-2 py-1 rounded-md text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-all">{t("common.delete")}</button>
+                </div>
+                <div className="px-5 py-3 space-y-3">
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">Base URL</label>
+                      <input type="text" value={p.baseURL} onChange={e => handleProviderField(pid, "baseURL", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-xs font-mono text-stone-500 focus:outline-none focus:border-stone-400" />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">API Key</label>
+                      <input type="password" value={p.apiKey} onChange={e => handleProviderField(pid, "apiKey", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-xs font-mono focus:outline-none focus:border-stone-400" placeholder={t("settings.apiKeyPlaceholder")} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Models</label>
+                      {newModel.pid !== pid && (
+                        <button onClick={() => setNewModel({ pid, id: "", name: "" })} className="text-xs text-stone-500 hover:text-stone-700 px-2 py-0.5 rounded hover:bg-stone-100">+ {t("settings.addModel")}</button>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      {p.models.map(m => (
+                        <div key={m.id} className="rounded-lg border border-stone-100 bg-stone-50/60 px-3 py-2">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            {selectedModel === m.id && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />}
+                            <input type="text" value={m.name} onChange={e => handleModelText(pid, m.id, "name", e.target.value)}
+                              className="flex-1 min-w-0 text-xs font-medium text-stone-700 bg-transparent border-b border-transparent hover:border-stone-300 focus:border-stone-400 focus:outline-none" placeholder={t("settings.modelNamePlaceholder")} />
+                            <input type="text" value={m.id} onChange={e => handleModelText(pid, m.id, "id", e.target.value)}
+                              className="w-[130px] shrink-0 text-[10px] font-mono text-stone-400 bg-transparent border-b border-transparent hover:border-stone-300 focus:border-stone-400 focus:outline-none" placeholder="model id" />
+                            {activeId === pid && (
+                              <button onClick={() => { setSelectedModel(m.id); setSaved(false); setDirty(true); }}
+                                className={`text-[9px] px-1 rounded shrink-0 ${selectedModel === m.id ? "text-amber-600 bg-amber-50" : "text-stone-300 hover:text-stone-500"}`}
+                                title={t("settings.setDefault")}>{selectedModel === m.id ? "✓" : "📌"}</button>
+                            )}
+                            <button onClick={() => removeModelFromProvider(pid, m.id)}
+                              className="text-stone-300 hover:text-rose-400 text-[10px] shrink-0"
+                              title={t("settings.deleteModel")}>✕</button>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div>
+              <label className="text-[9px] font-bold text-stone-300 uppercase tracking-wider block mb-0.5">👁 Vision</label>
+              <button onClick={() => handleModelBool(pid, m.id, "vision", !m.vision)}
+                className={cn("w-full px-2 py-1 rounded border text-[11px] font-medium transition-colors",
+                  m.vision ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "bg-white border-stone-200 text-stone-400 hover:border-stone-300")}
+                title="此 model 能吃圖（vision routing 用）">
+                {m.vision ? "✓ 支援影像" : "純文字"}
+              </button>
+            </div>
+            <div>
+              <label className="text-[9px] font-bold text-stone-300 uppercase tracking-wider block mb-0.5">{t("settings.modelCtx")}</label>
+              <input type="number" value={m.contextWindow ?? ""} onChange={e => handleModelField(pid, m.id, "contextWindow", e.target.value)}
+                className="w-full px-2 py-1 rounded border border-stone-200 text-[11px] font-mono text-stone-600 focus:outline-none focus:border-stone-400 bg-white" placeholder="128000" />
+            </div>
+            <div>
+              <label className="text-[9px] font-bold text-stone-300 uppercase tracking-wider block mb-0.5">{t("settings.modelMax")}</label>
+              <input type="number" value={m.maxTokens ?? ""} onChange={e => handleModelField(pid, m.id, "maxTokens", e.target.value)}
+                className="w-full px-2 py-1 rounded border border-stone-200 text-[11px] font-mono text-stone-600 focus:outline-none focus:border-stone-400 bg-white" placeholder="16384" />
+            </div>
+            <div>
+              <label className="text-[9px] font-bold text-stone-300 uppercase tracking-wider block mb-0.5">{t("settings.modelPriceIn")}</label>
+              <input type="number" step="0.01" value={m.pricing?.inputPerMillion ?? ""} onChange={e => handleModelPricing(pid, m.id, "inputPerMillion", e.target.value)}
+                className="w-full px-2 py-1 rounded border border-stone-200 text-[11px] font-mono text-stone-600 focus:outline-none focus:border-stone-400 bg-white" placeholder="0.6" />
+            </div>
+            <div>
+              <label className="text-[9px] font-bold text-stone-300 uppercase tracking-wider block mb-0.5">{t("settings.modelPriceOut")}</label>
+              <input type="number" step="0.01" value={m.pricing?.outputPerMillion ?? ""} onChange={e => handleModelPricing(pid, m.id, "outputPerMillion", e.target.value)}
+                className="w-full px-2 py-1 rounded border border-stone-200 text-[11px] font-mono text-stone-600 focus:outline-none focus:border-stone-400 bg-white" placeholder="2.2" />
+            </div>
+            <div>
+              <label className="text-[9px] font-bold text-stone-300 uppercase tracking-wider block mb-0.5" title={t("settings.modelReasoningDesc")}>🧠 {t("settings.modelReasoning")}</label>
+              <select value={m.reasoning ?? ""} onChange={e => handleModelReasoning(pid, m.id, e.target.value)}
+                title={t("settings.modelReasoningDesc")}
+                className="w-full px-2 py-1 rounded border border-stone-200 text-[11px] text-stone-600 focus:outline-none focus:border-stone-400 bg-white">
+                <option value="">{t("settings.reasoningDefault")}</option>
+                <option value="off">off（關）</option>
+                <option value="low">low</option>
+                <option value="medium">medium</option>
+                <option value="high">high</option>
+              </select>
+            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {p.models.length === 0 && <span className="text-xs text-stone-300">{t("settings.noModels")}</span>}
+                      {newModel.pid === pid && (
+                        <div className="flex gap-2 items-center rounded-lg border border-dashed border-amber-300 bg-amber-50/40 px-3 py-2">
+                          <input type="text" value={newModel.id} onChange={e => setNewModel(v => ({ ...v, id: e.target.value }))} placeholder={t("settings.modelIdPlaceholder")} autoFocus
+                            className="w-[140px] px-2 py-1 rounded border border-stone-200 text-[11px] font-mono focus:outline-none focus:border-amber-400" onKeyDown={e => { if (e.key === "Enter") addModelToProvider(pid); if (e.key === "Escape") setNewModel({ pid: "", id: "", name: "" }); }} />
+                          <input type="text" value={newModel.name} onChange={e => setNewModel(v => ({ ...v, name: e.target.value }))} placeholder={t("settings.modelNamePlaceholder")}
+                            className="flex-1 px-2 py-1 rounded border border-stone-200 text-[11px] focus:outline-none focus:border-amber-400" onKeyDown={e => { if (e.key === "Enter") addModelToProvider(pid); }} />
+                          <button onClick={() => addModelToProvider(pid)} disabled={!newModel.id.trim()} className="text-[11px] px-3 py-1 rounded-lg text-white font-medium disabled:opacity-50" style={{ background: themeInfo.accent }}>{t("common.add")}</button>
+                          <button onClick={() => setNewModel({ pid: "", id: "", name: "" })} className="text-[11px] px-2 py-1 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-100">{t("common.cancel")}</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Add new provider */}
+            {showNewProvider ? (
+              <div className="bg-white rounded-xl border-2 border-amber-200 p-5">
+                <div className="flex gap-3 mb-3">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">Provider ID</label>
+                    <input type="text" value={newProviderId} onChange={e => setNewProviderId(e.target.value)} placeholder={t("settings.providerIdPlaceholder")} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono focus:outline-none focus:border-amber-400" autoFocus onKeyDown={e => { if (e.key === "Enter") addProvider(); if (e.key === "Escape") { setShowNewProvider(false); setNewProviderId(""); }}} />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">顯示名稱</label>
+                    <input type="text" value={newProviderName} onChange={e => setNewProviderName(e.target.value)} placeholder={t("settings.providerNamePlaceholder")} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-amber-400" onKeyDown={e => { if (e.key === "Enter") addProvider(); }} />
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => { setShowNewProvider(false); setNewProviderId(""); setNewProviderName(""); }} className="text-xs px-4 py-2 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50">{t("common.cancel")}</button>
+                  <button onClick={addProvider} disabled={!newProviderId.trim()} className="text-xs px-4 py-2 rounded-lg text-white font-medium disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>新增</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setShowNewProvider(true)} className="w-full py-3 rounded-xl border-2 border-dashed text-sm font-medium transition-all" style={{ borderColor: "#d6d3d1", color: "#a8a29e" }}>
+                + 新增 Provider
+              </button>
+            )}
+
+            {/* Default model selector */}
+            {activeId && providers[activeId]?.models.length > 0 && (
+              <div className="bg-white rounded-xl border border-stone-200 p-5">
+                <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-2">預設 Model</label>
+                <select value={selectedModel} onChange={e => { setSelectedModel(e.target.value); setSaved(false); setDirty(true); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none">
+                  {providers[activeId].models.map(m => (
+                    <option key={m.id} value={m.id}>{m.name} ({m.id})</option>
+                  ))}
+                </select>
+                <p className="text-xs text-stone-400 mt-1">所有 AI 功能的起始 model，各功能可在「Model 偏好」中自訂</p>
+              </div>
+            )}
+
+            {/* Fallback chain */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">{t("settings.fallbacks")}</label>
+                <button onClick={() => { const firstPid = Object.keys(providers)[0]; if (firstPid) setFallbacks(prev => [...prev, { provider: firstPid, model: providers[firstPid]?.models[0]?.id || "" }]); setSaved(false); setDirty(true); }}
+                  className="text-xs text-stone-500 hover:text-stone-700 px-2 py-0.5 rounded hover:bg-stone-100">+ {t("settings.addFallback")}</button>
+              </div>
+              <p className="text-xs text-stone-400 mb-3">{t("settings.fallbacksDesc")}</p>
+              {preferenceFallbacks.length > 0 && (
+                <div className="mb-3 text-[11px] bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800">
+                  <b>⚠️ {t("settings.prefFallbackTitle")}</b> {t("settings.prefFallbackDesc")}
+                  <div className="mt-1 font-mono text-[10px]">
+                    {preferenceFallbacks.map(p => <div key={p.key}>{p.key} → {p.model}</div>)}
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                {fallbacks.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="w-5 text-[10px] font-mono text-stone-300 text-center shrink-0">{i + 1}</span>
+                    <select value={f.provider} onChange={e => { const pid = e.target.value; setFallbacks(prev => prev.map((x, j) => j === i ? { ...x, provider: pid, model: providers[pid]?.models[0]?.id || "" } : x)); setSaved(false); setDirty(true); }}
+                      className="px-2 py-1.5 rounded-lg border border-stone-200 text-xs focus:outline-none focus:border-stone-400">
+                      {Object.keys(providers).map(pid => <option key={pid} value={pid}>{pid}</option>)}
+                    </select>
+                    <select value={f.model} onChange={e => { const v = e.target.value; setFallbacks(prev => prev.map((x, j) => j === i ? { ...x, model: v } : x)); setSaved(false); setDirty(true); }}
+                      className="flex-1 px-2 py-1.5 rounded-lg border border-stone-200 text-xs font-mono focus:outline-none focus:border-stone-400">
+                      <option value="">—</option>
+                      {(providers[f.provider]?.models || []).map(m => <option key={m.id} value={m.id}>{m.name} ({m.id})</option>)}
+                    </select>
+                    <button onClick={() => setFallbacks(prev => { if (i === 0) return prev.slice(1); const c = [...prev]; [c[i - 1], c[i]] = [c[i], c[i - 1]]; return c; })} disabled={i === 0}
+                      className="text-stone-300 hover:text-stone-600 text-xs px-1 disabled:opacity-30" title="上移">↑</button>
+                    <button onClick={() => setFallbacks(prev => { if (i === prev.length - 1) return prev.slice(0, -1); const c = [...prev]; [c[i], c[i + 1]] = [c[i + 1], c[i]]; return c; })} disabled={i === fallbacks.length - 1}
+                      className="text-stone-300 hover:text-stone-600 text-xs px-1 disabled:opacity-30" title="下移">↓</button>
+                    <button onClick={() => { setFallbacks(prev => prev.filter((_, j) => j !== i)); setSaved(false); setDirty(true); }}
+                      className="text-stone-300 hover:text-rose-400 text-xs px-1" title={t("common.delete")}>✕</button>
+                  </div>
+                ))}
+                {fallbacks.length === 0 && <span className="text-xs text-stone-300">{t("settings.noFallbacks")}</span>}
+              </div>
+            </div>
+
+            <button onClick={handleSaveProviders} disabled={saving}
+              className={`w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50 ${dirty ? "animate-pulse" : ""}`}
+              style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
+              {saving ? t("common.saving") : saved ? t("common.saved") : t("settings.saveProviders")}
+            </button>
+            {dirty && Object.keys(providers).length > 0 && (
+              <p className="text-center text-amber-600 text-xs font-medium">⚠️ {t("settings.unsavedProviders")}</p>
+            )}
+          </div>
+        )}
+
+        {/* Agent Config tab */}
+        {tab === "agentConfig" && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <h3 className="text-base font-bold text-stone-700">Agent 執行設定</h3>
+              <p className="text-sm text-stone-400 mb-4">控制所有 AI Agent 的執行行為上限</p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-stone-600 mb-1">Max Turns（最大工具呼叫次數）</label>
+                  <input type="number" value={agentConfig.maxTurns} onChange={e=>{setAgentConfig(p=>({...p,maxTurns:Math.max(1,parseInt(e.target.value)||20)}));setSaved(false); setDirty(true);}} min={1} max={500} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <p className="text-xs text-stone-400 mt-1">AI 在單次任務中最多能呼叫工具幾次（預設 100）</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-stone-600 mb-1">Timeout（秒）</label>
+                  <input type="number" value={agentConfig.timeoutSeconds} onChange={e=>{setAgentConfig(p=>({...p,timeoutSeconds:Math.max(10,parseInt(e.target.value)||120)}));setSaved(false); setDirty(true);}} min={10} step={10} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <p className="text-xs text-stone-400 mt-1">任務總超時（預設 1800 = 30 分鐘）</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-stone-600 mb-1">Bash Timeout（秒）</label>
+                  <input type="number" value={agentConfig.bashTimeoutSeconds} onChange={e=>{setAgentConfig(p=>({...p,bashTimeoutSeconds:Math.max(5,parseInt(e.target.value)||60)}));setSaved(false); setDirty(true);}} min={5} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <p className="text-xs text-stone-400 mt-1">每個 Shell 指令的超時（預設 300）</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-stone-600 mb-1">Shell Timeout（ms）</label>
+                  <input type="number" value={agentConfig.shellTimeoutMs} onChange={e=>{setAgentConfig(p=>({...p,shellTimeoutMs:Math.max(10000,parseInt(e.target.value)||600000)}));setSaved(false); setDirty(true);}} min={10000} step={50000} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <p className="text-xs text-stone-400 mt-1">Shell session 總超時（毫秒，預設 600000 = 10 分鐘）</p>
+                </div>
+              </div>
+            </div>
+            <button onClick={async()=>{setSaving(true);try{await fetch(`${API_BASE}/api/ai-settings/agent-config`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(agentConfig)});setSaved(true);setTimeout(()=>setSaved(false),2000);}catch{}setSaving(false);}} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{background:`linear-gradient(135deg,${themeInfo.accent},${themeInfo.accentHover})`}}>{saving ? t("common.saving") : saved ? t("common.saved") : t("settings.saveAgent")}</button>
+          </div>
+        )}
+
+        {/* Security tab — 網路白名單（2026-10-10） */}
+        {tab === "security" && (
+          <div className="space-y-4">
+            {/* ── 🛠 開發模式總開關（2026-10-13 Fleming）：趕碼時關沙箱+審批，有空再開回來測 ── */}
+            <div className={`rounded-xl border p-5 ${devMode ? "border-amber-300 bg-amber-50" : "border-stone-200 bg-white"}`}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-stone-700">🛠 {t("settings.devMode.title")}</h3>
+                  <p className="text-sm text-stone-400 mt-1">{t("settings.devMode.desc")}</p>
+                </div>
+                <button
+                  onClick={() => toggleDevMode(!devMode)}
+                  disabled={devModeBusy}
+                  className={`shrink-0 w-14 h-8 rounded-full transition-colors relative disabled:opacity-50 ${devMode ? "bg-amber-500" : "bg-stone-300"}`}
+                  title={devMode ? t("settings.devMode.turnOff") : t("settings.devMode.turnOn")}
+                >
+                  <span className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-all ${devMode ? "left-7" : "left-1"}`} />
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                <span className={`px-2 py-0.5 rounded-full font-medium ${devMode ? "bg-amber-500 text-white" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
+                  {devMode ? t("settings.devMode.on") : t("settings.devMode.off")}
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 font-mono">
+                  {t("settings.devMode.sandbox")}: {devModeInfo?.sandboxBackend || "—"}
+                </span>
+                {devModeInfo?.envOverride ? (
+                  <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-mono">env PAAW_DEV_MODE={String(devModeInfo.envOverride)}</span>
+                ) : null}
+              </div>
+              {devMode && <p className="text-xs text-amber-700 mt-3">⚠️ {t("settings.devMode.warning")}</p>}
+              <p className="text-xs text-stone-400 mt-3">{t("settings.devMode.kept")}</p>
+            </div>
+
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <h3 className="text-base font-bold text-stone-700">🛡 {t("settings.netWhitelist.title")}</h3>
+              <p className="text-sm text-stone-400 mb-4">{t("settings.netWhitelist.desc")}</p>
+
+              <div className="mb-4">
+                <div className="text-xs font-semibold text-stone-500 mb-2">🔒 {t("settings.netWhitelist.builtin")}</div>
+                <div className="flex flex-wrap gap-2">
+                  {wlBuiltin.map((d) => (
+                    <span key={d} className="px-2.5 py-1 rounded-full bg-stone-100 text-stone-500 text-xs font-mono">{d}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <div className="text-xs font-semibold text-stone-500 mb-2">➕ {t("settings.netWhitelist.custom")}</div>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {wlCustom.length === 0 && <span className="text-xs text-stone-300">{t("settings.netWhitelist.empty")}</span>}
+                  {wlCustom.map((d) => (
+                    <span key={d} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-mono border border-emerald-200">
+                      {d}
+                      <button onClick={() => setWlCustom(prev => prev.filter(x => x !== d))} className="text-emerald-400 hover:text-rose-500 font-bold" title={t("settings.netWhitelist.remove")}>×</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={wlInput}
+                    onChange={(e) => setWlInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(wlInput.trim())) {
+                        setWlCustom(prev => prev.includes(wlInput.trim().toLowerCase()) ? prev : [...prev, wlInput.trim().toLowerCase()]);
+                        setWlInput("");
+                      }
+                    }}
+                    placeholder={t("settings.netWhitelist.placeholder")}
+                    className="flex-1 px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono focus:outline-none focus:border-stone-400"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={async () => {
+                  setWlSaving(true);
+                  try {
+                    const r = await fetch(`${API_BASE}/api/paaw/network-whitelist`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ domains: wlCustom }) });
+                    const d = await r.json();
+                    if (d.ok) { setWlCustom(d.custom); setSaved(true); setTimeout(() => setSaved(false), 2000); }
+                  } catch {}
+                  setWlSaving(false);
+                }}
+                disabled={wlSaving}
+                className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50"
+                style={{ background: `linear-gradient(135deg,${themeInfo.accent},${themeInfo.accentHover})` }}
+              >
+                {wlSaving ? t("common.saving") : saved ? t("common.saved") : t("settings.netWhitelist.save")}
+              </button>
+              <p className="text-xs text-stone-400 mt-3">{t("settings.netWhitelist.note")}</p>
+            </div>
+            {/* ── D. 永久准許清單（2026-10-11 Fleming）— 之前完全看不到也撤不掉 ── */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <h3 className="text-base font-bold text-stone-700">♾️ {t("settings.alwaysApprovals.title")}</h3>
+              <p className="text-sm text-stone-400 mb-4">{t("settings.alwaysApprovals.desc")}</p>
+              <div className="flex gap-2 mb-3">
+                <input
+                  value={aprPath}
+                  onChange={(e) => setAprPath(e.target.value)}
+                  placeholder={t("settings.alwaysApprovals.pathPlaceholder")}
+                  className="flex-1 px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono focus:outline-none focus:border-stone-400"
+                />
+                <button
+                  onClick={() => loadAlwaysApprovals()}
+                  disabled={aprBusy}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
+                  style={{ background: themeInfo.accent }}
+                >
+                  {aprBusy ? t("common.loading") : t("settings.alwaysApprovals.load")}
+                </button>
+              </div>
+              {aprItems.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {aprItems.map(it => (
+                    <div key={it.hash} className="flex items-start gap-2 p-2 rounded-lg bg-stone-50 border border-stone-200">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-mono text-[11px] text-stone-700 break-all">{it.command}</div>
+                        <div className="text-[10px] text-stone-400 mt-0.5">
+                          {t("settings.alwaysApprovals.allowedAt")} {it.allowedAt ? new Date(it.allowedAt).toLocaleString() : "—"}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => revokeApproval(it.hash, it.command)}
+                        disabled={aprBusy}
+                        className="px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50 shrink-0"
+                      >
+                        {t("settings.alwaysApprovals.revoke")}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {aprNote && <p className="text-xs text-stone-400">{aprNote}</p>}
+            </div>
+            {/* 🛡 安全審計紀錄報表（2026-10-11 Fleming）— audit-*.jsonl 事實來源，PAAW 內即可看 */}
+            <AuditLogPanel />
+          </div>
+        )}
+
+        {/* Model Preferences tab */}
+        {tab === "preferences" && (
+          <div className="bg-white rounded-xl border border-stone-200 p-5">
+            <h3 className="text-base font-bold text-stone-700">Model 偏好設定</h3>
+            <p className="text-sm text-stone-400 mb-4">各 AI 功能使用的預設 Model，未設定則使用 Provider 的全域預設</p>
+            <div className="space-y-4">
+              {[{key:"skillBuilder",label:"Skill Builder",desc:t("settings.featureSkillBuilderDesc")},{key:"coding",label:t("sidebar.coding"),desc:t("settings.featureCodingDesc")},{key:"crewChat",label:t("settings.crewChatLabel", "Crew Chat"),desc:t("settings.featureCrewChatDesc")},{key:"appBuilder",label:t("sidebar.appBuilder"),desc:t("settings.featureAppBuilderDesc")}].map(feat=>(
+                <div key={feat.key} className="flex items-center justify-between py-2 border-b border-stone-100 last:border-0">
+                  <div><span className="text-sm font-medium text-stone-700">{feat.label}</span><p className="text-xs text-stone-400">{feat.desc}</p></div>
+                  <div className="w-[50%]">
+                    <select value={userPrefs[feat.key]||""} onChange={async(e)=>{const n={...userPrefs,[feat.key]:e.target.value};setUserPrefs(n);await fetch(`${API_BASE}/api/user/preferences`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({[feat.key]:e.target.value})});}} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none">
+                      <option value="">（使用預設）</option>
+                      {activeId&&providers[activeId]?.models?.map((m:any)=><option key={m.id} value={m.id}>{m.name} ({m.id})</option>)}
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Skill Builder tab */}
+        {tab === "skill" && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3 block">測試執行設定</label>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-stone-600 mb-1">⏱️ 測試逾時（秒）</label>
+                  <input type="number" value={skillConfig.testTimeout} onChange={e => { setSkillConfig(prev => ({ ...prev, testTimeout: Math.max(60, parseInt(e.target.value) || 600) })); setSaved(false); setDirty(true); }} min={60} step={60} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <p className="text-xs text-stone-400 mt-1">預設 600 秒（10 分鐘），最少 60 秒</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-stone-600 mb-1">🔧 最大 Session Turn 次數</label>
+                  <input type="number" value={skillConfig.maxToolCalls} onChange={e => { setSkillConfig(prev => ({ ...prev, maxToolCalls: Math.max(1, parseInt(e.target.value) || 50) })); setSaved(false); setDirty(true); }} min={1} max={200} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <p className="text-xs text-stone-400 mt-1">預設 50，AI Agent 的最大執行步數</p>
+                </div>
+              </div>
+            </div>
+            <button onClick={async () => {
+              setSaving(true);
+              try {
+                await fetch(`${API_BASE}/api/paaw/skill-config`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(skillConfig) });
+                setSaved(true); setTimeout(() => setSaved(false), 2000);
+              } catch {} setSaving(false);
+            }} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
+              {saving ? t("common.saving") : saved ? t("common.saved") : t("settings.saveSkillBuilder")}
+            </button>
+          </div>
+        )}
+
+        {/* 2026-10-09 Fleming：AI 蒸餾 tab 已移除 */}
+
+        {/* Tools tab */}
+
+        {/* Backup tab */}
+        {tab === "backup" && <BackupSettings />}
+
+        {/* Plugins tab */}
+        {tab === "plugins" && (
+          <PluginManager />
+        )}
+
+        {/* Language tab */}
+        {tab === "language" && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold text-stone-800">🌐 {t("settings.language")}</h3>
+            <p className="text-sm text-stone-500">{t("settings.language")}</p>
+            <div className="space-y-2">
+              {(Object.entries(LOCALE_LABELS) as [Locale, string][]).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setLocale(key)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${
+                    locale === key
+                      ? "border-stone-800 bg-stone-50 shadow-sm"
+                      : "border-stone-200 hover:border-stone-300 hover:bg-stone-50"
+                  }`
+                }
+                >
+                  <span className="text-2xl">
+                    {key === "zh-mix" ? "🇹🇼" : key === "en" ? "🇺🇸" : key === "zh" ? "🇨🇳" : "🇯🇵"}
+                  </span>
+                  <div>
+                    <div className={`font-medium ${locale === key ? "text-stone-800" : "text-stone-600"}`}>{label}</div>
+                  </div>
+                  {locale === key && <span className="ml-auto text-stone-800">✓</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Tools Tab Component ──
