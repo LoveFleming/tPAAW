@@ -270,3 +270,19 @@
 - 做了什麼：App Modules 管理頁還原 + M2（模組 zip 匯入/匯出/移除）+ M3（模組 UI runtime 動態載入，匯入後免 build）+ ES shipper 帳密/index 前綴。
 - ⚠️ 家公司步驟：蓋這 15 檔 → `npm install`（新增依賴 `esbuild`）→ `npm run build` → 重啟 server。
 - 驗證：`git diff --name-status eba314b9..a2243f2d`
+
+## 🛡 `sandbox-fix/`（2026-10-13 沙箱跨平台修正）
+- 目的：修公司 Linux 沙箱卡住 coding app（`bwrap: Can't find source path /private/tmp`）+ 全面跨平台硬化。
+- 路徑同 deploy6 規則：`sandbox-fix/` 下照 tPAAW 相對路徑鋪，下載後**去掉 `sandbox-fix/` 前綴**即為覆蓋路徑。
+- 內容（9 檔）：
+  - `packages/server/src/lib/paaw-sandbox.mjs`　（fs policy 過濾不存在路徑；macOS 路徑只在 darwin；path.join；HOME/USERPROFILE；shell 改 posixShellBin）
+  - `packages/server/src/lib/shell-exec.mjs`　（新 `posixShellBin()`：$SHELL→平台預設→/bin/sh）
+  - `packages/server/src/lib/env-exec-tool.mjs`（execFile PATH 跨平台）
+  - `packages/server/src/lib/dev-server.mjs`　（POSIX shell fallback）
+  - `packages/server/src/lib/proc-ledger.mjs`　（同上）
+  - `packages/server/src/websocket/ws-handler.mjs`（同上）
+  - `packages/server/src/lib/script-guard.mjs`（持久化偵測補 Windows）
+  - `packages/server/src/lib/audit-log.mjs`　（沙箱拒絕偵測跨平台：EPERM/EACCES/Access is denied）
+  - `data/knowledge/mxc-linux-install.md`　（症狀＋修法文件，選配）
+- ⚠️ 覆蓋後**一定要重啟 server**（server code 無 --watch）。本批**無新依賴、無 UI 變動**，不用 npm install、不用 build。
+- 來源 dev `ea989d83`；已過 `npx vitest run tests/unit`（815 passed）+ import 檢查。
