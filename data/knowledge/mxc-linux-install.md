@@ -141,3 +141,18 @@ bash scripts/check-mxc-linux.sh      # 要看到「MXC 就緒 ✅」
   1. **只信 `npm ls`**，不信「npm install 沒報錯」。
   2. `npm pack` OK ≠ install OK（差在 build 與 optional 靜默丟棄）。
   3. MXC 上不了 = PAAW 照跑但靜默降級 → **一定要跑自檢確認**。
+
+---
+
+## 常見症狀：`bwrap: Can't find source path /private/tmp`（2026-10-13 修）
+
+- **症狀**：MXC 就緒、`npm install` 沒問題，但 **coding app 無法對 `packages/` 寫入**；bash 工具回
+  `bwrap: Can't find source path /private/tmp: No such file or directory`。
+- **根因**：`paaw-sandbox.mjs` 的 fs policy 混進 **macOS 專屬路徑**
+  （`sandboxTempRoots()` 的 `/private/tmp`、readonly 的 `/private/etc` `/opt/homebrew`、readwrite 的 `~/Library/Caches`）。
+  Linux 的 **bubblewrap `--bind` 來源不存在會硬錯** → 整個沙箱指令失敗。
+- **修法**（dev `9d02f4b5`、`06eb7153`）：
+  - macOS 專屬路徑只在 darwin 列；readonly/readwrite/denied 一律 **`existsSync` 過濾**（不存在的不送進沙箱）
+  - shell 不再硬寫 `/bin/zsh`（Linux 沒 zsh；`$SHELL` 空時 spawn ENOENT）→ `posixShellBin()`
+- **公司取檔**：`packages/server/src/lib/paaw-sandbox.mjs` + `packages/server/src/lib/shell-exec.mjs`（+ env-exec-tool/dev-server/proc-ledger/ws-handler）→ 覆蓋 → **重啟 server**。
+- **驗證**：`npm run build` 後起 server，coding app 內跑 `touch packages/.probe && rm packages/.probe` 應成功、輸出帶 🛡沙箱内（MXC）。
