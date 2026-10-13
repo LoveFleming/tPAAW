@@ -927,6 +927,7 @@
   "report.range": "Range",
   "report.sampleNote": "Source: agent-logs index (full retention; Elasticsearch planned)",
   "sidebar.usageReport": "Usage Report",
+    "sidebar.securityAudit": "Security Audit Log",
   "report.table.ruModel": "Release Unit × Model",
   "report.model": "Model",
   "rr.title": "Release Requests — formal batch release",

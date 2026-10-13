@@ -43,6 +43,9 @@ const KIND_LABEL: Record<string, string> = {
   block_retry: "⛔ 被擋後重試",
   approval_request: "✅ 審批請求",
   approval_decision: "⚖️ 審批決策",
+  approval_granted: "▶️ 核准後執行",
+  network_notice: "🌐 對外網路請求",
+  script_guard_bypassed: "🛠 開發模式略過",
   env_exec_block: "🧰 環境工具攔截",
 };
 

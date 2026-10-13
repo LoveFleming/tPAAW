@@ -17,8 +17,52 @@ import { readFileSync, existsSync } from "fs";
 import { resolve as resolvePath, isAbsolute } from "path";
 import { homedir } from "os";
 import { execFileSync } from "child_process";
+import { PAAW_ROOT } from "../routes/shared.mjs";
 
 const HOME = homedir();
+
+// ── 信任範圍（2026-10-13 Fleming：「installed-apps 下的目錄預設就是准許」）──
+// 專案自己的地盤（RU 工作目錄）＋ PAAW 自己的 app 目錄（<root>/installed-apps/…）＋ 暫存區
+// 這些範圍內的檔案讀寫 = AI 的合法活動範圍，不該一直跳審批卡。
+function trustedRoots(cwd) {
+  const roots = [];
+  if (cwd) roots.push(resolvePath(cwd));
+  try { roots.push(resolvePath(PAAW_ROOT, "installed-apps")); } catch { /* ignore */ }
+  for (const t of ["/tmp", "/private/tmp", resolvePath(HOME, ".npm"), resolvePath(HOME, ".cache")]) {
+    try { if (existsSync(t)) roots.push(t); } catch { /* ignore */ }
+  }
+  return roots;
+}
+
+function insideTrusted(absPath, cwd) {
+  if (!absPath) return false;
+  let abs;
+  try { abs = resolvePath(absPath); } catch { return false; }
+  for (const r of trustedRoots(cwd)) {
+    if (abs === r || abs.startsWith(r + "/")) return true;
+  }
+  return false;
+}
+
+/** 機密路徑只擋「RU 之外」的（2026-10-13 Fleming）：~/.ssh 永遠擋；
+ *  專案內的 .env / providers.json = 開發常態（讀值 debug），放行但留審計。 */
+function secretPathHit(cmd, cwd) {
+  const text = String(cmd || "");
+  if (/(~\/\.ssh|\/\.ssh\/|\.ssh[\\/]id_|\.ssh[\\/])/.test(text)) {
+    return { hit: true, why: "SSH 金鑰/設定" };
+  }
+  const re = /(?:^|[\s"'=:(])([^\s"'`;|&()]*?(?:\/\.env\b|\.env\b|providers\.json\b|id_rsa\b|id_ed25519\b))/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const raw = m[1].replace(/["']$/, "");
+    if (!raw) continue;
+    const abs = raw.startsWith("~")
+      ? resolvePath(HOME, raw.replace(/^~[\\/]?/, ""))
+      : (isAbsolute(raw) ? raw : resolvePath(cwd || process.cwd(), raw));
+    if (!insideTrusted(abs, cwd)) return { hit: true, why: `機密檔（專案外）：${raw}` };
+  }
+  return { hit: false };
+}
 
 // ── A. 執行入口檔案（AI 永遠不可寫 — 寫了會在「人不在場」時執行）──
 const PERSISTENT_ENTRY_RULES = [
@@ -112,12 +156,14 @@ export function scanScriptContent(content, source = "script", opts = {}) {
   if (DESTRUCTIVE_NONRM.test(text) || rmDangerous(text, cwd)) {
     return { dangerous: true, reason: `偵測到破壞性操作（rm 系統/家目錄路徑、killall、diskutil、dd）`, source };
   }
-  if (NET_CMD.test(text)) {
-    // 只有「直接在指令位置對外用網路工具」才擋（localhost 放行）；原始碼裡的 URL 不擋
-    return { dangerous: true, reason: `偵測到直接對外部 URL 發出的網路請求（外傳通道）— localhost 以外`, source };
+  // 下載即執行（含 PowerShell：iwr … | iex）
+  if (/\b(curl|wget|iwr|Invoke-WebRequest|Invoke-RestMethod|irm)\b[^|;&\n]{0,300}\|(?!\|)[^\n]{0,200}?\b(sh|bash|zsh|dash|python3?|pwsh|powershell|iex|Invoke-Expression)\b/i.test(text)) {
+    return { dangerous: true, reason: `偵測到「下載即執行」管線（curl|sh、iwr|iex）`, source };
   }
-  if (/\b(curl|wget)\b[^|;&]*\|[^\n]*(sh|bash|zsh|python)/i.test(text)) {
-    return { dangerous: true, reason: `偵測到「下載即執行」管線（curl|sh）`, source };
+  if (NET_CMD.test(text)) {
+    // 2026-10-13 Fleming：對外網路請求「不再跳審批卡」— 沙箱（srt 白名單 / MXC deny-by-default）
+    // 才是真正的守門，事後還有輸出審計。這裡只回報（放行）讓 caller 記一筆 security_notice。
+    return { dangerous: false, network: true, reason: `對外部 URL 發出的網路請求（localhost 以外）`, source };
   }
   return { dangerous: false, reason: "" };
 }
@@ -148,28 +194,32 @@ const COMPILER = /^(?:gcc|clang|clang\+\+|g\+\+|cc|cc\+|go|cargo|javac)$/i;
 // ── C. bash 指令的 script 執行掃描 ──
 const SCRIPT_EXTS = "mjs|cjs|js|ts|mts|cts|tsx|jsx|py|pyw|sh|zsh|bash|rb|pl|pm|php|lua|ps1|psm1|tcl";
 
-// ── 越權與機密防護（2026-10-09 v3）──
+// ── 越權與機密防護（2026-10-09 v3；2026-10-13 機密路徑改成只擋 RU 外 — 見 secretPathHit）──
 // no-push 紀律技術化：AI 永遠不 push，push 是人的動作
 const GIT_PUSH = /\bgit\b[^&|;\n]{0,40}?\bpush\b/;
-// bash 指令碰機密路徑 = 幾乎只有竊取/搬運場景（讀值 debug 走 ask_user）
-const SECRET_PATH = /(~\/\.ssh|\/\.ssh\/|\.ssh\/id_|data\/config\/providers\.json|(?:^|[\s"'])\.env(?:\s|"|$))/;
 
 export function guardScriptExecution(command, cwd) {
   const cmd = String(command || "");
+  let networkReason = null;
+  const noteNetwork = (r) => { if (r && r.network && !networkReason) networkReason = r.reason || "對外網路請求"; };
 
   // 0) raw 指令本身先掃（語言無關）— 直接 curl|sh、osascript、外部 URL 下載等，不管什麼語言/形式
   const rawScan = scanScriptContent(cmd, "bash command", { cwd });
   if (rawScan.dangerous) return { blocked: true, message: blockMsg(rawScan, null) };
+  noteNetwork(rawScan);
   // 0a) 越權：git push 一律擋（no-push 紀律技術化）
   if (GIT_PUSH.test(cmd)) return { blocked: true, message: "🚫 安全攔截（script-guard）：git push 是人的動作，AI 不執行 push（no-push 紀律）。commit 完留給使用者決定。若你判斷必須 push，請用 ask_user 說明理由取得同意。" };
-  // 0b) 機密路徑：~/.ssh / providers.json / .env — 竊取場景（複製進專案等人 push = git 外傳）
-  if (SECRET_PATH.test(cmd)) return { blocked: true, message: "🚫 安全攔截（script-guard）：bash 指令涉及機密路徑（SSH 金鑰 / AI provider 金鑰 / .env）。AI 不經 bash 觸碰這些檔案。若確有需要（debug），請用 ask_user 向使用者說明，由人工執行。" };
+  // 0b) 機密路徑：只擋「專案（RU）之外」的（~/.ssh、/etc/.env…）— 專案內的 .env/providers.json
+  //     是開發常態（讀值 debug），放行但留審計（2026-10-13 Fleming：審批不該擋正常開發）
+  const sec = secretPathHit(cmd, cwd);
+  if (sec.hit) return { blocked: true, message: `🚫 安全攔截（script-guard）：bash 指令涉及專案外的機密路徑（${sec.why}）。AI 不經 bash 觸碰這些檔案。若確有需要（debug），請用 ask_user 向使用者說明，由人工執行。` };
 
   // inline code: node -e / python -c / ruby -e / perl -e / php -r / powershell -Command
   const inlineMatch = cmd.match(/\b(node|python3?|deno|bun|ruby|perl|php|powershell|pwsh)\s+(?:-e|-c|-r|-Command)\s+(['"`])([\s\S]*?)\2/);
   if (inlineMatch) {
     const r = scanScriptContent(inlineMatch[3], "inline code", { cwd });
     if (r.dangerous) return { blocked: true, message: blockMsg(r, null) };
+    noteNetwork(r);
   }
 
   // script file: **只在「該段真的在執行這個檔」時才掃內容**（2026-10-13）
@@ -199,6 +249,7 @@ export function guardScriptExecution(command, cwd) {
       const content = readFileSync(f, "utf-8").slice(0, 200_000);
       const r = scanScriptContent(content, f, { cwd });
       if (r.dangerous) return { blocked: true, message: blockMsg(r, m[2]) };
+      noteNetwork(r);
     } catch { /* 讀不到就放行給 shell 自然報錯 */ }
   }
 
@@ -212,6 +263,7 @@ export function guardScriptExecution(command, cwd) {
         for (const [k, v] of Object.entries(pkg.scripts || {})) {
           const r = scanScriptContent(String(v), `package.json:scripts.${k}`, { cwd });
           if (r.dangerous) return { blocked: true, message: blockMsg(r, `package.json scripts.${k}（npm install 會自動執行）`) };
+          noteNetwork(r);
         }
       }
     } catch { /* package.json 讀不到 → npm 自己會失敗，放行 */ }
@@ -228,12 +280,13 @@ export function guardScriptExecution(command, cwd) {
         if (scriptVal) {
           const r = scanScriptContent(scriptVal, `npm run ${npmRun[1]}`, { cwd });
           if (r.dangerous) return { blocked: true, message: blockMsg(r, `package.json:scripts.${npmRun[1]}`) };
+          noteNetwork(r);
         }
       } catch { /* package.json 壞掉 → npm 自己會報錯 */ }
     }
   }
 
-  return { blocked: false };
+  return { blocked: false, network: networkReason };
 }
 
 // ── B. env_exec 用：npm install 前檢查 package.json/lock 是否乾淨 ──

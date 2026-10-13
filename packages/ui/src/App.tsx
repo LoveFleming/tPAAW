@@ -29,6 +29,7 @@ import HelpDesk from "./pages/HelpDesk";
 import LlmLogTab from "./components/LlmLogTab";
 import AgentLogs from "./components/AgentLogs";
 import UsageReportPanel from "./components/UsageReportPanel";
+import AuditLogPanel from "./components/AuditLogPanel";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
 import { Crew } from "./types";
@@ -486,6 +487,13 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
+  // 2026-10-13 Fleming：安全審計紀錄從「設定」移到「報表」下
+  const openSecurityAudit = useCallback(() => {
+    const tabId = `${currentScope}:security-audit`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
   const openSkillAppById = useCallback((skillId: string) => {
     const tabId = `${currentScope}:skillapp.${skillId}`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
@@ -676,6 +684,16 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
     }
     if (pageType === "usage-report") {
       return <UsageReportPanel />;
+    }
+    if (pageType === "security-audit") {
+      // 2026-10-13 Fleming：安全審計紀錄（原本在設定的 🛡 安全 tab）改放報表下
+      return (
+        <div className="h-full w-full overflow-auto p-6" style={{ backgroundColor: "#fafaf9" }}>
+          <div className="max-w-6xl mx-auto">
+            <AuditLogPanel />
+          </div>
+        </div>
+      );
     }
     if (pageType.startsWith("skillapp.")) {
       const skillId = pageType.slice(9);
@@ -880,6 +898,13 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
                   active={activePage.endsWith(":usage-report")}
                   label={t("sidebar.usageReport")}
                   onClick={openUsageReport}
+                  accentColor={themeInfo.accent}
+                  accentBg={themeInfo.accentBg}
+                />
+                <NavItem
+                  active={activePage.endsWith(":security-audit")}
+                  label={t("sidebar.securityAudit")}
+                  onClick={openSecurityAudit}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />
