@@ -346,3 +346,20 @@
   - `packages/ui/src/pages/CodingIDE.tsx`　（只在自己 crew 顯示審批卡/紀錄；⚠️ 與 `approval-fix/` 同一檔，用本批最新版）
 - ⚠️ 有動 UI → 覆蓋後要 **`npm run build`** 然後**重啟 server**。
 - 來源 dev `42f6efc9`；`npx vitest run tests/unit` 838 passed。
+
+## ⏳ `approval-wait/`（2026-10-13 審批卡改成「真的暫停 agent」）
+- 症狀：按「✅ 准許一次」或「♾️ 永遠准許」UI 沒變化，而且 **agent loop 照跑不停**（還跑去跟你說「我先停在這裡」）。
+- 根因：審批卡以前只是「通知卡」—— 被 script-guard 擋下時只登記 pending ＋送卡，bash 工具**立刻**回傳「已送出審批卡」→ agent loop 早就繼續跑、那個 run 早就結束；你按按鈕時已經沒有人在等了。
+- 修法（真暫停語意）：
+  - server 新增 `waitForDecision()`：送出審批卡後 agent **真的 await 停住**，等你按按鈕；准許 → 當場接續執行這條指令；拒絕/逾時（預設 3 分鐘，`PAAW_APPROVAL_WAIT_MS` 可調）→ 回「指令未執行」。
+  - 同指令的多張卡一樣「按一次全部結案」（`alsoIds` 的等待者也一起叫醒）。
+  - bash 工具的執行上限自動加上等待預算（否則 120s tool timeout 會在等待中途把 agent 砍掉）。
+  - UI 卡片：待決策時顯示「⏳ agent 已暫停，正在等待你的決定（按鈕後才繼續執行）」；決策後顯示「✔ 已生效 — agent 已繼續執行這條指令」。
+  - 審計新增 `approval_granted`（核准後真的執行）。
+- 內容（4 檔，路徑照 deploy6 規則去掉 `approval-wait/` 前綴）：
+  - `packages/server/src/lib/exec-approvals.mjs`　（⚠️ 與 `guard-fix/`，`approval-fix/` 同一檔 → 用本批最新版）
+  - `packages/server/src/lib/paaw-agent-loop.mjs`　（⚠️ 同上，用本批最新版）
+  - `packages/server/src/lib/audit-log.mjs`
+  - `packages/ui/src/components/ChatMessages.tsx`　（⚠️ 與 `approval-fix/` 同一檔，用本批最新版）
+- ⚠️ 有動 UI → 覆蓋後 **`npm run build`** 然後**重啟 server**。
+- 來源 dev `b5b800bd`；843 tests passed。真 agent 驗證：送審批 → stream 未結束/檔案未產生（真的停住）→ 按永遠准許 → 當場接續執行；按拒絕 → 結束且未執行。
