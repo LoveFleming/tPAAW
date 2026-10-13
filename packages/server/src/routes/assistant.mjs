@@ -254,15 +254,19 @@ export default async function assistantRoute(req, res) {
   // ── 🛠 開發模式總開關（2026-10-13 Fleming）：關沙箱 + 關安全審批，趕碼用；data/config/security.json ──
   if (path === "/api/paaw/security-mode" && req.method === "GET") {
     const { loadSecurityMode, devModeOn } = await import("../lib/security-mode.mjs");
-    const { activeBackend, sandboxKillSwitchOn } = await import("../lib/paaw-sandbox.mjs");
+    const { sandboxAvailable, sandboxKillSwitchOn } = await import("../lib/paaw-sandbox.mjs");
     const cfg = loadSecurityMode();
+    // 2026-10-13：要報『真的可用嗎』— MXC 套件沒裝 / 平台不支援時 activeBackend() 還是回 mxc，
+    // 會誤導（開著 MXC 但實際上 bash 是原樣執行）。sandboxAvailable() = 真的能跑。
+    const mxcOk = await sandboxAvailable();
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({
       devMode: devModeOn(),
       configured: cfg.devMode === true,
       envOverride: process.env.PAAW_DEV_MODE || null,
-      sandboxBackend: activeBackend() || "off",
+      sandboxBackend: mxcOk ? "mxc" : "none",
       sandboxOff: sandboxKillSwitchOn(),
+      sandboxUsable: mxcOk,
       updatedAt: cfg.updatedAt,
       note: "開發模式＝關掉 MXC 沙箱 + script-guard 安全審批（趕碼用）。shell-guard（AI 動不了本 RU 以外的 process）永遠有效。",
     }));
@@ -271,10 +275,10 @@ export default async function assistantRoute(req, res) {
   if (path === "/api/paaw/security-mode" && req.method === "PUT") {
     const body = JSON.parse((await readBody(req)) || "{}");
     const { setDevMode, loadSecurityMode } = await import("../lib/security-mode.mjs");
-    const { activeBackend } = await import("../lib/paaw-sandbox.mjs");
+    const { sandboxAvailable } = await import("../lib/paaw-sandbox.mjs");
     const next = setDevMode(body.devMode === true);
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, devMode: next.devMode, sandboxBackend: activeBackend() || "off", updatedAt: next.updatedAt }));
+    res.end(JSON.stringify({ ok: true, devMode: next.devMode, sandboxBackend: (await sandboxAvailable()) ? "mxc" : "none", updatedAt: next.updatedAt }));
     return true;
   }
 
