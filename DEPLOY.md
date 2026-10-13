@@ -364,7 +364,7 @@
 - ⚠️ 有動 UI → 覆蓋後 **`npm run build`** 然後**重啟 server**。
 - 來源 dev `b5b800bd`；843 tests passed。真 agent 驗證：送審批 → stream 未結束/檔案未產生（真的停住）→ 按永遠准許 → 當場接續執行；按拒絕 → 結束且未執行。
 
-## 🛡 `security-coding/`（2026-10-13 總包 v6：沙箱＋審批＋開發模式＋script-guard＋安全審計紀錄搬家＋MXC 單後端）
+## 🛡 `security-coding/`（2026-10-13 總包 v7：沙箱＋審批＋開發模式＋script-guard＋安全審計紀錄搬家＋MXC 單後端）
 > **這一包把今天所有「coding app 安全/開發體驗」的修正合併成一個目錄**，涵蓋並取代前面的
 > `sandbox-fix/`、`filemount-fix/`、`approval-fix/`、`devmode-switch/`、`guard-fix/`、`approval-wait/`
 > （那些目錄留著當歷史，內容都是較舊版本）。**只要蓋 `security-coding/` 這 25 檔就好。**
@@ -430,3 +430,16 @@
 - 真 agent 實測（MXC 開）：glob `a.js\nsub/b.js` ✓、grep `a.js:1:hello fetch` ✓、
   無匹配 `(no files found)` ✓、bash `hi\n\n🛡沙箱內（MXC）` ✓
 - 更新檔：`packages/server/src/lib/paaw-agent-loop.mjs`。844 tests passed。
+
+### 🆕 v7 追加（2026-10-13 晚六，來源 dev `e1d73d15`）— 給你自己驗，不用相信我
+- **新增 `scripts/check-sandbox.mjs`**：沙箱自我檢查，跑一次印 12 項 PASS/FAIL。
+  ```
+  node scripts/check-sandbox.mjs          # 離開碼 0=全過
+  node scripts/check-sandbox.mjs --verbose
+  ```
+  檢查：後端可用 / RU 內可寫 / 家目錄寫入被擋 / ~/.ssh 被擋 / log 根可寫 / TMPDIR 可寫 /
+  git / node / python / curl 放行 / 一般指令斷網 / 沙箱標記守門。
+  **公司 Linux 也照跑**（這是唯一能真正驗 Linux/bwrap 的東西，Mac 上只有 seatbelt）。
+- `tests/unit/paaw-sandbox-mxc.test.mjs` 加「標記守門」回歸測試（bug #4 不會再回來）。845 tests passed。
+- ⚠️ 已知設計取捨：RU 路徑若落在 `~/.ssh` / `~/.openclaw` 內 → denied 優先於可寫，整個 RU 都寫不了
+  （腳本會自動避開；你把專案放那兩個目錄下才會遇到）。
