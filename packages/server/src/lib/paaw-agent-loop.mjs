@@ -2355,8 +2355,14 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         }
         // ── script-guard C（2026-10-09）：AI 寫的 script 執行前掃內容（危險 pattern 才攔，正常 coding 零摩擦）──
         const { guardScriptExecution } = await import("./script-guard.mjs");
+        const { devModeOn } = await import("./security-mode.mjs");
+        const _devMode = devModeOn(); // 🛠 開發模式（2026-10-13）
         const sGuard = guardScriptExecution(args.command, cwd);
-        if (sGuard.blocked) {
+        if (sGuard.blocked && _devMode) {
+          // 🛠 開發模式：不跳審批卡、不擋，直接放行 — 但留審計（事後可查「開發模式期間 AI 做了什麼」）
+          logAuditEvent({ kind: "script_guard_bypassed", severity: "warn", tool: "bash", command: args.command, reason: sGuard.message.split("\n")[0], detail: { devMode: true }, agentId, cwd });
+          if (onEvent) onEvent({ type: "security_notice", kind: "script_guard_bypassed", message: `🛠 開發模式：略過安全審批 — ${sGuard.message.split("\n")[0]}` });
+        } else if (sGuard.blocked) {
           // ── 審批卡（2026-10-09）：使用者已核准（once/always）= 放行重試 ──
           const { consumeApproval, requestApproval } = await import("./exec-approvals.mjs");
           const approved = consumeApproval(args.command, cwd);

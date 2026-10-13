@@ -47,6 +47,7 @@ data/providers.json
 # （曾把 Mac 的 /Users/... 帶到公司 Linux → agent reference_read 找不到目錄）
 data/workspaces.json
 data/config/workspaces.json
+data/config/security.json
 packages/data/
 node_modules/
 .DS_Store

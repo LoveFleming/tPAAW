@@ -251,6 +251,33 @@ export default async function assistantRoute(req, res) {
     return true;
   }
 
+  // ── 🛠 開發模式總開關（2026-10-13 Fleming）：關沙箱 + 關安全審批，趕碼用；data/config/security.json ──
+  if (path === "/api/paaw/security-mode" && req.method === "GET") {
+    const { loadSecurityMode, devModeOn } = await import("../lib/security-mode.mjs");
+    const { activeBackend, sandboxKillSwitchOn } = await import("../lib/paaw-sandbox.mjs");
+    const cfg = loadSecurityMode();
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      devMode: devModeOn(),
+      configured: cfg.devMode === true,
+      envOverride: process.env.PAAW_DEV_MODE || null,
+      sandboxBackend: activeBackend() || "off",
+      sandboxOff: sandboxKillSwitchOn(),
+      updatedAt: cfg.updatedAt,
+      note: "開發模式＝關掉 MXC/srt 沙箱 + script-guard 安全審批（趕碼用）。shell-guard（AI 動不了本 RU 以外的 process）永遠有效。",
+    }));
+    return true;
+  }
+  if (path === "/api/paaw/security-mode" && req.method === "PUT") {
+    const body = JSON.parse((await readBody(req)) || "{}");
+    const { setDevMode, loadSecurityMode } = await import("../lib/security-mode.mjs");
+    const { activeBackend } = await import("../lib/paaw-sandbox.mjs");
+    const next = setDevMode(body.devMode === true);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, devMode: next.devMode, sandboxBackend: activeBackend() || "off", updatedAt: next.updatedAt }));
+    return true;
+  }
+
   // ── 網路白名單（2026-10-10）：srt 沙箱對外域名 — data/config/network-whitelist.json ──
   if (path === "/api/paaw/network-whitelist" && req.method === "GET") {
     const { builtinAllowedDomains, customAllowedDomains } = await import("../lib/paaw-sandbox.mjs");

@@ -16,6 +16,7 @@ import { tmpdir } from "node:os";
 import { resolve, join } from "path";
 import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
 import { posixShellBin } from "./shell-exec.mjs";
+import { devModeOn } from "./security-mode.mjs"; // 🛠 開發模式總開關（2026-10-13）
 
 let _SM = null;
 let _inited = false;
@@ -97,7 +98,10 @@ async function loadSM() {
 }
 
 export function sandboxKillSwitchOn() {
-  return process.env.PAAW_SANDBOX === "off";
+  if (process.env.PAAW_SANDBOX === "off") return true;
+  // 🛠 開發模式總開關（2026-10-13 Fleming）：Settings → 安全 → 開發模式；也可 data/config/security.json
+  if (devModeOn()) return true;
+  return false;
 }
 
 export async function sandboxAvailable() {

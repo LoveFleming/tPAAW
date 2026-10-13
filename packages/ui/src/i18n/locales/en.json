@@ -1824,5 +1824,14 @@
   "crb.tag.nonRunner": "non-standard",
   "crb.openInRM": "← Back to Release Manager",
   "rm.ev.openBoard": "View full minutes",
-  "rm.ev.boardLink": "🏛 Review Board"
+  "rm.ev.boardLink": "🏛 Review Board",
+  "settings.devMode.title": "Developer Mode (master switch)",
+  "settings.devMode.desc": "Coding fast? Turn this on: the AI's bash no longer runs inside the MXC/srt sandbox and security approval cards stop popping up. Turn it back on later to test them.",
+  "settings.devMode.on": "🛠 Developer Mode: ON",
+  "settings.devMode.off": "🛡 Protections: ON",
+  "settings.devMode.turnOn": "Enable developer mode (no sandbox / no approvals)",
+  "settings.devMode.turnOff": "Disable developer mode (restore sandbox / approvals)",
+  "settings.devMode.sandbox": "Sandbox backend",
+  "settings.devMode.warning": "Sandbox and security approvals are disabled: commands are not isolated, egress is not filtered, no approval cards. Use only while you are watching.",
+  "settings.devMode.kept": "Still active: shell-guard (AI can never touch processes outside this RU, especially PAAW itself) + write-block on entry-point files (git hooks / shell rc). Stored in data/config/security.json — no restart needed."
 }

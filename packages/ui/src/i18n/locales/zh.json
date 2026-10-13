@@ -1824,5 +1824,14 @@
   "crb.tag.nonRunner": "非標準格式",
   "crb.openInRM": "← 回 Release Manager",
   "rm.ev.openBoard": "看會議記錄全文",
-  "rm.ev.boardLink": "🏛 Review 會議記錄"
+  "rm.ev.boardLink": "🏛 Review 會議記錄",
+  "settings.devMode.title": "開發模式總開關",
+  "settings.devMode.desc": "趕碼時不想被沙箱或安全審批卡住？打開這個開關：AI 的 bash 不再進 MXC/srt 沙箱、也不再跳安全審批卡。有空再把開關關掉回來測。",
+  "settings.devMode.on": "🛠 開發模式：開啟中",
+  "settings.devMode.off": "🛡 安全防護：全開",
+  "settings.devMode.turnOn": "開啟開發模式（關沙箱＋關審批）",
+  "settings.devMode.turnOff": "關閉開發模式（恢復沙箱＋審批）",
+  "settings.devMode.sandbox": "沙箱後端",
+  "settings.devMode.warning": "沙箱與安全審批已停用：AI 的指令不隔離、不攔外傳、不跳審批卡。請在你自己盯著的時候用。",
+  "settings.devMode.kept": "仍保留：shell-guard（AI 動不了本 RU 以外的 process，尤其 PAAW 自己）＋ 執行入口檔（git hooks / shell rc）寫入攔截。設定存在 data/config/security.json，免重啟。"
 }

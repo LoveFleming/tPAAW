@@ -1824,5 +1824,14 @@
   "crb.tag.nonRunner": "非標準形式",
   "crb.openInRM": "← Release Manager に戻る",
   "rm.ev.openBoard": "議事録の全文を見る",
-  "rm.ev.boardLink": "🏛 レビュー会議録"
+  "rm.ev.boardLink": "🏛 レビュー会議録",
+  "settings.devMode.title": "開発モード（マスタースイッチ）",
+  "settings.devMode.desc": "コーディングを速く進めたいときはオンに：AI の bash は MXC/srt サンドボックスに入らなくなり、セキュリティ承認カードも出ません。後でオフに戻してテストできます。",
+  "settings.devMode.on": "🛠 開発モード：オン",
+  "settings.devMode.off": "🛡 保護：全オン",
+  "settings.devMode.turnOn": "開発モードをオン（サンドボックス/承認オフ）",
+  "settings.devMode.turnOff": "開発モードをオフ（サンドボックス/承認を戻す）",
+  "settings.devMode.sandbox": "サンドボックス",
+  "settings.devMode.warning": "サンドボックスと承認が無効：コマンドは隔離されず、外向き通信もフィルタされません。自分で見ている間だけ使ってください。",
+  "settings.devMode.kept": "維持：shell-guard（この RU 外のプロセス、特に PAAW 自体は操作不可）＋実行入口ファイル（git hooks / shell rc）の書き込みブロック。設定は data/config/security.json、再起動不要。"
 }

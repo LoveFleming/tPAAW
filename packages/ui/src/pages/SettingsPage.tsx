@@ -85,6 +85,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
         setWlBuiltin(d.builtin || []); setWlCustom(d.custom || []);
       }).catch(() => {});
       loadAlwaysApprovals();
+      loadSecurityMode();
     }
   };
 
@@ -93,6 +94,30 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   const [aprItems, setAprItems] = useState<{ hash: string; command: string; allowedAt: string }[]>([]);
   const [aprNote, setAprNote] = useState<string>("");
   const [aprBusy, setAprBusy] = useState(false);
+
+  // ── 🛠 開發模式總開關（2026-10-13 Fleming）：關沙箱 + 關安全審批，趕碼用 ──
+  const [devMode, setDevMode] = useState(false);
+  const [devModeInfo, setDevModeInfo] = useState<any>(null);
+  const [devModeBusy, setDevModeBusy] = useState(false);
+
+  const loadSecurityMode = async () => {
+    try {
+      const d = await (await fetch(`${API_BASE}/api/paaw/security-mode`)).json();
+      setDevMode(!!d.devMode); setDevModeInfo(d);
+    } catch { /* 讀不到就照預設（安全） */ }
+  };
+
+  const toggleDevMode = async (next: boolean) => {
+    setDevModeBusy(true);
+    try {
+      const d = await (await fetch(`${API_BASE}/api/paaw/security-mode`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ devMode: next }),
+      })).json();
+      setDevMode(!!d.devMode); setDevModeInfo((p: any) => ({ ...(p || {}), ...d }));
+      setSaved(true); setTimeout(() => setSaved(false), 2000);
+    } catch { /* 失敗維持原狀 */ }
+    setDevModeBusy(false);
+  };
 
   const loadAlwaysApprovals = async (p?: string) => {
     const path = (p ?? aprPath).trim();
@@ -637,6 +662,37 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
         {/* Security tab — 網路白名單（2026-10-10） */}
         {tab === "security" && (
           <div className="space-y-4">
+            {/* ── 🛠 開發模式總開關（2026-10-13 Fleming）：趕碼時關沙箱+審批，有空再開回來測 ── */}
+            <div className={`rounded-xl border p-5 ${devMode ? "border-amber-300 bg-amber-50" : "border-stone-200 bg-white"}`}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-stone-700">🛠 {t("settings.devMode.title")}</h3>
+                  <p className="text-sm text-stone-400 mt-1">{t("settings.devMode.desc")}</p>
+                </div>
+                <button
+                  onClick={() => toggleDevMode(!devMode)}
+                  disabled={devModeBusy}
+                  className={`shrink-0 w-14 h-8 rounded-full transition-colors relative disabled:opacity-50 ${devMode ? "bg-amber-500" : "bg-stone-300"}`}
+                  title={devMode ? t("settings.devMode.turnOff") : t("settings.devMode.turnOn")}
+                >
+                  <span className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-all ${devMode ? "left-7" : "left-1"}`} />
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                <span className={`px-2 py-0.5 rounded-full font-medium ${devMode ? "bg-amber-500 text-white" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
+                  {devMode ? t("settings.devMode.on") : t("settings.devMode.off")}
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 font-mono">
+                  {t("settings.devMode.sandbox")}: {devModeInfo?.sandboxBackend || "—"}
+                </span>
+                {devModeInfo?.envOverride ? (
+                  <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-mono">env PAAW_DEV_MODE={String(devModeInfo.envOverride)}</span>
+                ) : null}
+              </div>
+              {devMode && <p className="text-xs text-amber-700 mt-3">⚠️ {t("settings.devMode.warning")}</p>}
+              <p className="text-xs text-stone-400 mt-3">{t("settings.devMode.kept")}</p>
+            </div>
+
             <div className="bg-white rounded-xl border border-stone-200 p-5">
               <h3 className="text-base font-bold text-stone-700">🛡 {t("settings.netWhitelist.title")}</h3>
               <p className="text-sm text-stone-400 mb-4">{t("settings.netWhitelist.desc")}</p>
