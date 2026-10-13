@@ -1810,7 +1810,8 @@ function buildHandlers(apps) {
   async function loadWorkspaces() {
     try {
       const ws = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "workspaces.json"), "utf-8"));
-      return ws.directories || [];
+      // 2026-10-13：只回傳本機存在的目錄
+      return (ws.directories || []).filter((d) => { try { return d && existsSync(d); } catch { return false; } });
     } catch { return []; }
   }
 

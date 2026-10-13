@@ -43,6 +43,10 @@ core/conversations/
 crews/conversation/
 data/config/providers.json
 data/providers.json
+# 2026-10-13：File Mounts（workspaces）是「每台機器各自的絕對路徑」— 不進版控
+# （曾把 Mac 的 /Users/... 帶到公司 Linux → agent reference_read 找不到目錄）
+data/workspaces.json
+data/config/workspaces.json
 packages/data/
 node_modules/
 .DS_Store

@@ -1885,7 +1885,13 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
     const wsPath = resolve(rootDir, "data/workspaces.json");
     if (existsSync(wsPath)) {
       const ws = JSON.parse(readSync(wsPath, "utf-8"));
-      if (Array.isArray(ws.directories)) workspaceDirs.push(...ws.directories);
+      // ⚠️ 2026-10-13：只採「本機真的存在」的目錄。workspaces.json 曾被版控帶到別台機器
+      // （Mac 絕對路徑 /Users/... 在公司 Linux 不存在）→ 否則 reference_read/path 檢查會鬼打牆。
+      if (Array.isArray(ws.directories)) {
+        workspaceDirs.push(...ws.directories.filter((d) => {
+          try { return typeof d === "string" && existsSync(d); } catch { return false; }
+        }));
+      }
     }
   } catch {}
 
@@ -1979,17 +1985,28 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         // Always use PAAW_ROOT for knowledge/workspace - not cwd/rootDir
         // because these directories live in the PAAW installation, not the project
         const paawRoot = _PAAW_ROOT;
-        let refBase;
+        let refBase = null;
+        let configuredDirs = [];
         if (args.source === "knowledge") {
           refBase = resolve(paawRoot, "data/knowledge");
         } else {
-          // workspace: use first directory from workspaces.json
+          // workspace: 從 workspaces.json（UI「📁 File Mounts」）挑第一個「本機存在」的目錄
           try {
             const ws = JSON.parse(readSync(resolve(paawRoot, "data/workspaces.json"), "utf-8"));
-            refBase = ws.directories?.[0] || resolve(paawRoot, "data/workspace");
-          } catch {
-            refBase = resolve(paawRoot, "data/workspace");
-          }
+            configuredDirs = Array.isArray(ws.directories) ? ws.directories : [];
+          } catch { configuredDirs = []; }
+          refBase = configuredDirs.find((d) => {
+            try { return typeof d === "string" && existsSync(d); } catch { return false; }
+          }) || null;
+        }
+        // 2026-10-13：沒掛載 → 講清楚（不再「does not exist yet」鬼打牆）。
+        // 常見原因：workspaces.json 被版控帶到別台機器（Mac /Users/... 在公司 Linux 不存在）。
+        if (!refBase) {
+          if (onEvent) onEvent({ type: "tool_end", name, result: `workspace not mounted` });
+          const seen = configuredDirs.length
+            ? `已設定但本機都不存在：${configuredDirs.join("、")}`
+            : `尚未設定任何目錄`;
+          return `(workspace/ 沒有可存取的掛載目錄 — ${seen}。請到「設定 → 📁 File Mounts」加入本機存在的資料夾後再試；knowledge/ 不受影響。)`;
         }
         if (!existsSync(refBase)) {
           if (onEvent) onEvent({ type: "tool_end", name, result: `${args.source}/ not found` });

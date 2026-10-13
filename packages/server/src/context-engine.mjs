@@ -114,7 +114,8 @@ function loadMemory() {
 
 function loadWorkspaces() {
   const ws = safeReadJSON(resolve(DATA_DIR, "workspaces.json"), { directories: [] });
-  return ws.directories || [];
+  // 2026-10-13：只回傳本機存在的目錄（防版控帶來的他機絕對路徑）
+  return (ws.directories || []).filter((d) => { try { return d && existsSync(d); } catch { return false; } });
 }
 
 export function loadProviderConfig() {

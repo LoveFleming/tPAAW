@@ -523,8 +523,10 @@ export async function buildSystemPrompt(agentId, opts = {}) {
     // Workspace: external dirs from workspaces.json (just the paths, don't expand contents)
     try {
       const ws = JSON.parse(readSync(resolve(DATA_HOME, "workspaces.json"), "utf-8"));
-      if (ws.directories?.length) {
-        refPaths.push(`📂 Workspace 目錄（使用 reference_read(action="list|read|search", source="workspace", path="...") 存取）：\n${ws.directories.map(d => "  - " + d).join("\n")}`);
+      // 2026-10-13：只列本機存在的目錄（防版控帶來的他機絕對路徑）
+      const wsDirs = (ws.directories || []).filter((d) => { try { return d && existsSync(d); } catch { return false; } });
+      if (wsDirs.length) {
+        refPaths.push(`📂 Workspace 目錄（使用 reference_read(action="list|read|search", source="workspace", path="...") 存取）：\n${wsDirs.map(d => "  - " + d).join("\n")}`);
       }
     } catch {}
 
