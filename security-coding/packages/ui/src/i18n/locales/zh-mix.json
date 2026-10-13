@@ -927,6 +927,7 @@
   "report.range": "區間",
   "report.sampleNote": "資料來源：agent-logs index（完整保留，之後接 Elasticsearch）",
   "sidebar.usageReport": "Usage Report",
+    "sidebar.securityAudit": "安全審計紀錄",
   "report.table.ruModel": "Release Unit × Model",
   "report.model": "Model",
   "rr.title": "Release Requests — 正式批次放行",

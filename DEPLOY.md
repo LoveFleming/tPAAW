@@ -364,7 +364,7 @@
 - ⚠️ 有動 UI → 覆蓋後 **`npm run build`** 然後**重啟 server**。
 - 來源 dev `b5b800bd`；843 tests passed。真 agent 驗證：送審批 → stream 未結束/檔案未產生（真的停住）→ 按永遠准許 → 當場接續執行；按拒絕 → 結束且未執行。
 
-## 🛡 `security-coding/`（2026-10-13 總包：沙箱＋審批＋開發模式＋script-guard 一次蓋完）
+## 🛡 `security-coding/`（2026-10-13 總包 v2：沙箱＋審批＋開發模式＋script-guard＋安全審計紀錄搬家）
 > **這一包把今天所有「coding app 安全/開發體驗」的修正合併成一個目錄**，涵蓋並取代前面的
 > `sandbox-fix/`、`filemount-fix/`、`approval-fix/`、`devmode-switch/`、`guard-fix/`、`approval-wait/`
 > （那些目錄留著當歷史，內容都是較舊版本）。**只要蓋 `security-coding/` 這 25 檔就好。**
@@ -378,3 +378,10 @@
   - **File Mounts / believed workspace 修復**：`packages/server/src/lib/context-engine.mjs`、`packages/server/src/lib/domain-agent-registry.mjs`、`packages/server/src/tools/index.mjs`、`.gitignore`
 - 來源 dev `b5b800bd`（843 tests passed）。
 - 蓋完可驗證：① `grep -n slice(-10) ./monitor.mjs` 不再跳審批卡 ② 審批卡只出現在發起的那個 crew 視窗、按鈕後 agent 會接續執行 ③ 設定 → 🛡 安全 看到「開發模式」開關 ④ coding app 在 Linux 能正常寫檔。
+
+### 🆕 v2 追加（2026-10-13 晚，來源 dev `6eeaab88`）
+- **審批卡不再擋正常開發**：對外網路請求降級為「通知」（記 audit `network_notice` + 畫面告知），不再跳審批卡 — 守門交給沙箱（srt 白名單 / MXC deny-by-default）；`curl|sh`／`iwr|iex` 下載即執行仍硬擋。
+- **RU 內檔案視為信任範圍**：`~/.ssh` 永遠擋；`.env` / `providers.json` 只在「專案（RU）之外」才擋 → **installed-apps 下的目錄預設准許，不會一直問**。
+- **安全審計紀錄搬家**：從 設定 → 🛡 安全 移到 **報表 → 🛡️ 安全審計紀錄**（新頁面）。
+- 追加/更新檔（在原本 25 檔上再加 3）：`packages/ui/src/App.tsx`、`packages/ui/src/components/AuditLogPanel.tsx`、`packages/ui/src/components/ui/shared.tsx`；並更新 `script-guard.mjs`、`paaw-agent-loop.mjs`、`audit-log.mjs`、`SettingsPage.tsx`、4 個 locale。
+- 現共 **28 檔**；844 tests passed。

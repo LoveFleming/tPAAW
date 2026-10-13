@@ -2398,6 +2398,12 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             }
           }
         }
+        // 🌐 2026-10-13 Fleming：對外網路請求不再跳審批卡 — 沙箱（srt 白名單 / MXC deny-by-default）
+        // 才是守門；這裡只記審計 + 告知使用者（不中斷開發）。
+        if (!sGuard.blocked && sGuard.network) {
+          logAuditEvent({ kind: "network_notice", severity: "warn", tool: "bash", command: args.command, reason: String(sGuard.network), agentId, cwd });
+          if (onEvent) onEvent({ type: "security_notice", kind: "network_notice", message: `🌐 對外網路請求（不擋，交給沙箱把關）：${String(sGuard.network).slice(0, 120)}` });
+        }
         const timeoutSec = Math.min(args.timeout || 120, _agentCfg.bashTimeoutSeconds || 300);
         const timeoutMs = timeoutSec * 1000;
         const result = await runShell(args.command, cwd, timeoutMs);
