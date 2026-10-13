@@ -299,3 +299,13 @@
   - `.gitignore`（加 `data/workspaces.json`、`data/config/workspaces.json` — 之後不進版控）
 - ⚠️ 覆蓋後**重啟 server**。**另外要手動處理本機的 `data/workspaces.json`**：改成公司本機真實路徑，或直接刪掉再用「設定 → 📁 File Mounts」重新加（這個檔從此不再由更新包提供）。
 - 來源 dev `350448e0`；`npx vitest run tests/unit` 817 passed。
+
+## 🛡 `approval-fix/`（2026-10-13 審批卡：按了沒反應 / 一次多張）
+- 症狀：按 ♾️ 永遠准許 後卡片原樣留著（不確定有沒有生效）；一次跑出多張審批卡，按一張其他張還掛著。
+- 根因：agent 重試同一條被攔指令 → 每次都送新 id（同 command）→ 多張卡；決策只更新被點的那張，且畫面只有小 badge，看不出生效。
+- 內容（3 檔，去掉 `approval-fix/` 前綴即覆蓋路徑）：
+  - `packages/server/src/lib/exec-approvals.mjs`（決策一次 → 同指令其他待審批一起結案）
+  - `packages/ui/src/pages/CodingIDE.tsx`（點下立即回饋 + toast；同指令卡片一起結；失敗明確提示；approval_request 去重）
+  - `packages/ui/src/components/ChatMessages.tsx`（已決策整張卡變色 + 「✔ 已生效」）
+- ⚠️ 有動 UI → 覆蓋後要 **`npm run build`** 然後**重啟 server**。
+- 來源 dev `d2d4f2c7`；822 tests passed。
