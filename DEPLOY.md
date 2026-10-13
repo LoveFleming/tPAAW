@@ -364,7 +364,7 @@
 - ⚠️ 有動 UI → 覆蓋後 **`npm run build`** 然後**重啟 server**。
 - 來源 dev `b5b800bd`；843 tests passed。真 agent 驗證：送審批 → stream 未結束/檔案未產生（真的停住）→ 按永遠准許 → 當場接續執行；按拒絕 → 結束且未執行。
 
-## 🛡 `security-coding/`（2026-10-13 總包 v3：沙箱＋審批＋開發模式＋script-guard＋安全審計紀錄搬家＋MXC 單後端）
+## 🛡 `security-coding/`（2026-10-13 總包 v4：沙箱＋審批＋開發模式＋script-guard＋安全審計紀錄搬家＋MXC 單後端）
 > **這一包把今天所有「coding app 安全/開發體驗」的修正合併成一個目錄**，涵蓋並取代前面的
 > `sandbox-fix/`、`filemount-fix/`、`approval-fix/`、`devmode-switch/`、`guard-fix/`、`approval-wait/`
 > （那些目錄留著當歷史，內容都是較舊版本）。**只要蓋 `security-coding/` 這 25 檔就好。**
@@ -393,3 +393,20 @@
   - ⚠️ 公司端**必須有 `@microsoft/mxc-sdk`**（deploy6 `vendor/mxc-offline/` 有離線包＋`scripts/install-mxc-offline.sh`）。
 - 追加/更新檔（在 28 檔上再加 2）：`package.json`、`data/knowledge/coding-security.md`；並更新 `paaw-sandbox.mjs`、`paaw-agent-loop.mjs`、`audit-log.mjs`、`env-exec-tool.mjs`、`security-mode.mjs`、`routes/assistant.mjs`、`SettingsPage.tsx`、4 個 locale。
 - 現共 **30 檔**；844 tests passed；Mac mini 實測 MXC deny → 外連失敗、寫 RU 外被拒、寫 RU 內 OK。
+
+### 🆕 v4 追加（2026-10-13 晚三，來源 dev `370c49f4`）— 兩個「假安全」修正
+1. **誠實回報沙箱狀態**：`GET/PUT /api/paaw/security-mode` 原本回 `sandboxBackend`＝設定值（MXC 套件沒裝也顯示 mxc）→ 改成用「真的能跑嗎」判，回 `"mxc"` 或 `"none"`，並新增 `sandboxUsable`。
+2. **MXC 啟動失敗不再安靜**：`execSandboxed` 的 catch 原本什麼都不說（會出現「以為有沙箱、其實原樣執行」）→ 現在印一次 `console.warn`。
+3. **Settings 徽章**：`sandboxUsable=false` 時轉紅 + ⚠️，一眼看出沙箱沒生效。
+- 更新檔（仍在 30 檔內）：`packages/server/src/lib/paaw-sandbox.mjs`、`packages/server/src/routes/assistant.mjs`、`packages/ui/src/pages/SettingsPage.tsx`。
+- 844 tests passed；GET security-mode → `{sandboxBackend:"mxc", sandboxUsable:true}`。
+
+### ✅ 明天套用後請確認（開 MXC 安全寫程式）
+1. `設定 → 🛡 Security` 的徽章顯示 **MXC**（不是紅字 ⚠️ → 代表 sandbox 真的可用）
+2. 隨手叫 coding agent 下一行 bash（如 `echo hi > t.txt; cat t.txt`）→ 輸出結尾要有 **🛡沙箱內（MXC）**
+3. 試 `echo x > ~/pwned.txt` → 應被拒（Operation not permitted）
+4. `curl https://example.com` → 應該 **不會跳審批卡**（只記 network_notice），沙箱照常把關
+5. ⚠️ 若徽章顯示 `none` 或紅字 → 代表公司端 `@microsoft/mxc-sdk` 沒裝好，用 `vendor/mxc-offline/` + `scripts/install-mxc-offline.sh` 補。
+
+### ⚠️ 未納入本包的 dev 改動（跟 sandbox 無關，先不動）
+- `packages/server/src/routes/crew.mjs`（SRE module 的 `data/crews` fallback，commit `2a8afa2e`）— 只有要用 SRE app module 才需要；deploy6 root 有一份較舊的。

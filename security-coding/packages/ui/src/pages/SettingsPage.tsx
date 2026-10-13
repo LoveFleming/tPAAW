@@ -681,8 +681,8 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                 <span className={`px-2 py-0.5 rounded-full font-medium ${devMode ? "bg-amber-500 text-white" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
                   {devMode ? t("settings.devMode.on") : t("settings.devMode.off")}
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 font-mono">
-                  {t("settings.devMode.sandbox")}: {devModeInfo?.sandboxBackend || "—"}
+                <span className={`px-2 py-0.5 rounded-full font-mono ${devModeInfo && !devModeInfo.sandboxUsable ? "bg-rose-50 text-rose-600 border border-rose-200" : "bg-stone-100 text-stone-500"}`}>
+                  {t("settings.devMode.sandbox")}: {devModeInfo?.sandboxBackend || "—"}{devModeInfo && !devModeInfo.sandboxUsable ? " ⚠️" : ""}
                 </span>
                 {devModeInfo?.envOverride ? (
                   <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-mono">env PAAW_DEV_MODE={String(devModeInfo.envOverride)}</span>

@@ -99,6 +99,7 @@ export async function sandboxAvailable() {
 
 let _MXC = null;
 let _mxcUnavailable = false;
+let _mxcWarned = false;
 
 async function loadMXC() {
   if (_MXC) return _MXC;
@@ -253,7 +254,14 @@ export async function execSandboxed(command, opts = {}) {
         code: w.exitCode, stdout, stderr, timedOut: !!w.timedOut,
         sandboxed: true, backend: "mxc",
       };
-    } catch { /* MXC 啟動失敗 → 退回原樣執行（維持可用性優先） */ }
+    } catch (e) {
+      // 2026-10-13：MXC 啟動失敗 → 退回原樣執行（可用性優先），但**不能安靜** —
+      // 至少印一次警告，否則「以為有沙箱、其實沒有」= 最危險的假安全。
+      if (!_mxcWarned) {
+        _mxcWarned = true;
+        console.warn(`[sandbox] MXC 啟動失敗，改為原樣執行（無沙箱）：${e?.message || e}`);
+      }
+    }
   }
   return await rawShellExec(command, { cwd, timeoutMs: cap, env });
 }
