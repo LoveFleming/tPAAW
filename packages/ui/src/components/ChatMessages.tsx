@@ -199,20 +199,23 @@ export interface ApprovalData { id: string; command: string; reason?: string; de
 
 export function ApprovalCard({ approval, onDecide, accent }: { approval: ApprovalData; onDecide?: (id: string, action: "once" | "always" | "deny") => void; accent?: string }) {
   const decided = approval.decided;
+  const denied = decided === "deny" || decided === "revoked" || decided === "expired";
+  const label = decided === "once" ? "已核准（一次）" : decided === "always" ? "已永久核准" : decided === "expired" ? "已過期（重新執行會再問）" : decided === "revoked" ? "已撤銷永久准許" : "已拒絕";
   return (
-    <div className="mb-2 p-3 rounded-xl border border-amber-200 bg-amber-50/70">
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 mb-1.5">
+    // 2026-10-13：已決策後整張卡變色（綠/紅）— 原本只有一顆小 badge → 使用者按了以為沒生效
+    <div className={`mb-2 p-3 rounded-xl border transition-colors ${decided ? (denied ? "border-rose-200 bg-rose-50/60" : "border-emerald-300 bg-emerald-50/70") : "border-amber-200 bg-amber-50/70"}`}>
+      <div className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${decided ? (denied ? "text-rose-700" : "text-emerald-700") : "text-amber-700"}`}>
         🛡 安全審批
         {decided && (
-          <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${decided === "deny" || decided === "revoked" ? "bg-rose-100 text-rose-600" : decided === "expired" ? "bg-stone-200 text-stone-600" : "bg-emerald-100 text-emerald-700"}`}>
-            {decided === "once" ? "已核准（一次）" : decided === "always" ? "已永久核准" : decided === "expired" ? "已過期（重新執行會再問）" : decided === "revoked" ? "已撤銷永久准許" : "已拒絕"}
+          <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${denied ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-700"}`}>
+            {decided === "always" ? "♾️ " : decided === "once" ? "✅ " : ""}{label}
           </span>
         )}
       </div>
-      <div className="font-mono text-[11px] bg-white/80 border border-amber-100 rounded px-2 py-1.5 mb-1 break-all text-stone-700">
+      <div className={`font-mono text-[11px] rounded px-2 py-1.5 mb-1 break-all ${decided ? "bg-white/60 border border-stone-100 text-stone-400 line-through" : "bg-white/80 border border-amber-100 text-stone-700"}`}>
         {approval.command}
       </div>
-      {approval.reason && <div className="text-[11px] text-amber-700/80 mb-2">{approval.reason}</div>}
+      {approval.reason && <div className={`text-[11px] mb-2 ${decided ? "text-stone-400" : "text-amber-700/80"}`}>{approval.reason}</div>}
       {!decided && (
         <>
           <div className="text-[10px] text-amber-700/70 mb-2 leading-relaxed">
@@ -232,8 +235,8 @@ export function ApprovalCard({ approval, onDecide, accent }: { approval: Approva
           </div>
         </>
       )}
-      {decided && decided !== "deny" && (
-        <div className="text-[11px] text-stone-400">Agent 重試同一指令即可執行</div>
+      {decided && decided !== "deny" && decided !== "revoked" && decided !== "expired" && (
+        <div className="text-[11px] text-emerald-700/80 font-medium">✔ 已生效 — agent 執行同一條指令即可通過（不會再問）</div>
       )}
     </div>
   );

@@ -47,10 +47,13 @@ export function requestApproval(command, cwd, reason) {
   return id;
 }
 
-/** 使用者決策。回 { ok, action } */
+/** 使用者決策。回 { ok, action, command, cwd, alsoIds } */
 export function decideApproval(id, action) {
   const entry = _pending.get(id);
   if (!entry) return { ok: false, error: "找不到待審批項目（可能已過期）" };
+  if (action !== "once" && action !== "always" && action !== "deny") {
+    return { ok: false, error: "action 必須是 once / always / deny" };
+  }
   _pending.delete(id);
   if (action === "once") {
     _once.set(hashOf(entry.command), { createdAt: Date.now(), expiresAt: Date.now() + ONCE_TTL_MS });
@@ -58,11 +61,20 @@ export function decideApproval(id, action) {
     const map = readAlways(entry.cwd);
     map[hashOf(entry.command)] = { command: entry.command, allowedAt: new Date().toISOString() };
     writeAlways(entry.cwd, map);
-  } else if (action !== "deny") {
-    return { ok: false, error: "action 必須是 once / always / deny" };
   }
   appendLog(entry.cwd, { type: "decision", id, command: entry.command, reason: entry.reason, decided: action });
-  return { ok: true, action, command: entry.command, cwd: entry.cwd };
+  // 2026-10-13（Fleming）：agent 重試同一條被攔指令 → 每次都送一張新卡（不同 id、同 command）→
+  // UI 會一次出現多張卡，按了一張其他張還掛著，使用者以為沒生效。
+  // 審批效力本來就是「整條指令」為單位（once/always 都按 sha256(指令) 記）→ 決策一次就把同指令的待審批一起結掉。
+  const alsoIds = [];
+  for (const [k, v] of _pending) {
+    if (v.command === entry.command) {
+      _pending.delete(k);
+      alsoIds.push(k);
+      appendLog(v.cwd, { type: "decision", id: k, command: v.command, reason: v.reason, decided: action, note: "同指令批次結案" });
+    }
+  }
+  return { ok: true, action, command: entry.command, cwd: entry.cwd, alsoIds };
 }
 
 /** bash 執行前檢查：已被核准？回 "once"（消耗）/"always"/null */

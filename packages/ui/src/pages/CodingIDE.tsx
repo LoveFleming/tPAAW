@@ -539,21 +539,40 @@ export default function CodingIDE() {
   }, [rootPath]);
   useEffect(() => { loadApprovalHistory(); }, [loadApprovalHistory]);
 
-  // ── 審批卡決策（2026-10-09）—— AI 危險指令被攔 → 使用者 ✅/♾️/❌ → server exec-approvals ──
+  // ── 審批卡決策（2026-10-09；2026-10-13 加：立即回饋 + 同指令卡片一起結案）──
+  // AI 危險指令被攔 → 使用者 ✅/♾️/❌ → server exec-approvals
   const handleApprovalDecide = useCallback((id: string, action: "once" | "always" | "deny") => {
+    const clicked = chatMessages.find(m => m._approval?.id === id)?._approval;
+    const cmd = clicked?.command || "";
+    // 立即回饋：不等 server，先把點到的卡（＋同一條指令的其他待審批卡）標成已決定
+    setChatMessages(prev => prev.map(m => {
+      if (!m._approval) return m;
+      const hit = m._approval.id === id || (cmd !== "" && !m._approval.decided && m._approval.command === cmd);
+      return hit ? { ...m, _approval: { ...m._approval, decided: action } } : m;
+    }));
     fetch(`${API_BASE}/api/coding-project/exec-approval`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, action }),
     }).then(r => r.json()).then((res) => {
       if (res?.ok) {
-        setChatMessages(prev => prev.map(m => m._approval?.id === id ? { ...m, _approval: { ...m._approval!, decided: action } } : m));
+        const alsoIds: string[] = Array.isArray(res.alsoIds) ? res.alsoIds : [];
+        if (alsoIds.length) {
+          setChatMessages(prev => prev.map(m => (m._approval && alsoIds.includes(m._approval.id) && !m._approval.decided)
+            ? { ...m, _approval: { ...m._approval, decided: action } } : m));
+        }
+        uiAlert(action === "always" ? `♾️ 已永久准許：${cmd.slice(0, 60)}`
+          : action === "once" ? "✅ 已准許一次（10 分鐘內有效）" : "❌ 已拒絕");
       } else {
         setChatMessages(prev => prev.map(m => m._approval?.id === id ? { ...m, _approval: { ...m._approval!, decided: "expired" } } : m));
+        uiAlertError(res?.error || "審批失敗（可能已過期）— 請叫 agent 重試");
       }
       loadApprovalHistory();
-    }).catch(() => {});
-  }, [loadApprovalHistory]);
+    }).catch(() => {
+      setChatMessages(prev => prev.map(m => m._approval?.id === id ? { ...m, _approval: { ...m._approval!, decided: "expired" } } : m));
+      uiAlertError("審批送出失敗（連線問題），請重試");
+    });
+  }, [chatMessages, loadApprovalHistory]);
 
 const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[]) => {
     if (!activeCrew) return;
@@ -2073,7 +2092,13 @@ const sendChat = useCallback(async () => {
                   // ── 審批卡（2026-10-09）：AI 危險指令被攔 → 插入 ✅/♾️/❌ 決策卡 ──
                   if (currentEvent === "approval_request" && data.id) {
                     const aprMsg: ChatMessage = { role: "assistant", content: "", _approval: { id: data.id, command: String(data.command || ""), reason: String(data.reason || ""), decided: null }, ts: new Date().toISOString() };
-                    setChatMessages(prev => [...prev, aprMsg]);
+                    setChatMessages(prev => {
+                      // 2026-10-13：agent 重試同一條被攔指令會再送 approval_request（新 id、同 command）
+                      // → 不重複插卡（已有同一條指令的待審批卡時直接略過），避免一次冒出多張卡
+                      const cmd = aprMsg._approval!.command;
+                      if (prev.some(m => m._approval && !m._approval.decided && m._approval.command === cmd)) return prev;
+                      return [...prev, aprMsg];
+                    });
                   }
 
                   // ── 安全通知（2026-10-10）：白名單阻擋/沙箱拒絕 → 插入 🛡 通知卡（引導去安全 tab）──
