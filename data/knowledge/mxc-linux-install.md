@@ -164,7 +164,7 @@ bash scripts/check-mxc-linux.sh      # 要看到「MXC 就緒 ✅」
   - `cwd`（專案根）**同時**放進 `readonlyPaths` 與 `readwritePaths`，且
   - `home`（在 Linux 專案通常在 `home` 底下）整包列 `readonlyPaths`
   → 後套用的 ro 掛載蓋掉 rw → cwd 變唯讀。
-- **修法**（dev `a7e2X`（見下方 commit 註記））：
+- **修法**（dev `57c341dc`）：
   1. `cwd` 不再列入 readonly（只留 readwrite）
   2. readonly 一律**剔除**任何 readwrite 的自身／祖先／子孫（mount 不能重疊）
   3. `home` 若含 readwrite 路徑 → 展開成「子項目」逐一 ro（`~/.gitconfig` 等仍可讀），不再整包 ro
