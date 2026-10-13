@@ -40,14 +40,14 @@ const DENY_ARGS = ["sudo", "rm", "kill", "pkill", "killall", "launchctl", "osasc
 // ⚠️ 2026-10-13：execFile 不吃 shell rc → 手動補路徑。舊碼硬寫 macOS homebrew 路徑
 // （Linux/Windows 上這些目錄不存在且用了 ":" 分隔 — 在 Windows 是錯的）。
 function execPath() {
-  const isWin = process.platform === "win32";
+  if (process.platform === "win32") return process.env.PATH || "";
   const extra = [
     process.platform === "darwin" ? "/opt/homebrew/bin" : null,
     process.platform === "linux" ? "/home/linuxbrew/.linuxbrew/bin" : null,
     "/usr/local/bin",
     process.env.PATH || "",
   ].filter(Boolean);
-  return extra.join(isWin ? ";" : ":");
+  return extra.join(":");
 }
 
 function validate(command) {

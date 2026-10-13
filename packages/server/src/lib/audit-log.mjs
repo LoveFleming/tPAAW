@@ -110,7 +110,9 @@ export function logAuditEvent(evt) {
 // ══════════════════════════════════════════
 
 const NET_FAIL_RE = /(curl:\s*\((?:6|7|28|35|56|60)\)|CONNECT tunnel failed|Could not resolve host|unable to resolve|Connection timed out|Connection refused|connection timed out; no servers could be reached|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|Network is unreachable|fetch failed)/i;
-const FS_DENY_RE = /(operation not permitted|EPERM)/i;
+// 2026-10-13：跨平台 — macOS seatbelt=EPERM/Opertion not permitted；Linux bwrap=Permission denied；
+// Windows ProcessContainer=Access is denied / ERROR_ACCESS_DENIED
+const FS_DENY_RE = /(operation not permitted|EPERM|permission denied|access is denied|ERROR_ACCESS_DENIED|EACCES)/i;
 // ── 通用網路阻擋偵測（2026-10-11 Fleming）──
 // 指令含網路意圖（URL / 網路工具）但解析不出具體網域時（例如 host 寫在 script/config 裡），
 // 仍要發通知告訴使用者去哪裡設白名單 — 不能默默卡住。
@@ -118,7 +120,7 @@ const NET_HINT_RE = /(https?:\/\/|git@|ssh:\/\/|\b(curl|wget|ping|dig|nslookup|t
 // 本機連線（localhost/loopback）不是「對外」— 不要誤報成白名單問題
 const LOCAL_RE = /(localhost|127\.0\.0\.1|0\.0\.0\.0|::1|\[::1\])/i;
 // npm 自己的 EPERM（cache 檔鎖 unlink/rename）不是沙箱事件 — 排除
-const FS_DENY_FALSE_POSITIVE_RE = /EPERM:\s*operation not permitted,\s*(unlink|rename|mkdir)/i;
+const FS_DENY_FALSE_POSITIVE_RE = /(EPERM|EACCES):\s*(operation not permitted|permission denied)[,:]?\s*(unlink|rename|mkdir|chmod|chown|utime)/i;
 
 // ── 明知故犯偵測（2026-10-11 Fleming）──
 // 原則：白名單/護欄有意義的前提是「被擋就不能自己繞」。AI 被明確告知不可後仍重試 →

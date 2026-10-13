@@ -134,6 +134,24 @@ describe("scanCommandOutput — 輸出安全掃描", () => {
     expect(r?.type).toBe("sandbox_fs_deny");
   });
 
+  it("Windows 沙箱拒絕：Access is denied → sandbox_fs_deny（2026-10-13）", () => {
+    const r = scanCommandOutput({
+      command: "cat C:\\Users\\x\\.ssh\\config",
+      output: "Access is denied.\r\nExit code: 1",
+      allowedDomains: ALLOWED,
+    });
+    expect(r?.type).toBe("sandbox_fs_deny");
+  });
+
+  it("Linux bwrap 拒絕：Permission denied → sandbox_fs_deny（2026-10-13）", () => {
+    const r = scanCommandOutput({
+      command: "cat /home/x/.ssh/config",
+      output: "cat: /home/x/.ssh/config: Permission denied\nExit code: 1",
+      allowedDomains: ALLOWED,
+    });
+    expect(r?.type).toBe("sandbox_fs_deny");
+  });
+
   it("npm 自家 EPERM unlink（cache 檔鎖）→ 誤報排除，不觸發", () => {
     const r = scanCommandOutput({
       command: "npm install",

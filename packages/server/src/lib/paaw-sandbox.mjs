@@ -13,7 +13,7 @@
 import { readFileSync, mkdirSync, existsSync } from "fs";
 import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
-import { resolve } from "path";
+import { resolve, join } from "path";
 import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
 import { posixShellBin } from "./shell-exec.mjs";
 
@@ -243,19 +243,19 @@ export function buildMxcFsPolicy(cwd) {
   const readwritePaths = keep([
     cwdReal,       // 專案可寫（RU 工作區）
     ...sandboxTempRoots(), // $PAAW_TMP 上層 + 各平台 temp 根（含 Windows %TEMP%）— 2026-10-11
-    home ? `${home}/.npm` : null,
-    home ? `${home}/.cache` : null,
-    isMac && home ? `${home}/Library/Caches` : null, // macOS npm cache
-    home ? `${home}/.cargo` : null,         // cargo 下載快取
+    home ? join(home, ".npm") : null,          // 2026-10-13：join 防 Windows 混用分隔符
+    home ? join(home, ".cache") : null,
+    isMac && home ? join(home, "Library", "Caches") : null, // macOS npm cache
+    home ? join(home, ".cargo") : null,        // cargo 下載快取
   ]);
   // 機密一律擋（同 srt DENY_READ 語意；MXC 無 glob — 列具體路徑，default-deny 已保底其餘）
   const deniedPaths = keep([
-    home ? `${home}/.ssh` : null,
-    home ? `${home}/.openclaw` : null,      // gateway config（含 token）
-    home ? `${home}/.aws` : null,
-    home ? `${home}/.gnupg` : null,
-    `${cwdReal}/.env`,
-    `${cwdReal}/data/config/providers.json`, // PAAW AI 金鑰
+    home ? join(home, ".ssh") : null,
+    home ? join(home, ".openclaw") : null, // gateway config（含 token）
+    home ? join(home, ".aws") : null,
+    home ? join(home, ".gnupg") : null,
+    join(cwdReal, ".env"),
+    join(cwdReal, "data", "config", "providers.json"), // PAAW AI 金鑰
   ]);
   return { readonlyPaths, readwritePaths, deniedPaths };
 }
@@ -278,7 +278,7 @@ function buildMxcEnv(extraEnv = {}) {
   const sbTmp = resolve(LOG_HOME, "tmp");
   return {
     PATH: process.env.PATH || "/usr/bin:/bin",
-    HOME: process.env.HOME || "",
+    HOME: process.env.HOME || process.env.USERPROFILE || "", // Windows 需要 USERPROFILE fallback
     TMPDIR: sbTmp,
     TMP: sbTmp,
     TEMP: sbTmp,
