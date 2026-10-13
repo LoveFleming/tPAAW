@@ -364,7 +364,7 @@
 - ⚠️ 有動 UI → 覆蓋後 **`npm run build`** 然後**重啟 server**。
 - 來源 dev `b5b800bd`；843 tests passed。真 agent 驗證：送審批 → stream 未結束/檔案未產生（真的停住）→ 按永遠准許 → 當場接續執行；按拒絕 → 結束且未執行。
 
-## 🛡 `security-coding/`（2026-10-13 總包 v4：沙箱＋審批＋開發模式＋script-guard＋安全審計紀錄搬家＋MXC 單後端）
+## 🛡 `security-coding/`（2026-10-13 總包 v5：沙箱＋審批＋開發模式＋script-guard＋安全審計紀錄搬家＋MXC 單後端）
 > **這一包把今天所有「coding app 安全/開發體驗」的修正合併成一個目錄**，涵蓋並取代前面的
 > `sandbox-fix/`、`filemount-fix/`、`approval-fix/`、`devmode-switch/`、`guard-fix/`、`approval-wait/`
 > （那些目錄留著當歷史，內容都是較舊版本）。**只要蓋 `security-coding/` 這 25 檔就好。**
@@ -410,3 +410,15 @@
 
 ### ⚠️ 未納入本包的 dev 改動（跟 sandbox 無關，先不動）
 - `packages/server/src/routes/crew.mjs`（SRE module 的 `data/crews` fallback，commit `2a8afa2e`）— 只有要用 SRE app module 才需要；deploy6 root 有一份較舊的。
+
+### 🆕 v5 追加（2026-10-13 晚四，來源 dev `HEAD`）
+- **MXC 可寫清單補上 `$PAAW_LOG_HOME`**（= `<PAAW_ROOT>/log`，含 `$PAAW_APP_CONSOLE_DIR`）：
+  agent 從 bash 把輸出導到 app-console / log 目錄時不會再被 EPERM（舊 srt allowWrite 也沒含它）。
+- 更新檔：`packages/server/src/lib/paaw-sandbox.mjs`。844 tests passed。
+
+### 📌 pww tool 與沙箱的關係（2026-10-13 Fleming 問）
+- **走 MXC（會被沙箱管）**：`bash`、`grep`、`glob`、`diff`、`git`、`test_run`、`env_exec`
+  → RU 內一律正常（實測 git commit / npm install / node / python 都 OK）；RU 外讀寫/外連會被拒（本來就該拒）。
+- **不走 MXC（在 PAAW server process 內跑）**：`read_file`、`write_file`、`edit_file`、`reference_read`、
+  `dossier_*`、`sheet_*`、`browser_*`、`project_*` → 這些由 PAAW 自己的 `isPathAllowed`（cwd / PAAW root /
+  workspaces / knowledge）+ `persistentEntryBlock` 管，MXC 管不到（也不會被它卡）。

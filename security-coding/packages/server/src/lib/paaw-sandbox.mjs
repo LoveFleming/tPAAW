@@ -165,6 +165,8 @@ export function buildMxcFsPolicy(cwd) {
   ]);
   const readwritePaths = keep([
     cwdReal,       // 專案可寫（RU 工作區）
+    LOG_HOME,      // 2026-10-13：PAAW runtime log 根（$PAAW_LOG_HOME / $PAAW_APP_CONSOLE_DIR
+                   //   的 nohup 輸出都要寫這）— 不然 agent 從 bash 導出 log 會被 EPERM
     ...sandboxTempRoots(), // $PAAW_TMP 上層 + 各平台 temp 根（含 Windows %TEMP%）— 2026-10-11
     home ? join(home, ".npm") : null,          // 2026-10-13：join 防 Windows 混用分隔符
     home ? join(home, ".cache") : null,
