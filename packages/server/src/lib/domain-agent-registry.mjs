@@ -18,6 +18,7 @@ import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { SECURITY_RULES } from "./security-rules.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { getModuleCrew } from "./module-registry.mjs"; // 2026-10-13：動態 module agent 判定（見 getAgent）
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -356,6 +357,13 @@ export function getAgent(agentId) {
   // 📊 pm module（2026-10-03）：pm.* 直接對應同名 crew — 動態專案生成的 agent 免註冊即用
   if (agentId && agentId.startsWith("pm.") && /^[a-z][a-z0-9.-]*$/.test(agentId)) {
     return { agentId, crewId: agentId, pm: true, contextProviders: [], tools: null, skills: [] };
+  }
+  // 🛡️ 通用 module agent（2026-10-13）：<module>.<name>（如 sre.*）→ crewId = agentId，免註冊即用。
+  // 與 pm.*/secret.* 的差別：這裡要求「該 crew 真的存在」（firmware packages/modules/*/crews 或 data/crews），
+  // 才放行 — 避免任何含點的亂字串都被當成 agent。
+  if (agentId && /^[a-z][a-z0-9-]*\.[a-z][a-z0-9.-]*$/.test(agentId)) {
+    const crewExists = !!getModuleCrew(agentId) || existsSync(join(CREWS_DIR, `${agentId}.json`));
+    if (crewExists) return { agentId, crewId: agentId, dynamic: true, contextProviders: [], tools: null, skills: [] };
   }
   return null;
 }

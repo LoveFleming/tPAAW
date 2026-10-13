@@ -315,6 +315,17 @@ export default async function crewRoute(req, res) {
       json(res, _applyPrefs({ ...mod.crew, id: crewId, locked: true, moduleId: mod.moduleId, source: "module" }));
       return true;
     }
+    // 2026-10-13：data/crews fallback — 模組自帶 crew（如 sre.* / pm.* / secret.*）落在 data/crews；
+    // agent 執行路徑（domain-agent-registry.loadCrew）本來就吃這個 fallback，這裡把讀取補齊
+    if (!crewId.includes("..")) {
+      const dataCrew = join(DATA_HOME, "crews", `${crewId}.json`);
+      if (existsSync(dataCrew)) {
+        try {
+          json(res, _applyPrefs({ ...JSON.parse(readFileSync(dataCrew, "utf-8")), id: crewId, source: "data" }));
+          return true;
+        } catch { /* 壞 json → 走下面的 404 */ }
+      }
+    }
     try {
       const files = await listCrewFiles();
       let target = null;

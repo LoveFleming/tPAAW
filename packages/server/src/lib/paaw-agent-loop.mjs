@@ -1456,6 +1456,11 @@ const AGENT_FALLBACK_GROUPS = {
 const _crewGroupCache = new Map();
 // ── Cache for crew toolsDeny（2026-10-09：per-crew 工具黑名單 — 代碼保證，不靠 prompt 自律）──
 const _crewDenyCache = new Map();
+/** agentId → crewId。2026-10-13：未註冊的 `<module>.<name>` 動態 agent（如 sre.*）視為同名 crew。 */
+function resolveCrewId(agentId) {
+  return _AGENT_CREW_MAP[agentId] || (agentId && agentId.includes(".") ? agentId : undefined);
+}
+
 const _AGENT_CREW_MAP = {
   architect: "coding.architect",
   developer: "coding.developer",
@@ -1473,7 +1478,7 @@ function getAgentToolsDeny(agentId, cwd = null) {
   const cacheKey = `${agentId}::${cwd || ""}`;
   if (_crewDenyCache.has(cacheKey)) return _crewDenyCache.get(cacheKey);
   const deny = new Set();
-  const crewId = _AGENT_CREW_MAP[agentId];
+  const crewId = resolveCrewId(agentId);
   if (crewId) {
     // 2026-10-09：firmware crew 的 toolsDeny 只認 module 定義（.paaw 蓋不掉）
     const mod = getModuleCrew(crewId);
@@ -1509,7 +1514,7 @@ function getAgentGroupsFromConfig(agentId, cwd = null) {
   // Check cache first
   if (_crewGroupCache.has(cacheKey)) return _crewGroupCache.get(cacheKey);
 
-  const crewId = _AGENT_CREW_MAP[agentId];
+  const crewId = resolveCrewId(agentId);
   if (!crewId) return AGENT_FALLBACK_GROUPS[agentId] || ["core", "memory"];
 
   // ── 1. Firmware crew（module）優先 ──
