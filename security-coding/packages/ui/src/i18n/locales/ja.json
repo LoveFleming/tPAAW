@@ -1827,7 +1827,7 @@
   "rm.ev.openBoard": "議事録の全文を見る",
   "rm.ev.boardLink": "🏛 レビュー会議録",
   "settings.devMode.title": "開発モード（マスタースイッチ）",
-  "settings.devMode.desc": "コーディングを速く進めたいときはオンに：AI の bash は MXC/srt サンドボックスに入らなくなり、セキュリティ承認カードも出ません。後でオフに戻してテストできます。",
+  "settings.devMode.desc": "コーディングを速く進めたいときはオンに：AI の bash は MXC サンドボックスに入らなくなり、セキュリティ承認カードも出ません。後でオフに戻してテストできます。",
   "settings.devMode.on": "🛠 開発モード：オン",
   "settings.devMode.off": "🛡 保護：全オン",
   "settings.devMode.turnOn": "開発モードをオン（サンドボックス/承認オフ）",

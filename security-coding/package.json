@@ -1,0 +1,61 @@
+{
+  "name": "paaw",
+  "private": true,
+  "version": "1.0.1",
+  "description": "PAAW — Personal AI Assistant Workspace. Build your personal AI Workforce.",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n \"UI,API\" -c \"cyan,magenta\" \"npm run dev -w @paaw/ui\" \"npm run dev -w @paaw/server\"",
+    "dev:ui": "npm run dev -w @paaw/ui",
+    "dev:server": "npm run dev -w @paaw/server",
+    "dev:bridge": "node packages/server/src/lib/bridge/paaw-bridge.mjs",
+    "build": "npm run build -w @paaw/ui",
+    "start": "npm run start -w @paaw/server",
+    "start:prod": "node scripts/prod-server.mjs",
+    "typecheck": "npm run typecheck -w @paaw/ui",
+    "migrate": "npm run migrate -w @paaw/db",
+    "clean": "find . -name node_modules -type d -prune -exec rm -rf {} \\;",
+    "postinstall": "node scripts/postinstall.cjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:all": "npm run test && npm run test:e2e",
+    "check:imports": "node packages/server/src/lib/import-check.mjs --strict",
+    "dev:alt": "concurrently -k -n \"UI,API\" -c \"cyan,magenta\" \"npm run dev:alt:ui -w @paaw/ui\" \"npm run dev:alt:server -w @paaw/server\"",
+    "dev:alt:ui": "vite --mode dev",
+    "dev:alt:server": "node scripts/dev-server.mjs",
+    "sync": "node scripts/paaw-sync.mjs",
+    "sync:status": "node scripts/paaw-sync.mjs status"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@vitest/coverage-v8": "^4.1.9",
+    "concurrently": "^9.2.1",
+    "rollup": "^4.20.0",
+    "tsx": "^4.22.4",
+    "vitest": "^4.1.9"
+  },
+  "overrides": {
+    "shell-quote": "^1.10.0",
+    "hono": "^4.12.25",
+    "fast-uri": "^3.1.5",
+    "ip-address": "^10.4.0",
+    "linkify-it": "^5.0.2",
+    "nanoid@^3": "^3.3.18",
+    "node-pty": "1.2.0-beta.15",
+    "@microsoft/mxc-sdk": {
+      "node-pty": "1.2.0-beta.15"
+    }
+  },
+  "dependencies": {
+    "adm-zip": "^0.6.0",
+    "esbuild": "^0.28.2",
+    "tree-sitter-rust": "^0.24.0"
+  },
+  "optionalDependencies": {
+    "@microsoft/mxc-sdk": "^1.0.0"
+  }
+}

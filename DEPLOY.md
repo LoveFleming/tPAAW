@@ -364,7 +364,7 @@
 - ⚠️ 有動 UI → 覆蓋後 **`npm run build`** 然後**重啟 server**。
 - 來源 dev `b5b800bd`；843 tests passed。真 agent 驗證：送審批 → stream 未結束/檔案未產生（真的停住）→ 按永遠准許 → 當場接續執行；按拒絕 → 結束且未執行。
 
-## 🛡 `security-coding/`（2026-10-13 總包 v2：沙箱＋審批＋開發模式＋script-guard＋安全審計紀錄搬家）
+## 🛡 `security-coding/`（2026-10-13 總包 v3：沙箱＋審批＋開發模式＋script-guard＋安全審計紀錄搬家＋MXC 單後端）
 > **這一包把今天所有「coding app 安全/開發體驗」的修正合併成一個目錄**，涵蓋並取代前面的
 > `sandbox-fix/`、`filemount-fix/`、`approval-fix/`、`devmode-switch/`、`guard-fix/`、`approval-wait/`
 > （那些目錄留著當歷史，內容都是較舊版本）。**只要蓋 `security-coding/` 這 25 檔就好。**
@@ -385,3 +385,11 @@
 - **安全審計紀錄搬家**：從 設定 → 🛡 安全 移到 **報表 → 🛡️ 安全審計紀錄**（新頁面）。
 - 追加/更新檔（在原本 25 檔上再加 3）：`packages/ui/src/App.tsx`、`packages/ui/src/components/AuditLogPanel.tsx`、`packages/ui/src/components/ui/shared.tsx`；並更新 `script-guard.mjs`、`paaw-agent-loop.mjs`、`audit-log.mjs`、`SettingsPage.tsx`、4 個 locale。
 - 現共 **28 檔**；844 tests passed。
+
+### 🆕 v3 追加（2026-10-13 晚二，來源 dev `58225185`）
+- **MXC 單後端（移除 srt）**：macOS 也改走 MXC（seatbelt），Linux bwrap / Windows ProcessContainer 不變 → 一套 sandbox 邏輯。
+  - `paaw-sandbox.mjs` 移除 srt 路徑；`activeBackend()` 一律 `mxc`（`PAAW_SANDBOX_BACKEND=off` 仍可關）。
+  - **`package.json` 移除 `@anthropic-ai/sandbox-runtime`** → 公司請在覆蓋後跑 `npm install`（或 `npm prune`），讓舊的 srt 從 node_modules 移除（不裝也無害）。
+  - ⚠️ 公司端**必須有 `@microsoft/mxc-sdk`**（deploy6 `vendor/mxc-offline/` 有離線包＋`scripts/install-mxc-offline.sh`）。
+- 追加/更新檔（在 28 檔上再加 2）：`package.json`、`data/knowledge/coding-security.md`；並更新 `paaw-sandbox.mjs`、`paaw-agent-loop.mjs`、`audit-log.mjs`、`env-exec-tool.mjs`、`security-mode.mjs`、`routes/assistant.mjs`、`SettingsPage.tsx`、4 個 locale。
+- 現共 **30 檔**；844 tests passed；Mac mini 實測 MXC deny → 外連失敗、寫 RU 外被拒、寫 RU 內 OK。

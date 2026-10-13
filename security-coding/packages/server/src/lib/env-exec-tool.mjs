@@ -154,7 +154,7 @@ export async function envExecHandler({ command, cwd, timeoutMs, confirmDirty }) 
 
   // ── 沙箱 v3（2026-10-10）：統一 execSandboxed 入口 ──
   // env_exec 原本裸 execFile — 惡意套件 postinstall 有完整網路外傳面。
-  // v2：macOS/Linux srt 包白名單網域 + 機密 denyRead + 專案外禁寫
+  // v2（歷史上）：srt 包白名單網域 + 機密 denyRead + 專案外禁寫；v4 起統一走 MXC
   // v3：win32/linux 有 @microsoft/mxc-sdk → MXC（fs allowlist + egress deny-by-default，
   //      npm/pip/git 等 needsNetworkAllow 命令 → allow + 事後審計）
   // 不可用 → raw 原樣執行（白名單+shell-guard+script-guard 仍在）

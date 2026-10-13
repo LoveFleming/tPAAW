@@ -19,7 +19,7 @@ const AUDIT_DIR = join(ASSET_LOGS_ROOT, "audit");
 
 // ── kind → 防護層對照（audit 事件自描述，ES 端可 aggregation）──
 const KIND_LAYER = {
-  network_block: "network-whitelist",   // 網路白名單（srt 沙箱擋非白名單網域）
+  network_block: "network-whitelist",   // 網路白名單（舊 srt 沙箱時代擋非白名單網域；MXC 時代為審計參考）
   sandbox_fs_deny: "sandbox",           // 沙箱檔案系統（機密 denyRead / 專案外禁寫）
   shell_guard: "shell-guard",           // process 越界（pkill/kill PAAW 鐵律）
   script_guard: "script-guard",         // 危險 script 內容（C 層）

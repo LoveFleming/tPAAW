@@ -1805,16 +1805,14 @@ async function runShell(command, cwd, timeoutMs = 30_000) {
     // 2026-09-27 OOM 治本：改走 proc-ledger 的 process group 執行 —
     // timeout 殺整棵樹（不留孤兒）；背景殘留記帳，agent run 結束時精準掃殺
     // （runId 由 proc-ledger 從 AsyncLocalStorage 讀 — runAgentLoop 進場時掛的）
-    // ── 沙箱 v3（2026-10-10 Fleming 拍板：公司 Linux+Windows 統一攔截層）──
-    // MXC backend 可用（win32/linux 裝了 @microsoft/mxc-sdk）→ execSandboxed：
-    //   fs default-deny allowlist + egress deny-by-default（npm/pip/git 等命令 needsNetworkAllow → allow）
-    //   注意：MXC 路徑不走 proc-ledger 記帳（MXC SDK 自管 timeout 殺整組）
-    // macOS / MXC 未裝 → 照舊 srt wrap + runShellGrouped（行為不變）
+    // ── 沙箱 v4（2026-10-13 Fleming：MXC 單後端，macOS 也走 MXC — 一套邏輯跨平台一致）──
+    // MXC 可用 → execSandboxed：fs default-deny allowlist + egress deny-by-default
+    //   （npm/pip/git 等命令 needsNetworkAllow → allow，執行後 scanCommandOutput 審計）
+    //   ⚠️ MXC 路徑不走 proc-ledger 記帳（MXC SDK 自管 timeout 殺整組）
+    // 不可用（未裝／🛠 開發模式／PAAW_SANDBOX=off）→ 下方 runShellGrouped 原樣執行（pattern 掃描仍在）
     try {
-      const { activeBackend, mxcAvailable, execSandboxed, needsNetworkAllow } = await import("./paaw-sandbox.mjs");
-      const backend = activeBackend();
-      const wantMxc = backend === "mxc" || (backend !== "srt" && process.platform !== "darwin");
-      if (wantMxc && await mxcAvailable()) {
+      const { mxcAvailable, execSandboxed, needsNetworkAllow } = await import("./paaw-sandbox.mjs");
+      if (await mxcAvailable()) {
         const r = await execSandboxed(command, {
           cwd,
           timeoutMs: Math.min(timeoutMs, _agentCfg.shellTimeoutMs || 600_000),
@@ -1828,17 +1826,11 @@ async function runShell(command, cwd, timeoutMs = 30_000) {
         let out = (r.stdout || "") + (r.stderr ? "\n" + r.stderr : "");
         if (r.timedOut) out += (out ? "\n" : "") + "⏱ 沙箱內逾時（MXC）";
         if (r.code !== 0) out += (out ? "\n" : "") + `Exit code: ${r.code ?? 1}`;
-        return (out || "(no output)") + "\n🛡沙箱内（MXC）";
+        return (out || "(no output)") + "\n🛡沙箱內（MXC）";
       }
-    } catch { /* MXC 路徑失敗 → fallback srt（下方原路徑） */ }
-    // ── srt 沙箱（2026-10-09 v5）── AI bash 全包：
-    // domain 白名單（npm/pypi/github/localhost）+ 機密 denyRead + 專案外禁寫。
-    // 包不成（非支援平台/套件未裝/PAAW_SANDBOX=off）= 原樣執行，pattern 掃描仍在。
-    let _cmd = command;
-    try {
-      const { wrapWithSrt } = await import("./paaw-sandbox.mjs");
-      _cmd = await wrapWithSrt(command, cwd);
-    } catch { /* 沙箱失敗不擋路 */ }
+    } catch { /* MXC 失敗 → 原樣執行（不擋路） */ }
+    // 無沙箱原樣執行（proc-ledger process group 記帳，timeout 殺整棵樹）
+    const _cmd = command;
     const { stdout, stderr, code } = await runShellGrouped(_cmd, {
       cwd,
       timeoutMs: Math.min(timeoutMs, _agentCfg.shellTimeoutMs || 600_000),
@@ -2398,7 +2390,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             }
           }
         }
-        // 🌐 2026-10-13 Fleming：對外網路請求不再跳審批卡 — 沙箱（srt 白名單 / MXC deny-by-default）
+        // 🌐 2026-10-13 Fleming：對外網路請求不再跳審批卡 — 沙箱（MXC deny-by-default）
         // 才是守門；這裡只記審計 + 告知使用者（不中斷開發）。
         if (!sGuard.blocked && sGuard.network) {
           logAuditEvent({ kind: "network_notice", severity: "warn", tool: "bash", command: args.command, reason: String(sGuard.network), agentId, cwd });

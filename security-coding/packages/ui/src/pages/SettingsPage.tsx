@@ -41,7 +41,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   const { info: themeInfo } = useTheme();
   const { t, locale, setLocale } = useI18n();
   const [tab, setTabState] = useState<"profile" | "providers" | "agentConfig" | "preferences" | "security" | "skill" | "language" | "backup" | "plugins">((initialTab as any) || "profile");
-  // 🛡 網路白名單（2026-10-10）：srt 沙箱對外域名
+  // 🛡 網路白名單（2026-10-10；2026-10-13 起 MXC 單後端）：用於執行後輸出審計 + AI 放行紀錄
   const [wlBuiltin, setWlBuiltin] = useState<string[]>([]);
   const [wlCustom, setWlCustom] = useState<string[]>([]);
   const [wlInput, setWlInput] = useState("");
