@@ -29,6 +29,8 @@ const PERSISTENT_ENTRY_RULES = [
   { test: (p) => p.startsWith(HOME + "/.ssh") || p.startsWith(HOME + "\\.ssh"), name: "ssh 設定" },
   { test: (p) => /[\\/]node_modules[\\/]\.bin[\\/]/.test(p), name: "node_modules/.bin" },
   { test: (p) => /[\\/]\.config[\\/]autostart[\\/]/.test(p), name: "autostart" },
+  // 2026-10-13 Windows 持久化入口
+  { test: (p) => /[\\/]Start Menu[\\/]Programs[\\/]Startup([\\/]|$)/i.test(p), name: "Windows Startup" },
 ];
 
 export function persistentEntryBlock(pathStr) {
@@ -51,7 +53,8 @@ export function persistentEntryBlock(pathStr) {
 // Ruby(Net::HTTP/open-uri)、PHP(file_get_contents/curl_init)、PowerShell(Invoke-WebRequest/iwr)、通用 curl/wget
 const NET_TOOLS = /(\bfetch\s*\(|\bcurl\b|\bwget\b|http\.request|https\.request|net\.connect|\baxios\b|node-fetch|\bgot\(|\brequests\.(get|post|put)|urllib\.(request|urlopen)|http\.client|socket\.connect|Net::HTTP|open-uri|file_get_contents|curl_init|Invoke-WebRequest|\biwr\b|\birm\b|Invoke-RestMethod)/;
 const EXT_URL = /https?:\/\/(?!localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|\$\{?[A-Z_])/i;
-const PERSISTENCE = /(LaunchAgents|launchctl|crontab|\.git[\\/]hooks|\.zshrc|autostart|osascript)/;
+// 跨平台持久化（2026-10-13 加 Windows：schtasks / Register-ScheduledTask / reg add / sc create）
+const PERSISTENCE = /(LaunchAgents|launchctl|crontab|\.git[\\/]hooks|\.zshrc|\.bashrc|autostart|osascript|schtasks|Register-ScheduledTask|reg\s+add\b|sc\s+create\b)/i;
 // 非 rm 類的破壞性操作（一律擋）
 const DESTRUCTIVE_NONRM = /(killall|pkill|diskutil\s+erase|\bdd\s+if=|mkfs|shutdown\s+-|reboot\b)/;
 
@@ -94,7 +97,7 @@ export function scanScriptContent(content, source = "script", opts = {}) {
   if (!text) return { dangerous: false, reason: "" };
 
   if (PERSISTENCE.test(text)) {
-    return { dangerous: true, reason: `偵測到持久化操作（launchd/crontab/git hooks/shell rc/osascript）`, source };
+    return { dangerous: true, reason: `偵測到持久化操作（launchd/crontab/git hooks/shell rc/schtasks/排程工作）`, source };
   }
   if (DESTRUCTIVE_NONRM.test(text) || rmDangerous(text, cwd)) {
     return { dangerous: true, reason: `偵測到破壞性操作（rm 系統/家目錄路徑、killall、diskutil、dd）`, source };

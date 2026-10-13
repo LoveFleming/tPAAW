@@ -181,3 +181,20 @@ describe("paaw-sandbox v5：srt 沙箱", () => {
     }
   });
 });
+
+describe("script-guard 跨平台持久化（2026-10-13 加 Windows）", () => {
+  it("Windows Startup 資料夾寫入擋", () => {
+    const p = "C:\\Users\\x\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\evil.bat";
+    expect(persistentEntryBlock(p)?.blocked).toBe(true);
+  });
+  it("schtasks / Register-ScheduledTask / reg add / sc create 內容擋", () => {
+    expect(scanScriptContent("schtasks /create /tn evil /tr calc.exe /sc onlogon").dangerous).toBe(true);
+    expect(scanScriptContent("Register-ScheduledTask -TaskName evil -Action x").dangerous).toBe(true);
+    expect(scanScriptContent('reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v evil /d x').dangerous).toBe(true);
+    expect(scanScriptContent("sc create evil binPath= C:\\evil.exe").dangerous).toBe(true);
+  });
+  it("正常指令不誤判", () => {
+    expect(scanScriptContent("npm run build").dangerous).toBe(false);
+    expect(scanScriptContent("node scripts/build.mjs").dangerous).toBe(false);
+  });
+});
