@@ -10,7 +10,7 @@
 // 逃生口：PAAW_SANDBOX=off 環境變數（debug 用）。
 // 不可用時自動退回原樣執行（script-guard pattern 掃描仍在）。
 
-import { readFileSync, mkdirSync } from "fs";
+import { readFileSync, mkdirSync, existsSync } from "fs";
 import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
 import { resolve } from "path";
@@ -33,7 +33,8 @@ function ensureSandboxTmp() {
  *   - macOS 再加 /var/folders：/usr/bin/mktemp **無 template 時硬走
  *     _CS_DARWIN_USER_TEMP_DIR**（/var/folders/…），TMPDIR 設了也照去（2026-10-11 實測）
  */
-function sandboxTempRoots() {
+export function sandboxTempRoots() {
+  ensureSandboxTmp(); // 先建 $PAAW_TMP 上層，否則下面的存在性過濾會把它濾掉
   const roots = new Set([resolve(LOG_HOME, "tmp")]);
   for (const k of ["TMPDIR", "TMP", "TEMP"]) {
     const v = process.env[k];
@@ -41,8 +42,11 @@ function sandboxTempRoots() {
   }
   try { const t = tmpdir(); if (t) { roots.add(t); roots.add(resolve(t)); } } catch {}
   if (process.platform === "darwin") { roots.add("/var/folders"); roots.add("/private/var/folders"); }
-  if (process.platform !== "win32") { roots.add("/tmp"); roots.add("/private/tmp"); }
-  return [...roots].filter(Boolean);
+  if (process.platform !== "win32") { roots.add("/tmp"); }
+  if (process.platform === "darwin") { roots.add("/private/tmp"); } // macOS 專屬（Linux 無 /private/*）
+  // ⚠️ 2026-10-13：只留真正存在的路徑 — bwrap bind 來源不存在會硬錯
+  // （公司 Linux 實測：bwrap: Can't find source path /private/tmp）。
+  return [...roots].filter((p) => p && existsSync(p));
 }
 
 // ── 白名單分兩層（2026-10-10 Fleming：不要寫死，data/ 可設 + Settings UI 管理）──
@@ -210,36 +214,47 @@ export function needsNetworkAllow(command) {
 }
 
 // MXC filesystem policy：allowlist 模式（未列路徑 = 讀不到 — 跟 srt 黑名單相反，預設更嚴）
-function buildMxcFsPolicy(cwd) {
+export function buildMxcFsPolicy(cwd) {
+  // 註：匯出供單元測試（tests/unit/paaw-sandbox-mxc.test.mjs）驗證跨平台路徑過濾
   const home = process.env.HOME || process.env.USERPROFILE || "";
   const nodeDir = resolve(process.execPath, "..");
   const cwdReal = resolve(cwd || process.cwd());
+  const isMac = process.platform === "darwin";
+  // ⚠️ 2026-10-13（公司 Linux 修正）：跨平台安全清單只放「本機真的存在」的路徑 +
+  // macOS 專屬路徑只在 darwin 列。bwrap（MXC Linux 後端）bind 一個不存在的來源 =
+  // 硬錯「Can't find source path ...」→ 整個沙箱指令失敗 → coding app 無法對 packages 寫入。
+  const keep = (arr) => [...new Set(arr.map((p) => {
+    if (!p) return null;
+    try { return existsSync(p) ? p : null; } catch { return null; }
+  }).filter(Boolean))];
   // ⚠️ /private/var 不可列入 — 實測（2026-10-10 bisect）：列入後 MXC 內建的系統服務 socket
   // 通道（mDNSResponder）被覆蓋，DNS 全死（ENOTFOUND）；不列反而保留內建通道
-  const readonlyPaths = [...new Set([
-    "/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc", "/private/etc",
-    "/opt", "/usr/local", "/opt/homebrew",
+  const readonlyPaths = keep([
+    "/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc",
+    isMac ? "/private/etc" : null,
+    "/opt", "/usr/local",
+    isMac ? "/opt/homebrew" : null,
     nodeDir,       // node 執行檔目錄（nvm/brew 裝的都在 home 或 /opt）
     home,          // HOME readonly（敏感子路徑用 deniedPaths 蓋 — 實測 denied 優先）
     cwdReal,       // 專案根 readonly
-  ])].filter(Boolean);
-  const readwritePaths = [...new Set([
+  ]);
+  const readwritePaths = keep([
     cwdReal,       // 專案可寫（RU 工作區）
     ...sandboxTempRoots(), // $PAAW_TMP 上層 + 各平台 temp 根（含 Windows %TEMP%）— 2026-10-11
     home ? `${home}/.npm` : null,
     home ? `${home}/.cache` : null,
-    home ? `${home}/Library/Caches` : null, // macOS npm cache
+    isMac && home ? `${home}/Library/Caches` : null, // macOS npm cache
     home ? `${home}/.cargo` : null,         // cargo 下載快取
-  ])].filter(Boolean);
+  ]);
   // 機密一律擋（同 srt DENY_READ 語意；MXC 無 glob — 列具體路徑，default-deny 已保底其餘）
-  const deniedPaths = [...new Set([
+  const deniedPaths = keep([
     home ? `${home}/.ssh` : null,
     home ? `${home}/.openclaw` : null,      // gateway config（含 token）
     home ? `${home}/.aws` : null,
     home ? `${home}/.gnupg` : null,
     `${cwdReal}/.env`,
     `${cwdReal}/data/config/providers.json`, // PAAW AI 金鑰
-  ])].filter(Boolean);
+  ]);
   return { readonlyPaths, readwritePaths, deniedPaths };
 }
 

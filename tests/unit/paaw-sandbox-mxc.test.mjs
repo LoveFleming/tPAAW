@@ -6,7 +6,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { needsNetworkAllow, activeBackend } from "../../packages/server/src/lib/paaw-sandbox.mjs";
+import { existsSync } from "node:fs";
+import { needsNetworkAllow, activeBackend, buildMxcFsPolicy, sandboxTempRoots } from "../../packages/server/src/lib/paaw-sandbox.mjs";
 
 describe("needsNetworkAllow（MXC egress 判定）", () => {
   it.each([
@@ -71,6 +72,35 @@ describe("activeBackend（後端選擇）", () => {
     expect(activeBackend()).toBeNull();
   });
   process.env.PAAW_SANDBOX_BACKEND = orig;
+});
+
+// 2026-10-13 公司 Linux 回歸：bwrap bind 來源不存在會硬錯（Can't find source path /private/tmp）
+// → MXC fs policy 與 temp roots 只能放「本機真的存在」的路徑。
+describe("buildMxcFsPolicy（跨平台路徑過濾）", () => {
+  const cwd = "/tmp";
+  const pol = buildMxcFsPolicy(cwd);
+  it("所有 fs policy 路徑都存在（bwrap bind 來源必須存在）", () => {
+    for (const p of [...pol.readonlyPaths, ...pol.readwritePaths]) {
+      expect(existsSync(p), `不存在：${p}`).toBe(true);
+    }
+  });
+  it("非 darwin 不得出現 macOS 專屬路徑（/private/*、/opt/homebrew）", () => {
+    if (process.platform === "darwin") return;
+    const all = [...pol.readonlyPaths, ...pol.readwritePaths, ...pol.deniedPaths];
+    for (const p of all) {
+      expect(p.startsWith("/private/"), `macOS 路徑外洩：${p}`).toBe(false);
+      expect(p.startsWith("/opt/homebrew")).toBe(false);
+      expect(p.includes("/Library/Caches")).toBe(false);
+    }
+  });
+  it("RU cwd 一定在 readwritePaths（coding app 要能寫 packages）", () => {
+    expect(pol.readwritePaths).toContain(cwd);
+  });
+  it("sandboxTempRoots 全部存在，且非 darwin 不含 /private/tmp", () => {
+    const roots = sandboxTempRoots();
+    for (const p of roots) expect(existsSync(p), `不存在：${p}`).toBe(true);
+    if (process.platform !== "darwin") expect(roots).not.toContain("/private/tmp");
+  });
 });
 
 // top-level 偵測（it.skipIf 在 collect 階段求值 — beforeAll 來不及）
