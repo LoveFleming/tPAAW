@@ -1795,7 +1795,7 @@ async function _nativeGrep(searchPath, pattern, include, maxResults = 50, ignore
   return results.join("\n") || "(no matches)";
 }
 
-async function runShell(command, cwd, timeoutMs = 30_000) {
+async function runShell(command, cwd, timeoutMs = 30_000, opts = {}) {
   try {
     // Runtime log 中央目錄注入(2026-09-06):agents 在 RU 目錄跑,但要能寫 log/<sub>/<ru>/
     // - $PAAW_LOG_HOME           → log/ 根(generic)
@@ -1826,7 +1826,9 @@ async function runShell(command, cwd, timeoutMs = 30_000) {
         let out = (r.stdout || "") + (r.stderr ? "\n" + r.stderr : "");
         if (r.timedOut) out += (out ? "\n" : "") + "⏱ 沙箱內逾時（MXC）";
         if (r.code !== 0) out += (out ? "\n" : "") + `Exit code: ${r.code ?? 1}`;
-        return (out || "(no output)") + "\n🛡沙箱內（MXC）";
+        // 2026-10-13：沙箱標記只給 user 可見的 bash tool（opts.marker）——
+        // glob/grep/diff/git/test_run 等等是**結構化輸出消費端**，多一行標記會被當成檔案/匹配行。
+        return opts.marker ? (out || "(no output)") + "\n🛡沙箱內（MXC）" : (out || "(no output)");
       }
     } catch { /* MXC 失敗 → 原樣執行（不擋路） */ }
     // 無沙箱原樣執行（proc-ledger process group 記帳，timeout 殺整棵樹）
@@ -2398,7 +2400,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         }
         const timeoutSec = Math.min(args.timeout || 120, _agentCfg.bashTimeoutSeconds || 300);
         const timeoutMs = timeoutSec * 1000;
-        const result = await runShell(args.command, cwd, timeoutMs);
+        const result = await runShell(args.command, cwd, timeoutMs, { marker: true });
         // ── 安全審計（2026-10-10 Fleming）：輸出掃描 — 白名單阻擋/沙箱拒絕 →
         //    agent 引導（去安全 tab 設定）+ 使用者 security_notice + ES paaw-audit-* ──
         let finalResult = result;
