@@ -23,7 +23,7 @@ describe("security-mode", () => {
     if (existsSync(FILE)) rmSync(FILE, { force: true });
     expect(sm.devModeOn()).toBe(false);
     expect(sb.sandboxKillSwitchOn()).toBe(false);
-    expect(sb.activeBackend()).toBe(process.platform === "darwin" ? "srt" : "mxc");
+    expect(sb.activeBackend()).toBe("mxc");
   });
 
   it("setDevMode(true) → devModeOn 且沙箱整個關掉（activeBackend=null、mxcAvailable=false）", async () => {
@@ -42,7 +42,7 @@ describe("security-mode", () => {
     sm.setDevMode(true);
     sm.setDevMode(false);
     expect(sm.devModeOn()).toBe(false);
-    expect(sb.activeBackend()).toBe(process.platform === "darwin" ? "srt" : "mxc");
+    expect(sb.activeBackend()).toBe("mxc");
   });
 
   it("壞掉的 JSON → 視為關閉（fail-safe：壞檔不可等於關防護）", () => {

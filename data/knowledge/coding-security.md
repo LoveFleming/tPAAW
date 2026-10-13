@@ -9,7 +9,8 @@
 
 - **公司開發機本來就連不到 production**（公司網路政策）— PAAW 跑在公司機上時，這層隔離由公司環境提供
 - **家裡 Mac mini 與公司無關** — 防護 = script-guard 系（pattern 掃描/越權攔截，跨平台自帶）
-- 網路沙箱已上（v5 srt）：macOS Seatbelt / Linux bubblewrap 原生支援；Windows 需跑 `srt windows-install`（公司端要裝再說）
+- 網路沙箱（**v4 = MXC 單後端**，2026-10-13 Fleming：macOS 也走 MXC、全面移除 srt）：Mac/Linux/Windows 一套邏輯，由 Microsoft MXC adapter 提供 macOS seatbelt / Linux bubblewrap / Windows ProcessContainer；`@anthropic-ai/sandbox-runtime` 已從相依移除
+  - MXC egress 只能全開/全關（deny-by-default）；需要網路的命令由 `needsNetworkAllow` 放行該次 + 執行後輸出審計
 - 公司 Linux MXC 安裝實戰（Node≥24 / bubblewrap / optional dep 靜默失敗等坑）：見 `data/knowledge/mxc-linux-install.md`
 ## 威脅模型
 

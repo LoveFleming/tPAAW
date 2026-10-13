@@ -51,7 +51,6 @@
     }
   },
   "dependencies": {
-    "@anthropic-ai/sandbox-runtime": "^0.0.79",
     "adm-zip": "^0.6.0",
     "esbuild": "^0.28.2",
     "tree-sitter-rust": "^0.24.0"

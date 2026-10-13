@@ -1,14 +1,13 @@
-// ── paaw-sandbox v3：srt + MXC 雙後端（2026-10-10 Fleming 拍板：公司 Linux+Windows 統一攔截層）──
-// v2（2026-10-09）：srt（@anthropic-ai/sandbox-runtime）沙箱。
-// v3：新增 Microsoft MXC（@microsoft/mxc-sdk）後端 — Windows ProcessContainer / Linux bubblewrap。
-//     auto 模式：macOS→srt（per-domain 白名單較精細、已實測）；win32/linux→mxc（fallback srt→原樣）。
-//     MXC egress：deny-by-default；命令需要網路（npm/pip/git/curl…needsNetworkAllow）→ allow + 事後審計。
-// Anthropic 開源沙箱：macOS Seatbelt / Linux bubblewrap / Windows WFP，代理式 domain 白名單。
-// 效果：AI bash 之外連不出去（除白名單 domain）、機密檔讀不到（~/.ssh/.env/providers.json）、
-//       專案外寫不進去 — 混淆 payload 在 OS 層死，不靠 pattern 猜。
-// npm install 在沙箱內完整可用（registry 在白名單、allowWrite 含專案+~/.npm）— 實測通。
-// 逃生口：PAAW_SANDBOX=off 環境變數（debug 用）。
-// 不可用時自動退回原樣執行（script-guard pattern 掃描仍在）。
+// ── paaw-sandbox v4：MXC 單後端（2026-10-13 Fleming：macOS 也走 MXC，全面移除 srt）──
+// 動機：一套 sandbox 邏輯、跨平台一致，由 Microsoft MXC 當唯一 adapter →
+//      macOS seatbelt / Linux bubblewrap / Windows ProcessContainer，之後維護更單純。
+// v3：雙後端（srt + MXC）；v2：srt 後端。
+// MXC egress：只能全開/全關（deny-by-default）；命令需要網路（npm/pip/git/curl…needsNetworkAllow）
+//      → 該次 allow + 執行後輸出審計（scanCommandOutput）。
+// MXC filesystem：allowlist 模式（未列路徑 = 讀不到），機密路徑 deny（~/.ssh/.env/providers.json）。
+// npm install 在沙箱內實測可用（readwritePaths 含專案 + ~/.npm；egress allow）。
+// 逃生口：PAAW_SANDBOX=off（debug）／🛠 開發模式。
+// MXC 不可用時自動退回原樣執行（script-guard pattern 掃描仍在）。
 
 import { readFileSync, mkdirSync, existsSync, readdirSync } from "fs";
 import { execFile } from "node:child_process";
@@ -18,9 +17,6 @@ import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
 import { posixShellBin } from "./shell-exec.mjs";
 import { devModeOn } from "./security-mode.mjs"; // 🛠 開發模式總開關（2026-10-13）
 
-let _SM = null;
-let _inited = false;
-let _unavailable = false;
 
 // 確保沙箱 TMPDIR（$PAAW_TMP 上層）存在 — mktemp 對不存在的 TMPDIR 也是硬錯
 function ensureSandboxTmp() {
@@ -28,7 +24,7 @@ function ensureSandboxTmp() {
 }
 
 /**
- * 沙箱可寫的「暫存根」—— 跨平台一份清單（srt allowWrite / MXC readwritePaths 共用）
+ * 沙箱可寫的「暫存根」—— MXC readwritePaths 用
  *   - $PAAW_TMP 上層（log/tmp）：agent 指定暫存區，session 結束 + janitor 每日清
  *   - 宿主 TMPDIR/TMP/TEMP 與 os.tmpdir()：各平台真正的 temp 根
  *     （Linux 通常 /tmp；Windows %TEMP% = C:\Users\…\AppData\Local\Temp）
@@ -53,7 +49,7 @@ export function sandboxTempRoots() {
 
 // ── 白名單分兩層（2026-10-10 Fleming：不要寫死，data/ 可設 + Settings UI 管理）──
 // 內建 = 系統必要（npm/pip/git/localhost），碼裡保底不能被 UI 刪掉
-// 自訂 = data/config/network-whitelist.json { domains: [...] }，即時生效（buildConfig 每次讀）
+// 自訂 = data/config/network-whitelist.json { domains: [...] }，即時生效（每次讀）
 const BUILTIN_DOMAINS = [
   "registry.npmjs.org",
   "registry.yarnpkg.com",
@@ -80,23 +76,6 @@ export function effectiveAllowedDomains() {
 export function builtinAllowedDomains() { return [...BUILTIN_DOMAINS]; }
 export function customAllowedDomains() { return loadCustomWhitelist(); }
 
-const DENY_READ = [
-  "~/.ssh",
-  ".env",
-  "**/.env",
-  "**/providers.json",
-  "~/.openclaw", // gateway config（含 token）
-  "~/.aws",
-  "~/.gnupg",
-];
-
-async function loadSM() {
-  if (_SM) return _SM;
-  const mod = await import("@anthropic-ai/sandbox-runtime");
-  _SM = mod.SandboxManager;
-  return _SM;
-}
-
 export function sandboxKillSwitchOn() {
   if (process.env.PAAW_SANDBOX === "off") return true;
   // 🛠 開發模式總開關（2026-10-13 Fleming）：Settings → 安全 → 開發模式；也可 data/config/security.json
@@ -104,75 +83,14 @@ export function sandboxKillSwitchOn() {
   return false;
 }
 
+// 沙箱可用性 = MXC 可用性（v4 單後端；函式名保留，呼叫端不需改）
 export async function sandboxAvailable() {
-  if (sandboxKillSwitchOn()) return false;
-  if (_unavailable) return false;
-  try {
-    const SM = await loadSM();
-    return !!SM.isSupportedPlatform();
-  } catch {
-    _unavailable = true; // 套件不存在（公司端未裝）等
-    return false;
-  }
-}
-
-// 包指令：cwd = RU 專案目錄（allowWrite 主體）。失敗 = 回原指令（上層 pattern 掃描仍在）。
-let _lastAllowedSig = null;
-export async function wrapWithSrt(command, cwd) {
-  if (sandboxKillSwitchOn()) return command;
-  try {
-    const SM = await loadSM();
-    const cfg = buildConfig(cwd);
-    ensureSandboxTmp();
-    const sig = cfg.network.allowedDomains.join(",");
-    if (!_inited) {
-      await SM.initialize(cfg);
-      _inited = true;
-      _lastAllowedSig = sig;
-    } else if (sig !== _lastAllowedSig) {
-      // 白名單熱更新（2026-10-11 Fleming）：Settings UI / EM network_allow 改完立即生效。
-      // srt 的 network policy 在 initialize() 時固定 — 不 updateConfig 就得重啟 server
-      // 才生效，EM 晚上自動放行就永遠沒用（實測踩到）。
-      SM.updateConfig(cfg);
-      _lastAllowedSig = sig;
-    }
-    // per-call 完整 config（allowWrite 隨 RU cwd 變）
-    const wrapped = await SM.wrapWithSandbox(command, posixShellBin(), cfg);
-    // Node ≥24：global fetch / undici 預設不理 proxy env → 直連被 seatbelt 擋（EPERM），
-    // 即使網域在白名單也連不上。加 NODE_USE_ENV_PROXY=1 讓它走 srt 代理（2026-10-11 實測）。
-    // （TMPDIR 不用我們設：srt 自己在 env 串裡塞 TMPDIR=/tmp/claude；macOS 的 mktemp 反而硬走
-    //   _CS_DARWIN_USER_TEMP_DIR（/var/folders/...）→ 已在 allowWrite 放行，2026-10-11）
-    return wrapped.startsWith("env ")
-      ? "env NODE_USE_ENV_PROXY=1 " + wrapped.slice(4)
-      : "NODE_USE_ENV_PROXY=1 " + wrapped;
-  } catch {
-    return command;
-  }
-}
-
-function buildConfig(cwd) {
-  return {
-    network: {
-      allowedDomains: effectiveAllowedDomains(),
-      deniedDomains: [],
-      allowLocalBinding: true,   // dev server bind + loopback 測試
-      allowAllUnixSockets: true, // 本地 IPC（docker socket 等）
-    },
-    filesystem: {
-      denyRead: DENY_READ,
-      // 2026-10-11：$PAAW_TMP（log/tmp/<ru>，agent 指定的暫存區）必須可寫，否則我們自己的
-      // 「暫存一律寫 $PAAW_TMP」規則被自己的沙箱擋掉（實測 EPERM，白燒回合）。
-      // 2026-10-11 再修：mktemp/暫存根跨平台全列（sandboxTempRoots）— macOS mktemp 硬走
-      // /var/folders 不看 TMPDIR，被擋過。
-      allowWrite: [cwd, ...sandboxTempRoots(), "~/.npm", "~/.cache",
-        ...(process.platform === "darwin" ? ["~/Library/Caches"] : [])], // 2026-10-13：~/Library/Caches 只在 macOS
-    },
-  };
+  return await mxcAvailable();
 }
 
 // ═══════════════════════════════════════════════════════════════════
 // MXC backend（v3，2026-10-10）— Microsoft @microsoft/mxc-sdk
-// 動機：公司端 Linux+Windows 原本完全沒有攔截層（srt 未裝/未驗證）。
+// 動機：公司端 Linux+Windows 原本完全沒有攔截層；v4 起 macOS 也統一走 MXC。
 // MXC stable 預設後端：Windows ProcessContainer / Linux bubblewrap / macOS seatbelt。
 // 實測（Mac mini spike 2026-10-10）：filesystem default-deny allowlist（未列路徑一律 EPERM）、
 // deniedPaths 優先於 readonlyPaths、bash -c 包裝 pipe/redirect 可用、egress 只能全開/全關
@@ -203,13 +121,12 @@ export async function mxcAvailable() {
   }
 }
 
-// 後端選擇：PAAW_SANDBOX_BACKEND=auto|mxc|srt|off（auto=darwin→srt，其他→mxc）
+// 後端（v4：只有一種 = MXC）。PAAW_SANDBOX_BACKEND=off 可關；其餘值一律 mxc（相容舊 srt 設定）
 export function activeBackend() {
   if (sandboxKillSwitchOn()) return null;
   const v = (process.env.PAAW_SANDBOX_BACKEND || "auto").toLowerCase();
   if (v === "off") return null;
-  if (v === "mxc" || v === "srt") return v;
-  return process.platform === "darwin" ? "srt" : "mxc";
+  return "mxc";
 }
 
 // 命令是否需要網路（MXC deny-by-default 的逃生判定）— 粗粒度白名單：
@@ -219,7 +136,7 @@ export function needsNetworkAllow(command) {
   return NET_NEED_RE.test(String(command || ""));
 }
 
-// MXC filesystem policy：allowlist 模式（未列路徑 = 讀不到 — 跟 srt 黑名單相反，預設更嚴）
+// MXC filesystem policy：allowlist 模式（未列路徑 = 讀不到 — 比舊黑名單式更嚴）
 export function buildMxcFsPolicy(cwd) {
   // 註：匯出供單元測試（tests/unit/paaw-sandbox-mxc.test.mjs）驗證跨平台路徑過濾
   const home = process.env.HOME || process.env.USERPROFILE || "";
@@ -253,7 +170,7 @@ export function buildMxcFsPolicy(cwd) {
     isMac && home ? join(home, "Library", "Caches") : null, // macOS npm cache
     home ? join(home, ".cargo") : null,        // cargo 下載快取
   ]);
-  // 機密一律擋（同 srt DENY_READ 語意；MXC 無 glob — 列具體路徑，default-deny 已保底其餘）
+  // 機密一律擋（同舊 srt 黑名單語意；MXC 無 glob — 列具體路徑，default-deny 已保底其餘）
   const deniedPaths = keep([
     home ? join(home, ".ssh") : null,
     home ? join(home, ".openclaw") : null, // gateway config（含 token）
@@ -308,68 +225,35 @@ function buildMxcEnv(extraEnv = {}) {
   };
 }
 
-// ── 統一沙箱執行入口（v3）──
-// 回傳 { code, stdout, stderr, timedOut, sandboxed, backend: "mxc"|"srt"|"none" }
-// backend 選擇：activeBackend() → 可用性偵測 → fallback 鏈 mxc→srt→raw
+// ── 統一沙箱執行入口（v4：MXC 單後端）──
+// 回傳 { code, stdout, stderr, timedOut, sandboxed, backend: "mxc"|"none" }
+// ⚠️ MXC 路徑不走 proc-ledger 記帳（MXC SDK 自管 timeout 殺整組）；不可用時 raw fallback。
 export async function execSandboxed(command, opts = {}) {
   const { cwd = process.cwd(), timeoutMs = 600_000, env = {}, network = "deny" } = opts;
   const cap = Math.min(Number(timeoutMs) || 600_000, 900_000);
-  const backend = activeBackend();
 
-  if (backend === "mxc" || (backend !== "srt" && process.platform !== "darwin")) {
-    if (await mxcAvailable()) {
-      try {
-        ensureSandboxTmp();
-        const m = await loadMXC();
-        const egress = network === "allow" ? "allow" : "deny";
-        const child = await m.spawn({
-          command: wrapForMxc(command),
-          filesystem: buildMxcFsPolicy(cwd),
-          network: { egress: { default: egress } },
-          timeoutMs: cap,
-          workingDirectory: resolve(cwd),
-          environment: buildMxcEnv(env),
-        });
-        let stdout = "", stderr = "";
-        child.standardOutput?.on("data", (c) => { stdout += c; if (stdout.length > 16 * 1024 * 1024) child.standardOutput.destroy(); });
-        child.standardError?.on("data", (c) => { stderr += c; if (stderr.length > 4 * 1024 * 1024) child.standardError.destroy(); });
-        const w = await child.wait();
-        return {
-          code: w.exitCode, stdout, stderr, timedOut: !!w.timedOut,
-          sandboxed: true, backend: "mxc",
-        };
-      } catch { /* MXC 啟動失敗 → fallback 下方 srt/raw */ }
-    }
-  }
-  if (backend === "mxc") {
-    // 強制 mxc 但不可用 → raw（維持可用性優先）
-    return await rawShellExec(command, { cwd, timeoutMs: cap, env });
-  }
-
-  // srt 路徑（macOS 預設；mxc 啟動失敗的 fallback）
-  if (await sandboxAvailable()) {
+  if (activeBackend() === "mxc" && await mxcAvailable()) {
     try {
-      const quoted = command; // bash 工具傳入已是完整 shell 字串
-      const wrapped = await wrapWithSrt(quoted, cwd);
-      if (wrapped && wrapped !== quoted) {
-        // 2026-10-13：shell 與 PATH 都要跨平台 — 舊碼硬寫 /bin/zsh + homebrew PATH
-        // （Linux 沒 zsh / 沒 /opt/homebrew → spawn ENOENT）。
-        const srtPath = process.platform === "darwin"
-          ? `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ""}`
-          : (process.env.PATH || "/usr/local/bin:/usr/bin:/bin");
-        return await new Promise((res) => {
-          execFile(posixShellBin(), ["-c", wrapped], {
-            cwd, timeout: cap, maxBuffer: 16 * 1024 * 1024,
-            env: { ...process.env, PATH: srtPath, ...env },
-          }, (err, stdout, stderr) => {
-            res({
-              code: err ? (err.code ?? 1) : 0, stdout: String(stdout || ""), stderr: String(stderr || ""),
-              timedOut: !!(err && err.killed), sandboxed: true, backend: "srt",
-            });
-          });
-        });
-      }
-    } catch { /* fallback raw */ }
+      ensureSandboxTmp();
+      const m = await loadMXC();
+      const egress = network === "allow" ? "allow" : "deny";
+      const child = await m.spawn({
+        command: wrapForMxc(command),
+        filesystem: buildMxcFsPolicy(cwd),
+        network: { egress: { default: egress } },
+        timeoutMs: cap,
+        workingDirectory: resolve(cwd),
+        environment: buildMxcEnv(env),
+      });
+      let stdout = "", stderr = "";
+      child.standardOutput?.on("data", (c) => { stdout += c; if (stdout.length > 16 * 1024 * 1024) child.standardOutput.destroy(); });
+      child.standardError?.on("data", (c) => { stderr += c; if (stderr.length > 4 * 1024 * 1024) child.standardError.destroy(); });
+      const w = await child.wait();
+      return {
+        code: w.exitCode, stdout, stderr, timedOut: !!w.timedOut,
+        sandboxed: true, backend: "mxc",
+      };
+    } catch { /* MXC 啟動失敗 → 退回原樣執行（維持可用性優先） */ }
   }
   return await rawShellExec(command, { cwd, timeoutMs: cap, env });
 }

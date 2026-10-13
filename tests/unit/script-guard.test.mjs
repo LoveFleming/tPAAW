@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll } from "vitest";
-import { wrapWithSrt, sandboxAvailable, sandboxKillSwitchOn } from "../../packages/server/src/lib/paaw-sandbox.mjs";
+import { sandboxAvailable, sandboxKillSwitchOn } from "../../packages/server/src/lib/paaw-sandbox.mjs";
 import { persistentEntryBlock, scanScriptContent, guardScriptExecution, isPackageJsonClean } from "../../packages/server/src/lib/script-guard.mjs";
 import { mkdtempSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
@@ -202,19 +202,20 @@ describe("script-guard B：package.json 乾淨檢查", () => {
 });
 
 
-describe("paaw-sandbox v5：srt 沙箱", () => {
-  it("kill switch：PAAW_SANDBOX=off 直接回原指令", async () => {
+describe("paaw-sandbox v4：MXC 單後端", () => {
+  it("kill switch：PAAW_SANDBOX=off → 沙箱關閉", async () => {
     process.env.PAAW_SANDBOX = "off";
-    expect(await wrapWithSrt("echo hi", "/tmp")).toBe("echo hi");
     expect(sandboxKillSwitchOn()).toBe(true);
+    expect(await sandboxAvailable()).toBe(false);
     delete process.env.PAAW_SANDBOX;
   });
-  it("macOS 可用時 wrap 回字串（含沙箱包裝）", async () => {
-    if (process.platform === "darwin") {
-      expect(await sandboxAvailable()).toBe(true);
-      const w = await wrapWithSrt("echo 'x'", "/tmp");
-      expect(typeof w).toBe("string");
-      expect(w.length).toBeGreaterThan("echo 'x'".length); // 有包裝
+  it("未關閉時可用性 = MXC 可用性（本機裝了 sdk 應為 true）", async () => {
+    delete process.env.PAAW_SANDBOX;
+    const av = await sandboxAvailable();
+    expect(typeof av).toBe("boolean");
+    if (process.platform === "darwin" || process.platform === "linux") {
+      // macOS/Linux 都走 MXC seatbelt/bwrap；裝了 sdk 就是 true
+      expect(av).toBe(true);
     }
   });
 });

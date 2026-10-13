@@ -264,7 +264,7 @@ export default async function assistantRoute(req, res) {
       sandboxBackend: activeBackend() || "off",
       sandboxOff: sandboxKillSwitchOn(),
       updatedAt: cfg.updatedAt,
-      note: "開發模式＝關掉 MXC/srt 沙箱 + script-guard 安全審批（趕碼用）。shell-guard（AI 動不了本 RU 以外的 process）永遠有效。",
+      note: "開發模式＝關掉 MXC 沙箱 + script-guard 安全審批（趕碼用）。shell-guard（AI 動不了本 RU 以外的 process）永遠有效。",
     }));
     return true;
   }
@@ -278,7 +278,7 @@ export default async function assistantRoute(req, res) {
     return true;
   }
 
-  // ── 網路白名單（2026-10-10）：srt 沙箱對外域名 — data/config/network-whitelist.json ──
+  // ── 網路白名單（2026-10-10；MXC 時代為審計/參考）：data/config/network-whitelist.json ──
   if (path === "/api/paaw/network-whitelist" && req.method === "GET") {
     const { builtinAllowedDomains, customAllowedDomains } = await import("../lib/paaw-sandbox.mjs");
     res.writeHead(200, { "Content-Type": "application/json" });

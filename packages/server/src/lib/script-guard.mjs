@@ -100,7 +100,7 @@ export function persistentEntryBlock(pathStr) {
 // 連 `grep -n slice(-10) ./monitor.mjs` 都因讀檔掃描被擋，等於不能開發。
 // 新原則：
 //   1) 只看「真的在對外連」：網路工具出現在指令位置（行首/&&/;/|/( 之後）且帶外部 URL
-//   2) 檔案內容不再用寬鬆的網路 API 啟發式 —— 對外連線的守門交給沙箱（srt 白名單 / MXC deny-by-default）
+//   2) 檔案內容不再用寬鬆的網路 API 啟發式 —— 對外連線的守門交給沙箱（MXC deny-by-default + 輸出審計）
 //      ＋執行後輸出審計（audit-log scanCommandOutput）。事實靠機制，不靠猜字串。
 // localhost / 127.0.0.1 / 變數開頭不算（測試常打本地 API）
 const EXT_URL_SRC = "https?:\\/\\/(?!localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0|\\[::1\\]|\\$\\{?[A-Z_])";
@@ -161,7 +161,7 @@ export function scanScriptContent(content, source = "script", opts = {}) {
     return { dangerous: true, reason: `偵測到「下載即執行」管線（curl|sh、iwr|iex）`, source };
   }
   if (NET_CMD.test(text)) {
-    // 2026-10-13 Fleming：對外網路請求「不再跳審批卡」— 沙箱（srt 白名單 / MXC deny-by-default）
+    // 2026-10-13 Fleming：對外網路請求「不再跳審批卡」— 沙箱（MXC deny-by-default）
     // 才是真正的守門，事後還有輸出審計。這裡只回報（放行）讓 caller 記一筆 security_notice。
     return { dangerous: false, network: true, reason: `對外部 URL 發出的網路請求（localhost 以外）`, source };
   }

@@ -5,7 +5,7 @@
  * - buildMxcFsPolicy 不直接測（未導出）；execSandboxed 整合 = live 煙霧（skip-if-no-sdk）
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { existsSync } from "node:fs";
 import os from "node:os";
 import { join } from "node:path";
@@ -55,25 +55,28 @@ describe("needsNetworkAllow（MXC egress 判定）", () => {
 
 describe("activeBackend（後端選擇）", () => {
   const orig = process.env.PAAW_SANDBOX_BACKEND;
-  it("auto 在非 darwin → mxc", () => {
+  afterEach(() => {
+    // ⚠️ 原本寫在 describe body 尾端（collect 時就跑完 = 沒清到），導致後續 execSandboxed 測試
+    // 拿到 PAAW_SANDBOX_BACKEND="off" → 沙箱整組關掉、live 煙霧測試變成驗 raw。
+    if (orig === undefined) delete process.env.PAAW_SANDBOX_BACKEND;
+    else process.env.PAAW_SANDBOX_BACKEND = orig;
+  });
+  it("auto → mxc（v4 單後端：macOS 也走 MXC）", () => {
     delete process.env.PAAW_SANDBOX_BACKEND;
-    const b = activeBackend();
-    expect(["mxc", "srt"]).toContain(b);
-    expect(b).toBe(process.platform === "darwin" ? "srt" : "mxc");
+    expect(activeBackend()).toBe("mxc");
   });
   it("強制 mxc", () => {
     process.env.PAAW_SANDBOX_BACKEND = "mxc";
     expect(activeBackend()).toBe("mxc");
   });
-  it("強制 srt", () => {
+  it("舊值 srt 一律回 mxc（相容）", () => {
     process.env.PAAW_SANDBOX_BACKEND = "srt";
-    expect(activeBackend()).toBe("srt");
+    expect(activeBackend()).toBe("mxc");
   });
   it("off → null", () => {
     process.env.PAAW_SANDBOX_BACKEND = "off";
     expect(activeBackend()).toBeNull();
   });
-  process.env.PAAW_SANDBOX_BACKEND = orig;
 });
 
 // 2026-10-13 公司 Linux 回歸：bwrap bind 來源不存在會硬錯（Can't find source path /private/tmp）
