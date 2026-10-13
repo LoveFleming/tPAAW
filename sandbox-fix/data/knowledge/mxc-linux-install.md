@@ -156,3 +156,18 @@ bash scripts/check-mxc-linux.sh      # 要看到「MXC 就緒 ✅」
   - shell 不再硬寫 `/bin/zsh`（Linux 沒 zsh；`$SHELL` 空時 spawn ENOENT）→ `posixShellBin()`
 - **公司取檔**：`packages/server/src/lib/paaw-sandbox.mjs` + `packages/server/src/lib/shell-exec.mjs`（+ env-exec-tool/dev-server/proc-ledger/ws-handler）→ 覆蓋 → **重啟 server**。
 - **驗證**：`npm run build` 後起 server，coding app 內跑 `touch packages/.probe && rm packages/.probe` 應成功、輸出帶 🛡沙箱内（MXC）。
+
+## 常見症狀：專案工作目錄變成唯讀（`Read-only file system`）（2026-10-13 第二修）
+
+- **症狀**：沙箱能起來了，但在 coding app 裡對專案目錄寫入（`touch packages/.probe`、`npm install`）回 **`Read-only file system`（EROFS）**。
+- **根因**：`paaw-sandbox.mjs` 的 fs 清單會被 MXC 變成**掛載**。舊碼把
+  - `cwd`（專案根）**同時**放進 `readonlyPaths` 與 `readwritePaths`，且
+  - `home`（在 Linux 專案通常在 `home` 底下）整包列 `readonlyPaths`
+  → 後套用的 ro 掛載蓋掉 rw → cwd 變唯讀。
+- **修法**（dev `57c341dc`）：
+  1. `cwd` 不再列入 readonly（只留 readwrite）
+  2. readonly 一律**剔除**任何 readwrite 的自身／祖先／子孫（mount 不能重疊）
+  3. `home` 若含 readwrite 路徑 → 展開成「子項目」逐一 ro（`~/.gitconfig` 等仍可讀），不再整包 ro
+- **公司取檔**：覆蓋 `packages/server/src/lib/paaw-sandbox.mjs` → **重啟 server**。
+- **驗證**：coding app 內 `touch packages/.probe && rm packages/.probe` 成功；`npm run build` 可寫 `dist`。
+- **不用**卸載／重新 import release unit — 這是沙箱掛載政策，跟 RU 註冊無關。
