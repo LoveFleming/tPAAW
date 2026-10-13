@@ -261,3 +261,12 @@
 3. `providers.json` 不要被覆蓋（含 API key，非版控）。
 4. 舊檔（distill 相關、AICrew/AppModules/EmployeeWorkspace/CrewEditor.tsx、routes/distill.mjs、scripts/seed/distill/）留著不影響執行，但建議刪。
 5. `data/config/network-whitelist.json` 是出廠預設（builtin 9 網域）；公司自訂在 Settings → 🛡 安全 加。
+
+## 🆕 `1012update/`（2026-10-12 晚 19:00 後 15 檔）
+- 基準 `eba314b9`（18:17，公司今天 build 過的版本）→ `a2243f2d`（21:42），**排除** `installed-apps/learning/manifest.json`（learning space），共 **15 檔**。
+- 內容：`1012update/` 下照 tPAAW 相對路徑鋪（下載後去掉 `1012update/` 前綴即為覆蓋路徑）。
+  - 新增（A）：`packages/ui/src/pages/AppModules.tsx`、`packages/ui/src/components/ModulePageLoader.tsx`、`packages/ui/src/moduleRuntime.ts`、`packages/server/src/lib/module-ui-bundle.mjs`
+  - 修改（M）：`.env.example`、`.gitignore`、`package.json`、`packages/server/src/lib/app-modules.mjs`、`packages/server/src/lib/es-shipper.mjs`、`packages/server/src/routes/apps.mjs`、`packages/ui/src/App.tsx`、`packages/ui/src/i18n/locales/{zh,en,ja,zh-mix}.json`
+- 做了什麼：App Modules 管理頁還原 + M2（模組 zip 匯入/匯出/移除）+ M3（模組 UI runtime 動態載入，匯入後免 build）+ ES shipper 帳密/index 前綴。
+- ⚠️ 家公司步驟：蓋這 15 檔 → `npm install`（新增依賴 `esbuild`）→ `npm run build` → 重啟 server。
+- 驗證：`git diff --name-status eba314b9..a2243f2d`
