@@ -327,3 +327,22 @@
   - `packages/ui/src/i18n/locales/{zh,en,ja,zh-mix}.json`　（settings.devMode.* 文案）
 - ⚠️ 有動 UI → 覆蓋後要 **`npm run build`** 然後**重啟 server**。
 - 來源 dev `827e5a9a`；`npx vitest run tests/unit` 834 passed。
+
+## 🧹 `guard-fix/`（2026-10-13 script-guard 誤擋正常開發 ＋ 審批紀錄跑到別的 crew）
+- 症狀 1：`grep -n slice(-10) ./monitor.mjs` 之類「只是在找程式」的指令跳審批卡，訊息寫「即將執行的 ./monitor.mjs — 偵測到對外部 URL 的網路請求（外傳通道）」→ 正常開發被擋死。
+- 症狀 2：審批紀錄（🛡 審批紀錄清單）在**每個 crew 的聊天視窗**都出現，明明是在 developer 視窗核准的。
+- 根因 1：舊規則把「檔案只要是 grep/cat 的參數（前面有空白或 `./`）」當成「即將執行該檔」→ 讀檔掃內容；且內容規則「程式碼裡同時有 fetch/axios/requests + 外部 URL」就擋 —— 原始碼有 API 網址是常態。
+- 根因 2：審批紀錄存在 `<RU>/.paaw/exec-approval-log.jsonl`（per-RU），UI 每個 crew 視窗都渲染，且審批事件沒帶 agentId → 無法歸屬。
+- 修法 1：逐段判斷「該段第一個指令」——只有直譯器直跑檔（`node x.mjs`）或該段本身就是執行檔（`./x.sh`）才掃檔案內容；`grep/rg/cat/head/sed/awk/find/git/npm…` 等完全不做內容掃描。外傳規則改成「網路工具在指令位置（含 `execSync("curl https://…")`）＋外部 URL」才算。
+  - ⚠️ 取捨：原始碼裡的 `fetch("https://…")` 不再由 pattern 擋（改由沙箱 srt 白名單 / MXC deny-by-default ＋執行後輸出審計把關）。持久化、`rm` 家目錄、`curl|sh` 管線、`git push`、機密路徑（`~/.ssh`、`.env`、`providers.json`）一律照舊擋。
+- 修法 2：審批加 `agentId`，UI 只在其所屬 crew 的視窗顯示審批卡與審批紀錄（舊紀錄無 agentId 視為 developer）。
+- 路徑同 deploy6 規則：`guard-fix/` 下照 tPAAW 相對路徑鋪，下載後**去掉 `guard-fix/` 前綴**即為覆蓋路徑。
+- 內容（6 檔）：
+  - `packages/server/src/lib/script-guard.mjs`　（主修：逐段判斷 + 外傳規則收斂）
+  - `packages/server/src/lib/exec-approvals.mjs`　（審批紀錄/pending 加 agentId）
+  - `packages/server/src/lib/paaw-agent-loop.mjs`　（傳 agentId；⚠️ 與 `filemount-fix/`、`approval-fix/` 同一檔，請用本批最新版）
+  - `packages/server/src/routes/a2a.mjs`　（SSE approval_request 帶 agentId）
+  - `packages/server/src/websocket/ws-handler.mjs`　（同上）
+  - `packages/ui/src/pages/CodingIDE.tsx`　（只在自己 crew 顯示審批卡/紀錄；⚠️ 與 `approval-fix/` 同一檔，用本批最新版）
+- ⚠️ 有動 UI → 覆蓋後要 **`npm run build`** 然後**重啟 server**。
+- 來源 dev `42f6efc9`；`npx vitest run tests/unit` 838 passed。
