@@ -143,13 +143,22 @@ describe("scanCommandOutput — 輸出安全掃描", () => {
     expect(r?.type).toBe("sandbox_fs_deny");
   });
 
-  it("Linux bwrap 拒絕：Permission denied → sandbox_fs_deny（2026-10-13）", () => {
+  it("Node 工具鏈 EACCES（MXC/bwrap 沙箱經 node 回報）→ sandbox_fs_deny（2026-10-13）", () => {
     const r = scanCommandOutput({
-      command: "cat /home/x/.ssh/config",
-      output: "cat: /home/x/.ssh/config: Permission denied\nExit code: 1",
+      command: "node -e \"require('fs').readFileSync('/home/x/.ssh/config')\"",
+      output: "Error: EACCES: permission denied, open '/home/x/.ssh/config'\nExit code: 1",
       allowedDomains: ALLOWED,
     });
     expect(r?.type).toBe("sandbox_fs_deny");
+  });
+
+  it("裸 shell 'Permission denied'（非沙箱）不誤報（2026-10-13 保守）", () => {
+    const r = scanCommandOutput({
+      command: "grep -r foo /var/root",
+      output: "grep: /var/root: Permission denied\nExit code: 2",
+      allowedDomains: ALLOWED,
+    });
+    expect(r).toBeNull();
   });
 
   it("npm 自家 EPERM unlink（cache 檔鎖）→ 誤報排除，不觸發", () => {

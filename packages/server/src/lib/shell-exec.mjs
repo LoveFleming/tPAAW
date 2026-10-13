@@ -26,7 +26,9 @@ const IS_WIN = process.platform === "win32";
  */
 export function posixShellBin() {
   if (IS_WIN) return process.env.ComSpec || "cmd.exe";
-  for (const c of [process.env.SHELL, "/bin/bash", "/bin/sh", "/bin/zsh"]) {
+  // darwin 優先 /bin/zsh（保持 macOS 原有行為）；其他 POSIX 優先 /bin/bash
+  const preferred = process.platform === "darwin" ? "/bin/zsh" : "/bin/bash";
+  for (const c of [process.env.SHELL, preferred, "/bin/bash", "/bin/sh", "/bin/zsh"]) {
     if (c && existsSync(c)) return c;
   }
   return "/bin/sh";

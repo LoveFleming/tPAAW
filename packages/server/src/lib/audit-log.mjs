@@ -110,9 +110,10 @@ export function logAuditEvent(evt) {
 // ══════════════════════════════════════════
 
 const NET_FAIL_RE = /(curl:\s*\((?:6|7|28|35|56|60)\)|CONNECT tunnel failed|Could not resolve host|unable to resolve|Connection timed out|Connection refused|connection timed out; no servers could be reached|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|Network is unreachable|fetch failed)/i;
-// 2026-10-13：跨平台 — macOS seatbelt=EPERM/Opertion not permitted；Linux bwrap=Permission denied；
-// Windows ProcessContainer=Access is denied / ERROR_ACCESS_DENIED
-const FS_DENY_RE = /(operation not permitted|EPERM|permission denied|access is denied|ERROR_ACCESS_DENIED|EACCES)/i;
+// 2026-10-13：跨平台 — macOS seatbelt=EPERM/Operation not permitted；Windows ProcessContainer=Access is denied；
+// Node 工具鏈（含 MXC/bwrap 經 Node 回報）=EACCES。刻意不收裸 "Permission denied"（shell 工具一般權限錯
+// 也會印這句 → 誤報；2026-10-13 保持保守，不擴大誤判面）。
+const FS_DENY_RE = /(operation not permitted|EPERM|EACCES|access is denied|ERROR_ACCESS_DENIED)/i;
 // ── 通用網路阻擋偵測（2026-10-11 Fleming）──
 // 指令含網路意圖（URL / 網路工具）但解析不出具體網域時（例如 host 寫在 script/config 裡），
 // 仍要發通知告訴使用者去哪裡設白名單 — 不能默默卡住。
