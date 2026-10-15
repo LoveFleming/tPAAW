@@ -112,9 +112,9 @@ function collectSkillsUsage(days = 7) {
       const sectionChars = e.sectionChars || 0;
       const day = byDay[dateStr] || (byDay[dateStr] = { date: dateStr, count: 0, chars: 0 });
       day.count += 1; day.chars += sectionChars;
-      const a = byAgent[agent] || (byAgent[agent] = { id: agent, count: 0, chars: 0, lastTs: e.ts, skills: {} });
+      const a = byAgent[agent] || (byAgent[agent] = { id: agent, count: 0, chars: 0, lastTs: e.ts, lastCwd: e.cwd || null, skills: {} });
       a.count += 1; a.chars += sectionChars;
-      if (e.ts > (a.lastTs || "")) a.lastTs = e.ts;
+      if (e.ts > (a.lastTs || "")) { a.lastTs = e.ts; a.lastCwd = e.cwd || a.lastCwd; }
       for (const sid of e.skills) {
         a.skills[sid] = (a.skills[sid] || 0) + 1;
         const s = bySkill[sid] || (bySkill[sid] = { id: sid, count: 0, sectionCharsTotal: 0, lastTs: e.ts, agents: {} });

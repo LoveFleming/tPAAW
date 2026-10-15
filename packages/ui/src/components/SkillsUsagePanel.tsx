@@ -15,7 +15,7 @@ interface SkillRow {
   agents: Array<{ id: string; count: number }>;
 }
 interface AgentRow {
-  id: string; count: number; chars: number; lastTs: string;
+  id: string; count: number; chars: number; lastTs: string; lastCwd: string | null;
   skills: Array<{ id: string; count: number }>;
 }
 interface Usage {
@@ -46,6 +46,24 @@ export default function SkillsUsagePanel({ theme = DEFAULT_THEME }: { theme?: an
   const [data, setData] = useState<Usage | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 點下去看實際注入內容（/a2a/:id/system-prompt）
+  const [viewAgent, setViewAgent] = useState<AgentRow | null>(null);
+  const [viewPrompt, setViewPrompt] = useState<string | null>(null);
+  const [viewError, setViewError] = useState<string | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
+
+  const openPromptView = useCallback(async (agent: AgentRow) => {
+    setViewAgent(agent); setViewPrompt(null); setViewError(null); setViewLoading(true);
+    try {
+      const cwdQ = agent.lastCwd ? `?cwd=${encodeURIComponent(agent.lastCwd)}` : "";
+      const res = await fetch(`${API_BASE}/a2a/${encodeURIComponent(agent.id)}/system-prompt${cwdQ}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const j = await res.json();
+      setViewPrompt(typeof j?.baseSystemPrompt === "string" ? j.baseSystemPrompt : "");
+    } catch (e: any) { setViewError(e.message || String(e)); }
+    finally { setViewLoading(false); }
+  }, []);
+  const closePromptView = useCallback(() => { setViewAgent(null); setViewPrompt(null); setViewError(null); }, []);
 
   const load = useCallback(async (d: number) => {
     setLoading(true); setError(null);
@@ -183,6 +201,7 @@ export default function SkillsUsagePanel({ theme = DEFAULT_THEME }: { theme?: an
                   <th style={{ ...th, whiteSpace: "normal" }}>{t("skillsUsage.skillList")}</th>
                   <th style={th}>{t("skillsUsage.totalChars")}</th>
                   <th style={th}>{t("skillsUsage.lastUsed")}</th>
+                  <th style={th}></th>
                 </tr>
               </thead>
               <tbody>
@@ -199,10 +218,48 @@ export default function SkillsUsagePanel({ theme = DEFAULT_THEME }: { theme?: an
                     </td>
                     <td style={td}>{fmtChars(a.chars)}</td>
                     <td style={td} title={a.lastTs}>{fmtAgo(a.lastTs)}</td>
+                    <td style={td}>
+                      <button onClick={() => openPromptView(a)} title={t("skillsUsage.viewPrompt")}
+                        className="text-[11px] px-1.5 py-0.5 rounded hover:opacity-80"
+                        style={{ border: `1px solid ${theme.borderLight}`, color: theme.accent }}>🔍</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Prompt 檢視 modal：點下去看實際注入的 skill 內容 ── */}
+      {viewAgent && (
+        <div onClick={closePromptView} className="fixed inset-0 flex items-center justify-center p-6"
+          style={{ background: "rgba(0,0,0,0.45)", zIndex: 1000 }}>
+          <div onClick={e => e.stopPropagation()} className="flex flex-col rounded-lg shadow-2xl"
+            style={{ background: theme.bg, border: `1px solid ${theme.borderLight}`, maxWidth: "min(900px, 92vw)", width: "100%", maxHeight: "86vh" }}>
+            <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
+              <span className="text-sm font-bold">🔍 {viewAgent.id}</span>
+              <span className="text-[11px]" style={{ opacity: 0.55 }}>{t("skillsUsage.injectedSection")}</span>
+              <span className="flex-1" />
+              <button onClick={closePromptView} className="text-xs px-2 py-0.5 rounded hover:opacity-80"
+                style={{ border: `1px solid ${theme.borderLight}`, color: theme.text }}>{t("skillsUsage.close")}</button>
+            </div>
+            <div className="overflow-auto px-4 py-3" style={{ background: theme.bgMuted }}>
+              {viewLoading && <div className="text-xs" style={{ opacity: 0.6 }}>…</div>}
+              {viewError && <div className="text-xs" style={{ color: "#ef4444" }}>{viewError}</div>}
+              {!viewLoading && !viewError && viewPrompt !== null && (() => {
+                const idx = viewPrompt.indexOf("## 已掛載技能 (Skills)");
+                const section = idx >= 0 ? viewPrompt.slice(idx) : "";
+                return section ? (
+                  <pre className="text-[11px] whitespace-pre-wrap" style={{ fontFamily: "ui-monospace, monospace", color: theme.text }}>{section}</pre>
+                ) : (
+                  <div className="text-xs" style={{ opacity: 0.7 }}>
+                    {t("skillsUsage.noSection")}
+                    <div className="mt-1" style={{ fontSize: 11, opacity: 0.7 }}>{t("skillsUsage.promptLen")}: {viewPrompt.length}</div>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}

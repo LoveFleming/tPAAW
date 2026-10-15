@@ -1856,5 +1856,10 @@
   "skillsUsage.emptyHint": "Crew Management でスキルをバインドし、サーバーを再起動してください（2026-10-15 修正以降の証跡のみ）",
   "skillsUsage.byAgent": "エージェント別",
   "skillsUsage.agent": "エージェント",
-  "skillsUsage.skillList": "スキル一覧"
+  "skillsUsage.skillList": "スキル一覧",
+  "skillsUsage.viewPrompt": "注入内容を表示",
+  "skillsUsage.injectedSection": "実際に注入されたプロンプトのスキルセクション",
+  "skillsUsage.noSection": "このプロンプトにスキルセクションがありません（未バインドまたは未注入）",
+  "skillsUsage.promptLen": "プロンプト長",
+  "skillsUsage.close": "閉じる"
 }

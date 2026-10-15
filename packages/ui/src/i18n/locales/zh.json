@@ -1856,5 +1856,10 @@
   "skillsUsage.emptyHint": "確認已在 Crew Management 綁定 skill，且 server 已重啟（2026-10-15 注入修復後才有證據）",
   "skillsUsage.byAgent": "依 Agent 統計",
   "skillsUsage.agent": "Agent",
-  "skillsUsage.skillList": "掛載 Skills"
+  "skillsUsage.skillList": "掛載 Skills",
+  "skillsUsage.viewPrompt": "查看實際注入內容",
+  "skillsUsage.injectedSection": "實際注入 prompt 的 skill 區段",
+  "skillsUsage.noSection": "此 prompt 沒有 skill 區段（未綁定或未注入）",
+  "skillsUsage.promptLen": "prompt 總長",
+  "skillsUsage.close": "關閉"
 }

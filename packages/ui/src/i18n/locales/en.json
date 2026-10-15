@@ -1856,5 +1856,10 @@
   "skillsUsage.emptyHint": "Check skill bindings in Crew Management and restart the server (evidence exists only after the 2026-10-15 injection fix)",
   "skillsUsage.byAgent": "By Agent",
   "skillsUsage.agent": "Agent",
-  "skillsUsage.skillList": "Skills"
+  "skillsUsage.skillList": "Skills",
+  "skillsUsage.viewPrompt": "View injected content",
+  "skillsUsage.injectedSection": "Skill section of the actual injected prompt",
+  "skillsUsage.noSection": "No skill section in this prompt (not bound or not injected)",
+  "skillsUsage.promptLen": "Prompt length",
+  "skillsUsage.close": "Close"
 }

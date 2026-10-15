@@ -4675,7 +4675,17 @@ export async function appendSkillBindings(systemPrompt, cwd, agentId, meta = nul
   if (!agentId || !cwd) return systemPrompt;
   try {
     const { readProjectSkills } = await import("./project-crew.mjs");
-    const bound = readProjectSkills(cwd, agentId);
+    let bound = readProjectSkills(cwd, agentId);
+    if (!bound || bound.length === 0) {
+      // 2026-10-15 fix（bug#5）：caller 咳短版 domain agentId（developer/architect…，如 a2a system-prompt 端點）
+      // → skillBindings key 是 crewId（coding.developer）— 解析 crewId 再查一次
+      // （agentId 已是完整 crewId 時第一次就命中，不進這分支；查得到綁定的短版 id 也優先尊重）
+      try {
+        const { getAgent } = await import("./domain-agent-registry.mjs");
+        const crewId = getAgent(agentId)?.crewId;
+        if (crewId && crewId !== agentId) bound = readProjectSkills(cwd, crewId);
+      } catch {}
+    }
     if (!bound || bound.length === 0) return systemPrompt;
     const section = bound.map(s => `### Skill: ${s.name}${s.path ? `\n(源路徑: ${s.path})` : ""}\n${s.prompt}`).join("\n\n");
     const skills = bound.map(s => ({ id: s.id, chars: s.prompt.length }));
