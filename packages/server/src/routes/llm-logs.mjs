@@ -87,6 +87,67 @@ function parseAllLogs(days = 7) {
   return allLogs;
 }
 
+/**
+ * GET /api/llm-logs/skills-usage?days=7 — Skill 注入使用報表（2026-10-15）
+ * 資料 = appendSkillBindings 每次注入寫的 phase:"skills" 證據行（程式 stamp，非 LLM 自述）
+ * 聚合：by skill / by agent / by day。fast path：非 skills 行不做 JSON.parse。
+ */
+function collectSkillsUsage(days = 7) {
+  ensureLogDir();
+  const files = readdirSync(LOG_DIR).filter(f => f.endsWith(".jsonl")).sort();
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - (days - 1));
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const bySkill = {}, byAgent = {}, byDay = {};
+  for (const f of files) {
+    const dateStr = f.replace(".jsonl", "");
+    if (dateStr < cutoffStr) continue;
+    let lines;
+    try { lines = readFileSync(join(LOG_DIR, f), "utf-8").split("\n"); } catch { continue; }
+    for (const line of lines) {
+      if (!line.includes('"phase":"skills"')) continue; // fast path：非 skills 證據行直接跳過
+      let e; try { e = JSON.parse(line); } catch { continue; }
+      if (e.phase !== "skills" || !Array.isArray(e.skills)) continue;
+      const agent = e.agentId || "unknown";
+      const sectionChars = e.sectionChars || 0;
+      const day = byDay[dateStr] || (byDay[dateStr] = { date: dateStr, count: 0, chars: 0 });
+      day.count += 1; day.chars += sectionChars;
+      const a = byAgent[agent] || (byAgent[agent] = { id: agent, count: 0, chars: 0, lastTs: e.ts, skills: {} });
+      a.count += 1; a.chars += sectionChars;
+      if (e.ts > (a.lastTs || "")) a.lastTs = e.ts;
+      for (const sid of e.skills) {
+        a.skills[sid] = (a.skills[sid] || 0) + 1;
+        const s = bySkill[sid] || (bySkill[sid] = { id: sid, count: 0, sectionCharsTotal: 0, lastTs: e.ts, agents: {} });
+        s.count += 1; s.sectionCharsTotal += sectionChars;
+        s.agents[agent] = (s.agents[agent] || 0) + 1;
+        if (e.ts > (s.lastTs || "")) s.lastTs = e.ts;
+      }
+    }
+  }
+  const skillRows = Object.values(bySkill)
+    .map(s => ({
+      ...s,
+      avgSectionChars: s.count > 0 ? Math.round(s.sectionCharsTotal / s.count) : 0,
+      agents: Object.entries(s.agents).map(([id, count]) => ({ id, count })).sort((x, y) => y.count - x.count),
+    }))
+    .sort((a, b) => b.count - a.count);
+  const agentRows = Object.values(byAgent)
+    .map(a => ({ ...a, skills: Object.entries(a.skills).map(([id, count]) => ({ id, count })).sort((x, y) => y.count - x.count) }))
+    .sort((a, b) => b.count - a.count);
+  return {
+    days,
+    totals: {
+      injections: agentRows.reduce((n, a) => n + a.count, 0),
+      skills: skillRows.length,
+      agents: agentRows.length,
+      chars: agentRows.reduce((n, a) => n + a.chars, 0),
+    },
+    bySkill: skillRows,
+    byAgent: agentRows,
+    byDay: Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date)),
+  };
+}
+
 /** Pair request + response logs by id */
 function pairLogs(logs) {
   const byId = {};
@@ -143,6 +204,16 @@ export default async function llmLogsRoute(req, res) {
   const rawUrl = req.url || "";
   const url = rawUrl.split("?")[0];
   const q = new URL(rawUrl, "http://localhost").searchParams;
+  // GET /api/llm-logs/skills-usage — Skill 注入使用報表（phase:"skills" 證據行聚合）
+  if (url === "/api/llm-logs/skills-usage" && method === "GET") {
+    try {
+      const days = Math.min(Math.max(parseInt(q.get("days") || "7", 10) || 7, 1), 365);
+      return res.end(JSON.stringify(collectSkillsUsage(days)));
+    } catch (e) {
+      res.statusCode = 500;
+      return res.end(JSON.stringify({ error: e.message }));
+    }
+  }
   // GET /api/llm-logs — list paired logs
   if (url === "/api/llm-logs" && method === "GET") {
     try {

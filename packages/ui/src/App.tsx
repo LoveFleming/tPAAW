@@ -29,6 +29,7 @@ import HelpDesk from "./pages/HelpDesk";
 import LlmLogTab from "./components/LlmLogTab";
 import AgentLogs from "./components/AgentLogs";
 import UsageReportPanel from "./components/UsageReportPanel";
+import SkillsUsagePanel from "./components/SkillsUsagePanel";
 import AuditLogPanel from "./components/AuditLogPanel";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
@@ -487,6 +488,13 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
+  // 2026-10-15：Skill 使用報表（phase:"skills" 證據行聚合）
+  const openSkillsUsage = useCallback(() => {
+    const tabId = `${currentScope}:skills-usage`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
   // 2026-10-13 Fleming：安全審計紀錄從「設定」移到「報表」下
   const openSecurityAudit = useCallback(() => {
     const tabId = `${currentScope}:security-audit`;
@@ -540,6 +548,7 @@ function AppInner() {
     if (pageType === "llm-log") return t("sidebar.llmLog", "LLM Log");
     if (pageType === "agent-log") return t("sidebar.agentLog", "Agent 執行記錄");
     if (pageType === "usage-report") return t("sidebar.usageReport", "Agent 執行報表");
+    if (pageType === "skills-usage") return t("sidebar.skillsUsage", "Skill 使用報表");
     if (pageType.startsWith("skillapp.")) {
       const appId = pageType.slice(9);
       return skillAppNav.find(n => n.skillId === appId)?.label ?? appId;
@@ -684,6 +693,9 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
     }
     if (pageType === "usage-report") {
       return <UsageReportPanel />;
+    }
+    if (pageType === "skills-usage") {
+      return <SkillsUsagePanel />;
     }
     if (pageType === "security-audit") {
       // 2026-10-13 Fleming：安全審計紀錄（原本在設定的 🛡 安全 tab）改放報表下
@@ -898,6 +910,13 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
                   active={activePage.endsWith(":usage-report")}
                   label={t("sidebar.usageReport")}
                   onClick={openUsageReport}
+                  accentColor={themeInfo.accent}
+                  accentBg={themeInfo.accentBg}
+                />
+                <NavItem
+                  active={activePage.endsWith(":skills-usage")}
+                  label={t("sidebar.skillsUsage")}
+                  onClick={openSkillsUsage}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />

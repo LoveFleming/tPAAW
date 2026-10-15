@@ -59,6 +59,7 @@ const NAV_EMOJI_PATTERNS: { match: RegExp; emoji: string }[] = [
     { match: /agent.*log|執行記錄/i, emoji: "📝" },
     { match: /security.*audit|安全審計|セキュリティ監査/i, emoji: "🛡️" },
     { match: /usage.*report|執行報表|実行レポート/i, emoji: "📊" },
+    { match: /skill.*(?:usage|使用)|スキル.*使用|技能使用/i, emoji: "🔥" },
 ];
 
 function findEmoji(label: string): string | undefined {
