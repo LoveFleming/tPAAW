@@ -706,18 +706,28 @@ export function readProjectSkills(projectDir, crewId) {
   const results = [];
   for (const skillId of skillIds) {
     // 2026-09-05：單一解析路徑 — skill 只從 {ru}/.paaw/skills/ 讀（RU 資產）
-    const skillData = readRuSkillContent(projectDir, skillId);
-    if (skillData) {
-      let prompt = skillData.prompt;
-      // 附上目錄內其他檔案路徑，agent 需要時用 read_file 讀取
-      if (skillData.skillDir) {
-        const files = listSkillFiles(skillData.skillDir);
-        if (files.length > 0) {
-          prompt += `\n\n---\n\n## 技能附件檔案（需要時用 read_file 讀取）\n${files.map(f => `- ${f}`).join("\n")}`;
-        }
-      }
-      results.push({ id: skillId, name: skillData.name, prompt, path: skillData.skillDir || null });
+    // 2026-10-15：實體遺失（.paaw/skills 被清、搬移漏帶）不再靜默空注入 —
+    // 模板庫有就 auto re-provision 補實體（此時不存在客製副本，無覆蓋風險）；兩邊都沒有才警告
+    let skillData = readRuSkillContent(projectDir, skillId);
+    if (!skillData) {
+      try {
+        const prov = provisionRuSkills(projectDir, [skillId]);
+        if ((prov?.provisioned || []).includes(skillId)) skillData = readRuSkillContent(projectDir, skillId);
+      } catch {}
     }
+    if (!skillData) {
+      console.warn(`[ProjectCrew] ⚠️ skill '${skillId}'（綁定於 ${crewId}）RU 與模板庫皆無實體 — 未注入`);
+      continue;
+    }
+    let prompt = skillData.prompt;
+    // 附上目錄內其他檔案路徑，agent 需要時用 read_file 讀取
+    if (skillData.skillDir) {
+      const files = listSkillFiles(skillData.skillDir);
+      if (files.length > 0) {
+        prompt += `\n\n---\n\n## 技能附件檔案（需要時用 read_file 讀取）\n${files.map(f => `- ${f}`).join("\n")}`;
+      }
+    }
+    results.push({ id: skillId, name: skillData.name, prompt, path: skillData.skillDir || null });
   }
   return results;
 }

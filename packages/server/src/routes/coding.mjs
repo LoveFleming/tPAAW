@@ -723,7 +723,8 @@ export default async function projectRoute(req, res) {
         maxTurns: agent.maxTurns,
         timeout: 0, // no timeout — complex tasks may take arbitrarily long
         rootDir: projRoot,
-        agentId: agent.agentId,
+        // 2026-10-15：傳 crewId（非短版 agentId）— skillBindings 以 crewId 為 key，短版 lookup 永遠 miss
+        agentId: crewId,
         abortSignal: chatAbort.signal,
       }, res);
       cleanupChatAgent();
@@ -922,7 +923,9 @@ export default async function projectRoute(req, res) {
         messages,
         cwd: projRoot,
         featureBoundary: dispatchFeatureBoundary,
-        agentId,
+        // 2026-10-15：傳完整 crewId（coding.developer 等）— skillBindings 用這個 key，
+        // 之前傳原始 agentId（developer）→ appendSkillBindings lookup 永遠 miss，skill 全部沒注入
+        agentId: crewId,
         model: useModel,
         // 2026-09-17 Fleming：派工上限 30 → 300（大任務會被砍斷）
         maxTurns: 300,
@@ -945,7 +948,8 @@ export default async function projectRoute(req, res) {
           ],
           cwd: projRoot,
           featureBoundary: dispatchFeatureBoundary,
-          agentId,
+          // 2026-10-15：同上 — 重派也要傳完整 crewId，skill 注入才會生效
+          agentId: crewId,
           model: useModel,
           maxTurns: 300,
           timeout: effectiveTimeout,

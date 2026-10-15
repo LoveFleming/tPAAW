@@ -4668,14 +4668,31 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
 
 /** Skill bindings - 把 project crew 綁定的技能整份展開,直接附加到 system prompt送 LLM
  *  綁定存在 {cwd}/.paaw/agents/_config.json 的 skillBindings(Management 頁可設)
- *  auto-dispatch / crew chat / cron 都走這裡,一處注入全部生效 */
-export async function appendSkillBindings(systemPrompt, cwd, agentId) {
+ *  auto-dispatch / crew chat / cron 都走這裡,一處注入全部生效
+ *  2026-10-15：可選 meta out-param + 證據鏈 — 每次注入寫一筆 phase:"skills" 進 llm log
+ *  （跟 request/response 同檔，agentId + 時間可對帳：「這單到底掛了哪些 skill」不再是黑盒） */
+export async function appendSkillBindings(systemPrompt, cwd, agentId, meta = null) {
   if (!agentId || !cwd) return systemPrompt;
   try {
     const { readProjectSkills } = await import("./project-crew.mjs");
     const bound = readProjectSkills(cwd, agentId);
     if (!bound || bound.length === 0) return systemPrompt;
     const section = bound.map(s => `### Skill: ${s.name}${s.path ? `\n(源路徑: ${s.path})` : ""}\n${s.prompt}`).join("\n\n");
+    const skills = bound.map(s => ({ id: s.id, chars: s.prompt.length }));
+    if (meta) { meta.skills = skills; meta.sectionChars = section.length; }
+    try {
+      const logDir = join(ASSET_LOGS_ROOT, "llm");
+      mkdirSync(logDir, { recursive: true });
+      const logPath = join(logDir, `${new Date().toISOString().slice(0, 10)}.jsonl`);
+      appendFileSync(logPath, JSON.stringify({
+        id: `skills-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        ts: new Date().toISOString(),
+        phase: "skills",
+        agentId, cwd,
+        skills: skills.map(s => s.id),
+        sectionChars: section.length,
+      }) + "\n");
+    } catch (_e) { /* 證據 log 失敗不阻斷注入 */ }
     return systemPrompt + `\n\n## 已掛載技能 (Skills)\n以下是綁定到此 Agent 的技能定義,請在執行任務時遵循這些規則(skill 定義優先於一般做法):\n\n${section}`;
   } catch (err) {
     console.warn("[AgentLoop] Skill binding injection failed:", err.message);
@@ -4991,10 +5008,19 @@ export async function runAgentLoop(config) {
   );
 
   // Allow pre-built messages (for A2A conversation history injection)
-  const messages = config.messages || [
+  let messages = config.messages || [
     { role: "system", content: systemPrompt },
     { role: "user", content: prompt },
   ];
+  // 2026-10-15 fix：pre-built 對話（crew chat / A2A）以前直接跳過 skill 注入 — 這裡統一補上；
+  // A2A 已自行 appendSkillBindings → 用 marker 防 double-inject
+  if (config.messages && messages[0]?.role === "system" && typeof messages[0].content === "string"
+      && !messages[0].content.includes("## 已掛載技能 (Skills)")) {
+    const _enriched = await appendSkillBindings(messages[0].content, cwd, agentId);
+    if (_enriched !== messages[0].content) {
+      messages = [{ ...messages[0], content: _enriched }, ...messages.slice(1)];
+    }
+  }
 
   let finalContent = "";
   let turns = 0;
@@ -5498,10 +5524,18 @@ export async function runAgentLoopStream(config, res) {
   );
   // Allow pre-built messages (for conversation history injection)
   // If provided, use them directly; otherwise build from prompt + systemPrompt
-  const messages = config.messages || [
+  // 2026-10-15 fix：同非串流版 — pre-built 對話統一補 skill 注入（marker 防 double）
+  let messages = config.messages || [
     { role: "system", content: systemPrompt },
     { role: "user", content: prompt },
   ];
+  if (config.messages && messages[0]?.role === "system" && typeof messages[0].content === "string"
+      && !messages[0].content.includes("## 已掛載技能 (Skills)")) {
+    const _enriched = await appendSkillBindings(messages[0].content, cwd, agentId);
+    if (_enriched !== messages[0].content) {
+      messages = [{ ...messages[0], content: _enriched }, ...messages.slice(1)];
+    }
+  }
 
   let turns = 0;
   let contentEmitted = false;
