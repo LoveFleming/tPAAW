@@ -1824,7 +1824,7 @@
   "crb.tag.pathFilter": "scoped (path filter)",
   "crb.tag.nonRunner": "non-standard",
   "crb.openInRM": "← Back to Release Manager",
-  "rm.ev.openBoard": "View full minutes",
+  "rm.ev.openBoard": "View full code review minutes",
   "rm.ev.boardLink": "🏛 Review Board",
   "settings.devMode.title": "Developer Mode (master switch)",
   "settings.devMode.desc": "Coding fast? Turn this on: the AI's bash no longer runs inside the MXC sandbox and security approval cards stop popping up. Turn it back on later to test them.",

@@ -1824,7 +1824,7 @@
   "crb.tag.pathFilter": "子集（path 過濾）",
   "crb.tag.nonRunner": "非標準格式",
   "crb.openInRM": "← 回 Release Manager",
-  "rm.ev.openBoard": "看會議記錄全文",
+  "rm.ev.openBoard": "看 Code Review 會議記錄全文",
   "rm.ev.boardLink": "🏛 Review 會議記錄",
   "settings.devMode.title": "開發模式 master switch",
   "settings.devMode.desc": "趕 code 不想被 sandbox 或審批卡住？打開這個 switch：AI 的 bash 不進 MXC sandbox、也不跳 approval card。有空再 turn off 回來測試。",

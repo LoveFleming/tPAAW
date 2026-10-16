@@ -1824,7 +1824,7 @@
   "crb.tag.pathFilter": "サブセット（path フィルタ）",
   "crb.tag.nonRunner": "非標準形式",
   "crb.openInRM": "← Release Manager に戻る",
-  "rm.ev.openBoard": "議事録の全文を見る",
+  "rm.ev.openBoard": "Code Review 議事録の全文を見る",
   "rm.ev.boardLink": "🏛 レビュー会議録",
   "settings.devMode.title": "開発モード（マスタースイッチ）",
   "settings.devMode.desc": "コーディングを速く進めたいときはオンに：AI の bash は MXC サンドボックスに入らなくなり、セキュリティ承認カードも出ません。後でオフに戻してテストできます。",
