@@ -14,7 +14,7 @@
  *                httpStatus|null, file, line, note?}], uniqueCount }],
  *     unmapped: [...same codes shape], stats: { total, uniqueCodes, featureCount } }
  */
-import { existsSync, readFileSync, writeFileSync, readdirSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, readdirSync, mkdirSync } from "fs";
 import { join, resolve, relative, extname } from "path";
 import { DATA_HOME } from "../data-home.mjs";
 import { loadProjectIgnore } from "./cu-source-scan.mjs";
@@ -204,39 +204,60 @@ function fixInvalidEscapes(txt) {
 }
 
 /**
- * 截斷 JSON 修復：LLM 回應被 max_tokens 砍半時，從最後一個完整元素切斷、
- * 補上未閉合的 }/]，儘量救回已完成的部分。回傳 null = 救不回來。
+ * 截斷/中段損壞 JSON 修復：從最後一個可安全切斷的位置往回試，補上正確數量的閉合括號，
+ * 救回最長的有效前綴。回傳 null = 救不回來。
+ *
+ * 2026-10-16：per-safePos closers — 舊版閉合括號只按「文末」的未閉結構算，中段切點會補錯數量，
+ * 導致「JSON 中段壞點」（非截斷，如字串值內未跳脫引號）完全救不回來（bug 實例：
+ * glm-5.1 error-codes 回應 40336 chars finish=stop，壞在 position 19467，前後各兩萬字全丟）。
+ * 現在每個安全切斷點各自記錄當下未閉結構 → 中段壞點也能救回壞點之前的完整前綴。
  */
-function repairTruncatedJson(txt) {
+export function repairTruncatedJson(txt) {
   const CLOSER = { "{": "}", "[": "]" };
-  const stack = [];
+  let stack = [];
   let inStr = false, esc = false;
-  const safePos = [0]; // 可安全截斷的位置（完整元素/逗號之後）
+  const safePos = [{ pos: 0, stack: [] }]; // 可安全截斷的位置 + 當下未閉結構快照
   for (let i = 0; i < txt.length; i++) {
     const ch = txt[i];
     if (inStr) {
       if (esc) esc = false;
       else if (ch === "\\") esc = true;
-      else if (ch === '"') { inStr = false; safePos.push(i + 1); }
+      else if (ch === '"') { inStr = false; safePos.push({ pos: i + 1, stack: [...stack] }); }
       continue;
     }
     if (ch === '"') { inStr = true; continue; }
     if (ch === "{" || ch === "[") stack.push(ch);
-    else if (ch === "}" || ch === "]") { stack.pop(); safePos.push(i + 1); }
-    else if (ch === ",") safePos.push(i);
+    else if (ch === "}" || ch === "]") { if (stack.length) stack.pop(); safePos.push({ pos: i + 1, stack: [...stack] }); }
+    else if (ch === ",") safePos.push({ pos: i, stack: [...stack] });
   }
   // 從最後一個安全位置往回試：切斷 → 砍殘尾 → 補 closers → parse；第一個成功的就採用
   for (let k = safePos.length - 1; k >= 0; k--) {
-    let out = txt.slice(0, safePos[k]).replace(/,\s*$/, "");
+    const { pos, stack: cutStack } = safePos[k];
+    let out = txt.slice(0, pos).replace(/,\s*$/, "");
     // 尾端殘留半個 key（"xxx" 後面沒有 : value）也砍掉
     out = out.replace(/,\s*"[^"\\]*(?:\\.[^"\\]*)*"\s*$/, "");
-    const closers = [...stack].reverse().map(c => CLOSER[c]).join("");
+    const closers = [...cutStack].reverse().map(c => CLOSER[c]).join("");
     try {
       const v = JSON.parse(out + closers);
       if (v && typeof v === "object") return v;
     } catch { /* 往前一個安全點再試 */ }
   }
   return null;
+}
+
+/**
+ * parse 全救失敗時把原始回應落檔供驗屍（2026-10-16）：llm log 只存 2000-char preview，
+ * 壞點在中段時根本看不到 — 落檔才能對 position 逐字查。回傳檔案路徑（失敗回 null）。
+ */
+function dumpRawForAutopsy(root, txt, parseErr) {
+  try {
+    const dir = join(root, ".paaw", "quality");
+    mkdirSync(dir, { recursive: true });
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const p = join(dir, `error-codes-raw-${ts}.txt`);
+    writeFileSync(p, `# parse error: ${parseErr}\n# dumped: ${new Date().toISOString()}\n\n${txt}`, "utf-8");
+    return p;
+  } catch { return null; }
 }
 
 export async function organizeErrorCodes(root, { callLLM, onProgress, timeoutMs = 600_000 } = {}) {
@@ -277,11 +298,17 @@ export async function organizeErrorCodes(root, { callLLM, onProgress, timeoutMs 
     if (fixed !== txt) {
       try { parsed = JSON.parse(fixed); } catch {}
     }
-    if (!parsed) parsed = repairTruncatedJson(fixed); // escape 修完後掃描器狀態才正確
+    if (!parsed) parsed = repairTruncatedJson(fixed); // escape 修完後掃描器狀態才正確；2026-10-16 起中段壞點也救得回前綴
     if (!parsed) {
-      throw new Error(`error-codes LLM JSON parse failed: ${firstErr.message}（回應可能被 max_tokens 截斷 — 調高 providers.json 的 model maxTokens 或縮小掃描範圍後重試）`);
+      // 2026-10-16：錯誤訊息不再瞎猜 — finishReason 有就有憑有據；原始回應落檔供驗屍
+      const dumpPath = dumpRawForAutopsy(root, txt, firstErr.message);
+      const hint = res?.finishReason === "length"
+        ? "回應確實被 max_tokens 截斷 — 調高 providers.json 的 model maxTokens 或縮小掃描範圍後重試"
+        : `回應其實完整（finish=${res?.finishReason || "?"}）但 JSON 中段損壞 — 模型偶發壞 JSON，重試通常可過${dumpPath ? `；原始回應已存 ${dumpPath} 供驗屍` : ""}`;
+      throw new Error(`error-codes LLM JSON parse failed: ${firstErr.message}（${hint}）`);
     }
-    console.warn(`[error-code-scan] LLM JSON 修復後成功（original error: ${firstErr.message}）`);
+    const salvagedFeatures = Array.isArray(parsed.byFeature) ? parsed.byFeature.length : 0;
+    console.warn(`[error-code-scan] LLM JSON 修復後成功（original error: ${firstErr.message}，救回 byFeature ${salvagedFeatures} 組 / 原始 ${txt.length} chars）`);
   }
 
   // normalize + 驗證：只留素材中存在的 featureId；codes 必須帶 file
