@@ -1866,5 +1866,8 @@
   "rm.ev.humanSign": "去簽核",
   "qaRecords.featureChipTip": "已依 feature 過濾（點 ✕ 清除）",
   "rm.ev.humanNone": "尚未有簽核單",
-  "rm.ev.humanNoneTip": "尚無人員簽核記錄（此 severity 非必要證據，點擊可查看/補簽 QA 記錄）"
+  "rm.ev.humanNoneTip": "尚無人員簽核記錄（此 severity 非必要證據，點擊可查看/補簽 QA 記錄）",
+  "rm.qd.created": "已建立 {n} 個補強 task（冪等跳過 {m} 個）— 會出現在 EM 大總管的任務清單，接下來派工給 tester/developer 補測試與文檔",
+  "rm.qd.createdZero": "沒有新建 task — 該補的都有未結案補強單了，去 EM 大總管看現有任務即可",
+  "rm.qd.goEm": "到 EM 大總管看任務／派工"
 }

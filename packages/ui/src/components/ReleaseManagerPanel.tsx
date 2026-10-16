@@ -89,6 +89,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
   const [qd, setQd] = useState<QualityDebt | null>(null);
   const [retrofitting, setRetrofitting] = useState(false);
+  // 2026-10-16：補強結果常駐顯示（取代只跳 toast 就消失）+ CTA 跳 EM 大總管
+  const [retrofitResult, setRetrofitResult] = useState<{ createdCount: number; skipped: number; scanned: number; created: { id: string; featureName?: string; needPhases?: string[] }[] } | null>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [testing, setTesting] = useState(false);
   const [includeE2e, setIncludeE2e] = useState(false);
@@ -224,6 +226,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
       const data = await res.json();
       if (data.ok) {
         setToast({ ok: true, text: t("rm.qd.done").replace("{n}", String(data.createdCount)).replace("{m}", String(data.scanned)) });
+        setRetrofitResult({ createdCount: data.createdCount || 0, skipped: data.skipped || 0, scanned: data.scanned || 0, created: Array.isArray(data.created) ? data.created.slice(0, 5) : [] });
         refresh();
       } else {
         setToast({ ok: false, text: `❌ ${data.error || "補強失敗"}` });
@@ -525,6 +528,25 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                           <span className="text-[10px] text-stone-400">{t("rm.qd.mapUpdatedAt").replace("{t}", fmtShort(qd.featuresUpdatedAt))}</span>
                         )}
                       </div>
+                      {retrofitResult && (
+                        <div className="mt-2.5 rounded-lg border px-3 py-2" style={{ borderColor: retrofitResult.createdCount > 0 ? "#86efac" : "#e7e5e4", background: retrofitResult.createdCount > 0 ? "#f0fdf4" : tk.bgMuted }} data-testid="rm-retrofit-result">
+                          <div className={`text-xs ${retrofitResult.createdCount > 0 ? "text-green-700" : "text-stone-500"}`}>
+                            {retrofitResult.createdCount > 0
+                              ? `✅ ${t("rm.qd.created").replace("{n}", String(retrofitResult.createdCount)).replace("{m}", String(retrofitResult.skipped))}`
+                              : t("rm.qd.createdZero")}
+                          </div>
+                          {retrofitResult.created.length > 0 && (
+                            <div className="text-[10px] text-stone-400 mt-1 truncate">
+                              {retrofitResult.created.map(c => { const ph = Array.isArray(c?.needPhases) && c.needPhases.length > 0 ? `（${c.needPhases.join("/")}）` : ""; return `${c?.featureName || c?.id || ""}${ph}`; }).join("・")}{retrofitResult.createdCount > retrofitResult.created.length ? " …" : ""}
+                            </div>
+                          )}
+                          {onOpenEMDashboard && (
+                            <button type="button" onClick={onOpenEMDashboard} className="mt-2 text-[11px] px-3 py-1.5 rounded-lg text-white" style={{ backgroundColor: tk.accent }} data-testid="rm-retrofit-go-em">
+                              🎖️ {t("rm.qd.goEm")}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

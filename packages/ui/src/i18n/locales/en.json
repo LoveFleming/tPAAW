@@ -1866,5 +1866,8 @@
   "rm.ev.humanSign": "Sign off",
   "qaRecords.featureChipTip": "Filtered by feature (click ✕ to clear)",
   "rm.ev.humanNone": "No sign-off yet",
-  "rm.ev.humanNoneTip": "No human sign-off yet (not required at this severity; click to view/add QA records)"
+  "rm.ev.humanNoneTip": "No human sign-off yet (not required at this severity; click to view/add QA records)",
+  "rm.qd.created": "Created {n} retrofit tasks (skipped {m} existing) — they now appear in the EM dashboard task list; dispatch to tester/developer next",
+  "rm.qd.createdZero": "No new tasks — all features already have open retrofit tasks; check them in the EM dashboard",
+  "rm.qd.goEm": "Open EM dashboard to view/dispatch"
 }
