@@ -389,7 +389,10 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                             ? <span className="text-[9px] text-green-600 font-mono truncate" title={`${ev.aiReview.models?.join("、")} @ ${String(ev.aiReview.at || "").slice(0, 10)}`}>✓{ev.aiReview.models?.length}m {String(ev.aiReview.decision || "").slice(0, 8)}</span>
                             : <span className="text-[9px] text-red-500 font-bold truncate" title={String(ev.aiReview.reason || "")}>✗ {t("rm.ev.notRun")}</span>}
                           {onOpenQaRecords
-                            ? <button type="button" onClick={() => onOpenQaRecords(f.name)} className={`text-left text-[9px] font-mono truncate max-w-full underline decoration-dotted underline-offset-2 ${ev.human.ok ? "text-green-700 hover:text-green-800" : "text-stone-400 hover:text-stone-600"}`} title={ev.human.ok ? `${String(ev.human.summary || "")}\n${t("rm.ev.humanGoTip")}` : t("rm.ev.humanGoTip")} data-testid="rm-ev-human">{ev.human.ok ? `✍ ${String(ev.human.summary || "").slice(0, 22)}` : `— ${t("rm.ev.humanSign")}`}</button>
+                            ? (() => {
+                                const needsHuman = f.severity === "S2";
+                                return <button type="button" onClick={() => onOpenQaRecords(f.name)} className={`text-left text-[9px] font-mono truncate max-w-full underline decoration-dotted underline-offset-2 ${ev.human.ok ? "text-green-700 hover:text-green-800" : needsHuman ? "text-red-400 hover:text-red-500 font-bold" : "text-stone-400 hover:text-stone-600"}`} title={ev.human.ok ? `${String(ev.human.summary || "")}\n${t("rm.ev.humanGoTip")}` : (needsHuman ? t("rm.ev.humanGoTip") : t("rm.ev.humanNoneTip"))} data-testid="rm-ev-human">{ev.human.ok ? `✍ ${String(ev.human.summary || "").slice(0, 22)}` : (needsHuman ? `— ${t("rm.ev.humanSign")}` : `— ${t("rm.ev.humanNone")}`)}</button>;
+                              })()
                             : ev.human.ok
                               ? <span className="text-[9px] text-green-700 truncate" title={String(ev.human.summary || "")}>✍ {String(ev.human.summary || "").slice(0, 22)}</span>
                               : <span className="text-[9px] text-stone-400">—</span>}

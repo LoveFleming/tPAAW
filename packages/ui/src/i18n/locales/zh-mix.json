@@ -1864,5 +1864,7 @@
   "skillsUsage.close": "關閉",
   "rm.ev.humanGoTip": "點擊開啟此 feature 的 QA 記錄（S2 上線必須有人員簽核 verdict=pass）",
   "rm.ev.humanSign": "去簽核",
-  "qaRecords.featureChipTip": "已依 feature 過濾（點 ✕ 清除）"
+  "qaRecords.featureChipTip": "已依 feature 過濾（點 ✕ 清除）",
+  "rm.ev.humanNone": "尚未有簽核單",
+  "rm.ev.humanNoneTip": "尚無人員簽核記錄（此 severity 非必要證據，點擊可查看/補簽 QA 記錄）"
 }

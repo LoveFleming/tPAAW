@@ -1864,5 +1864,7 @@
   "skillsUsage.close": "Close",
   "rm.ev.humanGoTip": "Open QA records for this feature (S2 release requires a human sign-off verdict=pass)",
   "rm.ev.humanSign": "Sign off",
-  "qaRecords.featureChipTip": "Filtered by feature (click ✕ to clear)"
+  "qaRecords.featureChipTip": "Filtered by feature (click ✕ to clear)",
+  "rm.ev.humanNone": "No sign-off yet",
+  "rm.ev.humanNoneTip": "No human sign-off yet (not required at this severity; click to view/add QA records)"
 }

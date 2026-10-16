@@ -1864,5 +1864,7 @@
   "skillsUsage.close": "閉じる",
   "rm.ev.humanGoTip": "この feature の QA 記録を開く（S2 リリースには人間の署名 verdict=pass が必要）",
   "rm.ev.humanSign": "署名する",
-  "qaRecords.featureChipTip": "feature で絞り込み中（✕ で解除）"
+  "qaRecords.featureChipTip": "feature で絞り込み中（✕ で解除）",
+  "rm.ev.humanNone": "署名なし",
+  "rm.ev.humanNoneTip": "人間の署名記録なし（この severity では必須ではない。クリックで QA 記録を閲覧/追加）"
 }
