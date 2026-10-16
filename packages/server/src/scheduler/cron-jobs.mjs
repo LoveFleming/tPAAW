@@ -374,6 +374,12 @@ async function cronApiHandler(req, res) {
   if (req.method === "POST" && req.url === "/api/cron-jobs") {
     let parsed;
     try { parsed = await _readBody(); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
+    // 2026-10-16：e2e 05-api.spec.ts 故意送空 body 探測 — 藉空 name 要乾淨拒絕，不要 crash 500
+    if (!parsed?.name || typeof parsed.name !== "string") {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "name is required" }));
+      return true;
+    }
     const jobs = await loadCronJobs();
     const job = {
       id: parsed.id || parsed.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || `cron-${Date.now()}`,
