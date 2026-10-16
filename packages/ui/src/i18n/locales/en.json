@@ -1861,5 +1861,8 @@
   "skillsUsage.injectedSection": "Skill section of the actual injected prompt",
   "skillsUsage.noSection": "No skill section in this prompt (not bound or not injected)",
   "skillsUsage.promptLen": "Prompt length",
-  "skillsUsage.close": "Close"
+  "skillsUsage.close": "Close",
+  "rm.ev.humanGoTip": "Open QA records for this feature (S2 release requires a human sign-off verdict=pass)",
+  "rm.ev.humanSign": "Sign off",
+  "qaRecords.featureChipTip": "Filtered by feature (click ✕ to clear)"
 }

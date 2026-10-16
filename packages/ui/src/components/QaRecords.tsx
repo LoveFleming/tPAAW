@@ -60,6 +60,7 @@ interface QaStats {
 interface Props {
   rootPath: string;
   theme: { bg: string; bgMuted: string; borderLight: string; accent: string; accentBg: string; text: string };
+  initialFeature?: string; // 2026-10-16：Release Manager Human 欄點入 — 開頁自動過濾某 feature（ prop 變更時同步）
 }
 
 const VERDICT_STYLES: Record<string, { icon: string; bg: string; text: string }> = {
@@ -85,7 +86,7 @@ const SEVERITY_STYLES: Record<string, { color: string; label: string }> = {
   minor:    { color: "#f59e0b", label: "🟡" },
 };
 
-export default function QaRecords({ rootPath, theme }: Props) {
+export default function QaRecords({ rootPath, theme, initialFeature }: Props) {
   const { t } = useI18n();
   const [records, setRecords] = useState<QaRecord[]>([]);
   const [stats, setStats] = useState<QaStats | null>(null);
@@ -95,9 +96,13 @@ export default function QaRecords({ rootPath, theme }: Props) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [featureFilter, setFeatureFilter] = useState(initialFeature || ""); // Release Manager Human 欄點入用
   const [busy, setBusy] = useState(false);
 
   const base = `${API_BASE}/api/coding-crew/qa-results`;
+
+  // 2026-10-16：Release Manager 點入時同步 feature 過濾（同一 tab 重複點不同 feature 也會切換）
+  useEffect(() => { if (initialFeature) setFeatureFilter(initialFeature); }, [initialFeature]);
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
@@ -106,13 +111,14 @@ export default function QaRecords({ rootPath, theme }: Props) {
       if (verdictFilter !== "all") params.set("verdict", verdictFilter);
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (typeFilter !== "all") params.set("type", typeFilter);
+      if (featureFilter) params.set("feature", featureFilter);
       if (searchQuery.trim()) params.set("q", searchQuery.trim());
       const res = await fetch(`${base}?${params}`);
       const data = await res.json();
       setRecords(data.results || []);
     } catch (err) { console.error("[QaRecords] fetch error:", err); }
     setLoading(false);
-  }, [base, rootPath, verdictFilter, statusFilter, typeFilter, searchQuery]);
+  }, [base, rootPath, verdictFilter, statusFilter, typeFilter, searchQuery, featureFilter]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -193,6 +199,11 @@ export default function QaRecords({ rootPath, theme }: Props) {
             {Object.keys(TYPE_ICONS).map(v => <option key={v} value={v}>{TYPE_ICONS[v]} {v}</option>)}
           </select>
           <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={t("qaRecords.search")} className="flex-1 text-xs px-2 py-1 rounded border outline-none min-w-0" style={inputStyle} />
+          {featureFilter && (
+            <button type="button" onClick={() => setFeatureFilter("")} className="text-[10px] px-1.5 py-1 rounded shrink-0 flex items-center gap-1" style={{ background: theme.accentBg, color: theme.accent }} title={t("qaRecords.featureChipTip")} data-testid="qa-feature-chip">
+              🗺️ {featureFilter} ✕
+            </button>
+          )}
           <button onClick={() => { fetchRecords(); fetchStats(); }} className="text-xs px-1.5 py-1 rounded shrink-0" style={{ background: theme.bgMuted, color: theme.text }} title="Refresh">🔄</button>
         </div>
         <div className="flex-1 overflow-y-auto">

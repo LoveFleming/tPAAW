@@ -1861,5 +1861,8 @@
   "skillsUsage.injectedSection": "実際に注入されたプロンプトのスキルセクション",
   "skillsUsage.noSection": "このプロンプトにスキルセクションがありません（未バインドまたは未注入）",
   "skillsUsage.promptLen": "プロンプト長",
-  "skillsUsage.close": "閉じる"
+  "skillsUsage.close": "閉じる",
+  "rm.ev.humanGoTip": "この feature の QA 記録を開く（S2 リリースには人間の署名 verdict=pass が必要）",
+  "rm.ev.humanSign": "署名する",
+  "qaRecords.featureChipTip": "feature で絞り込み中（✕ で解除）"
 }

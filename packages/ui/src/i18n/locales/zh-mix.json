@@ -1861,5 +1861,8 @@
   "skillsUsage.injectedSection": "實際注入 prompt 的 skill 區段",
   "skillsUsage.noSection": "此 prompt 沒有 skill 區段（未綁定或未注入）",
   "skillsUsage.promptLen": "prompt 總長",
-  "skillsUsage.close": "關閉"
+  "skillsUsage.close": "關閉",
+  "rm.ev.humanGoTip": "點擊開啟此 feature 的 QA 記錄（S2 上線必須有人員簽核 verdict=pass）",
+  "rm.ev.humanSign": "去簽核",
+  "qaRecords.featureChipTip": "已依 feature 過濾（點 ✕ 清除）"
 }

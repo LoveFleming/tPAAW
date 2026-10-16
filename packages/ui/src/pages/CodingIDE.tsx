@@ -444,6 +444,8 @@ export default function CodingIDE() {
   const DASHBOARD_TAB: MainTab = { id: DASHBOARD_TAB_ID, type: "em-dashboard", label: "EM 大總管", icon: "🎖️", closable: false };
   const [mainTabs, setMainTabs] = useState<MainTab[]>([DASHBOARD_TAB]);
   const [activeMainTabId, setActiveMainTabId] = useState<string>(DASHBOARD_TAB_ID);
+  // 2026-10-16：Release Manager Human 欄 → QA 記錄 feature 過濾（initialFeature prop 由 QaRecords 同步）
+  const [qaFocusFeature, setQaFocusFeature] = useState("");
   const activeMainTab = useMemo(() => mainTabs.find(t => t.id === activeMainTabId), [mainTabs, activeMainTabId]);
 
   // ── Archive panel state (must be before useEffect that references them) ──
@@ -4018,6 +4020,10 @@ const sendChat = useCallback(async () => {
                   theme={{ borderLight: tk.borderLight, accent: tk.accent, accentHover: tk.accentHover || tk.accent }}
                   onOpenEMDashboard={() => openMainTab({ id: DASHBOARD_TAB_ID, type: "em-dashboard", label: "EM 大總管", icon: "🎖️", closable: false })}
                   onOpenReviewBoard={() => openMainTab({ id: "tool:review-board", type: "review-board", label: tt("crb.toolbar"), icon: "🏛️", closable: true })}
+                  onOpenQaRecords={(featureName) => {
+                    setQaFocusFeature(featureName || "");
+                    openMainTab({ id: "tool:qa-records", type: "qa-records", label: tt("qaRecords.toolbar"), icon: "🧾", closable: true });
+                  }}
                 />
               </div>
             )}
@@ -4108,6 +4114,7 @@ const sendChat = useCallback(async () => {
                 <QaRecords
                   rootPath={rootPath}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
+                  initialFeature={qaFocusFeature}
                 />
               </div>
             )}
