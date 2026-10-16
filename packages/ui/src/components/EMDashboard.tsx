@@ -67,9 +67,11 @@ interface EMDashboardProps {
   onModelChange?: (m: string) => void;
   /** 2026-09-06 Fleming：外部請求開 CU modal（wizard「開始 Scan」— 只開 modal 不直接跑，先綁 skill）；遞增觸發 */
   cuModalRequest?: number;
+  /** 2026-10-16：外部預填輸入框（Release Manager 補強 CTA → 引導派工）；變更時填入並聚焦 */
+  prefillMessage?: string;
 }
 
-export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, openMainTab, adRefreshTrigger = 0, model, onModelChange, cuModalRequest = 0 }: EMDashboardProps) {
+export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, openMainTab, adRefreshTrigger = 0, model, onModelChange, cuModalRequest = 0, prefillMessage }: EMDashboardProps) {
   // ── EM Profile (avatar from crew API) ──
   const [emProfile, setEmProfile] = useState<{ codename?: string; imageUrl?: string; emoji?: string }>({});
   useEffect(() => {
@@ -86,6 +88,16 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   const [loadedForRoot, setLoadedForRoot] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
+  // 2026-10-16：外部預填（補強 CTA 跳入時帶派工指令）— 值變了才套用，套用後聚焦輸入框
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const lastPrefillRef = useRef("");
+  useEffect(() => {
+    if (prefillMessage && prefillMessage !== lastPrefillRef.current) {
+      lastPrefillRef.current = prefillMessage;
+      setInput(prefillMessage);
+      setTimeout(() => { inputRef.current?.focus(); }, 60);
+    }
+  }, [prefillMessage]);
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -1356,6 +1368,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
         <div className="shrink-0 px-4 py-3 border-t" style={{ borderColor: tk.borderLight }}>
           <div className="flex items-end gap-2">
             <textarea
+              ref={inputRef}
               value={input}
               onChange={e => setInput(e.target.value)}
               onCompositionStart={() => { composingRef.current = true; }}

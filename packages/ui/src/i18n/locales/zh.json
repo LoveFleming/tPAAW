@@ -1869,5 +1869,6 @@
   "rm.ev.humanNoneTip": "尚無人員簽核記錄（此 severity 非必要證據，點擊可查看/補簽 QA 記錄）",
   "rm.qd.created": "已建立 {n} 個補強 task（冪等跳過 {m} 個）— 會出現在 EM 大總管的任務清單，接下來派工給 tester/developer 補測試與文檔",
   "rm.qd.createdZero": "沒有新建 task — 該補的都有未結案補強單了，去 EM 大總管看現有任務即可",
-  "rm.qd.goEm": "到 EM 大總管看任務／派工"
+  "rm.qd.goEm": "到 EM 大總管看任務／派工",
+  "rm.qd.emPrefill": "請派工執行品質補強單：把 task_retrofit 建立的補強 task 依優先序派工（先 S2 與缺 unit/e2e 證據的 feature，tester 優先），派完回報清單。"
 }

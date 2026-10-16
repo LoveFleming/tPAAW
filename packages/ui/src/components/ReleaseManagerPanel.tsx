@@ -32,7 +32,7 @@ interface ReleaseRecord {
 interface Props {
   rootPath: string;
   theme: any;
-  onOpenEMDashboard?: () => void;
+  onOpenEMDashboard?: (prefill?: string) => void; // 2026-10-16：可帶預填訊息（補強 CTA → EM 輸入框直接有派工指令，使用者按送出即可）
   onOpenReviewBoard?: () => void;
   onOpenQaRecords?: (featureName: string) => void; // 2026-10-16：Human 欄點入 — 跳 QA 記錄並過濾該 feature（看/補人員簽核）
 }
@@ -467,7 +467,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                 <div>2️⃣ {t("rm.emptyInit.step2")}</div>
               </div>
               {onOpenEMDashboard && (
-                <button onClick={onOpenEMDashboard}
+                <button onClick={() => onOpenEMDashboard()}
                   className="mt-4 text-xs px-4 py-2 rounded-lg text-white" style={{ backgroundColor: tk.accent }}>
                   {t("rm.emptyInit.goEM")}
                 </button>
@@ -541,7 +541,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                             </div>
                           )}
                           {onOpenEMDashboard && (
-                            <button type="button" onClick={onOpenEMDashboard} className="mt-2 text-[11px] px-3 py-1.5 rounded-lg text-white" style={{ backgroundColor: tk.accent }} data-testid="rm-retrofit-go-em">
+                            <button type="button" onClick={() => onOpenEMDashboard(t("rm.qd.emPrefill"))} className="mt-2 text-[11px] px-3 py-1.5 rounded-lg text-white" style={{ backgroundColor: tk.accent }} data-testid="rm-retrofit-go-em">
                               🎖️ {t("rm.qd.goEm")}
                             </button>
                           )}

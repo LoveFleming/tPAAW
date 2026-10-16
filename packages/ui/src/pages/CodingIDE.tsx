@@ -446,6 +446,8 @@ export default function CodingIDE() {
   const [activeMainTabId, setActiveMainTabId] = useState<string>(DASHBOARD_TAB_ID);
   // 2026-10-16：Release Manager Human 欄 → QA 記錄 feature 過濾（initialFeature prop 由 QaRecords 同步）
   const [qaFocusFeature, setQaFocusFeature] = useState("");
+  // 2026-10-16：Release Manager 補強 CTA → EM 大總管預填派工指令（EMDashboard prefillMessage 同步）
+  const [emPrefillMessage, setEmPrefillMessage] = useState("");
   const activeMainTab = useMemo(() => mainTabs.find(t => t.id === activeMainTabId), [mainTabs, activeMainTabId]);
 
   // ── Archive panel state (must be before useEffect that references them) ──
@@ -3927,6 +3929,7 @@ const sendChat = useCallback(async () => {
                 theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text, accentBorder: tk.accentBorder }}
                 onStartCodeUnderstanding={startAiInitialize}
                 cuModalRequest={cuModalRequest}
+                prefillMessage={emPrefillMessage}
                 codeUnderstanding={{ running: aiInitializing, steps: aiInitSteps }}
                 model={emModel}
                 onModelChange={setEmModel}
@@ -4018,7 +4021,7 @@ const sendChat = useCallback(async () => {
                 <ReleaseManagerPanel
                   rootPath={rootPath}
                   theme={{ borderLight: tk.borderLight, accent: tk.accent, accentHover: tk.accentHover || tk.accent }}
-                  onOpenEMDashboard={() => openMainTab({ id: DASHBOARD_TAB_ID, type: "em-dashboard", label: "EM 大總管", icon: "🎖️", closable: false })}
+                  onOpenEMDashboard={(prefill) => { if (prefill) setEmPrefillMessage(prefill); openMainTab({ id: DASHBOARD_TAB_ID, type: "em-dashboard", label: "EM 大總管", icon: "🎖️", closable: false }); }}
                   onOpenReviewBoard={() => openMainTab({ id: "tool:review-board", type: "review-board", label: tt("crb.toolbar"), icon: "🏛️", closable: true })}
                   onOpenQaRecords={(featureName) => {
                     setQaFocusFeature(featureName || "");
