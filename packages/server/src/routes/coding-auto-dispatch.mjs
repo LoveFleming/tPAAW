@@ -62,6 +62,12 @@ function updateStatusFile(statusPath, mutator) {
 
 // 2026-08-30：同 project 並行 guard（module-level — server 重啟自動清空，殭屍可恢復）
 const _activeRuns = new Set();
+// 2026-10-17 補強：多 server 併存時（例：production + npm run dev 同時跑），
+// 另一個 server 的活派工（runnerPid ≠ 本 process pid）也絕不是殭屍 — 只要那個 pid 還活著。
+function _pidAlive(pid) {
+  if (!pid || !Number.isInteger(pid)) return false;
+  try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } // EPERM = 存在但不同 user
+}
 
 export default async function codingAutoDispatchRoute(req, res) {
   const urlObj = new URL(req.url, "http://localhost");
@@ -263,9 +269,9 @@ export default async function codingAutoDispatchRoute(req, res) {
       // 2026-10-17 runnerPid 修正：status.runnerPid === 本 process pid = 派工還活著（字串 key 誤判免疫）→ 走正常 stopRequested 路徑
       let stopRunnerPid = null;
       try { stopRunnerPid = JSON.parse(readSync(statusPath, "utf-8"))?.runnerPid || null; } catch {} // nosemgrep: detect-non-literal-fs-filename — local-first：使用者自選專案根目錄（localhost 單人工具）
-      if (!_activeRuns.has(root) && stopRunnerPid !== process.pid) {
+      if (!_activeRuns.has(root) && !_pidAlive(stopRunnerPid)) { // 2026-10-17：runner pid 還活著（哪個 server 都算）→ 不是殭屍，走正常 stopRequested
         const fixed = updateStatusFile(statusPath, (current) => {
-          if (current.status !== "running" || _activeRuns.has(root) || current.runnerPid === process.pid) return null;
+          if (current.status !== "running" || _activeRuns.has(root) || _pidAlive(current.runnerPid)) return null;
           const events = [...(current.events || []), { ts: new Date().toISOString(), type: "info", message: "⚠️ 殭屍 running（無活 dispatch）— 中斷請求直接生效，已標 interrupted；重新 start 可續跑" }].slice(-80);
           return { ...current, status: "interrupted", completedAt: new Date().toISOString(), error: "Interrupted (orphaned run — server restarted)", events, lastEvent: events[events.length - 1] };
         });
@@ -373,9 +379,10 @@ export default async function codingAutoDispatchRoute(req, res) {
       // path 字串不一致時（UI rootPath vs start 的字串差異）has() 會 false → 誤判殭屍、把活批次標 interrupted。
       // 改成先比 status.runnerPid：同 pid = 派工是本 process 起的、還在跑 → 絕不是殭屍。舊檔沒 runnerPid 才回退舊行為。
       const sameProcess = data.runnerPid === process.pid;
-      if (data.status === "running" && !sameProcess && !_activeRuns.has(projRoot)) {
+      const runnerAlive = sameProcess || _pidAlive(data.runnerPid); // 2026-10-17：runner process 還活著（不管是哪個 server）→ 不是殭屍
+      if (data.status === "running" && !runnerAlive && !_activeRuns.has(projRoot)) {
         const fixed = updateStatusFile(statusFile, (current) => {
-          if (current.status !== "running" || _activeRuns.has(projRoot) || current.runnerPid === process.pid) return null; // 重驗（避免競態）
+          if (current.status !== "running" || _activeRuns.has(projRoot) || _pidAlive(current.runnerPid)) return null; // 重驗（避免競態）
           const events = [...(current.events || []), { ts: new Date().toISOString(), type: "info", message: "⚠️ 偵測到殭屍狀態（server 重啟後殘留 running）— 已自動標記 interrupted，重新 start 可續跑" }].slice(-80);
           return { ...current, status: "interrupted", completedAt: new Date().toISOString(), error: "Server restarted while dispatch was running", events, lastEvent: events[events.length - 1] };
         });
