@@ -117,6 +117,7 @@ export default async function codingAutoDispatchRoute(req, res) {
     const status = {
       startedAt: new Date().toISOString(),
       status: "running",
+      runnerPid: process.pid, // 2026-10-17: 殭屍判定用 — 同 pid = 迴圈還在本 process 活著（UI 輪詢 path 字串不一致也不會誤判）
       mode,
       agents: {},
       totalAgents: mode === "parallel" ? 6 : 0,
@@ -259,9 +260,12 @@ export default async function codingAutoDispatchRoute(req, res) {
       const statusPath = join(root, AUTO_DISPATCH_DIR, STATUS_FILE); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
       // 2026-08-30 殭屍救援：沒有活的 dispatch process 時，stop 直接把殭屍標 interrupted
       // （否則 stopRequested 掛著永遠等不到「task 完成後停止」的中斷點 — Fleming 實案例）
-      if (!_activeRuns.has(root)) {
+      // 2026-10-17 runnerPid 修正：status.runnerPid === 本 process pid = 派工還活著（字串 key 誤判免疫）→ 走正常 stopRequested 路徑
+      let stopRunnerPid = null;
+      try { stopRunnerPid = JSON.parse(readSync(statusPath, "utf-8"))?.runnerPid || null; } catch {} // nosemgrep: detect-non-literal-fs-filename — local-first：使用者自選專案根目錄（localhost 單人工具）
+      if (!_activeRuns.has(root) && stopRunnerPid !== process.pid) {
         const fixed = updateStatusFile(statusPath, (current) => {
-          if (current.status !== "running" || _activeRuns.has(root)) return null;
+          if (current.status !== "running" || _activeRuns.has(root) || current.runnerPid === process.pid) return null;
           const events = [...(current.events || []), { ts: new Date().toISOString(), type: "info", message: "⚠️ 殭屍 running（無活 dispatch）— 中斷請求直接生效，已標 interrupted；重新 start 可續跑" }].slice(-80);
           return { ...current, status: "interrupted", completedAt: new Date().toISOString(), error: "Interrupted (orphaned run — server restarted)", events, lastEvent: events[events.length - 1] };
         });
@@ -365,9 +369,13 @@ export default async function codingAutoDispatchRoute(req, res) {
       // 2026-08-30 孤兒偵測：status 說 running 但本 process 没有活的 dispatch（重啟後殭屍）
       // → 自動降為 interrupted，UI 下一次輪詢（≤4s）就停止閃爕「中斷」/解鎖 input；
       // plan 檔不受影響，下次 start 照常續跑（findIncompletePlans 看 plans/*.json）
-      if (data.status === "running" && !_activeRuns.has(projRoot)) {
+      // 2026-10-17 runnerPid 修正：_activeRuns 是 in-memory Set（key = 請求 path 字串）。派工還活著但輪詢請求的
+      // path 字串不一致時（UI rootPath vs start 的字串差異）has() 會 false → 誤判殭屍、把活批次標 interrupted。
+      // 改成先比 status.runnerPid：同 pid = 派工是本 process 起的、還在跑 → 絕不是殭屍。舊檔沒 runnerPid 才回退舊行為。
+      const sameProcess = data.runnerPid === process.pid;
+      if (data.status === "running" && !sameProcess && !_activeRuns.has(projRoot)) {
         const fixed = updateStatusFile(statusFile, (current) => {
-          if (current.status !== "running" || _activeRuns.has(projRoot)) return null; // 重驗（避免競態）
+          if (current.status !== "running" || _activeRuns.has(projRoot) || current.runnerPid === process.pid) return null; // 重驗（避免競態）
           const events = [...(current.events || []), { ts: new Date().toISOString(), type: "info", message: "⚠️ 偵測到殭屍狀態（server 重啟後殘留 running）— 已自動標記 interrupted，重新 start 可續跑" }].slice(-80);
           return { ...current, status: "interrupted", completedAt: new Date().toISOString(), error: "Server restarted while dispatch was running", events, lastEvent: events[events.length - 1] };
         });
