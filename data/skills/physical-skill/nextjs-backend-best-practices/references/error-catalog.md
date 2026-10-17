@@ -1,6 +1,6 @@
 # Next.js - Complete Error Catalog
 
-This document contains all 18 documented errors and their solutions for Next.js 16 App Router.
+This document contains all 19 documented errors and their solutions for Next.js 16 App Router.
 
 **Last Updated**: 2025-10-24
 **Next.js Version**: 16.0.0
@@ -435,13 +435,49 @@ export async function createPost(formData: FormData) {
 
 ---
 
+## Error 19: Route Handler returns 405 / duplicate method export
+
+**Symptom**: An endpoint always returns **405 Method Not Allowed** even though
+the handler exists — or `next build` / `tsc` fails with a duplicate-export error.
+
+**Cause**: Violating the `route.ts` export contract:
+
+1. Exporting a handler under a **non-method name** (e.g. `export async function
+   login`) — Next.js only recognizes `GET`, `POST`, `PUT`, `PATCH`, `DELETE`,
+   `HEAD`, `OPTIONS`. Any other export name is silently ignored → 405.
+2. Exporting the **same method twice** in one file (e.g. two `GET` exports) —
+   duplicate identifier fails to compile.
+
+**Solution**: Rename the export to the HTTP method it serves, one export per
+method per file:
+
+```typescript
+// ❌ 405 — Next.js ignores non-method export names
+export async function login(request: Request) { … }
+
+// ✅ Correct — in app/api/auth/login/route.ts
+export async function POST(request: Request) { … }
+```
+
+If two handlers serve the same method, split them into separate route files.
+Move helpers into a plain module (`lib/…ts`) instead of exporting them from
+`route.ts`.
+
+**See**: `references/route-handlers-patterns.md` for the full export contract
+and how the teaching template arranges its 10 examples.
+
+**Source**: Route Handlers export rules (Next.js App Router)
+
+---
+
 ## Summary
 
-**Total Errors Documented**: 18
+**Total Errors Documented**: 19
 **Categories**:
 - Next.js 16 Breaking Changes: 7 errors (#1, #2, #3, #4, #5, #7, #12)
 - Server/Client Components: 3 errors (#6, #10, #17)
 - Configuration: 5 errors (#8, #9, #13, #16, #18)
 - Optimization: 3 errors (#11, #14, #15)
+- Route Handlers: 1 error (#19)
 
 **Prevention**: Always use the Next.js 16 codemod (`npx @next/codemod@canary upgrade latest`) when migrating.
