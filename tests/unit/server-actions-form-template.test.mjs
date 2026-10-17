@@ -264,12 +264,17 @@ describe('A3. Next.js 16 Server Actions 正向契約', () => {
       if (/^\s*import\s/.test(ln)) importIdx.push(i);
     });
     expect(importIdx.length).toBeGreaterThan(0);
-    // 最後一個 import 之後，不得再出現模組層級指令或新的函式宣告
-    const lastImport = importIdx[importIdx.length - 1];
-    const after = lines.slice(lastImport + 1).join('\n');
-    const hasTopLevelDeclAfterImport = /^\s*(export\s+)?(async\s+)?function\s/m.test(after);
-    // 若仍有大量 import 散落，即違反檔首集中契約
-    expect(hasTopLevelDeclAfterImport).toBe(false);
+    // 檔首集中契約：所有 import 都必須在第一個頂層宣告之前。
+    // （原實作方向寫反：誤把「宣告出現在最後一個 import 之後」當違規，
+    //   導致任何 import 在檔首的正確檔案都誤判失敗。違規應是
+    //   import 散落在頂層宣告之後。）
+    const firstDeclIdx = lines.findIndex((ln) =>
+      /^\s*(export\s+)?(async\s+)?(function|const|type|let|var)\s/.test(ln),
+    );
+    expect(firstDeclIdx).toBeGreaterThan(-1);
+    const scatteredImports = importIdx.filter((i) => i > firstDeclIdx);
+    // 若仍有 import 散落在宣告之後，即違反檔首集中契約
+    expect(scatteredImports, 'import 不得散落在第一個頂層宣告之後').toEqual([]);
   });
 });
 
