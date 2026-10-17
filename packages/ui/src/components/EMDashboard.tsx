@@ -219,9 +219,12 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
       if (e.type === "task_start") {
         lines.push(`▶️ [${m.index ?? "?"}${m.total ? `/${m.total}` : ""}] ${agentIcon[m.agent] || "🔧"} **${m.agent}** 開始執行${m.subtaskId ? ` — ${m.subtaskId}` : ""}`);
       } else if (e.type === "task_done") {
-        lines.push(`✅ [${m.index ?? "?"}] **${m.agent}** 完成${m.subtaskId ? ` — ${m.subtaskId}` : ""}`);
+        // 2026-10-17: EM 自決編制結束但 orchestration blocked 時 preview="blocked" — 顯示 ⚠️ 而不是假 ✅
+        const blocked = String(e.message || "").trim().toLowerCase() === "blocked";
+        lines.push(`${blocked ? "⚠️" : "✅"} [${m.index ?? "?"}] **${m.agent}** ${blocked ? "已 blocked（升級人類處理）" : "完成"}${m.subtaskId ? ` — ${m.subtaskId}` : ""}`);
       } else if (e.type === "task_error") {
-        lines.push(`❌ [${m.index ?? "?"}] **${m.agent}** 失敗：${(e.message || "").slice(0, 100)}`);
+        // 2026-10-17: task_error 的原因在 data.error（writer 已補進 message）— 空白時也要有 fallback，不要只印「失敗：」
+        lines.push(`❌ [${m.index ?? "?"}] **${m.agent}** 失敗：${(e.message || "（原因未記錄）").slice(0, 150)}`);
       } else if (e.type === "done") {
         const head = m.interrupted ? t("emDash.dispatchSummaryInterrupted") : t("emDash.dispatchSummaryDone");
         lines.push(`${m.interrupted ? "⏹️" : "🏁"} ${head} — 成功 **${m.succeeded ?? 0}** / 失敗 **${m.failed ?? 0}** / 共 ${m.totalTasks ?? 0} 項，統整報告見「自動派工」分頁`);

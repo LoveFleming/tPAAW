@@ -143,7 +143,7 @@ export default async function codingAutoDispatchRoute(req, res) {
         // 2026-08-29: 所有事件寫入 status.json events ring buffer — UI（EM Chat slim bar / 派工頁）
         // 輪詢 /status 就看得到進度，不用只靠 terminal console；task_* 事件同時更新 agents map
         updateStatusFile(statusPath, (current) => {
-          const msg = String(data?.message || data?.preview || (typeof data === "string" ? data : "")).slice(0, 300);
+          const msg = String(data?.message || data?.preview || data?.error || (typeof data === "string" ? data : "")).slice(0, 300);
           // 2026-08-29: task_*/done 事件附帶結構化 meta — EM Chat 輪詢 /status 可以直接組進度訊息
           let meta;
           if (type === "task_start" || type === "task_done" || type === "task_error") {
