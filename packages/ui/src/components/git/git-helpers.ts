@@ -211,7 +211,9 @@ export function getStatusEmoji(f: GitFileStatus): string {
     case "R": return "➜";
     case "C": return "⧉";
     case "?": return "?";
-    default: return status;
+    // 未知狀態碼（porcelain 可能出現 T/U 等）不應回未定義變數而拋 ReferenceError；
+    // 回原始狀態碼，比讓整張變更清單 crash 安全。
+    default: return effectiveStatus(f);
   }
 }
 

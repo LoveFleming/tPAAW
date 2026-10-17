@@ -498,9 +498,11 @@ export default function GitPanel(props: GitPanelProps) {
       const res = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}&commit=${encodeURIComponent(hash)}`);
       const data = await res.json();
       setGitDiff(data.diff || "");
-      setLocalGitTab("diff");
+      // 用 wrapper 同步 local + parent 的 tab state（直接 setLocalGitTab 會讓 parent 的 gitTab 失同步）
+      setGitTab("diff");
+      setActiveSubPanel("diff");
     } catch {}
-  }, [rootPath, API_BASE, setGitDiffFile, setGitDiff]);
+  }, [rootPath, API_BASE, setGitDiffFile, setGitDiff, setGitTab, setActiveSubPanel]);
 
   // ── Tab labels ──
   const tabConfig: { id: GitTab; label: string }[] = [
