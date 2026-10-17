@@ -221,6 +221,41 @@
 ### changed
 - +202005 −88543 lines across 113 files
 
+### changed
+- code changes (1 new file) (1 modified)
+
+### changed
+- +75 −13 lines across 5 files
+
+### fixed
+- 【目標】修復 F20261016-009 A2A 協定服務的 4 critical / 3 major QA 缺陷（TASK-155）
+
+【背景】TASK-05 (1 modified)
+
+### changed
+- +2111 −335 lines across 11 files
+
+### changed
+- code changes (1 modified)
+
+### changed
+- +3411 −279 lines across 10 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +3967 −362 lines across 11 files
+
+### changed
+- code changes (1 modified)
+
+### changed
+- +4026 −362 lines across 11 files
+
+### added
+- docs(nextjs-skill): document Route Handler template export contract — add references/route-handlers-patterns.md (10-pattern catalog, copy procedure, test-suite guide), add Error 19 (405/duplicate method export) to error-catalog.md and top-errors.md, update SKILL.md § Route Handlers with export-contract note and new reference links. For TASK-048 docs stage.
+
 ## 2026-07-11
 
 ### Changed
