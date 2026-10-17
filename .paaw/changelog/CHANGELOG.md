@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-10-18
+### fixed
+- fix(learning): ExamVault 與 LearningSpace 修復 4 項 QA Major（TASK-168/TASK-051，commit 2219de72，QA qr-20261017-162804-uvyl）— api() 呼叫全面加 AbortController timeout（預設 30s、upload/backup 120s，逾時顯示在地化訊息、busy 不再永久卡死）；課程樹鍵盤可達（role/tabIndex/Enter/Space + IME guard）；原圖對照 modal 與教師對話面板 Escape 關閉＋焦點歸還、7 顆 emoji 按鈕補 aria-label（i18n 四檔）；對話存檔錯誤不再靜默吞掉、開新對話三步驟原子化（任一步失敗不清 UI）
+
+### added
+- test(learning): 新增 tests/unit/learning-task168-hardening.test.mjs（42 tests 全綠，commit 4378a9f7）— 雙層策略釘住 TASK-168 行為契約：Layer A 靜態契約掃描（改壞任一修復即紅燈）＋Layer B mock fetch/fake timers 語意重現（happy/失敗/IME 邊界）
+- docs(learning): 新增 installed-apps/learning/README.md — ExamVault API 端點與 timeout 契約（30s 預設、120s 放寬規則）、UI 行為契約（Escape 關閉、鍵盤可達性、原子化存檔）與測試說明；data/knowledge/app-modules.md 補 learning 模組文件交叉引用。For TASK-051 docs stage.
+
+### changed
+- code changes (1 new file) (1 modified)
+
+
+
+### changed
+- +4416 −370 lines across 13 files
+
+### changed
+- code changes (2 modified)
+
+### changed
+- +4579 −379 lines across 15 files
+
+### changed
+- code changes (1 modified)
+
+### changed
+- +4625 −393 lines across 15 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +4694 −381 lines across 15 files
+
 ## 2026-10-17
 ### changed
 - code changes (1 new file)
@@ -255,6 +289,33 @@
 
 ### added
 - docs(nextjs-skill): document Route Handler template export contract — add references/route-handlers-patterns.md (10-pattern catalog, copy procedure, test-suite guide), add Error 19 (405/duplicate method export) to error-catalog.md and top-errors.md, update SKILL.md § Route Handlers with export-contract note and new reference links. For TASK-048 docs stage.
+
+### changed
+- code changes (1 new file) (3 modified)
+
+### changed
+- +4023 −362 lines across 10 files
+
+### changed
+- code changes (1 new file) (1 modified)
+
+### changed
+- +4184 −365 lines across 11 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +4244 −365 lines across 11 files
+
+### changed
+- docs(skill): TASK-049 docs 階段 — nextjs-backend-best-practices 技能包文件與修復後範本對齊：SKILL.md patterns 表改指 useActionState 與複數檔範本、templates 清單補列 server-actions-form.tsx、references/server-actions-patterns.md 兩處 useFormState 範例改為 useActionState（React 19 已移除前者）、新增 templates/README.md 複製指引（一檔一指令規則、C1/C2 已知限制與 ISS-042/ISS-043 追蹤）。
+
+### changed
+- code changes (1 new file) (2 modified)
+
+### changed
+- +4313 −366 lines across 12 files
 
 ## 2026-07-11
 
