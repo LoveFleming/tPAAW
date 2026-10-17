@@ -15,6 +15,14 @@ import MarkdownText from "./MarkdownText";
 import SkillPicker from "./SkillPicker";
 import { uiAlertError, uiConfirm } from "./ui/uiFeedback";
 
+// 2026-10-17: EM chat 訊息時間戳格式化（事件實際發生時間 → 本地 HH:MM:SS）
+const fmtChatTs = (ts?: string) => {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("zh-TW", { hour12: false });
+};
+
 interface ChatMessage {
   role: string;
   content: string;
@@ -213,27 +221,28 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
       architect: "🏛️", developer: "💻", tester: "🧪",
       "doc-writer": "📝", qa: "🔬", helpdesk: "🌸",
     };
-    const lines: string[] = [];
+    // 2026-10-17: 進度訊息帶事件本身的 ts（倒帶補齊也能看到實際發生時間），不是「現在」的時間
+    const pending: { content: string; ts?: string }[] = [];
     for (const e of fresh) {
       const m = e.meta || {};
       if (e.type === "task_start") {
-        lines.push(`▶️ [${m.index ?? "?"}${m.total ? `/${m.total}` : ""}] ${agentIcon[m.agent] || "🔧"} **${m.agent}** 開始執行${m.subtaskId ? ` — ${m.subtaskId}` : ""}`);
+        pending.push({ ts: e.ts, content: `▶️ [${m.index ?? "?"}${m.total ? `/${m.total}` : ""}] ${agentIcon[m.agent] || "🔧"} **${m.agent}** 開始執行${m.subtaskId ? ` — ${m.subtaskId}` : ""}` });
       } else if (e.type === "task_done") {
         // 2026-10-17: EM 自決編制結束但 orchestration blocked 時 preview="blocked" — 顯示 ⚠️ 而不是假 ✅
         const blocked = String(e.message || "").trim().toLowerCase() === "blocked";
-        lines.push(`${blocked ? "⚠️" : "✅"} [${m.index ?? "?"}] **${m.agent}** ${blocked ? "已 blocked（升級人類處理）" : "完成"}${m.subtaskId ? ` — ${m.subtaskId}` : ""}`);
+        pending.push({ ts: e.ts, content: `${blocked ? "⚠️" : "✅"} [${m.index ?? "?"}] **${m.agent}** ${blocked ? "已 blocked（升級人類處理）" : "完成"}${m.subtaskId ? ` — ${m.subtaskId}` : ""}` });
       } else if (e.type === "task_error") {
         // 2026-10-17: task_error 的原因在 data.error（writer 已補進 message）— 空白時也要有 fallback，不要只印「失敗：」
-        lines.push(`❌ [${m.index ?? "?"}] **${m.agent}** 失敗：${(e.message || "（原因未記錄）").slice(0, 150)}`);
+        pending.push({ ts: e.ts, content: `❌ [${m.index ?? "?"}] **${m.agent}** 失敗：${(e.message || "（原因未記錄）").slice(0, 150)}` });
       } else if (e.type === "done") {
         const head = m.interrupted ? t("emDash.dispatchSummaryInterrupted") : t("emDash.dispatchSummaryDone");
-        lines.push(`${m.interrupted ? "⏹️" : "🏁"} ${head} — 成功 **${m.succeeded ?? 0}** / 失敗 **${m.failed ?? 0}** / 共 ${m.totalTasks ?? 0} 項，統整報告見「自動派工」分頁`);
+        pending.push({ ts: e.ts, content: `${m.interrupted ? "⏹️" : "🏁"} ${head} — 成功 **${m.succeeded ?? 0}** / 失敗 **${m.failed ?? 0}** / 共 ${m.totalTasks ?? 0} 項，統整報告見「自動派工」分頁` });
       } else if (e.type === "info" && e.message) {
-        lines.push(`ℹ️ ${String(e.message).slice(0, 120)}`);
+        pending.push({ ts: e.ts, content: `ℹ️ ${String(e.message).slice(0, 120)}` });
       }
     }
-    if (lines.length) {
-      setMessages(prev => [...prev, ...lines.map(content => ({ role: "assistant", content, ts: new Date().toISOString() } as ChatMessage))]);
+    if (pending.length) {
+      setMessages(prev => [...prev, ...pending.map(p => ({ role: "assistant", content: p.content, ts: p.ts || new Date().toISOString() } as ChatMessage))]);
       requestAnimationFrame(() => {
         const el = chatScrollRef.current;
         if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 300) el.scrollTop = el.scrollHeight;
@@ -1261,6 +1270,8 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className="text-xs font-medium text-stone-600">{msg.role === "user" ? "你" : (emProfile.codename || "EM 大總管")}</span>
+                  {/* 2026-10-17: 名字旁顯示時間戳 — 看得出何時開始、何時停住 */}
+                  {fmtChatTs(msg.ts) && <span className="text-[10px] text-stone-400 tabular-nums">{fmtChatTs(msg.ts)}</span>}
                 </div>
                 {msg.role === "user" ? (
                   <span className="inline-block px-3 py-1.5 rounded-2xl text-sm bg-stone-50 text-stone-700 max-w-[80%] whitespace-pre-wrap">{msg.content}</span>
