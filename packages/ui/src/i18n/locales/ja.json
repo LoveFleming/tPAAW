@@ -1874,5 +1874,13 @@
   "rm.qd.created": "{n} 件の補強 task を作成（既存 {m} 件スキップ）— EM ダッシュボードのタスク一覧に表示されます。次は tester/developer へ割り当て",
   "rm.qd.createdZero": "新規 task なし — 未解決の補強 task が既にあるので EM ダッシュボードで確認",
   "rm.qd.goEm": "EM ダッシュボードで確認／割当",
-  "rm.qd.emPrefill": "補強 task を割り当ててください：task_retrofit で作成した品質 task を優先度順に（S2 と unit/e2e 証拠不足の feature を優先、tester 優先）割り当て、結果を報告してください。"
+  "rm.qd.emPrefill": "補強 task を割り当ててください：task_retrofit で作成した品質 task を優先度順に（S2 と unit/e2e 証拠不足の feature を優先、tester 優先）割り当て、結果を報告してください。",
+  "exam-vault.action.reparse": "再解析",
+  "exam-vault.action.delete": "削除",
+  "exam-vault.action.prevPage": "前のページ",
+  "exam-vault.action.nextPage": "次のページ",
+  "exam-vault.action.close": "閉じる",
+  "exam-vault.action.removePage": "このページを削除",
+  "exam-vault.error.timeout": "リクエストがタイムアウトしました。後でもう一度お試しください",
+  "exam-vault.action.refreshWrong": "錯題を再読み込み"
 }

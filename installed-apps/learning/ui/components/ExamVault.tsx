@@ -47,8 +47,23 @@ async function normalizeImage(file: File): Promise<string> {
   return canvas.toDataURL("image/jpeg", 0.85);
 }
 
-async function api(path: string, init?: RequestInit) {
-  const r = await fetch(path, init);
+// TASK-168 M1：所有 api() 呼叫加 timeout — server hang 時（如 /reparse 排隊的 LLM 解析）
+// AbortController 讓 fetch reject，busy 狀態得以解除，按鈕不再永久 disabled。
+// 預設 30s；backup 等 server 長時操作由呼叫端放寬（server execFile timeout 120s）。
+const API_TIMEOUT_ERROR = "API_TIMEOUT"; // 呼叫端以此常數判別 timeout，顯示在地化訊息
+
+async function api(path: string, init?: RequestInit, timeoutMs = 30000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let r: Response;
+  try {
+    r = await fetch(path, { ...init, signal: ctrl.signal });
+  } catch (e: any) {
+    if (e?.name === "AbortError") throw new Error(API_TIMEOUT_ERROR);
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
   return d;
@@ -68,6 +83,8 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
   const [wrongErr, setWrongErr] = useState("");
   // 原圖對照 modal（錯題本 → 點開看原卷那一頁）
   const [wrongImg, setWrongImg] = useState<{ exam: string; page: number; pageCount: number; q: WrongRow } | null>(null);
+  // TASK-168 M3：modal 開啟前記住觸發元素，關閉時歸還焦點（鍵盤用戶不會「掉出」文件）
+  const wrongImgTriggerRef = useRef<HTMLElement | null>(null);
   // 該科老師 chat（錯題 → 講解 / 變形題，P3）
   const [teacherChat, setTeacherChat] = useState<{ agentId: string; unitLabel: string; kickoff: { text: string; seq: number } } | null>(null);
   // 林雨晴常駐右欄（功能頁標準布局：main | splitter | chat，寬度拖曳自調）
@@ -75,6 +92,9 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // TASK-168 M1：timeout 與一般錯誤統一在地化顯示（api() timeout 時 message 是 API_TIMEOUT_ERROR 常數）
+  const apiErrText = useCallback((e: unknown) =>
+    e instanceof Error && e.message === API_TIMEOUT_ERROR ? t("exam-vault.error.timeout") : String((e as Error)?.message || e), [t]);
 
   // 收件表單
   const [title, setTitle] = useState("");
@@ -95,7 +115,7 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
       const d = await api(`/api/exam-vault/exams?subject=${encodeURIComponent(subject)}`);
       setExams(d.exams || []);
       return d.exams || [];
-    } catch (e: any) { setErr(e.message); return []; }
+    } catch (e: any) { setErr(apiErrText(e)); return []; }
   }, [subject]);
 
   useEffect(() => { (async () => { try { const d = await api("/api/exam-vault/subjects"); setSubjects(d.subjects || []); } catch {} })(); }, []);
@@ -121,7 +141,7 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
         next.push({ name: f.name, dataUrl, preview: dataUrl });
       }
       setPages(ps => [...ps, ...next]);
-    } catch (e: any) { setErr(e.message); }
+    } catch (e: any) { setErr(apiErrText(e)); }
     setBusy(false);
     if (fileRef.current) fileRef.current.value = "";
   };
@@ -134,7 +154,7 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
         const d = await api("/api/exam-vault/upload", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ subject, title, examDate, pages: pages.map(p => ({ name: p.name, dataUrl: p.dataUrl })) }),
-        });
+        }, 120000);
         flash(t("exam-vault.state.submitted"));
       } else if (urlList.length) {
         const d = await api("/api/exam-vault/url", {
@@ -146,7 +166,7 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
       setPages([]); setUrls(""); setTitle(""); setExamDate("");
       await loadExams();
       setView("exams");
-    } catch (e: any) { setErr(e.message); }
+    } catch (e: any) { setErr(apiErrText(e)); }
     setBusy(false);
   };
 
@@ -155,7 +175,7 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
     try {
       const d = await api(`/api/exam-vault/exams/${id}`);
       setReviewExam(d); setPageNum(1); setSuspectFirst(d.questions.length > 0); setView("review");
-    } catch (e: any) { setErr(e.message); }
+    } catch (e: any) { setErr(apiErrText(e)); }
     setBusy(false);
   };
 
@@ -166,7 +186,7 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
         const d = await api(`/api/exam-vault/exams/${reviewExam.exam.id}`);
         setReviewExam(d);
       }
-    } catch (e: any) { setErr(e.message); }
+    } catch (e: any) { setErr(apiErrText(e)); }
   };
 
   const saveExamMeta = async (id: string, patch: Record<string, unknown>) => {
@@ -174,7 +194,7 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
       await api(`/api/exam-vault/exams/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
       const d = await api(`/api/exam-vault/exams/${id}`);
       setReviewExam(d);
-    } catch (e: any) { setErr(e.message); }
+    } catch (e: any) { setErr(apiErrText(e)); }
   };
 
   const publish = async (id: string) => {
@@ -184,7 +204,7 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
       flash(t("exam-vault.state.publishedOk"));
       await loadExams();
       await openReview(id);
-    } catch (e: any) { setErr(e.message); }
+    } catch (e: any) { setErr(apiErrText(e)); }
     setBusy(false);
   };
 
@@ -193,7 +213,7 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
     try {
       await api(`/api/exam-vault/exams/${id}`, { method: "DELETE" });
       await loadExams();
-    } catch (e: any) { setErr(e.message); }
+    } catch (e: any) { setErr(apiErrText(e)); }
   };
 
   const loadWrong = useCallback(async (opts?: { subject?: string; unit?: string; concept?: string }) => {
@@ -206,7 +226,7 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
       if (c) qs.set("concept", c);
       const d = await api(`/api/exam-vault/wrong?${qs}`);
       setWrong(d.wrong || []);
-    } catch (e: any) { setErr(e.message); }
+    } catch (e: any) { setErr(apiErrText(e)); }
   }, [subject, wrongUnit, wrongConcept, wrongErr]);
 
   useEffect(() => { if (visible && view === "wrong") loadWrong(); }, [visible, view, loadWrong]);
@@ -223,10 +243,10 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
   const doBackup = async () => {
     setBusy(true); flash(null, null);
     try {
-      const d = await api("/api/exam-vault/backup", { method: "POST" });
+      const d = await api("/api/exam-vault/backup", { method: "POST" }, 120000);
       const parsed = JSON.parse((d.stdout || "").split("\n").pop() || "{}");
       flash(parsed.pushed ? t("exam-vault.state.backupPushed") : parsed.ok ? t("exam-vault.state.backupLocal") : t("exam-vault.error.backupFail"));
-    } catch (e: any) { setErr(e.message); }
+    } catch (e: any) { setErr(apiErrText(e)); }
     setBusy(false);
   };
 
@@ -234,9 +254,33 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
   const openWrongImg = async (w: WrongRow) => {
     try {
       const d = await api(`/api/exam-vault/exams/${w.exam_id}`);
+      wrongImgTriggerRef.current = document.activeElement as HTMLElement | null; // M3：關閉時歸還焦點
       setWrongImg({ exam: w.exam_id, page: w.page, pageCount: d?.exam?.page_count || w.page, q: w });
-    } catch (e: any) { setErr(e.message); }
+    } catch (e: any) { setErr(apiErrText(e)); }
   };
+
+  // TASK-168 M3：modal 支援 Escape 關閉（IME composition 中不誤觸）
+  useEffect(() => {
+    if (!wrongImg) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.nativeEvent.isComposing) {
+        setWrongImg(null);
+        wrongImgTriggerRef.current?.focus?.();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [wrongImg]);
+
+  // TASK-168 M3：teacherChat 浮動面板同樣支援 Escape 關閉（與 wrongImg modal 同模式）
+  useEffect(() => {
+    if (!teacherChat) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.nativeEvent.isComposing) setTeacherChat(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [teacherChat]);
 
   // 錯題 → 找該科老師（講解 / 變形題）— 帶原題 + 她的錯答 + 單元/知識點脈絡，開面板自動送出
   const askTeacher = (w: WrongRow, mode: "explain" | "variants") => {
@@ -354,7 +398,8 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
                     <div key={i} className="relative w-20 h-28 rounded-lg overflow-hidden" style={{ border: `1px solid ${theme.borderLight}` }}>
                       <img src={p.preview} className="w-full h-full object-cover" />
                       <button onClick={e => { e.stopPropagation(); setPages(ps => ps.filter((_, j) => j !== i)); }}
-                        className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white text-xs">✕</button>
+                        className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white text-xs"
+                        aria-label={t("exam-vault.action.removePage")}>✕</button>
                       <span className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] text-center">{i + 1}</span>
                     </div>
                   ))}
@@ -391,8 +436,8 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
                   </div>
                   {e.status !== "published" && <button onClick={() => openReview(e.id)} className={`${btn} text-white`} style={{ background: theme.accent }}>{t("exam-vault.action.review")}</button>}
                   {e.status === "published" && <button onClick={() => openReview(e.id)} className={btn} style={{ background: theme.bgMuted }}>{t("exam-vault.action.view")}</button>}
-                  {e.status !== "published" && <button onClick={async () => { await api(`/api/exam-vault/exams/${e.id}/reparse`, { method: "POST" }); loadExams(); }} className={btn} style={{ background: theme.bgMuted }}>🔄</button>}
-                  {e.status !== "published" && <button onClick={() => delExam(e.id)} className={btn} style={{ background: theme.bgMuted }}>🗑</button>}
+                  {e.status !== "published" && <button onClick={async () => { await api(`/api/exam-vault/exams/${e.id}/reparse`, { method: "POST" }); loadExams(); }} className={btn} style={{ background: theme.bgMuted }} aria-label={t("exam-vault.action.reparse")}>🔄</button>}
+                  {e.status !== "published" && <button onClick={() => delExam(e.id)} className={btn} style={{ background: theme.bgMuted }} aria-label={t("exam-vault.action.delete")}>🗑</button>}
                 </div>
               ))}
             </div>
@@ -439,9 +484,9 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
               {/* 左：原卷頁圖 */}
               <div className="rounded-xl p-3" style={card}>
                 <div className="flex items-center justify-between mb-2">
-                  <button onClick={() => setPageNum(p => Math.max(1, p - 1))} className={btn} style={{ background: theme.bgMuted }}>◀</button>
+                  <button onClick={() => setPageNum(p => Math.max(1, p - 1))} className={btn} style={{ background: theme.bgMuted }} aria-label={t("exam-vault.action.prevPage")}>◀</button>
                   <span className="text-xs text-slate-400">{t("exam-vault.label.page")} {pageNum} / {reviewExam.exam.page_count}</span>
-                  <button onClick={() => setPageNum(p => Math.min(reviewExam.exam.page_count, p + 1))} className={btn} style={{ background: theme.bgMuted }}>▶</button>
+                  <button onClick={() => setPageNum(p => Math.min(reviewExam.exam.page_count, p + 1))} className={btn} style={{ background: theme.bgMuted }} aria-label={t("exam-vault.action.nextPage")}>▶</button>
                 </div>
                 <img src={`/api/exam-vault/img?exam=${reviewExam.exam.id}&page=${pageNum}`} className="w-full rounded-lg" style={{ border: `1px solid ${theme.borderLight}` }} />
               </div>
@@ -471,7 +516,7 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
                 <option value="">{t("exam-vault.error.allErrors")}</option>
                 {ERROR_TYPES.map(e => <option key={e} value={e}>{e}</option>)}
               </select>
-              <button onClick={() => loadWrong()} className={btn} style={{ background: theme.bgMuted }}>🔄</button>
+              <button onClick={() => loadWrong()} className={btn} style={{ background: theme.bgMuted }} aria-label={t("exam-vault.action.refreshWrong")}>🔄</button>
             </div>
             {wrong.length === 0 && <p className="text-center text-sm text-slate-400 py-8">{t("exam-vault.empty.emptyWrong")}</p>}
             {wrong.map(w => (
@@ -516,17 +561,18 @@ export default function ExamVault({ visible, theme, jump }: { visible: boolean; 
         </div>
       )}
 
-      {/* 原圖對照 modal — 錯題 ↔ 原卷那一頁（點外部關閉） */}
+      {/* 原圖對照 modal — 錯題 ↔ 原卷那一頁（點外部/Escape 關閉） */}
       {wrongImg && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setWrongImg(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true"
+          onClick={() => { setWrongImg(null); wrongImgTriggerRef.current?.focus?.(); }}>
           <div className="max-w-4xl w-full max-h-full flex flex-col rounded-2xl p-3 gap-2" style={{ background: theme.bg, color: theme.text }}
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-2 text-sm">
               <span className="font-medium truncate flex-1">{wrongImg.q.exam_title || t("exam-vault.label.untitled")} · #{wrongImg.q.qno ?? "?"}{wrongImg.q.unit ? ` · ${wrongImg.q.unit}` : ""}</span>
-              <button onClick={() => setWrongImg(p => p && { ...p, page: Math.max(1, p.page - 1) })} className={btn} style={{ background: theme.bgMuted }}>◀</button>
+              <button onClick={() => setWrongImg(p => p && { ...p, page: Math.max(1, p.page - 1) })} className={btn} style={{ background: theme.bgMuted }} aria-label={t("exam-vault.action.prevPage")}>◀</button>
               <span className="text-xs text-slate-400">{t("exam-vault.label.page")} {wrongImg.page}/{wrongImg.pageCount}</span>
-              <button onClick={() => setWrongImg(p => p && { ...p, page: Math.min(p.pageCount, p.page + 1) })} className={btn} style={{ background: theme.bgMuted }}>▶</button>
-              <button onClick={() => setWrongImg(null)} className={btn} style={{ background: theme.bgMuted }}>✕</button>
+              <button onClick={() => setWrongImg(p => p && { ...p, page: Math.min(p.pageCount, p.page + 1) })} className={btn} style={{ background: theme.bgMuted }} aria-label={t("exam-vault.action.nextPage")}>▶</button>
+              <button onClick={() => { setWrongImg(null); wrongImgTriggerRef.current?.focus?.(); }} className={btn} style={{ background: theme.bgMuted }} aria-label={t("exam-vault.action.close")}>✕</button>
             </div>
             <div className="flex-1 overflow-auto rounded-lg" style={{ border: `1px solid ${theme.borderLight}` }}>
               <img src={`/api/exam-vault/img?exam=${wrongImg.exam}&page=${wrongImg.page}`} className="w-full" />

@@ -791,13 +791,17 @@ export default function LearningSpace() {
     if (saveConversationTimerRef.current) clearTimeout(saveConversationTimerRef.current);
     saveConversationTimerRef.current = setTimeout(async () => {
       try {
-        await fetch(`${API_BASE}/api/conversations/${encodeURIComponent(activeCrew)}?root=${encodeURIComponent(rootPath)}`, {
+        const res = await fetch(`${API_BASE}/api/conversations/${encodeURIComponent(activeCrew)}?root=${encodeURIComponent(rootPath)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           // Strip _greeting flag before saving — greeting is UI-only
           body: JSON.stringify({ id: "active", title: `${activeCrew} 對話`, messages: messages.map(({ _greeting, ...rest }) => rest) }),
         });
-      } catch {}
+        // TASK-168 M4：存檔失敗不再靜默 — res.ok 檢查 + console.warn（供 debug；不打斷使用者輸入）
+        if (!res.ok) console.warn("[LearningSpace] conversation save failed:", res.status, activeCrew);
+      } catch (e) {
+        console.warn("[LearningSpace] conversation save error:", e);
+      }
     }, 2000);
     return () => { if (saveConversationTimerRef.current) clearTimeout(saveConversationTimerRef.current); };
   }, [crewConversations, activeCrew, rootPath]);
@@ -895,21 +899,28 @@ export default function LearningSpace() {
     if (!activeCrew || !rootPath) return;
     const current = crewConversations[activeCrew] || [];
     if (current.length === 0) return; // nothing to archive
+    // TASK-168 M4：三步驟原子化 — 每步檢查 res.ok，任一步失敗即中止不清 UI，
+    // 避免「POST 成功、DELETE 失敗」時 UI 已清空但 server 還有 active 對話的狀態分歧。
+    // 失敗以 console.warn 記錄（下一步輪詢/重試自然恢復），不打斷使用者。
     try {
       const messages = current.map(({ _greeting, ...rest }: any) => rest);
-      await fetch(`${API_BASE}/api/conversations/${encodeURIComponent(activeCrew)}?root=${encodeURIComponent(rootPath)}`, {
+      const postRes = await fetch(`${API_BASE}/api/conversations/${encodeURIComponent(activeCrew)}?root=${encodeURIComponent(rootPath)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: `archive-${Date.now()}`, title: `${activeCrew} 封存對話`, messages }),
       });
-      await fetch(`${API_BASE}/api/conversations/${encodeURIComponent(activeCrew)}/active?root=${encodeURIComponent(rootPath)}`, { method: "DELETE" });
-      // Clear current conversation
+      if (!postRes.ok) { console.warn("[LearningSpace] archive save failed:", postRes.status, activeCrew); return; }
+      const delRes = await fetch(`${API_BASE}/api/conversations/${encodeURIComponent(activeCrew)}/active?root=${encodeURIComponent(rootPath)}`, { method: "DELETE" });
+      if (!delRes.ok) { console.warn("[LearningSpace] active delete failed:", delRes.status, activeCrew); return; }
+      // Clear current conversation — 只有 server 狀態確定更新後才動 UI
       setCrewConversations(prev => ({ ...prev, [activeCrew]: [] }));
       setViewingArchive(null);
       setShowArchivePanel(false);
       // Refresh session list
       loadArchivedConversations(activeCrew, rootPath);
-    } catch {}
+    } catch (e) {
+      console.warn("[LearningSpace] startNewConversation error:", e);
+    }
   }, [activeCrew, rootPath, crewConversations]);
 
   // Load session list for a crew (active + history)
@@ -1846,19 +1857,24 @@ const sendChat = useCallback(async () => {
                 </div>
                 {curriculum.map(s => (
                   <div key={s.key}>
-                    <div className="group flex items-center gap-1.5 px-1.5 py-1.5 rounded-lg hover:bg-blue-50 cursor-pointer"
-                      onClick={() => { toggleSubjectRow(s.key); openCurriculum(s.key); }}>
+                    {/* TASK-168 M2：課程樹三層節點改語義化 + 鍵盤可操作（Enter/Space 觸發，aria-expanded 反映展開狀態） */}
+                    <div className="group flex items-center gap-1.5 px-1.5 py-1.5 rounded-lg hover:bg-blue-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-400 outline-none"
+                      role="button" tabIndex={0} aria-expanded={expandedSubjects.has(s.key)}
+                      onClick={() => { toggleSubjectRow(s.key); openCurriculum(s.key); }}
+                      onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { toggleSubjectRow(s.key); openCurriculum(s.key); } else if (e.key === " " && !e.nativeEvent.isComposing) { e.preventDefault(); toggleSubjectRow(s.key); openCurriculum(s.key); } }}>
                       <span className="text-[10px] text-stone-400 shrink-0 w-3">{expandedSubjects.has(s.key) ? "▾" : "▸"}</span>
                       <span className="shrink-0">{SUBJECT_EMOJI[s.name] || "📘"}</span>
                       <span className="flex-1 text-sm text-stone-700 font-medium truncate">{s.name}</span>
                       <span className="text-[10px] text-stone-400 shrink-0">{s.unitCount} 單元</span>
                       <button onClick={e => { e.stopPropagation(); openPractice(s.key, s.name); }}
-                        className="opacity-0 group-hover:opacity-100 text-xs shrink-0 px-1 rounded hover:bg-emerald-100" title={tt("ru.tab.practice")}>📝</button>
+                        className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-xs shrink-0 px-1 rounded hover:bg-emerald-100" title={tt("ru.tab.practice")} aria-label={tt("ru.tab.practice")}>📝</button>
                     </div>
                     {expandedSubjects.has(s.key) && s.units.map(u => (
                       <div key={u.id}>
-                        <div className="flex items-center gap-1 pl-[28px] pr-1.5 py-1 rounded hover:bg-blue-50 cursor-pointer text-xs"
-                          onClick={() => { toggleUnitRow(u.id); openCurriculum(s.key, u.id); }}>
+                        <div className="flex items-center gap-1 pl-[28px] pr-1.5 py-1 rounded hover:bg-blue-50 cursor-pointer text-xs focus-visible:ring-2 focus-visible:ring-blue-400 outline-none"
+                          role="button" tabIndex={0} aria-expanded={expandedUnits.has(u.id)}
+                          onClick={() => { toggleUnitRow(u.id); openCurriculum(s.key, u.id); }}
+                          onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { toggleUnitRow(u.id); openCurriculum(s.key, u.id); } else if (e.key === " " && !e.nativeEvent.isComposing) { e.preventDefault(); toggleUnitRow(u.id); openCurriculum(s.key, u.id); } }}>
                           <span className="text-[10px] text-stone-300 shrink-0 w-3">{expandedUnits.has(u.id) ? "▾" : "▸"}</span>
                           <span className="text-stone-500 shrink-0" title={u.name}>{u.grade}{u.semester === 1 ? "上" : "下"}·{u.seq}</span>
                           <span className="flex-1 text-stone-600 truncate" title={u.name}>{u.name}</span>
@@ -1866,7 +1882,9 @@ const sendChat = useCallback(async () => {
                         </div>
                         {expandedUnits.has(u.id) && u.concepts.map(c => (
                           <div key={c.id} onClick={() => openCurriculum(s.key, u.id, c.id)}
-                            className="flex items-center gap-1 pl-[46px] pr-2 py-0.5 text-[11px] text-stone-500 hover:text-blue-700 hover:bg-blue-50 rounded cursor-pointer">
+                            className="flex items-center gap-1 pl-[46px] pr-2 py-0.5 text-[11px] text-stone-500 hover:text-blue-700 hover:bg-blue-50 rounded cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-400 outline-none"
+                            role="button" tabIndex={0}
+                            onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && !e.nativeEvent.isComposing) { e.preventDefault(); openCurriculum(s.key, u.id, c.id); } }}>
                             <span className="text-stone-300">·</span>
                             <span className="truncate" title={c.name}>{c.name}</span>
                           </div>

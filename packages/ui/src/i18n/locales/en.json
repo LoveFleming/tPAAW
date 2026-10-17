@@ -1874,5 +1874,13 @@
   "rm.qd.created": "Created {n} retrofit tasks (skipped {m} existing) — they now appear in the EM dashboard task list; dispatch to tester/developer next",
   "rm.qd.createdZero": "No new tasks — all features already have open retrofit tasks; check them in the EM dashboard",
   "rm.qd.goEm": "Open EM dashboard to view/dispatch",
-  "rm.qd.emPrefill": "Please dispatch the retrofit tasks: prioritize the task_retrofit quality tasks by severity (S2 first, features missing unit/e2e evidence, tester first), and report the dispatch list."
+  "rm.qd.emPrefill": "Please dispatch the retrofit tasks: prioritize the task_retrofit quality tasks by severity (S2 first, features missing unit/e2e evidence, tester first), and report the dispatch list.",
+  "exam-vault.action.reparse": "Re-parse",
+  "exam-vault.action.delete": "Delete",
+  "exam-vault.action.prevPage": "Previous page",
+  "exam-vault.action.nextPage": "Next page",
+  "exam-vault.action.close": "Close",
+  "exam-vault.action.removePage": "Remove this page",
+  "exam-vault.action.refreshWrong": "Refresh wrong answers",
+  "exam-vault.error.timeout": "Request timed out, please retry later"
 }
