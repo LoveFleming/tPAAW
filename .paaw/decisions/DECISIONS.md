@@ -396,3 +396,11 @@ Neutral: Migration is phased — Loop A uses a fallback pattern (registry if ini
 - **後果**: Positive: Agents can self-verify (run tests, check builds) without human intervention. Defense-in-depth: even if an agent is prompted maliciously, the whitelist prevents most destructive actions. Output truncation prevents context window exhaustion.
 Negative: Whitelist is imperfect — node and python can execute arbitrary code via -e flag (e.g., node -e "require('fs').unlinkSync(...)"). The blacklist of metacharacters blocks legitimate piping (e.g., npm test | head). Whitelist requires maintenance as new build tools emerge.
 Neutral: The PAAW Agent (developer-facing tool) retains unrestricted bash for interactive use. Crew agents get the constrained version.
+
+## ADR-022: TASK-049 測試策略：範本檔以「靜態契約掃描 + 最小可執行語意重現」雙層鞏固
+- **日期**: 2026-10-17
+- **狀態**: Proposed
+- **背景**: 受測對象 data/skills/physical-skill/nextjs-backend-best-practices/templates/server-actions-form.tsx 是教學範本，非可執行應用程式碼：(1) 依賴 Next.js runtime（next/cache、next/navigation、next/headers）與 react-dom，專案根未安裝 next/zod，無法 import；(2) 同檔含多個 export default / 'use server' / 'use client' 指令堆疊，本身就無法編譯（QA B1）。因此「直接 import 執行」不可行。
+- **決定**: 採兩層鞏固（沿用同包既有慣例 route-handler-api-template.test.mjs / nextjs-use-cache-template.test.mjs）：A 層靜態契約掃描 — 讀原始碼文字斷言範本示範的行為符合 Next.js 16 Server Actions 契約（合法 action 簽章、useActionState 而非已棄用 useFormState、無堆疊指令、有伺服器端驗證與 res.ok 檢查等），並把 QA 的 B1–B4/M1–M6 以斷言登錄為可回歸偵測的缺陷；B 層可執行語意重現 — 用最小 stub（假 fetch、假 headers、記憶體 store）重現範本示範的 action 語意（驗證失敗回 errors 物件、成功回 {success:true}、限流回 error、fetch 失敗處理），驗證範本宣稱的行為契約正確。缺陷以斷言形式登錄（紅燈），修好後斷言轉綠 — tester 不改範本檔。
+- **後果**: 正面：測試可執行、可在 CI 跑，且能回歸偵測範本缺陷；不需新增依賴或改範本。負面：範本存在 QA 已指出的 blocker（範本自身不可用），此測試會以 fail 呈現，需 developer 修範本後才全綠 — 這是預期行為，非測試錯誤。範疇：僅新增 tests/unit/server-actions-form-template.test.mjs，不動範本檔。
+

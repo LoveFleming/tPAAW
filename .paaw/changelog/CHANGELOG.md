@@ -1,6 +1,225 @@
 # Changelog
 
+## 2026-10-17
+### changed
+- code changes (1 new file)
+
+
+
 > 每次重大變更後更新。AI 完成任務後可呼叫 `update_changelog` 自動追加。
+
+### changed
+- +188141 −87732 lines across 50 files
+
+### changed
+- code changes (1 modified)
+
+### changed
+- +188398 −87749 lines across 52 files
+
+### changed
+- code changes (1 new file) (1 modified)
+
+### changed
+- +188624 −87770 lines across 53 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +188753 −87770 lines across 53 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +188868 −87770 lines across 53 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +189017 −87770 lines across 54 files
+
+### changed
+- code changes (1 new file) (1 modified)
+
+### changed
+- +189955 −87846 lines across 56 files
+
+### changed
+- code changes (1 new file) (1 modified)
+
+### changed
+- +190163 −87854 lines across 58 files
+
+### changed
+- code changes (1 modified)
+
+### changed
+- +191270 −87860 lines across 59 files
+
+### changed
+- code changes (1 new file) (3 modified)
+
+### changed
+- +191849 −87928 lines across 60 files
+
+### changed
+- code changes (1 modified)
+
+### changed
+- +192135 −87968 lines across 63 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +192275 −87968 lines across 63 files
+
+### changed
+- code changes (1 new file) (1 modified)
+
+### changed
+- +192946 −88003 lines across 66 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +193117 −88003 lines across 66 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +193567 −88003 lines across 66 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +193869 −88003 lines across 66 files
+
+### changed
+- code changes (1 new file) (10 modified)
+
+### changed
+- +194661 −88092 lines across 68 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +194778 −88092 lines across 68 files
+
+### changed
+- code changes (1 modified)
+
+### changed
+- +195091 −88136 lines across 69 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +195252 −88136 lines across 69 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +195630 −88168 lines across 70 files
+
+### changed
+- code changes (1 new file) (2 modified)
+
+### changed
+- +195779 −88179 lines across 74 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +196294 −88179 lines across 74 files
+
+### changed
+- code changes (2 modified)
+
+### changed
+- +196747 −88179 lines across 74 files
+
+### changed
+- code changes (1 new file) (2 modified)
+
+### changed
+- +197159 −88197 lines across 78 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +197464 −88197 lines across 78 files
+
+### changed
+- code changes (11 modified)
+
+### changed
+- +197806 −88197 lines across 78 files
+
+### changed
+- code changes (1 modified)
+
+### changed
+- +198111 −88220 lines across 84 files
+
+### changed
+- code changes (1 new file) (1 modified)
+
+### changed
+- +198704 −88301 lines across 95 files
+
+### changed
+- code changes (1 modified)
+
+### changed
+- +199207 −88343 lines across 101 files
+
+### changed
+- code changes (1 new file) (1 modified)
+
+### changed
+- +199339 −88355 lines across 104 files
+
+### changed
+- code changes (1 modified)
+
+### changed
+- +200342 −88375 lines across 108 files
+
+### changed
+- code changes (1 modified)
+
+### changed
+- +200693 −88480 lines across 111 files
+
+### changed
+- code changes (1 modified)
+
+### changed
+- +201041 −88549 lines across 112 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +200594 −88542 lines across 113 files
+
+### changed
+- code changes (1 modified)
+
+### changed
+- +202005 −88543 lines across 113 files
 
 ## 2026-07-11
 

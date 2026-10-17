@@ -24,8 +24,9 @@
     "coding.tester": {
       "primary": "",
       "fallbacks": [],
-      "emModel": "",
-      "nightShiftModel": ""
+      "emModel": "zai/glm-5.1",
+      "nightShiftModel": "",
+      "reasoning": ""
     },
     "coding.helpdesk": {
       "primary": "openrouter/deepseek/deepseek-v4-flash",
@@ -52,6 +53,29 @@
       "fallbacks": [],
       "emModel": "",
       "autoDispatchModel": ""
+    },
+    "coding.developer": {
+      "primary": "",
+      "fallbacks": [],
+      "emModel": "",
+      "autoDispatchModel": "",
+      "reasoning": ""
+    },
+    "coding.doc-writer": {
+      "primary": "",
+      "fallbacks": [
+        "zai/glm-5.1"
+      ],
+      "emModel": "zai/glm-5.1",
+      "autoDispatchModel": "",
+      "reasoning": ""
+    },
+    "coding.qa": {
+      "primary": "",
+      "fallbacks": [],
+      "emModel": "zai/glm-5.1",
+      "autoDispatchModel": "",
+      "reasoning": ""
     }
   },
   "skillBindings": {

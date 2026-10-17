@@ -1,37 +1,411 @@
 {
   "testFiles": [
     {
-      "file": "packages/server/src/lib/test-intelligence.mjs",
+      "file": "tests/unit/agent-loop-max-turns.test.mjs",
       "type": "unit",
-      "functionCount": 3,
+      "functionCount": 5,
       "functionNames": [
-        "classifyTestType",
-        "findTestedFunctions",
-        "buildTestIntelligence"
+        "compute",
+        "compute",
+        "testLoop",
+        "testLoop",
+        "testLoop"
       ]
     },
     {
-      "file": "packages/server/src/lib/test-runner.mjs",
+      "file": "tests/unit/ai-settings.test.mjs",
       "type": "unit",
-      "functionCount": 17,
+      "functionCount": 1,
       "functionNames": [
-        "detectTestGroups",
-        "detectPytest",
-        "xmlAttrs",
-        "parseJUnitXml",
-        "junitCounts",
-        "parseGoTestOutput",
-        "kindFromGoName",
-        "findReportXmls",
-        "check",
-        "skip",
-        "runGroup",
-        "walk",
-        "spawnCapture",
-        "getRunState",
-        "startTestRun",
-        "readLastTestRun",
-        "detectDetectedSummary"
+        "readFileFrom"
+      ]
+    },
+    {
+      "file": "tests/unit/audit-log.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/auto-dispatch-shared.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/coding-evidence.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/coding-handover.test.mjs",
+      "type": "unit",
+      "functionCount": 2,
+      "functionNames": [
+        "mockReq",
+        "mockRes"
+      ]
+    },
+    {
+      "file": "tests/unit/coding-security-extended.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "createMockRes"
+      ]
+    },
+    {
+      "file": "tests/unit/coding-security.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/coding-trouble.test.mjs",
+      "type": "unit",
+      "functionCount": 2,
+      "functionNames": [
+        "mockReq",
+        "mockRes"
+      ]
+    },
+    {
+      "file": "tests/unit/context-compaction.test.mjs",
+      "type": "unit",
+      "functionCount": 2,
+      "functionNames": [
+        "TOKEN_APPROX",
+        "mk"
+      ]
+    },
+    {
+      "file": "tests/unit/context-engine.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/context-truncation.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/conversation-sanitize.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/db-connection.test.ts",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/db-migrate.test.ts",
+      "type": "unit",
+      "functionCount": 3,
+      "functionNames": [
+        "openFile",
+        "tableNames",
+        "indexNames"
+      ]
+    },
+    {
+      "file": "tests/unit/db-paths.test.ts",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/db-repositories.test.ts",
+      "type": "unit",
+      "functionCount": 6,
+      "functionNames": [
+        "createSqlJsDriver",
+        "createKysely",
+        "insertRun",
+        "repo",
+        "repo",
+        "repo"
+      ]
+    },
+    {
+      "file": "tests/unit/dependency-context.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "setupCIMocks"
+      ]
+    },
+    {
+      "file": "tests/unit/dispatch-verifier.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "git"
+      ]
+    },
+    {
+      "file": "tests/unit/em-foreman.test.mjs",
+      "type": "unit",
+      "functionCount": 6,
+      "functionNames": [
+        "makeFixture",
+        "seedTask",
+        "OK_AGENT",
+        "seqDecisions",
+        "spyAgent",
+        "llm"
+      ]
+    },
+    {
+      "file": "tests/unit/exec-approvals.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/execution-plan.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "makeTmpRoot"
+      ]
+    },
+    {
+      "file": "tests/unit/feature-merge.test.mjs",
+      "type": "unit",
+      "functionCount": 2,
+      "functionNames": [
+        "makeId",
+        "oldFeature"
+      ]
+    },
+    {
+      "file": "tests/unit/feature-risk-scan.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "fixture"
+      ]
+    },
+    {
+      "file": "tests/unit/i18n-consistency.test.ts",
+      "type": "unit",
+      "functionCount": 3,
+      "functionNames": [
+        "loadLocale",
+        "loadRaw",
+        "checkLeaves"
+      ]
+    },
+    {
+      "file": "tests/unit/llm-utils.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/multi-model-review.test.mjs",
+      "type": "unit",
+      "functionCount": 8,
+      "functionNames": [
+        "makeEm",
+        "F",
+        "F",
+        "makeGitRepo",
+        "g",
+        "setup",
+        "FINDING_JSON",
+        "run"
+      ]
+    },
+    {
+      "file": "tests/unit/paaw-sandbox-mxc.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/parse-model-reference.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/pm-module.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "slug"
+      ]
+    },
+    {
+      "file": "tests/unit/providers.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "loadProviders"
+      ]
+    },
+    {
+      "file": "tests/unit/release-evidence.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/release-unit-adapters.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "tmpProject"
+      ]
+    },
+    {
+      "file": "tests/unit/script-guard.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/secretary-module.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "slug"
+      ]
+    },
+    {
+      "file": "tests/unit/security-mode.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "restore"
+      ]
+    },
+    {
+      "file": "tests/unit/server-entrypoint.test.mjs",
+      "type": "unit",
+      "functionCount": 4,
+      "functionNames": [
+        "getFreePort",
+        "request",
+        "parseJson",
+        "requireServer"
+      ]
+    },
+    {
+      "file": "tests/unit/severity-auto-scan.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/shared-utils.test.ts",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/shell-exec.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/skill-format.test.mjs",
+      "type": "unit",
+      "functionCount": 2,
+      "functionNames": [
+        "parseSkillFrontmatter",
+        "findSkillFiles"
+      ]
+    },
+    {
+      "file": "tests/unit/sre-module.test.mjs",
+      "type": "unit",
+      "functionCount": 4,
+      "functionNames": [
+        "mockReq",
+        "mockRes",
+        "call",
+        "j"
+      ]
+    },
+    {
+      "file": "tests/unit/stable-stringify.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/surrogate-safety.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "hasLoneSurrogate"
+      ]
+    },
+    {
+      "file": "tests/unit/test-report-reader.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/tool-engine-provider.test.mjs",
+      "type": "unit",
+      "functionCount": 8,
+      "functionNames": [
+        "sse",
+        "textDelta",
+        "tcDelta",
+        "tcArgsDelta",
+        "finish",
+        "sseResponse",
+        "collect",
+        "adapter"
+      ]
+    },
+    {
+      "file": "tests/unit/tool-engine.test.mjs",
+      "type": "unit",
+      "functionCount": 7,
+      "functionNames": [
+        "fakeProvider",
+        "tc",
+        "textChunk",
+        "doneStop",
+        "doneTools",
+        "collect",
+        "exec"
+      ]
+    },
+    {
+      "file": "tests/unit/tool-registries.test.mjs",
+      "type": "unit",
+      "functionCount": 2,
+      "functionNames": [
+        "fakeEngine",
+        "exec"
+      ]
+    },
+    {
+      "file": "tests/unit/tools-index.test.mjs",
+      "type": "unit",
+      "functionCount": 7,
+      "functionNames": [
+        "jsonRes",
+        "route",
+        "notFound",
+        "setupSandbox",
+        "resetState",
+        "loadTools",
+        "toolNames"
       ]
     },
     {
@@ -103,147 +477,205 @@
       "functionNames": []
     },
     {
-      "file": "tests/unit/agent-loop-max-turns.test.mjs",
-      "type": "unit",
-      "functionCount": 5,
-      "functionNames": [
-        "compute",
-        "compute",
-        "testLoop",
-        "testLoop",
-        "testLoop"
-      ]
-    },
-    {
-      "file": "tests/unit/ai-settings.test.mjs",
-      "type": "unit",
-      "functionCount": 1,
-      "functionNames": [
-        "readFileFrom"
-      ]
-    },
-    {
-      "file": "tests/unit/auto-dispatch-shared.test.mjs",
+      "file": "packages/server/tests/unit/error-code-json-repair.test.mjs",
       "type": "unit",
       "functionCount": 0,
       "functionNames": []
     },
     {
-      "file": "tests/unit/coding-evidence.test.mjs",
-      "type": "unit",
-      "functionCount": 0,
-      "functionNames": []
-    },
-    {
-      "file": "tests/unit/coding-security-extended.test.mjs",
-      "type": "unit",
-      "functionCount": 1,
-      "functionNames": [
-        "createMockRes"
-      ]
-    },
-    {
-      "file": "tests/unit/coding-security.test.mjs",
-      "type": "unit",
-      "functionCount": 0,
-      "functionNames": []
-    },
-    {
-      "file": "tests/unit/context-engine.test.mjs",
-      "type": "unit",
-      "functionCount": 0,
-      "functionNames": []
-    },
-    {
-      "file": "tests/unit/context-truncation.test.mjs",
-      "type": "unit",
-      "functionCount": 0,
-      "functionNames": []
-    },
-    {
-      "file": "tests/unit/conversation-sanitize.test.mjs",
-      "type": "unit",
-      "functionCount": 0,
-      "functionNames": []
-    },
-    {
-      "file": "tests/unit/dependency-context.test.mjs",
-      "type": "unit",
-      "functionCount": 1,
-      "functionNames": [
-        "setupCIMocks"
-      ]
-    },
-    {
-      "file": "tests/unit/execution-plan.test.mjs",
-      "type": "unit",
-      "functionCount": 1,
-      "functionNames": [
-        "makeTmpRoot"
-      ]
-    },
-    {
-      "file": "tests/unit/i18n-consistency.test.ts",
-      "type": "unit",
-      "functionCount": 3,
-      "functionNames": [
-        "loadLocale",
-        "loadRaw",
-        "checkLeaves"
-      ]
-    },
-    {
-      "file": "tests/unit/llm-utils.test.mjs",
-      "type": "unit",
-      "functionCount": 0,
-      "functionNames": []
-    },
-    {
-      "file": "tests/unit/providers.test.mjs",
-      "type": "unit",
-      "functionCount": 1,
-      "functionNames": [
-        "loadProviders"
-      ]
-    },
-    {
-      "file": "tests/unit/repair-loop.test.mjs",
-      "type": "unit",
-      "functionCount": 1,
-      "functionNames": [
-        "seedTask"
-      ]
-    },
-    {
-      "file": "tests/unit/shared-utils.test.ts",
-      "type": "unit",
-      "functionCount": 0,
-      "functionNames": []
-    },
-    {
-      "file": "tests/unit/skill-format.test.mjs",
+      "file": "packages/server/test/a2a-images.test.mjs",
       "type": "unit",
       "functionCount": 2,
       "functionNames": [
-        "parseSkillFrontmatter",
-        "findSkillFiles"
+        "check",
+        "mk"
+      ]
+    },
+    {
+      "file": "packages/server/test/disable-thinking.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "check"
+      ]
+    },
+    {
+      "file": "packages/server/test/vision-array-content.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "t"
+      ]
+    },
+    {
+      "file": "packages/server/test/vision-phase3.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "t"
+      ]
+    },
+    {
+      "file": "packages/server/test/vision-phase4.test.mjs",
+      "type": "unit",
+      "functionCount": 3,
+      "functionNames": [
+        "t",
+        "img",
+        "imgMsg"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/test-intelligence.mjs",
+      "type": "unit",
+      "functionCount": 4,
+      "functionNames": [
+        "classifyTestType",
+        "findTestedFunctions",
+        "referencedProductionFiles",
+        "buildTestIntelligence"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/test-report-reader.mjs",
+      "type": "unit",
+      "functionCount": 14,
+      "functionNames": [
+        "findTestReports",
+        "parseCoverageSummary",
+        "parseLcov",
+        "parsePlaywrightJson",
+        "walk",
+        "parseJunitXml",
+        "num",
+        "parseJacocoXml",
+        "parseCoberturaXml",
+        "parseGoCoverprofile",
+        "parsePaawTestRun",
+        "readTestReports",
+        "testReportSummary",
+        "pick"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/test-runner.mjs",
+      "type": "unit",
+      "functionCount": 20,
+      "functionNames": [
+        "detectTestGroups",
+        "detectPytest",
+        "xmlAttrs",
+        "parseJUnitXml",
+        "junitCounts",
+        "parseGoTestOutput",
+        "kindFromGoName",
+        "findReportXmls",
+        "check",
+        "skip",
+        "runGroup",
+        "walk",
+        "spawnCapture",
+        "getRunState",
+        "nextRunId",
+        "p",
+        "pruneRuns",
+        "startTestRun",
+        "readLastTestRun",
+        "detectDetectedSummary"
       ]
     }
   ],
   "testToCode": [
     {
-      "testFile": "packages/server/src/lib/test-intelligence.mjs",
+      "testFile": "tests/unit/agent-loop-max-turns.test.mjs",
       "testType": "unit",
-      "functionCount": 3,
+      "functionCount": 5,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/ai-settings.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
       "matches": [
         {
-          "productionFile": "packages/server/src/lib/stable-hash.mjs",
-          "matchType": "import",
+          "productionFile": "packages/server/src/routes/ai-settings.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/audit-log.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/routes/audit-log.mjs",
+          "matchType": "naming",
           "testedFunctions": [],
           "confidence": "high"
         },
         {
-          "productionFile": "packages/server/src/lib/tree-sitter-parser.mjs",
+          "productionFile": "packages/server/src/lib/audit-log.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/security/audit-log.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/auto-dispatch-shared.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/auto-dispatch-shared.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/coding-evidence.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/routes/coding-evidence.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/coding-handover.test.mjs",
+      "testType": "unit",
+      "functionCount": 2,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/routes/coding-handover.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/coding-security-extended.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/coding-security.mjs",
           "matchType": "import",
           "testedFunctions": [],
           "confidence": "high"
@@ -251,17 +683,520 @@
       ]
     },
     {
-      "testFile": "packages/server/src/lib/test-runner.mjs",
+      "testFile": "tests/unit/coding-security.test.mjs",
       "testType": "unit",
-      "functionCount": 17,
+      "functionCount": 0,
       "matches": [
         {
-          "productionFile": "packages/server/src/lib/shell-exec.mjs",
+          "productionFile": "packages/server/src/lib/coding-security.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/coding-trouble.test.mjs",
+      "testType": "unit",
+      "functionCount": 2,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/routes/coding-trouble.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/context-compaction.test.mjs",
+      "testType": "unit",
+      "functionCount": 2,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/context-compaction.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/context-engine.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/context-engine.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/context-truncation.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/context-truncation.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/conversation-sanitize.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/coding-security.mjs",
           "matchType": "import",
           "testedFunctions": [],
           "confidence": "high"
         }
       ]
+    },
+    {
+      "testFile": "tests/unit/db-connection.test.ts",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/db/src/connection.ts",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/db/src/index.ts",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/db-migrate.test.ts",
+      "testType": "unit",
+      "functionCount": 3,
+      "matches": [
+        {
+          "productionFile": "packages/db/src/migrate.ts",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/db-paths.test.ts",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/db/src/paths.ts",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/db-repositories.test.ts",
+      "testType": "unit",
+      "functionCount": 6,
+      "matches": [
+        {
+          "productionFile": "packages/db/src/migrate.ts",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/db/src/repositories/runs.ts",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/db/src/repositories/chats.ts",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/db/src/repositories/data-store.ts",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/db/src/types.ts",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/dependency-context.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/dependency-context.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/dispatch-verifier.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/dispatch-verifier.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/em-foreman.test.mjs",
+      "testType": "unit",
+      "functionCount": 6,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/em-task-store.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/em-orchestrator.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/em-job-entrypoints.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/exec-approvals.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/exec-approvals.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/execution-plan.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/execution-plan.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/feature-merge.test.mjs",
+      "testType": "unit",
+      "functionCount": 2,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/feature-registry.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/feature-risk-scan.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/feature-risk-scan.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/i18n-consistency.test.ts",
+      "testType": "unit",
+      "functionCount": 3,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/llm-utils.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/llm-utils.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/multi-model-review.test.mjs",
+      "testType": "unit",
+      "functionCount": 8,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/paaw-sandbox-mxc.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/paaw-sandbox.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/parse-model-reference.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/llm-utils.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/pm-module.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/secretary-tools.mjs",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/providers.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/release-evidence.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/release-evidence.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/release-unit-adapters.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/script-guard.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/script-guard.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/secretary-module.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/secretary-tools.mjs",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/security-mode.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/security-mode.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/server-entrypoint.test.mjs",
+      "testType": "unit",
+      "functionCount": 4,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/paaw-server.mjs",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/severity-auto-scan.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/feature-risk-scan.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/feature-registry.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/shared-utils.test.ts",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/shell-exec.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/shell-exec.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/skill-format.test.mjs",
+      "testType": "unit",
+      "functionCount": 2,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/sre-module.test.mjs",
+      "testType": "unit",
+      "functionCount": 4,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/stable-stringify.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/stable-stringify.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/surrogate-safety.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/llm-utils.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/context-truncation.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/test-report-reader.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/tool-engine-provider.test.mjs",
+      "testType": "unit",
+      "functionCount": 8,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/tool-engine.test.mjs",
+      "testType": "unit",
+      "functionCount": 7,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/tool-registries.test.mjs",
+      "testType": "unit",
+      "functionCount": 2,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/tools-index.test.mjs",
+      "testType": "unit",
+      "functionCount": 7,
+      "matches": []
     },
     {
       "testFile": "tests/e2e/01-smoke.spec.ts",
@@ -400,57 +1335,12 @@
       ]
     },
     {
-      "testFile": "tests/unit/agent-loop-max-turns.test.mjs",
-      "testType": "unit",
-      "functionCount": 5,
-      "matches": []
-    },
-    {
-      "testFile": "tests/unit/ai-settings.test.mjs",
-      "testType": "unit",
-      "functionCount": 1,
-      "matches": [
-        {
-          "productionFile": "packages/server/src/routes/ai-settings.mjs",
-          "matchType": "naming",
-          "testedFunctions": [],
-          "confidence": "high"
-        }
-      ]
-    },
-    {
-      "testFile": "tests/unit/auto-dispatch-shared.test.mjs",
+      "testFile": "packages/server/tests/unit/error-code-json-repair.test.mjs",
       "testType": "unit",
       "functionCount": 0,
       "matches": [
         {
-          "productionFile": "packages/server/src/lib/auto-dispatch-shared.mjs",
-          "matchType": "naming",
-          "testedFunctions": [],
-          "confidence": "high"
-        }
-      ]
-    },
-    {
-      "testFile": "tests/unit/coding-evidence.test.mjs",
-      "testType": "unit",
-      "functionCount": 0,
-      "matches": [
-        {
-          "productionFile": "packages/server/src/routes/coding-evidence.mjs",
-          "matchType": "naming",
-          "testedFunctions": [],
-          "confidence": "high"
-        }
-      ]
-    },
-    {
-      "testFile": "tests/unit/coding-security-extended.test.mjs",
-      "testType": "unit",
-      "functionCount": 1,
-      "matches": [
-        {
-          "productionFile": "packages/server/src/lib/coding-security.mjs",
+          "productionFile": "packages/server/src/lib/error-code-scan.mjs",
           "matchType": "import",
           "testedFunctions": [],
           "confidence": "high"
@@ -458,152 +1348,437 @@
       ]
     },
     {
-      "testFile": "tests/unit/coding-security.test.mjs",
-      "testType": "unit",
-      "functionCount": 0,
-      "matches": [
-        {
-          "productionFile": "packages/server/src/lib/coding-security.mjs",
-          "matchType": "naming",
-          "testedFunctions": [],
-          "confidence": "high"
-        }
-      ]
-    },
-    {
-      "testFile": "tests/unit/context-engine.test.mjs",
-      "testType": "unit",
-      "functionCount": 0,
-      "matches": [
-        {
-          "productionFile": "packages/server/src/context-engine.mjs",
-          "matchType": "naming",
-          "testedFunctions": [],
-          "confidence": "high"
-        }
-      ]
-    },
-    {
-      "testFile": "tests/unit/context-truncation.test.mjs",
-      "testType": "unit",
-      "functionCount": 0,
-      "matches": [
-        {
-          "productionFile": "packages/server/src/lib/context-truncation.mjs",
-          "matchType": "naming",
-          "testedFunctions": [],
-          "confidence": "high"
-        }
-      ]
-    },
-    {
-      "testFile": "tests/unit/conversation-sanitize.test.mjs",
-      "testType": "unit",
-      "functionCount": 0,
-      "matches": [
-        {
-          "productionFile": "packages/server/src/lib/coding-security.mjs",
-          "matchType": "import",
-          "testedFunctions": [],
-          "confidence": "high"
-        }
-      ]
-    },
-    {
-      "testFile": "tests/unit/dependency-context.test.mjs",
-      "testType": "unit",
-      "functionCount": 1,
-      "matches": [
-        {
-          "productionFile": "packages/server/src/lib/dependency-context.mjs",
-          "matchType": "naming",
-          "testedFunctions": [],
-          "confidence": "high"
-        }
-      ]
-    },
-    {
-      "testFile": "tests/unit/execution-plan.test.mjs",
-      "testType": "unit",
-      "functionCount": 1,
-      "matches": [
-        {
-          "productionFile": "packages/server/src/lib/execution-plan.mjs",
-          "matchType": "naming",
-          "testedFunctions": [],
-          "confidence": "high"
-        }
-      ]
-    },
-    {
-      "testFile": "tests/unit/i18n-consistency.test.ts",
-      "testType": "unit",
-      "functionCount": 3,
-      "matches": []
-    },
-    {
-      "testFile": "tests/unit/llm-utils.test.mjs",
-      "testType": "unit",
-      "functionCount": 0,
-      "matches": [
-        {
-          "productionFile": "packages/server/src/lib/llm-utils.mjs",
-          "matchType": "naming",
-          "testedFunctions": [],
-          "confidence": "high"
-        }
-      ]
-    },
-    {
-      "testFile": "tests/unit/providers.test.mjs",
-      "testType": "unit",
-      "functionCount": 1,
-      "matches": []
-    },
-    {
-      "testFile": "tests/unit/repair-loop.test.mjs",
-      "testType": "unit",
-      "functionCount": 1,
-      "matches": [
-        {
-          "productionFile": "packages/server/src/routes/coding-tasks.mjs",
-          "matchType": "import",
-          "testedFunctions": [],
-          "confidence": "high"
-        }
-      ]
-    },
-    {
-      "testFile": "tests/unit/shared-utils.test.ts",
-      "testType": "unit",
-      "functionCount": 0,
-      "matches": []
-    },
-    {
-      "testFile": "tests/unit/skill-format.test.mjs",
+      "testFile": "packages/server/test/a2a-images.test.mjs",
       "testType": "unit",
       "functionCount": 2,
       "matches": []
+    },
+    {
+      "testFile": "packages/server/test/disable-thinking.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/llm-utils.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "packages/server/test/vision-array-content.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/vision-content.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/context-compaction.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "packages/server/test/vision-phase3.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/vision-content.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "packages/server/test/vision-phase4.test.mjs",
+      "testType": "unit",
+      "functionCount": 3,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/vision-content.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/browser-session.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "packages/server/src/lib/test-intelligence.mjs",
+      "testType": "unit",
+      "functionCount": 4,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/stable-hash.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/tree-sitter-parser.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "packages/server/src/lib/test-report-reader.mjs",
+      "testType": "unit",
+      "functionCount": 14,
+      "matches": []
+    },
+    {
+      "testFile": "packages/server/src/lib/test-runner.mjs",
+      "testType": "unit",
+      "functionCount": 20,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/shell-exec.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
     }
   ],
   "codeToTest": {
-    "packages/server/src/lib/stable-hash.mjs": [
+    "packages/server/src/routes/ai-settings.mjs": [
       {
-        "testFile": "packages/server/src/lib/test-intelligence.mjs",
+        "testFile": "tests/unit/ai-settings.test.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
     ],
-    "packages/server/src/lib/tree-sitter-parser.mjs": [
+    "packages/server/src/routes/audit-log.mjs": [
       {
-        "testFile": "packages/server/src/lib/test-intelligence.mjs",
+        "testFile": "tests/unit/audit-log.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/audit-log.mjs": [
+      {
+        "testFile": "tests/unit/audit-log.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/security/audit-log.mjs": [
+      {
+        "testFile": "tests/unit/audit-log.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/auto-dispatch-shared.mjs": [
+      {
+        "testFile": "tests/unit/auto-dispatch-shared.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/routes/coding-evidence.mjs": [
+      {
+        "testFile": "tests/unit/coding-evidence.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/routes/coding-handover.mjs": [
+      {
+        "testFile": "tests/unit/coding-handover.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/coding-security.mjs": [
+      {
+        "testFile": "tests/unit/coding-security-extended.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/coding-security.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/conversation-sanitize.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/routes/coding-trouble.mjs": [
+      {
+        "testFile": "tests/unit/coding-trouble.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/context-compaction.mjs": [
+      {
+        "testFile": "tests/unit/context-compaction.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "packages/server/test/vision-array-content.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/context-engine.mjs": [
+      {
+        "testFile": "tests/unit/context-engine.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/context-truncation.mjs": [
+      {
+        "testFile": "tests/unit/context-truncation.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/surrogate-safety.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/db/src/connection.ts": [
+      {
+        "testFile": "tests/unit/db-connection.test.ts",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/db/src/index.ts": [
+      {
+        "testFile": "tests/unit/db-connection.test.ts",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/db/src/migrate.ts": [
+      {
+        "testFile": "tests/unit/db-migrate.test.ts",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/db-repositories.test.ts",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/db/src/paths.ts": [
+      {
+        "testFile": "tests/unit/db-paths.test.ts",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/db/src/repositories/runs.ts": [
+      {
+        "testFile": "tests/unit/db-repositories.test.ts",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/db/src/repositories/chats.ts": [
+      {
+        "testFile": "tests/unit/db-repositories.test.ts",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/db/src/repositories/data-store.ts": [
+      {
+        "testFile": "tests/unit/db-repositories.test.ts",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/db/src/types.ts": [
+      {
+        "testFile": "tests/unit/db-repositories.test.ts",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/dependency-context.mjs": [
+      {
+        "testFile": "tests/unit/dependency-context.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/dispatch-verifier.mjs": [
+      {
+        "testFile": "tests/unit/dispatch-verifier.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/em-task-store.mjs": [
+      {
+        "testFile": "tests/unit/em-foreman.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/em-orchestrator.mjs": [
+      {
+        "testFile": "tests/unit/em-foreman.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/em-job-entrypoints.mjs": [
+      {
+        "testFile": "tests/unit/em-foreman.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/exec-approvals.mjs": [
+      {
+        "testFile": "tests/unit/exec-approvals.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/execution-plan.mjs": [
+      {
+        "testFile": "tests/unit/execution-plan.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/feature-registry.mjs": [
+      {
+        "testFile": "tests/unit/feature-merge.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/severity-auto-scan.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/feature-risk-scan.mjs": [
+      {
+        "testFile": "tests/unit/feature-risk-scan.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/severity-auto-scan.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/llm-utils.mjs": [
+      {
+        "testFile": "tests/unit/llm-utils.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/parse-model-reference.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/surrogate-safety.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "packages/server/test/disable-thinking.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/paaw-sandbox.mjs": [
+      {
+        "testFile": "tests/unit/paaw-sandbox-mxc.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/secretary-tools.mjs": [
+      {
+        "testFile": "tests/unit/pm-module.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/secretary-module.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/release-evidence.mjs": [
+      {
+        "testFile": "tests/unit/release-evidence.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/script-guard.mjs": [
+      {
+        "testFile": "tests/unit/script-guard.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/security-mode.mjs": [
+      {
+        "testFile": "tests/unit/security-mode.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/paaw-server.mjs": [
+      {
+        "testFile": "tests/unit/server-entrypoint.test.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
     ],
     "packages/server/src/lib/shell-exec.mjs": [
       {
+        "testFile": "tests/unit/shell-exec.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
         "testFile": "packages/server/src/lib/test-runner.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/stable-stringify.mjs": [
+      {
+        "testFile": "tests/unit/stable-stringify.test.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
@@ -660,105 +1835,375 @@
         "testedFunctions": []
       }
     ],
-    "packages/server/src/routes/ai-settings.mjs": [
+    "packages/server/src/lib/error-code-scan.mjs": [
       {
-        "testFile": "tests/unit/ai-settings.test.mjs",
+        "testFile": "packages/server/tests/unit/error-code-json-repair.test.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
     ],
-    "packages/server/src/lib/auto-dispatch-shared.mjs": [
+    "packages/server/src/lib/vision-content.mjs": [
       {
-        "testFile": "tests/unit/auto-dispatch-shared.test.mjs",
-        "testType": "unit",
-        "testedFunctions": []
-      }
-    ],
-    "packages/server/src/routes/coding-evidence.mjs": [
-      {
-        "testFile": "tests/unit/coding-evidence.test.mjs",
-        "testType": "unit",
-        "testedFunctions": []
-      }
-    ],
-    "packages/server/src/lib/coding-security.mjs": [
-      {
-        "testFile": "tests/unit/coding-security-extended.test.mjs",
+        "testFile": "packages/server/test/vision-array-content.test.mjs",
         "testType": "unit",
         "testedFunctions": []
       },
       {
-        "testFile": "tests/unit/coding-security.test.mjs",
+        "testFile": "packages/server/test/vision-phase3.test.mjs",
         "testType": "unit",
         "testedFunctions": []
       },
       {
-        "testFile": "tests/unit/conversation-sanitize.test.mjs",
+        "testFile": "packages/server/test/vision-phase4.test.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
     ],
-    "packages/server/src/context-engine.mjs": [
+    "packages/server/src/lib/browser-session.mjs": [
       {
-        "testFile": "tests/unit/context-engine.test.mjs",
+        "testFile": "packages/server/test/vision-phase4.test.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
     ],
-    "packages/server/src/lib/context-truncation.mjs": [
+    "packages/server/src/lib/stable-hash.mjs": [
       {
-        "testFile": "tests/unit/context-truncation.test.mjs",
+        "testFile": "packages/server/src/lib/test-intelligence.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
     ],
-    "packages/server/src/lib/dependency-context.mjs": [
+    "packages/server/src/lib/tree-sitter-parser.mjs": [
       {
-        "testFile": "tests/unit/dependency-context.test.mjs",
-        "testType": "unit",
-        "testedFunctions": []
-      }
-    ],
-    "packages/server/src/lib/execution-plan.mjs": [
-      {
-        "testFile": "tests/unit/execution-plan.test.mjs",
-        "testType": "unit",
-        "testedFunctions": []
-      }
-    ],
-    "packages/server/src/lib/llm-utils.mjs": [
-      {
-        "testFile": "tests/unit/llm-utils.test.mjs",
-        "testType": "unit",
-        "testedFunctions": []
-      }
-    ],
-    "packages/server/src/routes/coding-tasks.mjs": [
-      {
-        "testFile": "tests/unit/repair-loop.test.mjs",
+        "testFile": "packages/server/src/lib/test-intelligence.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
     ]
   },
   "whatToRun": {
-    "packages/server/src/lib/stable-hash.mjs": [
+    "packages/server/src/routes/ai-settings.mjs": [
       {
-        "testFile": "packages/server/src/lib/test-intelligence.mjs",
+        "testFile": "tests/unit/ai-settings.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
     ],
-    "packages/server/src/lib/tree-sitter-parser.mjs": [
+    "packages/server/src/routes/audit-log.mjs": [
       {
-        "testFile": "packages/server/src/lib/test-intelligence.mjs",
+        "testFile": "tests/unit/audit-log.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/audit-log.mjs": [
+      {
+        "testFile": "tests/unit/audit-log.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/security/audit-log.mjs": [
+      {
+        "testFile": "tests/unit/audit-log.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/auto-dispatch-shared.mjs": [
+      {
+        "testFile": "tests/unit/auto-dispatch-shared.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/routes/coding-evidence.mjs": [
+      {
+        "testFile": "tests/unit/coding-evidence.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/routes/coding-handover.mjs": [
+      {
+        "testFile": "tests/unit/coding-handover.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/coding-security.mjs": [
+      {
+        "testFile": "tests/unit/coding-security-extended.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/coding-security.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/conversation-sanitize.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/routes/coding-trouble.mjs": [
+      {
+        "testFile": "tests/unit/coding-trouble.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/context-compaction.mjs": [
+      {
+        "testFile": "tests/unit/context-compaction.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "packages/server/test/vision-array-content.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/context-engine.mjs": [
+      {
+        "testFile": "tests/unit/context-engine.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/context-truncation.mjs": [
+      {
+        "testFile": "tests/unit/context-truncation.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/surrogate-safety.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/db/src/connection.ts": [
+      {
+        "testFile": "tests/unit/db-connection.test.ts",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/db/src/index.ts": [
+      {
+        "testFile": "tests/unit/db-connection.test.ts",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/db/src/migrate.ts": [
+      {
+        "testFile": "tests/unit/db-migrate.test.ts",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/db-repositories.test.ts",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/db/src/paths.ts": [
+      {
+        "testFile": "tests/unit/db-paths.test.ts",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/db/src/repositories/runs.ts": [
+      {
+        "testFile": "tests/unit/db-repositories.test.ts",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/db/src/repositories/chats.ts": [
+      {
+        "testFile": "tests/unit/db-repositories.test.ts",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/db/src/repositories/data-store.ts": [
+      {
+        "testFile": "tests/unit/db-repositories.test.ts",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/db/src/types.ts": [
+      {
+        "testFile": "tests/unit/db-repositories.test.ts",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/dependency-context.mjs": [
+      {
+        "testFile": "tests/unit/dependency-context.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/dispatch-verifier.mjs": [
+      {
+        "testFile": "tests/unit/dispatch-verifier.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/em-task-store.mjs": [
+      {
+        "testFile": "tests/unit/em-foreman.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/em-orchestrator.mjs": [
+      {
+        "testFile": "tests/unit/em-foreman.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/em-job-entrypoints.mjs": [
+      {
+        "testFile": "tests/unit/em-foreman.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/exec-approvals.mjs": [
+      {
+        "testFile": "tests/unit/exec-approvals.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/execution-plan.mjs": [
+      {
+        "testFile": "tests/unit/execution-plan.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/feature-registry.mjs": [
+      {
+        "testFile": "tests/unit/feature-merge.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/severity-auto-scan.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/feature-risk-scan.mjs": [
+      {
+        "testFile": "tests/unit/feature-risk-scan.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/severity-auto-scan.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/llm-utils.mjs": [
+      {
+        "testFile": "tests/unit/llm-utils.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/parse-model-reference.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/surrogate-safety.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "packages/server/test/disable-thinking.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/paaw-sandbox.mjs": [
+      {
+        "testFile": "tests/unit/paaw-sandbox-mxc.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/secretary-tools.mjs": [
+      {
+        "testFile": "tests/unit/pm-module.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/secretary-module.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/release-evidence.mjs": [
+      {
+        "testFile": "tests/unit/release-evidence.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/script-guard.mjs": [
+      {
+        "testFile": "tests/unit/script-guard.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/security-mode.mjs": [
+      {
+        "testFile": "tests/unit/security-mode.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/paaw-server.mjs": [
+      {
+        "testFile": "tests/unit/server-entrypoint.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
     ],
     "packages/server/src/lib/shell-exec.mjs": [
       {
+        "testFile": "tests/unit/shell-exec.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
         "testFile": "packages/server/src/lib/test-runner.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/stable-stringify.mjs": [
+      {
+        "testFile": "tests/unit/stable-stringify.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
@@ -815,82 +2260,47 @@
         "reason": "Tests this file"
       }
     ],
-    "packages/server/src/routes/ai-settings.mjs": [
+    "packages/server/src/lib/error-code-scan.mjs": [
       {
-        "testFile": "tests/unit/ai-settings.test.mjs",
+        "testFile": "packages/server/tests/unit/error-code-json-repair.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
     ],
-    "packages/server/src/lib/auto-dispatch-shared.mjs": [
+    "packages/server/src/lib/vision-content.mjs": [
       {
-        "testFile": "tests/unit/auto-dispatch-shared.test.mjs",
-        "testType": "unit",
-        "reason": "Tests this file"
-      }
-    ],
-    "packages/server/src/routes/coding-evidence.mjs": [
-      {
-        "testFile": "tests/unit/coding-evidence.test.mjs",
-        "testType": "unit",
-        "reason": "Tests this file"
-      }
-    ],
-    "packages/server/src/lib/coding-security.mjs": [
-      {
-        "testFile": "tests/unit/coding-security-extended.test.mjs",
+        "testFile": "packages/server/test/vision-array-content.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       },
       {
-        "testFile": "tests/unit/coding-security.test.mjs",
+        "testFile": "packages/server/test/vision-phase3.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       },
       {
-        "testFile": "tests/unit/conversation-sanitize.test.mjs",
+        "testFile": "packages/server/test/vision-phase4.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
     ],
-    "packages/server/src/context-engine.mjs": [
+    "packages/server/src/lib/browser-session.mjs": [
       {
-        "testFile": "tests/unit/context-engine.test.mjs",
+        "testFile": "packages/server/test/vision-phase4.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
     ],
-    "packages/server/src/lib/context-truncation.mjs": [
+    "packages/server/src/lib/stable-hash.mjs": [
       {
-        "testFile": "tests/unit/context-truncation.test.mjs",
+        "testFile": "packages/server/src/lib/test-intelligence.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
     ],
-    "packages/server/src/lib/dependency-context.mjs": [
+    "packages/server/src/lib/tree-sitter-parser.mjs": [
       {
-        "testFile": "tests/unit/dependency-context.test.mjs",
-        "testType": "unit",
-        "reason": "Tests this file"
-      }
-    ],
-    "packages/server/src/lib/execution-plan.mjs": [
-      {
-        "testFile": "tests/unit/execution-plan.test.mjs",
-        "testType": "unit",
-        "reason": "Tests this file"
-      }
-    ],
-    "packages/server/src/lib/llm-utils.mjs": [
-      {
-        "testFile": "tests/unit/llm-utils.test.mjs",
-        "testType": "unit",
-        "reason": "Tests this file"
-      }
-    ],
-    "packages/server/src/routes/coding-tasks.mjs": [
-      {
-        "testFile": "tests/unit/repair-loop.test.mjs",
+        "testFile": "packages/server/src/lib/test-intelligence.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
@@ -899,33 +2309,38 @@
   "coverageGaps": [
     {
       "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "functionCount": 40,
-      "exportCount": 12
-    },
-    {
-      "file": "packages/server/src/lib/browser-session.mjs",
-      "functionCount": 30,
-      "exportCount": 24
+      "functionCount": 68,
+      "exportCount": 13
     },
     {
       "file": "packages/server/src/routes/coding.mjs",
-      "functionCount": 29,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/TaskBoard.tsx",
-      "functionCount": 26,
-      "exportCount": 1
+      "functionCount": 42,
+      "exportCount": 2
     },
     {
       "file": "packages/server/src/routes/a2a.mjs",
-      "functionCount": 25,
+      "functionCount": 35,
+      "exportCount": 5
+    },
+    {
+      "file": "packages/server/src/lib/release-requests.mjs",
+      "functionCount": 33,
+      "exportCount": 15
+    },
+    {
+      "file": "packages/ui/src/components/browser/BrowserPanel.tsx",
+      "functionCount": 29,
       "exportCount": 2
     },
     {
       "file": "packages/server/src/lib/project-crew.mjs",
-      "functionCount": 24,
-      "exportCount": 14
+      "functionCount": 28,
+      "exportCount": 18
+    },
+    {
+      "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx",
+      "functionCount": 25,
+      "exportCount": 25
     },
     {
       "file": "packages/ui/src/pages/ProjectBoard.tsx",
@@ -939,12 +2354,32 @@
     },
     {
       "file": "packages/server/src/lib/browser-executor.mjs",
-      "functionCount": 23,
+      "functionCount": 24,
       "exportCount": 10
+    },
+    {
+      "file": "installed-apps/learning/server/routes/quiz-session.mjs",
+      "functionCount": 24,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/pages/CodingIDE.tsx",
+      "functionCount": 23,
+      "exportCount": 1
     },
     {
       "file": "packages/ui/src/pages/BriefingPlayer.tsx",
       "functionCount": 22,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/lib/dev-server.mjs",
+      "functionCount": 22,
+      "exportCount": 7
+    },
+    {
+      "file": "packages/ui/src/pages/SettingsPage.tsx",
+      "functionCount": 21,
       "exportCount": 1
     },
     {
@@ -953,9 +2388,14 @@
       "exportCount": 2
     },
     {
-      "file": "packages/ui/src/pages/SettingsPage.tsx",
-      "functionCount": 19,
+      "file": "installed-apps/learning/server/routes/exam-vault.mjs",
+      "functionCount": 20,
       "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/lib/es-shipper.mjs",
+      "functionCount": 19,
+      "exportCount": 4
     },
     {
       "file": "packages/server/src/routes/notes.mjs",
@@ -963,24 +2403,54 @@
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
+      "file": "packages/server/src/lib/auto-dispatch-manager.mjs",
+      "functionCount": 18,
+      "exportCount": 5
+    },
+    {
+      "file": "packages/server/src/lib/proc-ledger.mjs",
+      "functionCount": 18,
+      "exportCount": 5
+    },
+    {
+      "file": "installed-apps/learning/ui/components/ExamVault.tsx",
       "functionCount": 18,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/distill.mjs",
-      "functionCount": 17,
-      "exportCount": 8
+      "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/server-actions-form.tsx",
+      "functionCount": 18,
+      "exportCount": 14
     },
     {
-      "file": "packages/ui/src/components/browser/BrowserPanel.tsx",
+      "file": "packages/ui/src/components/ReleaseRequests.tsx",
       "functionCount": 17,
-      "exportCount": 2
+      "exportCount": 3
     },
     {
-      "file": "packages/server/src/lib/auto-dispatch-manager.mjs",
-      "functionCount": 16,
+      "file": "packages/server/src/lib/release-unit/cost.mjs",
+      "functionCount": 17,
       "exportCount": 5
+    },
+    {
+      "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
+      "functionCount": 17,
+      "exportCount": 15
+    },
+    {
+      "file": "packages/ui/src/components/UsageReportPanel.tsx",
+      "functionCount": 16,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/tools/index.mjs",
+      "functionCount": 16,
+      "exportCount": 4
+    },
+    {
+      "file": "packages/server/src/lib/ru-skills.mjs",
+      "functionCount": 16,
+      "exportCount": 8
     },
     {
       "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
@@ -988,14 +2458,14 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/tools/index.mjs",
-      "functionCount": 15,
-      "exportCount": 4
+      "file": "installed-apps/learning/ui/pages/LearningSpace.tsx",
+      "functionCount": 16,
+      "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/JsonViewer.tsx",
-      "functionCount": 15,
-      "exportCount": 1
+      "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/cache-component-use-cache.tsx",
+      "functionCount": 16,
+      "exportCount": 14
     },
     {
       "file": "packages/ui/src/pages/CronJobsPage.tsx",
@@ -1003,24 +2473,19 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/lib/release-unit/handover-state.mjs",
-      "functionCount": 14,
-      "exportCount": 5
+      "file": "packages/ui/src/components/JsonViewer.tsx",
+      "functionCount": 15,
+      "exportCount": 1
     },
     {
-      "file": "packages/server/src/lib/semgrep-runner.mjs",
-      "functionCount": 14,
+      "file": "packages/server/src/lib/code-graph.mjs",
+      "functionCount": 15,
       "exportCount": 7
     },
     {
-      "file": "packages/server/src/routes/backup.mjs",
-      "functionCount": 14,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/server/src/scheduler/cron-jobs.mjs",
-      "functionCount": 14,
-      "exportCount": 1
+      "file": "packages/server/src/lib/code-intelligence.mjs",
+      "functionCount": 15,
+      "exportCount": 7
     },
     {
       "file": "packages/ui/src/pages/ChatView.tsx",
@@ -1028,22 +2493,37 @@
       "exportCount": 2
     },
     {
-      "file": "packages/server/src/lib/release-unit/model.mjs",
-      "functionCount": 13,
+      "file": "packages/ui/src/components/TaskBoard.tsx",
+      "functionCount": 14,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/backup.mjs",
+      "functionCount": 14,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/server/src/lib/janitor.mjs",
+      "functionCount": 14,
+      "exportCount": 5
+    },
+    {
+      "file": "packages/server/src/lib/qa-results.mjs",
+      "functionCount": 14,
+      "exportCount": 6
+    },
+    {
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "functionCount": 14,
+      "exportCount": 7
+    },
+    {
+      "file": "packages/server/src/lib/release-unit/handover-state.mjs",
+      "functionCount": 14,
       "exportCount": 5
     },
     {
       "file": "packages/ui/src/App.tsx",
-      "functionCount": 13,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/AutoDispatchPanel.tsx",
-      "functionCount": 13,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/ui/src/components/CrewManager.tsx",
       "functionCount": 13,
       "exportCount": 1
     },
@@ -1053,32 +2533,27 @@
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/utils/index.ts",
+      "file": "packages/server/src/scheduler/cron-jobs.mjs",
       "functionCount": 13,
-      "exportCount": 13
-    },
-    {
-      "file": "packages/server/src/lib/release-unit/cost.mjs",
-      "functionCount": 12,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/lib/release-unit/dependencies.mjs",
-      "functionCount": 12,
+      "file": "packages/server/src/routes/api-tester.mjs",
+      "functionCount": 13,
+      "exportCount": 7
+    },
+    {
+      "file": "packages/server/src/lib/release-unit/model.mjs",
+      "functionCount": 13,
       "exportCount": 5
     },
     {
-      "file": "packages/server/src/routes/coding-features.mjs",
-      "functionCount": 12,
-      "exportCount": 1
+      "file": "installed-apps/learning/ui/components/CurriculumView.tsx",
+      "functionCount": 13,
+      "exportCount": 7
     },
     {
-      "file": "packages/server/src/routes/shared.mjs",
-      "functionCount": 12,
-      "exportCount": 59
-    },
-    {
-      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "file": "packages/ui/src/components/CrewManager.tsx",
       "functionCount": 12,
       "exportCount": 1
     },
@@ -1088,14 +2563,34 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/lib/code-intelligence.mjs",
-      "functionCount": 11,
-      "exportCount": 7
+      "file": "packages/ui/src/components/git/git-helpers.ts",
+      "functionCount": 12,
+      "exportCount": 19
     },
     {
-      "file": "packages/ui/src/components/CodeIntelPage.tsx",
-      "functionCount": 11,
+      "file": "packages/server/src/routes/shared.mjs",
+      "functionCount": 12,
+      "exportCount": 58
+    },
+    {
+      "file": "packages/server/src/lib/module-registry.mjs",
+      "functionCount": 12,
+      "exportCount": 10
+    },
+    {
+      "file": "packages/server/src/lib/release-unit/dependencies.mjs",
+      "functionCount": 12,
+      "exportCount": 5
+    },
+    {
+      "file": "installed-apps/sre/server/routes/grafana.mjs",
+      "functionCount": 12,
       "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/ChatMessages.tsx",
+      "functionCount": 11,
+      "exportCount": 12
     },
     {
       "file": "packages/ui/src/components/EMDashboard.tsx",
@@ -1103,24 +2598,24 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/lib/agent-exec-logger.mjs",
-      "functionCount": 10,
-      "exportCount": 8
-    },
-    {
-      "file": "packages/server/src/lib/em-config.mjs",
-      "functionCount": 10,
-      "exportCount": 7
-    },
-    {
-      "file": "packages/server/src/routes/coding-handover.mjs",
-      "functionCount": 10,
-      "exportCount": 1
-    },
-    {
       "file": "packages/ui/src/components/FeatureMap.tsx",
-      "functionCount": 10,
+      "functionCount": 11,
       "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/coding-features.mjs",
+      "functionCount": 11,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "functionCount": 11,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/lib/coding-review-runner.mjs",
+      "functionCount": 11,
+      "exportCount": 6
     },
     {
       "file": "packages/ui/src/components/KnowledgeTree.tsx",
@@ -1128,12 +2623,77 @@
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/pages/FileViewer.tsx",
+      "file": "packages/ui/src/components/ModelSelector.tsx",
+      "functionCount": 10,
+      "exportCount": 4
+    },
+    {
+      "file": "packages/ui/src/components/ui/uiFeedback.ts",
+      "functionCount": 10,
+      "exportCount": 4
+    },
+    {
+      "file": "packages/server/src/routes/log-retention.mjs",
+      "functionCount": 10,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/server/src/lib/agent-exec-logger.mjs",
+      "functionCount": 10,
+      "exportCount": 8
+    },
+    {
+      "file": "packages/server/src/lib/assistant-skills.mjs",
+      "functionCount": 10,
+      "exportCount": 8
+    },
+    {
+      "file": "packages/server/src/lib/c4-model-scan.mjs",
+      "functionCount": 10,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/server/src/lib/em-config.mjs",
+      "functionCount": 10,
+      "exportCount": 7
+    },
+    {
+      "file": "installed-apps/sre/server/routes/briefing.mjs",
       "functionCount": 10,
       "exportCount": 1
     },
     {
+      "file": "installed-apps/learning/ui/components/TeacherChatPanel.tsx",
+      "functionCount": 10,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/pages/BackupSettings.tsx",
+      "functionCount": 9,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/pages/FileViewer.tsx",
+      "functionCount": 9,
+      "exportCount": 0
+    },
+    {
+      "file": "packages/server/src/routes/coding-tasks.mjs",
+      "functionCount": 9,
+      "exportCount": 5
+    },
+    {
+      "file": "packages/server/src/routes/crew.mjs",
+      "functionCount": 9,
+      "exportCount": 1
+    },
+    {
       "file": "packages/server/src/routes/helpdesk.mjs",
+      "functionCount": 9,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/server/src/routes/llm-logs.mjs",
       "functionCount": 9,
       "exportCount": 2
     },
@@ -1148,19 +2708,59 @@
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/ChatMessages.tsx",
+      "file": "packages/server/src/lib/project-md.mjs",
       "functionCount": 9,
-      "exportCount": 2
+      "exportCount": 7
     },
     {
-      "file": "packages/ui/src/components/ModelSelector.tsx",
-      "functionCount": 9,
-      "exportCount": 3
-    },
-    {
-      "file": "packages/ui/src/pages/BackupSettings.tsx",
+      "file": "installed-apps/pm/server/routes/briefing.mjs",
       "functionCount": 9,
       "exportCount": 1
+    },
+    {
+      "file": "installed-apps/pm/server/routes/dossiers.mjs",
+      "functionCount": 9,
+      "exportCount": 1
+    },
+    {
+      "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/app-router-async-params.tsx",
+      "functionCount": 9,
+      "exportCount": 9
+    },
+    {
+      "file": "scripts/check-sandbox.mjs",
+      "functionCount": 8,
+      "exportCount": 0
+    },
+    {
+      "file": "scripts/paaw-sync.mjs",
+      "functionCount": 8,
+      "exportCount": 0
+    },
+    {
+      "file": "packages/ui/src/pages/GanttChart.tsx",
+      "functionCount": 8,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "functionCount": 8,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/git/GitDiffView.tsx",
+      "functionCount": 8,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/context.mjs",
+      "functionCount": 8,
+      "exportCount": 9
+    },
+    {
+      "file": "packages/server/src/lib/app-modules.mjs",
+      "functionCount": 8,
+      "exportCount": 8
     },
     {
       "file": "packages/server/src/lib/domain-agent-registry.mjs",
@@ -1168,9 +2768,19 @@
       "exportCount": 8
     },
     {
+      "file": "packages/server/src/lib/feature-map-v2.mjs",
+      "functionCount": 8,
+      "exportCount": 1
+    },
+    {
       "file": "packages/server/src/lib/feature-map-validator.mjs",
       "functionCount": 8,
       "exportCount": 6
+    },
+    {
+      "file": "packages/server/src/lib/paaw-project.mjs",
+      "functionCount": 8,
+      "exportCount": 3
     },
     {
       "file": "packages/server/src/lib/review-boundary.mjs",
@@ -1183,79 +2793,19 @@
       "exportCount": 4
     },
     {
-      "file": "packages/server/src/routes/coding-releases.mjs",
+      "file": "installed-apps/sre/server/routes/services.mjs",
+      "functionCount": 8,
+      "exportCount": 3
+    },
+    {
+      "file": "installed-apps/secret/server/routes/dossiers.mjs",
       "functionCount": 8,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/context.mjs",
+      "file": "installed-apps/pm/server/routes/projects.mjs",
       "functionCount": 8,
-      "exportCount": 9
-    },
-    {
-      "file": "packages/server/src/routes/crew.mjs",
-      "functionCount": 8,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/routes/llm-logs.mjs",
-      "functionCount": 8,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/server/src/routes/log-retention.mjs",
-      "functionCount": 8,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/ui/src/pages/GanttChart.tsx",
-      "functionCount": 8,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/ReleaseUnitExplorer.tsx",
-      "functionCount": 8,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/WorkflowEditor.tsx",
-      "functionCount": 8,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/WorkflowExec.tsx",
-      "functionCount": 8,
-      "exportCount": 1
-    },
-    {
-      "file": "scripts/paaw-sync.mjs",
-      "functionCount": 8,
-      "exportCount": 0
-    },
-    {
-      "file": "packages/server/src/lib/tool-engine/index.mjs",
-      "functionCount": 7,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/server/src/routes/coding-issues.mjs",
-      "functionCount": 7,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/routes/projects.mjs",
-      "functionCount": 7,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/shared/src/utils/index.ts",
-      "functionCount": 7,
-      "exportCount": 7
-    },
-    {
-      "file": "packages/ui/src/components/EvidenceCard.tsx",
-      "functionCount": 7,
-      "exportCount": 1
+      "exportCount": 3
     },
     {
       "file": "packages/ui/src/components/FeatureCockpit.tsx",
@@ -1268,54 +2818,79 @@
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/git/git-helpers.ts",
+      "file": "packages/shared/src/utils/index.ts",
       "functionCount": 7,
       "exportCount": 7
     },
     {
-      "file": "packages/server/src/lib/action-log.mjs",
-      "functionCount": 6,
-      "exportCount": 4
-    },
-    {
-      "file": "packages/server/src/lib/agentic-binding.mjs",
-      "functionCount": 6,
-      "exportCount": 3
-    },
-    {
-      "file": "packages/server/src/lib/browser-setup.mjs",
-      "functionCount": 6,
-      "exportCount": 3
-    },
-    {
-      "file": "packages/server/src/lib/context-providers.mjs",
-      "functionCount": 6,
+      "file": "packages/server/src/routes/coding-issues.mjs",
+      "functionCount": 7,
       "exportCount": 1
     },
     {
       "file": "packages/server/src/routes/coding-ops.mjs",
-      "functionCount": 6,
+      "functionCount": 7,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/AgentLogs.tsx",
-      "functionCount": 6,
+      "file": "packages/server/src/routes/projects.mjs",
+      "functionCount": 7,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/PaawTree.tsx",
-      "functionCount": 6,
+      "file": "packages/server/src/lib/action-log.mjs",
+      "functionCount": 7,
+      "exportCount": 5
+    },
+    {
+      "file": "packages/server/src/lib/cu-source-scan.mjs",
+      "functionCount": 7,
+      "exportCount": 7
+    },
+    {
+      "file": "packages/server/src/lib/temp-janitor.mjs",
+      "functionCount": 7,
+      "exportCount": 4
+    },
+    {
+      "file": "packages/server/src/lib/tool-engine/index.mjs",
+      "functionCount": 7,
+      "exportCount": 2
+    },
+    {
+      "file": "installed-apps/sre/server/routes/crews.mjs",
+      "functionCount": 7,
+      "exportCount": 5
+    },
+    {
+      "file": "installed-apps/sre/server/routes/dossiers.mjs",
+      "functionCount": 7,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/StandardsEditor.tsx",
-      "functionCount": 6,
+      "file": "installed-apps/secret/server/routes/briefing.mjs",
+      "functionCount": 7,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/ui/shared.tsx",
+      "file": "installed-apps/secret/server/routes/categories.mjs",
+      "functionCount": 7,
+      "exportCount": 1
+    },
+    {
+      "file": "installed-apps/learning/server/routes/learning-practice.mjs",
+      "functionCount": 7,
+      "exportCount": 1
+    },
+    {
+      "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/proxy-migration.ts",
+      "functionCount": 7,
+      "exportCount": 12
+    },
+    {
+      "file": "packages/ui/src/utils/index.ts",
       "functionCount": 6,
-      "exportCount": 6
+      "exportCount": 7
     },
     {
       "file": "packages/ui/src/pages/AISettingsPage.tsx",
@@ -1323,7 +2898,7 @@
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/pages/EmployeeWorkspace.tsx",
+      "file": "packages/ui/src/pages/AppModules.tsx",
       "functionCount": 6,
       "exportCount": 1
     },
@@ -1333,24 +2908,64 @@
       "exportCount": 1
     },
     {
-      "file": "packages/db/src/connection.ts",
-      "functionCount": 5,
-      "exportCount": 5
+      "file": "packages/ui/src/components/AgentLogs.tsx",
+      "functionCount": 6,
+      "exportCount": 1
     },
     {
-      "file": "packages/server/src/lib/context-compaction.mjs",
-      "functionCount": 5,
+      "file": "packages/server/src/routes/uploads.mjs",
+      "functionCount": 6,
+      "exportCount": 3
+    },
+    {
+      "file": "packages/server/src/lib/context-providers.mjs",
+      "functionCount": 6,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/lib/skill-suggest.mjs",
+      "functionCount": 6,
       "exportCount": 4
+    },
+    {
+      "file": "installed-apps/secret/ui/pages/Secretary.tsx",
+      "functionCount": 6,
+      "exportCount": 1
+    },
+    {
+      "file": "scripts/pack.mjs",
+      "functionCount": 5,
+      "exportCount": 0
+    },
+    {
+      "file": "packages/ui/src/components/ApiTesterTabs.tsx",
+      "functionCount": 5,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/ui/src/components/TestsPage.tsx",
+      "functionCount": 5,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/websocket/ws-handler.mjs",
+      "functionCount": 5,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/coding-auto-dispatch.mjs",
+      "functionCount": 5,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/lib/env-exec-tool.mjs",
+      "functionCount": 5,
+      "exportCount": 2
     },
     {
       "file": "packages/server/src/lib/feature-boundary.mjs",
       "functionCount": 5,
       "exportCount": 4
-    },
-    {
-      "file": "packages/server/src/lib/paaw-project.mjs",
-      "functionCount": 5,
-      "exportCount": 2
     },
     {
       "file": "packages/server/src/lib/task-retrofit.mjs",
@@ -1363,57 +2978,117 @@
       "exportCount": 5
     },
     {
-      "file": "packages/server/src/routes/coding-auto-dispatch.mjs",
+      "file": "installed-apps/sre/ui/components/InspectionPanel.tsx",
       "functionCount": 5,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/workflow.mjs",
+      "file": "installed-apps/pm/ui/pages/ProjectOffice.tsx",
       "functionCount": 5,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/AgentMemoryPanel.tsx",
+      "file": "installed-apps/learning/scripts/import-cap-vault.py",
       "functionCount": 5,
-      "exportCount": 1
+      "exportCount": 4
     },
     {
-      "file": "packages/ui/src/components/FilePickerModal.tsx",
-      "functionCount": 5,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/HandoverPanel.tsx",
-      "functionCount": 5,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/AICrew.tsx",
-      "functionCount": 5,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/WelcomePage.tsx",
-      "functionCount": 5,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/engine/src/runner/index.ts",
+      "file": "scripts/postinstall.cjs",
       "functionCount": 4,
-      "exportCount": 6
+      "exportCount": 0
     },
     {
-      "file": "packages/server/src/lib/doc-coverage.mjs",
+      "file": "packages/ui/src/moduleRuntime.ts",
+      "functionCount": 4,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/pages/AppBuilder.tsx",
+      "functionCount": 4,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/pages/AppPool.tsx",
+      "functionCount": 4,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/pages/HelpDesk.tsx",
+      "functionCount": 4,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/i18n/index.tsx",
       "functionCount": 4,
       "exportCount": 4
     },
     {
-      "file": "packages/server/src/lib/release-unit/adapters.mjs",
+      "file": "packages/ui/src/components/AssistantProfileModal.tsx",
       "functionCount": 4,
-      "exportCount": 8
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/CodeIntelPage.tsx",
+      "functionCount": 4,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/ColResizer.tsx",
+      "functionCount": 4,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/ui/src/components/DiffViewer.tsx",
+      "functionCount": 4,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/ui/src/components/DirectoryExplorer.tsx",
+      "functionCount": 4,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/FileImportPicker.tsx",
+      "functionCount": 4,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/HandoverPanel.tsx",
+      "functionCount": 4,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/Icon.tsx",
+      "functionCount": 4,
+      "exportCount": 4
+    },
+    {
+      "file": "packages/ui/src/components/QaRecords.tsx",
+      "functionCount": 4,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/RuSkillManagerModal.tsx",
+      "functionCount": 4,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/SkillSuggestModal.tsx",
+      "functionCount": 4,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/ui/shared.tsx",
+      "functionCount": 4,
+      "exportCount": 4
     },
     {
       "file": "packages/server/src/routes/assistant.mjs",
+      "functionCount": 4,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/chat.mjs",
       "functionCount": 4,
       "exportCount": 1
     },
@@ -1438,79 +3113,174 @@
       "exportCount": 2
     },
     {
-      "file": "packages/server/src/websocket/ws-handler.mjs",
-      "functionCount": 4,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/CrewEditor.tsx",
-      "functionCount": 4,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/DiffViewer.tsx",
-      "functionCount": 4,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/ui/src/components/DirectoryExplorer.tsx",
-      "functionCount": 4,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/FileImportPicker.tsx",
-      "functionCount": 4,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/Icon.tsx",
-      "functionCount": 4,
-      "exportCount": 4
-    },
-    {
-      "file": "packages/ui/src/components/ProjectAiPanel.tsx",
-      "functionCount": 4,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/TestsPage.tsx",
-      "functionCount": 4,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/i18n/index.tsx",
+      "file": "packages/server/src/lib/browser-setup.mjs",
       "functionCount": 4,
       "exportCount": 3
     },
     {
-      "file": "packages/ui/src/pages/AppBuilder.tsx",
+      "file": "packages/server/src/lib/doc-coverage.mjs",
+      "functionCount": 4,
+      "exportCount": 4
+    },
+    {
+      "file": "packages/server/src/lib/release-unit/adapters.mjs",
+      "functionCount": 4,
+      "exportCount": 10
+    },
+    {
+      "file": "packages/engine/src/runner/index.ts",
+      "functionCount": 4,
+      "exportCount": 7
+    },
+    {
+      "file": "installed-apps/sre/ui/pages/SreOffice.tsx",
       "functionCount": 4,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/pages/AppPool.tsx",
+      "file": "installed-apps/learning/ui/components/LearningPractice.tsx",
       "functionCount": 4,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/pages/HelpDesk.tsx",
-      "functionCount": 4,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/ProviderSetupPage.tsx",
-      "functionCount": 4,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/SystemPromptsPage.tsx",
-      "functionCount": 4,
-      "exportCount": 1
-    },
-    {
-      "file": "scripts/postinstall.cjs",
-      "functionCount": 4,
+      "file": "scripts/runtime-guard-scanner.mjs",
+      "functionCount": 3,
       "exportCount": 0
+    },
+    {
+      "file": "packages/ui/src/theme.tsx",
+      "functionCount": 3,
+      "exportCount": 6
+    },
+    {
+      "file": "packages/ui/src/utils/pasteFiles.ts",
+      "functionCount": 3,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/ui/src/pages/MindMapViewer.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/pages/Notes.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/AgentBuilder.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/ApiMapSidebar.tsx",
+      "functionCount": 3,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/ui/src/components/AssistantSkillsModal.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/ConsoleLogView.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/DecisionLog.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/JanitorPanel.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/LlmLogTab.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/ProjectMdPage.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/SessionHistory.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/SkillsUsagePanel.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/git/GitStatusView.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/apps.mjs",
+      "functionCount": 3,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/server/src/routes/browser.mjs",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/coding-auto-dispatch-config.mjs",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/coding-c4-model.mjs",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/coding-error-codes.mjs",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/coding-review-board.mjs",
+      "functionCount": 3,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/server/src/routes/coding-ru-skills.mjs",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/skills-api.mjs",
+      "functionCount": 3,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/server/src/lib/dispatch-stream-state.mjs",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/lib/module-ui-bundle.mjs",
+      "functionCount": 3,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/server/src/lib/tool-engine/provider.mjs",
+      "functionCount": 3,
+      "exportCount": 2
     },
     {
       "file": "packages/server/src/lib/release-unit/analyze.mjs",
@@ -1538,109 +3308,124 @@
       "exportCount": 2
     },
     {
-      "file": "packages/server/src/lib/tool-engine/provider.mjs",
+      "file": "installed-apps/sre/server/routes/sheets.mjs",
       "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "installed-apps/secret/server/routes/sheets.mjs",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "installed-apps/pm/server/routes/sheets.mjs",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "installed-apps/learning/ui/components/quiz/QuizReport.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/async-params-page.tsx",
+      "functionCount": 3,
+      "exportCount": 5
+    },
+    {
+      "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/server-action-form.tsx",
+      "functionCount": 3,
+      "exportCount": 3
+    },
+    {
+      "file": "packages/ui/src/types/index.ts",
+      "functionCount": 2,
+      "exportCount": 10
+    },
+    {
+      "file": "packages/ui/src/components/AgentConsole.tsx",
+      "functionCount": 2,
       "exportCount": 2
     },
     {
-      "file": "packages/server/src/routes/agentic-bindings.mjs",
-      "functionCount": 3,
+      "file": "packages/ui/src/components/CodeReviewBoardPanel.tsx",
+      "functionCount": 2,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/browser.mjs",
-      "functionCount": 3,
+      "file": "packages/ui/src/components/ModulePickerModal.tsx",
+      "functionCount": 2,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/chat.mjs",
-      "functionCount": 3,
+      "file": "packages/ui/src/components/MoveFolderPicker.tsx",
+      "functionCount": 2,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/coding-auto-dispatch-config.mjs",
-      "functionCount": 3,
+      "file": "packages/ui/src/components/RuCloneModal.tsx",
+      "functionCount": 2,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/coding-health.mjs",
-      "functionCount": 3,
+      "file": "packages/ui/src/components/RuQaSection.tsx",
+      "functionCount": 2,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/skills-api.mjs",
-      "functionCount": 3,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/ui/src/components/AgentBuilder.tsx",
-      "functionCount": 3,
+      "file": "packages/ui/src/components/SecurityTab.tsx",
+      "functionCount": 2,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/ApiMapSidebar.tsx",
-      "functionCount": 3,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/ui/src/components/DecisionLog.tsx",
-      "functionCount": 3,
+      "file": "packages/ui/src/components/SkillPicker.tsx",
+      "functionCount": 2,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/LlmLogTab.tsx",
-      "functionCount": 3,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/RuCostSection.tsx",
-      "functionCount": 3,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/SessionHistory.tsx",
-      "functionCount": 3,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/TroubleshootingPanel.tsx",
-      "functionCount": 3,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/git/GitDiffView.tsx",
-      "functionCount": 3,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/MindMapViewer.tsx",
-      "functionCount": 3,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/Notes.tsx",
-      "functionCount": 3,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/theme.tsx",
-      "functionCount": 3,
+      "file": "packages/ui/src/components/useRuModel.ts",
+      "functionCount": 2,
       "exportCount": 4
     },
     {
-      "file": "scripts/runtime-guard-scanner.mjs",
-      "functionCount": 3,
-      "exportCount": 0
-    },
-    {
-      "file": "packages/context/src/assembler.ts",
+      "file": "packages/ui/src/components/git/FeatureGroupCard.tsx",
       "functionCount": 2,
       "exportCount": 1
     },
     {
-      "file": "packages/db/src/paths.ts",
+      "file": "packages/shared/src/schemas/index.ts",
+      "functionCount": 2,
+      "exportCount": 22
+    },
+    {
+      "file": "packages/server/src/routes/agent-logs.mjs",
+      "functionCount": 2,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/coding-auto-dispatch-prompts.mjs",
       "functionCount": 2,
       "exportCount": 2
+    },
+    {
+      "file": "packages/server/src/routes/coding-reports.mjs",
+      "functionCount": 2,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/execution-plan-routes.mjs",
+      "functionCount": 2,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/plugins.mjs",
+      "functionCount": 2,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/server/src/routes/vibe-sessions.mjs",
+      "functionCount": 2,
+      "exportCount": 1
     },
     {
       "file": "packages/server/src/lib/change-intelligence.mjs",
@@ -1673,189 +3458,64 @@
       "exportCount": 2
     },
     {
-      "file": "packages/server/src/paaw-server.mjs",
-      "functionCount": 2,
-      "exportCount": 0
-    },
-    {
-      "file": "packages/server/src/routes/agent-logs.mjs",
+      "file": "packages/context/src/assembler.ts",
       "functionCount": 2,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/api-tester.mjs",
+      "file": "installed-apps/sre/ui/components/ExpertChatPanel.tsx",
       "functionCount": 2,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/coding-auto-dispatch-prompts.mjs",
-      "functionCount": 2,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/server/src/routes/coding-reports.mjs",
+      "file": "installed-apps/secret/ui/components/ExpertChatPanel.tsx",
       "functionCount": 2,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/execution-plan-routes.mjs",
+      "file": "installed-apps/pm/ui/components/ExpertChatPanel.tsx",
       "functionCount": 2,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/plugins.mjs",
-      "functionCount": 2,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/server/src/routes/vibe-sessions.mjs",
+      "file": "installed-apps/learning/ui/components/quiz/QuizComposer.tsx",
       "functionCount": 2,
       "exportCount": 1
     },
     {
-      "file": "packages/shared/src/schemas/index.ts",
-      "functionCount": 2,
-      "exportCount": 18
-    },
-    {
-      "file": "packages/ui/src/components/AgentConsole.tsx",
+      "file": "installed-apps/learning/ui/components/quiz/QuizRunner.tsx",
       "functionCount": 2,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/MoveFolderPicker.tsx",
+      "file": "installed-apps/learning/ui/components/quiz/types.ts",
       "functionCount": 2,
-      "exportCount": 1
+      "exportCount": 13
     },
     {
-      "file": "packages/ui/src/components/RuModelSection.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/RuQaSection.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/SecurityTab.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/SkillPicker.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/git/GitReviewView.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/git/GitStatusView.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/orchestrator/NodeContractPanel.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/orchestrator/TestTargetsPanel.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/useRuModel.ts",
-      "functionCount": 2,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/ui/src/pages/A2APlayground.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/AgenticSettings.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/OrchestratorWorkspace.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/types/index.ts",
-      "functionCount": 2,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/db/src/migrate.ts",
+      "file": "packages/ui/src/utils/stableStringify.ts",
       "functionCount": 1,
       "exportCount": 1
     },
     {
-      "file": "packages/engine/src/tool-engine/index.ts",
-      "functionCount": 1,
-      "exportCount": 12
-    },
-    {
-      "file": "packages/engine/src/tool-engine/provider.ts",
-      "functionCount": 1,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/engine/src/workflow/index.ts",
+      "file": "packages/ui/src/pages/FileEditor.tsx",
       "functionCount": 1,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/lib/cu-mechanical.mjs",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/cu-source-scan.mjs",
-      "functionCount": 1,
-      "exportCount": 3
-    },
-    {
-      "file": "packages/server/src/lib/import-check.mjs",
-      "functionCount": 1,
-      "exportCount": 0
-    },
-    {
-      "file": "packages/server/src/lib/paaw-snapshot.mjs",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/routes/apps.mjs",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/routes/coding-doc-coverage.mjs",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/routes/coding-em-config.mjs",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/routes/coding-staged-changes.mjs",
+      "file": "packages/ui/src/pages/PluginManager.tsx",
       "functionCount": 1,
       "exportCount": 1
     },
     {
       "file": "packages/ui/src/components/AgentSideChat.tsx",
       "functionCount": 1,
-      "exportCount": 0
+      "exportCount": 2
+    },
+    {
+      "file": "packages/ui/src/components/AuditLogPanel.tsx",
+      "functionCount": 1,
+      "exportCount": 1
     },
     {
       "file": "packages/ui/src/components/CrewAvatar.tsx",
@@ -1868,7 +3528,17 @@
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/MarkdownText.tsx",
+      "file": "packages/ui/src/components/ModulePageLoader.tsx",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/ProjectAiPanel.tsx",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/RuOnboardingModal.tsx",
       "functionCount": 1,
       "exportCount": 1
     },
@@ -1876,6 +3546,16 @@
       "file": "packages/ui/src/components/ShellTerminal.tsx",
       "functionCount": 1,
       "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/TroubleshootingPanel.tsx",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/git/DecisionCard.tsx",
+      "functionCount": 1,
+      "exportCount": 2
     },
     {
       "file": "packages/ui/src/components/git/GitCommitBar.tsx",
@@ -1893,144 +3573,174 @@
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/orchestrator/ApiSpecSection.tsx",
+      "file": "packages/server/src/data-home.mjs",
       "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/orchestrator/DecisionRuleTable.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/orchestrator/FlowStepList.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/orchestrator/JsonSchemaViewer.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/orchestrator/MarkdownSection.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/orchestrator/ObservabilityPanel.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/orchestrator/OverviewCard.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/FileEditor.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/Gates.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/Monitoring.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/OperationsCenter.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/OrchestratorOverview.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/PluginManager.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/ProjectDashboard.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/Rca.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/context/src/index.ts",
-      "functionCount": 0,
       "exportCount": 4
     },
     {
-      "file": "packages/context/src/memory/index.ts",
-      "functionCount": 0,
+      "file": "packages/server/src/routes/assistant-skills.mjs",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/coding-doc-coverage.mjs",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/coding-em-config.mjs",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/coding-skill-suggest.mjs",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/coding-staged-changes.mjs",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/janitor.mjs",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/lib/asset-log-migrate.mjs",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/lib/cu-mechanical.mjs",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/lib/import-check.mjs",
+      "functionCount": 1,
+      "exportCount": 0
+    },
+    {
+      "file": "packages/server/src/lib/paaw-snapshot.mjs",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/lib/ru-runtime-ignore.mjs",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/lib/shell-guard.mjs",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/engine/src/tool-engine/index.ts",
+      "functionCount": 1,
+      "exportCount": 12
+    },
+    {
+      "file": "packages/engine/src/tool-engine/provider.ts",
+      "functionCount": 1,
       "exportCount": 2
     },
     {
-      "file": "packages/context/src/memory/memory-store.ts",
-      "functionCount": 0,
+      "file": "installed-apps/sre/ui/components/SheetPreview.tsx",
+      "functionCount": 1,
       "exportCount": 1
     },
     {
-      "file": "packages/context/src/refinery/index.ts",
-      "functionCount": 0,
+      "file": "installed-apps/sre/server/entry.mjs",
+      "functionCount": 1,
       "exportCount": 1
     },
     {
-      "file": "packages/context/src/refinery/refinery.ts",
-      "functionCount": 0,
+      "file": "installed-apps/secret/ui/components/SheetPreview.tsx",
+      "functionCount": 1,
       "exportCount": 1
     },
     {
-      "file": "packages/db/src/index.ts",
-      "functionCount": 0,
-      "exportCount": 14
-    },
-    {
-      "file": "packages/db/src/repositories/chats.ts",
-      "functionCount": 0,
+      "file": "installed-apps/secret/server/entry.mjs",
+      "functionCount": 1,
       "exportCount": 1
     },
     {
-      "file": "packages/db/src/repositories/data-store.ts",
-      "functionCount": 0,
+      "file": "installed-apps/pm/ui/components/SheetPreview.tsx",
+      "functionCount": 1,
       "exportCount": 1
     },
     {
-      "file": "packages/db/src/repositories/runs.ts",
-      "functionCount": 0,
+      "file": "installed-apps/pm/server/entry.mjs",
+      "functionCount": 1,
       "exportCount": 1
     },
     {
-      "file": "packages/db/src/types.ts",
+      "file": "installed-apps/learning/ui/components/SplitChatLayout.tsx",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "installed-apps/learning/ui/components/quiz/QuizWorkspace.tsx",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "installed-apps/learning/server/entry.mjs",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "playwright.config.ts",
       "functionCount": 0,
       "exportCount": 0
     },
     {
-      "file": "packages/engine/src/index.ts",
+      "file": "vitest.config.ts",
       "functionCount": 0,
-      "exportCount": 24
+      "exportCount": 0
     },
     {
-      "file": "packages/engine/src/tool-engine/tool-registry.ts",
+      "file": "packages/ui/vite.config.ts",
+      "functionCount": 0,
+      "exportCount": 0
+    },
+    {
+      "file": "packages/ui/src/api.ts",
       "functionCount": 0,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/data-home.mjs",
+      "file": "packages/ui/src/main.tsx",
+      "functionCount": 0,
+      "exportCount": 0
+    },
+    {
+      "file": "packages/ui/src/components/ChatInputBar.tsx",
+      "functionCount": 0,
+      "exportCount": 4
+    },
+    {
+      "file": "packages/ui/src/components/MarkdownText.tsx",
       "functionCount": 0,
       "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/TabErrorBoundary.tsx",
+      "functionCount": 0,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/git/index.ts",
+      "functionCount": 0,
+      "exportCount": 23
+    },
+    {
+      "file": "packages/shared/src/types/index.ts",
+      "functionCount": 0,
+      "exportCount": 11
     },
     {
       "file": "packages/server/src/lib/agent-rules.mjs",
@@ -2044,31 +3754,6 @@
     },
     {
       "file": "packages/server/src/lib/running-agents.mjs",
-      "functionCount": 0,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/security/approval.mjs",
-      "functionCount": 0,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/security/audit-log.mjs",
-      "functionCount": 0,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/security/index.mjs",
-      "functionCount": 0,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/security/policy-pipeline.mjs",
-      "functionCount": 0,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/security/secret-store.mjs",
       "functionCount": 0,
       "exportCount": 1
     },
@@ -2088,62 +3773,181 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/lib/tool-engine/tool-registry.mjs",
-      "functionCount": 0,
-      "exportCount": 1
-    },
-    {
       "file": "packages/server/src/lib/tool-registry.mjs",
       "functionCount": 0,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/api.ts",
+      "file": "packages/server/src/lib/tool-engine/tool-registry.mjs",
       "functionCount": 0,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/TabErrorBoundary.tsx",
+      "file": "packages/server/src/lib/security/approval.mjs",
       "functionCount": 0,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/git/index.ts",
+      "file": "packages/server/src/lib/security/index.mjs",
       "functionCount": 0,
-      "exportCount": 17
+      "exportCount": 1
     },
     {
-      "file": "packages/ui/src/main.tsx",
+      "file": "packages/server/src/lib/security/policy-pipeline.mjs",
       "functionCount": 0,
-      "exportCount": 0
+      "exportCount": 1
     },
     {
-      "file": "packages/ui/vite.config.ts",
+      "file": "packages/server/src/lib/security/secret-store.mjs",
       "functionCount": 0,
-      "exportCount": 0
+      "exportCount": 1
     },
     {
-      "file": "playwright.config.ts",
+      "file": "packages/engine/src/index.ts",
       "functionCount": 0,
-      "exportCount": 0
+      "exportCount": 21
     },
     {
-      "file": "scripts/pack.mjs",
+      "file": "packages/engine/src/tool-engine/tool-registry.ts",
       "functionCount": 0,
-      "exportCount": 0
+      "exportCount": 1
     },
     {
-      "file": "vitest.config.ts",
+      "file": "packages/engine/src/tool-engine/types.ts",
       "functionCount": 0,
-      "exportCount": 0
+      "exportCount": 11
+    },
+    {
+      "file": "packages/context/src/index.ts",
+      "functionCount": 0,
+      "exportCount": 4
+    },
+    {
+      "file": "packages/context/src/refinery/index.ts",
+      "functionCount": 0,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/context/src/refinery/refinery.ts",
+      "functionCount": 0,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/context/src/memory/index.ts",
+      "functionCount": 0,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/context/src/memory/memory-store.ts",
+      "functionCount": 0,
+      "exportCount": 2
+    },
+    {
+      "file": "installed-apps/sre/server/routes/shared.mjs",
+      "functionCount": 0,
+      "exportCount": 5
+    },
+    {
+      "file": "installed-apps/secret/server/routes/shared.mjs",
+      "functionCount": 0,
+      "exportCount": 4
+    },
+    {
+      "file": "installed-apps/pm/server/routes/shared.mjs",
+      "functionCount": 0,
+      "exportCount": 4
+    },
+    {
+      "file": "installed-apps/learning/server/data-home.mjs",
+      "functionCount": 0,
+      "exportCount": 1
+    },
+    {
+      "file": "installed-apps/learning/server/routes/shared.mjs",
+      "functionCount": 0,
+      "exportCount": 2
     }
   ],
   "featureToTests": [
     {
-      "featureId": "F-002",
-      "featureName": "Shared Utilities & Schemas",
+      "featureId": "F20261016-020",
+      "featureName": "交接狀態彙整與交接包生成",
       "tests": [
-        "tests/unit/shared-utils.test.ts"
+        "tests/unit/context-compaction.test.mjs",
+        "packages/server/test/vision-array-content.test.mjs",
+        "tests/unit/dependency-context.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F-037",
+      "featureName": "上線放行與證據決策卡（Release Manager）",
+      "tests": [
+        "tests/unit/ai-settings.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-027",
+      "featureName": "安全審計紀錄查詢（AI 犯傻審計報表）",
+      "tests": [
+        "tests/unit/audit-log.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F-019",
+      "featureName": "上線放行閘門與證據審查（Release Request 與證據包）",
+      "tests": [
+        "tests/unit/release-evidence.test.mjs",
+        "tests/unit/coding-evidence.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F-024",
+      "featureName": "自動派工執行計畫管理",
+      "tests": [
+        "tests/unit/execution-plan.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-070",
+      "featureName": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+      "tests": [
+        "tests/unit/db-connection.test.ts",
+        "tests/unit/db-migrate.test.ts",
+        "tests/unit/db-repositories.test.ts",
+        "tests/unit/db-paths.test.ts"
+      ]
+    },
+    {
+      "featureId": "F20261016-071",
+      "featureName": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+      "tests": [
+        "tests/unit/context-engine.test.mjs",
+        "tests/unit/auto-dispatch-shared.test.mjs",
+        "tests/unit/dispatch-verifier.test.mjs",
+        "tests/unit/em-foreman.test.mjs",
+        "tests/unit/exec-approvals.test.mjs",
+        "tests/unit/paaw-sandbox-mxc.test.mjs",
+        "tests/unit/script-guard.test.mjs",
+        "tests/unit/security-mode.test.mjs",
+        "tests/unit/audit-log.test.mjs",
+        "tests/unit/server-entrypoint.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F-001",
+      "featureName": "PAAW Server Core & HTTP Entrypoint",
+      "tests": [
+        "tests/unit/server-entrypoint.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F-003",
+      "featureName": "SQLite Database Layer (sql.js/Kysely)",
+      "tests": [
+        "tests/unit/db-connection.test.ts",
+        "tests/unit/db-migrate.test.ts",
+        "tests/unit/db-repositories.test.ts",
+        "tests/unit/db-paths.test.ts"
       ]
     },
     {
@@ -2164,14 +3968,10 @@
       "featureId": "F-010",
       "featureName": "LLM Utils & Provider Retry",
       "tests": [
-        "tests/unit/llm-utils.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F-011",
-      "featureName": "Chat Interface",
-      "tests": [
-        "tests/e2e/06-chat.spec.ts"
+        "tests/unit/llm-utils.test.mjs",
+        "tests/unit/parse-model-reference.test.mjs",
+        "tests/unit/surrogate-safety.test.mjs",
+        "packages/server/test/disable-thinking.test.mjs"
       ]
     },
     {
@@ -2182,25 +3982,11 @@
       ]
     },
     {
-      "featureId": "F-015",
-      "featureName": "Task Board & Pipeline",
-      "tests": [
-        "tests/unit/repair-loop.test.mjs"
-      ]
-    },
-    {
       "featureId": "F-017",
       "featureName": "Code Intelligence",
       "tests": [
         "packages/server/src/lib/test-intelligence.mjs",
         "tests/unit/dependency-context.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F-019",
-      "featureName": "Release Management",
-      "tests": [
-        "tests/unit/coding-evidence.test.mjs"
       ]
     },
     {
@@ -2213,25 +3999,17 @@
       ]
     },
     {
-      "featureId": "F-023",
-      "featureName": "EM Dashboard & Auto Dispatch",
+      "featureId": "F-022",
+      "featureName": "Security Kernel",
       "tests": [
-        "tests/unit/auto-dispatch-shared.test.mjs"
+        "tests/unit/audit-log.test.mjs"
       ]
     },
     {
-      "featureId": "F-024",
-      "featureName": "Execution Plans",
+      "featureId": "F-026",
+      "featureName": "Coding Handover",
       "tests": [
-        "tests/unit/execution-plan.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F-032",
-      "featureName": "Skills System",
-      "tests": [
-        "tests/unit/skill-format.test.mjs",
-        "tests/e2e/07-skills.spec.ts"
+        "tests/unit/coding-handover.test.mjs"
       ]
     },
     {
@@ -2249,59 +4027,45 @@
       ]
     },
     {
-      "featureId": "F-035",
-      "featureName": "Notes App",
-      "tests": [
-        "tests/e2e/03-notes.spec.ts"
-      ]
-    },
-    {
-      "featureId": "F-037",
-      "featureName": "Assistant & User Settings",
-      "tests": [
-        "tests/unit/ai-settings.test.mjs",
-        "tests/unit/providers.test.mjs",
-        "tests/e2e/02-settings.spec.ts"
-      ]
-    },
-    {
       "featureId": "F-057",
       "featureName": "Context Compaction & Truncation",
       "tests": [
-        "tests/unit/context-truncation.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F-058",
-      "featureName": "App Shell, Theme & i18n",
-      "tests": [
-        "tests/unit/i18n-consistency.test.ts",
-        "tests/e2e/01-smoke.spec.ts",
-        "tests/e2e/04-pages.spec.ts",
-        "tests/e2e/05-api.spec.ts",
-        "tests/e2e/11-nav-comprehensive.spec.ts",
-        "tests/e2e/helpers.ts"
+        "tests/unit/context-truncation.test.mjs",
+        "tests/unit/surrogate-safety.test.mjs",
+        "tests/unit/context-compaction.test.mjs",
+        "packages/server/test/vision-array-content.test.mjs"
       ]
     },
     {
       "featureId": "F-062",
       "featureName": "Shell Execution & Utilities",
       "tests": [
+        "tests/unit/shell-exec.test.mjs",
         "packages/server/src/lib/test-runner.mjs",
         "packages/server/src/lib/test-intelligence.mjs"
       ]
     }
   ],
+  "testReports": {
+    "found": 0,
+    "reports": [],
+    "run": [],
+    "coverage": [],
+    "e2e": [],
+    "unit": [],
+    "_note": "真實工具 report（deterministic 讀取）。啟發式檔案對映為獨立欄位，不冒充真實覆蓋。"
+  },
   "stats": {
-    "totalTestFiles": 30,
+    "totalTestFiles": 69,
     "byType": {
-      "unit": 19,
+      "unit": 58,
       "integration": 0,
+      "contract": 0,
       "e2e": 11
     },
-    "totalMappings": 25,
-    "coverageGapFiles": 248,
-    "coverageRate": "5.3%",
-    "featureTestCoverage": 20
+    "totalMappings": 67,
+    "coverageGapFiles": 312,
+    "estimatedCoverageRate": "12.4%",
+    "featureTestCoverage": 21
   }
 }

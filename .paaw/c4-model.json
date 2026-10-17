@@ -1,0 +1,73 @@
+{
+  "scannedAt": "2026-10-16T12:59:47.788Z",
+  "method": "llm-v1",
+  "system": {
+    "name": "tPAAW",
+    "description": "一個以 WebSocket 為核心的應用系統（PAAW），包含主服務、bridge 轉接服務與資料容器，並連接外部 Elasticsearch。"
+  },
+  "containers": [
+    {
+      "name": "paaw",
+      "type": "app",
+      "technology": "Node（ws ^8.20.0，npm）",
+      "description": "主要應用服務，HTTP 與 WebSocket 分別聽 4097 / 4098（Dockerfile EXPOSE 4097）",
+      "evidence": [
+        "compose: service paaw, ports 4097/4098",
+        "exposedPorts: 4097",
+        "env: PAAW_PORT, PAAW_WS_PORT",
+        "deps: ws@^8.20.0 (packages/server/package.json)"
+      ]
+    },
+    {
+      "name": "bridge",
+      "type": "gateway",
+      "technology": "node:22-slim",
+      "description": "以 node:22-slim image 跑的橋接服務，聽 4100；paaw 以 http 連向 host.docker.internal:4100",
+      "evidence": [
+        "compose: service bridge, image node:22-slim, port 4100",
+        "env: BRIDGE_PORT",
+        "uris: http://host.docker.internal:4100 (docker-compose.yml:28)"
+      ]
+    },
+    {
+      "name": "paaw-data",
+      "type": "db",
+      "technology": "未知（compose 未標 image）",
+      "description": "資料容器，compose 內定義但未暴露 port、未標 image，用途不明",
+      "evidence": [
+        "compose: service paaw-data, 無 ports、無 image"
+      ]
+    }
+  ],
+  "externalSystems": [
+    {
+      "name": "Elasticsearch",
+      "type": "db",
+      "technology": "Elasticsearch（版本未知）",
+      "description": "由 PAAW_ES_URL 指向的搜尋/儲存引擎，供 paaw 使用",
+      "evidence": [
+        "env: PAAW_ES_URL (.env)"
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "from": "paaw",
+      "to": "bridge",
+      "protocol": "http",
+      "description": "paaw 經 http 連到 host.docker.internal:4100 的 bridge 服務"
+    },
+    {
+      "from": "paaw",
+      "to": "Elasticsearch",
+      "protocol": "http/es",
+      "description": "透過 PAAW_ES_URL 連線（推斷，URI host 未收集到）"
+    }
+  ],
+  "notes": "1) paaw-data 容器在 repo 的 compose 內定義，故列為系統 container，但無 image / port 證據，實際角色（volume 或資料服務）待確認。2) Elasticsearch 僅由 env KEY PAAW_ES_URL 推斷，未收集到 URI host，分類為 external system。3) VITE_PORT 暗示有 frontend（Vite）存在，但未見 compose service 或 EXPOSE 證據，未列入 containers。4) 依賴僅 ws 一項，無 db/cache/queue client 套件，推測資料存取走 ES 或 paaw-data。",
+  "stats": {
+    "containers": 3,
+    "external": 1,
+    "relationships": 2
+  }
+}

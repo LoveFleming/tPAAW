@@ -679,8 +679,169 @@
       "featureId": "F-003",
       "createdAt": "2026-10-01T16:01:20.867Z",
       "notes": []
+    },
+    {
+      "id": "ISS-032",
+      "title": "[F20261016-001] Next.js 16 async params 範本：notFound 未 return + XSS 示範反模式（code review 發現）",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "review",
+        "quality",
+        "skill-template",
+        "nextjs16",
+        "security"
+      ],
+      "description": "TASK-044 code review 發現 data/skills/physical-skill/nextjs-backend-best-practices/templates/app-router-async-params.tsx 品質問題（核心 Next.js 16 非同步 API 用法正確，可參考；以下為可複製性/安全性缺陷）。\n\nBLOCKER-1 (L32-37): `if (!post) { notFound() }` 缺 return，且 `post` 型別未收窄（r.json() 為 any）→ runtime 有崩潰風險。修正：`return notFound()`。\n\nMAJOR-2 (L41): `dangerouslySetInnerHTML={{ __html: post.content }}` 示範未 sanitize 的 HTML 注入（XSS 反模式），與安全性基線衝突。修正：改 `<p>{post.content}</p>` 或加 sanitize 註記。\n\nMAJOR-3 (L156): `import type { Metadata } from 'next'` 置於檔案中段 → 複製 Example 1-5 片段時漏 import。修正：移至檔頭。\n\nMAJOR-4 (L186-236): 同一 .tsx 混雜 page/layout/route 三種檔案內容（`export function GET` in page 檔編譯失敗），非「可複製即用完整範例」。修正：以註解包起或明確標示檔名。\n\nMINOR: fetch 無 .catch/r.ok 檢查不一致(L71,166,197,222)；post 欄位無型別(L171-176)；與 route-handler-api.ts 路由範例重複(L186-236)；檔頭缺範例索引。\n\n建議由 Developer(Priya) 修 blocker+major 後 re-review。此為範本誤導風險，非重做實作。",
+      "featureId": "F20261016-001",
+      "createdAt": "2026-10-17T00:02:13.574Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-033",
+      "title": "[F20261016-030] GET /report 的 readSync 在 try 外，讀檔失敗會冒泡成 500",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "release-retrofit",
+        "auto-dispatch",
+        "error-handling"
+      ],
+      "description": "packages/server/src/routes/coding-auto-dispatch.mjs 的 GET /api/coding-auto-dispatch/report 端點，readSync(reportFile) 未以 try/catch 包裹。當檔案存在但讀取失敗（權限、編碼、競態刪除）時異常會冒泡到 paaw-server.mjs 的 route 迴圈，回 {error:\"Internal server error\"} 500，破壞與其他端點一致的 JSON envelope。建議：整段包 try/catch，失敗回 200 {report:\"\"} 或 500 JSON。來源 QA 記錄 qr-20261017-013308-rfgq。",
+      "featureId": "F20261016-030",
+      "createdAt": "2026-10-17T01:33:19.896Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-034",
+      "title": "[F20261016-030] status.json 寫入非原子 + _activeRuns 與檔案雙真相來源競態",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "release-retrofit",
+        "auto-dispatch",
+        "concurrency",
+        "persistence"
+      ],
+      "description": "updateStatusFile / start / reset 皆以 writeFileSync 直接覆寫 status.json，無 tmp+rename 原子寫；崩潰會留下半截 JSON。並行防護 _activeRuns（記憶體 Set）與 status.json（磁碟）是兩個真相來源，start 只查 Set、stop/reset 只查 Set 再改檔，跨進程（多實例/重啟殘留）無防護，stop 期間 start 的 TOCTOU 仍在。建議：統一原子寫（寫 tmp 再 rename）、以檔案旗標為單一真相並加鎖，start 檢查與 add 用 same-tick 原子化。來源 qr-20261017-013308-rfgq。",
+      "featureId": "F20261016-030",
+      "createdAt": "2026-10-17T01:33:19.897Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-035",
+      "title": "[F20261016-030] path 參數無授權/白名單驗證 + CORS * （本機 CSRF 可寫任意路徑）",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "release-retrofit",
+        "auto-dispatch",
+        "security"
+      ],
+      "description": "projRoot 來自 ?path= 或 body.cwd，未經驗證是否在允許 workspace 內（未過 safeResolve/白名單）。paaw-server 綁 127.0.0.1 且 CORS Access-Control-Allow-Origin: *，任何本機程序或瀏覽器頁面皆可觸發 start/stop/reset，寫入任意 path 的 .paaw/auto-dispatch/status.json。建議：path 走 safeResolve 白名單；CORS 收斂為已知來源或加本機 token。來源 qr-20261017-013308-rfgq。",
+      "featureId": "F20261016-030",
+      "createdAt": "2026-10-17T01:33:19.898Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-036",
+      "title": "[F20261016-030] stop 協作式中斷可能卡死 + start try/finally 巢狀易洩漏 guard",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "release-retrofit",
+        "auto-dispatch",
+        "reliability"
+      ],
+      "description": "(1) _stopRequested 只在 task 之間檢查；當前 task 若因 a2aCallAgent timeout=0（無 HTTP timeout）永久卡住，stopRequested 永遠等不到中斷點，stop 形同虛設。(2) start handler 兩個 try/finally 巢狀、_activeRuns.delete 出現在多處，容易在早退點洩漏 guard。建議：a2aCallAgent 設上限；start 收斂為單一 finally。來源 qr-20261017-013308-rfgq。",
+      "featureId": "F20261016-030",
+      "createdAt": "2026-10-17T01:33:19.900Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-037",
+      "title": "[F20261016-030] last-run 報告時間字串比較 bug + 回應格式不一致 + status catch 回 200",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "release-retrofit",
+        "auto-dispatch",
+        "consistency"
+      ],
+      "description": "(1) last-run 用 new Date(fileDate+'T23:59:59').toISOString() 產生的字串與 ns.completedAt 做字串比較 `reportTime > lastRunAt`，跨格式/時區不可靠，可能位移一天。(2) 回應 envelope 不一致：多數 {ok,...}，reset 失敗 {error}、status catch {status:'error',message}、report 回 text/markdown。(3) status catch 回 HTTP 200 帶錯誤語意，status code 與語意不符。建議統一 envelope、改用 Date 物件比較、錯誤回 5xx。來源 qr-20261017-013308-rfgq。",
+      "featureId": "F20261016-030",
+      "createdAt": "2026-10-17T01:33:19.901Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-038",
+      "title": "F-002 資料契約檔（schemas/index.ts）零消費端 + payload 契約力薄弱",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "release-retrofit",
+        "data-contract",
+        "schema",
+        "typebox"
+      ],
+      "description": "Reviewer: QA (Da'an Wu) / TASK-091。檔案 packages/shared/src/schemas/index.ts。\n\n**背景**：F-002 宣稱是「整個 PAAW 的資料契約單一真相來源」，檔頭註解寫「Every API has a TypeBox schema here. This IS the data contract.」。看碼結果：契約存在但未生效。\n\n**問題清單（看碼，附行號）**：\n1. [major] **零消費端（dead contract）**：全 repo 無任何檔案 import 這些 schema 值（SkillDefinition/AppDefinition/CronDefinition/ChatMessage/Conversation/ApiOkResponse 等）。grep 全 packages/ 只看到 @paaw/shared 的 utils/types 被 import，schemas 完全沒被消費。宣告與實作脫節。\n2. [medium] **payload 契約力薄弱**：多處 Type.Record(Type.String(), Type.Any())（L64 config、L99 output.properties、L120 SkillRunRequest.input、L133 ui、L196 ...）＝任意鍵 + Any，無型別約束，違反契約本意。\n3. [medium] **分頁與信封未整合**：PaginationQuery（L11）定義了無人引用；PaginatedResponse（L16）與 ApiOkResponse（L27）各自獨立，消費端無法用單一 schema 驗證「帶分頁的成功回應」。\n4. [medium] **DRY 違反**：ApiOkResponse.meta（L31-35）與 ApiErrorResponse.meta（L47-51）結構完全重複；ErrorResponse.details 用 Type.Any（L44）。\n5. [medium] **enum 雙軌**：schemas 內 inline union（SkillRunResponse.status L137、Conversation.type L205）與 packages/shared/src/types/index.ts 的 RunStatus/ConversationType 字串集合不一致且互不引用，易漂移。\n6. [low] visibility（private/team/public）同檔重複三次（L113、L162）未抽共用 enum。\n7. [low] schema const 與 Static<> type 同名（L81/L218）可讀性差。\n\n**建議修法**：先決策契約是否要真正落地（若否，降級為型別定義、移除 schemas 或加註 deprecate）；若採納，抽公用 Visibility/Meta/Status enum、把 PaginatedResponse 包進 ApiOkResponse、收斂 Any→具體 schema。\n**驗收**：typecheck 通過；至少一個消費端或明確 deprecate 註記。\n\n⚠️ 寫碼/修 schema 不在 QA 範圍 → 交 Developer (Priya)。",
+      "featureId": null,
+      "createdAt": "2026-10-17T02:28:04.958Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-039",
+      "title": "GitDiffView CommitDetailView 選取以 index 計，展開 RU 檔時選錯檔（H1）",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "bug",
+        "ui",
+        "git",
+        "retrofit",
+        "F20261016-056"
+      ],
+      "description": "TASK-099 review 發現。檔案 packages/ui/src/components/git/GitDiffView.tsx:314,341-360。CommitDetailView 以全量 files 的 index 作選取（sel / files.indexOf），但左欄可見清單會依 ruOpen 動態過濾（codeFiles vs code+ru），兩者座標系不一致 → 展開/收合 RU data 或 code/ru 交錯的 commit 會高亮/顯示到錯誤檔案。復現：開一 commit，預設列 code 檔，展開「📦 RU data」，RU 檔絕對索引與已選 code 檔相同時即選錯。影響：審查者看錯檔，污染 review 證據。修法：改用 path 作穩定選取識別（selPath state + files.find），active 用 path 比對。屬邏輯修改，交 Developer。",
+      "featureId": "F20261016-056",
+      "createdAt": "2026-10-17T02:43:01.327Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-040",
+      "title": "GitDiffView 提交清單 key={hash} 非唯一致 React duplicate key（H2）",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "ui",
+        "git",
+        "retrofit",
+        "F20261016-056"
+      ],
+      "description": "TASK-099 review 發現。檔案 packages/ui/src/components/git/GitDiffView.tsx:214。gitLog.slice(0,15).map key={c.hash}，若來源含跨 ref 同 commit 或後端 hash 為 short，React 會 duplicate key warning 並可能錯置 DOM。修法：key={`${c.hash}-${i}`}（清單 15 筆、順序穩定）。屬邏輯微修，交 Developer。",
+      "featureId": "F20261016-056",
+      "createdAt": "2026-10-17T02:43:01.329Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-041",
+      "title": "GitDiffView 分類解析脆弱：檔名含空白/引號被誤歸 Other（M3）＋ 三處 diff parser 重複（o1）",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "refactor",
+        "ui",
+        "git",
+        "retrofit",
+        "F20261016-056"
+      ],
+      "description": "TASK-099 review 發現。檔案 packages/ui/src/components/git/GitDiffView.tsx:62-76 splitDiffByCategory。regex /^diff --git a\\/(.+?) b\\/(.+)$/ 對含空白或 core.quotePath 引號的檔名會截斷 → classifyGitFile 落 other，code 檔被歸錯組。另 splitDiffByCategory / splitDiffByFiles / DiffViewer.parseUnifiedDiff 三處各自 split diff --git（DRY 技術債），且本檔 categoryConfig 未重用 git-helpers GROUP_CONFIG（emoji/label 漂移）。M3 修法：改用容忍引號的 regex 並以 +++ b/ 行二次校正；o1 建議抽共用 parser（較大，登錄追蹤）。屬邏輯 + 重構，交 Developer，o1 可另開 dev task。",
+      "featureId": "F20261016-056",
+      "createdAt": "2026-10-17T02:43:01.330Z",
+      "notes": []
     }
   ],
   "updatedAt": "2026-07-22T13:37:37.561Z",
-  "nextId": 32
+  "nextId": 42
 }

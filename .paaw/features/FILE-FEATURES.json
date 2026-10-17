@@ -1,6 +1,3546 @@
 {
   "files": {
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/app-router-async-params.tsx": [
+      {
+        "id": "F20261016-001",
+        "name": "Next.js 16 非同步路由參數技能範本",
+        "tags": [
+          "nextjs",
+          "app-router",
+          "async-params",
+          "server-components",
+          "skill-template",
+          "code-reference"
+        ]
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/async-params-page.tsx": [
+      {
+        "id": "F20261016-002",
+        "name": "Next.js 16 非同步 Params 頁面範本",
+        "tags": [
+          "nextjs",
+          "app-router",
+          "template",
+          "async-params",
+          "skill",
+          "code-scaffold"
+        ]
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/cache-component-use-cache.tsx": [
+      {
+        "id": "F20261016-003",
+        "name": "Next.js 16 「use cache」快取範本教材",
+        "tags": [
+          "nextjs",
+          "use-cache",
+          "caching",
+          "server-components",
+          "template",
+          "skill-asset"
+        ]
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx": [
+      {
+        "id": "F20261016-004",
+        "name": "Next.js 16 平行路由範例教材（技能知識庫）",
+        "tags": [
+          "nextjs",
+          "app-router",
+          "parallel-routes",
+          "skill-template",
+          "reference-code",
+          "best-practices"
+        ]
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts": [
+      {
+        "id": "F20261016-005",
+        "name": "Next.js Route Handler API 範本（後端最佳實務技能素材）",
+        "tags": [
+          "nextjs",
+          "route-handler",
+          "api-template",
+          "skill-asset",
+          "backend-best-practices",
+          "code-scaffold"
+        ]
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/server-actions-form.tsx": [
+      {
+        "id": "F20261016-006",
+        "name": "Next.js Server Actions 表單範本（技能參考素材）",
+        "tags": [
+          "nextjs",
+          "server-actions",
+          "skill-template",
+          "form-handling",
+          "zod-validation",
+          "reference-material"
+        ]
+      }
+    ],
+    "installed-apps/learning/server/routes/learning-practice.mjs": [
+      {
+        "id": "F20261016-007",
+        "name": "PAAW Bridge — 沙箱外的宿主守門橋接器",
+        "tags": [
+          "bridge",
+          "docker",
+          "sandbox-isolation",
+          "sync-gate",
+          "api-proxy",
+          "secret-management"
+        ]
+      }
+    ],
+    "installed-apps/learning/server/routes/shared.mjs": [
+      {
+        "id": "F20261016-007",
+        "name": "PAAW Bridge — 沙箱外的宿主守門橋接器",
+        "tags": [
+          "bridge",
+          "docker",
+          "sandbox-isolation",
+          "sync-gate",
+          "api-proxy",
+          "secret-management"
+        ]
+      }
+    ],
+    "installed-apps/learning/ui/components/ExamVault.tsx": [
+      {
+        "id": "F20261016-008",
+        "name": "Skill / Workflow / Agent 執行運行時與 API",
+        "tags": [
+          "agent-runtime",
+          "skill-execution",
+          "workflow-engine",
+          "tool-calling",
+          "llm-orchestration",
+          "context-compaction"
+        ]
+      }
+    ],
+    "installed-apps/learning/ui/pages/LearningSpace.tsx": [
+      {
+        "id": "F20261016-008",
+        "name": "Skill / Workflow / Agent 執行運行時與 API",
+        "tags": [
+          "agent-runtime",
+          "skill-execution",
+          "workflow-engine",
+          "tool-calling",
+          "llm-orchestration",
+          "context-compaction"
+        ]
+      }
+    ],
+    "installed-apps/pm/server/routes/dossiers.mjs": [
+      {
+        "id": "F20261016-009",
+        "name": "A2A 代理協作協定服務",
+        "tags": [
+          "a2a",
+          "json-rpc",
+          "agent-to-agent",
+          "sse-streaming",
+          "task-lifecycle",
+          "webhook"
+        ]
+      }
+    ],
+    "installed-apps/pm/server/routes/shared.mjs": [
+      {
+        "id": "F20261016-009",
+        "name": "A2A 代理協作協定服務",
+        "tags": [
+          "a2a",
+          "json-rpc",
+          "agent-to-agent",
+          "sse-streaming",
+          "task-lifecycle",
+          "webhook"
+        ]
+      }
+    ],
+    "installed-apps/pm/ui/pages/ProjectOffice.tsx": [
+      {
+        "id": "F20261016-010",
+        "name": "Agent 執行日誌與日誌保留政策",
+        "tags": [
+          "agent-logs",
+          "observability",
+          "cost-tracking",
+          "log-retention",
+          "release-unit",
+          "purge"
+        ]
+      }
+    ],
+    "installed-apps/secret/server/routes/dossiers.mjs": [
+      {
+        "id": "F20261016-011",
+        "name": "外部整合設定：Plugins 與 Agentic 綁定",
+        "tags": [
+          "plugins",
+          "integrations",
+          "agentic-workflow",
+          "config-crud",
+          "tool-registry",
+          "external-api"
+        ]
+      }
+    ],
+    "installed-apps/secret/server/routes/shared.mjs": [
+      {
+        "id": "F20261016-011",
+        "name": "外部整合設定：Plugins 與 Agentic 綁定",
+        "tags": [
+          "plugins",
+          "integrations",
+          "agentic-workflow",
+          "config-crud",
+          "tool-registry",
+          "external-api"
+        ]
+      }
+    ],
+    "installed-apps/secret/ui/pages/Secretary.tsx": [
+      {
+        "id": "F20261016-012",
+        "name": "AI 設定與記憶蒸餾中心",
+        "tags": [
+          "ai-settings",
+          "system-prompts",
+          "provider-config",
+          "user-preferences",
+          "memory-distillation",
+          "llm"
+        ]
+      }
+    ],
+    "installed-apps/sre/server/routes/crews.mjs": [
+      {
+        "id": "F20261016-013",
+        "name": "個人助理設定與工作區中樞",
+        "tags": [
+          "personal-assistant",
+          "settings",
+          "llm-providers",
+          "workspaces",
+          "workflows",
+          "app-import-export"
+        ]
+      }
+    ],
+    "installed-apps/sre/server/routes/dossiers.mjs": [
+      {
+        "id": "F20261016-013",
+        "name": "個人助理設定與工作區中樞",
+        "tags": [
+          "personal-assistant",
+          "settings",
+          "llm-providers",
+          "workspaces",
+          "workflows",
+          "app-import-export"
+        ]
+      }
+    ],
+    "installed-apps/sre/server/routes/shared.mjs": [
+      {
+        "id": "F20261016-013",
+        "name": "個人助理設定與工作區中樞",
+        "tags": [
+          "personal-assistant",
+          "settings",
+          "llm-providers",
+          "workspaces",
+          "workflows",
+          "app-import-export"
+        ]
+      }
+    ],
+    "installed-apps/sre/ui/components/ExpertChatPanel.tsx": [
+      {
+        "id": "F20261016-014",
+        "name": "共用內建瀏覽器 API（人機同框操作與即時串流）",
+        "tags": [
+          "browser",
+          "playwright",
+          "cdp-screencast",
+          "sse-streaming",
+          "input-injection",
+          "multi-instance"
+        ]
+      }
+    ],
+    "installed-apps/sre/ui/components/InspectionPanel.tsx": [
+      {
+        "id": "F20261016-015",
+        "name": "AI 助理對話後端（訊息串流、圖片上傳與提示詞管理）",
+        "tags": [
+          "chat",
+          "sse-streaming",
+          "tool-engine",
+          "vision",
+          "image-upload",
+          "system-prompts"
+        ]
+      }
+    ],
+    "installed-apps/sre/ui/components/SheetPreview.tsx": [
+      {
+        "id": "F20261016-016",
+        "name": "自動派工控制端點（Auto Dispatch 啟停與狀態）",
+        "tags": [
+          "auto-dispatch",
+          "night-shift",
+          "orchestration",
+          "http-routes",
+          "status-management",
+          "zombie-recovery"
+        ]
+      }
+    ],
+    "installed-apps/sre/ui/pages/SreOffice.tsx": [
+      {
+        "id": "F20261016-017",
+        "name": "編碼團隊派工與專案知識後端（Code Understanding）",
+        "tags": [
+          "coding-crew",
+          "agent-dispatch",
+          "code-understanding",
+          "code-intelligence",
+          "path-safety",
+          "sse"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-auto-dispatch-config.mjs": [
+      {
+        "id": "F-023",
+        "name": "檔案系統與 Git 操作服務（含文件覆蓋率追蹤）",
+        "tags": [
+          "filesystem",
+          "git",
+          "doc-coverage",
+          "code-search",
+          "commit-message",
+          "code-review"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-auto-dispatch-prompts.mjs": [
+      {
+        "id": "F-023",
+        "name": "檔案系統與 Git 操作服務（含文件覆蓋率追蹤）",
+        "tags": [
+          "filesystem",
+          "git",
+          "doc-coverage",
+          "code-search",
+          "commit-message",
+          "code-review"
+        ]
+      }
+    ],
+    "packages/server/src/lib/bridge/paaw-bridge.mjs": [
+      {
+        "id": "F-056",
+        "name": "工程經理（EM）調度設定管理",
+        "tags": [
+          "engineering-manager",
+          "orchestration",
+          "config-management",
+          "auto-dispatch",
+          "deep-merge",
+          "per-project-settings"
+        ]
+      }
+    ],
+    "packages/server/src/lib/app-modules.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      }
+    ],
+    "packages/server/src/lib/context-compaction.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      },
+      {
+        "id": "F-057",
+        "name": "Context Compaction & Truncation",
+        "tags": [
+          "ai",
+          "context"
+        ]
+      }
+    ],
+    "packages/server/src/lib/dependency-context.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      },
+      {
+        "id": "F-017",
+        "name": "Code Intelligence",
+        "tags": [
+          "coding-ide",
+          "analysis"
+        ]
+      }
+    ],
+    "packages/server/src/lib/feature-boundary.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      },
+      {
+        "id": "F-016",
+        "name": "Feature Mapping",
+        "tags": [
+          "coding-ide",
+          "analysis"
+        ]
+      }
+    ],
+    "packages/server/src/lib/module-ui-bundle.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      }
+    ],
+    "packages/server/src/lib/paaw-agent-loop.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      },
+      {
+        "id": "F-006",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/paaw-snapshot.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      },
+      {
+        "id": "F-062",
+        "name": "Shell Execution & Utilities",
+        "tags": [
+          "core",
+          "utils"
+        ]
+      }
+    ],
+    "packages/server/src/lib/temp-janitor.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      }
+    ],
+    "packages/server/src/lib/tool-registry.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      },
+      {
+        "id": "F-007",
+        "name": "Tool Engine (Server)",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/server/src/routes/apps.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      },
+      {
+        "id": "F-033",
+        "name": "App Builder & App Pool",
+        "tags": [
+          "apps",
+          "ui"
+        ]
+      }
+    ],
+    "packages/server/src/routes/crew.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      }
+    ],
+    "packages/server/src/routes/skills-api.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      }
+    ],
+    "packages/server/src/scheduler/cron-jobs.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      },
+      {
+        "id": "F-039",
+        "name": "Cron Jobs & Scheduler",
+        "tags": [
+          "scheduler",
+          "ops"
+        ]
+      }
+    ],
+    "packages/server/test/vision-array-content.test.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      }
+    ],
+    "tests/unit/context-compaction.test.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      }
+    ],
+    "tests/unit/dependency-context.test.mjs": [
+      {
+        "id": "F20261016-020",
+        "name": "交接狀態彙整與交接包生成",
+        "tags": [
+          "handover",
+          "release-unit",
+          "git-aggregation",
+          "deterministic",
+          "onboarding",
+          "task-pipeline"
+        ]
+      },
+      {
+        "id": "F-017",
+        "name": "Code Intelligence",
+        "tags": [
+          "coding-ide",
+          "analysis"
+        ]
+      }
+    ],
+    "packages/server/src/routes/a2a.mjs": [
+      {
+        "id": "F-030",
+        "name": "程式碼問題追蹤 API（Coding Issues）",
+        "tags": [
+          "issue-tracking",
+          "crud-api",
+          "paaw",
+          "json-storage",
+          "known-issues-import",
+          "bug-management"
+        ]
+      }
+    ],
+    "packages/server/src/routes/agent-logs.mjs": [
+      {
+        "id": "F-041",
+        "name": "維運狀態與 Runbook 管理",
+        "tags": [
+          "ops",
+          "runbook",
+          "troubleshooting",
+          "git-status",
+          "paaw",
+          "diagnostics"
+        ]
+      }
+    ],
+    "packages/server/src/routes/log-retention.mjs": [
+      {
+        "id": "F-041",
+        "name": "維運狀態與 Runbook 管理",
+        "tags": [
+          "ops",
+          "runbook",
+          "troubleshooting",
+          "git-status",
+          "paaw",
+          "diagnostics"
+        ]
+      }
+    ],
+    "packages/server/src/routes/ai-settings.mjs": [
+      {
+        "id": "F-037",
+        "name": "上線放行與證據決策卡（Release Manager）",
+        "tags": [
+          "release-management",
+          "evidence-package",
+          "trust-score",
+          "release-readiness",
+          "quality-debt",
+          "risk-classification"
+        ]
+      }
+    ],
+    "tests/unit/ai-settings.test.mjs": [
+      {
+        "id": "F-037",
+        "name": "上線放行與證據決策卡（Release Manager）",
+        "tags": [
+          "release-management",
+          "evidence-package",
+          "trust-score",
+          "release-readiness",
+          "quality-debt",
+          "risk-classification"
+        ]
+      }
+    ],
+    "packages/server/src/routes/api-tester.mjs": [
+      {
+        "id": "F-048",
+        "name": "Release Unit 技能實例管理（Skill Instance Model）",
+        "tags": [
+          "skills",
+          "release-unit",
+          "template-sync",
+          "hash-versioning",
+          "crew-binding",
+          "paaw-assets"
+        ]
+      }
+    ],
+    "packages/server/src/lib/assistant-skills.mjs": [
+      {
+        "id": "F20261016-025",
+        "name": "暫存變更摘要儲存（Staged Changes Summary）",
+        "tags": [
+          "staged-changes",
+          "git-workflow",
+          "rest-api",
+          "json-file-store",
+          "paaw-metadata",
+          "commit-lifecycle"
+        ]
+      }
+    ],
+    "packages/server/src/routes/assistant-skills.mjs": [
+      {
+        "id": "F20261016-025",
+        "name": "暫存變更摘要儲存（Staged Changes Summary）",
+        "tags": [
+          "staged-changes",
+          "git-workflow",
+          "rest-api",
+          "json-file-store",
+          "paaw-metadata",
+          "commit-lifecycle"
+        ]
+      }
+    ],
+    "packages/server/src/routes/assistant.mjs": [
+      {
+        "id": "F20261016-026",
+        "name": "個人助理設定與使用者檔案 API（/api/paaw/*）",
+        "tags": [
+          "settings",
+          "user-profile",
+          "avatar",
+          "providers",
+          "api-key-masking",
+          "fallback-chain"
+        ]
+      }
+    ],
+    "packages/server/src/routes/audit-log.mjs": [
+      {
+        "id": "F20261016-027",
+        "name": "安全審計紀錄查詢（AI 犯傻審計報表）",
+        "tags": [
+          "audit",
+          "security",
+          "read-only-api",
+          "jsonl",
+          "observability"
+        ]
+      }
+    ],
+    "tests/unit/audit-log.test.mjs": [
+      {
+        "id": "F20261016-027",
+        "name": "安全審計紀錄查詢（AI 犯傻審計報表）",
+        "tags": [
+          "audit",
+          "security",
+          "read-only-api",
+          "jsonl",
+          "observability"
+        ]
+      }
+    ],
+    "packages/server/src/routes/browser.mjs": [
+      {
+        "id": "F-043",
+        "name": "內建共用瀏覽器（人機共駕、即時串流與操作回放）",
+        "tags": [
+          "browser",
+          "playwright",
+          "screencast",
+          "sse-streaming",
+          "input-injection",
+          "human-agent-collaboration"
+        ]
+      }
+    ],
+    "packages/server/src/routes/chat.mjs": [
+      {
+        "id": "F-011",
+        "name": "AI 助理對話服務（訊息串流、視覺附件與提示詞檔案）",
+        "tags": [
+          "chat",
+          "sse-streaming",
+          "vision",
+          "image-upload",
+          "attachments",
+          "tool-engine"
+        ]
+      },
+      {
+        "id": "F-038",
+        "name": "System Prompts",
+        "tags": [
+          "settings",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/routes/uploads.mjs": [
+      {
+        "id": "F-011",
+        "name": "AI 助理對話服務（訊息串流、視覺附件與提示詞檔案）",
+        "tags": [
+          "chat",
+          "sse-streaming",
+          "vision",
+          "image-upload",
+          "attachments",
+          "tool-engine"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-auto-dispatch.mjs": [
+      {
+        "id": "F20261016-030",
+        "name": "自動派工執行控制 API（Auto Dispatch HTTP 控制面）",
+        "tags": [
+          "auto-dispatch",
+          "http-routes",
+          "night-shift",
+          "em-dashboard",
+          "task-dispatch",
+          "status-persistence"
+        ]
+      }
+    ],
+    "packages/server/src/lib/code-intelligence.mjs": [
+      {
+        "id": "F20261016-031",
+        "name": "Coding Agent 團隊對話派工與專案知識庫 API（Code Understanding 樞紐）",
+        "tags": [
+          "coding-crew",
+          "agent-dispatch",
+          "em-dashboard",
+          "project-knowledge",
+          "code-understanding",
+          "cu-rescan"
+        ]
+      },
+      {
+        "id": "F-017",
+        "name": "Code Intelligence",
+        "tags": [
+          "coding-ide",
+          "analysis"
+        ]
+      }
+    ],
+    "packages/server/src/lib/cu-mechanical.mjs": [
+      {
+        "id": "F20261016-031",
+        "name": "Coding Agent 團隊對話派工與專案知識庫 API（Code Understanding 樞紐）",
+        "tags": [
+          "coding-crew",
+          "agent-dispatch",
+          "em-dashboard",
+          "project-knowledge",
+          "code-understanding",
+          "cu-rescan"
+        ]
+      },
+      {
+        "id": "F-060",
+        "name": "CU Mechanical Rescan & Source Scan",
+        "tags": [
+          "analysis",
+          "coding-ide"
+        ]
+      }
+    ],
+    "packages/server/src/lib/project-md.mjs": [
+      {
+        "id": "F20261016-031",
+        "name": "Coding Agent 團隊對話派工與專案知識庫 API（Code Understanding 樞紐）",
+        "tags": [
+          "coding-crew",
+          "agent-dispatch",
+          "em-dashboard",
+          "project-knowledge",
+          "code-understanding",
+          "cu-rescan"
+        ]
+      }
+    ],
+    "packages/server/src/lib/running-agents.mjs": [
+      {
+        "id": "F20261016-031",
+        "name": "Coding Agent 團隊對話派工與專案知識庫 API（Code Understanding 樞紐）",
+        "tags": [
+          "coding-crew",
+          "agent-dispatch",
+          "em-dashboard",
+          "project-knowledge",
+          "code-understanding",
+          "cu-rescan"
+        ]
+      },
+      {
+        "id": "F-062",
+        "name": "Shell Execution & Utilities",
+        "tags": [
+          "core",
+          "utils"
+        ]
+      }
+    ],
+    "packages/server/src/lib/security-rules.mjs": [
+      {
+        "id": "F20261016-031",
+        "name": "Coding Agent 團隊對話派工與專案知識庫 API（Code Understanding 樞紐）",
+        "tags": [
+          "coding-crew",
+          "agent-dispatch",
+          "em-dashboard",
+          "project-knowledge",
+          "code-understanding",
+          "cu-rescan"
+        ]
+      },
+      {
+        "id": "F-020",
+        "name": "Coding Health",
+        "tags": [
+          "coding-ide",
+          "quality"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding.mjs": [
+      {
+        "id": "F20261016-031",
+        "name": "Coding Agent 團隊對話派工與專案知識庫 API（Code Understanding 樞紐）",
+        "tags": [
+          "coding-crew",
+          "agent-dispatch",
+          "em-dashboard",
+          "project-knowledge",
+          "code-understanding",
+          "cu-rescan"
+        ]
+      }
+    ],
+    "packages/server/src/lib/doc-coverage.mjs": [
+      {
+        "id": "F-028",
+        "name": "文件覆蓋率追蹤與專案檔案 Git 操作 API",
+        "tags": [
+          "doc-coverage",
+          "git",
+          "file-system",
+          "documentation-tracking",
+          "ripgrep-search",
+          "directory-picker"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-doc-coverage.mjs": [
+      {
+        "id": "F-028",
+        "name": "文件覆蓋率追蹤與專案檔案 Git 操作 API",
+        "tags": [
+          "doc-coverage",
+          "git",
+          "file-system",
+          "documentation-tracking",
+          "ripgrep-search",
+          "directory-picker"
+        ]
+      }
+    ],
+    "packages/server/src/routes/vibe-fs.mjs": [
+      {
+        "id": "F-028",
+        "name": "文件覆蓋率追蹤與專案檔案 Git 操作 API",
+        "tags": [
+          "doc-coverage",
+          "git",
+          "file-system",
+          "documentation-tracking",
+          "ripgrep-search",
+          "directory-picker"
+        ]
+      },
+      {
+        "id": "F-046",
+        "name": "Knowledge Tree & File Management",
+        "tags": [
+          "ui",
+          "files"
+        ]
+      }
+    ],
+    "packages/server/src/lib/em-config.mjs": [
+      {
+        "id": "F20261016-033",
+        "name": "EM 總管編排行為設定管理",
+        "tags": [
+          "em-config",
+          "engineering-manager",
+          "auto-dispatch",
+          "orchestration",
+          "per-project-config",
+          "deep-merge"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-em-config.mjs": [
+      {
+        "id": "F20261016-033",
+        "name": "EM 總管編排行為設定管理",
+        "tags": [
+          "em-config",
+          "engineering-manager",
+          "auto-dispatch",
+          "orchestration",
+          "per-project-config",
+          "deep-merge"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-issues.mjs": [
+      {
+        "id": "F-014",
+        "name": "編碼專案議題追蹤與已知問題匯入",
+        "tags": [
+          "issue-tracking",
+          "coding-ide",
+          "crud-api",
+          "markdown-import",
+          "known-issues",
+          "file-based-storage"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-ops.mjs": [
+      {
+        "id": "F-027",
+        "name": "維運現況總覽與 Runbook 存取",
+        "tags": [
+          "ops",
+          "runbook",
+          "troubleshooting",
+          "status",
+          "git",
+          "c4-lite"
+        ]
+      }
+    ],
+    "packages/server/src/lib/release-evidence.mjs": [
+      {
+        "id": "F-019",
+        "name": "上線放行閘門與證據審查（Release Request 與證據包）",
+        "tags": [
+          "release",
+          "release-gate",
+          "release-request",
+          "evidence",
+          "checklist",
+          "trust-score"
+        ]
+      }
+    ],
+    "packages/server/src/lib/release-requests.mjs": [
+      {
+        "id": "F-019",
+        "name": "上線放行閘門與證據審查（Release Request 與證據包）",
+        "tags": [
+          "release",
+          "release-gate",
+          "release-request",
+          "evidence",
+          "checklist",
+          "trust-score"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-evidence.mjs": [
+      {
+        "id": "F-019",
+        "name": "上線放行閘門與證據審查（Release Request 與證據包）",
+        "tags": [
+          "release",
+          "release-gate",
+          "release-request",
+          "evidence",
+          "checklist",
+          "trust-score"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-releases.mjs": [
+      {
+        "id": "F-019",
+        "name": "上線放行閘門與證據審查（Release Request 與證據包）",
+        "tags": [
+          "release",
+          "release-gate",
+          "release-request",
+          "evidence",
+          "checklist",
+          "trust-score"
+        ]
+      }
+    ],
+    "tests/unit/coding-evidence.test.mjs": [
+      {
+        "id": "F-019",
+        "name": "上線放行閘門與證據審查（Release Request 與證據包）",
+        "tags": [
+          "release",
+          "release-gate",
+          "release-request",
+          "evidence",
+          "checklist",
+          "trust-score"
+        ]
+      }
+    ],
+    "tests/unit/release-evidence.test.mjs": [
+      {
+        "id": "F-019",
+        "name": "上線放行閘門與證據審查（Release Request 與證據包）",
+        "tags": [
+          "release",
+          "release-gate",
+          "release-request",
+          "evidence",
+          "checklist",
+          "trust-score"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-review-board.mjs": [
+      {
+        "id": "F20261016-037",
+        "name": "Code Review 委員會會議記錄瀏覽",
+        "tags": [
+          "code-review",
+          "multi-model-review",
+          "review-board",
+          "meeting-minutes",
+          "read-only-api",
+          "release-evidence"
+        ]
+      }
+    ],
+    "packages/server/src/lib/project-crew.mjs": [
+      {
+        "id": "F20261016-038",
+        "name": "專案 AI 團隊與技能資產管理（Skill Instance Model）",
+        "tags": [
+          "skills",
+          "crew",
+          "release-unit",
+          "skill-instance-model",
+          "template-sync",
+          "provision"
+        ]
+      }
+    ],
+    "packages/server/src/lib/ru-skills.mjs": [
+      {
+        "id": "F20261016-038",
+        "name": "專案 AI 團隊與技能資產管理（Skill Instance Model）",
+        "tags": [
+          "skills",
+          "crew",
+          "release-unit",
+          "skill-instance-model",
+          "template-sync",
+          "provision"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-ru-skills.mjs": [
+      {
+        "id": "F20261016-038",
+        "name": "專案 AI 團隊與技能資產管理（Skill Instance Model）",
+        "tags": [
+          "skills",
+          "crew",
+          "release-unit",
+          "skill-instance-model",
+          "template-sync",
+          "provision"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-staged-changes.mjs": [
+      {
+        "id": "F20261016-039",
+        "name": "AI 暫存變更交接摘要（Staged Changes Summary）",
+        "tags": [
+          "staged-changes",
+          "git-handoff",
+          "agent-loop",
+          "api-routes",
+          "json-persistence",
+          "local-first"
+        ]
+      }
+    ],
+    "packages/server/src/lib/task-git.mjs": [
+      {
+        "id": "F-015",
+        "name": "Coding 任務板 — feature-first 任務管理與 Git 結案",
+        "tags": [
+          "coding-tasks",
+          "task-board",
+          "feature-first",
+          "task-crud",
+          "git-commit",
+          "dispatch"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-tasks.mjs": [
+      {
+        "id": "F-015",
+        "name": "Coding 任務板 — feature-first 任務管理與 Git 結案",
+        "tags": [
+          "coding-tasks",
+          "task-board",
+          "feature-first",
+          "task-crud",
+          "git-commit",
+          "dispatch"
+        ]
+      }
+    ],
+    "packages/server/src/lib/execution-plan.mjs": [
+      {
+        "id": "F-024",
+        "name": "自動派工執行計畫管理",
+        "tags": [
+          "auto-dispatch",
+          "execution-plan",
+          "em-dashboard",
+          "night-shift",
+          "task-lifecycle",
+          "resume-recovery"
+        ]
+      }
+    ],
+    "packages/server/src/routes/execution-plan-routes.mjs": [
+      {
+        "id": "F-024",
+        "name": "自動派工執行計畫管理",
+        "tags": [
+          "auto-dispatch",
+          "execution-plan",
+          "em-dashboard",
+          "night-shift",
+          "task-lifecycle",
+          "resume-recovery"
+        ]
+      }
+    ],
+    "tests/unit/execution-plan.test.mjs": [
+      {
+        "id": "F-024",
+        "name": "自動派工執行計畫管理",
+        "tags": [
+          "auto-dispatch",
+          "execution-plan",
+          "em-dashboard",
+          "night-shift",
+          "task-lifecycle",
+          "resume-recovery"
+        ]
+      }
+    ],
+    "packages/server/src/routes/helpdesk.mjs": [
+      {
+        "id": "F-036",
+        "name": "AI 客服中心（Help Desk）",
+        "tags": [
+          "helpdesk",
+          "ai-answer",
+          "ticket-management",
+          "knowledge-base",
+          "a2a",
+          "tool-engine"
+        ]
+      }
+    ],
+    "packages/server/src/lib/janitor.mjs": [
+      {
+        "id": "F20261016-043",
+        "name": "系統清理總管（Janitor）與 Console 日誌檢視器",
+        "tags": [
+          "janitor",
+          "log-cleanup",
+          "retention-policy",
+          "console-viewer",
+          "runtime-logs",
+          "housekeeping"
+        ]
+      }
+    ],
+    "packages/server/src/routes/janitor.mjs": [
+      {
+        "id": "F20261016-043",
+        "name": "系統清理總管（Janitor）與 Console 日誌檢視器",
+        "tags": [
+          "janitor",
+          "log-cleanup",
+          "retention-policy",
+          "console-viewer",
+          "runtime-logs",
+          "housekeeping"
+        ]
+      }
+    ],
+    "packages/server/src/routes/llm-logs.mjs": [
+      {
+        "id": "F20261016-044",
+        "name": "LLM 呼叫日誌查詢、審計與 Skill 使用報表",
+        "tags": [
+          "llm-logs",
+          "observability",
+          "cost-accounting",
+          "tool-audit",
+          "skills-usage-report",
+          "jsonl"
+        ]
+      }
+    ],
+    "packages/server/src/routes/notes.mjs": [
+      {
+        "id": "F-035",
+        "name": "筆記本管理與 AI 筆記整理",
+        "tags": [
+          "notes",
+          "notebook",
+          "ai-write",
+          "llm",
+          "file-storage",
+          "full-text-search"
+        ]
+      }
+    ],
+    "packages/server/src/routes/plugins.mjs": [
+      {
+        "id": "F-049",
+        "name": "外部插件註冊與 iframe 嵌入管理",
+        "tags": [
+          "plugins",
+          "iframe",
+          "external-apps",
+          "config-file",
+          "registry",
+          "settings"
+        ]
+      }
+    ],
+    "packages/server/src/lib/release-unit/analyze.mjs": [
+      {
+        "id": "F-018",
+        "name": "Release Unit 專案情報中心（理解、影響分析與程式庫問答）",
+        "tags": [
+          "release-unit",
+          "code-intelligence",
+          "impact-analysis",
+          "dependency-graph",
+          "codebase-qa",
+          "code-health"
+        ]
+      }
+    ],
+    "packages/server/src/lib/release-unit/apis.mjs": [
+      {
+        "id": "F-018",
+        "name": "Release Unit 專案情報中心（理解、影響分析與程式庫問答）",
+        "tags": [
+          "release-unit",
+          "code-intelligence",
+          "impact-analysis",
+          "dependency-graph",
+          "codebase-qa",
+          "code-health"
+        ]
+      }
+    ],
+    "packages/server/src/lib/release-unit/architecture.mjs": [
+      {
+        "id": "F-018",
+        "name": "Release Unit 專案情報中心（理解、影響分析與程式庫問答）",
+        "tags": [
+          "release-unit",
+          "code-intelligence",
+          "impact-analysis",
+          "dependency-graph",
+          "codebase-qa",
+          "code-health"
+        ]
+      }
+    ],
+    "packages/server/src/lib/release-unit/ask.mjs": [
+      {
+        "id": "F-018",
+        "name": "Release Unit 專案情報中心（理解、影響分析與程式庫問答）",
+        "tags": [
+          "release-unit",
+          "code-intelligence",
+          "impact-analysis",
+          "dependency-graph",
+          "codebase-qa",
+          "code-health"
+        ]
+      }
+    ],
+    "packages/server/src/lib/release-unit/dependencies.mjs": [
+      {
+        "id": "F-018",
+        "name": "Release Unit 專案情報中心（理解、影響分析與程式庫問答）",
+        "tags": [
+          "release-unit",
+          "code-intelligence",
+          "impact-analysis",
+          "dependency-graph",
+          "codebase-qa",
+          "code-health"
+        ]
+      }
+    ],
+    "packages/server/src/lib/release-unit/impact.mjs": [
+      {
+        "id": "F-018",
+        "name": "Release Unit 專案情報中心（理解、影響分析與程式庫問答）",
+        "tags": [
+          "release-unit",
+          "code-intelligence",
+          "impact-analysis",
+          "dependency-graph",
+          "codebase-qa",
+          "code-health"
+        ]
+      }
+    ],
+    "packages/server/src/lib/release-unit/metrics.mjs": [
+      {
+        "id": "F-018",
+        "name": "Release Unit 專案情報中心（理解、影響分析與程式庫問答）",
+        "tags": [
+          "release-unit",
+          "code-intelligence",
+          "impact-analysis",
+          "dependency-graph",
+          "codebase-qa",
+          "code-health"
+        ]
+      }
+    ],
+    "packages/server/src/lib/release-unit/model.mjs": [
+      {
+        "id": "F-018",
+        "name": "Release Unit 專案情報中心（理解、影響分析與程式庫問答）",
+        "tags": [
+          "release-unit",
+          "code-intelligence",
+          "impact-analysis",
+          "dependency-graph",
+          "codebase-qa",
+          "code-health"
+        ]
+      }
+    ],
+    "packages/server/src/lib/release-unit/qa.mjs": [
+      {
+        "id": "F-018",
+        "name": "Release Unit 專案情報中心（理解、影響分析與程式庫問答）",
+        "tags": [
+          "release-unit",
+          "code-intelligence",
+          "impact-analysis",
+          "dependency-graph",
+          "codebase-qa",
+          "code-health"
+        ]
+      }
+    ],
+    "packages/server/src/routes/release-unit.mjs": [
+      {
+        "id": "F-018",
+        "name": "Release Unit 專案情報中心（理解、影響分析與程式庫問答）",
+        "tags": [
+          "release-unit",
+          "code-intelligence",
+          "impact-analysis",
+          "dependency-graph",
+          "codebase-qa",
+          "code-health"
+        ]
+      }
+    ],
+    "packages/shared/src/schemas/index.ts": [
+      {
+        "id": "F-002",
+        "name": "共用 API 資料契約（Skill/App/Cron/Chat TypeBox Schemas）",
+        "tags": [
+          "typebox",
+          "data-contract",
+          "schema",
+          "api",
+          "shared",
+          "skill"
+        ]
+      }
+    ],
+    "packages/ui/src/App.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      }
+    ],
+    "packages/ui/src/components/ApiTesterTabs.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      }
+    ],
+    "packages/ui/src/components/CodeIntelPage.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      },
+      {
+        "id": "F-017",
+        "name": "Code Intelligence",
+        "tags": [
+          "coding-ide",
+          "analysis"
+        ]
+      }
+    ],
+    "packages/ui/src/components/CrewManager.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      }
+    ],
+    "packages/ui/src/components/DirectoryExplorer.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      },
+      {
+        "id": "F-046",
+        "name": "Knowledge Tree & File Management",
+        "tags": [
+          "ui",
+          "files"
+        ]
+      }
+    ],
+    "packages/ui/src/components/FeatureMap.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      },
+      {
+        "id": "F-016",
+        "name": "Feature Mapping",
+        "tags": [
+          "coding-ide",
+          "analysis"
+        ]
+      }
+    ],
+    "packages/ui/src/components/HandoverPanel.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      },
+      {
+        "id": "F-026",
+        "name": "Coding Handover",
+        "tags": [
+          "coding-ide",
+          "ops"
+        ]
+      }
+    ],
+    "packages/ui/src/components/IssueTracker.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      }
+    ],
+    "packages/ui/src/components/ProjectMdPage.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      }
+    ],
+    "packages/ui/src/components/QaRecords.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      }
+    ],
+    "packages/ui/src/components/ReleaseManagerPanel.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      }
+    ],
+    "packages/ui/src/components/ReleaseRequests.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      }
+    ],
+    "packages/ui/src/components/RuOnboardingModal.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      }
+    ],
+    "packages/ui/src/components/SidebarFileTree.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      },
+      {
+        "id": "F-012",
+        "name": "Coding IDE",
+        "tags": [
+          "ui",
+          "coding-ide"
+        ]
+      }
+    ],
+    "packages/ui/src/components/TabErrorBoundary.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      }
+    ],
+    "packages/ui/src/components/TaskBoard.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      }
+    ],
+    "packages/ui/src/components/TestsPage.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      },
+      {
+        "id": "F-029",
+        "name": "Tests Page",
+        "tags": [
+          "coding-ide",
+          "quality"
+        ]
+      }
+    ],
+    "packages/ui/src/components/TroubleshootingPanel.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/CodingIDE.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      },
+      {
+        "id": "F-012",
+        "name": "Coding IDE",
+        "tags": [
+          "ui",
+          "coding-ide"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/FileViewer.tsx": [
+      {
+        "id": "F20261016-049",
+        "name": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+        "tags": [
+          "coding-ide",
+          "workspace-shell",
+          "tab-management",
+          "task-board",
+          "release-management",
+          "qa-records"
+        ]
+      },
+      {
+        "id": "F-012",
+        "name": "Coding IDE",
+        "tags": [
+          "ui",
+          "coding-ide"
+        ]
+      }
+    ],
+    "packages/ui/src/components/AgentBuilder.tsx": [
+      {
+        "id": "F-031",
+        "name": "自訂 Agent 建立精靈（AgentBuilder Wizard）",
+        "tags": [
+          "agent-builder",
+          "wizard",
+          "custom-agent",
+          "crew",
+          "tool-groups",
+          "guardrails"
+        ]
+      }
+    ],
+    "packages/ui/src/components/AgentLogs.tsx": [
+      {
+        "id": "F20261016-051",
+        "name": "Agent 執行軌跡檢視與 RU 成本觀測",
+        "tags": [
+          "agent-logs",
+          "observability",
+          "execution-trace",
+          "cost-tracking",
+          "token-usage",
+          "release-unit"
+        ]
+      }
+    ],
+    "packages/ui/src/components/AuditLogPanel.tsx": [
+      {
+        "id": "F20261016-052",
+        "name": "AI 安全審計紀錄面板（AI 犯傻報表）",
+        "tags": [
+          "security",
+          "audit-log",
+          "compliance",
+          "observability",
+          "react-panel",
+          "settings"
+        ]
+      }
+    ],
+    "packages/ui/src/components/CrewAvatar.tsx": [
+      {
+        "id": "F20261016-054",
+        "name": "AI 團隊成員角色頭像產生器",
+        "tags": [
+          "avatar",
+          "ai-crew",
+          "agent-identity",
+          "svg",
+          "role-based",
+          "ui-component"
+        ]
+      }
+    ],
+    "packages/ui/src/components/git/GitCommitBar.tsx": [
+      {
+        "id": "F-013",
+        "name": "Git 提交輸入列與 AI Commit 訊息生成",
+        "tags": [
+          "git",
+          "commit-bar",
+          "ai-commit-message",
+          "code-only",
+          "ime-safety",
+          "file-classification"
+        ]
+      }
+    ],
+    "packages/ui/src/components/git/GitDiffView.tsx": [
+      {
+        "id": "F20261016-056",
+        "name": "Git 差異檢視（Diff 分組瀏覽與提交內容檢查）",
+        "tags": [
+          "git",
+          "diff",
+          "code-review",
+          "coding-ide",
+          "ui",
+          "commit-history"
+        ]
+      }
+    ],
+    "packages/ui/src/components/git/GitPanel.tsx": [
+      {
+        "id": "F20261016-057",
+        "name": "Git 變更審查與提交面板",
+        "tags": [
+          "git",
+          "commit",
+          "staging",
+          "code-review",
+          "feature-grouping",
+          "pipeline"
+        ]
+      }
+    ],
+    "packages/ui/src/components/git/GitStatusView.tsx": [
+      {
+        "id": "F20261016-057",
+        "name": "Git 變更審查與提交面板",
+        "tags": [
+          "git",
+          "commit",
+          "staging",
+          "code-review",
+          "feature-grouping",
+          "pipeline"
+        ]
+      }
+    ],
+    "packages/ui/src/components/LlmLogTab.tsx": [
+      {
+        "id": "F20261016-058",
+        "name": "LLM API 呼叫日誌檢視器",
+        "tags": [
+          "llm-logs",
+          "observability",
+          "audit",
+          "token-usage",
+          "agent-monitoring",
+          "react-ui"
+        ]
+      }
+    ],
+    "packages/ui/src/components/ModulePageLoader.tsx": [
+      {
+        "id": "F20261016-059",
+        "name": "模組 App 免建置動態頁面載入（Module UI Runtime Loader）",
+        "tags": [
+          "module-apps",
+          "dynamic-import",
+          "runtime-bundle",
+          "esbuild",
+          "ui-loader",
+          "blob-url"
+        ]
+      }
+    ],
+    "packages/ui/src/moduleRuntime.ts": [
+      {
+        "id": "F20261016-059",
+        "name": "模組 App 免建置動態頁面載入（Module UI Runtime Loader）",
+        "tags": [
+          "module-apps",
+          "dynamic-import",
+          "runtime-bundle",
+          "esbuild",
+          "ui-loader",
+          "blob-url"
+        ]
+      }
+    ],
+    "packages/ui/src/components/RuQaSection.tsx": [
+      {
+        "id": "F20261016-060",
+        "name": "Release Unit 新人 12 問證據式問答入口",
+        "tags": [
+          "ru-qa",
+          "newcomer-onboarding",
+          "evidence-based",
+          "deterministic",
+          "question-answering",
+          "release-unit"
+        ]
+      }
+    ],
+    "packages/ui/src/components/SkillsUsagePanel.tsx": [
+      {
+        "id": "F20261016-061",
+        "name": "Skill 注入使用報表",
+        "tags": [
+          "skills",
+          "usage-report",
+          "observability",
+          "llm-logs",
+          "agent-prompt",
+          "injection-evidence"
+        ]
+      }
+    ],
+    "packages/ui/src/components/UsageReportPanel.tsx": [
+      {
+        "id": "F20261016-062",
+        "name": "Agent 用量與成本報表",
+        "tags": [
+          "usage-report",
+          "agent-logs",
+          "cost-attribution",
+          "token-usage",
+          "analytics",
+          "release-unit"
+        ]
+      }
+    ],
+    "packages/ui/src/i18n/index.tsx": [
+      {
+        "id": "F-058",
+        "name": "UI 多語系介面（i18n 語言切換）",
+        "tags": [
+          "i18n",
+          "localization",
+          "react-context",
+          "locale-switching",
+          "ui-text",
+          "translation-dictionary"
+        ]
+      }
+    ],
+    "packages/ui/src/components/AgentConsole.tsx": [
+      {
+        "id": "F-032",
+        "name": "Skill Builder 工作台（對話式技能建構、測試與發佈）",
+        "tags": [
+          "skill-builder",
+          "agent-console",
+          "websocket-agent",
+          "skill-lifecycle",
+          "markdown-skill",
+          "sse-test-run"
+        ]
+      },
+      {
+        "id": "F-033",
+        "name": "App Builder & App Pool",
+        "tags": [
+          "apps",
+          "ui"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/SkillBuilder.tsx": [
+      {
+        "id": "F-032",
+        "name": "Skill Builder 工作台（對話式技能建構、測試與發佈）",
+        "tags": [
+          "skill-builder",
+          "agent-console",
+          "websocket-agent",
+          "skill-lifecycle",
+          "markdown-skill",
+          "sse-test-run"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/BriefingPlayer.tsx": [
+      {
+        "id": "F-053",
+        "name": "簡報播放器（Briefing Player）",
+        "tags": [
+          "presentation",
+          "briefing",
+          "slides",
+          "markdown-rendering",
+          "annotation",
+          "presenter-notes"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/ChatView.tsx": [
+      {
+        "id": "F20261016-066",
+        "name": "個人 AI 助理主對話介面",
+        "tags": [
+          "chat",
+          "sse-streaming",
+          "conversation-crud",
+          "tool-badges",
+          "image-upload",
+          "file-attachment"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/GanttChart.tsx": [
+      {
+        "id": "F-045",
+        "name": "專案甘特圖時程檢視",
+        "tags": [
+          "gantt-chart",
+          "project-management",
+          "timeline",
+          "visualization",
+          "milestones",
+          "task-schedule"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/BackupSettings.tsx": [
+      {
+        "id": "F-040",
+        "name": "系統設定中心與備份還原",
+        "tags": [
+          "settings",
+          "llm-providers",
+          "model-config",
+          "fallback",
+          "agent-limits",
+          "network-whitelist"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/SettingsPage.tsx": [
+      {
+        "id": "F-040",
+        "name": "系統設定中心與備份還原",
+        "tags": [
+          "settings",
+          "llm-providers",
+          "model-config",
+          "fallback",
+          "agent-limits",
+          "network-whitelist"
+        ]
+      }
+    ],
+    "installed-apps/learning/scripts/import-cap-vault.py": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/learning/server/entry.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/learning/server/routes/exam-vault.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/learning/server/routes/quiz-session.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/pm/server/entry.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/pm/server/routes/briefing.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/pm/server/routes/projects.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/pm/server/routes/sheets.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/secret/server/entry.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/secret/server/routes/briefing.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/secret/server/routes/categories.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/secret/server/routes/sheets.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/sre/server/entry.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/sre/server/routes/briefing.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/sre/server/routes/grafana.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/sre/server/routes/services.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "installed-apps/sre/server/routes/sheets.mjs": [
+      {
+        "id": "F20261016-069",
+        "name": "安裝式應用模組伺服器端（學習／產品／秘書／SRE）",
+        "tags": [
+          "installed-apps",
+          "app-modules",
+          "module-routes",
+          "exam-vault",
+          "quiz-engine",
+          "product-management"
+        ]
+      }
+    ],
+    "packages/context/src/assembler.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-004",
+        "name": "Context Engine & Refinery",
+        "tags": [
+          "ai",
+          "context"
+        ]
+      }
+    ],
+    "packages/context/src/index.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-004",
+        "name": "Context Engine & Refinery",
+        "tags": [
+          "ai",
+          "context"
+        ]
+      }
+    ],
+    "packages/context/src/memory/index.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      }
+    ],
+    "packages/context/src/memory/memory-store.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-004",
+        "name": "Context Engine & Refinery",
+        "tags": [
+          "ai",
+          "context"
+        ]
+      }
+    ],
+    "packages/context/src/refinery/index.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      }
+    ],
+    "packages/context/src/refinery/refinery.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-004",
+        "name": "Context Engine & Refinery",
+        "tags": [
+          "ai",
+          "context"
+        ]
+      }
+    ],
+    "packages/db/src/connection.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-003",
+        "name": "SQLite Database Layer (sql.js/Kysely)",
+        "tags": [
+          "data",
+          "core"
+        ]
+      }
+    ],
+    "packages/db/src/index.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-003",
+        "name": "SQLite Database Layer (sql.js/Kysely)",
+        "tags": [
+          "data",
+          "core"
+        ]
+      }
+    ],
+    "packages/db/src/migrate.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-003",
+        "name": "SQLite Database Layer (sql.js/Kysely)",
+        "tags": [
+          "data",
+          "core"
+        ]
+      }
+    ],
+    "packages/db/src/paths.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-003",
+        "name": "SQLite Database Layer (sql.js/Kysely)",
+        "tags": [
+          "data",
+          "core"
+        ]
+      }
+    ],
+    "packages/db/src/repositories/chats.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-003",
+        "name": "SQLite Database Layer (sql.js/Kysely)",
+        "tags": [
+          "data",
+          "core"
+        ]
+      }
+    ],
+    "packages/db/src/repositories/data-store.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-003",
+        "name": "SQLite Database Layer (sql.js/Kysely)",
+        "tags": [
+          "data",
+          "core"
+        ]
+      }
+    ],
+    "packages/db/src/repositories/runs.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-003",
+        "name": "SQLite Database Layer (sql.js/Kysely)",
+        "tags": [
+          "data",
+          "core"
+        ]
+      }
+    ],
+    "packages/db/src/types.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-003",
+        "name": "SQLite Database Layer (sql.js/Kysely)",
+        "tags": [
+          "data",
+          "core"
+        ]
+      }
+    ],
+    "packages/engine/src/index.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-009",
+        "name": "Skill Runner & Workflow Engine",
+        "tags": [
+          "ai",
+          "workflow"
+        ]
+      }
+    ],
+    "packages/engine/src/runner/index.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-009",
+        "name": "Skill Runner & Workflow Engine",
+        "tags": [
+          "ai",
+          "workflow"
+        ]
+      }
+    ],
+    "packages/engine/src/tool-engine/index.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-008",
+        "name": "Engine Tool Engine (TS)",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/engine/src/tool-engine/provider.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-008",
+        "name": "Engine Tool Engine (TS)",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/engine/src/tool-engine/tool-registry.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-008",
+        "name": "Engine Tool Engine (TS)",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/engine/src/tool-engine/types.ts": [
+      {
+        "id": "F20261016-070",
+        "name": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+        "tags": [
+          "shared-packages",
+          "sqlite",
+          "sqljs",
+          "kysely",
+          "repository",
+          "context-engine"
+        ]
+      },
+      {
+        "id": "F-008",
+        "name": "Engine Tool Engine (TS)",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/server/src/context-engine.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-005",
+        "name": "Server Context Engine",
+        "tags": [
+          "ai",
+          "context"
+        ]
+      }
+    ],
+    "packages/server/src/lib/action-log.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-025",
+        "name": "Agent Memory",
+        "tags": [
+          "coding-ide",
+          "agents"
+        ]
+      }
+    ],
+    "packages/server/src/lib/asset-log-migrate.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/auto-dispatch-manager.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/auto-dispatch-shared.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/browser-executor.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/coding-review-runner.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/coding-task-cost.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-059",
+        "name": "Coding Cost Attribution",
+        "tags": [
+          "coding-ide",
+          "cost"
+        ]
+      }
+    ],
+    "packages/server/src/lib/context-providers.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-005",
+        "name": "Server Context Engine",
+        "tags": [
+          "ai",
+          "context"
+        ]
+      }
+    ],
+    "packages/server/src/lib/dev-server.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/dispatch-stream-state.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/dispatch-verifier.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/domain-agent-registry.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/em-job-entrypoints.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/em-orchestrator.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/em-task-store.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/env-exec-tool.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/exec-approvals.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/feature-map-v2.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/feature-map-validator.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-016",
+        "name": "Feature Mapping",
+        "tags": [
+          "coding-ide",
+          "analysis"
+        ]
+      }
+    ],
+    "packages/server/src/lib/flight-recorder.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-001",
+        "name": "PAAW Server Core & HTTP Entrypoint",
+        "tags": [
+          "core",
+          "infra"
+        ]
+      }
+    ],
+    "packages/server/src/lib/import-check.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-062",
+        "name": "Shell Execution & Utilities",
+        "tags": [
+          "core",
+          "utils"
+        ]
+      }
+    ],
+    "packages/server/src/lib/overnight-runner.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/paaw-sandbox.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/ru-runtime-ignore.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/script-guard.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/security-mode.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/security/approval.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-022",
+        "name": "Security Kernel",
+        "tags": [
+          "security",
+          "core"
+        ]
+      }
+    ],
+    "packages/server/src/lib/security/audit-log.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-022",
+        "name": "Security Kernel",
+        "tags": [
+          "security",
+          "core"
+        ]
+      }
+    ],
+    "packages/server/src/lib/security/index.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-022",
+        "name": "Security Kernel",
+        "tags": [
+          "security",
+          "core"
+        ]
+      }
+    ],
+    "packages/server/src/lib/security/policy-pipeline.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-022",
+        "name": "Security Kernel",
+        "tags": [
+          "security",
+          "core"
+        ]
+      }
+    ],
+    "packages/server/src/lib/security/secret-store.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-022",
+        "name": "Security Kernel",
+        "tags": [
+          "security",
+          "core"
+        ]
+      }
+    ],
+    "packages/server/src/lib/shell-guard.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      }
+    ],
+    "packages/server/src/lib/tool-engine/index.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-007",
+        "name": "Tool Engine (Server)",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/server/src/lib/tool-engine/provider.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-007",
+        "name": "Tool Engine (Server)",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/server/src/lib/tool-engine/tool-registry.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-007",
+        "name": "Tool Engine (Server)",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/server/src/lib/tool-registry-init.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
+      {
+        "id": "F-007",
+        "name": "Tool Engine (Server)",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
     "packages/server/src/paaw-server.mjs": [
+      {
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+        "tags": [
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
+        ]
+      },
       {
         "id": "F-001",
         "name": "PAAW Server Core & HTTP Entrypoint",
@@ -12,15 +3552,17 @@
     ],
     "packages/server/src/websocket/ws-handler.mjs": [
       {
-        "id": "F-001",
-        "name": "PAAW Server Core & HTTP Entrypoint",
+        "id": "F20261016-071",
+        "name": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
         "tags": [
-          "core",
-          "infra"
+          "server-runtime",
+          "http-entrypoint",
+          "websocket",
+          "pty",
+          "flight-recorder",
+          "crash-protection"
         ]
-      }
-    ],
-    "packages/server/src/lib/epipe-guard.mjs": [
+      },
       {
         "id": "F-001",
         "name": "PAAW Server Core & HTTP Entrypoint",
@@ -30,7 +3572,393 @@
         ]
       }
     ],
-    "packages/server/src/lib/flight-recorder.mjs": [
+    "packages/server/src/routes/coding-health.mjs": [
+      {
+        "id": "F20261016-072",
+        "name": "工作區周邊功能 API 與通用 App 工具引擎",
+        "tags": [
+          "api-routes",
+          "health-check",
+          "auto-dispatch-reports",
+          "mindmap",
+          "pocket-notes",
+          "skills-crud"
+        ]
+      },
+      {
+        "id": "F-020",
+        "name": "Coding Health",
+        "tags": [
+          "coding-ide",
+          "quality"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-reports.mjs": [
+      {
+        "id": "F20261016-072",
+        "name": "工作區周邊功能 API 與通用 App 工具引擎",
+        "tags": [
+          "api-routes",
+          "health-check",
+          "auto-dispatch-reports",
+          "mindmap",
+          "pocket-notes",
+          "skills-crud"
+        ]
+      }
+    ],
+    "packages/server/src/routes/mindmap.mjs": [
+      {
+        "id": "F20261016-072",
+        "name": "工作區周邊功能 API 與通用 App 工具引擎",
+        "tags": [
+          "api-routes",
+          "health-check",
+          "auto-dispatch-reports",
+          "mindmap",
+          "pocket-notes",
+          "skills-crud"
+        ]
+      },
+      {
+        "id": "F-044",
+        "name": "Mind Map Generation",
+        "tags": [
+          "ai",
+          "ui"
+        ]
+      }
+    ],
+    "packages/server/src/routes/pocket.mjs": [
+      {
+        "id": "F20261016-072",
+        "name": "工作區周邊功能 API 與通用 App 工具引擎",
+        "tags": [
+          "api-routes",
+          "health-check",
+          "auto-dispatch-reports",
+          "mindmap",
+          "pocket-notes",
+          "skills-crud"
+        ]
+      },
+      {
+        "id": "F-055",
+        "name": "Pocket & Session History",
+        "tags": [
+          "app",
+          "data"
+        ]
+      }
+    ],
+    "packages/server/src/routes/skill.mjs": [
+      {
+        "id": "F20261016-072",
+        "name": "工作區周邊功能 API 與通用 App 工具引擎",
+        "tags": [
+          "api-routes",
+          "health-check",
+          "auto-dispatch-reports",
+          "mindmap",
+          "pocket-notes",
+          "skills-crud"
+        ]
+      }
+    ],
+    "packages/server/src/tools/index.mjs": [
+      {
+        "id": "F20261016-072",
+        "name": "工作區周邊功能 API 與通用 App 工具引擎",
+        "tags": [
+          "api-routes",
+          "health-check",
+          "auto-dispatch-reports",
+          "mindmap",
+          "pocket-notes",
+          "skills-crud"
+        ]
+      },
+      {
+        "id": "F-007",
+        "name": "Tool Engine (Server)",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/shared/src/types/index.ts": [
+      {
+        "id": "F20261016-073",
+        "name": "共用型別契約與前端基礎工具層",
+        "tags": [
+          "shared-types",
+          "type-contracts",
+          "utils",
+          "template-engine",
+          "skill-definition",
+          "crew"
+        ]
+      }
+    ],
+    "packages/shared/src/utils/index.ts": [
+      {
+        "id": "F20261016-073",
+        "name": "共用型別契約與前端基礎工具層",
+        "tags": [
+          "shared-types",
+          "type-contracts",
+          "utils",
+          "template-engine",
+          "skill-definition",
+          "crew"
+        ]
+      }
+    ],
+    "packages/ui/src/components/git/index.ts": [
+      {
+        "id": "F20261016-073",
+        "name": "共用型別契約與前端基礎工具層",
+        "tags": [
+          "shared-types",
+          "type-contracts",
+          "utils",
+          "template-engine",
+          "skill-definition",
+          "crew"
+        ]
+      }
+    ],
+    "packages/ui/src/main.tsx": [
+      {
+        "id": "F20261016-073",
+        "name": "共用型別契約與前端基礎工具層",
+        "tags": [
+          "shared-types",
+          "type-contracts",
+          "utils",
+          "template-engine",
+          "skill-definition",
+          "crew"
+        ]
+      }
+    ],
+    "packages/ui/src/types/index.ts": [
+      {
+        "id": "F20261016-073",
+        "name": "共用型別契約與前端基礎工具層",
+        "tags": [
+          "shared-types",
+          "type-contracts",
+          "utils",
+          "template-engine",
+          "skill-definition",
+          "crew"
+        ]
+      }
+    ],
+    "packages/ui/src/utils/index.ts": [
+      {
+        "id": "F20261016-073",
+        "name": "共用型別契約與前端基礎工具層",
+        "tags": [
+          "shared-types",
+          "type-contracts",
+          "utils",
+          "template-engine",
+          "skill-definition",
+          "crew"
+        ]
+      }
+    ],
+    "packages/ui/src/utils/stableStringify.ts": [
+      {
+        "id": "F20261016-073",
+        "name": "共用型別契約與前端基礎工具層",
+        "tags": [
+          "shared-types",
+          "type-contracts",
+          "utils",
+          "template-engine",
+          "skill-definition",
+          "crew"
+        ]
+      }
+    ],
+    "packages/ui/vite.config.ts": [
+      {
+        "id": "F20261016-074",
+        "name": "建置測試設定與產品打包維運腳本",
+        "tags": [
+          "build-config",
+          "vite",
+          "playwright",
+          "vitest",
+          "packaging",
+          "release"
+        ]
+      }
+    ],
+    "playwright.config.ts": [
+      {
+        "id": "F20261016-074",
+        "name": "建置測試設定與產品打包維運腳本",
+        "tags": [
+          "build-config",
+          "vite",
+          "playwright",
+          "vitest",
+          "packaging",
+          "release"
+        ]
+      }
+    ],
+    "scripts/check-sandbox.mjs": [
+      {
+        "id": "F20261016-074",
+        "name": "建置測試設定與產品打包維運腳本",
+        "tags": [
+          "build-config",
+          "vite",
+          "playwright",
+          "vitest",
+          "packaging",
+          "release"
+        ]
+      }
+    ],
+    "scripts/paaw-sync.mjs": [
+      {
+        "id": "F20261016-074",
+        "name": "建置測試設定與產品打包維運腳本",
+        "tags": [
+          "build-config",
+          "vite",
+          "playwright",
+          "vitest",
+          "packaging",
+          "release"
+        ]
+      },
+      {
+        "id": "F-061",
+        "name": "Build & Ops Scripts",
+        "tags": [
+          "infra",
+          "build"
+        ]
+      }
+    ],
+    "scripts/pack.mjs": [
+      {
+        "id": "F20261016-074",
+        "name": "建置測試設定與產品打包維運腳本",
+        "tags": [
+          "build-config",
+          "vite",
+          "playwright",
+          "vitest",
+          "packaging",
+          "release"
+        ]
+      },
+      {
+        "id": "F-061",
+        "name": "Build & Ops Scripts",
+        "tags": [
+          "infra",
+          "build"
+        ]
+      }
+    ],
+    "scripts/postinstall.cjs": [
+      {
+        "id": "F20261016-074",
+        "name": "建置測試設定與產品打包維運腳本",
+        "tags": [
+          "build-config",
+          "vite",
+          "playwright",
+          "vitest",
+          "packaging",
+          "release"
+        ]
+      },
+      {
+        "id": "F-061",
+        "name": "Build & Ops Scripts",
+        "tags": [
+          "infra",
+          "build"
+        ]
+      }
+    ],
+    "scripts/runtime-guard-scanner.mjs": [
+      {
+        "id": "F20261016-074",
+        "name": "建置測試設定與產品打包維運腳本",
+        "tags": [
+          "build-config",
+          "vite",
+          "playwright",
+          "vitest",
+          "packaging",
+          "release"
+        ]
+      },
+      {
+        "id": "F-061",
+        "name": "Build & Ops Scripts",
+        "tags": [
+          "infra",
+          "build"
+        ]
+      }
+    ],
+    "vitest.config.ts": [
+      {
+        "id": "F20261016-074",
+        "name": "建置測試設定與產品打包維運腳本",
+        "tags": [
+          "build-config",
+          "vite",
+          "playwright",
+          "vitest",
+          "packaging",
+          "release"
+        ]
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/proxy-migration.ts": [
+      {
+        "id": "F20261016-074",
+        "name": "建置測試設定與產品打包維運腳本",
+        "tags": [
+          "build-config",
+          "vite",
+          "playwright",
+          "vitest",
+          "packaging",
+          "release"
+        ]
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/server-action-form.tsx": [
+      {
+        "id": "F20261016-074",
+        "name": "建置測試設定與產品打包維運腳本",
+        "tags": [
+          "build-config",
+          "vite",
+          "playwright",
+          "vitest",
+          "packaging",
+          "release"
+        ]
+      }
+    ],
+    "packages/server/src/lib/epipe-guard.mjs": [
       {
         "id": "F-001",
         "name": "PAAW Server Core & HTTP Entrypoint",
@@ -50,196 +3978,6 @@
         ]
       }
     ],
-    "packages/shared/src/index.ts": [
-      {
-        "id": "F-002",
-        "name": "Shared Utilities & Schemas",
-        "tags": [
-          "core",
-          "shared"
-        ]
-      }
-    ],
-    "packages/shared/src/types/index.ts": [
-      {
-        "id": "F-002",
-        "name": "Shared Utilities & Schemas",
-        "tags": [
-          "core",
-          "shared"
-        ]
-      }
-    ],
-    "packages/shared/src/schemas/index.ts": [
-      {
-        "id": "F-002",
-        "name": "Shared Utilities & Schemas",
-        "tags": [
-          "core",
-          "shared"
-        ]
-      }
-    ],
-    "packages/shared/src/utils/index.ts": [
-      {
-        "id": "F-002",
-        "name": "Shared Utilities & Schemas",
-        "tags": [
-          "core",
-          "shared"
-        ]
-      }
-    ],
-    "tests/unit/shared-utils.test.ts": [
-      {
-        "id": "F-002",
-        "name": "Shared Utilities & Schemas",
-        "tags": [
-          "core",
-          "shared"
-        ]
-      }
-    ],
-    "packages/db/src/connection.ts": [
-      {
-        "id": "F-003",
-        "name": "SQLite Database Layer (sql.js/Kysely)",
-        "tags": [
-          "data",
-          "core"
-        ]
-      }
-    ],
-    "packages/db/src/migrate.ts": [
-      {
-        "id": "F-003",
-        "name": "SQLite Database Layer (sql.js/Kysely)",
-        "tags": [
-          "data",
-          "core"
-        ]
-      }
-    ],
-    "packages/db/src/paths.ts": [
-      {
-        "id": "F-003",
-        "name": "SQLite Database Layer (sql.js/Kysely)",
-        "tags": [
-          "data",
-          "core"
-        ]
-      }
-    ],
-    "packages/db/src/repositories/runs.ts": [
-      {
-        "id": "F-003",
-        "name": "SQLite Database Layer (sql.js/Kysely)",
-        "tags": [
-          "data",
-          "core"
-        ]
-      }
-    ],
-    "packages/db/src/repositories/chats.ts": [
-      {
-        "id": "F-003",
-        "name": "SQLite Database Layer (sql.js/Kysely)",
-        "tags": [
-          "data",
-          "core"
-        ]
-      }
-    ],
-    "packages/db/src/repositories/data-store.ts": [
-      {
-        "id": "F-003",
-        "name": "SQLite Database Layer (sql.js/Kysely)",
-        "tags": [
-          "data",
-          "core"
-        ]
-      }
-    ],
-    "packages/db/src/types.ts": [
-      {
-        "id": "F-003",
-        "name": "SQLite Database Layer (sql.js/Kysely)",
-        "tags": [
-          "data",
-          "core"
-        ]
-      }
-    ],
-    "packages/db/src/index.ts": [
-      {
-        "id": "F-003",
-        "name": "SQLite Database Layer (sql.js/Kysely)",
-        "tags": [
-          "data",
-          "core"
-        ]
-      }
-    ],
-    "packages/context/src/assembler.ts": [
-      {
-        "id": "F-004",
-        "name": "Context Engine & Refinery",
-        "tags": [
-          "ai",
-          "context"
-        ]
-      }
-    ],
-    "packages/context/src/refinery/refinery.ts": [
-      {
-        "id": "F-004",
-        "name": "Context Engine & Refinery",
-        "tags": [
-          "ai",
-          "context"
-        ]
-      }
-    ],
-    "packages/context/src/memory/memory-store.ts": [
-      {
-        "id": "F-004",
-        "name": "Context Engine & Refinery",
-        "tags": [
-          "ai",
-          "context"
-        ]
-      }
-    ],
-    "packages/context/src/index.ts": [
-      {
-        "id": "F-004",
-        "name": "Context Engine & Refinery",
-        "tags": [
-          "ai",
-          "context"
-        ]
-      }
-    ],
-    "packages/server/src/context-engine.mjs": [
-      {
-        "id": "F-005",
-        "name": "Server Context Engine",
-        "tags": [
-          "ai",
-          "context"
-        ]
-      }
-    ],
-    "packages/server/src/lib/context-providers.mjs": [
-      {
-        "id": "F-005",
-        "name": "Server Context Engine",
-        "tags": [
-          "ai",
-          "context"
-        ]
-      }
-    ],
     "tests/unit/context-engine.test.mjs": [
       {
         "id": "F-005",
@@ -247,16 +3985,6 @@
         "tags": [
           "ai",
           "context"
-        ]
-      }
-    ],
-    "packages/server/src/lib/paaw-agent-loop.mjs": [
-      {
-        "id": "F-006",
-        "name": "Agent Loop",
-        "tags": [
-          "core",
-          "ai"
         ]
       }
     ],
@@ -270,66 +3998,6 @@
         ]
       }
     ],
-    "packages/server/src/lib/tool-engine/index.mjs": [
-      {
-        "id": "F-007",
-        "name": "Tool Engine (Server)",
-        "tags": [
-          "ai",
-          "tooling"
-        ]
-      }
-    ],
-    "packages/server/src/lib/tool-engine/provider.mjs": [
-      {
-        "id": "F-007",
-        "name": "Tool Engine (Server)",
-        "tags": [
-          "ai",
-          "tooling"
-        ]
-      }
-    ],
-    "packages/server/src/lib/tool-engine/tool-registry.mjs": [
-      {
-        "id": "F-007",
-        "name": "Tool Engine (Server)",
-        "tags": [
-          "ai",
-          "tooling"
-        ]
-      }
-    ],
-    "packages/server/src/lib/tool-registry.mjs": [
-      {
-        "id": "F-007",
-        "name": "Tool Engine (Server)",
-        "tags": [
-          "ai",
-          "tooling"
-        ]
-      }
-    ],
-    "packages/server/src/lib/tool-registry-init.mjs": [
-      {
-        "id": "F-007",
-        "name": "Tool Engine (Server)",
-        "tags": [
-          "ai",
-          "tooling"
-        ]
-      }
-    ],
-    "packages/server/src/tools/index.mjs": [
-      {
-        "id": "F-007",
-        "name": "Tool Engine (Server)",
-        "tags": [
-          "ai",
-          "tooling"
-        ]
-      }
-    ],
     "packages/server/src/lib/agentic-binding.mjs": [
       {
         "id": "F-007",
@@ -340,67 +4008,7 @@
         ]
       }
     ],
-    "packages/engine/src/tool-engine/index.ts": [
-      {
-        "id": "F-008",
-        "name": "Engine Tool Engine (TS)",
-        "tags": [
-          "ai",
-          "tooling"
-        ]
-      }
-    ],
-    "packages/engine/src/tool-engine/provider.ts": [
-      {
-        "id": "F-008",
-        "name": "Engine Tool Engine (TS)",
-        "tags": [
-          "ai",
-          "tooling"
-        ]
-      }
-    ],
-    "packages/engine/src/tool-engine/tool-registry.ts": [
-      {
-        "id": "F-008",
-        "name": "Engine Tool Engine (TS)",
-        "tags": [
-          "ai",
-          "tooling"
-        ]
-      }
-    ],
-    "packages/engine/src/tool-engine/types.ts": [
-      {
-        "id": "F-008",
-        "name": "Engine Tool Engine (TS)",
-        "tags": [
-          "ai",
-          "tooling"
-        ]
-      }
-    ],
-    "packages/engine/src/runner/index.ts": [
-      {
-        "id": "F-009",
-        "name": "Skill Runner & Workflow Engine",
-        "tags": [
-          "ai",
-          "workflow"
-        ]
-      }
-    ],
     "packages/engine/src/workflow/index.ts": [
-      {
-        "id": "F-009",
-        "name": "Skill Runner & Workflow Engine",
-        "tags": [
-          "ai",
-          "workflow"
-        ]
-      }
-    ],
-    "packages/engine/src/index.ts": [
       {
         "id": "F-009",
         "name": "Skill Runner & Workflow Engine",
@@ -448,95 +4056,7 @@
         ]
       }
     ],
-    "packages/ui/src/pages/ChatView.tsx": [
-      {
-        "id": "F-011",
-        "name": "Chat Interface",
-        "tags": [
-          "ui",
-          "ai"
-        ]
-      }
-    ],
-    "packages/ui/src/components/ChatMessages.tsx": [
-      {
-        "id": "F-011",
-        "name": "Chat Interface",
-        "tags": [
-          "ui",
-          "ai"
-        ]
-      }
-    ],
-    "packages/ui/src/components/MarkdownText.tsx": [
-      {
-        "id": "F-011",
-        "name": "Chat Interface",
-        "tags": [
-          "ui",
-          "ai"
-        ]
-      }
-    ],
-    "packages/server/src/routes/chat.mjs": [
-      {
-        "id": "F-011",
-        "name": "Chat Interface",
-        "tags": [
-          "ui",
-          "ai"
-        ]
-      },
-      {
-        "id": "F-038",
-        "name": "System Prompts",
-        "tags": [
-          "settings",
-          "ai"
-        ]
-      }
-    ],
-    "packages/ui/src/components/ModelSelector.tsx": [
-      {
-        "id": "F-011",
-        "name": "Chat Interface",
-        "tags": [
-          "ui",
-          "ai"
-        ]
-      }
-    ],
-    "tests/e2e/06-chat.spec.ts": [
-      {
-        "id": "F-011",
-        "name": "Chat Interface",
-        "tags": [
-          "ui",
-          "ai"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/CodingIDE.tsx": [
-      {
-        "id": "F-012",
-        "name": "Coding IDE",
-        "tags": [
-          "ui",
-          "coding-ide"
-        ]
-      }
-    ],
     "packages/ui/src/components/ShellTerminal.tsx": [
-      {
-        "id": "F-012",
-        "name": "Coding IDE",
-        "tags": [
-          "ui",
-          "coding-ide"
-        ]
-      }
-    ],
-    "packages/ui/src/components/SidebarFileTree.tsx": [
       {
         "id": "F-012",
         "name": "Coding IDE",
@@ -556,16 +4076,6 @@
         ]
       }
     ],
-    "packages/ui/src/pages/FileViewer.tsx": [
-      {
-        "id": "F-012",
-        "name": "Coding IDE",
-        "tags": [
-          "ui",
-          "coding-ide"
-        ]
-      }
-    ],
     "packages/ui/src/components/browser/BrowserPanel.tsx": [
       {
         "id": "F-012",
@@ -573,14 +4083,6 @@
         "tags": [
           "ui",
           "coding-ide"
-        ]
-      },
-      {
-        "id": "F-043",
-        "name": "Shared Browser Session",
-        "tags": [
-          "browser",
-          "tooling"
         ]
       }
     ],
@@ -614,222 +4116,6 @@
         ]
       }
     ],
-    "packages/server/src/routes/vibe-fs.mjs": [
-      {
-        "id": "F-012",
-        "name": "Coding IDE",
-        "tags": [
-          "ui",
-          "coding-ide"
-        ]
-      },
-      {
-        "id": "F-046",
-        "name": "Knowledge Tree & File Management",
-        "tags": [
-          "ui",
-          "files"
-        ]
-      }
-    ],
-    "packages/server/src/routes/coding-staged-changes.mjs": [
-      {
-        "id": "F-012",
-        "name": "Coding IDE",
-        "tags": [
-          "ui",
-          "coding-ide"
-        ]
-      }
-    ],
-    "packages/ui/src/components/git/GitPanel.tsx": [
-      {
-        "id": "F-013",
-        "name": "Git Integration Panel",
-        "tags": [
-          "coding-ide",
-          "git"
-        ]
-      }
-    ],
-    "packages/ui/src/components/git/GitStatusView.tsx": [
-      {
-        "id": "F-013",
-        "name": "Git Integration Panel",
-        "tags": [
-          "coding-ide",
-          "git"
-        ]
-      }
-    ],
-    "packages/ui/src/components/git/GitDiffView.tsx": [
-      {
-        "id": "F-013",
-        "name": "Git Integration Panel",
-        "tags": [
-          "coding-ide",
-          "git"
-        ]
-      }
-    ],
-    "packages/ui/src/components/git/GitReviewView.tsx": [
-      {
-        "id": "F-013",
-        "name": "Git Integration Panel",
-        "tags": [
-          "coding-ide",
-          "git"
-        ]
-      }
-    ],
-    "packages/ui/src/components/git/GitCommitBar.tsx": [
-      {
-        "id": "F-013",
-        "name": "Git Integration Panel",
-        "tags": [
-          "coding-ide",
-          "git"
-        ]
-      }
-    ],
-    "packages/ui/src/components/git/GitFileGroup.tsx": [
-      {
-        "id": "F-013",
-        "name": "Git Integration Panel",
-        "tags": [
-          "coding-ide",
-          "git"
-        ]
-      }
-    ],
-    "packages/ui/src/components/git/git-helpers.ts": [
-      {
-        "id": "F-013",
-        "name": "Git Integration Panel",
-        "tags": [
-          "coding-ide",
-          "git"
-        ]
-      }
-    ],
-    "packages/ui/src/components/git/index.ts": [
-      {
-        "id": "F-013",
-        "name": "Git Integration Panel",
-        "tags": [
-          "coding-ide",
-          "git"
-        ]
-      }
-    ],
-    "packages/server/src/lib/task-git.mjs": [
-      {
-        "id": "F-013",
-        "name": "Git Integration Panel",
-        "tags": [
-          "coding-ide",
-          "git"
-        ]
-      },
-      {
-        "id": "F-015",
-        "name": "Task Board & Pipeline",
-        "tags": [
-          "coding-ide",
-          "tasks"
-        ]
-      }
-    ],
-    "packages/ui/src/components/IssueTracker.tsx": [
-      {
-        "id": "F-014",
-        "name": "Issue Tracking",
-        "tags": [
-          "coding-ide",
-          "tooling"
-        ]
-      }
-    ],
-    "packages/server/src/routes/coding-issues.mjs": [
-      {
-        "id": "F-014",
-        "name": "Issue Tracking",
-        "tags": [
-          "coding-ide",
-          "tooling"
-        ]
-      }
-    ],
-    "packages/ui/src/components/TaskBoard.tsx": [
-      {
-        "id": "F-015",
-        "name": "Task Board & Pipeline",
-        "tags": [
-          "coding-ide",
-          "tasks"
-        ]
-      }
-    ],
-    "packages/server/src/routes/coding-tasks.mjs": [
-      {
-        "id": "F-015",
-        "name": "Task Board & Pipeline",
-        "tags": [
-          "coding-ide",
-          "tasks"
-        ]
-      }
-    ],
-    "packages/server/src/lib/task-persistence.mjs": [
-      {
-        "id": "F-015",
-        "name": "Task Board & Pipeline",
-        "tags": [
-          "coding-ide",
-          "tasks"
-        ]
-      }
-    ],
-    "packages/server/src/lib/overnight-runner.mjs": [
-      {
-        "id": "F-015",
-        "name": "Task Board & Pipeline",
-        "tags": [
-          "coding-ide",
-          "tasks"
-        ]
-      }
-    ],
-    "packages/server/src/lib/task-retrofit.mjs": [
-      {
-        "id": "F-015",
-        "name": "Task Board & Pipeline",
-        "tags": [
-          "coding-ide",
-          "tasks"
-        ]
-      }
-    ],
-    "tests/unit/repair-loop.test.mjs": [
-      {
-        "id": "F-015",
-        "name": "Task Board & Pipeline",
-        "tags": [
-          "coding-ide",
-          "tasks"
-        ]
-      }
-    ],
-    "packages/ui/src/components/FeatureMap.tsx": [
-      {
-        "id": "F-016",
-        "name": "Feature Mapping",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
     "packages/ui/src/components/FeatureCockpit.tsx": [
       {
         "id": "F-016",
@@ -850,57 +4136,7 @@
         ]
       }
     ],
-    "packages/server/src/lib/feature-map-validator.mjs": [
-      {
-        "id": "F-016",
-        "name": "Feature Mapping",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/feature-boundary.mjs": [
-      {
-        "id": "F-016",
-        "name": "Feature Mapping",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/ui/src/components/CodeIntelPage.tsx": [
-      {
-        "id": "F-017",
-        "name": "Code Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/code-intelligence.mjs": [
-      {
-        "id": "F-017",
-        "name": "Code Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
     "packages/server/src/lib/tree-sitter-parser.mjs": [
-      {
-        "id": "F-017",
-        "name": "Code Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/dependency-context.mjs": [
       {
         "id": "F-017",
         "name": "Code Intelligence",
@@ -920,317 +4156,7 @@
         ]
       }
     ],
-    "tests/unit/dependency-context.test.mjs": [
-      {
-        "id": "F-017",
-        "name": "Code Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/routes/release-unit.mjs": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/release-unit/model.mjs": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/release-unit/dependencies.mjs": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/release-unit/impact.mjs": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/release-unit/metrics.mjs": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/release-unit/architecture.mjs": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/release-unit/apis.mjs": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/release-unit/analyze.mjs": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/release-unit/adapters.mjs": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/release-unit/ask.mjs": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/release-unit/qa.mjs": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/release-unit/verify.mjs": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/release-unit/gates.mjs": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/server/src/lib/release-unit/cost.mjs": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/ReleaseUnitExplorer.tsx": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/ui/src/components/RuModelSection.tsx": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/ui/src/components/RuQaSection.tsx": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/ui/src/components/RuCostSection.tsx": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/ui/src/components/useRuModel.ts": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/ui/src/components/ApiMapSidebar.tsx": [
-      {
-        "id": "F-018",
-        "name": "Release Unit Intelligence",
-        "tags": [
-          "coding-ide",
-          "analysis"
-        ]
-      }
-    ],
-    "packages/ui/src/components/ReleaseManagerPanel.tsx": [
-      {
-        "id": "F-019",
-        "name": "Release Management",
-        "tags": [
-          "coding-ide",
-          "release"
-        ]
-      }
-    ],
-    "packages/ui/src/components/EvidenceCard.tsx": [
-      {
-        "id": "F-019",
-        "name": "Release Management",
-        "tags": [
-          "coding-ide",
-          "release"
-        ]
-      }
-    ],
-    "packages/server/src/routes/coding-releases.mjs": [
-      {
-        "id": "F-019",
-        "name": "Release Management",
-        "tags": [
-          "coding-ide",
-          "release"
-        ]
-      }
-    ],
-    "packages/server/src/routes/coding-evidence.mjs": [
-      {
-        "id": "F-019",
-        "name": "Release Management",
-        "tags": [
-          "coding-ide",
-          "release"
-        ]
-      }
-    ],
-    "packages/server/src/lib/review-boundary.mjs": [
-      {
-        "id": "F-019",
-        "name": "Release Management",
-        "tags": [
-          "coding-ide",
-          "release"
-        ]
-      }
-    ],
-    "packages/server/src/lib/test-runner.mjs": [
-      {
-        "id": "F-019",
-        "name": "Release Management",
-        "tags": [
-          "coding-ide",
-          "release"
-        ]
-      }
-    ],
-    "packages/server/src/lib/change-intelligence.mjs": [
-      {
-        "id": "F-019",
-        "name": "Release Management",
-        "tags": [
-          "coding-ide",
-          "release"
-        ]
-      }
-    ],
-    "tests/unit/coding-evidence.test.mjs": [
-      {
-        "id": "F-019",
-        "name": "Release Management",
-        "tags": [
-          "coding-ide",
-          "release"
-        ]
-      }
-    ],
     "packages/ui/src/components/SecurityTab.tsx": [
-      {
-        "id": "F-020",
-        "name": "Coding Health",
-        "tags": [
-          "coding-ide",
-          "quality"
-        ]
-      }
-    ],
-    "packages/server/src/routes/coding-health.mjs": [
-      {
-        "id": "F-020",
-        "name": "Coding Health",
-        "tags": [
-          "coding-ide",
-          "quality"
-        ]
-      }
-    ],
-    "packages/server/src/lib/security-rules.mjs": [
       {
         "id": "F-020",
         "name": "Coding Health",
@@ -1290,207 +4216,6 @@
         ]
       }
     ],
-    "packages/server/src/lib/security/index.mjs": [
-      {
-        "id": "F-022",
-        "name": "Security Kernel",
-        "tags": [
-          "security",
-          "core"
-        ]
-      }
-    ],
-    "packages/server/src/lib/security/policy-pipeline.mjs": [
-      {
-        "id": "F-022",
-        "name": "Security Kernel",
-        "tags": [
-          "security",
-          "core"
-        ]
-      }
-    ],
-    "packages/server/src/lib/security/approval.mjs": [
-      {
-        "id": "F-022",
-        "name": "Security Kernel",
-        "tags": [
-          "security",
-          "core"
-        ]
-      }
-    ],
-    "packages/server/src/lib/security/secret-store.mjs": [
-      {
-        "id": "F-022",
-        "name": "Security Kernel",
-        "tags": [
-          "security",
-          "core"
-        ]
-      }
-    ],
-    "packages/server/src/lib/security/audit-log.mjs": [
-      {
-        "id": "F-022",
-        "name": "Security Kernel",
-        "tags": [
-          "security",
-          "core"
-        ]
-      }
-    ],
-    "packages/ui/src/components/EMDashboard.tsx": [
-      {
-        "id": "F-023",
-        "name": "EM Dashboard & Auto Dispatch",
-        "tags": [
-          "coding-ide",
-          "ai",
-          "agents"
-        ]
-      }
-    ],
-    "packages/ui/src/components/AutoDispatchPanel.tsx": [
-      {
-        "id": "F-023",
-        "name": "EM Dashboard & Auto Dispatch",
-        "tags": [
-          "coding-ide",
-          "ai",
-          "agents"
-        ]
-      }
-    ],
-    "packages/server/src/routes/coding-auto-dispatch.mjs": [
-      {
-        "id": "F-023",
-        "name": "EM Dashboard & Auto Dispatch",
-        "tags": [
-          "coding-ide",
-          "ai",
-          "agents"
-        ]
-      }
-    ],
-    "packages/server/src/routes/coding-auto-dispatch-config.mjs": [
-      {
-        "id": "F-023",
-        "name": "EM Dashboard & Auto Dispatch",
-        "tags": [
-          "coding-ide",
-          "ai",
-          "agents"
-        ]
-      }
-    ],
-    "packages/server/src/routes/coding-auto-dispatch-prompts.mjs": [
-      {
-        "id": "F-023",
-        "name": "EM Dashboard & Auto Dispatch",
-        "tags": [
-          "coding-ide",
-          "ai",
-          "agents"
-        ]
-      }
-    ],
-    "packages/server/src/routes/coding-reports.mjs": [
-      {
-        "id": "F-023",
-        "name": "EM Dashboard & Auto Dispatch",
-        "tags": [
-          "coding-ide",
-          "ai",
-          "agents"
-        ]
-      }
-    ],
-    "packages/server/src/lib/auto-dispatch-manager.mjs": [
-      {
-        "id": "F-023",
-        "name": "EM Dashboard & Auto Dispatch",
-        "tags": [
-          "coding-ide",
-          "ai",
-          "agents"
-        ]
-      }
-    ],
-    "packages/server/src/lib/auto-dispatch-shared.mjs": [
-      {
-        "id": "F-023",
-        "name": "EM Dashboard & Auto Dispatch",
-        "tags": [
-          "coding-ide",
-          "ai",
-          "agents"
-        ]
-      }
-    ],
-    "packages/server/src/lib/em-config.mjs": [
-      {
-        "id": "F-023",
-        "name": "EM Dashboard & Auto Dispatch",
-        "tags": [
-          "coding-ide",
-          "ai",
-          "agents"
-        ]
-      }
-    ],
-    "tests/unit/auto-dispatch-shared.test.mjs": [
-      {
-        "id": "F-023",
-        "name": "EM Dashboard & Auto Dispatch",
-        "tags": [
-          "coding-ide",
-          "ai",
-          "agents"
-        ]
-      }
-    ],
-    "packages/server/src/routes/coding-em-config.mjs": [
-      {
-        "id": "F-023",
-        "name": "EM Dashboard & Auto Dispatch",
-        "tags": [
-          "coding-ide",
-          "ai",
-          "agents"
-        ]
-      }
-    ],
-    "packages/server/src/routes/execution-plan-routes.mjs": [
-      {
-        "id": "F-024",
-        "name": "Execution Plans",
-        "tags": [
-          "coding-ide",
-          "tasks"
-        ]
-      }
-    ],
-    "packages/server/src/lib/execution-plan.mjs": [
-      {
-        "id": "F-024",
-        "name": "Execution Plans",
-        "tags": [
-          "coding-ide",
-          "tasks"
-        ]
-      }
-    ],
-    "tests/unit/execution-plan.test.mjs": [
-      {
-        "id": "F-024",
-        "name": "Execution Plans",
-        "tags": [
-          "coding-ide",
-          "tasks"
-        ]
-      }
-    ],
     "packages/ui/src/components/AgentMemoryPanel.tsx": [
       {
         "id": "F-025",
@@ -1508,26 +4233,6 @@
         "tags": [
           "coding-ide",
           "agents"
-        ]
-      }
-    ],
-    "packages/server/src/lib/action-log.mjs": [
-      {
-        "id": "F-025",
-        "name": "Agent Memory",
-        "tags": [
-          "coding-ide",
-          "agents"
-        ]
-      }
-    ],
-    "packages/ui/src/components/HandoverPanel.tsx": [
-      {
-        "id": "F-026",
-        "name": "Coding Handover",
-        "tags": [
-          "coding-ide",
-          "ops"
         ]
       }
     ],
@@ -1551,226 +4256,6 @@
         ]
       }
     ],
-    "packages/ui/src/components/TroubleshootingPanel.tsx": [
-      {
-        "id": "F-027",
-        "name": "Coding Ops & Troubleshooting",
-        "tags": [
-          "coding-ide",
-          "ops"
-        ]
-      }
-    ],
-    "packages/server/src/routes/coding-ops.mjs": [
-      {
-        "id": "F-027",
-        "name": "Coding Ops & Troubleshooting",
-        "tags": [
-          "coding-ide",
-          "ops"
-        ]
-      }
-    ],
-    "packages/server/src/routes/coding-doc-coverage.mjs": [
-      {
-        "id": "F-028",
-        "name": "Doc Coverage",
-        "tags": [
-          "coding-ide",
-          "docs"
-        ]
-      }
-    ],
-    "packages/server/src/lib/doc-coverage.mjs": [
-      {
-        "id": "F-028",
-        "name": "Doc Coverage",
-        "tags": [
-          "coding-ide",
-          "docs"
-        ]
-      }
-    ],
-    "packages/ui/src/components/TestsPage.tsx": [
-      {
-        "id": "F-029",
-        "name": "Tests Page",
-        "tags": [
-          "coding-ide",
-          "quality"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/A2APlayground.tsx": [
-      {
-        "id": "F-030",
-        "name": "A2A Protocol",
-        "tags": [
-          "agents",
-          "api"
-        ]
-      }
-    ],
-    "packages/server/src/routes/a2a.mjs": [
-      {
-        "id": "F-030",
-        "name": "A2A Protocol",
-        "tags": [
-          "agents",
-          "api"
-        ]
-      }
-    ],
-    "packages/server/src/lib/domain-agent-registry.mjs": [
-      {
-        "id": "F-030",
-        "name": "A2A Protocol",
-        "tags": [
-          "agents",
-          "api"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/AICrew.tsx": [
-      {
-        "id": "F-031",
-        "name": "AI Crew Management",
-        "tags": [
-          "agents",
-          "ui"
-        ]
-      }
-    ],
-    "packages/ui/src/components/CrewManager.tsx": [
-      {
-        "id": "F-031",
-        "name": "AI Crew Management",
-        "tags": [
-          "agents",
-          "ui"
-        ]
-      }
-    ],
-    "packages/ui/src/components/CrewEditor.tsx": [
-      {
-        "id": "F-031",
-        "name": "AI Crew Management",
-        "tags": [
-          "agents",
-          "ui"
-        ]
-      }
-    ],
-    "packages/ui/src/components/AgentBuilder.tsx": [
-      {
-        "id": "F-031",
-        "name": "AI Crew Management",
-        "tags": [
-          "agents",
-          "ui"
-        ]
-      }
-    ],
-    "packages/ui/src/components/CrewAvatar.tsx": [
-      {
-        "id": "F-031",
-        "name": "AI Crew Management",
-        "tags": [
-          "agents",
-          "ui"
-        ]
-      }
-    ],
-    "packages/ui/src/components/SkillPicker.tsx": [
-      {
-        "id": "F-031",
-        "name": "AI Crew Management",
-        "tags": [
-          "agents",
-          "ui"
-        ]
-      }
-    ],
-    "packages/server/src/routes/crew.mjs": [
-      {
-        "id": "F-031",
-        "name": "AI Crew Management",
-        "tags": [
-          "agents",
-          "ui"
-        ]
-      }
-    ],
-    "packages/server/src/lib/project-crew.mjs": [
-      {
-        "id": "F-031",
-        "name": "AI Crew Management",
-        "tags": [
-          "agents",
-          "ui"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/SkillsPage.tsx": [
-      {
-        "id": "F-032",
-        "name": "Skills System",
-        "tags": [
-          "skills",
-          "ai"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/SkillBuilder.tsx": [
-      {
-        "id": "F-032",
-        "name": "Skills System",
-        "tags": [
-          "skills",
-          "ai"
-        ]
-      }
-    ],
-    "packages/server/src/routes/skill.mjs": [
-      {
-        "id": "F-032",
-        "name": "Skills System",
-        "tags": [
-          "skills",
-          "ai"
-        ]
-      }
-    ],
-    "packages/server/src/routes/skills-api.mjs": [
-      {
-        "id": "F-032",
-        "name": "Skills System",
-        "tags": [
-          "skills",
-          "ai"
-        ]
-      }
-    ],
-    "tests/unit/skill-format.test.mjs": [
-      {
-        "id": "F-032",
-        "name": "Skills System",
-        "tags": [
-          "skills",
-          "ai"
-        ]
-      }
-    ],
-    "tests/e2e/07-skills.spec.ts": [
-      {
-        "id": "F-032",
-        "name": "Skills System",
-        "tags": [
-          "skills",
-          "ai"
-        ]
-      }
-    ],
     "packages/ui/src/pages/AppBuilder.tsx": [
       {
         "id": "F-033",
@@ -1782,26 +4267,6 @@
       }
     ],
     "packages/ui/src/pages/AppPool.tsx": [
-      {
-        "id": "F-033",
-        "name": "App Builder & App Pool",
-        "tags": [
-          "apps",
-          "ui"
-        ]
-      }
-    ],
-    "packages/ui/src/components/AgentConsole.tsx": [
-      {
-        "id": "F-033",
-        "name": "App Builder & App Pool",
-        "tags": [
-          "apps",
-          "ui"
-        ]
-      }
-    ],
-    "packages/server/src/routes/apps.mjs": [
       {
         "id": "F-033",
         "name": "App Builder & App Pool",
@@ -1861,146 +4326,6 @@
         ]
       }
     ],
-    "packages/ui/src/pages/Notes.tsx": [
-      {
-        "id": "F-035",
-        "name": "Notes App",
-        "tags": [
-          "app",
-          "productivity"
-        ]
-      }
-    ],
-    "packages/server/src/routes/notes.mjs": [
-      {
-        "id": "F-035",
-        "name": "Notes App",
-        "tags": [
-          "app",
-          "productivity"
-        ]
-      }
-    ],
-    "tests/e2e/03-notes.spec.ts": [
-      {
-        "id": "F-035",
-        "name": "Notes App",
-        "tags": [
-          "app",
-          "productivity"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/HelpDesk.tsx": [
-      {
-        "id": "F-036",
-        "name": "Help Desk",
-        "tags": [
-          "app",
-          "ai"
-        ]
-      }
-    ],
-    "packages/server/src/routes/helpdesk.mjs": [
-      {
-        "id": "F-036",
-        "name": "Help Desk",
-        "tags": [
-          "app",
-          "ai"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/SettingsPage.tsx": [
-      {
-        "id": "F-037",
-        "name": "Assistant & User Settings",
-        "tags": [
-          "settings",
-          "ui"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/ProviderSetupPage.tsx": [
-      {
-        "id": "F-037",
-        "name": "Assistant & User Settings",
-        "tags": [
-          "settings",
-          "ui"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/AISettingsPage.tsx": [
-      {
-        "id": "F-037",
-        "name": "Assistant & User Settings",
-        "tags": [
-          "settings",
-          "ui"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/OnboardingPage.tsx": [
-      {
-        "id": "F-037",
-        "name": "Assistant & User Settings",
-        "tags": [
-          "settings",
-          "ui"
-        ]
-      }
-    ],
-    "packages/server/src/routes/assistant.mjs": [
-      {
-        "id": "F-037",
-        "name": "Assistant & User Settings",
-        "tags": [
-          "settings",
-          "ui"
-        ]
-      }
-    ],
-    "packages/server/src/routes/ai-settings.mjs": [
-      {
-        "id": "F-037",
-        "name": "Assistant & User Settings",
-        "tags": [
-          "settings",
-          "ui"
-        ]
-      }
-    ],
-    "tests/unit/ai-settings.test.mjs": [
-      {
-        "id": "F-037",
-        "name": "Assistant & User Settings",
-        "tags": [
-          "settings",
-          "ui"
-        ]
-      }
-    ],
-    "tests/unit/providers.test.mjs": [
-      {
-        "id": "F-037",
-        "name": "Assistant & User Settings",
-        "tags": [
-          "settings",
-          "ui"
-        ]
-      }
-    ],
-    "tests/e2e/02-settings.spec.ts": [
-      {
-        "id": "F-037",
-        "name": "Assistant & User Settings",
-        "tags": [
-          "settings",
-          "ui"
-        ]
-      }
-    ],
     "packages/ui/src/pages/SystemPromptsPage.tsx": [
       {
         "id": "F-038",
@@ -2021,96 +4346,6 @@
         ]
       }
     ],
-    "packages/server/src/scheduler/cron-jobs.mjs": [
-      {
-        "id": "F-039",
-        "name": "Cron Jobs & Scheduler",
-        "tags": [
-          "scheduler",
-          "ops"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/BackupSettings.tsx": [
-      {
-        "id": "F-040",
-        "name": "Backup & Restore",
-        "tags": [
-          "ops",
-          "data"
-        ]
-      }
-    ],
-    "packages/server/src/routes/backup.mjs": [
-      {
-        "id": "F-040",
-        "name": "Backup & Restore",
-        "tags": [
-          "ops",
-          "data"
-        ]
-      }
-    ],
-    "packages/ui/src/components/LlmLogTab.tsx": [
-      {
-        "id": "F-041",
-        "name": "Log Management & Retention",
-        "tags": [
-          "ops",
-          "logging"
-        ]
-      }
-    ],
-    "packages/ui/src/components/AgentLogs.tsx": [
-      {
-        "id": "F-041",
-        "name": "Log Management & Retention",
-        "tags": [
-          "ops",
-          "logging"
-        ]
-      }
-    ],
-    "packages/server/src/routes/llm-logs.mjs": [
-      {
-        "id": "F-041",
-        "name": "Log Management & Retention",
-        "tags": [
-          "ops",
-          "logging"
-        ]
-      }
-    ],
-    "packages/server/src/routes/agent-logs.mjs": [
-      {
-        "id": "F-041",
-        "name": "Log Management & Retention",
-        "tags": [
-          "ops",
-          "logging"
-        ]
-      }
-    ],
-    "packages/server/src/routes/log-retention.mjs": [
-      {
-        "id": "F-041",
-        "name": "Log Management & Retention",
-        "tags": [
-          "ops",
-          "logging"
-        ]
-      }
-    ],
-    "packages/server/src/lib/agent-exec-logger.mjs": [
-      {
-        "id": "F-041",
-        "name": "Log Management & Retention",
-        "tags": [
-          "ops",
-          "logging"
-        ]
-      }
-    ],
     "packages/server/src/routes/distill.mjs": [
       {
         "id": "F-042",
@@ -2121,102 +4356,12 @@
         ]
       }
     ],
-    "packages/server/src/routes/browser.mjs": [
-      {
-        "id": "F-043",
-        "name": "Shared Browser Session",
-        "tags": [
-          "browser",
-          "tooling"
-        ]
-      }
-    ],
-    "packages/server/src/lib/browser-session.mjs": [
-      {
-        "id": "F-043",
-        "name": "Shared Browser Session",
-        "tags": [
-          "browser",
-          "tooling"
-        ]
-      }
-    ],
-    "packages/server/src/lib/browser-setup.mjs": [
-      {
-        "id": "F-043",
-        "name": "Shared Browser Session",
-        "tags": [
-          "browser",
-          "tooling"
-        ]
-      }
-    ],
-    "packages/server/src/lib/browser-executor.mjs": [
-      {
-        "id": "F-043",
-        "name": "Shared Browser Session",
-        "tags": [
-          "browser",
-          "tooling"
-        ]
-      }
-    ],
     "packages/ui/src/pages/MindMapViewer.tsx": [
       {
         "id": "F-044",
         "name": "Mind Map Generation",
         "tags": [
           "ai",
-          "ui"
-        ]
-      }
-    ],
-    "packages/server/src/routes/mindmap.mjs": [
-      {
-        "id": "F-044",
-        "name": "Mind Map Generation",
-        "tags": [
-          "ai",
-          "ui"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/ProjectBoard.tsx": [
-      {
-        "id": "F-045",
-        "name": "Project Management Board",
-        "tags": [
-          "productivity",
-          "ui"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/GanttChart.tsx": [
-      {
-        "id": "F-045",
-        "name": "Project Management Board",
-        "tags": [
-          "productivity",
-          "ui"
-        ]
-      }
-    ],
-    "packages/ui/src/components/ProjectAiPanel.tsx": [
-      {
-        "id": "F-045",
-        "name": "Project Management Board",
-        "tags": [
-          "productivity",
-          "ui"
-        ]
-      }
-    ],
-    "packages/server/src/routes/projects.mjs": [
-      {
-        "id": "F-045",
-        "name": "Project Management Board",
-        "tags": [
-          "productivity",
           "ui"
         ]
       }
@@ -2271,16 +4416,6 @@
         ]
       }
     ],
-    "packages/ui/src/components/DirectoryExplorer.tsx": [
-      {
-        "id": "F-046",
-        "name": "Knowledge Tree & File Management",
-        "tags": [
-          "ui",
-          "files"
-        ]
-      }
-    ],
     "packages/ui/src/pages/WelcomePage.tsx": [
       {
         "id": "F-046",
@@ -2298,56 +4433,6 @@
         "tags": [
           "sessions",
           "api"
-        ]
-      }
-    ],
-    "packages/server/src/routes/api-tester.mjs": [
-      {
-        "id": "F-048",
-        "name": "API Tester",
-        "tags": [
-          "tooling",
-          "api"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/PluginManager.tsx": [
-      {
-        "id": "F-049",
-        "name": "Plugins & Agentic Bindings",
-        "tags": [
-          "plugins",
-          "settings"
-        ]
-      }
-    ],
-    "packages/ui/src/pages/AgenticSettings.tsx": [
-      {
-        "id": "F-049",
-        "name": "Plugins & Agentic Bindings",
-        "tags": [
-          "plugins",
-          "settings"
-        ]
-      }
-    ],
-    "packages/server/src/routes/plugins.mjs": [
-      {
-        "id": "F-049",
-        "name": "Plugins & Agentic Bindings",
-        "tags": [
-          "plugins",
-          "settings"
-        ]
-      }
-    ],
-    "packages/server/src/routes/agentic-bindings.mjs": [
-      {
-        "id": "F-049",
-        "name": "Plugins & Agentic Bindings",
-        "tags": [
-          "plugins",
-          "settings"
         ]
       }
     ],
@@ -2531,16 +4616,6 @@
         ]
       }
     ],
-    "packages/ui/src/pages/BriefingPlayer.tsx": [
-      {
-        "id": "F-053",
-        "name": "Briefing Player",
-        "tags": [
-          "ui",
-          "docs"
-        ]
-      }
-    ],
     "packages/ui/src/pages/ProjectDashboard.tsx": [
       {
         "id": "F-054",
@@ -2591,37 +4666,7 @@
         ]
       }
     ],
-    "packages/server/src/routes/pocket.mjs": [
-      {
-        "id": "F-055",
-        "name": "Pocket & Session History",
-        "tags": [
-          "app",
-          "data"
-        ]
-      }
-    ],
-    "packages/server/src/lib/bridge/paaw-bridge.mjs": [
-      {
-        "id": "F-056",
-        "name": "PAAW Bridge (Docker Sync)",
-        "tags": [
-          "infra",
-          "sync"
-        ]
-      }
-    ],
     "packages/server/src/lib/context-truncation.mjs": [
-      {
-        "id": "F-057",
-        "name": "Context Compaction & Truncation",
-        "tags": [
-          "ai",
-          "context"
-        ]
-      }
-    ],
-    "packages/server/src/lib/context-compaction.mjs": [
       {
         "id": "F-057",
         "name": "Context Compaction & Truncation",
@@ -2641,206 +4686,6 @@
         ]
       }
     ],
-    "packages/ui/src/App.tsx": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "packages/ui/src/main.tsx": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "packages/ui/src/theme.tsx": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "packages/ui/src/i18n/index.tsx": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "packages/ui/src/components/ui/shared.tsx": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "packages/ui/src/components/Icon.tsx": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "packages/ui/src/components/TabErrorBoundary.tsx": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "packages/ui/src/components/FileEmoji.tsx": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "packages/ui/src/components/AgentSideChat.tsx": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "packages/ui/src/api.ts": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "packages/ui/src/utils/index.ts": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "packages/ui/src/types/index.ts": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "tests/unit/i18n-consistency.test.ts": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "tests/e2e/01-smoke.spec.ts": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "tests/e2e/04-pages.spec.ts": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "tests/e2e/05-api.spec.ts": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "tests/e2e/11-nav-comprehensive.spec.ts": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "tests/e2e/helpers.ts": [
-      {
-        "id": "F-058",
-        "name": "App Shell, Theme & i18n",
-        "tags": [
-          "ui",
-          "core"
-        ]
-      }
-    ],
-    "packages/server/src/lib/coding-task-cost.mjs": [
-      {
-        "id": "F-059",
-        "name": "Coding Cost Attribution",
-        "tags": [
-          "coding-ide",
-          "cost"
-        ]
-      }
-    ],
-    "packages/server/src/lib/cu-mechanical.mjs": [
-      {
-        "id": "F-060",
-        "name": "CU Mechanical Rescan & Source Scan",
-        "tags": [
-          "analysis",
-          "coding-ide"
-        ]
-      }
-    ],
     "packages/server/src/lib/cu-source-scan.mjs": [
       {
         "id": "F-060",
@@ -2851,47 +4696,7 @@
         ]
       }
     ],
-    "scripts/pack.mjs": [
-      {
-        "id": "F-061",
-        "name": "Build & Ops Scripts",
-        "tags": [
-          "infra",
-          "build"
-        ]
-      }
-    ],
     "scripts/dev-server.mjs": [
-      {
-        "id": "F-061",
-        "name": "Build & Ops Scripts",
-        "tags": [
-          "infra",
-          "build"
-        ]
-      }
-    ],
-    "scripts/paaw-sync.mjs": [
-      {
-        "id": "F-061",
-        "name": "Build & Ops Scripts",
-        "tags": [
-          "infra",
-          "build"
-        ]
-      }
-    ],
-    "scripts/postinstall.cjs": [
-      {
-        "id": "F-061",
-        "name": "Build & Ops Scripts",
-        "tags": [
-          "infra",
-          "build"
-        ]
-      }
-    ],
-    "scripts/runtime-guard-scanner.mjs": [
       {
         "id": "F-061",
         "name": "Build & Ops Scripts",
@@ -2912,36 +4717,6 @@
       }
     ],
     "packages/server/src/lib/stable-hash.mjs": [
-      {
-        "id": "F-062",
-        "name": "Shell Execution & Utilities",
-        "tags": [
-          "core",
-          "utils"
-        ]
-      }
-    ],
-    "packages/server/src/lib/import-check.mjs": [
-      {
-        "id": "F-062",
-        "name": "Shell Execution & Utilities",
-        "tags": [
-          "core",
-          "utils"
-        ]
-      }
-    ],
-    "packages/server/src/lib/paaw-snapshot.mjs": [
-      {
-        "id": "F-062",
-        "name": "Shell Execution & Utilities",
-        "tags": [
-          "core",
-          "utils"
-        ]
-      }
-    ],
-    "packages/server/src/lib/running-agents.mjs": [
       {
         "id": "F-062",
         "name": "Shell Execution & Utilities",
@@ -2972,5 +4747,5 @@
       }
     ]
   },
-  "updatedAt": "2026-08-30T05:37:35.911Z"
+  "updatedAt": "2026-10-16T11:56:17.382Z"
 }

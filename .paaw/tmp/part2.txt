@@ -1,0 +1,11 @@
+// part2 sentinel A
+function foo(a, b) {
+  return a + b;
+}
+function bar(x) {
+  return x === null ? 0 : 1;
+}
+const S = { a: 1, b: 2, c: 3 };
+function baz(list) {
+  return list.filter(Boolean).map(v => v.id);
+}
