@@ -633,11 +633,11 @@ async function buildToolDefinitions() {
     type: "function",
     function: {
       name: "auto_dispatch",
-      description: "自動派工 / EM 協調（task-driven）：掃 TASKS.json 的 open task，逐一派給 agent 執行（每個 task 獨立 context，可長時間跑完，最後統整報告）。自然語言觸發 EM 就用這個：使用者說「做 TASK-042」「派工」「跑 EM 」。流程：action=preview 先看範圍（不執行）→ action=start 背景開始執行（**會先檢查有無 open task，沒單會回「沒單可以做」**）→ 要停就 action=stop（安全中斷點）。支援 taskId 指定單號：只派那張。大範圍派工優先用這個，不要逐個 dispatch_agent。",
+      description: "自動派工 / EM 協調（task-driven）：掃 TASKS.json 的 open task，逐一派給 agent 執行（每個 task 獨立 context，可長時間跑完，最後統整報告）。自然語言觸發 EM 就用這個：使用者說「做 TASK-042」「派工」「跑 EM 」。流程：action=preview 先看範圍（不執行）→ action=start 背景開始執行（**會先檢查有無 open task，沒單會回「沒單可以做」**）→ 要停就 action=stop（安全中斷點）。支援 taskId 指定單號：只派那張。大範圍派工優先用這個，不要逐個 dispatch_agent。查派工狀態用 action=status（不要自己去 read status.json）。",
       parameters: {
         type: "object",
         properties: {
-          action: { type: "string", enum: ["preview", "start", "stop"], description: "preview=看派工範圍（不執行）；start=背景開始執行（先查有無單，沒單回沒單可做）；stop=中斷（目前 task 完成後停止）" },
+          action: { type: "string", enum: ["preview", "start", "stop", "status"], description: "preview=看派工範圍（不執行）；start=背景開始執行（先查有無單，沒單回沒單可做）；stop=中斷（目前 task 完成後停止）；status=查詢目前派工狀態（running/completed/... + 最近事件與時間，不要自己去 read_file status.json）" },
           taskId: { type: "string", description: "指定單號（選填）：只派這一張，例如 TASK-042。留空=派全部 open task。" },
           cwd: { type: "string", description: "專案 root 絕對路徑（帶 system prompt 裡 Current Project Root 的值）" },
         },
@@ -1215,6 +1215,30 @@ function buildHandlers(apps) {
         return { text: `✅ 有 ${n} 張單，已啟動 EM 派工（背景執行，chat 會顯示進度）${taskId ? `：指定 ${taskId}` : ""}。\n領域：${check.workList.map(w => w.sourceRef).join(", ")}` };
       } catch (err) {
         return { text: `❌ 啟動失敗：${err.message}`, error: true };
+      }
+    }
+    if (action === "status") {
+      // 2026-10-17 Fleming：agent 查派工狀態沒有 tool 可用（只能硬讀 status.json）— 補 status action
+      try {
+        const res = await fetch(`${API}/api/coding-auto-dispatch/status?path=${encodeURIComponent(root)}`);
+        const d = await res.json().catch(() => ({}));
+        if (!d.status || d.status === "never") return { text: "ℹ️ 尚未跑過自動派工。" };
+        const fmtT = (ts) => ts ? new Date(ts).toLocaleTimeString("zh-TW", { hour12: false }) : "?";
+        const evts = (d.events || []).slice(-5).map(e => {
+          const m = e.meta || {};
+          let msg = String(e.message || "").trim();
+          if (e.type === "task_start") msg = `▶️ [${m.index ?? "?"}${m.total ? `/${m.total}` : ""}] ${m.agent} 開始${m.subtaskId ? ` — ${m.subtaskId}` : ""}`;
+          else if (e.type === "task_done") msg = `✅ [${m.index ?? "?"}] ${m.agent} 完成${m.subtaskId ? ` — ${m.subtaskId}` : ""}`;
+          else if (e.type === "task_error") msg = `❌ [${m.index ?? "?"}] ${m.agent} 失敗：${String(e.message || "").slice(0, 120)}`;
+          return `- ${fmtT(e.ts)} ${msg}`;
+        }).join("\n");
+        const icon = d.status === "running" ? "🌙" : d.status === "completed" ? "🏁" : d.status === "failed" ? "❌" : d.status === "interrupted" ? "⏹️" : "ℹ️";
+        const tail = d.status !== "running"
+          ? `，結束於 ${fmtT(d.completedAt)}${d.duration ? `（歷時 ${Math.round(d.duration / 60000)} 分鐘）` : ""}`
+          : "";
+        return { text: `📊 自動派工：${icon} ${d.status}（模式 ${d.mode || "em"}，開始於 ${fmtT(d.startedAt)}${tail}）\n最近事件：\n${evts || "（無）"}${d.error ? `\n⚠️ ${String(d.error).slice(0, 150)}` : ""}` };
+      } catch (err) {
+        return { text: `❌ 查詢狀態失敗：${err.message}`, error: true };
       }
     }
     if (action === "stop") {
