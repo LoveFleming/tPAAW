@@ -1330,6 +1330,9 @@ function toolExecTimeoutMs(toolName, args, agentCfg) {
   if (n === "browser_navigate") return 60_000;
   if (n.startsWith("browser_")) return 45_000;
   if (n === "dev_server" || n === "dev_log") return 60_000;
+  // 2026-10-17 Fleming：修復型單實測 developer 200~400s（TASK-047 R4 = 234s）、QA 重審可達 956s —
+  // 舊預設 120s 必逾時（不是 agent 能力問題）。dispatch_agent 上限改 30 分鐘（引擎內部 em-foreman 路徑本來就 2h，不受此限）。
+  if (n === "dispatch_agent") return 1_800_000;
   return 120_000;
 }
 
