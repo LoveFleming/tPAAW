@@ -11,10 +11,13 @@
 // Example 1: Component-Level Caching
 // ============================================================================
 
-'use cache'
-
-// This entire component will be cached
+// This entire component will be cached.
+// NOTE: "use cache" must be the FIRST statement inside the function/component
+// body (not a file-level directive). A file-level "use cache" would cache
+// EVERY export in the file — which is not what these standalone examples want.
 export async function CachedProductList() {
+  'use cache'
+
   const products = await fetch('https://api.example.com/products')
     .then(r => r.json())
 
@@ -37,9 +40,10 @@ export async function CachedProductList() {
 // ============================================================================
 
 // File: lib/data.ts
-'use cache'
 
 export async function getExpensiveData(id: string) {
+  'use cache' // Cache only this function's return value
+
   console.log('Fetching expensive data...') // Only logs on cache miss
 
   // Simulate expensive operation
@@ -71,8 +75,10 @@ export async function ProductPage({ params }: { params: Promise<{ id: string }> 
 // ============================================================================
 
 // File: app/blog/[slug]/page.tsx
-'use cache'
 
+// NOTE: generateStaticParams runs at BUILD time to enumerate static routes.
+// It is NOT a cached function — do NOT add "use cache" here. Caching applies to
+// the page/component that renders the fetched data, not to route enumeration.
 export async function generateStaticParams() {
   const posts = await fetch('https://api.example.com/posts')
     .then(r => r.json())
@@ -83,6 +89,8 @@ export async function generateStaticParams() {
 }
 
 export default async function BlogPost({ params }: { params: Promise<{ slug: string }> }) {
+  'use cache'
+
   const { slug } = await params
 
   const post = await fetch(`https://api.example.com/posts/${slug}`)
@@ -91,6 +99,10 @@ export default async function BlogPost({ params }: { params: Promise<{ slug: str
   return (
     <article>
       <h1>{post.title}</h1>
+      {/* SECURITY: never inject untrusted HTML via dangerouslySetInnerHTML.
+          Sanitize first (e.g. DOMPurify / sanitize-html) or render as text.
+          The example below assumes post.content is NOT user-controlled; in
+          production, replace with a sanitizer. */}
       <div dangerouslySetInnerHTML={{ __html: post.content }} />
     </article>
   )
@@ -102,9 +114,11 @@ export default async function BlogPost({ params }: { params: Promise<{ slug: str
 
 // File: app/dashboard/page.tsx
 
-// Static component (cached)
-'use cache'
+// Static component (cached) — "use cache" sits INSIDE this component only,
+// so the dynamic sibling below is NOT affected.
 async function StaticHeader() {
+  'use cache'
+
   return (
     <header>
       <h1>My Dashboard</h1>
@@ -116,11 +130,15 @@ async function StaticHeader() {
   )
 }
 
-// Dynamic component (NOT cached) - separate file without "use cache"
+// Dynamic component (NOT cached) — in real code this lives in its own file
+// (components/dynamic-user-info.tsx) WITHOUT a "use cache" directive.
+// It is shown inline here for readability; do NOT hoist "use cache" to a
+// file level in this file, or this component would be cached too.
 // File: components/dynamic-user-info.tsx
 import { cookies } from 'next/headers'
 
-export async function DynamicUserInfo() {
+async function DynamicUserInfo() {
+  // Read cookies OUTSIDE any cached scope and pass values as arguments.
   const cookieStore = await cookies()
   const userId = cookieStore.get('userId')?.value
 
@@ -157,9 +175,11 @@ export default function DashboardPage() {
 
 // Cache expensive operations, skip cheap ones
 
-// Cached function
-'use cache'
+// Cached function — "use cache" inside the function body, so ONLY this
+// function is cached; getRealtimeMetrics below stays uncached.
 export async function getPopularPosts() {
+  'use cache'
+
   const posts = await fetch('https://api.example.com/posts/popular')
     .then(r => r.json())
 
@@ -217,16 +237,27 @@ export async function createPost(formData: FormData) {
     body: JSON.stringify({ title, content }),
   })
 
-  // Revalidate cached posts
+  // Revalidate cached posts.
+  // Next.js 16 uses the TWO-argument form: revalidateTag(tag, profile).
+  // The 2nd arg is the `cacheLife` profile (e.g. 'max', 'default') and sets how
+  // long stale content may be served. The old single-arg form is deprecated.
   revalidateTag('posts', 'max')
 }
 
 // File: lib/posts.ts
-'use cache'
+
+import { cacheTag, cacheLife } from 'next/cache'
 
 export async function getPosts() {
+  'use cache'
+  cacheLife('max') // cache lifetime/profile for this scope
+
+  // cacheTag() attaches a tag to this cache entry so it can be invalidated
+  // on-demand via revalidateTag()/updateTag(). (Requires cacheComponents: true)
+  cacheTag('posts')
+
   const response = await fetch('https://api.example.com/posts', {
-    next: { tags: ['posts'] }, // Tag for revalidation
+    next: { tags: ['posts'] }, // ...or tag via fetch options
   })
 
   return response.json()
@@ -251,8 +282,9 @@ export async function getContent() {
   return getCachedPublicContent()
 }
 
-'use cache'
 async function getCachedPublicContent() {
+  'use cache'
+
   return fetch('https://api.example.com/public/content').then(r => r.json())
 }
 
@@ -302,9 +334,9 @@ export async function MyComponent() {
   return <div>{data.value}</div>
 }
 
-// To opt-IN to caching, add "use cache"
-'use cache'
+// To opt-IN to caching, add "use cache" inside the function
 export async function MyCachedComponent() {
+  'use cache'
   const data = await fetch('https://api.example.com/data')
   return <div>{data.value}</div>
 }
@@ -321,15 +353,26 @@ export async function MyCachedComponent() {
  * 3. ✅ Pages (entire page cached)
  * 4. ✅ Layouts (layout cached)
  * 5. ✅ Inline async functions (granular caching)
+ * 6. ✅ File level (a top-of-file "use cache" caches ALL exports in that file)
  *
  * Default behavior (without "use cache"):
  * - Server Components: NOT cached (change from Next.js 15)
- * - fetch() calls: Cached by default (unchanged)
+ * - fetch() calls: NOT cached by default either — caching is now OPT-IN.
+ *   (Next.js 15 removed the implicit fetch cache. To cache a fetch, use a
+ *   "use cache" scope, or set `cache: 'force-cache'` explicitly. The default
+ *   is `no-store` / auto-no-cache.)
+ *
+ * Tagging & cache lifetime (both require `cacheComponents: true`):
+ * - cacheTag('tag'): attach one or more tags to a cache entry for targeted
+ *   invalidation (call inside a "use cache" scope).
+ * - cacheLife('max' | 'default' | 'seconds:N'): set the cache lifetime/profile
+ *   for a "use cache" scope.
  *
  * Revalidation:
- * - Use revalidateTag() to invalidate cache by tag
- * - Use updateTag() for immediate read-your-writes
- * - Use refresh() for uncached data only
+ * - revalidateTag(tag, profile): invalidate by tag (2-arg form; stale-while-
+ *   revalidate; single-arg form is deprecated in Next.js 16)
+ * - updateTag(): immediate read-your-own-writes (Server Functions only)
+ * - refresh(): refresh uncached data only
  *
  * When to use "use cache":
  * ✅ Expensive computations (database queries, API calls)

@@ -9,6 +9,33 @@ import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
 /**
+ * Shared fetch helper with defensive response handling.
+ *
+ * WHY defensive parsing:
+ * - `fetch` only rejects on network errors; a 404/500 still resolves.
+ * - `r.json()` throws on non-JSON bodies (e.g. HTML error pages).
+ * - The upstream API may return a bare object instead of an array.
+ * Centralizing the guard keeps every caller (page / metadata / static params)
+ * consistent and prevents build-time crashes.
+ */
+async function fetchJson<T>(url: string, fallback: T): Promise<T> {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return fallback
+    return (await res.json()) as T
+  } catch {
+    return fallback
+  }
+}
+
+interface Post {
+  title: string
+  content: string
+  excerpt?: string
+  coverImage?: string
+}
+
+/**
  * Page Component with Async Params
  * 
  * IMPORTANT: 
@@ -27,16 +54,20 @@ export default async function PostPage({
   const { id } = await params
   
   // 2. Await searchParams (REQUIRED in Next.js 16)
-  const { query } = await searchParams
+  // searchParams is always a Promise object (never undefined) in App Router,
+  // but the awaited value may be an empty object when no query is present.
+  const { query } = (await searchParams) ?? {}
   
-  // 3. Fetch data (runs on server)
-  const post = await fetch(`https://api.example.com/posts/${id}`)
-    .then(r => r.json())
-    .catch(() => null)
+  // 3. Fetch data (runs on server) — guard against failure / non-JSON bodies
+  const post = await fetchJson<Post | null>(
+    `https://api.example.com/posts/${id}`,
+    null
+  )
   
-  // 4. Handle not found
+  // 4. Handle not found — explicit `return` so TypeScript narrows `post`
+  //    to non-null for the rest of the function (notFound() is typed `never`).
   if (!post) {
-    notFound()
+    return notFound()
   }
   
   // 5. Render
@@ -60,10 +91,11 @@ export async function generateMetadata({
   // Await params
   const { id } = await params
   
-  // Fetch data
-  const post = await fetch(`https://api.example.com/posts/${id}`)
-    .then(r => r.json())
-    .catch(() => null)
+  // Fetch data — same defensive helper as the page component
+  const post = await fetchJson<Post | null>(
+    `https://api.example.com/posts/${id}`,
+    null
+  )
   
   if (!post) {
     return {
@@ -77,29 +109,48 @@ export async function generateMetadata({
     openGraph: {
       title: post.title,
       description: post.excerpt,
-      images: [post.coverImage]
+      // Only include images when coverImage exists — otherwise Next.js would
+      // emit `images: [undefined]` (an invalid OG image entry).
+      images: post.coverImage ? [post.coverImage] : undefined
     }
   }
 }
 
 /**
  * Generate Static Params (for static generation)
+ *
+ * WHY the guard matters: `generateStaticParams` runs at build time. If the
+ * fetch fails or the API returns a non-array payload, calling `.map` on it
+ * throws a TypeError and aborts `next build`. We therefore validate the shape
+ * and degrade gracefully (an empty list = no prerendered paths, dynamic
+ * fallback still works) instead of breaking the build.
  */
 export async function generateStaticParams() {
-  // Fetch all post IDs
-  const posts = await fetch('https://api.example.com/posts')
-    .then(r => r.json())
+  // Fetch all post IDs (empty array fallback keeps the build alive)
+  const posts = await fetchJson<Array<{ id: string }>>(
+    'https://api.example.com/posts',
+    []
+  )
+  
+  // Guard against a non-array/empty response before mapping
+  if (!Array.isArray(posts)) {
+    return []
+  }
   
   // Return array of params
-  return posts.map((post: { id: string }) => ({
+  return posts.map((post) => ({
     id: post.id
   }))
 }
 
 /**
  * Configure dynamic behavior
+ *
+ * NOTE: `force-static` is shown here for the common static-blog case. If you
+ * rely on `searchParams` at request time, use `force-dynamic` (or remove the
+ * export) — reading searchParams while fully static is a semantic mismatch.
  */
-export const dynamic = 'force-static' // or 'force-dynamic'
+export const dynamic = 'force-static' // or 'force-dynamic' when reading searchParams per-request
 export const revalidate = 3600 // Revalidate every hour
 
 /**
