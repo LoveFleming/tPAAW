@@ -89,6 +89,30 @@ export class SecurityKernel {
       }
       return { blocked: false }
     })
+
+    // 5. Approval gate（2026-10-17 TASK-164）
+    // 此前 ApprovalManager 被實例化卻從未被呼叫，審批機制在 ToolEngine 路徑實質失效：
+    // chat.mjs 生產環境設 approval.mode='always' 也毫無作用，任何 exec/寫入工具都不會被擋下等批准。
+    // 現在：有副作用的工具（exec / fs 寫入 / *_add|update|delete|set）標記 approvalRequired，
+    // 唯讀工具（*_get / *_list / *_search …）放行，避免純查詢卻每次都被卡住。
+    this.pipeline.add('approval_gate', async (ctx) => {
+      if (this._isReadOnlyTool(ctx.toolName)) return { blocked: false }
+      return { blocked: false, approvalRequired: true }
+    })
+  }
+
+  /**
+   * 是否為唯讀工具（無副作用）→ 免人工批准。
+   * 判斷原則：唯讀 = 只查不寫。白名單式放行，其餘一律要求批准（fail-closed）。
+   */
+  _isReadOnlyTool(toolName) {
+    const name = String(toolName || '')
+    // 讀取型字尾
+    if (/_(get|list|search|read|query|find|status|info|stats|history)$/.test(name)) return true
+    // 常見唯讀工具
+    if (/^(project_info|read_file|glob|grep|list_|get_)/.test(name)) return true
+    // 明確危險 / 寫入：絕不免批准（fall-through = false）
+    return false
   }
 
   /**
@@ -117,8 +141,28 @@ export class SecurityKernel {
 
     // 是否需要批准
     if (result.approvalRequired) {
-      this.audit.log('tool_call_pending_approval', ctx)
-      return { allowed: false, reason: '需要批准', approval: true }
+      // 2026-10-17 TASK-164：接上 ApprovalManager（此前從未被呼叫 = 審批實質失效）。
+      // 依 mode 語意：
+      //   auto  → 立即通過（開發模式）
+      //   deny  → 直接擋下
+      //   always/on-miss → 建立 pending 審批單，回 approval 資訊給呼叫端轉 UI 審批卡。
+      const req = await this.approval.request(toolName, args, {
+        agentId: ctx.agentId,
+        sessionKey: ctx.sessionKey,
+      })
+
+      if (req.status === 'approved') {
+        this.audit.log('tool_call_approved', { ...ctx, approvalId: null })
+        return { allowed: true, approval: false, approvalId: req.id }
+      }
+      if (req.status === 'denied') {
+        this.audit.log('tool_call_blocked', { ...ctx, reason: req.reason || 'approval denied' })
+        return { allowed: false, reason: req.reason || '需要批准（已拒絕）', approval: true }
+      }
+
+      // pending：需要使用者決策
+      this.audit.log('tool_call_pending_approval', { ...ctx, approvalId: req.id })
+      return { allowed: false, reason: '需要批准', approval: true, approvalId: req.id }
     }
 
     this.audit.log('tool_call_allowed', ctx)
@@ -147,6 +191,9 @@ export class SecurityKernel {
 
   /** 釋放資源 */
   async dispose() {
+    // 2026-10-17 TASK-164：ToolEngine 每次 run() 結束就 dispose 一個短命 engine，
+    // 若不清 audit flush timer + flush 尾批 buffer，會殘留 timer（memory leak）且漏記最後一批稽核事件。
+    try { await this.audit.dispose() } catch { /* 記錄失敗不擋 */ }
     await this.secrets.dispose()
   }
 }

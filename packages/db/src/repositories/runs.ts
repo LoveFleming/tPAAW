@@ -80,7 +80,7 @@ export class RunsRepo {
     return this.db.selectFrom("runs").where("id", "=", runId).selectAll().executeTakeFirst();
   }
 
-  async listByUser(userId: string, options?: { skillId?: string; status?: string; limit?: number; offset?: number }) {
+  async listByUser(userId: string, options?: { skillId?: string; status?: RunsTable["status"]; limit?: number; offset?: number }) {
     let query = this.db.selectFrom("runs")
       .where("user_id", "=", userId)
       .orderBy("started_at", "desc");

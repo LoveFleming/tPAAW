@@ -370,6 +370,8 @@ export function queryModelByFile(model, relPath) {
   const tests = (model.tests || []).filter(t => t.productionFile === p || t.testFile === p)
     .map(t => t.productionFile === p ? { relation: "tested-by", file: t.testFile } : { relation: "tests", file: t.productionFile });
   const recentChanges = (model.changes || []).filter(c => c.featureIds.some(id => featureIds.has(id))).slice(0, 5);
+  // 契約一致性：與 queryModelByFeature/queryModelByApi 對齊，查無任何關聯時回 null（route 端回 404）。
+  if (!featureIds.size && !apis.length && !tests.length && !recentChanges.length) return null;
   return {
     file: p,
     featureIds: [...featureIds],
@@ -381,9 +383,12 @@ export function queryModelByFile(model, relPath) {
 }
 
 export function queryModelByApi(model, method, routePath) {
+  // routePath 空字串時 endsWith("") 恆真會誤回第一個 API；且裸 endsWith 會讓 "/model" 誤配 "/api/ru/model"。
+  // 精確比對優先，前綴比對限制在路徑邊界（segment boundary）。
+  const rp = String(routePath || "");
   const a = (model.apis || []).find(x =>
     x.method.toUpperCase() === String(method || "").toUpperCase() &&
-    (x.path === routePath || x.path.endsWith(routePath)));
+    (rp ? (x.path === rp || x.path.endsWith("/" + rp.replace(/^\//, ""))) : false));
   if (!a) return null;
   const features = (model.features || []).filter(f => a.featureIds.includes(f.id));
   const tests = (model.tests || []).filter(t => a.featureIds.some(id => t.featureIds.includes(id)));

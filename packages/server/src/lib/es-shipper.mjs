@@ -183,7 +183,7 @@ async function es(path, opts = {}) {
 
 /** 冪等建立 index template（keyword mappings，與外部 shipper 相同） */
 async function putTemplate() {
-  await es(`/_index_template/${state.prefix}-template`, {
+  await es(`/_index_template/${state.prefix}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -214,7 +214,7 @@ async function putTemplate() {
 
 /** 審計 index template（paaw-audit-*，2026-10-10）— command/reason 開 text 才搜得到全文 */
 async function putAuditTemplate() {
-  await es(`/_index_template/${state.auditPrefix}-template`, {
+  await es(`/_index_template/${state.auditPrefix}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

@@ -5,7 +5,7 @@
  * Dispatches to the correct runner based on skill.execution.runner.
  */
 import type { RunContext, RunResult, RunnerType } from "@paaw/shared";
-import { generateId, nowISO, measureMs } from "@paaw/shared";
+import { measureMs, resolveTemplate } from "@paaw/shared";
 import type { RunsRepo } from "@paaw/db";
 
 // ── Runner Interface ────────────────────────────────────
@@ -16,10 +16,15 @@ export interface SkillExecutor {
 
 // ── Prompt Runner ───────────────────────────────────────
 
+/** Minimal LLM caller contract injected by the host (server owns providers). */
+export type LlmCaller = (messages: Array<{ role: string; content: string }>, model?: string) => Promise<Record<string, any>>;
+
 export class PromptRunner implements SkillExecutor {
+  constructor(private llmCaller?: LlmCaller) {}
+
   async execute(input: Record<string, any>, config: Record<string, any>, context: RunContext): Promise<Record<string, any>> {
-    const { systemPrompt, model, ...rest } = config;
-    
+    const { systemPrompt, model } = config;
+
     // Resolve template vars in system prompt
     const resolvedPrompt = systemPrompt
       ? resolvePromptTemplate(systemPrompt, input)
@@ -31,22 +36,25 @@ export class PromptRunner implements SkillExecutor {
       { role: "user", content: JSON.stringify(input) },
     ];
 
-    // For now, return a structured response. The actual LLM call
-    // will be wired through the server's existing chat infrastructure.
-    // This runner focuses on the execution pattern.
-    return {
-      _runner: "prompt",
-      _model: model || "default",
-      messages,
-      ...rest,
-    };
+    // The runner must actually call the LLM. If the host did not inject a
+    // caller we fail loud instead of returning a fake "messages" payload that
+    // looks like a successful run (a silent success is worse than an error).
+    if (!this.llmCaller) {
+      throw new Error(
+        "PromptRunner requires an llmCaller but none was injected (check createRunner deps)"
+      );
+    }
+
+    return await this.llmCaller(messages, model);
   }
 }
 
 function resolvePromptTemplate(template: string, input: Record<string, any>): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
-    return input[key] !== undefined ? String(input[key]) : `{{${key}}}`;
-  });
+  // Reuse the shared template engine so prompt substitution stays consistent
+  // with workflow/app templates and inherits its prototype-pollution guard.
+  // `resolveTemplate` fills missing keys with "" (shared semantics), so an
+  // unresolved {{x}} no longer leaks the raw placeholder into the prompt.
+  return resolveTemplate(template, input);
 }
 
 // ── Data Runner ─────────────────────────────────────────
@@ -57,18 +65,44 @@ export class DataRunner implements SkillExecutor {
   async execute(input: Record<string, any>, config: Record<string, any>, context: RunContext): Promise<Record<string, any>> {
     const { dataModel, operation } = config;
 
+    // Fail loud when the runner has no backing store instead of hitting a
+    // runtime NPE on the first `this.dataStoreRepo.*` access.
+    if (!this.dataStoreRepo) {
+      throw new Error("DataRunner requires a dataStoreRepo but none was injected (check createRunner deps)");
+    }
+
     switch (operation) {
-      case "create":
-        return this.dataStoreRepo.create(dataModel, context.userId, input);
-      case "read":
-        return this.dataStoreRepo.read(input.id);
-      case "update":
+      case "create": {
+        // DataStoreRepo.create returns the new record id (string). Wrap it so
+        // the runner output never leaks a bare string into output_json.
+        const id = await this.dataStoreRepo.create(dataModel, context.userId, input);
+        return { id, created: true };
+      }
+      case "read": {
+        const row = await this.dataStoreRepo.read(input.id);
+        if (!row) return { found: false, record: null };
+        // IDOR guard: a read must never return another user's row. The repo
+        // only filters by id, so ownership is enforced here.
+        this._assertOwnership(row, context.userId, "read");
+        return { found: true, record: this._toRecord(row) };
+      }
+      case "update": {
         const { id, ...data } = input;
+        // Verify ownership before mutating (repo.update only filters by id).
+        const existing = await this.dataStoreRepo.read(id);
+        if (!existing) throw new Error(`Record not found: ${id}`);
+        this._assertOwnership(existing, context.userId, "update");
         await this.dataStoreRepo.update(id, data);
         return { updated: true, id };
-      case "delete":
+      }
+      case "delete": {
+        // Verify ownership before soft-deleting (repo.softDelete only filters by id).
+        const existing = await this.dataStoreRepo.read(input.id);
+        if (!existing) throw new Error(`Record not found: ${input.id}`);
+        this._assertOwnership(existing, context.userId, "delete");
         await this.dataStoreRepo.softDelete(input.id);
         return { deleted: true, id: input.id };
+      }
       case "search":
         return this.dataStoreRepo.search(dataModel, context.userId, {
           query: input.query,
@@ -77,17 +111,90 @@ export class DataRunner implements SkillExecutor {
           page: input.page,
           pageSize: input.pageSize,
         });
+      case "aggregate":
+      case "export":
+        // Declared in DataOperation but intentionally not implemented by the
+        // in-memory MVP store. Throw a clear, actionable error rather than a
+        // generic "unknown operation" so callers can distinguish "not yet
+        // supported" from "typo".
+        throw new Error(
+          `Data operation "${operation}" is declared in DataOperation but not yet implemented by DataRunner`
+        );
       default:
         throw new Error(`Unknown data operation: ${operation}`);
     }
+  }
+
+  /** Reject access to a row owned by a different user. */
+  private _assertOwnership(row: { user_id?: string }, userId: string, op: string): void {
+    if (row.user_id !== undefined && row.user_id !== userId) {
+      throw new Error(`Record access denied for ${op}: row is not owned by the current user`);
+    }
+  }
+
+  /** Normalise a persisted row into the runner's output shape. */
+  private _toRecord(row: { id: string; data_json: string; created_at?: string; updated_at?: string }): Record<string, any> {
+    return {
+      id: row.id,
+      ...JSON.parse(row.data_json),
+      _createdAt: row.created_at,
+      _updatedAt: row.updated_at,
+    };
   }
 }
 
 // ── API Runner ──────────────────────────────────────────
 
+const DEFAULT_API_TIMEOUT_MS = 30_000;
+
+/**
+ * Guard the outbound URL used by the API runner. `url` comes from an
+ * untrusted skill definition, so we block obvious SSRF targets (non-https,
+ * loopback / private / link-local hosts). This is a baseline defence, not a
+ * substitute for the platform's network whitelist.
+ */
+function assertSafeApiUrl(rawUrl: string): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error(`Invalid API url: ${rawUrl}`);
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error(`API runner only allows https URLs (got ${parsed.protocol})`);
+  }
+  const host = parsed.hostname.toLowerCase();
+  const isBlocked =
+    host === "localhost" ||
+    host === "0.0.0.0" ||
+    host === "[::1]" ||
+    host.endsWith(".localhost") ||
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+  if (isBlocked) {
+    throw new Error(`API runner blocked private/loopback host: ${host}`);
+  }
+  return parsed;
+}
+
+const DEFAULT_API_MAX_RETRIES = 2;
+const DEFAULT_API_BASE_BACKOFF_MS = 200;
+
 export class ApiRunner implements SkillExecutor {
   async execute(input: Record<string, any>, config: Record<string, any>, context: RunContext): Promise<Record<string, any>> {
-    const { url, method = "GET", headers = {}, auth, ...rest } = config;
+    const {
+      url,
+      method = "GET",
+      headers = {},
+      auth,
+      timeout = DEFAULT_API_TIMEOUT_MS,
+      maxRetries = DEFAULT_API_MAX_RETRIES,
+    } = config;
+
+    const safeUrl = assertSafeApiUrl(String(url));
 
     // Build headers with auth
     const finalHeaders: Record<string, string> = { ...headers };
@@ -103,24 +210,70 @@ export class ApiRunner implements SkillExecutor {
     const fetchOptions: RequestInit = {
       method,
       headers: { "Content-Type": "application/json", ...finalHeaders },
+      // Never follow redirects (prevents redirect-based SSRF bypass).
+      redirect: "error",
     };
 
     if (method !== "GET" && method !== "HEAD") {
       fetchOptions.body = JSON.stringify(input);
     }
 
-    const response = await fetch(url, fetchOptions);
+    // Retry only *retryable* failures: network errors, timeouts, 429 and 5xx.
+    // 4xx (other than 429) are caller errors and must not be retried.
+    // Backoff is exponential with full jitter to avoid thundering herds.
+    const attempts = Math.max(0, maxRetries) + 1;
+    let lastErr: any;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+      let response: Response;
+      let retryAfterMs: number | undefined;
+      try {
+        response = await fetch(safeUrl, { ...fetchOptions, signal: controller.signal });
+      } catch (err: any) {
+        clearTimeout(timer);
+        lastErr = err?.name === "AbortError"
+          ? new Error(`API call timed out after ${timeout}ms: ${safeUrl.href}`)
+          : err;
+        if (attempt < attempts - 1) {
+          await sleepWithJitter(attempt, DEFAULT_API_BASE_BACKOFF_MS);
+          continue;
+        }
+        throw lastErr;
+      } finally {
+        clearTimeout(timer);
+      }
 
-    if (!response.ok) {
-      throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+      if (response.ok) {
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          return await response.json();
+        }
+        return { content: await response.text() };
+      }
+
+      const retryable = response.status === 429 || response.status >= 500;
+      const err = new Error(`API call failed: ${response.status} ${response.statusText}`);
+      if (!retryable || attempt >= attempts - 1) {
+        throw err;
+      }
+      // Honour Retry-After when present (seconds), else exponential backoff.
+      const ra = Number(response.headers.get("retry-after"));
+      retryAfterMs = Number.isFinite(ra) && ra > 0 ? ra * 1000 : undefined;
+      lastErr = err;
+      await sleepWithJitter(attempt, DEFAULT_API_BASE_BACKOFF_MS, retryAfterMs);
     }
 
-    const contentType = response.headers.get("content-type") || "";
-    if (contentType.includes("application/json")) {
-      return await response.json();
-    }
-    return { content: await response.text() };
+    // Unreachable in practice (loop throws), but keeps the type checker happy.
+    throw lastErr ?? new Error("API call failed");
   }
+}
+
+/** Exponential backoff with full jitter; `overrideMs` (e.g. Retry-After) wins. */
+function sleepWithJitter(attempt: number, baseMs: number, overrideMs?: number): Promise<void> {
+  const ceiling = overrideMs ?? baseMs * 2 ** attempt;
+  const delay = Math.random() * ceiling;
+  return new Promise((resolve) => setTimeout(resolve, delay));
 }
 
 // ── Script Runner (Sandbox) ────────────────────────────
@@ -146,6 +299,35 @@ function getSandboxUrl(): string {
   } catch {
     return "http://localhost:4099";
   }
+}
+
+/**
+ * Single source of truth for script-language → sandbox runtime mapping.
+ * Both the file-based and inline execution paths share this table so the two
+ * mappings can never drift apart (previously duplicated switch statements).
+ *
+ * `cli`/`fileArgs` are used for file execution; `stdinArgs` for inline
+ * execution where the program is piped via stdin (never via -e/-c or env, so
+ * the source stays inside the sandbox execution contract).
+ */
+const LANGUAGE_RUNTIMES: Record<string, { cli: string; fileArgs: (path: string) => string[]; stdinArgs: string[] }> = {
+  javascript: { cli: "node", fileArgs: (p) => [p], stdinArgs: ["--input-type=module", "-"] },
+  shell: { cli: "bash", fileArgs: (p) => [p], stdinArgs: ["-s"] },
+  python: { cli: "python3", fileArgs: (p) => [p], stdinArgs: ["-"] },
+};
+
+const LANGUAGE_ALIASES: Record<string, string> = {
+  js: "javascript",
+  bash: "shell",
+  sh: "shell",
+  py: "python",
+};
+
+function resolveLanguageRuntime(language: string): { cli: string; fileArgs: (path: string) => string[]; stdinArgs: string[] } {
+  const canonical = LANGUAGE_ALIASES[language] || language;
+  const runtime = LANGUAGE_RUNTIMES[canonical];
+  if (!runtime) throw new Error(`Unsupported script language: ${language}`);
+  return runtime;
 }
 
 export class ScriptRunner implements SkillExecutor {
@@ -228,7 +410,6 @@ export class ScriptRunner implements SkillExecutor {
       env: {
         ...opts.env,
         SKILL_INPUT: JSON.stringify(input),
-        SKILL_SCRIPT: script,
       },
       timeout: opts.timeout,
       stdin: script, // pipe script as stdin
@@ -239,38 +420,20 @@ export class ScriptRunner implements SkillExecutor {
 
   /** Map language to sandbox runtime + args for file execution */
   private _buildExecCommand(scriptPath: string, language: string): { cli: string; args: string[] } {
-    switch (language) {
-      case "javascript":
-      case "js":
-        return { cli: "node", args: [scriptPath] };
-      case "shell":
-      case "bash":
-      case "sh":
-        return { cli: "bash", args: [scriptPath] };
-      case "python":
-      case "py":
-        return { cli: "python3", args: [scriptPath] };
-      default:
-        throw new Error(`Unsupported script language: ${language}`);
-    }
+    const runtime = resolveLanguageRuntime(language);
+    return { cli: runtime.cli, args: runtime.fileArgs(scriptPath) };
   }
 
-  /** Map language to sandbox runtime for inline (stdin) execution */
+  /**
+   * Map language to sandbox runtime for inline execution.
+   *
+   * The script is always fed via stdin (never via `-e`/`-c` or env vars) so
+   * the source is not embedded in the process argv / environment — that
+   * keeps the script inside the sandbox execution contract.
+   */
   private _buildInlineCommand(language: string): { cli: string; args: string[] } {
-    switch (language) {
-      case "javascript":
-      case "js":
-        return { cli: "node", args: ["--input-type=module", "-e", "process.env.SKILL_SCRIPT || ''"] };
-      case "shell":
-      case "bash":
-      case "sh":
-        return { cli: "bash", args: ["-s"] };
-      case "python":
-      case "py":
-        return { cli: "python3", args: ["-c", "__import__('os').environ.get('SKILL_SCRIPT','')"] };
-      default:
-        throw new Error(`Unsupported script language: ${language}`);
-    }
+    const runtime = resolveLanguageRuntime(language);
+    return { cli: runtime.cli, args: runtime.stdinArgs };
   }
 
   /** Call the CLI Service sandbox API */
@@ -282,16 +445,24 @@ export class ScriptRunner implements SkillExecutor {
     timeout: number;
     stdin?: string;
   }): Promise<{ stdout: string; exitCode: number }> {
+    // Give the HTTP round-trip a bit more headroom than the script itself,
+    // so a hung sandbox never blocks the caller forever.
+    const httpTimeout = opts.timeout + 5_000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), httpTimeout);
+
     try {
       const res = await fetch(`${getSandboxUrl()}/api/exec`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           cli: opts.cli,
           args: opts.args,
           cwd: opts.cwd,
           env: opts.env,
           timeout: opts.timeout,
+          stdin: opts.stdin,
         }),
       });
 
@@ -302,11 +473,16 @@ export class ScriptRunner implements SkillExecutor {
 
       return res.json();
     } catch (err: any) {
+      if (err?.name === "AbortError") {
+        throw new Error(`Sandbox request timed out after ${httpTimeout}ms at ${getSandboxUrl()}`);
+      }
       // If sandbox is unreachable, throw clear error
       if (err.cause?.code === "ECONNREFUSED") {
         throw new Error(`Sandbox CLI Service unavailable at ${getSandboxUrl()}. Is it running?`);
       }
       throw err;
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -316,25 +492,30 @@ export class ScriptRunner implements SkillExecutor {
       throw new Error(`Script exited with code ${result.exitCode}: ${result.stdout}`);
     }
 
-    // Try to parse stdout as JSON
+    // Only treat stdout as structured JSON when the *entire* trimmed output
+    // parses as JSON. A leading "{" or "[" is not enough: a script that logs
+    // a prefix line (e.g. "[info] starting") plus JSON would previously pass
+    // the loose check, fail JSON.parse, and silently drop the structured
+    // result into a plain text field. We test-parse and only fall back to
+    // text when parsing genuinely fails.
     const trimmed = result.stdout.trim();
-    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    if (trimmed) {
       try {
-        return JSON.parse(trimmed);
+        return JSON.parse(trimmed) as Record<string, any>;
       } catch {
-        // Not valid JSON, return as text
+        // Not valid JSON — return the raw text, but say so explicitly.
       }
     }
 
-    return { output: result.stdout };
+    return { output: result.stdout, format: "text" };
   }
 }
 
 // ── Runner ──────────────────────────────────────
 
-export function createRunner(type: RunnerType, deps?: { dataStoreRepo?: any }): SkillExecutor {
+export function createRunner(type: RunnerType, deps?: { dataStoreRepo?: any; llmCaller?: LlmCaller }): SkillExecutor {
   switch (type) {
-    case "prompt": return new PromptRunner();
+    case "prompt": return new PromptRunner(deps?.llmCaller);
     case "data": return new DataRunner(deps?.dataStoreRepo);
     case "api": return new ApiRunner();
     case "script": return new ScriptRunner();
@@ -351,28 +532,35 @@ export async function executeSkill(params: {
   context: RunContext;
   runsRepo: RunsRepo;
   dataStoreRepo?: any;
+  llmCaller?: LlmCaller;
 }): Promise<RunResult> {
-  const { skillId, input, execution, context, runsRepo, dataStoreRepo } = params;
+  const { skillId, input, execution, context, runsRepo, dataStoreRepo, llmCaller } = params;
   
-  // Create run record
+  // Create run record.
+  //
+  // NOTE on appId: RunContext.source has no `appId` field — only workflowId.
+  // Previously this wrote workflowId into the `app_id` column whenever the
+  // source was an "app", mislabelling workflow runs as app runs. We stop
+  // populating app_id from workflowId; if a real appId is ever added to
+  // source it should be threaded explicitly.
   const runId = await runsRepo.create({
     skillId,
     userId: context.userId,
     runnerType: execution.runner,
     input,
-    appId: context.source.type === "app" ? context.source.workflowId : undefined,
     workflowId: context.source.workflowId,
     workflowRunId: context.source.workflowId ? context.runId : undefined,
-    nodeId: undefined,
+    nodeId: context.source.nodeId,
     cronJobId: context.source.cronJobId,
   });
 
+  const startedAt = Date.now();
   try {
     // Mark as running
     await runsRepo.start(runId);
 
     // Create runner and execute
-    const runner = createRunner(execution.runner, { dataStoreRepo });
+    const runner = createRunner(execution.runner, { dataStoreRepo, llmCaller });
     const { result: output, ms } = await measureMs(() =>
       runner.execute(input, execution.config, { ...context, runId })
     );
@@ -382,9 +570,13 @@ export async function executeSkill(params: {
 
     return { runId, status: "completed", output, durationMs: ms };
   } catch (err: any) {
-    const { ms } = await measureMs(async () => {}); // placeholder
-    const durationMs = ms;
-    await runsRepo.fail(runId, err.message, durationMs);
-    return { runId, status: "failed", error: err.message, durationMs };
+    // Measure the real elapsed time from the start of execution — not a
+    // no-op (previously produced ~0ms and hid how long the failure took).
+    const durationMs = Date.now() - startedAt;
+    // Preserve the error class so failures are diagnosable (a bare
+    // `err.message` loses whether it was a timeout, validation, or NPE).
+    const reason = err?.name && err.name !== "Error" ? `${err.name}: ${err.message}` : err?.message;
+    await runsRepo.fail(runId, reason, durationMs);
+    return { runId, status: "failed", error: reason, durationMs };
   }
 }

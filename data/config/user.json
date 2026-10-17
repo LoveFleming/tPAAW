@@ -11,13 +11,13 @@
     "undefined": "zai/glm-5.1",
     "codingIDE": "zai/glm-5",
     "autoDispatch": "zai/glm-5.1",
-    "autoDispatchFallback": "openrouter/deepseek/deepseek-v4-flash-0731",
+    "autoDispatchFallback": "openrouter/z-ai/glm-5.1",
     "appBuilder": "openrouter/z-ai/glm-5.1",
-    "codingIDE.coding.developer": "zai/glm-5.1",
-    "codingIDE.coding.architect": "zai/glm-5.1",
+    "codingIDE.coding.developer": "openrouter/deepseek/deepseek-v4.1-flash",
+    "codingIDE.coding.architect": "openrouter/deepseek/deepseek-v4.1-flash",
     "codingIDE.emDashboard": "zai/glm-5.1",
     "sideChat.ops": "openrouter/deepseek/deepseek-v4.1-flash",
-    "codingIDE.coding.tester": "zai/glm-5.1",
+    "codingIDE.coding.tester": "openrouter/deepseek/deepseek-v4.1-flash",
     "sideChat.handover": "zai/glm-5.1",
     "sideChat.tester": "openrouter/deepseek/deepseek-v4.1-flash"
   }

@@ -12,7 +12,7 @@
 
 import { readFile, writeFile, readdir, mkdir } from "fs/promises";
 import { existsSync, readFileSync } from "fs";
-import { resolve, join, extname } from "path";
+import { resolve, join, extname, relative, isAbsolute } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent } from "../lib/llm-utils.mjs";
@@ -49,11 +49,57 @@ const MAX_FILE_SIZE = 100 * 1024;
 const MAX_TOTAL_SIZE = 500 * 1024;
 const MAX_FILES = 20;
 
+/**
+ * Allowed read roots for mindmap generation.
+ * body.files[] / body.dir may be absolute paths supplied by the client; without a
+ * boundary a caller could pass any host path and have the content sent to the
+ * LLM. We only allow paths inside a configured workspace directory or PAAW's own
+ * DATA_HOME / PAAW_ROOT.
+ */
+async function getAllowedReadRoots() {
+  const roots = [DATA_HOME, PAAW_ROOT];
+  try {
+    const wsFile = resolve(DATA_HOME, "workspaces.json");
+    const ws = JSON.parse(readFileSync(wsFile, "utf-8"));
+    for (const d of ws.directories || []) {
+      if (d && existsSync(d)) roots.push(resolve(d));
+    }
+  } catch { /* no workspaces configured - DATA_HOME / PAAW_ROOT still apply */ }
+  return roots;
+}
+
+function isWithinRoot(absPath, roots) {
+  for (const root of roots) {
+    if (absPath === root) return true;
+    const rel = relative(root, absPath);
+    if (rel && !rel.startsWith("..") && !isAbsolute(rel)) return true;
+  }
+  return false;
+}
+
+/** Resolve a client-supplied path and reject anything outside the allowed roots. */
+function assertReadablePath(p, roots) {
+  const absPath = resolve(p);
+  if (!isWithinRoot(absPath, roots)) {
+    const err = new Error(`Path outside allowed roots: ${p}`);
+    err.code = "PATH_TRAVERSAL";
+    throw err;
+  }
+  return absPath;
+}
+
 async function readFilesForMindmap(files) {
   const results = [];
   let totalSize = 0;
+  const roots = await getAllowedReadRoots();
   for (const filePath of files.slice(0, MAX_FILES)) {
-    const absPath = resolve(filePath);
+    let absPath;
+    try {
+      absPath = assertReadablePath(filePath, roots);
+    } catch {
+      results.push(`--- ${filePath} （拒絕：路徑不在允許範圍內）---\n`);
+      continue;
+    }
     const ext = extname(absPath).toLowerCase();
     if (!READABLE_EXTS.has(ext)) {
       results.push(`--- ${filePath} （略過：不支援的格式 ${ext}）---\n`);
@@ -78,7 +124,8 @@ async function readFilesForMindmap(files) {
 }
 
 async function readDirectoryForMindmap(dirPath) {
-  const absPath = resolve(dirPath);
+  const roots = await getAllowedReadRoots();
+  const absPath = assertReadablePath(dirPath, roots);
   const files = [];
   async function scan(dir, depth) {
     if (depth > 3) return;
@@ -249,7 +296,8 @@ async function handleMindMapRoutes(req, res) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true, markdown }));
     } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
+      const code = err.code === "PATH_TRAVERSAL" ? 400 : 500;
+      res.writeHead(code, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
     }
     return true;

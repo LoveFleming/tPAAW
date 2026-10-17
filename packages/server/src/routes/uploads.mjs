@@ -16,6 +16,11 @@ import { existsSync } from "fs";
 import { extname, join, resolve } from "path";
 import { readBody, json, urlPath } from "./context.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { randomUUID } from "crypto";
+
+// Request body caps (DoS guard — 單一請求不可耗盡記憶體)
+const MAX_UPLOAD_BODY_BYTES = 12 * 1024 * 1024; // 12MB — base64 圖膨脹 4/3，對應 5MB 原始 + 餘裕
+const MAX_TEXT_BODY_BYTES = 4 * 1024 * 1024;    // 4MB — 文字附件（上限 2MB 內容 + JSON 外殼）
 
 /** 註冊過的 RU root 清單（防路徑穿越：只允許寫進已註冊 RU 的 .paaw/uploads/） */
 async function _listRuRoots() {
@@ -51,13 +56,52 @@ function _safeName(name) {
   return { ext: ALLOWED_EXT.has(ext) ? ext : ".jpg", ok: ALLOWED_EXT.has(ext) };
 }
 
+/**
+ * 由檔案「magic bytes」判斷真實圖片型別（不信 client 的 filename/副檔名）。
+ * 回傳 { ext, mime } 或 null（非已知圖片格式）。
+ * 副檔名 + 靜態服務 Content-Type 都改用這裡的結果，杜絕「宣告 image/* 但內容是別的東西」的 stored XSS。
+ */
+export function detectImageType(buf) {
+  if (!buf || buf.length < 12) return null;
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return { ext: ".png", mime: "image/png" };
+  // JPEG: FF D8 FF
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return { ext: ".jpg", mime: "image/jpeg" };
+  // GIF: "GIF87a" / "GIF89a"
+  if (buf.slice(0, 6).toString("ascii") === "GIF87a" || buf.slice(0, 6).toString("ascii") === "GIF89a") return { ext: ".gif", mime: "image/gif" };
+  // WEBP: "RIFF"...."WEBP"
+  if (buf.slice(0, 4).toString("ascii") === "RIFF" && buf.slice(8, 12).toString("ascii") === "WEBP") return { ext: ".webp", mime: "image/webp" };
+  return null;
+}
+
+/** 解析 request body：空 body 視為 {}，壞 JSON → 400（不讓 SyntaxError 冒成 500） */
+async function _readJsonBody(req, res, maxBytes) {
+  const raw = await readBody(req, maxBytes).catch((err) => {
+    if (err && err.code === "BODY_TOO_LARGE") {
+      json(res, { error: "Request body too large" }, 413);
+      return null;
+    }
+    throw err;
+  });
+  if (raw === null) return { ok: false };
+  if (!raw) return { ok: true, body: {} };
+  try {
+    return { ok: true, body: JSON.parse(raw) };
+  } catch {
+    json(res, { error: "Invalid JSON body" }, 400);
+    return { ok: false };
+  }
+}
+
 export default async function uploadRoutes(req, res) {
   const path = urlPath(req);
 
   // ── POST /api/uploads — 上傳（dataUrl base64）──
   if (req.method === "POST" && path === "/api/uploads") {
     try {
-      const body = JSON.parse((await readBody(req)) || "{}");
+      const parsed = await _readJsonBody(req, res, MAX_UPLOAD_BODY_BYTES);
+      if (!parsed.ok) return true;
+      const body = parsed.body;
       const dataUrl = String(body.dataUrl || "");
       const m = dataUrl.match(/^data:image\/(png|jpeg|jpg|webp|gif);base64,(.+)$/);
       if (!m) { json(res, { error: "Invalid image dataUrl (expect base64 image/*)" }, 400); return true; }
@@ -68,8 +112,13 @@ export default async function uploadRoutes(req, res) {
         return true;
       }
 
-      const extInfo = _safeName(body.filename);
-      const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extInfo.ext}`;
+      // 不信 client 的 filename/副檔名 — 以 magic bytes 決定真實型別與存放副檔名
+      const imgType = detectImageType(buf);
+      if (!imgType) {
+        json(res, { error: "File content is not a recognised image (png/jpeg/webp/gif)" }, 400);
+        return true;
+      }
+      const name = `${Date.now()}-${randomUUID().slice(0, 8)}${imgType.ext}`;
 
       // ruRoot 有給且是註冊過的 RU → 圖進該 RU 的 .paaw/uploads/（資產，不 purge）
       let targetDir = UPLOADS_DIR;
@@ -98,7 +147,9 @@ export default async function uploadRoutes(req, res) {
   //   無 ruRoot → 中央 data/uploads/（絕對路徑回傳，read_file 靠 PAAW root 白名單可讀）
   if (req.method === "POST" && path === "/api/uploads/text") {
     try {
-      const body = JSON.parse((await readBody(req)) || "{}");
+      const parsed = await _readJsonBody(req, res, MAX_TEXT_BODY_BYTES);
+      if (!parsed.ok) return true;
+      const body = parsed.body;
       const content = typeof body.content === "string" ? body.content : "";
       if (content.length === 0) { json(res, { error: "Empty content" }, 400); return true; }
       const bytes = Buffer.byteLength(content, "utf8");
@@ -143,9 +194,10 @@ export default async function uploadRoutes(req, res) {
     if (!name || name.includes("/") || name.includes("..")) { res.writeHead(400); res.end("Bad request"); return true; }
     try {
       const buf = await readFile(join(UPLOADS_DIR, name));
-      const ext = extname(name).toLowerCase();
-      const mime = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : ext === ".gif" ? "image/gif" : "image/jpeg";
-      res.writeHead(200, { "Content-Type": mime, "Cache-Control": "public, max-age=31536000, immutable" });
+      // Content-Type 由 magic bytes 決定（不信可被 client 影響的副檔名）→ 防 stored XSS
+      const type = detectImageType(buf);
+      if (!type) { res.writeHead(415); res.end("Unsupported media type"); return true; }
+      res.writeHead(200, { "Content-Type": type.mime, "Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff" });
       res.end(buf);
     } catch {
       res.writeHead(404); res.end("Not found");
@@ -161,9 +213,10 @@ export default async function uploadRoutes(req, res) {
       const abs = await resolveUploadRef(`paaw-uploads/${name}`);
       if (!abs) { res.writeHead(404); res.end("Not found"); return true; }
       const buf = await readFile(abs);
-      const ext = extname(name).toLowerCase();
-      const mime = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : ext === ".gif" ? "image/gif" : "image/jpeg";
-      res.writeHead(200, { "Content-Type": mime, "Cache-Control": "public, max-age=31536000, immutable" });
+      // Content-Type 由 magic bytes 決定（不信可被 client 影響的副檔名）→ 防 stored XSS
+      const type = detectImageType(buf);
+      if (!type) { res.writeHead(415); res.end("Unsupported media type"); return true; }
+      res.writeHead(200, { "Content-Type": type.mime, "Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff" });
       res.end(buf);
     } catch {
       res.writeHead(404); res.end("Not found");

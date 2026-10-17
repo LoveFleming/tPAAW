@@ -105,7 +105,19 @@ function writeJson(filePath, data) {
   writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
 }
 
-// Deep merge helper
+// Immutable deep clone for plain-JSON config objects.
+// EM config is pure JSON (no Date/Map/Set/functions), so a JSON round-trip is a
+// safe, dependency-free clone. Never hand a reference to DEFAULT_EM_CONFIG (or
+// any of its nested objects) to a caller — otherwise a consumer mutating the
+// returned config would silently pollute the module-level defaults.
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+// Deep merge helper — pure/immutable.
+// Base is cloned so neither `target` nor any nested object it references is ever
+// mutated, and keys absent from `source` come back as fresh copies (never as
+// aliases to the original `target` subtree).
 function deepMerge(target, source) {
   const result = { ...target };
   for (const key of Object.keys(source)) {
@@ -139,9 +151,13 @@ export function readEMConfig(projectDir) {
   }
 
   const stored = readJson(configPath, null);
-  if (!stored) return { ...DEFAULT_EM_CONFIG };
+  // Always clone the default base — never return (or deep-merge onto) the
+  // module-level DEFAULT_EM_CONFIG object directly. Missing keys in `stored`
+  // would otherwise alias DEFAULT_EM_CONFIG's nested objects, so a caller
+  // mutating the returned config would pollute the shared defaults.
+  if (!stored) return deepClone(DEFAULT_EM_CONFIG);
 
-  return deepMerge(DEFAULT_EM_CONFIG, stored);
+  return deepMerge(deepClone(DEFAULT_EM_CONFIG), stored);
 }
 
 /**
@@ -152,7 +168,7 @@ export function readEMConfig(projectDir) {
  */
 export function updateEMConfig(projectDir, patch) {
   const current = readEMConfig(projectDir);
-  const merged = deepMerge(current, patch);
+  const merged = deepMerge(deepClone(current), patch);
   writeJson(getEMConfigPath(projectDir), merged);
   return merged;
 }
@@ -163,8 +179,8 @@ export function updateEMConfig(projectDir, patch) {
  * @returns {object} reset config
  */
 export function resetEMConfig(projectDir) {
-  writeJson(getEMConfigPath(projectDir), DEFAULT_EM_CONFIG);
-  return { ...DEFAULT_EM_CONFIG };
+  writeJson(getEMConfigPath(projectDir), deepClone(DEFAULT_EM_CONFIG));
+  return deepClone(DEFAULT_EM_CONFIG);
 }
 
 /**

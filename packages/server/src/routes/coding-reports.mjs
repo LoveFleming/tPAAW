@@ -11,13 +11,42 @@
  */
 
 import { listAutoDispatchReports, readAutoDispatchReport, deleteAutoDispatchReport } from "../lib/auto-dispatch-shared.mjs";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join, resolve, relative, isAbsolute } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
+
+/**
+ * Resolve a client-supplied ?path= project root, restricted to configured
+ * workspaces / PAAW_ROOT. Prevents scanning arbitrary host directories.
+ */
+function resolveRootDir(raw) {
+  if (!raw) return PAAW_ROOT;
+  const abs = resolve(raw);
+  const roots = [PAAW_ROOT];
+  try {
+    const wsFile = resolve(PAAW_ROOT, "data", "workspaces.json");
+    if (existsSync(wsFile)) {
+      const ws = JSON.parse(readFileSync(wsFile, "utf-8"));
+      for (const d of ws.directories || []) if (d && existsSync(d)) roots.push(resolve(d));
+    }
+  } catch { /* treat as unconfigured */ }
+  for (const root of roots) {
+    if (abs === root) return abs;
+    const rel = relative(root, abs);
+    if (rel && !rel.startsWith("..") && !isAbsolute(rel)) return abs;
+  }
+  return PAAW_ROOT;
+}
 
 export default async function codingReportsRoutes(req, res) {
   const url = req.url || '';
   const urlObj = new URL(url, 'http://localhost');
-  const rootDir = urlObj.searchParams.get('path') || process.env.PAAW_ROOT || process.cwd();
+  const rootDir = resolveRootDir(urlObj.searchParams.get('path'));
 
   const sendJSON = (code, data) => {
     res.writeHead(code, { 'Content-Type': 'application/json' });

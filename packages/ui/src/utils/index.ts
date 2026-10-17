@@ -15,7 +15,6 @@ export function pathBasename(p: string): string {
     return p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
 }
 
-/** Cross-platform path split - handles both / and \ separators */
 /** Check if a path starts with a given prefix, handling both / and \ separators */
 export function pathStartsWith(p: string, prefix: string): boolean {
     return p.startsWith(prefix + "/") || p.startsWith(prefix + "\\") || p === prefix;

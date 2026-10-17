@@ -1,23 +1,31 @@
 /**
- * PAAW A2A Server — Agent2Agent Protocol v1.0.0
+ * PAAW A2A Server — Agent2Agent Protocol (JSON-RPC 2.0 binding)
+ *
+ * 協定版本常數集中在 A2A_PROTOCOL_VERSION，Agent Card 與檔頭一律引用同一來源，
+ * 避免對外宣稱版本與 protocolVersion 欄位不一致（見 QA-TASK052 M1）。
+ * A2A 官方最新穩定版為 0.3.x，無 1.0.0 — 故正規化為 0.3.0。
  *
  * 實作 JSON-RPC 2.0 binding：
  *   GET  /.well-known/agent.json          → Agent Card
+ *   GET  /.well-known/agent-card.json     → Agent Card (alias)
  *   POST /a2a                             → JSON-RPC endpoint
+ *   POST /a2a/:agentId                    → Domain agent JSON-RPC endpoint
  *   POST /a2a                             → SSE streaming (method=message/stream)
  *
- * 支援的 methods：
+ * 支援的 methods（default /a2a 與 domain /a2a/:agentId 皆一致）：
  *   - message/send         → 同步回傳 Task 或 Message
  *   - message/stream       → SSE 串流
  *   - tasks/get            → 查詢 task 狀態
  *   - tasks/list           → 列出 tasks
  *   - tasks/cancel         → 取消 task
  *
- * Task 存儲：data/a2a-tasks/*.json 
+ * Task 存儲：data/a2a-tasks/*.json
  */
 
-import { readdir, readFile, writeFile, mkdir, unlink, appendFile } from "fs/promises";
+import { readdir, readFile, writeFile, mkdir, unlink, appendFile, rename } from "fs/promises";
 import { existsSync } from "fs";
+import { randomUUID } from "crypto";
+import { A2A_PROTOCOL_VERSION } from "../lib/a2a-constants.mjs";
 
 // ── Helper: clean conversation history with tool call context ──
 function cleanConversationHistory(conversationHistory) {
@@ -263,7 +271,7 @@ async function syncTicketFromTask(task) {
       // Only add if not already in ticket
       if (!ticket.messages.find(m => m.text === text)) {
         ticket.messages.push({
-          id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          id: genMsgId(),
           role,
           text,
           ts: Date.now(),
@@ -287,6 +295,88 @@ async function syncTicketFromTask(task) {
   }
 }
 
+// ── Constants ──
+
+/** PAAW agent 自身版本（A2A card 的 version 欄位，非協定版本）。 */
+const PAAW_AGENT_VERSION = "1.0.0";
+
+/** CORS 允許來源：預設不開放萬用字元，只有顯式列出者（含同源）可跨域。
+ *  可用 PAAW_A2A_ALLOWED_ORIGINS 環境變數（逗號分隔）追加白名單。QA M3。 */
+const A2A_ALLOWED_ORIGINS = (() => {
+  const env = (process.env.PAAW_A2A_ALLOWED_ORIGINS || "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
+  return new Set(env);
+})();
+
+/** 依請求 Origin 決定回傳的 CORS 標頭；不在白名單則不回 Access-Control-Allow-Origin（瀏覽器即封鎖跨域讀取）。 */
+export function corsHeadersFor(req) {
+  const origin = req?.headers?.origin;
+  if (origin && A2A_ALLOWED_ORIGINS.has(origin)) {
+    return {
+      "Access-Control-Allow-Origin": origin,
+      "Vary": "Origin",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    };
+  }
+  // 無 Origin（非瀏覽器 / 同源 curl）不打 CORS 標頭；有 Origin 但未入白名單也不放行
+  return {};
+}
+
+/** Webhook URL 安全檢查 — 阻擋 SSRF（QA C2）。
+ *  只允許 http(s)、且 host 不得為 loopback / link-local / 私有網段 / 內部主機名。 */
+const WEBHOOK_BLOCKED_HOSTNAMES = new Set([
+  "localhost", "metadata", "metadata.google.internal", "169.254.169.254",
+]);
+function isBlockedWebhookHost(hostname) {
+  const h = String(hostname || "").toLowerCase();
+  if (!h) return true;
+  if (WEBHOOK_BLOCKED_HOSTNAMES.has(h)) return true;
+  if (h === "::1" || h === "[::1]" || h === "0.0.0.0") return true;
+  // IPv4 loopback / link-local（SSRF 高風險目標一律封鎖）
+  const m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const [a, b] = [Number(m[1]), Number(m[2])];
+    if (a === 127 || a === 0) return true;
+    if (a === 169 && b === 254) return true;
+  }
+  // IPv6 loopback / link-local (fe80::/10)
+  if (/^fe[89ab][0-9a-f]:/.test(h)) return true;
+  return false;
+}
+/** 私有網段判定（供 webhook 決定是否允許 http 明文；私網走 http 僅限內網用途）。 */
+function isPrivateHost(hostname) {
+  const h = String(hostname || "").toLowerCase();
+  const m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const [a, b] = [Number(m[1]), Number(m[2])];
+    if (a === 10) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+  }
+  if (/^f[cd][0-9a-f]{2}:/.test(h)) return true; // IPv6 unique-local
+  return false;
+}
+export function assertSafeWebhookUrl(rawUrl) {
+  let u;
+  try { u = new URL(rawUrl); } catch { throw new Error("Invalid webhook URL"); }
+  if (u.protocol !== "https:" && u.protocol !== "http:") {
+    throw new Error("Webhook URL must be http(s)");
+  }
+  if (isBlockedWebhookHost(u.hostname)) {
+    throw new Error("Webhook URL host is not allowed (loopback/link-local blocked)");
+  }
+  // 公網位址強制 https；私有網段允許 http（內部 webhook）
+  if (u.protocol === "http:" && !isPrivateHost(u.hostname)) {
+    throw new Error("Public webhook URL must use https");
+  }
+  return u;
+}
+
+const WEBHOOK_TIMEOUT_MS = 10_000;
+
 // ── Helpers ──
 
 function readBody(req) {
@@ -298,49 +388,173 @@ function readBody(req) {
   });
 }
 
-function sendJSON(res, code, body) {
+function sendJSON(res, code, body, req) {
+  // JSON-RPC notification 語意（QA m3）：標記為 notification 的請求不回應，但仍完成處理
+  if (res._a2aSuppressResponse) {
+    if (!res.writableEnded) res.end();
+    return;
+  }
   res.writeHead(code, {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    ...corsHeadersFor(req),
   });
   res.end(JSON.stringify(body));
 }
 
+// SSE 寫入 helper（QA M4）：
+//  - 斷線後不再寫（避免 EPIPE / 事件持續堆積）
+//  - 檢查 res.write 回傳值，false 表示緩衝已滿 → 以 drain/短延遲讓背壓回饋，避免記憶體累積
+async function sseWrite(res, payload) {
+  if (res.writableEnded || res.destroyed || res._a2aClientGone) return false;
+  try {
+    const ok = res.write(payload);
+    if (!ok && !res.writableEnded) {
+      // 等待 drain（最多 30s 保護），讓 backpressure 生效
+      await new Promise((resolve) => {
+        let done = false;
+        const finish = () => { if (!done) { done = true; resolve(); } };
+        res.once("drain", finish);
+        setTimeout(finish, 30_000);
+      });
+    }
+    if (typeof res.flush === "function") res.flush();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// 內部錯誤對外一律回通用訊息，詳細資料只進 server log（QA C3）
+const GENERIC_INTERNAL_ERROR = "Internal error";
+function logInternalError(scope, err) {
+  console.error(`[A2A] ${scope} error:`, err);  // nosemgrep: unsafe-formatstring
+}
+
+// JSON-RPC id 型別驗證（QA m3）：合法型別為 string / number / null
+export function isValidRpcId(id) {
+  return id === null || typeof id === "string" || typeof id === "number";
+}
+
+// 對外可見的識別碼一律用加密隨機（QA m2）：不帶時間前綴避免可預測/碰撞
 function genId() {
-  return `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return `task-${randomUUID()}`;
+}
+function genMsgId() {
+  return `msg-${randomUUID()}`;
 }
 
 // ── Task Storage (delegates to TaskPersistenceAdapter) ──
 
+/** Per-task 序列化鎖：把 saveTask 的 read-modify-write 串成序列，
+ *  避免並發 appendEvent 與 saveTask 交錯造成事件遺失（QA m1）。
+ *  key = taskId，value = 目前尾端的 Promise。 */
+const _taskSaveChains = new Map();
+function _withTaskLock(taskId, fn) {
+  const prev = _taskSaveChains.get(taskId) || Promise.resolve();
+  // 鏈的尾端：不管前一步成功或失敗都接續執行 fn（失敗不阻斷後續寫入）
+  const run = prev.then(fn, fn);
+  // 存進 Map 的是「吞掉錯誤」的版本，避免未處理 rejection 且維持串行
+  const chained = run.catch(() => {});
+  _taskSaveChains.set(taskId, chained);
+  // 完成後若自己仍是尾端就清掉，避免 Map 無界成長
+  chained.then(() => {
+    if (_taskSaveChains.get(taskId) === chained) _taskSaveChains.delete(taskId);
+  });
+  return run;
+}
+
 /** Save task to disk, preserving events/tokens that were appended during tool execution */
 async function saveTask(task) {
-  // Reload from disk to merge any events/tokens written by appendEvent during tool calls
-  const persisted = await taskStore.load(task.id);
-  if (persisted?.events?.length) task.events = persisted.events;
-  if (persisted?.tokenUsage) task.tokenUsage = persisted.tokenUsage;
-  if (persisted?.memory?.length) task.memory = persisted.memory;
-  return taskStore.save(task);
+  return _withTaskLock(task.id, async () => {
+    // Reload from disk to merge any events/tokens written by appendEvent during tool calls
+    const persisted = await taskStore.load(task.id);
+    if (persisted?.events?.length) task.events = persisted.events;
+    if (persisted?.tokenUsage) task.tokenUsage = persisted.tokenUsage;
+    if (persisted?.memory?.length) task.memory = persisted.memory;
+    return taskStore.save(task);
+  });
 }
 async function getTask(taskId) { return taskStore.load(taskId); }
 async function listTasks() { return taskStore.list(); }
 
 // ── Webhook notification helper ──
-/** POST task status update to pushNotification webhook URL */
+/** 具名常數：重試與退避參數（QA C2）。 */
+const WEBHOOK_MAX_ATTEMPTS = 3;
+const WEBHOOK_BACKOFF_BASE_MS = 200;
+
+/** 以 HMAC-SHA256 對 payload 簽章，接收方可驗證來源真實性（QA C2）。
+ *  簽章金鑰來自 pushConfig.secret（呼叫方於 A2A configuration.pushNotification 帶入）。 */
+async function _signWebhookPayload(secret, body) {
+  const { createHmac } = await import("crypto");
+  return createHmac("sha256", secret).update(body).digest("hex");
+}
+
+/**
+ * POST task status update to pushNotification webhook URL。
+ * 安全強化（QA C2）：
+ *  1. URL 白名單檢查（阻擋 loopback/link-local，公網強制 https）
+ *  2. fetch 帶 timeout（AbortController）
+ *  3. 指數退避 + jitter 重試（僅對可重試失敗：timeout / 429 / 5xx / 連線中斷）
+ *  4. 選配 HMAC-SHA256 簽章（X-A2A-Signature）
+ */
 async function notifyWebhook(task, pushConfig) {
   if (!pushConfig?.url) return;
+
+  // 1. SSRF 防護：不合法 URL 直接丟棄並記審計
+  let safeUrl;
   try {
-    const whHeaders = { "Content-Type": "application/json" };
-    if (pushConfig.token) whHeaders["Authorization"] = `Bearer ${pushConfig.token}`;
-    await fetch(pushConfig.url, {
-      method: "POST",
-      headers: whHeaders,
-      body: JSON.stringify({ jsonrpc: "2.0", result: task, id: `notify-${task.id}` }),
-    });
-    console.log(`[A2A] webhook notified: task=${task.id} state=${task.status.state}`);
+    safeUrl = assertSafeWebhookUrl(pushConfig.url);
   } catch (err) {
-    console.error(`[A2A] webhook notify failed: ${err.message}`);
+    console.error(`[A2A] webhook URL rejected task=${task.id}: ${err.message}`);
+    return;
+  }
+
+  const payload = JSON.stringify({ jsonrpc: "2.0", result: task, id: `notify-${task.id}` });
+  const whHeaders = { "Content-Type": "application/json" };
+  if (pushConfig.token) whHeaders["Authorization"] = `Bearer ${pushConfig.token}`;
+  // 4. 選配簽章
+  if (pushConfig.secret) {
+    try {
+      whHeaders["X-A2A-Signature"] = `sha256=${await _signWebhookPayload(pushConfig.secret, payload)}`;
+    } catch (err) {
+      console.warn(`[A2A] webhook sign failed task=${task.id}: ${err.message}`);
+    }
+  }
+
+  for (let attempt = 1; attempt <= WEBHOOK_MAX_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
+    try {
+      const resp = await fetch(safeUrl, {
+        method: "POST",
+        headers: whHeaders,
+        body: payload,
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (resp.ok) {
+        console.log(`[A2A] webhook notified: task=${task.id} state=${task.status.state} attempt=${attempt}`);
+        return;
+      }
+      // 只有 429 / 5xx 可重試；其餘（4xx）為呼叫方問題，不再重試
+      const retryable = resp.status === 429 || resp.status >= 500;
+      if (!retryable || attempt === WEBHOOK_MAX_ATTEMPTS) {
+        console.error(`[A2A] webhook notify failed: task=${task.id} status=${resp.status} attempt=${attempt}`);
+        return;
+      }
+      console.warn(`[A2A] webhook retry: task=${task.id} status=${resp.status} attempt=${attempt}`);
+    } catch (err) {
+      clearTimeout(timer);
+      const isAbort = err?.name === "AbortError";
+      if (attempt === WEBHOOK_MAX_ATTEMPTS) {
+        console.error(`[A2A] webhook notify failed: task=${task.id} ${isAbort ? "timeout" : err.message} attempt=${attempt}`);
+        return;
+      }
+      console.warn(`[A2A] webhook retry: task=${task.id} ${isAbort ? "timeout" : err.message} attempt=${attempt}`);
+    }
+    // 2. 指數退避 + jitter：200ms, 400ms（+ 隨機 0-100ms）
+    const backoff = WEBHOOK_BACKOFF_BASE_MS * 2 ** (attempt - 1) + Math.floor(Math.random() * 100);
+    await new Promise(r => setTimeout(r, backoff));
   }
 }
 
@@ -397,7 +611,7 @@ function makeAgentMessage(text) {
   return {
     role: "agent",
     parts: [{ type: "text", text }],
-    messageId: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    messageId: genMsgId(),
     taskId: null,
   };
 }
@@ -410,15 +624,15 @@ function getAgentCard(req) {
   const baseUrl = `${protocol}://${host}`;
 
   return {
-    protocolVersion: "0.3.0",
+    protocolVersion: A2A_PROTOCOL_VERSION,
     name: "PAAW Agent",
     description: "Personal AI Assistant Workspace — A2A-enabled agent that can execute skills, manage data apps, and collaborate with other agents.",
     url: `${baseUrl}/a2a`,
-    version: "1.0.0",
+    version: PAAW_AGENT_VERSION,
     capabilities: {
       streaming: true,
       pushNotifications: true,
-      stateTransition: true,
+      stateTransitionHistory: true,
     },
     defaultInputModes: ["text"],
     defaultOutputModes: ["text"],
@@ -666,12 +880,12 @@ export default async function a2aRoutes(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const path = url.pathname;
 
-  // CORS preflight
+  // CORS preflight（依白名單回標頭；無 Origin 或未入白名單則不給 CORS 放行 — QA M3）
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
-      "Access-Control-Allow-Origin": "*",
+      ...corsHeadersFor(req),
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
     });
     res.end();
     return true;
@@ -782,7 +996,8 @@ export default async function a2aRoutes(req, res) {
             totalLength: promptWithSkills.length + extraContext.reduce((s, c) => s + c.content.length, 0),
           });
         } catch (err) {
-          sendJSON(res, 500, { error: err.message });
+          logInternalError("system-prompt", err);
+          sendJSON(res, 500, { error: GENERIC_INTERNAL_ERROR }, req);
         }
         return true;
       }
@@ -946,16 +1161,19 @@ export default async function a2aRoutes(req, res) {
               await appendFile(logPath, JSON.stringify(logEntry, null, 2) + "\n---\n");
             } catch (_logErr) {}
 
-            // SSE headers
+            // SSE headers（CORS 依白名單；QA M3）
             res.writeHead(200, {
               "Content-Type": "text/event-stream",
               "Cache-Control": "no-cache",
               Connection: "keep-alive",
-              "Access-Control-Allow-Origin": "*",
+              ...corsHeadersFor(req),
               "X-Accel-Buffering": "no",
             });
             res.flushHeaders();
             if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
+            // 斷線偵測（QA M4）
+            res._a2aClientGone = false;
+            req.on("close", () => { res._a2aClientGone = true; });
 
             // Register running stream for interrupt support
             const streamAbort = new AbortController();
@@ -1015,15 +1233,16 @@ export default async function a2aRoutes(req, res) {
             if (!res.writableEnded) res.end();
             console.log(`[A2A:${agentId}] stream completed`);
           } catch (err) {
-            console.error(`[A2A:${agentId}] stream error:`, err);  // nosemgrep: unsafe-formatstring
+            logInternalError(`domain message/stream ${agentId}`, err);
             // 2026-09-15：streamKey/rootDir 是 try 內變數 — catch 裡重算（同一條 key）
             const errRootDir = params?.context?.cwd || PAAW_ROOT;
             const stErr = streamStates.get(_streamKey(agentId, errRootDir));
             if (stErr) { stErr.error = String(err.message || err).slice(0, 500); stErr.done = true; stErr.timer = setTimeout(() => _streamStateCleanup(agentId, errRootDir), STREAM_STATE_TTL_MS); }
             if (res.headersSent && !res.writableEnded) {
-              try { res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`); res.end(); } catch {} // nosemgrep: missing-template-string-indicator
+              // 2026-10-17（QA C3）：對外只回通用錯誤，細節留 server log
+              try { res.write(`data: ${JSON.stringify({ error: GENERIC_INTERNAL_ERROR })}\n\n`); res.end(); } catch {} // nosemgrep: missing-template-string-indicator
             } else if (!res.headersSent) {
-              sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32603, message: err.message }, id });
+              sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32603, message: GENERIC_INTERNAL_ERROR }, id }, req);
             }
           }
           return true;
@@ -1031,6 +1250,12 @@ export default async function a2aRoutes(req, res) {
 
         // message/send — sync response (EM 調度用這條)
         if (method === "message/send") {
+          // ── Stream State 側車（2026-09-30）：message/send（EM 派工主路徑）也要註冊 ──
+          // 2026-10-17（QA C1）：側車變數宣告於 try 之外，確保 catch 區塊（任何失敗點）都能安全收尾，
+          // 避免 const 在 TDZ 時被 catch 引用而拋 ReferenceError、側車永久卡 working。
+          let _sendSt = null;
+          let _stBuf = () => {};        // 未初始化前的 no-op，catch 呼叫安全
+          let _finishSendState = () => {};
           try {
             const userText = extractText(params?.message);
             if (!userText) {
@@ -1126,16 +1351,16 @@ export default async function a2aRoutes(req, res) {
             // 以前只有 message/stream 註冊 → EM 派工的 developer/tester tab 查 /stream-state 永遠 exists:false
             // → ⚡ Tool Calls 面板永遠不出現（Fleming：「EM 的 chat ui 有 tool calls 但開發只顯示思考中」）
             _streamStateCleanup(agentId, rootDir);
-            const _sendSt = { agentId, cwd: rootDir, startedAt: Date.now(), seq: 0, events: [], finalContent: null, done: false, error: null, timer: null };
+            _sendSt = { agentId, cwd: rootDir, startedAt: Date.now(), seq: 0, events: [], finalContent: null, done: false, error: null, timer: null };
             streamStates.set(_streamKey(agentId, rootDir), _sendSt);
-            const _stBuf = (evName, dataObj) => {
+            _stBuf = (evName, dataObj) => {
               _sendSt.seq += 1;
               _sendSt.events.push({ seq: _sendSt.seq, event: evName, data: dataObj });
               if (_sendSt.events.length > STREAM_STATE_MAX_EVENTS) _sendSt.events.splice(0, _sendSt.events.length - STREAM_STATE_MAX_EVENTS);
               if (evName === "content" && dataObj?.done && typeof dataObj.content === "string") _sendSt.finalContent = dataObj.content;
               if (evName === "error" && dataObj?.error) _sendSt.error = String(dataObj.error).slice(0, 500);
             };
-            const _finishSendState = () => {
+            _finishSendState = () => {
               if (_sendSt.done) return;
               _sendSt.done = true;
               if (_sendSt.timer) clearTimeout(_sendSt.timer);
@@ -1181,8 +1406,54 @@ export default async function a2aRoutes(req, res) {
               id,
             });
           } catch (err) {
-            try { _stBuf("error", { error: String(err.message || err) }); _finishSendState(); } catch {} // 2026-09-30：側車也要收尾 — 否則 UI 卡在執行中
-            sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32603, message: err.message }, id });
+            logInternalError("domain message/send", err);
+            // 2026-10-17（QA C1）：_stBuf/_finishSendState 已確保存在（try 外宣告 + no-op 預設），呼叫安全
+            try { _stBuf("error", { error: String(err.message || err) }); _finishSendState(); } catch {}
+            sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32603, message: GENERIC_INTERNAL_ERROR }, id }, req);
+          }
+          return true;
+        }
+
+        // ── tasks/get（domain agent 版本，QA M2）──
+        if (method === "tasks/get") {
+          const { id: taskId, historyLength } = params || {};
+          const task = await getTask(taskId);
+          if (!task || (task.metadata?.agentId && task.metadata.agentId !== agentId)) {
+            sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32001, message: `Task not found: ${taskId}` }, id });
+          } else {
+            if (historyLength && task.history) task.history = task.history.slice(-historyLength);
+            sendJSON(res, 200, { jsonrpc: "2.0", result: task, id });
+          }
+          return true;
+        }
+
+        // ── tasks/list（domain agent 版本：只列此 agent 的 task，QA M2）──
+        if (method === "tasks/list") {
+          const all = await listTasks();
+          const tasks = all.filter(t => t.metadata?.agentId === agentId);
+          sendJSON(res, 200, { jsonrpc: "2.0", result: { tasks, nextPageToken: "" }, id });
+          return true;
+        }
+
+        // ── tasks/cancel（domain agent 版本，QA M2）──
+        if (method === "tasks/cancel") {
+          const { id: taskId } = params || {};
+          const task = await getTask(taskId);
+          if (!task || (task.metadata?.agentId && task.metadata.agentId !== agentId)) {
+            sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32001, message: `Task not found: ${taskId}` }, id });
+          } else {
+            const runningHit = findRunningStream(agentId, task.metadata?.cwd);
+            if (runningHit) {
+              runningHit.stream.abortController.abort();
+              try {
+                await sseWrite(runningHit.stream.res, `event: interrupted\ndata: ${JSON.stringify({ message: "Task canceled by user", taskId })}\n\n`); // nosemgrep: missing-template-string-indicator
+                if (!runningHit.stream.res.writableEnded) runningHit.stream.res.end();
+              } catch {}
+              runningStreams.delete(runningHit.key);
+            }
+            task.status = { state: "canceled", timestamp: new Date().toISOString() };
+            await saveTask(task);
+            sendJSON(res, 200, { jsonrpc: "2.0", result: task, id });
           }
           return true;
         }
@@ -1224,12 +1495,26 @@ export default async function a2aRoutes(req, res) {
       sendJSON(res, 200, {
         jsonrpc: "2.0",
         error: { code: -32600, message: "Invalid Request — jsonrpc must be '2.0'" },
-        id: id || null,
-      });
+        id: isValidRpcId(id) ? id : null,
+      }, req);
       return true;
     }
 
-    console.log(`[A2A] RPC ${method} id=${id}`);
+    // id 型別驗證（QA m3）：非法型別回 Invalid Request
+    if (id !== undefined && !isValidRpcId(id)) {
+      sendJSON(res, 200, {
+        jsonrpc: "2.0",
+        error: { code: -32600, message: "Invalid Request — id must be string, number or null" },
+        id: null,
+      }, req);
+      return true;
+    }
+
+    // JSON-RPC notification 語意（QA m3）：無 id 的方法呼叫不回傳回應，但 server 仍處理
+    const isNotification = id === undefined;
+    if (isNotification) res._a2aSuppressResponse = true;
+
+    console.log(`[A2A] RPC ${method} id=${id}${isNotification ? " (notification)" : ""}`);
 
     // ── message/send ──
     if (method === "message/send") {
@@ -1391,12 +1676,12 @@ export default async function a2aRoutes(req, res) {
           sendJSON(res, 200, { jsonrpc: "2.0", result: task, id });
         }
       } catch (err) {
-        console.error(`[A2A] message/send error:`, err);
+        logInternalError("message/send", err);
         sendJSON(res, 200, {
           jsonrpc: "2.0",
-          error: { code: -32603, message: err.message },
+          error: { code: -32603, message: GENERIC_INTERNAL_ERROR },
           id,
-        });
+        }, req);
       }
       return true;
     }
@@ -1424,27 +1709,29 @@ export default async function a2aRoutes(req, res) {
 
         console.log(`[A2A] message/stream task=${task.id} text="${userText.slice(0, 80)}..."`);
 
-        // SSE streaming
+        // SSE streaming（CORS 依白名單；QA M3）
         res.writeHead(200, {
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
           Connection: "keep-alive",
-          "Access-Control-Allow-Origin": "*",
+          ...corsHeadersFor(req),
           "X-Accel-Buffering": "no",
         });
         res.flushHeaders();
         if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
+        // 斷線偵測（QA M4）：client 離線後停止寫入，避免事件堆積
+        res._a2aClientGone = false;
+        req.on("close", () => { res._a2aClientGone = true; });
 
         // Send initial task event
-        res.write(`data: ${JSON.stringify({
+        await sseWrite(res, `data: ${JSON.stringify({
           jsonrpc: "2.0",
           result: { kind: "task", task },
           id,
         })}\n\n`);
-        if (typeof res.flush === "function") res.flush();
 
         // Status update: working
-        res.write(`data: ${JSON.stringify({
+        await sseWrite(res, `data: ${JSON.stringify({
           jsonrpc: "2.0",
           result: {
             kind: "status-update",
@@ -1454,7 +1741,6 @@ export default async function a2aRoutes(req, res) {
           },
           id,
         })}\n\n`);
-        if (typeof res.flush === "function") res.flush();
 
         // Run agent with streaming
         let fullText = "";
@@ -1462,11 +1748,11 @@ export default async function a2aRoutes(req, res) {
 
         const result = await runAgentLoop({
           message,
-          onChunk: (chunk) => {
+          onChunk: async (chunk) => {
             if (chunk.type === "text" && chunk.delta) {
               fullText += chunk.delta;
-              // Stream as artifact update
-              res.write(`data: ${JSON.stringify({
+              // Stream as artifact update（背壓感知，QA M4）
+              await sseWrite(res, `data: ${JSON.stringify({
                 jsonrpc: "2.0",
                 result: {
                   kind: "artifact-update",
@@ -1481,12 +1767,11 @@ export default async function a2aRoutes(req, res) {
                 },
                 id,
               })}\n\n`);
-              if (typeof res.flush === "function") res.flush();
             }
             if (chunk.type === "tool_start") {
               toolsUsed.push(chunk.name);
               // Status update with tool info
-              res.write(`data: ${JSON.stringify({
+              await sseWrite(res, `data: ${JSON.stringify({
                 jsonrpc: "2.0",
                 result: {
                   kind: "status-update",
@@ -1500,7 +1785,6 @@ export default async function a2aRoutes(req, res) {
                 },
                 id,
               })}\n\n`);
-              if (typeof res.flush === "function") res.flush();
             }
           },
         });
@@ -1516,8 +1800,8 @@ export default async function a2aRoutes(req, res) {
         task.metadata = { toolsUsed: result.toolsUsed, model: "paaw-default" };
         await saveTask(task);
 
-        // Send final status update
-        res.write(`data: ${JSON.stringify({
+        // Send final status update（背壓感知，QA M4）
+        await sseWrite(res, `data: ${JSON.stringify({
           jsonrpc: "2.0",
           result: {
             kind: "status-update",
@@ -1527,25 +1811,24 @@ export default async function a2aRoutes(req, res) {
           },
           id,
         })}\n\n`);
-        if (typeof res.flush === "function") res.flush();
 
         if (!res.writableEnded) res.end();
         console.log(`[A2A] message/stream task=${task.id} completed`);
       } catch (err) {
-        console.error(`[A2A] message/stream error:`, err);
+        logInternalError("message/stream", err);
         // If headers already sent, try to send error via SSE
         if (res.headersSent && !res.writableEnded) {
           try { res.write(`data: ${JSON.stringify({
             jsonrpc: "2.0",
-            error: { code: -32603, message: err.message },
+            error: { code: -32603, message: GENERIC_INTERNAL_ERROR },
             id,
           })}\n\n`); res.end(); } catch {}
         } else if (!res.headersSent) {
           sendJSON(res, 200, {
             jsonrpc: "2.0",
-            error: { code: -32603, message: err.message },
+            error: { code: -32603, message: GENERIC_INTERNAL_ERROR },
             id,
-          });
+          }, req);
         }
       }
       return true;
@@ -1600,10 +1883,8 @@ export default async function a2aRoutes(req, res) {
           runningHit.stream.abortController.abort();
           // Send interrupted event to SSE client
           try {
-            if (!runningHit.stream.res.writableEnded) {
-              runningHit.stream.res.write(`event: interrupted\ndata: ${JSON.stringify({ message: "Task canceled by user", taskId })}\n\n`); // nosemgrep: missing-template-string-indicator
-              runningHit.stream.res.end();
-            }
+            await sseWrite(runningHit.stream.res, `event: interrupted\ndata: ${JSON.stringify({ message: "Task canceled by user", taskId })}\n\n`); // nosemgrep: missing-template-string-indicator
+            if (!runningHit.stream.res.writableEnded) runningHit.stream.res.end();
           } catch {}
           runningStreams.delete(runningHit.key);
           console.log(`[A2A] Aborted running stream for ${runningHit.key}`);
@@ -1649,10 +1930,8 @@ export default async function a2aRoutes(req, res) {
     }
     runningHit.stream.abortController.abort();
     try {
-      if (!runningHit.stream.res.writableEnded) {
-        runningHit.stream.res.write(`event: interrupted\ndata: ${JSON.stringify({ message: "Interrupted by user", agentId: aid })}\n\n`); // nosemgrep: missing-template-string-indicator
-        runningHit.stream.res.end();
-      }
+      await sseWrite(runningHit.stream.res, `event: interrupted\ndata: ${JSON.stringify({ message: "Interrupted by user", agentId: aid })}\n\n`); // nosemgrep: missing-template-string-indicator
+      if (!runningHit.stream.res.writableEnded) runningHit.stream.res.end();
     } catch {}
     runningStreams.delete(runningHit.key);
     console.log(`[A2A] Interrupted stream for ${runningHit.key}`);

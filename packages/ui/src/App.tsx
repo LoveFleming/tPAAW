@@ -361,8 +361,9 @@ function AppInner() {
   useEffect(() => {
     fetch(`${API_BASE}/api/apps/modules`).then(r => r.json()).then(d => setAppModules((d.modules || []).filter((m: any) => m.enabled && m.nav))).catch(() => {});
   }, []);
-  const openAppModule = useCallback((moduleId: string) => {
-    const tabId = `${currentScope}:module:${moduleId}`;
+  const openAppModule = useCallback((moduleId: string, page?: string) => {
+    // page 編進 tabId（module:<id>:<page>），讓 ModulePageLoader 直接用，免多一次 manifest round-trip（B1）。
+    const tabId = page ? `${currentScope}:module:${moduleId}:${page}` : `${currentScope}:module:${moduleId}`;
     startTransition(() => { // lazy 頁面懸掛走 transition（React #426）— 開頁+切頁都要包
       setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
       setActivePage(tabId);
@@ -651,8 +652,10 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
       return <CodingIDE />;
     }
     if (pageType.startsWith("module:")) {
-      const mid = pageType.slice("module:".length).split(":")[0];
-      return <ModulePageLoader moduleId={mid} />;
+      const parts = pageType.slice("module:".length).split(":");
+      const mid = parts[0];
+      const pg = parts[1] || undefined;
+      return <ModulePageLoader moduleId={mid} page={pg} />;
     }
     if (pageType === "briefing-player") {
       return <BriefingPlayer key={briefingInitialDir ?? "default"} initialDir={briefingInitialDir} />;
@@ -862,7 +865,7 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
                 <NavItem active={activePage.endsWith(":briefing-player")} label={t("sidebar.briefingPlayer", "Briefing Player")} onClick={() => openBriefingPlayer()} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":coding")} label={t("sidebar.coding")} onClick={openCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 {appModules.map(m => (
-                  <NavItem key={`mod-${m.id}`} active={activePage.endsWith(`:module:${m.id}`)} label={m.nav?.label || m.name} emoji={m.nav?.emoji || "📦"} onClick={() => openAppModule(m.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                  <NavItem key={`mod-${m.id}`} active={activePage === `${currentScope}:module:${m.id}` || activePage.startsWith(`${currentScope}:module:${m.id}:`)} label={m.nav?.label || m.name} emoji={m.nav?.emoji || "📦"} onClick={() => openAppModule(m.id, m.nav?.page)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
                 <NavItem active={activePage.endsWith(":mind-map")} label={t("sidebar.mindMap")} onClick={openMindMap} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":notes")} label={t("sidebar.notes")} onClick={openNotes} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />

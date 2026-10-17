@@ -1,7 +1,7 @@
 /**
  * Chat routes — CRUD + SSE streaming with Context Engine
  */
-import { readdir, readFile, writeFile, mkdir, unlink } from "fs/promises";
+import { readdir, readFile, writeFile, mkdir, unlink, rename } from "fs/promises";
 import { resolve } from "path";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
@@ -10,6 +10,13 @@ import { hasImages } from "../lib/vision-content.mjs";
 import { uploadsDir } from "./uploads.mjs";
 import { readFile as _readFile } from "fs/promises";
 import { join as _join, basename as _basename } from "path";
+import { randomUUID } from "crypto";
+import { sanitizeId, safeResolve } from "../lib/coding-security.mjs";
+import { logAuditEvent } from "../lib/audit-log.mjs";
+
+// Request body caps (DoS guard — a single request must not exhaust memory)
+const MAX_CHAT_BODY_BYTES = 20 * 1024 * 1024;   // 20MB — 對話含圖片路徑陣列，留充裕空間
+const MAX_PROMPT_BODY_BYTES = 1 * 1024 * 1024;  // 1MB — 系統提示詞 md，超過就是異常
 
 /**
  * 訊含圖處理（2026-08-30 Vision Phase 2）：
@@ -46,6 +53,47 @@ const APPS_ROOT = resolve(DATA_HOME, "apps");
 
 // Ensure dirs exist
 await mkdir(PAAW_CHAT_DIR, { recursive: true });
+
+/**
+ * Per-chat write lock. PUT 是「讀-改-寫」，兩個並發請求交錯會資料遺失（TOCTOU）。
+ * 以 chatId 為 key 串行化同一個對話的寫入；不同對話可並行。
+ */
+const _chatLocks = new Map();
+function withChatLock(chatId, fn) {
+  const prev = _chatLocks.get(chatId) || Promise.resolve();
+  const run = prev.then(fn, fn);
+  // 鏈上只保留「完成」訊號（吞掉結果/錯誤），settle 後清掉避免 map 無限成長
+  const tail = run.catch(() => {});
+  _chatLocks.set(chatId, tail);
+  tail.finally(() => { if (_chatLocks.get(chatId) === tail) _chatLocks.delete(chatId); });
+  return run;
+}
+
+/** 原子寫入 JSON：先寫 temp 再 rename（同目錄 rename 為原子操作，避免半寫入檔） */
+async function atomicWriteJson(filePath, data) {
+  const tmp = `${filePath}.${randomUUID()}.tmp`;
+  await writeFile(tmp, JSON.stringify(data, null, 2), "utf-8");
+  await rename(tmp, filePath);
+}
+
+/** 解析 request body：空 body 視為 {}，壞 JSON → 400（不讓 SyntaxError 冒成 500） */
+async function readJsonBody(req, res, maxBytes) {
+  const raw = await readBody(req, maxBytes);
+  if (!raw) return { ok: true, body: {} };
+  try {
+    const parsed = JSON.parse(raw);
+    return { ok: true, body: parsed };
+  } catch {
+    json(res, { error: "Invalid JSON body" }, 400);
+    return { ok: false };
+  }
+}
+
+/** 從路徑取 chatId 並消毒（防路徑穿越寫入任意 .json） */
+function chatIdFromPath(path) {
+  const raw = path.split("/").pop().replace(/\.json$/, "");
+  return sanitizeId(decodeURIComponent(raw));
+}
 
 // ── Route handler ──
 export default async function chatRoutes(req, res) {
@@ -102,35 +150,75 @@ export default async function chatRoutes(req, res) {
 
   // POST /api/paaw/chats — create new chat
   if (req.method === "POST" && path === "/api/paaw/chats") {
-    const body = JSON.parse(await readBody(req));
-    const chatId = body.id || `chat_${Date.now()}`;
+    const parsed = await readJsonBody(req, res, MAX_CHAT_BODY_BYTES);
+    if (!parsed.ok) return true;
+    const body = parsed.body;
+    let chatId;
+    try {
+      chatId = sanitizeId(body.id || `chat_${Date.now()}`);
+    } catch {
+      json(res, { error: "Invalid chat id" }, 400);
+      return true;
+    }
+    let filePath;
+    try {
+      filePath = safeResolve(PAAW_CHAT_DIR, `${chatId}.json`);
+    } catch {
+      json(res, { error: "Invalid chat id" }, 400);
+      return true;
+    }
     const chatData = { id: chatId, title: body.title || "新對話", messages: body.messages || [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-    await writeFile(resolve(PAAW_CHAT_DIR, `${chatId}.json`), JSON.stringify(chatData, null, 2), "utf-8");
+    await withChatLock(chatId, () => atomicWriteJson(filePath, chatData));
     json(res, chatData);
     return true;
   }
 
   // PUT /api/paaw/chats/:id — update chat
   if (req.method === "PUT" && path.startsWith("/api/paaw/chats/")) {
-    const chatId = path.split("/").pop().replace(".json", "");
-    const filePath = resolve(PAAW_CHAT_DIR, `${chatId}.json`);
-    let existing;
+    let chatId, filePath;
     try {
-      existing = JSON.parse(await readFile(filePath, "utf-8"));
+      chatId = chatIdFromPath(path);
+      filePath = safeResolve(PAAW_CHAT_DIR, `${chatId}.json`);
     } catch {
-      existing = { id: chatId, title: "新對話", messages: [], createdAt: new Date().toISOString() };
+      json(res, { error: "Invalid chat id" }, 400);
+      return true;
     }
-    const body = JSON.parse(await readBody(req));
-    const updated = { ...existing, ...body, updatedAt: new Date().toISOString() };
-    await writeFile(filePath, JSON.stringify(updated, null, 2), "utf-8");
-    json(res, updated);
+    const parsed = await readJsonBody(req, res, MAX_CHAT_BODY_BYTES);
+    if (!parsed.ok) return true;
+    const body = parsed.body;
+
+    // 讀-改-寫整段在同一把 per-chat 鎖內，避免併發交錯導致資料遺失（TOCTOU）
+    const result = await withChatLock(chatId, async () => {
+      let existing;
+      try {
+        existing = JSON.parse(await readFile(filePath, "utf-8"));
+      } catch {
+        return { missing: true };
+      }
+      const updated = { ...existing, ...body, updatedAt: new Date().toISOString() };
+      await atomicWriteJson(filePath, updated);
+      return { updated };
+    });
+    if (result.missing) {
+      // 缺檔不再靜默建新（掩蓋 client bug）→ 明確 404
+      json(res, { error: "Chat not found" }, 404);
+      return true;
+    }
+    json(res, result.updated);
     return true;
   }
 
   // DELETE /api/paaw/chats/:id
   if (req.method === "DELETE" && path.startsWith("/api/paaw/chats/")) {
-    const chatId = path.split("/").pop().replace(".json", "");
-    try { await unlink(resolve(PAAW_CHAT_DIR, `${chatId}.json`)); } catch {}
+    let filePath;
+    try {
+      const chatId = chatIdFromPath(path);
+      filePath = safeResolve(PAAW_CHAT_DIR, `${chatId}.json`);
+    } catch {
+      json(res, { error: "Invalid chat id" }, 400);
+      return true;
+    }
+    try { await unlink(filePath); } catch {}
     json(res, { ok: true });
     return true;
   }
@@ -236,13 +324,19 @@ export default async function chatRoutes(req, res) {
       console.log(`[${chatReqId}] SSE headers sent, socket=${res.socket?.remoteAddress}:${res.socket?.remotePort}`);
 
       // Heartbeat：每 3 秒送 SSE 註解，保持連線 + 強制 flush TCP buffer
+      let heartbeatErrors = 0;
       heartbeatTimer = setInterval(() => {
         try {
           res.write(': heartbeat\n\n');
           if (typeof res.flush === 'function') res.flush();
           // 強制 flush socket
           if (res.socket?.write) res.socket.write('');
-        } catch {}
+        } catch (err) {
+          // 連線可能已斷 → 記錄第一次，避免每 3 秒洗版
+          if (heartbeatErrors++ === 0) {
+            console.warn(`[${chatReqId}] heartbeat write failed (client likely gone): ${err.message}`);
+          }
+        }
       }, 3000);
 
       // ── Load tool handlers & convert to executors ──
@@ -465,14 +559,29 @@ export default async function chatRoutes(req, res) {
       json(res, { error: "Unknown prompt file" }, 400);
       return true;
     }
+    const parsed = await readJsonBody(req, res, MAX_PROMPT_BODY_BYTES);
+    if (!parsed.ok) return true;
+    const body = parsed.body;
+    if (typeof body.content !== "string") {
+      json(res, { error: "content must be a string" }, 400);
+      return true;
+    }
+    if (body.content.length > MAX_PROMPT_BODY_BYTES) {
+      json(res, { error: `content too large (max ${MAX_PROMPT_BODY_BYTES} bytes)` }, 400);
+      return true;
+    }
     try {
-      const body = JSON.parse(await readBody(req));
-      if (typeof body.content !== "string") {
-        json(res, { error: "content must be a string" }, 400);
-        return true;
-      }
       await writePromptFile(file, body.content);
-      console.log(`[Chat] Updated system prompt: ${file}`);
+      // 系統提示詞屬敏感變更 → 落 audit-log（事實來源，ES 斷線也不丟）
+      try {
+        logAuditEvent({
+          kind: "config_change",
+          layer: "chat",
+          reason: `System prompt updated: ${file}`,
+          detail: { file, bytes: body.content.length },
+        });
+      } catch { /* 審計失敗不影響主流程 */ }
+      console.log(`[Chat] Updated system prompt: ${file} (${body.content.length} bytes)`);
       json(res, { file, saved: true });
     } catch (err) {
       json(res, { error: err.message }, 500);

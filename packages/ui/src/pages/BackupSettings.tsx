@@ -37,6 +37,8 @@ export default function BackupSettings() {
   const [config, setConfig] = useState<BackupConfig | null>(null);
   const [backups, setBackups] = useState<BackupEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  // QA B1（2026-10-17）：載入失敗時提供錯誤態，避免 config 永遠 null 卡在 loading
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [editDir, setEditDir] = useState("");
   const [editRetention, setEditRetention] = useState(7);
@@ -54,10 +56,15 @@ export default function BackupSettings() {
   };
 
   const loadConfig = useCallback(async () => {
-    const data = await api.get(`${API_BASE}/api/backup/config`);
+    // QA B1（2026-10-17）：檢 resp.ok 與 config 存在，失敗向上拋讓 useEffect 進錯誤態
+    const resp = await fetch(`${API_BASE}/api/backup/config`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (!data?.config) throw new Error("invalid backup config response");
     setConfig(data.config);
-    setEditDir(data.config?.backupDir || "");
-    setEditRetention(data.config?.retentionCount || 7);
+    setEditDir(data.config.backupDir || "");
+    setEditRetention(data.config.retentionCount || 7);
+    setLoadError(null);
   }, []);
 
   const loadBackups = useCallback(async () => {
@@ -169,10 +176,11 @@ export default function BackupSettings() {
   };
 
   useEffect(() => {
-    loadConfig();
+    // QA B1（2026-10-17）：loadConfig 失敗會 throw，這裡轉成可見錯誤態並提供重試
+    loadConfig().catch((e: any) => setLoadError(e?.message || "load failed"));
     loadLogRetention();
-    loadBackups();
-  }, []);
+    loadBackups().catch(() => {});
+  }, [loadConfig, loadLogRetention, loadBackups]);
 
   function formatSize(bytes: number) {
     if (bytes < 1024) return `${bytes} B`;
@@ -180,7 +188,25 @@ export default function BackupSettings() {
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   }
 
-  if (!config) return <div className="p-8" style={{ color: tk.textMuted }}>{tt("common.loading")}</div>;
+  if (!config) {
+    // QA B1（2026-10-17）：載入失敗不再卡在 loading，顯示錯誤與重試按鈕
+    if (loadError) {
+      return (
+        <div className="p-8 space-y-3" style={{ color: tk.textPrimary }}>
+          <div style={{ color: "#dc2626" }}>❌ {tt("backup.loadFailed")}</div>
+          <div className="text-xs" style={{ color: tk.textMuted }}>{loadError}</div>
+          <button
+            onClick={() => { setLoadError(null); loadConfig().catch((e: any) => setLoadError(e?.message || "load failed")); }}
+            className="px-4 py-2 rounded-lg text-sm"
+            style={{ background: tk.accent, color: "#fff" }}
+          >
+            {tt("backup.retry")}
+          </button>
+        </div>
+      );
+    }
+    return <div className="p-8" style={{ color: tk.textMuted }}>{tt("common.loading")}</div>;
+  }
 
   return (
     <div className="space-y-4">

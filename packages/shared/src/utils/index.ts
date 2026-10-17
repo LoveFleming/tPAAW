@@ -29,19 +29,28 @@ export function resolveTemplate(
   });
 }
 
+function resolveTemplateValue(value: any, vars: Record<string, any>): any {
+  if (typeof value === "string") {
+    return resolveTemplate(value, vars);
+  }
+  // 2026-10-17：陣列必須保持陣列（逐項處理），否則會被誤當 object 轉成 {"0":..} 物件。
+  // 這對 {{ref}} 模板解析是正確性問題 — 見 TASK-116 review（F20261016-073）。
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveTemplateValue(item, vars));
+  }
+  if (typeof value === "object" && value !== null) {
+    return resolveTemplateObj(value, vars);
+  }
+  return value;
+}
+
 export function resolveTemplateObj(
   obj: Record<string, any>,
   vars: Record<string, any>
 ): Record<string, any> {
   const result: Record<string, any> = {};
   for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === "string") {
-      result[key] = resolveTemplate(value, vars);
-    } else if (typeof value === "object" && value !== null) {
-      result[key] = resolveTemplateObj(value, vars);
-    } else {
-      result[key] = value;
-    }
+    result[key] = resolveTemplateValue(value, vars);
   }
   return result;
 }

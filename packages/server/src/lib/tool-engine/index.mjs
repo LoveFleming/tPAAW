@@ -70,7 +70,12 @@ function extractVerifyId(writeName, args, result) {
  */
 function detectToolError(result) {
   if (!result) return '工具回傳了空結果'
-  if (result.error === true) return result.text || '工具執行失敗'
+  // 2026-10-17 TASK-164：registry.execute 失敗時回 { error: '<string>' }（不是 error:true），
+  // 原本只認 ===true → 字串錯誤被誤判為成功。改為：任何 truthy 的 error 欄位都算錯誤。
+  if (result.error) {
+    if (typeof result.error === 'string') return result.error
+    return result.text || '工具執行失敗'
+  }
   if (result.success === false) return result.text || '工具執行失敗'
   if (result.text && result.text.startsWith('❌')) return result.text
   return null
@@ -84,31 +89,41 @@ async function verifyWriteResult(toolName, args, result, registry) {
   const id = extractVerifyId(toolName, args, result)
   const verifyName = getVerifyToolName(toolName)
 
+  // 2026-10-17 TASK-164：語意修正。
+  // 舊版在「無法回查」時回 { verified:true }，讓 LLM/使用者以為已驗證成功（驗證空轉、可被繞過）。
+  // 現在：verified:true 只在『真的回查到正確結果』時給；
+  //   無法回查 / 無 verify 工具 / 工具抛錯 → verified:false 且 unverified:true（誠實標記為『未經回查確認』）。
+
   // delete 特殊處理：用 list 確認資料不在了
   if (/_delete$/.test(toolName)) {
     const deletedId = args?.id
-    if (!deletedId) return { verified: true, detail: '刪除完成（無 ID 可回查）' }
+    if (!deletedId) return { verified: false, unverified: true, detail: '刪除執行完成，但無 ID 可回查（未驗證）' }
+    if (!registry.has(verifyName)) return { verified: false, unverified: true, detail: '刪除執行完成，但無對應 list 工具可回查（未驗證）' }
     try {
       const verifyResult = await registry.execute(verifyName, {})
-      const records = verifyResult?.records || []
-      const stillExists = records.some(r => r.id === deletedId)
+      if (detectToolError(verifyResult)) {
+        return { verified: false, detail: `⚠️ 刪除後回查失敗：${detectToolError(verifyResult)}` }
+      }
+      const records = verifyResult?.records || verifyResult?.items || []
+      const stillExists = Array.isArray(records) && records.some(r => r.id === deletedId)
       if (stillExists) {
         return { verified: false, detail: `⚠️ 刪除後 ID ${deletedId} 仍存在於資料中` }
       }
       return { verified: true, detail: `✅ 已確認 ID ${deletedId} 已刪除` }
-    } catch {
-      return { verified: true, detail: '刪除完成（無法回查）' }
+    } catch (err) {
+      return { verified: false, unverified: true, detail: `刪除執行完成，但回查失敗（未驗證）：${err.message}` }
     }
   }
 
   // add / update：用 get 確認資料存在
-  if (!id) return { verified: true, detail: '操作完成（無 ID 可回查）' }
-  if (!registry.has(verifyName)) return { verified: true, detail: '操作完成（無對應的 verify 工具）' }
+  if (!id) return { verified: false, unverified: true, detail: '操作完成，但無 ID 可回查（未驗證）' }
+  if (!registry.has(verifyName)) return { verified: false, unverified: true, detail: '操作完成，但無對應的 verify 工具（未驗證）' }
 
   try {
     const verifyResult = await registry.execute(verifyName, { id })
-    if (detectToolError(verifyResult)) {
-      return { verified: false, detail: `⚠️ 寫入後回查失敗：${detectToolError(verifyResult)}` }
+    const verr = detectToolError(verifyResult)
+    if (verr) {
+      return { verified: false, detail: `⚠️ 寫入後回查失敗：${verr}` }
     }
     return { verified: true, detail: `✅ 已確認資料存在（ID: ${id}）` }
   } catch (err) {
@@ -265,7 +280,8 @@ export class ToolEngine {
               // 把驗證結果 + dependency context 附加到 tool result，讓 LLM 知道
               const enriched = {
                 ...result,
-                _validation: { verified: verify.verified, detail: verify.detail },
+                // unverified:true 表示「寫入成功但未經回查確認」（2026-10-17 TASK-164）
+                _validation: { verified: verify.verified, ...(verify.unverified ? { unverified: true } : {}), detail: verify.detail },
                 ...(depContextStr ? { _dependencyContext: depContextStr } : {}),
               }
               yield { type: 'tool_end', name: tc.function.name, result: enriched }
@@ -279,7 +295,7 @@ export class ToolEngine {
 
             // 組裝給 LLM 的 message（含驗證結果 + dependency context）
             const msgContent = verifyDetail
-              ? { ...result, _validation: { verified: verifyDetail.verified, detail: verifyDetail.detail }, ...(depContextStr ? { _dependencyContext: depContextStr } : {}) }
+              ? { ...result, _validation: { verified: verifyDetail.verified, ...(verifyDetail.unverified ? { unverified: true } : {}), detail: verifyDetail.detail }, ...(depContextStr ? { _dependencyContext: depContextStr } : {}) }
               : result
             messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(msgContent) })
             console.log(`[ToolEngine]   ← tool result pushed: ${tc.function.name} id=${tc.id} verified=${verifyDetail?.verified ?? 'N/A'} msgs=${messages.length}`)

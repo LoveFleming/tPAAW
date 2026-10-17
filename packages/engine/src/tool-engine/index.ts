@@ -77,12 +77,32 @@ export class ToolEngine {
   /**
    * 執行完整的 ReAct loop
    * 回傳 AsyncIterableIterator，Chat Route 可以直接 stream 給前端
+   *
+   * 文字以 provider 逐字串流的方式即時 yield；provider error 會向上傳遞為
+   * error chunk 後結束，不會被誤判為正常完成。
    */
   async *run(
     systemPrompt: string,
     userMessages: ChatMessage[],
     model?: string
   ): AsyncIterableIterator<EngineChunk> {
+    // ── 輸入驗證：system prompt 與 messages 角色 ──
+    if (typeof systemPrompt !== 'string') {
+      yield { type: 'error', message: 'Invalid system prompt: expected string' }
+      return
+    }
+    if (!Array.isArray(userMessages)) {
+      yield { type: 'error', message: 'Invalid messages: expected array' }
+      return
+    }
+    const validRoles = new Set(['system', 'user', 'assistant', 'tool'])
+    for (const m of userMessages) {
+      if (!m || typeof m !== 'object' || !validRoles.has(m.role)) {
+        yield { type: 'error', message: `Invalid message role: ${String(m?.role)}` }
+        return
+      }
+    }
+
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
       ...userMessages,
@@ -96,17 +116,36 @@ export class ToolEngine {
         yield { type: 'text', delta: `\n[Tool Engine] Round ${round + 1}/${this.maxToolRounds}\n` }
       }
 
-      // ── 送給 LLM ──
-      const toolCalls = await this._chatRound(messages, tools, model)
+      // ── 送給 LLM（逐字串流，文字即時 yield） ──
+      const roundGen = this._chatRoundStream(messages, tools, model)
+      let roundResult: { toolCalls: ToolCallDef[]; error?: string }
+      while (true) {
+        const step = await roundGen.next()
+        if (step.done) {
+          roundResult = step.value
+          break
+        }
+        // 累積本輪文字到 fullText（對齊 done.fullText 契約）
+        if (step.value.type === 'text') {
+          fullText += step.value.delta
+        }
+        yield step.value
+      }
 
-      if (toolCalls.length === 0) {
+      if (roundResult.error) {
+        // provider 出錯：往上傳遞錯誤，不得當成正常結束而 yield done
+        yield { type: 'error', message: roundResult.error }
+        return
+      }
+
+      if (roundResult.toolCalls.length === 0) {
         // 沒有 tool calls → 結束
         yield { type: 'done', fullText }
         return
       }
 
       // ── 執行所有 tool calls ──
-      for (const tc of toolCalls) {
+      for (const tc of roundResult.toolCalls) {
         let args: Record<string, any> = {}
         try {
           args = JSON.parse(tc.function.arguments)
@@ -137,32 +176,23 @@ export class ToolEngine {
   }
 
   /**
-   * 單輪 chat — 送 messages 給 provider，stream 文字，回傳 tool calls
+   * 單輪 chat — 送 messages 給 provider，逐字 stream 文字，回傳本輪結果
+   *
+   * 回傳 { toolCalls, error }：error 有值代表 provider 失敗，run() 需向上傳遞。
    */
   private async *_chatRoundStream(
     messages: ChatMessage[],
     tools: ToolDef[],
     model?: string
-  ): AsyncIterableIterator<EngineChunk> {
+  ): AsyncGenerator<EngineChunk, { toolCalls: ToolCallDef[]; error?: string }> {
     const toolCalls: ToolCallDef[] = []
     let roundText = ''
-    let currentToolInfo: { name: string; args: string } | null = null
 
     for await (const chunk of this.provider.chat(messages, tools, model)) {
       switch (chunk.type) {
         case 'text':
           roundText += chunk.delta
           yield { type: 'text', delta: chunk.delta }
-          break
-
-        case 'tool_call_begin':
-          currentToolInfo = { name: chunk.name, args: '' }
-          break
-
-        case 'tool_call_arg':
-          if (currentToolInfo) {
-            currentToolInfo.args += chunk.delta
-          }
           break
 
         case 'done':
@@ -177,53 +207,13 @@ export class ToolEngine {
             }
             messages.push(assistantMsg)
           }
-          return chunk.toolCalls // 回傳這輪的 tool calls
+          return { toolCalls: chunk.toolCalls }
 
         case 'error':
-          yield { type: 'error', message: chunk.message }
-          return []
+          return { toolCalls: [], error: chunk.message }
       }
     }
-    return []
-  }
-
-  /**
-   * Internal: single chat round, returns tool calls
-   */
-  private async _chatRound(
-    messages: ChatMessage[],
-    tools: ToolDef[],
-    model?: string
-  ): Promise<ToolCallDef[]> {
-    const toolCalls: ToolCallDef[] = []
-    let roundText = ''
-
-    for await (const chunk of this.provider.chat(messages, tools, model)) {
-      switch (chunk.type) {
-        case 'text':
-          roundText += chunk.delta
-          break
-        case 'done':
-          // Append assistant response
-          if (roundText || chunk.toolCalls.length > 0) {
-            const assistantMsg: ChatMessage = {
-              role: 'assistant',
-              content: roundText || null,
-            }
-            if (chunk.toolCalls.length > 0) {
-              assistantMsg.tool_calls = chunk.toolCalls
-            }
-            messages.push(assistantMsg)
-          }
-          return chunk.toolCalls
-        case 'error':
-          console.error('[ToolEngine] Provider error:', chunk.message)
-          return []
-        default:
-          break
-      }
-    }
-    return []
+    return { toolCalls }
   }
 }
 

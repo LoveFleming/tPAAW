@@ -156,11 +156,28 @@ describe("resolveTemplateObj()", () => {
     expect(result.active).toBe(true);
   });
 
-  it("should recursively process arrays (converts to object with numeric keys)", () => {
+  it("should preserve arrays as arrays (not convert to numeric-key object)", () => {
+    // 2026-10-17 TASK-116：修正前的實作把陣列誤判為 object，會轉成 {"0":..}。
+    // 陣列必須保持陣列 — 這是 {{ref}} 模板解析的正確性契約。
     const result = resolveTemplateObj({ list: [1, 2, 3] }, {});
-    // Arrays are typeof "object", so resolveTemplateObj recurses into them,
-    // producing an object with numeric string keys instead of an array
-    expect(result.list).toEqual({ "0": 1, "1": 2, "2": 3 });
+    expect(Array.isArray(result.list)).toBe(true);
+    expect(result.list).toEqual([1, 2, 3]);
+  });
+
+  it("should resolve string templates inside array items", () => {
+    const result = resolveTemplateObj({ list: ["{{a}}", "{{b}}"] }, { a: "x", b: "y" });
+    expect(result.list).toEqual(["x", "y"]);
+  });
+
+  it("should resolve nested arrays of objects", () => {
+    const result = resolveTemplateObj(
+      { rows: [{ name: "{{who}}", n: 1 }, { name: "flat", n: 2 }] },
+      { who: "alice" }
+    );
+    expect(result.rows).toEqual([
+      { name: "alice", n: 1 },
+      { name: "flat", n: 2 },
+    ]);
   });
 
   it("should resolve multiple keys independently", () => {

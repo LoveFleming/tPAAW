@@ -1,5 +1,5 @@
 export { executeSkill, createRunner, PromptRunner, DataRunner, ApiRunner, ScriptRunner } from "./runner/index";
-export type { SkillExecutor } from "./runner/index";
+export type { SkillExecutor, LlmCaller } from "./runner/index";
 
 // ── Tool Engine ──
 export { ToolEngine, createToolEngine, ToolRegistry } from "./tool-engine/index";

@@ -11,12 +11,15 @@
 import { buildDependencyGraph, normalizeFileKey } from "./dependencies.mjs";
 
 /** BFS：從 seeds 沿 edgeMap 走，回傳 { node, depth }（depth=1 是直接依賴者） */
+// 護欄：depth 與節點數上限 — 異常稠密圖不至於無界展開（對稱 walkSources 的 maxFiles/depth 保護）。
+const BFS_MAX_DEPTH = 64;
+const BFS_MAX_NODES = 20000;
 function bfs(seeds, edgeMap) {
   const visited = new Map(); // node → depth
   let frontier = [...seeds];
   let depth = 0;
   for (const s of seeds) visited.set(s, 0);
-  while (frontier.length) {
+  while (frontier.length && depth < BFS_MAX_DEPTH && visited.size < BFS_MAX_NODES) {
     depth += 1;
     const next = [];
     for (const node of frontier) {
@@ -24,8 +27,10 @@ function bfs(seeds, edgeMap) {
         if (!visited.has(dep)) {
           visited.set(dep, depth);
           next.push(dep);
+          if (visited.size >= BFS_MAX_NODES) break;
         }
       }
+      if (visited.size >= BFS_MAX_NODES) break;
     }
     frontier = next;
   }

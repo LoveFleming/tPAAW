@@ -11,7 +11,7 @@
  * - Coding standards
  */
 import { readFileSync as readSync, existsSync, statSync, readdirSync } from "fs";
-import { join, resolve, dirname } from "path";
+import { join, resolve, dirname, relative, isAbsolute } from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -23,9 +23,41 @@ function sendJSON(res, code, data) {
   res.end(JSON.stringify(data));
 }
 
-function parsePath(req) {
+async function getAllowedRoots() {
+  const roots = [PAAW_ROOT, resolve(PAAW_ROOT, "data")];
+  try {
+    const wsFile = resolve(PAAW_ROOT, "data", "workspaces.json");
+    if (existsSync(wsFile)) {
+      const ws = JSON.parse(readSync(wsFile, "utf-8"));
+      for (const d of ws.directories || []) {
+        if (d && existsSync(d)) roots.push(resolve(d));
+      }
+    }
+  } catch { /* fall back to PAAW_ROOT only */ }
+  return roots;
+}
+
+function withinRoots(absPath, roots) {
+  for (const root of roots) {
+    const r = resolve(root);
+    if (absPath === r) return true;
+    const rel = relative(r, absPath);
+    if (rel && !rel.startsWith("..") && !isAbsolute(rel)) return true;
+  }
+  return false;
+}
+
+/**
+ * Resolve the ?path= project root. The value is client-supplied, so we only
+ * accept it when it lives inside a configured workspace or PAAW_ROOT —
+ * otherwise arbitrary directories on the host could be scanned/read.
+ */
+function parsePath(req, roots) {
   const url = new URL(req.url, "http://localhost");
-  return url.searchParams.get("path") || PAAW_ROOT;
+  const raw = url.searchParams.get("path");
+  if (!raw) return PAAW_ROOT;
+  const abs = resolve(raw);
+  return withinRoots(abs, roots) ? abs : PAAW_ROOT;
 }
 
 export default async function codingHealthRoute(req, res) {
@@ -36,7 +68,8 @@ export default async function codingHealthRoute(req, res) {
   if (cleanUrl !== "/api/coding-health") return false;
   if (method !== "GET") return false;
 
-  const projRoot = parsePath(req);
+  const allowedRoots = await getAllowedRoots();
+  const projRoot = parsePath(req, allowedRoots);
   const checks = {};
   let allHealthy = true;
 

@@ -122,14 +122,17 @@ export function cleanupProjectTempFiles(cwd, sinceMs, logFn = () => {}) {
 /**
  * provider temp/ 修剪：payload-*.json / stream-*.log 各留最新 keep 個
  */
-export function pruneProviderTemp(tempDir, keep = 60) {
+export function pruneProviderTemp(tempDir, keep = 60, minAgeMs = 0) {
   if (!existsSync(tempDir)) return { payload: 0, stream: 0 };
+  const now = Date.now();
   const groups = { payload: [], stream: [] };
   try {
     for (const f of readdirSync(tempDir)) {
       const full = join(tempDir, f);
       try {
         const st = statSync(full);
+        // 2026-10-17 TASK-164：加 minAgeMs 保護窗，避免併發請求剛寫入的檔被這輪 prune 誤刪（TOCTOU）。
+        if (minAgeMs > 0 && now - st.mtimeMs < minAgeMs) continue;
         if (f.startsWith("payload-")) groups.payload.push({ full, mtime: st.mtimeMs });
         else if (f.startsWith("stream-")) groups.stream.push({ full, mtime: st.mtimeMs });
       } catch {}

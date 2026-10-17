@@ -30,14 +30,25 @@ export class DataStoreRepo {
   }
 
   async update(id: string, data: Partial<Record<string, any>>): Promise<void> {
-    const existing = await this.read(id);
-    if (!existing) throw new Error(`Record not found: ${id}`);
+    // Wrap read+write in a transaction so concurrent updates don't
+    // clobber each other (TOCTOU). The WHERE also re-checks deleted_at so
+    // we never update a soft-deleted row.
+    await this.db.transaction().execute(async (trx) => {
+      const existing = await trx
+        .selectFrom("data_store")
+        .where("id", "=", id)
+        .where("deleted_at", "is", null)
+        .selectAll()
+        .executeTakeFirst();
+      if (!existing) throw new Error(`Record not found: ${id}`);
 
-    const merged = { ...JSON.parse(existing.data_json), ...data };
-    await this.db.updateTable("data_store")
-      .set({ data_json: JSON.stringify(merged) })
-      .where("id", "=", id)
-      .execute();
+      const merged = { ...JSON.parse(existing.data_json), ...data };
+      await trx.updateTable("data_store")
+        .set({ data_json: JSON.stringify(merged) })
+        .where("id", "=", id)
+        .where("deleted_at", "is", null)
+        .execute();
+    });
   }
 
   async softDelete(id: string): Promise<void> {

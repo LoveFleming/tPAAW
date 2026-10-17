@@ -37,9 +37,16 @@ function appLoader(spec: string): (() => Promise<any>) | null {
 }
 
 const VALID_IDENT = /^[A-Za-z_$][\w$]*$/;
+
+/**
+ * Shim blob URL 的快取。key 為 SDK specifier。
+ * 注意：只快取「成功」的 Promise — 失敗的 Promise 一律從快取移除，
+ * 否則同一個 spec 會在整個 session 內永久失敗（見 B2）。
+ * shim 內容僅是值快照（非 ESM live binding），對共享模組（fn/const）已足夠。
+ */
 const shimCache = new Map<string, Promise<string>>();
 
-/** 取得某個 SDK specifier 的 shim blob URL（快取） */
+/** 取得某個 SDK specifier 的 shim blob URL（成功才快取，失敗自清） */
 function shimUrl(spec: string): Promise<string> {
   const hit = shimCache.get(spec);
   if (hit) return hit;
@@ -63,8 +70,10 @@ function shimUrl(spec: string): Promise<string> {
       names.map(n => `export const ${n} = M[${JSON.stringify(n)}];\n`).join("");
     return URL.createObjectURL(new Blob([src], { type: "text/javascript" }));
   })();
-  shimCache.set(spec, p);
-  return p;
+  // 失敗必須自清快取，否則 rejected Promise 會永久殘留（B2）。
+  const guarded = p.catch((e) => { shimCache.delete(spec); throw e; });
+  shimCache.set(spec, guarded);
+  return guarded;
 }
 
 function injectModuleCss(moduleId: string, page: string, css: string) {
@@ -78,7 +87,21 @@ function injectModuleCss(moduleId: string, page: string, css: string) {
   el.textContent = css;
 }
 
+/** blob URL fetch timeout（ms）— 避免 server 502/hang 時永遠停在載入中（B3/M4）。 */
+const FETCH_TIMEOUT_MS = 15000;
+
 const pageCache = new Map<string, Promise<any>>();
+
+/**
+ * 清除模組頁快取（含指定 moduleId 的所有 page）。
+ * 供 dev 免 rebuild 編輯迴圈使用：模組頁改動後重開即拿新元件（M1）。
+ * 等同 server 端 esbuild 的 mtime 快取語意；不帶參數則清全部。
+ */
+export function invalidateModulePage(moduleId?: string) {
+  if (!moduleId) { pageCache.clear(); return; }
+  const prefix = `${moduleId}:`;
+  for (const k of pageCache.keys()) if (k.startsWith(prefix)) pageCache.delete(k);
+}
 
 /** 動態載入模組頁元件（moduleId + page 名）。回傳 default export 元件。 */
 export function loadModulePage(moduleId: string, page: string): Promise<any> {
@@ -86,8 +109,28 @@ export function loadModulePage(moduleId: string, page: string): Promise<any> {
   const hit = pageCache.get(key);
   if (hit) return hit;
   const p = (async () => {
-    const res = await fetch(`${API_BASE}/api/apps/modules/${encodeURIComponent(moduleId)}/ui-bundle.js?page=${encodeURIComponent(page)}`);
-    const data = await res.json();
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+    let res: Response;
+    try {
+      res = await fetch(
+        `${API_BASE}/api/apps/modules/${encodeURIComponent(moduleId)}/ui-bundle.js?page=${encodeURIComponent(page)}`,
+        { signal: ctrl.signal },
+      );
+    } catch (e: any) {
+      if (e?.name === "AbortError") throw new Error(`模組 UI bundle 逾時（${FETCH_TIMEOUT_MS}ms）`);
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!res.ok) throw new Error(`模組 UI bundle 失敗（HTTP ${res.status}）`);
+    let data: any;
+    try {
+      data = await res.json();
+    } catch {
+      // server 500/502 回 HTML 或空 body → res.json() 會丟 SyntaxError（B3）
+      throw new Error(`模組 UI bundle 回應非 JSON（HTTP ${res.status}）`);
+    }
     if (!data?.ok) throw new Error(data?.error || "模組 UI bundle 失敗");
     let js: string = data.js || "";
     const specs: string[] = (data.specifiers || []).slice().sort((a: string, b: string) => b.length - a.length);

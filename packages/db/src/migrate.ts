@@ -166,5 +166,12 @@ export async function migrate(dbPath?: string): Promise<void> {
   console.log("[db] Migrations complete ✅");
 }
 
-// Run if called directly
-migrate().catch(console.error);
+// Run only when invoked directly (e.g. `tsx src/migrate.ts`), never as a
+// side effect of merely importing this module.
+const invokedDirectly =
+  typeof process !== "undefined" &&
+  Array.isArray(process.argv) &&
+  /[/\\]migrate\.(ts|js|mjs)$/.test(process.argv[1] ?? "");
+if (invokedDirectly) {
+  migrate().catch((err) => console.error(err));
+}

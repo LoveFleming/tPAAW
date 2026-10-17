@@ -7,24 +7,34 @@
 import type { Kysely } from "kysely";
 import type { PaawDB } from "@paaw/db";
 import type { ContextBundle } from "@paaw/shared";
-import { MemoryStore } from "../memory/memory-store";
+import { MemoryStore } from "./memory/memory-store";
 
 // Token budget constants (rough estimates)
-const MAX_CONTEXT_TOKENS = 4000;
 const PROFILE_MAX_TOKENS = 500;
 const RECENT_MESSAGES_MAX = 10;
-const MEMORY_MAX_TOKENS = 1500;
-const SKILLS_MAX_TOKENS = 500;
 
+/** Rough token estimate that accounts for CJK (heavier per char). */
 function estimateTokens(text: string): number {
-  // Rough: 1 token ≈ 4 chars for English, ≈ 2 chars for Chinese
-  return Math.ceil(text.length / 3);
+  // Latin-ish chars ~4 per token; CJK ~1.5 per token. Count CJK separately
+  // instead of a flat len/3 which badly underestimates mixed content.
+  const cjk = (text.match(/[\u3000-\u9fff\uff00-\uffef]/g) || []).length;
+  const other = text.length - cjk;
+  return Math.ceil(other / 4 + cjk / 1.5);
 }
 
+/**
+ * Truncate to an approximate token budget WITHOUT splitting a surrogate
+ * pair (a split pair produces an invalid lone surrogate downstream). We slice
+ * on code points via Array.from and drop a trailing high surrogate if needed.
+ */
 function truncateToTokens(text: string, maxTokens: number): string {
-  const maxChars = maxTokens * 3;
+  const maxChars = Math.ceil(maxTokens * 3);
   if (text.length <= maxChars) return text;
-  return text.slice(0, maxChars) + "...";
+  let cut = Array.from(text).slice(0, maxChars).join("");
+  // Drop a trailing high surrogate that lost its low half.
+  const last = cut.charCodeAt(cut.length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) cut = cut.slice(0, -1);
+  return cut + "...";
 }
 
 export class ContextAssembler {
@@ -50,11 +60,14 @@ export class ContextAssembler {
       limit: 20,
     });
 
-    const profile: ContextBundle["profile"] = {};
     const profileText: string[] = [];
     for (const m of profileMemories) {
-      profileText.push(`[${m.key}] ${m.content}`);
-      if (estimateTokens(profileText.join("\n")) > PROFILE_MAX_TOKENS) break;
+      const line = `[${m.key}] ${m.content}`;
+      // Check the budget BEFORE adding the line, so we never include an
+      // entry that pushes us over the limit.
+      const candidate = profileText.length === 0 ? line : `${profileText.join("\n")}\n${line}`;
+      if (estimateTokens(candidate) > PROFILE_MAX_TOKENS) break;
+      profileText.push(line);
     }
 
     // Step 2: Recent messages
@@ -83,7 +96,7 @@ export class ContextAssembler {
     }
 
     // Step 3: Relevant memories (semantic search if user message provided)
-    let relevantMemories: ContextBundle["relevantMemories"] = [];
+    let relevantMemories: Array<{ id: string; content: string; score: number }> = [];
     if (userMessage) {
       // Extract keywords from user message for search
       const keywords = userMessage
@@ -138,7 +151,13 @@ export class ContextAssembler {
 
     return {
       profile: profileText.length > 0
-        ? { preferences: profileText.join("\n"), updatedAt: new Date().toISOString() }
+        ? {
+            // Preferences are stored as free-form memory text; keep the raw
+            // text under a single key so it matches UserProfile.preferences
+            // (a Record, not a bare string).
+            preferences: { _text: profileText.join("\n") },
+            updatedAt: new Date().toISOString(),
+          }
         : {},
       recentMessages,
       relevantMemories: relevantMemories.map(m => ({
@@ -159,7 +178,13 @@ export class ContextAssembler {
     const parts: string[] = [];
 
     if (bundle.profile && Object.keys(bundle.profile).length > 0) {
-      parts.push(`## 使用者資訊\n${bundle.profile.preferences}`);
+      // The profile text is carried under preferences._text (a free-form
+      // string) — fall back to JSON for any other preference shape so we
+      // never render "[object Object]".
+      const prefs: any = bundle.profile.preferences;
+      const profileText =
+        prefs && typeof prefs._text === "string" ? prefs._text : JSON.stringify(prefs ?? {});
+      if (profileText) parts.push(`## 使用者資訊\n${profileText}`);
     }
 
     if (bundle.recentMessages.length > 0) {

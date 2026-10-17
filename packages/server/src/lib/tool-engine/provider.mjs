@@ -50,7 +50,6 @@ export class OpenAICompatibleAdapter {
     const modelName = model || this.config.defaultModel
     const providerId = this.config.id || 'unknown'
     const streamStartTime = Date.now()
-    let requestBody = null // will be set after body is built
 
     const headers = {
       'Content-Type': 'application/json',
@@ -87,15 +86,23 @@ export class OpenAICompatibleAdapter {
       toolNames: (tools || []).map(t => t.function?.name).filter(Boolean),
     })
 
-    requestBody = body
     const fs = await import('fs')
     const nodePath = await import('path')
     const tempDir = nodePath.join(PAAW_ROOT, 'temp')
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true })
+    // 2026-10-17 TASK-164：payload 全量 body 只存檔供除錯，且必須保證清理。
+    // 之前寫檔在 try/finally 之外 → fetch 失敗時 catch 直接 return，finally 從不執行 → payload 檔殘留。
+    // 現在 write 包 try、fetch 失敗路徑也主動清除。
     const payloadPath = nodePath.join(tempDir, `payload-${Date.now()}.json`)
-    fs.writeFileSync(payloadPath, JSON.stringify(body, null, 2))
-    try { const { pruneProviderTemp } = await import('../temp-janitor.mjs'); pruneProviderTemp(tempDir, 60) } catch {} // 2026-09-19：payload/stream 各留最新 60 個
-    console.log(`[Provider] Payload: ${payloadPath}`)
+    try {
+      // 2026-10-17 TASK-164：改用非同步寫入，避免同步 I/O 阻塞 event loop（高併發聊天時的瓶頸）。
+      await fs.promises.writeFile(payloadPath, JSON.stringify(body, null, 2))
+      console.log(`[Provider] Payload: ${payloadPath}`)
+    } catch (writeErr) {
+      console.log(`[Provider] Payload write skipped: ${writeErr.message}`)
+    }
+    // 2026-09-19：payload/stream 各留最新 60 個；2026-10-17：加 10s 保護窗避免誤刪併發請求剛寫的檔（minAgeMs）。
+    try { const { pruneProviderTemp } = await import('../temp-janitor.mjs'); pruneProviderTemp(tempDir, 60, 10_000) } catch {}
     console.log(`[Provider] URL: ${url}`)
 
     let response
@@ -112,6 +119,7 @@ export class OpenAICompatibleAdapter {
       })
     } catch (fetchErr) {
       console.log(`[Provider] Fetch error after retries: ${fetchErr.message}`)
+      try { fs.unlinkSync(payloadPath) } catch {} // 清 payload（finally 不會被執行到）
       yield { type: 'error', message: `連線錯誤（已 retry）: ${fetchErr.message}` }
       return
     }

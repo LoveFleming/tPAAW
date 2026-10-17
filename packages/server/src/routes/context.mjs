@@ -37,11 +37,32 @@ export const PATHS = {
 // ── Helpers ──
 
 /** Read request body as string */
-export function readBody(req) {
+/**
+ * Read request body as string.
+ * @param {import("http").IncomingMessage} req
+ * @param {number} [maxBytes]  optional body size cap; exceeding it rejects with
+ *   code "BODY_TOO_LARGE" and destroys the stream (DoS guard — a single request
+ *   can otherwise allocate unbounded memory). Omit for legacy callers.
+ */
+export function readBody(req, maxBytes) {
   return new Promise((resolve, reject) => {
     let body = "";
-    req.on("data", chunk => { body += chunk; });
-    req.on("end", () => resolve(body));
+    let size = 0;
+    let aborted = false;
+    req.on("data", chunk => {
+      if (aborted) return;
+      size += chunk.length;
+      if (maxBytes && size > maxBytes) {
+        aborted = true;
+        const err = new Error(`Request body exceeds ${maxBytes} bytes`);
+        err.code = "BODY_TOO_LARGE";
+        req.destroy();
+        reject(err);
+        return;
+      }
+      body += chunk;
+    });
+    req.on("end", () => { if (!aborted) resolve(body); });
     req.on("error", reject);
   });
 }

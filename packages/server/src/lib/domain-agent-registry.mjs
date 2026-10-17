@@ -17,6 +17,7 @@ import { resolve, join } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { SECURITY_RULES } from "./security-rules.mjs";
+import { A2A_PROTOCOL_VERSION } from "./a2a-constants.mjs";
 import { DATA_HOME } from "../data-home.mjs";
 import { getModuleCrew } from "./module-registry.mjs"; // 2026-10-13：動態 module agent 判定（見 getAgent）
 
@@ -78,7 +79,8 @@ export function buildAgentCard(agentId, req) {
   const baseUrl = `${protocol}://${host}`;
 
   return {
-    protocolVersion: "0.3.0",
+    // 協定版本與 default card 同源（QA M1）：統一引用 a2a.mjs 的常數，避免兩處漂移
+    protocolVersion: A2A_PROTOCOL_VERSION,
     name: agent.name,
     description: agent.description,
     url: `${baseUrl}/a2a/${agentId}`,

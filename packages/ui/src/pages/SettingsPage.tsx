@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useTheme } from "../theme";
 import { useI18n, LOCALE_LABELS, Locale } from "../i18n";
 
@@ -74,18 +74,35 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   // Sync tab when parent changes initialTab (e.g. redirect to providers)
   useEffect(() => {
     if (initialTab && initialTab !== tab) setTabState(initialTab as typeof tab);
-  }, [initialTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTab, tab]);
+
+  // QA S1（2026-10-17）：security tab 的三項資料載入（白名單 / 永久准許 / 安全模式）
+  // 共用同一個序號保護，只有最後一次發出的載入能落地，避免慢回應覆蓋較新資料；
+  // 初始 tab 直接是 security 時也走這裡（原本僅 setTab 會載入，initialTab 不會）。
+  const loadSecurityTab = async () => {
+    const seq = ++securityLoadSeq.current;
+    try {
+      const d = await (await fetch(`${API_BASE}/api/paaw/network-whitelist`)).json();
+      if (seq === securityLoadSeq.current) {
+        setWlBuiltin(d.builtin || []); setWlCustom(d.custom || []);
+      }
+    } catch { /* 讀不到維持原狀 */ }
+    if (seq !== securityLoadSeq.current) return;
+    loadAlwaysApprovals();
+    loadSecurityMode();
+  };
+
+  // 初次掛載即為 security tab 時補載入（S1b）
+  useEffect(() => {
+    if (tab === "security") loadSecurityTab();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   // Tab setter that syncs with parent
   const setTab = (newTab: typeof tab) => {
     setTabState(newTab); onTabChange?.(newTab);
-    if (newTab === "security") {
-      fetch(`${API_BASE}/api/paaw/network-whitelist`).then(r => r.json()).then((d) => {
-        setWlBuiltin(d.builtin || []); setWlCustom(d.custom || []);
-      }).catch(() => {});
-      loadAlwaysApprovals();
-      loadSecurityMode();
-    }
+    // security 載入由上面的 tab useEffect 統一觸發，避免重複載入
   };
 
   // ── D. 永久准許清單（2026-10-11 Fleming）── 列出/撤銷 <RU>/.paaw/exec-approvals.json
@@ -99,9 +116,15 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   const [devModeInfo, setDevModeInfo] = useState<any>(null);
   const [devModeBusy, setDevModeBusy] = useState(false);
 
+  // QA S1（2026-10-17）：security tab 的 3 個 fetch 加上 stale-guard。
+  // 每次載入遞增序號，只有最後一次發出的回應能寫入 state，避免慢回應覆蓋較新的資料。
+  const securityLoadSeq = useRef(0);
+
   const loadSecurityMode = async () => {
+    const seq = ++securityLoadSeq.current;
     try {
       const d = await (await fetch(`${API_BASE}/api/paaw/security-mode`)).json();
+      if (seq !== securityLoadSeq.current) return; // 已被更新的請求取代
       setDevMode(!!d.devMode); setDevModeInfo(d);
     } catch { /* 讀不到就照預設（安全） */ }
   };
@@ -121,6 +144,8 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   const loadAlwaysApprovals = async (p?: string) => {
     const path = (p ?? aprPath).trim();
     if (!path) { setAprNote(t("settings.alwaysApprovals.needPath")); setAprItems([]); return; }
+    // QA S1：手動清單載入也受 security 載入序號保護，慢回應不覆蓋較新的 tab 資料
+    const seq = securityLoadSeq.current;
     setAprBusy(true); setAprNote("");
     try {
       const r = await fetch(`${API_BASE}/api/coding-project/exec-approval`, {
@@ -128,10 +153,11 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
         body: JSON.stringify({ action: "list-always", path }),
       });
       const d = await r.json();
+      if (seq !== securityLoadSeq.current) return; // 已被較新的載入取代
       setAprItems(Array.isArray(d.items) ? d.items : []);
       if (!d.items?.length) setAprNote(t("settings.alwaysApprovals.empty"));
-    } catch { setAprNote(t("settings.alwaysApprovals.error")); }
-    setAprBusy(false);
+    } catch { if (seq === securityLoadSeq.current) setAprNote(t("settings.alwaysApprovals.error")); }
+    if (seq === securityLoadSeq.current) setAprBusy(false);
   };
 
   const revokeApproval = async (hash: string, command: string) => {
@@ -305,23 +331,43 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: activeId, defaultModel: selectedModel, providers, fallbacks, removedProviderIds: pendingRemovals }),
       });
-      if (resp.ok) { setSaved(true); setDirty(false); setPendingRemovals([]); setTimeout(() => setSaved(false), 2000); invalidateModelSelectorCache(); onProvidersSaved?.(); }
-    } catch {}
+      if (resp.ok) {
+        setSaved(true); setDirty(false); setPendingRemovals([]); setTimeout(() => setSaved(false), 2000);
+        invalidateModelSelectorCache(); onProvidersSaved?.();
+      } else {
+        // QA S2（2026-10-17）：非 2xx 不再靜默，明確告知使用者儲存失敗
+        let detail = "";
+        try { const d = await resp.json(); detail = d?.error || d?.message || ""; } catch { /* 無 body */ }
+        uiAlertError(detail || t("settings.providers.saveFailed"));
+      }
+    } catch (e: any) {
+      uiAlertError(e?.message || t("settings.providers.saveFailed"));
+    }
     setSaving(false);
   };
 
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      await fetch(`${API_BASE}/api/paaw/user`, {
+      const resp = await fetch(`${API_BASE}/api/paaw/user`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(profile),
       });
+      if (!resp.ok) {
+        // QA S2（2026-10-17）：非 2xx 不 throw，必須檢 resp.ok 才能區分成功/失敗
+        let detail = "";
+        try { const d = await resp.json(); detail = d?.error || d?.message || ""; } catch { /* 無 body */ }
+        uiAlertError(detail || t("settings.profile.saveFailed"));
+        return;
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch {}
-    setSaving(false);
+    } catch (e: any) {
+      uiAlertError(e?.message || t("settings.profile.saveFailed"));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

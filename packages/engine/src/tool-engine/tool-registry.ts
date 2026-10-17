@@ -65,17 +65,27 @@ export class ToolRegistry {
     return this.executors.has(name)
   }
 
-  /** 執行一個 tool call */
+  /** 執行一個 tool call
+   *
+   * 失敗時回傳帶穩定錯誤碼的 ToolResult（供上層分診），與 .mjs 版語意對齊：
+   * - SYS_REGISTRY_TOOL_NOT_FOUND：未註冊的工具
+   * - SYS_REGISTRY_TOOL_EXEC_FAILED：executor 丟出例外
+   */
   async execute(name: string, args: Record<string, any>): Promise<ToolResult> {
     const executor = this.executors.get(name)
     if (!executor) {
-      return { text: `未知工具：${name}`, error: true }
+      return { text: `未知工具：${name}`, error: true, code: 'SYS_REGISTRY_TOOL_NOT_FOUND' }
     }
 
     try {
       return await executor.execute(args)
     } catch (err: any) {
-      return { text: `工具執行錯誤 (${name}): ${err.message}`, error: true }
+      const message = err?.message || String(err)
+      return {
+        text: `工具執行錯誤 (${name}): ${message}`,
+        error: true,
+        code: 'SYS_REGISTRY_TOOL_EXEC_FAILED',
+      }
     }
   }
 

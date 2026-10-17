@@ -55,7 +55,12 @@ export function classifyRisk(text) {
 
 // ── Trust Score（透明加權，UI 顯示各項得分） ──
 
-function computeTrustScore({ pipeline, testResult, qaResult, risk, diffStat, reviewBoundary }) {
+// 各項固定滿分 — QA C1：分母必須固定，否則「多一項證據反而降分」。
+// total 恆為 56+25+10+5+9 = 105（scope 未提供時仍計入分母，該項得 0）。
+export const TRUST_MAX = { pipeline: 56, tests: 25, qa: 10, size: 5, scope: 9 };
+const TRUST_MAX_TOTAL = Object.values(TRUST_MAX).reduce((a, b) => a + b, 0); // 105
+
+export function computeTrustScore({ pipeline, testResult, qaResult, risk, diffStat, reviewBoundary }) {
   const items = [];
 
   // 1. Pipeline 完成度 — 每階段 done +8，awaiting_human +5（已到人面前）
@@ -68,12 +73,12 @@ function computeTrustScore({ pipeline, testResult, qaResult, risk, diffStat, rev
     phaseScore += pts;
     phaseDetail[ph] = { status: st, points: pts };
   }
-  items.push({ name: "pipeline", label: "Pipeline 完成度", score: Math.round(phaseScore), max: 56, detail: phaseDetail });
+  items.push({ name: "pipeline", label: "Pipeline 完成度", score: Math.round(phaseScore), max: TRUST_MAX.pipeline, detail: phaseDetail });
 
   // 2. 測試 — 有結果且全綠 25 分；有結果但 fail 按比例；沒測試資料 0
   // needs_human（修復上限已到）直接 0 分 — 這是给人看的紅旗
   let testScore = 0;
-  let testMax = 25;
+  const testMax = TRUST_MAX.tests;
   if (pipeline?.test?.status === "needs_human") {
     testScore = 0;
   } else if (testResult) {
@@ -86,27 +91,29 @@ function computeTrustScore({ pipeline, testResult, qaResult, risk, diffStat, rev
 
   // 3. QA — pass 10 分
   const qaScore = qaResult?.status === "pass" || qaResult?.passed === true ? 10 : 0;
-  items.push({ name: "qa", label: "QA 檢查", score: qaScore, max: 10 });
+  items.push({ name: "qa", label: "QA 檢查", score: qaScore, max: TRUST_MAX.qa });
 
   // 4. Diff 大小 — 小 diff 更可信：<=200 行改動 5 分，<=500 得 3，>500 得 1
   const changedLines = (diffStat?.insertions || 0) + (diffStat?.deletions || 0);
   const sizeScore = changedLines === 0 ? 0 : changedLines <= 200 ? 5 : changedLines <= 500 ? 3 : 1;
-  items.push({ name: "size", label: "變更規模", score: sizeScore, max: 5 });
+  items.push({ name: "size", label: "變更規模", score: sizeScore, max: TRUST_MAX.size });
 
   // 5. 風險調整 — high -10, medium -5, low +0（直接扣總分）
   const riskPenalty = risk.level === "high" ? -10 : risk.level === "medium" ? -5 : 0;
 
-  // 6. Review Boundary（R1）— scope 外檔案是紅旗：全部符合 +9，每筆 unexpected 扨5（最低 0）
-  if (reviewBoundary && reviewBoundary.hasScope) {
-    const u = reviewBoundary.summary?.unexpected || 0;
-    const scopeScore = u === 0 ? 9 : Math.max(0, 9 - u * 5);
-    items.push({ name: "scope", label: "evidence.trustScope", score: scopeScore, max: 9, detail: { unexpected: u } });
+  // 6. Review Boundary（R1）— scope 外檔案是紅旗：全部符合 +9，每筆 unexpected 折 5（最低 0）
+  // QA C1：無論 reviewBoundary 是否存在都 push（缺資料得 0），確保分母恆定 = TRUST_MAX_TOTAL。
+  {
+    const hasScope = !!(reviewBoundary && reviewBoundary.hasScope);
+    const u = reviewBoundary?.summary?.unexpected || 0;
+    const scopeScore = !hasScope ? 0 : (u === 0 ? TRUST_MAX.scope : Math.max(0, TRUST_MAX.scope - u * 5));
+    items.push({ name: "scope", label: "evidence.trustScope", score: scopeScore, max: TRUST_MAX.scope, detail: { hasScope, unexpected: u } });
   }
 
   const raw = items.reduce((s, i) => s + i.score, 0) + riskPenalty;
-  const maxTotal = items.reduce((s, i) => s + i.max, 0);
-  const score = Math.max(0, Math.min(100, Math.round((raw / maxTotal) * 100)));
-  return { score, items, riskPenalty };
+  // QA C1：分母固定為 TRUST_MAX_TOTAL（105）。riskPenalty 為負向調整，不進分母。
+  const score = Math.max(0, Math.min(100, Math.round((raw / TRUST_MAX_TOTAL) * 100)));
+  return { score, items, riskPenalty, maxTotal: TRUST_MAX_TOTAL };
 }
 
 // ── Git diff 統計 ──

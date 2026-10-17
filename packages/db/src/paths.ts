@@ -1,14 +1,30 @@
-import { resolve } from "path";
+import { resolve, dirname, join } from "path";
+import { fileURLToPath } from "url";
+import { existsSync } from "fs";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /**
- * Get the PAAW project root path.
- * Works regardless of whether running via tsx, node, or pnpm.
+ * Find the PAAW project root by walking up from this module's location
+ * until we find a directory that contains `packages/` (the monorepo marker).
+ *
+ * Using import.meta.url (not process.cwd()) makes this robust regardless of
+ * the current working directory (repo root, packages/db, or any other cwd)
+ * and works cross-platform.
  */
 export function getProjectRoot(): string {
-  // From packages/db/ (cwd when run via pnpm), ../../ = root
-  // From root (fallback), . = root
-  const fromCwd = resolve(process.cwd(), "../../");
-  return fromCwd;
+  let dir = __dirname;
+  // Walk up at most a handful of levels to avoid an unbounded loop.
+  for (let i = 0; i < 10; i++) {
+    if (existsSync(join(dir, "packages"))) {
+      return dir;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break; // reached filesystem root
+    dir = parent;
+  }
+  // Fallback: two levels up from packages/db/src → repo root.
+  return resolve(__dirname, "../../..");
 }
 
 export function getDbPath(dbName: string = "paaw.sqlite"): string {

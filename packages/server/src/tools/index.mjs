@@ -6,7 +6,7 @@
 
 import { readFile, writeFile, mkdir, readdir } from "fs/promises";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
-import { resolve, dirname, join, isAbsolute, relative } from "path";
+import { resolve, dirname, join, isAbsolute, relative, sep } from "path";
 import { fileURLToPath } from "url";
 import { PAAW_ROOT } from "../routes/shared.mjs";
 import { DATA_HOME } from "../data-home.mjs";
@@ -1864,7 +1864,14 @@ function buildHandlers(apps) {
         for (const kd of knowledgeDirs) {
           try {
             const { readdir: rd } = await import("fs/promises");
-            const targetDir = dirPath === "." || dirPath === "knowledge" ? kd : resolve(kd, dirPath);
+            const kdRoot = resolve(kd);
+            const targetDir = dirPath === "." || dirPath === "knowledge" ? kdRoot : resolve(kdRoot, dirPath);
+            // Guard against "../../" escaping the knowledge root.
+            const kdRel = relative(kdRoot, targetDir);
+            if (kdRel === ".." || kdRel.startsWith(".." + sep) || isAbsolute(kdRel)) {
+              results.push(`❌ ${kd.split("/").pop()}：路徑不允許`);
+              continue;
+            }
             const entries = await rd(targetDir, { withFileTypes: true });
             const label = knowledgeDirs.length > 1 ? `[${kd.split("/").pop()}] ` : "";
             const list = entries.map(e => `${e.isDirectory() ? "📁" : "📄"} ${label}${e.name}`).join("\n");
@@ -1897,7 +1904,13 @@ function buildHandlers(apps) {
       if (!ws) return { text: `找不到工作區「${workspace}」。可用：${dirs.map(d => d.split("/").pop()).join(", ")}`, error: true };
 
       const { readdir: rd } = await import("fs/promises");
-      const fullDir = resolve(ws, dirPath);
+      const wsRoot = resolve(ws);
+      const fullDir = resolve(wsRoot, dirPath);
+      // Guard against "../../" escaping the workspace root.
+      const wsRel = relative(wsRoot, fullDir);
+      if (wsRel === ".." || wsRel.startsWith(".." + sep) || isAbsolute(wsRel)) {
+        return { text: `❌ 路徑不允許：${dirPath}`, error: true };
+      }
       const entries = await rd(fullDir, { withFileTypes: true });
       const list = entries.map(e => `${e.isDirectory() ? "📁" : "📄"} ${e.name}`).join("\n");
       return { text: list || "(空目錄)", path: fullDir };
@@ -1913,21 +1926,35 @@ function buildHandlers(apps) {
         return { text: "請提供有效的檔案路徑", error: true };
       }
 
-      // Support absolute paths directly (Unix /xxx or Windows C:\xxx / D:\xxx)
-      if (filePath.startsWith('/') || /^[A-Za-z]:[\\/]/.test(filePath)) {
-        try {
-          const content = await readFile(filePath, "utf-8");
-          const preview = content.length > 5000 ? content.slice(0, 5000) + "\n... (截斷)" : content;
-          return { text: preview, path: filePath };
-        } catch {
-          return { text: `找不到檔案「${filePath}」`, error: true };
-        }
-      }
-
       const dirs = await loadWorkspaces();
       // Also search knowledge directories
       const knowledgeDirs = await loadKnowledgeDirs();
       const searchAll = [...dirs, ...knowledgeDirs];
+
+      // Support absolute paths directly (Unix /xxx or Windows C:\xxx / D:\xxx)
+      // BUT only if they resolve inside a known workspace/knowledge root, or under
+      // PAAW_ROOT — otherwise the agent could read any file on the host.
+      if (filePath.startsWith('/') || /^[A-Za-z]:[\\/]/.test(filePath)) {
+        const abs = resolve(filePath);
+        const allowedRoots = [...searchAll, PAAW_ROOT];
+        const withinRoots = allowedRoots.some((root) => {
+          if (!root) return false;
+          const r = resolve(root);
+          if (abs === r) return true;
+          const rel = relative(r, abs);
+          return rel && !rel.startsWith("..") && !isAbsolute(rel);
+        });
+        if (!withinRoots) {
+          return { text: `❌ 拒絕存取工作區外的路徑「${filePath}」`, error: true };
+        }
+        try {
+          const content = await readFile(abs, "utf-8");
+          const preview = content.length > 5000 ? content.slice(0, 5000) + "\n... (截斷)" : content;
+          return { text: preview, path: abs };
+        } catch {
+          return { text: `找不到檔案「${filePath}」`, error: true };
+        }
+      }
 
       // If workspace specified, use it; otherwise search all workspaces + knowledge
       let searchDirs;
@@ -1941,7 +1968,11 @@ function buildHandlers(apps) {
       if (searchDirs.length === 0) return { text: `找不到工作區「${workspace}」`, error: true };
 
       for (const ws of searchDirs) {
-        const fullPath = resolve(ws, filePath);
+        const root = resolve(ws);
+        const fullPath = resolve(root, filePath);
+        // Relative path must not escape the workspace root (e.g. "../../etc/passwd").
+        const rel = relative(root, fullPath);
+        if (rel === ".." || rel.startsWith(".." + sep) || isAbsolute(rel)) continue;
         try {
           const content = await readFile(fullPath, "utf-8");
           const preview = content.length > 5000 ? content.slice(0, 5000) + "\n... (截斷)" : content;

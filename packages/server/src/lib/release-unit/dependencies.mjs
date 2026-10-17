@@ -212,12 +212,11 @@ export async function buildDependencyGraph(root, opts = {}) {
     pkgCount,
   };
 
-  // 寫快取（.paaw 不存在自動建 — 舊專案友善）
+  // 寫快取（cache 目錄不存在自動建 — 否則 ENOENT 被吞、快取永不落地、每次全量重掃）
   try {
-    const paawDir = join(root, ".paaw");
-    if (!existsSync(paawDir)) await mkdir(paawDir, { recursive: true });
+    await mkdir(dirname(cacheFile), { recursive: true });
     await writeFile(cacheFile, JSON.stringify(graph), "utf-8");
-  } catch { /* 快取失敗不影響結果 */ }
+  } catch (e) { console.warn(`[ru/dependencies] deps-cache write failed: ${e.message}`); }
 
   return { ...graph, fromCache: false };
 }

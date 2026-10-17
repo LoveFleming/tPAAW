@@ -13,6 +13,31 @@ import { readBody } from "./shared.mjs";
 import { join } from "node:path";
 import { readFile, writeFile, unlink } from "node:fs/promises";
 
+// 保留天數合法範圍 — 與 log-retention PUT 的 1-3650 檢查一致
+const MIN_RETENTION_DAYS = 1;
+const MAX_RETENTION_DAYS = 3650;
+
+// 內部錯誤對外一律回通用訊息（細節只進 server log）——避免洩漏檔案路徑/模組名
+const INTERNAL_ERROR_MSG = "Internal error";
+
+/** 讀取 index.json，區分「檔案不存在」與「內容損壞」——後者不可靜默當空陣列，
+ *  否則 DELETE RU 會把整份 index 覆寫成 []、造成所有任務摘要遺失（資料完整性）。 */
+async function readIndexEntries() {
+  let raw;
+  try {
+    raw = await readFile(INDEX_FILE, "utf-8");
+  } catch (e) {
+    if (e && e.code === "ENOENT") return { entries: [], corrupt: false };
+    throw e;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    return { entries: Array.isArray(parsed) ? parsed : [], corrupt: false };
+  } catch {
+    return { entries: [], corrupt: true };
+  }
+}
+
 export default async function agentLogsRoute(req, res) {
   const method = req.method;
   const rawUrl = req.url || "";
@@ -53,8 +78,9 @@ export default async function agentLogsRoute(req, res) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ items: tasks, total: tasks.length }));
     } catch (err) {
+      console.error("[agent-logs] request failed:", String(err?.message || err).replace(/\n/g, " "));
       res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
+      res.end(JSON.stringify({ error: INTERNAL_ERROR_MSG }));
     }
     return true;
   }
@@ -103,8 +129,9 @@ export default async function agentLogsRoute(req, res) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ rows, totalCostUsd: totalCost, totalDurationMs }));
     } catch (err) {
+      console.error("[agent-logs] request failed:", String(err?.message || err).replace(/\n/g, " "));
       res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
+      res.end(JSON.stringify({ error: INTERNAL_ERROR_MSG }));
     }
     return true;
   }
@@ -123,8 +150,9 @@ export default async function agentLogsRoute(req, res) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(detail));
     } catch (err) {
+      console.error("[agent-logs] request failed:", String(err?.message || err).replace(/\n/g, " "));
       res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
+      res.end(JSON.stringify({ error: INTERNAL_ERROR_MSG }));
     }
     return true;
   }
@@ -140,8 +168,15 @@ export default async function agentLogsRoute(req, res) {
         return true;
       }
       // Filter index entries: keep only those whose cwd resolves to a different RU
-      let entries = [];
-      try { entries = JSON.parse(await readFile(INDEX_FILE, "utf-8")); } catch {}
+      // 壞檔保護：index.json 內容損壞時不可當空陣列覆寫，否則整份 index 會被清空（資料遺失）
+      const { entries: loaded, corrupt } = await readIndexEntries();
+      if (corrupt) {
+        console.error(`[agent-logs] refuse DELETE ru/${targetRu}: index.json is corrupt`);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Log index is corrupted; refusing to modify" }));
+        return true;
+      }
+      let entries = loaded;
       const toDelete = entries.filter(e => resolveRuName(e.cwd) === targetRu);
       entries = entries.filter(e => resolveRuName(e.cwd) !== targetRu);
       // Delete .jsonl files for removed entries
@@ -162,8 +197,9 @@ export default async function agentLogsRoute(req, res) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, deleted: toDelete.length, ruName: targetRu }));
     } catch (err) {
+      console.error("[agent-logs] request failed:", String(err?.message || err).replace(/\n/g, " "));
       res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
+      res.end(JSON.stringify({ error: INTERNAL_ERROR_MSG }));
     }
     return true;
   }
@@ -173,13 +209,21 @@ export default async function agentLogsRoute(req, res) {
     try {
       let body;
       try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
-      const days = body.days || 7;
+      // 驗證 days：型別須為數字、範圍 1-3650（0 代表永不刪 → 走設定端，不在此誤用）。與 log-retention PUT 一致
+      const rawDays = body.days === undefined || body.days === null ? 7 : body.days;
+      const days = Number(rawDays);
+      if (!Number.isInteger(days) || days < MIN_RETENTION_DAYS || days > MAX_RETENTION_DAYS) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `days must be an integer between ${MIN_RETENTION_DAYS} and ${MAX_RETENTION_DAYS}` }));
+        return true;
+      }
       const deleted = await cleanupOldAgentLogs(days);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, deleted, retentionDays: days }));
     } catch (err) {
+      console.error("[agent-logs] request failed:", String(err?.message || err).replace(/\n/g, " "));
       res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
+      res.end(JSON.stringify({ error: INTERNAL_ERROR_MSG }));
     }
     return true;
   }

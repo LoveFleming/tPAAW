@@ -18,7 +18,7 @@
 
 import { readFile, writeFile, mkdir, readdir } from "fs/promises";
 import { buildEvidenceMatrix } from "../lib/release-evidence.mjs";
-import { existsSync, readdirSync } from "fs";
+import { existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { gatherTaskEvidence } from "./coding-evidence.mjs";
 import { runTaskRetrofit, qualityDebtSummary } from "../lib/task-retrofit.mjs";
@@ -170,22 +170,35 @@ export default async function releaseRoutes(req, res, next) {
 
   // POST approve / reject
   if ((url === "/api/coding-releases/approve" || url === "/api/coding-releases/reject") && method === "POST") {
-    const body = JSON.parse(await readFileStream(req) || "{}");
-    const { path, taskId, note, reason } = body;
-    if (!path || !taskId) return res.status(400).json({ error: "path and taskId required" });
+    const body = await readJsonBody(req); // QA M1：壞 JSON → null（回 400），不 500
+    if (!body) return res.status(400).json({ error: "invalid JSON body" });
+    const { taskId, note, reason } = body;
+    const path = assertProjectPath(body.path); // QA M2：驗證 path 存在且為目錄
+    if (!path || !taskId) return res.status(400).json({ error: "valid path and taskId required" });
+    const safeTaskId = sanitizeId(taskId); // QA M2：taskId 用於檔名（REL-*-<taskId>），必須 sanitize
+    if (!safeTaskId) return res.status(400).json({ error: "invalid taskId" });
     const data = await readTasksFile(path);
     if (!data) return res.status(404).json({ error: "TASKS.json not found" });
-    const task = (data.tasks || []).find(t => t.id === taskId);
-    if (!task) return res.status(404).json({ error: `task ${taskId} not found` });
+    const task = (data.tasks || []).find(t => t.id === safeTaskId);
+    if (!task) return res.status(404).json({ error: `task ${safeTaskId} not found` });
     if (!task.pipeline) return res.status(400).json({ error: "mini loop task — 沒有證據流，不能走 release gate" });
 
     const at = new Date().toISOString();
     const approving = url.endsWith("/approve");
 
+    // QA M3：approve/reject 非冪等 — 已 released/rework 的 task 不重複處理，
+    // 避免重複 POST 產生孤兒 REL 快照與重複 release note。
+    if (approving && task.status === "released" && task.releaseId) {
+      return res.json({ ok: true, releaseId: task.releaseId, alreadyReleased: true });
+    }
+    if (!approving && task.pipeline.commit?.status === "rework") {
+      return res.json({ ok: true, alreadyRejected: true });
+    }
+
     if (approving) {
       // 快照完整證據包
       let evidence = null;
-      try { evidence = await gatherTaskEvidence(path, taskId); } catch { /* 盡力而為 */ }
+      try { evidence = await gatherTaskEvidence(path, safeTaskId); } catch { /* 盡力而為 */ }
       // v3：target sha 進 REL — 下張 RR 的 auto baseline 直接用（不再靠日期 fallback）
       let targetSha = null, targetShort = null;
       try {
@@ -195,13 +208,13 @@ export default async function releaseRoutes(req, res, next) {
       } catch { /* git 不可用不擋 */ }
       const ts = new Date();
       const stamp = `${ts.getFullYear()}${String(ts.getMonth() + 1).padStart(2, "0")}${String(ts.getDate()).padStart(2, "0")}-${String(ts.getHours()).padStart(2, "0")}${String(ts.getMinutes()).padStart(2, "0")}`;
-      const relId = `REL-${stamp}-${taskId}`;
+      const relId = `REL-${stamp}-${safeTaskId}`;
       const dir = releasesDir(path);
       if (!existsSync(dir)) await mkdir(dir, { recursive: true });
       await writeFile(join(dir, `${relId}.json`), JSON.stringify({
         id: relId,
         releasedAt: at,
-        taskId,
+        taskId: safeTaskId,
         title: task.title,
         note: note || null,
         decidedBy: "release-manager",
@@ -212,7 +225,7 @@ export default async function releaseRoutes(req, res, next) {
       // v3（2026-09-18）：per-task approve 自動建 RR（審計軌跡統一）
       // 必須在 writeTasksFile 之前 — computeScope 從磁碟讀 pending tasks，此時 task 還在 pending
       try {
-        await createAutoRrForTaskApproval(path, { taskId, taskTitle: task.title, relId, note });
+        await createAutoRrForTaskApproval(path, { taskId: safeTaskId, taskTitle: task.title, relId, note });
       } catch (e) { /* 自動 RR 失敗不擋批准 — REL 與 task 更新照常 */ console.warn("[rr] auto RR for task failed:", e.message); }
 
       task.pipeline.commit = { status: "done", by: "release-manager", at, result: "approved for release" };
@@ -238,10 +251,8 @@ export default async function releaseRoutes(req, res, next) {
   // POST test-run — 真實執行測試（背景 job，結果寫 .paaw/test-runs/last.json）
   if (url === "/api/coding-releases/test-run" && method === "POST") {
     if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
-    let body = {};
-    let _buf = ""; await new Promise((resolve) => { req.on("data", (c) => { _buf += c; }); req.on("end", resolve); req.on("error", resolve); });
-    try { body = JSON.parse(_buf || "{}"); } catch { /* empty body ok */ }
-    const r = await startTestRun(projectPath, { includeE2e: !!body.includeE2e });
+    const body = await readJsonBody(req); // QA M1：統一走安全解析（沿用空 body ok 語意）
+    const r = await startTestRun(projectPath, { includeE2e: !!(body && body.includeE2e) });
     return res.json(r);
   }
   // GET test-run — 執行狀態 / 最後結果
@@ -487,11 +498,14 @@ export default async function releaseRoutes(req, res, next) {
   // POST /requests/:id/suggest — v3（2026-09-18）：RM agent 寫入建議 verdict（人確認）
   const rrSuggest = url.match(/^\/api\/coding-releases\/requests\/([^/]+)\/suggest$/);
   if (rrSuggest && method === "POST") {
-    const body = JSON.parse(await readFileStream(req) || "{}");
-    const path = body.path || projectPath;
-    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    const body = await readJsonBody(req); // QA M1
+    if (!body) return res.status(400).json({ error: "invalid JSON body" });
+    const path = assertProjectPath(body.path || projectPath); // QA M2
+    const safeId = sanitizeId(rrSuggest[1]); // QA M2
+    if (!path) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (!safeId) return res.status(400).json({ error: "invalid request id" });
     try {
-      return res.json(await suggestVerdicts(path, rrSuggest[1], body.items, body.by || "rm-agent"));
+      return res.json(await suggestVerdicts(path, safeId, body.items, body.by || "rm-agent"));
     } catch (e) {
       return res.status(e.status || 500).json({ error: e.message });
     }
@@ -510,10 +524,12 @@ export default async function releaseRoutes(req, res, next) {
   // POST /requests/:id/{open|checklist|close|cancel}
   const rrAction = url.match(/^\/api\/coding-releases\/requests\/([^/]+)\/(open|checklist|close|cancel)$/);
   if (rrAction && method === "POST") {
-    const body = JSON.parse(await readFileStream(req) || "{}");
-    const path = body.path || projectPath;
-    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    const body = await readJsonBody(req); // QA M1
+    if (!body) return res.status(400).json({ error: "invalid JSON body" });
+    const path = assertProjectPath(body.path || projectPath); // QA M2
+    if (!path) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     const [, id, action] = rrAction;
+    if (!sanitizeId(id)) return res.status(400).json({ error: "invalid request id" }); // QA M2
     try {
       if (action === "open") return res.json(await openReleaseRequest(path, id));
       if (action === "checklist") {
@@ -545,7 +561,9 @@ export default async function releaseRoutes(req, res, next) {
       return res.json(rr);
     }
     if (method === "PATCH") {
-      const body = JSON.parse(await readFileStream(req) || "{}");
+      const body = await readJsonBody(req); // QA M1
+      if (!body) return res.status(400).json({ error: "invalid JSON body" });
+      if (!sanitizeId(rrOne[1])) return res.status(400).json({ error: "invalid request id" }); // QA M2
       try {
         return res.json(await updateReleaseRequest(path, rrOne[1], { title: body.title, baseline: body.baseline }));
       } catch (e) {
@@ -564,9 +582,10 @@ export default async function releaseRoutes(req, res, next) {
 
   // POST /request — 建單（baseline：auto = 上次 release head / first commit；或指定 SHA）
   if (url === "/api/coding-releases/request" && method === "POST") {
-    const body = JSON.parse(await readFileStream(req) || "{}");
-    const path = body.path || projectPath;
-    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    const body = await readJsonBody(req); // QA M1
+    if (!body) return res.status(400).json({ error: "invalid JSON body" });
+    const path = assertProjectPath(body.path || projectPath); // QA M2
+    if (!path) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     try {
       const rr = await createReleaseRequest(path, { title: body.title, baseline: body.baseline || "auto" });
       return res.json(rr);
@@ -586,6 +605,50 @@ function readFileStream(req) {
     req.on("end", () => resolve(buf));
     req.on("error", () => resolve(""));
   });
+}
+
+/**
+ * 安全解析 request body（QA M1）。
+ * 壞 JSON / 空 body 都不會讓 handler 500 — 壞 JSON 回 null，由呼叫端回 400。
+ * 空 body 回 {}（沿用既有 `|| "{}"` 語意）；非物件（陣列/純值）視為無效 → null。
+ */
+const MAX_BODY_BYTES = 1024 * 1024; // 1MB — 這層 API body 只有 JSON 控制參數
+async function readJsonBody(req) {
+  const raw = await readFileStream(req);
+  if (!raw) return {};
+  if (raw.length > MAX_BODY_BYTES) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null; // 壞 JSON → 呼叫端回 400，絕不 500
+  }
+  return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+}
+
+/**
+ * sanitize 用於檔名/路徑的 id（QA M2）：僅允許 [A-Za-z0-9._-]，擋路徑分隔與 `..`。
+ * 不合法回 null，呼叫端回 400。
+ */
+function sanitizeId(id) {
+  if (typeof id !== "string" || !id) return null;
+  if (!/^[A-Za-z0-9._-]+$/.test(id)) return null;
+  if (id === "." || id === "..") return null;
+  return id;
+}
+
+/**
+ * 驗證專案根路徑（QA M2）：必須存在且為目錄，避免 body.path 直進 fs。
+ */
+function assertProjectPath(p) {
+  if (typeof p !== "string" || !p) return null;
+  if (!existsSync(p)) return null;
+  try {
+    if (!statSync(p).isDirectory()) return null;
+  } catch {
+    return null;
+  }
+  return p;
 }
 // ── lastTestRun 摘要（readiness 用）：真實執行數字 + stale 偵測 ──
 async function lastTestRunSummary(projectPath) {

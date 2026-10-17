@@ -15,6 +15,17 @@ export interface ProviderConfig {
   defaultModel: string
   /** 額外 header（如 OpenRouter 的 HTTP-Referer） */
   extraHeaders?: Record<string, string>
+  /** 單次請求的輸出上限（token），預設 4096 */
+  maxTokens?: number
+  /** 單次請求逾時（毫秒），預設 60000 */
+  timeoutMs?: number
+  /** 可重試失敗（timeout / 429 / 5xx / 連線中斷）的最大重試次數，預設 2 */
+  maxRetries?: number
+  /**
+   * 逃生口：合併進 request body 的額外欄位（如 top_p、temperature、
+   * provider 專屬參數）。同名欄位會覆寫本 adapter 的預設值。
+   */
+  extraBody?: Record<string, any>
 }
 
 /** OpenAI-compatible chat message */
@@ -53,7 +64,8 @@ export type ProviderChunk =
   | { type: 'text'; delta: string }
   | { type: 'tool_call_begin'; index: number; id: string; name: string }
   | { type: 'tool_call_arg'; index: number; delta: string }
-  | { type: 'done'; finishReason: string | null; toolCalls: ToolCallDef[] }
+  /** done: fullText 為本輪累積的純文字內容（供 engine 對齊 done.fullText 契約） */
+  | { type: 'done'; finishReason: string | null; toolCalls: ToolCallDef[]; fullText?: string }
   | { type: 'error'; message: string }
 
 // ── Tool Engine ──
@@ -70,6 +82,8 @@ export interface ToolExecutor {
 export interface ToolResult {
   text: string
   error?: boolean
+  /** 穩定錯誤碼（如 TOOL_NOT_FOUND / TOOL_EXEC_FAILED），供上層分診與聚合 */
+  code?: string
   raw?: any
   records?: any[]
   app?: any

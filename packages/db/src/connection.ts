@@ -1,8 +1,15 @@
 /**
  * PAAW Database Connection — SQLite via sql.js (zero native deps)
+ *
+ * sql.js gives us a pure-WASM SQLite (no native build step). Kysely ships a
+ * built-in `SqliteDialect`, but it expects a better-sqlite3-shaped driver
+ * (`SqliteDatabase` = { close, prepare }). We bridge sql.js's API to that
+ * shape so we can use Kysely's real dialect (driver + compiler + introspector)
+ * instead of a hand-rolled pseudo-dialect.
  */
 import initSqlJs, { type Database as SqlJsDatabase } from "sql.js";
-import { Kysely, SqliteDialectWithWorker } from "kysely";
+import { Kysely, SqliteDialect } from "kysely";
+import type { SqliteDatabase, SqliteStatement } from "kysely";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "fs";
 import { dirname } from "path";
 import { getDbPath } from "./paths";
@@ -12,28 +19,51 @@ let dbInstance: Kysely<PaawDB> | null = null;
 let sqlJsDb: SqlJsDatabase | null = null;
 let dbPathGlobal: string = "";
 
-// sql.js dialect adapter for Kysely
-class SqlJsDialect {
-  private db: SqlJsDatabase;
-  constructor(db: SqlJsDatabase) { this.db = db; }
+/**
+ * Adapt a single sql.js prepared statement to Kysely's `SqliteStatement`
+ * contract (all / run / iterate + reader flag).
+ */
+function adaptStatement(stmt: ReturnType<SqlJsDatabase["prepare"]>): SqliteStatement {
+  return {
+    // sql.js statements don't expose a "reader" flag; infer from column count.
+    get reader(): boolean {
+      return stmt.getColumnNames().length > 0;
+    },
+    all(parameters: ReadonlyArray<unknown>): unknown[] {
+      if (parameters.length > 0) stmt.bind(parameters as any[]);
+      const rows: unknown[] = [];
+      while (stmt.step()) rows.push(stmt.getAsObject());
+      stmt.free();
+      return rows;
+    },
+    run(parameters: ReadonlyArray<unknown>) {
+      if (parameters.length > 0) stmt.bind(parameters as any[]);
+      stmt.step();
+      const changes = (stmt as any).getRowsModified?.() ?? 0;
+      stmt.free();
+      return { changes, lastInsertRowid: 0n };
+    },
+    *iterate(parameters: ReadonlyArray<unknown>): IterableIterator<unknown> {
+      if (parameters.length > 0) stmt.bind(parameters as any[]);
+      while (stmt.step()) yield stmt.getAsObject();
+      stmt.free();
+    },
+  } as SqliteStatement;
+}
 
-  createAdapter() {
-    const db = this.db;
-    return {
-      query: (sql: string, params?: any[]) => {
-        const stmt = db.prepare(sql);
-        if (params) stmt.bind(params);
-        const rows: any[] = [];
-        while (stmt.step()) rows.push(stmt.getAsObject());
-        stmt.free();
-        return { rows };
-      },
-      run: (sql: string, params?: any[]) => {
-        db.run(sql, params);
-        return { changes: db.getRowsModified(), insertId: NaN };
-      },
-    };
-  }
+/**
+ * Adapt sql.js's `Database` to the better-sqlite3-shaped interface Kysely's
+ * `SqliteDialect` expects.
+ */
+function adaptDatabase(db: SqlJsDatabase): SqliteDatabase {
+  return {
+    close(): void {
+      db.close();
+    },
+    prepare(sql: string): SqliteStatement {
+      return adaptStatement(db.prepare(sql));
+    },
+  };
 }
 
 // Save to disk periodically and on close
@@ -58,21 +88,14 @@ export async function createDb(dbPath?: string): Promise<Kysely<PaawDB>> {
   // Enable foreign keys
   sqlJsDb.run("PRAGMA foreign_keys=ON");
 
-  // Simple Kysely wrapper using the adapter pattern
-  const adapter = new SqlJsDialect(sqlJsDb);
-
-  // We'll use a lightweight approach: direct sql.js calls via adapter
-  // Kysely doesn't have a built-in sql.js dialect, so we use a thin wrapper
   const kysely = new Kysely<PaawDB>({
-    dialect: {
-      createAdapter: () => ({
-        acquireConnection: async () => adapter as any,
-        beginTransaction: async () => {},
-        commitTransaction: async () => { saveToDisk(); },
-        rollbackTransaction: async () => {},
-        releaseConnection: async () => {},
-      }) as any,
-    } as any,
+    dialect: new SqliteDialect({
+      database: adaptDatabase(sqlJsDb),
+      // Persist to disk on the first connection so writes survive.
+      onCreateConnection: async () => {
+        saveToDisk();
+      },
+    }),
   });
 
   return kysely;

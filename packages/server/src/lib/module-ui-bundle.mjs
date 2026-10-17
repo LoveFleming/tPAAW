@@ -14,7 +14,6 @@
  */
 import { existsSync, statSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { PAAW_ROOT } from "../routes/shared.mjs";
 
 const MODULES_DIR = join(PAAW_ROOT, "installed-apps");
@@ -61,7 +60,7 @@ export async function bundleModuleUi(id, page) {
       entryPoints: [entry],
       bundle: true,
       write: false,
-      outdir: tmpdir(), // 只當 CSS 輸出路徑標籤用（write:false，實際不寫檔）
+      outdir: ".", // 僅作為輸出檔名標籤（write:false，完全不寫檔；非真實寫入路徑）
       format: "esm",
       target: ["es2020"],
       jsx: "automatic",

@@ -141,6 +141,8 @@ export async function runLogPurge(options = {}) {
   if (options.before) {
     llmDeleted = await purgeLlmBefore(options.before); // 明確日期 > 政策（人為主動）
   } else if (cfg.llmDays > 0) {
+    // 注意：cleanupOldLogs 是同步函式（llm-logs.mjs `export function`，內部 readdirSync/unlinkSync），
+    // 回傳值即刪除數量，故「刻意不加 await」——加了也不會錯，只是多一層 microtask。勿改為 async 假設。
     llmDeleted = cleanupOldLogs(cfg.llmDays);          // 0 = 永不刪（成本核算資產）
   }
   const agentDeleted = cfg.agentDays > 0 ? await cleanupOldAgentLogs(cfg.agentDays) : 0;

@@ -8,6 +8,20 @@ import { PATHS, readBody, json, urlPath, parseSkillFrontmatter } from "./context
 const ROOTS = [PATHS.INPUT_PROMPT_ROOT, PATHS.PHYSICAL_SKILL_ROOT, PATHS.SKILL_POOL_ROOT];
 const ROOT_KINDS = ["input-prompt", "physical-skill", "skill-pool"];
 
+/**
+ * Validate a skill/app/phase/file path segment before it is joined onto a root.
+ * The route regexes allow ".." (dots are permitted in skill names), so we must
+ * explicitly reject any segment that could escape its parent directory.
+ * @returns {string|null} the segment if safe, otherwise null
+ */
+function safeSegment(seg) {
+  if (typeof seg !== "string" || seg.length === 0) return null;
+  if (seg === "." || seg === "..") return null;
+  if (seg.includes("..")) return null;
+  if (/[\/]/.test(seg)) return null;
+  return seg;
+}
+
 // Recursive copy directory
 async function copyDir(src, dest) {
   await mkdir(dest, { recursive: true });
@@ -113,7 +127,8 @@ export default async function skillRoutes(req, res) {
   // GET /api/skills/:id — get single (userInputs from input-prompt/inputs.json)
   const getMatch = req.method === "GET" && path.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/);
   if (getMatch) {
-    const skillId = getMatch[1];
+    const skillId = safeSegment(getMatch[1]);
+    if (!skillId) { json(res, { error: "Invalid skill id" }, 400); return true; }
     try {
       // 1. Read userInputs from input-prompt/{skillId}/inputs.json
       let inputsData = null;
@@ -142,7 +157,8 @@ export default async function skillRoutes(req, res) {
   // PUT /api/skills/:id — create or update
   const putMatch = req.method === "PUT" && path.match(/^\/api\/skills\/([\w.-]+)$/);
   if (putMatch) {
-    const skillId = putMatch[1];
+    const skillId = safeSegment(putMatch[1]);
+    if (!skillId) { json(res, { error: "Invalid skill id" }, 400); return true; }
     try {
       const { kind = "input-prompt", content } = JSON.parse(await readBody(req));
       if (!content || !skillId) { json(res, { error: "Missing content or skillId" }, 400); return true; }
@@ -158,7 +174,8 @@ export default async function skillRoutes(req, res) {
   // DELETE /api/skills/:id
   const delMatch = req.method === "DELETE" && path.match(/^\/api\/skills\/([\w.-]+)$/);
   if (delMatch) {
-    const skillId = delMatch[1];
+    const skillId = safeSegment(delMatch[1]);
+    if (!skillId) { json(res, { error: "Invalid skill id" }, 400); return true; }
     try {
       let deleted = false;
       for (const root of ROOTS) {
@@ -173,7 +190,8 @@ export default async function skillRoutes(req, res) {
   // POST /api/skills/:id/publish — copy package/ from building/ to physical-skill/
   const pubMatch = req.method === "POST" && path.match(/^\/api\/skills\/([\w.-]+)\/publish$/);
   if (pubMatch) {
-    const skillId = pubMatch[1];
+    const skillId = safeSegment(pubMatch[1]);
+    if (!skillId) { json(res, { error: "Invalid skill id" }, 400); return true; }
     try {
       const { target = "physical-skill" } = JSON.parse(await readBody(req));
       const srcDir = join(PATHS.BUILDING_ROOT, skillId);
@@ -223,7 +241,9 @@ export default async function skillRoutes(req, res) {
   const inputsMatch = path.match(/^\/api\/paaw\/skills\/([^/]+)\/([^/]+)\/inputs$/);
   if (req.method === "GET" && inputsMatch) {
     try {
-      const [, appId, skillId] = inputsMatch;
+      const appId = safeSegment(inputsMatch[1]);
+      const skillId = safeSegment(inputsMatch[2]);
+      if (!appId || !skillId) { json(res, { error: "Invalid id" }, 400); return true; }
       let content;
       try { content = await readFile(join(PATHS.APPS_ROOT, appId, "skills", skillId, "SKILL.md"), "utf-8"); }
       catch { try { content = await readFile(join(PATHS.SKILL_POOL_ROOT, skillId, "SKILL.md"), "utf-8"); } catch { json(res, { error: "Skill not found" }, 404); return true; } }
@@ -236,7 +256,9 @@ export default async function skillRoutes(req, res) {
   // GET /api/contexts/skill-builder/:phase/:file — get AI settings for skill builder (phase=build|test)
   const ctxMatch = req.method === "GET" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)\/([\w.-]+)$/);
   if (ctxMatch) {
-    const [, phase, fileName] = ctxMatch;
+    const phase = safeSegment(ctxMatch[1]);
+    const fileName = safeSegment(ctxMatch[2]);
+    if (!phase || !fileName) { json(res, { error: "Invalid path" }, 400); return true; }
     const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", phase);
     try {
       const content = await readFile(join(contextRoot, fileName), "utf-8");
@@ -249,7 +271,8 @@ export default async function skillRoutes(req, res) {
   // Legacy: GET /api/contexts/skill-builder/:file (no phase, defaults to build)
   const ctxLegacyMatch = req.method === "GET" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)$/);
   if (ctxLegacyMatch) {
-    const fileName = ctxLegacyMatch[1];
+    const fileName = safeSegment(ctxLegacyMatch[1]);
+    if (!fileName) { json(res, { error: "Invalid path" }, 400); return true; }
     const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", "build");
     try {
       const content = await readFile(join(contextRoot, fileName), "utf-8");
@@ -263,7 +286,9 @@ export default async function skillRoutes(req, res) {
   // PUT /api/contexts/skill-builder/:phase/:file — update AI settings (phase=build|test)
   const ctxPutMatch = req.method === "PUT" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)\/([\w.-]+)$/);
   if (ctxPutMatch) {
-    const [, phase, fileName] = ctxPutMatch;
+    const phase = safeSegment(ctxPutMatch[1]);
+    const fileName = safeSegment(ctxPutMatch[2]);
+    if (!phase || !fileName) { json(res, { error: "Invalid path" }, 400); return true; }
     const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", phase);
     try {
       const { content } = JSON.parse(await readBody(req));
@@ -277,7 +302,8 @@ export default async function skillRoutes(req, res) {
   // Legacy: PUT /api/contexts/skill-builder/:file (no phase, defaults to build)
   const ctxPutLegacyMatch = req.method === "PUT" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)$/);
   if (ctxPutLegacyMatch) {
-    const fileName = ctxPutLegacyMatch[1];
+    const fileName = safeSegment(ctxPutLegacyMatch[1]);
+    if (!fileName) { json(res, { error: "Invalid path" }, 400); return true; }
     const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", "build");
     try {
       const { content } = JSON.parse(await readBody(req));

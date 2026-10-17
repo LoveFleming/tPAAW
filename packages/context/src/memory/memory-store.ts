@@ -64,6 +64,7 @@ export class MemoryStore {
       tags_json: params.tags ? JSON.stringify(params.tags) : null,
       source_type: params.sourceType ?? null,
       source_id: params.sourceId ?? null,
+      access_count: 0,
     }).execute();
 
     return id;

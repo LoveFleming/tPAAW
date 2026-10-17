@@ -1,25 +1,48 @@
 /**
  * LLM Logs API — 查詢所有 LLM 呼叫記錄
  *
- * GET /api/llm-logs           — list recent logs (paginated)
- * GET /api/llm-logs/stats     — aggregate stats (today/total)
- * DELETE /api/llm-logs        — clear logs (before date)
+ * GET    /api/llm-logs           — list paired logs (paginated: offset/limit/days/agent)
+ * GET    /api/llm-logs/stats     — today's stats + availableDates
+ * GET    /api/llm-logs/skills-usage — Skill 注入使用報表
+ * DELETE /api/llm-logs           — clear logs (before date)
+ * POST   /api/llm-logs/purge     — manually trigger retention cleanup
+ *
+ * 查詢端點在解析參數時做下限/上限驗證，避免 NaN 日期或負索引造成 500 / 分頁語意錯亂。
  */
 
-import { readdirSync, readFileSync, unlinkSync, statSync, mkdirSync } from "fs";
-import { join, resolve } from "path";
+import { readdirSync, readFileSync, unlinkSync, mkdirSync } from "fs";
+import { join } from "path";
 
 import { DATA_HOME, ASSET_LOGS_ROOT } from "../data-home.mjs";
-const LOG_DIR = join(ASSET_LOGS_ROOT, "llm");
 
-function ensureLogDir() {
-  mkdirSync(LOG_DIR, { recursive: true });
+const DEFAULT_LOG_DIR = join(ASSET_LOGS_ROOT, "llm");
+
+/**
+ * 讀檔上限 — 單次查詢最多讀入的總行數（H2）。
+ * llm 日誌永不刪、長期無上限成長，days 過大時全量讀入有 OOM/DoS 風險；
+ * 超過此上限即停止累積並在回應標記 truncated=true（前端可提示資料不完整）。
+ */
+const MAX_TOTAL_LINES = 200_000;
+
+function ensureLogDir(dir = DEFAULT_LOG_DIR) {
+  mkdirSync(dir, { recursive: true });
+}
+
+/**
+ * 安全整數解析（H1）：非法/NaN → fallback，並 clamp 到 [min, max]。
+ * 避免 ?days=abc → NaN → Invalid Date → toISOString 丟例外 → 500；
+ * 以及 ?offset=-100 → slice 負索引回傳尾端資料、分頁語意錯亂。
+ */
+export function safeInt(raw, fallback, min, max) {
+  const n = parseInt(raw, 10);
+  const base = Number.isFinite(n) ? n : fallback;
+  return Math.min(Math.max(base, min), max);
 }
 
 /** Auto-cleanup logs older than retentionDays (default 7) */
-export function cleanupOldLogs(retentionDays = 7) {
+export function cleanupOldLogs(retentionDays = 7, dir = DEFAULT_LOG_DIR) {
   try {
-    const files = readdirSync(LOG_DIR).filter(f => f.endsWith(".jsonl"));
+    const files = readdirSync(dir).filter(f => f.endsWith(".jsonl"));
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - retentionDays);
     const cutoffStr = cutoff.toISOString().slice(0, 10);
@@ -27,7 +50,7 @@ export function cleanupOldLogs(retentionDays = 7) {
     for (const f of files) {
       const dateStr = f.replace(".jsonl", "");
       if (dateStr < cutoffStr) {
-        unlinkSync(join(LOG_DIR, f));
+        unlinkSync(join(dir, f));
         deleted++;
       }
     }
@@ -62,29 +85,55 @@ function _callerToAgentId(caller) {
   return map[caller] || caller;
 }
 
-function parseLogs(dateStr) {
-  const logPath = join(LOG_DIR, `${dateStr}.jsonl`);
+/**
+ * 讀單檔 JSONL（H2 上限保護、M2 參數化 dir 以便測試注入）。
+ * @returns {{ logs: object[], truncated: boolean }}
+ */
+export function readLogFile(dateStr, dir = DEFAULT_LOG_DIR, maxLines = MAX_TOTAL_LINES) {
+  const logPath = join(dir, `${dateStr}.jsonl`);
   try {
-    const raw = readFileSync(logPath, "utf-8");
-    return raw.split("\n").filter(Boolean).map(line => {
+    let raw = readFileSync(logPath, "utf-8");
+    let truncated = false;
+    const lines = raw.split("\n");
+    if (lines.length > maxLines) {
+      truncated = true;
+      raw = lines.slice(0, maxLines).join("\n");
+    }
+    const logs = raw.split("\n").filter(Boolean).map(line => {
       try { return JSON.parse(line); } catch { return null; }
     }).filter(Boolean);
-  } catch { return []; }
+    return { logs, truncated };
+  } catch { return { logs: [], truncated: false }; }
 }
 
-function parseAllLogs(days = 7) {
-  ensureLogDir();
-  const files = readdirSync(LOG_DIR).filter(f => f.endsWith(".jsonl")).sort().reverse();
+function parseLogs(dateStr, dir = DEFAULT_LOG_DIR) {
+  return readLogFile(dateStr, dir).logs;
+}
+
+/**
+ * 讀取最近 days 天（含今天）的所有 log。
+ * M1：`days` 語意 = 含今天共 days 天 → cutoff = 今天 - (days-1)，與 collectSkillsUsage 對齊。
+ * H2：跨檔累積超過 MAX_TOTAL_LINES 即停止並標記 partial。
+ * @returns {{ logs: object[], truncated: boolean }}
+ */
+export function parseAllLogs(days = 7, dir = DEFAULT_LOG_DIR) {
+  ensureLogDir(dir);
+  const files = readdirSync(dir).filter(f => f.endsWith(".jsonl")).sort().reverse();
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - days);
+  cutoff.setDate(cutoff.getDate() - (days - 1));
   const cutoffStr = cutoff.toISOString().slice(0, 10);
   const allLogs = [];
+  let truncated = false;
   for (const f of files) {
     const dateStr = f.replace(".jsonl", "");
     if (dateStr < cutoffStr) continue;
-    allLogs.push(...parseLogs(dateStr));
+    const remaining = MAX_TOTAL_LINES - allLogs.length;
+    if (remaining <= 0) { truncated = true; break; }
+    const { logs, truncated: fileTrunc } = readLogFile(dateStr, dir, remaining);
+    allLogs.push(...logs);
+    if (fileTrunc) { truncated = true; break; }
   }
-  return allLogs;
+  return { logs: allLogs, truncated };
 }
 
 /**
@@ -92,9 +141,9 @@ function parseAllLogs(days = 7) {
  * 資料 = appendSkillBindings 每次注入寫的 phase:"skills" 證據行（程式 stamp，非 LLM 自述）
  * 聚合：by skill / by agent / by day。fast path：非 skills 行不做 JSON.parse。
  */
-function collectSkillsUsage(days = 7) {
-  ensureLogDir();
-  const files = readdirSync(LOG_DIR).filter(f => f.endsWith(".jsonl")).sort();
+export function collectSkillsUsage(days = 7, dir = DEFAULT_LOG_DIR) {
+  ensureLogDir(dir);
+  const files = readdirSync(dir).filter(f => f.endsWith(".jsonl")).sort();
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - (days - 1));
   const cutoffStr = cutoff.toISOString().slice(0, 10);
@@ -103,7 +152,7 @@ function collectSkillsUsage(days = 7) {
     const dateStr = f.replace(".jsonl", "");
     if (dateStr < cutoffStr) continue;
     let lines;
-    try { lines = readFileSync(join(LOG_DIR, f), "utf-8").split("\n"); } catch { continue; }
+    try { lines = readFileSync(join(dir, f), "utf-8").split("\n"); } catch { continue; }
     for (const line of lines) {
       if (!line.includes('"phase":"skills"')) continue; // fast path：非 skills 證據行直接跳過
       let e; try { e = JSON.parse(line); } catch { continue; }
@@ -148,15 +197,27 @@ function collectSkillsUsage(days = 7) {
   };
 }
 
-/** Pair request + response logs by id */
-function pairLogs(logs) {
+/**
+ * Pair request + response logs by id。
+ * M3：只認 request/response 兩個 phase（其餘如 'response-fallback' 不寫入動態鍵），
+ * 並回傳 orphan 計數，讓呼叫端能觀測跨日/缺配對造成的靜默丟棄量。
+ * @returns {{ paired: object[], orphanRequests: number, orphanPhases: Record<string, number> }}
+ */
+export function pairLogs(logs) {
   const byId = {};
+  const orphanPhases = {};
   for (const log of logs) {
     if (!log.id) continue;
+    if (log.phase !== "request" && log.phase !== "response") {
+      orphanPhases[log.phase] = (orphanPhases[log.phase] || 0) + 1;
+      continue;
+    }
     if (!byId[log.id]) byId[log.id] = { request: null, response: null };
     byId[log.id][log.phase] = log;
   }
-  return Object.values(byId)
+  const values = Object.values(byId);
+  const orphanRequests = values.filter(p => !p.request).length;
+  const paired = values
     .filter(p => p.request)
     .map(p => {
       const toolCalls = p.response?.toolCalls || [];
@@ -193,10 +254,9 @@ function pairLogs(logs) {
         auditNA: auditOk === null,
         usage: p.response?.usage || null,
         error: p.response?.error || null,
-        caller: p.request.caller || p.response?.caller || null,
       };
-    })
-    .sort((a, b) => b.ts.localeCompare(a.ts)); // newest first
+    });
+  return { paired, orphanRequests, orphanPhases };
 }
 
 export default async function llmLogsRoute(req, res) {
@@ -204,26 +264,30 @@ export default async function llmLogsRoute(req, res) {
   const rawUrl = req.url || "";
   const url = rawUrl.split("?")[0];
   const q = new URL(rawUrl, "http://localhost").searchParams;
+
   // GET /api/llm-logs/skills-usage — Skill 注入使用報表（phase:"skills" 證據行聚合）
   if (url === "/api/llm-logs/skills-usage" && method === "GET") {
     try {
-      const days = Math.min(Math.max(parseInt(q.get("days") || "7", 10) || 7, 1), 365);
+      const days = safeInt(q.get("days"), 7, 1, 365);
+      res.writeHead(200, { "Content-Type": "application/json" }); // M5：統一錯誤/成功 header
       return res.end(JSON.stringify(collectSkillsUsage(days)));
     } catch (e) {
-      res.statusCode = 500;
+      res.writeHead(500, { "Content-Type": "application/json" }); // M5：補 Content-Type
       return res.end(JSON.stringify({ error: e.message }));
     }
   }
+
   // GET /api/llm-logs — list paired logs
   if (url === "/api/llm-logs" && method === "GET") {
     try {
-      const days = Math.min(parseInt(q.get("days") || "7", 10), 90);
+      // H1：days/limit/offset 全部做下限+上限驗證，避免 NaN 日期與負索引
+      const days = safeInt(q.get("days"), 7, 1, 90);
       const agentFilter = q.get("agent") || null;
-      const limit = Math.min(parseInt(q.get("limit") || "200", 10), 1000);
-      const offset = parseInt(q.get("offset") || "0", 10);
+      const limit = safeInt(q.get("limit"), 200, 1, 1000);
+      const offset = safeInt(q.get("offset"), 0, 0, Number.MAX_SAFE_INTEGER);
 
-      const allLogs = parseAllLogs(days);
-      const paired = pairLogs(allLogs);
+      const { logs: allLogs, truncated } = parseAllLogs(days);
+      const { paired, orphanRequests, orphanPhases } = pairLogs(allLogs);
 
       let filtered = paired;
       if (agentFilter) filtered = filtered.filter(l => l.agentId === agentFilter);
@@ -275,6 +339,8 @@ export default async function llmLogsRoute(req, res) {
         offset,
         limit,
         days,
+        truncated,                        // H2：達讀檔上限時為 true，前端可提示資料不完整
+        orphans: { requests: orphanRequests, phases: orphanPhases }, // M3：觀測靜默丟棄量
         summary: { success, errors, totalDurationMs, totalTokens, totalPromptTokens, totalCompletionTokens, byModel, byAgent, auditOk: auditOkCount, auditFail: auditFailCount, auditNA: auditNACount, violations: violationCounts },
       }));
     } catch (err) {
@@ -284,19 +350,19 @@ export default async function llmLogsRoute(req, res) {
     return true;
   }
 
-  // GET /api/llm-logs/stats — quick stats
+  // GET /api/llm-logs/stats — today's stats + availableDates
   if (url === "/api/llm-logs/stats" && method === "GET") {
     try {
       const today = new Date().toISOString().slice(0, 10);
       const todayLogs = parseLogs(today);
-      const todayPaired = pairLogs(todayLogs);
+      const { paired: todayPaired } = pairLogs(todayLogs);
       const todayTokens = todayPaired.reduce((s, l) => s + ((l.usage?.prompt_tokens || 0) + (l.usage?.completion_tokens || 0)), 0);
       const todayCalls = todayPaired.length;
       const todayErrors = todayPaired.filter(l => l.error).length;
 
       // Available log dates
       ensureLogDir();
-      const dates = readdirSync(LOG_DIR).filter(f => f.endsWith(".jsonl")).map(f => f.replace(".jsonl", "")).sort().reverse();
+      const dates = readdirSync(DEFAULT_LOG_DIR).filter(f => f.endsWith(".jsonl")).map(f => f.replace(".jsonl", "")).sort().reverse();
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ today: { calls: todayCalls, errors: todayErrors, tokens: todayTokens }, availableDates: dates }));
@@ -314,12 +380,12 @@ export default async function llmLogsRoute(req, res) {
       try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
       const before = body.before || new Date().toISOString().slice(0, 10);
       ensureLogDir();
-      const files = readdirSync(LOG_DIR).filter(f => f.endsWith(".jsonl"));
+      const files = readdirSync(DEFAULT_LOG_DIR).filter(f => f.endsWith(".jsonl"));
       let deleted = 0;
       for (const f of files) {
         const dateStr = f.replace(".jsonl", "");
         if (dateStr < before) {
-          unlinkSync(join(LOG_DIR, f));
+          unlinkSync(join(DEFAULT_LOG_DIR, f));
           deleted++;
         }
       }

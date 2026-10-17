@@ -2,7 +2,7 @@
  * PAAW Chat / Conversations Repository
  */
 import type { Kysely } from "kysely";
-import type { PaawDB } from "../types";
+import type { PaawDB, ConversationsTable } from "../types";
 import { generateId, nowISO } from "@paaw/shared";
 
 export class ChatsRepo {
@@ -58,11 +58,12 @@ export class ChatsRepo {
     // Update conversation
     const now = nowISO();
     await this.db.updateTable("conversations")
-      .set({
-        message_count: this.db.fn("message_count + 1"),
+      .set((eb) => ({
+        // Atomic increment — generated SQL: "message_count" = "message_count" + 1
+        message_count: eb("message_count", "+", 1),
         last_message_at: now,
         updated_at: now,
-      })
+      }))
       .where("id", "=", params.conversationId)
       .execute();
 
@@ -84,7 +85,7 @@ export class ChatsRepo {
     return query.selectAll().execute();
   }
 
-  async listConversations(userId: string, options?: { type?: string; limit?: number }) {
+  async listConversations(userId: string, options?: { type?: ConversationsTable["type"]; limit?: number }) {
     let query = this.db.selectFrom("conversations")
       .where("user_id", "=", userId)
       .orderBy("last_message_at", "desc");

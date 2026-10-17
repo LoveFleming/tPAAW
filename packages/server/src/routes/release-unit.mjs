@@ -18,11 +18,11 @@
 
 import { readFile, readdir, stat } from "fs/promises";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
-import { join, resolve, dirname, basename } from "path";
+import { join, resolve, dirname, basename, sep } from "path";
 import { fileURLToPath } from "url";
 import { randomUUID } from "crypto";
 import { normalizePath } from "./shared.mjs";
-import { shellExec } from "../lib/shell-exec.mjs";
+import { shellExec, shellExecSync } from "../lib/shell-exec.mjs";
 import { detectTechStack } from "../lib/release-unit/adapters.mjs";
 import { buildDependencyGraph, queryGraph } from "../lib/release-unit/dependencies.mjs";
 import { impactAnalysis } from "../lib/release-unit/impact.mjs";
@@ -145,7 +145,9 @@ export default async function releaseUnitRoutes(req, res, next) {
     let label = (body.label || "").trim();
     if (!label) {
       try {
-        const topLevel = String(shellExecSync(`git -C "${absPath}" rev-parse --show-toplevel`, { timeout: 5000 })).trim();
+        // absPath 來自 validRoot 驗證過的既有目錄；仍加單引號跳脫避免 shell 注入。
+        const safePath = absPath.replace(/'/g, "'\\''");
+        const topLevel = String(shellExecSync(`git -C '${safePath}' rev-parse --show-toplevel`, { timeout: 5000 })).trim();
         label = (topLevel && existsSync(topLevel) ? basename(topLevel) : basename(absPath)).slice(0, 40);
       } catch {
         label = basename(absPath).slice(0, 40); // 沒 git → 用根目錄名
@@ -320,6 +322,7 @@ export default async function releaseUnitRoutes(req, res, next) {
       }
       if (type === "file") {
         const r = queryModelByFile(m, q.get("file") || "");
+        if (!r) return json(res, 404, { error: `file not found in model: ${q.get("file")}` });
         return json(res, 200, { root: normalizePath(path), type, result: r });
       }
       if (type === "api") {
@@ -654,9 +657,18 @@ export default async function releaseUnitRoutes(req, res, next) {
     if (!existsSync(dir)) return json(res, 200, { path: normalizePath(path), specs: [], count: 0 }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     const id = q.get("id");
     if (id) {
-      const f = join(dir, `${id.replace(/\.md$|\.json$/, "")}.md`); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
-      const fj = join(dir, `${id.replace(/\.md$|\.json$/, "")}.json`); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      // 安全：id 必須是單一檔名字元（無路徑分隔/穿越），否則可讀專案外任意檔。
+      const safeId = String(id).replace(/\.md$|\.json$/, "");
+      if (!/^[A-Za-z0-9._-]+$/.test(safeId) || safeId === "." || safeId === "..") {
+        return json(res, 400, { error: `invalid spec id: ${id}` });
+      }
+      const f = join(dir, `${safeId}.md`);
+      const fj = join(dir, `${safeId}.json`);
+      // 二次防線：解析後仍必須落在 specs 目錄內（防 symlink/邊界案例）。
+      const specsReal = resolve(dir);
+      const withinDir = (p) => { const r = resolve(p); return r === specsReal || r.startsWith(specsReal + sep); };
       for (const cand of [f, fj]) {
+        if (!withinDir(cand)) continue;
         if (existsSync(cand)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
           const content = await readFile(cand, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
           return json(res, 200, { path: normalizePath(path), id, file: normalizePath(cand), content });
