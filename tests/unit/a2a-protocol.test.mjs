@@ -13,8 +13,24 @@ import {
   assertSafeWebhookUrl,
   corsHeadersFor,
   isValidRpcId,
+  isValidRpcMethod,
 } from "../../packages/server/src/routes/a2a.mjs";
 import { A2A_PROTOCOL_VERSION } from "../../packages/server/src/lib/a2a-constants.mjs";
+
+describe("JSON-RPC method 名稱驗證（協定合規）", () => {
+  it("接受非空字串 method", () => {
+    expect(isValidRpcMethod("message/send")).toBe(true);
+    expect(isValidRpcMethod("tasks/get")).toBe(true);
+  });
+  it("拒絕 undefined / null / 空字串 / 非字串", () => {
+    expect(isValidRpcMethod(undefined)).toBe(false);
+    expect(isValidRpcMethod(null)).toBe(false);
+    expect(isValidRpcMethod("")).toBe(false);
+    expect(isValidRpcMethod("   ")).toBe(false);
+    expect(isValidRpcMethod(123)).toBe(false);
+    expect(isValidRpcMethod({})).toBe(false);
+  });
+});
 
 describe("A2A 協定版本常數 (QA M1)", () => {
   it("協定版本為 0.3.0（A2A 官方最新穩定版，非 1.0.0）", () => {

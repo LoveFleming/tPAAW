@@ -435,6 +435,12 @@ export function isValidRpcId(id) {
   return id === null || typeof id === "string" || typeof id === "number";
 }
 
+/** JSON-RPC method 名稱驗證（QA 協定合規）：依 JSON-RPC 2.0 spec §4，method 必為非空字串；
+ *  缺失或非字串一律 Invalid Request（-32600），不可落入 dispatch 被誤判為 Method not found（-32601）。 */
+export function isValidRpcMethod(method) {
+  return typeof method === "string" && method.trim().length > 0;
+}
+
 // 對外可見的識別碼一律用加密隨機（QA m2）：不帶時間前綴避免可預測/碰撞
 function genId() {
   return `task-${randomUUID()}`;
@@ -1043,6 +1049,16 @@ export default async function a2aRoutes(req, res) {
           return true;
         }
 
+        // method 驗證（QA 協定合規）：非字串/空字串 → Invalid Request（-32600）
+        if (!isValidRpcMethod(method)) {
+          sendJSON(res, 200, {
+            jsonrpc: "2.0",
+            error: { code: -32600, message: "Invalid Request — method must be a non-empty string" },
+            id: isValidRpcId(id) ? id : null,
+          });
+          return true;
+        }
+
         console.log(`[A2A:${agentId}] RPC ${method} id=${id}`);
 
         // message/stream — SSE streaming (前端聊天 + EM 調度都用這條)
@@ -1506,6 +1522,16 @@ export default async function a2aRoutes(req, res) {
         jsonrpc: "2.0",
         error: { code: -32600, message: "Invalid Request — id must be string, number or null" },
         id: null,
+      }, req);
+      return true;
+    }
+
+    // method 驗證（QA 協定合規）：非字串/空字串 → Invalid Request（-32600），不可誤判 -32601
+    if (!isValidRpcMethod(method)) {
+      sendJSON(res, 200, {
+        jsonrpc: "2.0",
+        error: { code: -32600, message: "Invalid Request — method must be a non-empty string" },
+        id: isValidRpcId(id) ? id : null,
       }, req);
       return true;
     }
