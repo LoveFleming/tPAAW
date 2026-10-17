@@ -840,8 +840,55 @@
       "featureId": "F20261016-056",
       "createdAt": "2026-10-17T02:43:01.330Z",
       "notes": []
+    },
+    {
+      "id": "ISS-042",
+      "title": "[TAASK-049/C1+C2] server-actions-form.tsx Example 5 subscribe 違反 React 19 action 契約（TS2769 @ L434、TS2322 @ L415）",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "typescript",
+        "react19",
+        "skill-template",
+        "found-by:TASK-049",
+        "TASK-049"
+      ],
+      "description": "## 缺陷描述（tester R5 於 TASK-049 型別驗證階段發現，TASK-167 修復範圍未涵蓋）\n\n`data/skills/physical-skill/nextjs-backend-best-practices/templates/server-actions-form.tsx` Example 5（Subscribe）存在 2 個 React 19 契約違規，TypeScript TS API 權威驗證（react-dom stub + tsc）判定為型別錯誤：\n\n### C1 (major) — L434\n```tsx\nconst [state, formAction] = useActionState(subscribe, null)\n```\n`subscribe` 簽章為 `subscribe(formData: FormData): Promise<{success, message}>`，不符合 React 19 `useActionState` 的 `(state, payload) => state` 契約 → TS2769（Overload 不匹配）。\n\n### C2 (major) — L415\n```tsx\n<form action={subscribe}>\n```\n`<form action>` 要求回傳 `void | Promise<void>`，`subscribe` 回傳 `Promise<{success, message}>` → TS2322。\n\n## 佐證\n- 測試 `tests/unit/server-actions-form-compile.test.mjs` 以紅燈斷言登錄（C1/C2 各 1 test + 契約精確性 1 test），現況 41/41 綠 = 缺陷仍在範本中。\n- 修復方向：仿 EnhancedSubscribeForm 模式 — `subscribe` 改為 `(prevState, formData)` 雙參數簽章（Server Component form 直接用原 action 可另拆 wrapper），或 form 端改傳 wrapper。修復後紅燈斷言自動轉綠（斷言寫法為 expect(diag).toBeDefined()）。\n- 注意：測試以行號斷言（L415/L434），修復時若增刪行須同步更新測試行號。\n\n## 來源\nTASK-049（F20261016-006 品質補強）docs 階段核查時確認無追蹤單，補開。",
+      "featureId": "F20261016-006",
+      "createdAt": "2026-10-17T15:36:38.381Z",
+      "notes": [],
+      "updatedAt": "2026-10-17T15:37:17.144Z"
+    },
+    {
+      "id": "ISS-043",
+      "title": "[TAASK-049 docs 發現] server-action-form.tsx（單數檔）仍用 React 19 已移除的 useFormState — 與技能包宣稱環境不符",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "react19",
+        "skill-template",
+        "found-by:TASK-049",
+        "docs-consistency"
+      ],
+      "description": "## 問題描述（TASK-049 docs 階段核查時順帶發現）\n\n`data/skills/physical-skill/nextjs-backend-best-practices/templates/server-action-form.tsx`（單數檔，屬 F20261016-074 data-seed 素材）L103/L116 仍使用：\n\n```tsx\nimport { useFormState, useFormStatus } from 'react-dom'\nconst [state, formAction] = useFormState(createPost, null)\n```\n\n`useFormState` 在 React 19 已移除，此代碼在技能包宣稱支援的環境（Next.js 16.2 + React 19.2，見 SKILL.md metadata）下無法執行。同技能包的複數檔 `server-actions-form.tsx` 已在 TASK-167 修復同類問題（改用 `useActionState` from 'react'），單數檔未同步。\n\n## 影響\nAI agent 或開發者複製此範本會得到 runtime error（`useFormState is not a function`）。\n\n## 修復方向\n仿 TASK-167 修法：`import { useActionState } from 'react'`，hook 呼叫同步更名。\n\n## 範圍界定\n本檔隸屬 F20261016-074（隨 data-seed 出貨的教學素材），非 TASK-049 對象（F20261016-006 複數檔），故僅開單追蹤不代修。",
+      "featureId": "F20261016-074",
+      "createdAt": "2026-10-17T15:36:38.383Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-044",
+      "title": "log-retention runLogPurge：otherDeleted 用 const 宣告後 += 重賦值 → POST /api/logs/purge 必 500",
+      "priority": "high",
+      "status": "open",
+      "labels": [],
+      "description": "位置：packages/server/src/routes/log-retention.mjs L147-150（runLogPurge）\n\n```js\nconst otherDeleted = await purgeOtherLogs(cfg.otherDays);\notherDeleted += await purgeAssetOtherLogs(cfg.otherDays);  // ❌ Assignment to constant variable\n```\n\n影響：\n1. POST /api/logs/purge 必定 500（TypeError）— 使用者從 UI 觸發的日誌清理全壞。\n2. 每日 cron system-daily-log-purge 打同一條 API → 排程清理自 1a81633d（log 目錄統一重構）起 silently 失效。\n3. llm/agent 兩類在 throw 前已刪、other 類統計永遠回不來 — 端點行為不可預期。\n\n修法（一行）：`let otherDeleted = await purgeOtherLogs(...)`。\n\n發現方式：TASK-053 test 鞏固 — tests/unit/agent-logs.test.mjs 以 it.fails 釘住（POST /api/logs/purge 期望 200 + detail 統計），修復後移除 it.fails 即轉綠。與 QA R4 已立的 M1（0=永不刪不可達）不同案，此為新發現。",
+      "featureId": "F20261016-010",
+      "createdAt": "2026-10-17T20:49:03.830Z",
+      "notes": []
     }
   ],
   "updatedAt": "2026-07-22T13:37:37.561Z",
-  "nextId": 42
+  "nextId": 45
 }
