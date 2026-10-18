@@ -281,9 +281,13 @@ export default async function codingAutoDispatchRoute(req, res) {
         return true;
       }
       const updated = updateStatusFile(statusPath, (current) => {
-        if (current.status !== "running") return null;
+        // 2026-10-18: status 被殭屍誤判標 interrupted 時（runner 其實還活著），停止請求也要能生效 —
+        // 否則 UI 按停止只會得到 "Not running"，批次卻照跑（Fleming 2026-10-18 實案例）
+        const runnerAlive = current.runnerPid === process.pid || _pidAlive(current.runnerPid);
+        if (current.status !== "running" && !runnerAlive) return null;
         const events = [...(current.events || []), { ts: new Date().toISOString(), type: "info", message: "⏹️ 使用者請求中斷 — 將於目前 task 完成後停止" }].slice(-80);
-        return { ...current, stopRequested: true, stoppedAt: new Date().toISOString(), events, lastEvent: events[events.length - 1] };
+        // status 拉回 running：迴圈 _stopRequested 與 UI 狀態機都認得，不會卡在假 interrupted
+        return { ...current, status: "running", stopRequested: true, stoppedAt: new Date().toISOString(), events, lastEvent: events[events.length - 1] };
       });
       sendJSON(res, 200, updated
         ? { ok: true, message: "Interrupt requested — will stop after current task" }

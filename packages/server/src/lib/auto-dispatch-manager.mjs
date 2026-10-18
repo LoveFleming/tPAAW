@@ -538,7 +538,10 @@ export async function planEMSession(opts = {}) {
 function _stopRequested(rootDir) {
   try {
     const st = JSON.parse(readFileSync(join(rootDir, ".paaw", "auto-dispatch", "status.json"), "utf-8"));
-    return st.stopRequested === true && st.status === "running";
+    // 2026-10-18: status 可能被殭屍誤判標成 interrupted（UI 看似停了、迴圈其實還在跑）—
+    // runnerPid 是本 process 時 stopRequested 仍要生效，否則使用者按停止永遠停不下來
+    if (st.stopRequested !== true) return false;
+    return st.status === "running" || st.runnerPid === process.pid;
   } catch { return false; }
 }
 
