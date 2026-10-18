@@ -207,6 +207,15 @@ export default async function codingAutoDispatchRoute(req, res) {
       // Save latest report for quick access
       writeFileSync(join(nsDir, REPORT_FILE), result.report, "utf-8"); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
 
+      // 2026-10-18 Fleming 接線：批次結束 → deterministic 補跑 AI Review Board（baseline..HEAD）
+      // 證據矩陣的 aiReview 欄不靠 agent 自覺 — 程式保證有報告落檔；request-changes 會自動開單打回。
+      try {
+        const { ensureReviewBoardCoverage } = await import("../lib/coding-review-runner.mjs");
+        ensureReviewBoardCoverage(projRoot)
+          .then(r => { if (!r?.skipped) console.log(`[AutoDispatch] review board: ${r.decision} → ${r.report}`); })
+          .catch(e => console.error("[AutoDispatch] review board 補跑失敗:", e.message));
+      } catch (e) { console.error("[AutoDispatch] review board gate 掛載失敗:", e.message); }
+
       const finalDuration = Date.now() - startTime;
       console.log(`[AutoDispatch] Complete in ${finalDuration}ms (mode: ${mode})`);
     } catch (err) {

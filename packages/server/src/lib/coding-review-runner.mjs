@@ -19,7 +19,7 @@
 
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from "node:fs";
 import { readProjectAgent } from "./project-crew.mjs";
 import { readEMConfig } from "./em-config.mjs";
 
@@ -439,4 +439,44 @@ export function formatReviewResult(r) {
   }
   lines.push(`📄 完整 report：${r.reportPath}`);
   return lines.join("\n");
+}
+
+// ══════════════════════════════════════════
+// Deterministic coverage gate（2026-10-18 Fleming：EM releasable 接線）
+// 「Review Board 有沒有跑」是事實問題，由程式保證，不靠 agent 自覺：
+// dispatch 結束 / release-prep 入口 呼叫，確保當前 baseline..HEAD 有委員會報告落檔。
+// ══════════════════════════════════════════
+const _coverageBusy = new Set();
+
+/** 同 range 已有報告 → 已覆蓋（快速同步檢查，不隨 LLM） */
+export function reviewBoardCovered(projectDir, range) {
+  const want = String(range || "").replace(/[^\w.-]/g, "_");
+  if (!want) return false;
+  try {
+    return readdirSync(join(projectDir, ".paaw", "review-board"))
+      .some(f => f.endsWith(".md") && f.endsWith(`-${want}.md`));
+  } catch { return false; } // nosemgrep: detect-non-literal-fs-filename — local-first：檢查報告是否存在
+}
+
+/**
+ * 確保當前 baseline..HEAD 有 AI Review Board 報告；沒有就補跑。
+ * 回傳 { skipped } 或 runMultiModelReview 結果摘要。防併發重跑。
+ */
+export async function ensureReviewBoardCoverage(projectDir, opts = {}) {
+  if (_coverageBusy.has(projectDir)) return { skipped: "already-running" };
+  _coverageBusy.add(projectDir);
+  try {
+    const { resolveBaseline } = await import("./release-requests.mjs");
+    const base = await resolveBaseline(projectDir, opts.baseline || "auto");
+    const range = `${base.sha}..HEAD`;
+    if (reviewBoardCovered(projectDir, range)) return { skipped: "covered", range };
+    const r = await runMultiModelReview({
+      projectDir,
+      ref: opts.ref || range,
+      onProgress: opts.onProgress || (() => {}),
+    });
+    return { ok: true, range, decision: r.decision, sevCount: r.sevCount, report: r.reportPath, reworkTicket: r.reworkTicket || null };
+  } finally {
+    _coverageBusy.delete(projectDir);
+  }
 }

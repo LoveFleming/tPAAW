@@ -196,7 +196,24 @@ async function _entryReleasePrep(rootDir, opts) {
     }
   } catch {}
   meta.activeRR = activeRR ? { id: activeRR.id, status: activeRR.status, title: activeRR.title } : null;
-  if (!activeRR) findings.push({ kind: "no-active-rr", note: "沒有進行中的 release request — 若近期要 release 需先開 RR（人類決定 baseline）" });
+  // 2026-10-18 Fleming 接線：無 active RR → EM 代開 draft 簽核單。
+  // 北極星原則不變：EM 只建單附證據，不放行 — 人類在 Release Manager UI 簽核才算 release。
+  if (!activeRR) {
+    try {
+      const { createReleaseRequest } = await import("./release-requests.mjs");
+      const today = new Date().toISOString().slice(0, 10);
+      const rr = await createReleaseRequest(rootDir, {
+        title: `Release draft ${today} — EM release-prep`,
+        baseline: "auto",
+        createdBy: "em:release-prep",
+      });
+      activeRR = rr;
+      meta.activeRR = { id: rr.id, status: rr.status, title: rr.title };
+      findings.push({ kind: "rr-draft-created", note: `已代開 ${rr.id} draft 簽核單（baseline auto）— 等人類簽核，EM 只建議不放行` });
+    } catch (e) {
+      findings.push({ kind: "no-active-rr", note: `沒有進行中的 release request，代開 draft 失敗：${e.message}（需人工處理）` });
+    }
+  }
 
   // 2. 未 push commits
   const unpushed = await _git(rootDir, "log --oneline @{u}..HEAD");
@@ -227,10 +244,31 @@ async function _entryReleasePrep(rootDir, opts) {
   meta.openTasks = open.length;
   if (open.length > 0) findings.push({ kind: "open-tasks", count: open.length, sample: open.slice(0, 5).map(t => `${t.id} ${t.title}`) });
 
+  // 6.（2026-10-18 Fleming 接線）AI Review Board coverage — 程式保證，不靠 agent 自覺
+  // 同 range 已有報告 → covered；沒有 → 背景補跑（不阻塞入口回傳），落檔後 readiness 證據矩陣自動反映。
+  try {
+    const { ensureReviewBoardCoverage, reviewBoardCovered } = await import("./coding-review-runner.mjs");
+    const { resolveBaseline } = await import("./release-requests.mjs");
+    const base = await resolveBaseline(rootDir, "auto");
+    const range = `${base.sha}..HEAD`;
+    if (reviewBoardCovered(rootDir, range)) {
+      meta.reviewBoard = "covered";
+    } else {
+      meta.reviewBoard = "running";
+      findings.push({ kind: "review-board-running", note: `AI Review Board 補跑中（${String(base.sha).slice(0, 7)}..HEAD）— 完成後證據矩陣自動反映，不需人工` });
+      ensureReviewBoardCoverage(rootDir)
+        .then(r => console.log(`[ReleasePrep] review board: ${r?.skipped ? r.skipped : `${r.decision} → ${r.report}`}`))
+        .catch(e => console.error("[ReleasePrep] review board 補跑失敗:", e.message));
+    }
+  } catch (e) {
+    meta.reviewBoard = "error";
+    findings.push({ kind: "review-board-check-failed", note: `review board 覆蓋檢查失敗：${e.message}` });
+  }
+
   return {
     type: "release-prep",
     ok: true,
-    summary: `Release 現況：${activeRR ? `RR ${activeRR.id}（${activeRR.status}）` : "無進行中 RR"}｜未 push ${meta.unpushedCommits || 0}｜未文件化 ${meta.undocumentedCommits || 0}｜髒檔 ${dirty}｜open tasks ${open.length}`,
+    summary: `Release 現況：${activeRR ? `RR ${activeRR.id}（${activeRR.status}）` : "無進行中 RR"}｜未 push ${meta.unpushedCommits || 0}｜未文件化 ${meta.undocumentedCommits || 0}｜髒檔 ${dirty}｜open tasks ${open.length}｜review board ${meta.reviewBoard || "?"}`,
     findings,
     meta,
   };
