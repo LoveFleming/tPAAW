@@ -72,10 +72,16 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   const [skillConfig, setSkillConfig] = useState({ testTimeout: 600, maxToolCalls: 50 });
 
   // Sync tab when parent changes initialTab (e.g. redirect to providers)
+  // 2026-10-18 修復：deps 不得含 tab — 否則使用者每次切 tab，effect 重跑，看到（可能過期的）
+  // initialTab !== tab 就把人彈回舊 tab（Fleming 2026-10-18 實案例：設定頁 tab 切不動）。
+  // 改用 ref 只在 initialTab「真的變化」時同步，語意明確且免疫 stale prop。
+  const lastInitialTabRef = useRef<string | undefined>(initialTab);
   useEffect(() => {
-    if (initialTab && initialTab !== tab) setTabState(initialTab as typeof tab);
+    if (initialTab === lastInitialTabRef.current) return;
+    lastInitialTabRef.current = initialTab;
+    if (initialTab) setTabState(initialTab as typeof tab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialTab, tab]);
+  }, [initialTab]);
 
   // QA S1（2026-10-17）：security tab 的三項資料載入（白名單 / 永久准許 / 安全模式）
   // 共用同一個序號保護，只有最後一次發出的載入能落地，避免慢回應覆蓋較新資料；

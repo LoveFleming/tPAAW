@@ -741,7 +741,7 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
       return <FileEditor filePath={filePath} active={active} />;
     }
     return <div className="p-8 text-stone-400">Page not found: {pageType}</div>;
-  }, [projectRoot, paawRoot, crew, profile, skillAppNav, briefingInitialDir, deepLinkNote]);
+  }, [projectRoot, paawRoot, crew, profile, skillAppNav, briefingInitialDir, deepLinkNote, settingsTab]);
 
   // ── Theme ──
   const { info: themeInfo, theme, setTheme } = useTheme();
