@@ -8,18 +8,22 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { readBody, PAAW_ROOT, TPAW_REPO_ROOT } from "./shared.mjs";
+import { loadRegistry, saveRegistry, withRegistry } from "./crews.mjs";
 
+/** parse + 驗證（QA C1 對稱修）：非法 JSON 不再吞成 {}，直接 400 */
 async function parseBody(req) {
-  const raw = await readBody(req);
-  try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+  const raw = await readBody(req); // 帶 5MB 上限（shared shim，QA M1）
+  if (!raw) return {};
+  try { return JSON.parse(raw); } catch { throw httpError(400, "SYS_CTRL_REQUEST_BODY_INVALID", "body 非合法 JSON"); }
 }
 
-const REG = join(PAAW_ROOT, "services.json");
-
-function load() {
-  try { return JSON.parse(readFileSync(REG, "utf-8")); } catch { return []; }
+/** 結構化錯誤（QA M2） */
+function httpError(statusCode, code, message) {
+  return Object.assign(new Error(message), { statusCode, code });
 }
-function save(list) { writeFileSync(REG, JSON.stringify(list, null, 2)); }
+
+const load = loadRegistry;
+const save = saveRegistry;
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 /** 服務管家 crew（寫 data/crews/sre.<id>.json） */
@@ -139,48 +143,82 @@ export default async function handler(req, res) {
   if (!p.startsWith("/api/sre/services")) return false;
   const json = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)); return true; };
 
-  if (req.method === "GET") return json(200, { services: load() });
-
-  if (req.method === "POST") {
-    const body = await parseBody(req);
-    const name = String(body.name || "").trim();
-    if (!name) return json(400, { error: "name 必填" });
-    const list = load();
-    let id = slug(String(body.id || ""));
-    if (!id) id = slug(name);
-    if (!id || !/^[a-z][a-z0-9-]*$/.test(id)) {
-      let n = 1;
-      for (const c of list) { const m = /^svc-(\d+)$/.exec(c.id); if (m) n = Math.max(n, Number(m[1]) + 1); }
-      id = `svc-${n}`;
+  try {
+    if (req.method === "GET") {
+      // registry 損毀（parse 失敗/非陣列）→ 500 帶 code，不再靜默回空清單（QA C2）
+      let list;
+      try { list = load(); } catch (e) {
+        console.error(`[sre:services] services.json 損毀：`, e.message);
+        return json(500, { error: "服務註冊表損毀，請檢查 services.json", code: "SYS_CTRL_REGISTRY_CORRUPT" });
+      }
+      return json(200, { services: list });
     }
-    if (id === "_global" || id === "chief" || id === "reports") return json(400, { error: `保留字不可用：${id}` });
-    if (list.some(c => c.id === id)) return json(400, { error: `服務 ${id} 已存在` });
-    if (existsSync(join(PAAW_ROOT, "dossiers", id))) return json(400, { error: `dossiers/${id} 目錄已存在` });
-    const emoji = String(body.emoji || "🧩").slice(0, 4);
-    const goal = String(body.goal || "").slice(0, 300);
-    const owner = String(body.owner || "").slice(0, 60);
-    const tier = /^(P0|P1|P2)$/.test(String(body.tier || "")) ? body.tier : "";
-    const { agentId } = scaffoldCrew({ id, name, emoji, goal, owner, tier });
-    scaffoldTemplates({ id, name, emoji, goal, owner, tier });
-    const svc = { id, name, emoji, agentId, goal, owner, tier: tier || "P1", status: "🟢", builtin: false, enabled: true, createdAt: new Date().toISOString() };
-    list.push(svc); save(list);
-    return json(200, { ok: true, service: svc });
-  }
 
-  if (req.method === "PATCH") {
-    const body = await parseBody(req);
-    const list = load();
-    const svc = list.find(c => c.id === body.id);
-    if (!svc) return json(404, { error: `服務 ${body.id} 不存在` });
-    if (body.name) svc.name = String(body.name).slice(0, 60);
-    if (body.emoji) svc.emoji = String(body.emoji).slice(0, 4);
-    if (body.status) svc.status = String(body.status).slice(0, 4);
-    if (body.tier && /^(P0|P1|P2)$/.test(String(body.tier))) svc.tier = body.tier;
-    if (body.agentId) svc.agentId = String(body.agentId);
-    if (typeof body.enabled === "boolean") svc.enabled = body.enabled;
-    save(list);
-    return json(200, { ok: true, service: svc });
-  }
+    if (req.method === "POST") {
+      const body = await parseBody(req);
+      const name = String(body.name || "").trim();
+      if (!name) return json(400, { error: "name 必填", code: "SYS_CTRL_REQUEST_BODY_INVALID" });
+      // 讀-改-寫序列化（QA M4）：並發 POST 不再 lost update；回傳 {svc} 供回應
+      let created;
+      try {
+        created = await withRegistry(async (list) => {
+          let id = slug(String(body.id || ""));
+          if (!id) id = slug(name);
+          if (!id || !/^[a-z][a-z0-9-]*$/.test(id)) {
+            let n = 1;
+            for (const c of list) { const m = /^svc-(\d+)$/.exec(c.id); if (m) n = Math.max(n, Number(m[1]) + 1); }
+            id = `svc-${n}`;
+          }
+          if (id === "_global" || id === "chief" || id === "reports") throw httpError(400, "SYS_CTRL_REQUEST_BODY_INVALID", `保留字不可用：${id}`);
+          if (list.some(c => c.id === id)) throw httpError(400, "BIZ_CTRL_REQUEST_SERVICE_EXISTS", `服務 ${id} 已存在`);
+          if (existsSync(join(PAAW_ROOT, "dossiers", id))) throw httpError(400, "BIZ_CTRL_REQUEST_SERVICE_EXISTS", `dossiers/${id} 目錄已存在`);
+          const emoji = String(body.emoji || "🧩").slice(0, 4);
+          const goal = String(body.goal || "").slice(0, 300);
+          const owner = String(body.owner || "").slice(0, 60);
+          const tier = /^(P0|P1|P2)$/.test(String(body.tier || "")) ? body.tier : "";
+          const { agentId } = scaffoldCrew({ id, name, emoji, goal, owner, tier });
+          scaffoldTemplates({ id, name, emoji, goal, owner, tier });
+          const svc = { id, name, emoji, agentId, goal, owner, tier: tier || "P1", status: "🟢", builtin: false, enabled: true, createdAt: new Date().toISOString() };
+          list.push(svc);
+          return { svc };
+        }).then((r) => r.svc);
+      } catch (e) {
+        if (e && typeof e.statusCode === "number" && e.statusCode < 500) return json(e.statusCode, { error: e.message, code: e.code });
+        console.error(`[sre:services] POST 未預期錯誤：`, e);
+        return json(500, { error: "內部錯誤", code: "SYS_CTRL_REQUEST_INTERNAL" });
+      }
+      return json(200, { ok: true, service: created });
+    }
 
-  return json(405, { error: "method not allowed" });
+    if (req.method === "PATCH") {
+      const body = await parseBody(req);
+      try {
+        const svc = await withRegistry(async (list) => {
+          const s = list.find(c => c.id === body.id);
+          if (!s) throw httpError(404, "BIZ_CTRL_QUERY_SERVICE_NOT_FOUND", `服務 ${body.id} 不存在`);
+          if (body.name) s.name = String(body.name).slice(0, 60);
+          if (body.emoji) s.emoji = String(body.emoji).slice(0, 4);
+          if (body.status) s.status = String(body.status).slice(0, 4);
+          if (body.tier && /^(P0|P1|P2)$/.test(String(body.tier))) s.tier = body.tier;
+          if (body.agentId) s.agentId = String(body.agentId);
+          if (typeof body.enabled === "boolean") s.enabled = body.enabled;
+          return { svc: s };
+        }).then((r) => r.svc);
+        return json(200, { ok: true, service: svc });
+      } catch (e) {
+        if (e && typeof e.statusCode === "number" && e.statusCode < 500) return json(e.statusCode, { error: e.message, code: e.code });
+        console.error(`[sre:services] PATCH 未預期錯誤：`, e);
+        return json(500, { error: "內部錯誤", code: "SYS_CTRL_REQUEST_INTERNAL" });
+      }
+    }
+
+    return json(405, { error: "method not allowed" });
+  } catch (e) {
+    // 4xx：client 端問題，回可讀訊息 + EC code（QA M2）；其餘 500 不洩內部細節
+    if (e && typeof e.statusCode === "number" && e.statusCode < 500) {
+      return json(e.statusCode, { error: e.message, code: e.code });
+    }
+    console.error(`[sre:services] ${req.method} ${p} 未預期錯誤：`, e);
+    return json(500, { error: "內部錯誤", code: "SYS_CTRL_REQUEST_INTERNAL" });
+  }
 }

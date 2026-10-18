@@ -24,4 +24,4 @@ export default async function handler(req, res) {
 }
 
 // 掛載即 ensure（不擋載入；失敗只記 log）
-try { ensureBuiltinCrews(); } catch (e) { console.error(`[sre] ensureBuiltinCrews 失敗：${e.message}`); }
+ensureBuiltinCrews().catch((e) => console.error(`[sre] ensureBuiltinCrews 失敗：${e.message}`)); // async 化後 fire-and-forget

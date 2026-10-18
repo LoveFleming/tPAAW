@@ -7,29 +7,36 @@
  *   DELETE /api/sre/dossiers/<svc>/<file>
  */
 import { readFileSync, writeFileSync, unlinkSync, readdirSync, statSync, existsSync, mkdirSync } from "fs";
-import { join, basename } from "path";
+import { join, basename, sep } from "path";
 import { readBody, normalizePath, PAAW_ROOT } from "./shared.mjs";
-import { BUILTIN_FUNCTIONS, ensureBuiltinCrews } from "./crews.mjs";
+import { BUILTIN_FUNCTIONS, ensureBuiltinCrews, loadRegistry } from "./crews.mjs";
 
+/** parse + 驗證（QA C1）：非法 JSON 不再吞成 {}，直接 400 回客戶端 */
 async function parseBody(req) {
-  const raw = await readBody(req);
-  try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+  const raw = await readBody(req); // 帶 5MB 上限（shared shim，QA M1）
+  if (!raw) return {};
+  try { return JSON.parse(raw); } catch { throw httpError(400, "SYS_CTRL_REQUEST_BODY_INVALID", "body 非合法 JSON"); }
+}
+
+/** 結構化錯誤（QA M2）：statusCode 讓外層 catch 正確分流，code 供前端判斷 */
+function httpError(statusCode, code, message) {
+  return Object.assign(new Error(message), { statusCode, code });
 }
 
 const DOSSIER_DIR = (svc) => join(PAAW_ROOT, "dossiers", svc);
 const DOSSIER_BASE = join(PAAW_ROOT, "dossiers");
 
-const SAFE_NAME = /^[^\\/:*?"<>|]+$/;
+const SAFE_NAME = /^[^\\/:*?"<>|\x00-\x1f]+$/;
 function safeName(n) {
-  if (!n || n.includes("..") || !SAFE_NAME.test(n) || n.length > 120) throw new Error(`非法檔名：${n}`);
+  if (typeof n !== "string" || !n.trim() || n !== n.trim() || n.startsWith(".") || n.includes("..") || !SAFE_NAME.test(n) || n.length > 120) {
+    throw httpError(400, "SYS_CTRL_REQUEST_FILENAME_INVALID", `非法檔名：${n}`);
+  }
   return basename(n);
 }
 
 const SHEET_RE = /\.(xlsx|csv)$/i;
-
-function loadRegistry() {
-  try { return JSON.parse(readFileSync(join(PAAW_ROOT, "services.json"), "utf-8")); } catch { return []; }
-}
+/** 上傳白名單（檔頭契約：xlsx/csv/md）*/
+const UPLOAD_RE = /\.(md|xlsx|csv)$/i;
 
 export default async function handler(req, res) {
   const url = new URL(req.url, "http://x");
@@ -41,7 +48,7 @@ export default async function handler(req, res) {
   const file = fileParts.join("/");
 
   try {
-    ensureBuiltinCrews(); // 冪等：確保職能櫃/註冊表/crews 就緒
+    await ensureBuiltinCrews(); // 冪等：確保職能櫃/註育表/crews 就緒
     const registry = loadRegistry();
 
     // 全樹（_global 第一、職能櫃次之、服務櫃最後）
@@ -63,15 +70,22 @@ export default async function handler(req, res) {
       return json(200, { root: normalizePath(DOSSIER_BASE), services: tree });
     }
 
-    // 合法性
+    // 合法性（known 集合成員皆為 registry id（slug 產出）或程式內建字面值，天然不含路徑分隔）
     const known = new Set(["_global", "chief", ...registry.map(r => r.id), ...BUILTIN_FUNCTIONS.map(f => f.id)]);
-    if (!known.has(svc)) throw new Error(`服務/職能不存在：${svc}`);
+    if (!known.has(svc)) throw httpError(404, "BIZ_CTRL_QUERY_SERVICE_NOT_FOUND", `服務/職能不存在：${svc}`);
+    // M3 縱深防禦：join 後確認仍在檔案櫃根之下（防未來 registry id 源頭被鬆動）
+    const svcDir = DOSSIER_DIR(svc);
+    if (svcDir !== DOSSIER_BASE && !svcDir.startsWith(DOSSIER_BASE + sep)) {
+      throw httpError(400, "SYS_CTRL_REQUEST_PATH_INVALID", `非法服務櫃路徑：${svc}`);
+    }
 
+    // 上傳（副檔名白名單：檔頭契約為 xlsx/csv/md — QA minor）
     if (!file && req.method === "POST") {
       const body = await parseBody(req);
       const name = safeName(String(body.filename || ""));
       const b64 = String(body.dataBase64 || "");
-      if (!b64) return json(400, { error: "dataBase64 必填" });
+      if (!b64) throw httpError(400, "SYS_CTRL_REQUEST_BODY_INVALID", "dataBase64 必填");
+      if (!UPLOAD_RE.test(name)) throw httpError(400, "SYS_CTRL_REQUEST_FILENAME_INVALID", `不支援的檔案類型（僅 md/xlsx/csv）：${name}`);
       mkdirSync(DOSSIER_DIR(svc), { recursive: true });
       writeFileSync(join(DOSSIER_DIR(svc), name), Buffer.from(b64, "base64"));
       return json(200, { ok: true, name });
@@ -101,18 +115,27 @@ export default async function handler(req, res) {
 
     if (req.method === "PUT") {
       const body = await parseBody(req);
+      if (typeof body.content !== "string") {
+        throw httpError(400, "SYS_CTRL_REQUEST_CONTENT_MISSING", "content 欄位必填（字串）— 拒絕寫入空內容覆蓋既有檔案");
+      }
       mkdirSync(DOSSIER_DIR(svc), { recursive: true });
-      writeFileSync(fp, String(body.content ?? ""), "utf-8");
+      writeFileSync(fp, body.content, "utf-8");
       return json(200, { ok: true });
     }
 
     if (req.method === "DELETE") {
-      if (existsSync(fp)) unlinkSync(fp);
+      if (!existsSync(fp)) throw httpError(404, "BIZ_CTRL_QUERY_FILE_NOT_FOUND", `檔案不存在：${file}`);
+      unlinkSync(fp);
       return json(200, { ok: true });
     }
 
     return json(405, { error: "method not allowed" });
   } catch (e) {
-    return json(400, { error: e.message });
+    // 4xx：client 端問題，回可讀訊息 + EC code（QA M2）；其餘 500 不洩內部細節
+    if (e && typeof e.statusCode === "number" && e.statusCode < 500) {
+      return json(e.statusCode, { error: e.message, code: e.code });
+    }
+    console.error(`[sre:dossiers] ${req.method} ${p} 未預期錯誤：`, e);
+    return json(500, { error: "內部錯誤", code: "SYS_CTRL_REQUEST_INTERNAL" });
   }
 }
