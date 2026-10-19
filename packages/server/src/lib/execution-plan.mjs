@@ -114,8 +114,8 @@ function _genPlanId(projectPath) {
  * 同日同專案二次 createPlan 時加序號（-1/-2/...），避免覆蓋進行中的 plan
  * （覆蓋會破壞 resume 中斷恢復語意）。
  */
-async function _genUniquePlanId(rootDir, projectPath) {
-  const dir = _plansDir(rootDir);
+async function _genUniquePlanId(projectPath) {
+  const dir = _plansDir(projectPath);
   const baseId = _genPlanId(projectPath);
   let candidate = baseId;
   let n = 1;
