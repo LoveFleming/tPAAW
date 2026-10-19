@@ -457,17 +457,33 @@ export class PaawProject {
       const newSection = [``, `## ${dateStr}`, ``];
       lines.splice(insertIndex, 0, ...newSection);
       insertIndex += 2; // now points to the empty line after ## date
-    } else {
-      // Move to end of this date's section
-      let i = insertIndex + 1;
-      while (i < lines.length && !lines[i].startsWith("## ")) i++;
-      insertIndex = i;
     }
 
-    // Insert entry
+    // 2026-10-19 修根因（委員會 major）：同日同分類合併 — bullet 接連既有 ### 區塊，
+    // 不再每次 append 都堆一個新的同名 ### 標題（多個 ### changed 未合併的來源）
     const category = entry.type || "changed"; // added, fixed, changed, deprecated
-    const newLines = [`### ${category}`, `- ${entry.description}`, ""];
-    lines.splice(insertIndex, 0, ...newLines);
+    const cleanDesc = String(entry.description ?? "").replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+
+    // 今天這一節的邊界：下一個 ## 或檔尾
+    let secEnd = insertIndex + 1;
+    while (secEnd < lines.length && !lines[secEnd].startsWith("## ")) secEnd++;
+
+    // 找既有同分類區塊的尾端（最後一個 matching ### 之後、下一個 ### 之前）
+    let blockEnd = -1;
+    for (let i = insertIndex + 1; i < secEnd; i++) {
+      if (lines[i] === `### ${category}`) {
+        let j = i + 1;
+        while (j < secEnd && !lines[j].startsWith("### ")) j++;
+        blockEnd = j;
+      }
+    }
+
+    if (blockEnd !== -1) {
+      // 既有區塊尾端補 bullet（從後面插，同日多筆自然依序堆疊）
+      lines.splice(blockEnd, 0, `- ${cleanDesc}`);
+    } else {
+      lines.splice(secEnd, 0, `### ${category}`, `- ${cleanDesc}`, "");
+    }
 
     await writeFile(cl, lines.join("\n"), "utf-8");
     return { ok: true };
@@ -525,6 +541,15 @@ export class PaawProject {
       else modifiedFiles.push(file);
     }
 
+    // 2026-10-19 修根因（委員會 major + 無效循環）：
+    // 舊行為 = task 硬切 80 字元（殘片）+ (N new)(M modified) 機器後綴 + 獨立 diff-stat 條目（+X −Y lines…）
+    // 新行為 = 一筆乾淨摘要（句界截斷、去換行）；diff 統計屬 git/qa 證據，不進 changelog。
+    // 另：只動 .paaw/** 的 session（例如 doc-writer 清 changelog 本身）不寫入 — 修掉「清完又被自己污染」的循環。
+    const relPaths = [...changedFiles.keys()];
+    if (relPaths.length > 0 && relPaths.every(p => p === ".paaw" || p.startsWith(".paaw/"))) {
+      return { skipped: "paaw-only", entries: [], changedFiles: relPaths, gitAdded, gitDeleted };
+    }
+
     // Categorize changes
     const task = sessionData.task || sessionData.prompt || "code changes";
     const taskLower = task.toLowerCase();
@@ -535,18 +560,20 @@ export class PaawProject {
     else if (/refactor|重構/.test(taskLower)) category = "changed";
     else if (/remove|delete|移除/.test(taskLower)) category = "removed";
 
-    // Build description
-    let desc = task.slice(0, 80);
-    if (newFiles.length > 0) desc += ` (${newFiles.length} new file${newFiles.length > 1 ? "s" : ""})`;
-    if (modifiedFiles.length > 0) desc += ` (${modifiedFiles.length} modified)`;
+    // 摘要清理：壓平換行 → 句界截斷（不硬切半句），超過才接 …
+    const oneLine = String(task).replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+    let desc = oneLine;
+    if (oneLine.length > 80) {
+      const win = oneLine.slice(0, 80);
+      const sentenceEnd = win.match(/^(.*[。．.!?！？;；])/);
+      if (sentenceEnd && sentenceEnd[1].length >= 20) desc = sentenceEnd[1];
+      else {
+        const sp = win.lastIndexOf(" ");
+        desc = (sp >= 30 ? win.slice(0, sp) : win) + "…";
+      }
+    }
 
     entries.push({ type: category, description: desc });
-
-    // Add file-level details
-    if (fileStats.length > 0) {
-      const totalLine = `+${gitAdded} −${gitDeleted} lines across ${fileStats.length} file${fileStats.length > 1 ? "s" : ""}`;
-      entries.push({ type: "changed", description: totalLine });
-    }
 
     // Write to changelog
     for (const entry of entries) {

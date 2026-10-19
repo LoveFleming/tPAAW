@@ -149,9 +149,12 @@ export function resolveDecision(perModel, sevCount) {
 }
 
 /** 組 deterministic context：commit range 的 changed files + diff（截斷保護） */
-function _buildDiffContext(projectDir, ref, pathFilter) {
+// 2026-10-19 Fleming 決策：.paaw/ 是 runtime/產物區（agent 記憶、changelog 自動產物、api-tester history…），
+// 不屬於交付 code — 一律排除在 code review 範圍外（finding 不得落在 .paaw，diff 統計也不再混入 runtime 檔）
+const REVIEW_EXCLUDE_PATHSPECS = [":(exclude).paaw"];
+export function _buildDiffContext(projectDir, ref, pathFilter) {
   const range = ref || "HEAD~1..HEAD";
-  const pathArgs = pathFilter ? ["--", pathFilter] : [];
+  const pathArgs = ["--", ...REVIEW_EXCLUDE_PATHSPECS, ...(pathFilter ? [pathFilter] : [])];
   const nameOut = _git(projectDir, ["diff", "--name-status", range, ...pathArgs]);
   if (!nameOut) {
     const head = _git(projectDir, ["rev-parse", "--short", "HEAD"]);
