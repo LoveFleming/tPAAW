@@ -840,7 +840,8 @@ const _PAAW_ROOT = resolve(dirname(__filename), "../../../../");
 
 function _writeLlmLog(entry) {
   try {
-    const logDir = join(ASSET_LOGS_ROOT, "llm");
+    // PAAW_LLM_LOG_DIR：測試隔離用（同 provider.mjs）
+    const logDir = process.env.PAAW_LLM_LOG_DIR || join(ASSET_LOGS_ROOT, "llm");
     mkdirSync(logDir, { recursive: true });
     const dateStr = new Date().toISOString().slice(0, 10);
     const logPath = join(logDir, `${dateStr}.jsonl`);

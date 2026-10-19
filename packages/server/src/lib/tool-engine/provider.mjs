@@ -23,7 +23,8 @@ const PAAW_ROOT = pathResolve(__providerDir, '../../../../')
 /** Append an LLM log entry to data/llm-logs/YYYY-MM-DD.jsonl */
 function _llmLog(entry) {
   try {
-    const logDir = join(ASSET_LOGS_ROOT, "llm")
+    // PAAW_LLM_LOG_DIR：測試隔離用（2026-10-19 污染事件：retrofit 測試把 3000+ 假 log 寫進正式區）
+    const logDir = process.env.PAAW_LLM_LOG_DIR || join(ASSET_LOGS_ROOT, "llm")
     if (!existsSync(logDir)) mkdirSync(logDir, { recursive: true })
     const dateStr = new Date().toISOString().slice(0, 10)
     const logPath = join(logDir, `${dateStr}.jsonl`)

@@ -9,6 +9,7 @@ export default defineConfig({
   envDir: path.resolve(__dirname, "tests/env"),
   test: {
     include: ["tests/unit/**/*.test.{mjs,js,ts}"],
+    setupFiles: ["./tests/setup.mjs"],
     environment: "node",
     globals: true,
     testTimeout: 10_000,
