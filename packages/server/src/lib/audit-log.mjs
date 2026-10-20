@@ -125,6 +125,12 @@ const NET_HINT_RE = /(https?:\/\/|git@|ssh:\/\/|\b(curl|wget|ping|dig|nslookup|t
 const LOCAL_RE = /(localhost|127\.0\.0\.1|0\.0\.0\.0|::1|\[::1\])/i;
 // npm 自己的 EPERM（cache 檔鎖 unlink/rename）不是沙箱事件 — 排除
 const FS_DENY_FALSE_POSITIVE_RE = /(EPERM|EACCES):\s*(operation not permitted|permission denied)[,:]?\s*(unlink|rename|mkdir|chmod|chown|utime)/i;
+// ── 2026-10-20（Fleming B 案）：搜尋工具的「單檔跳過」通知不算被擋 ──
+// 教訓（tpaaw-gateway 誤殺事件）：grep -r 掃 repo 必然掃到機密檔（providers.json）→
+// 印一行 `grep: ./data/config/providers.json: Operation not permitted`，掃描本身成功繼續；
+// 舊版卻把整條指令記 sandbox_fs_deny，30 分鐘累計 3 次 → developer run 被强制停機。
+// 格式認定：行首 `grep:/rg:/find:/ag:/ack:` 前綴 = 工具自己跳過該檔繼續跑。
+const FS_SKIP_NOTICE_RE = /^\s*(?:grep|rg|find|ag|ack):\s/i;
 
 // ── 明知故犯偵測（2026-10-11 Fleming）──
 // 原則：白名單/護欄有意義的前提是「被擋就不能自己繞」。AI 被明確告知不可後仍重試 →
@@ -194,8 +200,11 @@ export function nonWhitelistedHosts(command, allowedDomains) {
 export function scanCommandOutput({ command, output, allowedDomains, agentId, cwd, tool = "bash", audit = true, sandboxActive = true }) {
   const out = String(output || "");
   if (!out) return null;
-  const exitMatch = out.match(/Exit code:\s*(\d+)\s*$/);
-  const exitCode = exitMatch ? Number(exitMatch[1]) : null;
+  // 2026-10-20（B 案）：runShell 是先附 "Exit code: N" 再接 "🛡沙箱內（MXC）" 標記 →
+  // 舊版 /Exit code:\s*(\d+)\s*$/ 的 $ 錨點永遠匹配不到（audit 裡 exitCode 全是 null）。
+  // 取最後一筆（runShell 的附加行一定在最尾；runShell 只在非零退出才附）→ null 即成功。
+  const exitMatches = [...out.matchAll(/Exit code:\s*(\d+)/g)];
+  const exitCode = exitMatches.length ? Number(exitMatches[exitMatches.length - 1][1]) : null;
   const netFailed = NET_FAIL_RE.test(out);
   const allowed = allowedDomains || [];
 
@@ -236,15 +245,25 @@ export function scanCommandOutput({ command, output, allowedDomains, agentId, cw
     };
   }
 
-  // ── 沙箱檔案系統拒絕：機密 denyRead / 專案外禁寫（EPERM 家族，排除 npm 誤報）──
+  // ── 沙箱檔案系統拒絕（2026-10-20 Fleming B 案重構：兩級判定，不再强制停 run）──
+  // ① 單檔跳過（grep -r 掃到機密檔等）：指令成功、工具自己跳過 → 只記 info 審計，不發信號。
+  // ② 真被擋（EPERM 是本指令的主要結果）：記 warn 審計 + 引導 agent，但**不進 block-attempt
+  //    計數、不再 stopRun** — 防護已在執行層完成（沙箱本身擋掉該次操作），輸出掃描只負責翻譯，
+  //    不再升級懲罰。強制停 run 保留給 network_block（那才是「被明確告知後仍重試」）。
+  //    （誤殺實例：讀 review 報告，內容引用 audit 的 "Operation not permitted" 原文 → 中獎計數。）
   if (FS_DENY_RE.test(out) && !FS_DENY_FALSE_POSITIVE_RE.test(out)) {
-    const attempt = _noteBlockAttempt("sandbox_fs_deny", []);
-    const repeat = attempt >= 2;
-    if (audit) logAuditEvent({ kind: "sandbox_fs_deny", severity: "warn", tool, command, reason: "指令觸發 OS 權限拒絕（Operation not permitted / EPERM）— 可能讀取受保護檔案（~/.ssh、.env、providers.json）或寫入專案外路徑" + (repeat ? ` — 第 ${attempt} 次重試` : ""), detail: { exitCode, attempt, outputTail: out.slice(-600) }, agentId, cwd });
-    if (repeat && audit) logAuditEvent({ kind: "block_retry", severity: "block", tool, command, reason: `被擋後仍重試受限路徑（第 ${attempt} 次）— 明知故犯`, detail: { attempt }, agentId, cwd });
+    const denyLines = out.split(/\r?\n/).filter(l => FS_DENY_RE.test(l) && !FS_DENY_FALSE_POSITIVE_RE.test(l));
+    const skipOnly = denyLines.length > 0 && denyLines.every(l => FS_SKIP_NOTICE_RE.test(l));
+    if (skipOnly && exitCode == null) {
+      // ① 指令成功、只有單檔被跳過 — 不是安全事件，落 info 審計即可（可觀測、不打擾）
+      if (audit) logAuditEvent({ kind: "sandbox_fs_deny", severity: "info", tool, command, reason: "掃描工具跳過受保護檔案（單檔 skip，指令本身成功）— 非安全事件", detail: { exitCode, skipOnly: true, denyLines: denyLines.slice(0, 5), outputTail: out.slice(-600) }, agentId, cwd });
+      return null;
+    }
+    // ② 真被擋：audit warn + 引導；不計數、不停 run（stopRun 恆 false）
+    if (audit) logAuditEvent({ kind: "sandbox_fs_deny", severity: "warn", tool, command, reason: "指令觸發 OS 權限拒絕（Operation not permitted / EPERM）— 可能讀取受保護檔案（~/.ssh、.env、providers.json）或寫入專案外路徑", detail: { exitCode, skipOnly, outputTail: out.slice(-600) }, agentId, cwd });
     return {
-      type: "sandbox_fs_deny", exitCode, attempt, repeatOffense: repeat, stopRun: attempt >= 3,
-      agentNotice: `\n\n🔒 [PAAW 沙箱防護] 指令觸發 OS 權限拒絕（Operation not permitted / EPERM）— 可能是讀取受保護檔案（~/.ssh、.env、providers.json）或寫入專案目錄外的路徑。此事件已記錄安全審計。**不要重試**：一律在專案目錄內操作；需要機密設定時請使用者手動處理。${_repeatNote(attempt, "路徑")}`,
+      type: "sandbox_fs_deny", exitCode, attempt: 1, repeatOffense: false, stopRun: false,
+      agentNotice: `\n\n🔒 [PAAW 沙箱防護] 這次操作被沙箱權限拒絕（Operation not permitted / EPERM）— 該路徑受保護或在專案目錄外。已記錄安全審計。改在專案目錄內操作；需要機密設定時請使用者手動處理。`,
       userNotice: `🔒 沙箱防護：AI 指令觸發權限拒絕（機密檔案防讀 / 專案外禁寫），已記錄安全審計。`,
     };
   }

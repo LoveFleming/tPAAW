@@ -115,7 +115,7 @@ describe("scanCommandOutput — 輸出安全掃描", () => {
     expect(r).toBeNull();
   });
 
-  it("沙箱檔案拒絕：Operation not permitted → sandbox_fs_deny", () => {
+  it("沙箱檔案拒絕：Operation not permitted → sandbox_fs_deny（2026-10-20 B 案：不再停 run）", () => {
     const r = scanCommandOutput({
       command: "cat ~/.ssh/config",
       output: "cat: /Users/x/.ssh/config: Operation not permitted\nExit code: 1",
@@ -123,6 +123,8 @@ describe("scanCommandOutput — 輸出安全掃描", () => {
     });
     expect(r?.type).toBe("sandbox_fs_deny");
     expect(r.agentNotice).toContain("沙箱防護");
+    expect(r.stopRun).toBe(false); // 2026-10-20：fs deny 不再强制停 run（防護在執行層已完成）
+    expect(r.repeatOffense).toBe(false);
   });
 
   it("EPERM（node fetch 被沙箱擋）→ sandbox_fs_deny", () => {
@@ -173,6 +175,60 @@ describe("scanCommandOutput — 輸出安全掃描", () => {
   it("正常輸出 → null；空輸出 → null", () => {
     expect(scanCommandOutput({ command: "ls -la", output: "file1\nfile2", allowedDomains: ALLOWED })).toBeNull();
     expect(scanCommandOutput({ command: "ls", output: "", allowedDomains: ALLOWED })).toBeNull();
+  });
+
+  // ── 2026-10-20 Fleming B 案：tpaaw-gateway 誤殺事件回歸測試 ──
+  it("① grep -r 掃到機密檔（單檔 skip、指令成功）→ 不再是安全事件", () => {
+    const r = scanCommandOutput({
+      command: 'grep -rn "sessionSecret" --include="*.mjs" . | grep -v node_modules; echo done',
+      output: 'src/a.mjs:      sessionSecret: "paaw-gw-default",\n\ngrep: ./data/config/providers.json: Operation not permitted\n\n🛡沙箱內（MXC）',
+      allowedDomains: ALLOWED,
+    });
+    expect(r).toBeNull(); // 單檔跳過 + 指令成功（無 Exit code 尾行）→ info 審計、不發信號
+  });
+
+  it("① 讀到「內容裡引用 EPERM 字串」的檔（review 報告情境）→ 仍發 warn，但 stopRun=false 不再誤殺", () => {
+    const r = scanCommandOutput({
+      command: "sed -n '40,120p' .paaw/review-board/20261020-221929-HEAD_1..HEAD.md",
+      output: ' - 🔴 `zai/glm-5` 說 major：write-layer sanitizer 對整個 detail 截斷…\n - 審計輸出：grep: ./data/config/providers.json: Operation not permitted\n\n🛡沙箱內（MXC）',
+      allowedDomains: ALLOWED,
+    });
+    expect(r?.type).toBe("sandbox_fs_deny");
+    expect(r.stopRun).toBe(false);
+    expect(r.repeatOffense).toBe(false);
+  });
+
+  it("② 同 RU 30 分鐘內連續第三次真被擋 → 仍不强制停 run（計數已移除，沙箱本身已擋）", () => {
+    const mk = () => scanCommandOutput({
+      command: "cat ~/.ssh/config",
+      output: "cat: /Users/x/.ssh/config: Operation not permitted\nExit code: 1",
+      allowedDomains: ALLOWED, agentId: "dev", cwd: "/Users/x/App/tpaaw-gateway",
+    });
+    mk(); mk();
+    const third = mk();
+    expect(third?.type).toBe("sandbox_fs_deny");
+    expect(third.stopRun).toBe(false);
+    expect(third.repeatOffense).toBe(false);
+  });
+
+  it("③ exitCode 尾行後接沙箱標記也取得到（舊版 $ 錨點 bug 回歸）", () => {
+    const r = scanCommandOutput({
+      command: "cat ~/.ssh/config",
+      output: "cat: /Users/x/.ssh/config: Operation not permitted\nExit code: 1\n🛡沙箱內（MXC）",
+      allowedDomains: ALLOWED,
+    });
+    expect(r?.type).toBe("sandbox_fs_deny");
+    expect(r.exitCode).toBe(1);
+  });
+
+  it("① 搜尋工具全部檔案被拒（skip-only 但指令失敗）→ 仍發 warn 信號", () => {
+    const r = scanCommandOutput({
+      command: "grep -rn foo .",
+      output: "grep: ./a.mjs: Operation not permitted\ngrep: ./b.mjs: Operation not permitted\nExit code: 2\n🛡沙箱內（MXC）",
+      allowedDomains: ALLOWED,
+    });
+    expect(r?.type).toBe("sandbox_fs_deny");
+    expect(r.stopRun).toBe(false);
   });
 
   it("audit:false 不落盤（純偵測模式）", () => {
