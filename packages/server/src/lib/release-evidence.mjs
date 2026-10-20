@@ -110,7 +110,11 @@ export function aiReviewForFeature(board, featureFiles) {
   for (const r of board.reports.slice().reverse()) {
     if (r.findingFiles.some(f => set.has(f))) { touched = r; break; }
   }
-  if (touched) return { ok: touched.decision === "approve", models: touched.reviewers, at: touched.at, decision: touched.decision, touched: true };
+  if (touched) {
+    // 2026-10-20：touched 但非 approve 時要给 reason — 否則 RM 證據矩陣把「已審未過」誤顯示成「未跑」（Fleming 誤導事件）
+    return { ok: touched.decision === "approve", models: touched.reviewers, at: touched.at, decision: touched.decision, touched: true,
+      reason: touched.decision === "approve" ? undefined : `已審（${touched.decision}）未達 approve` };
+  }
   return { ok: false, reason: "委員會未觸及此 feature", models: board.latest.reviewers, at: board.latest.at };
 }
 

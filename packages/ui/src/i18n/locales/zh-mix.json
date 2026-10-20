@@ -992,6 +992,7 @@
   "rm.ev.feature": "Feature",
   "rm.ev.board": "AI Review Board",
   "rm.ev.human": "Human",
+  "rm.ev.reviewedNotApproved": "已審未過",
   "rm.ev.notRun": "未跑",
   "rm.ev.gapsTitle": "Gaps（Exception Review）",
   "rm.ev.unconfirmedTip": "未確認",

@@ -53,7 +53,7 @@ interface ReadinessFeature {
   apis: string[]; apiImpact: boolean; tests: { file: string; kind?: string | null }[];
   hasTests: boolean; knowledgeGaps: string[]; recentSubjects: string[];
 }
-interface EvCell { ok: boolean; reason?: string; tests?: number; covered?: number; total?: number; high?: number; actor?: string; models?: string[]; at?: string; decision?: string; summary?: string }
+interface EvCell { ok: boolean; reason?: string; tests?: number; covered?: number; total?: number; high?: number; actor?: string; models?: string[]; at?: string; decision?: string; summary?: string; touched?: boolean } // touched（2026-10-20）：aiReview 用 — 區分「已審未過」vs「未跑」
 interface EvFeature extends ReadinessFeature {
   severity: string | null; severitySource: string; // human=最新人判定 | ai/scan/auto=AI 判定預設生效
   severityDecisions?: { id: string; by: string; at: string; severity: string; remark?: string }[];
@@ -390,7 +390,10 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                           {cell(ev.qa, ev.qa.ok ? `✓${String(ev.qa.actor || "").slice(0, 4)}` : "✗")}
                           {ev.aiReview.ok
                             ? <span className="text-[9px] text-green-600 font-mono truncate" title={`${ev.aiReview.models?.join("、")} @ ${String(ev.aiReview.at || "").slice(0, 10)}`}>✓{ev.aiReview.models?.length}m {String(ev.aiReview.decision || "").slice(0, 8)}</span>
-                            : <span className="text-[9px] text-red-500 font-bold truncate" title={String(ev.aiReview.reason || "")}>✗ {t("rm.ev.notRun")}</span>}
+                            // 2026-10-20：區分「已審未過」vs「未跑」— 舊版一律印未跑，誤導（Fleming 誤導事件）
+                            : ev.aiReview.touched
+                              ? <span className="text-[9px] text-amber-600 font-bold truncate" title={String(ev.aiReview.reason || "")}>✗ {t("rm.ev.reviewedNotApproved")}{ev.aiReview.decision ? `（${String(ev.aiReview.decision).slice(0, 14)}）` : ""}</span>
+                              : <span className="text-[9px] text-red-500 font-bold truncate" title={String(ev.aiReview.reason || "")}>✗ {t("rm.ev.notRun")}</span>}
                           {onOpenQaRecords
                             ? (() => {
                                 const needsHuman = f.severity === "S2";
