@@ -9,7 +9,7 @@ import { spawn } from "child_process";
 import { classifyTestType } from "./test-intelligence.mjs";
 import { shellExec } from "./shell-exec.mjs";
 
-const DEFAULT_TIMEOUT_UNIT = 5 * 60_000;
+const DEFAULT_TIMEOUT_UNIT = 12 * 60_000; // 2026-10-21：加入 coverage 量測會加 20-50% 時間（大 repo 全套 >5min）— 5min 會在產生報告前被 SIGKILL
 const DEFAULT_TIMEOUT_E2E = 20 * 60_000;
 
 // ── 偵測專案的測試指令（多語言可並存 — monorepo 依序全跑）──
