@@ -994,6 +994,7 @@
   "rm.ev.human": "Human",
   "rm.ev.reviewedNotApproved": "審査済み・未承認",
   "rm.ev.notRun": "未実施",
+  "rm.ev.notTouched": "実施済・範囲外",
   "rm.ev.gapsTitle": "ギャップ",
   "rm.ev.unconfirmedTip": "未確認",
   "apiTester.tabFeature": "Feature",

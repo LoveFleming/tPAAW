@@ -994,6 +994,7 @@
   "rm.ev.human": "Human",
   "rm.ev.reviewedNotApproved": "reviewed, not approved",
   "rm.ev.notRun": "not run",
+  "rm.ev.notTouched": "ran, not in scope",
   "rm.ev.gapsTitle": "Gaps (Exception Review)",
   "rm.ev.unconfirmedTip": "severity unconfirmed",
   "apiTester.tabFeature": "Feature",

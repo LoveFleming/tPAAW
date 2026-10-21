@@ -994,6 +994,7 @@
   "rm.ev.human": "Human",
   "rm.ev.reviewedNotApproved": "已審未過",
   "rm.ev.notRun": "未跑",
+  "rm.ev.notTouched": "未觸及",
   "rm.ev.gapsTitle": "缺口（Exception Review — 老闆看這裡）",
   "rm.ev.unconfirmedTip": "severity 未確認（有 AI 建議未拍板）",
   "apiTester.tabFeature": "Feature",

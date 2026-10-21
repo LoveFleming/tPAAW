@@ -95,8 +95,18 @@ export async function loadReviewBoard(projectPath) {
         [...(m[1].matchAll(/`([^`]+)`/g))].map(x => x[1]));
       const decision = (md.match(/- 結論：\*\*(\w[\w-]*)\*\*/) || [])[1] || null;
       const findingFiles = [...md.matchAll(/^### .+?(\S+):\d+/gm)].map(m => m[1].replace(/^\.\//, ""));
+      // 2026-10-21：審查範圍清單（新報告）— 乾攆 approve 沒 findings headings，
+      // touched 只靠 findings = 全綠審查永遠 join 不上 feature（越乾淨越沒證據的謬誤）
+      const scopeStart = md.indexOf("## 審查範圍");
+      let scopeFiles = [];
+      if (scopeStart !== -1) {
+        const rest = md.slice(scopeStart);
+        const nextSec = rest.indexOf("\n## ", 1);
+        const section = nextSec === -1 ? rest : rest.slice(0, nextSec);
+        scopeFiles = [...section.matchAll(/- `([^`]+)`/g)].map(m => m[1].replace(/\\/g, "/").replace(/^\.\//, ""));
+      }
       const at = (md.match(/- 時間：(\S+)/) || [])[1] || null;
-      if (reviewers.length) reports.push({ file: f, at, decision, reviewers, findingFiles });
+      if (reviewers.length) reports.push({ file: f, at, decision, reviewers, findingFiles, scopeFiles });
     } catch { /* skip bad md */ }
   }
   return reports.length ? { latest: reports[reports.length - 1], reports } : null;
@@ -104,18 +114,21 @@ export async function loadReviewBoard(projectPath) {
 
 export function aiReviewForFeature(board, featureFiles) {
   if (!board) return { ok: false, reason: "未跑（.paaw/review-board/ 空）" };
-  const set = new Set(featureFiles);
-  // 有 findings 提及該 feature 檔案的報告（= 委員會實際審到這裡）
+  const set = new Set(featureFiles.map(p => String(p).replace(/\\/g, "/").replace(/^\.\//, "")));
+  // touched 判定：優先審查範圍清單（2026-10-21 — 乾攆 approve 也要算審過）；
+  // 舊報告無範圍清單 → fallback findings headings（審到出事的地方也算觸及）
   let touched = null;
   for (const r of board.reports.slice().reverse()) {
-    if (r.findingFiles.some(f => set.has(f))) { touched = r; break; }
+    const scope = (r.scopeFiles && r.scopeFiles.length) ? r.scopeFiles : r.findingFiles;
+    if (scope.some(f => set.has(f))) { touched = r; break; }
   }
   if (touched) {
     // 2026-10-20：touched 但非 approve 時要给 reason — 否則 RM 證據矩陣把「已審未過」誤顯示成「未跑」（Fleming 誤導事件）
     return { ok: touched.decision === "approve", models: touched.reviewers, at: touched.at, decision: touched.decision, touched: true,
       reason: touched.decision === "approve" ? undefined : `已審（${touched.decision}）未達 approve` };
   }
-  return { ok: false, reason: "委員會未觸及此 feature", models: board.latest.reviewers, at: board.latest.at };
+  // 2026-10-21：untouched 獨立標記 — 有跑但沒審到這個 feature ≠ 未跑（UI 分三態，不再誤導）
+  return { ok: false, untouched: true, reason: `委員會未觸及此 feature（共 ${board.reports.length} 份報告，最新 ${board.latest.at ? String(board.latest.at).slice(0, 10) : "?"} 審查）`, models: board.latest.reviewers, at: board.latest.at };
 }
 
 // ── QA（qa-results by feature）──

@@ -346,6 +346,12 @@ export async function runMultiModelReview(opts = {}) {
     `- Reviewers：${perModel.map(p => `\`${p.model}\`${p.error ? " ⚠️" : ""}`).join("、")}`,
     `- 結論：**${decision}**（critical ${sevCount.critical} / major ${sevCount.major} / minor ${sevCount.minor}）`,
     ``,
+    // 2026-10-21：審查範圍檔案清單 — 證據矩陣 touched 判定靠它（乾攆 approve 沒 findings headings，
+    // 沒範圍清單 = 全綠審查永遠 join 不上 feature → 顯示「未跑」誤導）
+    `## 審查範圍`,
+    ``,
+    ...ctx.files.map(f => `- \`${f}\``),
+    ``,
     `## Findings`,
     ``,
     ...(merged.length === 0 ? [decision === "inconclusive"
