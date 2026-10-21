@@ -59,15 +59,24 @@ export async function loadSecurityScan(projectPath) {
   try {
     const data = JSON.parse(await readFile(join(projectPath, ".paaw", "security", "scan-results.json"), "utf-8"));
     const findings = Array.isArray(data.findings) ? data.findings : [];
+    const root = _normEvPath(projectPath).replace(/\/$/, "");
     return {
       scannedAt: data.scannedAt || data.meta?.scannedAt || null,
       findings: findings.map(f => ({
-        file: _normEvPath(String(f.file || f.path || "")),
+        // 2026-10-21 修假綠燈：semgrep-runner 存的是「絕對路徑」，feature 的 files 是相對路徑 →
+        // 舊版不比對根目錄，永遺命中永远 0 → 有 CRITICAL 也當没掃到（false green）。統一相對化。
+        file: _relToRoot(f.file || f.path, root),
         severity: String(f.severity || "").toUpperCase(), // CRITICAL/WARNING/INFO（semgrep-runner 映射後值域 — 見 sgForFeature）
         rule: String(f.id || f.rule || "").slice(0, 120),
       })),
     };
   } catch { return null; }
+}
+
+function _relToRoot(p, root) {
+  const s = _normEvPath(p);
+  if (root && s.startsWith(root + "/")) return s.slice(root.length + 1);
+  return s;
 }
 
 export function sgForFeature(scan, featureFiles) {

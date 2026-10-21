@@ -57,6 +57,8 @@ const CANDIDATES = [
   // PAAW 自身的測試執行結果（test-runner.mjs → .paaw/test-runs/last.json）
   // 2026-10-11：這是 PAAW 內部真實跑過的結果，比外部慣例路徑更該優先顯示
   { kind: "run", file: ".paaw/test-runs/last.json", runner: "PAAW test-run" },
+  // 2026-10-21：node --test 專案（無 istanbul）→ test-runner 從 Node 原生覆蓋率表格轉出的 summary
+  { kind: "coverage-summary", file: ".paaw/test-runs/coverage-summary.json", runner: "node --test" },
 ];
 
 /** 找出專案實際存在的 report（deterministic 掃標準路徑） */
@@ -87,9 +89,9 @@ export function findTestReports(projectRoot) {
 
 // ── Istanbul coverage-summary.json ──
 // { total: { lines: { pct: 87.5 }, ... }, "abs/path/file.ts": { lines: { pct: 100 } } }
-function parseCoverageSummary(projectRoot, filePath) {
+function parseCoverageSummary(projectRoot, filePath, runner = null) {
   const j = JSON.parse(readFileSync(filePath, "utf-8"));
-  const out = { runner: "vitest/jest (istanbul)", kind: "coverage", at: statSync(filePath).mtime.toISOString(), fileCoverage: {}, totalLinePct: null };
+  const out = { runner: runner ? `${runner} (istanbul 格式)` : "vitest/jest (istanbul)", kind: "coverage", at: statSync(filePath).mtime.toISOString(), fileCoverage: {}, totalLinePct: null };
   for (const [k, v] of Object.entries(j)) {
     if (k === "total") { out.totalLinePct = v?.lines?.pct ?? null; continue; }
     const rel = relative(projectRoot, k).replace(/\\/g, "/");
@@ -271,7 +273,7 @@ function parsePaawTestRun(filePath) {
   for (const f of found) {
     try {
       if (f.kind === "run") { const r = parsePaawTestRun(f.path); if (r) reports.push(r); }
-      else if (f.kind === "coverage-summary") reports.push(parseCoverageSummary(projectRoot, f.path));
+      else if (f.kind === "coverage-summary") reports.push(parseCoverageSummary(projectRoot, f.path, f.runner));
       else if (f.kind === "lcov") reports.push(parseLcov(projectRoot, f.path));
       else if (f.kind === "playwright-json") reports.push(parsePlaywrightJson(f.path));
       else if (f.kind === "cobertura") { const r = parseCoberturaXml(projectRoot, f.path); if (r) reports.push(r); }

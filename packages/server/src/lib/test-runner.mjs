@@ -39,6 +39,12 @@ export function detectTestGroups(projectPath, { includeE2e = false } = {}) {
       groups.push({ kind: "mixed", runner: "vitest", cmd: ["npx", "vitest", "run", "--reporter=json", "--outputFile=.paaw/test-runs/.vitest.json", ...cov] });
     } else if (/\bjest\b/.test(t) && devDeps.jest) {
       groups.push({ kind: "mixed", runner: "jest", cmd: ["npx", "jest", "--json", "--outputFile=.paaw/test-runs/.jest.json"] });
+    } else if (/\bnode\b/.test(t) && /(^|\s)--test(\s|$)/.test(t)) {
+      // 2026-10-21：node --test 專案（gateway）真實覆蓋率 — 用 Node 原生 --experimental-test-coverage
+      // （不想 npm test 不能附旗標：旗標會在腳本後變成 argv。故直接以 node 跑，重取其 glob）。
+      const globs = [...t.matchAll(/["']([^"']+)["']/g)].map(m => m[1])
+        .filter(g => /\*/.test(g) || /\.(mjs|cjs|js|ts|mts|cts|jsx|tsx)$/.test(g));
+      groups.push({ kind: "mixed", runner: "node-test", cmd: ["node", "--test", "--test-reporter=tap", "--experimental-test-coverage", ...globs] });
     } else if (scripts.test) {
       groups.push({ kind: "mixed", runner: "npm-script", cmd: ["npm", "test"] }); // 文字 fallback
     }
@@ -180,6 +186,30 @@ function findReportXmls(projectPath, runner) {
   return found;
 }
 
+// ── Node 原生 --experimental-test-coverage 表格解析 → istanbul 風格 summary ──
+// 表格長相（TAP 註解前綴 #）：
+//   # all files        |  55.16 |    70.23 |   30.15 |
+//   # gateway.mjs      |  92.82 |    29.41 |   80.00 | 87-89 101-107
+// 只取行覆蓋率（line %）→ 寫 .paaw/test-runs/coverage-summary.json（reader 讀 total.lines.pct）
+export function parseNodeCoverage(out) {
+  let total = null;
+  const files = {};
+  for (const ln of out.split("\n")) {
+    // 去掉 TAP 註解前綴後只認「name | num | num | num | ...」且行內後面可再有一個 | 的資料列
+    const m = ln.replace(/^#\s?/, "").match(/^([^|]+?)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|/);
+    if (!m) continue;
+    const name = m[1].trim();
+    const linePct = parseFloat(m[2]);
+    if (!Number.isFinite(linePct)) continue;
+    if (name === "all files") { total = linePct; continue; }
+    if (/^[\w.-]+\.(mjs|cjs|js|ts|mts|cts|jsx|tsx)$/.test(name)) files[name] = linePct;
+  }
+  if (total == null) return null;
+  const summary = { total: { lines: { total: 0, covered: 0, skipped: 0, pct: total } } };
+  for (const [name, pct] of Object.entries(files)) summary[name] = { lines: { total: 0, covered: 0, skipped: 0, pct } };
+  return summary;
+}
+
 // ── 執行單一 group，回傳結構化結果 ──
 async function runGroup(projectPath, group) {
   const g = { kind: group.kind, runner: group.runner, cmd: group.cmd.join(" "), status: "pass", passed: 0, failed: 0, skipped: 0, files: {}, outputTail: "" };
@@ -216,6 +246,20 @@ async function runGroup(projectPath, group) {
       } else { // fallback 文字
         const m = out.match(/(\d+) passed/); const f = out.match(/(\d+) failed/); const s = out.match(/(\d+) skipped/);
         g.passed = m ? +m[1] : 0; g.failed = f ? +f[1] : 0; g.skipped = s ? +s[1] : 0;
+      }
+    } else if (group.runner === "node-test") {
+      // TAP 摘要：# tests / # pass / # fail / # skipped
+      const p = out.match(/# pass (\d+)/); const f = out.match(/# fail (\d+)/); const s = out.match(/# skipped (\d+)/);
+      g.passed = p ? +p[1] : 0; g.failed = f ? +f[1] : 0; g.skipped = s ? +s[1] : 0;
+      // 真實覆蓋率（Node 原生表格）→ 寫 istanbul 風格 summary（reader kind=coverage-summary 直接讀）
+      const cov = parseNodeCoverage(out);
+      if (cov) {
+        try { writeFileSync(join(projectPath, ".paaw/test-runs/coverage-summary.json"), JSON.stringify(cov, null, 2)); } catch { /* 寫不入不擋測試 */ }
+      }
+      // Node 太舊 / 旗標不支援 → 拿掉覆蓋率重跑（不能因覆蓋率害測試跑不了）
+      if ((/bad option|not allowed|unknown option/i.test(out)) && group.cmd.includes("--experimental-test-coverage")) {
+        const retry = { ...group, cmd: group.cmd.filter(a => a !== "--experimental-test-coverage") };
+        return runGroup(projectPath, retry);
       }
     } else if (group.runner === "pytest") {
       let xml = null;

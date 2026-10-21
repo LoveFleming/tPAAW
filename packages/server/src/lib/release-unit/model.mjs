@@ -156,8 +156,11 @@ export async function buildReleaseUnitModel(root, opts = {}) {
   const testKindMap = new Map((tiData?.testToCode || []).map(t => [_norm(t.testFile), t.testType || null]));
   const testRelations = mappings.map(m => {
     const prod = _norm(m.productionFile);
-    const ids = fIdsByFile.get(prod) ? [...fIdsByFile.get(prod)] : [];
-    return { testFile: _norm(m.testFile), productionFile: prod, testCount: m.testCount ?? 0, kind: testKindMap.get(_norm(m.testFile)) || null, featureIds: ids };
+    // 2026-10-21：feature 歸屬複來源 — 生產檔路徑直查 + 測試檔自帶 feature tag（F########-###）
+    // 黑盒/spawn 型測試不 import 生產檔，靠 tag 才連得上 feature（gateway CLI 撞牆根因）
+    const ids = new Set(fIdsByFile.get(prod) || []);
+    for (const id of (m.featureIds || [])) ids.add(id);
+    return { testFile: _norm(m.testFile), productionFile: prod, testCount: m.testCount ?? 0, kind: testKindMap.get(_norm(m.testFile)) || null, featureIds: [...ids] };
   });
   testRelations.sort((a, b) => (a.testFile + "→" + a.productionFile).localeCompare(b.testFile + "→" + b.productionFile)); // 決定性順序
 

@@ -450,7 +450,7 @@ export function buildDependencyGraph(parsedResult, projectRoot) {
  * 2. Import analysis: test file imports production file
  * 3. Pattern: *.test.*, *.spec.*, test_*, *_test.*
  */
-export function buildTestCodeMap(parsedResult) {
+export function buildTestCodeMap(parsedResult, projectRoot = null) {
   const mappings = [];
 
   const TEST_PATTERNS = [
@@ -459,41 +459,81 @@ export function buildTestCodeMap(parsedResult) {
     /^test[_-](.+)\.(js|mjs|cjs|jsx|ts|tsx|py|java|go)$/,
     /^(.+)[_-]test\.(js|mjs|cjs|jsx|ts|tsx|py|java|go)$/,
   ];
+  const isTestName = (n) => TEST_PATTERNS.some(p => p.test(n));
+  const PROD_EXTS = [".js", ".mjs", ".ts", ".tsx", ".jsx", ".py", ".java", ".go"];
+  // 生產檔索引（排除測試檔本身）— 命名策略要全專案找（測試在 tests/、生產在 src/，舊版只看同目錄 → 幾乎必失敗）
+  const prodFiles = parsedResult.files.filter(f => !isTestName(basename(f.file)));
 
   for (const file of parsedResult.files) {
     const fileName = basename(file.file);
+    // 2026-10-21 修（Fleming：gateway release unit 撞牆）：只把「測試檔」當測試來源。
+    // 舊版對 parsedResult 所有檔案跑 import 策略 → 生產檔互相 import 也被記成「測試」→
+    // feature 的 tests 清單被自己的 src 檔灌水（假證據：lib/config.mjs 被記成測 src/server.mjs），
+    // 且真測試（黑盒 spawn CLI、不 import 生產檔）反而漏掉。
+    if (!isTestName(fileName)) continue;
+
     let productionFile = null;
     let matchType = null;
+    let featureTags = [];
 
-    // Strategy 1: Naming convention
+    // Strategy 0：測試檔內容明確標註 feature id（F########-###）→ 最強證據，不受 import/命名影響。
+    // 測試 docstring 常寫「Unit tests — gateway.mjs（F20261009-001 …）」= 機器可讀的覆蓋宣告。
+    if (projectRoot) {
+      try {
+        const content = readFileSync(join(projectRoot, file.file), "utf-8");
+        featureTags = [...new Set([...content.matchAll(/\b(F\d{8}-\d{3})\b/g)].map(m => m[1]))];
+      } catch { /* 讀不到就算了 */ }
+    }
+
+    // Strategy 1: Naming convention（全專案 basename 比對 + 多候選用目錄 token 消歧）
     for (const pattern of TEST_PATTERNS) {
       const match = fileName.match(pattern);
       if (match) {
         const baseName = match[1];
-        // Find production file with this base name
-        for (const ext of [".js", ".mjs", ".ts", ".tsx", ".jsx", ".py", ".java", ".go"]) {
-          const candidate = join(dirname(file.file), baseName + ext);
-          const found = parsedResult.files.find(f => f.file === candidate);
-          if (found) {
-            productionFile = found;
-            matchType = "naming";
-            break;
-          }
+        const cands = prodFiles.filter(f => PROD_EXTS.some(ext => basename(f.file) === baseName + ext));
+        if (cands.length === 1) {
+          productionFile = cands[0];
+          matchType = "naming";
+        } else if (cands.length > 1) {
+          // 多個同名生產檔（如 src/lib/config.mjs vs src/server/config.mjs）→ 用測試檔所在目錄 token 比對候選路徑
+          const dirTokens = new Set(dirname(file.file).split(/[\\/]/));
+          const scored = cands.map(c => ({ c, s: c.file.split(/[\\/]/).filter(seg => dirTokens.has(seg)).length }));
+          scored.sort((a, b) => b.s - a.s);
+          if (scored[0].s > (scored[1]?.s || 0)) { productionFile = scored[0].c; matchType = "naming"; }
         }
         if (productionFile) break;
       }
     }
 
-    // Strategy 2: Import analysis
+    // Strategy 2: Import analysis（僅測試檔）
     if (!productionFile && file.imports.length > 0) {
       for (const imp of file.imports) {
         if (!imp.source.startsWith(".")) continue;
         const target = resolveImportPath(imp.source, file.file, parsedResult);
-        if (target && !target.file.includes(".test.") && !target.file.includes(".spec.")) {
+        if (target && !isTestName(basename(target.file))) {
           productionFile = target;
           matchType = "import";
           break;
         }
+      }
+    }
+
+    // Strategy 3：命名 token 相似（黑盒 / spawn 型測試，不 import 生產檔）—
+    // 生產檔名（去副檔）是測試檔名的一個 token（gateway-cli-dispatch → gateway.mjs）。唯一命中才採用。
+    if (!productionFile) {
+      const base = fileName.replace(/\.[^.]+$/, ""); // gateway-cli-dispatch
+      const tokens = new Set(base.split(/[-_.]/).filter(Boolean));
+      const cands = prodFiles.filter(f => {
+        const pbase = basename(f.file).replace(/\.[^.]+$/, "");
+        return pbase && tokens.has(pbase);
+      });
+      if (cands.length === 1) { productionFile = cands[0]; matchType = "token"; }
+      else if (cands.length > 1) {
+        // 多候選（lib-config → config 有兩個）→ 目錄 token 消歧（lib → src/lib/config.mjs）
+        const dirTokens = new Set(dirname(file.file).split(/[\\/]/));
+        const scored = cands.map(c => ({ c, s: c.file.split(/[\\/]/).filter(seg => dirTokens.has(seg)).length }));
+        scored.sort((a, b) => b.s - a.s);
+        if (scored[0].s > (scored[1]?.s || 0)) { productionFile = scored[0].c; matchType = "token"; }
       }
     }
 
@@ -525,16 +565,18 @@ export function buildTestCodeMap(parsedResult) {
       }
     }
 
-    if (productionFile) {
+    if (productionFile || featureTags.length) {
       const testedFunctions = [];
-      for (const fn of file.functions) {
-        if (!fn.calls) continue;
-        // Check if test function references production functions
-        for (const call of fn.calls) {
-          const simpleName = call.callee.split(".").pop();
-          if (productionFile.functions.some(f => f.name === simpleName)) {
-            if (!testedFunctions.includes(simpleName)) {
-              testedFunctions.push(simpleName);
+      if (productionFile) {
+        for (const fn of file.functions) {
+          if (!fn.calls) continue;
+          // Check if test function references production functions
+          for (const call of fn.calls) {
+            const simpleName = call.callee.split(".").pop();
+            if (productionFile.functions.some(f => f.name === simpleName)) {
+              if (!testedFunctions.includes(simpleName)) {
+                testedFunctions.push(simpleName);
+              }
             }
           }
         }
@@ -542,10 +584,12 @@ export function buildTestCodeMap(parsedResult) {
 
       mappings.push({
         testFile: file.file,
-        productionFile: productionFile.file,
-        matchType,
+        productionFile: productionFile ? productionFile.file : null,
+        matchType: matchType || (featureTags.length ? "feature-tag" : null),
         testedFunctions,
-        testCount: file.functions.length,
+        // 有 feature tag 但無生產檔對應時，至少算 1（測試存在就是證據，來源是明確 tag）
+        testCount: Math.max(file.functions.length, featureTags.length ? 1 : 0),
+        ...(featureTags.length ? { featureIds: featureTags } : {}),
       });
     }
   }
@@ -657,7 +701,7 @@ export async function buildCodeIntelligence(projectRoot, paawRoot, { persist = t
   const callGraph = buildCallGraph(parsedResult);
   const apiFunctionMap = buildApiFunctionMap(parsedResult, callGraph);
   const dependencyGraph = buildDependencyGraph(parsedResult, projectRoot);
-  const testCodeMap = buildTestCodeMap(parsedResult);
+  const testCodeMap = buildTestCodeMap(parsedResult, projectRoot);
   const symbolIndex = buildSymbolIndex(parsedResult);
 
   // Save to .paaw/code-intelligence/
