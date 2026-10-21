@@ -550,7 +550,7 @@ export const PAAW_TOOLS = [
       type: "function",
       function: {
         name: "qa_record_save",
-        description: "Save a QA result record to the shared QA log (.paaw/coding-memory/qa-results.jsonl) - visible to ALL agents and the human. Use after ANY testing/verification work: browser QA, smoke test, API test, code review verdict, e2e run. Records verdict (pass/fail), issues found (with severity + evidence like screenshot paths), and links to task/feature. This is the team's QA memory - ALWAYS record your test results here, never let them evaporate into chat history.",
+        description: "Save a QA result record to the shared QA log (.paaw/coding-memory/qa-results.jsonl) - visible to ALL agents and the human. Use after ANY testing/verification work: browser QA, smoke test, API test, code review verdict, e2e run. Records verdict (pass/fail), issues found (with severity + evidence like screenshot paths), and links to task/feature. This is the team's QA memory - ALWAYS record your test results here, never let them evaporate into chat history. IMPORTANT: the `feature` param must be copied VERBATIM from project_info(category=\"features\") name field - the Release Evidence Matrix joins on exact feature name; a paraphrased/blank/mistyped feature = that feature's QA evidence is LOST (shows ✗ even if you said PASS in chat).",
         parameters: {
           type: "object",
           properties: {
@@ -560,7 +560,7 @@ export const PAAW_TOOLS = [
             type: { type: "string", enum: ["browser", "smoke", "api", "review", "e2e", "manual"], description: "Test type" },
             url: { type: "string", description: "Tested URL (if applicable)" },
             taskId: { type: "string", description: "Related task id in the task pipeline (if applicable)" },
-            feature: { type: "string", description: "Related feature name (if applicable)" },
+            feature: { type: "string", description: "Feature name copied VERBATIM from project_info(category=\"features\") name field (evidence matrix joins on exact name; do NOT paraphrase, abbreviate, or use the feature id)" },
             issues: {
               type: "array",
               description: "Issues found (empty for pass)",

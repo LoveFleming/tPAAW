@@ -53,7 +53,7 @@ interface ReadinessFeature {
   apis: string[]; apiImpact: boolean; tests: { file: string; kind?: string | null }[];
   hasTests: boolean; knowledgeGaps: string[]; recentSubjects: string[];
 }
-interface EvCell { ok: boolean; reason?: string; tests?: number; covered?: number; total?: number; high?: number; actor?: string; models?: string[]; at?: string; decision?: string; summary?: string; touched?: boolean } // touched（2026-10-20）：aiReview 用 — 區分「已審未過」vs「未跑」
+interface EvCell { ok: boolean; reason?: string; tests?: number; covered?: number; total?: number; high?: number; actor?: string; verdict?: string; models?: string[]; at?: string; decision?: string; summary?: string; touched?: boolean } // touched（2026-10-20）：aiReview 用 — 區分「已審未過」vs「未跑」；verdict（2026-10-21）：qa 用 — 區分「有記錄非 pass」vs「無記錄」
 interface EvFeature extends ReadinessFeature {
   severity: string | null; severitySource: string; // human=最新人判定 | ai/scan/auto=AI 判定預設生效
   severityDecisions?: { id: string; by: string; at: string; severity: string; remark?: string }[];
@@ -387,7 +387,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                           {cell(ev.unit, ev.unit.ok ? `✓${ev.unit.tests || 0}t` : "✗")}
                           {cell(ev.e2e, ev.e2e.ok ? (ev.e2e.total ? `${ev.e2e.covered}/${ev.e2e.total}` : "—") : `✗${ev.e2e.covered ?? 0}/${ev.e2e.total ?? 0}`)}
                           {cell(ev.sg, ev.sg.ok ? ((ev.sg.total ?? 0) > 0 ? `⚠${ev.sg.total}` : "✓0") : `✗${ev.sg.high ?? 0}hi`)}
-                          {cell(ev.qa, ev.qa.ok ? `✓${String(ev.qa.actor || "").slice(0, 4)}` : "✗")}
+                          {cell(ev.qa, ev.qa.ok ? `✓${String(ev.qa.actor || "").slice(0, 4)}` : ev.qa.verdict ? `✗${ev.qa.verdict}` : "✗")}
                           {ev.aiReview.ok
                             ? <span className="text-[9px] text-green-600 font-mono truncate" title={`${ev.aiReview.models?.join("、")} @ ${String(ev.aiReview.at || "").slice(0, 10)}`}>✓{ev.aiReview.models?.length}m {String(ev.aiReview.decision || "").slice(0, 8)}</span>
                             // 2026-10-20：區分「已審未過」vs「未跑」— 舊版一律印未跑，誤導（Fleming 誤導事件）

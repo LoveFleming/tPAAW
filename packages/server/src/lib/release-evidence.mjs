@@ -119,11 +119,28 @@ export function aiReviewForFeature(board, featureFiles) {
 }
 
 // ── QA（qa-results by feature）──
+// 2026-10-21 Fleming：QA 欄打叉誤導事件 — 聊天講「閘門全過」但矩陣打叉，根因有二：
+//   (a) QA 說了沒記錄（或 feature 名跟 FEATURES.json name 差一字 → 精確比對視同無記錄）
+//   (b) 最新一筆非 pass 時沒給 reason → tooltip 一律 "missing" 又一次誤導
+// 對策：比對放寬 trim + case-insensitive；reason 分級（無記錄 / 名稱對不上 / 最新一筆非 pass）
+const _normFeatureKey = (s) => String(s || "").trim().toLowerCase();
+
 export function qaForFeature(projectPath, featureKey) {
   try {
-    const list = listQaResults(projectPath, { feature: featureKey, limit: 5 });
-    const items = Array.isArray(list) ? list : (list.items || []);
-    if (!items.length) return { ok: false, reason: "無 QA 記錄" };
+    // 1) 精確比對（快徑 — qa_record_save feature = name 原文時直接命中）
+    let items = listQaResults(projectPath, { feature: featureKey, limit: 5 });
+    // 2) 放寬：trim + case-insensitive（前後空格 / 大小寫差異不該讓證據消失）
+    if (!items.length && String(featureKey || "").trim()) {
+      const nk = _normFeatureKey(featureKey);
+      items = listQaResults(projectPath, { limit: 500 })
+        .filter(r => _normFeatureKey(r.feature) === nk)
+        .slice(0, 5);
+    }
+    if (!items.length) {
+      // reason 分級：專案內有記錄但沒一筆標到這個 feature → 名稱對不上的診斷線索（不是籠統的「無記錄」）
+      const any = listQaResults(projectPath, { limit: 1 });
+      return { ok: false, reason: any.length ? `有 QA 記錄但 feature 名對不上（記錄 feature 需=「${String(featureKey).slice(0, 40)}」原文 — 用 qa_record_save 補記）` : "無 QA 記錄" };
+    }
     const latest = items[0];
     const human = items.find(r => r.actor === "human") || null;
     return {
@@ -132,6 +149,7 @@ export function qaForFeature(projectPath, featureKey) {
       summary: String(latest.summary || "").slice(0, 120),
       human: human ? { verdict: human.verdict, at: human.ts, summary: String(human.summary || "").slice(0, 160) } : null,
       count: items.length,
+      reason: latest.verdict === "pass" ? undefined : `最新一筆 ${latest.verdict}：${String(latest.summary || "").slice(0, 60)}`,
     };
   } catch { return { ok: false, reason: "無 QA 記錄" }; }
 }
