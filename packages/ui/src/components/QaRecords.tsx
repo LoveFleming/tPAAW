@@ -7,7 +7,7 @@
  *  - 詳情（summary / issues / evidence / history 軌跡）
  *  - Human 操作：issue 標 resolved/wontfix、刪除記錄
  */
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import MarkdownText from "./MarkdownText";
@@ -98,6 +98,14 @@ export default function QaRecords({ rootPath, theme, initialFeature }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [featureFilter, setFeatureFilter] = useState(initialFeature || ""); // Release Manager Human 欄點入用
   const [busy, setBusy] = useState(false);
+  // ── ✍ 人工簽核（2026-10-21 Fleming：QA 記錄頁人類入口 — 補記/簽核直接落地 qa-results，RM Human 欄採計）──
+  const [signOpen, setSignOpen] = useState(false);
+  const [signFeatures, setSignFeatures] = useState<string[] | null>(null); // null = 未載入；[] = 載不到（fallback 自由輸入）
+  const [signFeature, setSignFeature] = useState("");
+  const [signVerdict, setSignVerdict] = useState<"pass" | "fail" | "warn" | "blocked">("pass");
+  const [signSummary, setSignSummary] = useState("");
+  const [signBusy, setSignBusy] = useState(false);
+  const composingRef = useRef(false); // IME 三層保護（TOOLS.md 鐵律：composingRef → isComposing → keyCode 229）
 
   const base = `${API_BASE}/api/coding-crew/qa-results`;
 
@@ -157,6 +165,50 @@ export default function QaRecords({ rootPath, theme, initialFeature }: Props) {
     setBusy(false);
   };
 
+  // 開簽核表單時 lazy 載 feature 清單（名稱=原文，證據矩陣靠它 join — 下拉選就不用手打）
+  const openSignForm = async () => {
+    setSignOpen(true);
+    if (signFeatures === null) {
+      try {
+        const res = await fetch(`${API_BASE}/api/coding-features?path=${encodeURIComponent(rootPath)}`);
+        const d = await res.json();
+        const names = (d.features || []).map((f: { name?: string }) => String(f.name || "")).filter(Boolean);
+        setSignFeatures(names);
+        // 預選：目前過濾中的 feature（RM Human 欄點入情境）；不往清單裡就留空
+        if (featureFilter && names.includes(featureFilter)) setSignFeature(featureFilter);
+      } catch { setSignFeatures([]); }
+    }
+  };
+
+  const submitSignOff = async () => {
+    const summary = signSummary.trim();
+    if (!summary || signBusy) return;
+    setSignBusy(true);
+    try {
+      const res = await fetch(base, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cwd: rootPath,
+          actor: "human",
+          type: "manual",
+          feature: signFeature || undefined, // 不指定就不帶 — 空字串會 join 不到任何 feature
+          verdict: signVerdict,
+          summary,
+          target: signFeature ? `人工簽核：${signFeature}` : summary.slice(0, 40),
+        }),
+      });
+      if (res.ok) {
+        setSignOpen(false);
+        setSignSummary("");
+        if (signFeature) setFeatureFilter(signFeature); // 切到該 feature 過濾 — 新記錄立刻看得到
+        await fetchRecords();
+        await fetchStats();
+      } else { console.error("[QaRecords] sign-off POST failed:", res.status); }
+    } catch (err) { console.error("[QaRecords] sign-off error:", err); }
+    setSignBusy(false);
+  };
+
   const inputStyle = { background: theme.bg, color: theme.text, borderColor: theme.borderLight } as React.CSSProperties;
 
   const fmtTime = (iso: string) => {
@@ -204,8 +256,52 @@ export default function QaRecords({ rootPath, theme, initialFeature }: Props) {
               🗺️ {featureFilter} ✕
             </button>
           )}
+          <button type="button" onClick={() => (signOpen ? setSignOpen(false) : openSignForm())} disabled={signBusy}
+            className="text-xs px-2 py-1 rounded shrink-0 font-medium disabled:opacity-50" style={{ background: signOpen ? theme.bgMuted : theme.accentBg, color: theme.accent }}
+            title={t("qaRecords.signHint")} data-testid="qa-sign-off-btn">
+            {signBusy ? "⋯" : "✍"} {t("qaRecords.signOff")}
+          </button>
           <button onClick={() => { fetchRecords(); fetchStats(); }} className="text-xs px-1.5 py-1 rounded shrink-0" style={{ background: theme.bgMuted, color: theme.text }} title="Refresh">🔄</button>
         </div>
+        {signOpen && (
+          <div className="px-3 py-2.5 flex flex-col gap-1.5" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }} data-testid="qa-sign-off-form">
+            <div className="flex items-center gap-1.5">
+              {/* feature 下拉（名稱=FEATURES.json 原文 — 證據矩陣靠它 join）；載不到清單 fallback 自由輸入 */}
+              {signFeatures && signFeatures.length > 0 ? (
+                <select value={signFeature} onChange={e => setSignFeature(e.target.value)} className="flex-1 text-xs px-2 py-1.5 rounded border outline-none min-w-0" style={inputStyle} title={t("qaRecords.signTarget")}>
+                  <option value="">{t("qaRecords.signNoFeature")}</option>
+                  {signFeatures.map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              ) : (
+                <input type="text" value={signFeature} onChange={e => setSignFeature(e.target.value)} placeholder={t("qaRecords.signNoFeature")} className="flex-1 text-xs px-2 py-1.5 rounded border outline-none min-w-0" style={inputStyle} />
+              )}
+              <select value={signVerdict} onChange={e => setSignVerdict(e.target.value as "pass" | "fail" | "warn" | "blocked")} className="text-xs px-2 py-1.5 rounded border outline-none shrink-0" style={inputStyle} title={t("qaRecords.signVerdict")}>
+                {Object.keys(VERDICT_STYLES).map(v => <option key={v} value={v}>{VERDICT_STYLES[v].icon} {v}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <textarea value={signSummary} onChange={e => setSignSummary(e.target.value)}
+                onCompositionStart={() => { composingRef.current = true; }}
+                onCompositionEnd={() => { composingRef.current = false; }}
+                onKeyDown={(e) => {
+                  // IME 三層保護（TOOLS.md 鐵律）— Ctrl/Cmd+Enter 送出，Enter 不綁（避免選字誤送）
+                  if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitSignOff(); }
+                }}
+                placeholder={t("qaRecords.signSummaryPh")} rows={2}
+                className="flex-1 text-xs px-2 py-1.5 rounded border outline-none resize-none min-w-0" style={inputStyle} data-testid="qa-sign-off-summary" />
+              <div className="flex flex-col gap-1 shrink-0">
+                <button type="button" onClick={submitSignOff} disabled={!signSummary.trim() || signBusy}
+                  className="text-xs px-2.5 py-1 rounded font-medium disabled:opacity-40" style={{ background: theme.accent, color: theme.accentBg }} data-testid="qa-sign-off-submit">
+                  {signBusy ? "⋯" : t("qaRecords.signSubmit")}
+                </button>
+                <button type="button" onClick={() => setSignOpen(false)} className="text-[10px] px-2.5 py-0.5 rounded" style={{ background: theme.bg, color: theme.text, opacity: 0.6 }}>
+                  {t("qaRecords.signCancel")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto">
           {loading ? <div className="flex items-center justify-center h-full text-sm" style={{ color: theme.text, opacity: 0.4 }}>{t("qaRecords.loading")}</div>
           : records.length === 0 ? (
