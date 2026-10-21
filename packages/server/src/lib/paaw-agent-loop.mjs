@@ -1591,6 +1591,15 @@ export function getToolsForAgent(agentId, extraGroups = [], cwd = null) {
     if (!name) return false;
     if (deny.has(name)) return false; // 代碼保證：黑名單工具物理拿不到
 
+    // 🔧 2026-10-22：shell group — 診斷型 agent（ops/helpdesk）用 bash 做 system 診斷
+    //（查 process/port/log/版本/環境）。邊界不靠 prompt 自律，靠既有四層 guard：
+    // shell-guard(process 範圍) + script-guard(危險 pattern) + 審批卡 + 網路沙箱。
+    // ⚠️ 必須在 core-read early-return 之前（bash 屬 core group，會先被 core-read 擓下來）
+    if (groups.has("shell") && name === "bash") return true;
+    // 🔧 2026-10-22：core-write-limited — ops 寫 runbook/文檔（write_file only；
+    // 無 edit_file/git — source code 修改主力工具不開，動 code 轉 developer）
+    if (groups.has("core-write-limited") && name === "write_file") return true;
+
     // Handle core-read: only read-only core tools
     if (useCoreRead && TOOL_GROUP_MAP[name] === "core") {
       return CORE_READ_TOOLS.has(name);

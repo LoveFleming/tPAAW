@@ -25,7 +25,8 @@
     "project",
     "docs",
     "release-requests",
-    "release-prep"
+    "release-prep",
+    "release-unit"
   ],
   "_promptRev": "2026-10-09-module",
   "_source": "global",
