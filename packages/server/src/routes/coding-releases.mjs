@@ -316,10 +316,18 @@ export default async function releaseRoutes(req, res, next) {
       const changedSet = new Set(recentFiles.map(f => f.file));
 
       // ── Feature Map（release-unit-model）──
+      // 2026-10-21：改走 loadReleaseUnitModel（fresh-or-rebuild）— 舊版直接讀檔不檢查 headSha，
+      // model 落後 HEAD 時新 feature/新 API 整個隱形（新 API 不現 → E2E 假「無 API 變更」綠燈）
       let model = null;
       try {
-        model = JSON.parse(readFileSync(join(projectPath, ".paaw", "release-unit-model.json"), "utf-8")); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
-      } catch { /* no model */ }
+        const { loadReleaseUnitModel } = await import("../lib/release-unit/model.mjs");
+        model = await loadReleaseUnitModel(projectPath);
+      } catch (e) {
+        console.error("[readiness] model refresh:", e.message); // nosemgrep: unsafe-formatstring
+        try {
+          model = JSON.parse(readFileSync(join(projectPath, ".paaw", "release-unit-model.json"), "utf-8")); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — fallback：重建失敗至少讀舊的
+        } catch { /* no model */ }
+      }
 
       const changedApis = (model?.apis || []).filter(a => a.file && changedSet.has(a.file))
         .map(a => ({ method: a.method, path: a.path, file: a.file, featureIds: a.featureIds || [] }));
@@ -430,7 +438,7 @@ export default async function releaseRoutes(req, res, next) {
       try {
         const ltr2 = await lastTestRunSummary(projectPath);
         evidenceMatrix = await buildEvidenceMatrix(projectPath, changedFeatures, {
-          lastTestRunGreen: !(ltr2?.summary?.failed > 0),
+          lastTestRun: ltr2, // 2026-10-21：傳全物件 — no-run/stale/failed 從嚴（舊版只傳 failed 布林，null 假綠）
         });
       } catch (e) { console.error("[readiness] evidence matrix:", e.message); } // nosemgrep: unsafe-formatstring
 

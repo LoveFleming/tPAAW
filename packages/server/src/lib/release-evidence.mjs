@@ -53,6 +53,8 @@ export async function loadSeverityMap(projectPath) {
 }
 
 // ── semgrep findings × feature files ──
+const _normEvPath = (p) => String(p || "").replace(/\\/g, "/").replace(/^\.\//, "");
+
 export async function loadSecurityScan(projectPath) {
   try {
     const data = JSON.parse(await readFile(join(projectPath, ".paaw", "security", "scan-results.json"), "utf-8"));
@@ -60,8 +62,8 @@ export async function loadSecurityScan(projectPath) {
     return {
       scannedAt: data.scannedAt || data.meta?.scannedAt || null,
       findings: findings.map(f => ({
-        file: String(f.file || f.path || "").replace(/^\.\//, ""),
-        severity: String(f.severity || "").toUpperCase(), // ERROR/WARNING/INFO
+        file: _normEvPath(String(f.file || f.path || "")),
+        severity: String(f.severity || "").toUpperCase(), // CRITICAL/WARNING/INFO（semgrep-runner 映射後值域 — 見 sgForFeature）
         rule: String(f.id || f.rule || "").slice(0, 120),
       })),
     };
@@ -70,9 +72,11 @@ export async function loadSecurityScan(projectPath) {
 
 export function sgForFeature(scan, featureFiles) {
   if (!scan) return { ok: false, reason: "未掃描" };
-  const set = new Set(featureFiles);
-  const hits = scan.findings.filter(f => set.has(f.file));
-  const high = hits.filter(f => f.severity === "ERROR").length;
+  const set = new Set(featureFiles.map(_normEvPath));
+  const hits = scan.findings.filter(f => set.has(_normEvPath(f.file)));
+  // 2026-10-21：修假綠燈 — semgrep-runner 存的值域是 CRITICAL/WARNING/INFO（ERROR 早已被映射掉），
+  // 舊版比 "ERROR" 永遠比不到 → high 恒 0 → 有 CRITICAL finding 照樣 ✓（本機 scan-results 實測 9 筆全 WARNING 驗證）
+  const high = hits.filter(f => f.severity === "CRITICAL" || f.severity === "ERROR").length;
   return { ok: high === 0, high, total: hits.length, scannedAt: scan.scannedAt };
 }
 
@@ -155,7 +159,10 @@ export function qaForFeature(projectPath, featureKey) {
       return { ok: false, reason: any.length ? `有 QA 記錄但 feature 名對不上（記錄 feature 需=「${String(featureKey).slice(0, 40)}」原文 — 用 qa_record_save 補記）` : "無 QA 記錄" };
     }
     const latest = items[0];
-    const human = items.find(r => r.actor === "human") || null;
+    // 2026-10-21：human 從全部比對到的記錄找（不限最新 5 筆）— 舊版 human 簽核被後續 agent 記錄沖掉 → 誤報「無人員記錄」
+    const human = (items.length >= 5
+      ? listQaResults(projectPath, { limit: 500 }).filter(r => _normFeatureKey(r.feature) === _normFeatureKey(featureKey))
+      : items).find(r => r.actor === "human") || null;
     return {
       ok: latest.verdict === "pass",
       verdict: latest.verdict, actor: latest.actor, at: latest.ts,
@@ -165,6 +172,20 @@ export function qaForFeature(projectPath, featureKey) {
       reason: latest.verdict === "pass" ? undefined : `最新一筆 ${latest.verdict}：${String(latest.summary || "").slice(0, 60)}`,
     };
   } catch { return { ok: false, reason: "無 QA 記錄" }; }
+}
+
+// 2026-10-21：修 Unit 假綠燈 — 舊版 no-run/stale 都算綠（!(failed>0) 對 null 是 true）；
+// 從嚴：沒跑過 / 過期（headSha 落後）/ 有失敗 → 都不算綠，reason 說清楚
+function _unitGate(opts) {
+  if (opts.lastTestRun !== undefined) {
+    const ltr = opts.lastTestRun;
+    if (!ltr) return { green: false, why: "測試從未跑過（先跑 ▶ 測試建立基準）" };
+    if (ltr.stale) return { green: false, why: `測試結果過期（落後 ${ltr.staleCommits || "?"} commits — 重跑）` };
+    if ((ltr.summary?.failed || 0) > 0) return { green: false, why: `上次測試失敗 ${ltr.summary.failed} 條` };
+    return { green: true, why: null };
+  }
+  // legacy 相容（未傳 lastTestRun 維持舊行為）
+  return { green: opts.lastTestRunGreen !== false, why: null };
 }
 
 // ── 分級要求 + gaps ──
@@ -191,7 +212,7 @@ export function evidenceGaps(sev, ev) {
 // ── 主入口：changedFeatures × 證據 join ──
 export async function buildEvidenceMatrix(projectPath, changedFeatures, opts = {}) {
   const [sevMap, scan, board] = await Promise.all([loadSeverityMap(projectPath), loadSecurityScan(projectPath), loadReviewBoard(projectPath)]);
-  const unitGreen = opts.lastTestRunGreen !== false; // 全套綠 → unit 證據成立
+  const unitGate = _unitGate(opts); // 2026-10-21：no-run/stale/failed 從嚴 — 假綠燈修復
 
   const features = [];
   for (const f of changedFeatures) {
@@ -206,7 +227,7 @@ export async function buildEvidenceMatrix(projectPath, changedFeatures, opts = {
     const sev = sevInfo.severity;
     const ev = {
       unit: f.hasTests
-        ? { ok: unitGreen, tests: f.tests?.length || 0 }
+        ? { ok: unitGate.green, tests: f.tests?.length || 0, ...(unitGate.why ? { reason: unitGate.why } : {}) }
         : { ok: false, reason: "無測試檔" },
       e2e: f.apiImpact
         ? { ok: f.e2eCoveredApis > 0, covered: f.e2eCoveredApis, total: f.apis?.length || 0 }
@@ -237,7 +258,7 @@ export async function buildEvidenceMatrix(projectPath, changedFeatures, opts = {
       aiDefault: features.filter(x => x.severitySource !== "human").length,     // AI 判定直接生效
     },
     withGaps: features.filter(x => x.gaps.missing.length > 0).length,
-    sgScan: scan ? { scannedAt: scan.scannedAt, total: scan.findings.length, high: scan.findings.filter(x => x.severity === "ERROR").length } : null,
+    sgScan: scan ? { scannedAt: scan.scannedAt, total: scan.findings.length, high: scan.findings.filter(x => x.severity === "CRITICAL" || x.severity === "ERROR").length } : null,
     reviewBoard: board ? { latest: { at: board.latest.at, decision: board.latest.decision, models: board.latest.reviewers }, total: board.reports.length } : null,
   };
   return { features, summary };
