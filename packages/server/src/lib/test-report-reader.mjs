@@ -297,6 +297,7 @@ export function testReportSummary(projectRoot) {
       // PAAW 自身執行（kind=run）額外欄位
       status: r.status ?? null, durationMs: r.durationMs ?? null, id: r.id ?? null,
       headSha: r.headSha ?? null, includeE2e: r.includeE2e ?? null, commands: r.commands ?? null,
+      byKind: r.byKind ?? null, // 2026-10-21：per-kind（unit/e2e）執行數字給 UI 顯示 UT/E2E 分別的結果
     })),
     run: pick(r => r.kind === "run"),
     coverage: pick(r => r.kind === "coverage"),

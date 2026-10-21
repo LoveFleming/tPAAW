@@ -26,6 +26,7 @@ import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
 import { checkGates } from "../lib/release-unit/gates.mjs";
 import { shellExec } from "../lib/shell-exec.mjs";
 import { startTestRun, getRunState, readLastTestRun, detectTestGroups } from "../lib/test-runner.mjs";
+import { testReportSummary } from "../lib/test-report-reader.mjs";
 import { readFileSync } from "fs";
 import {
   createReleaseRequest, listReleaseRequests, getReleaseRequest, updateReleaseRequest,
@@ -460,6 +461,7 @@ export default async function releaseRoutes(req, res, next) {
           changedFeaturesTotal: changedFeatures.length,
         },
         lastTestRun: await lastTestRunSummary(projectPath),
+        coverage: coverageSummary(projectPath), // 2026-10-21：真實 UT 行覆蓋率（找沒有 = measured:false）
         gates,
         openItems,
         risk, riskReasons,
@@ -658,6 +660,20 @@ function assertProjectPath(p) {
   }
   return p;
 }
+// ── 覆蓋率摘要（readiness/UI 用）：真實工具 report 優先，找不到誠實 null ──
+function coverageSummary(projectPath) {
+  try {
+    const tr = testReportSummary(projectPath);
+    const cov = tr.coverage?.[0] || null;
+    return {
+      linePct: cov?.totalLinePct ?? null,   // 真實行覆蓋率（istanbul/lcov/jacoco/cobertura/go）
+      runner: cov?.runner ?? null,
+      at: cov?.at ?? null,
+      measured: cov?.totalLinePct != null,  // false = 未量測（非 0%）
+    };
+  } catch { return { linePct: null, runner: null, at: null, measured: false }; }
+}
+
 // ── lastTestRun 摘要（readiness 用）：真實執行數字 + stale 偵測 ──
 async function lastTestRunSummary(projectPath) {
   try {

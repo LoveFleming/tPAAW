@@ -32,7 +32,7 @@ interface DetailData {
     testReports?: {
       found: number;
       reports: { runner: string; kind: string; at: string | null; total?: number | null; passed?: number | null; failed?: number | null; skipped?: number | null; totalLinePct?: number | null }[];
-      run?: { runner: string; kind: string; at: string | null; status?: string | null; total?: number | null; passed?: number | null; failed?: number | null; skipped?: number | null; durationMs?: number | null; id?: string | null; headSha?: string | null; commands?: string[] | null }[];
+      run?: { runner: string; kind: string; at: string | null; status?: string | null; total?: number | null; passed?: number | null; failed?: number | null; skipped?: number | null; durationMs?: number | null; id?: string | null; headSha?: string | null; commands?: string[] | null; includeE2e?: boolean | null; byKind?: Record<string, { passed: number; failed: number; skipped: number; files: number }> | null }[];
       coverage: { runner: string; at: string | null; totalLinePct?: number | null }[];
       e2e: { runner: string; at: string | null; total?: number | null; passed?: number | null; failed?: number | null }[];
       unit: { runner: string; at: string | null; total?: number | null; passed?: number | null; failed?: number | null }[];
@@ -102,6 +102,10 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
   const realCov = covReport?.totalLinePct ?? null;
   const realCovSrc = covReport?.runner || null;
   const realCovAt = covReport?.at || null;
+  // 2026-10-21 Fleming：真實執行結果 per-kind（UT / E2E）— 來自 .paaw/test-runs/last.json 的 run report
+  const lastRun = tr?.run?.[0] || null;
+  const ut = lastRun?.byKind?.unit || lastRun?.byKind?.mixed || null;
+  const e2e = lastRun?.byKind?.e2e || null;
   const kindChips = useMemo(() => {
     const entries = Object.entries(byType).filter(([, n]) => (n || 0) > 0);
     return entries.sort((a, b) => b[1] - a[1]);
@@ -178,39 +182,71 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
           </label>
           {lastAt && <span className="text-[11px] text-stone-400 ml-auto">{t("tests.updatedAt")} {new Date(lastAt).toLocaleTimeString("zh-TW", { hour12: false })}</span>}
         </div>
-        {/* 統計卡 */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2" data-testid="tests-stats">
-          <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight }}>
-            <div className="text-xs text-stone-400 font-medium">{t("tests.totalFiles")}</div>
-            <div className="text-lg font-bold text-stone-700">{data?.summary?.totalTestFiles ?? "—"}</div>
+        {/* 統計卡（2026-10-21 Fleming：一眼看清 RU 測試寫得如何 — UT 執行 / E2E / 行覆蓋率 / 缺口 / features）*/}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2" data-testid="tests-stats">
+          {/* 單元測試（真實執行）*/}
+          <div className={`px-3 py-2 rounded-lg border ${ut ? (ut.failed > 0 ? "border-red-200 bg-red-50/40" : "border-green-200 bg-green-50/40") : ""}`} style={{ borderColor: ut ? undefined : borderLight }} data-testid="tests-ut-card">
+            <div className="text-xs text-stone-400 font-medium">{t("tests.utRun")}</div>
+            {ut ? (
+              <>
+                <div className={`text-lg font-bold ${ut.failed > 0 ? "text-red-600" : "text-green-700"}`}>{ut.passed}<span className="text-sm">✓</span>{ut.failed > 0 && <span className="text-sm text-red-500"> {ut.failed}✗</span>}</div>
+                <div className="text-[9px] text-stone-400 truncate">{ut.files ?? "?"} {t("tests.filesShort")}{ut.skipped ? ` · ⏭${ut.skipped}` : ""}</div>
+              </>
+            ) : <div className="text-lg font-bold text-stone-400">{t("tests.notRunShort")}</div>}
           </div>
-          <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight }}>
-            <div className="text-xs text-stone-400 font-medium">{t("tests.mappings")}</div>
-            <div className="text-lg font-bold text-stone-700">{data?.summary?.totalMappings ?? "—"}</div>
+          {/* E2E（真實執行）*/}
+          <div className={`px-3 py-2 rounded-lg border ${e2e ? (e2e.failed > 0 ? "border-red-200 bg-red-50/40" : "border-green-200 bg-green-50/40") : ""}`} style={{ borderColor: e2e ? undefined : borderLight }} data-testid="tests-e2e-card">
+            <div className="text-xs text-stone-400 font-medium">{t("tests.e2eRun")}</div>
+            {e2e ? (
+              <>
+                <div className={`text-lg font-bold ${e2e.failed > 0 ? "text-red-600" : "text-green-700"}`}>{e2e.passed}<span className="text-sm">✓</span>{e2e.failed > 0 && <span className="text-sm text-red-500"> {e2e.failed}✗</span>}</div>
+                <div className="text-[9px] text-stone-400 truncate">{e2e.files ?? "?"} {t("tests.filesShort")}</div>
+              </>
+            ) : (
+              <>
+                <div className="text-lg font-bold text-stone-400">{lastRun && !lastRun.includeE2e ? t("tests.e2eNotRun") : t("tests.notRunShort")}</div>
+                <div className="text-[9px] text-stone-400 truncate" title={t("tests.e2eNotRunTip")}>{t("tests.e2eNotRunTipShort")}</div>
+              </>
+            )}
           </div>
+          {/* 行覆蓋率（真實工具 report）*/}
           <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight }} data-testid="tests-coverage-card">
-            <div className="text-xs text-stone-400 font-medium">{t("tests.coverage")}</div>
+            <div className="text-xs text-stone-400 font-medium">{t("tests.coverageLine")}</div>
             {realCov !== null ? (
               <>
-                <div className="text-lg font-bold text-green-700">{realCov}%</div>
+                <div className={`text-lg font-bold ${realCov >= 80 ? "text-green-700" : realCov >= 50 ? "text-amber-600" : "text-red-600"}`}>{realCov}%</div>
                 <div className="text-[9px] text-stone-400 truncate" title={realCovSrc || ""}>📊 {realCovSrc} · {realCovAt?.slice(5, 16).replace("T", " ")}</div>
               </>
             ) : (
               <>
-                <div className="text-lg font-bold text-stone-400">{t("tests.noReport")}</div>
-                {data?.summary?.estimatedCoverageRate && <div className="text-[9px] text-stone-400">估算 {data.summary.estimatedCoverageRate}</div>}
+                <div className="text-lg font-bold text-stone-400" title={t("tests.notMeasuredTip")}>{t("tests.notMeasured")}</div>
+                <div className="text-[9px] text-stone-400 truncate" title={t("tests.notMeasuredTip")}>{t("tests.notMeasuredTipShort")}</div>
               </>
             )}
           </div>
-          <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight, background: (data?.summary?.coverageGapFiles || 0) > 0 ? "#fffbeb" : undefined }}>
+          {/* 測試檔數（含 kind 分佈）*/}
+          <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight }}>
+            <div className="text-xs text-stone-400 font-medium">{t("tests.totalFiles")}</div>
+            <div className="text-lg font-bold text-stone-700">{data?.summary?.totalTestFiles ?? "—"}</div>
+            <div className="text-[9px] text-stone-400 truncate">{kindChips.map(([k, n]) => `${k} ${n}`).join(" · ") || "—"}</div>
+          </div>
+          {/* 缺口 */}
+          <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight, background: (data?.summary?.coverageGapFiles || 0) > 0 ? "#fffbeb" : undefined }} data-testid="tests-gap-card">
             <div className="text-xs text-stone-400 font-medium">{t("tests.gapFiles")}</div>
             <div className={`text-lg font-bold ${(data?.summary?.coverageGapFiles || 0) > 0 ? "text-amber-600" : "text-stone-700"}`}>{data?.summary?.coverageGapFiles ?? "—"}</div>
           </div>
+          {/* features */}
           <div className="px-3 py-2 rounded-lg border" style={{ borderColor: borderLight }}>
             <div className="text-xs text-stone-400 font-medium">{t("tests.featuresWithTests")}</div>
             <div className="text-lg font-bold text-stone-700">{featuresWithTests}<span className="text-xs text-stone-400 font-normal">/{(ruModel?.features || []).length || "—"}</span></div>
           </div>
         </div>
+        {/* 檔案對映估算（誠實標示 — 非行覆蓋率，2026-10-21）*/}
+        {data?.summary?.estimatedCoverageRate && (
+          <div className="text-[10px] text-stone-400 -mt-1" data-testid="tests-estimate" title={t("tests.estTip")}>
+            ℹ️ {t("tests.estLabel")} <span className="font-mono text-stone-500">{data.summary.estimatedCoverageRate}</span> · {t("tests.estTip")}
+          </div>
+        )}
 
         {/* 📊 真實工具 report（2026-10-10 Fleming：找沒有就顯示沒有，不亂編）*/}
         <div className="rounded-lg border" style={{ borderColor: borderLight }} data-testid="tests-reports">

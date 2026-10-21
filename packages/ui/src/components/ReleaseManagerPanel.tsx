@@ -71,11 +71,13 @@ interface Readiness {
   changedApis: { method: string; path: string; file: string; featureIds: string[] }[];
   tests: { totalTestFiles?: number | null; changedFeaturesWithTests: number; changedFeaturesTotal: number };
   lastTestRun: {
+    runId?: string | null;
     finishedAt: string; status: string; includeE2e: boolean; durationMs: number;
     summary: { passed: number; failed: number; skipped: number; total: number };
     byKind: Record<string, { passed: number; failed: number; skipped: number; files: number }>;
     stale: boolean; staleCommits: number;
   } | null;
+  coverage?: { linePct: number | null; runner: string | null; at: string | null; measured: boolean } | null; // 2026-10-21：真實 UT 行覆蓋率（measured:false = 未量測）
   gates: { overall?: string; gates?: { gate: string; status: string; detail?: string; required?: boolean }[] } | null;
   openItems: number; risk: string; riskReasons: string[]; ready: boolean;
 }
@@ -312,46 +314,82 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                 ))}
               </div>
 
-              {/* Tests + Gates 一行（含真實執行數字）*/}
-              <div className="px-4 py-2 flex items-center gap-3 flex-wrap text-[11px]" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: "#fafaf9" }}>
-                <span className="font-bold text-stone-500">🧪 {t("rm.testsLine")}</span>
-                {/* 真實執行數字（.paaw/test-runs/last.json — 程式跑的）*/}
-                {readiness.lastTestRun ? (
-                  <span className="flex items-center gap-2 flex-wrap" data-testid="rm-test-run-real">
-                    {Object.entries(readiness.lastTestRun.byKind).map(([kind, v]) => (
-                      <span key={kind} className={`font-mono px-1.5 py-0.5 rounded ${v.failed > 0 ? "bg-red-50 text-red-600 font-bold" : "bg-green-50 text-green-700"}`}>
-                        {kind} {v.passed}✓{v.failed > 0 ? ` ${v.failed}✗` : ""}
+              {/* Tests + Gates（2026-10-21 Fleming：字太小不直覺 → 改兩行、加大、明確標 UT/E2E/行覆蓋率）*/}
+              <div className="px-4 py-2.5 space-y-2" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: "#fafaf9" }} data-testid="rm-tests-block">
+                <div className="flex items-center gap-x-3 gap-y-1.5 flex-wrap text-xs">
+                  <span className="font-bold text-stone-500">🧪 {t("rm.testsLine")}</span>
+                  {/* 單元測試 UT */}
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-stone-400 font-bold">{t("rm.utLabel")}</span>
+                    {readiness.lastTestRun ? (() => {
+                      const u = readiness.lastTestRun.byKind?.unit || readiness.lastTestRun.byKind?.mixed || null;
+                      if (!u) return <span className="font-mono text-stone-400">—</span>;
+                      return (
+                        <span className={`font-mono font-bold px-1.5 py-0.5 rounded ${u.failed > 0 ? "bg-red-50 text-red-600" : "bg-green-50 text-green-700"}`} data-testid="rm-ut">
+                          {u.passed}✓{u.failed > 0 ? ` ${u.failed}✗` : ""}{u.skipped ? ` ⏭${u.skipped}` : ""}
+                        </span>
+                      );
+                    })() : <span className="text-stone-400 italic">{t("rm.noTestRun")}</span>}
+                    {readiness.lastTestRun?.byKind && (() => { const u = readiness.lastTestRun.byKind.unit || readiness.lastTestRun.byKind.mixed; return u?.files ? <span className="text-[10px] text-stone-400">{u.files} {t("rm.filesShort")}</span> : null; })()}
+                  </span>
+                  {/* 行覆蓋率 */}
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-stone-400 font-bold">{t("rm.covLabel")}</span>
+                    {readiness.coverage?.measured ? (
+                      <span className="font-mono font-bold px-1.5 py-0.5 rounded" data-testid="rm-coverage"
+                        style={{ background: readiness.coverage.linePct! >= 80 ? "#f0fdf4" : readiness.coverage.linePct! >= 50 ? "#fffbeb" : "#fef2f2", color: readiness.coverage.linePct! >= 80 ? "#15803d" : readiness.coverage.linePct! >= 50 ? "#b45309" : "#b91c1c" }}>
+                        {readiness.coverage.linePct}%
                       </span>
-                    ))}
-                    {!readiness.lastTestRun.includeE2e && <span className="font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-400">e2e —</span>}
-                    <span className={`text-[10px] ${readiness.lastTestRun.stale ? "text-amber-600 font-bold" : "text-stone-400"}`} title={readiness.lastTestRun.stale ? `${readiness.lastTestRun.staleCommits} commits since last run` : ""}>
-                      {readiness.lastTestRun.stale ? `⏰ ${readiness.lastTestRun.staleCommits}c` : `⏱ ${Math.round(readiness.lastTestRun.durationMs / 1000)}s`}
+                    ) : (
+                      <span className="font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-500" title={t("rm.covNotMeasuredTip")} data-testid="rm-coverage">{t("rm.notMeasured")}</span>
+                    )}
+                    {readiness.coverage?.measured && readiness.coverage.runner && <span className="text-[10px] text-stone-400">{readiness.coverage.runner}</span>}
+                  </span>
+                  {/* E2E */}
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-stone-400 font-bold">{t("rm.e2eLabel")}</span>
+                    {(() => {
+                      const ltr = readiness.lastTestRun;
+                      const e = ltr?.byKind?.e2e || null;
+                      if (e) return <span className={`font-mono font-bold px-1.5 py-0.5 rounded ${e.failed > 0 ? "bg-red-50 text-red-600" : "bg-green-50 text-green-700"}`} data-testid="rm-e2e">{e.passed}✓{e.failed > 0 ? ` ${e.failed}✗` : ""}</span>;
+                      if (ltr && !ltr.includeE2e) return <span className="font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-400" title={t("rm.e2eNotRunTip")} data-testid="rm-e2e">{t("rm.e2eNotRun")}</span>;
+                      if (ltr?.includeE2e) return <span className="font-mono px-1.5 py-0.5 rounded bg-amber-50 text-amber-600" data-testid="rm-e2e">0</span>;
+                      return <span className="font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-400" data-testid="rm-e2e">—</span>;
+                    })()}
+                  </span>
+                  <span className={readiness.tests.changedFeaturesTotal === 0 ? "text-stone-400" : readiness.tests.changedFeaturesWithTests === readiness.tests.changedFeaturesTotal ? "text-green-600 font-bold" : "text-amber-600 font-bold"}>
+                    {t("rm.featureTests")} {readiness.tests.changedFeaturesWithTests}/{readiness.tests.changedFeaturesTotal}
+                  </span>
+                  {(readiness.gates?.gates || []).slice(0, 4).map(g => (
+                    <span key={g.gate} className={`font-mono ${g.status === "pass" ? "text-green-600" : g.status === "blocked" || g.status === "fail" ? "text-red-500 font-bold" : "text-stone-400"}`}>
+                      {g.gate} {g.status === "pass" ? "✓" : g.status === "blocked" || g.status === "fail" ? "✗" : "…"}
                     </span>
+                  ))}
+                  <span className="ml-auto flex items-center gap-2">
+                    <button onClick={runTests} disabled={testing}
+                      className="text-[11px] px-2.5 py-1 rounded-full border font-bold disabled:opacity-50 hover:bg-stone-100 flex items-center gap-1"
+                      style={{ borderColor: testing ? tk.borderLight : "#0369a1", color: testing ? "#a8a29e" : "#0369a1" }}
+                      data-testid="rm-run-tests">
+                      {testing ? <span className="animate-spin inline-block w-2.5 h-2.5 border-[1.5px] border-current border-t-transparent rounded-full" /> : "▶"} {testing ? t("rm.testing") : t("rm.runTests")}
+                    </button>
+                    <label className="flex items-center gap-1 text-[10px] text-stone-400 cursor-pointer select-none" data-testid="rm-e2e-toggle">
+                      <input type="checkbox" checked={includeE2e} onChange={e => setIncludeE2e(e.target.checked)} className="accent-sky-600" />
+                      {t("rm.includeE2e")}
+                    </label>
                   </span>
-                ) : (
-                  <span className="text-stone-400 italic">{t("rm.noTestRun")}</span>
-                )}
-                <button onClick={runTests} disabled={testing}
-                  className="text-[10px] px-2 py-0.5 rounded-full border font-bold disabled:opacity-50 hover:bg-stone-100 flex items-center gap-1"
-                  style={{ borderColor: testing ? tk.borderLight : "#0369a1", color: testing ? "#a8a29e" : "#0369a1" }}
-                  data-testid="rm-run-tests">
-                  {testing ? <span className="animate-spin inline-block w-2.5 h-2.5 border-[1.5px] border-current border-t-transparent rounded-full" /> : "▶"} {testing ? t("rm.testing") : t("rm.runTests")}
-                </button>
-                <label className="flex items-center gap-1 text-[10px] text-stone-400 cursor-pointer select-none" data-testid="rm-e2e-toggle">
-                  <input type="checkbox" checked={includeE2e} onChange={e => setIncludeE2e(e.target.checked)} className="accent-sky-600" />
-                  {t("rm.includeE2e")}
-                </label>
-                <span className={readiness.tests.changedFeaturesTotal === 0 ? "text-stone-400" : readiness.tests.changedFeaturesWithTests === readiness.tests.changedFeaturesTotal ? "text-green-600 font-bold" : "text-amber-600 font-bold"}>
-                  {t("rm.featureTests")} {readiness.tests.changedFeaturesWithTests}/{readiness.tests.changedFeaturesTotal}
-                </span>
-                {(readiness.gates?.gates || []).slice(0, 4).map(g => (
-                  <span key={g.gate} className={`font-mono ${g.status === "pass" ? "text-green-600" : g.status === "blocked" || g.status === "fail" ? "text-red-500 font-bold" : "text-stone-400"}`}>
-                    {g.gate} {g.status === "pass" ? "✓" : g.status === "blocked" || g.status === "fail" ? "✗" : "…"}
-                  </span>
-                ))}
-                {readiness.riskReasons.length > 0 && (
-                  <span className="text-[10px] text-amber-600 truncate" title={readiness.riskReasons.join("; ")}>{t("rm.riskWhy")}: {readiness.riskReasons.join("; ")}</span>
-                )}
+                </div>
+                {/* 第二行：上次執行 meta + 風險因素（字大、可讀）*/}
+                <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-[10px]">
+                  {readiness.lastTestRun ? (<>
+                    <span className="text-stone-500">{t("rm.lastRunLabel")} <span className="font-mono">{readiness.lastTestRun.runId || readiness.lastTestRun.finishedAt?.slice(0, 16).replace("T", " ")}</span></span>
+                    <span className={readiness.lastTestRun.status === "pass" ? "text-green-600" : "text-red-500 font-bold"}>{readiness.lastTestRun.status === "pass" ? "✓ pass" : `✗ ${readiness.lastTestRun.status}`}</span>
+                    <span className="text-stone-400">⏱ {Math.round((readiness.lastTestRun.durationMs || 0) / 1000)}s</span>
+                    {readiness.lastTestRun.stale && <span className="text-amber-600 font-bold">⏰ {t("rm.staleN").replace("{n}", String(readiness.lastTestRun.staleCommits))}</span>}
+                  </>) : null}
+                  {readiness.riskReasons.length > 0 && (
+                    <span className="text-amber-600 truncate" title={readiness.riskReasons.join("; ")}>⚠ {t("rm.riskWhy")}: {readiness.riskReasons.join("; ")}</span>
+                  )}
+                </div>
               </div>
 
                 {readiness.evidenceMatrix && (

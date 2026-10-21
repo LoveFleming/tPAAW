@@ -30,7 +30,12 @@ export function detectTestGroups(projectPath, { includeE2e = false } = {}) {
   if (scripts.test && scripts.test !== "echo \"Error: no test specified\" && exit 1") {
     const t = scripts.test;
     if (/\bvitest\b/.test(t) && devDeps.vitest) {
-      groups.push({ kind: "mixed", runner: "vitest", cmd: ["npx", "vitest", "run", "--reporter=json", "--outputFile=.paaw/test-runs/.vitest.json"] });
+      // 2026-10-21 Fleming：UT 覆蓋率要「真實量測」不是估算 — 有 @vitest/coverage-v8 就跑 --coverage，
+      // 產出 coverage/coverage-summary.json（istanbul），test-report-reader 直接讀（kind=coverage）
+      const cov = devDeps["@vitest/coverage-v8"]
+        ? ["--coverage", "--coverage.reporter=json-summary", "--coverage.reporter=text", "--coverage.reportsDirectory=coverage"]
+        : [];
+      groups.push({ kind: "mixed", runner: "vitest", cmd: ["npx", "vitest", "run", "--reporter=json", "--outputFile=.paaw/test-runs/.vitest.json", ...cov] });
     } else if (/\bjest\b/.test(t) && devDeps.jest) {
       groups.push({ kind: "mixed", runner: "jest", cmd: ["npx", "jest", "--json", "--outputFile=.paaw/test-runs/.jest.json"] });
     } else if (scripts.test) {
