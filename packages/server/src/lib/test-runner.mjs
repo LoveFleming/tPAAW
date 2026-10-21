@@ -32,8 +32,9 @@ export function detectTestGroups(projectPath, { includeE2e = false } = {}) {
     if (/\bvitest\b/.test(t) && devDeps.vitest) {
       // 2026-10-21 Fleming：UT 覆蓋率要「真實量測」不是估算 — 有 @vitest/coverage-v8 就跑 --coverage，
       // 產出 coverage/coverage-summary.json（istanbul），test-report-reader 直接讀（kind=coverage）
+      // reportOnFailure：有測試失敗/錯誤時也要產報告（否則預設跳過 → 失敗的 suite 永遠量不到覆蓋率）
       const cov = devDeps["@vitest/coverage-v8"]
-        ? ["--coverage", "--coverage.reporter=json-summary", "--coverage.reporter=text", "--coverage.reportsDirectory=coverage"]
+        ? ["--coverage", "--coverage.reporter=json-summary", "--coverage.reporter=text", "--coverage.reportsDirectory=coverage", "--coverage.reportOnFailure=true"]
         : [];
       groups.push({ kind: "mixed", runner: "vitest", cmd: ["npx", "vitest", "run", "--reporter=json", "--outputFile=.paaw/test-runs/.vitest.json", ...cov] });
     } else if (/\bjest\b/.test(t) && devDeps.jest) {
