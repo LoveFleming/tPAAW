@@ -311,7 +311,16 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
 
     const userMsg: SideChatMessage = { role: "user", content: textPart, ts: new Date().toISOString(), ...(uploadedPaths.length > 0 ? { images: uploadedPaths } : {}), ...(fileMeta.length > 0 ? { files: fileMeta } : {}) };
     setMessages(prev => [...prev, userMsg]);
-    if (viewingArchive) setViewingArchive(null); // 在歷史裡接話 → 這條線變成新的目前對話（存檔寫 active）
+    if (viewingArchive) {
+      // 🛡 2026-10-21 治本（同 crew chat）：先讓 server 歸檔「真正的 active」再把這條歷史線變成目前對話 —
+      // 否則 auto-save 直接覆寫 active.json，原 active 對話蒸發
+      if (persistCrewId && cwd) {
+        try {
+          await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(persistCrewId)}/switch/${encodeURIComponent(viewingArchive)}?cwd=${encodeURIComponent(cwd)}`, { method: "POST" });
+        } catch { /* best effort */ }
+      }
+      setViewingArchive(null); // 在歷史裡接話 → 這條線變成新的目前對話（存檔寫 active）
+    }
     setLoading(true);
     setAction("💭 思考中…");
     setActiveTools([]);
@@ -469,7 +478,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
       setAction("");
       abortRef.current = null;
     }
-  }, [loading, messages, agentId, cwd, tt, viewingArchive, model, paawChat]);
+  }, [loading, messages, agentId, cwd, persistCrewId, tt, viewingArchive, model, paawChat]);
 
   // 外部注入訊息（Handover QA chips → AI；不改變內部訊息流）
   React.useImperativeHandle(ref, () => ({

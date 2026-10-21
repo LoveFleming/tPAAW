@@ -452,7 +452,15 @@ export default function CodingIDE() {
 
   // ── Archive panel state (must be before useEffect that references them) ──
   const [showArchivePanel, setShowArchivePanel] = useState(false);
-  const [viewingArchive, setViewingArchive] = useState<string | null>(null);
+  // 🛡 2026-10-21：歷史檢視狀態改 per-crew 追蹤（原本全域單一值 → 切 crew 後 stale，
+  // 會擋掉新 crew 的 auto-save；且直接重置會讓切回時把記憶體裡的歷史內容寫回 active）
+  const [viewingArchiveByCrew, setViewingArchiveByCrew] = useState<Record<string, string | null>>({});
+  const activeCrewRef = useRef<string | null>(null);
+  const setViewingArchive = useCallback((id: string | null) => {
+    const c = activeCrewRef.current;
+    if (!c) return;
+    setViewingArchiveByCrew(prev => (prev[c] === id ? prev : { ...prev, [c]: id }));
+  }, []);
 
   // Sync activeCrew when switching tabs (crew tabs have crewId)
   useEffect(() => {
@@ -524,6 +532,8 @@ export default function CodingIDE() {
 
 
   const [activeCrew, setActiveCrew] = useState<string | null>(null);
+  // 歷史檢視中（per-crew）— 看歷史時 auto-save 一律略過（見下方 save effect）
+  const viewingArchive = activeCrew ? (viewingArchiveByCrew[activeCrew] ?? null) : null;
 
   // ── AI Chat State (per-crew conversations) ──
   const [crewConversations, setCrewConversations] = useState<Record<string, ChatMessage[]>>({});
@@ -1450,10 +1460,13 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
     setLoadedCrews(new Set());
     setCrewConversations({});
     setArchivedConversations({});
-    setViewingArchive(null);
+    setViewingArchiveByCrew({});
     setShowArchivePanel(false);
     reattachKeyRef.current = "";
   }, [rootPath]);
+
+  // activeCrew ref 同步（供穩定的 setViewingArchive 取當前 crew）
+  useEffect(() => { activeCrewRef.current = activeCrew; }, [activeCrew]);
 
   // ═══════════════════════════════════════════════
   // Conversation Archive Actions
@@ -1897,6 +1910,14 @@ const sendChat = useCallback(async () => {
     setChatMessages(prev => [...prev, userMsg]);
     setChatInput("");
     setPendingImages([]);
+    // 🛡 2026-10-21 治本（Fleming 回報「切歷史後原 active 消失」）：
+    // 在歷史檢視中接話 = 把該歷史線變成目前對話，但必須先讓 server 歸檔「真正的 active」—
+    // 否則 2 秒後 auto-save 直接把 active.json 蓋成歷史內容，原 active 對話蒸發（無任何歸檔）
+    if (viewingArchive && activeCrew && rootPath) {
+      try {
+        await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(activeCrew)}/switch/${encodeURIComponent(viewingArchive)}?cwd=${encodeURIComponent(rootPath)}`, { method: "POST" });
+      } catch { /* best effort — 失敗時仍照原流程，但至少不靜默（見 server /switch 防呆）*/ }
+    }
     setViewingArchive(null); // exit archive viewing when user sends a message
     logEvent("ai_chat", { prompt: sendText.slice(0, 200) });
 
@@ -3611,7 +3632,12 @@ const sendChat = useCallback(async () => {
                     <div className="flex items-center gap-1 shrink-0">
                       {/* Conversation count badge */}
                       {viewingArchive && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">📂 歷史</span>
+                        <>
+                          <button onClick={() => loadArchivedConversation("active")}
+                            className="text-[10px] px-2 py-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 font-semibold transition-colors"
+                            title={tt("sideChat.backToActive")} data-testid="crew-back-to-active">↩ {tt("sideChat.backToActive")}</button>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200">📂 歷史</span>
+                        </>
                       )}
                       {/* Browser panel toggle 已移除（2026-09-15 Fleming）：browser 不再每個 agent chat 都能用，改掛在 Browser 頁的 QA 武大安 side chat（RM 同款）*/}
                       {/* History button — 2026-09-12 統一 accent 色外框 */}

@@ -1500,6 +1500,14 @@ export default async function projectRoute(req, res) {
         res.end(JSON.stringify({ ok: true, message: "Already on active session" }));
         return true;
       }
+      // 🛡 2026-10-21：先確認目標 session 存在再動 active —
+      // 舊碼先歸檔 active 才讀目標；目標檔不存在時 srcData 為空 → active 被歸檔後清空（原對話雖存檔但目前對話消失）
+      const srcFile = join(agentDir, `${sessionId}.json`);
+      if (!existsSync(srcFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `Session not found: ${sessionId}` }));
+        return true;
+      }
       // Archive current active if it has messages
       const activeData = await readConvFile(activeFile);
       if (activeData.messages.length > 0) {
@@ -1512,8 +1520,7 @@ export default async function projectRoute(req, res) {
         await writeFile(archiveFile, JSON.stringify(activeData, null, 2), "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
         await unlink(activeFile); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       }
-      // Load target session → make it active
-      const srcFile = join(agentDir, `${sessionId}.json`);
+      // Load target session → make it active（srcFile 已在上方防呆宣告）
       const srcData = await readConvFile(srcFile);
       // Write as active
       srcData._meta.lastUpdated = new Date().toISOString();
