@@ -1435,7 +1435,10 @@ const TOOL_GROUP_MAP = {
 
 // ── core-read: read-only subset of core (no bash/write/edit/git) ──
 // For non-coding agents: architect, QA, helpdesk, EM
-const CORE_READ_TOOLS = new Set(["read_file", "reference_read", "glob", "grep", "diff", "ask_user", "dev_log"]);
+// 2026-10-22 Fleming 報案：EM/QA 等 core-read agent 被人要求「寫 http request 進 API Tester collection」，
+// 但 api_test 在 core group 看不到 → LLM 幻覺「已寫入」。對策：api_test 納入 core-read
+//（打 API 測試/存 collection 是通用能力；每次呼叫都落 history 帶 🤖 agent 標記，人看得到）
+const CORE_READ_TOOLS = new Set(["read_file", "reference_read", "glob", "grep", "diff", "ask_user", "dev_log", "api_test"]);
 
 // ── Fallback groups (used when crew.json has no toolGroups) ──
 const AGENT_FALLBACK_GROUPS = {

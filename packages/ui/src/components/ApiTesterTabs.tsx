@@ -62,7 +62,7 @@ export default function ApiTesterTabs({
       const data = await res.json();
       if (Array.isArray(data.collections)) setCollections(data.collections);
     } catch { /* 靜默 — 空狀態顯示 */ }
-  }, []);
+  }, [rootPath]); // 2026-10-22：rootPath 進 deps — 切 RU 不重掛時舊閉包會讀到舊 RU 的 collections（agent 存了卻看不到）
 
   useEffect(() => {
     if (tab === "collection") loadCollections();
