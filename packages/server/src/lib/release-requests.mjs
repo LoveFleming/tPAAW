@@ -40,7 +40,9 @@ import { listQaResults } from "./qa-results.mjs";
 const CHECKLIST_DEFS = [
   { id: "tests", label: "測試全過（unit + e2e）" },
   { id: "gates", label: "品質門檻（build / type-check / test）" },
+  { id: "feature-map", label: "Delta 檔案歸類（動到的都要對到功能）" },
   { id: "qa-records", label: "QA 記錄無未解決 fail" },
+  { id: "qa-delta", label: "Delta features QA 覆蓋（本版樹上有證據）" },
   { id: "security", label: "Security scan（semgrep，scope 內）" },
   { id: "review-board", label: "Review 委員會（report 覆蓋放行範圍）" },
   { id: "risk", label: "風險評估（readiness heuristic）" },
@@ -424,6 +426,68 @@ export async function autoCheckAll(projectPath, scope, opts = {}) {
       ...(qs ? { quarantined } : {}),
     };
   } catch { out["qa-records"] = { status: "unknown", detail: "QA 記錄讀取失敗", checkedAt: at }; }
+
+  // feature-map — delta 檔案歸類（2026-10-22 delta 制）：release 只看 delta，但 delta 裡每個檔案
+  // 都要能對到功能。新功能 = 新檔案對不到 feature map → 明確列出強制歸類（不靜默消失）。
+  // 歸類是純衛生動作：更新 .paaw/features/FILE-FEATURES.json → 下次 refresh 自動轉綠。
+  // .paaw/ = RU runtime 資料、lock 檔 = 環境產物 → 不要求歸類（2026-09-19 同哲學）。
+  try {
+    // 歸類來源取聯集：FILE-FEATURES.json（coding app feature map）+ release-unit-model.json（RU model
+    // 的 features[].files）— 兩邊都是合法歸類記錄，追任一邊都算可追溯
+    const mapped = new Set();
+    const ffPath = join(projectPath, ".paaw", "features", "FILE-FEATURES.json");
+    if (existsSync(ffPath)) {
+      const ff = JSON.parse(readFileSync(ffPath, "utf-8"));
+      for (const k of Object.keys(ff.files || {})) mapped.add(String(k).replace(/\\/g, "/"));
+    }
+    try {
+      const model = JSON.parse(readFileSync(join(projectPath, ".paaw", "release-unit-model.json"), "utf-8"));
+      for (const f of model?.features || []) for (const x of f.files || []) mapped.add(String(x).replace(/\\/g, "/"));
+    } catch { /* 無 RU model — 只靠 feature map */ }
+    const notTraceable = f => f.startsWith(".paaw/") || /(^|\/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|[^/]*\.lock)$/i.test(f);
+    const deltaFiles = (scope.files || []).map(f => String(f?.file ?? f).replace(/\\/g, "/")).filter(Boolean);
+    const attributable = deltaFiles.filter(f => !notTraceable(f));
+    const unmapped = attributable.filter(f => !mapped.has(f));
+    out["feature-map"] = {
+      status: unmapped.length ? "fail" : "pass",
+      detail: unmapped.length
+        ? `${unmapped.length} 個 delta 檔案未歸類到任何 feature：${unmapped.slice(0, 5).join("、")}${unmapped.length > 5 ? "…" : ""} — 更新 .paaw/features/FILE-FEATURES.json（新功能順勢登記新 feature）`
+        : `delta ${attributable.length} 檔全部歸類完成`,
+      checkedAt: at,
+      ...(unmapped.length ? { unmapped } : {}),
+    };
+  } catch { out["feature-map"] = { status: "unknown", detail: "feature map 檢查失敗", checkedAt: at }; }
+
+  // qa-delta — delta features 的 QA 覆蓋（2026-10-22 delta 制）：動到的功能要有「本 release 樹上」
+  // 的 QA pass 證據；沒動到的功能不要求新證據，靠回歸保護（tests/gates 永遠全量，不縮 scope）。
+  // 覆蓋 = 存在 verdict pass 記錄（open/resolved 皆算 — 證明測過）、feature 對得上、headSha ∈ (baseline, target]。
+  // 缺覆蓋 → warn（人決定補測或 resolve 說明理由）；絕不虛構證據。
+  try {
+    const feats = (scope.features || []).filter(f => f && f.id);
+    if (!feats.length) {
+      out["qa-delta"] = { status: "pass", detail: "delta 無 features（若 delta 有程式檔 → 見 feature-map 歸類）", checkedAt: at };
+    } else {
+      const fidOf = s => { const m = String(s || "").match(/F\d{8}-\d{3}/); return m ? m[0] : null; };
+      const covered = new Set();
+      for (const r of listQaResults(projectPath, { limit: 500 })) {
+        const rid = fidOf(r.feature); if (!rid || r.verdict !== "pass") continue;
+        const h = /^[0-9a-f]{7,40}$/i.test(String(r.headSha || "")) ? String(r.headSha) : null;
+        if (!h || !opts.baselineSha || !opts.targetSha) continue;
+        const afterBase = h !== opts.baselineSha && (await gitIsAncestor(projectPath, opts.baselineSha, h));
+        const withinTarget = h === opts.targetSha || (await gitIsAncestor(projectPath, h, opts.targetSha));
+        if (afterBase && withinTarget) covered.add(rid);
+      }
+      const missing = feats.filter(f => !covered.has(String(f.id)));
+      out["qa-delta"] = {
+        status: missing.length === 0 ? "pass" : "warn",
+        detail: missing.length === 0
+          ? `delta ${feats.length} 個 features QA 覆蓋完整（本版樹上 pass 記錄齊）`
+          : `${missing.length}/${feats.length} 個 delta features 尚無本版樹上的 QA pass：${missing.slice(0, 3).map(f => `${f.id} ${(f.name || "").slice(0, 24)}`.trim()).join("、")}${missing.length > 3 ? "…" : ""} — 跑 feature QA 落記錄（自動綁樹），或由人 resolve 附理由`,
+        checkedAt: at,
+        ...(missing.length ? { missing: missing.map(f => String(f.id)) } : {}),
+      };
+    }
+  } catch { out["qa-delta"] = { status: "unknown", detail: "qa-delta 檢查失敗", checkedAt: at }; }
 
   // security — .paaw/security/scan-results.json（semgrep-runner 落檔），scope 過濾 + 新鮮度
   // 哲學同 qa-records：程式只「找證據讀結果」，掃描本身是另一個動作（agent/人跑，結果落檔）
