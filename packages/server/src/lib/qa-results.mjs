@@ -90,7 +90,9 @@ function _defaultStatus(verdict, issues) {
 /**
  * 建立 QA 記錄
  * @param {string} cwd - RU root
- * @param {Object} rec - {actor,type,target,url,taskId,feature,verdict,summary,issues,evidence,durationMs}
+ * @param {Object} rec - {actor,type,target,url,taskId,feature,verdict,summary,issues,evidence,durationMs,headSha,rrId}
+ *   headSha（2026-10-22 lineage 制）：記錄當下的測試樹 — RR qa-records scope 綁定靠它判定
+ *   「測於哪棵樹」；未綁樹的舊記錄在 RR 檢查會進隔離清單（人決定），不硬擋 release
  */
 export function saveQaResult(cwd, rec = {}) {
   const verdict = VERDICTS.has(rec.verdict) ? rec.verdict : "warn";
@@ -107,6 +109,8 @@ export function saveQaResult(cwd, rec = {}) {
     url: rec.url ? String(rec.url).slice(0, 300) : null,
     taskId: rec.taskId ? String(rec.taskId).slice(0, 60) : null,
     feature: rec.feature ? String(rec.feature).slice(0, 120) : null,
+    headSha: /^[0-9a-f]{7,40}$/i.test(String(rec.headSha || "")) ? String(rec.headSha) : null, // 測試樹綁定（7-40 hex；branch 名等其他字串不收）
+    rrId: rec.rrId ? String(rec.rrId).slice(0, 60) : null,
     verdict,
     summary: String(rec.summary || "").slice(0, 2000),
     issues,

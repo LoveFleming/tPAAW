@@ -64,6 +64,30 @@ async function gitOne(projectPath, args) {
   return lines[0] || null;
 }
 
+/** lineage 檢查（2026-10-22 Task A）：A 是否為 B 的祖先（含相等分支 HEAD 的 ancestry）。
+ *  `git merge-base --is-ancestor A B` exit 0 = 是；非 0 / git 錯誤 → false（從嚴：寧可不前進也不誤前進） */
+async function gitIsAncestor(projectPath, maybeAncestor, descendant) {
+  if (!maybeAncestor || !descendant) return false;
+  try {
+    await shellExec(`git merge-base --is-ancestor ${maybeAncestor} ${descendant}`, { cwd: projectPath, timeout: 10_000 });
+    return true; // exit 0
+  } catch { return false; } // exit 1（非祖先）或 git 不可用 → false
+}
+
+/** release 日期清單（舊→新；qa-records TTL 用） */
+function listReleaseDates(projectPath) {
+  const dir = join(projectPath, ".paaw", "releases");
+  if (!existsSync(dir)) return [];
+  const out = [];
+  for (const f of readdirSync(dir).filter(x => x.endsWith(".json"))) {
+    try {
+      const rel = JSON.parse(readFileSync(join(dir, f), "utf-8"));
+      if (rel.releasedAt) out.push(rel.releasedAt);
+    } catch { /* skip corrupt */ }
+  }
+  return out.sort();
+}
+
 /** ISO 時間 → git --since 用的明確 UTC 格式（2026-09-18 04:25:18 +0000）。
  *  注意 git 不認帶毫秒的 ISO 8601 — parse 失敗會靜默退化成「全部歷史」造成假 stale。 */
 function countCodeCommitsSince(gitOut) {
@@ -144,6 +168,7 @@ export async function listReleaseRequests(projectPath) {
         createdBy: rr.createdBy || "human",
         baseline: { short: rr.baseline?.short, subject: rr.baseline?.subject, source: rr.baseline?.source },
         target: { short: rr.target?.short, subject: rr.target?.subject },
+        targetLocked: !!rr.targetLocked, // 2026-10-22 lineage 制：鎖定後不自動前進
         scope: { commits: rr.scope?.commits?.count ?? 0, files: (rr.scope?.files || []).length, features: (rr.scope?.features || []).length, apis: (rr.scope?.apis || []).length, tasks: (rr.scope?.taskIds || []).length },
         checklist: (rr.checklist || []).map(c => ({ id: c.id, verdict: c.verdict, auto: c.auto?.status || "unknown" })),
         // v3（2026-09-18）：RM agent 建議 verdict — 列表帶摘要，人在 UI 一鍵確認
@@ -363,12 +388,41 @@ export async function autoCheckAll(projectPath, scope, opts = {}) {
     else out.gates = { status: "pass", detail: `verify at ${g.verifyAt || "n/a"}`, checkedAt: at };
   } catch { out.gates = { status: "unknown", detail: "gates 檢查失敗", checkedAt: at }; }
 
-  // qa-records — 範圍內有沒有 open 的 QA fail（qa-results.jsonl）
+  // qa-records — scope 綁定（2026-10-22 lineage 制）：只計「測試樹在 baseline..target 內」的 open fail。
+  // 三類不進 auto=fail、但全部可見（不靜默消失）：
+  //   (1) 未綁樹：舊格式記錄（2026-10-22 前）無 headSha → 隔離清單，人決定 resolve/帶走
+  //   (2) 樹外：headSha 不在 baseline..target（測的是別的 release/branch 樹）→ 隔離清單
+  //   (3) TTL expired：QR 落後 ≥2 個 release → expired，不影響任何判定
+  // 教訓：v0.2.1 舊體檢 fail 污染 0.2.2 的 RR 四天（qr-20261011 → RR-20261018-1738-6f2e）
   try {
     const opens = listQaResults(projectPath, { verdict: "fail", status: "open", limit: 500 });
-    out["qa-records"] = opens.length
-      ? { status: "fail", detail: `${opens.length} 筆未解決 fail：${opens.slice(0, 5).map(r => r.id).join(", ")}${opens.length > 5 ? "…" : ""}`, checkedAt: at }
-      : { status: "pass", detail: "無未解決 QA fail 記錄", checkedAt: at };
+    const releaseDates = listReleaseDates(projectPath);
+    const baselineSha = opts.baselineSha || null;
+    const targetSha = opts.targetSha || null;
+    const inScope = [], quarantined = [];
+    for (const r of opens) {
+      const releasesAfter = releaseDates.filter(d => d > (r.ts || "")).length;
+      if (releasesAfter >= 2) { quarantined.push(`${r.id}（TTL expired：已隔 ${releasesAfter} 個 release）`); continue; }
+      const h = /^[0-9a-f]{7,40}$/i.test(String(r.headSha || "")) ? String(r.headSha) : null;
+      if (!h) { quarantined.push(`${r.id}（未綁樹：舊格式記錄無 headSha）`); continue; }
+      if (!baselineSha || !targetSha) { quarantined.push(`${r.id}（無 baseline/target，無法判定 scope）`); continue; }
+      // h ∈ (baseline, target]（嚴格在 baseline 之後 — h === baseline 就是測上一版 release 樹，不算本版）
+      const afterBase = h !== baselineSha && (await gitIsAncestor(projectPath, baselineSha, h));
+      const withinTarget = h === targetSha || (await gitIsAncestor(projectPath, h, targetSha));
+      if (afterBase && withinTarget) inScope.push(r.id);
+      else quarantined.push(`${r.id}（樹外：測於 ${h.slice(0, 8)}，不在 ${String(baselineSha).slice(0, 8)}..${String(targetSha).slice(0, 8)}）`);
+    }
+    const qs = quarantined.length;
+    out["qa-records"] = {
+      status: inScope.length ? "fail" : qs ? "warn" : "pass",
+      detail: inScope.length
+        ? `${inScope.length} 筆 scope 內未解決 fail：${inScope.slice(0, 5).join(", ")}${inScope.length > 5 ? "…" : ""}${qs ? `；另 ${qs} 筆已隔離不影響判定` : ""}`
+        : qs
+          ? `scope 內無未解決 fail；${qs} 筆已隔離（人決定 resolve/帶走）：${quarantined.slice(0, 3).join("、")}${qs > 3 ? "…" : ""}`
+          : "無未解決 QA fail 記錄",
+      checkedAt: at,
+      ...(qs ? { quarantined } : {}),
+    };
   } catch { out["qa-records"] = { status: "unknown", detail: "QA 記錄讀取失敗", checkedAt: at }; }
 
   // security — .paaw/security/scan-results.json（semgrep-runner 落檔），scope 過濾 + 新鮮度
@@ -647,16 +701,34 @@ export async function reviewChecklistItem(projectPath, id, itemId, verdict, note
   return rr;
 }
 
-/** 刷新（GET 單張時用）：target 前進到 HEAD、scope 重算、auto 重跑；verdict 保留 */
+/** 刷新（GET 單張時用）：target 前進到 HEAD、scope 重算、auto 重跑；verdict 保留。
+ *  2026-10-22 lineage 制（Task A — RR-20261018-6f2e 卡四天教訓）：
+ *  - HEAD 是現 target 後代 → 自動前進（修復 commits 不再被鎖在靶心外）
+ *  - 非 target 後代（分岔/跳版/force-push）→ 不前進，history 記 blocked（同一 head 只記一次）
+ *  - targetLocked → 不前進（人類否決權）
+ *  - 前進後舊的 AI 建議作廢（suggested 清空 — agent 要對新樹重新建議） */
 export async function refreshReleaseRequest(projectPath, id) {
   const rr = await getReleaseRequest(projectPath, id);
   if (!rr) return null;
   if (rr.status === "released" || rr.status === "cancelled") return rr;
   const headSha = await gitOne(projectPath, "rev-parse HEAD");
   if (headSha && headSha !== rr.target?.sha) {
-    rr.target = await describeCommit(projectPath, headSha);
-    rr.scope = await computeScope(projectPath, rr.baseline.sha);
-    hist(rr, "system", "target-advanced", `target 前進到 ${rr.target.short}，scope 重算`);
+    const headShort = headSha.slice(0, 8);
+    if (rr.targetLocked) {
+      const note = `target 已鎖定（${rr.target?.short}），HEAD ${headShort} 不自動納入`;
+      const lastSkip = (rr.history || []).filter(h => h.event === "target-advance-skipped").pop();
+      if (lastSkip?.note !== note) hist(rr, "system", "target-advance-skipped", note);
+    } else if (!(await gitIsAncestor(projectPath, rr.target?.sha, headSha))) {
+      const note = `HEAD ${headShort} 不是 ${rr.target?.short} 的後代（分岔/跳版）— 不前進，人工確認`;
+      const lastBlock = (rr.history || []).filter(h => h.event === "target-advance-blocked").pop();
+      if (lastBlock?.note !== note) hist(rr, "system", "target-advance-blocked", note);
+    } else {
+      const prevShort = rr.target?.short;
+      rr.target = await describeCommit(projectPath, headSha);
+      rr.scope = await computeScope(projectPath, rr.baseline.sha, headSha);
+      rr.suggested = undefined; // 靶心前進 → 舊證據的 AI 建議作廢（對新樹重新 suggest）
+      hist(rr, "system", "target-advanced", `target ${prevShort} → ${rr.target.short}（lineage 自動前進），scope 重算，AI 建議作廢`);
+    }
   }
   const auto = await autoCheckAll(projectPath, rr.scope, { firstRelease: rr.baseline?.source === "first-commit", baselineSha: rr.baseline.sha, targetSha: rr.target.sha });
   for (const item of rr.checklist) item.auto = auto[item.id] || item.auto;
@@ -755,13 +827,31 @@ export async function cancelReleaseRequest(projectPath, id, { reason } = {}) {
   return rr;
 }
 
+/** 2026-10-22 lineage 制：人類否決權 — 鎖定/解鎖 target 自動前進（鎖定 = refresh 不再前進，人工控靶心） */
+export async function setTargetLock(projectPath, id, locked) {
+  const rr = await getReleaseRequest(projectPath, id);
+  if (!rr) { const e = new Error("release request not found"); e.status = 404; throw e; }
+  if (rr.status === "released" || rr.status === "cancelled") {
+    const e = new Error(`已 ${rr.status}，無需鎖定`); e.status = 400; throw e;
+  }
+  if (!!rr.targetLocked === !!locked) return rr; // 冪等
+  rr.targetLocked = !!locked;
+  hist(rr, "human", locked ? "target-locked" : "target-unlocked", `target 固定在 ${rr.target?.short}（${locked ? "不自動前進" : "恢復自動前進"}）`);
+  await saveRR(projectPath, rr);
+  return rr;
+}
+
 // ── v3（2026-09-18）：RM agent 建議 verdict — AI 只建議，人在 UI 一鍵確認 ──
 
 /**
  * 寫入 AI 建議（不動 verdict）：rr.suggested[itemId] = { verdict, reason, by, at }
  * draft / reviewing 都可建議（建議不鎖任何東西）；released/cancelled 拒絕。
+ * 2026-10-22 lineage 制：suggest 前先系統刷新（target 前進 + auto 重跑）—
+ * 刷新是 deterministic 記帳不是 verdict，agent 仍然只建議不決策；
+ * 從此不再有「對舊靶心建議」（RR-20261018-6f2e 教訓：建議落在凍結 target 上等於白建議）。
  */
 export async function suggestVerdicts(projectPath, id, items, by = "rm-agent") {
+  await refreshReleaseRequest(projectPath, id);
   const rr = await getReleaseRequest(projectPath, id);
   if (!rr) { const e = new Error("release request not found"); e.status = 404; throw e; }
   if (rr.status === "released" || rr.status === "cancelled") {

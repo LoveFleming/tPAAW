@@ -44,6 +44,7 @@ export interface RrDetail {
   releaseId: string | null;
   baseline: { sha: string; short: string; subject: string; at?: string; source?: string };
   target: { sha?: string; short?: string; subject?: string; at?: string };
+  targetLocked?: boolean; // 2026-10-22 lineage 制：鎖定後 refresh 不自動前進（人類否決權）
   scope: {
     computedAt?: string;
     commits: { count: number; authors: string[]; subjects: string[] };
@@ -67,6 +68,7 @@ interface RrListItem {
   releaseId: string | null;
   baseline: { short?: string; subject?: string; source?: string };
   target: { short?: string; subject?: string };
+  targetLocked?: boolean;
   scope: { commits: number; files: number; features: number; apis: number; tasks: number };
   checklist: { id: string; verdict: string; auto: string }[];
 }
@@ -297,7 +299,7 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify, chatRef }
     } finally { setBusy(false); }
   };
 
-  const act = async (action: "open" | "close" | "cancel", body: Record<string, unknown>, okText: string) => {
+  const act = async (action: "open" | "close" | "cancel" | "lock" | "unlock", body: Record<string, unknown>, okText: string) => {
     if (!detail || busy) return;
     setBusy(true);
     try {
@@ -530,14 +532,27 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify, chatRef }
                   <div className="text-xs text-stone-400 animate-pulse py-2 text-center">{t("common.loading")}</div>
                 ) : (
                   <div className="space-y-3">
-                    {/* baseline → target */}
-                    <div className="text-[11px] text-stone-500 leading-relaxed" data-testid="rr-detail-baseline">
-                      <span className="font-mono text-stone-700 font-bold">{detail.baseline.short}</span>
-                      <span className="mx-1.5 text-stone-300">→</span>
-                      <span className="font-mono text-stone-700 font-bold">{detail.target.short}</span>
-                      <span className="ml-1.5 text-stone-400">
-                        （{BASELINE_SOURCE_LABEL[detail.baseline.source || ""] || detail.baseline.source}：{detail.baseline.subject}）
+                    {/* baseline → target（2026-10-22 lineage 制：target 自動前進；鎖定鈕 = 人類否決權） */}
+                    <div className="text-[11px] text-stone-500 leading-relaxed flex items-center flex-wrap gap-1.5" data-testid="rr-detail-baseline">
+                      <span>
+                        <span className="font-mono text-stone-700 font-bold">{detail.baseline.short}</span>
+                        <span className="mx-1.5 text-stone-300">→</span>
+                        <span className="font-mono text-stone-700 font-bold">{detail.target.short}</span>
+                        <span className="ml-1.5 text-stone-400">
+                          （{BASELINE_SOURCE_LABEL[detail.baseline.source || ""] || detail.baseline.source}：{detail.baseline.subject}）
+                        </span>
                       </span>
+                      {(detail.status === "draft" || detail.status === "reviewing") && (
+                        <button
+                          onClick={() => act(detail.targetLocked ? "unlock" : "lock", {}, detail.targetLocked ? `🔓 ${t("rr.targetUnlocked")}` : `🔒 ${t("rr.targetLocked")}`)}
+                          disabled={busy}
+                          title={detail.targetLocked ? t("rr.targetLockHintOn") : t("rr.targetLockHintOff")}
+                          className={`text-[10px] px-2 py-0.5 rounded-md border font-bold ${detail.targetLocked ? "bg-amber-50 text-amber-700" : "text-stone-500 hover:bg-stone-100"}`}
+                          style={{ borderColor: detail.targetLocked ? "#fcd34d" : tk.borderLight }}
+                          data-testid="rr-target-lock">
+                          {detail.targetLocked ? `🔒 ${t("rr.targetLocked")}` : t("rr.targetLock")}
+                        </button>
+                      )}
                     </div>
 
                     {/* draft: title + baseline 可改 */}

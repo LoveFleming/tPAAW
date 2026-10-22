@@ -32,6 +32,7 @@ import {
   createReleaseRequest, listReleaseRequests, getReleaseRequest, updateReleaseRequest,
   openReleaseRequest, reviewChecklistItem, closeReleaseRequest, cancelReleaseRequest,
   baselineCandidates, refreshReleaseRequest, suggestVerdicts, createAutoRrForTaskApproval,
+  setTargetLock,
 } from "../lib/release-requests.mjs";
 
 const PHASES_BEFORE_COMMIT = ["spec", "implement", "review", "test", "qa", "docs"];
@@ -531,8 +532,8 @@ export default async function releaseRoutes(req, res, next) {
     }
   }
 
-  // POST /requests/:id/{open|checklist|close|cancel}
-  const rrAction = url.match(/^\/api\/coding-releases\/requests\/([^/]+)\/(open|checklist|close|cancel)$/);
+  // POST /requests/:id/{open|checklist|close|cancel|lock|unlock}
+  const rrAction = url.match(/^\/api\/coding-releases\/requests\/([^/]+)\/(open|checklist|close|cancel|lock|unlock)$/);
   if (rrAction && method === "POST") {
     const body = await readJsonBody(req); // QA M1
     if (!body) return res.status(400).json({ error: "invalid JSON body" });
@@ -549,6 +550,9 @@ export default async function releaseRoutes(req, res, next) {
       }
       if (action === "close") return res.json(await closeReleaseRequest(path, id, { note: body.note }));
       if (action === "cancel") return res.json(await cancelReleaseRequest(path, id, { reason: body.reason }));
+      // 2026-10-22 lineage 制：人類否決權 — 鎖定/解鎖 target 自動前進
+      if (action === "lock") return res.json(await setTargetLock(path, id, true));
+      if (action === "unlock") return res.json(await setTargetLock(path, id, false));
     } catch (e) {
       return res.status(e.status || 500).json({ error: e.message, ...(e.extra || {}) });
     }

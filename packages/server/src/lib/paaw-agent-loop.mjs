@@ -3646,9 +3646,18 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
       case "qa_record_save": {
         const { saveQaResult } = await import("./qa-results.mjs");
         try {
-          const record = saveQaResult(cwd, { ...args, actor: agentId || "human" });
+          // 2026-10-22 lineage 制：自動綁樹 — 記錄當下 HEAD（RR qa-records scope 綁定靠這個判定「測於哪棵樹」）
+          let headSha = args.headSha || null;
+          if (!headSha && cwd) {
+            try {
+              const { shellExec } = await import("./shell-exec.mjs");
+              const { stdout } = await shellExec("git rev-parse HEAD", { cwd, timeout: 5000 });
+              headSha = (stdout || "").trim() || null;
+            } catch { /* 非 git repo → 不綁（舊行為） */ }
+          }
+          const record = saveQaResult(cwd, { ...args, headSha, actor: agentId || "human" });
           if (onEvent) onEvent({ type: "tool_end", name, result: `${record.verdict} - ${record.target}` });
-          return `✅ QA result recorded: ${record.id} [${record.verdict}] ${record.target}\nStatus: ${record.status} | Issues: ${record.issues.length}\nSaved to .paaw/coding-memory/qa-results.jsonl - visible to all agents and the human.`;
+          return `✅ QA result recorded: ${record.id} [${record.verdict}] ${record.target}\nStatus: ${record.status} | Issues: ${record.issues.length} | Tree: ${record.headSha ? record.headSha.slice(0, 8) : "unbound"}\nSaved to .paaw/coding-memory/qa-results.jsonl - visible to all agents and the human.`;
         } catch (e) {
           return `❌ qa_record_save failed: ${e.message}`;
         }
@@ -3681,8 +3690,10 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         ).join("\n\n");
       }
       case "rr_get": {
-        const { getReleaseRequest } = await import("./release-requests.mjs");
-        const rr = await getReleaseRequest(cwd, args.id);
+        // 2026-10-22 lineage 制：agent 讀單一律先刷新（target 前進 + auto 重跑）—
+        // 刷新是 deterministic 記帳不是 verdict；從此 agent 眼中的證據永遠是新樹，不再對凍結靶心報告
+        const { refreshReleaseRequest } = await import("./release-requests.mjs");
+        const rr = await refreshReleaseRequest(cwd, args.id);
         if (!rr) return `❌ Release request not found: ${args.id} (use rr_list)`;
         const cl = (rr.checklist || []).map(c =>
           `  [${c.id}] verdict=${c.verdict} · auto=${c.auto?.status || "?"}\n    detail: ${c.auto?.detail || "-"}${c.note ? `\n    note: ${c.note}` : ""}${rr.suggested?.[c.id] ? `\n    🤖 suggested: ${rr.suggested[c.id].verdict} - ${rr.suggested[c.id].reason}` : ""}`
@@ -3691,7 +3702,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         return [
           `${rr.id} [${rr.status}] ${rr.title}`,
           `baseline: ${rr.baseline?.short}(${rr.baseline?.source})${rr.baseline?.subject || ""}`,
-          `target:  ${rr.target?.short} ${rr.target?.subject || ""}`,
+          `target:  ${rr.target?.short} ${rr.target?.subject || ""}${rr.targetLocked ? " 🔒 locked（不自動前進）" : "（lineage 自動前進中）"}`,
           `scope:   ${rr.scope?.commits?.count ?? 0} commits · ${(rr.scope?.files || []).length} files · ${(rr.scope?.features || []).length} features · ${(rr.scope?.apis || []).length} APIs · ${(rr.scope?.taskIds || []).length} pending tasks`,
           `authors: ${(rr.scope?.commits?.authors || []).join(", ")}`,
           "",

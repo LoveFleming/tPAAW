@@ -1142,7 +1142,17 @@ export default async function projectRoute(req, res) {
       return true;
     }
     try {
-      const record = saveQaResult(body.cwd || q.cwd || PAAW_ROOT, body);
+      // 2026-10-22 lineage 制：自動綁樹 — 記錄當下 HEAD（RR qa-records scope 綁定用）
+      const qaCwd = body.cwd || q.cwd || PAAW_ROOT;
+      let headSha = body.headSha || null;
+      if (!headSha) {
+        try {
+          const { shellExec } = await import("../lib/shell-exec.mjs");
+          const { stdout } = await shellExec("git rev-parse HEAD", { cwd: qaCwd, timeout: 5000 });
+          headSha = (stdout || "").trim() || null;
+        } catch { /* 非 git 目錄 → 不綁 */ }
+      }
+      const record = saveQaResult(qaCwd, { ...body, headSha });
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, record }));
     } catch (e) {
