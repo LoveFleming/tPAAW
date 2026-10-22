@@ -478,16 +478,27 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify, chatRef }
             </li>
           )}
           {detail.status === "reviewing" && failP.length > 0 && (
-            <li className="text-[11px] leading-relaxed" style={{ color: "#92400e" }}>
-              ❌ {t("rr.next.failTitle").replace("{n}", String(failP.length))}：{failP.map(c => c.label).join("、")}
+            <li className="space-y-0.5">
+              <div className="text-[11px] font-semibold leading-relaxed" style={{ color: "#92400e" }}>❌ {t("rr.next.failTitle").replace("{n}", String(failP.length))}</div>
+              {failP.map(c => (
+                <div key={c.id} className="text-[11px] leading-snug" style={{ color: "#78350f" }}>
+                  <span className="font-semibold">{c.label}</span>
+                  <span className="block" style={{ opacity: 0.8 }}>{c.auto?.detail}</span>
+                </div>
+              ))}
             </li>
           )}
           {detail.status === "reviewing" && warnP.length > 0 && (
             <li className="space-y-1">
               <div className="text-[11px] font-semibold" style={{ color: "#92400e" }}>2️⃣ {t("rr.next.warnTitle").replace("{n}", String(warnP.length))}</div>
-              {warnP.map(c => (
-                <div key={c.id} className="flex items-center justify-between gap-2 flex-wrap text-[11px]">
-                  <span className="truncate" title={c.auto?.detail}>⚠️ {c.label}</span>
+              {warnP.map(c => {
+                const em = c.auto?.status === "pass" ? "✅" : c.auto?.status === "warn" ? "⚠️" : "❓";
+                return (
+                <div key={c.id} className="flex items-start justify-between gap-2 flex-wrap text-[11px]">
+                  <span className="min-w-0" title={c.auto?.detail || ""}>
+                    <span className="font-semibold">{em} {c.label}</span>
+                    {c.auto?.detail && <span className="block leading-snug" style={{ opacity: 0.75 }}>{c.auto.detail}</span>}
+                  </span>
                   <span className="flex gap-1.5 shrink-0">
                     <button onClick={() => review(c.id, "pass")} disabled={busy}
                       className={`${stepBtn} bg-white hover:bg-stone-50`} style={{ borderColor: "#86efac", color: "#15803d" }} data-testid="rr-next-sign">
@@ -499,7 +510,8 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify, chatRef }
                     </button>
                   </span>
                 </div>
-              ))}
+                );
+              })}
               {waiveItem && warnP.some(c => c.id === waiveItem) && (
                 <div className="flex gap-1.5 items-center pl-4">
                   <input value={waiveNote} onChange={e => setWaiveNote(e.target.value)}

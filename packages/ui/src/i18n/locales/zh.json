@@ -1938,7 +1938,7 @@
   "rr.next.qrResolve": "標 resolved",
   "rr.next.qrDone": "已處理隔離記錄",
   "rr.next.failTitle": "{n} 項檢查未過（fail）— 修復後自動重算，或到下方附理由 waive",
-  "rr.next.warnTitle": "{n} 項待你簽核（warn = 電腦無法判定，需要人工判斷；✓ 通過 / 🙋 附理由跳過）",
+  "rr.next.warnTitle": "{n} 項待你簽核 — ✅ = 電腦已驗過（簽了確認即可）；⚠️ = 電腦無法判定，需要你的判斷",
   "rr.next.signPass": "✓ 通過",
   "rr.next.closeReady": "全部簽核完成 — 可以結案出貨了",
   "rr.next.closeBtn": "結案出貨"

@@ -1938,7 +1938,7 @@
   "rr.next.qrResolve": "resolved にする",
   "rr.next.qrDone": "隔離レコードを処理しました",
   "rr.next.failTitle": "{n} 項目 fail — 修正で自動再計算、または理由付き waive",
-  "rr.next.warnTitle": "{n} 項目が署名待ち（warn = 機械判定不能；✓ pass / 🙋 理由付き waive）",
+  "rr.next.warnTitle": "{n} 項目が署名待ち — ✅ = 機械検証済み（確認して署名）；⚠️ = あなたの判断が必要",
   "rr.next.signPass": "✓ pass",
   "rr.next.closeReady": "全項目署名完了 — 出荷可能",
   "rr.next.closeBtn": "結案して出荷"

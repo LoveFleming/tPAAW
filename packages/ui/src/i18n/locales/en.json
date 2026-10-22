@@ -1938,7 +1938,7 @@
   "rr.next.qrResolve": "Mark resolved",
   "rr.next.qrDone": "Quarantined record handled",
   "rr.next.failTitle": "{n} checks failed — fix (auto-recheck) or waive with reason below",
-  "rr.next.warnTitle": "{n} items need your sign-off (warn = machine can't decide; ✓ pass / 🙋 waive with reason)",
+  "rr.next.warnTitle": "{n} items need your sign-off — ✅ = machine verified (sign to confirm); ⚠️ = needs your judgment",
   "rr.next.signPass": "✓ Pass",
   "rr.next.closeReady": "All signed — ready to ship",
   "rr.next.closeBtn": "Close & ship"
