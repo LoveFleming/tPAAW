@@ -1920,5 +1920,14 @@
   "exam-vault.action.close": "閉じる",
   "exam-vault.action.removePage": "このページを削除",
   "exam-vault.error.timeout": "リクエストがタイムアウトしました。後でもう一度お試しください",
-  "exam-vault.action.refreshWrong": "錯題を再読み込み"
+  "exam-vault.action.refreshWrong": "錯題を再読み込み",
+  "skillsUsage.engagementTitle": "📚 実際に使われたスキル（添付読み取り）",
+  "skillsUsage.engagementSubtitle": "マウント ≠ 使用 — .paaw/skills/<id>/ の実読みのみ集計（read_file / bash cat、プログラム証拠）",
+  "skillsUsage.totalReads": "添付読み取り",
+  "skillsUsage.noReadSkills": "マウントのみ未読",
+  "skillsUsage.readsCol": "読み取り",
+  "skillsUsage.readersCol": "読んだ人",
+  "skillsUsage.topFilesCol": "人気ファイル",
+  "skillsUsage.lastReadCol": "最終読み取り",
+  "skillsUsage.engagementEmpty": "この期間の添付読み取りなし（エージェントは必要時に read_file で読む）"
 }

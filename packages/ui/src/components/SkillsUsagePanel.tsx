@@ -25,6 +25,19 @@ interface Usage {
   byAgent: AgentRow[];
   byDay: Array<{ date: string; count: number; chars: number }>;
 }
+interface EngageSkillRow {
+  id: string; injections: number; reads: number;
+  readers: Array<{ id: string; count: number }>;
+  topFiles: Array<{ file: string; count: number }>;
+  lastRead: string | null; mountNoRead: boolean;
+}
+interface Engagement {
+  days: number;
+  totals: { injections: number; reads: number; skills: number; noReadSkills: number };
+  bySkill: EngageSkillRow[];
+  byAgent: Array<{ id: string; reads: number; skills: Record<string, number> }>;
+  byDay: Array<{ date: string; injections: number; reads: number }>;
+}
 
 const DEFAULT_THEME = { bg: "#ffffff", bgMuted: "#fafaf9", borderLight: "#e7e5e4", accent: "#b45309", accentBg: "#fef3c7", text: "#374151" };
 
@@ -44,6 +57,7 @@ export default function SkillsUsagePanel({ theme = DEFAULT_THEME }: { theme?: an
   const { t } = useI18n();
   const [days, setDays] = useState(7); // 預設 7 天（log retention 預設視窗）
   const [data, setData] = useState<Usage | null>(null);
+  const [eng, setEng] = useState<Engagement | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // 點下去看實際注入內容（/a2a/:id/system-prompt）
@@ -72,6 +86,8 @@ export default function SkillsUsagePanel({ theme = DEFAULT_THEME }: { theme?: an
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setData(json);
+      const res2 = await fetch(`${API_BASE}/api/llm-logs/skill-engagement?days=${d}`);
+      if (res2.ok) setEng(await res2.json());
     } catch (e: any) { setError(e.message || String(e)); }
     finally { setLoading(false); }
   }, []);
@@ -143,6 +159,66 @@ export default function SkillsUsagePanel({ theme = DEFAULT_THEME }: { theme?: an
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ── Engagement：真正被使用（附件回讀證據）2026-10-22 ── */}
+      {eng && (
+        <div className="mb-4" data-testid="skill-engagement">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <div className="text-[11px] font-semibold">📚 {t("skillsUsage.engagementTitle")}</div>
+            <span className="text-[10px]" style={{ opacity: 0.55 }}>{t("skillsUsage.engagementSubtitle")}</span>
+          </div>
+          <div className="flex flex-wrap gap-3 mb-2">
+            <div style={{ ...cardStyle, minWidth: 110 }}>
+              <div className="text-[10px] uppercase tracking-wider" style={{ opacity: 0.55 }}>{t("skillsUsage.totalReads")}</div>
+              <div className="text-xl font-bold">{eng.totals.reads}</div>
+            </div>
+            <div style={{ ...cardStyle, minWidth: 110 }}>
+              <div className="text-[10px] uppercase tracking-wider" style={{ opacity: 0.55 }}>{t("skillsUsage.noReadSkills")}</div>
+              <div className="text-xl font-bold" style={{ color: eng.totals.noReadSkills > 0 ? "#d97706" : undefined }}>{eng.totals.noReadSkills}</div>
+            </div>
+          </div>
+          {eng.bySkill.length > 0 ? (
+            <div style={{ border: `1px solid ${theme.borderLight}`, borderRadius: 8, overflow: "hidden" }}>
+              <table className="w-full" style={{ borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ background: theme.bgMuted }}>
+                    <th style={th}>{t("skillsUsage.skill")}</th>
+                    <th style={th}>{t("skillsUsage.injections")}</th>
+                    <th style={th}>{t("skillsUsage.readsCol")}</th>
+                    <th style={{ ...th, whiteSpace: "normal" }}>{t("skillsUsage.readersCol")}</th>
+                    <th style={{ ...th, whiteSpace: "normal" }}>{t("skillsUsage.topFilesCol")}</th>
+                    <th style={th}>{t("skillsUsage.lastReadCol")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {eng.bySkill.map(s => (
+                    <tr key={s.id} style={s.mountNoRead ? { opacity: 0.6 } : undefined}>
+                      <td style={td}>{s.mountNoRead ? "💤" : "📖"} {s.id}</td>
+                      <td style={td}>{s.injections}</td>
+                      <td style={td}><b style={{ color: s.reads > 0 ? undefined : "#d97706" }}>{s.reads}</b></td>
+                      <td style={{ ...td, whiteSpace: "normal", fontSize: 11 }}>
+                        {s.readers.map(a => (
+                          <span key={a.id} className="inline-block rounded px-1 mr-1 mb-0.5" style={{ background: theme.accentBg, color: theme.accent }}>
+                            {a.id} <span style={{ opacity: 0.6 }}>×{a.count}</span>
+                          </span>
+                        ))}
+                      </td>
+                      <td style={{ ...td, whiteSpace: "normal", fontSize: 11, opacity: 0.85 }}>
+                        {s.topFiles.map(f => (
+                          <span key={f.file} className="inline-block mr-2">{f.file} <span style={{ opacity: 0.5 }}>×{f.count}</span></span>
+                        ))}
+                      </td>
+                      <td style={td} title={s.lastRead || ""}>{s.lastRead ? fmtAgo(s.lastRead) : "–"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-xs p-3 rounded" style={{ border: `1px dashed ${theme.borderLight}`, opacity: 0.7 }}>{t("skillsUsage.engagementEmpty")}</div>
+          )}
         </div>
       )}
 

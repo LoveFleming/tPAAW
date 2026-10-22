@@ -259,6 +259,106 @@ export function pairLogs(logs) {
   return { paired, orphanRequests, orphanPhases };
 }
 
+/** Skill 回讀證據抽取：從單一 toolCall 的（name, args 原文）抽出 [.paaw/skills/<id>/<file>] 命中 */
+function _skillReadHits(toolName, argsRaw) {
+  const hits = [];
+  const RE = /\.paaw\/skills\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._\-/]+)/g;
+  if (toolName === "read_file") {
+    try {
+      const a = JSON.parse(argsRaw || "{}");
+      const p = String(a.path || "").replace(/\\/g, "/");
+      let m; RE.lastIndex = 0;
+      while ((m = RE.exec(p))) hits.push({ skillId: m[1], file: m[2] });
+    } catch { /* args 非 JSON → 退回字串掃描 */ }
+  }
+  if (hits.length === 0) {
+    let m; RE.lastIndex = 0;
+    while ((m = RE.exec(String(argsRaw || "")))) hits.push({ skillId: m[1], file: m[2] });
+  }
+  return hits;
+}
+
+/**
+ * Skill Engagement — 掛載 vs 回讀對照（2026-10-22 Fleming：「skill 真的被使用」）
+ * mounted-but-never-read = 掛了没人讀（context 浪費訊號）；read = 真實使用證據（程式記錄，非 AI 自述）
+ */
+export function collectSkillEngagement(days = 7, dir = DEFAULT_LOG_DIR) {
+  ensureLogDir(dir);
+  const files = readdirSync(dir).filter(f => f.endsWith(".jsonl")).sort();
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - (days - 1));
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const injected = {};   // skillId -> {count, agents:{}}
+  const reads = {};      // skillId -> {count, agents:{}, files:{}, lastTs}
+  const byDay = {};
+  const agents = {};     // agentId -> {reads, skills:{}}
+  let injectionEvents = 0;
+  for (const f of files) {
+    const dateStr = f.replace(".jsonl", "");
+    if (dateStr < cutoffStr) continue;
+    let lines;
+    try { lines = readFileSync(join(dir, f), "utf-8").split("\n"); } catch { continue; }
+    for (const line of lines) {
+      if (!line.includes("skills")) continue; // fast path：注入行與回讀行都必含 skills 字串
+      let e; try { e = JSON.parse(line); } catch { continue; }
+      const agent = e.agentId || "unknown";
+      if (e.phase === "skills" && Array.isArray(e.skills)) {
+        const day = byDay[dateStr] || (byDay[dateStr] = { date: dateStr, injections: 0, reads: 0 });
+        day.injections += 1;
+        injectionEvents += 1;
+        for (const sid of e.skills) {
+          const s = injected[sid] || (injected[sid] = { count: 0, agents: {} });
+          s.count += 1; s.agents[agent] = (s.agents[agent] || 0) + 1;
+        }
+      } else if (e.phase === "response" && Array.isArray(e.toolCalls)) {
+        const dayHits = [];
+        for (const tc of e.toolCalls) {
+          for (const h of _skillReadHits(tc.name, tc.args)) {
+            dayHits.push(h);
+            const r = reads[h.skillId] || (reads[h.skillId] = { count: 0, agents: {}, files: {}, lastTs: e.ts });
+            r.count += 1;
+            r.agents[agent] = (r.agents[agent] || 0) + 1;
+            r.files[h.file] = (r.files[h.file] || 0) + 1;
+            if (e.ts > (r.lastTs || "")) r.lastTs = e.ts;
+            const a = agents[agent] || (agents[agent] = { id: agent, reads: 0, skills: {} });
+            a.reads += 1; a.skills[h.skillId] = (a.skills[h.skillId] || 0) + 1;
+          }
+        }
+        if (dayHits.length) {
+          const day = byDay[dateStr] || (byDay[dateStr] = { date: dateStr, injections: 0, reads: 0 });
+          day.reads += dayHits.length;
+        }
+      }
+    }
+  }
+  const allIds = [...new Set([...Object.keys(injected), ...Object.keys(reads)])];
+  const bySkill = allIds.map(id => {
+    const inj = injected[id] || { count: 0, agents: {} };
+    const rd = reads[id] || { count: 0, agents: {}, files: {}, lastTs: null };
+    return {
+      id,
+      injections: inj.count,
+      reads: rd.count,
+      readers: Object.entries(rd.agents).map(([aid, c]) => ({ id: aid, count: c })).sort((a, b) => b.count - a.count),
+      topFiles: Object.entries(rd.files).map(([file, c]) => ({ file, count: c })).sort((a, b) => b.count - a.count).slice(0, 5),
+      lastRead: rd.lastTs,
+      mountNoRead: inj.count > 0 && rd.count === 0,
+    };
+  }).sort((a, b) => b.reads - a.reads || b.injections - a.injections);
+  return {
+    days,
+    totals: {
+      injections: injectionEvents,
+      reads: Object.values(reads).reduce((s, x) => s + x.count, 0),
+      skills: allIds.length,
+      noReadSkills: bySkill.filter(s => s.mountNoRead).length,
+    },
+    bySkill,
+    byAgent: Object.values(agents).sort((a, b) => b.reads - a.reads),
+    byDay: Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date)),
+  };
+}
+
 export default async function llmLogsRoute(req, res) {
   const method = req.method;
   const rawUrl = req.url || "";
@@ -273,6 +373,21 @@ export default async function llmLogsRoute(req, res) {
       return res.end(JSON.stringify(collectSkillsUsage(days)));
     } catch (e) {
       res.writeHead(500, { "Content-Type": "application/json" }); // M5：補 Content-Type
+      return res.end(JSON.stringify({ error: e.message }));
+    }
+  }
+
+// GET /api/llm-logs/skill-engagement — Skill 真正被使用報表（2026-10-22：掛載 ≠ 使用）
+// 證據分層：inject = prompt 事實（phase:skills）；read = agent 主動回讀 skill 檔案
+// （response 行 toolCalls 的 args 出現 .paaw/skills/<id>/ 路徑 — read_file 精確解析、其他工具字串掃描）
+// 誠實邊界：「遵循 skill 規則與否」是語意層，本報表不含 — 那層沒有 deterministic proof。
+  if (url === "/api/llm-logs/skill-engagement" && method === "GET") {
+    try {
+      const days = safeInt(q.get("days"), 7, 1, 365);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify(collectSkillEngagement(days)));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ error: e.message }));
     }
   }

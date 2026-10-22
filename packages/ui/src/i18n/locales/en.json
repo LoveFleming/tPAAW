@@ -1920,5 +1920,14 @@
   "exam-vault.action.close": "Close",
   "exam-vault.action.removePage": "Remove this page",
   "exam-vault.action.refreshWrong": "Refresh wrong answers",
-  "exam-vault.error.timeout": "Request timed out, please retry later"
+  "exam-vault.error.timeout": "Request timed out, please retry later",
+  "skillsUsage.engagementTitle": "📚 Skills actually used (attachment reads)",
+  "skillsUsage.engagementSubtitle": "Mounted ≠ used — counts only real reads of .paaw/skills/<id>/ files (read_file / bash cat; program evidence)",
+  "skillsUsage.totalReads": "Attachment reads",
+  "skillsUsage.noReadSkills": "Mounted, never read",
+  "skillsUsage.readsCol": "Reads",
+  "skillsUsage.readersCol": "Readers",
+  "skillsUsage.topFilesCol": "Top files",
+  "skillsUsage.lastReadCol": "Last read",
+  "skillsUsage.engagementEmpty": "No skill attachment reads in this window (agents read via read_file when needed)"
 }
