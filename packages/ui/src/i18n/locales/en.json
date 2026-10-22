@@ -1929,5 +1929,17 @@
   "skillsUsage.readersCol": "Readers",
   "skillsUsage.topFilesCol": "Top files",
   "skillsUsage.lastReadCol": "Last read",
-  "skillsUsage.engagementEmpty": "No skill attachment reads in this window (agents read via read_file when needed)"
+  "skillsUsage.engagementEmpty": "No skill attachment reads in this window (agents read via read_file when needed)",
+  "rr.next.title": "Your next steps",
+  "rr.next.progress": "{done}/{total} signed",
+  "rr.next.draftDesc": "Auto checks are done (details below) — review then open; opening locks scope and starts human sign-off",
+  "rr.next.openBtn": "Open review",
+  "rr.next.qrTitle": "{n} quarantined QA records (tested outside this tree) — resolve them and qa-records turns green",
+  "rr.next.qrResolve": "Mark resolved",
+  "rr.next.qrDone": "Quarantined record handled",
+  "rr.next.failTitle": "{n} checks failed — fix (auto-recheck) or waive with reason below",
+  "rr.next.warnTitle": "{n} items need your sign-off (warn = machine can't decide; ✓ pass / 🙋 waive with reason)",
+  "rr.next.signPass": "✓ Pass",
+  "rr.next.closeReady": "All signed — ready to ship",
+  "rr.next.closeBtn": "Close & ship"
 }

@@ -1929,5 +1929,17 @@
   "skillsUsage.readersCol": "読んだ人",
   "skillsUsage.topFilesCol": "人気ファイル",
   "skillsUsage.lastReadCol": "最終読み取り",
-  "skillsUsage.engagementEmpty": "この期間の添付読み取りなし（エージェントは必要時に read_file で読む）"
+  "skillsUsage.engagementEmpty": "この期間の添付読み取りなし（エージェントは必要時に read_file で読む）",
+  "rr.next.title": "次のステップ",
+  "rr.next.progress": "署名済み {done}/{total}",
+  "rr.next.draftDesc": "自動チェック完了（詳細は下）— 問題なければ審査を開始；開始後スコープ固定、項目ごとの署名へ",
+  "rr.next.openBtn": "審査開始",
+  "rr.next.qrTitle": "隔離 QA レコード {n} 件（このツリー外で実施）— resolved にすると qa-records が緑に",
+  "rr.next.qrResolve": "resolved にする",
+  "rr.next.qrDone": "隔離レコードを処理しました",
+  "rr.next.failTitle": "{n} 項目 fail — 修正で自動再計算、または理由付き waive",
+  "rr.next.warnTitle": "{n} 項目が署名待ち（warn = 機械判定不能；✓ pass / 🙋 理由付き waive）",
+  "rr.next.signPass": "✓ pass",
+  "rr.next.closeReady": "全項目署名完了 — 出荷可能",
+  "rr.next.closeBtn": "結案して出荷"
 }

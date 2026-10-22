@@ -28,7 +28,7 @@ import type { AgentSideChatHandle } from "./AgentSideChat";
 export interface RrChecklistItem {
   id: string;
   label: string;
-  auto?: { status: string; detail: string; checkedAt?: string; runId?: string | null } | null;
+  auto?: { status: string; detail: string; checkedAt?: string; runId?: string | null; quarantined?: string[] } | null;
   verdict: "pass" | "fail" | "waived" | "pending";
   reviewedBy?: string | null;
   reviewedAt?: string | null;
@@ -323,6 +323,25 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify, chatRef }
     } finally { setBusy(false); }
   };
 
+  // 2026-10-22：隔離 QA 記錄一鍵 resolve（RR 詳情「你的下一步」banner 内）
+  const resolveQr = async (qrId: string) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-crew/qa-results/${encodeURIComponent(qrId)}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cwd: rootPath, status: "resolved", note: "Release 審查隔離單：人工確認處理", by: "human" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return toast(false, `❌ ${data.error || `HTTP ${res.status}`}`);
+      toast(true, `✔ ${t("rr.next.qrDone")}：${qrId.slice(0, 22)}`);
+      if (detailId) await fetchDetail(detailId);
+      refreshList();
+    } catch (e: any) {
+      toast(false, `❌ ${e?.message || "連線失敗"}`);
+    } finally { setBusy(false); }
+  };
+
   const review = async (itemId: string, verdict: string, note?: string) => {
     if (!detail || busy) return;
     setBusy(true);
@@ -402,6 +421,111 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify, chatRef }
   }, [waitingSuggest, detailId]);
 
   // ── render helpers ──
+
+  // 2026-10-22 Fleming：「RR 開立後卡在人的時候，要讓人很清楚要做什麼事」
+  // 狀態驅動的「你的下一步」banner — 依 RR 狀態算出人類待辦（開審/隔離單/待簽項/結案）
+  const renderNextSteps = () => {
+    if (!detail || detail.status === "released" || detail.status === "cancelled") return null;
+    const cl = detail.checklist || [];
+    const pending = cl.filter(c => c.verdict === "pending");
+    const done = cl.length - pending.length;
+    const qaItem = cl.find(c => c.id === "qa-records");
+    const quarantined = qaItem?.auto?.quarantined || [];
+    const failP = pending.filter(c => c.auto?.status === "fail");
+    const warnP = pending.filter(c => c.auto?.status !== "fail");
+    const allSigned = detail.status === "reviewing" && pending.length === 0;
+
+    const stepBtn = "text-[11px] font-bold px-2.5 py-1 rounded-md border";
+
+    return (
+      <div className="rounded-lg p-3" data-testid="rr-next-steps"
+        style={{ background: allSigned ? "#f0fdf4" : "#fffbeb", border: `1px solid ${allSigned ? "#bbf7d0" : "#fde68a"}` }}>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs font-bold">{allSigned ? "🎉" : "⏭"} {t("rr.next.title")}</span>
+          {detail.status === "reviewing" && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded font-bold"
+              style={{ background: done === cl.length ? "#dcfce7" : "#fef3c7", color: done === cl.length ? "#15803d" : "#b45309" }}>
+              {t("rr.next.progress").replace("{done}", String(done)).replace("{total}", String(cl.length))}
+            </span>
+          )}
+        </div>
+        <ol className="space-y-1.5">
+          {detail.status === "draft" && (
+            <li className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-[11px] leading-relaxed" style={{ color: "#92400e" }}>{t("rr.next.draftDesc")}</span>
+              <button onClick={() => act("open", {}, "🔍 " + t("rr.openedToast"))} disabled={busy}
+                className={`${stepBtn} bg-white hover:bg-stone-50`} style={{ borderColor: "#f59e0b", color: "#b45309" }} data-testid="rr-next-open">
+                🔍 {t("rr.next.openBtn")}
+              </button>
+            </li>
+          )}
+          {detail.status === "reviewing" && quarantined.length > 0 && qaItem?.verdict === "pending" && (
+            <li className="space-y-1">
+              <div className="text-[11px] font-semibold" style={{ color: "#92400e" }}>1️⃣ {t("rr.next.qrTitle").replace("{n}", String(quarantined.length))}</div>
+              {quarantined.map(q => {
+                const qi = String(q).split("（")[0];
+                const reason = String(q).includes("（") ? "（" + String(q).split("（").slice(1).join("（") : "";
+                return (
+                  <div key={qi} className="flex items-center justify-between gap-2 flex-wrap text-[11px] font-mono" style={{ color: "#78350f" }}>
+                    <span className="truncate" title={q}>{qi} <span className="font-sans" style={{ opacity: 0.7 }}>{reason}</span></span>
+                    <button onClick={() => resolveQr(qi)} disabled={busy}
+                      className={`${stepBtn} bg-white hover:bg-stone-50 shrink-0`} style={{ borderColor: "#a3e635", color: "#4d7c0f" }} data-testid="rr-next-resolve">
+                      ✔ {t("rr.next.qrResolve")}
+                    </button>
+                  </div>
+                );
+              })}
+            </li>
+          )}
+          {detail.status === "reviewing" && failP.length > 0 && (
+            <li className="text-[11px] leading-relaxed" style={{ color: "#92400e" }}>
+              ❌ {t("rr.next.failTitle").replace("{n}", String(failP.length))}：{failP.map(c => c.label).join("、")}
+            </li>
+          )}
+          {detail.status === "reviewing" && warnP.length > 0 && (
+            <li className="space-y-1">
+              <div className="text-[11px] font-semibold" style={{ color: "#92400e" }}>2️⃣ {t("rr.next.warnTitle").replace("{n}", String(warnP.length))}</div>
+              {warnP.map(c => (
+                <div key={c.id} className="flex items-center justify-between gap-2 flex-wrap text-[11px]">
+                  <span className="truncate" title={c.auto?.detail}>⚠️ {c.label}</span>
+                  <span className="flex gap-1.5 shrink-0">
+                    <button onClick={() => review(c.id, "pass")} disabled={busy}
+                      className={`${stepBtn} bg-white hover:bg-stone-50`} style={{ borderColor: "#86efac", color: "#15803d" }} data-testid="rr-next-sign">
+                      {t("rr.next.signPass")}
+                    </button>
+                    <button onClick={() => setWaiveItem(waiveItem === c.id ? null : c.id)} disabled={busy}
+                      className={`${stepBtn} bg-white hover:bg-stone-50`} style={{ borderColor: "#e9d5ff", color: "#7e22ce" }}>
+                      🙋 waive
+                    </button>
+                  </span>
+                </div>
+              ))}
+              {waiveItem && warnP.some(c => c.id === waiveItem) && (
+                <div className="flex gap-1.5 items-center pl-4">
+                  <input value={waiveNote} onChange={e => setWaiveNote(e.target.value)}
+                    placeholder={t("rr.waiveNotePh")} className="flex-1 min-w-0 text-[11px] px-2 py-1 rounded border bg-white" autoFocus />
+                  <button onClick={() => waiveNote.trim() && review(waiveItem, "waived", waiveNote.trim())}
+                    disabled={busy || !waiveNote.trim()}
+                    className={`${stepBtn} bg-white`} style={{ borderColor: "#e9d5ff", color: "#7e22ce" }}>
+                    {t("rr.waiveSubmit")}
+                  </button>
+                </div>
+              )}
+            </li>
+          )}
+          {allSigned && (
+            <li className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-[11px] font-semibold" style={{ color: "#166534" }}>{t("rr.next.closeReady")}</span>
+              <button onClick={() => act("close", closeNote.trim() ? { note: closeNote.trim() } : {}, "")} disabled={busy}
+                className={`${stepBtn} bg-white hover:bg-stone-50`} style={{ borderColor: "#4ade80", color: "#15803d" }} data-testid="rr-next-close">
+                📦 {t("rr.next.closeBtn")}
+              </button>
+            </li>
+          )}
+        </ol>
+      </div>
+    );
+  };
 
   const checklistDone = (cl: { verdict: string }[]) => cl.filter(c => c.verdict === "pass" || c.verdict === "waived").length;
 
@@ -532,6 +656,8 @@ export default function ReleaseRequests({ rootPath, theme: tk, notify, chatRef }
                   <div className="text-xs text-stone-400 animate-pulse py-2 text-center">{t("common.loading")}</div>
                 ) : (
                   <div className="space-y-3">
+                    {/* 2026-10-22：你的下一步（卡在人時讓人很清楚要做什麼） */}
+                    {renderNextSteps()}
                     {/* baseline → target（2026-10-22 lineage 制：target 自動前進；鎖定鈕 = 人類否決權） */}
                     <div className="text-[11px] text-stone-500 leading-relaxed flex items-center flex-wrap gap-1.5" data-testid="rr-detail-baseline">
                       <span>

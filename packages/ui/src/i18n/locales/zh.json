@@ -1929,5 +1929,17 @@
   "skillsUsage.readersCol": "誰在讀",
   "skillsUsage.topFilesCol": "熱門檔案",
   "skillsUsage.lastReadCol": "最後回讀",
-  "skillsUsage.engagementEmpty": "此區間尚無 skill 檔案回讀記錄（agent 需要附件時會用 read_file 讀）"
+  "skillsUsage.engagementEmpty": "此區間尚無 skill 檔案回讀記錄（agent 需要附件時會用 read_file 讀）",
+  "rr.next.title": "你的下一步",
+  "rr.next.progress": "已簽 {done}/{total}",
+  "rr.next.draftDesc": "Checklist 自動檢查已完成（明細在下方）— 確認沒問題後開審；開審後 scope 鎖定，開始逐項人工簽核",
+  "rr.next.openBtn": "開審（進入人工審查）",
+  "rr.next.qrTitle": "{n} 筆隔離 QA 記錄（測的不是本版樹）— 確認後標 resolved，qa-records 檢查會自動轉綠",
+  "rr.next.qrResolve": "標 resolved",
+  "rr.next.qrDone": "已處理隔離記錄",
+  "rr.next.failTitle": "{n} 項檢查未過（fail）— 修復後自動重算，或到下方附理由 waive",
+  "rr.next.warnTitle": "{n} 項待你簽核（warn = 電腦無法判定，需要人工判斷；✓ 通過 / 🙋 附理由跳過）",
+  "rr.next.signPass": "✓ 通過",
+  "rr.next.closeReady": "全部簽核完成 — 可以結案出貨了",
+  "rr.next.closeBtn": "結案出貨"
 }
