@@ -468,9 +468,15 @@ export async function autoCheckAll(projectPath, scope, opts = {}) {
       out["qa-delta"] = { status: "pass", detail: "delta 無 features（若 delta 有程式檔 → 見 feature-map 歸類）", checkedAt: at };
     } else {
       const fidOf = s => { const m = String(s || "").match(/F\d{8}-\d{3}/); return m ? m[0] : null; };
+      // 記錄 join 兩條路：F-ID（新格式/帶 id 的自由文字）或功能名稱精確對上（qa_record_save 的規定
+      // 就是填 project_info 的 name 原文 — Evidence Matrix 也靠名稱 join，2026-10-22 EM 3 筆 pass
+      // 全是純名稱、抓不到 F-ID 導致 warn 不轉綠的教訓）
+      const nameToId = new Map(feats.map(f => [String(f.name || "").trim(), String(f.id)]));
       const covered = new Set();
       for (const r of listQaResults(projectPath, { limit: 500 })) {
-        const rid = fidOf(r.feature); if (!rid || r.verdict !== "pass") continue;
+        const raw = String(r.feature || "").trim();
+        const rid = fidOf(raw) || nameToId.get(raw) || null;
+        if (!rid || r.verdict !== "pass") continue;
         const h = /^[0-9a-f]{7,40}$/i.test(String(r.headSha || "")) ? String(r.headSha) : null;
         if (!h || !opts.baselineSha || !opts.targetSha) continue;
         const afterBase = h !== opts.baselineSha && (await gitIsAncestor(projectPath, opts.baselineSha, h));

@@ -113,9 +113,9 @@ describe("qa-delta — delta features 的 QA 覆蓋", () => {
     expect(qd.auto.detail).toContain("F20261001-001");
   });
 
-  it("D5: 樹上 pass 記錄（open 也算 — 證明測過）→ pass；自由文字 feature 欄位可對上", async () => {
+  it("D5: 樹上 pass 記錄（open 也算 — 證明測過）→ pass；feature 欄填「純名稱」也對得上（Evidence Matrix 同 join 法）", async () => {
     await saveQaResult(root, {
-      feature: "F20261001-001 功能一（自由文字）",
+      feature: "功能一",  // 純名稱、無 F-ID — qa_record_save 規定的填法
       verdict: "pass", summary: "delta 覆蓋", type: "manual",
       headSha: head(),
     });
