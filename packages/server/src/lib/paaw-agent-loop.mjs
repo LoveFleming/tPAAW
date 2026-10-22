@@ -690,6 +690,33 @@ export const PAAW_TOOLS = [
         },
       },
     },
+    // ── Feature Map 歸類（2026-10-22 delta 制）— EM release 準備受控工具：agent 給判斷，程式代寫 .paaw ──
+    {
+      type: "function",
+      function: {
+        name: "feature_map_update",
+        description: "Register file→feature mappings in THIS project's feature map (.paaw/features/). Use when RR feature-map check lists unmapped delta files, or after creating new files that belong to a feature. The server writes FILE-FEATURES.json + FEATURES.json (validated, backed up, idempotent) — never edit those files directly. featureId format F{YYYYMMDD}-{NNN} (get real ids from project_info(category=features)); new features are auto-registered. After mapping, rr_get to confirm the feature-map item turned green.",
+        parameters: {
+          type: "object",
+          properties: {
+            entries: {
+              type: "array",
+              description: "One per file to classify",
+              items: {
+                type: "object",
+                properties: {
+                  file: { type: "string", description: "Project-relative path, e.g. 'tests/unit/auth.test.mjs'" },
+                  featureId: { type: "string", description: "F{YYYYMMDD}-{NNN} — real id from project_info, never invent" },
+                  featureName: { type: "string", description: "Display name (optional; kept if feature is new or unnamed)" },
+                },
+                required: ["file", "featureId"],
+              },
+            },
+          },
+          required: ["entries"],
+        },
+      },
+    },
     // ── Unified docs tool (replaces update_changelog + update_docs) ──
     {
       type: "function",
@@ -1403,6 +1430,8 @@ const TOOL_GROUP_MAP = {
 
   // Release Prep - v4(2026-09-18):EM「準備 release」自動補證據(受控工具,不開 bash)
   release_prep_status: "release-prep", test_run: "release-prep", security_scan: "release-prep", handover_refresh: "release-prep", ru_model_refresh: "release-prep",
+  // Feature map 歸類（2026-10-22 delta 制）— 同 release-prep 哲學：受控寫入，不開直改檔案
+  feature_map_update: "release-prep",
 
   // Staged summary (agents record why they staged files)
   staged_summary: "core",
@@ -3643,6 +3672,20 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
       }
 
       // ── QA Results Tools(2026-09-17:qa agent 留記錄、全 agent 讀寫)──
+      case "feature_map_update": {
+        const { mergeFeatureMappings } = await import("./feature-map-store.mjs");
+        try {
+          const r = mergeFeatureMappings(cwd, args.entries || [], agentId || "human");
+          if (r.merged === 0) {
+            return `⚠ 0 筆合併（全部冪等或被跳過）。${r.skipped.length ? `跳過：${r.skipped.slice(0, 3).map(s => `${s.file}（${s.reason}）`).join("、")}${r.skipped.length > 3 ? "…" : ""}` : "（皆已歸類過）"}`;
+          }
+          const skipPart = r.skipped.length ? `；${r.skipped.length} 筆跳過（${r.skipped[0].reason}…）` : "";
+          return `✅ 歸類 ${r.merged} 檔 → ${r.featureIds.join(", ")}${r.newFeatures.length ? `（新登記 ${r.newFeatures.length} 功能）` : ""}${skipPart}\n寫入 .paaw/features/（server 代寫，備份 ${r.backups.length} 檔）。下一步：rr_get 確認 feature-map 轉綠。`;
+        } catch (e) {
+          return `❌ feature_map_update failed: ${e.message}`;
+        }
+      }
+
       case "qa_record_save": {
         const { saveQaResult } = await import("./qa-results.mjs");
         try {
