@@ -2139,7 +2139,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           return result + (end < lines.length ? `\n... (lines ${end+1}-${lines.length} omitted)` : "");
         }
         // Truncate very large files
-        const maxLen = 100_000;
+        // 2026-10-22 Fleming：100K→150K — 讀檔被截斷回報（工具層；context 層見 context-truncation tiers）
+        const maxLen = 150_000;
         // 2026-09-14: cutSafeStart 不切 surrogate pair(emoji 切半 → 孤兒 \ud83d → LLM 500)
         const result = content.length > maxLen
           ? cutSafeStart(content, maxLen) + `\n... (truncated, ${content.length} bytes total)`
@@ -4413,7 +4414,11 @@ export function trimMessagesToFit(messages, contextWindow = DEFAULT_CONTEXT_WIND
   const budget = contextWindow - CONTEXT_SAFETY_MARGIN;
 
   // Pass 1: Smart tool result truncation (head+tail, preserves errors at end)
-  const afterToolTrunc = truncateToolResultsInMessages(messages);
+  // 2026-10-22 Fleming（林雨晴讀檔被截斷）：context 還很寬鬆（<85% 預算）時不無腦截斷
+  // tool result — 尤其 read_file 剛讀完就砍到 36K，agent 引用檔案內容時憑空少一半。
+  // 只在真的接近預算時才被動截斷（那時 cap 也已放大，見 context-truncation.mjs tiers）。
+  const _totalTokensBefore = estimateMessageTokens(messages);
+  const afterToolTrunc = _totalTokensBefore > budget * 0.85 ? truncateToolResultsInMessages(messages) : messages;
 
   // Pass 2: Limit history turns (keep recent N user turns)
   const afterHistoryLimit = limitHistoryTurns(afterToolTrunc, 8);

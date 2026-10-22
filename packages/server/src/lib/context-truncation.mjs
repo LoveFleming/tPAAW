@@ -193,13 +193,14 @@ export function truncateToolResultsInMessages(messages, maxCharsPerResult = DEFA
     let cap;
     if (turnsAgo <= 2) {
       // Tier 1: recent — read_file gets full content, others get normal cap
-      cap = isReadFile ? 36_000 : 12_000;
+      // 2026-10-22 Fleming（林雨晴讀檔截斷）：36K→100K（對齊 read_file 工具層上限 — 剛讀完的檔下一輪就砍半，引用內容憑空消失）
+      cap = isReadFile ? 100_000 : 12_000;
     } else if (turnsAgo <= 6) {
       // Tier 2: medium — read_file gets compressed, others get tight
-      cap = isReadFile ? 12_000 : 4_000;
+      cap = isReadFile ? 40_000 : 4_000; // 2026-10-22：12K→40K
     } else {
       // Tier 3: old — everything gets a preview only
-      cap = 2_000;
+      cap = isReadFile ? 8_000 : 2_000; // 2026-10-22：2K→8K
     }
 
     if (content.length > cap) {
