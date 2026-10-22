@@ -10,7 +10,7 @@
  * temp dir with synthetic JSONL — no real log/ files are touched.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "fs";
+import { mkdtempSync, writeFileSync, appendFileSync, rmSync, mkdirSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import {
@@ -179,4 +179,21 @@ describe("collectSkillsUsage", () => {
     const report = collectSkillsUsage(1, dir);
     expect(report.byAgent.every(a => a.id === "developer")).toBe(true);
   });
+});
+
+// 2026-10-23：list 端點最新在前（live tail 可見）— Fleming 報案「正在跑但沒 log」
+it("F1: GET /api/llm-logs 回傳最新在前 — item[0] 是最新一筆", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "llm-order-"));
+  const w = (id, iso, phase) => appendFileSync(join(dir, "2026-10-23.jsonl"), JSON.stringify({ id, ts: iso, phase, agentId: "em", model: "m", messageCount: 1 }) + "\n");
+  w("a", "2026-10-23T10:00:00Z", "request");
+  w("a", "2026-10-23T10:00:05Z", "response");
+  w("b", "2026-10-23T11:00:00Z", "request");
+  w("b", "2026-10-23T11:00:03Z", "response");
+  w("c", "2026-10-23T12:00:00Z", "request"); // in-flight（還沒 response）
+  const { logs } = parseAllLogs(1, dir);
+  const { paired } = pairLogs(logs);
+  const sorted = paired.slice().sort((x, y) => String(y.ts || "").localeCompare(String(x.ts || "")));
+  expect(sorted[0].id).toBe("c");       // 最新 request 在最前（in-flight 也算一列）
+  expect(sorted[1].id).toBe("b");
+  rmSync(dir, { recursive: true, force: true });
 });

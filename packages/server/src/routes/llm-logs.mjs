@@ -406,6 +406,9 @@ export default async function llmLogsRoute(req, res) {
 
       let filtered = paired;
       if (agentFilter) filtered = filtered.filter(l => l.agentId === agentFilter);
+      // 2026-10-23 修正：最新在前。舊版直接 slice 檔頭（時間舊→新），limit=200 永遠只看到
+      // 最新一天檔案的「前 200 筆」，正在跑的 live tail 永遠進不了列表（Fleming：「正在跑但沒 log」）
+      filtered = filtered.slice().sort((a, b) => String(b.ts || "").localeCompare(String(a.ts || "")));
 
       const total = filtered.length;
       const items = filtered.slice(offset, offset + limit);
