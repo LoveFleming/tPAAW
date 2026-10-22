@@ -50,6 +50,8 @@ const CANDIDATES = [
   { kind: "cobertura", file: "coverage.xml", runner: "cobertura" },
   { kind: "cobertura", file: "cobertura.xml", runner: "cobertura" },
   { kind: "cobertura", file: "target/cobertura.xml", runner: "cobertura" },
+  // .NET coverlet（msbuild 預設落地點）
+  { kind: "cobertura", file: "coverage.cobertura.xml", runner: "coverlet (.NET)" },
   // Go 原生 coverprofile（go test -coverprofile=coverage.out）
   { kind: "go-cover", file: "coverage.out", runner: "go" },
   { kind: "go-cover", file: "cover.out", runner: "go" },
@@ -84,6 +86,46 @@ export function findTestReports(projectRoot) {
       if (/^jacoco.*\.xml$/i.test(f)) found.push({ kind: "jacoco", file: f, path: join(projectRoot, f), runner: "jacoco" });
     }
   } catch { /* ignore */ }
+  // ── 2026-10-22 深掃（Fleming：各語言/前後端混合 RU 的 report 位置不同）──
+  // 掃子目錄 + 孫目錄的 coverage 慣例落地點（server/coverage/…、web/coverage/…、packages/*/
+  // coverage/…、<svc>/target/site/jacoco/…）。cap：最多 60 個目錄、20 份 report，跳過 node_modules/.git/dist。
+  const SUBDIR_COVERAGE = [
+    { kind: "coverage-summary", rel: "coverage/coverage-summary.json", runner: "vitest/jest" },
+    { kind: "lcov", rel: "coverage/lcov.info", runner: "lcov" },
+    { kind: "jacoco", rel: "target/site/jacoco/jacoco.xml", runner: "jacoco" },
+    { kind: "cobertura", rel: "coverage.xml", runner: "cobertura" },
+    { kind: "cobertura", rel: "coverage.cobertura.xml", runner: "coverlet (.NET)" },
+    { kind: "go-cover", rel: "coverage.out", runner: "go" },
+  ];
+  const SKIP = new Set(["node_modules", ".git", "dist", ".paaw", "playwright-report", "test-results"]);
+  const seenPaths = new Set(found.map(f => f.path));
+  let dirBudget = 60, foundBudget = 20;
+  try {
+    const level1 = readdirSync(projectRoot, { withFileTypes: true }).filter(d => d.isDirectory() && !SKIP.has(d.name)).slice(0, 30);
+    for (const d1 of level1) {
+      const dirsToCheck = [[d1.name]];
+      // 孫目錄（packages/*/ui 這種 monorepo layout）：只開一層，控制掃描量
+      try {
+        const level2 = readdirSync(join(projectRoot, d1.name), { withFileTypes: true }).filter(d => d.isDirectory() && !SKIP.has(d.name)).slice(0, 15);
+        for (const d2 of level2) dirsToCheck.push([d1.name, d2.name]);
+      } catch { /* ignore */ }
+      for (const parts of dirsToCheck) {
+        if (dirBudget-- <= 0 || foundBudget <= 0) break;
+        for (const pat of SUBDIR_COVERAGE) {
+          const rel = [...parts, pat.rel].join("/");
+          const p = join(projectRoot, rel);
+          if (seenPaths.has(p)) continue;
+          try {
+            const st = statSync(p);
+            if (st.isFile() && st.size > 0) {
+              found.push({ ...pat, file: rel, path: p, size: st.size, mtime: st.mtime.toISOString() });
+              seenPaths.add(p); foundBudget--;
+            }
+          } catch { /* 無 = 跳過 */ }
+        }
+      }
+    }
+  } catch { /* ignore */ }
   return found;
 }
 
@@ -91,9 +133,15 @@ export function findTestReports(projectRoot) {
 // { total: { lines: { pct: 87.5 }, ... }, "abs/path/file.ts": { lines: { pct: 100 } } }
 function parseCoverageSummary(projectRoot, filePath, runner = null) {
   const j = JSON.parse(readFileSync(filePath, "utf-8"));
-  const out = { runner: runner ? `${runner} (istanbul 格式)` : "vitest/jest (istanbul)", kind: "coverage", at: statSync(filePath).mtime.toISOString(), fileCoverage: {}, totalLinePct: null };
+  const out = { runner: runner ? `${runner} (istanbul 格式)` : "vitest/jest (istanbul)", kind: "coverage", at: statSync(filePath).mtime.toISOString(), fileCoverage: {}, totalLinePct: null, linesCovered: null, linesTotal: null };
   for (const [k, v] of Object.entries(j)) {
-    if (k === "total") { out.totalLinePct = v?.lines?.pct ?? null; continue; }
+    if (k === "total") {
+      out.totalLinePct = v?.lines?.pct ?? null;
+      // 2026-10-22：絕對行數（加權合併用 — 前後端混合 RU 多份 coverage 不能平均百分比）
+      const cv = v?.lines?.covered, tt = v?.lines?.total;
+      if (Number.isFinite(cv) && Number.isFinite(tt) && tt > 0) { out.linesCovered = cv; out.linesTotal = tt; }
+      continue;
+    }
     const rel = relative(projectRoot, k).replace(/\\/g, "/");
     if (!rel.startsWith("..")) out.fileCoverage[rel] = v?.lines?.pct ?? null;
   }
@@ -114,7 +162,7 @@ function parseLcov(projectRoot, filePath) {
       tlf += lf; tlh += lh; cur = null;
     }
   }
-  if (tlf > 0) out.totalLinePct = Math.round((tlh / tlf) * 1000) / 10;
+  if (tlf > 0) { out.totalLinePct = Math.round((tlh / tlf) * 1000) / 10; out.linesCovered = tlh; out.linesTotal = tlf; } // 2026-10-22：絕對行數供加權合併
   return out;
 }
 
@@ -193,9 +241,13 @@ function parseCoberturaXml(projectRoot, filePath) {
   const st = statSync(filePath);
   if (st.size > MAX_XML_BYTES) return null;
   const xml = readFileSync(filePath, "utf-8");
-  const out = { runner: "cobertura", kind: "coverage", at: st.mtime.toISOString(), fileCoverage: {}, totalLinePct: null };
+  const out = { runner: "cobertura", kind: "coverage", at: st.mtime.toISOString(), fileCoverage: {}, totalLinePct: null, linesCovered: null, linesTotal: null };
   const g = xml.match(/<coverage\b[^>]*\bline-rate="([0-9.]+)"/);
   if (g) out.totalLinePct = Math.round(parseFloat(g[1]) * 1000) / 10;
+  // 2026-10-22：cobertura 標準屬性 lines-valid / lines-covered（加權合併用）
+  const lv = xml.match(/<coverage\b[^>]*\blines-valid="(\d+)"/);
+  const lc = xml.match(/<coverage\b[^>]*\blines-covered="(\d+)"/);
+  if (lv && lc && +lv[1] > 0) { out.linesTotal = +lv[1]; out.linesCovered = +lc[1]; }
   // 逐檔：屬性子順序不定（filename / line-rate 誰先都可能）→ 整 tag 抽
   for (const m of xml.matchAll(/<class\b[^>]*>/g)) {
     const tag = m[0];
@@ -237,6 +289,7 @@ function parseGoCoverprofile(filePath) {
   if (total === 0) return null;
   for (const [f, v] of Object.entries(perFile)) out.fileCoverage[f] = v.t > 0 ? Math.round((v.c / v.t) * 1000) / 10 : null;
   out.stmtsCovered = covered; out.stmtsTotal = total;
+  out.linesCovered = covered; out.linesTotal = total; // 2026-10-22：go 是 statement 覆蓋率，當行數近似供加權合併
   out.totalLinePct = Math.round((covered / total) * 1000) / 10;
   return out;
 }
@@ -286,12 +339,44 @@ function parsePaawTestRun(filePath) {
   return reports;
 }
 
+/**
+ * mergeCoverage — 多份 coverage 的行數加權合併（2026-10-22 Fleming：前後端混合 RU）
+ *
+ * 各語言/前後端各出一份 report（vitest + jacoco、前端 istanbul + 後端 go…）時：
+ * - 有絕對行數的來源：Σcovered / Σtotal 加權合併（不是平均百分比 — 80%×100 行 + 40%×1000 行 ≠ 60%）
+ * - 只有一份：原值帶 merged:false
+ * - 多份但缺絕對行數（無法加權）：回最高那份 + merged:false + 全部 sources（UI 顯示清單不冒充）
+ */
+export function mergeCoverage(reports) {
+  const covs = (reports || []).filter(r => r && r.kind === "coverage");
+  if (covs.length === 0) return null;
+  const sources = covs.map(c => ({ runner: c.runner, at: c.at, totalLinePct: c.totalLinePct ?? null, file: c.file ?? null }));
+  if (covs.length === 1) {
+    const c = covs[0];
+    return { totalLinePct: c.totalLinePct ?? null, linesCovered: c.linesCovered ?? null, linesTotal: c.linesTotal ?? null, sources, merged: false, at: c.at ?? null };
+  }
+  let covered = 0, total = 0, absCount = 0;
+  for (const c of covs) {
+    if (Number.isFinite(c.linesCovered) && Number.isFinite(c.linesTotal) && c.linesTotal > 0) { covered += c.linesCovered; total += c.linesTotal; absCount++; }
+    else if (Number.isFinite(c.linesMissed) && Number.isFinite(c.linesCovered)) { covered += c.linesCovered; total += c.linesCovered + c.linesMissed; absCount++; } // jacoco
+  }
+  if (absCount >= 2 && total > 0) {
+    const latestAt = sources.map(s => s.at).filter(Boolean).sort().pop() ?? null;
+    return { totalLinePct: Math.round((covered / total) * 1000) / 10, linesCovered: covered, linesTotal: total, sources, merged: true, at: latestAt };
+  }
+  const best = [...covs].sort((a, b) => (b.totalLinePct ?? -1) - (a.totalLinePct ?? -1))[0];
+  const latestAt = sources.map(s => s.at).filter(Boolean).sort().pop() ?? null;
+  return { totalLinePct: best?.totalLinePct ?? null, linesCovered: null, linesTotal: null, sources, merged: false, at: latestAt };
+}
+
 /** 產生 UI 摘要（找到什麼、數字、時間；找不到 = 無 — 誠實） */
 export function testReportSummary(projectRoot) {
   const reports = readTestReports(projectRoot);
   const pick = (pred) => reports.filter(pred);
   return {
     found: reports.length,
+    // 2026-10-22：前後端混合 RU — 合併行覆蓋率（加權）；消費端優先吃這個，不再只看 coverage[0]
+    mergedCoverage: mergeCoverage(reports),
     reports: reports.map(r => ({
       runner: r.runner, kind: r.kind, at: r.at,
       total: r.total ?? null, passed: r.passed ?? null, failed: r.failed ?? null, skipped: r.skipped ?? null,

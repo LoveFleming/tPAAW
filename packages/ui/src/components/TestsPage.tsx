@@ -34,6 +34,7 @@ interface DetailData {
       reports: { runner: string; kind: string; at: string | null; total?: number | null; passed?: number | null; failed?: number | null; skipped?: number | null; totalLinePct?: number | null }[];
       run?: { runner: string; kind: string; at: string | null; status?: string | null; total?: number | null; passed?: number | null; failed?: number | null; skipped?: number | null; durationMs?: number | null; id?: string | null; headSha?: string | null; commands?: string[] | null; includeE2e?: boolean | null; byKind?: Record<string, { passed: number; failed: number; skipped: number; files: number }> | null }[];
       coverage: { runner: string; at: string | null; totalLinePct?: number | null }[];
+      mergedCoverage?: { totalLinePct?: number | null; linesCovered?: number | null; linesTotal?: number | null; merged?: boolean; sources?: { runner: string; at: string | null; totalLinePct?: number | null }[] } | null;
       e2e: { runner: string; at: string | null; total?: number | null; passed?: number | null; failed?: number | null }[];
       unit: { runner: string; at: string | null; total?: number | null; passed?: number | null; failed?: number | null }[];
     } | null;
@@ -98,10 +99,13 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
   const byType = data?.summary?.byType || {};
   const tr = data?.summary?.testReports || null;
   // 真實 coverage（工具 report）— 找不到 = null（誠實顯示無）
-  const covReport = tr?.coverage?.[0] || null;
+  // 2026-10-22：前後端混合 RU — 優先加權合併值（只看 coverage[0] 會抓錯），單份/無合併 fallback 第一份
+  const covReport: { totalLinePct?: number | null; merged?: boolean; at?: string | null; runner?: string; sources?: { runner: string; at: string | null; totalLinePct?: number | null }[] } | null = tr?.mergedCoverage || tr?.coverage?.[0] || null;
   const realCov = covReport?.totalLinePct ?? null;
-  const realCovSrc = covReport?.runner || null;
-  const realCovAt = covReport?.at || null;
+  const covMerged = !!covReport?.merged;
+  const covSources = covReport?.sources || [];
+  const realCovSrc = covMerged ? `${covSources.length} 份加權合併` : (covReport?.sources?.[0]?.runner || covReport?.runner || null);
+  const realCovAt = covReport?.at || covReport?.sources?.[0]?.at || null;
   // 2026-10-21 Fleming：真實執行結果 per-kind（UT / E2E）— 來自 .paaw/test-runs/last.json 的 run report
   const lastRun = tr?.run?.[0] || null;
   const ut = lastRun?.byKind?.unit || lastRun?.byKind?.mixed || null;

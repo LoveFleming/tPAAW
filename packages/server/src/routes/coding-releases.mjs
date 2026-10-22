@@ -664,14 +664,17 @@ function assertProjectPath(p) {
 function coverageSummary(projectPath) {
   try {
     const tr = testReportSummary(projectPath);
-    const cov = tr.coverage?.[0] || null;
+    // 2026-10-22：前後端混合 RU — 優先加權合併值（多份 coverage 只看第一份會抓錯）；無合併 fallback 第一份
+    const cov = tr.mergedCoverage || tr.coverage?.[0] || null;
     return {
-      linePct: cov?.totalLinePct ?? null,   // 真實行覆蓋率（istanbul/lcov/jacoco/cobertura/go）
-      runner: cov?.runner ?? null,
-      at: cov?.at ?? null,
+      linePct: cov?.totalLinePct ?? null,   // 真實行覆蓋率（istanbul/lcov/jacoco/cobertura/go；多份 = 行數加權合併）
+      runner: cov?.merged ? `${cov.sources?.length || 0} 份合併` : (cov?.sources?.[0]?.runner ?? null),
+      at: cov?.at ?? cov?.sources?.[0]?.at ?? null,
       measured: cov?.totalLinePct != null,  // false = 未量測（非 0%）
+      sources: cov?.sources ?? [],
+      merged: !!cov?.merged,
     };
-  } catch { return { linePct: null, runner: null, at: null, measured: false }; }
+  } catch { return { linePct: null, runner: null, at: null, measured: false, sources: [], merged: false }; }
 }
 
 // ── lastTestRun 摘要（readiness 用）：真實執行數字 + stale 偵測 ──

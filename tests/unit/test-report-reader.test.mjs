@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readTestReports, findTestReports, testReportSummary } from "../../packages/server/src/lib/test-report-reader.mjs";
+import { readTestReports, findTestReports, testReportSummary, mergeCoverage } from "../../packages/server/src/lib/test-report-reader.mjs";
 
 let dir, emptyDir;
 beforeAll(() => {
@@ -107,5 +107,58 @@ describe("test-report-reader", () => {
     expect(reps.length).toBe(1); // 壞的 istanbul 跳過，junit 成功
     expect(reps[0].runner).toBe("junit");
     rmSync(d2, { recursive: true, force: true });
+  });
+});
+
+// ── 2026-10-22：前後端混合 RU — 深掃 + 行數加權合併 ──
+describe("mergeCoverage + 深掃（前後端混合 RU）", () => {
+  let mixDir;
+  beforeAll(() => {
+    mixDir = mkdtempSync(join(tmpdir(), "trr-mix-"));
+    // 前端：web/coverage/coverage-summary.json（istanbul 帶絕對行數）80% × 100 行
+    mkdirSync(join(mixDir, "web/coverage"), { recursive: true });
+    writeFileSync(join(mixDir, "web/coverage/coverage-summary.json"), JSON.stringify({
+      total: { lines: { pct: 80, covered: 80, total: 100 } },
+      [`${mixDir}/web/src/a.tsx`]: { lines: { pct: 80 } },
+    }));
+    // 後端：server/target/site/jacoco/jacoco.xml 40% × 1000 行
+    mkdirSync(join(mixDir, "server/target/site/jacoco"), { recursive: true });
+    writeFileSync(join(mixDir, "server/target/site/jacoco/jacoco.xml"),
+      `<report><package><counter type="LINE" missed="600" covered="400"/></package></report>`);
+  });
+  afterAll(() => rmSync(mixDir, { recursive: true, force: true }));
+
+  it("深掃找到子目錄的前後端兩份 coverage", () => {
+    const found = findTestReports(mixDir);
+    const rels = found.map(f => f.file).sort();
+    expect(rels).toContain("server/target/site/jacoco/jacoco.xml");
+    expect(rels).toContain("web/coverage/coverage-summary.json");
+  });
+
+  it("mergeCoverage：行數加權合併（不是平均）— (80+400)/(100+1000) = 43.6%", () => {
+    const sum = testReportSummary(mixDir);
+    const m = sum.mergedCoverage;
+    expect(m.merged).toBe(true);
+    expect(m.totalLinePct).toBe(43.6);
+    expect(m.linesCovered).toBe(480);
+    expect(m.linesTotal).toBe(1100);
+    expect(m.sources.length).toBe(2);
+  });
+
+  it("單份 coverage → merged:false 原值", () => {
+    const one = [{ kind: "coverage", runner: "x", at: "t", totalLinePct: 55.5, linesCovered: 111, linesTotal: 200 }];
+    const m = mergeCoverage(one);
+    expect(m.merged).toBe(false);
+    expect(m.totalLinePct).toBe(55.5);
+  });
+
+  it("多份但缺絕對行數 → 不合併（誠實 fallback 最高一份 + 全 sources）", () => {
+    const m = mergeCoverage([
+      { kind: "coverage", runner: "a", at: "t1", totalLinePct: 30 },
+      { kind: "coverage", runner: "b", at: "t2", totalLinePct: 90 },
+    ]);
+    expect(m.merged).toBe(false);
+    expect(m.totalLinePct).toBe(90);
+    expect(m.sources.length).toBe(2);
   });
 });
