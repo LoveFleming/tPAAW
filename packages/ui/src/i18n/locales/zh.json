@@ -882,11 +882,6 @@
   "cu.skillBindTitle": "綁定 PAAW skill 到此步驟（選配）",
   "cu.skillBindHint": "選配：有適合的 skill 再綁，沒綁就用預設流程跑",
   "cu.serverRunHint": "CU 在 server 端執行 — 關掉視窗／瀏覽器都會繼續跑，完成後自動更新（過程中請勿重啟 server）。Feature Map 較花時間，視 feature 數量可能等 10-30 分鐘。",
-  "toolbar.cat.dev": "開發",
-  "toolbar.cat.verify": "驗證",
-  "toolbar.cat.project": "專案",
-  "toolbar.cat.work": "工作",
-  "toolbar.cat.ops": "維運",
   "janitor.viewShell": "終端機",
   "janitor.viewConsole": "Console",
   "janitor.viewJanitor": "清理",
@@ -1963,5 +1958,9 @@
   "apiMap.devSug2Label": "🔍 解讀回應",
   "apiMap.devSug2Prompt": "分析目前 API 測試的回應：狀態碼代表什麼、body 結構、有沒有異常或要注意的欄位。",
   "apiMap.devSug3Label": "📋 煙霧測試清單",
-  "apiMap.devSug3Prompt": "針對這個專案的 API 列一份煙霧測試清單：優先測哪些 route、每條各驗證什麼、預期狀態碼。"
+  "apiMap.devSug3Prompt": "針對這個專案的 API 列一份煙霧測試清單：優先測哪些 route、每條各驗證什麼、預期狀態碼。",
+  "toolbar.cat.engineering": "工程",
+  "toolbar.cat.production": "生產",
+  "toolbar.cat.quality": "品管",
+  "toolbar.cat.delivery": "出貨"
 }

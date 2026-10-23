@@ -882,11 +882,6 @@
   "cu.skillBindTitle": "Bind a PAAW skill to this step (optional)",
   "cu.skillBindHint": "Optional: bind a matching skill if you have one; otherwise the default pipeline runs",
   "cu.serverRunHint": "CU runs on the server — it keeps going even if you close this window/browser and updates automatically when done (don't restart the server mid-run). Feature Map takes time: expect 10-30 min depending on feature count.",
-  "toolbar.cat.dev": "Dev",
-  "toolbar.cat.verify": "Verify",
-  "toolbar.cat.project": "Project",
-  "toolbar.cat.work": "Work",
-  "toolbar.cat.ops": "Ops",
   "janitor.viewShell": "Terminal",
   "janitor.viewConsole": "Console",
   "janitor.viewJanitor": "Janitor",
@@ -1963,5 +1958,9 @@
   "apiMap.devSug2Label": "🔍 Explain response",
   "apiMap.devSug2Prompt": "Analyze the current API test response: status code meaning, body structure, anomalies or fields to watch.",
   "apiMap.devSug3Label": "📋 Smoke test list",
-  "apiMap.devSug3Prompt": "Create a smoke test list for this project's APIs: which routes to test first, what to verify on each, expected status codes."
+  "apiMap.devSug3Prompt": "Create a smoke test list for this project's APIs: which routes to test first, what to verify on each, expected status codes.",
+  "toolbar.cat.engineering": "Engineering",
+  "toolbar.cat.production": "Production",
+  "toolbar.cat.quality": "Quality",
+  "toolbar.cat.delivery": "Delivery"
 }

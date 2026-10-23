@@ -749,32 +749,33 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
   const [showSearchMenu, setShowSearchMenu] = useState(false);
   const [showCrewMenu, setShowCrewMenu] = useState(false);
   const [openToolbarCat, setOpenToolbarCat] = useState<string | null>(null);
-  // 🧰 工具分類（2026-09-06 Fleming 定調）：15 tool → 5 類，類內按英文 label 字母序；Terminal 另立單一實例鈕
+  // 🧰 工具分類（2026-10-23 Fleming 定調：軟體工廠四部門）：18 tool → 4 部門，類內按英文 label 字母序
+  //   📐 工程=圖紙（是什麼/為何這樣設計）👷 生產=工單與機台（誰做/怎麼做）
+  //   🔍 品管=檢驗（證明是對的）📦 出貨=放行與交付（誰點頭/怎麼交出去）
+  //   同構 North Star：生產=AI 生產、品管=deterministic 證明、出貨=human 決策
   const TOOL_CATEGORIES: Array<{ id: string; icon: string; tools: MainTab[] }> = [
-    { id: "dev", icon: "🖥️", tools: [
-      { id: "tool:crew", type: "crew-manager", label: "AI Crew", icon: "👥", closable: true },
-      { id: "tool:browser", type: "browser", label: "Browser · QA", icon: "🧭", closable: true },
+    { id: "engineering", icon: "📐", tools: [
       { id: "tool:code-intel", type: "code-intel", label: tt("codeIntel.toolbar"), icon: "🏛", closable: true },
-      { id: "tool:git", type: "git", label: "Git", icon: "🔀", closable: true },
-      { id: "tool:security", type: "security", label: "Security", icon: "🔒", closable: true },
-      { id: "tool:terminal", type: "terminal", label: "Terminal", icon: "⌨️", closable: true },
-    ]},
-    { id: "verify", icon: "🧪", tools: [
-      { id: "tool:api", type: "api", label: "API Tester", icon: "🌐", closable: true },
-      { id: "tool:qa-records", type: "qa-records", label: tt("qaRecords.toolbar"), icon: "🧾", closable: true },
-      { id: "tool:tests", type: "tests", label: tt("tests.toolbar"), icon: "🧪", closable: true },
-    ]},
-    { id: "project", icon: "🗺️", tools: [
-      { id: "tool:project", type: "project", label: tt("projectMd.toolbar"), icon: "📖", closable: true },
       { id: "tool:decisions", type: "decisions", label: "Decisions", icon: "📜", closable: true },
       { id: "tool:features", type: "features", label: "Features", icon: "🗺️", closable: true },
+      { id: "tool:project", type: "project", label: tt("projectMd.toolbar"), icon: "📖", closable: true },
     ]},
-    { id: "work", icon: "📋", tools: [
-      { id: "tool:handover", type: "handover", label: "Handover", icon: "🤝", closable: true },
+    { id: "production", icon: "👷", tools: [
+      { id: "tool:crew", type: "crew-manager", label: "AI Crew", icon: "👥", closable: true },
+      { id: "tool:git", type: "git", label: "Git", icon: "🔀", closable: true },
       { id: "tool:issues", type: "issues", label: "Issues", icon: "📋", closable: true },
       { id: "tool:tasks", type: "tasks", label: "Tasks", icon: "📌", closable: true },
+      { id: "tool:terminal", type: "terminal", label: "Terminal", icon: "⌨️", closable: true },
     ]},
-    { id: "ops", icon: "🛡️", tools: [
+    { id: "quality", icon: "🔍", tools: [
+      { id: "tool:api", type: "api", label: "API Tester", icon: "🌐", closable: true },
+      { id: "tool:browser", type: "browser", label: "Browser · QA", icon: "🧭", closable: true },
+      { id: "tool:qa-records", type: "qa-records", label: tt("qaRecords.toolbar"), icon: "🧾", closable: true },
+      { id: "tool:security", type: "security", label: "Security", icon: "🔒", closable: true },
+      { id: "tool:tests", type: "tests", label: tt("tests.toolbar"), icon: "🧪", closable: true },
+    ]},
+    { id: "delivery", icon: "📦", tools: [
+      { id: "tool:handover", type: "handover", label: "Handover", icon: "🤝", closable: true },
       { id: "tool:release", type: "release-manager", label: "Release Manager", icon: "🚦", closable: true },
       { id: "tool:review-board", type: "review-board", label: tt("crb.toolbar"), icon: "🏛️", closable: true },
       { id: "tool:troubleshooting", type: "troubleshooting", label: "Troubleshooting", icon: "🔧", closable: true },
@@ -2917,7 +2918,7 @@ const sendChat = useCallback(async () => {
         </div>
 
 
-        {/* 🧰 工具分類下拉（2026-09-06 Fleming）：15 個 tool 收斂成 5 類，類內按英文 label 字母序 */}
+        {/* 🧰 工具分類下拉（2026-10-23 Fleming：軟體工廠四部門 — 📐工程 👷生產 🔍品管 📦出貨）*/}
         {TOOL_CATEGORIES.map(cat => {
           const catActive = !!activeMainTab && cat.tools.some(tool => tool.id === activeMainTab.id || (tool.type === "terminal" && activeMainTab.type === "terminal"));
           return (
