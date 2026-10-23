@@ -129,9 +129,10 @@ function _loadTestSignals(projectPath) {
   try { return JSON.parse(readFileSync(p, "utf-8")); } catch { return null; }
 }
 
-function _regressionTests(changedPaths, projectPath, fileFeatureMap, featuresInTask) {
+async function _regressionTests(changedPaths, projectPath, fileFeatureMap, featuresInTask) {
   const sig = _loadTestSignals(projectPath);
   if (!sig) return null;
+  const { effectiveHermeticity } = await import("./test-signals.mjs");
   const fileMap = fileFeatureMap || _loadFileFeatureMap(projectPath);
   const byF = sig.byFeature || {};
   const byFile = sig.byFile || {};
@@ -147,7 +148,7 @@ function _regressionTests(changedPaths, projectPath, fileFeatureMap, featuresInT
   for (const fid of featIds) {
     const b = byF[fid];
     if (!b) { out.uncovered.push(fid); continue; }
-    const push = (arr, list) => { for (const t of list) arr.push({ feature: fid, file: t, hermeticity: (byFile[t] || {}).hermeticity }); };
+    const push = (arr, list) => { for (const t of list) arr.push({ feature: fid, file: t, hermeticity: effectiveHermeticity(byFile[t] || {}) }); };
     const n = (b.hermetic || []).length + (b["needs-key"] || []).length + (b["needs-network"] || []).length + (b["needs-service"] || []).length + (b.unknown || []).length;
     out.totals.tests += n;
     if (n === 0) { out.uncovered.push(fid); continue; }
@@ -258,7 +259,7 @@ export async function buildReviewBoundary(projectPath, task) {
     .map((t) => `改動碰觸橫切關注點「${t.name}」（散在 ${t.crossFeatureCount} 條 feature：${t.features.slice(0, 6).join("/")}）— 請確認影響面`);
 
   // 🧪 可信回歸清單（改動 feature → 測試，依自足性分區）
-  const regressionTests = _regressionTests(reviewable.map((f) => f.path), projectPath, fileFeatureMap, task?.featureIds);
+  const regressionTests = await _regressionTests(reviewable.map((f) => f.path), projectPath, fileFeatureMap, task?.featureIds);
 
   return {
     version: 1,

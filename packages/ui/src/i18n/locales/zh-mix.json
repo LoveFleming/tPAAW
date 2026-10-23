@@ -1956,5 +1956,6 @@
   "feature.herm.needs-key": "需金鑰",
   "feature.herm.needs-network": "需連網",
   "feature.herm.needs-service": "需服務",
-  "feature.herm.unknown": "未知"
+  "feature.herm.unknown": "未知",
+  "feature.testsEnrich": "AI 消歧模糊測試標籤"
 }

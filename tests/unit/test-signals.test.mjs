@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { classifyTestFile, isTestPath, languageOf, computeTestSignals, loadTestSignalTables, validateTables } from "../../packages/server/src/lib/test-signals.mjs";
+import { classifyTestFile, isTestPath, languageOf, computeTestSignals, loadTestSignalTables, validateTables, ambiguousTestFiles, enrichTestSignals, effectiveHermeticity } from "../../packages/server/src/lib/test-signals.mjs";
 
 let root;
 beforeAll(() => {
@@ -46,6 +46,19 @@ beforeAll(() => {
   w("rs/src/tests/cache.rs", "use crate::tests::harness::Harness;\n#[tokio::test]\nasync fn t() { let _ = Harness; }\n");
   // Rust：needs-service（redis）
   w("rs/src/tests/redis.rs", "use crate::tests::harness::Harness;\n#[tokio::test]\nasync fn t() { redis::Client::open(\"redis://localhost\"); }\n");
+
+  // Go：reach（同目錄被測 package + go.mod module import 解析）
+  w("gwk/go.mod", "module demo.com/app\n\ngo 1.21\n");
+  w("gwk/internal/client.go", "package internal\n\nconst Base = \"https://api.vendor.dev/v1\"\n");
+  w("gwk/internal/client_test.go", "package internal\n\nimport \"testing\"\n\nfunc TestBase(t *testing.T) { _ = Base }\n");
+  w("gwk/util/util.go", "package util\n\nfunc Idx() int { return 1 }\n");
+  w("gwk/util/util_test.go", "package util\n\nimport (\"testing\"; \"demo.com/app/internal\")\n\nfunc TestIdx(t *testing.T) { _ = base.Base }\n");
+
+  // Java：reach（src/test/java 鏡像 src/main/java + import 解析）
+  w("jwk/src/main/java/com/x/Api.java", "package com.x;\npublic class Api { public static final String HOST = \"https://api.vendor.dev\"; }\n");
+  w("jwk/src/test/java/com/x/ApiTest.java", "package com.x;\nimport org.junit.Test;\npublic class ApiTest { @Test public void ok() { assert Api.HOST != null; } }\n");
+  w("jwk/src/main/java/com/x/Calc.java", "package com.x;\npublic class Calc { public static int add(int a,int b){return a+b;} }\n");
+  w("jwk/src/test/java/com/x/CalcTest.java", "package com.x;\nimport com.x.Calc;\nimport org.junit.Test;\npublic class CalcTest { @Test public void ok() { assert Calc.add(1,2)==3; } }\n");
 });
 
 afterAll(() => rmSync(root, { recursive: true, force: true }));
@@ -108,6 +121,49 @@ describe("test-signals：語言無關偵測", () => {
     expect(r.byFeature["F-001"].hermetic).toEqual(["src/fmt.test.ts"]);
     expect(r.byFeature["F-001"]["needs-network"]).toEqual(["src/api/call.test.ts"]);
     expect(r.byFeature["F-002"]["needs-key"]).toEqual(["src/auth.test.ts"]);
+  });
+
+  it("Go reach：同目錄被測 code 有外部端點 → needs-network；同 module import 解析也通", () => {
+    expect(c("gwk/internal/client_test.go")).toBe("needs-network"); // via 同目錄 client.go
+    expect(c("gwk/util/util_test.go")).toBe("needs-network"); // via demo.com/app/internal → gwk/internal/*.go
+  });
+
+  it("Java reach：鏡像 src/main/java 被測類有外部端點 → needs-network；純計算 → hermetic", () => {
+    expect(c("jwk/src/test/java/com/x/ApiTest.java")).toBe("needs-network"); // 鏡像 main 的 Api.java
+    expect(c("jwk/src/test/java/com/x/CalcTest.java")).toBe("hermetic");
+  });
+
+  it("LLM 消歧：挑出模糊案件（lexicon-only key / 有 mock 被判外部）", () => {
+    const r = computeTestSignals(root, ["src/auth.test.ts", "py/test_cache.py"]);
+    const amb = ambiguousTestFiles(r);
+    // auth.test.ts 判 needs-key，但 key 訊號包含 env:（不只字樣）→ 不算模糊
+    expect(amb.map(a=>a.file)).toEqual([]);
+    // 造一個 lexicon-only 的：內容出現 API_KEY 字樣但沒讀 env
+    const r2dir = join(root, "amb");
+    mkdirSync(r2dir, { recursive: true });
+    writeFileSync(join(r2dir, "k.test.ts"), "// mentions STRIPE_API_KEY in comment only\ntest('k', () => expect(1).toBe(1));\n");
+    const r2 = computeTestSignals(root, ["amb/k.test.ts"]);
+    expect(r2.byFile["amb/k.test.ts"].hermeticity).toBe("needs-key");
+    const amb2 = ambiguousTestFiles(r2);
+    expect(amb2.map(a=>a.file)).toContain("amb/k.test.ts");
+  });
+
+  it("enrichTestSignals：LLM 仲裁寫回 aiHermeticity，effectiveHermeticity 只在信心≥0.6 採用", async () => {
+    const dir = join(root, "amb");
+    const sigPath = join(root, ".paaw", "features");
+    mkdirSync(sigPath, { recursive: true });
+    const sig = computeTestSignals(root, ["amb/k.test.ts"]);
+    writeFileSync(join(sigPath, "TEST-SIGNALS.json"), JSON.stringify(sig));
+    const mockLLM = async () => ({ content: '```json\n[{"file":"amb/k.test.ts","label":"hermetic","confidence":0.9,"reason":"僅註解提及金鑰，無 env 讀取"}]\n```' });
+    const out = await enrichTestSignals(root, { callLLM: mockLLM });
+    expect(out.byFile["amb/k.test.ts"].aiHermeticity).toBe("hermetic");
+    expect(effectiveHermeticity(out.byFile["amb/k.test.ts"])).toBe("hermetic");
+    // 信心不足 → 不採用
+    const sig2 = computeTestSignals(root, ["amb/k.test.ts"]);
+    writeFileSync(join(sigPath, "TEST-SIGNALS.json"), JSON.stringify(sig2));
+    const lowLLM = async () => ({ content: '```json\n[{"file":"amb/k.test.ts","label":"hermetic","confidence":0.3,"reason":"亂猜"}]\n```' });
+    const out2 = await enrichTestSignals(root, { callLLM: lowLLM });
+    expect(effectiveHermeticity(out2.byFile["amb/k.test.ts"])).toBe("needs-key"); // 維持確定性判定
   });
 
   it("確定論：同輸入兩次結果相同", () => {

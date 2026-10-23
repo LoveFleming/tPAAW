@@ -418,6 +418,29 @@ export default async function codingFeaturesRoute(req, res) {
     return true;
   }
 
+  // ── POST /api/coding-features/test-signals/enrich — LLM 消歧模糊案件 ──
+  if (url === "/api/coding-features/test-signals/enrich" && method === "POST") {
+    try {
+      const p = join(getFeaturesDir(projRoot), "TEST-SIGNALS.json"); // nosemgrep
+      if (!existsSync(p)) { // nosemgrep
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "TEST-SIGNALS.json not found — run Code Understanding first" }));
+        return true;
+      }
+      const { enrichTestSignals } = await import("../lib/test-signals.mjs");
+      const { callProjectLLM } = await import("./coding.mjs");
+      const out = await enrichTestSignals(projRoot, {
+        callLLM: (body) => callProjectLLM(body, { maxRetries: 2, timeoutMs: 300_000 }),
+      });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(out));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `test-signals enrich 失敗：${err?.message || err}` }));
+    }
+    return true;
+  }
+
   // ── POST /api/coding-features/crosscut/enrich — ② LLM 消歧 + 命名 concept ──
   if (url === "/api/coding-features/crosscut/enrich" && method === "POST") {
     try {

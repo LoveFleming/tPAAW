@@ -12,9 +12,10 @@
  *
  * 標籤：hermetic | needs-key | needs-network | needs-service
  */
-import { readFileSync, existsSync } from "node:fs";
-import { join, dirname, resolve, extname } from "node:path";
+import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
+import { join, dirname, resolve, extname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stableStringify } from "./stable-stringify.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -206,6 +207,82 @@ export function localImports(content, curPath, language) {
   return [...out];
 }
 
+// ── Go / Java 的 reach 種子（同 package = 被測對象，不靠 import 語句）──
+function _goModule(root) {
+  try {
+    const first = readFileSync(join(root, "go.mod"), "utf-8").split("\n").find((l) => l.startsWith("module "));
+    return first ? first.replace(/^module\s+/, "").trim() : null;
+  } catch { return null; }
+}
+
+function _goSeeds(abs, content, root) {
+  const out = new Set();
+  const addDir = (d) => {
+    try { for (const f of readdirSync(d)) if (f.endsWith(".go") && !/_test\.go$/.test(f)) out.add(join(d, f)); } catch { /* skip */ }
+  };
+  addDir(dirname(abs)); // 同目錄 = 被測 package（Go 測試同 package 不需 import）
+  // go.mod 由測試檔往上找（支援 repo 內多 module / 巢狀 workspace）
+  let d = dirname(abs), mod = null, modRoot = root;
+  for (let i = 0; i < 8; i++) {
+    if (existsSync(join(d, "go.mod"))) { mod = _goModule(d); modRoot = d; break; }
+    const up = dirname(d);
+    if (up === d) break;
+    d = up;
+  }
+  if (mod) {
+    for (const m of content.matchAll(/"([\w./-]+)"/g)) {
+      const imp = m[1];
+      if (!imp.startsWith(mod + "/")) continue;
+      addDir(join(modRoot, imp.slice(mod.length + 1)));
+    }
+  }
+  return [...out];
+}
+
+function _javaSeeds(abs, content, root) {
+  const out = new Set();
+  const mentions = (f) => {
+    const cls = f.replace(/\.java$/, "");
+    try { return new RegExp(`\\b${cls}\\b`).test(content); } catch { return false; }
+  };
+  const addDir = (d, filter) => {
+    try {
+      for (const f of readdirSync(d)) {
+        if (!f.endsWith(".java")) continue;
+        if (filter && !mentions(f)) continue; // 同 package 只加測試內容有提到的類（\b 邊界，ApiTest 不算提到 Api）
+        out.add(join(d, f));
+      }
+    } catch { /* skip */ }
+  };
+  addDir(dirname(abs), true); // 同 package 未 import 的類（有提到才算）
+  const main = abs.replace(/\/src\/test\/java\//, "/src/main/java/");
+  if (main !== abs) addDir(dirname(main), true); // 鏡像：src/test/java → src/main/java（有提到才算）
+  // 源樹根由測試檔往上找（專案可能不在 projectRoot 頂層）
+  let base = root;
+  let d = dirname(abs);
+  for (let i = 0; i < 8; i++) {
+    if (existsSync(join(d, "src/main/java")) || existsSync(join(d, "src/test/java"))) { base = d; break; }
+    const up = dirname(d);
+    if (up === d) break;
+    d = up;
+  }
+  for (const m of content.matchAll(/import\s+(?:static\s+)?([\w.]+)(\.\*)?\s*;/g)) {
+    const star = !!m[2];
+    const q = m[1].split(".");
+    const cls = star ? null : q.pop(); // import a.b.C → 只加 C；import a.b.* → 整個 package
+    const pkgDir = q.join("/");
+    for (const r of ["src/main/java", "src/test/java", "src/java", "java"]) {
+      const t = join(base, r, pkgDir);
+      if (existsSync(t)) {
+        if (cls) { const f = join(t, cls + ".java"); if (existsSync(f)) out.add(f); }
+        else addDir(t, true);
+        break;
+      }
+    }
+  }
+  return [...out];
+}
+
 /**
  * 主判定：對單一測試檔算標籤（含 reach）
  * @param {string} projectRoot
@@ -230,13 +307,28 @@ export function classifyTestFile(projectRoot, testPath, opts = {}) {
   const maxDepth = opts.maxDepth ?? 3;
   const seen = new Set([abs]);
   let reach = { mock: [], key: [], http: [], service: [] };
-  let frontier = conventional ? [abs] : [];
+  let frontier = [];
+  if (conventional) {
+    if (language === "go") frontier = _goSeeds(abs, content, projectRoot).filter((f) => !seen.has(f));
+    else if (language === "java") frontier = _javaSeeds(abs, content, projectRoot).filter((f) => !seen.has(f));
+    else frontier = [abs];
+  }
   const reachEvidence = [];
   for (let d = 0; d < maxDepth && frontier.length; d++) {
     const next = [];
     for (const f of frontier) {
       let c = "";
       try { c = readFileSync(f, "utf-8"); } catch { continue; }
+      // frontier 檔（被測 code / 依賴）本身的訊號要掃（Go/Java 的 seed 走這裡；ts/py/rust 的 abs 跳過 —— own 已算過，避免把測試自己的 URL 字面值灌進 reach）
+      if (f !== abs) {
+        const ssig = ownSignals(c, languageOf(f, tables.conventions), hermeticity);
+        const sdep = { mock: [], key: ssig.key.filter((x) => x.startsWith("env:")), http: [...ssig.url], url: [], service: ssig.service };
+        if (sdep.key.length || sdep.http.length || sdep.service.length) {
+          const rp = f.startsWith(String(projectRoot)) ? f.slice(String(projectRoot).length + 1) : f;
+          reachEvidence.push({ via: rp, key: sdep.key, http: sdep.http, service: sdep.service });
+        }
+        reach = _merge(reach, sdep);
+      }
       for (const imp of localImports(c, f, language)) {
         if (seen.has(imp)) continue;
         seen.add(imp);
@@ -270,7 +362,7 @@ export function classifyTestFile(projectRoot, testPath, opts = {}) {
   const label = labelFromSignals(merged, own);
 
   const evidence = [];
-  for (const [k, v] of Object.entries(own)) for (const x of v) evidence.push(`self:${k}=${x}`);
+  for (const [k, v] of Object.entries(own)) if (k !== "url") for (const x of v) evidence.push(`self:${k}=${x}`);
   for (const r of reachEvidence.slice(0, 5)) evidence.push(`via ${r.via} → ${[...r.key, ...r.http, ...r.service].slice(0, 2).join(",")}`);
 
   return {
@@ -324,4 +416,108 @@ export function computeTestSignals(projectRoot, testFiles, opts = {}) {
     byFile,
     byFeature,
   };
+}
+
+// ══ LLM 消歧層（模糊案子的最後一哩）══════════════════════════════
+// 確定性層依「規則序」硬判；以下情況 = 規則衝突/證據薄弱 → 交 LLM 依證據仲裁：
+//   1. unknown（讀不到/無法判定）
+//   2. 自己有 mock 但被判外部（mock 可能已攔截網路）
+//   3. needs-network 但 URL 疑似 fixture（example.com/dummy/placeholder）
+//   4. needs-key 但金鑰僅「字樣」、沒有真的讀 env（斷言資料誤觸辭典）
+// LLM 只在這些案子上 refine；hermetic/確定外部的不動。No answer without evidence。
+
+export function ambiguousTestFiles(sig) {
+  const out = [];
+  for (const [f, e] of Object.entries(sig.byFile || {})) {
+    const self = e.signals?.self || {};
+    const why = [];
+    if (e.hermeticity === "unknown") why.push("無法判定");
+    if ((self.mock || []).length && e.hermeticity !== "hermetic") why.push("有 mock 但被判外部");
+    if (e.hermeticity === "needs-network" && /example\.(com|org)|dummy|placeholder|testserver|jsonplaceholder|foo\.bar/i.test(JSON.stringify(e.signals || {}))) why.push("URL 疑似 fixture");
+    if (e.hermeticity === "needs-key" && (self.key || []).length > 0 && (self.key || []).every((k) => k.startsWith("lexicon:"))) why.push("金鑰僅字樣未讀 env");
+    if (why.length) out.push({ file: f, label: e.hermeticity, why: why.join("；") });
+  }
+  return out;
+}
+
+export async function enrichTestSignals(projectRoot, { callLLM, model, onProgress } = {}) {
+  if (!callLLM) throw new Error("enrichTestSignals: callLLM required");
+  const p = join(projectRoot, ".paaw", "features", "TEST-SIGNALS.json");
+  const sig = JSON.parse(readFileSync(p, "utf-8"));
+  const amb = ambiguousTestFiles(sig);
+  const now = new Date().toISOString();
+  if (amb.length === 0) {
+    sig.ai = { enriched: true, refined: 0, at: now, note: "無模糊案件（確定性判定全數成立）" };
+    writeFileSync(p, JSON.stringify(sig, null, 2));
+    return sig;
+  }
+
+  const items = amb.map((a) => {
+    const e = sig.byFile[a.file] || {};
+    let head = "";
+    try { head = readFileSync(join(projectRoot, a.file), "utf-8").split("\n").slice(0, 25).join("\n").slice(0, 800); } catch { /* skip */ }
+    return { file: a.file, language: e.language, label: e.hermeticity, why_ambiguous: a.why, evidence: (e.evidence || []).slice(0, 6), head };
+  });
+
+  const prompt = `你是測試工程師。以下是「靜態掃描無法確定自足性（hermeticity）」的測試檔，每個附了模糊原因、靜態證據、檔案前 25 行。
+依證據（不要發明）判 label：
+- hermetic：mock 已攔截網路 / 純函式 / URL 只是 fixture 資料 → clone 下來就能跑
+- needs-key：會呼叫真外部 API，需要 API key
+- needs-network：需要連外網（不一定需 key）
+- needs-service：需要本機 DB / Redis / 服務
+仲裁規則：出現 API_KEY 字樣但沒讀 env 且無真客戶端 → hermetic；example.com 佔位 URL 無真呼叫 → hermetic；mock 有攔截 → hermetic；redis/sql 連線 → needs-service。
+
+只回一個 \`\`\`json fence，是陣列：[{ "file": "...", "label": "hermetic|needs-key|needs-network|needs-service", "confidence": 0.0-1.0, "reason": "≤60字依據" }]
+
+--- FILES ---
+${stableStringify(items)}`;
+
+  onProgress?.(`LLM 消歧 ${items.length} 個模糊測試檔...`);
+  const r = await callLLM({ messages: [{ role: "user", content: prompt }], temperature: 0, thinking: { type: "disabled" }, ...(model ? { model } : {}) });
+  const arr = _extractJsonArray(r?.content);
+  const byFile = new Map();
+  for (const x of arr || []) if (x && x.file) byFile.set(String(x.file), x);
+
+  let refined = 0;
+  for (const a of amb) {
+    const x = byFile.get(a.file);
+    const e = sig.byFile[a.file];
+    if (!e || !x) continue;
+    e.aiHermeticity = ["hermetic", "needs-key", "needs-network", "needs-service"].includes(x.label) ? x.label : e.hermeticity;
+    e.aiConfidence = typeof x.confidence === "number" ? x.confidence : 0.5;
+    e.aiReason = typeof x.reason === "string" ? x.reason.slice(0, 120) : "";
+    e.aiAt = now;
+    if (effectiveHermeticity(e) !== e.hermeticity) refined += 1;
+  }
+  sig.ai = { enriched: true, refined, candidates: amb.length, at: now };
+  writeFileSync(p, JSON.stringify(sig, null, 2));
+
+  // meta 同步 summary（用 effective label 重算）
+  try {
+    const mp = join(projectRoot, ".paaw", "features", "FEATURE-MAP-META.json");
+    const meta = JSON.parse(readFileSync(mp, "utf-8"));
+    const s = { total: 0, hermetic: 0, "needs-key": 0, "needs-network": 0, "needs-service": 0, unknown: 0 };
+    for (const e of Object.values(sig.byFile)) { const k = effectiveHermeticity(e); s[k] = (s[k] || 0) + 1; s.total += 1; }
+    meta.testSignals = { summary: s, ai: sig.ai, note: sig.note };
+    writeFileSync(mp, JSON.stringify(meta, null, 2));
+  } catch { /* meta 可能不存在 */ }
+  return sig;
+}
+
+/** 有效標籤：LLM 仲裁（confidence ≥ 0.6）優先，否則確定性判定 */
+export function effectiveHermeticity(e) {
+  if (!e) return "unknown";
+  if (e.aiHermeticity && (e.aiConfidence ?? 1) >= 0.6) return e.aiHermeticity;
+  return e.hermeticity;
+}
+
+function _extractJsonArray(text) {
+  if (!text) return null;
+  const s = String(text);
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const body = fence ? fence[1] : s;
+  const a = body.indexOf("[");
+  const b = body.lastIndexOf("]");
+  if (a < 0 || b <= a) return null;
+  try { return JSON.parse(body.slice(a, b + 1)); } catch { return null; }
 }

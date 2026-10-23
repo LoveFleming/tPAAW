@@ -1956,5 +1956,6 @@
   "feature.herm.needs-key": "キー必要",
   "feature.herm.needs-network": "ネット必要",
   "feature.herm.needs-service": "サービス必要",
-  "feature.herm.unknown": "不明"
+  "feature.herm.unknown": "不明",
+  "feature.testsEnrich": "曖昧なラベルを LLM で仲裁"
 }

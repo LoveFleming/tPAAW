@@ -193,7 +193,8 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
   const [showCrosscut, setShowCrosscut] = useState(false);
   const [ccBusy, setCcBusy] = useState(false);
   // 🧪 測試自足性（deterministic，語言無關）
-  const [testSignals, setTestSignals] = useState<Record<string, { hermeticity: string; evidence?: string[] }> | null>(null);
+  const [testSignals, setTestSignals] = useState<Record<string, { hermeticity: string; aiHermeticity?: string; aiConfidence?: number; aiReason?: string; evidence?: string[] }> | null>(null);
+  const [tsBusy, setTsBusy] = useState(false);
   const loadErrorCodes = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/coding-project/error-codes?path=${encodeURIComponent(rootPath)}`);
@@ -299,6 +300,18 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
     } catch { /* 尚無 test signals → silent */ }
   }, [rootPath]);
   useEffect(() => { fetchTestSignals(); }, [fetchTestSignals, refreshKey]);
+
+  const enrichTestSignalsUi = useCallback(async () => {
+    setTsBusy(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-features/test-signals/enrich?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+      if (r.ok) await fetchTestSignals();
+      else uiAlertError(`測試自足性 AI 消歧失敗：${r.status}`);
+    } catch (e) {
+      uiAlertError(`測試自足性 AI 消歧失敗：${e instanceof Error ? e.message : String(e)}`);
+    }
+    setTsBusy(false);
+  }, [rootPath, fetchTestSignals]);
 
   const enrichCrosscut = useCallback(async () => {
     setCcBusy(true);
@@ -549,6 +562,8 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
             savingDocs={savingDocs}
             rootPath={rootPath}
             testSignals={testSignals}
+            tsBusy={tsBusy}
+            onEnrichTestSignals={enrichTestSignalsUi}
           />
         )}
       </div>
@@ -606,7 +621,9 @@ function SeveritySection({ feature, theme, t, rootPath, onFeatureUpdate }: {
   t: (k: string) => string;
   rootPath: string;
   onFeatureUpdate?: (f: Feature) => void;
-  testSignals?: Record<string, { hermeticity: string; evidence?: string[] }> | null;
+  testSignals?: Record<string, { hermeticity: string; aiHermeticity?: string; aiConfidence?: number; aiReason?: string; evidence?: string[] }> | null;
+  tsBusy?: boolean;
+  onEnrichTestSignals?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [byName, setByName] = useState("human");
@@ -848,7 +865,7 @@ function SubFeaturesSection({ feature, theme, t, rootPath, onOpenFile, onFeature
   );
 }
 
-function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callChainMap, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, rootPath, onFeatureUpdate, testSignals }: {
+function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callChainMap, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, rootPath, onFeatureUpdate, testSignals, tsBusy, onEnrichTestSignals }: {
   feature: Feature;
   ecData?: any;
   theme: any;
@@ -864,7 +881,9 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
   savingDocs: boolean;
   rootPath: string;
   onFeatureUpdate?: (f: Feature) => void;
-  testSignals?: Record<string, { hermeticity: string; evidence?: string[] }> | null;
+  testSignals?: Record<string, { hermeticity: string; aiHermeticity?: string; aiConfidence?: number; aiReason?: string; evidence?: string[] }> | null;
+  tsBusy?: boolean;
+  onEnrichTestSignals?: () => void;
 }) {
   const st = STATUS_STYLES[feature.status] || STATUS_STYLES.active;
   const [undBusy, setUndBusy] = useState<string | null>(null);
@@ -975,16 +994,21 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
         {/* Tests */}
         <Section title={`🧪 ${t("feature.tests")}`} count={(feature.tests || []).length} theme={theme}>
           {(feature.tests || []).length > 0 && (
-            <div className="text-[10px] mb-1" style={{ color: theme.text, opacity: 0.55 }}>
-              {t("feature.testsHint")}
+            <div className="flex items-center gap-2 mb-1">
+              <div className="text-[10px] flex-1" style={{ color: theme.text, opacity: 0.55 }}>{t("feature.testsHint")}</div>
+              <button onClick={onEnrichTestSignals} disabled={tsBusy} className="text-[9px] px-1.5 py-0.5 rounded shrink-0 disabled:opacity-40" style={{ background: theme.accentBg, color: theme.accent, border: `1px solid ${theme.borderLight}` }} title={t("feature.testsEnrich")}>
+                {tsBusy ? "⏳" : "🤖"}
+              </button>
             </div>
           )}
           {(feature.tests || []).map(f => {
             const sig = testSignals?.[f] || testSignals?.[f.replace(/\\/g, "/")];
+            const h = sig ? (sig.aiHermeticity && (sig.aiConfidence ?? 1) >= 0.6 ? sig.aiHermeticity : sig.hermeticity) : null;
+            const ai = !!(sig?.aiHermeticity && h !== sig?.hermeticity);
             return (
-              <button key={f} onClick={() => onOpenFile?.(f)} className="flex items-center gap-1.5 w-full text-xs text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }} title={sig?.evidence?.join("\n") || ""}>
+              <button key={f} onClick={() => onOpenFile?.(f)} className="flex items-center gap-1.5 w-full text-xs text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }} title={[...(sig?.evidence || []), sig?.aiReason ? `AI：${sig.aiReason}` : ""].filter(Boolean).join("\n")}>
                 <span className="truncate flex-1">{f}</span>
-                {sig && <span className="text-[9px] px-1 rounded shrink-0 font-sans" style={HERM_STYLE[sig.hermeticity] || HERM_STYLE.unknown}>{HERM_EMOJI[sig.hermeticity] || "❔"} {t(`feature.herm.${sig.hermeticity}`)}</span>}
+                {h && <span className="text-[9px] px-1 rounded shrink-0 font-sans" style={HERM_STYLE[h] || HERM_STYLE.unknown}>{ai ? "✨" : ""}{HERM_EMOJI[h] || "❔"} {t(`feature.herm.${h}`)}</span>}
               </button>
             );
           })}

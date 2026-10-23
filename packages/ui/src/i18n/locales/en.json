@@ -1956,5 +1956,6 @@
   "feature.herm.needs-key": "needs key",
   "feature.herm.needs-network": "needs network",
   "feature.herm.needs-service": "needs service",
-  "feature.herm.unknown": "unknown"
+  "feature.herm.unknown": "unknown",
+  "feature.testsEnrich": "AI arbitration for ambiguous hermeticity labels"
 }
