@@ -367,8 +367,9 @@ async function _runPool(items, worker, concurrency = FM_CONCURRENCY) {
 }
 
 async function _fmLLM(cuModelOverride, prompt, opts = {}) {
+  // 2026-10-23 修 a0cd2f56 回歸：此函式 scope 無 body（spec-miner/feature-map 步驟炸「body is not defined」）
   const result = await callProjectLLM({
-    model: body.model || cuModelOverride || undefined,
+    model: cuModelOverride || undefined,
     messages: [{ role: "user", content: prompt }],
     temperature: 0,
     thinking: { type: "disabled" },
