@@ -1605,7 +1605,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
   // 2026-10-09 Fleming：QA browser side chat 左右 splitter（可拖曳調寬）
   const qaBrowserPane = useColResize(360, 260, 640);
   // 2026-10-23 Fleming：API Tester Developer AI side chat 左右 splitter（與 architect/handover/qa 同款）
-  const apiDevPane = useColResize(360, 260, 640);
+  const apiDevPane = useColResize(520, 300, 760); // 2026-10-23 Fleming：預設寬與 architect/handover/release/ops 統一（520）
   const openFile = useCallback(async (path: string) => {
     if (loadingFileRef.current) return; // prevent double-click race
 
