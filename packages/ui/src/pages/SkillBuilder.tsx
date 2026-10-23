@@ -4,6 +4,7 @@ import { useI18n } from "../i18n";
 import { useTheme } from "../theme";
 import AgentConsole, { AgentConsoleHandle } from "../components/AgentConsole";
 import ReactMarkdown from "react-markdown";
+import { mdPreWithMermaid } from "../components/MermaidBlock"; // 2026-10-23：```mermaid → 圖
 import remarkGfm from "remark-gfm";
 
 // ── Types ──
@@ -312,7 +313,7 @@ function ContentViewer({ file, content, accent }: { file: OutputFile; content: s
         ) : file.type === "json" ? (
           <pre className="text-xs font-mono text-stone-300 whitespace-pre-wrap p-4" style={{ lineHeight: 1.6 }}>{(() => { try { return JSON.stringify(JSON.parse(content), null, 2); } catch { return content; } })()}</pre>
         ) : file.type === "markdown" ? (
-          <div className="prose prose-invert max-w-none text-sm p-4"><ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown></div>
+          <div className="prose prose-invert max-w-none text-sm p-4"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ pre: mdPreWithMermaid }}>{content}</ReactMarkdown></div>
         ) : file.type === "csv" ? (
           <div className="overflow-auto p-4">
             <table className="text-xs border-collapse">

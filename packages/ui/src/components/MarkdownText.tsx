@@ -2,6 +2,7 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
+import { mdPreWithMermaid } from "./MermaidBlock"; // 2026-10-23 Fleming：```mermaid 圍欄 → 圖形（其他 code block 行為不變）
 
 /**
  * Shared markdown renderer for all AI chat surfaces.
@@ -66,7 +67,7 @@ const MarkdownText = React.memo(function MarkdownText({ children, className = ""
         .md-dark th, .md-dark td { border-color: #44403c; }
         .md-dark hr { border-top-color: #44403c; }
       `}</style>
-      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={{ pre: mdPreWithMermaid }}>
         {children}
       </ReactMarkdown>
     </div>

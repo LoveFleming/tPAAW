@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
+import { mdPreWithMermaid } from "../components/MermaidBlock"; // 2026-10-23：```mermaid → 圖
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
 import { useTheme } from "../theme";
@@ -223,6 +224,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   // ── 效能：md components 身分穩定（typing 時不重建 → MessageRow memo 成立）──
   const accentColor = themeInfo.accent;
   const mdComponents = useMemo(() => ({
+    pre: mdPreWithMermaid, // 2026-10-23：```mermaid 圍欄 → MermaidBlock
     a: ({ node, href, ...props }: any) => {
       // 攔截筆記 deep link: #/notes?note=xxx&notebook=yyy
       if (href && href.startsWith("#/notes")) {

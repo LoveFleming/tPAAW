@@ -15,6 +15,7 @@
 
 import React from "react";
 import ReactMarkdown from "react-markdown";
+import { mdPreWithMermaid } from "./MermaidBlock"; // 2026-10-23 Fleming：```mermaid 圍欄 → 圖形
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
 import { fmtChatTime } from "../utils";
@@ -95,6 +96,7 @@ const EMPTY_TOOLS: ChatToolBadge[] = [];
 const EMPTY_AGENTS: AssignableAgent[] = [];
 
 const markdownComponents = (accent?: string, onDeepLink?: (type: string, params: Record<string, string>) => void) => ({
+  pre: mdPreWithMermaid, // ```mermaid 圍欄 → MermaidBlock；其他 code block 原路
   a: ({ node, href, ...props }: any) => {
     // 攔截筆記 deep link
     if (href && href.startsWith("#/notes") && onDeepLink) {

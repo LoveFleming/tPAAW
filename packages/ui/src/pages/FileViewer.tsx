@@ -6,6 +6,7 @@ import { fileEmoji } from "../components/FileEmoji";
 import { pathBasename } from "../utils";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css"; // Light theme matching the white background
+import { mdPreWithMermaid } from "../components/MermaidBlock"; // 2026-10-23：```mermaid → 圖
 
 import API_BASE from "../api";
 
@@ -69,7 +70,7 @@ function ImageView({ filePath }: { filePath: string }) {
 // ── Markdown View (theme-aware prose) ──
 function MarkdownView({ content }: { content: string }) {
   const { info: t } = useTheme();
-  const [MarkdownComponent, setComponent] = useState<React.ComponentType<{ children: string; remarkPlugins?: unknown[] }> | null>(null);
+  const [MarkdownComponent, setComponent] = useState<React.ComponentType<{ children: string; remarkPlugins?: unknown[]; components?: Record<string, any> }> | null>(null);
   const [gfmPlugin, setGfmPlugin] = useState<any>(null);
 
   useEffect(() => {
@@ -101,7 +102,7 @@ function MarkdownView({ content }: { content: string }) {
         color: "#57534e",
       } as React.CSSProperties}
     >
-      <MarkdownComponent remarkPlugins={[gfmPlugin]}>{content}</MarkdownComponent>
+      <MarkdownComponent remarkPlugins={[gfmPlugin]} components={{ pre: mdPreWithMermaid }}>{content}</MarkdownComponent>
     </div>
   );
 }
