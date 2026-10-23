@@ -368,7 +368,7 @@ async function _runPool(items, worker, concurrency = FM_CONCURRENCY) {
 
 async function _fmLLM(cuModelOverride, prompt, opts = {}) {
   const result = await callProjectLLM({
-    model: cuModelOverride || undefined,
+    model: body.model || cuModelOverride || undefined,
     messages: [{ role: "user", content: prompt }],
     temperature: 0,
     thinking: { type: "disabled" },
@@ -2620,7 +2620,7 @@ export default async function projectRoute(req, res) {
       if (!paaw.exists) await paaw.init();
       let modelOverride = null;
       try { const b = JSON.parse(await readBody(req) || "{}"); modelOverride = b.model || null; } catch {}
-      const r = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: modelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
+      const r = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: b.model || modelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
       try { await paaw.setCuStepStatus("overview", "done", { summary: `${r.features} features（${r.aiSource}）` }); } catch {}
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(r));
@@ -2947,7 +2947,7 @@ export default async function projectRoute(req, res) {
             cuLog(step.id, "Collecting error signals + LLM organizing...");
             const { organizeErrorCodes } = await import("../lib/error-code-scan.mjs");
             const ecResult = await organizeErrorCodes(root, {
-              callLLM: (body) => callProjectLLM({ ...body, model: cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+              callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
               onProgress: (msg) => { cuLog(step.id, msg); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
             });
             if (ecResult.skipped) {
@@ -2979,7 +2979,7 @@ export default async function projectRoute(req, res) {
             cuLog(step.id, "Collecting external signals + LLM assembling C4...");
             const { organizeC4Model } = await import("../lib/c4-model-scan.mjs");
             const c4Result = await organizeC4Model(root, {
-              callLLM: (body) => callProjectLLM({ ...body, model: cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+              callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
               onProgress: (msg) => { cuLog(step.id, msg); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
             });
             cuLog(step.id, `C4 done: ${c4Result.stats.containers} containers / ${c4Result.stats.external} external / ${c4Result.stats.relationships} relationships`);
@@ -3077,8 +3077,8 @@ export default async function projectRoute(req, res) {
             try {
               const { organizeFeatureMapV2 } = await import("../lib/feature-map-v2.mjs");
               const { features, meta } = await organizeFeatureMapV2(root, {
-                model: cuModelOverride || undefined,
-                callLLM: (body) => callProjectLLM({ ...body, model: cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+                model: body.model || cuModelOverride || undefined,
+                callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
                 onProgress: (msg) => { cuLog(step.id, msg); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
                 paawRoot: PAAW_ROOT,
               });
@@ -3100,7 +3100,7 @@ export default async function projectRoute(req, res) {
           const result = chunkedFeatureMap
             ? { content: chunkedFeatureMap, finishReason: "stop", attempts: 1 }
             : await callProjectLLM({
-            model: cuModelOverride || undefined,
+            model: body.model || cuModelOverride || undefined,
             messages: [{ role: "user", content: fullPrompt }],
             temperature: 0,
             thinking: { type: "disabled" }, // 關思考 — 實證必要：thinking 開著會燒光輸出額度（reasoning_tokens=15989 實例）
@@ -3282,7 +3282,7 @@ export default async function projectRoute(req, res) {
           } catch {}
           // CU 收尾：PROJECT.md 重生成（2026-10-09 Fleming — schema v2：AI 區每次重寫、USER 區絕不覆蓋）
           try {
-            const draft = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
+            const draft = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: body.model || cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
             try { await paaw.setCuStepStatus("overview", "done", { summary: `${draft.features} features（${draft.aiSource}）` }); } catch {}
             if (draft.written) {
               cuLog("overview", `PROJECT.md ${draft.reason} (${draft.features} features, ${draft.aiSource})`);
@@ -3462,7 +3462,7 @@ export default async function projectRoute(req, res) {
               cuLog(step.id, "[bulk] Collecting error signals + LLM organizing...");
               const { organizeErrorCodes } = await import("../lib/error-code-scan.mjs");
               const ecResult = await organizeErrorCodes(root, {
-                callLLM: (body) => callProjectLLM({ ...body, model: cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+                callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
                 onProgress: (msg) => { cuLog(step.id, `[bulk] ${msg}`); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
               });
               if (ecResult.skipped) {
@@ -3487,7 +3487,7 @@ export default async function projectRoute(req, res) {
               cuLog(step.id, "[bulk] Collecting external signals + LLM assembling C4...");
               const { organizeC4Model } = await import("../lib/c4-model-scan.mjs");
               const c4Result = await organizeC4Model(root, {
-                callLLM: (body) => callProjectLLM({ ...body, model: cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+                callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
                 onProgress: (msg) => { cuLog(step.id, `[bulk] ${msg}`); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
               });
               cuLog(step.id, `[bulk] C4: ${c4Result.stats.containers} containers / ${c4Result.stats.external} external`);
@@ -3507,8 +3507,8 @@ export default async function projectRoute(req, res) {
               cuLog(step.id, "[bulk] feature-map v2 (deterministic skeleton + LLM flesh)...");
               const { organizeFeatureMapV2 } = await import("../lib/feature-map-v2.mjs");
               const { features, meta } = await organizeFeatureMapV2(root, {
-                model: cuModelOverride || undefined,
-                callLLM: (body) => callProjectLLM({ ...body, model: cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+                model: body.model || cuModelOverride || undefined,
+                callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
                 onProgress: (msg) => { cuLog(step.id, `[bulk] ${msg}`); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
                 paawRoot: PAAW_ROOT,
               });
@@ -3605,7 +3605,7 @@ export default async function projectRoute(req, res) {
             const result = chunkedFeatureMap
               ? { content: chunkedFeatureMap, finishReason: "stop", attempts: 1 }
               : await callProjectLLM({
-              model: cuModelOverride || undefined,
+              model: body.model || cuModelOverride || undefined,
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0,
               thinking: { type: "disabled" }, // 關思考 — 實證必要：thinking 開著會燒光輸出額度
@@ -3793,7 +3793,7 @@ export default async function projectRoute(req, res) {
 
         // CU 收尾：PROJECT.md 重生成（2026-10-09 Fleming — schema v2：AI 區每次重寫、USER 區絕不覆蓋）
         try {
-          const draft = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
+          const draft = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: body.model || cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
           try { await paaw.setCuStepStatus("overview", "done", { summary: `${draft.features} features（${draft.aiSource}）` }); } catch {}
           if (draft.written) {
             cuLog("overview", `PROJECT.md ${draft.reason} (${draft.features} features, ${draft.aiSource})`);
