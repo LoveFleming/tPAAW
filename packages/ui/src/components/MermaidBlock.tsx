@@ -27,6 +27,8 @@ function loadMermaid(): Promise<any> {
         theme: "neutral",
         securityLevel: "strict",
         fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+        // 2026-10-23 Fleming：圖内文字與 chat 本文同大小（.md-content = text-sm 14px），不突兀
+        themeVariables: { fontSize: "14px" },
       });
       return mermaid;
     }).catch((e) => { mermaidPromise = null; throw e; }); // 載入失敗可重試
