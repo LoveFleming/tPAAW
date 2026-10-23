@@ -18,80 +18,8 @@ import { DATA_HOME } from "../data-home.mjs";
 import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 import { stableStringify } from "../lib/stable-stringify.mjs";
 
-import { listAppModules, scaffoldAppModule, patchAppModule, exportAppModule, importAppModule, removeAppModule } from "../lib/app-modules.mjs";
-import { bundleModuleUi, invalidateModuleUiBundle } from "../lib/module-ui-bundle.mjs";
-
-export async function appModulesRoutes(req, res) {
-  const urlObj = new URL(req.url, "http://localhost");
-  const path = urlObj.pathname;
-  if (!path.startsWith("/api/apps/modules")) return false;
-  const { readBody } = await import("./shared.mjs");
-
-  // GET /api/apps/modules — 清單（UI nav 用）
-  if (req.method === "GET" && path === "/api/apps/modules") {
-    const mods = listAppModules().map(m => ({ id: m.id, name: m.name, version: m.version, nav: m.nav, enabled: m.enabled, error: m.error || null, dir: m.dir || null }));
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ modules: mods }));
-    return true;
-  }
-  // POST /api/apps/modules — scaffold 新模組
-  if (req.method === "POST" && path === "/api/apps/modules") {
-    const body = JSON.parse(await readBody(req) || "{}");
-    const r = scaffoldAppModule(body);
-    res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(r));
-    return true;
-  }
-  // GET /api/apps/modules/:id/export — 匯出模組 zip（M2）
-  const mExport = path.match(/^\/api\/apps\/modules\/([a-z0-9-]+)\/export$/);
-  if (req.method === "GET" && mExport) {
-    const r = exportAppModule(mExport[1]);
-    if (!r.ok) { res.writeHead(404, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.error })); return true; }
-    res.writeHead(200, { "Content-Type": "application/zip", "Content-Disposition": `attachment; filename="${r.filename}"`, "Content-Length": r.buffer.length });
-    res.end(r.buffer);
-    return true;
-  }
-  // GET /api/apps/modules/:id/ui-bundle.js?page=X — 模組 UI runtime bundle（M3，免 build）
-  const mUi = path.match(/^\/api\/apps\/modules\/([a-z0-9-]+)\/ui-bundle\.js$/);
-  if (req.method === "GET" && mUi) {
-    const page = urlObj.searchParams.get("page") || "Main";
-    const r = await bundleModuleUi(mUi[1], page);
-    res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(r));
-    return true;
-  }
-  // POST /api/apps/modules/import — 匯入模組 zip（M2；raw body = zip binary）
-  if (req.method === "POST" && path === "/api/apps/modules/import") {
-    const buf = await readRawBody(req);
-    const r = importAppModule(buf);
-    if (r.ok) invalidateModuleUiBundle(r.id);
-    res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(r));
-    return true;
-  }
-  // DELETE /api/apps/modules/:id — 移除模組（code 移到 .removed/，資料保留）
-  const mDel = path.match(/^\/api\/apps\/modules\/([a-z0-9-]+)$/);
-  if (req.method === "DELETE" && mDel) {
-    const r = removeAppModule(mDel[1]);
-    if (r.ok) invalidateModuleUiBundle(mDel[1]);
-    res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(r));
-    return true;
-  }
-  // PATCH /api/apps/modules/:id — enable/disable / nav
-  const mPatch = path.match(/^\/api\/apps\/modules\/([a-z0-9-]+)$/);
-  if (req.method === "PATCH" && mPatch) {
-    const body = JSON.parse(await readBody(req) || "{}");
-    const r = patchAppModule(mPatch[1], body);
-    res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(r));
-    return true;
-  }
-  return false;
-}
 
 export default async function appsRoute(req, res) {
-  if (await appModulesRoutes(req, res)) return true;
   // ── GET /api/apps — list apps ──
   if (req.method === "GET" && req.url?.match(/^\/api\/apps(?:\?.*)?$/)) {
     try {

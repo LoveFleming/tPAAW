@@ -17,17 +17,15 @@ import { readFileSync, existsSync } from "fs";
 import { resolve as resolvePath, isAbsolute } from "path";
 import { homedir } from "os";
 import { execFileSync } from "child_process";
-import { PAAW_ROOT } from "../routes/shared.mjs";
 
 const HOME = homedir();
 
-// ── 信任範圍（2026-10-13 Fleming：「installed-apps 下的目錄預設就是准許」）──
-// 專案自己的地盤（RU 工作目錄）＋ PAAW 自己的 app 目錄（<root>/installed-apps/…）＋ 暫存區
+// ── 信任範圍 ──
+// 專案自己的地盤（RU 工作目錄）＋ 暫存區
 // 這些範圍內的檔案讀寫 = AI 的合法活動範圍，不該一直跳審批卡。
 function trustedRoots(cwd) {
   const roots = [];
   if (cwd) roots.push(resolvePath(cwd));
-  try { roots.push(resolvePath(PAAW_ROOT, "installed-apps")); } catch { /* ignore */ }
   for (const t of ["/tmp", "/private/tmp", resolvePath(HOME, ".npm"), resolvePath(HOME, ".cache")]) {
     try { if (existsSync(t)) roots.push(t); } catch { /* ignore */ }
   }

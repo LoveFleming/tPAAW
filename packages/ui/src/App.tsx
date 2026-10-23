@@ -9,8 +9,6 @@ import AppBuilder from "./pages/AppBuilder";
 import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
 import CodingIDE from "./pages/CodingIDE";
-import AppModules from "./pages/AppModules";
-import ModulePageLoader from "./components/ModulePageLoader";
 
 import BriefingPlayer from "./pages/BriefingPlayer";
 import MindMapViewer from "./pages/MindMapViewer";
@@ -356,20 +354,6 @@ function AppInner() {
   // 2026-10-09 Fleming：全域「AI 員工組織圖」退場 — 員工管理在各 module AI Crew 頁；此 nav 暫空
   const sidebarNav = useMemo(() => [], []);
 
-  // ── App Modules（可組裝底座，2026-10-03）：persona app 模組 nav ──
-  const [appModules, setAppModules] = useState<Array<{ id: string; name: string; nav?: { label: string; emoji?: string; page: string }; enabled?: boolean }>>([]);
-  useEffect(() => {
-    fetch(`${API_BASE}/api/apps/modules`).then(r => r.json()).then(d => setAppModules((d.modules || []).filter((m: any) => m.enabled && m.nav))).catch(() => {});
-  }, []);
-  const openAppModule = useCallback((moduleId: string, page?: string) => {
-    // page 編進 tabId（module:<id>:<page>），讓 ModulePageLoader 直接用，免多一次 manifest round-trip（B1）。
-    const tabId = page ? `${currentScope}:module:${moduleId}:${page}` : `${currentScope}:module:${moduleId}`;
-    startTransition(() => { // lazy 頁面懸掛走 transition（React #426）— 開頁+切頁都要包
-      setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
-      setActivePage(tabId);
-    });
-  }, [currentScope]);
-
   const skillBuilderCounterRef = useRef(0);
   const openSystemPrompts = useCallback(() => {
     const tabId = `${currentScope}:ai-settings`;
@@ -390,15 +374,8 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
-
   const openAppPool = useCallback(() => {
     const tabId = `${currentScope}:reportapps`;
-    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
-    setActivePage(tabId);
-  }, [currentScope]);
-
-  const openAppModules = useCallback(() => {
-    const tabId = `${currentScope}:appmodules`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
     setActivePage(tabId);
   }, [currentScope]);
@@ -525,10 +502,6 @@ function AppInner() {
     if (fullId === "_chat") return "💬 交談";
     if (fullId === "_settings") return t("sidebar.settings");
     const { wsId, pageType } = parseTabId(fullId);
-    if (pageType.startsWith("module:")) {
-      const mid = pageType.slice("module:".length).split(":")[0];
-      return appModulesById[mid]?.nav?.label || mid;
-    }
     if (pageType === "skills") return t("sidebar.skillPool");
     if (pageType.startsWith("skillbuilder")) return t("sidebar.skillBuilder");
     if (pageType === "appbuilder") return t("sidebar.appBuilder");
@@ -592,8 +565,6 @@ function AppInner() {
     document.addEventListener("mouseup", handleUp);
   }, [sidebarWidth]);
 
-  // App Modules 頁面：runtime 動態 import（M3，2026-10-12）—— 免 build，匯入後即可用
-const appModulesById = Object.fromEntries(appModules.map(m => [m.id, m]));
 const renderPage = useCallback((fullId: string, active?: boolean) => {
     // Parse tab ID early for pageType checks
     const parsed = parseTabId(fullId);
@@ -638,10 +609,6 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
     if (pageType === "appbuilder") {
       return <AppBuilder />;
     }
-    if (pageType === "appmodules") {
-      // 2026-10-12 Fleming：還原 App Modules 管理頁（10-09 曾退場）— 要用來管理/匯入 standalone module app
-      return <AppModules />;
-    }
     if (pageType === "reportapps") {
       return <AppPool onOpenApp={openSkillAppById} />;
     }
@@ -650,12 +617,6 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
     }
     if (pageType === "coding") {
       return <CodingIDE />;
-    }
-    if (pageType.startsWith("module:")) {
-      const parts = pageType.slice("module:".length).split(":");
-      const mid = parts[0];
-      const pg = parts[1] || undefined;
-      return <ModulePageLoader moduleId={mid} page={pg} />;
     }
     if (pageType === "briefing-player") {
       return <BriefingPlayer key={briefingInitialDir ?? "default"} initialDir={briefingInitialDir} />;
@@ -864,9 +825,6 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
                 <NavItem active={activePage.endsWith(":reportapps")} label={t("sidebar.appPool")} onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":briefing-player")} label={t("sidebar.briefingPlayer", "Briefing Player")} onClick={() => openBriefingPlayer()} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":coding")} label={t("sidebar.coding")} onClick={openCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                {appModules.map(m => (
-                  <NavItem key={`mod-${m.id}`} active={activePage === `${currentScope}:module:${m.id}` || activePage.startsWith(`${currentScope}:module:${m.id}:`)} label={m.nav?.label || m.name} emoji={m.nav?.emoji || "📦"} onClick={() => openAppModule(m.id, m.nav?.page)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                ))}
                 <NavItem active={activePage.endsWith(":mind-map")} label={t("sidebar.mindMap")} onClick={openMindMap} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":notes")} label={t("sidebar.notes")} onClick={openNotes} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":projects")} label={t("sidebar.projects")} onClick={() => { const tabId = `${currentScope}:projects`; setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]); setActivePage(tabId); }} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
@@ -888,7 +846,6 @@ const renderPage = useCallback((fullId: string, active?: boolean) => {
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />
-                <NavItem active={activePage.endsWith(":appmodules")} label={t("sidebar.appModules")} onClick={openAppModules} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
 

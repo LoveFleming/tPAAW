@@ -22,9 +22,6 @@
       "@paaw-ui/*": [
         "./src/*"
       ],
-      "@apps/*": [
-        "../../installed-apps/*"
-      ]
     }
   },
   "include": [
