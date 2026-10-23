@@ -25,6 +25,7 @@ import { join, resolve as resolvePath } from "path";
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { parseProject } from "./tree-sitter-parser.mjs";
 import { buildDeterministicFeatureMap } from "./code-graph.mjs";
+import { computeSubFeatureRefinement, detectTemplateOrphans } from "./feature-subfeature.mjs";
 import { nextFeatureIds, loadFeatures, saveFeatures, mergeFeaturesWithExisting } from "./feature-registry.mjs";
 import { autoScanAllFeatureSeverities } from "./feature-risk-scan.mjs";
 import { DATA_HOME } from "../data-home.mjs";
@@ -69,6 +70,16 @@ async function _runFeatureAgent({ systemPrompt, prompt, cwd, rootDir, model }) {
 
 /** 決定論降級命名（agent 兩次都失敗時 — 整步不因此失敗） */
 function _fallbackFlesh(item) {
+  if (item.groupName) {
+    // utility/template 群：偵測器給的名字本身就是決定論的（如「providers 同型單元（45×）」）
+    return {
+      name: `${item.groupName}（自動命名）`,
+      description: item.groupDesc || `（agent 長肉失敗，自動降級）此群含 ${item.files.length} 個檔案。`,
+      bizLogic: "",
+      tags: [],
+      degraded: true,
+    };
+  }
   const slug = (item.apis?.[0]?.path || item.files?.[0] || "feature")
     .replace(/^\/+/, "").split(/[\\/]/).pop() || "feature";
   const base = slug.replace(/\.[a-z]+$/i, "").replace(/[-_.]/g, " ").trim() || "feature";
@@ -101,6 +112,12 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
   const dm = buildDeterministicFeatureMap(parsed);
   onProgress?.(`骨架完成：${dm.stats.clusters} clusters / ${dm.stats.shared} shared / ${dm.stats.orphans} orphans（零 token）`);
 
+  // ── L2 子群精煉（2026-10-23 Fleming「看 sub-feature 而定」：內生判準 — 擾動穩定共識 + 語義分離，零 token）──
+  // 拆/不拆不由檔數決定；只留「可發現、穩定、語義分得開」的子結構。穾合橋接檔歸 feature 內部 internalShared。
+  const refinements = computeSubFeatureRefinement(dm, parsed);
+  const _splitCount = refinements.filter(r => r.split).length;
+  if (_splitCount > 0) onProgress?.(`L2 精煉：${_splitCount}/${dm.features.length} 個 feature 有穩定子結構（擾動共識+語義分離，零 token）`);
+
   if (dm.features.length === 0 && dm.orphans.length === 0) {
     const meta = { method: "deterministic-v2", scannedAt: new Date().toISOString(), stats: dm.stats, shared: dm.shared, orphans: dm.orphans, note: "空 repo（無 source 檔可分析）— features 為空是正確結果" };
     const featuresDir = join(projectRoot, ".paaw", "features");
@@ -116,13 +133,19 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
   if (!template) throw new Error("prompt template feature-map-v2.md not found");
   const [agentTpl, orphanTpl = ""] = template.split("<!-- ORPHAN-SPLIT").map(s => s.replace(/^.*?-->\s*/, "").trim());
 
+  // ── C：orphan 同型重複偵測（零 token）— 兄弟目錄同檔名模式 → 機械歸一，不浪費 LLM 分組 ──
+  // 例：src/providers/{openai,anthropic,...}/{api.ts,index.ts} ×N → 一個「同型單元」群
+  const { templateGroups, remaining: orphansForLLM } = detectTemplateOrphans(dm.orphans);
+  if (templateGroups.length > 0) onProgress?.(`同型重複偵測：${templateGroups.length} 組（${templateGroups.reduce((s, g) => s + g.files.length, 0)} 檔）機械歸一（零 token）`);
+  const orphanPool = new Set(orphansForLLM);
+
   // ── 3. orphan 分組（單次小 call — 只有檔名，context 極小）──
-  let orphanGroups = [];
-  if (dm.orphans.length > 0 && orphanTpl) {
-    onProgress?.(`Orphan 分組（${dm.orphans.length} 檔，單次小 call）...`);
+  let orphanGroups = templateGroups.map(g => ({ name: g.name, description: g.description, files: g.files, template: true }));
+  if (orphansForLLM.length > 0 && orphanTpl) {
+    onProgress?.(`Orphan 分組（${orphansForLLM.length} 檔，單次小 call）...`);
     try {
       const res = await callLLM({
-        messages: [{ role: "user", content: orphanTpl + "\n\n--- ORPHAN FILES ---\n" + JSON.stringify(dm.orphans.slice(0, 400)) }],
+        messages: [{ role: "user", content: orphanTpl + "\n\n--- ORPHAN FILES ---\n" + JSON.stringify(orphansForLLM.slice(0, 400)) }],
         temperature: 0,
         thinking: { type: "disabled" },
         timeoutMs: 300_000,
@@ -131,7 +154,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
       if (Array.isArray(j?.orphanGroups)) {
         const assigned = new Set();
         for (const g of j.orphanGroups) {
-          const files = _arr(g.files, 60).filter(f => dm.orphans.includes(f) && !assigned.has(f));
+          const files = _arr(g.files, 60).filter(f => orphanPool.has(f) && !assigned.has(f));
           if (!files.length) continue;
           files.forEach(f => assigned.add(f));
           orphanGroups.push({ name: _str(g.name, 80) || `Utility ${orphanGroups.length + 1}`, description: _str(g.description), files });
@@ -142,9 +165,10 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
 
   // 決定論保底（2026-10-23）：LLM 分組沒跑成（沒模板/呼叫失敗/回應不可解析）而有孤兒時，
   // 依頂層目錄分組 — 骨架仍然是數學（字典序固定），肉照樣交 agent loop 長。map 永不為空。
-  if (orphanGroups.length === 0 && dm.orphans.length > 0) {
+  const llmGrouped = orphanGroups.filter(g => !g.template);
+  if (llmGrouped.length === 0 && orphansForLLM.length > 0) {
     const byTop = new Map();
-    for (const f of dm.orphans) {
+    for (const f of orphansForLLM) {
       const segs = f.split("/");
       const top = segs.length > 1 ? segs[0] : "(root)";
       if (!byTop.has(top)) byTop.set(top, []);
@@ -156,30 +180,40 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
     onProgress?.(`Orphan LLM 分組未產出 — 改用目錄決定論分組（${orphanGroups.length} 組）`);
   }
 
-  // ── 4. work items：每個 feature 一個獨立 agent loop ──
+  // ── 4. work items：每個 feature 一個獨立 agent loop；拆出子結構的 → parent 複合 + 每子群一個 loop ──
   // 測試檔已決定論映射到 feature 的 tests（code-graph 分流 — 測試不是 feature，2026-09-06）
-  const workItems = [
-    ...dm.features.map((f, i) => ({
-      kind: "deterministic", grade: "deterministic",
-      files: f.codeFiles, apis: f.apis, kinds: f.kinds, entryCount: f.entryCount, reachFiles: f.reachFiles.length,
-      tests: (dm.tests?.featureTests?.[i] || []).slice(),
-    })),
-    ...orphanGroups.map(g => ({
-      kind: "utility", grade: "utility",
-      files: g.files, apis: [], kinds: { orphan: g.files.length }, entryCount: 0, reachFiles: 0,
-      groupName: g.name, groupDesc: g.description,
-    })),
-  ];
+  const _topDirs = (files) => {
+    const d = new Map();
+    for (const f of files) { const seg = f.split("/"); const k = seg.slice(0, Math.min(3, seg.length - 1)).join("/") || "(root)"; d.set(k, (d.get(k) || 0) + 1); }
+    return [...d].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 3).map(([k, n]) => `${k}×${n}`);
+  };
+  const workItems = [];
+  dm.features.forEach((f, i) => {
+    const r = refinements[i];
+    const base = { apis: f.apis, kinds: f.kinds, entryCount: f.entryCount, reachFiles: f.reachFiles.length, tests: (dm.tests?.featureTests?.[i] || []).slice() };
+    if (r?.split) {
+      const parentIdx = workItems.length;
+      workItems.push({ kind: "parent", grade: "deterministic", files: f.codeFiles, refinement: r, subItemIdxs: [], ...base });
+      for (const sub of r.subFeatures) {
+        workItems[parentIdx].subItemIdxs.push(workItems.length);
+        workItems.push({ kind: "subfeature", grade: "deterministic-sub", files: sub.codeFiles, apis: [], kinds: { sub: sub.codeFiles.length }, entryCount: 0, reachFiles: 0, tests: [], subKey: sub.key, vocabTop: sub.vocabTop, consensus: sub.consensus });
+      }
+    } else {
+      workItems.push({ kind: "deterministic", grade: "deterministic", files: f.codeFiles, ...base });
+    }
+  });
+  for (const g of orphanGroups.map(g => ({ kind: "utility", grade: "utility", files: g.files, apis: [], kinds: { orphan: g.files.length }, entryCount: 0, reachFiles: 0, groupName: g.name, groupDesc: g.description, template: !!g.template }))) workItems.push(g);
 
-  // 斷點續跑：先載已完成 parts
+  // 斷點續跑：先載已完成 parts（帶簽名 — 結構變了（L2 拆法變）就丢棄舊 part，不誤接）
   const partsDir = join(projectRoot, ".paaw", "features", "parts");
   mkdirSync(partsDir, { recursive: true });
   const partPath = i => join(partsDir, `part-${String(i).padStart(3, "0")}.json`);
+  const _itemSig = (item) => `${item.kind}:${item.subKey || ""}:${item.files.length}:${item.files[0] || ""}:${item.files[item.files.length - 1] || ""}`;
   const parts = new Map();
   for (let i = 0; i < workItems.length; i++) {
     try {
       const p = JSON.parse(readFileSync(partPath(i), "utf-8"));
-      if (p && p.flesh) parts.set(i, p);
+      if (p && p.flesh && p.sig === _itemSig(workItems[i])) parts.set(i, p);
     } catch {}
   }
   if (parts.size > 0) onProgress?.(`續跑：${parts.size}/${workItems.length} 已完成，補缺的`);
@@ -196,18 +230,32 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
     if (!part) {
       const _itemT0 = Date.now();
       console.log(`[FM-v2] ▶️ feature ${i + 1}/${workItems.length} agent loop 開始（${item.kind}）：${item.apis?.[0]?.path || item.files?.[0] || ""}`);
+      const _notes = [];
+      if (item.kind === "parent") _notes.push(`此 feature 已由「擾動穩定共識」拆出 ${item.refinement.subFeatures.length} 個穩定子群（SUB_FEATURES）+ ${item.refinement.internalShared.length} 個內部共享檔（INTERNAL_SHARED）。不要逐檔讀完全部 — 依子群結構為這個 feature（子群總稱）命名與描述；想抽驗可任讀 1-2 檔。`);
+      if (item.kind === "subfeature") _notes.push(`這是大 feature 內的穩定子群（deterministic-sub，共識 ${item.consensus}）— 讀這些檔案，為「這個子能力」命名與描述，它是可獨立理解的單位。`);
+      if (item.tests?.length) _notes.push(`TESTS 是此 feature 的測試檔（機器映射）— 讀它們幫助寫 bizLogic，但它們不是 feature 的 code 檔`);
+      if (item.files.length > 40) _notes.push(`FILE LIST 只列前 40 檔（共 ${item.files.length}），其餘可用 glob 確認`);
       const material = {
         kind: item.kind,
         apis: item.apis.slice(0, 20).map(a => `${a.method} ${a.path}`),
         entryCount: item.entryCount,
         fileCount: item.files.length,
         FILE_LIST: item.files.slice(0, 40),
-        ...(item.tests?.length ? { TESTS: item.tests.slice(0, 10), note: `TESTS 是此 feature 的測試檔（機器映射）— 讀它們幫助寫 bizLogic，但它們不是 feature 的 code 檔` } : {}),
-        ...(item.files.length > 40 ? { note: `FILE LIST 只列前 40 檔（共 ${item.files.length}），其餘可用 glob 確認` } : {}),
+        ...(item.kind === "parent" ? {
+          SUB_FEATURES: item.refinement.subFeatures.map((s) => ({ key: s.key, files: s.codeFiles.length, dirs: _topDirs(s.codeFiles), vocabTop: s.vocabTop, consensus: s.consensus })),
+          INTERNAL_SHARED: item.refinement.internalShared.slice(0, 40),
+        } : {}),
+        ...(item.kind === "subfeature" ? { SUB_KEY: item.subKey, VOCAB_TOP: item.vocabTop } : {}),
+        ...(item.tests?.length ? { TESTS: item.tests.slice(0, 10) } : {}),
+        ...(_notes.length ? { NOTES: _notes } : {}),
         SHARED_LAYER: sharedBrief,
       };
       const userPrompt = (item.kind === "utility"
-        ? `這是一個孤兒分組（utility 級）— 系統建議的暫定組名「${item.groupName}」。請讀檔後給正式命名與描述。\n\n--- GROUP SKELETON (machine) ---\n`
+        ? `這是一個${item.template ? "同型重複（template）群組" : "孤兒分組"}（utility 級）— 系統建議的暫定組名「${item.groupName}」。請讀檔後給正式命名與描述。\n\n--- GROUP SKELETON (machine) ---\n`
+        : item.kind === "parent"
+        ? `此 feature 含穩定子結構（L2 內生判準拆出）。請依 SUB_FEATURES 子群組成為這個 feature（子群總稱）命名與描述。\n\n--- FEATURE SKELETON (machine) ---\n`
+        : item.kind === "subfeature"
+        ? `請長肉這一個「子群」（大 feature 內的穩定子能力；檔案歸屬數學已定，不可更改）。\n\n--- SUB-FEATURE SKELETON (machine) ---\n`
         : `請長肉這一個 feature（檔案歸屬數學已定，不可更改）。\n\n--- FEATURE SKELETON (machine) ---\n`)
         + stableStringify(material)
         + "\n\n用 read_file 實際讀程式碼（至少進入點檔 + 1-3 個核心檔），最後一輪輸出 JSON（name/description/bizLogic/tags）。";
@@ -227,7 +275,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
       if (!flesh) { flesh = _fallbackFlesh(item); enrichment.degraded++; }
       else enrichment.ok++;
       const _wallMs = Date.now() - _itemT0;
-      part = { flesh, turns: turns, durationMs: dur, wallMs: _wallMs, usage, degraded: !!flesh.degraded, finishedAt: new Date().toISOString() };
+      part = { sig: _itemSig(item), flesh, turns: turns, durationMs: dur, wallMs: _wallMs, usage, degraded: !!flesh.degraded, finishedAt: new Date().toISOString() };
       writeFileSync(partPath(i), JSON.stringify(part, null, 2)); // 立即落檔 — 斷點續跑
       parts.set(i, part);
       console.log(`[FM-v2] ${flesh.degraded ? "⚠️" : "✅"} feature ${i + 1}/${workItems.length}「${flesh.name}」agent loop 結束（${turns} turns, ${(_wallMs / 1000).toFixed(0)}s）`);
@@ -250,39 +298,68 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
   // （severityDecisions/severity/status/knowledgeGaps/documentation/…）。
   // 消失的舊 feature 標 retired 不刪。寫入走 saveFeatures（備份輪替生效）。
   const now = new Date().toISOString();
-  const fresh = workItems.map((item, i) => {
+  const _mkFeature = (item, fl, extra = {}) => ({
+    name: _str(fl.name, 80) || `Feature ${item.kind}`,
+    description: _str(fl.description),
+    bizLogic: _str(fl.bizLogic, 500),
+    status: "active",
+    codeFiles: item.files,
+    apis: item.apis,
+    tests: item.tests || [],
+    runbooks: [],
+    tags: _arr(fl.tags, 6),
+    grade: item.grade,
+    evidence: {
+      kinds: item.kinds,
+      entryCount: item.entryCount,
+      reachFiles: item.reachFiles,
+      method: item.kind === "utility" ? (item.template ? "template-pattern" : "llm-grouping") : "entry-reach-jaccard",
+      enrichedBy: "agent-loop",
+    },
+    issues: [],
+    aiUnderstanding: "",
+    aiUnderstandingAt: null,
+    documentation: "",
+    docsUpdatedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    ...extra,
+  });
+  const fresh = [];
+  workItems.forEach((item, i) => {
     const fl = parts.get(i)?.flesh || {};
-    return {
-      name: _str(fl.name, 80) || `Feature ${i + 1}`,
-      description: _str(fl.description),
-      bizLogic: _str(fl.bizLogic, 500),
-      status: "active",
-      codeFiles: item.files,
-      apis: item.apis,
-      tests: item.tests || [],
-      runbooks: [],
-      tags: _arr(fl.tags, 6),
-      grade: item.grade,
-      evidence: {
-        kinds: item.kinds,
-        entryCount: item.entryCount,
-        reachFiles: item.reachFiles,
-        method: item.kind === "deterministic" ? "entry-reach-jaccard" : "llm-grouping",
-        enrichedBy: "agent-loop",
-      },
-      issues: [],
-      aiUnderstanding: "",
-      aiUnderstandingAt: null,
-      documentation: "",
-      docsUpdatedAt: null,
-      createdAt: now,
-      updatedAt: now,
-    };
+    if (item.kind === "subfeature") return; // 子群掛在 parent 的 subFeatures，不是獨立 feature
+    if (item.kind === "parent") {
+      const subs = item.subItemIdxs.map((si, n) => {
+        const subDef = item.refinement.subFeatures[n];
+        const sfl = parts.get(si)?.flesh || {};
+        return {
+          key: subDef.key,
+          name: _str(sfl.name, 80) || `${subDef.vocabTop?.[0] || _topDirs(subDef.codeFiles)[0] || subDef.key}（子群自動命名）`,
+          description: _str(sfl.description),
+          codeFiles: subDef.codeFiles,
+          grade: "deterministic-sub",
+          tags: _arr(sfl.tags, 6),
+          evidence: { method: "stability-consensus-v1", consensus: subDef.consensus, vocabTop: subDef.vocabTop },
+        };
+      });
+      fresh.push(_mkFeature(item, fl, {
+        subFeatures: subs,
+        internalShared: item.refinement.internalShared,
+        evidence_sub: item.refinement.evidence,
+      }));
+    } else {
+      fresh.push(_mkFeature(item, fl));
+    }
   });
 
   const existing = loadFeatures(projectRoot);
   const newIds = nextFeatureIds(projectRoot, fresh.length); // 惰性拿號：只有真的新 feature 用
   const features = mergeFeaturesWithExisting(fresh, existing, (i) => newIds[i]);
+  // 子群最終 ID = parent ID + SF 編號（parent ID 合併後才確定）
+  for (const feat of features) {
+    if (Array.isArray(feat.subFeatures)) for (const s of feat.subFeatures) s.id = `${feat.id}-${s.key}`;
+  }
 
   const featuresDir = join(projectRoot, ".paaw", "features");
   mkdirSync(featuresDir, { recursive: true });
@@ -296,9 +373,13 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
 
   const fileFeatureMap = {};
   for (const feat of features) {
+    const subByFile = new Map();
+    for (const s of feat.subFeatures || []) for (const f of s.codeFiles) subByFile.set(f, s.name);
     for (const f of [...(feat.codeFiles || []), ...(feat.tests || []), ...(feat.runbooks || [])]) {
       const norm = f.replace(/\\/g, "/");
-      (fileFeatureMap[norm] ||= []).push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
+      const entry = { id: feat.id, name: feat.name, tags: feat.tags || [] };
+      if (subByFile.has(norm)) entry.sub = subByFile.get(norm);
+      (fileFeatureMap[norm] ||= []).push(entry);
     }
   }
   writeFileSync(join(featuresDir, "FILE-FEATURES.json"), JSON.stringify({ files: fileFeatureMap, updatedAt: now }, null, 2));
@@ -311,8 +392,16 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
     shared: dm.shared,
     orphans: dm.orphans.filter(x => !orphanAssigned.has(x)),
     unmappedTests: dm.tests?.unmappedTests || [], // 測試檔歸不入任何 feature（dynamic import / 跨 feature）— Test Intelligence 頁看
+    subFeatureRefinement: {
+      method: "stability-consensus-v1",
+      splitFeatures: refinements.filter(r => r.split).length,
+      subFeatures: refinements.reduce((s, r) => s + r.subFeatures.length, 0),
+      internalSharedFiles: refinements.reduce((s, r) => s + r.internalShared.length, 0),
+      note: "拆/不拆由內生判準決定（擾動穩定共識 + 語義分離）；無檔數門檻。黏合橋接檔歸 feature 內部 internalShared。",
+    },
+    templateGroups: { count: templateGroups.length, files: templateGroups.reduce((s, g) => s + g.files.length, 0) },
     enrichment,
-    note: "骨架 = 進入點 reach + Jaccard 聚類（數學決定論，重跑不變）；grade=deterministic。長肉 = 每 feature 一個獨立 agent loop（core-read，多輪讀 code）；orphan 分組 grade=utility（建議，人類定案）。",
+    note: "骨架 = 進入點 reach + Jaccard 聚類（數學決定論，重跑不變）；grade=deterministic。長肉 = 每 feature 一個獨立 agent loop（core-read，多輪讀 code）；orphan 分組 grade=utility（建議，人類定案）；大 feature 由 L2 內生判準拆穩定子群（subFeatures，grade=deterministic-sub）。",
   };
   writeFileSync(join(featuresDir, "FEATURE-MAP-META.json"), JSON.stringify(meta, null, 2));
 
