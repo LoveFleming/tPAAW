@@ -3508,7 +3508,7 @@ export default async function projectRoute(req, res) {
               cuLog(step.id, "[bulk] feature-map v2 (deterministic skeleton + LLM flesh)...");
               const { organizeFeatureMapV2 } = await import("../lib/feature-map-v2.mjs");
               const { features, meta } = await organizeFeatureMapV2(root, {
-                model: body.model || cuModelOverride || undefined,
+                model: cuModelOverride || undefined, // 2026-10-23 修：bulk handler 無 body
                 callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
                 onProgress: (msg) => { cuLog(step.id, `[bulk] ${msg}`); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
                 paawRoot: PAAW_ROOT,
@@ -3606,7 +3606,7 @@ export default async function projectRoute(req, res) {
             const result = chunkedFeatureMap
               ? { content: chunkedFeatureMap, finishReason: "stop", attempts: 1 }
               : await callProjectLLM({
-              model: body.model || cuModelOverride || undefined,
+              model: cuModelOverride || undefined, // 2026-10-23 修：bulk handler 無 body
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0,
               thinking: { type: "disabled" }, // 關思考 — 實證必要：thinking 開著會燒光輸出額度
@@ -3794,7 +3794,7 @@ export default async function projectRoute(req, res) {
 
         // CU 收尾：PROJECT.md 重生成（2026-10-09 Fleming — schema v2：AI 區每次重寫、USER 區絕不覆蓋）
         try {
-          const draft = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: body.model || cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
+          const draft = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: b.model || cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
           try { await paaw.setCuStepStatus("overview", "done", { summary: `${draft.features} features（${draft.aiSource}）` }); } catch {}
           if (draft.written) {
             cuLog("overview", `PROJECT.md ${draft.reason} (${draft.features} features, ${draft.aiSource})`);
