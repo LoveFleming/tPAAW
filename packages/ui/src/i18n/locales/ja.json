@@ -1957,5 +1957,11 @@
   "feature.herm.needs-network": "ネット必要",
   "feature.herm.needs-service": "サービス必要",
   "feature.herm.unknown": "不明",
-  "feature.testsEnrich": "曖昧なラベルを LLM で仲裁"
+  "feature.testsEnrich": "曖昧なラベルを LLM で仲裁",
+  "apiMap.devSug1Label": "🧪 ペイロード作成",
+  "apiMap.devSug1Prompt": "現在テスターにある API のテストペイロード（ヘッダー+ボディ）を組み、各フィールドの理由を説明して。",
+  "apiMap.devSug2Label": "🔍 レスポンス解説",
+  "apiMap.devSug2Prompt": "現在の API テストのレスポンスを分析：ステータスコードの意味、body 構造、異常や注意すべきフィールド。",
+  "apiMap.devSug3Label": "📋 スモークテスト一覧",
+  "apiMap.devSug3Prompt": "このプロジェクトの API のスモークテスト一覧を作成：優先ルート、各検証内容、期待ステータスコード。"
 }

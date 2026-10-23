@@ -1604,6 +1604,8 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
   const qaBrowserChatRef = useRef<AgentSideChatHandle>(null);
   // 2026-10-09 Fleming：QA browser side chat 左右 splitter（可拖曳調寬）
   const qaBrowserPane = useColResize(360, 260, 640);
+  // 2026-10-23 Fleming：API Tester Developer AI side chat 左右 splitter（與 architect/handover/qa 同款）
+  const apiDevPane = useColResize(360, 260, 640);
   const openFile = useCallback(async (path: string) => {
     if (loadingFileRef.current) return; // prevent double-click race
 
@@ -3504,8 +3506,10 @@ const sendChat = useCallback(async () => {
                   )}
                 </div>
               </div>
-                {/* 右欄：Developer AI 助理 */}
-                <div className="shrink-0 border-l hidden xl:flex flex-col" style={{ width: 340, borderColor: tk.borderLight }}>
+                {/* 右欄：Developer AI 助理 — 2026-10-23 Fleming：跟 architect/handover/qa-browser 同款
+                    （splitter 可拖寬 + 三按鈕 + 上傳 + model selector + 對話持久化 + suggestions）*/}
+                <ColResizer onDown={apiDevPane.startDrag} className="hidden xl:block" />
+                <div className="shrink-0 border-l hidden xl:flex flex-col" style={{ width: apiDevPane.width, borderColor: tk.borderLight }}>
                   <AgentSideChat
                     ref={apiDevChatRef}
                     agentId="developer"
@@ -3514,8 +3518,16 @@ const sendChat = useCallback(async () => {
                     greeting={tt("apiMap.devAiGreeting")}
                     cwd={rootPath}
                     accent="#2563eb"
+                    accentHover="#1d4ed8"
                     height="100%"
                     placeholder={tt("apiMap.devAiPlaceholder")}
+                    persistCrewId="coding.api-dev-side"
+                    modelFeature="sideChat.apiDev"
+                    suggestions={[
+                      { label: tt("apiMap.devSug1Label"), prompt: tt("apiMap.devSug1Prompt") },
+                      { label: tt("apiMap.devSug2Label"), prompt: tt("apiMap.devSug2Prompt") },
+                      { label: tt("apiMap.devSug3Label"), prompt: tt("apiMap.devSug3Prompt") },
+                    ]}
                   />
                 </div>
               </div>

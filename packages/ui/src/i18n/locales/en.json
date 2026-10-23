@@ -1957,5 +1957,11 @@
   "feature.herm.needs-network": "needs network",
   "feature.herm.needs-service": "needs service",
   "feature.herm.unknown": "unknown",
-  "feature.testsEnrich": "AI arbitration for ambiguous hermeticity labels"
+  "feature.testsEnrich": "AI arbitration for ambiguous hermeticity labels",
+  "apiMap.devSug1Label": "🧪 Build payload",
+  "apiMap.devSug1Prompt": "Build a reasonable test payload (headers + body) for the API currently in the tester, and explain each field.",
+  "apiMap.devSug2Label": "🔍 Explain response",
+  "apiMap.devSug2Prompt": "Analyze the current API test response: status code meaning, body structure, anomalies or fields to watch.",
+  "apiMap.devSug3Label": "📋 Smoke test list",
+  "apiMap.devSug3Prompt": "Create a smoke test list for this project's APIs: which routes to test first, what to verify on each, expected status codes."
 }

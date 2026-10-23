@@ -1957,5 +1957,11 @@
   "feature.herm.needs-network": "需連網",
   "feature.herm.needs-service": "需服務",
   "feature.herm.unknown": "未知",
-  "feature.testsEnrich": "🤖 AI 消歧（模糊案件交 LLM 仲裁，寫回 aiHermeticity）"
+  "feature.testsEnrich": "🤖 AI 消歧（模糊案件交 LLM 仲裁，寫回 aiHermeticity）",
+  "apiMap.devSug1Label": "🧪 組 payload",
+  "apiMap.devSug1Prompt": "幫我為目前測試台的這條 API 組一個合理的測試 payload（含 headers 和 body），並說明每個欄位的理由。",
+  "apiMap.devSug2Label": "🔍 解讀回應",
+  "apiMap.devSug2Prompt": "分析目前 API 測試的回應：狀態碼代表什麼、body 結構、有沒有異常或要注意的欄位。",
+  "apiMap.devSug3Label": "📋 煙霧測試清單",
+  "apiMap.devSug3Prompt": "針對這個專案的 API 列一份煙霧測試清單：優先測哪些 route、每條各驗證什麼、預期狀態碼。"
 }
