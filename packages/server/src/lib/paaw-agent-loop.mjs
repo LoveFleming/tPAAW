@@ -4540,6 +4540,10 @@ function getAgentReasoning(agentId, cwd = null) {
       if (mod && mod.crew && mod.crew.reasoning !== undefined) val = mod.crew.reasoning;
     }
   }
+  // CU（Code Understanding）結構化任務：reasoning 只會燒 token 回空 content
+  // （2026-08-30 教訓；2026-10-23 portkey 實測 0 字 × 多輪 → 命名降級）→ 預設 off。
+  // RU 設定若明確指定仍優先（上方 val 已帶值就不覆寫）。
+  if (val === undefined && String(agentId).startsWith("cu-")) val = "off";
   const norm = _normalizeReasoningValue(val);
   _crewReasoningCache.set(cacheKey, norm);
   return norm;

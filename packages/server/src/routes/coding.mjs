@@ -232,6 +232,10 @@ export async function callProjectLLM(body, opts = {}) {
     timeoutMs: opts.timeoutMs ?? 300_000,
     validateContent: true,
     sanitize: true,
+    // 2026-10-23：caller 要求 thinking disabled（CU 結構化命名）→ 一併對 openrouter 注入
+    // reasoning:{enabled:false}。否則 openrouter/deepseek 會把 token 燒在 reasoning 回空 content
+    // （portkey CU 實測 0 字 × 多輪 → 命名降級）。
+    disableThinking: !!(body.thinking || body.disableThinking),
     caller: opts.caller || "coding",
     agentId: opts.agentId || "coding",
     // 2026-09-03 fix：caller 沒傳 fallbacks 時，自動用 resolveLLMConfig 的 chain（providers.json fallbacks / auto）

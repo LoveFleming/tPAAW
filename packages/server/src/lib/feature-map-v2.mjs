@@ -97,16 +97,29 @@ async function _directNameFallback({ callLLM, item, projectRoot, material, kindL
 --- SKELETON (machine) ---
 ${stableStringify(skeleton)}
 ${samples.length ? "\n--- SAMPLED CODE ---\n" + samples.join("\n\n") : ""}`;
-  const r = await callLLM({ messages: [{ role: "user", content: prompt }], temperature: 0, thinking: { type: "disabled" }, timeoutMs: 120_000 });
-  const j = _extractJson(r?.content);
-  if (!j || !_str(j.name, 80)) return null;
-  return {
-    name: _str(j.name, 80),
-    description: _str(j.description),
-    bizLogic: _str(j.bizLogic, 500) || "（直呼命名保底：bizLogic 從缺）",
-    tags: _arr(j.tags, 6),
-    enrichedBy: "direct-llm",
-  };
+  // 模型輪替（2026-10-23）：deepseek flash 間歇性回 0 字 content（usage 有 token 但 content 空）
+  // → 同一 prompt 換模型重試。undefined = 用預設模型。
+  const MODEL_LADDER = [undefined, undefined, "z-ai/glm-5.3-flash", "zai/glm-5.1"];
+  for (const mdl of MODEL_LADDER) {
+    try {
+      const r = await callLLM({
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0, thinking: { type: "disabled" }, timeoutMs: 120_000,
+        ...(mdl ? { model: mdl } : {}),
+      });
+      const j = _extractJson(r?.content);
+      if (j && _str(j.name, 80)) {
+        return {
+          name: _str(j.name, 80),
+          description: _str(j.description),
+          bizLogic: _str(j.bizLogic, 500) || "（直呼命名保底：bizLogic 從缺）",
+          tags: _arr(j.tags, 6),
+          enrichedBy: mdl ? `direct-llm:${mdl}` : "direct-llm",
+        };
+      }
+    } catch { /* 換下一個模型 */ }
+  }
+  return null;
 }
 /** 預設 agent loop runner — 真的跑 paaw-agent-loop（core-read 工具組） */
 async function _runFeatureAgent({ systemPrompt, prompt, cwd, rootDir, model }) {
@@ -164,7 +177,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
   const parsed = await parseProject(projectRoot, paawRoot, { maxFiles: 0, maxBytes: 500_000 });
   onProgress?.(`parsed ${parsed.stats.parsedFiles} files`);
 
-  onProgress?.("Building deterministic code map（進入點 → reach → Jaccard 聚類）...");
+  onProgress?.("Building deterministic code map（Tier → barrel 塌縮 → Label Propagation）...");
   const dm = buildDeterministicFeatureMap(parsed);
   onProgress?.(`骨架完成：${dm.stats.clusters} clusters / ${dm.stats.shared} shared / ${dm.stats.orphans} orphans（零 token）`);
 
@@ -255,7 +268,8 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
         workItems.push({ kind: "subfeature", grade: "deterministic-sub", files: sub.codeFiles, apis: [], kinds: { sub: sub.codeFiles.length }, entryCount: 0, reachFiles: 0, tests: [], subKey: sub.key, vocabTop: sub.vocabTop, consensus: sub.consensus });
       }
     } else {
-      workItems.push({ kind: "deterministic", grade: "deterministic", files: f.codeFiles, ...base });
+      // grade 尊重骨架（example tier 的 feature 標 grade=example，不當成產品功能）
+      workItems.push({ kind: "deterministic", grade: f.grade || "deterministic", files: f.codeFiles, ...base });
     }
   });
   for (const g of orphanGroups.map(g => ({ kind: "utility", grade: "utility", files: g.files, apis: [], kinds: { orphan: g.files.length }, entryCount: 0, reachFiles: 0, groupName: g.name, groupDesc: g.description, template: !!g.template }))) workItems.push(g);
@@ -381,7 +395,8 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
       kinds: item.kinds,
       entryCount: item.entryCount,
       reachFiles: item.reachFiles,
-      method: item.kind === "utility" ? (item.template ? "template-pattern" : "llm-grouping") : "entry-reach-jaccard",
+      method: item.kind === "utility" ? (item.template ? "template-pattern" : "llm-grouping") : "label-propagation",
+      tier: item.grade === "example" ? "example" : "source",
       enrichedBy: fl.enrichedBy || "agent-loop",
     },
     issues: [],
