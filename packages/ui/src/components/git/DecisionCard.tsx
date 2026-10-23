@@ -41,9 +41,11 @@ export interface EvidenceDecisionCard {
   } | null;
   reviewBoundary?: {
     hasScope?: boolean;
-    summary?: { total?: number; expected?: number; unexpected?: number; hasUnexpected?: boolean };
-    expectedFiles?: { path: string; status?: string }[];
-    unexpectedFiles?: { path: string; status?: string; features?: { id?: string; name?: string }[] }[];
+    summary?: { total?: number; expected?: number; unexpected?: number; hasUnexpected?: boolean; crosscutTouches?: number; hasCrosscutTouch?: boolean };
+    expectedFiles?: { path: string; status?: string; crosscut?: { conceptId?: string; name?: string; crossFeatureCount?: number }[] }[];
+    unexpectedFiles?: { path: string; status?: string; features?: { id?: string; name?: string }[]; crosscut?: { conceptId?: string; name?: string; crossFeatureCount?: number }[] }[];
+    crosscutTouches?: { conceptId: string; name: string; crossFeatureCount: number; features: string[]; changedFiles: string[] }[];
+    crosscutWarnings?: string[];
   } | null;
   needsHumanDecision?: boolean;
   trustScore?: { score?: number; items?: { name?: string; label?: string; score?: number }[]; riskPenalty?: number; label?: string; reason?: string[] };
@@ -174,6 +176,20 @@ export default function DecisionCard({ evidence, loading, onShowCode, t = (k, f)
                   </li>
                 ))}
               </ul>
+            )}
+            {/* ③ 橫切關注點觸及（Change/Review Boundary ⊕ crosscut overlay） */}
+            {(rb?.crosscutTouches ?? []).length > 0 && (
+              <div className="mt-1.5 rounded border border-amber-200 bg-amber-50 p-1.5">
+                <div className="text-[10px] font-bold text-amber-700">🔀 改動碰觸橫切關注點（散在多條 feature 的能力）</div>
+                <ul className="mt-0.5 space-y-0.5">
+                  {(rb!.crosscutTouches ?? []).slice(0, 5).map((c, i) => (
+                    <li key={i} className="text-[10px] text-amber-800">
+                      <span className="font-semibold">「{c.name}」</span>
+                      <span className="text-amber-600"> 散在 {c.crossFeatureCount} 條 feature（{c.features.slice(0, 5).join("/")}）· 命中 {c.changedFiles.length} 檔</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         </div>

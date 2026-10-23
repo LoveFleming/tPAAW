@@ -119,6 +119,44 @@ function _loadFileFeatureMap(projectPath) {
   }
 }
 
+// ── 橫切關注點觸及（Change/Review Boundary ⊕ crosscut overlay）──
+// 改動碰到「散在多條 feature、無獨立 feature」的橫切符號（如 Budget Control）→ review 警示。
+// evidence 是 file:line:symbol，檔案級比對（v1）；line 級留待 diff hunk 分析。
+function _loadCrosscut(projectPath) {
+  const p = join(projectPath, ".paaw", "features", "CROSSCUT-CONCEPTS.json");
+  if (!existsSync(p)) return [];
+  try {
+    const d = JSON.parse(readFileSync(p, "utf-8"));
+    return (d.concepts || []).filter((c) => !c.aiClipped);
+  } catch {
+    return [];
+  }
+}
+
+export function _crosscutTouches(changedPaths, concepts) {
+  const changed = new Set(changedPaths.map(_normPath));
+  const byFile = new Map(); // file → concept[]
+  for (const c of concepts) {
+    const hitFiles = new Set();
+    for (const e of c.evidence || []) {
+      const f = _normPath(e.file || "");
+      if (f && changed.has(f)) hitFiles.add(f);
+    }
+    if (hitFiles.size === 0) continue;
+    for (const f of hitFiles) {
+      if (!byFile.has(f)) byFile.set(f, []);
+      byFile.get(f).push({
+        conceptId: c.id,
+        name: c.aiName || c.name,
+        crossFeatureCount: c.crossFeatureCount,
+        features: c.features || [],
+        dominantShare: c.dominantShare ?? null,
+      });
+    }
+  }
+  return byFile;
+}
+
 // ── Main ──
 
 /**
@@ -159,20 +197,46 @@ export async function buildReviewBoundary(projectPath, task) {
 
   const git = task.git || {};
   const head = git.commitSha || git.committedSha || null;
+
+  // ③ 橫切關注點觸及：改動檔命中的 overlay 概念（散在多 feature 的能力）
+  const concepts = _loadCrosscut(projectPath);
+  const ccByFile = _crosscutTouches(reviewable.map((f) => f.path), concepts);
+  const attachCc = (f) => ({ ...f, crosscut: ccByFile.get(_normPath(f.path)) || undefined });
+  const crosscutTouches = [];
+  const seen = new Set();
+  for (const [file, cs] of [...ccByFile.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    for (const c of cs) {
+      if (seen.has(c.conceptId)) {
+        crosscutTouches.find((x) => x.conceptId === c.conceptId).changedFiles.push(file);
+        continue;
+      }
+      seen.add(c.conceptId);
+      crosscutTouches.push({ conceptId: c.conceptId, name: c.name, crossFeatureCount: c.crossFeatureCount, features: c.features, dominantShare: c.dominantShare, changedFiles: [file] });
+    }
+  }
+  crosscutTouches.sort((a, b) => b.crossFeatureCount - a.crossFeatureCount || a.name.localeCompare(b.name));
+  const crosscutWarnings = crosscutTouches
+    .filter((t) => t.crossFeatureCount >= 3)
+    .map((t) => `改動碰觸橫切關注點「${t.name}」（散在 ${t.crossFeatureCount} 條 feature：${t.features.slice(0, 6).join("/")}）— 請確認影響面`);
+
   return {
     version: 1,
     hasScope,
     scopeCount: scopeSet.size,
     scopeFiles: [...scopeSet],
     commitRange: head ? { base: git.baseCommit || `${head}^`, head } : "working-tree",
-    expectedFiles,
-    unexpectedFiles,
+    expectedFiles: expectedFiles.map(attachCc),
+    unexpectedFiles: unexpectedFiles.map(attachCc),
     noiseFiles: noise,
+    crosscutTouches,
+    crosscutWarnings,
     summary: {
       total: reviewable.length,
       expected: expectedFiles.length,
       unexpected: unexpectedFiles.length,
       hasUnexpected: unexpectedFiles.length > 0,
+      crosscutTouches: crosscutTouches.length,
+      hasCrosscutTouch: crosscutTouches.length > 0,
     },
     checkedAt: new Date().toISOString(),
   };
