@@ -1,0 +1,239 @@
+{
+  "version": 1,
+  "note": "測試自足性（hermeticity）判定表 —— 語言無關 3 層。加語言 = 加 row，不改程式。",
+  "labels": {
+    "hermetic": "自足：mock 或純函式，不碰外界，clone 下來就能跑，結果可重現",
+    "needs-key": "要金鑰：會呼叫真外部廠商 API，需提供 API key（否則 401/403）",
+    "needs-network": "要連網：需要外網（不一定需 key），離線即失敗",
+    "needs-service": "要服務：需要本機服務/基礎設施（DB、Redis、本機 server、容器）"
+  },
+  "sharedLexicon": {
+    "key": [
+      "API_?KEY",
+      "APIKEY",
+      "APP_?KEY",
+      "SECRET",
+      "_TOKEN",
+      "TOKEN_",
+      "ACCESS_?KEY",
+      "PRIVATE_?KEY",
+      "CREDENTIAL",
+      "_PASSWORD",
+      "PASSWORD_",
+      "BEARER"
+    ],
+    "service": [
+      "REDIS_URL",
+      "REDIS_HOST",
+      "DATABASE_URL",
+      "DB_URL",
+      "POSTGRES",
+      "MYSQL",
+      "MONGO",
+      "KAFKA",
+      "ELASTICSEARCH",
+      "MINIO",
+      "S3_ENDPOINT"
+    ]
+  },
+  "languages": {
+    "ts": {
+      "mock": [
+        "jest\\.mock",
+        "vi\\.mock",
+        "nock\\(",
+        "from ['\"]msw['\"]",
+        "sinon",
+        "jest\\.spyOn",
+        "setupServer\\(",
+        "msw/node"
+      ],
+      "http": [
+        "fetch\\(",
+        "axios",
+        "got\\(",
+        "http\\.request",
+        "https\\.request",
+        "undici",
+        "node-fetch",
+        "superagent"
+      ],
+      "envRead": [
+        "process\\.env\\."
+      ],
+      "serviceStart": [
+        "localhost:\\d+",
+        "127\\.0\\.0\\.1:\\d+",
+        "createServer\\(",
+        "supertest\\(",
+        "listen\\("
+      ]
+    },
+    "py": {
+      "mock": [
+        "unittest\\.mock",
+        "from unittest import mock",
+        "monkeypatch",
+        "mocker\\.",
+        "responses\\.",
+        "pytest_mock",
+        "respx",
+        "requests_mock",
+        "@patch"
+      ],
+      "http": [
+        "requests\\.",
+        "httpx",
+        "urllib\\.request",
+        "aiohttp",
+        "urllib3",
+        "http\\.client",
+        "socket\\."
+      ],
+      "envRead": [
+        "os\\.environ",
+        "os\\.getenv\\(",
+        "getenv\\("
+      ],
+      "serviceStart": [
+        "localhost:\\d+",
+        "127\\.0\\.0\\.1:\\d+",
+        "redis\\.",
+        "psycopg",
+        "sqlalchemy",
+        "boto3"
+      ]
+    },
+    "go": {
+      "mock": [
+        "httptest\\.",
+        "gomock",
+        "sqlmock",
+        "testify/mock",
+        "mock\\.NewController",
+        "httpmock"
+      ],
+      "http": [
+        "http\\.Get\\(",
+        "http\\.Post\\(",
+        "http\\.NewRequest",
+        "net\\.Dial",
+        "resty\\.",
+        "client\\.Do\\("
+      ],
+      "envRead": [
+        "os\\.Getenv\\(",
+        "os\\.LookupEnv\\("
+      ],
+      "serviceStart": [
+        "localhost:\\d+",
+        "127\\.0\\.0\\.1:\\d+",
+        "redis\\.NewClient",
+        "sql\\.Open",
+        "docker-compose",
+        "testcontainers"
+      ]
+    },
+    "java": {
+      "mock": [
+        "Mockito",
+        "@MockBean",
+        "@Mock",
+        "WireMock",
+        "MockRestServiceServer",
+        "@WebMvcTest",
+        "MockMvc"
+      ],
+      "http": [
+        "HttpClient",
+        "URLConnection",
+        "okhttp",
+        "RestTemplate",
+        "WebClient",
+        "HttpRequest\\.newBuilder",
+        "Unirest"
+      ],
+      "envRead": [
+        "System\\.getenv\\(",
+        "System\\.getProperty\\("
+      ],
+      "serviceStart": [
+        "localhost:\\d+",
+        "127\\.0\\.0\\.1:\\d+",
+        "Testcontainers",
+        "EmbeddedKafka",
+        "EmbeddedRedis"
+      ]
+    },
+    "rust": {
+      "mock": [
+        "wiremock",
+        "httpmock",
+        "mockito",
+        "tests::harness",
+        "harness::Harness",
+        "MockArgs",
+        "TestDefault",
+        "crate::tests::",
+        "InMemory",
+        "tempfile"
+      ],
+      "http": [
+        "reqwest::",
+        "hyper::",
+        "surf::",
+        "isahc::",
+        "ureq::",
+        "tokio::net::TcpStream"
+      ],
+      "envRead": [
+        "std::env::var\\(",
+        "env::var\\(",
+        "std::env::var_os\\("
+      ],
+      "serviceStart": [
+        "localhost:\\d+",
+        "127\\.0\\.0\\.1:\\d+",
+        "redis::",
+        "RedisClient",
+        "redis-testing",
+        "sqlx::",
+        "diesel::"
+      ]
+    },
+    "ruby": {
+      "mock": [
+        "stub_request",
+        "WebMock",
+        "double\\(",
+        "instance_double",
+        "allow\\("
+      ],
+      "http": [
+        "Net::HTTP",
+        "Faraday",
+        "HTTParty",
+        "RestClient",
+        "excon"
+      ],
+      "envRead": [
+        "ENV\\["
+      ],
+      "serviceStart": [
+        "localhost:\\d+",
+        "127\\.0\\.0\\.1:\\d+",
+        "Redis\\.new",
+        "ActiveRecord"
+      ]
+    }
+  },
+  "rules": {
+    "order": [
+      "needs-key",
+      "needs-service",
+      "needs-network",
+      "hermetic"
+    ],
+    "note": "依序判定：有 key 讀取→needs-key；有服務啟動/基礎設施→needs-service；有外部 HTTP 且無 mock→needs-network；其餘（有 mock 或全無外界訊號）→hermetic"
+  }
+}

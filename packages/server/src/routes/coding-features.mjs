@@ -400,6 +400,24 @@ export default async function codingFeaturesRoute(req, res) {
     return true;
   }
 
+  // ── GET /api/coding-features/test-signals — 🧪 測試自足性（語言無關，確定性）──
+  if (url === "/api/coding-features/test-signals" && method === "GET") {
+    try {
+      const p = join(getFeaturesDir(projRoot), "TEST-SIGNALS.json"); // nosemgrep
+      if (!existsSync(p)) { // nosemgrep
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ byFile: {}, byFeature: {}, summary: null }));
+        return true;
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(readSync(p, "utf-8"));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `test-signals 讀取失敗：${err?.message || err}` }));
+    }
+    return true;
+  }
+
   // ── POST /api/coding-features/crosscut/enrich — ② LLM 消歧 + 命名 concept ──
   if (url === "/api/coding-features/crosscut/enrich" && method === "POST") {
     try {

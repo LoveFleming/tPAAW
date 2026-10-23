@@ -1950,5 +1950,11 @@
   "feature.crosscutEvidence": "證據（file:line:symbol）",
   "feature.crosscutEnrich": "AI 消歧 + 命名（會花 token）",
   "feature.crosscutEnriching": "AI 消歧中…",
-  "feature.crosscutDominant": "最高佔比"
+  "feature.crosscutDominant": "最高佔比",
+  "feature.testsHint": "🟢 自足可跑｜🔑 需金鑰｜🌐 需連網｜🐳 需服務（DB/Redis）",
+  "feature.herm.hermetic": "自足",
+  "feature.herm.needs-key": "需金鑰",
+  "feature.herm.needs-network": "需連網",
+  "feature.herm.needs-service": "需服務",
+  "feature.herm.unknown": "未知"
 }

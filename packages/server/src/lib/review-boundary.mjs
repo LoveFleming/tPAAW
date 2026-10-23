@@ -122,8 +122,46 @@ function _loadFileFeatureMap(projectPath) {
 // ── 橫切關注點觸及（Change/Review Boundary ⊕ crosscut overlay）──
 // 改動碰到「散在多條 feature、無獨立 feature」的橫切符號（如 Budget Control）→ review 警示。
 // evidence 是 file:line:symbol，檔案級比對（v1）；line 級留待 diff hunk 分析。
-function _loadCrosscut(projectPath) {
-  const p = join(projectPath, ".paaw", "features", "CROSSCUT-CONCEPTS.json");
+/** 🧪 可信回歸清單：改動 feature → 它有那些測試、哪些真的跑得起來 */
+function _loadTestSignals(projectPath) {
+  const p = join(projectPath, ".paaw", "features", "TEST-SIGNALS.json");
+  if (!existsSync(p)) return null;
+  try { return JSON.parse(readFileSync(p, "utf-8")); } catch { return null; }
+}
+
+function _regressionTests(changedPaths, projectPath, fileFeatureMap, featuresInTask) {
+  const sig = _loadTestSignals(projectPath);
+  if (!sig) return null;
+  const fileMap = fileFeatureMap || _loadFileFeatureMap(projectPath);
+  const byF = sig.byFeature || {};
+  const byFile = sig.byFile || {};
+
+  // 改動檔 → 涉及 feature id
+  const featIds = new Set(featuresInTask || []);
+  for (const p of changedPaths) {
+    for (const e of fileMap[_normPath(p)] || []) if (e?.id) featIds.add(e.id);
+  }
+  if (featIds.size === 0) return { features: [], runnable: [], needsKey: [], needsNetwork: [], needsService: [], uncovered: [], totals: { features: 0, tests: 0, runnable: 0 } };
+
+  const out = { features: [...featIds], runnable: [], needsKey: [], needsNetwork: [], needsService: [], uncovered: [], totals: { features: featIds.size, tests: 0, runnable: 0 } };
+  for (const fid of featIds) {
+    const b = byF[fid];
+    if (!b) { out.uncovered.push(fid); continue; }
+    const push = (arr, list) => { for (const t of list) arr.push({ feature: fid, file: t, hermeticity: (byFile[t] || {}).hermeticity }); };
+    const n = (b.hermetic || []).length + (b["needs-key"] || []).length + (b["needs-network"] || []).length + (b["needs-service"] || []).length + (b.unknown || []).length;
+    out.totals.tests += n;
+    if (n === 0) { out.uncovered.push(fid); continue; }
+    push(out.runnable, b.hermetic || []);
+    push(out.needsKey, b["needs-key"] || []);
+    push(out.needsNetwork, b["needs-network"] || []);
+    push(out.needsService, b["needs-service"] || []);
+  }
+  out.totals.runnable = out.runnable.length;
+  out.note = "hermetic=clone 即可跑（可信回歸）；needs-* 需外部條件，跑不動不代表 code 壞。確定性判定，附 evidence。";
+  return out;
+}
+
+function _loadCrosscut(projectPath) {  const p = join(projectPath, ".paaw", "features", "CROSSCUT-CONCEPTS.json");
   if (!existsSync(p)) return [];
   try {
     const d = JSON.parse(readFileSync(p, "utf-8"));
@@ -219,6 +257,9 @@ export async function buildReviewBoundary(projectPath, task) {
     .filter((t) => t.crossFeatureCount >= 3)
     .map((t) => `改動碰觸橫切關注點「${t.name}」（散在 ${t.crossFeatureCount} 條 feature：${t.features.slice(0, 6).join("/")}）— 請確認影響面`);
 
+  // 🧪 可信回歸清單（改動 feature → 測試，依自足性分區）
+  const regressionTests = _regressionTests(reviewable.map((f) => f.path), projectPath, fileFeatureMap, task?.featureIds);
+
   return {
     version: 1,
     hasScope,
@@ -230,6 +271,7 @@ export async function buildReviewBoundary(projectPath, task) {
     noiseFiles: noise,
     crosscutTouches,
     crosscutWarnings,
+    regressionTests,
     summary: {
       total: reviewable.length,
       expected: expectedFiles.length,
@@ -237,6 +279,7 @@ export async function buildReviewBoundary(projectPath, task) {
       hasUnexpected: unexpectedFiles.length > 0,
       crosscutTouches: crosscutTouches.length,
       hasCrosscutTouch: crosscutTouches.length > 0,
+      runnableTests: regressionTests?.totals?.runnable ?? null,
     },
     checkedAt: new Date().toISOString(),
   };

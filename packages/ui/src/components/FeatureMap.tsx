@@ -192,6 +192,8 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
   const [gaps, setGaps] = useState<GapEntry[]>([]);
   const [showCrosscut, setShowCrosscut] = useState(false);
   const [ccBusy, setCcBusy] = useState(false);
+  // 🧪 測試自足性（deterministic，語言無關）
+  const [testSignals, setTestSignals] = useState<Record<string, { hermeticity: string; evidence?: string[] }> | null>(null);
   const loadErrorCodes = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/coding-project/error-codes?path=${encodeURIComponent(rootPath)}`);
@@ -287,6 +289,16 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
     } catch { /* 尚無 crosscut 資料 → silent */ }
   }, [rootPath]);
   useEffect(() => { fetchCrosscut(); }, [fetchCrosscut, refreshKey]);
+
+  const fetchTestSignals = useCallback(async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-features/test-signals?path=${encodeURIComponent(rootPath)}`);
+      if (!r.ok) return;
+      const d = await r.json();
+      setTestSignals(d.byFile || null);
+    } catch { /* 尚無 test signals → silent */ }
+  }, [rootPath]);
+  useEffect(() => { fetchTestSignals(); }, [fetchTestSignals, refreshKey]);
 
   const enrichCrosscut = useCallback(async () => {
     setCcBusy(true);
@@ -536,6 +548,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
             onSaveDocs={handleSaveDocs}
             savingDocs={savingDocs}
             rootPath={rootPath}
+            testSignals={testSignals}
           />
         )}
       </div>
@@ -593,6 +606,7 @@ function SeveritySection({ feature, theme, t, rootPath, onFeatureUpdate }: {
   t: (k: string) => string;
   rootPath: string;
   onFeatureUpdate?: (f: Feature) => void;
+  testSignals?: Record<string, { hermeticity: string; evidence?: string[] }> | null;
 }) {
   const [busy, setBusy] = useState(false);
   const [byName, setByName] = useState("human");
@@ -834,7 +848,7 @@ function SubFeaturesSection({ feature, theme, t, rootPath, onOpenFile, onFeature
   );
 }
 
-function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callChainMap, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, rootPath, onFeatureUpdate }: {
+function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callChainMap, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, rootPath, onFeatureUpdate, testSignals }: {
   feature: Feature;
   ecData?: any;
   theme: any;
@@ -850,6 +864,7 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
   savingDocs: boolean;
   rootPath: string;
   onFeatureUpdate?: (f: Feature) => void;
+  testSignals?: Record<string, { hermeticity: string; evidence?: string[] }> | null;
 }) {
   const st = STATUS_STYLES[feature.status] || STATUS_STYLES.active;
   const [undBusy, setUndBusy] = useState<string | null>(null);
@@ -959,11 +974,20 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
 
         {/* Tests */}
         <Section title={`🧪 ${t("feature.tests")}`} count={(feature.tests || []).length} theme={theme}>
-          {(feature.tests || []).map(f => (
-            <button key={f} onClick={() => onOpenFile?.(f)} className="block text-xs text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
-              {f}
-            </button>
-          ))}
+          {(feature.tests || []).length > 0 && (
+            <div className="text-[10px] mb-1" style={{ color: theme.text, opacity: 0.55 }}>
+              {t("feature.testsHint")}
+            </div>
+          )}
+          {(feature.tests || []).map(f => {
+            const sig = testSignals?.[f] || testSignals?.[f.replace(/\\/g, "/")];
+            return (
+              <button key={f} onClick={() => onOpenFile?.(f)} className="flex items-center gap-1.5 w-full text-xs text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }} title={sig?.evidence?.join("\n") || ""}>
+                <span className="truncate flex-1">{f}</span>
+                {sig && <span className="text-[9px] px-1 rounded shrink-0 font-sans" style={HERM_STYLE[sig.hermeticity] || HERM_STYLE.unknown}>{HERM_EMOJI[sig.hermeticity] || "❔"} {t(`feature.herm.${sig.hermeticity}`)}</span>}
+              </button>
+            );
+          })}
         </Section>
         </>)}
 
@@ -1152,6 +1176,22 @@ function FileToFeatureList({ features, theme, t, searchQuery, onSelectFeature, o
     </div>
   );
 }
+
+// ── 🧪 測試自足性徽章 ──
+const HERM_EMOJI: Record<string, string> = {
+  hermetic: "🟢",
+  "needs-key": "🔑",
+  "needs-network": "🌐",
+  "needs-service": "🐳",
+  unknown: "❔",
+};
+const HERM_STYLE: Record<string, React.CSSProperties> = {
+  hermetic: { background: "#dcfce7", color: "#15803d", border: "1px solid #bbf7d0" },
+  "needs-key": { background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a" },
+  "needs-network": { background: "#dbeafe", color: "#1d4ed8", border: "1px solid #bfdbfe" },
+  "needs-service": { background: "#f3e8ff", color: "#7e22ce", border: "1px solid #e9d5ff" },
+  unknown: { background: "#f5f5f4", color: "#57534e", border: "1px solid #e7e5e4" },
+};
 
 // ── 🔀 橫切關注點 / Gap Report 面板（overlay 層，非檔案分割）──
 function CrosscutPanel({ concepts, gaps, theme, t, busy, onEnrich, onPickFeature }: {

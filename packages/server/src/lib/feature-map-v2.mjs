@@ -484,6 +484,22 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
   writeFileSync(join(featuresDir, "FILE-FEATURES.json"), JSON.stringify({ files: fileFeatureMap, updatedAt: now }, null, 2));
 
   const orphanAssigned = new Set(orphanGroups.flatMap(g => g.files));
+
+  // ── 測試自足性（deterministic；語言無關表驅動）──
+  let testSignals = null;
+  try {
+    const { computeTestSignals } = await import("./test-signals.mjs");
+    const allTests = [];
+    for (const f of features) for (const t of f.tests || []) allTests.push(t);
+    for (const t of dm.tests?.unmappedTests || []) allTests.push(t);
+    testSignals = computeTestSignals(projectRoot, [...new Set(allTests)], {
+      featureIds: features.map(f => f.id),
+      featureTests: features.map(f => f.tests || []),
+    });
+    writeFileSync(join(featuresDir, "TEST-SIGNALS.json"), JSON.stringify(testSignals, null, 2));
+  } catch (e) {
+    console.error("[feature-map] test signals:", e?.message || e);
+  }
   const meta = {
     method: "deterministic-v3",
     tierStats: dm.stats?.tiers || null,
@@ -504,6 +520,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
     crosscutConcepts: crosscut.concepts,
     crosscutStats: crosscut.stats,
     gapReport: crosscut.gapReport,
+    testSignals: testSignals ? { summary: testSignals.summary, note: testSignals.note } : null,
     enrichment,
     note: "骨架 = Tier 分流（source/example/tooling/docs）→ barrel 塌縮 → Label Propagation 社群（100% 覆蓋、無 shared 黑洞）→ 目錄切分/寬目錄 roll-up → 入口標註（數學決定論，重跑不變）；grade=deterministic。長肉 = 每 feature 一個獨立 agent loop（core-read，多輪讀 code）；大 feature 由 L2 內生判準拆穩定子群（subFeatures，grade=deterministic-sub）。",
     skeleton: "deterministic-v3（label-propagation, 語言無關：js/ts/tsx/py/java/go/rust）",

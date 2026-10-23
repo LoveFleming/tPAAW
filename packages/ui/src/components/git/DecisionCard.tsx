@@ -46,6 +46,14 @@ export interface EvidenceDecisionCard {
     unexpectedFiles?: { path: string; status?: string; features?: { id?: string; name?: string }[]; crosscut?: { conceptId?: string; name?: string; crossFeatureCount?: number }[] }[];
     crosscutTouches?: { conceptId: string; name: string; crossFeatureCount: number; features: string[]; changedFiles: string[] }[];
     crosscutWarnings?: string[];
+    regressionTests?: {
+      runnable?: { feature: string; file: string }[];
+      needsKey?: { feature: string; file: string }[];
+      needsNetwork?: { feature: string; file: string }[];
+      needsService?: { feature: string; file: string }[];
+      uncovered?: string[];
+      totals?: { features?: number; tests?: number; runnable?: number };
+    } | null;
   } | null;
   needsHumanDecision?: boolean;
   trustScore?: { score?: number; items?: { name?: string; label?: string; score?: number }[]; riskPenalty?: number; label?: string; reason?: string[] };
@@ -189,6 +197,28 @@ export default function DecisionCard({ evidence, loading, onShowCode, t = (k, f)
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+            {/* 🧪 可信回歸清單（測試自足性分區） */}
+            {rb?.regressionTests && (rb.regressionTests.totals?.tests ?? 0) + (rb.regressionTests.uncovered?.length ?? 0) > 0 && (
+              <div className="mt-1.5 rounded border border-sky-200 bg-sky-50 p-1.5">
+                <div className="text-[10px] font-bold text-sky-800">🧪 回歸測試（依自足性分區）</div>
+                {(rb.regressionTests.runnable ?? []).length > 0 ? (
+                  <div className="mt-0.5 text-[10px] text-green-700">
+                    <span className="font-semibold">🟢 可跑（clone 即可驗）：</span>
+                    {(rb.regressionTests.runnable ?? []).slice(0, 6).map((t, i) => <span key={i} className="font-mono">{i ? "、" : ""}{t.file.split("/").pop()}</span>)}
+                  </div>
+                ) : (
+                  <div className="mt-0.5 text-[10px] text-red-600 font-semibold">⚠ 此改動沒有自足可跑的測試（下面都要外部條件）</div>
+                )}
+                {[['needsKey', '🔑 需金鑰'], ['needsService', '🐳 需服務'], ['needsNetwork', '🌐 需連網']].map(([k, label]) => {
+                  const list = (rb.regressionTests as any)[k] ?? [];
+                  if (!list.length) return null;
+                  return <div key={k} className="mt-0.5 text-[10px] text-stone-600">{label}（{list.length}）— 跑不動不代表 code 壞</div>;
+                })}
+                {(rb.regressionTests.uncovered ?? []).length > 0 && (
+                  <div className="mt-0.5 text-[10px] text-red-600">❌ 無測試覆蓋的 feature：{(rb.regressionTests.uncovered ?? []).slice(0, 5).join(", ")}</div>
+                )}
               </div>
             )}
           </div>

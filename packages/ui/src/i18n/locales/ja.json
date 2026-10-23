@@ -1950,5 +1950,11 @@
   "feature.crosscutEvidence": "証拠（file:line:symbol）",
   "feature.crosscutEnrich": "AI で曖昧性解消＋命名（トークン消費）",
   "feature.crosscutEnriching": "AI 処理中…",
-  "feature.crosscutDominant": "最大占有率"
+  "feature.crosscutDominant": "最大占有率",
+  "feature.testsHint": "🟢 自己完結 | 🔑 キー必要 | 🌐 ネット必要 | 🐳 サービス必要",
+  "feature.herm.hermetic": "自己完結",
+  "feature.herm.needs-key": "キー必要",
+  "feature.herm.needs-network": "ネット必要",
+  "feature.herm.needs-service": "サービス必要",
+  "feature.herm.unknown": "不明"
 }

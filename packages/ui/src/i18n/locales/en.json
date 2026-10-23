@@ -1950,5 +1950,11 @@
   "feature.crosscutEvidence": "Evidence (file:line:symbol)",
   "feature.crosscutEnrich": "AI disambiguate + name (uses tokens)",
   "feature.crosscutEnriching": "AI enriching…",
-  "feature.crosscutDominant": "Top share"
+  "feature.crosscutDominant": "Top share",
+  "feature.testsHint": "🟢 hermetic | 🔑 needs key | 🌐 needs network | 🐳 needs service (DB/Redis)",
+  "feature.herm.hermetic": "hermetic",
+  "feature.herm.needs-key": "needs key",
+  "feature.herm.needs-network": "needs network",
+  "feature.herm.needs-service": "needs service",
+  "feature.herm.unknown": "unknown"
 }
