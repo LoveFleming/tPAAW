@@ -26,6 +26,7 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, statSync } 
 import { parseProject } from "./tree-sitter-parser.mjs";
 import { buildDeterministicFeatureMap } from "./code-graph.mjs";
 import { computeSubFeatureRefinement, detectTemplateOrphans } from "./feature-subfeature.mjs";
+import { computeCrosscutConcepts } from "./crosscut-concepts.mjs";
 import { nextFeatureIds, loadFeatures, saveFeatures, mergeFeaturesWithExisting } from "./feature-registry.mjs";
 import { autoScanAllFeatureSeverities } from "./feature-risk-scan.mjs";
 import { DATA_HOME } from "../data-home.mjs";
@@ -448,6 +449,21 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
   mkdirSync(featuresDir, { recursive: true });
   saveFeatures(projectRoot, features); // 走 registry（備份輪替 + 標準形狀）
 
+  // ── 橫切關注點（Cross-cutting Concepts）— overlay 層，確定性、零 token ──
+  // 解「Budget Control 找不到獨立 feature」這類先天盲區：L1 是檔案歸屬的分割（partition），
+  // 橫切關注點散在多 feature 分支、不擁有檔案 → 用 overlay concepts[] 表達（非分割、可重疊）。
+  let crosscut = { concepts: [], stats: {}, gapReport: [] };
+  try {
+    onProgress?.("橫切關注點偵測（identifier fan-in + concern lexicon，零 token）...");
+    crosscut = computeCrosscutConcepts(projectRoot, parsed, { features: features.filter((f) => f.status !== "retired") });
+    if (crosscut.concepts.length) {
+      onProgress?.(`橫切概念 ${crosscut.stats.concepts} 條（缺口 ${crosscut.stats.gaps} 條）`);
+      writeFileSync(join(featuresDir, "CROSSCUT-CONCEPTS.json"), JSON.stringify({ scannedAt: new Date().toISOString(), ...crosscut }, null, 2));
+    }
+  } catch (e) {
+    console.error("[feature-map] crosscut concepts:", e?.message || e);
+  }
+
   // ── 5.5 CU 後自動落地 severity（2026-10-10 20:52 Fleming：不需要逐個 refresh 按鈕）──
   // 全量構成面掃描（deterministic 零 token）：by:scan/空 → 落地；by:ai 深度建議保留
   try { await autoScanAllFeatureSeverities(projectRoot); } catch (e) {
@@ -485,6 +501,9 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
       note: "拆/不拆由內生判準決定（擾動穩定共識 + 語義分離）；無檔數門檻。黏合橋接檔歸 feature 內部 internalShared。",
     },
     templateGroups: { count: templateGroups.length, files: templateGroups.reduce((s, g) => s + g.files.length, 0) },
+    crosscutConcepts: crosscut.concepts,
+    crosscutStats: crosscut.stats,
+    gapReport: crosscut.gapReport,
     enrichment,
     note: "骨架 = Tier 分流（source/example/tooling/docs）→ barrel 塌縮 → Label Propagation 社群（100% 覆蓋、無 shared 黑洞）→ 目錄切分/寬目錄 roll-up → 入口標註（數學決定論，重跑不變）；grade=deterministic。長肉 = 每 feature 一個獨立 agent loop（core-read，多輪讀 code）；大 feature 由 L2 內生判準拆穩定子群（subFeatures，grade=deterministic-sub）。",
     skeleton: "deterministic-v3（label-propagation, 語言無關：js/ts/tsx/py/java/go/rust）",
