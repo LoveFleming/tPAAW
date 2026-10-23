@@ -454,7 +454,9 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
 
   const orphanAssigned = new Set(orphanGroups.flatMap(g => g.files));
   const meta = {
-    method: "deterministic-v2",
+    method: "deterministic-v3",
+    tierStats: dm.stats?.tiers || null,
+    coverage: dm.stats?.coverage ?? null,
     scannedAt: now,
     stats: dm.stats,
     shared: dm.shared,
@@ -469,7 +471,8 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
     },
     templateGroups: { count: templateGroups.length, files: templateGroups.reduce((s, g) => s + g.files.length, 0) },
     enrichment,
-    note: "骨架 = 進入點 reach + Jaccard 聚類（數學決定論，重跑不變）；grade=deterministic。長肉 = 每 feature 一個獨立 agent loop（core-read，多輪讀 code）；orphan 分組 grade=utility（建議，人類定案）；大 feature 由 L2 內生判準拆穩定子群（subFeatures，grade=deterministic-sub）。",
+    note: "骨架 = Tier 分流（source/example/tooling/docs）→ barrel 塌縮 → Label Propagation 社群（100% 覆蓋、無 shared 黑洞）→ 目錄切分/寬目錄 roll-up → 入口標註（數學決定論，重跑不變）；grade=deterministic。長肉 = 每 feature 一個獨立 agent loop（core-read，多輪讀 code）；大 feature 由 L2 內生判準拆穩定子群（subFeatures，grade=deterministic-sub）。",
+    skeleton: "deterministic-v3（label-propagation, 語言無關：js/ts/tsx/py/java/go/rust）",
   };
   writeFileSync(join(featuresDir, "FEATURE-MAP-META.json"), JSON.stringify(meta, null, 2));
 

@@ -247,14 +247,9 @@ export function buildCodeGraph(parsed) {
   }
   const files = [...fileSet].sort();
 
-  // Barrel 透通規則（2026-09-05 requests 實測）：index.ts/__init__.py 是 re-export 表面不是依賴
-  // — 指向 barrel 的邊刪除（否則 module → __init__ → everything 把所有 reach 撐成全包、Jaccard=1 全黏一群）；
-  //   barrel 自己的出邊保留（barrel 當進入點時仍 reach 整包）
-  const BARREL_RE = /(^|\/)(index|mod|__init__)\.(ts|tsx|js|mjs|py)$/;
-  for (const [p, outs] of edges) {
-    if (BARREL_RE.test(p)) continue;
-    for (const t of [...outs]) if (BARREL_RE.test(t)) outs.delete(t);
-  }
+  // Barrel 邊不再刪除（2026-10-23 全新骨架）：舊版「刪指向 barrel 的邊」導致「只透過 barrel 可達」的
+  // 整層變孤兒（portkey providers/ 205 檔全消失）。新骨架改用 barrel 塌縮（_contractBarrels）恢復可達性。
+  // （graph.edges 保留完整 import 圖；塌縮後的圖由 _contractBarrels 另建。）
 
   // Java 同 package 隱式依賴：Spring 分層同 package 不寫 import（controller/repo/model 同包互調）
   // → 同 package 檔案全連（clique，排序固定 = 決定論）
@@ -369,138 +364,326 @@ export function computeReachSets(graph, entries) {
 }
 
 // ─────────────────────────────────────────────
-// 4. Jaccard + 決定論 average-linkage 聚類
 // ─────────────────────────────────────────────
-function _jaccard(a, b) {
-  const [s, l] = a.size <= b.size ? [a, b] : [b, a];
-  let inter = 0;
-  for (const x of s) if (l.has(x)) inter++;
-  const union = a.size + b.size - inter;
-  return union === 0 ? 0 : inter / union;
+// 4. Tier 分類（2026-10-23 全新骨架）
+//    feature map 只認 source；example 目錄 roll-up 成單一 feature（不喧賓奪主）；
+//    tooling/docs/test 不進主 map（meta 報告）。
+// ─────────────────────────────────────────────
+const TIER_EXAMPLE_RE = /^(examples?|cookbook|demos?|samples?|playground|sandbox)$/i;
+const TIER_TOOLING_RE = /^(scripts?|tools?|bin|hack)$/i;
+const TIER_DOCS_RE = /^(docs?|documentation|website|site)$/i;
+
+/** 只認「前 2 層目錄」的 tier 目錄名 — 避免誤判深層套件名（Java org.springframework.samples.petclinic 的 samples） */
+const _hasTopDir = (path, re) => {
+  const segs = path.split("/");
+  for (let i = 0; i < Math.min(2, segs.length - 1); i++) if (re.test(segs[i])) return true;
+  return false;
+};
+
+export function classifyTier(p) {
+  const path = String(p).replace(/\\/g, "/");
+  if (isTestFile(path)) return "test";
+  if (_hasTopDir(path, TIER_DOCS_RE)) return "docs";
+  if (_hasTopDir(path, TIER_EXAMPLE_RE)) return "example";
+  if (_hasTopDir(path, TIER_TOOLING_RE)) return "tooling";
+  return "source";
 }
 
-/**
- * 平均連結凝聚分群：同 cluster 內所有 entry pair 的 Jaccard 平均 ≥ threshold 才可併。
- * 平手用字典序最小 cluster key 打破 → 完全決定論。
- */
-export function clusterEntries(entries, reachSets, { threshold = 0.5 } = {}) {
-  const n = entries.length;
-  const pairJ = new Float32Array(n * n);
-  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
-    const v = _jaccard(reachSets[i], reachSets[j]);
-    pairJ[i * n + j] = v; pairJ[j * n + i] = v;
-  }
+// ─────────────────────────────────────────────
+// 5. Barrel 塌縮（不是刪邊）：A→barrel→X ⇒ A→X
+//    解「只透過 barrel 可達的整層變孤兒」，又不讓 barrel 當 hub 把所有群黏成一團。
+// ─────────────────────────────────────────────
+const BARREL_RE = /(^|\/)(index|mod|__init__)\.(ts|tsx|js|mjs|cjs|py)$|(^|\/)(lib|main|mod)\.rs$/;
+export const isBarrel = (p) => BARREL_RE.test(String(p).replace(/\\/g, "/"));
 
-  let clusters = entries.map((_, i) => [i]);
-  const clusterKey = (c) => c.map(i => entries[i].file + "|" + (entries[i].path || entries[i].name || "")).sort().join(";");
-  const avgJ = (a, b) => {
-    let s = 0;
-    for (const i of a) for (const j of b) s += pairJ[i * n + j];
-    return s / (a.length * b.length);
-  };
-
-  while (true) {
-    let best = null, bestJ = threshold;
-    for (let x = 0; x < clusters.length; x++) for (let y = x + 1; y < clusters.length; y++) {
-      const j = avgJ(clusters[x], clusters[y]);
-      if (j >= bestJ) {
-        const better = !best
-          || j > bestJ + 1e-9
-          || (Math.abs(j - bestJ) <= 1e-9 && clusterKey(clusters[x]).concat(";").concat(clusterKey(clusters[y])) < clusterKey(best[0]).concat(";").concat(clusterKey(best[1])));
-        if (better) { best = [clusters[x], clusters[y]]; bestJ = j; }
-      }
+function _contractBarrels(edges) {
+  const out = new Map();
+  for (const [p, s] of edges) out.set(p, new Set(s));
+  // barrel 的有效目標（遞迴展開 barrel→barrel，cycle 安全）
+  const effTargets = (start, seen) => {
+    const res = new Set();
+    const stack = [...(edges.get(start) || [])];
+    while (stack.length) {
+      const t = stack.pop();
+      if (seen.has(t)) continue; seen.add(t);
+      if (BARREL_RE.test(t)) { for (const x of edges.get(t) || []) stack.push(x); }
+      else res.add(t);
     }
-    if (!best) break;
-    clusters = clusters.filter(c => c !== best[0] && c !== best[1]);
-    clusters.push([...best[0], ...best[1]].sort((a, b) => a - b));
+    return res;
+  };
+  for (const [p, outs] of edges) {
+    if (BARREL_RE.test(p)) continue; // barrel 自己保持原出邊
+    const seen = new Set([p]);
+    for (const t of outs) {
+      if (!BARREL_RE.test(t)) continue;
+      for (const x of effTargets(t, seen)) if (x !== p) out.get(p).add(x);
+    }
   }
-
-  clusters.sort((a, b) => clusterKey(a).localeCompare(clusterKey(b)));
-  return clusters.map(idx => ({
-    entryIdx: idx,
-    key: clusterKey(idx),
-    cohesion: idx.length > 1 ? avgJ(idx, idx) / 2 * idx.length * (idx.length - 1) / (idx.length * (idx.length - 1) / 2 || 1) : 1,
-  }));
+  return out;
 }
 
 // ─────────────────────────────────────────────
-// 5. 檔案歸屬：argmax（帶 margin）→ 否則 shared
+// 6. 全新骨架：Label Propagation 社群（100% 覆蓋、無 shared 黑洞）
+//    + 目錄切分（拆大雜燴）+ 小群併回（解碎片）+ 入口標註
 // ─────────────────────────────────────────────
-export function assignFileOwnership(clusters, reachSets, graph, { margin = 0.2 } = {}) {
-  // fraction-based：file 屬於「最高比例進入點摸到它」的 cluster（正規化 cluster 大小 —
-  // 13 入口大群的 2 個入口摸到 ≠ 擁有；2 入口小群 100% 摸到 = 核心檔案）
-  const fileReachCount = new Map();
-  for (const rs of reachSets) for (const f of rs) fileReachCount.set(f, (fileReachCount.get(f) || 0) + 1);
+const _dirOf = (p) => { const s = p.split("/"); s.pop(); return s.join("/"); };
+const _minOf = (set) => [...set].sort()[0] || "";
+const _lcpDir = (files) => {
+  if (!files.length) return "";
+  const dirs = files.map(f => _dirOf(f).split("/"));
+  let n = dirs[0].length;
+  for (const d of dirs) { let i = 0; while (i < n && i < d.length && d[i] === dirs[0][i]) i++; n = i; }
+  return dirs[0].slice(0, n).join("/");
+};
+const _childUnder = (file, dir) => {
+  const rel = dir ? file.slice(dir.length + 1) : file;
+  const segs = rel.split("/");
+  return segs.length > 1 ? segs[0] : "";
+};
+const _commonPrefixLen = (a, b) => {
+  const x = a.split("/"), y = b.split("/");
+  let i = 0; while (i < x.length && i < y.length && x[i] === y[i]) i++;
+  return i;
+};
 
-  const owned = clusters.map(() => new Set());
-  const shared = [];
-  for (const file of graph.files) {
-    if (!fileReachCount.has(file)) continue; // orphan 另外算
-    let bestC = -1, bestFrac = 0, secondFrac = 0;
-    clusters.forEach((c, ci) => {
-      let cnt = 0;
-      for (const i of c.entryIdx) if (reachSets[i].has(file)) cnt++;
-      const frac = c.entryIdx.length ? cnt / c.entryIdx.length : 0;
-      if (frac > bestFrac + 1e-9) { secondFrac = bestFrac; bestFrac = frac; bestC = ci; }
-      else if (frac > secondFrac + 1e-9) secondFrac = frac;
-    });
-    if (bestC >= 0 && bestFrac - secondFrac >= margin) owned[bestC].add(file);
-    else if (bestC >= 0 && bestFrac > 0) shared.push(file); // 差距不足 → shared 層
+/** 決定論 Label Propagation（固定遍歷序、async 更新、平手取字典序最小標籤；同目錄邊加權 2） */
+function _labelPropagate(files, adj, { maxIter = 40 } = {}) {
+  const label = new Map();
+  for (const f of files) label.set(f, f);
+  const dOf = new Map();
+  const dir = (f) => { if (!dOf.has(f)) dOf.set(f, _dirOf(f)); return dOf.get(f); };
+  for (let it = 0; it < maxIter; it++) {
+    let changed = false;
+    for (const f of files) { // files 已排序 → 決定論
+      const nb = adj.get(f);
+      if (!nb || nb.size === 0) continue;
+      const w = new Map();
+      const df = dir(f);
+      for (const n of nb) {
+        const l = label.get(n);
+        if (l === undefined) continue;
+        w.set(l, (w.get(l) || 0) + (dir(n) === df ? 2 : 1));
+      }
+      let best = null, bestW = -1;
+      for (const [l, wt] of [...w.entries()].sort((a, b) => a[0].localeCompare(b[0]))) if (wt > bestW) { bestW = wt; best = l; }
+      if (best && best !== label.get(f)) { label.set(f, best); changed = true; }
+    }
+    if (!changed) break;
   }
+  const groups = new Map();
+  for (const f of files) { const l = label.get(f); if (!groups.has(l)) groups.set(l, []); groups.get(l).push(f); }
+  return [...groups.values()].map(g => g.sort());
+}
 
-  const orphans = graph.files.filter(f => !fileReachCount.has(f));
-  return { owned, shared: [...new Set(shared)].sort(), orphans };
+/** 目錄切分：群 > maxFiles 且 LCP 目錄下有 ≥2 個強子目錄 → 拆（遞迴）。同質大目錄（如 plugins/*）自然不拆。 */
+function _splitGroup(group, { minChild, maxFiles }) {
+  if (group.length <= maxFiles) return [group];
+  const dir = _lcpDir(group);
+  const kids = new Map();
+  for (const f of group) { const k = _childUnder(f, dir); if (!kids.has(k)) kids.set(k, []); kids.get(k).push(f); }
+  const strong = [...kids.entries()].filter(([, fs]) => fs.length >= minChild);
+  if (strong.length < 2) return [group];
+  const strongKeys = new Set(strong.map(([k]) => k));
+  const rest = [];
+  for (const [k, fs] of kids) if (!strongKeys.has(k)) rest.push(...fs);
+  const out = [];
+  for (const [, fs] of strong) out.push(..._splitGroup(fs, { minChild, maxFiles }));
+  if (rest.length) out.push(..._splitGroup(rest, { minChild, maxFiles }));
+  return out;
+}
+
+/** 小群併回：< minFiles 的群併入「跨群邊數最多」的鄰群（平手取群內最小檔名）；無鄰群則自成小 feature。 */
+function _mergeSmall(groups, adj, minFiles) {
+  const gs = groups.map(g => new Set(g));
+  for (let pass = 0; pass < 60; pass++) {
+    let merged = false;
+    const order = gs.map((_, i) => i).sort((a, b) => gs[a].size - gs[b].size || _minOf(gs[a]).localeCompare(_minOf(gs[b])));
+    for (const i of order) {
+      if (gs[i].size === 0 || gs[i].size >= minFiles) continue;
+      const cnt = new Map();
+      for (const f of gs[i]) for (const n of adj.get(f) || []) {
+        for (let j = 0; j < gs.length; j++) if (j !== i && gs[j].size > 0 && gs[j].has(n)) cnt.set(j, (cnt.get(j) || 0) + 1);
+      }
+      if (!cnt.size) {
+        // 無 import 鄰群 → 依「最近目錄」併入（例：plugins/build.ts → plugins/*）
+        const myDir = _lcpDir([...gs[i]]);
+        let bestJ = -1, bestLen = 0;
+        for (let j = 0; j < gs.length; j++) {
+          if (j === i || gs[j].size === 0) continue;
+          const l = _commonPrefixLen(myDir, _lcpDir([...gs[j]]));
+          if (l > bestLen || (l === bestLen && bestJ >= 0 && _minOf(gs[j]).localeCompare(_minOf(gs[bestJ])) < 0)) { bestLen = l; bestJ = j; }
+        }
+        if (bestJ < 0 || bestLen < 1) continue;
+        for (const f of gs[i]) gs[bestJ].add(f);
+        gs[i] = new Set();
+        merged = true;
+        continue;
+      }
+      const bestJ = [...cnt.entries()].sort((a, b) => (b[1] - a[1]) || _minOf(gs[a[0]]).localeCompare(_minOf(gs[b[0]])))[0][0];
+      for (const f of gs[i]) gs[bestJ].add(f);
+      gs[i] = new Set();
+      merged = true;
+    }
+    if (!merged) break;
+  }
+  return gs.filter(g => g.size > 0).map(g => [...g].sort());
+}
+
+/** 寬目錄 roll-up：某目錄直屬子目錄 ≥ wide（集合型模組，如 providers/、plugins/）→ 其下所有群併成單一 feature。
+ *  與目錄切分互補：切分拆「大雜燴」，roll-up 合「同質集合」。src/ 這類「模組容器」（子目錄少）不觸發。 */
+function _rollupWideDirs(groups, srcFiles, { wide = 15 } = {}) {
+  // 只數「子目錄」（檔案不算）— 否則每目錄都會被算成寬目錄
+  const dirs = new Set();
+  for (const f of srcFiles) {
+    const segs = f.split("/");
+    for (let i = 1; i < segs.length; i++) dirs.add(segs.slice(0, i).join("/"));
+  }
+  const dirChildren = new Map();
+  for (const d of dirs) {
+    const parent = d.split("/").slice(0, -1).join("/");
+    if (!dirChildren.has(parent)) dirChildren.set(parent, new Set());
+    dirChildren.get(parent).add(d);
+  }
+  const wideDirs = [...dirChildren.entries()].filter(([, ch]) => ch.size >= wide).map(([d]) => d).sort((a, b) => b.length - a.length || a.localeCompare(b));
+  let gs = groups;
+  for (let pass = 0; pass < 10; pass++) {
+    const bucket = new Map(); // wideDir → [groupIdx]
+    for (let i = 0; i < gs.length; i++) {
+      const d = _lcpDir(gs[i]);
+      const hit = wideDirs.find(w => d === w || d.startsWith(w + "/"));
+      if (!hit) continue;
+      if (!bucket.has(hit)) bucket.set(hit, []);
+      bucket.get(hit).push(i);
+    }
+    let merged = false;
+    const dead = new Set();
+    const out = [];
+    for (const [d, idxs] of [...bucket.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+      if (idxs.length < 2) continue;
+      const all = [];
+      for (const i of idxs) { all.push(...gs[i]); dead.add(i); }
+      out.push(all.sort());
+      merged = true;
+    }
+    if (!merged) return gs;
+    for (let i = 0; i < gs.length; i++) if (!dead.has(i)) out.push(gs[i]);
+    gs = out;
+  }
+  return gs;
+}
+
+/** CLI/main 進入點：語言無關（go func main / rust fn main / ts main / java main / py __main__） */
+function _mainEntry(f) {
+  for (const fn of f.functions || []) {
+    const n = String(fn?.name || "");
+    if (n === "main" || n === "Main") return true;
+  }
+  return false;
 }
 
 // ─────────────────────────────────────────────
-// 6. 總裝：決定論 feature map（LLM 之前的全部）
+// 7. 總裝：決定論 feature map（全新骨架，LLM 之前的全部）
+//    不變式：source tier 每個檔案恰好落在一條 feature（coverage = 100%）。
 // ─────────────────────────────────────────────
-export function buildDeterministicFeatureMap(parsed, { jaccardThreshold = 0.5 } = {}) {
+export function buildDeterministicFeatureMap(parsed, { maxFiles = 60, minChild = 8, minFiles = 4 } = {}) {
   const graph = buildCodeGraph(parsed);
   const entries = extractEntryPoints(graph);
-  const reachSets = computeReachSets(graph, entries);
-  const clusters = clusterEntries(entries, reachSets, { threshold: jaccardThreshold });
-  const { owned, shared, orphans } = assignFileOwnership(clusters, reachSets, graph, { margin: 0.2 });
+  // CLI/main 進入點（語言無關）
+  for (const [p, f] of graph.byPath) {
+    if (classifyTier(p) !== "source") continue;
+    if (_mainEntry(f) && !entries.some(e => e.file === p && e.kind === "cli")) {
+      entries.push({ kind: "cli", file: p, name: p.split("/").pop() });
+    }
+  }
+  entries.sort((a, b) => (a.kind + "|" + a.file + "|" + (a.name || "")).localeCompare(b.kind + "|" + b.file + "|" + (b.name || "")));
 
-  // ── 測試檔分流（2026-09-06 Fleming）：測試不是 feature，不進 owned/shared/orphan pipeline ──
-  for (const set of owned) for (const f of [...set]) if (isTestFile(f)) set.delete(f);
-  const realShared = shared.filter(f => !isTestFile(f));
-  const testFiles = orphans.filter(isTestFile);
-  const realOrphans = orphans.filter(f => !isTestFile(f));
+  const cedges = _contractBarrels(graph.edges);
+  const reachSets = computeReachSets({ edges: cedges }, entries);
 
-  const features = clusters.map((c, ci) => {
-    const es = c.entryIdx.map(i => entries[i]);
+  // tier 分流（root 層非入口檔視為 tooling — 例：eslint.config.js / rollup.config.js / initializeSettings.ts）
+  const allFiles = graph.files;
+  const entryFiles = new Set(entries.map(e => e.file));
+  const tierOf = (f) => {
+    const t = classifyTier(f);
+    if (t === "source" && !f.includes("/") && !entryFiles.has(f)) return "tooling";
+    return t;
+  };
+  const testFiles = allFiles.filter(isTestFile);
+  const srcFiles = allFiles.filter(f => tierOf(f) === "source");
+  const exampleFiles = allFiles.filter(f => tierOf(f) === "example");
+  const toolingFiles = allFiles.filter(f => tierOf(f) === "tooling");
+  const docsFiles = allFiles.filter(f => tierOf(f) === "docs");
+
+  // 無向鄰接（LPA 用）
+  const adj = new Map();
+  for (const f of srcFiles) adj.set(f, new Set());
+  for (const f of srcFiles) for (const t of cedges.get(f) || []) if (adj.has(t)) adj.get(f).add(t);
+  // 反向邊（import 是單向，社群偵測要雙向）
+  for (const [a, set] of [...adj]) for (const b of set) adj.get(b)?.add(a);
+
+  let groups = _labelPropagate(srcFiles, adj);
+  groups = groups.flatMap(g => _splitGroup(g, { minChild, maxFiles }));
+  groups = _mergeSmall(groups, adj, minFiles);
+  groups = _rollupWideDirs(groups, srcFiles);
+
+  const entryByFile = new Map();
+  for (const e of entries) { if (!entryByFile.has(e.file)) entryByFile.set(e.file, []); entryByFile.get(e.file).push(e); }
+
+  const mkFeature = (files, grade, extra = {}) => {
+    const es = files.flatMap(f => entryByFile.get(f) || []);
     const apis = [...new Map(es.filter(e => e.kind === "http").map(e => [`${e.method} ${e.path}`, e])).values()]
       .sort((a, b) => (a.path + a.method).localeCompare(b.path + b.method))
       .map(e => ({ method: e.method.toUpperCase(), path: e.path, file: e.file }));
     const kinds = {};
     for (const e of es) kinds[e.kind] = (kinds[e.kind] || 0) + 1;
+    const rf = new Set();
+    for (const f of files) for (const x of reachSets.find(rs => rs.has(f)) || []) rf.add(x);
     return {
-      key: c.key,
-      grade: "deterministic",
+      key: files.slice().sort().join("|").slice(0, 200),
+      grade,
       kinds,
       entryCount: es.length,
       apis,
-      codeFiles: [...owned[ci]].sort(),
-      reachFiles: reachSets[c.entryIdx[0]] ? [...new Set(c.entryIdx.flatMap(i => [...reachSets[i]]))].sort() : [],
+      codeFiles: files.slice().sort(),
+      reachFiles: [...rf].sort(),
+      ...extra,
     };
-  }).filter(f => f.codeFiles.length > 0 || f.apis.length > 0);
+  };
 
-  // ── 決定論 test→feature 映射（零 token）：import 邊投票 → basename 慣例 → unmapped（交 Test Intelligence）──
+  const features = groups.map(g => mkFeature(g, "deterministic"));
+  // example tier → 每個頂層 example 目錄 roll-up 成單一 feature（grade=example，不喧賓奪主）
+  const exByTop = new Map();
+  for (const f of exampleFiles) {
+    const segs = f.split("/");
+    const key = segs.slice(0, segs.findIndex(s => TIER_EXAMPLE_RE.test(s)) + 1).join("/") || segs[0];
+    if (!exByTop.has(key)) exByTop.set(key, []);
+    exByTop.get(key).push(f);
+  }
+  for (const [, fs] of [...exByTop.entries()].sort((a, b) => a[0].localeCompare(b[0]))) features.push(mkFeature(fs, "example"));
+
+  // 決定論排序：有 HTTP 入口的在前，其餘依檔名
+  features.sort((a, b) => (b.apis.length - a.apis.length) || (_minOf(new Set(a.codeFiles)).localeCompare(_minOf(new Set(b.codeFiles)))));
+  features.forEach((f, i) => { f.idx = i; });
+
   const tests = mapTestsToFeatures(testFiles, features, graph);
+  const coveredAll = new Set(features.flatMap(f => f.codeFiles));
+  const covered = new Set(srcFiles.filter(f => coveredAll.has(f)));
+  const orphans = srcFiles.filter(f => !covered.has(f)); // 不變式下應為 0
 
-  const prodCount = graph.files.length - testFiles.length;
+  const prodCount = allFiles.length - testFiles.length;
   const stats = {
-    files: graph.files.length,
+    files: allFiles.length,
     edges: [...graph.edges.values()].reduce((s, x) => s + x.size, 0),
     entries: entries.length,
     clusters: features.length,
-    shared: realShared.length,
-    orphans: realOrphans.length,
+    shared: 0, // 全新骨架：無 shared 黑洞（橫切碼由 LPA 群吸收）
+    orphans: orphans.length,
+    tiers: { source: srcFiles.length, example: exampleFiles.length, tooling: toolingFiles.length, docs: docsFiles.length, test: testFiles.length },
     tests: { total: testFiles.length, mapped: tests.featureTests.reduce((s, x) => s + x.length, 0), unmapped: tests.unmappedTests.length },
-    edgeCoverage: prodCount > 0 ? Math.round((prodCount - realOrphans.length) / prodCount * 100) : 0,
+    coverage: srcFiles.length ? Math.round(covered.size / srcFiles.length * 100) : 100,
+    edgeCoverage: prodCount > 0 ? Math.round((prodCount - orphans.length) / prodCount * 100) : 0,
   };
-  return { features, shared: realShared, orphans: realOrphans, tests, stats, graph };
+  return { features, shared: [], orphans, tests, stats, graph, examples: exampleFiles, tooling: toolingFiles };
 }
 
 /**

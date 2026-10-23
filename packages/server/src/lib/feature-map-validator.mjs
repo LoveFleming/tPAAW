@@ -398,6 +398,62 @@ export function validateUnderstanding(projectRoot, feature, parsedProject) {
 // FULL VALIDATION — Run all 3 checks, return combined report
 // ═══════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+// 4. FEATURE QUALITY — 拒垃圾命名 + 標失衡（2026-10-23 全新骨架配套）
+//    portkey 實測 F024「直呼測試名」desc="d" 這種廢條目以前全放行 → 現在擋。
+// ═══════════════════════════════════════════════════════════════
+const JUNK_NAME_RE = /^(直呼|測試|test|untitled|todo|feature\s*\d|utility\s*\d|cluster\s*\d|group\s*\d|未命名|暫定)/i;
+
+export function validateFeatureQuality(features) {
+  const errors = [];
+  const warnings = [];
+  const sizes = [];
+
+  for (const feat of features) {
+    const fid = feat.id || "?";
+    const name = String(feat.name || "").trim();
+    const desc = String(feat.description || "").trim();
+    const files = feat.codeFiles || [];
+    sizes.push(files.length);
+
+    // 垃圾名 / 空名
+    if (!name) errors.push({ feature: fid, type: "empty_name", message: `feature ${fid} 沒有名稱` });
+    else if (name.length < 4) errors.push({ feature: fid, type: "junk_name", message: `名稱過短「${name}」（<4 字）`, value: name });
+    else if (JUNK_NAME_RE.test(name)) errors.push({ feature: fid, type: "junk_name", message: `名稱像測試/佔位符「${name}」`, value: name });
+    // 描述太短 / 與名同名
+    if (!desc) warnings.push({ feature: fid, type: "missing_desc", message: `${name}：無描述`, value: name });
+    else if (desc.length < 6) errors.push({ feature: fid, type: "junk_desc", message: `${name}：描述過短「${desc}」`, value: desc });
+    else if (desc === name) warnings.push({ feature: fid, type: "desc_eq_name", message: `${name}：描述與名稱相同`, value: name });
+    // 空 feature
+    if (files.length === 0 && (feat.apis || []).length === 0) {
+      errors.push({ feature: fid, type: "empty_feature", message: `${name}：無檔案也無 API` });
+    }
+    // 名稱長得像檔名/路徑
+    if (/[\/]/.test(name) || /\.(ts|js|mjs|py|go|rs|java)$/i.test(name)) {
+      warnings.push({ feature: fid, type: "name_is_path", message: `${name}：名稱像檔名/路徑`, value: name });
+    }
+  }
+
+  // 失衡：最大 feature > 8× 中位數（排除 example/layer 不算失衡 — 例：providers 集合本就大）
+  const sorted = [...sizes].sort((a, b) => a - b);
+  const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
+  const maxSize = sorted.length ? sorted[sorted.length - 1] : 0;
+  if (median > 0 && maxSize > median * 8) {
+    warnings.push({
+      type: "size_imbalance",
+      message: `feature 大小失衡：最大 ${maxSize} 檔 vs 中位數 ${median} 檔（>8×）— 檢查是否有未切的集合目錄`,
+      value: `${maxSize}/${median}`,
+    });
+  }
+
+  return {
+    passed: errors.length === 0,
+    errors,
+    warnings,
+    stats: { featuresChecked: features.length, medianSize: median, maxSize },
+  };
+}
+
 export async function runFullValidation(projectRoot, options = {}) {
   const featuresFile = join(projectRoot, ".paaw", "features", "FEATURES.json");
   if (!existsSync(featuresFile)) {
@@ -418,6 +474,9 @@ export async function runFullValidation(projectRoot, options = {}) {
 
   // 1. Validate mapping
   const mapping = validateFeatureMapping(projectRoot, features);
+
+  // 1b. Feature quality（垃圾名 / 失衡）
+  const quality = validateFeatureQuality(features);
 
   // 2. Check coverage
   const coverage = checkCoverage(projectRoot, features);
@@ -449,11 +508,14 @@ export async function runFullValidation(projectRoot, options = {}) {
     ok: true,
     timestamp: new Date().toISOString(),
     mapping,
+    quality,
     coverage,
     understanding,
     summary: {
       mappingErrors: mapping.errors.length,
       mappingWarnings: mapping.warnings.length,
+      qualityErrors: quality.errors.length,
+      qualityWarnings: quality.warnings.length,
       coveragePct: coverage.coverage.percentage,
       orphanFiles: coverage.coverage.orphanFiles,
       understandingValidated: understanding?.stats.validated || 0,

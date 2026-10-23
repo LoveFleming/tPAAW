@@ -165,7 +165,9 @@ describe("Rust deterministic feature map（整合）", () => {
 });
 
 describe("空骨架保底（根因⑤ — v2 不再回空 map）", () => {
-  it("features=0 但有 orphans → orphan 分組產出 utility features（LLM stub）", async () => {
+  // 2026-10-23 全新骨架：Label Propagation 100% 覆蓋 → 「無進入點」不再產生 orphan/空 map，
+  // 檔案一律歸屬為 deterministic feature（不再走 orphan→utility 這條舊路）。
+  it("無進入點的 repo → 檔案全數歸屬（grade=deterministic，不再空 map）", async () => {
     const { organizeFeatureMapV2 } = await import("../../packages/server/src/lib/feature-map-v2.mjs");
     // 無進入點 fixture：純私有 fns、無 route、無 pub（parse 仍收檔）
     const loneRoot = mkdtempSync(join(tmpdir(), "rust-lone-"));
@@ -181,7 +183,7 @@ describe("空骨架保底（根因⑤ — v2 不再回空 map）", () => {
         onProgress: m => progress.push(m),
       });
       expect(res.features.length).toBeGreaterThan(0); // 舊版這裡是空
-      expect(res.features[0].grade).toBe("utility");
+      expect(res.features[0].grade).toBe("deterministic"); // 新骨架：100% 覆蓋，不再有 orphan→utility
     } finally { rmSync(loneRoot, { recursive: true, force: true }); }
   });
 
