@@ -374,6 +374,55 @@ export default async function codingFeaturesRoute(req, res) {
     return true;
   }
 
+  // ── GET /api/coding-features/crosscut — 橫切關注點（overlay）+ Gap Report ──
+  if (url === "/api/coding-features/crosscut" && method === "GET") {
+    const p = join(getFeaturesDir(projRoot), "CROSSCUT-CONCEPTS.json"); // nosemgrep: detect-non-literal-fs-filename — local-first
+    const mp = join(getFeaturesDir(projRoot), "FEATURE-MAP-META.json");
+    try {
+      if (existsSync(p)) { // nosemgrep
+        const data = JSON.parse(await readFile(p, "utf-8")); // nosemgrep
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(data));
+        return true;
+      }
+      if (existsSync(mp)) { // nosemgrep
+        const meta = JSON.parse(await readFile(mp, "utf-8")); // nosemgrep
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ concepts: meta.crosscutConcepts || [], stats: meta.crosscutStats || {}, gapReport: meta.gapReport || [] }));
+        return true;
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ concepts: [], stats: {}, gapReport: [] }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `crosscut 讀取失敗：${err?.message || err}` }));
+    }
+    return true;
+  }
+
+  // ── POST /api/coding-features/crosscut/enrich — ② LLM 消歧 + 命名 concept ──
+  if (url === "/api/coding-features/crosscut/enrich" && method === "POST") {
+    try {
+      const p = join(getFeaturesDir(projRoot), "CROSSCUT-CONCEPTS.json"); // nosemgrep
+      if (!existsSync(p)) { // nosemgrep
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "CROSSCUT-CONCEPTS.json not found — run Code Understanding first" }));
+        return true;
+      }
+      const { enrichCrosscutConcepts } = await import("../lib/crosscut-concepts.mjs");
+      const { callProjectLLM } = await import("./coding.mjs");
+      const out = await enrichCrosscutConcepts(projRoot, {
+        callLLM: (body) => callProjectLLM(body, { maxRetries: 2, timeoutMs: 300_000 }),
+      });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(out));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `crosscut enrich 失敗：${err?.message || err}` }));
+    }
+    return true;
+  }
+
   // ── GET /api/coding-features/validate — Layer 3 validation ──
   if (url === "/api/coding-features/validate" && method === "GET") {
     try {

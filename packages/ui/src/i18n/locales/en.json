@@ -1941,5 +1941,14 @@
   "feature.understandFail": "AI understanding failed (check provider settings)",
   "feature.understandHint": "Click Generate to have AI read this feature's code and write its understanding",
   "feature.understandHintComposite": "This feature has stable sub-groups — generation reasons from sub-group summaries at architecture level; each sub can be deep-read individually",
-  "feature.consensus": "Perturbation consensus (≥0.8 = stable)"
+  "feature.consensus": "Perturbation consensus (≥0.8 = stable)",
+  "feature.crosscut": "Cross-cutting",
+  "feature.crosscutHint": "Capabilities spread across features without a home of their own (overlay layer, not a file partition; can overlap)",
+  "feature.crosscutNone": "This feature does not touch any cross-cutting concept",
+  "feature.gapReport": "Gaps: capability without a home",
+  "feature.gapReportEmpty": "No cross-cutting gaps detected (every concern has an owning feature or a dominant one)",
+  "feature.crosscutEvidence": "Evidence (file:line:symbol)",
+  "feature.crosscutEnrich": "AI disambiguate + name (uses tokens)",
+  "feature.crosscutEnriching": "AI enriching…",
+  "feature.crosscutDominant": "Top share"
 }

@@ -1941,5 +1941,14 @@
   "feature.understandFail": "AI理解の生成に失敗しました（provider設定を確認）",
   "feature.understandHint": "「AI理解を生成」で AI がコードを読んで理解を書きます",
   "feature.understandHintComposite": "この機能は安定サブグループを持ちます — 生成時はサブ要約からアーキテクチャ級の理解をします",
-  "feature.consensus": "摂動コンセンサス（≥0.8 で安定）"
+  "feature.consensus": "摂動コンセンサス（≥0.8 で安定）",
+  "feature.crosscut": "横断/ギャップ",
+  "feature.crosscutHint": "複数の feature に散在し、専用の feature を持たない能力（overlay 層・分割ではない）",
+  "feature.crosscutNone": "この feature はどの横断概念にも関与していない",
+  "feature.gapReport": "ギャップ：能力はあるが帰属先がない",
+  "feature.gapReportEmpty": "横断ギャップは検出されませんでした",
+  "feature.crosscutEvidence": "証拠（file:line:symbol）",
+  "feature.crosscutEnrich": "AI で曖昧性解消＋命名（トークン消費）",
+  "feature.crosscutEnriching": "AI 処理中…",
+  "feature.crosscutDominant": "最大占有率"
 }

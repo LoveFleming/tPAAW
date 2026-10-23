@@ -17,8 +17,9 @@
  * 不變式與誠實性：concept 永不宣稱 100% coverage；kind 一律 "overlay"；每條留 evidence。
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { stableStringify } from "./stable-stringify.mjs";
 
 const norm = (p) => String(p).replace(/\\/g, "/");
 
@@ -236,4 +237,107 @@ export function computeCrosscutConcepts(projectRoot, parsed, dm, opts = {}) {
   };
 
   return { concepts, stats, gapReport };
+}
+
+/**
+ * ② LLM 長肉：消歧 + 命名 + 判假陽性。
+ * 確定性層只給數學與 evidence；此層讓 LLM 依 evidence 判「這是不是真的橫切能力」並命名。
+ * 寫回 CROSSCUT-CONCEPTS.json（aiName/aiDescription/aiClipped/aiAt）+ 重算 gapReport（排除 clipped）。
+ */
+export async function enrichCrosscutConcepts(projectRoot, { callLLM, model, onProgress } = {}) {
+  if (!callLLM) throw new Error("enrichCrosscutConcepts: callLLM required");
+  const p = join(projectRoot, ".paaw", "features", "CROSSCUT-CONCEPTS.json");
+  const cur = JSON.parse(readFileSync(p, "utf-8"));
+  const concepts = cur.concepts || [];
+  if (concepts.length === 0) return cur;
+
+  const featName = new Map();
+  try {
+    const fj = JSON.parse(readFileSync(join(projectRoot, ".paaw", "features", "FEATURES.json"), "utf-8"));
+    for (const f of fj.features || []) featName.set(f.id, f.name || "");
+  } catch { /* 沒 FEATURES 也能跑 */ }
+
+  const items = concepts.map((c) => {
+    const syms = [...new Set((c.evidence || []).map((e) => e.symbol).filter(Boolean))].slice(0, 12);
+    const files = [...new Set((c.evidence || []).map((e) => e.file).filter(Boolean))].slice(0, 6);
+    return {
+      id: c.id,
+      seed: c.name,
+      key: c.key,
+      discovered: !!c.discovered,
+      crossFeatureCount: c.crossFeatureCount,
+      features: (c.features || []).map((fid) => `${fid} ${featName.get(fid) || ""}`.trim()),
+      symbols: syms,
+      files,
+    };
+  });
+
+  const prompt = `你是程式碼架構師。以下是從一個 repo 用**確定性方法**抽出的「橫切關注點（cross-cutting concern）」候選。\n每個候選有：橫跨幾條 feature、參與的 feature、命中符號、命中檔。\n\n你的任務（依 evidence，不要發明）：\n1. 消歧：同一個字可能有不同意思（例：budget_tokens 是 LLM 的 thinking 預算，不是計費額度）。命中點語意不一致、或只是巧合共用的工具名（如 endpoint / after / azure）→ real=false。\n2. 命名：real=true 的給**繁中功能名**（名詞短語，如「預算與額度控制」）+ 一句邊界描述。\n\n只回一個 json fence，是陣列，每個元素：{ "id": "CC-00X", "real": true/false, "name": "繁中名", "description": "一句邊界（real=false 則說明為何不是真概念）" }\n\n--- CONCEPTS ---\n${stableStringify(items)}`;
+
+  onProgress?.(`LLM 消歧 ${concepts.length} 條橫切概念...`);
+  const r = await callLLM({
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0,
+    thinking: { type: "disabled" },
+    ...(model ? { model } : {}),
+  });
+  const arr = _extractJsonArray(r?.content);
+  const byId = new Map();
+  for (const x of arr || []) if (x && x.id) byId.set(String(x.id), x);
+
+  const now = new Date().toISOString();
+  for (const c of concepts) {
+    const x = byId.get(c.id);
+    if (!x) continue;
+    c.aiClipped = x.real === false;
+    c.aiName = typeof x.name === "string" ? x.name.slice(0, 80) : undefined;
+    c.aiDescription = typeof x.description === "string" ? x.description.slice(0, 400) : undefined;
+    c.aiAt = now;
+  }
+
+  const minFeatures = cur.stats?.minFeatures ?? 3;
+  const gapReport = concepts
+    .filter(
+      (c) =>
+        !c.aiClipped &&
+        c.crossFeatureCount >= minFeatures &&
+        (c.dominantShare === null || c.dominantShare < 0.5) &&
+        (!c.discovered || c.crossFeatureCount >= minFeatures + 2)
+    )
+    .map((c) => ({
+      conceptId: c.id,
+      name: c.aiName || c.name,
+      crossFeatureCount: c.crossFeatureCount,
+      features: c.features,
+      dominantShare: c.dominantShare,
+      reason:
+        c.dominantShare === null
+          ? `散在 ${c.crossFeatureCount} 條 feature，無獨佔者`
+          : `散在 ${c.crossFeatureCount} 條 feature，最高佔比僅 ${Math.round(c.dominantShare * 100)}%`,
+    }));
+
+  const out = { ...cur, concepts, gapReport, enrichedAt: now, stats: { ...(cur.stats || {}), aiEnriched: true, aiClipped: concepts.filter((c) => c.aiClipped).length, gaps: gapReport.length } };
+  writeFileSync(p, JSON.stringify(out, null, 2));
+
+  try {
+    const mp = join(projectRoot, ".paaw", "features", "FEATURE-MAP-META.json");
+    const meta = JSON.parse(readFileSync(mp, "utf-8"));
+    meta.crosscutConcepts = concepts;
+    meta.crosscutStats = out.stats;
+    meta.gapReport = gapReport;
+    writeFileSync(mp, JSON.stringify(meta, null, 2));
+  } catch { /* meta 可能不存在 */ }
+
+  return out;
+}
+
+function _extractJsonArray(text) {
+  if (!text) return null;
+  const s = String(text);
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const body = fence ? fence[1] : s;
+  const a = body.indexOf("[");
+  const b = body.lastIndexOf("]");
+  if (a < 0 || b <= a) return null;
+  try { return JSON.parse(body.slice(a, b + 1)); } catch { return null; }
 }

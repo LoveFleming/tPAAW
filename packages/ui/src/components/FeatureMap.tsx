@@ -85,6 +85,29 @@ interface Feature {
   _issueSummaries?: IssueSummary[];
 }
 
+// 🔀 橫切關注點（Cross-cutting Concern）— overlay 層，非檔案分割
+// 散在多條 feature、沒有獨立 feature 的能力（例：Budget Control 散在 rateLimiter/cache/adminAuth）
+interface CrosscutEvidence { file: string; line?: number; symbol?: string; feature?: string | null; featureName?: string }
+interface CrosscutConcept {
+  id: string;
+  key: string;
+  name: string;
+  kind: "overlay";
+  discovered?: boolean;
+  crossFeatureCount: number;
+  features: string[];
+  dominantFeature?: string | null;
+  dominantShare?: number | null;
+  hits?: number;
+  evidence: CrosscutEvidence[];
+  // ② LLM 長肉結果
+  aiName?: string;
+  aiDescription?: string;
+  aiClipped?: boolean;   // LLM 判定為假陽性/非真概念 → 從 gap 排除
+  aiAt?: string | null;
+}
+interface GapEntry { conceptId: string; name: string; crossFeatureCount: number; features: string[]; dominantShare?: number | null; reason: string }
+
 interface Props {
   rootPath: string;
   refreshKey?: number; // 2026-09-04：外部資料更新訊號（CU 完成/掃描完成）→ 重新載入（tab 常駐 CSS hide 不會 remount，需要顯式刷新）
@@ -120,6 +143,21 @@ const HTTP_COLORS: Record<string, string> = {
   DELETE: "#dc2626",
 };
 
+// 橫切概念 → emoji + 短名（chip 用）
+const CONCEPT_EMOJI: Record<string, string> = {
+  "rate-limit": "🚦",
+  "quota-budget": "💰",
+  auth: "🔐",
+  observability: "📊",
+  caching: "🗄️",
+  resilience: "🔁",
+  tenancy: "🏢",
+  guardrails: "🛡️",
+  "memory-context": "🧠",
+};
+const conceptEmoji = (c: CrosscutConcept) => c.discovered ? "❓" : (CONCEPT_EMOJI[c.key] || "🔀");
+const conceptShort = (c: CrosscutConcept) => (c.aiName || c.name || c.key).replace(/\s*\/.*$/, "").replace(/（待命名）/, "");
+
 // ── md-compact：FeatureMap 右側用 — 標題/行距縮到與左側列表一致（chat 的 MarkdownText 不受影響）──
 const MD_COMPACT_STYLE = `
 .md-content.md-compact { line-height: 1.5; }
@@ -149,6 +187,11 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
   // Error codes by feature（2026-09-05 v2 — LLM 語意整理，不認命名慣例）
   const [ecData, setEcData] = useState<any>(null);
   const [ecBusy, setEcBusy] = useState(false);
+  // 🔀 橫切關注點（overlay）+ Gap Report
+  const [crosscut, setCrosscut] = useState<CrosscutConcept[]>([]);
+  const [gaps, setGaps] = useState<GapEntry[]>([]);
+  const [showCrosscut, setShowCrosscut] = useState(false);
+  const [ccBusy, setCcBusy] = useState(false);
   const loadErrorCodes = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/coding-project/error-codes?path=${encodeURIComponent(rootPath)}`);
@@ -232,6 +275,43 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
   }, [basePath, searchQuery, refreshKey]);
 
   useEffect(() => { fetchFeatures(); }, [fetchFeatures]);
+
+  // 🔀 橫切關注點 + Gap Report（overlay 層）
+  const fetchCrosscut = useCallback(async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-features/crosscut?path=${encodeURIComponent(rootPath)}`);
+      if (!r.ok) return;
+      const d = await r.json();
+      setCrosscut(Array.isArray(d.concepts) ? d.concepts : []);
+      setGaps(Array.isArray(d.gapReport) ? d.gapReport : []);
+    } catch { /* 尚無 crosscut 資料 → silent */ }
+  }, [rootPath]);
+  useEffect(() => { fetchCrosscut(); }, [fetchCrosscut, refreshKey]);
+
+  const enrichCrosscut = useCallback(async () => {
+    setCcBusy(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-features/crosscut/enrich?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+      if (r.ok) await fetchCrosscut();
+      else uiAlertError(`橫切概念 AI 消歧失敗：${r.status}`);
+    } catch (e) {
+      uiAlertError(`橫切概念 AI 消歧失敗：${e instanceof Error ? e.message : String(e)}`);
+    }
+    setCcBusy(false);
+  }, [rootPath, fetchCrosscut]);
+
+  // featureId → 參與的橫切概念（chip 用）
+  const conceptByFeature = React.useMemo(() => {
+    const m = new Map<string, CrosscutConcept[]>();
+    for (const c of crosscut) {
+      if (c.aiClipped) continue;
+      for (const fid of c.features || []) {
+        if (!m.has(fid)) m.set(fid, []);
+        m.get(fid)!.push(c);
+      }
+    }
+    return m;
+  }, [crosscut]);
 
   const selected = features.find(f => f.id === selectedId);
 
@@ -320,6 +400,15 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
               📄 {t("feature.byFile")}
             </button>
           </div>
+          {/* 🔀 橫切/缺口 面板開關 */}
+          <button
+            onClick={() => setShowCrosscut(v => !v)}
+            className="text-xs py-0.5 px-1.5 rounded shrink-0"
+            style={{ background: showCrosscut ? theme.accentBg : theme.bg, color: showCrosscut ? theme.accent : theme.text, border: `1px solid ${theme.borderLight}`, opacity: showCrosscut ? 1 : 0.6 }}
+            title={t("feature.crosscutHint")}
+          >
+            🔀 {gaps.length > 0 ? `⚠️ ${gaps.length}` : ""}
+          </button>
         </div>
 
         {/* Search */}
@@ -341,7 +430,17 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
 
         {/* List */}
         <div className="flex-1 overflow-y-auto">
-          {loading ? (
+          {showCrosscut ? (
+            <CrosscutPanel
+              concepts={crosscut}
+              gaps={gaps}
+              theme={theme}
+              t={t}
+              busy={ccBusy}
+              onEnrich={enrichCrosscut}
+              onPickFeature={(id) => { setSelectedId(id); setShowCrosscut(false); }}
+            />
+          ) : loading ? (
             <div className="flex items-center justify-center h-full text-sm" style={{ color: theme.text, opacity: 0.4 }}>
               {t("feature.loading")}
             </div>
@@ -388,6 +487,21 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
                     {f.aiUnderstanding && <span>🤖 ✅</span>}
                     {f.documentation && <span>📖 ✅</span>}
                   </div>
+                  {/* 🔀 橫切概念疊加 chip（overlay） */}
+                  {(conceptByFeature.get(f.id)?.length || 0) > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 mt-1">
+                      {conceptByFeature.get(f.id)!.map(c => (
+                        <span
+                          key={c.id}
+                          title={`${t("feature.crosscutHint")}\n${c.aiName || c.name}（${c.crossFeatureCount} 條 feature 共享）`}
+                          className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0"
+                          style={{ background: theme.accentBg, color: theme.accent, border: `1px solid ${theme.borderLight}` }}
+                        >
+                          {conceptEmoji(c)} {conceptShort(c)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -1035,6 +1149,101 @@ function FileToFeatureList({ features, theme, t, searchQuery, onSelectFeature, o
           ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── 🔀 橫切關注點 / Gap Report 面板（overlay 層，非檔案分割）──
+function CrosscutPanel({ concepts, gaps, theme, t, busy, onEnrich, onPickFeature }: {
+  concepts: CrosscutConcept[];
+  gaps: GapEntry[];
+  theme: any;
+  t: (k: string) => string;
+  busy: boolean;
+  onEnrich: () => void;
+  onPickFeature: (id: string) => void;
+}) {
+  const active = concepts.filter(c => !c.aiClipped);
+  const clipped = concepts.filter(c => c.aiClipped);
+  const [openEv, setOpenEv] = React.useState<string | null>(null);
+  const chipStyle = { background: theme.accentBg, color: theme.accent, border: `1px solid ${theme.borderLight}` };
+  return (
+    <div className="p-3 flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <div className="text-sm font-semibold" style={{ color: theme.text }}>🔀 {t("feature.crosscut")}</div>
+          <div className="text-[10px] mt-0.5" style={{ color: theme.text, opacity: 0.5 }}>{t("feature.crosscutHint")}</div>
+        </div>
+        <button
+          onClick={onEnrich}
+          disabled={busy}
+          className="text-[10px] px-2 py-1 rounded shrink-0 disabled:opacity-40"
+          style={chipStyle}
+          title={t("feature.crosscutEnrich")}
+        >
+          {busy ? t("feature.crosscutEnriching") : `🤖 ${t("feature.crosscutEnrich")}`}
+        </button>
+      </div>
+
+      {/* 缺口（有能力但沒有家） */}
+      <div className="rounded p-2" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
+        <div className="text-xs font-semibold mb-1" style={{ color: theme.text }}>🚨 {t("feature.gapReport")}</div>
+        {gaps.length === 0 ? (
+          <div className="text-[11px]" style={{ color: theme.text, opacity: 0.5 }}>{t("feature.gapReportEmpty")}</div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {gaps.map(g => (
+              <div key={g.conceptId} className="text-[11px]" style={{ color: theme.text }}>
+                <div className="font-medium">{conceptEmoji({ key: concepts.find(c => c.id === g.conceptId)?.key || "", discovered: concepts.find(c => c.id === g.conceptId)?.discovered } as any)}{conceptShort(concepts.find(c => c.id === g.conceptId) || ({ name: g.name, key: "" } as any))}</div>
+                <div style={{ opacity: 0.6 }}>{g.reason}</div>
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  {g.features.slice(0, 8).map(fid => (
+                    <button key={fid} onClick={() => onPickFeature(fid)} className="text-[10px] px-1 rounded" style={{ background: theme.bg, color: theme.accent, border: `1px solid ${theme.borderLight}` }}>{fid}</button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 全部概念 */}
+      <div>
+        <div className="text-xs font-semibold mb-1" style={{ color: theme.text, opacity: 0.75 }}>{t("feature.crosscut")} ({active.length})</div>
+        {active.length === 0 ? (
+          <div className="text-[11px]" style={{ color: theme.text, opacity: 0.5 }}>{t("feature.crosscutNone")}</div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {active.map(c => (
+              <div key={c.id} className="rounded p-2" style={{ background: theme.bg, border: `1px solid ${theme.borderLight}` }}>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-medium" style={{ color: theme.text }}>{conceptEmoji(c)} {c.aiName || c.name}</span>
+                  <span className="text-[10px] px-1 rounded shrink-0" style={chipStyle}>{c.crossFeatureCount} feat</span>
+                  {c.dominantShare != null && <span className="text-[10px]" style={{ color: theme.text, opacity: 0.5 }}>{t("feature.crosscutDominant")} {Math.round(c.dominantShare * 100)}%</span>}
+                </div>
+                {c.aiDescription && <div className="text-[11px] mt-0.5" style={{ color: theme.text, opacity: 0.7 }}>{c.aiDescription}</div>}
+                <button onClick={() => setOpenEv(openEv === c.id ? null : c.id)} className="text-[10px] mt-1" style={{ color: theme.accent }}>
+                  {t("feature.crosscutEvidence")} ({c.evidence.length}) {openEv === c.id ? "▾" : "▸"}
+                </button>
+                {openEv === c.id && (
+                  <div className="mt-1 flex flex-col gap-0.5">
+                    {c.evidence.slice(0, 25).map((e, i) => (
+                      <div key={i} className="text-[10px] font-mono truncate" style={{ color: theme.text, opacity: 0.6 }} title={e.file}>
+                        {e.file}{e.line ? `:${e.line}` : ""}{e.symbol ? `  ${e.symbol}` : ""}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {clipped.length > 0 && (
+        <div className="text-[10px]" style={{ color: theme.text, opacity: 0.4 }}>
+          🤖 AI 判定非真概念（已排除於缺口）：{clipped.map(c => c.aiName || c.name).join("、")}
+        </div>
+      )}
     </div>
   );
 }

@@ -1941,5 +1941,14 @@
   "feature.understandFail": "AI 理解生成失敗（請確認 provider 設定）",
   "feature.understandHint": "點「生成 AI 理解」讓 AI 讀這個 feature 的程式碼後寫下理解",
   "feature.understandHintComposite": "這個 feature 含穩定子群 — 生成時 AI 會依子群摘要做架構級理解；個別子群可在子群區塊單獨深讀",
-  "feature.consensus": "擾動共識值（≥0.8 為穩定子群）"
+  "feature.consensus": "擾動共識值（≥0.8 為穩定子群）",
+  "feature.crosscut": "橫切/缺口",
+  "feature.crosscutHint": "散在多條 feature、沒有獨立 feature 的能力（overlay 層，非檔案分割，可重疊）",
+  "feature.crosscutNone": "此 feature 沒有跨到任何橫切概念",
+  "feature.gapReport": "缺口：有能力但沒有家",
+  "feature.gapReportEmpty": "沒有偵測到橫切缺口（所有能力都有專屬 feature 或佔比集中）",
+  "feature.crosscutEvidence": "證據（file:line:symbol）",
+  "feature.crosscutEnrich": "AI 消歧 + 命名（會花 token）",
+  "feature.crosscutEnriching": "AI 消歧中…",
+  "feature.crosscutDominant": "最高佔比"
 }
