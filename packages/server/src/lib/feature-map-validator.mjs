@@ -22,7 +22,7 @@ import { join, extname, relative, resolve } from "path";
 import { exec } from "child_process";
 
 // ── Source file extensions we care about ──
-const SOURCE_EXTS = new Set([".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".py", ".java", ".go", ".rb", ".php", ".c", ".cpp", ".cs"]);
+const SOURCE_EXTS = new Set([".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".py", ".java", ".go", ".rb", ".php", ".c", ".cpp", ".cs", ".rs"]);
 
 // ── Scan all source files (deterministic, zero AI) ──
 export function scanAllSourceFiles(projectRoot) {
