@@ -75,7 +75,12 @@ export const MermaidBlock = memo(function MermaidBlock({ code }: { code: string 
       {showRaw || !svg ? (
         <pre className="text-[11px] font-mono whitespace-pre-wrap text-stone-500">{code}</pre>
       ) : (
-        <div className="mermaid-svg-wrap flex justify-center [&_svg]:max-w-full" dangerouslySetInnerHTML={{ __html: svg }} />
+        <div className="mermaid-svg-wrap flex justify-center [&_svg]:max-w-full">
+          {/* CSS 錘子：mermaid v12 的 htmlLabel（foreignObject 裡的 span）不吃 themeVariables.fontSize，
+              且 SVG text 的 font-size 是 presentation attribute（CSS 優先序最低層）→ !important 一定赢 */}
+          <style>{`.mermaid-svg-wrap span, .mermaid-svg-wrap p, .mermaid-svg-wrap div, .mermaid-svg-wrap text { font-size: 14px !important; }`}</style>
+          <div dangerouslySetInnerHTML={{ __html: svg }} />
+        </div>
       )}
     </div>
   );
