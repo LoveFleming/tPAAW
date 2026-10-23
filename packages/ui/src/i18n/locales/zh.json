@@ -1941,5 +1941,15 @@
   "rr.next.warnTitle": "{n} 項待你簽核 — ✅ = 電腦已驗過（簽了確認即可）；⚠️ = 電腦無法判定，需要你的判斷",
   "rr.next.signPass": "✓ 通過",
   "rr.next.closeReady": "全部簽核完成 — 可以結案出貨了",
-  "rr.next.closeBtn": "結案出貨"
+  "rr.next.closeBtn": "結案出貨",
+  "feature.subFeatures": "子群（L2 穩定分割）",
+  "feature.internalShared": "內部共享檔（橋接，不屬任何子群）",
+  "feature.understandGen": "生成 AI 理解",
+  "feature.understandRegen": "重新生成",
+  "feature.understandSub": "AI 理解此子群",
+  "feature.understandBusy": "生成中…",
+  "feature.understandFail": "AI 理解生成失敗（請確認 provider 設定）",
+  "feature.understandHint": "點「生成 AI 理解」讓 AI 讀這個 feature 的程式碼後寫下理解",
+  "feature.understandHintComposite": "這個 feature 含穩定子群 — 生成時 AI 會依子群摘要做架構級理解；個別子群可在子群區塊單獨深讀",
+  "feature.consensus": "擾動共識值（≥0.8 為穩定子群）"
 }

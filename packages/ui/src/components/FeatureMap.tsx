@@ -37,6 +37,19 @@ interface RiskProfile {
   computedReason: string;
 }
 
+interface SubFeature {
+  id?: string;
+  key: string;
+  name: string;
+  description: string;
+  codeFiles: string[];
+  grade: string;
+  tags: string[];
+  evidence?: { method?: string; consensus?: number; vocabTop?: string[] };
+  aiUnderstanding?: string;
+  aiUnderstandingAt?: string | null;
+}
+
 interface Feature {
   id: string;
   name: string;
@@ -54,6 +67,9 @@ interface Feature {
   docsUpdatedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // 🧩 L2 子群（2026-10-23）：內生判準拆的穩定子結構；internalShared = 黏合橋接檔（不屬任何子群）
+  subFeatures?: SubFeature[];
+  internalShared?: string[];
   // 🛡 嚴重度（2026-10-10：by feature 標示 — deterministic 掃描 + AI 建議、人確認）
   severity?: "S0" | "S1" | "S2" | null;
   severityDecisions?: { id: string; by: string; at: string; severity: string; remark?: string }[];
@@ -364,6 +380,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
                   )}
                   <div className="flex items-center gap-2 mt-1 text-[10px]" style={{ color: theme.text, opacity: 0.5 }}>
                     {f.codeFiles.length > 0 && <span>📄 {f.codeFiles.length}</span>}
+                    {(f.subFeatures?.length || 0) > 0 && <span title={t("feature.subFeatures")}>🧩 {f.subFeatures!.length}</span>}
                     {ecMap.get(f.id)?.uniqueCount ? <span>🔢 {ecMap.get(f.id)!.uniqueCount}</span> : null}
                     {f.apis.length > 0 && <span>🌐 {f.apis.length}</span>}
                     {f.tests.length > 0 && <span>🧪 {f.tests.length}</span>}
@@ -623,6 +640,86 @@ function SeveritySection({ feature, theme, t, rootPath, onFeatureUpdate }: {
   );
 }
 
+// ── 🧩 Sub-Features 區（2026-10-23 ③：L2 穩定子群渲染 + per-sub AI 理解）──
+function SubFeaturesSection({ feature, theme, t, rootPath, onOpenFile, onFeatureUpdate }: {
+  feature: Feature;
+  theme: any;
+  t: (k: string) => string;
+  rootPath: string;
+  onOpenFile?: (p: string) => void;
+  onFeatureUpdate?: (f: Feature) => void;
+}) {
+  const [openSub, setOpenSub] = useState<string | null>(null);
+  const [undBusy, setUndBusy] = useState<string | null>(null);
+  const subs = feature.subFeatures || [];
+  if (subs.length === 0 && !(feature.internalShared || []).length) return null;
+
+  const runUnderstand = async (subKey: string) => {
+    setUndBusy(subKey);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-features/${encodeURIComponent(feature.id)}/understand?path=${encodeURIComponent(rootPath)}&sub=${encodeURIComponent(subKey)}`, { method: "POST" });
+      const data = await r.json();
+      if (data?.ok && data.feature) onFeatureUpdate?.(data.feature);
+      else uiAlertError(t("feature.understandFail"));
+    } catch (e) { uiAlertError(String(e)); }
+    setUndBusy(null);
+  };
+
+  return (
+    <Section title={`🧩 ${t("feature.subFeatures")}`} count={subs.length} theme={theme}>
+      {subs.map(s => {
+        const isOpen = openSub === s.key;
+        return (
+          <div key={s.key} className="rounded" style={{ background: theme.bgMuted }}>
+            <button onClick={() => setOpenSub(isOpen ? null : s.key)} className="w-full text-left px-2 py-1.5 flex items-center gap-2">
+              <span className="text-xs" style={{ color: theme.text, opacity: 0.5 }}>{isOpen ? "▾" : "▸"}</span>
+              <span className="text-xs font-medium truncate" style={{ color: theme.text }}>{s.name}</span>
+              <span className="text-[10px] shrink-0" style={{ color: theme.text, opacity: 0.45 }}>📄 {s.codeFiles.length}</span>
+              {s.evidence?.consensus != null && <span className="text-[10px] px-1 rounded shrink-0 font-mono" title={t("feature.consensus")} style={{ background: theme.bg, color: theme.text, opacity: 0.6 }}>c={s.evidence.consensus}</span>}
+              {s.aiUnderstanding && <span className="text-[10px] shrink-0">🤖✅</span>}
+            </button>
+            {isOpen && (
+              <div className="px-3 pb-2 flex flex-col gap-2">
+                {s.description && <div className="text-xs" style={{ color: theme.text, opacity: 0.65 }}>{s.description}</div>}
+                {(s.tags || []).length > 0 && <div className="flex flex-wrap gap-1">{(s.tags || []).map(tg => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: theme.bg, color: theme.text, opacity: 0.6 }}>🏷️ {tg}</span>)}</div>}
+                <div className="flex flex-wrap gap-1">
+                  {(s.codeFiles || []).map(f => (
+                    <button key={f} onClick={() => onOpenFile?.(f)} className="text-[10px] font-mono px-1.5 py-0.5 rounded hover:underline" style={{ background: theme.bg, color: theme.accent }} title={f}>{f.split("/").pop()}</button>
+                  ))}
+                </div>
+                <div>
+                  <button onClick={() => runUnderstand(s.key)} disabled={undBusy !== null} className="text-xs px-2 py-1 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
+                    {undBusy === s.key ? t("feature.understandBusy") : `🤖 ${t("feature.understandSub")}`}
+                  </button>
+                </div>
+                {s.aiUnderstanding && (
+                  <div className="rounded p-2 text-xs" style={{ background: theme.bg, border: `1px solid ${theme.borderLight}` }}>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span style={{ color: theme.text, opacity: 0.6 }}>🤖 {t("feature.aiUnderstanding")}</span>
+                      <span className="text-[10px]" style={{ color: theme.text, opacity: 0.4 }}>{s.aiUnderstandingAt ? new Date(s.aiUnderstandingAt).toLocaleString() : ""}</span>
+                    </div>
+                    <div style={{ color: theme.text }}><MarkdownText className="md-compact">{s.aiUnderstanding}</MarkdownText></div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {(feature.internalShared || []).length > 0 && (
+        <details className="rounded px-2 py-1.5" style={{ background: theme.bgMuted }}>
+          <summary className="text-xs cursor-pointer" style={{ color: theme.text, opacity: 0.6 }}>🔗 {t("feature.internalShared")} ({feature.internalShared!.length})</summary>
+          <div className="flex flex-wrap gap-1 mt-2">
+            {feature.internalShared!.map(f => (
+              <button key={f} onClick={() => onOpenFile?.(f)} className="text-[10px] font-mono px-1.5 py-0.5 rounded hover:underline" style={{ background: theme.bg, color: theme.text, opacity: 0.7 }} title={f}>{f.split("/").pop()}</button>
+            ))}
+          </div>
+        </details>
+      )}
+    </Section>
+  );
+}
+
 function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callChainMap, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, rootPath, onFeatureUpdate }: {
   feature: Feature;
   ecData?: any;
@@ -641,6 +738,17 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
   onFeatureUpdate?: (f: Feature) => void;
 }) {
   const st = STATUS_STYLES[feature.status] || STATUS_STYLES.active;
+  const [undBusy, setUndBusy] = useState<string | null>(null);
+  const runParentUnderstand = async () => {
+    setUndBusy("parent");
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-features/${encodeURIComponent(feature.id)}/understand?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+      const data = await r.json();
+      if (data?.ok && data.feature) onFeatureUpdate?.(data.feature);
+      else uiAlertError(t("feature.understandFail"));
+    } catch (e) { uiAlertError(String(e)); }
+    setUndBusy(null);
+  };
 
   // RU model 對應的 deterministic feature（有 → 用 Feature Cockpit 呈現；無 → fallback 舊 sections）
   const ruFeature = (ruModel?.features || []).find((x: any) => x.id === feature.id) || null;
@@ -673,6 +781,9 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
       <div className="p-4 flex flex-col gap-4">
         {/* 🛡 Severity（2026-10-10：構成面掃描 + AI 建議 + 人員確認）*/}
         <SeveritySection feature={feature} theme={theme} t={t} rootPath={rootPath} onFeatureUpdate={onFeatureUpdate} />
+
+        {/* 🧩 子群（2026-10-23 ③：L2 穩定子結構 + per-sub AI 理解）*/}
+        <SubFeaturesSection feature={feature} theme={theme} t={t} rootPath={rootPath} onOpenFile={onOpenFile} onFeatureUpdate={onFeatureUpdate} />
 
         {/* 🔢 Error Codes by feature（v2 — LLM 語意整理，不認命名慣例；只讀掃描產物）*/}
         {ecData && (() => {
@@ -765,18 +876,21 @@ function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callCha
           })}
         </Section>
 
-        {/* AI Understanding */}
-        {feature.aiUnderstanding && (
-          <div className="rounded-lg p-4" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold" style={{ color: theme.text, opacity: 0.75 }}>🤖 {t("feature.aiUnderstanding")}</h3>
-              <span className="text-xs" style={{ color: theme.text, opacity: 0.4 }}>
-                {feature.aiUnderstandingAt ? new Date(feature.aiUnderstandingAt).toLocaleString() : ""}
-              </span>
+        {/* AI Understanding（2026-10-23 ①：懒生成入口 — parent 吃子群摘要；無子群 = 全讀）*/}
+        <div className="rounded-lg p-4" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold" style={{ color: theme.text, opacity: 0.75 }}>🤖 {t("feature.aiUnderstanding")}</h3>
+            <div className="flex items-center gap-2">
+              {feature.aiUnderstandingAt && <span className="text-xs" style={{ color: theme.text, opacity: 0.4 }}>{new Date(feature.aiUnderstandingAt).toLocaleString()}</span>}
+              <button onClick={runParentUnderstand} disabled={undBusy !== null} className="text-xs px-2 py-1 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
+                {undBusy === "parent" ? t("feature.understandBusy") : `✨ ${feature.aiUnderstanding ? t("feature.understandRegen") : t("feature.understandGen")}`}
+              </button>
             </div>
-            <div className="text-sm" style={{ color: theme.text }}><MarkdownText className="md-compact">{feature.aiUnderstanding}</MarkdownText></div>
           </div>
-        )}
+          {feature.aiUnderstanding
+            ? <div className="text-sm" style={{ color: theme.text }}><MarkdownText className="md-compact">{feature.aiUnderstanding}</MarkdownText></div>
+            : <div className="text-xs" style={{ color: theme.text, opacity: 0.45 }}>{(feature.subFeatures?.length || 0) > 0 ? t("feature.understandHintComposite") : t("feature.understandHint")}</div>}
+        </div>
 
         {/* Documentation */}
         <div className="rounded-lg p-4" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
@@ -829,12 +943,14 @@ function FileToFeatureList({ features, theme, t, searchQuery, onSelectFeature, o
   onSelectFeature: (id: string) => void;
   onOpenFile?: (p: string) => void;
 }) {
-  // Build file → [features] map
-  const fileMap: Record<string, { id: string; name: string; type: string }[]> = {};
+  // Build file → [features] map（2026-10-23 ③：code 檔標 sub 歸屬 badge）
+  const fileMap: Record<string, { id: string; name: string; type: string; sub?: string }[]> = {};
   for (const f of features) {
+    const subByFile = new Map<string, string>();
+    for (const s of f.subFeatures || []) for (const file of s.codeFiles || []) subByFile.set(file, s.name);
     for (const file of f.codeFiles || []) {
       if (!fileMap[file]) fileMap[file] = [];
-      fileMap[file].push({ id: f.id, name: f.name, type: "📄" });
+      fileMap[file].push({ id: f.id, name: f.name, type: "📄", sub: subByFile.get(file) });
     }
     for (const file of f.tests || []) {
       if (!fileMap[file]) fileMap[file] = [];
@@ -856,7 +972,7 @@ function FileToFeatureList({ features, theme, t, searchQuery, onSelectFeature, o
     : sortedFiles;
 
   // Group by directory
-  const grouped: Record<string, { file: string; features: { id: string; name: string; type: string }[] }[]> = {};
+  const grouped: Record<string, { file: string; features: { id: string; name: string; type: string; sub?: string }[] }[]> = {};
   for (const file of filtered) {
     const dir = file.split("/").slice(0, -1).join("/") || ".";
     if (!grouped[dir]) grouped[dir] = [];
@@ -901,15 +1017,17 @@ function FileToFeatureList({ features, theme, t, searchQuery, onSelectFeature, o
                   const feat = features.find(f => f.id === ft.id);
                   const st = feat ? STATUS_STYLES[feat.status] || STATUS_STYLES.active : null;
                   return (
-                    <button
-                      key={i}
-                      onClick={() => onSelectFeature(ft.id)}
-                      className="text-xs px-1.5 py-0.5 rounded transition-opacity hover:opacity-100"
-                      style={{ background: st?.bg || theme.bgMuted, color: st?.text || theme.text, opacity: 0.7 }}
-                      title={`${ft.type} ${ft.name}`}
-                    >
-                      {ft.type} {ft.id}
-                    </button>
+                    <span key={i} className="flex items-center gap-0.5">
+                      {ft.sub && <span className="text-[10px] px-1 py-0.5 rounded font-medium" style={{ background: theme.bg, color: theme.text, opacity: 0.65 }} title={ft.sub}>🧩 {ft.sub.length > 10 ? ft.sub.slice(0, 10) + "…" : ft.sub}</span>}
+                      <button
+                        onClick={() => onSelectFeature(ft.id)}
+                        className="text-xs px-1.5 py-0.5 rounded transition-opacity hover:opacity-100"
+                        style={{ background: st?.bg || theme.bgMuted, color: st?.text || theme.text, opacity: 0.7 }}
+                        title={`${ft.type} ${ft.name}`}
+                      >
+                        {ft.type} {ft.id}
+                      </button>
+                    </span>
                   );
                 })}
               </div>

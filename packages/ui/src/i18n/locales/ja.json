@@ -1941,5 +1941,15 @@
   "rr.next.warnTitle": "{n} 項目が署名待ち — ✅ = 機械検証済み（確認して署名）；⚠️ = あなたの判断が必要",
   "rr.next.signPass": "✓ pass",
   "rr.next.closeReady": "全項目署名完了 — 出荷可能",
-  "rr.next.closeBtn": "結案して出荷"
+  "rr.next.closeBtn": "結案して出荷",
+  "feature.subFeatures": "サブ機能（L2 安定分割）",
+  "feature.internalShared": "内部共有ファイル（ブリッジ）",
+  "feature.understandGen": "AI理解を生成",
+  "feature.understandRegen": "再生成",
+  "feature.understandSub": "このサブをAI理解",
+  "feature.understandBusy": "生成中…",
+  "feature.understandFail": "AI理解の生成に失敗しました（provider設定を確認）",
+  "feature.understandHint": "「AI理解を生成」で AI がコードを読んで理解を書きます",
+  "feature.understandHintComposite": "この機能は安定サブグループを持ちます — 生成時はサブ要約からアーキテクチャ級の理解をします",
+  "feature.consensus": "摂動コンセンサス（≥0.8 で安定）"
 }

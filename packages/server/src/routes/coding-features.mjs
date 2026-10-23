@@ -98,7 +98,22 @@ async function loadIssueSummaries(projectPath, issueIds) {
 
 // ── LLM Call for AI Understanding ──
 
-async function generateUnderstanding(projectPath, feature, providersFile) {
+/** 決定論抽樣讀檔（2026-10-23）：每子群取首檔（進入點序）+ shared 前 3 檔，各截 maxChars */
+async function _readSamples(projectPath, files, maxChars) {
+  const out = [];
+  for (const filePath of files) {
+    const absPath = resolve(projectPath, filePath);
+    if (existsSync(absPath)) {
+      try {
+        const content = await readFile(absPath, "utf-8");
+        out.push(`### ${filePath}\n\`\`\`\n${content.slice(0, maxChars)}\n\`\`\``);
+      } catch {}
+    }
+  }
+  return out;
+}
+
+async function generateUnderstanding(projectPath, feature, providersFile, subKey = null) {
   let providerConfig;
   try { providerConfig = JSON.parse(readSync(providersFile, "utf-8")); } catch { return null; }
   const providerId = providerConfig.active || "zai";
@@ -106,43 +121,110 @@ async function generateUnderstanding(projectPath, feature, providersFile) {
   const provider = providerConfig.providers?.[providerId];
   if (!provider?.apiKey || provider.apiKey === "na") return null;
 
-  // Read code files content
-  const codeSnippets = [];
-  for (const filePath of (feature.codeFiles || [])) {
-    const absPath = resolve(projectPath, filePath);
-    if (existsSync(absPath)) {
-      try {
-        const content = await readFile(absPath, "utf-8");
-        codeSnippets.push(`### ${filePath}\n\`\`\`\n${content.slice(0, 3000)}\n\`\`\``);
-      } catch {}
-    }
-  }
+  const subs = Array.isArray(feature.subFeatures) ? feature.subFeatures : [];
+  const sub = subKey ? subs.find(s => s.id === subKey || s.key === subKey || s.id === `${feature.id}-${subKey}`) : null;
 
-  // Read test files
-  const testSnippets = [];
-  for (const filePath of (feature.tests || [])) {
-    const absPath = resolve(projectPath, filePath);
-    if (existsSync(absPath)) {
-      try {
-        const content = await readFile(absPath, "utf-8");
-        testSnippets.push(`### ${filePath}\n\`\`\`\n${content.slice(0, 1500)}\n\`\`\``);
-      } catch {}
-    }
-  }
+  let prompt;
+  let result;
 
-  // Read runbooks
-  const runbookSnippets = [];
-  for (const filePath of (feature.runbooks || [])) {
-    const absPath = resolve(projectPath, filePath);
-    if (existsSync(absPath)) {
-      try {
-        const content = await readFile(absPath, "utf-8");
-        runbookSnippets.push(`### ${filePath}\n${content.slice(0, 1000)}`);
-      } catch {}
-    }
-  }
+  if (sub) {
+    // ── per-sub 深讀（2026-10-23 ①）：子群檔案少（≤40），直接全讀 ──
+    const codeSnippets = await _readSamples(projectPath, sub.codeFiles || [], 2500);
+    const testSnippets = await _readSamples(projectPath, (feature.tests || []).slice(0, 5), 1200);
+    prompt = `You are a senior code analyst. Analyze this SUB-FEATURE (stable sub-group inside a larger feature, split by deterministic stability consensus) and provide a comprehensive understanding.
 
-  const prompt = `You are a senior code analyst. Analyze the following feature and provide a comprehensive understanding.
+## Parent Feature: ${feature.name}
+${feature.description || ""}
+
+## Sub-Feature: ${sub.name}（${sub.codeFiles?.length || 0} files, consensus ${(sub.evidence?.consensus ?? "?")}, key terms: ${(sub.evidence?.vocabTop || []).join(", ")}）
+${sub.description || ""}
+
+## Code Files (this sub-group)
+${codeSnippets.join("\n\n") || "(no code files)"}
+
+## Parent Tests (sample)
+${testSnippets.join("\n\n") || "(no tests mapped)"}
+
+Please provide (markdown, 繁體中文):
+1. **Overview** — 這個子能力做什麼、為何存在
+2. **Architecture** — 程式結構與關鍵模式
+3. **Data Flow** — 資料怎麼流過這個子群
+4. **Key Decisions** — 設計選擇與理由
+5. **Risks** — 潛在問題、按衛生誠實標註信心（檔案截斷處標（推論））
+6. **Dependencies** — 依賴誰、被誰依賴（含 parent 的 internalShared 角色）`;
+    result = { store: "sub", sub };
+  } else if (subs.length > 0 && !subKey) {
+    // ── parent 複合理解（2026-10-23 ①：改吃子群摘要，不逐檔讀全清單）──
+    // 每子群：機器摘要（名/描述/詞彙/檔數）+ 首檔抽樣；shared 取前 3 檔短摘
+    const subSummaries = [];
+    for (const s of subs) {
+      const sample = await _readSamples(projectPath, (s.codeFiles || []).slice(0, 1), 1200);
+      subSummaries.push(`### ${s.name}（${s.codeFiles?.length || 0} 檔，共識 ${s.evidence?.consensus ?? "?"}）
+${s.description || "(no description)"}
+Key terms: ${(s.evidence?.vocabTop || []).join(", ")}
+Files: ${(s.codeFiles || []).slice(0, 8).join(", ")}${(s.codeFiles?.length || 0) > 8 ? ` …(+${s.codeFiles.length - 8})` : ""}${sample.length ? "\n" + sample[0] : ""}`);
+    }
+    const sharedSnippets = await _readSamples(projectPath, (feature.internalShared || []).slice(0, 3), 800);
+    prompt = `You are a senior code analyst. Analyze this feature at the ARCHITECTURE level. It has been split by deterministic stability consensus into ${subs.length} stable sub-groups + ${(feature.internalShared || []).length} internal shared (bridge) files. Do NOT try to read every file — reason from the sub-group composition below.
+
+## Feature: ${feature.name}
+${feature.description || ""}
+
+## Sub-Groups (machine-deterministic, each independently understood)
+${subSummaries.join("\n\n")}
+
+## Internal Shared / Bridge Files
+${(feature.internalShared || []).slice(0, 15).join(", ") || "(none)"}
+${sharedSnippets.join("\n\n")}
+
+## API Endpoints
+${(feature.apis || []).map(a => `- ${a.method} ${a.path} (${a.file})`).join("\n") || "(no APIs mapped)"}
+
+## Tests (count)
+${(feature.tests || []).length} mapped
+
+Please provide (markdown, 繁體中文):
+1. **Overview** — 這個 feature 整體做什麼、為何存在
+2. **子群組成** — 每個子群的角色與彼此關係（用機器給的子群名；推論處標（推論））
+3. **Architecture** — 子群如何協作（誰叫誰、shared 檔扮演什麼角色）
+4. **Data Flow** — 請求/資料怎麼流過子群
+5. **Risks & 治理** — 跨子群耦合、shared 檔風險
+6. **Dependencies** — 對外依賴與被依賴
+誠實標註：哪些判斷來自子群摘要而非逐檔閱讀。`;
+    result = { store: "parent" };
+  } else {
+    // ── 原路徑：無子群的小 feature 直接全讀 ──
+    const codeSnippets = [];
+    for (const filePath of (feature.codeFiles || [])) {
+      const absPath = resolve(projectPath, filePath);
+      if (existsSync(absPath)) {
+        try {
+          const content = await readFile(absPath, "utf-8");
+          codeSnippets.push(`### ${filePath}\n\`\`\`\n${content.slice(0, 3000)}\n\`\`\``);
+        } catch {}
+      }
+    }
+    const testSnippets = [];
+    for (const filePath of (feature.tests || [])) {
+      const absPath = resolve(projectPath, filePath);
+      if (existsSync(absPath)) {
+        try {
+          const content = await readFile(absPath, "utf-8");
+          testSnippets.push(`### ${filePath}\n\`\`\`\n${content.slice(0, 1500)}\n\`\`\``);
+        } catch {}
+      }
+    }
+    const runbookSnippets = [];
+    for (const filePath of (feature.runbooks || [])) {
+      const absPath = resolve(projectPath, filePath);
+      if (existsSync(absPath)) {
+        try {
+          const content = await readFile(absPath, "utf-8");
+          runbookSnippets.push(`### ${filePath}\n${content.slice(0, 1000)}`);
+        } catch {}
+      }
+    }
+    prompt = `You are a senior code analyst. Analyze the following feature and provide a comprehensive understanding.
 
 ## Feature: ${feature.name}
 ${feature.description || ""}
@@ -169,6 +251,8 @@ Please provide:
 7. **Dependencies** — What this feature depends on and what depends on it
 
 Write in clear, concise markdown. Use the project's context if available.`;
+    result = { store: "parent" };
+  }
 
   try {
     // 2026-08-30：統一走 callProjectLLM（thinking off + llm log 歸因 + 空回應診斷）
@@ -436,10 +520,11 @@ export default async function codingFeaturesRoute(req, res) {
     return true;
   }
 
-  // ── POST /api/coding-features/:id/understand ──
+  // ── POST /api/coding-features/:id/understand（?sub=<subKey> = 只理解那個子群，2026-10-23 ①）──
   const understandMatch = url.match(/^\/api\/coding-features\/([^/?]+)\/understand$/);
   if (understandMatch && method === "POST") {
     const id = decodeURIComponent(understandMatch[1]);
+    const subKey = q.sub || null;
     const features = await loadFeatures(projRoot);
     const idx = features.findIndex(f => f.id === id);
     if (idx < 0) {
@@ -447,15 +532,29 @@ export default async function codingFeaturesRoute(req, res) {
       res.end(JSON.stringify({ error: "Feature not found" }));
       return true;
     }
-    const understanding = await generateUnderstanding(projRoot, features[idx], providersFile);
+    const understanding = await generateUnderstanding(projRoot, features[idx], providersFile, subKey);
     if (understanding) {
-      features[idx].aiUnderstanding = understanding;
-      features[idx].aiUnderstandingAt = now();
+      let storedOn = "feature";
+      if (subKey) {
+        const sub = (features[idx].subFeatures || []).find(s => s.id === subKey || s.key === subKey || s.id === `${features[idx].id}-${subKey}`);
+        if (sub) {
+          sub.aiUnderstanding = understanding;
+          sub.aiUnderstandingAt = now();
+          storedOn = `sub:${sub.id}`;
+        } else subKey = null; // 找不到子群 → 退回 parent
+      }
+      if (!subKey) {
+        features[idx].aiUnderstanding = understanding;
+        features[idx].aiUnderstandingAt = now();
+      }
       features[idx].updatedAt = now();
       await saveFeatures(projRoot, features);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(stableStringify({ ok: true, understanding, storedOn, feature: features[idx] }));
+      return true;
     }
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(stableStringify({ ok: true, understanding, feature: features[idx] }));
+    res.end(stableStringify({ ok: false, error: "understanding generation failed" }));
     return true;
   }
 

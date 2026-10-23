@@ -1941,5 +1941,15 @@
   "rr.next.warnTitle": "{n} items need your sign-off — ✅ = machine verified (sign to confirm); ⚠️ = needs your judgment",
   "rr.next.signPass": "✓ Pass",
   "rr.next.closeReady": "All signed — ready to ship",
-  "rr.next.closeBtn": "Close & ship"
+  "rr.next.closeBtn": "Close & ship",
+  "feature.subFeatures": "Sub-features (L2 stable split)",
+  "feature.internalShared": "Internal shared (bridge) files",
+  "feature.understandGen": "Generate AI understanding",
+  "feature.understandRegen": "Regenerate",
+  "feature.understandSub": "Understand this sub-feature",
+  "feature.understandBusy": "Generating…",
+  "feature.understandFail": "AI understanding failed (check provider settings)",
+  "feature.understandHint": "Click Generate to have AI read this feature's code and write its understanding",
+  "feature.understandHintComposite": "This feature has stable sub-groups — generation reasons from sub-group summaries at architecture level; each sub can be deep-read individually",
+  "feature.consensus": "Perturbation consensus (≥0.8 = stable)"
 }

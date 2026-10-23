@@ -22,7 +22,7 @@
  * 決定論保證：2 是純數學；LLM 只長肉。骨架同 repo 重跑必相同。
  */
 import { join, resolve as resolvePath } from "path";
-import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "fs";
+import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, statSync } from "fs";
 import { parseProject } from "./tree-sitter-parser.mjs";
 import { buildDeterministicFeatureMap } from "./code-graph.mjs";
 import { computeSubFeatureRefinement, detectTemplateOrphans } from "./feature-subfeature.mjs";
@@ -40,7 +40,8 @@ function _loadTemplate(projectRoot) {
   try { return readFileSync(join(DATA_HOME, "prompts", "code-understanding", "feature-map-v2.md"), "utf-8"); } catch { return ""; }
 }
 
-/** 從 agent 最終回覆抽 JSON（取最後一個 fence；沒 fence 就整段試 parse） */
+/** 從 agent 最終回覆抽 JSON（取最後一個 fence；沒 fence 就整段試 parse）
+ *  2026-10-23：加寬鬆二層 — fence 失敗時試「括號平衡切首個 {..}」；仍失敗才 null */
 function _extractJson(txt) {
   let t = String(txt || "").trim();
   if (!t) return null;
@@ -49,9 +50,64 @@ function _extractJson(txt) {
   for (const c of candidates) {
     try { return JSON.parse(c); } catch {}
   }
+  // 括號平衡掃首個物件（模型輸出 json 前後夾敘述時）
+  for (const c of candidates) {
+    const s = c.indexOf("{");
+    if (s >= 0) {
+      let depth = 0;
+      for (let i = s; i < c.length; i++) {
+        if (c[i] === "{") depth++;
+        else if (c[i] === "}") { depth--; if (!depth) { try { return JSON.parse(c.slice(s, i + 1)); } catch { break; } } }
+      }
+    }
+  }
   return null;
 }
 
+/** 命名保底第 3 層（2026-10-23 Fleming「要命名成功」）：agent loop 兩次都失敗 → 直呼 LLM。
+ *  證據 = 決定論抽樣檔案內容（seed 固定排序：最小 2 檔 + 首檔，各截 4k 字元）+ 骨架詞彙。
+ *  輸出誠實標 enrichedBy: direct-llm（非 agent-loop）*/
+async function _directNameFallback({ callLLM, item, projectRoot, material, kindLabel }) {
+  if (!callLLM) return null;
+  // 決定論抽樣：按 (size, path) 排序取最小 2 檔 + 原序首檔；parent 用子群摘要不抽檔
+  let samples = [];
+  const list = item.kind === "parent" ? [] : item.files.slice(0, 60);
+  if (list.length) {
+    const statted = [];
+    for (const f of list) {
+      try { statted.push({ f, s: statSync(join(projectRoot, f)).size }); } catch {}
+    }
+    statted.sort((a, b) => a.s - b.s || a.f.localeCompare(b.f));
+    const picked = new Set([list[0], ...statted.slice(0, 2).map(x => x.f)]);
+    for (const f of picked) {
+      try { samples.push(`### ${f}\n\`\`\`\n${readFileSync(join(projectRoot, f), "utf-8").slice(0, 4000)}\n\`\`\``); } catch {}
+    }
+  }
+  const skeleton = {
+    kind: item.kind,
+    apis: material.apis, entryCount: material.entryCount, fileCount: material.fileCount,
+    FILE_LIST: item.files.slice(0, 60),
+    ...(item.kind === "parent" ? { SUB_FEATURES: material.SUB_FEATURES, INTERNAL_SHARED: material.INTERNAL_SHARED } : {}),
+    ...(item.kind === "subfeature" ? { VOCAB_TOP: material.VOCAB_TOP } : {}),
+    ...(item.groupName ? { SUGGESTED_NAME: item.groupName } : {}),
+  };
+  const prompt = `你是程式碼理解助手。以下是一個${kindLabel}的機器骨架（檔案歸屬數學已定）${samples.length ? "與抽樣程式碼" : ""}。請依證據（詞彙、API、目錄、${samples.length ? "抽樣程式碼" : "子群組成"}）為它命名並寫描述。禁止發明没讀過的細節；把握不足就在 description 說明是依骨架推論。
+回答只有一個 \`\`\`json fence，欄位：name（繁中功能命名）、description（2-3 句邊界與組成）、bizLogic（3-6 句規則與資料流，可短不可空）、tags（english lowercase，3-6 個）。
+
+--- SKELETON (machine) ---
+${stableStringify(skeleton)}
+${samples.length ? "\n--- SAMPLED CODE ---\n" + samples.join("\n\n") : ""}`;
+  const r = await callLLM({ messages: [{ role: "user", content: prompt }], temperature: 0, thinking: { type: "disabled" }, timeoutMs: 120_000 });
+  const j = _extractJson(r?.content);
+  if (!j || !_str(j.name, 80)) return null;
+  return {
+    name: _str(j.name, 80),
+    description: _str(j.description),
+    bizLogic: _str(j.bizLogic, 500) || "（直呼命名保底：bizLogic 從缺）",
+    tags: _arr(j.tags, 6),
+    enrichedBy: "direct-llm",
+  };
+}
 /** 預設 agent loop runner — 真的跑 paaw-agent-loop（core-read 工具組） */
 async function _runFeatureAgent({ systemPrompt, prompt, cwd, rootDir, model }) {
   const { runAgentLoop } = await import("./paaw-agent-loop.mjs");
@@ -261,18 +317,30 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
         + "\n\n用 read_file 實際讀程式碼（至少進入點檔 + 1-3 個核心檔），最後一輪輸出 JSON（name/description/bizLogic/tags）。";
 
       let flesh = null, last = null, turns = 0, dur = 0, usage = null;
+      const kindLabel = item.kind === "subfeature" ? "大 feature 內的穩定子群" : item.kind === "parent" ? "含穩定子群的 feature" : item.kind === "utility" ? "同型/孤兒分組（utility 級）" : "feature";
       for (let attempt = 1; attempt <= 2 && !flesh; attempt++) {
         try {
+          const strictNote = attempt > 1 ? "\n\n⚠️ 上一次輸出無法解析。這次最後一輪的回覆必須只有一個 ```json fence，四個欄位（name/description/bizLogic/tags）全部都要有，前後不要有其他文字。" : "";
           onProgress?.(`🤖 feature ${i + 1}/${workItems.length} agent loop（${item.kind}${attempt > 1 ? ` 重試#${attempt}` : ""}）：${item.apis?.[0]?.path || item.files?.[0] || ""}`);
-          const r = await agentRunner({ systemPrompt: agentTpl, prompt: userPrompt, cwd: projectRoot, rootDir: paawRoot, model });
+          const r = await agentRunner({ systemPrompt: agentTpl, prompt: userPrompt + strictNote, cwd: projectRoot, rootDir: paawRoot, model });
           enrichment.loops++; turns += r.turns || 0; dur += r.durationMs || 0;
           if (r.usage) usage = r.usage;
           flesh = _extractJson(r.content);
-          if (flesh && (!_str(flesh.name, 80) || typeof flesh.bizLogic === "undefined")) flesh = null;
+          // 2026-10-23：驗證放寬 — 只要求 name（bizLogic 缺就補空，不再整包拒絕重燒）
+          if (flesh && !_str(flesh.name, 80)) flesh = null;
+          else if (flesh && typeof flesh.bizLogic === "undefined") flesh.bizLogic = "";
           last = r;
         } catch (e) { last = { error: e.message }; }
       }
+      // 第 3 層保底（2026-10-23）：直呼 LLM 命名（決定論抽樣證據）— 要命名成功
+      if (!flesh) {
+        try {
+          onProgress?.(`🛟 feature ${i + 1}/${workItems.length} 直呼 LLM 命名保底（${kindLabel}）：${item.files?.[0] || item.groupName || ""}`);
+          flesh = await _directNameFallback({ callLLM, item, projectRoot, material, kindLabel });
+        } catch (e) { last = { error: e.message }; }
+      }
       if (!flesh) { flesh = _fallbackFlesh(item); enrichment.degraded++; }
+      else if (flesh.enrichedBy === "direct-llm") enrichment.directNamed = (enrichment.directNamed || 0) + 1;
       else enrichment.ok++;
       const _wallMs = Date.now() - _itemT0;
       part = { sig: _itemSig(item), flesh, turns: turns, durationMs: dur, wallMs: _wallMs, usage, degraded: !!flesh.degraded, finishedAt: new Date().toISOString() };
@@ -314,7 +382,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
       entryCount: item.entryCount,
       reachFiles: item.reachFiles,
       method: item.kind === "utility" ? (item.template ? "template-pattern" : "llm-grouping") : "entry-reach-jaccard",
-      enrichedBy: "agent-loop",
+      enrichedBy: fl.enrichedBy || "agent-loop",
     },
     issues: [],
     aiUnderstanding: "",
