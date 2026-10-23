@@ -237,15 +237,43 @@ function extractFileInfo(tree, filePath, language) {
       }
     }
 
-    // ── Imports (Rust) ──
+    // ── Imports (Rust) — 遞迴解 use tree（2026-10-23：Rust feature map 全空根因①）──
+    // use crate::a::b::{c, d::{e, f}}; → 每個 leaf 一條完整 module path（source = "crate::a::b::d::e"）
+    // 舊版 single regex 清洗會產生 "opentelemetry::, }" 之類壞 source（巢狀 brace 切不乾淨）。
     if (node.type === "use_declaration" && language === "rust") {
-      // use std::collections::HashMap; / use crate::util::{a, b};
-      const source = node.childForFieldName("argument")?.text || node.children.find(c => c.type !== "use" && c.type !== ";")?.text || "";
-      if (source) {
-        const clean = source.replace(/\s+/g, " ").replace(/\s*\{[^}]*\}/g, "").replace(/::\*$/, "").replace(/:+$/, "").trim();
-        const parts = clean.split("::");
-        const lastName = parts[parts.length - 1] || parts[0] || clean;
-        info.imports.push({ source: clean, names: [lastName || "use"] });
+      const isPub = !!node.children.find(c => c.type === "visibility_modifier");
+      const treeRoot = node.children.find(c => c.type !== "visibility_modifier" && c.type !== "use" && c.type !== ";");
+      const leaves = []; // { path: string[], name: string }
+      const visit = (n, prefix) => {
+        if (!n) return;
+        if (n.type === "use_list") {
+          for (const c of n.namedChildren) visit(c, prefix);
+        } else if (n.type === "scoped_use_list") {
+          // [path node..., use_list] — path 可能是 scoped_identifier / crate / self / super
+          const kids = n.namedChildren.filter(c => c.type !== "use_list");
+          const list = n.namedChildren.find(c => c.type === "use_list");
+          const head = kids.map(k => k.text).join("::");
+          if (list) visit(list, [...prefix, ...head.split("::")]);
+          else leaves.push({ path: [...prefix, ...head.split("::")], name: head.split("::").pop() });
+        } else if (n.type === "use_as_clause") {
+          const orig = n.namedChildren[0]; // identifier / scoped_identifier
+          const alias = n.namedChildren.find(c => c.type === "identifier" && c !== orig)?.text || "";
+          if (orig) leaves.push({ path: [...prefix, ...orig.text.split("::")], name: alias || orig.text.split("::").pop() });
+        } else if (n.type === "use_wildcard") {
+          // use a::*; → path 當依賴邊（wildcard 匯入整個 module）
+          if (prefix.length) leaves.push({ path: [...prefix], name: "*" });
+        } else if (n.type === "scoped_identifier" || n.type === "identifier" || n.type === "crate" || n.type === "self" || n.type === "super") {
+          const segs = n.text.split("::");
+          leaves.push({ path: [...prefix, ...segs], name: segs.pop() });
+        }
+      };
+      visit(treeRoot, []);
+      for (const leaf of leaves) {
+        if (!leaf.path.length) continue;
+        const source = leaf.path.join("::");
+        info.imports.push({ source, names: [leaf.name] });
+        // pub use = crate 對外 re-export（api 進入點素材）
+        if (isPub) info.exports.push({ kind: "value", name: leaf.name, isDefault: false });
       }
     }
 
@@ -374,16 +402,76 @@ function extractFileInfo(tree, filePath, language) {
 
     // ── Function declarations（JS/TS 專用 — Go 走上方 Go branch，避免重複 push）──
     // ── Rust functions（含 impl 內 method，由 walkNode 自然走訪）──
+    // 2026-10-23：plain pub（非 pub(crate) 等 restricted）→ exports（api 進入點素材 — Rust feature map 全空根因②）
     if (node.type === "function_item" && language === "rust") {
       const name = node.childForFieldName("name")?.text || "";
-      const params = node.childForFieldName("parameters")?.text || "";
-      if (name) info.functions.push({ name, kind: "function", async: false, params });
+      const params = node.childForFieldName("parameters")?.text || "()";
+      const vis = node.children.find(c => c.type === "visibility_modifier");
+      if (name) {
+        info.functions.push({ name, kind: "function", async: false, params });
+        if (vis && vis.text.trim() === "pub") info.exports.push({ kind: "function", name, isDefault: false });
+      }
     }
 
     // ── Rust struct/enum/trait → classes（對齊 feature-map 的 class 概念）──
     if (language === "rust" && (node.type === "struct_item" || node.type === "enum_item" || node.type === "trait_item")) {
       const name = node.childForFieldName("name")?.text || "";
-      if (name) info.classes.push({ name, methods: [] });
+      const vis = node.children.find(c => c.type === "visibility_modifier");
+      if (name) {
+        info.classes.push({ name, methods: [] });
+        if (vis && vis.text.trim() === "pub") info.exports.push({ kind: "class", name, isDefault: false });
+      }
+    }
+
+    // ── Rust routes：axum Router::new().route("/p", post(handler))（feature map 全空根因③）──
+    if (language === "rust" && node.type === "call_expression") {
+      const fnNode = node.childForFieldName("function");
+      if (fnNode?.type === "field_expression") {
+        const fld = fnNode.childForFieldName("field")?.text
+          || fnNode.namedChildren.find(c => c.type === "field_identifier")?.text || "";
+        if (fld === "route") {
+          const rargs = node.childForFieldName("arguments");
+          const pathNode = rargs?.namedChildren.find(c => c.type === "string_literal");
+          if (pathNode) {
+            const path = pathNode.text.replace(/^"/, "").replace(/"$/, "");
+            // method verb：第二個 arg 的 get(...)/post(...) 呼叫（identifier 或 axum::routing::get scoped）
+            let method = "ANY";
+            let handler = "";
+            const verbs = { get: "GET", post: "POST", put: "PUT", delete: "DELETE", patch: "PATCH", head: "HEAD", options: "OPTIONS" };
+            for (const a of rargs?.namedChildren || []) {
+              if (a.type === "call_expression") {
+                const cf = a.childForFieldName("function");
+                const verb = (cf?.text || "").split("::").pop().toLowerCase();
+                if (verb in verbs) {
+                  method = verbs[verb];
+                  const hargs = a.childForFieldName("arguments");
+                  handler = (hargs?.namedChildren[0]?.text || "").split("::").pop();
+                  break;
+                }
+              }
+            }
+            info.routes.push({ method, path, handler });
+          }
+        }
+      }
+    }
+
+    // ── Rust routes：actix/rocket 屬性巨集 #[get("/p")] async fn h() {} ──
+    if (language === "rust" && node.type === "attribute_item") {
+      const attr = node.namedChildren.find(c => c.type === "attribute");
+      const verbId = attr?.namedChildren.find(c => c.type === "identifier" || c.type === "scoped_identifier");
+      const verbs = { get: "GET", post: "POST", put: "PUT", delete: "DELETE", patch: "PATCH", head: "HEAD", options: "OPTIONS" };
+      const verb = (verbId?.text || "").split("::").pop().toLowerCase();
+      if (verb in verbs) {
+        let pathNode = null;
+        const scan = (n) => { if (pathNode) return; if (n.type === "string_literal") { pathNode = n; return; } for (let i = 0; i < n.namedChildCount; i++) scan(n.namedChild(i)); };
+        if (attr) scan(attr);
+        if (pathNode) {
+          const nxt = node.nextNamedSibling;
+          const handler = nxt?.type === "function_item" ? (nxt.childForFieldName("name")?.text || "") : "";
+          info.routes.push({ method: verbs[verb], path: pathNode.text.replace(/^"/, "").replace(/"$/, ""), handler });
+        }
+      }
     }
 
     if (node.type === "function_declaration" && language !== "go") {

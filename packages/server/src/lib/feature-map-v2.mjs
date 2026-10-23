@@ -101,13 +101,15 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
   const dm = buildDeterministicFeatureMap(parsed);
   onProgress?.(`骨架完成：${dm.stats.clusters} clusters / ${dm.stats.shared} shared / ${dm.stats.orphans} orphans（零 token）`);
 
-  if (dm.features.length === 0) {
-    const meta = { method: "deterministic-v2", scannedAt: new Date().toISOString(), stats: dm.stats, shared: dm.shared, orphans: dm.orphans, note: "No entry points found (no routes/ui/public api) — 無法決定論抽取，請人工或 LLM utility 模式" };
+  if (dm.features.length === 0 && dm.orphans.length === 0) {
+    const meta = { method: "deterministic-v2", scannedAt: new Date().toISOString(), stats: dm.stats, shared: dm.shared, orphans: dm.orphans, note: "空 repo（無 source 檔可分析）— features 為空是正確結果" };
     const featuresDir = join(projectRoot, ".paaw", "features");
     mkdirSync(featuresDir, { recursive: true });
     writeFileSync(join(featuresDir, "FEATURE-MAP-META.json"), JSON.stringify(meta, null, 2));
     return { features: [], meta };
   }
+  // 2026-10-23 Fleming 回報 Rust 專案「跑完但空 map」：舊版在 features=0（Rust 無 route/ui/pub 偵測時）
+  // 直接 early return 空 map，連 LLM orphan utility 分組都沒跑。現在有 orphans 就繼續走分組管線。
 
   // ── prompt 模板：agent 段 + orphan 段（同檔案，ORPHAN-SPLIT 分隔）──
   const template = _loadTemplate(projectRoot);
@@ -120,7 +122,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
     onProgress?.(`Orphan 分組（${dm.orphans.length} 檔，單次小 call）...`);
     try {
       const res = await callLLM({
-        messages: [{ role: "user", content: orphanTpl + "\n\n--- ORPHAN FILES ---\n" + JSON.stringify(dm.orphans.slice(0, 120)) }],
+        messages: [{ role: "user", content: orphanTpl + "\n\n--- ORPHAN FILES ---\n" + JSON.stringify(dm.orphans.slice(0, 400)) }],
         temperature: 0,
         thinking: { type: "disabled" },
         timeoutMs: 300_000,
@@ -136,6 +138,22 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
         }
       }
     } catch (e) { onProgress?.(`Orphan 分組失敗（略過，孤兒留在 meta）: ${e.message}`); }
+  }
+
+  // 決定論保底（2026-10-23）：LLM 分組沒跑成（沒模板/呼叫失敗/回應不可解析）而有孤兒時，
+  // 依頂層目錄分組 — 骨架仍然是數學（字典序固定），肉照樣交 agent loop 長。map 永不為空。
+  if (orphanGroups.length === 0 && dm.orphans.length > 0) {
+    const byTop = new Map();
+    for (const f of dm.orphans) {
+      const segs = f.split("/");
+      const top = segs.length > 1 ? segs[0] : "(root)";
+      if (!byTop.has(top)) byTop.set(top, []);
+      byTop.get(top).push(f);
+    }
+    for (const [top, files] of [...byTop.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+      orphanGroups.push({ name: `${top}（目錄自動分組）`, description: `LLM 分組未執行，依頂層目錄 ${top}/ 機械分組（共 ${files.length} 檔）。`, files: files.slice(0, 60) });
+    }
+    onProgress?.(`Orphan LLM 分組未產出 — 改用目錄決定論分組（${orphanGroups.length} 組）`);
   }
 
   // ── 4. work items：每個 feature 一個獨立 agent loop ──

@@ -22,7 +22,7 @@ import { join, dirname, resolve as resolvePath } from "path";
 // 對齊 test-intelligence.mjs 的判定：basename 慣例 + tests/__tests__ 目錄
 // ─────────────────────────────────────────────
 const TEST_DIR_RE = /(^|\/)(tests?|__tests__|spec)\//i;
-const TEST_BASE_RE = /\.(test|spec|e2e|integration)\.(js|mjs|cjs|jsx|ts|tsx|py|rb|go|java)$|(^|_|-)test[_-][^.]+\.(js|mjs|cjs|jsx|ts|tsx|py|go|java)$|(^|_)[^\/]+_test\.(go|py)$/i;
+const TEST_BASE_RE = /\.(test|spec|e2e|integration)\.(js|mjs|cjs|jsx|ts|tsx|py|rb|go|java|rs)$|(^|_|-)test[_-][^.]+\.(js|mjs|cjs|jsx|ts|tsx|py|go|java|rs)$|(^|_)[^\/]+_test\.(go|py|rs)$/i;
 
 /** 測試檔不是 feature 錨點、不做 feature 歸屬 — 決定論映射到它測的 feature */
 export function isTestFile(p) {
@@ -75,6 +75,97 @@ function _resolveRelative(fromFile, source, fileSet) {
   }
   if (fileSet.has(base + "/__init__.py")) return base + "/__init__.py";
   return null;
+}
+
+// ─────────────────────────────────────────────
+// 1b. Rust module path 解析（2026-10-23：Rust feature map 全空根因④ — use crate::… 邊全懸空）
+// crate::/self::/super:: 依 Rust 模組慣例（src/ 根、mod.rs、2018 檔案模組）；
+// 其他（workspace crate 名 / 外部套件）→ 正規化（_↔-、::→/）尾碼比對。
+// 嘗試順序固定（長→短）= 決定論。
+// ─────────────────────────────────────────────
+/** 檔案 → 所屬 crate 的 src 根目錄（repo-relative；無 /src/ 用檔案所在目錄） */
+function _rustCrateSrcRoot(filePath) {
+  const segs = filePath.replace(/\\/g, "/").split("/");
+  segs.pop(); // 檔名
+  // 由深到淺找最後一個 "src" 段 — src/lib.rs、src/main.rs 是 crate 根
+  for (let i = segs.length - 1; i >= 1; i--) {
+    if (segs[i] === "src") return segs.slice(0, i + 1);
+  }
+  return segs;
+}
+
+/** 檔案 → 自身 module 目錄（src/a/b.rs → src/a；src/a/mod.rs → src/a；src/a/b/mod.rs → src/a/b） */
+function _rustModuleDir(filePath) {
+  const segs = filePath.replace(/\\/g, "/").split("/");
+  const base = segs.pop() || "";
+  if (base === "mod.rs" || base === "lib.rs" || base === "main.rs") return segs;
+  segs.push(base.replace(/\.rs$/, ""));
+  return segs;
+}
+
+/** 候選模組路徑（長→短）逐一試 .rs / mod.rs；回 repo-relative 檔案或 null */
+function _rustTryModule(dirSegs, modSegs, fileSet) {
+  for (let take = modSegs.length; take >= 1; take--) {
+    const path1 = [...dirSegs, ...modSegs.slice(0, take)].join("/") + ".rs";
+    const path2 = [...dirSegs, ...modSegs.slice(0, take), "mod.rs"].join("/");
+    if (fileSet.has(path1)) return path1;
+    if (fileSet.has(path2)) return path2;
+  }
+  return null;
+}
+
+/** 正規化 module path 尾碼比對（ai_gateway::app ↔ ai-gateway/src/app.rs；_↔- 相容） */
+function _resolveRustBySuffix(segs, fileSet) {
+  if (!fileSet._rustModIndex) {
+    const idx = new Map(); // 正規化 module path key → file（歧義 key 直接丟 — 寧可 miss 不猜錯）
+    const put = (key, file) => {
+      if (!key) return;
+      if (idx.has(key) && idx.get(key) !== file) { idx.set(key, null); return; } // 撞號 → null = 歧義
+      idx.set(key, file);
+    };
+    for (const p of [...fileSet].sort()) {
+      if (!p.endsWith(".rs")) continue;
+      const parts = p.replace(/\\/g, "/").split("/");
+      const base = parts.pop();
+      const isRoot = base === "mod.rs" || base === "lib.rs" || base === "main.rs";
+      if (parts[parts.length - 1] === "src") parts.pop(); // src/ 不是 module path 的一部分
+      if (isRoot) {
+        // crate 根（ai-gateway/src/lib.rs → ai_gateway）+ 各長度尾碼鍵
+        const normParts = parts.map(x => x.replace(/-/g, "_"));
+        for (let i = 0; i < normParts.length; i++) put(normParts.slice(i).join("::"), p);
+        continue;
+      }
+      const normParts = [...parts, base.replace(/\.rs$/, "")].map(x => x.replace(/-/g, "_"));
+      // 全長 + 尾碼（crates/mock-server/src/routes/openai.rs → mock_server::routes::openai 等）
+      for (let i = 0; i < normParts.length; i++) put(normParts.slice(i).join("::"), p);
+    }
+    fileSet._rustModIndex = idx; // Set 上掛 cache（同一 buildCodeGraph 生命週期）
+  }
+  const idx = fileSet._rustModIndex;
+  for (let take = segs.length; take >= 1; take--) {
+    const key = segs.slice(0, take).join("::");
+    if (idx.has(key)) return idx.get(key);
+  }
+  return null;
+}
+
+function _resolveRustPath(fromFile, source, fileSet) {
+  const segs = String(source || "").split("::").filter(Boolean);
+  if (!segs.length) return null;
+  const first = segs[0];
+  if (first === "crate") {
+    return _rustTryModule(_rustCrateSrcRoot(fromFile), segs.slice(1), fileSet);
+  }
+  if (first === "self") {
+    return _rustTryModule(_rustModuleDir(fromFile), segs.slice(1), fileSet);
+  }
+  if (first === "super") {
+    const modDir = _rustModuleDir(fromFile);
+    modDir.pop(); // 上一層 module
+    return _rustTryModule(modDir, segs.slice(1), fileSet);
+  }
+  // std / serde 等外部套件 → 尾碼比對自然 miss（repo 內無此 module path）→ null
+  return _resolveRustBySuffix(segs, fileSet);
 }
 
 function _resolveBySuffix(source, fileSet, suffixDirs) {
@@ -130,6 +221,10 @@ export function buildCodeGraph(parsed) {
       let target = null;
       if (src.startsWith(".") || src.startsWith("/")) {
         target = _resolveRelative(p, src, fileSet);
+      }
+      if (!target && f.language === "rust") {
+        // Rust：use crate::… / self:: / super:: / workspace crate 名（:: 不是 /，須專屬解析）
+        target = _resolveRustPath(p, src, fileSet);
       }
       if (!target && !src.startsWith(".") && (f.language === "go" || f.language === "java")) {
         // Go: github.com/x/repo/internal/db；Java: com.x.y.Z
@@ -217,23 +312,43 @@ export function extractEntryPoints(graph) {
       for (const e of f.exports || []) {
         if (e?.name && e.kind !== "value") entries.push({ kind: "api", file: p, name: String(e.name) });
       }
-    } else if (f.language === "python" && !base.startsWith("_") && !isTest && (f.exports || []).length > 0) {
-      entries.push({ kind: "api", file: p, name: base.replace(/\.py$/, "") });
+    } else if ((f.language === "python" || f.language === "rust") && !base.startsWith("_") && !isTest && (f.exports || []).length > 0) {
+      entries.push({ kind: "api", file: p, name: base.replace(/\.(py|rs)$/, "") });
     }
   }
   // 排序固定（決定論）：kind → file → method/path/name
   entries.sort((a, b) => (a.kind + "|" + a.file + "|" + (a.method || "") + (a.path || "") + (a.name || ""))
     .localeCompare(b.kind + "|" + b.file + "|" + (b.method || "") + (b.path || "") + (b.name || "")));
-  // Barrel 過濾：專案有真進入點（http/ui）時，api-kind 進入點全丟
+  // Barrel 過濾：有真進入點（http/ui）的群組，api-kind 進入點丟掉
   // （index.ts re-export、Python 公開 def、Go 大寫函式 — 在 web 服務裡都是內部實作不是 feature 錨點；
   //   gateway 實測 9 個 index.ts 假 cluster；純函式庫（requests）才留 api 當進入點）
-  const hasRealEntries = entries.some(e => e.kind === "http" || e.kind === "ui");
-  if (hasRealEntries) return entries.filter(e => e.kind !== "api");
-  // 純函式庫：有非 barrel 的 api 進入點時，__init__/index 的 re-export 出口也丟
-  // （否則 barrel reachable-everything 把全 library 黏成一群 — requests 實測）
-  const hasModuleApi = entries.some(e => e.kind === "api" && !/^(|.*\/)(index|mod|__init__)\.(ts|tsx|js|mjs|py)$/.test(e.file));
-  if (hasModuleApi) return entries.filter(e => !(e.kind === "api" && /^(|.*\/)(index|mod|__init__)\.(ts|tsx|js|mjs|py)$/.test(e.file)));
-  return entries;
+  // 2026-10-23：改 per-crate — Rust workspace 裡某 crate 有 axum route 不該連坐丟掉
+  // 其他 crate（binary gateway）的 pub API 進入點（ai-gateway 實測：全域過濾讓 165 檔全孤兒）。
+  // 非 Rust 檔一律同一群（""）→ 行為與舊版全域過濾完全相同（tPAAW baseline 不變）。
+  const BARREL_API_RE = /^(|.*\/)(index|mod|__init__)\.(ts|tsx|js|mjs|py)$|^(|.*\/)(lib|main|mod)\.rs$/;
+  const crateGroupOf = (file) => {
+    if (!file.endsWith(".rs")) return "";
+    const segs = file.split("/");
+    const i = segs.lastIndexOf("src");
+    return i > 0 ? segs.slice(0, i).join("/") : "";
+  };
+  const byGroup = new Map();
+  for (const e of entries) {
+    const g = crateGroupOf(e.file);
+    if (!byGroup.has(g)) byGroup.set(g, []);
+    byGroup.get(g).push(e);
+  }
+  const out = [];
+  for (const [, list] of [...byGroup.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const hasReal = list.some(e => e.kind === "http" || e.kind === "ui");
+    if (hasReal) { out.push(...list.filter(e => e.kind !== "api")); continue; }
+    // 純 library 群組：有非 barrel 的 api 進入點時，barrel（index/__init__/lib.rs）re-export 出口丟
+    // （否則 barrel reachable-everything 把全 library 黏成一群 — requests 實測）
+    const hasModuleApi = list.some(e => e.kind === "api" && !BARREL_API_RE.test(e.file));
+    if (hasModuleApi) out.push(...list.filter(e => !(e.kind === "api" && BARREL_API_RE.test(e.file))));
+    else out.push(...list);
+  }
+  return out;
 }
 
 // ─────────────────────────────────────────────
