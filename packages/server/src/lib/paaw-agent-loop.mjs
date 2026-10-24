@@ -5095,6 +5095,12 @@ export async function runAgentLoop(config) {
   let emptyRetryCount = 0;
   let _totalUsage = { prompt: 0, completion: 0, total: 0 };
 
+  // ── 2026-10-24 doom-loop 修復：壓縮冷卻 ──
+  // 壓完仍超預算（tail squeeze 也救不回）→ 訊息數比上次壓縮多 ≥6 則才准再壓；
+  // 否則每步都重壓（每步多一次 30s 級全額摘要 call + 打壞 prompt cache）。
+  let _lastCompactMsgCount = -1;
+  let _lastCompactStillOver = false;
+
   for (let i = 0; i < effectiveMaxTurns; i++) {
     // Check abort signal (user interrupt)
     if (abortSignal?.aborted) {
@@ -5125,18 +5131,25 @@ export async function runAgentLoop(config) {
     if (onEvent) onEvent({ type: "turn_start", turn: i + 1 });
 
     // ── Auto-compaction: if context is getting full, summarize older messages via LLM ──
-    if (i > 0 && i % 2 === 0) { // check every 3 turns
-      const compactResult = await compactIfNeeded(messages, {
-        apiUrl: llm.apiUrl,
-        headers: llm.headers,
-        model: llm.model,
-        contextWindow: llm.contextWindow || DEFAULT_CONTEXT_WINDOW,
-        maxTokens: llm.maxTokens,
-      }, { originalPrompt: prompt, onEvent });
-      if (compactResult.compacted) {
-        // Replace messages array contents in-place
-        messages.length = 0;
-        messages.push(...compactResult.messages);
+    if (i > 0 && i % 2 === 0) { // check every 2 turns
+      const compactCooldown = _lastCompactStillOver && (messages.length - _lastCompactMsgCount) < 6;
+      if (compactCooldown) {
+        console.log(`[compaction] Cooldown: last compaction still over budget, +${messages.length - _lastCompactMsgCount}/6 new msgs — skip`);
+      } else {
+        const compactResult = await compactIfNeeded(messages, {
+          apiUrl: llm.apiUrl,
+          headers: llm.headers,
+          model: llm.model,
+          contextWindow: llm.contextWindow || DEFAULT_CONTEXT_WINDOW,
+          maxTokens: llm.maxTokens,
+        }, { originalPrompt: prompt, onEvent });
+        if (compactResult.compacted) {
+          // Replace messages array contents in-place
+          messages.length = 0;
+          messages.push(...compactResult.messages);
+          _lastCompactMsgCount = messages.length;
+          _lastCompactStillOver = compactResult.stats?.stillOverBudget === true;
+        }
       }
     }
 

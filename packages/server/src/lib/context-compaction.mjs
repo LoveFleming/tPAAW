@@ -38,6 +38,19 @@ const MIN_MESSAGES_FOR_COMPACTION = 8;
 /** Max tokens for the summary itself */
 const MAX_SUMMARY_TOKENS = 2048;
 
+/** 2026-10-24 doom-loop 修復：compaction 預算的輸出預留上限 —
+ * max_tokens 再大，預算計算最多只保留這麼多。實測 agent 步輸出 <3k tokens；
+ * glm-5.1 maxTokens=65536 曾把 128k context 的 prompt 預算砍剩 62k，
+ * tail 永遠裝不下 → 每步重壓縮（每步多一次 30s 全額摘要 call + 打壞 prompt cache）。 */
+const COMPACT_RESERVE_CAP = 32768;
+
+/** 估算保險係數：內部估算 vs API 實收常差 ~10%（tool result / 格式 overhead）—
+ * 低估會讓 tail 保護區膨脹失真，用 1.15 收斂 */
+const ESTIMATE_FUDGE = 1.15;
+
+/** tail squeeze 時 tail 至少保留的訊息數（最後這幾則永遠不丟） */
+const TAIL_KEEP_MIN = 8;
+
 /** Default model for summarization (cheap/fast) */
 const DEFAULT_SUMMARY_MODEL = "deepseek-chat";
 
@@ -70,6 +83,16 @@ export function estimateMessageTokens(messages) {
   return total;
 }
 
+/** 保守估算（2026-10-24）：預算決策專用 — 乘保險係數收斂低估 */
+export function estimateMessageTokensConservative(messages) {
+  return Math.ceil(estimateMessageTokens(messages) * ESTIMATE_FUDGE);
+}
+
+/** Compaction 預算的輸出預留（2026-10-24 doom-loop 修復）：contextWindow − min(maxTokens, cap) */
+export function compactBudget(contextWindow, maxOutputTokens) {
+  return contextWindow - Math.min(maxOutputTokens, COMPACT_RESERVE_CAP);
+}
+
 // ── Compaction Decision ──
 
 /**
@@ -80,8 +103,8 @@ export function estimateMessageTokens(messages) {
  * @returns {{ shouldCompact: boolean, currentTokens: number, budget: number, reason: string }}
  */
 export function shouldCompact(messages, contextWindow, maxOutputTokens = 16384) {
-  const currentTokens = estimateMessageTokens(messages);
-  const budget = contextWindow - maxOutputTokens;
+  const currentTokens = estimateMessageTokensConservative(messages);
+  const budget = compactBudget(contextWindow, maxOutputTokens);
   const triggerThreshold = Math.floor(budget * COMPACTION_TRIGGER_RATIO);
 
   if (currentTokens > budget) {
@@ -137,14 +160,14 @@ export function partitionMessages(messages, contextWindow, maxOutputTokens = 163
   }
 
   // Calculate tail budget: keep recent messages that fit in TAIL_KEEP_RATIO of context
-  const tailTokenBudget = Math.floor((contextWindow - maxOutputTokens) * TAIL_KEEP_RATIO);
+  const tailTokenBudget = Math.floor(compactBudget(contextWindow, maxOutputTokens) * TAIL_KEEP_RATIO);
   const tail = [];
   let tailTokens = 0;
 
-  // Walk backwards from end, accumulating tail
+  // Walk backwards from end, accumulating tail（保守估算 — 低估會讓 tail 膨脹失真）
   let tailStart = messages.length;
   for (let i = messages.length - 1; i >= idx; i--) {
-    const msgTokens = estimateMessageTokens([messages[i]]);
+    const msgTokens = estimateMessageTokensConservative([messages[i]]);
     if (tailTokens + msgTokens > tailTokenBudget && tail.length >= 6) {
       break;
     }
@@ -201,6 +224,7 @@ Output a structured summary in markdown:`;
     const response = await fetch(llmConfig.apiUrl, {
       method: "POST",
       headers: llmConfig.headers,
+      signal: AbortSignal.timeout(120_000), // 2026-10-24：摘要卡死不葬整個 agent run
       body: stableStringify({
         model: llmConfig.model,
         messages: [
@@ -217,7 +241,8 @@ Output a structured summary in markdown:`;
     }
 
     const data = await response.json();
-    const summary = data.choices?.[0]?.message?.content;
+    // 2026-10-24：zai coding 端點 thinking 模型偶爾把成品放 reasoning_content、content 回空 → 兩邊都看
+    const summary = data.choices?.[0]?.message?.content || data.choices?.[0]?.message?.reasoning_content;
 
     if (!summary || summary.length < 50) {
       throw new Error("Summary too short or empty");
@@ -277,6 +302,36 @@ export async function compactIfNeeded(messages, llmConfig, opts = {}) {
   const { head, compactable, tail } = partitionMessages(messages, contextWindow, maxOutputTokens);
 
   if (compactable.length < 4) {
+    // 2026-10-24：overflow 但中段沒得壓（tail 吃光中段 / head+tail 本身就超）→
+    // 不早退！直接 tail squeeze（無摘要 — 沒東西可摘要），否則溢出永遠没人處理。
+    if (decision.reason.startsWith("overflow")) {
+      const marker = {
+        role: "system",
+        content: `📋 [Auto-compaction: context overflow — middle too small to summarize (${messages.length} messages). Oldest recent messages dropped below to fit budget.]`,
+      };
+      let finalMessages = [...head, marker, ...tail];
+      const prefixLen = head.length + 1;
+      let tailSqueezed = 0;
+      while (finalMessages.length > prefixLen + TAIL_KEEP_MIN &&
+             estimateMessageTokensConservative(finalMessages) > decision.budget) {
+        finalMessages.splice(prefixLen, 1);
+        tailSqueezed++;
+      }
+      if (tailSqueezed === 0) {
+        return { messages, compacted: false, summary: null, stats: { currentTokens: decision.currentTokens, budget: decision.budget, reason: "overflow but nothing squeezable" } };
+      }
+      finalMessages = _fixOrphanToolRefs(finalMessages);
+      const afterTokens = estimateMessageTokensConservative(finalMessages);
+      const stillOverBudget = afterTokens > decision.budget;
+      console.log(`[compaction] Overflow-only squeeze (no middle to summarize): dropped ${tailSqueezed} tail msgs, est ${decision.currentTokens} → ~${afterTokens}${stillOverBudget ? " STILL OVER" : ""}`);
+      if (onEvent) onEvent({ type: "info", message: `✅ 壓縮完成：丢棄 ${tailSqueezed} 則較舊訊息以符合 context 預算` });
+      return {
+        messages: finalMessages,
+        compacted: true,
+        summary: null,
+        stats: { beforeTokens: decision.currentTokens, afterTokens, savedTokens: decision.currentTokens - afterTokens, messagesBefore: messages.length, messagesAfter: finalMessages.length, compactedCount: 0, tailSqueezed, stillOverBudget },
+      };
+    }
     // Not enough to compact
     return {
       messages,
@@ -315,18 +370,54 @@ export async function compactIfNeeded(messages, llmConfig, opts = {}) {
 
   const compactedMessages = [...head, summaryMsg, ...tail];
 
-  const afterTokens = estimateMessageTokens(compactedMessages);
+  // ── 收尾自檢（2026-10-24 doom-loop 修復）：壓完仍超預算 → tail 前端讓位 ──
+  // 中段榨不出空間時，最舊的 tail 訊息（多為大型 tool result）也要丟，
+  // 否則永遠壓不進預算 → 每步重觸發 compaction（每步多一次全額摘要 call + 打壞 prompt cache）。
+  // 直接丟訊息、不再叫 LLM；保留最後 TAIL_KEEP_MIN 則；tool 配對完整性事後修復。
+  let finalMessages = compactedMessages;
+  let tailSqueezed = 0;
+  if (estimateMessageTokensConservative(finalMessages) > decision.budget) {
+    const prefixLen = head.length + 1; // head + summaryMsg
+    while (finalMessages.length > prefixLen + TAIL_KEEP_MIN &&
+           estimateMessageTokensConservative(finalMessages) > decision.budget) {
+      finalMessages.splice(prefixLen, 1); // tail 最舊端
+      tailSqueezed++;
+    }
+    if (tailSqueezed > 0) {
+      finalMessages = _fixOrphanToolRefs(finalMessages);
+      // 在 summary 訊息補記丟棄數（模型要知道中間有洞）
+      const sIdx = head.length;
+      finalMessages[sIdx] = {
+        ...finalMessages[sIdx],
+        content: finalMessages[sIdx].content + `\n\n[Additionally, ${tailSqueezed} older recent messages were dropped to fit the context window.]`,
+      };
+      console.log(`[compaction] Tail squeeze: dropped ${tailSqueezed} oldest tail messages to fit budget`);
+    }
+  }
+
+  // ── 2026-10-24 順手修：孤兒 tool 配對防護（無條件跑）——
+  // partition 可能把 tool result 劃進 tail、它的 assistant tool_call 卻在中段被摘要掉
+  // → 壓完出現孤兒 tool 訊息（OpenAI 格式嚴格端點會 400）。摘要/丢棄後一律修復。─
+  const beforeFixup = finalMessages.length;
+  finalMessages = _fixOrphanToolRefs(finalMessages);
+  if (finalMessages.length !== beforeFixup) {
+    console.log(`[compaction] Orphan tool refs fixed: ${beforeFixup} → ${finalMessages.length} msgs`);
+  }
+
+  const stillOverBudget = estimateMessageTokensConservative(finalMessages) > decision.budget;
+
+  const afterTokens = estimateMessageTokensConservative(finalMessages);
   const savedTokens = decision.currentTokens - afterTokens;
 
-  console.log(`[compaction] Done: ${messages.length} msgs → ${compactedMessages.length} msgs (est. ${decision.currentTokens} tok → ~${afterTokens} tok, saved ~${savedTokens} tok)`);
+  console.log(`[compaction] Done: ${messages.length} msgs → ${finalMessages.length} msgs (est. ${decision.currentTokens} tok → ~${afterTokens} tok, saved ~${savedTokens} tok${stillOverBudget ? ", STILL OVER BUDGET" : ""})`);
 
   if (onEvent) onEvent({
     type: "info",
-    message: `✅ 壓縮完成：${messages.length} → ${compactedMessages.length} 訊息（省 ~${savedTokens} tokens）`,
+    message: `✅ 壓縮完成：${messages.length} → ${finalMessages.length} 訊息（省 ~${savedTokens} tokens）`,
   });
 
   return {
-    messages: compactedMessages,
+    messages: finalMessages,
     compacted: true,
     summary,
     stats: {
@@ -334,8 +425,42 @@ export async function compactIfNeeded(messages, llmConfig, opts = {}) {
       afterTokens,
       savedTokens,
       messagesBefore: messages.length,
-      messagesAfter: compactedMessages.length,
+      messagesAfter: finalMessages.length,
       compactedCount: compactable.length,
+      tailSqueezed,
+      stillOverBudget,
     },
   };
+}
+
+/** 2026-10-24：丟訊息後修復 tool 配對（OpenAI 格式 API 對孤兒會 400）—
+ * 1. tool result 的配對 assistant tool_call 被丟 → tool result 也要丟
+ * 2. assistant tool_call 的 result 被丟 → 該 tool_call 移除（訊息本體保留） */
+function _fixOrphanToolRefs(messages) {
+  // 收集「有後續 tool result」的 tool_call id（result 必須緊跟在 assistant 後）
+  const idsWithResult = new Set();
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    if (m.role === "assistant" && Array.isArray(m.tool_calls) && m.tool_calls.length) {
+      for (let j = i + 1; j < messages.length && messages[j].role === "tool"; j++) {
+        if (messages[j].tool_call_id) idsWithResult.add(messages[j].tool_call_id);
+      }
+    }
+  }
+  const out = [];
+  for (const m of messages) {
+    if (m.role === "tool") {
+      if (m.tool_call_id && idsWithResult.has(m.tool_call_id)) out.push(m);
+      continue;
+    }
+    if (Array.isArray(m.tool_calls) && m.tool_calls.length) {
+      const kept = m.tool_calls.filter(tc => idsWithResult.has(tc.id));
+      if (kept.length !== m.tool_calls.length) {
+        out.push({ ...m, ...(kept.length ? { tool_calls: kept } : {}) });
+        continue;
+      }
+    }
+    out.push(m);
+  }
+  return out;
 }
