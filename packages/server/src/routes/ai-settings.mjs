@@ -438,7 +438,7 @@ export default async function aiSettingsRoutes(req, res) {
       // workspace paths (from buildBaseContext, may already be in systemPrompt, but add cwd)
       const PAAW_R = resolve(__dirname, "../../../../");
       try {
-        const ws = JSON.parse(readSync(resolve(PAAW_R, "data/config/workspaces.json"), "utf-8"));
+        const ws = JSON.parse(readSync(resolve(PAAW_R, "data/workspaces.json"), "utf-8"));
         if (ws.directories?.length) {
           parts.push(`\n=== 檔案路徑 ===\n📖 Knowledge：使用 file_list({ workspace: "knowledge" }) 和 file_read({ workspace: "knowledge", path: "檔名" }) 透過 API 存取。\n\n使用者的 Workspace 目錄（可讀寫）：\n${ws.directories.map(d => "- " + d).join("\n")}`); // nosemgrep: missing-template-string-indicator
         }
@@ -457,7 +457,7 @@ export default async function aiSettingsRoutes(req, res) {
   // GET /api/workspaces — list workspace directories (AI can access/modify)
   if (req.method === "GET" && path === "/api/workspaces") {
     const DATA_DIR = resolve(AI_SETTINGS_ROOT, ".."); // data/
-    const wsFile = resolve(DATA_DIR, "config/workspaces.json");
+    const wsFile = resolve(DATA_DIR, "workspaces.json");
     let dirs = [];
     try {
       const ws = JSON.parse(await readFile(wsFile, "utf-8"));
@@ -482,7 +482,7 @@ export default async function aiSettingsRoutes(req, res) {
       const { directory } = JSON.parse(await readBody(req));
       if (!directory) { json(res, { error: "Missing directory" }, 400); return true; }
       const DATA_DIR = resolve(AI_SETTINGS_ROOT, "..");
-      const wsFile = resolve(DATA_DIR, "config/workspaces.json");
+      const wsFile = resolve(DATA_DIR, "workspaces.json");
       let ws = { directories: [] };
       try { ws = JSON.parse(await readFile(wsFile, "utf-8")); } catch {}
       if (!ws.directories.includes(directory)) {
@@ -500,7 +500,7 @@ export default async function aiSettingsRoutes(req, res) {
     try {
       const { directory } = JSON.parse(await readBody(req));
       const DATA_DIR = resolve(AI_SETTINGS_ROOT, "..");
-      const wsFile = resolve(DATA_DIR, "config/workspaces.json");
+      const wsFile = resolve(DATA_DIR, "workspaces.json");
       let ws = { directories: [] };
       try { ws = JSON.parse(await readFile(wsFile, "utf-8")); } catch {}
       ws.directories = ws.directories.filter(d => d !== directory);
