@@ -11,6 +11,7 @@ export const AGENT_RULES = `
 
 ### 🔒 Commit（不可違反）
 - 完成後必須 commit，message 用 Conventional Commits（type(scope): desc，英文，<72字）
+- 對話式小修也一樣：完成即直接 commit，**不要只 stage 回頭問人要不要 commit**（不分任務大小，一律照辦）
 - **絕對不允許 push** — 未經人同意不可 git push
 - 不要 amend/reset 已有的 commit，新增 commit 即可
 - Types: feat/fix/refactor/docs/test/chore/style/perf
