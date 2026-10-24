@@ -13,7 +13,7 @@ import { readFileSync, mkdirSync, existsSync, readdirSync } from "fs";
 import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
 import { resolve, join } from "path";
-import { DATA_HOME, LOG_HOME } from "../data-home.mjs";
+import { DATA_HOME, LOG_HOME, REPO_ROOT } from "../data-home.mjs";
 import { posixShellBin } from "./shell-exec.mjs";
 import { devModeOn } from "./security-mode.mjs"; // 🛠 開發模式總開關（2026-10-13）
 
@@ -183,7 +183,7 @@ export function buildMxcFsPolicy(cwd) {
     home ? join(home, ".openclaw") : null, // gateway config（含 token）
     home ? join(home, ".aws") : null,
     home ? join(home, ".gnupg") : null,
-    join(cwdReal, ".env"),
+    join(REPO_ROOT, ".env"),                    // 2026-10-24：PAAW 自身 .env（原 cwd 相對誤擋專案自己的 .env — 同族修正）
     join(DATA_HOME, "config", "providers.json"), // PAAW 自身 AI 金鑰（cwd=tPAAW 時同樣涵蓋）
   ]);
   // ⚠️ 2026-10-13（公司 Linux 第二修—cwd 變唯讀）：MXC 把這些清單變成**掛載**；若 readwrite

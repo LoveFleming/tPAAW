@@ -10,6 +10,8 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "../../..");
+// 2026-10-24 export：PAAW 自保規則（sandbox deny 等）錨定用 — 不再假設 cwd 是 PAAW root
+export { REPO_ROOT };
 
 export const DATA_HOME = process.env.PAAW_DATA_HOME
   ? resolve(process.env.PAAW_DATA_HOME)
