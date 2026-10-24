@@ -1050,7 +1050,7 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "reference_read",
-      description: "Browse and read reference files from knowledge/ and project workspace directories (read-only). Use this to find existing code examples, architecture docs, templates, and reference materials. knowledge = data/knowledge/ (project docs), workspace = project root from workspaces.json (existing source code).",
+      description: "Browse and read reference files from knowledge/ and project workspace directories (read-only). Use this to find existing code examples, architecture docs, templates, and reference materials. knowledge = data/knowledge/ (shared docs), workspace = directories declared in this project's 📁 File Mounts (data/workspaces.json; falls back to PAAW global mounts). Cross-RU reference = declare it in File Mounts first.",
       parameters: {
         type: "object",
         properties: {
@@ -1856,6 +1856,8 @@ async function runShell(command, cwd, timeoutMs = 30_000, opts = {}) {
             PAAW_APP_CONSOLE_DIR: join(LOG_HOME, "app-console", _ruSlug),
           },
           network: needsNetworkAllow(command) ? "allow" : "deny",
+          // 2026-10-24（RU 隔離模型）：File Mounts 宣告目錄 → MXC 唯讀掛載（bash 也能 RO 讀）
+          readonlyDirs: externalReadOnlyDirs,
         });
         let out = (r.stdout || "") + (r.stderr ? "\n" + r.stderr : "");
         if (r.timedOut) out += (out ? "\n" : "") + "⏱ 沙箱內逾時（MXC）";
@@ -2044,9 +2046,13 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         if (args.source === "knowledge") {
           refBase = resolve(paawRoot, "data/knowledge");
         } else {
-          // workspace: 從 workspaces.json（UI「📁 File Mounts」）挑第一個「本機存在」的目錄
+          // 2026-10-24（Fleming RU 隔離模型）：workspace 來源 = per-project workspaces.json
+          // （RU 自己宣告的 📁 File Mounts）優先；沒有才 fallback PAAW 全域那份
+          // （rootDir = PAAW root 時兩者同檔，行為不變）
           try {
-            const ws = JSON.parse(readSync(resolve(paawRoot, "data/workspaces.json"), "utf-8"));
+            const projWsPath = resolve(rootDir, "data/workspaces.json");
+            const wsPath = existsSync(projWsPath) ? projWsPath : resolve(paawRoot, "data/workspaces.json");
+            const ws = JSON.parse(readSync(wsPath, "utf-8"));
             configuredDirs = Array.isArray(ws.directories) ? ws.directories : [];
           } catch { configuredDirs = []; }
           refBase = configuredDirs.find((d) => {

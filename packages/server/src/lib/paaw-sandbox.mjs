@@ -138,7 +138,11 @@ export function needsNetworkAllow(command) {
 }
 
 // MXC filesystem policy：allowlist 模式（未列路徑 = 讀不到 — 比舊黑名單式更嚴）
-export function buildMxcFsPolicy(cwd) {
+// 2026-10-24（Fleming RU 隔離模型）：extraReadOnlyDirs = 該 RU 自己在 workspaces.json
+// 宣告的 File Mounts（唯讀參考）。傳進 MXC 掛載 → bash 也能 RO 讀宣告目錄，
+// 與 file tools / reference_read 三通道一致。照走 overlapsRw / denied 過濾：
+// 不得蓋住 cwd 寫入區；宣告目錄內的機密（providers.json 等）deny 依然優先。
+export function buildMxcFsPolicy(cwd, extraReadOnlyDirs = []) {
   // 註：匯出供單元測試（tests/unit/paaw-sandbox-mxc.test.mjs）驗證跨平台路徑過濾
   const home = process.env.HOME || process.env.USERPROFILE || "";
   const nodeDir = resolve(process.execPath, "..");
@@ -198,8 +202,16 @@ export function buildMxcFsPolicy(cwd) {
     try { return readdirSync(home).map((n) => join(home, n)); }
     catch { return [home]; }
   })();
+  // 2026-10-24：宣告目錄若「含」rw 路徑（如宣告 tPAAW 當參考，但 LOG_HOME=tPAAW/log 是 rw）
+  // → 整包 ro 會蓋掉 rw，照 homeRo 同款手法展開成子項目 ro；rw 那些子項由 overlapsRw 過濾。
+  // 宣告目錄「自身是 rw 或在 rw 底下」（如宣告 cwd 自己）→ 不展開，直接由 overlapsRw 濾掉（本來就可寫）。
+  const expandRo = (dir) => {
+    if (!readwritePaths.some((rw) => rw !== dir && inside(rw, dir))) return [dir];
+    try { return readdirSync(dir).map((n) => join(dir, n)); } catch { return [dir]; }
+  };
+  const extraRo = keep(extraReadOnlyDirs || []).flatMap(expandRo);
   const overlapsRw = (p) => readwritePaths.some((rw) => inside(p, rw) || inside(rw, p));
-  const readonlyPaths = keep([...baseReadonly, ...homeRo])
+  const readonlyPaths = keep([...baseReadonly, ...homeRo, ...extraRo])
     .filter((p) => !overlapsRw(p))
     .filter((p) => !deniedPaths.some((d) => inside(p, d)));
   return { readonlyPaths, readwritePaths, deniedPaths };
@@ -236,7 +248,7 @@ function buildMxcEnv(extraEnv = {}) {
 // 回傳 { code, stdout, stderr, timedOut, sandboxed, backend: "mxc"|"none" }
 // ⚠️ MXC 路徑不走 proc-ledger 記帳（MXC SDK 自管 timeout 殺整組）；不可用時 raw fallback。
 export async function execSandboxed(command, opts = {}) {
-  const { cwd = process.cwd(), timeoutMs = 600_000, env = {}, network = "deny" } = opts;
+  const { cwd = process.cwd(), timeoutMs = 600_000, env = {}, network = "deny", readonlyDirs = [] } = opts;
   const cap = Math.min(Number(timeoutMs) || 600_000, 900_000);
 
   if (activeBackend() === "mxc" && await mxcAvailable()) {
@@ -246,7 +258,7 @@ export async function execSandboxed(command, opts = {}) {
       const egress = network === "allow" ? "allow" : "deny";
       const child = await m.spawn({
         command: wrapForMxc(command),
-        filesystem: buildMxcFsPolicy(cwd),
+        filesystem: buildMxcFsPolicy(cwd, readonlyDirs),
         network: { egress: { default: egress } },
         timeoutMs: cap,
         workingDirectory: resolve(cwd),
