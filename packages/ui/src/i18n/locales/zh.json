@@ -1962,5 +1962,7 @@
   "toolbar.cat.engineering": "工程",
   "toolbar.cat.production": "生產",
   "toolbar.cat.quality": "品管",
-  "toolbar.cat.delivery": "出貨"
+  "toolbar.cat.delivery": "出貨",
+  "coding.toolLogToggle": "展開 / 收起完整指令",
+  "coding.toolLogHiddenLines": "{n} 行省略"
 }

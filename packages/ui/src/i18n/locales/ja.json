@@ -1962,5 +1962,7 @@
   "toolbar.cat.engineering": "設計",
   "toolbar.cat.production": "生産",
   "toolbar.cat.quality": "品質",
-  "toolbar.cat.delivery": "出荷"
+  "toolbar.cat.delivery": "出荷",
+  "coding.toolLogToggle": "コマンド全文の表示切替",
+  "coding.toolLogHiddenLines": "{n} 行を省略"
 }

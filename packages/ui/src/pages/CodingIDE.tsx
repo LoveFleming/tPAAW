@@ -67,6 +67,43 @@ import SecurityTab from "../components/SecurityTab";
 import { pasteMayContainImage, extractPasteFiles } from "../utils/pasteFiles";
 import FileViewer from "../pages/FileViewer";
 import { uiAlert, uiAlertError, uiConfirm } from "../components/ui/uiFeedback";
+// ┚ Tool Log 列（2026-10-24 Fleming：長指令摺疊、只顯示前後摘要 — heredoc 整段攤開看不到 agent 在幹嘛）
+function ToolLogRow({ name, args, running }: { name: string; args: string; running: boolean }) {
+  const { t: tt } = useI18n();
+  const [open, setOpen] = useState(false);
+  // 從 args JSON 抽人類可讀重點：bash → command，其他 → path/file/pattern/query
+  let detail = args;
+  try {
+    const o = JSON.parse(args);
+    detail = o?.command || o?.path || o?.file || o?.pattern || o?.query || args;
+  } catch { /* 非 JSON 原樣 */ }
+  const lines = detail.split("\n");
+  const isLong = detail.length > 140 || lines.length > 3;
+  const head = lines[0].slice(0, 100);
+  const tail = lines[lines.length - 1].slice(-60);
+  const hidden = lines.length - 2;
+  return (
+    <div className="text-[10px]">
+      <div className="flex items-center gap-1.5">
+        <span className={running ? "text-blue-400 animate-pulse" : "text-green-500"}>{running ? "⏳" : "✓"}</span>
+        <span className="font-mono text-stone-600">{name}</span>
+        {!isLong ? (
+          <span className="text-stone-400 truncate max-w-[480px]" title={detail}>{detail}</span>
+        ) : open ? (
+          <button onClick={() => setOpen(false)} className="text-stone-500 hover:text-stone-700 font-mono">▾ {tt("coding.toolLogToggle")}</button>
+        ) : (
+          <button onClick={() => setOpen(true)} className="text-left text-stone-400 hover:text-stone-600 max-w-[480px] font-mono" title={tt("coding.toolLogToggle")}>
+            {head} <span className="text-amber-500">⋯{tt("coding.toolLogHiddenLines").replace("{n}", String(hidden))}⋯</span> {tail}
+          </button>
+        )}
+      </div>
+      {open && (
+        <pre className="mt-1 ml-6 p-2 rounded bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 whitespace-pre-wrap break-all max-h-56 overflow-auto font-mono text-[10px]">{detail}</pre>
+      )}
+    </div>
+  );
+}
+
 
 // crewId → a2a agentId（chat 發送與 stream-state 重連共用 — 2026-09-11）
 const CREW_TO_AGENT: Record<string, string> = {
@@ -3758,13 +3795,7 @@ const sendChat = useCallback(async () => {
                       {(() => { const m = crewAgentRunMeta[activeCrew]; return m ? <span className="ml-2 font-mono font-normal text-stone-500">{m.agent} · {new Date(m.startedAt).toLocaleTimeString("zh-TW", { hour12: false })} · {agentToolLog.length} calls</span> : null; })()}
                     </div>
                     {agentToolLog.slice(-8).map((t, i) => (
-                      <div key={i} className="flex items-center gap-1.5 text-[10px]">
-                        <span className={t.result !== "..." ? "text-green-500" : "text-blue-400 animate-pulse"}>
-                          {t.result !== "..." ? "✓" : "⏳"}
-                        </span>
-                        <span className="font-mono text-stone-600">{t.name}</span>
-                        <span className="text-stone-400 truncate max-w-[480px]" title={t.args}>{t.args}</span>
-                      </div>
+                      <ToolLogRow key={i} name={t.name} args={t.args} running={t.result === "..."} />
                     ))}
                   </div>
                 )}

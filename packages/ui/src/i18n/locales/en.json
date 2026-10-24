@@ -1962,5 +1962,7 @@
   "toolbar.cat.engineering": "Engineering",
   "toolbar.cat.production": "Production",
   "toolbar.cat.quality": "Quality",
-  "toolbar.cat.delivery": "Delivery"
+  "toolbar.cat.delivery": "Delivery",
+  "coding.toolLogToggle": "Show / hide full command",
+  "coding.toolLogHiddenLines": "{n} lines hidden"
 }

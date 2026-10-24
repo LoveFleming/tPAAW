@@ -14,6 +14,7 @@ import { fileURLToPath } from "url";
 import { randomUUID } from "crypto";
 import os from "os";
 import { ASSET_LOGS_ROOT } from "../data-home.mjs";
+import { needsNetworkAllow } from "./paaw-sandbox.mjs"; // 2026-10-24：歸因要跟上 egress 判定（單向依賴，paaw-sandbox 不 import 本檔）
 import { runContextALS } from "./proc-ledger.mjs";
 
 const AUDIT_DIR = join(ASSET_LOGS_ROOT, "audit");
@@ -258,6 +259,10 @@ export function scanCommandOutput({ command, output, allowedDomains, agentId, cw
   if (
     hosts.length === 0 && netFailed && sandboxActive && !failureHostLooksAllowed &&
     NET_HINT_RE.test(String(command || "")) &&
+    // 2026-10-24：egress 已 allow 的指令（python3/node/npm/curl… — needsNetworkAllow）失敗 =
+    // 真網路問題（服務沒開/斷網/DNS），不是沙箱白名單擋的 — 不歸因、不叫人去設白名單
+    // （案例：sed + python3 verify-patch-options.py 誤判案例，21:21 Fleming 報案）
+    !needsNetworkAllow(String(command || "")) &&
     !LOCAL_RE.test(String(command || "")) && !LOCAL_RE.test(out)
   ) {
     if (audit) logAuditEvent({ kind: "network_block", severity: "warn", tool, command, reason: `對外連線失敗（未能從指令解析出網域）— 疑似沙箱網路白名單阻擋（exit=${exitCode ?? "?"}）`, detail: { exitCode, outputTail: out.slice(-600) }, agentId, cwd });
