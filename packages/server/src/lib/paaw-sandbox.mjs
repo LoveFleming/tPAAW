@@ -174,13 +174,17 @@ export function buildMxcFsPolicy(cwd) {
     home ? join(home, ".cargo") : null,        // cargo 下載快取
   ]);
   // 機密一律擋（同舊 srt 黑名單語意；MXC 無 glob — 列具體路徑，default-deny 已保底其餘）
+  // 2026-10-24 修正：providers.json 改掛 DATA_HOME（PAAW 自身金鑰）而非 cwd —
+  // 舊規則寫在 cwd 相對，源於 coding agent 只在 tPAAW 內工作的時代；如今 RU 是獨立專案
+  // （learning-space 的 data/config/providers.json 進 git by design、是專案資產），
+  // 舊規則會誤擋每個專案自己的設定檔（TASK-033 修 vision 被 EPERM 案例）。
   const deniedPaths = keep([
     home ? join(home, ".ssh") : null,
     home ? join(home, ".openclaw") : null, // gateway config（含 token）
     home ? join(home, ".aws") : null,
     home ? join(home, ".gnupg") : null,
     join(cwdReal, ".env"),
-    join(cwdReal, "data", "config", "providers.json"), // PAAW AI 金鑰
+    join(DATA_HOME, "config", "providers.json"), // PAAW 自身 AI 金鑰（cwd=tPAAW 時同樣涵蓋）
   ]);
   // ⚠️ 2026-10-13（公司 Linux 第二修—cwd 變唯讀）：MXC 把這些清單變成**掛載**；若 readwrite
   // 路徑落在某個 readonly 路徑底下（或同一路徑同時在兩邊），後套用的 ro 掛載會蓋掉 rw
