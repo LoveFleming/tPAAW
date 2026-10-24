@@ -37,7 +37,10 @@ describe("needsNetworkAllow（MXC egress 判定）", () => {
     // 不需要網路的命令
     ["ls -la", false],
     ["cat package.json", false],
-    ["node -e \"console.log(1)\"", false],
+    // 2026-10-24 政策變更：直譯器執行（python3?/node）與 go 同級 → egress allow
+    // （TASK-033 教訓：無法從指令靜態判斷腳本是否對外 API 呼叫，全關會擋死正當工作流；
+    //   egress allow 後仍有 audit 掃輸出把關，沙箱 FS 防護不變）
+    ["node -e \"console.log(1)\"", true],
     ["npm run build", true], // npm 開頭即需要（registry 檢查）— 保守側
     ["rm -rf node_modules", false],
     ["grep -rn TODO src/", false],

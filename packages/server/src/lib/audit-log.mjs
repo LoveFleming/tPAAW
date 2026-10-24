@@ -51,6 +51,13 @@ function hostInfo() {
   return _HOST;
 }
 
+// 2026-10-24（Fleming）：audit @timestamp 一律 Asia/Taipei +08:00（與本地日期檔名對齊；
+// 公司 Linux 主機時區不一也不飄）— ISO 8601 帶 offset，ES 仍可解析
+const _tpeTs = () => {
+  const t = new Date(Date.now() + (8 * 60 + new Date().getTimezoneOffset()) * 60000);
+  return t.toISOString().replace("Z", "+08:00");
+};
+
 export function auditFileFor(date = new Date()) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -91,7 +98,7 @@ export function logAuditEvent(evt) {
     ruSlug: rc.ruSlug || null,
     cwd: evt.cwd || null,
     ...h,
-    "@timestamp": new Date().toISOString(),
+    "@timestamp": _tpeTs(),
   };
   if (doc.detail === undefined) delete doc.detail;
   if (doc.domains === undefined) delete doc.domains;

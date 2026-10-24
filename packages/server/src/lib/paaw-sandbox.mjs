@@ -132,7 +132,10 @@ export function activeBackend() {
 
 // 命令是否需要網路（MXC deny-by-default 的逃生判定）— 粗粒度白名單：
 // 套件管理/版本庫/下載工具 → egress allow（執行後仍有 scanCommandOutput 審計）
-const NET_NEED_RE = /(^|[\s;&|(])(npm|npx|yarn|pnpm|bun|pip3?|uv|cargo|gradle|mvn|go)\b|git\s+(clone|fetch|pull|ls-remote|remote\s+update|submodule)\b|\b(curl|wget|brew|apt|apt-get|yum|dnf)\b|python3?\s+-m\s+pip\b|go\s+(get|mod\s+download)\b|deno\s+(install|add|cache)\b/i;
+// 2026-10-24（TASK-033 案例）：直譯器執行（python3?/node）與 go 同級 — 腳本內的
+// 對外 API 呼叫（如 vision 文字化）在指令字串看不出域名，但 egress 全關會直接擋死正當工作流；
+// egress allow 之後仍有 audit 掃輸出把關（沙箱 FS 防護不變）
+const NET_NEED_RE = /(^|[\s;&|(])(npm|npx|yarn|pnpm|bun|pip3?|uv|cargo|gradle|mvn|go|python3?|node)\b|git\s+(clone|fetch|pull|ls-remote|remote\s+update|submodule)\b|\b(curl|wget|brew|apt|apt-get|yum|dnf)\b|python3?\s+-m\s+pip\b|go\s+(get|mod\s+download)\b|deno\s+(install|add|cache)\b/i;
 export function needsNetworkAllow(command) {
   return NET_NEED_RE.test(String(command || ""));
 }
