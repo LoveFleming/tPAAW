@@ -9,7 +9,8 @@
 //
 // 設計原則：審計永不影響主流程 — 所有 IO 都 try/catch，錯了就丟，agent loop 照跑。
 import { appendFileSync, mkdirSync } from "fs";
-import { join } from "path";
+import { join, resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 import { randomUUID } from "crypto";
 import os from "os";
 import { ASSET_LOGS_ROOT } from "../data-home.mjs";
@@ -125,6 +126,24 @@ const NET_HINT_RE = /(https?:\/\/|git@|ssh:\/\/|\b(curl|wget|ping|dig|nslookup|t
 const LOCAL_RE = /(localhost|127\.0\.0\.1|0\.0\.0\.0|::1|\[::1\])/i;
 // npm 自己的 EPERM（cache 檔鎖 unlink/rename）不是沙箱事件 — 排除
 const FS_DENY_FALSE_POSITIVE_RE = /(EPERM|EACCES):\s*(operation not permitted|permission denied)[,:]?\s*(unlink|rename|mkdir|chmod|chown|utime)/i;
+// ── 2026-10-24：EPERM 歸因細分 — PAAW 自保區命中偵測 ──
+// 實例（learning-space RU）：$PAAW_TMP 的驗證腳本 import playwright → node 從腳本位置
+// 往上找 node_modules → 解析到 PAAW 安裝目錄的 node_modules（沙箱 allowlist 未授權 PAAW root）
+// → EPERM open <PAAW_ROOT>/node_modules/...。舊固定文案（~/.ssh/.env/providers.json）
+// 三個例子都沒中，agent 會往機密檔方向白忙。這裡從 deny 行抽絕對路徑做歸因。
+const _AUDIT_PAAW_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../"); // 同 paaw-agent-loop._PAAW_ROOT
+const _DENY_PATH_RE = /'((?:\/.*|[A-Za-z]:[\\/].*))'/g; // Node/Python 錯誤行裡的絕對路徑（. 不跨行，路徑內不含引號）
+function _denyPathsInPaawRoot(out) {
+  const root = _AUDIT_PAAW_ROOT.endsWith("/") ? _AUDIT_PAAW_ROOT : _AUDIT_PAAW_ROOT + "/";
+  const hits = [];
+  for (const m of String(out).matchAll(_DENY_PATH_RE)) {
+    const p = m[1].replace(/\\\\/g, "/"); // Windows 雙反斜線正規化
+    if (p.startsWith("/") || /^[A-Za-z]:\//.test(p)) {
+      if ((p + "/").startsWith(root)) hits.push(m[1]);
+    }
+  }
+  return [...new Set(hits)].slice(0, 3);
+}
 // ── 2026-10-20（Fleming B 案）：搜尋工具的「單檔跳過」通知不算被擋 ──
 // 教訓（tpaaw-gateway 誤殺事件）：grep -r 掃 repo 必然掃到機密檔（providers.json）→
 // 印一行 `grep: ./data/config/providers.json: Operation not permitted`，掃描本身成功繼續；
@@ -260,6 +279,17 @@ export function scanCommandOutput({ command, output, allowedDomains, agentId, cw
       return null;
     }
     // ② 真被擋：audit warn + 引導；不計數、不停 run（stopRun 恆 false）
+    // 2026-10-24：先分類 — deny 路徑在 PAAW 安裝目錄內 = 自保區命中（最常見：$PAAW_TMP
+    // 腳本 import 專案依賴，模組解析誤入 PAAW node_modules）。給 agent 明確出路，不亂試。
+    const paawRootPaths = _denyPathsInPaawRoot(out);
+    if (paawRootPaths.length > 0) {
+      if (audit) logAuditEvent({ kind: "sandbox_fs_deny", severity: "warn", tool, command, reason: `讀取 PAAW 根目錄被沙箱自保擋（allowlist 未授權：${paawRootPaths.join("、")}）— 常見原因：$PAAW_TMP 的腳本 import 專案依賴（如 playwright），node 模組解析往上找到 PAAW 的 node_modules。驗證腳本請改寫到專案根目錄並命名 verify-*.mjs（session 結束自動清）`, detail: { exitCode, skipOnly, paawRootPaths, outputTail: out.slice(-600) }, agentId, cwd });
+      return {
+        type: "sandbox_fs_deny", exitCode, attempt: 1, repeatOffense: false, stopRun: false,
+        agentNotice: `\n\n🔒 [PAAW 沙箱防護] 被擋路徑在 PAAW 安裝目錄內（自保區，agent 不可讀）。若是 $PAAW_TMP 的驗證腳本 import 專案依賴（playwright 等）：把腳本移到**專案根目錄**、命名 verify-*.mjs 再執行（node 才會解析到專案的 node_modules；session 結束自動清）。UI 驗證也可改用 browser 工具。不要重試讀 PAAW 目錄。`,
+        userNotice: `🔒 沙箱防護：AI 指令觸發權限拒絕（PAAW 自保區 — 通常是 $PAAW_TMP 腳本的模組解析誤入 PAAW 目錄），已記錄安全審計。`,
+      };
+    }
     if (audit) logAuditEvent({ kind: "sandbox_fs_deny", severity: "warn", tool, command, reason: "指令觸發 OS 權限拒絕（Operation not permitted / EPERM）— 可能讀取受保護檔案（~/.ssh、.env、providers.json）或寫入專案外路徑", detail: { exitCode, skipOnly, outputTail: out.slice(-600) }, agentId, cwd });
     return {
       type: "sandbox_fs_deny", exitCode, attempt: 1, repeatOffense: false, stopRun: false,

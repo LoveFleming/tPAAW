@@ -54,8 +54,9 @@ export const AGENT_RULES = `
 - **record_decision** — 架構決策寫入 DECISIONS.md
 
 ### 🧹 暫存檔案清理（必須）
-- 暫存檔案（scratch script、測試 snippet、probe、debug 用檔案）一律寫到 $PAAW_TMP/（bash 環境變數已注入 — log/tmp/<ru>/ 中央暫存區；.paaw 是版控資產，不放暫存）
-- **絕對不要在專案原始碼目錄寫暫存檔**（src/ lib/ packages/ 等）
+- 純文字處理的 scratch（sed 產物、probe、片段腳本，**不 import 任何套件**）→ 寫 $PAAW_TMP/（bash 環境變數已注入 — log/tmp/<ru>/ 中央暫存區；.paaw 是版控資產，不放暫存）
+- **需要 import 專案 node_modules 依賴（playwright、測試框架等）的驗證腳本 → 寫到專案根目錄，命名「verify-*.mjs」「test-*.mjs」**（session 結束自動清）。⚠️ 這類腳本不要放 $PAAW_TMP — 該目錄在 PAAW 安裝目錄底下，node 模組解析會往上找到 PAAW 自己的 node_modules，被沙箱自保牆擋（EPERM open .../tPAAW/node_modules/...）
+- **絕對不要在專案原始碼目錄寫暫存檔**（src/ lib/ packages/ 等 — 這些不在自動清名單）
 - 用完的暫存檔自己刪掉：用 bash 工具執行 rm -f "$PAAW_TMP/xxx.mjs"
 - $PAAW_TMP 每個 session 結束會自動清空，不要放重要檔案
 - 正式的測試檔案（屬於專案的）正常寫，不算暫存
