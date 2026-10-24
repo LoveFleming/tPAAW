@@ -1940,7 +1940,10 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
     .map(d => d.replace(/\\/g, "/"))
     .filter(d => d.toLowerCase() !== cwd.replace(/\\/g, "/").toLowerCase());
   const WRITE_BLACKLIST = [
-    // Never allow writing to these directories (relative to rootDir)
+    // PAAW 自身原始碼/資產保護 — 一律相對「真正的 PAAW root（_PAAW_ROOT）」比對。
+    // ⚠️ 2026-10-24 修正：以前相對 caller 傳入的 rootDir，但 coding app 傳的是專案根
+    // （coding.mjs rootDir: projRoot）→ 專案本身若是 packages/ monorepo（如 learning-space），
+    // 寫 packages/** 會被誤擋成「cwd 外」（audit run-mvlomdns-kfwzx9 事件）
     "/packages/",
     "/core/",
     "/node_modules/",
@@ -1954,36 +1957,50 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
     "exe", "dll", "bat", "cmd", "ps1", "sh",
   ]);
 
+  // ── Write 檢查（2026-10-24 重構）：回傳 null=允許、字串=拒絕理由 ──
+  // 拒絕理由會進 audit + tool error，說清楚是哪條規則擋的（以前一律印「cwd 外」會誤導）
+  const writeDenialReason = (p) => {
+    const norm = (s) => s.replace(/\\/g, "/");
+    const abs = norm(resolvePath(p));
+    const normCwd = norm(cwd);
+    const startsWith = (target, prefix) => {
+      const t = target.split("/");
+      const p2 = prefix.split("/");
+      if (p2.length > t.length) return false;
+      return p2.every((seg, i) => seg.toLowerCase() === t[i].toLowerCase());
+    };
+    // Write: must be inside cwd
+    if (!startsWith(abs, normCwd)) return `不在 cwd 內（cwd='${cwd}'，resolved='${abs}'）`;
+    // PAAW 自身保護黑名單：相對 _PAAW_ROOT（不是 caller 的 rootDir）
+    const normPaaw = norm(_PAAW_ROOT);
+    const relToPaaw = abs.startsWith(normPaaw + "/") ? abs.slice(normPaaw.length) : "";
+    for (const bl of WRITE_BLACKLIST) {
+      if (relToPaaw.toLowerCase().startsWith(bl.toLowerCase())) return `PAAW 保護目錄黑名單（${bl} 相對 PAAW root '${normPaaw}'）`;
+    }
+    // Block writes to external workspace dirs (read-only references)
+    for (const rd of externalReadOnlyDirs) {
+      if (startsWith(abs, rd)) return `外部 workspace 目錄唯讀（${rd}）`;
+    }
+    // Block dangerous extensions at PAAW root top-level
+    const ext = (p.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || "";
+    const inPaawTop = relToPaaw.startsWith("/") && !relToPaaw.slice(1).includes("/");
+    if (inPaawTop && (ext === "js" || ext === "mjs" || ext === "cjs")) return `PAAW root 頂層禁止寫入 .${ext}`;
+    if (WRITE_BLACKLIST_EXTS.has(ext)) return `禁寫副檔名 .${ext}`;
+    return null;
+  };
+
   const isPathAllowed = (p, write = false) => {
+    if (write) return writeDenialReason(p) === null;
     const norm = (s) => s.replace(/\\/g, "/");
     const abs = norm(resolvePath(p));
     const normCwd = norm(cwd);
     const normRoot = norm(rootDir);
     const startsWith = (target, prefix) => {
       const t = target.split("/");
-      const p = prefix.split("/");
-      if (p.length > t.length) return false;
-      return p.every((seg, i) => seg.toLowerCase() === t[i].toLowerCase());
+      const p2 = prefix.split("/");
+      if (p2.length > t.length) return false;
+      return p2.every((seg, i) => seg.toLowerCase() === t[i].toLowerCase());
     };
-    if (write) {
-      // Write: must be inside cwd
-      if (!startsWith(abs, normCwd)) return false;
-      // Block writes to rootDir blacklist (packages, core, knowledge, etc.)
-      const relToRoot = abs.startsWith(normRoot + "/") ? abs.slice(normRoot.length) : "";
-      for (const bl of WRITE_BLACKLIST) {
-        if (relToRoot.toLowerCase().startsWith(bl.toLowerCase())) return false;
-      }
-      // Block writes to external workspace dirs (read-only references)
-      for (const rd of externalReadOnlyDirs) {
-        if (startsWith(abs, rd)) return false;
-      }
-      // Block dangerous extensions in rootDir top-level
-      const ext = (p.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || "";
-      const inRootButNotSubdir = relToRoot.startsWith("/") && !relToRoot.slice(1).includes("/");
-      if (inRootButNotSubdir && (ext === "js" || ext === "mjs" || ext === "cjs")) return false;
-      if (WRITE_BLACKLIST_EXTS.has(ext)) return false;
-      return true;
-    }
     // Read: cwd + rootDir + workspace directories + PAAW knowledge
     const normPaaw = norm(_PAAW_ROOT);
     const inPaawKnowledge = startsWith(abs, normPaaw + "/data/knowledge");
@@ -2180,10 +2197,11 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           if (onEvent) onEvent({ type: "tool_end", name, result: persistBlock.message.slice(0, 500) });
           return persistBlock.message;
         }
-        if (!isPathAllowed(args.path, true)) {
-          const hint = `cwd='${cwd}'. Use a relative path from PAAW root like 'data/apps/test/app.html'. Do NOT use Windows absolute paths like 'C:\\...'.`;
-          logAuditEvent({ kind: "path_violation", severity: "block", tool: "write_file", command: args.path, reason: `寫入路徑不在允許範圍（cwd 外）：${filePath}`, agentId, cwd });
-          return `Error: path '${args.path}' is not writable. ${hint}`;
+        const wdeny = writeDenialReason(args.path);
+        if (wdeny) {
+          const hint = `cwd='${cwd}'. Use a path relative to cwd. Do NOT use Windows absolute paths like 'C:\\...'.`;
+          logAuditEvent({ kind: "path_violation", severity: "block", tool: "write_file", command: args.path, reason: `寫入被拒：${wdeny}：${filePath}`, agentId, cwd });
+          return `Error: path '${args.path}' is not writable — ${wdeny}. ${hint}`;
         }
         // ── Change Boundary: warn if outside feature scope, but allow ──
         const boundaryViolation = _checkBoundary(filePath);
@@ -2227,10 +2245,11 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             return pb.message;
           }
         }
-        if (!isPathAllowed(args.path, true)) {
-          const hint = `cwd='${cwd}'. Use a relative path from PAAW root like 'data/apps/test/app.html'. Do NOT use Windows absolute paths like 'C:\\...'.`;
-          logAuditEvent({ kind: "path_violation", severity: "block", tool: "edit_file", command: args.path, reason: `寫入路徑不在允許範圍（cwd 外）：${filePath}`, agentId, cwd });
-          return `Error: path '${args.path}' is not writable. ${hint}`;
+        const edeny = writeDenialReason(args.path);
+        if (edeny) {
+          const hint = `cwd='${cwd}'. Use a path relative to cwd. Do NOT use Windows absolute paths like 'C:\\...'.`;
+          logAuditEvent({ kind: "path_violation", severity: "block", tool: "edit_file", command: args.path, reason: `寫入被拒：${edeny}：${filePath}`, agentId, cwd });
+          return `Error: path '${args.path}' is not writable — ${edeny}. ${hint}`;
         }
         if (!existsSync(filePath)) return `Error: file not found: ${args.path}`;
         // ── Change Boundary: warn if outside feature scope, but allow ──
