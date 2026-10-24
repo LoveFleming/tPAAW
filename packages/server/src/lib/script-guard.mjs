@@ -155,7 +155,9 @@ export function scanScriptContent(content, source = "script", opts = {}) {
     return { dangerous: true, reason: `偵測到破壞性操作（rm 系統/家目錄路徑、killall、diskutil、dd）`, source };
   }
   // 下載即執行（含 PowerShell：iwr … | iex）
-  if (/\b(curl|wget|iwr|Invoke-WebRequest|Invoke-RestMethod|irm)\b[^|;&\n]{0,300}\|(?!\|)[^\n]{0,200}?\b(sh|bash|zsh|dash|python3?|pwsh|powershell|iex|Invoke-Expression)\b/i.test(text)) {
+  // 2026-10-24（TASK-033 誤判）：`curl ... | python3 -m json.tool` 是 API 測試標準排版慣用語
+  // （python 只當 formatter、不執行下載內容）— pipe 後接 -m json[.tool] 放行，不算下載即執行
+  if (/\b(curl|wget|iwr|Invoke-WebRequest|Invoke-RestMethod|irm)\b[^|;&\n]{0,300}\|(?!\|)(?!\s*python3?\s+-m\s+json(?:\.tool)?\b)[^\n]{0,200}?\b(sh|bash|zsh|dash|python3?|pwsh|powershell|iex|Invoke-Expression)\b/i.test(text)) {
     return { dangerous: true, reason: `偵測到「下載即執行」管線（curl|sh、iwr|iex）`, source };
   }
   if (NET_CMD.test(text)) {
