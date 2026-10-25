@@ -50,6 +50,7 @@ import ModelSelector from "../components/ModelSelector";
 import { ChatMessages, type ChatMessageItem } from "../components/ChatMessages";
 import IssueTracker from "../components/IssueTracker";
 import QaRecords from "../components/QaRecords";
+import DispatchReports from "../components/DispatchReports"; // 📄 派工報告 tab page（2026-10-25：EM modal → 獨立 tab，入口 👷 生產 menu）
 import TaskBoard from "../components/TaskBoard";
 import ReleaseManagerPanel from "../components/ReleaseManagerPanel";
 import CodeReviewBoardPanel from "../components/CodeReviewBoardPanel";
@@ -141,7 +142,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "review-board" | "handover" | "troubleshooting" | "code-intel" | "tests" | "qa-records" | "project";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "review-board" | "handover" | "troubleshooting" | "code-intel" | "tests" | "qa-records" | "dispatch-reports" | "project";
 
 interface MainTab {
   id: string;
@@ -482,6 +483,8 @@ export default function CodingIDE() {
   const [activeMainTabId, setActiveMainTabId] = useState<string>(DASHBOARD_TAB_ID);
   // 2026-10-16：Release Manager Human 欄 → QA 記錄 feature 過濾（initialFeature prop 由 QaRecords 同步）
   const [qaFocusFeature, setQaFocusFeature] = useState("");
+  // 2026-10-25：派工報告 tab — EM 大總管 📄 / openReport action 點入時指定日期（seq 遞增確保同日期重複點入也觸發）
+  const [reportsFocus, setReportsFocus] = useState<{ date: string | null; seq: number } | null>(null);
   // 2026-10-16：Release Manager 補強 CTA → EM 大總管預填派工指令（EMDashboard prefillMessage 同步）
   const [emPrefillMessage, setEmPrefillMessage] = useState("");
   const activeMainTab = useMemo(() => mainTabs.find(t => t.id === activeMainTabId), [mainTabs, activeMainTabId]);
@@ -786,7 +789,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
   const [showSearchMenu, setShowSearchMenu] = useState(false);
   const [showCrewMenu, setShowCrewMenu] = useState(false);
   const [openToolbarCat, setOpenToolbarCat] = useState<string | null>(null);
-  // 🧰 工具分類（2026-10-23 Fleming 定調：軟體工廠四部門）：18 tool → 4 部門，類內按英文 label 字母序
+  // 🧰 工具分類（2026-10-23 Fleming 定調：軟體工廠四部門）：19 tool → 4 部門，類內按英文 label 字母序
   //   📐 工程=圖紙（是什麼/為何這樣設計）👷 生產=工單與機台（誰做/怎麼做）
   //   🔍 品管=檢驗（證明是對的）📦 出貨=放行與交付（誰點頭/怎麼交出去）
   //   同構 North Star：生產=AI 生產、品管=deterministic 證明、出貨=human 決策
@@ -799,6 +802,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
     ]},
     { id: "production", icon: "👷", tools: [
       { id: "tool:crew", type: "crew-manager", label: "AI Crew", icon: "👥", closable: true },
+      { id: "tool:dispatch-reports", type: "dispatch-reports", label: tt("dispatchReports.toolbar"), icon: "📄", closable: true },
       { id: "tool:git", type: "git", label: "Git", icon: "🔀", closable: true },
       { id: "tool:issues", type: "issues", label: "Issues", icon: "📋", closable: true },
       { id: "tool:tasks", type: "tasks", label: "Tasks", icon: "📌", closable: true },
@@ -3944,6 +3948,11 @@ const sendChat = useCallback(async () => {
                 }}
                 openMainTab={openMainTab}
                 adRefreshTrigger={adRefreshTrigger}
+                onOpenDispatchReports={(date) => {
+                  // 2026-10-25：派工報告改獨立 tab page — EM 內 📄 / 查看 → / openReport action 都跳遇來
+                  setReportsFocus(f => ({ date: date ?? null, seq: (f?.seq || 0) + 1 }));
+                  openMainTab({ id: "tool:dispatch-reports", type: "dispatch-reports", label: tt("dispatchReports.toolbar"), icon: "📄", closable: true });
+                }}
               />
             </div>
 
@@ -4170,6 +4179,21 @@ const sendChat = useCallback(async () => {
               </div>
             )}
 
+
+            {/* === Dispatch Reports Tab（📄 派工報告 — 2026-10-25 Fleming：EM modal 改獨立 tab，入口 👷 生產 menu）=== */}
+            {mainTabs.some(t => t.type === "dispatch-reports") && rootPath && (
+              <div key="tool:dispatch-reports" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "dispatch-reports" ? undefined : "none" }}>
+                <TabErrorBoundary label="Dispatch Reports">
+                  <DispatchReports
+                    rootPath={rootPath}
+                    theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
+                    focus={reportsFocus}
+                    active={activeMainTab?.type === "dispatch-reports"}
+                  />
+                </TabErrorBoundary>
+              </div>
+            )}
 
             {/* === Sub-task Detail Tab === */}
             {activeMainTab?.type === "subtask-detail" && (

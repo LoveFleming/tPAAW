@@ -77,9 +77,11 @@ interface EMDashboardProps {
   cuModalRequest?: number;
   /** 2026-10-16：外部預填輸入框（Release Manager 補強 CTA → 引導派工）；變更時填入並聚焦 */
   prefillMessage?: string;
+  /** 2026-10-25 Fleming：派工報告改獨立 tab page — EM 內 📄 / 查看 → / openReport action 改開 dispatch-reports tab（date 可選） */
+  onOpenDispatchReports?: (date?: string | null) => void;
 }
 
-export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, openMainTab, adRefreshTrigger = 0, model, onModelChange, cuModalRequest = 0, prefillMessage }: EMDashboardProps) {
+export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, openMainTab, adRefreshTrigger = 0, model, onModelChange, cuModalRequest = 0, prefillMessage, onOpenDispatchReports }: EMDashboardProps) {
   // ── EM Profile (avatar from crew API) ──
   const [emProfile, setEmProfile] = useState<{ codename?: string; imageUrl?: string; emoji?: string }>({});
   useEffect(() => {
@@ -263,12 +265,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   // ── EM Config ──
   const [emConfig, setEmConfig] = useState<any>(null);
   const [showEmConfig, setShowEmConfig] = useState(false);
-  // 📋 派工報告 viewer（2026-10-07：reports API 一直在，UI 在 dispatch view 移除時被清掉 — 補回）
-  const [reportsOpen, setReportsOpen] = useState(false);
-  const [reportsList, setReportsList] = useState<{ date: string; size?: number; summary?: string }[]>([]);
-  const [reportDate, setReportDate] = useState<string | null>(null);
-  const [reportContent, setReportContent] = useState<string>("");
-  const [reportLoading, setReportLoading] = useState(false);
+  // 📋 派工報告（2026-10-25：改獨立 tab page — modal/state 移除，EM 內按鈕透過 onOpenDispatchReports 跳 tab）
   const [emConfigDirty, setEmConfigDirty] = useState(false);
   const [emProviders, setEmProviders] = useState<any[]>([]); // 2026-09-29：EM model 設定用
 
@@ -357,42 +354,6 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
 
   // ── Load persisted step statuses when opening Modal ──
   const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number; error?: string; progress?: string }>>([]);
-  const openReports = useCallback(async (date?: string | null) => {
-    setReportsOpen(true);
-    setReportLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-reports/list?path=${encodeURIComponent(rootPath || "")}`);
-      const d = await res.json();
-      const list = (d.reports || []) as { date: string; size?: number; summary?: string }[];
-      setReportsList(list);
-      const pick = date || list[0]?.date || null;
-      setReportDate(pick);
-      if (pick) {
-        const r2 = await fetch(`${API_BASE}/api/coding-reports/${pick}?path=${encodeURIComponent(rootPath || "")}`);
-        const d2 = await r2.json();
-        setReportContent(d2.content || t("emDash.reportsEmpty"));
-      } else {
-        setReportContent(t("emDash.reportsEmpty"));
-      }
-    } catch (e: any) {
-      setReportContent(`❌ ${e.message}`);
-    } finally {
-      setReportLoading(false);
-    }
-  }, [rootPath]);
-  const pickReport = useCallback(async (date: string) => {
-    setReportDate(date);
-    setReportLoading(true);
-    try {
-      const r = await fetch(`${API_BASE}/api/coding-reports/${date}?path=${encodeURIComponent(rootPath || "")}`);
-      const d = await r.json();
-      setReportContent(d.content || t("emDash.reportsEmpty"));
-    } catch (e: any) {
-      setReportContent(`❌ ${e.message}`);
-    } finally {
-      setReportLoading(false);
-    }
-  }, [rootPath]);
   // ── CU step skill 綁定（PAAW skill 綁到 cu.<stepId>）──
   const [cuSkillBindings, setCuSkillBindings] = useState<Record<string, string[]>>({});
   const [cuSkillNames, setCuSkillNames] = useState<Record<string, string>>({});
@@ -842,9 +803,9 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
               >
                 🧠
               </button>
-              {/* 📋 派工報告 viewer（2026-10-07 補回） */}
+              {/* 📋 派工報告（2026-10-25：改獨立 tab page — 點了開 👷 生產 → 派工報告 tab） */}
               <button
-                onClick={() => openReports()}
+                onClick={() => onOpenDispatchReports?.()}
                 className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50"
                 style={{ borderColor: tk.accentBorder || tk.accent + "99", color: tk.accent }}
                 title={t("emDash.reportsTitle")}
@@ -1248,7 +1209,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                 ? (adStatus?.lastEvent?.message || "...")
                 : (adStatus?.status === "failed" ? (adStatus?.error || "") : (adStatus?.duration ? `${Math.round(adStatus.duration / 1000)}s` : ""))}
             </span>
-            <button onClick={() => openReports()} className="shrink-0 px-2 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold">{t("emDash.view")} →</button>
+            <button onClick={() => onOpenDispatchReports?.()} className="shrink-0 px-2 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold">{t("emDash.view")} →</button>
           </div>
         )}
 
@@ -1307,8 +1268,8 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                             if (el2) el2.scrollTop = el2.scrollHeight;
                             }
                             if (action.type === "openReport" && action.reportId) {
-                              // 📋 派工報告 viewer（2026-10-07 補回）
-                              openReports(String(action.reportId));
+                              // 📋 派工報告（2026-10-25：改獨立 tab page — 開 tab 並選到該日期）
+                              onOpenDispatchReports?.(String(action.reportId));
                             }
                           }}
                           disabled={action.type === "confirmPlan" && emRunning}
@@ -1618,40 +1579,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
         </div>
       </div>
     )}
-    {/* 📋 派工報告 viewer modal（2026-10-07 補回） */}
-    {reportsOpen && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={() => setReportsOpen(false)}>
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col overflow-hidden border border-stone-200" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-stone-200 shrink-0">
-            <span className="text-sm font-bold text-stone-700">📄 {t("emDash.reportsTitle")}</span>
-            <button onClick={() => setReportsOpen(false)} className="text-xs text-stone-400 hover:text-stone-600">✕</button>
-          </div>
-          <div className="flex-1 flex min-h-0">
-            {/* 左側：報告清單 */}
-            <div className="w-52 shrink-0 border-r border-stone-200 overflow-y-auto py-2" style={{ scrollbarWidth: "thin" }}>
-              {reportsList.length === 0 && !reportLoading && (
-                <p className="text-xs text-stone-400 px-3 py-2">{t("emDash.reportsEmpty")}</p>
-              )}
-              {reportsList.map(r => (
-                <button key={r.date} onClick={() => pickReport(r.date)}
-                  className={cn("w-full text-left px-3 py-2 text-xs hover:bg-stone-50 transition-colors", reportDate === r.date ? "bg-purple-50 font-bold text-purple-700" : "text-stone-600")}>
-                  <div>🗓️ {r.date}</div>
-                  {r.summary && <div className="text-[10px] text-stone-400 truncate" title={r.summary}>{r.summary}</div>}
-                </button>
-              ))}
-            </div>
-            {/* 右側：報告內容 */}
-            <div className="flex-1 min-w-0 overflow-y-auto px-5 py-4" style={{ scrollbarWidth: "thin" }}>
-              {reportLoading ? (
-                <p className="text-xs text-stone-400 animate-pulse">⏳ …</p>
-              ) : (
-                <MarkdownText>{reportContent}</MarkdownText>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
+    {/* 📋 派工報告 modal 已移除（2026-10-25 Fleming：改獨立 tab page — 👷 生產 menu → 派工報告；EM 內按鈕走 onOpenDispatchReports） */}
     </>
   );
 }
