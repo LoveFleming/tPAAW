@@ -368,6 +368,9 @@ function spawnCapture(cwd, cmd, timeoutMs) {
 
 // ── 背景 job 管理（in-memory）──
 const running = new Map(); // projectPath → { startedAt, groups: [...], currentIdx }
+// 2026-10-27：commit 落地後自動重跑（commit 使 lastTestRun 過期 → 證據矩陣轉紅的教火消除）。
+// 突發連續 commit：正在跑時再達请求 → 記 pendingReRun，當前跑完補跑一次（合併突发，不逐 commit 跑）
+const pendingReRun = new Set(); // projectPath 需要補跑
 
 export function getRunState(projectPath) { return running.get(projectPath) || null; }
 
@@ -400,7 +403,10 @@ function pruneRuns(projectPath, keep = 30) {
 }
 
 export async function startTestRun(projectPath, { includeE2e = false } = {}) {
-  if (running.has(projectPath)) return { alreadyRunning: true, state: running.get(projectPath) };
+  if (running.has(projectPath)) {
+    pendingReRun.add(projectPath); // 跑完補跑一次（合併突发 commit）
+    return { alreadyRunning: true, requeued: true, state: running.get(projectPath) };
+  }
   const groups = detectTestGroups(projectPath, { includeE2e });
   if (!groups.length) return { noRunner: true, detected: detectDetectedSummary(projectPath) };
   mkdirSync(join(projectPath, ".paaw/test-runs"), { recursive: true });
@@ -454,6 +460,11 @@ export async function startTestRun(projectPath, { includeE2e = false } = {}) {
     state.done = true;
     state.result = record;
     running.delete(projectPath);
+    // 突發 commit 合併補跑：當前跑完還有新 commit → 再跑一次對齊最新 HEAD（只補一次，不断尾循環）
+    if (pendingReRun.has(projectPath)) {
+      pendingReRun.delete(projectPath);
+      startTestRun(projectPath, { includeE2e: record.includeE2e }).catch(() => { /* 補跑失敗不擋 */ });
+    }
   })();
 
   return { started: true, state };

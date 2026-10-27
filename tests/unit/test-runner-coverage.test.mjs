@@ -10,9 +10,9 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { detectTestGroups } from "../../packages/server/src/lib/test-runner.mjs";
+import { detectTestGroups, startTestRun, getRunState } from "../../packages/server/src/lib/test-runner.mjs";
 import { testReportSummary } from "../../packages/server/src/lib/test-report-reader.mjs";
-import { writeFileSync } from "fs";
+import { writeFileSync, readdirSync, readFileSync } from "fs";
 
 let dir;
 beforeAll(() => { dir = mkdtempSync(join(tmpdir(), "tr-cov-")); });
@@ -95,4 +95,32 @@ describe("detectTestGroups — coverage 旗標", () => {
     expect(cov.linesCovered).toBe(3);
     expect(cov.linesTotal).toBe(4);
   });
+});
+
+describe("startTestRun — commit 後自動重跑（pendingReRun 合併突发）", () => {
+  it("跑中途再請求 → requeued；跑完自動補跑一次（runs/ 出現兩筆）", async () => {
+    const p = fixture({
+      name: "slow-demo",
+      private: true,
+      // sh-safe 目 slow script：-e 的程式碼必須引號包住（裸 () 會被 sh -c 當 subshell 語法炸 — 2026-10-27 假綠教訓）
+      scripts: { test: 'node -e "setTimeout(()=>process.exit(0),1500)"' },
+    });
+    const r1 = await startTestRun(p);
+    expect(r1.started).toBe(true);
+    // 跑途中再達請求（模擬 commit 落地後的自動重跑請求）→ 不重跌，掛 pendingReRun
+    const r2 = await startTestRun(p);
+    expect(r2.alreadyRunning, "第一輪至少 1.5s，此時必在跑").toBe(true);
+    expect(r2.requeued).toBe(true);
+    // 等第一輪 + 補跑輪結束（runs/ 兩筆 RUN-*.json 且都 pass）
+    const t0 = Date.now();
+    let files = [];
+    while (Date.now() - t0 < 20000) {
+      await new Promise(r => setTimeout(r, 500));
+      try { files = readdirSync(join(p, ".paaw/test-runs/runs")).filter(f => /^RUN-.*\.json$/.test(f)); } catch { /* 尚未建 */ }
+      if (files.length >= 2 && !getRunState(p)) break;
+    }
+    expect(files.length, `應補跑出第二筆（實際 ${files.length}）`).toBeGreaterThanOrEqual(2);
+    const last = JSON.parse(readFileSync(join(p, ".paaw/test-runs/last.json"), "utf-8"));
+    expect(last.status, "慢 script 端 exit 0，補跑輪應 pass").toBe("pass");
+  }, 25000);
 });

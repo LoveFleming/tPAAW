@@ -34,6 +34,7 @@ import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readBody } from "./shared.mjs";
 import { TaskGit } from "../lib/task-git.mjs";
+import { startTestRun } from "../lib/test-runner.mjs"; // 2026-10-27：commit 後自動重跑測試（證據保鮮）
 import { buildReviewBoundary } from "../lib/review-boundary.mjs";
 import { featureExists, touchFeature } from "../lib/feature-registry.mjs";
 import { stableStringify } from "../lib/stable-stringify.mjs";
@@ -361,6 +362,10 @@ export default async function codingTasksRoute(req, res) {
     const git = new TaskGit(projRoot);
     const message = body.message || TaskGit.generateCommitMessage(task);
     const result = await git.commit(task, message, body.push !== false);
+    // 2026-10-27 Fleming（「測試結果過期還是顯示不出來」事件）：commit 落地 → lastTestRun 立刻過期 →
+    // 證據矩陣 Unit 轉紅。治本：commit 成功後自動背景重跑（fire-and-forget，不擋回應；
+    // 無測試專案 noRunner 直接无害返回；突發連續 commit 由 pendingReRun 合併補跑一次）
+    if (result?.sha) startTestRun(projRoot).catch(() => { /* 自動重跑失敗不擋 commit */ });
     task.git = {
       ...task.git,
       commitSha: result.sha,
