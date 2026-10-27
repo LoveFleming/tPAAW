@@ -77,7 +77,7 @@ interface Readiness {
     byKind: Record<string, { passed: number; failed: number; skipped: number; files: number }>;
     stale: boolean; staleCommits: number;
   } | null;
-  coverage?: { linePct: number | null; runner: string | null; at: string | null; measured: boolean } | null; // 2026-10-21：真實 UT 行覆蓋率（measured:false = 未量測）
+  coverage?: { linePct: number | null; runner: string | null; at: string | null; measured: boolean; reason?: string | null } | null; // 2026-10-21：真實 UT 行覆蓋率（measured:false = 未量測；2026-10-27 reason = 未量測原因，直遠 UI tooltip）
   gates: { overall?: string; gates?: { gate: string; status: string; detail?: string; required?: boolean }[] } | null;
   openItems: number; risk: string; riskReasons: string[]; ready: boolean;
 }
@@ -341,7 +341,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                         {readiness.coverage.linePct}%
                       </span>
                     ) : (
-                      <span className="font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-500" title={t("rm.covNotMeasuredTip")} data-testid="rm-coverage">{t("rm.notMeasured")}</span>
+                      <span className="font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-500" title={readiness.coverage?.reason || t("rm.covNotMeasuredTip")} data-testid="rm-coverage">{t("rm.notMeasured")}{readiness.coverage?.reason ? " ⓘ" : ""}</span>
                     )}
                     {readiness.coverage?.measured && readiness.coverage.runner && <span className="text-[10px] text-stone-400">{readiness.coverage.runner}</span>}
                   </span>

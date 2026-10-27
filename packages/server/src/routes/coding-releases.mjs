@@ -665,20 +665,36 @@ function assertProjectPath(p) {
   return p;
 }
 // ── 覆蓋率摘要（readiness/UI 用）：真實工具 report 優先，找不到誠實 null ──
+// 2026-10-27：未量測必附原因 — vitest 專案缺 @vitest/coverage-v8 時 test-runner 無聲跳過
+// 覆蓋率（learning-space 事件：永遠「未量測」但沒人知道為什麼）。原因文字直達 UI tooltip。
+function notMeasuredReason(projectPath) {
+  try {
+    const pkg = JSON.parse(readFileSync(join(projectPath, "package.json"), "utf-8"));
+    const deps = { ...(pkg.devDependencies || {}), ...(pkg.dependencies || {}) };
+    const hasVitest = /\bvitest\b/.test(pkg.scripts?.test || "") && deps.vitest;
+    if (hasVitest && !deps["@vitest/coverage-v8"]) {
+      return "未量測原因：vitest 專案缺 @vitest/coverage-v8 — npm i -D @vitest/coverage-v8 後重跑測試（▶）即量測真實行覆蓋率";
+    }
+  } catch { /* not a node project — 走通用原因 */ }
+  return "未量測原因：找不到任何 coverage report（coverage/coverage-summary.json、lcov、junit…）— 產生報告後即量測";
+}
+
 function coverageSummary(projectPath) {
   try {
     const tr = testReportSummary(projectPath);
     // 2026-10-22：前後端混合 RU — 優先加權合併值（多份 coverage 只看第一份會抓錯）；無合併 fallback 第一份
     const cov = tr.mergedCoverage || tr.coverage?.[0] || null;
+    const measured = cov?.totalLinePct != null;
     return {
       linePct: cov?.totalLinePct ?? null,   // 真實行覆蓋率（istanbul/lcov/jacoco/cobertura/go；多份 = 行數加權合併）
       runner: cov?.merged ? `${cov.sources?.length || 0} 份合併` : (cov?.sources?.[0]?.runner ?? null),
       at: cov?.at ?? cov?.sources?.[0]?.at ?? null,
-      measured: cov?.totalLinePct != null,  // false = 未量測（非 0%）
+      measured,  // false = 未量測（非 0%）
       sources: cov?.sources ?? [],
       merged: !!cov?.merged,
+      reason: measured ? null : notMeasuredReason(projectPath), // 2026-10-27：未量測原因（UI tooltip 顯示）
     };
-  } catch { return { linePct: null, runner: null, at: null, measured: false, sources: [], merged: false }; }
+  } catch { return { linePct: null, runner: null, at: null, measured: false, sources: [], merged: false, reason: notMeasuredReason(projectPath) }; }
 }
 
 // ── lastTestRun 摘要（readiness 用）：真實執行數字 + stale 偵測 ──
