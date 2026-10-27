@@ -11,6 +11,8 @@ import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { detectTestGroups } from "../../packages/server/src/lib/test-runner.mjs";
+import { testReportSummary } from "../../packages/server/src/lib/test-report-reader.mjs";
+import { writeFileSync } from "fs";
 
 let dir;
 beforeAll(() => { dir = mkdtempSync(join(tmpdir(), "tr-cov-")); });
@@ -65,5 +67,32 @@ describe("detectTestGroups — coverage 旗標", () => {
   it("非 node 專案 → 空 groups（不炸）", () => {
     const g = detectTestGroups(dir);
     expect(Array.isArray(g)).toBe(true);
+  });
+
+  it("go 專案（go.mod）→ 帶 -coverprofile=coverage.out（reader go-cover 慣例路徑）", () => {
+    const p = fixture({ name: "go-demo", private: true }); // go 偵測看 go.mod 不看 package.json
+    writeFileSync(join(p, "go.mod"), "module demo\n\ngo 1.22\n");
+    const g = detectTestGroups(p).find(x => x.runner === "go");
+    expect(g, "go group 應被偵測").toBeTruthy();
+    expect(g.cmd.join(" ")).toContain("-coverprofile=coverage.out");
+  });
+
+  it("reader 全鏈：go coverprofile（標準格式）→ coverage measured + statement 行覆蓋", () => {
+    const p = fixture({ name: "go-cover-demo", private: true });
+    // 標準 go coverprofile：mode 行 + file:start.end numStmt count（4 stmt 覆 3 → 75%）
+    writeFileSync(join(p, "coverage.out"), [
+      "mode: set",
+      "demo/math.go:10.13,12.2 2 1",
+      "demo/math.go:14.13,16.2 1 0",
+      "demo/util.go:3.20,5.2 1 1",
+      "",
+    ].join("\n"));
+    const tr = testReportSummary(p);
+    expect(tr.found).toBeGreaterThanOrEqual(1);
+    const cov = tr.mergedCoverage;
+    expect(cov, "mergedCoverage 應存在").toBeTruthy();
+    expect(cov.totalLinePct).toBe(75);
+    expect(cov.linesCovered).toBe(3);
+    expect(cov.linesTotal).toBe(4);
   });
 });

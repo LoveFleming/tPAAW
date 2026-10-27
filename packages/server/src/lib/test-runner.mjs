@@ -57,9 +57,11 @@ export function detectTestGroups(projectPath, { includeE2e = false } = {}) {
   const py = detectPytest(projectPath);
   if (py) groups.push(py);
 
-  // 4) Go — go test -v（per-test 解析）
+  // 4) Go — go test -v（per-test 解析）+ 真實覆蓋率（2026-10-27 Fleming：go 也要量）
+  //    -coverprofile=coverage.out（statement 覆蓋率，落地專案根 = go 慣例）
+  //    → test-report-reader go-cover 候選路徑直接讀；無測試的 package 不產行 → 誠實 0/null
   if (existsSync(join(projectPath, "go.mod"))) {
-    groups.push({ kind: "unit", runner: "go", cmd: ["go", "test", "./...", "-v"] });
+    groups.push({ kind: "unit", runner: "go", cmd: ["go", "test", "./...", "-v", "-coverprofile=coverage.out"] });
   }
 
   // 5) Java — Maven / Gradle（surefire / JUnit XML 報告）
@@ -220,6 +222,10 @@ async function runGroup(projectPath, group) {
   // stale 產物防污染：跑前清掉上次的 reporter 檔
   for (const f of [".vitest.json", ".jest.json", ".pytest.xml"]) {
     try { unlinkSync(join(projectPath, ".paaw/test-runs", f)); } catch { /* not exist */ }
+  }
+  // go coverprofile 落在專案根（reader 慣例路徑）— go group 跑前清舊檔，尖敗/編不過時不殘留舊數據
+  if (group.runner === "go") {
+    try { unlinkSync(join(projectPath, "coverage.out")); } catch { /* not exist */ }
   }
   const t0 = Date.now();
   try {
