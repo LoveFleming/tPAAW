@@ -38,7 +38,10 @@ export function detectTestGroups(projectPath, { includeE2e = false } = {}) {
         : [];
       groups.push({ kind: "mixed", runner: "vitest", cmd: ["npx", "vitest", "run", "--reporter=json", "--outputFile=.paaw/test-runs/.vitest.json", ...cov] });
     } else if (/\bjest\b/.test(t) && devDeps.jest) {
-      groups.push({ kind: "mixed", runner: "jest", cmd: ["npx", "jest", "--json", "--outputFile=.paaw/test-runs/.jest.json"] });
+      // 2026-10-27 Fleming：jest 也要抓得到行覆蓋率 — jest 內建 istanbul（免裝套件，跟 vitest 缺
+      // @vitest/coverage-v8 不同），帶 --coverage + json-summary reporter → coverage/coverage-summary.json
+      // （istanbul json-summary 格式，test-report-reader 既有候選路徑直接讀）；jest 測試失敗也照寫報告
+      groups.push({ kind: "mixed", runner: "jest", cmd: ["npx", "jest", "--json", "--outputFile=.paaw/test-runs/.jest.json", "--coverage", "--coverageReporters=json-summary", "--coverageReporters=text", "--coverageDirectory=coverage"] });
     } else if (/\bnode\b/.test(t) && /(^|\s)--test(\s|$)/.test(t)) {
       // 2026-10-21：node --test 專案（gateway）真實覆蓋率 — 用 Node 原生 --experimental-test-coverage
       // （不想 npm test 不能附旗標：旗標會在腳本後變成 argv。故直接以 node 跑，重取其 glob）。
