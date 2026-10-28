@@ -432,6 +432,14 @@ export default async function releaseRoutes(req, res, next) {
         if (ltr.summary.failed > 0) { riskScore += 1; riskReasons.push(`${ltr.summary.failed} failing tests (last run)`); }
         if (ltr.stale) { riskReasons.push(`test run stale (${ltr.staleCommits} commits since)`); }
       }
+      // 2026-10-28：stale 自癒 — 6780981e 只蓋 task pipeline 官方 commit 路徑；人手動 commit /
+      // agent bash git commit 照樣讓 lastTestRun 過期 → 證據矩陣 Unit 整片轉紅（「unit test
+      // 有時會有現在又沒有」連日事件根因）。治本：readiness 看到 stale 就背景重跑 unit（fire-and-forget；
+      // 跑中 getRunState 擋重複；無測試專案 noRunner 無害返回）。本輪回應仍如實回報 stale，
+      // UI 下次輪詢拿到新鮮證據。E2E 不自癒（20min timeout 太重 — 要 E2E 证据手動按鈕跑）。
+      if (ltr?.stale && !getRunState(projectPath)) {
+        startTestRun(projectPath, { includeE2e: false }).catch(() => { /* 自癒失敗不擋報告 */ });
+      }
       const risk = riskScore >= 3 ? "HIGH" : riskScore >= 1 ? "MEDIUM" : "LOW";
       const ready = blockedGates.length === 0 && risk !== "HIGH";
 
