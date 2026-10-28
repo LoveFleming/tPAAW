@@ -74,7 +74,7 @@ function isPendingRelease(task) {
 // 2026-10-28：CU 自癒 — 磁碟測試檔 vs test-code-map 比對 + 背景補掃
 // 病例：agent 加了測試檔（bash/task 路徑 CU 沒跟掃）→ feature 在矩陣顯示「無測試檔」假紅，
 // 「agent 說都有 unit test 了但還是顯示沒有」。證據要看現況 — 磁碟有檔而 map 沒收錄就補掃。
-const _PAAW_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+const _PAAW_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", ".."); // routes/ → repo root（跟 coding.mjs PAAW_ROOT 同算法；少一層 = grammar 全撈不到 → CU 空掃雷）
 const _cuRunning = new Set(); // projectPath → 掃描中（防輪詢疊加重掃）
 
 const _TEST_FILE_RE = /[.](test|spec)[.][cm]?[jt]sx?$|(^|[\/])test_[^\/]+[.]py$|[^\/]+_test[.]py$/;

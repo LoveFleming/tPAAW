@@ -697,6 +697,18 @@ export async function buildCodeIntelligence(projectRoot, paawRoot, { persist = t
   // Parse all source files
   const parsedResult = await parseProject(projectRoot, paawRoot); // 無上限（2026-08-22 Fleming 要求）
 
+  // 2026-10-28 空掃防護：有檔可解析卻 0 解析成功（grammar 載不到/掃描器故障/並發異常）→ 一律不落盤。
+  // 病例：paawRoot 傳錯（少一層目錄）→ tree-sitter grammar 全撈不到 → 173 檔全 parse error
+  // → 空 test-code-map/api-map 蓋掉好資料 → RU model 重建跟空 → 證據矩陣整張「全沒有」。
+  // 0-parse 對非空專案永遠不是合法新狀態 — 寫下去就是證據屠殺。保留舊檔 + 回傳 notPersisted 原因。
+  if (parsedResult.files.length === 0 && parsedResult.stats.totalFiles > 0) {
+    return {
+      notPersisted: true,
+      reason: `空掃防護：${parsedResult.stats.totalFiles} 個原始檔 0 解析成功（errors: ${parsedResult.stats.errors}）— 保留舊情報檔不覆蓋`,
+      summary: { totalFiles: parsedResult.stats.totalFiles, parsedFiles: 0, errors: parsedResult.stats.errors },
+    };
+  }
+
   // Build all intelligence layers
   const callGraph = buildCallGraph(parsedResult);
   const apiFunctionMap = buildApiFunctionMap(parsedResult, callGraph);
