@@ -506,15 +506,24 @@ export function buildTestCodeMap(parsedResult, projectRoot = null) {
     }
 
     // Strategy 2: Import analysis（僅測試檔）
-    if (!productionFile && file.imports.length > 0) {
+    // 2026-10-28：一個測試可測多個生產檔 — 收集「全部」相對 import 的生產目標。舊版只取第一個就 break：
+    // context-memory.test.ts 第一個 import 是測試 helper（db/src/migrate）→ 真正被測的
+    // memory-store/assembler 全沒記到 → feature 對不上顯示「無測試檔」假紅（agent 說有但矩陣設沒有）。
+    // 第一個目標仍當 primary（向後相容），其餘在 push 段補 mappings 行。
+    const importTargets = [];
+    const _seenTargets = new Set();
+    if (file.imports.length > 0) {
       for (const imp of file.imports) {
         if (!imp.source.startsWith(".")) continue;
         const target = resolveImportPath(imp.source, file.file, parsedResult);
-        if (target && !isTestName(basename(target.file))) {
-          productionFile = target;
-          matchType = "import";
-          break;
+        if (target && !isTestName(basename(target.file)) && !_seenTargets.has(target.file)) {
+          _seenTargets.add(target.file);
+          importTargets.push(target);
         }
+      }
+      if (!productionFile && importTargets.length) {
+        productionFile = importTargets[0];
+        matchType = "import";
       }
     }
 
@@ -591,6 +600,22 @@ export function buildTestCodeMap(parsedResult, projectRoot = null) {
         testCount: Math.max(file.functions.length, featureTags.length ? 1 : 0),
         ...(featureTags.length ? { featureIds: featureTags } : {}),
       });
+    }
+    // 2026-10-28：multi-import 補行 — 同測檔其餘生產目標各一行（primary 已含的跳過；Go package 已 push 的跳過）。
+    // 測試 import 到的每個生產檔都是 deterministic 覆蓋事實；feature join（release-unit-model）
+    // 靠 productionFile 反查 — 多行才能讓各 feature 都拿到自己的測試證據。model 端依 testFile 去重計數。
+    if (importTargets.length && !/_test\.go$/.test(fileName)) {
+      for (const t of importTargets) {
+        if (productionFile && t.file === productionFile.file) continue;
+        mappings.push({
+          testFile: file.file,
+          productionFile: t.file,
+          matchType: "imports",
+          testedFunctions: [],
+          testCount: Math.max(file.functions.length, featureTags.length ? 1 : 0),
+          ...(featureTags.length ? { featureIds: featureTags } : {}),
+        });
+      }
     }
   }
 

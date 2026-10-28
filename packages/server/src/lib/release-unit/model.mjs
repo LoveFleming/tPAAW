@@ -195,7 +195,18 @@ export async function buildReleaseUnitModel(root, opts = {}) {
     const files = (f.codeFiles || f.files || []).map(_norm).filter(Boolean);
     const fileSet = new Set(files);
     const fApis = apis.filter(a => fileSet.has(a.file) || a.featureIds.includes(f.id));
-    const fTests = testRelations.filter(t => fileSet.has(t.productionFile) || t.featureIds.includes(f.id));
+    // 2026-10-28：同測檔去重 — CU multi-import 映射（一測試多生產檔）下，同一測試檔可能經多行
+    // 進到同一 feature（如同時 import chats.ts + runs.ts）— 測試檔清單與計數以檔為單位，不灌水
+    const fTestsRaw = testRelations.filter(t => fileSet.has(t.productionFile) || t.featureIds.includes(f.id));
+    const _seenTestFiles = new Set();
+    const fTests = [];
+    let fTestCount = 0;
+    for (const t of fTestsRaw) {
+      if (_seenTestFiles.has(t.testFile)) continue;
+      _seenTestFiles.add(t.testFile);
+      fTests.push(t);
+      fTestCount += (t.testCount || 0);
+    }
     const declaredApis = Array.isArray(f.apis) ? f.apis : [];
     const st = changeStats.get(f.id) || { count: 0, lastAt: null };
     const gaps = [];
@@ -210,7 +221,7 @@ export async function buildReleaseUnitModel(root, opts = {}) {
       apis: fApis.map(a => `${a.method} ${a.path}`),
       apiCount: fApis.length,
       tests: fTests.map(t => ({ file: t.testFile, kind: t.kind || null })),
-      testCount: fTests.reduce((s, t) => s + (t.testCount || 0), 0),
+      testCount: fTestCount,
       changeCount: st.count,
       lastChangeAt: st.lastAt,
       knowledgeGaps: gaps,
@@ -356,6 +367,11 @@ function _ciSourcesNewer(root) {
     const ciDir = join(root, ".paaw", "code-intelligence");
     for (const f of ["test-code-map.json", "api-function-map.json", "test-intelligence.json"]) {
       try { if (statSync(join(ciDir, f)).mtimeMs > modelMtime) return true; } catch { /* 無此檔不算 */ }
+    }
+    // 2026-10-28：feature 映射檔也是情報源 — agent 更新 FILE-FEATURES/FEATURES（不動 headSha、
+    // feature 數不變時）舊版照樣不重建 → 共同擁有權/新映射隐形。一併比 mtime。
+    for (const f of [join(root, ".paaw", "features", "FILE-FEATURES.json"), join(root, ".paaw", "features", "FEATURES.json")]) {
+      try { if (statSync(f).mtimeMs > modelMtime) return true; } catch { /* 無此檔不算 */ }
     }
   } catch { /* model 檔不存 → 本來就會重建 */ }
   return false;
