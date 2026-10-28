@@ -53,7 +53,7 @@ interface ReadinessFeature {
   apis: string[]; apiImpact: boolean; tests: { file: string; kind?: string | null }[];
   hasTests: boolean; knowledgeGaps: string[]; recentSubjects: string[];
 }
-interface EvCell { ok: boolean; reason?: string; tests?: number; covered?: number; total?: number; high?: number; actor?: string; verdict?: string; models?: string[]; at?: string; decision?: string; summary?: string; touched?: boolean; untouched?: boolean } // touched（2026-10-20）：aiReview 已審未過 vs 未跑；untouched（2026-10-21）：有跑但未觸及（≠未跑）；verdict（2026-10-21）：qa 有記錄非 pass vs 無記錄
+interface EvCell { ok: boolean; reason?: string; note?: string; tests?: number; covered?: number; total?: number; high?: number; actor?: string; verdict?: string; models?: string[]; at?: string; decision?: string; summary?: string; touched?: boolean; untouched?: boolean } // touched（2026-10-20）：aiReview 已審未過 vs 未跑；untouched（2026-10-21）：有跑但未觸及（≠未跑）；verdict（2026-10-21）：qa 有記錄非 pass vs 無記錄；note（2026-10-28）：綠燈但附提示（如 stale 自動重跑中）
 interface EvFeature extends ReadinessFeature {
   severity: string | null; severitySource: string; // human=最新人判定 | ai/scan/auto=AI 判定預設生效
   severityDecisions?: { id: string; by: string; at: string; severity: string; remark?: string }[];
@@ -78,6 +78,7 @@ interface Readiness {
     stale: boolean; staleCommits: number;
   } | null;
   coverage?: { linePct: number | null; runner: string | null; at: string | null; measured: boolean; reason?: string | null } | null; // 2026-10-21：真實 UT 行覆蓋率（measured:false = 未量測；2026-10-27 reason = 未量測原因，直遠 UI tooltip）
+  modelDegraded?: boolean; // 2026-10-28：RU model 重建失敗降級中（matrix 資料是合成最小集，重新整理自動重試）
   gates: { overall?: string; gates?: { gate: string; status: string; detail?: string; required?: boolean }[] } | null;
   openItems: number; risk: string; riskReasons: string[]; ready: boolean;
 }
@@ -408,13 +409,16 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                         {readiness.evidenceMatrix.summary.sgScan && <span className={`px-1.5 py-0.5 rounded ${readiness.evidenceMatrix.summary.sgScan.high > 0 ? "bg-red-50 text-red-600 font-bold" : "bg-green-50 text-green-700"}`}>🛡 {readiness.evidenceMatrix.summary.sgScan.total}·{readiness.evidenceMatrix.summary.sgScan.high}hi</span>}
                       </span>
                     </div>
+                    {readiness.modelDegraded && (
+                      <div className="mb-2 rounded-lg bg-orange-50 px-3 py-1.5 text-[10px] text-orange-700 font-bold">⚠️ {t("rm.ev.modelDegraded")}</div>
+                    )}
                     <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 pb-1" style={{ gridTemplateColumns: "1.6fr 0.6fr 0.8fr 0.9fr 0.8fr 0.8fr 1.5fr 1.2fr" }}>
                       <span>{t("rm.ev.feature")}</span><span>Sev</span><span>Unit</span><span>E2E</span><span>SG</span><span>QA</span><span>{t("rm.ev.board")}</span><span>{t("rm.ev.human")}</span>
                     </div>
                     {readiness.evidenceMatrix.features.map(f => {
                       const ev = f.evidence;
                       const cell = (c: EvCell, label: string) => (
-                        <span className={`text-[10px] font-mono ${c.ok ? "text-green-600" : "text-red-500 font-bold"}`} title={String(c.reason || (c.ok ? "✓" : "missing"))}>{label}</span>
+                        <span className={`text-[10px] font-mono ${c.ok ? (c.note ? "text-amber-600 font-bold" : "text-green-600") : "text-red-500 font-bold"}`} title={String(c.note ? `${c.reason || "✓"}（${c.note}）` : (c.reason || (c.ok ? "✓" : "missing")))}>{label}</span>
                       );
                       return (
                         <div key={f.id} className="grid gap-1 items-center px-2 py-1.5 rounded-lg hover:bg-stone-50" style={{ gridTemplateColumns: "1.6fr 0.6fr 0.8fr 0.9fr 0.8fr 0.8fr 1.5fr 1.2fr", background: f.gaps.missing.length ? "#fff7ed" : undefined }}>
@@ -422,7 +426,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                           <span className={`text-[10px] font-bold ${f.severity === "S2" ? "text-red-600" : f.severity === "S1" ? "text-amber-600" : f.severity === "S0" ? "text-green-600" : "text-stone-400"}`} title={[t("rm.ev.aiTip"), ...((f.severityDecisions || []).map(d => `👤${d.by}: ${d.severity}${d.remark ? `（${d.remark}）` : ""}`))].join("\n")}>
                             {f.severity}{f.severitySource === "human" ? "👤" : "🤖"}
                           </span>
-                          {cell(ev.unit, ev.unit.ok ? `✓${ev.unit.tests || 0}t` : "✗")}
+                          {cell(ev.unit, ev.unit.ok ? `✓${ev.unit.tests || 0}t${ev.unit.note ? " ⚣" : ""}` : "✗")}
                           {cell(ev.e2e, ev.e2e.ok ? (ev.e2e.total ? `${ev.e2e.covered}/${ev.e2e.total}` : "—") : `✗${ev.e2e.covered ?? 0}/${ev.e2e.total ?? 0}`)}
                           {cell(ev.sg, ev.sg.ok ? ((ev.sg.total ?? 0) > 0 ? `⚠${ev.sg.total}` : "✓0") : `✗${ev.sg.high ?? 0}hi`)}
                           {cell(ev.qa, ev.qa.ok ? `✓${String(ev.qa.actor || "").slice(0, 4)}` : ev.qa.verdict ? `✗${ev.qa.verdict}` : "✗")}

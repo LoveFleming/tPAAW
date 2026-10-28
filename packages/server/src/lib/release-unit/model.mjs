@@ -18,7 +18,7 @@
  *   api → feature    = route.file 經 fileToFeature 反查（fallback）
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, statSync } from "fs";
 import { join, dirname } from "path";
 import { shellExec } from "../shell-exec.mjs";
 import { hashObject } from "../stable-hash.mjs";
@@ -316,7 +316,12 @@ export async function buildReleaseUnitModel(root, opts = {}) {
       try {
         if (contentChanged) model.generatedAt = new Date().toISOString(); // generatedAt = 內容版本時間（只在實質變更前進）
         mkdirSync(dirname(join(outDir, ...MODEL_FILE)), { recursive: true });
-        writeFileSync(join(outDir, ...MODEL_FILE), JSON.stringify(model, null, 2), "utf-8");
+        // 2026-10-28：atomic write（tmp + rename）— 舊版直接 writeFileSync，併發請求一讀一寫時
+        // 讀到半寫入 JSON → parse 炸 → model null → readiness 證據矩陣整張消失（「有時候全沒有」根因之一）
+        const finalPath = join(outDir, ...MODEL_FILE);
+        const tmpPath = `${finalPath}.tmp-${process.pid}-${Date.now()}`;
+        writeFileSync(tmpPath, JSON.stringify(model, null, 2), "utf-8");
+        renameSync(tmpPath, finalPath);
         written = true;
       } catch { /* 唯讀環境照樣回傳 model */ }
     }
@@ -330,6 +335,32 @@ export async function buildReleaseUnitModel(root, opts = {}) {
 }
 
 /** 讀現有 model；過期（headSha 不同）或不存在時可重建 */
+// 2026-10-28：併發重建去重 — 同 root 同時多請求（UI 雙擊重整/輪詢疊加）只跑一次重建，共用同一 promise
+const _inflightBuilds = new Map(); // root → Promise<model>
+async function _buildDeduped(root) {
+  const existing = _inflightBuilds.get(root);
+  if (existing) return existing;
+  const p = buildReleaseUnitModel(root).finally(() => _inflightBuilds.delete(root));
+  _inflightBuilds.set(root, p);
+  return p;
+}
+
+// 2026-10-28：CI 情報源新鮮度 — CU 重掃（test-code-map / api-function-map / test-intelligence）
+// 不動 headSha；舊版只比 headSha + feature 數 → CU 更新後 model 永遠不重建 → agent 加了測試
+// 但矩陣持續顯示「無測試檔」（「agent 說有 unit test 但還是顯示沒有」根因）。
+// 對策：任一情報源 mtime > model 檔 mtime → 重建。
+function _ciSourcesNewer(root) {
+  try {
+    const modelFile = join(root, ".paaw", ...MODEL_FILE);
+    const modelMtime = statSync(modelFile).mtimeMs;
+    const ciDir = join(root, ".paaw", "code-intelligence");
+    for (const f of ["test-code-map.json", "api-function-map.json", "test-intelligence.json"]) {
+      try { if (statSync(join(ciDir, f)).mtimeMs > modelMtime) return true; } catch { /* 無此檔不算 */ }
+    }
+  } catch { /* model 檔不存 → 本來就會重建 */ }
+  return false;
+}
+
 export async function loadReleaseUnitModel(root, { refresh = false } = {}) {
   const modelFile = join(root, ".paaw", ...MODEL_FILE);
   if (!refresh && existsSync(modelFile)) {
@@ -342,11 +373,11 @@ export async function loadReleaseUnitModel(root, { refresh = false } = {}) {
         const cur = _readJson(join(root, ".paaw", "features", "FEATURES.json"), null);
         const curCount = Array.isArray(cur?.features) ? cur.features.length : Array.isArray(cur) ? cur.length : 0;
         const modelCount = Array.isArray(m.features) ? m.features.length : 0;
-        if (curCount === modelCount) return { ...m, stale: false };
+        if (curCount === modelCount && !_ciSourcesNewer(root)) return { ...m, stale: false };
       }
     }
   }
-  return buildReleaseUnitModel(root); // 重建（建完即存）
+  return _buildDeduped(root); // 重建（建完即存）
 }
 
 // ── Query（deterministic — R5 Q&A 的地基）──

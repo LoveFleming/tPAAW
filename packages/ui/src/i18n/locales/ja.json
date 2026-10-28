@@ -1029,6 +1029,7 @@
   "rm.refreshFail": "❌ 更新失敗",
   "rm.ev.title": "証拠マトリクス",
   "rm.ev.hint": "すべて deterministic 証拠",
+  "rm.ev.modelDegraded": "RU model 再構築失敗 — 縮退データ表示中（テストマップ不可）、更新で自動リトライ",
   "rm.ev.feature": "Feature",
   "rm.ev.board": "AI Review Board",
   "rm.ev.human": "Human",

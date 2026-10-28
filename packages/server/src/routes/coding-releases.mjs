@@ -19,7 +19,7 @@
 import { readFile, writeFile, mkdir, readdir } from "fs/promises";
 import { buildEvidenceMatrix } from "../lib/release-evidence.mjs";
 import { existsSync, readdirSync, statSync } from "fs";
-import { join } from "path";
+import { join, resolve, dirname } from "path";
 import { gatherTaskEvidence } from "./coding-evidence.mjs";
 import { runTaskRetrofit, qualityDebtSummary } from "../lib/task-retrofit.mjs";
 import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
@@ -28,6 +28,8 @@ import { shellExec } from "../lib/shell-exec.mjs";
 import { startTestRun, getRunState, readLastTestRun, detectTestGroups } from "../lib/test-runner.mjs";
 import { testReportSummary } from "../lib/test-report-reader.mjs";
 import { readFileSync } from "fs";
+import { buildCodeIntelligence } from "../lib/code-intelligence.mjs"; // 2026-10-28：CU 自癒 — 測試檔落地但 CU 沒重掃時自動補掃
+import { fileURLToPath } from "url";
 import {
   createReleaseRequest, listReleaseRequests, getReleaseRequest, updateReleaseRequest,
   openReleaseRequest, reviewChecklistItem, closeReleaseRequest, cancelReleaseRequest,
@@ -68,6 +70,51 @@ function isPendingRelease(task) {
 }
 
 // ── Releases 目錄 ──
+
+// 2026-10-28：CU 自癒 — 磁碟測試檔 vs test-code-map 比對 + 背景補掃
+// 病例：agent 加了測試檔（bash/task 路徑 CU 沒跟掃）→ feature 在矩陣顯示「無測試檔」假紅，
+// 「agent 說都有 unit test 了但還是顯示沒有」。證據要看現況 — 磁碟有檔而 map 沒收錄就補掃。
+const _PAAW_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+const _cuRunning = new Set(); // projectPath → 掃描中（防輪詢疊加重掃）
+
+const _TEST_FILE_RE = /[.](test|spec)[.][cm]?[jt]sx?$|(^|[\/])test_[^\/]+[.]py$|[^\/]+_test[.]py$/;
+
+function _collectDiskTestFiles(projectPath) {
+  const out = [];
+  const skip = new Set(["node_modules", ".git", "dist", "build", ".paaw", "coverage", "playwright-report", "test-results", "vendor"]);
+  const walk = (dir, depth) => {
+    if (depth > 4 || out.length > 2000) return; // 防深層/巨 repo 掃爆
+    let entries;
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (e.name.startsWith(".")) continue;
+      const full = join(dir, e.name);
+      if (e.isDirectory()) { if (!skip.has(e.name)) walk(full, depth + 1); continue; }
+      if (_TEST_FILE_RE.test(e.name)) out.push(full);
+    }
+  };
+  walk(projectPath, 0);
+  return out;
+}
+
+function _diskTestsMissingFromMap(projectPath) {
+  try {
+    const map = JSON.parse(readFileSync(join(projectPath, ".paaw", "code-intelligence", "test-code-map.json"), "utf-8"));
+    const known = new Set((map?.mappings || []).map(m => String(m.testFile || "").replace(/\\/g, "/").replace(/^\.\//, "")));
+    if (!known.size) return _collectDiskTestFiles(projectPath).length > 0; // map 空（從未掃）但有測試檔 → 要掃
+    const root = String(projectPath).replace(/\/$/, "");
+    return _collectDiskTestFiles(projectPath).some(f => !known.has(f.slice(root.length + 1).replace(/\\/g, "/")));
+  } catch { return false; } // map 不存在/壞檔 — 不在這處理（CU 掃過後自然補上）
+}
+
+function _kickCuRescan(projectPath) {
+  if (_cuRunning.has(projectPath)) return false;
+  _cuRunning.add(projectPath);
+  buildCodeIntelligence(projectPath, _PAAW_ROOT)
+    .catch(() => { /* 補掃失敗不擋 readiness；下次輪詢再試 */ })
+    .finally(() => _cuRunning.delete(projectPath));
+  return true;
+}
 
 function releasesDir(projectPath) {
   return join(projectPath, ".paaw", "releases");
@@ -320,7 +367,10 @@ export default async function releaseRoutes(req, res, next) {
       // ── Feature Map（release-unit-model）──
       // 2026-10-21：改走 loadReleaseUnitModel（fresh-or-rebuild）— 舊版直接讀檔不檢查 headSha，
       // model 落後 HEAD 時新 feature/新 API 整個隱形（新 API 不現 → E2E 假「無 API 變更」綠燈）
+      // 2026-10-28：重建失敗不再讓 matrix 整張消失 — 降級合成最小 model（features 從 FEATURES.json），
+      // row 還在、unit 欄誠實標「測試映射不可用」（「有時候全沒有」根因之二）
       let model = null;
+      let modelDegraded = false;
       try {
         const { loadReleaseUnitModel } = await import("../lib/release-unit/model.mjs");
         model = await loadReleaseUnitModel(projectPath);
@@ -328,7 +378,22 @@ export default async function releaseRoutes(req, res, next) {
         console.error("[readiness] model refresh:", e.message); // nosemgrep: unsafe-formatstring
         try {
           model = JSON.parse(readFileSync(join(projectPath, ".paaw", "release-unit-model.json"), "utf-8")); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — fallback：重建失敗至少讀舊的
-        } catch { /* no model */ }
+        } catch { /* 舊檔也沒有 → 降級合成 */ }
+        if (!model) {
+          modelDegraded = true;
+          try {
+            const feats = JSON.parse(readFileSync(join(projectPath, ".paaw", "features", "FEATURES.json"), "utf-8"));
+            const list = Array.isArray(feats) ? feats : (feats.features || []);
+            model = { headSha: null, features: list.map(f => ({ id: f.id, name: f.name || f.title || f.id, status: f.status || null, files: (f.codeFiles || f.files || []).map(p => String(p).replace(/\\/g, "/").replace(/^\.\//, "")), apis: [], tests: [], changes: [] })) };
+          } catch { model = { headSha: null, features: [], apis: [], tests: [], changes: [] }; }
+        }
+      }
+
+      // 2026-10-28：CU 自癒 — 磁碟上有測試檔但 test-code-map 沒收錄（agent 加測試但 CU 沒重掃）
+// → feature 顯示「無測試檔」假紅。偵測：磁碟測試檔 vs map 已知集合；命中 → 背景 buildCodeIntelligence
+// （deterministic 本地掃描；完檔後 mtime > model → 下次 loadReleaseUnitModel 自動重建，下次輪詢新鮮）
+      if (_diskTestsMissingFromMap(projectPath)) {
+        _kickCuRescan(projectPath);
       }
 
       const changedApis = (model?.apis || []).filter(a => a.file && changedSet.has(a.file))
@@ -437,7 +502,7 @@ export default async function releaseRoutes(req, res, next) {
       // 有時會有現在又沒有」連日事件根因）。治本：readiness 看到 stale 就背景重跑 unit（fire-and-forget；
       // 跑中 getRunState 擋重複；無測試專案 noRunner 無害返回）。本輪回應仍如實回報 stale，
       // UI 下次輪詢拿到新鮮證據。E2E 不自癒（20min timeout 太重 — 要 E2E 证据手動按鈕跑）。
-      if (ltr?.stale && !getRunState(projectPath)) {
+      if ((!ltr || ltr.stale) && !getRunState(projectPath)) {
         startTestRun(projectPath, { includeE2e: false }).catch(() => { /* 自癒失敗不擋報告 */ });
       }
       const risk = riskScore >= 3 ? "HIGH" : riskScore >= 1 ? "MEDIUM" : "LOW";
@@ -448,8 +513,14 @@ export default async function releaseRoutes(req, res, next) {
       try {
         const ltr2 = await lastTestRunSummary(projectPath);
         evidenceMatrix = await buildEvidenceMatrix(projectPath, changedFeatures, {
-          lastTestRun: ltr2, // 2026-10-21：傳全物件 — no-run/stale/failed 從嚴（舊版只傳 failed 布林，null 假綠）
+          lastTestRun: ltr2, // 2026-10-21：傳全物件 — no-run/stale/failed 從嚴（舊版只傳 failed 布林，null 假綠）；2026-10-28 stale 改提示不轉紅
         });
+        // 2026-10-28：model 降級時「無測試檔」是假訊息（是掃不到，不是沒有）— 誠實標註
+        if (modelDegraded && evidenceMatrix) {
+          for (const f of evidenceMatrix.features) {
+            if (!f.hasTests) f.evidence.unit = { ok: false, reason: "RU model 重建失敗 — 測試映射不可用（重新整理自動重試）" };
+          }
+        }
       } catch (e) { console.error("[readiness] evidence matrix:", e.message); } // nosemgrep: unsafe-formatstring
 
       const authors = [...new Set(commits.map(c => c.author))];
@@ -476,6 +547,7 @@ export default async function releaseRoutes(req, res, next) {
         risk, riskReasons,
         ready,
         evidenceMatrix,
+        modelDegraded, // 2026-10-28：RU model 重建失敗降級中 — UI 可提示（資料是合成最小集）
       });
     } catch (e) {
       return res.status(500).json({ error: "readiness failed", detail: e.message });

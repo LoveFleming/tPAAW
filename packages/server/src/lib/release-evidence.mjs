@@ -183,14 +183,18 @@ export function qaForFeature(projectPath, featureKey) {
   } catch { return { ok: false, reason: "無 QA 記錄" }; }
 }
 
-// 2026-10-21：修 Unit 假綠燈 — 舊版 no-run/stale 都算綠（!(failed>0) 對 null 是 true）；
-// 從嚴：沒跑過 / 過期（headSha 落後）/ 有失敗 → 都不算綠，reason 說清楚
+// 2026-10-28 Fleming 定調：「unit test / e2e 應該是每次都看整體的現況，跟 commit line 無關」
+// 現況導向三態：
+//   從未跑過 / 上次有失敗 → 紅（誠實：沒有綠燈事實）
+//   綠但落後 N commits       → 綠 + note（結果較舊，自動重跑中 — readiness 自癒機制會補新）
+//   綠且新鮮                 → 綠
+// （10-21 從嚴設計的假綠燈防護保留：never-run / failed 仍然紅；stale 降級為提示不是證據消失）
 function _unitGate(opts) {
   if (opts.lastTestRun !== undefined) {
     const ltr = opts.lastTestRun;
     if (!ltr) return { green: false, why: "測試從未跑過（先跑 ▶ 測試建立基準）" };
-    if (ltr.stale) return { green: false, why: `測試結果過期（落後 ${ltr.staleCommits || "?"} commits — 重跑）` };
     if ((ltr.summary?.failed || 0) > 0) return { green: false, why: `上次測試失敗 ${ltr.summary.failed} 條` };
+    if (ltr.stale) return { green: true, why: null, note: `上次全綠（${ltr.staleCommits} commits 前）— 自動重跑中，稍後自動更新` };
     return { green: true, why: null };
   }
   // legacy 相容（未傳 lastTestRun 維持舊行為）
@@ -236,7 +240,7 @@ export async function buildEvidenceMatrix(projectPath, changedFeatures, opts = {
     const sev = sevInfo.severity;
     const ev = {
       unit: f.hasTests
-        ? { ok: unitGate.green, tests: f.tests?.length || 0, ...(unitGate.why ? { reason: unitGate.why } : {}) }
+        ? { ok: unitGate.green, tests: f.tests?.length || 0, ...(unitGate.why ? { reason: unitGate.why } : {}), ...(unitGate.note ? { note: unitGate.note } : {}) }
         : { ok: false, reason: "無測試檔" },
       e2e: f.apiImpact
         ? { ok: f.e2eCoveredApis > 0, covered: f.e2eCoveredApis, total: f.apis?.length || 0 }
