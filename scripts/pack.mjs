@@ -7,10 +7,10 @@
  *   node scripts/pack.mjs --skip-build       # 跳過 vite build（UI 已建）
  *   node scripts/pack.mjs --publish URL --token XXX
  *                                            # 打包後直接推到 tpaaw-package
- *   node scripts/pack.mjs --no-semgrep       # 公司版：data-seed 不帶 data/semgrep-rules
- *                                            #（掃描規則含故意違規樣本，會被公司 security scan 誤判）
+ *   node scripts/pack.mjs --no-semgrep       # data-seed 不帶 data/semgrep-rules
+ *                                            #（掃描規則含故意違規樣本，可能被 security scan 誤判）
  *   node scripts/pack.mjs --semgrep-src DIR  # 指定外部 semgrep 規則來源目錄
- *                                            #（公司自備規則集；deploy5 分支本身沒有 data/semgrep-rules）
+ *                                            #（自備規則集時；repo 預設不附 data/semgrep-rules）
  *
  * 產出:
  *   dist/paaw-<version>.zip                  # 完整 code + data-seed/（不含 node_modules、不含 data/）
@@ -36,8 +36,8 @@ const PUBIdx = args.indexOf("--publish");
 const TOKENIdx = args.indexOf("--token");
 const PUBLISH_URL = PUBIdx >= 0 ? args[PUBIdx + 1] : null;
 const TOKEN = TOKENIdx >= 0 ? args[TOKENIdx + 1] : process.env.PUBLISH_TOKEN || "";
-// 2026-10-11 Fleming：公司 security scan 會把 data/semgrep-rules 的「故意違規樣本」誤判 →
-// 需要出「公司版」包時用 --no-semgrep（或 env PAAW_PACK_NO_SEMGREP=1）跳過 semgrep 規則。
+// semgrep-rules 內含「故意違規樣本」會被 security scan 誤判 →
+// 用 --no-semgrep（或 env PAAW_PACK_NO_SEMGREP=1）跳過 semgrep 規則。
 const NO_SEMGREP = args.includes("--no-semgrep") || process.env.PAAW_PACK_NO_SEMGREP === "1";
 // 2026-10-11 Fleming：公司自備一份 semgrep rules，打包時要包進 zip（不然新使用者裝完沒規則）。
 // deploy5 分支沒有 data/semgrep-rules → 用 --semgrep-src DIR（或 env PAAW_SEMGREP_RULES_DIR）指定。
@@ -243,7 +243,7 @@ for (const f of SEED_CONFIG_ALLOW) {
   const src = join(ROOT, "data/config", f);
   if (existsSync(src)) { cpSync(src, join(STAGE, "data-seed/config", f)); seeded++; }
 }
-// 2026-09-20 Fleming：移除 seeded < 2000 硬門檻 — 公司 data/ 刻意不含 semgrep-rules/golang
+//  seeded < 2000 硬門檻已移除 — data/ 可不含 semgrep-rules/golang
 // 169 檔（2026-09-08 要求移除），門檻會誤擋公司打包。缺料風險由 self-check + zip 抽查把關。
 console.log(`  產品資產 overlay：${seeded} 檔（prompts/semgrep-rules/skills/apps/workflows/config 出廠預設）`);
 if (!NO_SEMGREP) console.log(`  semgrep 規則來源：${resolve(SEMGREP_SRC)}`);
