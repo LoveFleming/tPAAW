@@ -1,10 +1,8 @@
 /**
  * F-003 — packages/db/src/connection.ts + index.ts 單元測試
  *
- * ⚠️ 大部分是 characterization test：connection.ts 的 SqlJsDialect 缺
- * createDriver / createQueryCompiler / createIntrospector（Kysely 0.29.2
- * Dialect 介面），`new Kysely(...)` 建構即拋 TypeError（ISS-029，open）。
- * 本檔斷言「現狀」而非理想契約，修復 ISS-029 後請改寫對應測試為正向斷言。
+ * 2026-10-29：ISS-029 已修（SqliteDialect + adaptDatabase 橋接 sql.js），
+ * 原本記錄壞掉現狀的 characterization 測試已改寫為正向斷言。
  *
  * 覆蓋的匯出路徑：
  *  - connection.ts：createDb / getDb / getRawDb / closeDb / saveToDisk
@@ -50,53 +48,51 @@ afterAll(() => {
 });
 
 describe("F-003 connection — createDb (ISS-029 characterization)", () => {
-  it("createDb() rejects with TypeError: dialect.createDriver is not a function", async () => {
-    // ISS-029（open）：SqlJsDialect 只實作 createAdapter，缺 Kysely 0.29.2
-    // Dialect 介面其餘方法 → new Kysely(...) 建構期即 TypeError。
-    // 修復後請改為：const db = await createDb(path); expect(db).toBeDefined();
-    await expect(createDb(join(tmpRoot, "a.sqlite"))).rejects.toThrow(
-      TypeError
-    );
-    await expect(createDb(join(tmpRoot, "b.sqlite"))).rejects.toThrow(
-      /createDriver|createQueryCompiler|createIntrospector/
-    );
+  it("createDb() resolves with a working Kysely instance (ISS-029 fixed)", async () => {
+    const db = await createDb(join(tmpRoot, "a.sqlite"));
+    expect(db).toBeDefined();
+    // module 狀態：raw sql.js 已掛載且可操作
+    expect(getRawDb()).not.toBeNull();
+    getRawDb()!.run("CREATE TABLE probe (a TEXT)");
+    getRawDb()!.run("INSERT INTO probe VALUES ('x')");
+    const rows = getRawDb()!.exec("SELECT a FROM probe");
+    expect((rows[0].values[0] as unknown[])[0]).toBe("x");
   });
 
-  it("createDb() creates the parent directory before failing (mkdir side effect already done)", async () => {
+  it("createDb() creates nested parent directories before opening the db", async () => {
     const nested = join(tmpRoot, "deep", "nest", "c.sqlite");
-    await expect(createDb(nested)).rejects.toThrow();
-    // mkdirSync 在建構 Kysely 之前執行，因此目錄已建立（現狀：副作用先發生）
+    const db = await createDb(nested);
+    expect(db).toBeDefined();
     expect(existsSync(join(tmpRoot, "deep", "nest"))).toBe(true);
   });
 
-  it("a failed createDb() leaks raw sql.js instance into module state (getRawDb non-null)", async () => {
+  it("module state is clean before open and reset on failure-free close", async () => {
     expect(getRawDb()).toBeNull(); // 乾淨起始（afterEach 已重置）
-    await expect(createDb(join(tmpRoot, "leak.sqlite"))).rejects.toThrow();
-    // 現狀：createDb 拋錯前已賦值 sqlJsDb —— 例外路徑沒有清理 module 狀態。
-    // ISS-029 修復時應一併處理失敗清理，屆時此斷言改為 toBeNull()。
+    await createDb(join(tmpRoot, "leak.sqlite"));
     expect(getRawDb()).not.toBeNull();
     expect(typeof (getRawDb() as unknown as { run: unknown }).run).toBe("function");
   });
 
   it("createDb() without explicit path derives dbPath from getDbPath() (mocked into tmp)", async () => {
-    await expect(createDb()).rejects.toThrow(); // 同樣卡在 ISS-029
-    // 但預設路徑已解析為 mocked getDbPath（tmpRoot/data/db/paaw.sqlite），
-    // 且不會碰專案外的真實資料檔 —— 落盤位置由 closeDb 測試進一步驗證
+    const db = await createDb();
+    expect(db).toBeDefined();
+    // 預設路徑解析為 mocked getDbPath（tmpRoot/data/db/paaw.sqlite），
+    // 不會碰專案外的真實資料檔 —— 落盤位置由 closeDb 測試進一步驗證
     expect(existsSync(join(tmpRoot, "data", "db"))).toBe(true);
   });
 });
 
 describe("F-003 connection — getDb / closeDb / saveToDisk", () => {
-  it("getDb() hits the same ISS-029 failure (no singleton is cached)", async () => {
-    await expect(getDb()).rejects.toThrow(TypeError);
-    // 失敗時 dbInstance 保持 null —— 之後的呼叫會重試而不是拿到壞實例
-    expect(getRawDb()).not.toBeNull(); // raw 端有洩漏（見上），但 Kysely 端沒有
+  it("getDb() caches a singleton — same instance on repeated calls", async () => {
+    const db1 = await getDb();
+    const db2 = await getDb();
+    expect(db1).toBe(db2);
+    expect(getRawDb()).not.toBeNull();
   });
 
-  it("closeDb() saves the leaked raw db to disk as a valid SQLite file (when raw db has DDL)", async () => {
+  it("closeDb() saves the raw db to disk as a valid SQLite file (when db has DDL)", async () => {
     const path = join(tmpRoot, "persist.sqlite");
-    await expect(createDb(path)).rejects.toThrow(); // 洩漏 raw db + 設定 dbPathGlobal
-    // 在洩漏的 raw db 上建立 schema/data，模擬「活著的 db 需要被落盤」的情境
+    await createDb(path);
     getRawDb()!.run("CREATE TABLE probe (a TEXT)");
     getRawDb()!.run("INSERT INTO probe VALUES ('x')");
     await closeDb(); // 內部呼叫 saveToDisk()
@@ -108,18 +104,18 @@ describe("F-003 connection — getDb / closeDb / saveToDisk", () => {
     expect(buf.subarray(0, 15).toString("latin1")).toBe("SQLite format 3");
   });
 
-  it("closeDb() writes a 0-byte file for a fresh raw db with no DDL (sql.js fresh export is empty)", async () => {
+  it("closeDb() writes a 0-byte file for a fresh db with no DDL (sql.js fresh export is empty)", async () => {
     // 現狀 characterization：sql.js new Database() 在執行任何 DDL 前
     // export() 回 0 bytes —— 意即「全新 db 立刻 close」會落盤空檔。
     const path = join(tmpRoot, "empty.sqlite");
-    await expect(createDb(path)).rejects.toThrow();
+    await createDb(path);
     await closeDb();
     expect(existsSync(path)).toBe(true);
     expect(readFileSync(path).length).toBe(0);
   });
 
   it("closeDb() resets module state — getRawDb() returns null afterwards", async () => {
-    await expect(createDb(join(tmpRoot, "reset.sqlite"))).rejects.toThrow();
+    await createDb(join(tmpRoot, "reset.sqlite"));
     expect(getRawDb()).not.toBeNull();
     await closeDb();
     expect(getRawDb()).toBeNull();
