@@ -35,7 +35,6 @@ data/skills/lab/
 data/apps/lab/
 
 # Package lock files (use pnpm)
-package-lock.json
 **/package-lock.json
 
 # Conversations

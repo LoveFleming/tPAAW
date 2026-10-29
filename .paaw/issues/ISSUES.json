@@ -887,8 +887,99 @@
       "featureId": "F20261016-010",
       "createdAt": "2026-10-17T20:49:03.830Z",
       "notes": []
+    },
+    {
+      "id": "ISS-045",
+      "title": "[F20261016-010] 日誌保留政策矛盾：「0=永不刪」經 API 不可達 + purge 可繞過資產政策",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "bug",
+        "retention-policy",
+        "api",
+        "found-by:TASK-053"
+      ],
+      "description": "[R4 review qr-20261017-202024-ru79 M1，QA 2026-10-18 親驗仍在]\n\n**位置**：packages/server/src/routes/log-retention.mjs L175（PUT 驗證 `n < 1` 拒收 0）＋ packages/server/src/routes/agent-logs.mjs POST /api/agent-logs/purge（接受任意 days）\n\n**問題鏈**：\n1. 政策文檔（檔頭註解 + DEFAULTS）定義「0 = 永不刪（成本核算資產）」，預設即 llmDays:0/agentDays:0。但 PUT /api/logs/retention 驗證 `n < 1` 拒收 0 → 使用者一旦設過天數，經 API 無法回到永不刪。\n2. agent-logs.mjs purge 註解（L210-216）引導「設 0 走設定端」，但設定端不收 0 — 指引自相矛盾。\n3. POST /api/agent-logs/purge 可傳任意 days 繞過資產政策刪 agent 記錄（與「永不刪」政策衝突）。\n\n**復現**：`PUT /api/logs/retention` body `{\"llmDays\":0}` → 400 `llmDays must be 1-3650`。\n\n**建議**：PUT 允許 llmDays/agentDays=0（其他 otherDays 維持 1-3650），或 purge 要求顯式 confirm 參數。",
+      "featureId": "F20261016-010",
+      "createdAt": "2026-10-17T21:10:56.324Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-046",
+      "title": "[F20261016-010] _updateIndex 讀取失敗靜默歸零 — 損毀 index 觸發資料遺失（任務摘要+成本歷史）",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "bug",
+        "data-loss",
+        "index",
+        "found-by:TASK-053"
+      ],
+      "description": "[R4 review qr-20261017-202024-ru79 M2，QA 2026-10-18 親驗仍在]\n\n**位置**：packages/server/src/lib/agent-exec-logger.mjs L224-233（_updateIndex 讀取+parse 包單一 catch{}）\n\n**問題**：_updateIndex 讀 index.json 失敗（檔案損毀/半檔）時靜默歸零 entries=[]，隨後 writeFile 覆寫 → 斷電半檔後第一個任務結束即把整份 index 覆寫成 1 筆，且被丟棄條目未經 _accumulateRuCostHistory 累計 → 任務摘要與成本資產同時遺失。writeFile 非原子（無 temp+rename）加劇風險。\n\n與前輪已修的 route 層 readIndexEntries corrupt 保護同型，寫入端漏修。\n\n**復現**：手動將 data/agent-logs/index.json 寫成 `{\"corrupted\":`（半截 JSON）→ 跑任一 agent 任務至結束 → index.json 只剩該任務 1 筆，原數百筆摘要遺失、ru-cost-history 未累計。\n\n**建議**：read/parse 分開 catch 並在 corrupt 時保存 entries 至備份檔（不覆寫）；writeFile 改 temp+rename 原子寫。",
+      "featureId": "F20261016-010",
+      "createdAt": "2026-10-17T21:11:02.984Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-047",
+      "title": "[F20261016-010] log-retention 500 回應仍洩漏 err.message（含絕對路徑）— 同型已修漏修",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "security",
+        "error-handling",
+        "found-by:TASK-053"
+      ],
+      "description": "[R4 review qr-20261017-202024-ru79 M3，QA 2026-10-18 親驗仍在]\n\n**位置**：packages/server/src/routes/log-retention.mjs L181（PUT catch）、L205（POST purge catch）、L196（janitor catch）— 三處 `jsonOut(500, { error: err.message })`\n\n**問題**：log-retention 的 500 回應仍直接外洩 err.message（CONFIG_FILE 錯誤訊息含絕對路徑 /Users/...）。同 feature 的 agent-logs.mjs 已改用 INTERNAL_ERROR_MSG 常數遮罩（前輪已修），本檔同型漏修 — 同一 feature 內標準不一致。\n\n**復現**：使 CONFIG_FILE 寫入失敗（如將 data/config/log-retention.json 設為目錄）→ PUT /api/logs/retention → 500 回應 error 欄含絕對路徑 `ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/config/log-retention.json'`。\n\n**建議**：比照 agent-logs.mjs 導入 INTERNAL_ERROR_MSG（細節只進 server log）。",
+      "featureId": "F20261016-010",
+      "createdAt": "2026-10-17T21:11:09.063Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-048",
+      "title": "[F20261016-010] agent+status 同時過濾時 status 靜默失效（三元互斥）— UI 狀態過濾無效",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "api",
+        "filter",
+        "ui",
+        "found-by:TASK-053"
+      ],
+      "description": "[R4 review qr-20261017-202024-ru7904 M4，QA 2026-10-18 親驗仍在（agent-logs.mjs L70）]\n\n**位置**：packages/server/src/routes/agent-logs.mjs L70：`listAgentTasks(limit, agentId ? { agentId } : status ? { status } : {})`\n\n**問題**：三元互斥 — 使用者同時帶 agent+status 查詢參數時，status 靜默失效（只套 agentId 過濾）。UI 端 AgentLogs.tsx L114-116 兩 filter 同送，因此 UI 的狀態過濾在選了 agent 後即無效。資料正確性受損：使用者以為在過濾 status，實際未過濾。\n\n**復現**：\n1. `GET /api/agent-logs?agent=developer&status=error` → 回傳該 agent 全部任務（含非 error）\n2. UI：Agent 面板選 agent + 狀態 error → 清單含非 error 任務\n\n**建議**：改為物件合併 `{ ...(agentId && { agentId }), ...(status && { status }) }`，listAgentTasks 已支援逐欄過濾，route 層組裝時合併即可。",
+      "featureId": "F20261016-010",
+      "createdAt": "2026-10-17T21:11:18.029Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-049",
+      "title": "[F20261016-010] R4 minor 品質債彙總：corrupt 偵測缺口 / limit 邊界 / purgeLlmBefore 驗證 / cleanup 判準不一致",
+      "priority": "low",
+      "status": "open",
+      "labels": [
+        "tech-debt",
+        "quality-debt",
+        "found-by:TASK-053"
+      ],
+      "description": "[R4 review qr-20261017-202024-ru79 m1/m2/m5/m7 minors，QA 2026-10-18 親驗仍在，彙總一單]\n\n**(1) readIndexEntries corrupt 偵測缺口** — agent-logs.mjs L35：index.json 為合法 JSON 但非陣列（如 `{}`）時 entries=[]/corrupt=false → DELETE ru 仍會覆寫成空陣列。復現：寫 index.json 為 `{}` → DELETE /api/agent-logs/ru?ru=X → 回 ok 但整份 index 歸零。\n\n**(2) limit 無下限/NaN 驗證** — agent-logs.mjs L67：`limit=-5` → slice(0,-5) 回「去尾」結果（總數-5 筆）；`limit=abc` → parseInt NaN → slice(0,NaN) 回空陣列。復現：`GET /api/agent-logs?limit=-5`。\n\n**(3) purgeLlmBefore 只驗 regex** — log-retention.mjs L103-115,L188：`before` 未來日期（如 2099-01-01）即刪除全部 llm 日誌且不受政策限制；無效日期（2020-13-45）可通過 regex。復現：`POST /api/logs/purge {\"before\":\"2099-01-01\"}` → llm 日誌全刪。\n\n**(4) cleanup 判準不一致** — agent-exec-logger.mjs L324-361：檔案刪除用 mtime、index 清理用 startTime，超長任務（時長>retentionDays，如掛 40 天的任務）產生永久孤兒 jsonl（mtime 新不刪，startTime 舊被清出 index）。復現：觀察 data/agent-logs/ 下孤兒檔累積。\n\n四項均 minor：不阻擋上線，列入品質債。",
+      "featureId": "F20261016-010",
+      "createdAt": "2026-10-17T21:11:25.194Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-050",
+      "title": "categories.mjs slug() 空值 fallback bug — 無 id 時 id 永遠是 cat-xxx 而非 slug(name)",
+      "priority": "medium",
+      "status": "open",
+      "labels": [],
+      "description": "installed-apps/secret/server/routes/categories.mjs L24 的 slug 函式：\n`const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, \"-\").replace(/^-|-$/g, \"\") || \\`cat${Date.now().toString(36)}\\``\n\nL75-76 使用方式：\n```\nlet id = slug(String(body.id || \"\"));  // 無 id → slug(\"\") → \"cat${ts}\"（非空！）\nif (!id) id = slug(name);              // 永遠不成立\n```\n\n問題：slug(\"\") 的 `|| \\`cat${ts}\\`` fallback 使空字串永遠不回空，導致 `if (!id)` 永遠 false。使用者傳 name 但不傳 id 時，id 變成 `catmvcxk3oc`（timestamp 亂碼），而非 slug(name) 的有意義值（如 \"project-management\"）。\n\n影響：動態新增分類的 id 不可讀、不可預測，agentId = `secret.catmvcxk3oc` 也無語意。\n\n修復建議：slug 不加 fallback（回空讓呼叫端處理），或 L75 改為 `let id = body.id ? slug(String(body.id)) : \"\"; if (!id) id = slug(name); if (!id) id = \\`cat-${...}\\``。\n\n由 tester 在 TASK-055 品質補強時發現，已以斷言釘住（tests/unit/secretary-routes.test.mjs DEFECT-CAT-SLUG-FALLBACK）。",
+      "featureId": "F20261016-012",
+      "createdAt": "2026-10-17T21:56:11.388Z",
+      "notes": []
     }
   ],
   "updatedAt": "2026-07-22T13:37:37.561Z",
-  "nextId": 45
+  "nextId": 51
 }

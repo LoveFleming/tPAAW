@@ -1,108 +1,166 @@
 /**
- * Next.js 16 - Route Handlers (API Endpoints)
+ * Next.js 16 — Route Handlers (API Endpoints)
  *
  * Route Handlers replace API Routes from Pages Router.
  * File: app/api/[...]/route.ts
+ *
+ * ⚠️ IMPORTANT — a single route.ts may export each HTTP method AT MOST ONCE
+ * (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS). Next.js ignores any other
+ * export name (→ 405) and a duplicate method name fails to compile.
+ *
+ * This reference file gathers examples that each belong to a DIFFERENT route
+ * file (see the `File:` note above every example). To keep the whole file a
+ * valid, compilable route.ts, only the FIRST handler of a given method carries
+ * the `export` keyword; later examples of the same method are plain functions.
+ * When copying one of those into its own route file, add the `export` keyword
+ * and name it with the HTTP method noted in its comment.
  */
 
 import { NextResponse } from 'next/server'
 import { cookies, headers } from 'next/headers'
+import { writeFile } from 'fs/promises'
+import { basename, join } from 'path'
 
 // ============================================================================
 // Example 1: Basic CRUD API
+// File: app/api/posts/route.ts
 // ============================================================================
 
 // GET /api/posts
 export async function GET() {
-  const posts = await fetch('https://api.example.com/posts').then(r => r.json())
+  const r = await fetch('https://api.example.com/posts')
+  if (!r.ok) {
+    return NextResponse.json({ error: 'Upstream API error' }, { status: 502 })
+  }
 
+  const posts = await r.json()
   return NextResponse.json(posts)
 }
 
 // POST /api/posts
 export async function POST(request: Request) {
-  const body = await request.json()
+  const body = await request.json().catch(() => null)
+  if (!body || typeof body.title !== 'string') {
+    return NextResponse.json(
+      { error: 'A string `title` is required' },
+      { status: 400 }
+    )
+  }
 
-  const post = await fetch('https://api.example.com/posts', {
+  const r = await fetch('https://api.example.com/posts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  }).then(r => r.json())
+    body: JSON.stringify({ title: body.title }),
+  })
+  if (!r.ok) {
+    return NextResponse.json({ error: 'Failed to create post' }, { status: 502 })
+  }
 
+  const post = await r.json()
   return NextResponse.json(post, { status: 201 })
 }
 
 // ============================================================================
 // Example 2: Dynamic Routes
+// File: app/api/posts/[id]/route.ts
 // ============================================================================
 
-// File: app/api/posts/[id]/route.ts
-
-export async function GET(
+// GET /api/posts/[id] — this file already exports GET (Example 1), so this
+// handler is shown without the keyword. Copy it into app/api/posts/[id]/route.ts
+// and export it there as `GET`.
+async function getPostById(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params // ✅ Await params in Next.js 16
 
-  const post = await fetch(`https://api.example.com/posts/${id}`)
-    .then(r => r.json())
-    .catch(() => null)
-
-  if (!post) {
+  const r = await fetch(`https://api.example.com/posts/${encodeURIComponent(id)}`)
+  if (!r.ok) {
     return NextResponse.json(
       { error: 'Post not found' },
       { status: 404 }
     )
   }
 
+  const post = await r.json()
   return NextResponse.json(post)
 }
 
+// PATCH /api/posts/[id] — first PATCH in this file, so it is exported.
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const body = await request.json()
+  const body = await request.json().catch(() => null)
+  if (!body) {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
-  const updated = await fetch(`https://api.example.com/posts/${id}`, {
+  const r = await fetch(`https://api.example.com/posts/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-  }).then(r => r.json())
+  })
+  if (!r.ok) {
+    return NextResponse.json({ error: 'Failed to update post' }, { status: 502 })
+  }
 
+  const updated = await r.json()
   return NextResponse.json(updated)
 }
 
+// DELETE /api/posts/[id] — first DELETE in this file, so it is exported.
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
 
-  await fetch(`https://api.example.com/posts/${id}`, {
+  const r = await fetch(`https://api.example.com/posts/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   })
+  if (!r.ok) {
+    return NextResponse.json({ error: 'Failed to delete post' }, { status: 502 })
+  }
 
   return NextResponse.json({ message: 'Post deleted' }, { status: 200 })
 }
 
 // ============================================================================
 // Example 3: Search with Query Parameters
+// File: app/api/search/route.ts — copy this handler there and export it as `GET`
 // ============================================================================
 
 // GET /api/search?q=nextjs&limit=10&page=1
-export async function SEARCH(request: Request) {
+async function searchPosts(request: Request) {
   const { searchParams } = new URL(request.url)
-  const query = searchParams.get('q') || ''
-  const limit = parseInt(searchParams.get('limit') || '10')
-  const page = parseInt(searchParams.get('page') || '1')
+  const query = searchParams.get('q') ?? ''
+  const limit = Number.parseInt(searchParams.get('limit') ?? '10', 10)
+  const page = Number.parseInt(searchParams.get('page') ?? '1', 10)
+
+  if (Number.isNaN(limit) || limit < 1 || Number.isNaN(page) || page < 1) {
+    return NextResponse.json(
+      { error: '`limit` and `page` must be positive integers' },
+      { status: 400 }
+    )
+  }
   const offset = (page - 1) * limit
 
-  const results = await fetch(
-    `https://api.example.com/search?q=${query}&limit=${limit}&offset=${offset}`
-  ).then(r => r.json())
+  // URLSearchParams encodes every value — never interpolate raw user input
+  // into a URL string.
+  const search = new URLSearchParams({
+    q: query,
+    limit: String(limit),
+    offset: String(offset),
+  })
 
+  const r = await fetch(`https://api.example.com/search?${search}`)
+  if (!r.ok) {
+    return NextResponse.json({ error: 'Search failed' }, { status: 502 })
+  }
+
+  const results = await r.json()
   return NextResponse.json({
     results: results.items,
     total: results.total,
@@ -116,17 +174,29 @@ export async function SEARCH(request: Request) {
 // ============================================================================
 
 // POST /api/auth/login
-export async function LOGIN(request: Request) {
-  const { email, password } = await request.json()
+// File: app/api/auth/login/route.ts — copy this handler there and export it as `POST`
+async function login(request: Request) {
+  const body = await request.json().catch(() => null)
+  if (
+    !body ||
+    typeof body.email !== 'string' ||
+    typeof body.password !== 'string'
+  ) {
+    return NextResponse.json(
+      { error: 'Email and password are required' },
+      { status: 400 }
+    )
+  }
 
   // Verify credentials
-  const user = await fetch('https://api.example.com/auth/login', {
+  const r = await fetch('https://api.example.com/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  }).then(r => r.json())
+    body: JSON.stringify({ email: body.email, password: body.password }),
+  })
+  const user = r.ok ? ((await r.json()) as { token?: string }) : null
 
-  if (!user.token) {
+  if (!user?.token) {
     return NextResponse.json(
       { error: 'Invalid credentials' },
       { status: 401 }
@@ -139,6 +209,7 @@ export async function LOGIN(request: Request) {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
+    path: '/',
     maxAge: 60 * 60 * 24 * 7, // 7 days
   })
 
@@ -146,7 +217,8 @@ export async function LOGIN(request: Request) {
 }
 
 // GET /api/auth/me
-export async function ME() {
+// File: app/api/auth/me/route.ts — copy this handler there and export it as `GET`
+async function getCurrentUser() {
   const cookieStore = await cookies() // ✅ Await cookies in Next.js 16
   const token = cookieStore.get('token')?.value
 
@@ -157,24 +229,34 @@ export async function ME() {
     )
   }
 
-  const user = await fetch('https://api.example.com/auth/me', {
+  const r = await fetch('https://api.example.com/auth/me', {
     headers: { Authorization: `Bearer ${token}` },
-  }).then(r => r.json())
+  })
+  if (!r.ok) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401 }
+    )
+  }
 
+  const user = await r.json()
   return NextResponse.json(user)
 }
 
 // ============================================================================
 // Example 5: Webhook Handler
+// File: app/api/webhooks/stripe/route.ts — copy this handler there and export it as `POST`
 // ============================================================================
 
-// File: app/api/webhooks/stripe/route.ts
+// Minimal shape of the Stripe events this example handles
+type StripeEvent = {
+  type: string
+  data: { object: { id: string } }
+}
 
-import { headers as getHeaders } from 'next/headers'
-
-export async function WEBHOOK(request: Request) {
+async function stripeWebhook(request: Request) {
   const body = await request.text()
-  const headersList = await getHeaders() // ✅ Await headers in Next.js 16
+  const headersList = await headers() // ✅ Await headers in Next.js 16
   const signature = headersList.get('stripe-signature')
 
   if (!signature) {
@@ -184,12 +266,15 @@ export async function WEBHOOK(request: Request) {
     )
   }
 
-  // Verify webhook signature (example with Stripe)
-  let event
+  // Signature check — never trust an unverified webhook payload. With the
+  // Stripe SDK the verification and the parse happen in one call:
+  //   const event = stripe.webhooks.constructEvent(body, signature, secret)
+  // The plain JSON.parse below keeps this template dependency-free; swap in
+  // constructEvent in production so the signature is actually validated.
+  let event: StripeEvent
   try {
-    event = JSON.parse(body)
-    // In production: stripe.webhooks.constructEvent(body, signature, secret)
-  } catch (err) {
+    event = JSON.parse(body) as StripeEvent
+  } catch {
     return NextResponse.json(
       { error: 'Invalid payload' },
       { status: 400 }
@@ -211,22 +296,23 @@ export async function WEBHOOK(request: Request) {
   return NextResponse.json({ received: true })
 }
 
-async function handlePaymentSuccess(paymentIntent: any) {
+async function handlePaymentSuccess(paymentIntent: { id: string }) {
   console.log('Payment succeeded:', paymentIntent.id)
   // Update database, send confirmation email, etc.
 }
 
-async function handlePaymentFailure(paymentIntent: any) {
+async function handlePaymentFailure(paymentIntent: { id: string }) {
   console.log('Payment failed:', paymentIntent.id)
   // Notify user, log error, etc.
 }
 
 // ============================================================================
-// Example 6: Streaming Response
+// Example 6: Streaming Response (SSE)
+// File: app/api/stream/route.ts — copy this handler there and export it as `GET`
 // ============================================================================
 
 // GET /api/stream
-export async function STREAM() {
+async function sseStream() {
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -251,15 +337,16 @@ export async function STREAM() {
 
 // ============================================================================
 // Example 7: File Upload
+// File: app/api/upload/route.ts — copy this handler there and export it as `POST`
 // ============================================================================
 
 // POST /api/upload
-import { writeFile } from 'fs/promises'
-import { join } from 'path'
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024 // 5 MB
+const ALLOWED_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
 
-export async function UPLOAD(request: Request) {
+async function uploadFile(request: Request) {
   const formData = await request.formData()
-  const file = formData.get('file') as File
+  const file = formData.get('file') as File | null
 
   if (!file) {
     return NextResponse.json(
@@ -268,13 +355,33 @@ export async function UPLOAD(request: Request) {
     )
   }
 
+  if (!ALLOWED_MIME_TYPES.has(file.type)) {
+    return NextResponse.json(
+      { error: `Unsupported file type: ${file.type}` },
+      { status: 415 }
+    )
+  }
+
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { error: 'File exceeds the 5 MB limit' },
+      { status: 413 }
+    )
+  }
+
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)
-  const filename = `${Date.now()}-${file.name}`
-  const path = join(process.cwd(), 'public', 'uploads', filename)
+  // basename() strips any directory component; the replace() whitelist drops
+  // every remaining character that is unsafe in a filename (path traversal).
+  const safeName = basename(file.name).replace(/[^a-zA-Z0-9._-]/g, '')
+  const filename = `${Date.now()}-${safeName}`
+  const filePath = join(process.cwd(), 'public', 'uploads', filename)
 
-  await writeFile(path, buffer)
+  await writeFile(filePath, buffer)
 
+  // ⚠️ Files written into public/ at runtime are NOT served by next start in
+  // production — use blob/object storage (or a dedicated upload dir + route)
+  // when you deploy.
   return NextResponse.json({
     success: true,
     url: `/uploads/${filename}`,
@@ -283,24 +390,32 @@ export async function UPLOAD(request: Request) {
 
 // ============================================================================
 // Example 8: CORS Configuration
+// File: app/api/cors/route.ts — the OPTIONS handler below is exported; copy
+// helloWithCors into the same file is NOT possible (GET already exported in
+// Example 1) — put it in its own route file and export it as `GET` there.
 // ============================================================================
+
+// Allow a single explicit origin via env var — never '*' together with
+// credentials, and avoid '*' in general (use an allowlist).
+const allowedOrigin = process.env.ALLOWED_ORIGIN ?? 'https://app.example.com'
 
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Origin': allowedOrigin,
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   })
 }
 
-export async function CORS_GET() {
+// GET /api/cors — demonstrates attaching CORS headers to a real response.
+async function helloWithCors() {
   const response = NextResponse.json({ message: 'Hello' })
 
-  response.headers.set('Access-Control-Allow-Origin', '*')
-  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+  response.headers.set('Access-Control-Allow-Origin', allowedOrigin)
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
   return response
@@ -308,15 +423,17 @@ export async function CORS_GET() {
 
 // ============================================================================
 // Example 9: Error Handling
+// File: app/api/data/route.ts — copy this handler there and export it as `GET`
 // ============================================================================
 
-export async function ERROR_HANDLING() {
+// GET /api/data
+async function getWithErrorHandling() {
   try {
-    const data = await fetch('https://api.example.com/data')
-      .then(r => {
-        if (!r.ok) throw new Error('API request failed')
-        return r.json()
-      })
+    const r = await fetch('https://api.example.com/data')
+    if (!r.ok) {
+      throw new Error(`Upstream API responded ${r.status}`)
+    }
+    const data = await r.json()
 
     return NextResponse.json(data)
   } catch (error) {
@@ -331,20 +448,33 @@ export async function ERROR_HANDLING() {
 
 // ============================================================================
 // Example 10: Rate Limiting
+// File: app/api/limited/route.ts — copy this handler (and the Map + consts
+// above it) there and export it as `GET`
 // ============================================================================
 
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX = 10
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 
-export async function RATE_LIMITED() {
+// GET /api/limited
+async function rateLimitedGet() {
   const headersList = await headers()
-  const ip = headersList.get('x-forwarded-for') || 'unknown'
+  // ⚠️ x-forwarded-for is only trustworthy behind a reverse proxy, and an
+  // in-memory Map is per-instance — for serverless/multi-instance deployments
+  // move the counter to a shared store (e.g. Upstash Redis).
+  const ip = headersList.get('x-forwarded-for') ?? 'unknown'
   const now = Date.now()
+
+  // Prune expired entries so the Map stays bounded (no memory leak)
+  for (const [key, entry] of rateLimitMap) {
+    if (now >= entry.resetAt) rateLimitMap.delete(key)
+  }
 
   const rateLimit = rateLimitMap.get(ip)
 
   if (rateLimit) {
     if (now < rateLimit.resetAt) {
-      if (rateLimit.count >= 10) {
+      if (rateLimit.count >= RATE_LIMIT_MAX) {
         return NextResponse.json(
           { error: 'Too many requests' },
           { status: 429 }
@@ -352,10 +482,10 @@ export async function RATE_LIMITED() {
       }
       rateLimit.count++
     } else {
-      rateLimitMap.set(ip, { count: 1, resetAt: now + 60000 })
+      rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
     }
   } else {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + 60000 })
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
   }
 
   return NextResponse.json({ message: 'Success' })
@@ -371,17 +501,18 @@ export async function RATE_LIMITED() {
  * 4. ✅ Access headers with await headers()
  * 5. ✅ Use NextResponse.json() for JSON responses
  * 6. ✅ Return Response or NextResponse
+ * 7. ✅ Export each HTTP method at most once per route.ts
  *
  * Common patterns:
  * - CRUD operations (GET, POST, PATCH, DELETE)
- * - Query parameters with searchParams
+ * - Query parameters with searchParams (encode with URLSearchParams)
  * - Authentication with cookies
- * - Webhooks with signature verification
- * - Streaming responses (SSE, WebSocket)
- * - File uploads with FormData
- * - CORS configuration
- * - Error handling
- * - Rate limiting
+ * - Webhooks with signature verification (constructEvent)
+ * - Streaming responses (SSE via ReadableStream)
+ * - File uploads with FormData (sanitize filenames, cap size)
+ * - CORS configuration (explicit origin allowlist)
+ * - Error handling (check r.ok, try/catch)
+ * - Rate limiting (prune expired entries)
  *
  * Best practices:
  * - Use try/catch for error handling

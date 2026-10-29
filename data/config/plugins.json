@@ -1,8 +1,8 @@
 {
   "agentic-platform": {
-    "name": "Agentic Platform",
+    "name": "小元寶學習空間",
     "icon": "🤖",
-    "url": "http://localhost:4200",
+    "url": "http://localhost:5174",
     "enabled": true
   }
 }

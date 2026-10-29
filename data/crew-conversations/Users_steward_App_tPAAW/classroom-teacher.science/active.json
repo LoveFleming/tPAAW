@@ -1,0 +1,26 @@
+{
+  "id": "active",
+  "employeeId": "classroom-teacher.science",
+  "title": "teacher.science 教室對話",
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "嗨！我是理化，有什麼我可以幫忙的嗎？",
+      "ts": "2026-10-18T03:14:11.644Z"
+    },
+    {
+      "role": "user",
+      "content": "波長是什麼?",
+      "ts": "2026-10-18T03:15:01.661Z"
+    },
+    {
+      "role": "assistant",
+      "content": "⚠️ HTTP 404",
+      "ts": "2026-10-18T03:15:01.671Z"
+    }
+  ],
+  "model": "",
+  "systemPrompt": "",
+  "createdAt": "2026-10-18T03:15:03.685Z",
+  "updatedAt": "2026-10-18T03:15:03.685Z"
+}

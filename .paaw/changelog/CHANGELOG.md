@@ -34,6 +34,63 @@
 ### changed
 - +4694 −381 lines across 15 files
 
+### changed
+- code changes (1 new file) (2 modified)
+
+### changed
+- +4694 −406 lines across 14 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +4809 −411 lines across 15 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +4917 −410 lines across 16 files
+
+### docs
+- [TASK-053] 為 F20261016-010（Agent 執行日誌與日誌保留政策）補寫技術文件：API 文件（agent-logs 6 端點 + log-retention 3 端點，含參數、回應格式、錯誤碼、已知缺陷標註）、操作手冊（7 個情境：查詢任務軌跡、RU 成本、設定保留政策、執行 purge、清理單一 RU、指定天數清理、RU 名稱診斷）、品質補強成果表（5 項修復 + 5 項待修 issue）、ADR-023 日誌三層架構與資產級保留政策（記錄 Fleming 2026-09-06/2026-10-05 的三層日誌分架構決策）。文件據實記錄 ISS-044（const += critical）、ISS-045（0=永不刪 API 不可達）等 QA 確認仍在的缺陷，待 developer 修復後同步更新。
+
+### changed
+- code changes (1 new file) (1 modified)
+
+### changed
+- +5045 −403 lines across 17 files
+
+### changed
+- code changes (1 modified)
+
+### changed
+- +5071 −402 lines across 17 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +5283 −437 lines across 17 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +5310 −436 lines across 17 files
+
+### changed
+- code changes (4 modified)
+
+### changed
+- +5486 −427 lines across 18 files
+
+### changed
+- code changes (1 new file)
+
+### changed
+- +5800 −417 lines across 18 files
+
 ## 2026-10-17
 ### changed
 - code changes (1 new file)

@@ -104,14 +104,16 @@ describe("F-003 connection — getDb / closeDb / saveToDisk", () => {
     expect(buf.subarray(0, 15).toString("latin1")).toBe("SQLite format 3");
   });
 
-  it("closeDb() writes a 0-byte file for a fresh db with no DDL (sql.js fresh export is empty)", async () => {
-    // 現狀 characterization：sql.js new Database() 在執行任何 DDL 前
-    // export() 回 0 bytes —— 意即「全新 db 立刻 close」會落盤空檔。
+  it("closeDb() writes an empty-or-header-only file for a fresh db with no DDL", async () => {
+    // characterization：sql.js new Database() 在執行任何 DDL 前 export()：
+    //   1.14.x → 0 bytes；1.15.x → 一個 4096-byte 空 page（SQLite header）。
+    // 兩者都算「空 db」—— 不該有任何資料頁。
     const path = join(tmpRoot, "empty.sqlite");
     await createDb(path);
     await closeDb();
     expect(existsSync(path)).toBe(true);
-    expect(readFileSync(path).length).toBe(0);
+    const buf = readFileSync(path);
+    expect(buf.length === 0 || (buf.length <= 4096 && buf.subarray(0, 15).toString("latin1") === "SQLite format 3")).toBe(true);
   });
 
   it("closeDb() resets module state — getRawDb() returns null afterwards", async () => {

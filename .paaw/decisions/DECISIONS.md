@@ -402,5 +402,20 @@ Neutral: The PAAW Agent (developer-facing tool) retains unrestricted bash for in
 - **狀態**: Proposed
 - **背景**: 受測對象 data/skills/physical-skill/nextjs-backend-best-practices/templates/server-actions-form.tsx 是教學範本，非可執行應用程式碼：(1) 依賴 Next.js runtime（next/cache、next/navigation、next/headers）與 react-dom，專案根未安裝 next/zod，無法 import；(2) 同檔含多個 export default / 'use server' / 'use client' 指令堆疊，本身就無法編譯（QA B1）。因此「直接 import 執行」不可行。
 - **決定**: 採兩層鞏固（沿用同包既有慣例 route-handler-api-template.test.mjs / nextjs-use-cache-template.test.mjs）：A 層靜態契約掃描 — 讀原始碼文字斷言範本示範的行為符合 Next.js 16 Server Actions 契約（合法 action 簽章、useActionState 而非已棄用 useFormState、無堆疊指令、有伺服器端驗證與 res.ok 檢查等），並把 QA 的 B1–B4/M1–M6 以斷言登錄為可回歸偵測的缺陷；B 層可執行語意重現 — 用最小 stub（假 fetch、假 headers、記憶體 store）重現範本示範的 action 語意（驗證失敗回 errors 物件、成功回 {success:true}、限流回 error、fetch 失敗處理），驗證範本宣稱的行為契約正確。缺陷以斷言形式登錄（紅燈），修好後斷言轉綠 — tester 不改範本檔。
-- **後果**: 正面：測試可執行、可在 CI 跑，且能回歸偵測範本缺陷；不需新增依賴或改範本。負面：範本存在 QA 已指出的 blocker（範本自身不可用），此測試會以 fail 呈現，需 developer 修範本後才全綠 — 這是預期行為，非測試錯誤。範疇：僅新增 tests/unit/server-actions-form-template.test.mjs，不動範本檔。
+- **後果**: 正面：測試可執行、可在 CI 跑，且能回歸偵測範本缺陷；不需新增依賴或改範本。負面：範本存在 QA 已指出的 blocker（範本自身不可用），此測試會以 fail 呈現，需 developer 修範本後才全綠 — 這是預期行為，非測試錯錯誤。範疇：僅新增 tests/unit/server-actions-form-template.test.mjs，不動範本檔。
+
+## ADR-023: 日誌三層架構與資產級保留政策
+- **日期**: 2026-09-06（Fleming 定調）/ 2026-10-05（log 目錄統一）/ 2026-10-18（文件化）
+- **狀態**: Accepted
+- **背景**: PAAW 的日誌原本散落在 `data/logs/`（與使用者資產混在一起）。這造成三個問題：(1) 備份把垃圾日誌一起備份，浪費空間；(2) 日誌清理政策與使用者資產保護混在一起，容易誤刪使用者資料；(3) LLM 呼叫記錄是成本核算資產（RU 用了多少 token），但跟 runtime 垃圾（semgrep 輸出、dev console）同級，沒有區分。
+- **決定**: 將日誌分為三層，各有明確的性質與清理責任：(1) `data/` — 使用者資產（對話、筆記、設定），進備份，永不自動刪；(2) `{ru}/.paaw/` — RU 版控資產（feature map、issues、decisions），版控管理，不自動刪；(3) `log/` — runtime 日誌根，不進備份，定時清理，細分為：`log/logs/llm/*.jsonl`（資產級，LLM 呼叫記錄，成本核算用，預設 `llmDays=0` 永不刪）、`log/logs/agent/*.jsonl`（資產級，Agent 執行軌跡，ES 資料源，預設 `agentDays=0` 永不刪）、`log/logs/{其他}`（非資產子目錄如 cron，預設 `otherDays=7`）、`log/{semgrep,app-console,versions,tmp}`（runtime 垃圾，由 Janitor 依組數/份數清理）。保留政策語義：`days=0` 代表永不刪（資產級預設）；`days>0` 代表保留 N 天後刪。清理責任分離：log-retention 負責 `log/logs/` 下日誌，Janitor 負責 `log/` 下 runtime 垃圾，Janitor 絕不碰 `data/` 與 `{ru}/.paaw/`。成本歷史（ru-cost-history.json）在 purge 時累計被刪任務的成本，確保即使日誌被清，成本數字不遺失。
+- **後果**: 正面：備份不再包含垃圾日誌；清理政策與資產保護職責分離；成本核算資產（LLM/agent 日誌）預設永久保留；`log/` 目錄可安全地整目錄清除（除 `log/logs/llm` 與 `log/logs/agent`），適合磁碟壓力時應急清理。負面：`days=0` 語義與 PUT API 的 `1-3650` 驗證不一致（ISS-045），使用者無法經 API 回到永不刪，需修復 PUT 允許 `0`；舊 `data/logs/` 遷移到 `log/logs/` 後，Janitor 需對 `data/logs/` 做 legacy sweep，增加邏輯複雜度。中性：本文為事後補記（實作已完成），對應文件 docs/f20261016-010-agent-logs.md。
+- **Alternatives Considered**: 全部留在 `data/logs/`（拒絕，備份含垃圾、政策混在一起）；全部進資料庫（拒絕，JSONL 符合 ADR-001 且可直接被 ES shipper 消費）；LLM 日誌也定時刪（拒絕，成本核算資產刪了無法回溯歷史成本）。
+
+## ADR-024: TASK-055 測試範圍：route-level 整合測試 Secretary.tsx 背後的 4 個 server routes
+- **日期**: 2026-10-18
+- **狀態**: Proposed
+- **背景**: TASK-055 指派 fileScope 為 installed-apps/secret/ui/pages/Secretary.tsx（React UI 元件）。QA 兩輪確認這是 fileScope 錯靶——Secretary.tsx 是秘書模組 UI，不屬 F20261016-012（AI Settings + Distill）。同時專案無 React 測試基礎設施（vitest environment=node、無 jsdom、無 RTL、無 @paaw-ui alias、無 @vitejs/plugin-react）。Secretary.tsx 的關鍵路徑（loadTree/openDossier/saveMd/doUpload/CategoryManager/briefing/expirations）全部對應 installed-apps/secret/server/routes/ 下的 4 個 route handler。QA 指出的 bug 也絕大多數在 server routes。使用者無法在 loop 中回答範圍確認，但 EM 已派工到 test 階段且 QA 把錯靶標為「非阻擋項」。
+- **決定**: 採路徑 B：測 Secretary.tsx 背後的 server routes（dossiers/categories/briefing/sheets），以 route-level 整合測試覆蓋關鍵路徑的後端契約。用 vi.mock 隔離 shared.mjs 的 PAAW_ROOT 到臨時目錄（不污染使用者資料、不動產品碼）。不引入 jsdom/RTL。
+- **後果**: 正面：測試真正可執行、可回歸、不污染使用者資料（data/installed-apps/secret/）；覆蓋 QA 指出的 server 層熱區（路徑穿越、非法檔名、DELETE 行為、categories PATCH agentId 不驗證）；沿用專案既有 route 測試慣例（makeReqRes + readBody），零新依賴。負面：不直接測 React 元件渲染（需引入 jsdom + RTL，設定變動大且測的是 mock）；QA 指出的 UI 層 issues（無 aria-label、無離開警示、mdDirty 攔截）不在覆蓋範圍——這些應由後續 UI 測試基礎設施建立後補。中性： Secretary.tsx 關鍵路徑（loadTree/openDossier/saveMd/doUpload/CategoryManager/briefing/expirations）的後端契約全覆蓋。
 

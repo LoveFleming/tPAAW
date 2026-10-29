@@ -19,17 +19,26 @@
     "includeActionLog": true
   },
   "model": {
-    "planning": "",
-    "dispatch": ""
+    "planning": "zai/glm-5.1",
+    "dispatch": "zai/glm-5.1"
+  },
+  "closedLoop": {
+    "enabled": true,
+    "maxRounds": 30
   },
   "dispatchableAgents": [],
   "blockedAgents": [],
+  "reviewConfig": {
+    "multiAgentReview": false,
+    "reviewModels": [],
+    "autoRework": true
+  },
   "planningScope": {
     "gitChanges": true,
     "openIssues": true,
     "openTasks": true,
     "securityFindings": true,
-    "codeIntelligence": false,
-    "testCoverage": true
+    "testCoverage": true,
+    "codeIntelligence": false
   }
 }

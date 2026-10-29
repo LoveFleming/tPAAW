@@ -1,9 +1,9 @@
-# Next.js 16 - Top 18 Errors & Solutions
+# Next.js 16 - Top 19 Errors & Solutions
 
-**Last Updated**: 2025-10-24
+**Last Updated**: 2026-10-17
 **Prevention Rate**: 100% (all documented errors caught)
 
-This guide covers the 18 most common errors when using Next.js 16 and their solutions.
+This guide covers the 19 most common errors when using Next.js 16 and their solutions.
 
 ---
 
@@ -454,6 +454,33 @@ export async function createPost(formData: FormData) {
 
 ---
 
+## Error #19: Route Handler returns 405 / duplicate method export
+
+**Error Message**:
+```
+405 Method Not Allowed
+// or
+SyntaxError: Identifier 'GET' has already been declared
+```
+
+**Cause**: `route.ts` exported a handler under a non-method name (Next.js only
+recognizes `GET`/`POST`/`PUT`/`PATCH`/`DELETE`/`HEAD`/`OPTIONS`), or exported
+the same method twice in one file.
+
+**Solution**:
+```typescript
+// ❌ Before — silently 405s
+export async function login(request: Request) { … }
+
+// ✅ After — in app/api/auth/login/route.ts
+export async function POST(request: Request) { … }
+```
+
+One export per method per file; split same-method handlers into separate route
+files and move helpers to `lib/`.
+
+---
+
 ## Quick Error Lookup
 
 | Error Type | Solution | Link |
@@ -476,6 +503,7 @@ export async function createPost(formData: FormData) {
 | Font not loading | Apply font variable to `<html>` | [#16](#error-16-nextfont-font-not-loading) |
 | Env vars in browser | Prefix with `NEXT_PUBLIC_` | [#17](#error-17-environment-variables-not-available-in-browser) |
 | Server Action not found | Add `'use server'` | [#18](#error-18-server-action-not-found) |
+| Route Handler 405 | Export as HTTP method name | [#19](#error-19-route-handler-returns-405--duplicate-method-export) |
 
 ---
 
@@ -500,6 +528,7 @@ Before deploying, check:
 - [ ] Fonts applied to `<html>` or `<body>`
 - [ ] Public env vars prefixed with `NEXT_PUBLIC_`
 - [ ] Server Actions have `'use server'`
+- [ ] Route handlers export only HTTP method names, each at most once
 - [ ] Node.js version is 20.9+
 
 ---

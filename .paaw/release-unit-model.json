@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-17T10:50:16.593Z",
-  "headSha": "a6e10d39",
+  "generatedAt": "2026-10-21T15:34:30.356Z",
+  "headSha": "767089f2",
   "tableHashes": {
-    "features": "597ad0206c4e1d43",
-    "apis": "c76ef19d1df6fa68",
-    "tests": "f29094e6025bf880",
-    "changes": "36d26a27c4858aa2",
-    "knowledgeGaps": "de6c228e70f245af"
+    "features": "fab58ed6e0c4bc38",
+    "apis": "d44571683c57b6d9",
+    "tests": "1220ad5171ff14e6",
+    "changes": "4396ec50b5cdc0fb",
+    "knowledgeGaps": "d647eb6b68f3c729"
   },
   "root": null,
   "summary": {
@@ -15,7 +15,7 @@
     "apis": 364,
     "apisWithFeature": 301,
     "files": 424,
-    "filesMapped": 288,
+    "filesMapped": 289,
     "tests": 284,
     "commits": 200,
     "commitLimit": 200
@@ -24,7 +24,7 @@
     "apiMapGeneratedAt": null,
     "testMapGeneratedAt": null,
     "depGraphGeneratedAt": null,
-    "featuresUpdatedAt": "2026-10-16T12:57:17.845Z"
+    "featuresUpdatedAt": "2026-10-18T00:03:05.844Z"
   },
   "features": [
     {
@@ -62,14 +62,14 @@
       "apiCount": 0,
       "tests": [],
       "testCount": 0,
-      "changeCount": 0,
-      "lastChangeAt": null,
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T19:13:39+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "4cdd32fe4836ef72"
+      "_h": "c23ec0dc3ac73ffd"
     },
     {
       "id": "F20261016-003",
@@ -84,14 +84,14 @@
       "apiCount": 0,
       "tests": [],
       "testCount": 0,
-      "changeCount": 0,
-      "lastChangeAt": null,
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T19:13:39+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "4926fb474b85411b"
+      "_h": "83116ce398b71da4"
     },
     {
       "id": "F20261016-004",
@@ -128,14 +128,14 @@
       "apiCount": 0,
       "tests": [],
       "testCount": 0,
-      "changeCount": 0,
-      "lastChangeAt": null,
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T20:30:10+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "f3e216edc432b214"
+      "_h": "476870f19abb787d"
     },
     {
       "id": "F20261016-006",
@@ -150,14 +150,14 @@
       "apiCount": 0,
       "tests": [],
       "testCount": 0,
-      "changeCount": 0,
-      "lastChangeAt": null,
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T22:25:53+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "ba369b25d7273c09"
+      "_h": "5b239a832622348f"
     },
     {
       "id": "F20261016-007",
@@ -193,12 +193,12 @@
         }
       ],
       "testCount": 51,
-      "changeCount": 1,
-      "lastChangeAt": "2026-10-04T20:47:13+08:00",
+      "changeCount": 0,
+      "lastChangeAt": null,
       "knowledgeGaps": [
         "no-runbook"
       ],
-      "_h": "4a2e62ead016f979"
+      "_h": "c85cf8116f94f1b4"
     },
     {
       "id": "F20261016-008",
@@ -214,14 +214,14 @@
       "apiCount": 0,
       "tests": [],
       "testCount": 0,
-      "changeCount": 6,
-      "lastChangeAt": "2026-10-04T20:30:47+08:00",
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-18T01:48:22+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "26af170ff4612c0e"
+      "_h": "74cd262a425164de"
     },
     {
       "id": "F20261016-009",
@@ -261,34 +261,47 @@
         }
       ],
       "testCount": 29,
-      "changeCount": 6,
-      "lastChangeAt": "2026-10-13T18:29:17+08:00",
+      "changeCount": 7,
+      "lastChangeAt": "2026-10-17T19:34:18+08:00",
       "knowledgeGaps": [
         "no-runbook"
       ],
-      "_h": "c21614fc7462e5c1"
+      "_h": "4d86512114ee9f9f"
     },
     {
       "id": "F20261016-010",
       "name": "Agent 執行日誌與日誌保留政策",
       "status": "active",
       "description": "管理 AI agent 每次任務執行的追蹤紀錄與整個平台的日誌保留清理策略。由兩支 API 路由組成：agent-logs 提供任務列表／單筆完整步驟明細／per-Release-Unit 的 token 與成本統計及清理；log-retention 讀寫 llm/agent/其他三類日誌的保留天數並依政策執行 purge。",
-      "fileCount": 1,
+      "fileCount": 3,
       "files": [
-        "installed-apps/pm/ui/pages/ProjectOffice.tsx"
+        "packages/server/src/routes/agent-logs.mjs",
+        "packages/server/src/routes/log-retention.mjs",
+        "packages/server/src/lib/agent-exec-logger.mjs"
       ],
-      "apis": [],
-      "apiCount": 0,
-      "tests": [],
-      "testCount": 0,
-      "changeCount": 2,
-      "lastChangeAt": "2026-10-04T19:51:48+08:00",
+      "apis": [
+        "GET /api/agent-logs",
+        "POST /api/agent-logs/purge",
+        "GET /api/agent-logs/ru-debug",
+        "GET /api/agent-logs/ru-summary",
+        "POST /api/logs/purge",
+        "GET /api/logs/retention",
+        "PUT /api/logs/retention"
+      ],
+      "apiCount": 7,
+      "tests": [
+        {
+          "file": "packages/server/src/routes/agent-logs.mjs",
+          "kind": null
+        }
+      ],
+      "testCount": 2,
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
-        "no-tests",
-        "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "965900e0040ce592"
+      "_h": "b734944178b8749a"
     },
     {
       "id": "F20261016-011",
@@ -322,12 +335,12 @@
       ],
       "testCount": 25,
       "changeCount": 1,
-      "lastChangeAt": "2026-10-04T13:57:24+08:00",
+      "lastChangeAt": "2026-10-18T08:03:01+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "aa6302019f3eabdc"
+      "_h": "d053d7ec45b0dd67"
     },
     {
       "id": "F20261016-012",
@@ -342,14 +355,14 @@
       "apiCount": 0,
       "tests": [],
       "testCount": 0,
-      "changeCount": 4,
-      "lastChangeAt": "2026-10-04T18:46:00+08:00",
+      "changeCount": 0,
+      "lastChangeAt": null,
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "002caec6a5c950a2"
+      "_h": "8e263a9a142d543b"
     },
     {
       "id": "F20261016-013",
@@ -395,13 +408,13 @@
         }
       ],
       "testCount": 48,
-      "changeCount": 1,
-      "lastChangeAt": "2026-10-13T20:22:08+08:00",
+      "changeCount": 2,
+      "lastChangeAt": "2026-10-18T08:03:01+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "d8efdba4313a83e5"
+      "_h": "c50b16701983a2a2"
     },
     {
       "id": "F20261016-014",
@@ -608,12 +621,12 @@
         }
       ],
       "testCount": 80,
-      "changeCount": 38,
-      "lastChangeAt": "2026-10-16T21:43:12+08:00",
+      "changeCount": 41,
+      "lastChangeAt": "2026-10-21T18:23:10+08:00",
       "knowledgeGaps": [
         "no-runbook"
       ],
-      "_h": "ac11e323c959b4e1"
+      "_h": "c44468ffdce5e8ab"
     },
     {
       "id": "F-030",
@@ -638,13 +651,13 @@
       "apiCount": 9,
       "tests": [],
       "testCount": 0,
-      "changeCount": 2,
-      "lastChangeAt": "2026-10-13T18:29:17+08:00",
+      "changeCount": 4,
+      "lastChangeAt": "2026-10-17T19:34:18+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-runbook"
       ],
-      "_h": "29f60ff8d6f217a7"
+      "_h": "2c66a566a9aed0ac"
     },
     {
       "id": "F-041",
@@ -671,12 +684,12 @@
       "tests": [],
       "testCount": 0,
       "changeCount": 2,
-      "lastChangeAt": "2026-10-09T20:49:36+08:00",
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-runbook"
       ],
-      "_h": "37468be85e490c41"
+      "_h": "e4e29dc22afc53cf"
     },
     {
       "id": "F-037",
@@ -820,13 +833,13 @@
       "apiCount": 2,
       "tests": [],
       "testCount": 0,
-      "changeCount": 5,
-      "lastChangeAt": "2026-10-13T10:38:01+08:00",
+      "changeCount": 6,
+      "lastChangeAt": "2026-10-20T22:41:47+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-runbook"
       ],
-      "_h": "9d02260db2bd52dd"
+      "_h": "20ee3bbe889fc86b"
     },
     {
       "id": "F-043",
@@ -893,13 +906,13 @@
       "apiCount": 12,
       "tests": [],
       "testCount": 0,
-      "changeCount": 3,
-      "lastChangeAt": "2026-10-09T21:09:44+08:00",
+      "changeCount": 4,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-runbook"
       ],
-      "_h": "f8793af55554ff86"
+      "_h": "f0bc41984a734440"
     },
     {
       "id": "F20261016-030",
@@ -922,13 +935,13 @@
       "apiCount": 7,
       "tests": [],
       "testCount": 0,
-      "changeCount": 2,
-      "lastChangeAt": "2026-10-17T18:44:02+08:00",
+      "changeCount": 5,
+      "lastChangeAt": "2026-10-18T18:54:50+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-runbook"
       ],
-      "_h": "bea465f208be3882"
+      "_h": "18b68d18d28ccc0b"
     },
     {
       "id": "F20261016-031",
@@ -1012,11 +1025,11 @@
       ],
       "testCount": 18,
       "changeCount": 13,
-      "lastChangeAt": "2026-10-15T13:13:42+08:00",
+      "lastChangeAt": "2026-10-21T23:34:22+08:00",
       "knowledgeGaps": [
         "no-runbook"
       ],
-      "_h": "06988bd69b694f04"
+      "_h": "f43d7c7980533bf0"
     },
     {
       "id": "F-028",
@@ -1074,12 +1087,12 @@
         }
       ],
       "testCount": 1,
-      "changeCount": 1,
-      "lastChangeAt": "2026-10-10T21:38:54+08:00",
+      "changeCount": 2,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-runbook"
       ],
-      "_h": "23fba153a48f0b85"
+      "_h": "a3f17fa5b1d3abaa"
     },
     {
       "id": "F-014",
@@ -1124,13 +1137,13 @@
       "apiCount": 3,
       "tests": [],
       "testCount": 0,
-      "changeCount": 1,
-      "lastChangeAt": "2026-10-09T20:49:36+08:00",
+      "changeCount": 2,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-runbook"
       ],
-      "_h": "9f398994a8ed2e0e"
+      "_h": "5ad9d465441d199c"
     },
     {
       "id": "F-019",
@@ -1174,12 +1187,12 @@
         }
       ],
       "testCount": 11,
-      "changeCount": 4,
-      "lastChangeAt": "2026-10-10T18:23:26+08:00",
+      "changeCount": 10,
+      "lastChangeAt": "2026-10-21T23:34:22+08:00",
       "knowledgeGaps": [
         "no-runbook"
       ],
-      "_h": "68e05006fb588841"
+      "_h": "50324a5ff0bd4018"
     },
     {
       "id": "F20261016-037",
@@ -1321,12 +1334,12 @@
         }
       ],
       "testCount": 3,
-      "changeCount": 0,
-      "lastChangeAt": null,
+      "changeCount": 2,
+      "lastChangeAt": "2026-10-19T12:17:58+08:00",
       "knowledgeGaps": [
         "no-runbook"
       ],
-      "_h": "2c1ee7ba5e13f88b"
+      "_h": "e13e5bbbba093001"
     },
     {
       "id": "F-036",
@@ -1374,13 +1387,13 @@
       "apiCount": 4,
       "tests": [],
       "testCount": 0,
-      "changeCount": 1,
-      "lastChangeAt": "2026-10-05T16:56:23+08:00",
+      "changeCount": 0,
+      "lastChangeAt": null,
       "knowledgeGaps": [
         "no-tests",
         "no-runbook"
       ],
-      "_h": "cb6221718e49f8d9"
+      "_h": "5e717781ac76acd6"
     },
     {
       "id": "F20261016-044",
@@ -1402,12 +1415,12 @@
       "tests": [],
       "testCount": 0,
       "changeCount": 4,
-      "lastChangeAt": "2026-10-15T16:24:19+08:00",
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-runbook"
       ],
-      "_h": "86499dc1a68de175"
+      "_h": "d16805cd119c1ce5"
     },
     {
       "id": "F-035",
@@ -1469,13 +1482,13 @@
       "apiCount": 2,
       "tests": [],
       "testCount": 0,
-      "changeCount": 0,
-      "lastChangeAt": null,
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-runbook"
       ],
-      "_h": "3fd76532119fab62"
+      "_h": "336eec9e172c8b28"
     },
     {
       "id": "F-018",
@@ -1542,12 +1555,12 @@
         }
       ],
       "testCount": 8,
-      "changeCount": 1,
-      "lastChangeAt": "2026-10-08T21:40:53+08:00",
+      "changeCount": 2,
+      "lastChangeAt": "2026-10-21T23:34:22+08:00",
       "knowledgeGaps": [
         "no-runbook"
       ],
-      "_h": "a666f64a7d98e8f0"
+      "_h": "443d549de1826058"
     },
     {
       "id": "F-002",
@@ -1608,14 +1621,14 @@
         }
       ],
       "testCount": 0,
-      "changeCount": 64,
-      "lastChangeAt": "2026-10-16T21:54:08+08:00",
+      "changeCount": 63,
+      "lastChangeAt": "2026-10-21T21:43:57+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "0a9e478b75e54d49"
+      "_h": "5ab9a6f998d55a8b"
     },
     {
       "id": "F-031",
@@ -1782,14 +1795,14 @@
       "apiCount": 0,
       "tests": [],
       "testCount": 0,
-      "changeCount": 2,
+      "changeCount": 1,
       "lastChangeAt": "2026-10-17T10:46:46+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "0353487569841567"
+      "_h": "510241005c7e314a"
     },
     {
       "id": "F20261016-058",
@@ -1832,13 +1845,13 @@
         }
       ],
       "testCount": 1,
-      "changeCount": 1,
-      "lastChangeAt": "2026-10-12T21:25:07+08:00",
+      "changeCount": 2,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "845dcb437aefe2e8"
+      "_h": "cfc77768cf5a54eb"
     },
     {
       "id": "F20261016-060",
@@ -2031,14 +2044,14 @@
       "apiCount": 0,
       "tests": [],
       "testCount": 0,
-      "changeCount": 15,
-      "lastChangeAt": "2026-10-13T19:31:30+08:00",
+      "changeCount": 16,
+      "lastChangeAt": "2026-10-18T11:36:43+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "b3bcf3d45732ecfa"
+      "_h": "b619555545fffbba"
     },
     {
       "id": "F20261016-069",
@@ -2074,13 +2087,13 @@
         }
       ],
       "testCount": 1,
-      "changeCount": 4,
-      "lastChangeAt": "2026-10-13T20:22:08+08:00",
+      "changeCount": 5,
+      "lastChangeAt": "2026-10-18T08:03:01+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "25c2999e6bb9b7b1"
+      "_h": "126d7fd17e3d060c"
     },
     {
       "id": "F20261016-070",
@@ -2167,13 +2180,13 @@
         }
       ],
       "testCount": 17,
-      "changeCount": 0,
-      "lastChangeAt": null,
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "24648cb8284723ae"
+      "_h": "32a0d7eb0a4cbca1"
     },
     {
       "id": "F20261016-071",
@@ -2275,13 +2288,13 @@
         }
       ],
       "testCount": 58,
-      "changeCount": 45,
-      "lastChangeAt": "2026-10-13T19:38:09+08:00",
+      "changeCount": 49,
+      "lastChangeAt": "2026-10-21T18:32:21+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "2de0f37a22f51303"
+      "_h": "5444810994b0bcaf"
     },
     {
       "id": "F20261016-072",
@@ -2301,14 +2314,14 @@
       "apiCount": 0,
       "tests": [],
       "testCount": 0,
-      "changeCount": 5,
-      "lastChangeAt": "2026-10-13T12:38:55+08:00",
+      "changeCount": 6,
+      "lastChangeAt": "2026-10-17T19:46:40+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "921fd0578bc20108"
+      "_h": "0c01321ba094736e"
     },
     {
       "id": "F20261016-073",
@@ -2422,13 +2435,13 @@
         }
       ],
       "testCount": 155,
-      "changeCount": 0,
-      "lastChangeAt": null,
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "3a34a97d35f1dfe3"
+      "_h": "64d826f983a58b78"
     },
     {
       "id": "F20261016-074",
@@ -2452,14 +2465,14 @@
       "apiCount": 0,
       "tests": [],
       "testCount": 0,
-      "changeCount": 6,
-      "lastChangeAt": "2026-10-17T12:52:37+08:00",
+      "changeCount": 7,
+      "lastChangeAt": "2026-10-19T21:35:46+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "016ebca1b957d5e0"
+      "_h": "b1b2c65a76256991"
     },
     {
       "id": "F-001",
@@ -2579,13 +2592,13 @@
         }
       ],
       "testCount": 186,
-      "changeCount": 11,
+      "changeCount": 10,
       "lastChangeAt": "2026-10-13T18:29:17+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "94f36a3713729916"
+      "_h": "76fd8c5c516bd3f2"
     },
     {
       "id": "F-003",
@@ -2644,13 +2657,13 @@
         }
       ],
       "testCount": 15,
-      "changeCount": 0,
-      "lastChangeAt": null,
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "5d5d3ee34cf29a0a"
+      "_h": "8f5ec54cfe7fd525"
     },
     {
       "id": "F-004",
@@ -2673,14 +2686,14 @@
         }
       ],
       "testCount": 0,
-      "changeCount": 0,
-      "lastChangeAt": null,
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "ca5beed122157557"
+      "_h": "3f70a731b0075246"
     },
     {
       "id": "F-005",
@@ -2728,13 +2741,13 @@
         }
       ],
       "testCount": 5,
-      "changeCount": 29,
-      "lastChangeAt": "2026-10-15T16:24:19+08:00",
+      "changeCount": 31,
+      "lastChangeAt": "2026-10-21T18:23:10+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "e9741a88f325b9a3"
+      "_h": "3a98ed82b8215174"
     },
     {
       "id": "F-007",
@@ -2764,13 +2777,13 @@
         }
       ],
       "testCount": 12,
-      "changeCount": 5,
-      "lastChangeAt": "2026-10-13T12:38:55+08:00",
+      "changeCount": 7,
+      "lastChangeAt": "2026-10-19T21:35:46+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "ae2cfa3478c566be"
+      "_h": "fc782fb2827d7516"
     },
     {
       "id": "F-008",
@@ -2801,13 +2814,13 @@
         }
       ],
       "testCount": 2,
-      "changeCount": 0,
-      "lastChangeAt": null,
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "e0e7897dad3bef21"
+      "_h": "6d849414faa390b9"
     },
     {
       "id": "F-009",
@@ -2824,14 +2837,14 @@
       "apiCount": 0,
       "tests": [],
       "testCount": 0,
-      "changeCount": 0,
-      "lastChangeAt": null,
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "702bb8147e2e2e79"
+      "_h": "053ea42f5a5e08b0"
     },
     {
       "id": "F-010",
@@ -2884,13 +2897,13 @@
         }
       ],
       "testCount": 69,
-      "changeCount": 3,
-      "lastChangeAt": "2026-10-11T17:26:04+08:00",
+      "changeCount": 2,
+      "lastChangeAt": "2026-10-19T21:35:46+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "f1dae299bc527180"
+      "_h": "50f5ab2a3e72662e"
     },
     {
       "id": "F-012",
@@ -2917,12 +2930,12 @@
         }
       ],
       "testCount": 9,
-      "changeCount": 22,
-      "lastChangeAt": "2026-10-16T21:54:08+08:00",
+      "changeCount": 17,
+      "lastChangeAt": "2026-10-21T21:16:32+08:00",
       "knowledgeGaps": [
         "no-runbook"
       ],
-      "_h": "57cd818b87662d0c"
+      "_h": "170f1010c27408d0"
     },
     {
       "id": "F-016",
@@ -2983,13 +2996,13 @@
         }
       ],
       "testCount": 28,
-      "changeCount": 6,
-      "lastChangeAt": "2026-10-11T15:13:46+08:00",
+      "changeCount": 7,
+      "lastChangeAt": "2026-10-21T23:34:22+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "f12c81ae1803d618"
+      "_h": "c256fb640605ec37"
     },
     {
       "id": "F-020",
@@ -3012,13 +3025,13 @@
         }
       ],
       "testCount": 8,
-      "changeCount": 2,
-      "lastChangeAt": "2026-10-06T10:35:39+08:00",
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "ea4ec17c2486b0be"
+      "_h": "b9616fcf60acde6a"
     },
     {
       "id": "F-021",
@@ -3076,14 +3089,14 @@
         }
       ],
       "testCount": 0,
-      "changeCount": 0,
-      "lastChangeAt": null,
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "c521f26a742f4250"
+      "_h": "a6445cd6ca813fc3"
     },
     {
       "id": "F-025",
@@ -3146,12 +3159,12 @@
         }
       ],
       "testCount": 19,
-      "changeCount": 11,
+      "changeCount": 6,
       "lastChangeAt": "2026-10-10T16:24:43+08:00",
       "knowledgeGaps": [
         "no-runbook"
       ],
-      "_h": "3ab06492e1261813"
+      "_h": "8909343370f40543"
     },
     {
       "id": "F-029",
@@ -3167,13 +3180,13 @@
       "tests": [],
       "testCount": 0,
       "changeCount": 5,
-      "lastChangeAt": "2026-10-11T19:28:33+08:00",
+      "lastChangeAt": "2026-10-21T21:43:57+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "86a86e49ec1661b7"
+      "_h": "668e7d68b922bf2f"
     },
     {
       "id": "F-033",
@@ -3252,13 +3265,13 @@
       "apiCount": 8,
       "tests": [],
       "testCount": 0,
-      "changeCount": 3,
-      "lastChangeAt": "2026-10-09T21:09:44+08:00",
+      "changeCount": 4,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-runbook"
       ],
-      "_h": "e8213a687684eebd"
+      "_h": "201bae0ac9998bd7"
     },
     {
       "id": "F-039",
@@ -3321,13 +3334,13 @@
       "apiCount": 0,
       "tests": [],
       "testCount": 0,
-      "changeCount": 0,
-      "lastChangeAt": null,
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-runbook"
       ],
-      "_h": "5c22e80aba51226e"
+      "_h": "b8c595839aa136d0"
     },
     {
       "id": "F-046",
@@ -3494,12 +3507,12 @@
       ],
       "testCount": 16,
       "changeCount": 1,
-      "lastChangeAt": "2026-10-09T07:27:26+08:00",
+      "lastChangeAt": "2026-10-19T22:02:22+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "51d0ed1273dc2769"
+      "_h": "b03e3e729e8be84e"
     },
     {
       "id": "F-055",
@@ -3515,14 +3528,14 @@
       "apiCount": 0,
       "tests": [],
       "testCount": 0,
-      "changeCount": 0,
-      "lastChangeAt": null,
+      "changeCount": 1,
+      "lastChangeAt": "2026-10-17T19:13:44+08:00",
       "knowledgeGaps": [
         "no-tests",
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "363eb492d913fc51"
+      "_h": "4dc42b77bdc9c2c7"
     },
     {
       "id": "F-057",
@@ -3582,13 +3595,13 @@
         }
       ],
       "testCount": 36,
-      "changeCount": 1,
-      "lastChangeAt": "2026-10-08T22:09:28+08:00",
+      "changeCount": 0,
+      "lastChangeAt": null,
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "e7a86d3d7c90345e"
+      "_h": "8538103ddf9d6de5"
     },
     {
       "id": "F-060",
@@ -3855,13 +3868,13 @@
         }
       ],
       "testCount": 539,
-      "changeCount": 3,
+      "changeCount": 2,
       "lastChangeAt": "2026-10-13T10:38:01+08:00",
       "knowledgeGaps": [
         "no-api-mapped",
         "no-runbook"
       ],
-      "_h": "8a2d0e73d500ea65"
+      "_h": "9a612cc7834cee57"
     }
   ],
   "apis": [
@@ -3934,9 +3947,10 @@
       "file": "packages/server/src/routes/agent-logs.mjs",
       "handler": null,
       "featureIds": [
-        "F-041"
+        "F-041",
+        "F20261016-010"
       ],
-      "_h": "fb02ce3b2d93900d"
+      "_h": "3734de50b1783a0c"
     },
     {
       "method": "POST",
@@ -3944,9 +3958,10 @@
       "file": "packages/server/src/routes/agent-logs.mjs",
       "handler": null,
       "featureIds": [
-        "F-041"
+        "F-041",
+        "F20261016-010"
       ],
-      "_h": "98a8a5aeedb20586"
+      "_h": "81057df90b59cffc"
     },
     {
       "method": "GET",
@@ -3954,9 +3969,10 @@
       "file": "packages/server/src/routes/agent-logs.mjs",
       "handler": null,
       "featureIds": [
-        "F-041"
+        "F-041",
+        "F20261016-010"
       ],
-      "_h": "b73633fcc2d5183d"
+      "_h": "0be0d5f75f243cf4"
     },
     {
       "method": "GET",
@@ -3964,9 +3980,10 @@
       "file": "packages/server/src/routes/agent-logs.mjs",
       "handler": null,
       "featureIds": [
-        "F-041"
+        "F-041",
+        "F20261016-010"
       ],
-      "_h": "b39d1ec33d736654"
+      "_h": "532e3eeeb9e4b364"
     },
     {
       "method": "POST",
@@ -6029,9 +6046,10 @@
       "file": "packages/server/src/routes/log-retention.mjs",
       "handler": "jsonOut",
       "featureIds": [
-        "F-041"
+        "F-041",
+        "F20261016-010"
       ],
-      "_h": "7a6c4c035cb09f19"
+      "_h": "8c7a87146c00ebb3"
     },
     {
       "method": "GET",
@@ -6039,9 +6057,10 @@
       "file": "packages/server/src/routes/log-retention.mjs",
       "handler": "jsonOut",
       "featureIds": [
-        "F-041"
+        "F-041",
+        "F20261016-010"
       ],
-      "_h": "cb3801bbb7a13c8d"
+      "_h": "fae8ff72e6e476a6"
     },
     {
       "method": "PUT",
@@ -6049,9 +6068,10 @@
       "file": "packages/server/src/routes/log-retention.mjs",
       "handler": "jsonOut",
       "featureIds": [
-        "F-041"
+        "F-041",
+        "F20261016-010"
       ],
-      "_h": "48c77f38c8897663"
+      "_h": "f5c6253c578ecd49"
     },
     {
       "method": "GET",
@@ -8501,8 +8521,10 @@
       "productionFile": "packages/server/src/lib/agent-exec-logger.mjs",
       "testCount": 2,
       "kind": null,
-      "featureIds": [],
-      "_h": "a00a88887a844818"
+      "featureIds": [
+        "F20261016-010"
+      ],
+      "_h": "8afeb4c0ce399739"
     },
     {
       "testFile": "packages/server/src/routes/ai-settings.mjs",
@@ -10075,6 +10097,447 @@
     }
   ],
   "changes": [
+    {
+      "hash": "767089f2",
+      "date": "2026-10-21T23:34:22+08:00",
+      "subject": "fix(coding): release unit 流程治本 — test→code 對映、node --test 覆蓋率、semgrep 路徑（Fleming gateway 撞牆）",
+      "kind": "fix",
+      "files": 5,
+      "featureIds": [
+        "F-017",
+        "F-018",
+        "F-019",
+        "F20261016-031"
+      ],
+      "_h": "7ac332a89c7e98b7"
+    },
+    {
+      "hash": "6fa02d43",
+      "date": "2026-10-21T22:25:42+08:00",
+      "subject": "fix(coding): coverage 加 --coverage.reportOnFailure=true — 有測試失敗/錯誤時也要產報告",
+      "kind": "fix",
+      "files": 1,
+      "featureIds": [],
+      "_h": "d29a6bc7c7dbcf68"
+    },
+    {
+      "hash": "b24be359",
+      "date": "2026-10-21T21:51:24+08:00",
+      "subject": "fix(coding): 測試 unit timeout 5min→12min（coverage 量測讓大 repo 全套超時 → 報告產不出來）",
+      "kind": "fix",
+      "files": 1,
+      "featureIds": [],
+      "_h": "adf2cd4a47f2707f"
+    },
+    {
+      "hash": "68106452",
+      "date": "2026-10-21T21:43:57+08:00",
+      "subject": "feat(coding): 測試可視化 — RM/Tests 頁清楚顯示 UT 執行 + E2E 情形 + 真實行覆蓋率（Fleming 2026-10-21）",
+      "kind": "feat",
+      "files": 9,
+      "featureIds": [
+        "F-019",
+        "F-029",
+        "F20261016-049"
+      ],
+      "_h": "e16c7f159f4e0aa1"
+    },
+    {
+      "hash": "67bb2de6",
+      "date": "2026-10-21T21:16:32+08:00",
+      "subject": "fix(coding): chat 歷史切換治本 v2 — 在歷史檢視中接話不再蒸發原 active 對話（Fleming 2026-10-21）",
+      "kind": "fix",
+      "files": 3,
+      "featureIds": [
+        "F-012",
+        "F20261016-031",
+        "F20261016-049"
+      ],
+      "_h": "ef1307592e70239d"
+    },
+    {
+      "hash": "9acff3b5",
+      "date": "2026-10-21T21:07:30+08:00",
+      "subject": "feat(qa): QA 記錄頁 ✍ 人工簽核表單 — 人類親手補記/簽核入口（Fleming 2026-10-21）",
+      "kind": "feat",
+      "files": 5,
+      "featureIds": [
+        "F20261016-049"
+      ],
+      "_h": "153a60d217a4d715"
+    },
+    {
+      "hash": "77e4264f",
+      "date": "2026-10-21T18:41:47+08:00",
+      "subject": "fix(rm): 證據矩陣全面體檢 — SG/Unit 假綠燈 + stale model 隱形 + human 簽核被沖掉（Fleming 2026-10-21）",
+      "kind": "fix",
+      "files": 2,
+      "featureIds": [
+        "F-019"
+      ],
+      "_h": "606023d11ef7900e"
+    },
+    {
+      "hash": "604be15d",
+      "date": "2026-10-21T18:32:21+08:00",
+      "subject": "fix(rm): 證據矩陣 AI Review 欄同款病 — 乾淨 approve 永遠顯示未跑 + 未觸及誤標未跑（Fleming 2026-10-21）",
+      "kind": "fix",
+      "files": 7,
+      "featureIds": [
+        "F-019",
+        "F20261016-049",
+        "F20261016-071"
+      ],
+      "_h": "3cfdbe9a26e73d82"
+    },
+    {
+      "hash": "88212974",
+      "date": "2026-10-21T18:23:10+08:00",
+      "subject": "fix(rm): 證據矩陣 QA 欄打叉誤導 — 比對放寬 trim+case-insensitive + reason 分級 + QA 記錄鐵律（Fleming 2026-10-21）",
+      "kind": "fix",
+      "files": 4,
+      "featureIds": [
+        "F-006",
+        "F-019",
+        "F20261016-020",
+        "F20261016-049"
+      ],
+      "_h": "b8ae07620b09f821"
+    },
+    {
+      "hash": "92ae9082",
+      "date": "2026-10-20T22:49:05+08:00",
+      "subject": "fix(rm): 證據矩陣 AI Review cell 誤導 — 「已審未過」被顯示成「未跑」（Fleming 2026-10-20）",
+      "kind": "fix",
+      "files": 6,
+      "featureIds": [
+        "F-019",
+        "F20261016-049"
+      ],
+      "_h": "807be5e84436b512"
+    },
+    {
+      "hash": "b08bccd8",
+      "date": "2026-10-20T22:41:47+08:00",
+      "subject": "fix(security): scanCommandOutput 沙箱誤殺 — 單檔 skip 不算被擋 + fs deny 不再强制停 run（Fleming 2026-10-20 B 案）",
+      "kind": "fix",
+      "files": 2,
+      "featureIds": [
+        "F20261016-027"
+      ],
+      "_h": "ef62324b573eeb0b"
+    },
+    {
+      "hash": "f9e1d22a",
+      "date": "2026-10-19T22:02:22+08:00",
+      "subject": "fix(changelog,review): 修根因 — 自動 changelog 收斂（句界截斷/同日合併/去 diff-stat/.paaw-only 不寫入）+ code review 範圍一律排除 .paaw（Fleming 2026-10-19 B 案決策）",
+      "kind": "fix",
+      "files": 3,
+      "featureIds": [
+        "F-054",
+        "F20261016-071"
+      ],
+      "_h": "a30df5ccbe922345"
+    },
+    {
+      "hash": "515e2fe0",
+      "date": "2026-10-19T21:35:46+08:00",
+      "subject": "fix(llm-log): 測試污染正式 LLM log — 三寫入端加 PAAW_LLM_LOG_DIR 覆寫 + vitest setup 隔離；已清 4224 筆假資料（本地備份 backups/llm-log-purge-2026-10-19/）",
+      "kind": "fix",
+      "files": 5,
+      "featureIds": [
+        "F-006",
+        "F-007",
+        "F-010",
+        "F20261016-020",
+        "F20261016-071",
+        "F20261016-074"
+      ],
+      "_h": "8c0cc9bde7711c77"
+    },
+    {
+      "hash": "3080307d",
+      "date": "2026-10-19T12:17:58+08:00",
+      "subject": "fix(execution-plan): createPlan 必炸 — _genUniquePlanId 呼叫漏傳 projectPath（basename(undefined) TypeError，建 plan 即 500）",
+      "kind": "fix",
+      "files": 1,
+      "featureIds": [
+        "F-024"
+      ],
+      "_h": "a9dcbdb9f6e0df9b"
+    },
+    {
+      "hash": "a5a98ed2",
+      "date": "2026-10-18T18:54:50+08:00",
+      "subject": "feat(release): EM releasable 三接線 — review gate + draft RR + release-prep 升級",
+      "kind": "feat",
+      "files": 3,
+      "featureIds": [
+        "F20261016-030",
+        "F20261016-071"
+      ],
+      "_h": "90097e95c282f53a"
+    },
+    {
+      "hash": "523b10f2",
+      "date": "2026-10-18T11:36:43+08:00",
+      "subject": "fix(settings): 設定頁 tab 無法切換 — initialTab 過期 + sync effect deps 誤含 tab",
+      "kind": "fix",
+      "files": 2,
+      "featureIds": [
+        "F-040",
+        "F20261016-049"
+      ],
+      "_h": "0c52dd7a3d4ea7a7"
+    },
+    {
+      "hash": "859c8598",
+      "date": "2026-10-18T11:15:36+08:00",
+      "subject": "fix(auto-dispatch): 停止鏈補修 — status 誤標 interrupted 時 stop 仍可生效",
+      "kind": "fix",
+      "files": 2,
+      "featureIds": [
+        "F20261016-030",
+        "F20261016-071"
+      ],
+      "_h": "6339a0b125482991"
+    },
+    {
+      "hash": "280a18d5",
+      "date": "2026-10-18T08:03:01+08:00",
+      "subject": "fix(sre,secret): TASK-169 harden routes per QA review (2 critical, 5 major)",
+      "kind": "fix",
+      "files": 8,
+      "featureIds": [
+        "F20261016-011",
+        "F20261016-013",
+        "F20261016-069"
+      ],
+      "_h": "81cfc7d116c16615"
+    },
+    {
+      "hash": "6b723c20",
+      "date": "2026-10-18T05:02:07+08:00",
+      "subject": "test(agent-logs): consolidate coverage for F20261016-010 routes and purge policy",
+      "kind": "chore",
+      "files": 2,
+      "featureIds": [],
+      "_h": "61a700cde64b26ae"
+    },
+    {
+      "hash": "63a28ec0",
+      "date": "2026-10-18T02:17:13+08:00",
+      "subject": "docs(learning): TASK-051 docs stage — add module README and changelog for TASK-168 hardening",
+      "kind": "chore",
+      "files": 2,
+      "featureIds": [],
+      "_h": "2c90826ed2a19bd3"
+    },
+    {
+      "hash": "4378a9f7",
+      "date": "2026-10-18T02:09:56+08:00",
+      "subject": "test(learning): TASK-051 pin TASK-168 hardening fixes with 42 unit tests",
+      "kind": "chore",
+      "files": 1,
+      "featureIds": [],
+      "_h": "7fe95c222cf86e59"
+    },
+    {
+      "hash": "2219de72",
+      "date": "2026-10-18T01:48:22+08:00",
+      "subject": "fix(learning): TASK-168 repair 4 major QA issues in ExamVault & LearningSpace",
+      "kind": "fix",
+      "files": 6,
+      "featureIds": [
+        "F20261016-008"
+      ],
+      "_h": "719c4c71857e8c4c"
+    },
+    {
+      "hash": "f7067238",
+      "date": "2026-10-17T23:27:59+08:00",
+      "subject": "test(skills): add compile-layer hardening test for server-actions-form template (TASK-049)",
+      "kind": "chore",
+      "files": 1,
+      "featureIds": [],
+      "_h": "f27f17ff1a71715d"
+    },
+    {
+      "hash": "fae4e473",
+      "date": "2026-10-17T22:26:44+08:00",
+      "subject": "test(skills): repair corrupted nextjs-use-cache test file",
+      "kind": "chore",
+      "files": 1,
+      "featureIds": [],
+      "_h": "b2292138969f5811"
+    },
+    {
+      "hash": "bbbde22a",
+      "date": "2026-10-17T22:25:53+08:00",
+      "subject": "fix(skills): repair server-actions-form template per QA findings (TASK-167)",
+      "kind": "fix",
+      "files": 2,
+      "featureIds": [
+        "F20261016-006"
+      ],
+      "_h": "46a1ca312f65d215"
+    },
+    {
+      "hash": "c669ec86",
+      "date": "2026-10-17T21:11:42+08:00",
+      "subject": "changelog: record TASK-048 docs stage entry",
+      "kind": "other",
+      "files": 1,
+      "featureIds": [],
+      "_h": "d2cef29432a87b47"
+    },
+    {
+      "hash": "b98be20b",
+      "date": "2026-10-17T21:11:15+08:00",
+      "subject": "docs(nextjs-skill): document Route Handler template export contract",
+      "kind": "chore",
+      "files": 4,
+      "featureIds": [],
+      "_h": "edf27cb050ba34c8"
+    },
+    {
+      "hash": "503825b7",
+      "date": "2026-10-17T21:03:53+08:00",
+      "subject": "test(skills): harden route-handler-api template with compile check, AST snapshot and behavior coverage",
+      "kind": "chore",
+      "files": 1,
+      "featureIds": [],
+      "_h": "a97b168454c43d93"
+    },
+    {
+      "hash": "3bae7275",
+      "date": "2026-10-17T20:30:10+08:00",
+      "subject": "fix(skills): repair route-handler-api template HTTP method exports",
+      "kind": "fix",
+      "files": 1,
+      "featureIds": [
+        "F20261016-005"
+      ],
+      "_h": "58795a95aa103ca4"
+    },
+    {
+      "hash": "5689b72b",
+      "date": "2026-10-17T19:54:56+08:00",
+      "subject": "fix(auto-dispatch): 殭屍判定補強 — runner pid 存活檢查（多 server 併存免疫）",
+      "kind": "fix",
+      "files": 1,
+      "featureIds": [
+        "F20261016-030"
+      ],
+      "_h": "0db2fcf8bcd25486"
+    },
+    {
+      "hash": "daa067cb",
+      "date": "2026-10-17T19:46:40+08:00",
+      "subject": "feat(auto-dispatch): auto_dispatch tool 加 action=status",
+      "kind": "feat",
+      "files": 1,
+      "featureIds": [
+        "F-007",
+        "F20261016-072"
+      ],
+      "_h": "8e6f4fbe8fbbf7e2"
+    },
+    {
+      "hash": "fb3c9d19",
+      "date": "2026-10-17T19:40:48+08:00",
+      "subject": "fix(agent-loop): dispatch_agent tool 逾時 120s → 30min",
+      "kind": "fix",
+      "files": 1,
+      "featureIds": [
+        "F-006",
+        "F20261016-020"
+      ],
+      "_h": "b44aa90b9b453bb0"
+    },
+    {
+      "hash": "063c4d45",
+      "date": "2026-10-17T19:34:18+08:00",
+      "subject": "fix(a2a): JSON-RPC method 驗證缺口 — 缺失 method 改回 -32600 而非誤判 -32601 (TASK-155)",
+      "kind": "fix",
+      "files": 2,
+      "featureIds": [
+        "F-030",
+        "F20261016-009"
+      ],
+      "_h": "eb9c5860ab9e7d64"
+    },
+    {
+      "hash": "9f05d09a",
+      "date": "2026-10-17T19:13:51+08:00",
+      "subject": "chore(deps): add @types/node and @types/sql.js dev dependencies",
+      "kind": "chore",
+      "files": 1,
+      "featureIds": [],
+      "_h": "176f637180a71113"
+    },
+    {
+      "hash": "29a50d76",
+      "date": "2026-10-17T19:13:49+08:00",
+      "subject": "chore(paaw): sync project meta after retrofit round 1",
+      "kind": "chore",
+      "files": 195,
+      "featureIds": [],
+      "_h": "dcbde45faaa4cf34"
+    },
+    {
+      "hash": "49159e3d",
+      "date": "2026-10-17T19:13:44+08:00",
+      "subject": "test: add retrofit test suite and sync package sources",
+      "kind": "chore",
+      "files": 93,
+      "featureIds": [
+        "F-003",
+        "F-004",
+        "F-007",
+        "F-008",
+        "F-009",
+        "F-011",
+        "F-018",
+        "F-019",
+        "F-020",
+        "F-022",
+        "F-024",
+        "F-027",
+        "F-030",
+        "F-038",
+        "F-040",
+        "F-041",
+        "F-044",
+        "F-049",
+        "F-055",
+        "F20261016-009",
+        "F20261016-010",
+        "F20261016-020",
+        "F20261016-033",
+        "F20261016-044",
+        "F20261016-049",
+        "F20261016-059",
+        "F20261016-069",
+        "F20261016-070",
+        "F20261016-071",
+        "F20261016-072",
+        "F20261016-073"
+      ],
+      "_h": "c8edb62113d20077"
+    },
+    {
+      "hash": "d782532a",
+      "date": "2026-10-17T19:13:39+08:00",
+      "subject": "test(skills): consolidate nextjs template hardening deliverables (TASK-044~046)",
+      "kind": "chore",
+      "files": 6,
+      "featureIds": [
+        "F20261016-002",
+        "F20261016-003"
+      ],
+      "_h": "3e77822dc95afe11"
+    },
     {
       "hash": "a6e10d39",
       "date": "2026-10-17T18:44:02+08:00",
@@ -11993,429 +12456,6 @@
         "F20261016-049"
       ],
       "_h": "27490854f64ebcd9"
-    },
-    {
-      "hash": "81ea6a8b",
-      "date": "2026-10-09T09:58:45+08:00",
-      "subject": "fix: 拿掉 Handover 生成/查看 HANDOVER.md 按鈕（Fleming 2026-10-09）",
-      "kind": "fix",
-      "files": 2,
-      "featureIds": [
-        "F-012",
-        "F-026",
-        "F20261016-049"
-      ],
-      "_h": "43e867672f2a4c6e"
-    },
-    {
-      "hash": "7b63a7de",
-      "date": "2026-10-09T09:39:46+08:00",
-      "subject": "fix: Handover knowledge 全量顯示（去 maxLines 截斷）+ 📄 查看 HANDOVER.md 按鈕",
-      "kind": "fix",
-      "files": 6,
-      "featureIds": [
-        "F-012",
-        "F-026",
-        "F20261016-049"
-      ],
-      "_h": "3cc4ca78c1279f41"
-    },
-    {
-      "hash": "e702ec35",
-      "date": "2026-10-09T09:29:28+08:00",
-      "subject": "fix: Handover 頁拿掉 Handover State 卡 + knowledge 顯示清洗；PROJECT.md migrate 防滾雪球",
-      "kind": "fix",
-      "files": 2,
-      "featureIds": [
-        "F-026",
-        "F20261016-031",
-        "F20261016-049"
-      ],
-      "_h": "98e68642f47bd065"
-    },
-    {
-      "hash": "aed50fda",
-      "date": "2026-10-09T09:17:58+08:00",
-      "subject": "fix: Handover state 不再顯示 commit 後的舊快照 + 排除自身 dirty",
-      "kind": "fix",
-      "files": 3,
-      "featureIds": [
-        "F-012",
-        "F-026",
-        "F20261016-049"
-      ],
-      "_h": "10e09126061fdb9a"
-    },
-    {
-      "hash": "e2eb8c66",
-      "date": "2026-10-09T09:11:12+08:00",
-      "subject": "fix: Git 面板 status/diff sub-tab 切換改 keep-mounted（不 remount）",
-      "kind": "fix",
-      "files": 1,
-      "featureIds": [
-        "F20261016-057"
-      ],
-      "_h": "3c5e545934ccc6b7"
-    },
-    {
-      "hash": "2aca1ce6",
-      "date": "2026-10-09T08:59:29+08:00",
-      "subject": "fix: error-codes LLM 回應壞 escape 修復（Bad escaped character）",
-      "kind": "fix",
-      "files": 1,
-      "featureIds": [],
-      "_h": "fd321a0c0d4ddf0b"
-    },
-    {
-      "hash": "f39dab8a",
-      "date": "2026-10-09T08:52:19+08:00",
-      "subject": "fix: Project tab 佔滿整個 tab area（去 max-w-3xl 置中；AI 區 flex-1 內部捲動）",
-      "kind": "fix",
-      "files": 1,
-      "featureIds": [
-        "F20261016-049"
-      ],
-      "_h": "8a92d6265a510200"
-    },
-    {
-      "hash": "a1f968e6",
-      "date": "2026-10-09T08:45:37+08:00",
-      "subject": "feat: PROJECT.md schema v2 — User Remarks（人寫保護）+ AI Overview（CU 每次重寫）",
-      "kind": "feat",
-      "files": 9,
-      "featureIds": [
-        "F-012",
-        "F20261016-031",
-        "F20261016-049"
-      ],
-      "_h": "a4fb6aa10a2b91b4"
-    },
-    {
-      "hash": "50ea3b4d",
-      "date": "2026-10-09T07:42:28+08:00",
-      "subject": "ui: side chat 統一規格 — Tester/Handover/RM/Ops/QA-browser 加三按鈕(persistCrewId)+ModelSelector+左右splitter",
-      "kind": "other",
-      "files": 12,
-      "featureIds": [
-        "F-012",
-        "F-026",
-        "F-029",
-        "F20261016-049"
-      ],
-      "_h": "44c8f1295db9dd10"
-    },
-    {
-      "hash": "14200603",
-      "date": "2026-10-09T07:27:26+08:00",
-      "subject": "ui: widen Decision tab ADR list from w-48 to w-80 to match FeatureMap sidebar",
-      "kind": "other",
-      "files": 1,
-      "featureIds": [
-        "F-054"
-      ],
-      "_h": "785864503b57cdc3"
-    },
-    {
-      "hash": "01172183",
-      "date": "2026-10-08T22:09:28+08:00",
-      "subject": "feat(es): ship-time enrichment — 每筆 ES doc 自帶 host/release/角色/金額，單一 index 免 join",
-      "kind": "feat",
-      "files": 3,
-      "featureIds": [
-        "F-010",
-        "F-059"
-      ],
-      "_h": "657ef32207c1a1c5"
-    },
-    {
-      "hash": "4dfcd76d",
-      "date": "2026-10-08T21:40:53+08:00",
-      "subject": "feat(release): AI 治理成本報表 — 上次 release → 這次 release 花了多少、哪些角色花了多少",
-      "kind": "feat",
-      "files": 7,
-      "featureIds": [
-        "F-018",
-        "F20261016-049"
-      ],
-      "_h": "384838bc5b0bab38"
-    },
-    {
-      "hash": "8c280428",
-      "date": "2026-10-08T21:06:24+08:00",
-      "subject": "feat(release): checklist 第五類證據 — review 委員會 report 覆蓋率（review-board）",
-      "kind": "feat",
-      "files": 2,
-      "featureIds": [
-        "F-019",
-        "F20261016-071"
-      ],
-      "_h": "857df4160cc32e4c"
-    },
-    {
-      "hash": "3c465710",
-      "date": "2026-10-07T19:57:46+08:00",
-      "subject": "feat(ui): Settings providers model 列加 👁 vision checkbox — 圖吃不吃直接 UI 設，不用手改 providers.json",
-      "kind": "feat",
-      "files": 1,
-      "featureIds": [
-        "F-040"
-      ],
-      "_h": "0ef5f88a13d35388"
-    },
-    {
-      "hash": "7a588bc1",
-      "date": "2026-10-07T11:53:25+08:00",
-      "subject": "fix(ui): 報告 modal 標題 icon 同步 📄",
-      "kind": "fix",
-      "files": 1,
-      "featureIds": [],
-      "_h": "44813dea126231a5"
-    },
-    {
-      "hash": "7d452861",
-      "date": "2026-10-07T11:52:57+08:00",
-      "subject": "fix(ui): 派工報告 icon 📋→📄（撞到歷史對話按鈕視覺）",
-      "kind": "fix",
-      "files": 1,
-      "featureIds": [],
-      "_h": "a628e2c5a5eddba9"
-    },
-    {
-      "hash": "d247b71d",
-      "date": "2026-10-07T09:59:55+08:00",
-      "subject": "feat(ui): 派工報告 viewer 補回 — EM Dashboard 📋 按鈕 + slim bar view→ + openReport action 開報告 modal（reports API 一直在，UI 在 dispatch view 移除時被清掉）",
-      "kind": "feat",
-      "files": 5,
-      "featureIds": [],
-      "_h": "910a186ff065241f"
-    },
-    {
-      "hash": "30947aea",
-      "date": "2026-10-06T16:19:36+08:00",
-      "subject": "fix(error-codes): LLM JSON 被 max_tokens 截斷 → repairTruncatedJson 救回部分結果（unterminated string 修復）",
-      "kind": "fix",
-      "files": 1,
-      "featureIds": [],
-      "_h": "8d286914d11f0188"
-    },
-    {
-      "hash": "5ae8545e",
-      "date": "2026-10-06T10:35:39+08:00",
-      "subject": "fix(security): filesScanned 顯示檔案陣列改為數量；clean state 顯示最近 scan 日期",
-      "kind": "fix",
-      "files": 3,
-      "featureIds": [
-        "F-020"
-      ],
-      "_h": "7b06a54c9a46ac94"
-    },
-    {
-      "hash": "1a81633d",
-      "date": "2026-10-05T16:56:23+08:00",
-      "subject": "refactor(logs): log 目錄統一 — data/logs 併入 log/logs（2026-10-05 Fleming：log 只用一個）",
-      "kind": "refactor",
-      "files": 14,
-      "featureIds": [
-        "F-001",
-        "F-006",
-        "F-007",
-        "F-010",
-        "F-020",
-        "F-041",
-        "F-062",
-        "F20261016-020",
-        "F20261016-043",
-        "F20261016-044",
-        "F20261016-071",
-        "F20261016-072"
-      ],
-      "_h": "095aeadd2406bade"
-    },
-    {
-      "hash": "9ee918d2",
-      "date": "2026-10-04T20:47:13+08:00",
-      "subject": "feat(learning): 章節隨堂測驗重進還原上次作答（Gap 補）— GET /api/learning/practice/last?keys=（每題最後 attempt，cq 附 correctChoice+詳解；空答案列排除）；QuizPanel 載入時還原 ✅/❌+上次選項+詳解、顯示「上次記錄 X/Y ",
-      "kind": "feat",
-      "files": 2,
-      "featureIds": [
-        "F20261016-007"
-      ],
-      "_h": "2a50e1f6aa3813b6"
-    },
-    {
-      "hash": "f863c734",
-      "date": "2026-10-04T20:30:47+08:00",
-      "subject": "refactor(learning): 學習空間瘦身 — 移除 CodingIDE fork 死碼 512 行",
-      "kind": "refactor",
-      "files": 3,
-      "featureIds": [
-        "F20261016-008"
-      ],
-      "_h": "03608126e48e83d2"
-    },
-    {
-      "hash": "6103dd21",
-      "date": "2026-10-04T20:04:12+08:00",
-      "subject": "fix(learning): 除蟲 — 移除自動彈出的 coding CU onboarding wizard（cu-status 檢查）、⚡ Project 下拉（Import/Close Project）、tab bar No files open 殘留文案；coding app 不受影響（各自元件獨立）",
-      "kind": "fix",
-      "files": 1,
-      "featureIds": [
-        "F20261016-008"
-      ],
-      "_h": "75b5b9b6349841de"
-    },
-    {
-      "hash": "510d14e2",
-      "date": "2026-10-04T20:00:56+08:00",
-      "subject": "fix(learning): landing 教務台 render EMDashboard（coding app 元件）→ 改 🏠 學習總覽（curriculum 科目卡 + openCurriculum/openPractice 既有流）；EMDashboard 只留給 CodingIDE；i18n learnin",
-      "kind": "fix",
-      "files": 5,
-      "featureIds": [
-        "F20261016-008"
-      ],
-      "_h": "f154e91e9e3b49fb"
-    },
-    {
-      "hash": "e7139e4c",
-      "date": "2026-10-04T19:51:48+08:00",
-      "subject": "feat(pm): 對齊 LearningSpace — tk theme toolbar、動態 tabs（landing 首席固定不可關）、tab bar sheet 列、收合側欄、⛶ 專注模式（Esc 縮回）、工具列 點選才開 tab",
-      "kind": "feat",
-      "files": 1,
-      "featureIds": [
-        "F20261016-010"
-      ],
-      "_h": "8fc77ac48761c655"
-    },
-    {
-      "hash": "10f29c41",
-      "date": "2026-10-04T18:46:00+08:00",
-      "subject": "feat(secret): 對齊 LearningSpace — toolbar 用 useTheme tk token（accentText 衍生跟 PAAW theme）；tab bar 獨立 sheet 列（landing 總管固定第一頁不可關、active 白底+accent 頂條、✕ hover 顯示）；工具",
-      "kind": "feat",
-      "files": 1,
-      "featureIds": [
-        "F20261016-012"
-      ],
-      "_h": "6b341c7d08f5b586"
-    },
-    {
-      "hash": "456827aa",
-      "date": "2026-10-04T18:37:53+08:00",
-      "subject": "feat(secret): 學習空間同款 top 工具列 — 最左收合檔案樹、tabs 併入工具列、最右 ⛶ 專注模式蓋全 PAAW（Esc 縮回）",
-      "kind": "feat",
-      "files": 1,
-      "featureIds": [
-        "F20261016-012"
-      ],
-      "_h": "12cce08e576e5f56"
-    },
-    {
-      "hash": "f16ef86e",
-      "date": "2026-10-04T18:25:38+08:00",
-      "subject": "feat(secret): 動態 tabs — 點專家開專屬 tab（可關）；交辦/效期/簡報改工具列點選才開；landing=總管秘書",
-      "kind": "feat",
-      "files": 1,
-      "featureIds": [
-        "F20261016-012"
-      ],
-      "_h": "5530a02ce5afe9d8"
-    },
-    {
-      "hash": "7f825890",
-      "date": "2026-10-04T18:04:22+08:00",
-      "subject": "feat(secret): 側欄補「專家團隊」區 — 每個秘書領域一個專家可點了聊，結構對齊 PM module（總管/專家團隊/分類檔案櫃）",
-      "kind": "feat",
-      "files": 1,
-      "featureIds": [
-        "F20261016-012"
-      ],
-      "_h": "e0237234b90e6a36"
-    },
-    {
-      "hash": "1ff8b362",
-      "date": "2026-10-04T13:57:24+08:00",
-      "subject": "feat(secret): 掛載時 ensureBuiltinCategories — 公司端開箱即用（categories+櫃+README 冪等生成）",
-      "kind": "feat",
-      "files": 1,
-      "featureIds": [
-        "F20261016-011"
-      ],
-      "_h": "cb6cb55f72191f4e"
-    },
-    {
-      "hash": "e9ba6a36",
-      "date": "2026-10-04T13:47:56+08:00",
-      "subject": "feat(coding): 側欄新增 🧩➕ New Module — scaffold 新模組一鍵到底",
-      "kind": "feat",
-      "files": 5,
-      "featureIds": [
-        "F-012",
-        "F20261016-049"
-      ],
-      "_h": "bbbdd7287acb0bf6"
-    },
-    {
-      "hash": "f4baf07b",
-      "date": "2026-10-04T13:31:15+08:00",
-      "subject": "feat(paaw): 林雨晴定位補充 — Coding App（不會寫程式也能指揮 AI 造工具）+ 律師/會計師 package 方向",
-      "kind": "feat",
-      "files": 1,
-      "featureIds": [],
-      "_h": "17f489da487e584b"
-    },
-    {
-      "hash": "f1ed6e1a",
-      "date": "2026-10-04T13:27:12+08:00",
-      "subject": "feat(paaw): 林雨晴 rolePrompt 加入 PAAW 產品定位（2026-10-04 Fleming 定調）",
-      "kind": "feat",
-      "files": 1,
-      "featureIds": [],
-      "_h": "1e565210ea8cdc3f"
-    },
-    {
-      "hash": "0ab5e165",
-      "date": "2026-10-04T13:10:27+08:00",
-      "subject": "feat(pm): 方案 B — 職能專家團隊（每個工作領域一個 AI 專家）+ 產品櫃並存",
-      "kind": "feat",
-      "files": 14,
-      "featureIds": [
-        "F20261016-009",
-        "F20261016-010",
-        "F20261016-069"
-      ],
-      "_h": "bbbaa27dba2543ba"
-    },
-    {
-      "hash": "cdaa5b10",
-      "date": "2026-10-04T12:57:31+08:00",
-      "subject": "ui(learning): 目錄樹縮排再左移（Fleming 反饋仍太大）— 單元 28px、概念 46px",
-      "kind": "other",
-      "files": 1,
-      "featureIds": [
-        "F20261016-008"
-      ],
-      "_h": "a6e8495558cb58e1"
-    },
-    {
-      "hash": "49dc6681",
-      "date": "2026-10-04T12:53:58+08:00",
-      "subject": "ui(learning): 目錄樹縮排微調 — 單元/概念各回 6px（Fleming 反饋太大）",
-      "kind": "other",
-      "files": 1,
-      "featureIds": [
-        "F20261016-008"
-      ],
-      "_h": "1ffeff493b1edc38"
-    },
-    {
-      "hash": "e41b83ef",
-      "date": "2026-10-04T12:50:07+08:00",
-      "subject": "fix(learning): 課程目錄樹階層縮排 + tailwind 掃 installed-apps",
-      "kind": "fix",
-      "files": 2,
-      "featureIds": [
-        "F20261016-008"
-      ],
-      "_h": "15e963cee222dadf"
     }
   ],
   "knowledgeGaps": {
@@ -12427,7 +12467,6 @@
       "F20261016-005",
       "F20261016-006",
       "F20261016-008",
-      "F20261016-010",
       "F20261016-012",
       "F20261016-014",
       "F20261016-015",
@@ -12674,23 +12713,23 @@
       "GET /api/skills (tests/e2e/05-api.spec.ts)",
       "GET /api/user/preferences (tests/e2e/05-api.spec.ts)"
     ],
-    "filesWithoutFeature": 136,
+    "filesWithoutFeature": 135,
     "hotUnmappedFiles": [
       {
         "file": "packages/ui/src/i18n/locales/en.json",
-        "commits": 44
+        "commits": 42
       },
       {
         "file": "packages/ui/src/i18n/locales/ja.json",
-        "commits": 44
+        "commits": 42
       },
       {
         "file": "packages/ui/src/i18n/locales/zh-mix.json",
-        "commits": 44
+        "commits": 42
       },
       {
         "file": "packages/ui/src/i18n/locales/zh.json",
-        "commits": 44
+        "commits": 42
       },
       {
         "file": "data/knowledge/coding-security.md",
@@ -12702,11 +12741,7 @@
       },
       {
         "file": "packages/server/src/lib/audit-log.mjs",
-        "commits": 10
-      },
-      {
-        "file": "packages/ui/src/components/EMDashboard.tsx",
-        "commits": 10
+        "commits": 11
       },
       {
         "file": "tests/unit/script-guard.test.mjs",
@@ -12717,12 +12752,12 @@
         "commits": 8
       },
       {
-        "file": "packages/ui/src/components/ChatMessages.tsx",
+        "file": "package.json",
         "commits": 8
       },
       {
-        "file": "package.json",
-        "commits": 7
+        "file": "packages/ui/src/components/ChatMessages.tsx",
+        "commits": 8
       },
       {
         "file": "packages/modules/coding/crews/coding.developer.json",
@@ -12734,6 +12769,10 @@
       },
       {
         "file": "packages/modules/coding/crews/coding.tester.json",
+        "commits": 7
+      },
+      {
+        "file": "packages/ui/src/components/EMDashboard.tsx",
         "commits": 7
       }
     ]

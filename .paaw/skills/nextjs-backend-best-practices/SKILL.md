@@ -273,7 +273,7 @@ export default function NewPostPage() {
 
 | Pattern | Use Case | Reference |
 |---------|----------|-----------|
-| Client Form with Loading | useFormState + useFormStatus | `templates/server-action-form.tsx` |
+| Client Form with Loading | useActionState + useFormStatus | `templates/server-actions-form.tsx` |
 | Error Handling | Return { error } or { success } | `references/server-actions-patterns.md` |
 | Optimistic Updates | useOptimistic hook | `references/server-actions-patterns.md` |
 | File Upload | FormData + blob storage | `references/server-actions-patterns.md` |
@@ -314,7 +314,11 @@ export async function GET(
 }
 ```
 
-**See**: `templates/route-handler-api.ts` for search params, webhooks, and streaming patterns.
+**Export contract**: a single `route.ts` may export **only HTTP method names** (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`), **each at most once**. Any other export name is ignored by Next.js (→ 405); a duplicate method export fails to compile. Helpers belong in a separate module.
+
+**See**:
+- `templates/route-handler-api.ts` — 10 worked examples (CRUD, search, auth, webhooks, SSE, upload, CORS, errors, rate limiting). Handlers after the first of each method are shown without `export`; read each example's `File:` comment for where to copy it.
+- `references/route-handlers-patterns.md` — pattern catalog, export contract in depth, copy procedure, and the template-verification test suite.
 
 ---
 
@@ -443,7 +447,7 @@ export async function getPosts() {
 
 ---
 
-**See All 18 Errors**: `references/error-catalog.md`
+**See All 19 Errors**: `references/error-catalog.md`
 
 ---
 
@@ -489,7 +493,7 @@ export async function getPosts() {
 | Type | Files |
 |------|-------|
 | **References** | `error-catalog.md`, `top-errors.md`, `next-16-migration-guide.md`, `server-actions-patterns.md`, `caching-apis.md` |
-| **Templates** | `async-params-page.tsx`, `server-action-form.tsx`, `route-handler-api.ts`, `cache-component-use-cache.tsx`, `parallel-routes-with-default.tsx`, `proxy-migration.ts` |
+| **Templates** | `async-params-page.tsx`, `server-action-form.tsx`, `server-actions-form.tsx`, `route-handler-api.ts`, `cache-component-use-cache.tsx`, `parallel-routes-with-default.tsx`, `proxy-migration.ts` — see `templates/README.md` for copy rules |
 
 ---
 

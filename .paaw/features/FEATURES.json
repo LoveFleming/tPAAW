@@ -488,7 +488,9 @@
         "installed-apps/learning/ui/pages/LearningSpace.tsx"
       ],
       "apis": [],
-      "tests": [],
+      "tests": [
+        "tests/unit/learning-task168-hardening.test.mjs"
+      ],
       "runbooks": [],
       "tags": [
         "agent-runtime",
@@ -514,7 +516,7 @@
       "documentation": "",
       "docsUpdatedAt": null,
       "createdAt": "2026-10-16T11:56:17.384Z",
-      "updatedAt": "2026-10-16T11:56:17.384Z",
+      "updatedAt": "2026-10-17T17:48:28.219Z",
       "id": "F20261016-008",
       "riskProfile": {
         "dataTouch": [],
@@ -583,7 +585,7 @@
       "documentation": "以 JSON-RPC 2.0 實作 Agent2Agent (A2A) 協定（protocolVersion 0.3.0）的伺服端路由，對外提供 Agent Card 探索（/.well-known/agent.json、/.well-known/agent-card.json、/api/a2a/agent-card、/a2a/:agentId/.well-known/agent.json）與 /a2a、/a2a/:agentId 端點。支援同步回覆、SSE 串流、webhook 非同步通知三種模式，讓外部 agent 與 PAAW 內部 domain agent（crew）互相派工與對話。\n\n支援方法（default /a2a 與 domain /a2a/:agentId 一致）：message/send、message/stream、tasks/get、tasks/list、tasks/cancel。\n\n協定版本常數集中於 packages/server/src/lib/a2a-constants.mjs（A2A_PROTOCOL_VERSION = \"0.3.0\"），由 a2a route 與 domain-agent-registry 共用，避免版本漂移。",
       "docsUpdatedAt": "2026-10-17T00:29:10.255Z",
       "createdAt": "2026-10-16T11:56:17.384Z",
-      "updatedAt": "2026-10-16T11:56:17.384Z",
+      "updatedAt": "2026-10-17T11:34:22.708Z",
       "id": "F20261016-009",
       "riskProfile": {
         "dataTouch": [],
@@ -613,10 +615,14 @@
       "bizLogic": "每個 agent 任務以 JSONL 逐行記錄 task_start、llm_start/end、tool_start/end、thinking、error、task_end 等步驟，並在結束時依各 LLM 步驟的 prompt/completion tokens 與模型單價累加出 usage 與 costUsd，寫入最多保留 200 筆的 index.json。/api/agent-logs 依 cwd 用 resolveRuName 反解出所屬 Release Unit，ru-summary 將 live index 與已 purge 的持久化歷史（ru-cost-history.json）合併，彙總每個 RU 的 tokensIn/tokensOut/costUsd/durationMs 及 byModel 明細——這是成本核算資產，故 LLM 與 agent 日誌預設 days=0（永不刪），只有其他 runtime 垃圾日誌預設 7 天。清理時 llm 可依明確日期（before=YYYY-MM-DD）刪除、agent 依 mtime，且過期前先把成本累計進歷史避免統計歸零；",
       "status": "active",
       "codeFiles": [
-        "installed-apps/pm/ui/pages/ProjectOffice.tsx"
+        "packages/server/src/routes/agent-logs.mjs",
+        "packages/server/src/routes/log-retention.mjs",
+        "packages/server/src/lib/agent-exec-logger.mjs"
       ],
       "apis": [],
-      "tests": [],
+      "tests": [
+        "tests/unit/agent-logs.test.mjs"
+      ],
       "runbooks": [],
       "tags": [
         "agent-logs",
@@ -824,7 +830,7 @@
       "documentation": "",
       "docsUpdatedAt": null,
       "createdAt": "2026-10-16T11:56:17.384Z",
-      "updatedAt": "2026-10-16T11:56:17.384Z",
+      "updatedAt": "2026-10-18T00:03:05.836Z",
       "id": "F20261016-013",
       "riskProfile": {
         "dataTouch": [],
@@ -7664,5 +7670,5 @@
       "retiredAt": "2026-10-16T11:56:17.384Z"
     }
   ],
-  "updatedAt": "2026-10-16T12:57:17.845Z"
+  "updatedAt": "2026-10-18T00:03:05.844Z"
 }
