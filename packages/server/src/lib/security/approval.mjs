@@ -11,7 +11,9 @@
 
 export class ApprovalManager {
   constructor(options = {}) {
-    this.mode = options.mode || 'always'  // always | on-miss | auto | deny
+    // 2026-10-29 修正：預設從 'always' 改 'auto' — 審批 UI/API 不存在，'always' 等於
+    // 所有非唯讀工具永久卡死（没人能批准）。gate 政策保留，未來接上審批卡後可再切 always。
+    this.mode = options.mode || 'auto'  // always | on-miss | auto | deny
     this.pending = new Map()  // id → { toolName, args, timestamp }
     this.timeout = options.timeout || 120_000  // 2 分鐘未批准自動過期
     this.history = new Map()  // toolName → { approved, denied }

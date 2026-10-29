@@ -403,7 +403,13 @@ export default async function chatRoutes(req, res) {
         maxToolRounds: 5,
         // 啟用 Security Kernel
         security: {
-          approval: { mode: process.env.NODE_ENV === 'development' ? 'auto' : 'always' },
+          // 2026-10-29 修正：審批 UI/API 尚未存在前，production 不得用 'always' —
+          // TASK-164 approval_gate 會把所有寫入型工具（bookmark_add 等所有 *_add/_update/_delete/_set、env_exec）
+          // 卡成「等待用戶批准」永遠無法執行（沒有任何端點能批准，2 分鐘後 silently 過期）。
+          // 林雨晴 chat 全部 app 工具寫入掛掉即此因。改 'auto' 恢復產品核心迴圈；
+          // 硬攔截（exec_security / fs_security / rate limit / param check）照常生效。
+          // 等審批卡 UI + API 做好後再恢復 gate 語意。
+          approval: { mode: 'auto' },
           audit: { enabled: true },
         },
         sessionKey: req.headers['x-session-key'] || 'chat',

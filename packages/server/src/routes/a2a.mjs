@@ -698,7 +698,8 @@ async function runAgentLoop({ message, systemPrompt, onChunk }) {
     executors,
     maxToolRounds: 5,
     security: {
-      approval: { mode: process.env.NODE_ENV === "development" ? "auto" : "always" },
+      // 2026-10-29 修正：同 chat.mjs — 審批 UI/API 不存在，'always' = 所有寫入工具卡死
+      approval: { mode: "auto" },
       audit: { enabled: true },
     },
     sessionKey: "a2a",
