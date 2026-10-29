@@ -104,6 +104,9 @@ const NEED_INFO_REGEX = /\[NEED_INFO:?\]?\s*(.+)/s;
  * @returns {Promise<{text: string, toolsUsed: string[], needsInfo: string|null}>}
  */
 async function runHelpDeskSkill(conversation, modelOverride, options = {}) {
+  // 2026-10-29 修 B1/B2：此前函式內裸引用 taskId / tStore（未定義）→ ReferenceError，
+  // skill 執行必炸、票降級 open。實際來源是 options.taskStore（呼叫端只傳這個）。
+  const { taskId, taskStore: tStore } = options;
   const skillMd = await readFile(HELPDESK_SKILL, "utf-8");
 
   const providerConfig = JSON.parse(await readFile(resolve(CONFIG_DIR, "providers.json"), "utf-8"));
@@ -155,7 +158,8 @@ async function runHelpDeskSkill(conversation, modelOverride, options = {}) {
   const { injectRegistryTools } = await import("../lib/tool-registry-init.mjs");
   injectRegistryTools(engine, { cwd: DATA_DIR, rootDir: DATA_DIR, agentId: "helpdesk-skill" });
 
-    // knowledgeBase already loaded via cache
+  // 2026-10-29 修 B1/B2（續）：knowledgeBase 裸引用 → ReferenceError；改走 cache loader
+  const knowledgeBase = await getCachedKnowledge();
 
   const systemPrompt = `${skillMd}
 

@@ -213,7 +213,8 @@ export const genericAdapter = {
   async detect() { return true; }, // 永遠 fallback 成立
   sourceExts: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".go", ".java", ".rb", ".php", ".rs", ".kt", ".cs", ".swift"],
   importRegexes: [
-    /(?:^|\n)\s*import\s+(?:[\w.]*\s+from\s+)?["']([^"']+)["']/g,
+    // 2026-10-29：吃 `import { a } from '...'`（原版 [\w.]* 不含大括號 → named import 全漏）
+    /(?:^|\n)\s*import\s+(?:[\s\S]{0,200}?from\s+)?["']([^"']+)["']/g,
     /(?:^|\n)\s*(?:const|let|var)\s+[\w${},\s]+=\s*require\(\s*["']([^"']+)["']\s*\)/g,
   ],
   stripComments(content) {

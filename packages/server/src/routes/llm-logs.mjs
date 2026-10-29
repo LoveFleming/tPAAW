@@ -538,5 +538,5 @@ export default async function llmLogsRoute(req, res) {
 async function readBody(req) {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
-  return Buffer.concat(chunks).toString();
+  return Buffer.concat(chunks.map(c => Buffer.isBuffer(c) ? c : Buffer.from(c))).toString();
 }

@@ -57,8 +57,8 @@ function writeDay(date, events) {
 beforeAll(async () => {
   const mod = await import("../../packages/server/src/routes/audit-log.mjs");
   handler = mod.default;
-  // ASSET_LOGS_ROOT = PAAW_LOG_HOME (data-home)；audit 子目錄
-  AUDIT_DIR = join(TMP, "audit");
+  // ASSET_LOGS_ROOT = LOG_HOME/logs（2026-10-05 log 整併後多一層 logs/）；audit 子目錄
+  AUDIT_DIR = join(TMP, "logs", "audit");
   mkdirSync(AUDIT_DIR, { recursive: true });
 });
 

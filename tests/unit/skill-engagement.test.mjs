@@ -11,7 +11,8 @@ import { join } from "path";
 import { collectSkillEngagement } from "../../packages/server/src/routes/llm-logs.mjs";
 
 let dir = null;
-const w = (line) => writeFileSync(join(dir, "2026-10-22.jsonl"), line + "\n", { flag: "a" });
+const TODAY = new Date().toISOString().slice(0, 10); // 動態日期 — collectSkillEngagement 有 days 視窗，寫死日期會整檔被跳過
+const w = (line) => writeFileSync(join(dir, `${TODAY}.jsonl`), line + "\n", { flag: "a" });
 
 beforeAll(() => {
   dir = mkdtempSync(join(tmpdir(), "sk-eng-"));
@@ -62,7 +63,7 @@ describe("collectSkillEngagement", () => {
     const em = r.byAgent.find(a => a.id === "em");
     expect(em.reads).toBe(2);
     expect(em.skills["s2"]).toBe(2);
-    expect(r.byDay[0]).toEqual({ date: "2026-10-22", injections: 1, reads: 3 });
+    expect(r.byDay[0]).toEqual({ date: TODAY, injections: 1, reads: 3 });
   });
 
   it("E4: 天數窗外不計（cutoff 過濾）", () => {

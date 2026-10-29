@@ -66,7 +66,8 @@ export default async function auditLogRoutes(req, res) {
     const kindsFilter = (urlObj.searchParams.get("kinds") || "").split(",").map(s => s.trim()).filter(Boolean);
     const sevFilter = (urlObj.searchParams.get("severity") || "").trim();
     const q = (urlObj.searchParams.get("q") || "").trim().toLowerCase();
-    const limit = Math.min(Math.max(parseInt(urlObj.searchParams.get("limit") || "300", 10) || 300, 1), 2000);
+    const rawLimit = parseInt(urlObj.searchParams.get("limit") || "300", 10);
+    const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 300, 1), 2000);
 
     const all = [];
     for (const line of text.split("\n")) {

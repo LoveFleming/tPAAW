@@ -887,6 +887,10 @@ export default async function a2aRoutes(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const path = url.pathname;
 
+  // CORS（QA M3）：白名單 Origin 的所有回應都帶 CORS 標頭 — setHeader 先掛在 res 上，
+  // writeHead/sendJSON 只覆蓋同名 key、其餘合併，因此沒帶 req 的舊 sendJSON 呼叫也吃得到
+  for (const [k, v] of Object.entries(corsHeadersFor(req))) res.setHeader(k, v);
+
   // CORS preflight（依白名單回標頭；無 Origin 或未入白名單則不給 CORS 放行 — QA M3）
   if (req.method === "OPTIONS") {
     res.writeHead(204, {

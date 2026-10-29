@@ -20,7 +20,6 @@
  * - 挖不到的主題誠實標 gap（不編造）
  */
 
-import { Router } from "express";
 import { readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -32,7 +31,6 @@ import { stableStringify } from "../lib/stable-stringify.mjs";
 
 
 const execAsync = promisify(execCb);
-const router = Router();
 
 // ── 檔案位置 ──
 const guideFilePath = (p) => join(p, ".paaw", "troubleshooting", "TSGUIDE.json"); // nosemgrep: path-join-resolve-traversal — local-first：使用者自選專案根

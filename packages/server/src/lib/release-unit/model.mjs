@@ -434,11 +434,14 @@ export function queryModelByFile(model, relPath) {
 
 export function queryModelByApi(model, method, routePath) {
   // routePath 空字串時 endsWith("") 恆真會誤回第一個 API；且裸 endsWith 會讓 "/model" 誤配 "/api/ru/model"。
-  // 精確比對優先，前綴比對限制在路徑邊界（segment boundary）。
+  // 精確比對優先；後綴比對限多 segment 查詢（≥2 segments，segment boundary）—
+  // 單 segment（如 "/model"）太泛，只允許精確命中（M-2 契約）。
   const rp = String(routePath || "");
+  const segs = rp.replace(/^\//, "").split("/").filter(Boolean);
+  const suffix = segs.length >= 2 ? "/" + segs.join("/") : null;
   const a = (model.apis || []).find(x =>
     x.method.toUpperCase() === String(method || "").toUpperCase() &&
-    (rp ? (x.path === rp || x.path.endsWith("/" + rp.replace(/^\//, ""))) : false));
+    (rp ? (x.path === rp || (suffix !== null && x.path.endsWith(suffix))) : false));
   if (!a) return null;
   const features = (model.features || []).filter(f => a.featureIds.includes(f.id));
   const tests = (model.tests || []).filter(t => a.featureIds.some(id => t.featureIds.includes(id)));

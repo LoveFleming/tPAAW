@@ -56,8 +56,12 @@ export class SecurityKernel {
         '>/dev/sda', '>/dev/nvme', 'chmod 777 /',
         'wget http://', 'curl http://',  // 遠端下載
       ]
+      // 2026-10-29（T4 矩陣測試抓到）：`cat x > /dev/sda`（> 後加空格）可繞過字面比對 —
+      // 同時比對「擠掉空白後」的版本，模式本身也擠空白（'curl http://' → 'curlhttp://'）
+      const squeezedCmd = String(cmd).replace(/\s+/g, '')
       for (const pattern of forbidden) {
-        if (cmd.includes(pattern)) {
+        const squeezedPat = pattern.replace(/\s+/g, '')
+        if (cmd.includes(pattern) || squeezedCmd.includes(squeezedPat)) {
           return { blocked: true, reason: `禁止的指令模式: ${pattern}` }
         }
       }

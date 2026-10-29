@@ -57,13 +57,14 @@ describe("pairLogs", () => {
     expect(paired[0].durationMs).toBe(5);
   });
 
-  it("counts orphan requests (response missing)", () => {
+  it("counts orphan requests (response missing its request log)", () => {
     const { paired, orphanRequests } = pairLogs([
       { id: "a", phase: "request", ts: "t" },
       { id: "b", phase: "response", ts: "t" },
     ]);
     expect(paired).toHaveLength(1); // only a has a request
-    expect(orphanRequests).toBe(0);
+    // b 有 response 但缺 request log → 計為 orphan（llm-log 隔離後 request 遺失訊號）
+    expect(orphanRequests).toBe(1);
   });
 
   it("does not write unknown phases into dynamic keys; counts them", () => {
@@ -184,7 +185,8 @@ describe("collectSkillsUsage", () => {
 // 2026-10-23：list 端點最新在前（live tail 可見）— Fleming 報案「正在跑但沒 log」
 it("F1: GET /api/llm-logs 回傳最新在前 — item[0] 是最新一筆", async () => {
   const dir = mkdtempSync(join(tmpdir(), "llm-order-"));
-  const w = (id, iso, phase) => appendFileSync(join(dir, "2026-10-23.jsonl"), JSON.stringify({ id, ts: iso, phase, agentId: "em", model: "m", messageCount: 1 }) + "\n");
+  const today = new Date().toISOString().slice(0, 10); // 動態日期 — 寫死日期會被 days 視窗過濾成空（定時炸彈）
+  const w = (id, iso, phase) => appendFileSync(join(dir, `${today}.jsonl`), JSON.stringify({ id, ts: iso, phase, agentId: "em", model: "m", messageCount: 1 }) + "\n");
   w("a", "2026-10-23T10:00:00Z", "request");
   w("a", "2026-10-23T10:00:05Z", "response");
   w("b", "2026-10-23T11:00:00Z", "request");

@@ -15,8 +15,10 @@ export function pathBasename(p: string): string {
     return p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
 }
 
-/** Check if a path starts with a given prefix, handling both / and \ separators */
+/** Check if a path starts with a given prefix, handling both / and \ separators.
+ *  空 prefix 只匹配空字串（否則 p.startsWith("/") 對所有絕對路徑恆真）。 */
 export function pathStartsWith(p: string, prefix: string): boolean {
+    if (!prefix) return p === "";
     return p.startsWith(prefix + "/") || p.startsWith(prefix + "\\") || p === prefix;
 }
 

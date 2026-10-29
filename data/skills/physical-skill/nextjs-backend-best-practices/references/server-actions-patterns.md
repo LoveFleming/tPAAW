@@ -11,7 +11,8 @@ This reference covers advanced Server Action patterns for Next.js 16. For basic 
 ```typescript
 'use client'
 
-import { useFormState, useFormStatus } from 'react-dom'
+import { useActionState } from 'react'
+import { useFormStatus } from 'react-dom'
 import { createPost } from './actions'
 
 function SubmitButton() {
@@ -24,7 +25,8 @@ function SubmitButton() {
 }
 
 export default function NewPostPage() {
-  const [state, formAction] = useFormState(createPost, null)
+  // React 19: useActionState (from 'react') — useFormState (react-dom) is removed
+  const [state, formAction] = useActionState(createPost, null)
 
   return (
     <form action={formAction}>
@@ -281,11 +283,12 @@ export async function uploadFile(formData: FormData) {
 ```typescript
 'use client'
 
-import { useFormState } from 'react-dom'
+import { useActionState } from 'react'
 import { uploadFile } from './actions'
 
 export function FileUpload() {
-  const [state, formAction] = useFormState(uploadFile, null)
+  // React 19: useActionState (from 'react') — useFormState (react-dom) is removed
+  const [state, formAction] = useActionState(uploadFile, null)
 
   return (
     <form action={formAction}>

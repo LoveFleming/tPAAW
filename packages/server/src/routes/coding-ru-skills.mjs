@@ -22,8 +22,17 @@ function _json(res, code, data) {
 
 async function _readBody(req) {
   const chunks = [];
-  for await (const c of req) chunks.push(c);
-  try { return JSON.parse(Buffer.concat(chunks).toString("utf-8") || "{}"); } catch { return {}; }
+  if (req && typeof req[Symbol.asyncIterator] === "function") {
+    for await (const c of req) chunks.push(c);
+  } else {
+    // EventEmitter 型（測試 fake req）：data/end 事件收 chunks
+    await new Promise((resolve, reject) => {
+      req.on("data", c => chunks.push(c));
+      req.on("end", resolve);
+      req.on("error", reject);
+    });
+  }
+  try { return JSON.parse(Buffer.concat(chunks.map(c => Buffer.isBuffer(c) ? c : Buffer.from(c))).toString("utf-8") || "{}"); } catch { return {}; }
 }
 
 export default async function ruSkillsRoutes(req, res, next) {

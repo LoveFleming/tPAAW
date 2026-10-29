@@ -273,7 +273,7 @@ export default function NewPostPage() {
 
 | Pattern | Use Case | Reference |
 |---------|----------|-----------|
-| Client Form with Loading | useFormState + useFormStatus | `templates/server-action-form.tsx` |
+| Client Form with Loading | useActionState + useFormStatus | `templates/server-actions-form.tsx` |
 | Error Handling | Return { error } or { success } | `references/server-actions-patterns.md` |
 | Optimistic Updates | useOptimistic hook | `references/server-actions-patterns.md` |
 | File Upload | FormData + blob storage | `references/server-actions-patterns.md` |
@@ -493,7 +493,7 @@ export async function getPosts() {
 | Type | Files |
 |------|-------|
 | **References** | `error-catalog.md`, `top-errors.md`, `next-16-migration-guide.md`, `server-actions-patterns.md`, `caching-apis.md` |
-| **Templates** | `async-params-page.tsx`, `server-action-form.tsx`, `route-handler-api.ts`, `cache-component-use-cache.tsx`, `parallel-routes-with-default.tsx`, `proxy-migration.ts` |
+| **Templates** | `async-params-page.tsx`, `server-action-form.tsx`, `server-actions-form.tsx`, `route-handler-api.ts`, `cache-component-use-cache.tsx`, `parallel-routes-with-default.tsx`, `proxy-migration.ts` — see `templates/README.md` for copy rules |
 
 ---
 

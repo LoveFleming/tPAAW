@@ -14,8 +14,7 @@
  * SQLite 上。ISS-029 修復後，harness 可換成 createDb()。
  *
  * 已知 bug 的 characterization test：
- *  - ChatsRepo.addMessage 的 db.fn("message_count + 1") 產生非法 SQL（ISS-030）
- *    → 對應測試斷言「現狀」，修復後請改回正向斷言。
+ *  - ChatsRepo.addMessage ISS-030 已修（expression builder increment），測試為正向斷言。
  */
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 import { readFileSync, rmSync } from "fs";
@@ -298,28 +297,22 @@ describe("F-003 ChatsRepo", () => {
   });
 
   /**
-   * ⚠️ CHARACTERIZATION TEST — ISS-030（勿直接「修綠」此測試）
-   * addMessage() 的 `this.db.fn("message_count + 1")` 產生非法 SQL，
-   * 導致 conversation 統計更新的 UPDATE 拋錯；但 chat_messages 的 INSERT
-   * 已先落庫（部分寫入）。
-   * 修復 ISS-030 後請改為正向斷言：
-   *   - await addMessage(...) 成功、回傳 msg_ 前綴 id
-   *   - message_count 遞增、last_message_at 更新
+   * ISS-030 已修（2026-10-29 改寫正向斷言）：
+   * eb("message_count", "+", 1) 產生合法 SQL — INSERT 與 UPDATE 一致成功。
    */
-  it("addMessage() [current behavior — ISS-030] rejects on invalid SQL but leaves the message row inserted", async () => {
+  it("addMessage() succeeds atomically: row inserted + message_count incremented (ISS-030 fixed)", async () => {
     const convId = await repo().createConversation({ userId: "user-1" });
 
-    await expect(
-      repo().addMessage({ conversationId: convId, role: "user", content: "hi" })
-    ).rejects.toThrow(/syntax error/i);
+    const msgId = await repo().addMessage({ conversationId: convId, role: "user", content: "hi" });
+    expect(msgId).toMatch(/^msg_/);
 
     const msgs = await db.selectFrom("chat_messages").selectAll().execute();
-    expect(msgs).toHaveLength(1); // INSERT 已落庫（部分寫入）
+    expect(msgs).toHaveLength(1);
     expect(msgs[0].role).toBe("user");
     expect(msgs[0].content).toBe("hi");
 
     const conv = await db.selectFrom("conversations").selectAll().executeTakeFirst();
-    expect(conv!.message_count).toBe(0); // 統計未更新（bug 現狀）
+    expect(conv!.message_count).toBe(1); // 統計同步更新
   });
 
   it("getMessages() orders by created_at asc and paginates", async () => {
