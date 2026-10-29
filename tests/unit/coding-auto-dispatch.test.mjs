@@ -83,6 +83,8 @@ function fakeReq({ method = "GET", url = "/", body } = {}) {
 }
 
 function fakeRes() {
+  let resolveFinished;
+  const finished = new Promise((r) => { resolveFinished = r; });
   const res = {
     statusCode: null,
     headers: null,
@@ -95,16 +97,21 @@ function fakeRes() {
     },
     end(chunk) {
       if (chunk !== undefined) res.body += chunk.toString();
+      resolveFinished();
     },
+    finished,
   };
   return res;
 }
 
-// 呼叫 route 並等 settle（處理 readBody 的非同步）
+// 呼叫 route 並等「回應已送出」（不等背景 delegate 跑完 — start 是 respond-then-run 設計）
+// handler promise 存到 _lastHandler 供 afterEach 等待收尾，避免背景寫檔撞上 rmSync。
+let _lastHandler = null;
 async function call(method, url, body) {
   const req = fakeReq({ method, url, body: body !== undefined ? JSON.stringify(body) : undefined });
   const res = fakeRes();
-  await codingAutoDispatchRoute(req, res);
+  _lastHandler = codingAutoDispatchRoute(req, res).catch(() => {});
+  await res.finished;
   return res;
 }
 
@@ -133,7 +140,9 @@ beforeEach(() => {
   mockRunAutoDispatch.mockResolvedValue({ report: "# report\n" });
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // 等背景 handler 收尾（delegate/狀態寫檔）再刪 tmp，避免 ENOENT 噴進未來的測試
+  await _lastHandler;
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -160,12 +169,18 @@ describe("POST /api/coding-auto-dispatch/start", () => {
   });
 
   it("happy path — 立即初始化 status.json 為 running", async () => {
+    // 回應送出當下 delegate 還在跑 — 卡住它才能觀察到 running 中間態
+    // gate 先建好（release 同步賦值），避免 handler 尚未執行到 delegate 時 release 還是 undefined
+    let release = () => {};
+    const gate = new Promise((r) => { release = r; });
+    mockRunAutoDispatch.mockImplementation(() => gate.then(() => ({ report: "x" })));
     await call("POST", pathUrl("/api/coding-auto-dispatch/start", root), { mode: "em" });
     const st = readStatus();
     expect(st.status).toBe("running");
     expect(st.mode).toBe("em");
     expect(st.totalAgents).toBe(0); // em 模式 = 0
     expect(st.completedAgents).toBe(0);
+    release();
   });
 
   it("mode=parallel — totalAgents 設為 6", async () => {
@@ -181,8 +196,9 @@ describe("POST /api/coding-auto-dispatch/start", () => {
 
   it("並行防護 — 執行中重複 start 回 409", async () => {
     // 讓首次 runAutoDispatch 卡住不 resolve，維持 _activeRuns 佔用
-    let release;
-    mockRunAutoDispatch.mockImplementation(() => new Promise((r) => { release = () => r({ report: "x" }); }));
+    let release = () => {};
+    const gate = new Promise((r) => { release = r; });
+    mockRunAutoDispatch.mockImplementation(() => gate.then(() => ({ report: "x" })));
 
     const first = await call("POST", pathUrl("/api/coding-auto-dispatch/start", root), { mode: "em" });
     expect(first.statusCode).toBe(200);
@@ -232,8 +248,10 @@ describe("POST /api/coding-auto-dispatch/start", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(mockRunAutoDispatch).toHaveBeenCalledTimes(1);
     const arg = mockRunAutoDispatch.mock.calls[0][0];
-    expect(arg.root).toBe(root);
+    expect(arg.rootDir).toBe(root); // route 傳參名為 rootDir（2026-08-29 sendSSE 重構後）
     expect(arg.mode).toBe("em");
+    expect(arg.modelOverride).toBe("gpt-x");
+    expect(arg.since).toBe("2026-01-01");
   });
 });
 

@@ -180,7 +180,7 @@ export default async function codingAutoDispatchRoute(req, res) {
       const result = await runAutoDispatch({
         mode,
         rootDir: projRoot,
-        baseUrl: `http://127.0.0.1:${req.socket.localPort || process.env.PAAW_PORT || 4097}`,
+        baseUrl: `http://127.0.0.1:${req.socket?.localPort || process.env.PAAW_PORT || 4097}`,
         since: sinceDate,
         modelOverride,
         fallbackModels,
@@ -200,12 +200,12 @@ export default async function codingAutoDispatchRoute(req, res) {
           completedAt: new Date().toISOString(),
           duration: Date.now() - startTime,
           ...(current.stopRequested ? { interruptedByUser: true } : {}),
-          report: result.report,
+          report: result?.report || "",
         };
       });
 
       // Save latest report for quick access
-      writeFileSync(join(nsDir, REPORT_FILE), result.report, "utf-8"); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      writeFileSync(join(nsDir, REPORT_FILE), result?.report || "", "utf-8"); // nosemgrep: detect-non-literal-fs-filename, path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
 
       // 2026-10-18 Fleming 接線：批次結束 → deterministic 補跑 AI Review Board（baseline..HEAD）
       // 證據矩陣的 aiReview 欄不靠 agent 自覺 — 程式保證有報告落檔；request-changes 會自動開單打回。

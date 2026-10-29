@@ -18,8 +18,22 @@ import {
   hydrateFromProgress, shouldForceQA, completionGate, taskNeedsTests, bugFuseVerdict, rootCauseVerdict,
   resolveFeatureForFiles, loadTasksFile,
 } from "../../packages/server/src/lib/em-task-store.mjs";
-import { orchestrateTask } from "../../packages/server/src/lib/em-orchestrator.mjs";
-import { runJobEntrypoint, triageToTickets, readJobTypesConfig } from "../../packages/server/src/lib/em-job-entrypoints.mjs";
+// ── 環境隔離（2026-10-29）：providers.json 用 fixture — 不讀真實 data/config，
+//    fresh clone 沒 providers.json 也能跑。env 必須在 orchestrator（會拉 data-home.mjs）
+//    載入前設好 → 改動態 import（top-level await，順序在 env 之後）。
+const _TMP_DATA = mkdtempSync(join(tmpdir(), "em-foreman-data-"));
+mkdirSync(join(_TMP_DATA, "config"), { recursive: true });
+writeFileSync(join(_TMP_DATA, "config", "providers.json"), JSON.stringify({
+  active: "fixture",
+  providers: { fixture: { name: "fixture", baseURL: "http://127.0.0.1:9/v1", apiKey: "fixture-key", models: [{ id: "fixture-model", maxTokens: 4096 }] } },
+  fallbacks: [],
+}));
+process.env.PAAW_DATA_HOME = _TMP_DATA;
+process.env.PAAW_LOG_HOME = mkdtempSync(join(tmpdir(), "em-foreman-log-"));
+
+let orchestrateTask, runJobEntrypoint, triageToTickets, readJobTypesConfig;
+({ orchestrateTask } = await import("../../packages/server/src/lib/em-orchestrator.mjs"));
+({ runJobEntrypoint, triageToTickets, readJobTypesConfig } = await import("../../packages/server/src/lib/em-job-entrypoints.mjs"));
 
 // ── fixture helpers ──
 

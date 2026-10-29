@@ -247,7 +247,7 @@ describe("ToolEngine — write verification (verifyWriteResult)", () => {
     expect(toolEnd.result._validation.verified).toBe(false);
   });
 
-  it("treats a write op without a matching verify tool as verified (no verify tool)", async () => {
+  it("marks write op without a matching verify tool as unverified (TASK-164 honest semantics)", async () => {
     const adapter = fakeProvider([
       [doneTools([tc("c7", "note_add", {})])],
       [doneStop()],
@@ -258,7 +258,9 @@ describe("ToolEngine — write verification (verifyWriteResult)", () => {
     });
     const events = await collect(engine.run("s", [{ role: "user", content: "x" }]));
     const toolEnd = events.find((e) => e.type === "tool_end");
-    expect(toolEnd.result._validation.verified).toBe(true);
+    // 2026-10-17 TASK-164：無 verify 工具 → 誠實標記未驗證（不再假裝 verified:true）
+    expect(toolEnd.result._validation.verified).toBe(false);
+    expect(toolEnd.result._validation.unverified).toBe(true);
   });
 
   it("verifies *_delete via the corresponding *_list tool", async () => {
@@ -310,9 +312,10 @@ describe("ToolEngine — write verification (verifyWriteResult)", () => {
     });
     const events = await collect(engine.run("s", [{ role: "user", content: "x" }]));
     const toolEnd = events.find((e) => e.type === "tool_end");
-    // verify throw is caught by the registry and treated as "no longer listed" → verified
-    expect(toolEnd.result._validation.verified).toBe(true);
-    expect(toolEnd.result._validation.detail).toContain("已刪除");
+    // 2026-10-17 TASK-164：回查工具拋錯 → 誠實標記未驗證（registry 把 executor throw
+    // 轉成 error result → 走 detectToolError 路徑：verified:false + ⚠️ 刪除後回查失敗）
+    expect(toolEnd.result._validation.verified).toBe(false);
+    expect(toolEnd.result._validation.detail).toContain("刪除後回查失敗");
   });
 
   it("does NOT attach _validation to read-only (non-write) tools", async () => {

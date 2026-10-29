@@ -101,15 +101,14 @@ describe("parseReport — metadata 解析（現行 runner 格式）", () => {
     expect(meta.decision).toBe("request-changes");
     expect(meta.counts).toEqual({ critical: 1, major: 2, minor: 3 });
     expect(meta.commitShas).toEqual(["a1b2c3d", "e4f5a6b"]);
-    expect(meta.fileCount).toBe("3");
+    expect(meta.fileCount).toBe(3); // 2026-10-29：impl 改回數字
     expect(meta.runnerFormat).toBe(true);
   });
 
   it("findings 只計 `### ` 標題，且 consensus/disputes 數量正確", () => {
     const meta = parseReport("x.md", FULL_REPORT);
-    // 2 個 ### findings（一個 🤝共識、一個 🚩分歧）
-    expect(meta.findings.length).toBe(2);
-    expect(meta.findings[0]).toContain("foo.mjs:42");
+    // 2 個 ### findings（一個 🤝共識、一個 🚩分歧）— impl 精簡後只回 findingsCount
+    expect(meta.findingsCount).toBe(2);
     expect(meta.consensus).toBe(1);
     expect(meta.disputes).toBe(1);
   });
@@ -139,7 +138,7 @@ describe("parseReport — metadata 解析（現行 runner 格式）", () => {
     const meta = parseReport("x.md", md);
     expect(meta.decision).toBe("inconclusive");
     expect(meta.counts).toEqual({ critical: 0, major: 0, minor: 0 });
-    expect(meta.findings).toEqual([]);
+    expect(meta.findingsCount).toBe(0);
   });
 
   it("空字串 / 完全非 report 格式 → 所有欄位回 null 或空，不 throw", () => {
@@ -148,7 +147,7 @@ describe("parseReport — metadata 解析（現行 runner 格式）", () => {
     expect(meta.range).toBeNull();
     expect(meta.decision).toBeNull();
     expect(meta.counts).toBeNull();
-    expect(meta.findings).toEqual([]);
+    expect(meta.findingsCount).toBe(0);
     expect(meta.reviewers).toEqual([]);
     expect(meta.runnerFormat).toBe(false);
   });

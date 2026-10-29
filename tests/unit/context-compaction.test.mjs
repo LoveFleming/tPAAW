@@ -60,7 +60,7 @@ describe("shouldCompact — compaction 觸發決策", () => {
 
   it("approaching：過門檻且訊息數達標才觸發", () => {
     // 造一個介於 trigger threshold 與 budget 之間的用量（多則小訊息）
-    const msgs = Array.from({ length: 950 }, () => ({ role: "user", content: "x".repeat(400) })); // ~110 tok/則 ≈ 104k（過 75% 門檻、未溢出）
+    const msgs = Array.from({ length: 950 }, () => ({ role: "user", content: "x".repeat(280) })); // ~89 tok/則 ≈ 84k（過 55% 門檻 61k、未溢出 budget 111k）
     const r = shouldCompact(msgs, 128000);
     expect(r.currentTokens).toBeLessThan(r.budget); // 未溢出
     expect(r.shouldCompact).toBe(true);            // 但過 trigger 門檻且訊息數夠多

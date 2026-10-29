@@ -114,7 +114,7 @@ describe("coding-issues — CRUD", () => {
       body: { title: "Login fails on mobile" },
     });
     expect(r.status).toBe(201);
-    expect(r.json.id).toBe("ISS-1");
+    expect(r.json.id).toBe("ISS-001"); // 2026-10：padStart(3) 三位補零
     expect(r.json.title).toBe("Login fails on mobile");
     expect(r.json.type).toBe("bug");
     expect(r.json.status).toBe("open");
@@ -148,10 +148,10 @@ describe("coding-issues — CRUD", () => {
     expect(r.json.error).toMatch(/invalid json/i);
   });
 
-  it("id 遞增：連續建立 → ISS-1, ISS-2（取現有最大 +1）", async () => {
+  it("id 遞增：連續建立 → ISS-001, ISS-002（取現有最大 +1；padStart(3)）", async () => {
     seedIssues([{ id: "ISS-7", title: "old" }]);
     const r = await req("POST", `/api/coding-issues?${q({ path: projRoot })}`, { body: { title: "new" } });
-    expect(r.json.id).toBe("ISS-8");
+    expect(r.json.id).toBe("ISS-008");
   });
 
   it("GET list → 回傳 { issues }", async () => {
@@ -183,7 +183,7 @@ describe("coding-issues — CRUD", () => {
       body: { title: "updated", priority: "high" },
     });
     expect(r.status).toBe(200);
-    expect(r.json.id).toBe("ISS-1");
+    expect(r.json.id).toBe("ISS-1"); // PUT 保留原 id（不重新補零）
     expect(r.json.title).toBe("updated");
     expect(r.json.priority).toBe("high");
     expect(r.json.updatedAt).toBeTruthy();
@@ -341,7 +341,10 @@ describe("coding-issues — import-known (KNOWN-ISSUES.md)", () => {
 `;
 
   function seedKnown(md) {
-    writeFileSync(join(projRoot, "KNOWN-ISSUES.md"), md);
+    // 2026-10 遷移後：KNOWN-ISSUES.md 走 PaawProject FILE_MAP → .paaw/actions/
+    const dir = join(projRoot, ".paaw", "actions");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "KNOWN-ISSUES.md"), md);
   }
 
   it("匯入 open + resolved 區塊，KI-N → ISS-N，欄位解析正確", async () => {
