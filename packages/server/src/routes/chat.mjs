@@ -238,7 +238,15 @@ export default async function chatRoutes(req, res) {
   if (req.method === "POST" && path === "/api/paaw/chat") {
     let heartbeatTimer = null;
     try {
-      const body = JSON.parse(await readBody(req));
+      // MAJ-1（2026-10-29 修）：malformed JSON 回 400，不再讓 SyntaxError 冒成 500
+      let body;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch (_parseErr) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON body" }));
+        return true;
+      }
       const { messages: rawMessages, model: requestedModel, provider: requestedProvider, contextTarget, systemPrompt: clientSystemPrompt } = body;
 
       // ── Vision Phase 2（2026-08-30）：images 路徑 → vision content array ──
