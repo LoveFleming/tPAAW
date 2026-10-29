@@ -14,7 +14,7 @@ Before sending a PR:
 
 ```bash
 npm run typecheck
-npm test             # vitest unit tests
+npm test             # vitest unit tests（需先 cp data/config/providers.example.json data/config/providers.json，假 key 即可）
 npm run build        # must pass
 ```
 
