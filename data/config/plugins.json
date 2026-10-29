@@ -1,0 +1,8 @@
+{
+  "agentic-platform": {
+    "name": "Agentic Platform",
+    "icon": "🤖",
+    "url": "http://localhost:4200",
+    "enabled": true
+  }
+}

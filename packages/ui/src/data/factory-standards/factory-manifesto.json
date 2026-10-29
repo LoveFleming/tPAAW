@@ -1,0 +1,32 @@
+{
+  "id": "factory-manifesto",
+  "title": "AI Software Factory 宣言",
+  "version": "0.1-draft",
+  "category": "manifesto",
+  "tags": ["vision", "principles"],
+  "description": "軟體工廠的核心原則與價值觀。所有 AI 員工與人類工程師皆應遵循。",
+  "source": "internal",
+  "sections": [
+    {
+      "id": "architecture",
+      "title": "架構原則",
+      "principles": [
+        "Controller → Service → Orchestrator → Node",
+        "Controller / Service 是 boilerplate，不需要從頭寫",
+        "Orchestrator 是協調中心，每個 API 對應一個 Orchestrator",
+        "Node 是程式碼的最小單元",
+        "Spec / Code / Test 皆從 Orchestrator 出發"
+      ]
+    },
+    {
+      "id": "quality",
+      "title": "品質原則",
+      "principles": [
+        "錯誤碼遵循 Error Code Rules v1 規範",
+        "每個 Node 都要有單元測試",
+        "每個 Orchestrator 都要有整合測試",
+        "Outbound Gate 控制所有對外寫入"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1440 @@
+/**
+ * Overnight Manager — Engineering Manager 自動調度 + Auto Dispatch Parallel
+ *
+ * 設計原則：
+ *   收集和執行用決定性程式，規劃用 LLM prompt
+ *
+ * 兩種模式：
+ *   mode: "em"       → EM 先讀現況 → LLM 規劃 → A2A 調度 agent（聰明但慢）
+ *   mode: "parallel" → 全員平行跑，固定 6 agent（快但固定）
+ *
+ * 共用邏輯在 auto-dispatch-shared.mjs
+ *
+ * 流程（EM 模式）：
+ *   1. 【決定性】收集 context
+ *   2. 【決定性】整理成「現況摘要」
+ *   3. 【LLM】讀摘要 → 規劃工作清單
+ *   4. 【決定性】逐一 A2A message/send → agent 執行
+ *   5. 【決定性】收集結果 → 寫報告
+ *
+ * 流程（Parallel 模式）：
+ *   1. 【決定性】收集 context
+ *   2. 【決定性】所有 agent 平行跑（用 runAgentLoop）
+ *   3. 【決定性】收集結果 → 寫報告
+ */
+
+import { addActionLog } from "./action-log.mjs";
+import { addCostAttribution } from "./coding-task-cost.mjs";
+import { writeFileSync, existsSync, readFileSync, mkdirSync } from "fs";
+import { join } from "path";
+import {
+  gatherContext,
+  buildSituationReport,
+  refreshFeatureMapping,
+  validateFeatureMap,
+  saveAutoDispatchReport,
+  scanTasksForDispatch,
+} from "./auto-dispatch-shared.mjs";
+
+// ── A2A Client ──
+
+export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
+  const { cwd, timeout = 0, modelOverride, fallbackModels } = opts; // 0 = no HTTP timeout, agent loop handles its own
+
+  const params = {
+    message: { role: "user", parts: [{ type: "text", text: message }] },
+    context: { cwd },
+  };
+  // Pass model override so A2A agents use the configured model, not the global default
+  // 2026-09-23 fix：fallbackModels 之前在這裡被默默丟掉 — 派工 agent 只帶 model 不帶 fallback，
+  // model 炸掉（400 unknown model 等）時整個 task 硬死，EM 派工全滅（公司 gpt5.6 事件）
+  if (modelOverride || (Array.isArray(fallbackModels) && fallbackModels.length > 0)) {
+    params.metadata = {
+      ...(modelOverride ? { model: modelOverride } : {}),
+      ...(Array.isArray(fallbackModels) && fallbackModels.length > 0 ? { fallbacks: fallbackModels } : {}),
+    };
+  }
+
+  const body = {
+    jsonrpc: "2.0",
+    method: "message/send",
+    params,
+    id: `em-${agentId}-${Date.now()}`,
+  };
+
+  const url = `${baseUrl}/a2a/${agentId}`;
+
+  // Retry on fetch errors (network glitches, transient connection resets)
+  const maxRetries = 2;
+  const dispatcher = await _getA2ADispatcher();
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timer = timeout > 0 ? setTimeout(() => controller.abort(), timeout) : null;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+        ...(dispatcher ? { dispatcher } : {}),
+      });
+      if (timer) clearTimeout(timer);
+      const data = await res.json();
+
+      if (data.error) return { success: false, content: "", error: data.error.message };
+      const result = data.result || {};
+      const artifacts = result.artifacts || [];
+      const texts = artifacts.flatMap(a => a.parts || []).filter(p => p.type === "text" || p.kind === "text").map(p => p.text);
+      const usage = result.metadata?.usage || null;
+      return { success: true, content: texts.join("\n") || "(no output)", usage };
+    } catch (err) {
+      const isFetchErr = err.message && (err.message.includes("fetch failed") || err.message.includes("ECONNRESET") || err.message.includes("aborted"));
+      if (isFetchErr && attempt < maxRetries) {
+        console.log(`[EM] a2aCallAgent ${agentId}: fetch failed (attempt ${attempt + 1}), retrying in 3s...`);
+        await new Promise(r => setTimeout(r, 3000));
+        continue;
+      }
+      return { success: false, content: "", error: err.message };
+    }
+  }
+  return { success: false, content: "", error: "Max retries exceeded" };
+}
+
+// ── A2A fetch dispatcher：關掉 undici 預設 headers/body timeout（300s）──
+// 2026-08-16 教訓：message/send 是同步 HTTP，agent 跑超過 5 分鐘時 undici
+// 預設 headersTimeout=300s 會把 client 斷線（"fetch failed"），但 server 端
+// 工作照樣完成 → plan 誤記 fail、task 狀態不同步。拉長任務一律不得被這個砍。
+let _a2aDispatcher; // undefined=未初始化, null=不可用
+async function _getA2ADispatcher() {
+  if (_a2aDispatcher !== undefined) return _a2aDispatcher;
+  try {
+    const { Agent } = await import("undici");
+    _a2aDispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
+  } catch {
+    _a2aDispatcher = null; // fallback: global fetch 預設行為
+  }
+  return _a2aDispatcher;
+}
+
+// ── Helper: extract TASK-XXX reference from a work item title ──
+function _extractTaskRef(text) {
+  const m = String(text || "").match(/\bTASK-([0-9]{1,4})\b/i);
+  return m ? `TASK-${String(m[1]).padStart(3, "0")}` : null;
+}
+
+// ── Helper: sync task after EM dispatch（feature-first 簡化語意：ok→close, fail→pending+notes）──
+async function _syncTaskAfterDispatch(rootDir, taskRef, ok, detail) {
+  if (!taskRef) return;
+  try {
+    const { readFileSync: _rd, writeFileSync: _wr, existsSync: _ex } = await import("fs");
+    const { join: _join } = await import("path");
+    const tasksFile = _join(rootDir, ".paaw", "tasks", "TASKS.json");
+    if (!_ex(tasksFile)) return;
+    const data = JSON.parse(_rd(tasksFile, "utf-8"));
+    const tasks = Array.isArray(data) ? data : (data.tasks || []);
+    const task = tasks.find(t => String(t.id).toLowerCase() === taskRef.toLowerCase());
+    if (!task) return;
+    const now = new Date().toISOString();
+    if (!task.notes) task.notes = [];
+    if (ok) {
+      task.status = "close";
+      if (!task.resolvedAt) task.resolvedAt = now;
+      task.notes.push({ by: "em", at: now, content: `✅ EM dispatch 完成${detail ? `：${detail}` : ""}` });
+      // touch feature updatedAt
+      try { const { touchFeature } = await import("./feature-registry.mjs"); touchFeature(rootDir, task.featureId, now); } catch {}
+    } else {
+      task.status = "pending"; // 失敗 → pending，寫明原因，等人處理（不自動重試）
+      task.notes.push({ by: "em", at: now, content: `⚠️ EM dispatch 失敗：${detail || "unknown error"}。Task 已標 pending，等人處理。` });
+    }
+    task.updatedAt = now;
+    const payload = Array.isArray(data) ? tasks : { ...data, tasks, updatedAt: now };
+    _wr(tasksFile, JSON.stringify(payload, null, 2), "utf-8");
+  } catch (err) {
+    console.log(`[EM] _syncTaskAfterDispatch(${taskRef}) failed (non-fatal): ${err.message}`);
+  }
+}
+
+// ── Helper: inject dispatch report into EM chat（派工報告只顯示在 EM chat view）──
+async function _appendEMChatReport(rootDir, text) {
+  try {
+    const { existsSync: _ex, readFileSync: _rd, writeFileSync: _wr, mkdirSync: _mk } = await import("fs");
+    const { join: _join, dirname: _dn } = await import("path");
+    const file = _join(rootDir, ".paaw", "coding-memory", "conversations", "coding.em", "active.json");
+    let conv = { _meta: { agentId: "coding.em" }, messages: [], createdAt: new Date().toISOString() };
+    if (_ex(file)) {
+      try { conv = JSON.parse(_rd(file, "utf-8")); } catch {}
+    }
+    if (!Array.isArray(conv.messages)) conv.messages = [];
+    conv.messages.push({ role: "assistant", content: text, ts: new Date().toISOString(), fromAutoDispatch: true });
+    _mk(_dn(file), { recursive: true });
+    _wr(file, JSON.stringify(conv, null, 2), "utf-8");
+  } catch (err) {
+    console.log(`[EM] chat report injection failed (non-fatal): ${err.message}`);
+  }
+}
+
+// ── Cost estimation (rough, for tracking purposes) ──
+const MODEL_PRICING = {
+  'zai/glm-5.1': { input: 0.6, output: 2.2 },      // per 1M tokens, USD
+  'glm-5.1': { input: 0.6, output: 2.2 },
+  'zai/glm-4.6v': { input: 0.6, output: 2.2 },     // Vision Phase 4（2026-08-30）：vision 路由後歸因不落 default
+  'glm-4.6v': { input: 0.6, output: 2.2 },
+  'zai/glm-4.5v': { input: 0.6, output: 2.2 },
+  'glm-4.5v': { input: 0.6, output: 2.2 },
+  'openrouter/z-ai/glm-5.1': { input: 1.0, output: 3.2 },
+  'openrouter/deepseek/deepseek-v4-flash': { input: 0.14, output: 0.28 },
+  'deepseek/deepseek-v4-flash': { input: 0.14, output: 0.28 },
+};
+
+function _estimateCost(tokens, model) {
+  if (!model || !tokens) return 0;
+  const pricing = MODEL_PRICING[model] || MODEL_PRICING[model.toLowerCase()] || { input: 0.6, output: 2.2 };
+  const inputCost = (tokens.prompt / 1_000_000) * pricing.input;
+  const outputCost = (tokens.completion / 1_000_000) * pricing.output;
+  return Math.round((inputCost + outputCost) * 10000) / 10000; // 4 decimal places
+}
+
+// ── LLM Work Planning（EM 模式用） ──
+
+async function planWorkList(situationReport, rootDir, modelOverride, fallbackModels = [], sendSSE = (() => {}), projectPhase = 'bootstrap') {
+  const { resolveLLMConfig } = await import("./paaw-agent-loop.mjs");
+  const { callLLMWithRetry } = await import("./llm-utils.mjs");
+
+  // ── Read EM config for planning behavior ──
+  let emConfig = null;
+  try {
+    const { readEMConfig } = await import("./em-config.mjs");
+    emConfig = readEMConfig(rootDir);
+  } catch { /* em-config not available */ }
+
+  // Resolve planning model: EM config > param > global default
+  const planningModel = emConfig?.model?.planning || modelOverride;
+  const llm = resolveLLMConfig(rootDir, planningModel);
+
+  // ── Build dynamic agent list from project crew ──
+  const { getDispatchableAgents } = await import("./project-crew.mjs");
+  const dispatchable = getDispatchableAgents(rootDir);
+  const agentListText = dispatchable.map(a => {
+    const shortId = a.id.replace(/^(coding\.|custom\.)/, "");
+    return `- **${shortId}** — ${a.expertise || a.title || "(no expertise listed)"}`;
+  }).join("\n");
+
+  // ── Build EM config-driven prompt sections ──
+  const strategy = emConfig?.dispatchStrategy || 'balanced';
+  const maxSubs = emConfig?.taskDecomposition?.maxSubtasks || 15;
+  const defaultEffort = emConfig?.taskDecomposition?.defaultEffort || 'S';
+  const requireEstimate = emConfig?.taskDecomposition?.requireEstimate ?? true;
+  const reportFormat = emConfig?.reporting?.format || 'summary';
+  const scope = emConfig?.planningScope || {};
+
+  // Strategy description
+  const strategyDesc = {
+    conservative: '【保守模式】只規劃，不自動執行。每項工作都要人工確認後才執行。',
+    balanced: '【平衡模式】規劃完成後等待人工確認，確認後逐一執行。',
+    aggressive: '【積極模式】規劃完成後直接執行，不需人工確認。盡量多做。',
+  }[strategy] || '【平衡模式】規劃完成後等待人工確認。';
+
+  // ── Project phase constraints ──
+  const phaseConstraints = {
+    bootstrap: `【🏗️ Bootstrap 階段】
+- ✅ 只指派 developer 和 architect（寫碼、修 bug、評估架構）
+- ❌ 不要指派 tester、qa、doc-writer（初期先衝功能，測試文件之後再補）
+- 📋 Task pipeline 是短版：spec → implement → commit，commit 完成即結案（不要求測試/文檔）
+- 🧾 品質債上線前補：人說要 release/上線時才用 task_retrofit 從 feature map 批次建補強 task（以代碼現況為準），平時不要主動提
+- 重點：快速推進功能開發，不追求測試覆蓋率和文檔完整性`,
+    mvp: `【📦 MVP 階段】
+- ✅ 主要指派 developer 和 architect
+- ✅ 如果有明確的安全隱患可指派 qa 做基本審查
+- ❌ 不要指派 tester、doc-writer（功能還在快速變動）
+- 重點：核心功能優先，品質靠人工把關`,
+    growth: `【📈 Growth 階段】
+- ✅ 全部 agent 都可以指派
+- ⚠️ tester 可以開始寫關鍵模組的測試
+- ⚠️ doc-writer 可以開始補核心 API 文件
+- 重點：開始建立品質基礎，但開發仍是主線`,
+    stable: `【✅ Stable 階段】
+- ✅ 全部 agent 都可以指派
+- ⚠️ 重視測試覆蓋率、文檔完整性、安全修復
+- 重點：品質維護和文檄建設與開發並重`,
+    refactor: `【🔧 Refactor 階段】
+- ✅ 全部 agent 都可以指派
+- ⚠️ 每個變更都需要 review 和回歸測試
+- 重點：不要打壞現有功能，每步都要謹慎`,
+  }[projectPhase] || phaseConstraints.bootstrap;
+
+  // ── Build autoExecute exclusion hint for LLM prompt ──
+  const autoExec = emConfig?.autoExecute || {};
+  const exclusionList = [];
+  if (!autoExec.securityFix) exclusionList.push("security/vulnerability 修復（securityFix=false）");
+  if (!autoExec.refactor) exclusionList.push("重構/重命名/搬移程式碼（refactor=false）");
+  if (!autoExec.breakingChange) exclusionList.push("破壞性變更/API 移除（breakingChange=false）");
+  if (!autoExec.tests) exclusionList.push("測試撰寫（tests=false）");
+  if (!autoExec.docs) exclusionList.push("文檔撰寫（docs=false）");
+  const exclusionText = exclusionList.length > 0
+    ? `\n## ❌ 不要規劃以下類別的工作（已由設定排除）\n以下類別不自動執行，不要列入規劃：\n${exclusionList.map(e => `- ${e}`).join("\n")}\n`
+    : "";
+
+  // Planning scope — aligned with EM chat tool project_info categories
+  const scopeSections = [];
+  if (scope.gitChanges !== false) scopeSections.push(`### 1. Open Tasks — 待辦任務（最高優先）
+- ⚠️ Task pipeline 裡 pending 的 task 是最優先要做的！
+- 特別是 pipeline.implement.status = "pending" 的 task → 指派 developer 去做
+- task 的 description 裡有完整的規格和步驟，直接照著做
+- task 做完後在報告中標注完成狀態
+- 對應 chat 工具：task_list(status=open)`);
+  if (scope.openIssues !== false) scopeSections.push(`### 2. Open Issues — 已知問題
+- 每個 open issue 都要評估是否在這次處理
+- high priority issue → 優先指派 agent 修復
+- 對應 chat 工具：project_info(category=issues)`);
+  if (scope.securityFindings !== false) scopeSections.push(`### 3. Security Findings — 安全掃描
+- WARNING+ 以上的 finding 要認真處理
+- 最常見的檔案優先修復
+- 可以一次修多個 → 一個 developer task 處理一個檔案
+- 對應 chat 工具：project_info(category=security)`);
+  if (scope.gitChanges !== false) scopeSections.push(`### 4. Git Changes — 程式碼變更
+- 最近 commit 改了什麼？有沒有遺漏？
+- 有未 push 的 commit → 報告中標注，但**不指派 push**
+- 有未提交的變更 → 評估是否需要 developer 補完
+- 近期變更 → 檢查有没有欠測試、欠文檔
+- 對應 chat 工具：project_info(category=recent_changes)`);
+  scopeSections.push(`### 5. Feature Health — 功能健康度
+- Feature 有 mapping 但缺測試或缺文檔的 → 記錄下來
+- 對應 chat 工具：project_info(category=features)`);
+  scopeSections.push(`### 6. Test Coverage Gaps — 測試覆蓋缺口
+- 改了 code 但沒測試的檔案 → 記錄下來（初期階段可先不指派 tester）
+- 對應 chat 工具：project_info(category=test_map)`);
+  scopeSections.push(`### 7. Action Log — 交接簿
+- 看上一班 agent 做了什麼、留了什麼待辦
+- 「需人工確認」「失敗待重試」的項目 → 優先處理
+- 對應 chat 工具：action_log_list`);
+  scopeSections.push(`### 8. Tech Debt — 技術債
+- 專案文件裡列的已知技術債（例如「No test suite」「No API schema」）
+- 對應 chat 工具：project_info(category=context) 讀 PROJECT.md / STATUS.md / KNOWN-ISSUES.md`);
+  scopeSections.push(`### 9. 專案決策與規範
+- ADR、Coding Standards、Changelog — 作為規劃依據
+- 對應 chat 工具：project_info(category=decisions / standards / changelog)`);
+  const scopeText = scopeSections.join('\n\n');
+
+  const EM_PROMPT = `你是 AI Coding Team 的 Engineering Manager (陳哲宇 Ethan)。${exclusionText}
+
+## 你的角色
+你是技術主管，不是執行者。你讀現況摘要，判斷什麼需要做，分配給合適的 agent。
+你不寫程式、不跑測試。你規劃、分配、追蹤。
+
+## 可調度的 Agent 及能力
+${agentListText}
+
+## 調度策略
+${strategyDesc}
+
+## 專案階段限制
+${phaseConstraints}
+
+## 規劃範圍
+
+你需要統整以下面向來規劃工作，不要只看 git change：
+
+${scopeText}
+
+## 長時間調度策略
+
+這是長時間的調度任務，一次可能要跑 ${Math.min(maxSubs, 5)}-${maxSubs} 項工作。規劃時注意：
+
+1. **批次設計** — 相關工作分在同一批次（例如 3 個 security fix 都指派給 developer）
+2. **順序相依** — 如果 A 的結果影響 B，A 要排在前面
+3. **獨立性** — 每個 task 要能獨立執行，不能依賴另一個 task 的結果
+4. **不要重複** — 同一個檔案的修復合併成一個 task
+5. **每個 task 要具體、可執行** — agent 拿到就能直接做
+
+## Context 管理規則
+
+每個 agent 都是獨立 session，看不到其他 agent 的對話。所以：
+- task 描述要包含所有必要 context（檔案路徑、問題描述、預期結果）
+- 不要假設 agent 知道之前的 task 做了什麼
+- 如果 task 需要參考某個文件 → 在 task 中指明（例如「參考 .paaw/DECISIONS.md 的架構決策」）
+
+## 任務描述規則
+- ❌ "改善程式碼品質"（太空泛）
+- ✅ "修復 packages/ui/src/components/DirectoryExplorer.tsx 的 ~ 路徑展開問題：手動輸入 ~/App 時 server 端 resolve() 產生錯誤路徑。在 crew.mjs 的 /api/fs/browse handler 加入 ~ 展開邏輯"
+- ❌ "更新文檔"（太模糊）
+- ✅ "根據最近 5 個 commit 更新 .paaw/CHANGELOG.md，包含 DirectoryExplorer 修復和 EM header 統一"
+- ❌ "修 security"（太模糊）
+- ✅ "修復 packages/server/src/routes/coding.mjs 的 path traversal 風險（CWE-22）：line 1340 的 date 參數未做路徑驗證"
+
+## 數量指引
+- 上限：${maxSubs} 項（不要超過）
+- 少量高品質：${Math.min(Math.floor(maxSubs/2), 5)}-${Math.min(maxSubs-2, 8)} 項
+- 每項都要能切實完成
+${requireEstimate ? '- 每項必須附預估 effort（' + defaultEffort + ' 为默认）' : ''}
+
+## 報告偏好
+- 格式：${reportFormat}${reportFormat === 'executive' ? '（簡潔决策導向）' : reportFormat === 'detailed' ? '（完整細節）' : '（摘要）'}
+
+## Security 掃描策略
+- 如果 security scan 結果超過 7 天或不存在 → 先規劃一個 tester agent 跑 cu_refresh(steps: ["security-scan"])
+- 根據 scan results 規劃修復 task，不要憑空猜測 security 問題
+- 修復時參考 .paaw/security/scan-results.json 裡的具體 CWE 和檔案行號
+
+## 輸出格式（嚴格 JSON array，不要其他文字）
+\`\`\`json
+[
+  {
+    "agent": "developer",
+    "task": "具體任務描述，包含檔案路徑、問題、預期結果。agent 看到就能獨立執行",
+    "priority": "high",
+    "reason": "為什麼需要這項工作（一句話）"
+  }
+]
+\`\`\`
+
+ priorities: high / medium / low`;
+
+  // 2026-09-12 Fleming：EM 決策也要知道時間/時區（判斷緩急、夜間時段需要時間常識）
+  const { dateTimeContextBlock } = await import("./llm-utils.mjs");
+  const messages = [
+    { role: "system", content: dateTimeContextBlock() + "\n" + EM_PROMPT },
+    { role: "user", content: situationReport },
+  ];
+
+  // ── LLM call with model fallback ──
+  async function callWithFallback(body, opts = {}) {
+    // 2026-09-30 fix：fallbacks 沒帶時用預設鏈（user.json *Fallback / providers.json fallbacks）— 公司 LLM 502 時規劃不中斷
+    let _fbModels = fallbackModels || [];
+    if (_fbModels.length === 0) {
+      try { _fbModels = resolveLLMConfig(rootDir).fallbacks.map(f => `${f.providerId}/${f.model}`); } catch {}
+    }
+    const models = [planningModel, ..._fbModels].filter(Boolean);
+    if (models.length === 0) {
+      const result = await callLLMWithRetry(llm.apiUrl, llm.headers, body, {
+        maxRetries: 3,
+        timeoutMs: 300000,
+        validateContent: true,
+        sanitize: true,
+        caller: "em-plan",
+        agentId: "em-plan",
+        disableThinking: true, // EM 規劃=JSON 派工表（2026-08-30）
+        ...opts,
+      });
+      return result;
+    }
+    for (let i = 0; i < models.length; i++) {
+      try {
+        const m = resolveLLMConfig(rootDir, models[i]);
+        const result = await callLLMWithRetry(m.apiUrl, m.headers, { ...body, model: m.model || m.defaultModel }, {
+          maxRetries: 2,
+          timeoutMs: 300000,
+          validateContent: true,
+          sanitize: true,
+          caller: "em-plan",
+          agentId: "em-plan",
+          disableThinking: true, // EM 規劃=JSON 派工表 — 最不該被 thinking 截斷的輸出（2026-08-30）
+          ...opts,
+        });
+        if (result) return result;
+      } catch (err) {
+        console.log(`[EM] Model ${models[i]} failed: ${err.message.slice(0, 100)}`);
+        if (i === models.length - 1) throw err;
+      }
+    }
+    return null;
+  }
+
+  try {
+    const body = {
+      model: llm.model,
+      messages,
+      max_tokens: llm.maxTokens || 16384,
+      stream: false,
+    };
+    sendSSE("llm_start", { message: "📡 呼叫 LLM 規劃中...", model: llm.model || planningModel || "default", contextLength: situationReport.length });
+    console.log(`[EM] planWorkList: calling LLM (model=${llm.model || planningModel || "default"}, context=${situationReport.length} chars, strategy=${strategy}, maxSubs=${maxSubs})`);
+    const result = await callWithFallback(body);
+    const text = result?.content || "";
+    console.log("[EM] planWorkList LLM response length:", text.length);
+    console.log("[EM] planWorkList LLM response preview:", text.slice(0, 500));
+    sendSSE("llm_done", { message: `✅ LLM 回覆 ${text.length} chars`, preview: text.slice(0, 200) });
+    const match = text.match(/\[[\s\S]*\]/);
+    if (match) {
+      let list;
+      try {
+        list = JSON.parse(match[0]);
+      } catch (parseErr) {
+        console.error("[EM] planWorkList JSON parse failed:", parseErr.message);
+        throw new Error(`EM 規劃解析失敗（LLM 回覆不是合法 JSON）：${parseErr.message}`);
+      }
+      console.log("[EM] planWorkList parsed:", list.length, "items");
+      const valid = list.filter(item => item.agent && item.task);
+      // 2026-08-16: malformed items (has items but none valid) must error, not silently "no work"
+      if (list.length > 0 && valid.length === 0) {
+        throw new Error(`LLM 回覆的 JSON 項目缺少 agent/task 欄位（${list.length} 項全無效）`);
+      }
+      return valid;
+    }
+    console.error("[EM] planWorkList: no JSON array found in LLM response");
+    throw new Error("EM 規劃失敗：LLM 回覆中找不到 JSON 工作清單（回應前 500 字：" + text.slice(0, 500) + "）");
+  } catch (err) {
+    console.error("[EM] planWorkList error:", err.message);
+    // 2026-08-16 fix: 過去這裡 return [] 會把 LLM 失敗（timeout/斷線）包裝成「沒有工作」
+    // 現在往上抛，讓 route 回 error，UI 顯示❌而不是假的「專案狀態良好」
+    throw err;
+  }
+}
+
+// ── Phase 0: Feature Map Refresh + Validation（共用） ──
+
+async function runPhase0(rootDir, modelOverride, fallbackModels, sendSSE) {
+  console.log("[AutoDispatch] ═══ Phase 0: Feature Map Refresh + Validation ═══");
+  // Feature Map refresh
+  sendSSE("info", { message: "🗺️ Phase 0: 更新 Feature Map..." });
+  try {
+    const refreshed = await refreshFeatureMapping(rootDir, modelOverride, fallbackModels, sendSSE);
+    if (refreshed.ok) {
+      console.log(`[AutoDispatch] Phase 0: Feature Map updated ${refreshed.updated}/${refreshed.total}`);
+    } else {
+      console.log(`[AutoDispatch] Phase 0: Feature Map failed: ${refreshed.error}`);
+      sendSSE("warning", { message: `🗺️ Feature Map 更新失敗：${refreshed.error || 'unknown'}` });
+    }
+  } catch (err) {
+    console.log(`[AutoDispatch] Phase 0: Feature Map skipped: ${err.message}`);
+    sendSSE("warning", { message: `🗺️ Feature Map 更新略過：${err.message}` });
+  }
+
+  // L3 Validation
+  console.log("[AutoDispatch] Phase 0: Validating Feature Map...");
+  sendSSE("info", { message: "🔍 Phase 0: 驗證 Feature Map..." });
+  await validateFeatureMap(rootDir, sendSSE);
+  console.log("[AutoDispatch] Phase 0: Done ✓");
+}
+
+// ── EM Mode: Run EM Session ──
+
+// ── EM Plan only (Phase 0-2): gather context + LLM planning ──
+export async function planEMSession(opts = {}) {
+  const { rootDir, sendSSE = (() => {}) } = opts;
+
+  console.log("[AutoDispatch] 🎖️ EM Plan — task-driven（Phase 0-2 已移除）");
+
+  // 2026-08-29 Fleming 定調：拿掉 Phase 0（feature map refresh）/ Phase 1（context gathering）/
+  // Phase 2（LLM 規劃）— 自動派工只看 TASKS.json 有沒有需要做的 task，deterministic 不用 LLM。
+  // 沒有 task 要做時，理由會寫進 situationReport（→ 派工報告看得到）
+  sendSSE("info", { message: "📋 讀取 TASKS.json，檢查待辦 task..." });
+
+  let maxTasks = 100;
+  try {
+    const { readEMConfig } = await import("./em-config.mjs");
+    maxTasks = readEMConfig(rootDir)?.taskDecomposition?.maxSubtasks || 100;
+  } catch { /* em-config not available */ }
+
+  const scan = scanTasksForDispatch(rootDir, { maxTasks, ...(opts?.focusTaskId ? { taskId: opts.focusTaskId } : {}) });
+  sendSSE("info", { message: `📊 TASKS.json：open ${scan.openCount} 個，本輪派工 ${scan.workList.length} 項` });
+  if (scan.workList.length === 0) sendSSE("info", { message: `ℹ️ ${scan.noWorkReason}` });
+
+  return { workList: scan.workList, situationReport: scan.situationReport };
+}
+
+// ── EM Execute only (Phase 3-4): dispatch agents + report ──
+// ── 使用者中斷：讀 status.json 的 stopRequested 旗標（/stop API 設定）──
+// 安全中斷點語意：正在跑的 task 讓它跑完，下一個 task 開始前停止
+function _stopRequested(rootDir) {
+  try {
+    const st = JSON.parse(readFileSync(join(rootDir, ".paaw", "auto-dispatch", "status.json"), "utf-8"));
+    // 2026-10-18: status 可能被殭屍誤判標成 interrupted（UI 看似停了、迴圈其實還在跑）—
+    // runnerPid 是本 process 時 stopRequested 仍要生效，否則使用者按停止永遠停不下來
+    if (st.stopRequested !== true) return false;
+    return st.status === "running" || st.runnerPid === process.pid;
+  } catch { return false; }
+}
+
+export async function executeEMSession(opts = {}) {
+  const { rootDir, workList, situationReport = "", baseUrl = `http://127.0.0.1:${process.env.PAAW_PORT || 4097}`, modelOverride, fallbackModels = [], sendSSE = (() => {}), projectPhase = 'bootstrap', _removed = null /* existingPlanId removed */ } = opts;
+
+  // ── Read EM config for execution behavior ──
+  let emConfig = null;
+  try {
+    const { readEMConfig } = await import("./em-config.mjs");
+    emConfig = readEMConfig(rootDir);
+  } catch { /* em-config not available */ }
+
+  // ── Execution Plan 已移除（feature-first：dispatch 直接執行 workList，不建 plan 物件）──
+  const effectiveWorkList = workList;
+
+  // ── Per-agent model resolution ──
+  const { resolveAgentModel, resolveAgentFallbacks } = await import("./project-crew.mjs");
+
+  if (!effectiveWorkList || effectiveWorkList.length === 0) {
+    sendSSE("info", { message: "✅ 目前沒有需要調度的工作，專案狀態良好。" });
+    const report = generateEMReport([], [], situationReport);
+    saveAutoDispatchReport(rootDir, report, "em");
+    await _appendEMChatReport(rootDir, report);
+    sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
+    return { report, workList: [], results: [] };
+  }
+
+  // ── Conservative strategy: just show plan, don't execute ──
+  if (emConfig?.dispatchStrategy === 'conservative') {
+    sendSSE("info", { message: "📋 保守模式：僅顯示計畫，不自動執行。" });
+    sendSSE("plan", { workList: effectiveWorkList });
+    sendSSE("done", { totalTasks: effectiveWorkList.length, succeeded: 0, failed: 0, skipped: true, reason: 'conservative' });
+    const report = generateEMReport(effectiveWorkList, [], situationReport, { skipped: true, format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog });
+    saveAutoDispatchReport(rootDir, report, "em");
+    return { report, workList: effectiveWorkList, results: [] };
+  }
+
+  // ── Safety net: filter out excluded categories (LLM should already exclude via prompt) ──
+  const autoExec = emConfig?.autoExecute || {};
+  const filteredReasons = [];
+  const execList = effectiveWorkList.filter(task => {
+    // 2026-08-29: task_scan / plan_resume 項目來自 TASKS.json 或既有 plan，跳過類別安全網
+    //（安全網只攔 LLM 自由規劃的項目；task 本身 autoExecute=false 已在掃描階段排除）
+    if (task.source === 'task_scan' || task.source === 'plan_resume' || task._resumeSubTaskId) return true;
+    // 2026-08-29: 先剝掉路徑 token（如 .paaw/security/scan-results.json）再做類別比對——
+    // 任務描述「引用」security 檔案路徑 ≠ security 修復；之前在這裡被誤判，把全部工作過濾掗 0 派工
+    const content = (task.task || '').toLowerCase().replace(/[^\s]*[/\\][^\s]*/g, ' ');
+    let category = null;
+    if (/breaking|\bbreak\b|remove.*api|deprecat/i.test(content)) category = 'breakingChange';
+    else if (/security|vulnerability|cwe-|injection|xss|csrf/i.test(content)) category = 'securityFix';
+    else if (/refactor|rename|restructure|move.*to/i.test(content)) category = 'refactor';
+    else if (/test|coverage|spec/i.test(content)) category = 'tests';
+    else if (/doc|readme|changelog|comment/i.test(content)) category = 'docs';
+
+    if (category && !autoExec[category]) {
+      console.log(`[AutoDispatch] Filtered out ${category} task (should have been excluded by prompt): ${task.task?.slice(0, 60)}`);
+      filteredReasons.push({ category, agent: task.agent || 'developer', task: task.task || '' });
+      return false;
+    }
+    return true;
+  });
+
+  if (execList.length === 0) {
+    // 2026-08-29: 全被 auto-execute 類別過濾時要講清楚，不要回報「0 總計、專案狀態良好」；
+    // 且要把 plan 結案，之前會停在 running 永遠不清（下次 cron 又 resume 僵尸 plan）
+    const wasFiltered = filteredReasons.length > 0;
+    sendSSE("info", wasFiltered
+      ? { message: `⏸️ ${filteredReasons.length} 項工作被 auto-execute 類別設定排除（${[...new Set(filteredReasons.map(f => f.category))].join(', ')}），未執行。` }
+      : { message: "✅ 沒有需要執行的工作。" });
+    sendSSE("plan", { workList: wasFiltered ? effectiveWorkList : [] });
+    sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, ...(wasFiltered ? { skipped: true, reason: 'filtered-by-autoexec' } : {}) });
+    const report = generateEMReport(effectiveWorkList, [], situationReport, {
+      format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog,
+      ...(wasFiltered ? { skipped: filteredReasons.map(f => ({ _skipped: `auto-exec 排除（${f.category}）`, agent: f.agent, task: f.task })) } : {}),
+    });
+    saveAutoDispatchReport(rootDir, report, "em");
+    return { report, workList: [], results: [] };
+  }
+
+  sendSSE("plan", { workList: execList });
+
+  // ── Phase 3: Deterministic execution ──
+  console.log(`[AutoDispatch] ═══ Phase 3: Agent Dispatch (serial, ${execList.length} tasks) ═══`);
+  const results = [];
+  let userInterrupted = false;
+
+  // Plan helpers removed (feature-first: no execution-plan)
+
+  for (let i = 0; i < execList.length; i++) {
+    // 2026-08-29: 使用者中斷 — task 間檢查 stop 旗標（目前 task 跑完後停止，不砍半隻 agent）
+    if (i > 0 && _stopRequested(rootDir)) {
+      sendSSE("info", { message: `⏹️ 收到中斷請求 — 剩餘 ${execList.length - i} 項 task 標記 skipped，不執行` });
+      console.log(`[AutoDispatch] ⏹️ User interrupt at task ${i + 1}/${execList.length}`);
+      userInterrupted = true;
+      break;
+    }
+    const task = execList[i];
+    const subtaskId = task._resumeSubTaskId || null;
+
+    // 2026-09-05 v2（Fleming 21:17 定調）：RU 開的 task 一律走 EM 自決編制協調 —
+    // 開幾個 agent loop、派誰、順序、打回重派，由 EM 看 task 與成果自己決定（每輪一個結構化決策）；
+    // 無 spec 時 EM 自己判斷（通常就是一個 developer loop）；決策 LLM 掛掉降級 deterministic chain 保底
+    if (task.source === "task_scan" && task.sourceRef) {
+      try {
+        const { readTask, orchestrateTask } = await import("./em-orchestrator.mjs");
+        const t = readTask(rootDir, task.sourceRef);
+        if (t) {
+          sendSSE("info", { message: `🎖️ [${task.sourceRef}] EM 自決編制：${t.title || t.id}` });
+          const orch = await orchestrateTask({
+            rootDir, task: t, baseUrl,
+            modelOverride: emConfig?.model?.dispatch || modelOverride,
+            fallbackModels, sendSSE, maxLoops: 30,
+          });
+          const _orchTokens = orch.tokenUsage?.total || 0;
+          results.push({ ...task, success: orch.ok, content: `EM 自決編制 ${orch.decidedBy === "em" ? "" : "(保底鏈)"}：${orch.chain.join("→")} (${orch.loopCount - (orch.decidedBy === "em" ? 1 : 0)} 次派工, ${orch.status})`, subtaskId, durationMs: 0, tokenUsage: { total: _orchTokens }, costUsd: 0, decidedBy: orch.decidedBy });
+          await _syncTaskAfterDispatch(rootDir, task.sourceRef, orch.ok, `EM 協調完成（${orch.decidedBy}）：${orch.status} (${orch.chain.join("→")})`);
+          sendSSE("task_done", { index: i + 1, agent: "em", subtaskId, preview: orch.summary || orch.status, durationMs: 0, tokens: { total: _orchTokens } });
+          continue; // 這張 task 已由 orchestrator 處理完
+        }
+      } catch (err) {
+        console.log(`[AutoDispatch] orchestrate ${task.sourceRef} failed, fallback to single-agent: ${err.message}`);
+        // fall through 到單一 agent 派工
+      }
+    }
+
+    // Resolve per-agent EM model (falls back to global modelOverride or EM dispatch model)
+    const crewId = task.crewId || `coding.${task.agent}`;
+    const dispatchModel = emConfig?.model?.dispatch || modelOverride;
+    let agentModel = resolveAgentModel(rootDir, crewId, "em", dispatchModel || "");
+    const agentFallbacks = resolveAgentFallbacks(rootDir, crewId, fallbackModels);
+
+    // ── requiresVision 派工（2026-08-30 Phase 3）：agent 宣告需要視覺且沒明確指定 model → 配 visionModel ──
+    // （沒開 flag 的 agent 靠 loop 內建自動路由：browser_screenshot 圖進上下文才切 vision model，省成本）
+    try {
+      const { getAgent } = await import("./domain-agent-registry.mjs");
+      if (getAgent(task.agent)?.requiresVision && !agentModel && !dispatchModel) {
+        const { getVisionModel } = await import("./vision-content.mjs");
+        const vm = getVisionModel();
+        if (vm) {
+          agentModel = vm;
+          sendSSE("info", { message: `👁 ${task.agent} requiresVision → ${vm}` });
+        }
+      }
+    } catch {}
+
+    console.log(`[AutoDispatch] Phase 3: [${i + 1}/${execList.length}]${subtaskId ? ` ${subtaskId}` : ''} → ${task.agent}${agentModel ? ` (model: ${agentModel})` : ""}: ${task.task.slice(0, 80)}...`);
+    sendSSE("task_start", { index: i + 1, total: execList.length, subtaskId, ...task });
+
+        // ── Deterministic 驗收 + 假成功自動重派（2026-09-20 Fleming；lib/dispatch-verifier.mjs 共用）──
+    // Phase 3 主路徑（A2A 呼叫）。retry 在 client 端做（重呼叫一次 a2aCallAgent），不動 A2A stream 協議
+    const { takeDispatchSnapshot: _tds, verifyDispatchWork: _vdw, dispatchRetrySuffix: _drs } = await import("./dispatch-verifier.mjs");
+    const _verifyAgents = new Set(["developer", "tester", "doc-writer"]);
+    const _doVerify = _verifyAgents.has(task.agent);
+    const _snap = _doVerify ? await _tds(rootDir) : null;
+
+    let result = await a2aCallAgent(baseUrl, task.agent, task.task, {
+      cwd: rootDir,
+      timeout: 7200000, // 2h per sub-task
+      modelOverride: agentModel || dispatchModel,
+      fallbackModels: agentFallbacks,
+    });
+
+    let _verdict = { pass: true, why: "role-skip-verify" };
+    if (_doVerify) {
+      _verdict = await _vdw(rootDir, _snap);
+      if (!_verdict.pass) {
+        sendSSE("info", { message: `⚠️ [${task.agent}] 宣稱完成但零 commit 零 diff（假成功）— 驗收退回，自動重派第 2 次` });
+        console.log(`[AutoDispatch:${task.agent}] deterministic verify FAIL (${_verdict.why}) — auto retry once`);
+        result = await a2aCallAgent(baseUrl, task.agent, task.task + _drs(_verdict, 1), {
+          cwd: rootDir,
+          timeout: 7200000,
+          modelOverride: agentModel || dispatchModel,
+          fallbackModels: agentFallbacks,
+        });
+        _verdict = await _vdw(rootDir, _snap);
+      }
+    }
+
+    const _endTime = Date.now();
+    const _durationMs = _endTime - _startTime;
+
+    // ── Extract token usage from result ──
+    const _tokens = {
+      prompt: result.usage?.prompt || result.usage?.prompt_tokens || result.tokenUsage?.prompt || 0,
+      completion: result.usage?.completion || result.usage?.completion_tokens || result.tokenUsage?.completion || 0,
+      total: result.usage?.total || result.usage?.total_tokens || result.tokenUsage?.total || 0,
+    };
+    const _cost = result.costUsd || _estimateCost(_tokens, agentModel || dispatchModel);
+
+    results.push({ ...task, ...result, subtaskId, durationMs: _durationMs, tokenUsage: _tokens, costUsd: _cost });
+
+    // ── R3: Cost 歸集 — 寫回 coding task（TASK-XXX）──
+    if (_tokens.total > 0 || _cost > 0) {
+      try {
+        const _costRef = task.taskId || task.id || task.task || "";
+        addCostAttribution(rootDir, _costRef, _tokens, _cost, agentModel || dispatchModel || null, "em");
+      } catch {}
+    }
+
+    if (result.success && _verdict.pass) {
+      console.log(`[AutoDispatch] Phase 3: [${i + 1}/${execList.length}] ✅ ${task.agent} done (${result.content.length} chars, ${(_durationMs / 1000).toFixed(0)}s, ${_tokens.total} tokens)`);
+      sendSSE("task_done", { index: i + 1, agent: task.agent, subtaskId, preview: result.content.slice(0, 200), durationMs: _durationMs, tokens: _tokens, costUsd: _cost });
+
+      // Plan sub-task tracking removed (feature-first)
+      const _taskRef = task.sourceRef || _extractTaskRef(task.task);
+      await _syncTaskAfterDispatch(rootDir, _taskRef, true, `subtaskId=${subtaskId || 'n/a'}`);
+    } else {
+      const timedOut = _durationMs >= 7200000; // 2h
+      const stStatus = !_verdict.pass ? 'fake-success' : (timedOut ? 'timeout' : 'fail');
+      console.log(`[AutoDispatch] Phase 3: [${i + 1}/${execList.length}] ❌ ${task.agent} ${stStatus}: ${result.error}`);
+      sendSSE("task_error", { index: i + 1, agent: task.agent, subtaskId, error: result.error, status: stStatus });
+
+      // Plan sub-task tracking removed (feature-first)
+      const _taskRef2 = task.sourceRef || _extractTaskRef(task.task);
+      await _syncTaskAfterDispatch(rootDir, _taskRef2, false, `${result.error || stStatus} (subtaskId=${subtaskId || 'n/a'})`);
+    }
+  }
+
+    // ── Phase 4: Report ──
+  console.log("[AutoDispatch] ═══ Phase 4: Report Generation ═══");
+  sendSSE("info", { message: "📝 產生報告中..." });
+  const reportOpts = {};
+  if (emConfig?.reporting) {
+    reportOpts.format = emConfig.reporting.format;
+    reportOpts.includeCodeChanges = emConfig.reporting.includeCodeChanges;
+    reportOpts.includeActionLog = emConfig.reporting.includeActionLog;
+  }
+  const report = generateEMReport(execList, results, situationReport, { ...reportOpts, rootDir });
+  saveAutoDispatchReport(rootDir, report, "em");
+  console.log(`[AutoDispatch] Phase 4: Report saved (${report.length} chars)`);
+  sendSSE("report", { report });
+
+  await addActionLog({
+    agent: "em",
+    action: "decide",
+    summary: `EM session 完成：調度 ${execList.length} 項工作，成功 ${results.filter(r => r.success).length} 項`,
+    details: execList.map(w => `${w.priority}/${w.agent}: ${w.task}`).join("\n"),
+    affectedFiles: [],
+    result: "adr",
+    priority: "high",
+  }, rootDir);
+
+  const succeeded = results.filter(r => r.success).length;
+  const failed = results.filter(r => !r.success).length;
+  const _totalTokens = results.reduce((sum, r) => sum + (r.tokenUsage?.total || 0), 0);
+  const _totalCost = results.reduce((sum, r) => sum + (r.costUsd || 0), 0);
+  const _totalDuration = results.reduce((sum, r) => sum + (r.durationMs || 0), 0);
+  console.log(`[AutoDispatch] 🎖️ EM Session complete: ${succeeded}✅ ${failed}❌ / ${execList.length} executed`);
+  console.log(`[AutoDispatch] 📊 Tokens: ${_totalTokens} | Cost: $${_totalCost.toFixed(4)} | Duration: ${(_totalDuration / 1000 / 60).toFixed(1)}min`);
+  sendSSE("done", { totalTasks: execList.length, succeeded, failed, totalTokens: _totalTokens, totalCostUsd: _totalCost, totalDurationMs: _totalDuration, ...(userInterrupted ? { interrupted: true } : {}) });
+
+  return { report, workList: effectiveWorkList, results };
+}
+
+
+// ── Parallel Mode: Run all agents in parallel ──
+
+export async function runParallelSession(opts = {}) {
+  const { rootDir, since, modelOverride, fallbackModels = [], sendSSE = (() => {}) } = opts;
+  const { resolve } = await import("path");
+  const { fileURLToPath } = await import("url");
+  const PAAW_ROOT = resolve(fileURLToPath(import.meta.url), "..", "..", "..", "..");
+
+  // ── Phase 0 ──
+  await runPhase0(rootDir, modelOverride, fallbackModels, sendSSE);
+
+  // ── Phase 1: Gather context ──
+  sendSSE("info", { message: "🌙 Auto Dispatch 啟動，收集變更..." });
+  const ctx = await gatherContext(rootDir, since);
+
+  if (ctx.changedFiles.length === 0 && !ctx.gitLog) {
+    sendSSE("info", { message: "ℹ️ 沒有變更，無需審查。" });
+    const report = `# 🌙 Auto Dispatch Report\n\n**Date:** ${new Date().toISOString().slice(0, 10)}\n\nℹ️ No changes today. Nothing to review.`;
+    saveAutoDispatchReport(rootDir, report, "parallel");
+    sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
+    return { report, results: [] };
+  }
+
+  sendSSE("info", { message: `📊 ${ctx.changedFiles.length} files changed, ${ctx.commitCount} commits` });
+
+  // ── Phase 2: Load prompts + run all agents in parallel ──
+  const { getPromptsFile } = await import("../routes/coding-auto-dispatch-prompts.mjs");
+  const prompts = await getPromptsFile(rootDir);
+  const { runAgentLoop } = await import("./paaw-agent-loop.mjs");
+  const { loadAgentMemory, listActionLog } = await import("./action-log.mjs");
+  const { readFileSync } = await import("fs");
+
+  const agentRoles = Object.entries(prompts);
+  sendSSE("info", { message: `🚀 啟動 ${agentRoles.length} 個 agent...` });
+
+  // ── Per-agent model resolution ──
+  const { resolveAgentModel, resolveAgentFallbacks } = await import("./project-crew.mjs");
+  const { readProjectCrew } = await import("./project-crew.mjs");
+
+  // Build dynamic crew labels from project crew
+  const { agents: crewAgents } = readProjectCrew(PAAW_ROOT);
+  const dynamicCrewLabels = {};
+  for (const a of crewAgents) {
+    const shortId = a.id.replace(/^(coding\.|custom\.)/, "");
+    dynamicCrewLabels[shortId] = `${a.emoji || "🤖"} ${a.codename || shortId}`;
+  }
+
+  const effectiveModel = modelOverride || undefined;
+
+  const results = await Promise.allSettled(agentRoles.map(async ([role, config]) => {
+    const crewId = config.crewId || `coding.${role}`;
+    // Resolve per-agent autoDispatch model
+    const nsModel = resolveAgentModel(rootDir, crewId, "autoDispatch", effectiveModel || "");
+    const nsFallbacks = resolveAgentFallbacks(rootDir, crewId, fallbackModels);
+
+    // Load crew from project layer (overrides global)
+    const { loadCrew } = await import("./domain-agent-registry.mjs");
+    const crew = await loadCrew(crewId, rootDir);
+
+    const fileList = ctx.changedFiles.map(f => `- ${f}`).join("\n");
+    const taskPrompt = (config.task || "")
+      .replace(/\{\{gitLog\}\}/g, ctx.gitLog || "(none)")
+      .replace(/\{\{changedFiles\}\}/g, fileList)
+      .replace(/\{\{featuresSummary\}\}/g, ctx.featuresSummary || "(none)")
+      .replace(/\{\{featureBoundary\}\}/g, ctx.featureBoundary || "(no feature boundary)");
+
+    // Load agent memory + action log（2026-09-07 修正：loadAgentMemory 簽名是 (agentId, cwd)——之前參數對調導致 memory 永遠讀不到；listActionLog 簽名是 opts 物件）
+    let memoryText = "";
+    try { memoryText = await loadAgentMemory(config.crewId, rootDir) || ""; } catch {}
+    let actionLogText = "";
+    try { actionLogText = (await listActionLog({ cwd: rootDir, limit: 5 })).entries.map(e => `- ${e.agent}: ${e.action}`).join("\n"); } catch {}
+
+    const systemPrompt = (crew?.rolePrompt || "") +
+      (crew?.expertise ? `\n\n## 專業範圍\n${crew.expertise}` : "") +
+      (crew?.guardrails?.redirectRules ? `\n\n## 護欄\n### 轉介規則\n${crew.guardrails.redirectRules}` : "") +
+      (memoryText ? `\n\n## Your Long-term Memory\n${memoryText}` : "") +
+      (actionLogText ? `\n\n## Recent Action Log\n${actionLogText}` : "");
+
+    let _vis = null; // 2026-09-29：派工可見性（hoist 到 try 外 — catch 也要能 finish）
+    try {
+      // ── Deterministic 驗收 + 假成功自動重派（2026-09-20 Fleming；lib/dispatch-verifier.mjs 共用）──
+      // 病灶：大檔任務 turn 用盡收尾硬報成功（TASK-003 兩次零 commit 零 diff）。
+      // 只驗「改碼角色」；architect/qa 等產出型角色報告檔本身就是 diff，不誤殺。
+      const { takeDispatchSnapshot, verifyDispatchWork, dispatchRetrySuffix } = await import("./dispatch-verifier.mjs");
+      const VERIFY_ROLES = new Set(["developer", "tester", "doc-writer"]);
+      const doVerify = VERIFY_ROLES.has(role);
+      const snap = doVerify ? await takeDispatchSnapshot(rootDir) : null;
+      let verdict = { pass: true, why: "role-skip-verify" };
+
+      // 2026-09-29：派工 child run 接上 stream-state — UI 切到該 agent tab 能看 ⚡ 面板
+      const { attachDispatchVisibility } = await import("./dispatch-stream-state.mjs");
+      _vis = await attachDispatchVisibility(crewId, rootDir);
+
+      const runArgs = {
+        cwd: rootDir,
+        rootDir: PAAW_ROOT,
+        systemPrompt,
+        agentId: config.crewId,
+        model: nsModel || effectiveModel,
+        fallbackModels: nsFallbacks,
+        // 2026-09-20：15 turns 大任務必被砍斷（假成功幫兇）— 對齊 dispatch endpoint 上限
+        maxTurns: 300,
+        timeout: 0, // no timeout — let agent complete task
+        featureBoundary: ctx.featureBoundary ? {
+          allowedFiles: ctx.allowedFiles || [],
+          featureIds: ctx.matchedFeatureIds || [],
+        } : null,
+        onEvent: (event) => {
+          _vis.onEvent(event); // 2026-09-29：同步進 stream-state — UI 能看 ⚡ 面板
+          if (event.type === "tool_call") {
+            console.log(`[AutoDispatch:${role}] tool: ${event.name}`);
+          }
+          if (event.type === "boundary_violation") {
+            console.log(`[AutoDispatch:${role}] ⚠️ boundary violation: ${event.file} (${event.tool})`);
+            sendSSE("boundary_violation", { role, file: event.file, tool: event.tool });
+          }
+        },
+      };
+
+      let result = await runAgentLoop({ prompt: taskPrompt, ...runArgs });
+
+      if (doVerify) {
+        verdict = await verifyDispatchWork(rootDir, snap);
+        if (!verdict.pass) {
+          sendSSE("info", { message: `⚠️ [${role}] 宣稱完成但零 commit 零 diff（假成功）— deterministic 驗收退回，自動重派第 2 次` });
+          console.log(`[AutoDispatch:${role}] deterministic verify FAIL (${verdict.why}) — auto retry once`);
+          result = await runAgentLoop({ prompt: taskPrompt + dispatchRetrySuffix(verdict, 1), ...runArgs });
+          verdict = await verifyDispatchWork(rootDir, snap);
+          if (!verdict.pass) {
+            // 兩次零證據 → 判 FAILED（不自動 close；Fleming：再失敗再判 fail，交 EM/人協調）
+            try { _vis.finish(); } catch {}
+            return { role, status: "failed", fakeSuccess: true, codename: crew?.codename || role, result: typeof result === "string" ? result.slice(-500) : "", verdict };
+          }
+        }
+      }
+
+      // Read agent's report file if it wrote one
+      const reportFile = join(rootDir, ".paaw", "auto-dispatch", `${role}-report.md`);
+      let agentReport = "";
+      if (existsSync(reportFile)) {
+        agentReport = readFileSync(reportFile, "utf-8");
+      }
+
+      try { _vis.finish(); } catch {} // 2026-09-29：結束可見性 entry（finalContent null — 不落地直接對話）
+      return {
+        role,
+        status: "completed",
+        codename: crew?.codename || dynamicCrewLabels[role]?.replace(/^[^ ]+ /, "") || role,
+        result: typeof result === "string" ? result.slice(-500) : "ok",
+        report: agentReport.slice(0, 2000) || (typeof result === "string" ? result.slice(-500) : "done"),
+        boundaryViolations: result?.boundaryViolations || [],
+        tokenUsage: result?.usage || null, // R3: 讓 cost 歸集拿得到每 crew 用量
+      };
+    } catch (err) {
+      try { _vis?.finish(err?.message || String(err)); } catch {}
+      console.error(`[AutoDispatch:${role}] failed:`, err.message); // nosemgrep: unsafe-formatstring — 模板無 % 指示符，內部 log
+      return { role, status: "failed", codename: crew?.codename || role, error: err.message };
+    }
+  }));
+
+  // ── Phase 3: Generate report ──
+  sendSSE("info", { message: "📝 產生報告中..." });
+  const agentResults = results.map(r => r.status === "fulfilled" ? r.value : { role: "unknown", status: "failed", error: r.reason?.message });
+
+  // ── R3: Cost 歸集 — 平行 crews 用量寫回 coding task（ctx 帶得出 TASK-XXX 才生效）──
+  try {
+    const _pTokens = agentResults.reduce((s, r) => ({
+      prompt: s.prompt + (r?.tokenUsage?.prompt || 0),
+      completion: s.completion + (r?.tokenUsage?.completion || 0),
+      total: s.total + (r?.tokenUsage?.total || 0),
+    }), { prompt: 0, completion: 0, total: 0 });
+    if (_pTokens.total > 0) {
+      const _pRef = ctx?.taskId || ctx?.taskRef || ctx?.userInput || "";
+      addCostAttribution(rootDir, _pRef, _pTokens, 0, effectiveModel || null, "parallel");
+    }
+  } catch {}
+  console.log(`[AutoDispatch] Phase 2: Results: ${agentResults.filter(r => r.status === "completed").length}✅ ${agentResults.filter(r => r.status === "failed").length}❌`);
+
+  // ── Phase 4: Documentation (Doc Writer → Help Desk review loop) ──
+  const docResult = await runDocPhase(rootDir, PAAW_ROOT, modelOverride, fallbackModels, effectiveModel, sendSSE).catch(err => {
+    console.error(`[AutoDispatch] Phase 4: Doc phase failed:`, err.message);
+    return { summary: `❌ Doc phase failed: ${err.message}`, reviewed: false, iterations: 0 };
+  });
+
+  const report = generateParallelReport(agentResults, ctx, dynamicCrewLabels) +
+    (docResult.summary ? `\n\n---\n\n## 📝 文檔更新\n\n${docResult.summary}\n` : "");
+
+  // ── Feature Boundary Violations Summary ──
+  const allViolations = agentResults.flatMap(r => r.boundaryViolations || []);
+  if (allViolations.length > 0) {
+    const violationReport = allViolations.map(v =>
+      `- ⚠️ \`${v.file}\` (${v.tool}) at ${v.time}`
+    ).join("\n");
+    report += `\n\n---\n\n## 🚧 Feature Boundary Violations\n\n${allViolations.length} file(s) modified outside feature boundary — review recommended:\n\n${violationReport}\n`;
+  }
+
+  saveAutoDispatchReport(rootDir, report, "parallel");
+  console.log(`[AutoDispatch] Phase 3: Report saved (${report.length} chars)`);
+  sendSSE("report", { report });
+
+  const succeeded = agentResults.filter(r => r.status === "completed").length;
+  const failed = agentResults.filter(r => r.status === "failed").length;
+  console.log(`[AutoDispatch] 🌙 Auto Dispatch complete: ${succeeded}✅ ${failed}❌ / ${agentResults.length} total`);
+  sendSSE("done", { totalTasks: agentResults.length, succeeded, failed });
+
+  return { report, results: agentResults };
+}
+
+// ── Phase 4: Documentation Review Loop (Doc Writer → Help Desk, max 3 rounds) ──
+async function runDocPhase(rootDir, paawRoot, modelOverride, fallbackModels, effectiveModel, sendSSE) {
+  const { resolve } = await import("path");
+  const { getUndocumentedCommits, updateDocCoverage } = await import("./doc-coverage.mjs");
+  const { runGit } = await import("../routes/vibe-fs.mjs");
+  const { loadCrew } = await import("./domain-agent-registry.mjs");
+  const { runAgentLoop } = await import("./paaw-agent-loop.mjs");
+  const { resolveAgentModel, resolveAgentFallbacks } = await import("./project-crew.mjs");
+
+  // Check for undocumented commits
+  const { commits, lastDocumented, currentHead } = await getUndocumentedCommits(rootDir, runGit);
+  if (commits.length === 0) {
+    console.log("[AutoDispatch] Phase 4: All commits documented, skipping");
+    sendSSE("info", { message: "📝 文檔已是最新，無需更新" });
+    return { summary: "✅ 所有 commit 已有對應文件", reviewed: true, iterations: 0 };
+  }
+
+  console.log(`[AutoDispatch] Phase 4: ${commits.length} undocumented commits since ${lastDocumented || "start"}`);
+  sendSSE("info", { message: `📝 文檔階段啟動：${commits.length} 筆未文件化 commit` });
+
+  // Get full diff for context
+  const diffRange = lastDocumented ? `${lastDocumented}..HEAD` : "HEAD~10..HEAD";
+  const diffResult = await runGit(["diff", "--stat", diffRange], rootDir);
+  const gitLogResult = await runGit(["log", "--oneline", diffRange], rootDir);
+
+  // ── Step 1: Doc Writer writes docs ──
+  const docCrew = await loadCrew("coding.doc-writer", rootDir);
+  const docModel = resolveAgentModel(rootDir, "coding.doc-writer", "autoDispatch", effectiveModel || "");
+  const docFallbacks = resolveAgentFallbacks(rootDir, "coding.doc-writer", fallbackModels);
+
+  const docTask = `自動派工文檔掃描任務
+
+以下是尚未文件化的 commit 清單：
+
+${gitLogResult.stdout}
+
+變更統計：
+${diffResult.stdout}
+
+請依照「自動派工文檔掃描模式」流程執行：
+1. 判斷哪些 commit 需要補文件
+2. 寫好文件並 git add
+3. 輸出 Doc Update Report
+
+當前 commit 範圍：${lastDocumented || "(首次)"} → ${currentHead}`;
+
+  sendSSE("info", { message: "📝 Doc Writer (Megan) 撰寫文件中..." });
+  let docOutput = "";
+  try {
+    docOutput = await runAgentLoop({
+      prompt: docTask,
+      cwd: rootDir,
+      rootDir: paawRoot,
+      systemPrompt: docCrew?.rolePrompt || "",
+      agentId: "coding.doc-writer",
+      model: docModel || effectiveModel,
+      fallbackModels: docFallbacks,
+      maxTurns: 15,
+      timeout: 0,
+    });
+    docOutput = typeof docOutput === "string" ? docOutput : JSON.stringify(docOutput);
+  } catch (err) {
+    console.error(`[AutoDispatch] Phase 4: Doc Writer failed: ${err.message}`);
+    return { summary: `❌ Doc Writer 失敗: ${err.message}`, reviewed: false, iterations: 0 };
+  }
+  console.log(`[AutoDispatch] Phase 4: Doc Writer done (${docOutput.length} chars)`);
+
+  // ── Step 2: Help Desk reviews (max 3 rounds) ──
+  const hdCrew = await loadCrew("coding.helpdesk", rootDir);
+  const hdModel = resolveAgentModel(rootDir, "coding.helpdesk", "autoDispatch", effectiveModel || "");
+  const hdFallbacks = resolveAgentFallbacks(rootDir, "coding.helpdesk", fallbackModels);
+
+  // Get staged diff for review
+  const stagedDiff = await runGit(["diff", "--cached"], rootDir);
+  let currentDocOutput = docOutput;
+  let reviewRounds = 0;
+  const maxRounds = 3;
+  let finalVerdict = "";
+
+  while (reviewRounds < maxRounds) {
+    reviewRounds++;
+    const currentStaged = await runGit(["diff", "--cached"], rootDir);
+
+    const reviewTask = `文件審核任務（第 ${reviewRounds}/${maxRounds} 輪）
+
+以下是 Doc Writer (Megan) 剛 stage 的文件變更：
+
+${currentStaged.stdout.slice(0, 12000) || "(無 staged 變更)"}
+
+Doc Writer 的報告：
+${currentDocOutput.slice(0, 2000)}
+
+請依照「文件審核模式」流程審核，輸出 Doc Review Verdict。`;
+
+    sendSSE("info", { message: `🌸 Help Desk (小春) 文件審核中...（第 ${reviewRounds} 輪）` });
+    let reviewOutput = "";
+    try {
+      reviewOutput = await runAgentLoop({
+        prompt: reviewTask,
+        cwd: rootDir,
+        rootDir: paawRoot,
+        systemPrompt: hdCrew?.rolePrompt || "",
+        agentId: "coding.helpdesk",
+        model: hdModel || effectiveModel,
+        fallbackModels: hdFallbacks,
+        maxTurns: 10,
+        timeout: 0,
+      });
+      reviewOutput = typeof reviewOutput === "string" ? reviewOutput : JSON.stringify(reviewOutput);
+    } catch (err) {
+      console.error(`[AutoDispatch] Phase 4: Help Desk review failed: ${err.message}`);
+      break;
+    }
+    console.log(`[AutoDispatch] Phase 4: Help Desk review round ${reviewRounds} done`);
+
+    // Check verdict
+    const passed = /verdict.*通過|✅.*通過|Verdict.*✅/i.test(reviewOutput) && !/❌|⚠️.*需修改/i.test(reviewOutput.split('\n').slice(0, 5).join(''));
+    const needsFix = /⚠️|需修改|反饋|問題/i.test(reviewOutput);
+
+    if (passed || !needsFix) {
+      finalVerdict = reviewOutput.slice(0, 500);
+      console.log(`[AutoDispatch] Phase 4: ✅ Doc approved (round ${reviewRounds})`);
+      sendSSE("info", { message: `✅ 文件審核通過（第 ${reviewRounds} 輪）` });
+      break;
+    }
+
+    if (reviewRounds < maxRounds) {
+      // ── Send feedback to Doc Writer for fixing ──
+      sendSSE("info", { message: `📝 Doc Writer 修改文件中...（第 ${reviewRounds + 1} 輪）` });
+      const fixTask = `文件審核反饋
+
+Help Desk (小春) 審核了你的文件，以下是反饋：
+
+${reviewOutput}
+
+請根據反饋修改文件，修改後重新 git add，並輸出修正摘要。`;
+      try {
+        currentDocOutput = await runAgentLoop({
+          prompt: fixTask,
+          cwd: rootDir,
+          rootDir: paawRoot,
+          systemPrompt: docCrew?.rolePrompt || "",
+          agentId: "coding.doc-writer",
+          model: docModel || effectiveModel,
+          fallbackModels: docFallbacks,
+          maxTurns: 10,
+          timeout: 0,
+        });
+        currentDocOutput = typeof currentDocOutput === "string" ? currentDocOutput : JSON.stringify(currentDocOutput);
+      } catch (err) {
+        console.error(`[AutoDispatch] Phase 4: Doc Writer fix failed: ${err.message}`);
+        break;
+      }
+    } else {
+      finalVerdict = reviewOutput.slice(0, 500);
+      console.log(`[AutoDispatch] Phase 4: ⚠️ Max rounds reached, needs manual review`);
+      sendSSE("info", { message: `⚠️ 文件審核 ${maxRounds} 輪未通過，需人工確認` });
+    }
+  }
+
+  // ── Update doc coverage ──
+  updateDocCoverage(rootDir, currentHead, commits.map(c => c.split(" ")[0]));
+
+  // ── Build summary ──
+  const approved = /✅.*通過|Verdict.*✅/i.test(finalVerdict);
+  const summary = `### 📝 文檔更新報告
+
+**掃描範圍：** ${commits.length} 筆 commit${lastDocumented ? `（自 ${lastDocumented.slice(0, 8)}）` : "（首次）"}
+**審核結果：** ${approved ? "✅ 審核通過" : "⚠️ 需人工確認"}
+**審核輪數：** ${reviewRounds}/${maxRounds}
+
+**Doc Writer 摘要：**
+${currentDocOutput.slice(0, 1000)}
+
+**Help Desk 審核：**
+${finalVerdict || "(未產生審核結果)"}
+
+${reviewRounds >= maxRounds && !approved ? "⚠️ **此文件變更需要人工審核後再 push。**" : ""}`;
+
+  console.log(`[AutoDispatch] Phase 4: Done (${approved ? "approved" : "manual"}, ${reviewRounds} rounds)`);
+  return { summary, reviewed: approved, iterations: reviewRounds };
+}
+
+// ── Report Generators ──
+
+function generateEMReport(workList, results, situationReport, opts = {}) {
+  const now = new Date();
+  const rootDir = opts.rootDir; // 有 rootDir 才能落地溢位輸出（2026-09-07）
+  const dateStr = now.toISOString().slice(0, 10);
+  const succeeded = results.filter(r => r.success).length;
+  const failed = results.filter(r => !r.success && !r._skipped).length;
+  const skipped = opts.skipped || [];
+  const format = opts.format || 'summary';
+
+  let report = `# 🎖️ Engineering Manager 報告\n\n`;
+  report += `**日期：** ${dateStr}\n`;
+  report += `**時間：** ${now.toTimeString().slice(0, 8)}\n`;
+  if (skipped.length > 0) {
+    report += `**結果：** ✅ ${succeeded} 成功 / ❌ ${failed} 失敗 / ⏸️ ${skipped.length} 待確認 / ${workList.length} 項規劃\n`;
+  } else {
+    report += `**結果：** ✅ ${succeeded} 成功 / ❌ ${failed} 失敗 / ${workList.length} 總計\n`;
+  }
+  report += `**模式：** Task-driven 自動派工（TASKS.json）${opts.skipped ? '（部分工作需人工確認）' : ''}\n\n---\n\n`;
+
+  // Executive format: skip full situation report
+  if (format !== 'executive') {
+    report += `## 📊 專案現況\n\n${situationReport}\n\n---\n\n`;
+  } else {
+    // Executive: just a one-line summary
+    report += `## 📊 摘要\n\n${workList.length} 項工作，${succeeded} 項成功。\n\n---\n\n`;
+  }
+
+  report += `## 📋 工作清單\n\n`;
+
+  for (let i = 0; i < workList.length; i++) {
+    const w = workList[i];
+    const r = results[i];
+    const icon = r?.success ? "✅" : (r?.error ? "❌" : "⏳");
+    report += `### ${i + 1}. ${icon} [${w.priority}] ${w.agent} — ${w.task}\n`;
+    if (w.reason) report += `> ${w.reason}\n`;
+    report += `\n`;
+    if (r?.success) {
+      // Detailed format includes full output; summary/executive truncates more
+      const maxLen = format === 'detailed' ? 3000 : (format === 'executive' ? 200 : 800);
+      const content = r.content || "";
+      let overflowNote = "";
+      if (content.length > maxLen) {
+        // 2026-09-07 Fleming：QA 14 findings 被 800 字截斷、得手動分批重撈 — 超長輸出一律落地，報告只放截斷版+檔案指標
+        try {
+          if (rootDir) {
+            const outDir = join(rootDir, ".paaw", "coding-memory", "dispatch-outputs");
+            mkdirSync(outDir, { recursive: true });
+            const ts = now.toISOString().replace(/[:T]/g, "-").slice(0, 17);
+            const fname = `${ts}-${String(w.agent || "agent").replace(/[^a-zA-Z0-9._-]/g, "_")}.md`;
+            writeFileSync(join(outDir, fname), `# Dispatch 完整輸出\n\n- Task: ${w.task}\n- Agent: ${w.agent}\n- 時間: ${now.toISOString()}\n- 長度: ${content.length} 字元（報告内截斷至 ${maxLen}）\n\n---\n\n${content}\n`, "utf-8");
+            overflowNote = `\n\n📎 完整輸出（${content.length} 字元）：\".paaw/coding-memory/dispatch-outputs/${fname}\
+"`;
+          } else {
+            overflowNote = `\n\n⚠️ 完整輸出 ${content.length} 字元（報告截斷，無 rootDir 可落地）`;
+          }
+        } catch {}
+      }
+      report += `**結果：**\n\`\`\`\n${content.slice(0, maxLen)}${content.length > maxLen ? "\n…（截斷）" : ""}\n\`\`\`${overflowNote}\n\n`;
+    } else if (r?.error) {
+      report += `**錯誤：** ${r.error}\n\n`;
+    }
+  }
+
+  // Skipped tasks section
+  if (skipped.length > 0) {
+    report += `---\n\n## ⏸️ 需人工確認的工作\n\n`;
+    for (const s of skipped) {
+      report += `- **[${s._skipped}]** ${s.agent}: ${s.task.slice(0, 120)}\n`;
+    }
+    report += `\n`;
+  }
+
+  report += `---\n\n*由 PAAW Engineering Manager 自動產生*\n`;
+  return report;
+}
+
+function generateParallelReport(agentResults, ctx, dynamicLabels = null) {
+  const now = new Date();
+
+  // Use dynamic labels if provided, otherwise build from results
+  const crewLabels = dynamicLabels || {};
+  if (Object.keys(crewLabels).length === 0) {
+    for (const r of agentResults) {
+      if (!crewLabels[r.role]) crewLabels[r.role] = `🤖 ${r.codename || r.role}`;
+    }
+  }
+
+  const succeeded = agentResults.filter(r => r.status === "completed").length;
+  const failed = agentResults.filter(r => r.status === "failed").length;
+
+  let report = `# 🌙 Auto Dispatch Report\n\n`;
+  report += `**Date:** ${now.toLocaleDateString("zh-TW")}\n`;
+  report += `**Time:** ${now.toTimeString().slice(0, 8)}\n`;
+  report += `**Result:** ✅ ${succeeded} 成功 / ❌ ${failed} 失敗 / ${agentResults.length} 總計\n`;
+  report += `**Mode:** 全員平行\n\n`;
+  report += `**Changes:** ${ctx.changedFiles.length} files, ${ctx.commitCount} commits since ${ctx.since || "today"}\n\n---\n\n`;
+
+  for (const [role, label] of Object.entries(crewLabels)) {
+    const agentResult = agentResults.find(r => r.role === role);
+    if (!agentResult) {
+      report += `### ${label}\n⚠️ Not executed.\n\n---\n\n`;
+      continue;
+    }
+    const icon = agentResult.status === "completed" ? "✅" : agentResult.status === "failed" ? "❌" : "⏭️";
+    report += `### ${label} ${icon}\n`;
+    if (agentResult.report) {
+      report += `${agentResult.report}\n\n`;
+    } else if (agentResult.error) {
+      report += `Error: ${agentResult.error}\n\n`;
+    } else {
+      report += `${agentResult.result || "No output"}\n\n`;
+    }
+    report += `---\n\n`;
+  }
+
+  // Git info
+  if (ctx.gitLog) {
+    report += `## 📋 Commits\n\`\`\`\n${ctx.gitLog}\n\`\`\`\n`;
+  }
+  if (ctx.changedFiles.length > 0) {
+    report += `\n## 📁 Changed Files\n${ctx.changedFiles.map(f => `- \`${f}\``).join("\n")}\n`;
+  }
+  if (ctx.unpushed) {
+    report += `\n## ⚠️ 未 Push 的 Commit\n\`\`\`\n${ctx.unpushed}\n\`\`\`\n\n**Push 由人決定，AI 不自動 push。**\n`;
+  }
+
+  return report;
+}
+
+// ── Main entry: run session by mode ──
+
+/**
+ * @param {object} opts
+ * @param {string} opts.mode - "em" | "parallel" (default: "em")
+ * @param {string} opts.rootDir - Project root
+ * @param {string} opts.baseUrl - A2A base URL (EM mode only)
+ * @param {string} opts.since - Since date
+ * @param {string} opts.modelOverride - Model override
+ * @param {string[]} opts.fallbackModels - Fallback models
+ * @param {function} opts.sendSSE - SSE callback
+ */
+export async function runAutoDispatch(opts = {}) {
+  const mode = opts.mode || "em";
+  const focusTaskId = opts.focusTaskId; // 指定單號（自然語言觸發）
+
+  // ── 工頭柱三（2026-10-01）：排程觸發 → 先跑啟用的 job 入口（cu-scan 等）→ triage 開單 → 再進 task-driven 閉環 ──
+  // NL 觸發（非 scheduled）不自動跑入口 — em_job 工具明示觸發；入口開的單由下方閉環接手派工
+  if (opts.scheduled && mode === "em") {
+    try {
+      const { runJobEntrypoint, triageToTickets, readJobTypesConfig } = await import("./em-job-entrypoints.mjs");
+      const jobTypes = readJobTypesConfig(opts.rootDir);
+      if (jobTypes.length > 0) {
+        console.log(`[AutoDispatch] 🧰 工頭入口（scheduled）：${jobTypes.join(", ")}`);
+        for (const jt of jobTypes) {
+          if (_stopRequested(opts.rootDir)) break;
+          try {
+            const result = await runJobEntrypoint(opts.rootDir, jt);
+            console.log(`[AutoDispatch] 🧰 ${jt}: ${result.summary || result.error || "done"} (${((result.durationMs || 0) / 1000).toFixed(0)}s)`);
+            if (result.ok) {
+              await triageToTickets({ rootDir: opts.rootDir, type: jt, result, modelOverride: opts.modelOverride, fallbackModels: opts.fallbackModels, sendSSE: opts.sendSSE });
+            }
+          } catch (err) { console.log(`[AutoDispatch] job ${jt} failed (non-fatal): ${err.message}`); }
+        }
+      }
+    } catch (err) { console.log(`[AutoDispatch] job entrypoints unavailable: ${err.message}`); }
+  }
+
+  if (mode === "parallel") {
+    return runParallelSession(opts);
+  }
+  // If resuming, skip EM planning phase and go straight to execution
+  if (opts.existingPlanId) {
+    return executeEMSession({ ...opts, workList: [], situationReport: "Resuming interrupted plan" });
+  }
+  // 2026-08-29: 有未完成的 plan（上次中斷）→ 優先續跑，不重掃 task（避免同一 task 重複派）
+  try {
+    const { findIncompletePlans } = await import("./execution-plan.mjs");
+    const incomplete = await findIncompletePlans(opts.rootDir);
+    if (incomplete.length > 0) {
+      opts.sendSSE?.("info", { message: `🔁 發現未完成 plan ${incomplete[0].planId}，優先續跑（不重掃 task）` });
+      console.log(`[AutoDispatch] Resuming incomplete plan: ${incomplete[0].planId}`);
+      return executeEMSession({ ...opts, existingPlanId: incomplete[0].planId, workList: [], situationReport: "Resuming interrupted plan" });
+    }
+  } catch { /* execution-plan not available */ }
+  // Task-driven：掃 TASKS.json → 有就執行，沒有就回報理由
+  let { workList, situationReport } = await planEMSession({ ...opts, focusTaskId });
+  if (!workList.length) {
+    opts.sendSSE?.("info", { message: "✅ 沒有需要調度的 task。" });
+    const report = generateEMReport([], [], situationReport);
+    saveAutoDispatchReport(opts.rootDir, report, "em");
+    opts.sendSSE?.("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
+    return { report, workList: [], results: [] };
+  }
+
+  // ── 2026-09-23 Fleming：EM 閉環多輪 ──
+  // 品管閉環：review/qa 開的新單在「同一個 run」内自動接續處理，直到沒新單／沒進展／輪數上限。
+  // 之前：qa review 開的單要等下一次手動/cron 派工才會被撿起來 — 下班白跑一輪就停。
+  // 停止條件（任一）：①重掃沒有新 open task ②上一輪 0 成功（失敗迴圈防護）③使用者中斷 ④maxRounds（預設 30）
+  let emConfig = null;
+  try { const { readEMConfig } = await import("./em-config.mjs"); emConfig = readEMConfig(opts.rootDir); } catch {}
+  const closedLoop = emConfig?.closedLoop || {};
+  const maxRounds = closedLoop.enabled === false
+    ? 1
+    : (Number.isFinite(Number(closedLoop.maxRounds)) && Number(closedLoop.maxRounds) >= 1 ? Number(closedLoop.maxRounds) : 30);
+
+  let lastResult = null;
+  let totalSucceeded = 0, totalFailed = 0, roundsRun = 0;
+  for (let round = 1; round <= maxRounds; round++) {
+    if (round > 1) {
+      if (_stopRequested(opts.rootDir)) {
+        opts.sendSSE?.("info", { message: `⹹️ 閉环：收到中斷請求 — 第 ${round} 輪不執行` });
+        break;
+      }
+      // 上輪 0 成功 → 失敗迴圈防護（同樣的單重派也不會好，交給人看報告）
+      const prevSucceeded = (lastResult?.results || []).filter(r => r.success).length;
+      if (prevSucceeded === 0) {
+        opts.sendSSE?.("info", { message: `⏸️ 閉环停止：上一輪 0 成功（失敗迴圈防護）— 詳情看派工報告` });
+        break;
+      }
+      const rescan = await planEMSession({ ...opts, focusTaskId: undefined }); // 閉环輪不看 focus — 接續所有新單
+      workList = rescan.workList;
+      situationReport = rescan.situationReport;
+      if (!workList.length) {
+        opts.sendSSE?.("info", { message: `✅ 閉环完成（${roundsRun} 輪）：沒有新開的單，工作收乾淨了。` });
+        break;
+      }
+      opts.sendSSE?.("info", { message: `🔁 EM 閉环第 ${round}/${maxRounds} 輪：agent 開了 ${workList.length} 張新單，接續處理` });
+    }
+    roundsRun = round;
+    // 每輪的 done 降級成 info（run 還没結束）— 統一在循環外送一次總 done，UI 只看到一個 🏁
+    const roundSSE = (type, data) => {
+      if (type === "done") {
+        opts.sendSSE?.("info", { message: `🏁 閉环第 ${round}/${maxRounds} 輪完成：✅ ${data?.succeeded || 0} / ❌ ${data?.failed || 0}` });
+        return;
+      }
+      opts.sendSSE?.(type, data);
+    };
+    lastResult = await executeEMSession({ ...opts, workList, situationReport, sendSSE: roundSSE });
+    const rs = (lastResult?.results || []).filter(r => r.success).length;
+    totalSucceeded += rs;
+    totalFailed += (lastResult?.results || []).length - rs;
+  }
+  if (lastResult) {
+    opts.sendSSE?.("done", { totalTasks: totalSucceeded + totalFailed, succeeded: totalSucceeded, failed: totalFailed, ...(roundsRun > 1 ? { rounds: roundsRun } : {}) });
+  }
+  return lastResult;
+}

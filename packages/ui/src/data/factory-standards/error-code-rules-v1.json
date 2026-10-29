@@ -1,0 +1,157 @@
+{
+  "id": "error-code-rules-v1",
+  "title": "Error Code Rules v1",
+  "version": "1.0",
+  "category": "coding-standards",
+  "tags": ["error-handling", "naming-convention", "http-status"],
+  "description": "AI Software Factory 統一錯誤碼命名與分類規範。所有 Orchestrator / Node / Framework 層級的錯誤皆須遵循此規則。",
+  "source": "email from fleming7612@gmail.com (2026-04-03)",
+  "sections": [
+    {
+      "id": "error-type",
+      "title": "1. ErrorType",
+      "description": "決定 HTTP status 與 runtime 行為。",
+      "mappings": [
+        { "type": "VALIDATION", "httpStatus": 400 },
+        { "type": "UNAUTHENTICATED", "httpStatus": 401 },
+        { "type": "FORBIDDEN", "httpStatus": 403 },
+        { "type": "NOT_FOUND", "httpStatus": 404 },
+        { "type": "BIZ", "httpStatus": 409 },
+        { "type": "DEPENDENCY", "httpStatus": 502 },
+        { "type": "TIMEOUT", "httpStatus": 504 },
+        { "type": "SYSTEM", "httpStatus": 500 }
+      ]
+    },
+    {
+      "id": "naming-format",
+      "title": "2. ErrorCode 命名格式",
+      "description": "統一命名規則",
+      "format": "{CODE_CLASS}_{AREA}_{FAMILY}_{DETAIL}",
+      "examples": [
+        "BIZ_NODE_LOT_TOOL_MATCH_LOT_TOOL_MISMATCH",
+        "EXT_NODE_MES_QUERY_TIMEOUT",
+        "SYS_ORCH_STEP_RESULT_MISSING",
+        "SYS_FW_BOOT_CONFIG_MISSING",
+        "SYS_CTRL_AUTH_TOKEN_MISSING"
+      ]
+    },
+    {
+      "id": "code-class",
+      "title": "3. CODE_CLASS（診斷分類）",
+      "description": "代表診斷分類",
+      "values": [
+        { "code": "SYS", "meaning": "內部系統、framework、config、mapping、boot/startup 問題" },
+        { "code": "BIZ", "meaning": "已內化成業務語意的拒絕" },
+        { "code": "EXT", "meaning": "外部依賴的非商業邏輯問題" }
+      ]
+    },
+    {
+      "id": "area",
+      "title": "4. AREA（錯誤發生層）",
+      "description": "代表錯誤發生層。service 不列入 AREA。",
+      "values": [
+        { "code": "CTRL", "meaning": "API boundary / controller" },
+        { "code": "ORCH", "meaning": "orchestrator 流程協調" },
+        { "code": "NODE", "meaning": "node 本體" },
+        { "code": "FW", "meaning": "framework / boot / startup" }
+      ],
+      "note": "service 不列入 AREA"
+    },
+    {
+      "id": "family",
+      "title": "5. FAMILY（能力族群）",
+      "description": "代表能力族群，要穩定、可聚合，不是 class 名。",
+      "groups": [
+        {
+          "area": "CTRL",
+          "families": ["REQUEST", "AUTH", "QUERY", "HEADER", "IDEMPOTENCY"]
+        },
+        {
+          "area": "ORCH",
+          "families": ["PRECHECK", "FLOW", "STATE", "COMPENSATION", "APPROVAL"]
+        },
+        {
+          "area": "NODE",
+          "families": ["LOT_QUERY", "LOT_TOOL_MATCH", "RECIPE_CHECK", "MES_QUERY", "RESPONSE_MAP"]
+        },
+        {
+          "area": "FW",
+          "families": ["BOOT", "INIT", "STARTUP", "CONTRACT", "CONFIG", "REGISTRY", "OBSERVABILITY"]
+        }
+      ]
+    },
+    {
+      "id": "detail",
+      "title": "6. DETAIL（核心原因）",
+      "description": "只放最核心原因，短、準、穩定",
+      "examples": [
+        "REQUEST_BODY_INVALID",
+        "AUTH_TOKEN_MISSING",
+        "LOT_NOT_FOUND",
+        "LOT_TOOL_MISMATCH",
+        "PRECHECK_FAILED",
+        "TIMEOUT",
+        "BAD_RESPONSE",
+        "CONFIG_MISSING",
+        "CONTRACT_VALIDATION_FAILED"
+      ]
+    },
+    {
+      "id": "decision-order",
+      "title": "7. 判定順序",
+      "description": "決定錯誤碼的判定流程",
+      "steps": [
+        "先決定 ErrorType",
+        "再決定 CODE_CLASS",
+        "再決定 AREA",
+        "再選 FAMILY",
+        "最後填 DETAIL"
+      ]
+    },
+    {
+      "id": "naming-style",
+      "title": "8. 命名風格",
+      "rules": [
+        "一律大寫 snake case",
+        "FAMILY 要穩定，不可亂取長句",
+        "DETAIL 只放核心原因",
+        "不是這層造成的錯，不要亂改 AREA",
+        "工具型 node 通常不是 BIZ，多半是 SYS_NODE_* 或 EXT_NODE_*"
+      ]
+    },
+    {
+      "id": "boot-init-startup",
+      "title": "9. Boot / Init / Startup 固定規則",
+      "description": "framework 啟動期固定用以下前綴",
+      "prefixes": [
+        "SYS_FW_BOOT_xxx",
+        "SYS_FW_INIT_xxx",
+        "SYS_FW_STARTUP_xxx"
+      ],
+      "examples": [
+        "SYS_FW_BOOT_CONFIG_MISSING",
+        "SYS_FW_INIT_NODE_REGISTRY_FAILED",
+        "SYS_FW_STARTUP_HEALTHCHECK_REGISTRATION_FAILED"
+      ]
+    },
+    {
+      "id": "exception-flow",
+      "title": "10. Exception Flow 最重要原則",
+      "description": "不是你這層造成的錯，就保留原本的 errorType 和 errorCode。",
+      "principles": [
+        "node 丟最準的錯",
+        "orchestrator 只在自己真的出錯時才產生 ORCH 錯",
+        "controller advice 只做 ErrorType → HttpStatus mapping"
+      ]
+    },
+    {
+      "id": "summary",
+      "title": "11. 最終命名規則",
+      "format": "{CODE_CLASS}_{AREA}_{FAMILY}_{DETAIL}",
+      "constraints": {
+        "CODE_CLASS": "SYS | BIZ | EXT",
+        "AREA": "CTRL | ORCH | NODE | FW"
+      }
+    }
+  ]
+}

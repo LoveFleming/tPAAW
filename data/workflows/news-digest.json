@@ -1,0 +1,127 @@
+{
+  "id": "news-digest",
+  "name": "新聞摘要匯總",
+  "description": "從多個新聞網站搜集新聞 → 各別摘要 → 匯總成一份報告",
+  "icon": "📰",
+  "status": "published",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "Start",
+      "position": { "x": 50, "y": 200 },
+      "config": {
+        "inputMapping": {}
+      }
+    },
+    {
+      "id": "node-hackernews",
+      "type": "skill",
+      "skillId": "news-digest",
+      "name": "Hacker News 摘要",
+      "position": { "x": 300, "y": 80 },
+      "config": {
+        "inputMapping": {
+          "url": "https://news.ycombinator.com"
+        }
+      }
+    },
+    {
+      "id": "node-techcrunch",
+      "type": "skill",
+      "skillId": "news-digest",
+      "name": "TechCrunch AI 摘要",
+      "position": { "x": 300, "y": 200 },
+      "config": {
+        "inputMapping": {
+          "url": "https://techcrunch.com/category/artificial-intelligence/"
+        }
+      }
+    },
+    {
+      "id": "node-theverge",
+      "type": "skill",
+      "skillId": "news-digest",
+      "name": "The Verge AI 摘要",
+      "position": { "x": 300, "y": 320 },
+      "config": {
+        "inputMapping": {
+          "url": "https://www.theverge.com/ai-artificial-intelligence"
+        }
+      }
+    },
+    {
+      "id": "node-merge",
+      "type": "skill",
+      "skillId": "ai-news-digest",
+      "name": "匯總 + 英文學習",
+      "position": { "x": 600, "y": 200 },
+      "config": {
+        "inputMapping": {
+          "output_path": "{{workflow.input.output_path}}",
+          "topic": "{{workflow.input.topic}}"
+        }
+      }
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "name": "End",
+      "position": { "x": 900, "y": 200 },
+      "config": {
+        "inputMapping": {},
+        "outputTarget": "chat"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-start-hn",
+      "source": "start",
+      "target": "node-hackernews"
+    },
+    {
+      "id": "e-start-tc",
+      "source": "start",
+      "target": "node-techcrunch"
+    },
+    {
+      "id": "e-start-tv",
+      "source": "start",
+      "target": "node-theverge"
+    },
+    {
+      "id": "e-hn-merge",
+      "source": "node-hackernews",
+      "target": "node-merge"
+    },
+    {
+      "id": "e-tc-merge",
+      "source": "node-techcrunch",
+      "target": "node-merge"
+    },
+    {
+      "id": "e-tv-merge",
+      "source": "node-theverge",
+      "target": "node-merge"
+    },
+    {
+      "id": "e-merge-end",
+      "source": "node-merge",
+      "target": "end"
+    }
+  ],
+  "inputSchema": {
+    "properties": {
+      "output_path": {
+        "type": "string",
+        "description": "輸出檔案路徑（選填）"
+      },
+      "topic": {
+        "type": "string",
+        "description": "主題篩選關鍵字（選填，預設綜合 AI 新聞）"
+      }
+    },
+    "required": []
+  }
+}

@@ -1,0 +1,4395 @@
+/**
+ * Project Route — .paaw/ project knowledge API
+ *
+ * Endpoints:
+ *   GET    /api/coding-project/context?path=...        — Get full .paaw/ context
+ *   POST   /api/coding-project/init?path=...           — Initialize .paaw/ directory
+ *   POST   /api/coding-project/create                   — Create new project directory + .paaw/ init + git init
+ *   GET    /api/coding-project/tree?path=...           — Get .paaw/ directory tree
+ *   GET    /api/coding-project/sessions?path=...       — List sessions
+ *   GET    /api/coding-project/sessions/:filename?path=... — Read specific session
+ *   GET    /api/coding-project/decisions?path=...      — Read decisions
+ *   POST   /api/coding-project/decisions?path=...      — Add decision
+ *   GET    /api/coding-project/changelog?path=...      — Read changelog
+ *   GET    /api/coding-project/file?path=...&file=...  — Read any .paaw/ file
+ *   PUT    /api/coding-project/file?path=...&file=...  — Write any .paaw/ file
+ *   POST   /api/coding-project/generate-overview?path=... — Auto-generate PROJECT.md
+ *   GET    /api/coding-project/security-scan?path=...   — Run Semgrep security scan
+ *   GET    /api/coding-project/security-scan/results?path=... — Load last scan results
+ *
+ * Crew Conversation Persistence:
+ *   GET    /api/coding-crew/conversations?cwd=...              — List all crew conversations
+ *   GET    /api/coding-crew/conversations/:crewId?cwd=...     — Load crew conversation
+ *   POST   /api/coding-crew/conversations/:crewId?cwd=...     — Save crew conversation
+ *   DELETE /api/coding-crew/conversations/:crewId?cwd=...     — Clear crew conversation
+ *   POST   /api/coding-crew/context-window                    — Build optimized context window
+ *
+ * Crew Conversation Archiving:
+ *   POST   /api/coding-crew/conversations/:crewId/archive?cwd=... — Archive current + start new
+ *   GET    /api/coding-crew/conversations/:crewId/archives?cwd=... — List archived conversations
+ *   GET    /api/coding-crew/conversations/:crewId/archives/:id?cwd=... — Load archived conversation
+ */
+
+import { readFile, writeFile, readdir, mkdir, unlink, appendFile, stat as fsStat } from "fs/promises";
+import { nextFeatureIds } from "../lib/feature-registry.mjs"; // 2026-09-04：CU feature-map 產 F{YYYYMMDD}-{seq} 新格式 ID（原 F-001 舊格式的真正源頭）
+import { existsSync, readFileSync as readSync, readdirSync, statSync, openSync, readSync as fsReadSync, closeSync as fsCloseSync } from "fs";
+import { resolve, join, dirname } from "path";
+import { fileURLToPath } from "url";
+import { exec as execCb } from "child_process";
+import { shellExec, IS_WIN } from "../lib/shell-exec.mjs";
+import { createPaawProject, maybeWriteProjectDraft } from "../lib/paaw-project.mjs";
+import { parseProjectMd, buildProjectMd, regenerateProjectMd, USER_START, USER_END, AI_START, AI_END } from "../lib/project-md.mjs";
+import { callLLMWithRetry, dateTimeContextBlock, parseModelReference } from "../lib/llm-utils.mjs";
+import { normalizePath, readBody } from "./shared.mjs";
+import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
+import { logAuditEvent } from "../lib/audit-log.mjs"; // 審批決策審計（2026-10-10）
+import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-parser.mjs";
+import { runSemgrep } from "../lib/semgrep-runner.mjs";
+import { buildCodeIntelligence, buildContextPackage } from "../lib/code-intelligence.mjs";
+import { buildTestIntelligence } from "../lib/test-intelligence.mjs";
+import { saveQaResult, listQaResults, getQaResult, updateQaResult, deleteQaResult, qaStats } from "../lib/qa-results.mjs"; // QA 記錄共享存儲（2026-09-17 Fleming）
+import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
+import { rescanMechanicalLayer } from "../lib/cu-mechanical.mjs";
+
+// ── PAAW root directory (cross-platform safe) ──
+// fileURLToPath handles Windows drive-letter URLs correctly,
+// unlike new URL(import.meta.url).pathname which adds a leading /
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
+
+// ── CU lifecycle raw materials — 輕量掃 source file 數（純 node fs，跨平台，不碰 node_modules）──
+// 用途：判斷「代碼尚少（no-code）」— 剛建立/剛 import 的專案 code 還沒成形，
+// Code Understanding 沒東西可分析，UI 不該催
+// ⚠️ 定義已抽到 lib/cu-source-scan.mjs（單一事實來源 — paaw-project 的 CU watermark 同一套規則）
+import { countSourceFiles, walkSourceFiles } from "../lib/cu-source-scan.mjs";
+
+// ── CU staleness — 智能層知識過期偵測（純 mtime 比對，免 token）──
+// step 產出檔比 code 最新 mtime 舊 → 過期（快照是舊地圖）
+// 與 UI CU_STEPS 的 file 對應（保持同步）— Slim CU：只保留 4 個 steps + 人寫檔案
+const CU_STEP_FILES = {
+  scan: "scan.json",
+  "feature-map": "features/FEATURES.json",
+  "code-intelligence": "code-intelligence/summary.json",
+  "test-intelligence": "code-intelligence/test-intelligence.json",
+  "error-codes": "error-codes.json",
+  "c4-model": "c4-model.json",
+  // 人寫的非自動 step（給健康檢查參考）
+  overview: "project/PROJECT.md", // ⚠️ FILE_MAP 映射：PaawProject 讀寫 PROJECT.md 實際落在 project/ 子目錄（含自動遷移）— staleness 要看實體路徑
+};
+const CU_MECHANICAL_STEPS = new Set(["code-intelligence", "test-intelligence"]);
+const CU_MANUAL_STEPS = new Set(["standards"]); // 2026-10-09：overview 改 AI 生成（每次 CU 重寫 AI 區、USER 區保護），不再是人寫文件
+const STALE_TOLERANCE_MS = 2000; // 同步競態容差
+function computeCuStaleness(root, steps, codeLastModifiedMs) {
+  const staleSteps = [];
+  for (const [id, rel] of Object.entries(CU_STEP_FILES)) {
+    if (steps[id]?.status !== "done") continue; // 沒跑過的叫 pending 不叫過期
+    try {
+      const st = statSync(join(root, ".paaw", rel));
+      // ⚠️ content-addressed 寫入（diffWriteJson）：內容沒變 → skip → 檔案 mtime 不動。
+      // 純 mtime 比對會把「重掃確認無變更」誤判成永遠 stale（2026-08-30 Fleming 回報）
+      // → watermark：step 完成時記下當時 source 最新 mtime（codeMtime）存進 cu-status，
+      //   重掃無變更也會刷新 watermark = 「這版 code 我確認過」→ badge 正確消失
+      const watermark = Number(steps[id]?.codeMtime) || 0;
+      const basis = Math.max(st.mtimeMs, watermark);
+      if (codeLastModifiedMs > basis + STALE_TOLERANCE_MS) {
+        staleSteps.push({ id, mechanical: CU_MECHANICAL_STEPS.has(id), manual: CU_MANUAL_STEPS.has(id) });
+      }
+    } catch {
+      // 2026-09-06 review：產出檔不存在（.paaw 被部分清理/手動刪）但 status=done → 也算過期
+      // 否則增量重掃會 skip 它，空產出永遠不重建
+      staleSteps.push({ id, mechanical: CU_MECHANICAL_STEPS.has(id), manual: CU_MANUAL_STEPS.has(id) });
+    }
+  }
+  return staleSteps;
+}
+
+// Debug logger for Code Understanding — writes to log/cu-debug.log
+// （不可寫產品根目錄 .paaw — 執行程式不能在安裝目錄長 .paaw）
+import { appendFileSync, existsSync as existsSyncSync, mkdirSync } from "fs";
+function cuLog(step, msg) {
+  const line = `[${new Date().toISOString()}] [CU] step=${step} ${msg}\n`;
+  console.log(line.trim());
+  try {
+    mkdirSync(LOG_HOME, { recursive: true });
+    appendFileSync(join(LOG_HOME, "cu-debug.log"), line);
+  } catch {}
+}
+
+/** Diff-aware write: only overwrite if content has meaningful changes.
+ *  Returns true if written (changed), false if skipped (no real diff). */
+async function diffWriteFile(paaw, filename, newContent) {
+  const old = await paaw.readFile(filename).catch(() => null);
+  if (old !== null && old === newContent) {
+    cuLog("diffWrite", `${filename}: identical, skipped`);
+    return false;
+  }
+  // Compare meaningful lines — ignore whitespace-only diffs and timestamp lines
+  if (old !== null) {
+    const oldLines = old.split("\n").filter(l => l.trim() && !l.match(/^>\s*\*Last\s+updated/i) && !l.match(/^>\s*\*Updated/i));
+    const newLines = newContent.split("\n").filter(l => l.trim() && !l.match(/^>\s*\*Last\s+updated/i) && !l.match(/^>\s*\*Updated/i));
+    const oldNorm = oldLines.map(l => l.trim()).join("\n");
+    const newNorm = newLines.map(l => l.trim()).join("\n");
+    if (oldNorm === newNorm) {
+      cuLog("diffWrite", `${filename}: no meaningful diff, skipped`);
+      return false;
+    }
+    const diffLines = newLines.filter((l, i) => !oldLines[i] || l.trim() !== oldLines[i].trim()).length;
+    const pct = Math.round(diffLines / Math.max(newLines.length, 1) * 100);
+    cuLog("diffWrite", `${filename}: ${diffLines} lines changed (${pct}%), writing`);
+  } else {
+    cuLog("diffWrite", `${filename}: new file, writing`);
+  }
+  await paaw.writeFile(filename, newContent);
+  return true;
+}
+
+/** Sanitize LLM-produced markdown before saving to .paaw/ — prevents frontend render crashes */
+function _sanitizeMd(md) {
+  if (!md || typeof md !== "string") return md || "";
+  let out = md;
+  // 1. Auto-close unclosed code fences
+  const fenceCount = (out.match(/```/g) || []).length;
+  if (fenceCount % 2 !== 0) out += "\n```";
+  // 2. Remove null bytes / control chars that break parsers
+  out = out.replace(/\u0000/g, "").replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+  // 3. Remove raw <script> tags (security + parser crash)
+  out = out.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
+  // 4. Trim trailing whitespace per line (trailing spaces break some markdown parsers)
+  out = out.split("\n").map(l => l.replace(/\s+$/, "")).join("\n");
+  return out;
+}
+
+// Shared agent rules
+import { AGENT_RULES } from "../lib/agent-rules.mjs";
+import { SECURITY_RULES } from "../lib/security-rules.mjs";
+import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+
+// ── Running agent tracking (for busy check + interrupt) ──
+import { runningCodingAgents } from "../lib/running-agents.mjs";
+import { DATA_HOME, LOG_HOME, logSlug } from "../data-home.mjs";
+
+// ── LLM Call Helper for project routes ──
+// Resolves provider config and calls LLM with proper 4-arg signature
+// CU 智能層/知識產出 LLM 呼叫統一參數（2026-08-30）
+// maxTokens 不 hardcode — 由 providers.json 的 model.maxTokens 當事實來源（全升 32768）
+// temperature：程式/結構化產出 = 0（deterministic），對話型 = 0.3
+// caller em：這批呼叫屬 EM dashboard 的 AI 初始化/知識建構流 — 成本歸集（R3）別記在 coding 帳上
+const CU_LLM_OPTS = { caller: "em", agentId: "em" };
+
+// ── CU step skill 外掛（2026-09-03 Fleming：CU 綁定 PAAW 的 skill）──
+// 綁定存在專案 .paaw/crew.json 的 skillBindings["cu.<stepId>"]，跟 crew agent 同一套
+// skill 內容由 project-crew.readSkillContent 讀 physical-skill/input-prompt/building 的 SKILL.md
+function cuStepSkillKey(stepId) { return `cu.${stepId}`; }
+
+async function loadCuStepSkills(root, stepId) {
+  try {
+    const { readProjectSkills } = await import("../lib/project-crew.mjs");
+    return readProjectSkills(root, cuStepSkillKey(stepId)) || [];
+  } catch { return []; }
+}
+
+export async function callProjectLLM(body, opts = {}) {
+  // providers.json lives at {DATA_HOME}/config/providers.json
+  // (PAAW_DATA_HOME env > repo data/ — gateway 版 data 在 HOME/data)
+  const providersFile = join(DATA_HOME, "config", "providers.json");
+  let providerConfig;
+  try { providerConfig = JSON.parse(readSync(providersFile, "utf8")); } catch { return { content: null }; }
+  // Parse "providerId/modelId" format (from ModelSelector) — 與 paaw-agent-loop resolveLLMConfig 同邏輯
+  // 2026-09-14 fix：改用 parseModelReference — model id 自帶 provider prefix（如 anthropic/claude-opus-4.8）
+  // 不再被 first-slash 剝過頭直送 API 400 (unknown model)
+  let providerId = providerConfig.active || "zai";
+  let model = body.model || resolveDefaultModel(providerConfig);
+  ({ providerId, model } = parseModelReference(providerConfig, model));
+  const provider = providerConfig.providers[providerId];
+  if (!provider?.apiKey || provider.apiKey === "na") { return { content: null }; }
+
+  // Resolve maxTokens: caller override > model config in providers.json > 32768
+  const modelConfig = (provider.models || []).find(m => m.id === model);
+  const defaultMaxTokens = modelConfig?.maxTokens || providerConfig.defaultMaxTokens || 65536;
+  const maxTokens = body.maxTokens ?? defaultMaxTokens;
+
+  const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${provider.apiKey}`,
+    ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
+  };
+  const reqBody = {
+    model,
+    messages: body.messages,
+    temperature: body.temperature ?? 0.3,
+    max_tokens: maxTokens,
+  };
+  // thinking 控制（zai GLM 格式；其他 provider 不帶免得 fallback/格式不符）
+  // 2026-08-30 教訓：CU feature-map 29k-token prompt + thinking 默認全開 →
+  // reasoning 烒光 16k max_tokens（reasoning_tokens=15989）→ content 空 × 4 次（finish=length）
+  if (body.thinking && providerId === "zai") {
+    reqBody.thinking = body.thinking;
+  }
+  return callLLMWithRetry(apiUrl, headers, reqBody, {
+    maxRetries: opts.maxRetries ?? 3,
+    timeoutMs: opts.timeoutMs ?? 300_000,
+    validateContent: true,
+    sanitize: true,
+    // 2026-10-23：caller 要求 thinking disabled（CU 結構化命名）→ 一併對 openrouter 注入
+    // reasoning:{enabled:false}。否則 openrouter/deepseek 會把 token 燒在 reasoning 回空 content
+    // （portkey CU 實測 0 字 × 多輪 → 命名降級）。
+    disableThinking: !!(body.thinking || body.disableThinking),
+    caller: opts.caller || "coding",
+    agentId: opts.agentId || "coding",
+    // 2026-09-03 fix：caller 沒傳 fallbacks 時，自動用 resolveLLMConfig 的 chain（providers.json fallbacks / auto）
+    // 否則 zai 429 時 CU 各步驟直接報錯，不會轉 DeepSeek
+    fallbacks: opts.fallbacks?.length ? opts.fallbacks
+      : (await import("../lib/paaw-agent-loop.mjs")).resolveLLMConfig(null).fallbacks || [],
+  });
+}
+
+// ── Query parser ──
+
+/**
+ * Feature Map chunked 產出（2026-09-03 Fleming 要求：不考慮成本，完整的 feature map）
+ *
+ * 大 release unit 單次呼叫塞不下 → map-reduce：
+ *   map：把 tree-sitter 分析按檔案分塊，每塊一次 LLM 呼叫產 partial feature JSON
+ *   reduce：合併去重（太大就 pairwise 合併）
+ *   gap-fill：checkCoverage 找孤兒檔 → 補一輪歸屬
+ */
+const FM_CHUNK_CHARS = 80_000;    // 每塊 source analysis（~23k tokens — fallback model 對大單發不可靠）
+const FM_MERGE_CHARS = 300_000;   // partials 超過就 pairwise 合併
+const FM_CONCURRENCY = 2;         // 平行度（避免 fallback provider 限流）
+
+function _extractJsonArray(text) {
+  if (!text) return null;
+  let t = text.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+  try { const v = JSON.parse(t); return Array.isArray(v) ? v : null; } catch {}
+  const s = t.indexOf("["); const e = t.lastIndexOf("]");
+  if (s >= 0 && e > s) { try { const v = JSON.parse(t.slice(s, e + 1)); return Array.isArray(v) ? v : null; } catch {} }
+  return null;
+}
+
+/** LLM JSON 陣列修復（2026-09-04：實測 tpaaw-gateway feature-map 壞在 ["tags"]: 鬼 key）
+ *  pass1 直接 parse → pass2 常見鬼格式修復（["key"]: → "key":、尾逗號）→ pass3 逐頂層物件 salvage（壞物件丟棄、好的保留，也涵蓋截斷）
+ *  回傳 array 或 null */
+function repairLlmJsonArray(text) {
+  if (!text) return null;
+  const clean = String(text).replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+  try { const v = JSON.parse(clean); if (Array.isArray(v)) return v; } catch {}
+  const repaired = clean
+    .replace(/\[\s*"([^"]*?)"\s*\]\s*:/g, '"$1":') // ["key"]: → "key":
+    .replace(/,(\s*[\]}])/g, "$1");                   // 尾逗號
+  try { const v = JSON.parse(repaired); if (Array.isArray(v)) return v; } catch {}
+  // 逐頂層物件 salvage
+  const out = [];
+  let depth = 0, start = -1, inStr = false, esc = false;
+  for (let i = 0; i < repaired.length; i++) {
+    const c = repaired[i];
+    if (esc) { esc = false; continue; }
+    if (c === "\\") { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === "{") { if (depth === 0) start = i; depth++; }
+    else if (c === "}") { depth--; if (depth === 0 && start >= 0) { try { out.push(JSON.parse(repaired.slice(start, i + 1))); } catch {} start = -1; } }
+  }
+  return out.length > 0 ? out : null;
+}
+
+/** Feature 物件白名單清洗（2026-09-04：防 LLM 幻覺欄位 tagsFinal/runbooksPlaceholder 進 FEATURES.json）
+ *  只保留已知欄位並補預設值，多餘欄位丟棄；name 缺失回 null（呼叫端過濾） */
+function sanitizeFeature(f) {
+  if (!f || typeof f !== "object") return null;
+  const name = typeof f.name === "string" && f.name.trim() ? f.name.trim() : null;
+  if (!name) return null;
+  const strArr = (v) => Array.isArray(v) ? v.filter(x => typeof x === "string") : [];
+  const apis = Array.isArray(f.apis)
+    ? f.apis.filter(a => a && typeof a === "object" && typeof a.path === "string")
+        .map(a => ({ method: String(a.method || "GET"), path: a.path, file: String(a.file || "") }))
+    : [];
+  return {
+    name,
+    description: String(f.description || ""),
+    status: f.status === "deprecated" || f.status === "planned" ? f.status : "active",
+    codeFiles: strArr(f.codeFiles),
+    apis,
+    tests: strArr(f.tests),
+    runbooks: strArr(f.runbooks),
+    tags: strArr(f.tags).slice(0, 5),
+  };
+}
+
+/** TI 測試映射回寫 FEATURES.json（2026-09-04：LLM feature-map 常漏 tests → deterministic featureToTests 補齊）
+ *  回傳補上的 feature 數 */
+async function backfillFeatureTests(root, featureToTests) {
+  try {
+    if (!Array.isArray(featureToTests) || featureToTests.length === 0) return 0;
+    const { loadFeatures, saveFeatures } = await import("../lib/feature-registry.mjs");
+    const features = loadFeatures(root);
+    if (!Array.isArray(features) || features.length === 0) return 0;
+    let changed = 0;
+    for (const m of featureToTests) {
+      const tests = (Array.isArray(m.tests) ? m.tests : []).filter(t => typeof t === "string" && t.trim());
+      if (tests.length === 0) continue;
+      const f = features.find(x => x.id === m.featureId) || features.find(x => x.name === m.featureName);
+      if (!f) continue;
+      const before = (f.tests || []).length;
+      f.tests = Array.from(new Set([...(Array.isArray(f.tests) ? f.tests : []), ...tests]));
+      if ((f.tests || []).length > before) changed++;
+    }
+    if (changed > 0) saveFeatures(root, features);
+    return changed;
+  } catch { return 0; }
+}
+
+function _chunkFiles(files, maxChars = FM_CHUNK_CHARS) {
+  const chunks = [];
+  let cur = [], curLen = 0;
+  for (const f of files) {
+    // 每檔估算長度：formatCondensed 一行一檔，粗估 300 字元 + signals
+    const est = 400 + (f.exports.length + f.imports.length + f.functions.length + f.classes.length + f.components.length + f.routes.length) * 40;
+    if (curLen + est > maxChars && cur.length > 0) { chunks.push(cur); cur = []; curLen = 0; }
+    cur.push(f); curLen += est;
+  }
+  if (cur.length > 0) chunks.push(cur);
+  return chunks;
+}
+
+async function _runPool(items, worker, concurrency = FM_CONCURRENCY) {
+  const results = new Array(items.length);
+  let idx = 0;
+  async function lane() {
+    while (idx < items.length) {
+      const i = idx++;
+      results[i] = await worker(items[i], i);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, lane));
+  return results;
+}
+
+async function _fmLLM(cuModelOverride, prompt, opts = {}) {
+  // 2026-10-23 修 a0cd2f56 回歸：此函式 scope 無 body（spec-miner/feature-map 步驟炸「body is not defined」）
+  const result = await callProjectLLM({
+    model: cuModelOverride || undefined,
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0,
+    thinking: { type: "disabled" },
+  }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3, ...opts });
+  return result.content || "";
+}
+
+async function generateFeatureMapChunked({ tsResult, basePrompt, projectRoot, cuModelOverride, cuLog, sendEvent, stepId, stepName }) {
+  const { formatCondensed } = await import("../lib/tree-sitter-parser.mjs");
+  const chunks = _chunkFiles(tsResult.files);
+  cuLog("feature-map", `Chunked mode: ${tsResult.files.length} files → ${chunks.length} chunks`);
+
+  // ── Map：每塊產 partial features ──
+  const subsetNote = `\n\n## CHUNKED ANALYSIS MODE\nThis is a SUBSET of the project's source analysis (chunk of ${chunks.length} total). Identify ALL features visible in this subset only — do not invent features for files not shown. Output the partial JSON feature array only.`;
+  const partials = await _runPool(chunks, async (chunkFiles, i) => {
+    const chunkCondensed = formatCondensed({ files: chunkFiles });
+    const prompt = basePrompt + `\n\n--- SOURCE ANALYSIS (Tree-sitter) — PART ${i + 1}/${chunks.length} ---\n${chunkCondensed}` + subsetNote;
+    sendEvent?.("step_progress", { step: stepId, name: stepName, message: `Map ${i + 1}/${chunks.length}（${chunkFiles.length} 檔）` });
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const raw = await _fmLLM(cuModelOverride, prompt);
+        const arr = _extractJsonArray(raw);
+        if (arr) { cuLog("feature-map", `Chunk ${i + 1}: ${arr.length} features`); return arr; }
+        cuLog("feature-map", `Chunk ${i + 1}: attempt ${attempt} — invalid JSON, retry`);
+      } catch (e) {
+        cuLog("feature-map", `Chunk ${i + 1}: attempt ${attempt} failed — ${e.message?.slice(0, 120)}`);
+      }
+    }
+    return [];
+  });
+  const allPartials = partials.flat();
+  if (allPartials.length === 0) throw new Error("All chunks failed — no partial features");
+
+  // ── Reduce：合併去重（太大就 pairwise）──
+  sendEvent?.("step_progress", { step: stepId, name: stepName, message: `合併 ${allPartials.length} 個 partial features` });
+  const mergePrompt = (lists, note) => `You are merging partial feature maps of the SAME project produced from different file chunks.\n${note}\n\nRules:\n- Features describing the same functional area (name/description overlap, shared files) MUST be merged into one\n- Keep the JSON structure exactly: name, description, status, codeFiles, apis, tests, runbooks, tags\n- Union their codeFiles/apis/tests/runbooks/tags; never drop files\n- Do NOT invent new features; do NOT drop any feature\n- Output ONLY the merged JSON array\n\n${lists.map((p, i) => `--- PARTIAL ${i + 1} (${p.length} features) ---\n${JSON.stringify(p, null, 1)}`).join("\n\n")}`;
+  let features = allPartials;
+  while (true) {
+    const total = JSON.stringify(features).length;
+    if (features.length === 1 || total <= FM_MERGE_CHARS) break;
+    const groups = [];
+    for (let i = 0; i < features.length; i += 2) groups.push(features.slice(i, i + 2));
+    features = (await _runPool(groups, async (g) => {
+      const raw = await _fmLLM(cuModelOverride, mergePrompt(g, "Merge these partial feature maps pairwise."));
+      return _extractJsonArray(raw) || g.flat();
+    })).flat();
+    cuLog("feature-map", `Pairwise merge → ${features.length} features (${JSON.stringify(features).length} chars)`);
+  }
+  if (features.length > 1) {
+    const raw = await _fmLLM(cuModelOverride, mergePrompt([features], "Produce the final complete feature map of the project."));
+    features = _extractJsonArray(raw) || features;
+  }
+  cuLog("feature-map", `After merge: ${features.length} features`);
+
+  // ── Gap-fill：孤兒檔歸屬 ──
+  try {
+    const { checkCoverage } = await import("../lib/feature-map-validator.mjs");
+    const { orphans } = checkCoverage(projectRoot, features);
+    const orphanSet = new Set(orphans);
+    const orphanFiles = tsResult.files.filter(f => orphanSet.has(f.file.replace(/^\.\//, "")));
+    if (orphanFiles.length > 0 && orphanFiles.length < tsResult.files.length) {
+      sendEvent?.("step_progress", { step: stepId, name: stepName, message: `Gap-fill：${orphanFiles.length} 個未歸屬檔案` });
+      cuLog("feature-map", `Gap-fill: ${orphanFiles.length} unmapped files`);
+      const orphanCondensed = formatCondensed({ files: orphanFiles });
+      const gapPrompt = basePrompt + `\n\n--- UNMAPPED FILES (Tree-sitter) ---\n${orphanCondensed}` + `\n\n## GAP-FILL MODE\nThese source files are not yet mapped to any feature. The current feature map follows. Assign each file to the most fitting existing feature (union the file into codeFiles), or create a new feature if none fits. Do NOT remove existing features or files. Output the complete updated JSON array only.\n\n--- CURRENT FEATURE MAP ---\n${JSON.stringify(features, null, 1)}`;
+      const raw = await _fmLLM(cuModelOverride, gapPrompt);
+      const filled = _extractJsonArray(raw);
+      if (filled && filled.length >= features.length) {
+        features = filled;
+        cuLog("feature-map", `Gap-fill done → ${features.length} features`);
+      }
+    }
+  } catch (e) {
+    cuLog("feature-map", `Gap-fill skipped (non-fatal): ${e.message?.slice(0, 120)}`);
+  }
+
+  return { features, chunkCount: chunks.length };
+}
+
+function parseQuery(url) {
+  const u = new URL(url, "http://localhost");
+  const params = {};
+  u.searchParams.forEach((v, k) => { params[k] = v; });
+  return params;
+}
+
+// ── Route Handler ──
+
+export default async function projectRoute(req, res) {
+  const method = req.method;
+  const rawUrl = req.url || "";
+  const url = rawUrl.split("?")[0];
+  const q = parseQuery(rawUrl);
+  const isWin = process.platform === "win32";
+
+  // All routes start with /api/coding-project
+  if (!url.startsWith("/api/coding-project") && !url.startsWith("/api/coding-crew")) return false;
+
+  const projectPath = q.path;
+
+  // ── GET /api/coding-crew/:crewId — Load crew definition (no project required) ──
+  // Exclude /running and /interrupt which are separate API endpoints
+  const crewMatch = url.match(/^\/api\/coding-crew\/([^/?]+)$/);
+  if (crewMatch && method === "GET" && !['running', 'interrupt', 'dispatch', 'chat', 'conversations', 'context-window', 'action-log', 'qa-results'].includes(crewMatch[1])) {
+    const crewId = decodeURIComponent(crewMatch[1]);
+    try {
+      // 2026-10-09 Module Registry：crew 本體在 packages/modules（firmware）→ .paaw override → user crew；
+      // 偏好（頭像/顯示名/開場白/語氣）疊加 — 側欄與 chat header 直接吃到
+      const { resolveCrew, applyCrewPrefs } = await import("../lib/module-registry.mjs");
+      const resolved = resolveCrew(crewId, projectPath ? resolve(projectPath) : null);
+      if (resolved) {
+        const crew = applyCrewPrefs(resolved.crew || resolved);
+        // If crew has injectProjectContext and we have a project path, append .paaw/ context
+        if (crew.injectProjectContext && projectPath) {
+          const projRoot = resolve(projectPath);
+          const projPaaw = createPaawProject(projRoot);
+          const ctx = await projPaaw.loadContext();
+          if (ctx) crew._projectContext = ctx;
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(crew));
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Crew not found", crewId }));
+      }
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── POST /api/coding-crew/chat — Chat via A2A domain agent dispatch ──
+  if (url === "/api/coding-crew/chat" && method === "POST") {
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    const { crewId, message, model, cwd, context, conversationHistory } = body;
+    if (!crewId || !message) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing crewId or message" }));
+      return true;
+    }
+
+    // Resolve project root from cwd (the coding project being worked on)
+    const projRoot = cwd ? resolve(cwd) : resolve(projectPath || PAAW_ROOT);
+
+    // Resolve agentId from crewId
+    const { getAgentByCrewId, buildSystemPrompt } = await import("../lib/domain-agent-registry.mjs");
+    const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
+    const agent = getAgentByCrewId(crewId);
+    if (!agent) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `No domain agent for crewId: ${crewId}` }));
+      return true;
+    }
+
+    try {
+      // Build system prompt from crew + context providers + action log + agent memory
+      const actionLogText = (await listActionLog({ cwd: projRoot, limit: 10 })).text;
+      const agentMemoryText = await loadAgentMemory(agent.agentId, projRoot);
+      const systemPrompt = await buildSystemPrompt(agent.agentId, {
+        cwd: cwd || undefined,
+        clientContext: context || {},
+      });
+
+      // Inject action log and agent memory into system prompt
+      const extraContext = [];
+      if (actionLogText) extraContext.push(`\n## Recent Action Log (跨 Agent 交接紀錄)\n${actionLogText}`);
+      if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
+      // Inject feature map summary
+      const featuresFile = join(projRoot, ".paaw", "features", "FEATURES.json");
+      if (existsSync(featuresFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        try {
+          const fData = JSON.parse(readSync(featuresFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          const feats = fData.features || [];
+          if (feats.length > 0) {
+            const fLines = feats.map(f => {
+              const p = [`- [${f.id}] ${f.name} (${f.status})`];
+              if (f.description) p.push(`— ${f.description}`);
+              const m = [];
+              if (f.codeFiles?.length) m.push(`${f.codeFiles.length} code`);
+              if (f.apis?.length) m.push(`${f.apis.length} APIs`);
+              if (f.tests?.length) m.push(`${f.tests.length} tests`);
+              if (m.length) p.push(`→ ${m.join(", ")}`);
+              return p.join(" ");
+            }).join("\n");
+            // Build file→feature reverse index
+            const fileMap = {};
+            for (const f of feats) {
+              const allFiles = [
+                ...(f.codeFiles || []),
+                ...(f.tests || []),
+                ...(f.runbooks || []),
+                ...(f.apis || []).map(a => a.file).filter(Boolean),
+              ];
+              for (const file of allFiles) {
+                if (!fileMap[file]) fileMap[file] = [];
+                fileMap[file].push(`${f.id} ${f.name}`);
+              }
+            }
+            const sortedFiles = Object.keys(fileMap).sort();
+            // Cap at 50 files to keep prompt lean — rest are accessible via project_info
+            const cappedFiles = sortedFiles.slice(0, 50);
+            const fileLines = cappedFiles.map(f => `- ${f} → ${fileMap[f].join(", ")}`).join("\n");
+            const moreHint = sortedFiles.length > 50 ? ` (${sortedFiles.length - 50} more — use project_info(category=features) to see all)` : "";
+            extraContext.push(`\n## Feature Map (${feats.length} features)\nUse project_info(category=feature_detail, id=...) for full detail.\n${fLines}\n\n## File → Feature Index (${cappedFiles.length} files${moreHint})\n${fileLines}`);
+          }
+        } catch {}
+      }
+
+      // Inject Code Intelligence SUMMARY (not full 200-file dump — too fat)
+      const ciFile = join(projRoot, ".paaw", "code-intelligence", "code-intelligence.json");
+      if (existsSync(ciFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        try {
+          const ci = JSON.parse(readSync(ciFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          if (ci.files?.length) {
+            // Summary: top-level dirs + file count + key entry points
+            const dirCount = {};
+            const keyFiles = [];
+            for (const f of ci.files) {
+              const dir = (f.path || "").split("/").slice(0, 2).join("/");
+              dirCount[dir] = (dirCount[dir] || 0) + 1;
+              // Key files: have many exports or are index/main entry points
+              if ((f.exports?.length || 0) > 3 || /index\.|main\.|app\./i.test(f.path)) {
+                keyFiles.push(`- ${f.path} (exports: ${(f.exports || []).slice(0, 5).join(", ")})`);
+              }
+            }
+            const dirLines = Object.entries(dirCount).sort((a,b) => b[1] - a[1]).map(([d, c]) => `  ${d}/ (${c} files)`).join("\n");
+            const keyLines = keyFiles.slice(0, 20).join("\n");
+            extraContext.push(`\n## Code Intelligence (${ci.files.length} files)\nDirectories:\n${dirLines}\nKey files:\n${keyLines}\n(用 read_file 查完整 exports/imports，或 grep 搜尋 symbol)`);
+          }
+        } catch {}
+      }
+
+      // Inject Security scan summary (last scan)
+      const secFile = join(projRoot, ".paaw", "security", "scan-results.json");
+      if (existsSync(secFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        try {
+          const sec = JSON.parse(readSync(secFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          if (sec.stats?.total > 0) {
+            // 舊格式没 scannedAt → 檔案 mtime fallback（2026-09-06：agent 反映 scanned unknown 無法判時效性）
+            let scannedAt = sec.scannedAt;
+            if (!scannedAt) { try { scannedAt = new Date(statSync(secFile).mtimeMs).toISOString(); } catch { scannedAt = "unknown"; } } // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+            extraContext.push(`\n## Security Scan Summary (${sec.stats.total} findings, scanned ${scannedAt})\nBy severity: ${JSON.stringify(sec.stats.bySeverity)}\nBy category: ${JSON.stringify(sec.stats.byCategory)}\n（明細查詢：project_info(category="security") — file:line + CWE + snippet + feature 對應；QA/SA 評估後可開 task 修復）`);
+          }
+        } catch {}
+      }
+      extraContext.push(AGENT_RULES);
+      extraContext.push(SECURITY_RULES);
+      const fullSystemPrompt = systemPrompt + extraContext.join("");
+
+      // Build messages array with conversation history
+      const messages = [];
+      if (fullSystemPrompt) messages.push({ role: "system", content: fullSystemPrompt });
+
+      // Inject conversation history — clean then let trimMessagesToFit handle context window
+      if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
+        // Filter: only user/assistant, skip thinking bubbles, include tool call context
+        const cleanHistory = conversationHistory
+          .filter(m => m.role === "user" || m.role === "assistant")
+          .filter(m => !m._thinking)
+          .map(m => {
+            let content = (m.content || "").replace(/^💭 /, "");
+            // Append tool call info so LLM knows what it did before
+            if (m._toolCalls?.length) {
+              const toolLines = m._toolCalls.map(tc => {
+                if (tc.result) return `[tool:${tc.name}] result: ${tc.result.slice(0, 300)}`;
+                return `[tool:${tc.name}] args: ${typeof tc.args === "string" ? tc.args.slice(0, 200) : "..."}`;
+              });
+              content += "\n" + toolLines.join("\n");
+            }
+            return { role: m.role, content };
+          });
+
+        for (const m of cleanHistory) {
+          messages.push({ role: m.role, content: m.content });
+        }
+      }
+
+      // Add current user message
+      messages.push({ role: "user", content: message });
+
+      // ── Apply context window trimming (aligned with A2A agent loop: 262K budget) ──
+      const { trimMessagesToFit } = await import("../lib/paaw-agent-loop.mjs");
+      const finalMessages = trimMessagesToFit(messages);
+
+      // ── Dispatch Logging ──
+      // Write full dispatch context to .paaw/coding-memory/dispatch-log.jsonl
+      try {
+        const logPath = join(cwd || PAAW_ROOT, ".paaw", "coding-memory", "dispatch-log.jsonl");
+        const logEntry = {
+          ts: new Date().toISOString(),
+          agentId: agent.agentId,
+          crewId,
+          model: model || "default",
+          systemPromptLength: fullSystemPrompt.length,
+          systemPromptPreview: fullSystemPrompt.slice(0, 500),
+          actionLogInjected: actionLogText ? actionLogText.slice(0, 300) : "(none)",
+          agentMemoryInjected: agentMemoryText ? agentMemoryText.slice(0, 300) : "(none)",
+          conversationHistoryCount: conversationHistory?.length || 0,
+          cleanHistoryCount: conversationHistory?.filter(m => m.role === "user" || m.role === "assistant").filter(m => !m._thinking).length || 0,
+          currentMessage: message,
+          totalMessages: finalMessages.length,
+          messagesSummary: finalMessages.map(m => ({ role: m.role, contentLength: m.content?.length || 0, preview: (m.content || "").slice(0, 120) })),
+        };
+        await appendFile(logPath, JSON.stringify(logEntry, null, 2) + "\n---\n");
+      } catch (logErr) {
+        console.error("[dispatch-log] write failed:", logErr.message);
+      }
+
+      // SSE streaming
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Access-Control-Allow-Origin": "*",
+        "X-Accel-Buffering": "no",
+      });
+      res.flushHeaders();
+      if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
+
+      const { runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
+      // Register running agent for busy check + interrupt support（2026-09-15：key 帶 projRoot — 多 RU 不互蓋）
+      const chatAbort = new AbortController();
+      const chatKey = `${agent.agentId}::${projRoot}`;
+      runningCodingAgents.set(chatKey, { abortController: chatAbort, res, startedAt: Date.now(), source: "chat", projRoot });
+      const cleanupChatAgent = () => { runningCodingAgents.delete(chatKey); };
+      res.on("close", cleanupChatAgent);
+
+      // Feature boundary for Change Boundary (chat path)
+      let chatFeatureBoundary = null;
+      try {
+        const { buildContextBoundary } = await import("../lib/feature-boundary.mjs");
+        const stagedResp = await fetch(`http://localhost:${paawPort}/api/staged-changes?path=${encodeURIComponent(projRoot)}`).catch(() => null);
+        const stagedData = stagedResp?.ok ? await stagedResp.json() : null;
+        const stagedPaths = stagedData?.files?.map(f => f.path) || [];
+        if (stagedPaths.length > 0) {
+          const boundary = buildContextBoundary(projRoot, stagedPaths);
+          if (boundary.featureIds.length > 0) {
+            chatFeatureBoundary = { allowedFiles: boundary.allowedFiles, featureIds: boundary.featureIds };
+          }
+        }
+      } catch {}
+
+      await runAgentLoopStream({
+        prompt: "", // handled by messages array
+        systemPrompt: "", // handled by messages array
+        messages: finalMessages, // trimmed with 262K budget, same as A2A
+        model: model || undefined,
+        featureBoundary: chatFeatureBoundary,
+        cwd: cwd || undefined,
+        maxTurns: agent.maxTurns,
+        timeout: 0, // no timeout — complex tasks may take arbitrarily long
+        rootDir: projRoot,
+        // 2026-10-15：傳 crewId（非短版 agentId）— skillBindings 以 crewId 為 key，短版 lookup 永遠 miss
+        agentId: crewId,
+        abortSignal: chatAbort.signal,
+      }, res);
+      cleanupChatAgent();
+
+      if (!res.writableEnded) res.end();
+      console.log(`[CodingCrew:chat] ${agent.agentId} stream completed`);
+    } catch (err) {
+      console.error(`[CodingCrew:chat] error:`, err);
+      if (res.headersSent && !res.writableEnded) {
+        try { res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`); res.end(); } catch {} // nosemgrep: missing-template-string-indicator
+      } else if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    }
+    return true;
+  }
+
+  // ── POST /api/coding-crew/dispatch — EM dispatch: trigger another agent to run a task ──
+  if (url === "/api/coding-crew/dispatch" && method === "POST") {
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    const { agentId, task, cwd, model, priority = "medium", taskId, subTaskId, taskTimeout } = body;
+    if (!agentId || !task) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing agentId or task" }));
+      return true;
+    }
+
+    const projRoot = cwd ? resolve(cwd) : resolve(projectPath || PAAW_ROOT);
+
+    // Resolve crew config for the target agent
+    const agentMap = {
+      architect: "coding.architect",
+      developer: "coding.developer",
+      tester: "coding.tester",
+      "doc-writer": "coding.doc-writer",
+      qa: "coding.qa",
+      helpdesk: "coding.helpdesk",
+    };
+    const crewId = agentMap[agentId] || agentId;
+    const crewFile = join(DATA_HOME, "crews", `${crewId}.json`);
+    if (!existsSync(crewFile)) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `Agent '${agentId}' not found` }));
+      return true;
+    }
+
+    try {
+      const crewDef = JSON.parse(readSync(crewFile, "utf-8"));
+      // 2026-09-12 Fleming：crew agent 也要知道時間/時區（rolePrompt 是靜態 json，不會有時間）
+      const systemPrompt = dateTimeContextBlock() + "\n" + (crewDef.rolePrompt || "");
+
+      // Build context same as chat endpoint (feature map, code intel, action log, agent memory)
+      const extraContext = [];
+
+      // Load context helpers
+      const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
+      const loadProviderConfig = (await import("../context-engine.mjs")).loadProviderConfig;
+
+      // Feature map
+      const fFile = join(projRoot, ".paaw", "features", "FEATURES.json");
+      if (existsSync(fFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        try {
+          const fData = JSON.parse(readSync(fFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          const feats = fData.features || [];
+          if (feats.length > 0) {
+            const fLines = feats.map(f => {
+              const p = [`- [${f.id}] ${f.name} (${f.status})`];
+              const m = [];
+              if (f.codeFiles?.length) m.push(`${f.codeFiles.length} code`);
+              if (f.apis?.length) m.push(`${f.apis.length} APIs`);
+              if (f.tests?.length) m.push(`${f.tests.length} tests`);
+              if (m.length) p.push(`→ ${m.join(", ")}`);
+              return p.join(" ");
+            }).join("\n");
+            extraContext.push(`\n## Feature Map (${feats.length} features, 用 project_info(category=feature_detail) 查 detail)\n${fLines}`);
+          }
+        } catch {}
+      }
+
+      // Context Boundary — inject feature file tree if task mentions features or files
+      try {
+        const { buildContextBoundary } = await import("../lib/feature-boundary.mjs");
+        // Try to extract file references from task description
+        const taskFiles = task.match(/[\w/.-]+\.(ts|tsx|mjs|js|jsx|json)/g) || [];
+        if (taskFiles.length > 0) {
+          const boundary = buildContextBoundary(projRoot, taskFiles);
+          if (boundary.featureIds.length > 0) {
+            extraContext.push(boundary.boundaryText);
+          }
+        }
+      } catch {}
+
+      // Code intelligence — summary only (not full file dump)
+      const ciFile = join(projRoot, ".paaw", "code-intelligence", "code-intelligence.json");
+      if (existsSync(ciFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        try {
+          const ci = JSON.parse(readSync(ciFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          if (ci.files?.length) {
+            const dirCount = {};
+            const keyFiles = [];
+            for (const f of ci.files) {
+              const dir = (f.path || "").split("/").slice(0, 2).join("/");
+              dirCount[dir] = (dirCount[dir] || 0) + 1;
+              if ((f.exports?.length || 0) > 3 || /index\.|main\.|app\./i.test(f.path)) {
+                keyFiles.push(`- ${f.path} (exports: ${(f.exports || []).slice(0, 5).join(", ")})`);
+              }
+            }
+            const dirLines = Object.entries(dirCount).sort((a,b) => b[1] - a[1]).map(([d, c]) => `  ${d}/ (${c} files)`).join("\n");
+            const keyLines = keyFiles.slice(0, 20).join("\n");
+            extraContext.push(`\n## Code Intelligence (${ci.files.length} files)\nDirectories:\n${dirLines}\nKey files:\n${keyLines}`);
+          }
+        } catch {}
+      }
+
+      // Action log（2026-09-07 修正：listActionLog 簽名是 opts 物件，之前傳字串 → fallback PAAW 根永遠讀不到；欄位是 details 非 detail）
+      const { entries: actionLog } = await listActionLog({ cwd: projRoot, limit: 200 });
+      if (actionLog.length > 0) {
+        const recent = actionLog.slice(-10).map(e => `- [${e.agent}] ${e.action}${e.details ? ": " + e.details : ""} (${e.ts})`).join("\n");
+        extraContext.push(`\n## Recent Action Log\n${recent}`);
+      }
+
+      // Agent memory
+      const agentMemoryText = await loadAgentMemory(agentId, projRoot);
+      if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory\n${agentMemoryText}`);
+
+      extraContext.push(AGENT_RULES);
+      extraContext.push(SECURITY_RULES);
+      const fullSystemPrompt = systemPrompt + extraContext.join("");
+
+      const messages = [
+        { role: "system", content: fullSystemPrompt },
+        { role: "user", content: task },
+      ];
+
+      // Load provider config
+      // Resolve LLM config (same as agent loop)
+      const { resolveLLMConfig } = await import("../lib/paaw-agent-loop.mjs");
+      const llm = resolveLLMConfig(projRoot, model);
+      const useModel = llm.model;
+
+      // Run the agent via runAgentLoopStream — it handles SSE and tool loop internally
+      // Busy check — reject if agent is already running（2026-09-15：同 RU 才算 busy — 另一個 RU 跑同一個 agent 不再擋這邊派工）
+      const busyKey = `${agentId}::${projRoot}`;
+      if (runningCodingAgents.has(busyKey)) {
+        const running = runningCodingAgents.get(busyKey);
+        const elapsed = Math.round((Date.now() - running.startedAt) / 1000);
+        if (!res.headersSent) {
+          res.writeHead(409, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: false, error: `Agent '${agentId}' is busy in this RU (running for ${elapsed}s, source: ${running.source})`, busy: true, agentId, cwd: projRoot }));
+        }
+        return true;
+      }
+
+      const { runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
+      // Register dispatched agent
+      const dispatchAbort = new AbortController();
+      const dispatchKey = `${agentId}::${projRoot}`;
+      runningCodingAgents.set(dispatchKey, { abortController: dispatchAbort, res, startedAt: Date.now(), source: "dispatch", projRoot });
+      const cleanupDispatch = () => { runningCodingAgents.delete(dispatchKey); };
+      res.on("close", cleanupDispatch);
+
+      // Use task timeout if specified, otherwise 60 min safety net
+      const effectiveTimeout = taskTimeout || 3600; // 60 min default
+
+      // Feature boundary for Change Boundary (dispatch path)
+      let dispatchFeatureBoundary = null;
+      try {
+        const { buildContextBoundary } = await import("../lib/feature-boundary.mjs");
+        const stagedResp2 = await fetch(`http://localhost:${paawPort}/api/staged-changes?path=${encodeURIComponent(projRoot)}`).catch(() => null);
+        const stagedData2 = stagedResp2?.ok ? await stagedResp2.json() : null;
+        const stagedPaths2 = stagedData2?.files?.map(f => f.path) || [];
+        if (stagedPaths2.length > 0) {
+          const boundary2 = buildContextBoundary(projRoot, stagedPaths2);
+          if (boundary2.featureIds.length > 0) {
+            dispatchFeatureBoundary = { allowedFiles: boundary2.allowedFiles, featureIds: boundary2.featureIds };
+          }
+        }
+      } catch {}
+
+      // ── Deterministic 驗收基準（2026-09-20 Fleming：EM 派工假成功偵測）──
+      // 共用模組 lib/dispatch-verifier.mjs — 三條派工路徑（dispatch endpoint /
+      // auto-dispatch / dispatch_agent tool）同一套驗收規則
+      const { takeDispatchSnapshot, verifyDispatchWork, dispatchRetrySuffix } = await import("../lib/dispatch-verifier.mjs");
+      const verifySnap = await takeDispatchSnapshot(projRoot);
+      const verifyWork = () => verifyDispatchWork(projRoot, verifySnap);
+
+      let attempts = 1;
+      let loopStats = await runAgentLoopStream({
+        systemPrompt: fullSystemPrompt,
+        messages,
+        cwd: projRoot,
+        featureBoundary: dispatchFeatureBoundary,
+        // 2026-10-15：傳完整 crewId（coding.developer 等）— skillBindings 用這個 key，
+        // 之前傳原始 agentId（developer）→ appendSkillBindings lookup 永遠 miss，skill 全部沒注入
+        agentId: crewId,
+        model: useModel,
+        // 2026-09-17 Fleming：派工上限 30 → 300（大任務會被砍斷）
+        maxTurns: 300,
+        timeout: effectiveTimeout,
+        abortSignal: dispatchAbort.signal,
+      }, res);
+
+      let verdict = taskId ? await verifyWork() : { pass: true, why: "no-task-skip-verify" };
+
+      // ── 驗收退回 → 自動重派一次（2026-09-20 Fleming：第二次通常會成功；重做不該由人觸發，
+      //    server 內建機械重試，兩次都失敗才判 FAILED 交 EM 協調）──
+      if (taskId && !verdict.pass && !dispatchAbort.signal.aborted && !res.destroyed) {
+        attempts = 2;
+        try { res.write(`data: ${JSON.stringify({ type: "dispatch_retry", attempts, message: `⚠️ Deterministic 驗收退回：${verdict.why}（零 commit 零 diff）— 自動重派第 2 次` })}\n\n`); } catch {}
+        loopStats = await runAgentLoopStream({
+          systemPrompt: fullSystemPrompt,
+          messages: [
+            { role: "system", content: fullSystemPrompt },
+            { role: "user", content: `${task}${dispatchRetrySuffix(verdict, 1)}` },
+          ],
+          cwd: projRoot,
+          featureBoundary: dispatchFeatureBoundary,
+          // 2026-10-15：同上 — 重派也要傳完整 crewId，skill 注入才會生效
+          agentId: crewId,
+          model: useModel,
+          maxTurns: 300,
+          timeout: effectiveTimeout,
+          abortSignal: dispatchAbort.signal,
+        }, res);
+        verdict = await verifyWork();
+      }
+
+      cleanupDispatch();
+
+      // ── 驗收結果通知 EM（SSE 尾事件；EM 讀到 fail 會知道要協調）──
+      try { res.write(`data: ${JSON.stringify({ type: "dispatch_verdict", pass: verdict.pass, attempts, why: verdict.why, files: verdict.files || [] })}\n\n`); } catch {} // nosemgrep: missing-template-string-indicator
+
+      // ── Post-dispatch: record result to task — 驗收 PASS 才 close（feature-first 簡化後語意）──
+      if (taskId) {
+        try {
+          const tasksDir = join(projRoot, ".paaw", "tasks");
+          const tasksFile = join(tasksDir, "TASKS.json");
+          if (existsSync(tasksFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+            const allData = JSON.parse(readSync(tasksFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+            const allTasks = allData.tasks || [];
+            const tIdx = allTasks.findIndex(t => t.id === taskId);
+            if (tIdx >= 0) {
+              if (!Array.isArray(allTasks[tIdx].notes)) allTasks[tIdx].notes = [];
+              if (verdict.pass) {
+                allTasks[tIdx].notes.push({
+                  by: agentId,
+                  at: new Date().toISOString(),
+                  content: `✅ Agent ${agentId} completed dispatched task（deterministic 驗收 PASS：${verdict.why}，嘗試 ${attempts} 次）`,
+                });
+                allTasks[tIdx].status = "close";
+              } else {
+                // 兩次都零證據 → 判 FAILED（2026-09-20 Fleming：再失敗再判 fail，交 EM/人協調；不自動 close 假成功）
+                allTasks[tIdx].notes.push({
+                  by: "system-verifier",
+                  at: new Date().toISOString(),
+                  content: `❌ Deterministic 驗收 FAILED（${attempts} 次嘗試皆零 commit 零 diff）— agent 宣稱完成但無實際產出，判定假成功。等 EM 協調（拆小任務重派）或人處理。`,
+                });
+                allTasks[tIdx].status = "pending";
+              }
+              if (verdict.pass && !allTasks[tIdx].resolvedAt) allTasks[tIdx].resolvedAt = new Date().toISOString();
+              allTasks[tIdx].updatedAt = new Date().toISOString();
+              allData.tasks = allTasks;
+              const { writeFileSync } = await import("node:fs");
+              writeFileSync(tasksFile, JSON.stringify(allData, null, 2), "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+            }
+          }
+        } catch (e) { console.error("post-dispatch task update error:", e.message); }
+      }
+
+      // ── Sub-task completion → 驗收 PASS 才 close；全部子任務 close → parent close（feature-first：無 chain、無 advance）──
+      if (subTaskId && taskId) {
+        try {
+          const tasksFile = join(projRoot, ".paaw", "tasks", "TASKS.json");
+          if (existsSync(tasksFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+            const allData = JSON.parse(readSync(tasksFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+            const allTasks = allData.tasks || [];
+            const sub = allTasks.find(t => t.id === subTaskId);
+            if (sub) {
+              if (verdict.pass) {
+                sub.status = "close";
+                if (!sub.resolvedAt) sub.resolvedAt = new Date().toISOString();
+                sub.updatedAt = new Date().toISOString();
+              } else {
+                sub.status = "pending";
+                sub.updatedAt = new Date().toISOString();
+                if (!Array.isArray(sub.notes)) sub.notes = [];
+                sub.notes.push({ by: "system-verifier", at: new Date().toISOString(), content: `❌ Deterministic 驗收 FAILED（${attempts} 次皆零 commit 零 diff）— 假成功退回，等 EM/人協調` });
+              }
+            }
+            const parent = allTasks.find(t => t.id === taskId);
+            if (parent && parent.id !== subTaskId) {
+              const subs = allTasks.filter(t => t.parentId === taskId);
+              if (subs.length > 0 && subs.every(s => s.status === "close" || s.status === "ignore")) {
+                parent.status = "close";
+                if (!parent.resolvedAt) parent.resolvedAt = new Date().toISOString();
+                parent.updatedAt = new Date().toISOString();
+                if (!Array.isArray(parent.notes)) parent.notes = [];
+                parent.notes.push({ by: "system", at: new Date().toISOString(), content: `✅ All ${subs.length} sub-tasks completed` });
+              }
+            }
+            allData.tasks = allTasks;
+            const { writeFileSync } = await import("node:fs");
+            writeFileSync(tasksFile, JSON.stringify(allData, null, 2), "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          }
+        } catch (e) { console.error("sub-task completion update error:", e.message); }
+      }
+
+      return true;
+
+    } catch (err) {
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      } else {
+        try { res.write(`data: ${JSON.stringify({ type: "error", error: err.message })}\n\n`); res.end(); } catch {} // nosemgrep: missing-template-string-indicator
+      }
+      // Record timeout/error to task
+      if (taskId) {
+        try {
+          const tasksDir = join(projRoot, ".paaw", "tasks");
+          const tasksFile = join(tasksDir, "TASKS.json");
+          if (existsSync(tasksFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+            const allData = JSON.parse(readSync(tasksFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+            const allTasks = allData.tasks || [];
+            const tIdx = allTasks.findIndex(t => t.id === taskId);
+            if (tIdx >= 0) {
+              if (!Array.isArray(allTasks[tIdx].notes)) allTasks[tIdx].notes = [];
+              allTasks[tIdx].notes.push({
+                by: agentId,
+                at: new Date().toISOString(),
+                content: `⚠️ Agent ${agentId} ended with error: ${err.message.slice(0, 200)}. Work may be partially done.`,
+              });
+              allTasks[tIdx].status = "pending"; // 失敗 → pending，寫明原因，等人處理（不自動重試）
+              allTasks[tIdx].updatedAt = new Date().toISOString();
+              allData.tasks = allTasks;
+              const { writeFileSync } = await import("node:fs");
+              writeFileSync(tasksFile, JSON.stringify(allData, null, 2), "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+            }
+          }
+        } catch (e) { console.error("post-dispatch error task update:", e.message); }
+      }
+
+    }
+    return true;
+  }
+
+  // ── Crew Conversation Persistence ──
+  // ── Conversation / Session APIs ──
+  // ══ QA Results — QA 記錄共享存儲（2026-09-17 Fleming：qa agent 留記錄、其他 agent 讀寫）══
+  // 儲存 <cwd>/.paaw/coding-memory/qa-results.jsonl；設計文件見 OpenClaw memory/qa-results-api-design.md
+  //
+  // GET    /api/coding-crew/qa-results?cwd=&verdict=&status=&actor=&type=&taskId=&feature=&q=&limit= — 列表（新→舊）
+  // POST   /api/coding-crew/qa-results {cwd, actor?, type?, target, url?, taskId?, feature?, verdict, summary, issues?, evidence?, durationMs?}
+  // GET    /api/coding-crew/qa-results/:id?cwd=   — 單筆
+  // PATCH  /api/coding-crew/qa-results/:id {cwd, status?, issueIndex?|issueDesc?, issueStatus?, note?, summary?, addEvidence?, by?}
+  // DELETE /api/coding-crew/qa-results/:id?cwd=   — 刪除（清理用）
+  // GET    /api/coding-crew/qa-results?cwd=&stats=1 — 統計（total/open/failOpen/byVerdict）
+  const qaResultsMatch = url.match(/^\/api\/coding-crew\/qa-results\/([^/?]+)$/);
+  if (qaResultsMatch && (method === "GET" || method === "PATCH" || method === "DELETE")) {
+    let id;
+    try { id = sanitizeId(decodeURIComponent(qaResultsMatch[1])); } catch (err) { return sendPathTraversalError(res, err); }
+    let cwd = q.cwd || PAAW_ROOT;
+    if (method === "PATCH") {
+      let body;
+      try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
+      if (body.cwd) cwd = body.cwd;
+      const rec = updateQaResult(cwd, id, body, body.by || body.actor || "human");
+      if (!rec) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "QA result not found", id }));
+      } else {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, record: rec }));
+      }
+      return true;
+    }
+    if (method === "DELETE") {
+      const ok = deleteQaResult(cwd, id);
+      res.writeHead(ok ? 200 : 404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok }));
+      return true;
+    }
+    const rec = getQaResult(cwd, id);
+    if (!rec) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "QA result not found", id }));
+    } else {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, record: rec }));
+    }
+    return true;
+  }
+  if (url === "/api/coding-crew/qa-results" && method === "GET") {
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
+    if (q.stats === "1" || q.stats === "true") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, stats: qaStats(cwd) }));
+      return true;
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, results: listQaResults(cwd, q) }));
+    return true;
+  }
+  if (url === "/api/coding-crew/qa-results" && method === "POST") {
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    try {
+      // 2026-10-22 lineage 制：自動綁樹 — 記錄當下 HEAD（RR qa-records scope 綁定用）
+      const qaCwd = body.cwd || q.cwd || PAAW_ROOT;
+      let headSha = body.headSha || null;
+      if (!headSha) {
+        try {
+          const { shellExec } = await import("../lib/shell-exec.mjs");
+          const { stdout } = await shellExec("git rev-parse HEAD", { cwd: qaCwd, timeout: 5000 });
+          headSha = (stdout || "").trim() || null;
+        } catch { /* 非 git 目錄 → 不綁 */ }
+      }
+      const record = saveQaResult(qaCwd, { ...body, headSha });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, record }));
+    } catch (e) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // New structure: .paaw/coding-memory/conversations/{agentId}/active.json + s-*.json history
+  //
+  // GET    /api/coding-crew/conversations?cwd=...                              — List all agents with conversations
+  // GET    /api/coding-crew/conversations/:crewId?cwd=...                     — Load active conversation
+  // POST   /api/coding-crew/conversations/:crewId?cwd=...                     — Save active conversation
+  // DELETE /api/coding-crew/conversations/:crewId?cwd=...                     — Clear active conversation
+  // POST   /api/coding-crew/conversations/:crewId/new-session?cwd=...         — Archive active + start new (like /new)
+  // GET    /api/coding-crew/conversations/:crewId/sessions?cwd=...            — List all sessions (active + history)
+  // GET    /api/coding-crew/conversations/:crewId/sessions/:sessionId?cwd=... — Load specific session
+  // DELETE /api/coding-crew/conversations/:crewId/sessions/:sessionId?cwd=... — Delete a session
+  // POST   /api/coding-crew/conversations/:crewId/switch/:sessionId?cwd=...  — Switch to a history session
+
+  // Helper: resolve conversation paths for an agent
+  function getConvPaths(cwd, crewId) {
+    const agentDir = join(cwd, ".paaw", "coding-memory", "conversations", crewId);
+    return {
+      agentDir,
+      activeFile: join(agentDir, "active.json"),
+    };
+  }
+
+  // ── Security: validate crewId / sessionId against path traversal ──
+  // sanitizeId / sendPathTraversalError now come from ../lib/coding-security.mjs
+
+  // Helper: read conversation from file (handles both old flat + new dir format)
+  async function readConvFile(filePath) {
+    if (!existsSync(filePath)) return { messages: [], _meta: {} };
+    try {
+      const data = JSON.parse(readSync(filePath, "utf-8"));
+      if (Array.isArray(data)) return { messages: data, _meta: {} };
+      return { messages: data.messages || [], _meta: data._meta || {} };
+    } catch {
+      return { messages: [], _meta: {} };
+    }
+  }
+
+  // ── Migrate old flat files → new directory structure ──
+  async function migrateFlatConversations(cwd) {
+    const convDir = join(cwd, ".paaw", "coding-memory", "conversations");
+    if (!existsSync(convDir)) return;
+    const entries = await readdir(convDir);
+    for (const entry of entries) {
+      const entryPath = join(convDir, entry);
+      const stat = await import("fs").then(fs => fs.statSync(entryPath));
+      // If it's a .json file (old flat format), move to {agentId}/active.json
+      if (entry.endsWith(".json") && stat.isFile()) {
+        const agentId = entry.replace(".json", "");
+        const agentDir = join(convDir, agentId);
+        const newFile = join(agentDir, "active.json");
+        if (!existsSync(agentDir)) await mkdir(agentDir, { recursive: true });
+        if (!existsSync(newFile)) {
+          const { rename } = await import("fs/promises");
+          await rename(entryPath, newFile);
+          console.log(`[conv-migrate] ${entry} → ${agentId}/active.json`);
+        } else {
+          await unlink(entryPath); // new file already exists, remove old
+        }
+      }
+      // If it's old .archive directory, move each archive .json to parent as s-*.json
+      if (entry.endsWith(".archive") && stat.isDirectory()) {
+        const agentId = entry.replace(".archive", "");
+        const agentDir = join(convDir, agentId);
+        if (!existsSync(agentDir)) await mkdir(agentDir, { recursive: true });
+        try {
+          const archiveFiles = await readdir(entryPath);
+          for (const af of archiveFiles.filter(f => f.endsWith(".json"))) {
+            const src = join(entryPath, af);
+            const data = JSON.parse(readSync(src, "utf-8"));
+            const archivedAt = data._meta?.archivedAt || new Date().toISOString();
+            const tsStr = archivedAt.replace(/[:.]/g, "-").slice(0, 19);
+            const dest = join(agentDir, `s-${tsStr}.json`);
+            if (!existsSync(dest)) {
+              const { rename } = await import("fs/promises");
+              await rename(src, dest);
+            } else {
+              await unlink(src);
+            }
+          }
+          // Remove empty .archive directory
+          const { rmdir } = await import("fs/promises");
+          try { await rmdir(entryPath); } catch {} // not empty = ok
+        } catch (e) {
+          console.error(`[conv-migrate] Failed to migrate archive ${entry}:`, e.message);  // nosemgrep: unsafe-formatstring
+        }
+      }
+    }
+  }
+
+  // Run migration on first request
+  await migrateFlatConversations(q.cwd || PAAW_ROOT);
+
+  // ── Console log 輪詢已移到 routes/janitor.mjs（GET /api/logs/console — 本檔 gate 擋不到）──
+
+
+  // GET /api/coding-crew/conversations/:crewId?cwd=... — load active conversation
+  const convLoadMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/?]+)(?:\?.*)?$/);
+  if (convLoadMatch && method === "GET") {
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(convLoadMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
+    const { activeFile } = getConvPaths(cwd, crewId);
+    try {
+      const data = await readConvFile(activeFile);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ messages: data.messages, crewId }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/coding-crew/conversations/:crewId?cwd=... — save active conversation
+  if (convLoadMatch && method === "POST") {
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(convLoadMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
+    const { agentDir, activeFile } = getConvPaths(cwd, crewId);
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    try {
+      await mkdir(agentDir, { recursive: true }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      const payload = {
+        _meta: {
+          crewId,
+          lastUpdated: new Date().toISOString(),
+          messageCount: (body.messages || []).length,
+        },
+        messages: body.messages || [],
+      };
+      await writeFile(activeFile, JSON.stringify(payload, null, 2), "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, crewId, messageCount: payload.messages.length }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // DELETE /api/coding-crew/conversations/:crewId?cwd=... — clear active conversation
+  if (convLoadMatch && method === "DELETE") {
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(convLoadMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
+    const { activeFile } = getConvPaths(cwd, crewId);
+    try {
+      if (existsSync(activeFile)) { await unlink(activeFile); } // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, crewId }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/coding-crew/conversations/:crewId/new-session?cwd=... — archive active + start new (like /new)
+  const newSessionMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/new-session(?:\?.*)?$/);
+  if (newSessionMatch && method === "POST") {
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(newSessionMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
+    const { agentDir, activeFile } = getConvPaths(cwd, crewId);
+    try {
+      const data = await readConvFile(activeFile);
+      if (data.messages.length === 0) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, crewId, archived: false, message: "Empty conversation" }));
+        return true;
+      }
+      // Move active.json → s-{timestamp}.json
+      const ts = new Date();
+      // 2026-10-01 治本：帶毫秒 — 同秒兩次歸檔檔名碰撞會靜默覆蓋（實測踩到）
+      const tsStr = ts.toISOString().replace(/[:.]/g, "-").slice(0, 23);
+      const firstUser = data.messages.find(m => m.role === "user");
+      const preview = firstUser ? firstUser.content.slice(0, 40).replace(/[^\w\u4e00-\u9fff -]/g, "").trim() : "conversation";
+      const sessionFile = join(agentDir, `s-${tsStr}.json`);
+      // Update meta before saving as session
+      data._meta.archivedAt = ts.toISOString();
+      data._meta.title = firstUser ? firstUser.content.slice(0, 60) : "對話";
+      data._meta.sessionId = `s-${tsStr}`;
+      await writeFile(sessionFile, JSON.stringify(data, null, 2), "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      // Clear active
+      await unlink(activeFile); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, crewId, archived: true, sessionId: `s-${tsStr}`, messageCount: data.messages.length }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // GET /api/coding-crew/conversations/:crewId/sessions?cwd=... — list all sessions
+  const sessionsListMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/sessions(?:\?.*)?$/);
+  if (sessionsListMatch && method === "GET") {
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(sessionsListMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
+    const { agentDir, activeFile } = getConvPaths(cwd, crewId);
+    try {
+      const sessions = [];
+      // Active session
+      const activeData = await readConvFile(activeFile);
+      if (activeData.messages.length > 0) {
+        sessions.push({
+          sessionId: "active",
+          title: activeData._meta?.title || activeData.messages.find(m => m.role === "user")?.content.slice(0, 60) || "目前對話",
+          messageCount: activeData.messages.length,
+          lastUpdated: activeData._meta?.lastUpdated || null,
+          isActive: true,
+        });
+      }
+      // History sessions
+      if (existsSync(agentDir)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        const files = await readdir(agentDir); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        for (const f of files.filter(f => f.startsWith("s-") && f.endsWith(".json")).sort().reverse()) {
+          try {
+            const data = JSON.parse(readSync(join(agentDir, f), "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+            sessions.push({
+              sessionId: f.replace(".json", ""),
+              title: data._meta?.title || data.messages?.find(m => m.role === "user")?.content?.slice(0, 60) || "對話",
+              messageCount: data._meta?.messageCount || data.messages?.length || 0,
+              lastUpdated: data._meta?.archivedAt || data._meta?.lastUpdated || null,
+              isActive: false,
+            });
+          } catch {}
+        }
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ sessions }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // GET /api/coding-crew/conversations/:crewId/sessions/:sessionId?cwd=... — load specific session
+  const sessionLoadMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/sessions\/([^?]+)/);
+  if (sessionLoadMatch && method === "GET") {
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(sessionLoadMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
+    let sessionId;
+    try {
+      sessionId = sanitizeId(decodeURIComponent(sessionLoadMatch[2]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
+    const { agentDir, activeFile } = getConvPaths(cwd, crewId);
+    try {
+      const filePath = sessionId === "active" ? activeFile : join(agentDir, `${sessionId}.json`);
+      const data = await readConvFile(filePath);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ messages: data.messages, meta: data._meta, crewId, sessionId }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // DELETE /api/coding-crew/conversations/:crewId/sessions/:sessionId?cwd=... — delete a history session
+  if (sessionLoadMatch && method === "DELETE") {
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(sessionLoadMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
+    let sessionId;
+    try {
+      sessionId = sanitizeId(decodeURIComponent(sessionLoadMatch[2]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
+    const { agentDir } = getConvPaths(cwd, crewId);
+    try {
+      if (sessionId === "active") {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Cannot delete active session, use DELETE /conversations/:crewId" }));
+        return true;
+      }
+      const filePath = join(agentDir, `${sessionId}.json`);
+      if (existsSync(filePath)) { await unlink(filePath); } // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, crewId, sessionId }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/coding-crew/conversations/:crewId/switch/:sessionId?cwd=... — switch to a history session
+  const switchSessionMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/switch\/([^?]+)/);
+  if (switchSessionMatch && method === "POST") {
+    let crewId;
+    try {
+      crewId = sanitizeId(decodeURIComponent(switchSessionMatch[1]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
+    let sessionId;
+    try {
+      sessionId = sanitizeId(decodeURIComponent(switchSessionMatch[2]));
+    } catch (err) {
+      return sendPathTraversalError(res, err);
+    }
+    const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
+    const { agentDir, activeFile } = getConvPaths(cwd, crewId);
+    try {
+      if (sessionId === "active") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, message: "Already on active session" }));
+        return true;
+      }
+      // 🛡 2026-10-21：先確認目標 session 存在再動 active —
+      // 舊碼先歸檔 active 才讀目標；目標檔不存在時 srcData 為空 → active 被歸檔後清空（原對話雖存檔但目前對話消失）
+      const srcFile = join(agentDir, `${sessionId}.json`);
+      if (!existsSync(srcFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `Session not found: ${sessionId}` }));
+        return true;
+      }
+      // Archive current active if it has messages
+      const activeData = await readConvFile(activeFile);
+      if (activeData.messages.length > 0) {
+        const ts = new Date();
+        // 2026-10-01 治本：帶毫秒 — 同秒兩次歸檔檔名碰撞會靜默覆蓋
+        const tsStr = ts.toISOString().replace(/[:.]/g, "-").slice(0, 23);
+        activeData._meta.archivedAt = ts.toISOString();
+        activeData._meta.sessionId = `s-${tsStr}`;
+        const archiveFile = join(agentDir, `s-${tsStr}.json`);
+        await writeFile(archiveFile, JSON.stringify(activeData, null, 2), "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        await unlink(activeFile); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      }
+      // Load target session → make it active（srcFile 已在上方防呆宣告）
+      const srcData = await readConvFile(srcFile);
+      // Write as active
+      srcData._meta.lastUpdated = new Date().toISOString();
+      delete srcData._meta.archivedAt;
+      srcData._meta.sessionId = "active";
+      await writeFile(activeFile, JSON.stringify(srcData, null, 2), "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      // Remove old session file
+      await unlink(srcFile); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, crewId, switchedTo: "active", messageCount: srcData.messages.length }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/coding-crew/context-window — build optimized context window
+  // Body: { messages, maxTokens, systemPromptLength }
+  // Returns: { messages, stats: { totalInput, trimmed, summaryCreated } }
+  if (url === "/api/coding-crew/context-window" && method === "POST") {
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    const { messages = [], maxTokens = 8000, systemPromptLength = 0 } = body;
+    
+    // Filter: only user/assistant, skip thinking bubbles
+    const clean = messages
+      .filter(m => m.role === "user" || m.role === "assistant")
+      .filter(m => !m._thinking)
+      .map(m => ({ role: m.role, content: (m.content || "").replace(/^💭 /, "") }));
+    
+    // Rough token estimate: ~4 chars per token for mixed CJK/English
+    const estimateTokens = (text) => Math.ceil((text || "").length / 4);
+    
+    // Reserve tokens for system prompt + current message + response
+    const reservedTokens = systemPromptLength + 2000; // system + response budget
+    const budget = maxTokens - reservedTokens;
+    
+    // Greedy fill from most recent backwards
+    const selected = [];
+    let usedTokens = 0;
+    for (let i = clean.length - 1; i >= 0; i--) {
+      const msgTokens = estimateTokens(clean[i].content);
+      if (usedTokens + msgTokens > budget && selected.length > 0) break;
+      selected.unshift(clean[i]);
+      usedTokens += msgTokens;
+    }
+    
+    // If we trimmed messages, create a summary of what was cut
+    const trimmedCount = clean.length - selected.length;
+    let summary = null;
+    if (trimmedCount > 0) {
+      const trimmedMessages = clean.slice(0, trimmedCount);
+      // Build a compact summary of trimmed messages
+      const summaryParts = trimmedMessages.map(m => {
+        const role = m.role === "user" ? "👤" : "🤖";
+        return `${role} ${m.content.slice(0, 150)}`;
+      });
+      summary = `[Earlier conversation summary (${trimmedCount} messages trimmed)]:\n${summaryParts.join("\n")}`;
+    }
+    
+    const result = {
+      messages: summary ? [{ role: "system", content: summary }, ...selected] : selected,
+      stats: {
+        totalInput: clean.length,
+        included: selected.length,
+        trimmed: trimmedCount,
+        estimatedTokens: usedTokens + (summary ? estimateTokens(summary) : 0),
+        summaryCreated: summary !== null,
+      },
+    };
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(result));
+    return true;
+  }
+
+  // ── GET /api/coding-crew/action-log — Read action log ──
+  // ── GET /api/coding-project/ru-log — 讀 RU 的 app console log（人 UI + agent 經由 api 同源）──
+  // 2026-09-12 Fleming：agent 經由 api 看目前 RU 的 log，幫開發/看開發時產生的問題
+  if (url === "/api/coding-project/ru-log" && method === "GET") {
+    const { readDevLog } = await import("../lib/dev-server.mjs");
+    const ruRoot = projectPath ? resolve(projectPath) : PAAW_ROOT;
+    const out = await readDevLog(ruRoot, {
+      lines: q.lines || 100,
+      grep: q.grep || undefined,
+      date: q.date || undefined,
+      list: q.list === "1" || q.list === "true",
+    });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, ru: ruRoot, text: out }));
+    return true;
+  }
+
+  if (url.startsWith("/api/coding-crew/action-log") && method === "GET") {
+    const { listActionLog } = await import("../lib/action-log.mjs");
+    const params = new URL(url, `http://localhost`).searchParams;
+    const agent = params.get("agent") || undefined;
+    const limit = parseInt(params.get("limit") || "20");
+    const { entries, text } = await listActionLog({ cwd: projectPath || PAAW_ROOT, agent, limit });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ entries, text }));
+    return true;
+  }
+
+  // ── POST /api/coding-crew/em-plan — EM Plan only (no execute) ──
+  if (url === "/api/coding-crew/em-plan" && method === "POST") {
+    const body = await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); });
+    const { cwd, since, model } = JSON.parse(body || "{}");
+    const rootDir = cwd || projectPath || PAAW_ROOT;
+
+    let nsConfig = null;
+    try {
+      const nsConfigPath = join(rootDir, ".paaw", "auto-dispatch", "config.json");
+      if (existsSync(nsConfigPath)) nsConfig = JSON.parse(readSync(nsConfigPath, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    } catch {}
+    const modelOverride = model || nsConfig?.model?.primary || undefined;
+    const fallbackModels = nsConfig?.model?.fallbacks || [];
+
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+      "X-Accel-Buffering": "no",
+    });
+    res.flushHeaders();
+    if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
+
+    const sendSSE = (type, data) => {
+      if (res.writableEnded || res.destroyed) return;
+      try {
+        res.write(`event: ${type}\n`);
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      } catch {}
+    };
+
+    try {
+      const { planEMSession } = await import("../lib/auto-dispatch-manager.mjs");
+      sendSSE("start", { message: "🎖️ EM 規劃啟動", ts: new Date().toISOString() });
+      const { workList, situationReport } = await planEMSession({ rootDir, sendSSE, since, modelOverride, fallbackModels });
+      sendSSE("plan_ready", { workList, situationReport });
+    } catch (err) {
+      console.error("[EM-Plan] error:", err);
+      sendSSE("error", { message: `❌ EM 規劃失敗：${err.message}`, isError: true });
+    }
+    if (!res.writableEnded) res.end();
+    return true;
+  }
+
+  // ── POST /api/coding-crew/em-execute — EM Execute with confirmed workList ──
+  if (url === "/api/coding-crew/em-execute" && method === "POST") {
+    const body = await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); });
+    const { cwd, workList, situationReport, model } = JSON.parse(body || "{}");
+    const rootDir = cwd || projectPath || PAAW_ROOT;
+
+    let nsConfig = null;
+    try {
+      const nsConfigPath = join(rootDir, ".paaw", "auto-dispatch", "config.json");
+      if (existsSync(nsConfigPath)) nsConfig = JSON.parse(readSync(nsConfigPath, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    } catch {}
+    const modelOverride = model || nsConfig?.model?.primary || undefined;
+    const fallbackModels = nsConfig?.model?.fallbacks || [];
+
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+      "X-Accel-Buffering": "no",
+    });
+    res.flushHeaders();
+    if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
+
+    const sendSSE = (type, data) => {
+      if (res.writableEnded || res.destroyed) return;
+      try {
+        res.write(`event: ${type}\n`);
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      } catch {}
+    };
+
+    try {
+      const { executeEMSession } = await import("../lib/auto-dispatch-manager.mjs");
+      sendSSE("start", { message: "🎖️ EM 開始執行", ts: new Date().toISOString() });
+      const { report, results } = await executeEMSession({ rootDir, workList, situationReport, modelOverride, fallbackModels, sendSSE, projectPhase: nsConfig?.projectPhase || 'bootstrap' });
+      sendSSE("complete", { workList, results, report });
+    } catch (err) {
+      console.error("[EM-Execute] error:", err);
+      sendSSE("error", { message: `❌ EM 執行失敗：${err.message}`, isError: true });
+    }
+    if (!res.writableEnded) res.end();
+    return true;
+  }
+
+  // ── POST /api/coding-crew/interrupt — Terminate a running agent ──
+  // Must be BEFORE projectPath check — interrupt doesn't need a project path
+  // 2026-09-15：body 可帶 cwd 精準中斷該 RU 的 run；帶了 cwd 沒命中就不動（不誤殺其他 RU），沒帶 cwd 掃 agentId prefix（舊行為相容）
+  if (url === "/api/coding-crew/interrupt" && method === "POST") {
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
+    const { agentId: aid, cwd: icwd } = body;
+    if (!aid) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "Missing agentId" })); return true; }
+
+    let hit = null; // { key, info }
+    if (icwd) {
+      const k = `${aid}::${resolve(icwd)}`;
+      const v = runningCodingAgents.get(k);
+      if (v) hit = { key: k, info: v };
+    } else {
+      for (const [k, v] of runningCodingAgents) {
+        if (k.startsWith(`${aid}::`)) { hit = { key: k, info: v }; break; }
+      }
+    }
+
+    if (!hit) {
+      // Also check A2A running streams（cwd-aware — 帶 cwd 精準、沒帶掃 prefix）
+      let a2aHit = null;
+      try {
+        const a2aMod = await import("./a2a.mjs");
+        a2aHit = a2aMod.findRunningStream(aid, icwd);
+        if (a2aHit) {
+          a2aHit.stream.abortController.abort();
+          try { if (!a2aHit.stream.res.writableEnded) { a2aHit.stream.res.write("event: interrupted\ndata: " + JSON.stringify({ message: "Interrupted by user", agentId: aid }) + "\n\n"); a2aHit.stream.res.end(); } } catch {}
+          a2aMod.runningStreams.delete(a2aHit.key);
+        }
+      } catch {}
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, message: `No coding agent '${aid}' running${a2aHit ? ` (interrupted via A2A: ${a2aHit.key})` : ""}` }));
+      return true;
+    }
+    hit.info.abortController.abort();
+    try {
+      if (!hit.info.res.writableEnded) {
+        hit.info.res.write("event: interrupted\ndata: " + JSON.stringify({ message: "Agent terminated by user", agentId: aid }) + "\n\n");
+        hit.info.res.end();
+      }
+    } catch {}
+    runningCodingAgents.delete(hit.key);
+    console.log(`[CodingCrew] Interrupted agent '${hit.key}'`);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, message: `Agent '${hit.key}' terminated` }));
+    return true;
+  }
+
+  // ── GET /api/coding-crew/running — List running agents ──
+  // Must be BEFORE projectPath check
+  if (url === "/api/coding-crew/running" && method === "GET") {
+    const agents = [];
+    for (const [id, info] of runningCodingAgents.entries()) {
+      const sep = id.indexOf("::"); // 2026-09-15：compound key agentId::projRoot 拆回兩欄
+      const agentId = sep > 0 ? id.slice(0, sep) : id;
+      const cwd = sep > 0 ? id.slice(sep + 2) : info.projRoot || null;
+      agents.push({ agentId, cwd, source: info.source, startedAt: info.startedAt, elapsed: Math.round((Date.now() - info.startedAt) / 1000) });
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, agents }));
+    return true;
+  }
+
+  // ════════════════════════════════════════════════════════
+  // ── Per-Project Crew Management (Phase 1: Data Layer) ──
+  // ════════════════════════════════════════════════════════
+
+  // ── CU step skill 綁定 — GET 讀綁定 / PUT 更新（用 crew.json skillBindings["cu.<stepId>"]）──
+  if (url.startsWith("/api/coding-project/cu-skills") && (req.method === "GET" || req.method === "PUT" || req.method === "POST")) {
+    const { readJson, getConfigPath, DEFAULT_CU_STEP_SKILLS } = await import("../lib/project-crew.mjs");
+    const { updateAgentSkills } = await import("../lib/project-crew.mjs");
+    const config = readJson(getConfigPath(projectPath), null) || {};
+    // GET：回有效綁定（explicit 專案設定 > DEFAULT_CU_STEP_SKILLS 預設），並標記哪些是預設
+    const bindings = {};
+    const defaultsApplied = {};
+    for (const stepId of Object.keys(DEFAULT_CU_STEP_SKILLS)) {
+      const explicit = config.skillBindings?.[`cu.${stepId}`];
+      if (Array.isArray(explicit)) {
+        if (explicit.length > 0) bindings[stepId] = explicit;
+      } else {
+        bindings[stepId] = DEFAULT_CU_STEP_SKILLS[stepId];
+        defaultsApplied[stepId] = true;
+      }
+    }
+    // 舊行為相容：其他有設定的 cu.* 也照回
+    for (const [k, v] of Object.entries(config.skillBindings || {})) {
+      if (k.startsWith("cu.") && Array.isArray(v) && v.length > 0) bindings[k.slice(3)] = v;
+    }
+    if (req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ bindings, defaultsApplied }));
+      return true;
+    }
+    const body = JSON.parse(await readBody(req) || "{}");
+    const stepId = body.stepId;
+    if (!stepId) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "stepId required" })); return true; }
+    const result = updateAgentSkills(projectPath, cuStepSkillKey(stepId), body.skills || body.skillIds || []);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, ...result }));
+    return true;
+  }
+
+  // ── GET /api/coding-project/skills — List all available skills for SkillPicker ──
+  if (url.startsWith("/api/coding-project/skills") && req.method === "GET") {
+    try {
+      const { readdirSync, readFileSync: rf, existsSync: exists } = await import("fs");
+      const { join, resolve: resv } = await import("path");
+      const skillsRoot = resv(DATA_HOME, "skills");
+      const skills = [];
+
+      // Scan physical-skill and input-prompt dirs
+      const scanDirs = [
+        { dir: join(skillsRoot, "physical-skill"), kind: "physical" },
+        { dir: join(skillsRoot, "input-prompt"), kind: "input-prompt" },
+      ];
+      const seen = new Set();
+      for (const { dir, kind } of scanDirs) {
+        if (!exists(dir)) continue;
+        let dirs;
+        try { dirs = readdirSync(dir); } catch { continue; }
+        for (const d of dirs) {
+          if (seen.has(d)) continue;
+          let name = d, description = "", category = "";
+          // Try SKILL.md
+          const skillMd = join(dir, d, "SKILL.md");
+          const inputsJson = join(dir, d, "inputs.json");
+          try {
+            const raw = rf(skillMd, "utf-8");
+            const nm = raw.match(/^name:\s*(.+)$/m);
+            const ds = raw.match(/^description:\s*(.+)$/m);
+            const ct = raw.match(/^category:\s*(.+)$/m);
+            if (nm) name = nm[1].trim();
+            if (ds) description = ds[1].trim();
+            if (ct) category = ct[1].trim();
+            seen.add(d);
+          } catch {
+            try {
+              const ij = JSON.parse(rf(inputsJson, "utf-8"));
+              name = ij.name || d;
+              description = ij.description || "";
+              seen.add(d);
+            } catch {}
+          }
+          skills.push({ id: d, name, description, category, kind });
+        }
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ skills }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── Agent Memory endpoints ──
+  // GET /api/coding-project/agent-memory?path=...&agentId=coding.architect
+  if (url.startsWith("/api/coding-project/agent-memory") && req.method === "GET") {
+    try {
+      const projectDir = q.path || "";
+      const agentId = q.agentId || "";
+      if (!projectDir || !agentId) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "path and agentId required" }));
+        return true;
+      }
+      const { loadAgentMemory } = await import("../lib/action-log.mjs");
+      const content = await loadAgentMemory(agentId, projectDir, 999999);
+      // Get file stats — check both full and short form filenames
+      const shortId = agentId.replace(/^(coding\.|custom\.)/, "");
+      const memPaths = [
+        join(projectDir, ".paaw", "agent-memory", `${agentId}.md`),
+        join(projectDir, ".paaw", "agent-memory", `${shortId}.md`),
+      ];
+      let updatedAt = null, size = 0;
+      for (const mp of memPaths) {
+        try { const stat = await fsStat(mp); updatedAt = stat.mtime; size = stat.size; break; } catch {}
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ agentId, content, updatedAt, size }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // PUT /api/coding-project/agent-memory — Save agent memory
+  if (url.startsWith("/api/coding-project/agent-memory") && req.method === "PUT") {
+    try {
+      const body = JSON.parse(await readBody(req) || "{}");
+      const { path: projectDir, agentId, content } = body;
+      if (!projectDir || !agentId) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "path and agentId required" }));
+        return true;
+      }
+      const { saveAgentMemory } = await import("../lib/action-log.mjs");
+      await saveAgentMemory(agentId, content, projectDir);
+      const memPath = join(projectDir, ".paaw", "agent-memory", `${agentId}.md`);
+      let updatedAt = null, size = 0;
+      try { const stat = await fsStat(memPath); updatedAt = stat.mtime; size = stat.size; } catch {}
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, agentId, updatedAt, size }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // DELETE /api/coding-project/agent-memory — Clear agent memory
+  if (url.startsWith("/api/coding-project/agent-memory") && req.method === "DELETE") {
+    try {
+      const projectDir = q.path || "";
+      const agentId = q.agentId || "";
+      if (!projectDir || !agentId) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "path and agentId required" }));
+        return true;
+      }
+      const shortId = agentId.replace(/^(coding\.|custom\.)/, "");
+      const memPaths = [
+        join(projectDir, ".paaw", "agent-memory", `${agentId}.md`),
+        join(projectDir, ".paaw", "agent-memory", `${shortId}.md`),
+      ];
+      for (const mp of memPaths) {
+        try { await unlink(mp); } catch {} // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, agentId }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── Crew Export/Import endpoints ──
+  // GET /api/coding-project/crew-export?path=...
+  if (url.startsWith("/api/coding-project/crew-export") && req.method === "GET") {
+    try {
+      const projectDir = q.path || "";
+      if (!projectDir) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "path required" }));
+        return true;
+      }
+      const { readProjectCrew, readProjectSkills } = await import("../lib/project-crew.mjs");
+      const { agents, config } = readProjectCrew(projectDir);
+      const skillBindings = {};
+      for (const a of agents) {
+        const skills = readProjectSkills(projectDir, a.id);
+        if (skills.length > 0) skillBindings[a.id] = skills.map(s => s.id);
+      }
+      // Read all agent memories
+      const memDir = join(projectDir, ".paaw", "agent-memory");
+      const memories = {};
+      try {
+        const memFiles = await readdir(memDir); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+        for (const f of memFiles) {
+          if (f.endsWith(".md")) {
+            const agentId = f.replace(/\.md$/, "");
+            memories[agentId] = await readFile(join(memDir, f), "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+          }
+        }
+      } catch {}
+      const exportData = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        agents: agents.map(({ _source, _clonedAt, _updatedAt, _createdAt, _resetAt, ...rest }) => rest),
+        config,
+        skillBindings,
+        memories,
+      };
+      res.writeHead(200, { "Content-Type": "application/json", "Content-Disposition": "attachment; filename=crew-export.json" });
+      res.end(JSON.stringify(exportData, null, 2));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/coding-project/crew-import — Import crew config
+  if (url.startsWith("/api/coding-project/crew-import") && req.method === "POST") {
+    try {
+      const body = JSON.parse(await readBody(req) || "{}");
+      const { path: projectDir, data } = body;
+      if (!projectDir || !data) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "path and data required" }));
+        return true;
+      }
+      const { initProjectCrew, updateProjectAgent, updateAgentModel, updateAgentSkills } = await import("../lib/project-crew.mjs");
+      const { saveAgentMemory } = await import("../lib/action-log.mjs");
+      // Initialize crew structure
+      initProjectCrew(projectDir);
+      let imported = 0, skipped = 0;
+      // Import agents (only non-default fields are patched)
+      if (data.agents) {
+        for (const agent of data.agents) {
+          try {
+            // Only patch fields that differ from defaults
+            const patch = {};
+            const skipKeys = new Set(["id", "_source", "_clonedAt", "_updatedAt", "_createdAt", "_resetAt"]);
+            for (const [k, v] of Object.entries(agent)) {
+              if (!skipKeys.has(k) && v !== undefined) patch[k] = v;
+            }
+            if (Object.keys(patch).length > 0) {
+              updateProjectAgent(projectDir, agent.id, patch);
+              imported++;
+            } else {
+              skipped++;
+            }
+          } catch { skipped++; }
+        }
+      }
+      // Import models
+      if (data.config?.models) {
+        for (const [agentId, modelCfg] of Object.entries(data.config.models)) {
+          try { updateAgentModel(projectDir, agentId, modelCfg); } catch {}
+        }
+      }
+      // Import skill bindings
+      if (data.skillBindings) {
+        for (const [agentId, skills] of Object.entries(data.skillBindings)) {
+          try { updateAgentSkills(projectDir, agentId, skills); } catch {}
+        }
+      }
+      // Import memories
+      if (data.memories) {
+        for (const [agentId, content] of Object.entries(data.memories)) {
+          try { await saveAgentMemory(agentId, content, projectDir); } catch {}
+        }
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, imported, skipped }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // These must come before the generic /create route
+  if (url.startsWith("/api/coding-project/crew")) {
+    const { initProjectCrew, readProjectCrew, readProjectAgent, updateProjectAgent, createCustomAgent, deleteCustomAgent, resetProjectAgent, updateAgentModel, updateAgentSkills } = await import("../lib/project-crew.mjs");
+    const crewUrl = url.replace(/^\/api\/coding-project\/crew/, "") || "/";
+    const crewPathParts = crewUrl.replace(/^\//, "").split("/");
+    const agentIdParam = crewPathParts[0] ? decodeURIComponent(crewPathParts[0]) : null;
+    const cwd = q.path || projectPath || PAAW_ROOT;
+    const projectDir = resolve(cwd);
+    const isSub = crewPathParts.length > 1; // /crew/:agentId/reset|model|skills
+    const subAction = isSub ? crewPathParts[1] : null;
+
+    // POST /api/coding-project/crew/init — Initialize project crew from global templates
+    if (crewUrl === "/init" && method === "POST") {
+      const body = JSON.parse(await readBody(req) || "{}");
+      try {
+        const result = initProjectCrew(projectDir, { force: body.force || false });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // GET /api/coding-project/crew — List all agents (merged global + project + custom)
+    if ((method === "GET") && !agentIdParam) {
+      try {
+        const result = readProjectCrew(projectDir);
+        // 2026-10-11 Fleming：每個 agent「可用工具」唯讀呈現（firmware toolGroups → 實際工具清單）
+        // 純檢視用途 — 只加到回應，不寫回 crew json（PATCH 白名單不含 tools）
+        try {
+          const { getAgentByCrewId } = await import("../lib/domain-agent-registry.mjs");
+          const { getToolsForAgent } = await import("../lib/paaw-agent-loop.mjs");
+          for (const a of result.agents) {
+            const ag = getAgentByCrewId(a.id);
+            if (!ag) continue;
+            try {
+              a.tools = getToolsForAgent(ag.agentId, [], projectDir).map(t => t.function?.name).filter(Boolean);
+            } catch { a.tools = null; }
+          }
+        } catch { /* 工具清單非必要 — 失敗不影響 crew 讀取 */ }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // POST /api/coding-project/crew — Create new custom agent
+    if (method === "POST" && !agentIdParam) {
+      const body = JSON.parse(await readBody(req) || "{}");
+      try {
+        const created = createCustomAgent(projectDir, body);
+        res.writeHead(201, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(created));
+      } catch (err) {
+        res.writeHead(err.message.includes("exists") || err.message.includes("must start") ? 400 : 500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // Routes with :agentId
+    if (agentIdParam) {
+      // POST /api/coding-project/crew/:agentId/reset — Reset to global default
+      if (subAction === "reset" && method === "POST") {
+        try {
+          const result = resetProjectAgent(projectDir, agentIdParam);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result));
+        } catch (err) {
+          res.writeHead(err.message.includes("No global") ? 404 : 500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return true;
+      }
+
+      // PATCH /api/coding-project/crew/:agentId/model — Update per-agent model
+      if (subAction === "model" && method === "PATCH") {
+        const body = JSON.parse(await readBody(req) || "{}");
+        try {
+          const result = updateAgentModel(projectDir, agentIdParam, body);
+          // 2026-10-11（B）：清 crew 快取（含 _crewReasoningCache）→ reasoning/model 改完免重啟即生效
+          try { (await import("../lib/paaw-agent-loop.mjs")).clearCrewGroupCache(); } catch {}
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result));
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return true;
+      }
+
+      // PUT /api/coding-project/crew/:agentId/skills — Update skill bindings
+      if (subAction === "skills" && (method === "PUT" || method === "POST")) {
+        const body = JSON.parse(await readBody(req) || "{}");
+        try {
+          const result = updateAgentSkills(projectDir, agentIdParam, body.skills || body.skillIds || []);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result));
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return true;
+      }
+
+      // GET /api/coding-project/crew/:agentId — Read single agent
+      if (method === "GET" && !subAction) {
+        try {
+          const agent = readProjectAgent(projectDir, agentIdParam);
+          if (!agent) {
+            res.writeHead(404, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: `Agent not found: ${agentIdParam}` }));
+          } else {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify(agent));
+          }
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return true;
+      }
+
+      // PATCH /api/coding-project/crew/:agentId — Update agent
+      if (method === "PATCH" && !subAction) {
+        const body = JSON.parse(await readBody(req) || "{}");
+        try {
+          const updated = updateProjectAgent(projectDir, agentIdParam, body);
+          // 2026-09-06：crew 變更（含 toolGroups / rolePrompt）→ 清 agent-loop 的 group 快取，免重啟生效
+          const { clearCrewGroupCache } = await import("../lib/paaw-agent-loop.mjs");
+          clearCrewGroupCache();
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(updated));
+        } catch (err) {
+          res.writeHead(err.message.includes("not found") ? 404 : 500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return true;
+      }
+
+      // DELETE /api/coding-project/crew/:agentId — Delete custom agent
+      if (method === "DELETE" && !subAction) {
+        try {
+          const result = deleteCustomAgent(projectDir, agentIdParam);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result));
+        } catch (err) {
+          res.writeHead(err.message.includes("Only custom") || err.message.includes("not found") ? 400 : 500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return true;
+      }
+    }
+  }
+
+  // ── POST /api/coding-project/create — does NOT need ?path= (project doesn't exist yet) ──
+  if (url.startsWith("/api/coding-project/create") && method === "POST") {
+    const norm = normalizePath;
+    const body = JSON.parse(await readBody(req) || "{}");
+    const parentDir = body.parentDir;
+    const projectName = (body.name || "").trim();
+    const initGit = body.initGit !== false; // default true
+    const initPaaw = body.initPaaw !== false; // default true
+
+    if (!parentDir || !projectName) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing parentDir or name" }));
+      return true;
+    }
+
+    // Validate project name (no path traversal)
+    if (projectName.includes("/") || projectName.includes("\\") || projectName.includes("..")) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid project name" }));
+      return true;
+    }
+
+    const projectDir = join(resolve(parentDir), projectName);
+
+    // Check if already exists
+    if (existsSync(projectDir)) {
+      res.writeHead(409, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Directory already exists", path: norm(projectDir) }));
+      return true;
+    }
+
+    // Create directory
+    await mkdir(projectDir, { recursive: true });
+
+    // Initialize .paaw/
+    if (initPaaw) {
+      const newPaaw = createPaawProject(projectDir);
+      await newPaaw.init();
+    }
+
+    // Initialize git
+    if (initGit) {
+      try {
+        await runShellCmd("git init", projectDir);
+      } catch (e) {
+        console.error("[project create] git init failed:", e.message);
+      }
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, path: norm(projectDir), name: projectName }));
+    return true;
+  }
+
+    // ── POST /api/coding-project/exec-approval（2026-10-09 審批卡決策）──
+    if (url.startsWith("/api/coding-project/exec-approval") && method === "POST") {
+      const body = await readBody(req);
+      const { id, action, path: bodyPath, hash } = JSON.parse(body || "{}");
+      const { decideApproval, listPending, listAlways, revokeAlways, listApprovalHistory } = await import("../lib/exec-approvals.mjs");
+      const qPath = new URL(rawUrl, "http://localhost").searchParams.get("path");
+      const aprPath = bodyPath || qPath || null;
+      if (action === "list") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ pending: listPending() }));
+        return true;
+      }
+      // ── D. 永久准許清單 / 撤銷（2026-10-11 Fleming）──
+      if (action === "list-always") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, path: aprPath, items: aprPath ? listAlways(aprPath) : [] }));
+        return true;
+      }
+      if (action === "revoke") {
+        if (!aprPath) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "缺少 path" })); return true; }
+        const rv = revokeAlways(aprPath, String(hash || ""));
+        if (rv.ok) logAuditEvent({ kind: "approval_decision", severity: "info", tool: "bash", command: rv.command, reason: "使用者撤銷永久准許", detail: { hash: rv.hash, action: "revoke" }, cwd: aprPath });
+        res.writeHead(rv.ok ? 200 : 400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(rv));
+        return true;
+      }
+      // ── E. 審批紀錄（ reload 後仍可看到當時准了什麼）──
+      if (action === "history") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, path: aprPath, items: aprPath ? listApprovalHistory(aprPath, 50) : [] }));
+        return true;
+      }
+      const r = decideApproval(String(id || ""), String(action || ""));
+      // 🔴 審計（2026-10-10）：使用者的審批決策也進 audit log（誰准了什麼指令）
+      if (r.ok) {
+        logAuditEvent({ kind: "approval_decision", severity: "info", tool: "bash", command: r.command, reason: `使用者決策：${action}`, detail: { approvalId: id, action }, cwd: r.cwd });
+      }
+      res.writeHead(r.ok ? 200 : 400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(r));
+      return true;
+    }
+
+
+  if (!projectPath) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Missing 'path' query parameter" }));
+    return true;
+  }
+
+  // Normalize path separators (Windows backslash → forward slash)
+  const norm = normalizePath;
+  const root = resolve(projectPath);
+  const paaw = createPaawProject(root);
+
+  try {
+    // ── GET /api/coding-project/context ──
+    if (url.startsWith("/api/coding-project/context") && method === "GET") {
+      const ctx = await paaw.loadContext();
+      if (!ctx) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: ".paaw/ not initialized", initialized: false }));
+        return true;
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ initialized: true, ...ctx }));
+      return true;
+    }
+
+    // ── POST /api/coding-project/init ──
+    if (url.startsWith("/api/coding-project/init") && !url.startsWith("/api/coding-project/initial") && method === "POST") {
+      const result = await paaw.init();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+      return true;
+    }
+
+    // ── GET /api/coding-project/dev-config?path=... — Read dev-config.json ──
+    if (url.startsWith("/api/coding-project/dev-config") && method === "GET") {
+      const devConfigPath = join(root, ".paaw", "dev-config.json");
+      if (existsSync(devConfigPath)) {
+        try {
+          const config = JSON.parse(readSync(devConfigPath, "utf-8"));
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(config));
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      } else {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({}));
+      }
+      return true;
+    }
+
+    // ── GET /api/coding-project/tree ──
+    if (url.startsWith("/api/coding-project/tree") && method === "GET") {
+      const tree = await paaw.listTree();
+      if (!tree) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: ".paaw/ not initialized" }));
+        return true;
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(tree));
+      return true;
+    }
+
+    // ── GET /api/coding-project/sessions/:filename ──
+    const sessionMatch = url.match(/^\/api\/project\/sessions\/([^?]+)/);
+    if (sessionMatch && method === "GET") {
+      const content = await paaw.readSession(decodeURIComponent(sessionMatch[1]));
+      if (content === null) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Session not found" }));
+      } else {
+        res.writeHead(200, { "Content-Type": "text/markdown" });
+        res.end(content);
+      }
+      return true;
+    }
+
+    // ── GET /api/coding-project/sessions ──
+    if (url.startsWith("/api/coding-project/sessions") && method === "GET") {
+      const sessions = await paaw.listSessions();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(sessions));
+      return true;
+    }
+
+    // ── GET /api/coding-project/decisions ──
+    if (url.startsWith("/api/coding-project/decisions") && method === "GET") {
+      // 2026-08-30: 讀取前先觸發 flat 遺產搬移（舊版寫 .paaw/DECISIONS.md → decisions/DECISIONS.md）
+      await paaw._migrateFlatLegacy("DECISIONS.md").catch(() => {});
+      const content = await paaw.readFile("DECISIONS.md");
+      res.writeHead(200, { "Content-Type": "text/markdown" });
+      res.end(content || "");
+      return true;
+    }
+
+    // ── POST /api/coding-project/decisions ──
+    if (url.startsWith("/api/coding-project/decisions") && method === "POST") {
+      const body = JSON.parse(await readBody(req));
+      const result = await paaw.addDecision(body);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+      return true;
+    }
+
+    // ── GET /api/coding-project/changelog ──
+    if (url.startsWith("/api/coding-project/changelog") && method === "GET") {
+      await paaw._migrateFlatChangelog().catch(() => {});
+      const content = await paaw.readFile("CHANGELOG.md");
+      res.writeHead(200, { "Content-Type": "text/markdown" });
+      res.end(content || "");
+      return true;
+    }
+
+    // ── GET /api/coding-project/file ──
+    if (url.startsWith("/api/coding-project/file") && method === "GET" && q.file) {
+      const content = await paaw.readFile(q.file);
+      if (content === null) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "File not found" }));
+      } else {
+        res.writeHead(200, { "Content-Type": "text/markdown" });
+        res.end(content);
+      }
+      return true;
+    }
+
+    // ── PUT /api/coding-project/file ──
+    if (url.startsWith("/api/coding-project/file") && method === "PUT" && q.file) {
+      const body = await readBody(req);
+      const result = await paaw.writeFile(q.file, body);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+      return true;
+    }
+
+    // ── GET /api/coding-project/security-scan/results ──
+    // Load last scan results (without re-running) — MUST check before the scan endpoint
+    if (url.startsWith("/api/coding-project/security-scan/results") && method === "GET") {
+      const resultsFile = join(root, ".paaw", "security", "scan-results.json");
+      if (!existsSync(resultsFile)) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "No scan results found. Run a scan first." }));
+        return true;
+      }
+      try {
+        const data = await readFile(resultsFile, "utf-8");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(data);
+      } catch {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Failed to read scan results" }));
+      }
+      return true;
+    }
+
+    // ── GET /api/coding-project/security-scan ──
+    // Run Semgrep scan directly — just run it, show install instructions if it fails
+    if (url.startsWith("/api/coding-project/security-scan") && !url.includes("/results") && method === "GET") {
+      try {
+        const scanResult = await runSemgrep(root, { timeoutMs: 1_800_000 });
+        // Save to .paaw/security/（帮 scannedAt — 2026-09-06 前没記，agent 端看到 scanned unknown 無法判時效性）
+        const secDir = join(root, ".paaw", "security");
+        if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
+        await writeFile(join(secDir, "scan-results.json"), JSON.stringify({ ...scanResult, scannedAt: new Date().toISOString() }, null, 2), "utf-8");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(scanResult));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // ── GET /api/coding-project/test-intelligence ──
+    if (url.startsWith("/api/coding-project/test-intelligence") && method === "GET") {
+      try {
+        const { summary, data } = await buildTestIntelligence(root, PAAW_ROOT, { persist: false }); // 2026-09-06：GET 讀取純算不落檔 — 否則 CU 還沒跑就有 test-intelligence.json、檔案推斷誤判 step done
+        // detail=1 → 帶明細（Tests 頁用：testToCode 對照 + coverageGaps）
+        const wantsDetail = new URL(rawUrl, "http://localhost").searchParams.get("detail") === "1";
+        res.writeHead(200, { "Content-Type": "application/json" });
+        const summaryWithReports = { ...summary, testReports: data.testReports || null }; // 2026-10-10：真實 report 段 — UI 誠實顯示（找不到 = 無）
+        res.end(JSON.stringify(wantsDetail
+          ? { summary: summaryWithReports, testToCode: data.testToCode || [], coverageGaps: (data.coverageGaps || []).slice(0, 100), featureToTests: data.featureToTests || [] }
+          : summaryWithReports));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // ── GET /api/coding-project/change-intelligence ──
+    if (url.startsWith("/api/coding-project/change-intelligence") && method === "GET") {
+      try {
+        const { summary } = await buildChangeIntelligence(root, { days: 30, maxCommits: 50 }, { persist: false }); // 2026-09-06：GET 純算不落檔
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(summary));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // ── GET /api/coding-project/code-intelligence ──
+    // Build and return full code intelligence (call graph, dependency graph, etc.)
+    if (url.startsWith("/api/coding-project/code-intelligence") && method === "GET") {
+      try {
+        const { summary } = await buildCodeIntelligence(root, PAAW_ROOT, { persist: false }); // 2026-09-06：GET 純算不落檔（防 CU 檔案推斷誤判）
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(summary));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // ── GET /api/coding-project/code-intelligence/context-package ──
+    // Build a Code Context Package for a specific query (file, function, route, feature)
+    if (url.startsWith("/api/coding-project/code-intelligence/context-package") && method === "GET") {
+      try {
+        const queryParams = new URLSearchParams(url.split("?")[1] || "");
+        const query = {};
+        if (queryParams.get("file")) query.filePath = queryParams.get("file");
+        if (queryParams.get("function")) query.functionName = queryParams.get("function");
+        if (queryParams.get("route")) query.routePath = queryParams.get("route");
+        if (queryParams.get("feature")) query.featureName = queryParams.get("feature");
+        const contextPkg = await buildContextPackage(root, PAAW_ROOT, query);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(contextPkg));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // ── GET /api/coding-project/code-intelligence/:type ──
+    // Load a specific intelligence file (call-graph, dependency-graph, etc.)
+    const ciMatch = url.match(/^\/api\/coding-project\/code-intelligence\/([a-z-]+)\??/);
+    if (ciMatch && method === "GET") {
+      const ciType = ciMatch[1];
+      const validTypes = ["call-graph", "api-function-map", "dependency-graph", "test-code-map", "symbol-index", "file-map", "summary"];
+      if (validTypes.includes(ciType)) {
+        const ciFile = join(root, ".paaw", "code-intelligence", `${ciType}.json`);
+        if (!existsSync(ciFile)) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: `${ciType}.json not found. Run code intelligence first.` }));
+          return true;
+        }
+        try {
+          const data = await readFile(ciFile, "utf-8");
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(data);
+        } catch {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: `Failed to read ${ciType}.json` }));
+        }
+        return true;
+      }
+    }
+
+    // ── PROJECT.md（schema v2 — User Remarks + AI Overview）2026-10-09 ──
+    // GET：讀兩區內容；POST：只寫 User Remarks 區（AI 區保留）；POST /regenerate：重寫 AI 區
+    if (url.startsWith("/api/coding-project/project-md") && method === "GET") {
+      if (!paaw.exists) await paaw.init();
+      const md = await paaw.readFile("PROJECT.md");
+      const respond = (obj) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
+      if (md == null) {
+        respond({ exists: false, userSection: "", aiSection: "" });
+      } else {
+        const parsed = parseProjectMd(md);
+        respond({ exists: true, ...parsed, full: md });
+      }
+      return true;
+    }
+    if (url.startsWith("/api/coding-project/project-md/regenerate") && method === "POST") {
+      if (!paaw.exists) await paaw.init();
+      let modelOverride = null;
+      try { const b = JSON.parse(await readBody(req) || "{}"); modelOverride = b.model || null; } catch {}
+      const r = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: b.model || modelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
+      try { await paaw.setCuStepStatus("overview", "done", { summary: `${r.features} features（${r.aiSource}）` }); } catch {}
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(r));
+      return true;
+    }
+    if (url.startsWith("/api/coding-project/project-md") && method === "POST") {
+      if (!paaw.exists) await paaw.init();
+      const body = JSON.parse(await readBody(req) || "{}");
+      const md = await paaw.readFile("PROJECT.md");
+      const parsed = parseProjectMd(md);
+      // 檔名：package.json name > root basename
+      let name = root.split(/[\\/]/).pop() || "Project";
+      try { const pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8")); if (pkg.name) name = pkg.name; } catch {}
+      const next = buildProjectMd(name, String(body.userSection ?? ""), parsed.aiSection);
+      await paaw.writeFile("PROJECT.md", next);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+      return true;
+    }
+
+    // ── POST /api/coding-project/generate-overview ──
+    if (url.startsWith("/api/coding-project/generate-overview") && method === "POST") {
+      // Ensure .paaw/ exists first
+      if (!paaw.exists) await paaw.init();
+      const content = await paaw.generateProjectOverview();
+      res.writeHead(200, { "Content-Type": "text/markdown" });
+      res.end(content);
+      return true;
+    }
+
+    // ── GET /api/coding-project/all ──
+    // Returns everything needed for the right-panel tabs in one call
+    if (url.startsWith("/api/coding-project/all") && method === "GET") {
+      if (!paaw.exists) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ initialized: false }));
+        return true;
+      }
+      const [context, sessions, decisions, changelog] = await Promise.all([
+        paaw.loadContext(),
+        paaw.listSessions(),
+        paaw.readFile("DECISIONS.md"),
+        paaw.readFile("CHANGELOG.md"),
+      ]);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        initialized: true,
+        context,
+        sessions,
+        decisions,
+        changelog,
+      }));
+      return true;
+    }
+
+    // ── GET /api/coding-project/health ──
+    if (url.startsWith("/api/coding-project/health") && method === "GET") {
+      const health = await collectProjectHealth(root, paaw);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(health));
+      return true;
+    }
+
+    // ── Snapshot endpoints ──
+
+    // POST /api/coding-project/snapshot — create manual snapshot
+    if (url.startsWith("/api/coding-project/snapshot") && method === "POST" && !url.includes("/restore")) {
+      const { PaawSnapshot } = await import("../lib/paaw-snapshot.mjs");
+      const snap = new PaawSnapshot(root, paaw.paawDir);
+      if (!paaw.exists) await paaw.init();
+      const body = JSON.parse(await readBody(req) || "{}");
+      const result = await snap.create(body.label || "manual");
+      await snap.cleanup(50);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+      return true;
+    }
+
+    // GET /api/coding-project/snapshots — list snapshots
+    if (url.startsWith("/api/coding-project/snapshots") && method === "GET") {
+      const { PaawSnapshot } = await import("../lib/paaw-snapshot.mjs");
+      const snap = new PaawSnapshot(root, paaw.paawDir);
+      const list = await snap.list();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(list));
+      return true;
+    }
+
+    // POST /api/coding-project/snapshot/restore — restore file from snapshot
+    if (url.startsWith("/api/coding-project/snapshot/restore") && method === "POST") {
+      const { PaawSnapshot } = await import("../lib/paaw-snapshot.mjs");
+      const snap = new PaawSnapshot(root, paaw.paawDir);
+      const body = JSON.parse(await readBody(req));
+      const result = await snap.restoreFile(body.snapshot, body.file);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+      return true;
+    }
+
+    // ── Git tracking strategy ──
+
+    // GET /api/coding-project/git-strategy — get .paaw gitignore status
+    if (url.startsWith("/api/coding-project/git-strategy") && method === "GET") {
+      const gitignorePath = join(root, ".gitignore");
+      let paawTracked = true;
+      let gitignoreContent = "";
+      if (existsSync(gitignorePath)) {
+        gitignoreContent = readSync(gitignorePath, "utf-8");
+        paawTracked = !gitignoreContent.includes(".paaw/");
+      }
+      // Check if .paaw/ is already committed
+      let committed = false;
+      try {
+        const check = await runShellCmd(`git ls-files .paaw/`, root, 5000);
+        committed = check.trim().length > 0;
+      } catch {}
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ paawTracked, committed, gitignoreHasPaaw: !paawTracked }));
+      return true;
+    }
+
+    // PUT /api/coding-project/git-strategy — set strategy
+    if (url.startsWith("/api/coding-project/git-strategy") && method === "PUT") {
+      const body = JSON.parse(await readBody(req));
+      const strategy = body.strategy; // "track" | "ignore" | "branch"
+      const gitignorePath = join(root, ".gitignore");
+      let gitignoreContent = existsSync(gitignorePath) ? readSync(gitignorePath, "utf-8") : "";
+
+      if (strategy === "ignore") {
+        if (!gitignoreContent.includes(".paaw/")) {
+          gitignoreContent = gitignoreContent.trimEnd() + "\n# PAAW AI-Native IDE\n.paaw/\n";
+          await writeFile(gitignorePath, gitignoreContent, "utf-8");
+        }
+      } else if (strategy === "track") {
+        // Remove .paaw/ from gitignore if present
+        gitignoreContent = gitignoreContent
+          .replace(/^\.paaw\/$/gm, "")
+          .replace(/^# PAAW AI-Native IDE$/gm, "")
+          .replace(/\n{3,}/g, "\n\n");
+        await writeFile(gitignorePath, gitignoreContent, "utf-8");
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, strategy }));
+      return true;
+    }
+
+    // ── AI Initialize — multi-step project knowledge auto-fill ──
+
+    // POST /api/coding-project/ai-initial-step — run a single Code Understanding step
+    if (url.startsWith("/api/coding-project/ai-initial-step") && method === "POST") {
+      const body = JSON.parse(await readBody(req));
+      const stepId = body.step;
+      const skipContext = body.skipContext === true; // if true, don't load accumulated context
+      const cuModelOverride = body.model || null;
+
+      const ALL_STEPS = [
+        { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
+        { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
+        { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
+        { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
+        { id: "error-codes", name: "🔢 Error Codes by Feature", promptFile: null },
+        { id: "c4-model", name: "🏛️ C4 Model（對外連線）", promptFile: null },
+      ];
+      const step = ALL_STEPS.find(s => s.id === stepId);
+      if (!step) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `Unknown step: ${stepId}` }));
+        return true;
+      }
+
+      // SSE stream
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      const sendEvent = (event, data) => { if (res.writableEnded || res.destroyed) return; try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch {} };
+
+      try {
+        await paaw.init();
+
+        // Gather project context
+        let projectContext = `Project root: ${root}\n`;
+        try {
+          const pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8"));
+          projectContext += `Package: ${pkg.name || "unknown"}\nDependencies: ${Object.keys(pkg.dependencies || {}).join(", ")}\n`; // nosemgrep: missing-template-string-indicator
+        } catch {}
+        try {
+          const treeOutput = await scanProjectFiles(root);
+          projectContext += `\nFile tree:\n${treeOutput}`;
+        } catch {}
+        try {
+          const gitLog = await runShellCmd("git log --oneline -20", root);
+          projectContext += `\nRecent git log:\n${gitLog}`;
+        } catch {}
+
+        // Load prompt
+        const promptsDir = join(DATA_HOME, "prompts", "code-understanding");
+        const aiSettingsDir = join(DATA_HOME, "ai-settings", "coding");
+        const loadPrompt = (filename) => {
+          // Priority: ai-settings/coding/ > prompts/code-understanding/
+          try { return readSync(resolve(aiSettingsDir, filename), "utf-8"); } catch {}
+          try { return readSync(resolve(promptsDir, filename), "utf-8"); } catch { return ""; }
+        };
+        const loadProjectPrompt = (filename) => {
+          // Priority: .paaw/prompts/ > ai-settings/coding/ > prompts/code-understanding/
+          const overridePath = join(root, ".paaw", "prompts", "code-understanding", filename);
+          if (existsSync(overridePath)) { try { return readSync(overridePath, "utf-8"); } catch {} }
+          return loadPrompt(filename);
+        };
+
+        sendEvent("step_start", { step: step.id, name: step.name });
+
+        // Special handling: security-scan runs Semgrep (no LLM needed)
+        if (step.id === "security-scan") {
+          try {
+            cuLog(step.id, "Running Semgrep scan...");
+            const scanResult = await runSemgrep(root, { timeoutMs: 1_800_000 });
+            if (scanResult.error && scanResult.findings.length === 0) {
+              sendEvent("step_error", { step: step.id, name: step.name, error: scanResult.error });
+              sendEvent("done", { message: "Semgrep scan failed" });
+              if (!res.writableEnded) res.end();
+              return true;
+            }
+            // Save results
+            const secDir = join(root, ".paaw", "security");
+            if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
+            await writeFile(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
+            cuLog(step.id, `Semgrep done: ${scanResult.stats.total} findings, ${scanResult.stats.filesAffected || 0} files affected`);
+            sendEvent("step_done", {
+              step: step.id,
+              name: step.name,
+              summary: `${scanResult.stats.total} findings (${JSON.stringify(scanResult.stats.bySeverity)})`,
+              stats: scanResult.stats,
+              findings: (scanResult.findings || []).map(f => ({
+                id: f.id,
+                severity: f.severity,
+                file: f.file,
+                line: f.line,
+                message: f.message,
+                snippet: f.snippet,
+                fix: f.fix,
+                category: f.category,
+              })),
+            });
+            try { await paaw.setCuStepStatus(step.id, "done", { summary: `${scanResult.stats.total} findings` }); } catch {}
+          } catch (err) {
+            cuLog(step.id, `Semgrep failed: ${err.message}`);
+            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+            sendEvent("done", { message: "Security scan failed" });
+            if (!res.writableEnded) res.end();
+            return true;
+          }
+          sendEvent("done", { message: "Security scan complete" });
+          if (!res.writableEnded) res.end();
+          return true;
+        }
+
+        // Special handling: code-intelligence runs Tree-sitter analysis (no LLM needed)
+        if (step.id === "code-intelligence") {
+          try {
+            cuLog(step.id, "Building code intelligence (call graph, dependency graph, etc.)...");
+            const { summary } = await buildCodeIntelligence(root, PAAW_ROOT);
+            cuLog(step.id, `Code intelligence done: ${summary.callGraph.totalFunctions} functions, ${summary.callGraph.totalCalls} calls, ${summary.dependencyGraph.totalEdges} dependencies`);
+            sendEvent("step_done", {
+              step: step.id,
+              name: step.name,
+              summary: `${summary.callGraph.totalFunctions} functions, ${summary.callGraph.totalCalls} calls, ${summary.symbolIndex.total} symbols`,
+              stats: summary,
+              codeIntelligenceSummary: {
+                totalFunctions: summary.callGraph?.totalFunctions || 0,
+                totalCalls: summary.callGraph?.totalCalls || 0,
+                totalDependencies: summary.dependencyGraph?.totalEdges || 0,
+                totalSymbols: summary.symbolIndex?.total || 0,
+                topFunctions: (summary.callGraph?.topFunctions || []).slice(0, 20).map((f) => `${f.name} (${f.file}:${f.line}, called ${f.callCount}x)`),
+                topDependencies: (summary.dependencyGraph?.topEdges || []).slice(0, 15).map((e) => `${e.from} → ${e.to}`),
+              },
+            });
+            try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.callGraph.totalFunctions} functions` }); } catch {}
+          } catch (err) {
+            cuLog(step.id, `Code intelligence failed: ${err.message}`);
+            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+          }
+          sendEvent("done", { message: "Code intelligence complete" });
+          res.end();
+          return true;
+        }
+
+        // Special handling: test-intelligence runs static analysis (no LLM needed)
+        if (step.id === "test-intelligence") {
+          try {
+            cuLog(step.id, "Building test intelligence...");
+            const { summary, data: tiData } = await buildTestIntelligence(root, PAAW_ROOT);
+            cuLog(step.id, `Test intelligence done: ${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`);
+            const tiEnriched = await backfillFeatureTests(root, tiData?.featureToTests); // 2026-09-04：tests 回寫 FEATURES.json
+            if (tiEnriched > 0) cuLog(step.id, `Backfilled tests into ${tiEnriched} feature(s)`);
+            sendEvent("step_done", {
+              step: step.id,
+              name: step.name,
+              summary: `${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`,
+              stats: summary,
+              testIntelligenceSummary: {
+                totalTestFiles: summary.totalTestFiles || 0,
+                coverageRate: summary.coverageRate || "N/A",
+                untestedFiles: (summary.untestedFiles || []).slice(0, 20),
+                lowCoverageFiles: (summary.lowCoverageFiles || []).slice(0, 15).map((f) => `${f.file} (${f.coverage || "0%"})`),
+              },
+            });
+            try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.totalTestFiles} tests` }); } catch {}
+          } catch (err) {
+            cuLog(step.id, `Test intelligence failed: ${err.message}`);
+            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+          }
+          sendEvent("done", { message: "Test intelligence complete" });
+          res.end();
+          return true;
+        }
+
+        // Special handling: error-codes — by-feature LLM 語意整理（2026-09-05 v2：不認命名慣例，OSS/任意 project 都能用）
+        if (step.id === "error-codes") {
+          try {
+            cuLog(step.id, "Collecting error signals + LLM organizing...");
+            const { organizeErrorCodes } = await import("../lib/error-code-scan.mjs");
+            const ecResult = await organizeErrorCodes(root, {
+              callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+              onProgress: (msg) => { cuLog(step.id, msg); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
+            });
+            if (ecResult.skipped) {
+              cuLog(step.id, `Skipped: ${ecResult.reason}`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: "no error signals" });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: "no error signals" }); } catch {}
+            } else {
+              cuLog(step.id, `Error codes done: ${ecResult.stats.uniqueCodes} codes / ${ecResult.stats.featureCount} features / conventions=${ecResult.conventions}${ecResult.recommendation.suggest ? " (建議導入 Rules v1)" : ""}`);
+              sendEvent("step_done", {
+                step: step.id,
+                name: step.name,
+                summary: `${ecResult.stats.uniqueCodes} codes, ${ecResult.stats.featureCount} features, conventions: ${ecResult.conventions}`,
+                stats: { ...ecResult.stats, conventions: ecResult.conventions, suggest: ecResult.recommendation.suggest },
+              });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${ecResult.stats.uniqueCodes} codes / conventions=${ecResult.conventions}` }); } catch {}
+            }
+          } catch (err) {
+            cuLog(step.id, `Error codes failed: ${err.message}`);
+            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+            try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+          }
+          sendEvent("done", { message: "Error codes complete" });
+          res.end();
+          return true;
+        }
+        // Special handling: c4-model — 對外連線全景（機器收證據 + LLM 組 C4）
+        if (step.id === "c4-model") {
+          try {
+            cuLog(step.id, "Collecting external signals + LLM assembling C4...");
+            const { organizeC4Model } = await import("../lib/c4-model-scan.mjs");
+            const c4Result = await organizeC4Model(root, {
+              callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+              onProgress: (msg) => { cuLog(step.id, msg); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
+            });
+            cuLog(step.id, `C4 done: ${c4Result.stats.containers} containers / ${c4Result.stats.external} external / ${c4Result.stats.relationships} relationships`);
+            sendEvent("step_done", {
+              step: step.id,
+              name: step.name,
+              summary: `${c4Result.stats.containers} containers, ${c4Result.stats.external} external systems`,
+            });
+            try { await paaw.setCuStepStatus(step.id, "done", { summary: `${c4Result.stats.external} external / ${c4Result.stats.containers} containers` }); } catch {}
+          } catch (err) {
+            cuLog(step.id, `C4 model failed: ${err.message}`);
+            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+            try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+          }
+          sendEvent("done", { message: "C4 model complete" });
+          res.end();
+          return true;
+        }
+
+        // Special handling: change-intelligence runs git log analysis (no LLM needed)
+        if (step.id === "change-intelligence") {
+          try {
+            cuLog(step.id, "Building change intelligence...");
+            const { summary } = await buildChangeIntelligence(root, { days: 30, maxCommits: 50 }, { persist: false }); // 2026-09-06：GET 純算不落檔
+            cuLog(step.id, `Change intelligence done: ${summary.totalCommits} commits, ${summary.totalFilesChanged} files changed`);
+            sendEvent("step_done", {
+              step: step.id,
+              name: step.name,
+              summary: `${summary.totalCommits} commits, ${summary.totalFilesChanged} files, ${summary.highImpactChanges} high-impact`,
+              stats: summary,
+            });
+            try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.totalCommits} commits` }); } catch {}
+          } catch (err) {
+            cuLog(step.id, `Change intelligence failed: ${err.message}`);
+            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+          }
+          sendEvent("done", { message: "Change intelligence complete" });
+          res.end();
+          return true;
+        }
+
+        const promptTemplate = loadProjectPrompt(step.promptFile);
+        if (!promptTemplate) {
+          sendEvent("step_skip", { step: step.id, name: step.name, reason: "Prompt template not found" });
+          sendEvent("done", { message: "Step skipped" });
+          res.end();
+          return true;
+        }
+
+          // Load accumulated context from existing .paaw/ files (unless skipContext)
+        let fullPrompt = promptTemplate;
+        fullPrompt += `\n\n--- PROJECT CONTEXT ---\n${projectContext}`;
+        if (!skipContext) {
+          const loadCtx = async (file, label, maxLen = 3000) => {
+            try {
+              const content = await paaw.readFile(file);
+              if (content && content.trim()) {
+                fullPrompt += `\n\n--- ${label} ---\n${content.slice(0, maxLen)}`;
+              }
+            } catch {}
+          };
+          // scan.json is always loaded as context for all steps (except scan itself)
+          if (step.id !== "scan") {
+            await loadCtx("scan.json", "SCAN RESULTS", 6000);
+          }
+          if (step.id !== "scan" && step.id !== "architecture") {
+            await loadCtx("ARCHITECTURE.md", "ARCHITECTURE");
+          }
+          if (step.id === "test-payload" || step.id === "overview" || step.id === "feature-map") {
+            await loadCtx("specs/api-contract.md", "API SPEC");
+          }
+          if (step.id === "overview" || step.id === "feature-map") {
+            await loadCtx("specs/error-codes.md", "ERROR MAPPING");
+          }
+          if (step.id === "overview" || step.id === "feature-map") {
+            await loadCtx("DECISIONS.md", "DECISIONS", 2000);
+          }
+        }
+
+          // CU step skill 外掛：專案 .paaw/crew.json skillBindings["cu.<stepId>"] 綁的 PAAW skill
+          const cuSkills = await loadCuStepSkills(root, step.id);
+          if (cuSkills.length > 0) {
+            fullPrompt += `\n\n--- CU SKILL DIRECTIVES（${step.id} 方法論指令，優先於預設 prompt 的做法但不可違反輸出格式）---`;
+            for (const sk of cuSkills) {
+              fullPrompt += `\n\n### Skill: ${sk.name}${sk.path ? `\n（源路徑: ${sk.path}）` : ""}\n${sk.prompt}`;
+            }
+            cuLog(step.id, `Applied ${cuSkills.length} skill(s): ${cuSkills.map(x => x.id).join(", ")}`);
+            sendEvent?.("step_progress", { step: step.id, name: step.name, message: `套用 skill：${cuSkills.map(x => x.name).join("、")}` });
+          }
+
+          // Tree-sitter source analysis for feature-map step
+          let chunkedFeatureMap = null;
+          if (step.id === "feature-map") {
+            // 2026-09-05 v2：骨架數學決定論（entry-reach-Jaccard）+ LLM 只長肉 — 取代 LLM 自由切分
+            try {
+              const { organizeFeatureMapV2 } = await import("../lib/feature-map-v2.mjs");
+              const { features, meta } = await organizeFeatureMapV2(root, {
+                model: body.model || cuModelOverride || undefined,
+                callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+                onProgress: (msg) => { cuLog(step.id, msg); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
+                paawRoot: PAAW_ROOT,
+              });
+              cuLog(step.id, `v2: ${features.length} features (${meta.stats.clusters} deterministic + ${Math.max(0, features.length - meta.stats.clusters)} utility) / shared ${meta.stats.shared} / orphans ${meta.orphans.length}`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${features.length} features — ${meta.stats.clusters} deterministic` });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${features.length} features (v2: ${meta.stats.clusters} 數學骨架)` }); } catch {}
+            } catch (err) {
+              cuLog(step.id, `feature-map v2 failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+            }
+            sendEvent("done", { message: "Feature map v2 complete" });
+            res.end();
+            return true;
+          }
+
+        // Call LLM with longer timeout for single step
+        try {
+          const result = chunkedFeatureMap
+            ? { content: chunkedFeatureMap, finishReason: "stop", attempts: 1 }
+            : await callProjectLLM({
+            model: body.model || cuModelOverride || undefined,
+            messages: [{ role: "user", content: fullPrompt }],
+            temperature: 0,
+            thinking: { type: "disabled" }, // 關思考 — 實證必要：thinking 開著會燒光輸出額度（reasoning_tokens=15989 實例）
+          }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }); // 10 min timeout for single step
+
+          const content = result.content || "";
+          cuLog(step.id, `LLM response: contentLen=${content.length} finishReason=${result.finishReason} attempts=${result.attempts}`);
+          if (!content.trim()) {
+            sendEvent("step_error", { step: step.id, name: step.name, error: "Empty response from LLM" });
+            sendEvent("done", { message: "Step failed" });
+            res.end();
+            return true;
+          }
+
+          // Sanitize markdown before saving — prevent broken markdown from crashing frontend
+          const sanitized = _sanitizeMd(content);
+          if (sanitized !== content) {
+            cuLog(step.id, `Markdown sanitized: ${content.length} → ${sanitized.length} chars`);
+          }
+
+          // Save output to .paaw/
+          try {
+            if (step.id === "scan") {
+              await paaw.writeFile("scan.json", content);
+            } else if (step.id === "architecture") {
+              await diffWriteFile(paaw, "ARCHITECTURE.md", sanitized);
+            } else if (step.id === "api-spec") {
+              await diffWriteFile(paaw, "specs/api-contract.md", sanitized);
+              // Extract api-examples from ```json-examples block
+              const examplesMatch = content.match(/```json-examples\s*\n([\s\S]*?)\n```/);
+              if (examplesMatch) {
+                try {
+                  const examples = JSON.parse(examplesMatch[1].trim());
+                  if (Array.isArray(examples)) {
+                    await paaw.writeFile("code-intelligence/api-examples.json", JSON.stringify(examples, null, 2));
+                    cuLog(step.id, `Saved ${examples.length} API examples`);
+                  }
+                } catch (e) {
+                  cuLog(step.id, `Failed to parse api-examples: ${e.message}`);
+                }
+              }
+            } else if (step.id === "error-mapping") {
+              await diffWriteFile(paaw, "specs/error-codes.md", sanitized);
+              const runbookMatches = [...content.matchAll(/## Runbook[:\s]+(\d+).*?\n([\s\S]*?)(?=\n## Runbook|\n---|$)/g)];
+              for (const rm of runbookMatches) {
+                await paaw.writeFile(`runbook/${rm[1]}.md`, `# Runbook: ${rm[1]}\n\n${rm[2].trim()}`);
+              }
+            } else if (step.id === "decisions") {
+              await diffWriteFile(paaw, "DECISIONS.md", sanitized);
+            } else if (step.id === "test-payload") {
+              await paaw.writeFile("test-payloads/all-payloads.json", content);
+              try {
+                const payloads = JSON.parse(content);
+                if (Array.isArray(payloads)) {
+                  for (const p of payloads) {
+                    const slug = (p.endpoint || p.name || "unknown").replace(/[^a-zA-Z0-9-]/g, "-");
+                    await paaw.writeFile(`test-payloads/${slug}.json`, JSON.stringify(p, null, 2));
+                  }
+                }
+              } catch {}
+            } else if (step.id === "overview") {
+              await diffWriteFile(paaw, "PROJECT.md", sanitized);
+            } else if (step.id === "feature-map") {
+              // Parse AI output as JSON array and write to FEATURES.json
+              try {
+                const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+                if (!cleanJson) throw new Error("AI 回應為空，無法產生 Feature Map");
+                let features = _extractJsonArray(content);
+                if (!Array.isArray(features)) features = repairLlmJsonArray(content); // 2026-09-04：修 LLM JSON 鬼格式（["tags"]:、尾逗號、逐物件 salvage）
+                if (Array.isArray(features)) {
+                  const cleanFeatures = features.map(sanitizeFeature).filter(Boolean); // 2026-09-04：白名單清洗，洗掉幻覺欄位
+                  const featureIdBatch = nextFeatureIds(root, cleanFeatures.length);
+                  const featuresWithIds = cleanFeatures.map((f, i) => ({
+                    ...f,
+                    id: featureIdBatch[i],
+                    issues: [],
+                    aiUnderstanding: "",
+                    aiUnderstandingAt: null,
+                    documentation: "",
+                    docsUpdatedAt: null,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  }));
+                  const featuresDir = join(root, ".paaw", "features");
+                  if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
+                  await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                  // Generate file→features reverse mapping (FILE-FEATURES.json)
+                  const fileFeatureMap = {};
+                  for (const feat of featuresWithIds) {
+                    const allFiles = [...(feat.codeFiles || []), ...(feat.tests || []), ...(feat.runbooks || [])];
+                    for (const f of allFiles) {
+                      const norm = f.replace(/\\/g, "/");
+                      if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
+                      fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
+                    }
+                    // Also map API files
+                    for (const api of (feat.apis || [])) {
+                      if (api.file) {
+                        const norm = api.file.replace(/\\/g, "/");
+                        if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
+                        if (!fileFeatureMap[norm].some(f => f.id === feat.id)) {
+                          fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
+                        }
+                      }
+                    }
+                  }
+                  await writeFile(join(featuresDir, "FILE-FEATURES.json"), JSON.stringify({ files: fileFeatureMap, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                  cuLog(step.id, `Saved ${featuresWithIds.length} features + ${Object.keys(fileFeatureMap).length} file→feature mappings`);
+                }
+              } catch (parseErr) {
+                cuLog(step.id, `Failed to parse feature JSON: ${parseErr.message}`);
+                // Try recovery: find last complete object
+                try {
+                  const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+                  if (!cleanJson) throw new Error("empty content — cannot recover");
+                  let lastComplete = 0, braceCount = 0, inStr = false, esc = false;
+                  for (let i = 0; i < cleanJson.length; i++) {
+                    const c = cleanJson[i];
+                    if (esc) { esc = false; continue; }
+                    if (c === '\\') { esc = true; continue; }
+                    if (c === '"') { inStr = !inStr; continue; }
+                    if (inStr) continue;
+                    if (c === '{') braceCount++;
+                    if (c === '}') { braceCount--; if (braceCount === 0) lastComplete = i; }
+                  }
+                  if (lastComplete === 0) throw new Error("no complete JSON object found");
+                  const recovered = cleanJson.substring(0, lastComplete + 1).trim() + '\n]';
+                  const feats = JSON.parse(recovered);
+                  if (Array.isArray(feats) && feats.length > 0) {
+                    const featureIdBatch = nextFeatureIds(root, feats.length);
+                    const featuresWithIds = feats.map(sanitizeFeature).filter(Boolean).map((f, i) => ({ ...f, id: featureIdBatch[i], issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
+                    const featuresDir = join(root, ".paaw", "features");
+                    if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
+                    await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                    // Generate file→features reverse mapping
+                    const fileFeatureMap = {};
+                    for (const feat of featuresWithIds) {
+                      const allFiles = [...(feat.codeFiles || []), ...(feat.tests || []), ...(feat.runbooks || [])];
+                      for (const f of allFiles) {
+                        const norm = f.replace(/\\/g, "/");
+                        if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
+                        fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
+                      }
+                    }
+                    await writeFile(join(featuresDir, "FILE-FEATURES.json"), JSON.stringify({ files: fileFeatureMap, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                    cuLog(step.id, `Recovery: saved ${featuresWithIds.length} features + ${Object.keys(fileFeatureMap).length} file→feature mappings`);
+                  } else throw new Error("recovered array is empty");
+                } catch (recoverErr) {
+                  cuLog(step.id, `Recovery also failed: ${recoverErr.message}`);
+                  await paaw.writeFile("features/raw-feature-map.txt", content);
+                  sendEvent("step_error", { step: step.id, name: step.name, error: `Feature Map 產生失敗：AI 回應無法解析為 JSON。已儲存原始內容到 raw-feature-map.txt，請重新執行此步驟。(${parseErr.message})` });
+                  // Don't continue to step_done — step failed
+                  res.end();
+                  return true;
+                }
+              }
+            }
+            cuLog(step.id, `wrote file OK (${content.length} chars)`);
+          } catch (writeErr) {
+            cuLog(step.id, `FAILED to write file: ${writeErr.message}`);
+          }
+
+          sendEvent("step_done", { step: step.id, name: step.name, size: content.length, preview: content.slice(0, 200) });
+          cuLog(step.id, `sendEvent step_done (${content.length} chars)`);
+          try { await paaw.setCuStepStatus(step.id, "done", { size: content.length }); } catch {}
+        } catch (err) {
+          sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+          try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+        }
+        // If this was the feature-map step, run L3 validation
+        if (stepId === "feature-map") {
+          try {
+            const { runFullValidation } = await import("../lib/feature-map-validator.mjs");
+            const validation = await runFullValidation(root, { skipUnderstanding: true });
+            if (validation.ok) {
+              const s = validation.summary;
+              sendEvent("info", { message: `L3 validation: ${s.mappingErrors} errors, ${s.coveragePct}% coverage, ${s.orphanFiles} orphans` });
+            }
+          } catch {}
+          // CU 收尾：PROJECT.md 重生成（2026-10-09 Fleming — schema v2：AI 區每次重寫、USER 區絕不覆蓋）
+          try {
+            const draft = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: body.model || cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
+            try { await paaw.setCuStepStatus("overview", "done", { summary: `${draft.features} features（${draft.aiSource}）` }); } catch {}
+            if (draft.written) {
+              cuLog("overview", `PROJECT.md ${draft.reason} (${draft.features} features, ${draft.aiSource})`);
+              sendEvent("info", { message: `📝 PROJECT.md 已更新（${draft.reason}，${draft.features} features，${draft.aiSource === "llm" ? "AI 生成" : "確定性骨架"}）— User Remarks 區不受影響` });
+            }
+          } catch (e) { cuLog("overview", `regenerate failed: ${e.message}`); }
+        }
+        sendEvent("done", { message: "Step complete" });
+      } catch (err) {
+        sendEvent("error", { error: err.message });
+      }
+      res.end();
+      return true;
+    }
+
+    // POST /api/coding-project/ai-initial (Code Understanding)
+    // ?force=1 to re-run all steps even if already done
+    if (url.startsWith("/api/coding-project/ai-initial") && method === "POST") {
+      const forceRerun = q.force === "1" || q.force === "true";
+      const steps = [
+        { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
+        { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
+        { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
+        { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
+        { id: "error-codes", name: "🔢 Error Codes by Feature", promptFile: null },
+        { id: "c4-model", name: "🏛️ C4 Model（對外連線）", promptFile: null },
+      ];
+
+      // SSE stream — send progress as each step completes
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+
+      const sendEvent = (event, data) => {
+        if (res.writableEnded || res.destroyed) return;
+        try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch {}
+      };
+
+      try {
+        // Ensure .paaw/ exists
+        await paaw.init();
+
+        // Read model override from request body
+        let cuModelOverride = null;
+        try { const cuBody = JSON.parse(await readBody(req) || "{}"); cuModelOverride = cuBody.model || null; } catch {}
+
+        // Gather project info for context
+        let projectContext = `Project root: ${root}\n`;
+        try {
+          const pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8"));
+          projectContext += `Package: ${pkg.name || "unknown"}\nDependencies: ${Object.keys(pkg.dependencies || {}).join(", ")}\n`; // nosemgrep: missing-template-string-indicator
+        } catch {}
+
+        // Get file tree
+        try {
+          const treeOutput = await scanProjectFiles(root);
+          projectContext += `\nFile tree:\n${treeOutput}`;
+        } catch {}
+
+        // Get recent git log
+        try {
+          const gitLog = await runShellCmd("git log --oneline -20", root);
+          projectContext += `\nRecent git log:\n${gitLog}`;
+        } catch {}
+
+        // Load prompt templates
+        const promptsDir = join(DATA_HOME, "prompts", "code-understanding");
+        const aiSettingsDir = join(DATA_HOME, "ai-settings", "coding");
+        const loadPrompt = (filename) => {
+          // Priority: ai-settings/coding/ > prompts/code-understanding/
+          try { return readSync(resolve(aiSettingsDir, filename), "utf-8"); } catch {}
+          try { return readSync(resolve(promptsDir, filename), "utf-8"); } catch { return ""; }
+        };
+
+        // Check project-level overrides in .paaw/prompts/code-understanding/
+        const loadProjectPrompt = (filename) => {
+          // Priority: .paaw/prompts/ > ai-settings/coding/ > prompts/code-understanding/
+          const overridePath = join(root, ".paaw", "prompts", "code-understanding", filename);
+          if (existsSync(overridePath)) {
+            try { return readSync(overridePath, "utf-8"); } catch {}
+          }
+          return loadPrompt(filename);
+        };
+
+        // ── Check which steps are already done — skip them ──
+        const cuStatus = await paaw.getCuStatus();
+        const cuSteps = cuStatus.steps || {};
+
+        // 2026-09-06 Fleming：增量重掃 — 只重跑「有變更」的步驟
+        // watermark 機制：每個 step 完成時記下當時 source mtime（cu-status codeMtime），
+        // code 有新變更（lastModifiedMs > watermark）的 step 才重跑；沒變的 done step 照舊 skip 省 token
+        const { lastModifiedMs: _codeMtime } = countSourceFiles(root);
+        const staleStepIds = new Set(computeCuStaleness(root, cuSteps, _codeMtime).map(s => s.id));
+        cuLog("bulk", `Incremental plan: stale=[${[...staleStepIds].join(",") || "none"}] force=${forceRerun}`);
+
+        // Accumulate context from previous steps
+        let scanResult = "";
+        let architectureResult = "";
+        let apiSpecResult = "";
+        let errorMappingResult = "";
+        let decisionsResult = "";
+
+        for (const step of steps) {
+          // ── Skip if this step is done AND up-to-date (unless force rerun) ──
+          // 2026-09-06：done 但過期（code 有變更）的 step 不再 skip — 增量重跑它
+          if (!forceRerun && cuSteps[step.id]?.status === "done" && !staleStepIds.has(step.id)) {
+            cuLog(step.id, `Skipping — done & no changes since last scan`);
+            sendEvent("step_skip", { step: step.id, name: step.name, reason: "已最新（無變更）" });
+            continue;
+          }
+
+          sendEvent("step_start", { step: step.id, name: step.name });
+
+          // Special handling: security-scan runs Semgrep (no LLM needed)
+          if (step.id === "security-scan") {
+            try {
+              cuLog(step.id, "[bulk] Running Semgrep scan...");
+              const scanResult = await runSemgrep(root, { timeoutMs: 1_800_000 });
+              if (scanResult.error && scanResult.findings.length === 0) {
+                sendEvent("step_skip", { step: step.id, name: step.name, reason: scanResult.error.split('\n')[0] });
+                continue;
+              }
+              const secDir = join(root, ".paaw", "security");
+              if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
+              await writeFile(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
+              cuLog(step.id, `[bulk] Semgrep done: ${scanResult.stats.total} findings`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${scanResult.stats.total} findings`, stats: scanResult.stats });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${scanResult.stats.total} findings` }); } catch {}
+            } catch (err) {
+              cuLog(step.id, `[bulk] Semgrep failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+            }
+            continue;
+          }
+
+          // Special handling: code-intelligence runs Tree-sitter analysis (no LLM needed)
+          if (step.id === "code-intelligence") {
+            try {
+              cuLog(step.id, "[bulk] Building code intelligence...");
+              const { summary } = await buildCodeIntelligence(root, PAAW_ROOT);
+              cuLog(step.id, `[bulk] Code intelligence done: ${summary.callGraph.totalFunctions} functions, ${summary.callGraph.totalCalls} calls`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${summary.callGraph.totalFunctions} functions, ${summary.symbolIndex.total} symbols`, stats: summary });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.callGraph.totalFunctions} functions` }); } catch {}
+            } catch (err) {
+              cuLog(step.id, `[bulk] Code intelligence failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+            }
+            continue;
+          }
+
+          // Special handling: test-intelligence (no LLM)
+          if (step.id === "test-intelligence") {
+            try {
+              cuLog(step.id, "[bulk] Building test intelligence...");
+              const { summary, data: tiData } = await buildTestIntelligence(root, PAAW_ROOT);
+              cuLog(step.id, `[bulk] Test intelligence: ${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`);
+              const tiEnriched = await backfillFeatureTests(root, tiData?.featureToTests); // 2026-09-04：tests 回寫 FEATURES.json
+              if (tiEnriched > 0) cuLog(step.id, `[bulk] Backfilled tests into ${tiEnriched} feature(s)`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`, stats: summary });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.totalTestFiles} tests` }); } catch {}
+            } catch (err) {
+              cuLog(step.id, `[bulk] Test intelligence failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+            }
+            continue;
+          }
+
+          // Special handling: error-codes — by-feature LLM 語意整理（v2）
+          if (step.id === "error-codes") {
+            try {
+              cuLog(step.id, "[bulk] Collecting error signals + LLM organizing...");
+              const { organizeErrorCodes } = await import("../lib/error-code-scan.mjs");
+              const ecResult = await organizeErrorCodes(root, {
+                callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+                onProgress: (msg) => { cuLog(step.id, `[bulk] ${msg}`); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
+              });
+              if (ecResult.skipped) {
+                sendEvent("step_done", { step: step.id, name: step.name, summary: "no error signals" });
+                try { await paaw.setCuStepStatus(step.id, "done", { summary: "no error signals" }); } catch {}
+              } else {
+                cuLog(step.id, `[bulk] Error codes: ${ecResult.stats.uniqueCodes} codes / ${ecResult.stats.featureCount} features / conventions=${ecResult.conventions}`);
+                sendEvent("step_done", { step: step.id, name: step.name, summary: `${ecResult.stats.uniqueCodes} codes, ${ecResult.stats.featureCount} features, conventions: ${ecResult.conventions}` });
+                try { await paaw.setCuStepStatus(step.id, "done", { summary: `${ecResult.stats.uniqueCodes} codes / conventions=${ecResult.conventions}` }); } catch {}
+              }
+            } catch (err) {
+              cuLog(step.id, `[bulk] Error codes failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+            }
+            continue;
+          }
+
+          // Special handling: c4-model — 對外連線全景（bulk）
+          if (step.id === "c4-model") {
+            try {
+              cuLog(step.id, "[bulk] Collecting external signals + LLM assembling C4...");
+              const { organizeC4Model } = await import("../lib/c4-model-scan.mjs");
+              const c4Result = await organizeC4Model(root, {
+                callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+                onProgress: (msg) => { cuLog(step.id, `[bulk] ${msg}`); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
+              });
+              cuLog(step.id, `[bulk] C4: ${c4Result.stats.containers} containers / ${c4Result.stats.external} external`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${c4Result.stats.containers} containers, ${c4Result.stats.external} external systems` });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${c4Result.stats.external} external / ${c4Result.stats.containers} containers` }); } catch {}
+            } catch (err) {
+              cuLog(step.id, `[bulk] C4 model failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+            }
+            continue;
+          }
+
+          // Special handling: feature-map v2 — 骨架數學決定論 + LLM 只長肉（2026-09-05）
+          if (step.id === "feature-map") {
+            try {
+              cuLog(step.id, "[bulk] feature-map v2 (deterministic skeleton + LLM flesh)...");
+              const { organizeFeatureMapV2 } = await import("../lib/feature-map-v2.mjs");
+              const { features, meta } = await organizeFeatureMapV2(root, {
+                model: cuModelOverride || undefined, // 2026-10-23 修：bulk handler 無 body
+                callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
+                onProgress: (msg) => { cuLog(step.id, `[bulk] ${msg}`); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
+                paawRoot: PAAW_ROOT,
+              });
+              cuLog(step.id, `[bulk] v2: ${features.length} features (${meta.stats.clusters} deterministic)`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${features.length} features — ${meta.stats.clusters} deterministic` });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${features.length} features (v2)` }); } catch {}
+            } catch (err) {
+              cuLog(step.id, `[bulk] feature-map v2 failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+            }
+            continue;
+          }
+
+          // Special handling: change-intelligence (no LLM)
+          if (step.id === "change-intelligence") {
+            try {
+              cuLog(step.id, "[bulk] Building change intelligence...");
+              const { summary } = await buildChangeIntelligence(root, { days: 30, maxCommits: 50 }, { persist: false }); // 2026-09-06：GET 純算不落檔
+              cuLog(step.id, `[bulk] Change intelligence: ${summary.totalCommits} commits, ${summary.totalFilesChanged} files`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${summary.totalCommits} commits, ${summary.totalFilesChanged} files`, stats: summary });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.totalCommits} commits` }); } catch {}
+            } catch (err) {
+              cuLog(step.id, `[bulk] Change intelligence failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+            }
+            continue;
+          }
+
+          const promptTemplate = loadProjectPrompt(step.promptFile);
+          if (!promptTemplate) {
+            sendEvent("step_skip", { step: step.id, name: step.name, reason: "Prompt template not found" });
+            continue;
+          }
+
+          // Build full prompt with accumulated context
+          let fullPrompt = promptTemplate;
+          fullPrompt += `\n\n--- PROJECT CONTEXT ---\n${projectContext}`;
+          if (scanResult) fullPrompt += `\n\n--- SCAN RESULTS ---\n${scanResult}`;
+          if (architectureResult && (step.id === "decisions" || step.id === "api-spec" || step.id === "overview" || step.id === "feature-map")) {
+            const archLimit = step.id === "feature-map" ? 8000 : 3000;
+            fullPrompt += `\n\n--- ARCHITECTURE ---\n${architectureResult.slice(0, archLimit)}`;
+          }
+          if (apiSpecResult && (step.id === "test-payload" || step.id === "overview" || step.id === "feature-map")) {
+            fullPrompt += `\n\n--- API SPEC ---\n${apiSpecResult}`;
+          }
+          if (errorMappingResult && (step.id === "overview" || step.id === "feature-map")) {
+            fullPrompt += `\n\n--- ERROR MAPPING ---\n${errorMappingResult}`;
+          }
+          if (decisionsResult && (step.id === "overview" || step.id === "feature-map")) {
+            fullPrompt += `\n\n--- DECISIONS ---\n${decisionsResult.slice(0, 2000)}`;
+          }
+
+          // CU step skill 外掛：專案 .paaw/crew.json skillBindings["cu.<stepId>"] 綁的 PAAW skill
+          const cuSkills = await loadCuStepSkills(root, step.id);
+          if (cuSkills.length > 0) {
+            fullPrompt += `\n\n--- CU SKILL DIRECTIVES（${step.id} 方法論指令，優先於預設 prompt 的做法但不可違反輸出格式）---`;
+            for (const sk of cuSkills) {
+              fullPrompt += `\n\n### Skill: ${sk.name}${sk.path ? `\n（源路徑: ${sk.path}）` : ""}\n${sk.prompt}`;
+            }
+            cuLog(step.id, `Applied ${cuSkills.length} skill(s): ${cuSkills.map(x => x.id).join(", ")}`);
+            sendEvent?.("step_progress", { step: step.id, name: step.name, message: `套用 skill：${cuSkills.map(x => x.name).join("、")}` });
+          }
+
+          // Tree-sitter source analysis for feature-map step
+          let chunkedFeatureMap = null;
+          if (step.id === "feature-map") {
+            try {
+              cuLog(step.id, "Running Tree-sitter source analysis...");
+              // 2026-09-03 Fleming：不設上限 — 大 release unit 也要完整 feature map
+              const tsResult = await parseProject(root, PAAW_ROOT, { maxFiles: 0, maxBytes: 500_000 });
+              cuLog(step.id, `Tree-sitter: ${tsResult.stats.parsedFiles}/${tsResult.stats.totalFiles} files parsed, ${tsResult.stats.errors} errors`);
+              const condensed = formatCondensed(tsResult);
+              if (condensed && condensed.length <= 80_000) {
+                fullPrompt += `\n\n--- SOURCE ANALYSIS (Tree-sitter) ---\n${condensed}`;
+              } else if (condensed) {
+                // 大 release unit：map-reduce 分塊產出完整 feature map
+                const { features } = await generateFeatureMapChunked({
+                  tsResult, basePrompt: fullPrompt, projectRoot: root,
+                  cuModelOverride, cuLog, sendEvent, stepId: step.id, stepName: step.name,
+                });
+                chunkedFeatureMap = JSON.stringify(features, null, 2);
+              }
+              const fullAnalysis = formatForAI(tsResult);
+              await paaw.writeFile("features/tree-sitter-analysis.txt", fullAnalysis);
+            } catch (tsErr) {
+              cuLog(step.id, `Tree-sitter failed (non-fatal): ${tsErr.message}`);
+            }
+          }
+
+          // Call LLM
+          try {
+            const result = chunkedFeatureMap
+              ? { content: chunkedFeatureMap, finishReason: "stop", attempts: 1 }
+              : await callProjectLLM({
+              model: cuModelOverride || undefined, // 2026-10-23 修：bulk handler 無 body
+              messages: [{ role: "user", content: fullPrompt }],
+              temperature: 0,
+              thinking: { type: "disabled" }, // 關思考 — 實證必要：thinking 開著會燒光輸出額度
+            }, { ...CU_LLM_OPTS, timeoutMs: 600_000 }); // 10 min per step in bulk mode
+
+            const content = result.content || "";
+            const sanitized = _sanitizeMd(content);
+            try {
+              if (step.id === "scan") {
+                scanResult = content;
+                await paaw.writeFile("scan.json", content);
+              } else if (step.id === "architecture") {
+                architectureResult = content;
+                await diffWriteFile(paaw, "ARCHITECTURE.md", sanitized);
+              } else if (step.id === "api-spec") {
+                apiSpecResult = content;
+                await diffWriteFile(paaw, "specs/api-contract.md", sanitized);
+              } else if (step.id === "error-mapping") {
+                errorMappingResult = content;
+                await diffWriteFile(paaw, "specs/error-codes.md", sanitized);
+                const runbookMatches = [...content.matchAll(/## Runbook[:\s]+(\d+).*?\n([\s\S]*?)(?=\n## Runbook|\n---|$)/g)];
+                for (const rm of runbookMatches) {
+                  await paaw.writeFile(`runbook/${rm[1]}.md`, `# Runbook: ${rm[1]}\n\n${rm[2].trim()}`);
+                }
+              } else if (step.id === "decisions") {
+                decisionsResult = content;
+                await diffWriteFile(paaw, "DECISIONS.md", sanitized);
+              } else if (step.id === "test-payload") {
+                await paaw.writeFile("test-payloads/all-payloads.json", content);
+                try {
+                  const payloads = JSON.parse(content);
+                  if (Array.isArray(payloads)) {
+                    for (const p of payloads) {
+                      const slug = (p.endpoint || p.name || "unknown").replace(/[^a-zA-Z0-9-]/g, "-");
+                      await paaw.writeFile(`test-payloads/${slug}.json`, JSON.stringify(p, null, 2));
+                    }
+                  } else if (payloads.endpoint) {
+                    const slug = payloads.endpoint.replace(/[^a-zA-Z0-9-]/g, "-");
+                    await paaw.writeFile(`test-payloads/${slug}.json`, JSON.stringify(payloads, null, 2));
+                  }
+                } catch {}
+              } else if (step.id === "overview") {
+                await diffWriteFile(paaw, "PROJECT.md", sanitized);
+              } else if (step.id === "feature-map") {
+                // Parse AI output as JSON array and write to FEATURES.json
+                let featureMapOk = false;
+                try {
+                  const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+                  if (!cleanJson) throw new Error("AI 回應為空，無法產生 Feature Map");
+                  let features = null;
+                  try { features = JSON.parse(cleanJson); } catch {}
+                  if (!Array.isArray(features)) features = repairLlmJsonArray(content); // 2026-09-04：修 LLM JSON 鬼格式
+                  if (Array.isArray(features)) {
+                    const cleanFeatures = features.map(sanitizeFeature).filter(Boolean); // 2026-09-04：白名單清洗
+                    const featureIdBatch = nextFeatureIds(root, cleanFeatures.length);
+                    const featuresWithIds = cleanFeatures.map((f, i) => ({
+                      ...f,
+                      id: featureIdBatch[i],
+                      issues: [],
+                      aiUnderstanding: "",
+                      aiUnderstandingAt: null,
+                      documentation: "",
+                      docsUpdatedAt: null,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    }));
+                    const featuresDir = join(root, ".paaw", "features");
+                    if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
+                    await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                    // Generate file→features reverse mapping
+                    const fileFeatureMap = {};
+                    for (const feat of featuresWithIds) {
+                      const allFiles = [...(feat.codeFiles || []), ...(feat.tests || []), ...(feat.runbooks || [])];
+                      for (const f of allFiles) {
+                        const norm = f.replace(/\\/g, "/");
+                        if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
+                        fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
+                      }
+                      for (const api of (feat.apis || [])) {
+                        if (api.file) {
+                          const norm = api.file.replace(/\\/g, "/");
+                          if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
+                          if (!fileFeatureMap[norm].some(f => f.id === feat.id)) {
+                            fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
+                          }
+                        }
+                      }
+                    }
+                    await writeFile(join(featuresDir, "FILE-FEATURES.json"), JSON.stringify({ files: fileFeatureMap, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                    featureMapOk = true;
+                    cuLog(step.id, `[bulk] Saved ${featuresWithIds.length} features + ${Object.keys(fileFeatureMap).length} file→feature mappings`);
+                  }
+                } catch (parseErr) {
+                  cuLog(step.id, `[bulk] Failed to parse feature JSON: ${parseErr.message}`);
+                  // Try recovery: find last complete object
+                  try {
+                    const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+                    if (!cleanJson) throw new Error("empty content — cannot recover");
+                    let lastComplete = 0, braceCount = 0, inStr = false, esc = false;
+                    for (let i = 0; i < cleanJson.length; i++) {
+                      const c = cleanJson[i];
+                      if (esc) { esc = false; continue; }
+                      if (c === '\\') { esc = true; continue; }
+                      if (c === '"') { inStr = !inStr; continue; }
+                      if (inStr) continue;
+                      if (c === '{') braceCount++;
+                      if (c === '}') { braceCount--; if (braceCount === 0) lastComplete = i; }
+                    }
+                    if (lastComplete === 0) throw new Error("no complete JSON object found");
+                    const recovered = cleanJson.substring(0, lastComplete + 1).trim() + '\n]';
+                    const feats = JSON.parse(recovered);
+                    if (Array.isArray(feats) && feats.length > 0) {
+                      const featureIdBatch = nextFeatureIds(root, feats.length);
+                    const featuresWithIds = feats.map(sanitizeFeature).filter(Boolean).map((f, i) => ({ ...f, id: featureIdBatch[i], issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
+                      const featuresDir = join(root, ".paaw", "features");
+                      if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
+                      await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                      // Generate file→features reverse mapping
+                      const fileFeatureMap = {};
+                      for (const feat of featuresWithIds) {
+                        const allFiles = [...(feat.codeFiles || []), ...(feat.tests || []), ...(feat.runbooks || [])];
+                        for (const f of allFiles) {
+                          const norm = f.replace(/\\/g, "/");
+                          if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
+                          fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
+                        }
+                      }
+                      await writeFile(join(featuresDir, "FILE-FEATURES.json"), JSON.stringify({ files: fileFeatureMap, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                      cuLog(step.id, `[bulk] Recovery: saved ${featuresWithIds.length} features from truncated JSON`);
+                      featureMapOk = true;
+                    } else throw new Error("recovered array is empty");
+                  } catch (recoverErr) {
+                    cuLog(step.id, `[bulk] Recovery also failed: ${recoverErr.message}`);
+                    await paaw.writeFile("features/raw-feature-map.txt", content);
+                    failedSteps.push({ step: step.id, name: step.name, error: `Feature Map 產生失敗：${parseErr.message}` });
+                  }
+                }
+                if (!featureMapOk) {
+                  // Feature Map failed — send step_error instead of step_done
+                  sendEvent("step_error", { step: step.id, name: step.name, error: `Feature Map 產生失敗：AI 回應無法解析為 JSON。已儲存原始內容到 raw-feature-map.txt，請重新執行此步驟。` });
+                  // Skip step_done for this step
+                  continue;
+                }
+              }
+              cuLog(step.id, `[bulk] wrote file OK (${content.length} chars)`);
+            } catch (writeErr) {
+              cuLog(step.id, `[bulk] FAILED to write: ${writeErr.message}`);
+            }
+
+            sendEvent("step_done", {
+              step: step.id,
+              name: step.name,
+              size: content.length,
+              preview: content.slice(0, 200),
+            });
+            try { await paaw.setCuStepStatus(step.id, "done", { size: content.length }); } catch {}
+          } catch (err) {
+            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+            try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+          }
+        }
+
+        // ── L3 Validation after all steps complete ──
+        sendEvent("step_start", { step: "validate", name: "🔍 L3 驗證 Feature Map" });
+        try {
+          const { runFullValidation } = await import("../lib/feature-map-validator.mjs");
+          const validation = await runFullValidation(root, { skipUnderstanding: true });
+          if (validation.ok) {
+            const s = validation.summary;
+            sendEvent("step_done", {
+              step: "validate",
+              name: "🔍 L3 驗證 Feature Map",
+              summary: `${s.mappingErrors} errors, ${s.coveragePct}% coverage, ${s.orphanFiles} orphans`,
+              validation: s,
+            });
+            if (s.mappingErrors > 0) {
+              sendEvent("warning", { message: `Feature Map 有 ${s.mappingErrors} 個錯誤（檔案不存在），建議重新執行 Feature Map 步驟` });
+            }
+          } else {
+            sendEvent("step_done", { step: "validate", name: "🔍 L3 驗證", summary: validation.error || "Skipped" });
+          }
+        } catch (err) {
+          sendEvent("step_done", { step: "validate", name: "🔍 L3 驗證", summary: `Skipped: ${err.message}` });
+        }
+
+        // CU 收尾：PROJECT.md 重生成（2026-10-09 Fleming — schema v2：AI 區每次重寫、USER 區絕不覆蓋）
+        try {
+          const draft = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: b.model || cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
+          try { await paaw.setCuStepStatus("overview", "done", { summary: `${draft.features} features（${draft.aiSource}）` }); } catch {}
+          if (draft.written) {
+            cuLog("overview", `PROJECT.md ${draft.reason} (${draft.features} features, ${draft.aiSource})`);
+            sendEvent("info", { message: `📝 PROJECT.md 已更新（${draft.reason}，${draft.features} features，${draft.aiSource === "llm" ? "AI 生成" : "確定性骨架"}）— User Remarks 區不受影響` });
+          }
+        } catch (e) { cuLog("overview", `regenerate failed: ${e.message}`); }
+
+        sendEvent("done", { message: "Code Understanding complete" });
+      } catch (err) {
+        sendEvent("error", { error: err.message });
+      }
+
+      res.end();
+      return true;
+    }
+
+// ── Domain AI — specialized AI per area ──
+
+    // POST /api/coding-project/domain-ai — run a domain AI
+    if (url.startsWith("/api/coding-project/domain-ai") && method === "POST") {
+      const { domain, prompt, history, model: modelOverride, images } = JSON.parse(await readBody(req));
+      const validDomains = ["spec", "test", "bug", "docs", "maintain"];
+      if (!validDomains.includes(domain)) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `Invalid domain: ${domain}. Valid: ${validDomains.join(", ")}` }));
+        return true;
+      }
+
+      // SSE stream
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+
+      const sendEvent = (event, data) => {
+        if (res.writableEnded || res.destroyed) return;
+        try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch {}
+      };
+
+      try {
+        // Load domain system prompt
+        // Priority: .paaw/prompts/{domain}-ai/ → ai-settings/domain-ai/{domain}/ → prompts/{domain}-ai/
+        const aiSettingsBase = join(DATA_HOME, "ai-settings", "domain-ai");
+        const legacyPromptsBase = join(DATA_HOME, "prompts");
+        const domainPromptDir = join(legacyPromptsBase, `${domain}-ai`);
+        const aiSettingsDomainDir = join(aiSettingsBase, domain);
+        const systemPromptFile = resolve(aiSettingsBase, "system-prompt.md");
+        const legacySystemPromptFile = resolve(legacyPromptsBase, "domain-ai-system.md");
+        let systemPrompt = "";
+        try { systemPrompt = readSync(systemPromptFile, "utf-8"); } catch {
+          try { systemPrompt = readSync(legacySystemPromptFile, "utf-8"); } catch {}
+        }
+
+        // Load all domain prompts (from ai-settings first, then legacy prompts/)
+        let domainContext = "";
+        const loadedFiles = new Set();
+        try {
+          const aiFiles = await readdir(aiSettingsDomainDir);
+          for (const f of aiFiles.filter(f => f.endsWith(".md")).sort()) {
+            loadedFiles.add(f);
+            domainContext += `\n--- ${f} ---\n${readSync(resolve(aiSettingsDomainDir, f), "utf-8")}`;
+          }
+        } catch {}
+        try {
+          const domainFiles = await readdir(domainPromptDir);
+          for (const f of domainFiles.filter(f => f.endsWith(".md")).sort()) {
+            if (!loadedFiles.has(f)) {
+              domainContext += `\n--- ${f} ---\n${readSync(resolve(domainPromptDir, f), "utf-8")}`;
+            }
+          }
+        } catch {}
+
+        // Check project-level overrides
+        const projectPromptDir = join(root, ".paaw", "prompts", `${domain}-ai`);
+        if (existsSync(projectPromptDir)) {
+          try {
+            const pFiles = await readdir(projectPromptDir);
+            for (const f of pFiles.filter(f => f.endsWith(".md")).sort()) {
+              domainContext += `\n--- PROJECT OVERRIDE: ${f} ---\n${readSync(resolve(projectPromptDir, f), "utf-8")}`;
+            }
+          } catch {}
+        }
+
+        // Load relevant .paaw/ context based on domain
+        let paawContext = "";
+        const domainPaawFiles = {
+          spec: ["specs/api-contract.md", "specs/error-codes.md", "specs/node-contract.md", "specs/flow-spec.md"],
+          test: ["specs/api-contract.md", "test-payloads/all-payloads.json"],
+          bug: ["specs/error-codes.md", "DECISIONS.md"],
+          docs: ["PROJECT.md", "helpdesk/faq.md", "CHANGELOG.md"],
+          maintain: ["DECISIONS.md"],
+        };
+        for (const f of domainPaawFiles[domain] || []) {
+          const content = await paaw.readFile(f);
+          if (content) paawContext += `\n=== ${f} ===\n${content.slice(0, 3000)}\n`;
+        }
+
+        // Load runbooks for bug
+        if (domain === "bug") {
+          const rbDir = join(paaw.paawDir, "runbook");
+          if (existsSync(rbDir)) {
+            try {
+              const rbFiles = await readdir(rbDir);
+              for (const rf of rbFiles.filter(f => f.endsWith(".md")).slice(0, 10)) {
+                const c = await readFile(join(rbDir, rf), "utf-8");
+                paawContext += `\n=== runbook/${rf} ===\n${c.slice(0, 1000)}\n`;
+              }
+            } catch {}
+          }
+        }
+
+        // Build full system prompt
+        const fullSystemPrompt = `${systemPrompt}\n\n## Your Domain: ${domain.toUpperCase()}\n${domainContext}\n\n## Project Knowledge\n${paawContext}`;
+
+        // Build messages
+        const messages = [{ role: "system", content: fullSystemPrompt }];
+        // Add history
+        if (Array.isArray(history)) {
+          for (const m of history.slice(-10)) {
+            messages.push({ role: m.role, content: m.content });
+          }
+        }
+        messages.push({ role: "user", content: prompt });
+
+        // 👁 2026-09-06：domain AI 貼圖 — 有圖 → vision content array + 自動切 visionModel（沒設定則降級純文字附註）
+        let effectiveModel = modelOverride;
+        const imgPaths = Array.isArray(images)
+          ? [...new Set(images)].filter((p) => typeof p === "string" && /^(paaw-)?uploads\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(p)).slice(0, 4)
+          : [];
+        if (imgPaths.length > 0) {
+          try {
+            const { imageFileToDataUrl, getVisionModel, visionAvailable } = await import("../lib/vision-content.mjs");
+            const { resolveUploadRef } = await import("./uploads.mjs");
+            if (visionAvailable(null)) {
+              const parts = [{ type: "text", text: prompt }];
+              for (const p of imgPaths) {
+                const absPath = await resolveUploadRef(p);
+                if (!absPath) continue;
+                const du = imageFileToDataUrl(absPath);
+                if (du) parts.push({ type: "image_url", image_url: { url: du } });
+              }
+              if (parts.length > 1) {
+                messages[messages.length - 1] = { role: "user", content: parts };
+                effectiveModel = getVisionModel();
+              }
+            } else {
+              messages[messages.length - 1] = { role: "user", content: `${prompt}\n\n（附了 ${imgPaths.length} 張圖，但未設定 visionModel — 此模型看不到圖）` };
+            }
+          } catch { /* 讀檔失敗降級純文字 */ }
+        }
+
+        // Call LLM
+        const result = await callProjectLLM({
+          model: effectiveModel || undefined,
+          messages,
+          temperature: 0.3,
+        }, CU_LLM_OPTS); // 對話型 0.3；maxTokens 走 providers.json
+
+        sendEvent("done", { content: result.content || "" });
+      } catch (err) {
+        sendEvent("error", { error: err.message });
+      }
+      res.end();
+      return true;
+    }
+
+    // GET /api/coding-project/cu-status — CU step statuses
+    if (url.startsWith("/api/coding-project/cu-status") && method === "GET") {
+      try {
+        const cuStatus = await paaw.getCuStatus();
+        const steps = cuStatus.steps || {};
+        const doneCount = Object.values(steps).filter(s => s?.status === "done").length;
+        const errorCount = Object.values(steps).filter(s => s?.status === "error").length;
+        const { count: sourceFiles, lastModifiedMs } = countSourceFiles(root);
+        const staleSteps = computeCuStaleness(root, steps, lastModifiedMs);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        // CU lifecycle 原料：前端據此算 phase（missing/no-code/ready/partial/done/stale）
+        res.end(JSON.stringify({
+          ...cuStatus,
+          hasPaaw: existsSync(join(root, ".paaw")),
+          sourceFiles,
+          doneCount,
+          errorCount,
+          codeLastModified: lastModifiedMs > 0 ? new Date(lastModifiedMs).toISOString() : null,
+          staleSteps,
+          staleCount: staleSteps.length,
+        }));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // POST /api/coding-project/cu-rescan-mechanical — 手動重掃機械層（免 token 秒級）
+    // 智能層（LLM 生成的文檔）永遠不在此自動重跑 — 過期時 UI 提醒人決定
+    if (url.startsWith("/api/coding-project/cu-rescan-mechanical") && method === "POST") {
+      try {
+        await paaw.init(); // 確保 .paaw 存在（無 .paaw 時先建骨架）
+        const result = await rescanMechanicalLayer(root, PAAW_ROOT);
+        // 重掃成功 → 直接重建 Release Unit Model（不等 read-path self-heal；
+        // 否則 RU 樹 stale badge 停在舊狀態，體感「按了沒發生任何事」2026-08-22）
+        let ruModel = null;
+        try {
+          const { buildReleaseUnitModel } = await import("../lib/release-unit/model.mjs");
+          ruModel = await buildReleaseUnitModel(root);
+          result.ruModel = { ok: true, headSha: ruModel.headSha, apis: ruModel.summary?.apis, features: ruModel.summary?.features };
+          // Content-addressed rescan report：哪些 table 實質變更 / model 是否重寫（2026-08-22）
+          const rs = ruModel._rescan;
+          if (rs) {
+            const totals = rs.diff
+              ? Object.entries(rs.diff).reduce((acc, [t, d]) => {
+                  acc[t] = d.added + d.removed + d.modified;
+                  return acc;
+                }, {})
+              : null;
+            result.ruDiff = { written: rs.written, changed: rs.changed, headChanged: rs.headChanged, tables: rs.diff, totals };
+          }
+        } catch (e) {
+          result.ruModel = { ok: false, error: e.message };
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    if (url.startsWith("/api/coding-project/prompts") && method === "GET" && !url.includes("/prompts/")) {
+      const promptsDir = join(DATA_HOME, "prompts", "code-understanding");
+      const projectPromptsDir = join(root, ".paaw", "prompts", "code-understanding");
+      try {
+        const files = existsSync(promptsDir) ? await readdir(promptsDir) : [];
+        const prompts = [];
+        for (const f of files.filter(f => f.endsWith(".md")).sort()) {
+          const content = readSync(resolve(promptsDir, f), "utf-8");
+          const hasOverride = existsSync(resolve(projectPromptsDir, f));
+          let overrideContent = null;
+          if (hasOverride) {
+            try { overrideContent = readSync(resolve(projectPromptsDir, f), "utf-8"); } catch {}
+          }
+          prompts.push({
+            filename: f,
+            name: f.replace(/\.md$/, ""),
+            defaultContent: content,
+            customContent: overrideContent,
+            activeContent: overrideContent || content,
+            hasOverride,
+            size: (overrideContent || content).length,
+          });
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(prompts));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // GET /api/coding-project/prompts/:filename — read specific prompt
+    if (url.match(/\/api\/coding-project\/prompts\/[\w-]+\.md$/) && method === "GET") {
+      const filename = url.split("/prompts/").pop();
+      const projectPromptsDir = join(root, ".paaw", "prompts", "code-understanding");
+      const projectFile = resolve(projectPromptsDir, filename);
+      if (existsSync(projectFile)) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ filename, content: readSync(projectFile, "utf-8"), source: "project" }));
+      } else {
+        const defaultDir = join(DATA_HOME, "prompts", "code-understanding");
+        const defaultFile = resolve(defaultDir, filename);
+        if (existsSync(defaultFile)) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ filename, content: readSync(defaultFile, "utf-8"), source: "default" }));
+        } else {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Prompt not found" }));
+        }
+      }
+      return true;
+    }
+
+    // PUT /api/coding-project/prompts/:filename — save custom prompt
+    if (url.match(/\/api\/coding-project\/prompts\/[\w-]+\.md$/) && method === "PUT") {
+      const filename = url.split("/prompts/").pop();
+      const { content } = JSON.parse(await readBody(req));
+      if (!content) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Missing content" }));
+        return true;
+      }
+      const projectPromptsDir = join(root, ".paaw", "prompts", "code-understanding");
+      await mkdir(projectPromptsDir, { recursive: true });
+      await writeFile(resolve(projectPromptsDir, filename), content, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, filename, source: "project" }));
+      return true;
+    }
+
+    // DELETE /api/coding-project/prompts/:filename — remove custom prompt (revert to default)
+    if (url.match(/\/api\/coding-project\/prompts\/[\w-]+\.md$/) && method === "DELETE") {
+      const filename = url.split("/prompts/").pop();
+      const projectPromptsDir = join(root, ".paaw", "prompts", "code-understanding");
+      const projectFile = resolve(projectPromptsDir, filename);
+      if (existsSync(projectFile)) {
+        try { await unlink(projectFile); } catch {}
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, filename, reverted: true }));
+      return true;
+    }
+
+  } catch (err) {
+    console.error("[project route] error:", err.message);
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: err.message }));
+    return true;
+  }
+
+  return false;
+}
+
+// ── Read request body ──
+
+// ── readBody imported from shared.mjs ──
+
+// ── Generate Standards from Codebase ──
+// generateStandardsFromCodebase 已移除（2026-09-06：standards dir 系統退役 — Fleming）
+
+async function runShellCmd(command, cwd, timeoutMs = 10_000) {
+  try {
+    const { stdout, stderr } = await shellExec(command, {
+      cwd, timeout: timeoutMs, maxBuffer: 2 * 1024 * 1024,
+    });
+    return (stdout || "") + (stderr ? "\n" + stderr : "");
+  } catch (e) {
+    let output = e.stdout || "";
+    if (e.stderr) output += (output ? "\n" : "") + e.stderr;
+    return output;
+  }
+}
+
+// ── Cross-platform file tree scan (Windows has no Unix 'find') ──
+async function scanProjectFiles(cwd, maxFiles = 0) {
+  // 2026-09-06：改純 Node walker（共用 cu-source-scan）— 支援 .gitignore、刪掉 Windows/macOS 雙分支 shell find
+  const { files } = walkSourceFiles(cwd, { maxFiles });
+  return files.join("\n");
+}
+
+// ── Collect Project Health ──
+
+async function collectProjectHealth(root, paaw) {
+  const health = {
+    paawCompleteness: { initialized: paaw.exists, files: [], score: 0 },
+    git: { branch: "", uncommitted: 0 },
+    codeStats: { totalFiles: 0, totalLines: 0, languages: [] },
+    sessions: { total: 0, recent: 0, successRate: 0 },
+    dependencies: undefined,
+  };
+
+  // ── .paaw/ completeness with fix plans ──
+  const expectedFiles = ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md", "CHANGELOG.md"];
+  // Fix plans for each missing file
+  const fixPlans = {
+    "PROJECT.md": { steps: [{ agent: "architect", task: "建立 .paaw/PROJECT.md，分析專案結構，撰寫專案概述、技術棧、目標使用者等" }], estimatedMinutes: 60 },
+    "ARCHITECTURE.md": { steps: [{ agent: "architect", task: "建立 .paaw/ARCHITECTURE.md，分析專案目錄結構、模組依賴、資料流，畫出架構圖" }], estimatedMinutes: 60 },
+    "DECISIONS.md": { steps: [{ agent: "doc-writer", task: "建立 .paaw/DECISIONS.md，根據現有程式碼和架構推導技術決策，記錄 ADR (Architecture Decision Records)" }], estimatedMinutes: 60 },
+    "CHANGELOG.md": { steps: [{ agent: "doc-writer", task: "建立 .paaw/CHANGELOG.md，從 git log 推導版本歷史和重要變更" }], estimatedMinutes: 60 },
+  };
+  const fixHints = {
+    "PROJECT.md": "No project overview",
+    "ARCHITECTURE.md": "No architecture map",
+    "DECISIONS.md": "No ADRs",
+    "CHANGELOG.md": "No changelog",
+    "sessions/": "No session history",
+  };
+  let existCount = 0;
+  for (const f of expectedFiles) {
+    const content = await paaw.readFile(f);
+    const exists = content !== null;
+    if (exists) existCount++;
+    health.paawCompleteness.files.push({
+      name: f,
+      exists,
+      size: exists ? content.length : undefined,
+      hint: !exists ? (fixHints[f] || `Missing ${f}`) : undefined,
+      fixPlan: !exists ? (fixPlans[f] || { steps: [{ agent: "developer", task: `建立 .paaw/${f}` }], estimatedMinutes: 60 }) : undefined,
+    });
+  }
+  // Check subdirs
+  const dirFixPlans = {
+    "sessions/": { steps: [{ agent: "developer", task: "建立 .paaw/sessions/ 目錄，確保 AI session 歷史可以儲存" }], estimatedMinutes: 60 },
+  };
+  for (const d of ["sessions"]) {
+    const dirPath = join(paaw.paawDir, d);
+    const exists = existsSync(dirPath);
+    if (exists) existCount++;
+    const name = d + "/";
+    health.paawCompleteness.files.push({
+      name,
+      exists,
+      hint: !exists ? (fixHints[name] || `Missing ${name}`) : undefined,
+      fixPlan: !exists ? (dirFixPlans[name] || { steps: [{ agent: "developer", task: `建立 .paaw/${name}` }], estimatedMinutes: 60 }) : undefined,
+    });
+  }
+  health.paawCompleteness.score = Math.round((existCount / (expectedFiles.length + 2)) * 100);
+
+  // ── Git health ──
+  try {
+    const branch = (await runShellCmd("git rev-parse --abbrev-ref HEAD", root, 3000)).trim();
+    const status = await runShellCmd("git status --porcelain", root, 5000);
+    const uncommitted = status.trim().split("\n").filter(Boolean).length;
+    const logLine = (await runShellCmd("git log -1 --oneline --format=%h___%s___%cr", root, 3000)).trim();
+    const remote = (await runShellCmd("git remote get-url origin", root, 3000)).trim();
+
+    const [hash, ...rest] = logLine.split("___");
+    const subject = rest[0] || "";
+    const when = rest[1] || "";
+
+    health.git = {
+      branch,
+      uncommitted,
+      lastCommit: subject ? `${hash} ${subject}` : undefined,
+      lastCommitDate: when || undefined,
+      remote: remote || undefined,
+    };
+  } catch {}
+
+  // ── Code stats ──
+  try {
+    const gitFiles = (await runShellCmd("git ls-files", root, 5000)).trim().split("\n").filter(Boolean);
+    health.codeStats.totalFiles = gitFiles.length;
+
+    // Count lines and languages
+    const langCount = {};
+    let totalLines = 0;
+    const extMap = { ".js": "JavaScript", ".mjs": "JavaScript", ".ts": "TypeScript", ".tsx": "TypeScript", ".jsx": "JavaScript", ".css": "CSS", ".html": "HTML", ".json": "JSON", ".md": "Markdown", ".py": "Python", ".go": "Go", ".rs": "Rust", ".java": "Java", ".c": "C", ".cpp": "C++" };
+
+    // Sample up to 500 files for performance
+    const sample = gitFiles.slice(0, 500);
+    for (const f of sample) {
+      const ext = "." + (f.split(".").pop() || "");
+      const lang = extMap[ext];
+      if (lang) {
+        langCount[lang] = (langCount[lang] || 0) + 1;
+        try {
+          const content = readSync(join(root, f), "utf-8");
+          totalLines += content.split("\n").length;
+        } catch {}
+      } else if (!ext.includes("/")) {
+        langCount[ext] = (langCount[ext] || 0) + 1;
+      }
+    }
+
+    health.codeStats.totalLines = totalLines;
+
+    // Language percentages
+    const totalLangFiles = Object.values(langCount).reduce((a, b) => a + b, 0);
+    health.codeStats.languages = Object.entries(langCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([lang, count]) => ({ lang, files: count, percent: Math.round((count / totalLangFiles) * 100) }));
+  } catch {}
+
+  // ── AI Sessions ──
+  try {
+    const sessions = await paaw.listSessions();
+    health.sessions.total = sessions.length;
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    health.sessions.recent = sessions.filter(s => new Date(s.modified).getTime() > sevenDaysAgo).length;
+
+    // Calculate success rate from session content
+    let successCount = 0;
+    let checked = 0;
+    for (const s of sessions.slice(0, 20)) {
+      try {
+        const content = await paaw.readSession(s.filename);
+        if (content) {
+          checked++;
+          if (content.includes("✅ 成功")) successCount++;
+        }
+      } catch {}
+    }
+    health.sessions.successRate = checked > 0 ? Math.round((successCount / checked) * 100) : 0;
+  } catch {}
+
+  // ── Dependencies ──
+  try {
+    const pkgPath = join(root, "package.json");
+    if (existsSync(pkgPath)) {
+      const pkg = JSON.parse(readSync(pkgPath, "utf-8"));
+      const total = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).length;
+      health.dependencies = { total };
+    }
+  } catch {}
+
+  // ── Fix items (actionable health issues with fixPlan) ──
+  const fixItems = [];
+  const fixId = (cat, name) => `health-${cat}-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
+  // Missing .paaw/ docs → docWriter
+  for (const f of health.paawCompleteness.files) {
+    if (!f.exists && !f.name.endsWith("/")) {
+      fixItems.push({
+        id: fixId("paaw", f.name),
+        severity: "medium",
+        category: "documentation",
+        title: `缺少 .paaw/${f.name}`,
+        description: `${f.name} 是重要的專案知識文件，建議補齊`,
+        fixPlan: {
+          steps: [
+            { agent: "doc-writer", task: `建立 .paaw/${f.name}，內容根據現有專案程式碼和架構推導` },
+          ],
+          estimatedMinutes: 60,
+        },
+      });
+    }
+  }
+
+  // Missing .paaw/ subdirs
+  for (const f of health.paawCompleteness.files) {
+    if (!f.exists && f.name.endsWith("/")) {
+      fixItems.push({
+        id: fixId("paaw", f.name),
+        severity: "low",
+        category: "structure",
+        title: `缺少 .paaw/${f.name} 目錄`,
+        description: `建議建立 ${f.name} 目錄以組織專案知識`,
+        fixPlan: {
+          steps: [
+            { agent: "doc-writer", task: `建立 .paaw/${f.name} 目錄及基本內容` },
+          ],
+          estimatedMinutes: 60,
+        },
+      });
+    }
+  }
+
+  // Git: uncommitted changes → commit
+  if (health.git.uncommitted > 5) {
+    fixItems.push({
+      id: fixId("git", "uncommitted"),
+      severity: "medium",
+      category: "git",
+      title: `${health.git.uncommitted} 個未提交的變更`,
+      description: "工作目錄有大量未提交變更，建議整理後提交",
+      fixPlan: {
+        steps: [
+          { agent: "developer", task: "整理 uncommitted 變更，分組 stage + 準備 commit message（只 git add，不 commit）" },
+        ],
+        estimatedMinutes: 60,
+      },
+    });
+  }
+
+  // Git: no remote
+  if (!health.git.remote) {
+    fixItems.push({
+      id: fixId("git", "no-remote"),
+      severity: "high",
+      category: "git",
+      title: "沒有設定 Git Remote",
+      description: "建議設定 remote origin 以便 push 和協作",
+      fixPlan: {
+        steps: [
+          { agent: "developer", task: "幫使用者設定 git remote origin（詢問 repo URL）" },
+        ],
+        estimatedMinutes: 60,
+      },
+    });
+  }
+
+  // Low paaw score → comprehensive doc fix
+  if (health.paawCompleteness.score < 50) {
+    fixItems.push({
+      id: fixId("paaw", "low-score"),
+      severity: "high",
+      category: "documentation",
+      title: `.paaw/ 健康分數過低 (${health.paawCompleteness.score}/100)`,
+      description: "知識文件嚴重不足，建議全面補齊",
+      fixPlan: {
+        steps: [
+          { agent: "doc-writer", task: "建立 .paaw/PROJECT.md，描述專案目標和架構" },
+          { agent: "doc-writer", task: "建立 .paaw/DECISIONS.md，記錄重要架構決策" },
+        ],
+        estimatedMinutes: 60,
+      },
+    });
+  }
+
+  health.fixItems = fixItems;
+
+  return health;
+}

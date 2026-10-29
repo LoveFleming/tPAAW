@@ -1,0 +1,61 @@
+# ── Node ──
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+*.log
+paaw-server.log
+npm-debug.log*
+
+# ── Secrets / instance config ──
+.env
+.env.*
+!.env.example
+data/config/providers.json
+
+# ── PAAW runtime state（開機自建，永不 commit）──
+log/
+logs/
+.paaw/
+temp/
+backups/
+Users/
+
+# ── 個人資料（local-first：留在本機，不進 repo）──
+data/chats/
+data/app-data/
+data/notes/
+data/a2a-tasks/
+data/api-registry/
+data/helpdesk/
+data/crew-conversations/
+data/crew-pictures/
+data/projects/
+data/test-signals/
+data/git-reviews/
+data/workspaces.json
+data/vibe-sessions.json
+data/user.json
+data/ui-state.json
+data/crew-preferences.json
+data/assistant-skills.json
+data/config/user.json
+data/config/ui-state.json
+data/config/backup.json
+data/config/distilled-memory/
+data/config/recent-projects.json
+data/config/agentic-bindings.json
+data/config/MEMORY.md
+data/skills/lab/
+data/skills/.test-output/
+data/skills/building/*/test-*
+data/apps/lab/
+data/workflows/_exec-history/
+
+# ── OS / editor ──
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

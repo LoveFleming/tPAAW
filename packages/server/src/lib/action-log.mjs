@@ -1,0 +1,161 @@
+/**
+ * Action Log — 跨 agent 動作紀錄（交接簿）
+ *
+ * 存在 .paaw/coding-memory/actions.jsonl
+ * 每條紀錄：誰做了什麼、結果如何、影響哪些檔案
+ *
+ * Agent 完成 task 後用 action_log_add 寫入
+ * Agent dispatch 時透過 contextProviders 讀取
+ */
+
+import { appendFile, readFile } from "fs/promises";
+import { existsSync, mkdirSync } from "fs";
+import { resolve, join, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+function getActionLogPath(cwd) {
+  const root = cwd || resolve(__dirname, "../../../..");
+  const dir = join(root, ".paaw", "coding-memory");
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  return join(dir, "actions.jsonl");
+}
+
+function getAgentMemoryDir(cwd) {
+  const root = cwd || resolve(__dirname, "../../../..");
+  const dir = join(root, ".paaw", "agent-memory");
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/**
+ * Normalize affectedFiles to string[].
+ * 2026-09-11 fix: LLM 呼叫 action_log_add 時 schema 要求 array，但模型有時給單一字串
+ * （如 "packages/ui/src/foo.tsx" 或 "a.mjs, b.mjs"），原封寫入後 listActionLog 組 context 時
+ * `e.affectedFiles.join is not a function` 直接炸掉整個 chat turn。
+ * 寫入側（addActionLog）與讀取側（listActionLog）都要 normalize — 讀取側治已在檔案裡的爛資料。
+ */
+export function normalizeAffectedFiles(v) {
+  if (typeof v === "string") {
+    return v.split(/[,，;；、\n]/).map(s => s.trim()).filter(Boolean);
+  }
+  if (Array.isArray(v)) {
+    return v.map(x => (typeof x === "string" ? x.trim() : String(x ?? ""))).filter(Boolean);
+  }
+  return [];
+}
+
+/**
+ * Append an action log entry
+ * @param {Object} entry
+ * @param {string} entry.agent - agent ID (e.g. "architect", "helpdesk")
+ * @param {string} entry.action - action type: review|fix|decide|support|create|refactor
+ * @param {string} entry.summary - one-line summary
+ * @param {string} [entry.details] - detailed description
+ * @param {string[]} [entry.affectedFiles] - files touched
+ * @param {string} entry.result - fixed|suggestions|adr|clarified|created
+ * @param {string} [entry.priority] - high|medium|low
+ * @param {string} [cwd] - project root
+ */
+export async function addActionLog(entry, cwd) {
+  const logPath = getActionLogPath(cwd);
+  const record = {
+    ts: new Date().toISOString(),
+    agent: entry.agent || "unknown",
+    action: entry.action || "unknown",
+    summary: entry.summary || "",
+    details: entry.details || "",
+    affectedFiles: normalizeAffectedFiles(entry.affectedFiles),
+    result: entry.result || "created",
+    priority: entry.priority || "medium",
+  };
+  await appendFile(logPath, JSON.stringify(record) + "\n");
+  return record;
+}
+
+/**
+ * Read action log entries
+ * @param {Object} opts
+ * @param {string} [opts.cwd] - project root
+ * @param {string} [opts.agent] - filter by agent ID
+ * @param {string[]} [opts.actions] - filter by action types
+ * @param {number} [opts.limit] - max entries (default 20)
+ * @param {number} [opts.maxChars] - max total chars (default 4000)
+ * @returns {Promise<{ entries: Object[], text: string }>}
+ */
+export async function listActionLog(opts = {}) {
+  const { cwd, agent, actions, limit = 20, maxChars = 4000 } = opts;
+  const logPath = getActionLogPath(cwd);
+
+  if (!existsSync(logPath)) return { entries: [], text: "" };
+
+  const raw = await readFile(logPath, "utf-8");
+  const lines = raw.trim().split("\n").filter(Boolean);
+
+  let entries = [];
+  for (const line of lines) {
+    try {
+      const record = JSON.parse(line);
+      record.affectedFiles = normalizeAffectedFiles(record.affectedFiles); // 防舊爛資料（string/object）炸 join
+      // Filter
+      if (agent && record.agent !== agent) continue;
+      if (actions && actions.length && !actions.includes(record.action)) continue;
+      entries.push(record);
+    } catch {}
+  }
+
+  // Most recent first
+  entries.reverse();
+  entries = entries.slice(0, limit);
+
+  // Build compact text for LLM context
+  let totalChars = 0;
+  const textEntries = [];
+  for (const e of entries) {
+    const line = `[${e.ts?.slice(11, 16) || "?"}] ${e.agent}/${e.action}: ${e.summary}${e.affectedFiles.length ? " → " + e.affectedFiles.join(", ") : ""} [${e.result}]`;
+    if (totalChars + line.length > maxChars) break;
+    textEntries.push(line);
+    totalChars += line.length;
+  }
+
+  return { entries, text: textEntries.join("\n") };
+}
+
+/**
+ * Save agent long-term memory
+ * @param {string} agentId - e.g. "architect", "helpdesk"
+ * @param {string} content - markdown content
+ * @param {string} [cwd] - project root
+ */
+export async function saveAgentMemory(agentId, content, cwd) {
+  const dir = getAgentMemoryDir(cwd);
+  const { writeFile } = await import("fs/promises");
+  await writeFile(join(dir, `${agentId}.md`), content, "utf-8");
+}
+
+/**
+ * Load agent long-term memory
+ * @param {string} agentId
+ * @param {string} [cwd]
+ * @param {number} [maxChars] - max chars to return (default 6000)
+ * @returns {Promise<string>}
+ */
+export async function loadAgentMemory(agentId, cwd, maxChars = 6000) {
+  const dir = getAgentMemoryDir(cwd);
+  // Try full agentId first (e.g. "coding.architect"), then short form (e.g. "architect")
+  const candidates = [
+    join(dir, `${agentId}.md`),
+    join(dir, agentId.replace(/^(coding\.|custom\.)/, "") + ".md"),
+  ];
+  for (const filePath of candidates) {
+    if (existsSync(filePath)) {
+      const { readFile: rf } = await import("fs/promises");
+      const content = await rf(filePath, "utf-8");
+      if (content.length <= maxChars) return content;
+      return content.slice(0, maxChars) + "\n... (truncated)";
+    }
+  }
+  return "";
+}
