@@ -5,7 +5,7 @@
   "category": "coding-standards",
   "tags": ["error-handling", "naming-convention", "http-status"],
   "description": "AI Software Factory 統一錯誤碼命名與分類規範。所有 Orchestrator / Node / Framework 層級的錯誤皆須遵循此規則。",
-  "source": "email from fleming7612@gmail.com (2026-04-03)",
+  "source": "internal engineering spec (2026-04-03)",
   "sections": [
     {
       "id": "error-type",

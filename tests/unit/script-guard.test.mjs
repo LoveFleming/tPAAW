@@ -190,7 +190,7 @@ describe("script-guard C：bash 指令掃描", () => {
 
 describe("script-guard B：package.json 乾淨檢查", () => {
   it("tPAAW repo 現況（乾淨或髒都回 bool）", () => {
-    const r = isPackageJsonClean("/Users/steward/App/tPAAW");
+    const r = isPackageJsonClean("/opt/paaw-workspace");
     expect(typeof r).toBe("boolean");
   });
   it("非 git 目錄視為乾淨", () => {

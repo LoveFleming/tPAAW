@@ -41,7 +41,7 @@ t("多 marker → 全抽出（未來多圖 tool）", () => {
   assert.equal(r.text.trim(), "");
 });
 t("路徑含空白/中文 → 仍可抽出", () => {
-  const r = extractImageMarkers("[[PAAW_IMAGE:/Users/steward/App/我的 截圖.vision.jpg]]");
+  const r = extractImageMarkers("[[PAAW_IMAGE:/tmp/fixtures/screenshot.vision.jpg]]");
   assert.equal(r.imagePaths.length, 1);
   assert.ok(r.imagePaths[0].includes("我的"));
 });
