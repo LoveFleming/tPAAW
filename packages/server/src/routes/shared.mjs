@@ -109,7 +109,8 @@ function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     req.on("data", (c) => chunks.push(c));
-    req.on("end", () => resolve(Buffer.concat(chunks).toString()));
+    // 相容 Buffer（真 http）與 string（測試 fake req）chunk
+    req.on("end", () => resolve(Buffer.concat(chunks.map(c => Buffer.isBuffer(c) ? c : Buffer.from(c))).toString()));
     req.on("error", reject);
   });
 }

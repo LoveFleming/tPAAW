@@ -663,7 +663,9 @@ async function handleNotesRoutes(req, res) {
       "Content-Type": mimeMap[ext] || "application/octet-stream",
       "Cache-Control": "public, max-age=31536000",
     });
-    createReadStream(imgPath).pipe(res);
+    // 2026-10-29：改 readFile+end — pipe 需要真 Writable；本機單人圖片 buffering 足夠
+    const { readFile: rf } = await import("node:fs/promises");
+    try { res.end(await rf(imgPath)); } catch { res.writeHead(404, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Image not found" })); }
     return true;
   }
 

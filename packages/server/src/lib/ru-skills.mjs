@@ -236,7 +236,7 @@ function _mtime(p) {
 
 /** 移除 RU 內 skill 實例（UI 確認後才呼叫；客製化內容會丟 — 前端要警告） */
 export function removeRuSkill(projectDir, skillId) {
-  if (!skillId || /[/\\]/.test(skillId)) return { ok: false, reason: "invalid-id" };
+  if (!skillId || /[/\\]/.test(skillId) || /^\.+$/.test(skillId)) return { ok: false, reason: "invalid-id" };
   const dest = join(getRuSkillsDir(projectDir), skillId);
   if (!existsSync(dest)) return { ok: false, reason: "not-found" };
   rmSync(dest, { recursive: true, force: true });
@@ -250,7 +250,7 @@ export function removeRuSkill(projectDir, skillId) {
  * 回傳形狀與舊 readSkillContent 相同：{ name, prompt, skillDir }
  */
 export function readRuSkillContent(projectDir, skillId) {
-  if (!skillId || /[/\\]/.test(skillId)) return null;
+  if (!skillId || /[/\\]/.test(skillId) || /^\.+$/.test(skillId)) return null;
   const skillDir = join(getRuSkillsDir(projectDir), skillId);
 
   // SKILL.md
