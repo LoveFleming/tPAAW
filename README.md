@@ -105,6 +105,3 @@ scripts/     dev/release tooling
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md). PRs welcome — especially new skills, example apps and i18n improvements.
 
-## 📄 License
-
-[MIT](./LICENSE) © 2026 Fleming
