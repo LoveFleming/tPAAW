@@ -114,6 +114,22 @@ function buildApiCoverageMatcher(projectPath) {
   };
 }
 
+// ── file→feature 權威對映（FILE-FEATURES.json — CU 維護；2026-10-30 browser 實測抓到：
+// FEATURES.json 的 codeFiles 可能過期（F20261023-022 只有 1 檔但對映表知道 learning-practice），
+// delta join 以對映表為主、model files 為輔（union）──
+function loadFileFeatureMap(projectPath) {
+  try {
+    const d = JSON.parse(readFileSync(join(projectPath, ".paaw", "features", "FILE-FEATURES.json"), "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    const files = (d && typeof d === "object" && d.files) ? d.files : (d || {});
+    const map = new Map(); // norm path -> [{id,name}]
+    for (const [fp, feats] of Object.entries(files)) {
+      if (!Array.isArray(feats)) continue;
+      map.set(_normPath(fp), feats.map((x) => ({ id: x.id, name: x.name || x.id })));
+    }
+    return map;
+  } catch { return new Map(); }
+}
+
 // ── lastTestRun 摘要（unit 欄證據來源：run id）──
 async function lastTestRunInfo(projectPath) {
   try {
@@ -162,13 +178,31 @@ export async function generateEvidenceSnapshot(projectPath, { baseline = "auto",
     .map((a) => ({ method: a.method, path: a.path, file: _normPath(a.file), featureIds: a.featureIds || [] }));
 
   const changedFeatures = [];
+  // 2026-10-30：以 FILE-FEATURES 權威對映為主做 delta join（model files 可能過期）
+  const fileFeatureMap = loadFileFeatureMap(projectPath);
+  const hitByMap = new Map(); // featureId -> { id, name, files }
+  for (const cf of changed) {
+    const n = _normPath(cf);
+    for (const feat of fileFeatureMap.get(n) || []) {
+      if (!feat.id) continue;
+      if (!hitByMap.has(feat.id)) hitByMap.set(feat.id, { id: feat.id, name: feat.name, files: [] });
+      hitByMap.get(feat.id).files.push(n);
+    }
+  }
   for (const f of model?.features || []) {
     const files = (f.files || []).map(_normPath).filter((x) => changedSet.has(x));
     if (!files.length) continue;
-    const fids = new Set([f.id]);
-    const apis = changedApis.filter((a) => a.featureIds?.some((id) => fids.has(id)));
+    const via = hitByMap.get(f.id);
+    if (via) { for (const x of files) if (!via.files.includes(x)) via.files.push(x); continue; }
+    hitByMap.set(f.id, { id: f.id, name: f.name || f.id, files });
+  }
+  for (const [id, hit] of hitByMap) {
+    const f = (model?.features || []).find((x) => x.id === id) || {};
+    const files = hit.files;
+    const fids = new Set([id]);
+    const apis = changedApis.filter((a) => a.featureIds?.some((fid) => fids.has(fid)));
     changedFeatures.push({
-      id: f.id, name: f.name, status: f.status || null,
+      id, name: hit.name || f.name || id, status: f.status || null,
       changedFiles: files,
       changeCount: files.length,
       apis: apis.map((a) => `${a.method} ${a.path}`),
