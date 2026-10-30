@@ -361,6 +361,20 @@ ${scopeText}
 - ❌ "修 security"（太模糊）
 - ✅ "修復 packages/server/src/routes/coding.mjs 的 path traversal 風險（CWE-22）：line 1340 的 date 參數未做路徑驗證"
 
+## 規格不足不要硬派（2026-10-30）
+如果一項工作你想做，但現況摘要裡沒有足夠資訊讓 agent 獨立執行（不知道哪個檔、不知道重現步驟、不知道驗收標準），不要猜測檔案路徑或問題細節硬派出去。
+改輸出一個待釐清項目：
+\`\`\`json
+{ "agent": "human", "task": "一句話描述這項工作", "needsInfo": ["缺的資訊 1", "缺的資訊 2"], "priority": "high", "reason": "規格不足以獨立執行，需人工補齊" }
+\`\`\`
+待釐清項目會列在報告的「需人工確認」區，不會被派出去。
+
+## 結論要附證據（2026-10-30）
+每項的 reason 必須指出依據來源：task id（TASKS.json）、issue 檔名、security scan 檔名+行號、或具體檔案路徑。
+- ❌ "測試覆蓋不足"（無出處）
+- ✅ "TASK-013 implement=pending（TASKS.json）"
+- ✅ ".paaw/security/scan-results.json 顯示 coding.mjs:1340 CWE-22 WARNING"
+
 ## 數量指引
 - 上限：${maxSubs} 項（不要超過）
 - 少量高品質：${Math.min(Math.floor(maxSubs/2), 5)}-${Math.min(maxSubs-2, 8)} 項
@@ -382,7 +396,14 @@ ${requireEstimate ? '- 每項必須附預估 effort（' + defaultEffort + ' 为�
     "agent": "developer",
     "task": "具體任務描述，包含檔案路徑、問題、預期結果。agent 看到就能獨立執行",
     "priority": "high",
-    "reason": "為什麼需要這項工作（一句話）"
+    "reason": "為什麼需要這項工作（一句話，附證據來源）"
+  },
+  {
+    "agent": "human",
+    "task": "一句話描述工作",
+    "needsInfo": ["缺的資訊"],
+    "priority": "high",
+    "reason": "規格不足以獨立執行，需人工補齊"
   }
 ]
 \`\`\`
@@ -583,7 +604,13 @@ export async function executeEMSession(opts = {}) {
   // ── Safety net: filter out excluded categories (LLM should already exclude via prompt) ──
   const autoExec = emConfig?.autoExecute || {};
   const filteredReasons = [];
+  // 2026-10-30 needsInfo 安全網：agent=human / 帶 needsInfo 的項目不派工，改列「需人工確認」
+  const needsInfoItems = [];
   const execList = effectiveWorkList.filter(task => {
+    if ((task.agent === "human") || Array.isArray(task.needsInfo) && task.needsInfo.length > 0) {
+      needsInfoItems.push({ agent: task.agent || "human", task: task.task || "", needsInfo: task.needsInfo || [] });
+      return false;
+    }
     // 2026-08-29: task_scan / plan_resume 項目來自 TASKS.json 或既有 plan，跳過類別安全網
     //（安全網只攔 LLM 自由規劃的項目；task 本身 autoExecute=false 已在掃描階段排除）
     if (task.source === 'task_scan' || task.source === 'plan_resume' || task._resumeSubTaskId) return true;
@@ -605,6 +632,10 @@ export async function executeEMSession(opts = {}) {
     return true;
   });
 
+  if (needsInfoItems.length > 0) {
+    sendSSE("info", { message: `❓ ${needsInfoItems.length} 項工作規格不足，未派工 — 已列入報告「需人工確認」區待補齊` });
+  }
+
   if (execList.length === 0) {
     // 2026-08-29: 全被 auto-execute 類別過濾時要講清楚，不要回報「0 總計、專案狀態良好」；
     // 且要把 plan 結案，之前會停在 running 永遠不清（下次 cron 又 resume 僵尸 plan）
@@ -616,7 +647,10 @@ export async function executeEMSession(opts = {}) {
     sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, ...(wasFiltered ? { skipped: true, reason: 'filtered-by-autoexec' } : {}) });
     const report = generateEMReport(effectiveWorkList, [], situationReport, {
       format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog,
-      ...(wasFiltered ? { skipped: filteredReasons.map(f => ({ _skipped: `auto-exec 排除（${f.category}）`, agent: f.agent, task: f.task })) } : {}),
+      ...((wasFiltered || needsInfoItems.length > 0) ? { skipped: [
+        ...(needsInfoItems.map(n => ({ _skipped: "規格不足待釐清", agent: n.agent, task: `${n.task}${n.needsInfo.length ? `（缺：${n.needsInfo.join("、")}）` : ""}` }))),
+        ...(wasFiltered ? filteredReasons.map(f => ({ _skipped: `auto-exec 排除（${f.category}）`, agent: f.agent, task: f.task })) : []),
+      ] } : {}),
     });
     saveAutoDispatchReport(rootDir, report, "em");
     return { report, workList: [], results: [] };
@@ -765,6 +799,9 @@ export async function executeEMSession(opts = {}) {
   console.log("[AutoDispatch] ═══ Phase 4: Report Generation ═══");
   sendSSE("info", { message: "📝 產生報告中..." });
   const reportOpts = {};
+  if (needsInfoItems.length > 0) {
+    reportOpts.skipped = needsInfoItems.map(n => ({ _skipped: "規格不足待釐清", agent: n.agent, task: `${n.task}${n.needsInfo.length ? `（缺：${n.needsInfo.join("、")}）` : ""}` }));
+  }
   if (emConfig?.reporting) {
     reportOpts.format = emConfig.reporting.format;
     reportOpts.includeCodeChanges = emConfig.reporting.includeCodeChanges;

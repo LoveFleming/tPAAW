@@ -69,6 +69,51 @@ function _pidAlive(pid) {
   try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } // EPERM = 存在但不同 user
 }
 
+// ── 2026-10-30 Run History（append-only）────────────────────────────────────
+// 每輪派工的完整狀態落地到 runs/<runId>.json（不可變快照，只寫一次不覆蓋）
+// status.json 降級為「最新一輪的 view」— 壞了/殘留都不影響歷史，可稽核可回溯。
+function _runFileIdFor(status) {
+  const started = String(status?.startedAt || Date.now()).replace(/[:.]/g, "-");
+  return `${started}-${status?.mode || "em"}`;
+}
+
+function _archiveRun(nsDir, statusObj) {
+  try {
+    if (!statusObj || typeof statusObj !== "object") return null;
+    const runsDir = join(nsDir, "runs");
+    if (!existsSync(runsDir)) mkdirSync(runsDir, { recursive: true });
+    const file = join(runsDir, `${_runFileIdFor(statusObj)}.json`);
+    if (existsSync(file)) return null; // append-only：已存在不覆蓋（完成態是對 start 態的補寫，第二次起跳過）
+    const snapshot = { ...statusObj, archivedAt: new Date().toISOString() };
+    writeFileSync(file, JSON.stringify(snapshot, null, 2));
+    return file;
+  } catch (err) {
+    console.error("[AutoDispatch] _archiveRun error:", err.message);
+    return null;
+  }
+}
+
+// 開新輪前的對帳：舊 status 說 running 但 runner 已死 → 標 interrupted 再歸檔
+function _reconcileAndArchivePrevious(nsDir, statusPath) {
+  try {
+    if (!existsSync(statusPath)) return null;
+    const prev = JSON.parse(readSync(statusPath, "utf-8"));
+    if (prev.status === "running" && !_pidAlive(prev.runnerPid)) {
+      prev.status = "interrupted";
+      prev.completedAt = new Date().toISOString();
+      prev.error = prev.error || "Reconciled at start: runner process no longer alive";
+      _archiveRun(nsDir, prev);
+      writeFileSync(statusPath, JSON.stringify(prev, null, 2)); // 讓 /status 也看到 interrupted
+      return prev;
+    }
+    _archiveRun(nsDir, prev);
+    return prev;
+  } catch (err) {
+    console.error("[AutoDispatch] _reconcileAndArchivePrevious error:", err.message);
+    return null;
+  }
+}
+
 export default async function codingAutoDispatchRoute(req, res) {
   const urlObj = new URL(req.url, "http://localhost");
   const method = req.method;
@@ -118,6 +163,9 @@ export default async function codingAutoDispatchRoute(req, res) {
     const focusTaskId = reqBody.taskId || urlObj.searchParams.get("taskId") || undefined; // 指定單號（自然語言觸發）
 
     const startTime = Date.now();
+
+    // 2026-10-30 開輪對帳：上一輪殭屍 → interrupted + 歸檔；正常結束的上一輪 → 歸檔（append-only run history）
+    _reconcileAndArchivePrevious(nsDir, join(nsDir, STATUS_FILE));
 
     // Initialize status
     const status = {
@@ -194,7 +242,7 @@ export default async function codingAutoDispatchRoute(req, res) {
       // Update final status (only if not interrupted by user)
       updateStatusFile(statusPath, (current) => {
         if (current.status === "interrupted") return null; // user reset — respect it
-        return {
+        const final = {
           ...current,
           status: "completed",
           completedAt: new Date().toISOString(),
@@ -202,6 +250,8 @@ export default async function codingAutoDispatchRoute(req, res) {
           ...(current.stopRequested ? { interruptedByUser: true } : {}),
           report: result?.report || "",
         };
+        _archiveRun(nsDir, final); // append-only run history（完成態快照）
+        return final;
       });
 
       // Save latest report for quick access
@@ -222,13 +272,15 @@ export default async function codingAutoDispatchRoute(req, res) {
       console.error("[AutoDispatch] Error:", err.message, err.stack?.slice(0, 300));
       updateStatusFile(statusPath, (current) => {
         if (current.status === "interrupted") return null; // user reset — respect it
-        return {
+        const final = {
           ...current,
           status: "failed",
           completedAt: new Date().toISOString(),
           duration: Date.now() - startTime,
           error: err.message,
         };
+        _archiveRun(nsDir, final); // append-only run history（失敗態快照）
+        return final;
       });
     } finally {
       // 釋放 guard：無論成功、失敗、異常 — 同 project 可重新 start
@@ -323,6 +375,40 @@ export default async function codingAutoDispatchRoute(req, res) {
       }
     } else {
       sendJSON(res, 200, { ok: true, message: "No status file to reset" });
+    }
+    return true;
+  }
+
+  // ── GET /api/coding-auto-dispatch/runs — append-only run 歷史清單 ──
+  if (urlObj.pathname === "/api/coding-auto-dispatch/runs" && method === "GET") {
+    const runsDir = join(projRoot, AUTO_DISPATCH_DIR, "runs");
+    if (!existsSync(runsDir)) { sendJSON(res, 200, { runs: [] }); return true; }
+    try {
+      const { readdirSync } = await import("fs");
+      const files = readdirSync(runsDir).filter(f => f.endsWith(".json")).sort().reverse();
+      const runs = files.map(f => {
+        try {
+          const d = JSON.parse(readSync(join(runsDir, f), "utf-8"));
+          return { id: f.replace(/\.json$/, ""), startedAt: d.startedAt, completedAt: d.completedAt, status: d.status, mode: d.mode, completedAgents: d.completedAgents, totalAgents: d.totalAgents, error: d.error || null };
+        } catch { return null; }
+      }).filter(Boolean);
+      sendJSON(res, 200, { runs });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+    return true;
+  }
+
+  // ── GET /api/coding-auto-dispatch/run?id= — 單一 run 完整記錄 ──
+  if (urlObj.pathname === "/api/coding-auto-dispatch/run" && method === "GET") {
+    const id = urlObj.searchParams.get("id");
+    if (!id || /[^a-zA-Z0-9._-]/.test(id)) { sendJSON(res, 400, { error: "Invalid run id" }); return true; }
+    const runFile = join(projRoot, AUTO_DISPATCH_DIR, "runs", `${id}.json`);
+    if (!existsSync(runFile)) { sendJSON(res, 404, { error: "Run not found" }); return true; }
+    try {
+      sendJSON(res, 200, JSON.parse(readSync(runFile, "utf-8")));
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
     }
     return true;
   }
