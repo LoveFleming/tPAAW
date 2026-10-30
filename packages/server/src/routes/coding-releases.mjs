@@ -17,6 +17,9 @@
  */
 
 import { readFile, writeFile, mkdir, readdir } from "fs/promises";
+import {
+  generateEvidenceSnapshot, listEvidenceSnapshots, readEvidenceSnapshot, snapshotGaps, openEvidenceGapTask,
+} from "../lib/release-evidence-snapshot.mjs";
 import { buildEvidenceMatrix } from "../lib/release-evidence.mjs";
 import { existsSync, readdirSync, statSync } from "fs";
 import { join, resolve, dirname } from "path";
@@ -683,6 +686,60 @@ export default async function releaseRoutes(req, res, next) {
     try {
       const rr = await createReleaseRequest(path, { title: body.title, baseline: body.baseline || "auto" });
       return res.json(rr);
+    } catch (e) {
+      return res.status(e.status || 500).json({ error: e.message });
+    }
+  }
+
+  // ── Release Evidence 凍結快照（Phase A 2026-10-30：baseline 錨點出貨檢查表 — 人選 baseline 按一下生成，快照不可變）──
+
+  // GET evidence — 快照清單（+ latest=1 直接帶最新完整快照含 gaps）
+  if (url === "/api/coding-releases/evidence" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    try {
+      const snapshots = await listEvidenceSnapshots(projectPath);
+      if (q.get("latest") === "1" && snapshots.length) {
+        const snap = await readEvidenceSnapshot(projectPath, snapshots[0].id);
+        if (snap) return res.json({ ok: true, snapshots, latest: snap, gaps: snapshotGaps(snap) });
+      }
+      return res.json({ ok: true, snapshots, latest: null, gaps: null });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  // POST evidence { baseline } — 生成凍結快照（.paaw/release/evidence/）
+  if (url === "/api/coding-releases/evidence" && method === "POST") {
+    const body = await readJsonBody(req); // QA M1
+    if (!body) return res.status(400).json({ error: "invalid JSON body" });
+    const path = assertProjectPath(body.path || projectPath); // QA M2
+    if (!path) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    try {
+      const snap = await generateEvidenceSnapshot(path, { baseline: body.baseline || "auto", by: body.by || "human" });
+      return res.json({ ok: true, snapshot: snap, gaps: snapshotGaps(snap) });
+    } catch (e) {
+      return res.status(e.status || 500).json({ error: e.message });
+    }
+  }
+
+  // GET evidence/:id — 讀取凍結快照（含結構化缺口）
+  const evOne = url.match(/^\/api\/coding-releases\/evidence\/(EVD-[A-Za-z0-9._-]+)$/);
+  if (evOne && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    const snap = await readEvidenceSnapshot(projectPath, evOne[1]);
+    if (!snap) return res.status(404).json({ error: `snapshot not found: ${evOne[1]}` });
+    return res.json({ ok: true, snapshot: snap, gaps: snapshotGaps(snap) });
+  }
+
+  // POST evidence/:id/gap-task { featureId } — 紅格開補強單（TASKS.json，EM 可派工）
+  const evGap = url.match(/^\/api\/coding-releases\/evidence\/(EVD-[A-Za-z0-9._-]+)\/gap-task$/);
+  if (evGap && method === "POST") {
+    const body = await readJsonBody(req); // QA M1
+    if (!body || !body.featureId) return res.status(400).json({ error: "featureId required" });
+    const path = assertProjectPath(body.path || projectPath); // QA M2
+    if (!path) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    try {
+      return res.json(await openEvidenceGapTask(path, { snapshotId: evGap[1], featureId: body.featureId }));
     } catch (e) {
       return res.status(e.status || 500).json({ error: e.message });
     }

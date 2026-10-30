@@ -137,11 +137,11 @@ export function aiReviewForFeature(board, featureFiles) {
   }
   if (touched) {
     // 2026-10-20：touched 但非 approve 時要给 reason — 否則 RM 證據矩陣把「已審未過」誤顯示成「未跑」（Fleming 誤導事件）
-    return { ok: touched.decision === "approve", models: touched.reviewers, at: touched.at, decision: touched.decision, touched: true,
+    return { ok: touched.decision === "approve", models: touched.reviewers, at: touched.at, decision: touched.decision, touched: true, file: touched.file,
       reason: touched.decision === "approve" ? undefined : `已審（${touched.decision}）未達 approve` };
   }
   // 2026-10-21：untouched 獨立標記 — 有跑但沒審到這個 feature ≠ 未跑（UI 分三態，不再誤導）
-  return { ok: false, untouched: true, reason: `委員會未觸及此 feature（共 ${board.reports.length} 份報告，最新 ${board.latest.at ? String(board.latest.at).slice(0, 10) : "?"} 審查）`, models: board.latest.reviewers, at: board.latest.at };
+  return { ok: false, untouched: true, reason: `委員會未觸及此 feature（共 ${board.reports.length} 份報告，最新 ${board.latest.at ? String(board.latest.at).slice(0, 10) : "?"} 審查）`, models: board.latest.reviewers, at: board.latest.at, file: board.latest.file };
 }
 
 // ── QA（qa-results by feature）──
@@ -176,7 +176,8 @@ export function qaForFeature(projectPath, featureKey) {
       ok: latest.verdict === "pass",
       verdict: latest.verdict, actor: latest.actor, at: latest.ts,
       summary: String(latest.summary || "").slice(0, 120),
-      human: human ? { verdict: human.verdict, at: human.ts, summary: String(human.summary || "").slice(0, 160) } : null,
+      id: latest.id || null, // Phase A：證據來源註記（snapshot source = qa-results #id）
+      human: human ? { verdict: human.verdict, at: human.ts, summary: String(human.summary || "").slice(0, 160), id: human.id || null } : null,
       count: items.length,
       reason: latest.verdict === "pass" ? undefined : `最新一筆 ${latest.verdict}：${String(latest.summary || "").slice(0, 60)}`,
     };
@@ -250,6 +251,7 @@ export async function buildEvidenceMatrix(projectPath, changedFeatures, opts = {
       aiReview: aiReviewForFeature(board, f.changedFiles),
     };
     ev.human = ev.qa.human ? { ok: ev.qa.human.verdict === "pass", ...ev.qa.human } : { ok: false, reason: "無人員記錄" };
+    ev.qa.source = ev.qa.ok ? (ev.qa.id ? `qa-results #${ev.qa.id}` : null) : null;
     const gaps = evidenceGaps(sev, ev);
     features.push({
       ...f,

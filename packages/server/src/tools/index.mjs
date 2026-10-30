@@ -13,6 +13,18 @@ import { DATA_HOME } from "../data-home.mjs";
 import { stableStringify } from "../lib/stable-stringify.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Release Evidence 缺口 → 人可讀摘要（release_evidence tool 用 — No answer without evidence）
+function _evidenceGapText(g) {
+  if (!g) return "";
+  const head = `🧊 快照 ${g.snapshotId}（baseline ${g.baseline?.short || "?"}..HEAD ${g.head?.short || "?"}）：${g.featuresTotal} features，${g.featuresWithGaps} 有缺口${g.allGreen ? "，✅ 全綠可出" : ""}`;
+  if (!g.gaps?.length) return `${head}\n（無缺口）`;
+  const lines = g.gaps.map((f) => {
+    const cells = f.missing.map((m) => `${m.column}${m.reason ? `（${String(m.reason).slice(0, 40)}）` : ""}`);
+    return `• ${f.featureId} ${f.name}（${f.severity || "?"}）缺：${cells.join("、")}`;
+  });
+  return `${head}\n${lines.join("\n")}`;
+}
 const PAAW_DATA_DIR = DATA_HOME;
 const APPS_DIR = resolve(PAAW_DATA_DIR, "apps");
 
@@ -665,6 +677,25 @@ async function buildToolDefinitions() {
     },
   });
 
+  // ── Release Evidence tool（Phase A 2026-10-30：Evidence Matrix = AI tool — agent/EM 可查結構化缺口，No answer without evidence）──
+  tools.push({
+    type: "function",
+    function: {
+      name: "release_evidence",
+      description: "查 Release Evidence 缺口（baseline 錨點出貨檢查表）。回傳結構化 JSON：哪個 feature 缺什麼證據欄（Unit/E2E/SG/AI-Review/Human）、每格證據來源（test-run id / review 檔 / 無）、baseline..HEAD 範圍。被問「這個 baseline 能不能出」「哪個 baseline 最接近能出」「缺什麼證據」時用這個，不要用猜的。",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["latest", "list", "generate"], description: "latest=查最新快照的缺口（預設）；list=列出所有快照；generate=對指定 baseline 生成新凍結快照（快照不可變）" },
+          snapshotId: { type: "string", description: "指定快照 id（EVD-…，選填，預設最新）" },
+          baseline: { type: "string", description: "（action=generate）baseline commit SHA/short；留空 = auto（上次 release head）" },
+          cwd: { type: "string", description: "專案 root 絕對路徑（帶 system prompt 裡 Current Project Root 的值）" },
+        },
+        required: [],
+      },
+    },
+  });
+
   // ── Cron Job tools (global, always available) ──
   tools.push({
     type: "function",
@@ -1289,6 +1320,46 @@ function buildHandlers(apps) {
       return { text: `${head}\n🎫【已開單】${body}\n\n單已寫入 TASKS.json，說「派工」或等夜間排程就會執行。` };
     } catch (err) {
       return { text: `❌ em_job 失敗：${err.message}`, error: true };
+    }
+  };
+
+  // ── Release Evidence handler（global）— 走 HTTP API 同 coding-releases（快照讀寫單一來源）──
+  handlers.release_evidence = async ({ action = "latest", snapshotId, baseline, cwd } = {}) => {
+    const root = cwd || PAAW_ROOT;
+    try {
+      if (action === "list") {
+        const res = await fetch(`${API}/api/coding-releases/evidence?path=${encodeURIComponent(root)}`);
+        const d = await res.json().catch(() => ({}));
+        if (!d.ok) return { text: `❌ 查詢失敗：${d.error || res.status}`, error: true };
+        if (!d.snapshots?.length) return { text: "還沒有任何 Release Evidence 快照 — 請 Release Manager 選 baseline 生成（或 action=generate）", evidence: { snapshots: [] } };
+        const lines = d.snapshots.map((s) => `- ${s.id}：baseline ${s.baseline?.short || "?"} → head ${s.head?.short || "?"}，${s.features} features，${s.withGaps} 缺口${s.allGreen ? "，✅ 全綠" : ""}`);
+        return { text: `📋 Release Evidence 快照（新→舊）：\n${lines.join("\n")}`, evidence: { snapshots: d.snapshots } };
+      }
+      if (action === "generate") {
+        const res = await fetch(`${API}/api/coding-releases/evidence`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: root, baseline: baseline || "auto", by: "agent" }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!d.ok) return { text: `❌ 生成失敗：${d.error || res.status}`, error: true };
+        const g = d.gaps;
+        return { text: `🧊 已生成凍結快照 ${d.snapshot.id}（baseline ${g.baseline?.short || "?"}..HEAD ${g.head?.short || "?"}）：${g.featuresTotal} features，${g.featuresWithGaps} 有缺口${g.allGreen ? "，✅ 全綠可出" : ""}\n${g.gaps.map((f) => `• ${f.featureId} ${f.name}（${f.severity || "?"}）缺：${f.missing.map((m) => m.column).join("、")}`).join("\n") || "（無缺口）"}`, evidence: g };
+      }
+      // latest（預設）
+      const res = await fetch(`${API}/api/coding-releases/evidence?path=${encodeURIComponent(root)}&latest=1`);
+      const d = await res.json().catch(() => ({}));
+      if (!d.ok) return { text: `❌ 查詢失敗：${d.error || res.status}`, error: true };
+      if (!d.latest) return { text: "還沒有任何 Release Evidence 快照 — 請 Release Manager 選 baseline 生成（或 action=generate）", evidence: null };
+      const snap = snapshotId && d.latest.id !== snapshotId ? null : d.latest; // 指定 id 但非最新 → 再抓單張
+      if (!snap && snapshotId) {
+        const one = await fetch(`${API}/api/coding-releases/evidence/${encodeURIComponent(snapshotId)}?path=${encodeURIComponent(root)}`);
+        const od = await one.json().catch(() => ({}));
+        if (!od.ok) return { text: `❌ 快照不存在：${snapshotId}`, error: true };
+        return { text: _evidenceGapText(od.gaps), evidence: od.gaps, snapshot: od.snapshot };
+      }
+      return { text: _evidenceGapText(d.gaps), evidence: d.gaps, snapshot: d.latest };
+    } catch (err) {
+      return { text: `❌ release_evidence 失敗：${err.message}`, error: true };
     }
   };
 
