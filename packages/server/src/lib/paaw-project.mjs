@@ -21,7 +21,7 @@ import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { exec as execCb } from "child_process";
 import { shellExec, IS_WIN } from "./shell-exec.mjs";
-import { countSourceFiles } from "./cu-source-scan.mjs";
+import { countSourceFiles, getHeadCommit } from "./cu-source-scan.mjs";
 
 // ── Helpers ──
 
@@ -806,6 +806,12 @@ export class PaawProject {
     let patch = { ...extra };
     if (status === "done" && patch.codeMtime === undefined) {
       try { patch.codeMtime = countSourceFiles(this.root).lastModifiedMs; } catch {}
+    }
+    // 2026-10-30：git watermark — step 完成時記當下 HEAD commit sha（codeCommit）。
+    // staleness 用 watermark..HEAD 的 git diff 判實際程式碼變更（免疫 git pull/checkout 刷新 mtime 的誤報）；
+    // 非 git 專案 / git 不可用 → 不記欄位，舊行為（mtime）繼續生效（向下相容）
+    if (status === "done" && patch.codeCommit === undefined) {
+      try { patch.codeCommit = await getHeadCommit(this.root) || undefined; } catch {}
     }
     // merge 語意：保留先前欄位（如 codeMtime / summary）— 重複標 done 不會清掉寶貴 meta
     cuStatus.steps[stepId] = { ...cuStatus.steps[stepId], status, ...patch, updatedAt: new Date().toISOString() };

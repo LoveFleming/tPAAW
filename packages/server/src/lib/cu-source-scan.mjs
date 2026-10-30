@@ -12,6 +12,64 @@
  */
 import { readdirSync, statSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
+import { execFile } from "child_process";
+
+/** git 指令執行（跨平台：execFile 不經 shell、argv 注入安全）；失敗回 null（呼叫端優雅 fallback） */
+function git(root, args) {
+  return new Promise((resolvePromise) => {
+    try {
+      execFile("git", ["-C", root, ...args], { timeout: 15000, windowsHide: true }, (err, stdout) => {
+        resolvePromise(err || stdout == null ? null : stdout);
+      });
+    } catch {
+      resolvePromise(null);
+    }
+  });
+}
+
+/** 當下 HEAD commit sha（非 git repo / git 不可用回 null） */
+export function getHeadCommit(root) {
+  return git(root, ["rev-parse", "HEAD"]).then(out => (out && /^[0-9a-f]{7,40}\n?$/.test(out.trim()) ? out.trim() : null));
+}
+
+/** 檔案是否屬 CU source（walker 同一套規則：副檔名 + SKIP_DIRS + .gitignore）— git diff 過濾用 */
+export function isSourceFilePath(root, relPath) {
+  const p = relPath.replace(/\\/g, "/");
+  if (p.startsWith(".")) return false;
+  const segs = p.split("/");
+  if (segs.slice(0, -1).some(s => CU_SKIP_DIRS.has(s) || s.startsWith("."))) return false;
+  const dot = p.lastIndexOf("/");
+  const name = dot >= 0 ? p.slice(dot + 1) : p;
+  const ext = name.lastIndexOf(".");
+  if (ext <= 0 || !CU_SOURCE_EXTS.has(name.slice(ext).toLowerCase())) return false;
+  try { return !loadProjectIgnore(root).shouldIgnore(p, false); } catch { return true; }
+}
+
+/**
+ * watermark commit..HEAD（含 working tree 未提交變更）之間實際變更的 source 檔清單
+ * 純 doc/圖/locale 變更會被過濾掉 → 不觸發 stale
+ * 非 git repo / git 指令失敗 / commit 不存在（rebase 改寫歷史）→ 回 null（呼叫端 fallback mtime）
+ */
+export async function changedSourceFilesSince(root, fromCommit) {
+  if (!fromCommit) return null;
+  const diffOut = await git(root, ["diff", "--name-only", `${fromCommit}..HEAD`]);
+  if (diffOut === null) return null;
+  const statusOut = await git(root, ["status", "--porcelain"]);
+  if (statusOut === null) return null;
+  const paths = new Set(diffOut.split("\n").map(s => s.trim()).filter(Boolean));
+  for (const line of statusOut.split("\n")) {
+    if (!line || line.length < 4) continue;
+    // porcelain v1：「XY path」（Y=X=空白之外不 trim 前缀，rename 为「XY old -> new」取新路径）
+    let p = line.slice(3);
+    const arrow = p.indexOf(" -> ");
+    if (arrow >= 0) p = p.slice(arrow + 4);
+    p = p.trim().replace(/^"(.*)"$/, "$1");
+    if (p) paths.add(p);
+  }
+  const changed = [...paths].filter(p => isSourceFilePath(root, p));
+  // ⚠️ 無法比對的巨量輸出保險：上限 5000 條（防異常 git 輸出炸記憶體）
+  return changed.slice(0, 5000);
+}
 
 export const CU_SOURCE_EXTS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".py", ".go", ".java", ".rs", ".vue", ".svelte"]);
 export const CU_SKIP_DIRS = new Set(["node_modules", ".git", ".paaw", "dist", "build", "coverage", ".next", "vendor", "target", "out", ".cache", "semgrep-rules"]); // semgrep-rules：規則範例碼不是專案 source（舊 find 的 -not-path 搬過來）

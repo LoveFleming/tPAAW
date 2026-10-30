@@ -62,7 +62,7 @@ const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
 // 用途：判斷「代碼尚少（no-code）」— 剛建立/剛 import 的專案 code 還沒成形，
 // Code Understanding 沒東西可分析，UI 不該催
 // ⚠️ 定義已抽到 lib/cu-source-scan.mjs（單一事實來源 — paaw-project 的 CU watermark 同一套規則）
-import { countSourceFiles, walkSourceFiles } from "../lib/cu-source-scan.mjs";
+import { countSourceFiles, walkSourceFiles, changedSourceFilesSince } from "../lib/cu-source-scan.mjs";
 
 // ── CU staleness — 智能層知識過期偵測（純 mtime 比對，免 token）──
 // step 產出檔比 code 最新 mtime 舊 → 過期（快照是舊地圖）
@@ -80,10 +80,39 @@ const CU_STEP_FILES = {
 const CU_MECHANICAL_STEPS = new Set(["code-intelligence", "test-intelligence"]);
 const CU_MANUAL_STEPS = new Set(["standards"]); // 2026-10-09：overview 改 AI 生成（每次 CU 重寫 AI 區、USER 區保護），不再是人寫文件
 const STALE_TOLERANCE_MS = 2000; // 同步競態容差
-function computeCuStaleness(root, steps, codeLastModifiedMs) {
+// 2026-10-30：內容導向 staleness（git diff 程式碼過濾）— 純 mtime 會被 git pull/checkout
+// 刷新全檔 mtime誤報（內容零變化也報「結構已變更」）。git repo 改看
+// watermark commit..HEAD 實際變更檔，只認 walker 同一套 source 規則（cu-source-scan 單一事實來源）；
+// 純 doc/圖/locale 變更不觸發。非 git / 無 watermark commit / git 失敗 → 逐步驟 fallback mtime。
+export async function computeCuStaleness(root, steps, codeLastModifiedMs) {
+  // 逐步驟 git watermark（codeCommit）：所有 done step 取最大共用一次 git diff 快取
+  const gitSteps = Object.entries(CU_STEP_FILES).filter(([id]) => steps[id]?.status === "done" && steps[id]?.codeCommit)
+    .map(([id]) => steps[id]); // 取 step 物件（entries 第二元素是産出路徑，不是 step）
+  let changedFilesByCommit = new Map(); // commit → changed source 檔清單（null = fallback）
+  if (gitSteps.length > 0) {
+    for (const s of gitSteps) {
+      const commit = s.codeCommit;
+      if (!changedFilesByCommit.has(commit)) {
+        changedFilesByCommit.set(commit, await changedSourceFilesSince(root, commit));
+      }
+    }
+  }
   const staleSteps = [];
   for (const [id, rel] of Object.entries(CU_STEP_FILES)) {
     if (steps[id]?.status !== "done") continue; // 沒跑過的叫 pending 不叫過期
+    const flag = () => staleSteps.push({ id, mechanical: CU_MECHANICAL_STEPS.has(id), manual: CU_MANUAL_STEPS.has(id) });
+    // ── 內容導向：有 codeCommit watermark + git 可用 → 只認實際程式碼變更 ──
+    const commit = steps[id]?.codeCommit;
+    if (commit && changedFilesByCommit.has(commit)) {
+      const changed = changedFilesByCommit.get(commit);
+      if (changed !== null) {
+        // 產出檔被刪 → 永遠過期（空產出要重建，增量重掃會 skip 它）
+        if (!existsSync(join(root, ".paaw", rel)) || changed.length > 0) flag();
+        continue;
+      }
+      // changed === null → git 失敗/commit 消失，落入 mtime fallback
+    }
+    // ── fallback：mtime（非 git 專案 / 舊 cu-status 無 codeCommit 欄位）──
     try {
       const st = statSync(join(root, ".paaw", rel));
       // ⚠️ content-addressed 寫入（diffWriteJson）：內容沒變 → skip → 檔案 mtime 不動。
@@ -3379,7 +3408,7 @@ export default async function projectRoute(req, res) {
         // watermark 機制：每個 step 完成時記下當時 source mtime（cu-status codeMtime），
         // code 有新變更（lastModifiedMs > watermark）的 step 才重跑；沒變的 done step 照舊 skip 省 token
         const { lastModifiedMs: _codeMtime } = countSourceFiles(root);
-        const staleStepIds = new Set(computeCuStaleness(root, cuSteps, _codeMtime).map(s => s.id));
+        const staleStepIds = new Set((await computeCuStaleness(root, cuSteps, _codeMtime)).map(s => s.id));
         cuLog("bulk", `Incremental plan: stale=[${[...staleStepIds].join(",") || "none"}] force=${forceRerun}`);
 
         // Accumulate context from previous steps
@@ -3971,7 +4000,7 @@ export default async function projectRoute(req, res) {
         const doneCount = Object.values(steps).filter(s => s?.status === "done").length;
         const errorCount = Object.values(steps).filter(s => s?.status === "error").length;
         const { count: sourceFiles, lastModifiedMs } = countSourceFiles(root);
-        const staleSteps = computeCuStaleness(root, steps, lastModifiedMs);
+        const staleSteps = await computeCuStaleness(root, steps, lastModifiedMs);
         res.writeHead(200, { "Content-Type": "application/json" });
         // CU lifecycle 原料：前端據此算 phase（missing/no-code/ready/partial/done/stale）
         res.end(JSON.stringify({
