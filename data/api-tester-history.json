@@ -1,5 +1,49 @@
 [
   {
+    "id": "req-1793364129310",
+    "ts": "2026-10-30T12:42:09.310Z",
+    "method": "GET",
+    "url": "http://localhost:4317/api/learning/wrongbook?subject=civic",
+    "status": 0,
+    "elapsed": 2,
+    "headers": [],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 0,
+      "statusText": "Network Error",
+      "headers": {},
+      "body": "fetch failed",
+      "elapsed": 2,
+      "size": 0,
+      "error": true
+    },
+    "source": "agent",
+    "agent": "qa"
+  },
+  {
+    "id": "req-1793364129303",
+    "ts": "2026-10-30T12:42:09.303Z",
+    "method": "GET",
+    "url": "http://localhost:4317/api/learning/practice/stats?subject=math",
+    "status": 0,
+    "elapsed": 3,
+    "headers": [],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 0,
+      "statusText": "Network Error",
+      "headers": {},
+      "body": "fetch failed",
+      "elapsed": 3,
+      "size": 0,
+      "error": true
+    },
+    "source": "agent",
+    "agent": "qa"
+  },
+  {
     "id": "req-1792684032470",
     "ts": "2026-10-22T15:47:12.470Z",
     "method": "GET",

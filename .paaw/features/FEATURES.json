@@ -94,7 +94,7 @@
       "documentation": "",
       "docsUpdatedAt": null,
       "createdAt": "2026-10-16T11:56:17.384Z",
-      "updatedAt": "2026-10-16T11:56:17.384Z",
+      "updatedAt": "2026-10-17T10:37:32.936Z",
       "id": "F20261016-002",
       "riskProfile": {
         "dataTouch": [],
@@ -265,7 +265,7 @@
       "documentation": "",
       "docsUpdatedAt": null,
       "createdAt": "2026-10-16T11:56:17.384Z",
-      "updatedAt": "2026-10-16T11:56:17.384Z",
+      "updatedAt": "2026-10-17T13:12:08.429Z",
       "id": "F20261016-005",
       "riskProfile": {
         "dataTouch": [],
@@ -322,7 +322,7 @@
       "documentation": "",
       "docsUpdatedAt": null,
       "createdAt": "2026-10-16T11:56:17.384Z",
-      "updatedAt": "2026-10-16T11:56:17.384Z",
+      "updatedAt": "2026-10-17T15:40:21.099Z",
       "id": "F20261016-006",
       "riskProfile": {
         "dataTouch": [],
@@ -585,7 +585,7 @@
       "documentation": "以 JSON-RPC 2.0 實作 Agent2Agent (A2A) 協定（protocolVersion 0.3.0）的伺服端路由，對外提供 Agent Card 探索（/.well-known/agent.json、/.well-known/agent-card.json、/api/a2a/agent-card、/a2a/:agentId/.well-known/agent.json）與 /a2a、/a2a/:agentId 端點。支援同步回覆、SSE 串流、webhook 非同步通知三種模式，讓外部 agent 與 PAAW 內部 domain agent（crew）互相派工與對話。\n\n支援方法（default /a2a 與 domain /a2a/:agentId 一致）：message/send、message/stream、tasks/get、tasks/list、tasks/cancel。\n\n協定版本常數集中於 packages/server/src/lib/a2a-constants.mjs（A2A_PROTOCOL_VERSION = \"0.3.0\"），由 a2a route 與 domain-agent-registry 共用，避免版本漂移。",
       "docsUpdatedAt": "2026-10-17T00:29:10.255Z",
       "createdAt": "2026-10-16T11:56:17.384Z",
-      "updatedAt": "2026-10-17T11:34:22.708Z",
+      "updatedAt": "2026-10-17T11:34:25.472Z",
       "id": "F20261016-009",
       "riskProfile": {
         "dataTouch": [],
@@ -6512,7 +6512,7 @@
       "documentation": "",
       "docsUpdatedAt": null,
       "createdAt": "2026-08-30T05:37:35.909Z",
-      "updatedAt": "2026-10-16T11:56:17.384Z",
+      "updatedAt": "2026-10-01T14:57:29.435Z",
       "severityDecisions": [],
       "retiredAt": "2026-10-16T11:56:17.384Z"
     },
@@ -6549,7 +6549,7 @@
       "documentation": "",
       "docsUpdatedAt": null,
       "createdAt": "2026-08-30T05:37:35.909Z",
-      "updatedAt": "2026-10-16T11:56:17.384Z",
+      "updatedAt": "2026-10-01T16:14:10.817Z",
       "retiredAt": "2026-10-16T11:56:17.384Z"
     },
     {
@@ -6659,7 +6659,7 @@
       "documentation": "",
       "docsUpdatedAt": null,
       "createdAt": "2026-08-30T05:37:35.909Z",
-      "updatedAt": "2026-10-16T11:56:17.384Z",
+      "updatedAt": "2026-10-01T15:54:17.632Z",
       "retiredAt": "2026-10-16T11:56:17.384Z"
     },
     {
@@ -7670,5 +7670,5 @@
       "retiredAt": "2026-10-16T11:56:17.384Z"
     }
   ],
-  "updatedAt": "2026-10-18T00:03:05.844Z"
+  "updatedAt": "2026-10-30T09:16:45.432Z"
 }

@@ -1,52 +1,54 @@
 # HANDOVER — 交接狀態
 
-> 生成：2026-08-25T13:21:41.900Z · 自動保鮮（task 變動即更新）· 下一步：**commit** — 47 個未提交檔案
+> 生成：2026-10-30T09:16:47.615Z · 自動保鮮（task 變動即更新）· 下一步：**commit** — 2 個未提交檔案
 
 ## 1. 現在的狀態（currentState）
 
-- Branch: `dev` @ `9f9ca152`
-- 未提交檔案: **47** ⚠️
-  - M .DS_Store
-  -  M .paaw/HANDOVER.md
-  -  M .paaw/changes/change-intelligence.json
-  -  M .paaw/code-intelligence/api-function-map.json
-  -  M .paaw/code-intelligence/call-graph.json
-  -  M .paaw/code-intelligence/dependency-graph.json
-  -  M .paaw/code-intelligence/file-map.json
-  -  M .paaw/code-intelligence/status-cache.json
-  -  M .paaw/code-intelligence/summary.json
-  -  M .paaw/code-intelligence/symbol-index.json
+- Branch: `dev` @ `84121aaa`
+- 未提交檔案: **2** ⚠️
+  - M .paaw/features/FEATURES.json
+  -  M .paaw/tasks/TASKS.json
 - 未 push commits: **0** ✅
 
 ## 2. 進行中的工作（workingPlan）
 
-- **TASK-028** [in-progress] 修所有 security issue
-  - pipeline: review（pending）→ 下一動：run review
-- **TASK-029** [in-progress] 修 XSS in user-input.tsx:handleSubmit
-  - pipeline: implement（pending）→ 下一動：run implement
-- **TASK-030** [in-progress] 修 SQL injection in api/users.mjs:getUser
-  - pipeline: implement（pending）→ 下一動：run implement
-- **TASK-031** [in-progress] 加 CSP header to server config
-  - pipeline: implement（pending）→ 下一動：run implement
-- **TASK-032** [in-progress] 更新 dependency lodash 4.17.21
-  - pipeline: implement（pending）→ 下一動：run implement
-- **TASK-033** [in-progress] 補 security scan 測試
-  - pipeline: implement（pending）→ 下一動：run implement
-- **TASK-038** [in-progress] 修 XSS in handleSubmit
-  - pipeline: implement（pending）→ 下一動：run implement
+- **TASK-028** [pending] 修所有 security issue
+  - pipeline: spec（pending）→ 下一動：run spec
+- **TASK-029** [pending] 修 XSS in user-input.tsx:handleSubmit
+  - pipeline: spec（pending）→ 下一動：run spec
+- **TASK-030** [pending] 修 SQL injection in api/users.mjs:getUser
+  - pipeline: spec（pending）→ 下一動：run spec
+- **TASK-031** [pending] 加 CSP header to server config
+  - pipeline: spec（pending）→ 下一動：run spec
+- **TASK-032** [pending] 更新 dependency lodash 4.17.21
+  - pipeline: spec（pending）→ 下一動：run spec
+- **TASK-033** [pending] 補 security scan 測試
+  - pipeline: spec（pending）→ 下一動：run spec
+- **TASK-038** [pending] 修 XSS in handleSubmit
+  - pipeline: spec（pending）→ 下一動：run spec
+- **TASK-040** [open] 更新過期的架構與 API 文件（architecture / api-spec / error-mapping）
+  - pipeline: spec（pending）→ 下一動：run spec
+- **TASK-043** [open] F-001 Server Core & HTTP Entrypoint 補測試與基礎文件
+  - pipeline: spec（pending）→ 下一動：run spec
+- **TASK-046** [pending] 【品質補強】F20261016-003 Next.js 16 「use cache」快取範本教材
+  - pipeline: spec（pending）→ 下一動：run spec
+- **TASK-050** [pending] 【品質補強】F20261016-007 PAAW Bridge — 沙箱外的宿主守門橋接器
+  - pipeline: spec（pending）→ 下一動：run spec
+- **TASK-052** [pending] 【品質補強】F20261016-009 A2A 代理協作協定服務
+  - pipeline: spec（pending）→ 下一動：run spec
 
 ## 3. 最近變更（changes）
 
-- `9f9ca152` 2026-08-25 feat: coding app AI Crew 自動同步新全域成員（ops/handover/rm）
-- `b8815c93` 2026-08-23 docs: 公司同步清單 08-20~08-23（A28/M96/D1 — 基準點改 8/20）
-- `bff1ac6a` 2026-08-23 docs: 公司同步清單 08-13~08-23（A46/M122/D19，供手動逐一覆蓋用）
-- `e788ff42` 2026-08-23 feat: log 保留政策（llm/agent 一年、其餘 7 天）+ backup Windows 路徑（0.3.9）
-- `66de2584` 2026-08-23 feat: onboarding Step 5 每日備份設定 + backup 三洞修復（0.3.8）
-- `29576bab` 2026-08-23 fix: ensure-default pattern 第三例 — agentic-bindings 下午茶 demo 自動重建拔除（0.3.7）
-- `0bff94c0` 2026-08-23 fix: plugin data 預設清空 — 拔 agentic-platform 自動重建（0.3.6）
-- `db8f8b1f` 2026-08-23 fix: 移除預設 PAAW 專案自動重建 — paaw.json 清不掉的根因（0.3.5）
-- `ddcd3a83` 2026-08-23 feat: seed 預載 bookmarks+pocket apps、專案清空 + pocket.mjs data 隔離修復（0.3.4）
-- `c67f592c` 2026-08-23 fix: onboarding 完成後重查 providerReady（聊天頁 stale false 擋掉第一句話）
+- `84121aaa` 2026-10-29 fix: fresh-clone 可重現性 — package-lock 進版控 + skill template 補 commit + sql.js 空匯出跨版本容錯
+- `4c83dc26` 2026-10-29 docs: README 全面改寫 — 安裝使用 + 各功能完整介紹（T5）
+- `da213a9c` 2026-10-29 test+fix(T4): sandbox 安全矩陣回歸 — 57 決策表全綠 + 修 exec_security 空白繞過漏洞
+- `6c4c960a` 2026-10-29 fix: 測試清理批次② — 全套 84 檔 1667 tests 全綠（108 失敗 → 0）
+- `6e7139ac` 2026-10-29 test: db 三檔 ISS-029/030/031 特性測試改寫正向斷言 — 實作已修、測試還在記錄壞掉時代
+- `019fd952` 2026-10-29 fix: route 測試批次修復① — readBody 相容 / helpdesk B1-B2 ReferenceError / ru-skill traversal 防護 / audit limit 夾區間 / notes 圖片 se
+- `b7905935` 2026-10-29 test: 刪除已拆模組的殘留測試 — sre/pm/secretary/module-ui-bundle/learning-task168
+- `bc8c2fcd` 2026-10-29 fix(chat): malformed JSON body 回 400（MAJ-1）+ 收編孤兒測試檔
+- `b61b452d` 2026-10-29 fix(a2a): JSON-RPC 回應補 CORS 標頭 + a2a-routes 整合測試修活（29/29）
+- `b7fdbdaa` 2026-10-29 fix(chat): 審批 gate 卡死所有寫入工具 — approval mode 生產環境改 auto（2026-10-29）
 
 ## 4. 待處理問題（issues）
 
@@ -54,20 +56,12 @@
 
 ## 5. 最近決策（decisions）
 
-- `ADR-011` 2026-07-19 Constrained Shell Execution for AI Agents (project_run_command)
-- `ADR-010` 2026-07-19 Shared Tool Registry (OCP-compliant)
-- `ADR-009` 2026-07-19 ADR-010: Night Shift 三模組職責邊界與分層策略
-- `ADR-008` 2026-07-18 Untitled Decision
-- `ADR-007` 2026-07-18 Untitled Decision
-_完整 ADR：.paaw/DECISIONS.md_
+_(尚未有 ADR 記錄)_
 
 ## 6. 下一步（nextAction）
 
-> **commit** — 47 個未提交檔案
+> **commit** — 2 個未提交檔案
 ```
-M .DS_Store
- M .paaw/HANDOVER.md
- M .paaw/changes/change-intelligence.json
- M .paaw/code-intelligence/api-function-map.json
- M .paaw/code-intelligence/call-graph.json
+M .paaw/features/FEATURES.json
+ M .paaw/tasks/TASKS.json
 ```

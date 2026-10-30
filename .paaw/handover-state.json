@@ -1,42 +1,14 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-25T13:21:41.900Z",
+  "generatedAt": "2026-10-30T09:16:47.615Z",
   "initialized": true,
   "currentState": {
     "branch": "dev",
-    "headSha": "9f9ca152",
-    "dirtyCount": 47,
+    "headSha": "84121aaa",
+    "dirtyCount": 2,
     "dirtyFiles": [
-      "M .DS_Store",
-      " M .paaw/HANDOVER.md",
-      " M .paaw/changes/change-intelligence.json",
-      " M .paaw/code-intelligence/api-function-map.json",
-      " M .paaw/code-intelligence/call-graph.json",
-      " M .paaw/code-intelligence/dependency-graph.json",
-      " M .paaw/code-intelligence/file-map.json",
-      " M .paaw/code-intelligence/status-cache.json",
-      " M .paaw/code-intelligence/summary.json",
-      " M .paaw/code-intelligence/symbol-index.json",
-      " M .paaw/code-intelligence/test-code-map.json",
-      " M .paaw/code-intelligence/test-intelligence.json",
-      " M .paaw/coding-memory/actions.jsonl",
-      " M .paaw/coding-memory/conversations/coding.em/active.json",
-      " M .paaw/coding-memory/dispatch-log.jsonl",
-      " M .paaw/cu-status.json",
-      " M .paaw/features/FEATURES.json",
-      " M .paaw/features/FILE-FEATURES.json",
-      " M .paaw/features/tree-sitter-analysis.txt",
-      " M .paaw/handover-state.json",
-      " M .paaw/release-unit-model.json",
-      " M .paaw/scan.json",
-      " M .paaw/security/scan-results.json",
-      " M data/api-tester-history.json",
-      " M data/config/backup.json",
-      " M data/config/user.json",
-      " M data/notes/notebooks.json",
-      " M logs/cron/system-daily-backup/history.jsonl",
-      " M logs/cron/system-daily-log-purge/history.jsonl",
-      "?? .paaw/agent-memory/rm.md"
+      "M .paaw/features/FEATURES.json",
+      " M .paaw/tasks/TASKS.json"
     ],
     "unpushedCount": 0,
     "unpushedCommits": []
@@ -46,164 +18,180 @@
       {
         "id": "TASK-028",
         "title": "修所有 security issue",
-        "status": "in-progress",
+        "status": "pending",
         "priority": "high",
-        "phase": "review",
+        "phase": "spec",
         "phaseStatus": "pending",
-        "next": "run review"
+        "next": "run spec"
       },
       {
         "id": "TASK-029",
         "title": "修 XSS in user-input.tsx:handleSubmit",
-        "status": "in-progress",
+        "status": "pending",
         "priority": "high",
-        "phase": "implement",
+        "phase": "spec",
         "phaseStatus": "pending",
-        "next": "run implement"
+        "next": "run spec"
       },
       {
         "id": "TASK-030",
         "title": "修 SQL injection in api/users.mjs:getUser",
-        "status": "in-progress",
+        "status": "pending",
         "priority": "high",
-        "phase": "implement",
+        "phase": "spec",
         "phaseStatus": "pending",
-        "next": "run implement"
+        "next": "run spec"
       },
       {
         "id": "TASK-031",
         "title": "加 CSP header to server config",
-        "status": "in-progress",
+        "status": "pending",
         "priority": "high",
-        "phase": "implement",
+        "phase": "spec",
         "phaseStatus": "pending",
-        "next": "run implement"
+        "next": "run spec"
       },
       {
         "id": "TASK-032",
         "title": "更新 dependency lodash 4.17.21",
-        "status": "in-progress",
+        "status": "pending",
         "priority": "high",
-        "phase": "implement",
+        "phase": "spec",
         "phaseStatus": "pending",
-        "next": "run implement"
+        "next": "run spec"
       },
       {
         "id": "TASK-033",
         "title": "補 security scan 測試",
-        "status": "in-progress",
+        "status": "pending",
         "priority": "high",
-        "phase": "implement",
+        "phase": "spec",
         "phaseStatus": "pending",
-        "next": "run implement"
+        "next": "run spec"
       },
       {
         "id": "TASK-038",
         "title": "修 XSS in handleSubmit",
-        "status": "in-progress",
+        "status": "pending",
         "priority": "high",
-        "phase": "implement",
+        "phase": "spec",
         "phaseStatus": "pending",
-        "next": "run implement"
+        "next": "run spec"
+      },
+      {
+        "id": "TASK-040",
+        "title": "更新過期的架構與 API 文件（architecture / api-spec / error-mapping）",
+        "status": "open",
+        "priority": "medium",
+        "phase": "spec",
+        "phaseStatus": "pending",
+        "next": "run spec"
+      },
+      {
+        "id": "TASK-043",
+        "title": "F-001 Server Core & HTTP Entrypoint 補測試與基礎文件",
+        "status": "open",
+        "priority": "medium",
+        "phase": "spec",
+        "phaseStatus": "pending",
+        "next": "run spec"
+      },
+      {
+        "id": "TASK-046",
+        "title": "【品質補強】F20261016-003 Next.js 16 「use cache」快取範本教材",
+        "status": "pending",
+        "priority": "high",
+        "phase": "spec",
+        "phaseStatus": "pending",
+        "next": "run spec"
+      },
+      {
+        "id": "TASK-050",
+        "title": "【品質補強】F20261016-007 PAAW Bridge — 沙箱外的宿主守門橋接器",
+        "status": "pending",
+        "priority": "high",
+        "phase": "spec",
+        "phaseStatus": "pending",
+        "next": "run spec"
+      },
+      {
+        "id": "TASK-052",
+        "title": "【品質補強】F20261016-009 A2A 代理協作協定服務",
+        "status": "pending",
+        "priority": "high",
+        "phase": "spec",
+        "phaseStatus": "pending",
+        "next": "run spec"
       }
     ],
-    "activeCount": 7
+    "activeCount": 12
   },
   "changes": {
     "recentCommits": [
       {
-        "hash": "9f9ca152",
-        "date": "2026-08-25T21:21:10+08:00",
-        "subject": "feat: coding app AI Crew 自動同步新全域成員（ops/handover/rm）"
+        "hash": "84121aaa",
+        "date": "2026-10-29T20:18:47+08:00",
+        "subject": "fix: fresh-clone 可重現性 — package-lock 進版控 + skill template 補 commit + sql.js 空匯出跨版本容錯"
       },
       {
-        "hash": "b8815c93",
-        "date": "2026-08-23T22:59:16+08:00",
-        "subject": "docs: 公司同步清單 08-20~08-23（A28/M96/D1 — 基準點改 8/20）"
+        "hash": "4c83dc26",
+        "date": "2026-10-29T20:12:23+08:00",
+        "subject": "docs: README 全面改寫 — 安裝使用 + 各功能完整介紹（T5）"
       },
       {
-        "hash": "bff1ac6a",
-        "date": "2026-08-23T21:13:38+08:00",
-        "subject": "docs: 公司同步清單 08-13~08-23（A46/M122/D19，供手動逐一覆蓋用）"
+        "hash": "da213a9c",
+        "date": "2026-10-29T20:10:42+08:00",
+        "subject": "test+fix(T4): sandbox 安全矩陣回歸 — 57 決策表全綠 + 修 exec_security 空白繞過漏洞"
       },
       {
-        "hash": "e788ff42",
-        "date": "2026-08-23T19:30:55+08:00",
-        "subject": "feat: log 保留政策（llm/agent 一年、其餘 7 天）+ backup Windows 路徑（0.3.9）"
+        "hash": "6c4c960a",
+        "date": "2026-10-29T20:04:57+08:00",
+        "subject": "fix: 測試清理批次② — 全套 84 檔 1667 tests 全綠（108 失敗 → 0）"
       },
       {
-        "hash": "66de2584",
-        "date": "2026-08-23T19:18:38+08:00",
-        "subject": "feat: onboarding Step 5 每日備份設定 + backup 三洞修復（0.3.8）"
+        "hash": "6e7139ac",
+        "date": "2026-10-29T19:54:59+08:00",
+        "subject": "test: db 三檔 ISS-029/030/031 特性測試改寫正向斷言 — 實作已修、測試還在記錄壞掉時代"
       },
       {
-        "hash": "29576bab",
-        "date": "2026-08-23T19:10:30+08:00",
-        "subject": "fix: ensure-default pattern 第三例 — agentic-bindings 下午茶 demo 自動重建拔除（0.3.7）"
+        "hash": "019fd952",
+        "date": "2026-10-29T19:52:15+08:00",
+        "subject": "fix: route 測試批次修復① — readBody 相容 / helpdesk B1-B2 ReferenceError / ru-skill traversal 防護 / audit limit 夾區間 / notes 圖片 se"
       },
       {
-        "hash": "0bff94c0",
-        "date": "2026-08-23T18:15:52+08:00",
-        "subject": "fix: plugin data 預設清空 — 拔 agentic-platform 自動重建（0.3.6）"
+        "hash": "b7905935",
+        "date": "2026-10-29T19:46:34+08:00",
+        "subject": "test: 刪除已拆模組的殘留測試 — sre/pm/secretary/module-ui-bundle/learning-task168"
       },
       {
-        "hash": "db8f8b1f",
-        "date": "2026-08-23T18:10:06+08:00",
-        "subject": "fix: 移除預設 PAAW 專案自動重建 — paaw.json 清不掉的根因（0.3.5）"
+        "hash": "bc8c2fcd",
+        "date": "2026-10-29T19:46:09+08:00",
+        "subject": "fix(chat): malformed JSON body 回 400（MAJ-1）+ 收編孤兒測試檔"
       },
       {
-        "hash": "ddcd3a83",
-        "date": "2026-08-23T17:48:09+08:00",
-        "subject": "feat: seed 預載 bookmarks+pocket apps、專案清空 + pocket.mjs data 隔離修復（0.3.4）"
+        "hash": "b61b452d",
+        "date": "2026-10-29T19:45:31+08:00",
+        "subject": "fix(a2a): JSON-RPC 回應補 CORS 標頭 + a2a-routes 整合測試修活（29/29）"
       },
       {
-        "hash": "c67f592c",
-        "date": "2026-08-23T17:34:00+08:00",
-        "subject": "fix: onboarding 完成後重查 providerReady（聊天頁 stale false 擋掉第一句話）"
+        "hash": "b7fdbdaa",
+        "date": "2026-10-29T11:01:10+08:00",
+        "subject": "fix(chat): 審批 gate 卡死所有寫入工具 — approval mode 生產環境改 auto（2026-10-29）"
       }
     ]
   },
   "issues": [],
   "decisions": {
     "file": ".paaw/DECISIONS.md",
-    "count": 11,
-    "recent": [
-      {
-        "id": "ADR-011",
-        "title": "Constrained Shell Execution for AI Agents (project_run_command)",
-        "date": "2026-07-19"
-      },
-      {
-        "id": "ADR-010",
-        "title": "Shared Tool Registry (OCP-compliant)",
-        "date": "2026-07-19"
-      },
-      {
-        "id": "ADR-009",
-        "title": "ADR-010: Night Shift 三模組職責邊界與分層策略",
-        "date": "2026-07-19"
-      },
-      {
-        "id": "ADR-008",
-        "title": "Untitled Decision",
-        "date": "2026-07-18"
-      },
-      {
-        "id": "ADR-007",
-        "title": "Untitled Decision",
-        "date": "2026-07-18"
-      }
-    ]
+    "count": 0,
+    "recent": []
   },
   "nextAction": {
     "step": "commit",
-    "reason": "47 個未提交檔案",
+    "reason": "2 個未提交檔案",
     "detail": [
-      "M .DS_Store",
-      " M .paaw/HANDOVER.md",
-      " M .paaw/changes/change-intelligence.json",
-      " M .paaw/code-intelligence/api-function-map.json",
-      " M .paaw/code-intelligence/call-graph.json"
+      "M .paaw/features/FEATURES.json",
+      " M .paaw/tasks/TASKS.json"
     ]
   }
 }
