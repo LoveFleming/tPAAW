@@ -1993,5 +1993,13 @@
   "coding.toolLogToggle": "Show / hide full command",
   "coding.toolLogHiddenLines": "{n} lines hidden",
   "vibe.projectInfo": "Project Info",
-  "vibe.aiAdjustPlaceholder": "AI instruction, e.g. \"read code and summarize\" / \"rewrite in English\" / \"clarify architecture\""
+  "vibe.aiAdjustPlaceholder": "AI instruction, e.g. \"read code and summarize\" / \"rewrite in English\" / \"clarify architecture\"",
+  "ruInfo.agentName": "Xiaowei Lin · Project Info",
+  "ruInfo.greeting": "Hi, I'm Xiaowei 🏛️ I help maintain this project info card — I can read the repo to refresh architecture summaries and clarify the requirement description. Read via project_info(category=ru_info), update via project_edit(action=ru_info_update).",
+  "ruInfo.sugGenLabel": "Generate summary",
+  "ruInfo.sugGenPrompt": "Read this repo and use project_edit(action=ru_info_update) to fill ai_overview and ai_architecture",
+  "ruInfo.sugRefreshLabel": "Refresh architecture",
+  "ruInfo.sugRefreshPrompt": "The project changed recently — re-read the repo and refresh ai_architecture to match reality",
+  "ruInfo.sugDescLabel": "Organize requirements",
+  "ruInfo.sugDescPrompt": "Let's discuss the requirements, then update description via project_edit(action=ru_info_update)"
 }

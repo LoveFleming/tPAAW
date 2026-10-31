@@ -1993,5 +1993,13 @@
   "coding.toolLogToggle": "コマンド全文の表示切替",
   "coding.toolLogHiddenLines": "{n} 行を省略",
   "vibe.projectInfo": "プロジェクト情報",
-  "vibe.aiAdjustPlaceholder": "AI指示の例：「コードを読んで要約」「英語で書き直す」「アーキテクチャを明確に」"
+  "vibe.aiAdjustPlaceholder": "AI指示の例：「コードを読んで要約」「英語で書き直す」「アーキテクチャを明確に」",
+  "ruInfo.agentName": "林曉薇 Xiaowei Lin · プロジェクト情報",
+  "ruInfo.greeting": "こんにちは、林曉薇です 🏛️ プロジェクト情報カードの維持を担当します。repo を読んでアーキテクチャ要約を更新したり、要件説明を整理できます。project_info(category=ru_info) で確認、project_edit(action=ru_info_update) で更新。",
+  "ruInfo.sugGenLabel": "要約を生成",
+  "ruInfo.sugGenPrompt": "この repo を読んで、project_edit(action=ru_info_update) で ai_overview と ai_architecture を書いてください",
+  "ruInfo.sugRefreshLabel": "アーキテクチャ更新",
+  "ruInfo.sugRefreshPrompt": "最近変更があったので、repo を読み直して ai_architecture を最新化してください",
+  "ruInfo.sugDescLabel": "要件を整理",
+  "ruInfo.sugDescPrompt": "要件について話し合い、project_edit(action=ru_info_update) で description を更新してください"
 }

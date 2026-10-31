@@ -1699,6 +1699,9 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
   const qaBrowserPane = useColResize(360, 260, 640);
   // 2026-10-23 Fleming：API Tester Developer AI side chat 左右 splitter（與 architect/handover/qa 同款）
   const apiDevPane = useColResize(520, 300, 760); // 2026-10-23 Fleming：預設寬與 architect/handover/release/ops 統一（520）
+  // 2026-10-31 Fleming：專案資訊 tab 林曉薇 side chat 左右 splitter（同款）
+  const ruInfoPane = useColResize(520, 300, 760);
+  const ruInfoChatRef = useRef<AgentSideChatHandle>(null);
   const openFile = useCallback(async (path: string) => {
     if (loadingFileRef.current) return; // prevent double-click race
 
@@ -4320,10 +4323,11 @@ const sendChat = useCallback(async () => {
             )}
 
             {/* === FEATURES TAB === (keep mounted, hide with CSS) */}
-            {/* === 專案資訊 Tab（ru_info）— 大欄位好讀好維護（2026-10-31 Fleming）=== */}
+            {/* === 專案資訊 Tab（ru_info）— 大欄位好讀好維護 + 林曉薇 side chat（2026-10-31 Fleming：每類資料都有 AI 可幫忙維護）=== */}
             {mainTabs.some(t => t.type === "ru-info") && rootPath && (
-              <div key="tool:ru-info" className="flex-1 overflow-y-auto"
+              <div key="tool:ru-info" className="flex-1 flex min-w-0 overflow-hidden"
                 style={{ display: activeMainTab?.type === "ru-info" ? undefined : "none", backgroundColor: tk.bg }}>
+              <div className="flex-1 min-w-0 overflow-y-auto">
                 <div className="max-w-4xl mx-auto px-8 py-6 space-y-6">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-bold text-stone-800">ℹ️ {tt("vibe.projectInfo", "專案資訊")}</h2>
@@ -4388,6 +4392,28 @@ const sendChat = useCallback(async () => {
                     <p className="text-[11px] text-stone-400">AI 只會改上面兩個摘要欄，碰不到你的名稱/需求說明</p>
                   </div>
                 </div>
+              </div>
+              {/* 右欄：林曉薇 Architect side chat — 幫忙維護 ru_info（讀 repo 寫摘要、改需求說明）*/}
+              <ColResizer onDown={ruInfoPane.startDrag} className="hidden xl:block" />
+              <div className="shrink-0 border-l hidden xl:flex flex-col" style={{ width: ruInfoPane.width, borderColor: tk.borderLight }}>
+                <AgentSideChat
+                  ref={ruInfoChatRef}
+                  agentId="architect"
+                  agentName={tt("ruInfo.agentName")}
+                  agentEmoji="🏛️"
+                  greeting={tt("ruInfo.greeting")}
+                  cwd={rootPath}
+                  accent={tk.accent}
+                  height="100%"
+                  persistCrewId="coding.ru-info-side"
+                  modelFeature="sideChat.architect"
+                  suggestions={[
+                    { label: tt("ruInfo.sugGenLabel"), prompt: tt("ruInfo.sugGenPrompt") },
+                    { label: tt("ruInfo.sugRefreshLabel"), prompt: tt("ruInfo.sugRefreshPrompt") },
+                    { label: tt("ruInfo.sugDescLabel"), prompt: tt("ruInfo.sugDescPrompt") },
+                  ]}
+                />
+              </div>
               </div>
             )}
 

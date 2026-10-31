@@ -787,7 +787,7 @@ async function buildToolDefinitions() {
       parameters: {
         type: "object",
         properties: {
-          category: { type: "string", enum: ["context", "decisions", "changelog", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "error_codes", "c4_model", "security"], description: "Category to read" },
+          category: { type: "string", enum: ["context", "decisions", "changelog", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "error_codes", "c4_model", "security", "ru_info"], description: "Category to read" },
           id: { type: "string", description: "Feature/issue ID for detail queries" },
           search: { type: "string", description: "Search term" },
           status: { type: "string", description: "Filter by status (comma-separated)" },
@@ -805,7 +805,7 @@ async function buildToolDefinitions() {
       parameters: {
         type: "object",
         properties: {
-          action: { type: "string", enum: ["issue_create", "issue_update", "issue_delete", "feature_update_docs", "feature_update_mapping", "run_command"], description: "Action" },
+          action: { type: "string", enum: ["issue_create", "issue_update", "issue_delete", "feature_update_docs", "feature_update_mapping", "ru_info_update", "run_command"], description: "Action" },
           id: { type: "string", description: "Issue/feature ID" },
           title: { type: "string", description: "Title" },
           priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "Priority" },
@@ -815,6 +815,8 @@ async function buildToolDefinitions() {
           note: { type: "string", description: "Note to add" },
           featureId: { type: "string", description: "Related feature ID" },
           documentation: { type: "string", description: "Documentation markdown" },
+          aiOverview: { type: "string", description: "ru_info: 這是什麼專案的一段話摘要（ai_overview 欄）" },
+          aiArchitecture: { type: "string", description: "ru_info: 架構摘要（ai_architecture 欄）" },
           codeFiles: { type: "array", items: { type: "string" }, description: "Code files" },
           command: { type: "string", description: "Command to run" },
         },
@@ -881,7 +883,15 @@ function buildHandlers(apps) {
           return `Security Findings (${findings.length})${summary}:\n` + findings.map(f => `- [${String(f.severity).toUpperCase()}] ${f.file}:${f.line || "?"} — ${f.message}`).join("\n");
         } catch (err) { return `Error: ${err.message}`; }
       }
-      default: return `Category '${cat}' not implemented in chat assistant. Available: issues, features, context, security`;
+      case "ru_info": {
+        try {
+          const { readRuInfo, upsertRuInfo } = await import("../lib/coding-db/ru-info.repo.mjs");
+          const info = readRuInfo(root) || upsertRuInfo(root, {});
+          if (!info) return "(ru_info unavailable)";
+          return `RU 專案資訊（${info.ru}）:\n名稱: ${info.name}\nrepo: ${info.repo_path}\n需求說明: ${info.description || "(空)"}\nAI 摘要: ${info.ai_overview || "(空)"}\n架構摘要: ${info.ai_architecture || "(空)"}\nAI 更新時間: ${info.ai_updated_at || "-"} | imported: ${info.imported_at || "-"}`;
+        } catch (err) { return `Error reading ru_info: ${err.message}`; }
+      }
+      default: return `Category '${cat}' not implemented in chat assistant. Available: issues, features, context, security, ru_info`;
     }
   };
 
@@ -890,6 +900,27 @@ function buildHandlers(apps) {
     if (!action) return "Error: action is required.";
     const root = args.cwd || PAAW_ROOT;
     switch (action) {
+      case "ru_info_update": {
+        // 專案資訊卡維護（2026-10-31 Fleming：每類資料都有 AI + API tool）
+        try {
+          const repo = await import("../lib/coding-db/ru-info.repo.mjs");
+          const cur = repo.readRuInfo(root) || repo.upsertRuInfo(root, {});
+          const out = { ...cur };
+          if (args.name !== undefined || args.description !== undefined) {
+            Object.assign(out, repo.saveRuInfoFields(root, {
+              name: args.name !== undefined ? String(args.name) : undefined,
+              description: args.description !== undefined ? String(args.description) : undefined,
+            }));
+          }
+          if (args.aiOverview !== undefined || args.aiArchitecture !== undefined) {
+            Object.assign(out, repo.saveRuAiFields(root, {
+              ai_overview: args.aiOverview,
+              ai_architecture: args.aiArchitecture,
+            }));
+          }
+          return `✅ ru_info 已更新：\n名稱: ${out.name}\n需求說明: ${(out.description || "").slice(0, 120)}${(out.description || "").length > 120 ? "…" : ""}\nai_overview: ${(out.ai_overview || "").slice(0, 120)}${(out.ai_overview || "").length > 120 ? "…" : ""}\nai_architecture: ${(out.ai_architecture || "").slice(0, 120)}${(out.ai_architecture || "").length > 120 ? "…" : ""}\n（coding app 專案資訊 tab 即時可見）`;
+        } catch (err) { return `Error updating ru_info: ${err.message}`; }
+      }
       case "issue_create": {
         if (!args.title) return "Error: title is required.";
         const file = join(root, ".paaw", "issues", "ISSUES.json");
