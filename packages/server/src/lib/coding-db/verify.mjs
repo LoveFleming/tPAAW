@@ -20,11 +20,13 @@ export function verifyCodingDb(ruRoot, ru = ruRoot.split("/").pop()) {
 
   // counts
   const tasks = readJson(join(P, "tasks", "TASKS.json"));
-  check("tasks", tasks?.tasks?.length ?? 0, _count(db, "tasks"));
+  check("task", tasks?.tasks?.length ?? 0, _count(db, "task"));
   const feats = readJson(join(P, "features", "FEATURES.json"));
   check("features", feats?.features?.length ?? 0, _count(db, "features"));
   const insFile = feats?.features?.reduce((s, f) => s + (f.codeFiles?.length ?? 0), 0) ?? 0;
-  check("feature_files", insFile, _count(db, "feature_files"));
+  const featFilesInPayload = db.prepare("SELECT payload FROM features").all()
+    .reduce((s, r) => s + ((JSON.parse(r.payload || "{}").codeFiles ?? []).length), 0);
+  check("feature codeFiles (in payload)", insFile, featFilesInPayload);
   const iss = readJson(join(P, "issues", "ISSUES.json"));
   check("issues", iss?.issues?.length ?? 0, _count(db, "issues"));
   const rrDir = join(P, "release-requests");
@@ -34,7 +36,7 @@ export function verifyCodingDb(ruRoot, ru = ruRoot.split("/").pop()) {
   // sample equality: first task title, first feature name, first message content
   if (tasks?.tasks?.length) {
     const t0 = tasks.tasks[0];
-    const row = db.prepare("SELECT title, status FROM tasks WHERE id=?").get(t0.id);
+    const row = db.prepare("SELECT title, status FROM task WHERE id=?").get(t0.id);
     check(`sample task ${t0.id}`, true, !!(row && row.title === t0.title && row.status === t0.status));
   }
   if (feats?.features?.length) {

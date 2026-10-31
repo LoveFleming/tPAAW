@@ -8,61 +8,50 @@ import { openCodingDb } from "./connection.mjs";
 
 const _ru = (ruRoot) => ruRoot.split("/").pop();
 
-/** features 全量 reconstruct（順序 = 寫入順序，extras 合併回顶层） */
+/** features 全量 reconstruct（v2：子表內容在 payload）— 順序 = 寫入順序，形狀與 FEATURES.json 一致 */
 export function readFeatures(ruRoot) {
   const db = openCodingDb(ruRoot);
   const rows = db.prepare("SELECT * FROM features WHERE ru=? ORDER BY rowid").all(_ru(ruRoot));
   if (!rows.length) return null; // fallback 信號
-  const filesByFid = _group(db, "feature_files", "feature_id", "file_path");
-  const apisByFid = _groupObjects(db, "feature_apis", "feature_id", ["method", "path", "file"]);
-  // string-form api（"GET /api/x"）reconstruct 回字串，維持原檔形狀
-  for (const arr of apisByFid.values()) {
-    for (let i = 0; i < arr.length; i++) {
-      if (arr[i] && !arr[i].path && arr[i].method && !/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$/.test(arr[i].method)) {
-        arr[i] = arr[i].method; // 原本就是完整字串 "GET /api/x"
-      }
-    }
-  }
-  const testsByFid = _group(db, "feature_tests", "feature_id", "test_file");
-  const tagsByFid = _group(db, "feature_tags", "feature_id", "tag");
   return rows.map(r => {
     const f = { ...JSON.parse(r.payload || "{}") };
     f.id = r.id; f.name = r.name;
-    if (r.description !== "\x01") f.description = r.description; // \x01=無此欄，null/""原樣保留
-    if (r.status !== "\x01") f.status = r.status; // \x01=無此欄，null/""原樣保留
-    if (r.severity !== "\x01") f.severity = r.severity; // \x01=無此欄，null/""原樣保留
-    if (r.severity_computed !== "\x01") f.severityComputed = r.severity_computed; // \x01=無此欄，null/""原樣保留
-    if (r.risk_profile && r.risk_profile !== "\x01") f.riskProfile = JSON.parse(r.risk_profile); // \x01/null=無此欄（severity-auto-scan 依賴 undefined 語意）
-    if (r.risk_scanned_at !== "\x01") f.riskProfileScannedAt = r.risk_scanned_at; // \x01=無此欄，null/""原樣保留
-    if (r.ai_understanding !== "\x01") f.aiUnderstanding = r.ai_understanding; // \x01=無此欄，null/""原樣保留
-    if (r.ai_understanding_at !== "\x01") f.aiUnderstandingAt = r.ai_understanding_at; // \x01=無此欄，null/""原樣保留
-    if (r.documentation !== "\x01") f.documentation = r.documentation; // \x01=無此欄，null/""原樣保留
-    if (r.docs_updated_at !== "\x01") f.docsUpdatedAt = r.docs_updated_at; // \x01=無此欄，null/""原樣保留
-    if (r.created_at !== "\x01") f.createdAt = r.created_at; // \x01=無此欄，null/""原樣保留
-    if (r.updated_at !== "\x01") f.updatedAt = r.updated_at; // \x01=無此欄，null/""原樣保留
-    if (r.retired_at !== "\x01") f.retiredAt = r.retired_at; // \x01=無此欄，null/""原樣保留
-    f.codeFiles = filesByFid.get(r.id) ?? [];
-    if (!("apis" in f)) f.apis = apisByFid.get(r.id) ?? []; // payload 有原形（含 string-form）優先
-    f.tests = testsByFid.get(r.id) ?? [];
-    f.tags = tagsByFid.get(r.id) ?? [];
+    if (r.description !== "\x01") f.description = r.description;
+    if (r.status !== "\x01") f.status = r.status;
+    if (r.severity !== "\x01") f.severity = r.severity;
+    if (r.risk_profile && r.risk_profile !== "\x01") f.riskProfile = JSON.parse(r.risk_profile);
+    if (r.ai_understanding !== "\x01") f.aiUnderstanding = r.ai_understanding;
+    if (r.documentation !== "\x01") f.documentation = r.documentation;
+    if (r.created_at !== "\x01") f.createdAt = r.created_at;
+    if (r.updated_at !== "\x01") f.updatedAt = r.updated_at;
+    f.codeFiles = f.codeFiles ?? [];
+    if (!("apis" in f)) f.apis = []; // payload 有原形（含 string-form）優先
+    f.tests = f.tests ?? [];
+    f.tags = f.tags ?? [];
     return f;
   });
 }
 
-/** tasks 全量 reconstruct，回傳 { tasks, loopMode } 形狀（對應 TASKS.json wrapper） */
+/** tasks 全量 reconstruct（v2：task + task_detail），回傳 { tasks, loopMode }（對應 TASKS.json wrapper） */
 export function readTasks(ruRoot) {
   const db = openCodingDb(ruRoot);
   const ru = _ru(ruRoot);
-  const rows = db.prepare("SELECT * FROM tasks WHERE ru=? ORDER BY rowid").all(ru);
+  const rows = db.prepare("SELECT * FROM task WHERE ru=? ORDER BY rowid").all(ru);
   if (!rows.length) return null;
+  const details = db.prepare("SELECT * FROM task_detail WHERE ru=? ORDER BY rowid").all(ru);
   const notesByTask = new Map();
-  for (const n of db.prepare("SELECT * FROM task_notes ORDER BY rowid").all()) {
-    if (!notesByTask.has(n.task_id)) notesByTask.set(n.task_id, []);
-    const note = n.payload ? JSON.parse(n.payload) : {};
-    if (n.by != null) note.by = n.by;
-    if (n.at != null) note.at = n.at;
-    if (n.content != null) note.content = n.content; // 檔案缺的欄位不補 null，維持原形狀
-    notesByTask.get(n.task_id).push(note);
+  const assignByTask = new Map(); // 最新一筆 assign（還原 v1 assignee 欄位形狀）
+  for (const d of details) {
+    if (d.kind === "note") {
+      if (!notesByTask.has(d.task_id)) notesByTask.set(d.task_id, []);
+      const note = d.payload ? JSON.parse(d.payload) : {};
+      if (d.agent != null) note.by = d.agent;
+      if (d.ts != null) note.at = d.ts;
+      if (d.content != null) note.content = d.content;
+      notesByTask.get(d.task_id).push(note);
+    } else if (d.kind === "assign" && d.agent != null) {
+      assignByTask.set(d.task_id, d.agent);
+    }
   }
   const meta = db.prepare("SELECT value FROM kv WHERE key='tasks_meta'").get();
   let loopMode = meta ? (JSON.parse(meta.value).loopMode ?? undefined) : undefined;
@@ -70,18 +59,14 @@ export function readTasks(ruRoot) {
   const tasks = rows.map(r => {
     const t = { ...JSON.parse(r.payload || "{}") };
     t.id = r.id;
-    if (r.feature_id !== "\x01") t.featureId = r.feature_id; // \x01=無此欄；null 原樣
+    if (r.feature_id !== "\x01") t.featureId = r.feature_id;
     t.parentId = r.parent_id;
     t.type = r.type; t.title = r.title; t.status = r.status;
     t.priority = r.priority;
     t.labels = JSON.parse(r.labels || "[]");
-    t.assignee = r.assignee;
+    if (assignByTask.has(r.id)) t.assignee = assignByTask.get(r.id);
     t.description = r.description;
-    if (r.related_files !== "\x01" && r.related_files !== "") t.relatedFiles = JSON.parse(r.related_files); // \x01=無此欄；null/[]原樣
-    if (r.pipeline_mode != null) t.pipelineMode = r.pipeline_mode;
-    const ph = JSON.parse(r.pipeline_phases || "null");
-    if (ph != null) t.pipelinePhases = ph;
-    if (r.auto_execute) t.autoExecute = true;
+    if (r.related_files !== "\x01" && r.related_files !== "") t.relatedFiles = JSON.parse(r.related_files);
     t.createdAt = r.created_at;
     t.updatedAt = r.updated_at;
     t.notes = notesByTask.get(r.id) ?? [];

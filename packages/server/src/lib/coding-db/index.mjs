@@ -35,8 +35,8 @@ export function recentDispatch(ruRoot, { limit = 50, taskId } = {}) {
 export function taskHistory(ruRoot, taskId) {
   const db = openCodingDb(ruRoot);
   return {
-    task: db.prepare("SELECT * FROM tasks WHERE id=?").get(taskId),
-    notes: db.prepare("SELECT * FROM task_notes WHERE task_id=? ORDER BY id").all(taskId),
+    task: db.prepare("SELECT * FROM task WHERE id=?").get(taskId),
+    details: db.prepare("SELECT * FROM task_detail WHERE task_id=? ORDER BY id").all(taskId), // v2：notes/assign/status/qa 全在這
     dispatch: db.prepare("SELECT * FROM dispatch_log WHERE task_id=? ORDER BY id").all(taskId),
     qa: db.prepare("SELECT * FROM qa_results WHERE task_id=? ORDER BY id").all(taskId),
   };

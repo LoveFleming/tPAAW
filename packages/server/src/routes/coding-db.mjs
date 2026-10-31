@@ -17,10 +17,11 @@ import { readBody } from "./shared.mjs";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PAAW_ROOT = resolve(__dirname, "../../../..");
 
+// v2 白名單（2026-10-31）：task/task_detail 新增；task_notes/feature 子表已砍；kv 移出（內部用不對外）
 const QUERY_TABLES = new Set([
-  "tasks", "task_notes", "features", "feature_files", "feature_apis", "feature_tests", "feature_tags",
-  "gates", "handover", "issues", "release_requests", "conversation_sessions",
-  "dispatch_log", "action_log", "qa_results", "exec_approvals", "kv", "ru_info",
+  "task", "task_detail", "features", "gates", "handover", "issues", "release_requests",
+  "conversation_sessions", "conversation_messages", "dispatch_log", "action_log",
+  "qa_results", "exec_approvals", "error_codes", "ru_info",
 ]);
 
 const LIMIT_MAX = 500;

@@ -15,7 +15,7 @@ const KNOWN_TASK_COLS = new Set([
 const KNOWN_FEAT_COLS = new Set([
   "id","name","description","status","severity","severityComputed","riskProfile",
   "riskProfileScannedAt","aiUnderstanding","aiUnderstandingAt","documentation",
-  "docsUpdatedAt","createdAt","updatedAt","retiredAt"
+  "docsUpdatedAt","createdAt","updatedAt","retiredAt","codeFiles","apis","tests","tags",
 ]);
 
 function readJson(p) {
@@ -70,11 +70,9 @@ export function importCodingDb(ruRoot, ru = ruRoot.split("/").pop()) {
   const counts = {};
   db.exec("BEGIN");
   // per-ru 清舊（refresh 語意）：檔案來源刪掉的 row 不殘留
-  for (const t of ["tasks","features","feature_files","feature_apis","feature_tests","feature_tags","gates","handover","issues","error_codes"]) {
+  for (const t of ["task","task_detail","features","gates","handover","issues","error_codes"]) {
     try { db.prepare(`DELETE FROM ${t} WHERE ru=?`).run(ru); } catch {}
   }
-  try { db.prepare("DELETE FROM task_notes WHERE task_id IN (SELECT id FROM tasks WHERE ru=?)").run(ru); } catch {}
-  try { db.prepare("DELETE FROM tasks WHERE ru=?").run(ru); } catch {} // task_notes 清完才清 tasks（順序：先清 notes 再清 tasks）
   try {
     counts.tasks = _importTasks(db, ruRoot, ru);
     counts.features = _importFeatures(db, ruRoot, ru);
@@ -93,30 +91,31 @@ export function importCodingDb(ruRoot, ru = ruRoot.split("/").pop()) {
 function _importTasks(db, ruRoot, ru) {
   const data = readJson(join(ruRoot, ".paaw", "tasks", "TASKS.json"));
   if (!data || !Array.isArray(data.tasks)) return 0;
-  const ins = db.prepare(`INSERT OR REPLACE INTO tasks
-    (id, ru, feature_id, parent_id, type, title, status, priority, labels, assignee,
-     description, related_files, pipeline_mode, pipeline_phases, auto_execute, payload,
-     created_at, updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-  const insNote = db.prepare("INSERT INTO task_notes (task_id, by, at, content, payload) VALUES (?,?,?,?,?)");
+  const ins = db.prepare(`INSERT OR REPLACE INTO task
+    (id, ru, parent_id, feature_id, type, title, status, priority, labels,
+     description, related_files, payload, created_at, updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  const insDetail = db.prepare(`INSERT INTO task_detail (ru, task_id, kind, agent, ts, content, payload)
+    VALUES (?,?,?,?,?,?,?)`);
   let n = 0;
   for (const t of data.tasks) {
     const payload = {};
-    for (const [k, v] of Object.entries(t)) {
-      if (!KNOWN_TASK_COLS.has(k)) payload[k] = v;
-    }
+    for (const [k, v] of Object.entries(t)) if (!KNOWN_TASK_COLS.has(k)) payload[k] = v;
+    if (t.pipelineMode != null) payload.pipelineMode = t.pipelineMode;
+    if (t.pipelinePhases != null) payload.pipelinePhases = t.pipelinePhases;
+    if (t.autoExecute != null) payload.autoExecute = t.autoExecute;
     ins.run(
-      t.id, ru, t.featureId === undefined ? "\x01" : t.featureId, t.parentId ?? null, t.type ?? "dev", t.title ?? "",
+      t.id, ru, t.parentId ?? null, t.featureId === undefined ? "\x01" : t.featureId, t.type ?? "dev", t.title ?? "",
       t.status ?? "open", t.priority ?? null,
-      JSON.stringify(t.labels ?? []), t.assignee ?? null, t.description ?? null,
-      t.relatedFiles === undefined ? "\x01" : JSON.stringify(t.relatedFiles), t.pipelineMode ?? null,
-      JSON.stringify(t.pipelinePhases ?? null), t.autoExecute ? 1 : 0,
+      JSON.stringify(t.labels ?? []), t.description ?? null,
+      t.relatedFiles === undefined ? "\x01" : JSON.stringify(t.relatedFiles),
       JSON.stringify(payload), t.createdAt ?? null, t.updatedAt ?? null
     );
+    if (t.assignee != null) insDetail.run(ru, t.id, "assign", t.assignee, t.createdAt ?? null, "imported assignee", null);
     for (const note of t.notes ?? []) {
       const extra = {};
       for (const [k, v] of Object.entries(note)) if (!["by","at","content"].includes(k)) extra[k] = v;
-      insNote.run(t.id, note.by ?? null, note.at ?? null, note.content ?? null,
+      insDetail.run(ru, t.id, "note", note.by ?? null, note.at ?? null, note.content ?? null,
         Object.keys(extra).length ? JSON.stringify(extra) : null);
     }
     n++;
@@ -128,36 +127,37 @@ function _importFeatures(db, ruRoot, ru) {
   const data = readJson(join(ruRoot, ".paaw", "features", "FEATURES.json"));
   if (!data || !Array.isArray(data.features)) return 0;
   const ins = db.prepare(`INSERT OR REPLACE INTO features
-    (id, ru, name, description, status, severity, severity_computed, risk_profile,
-     risk_scanned_at, ai_understanding, ai_understanding_at, documentation,
-     docs_updated_at, created_at, updated_at, retired_at, payload)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-  const insFile = db.prepare("INSERT OR IGNORE INTO feature_files (feature_id, file_path) VALUES (?,?)");
-  const insApi = db.prepare("INSERT OR IGNORE INTO feature_apis (feature_id, method, path, file_path) VALUES (?,?,?,?)");
-  const insTest = db.prepare("INSERT OR IGNORE INTO feature_tests (feature_id, test_file) VALUES (?,?)");
-  const insTag = db.prepare("INSERT OR IGNORE INTO feature_tags (feature_id, tag) VALUES (?,?)");
+    (id, ru, name, description, status, severity, risk_profile, ai_understanding,
+     documentation, payload, created_at, updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
   let n = 0;
   for (const f of data.features) {
     const payload = {};
     for (const [k, v] of Object.entries(f)) {
       if (!KNOWN_FEAT_COLS.has(k)) payload[k] = v;
     }
+    // v2：時間戳 + 子表內容收 payload
+    if (f.severityComputed !== undefined) payload.severityComputed = f.severityComputed;
+    if (f.riskProfileScannedAt !== undefined) payload.riskScannedAt = f.riskProfileScannedAt;
+    if (f.aiUnderstandingAt !== undefined) payload.aiUnderstandingAt = f.aiUnderstandingAt;
+    if (f.docsUpdatedAt !== undefined) payload.docsUpdatedAt = f.docsUpdatedAt;
+    if (f.retiredAt !== undefined) payload.retiredAt = f.retiredAt;
+    payload.codeFiles = f.codeFiles ?? [];
+    payload.apis = f.apis ?? [];
+    payload.tests = f.tests ?? [];
+    payload.tags = f.tags ?? [];
     ins.run(
-      f.id, ru, f.name ?? f.id, (f.description === undefined ? "\x01" : f.description), (f.status === undefined ? "\x01" : f.status),
-      (f.severity === undefined ? "\x01" : f.severity), (f.severityComputed === undefined ? "\x01" : f.severityComputed),
+      f.id, ru, f.name ?? f.id,
+      (f.description === undefined ? "\x01" : f.description),
+      (f.status === undefined ? "\x01" : f.status),
+      (f.severity === undefined ? "\x01" : f.severity),
       f.riskProfile === undefined ? "\x01" : JSON.stringify(f.riskProfile),
-      (f.riskProfileScannedAt === undefined ? "\x01" : f.riskProfileScannedAt), (f.aiUnderstanding === undefined ? "\x01" : f.aiUnderstanding), (f.aiUnderstandingAt === undefined ? "\x01" : f.aiUnderstandingAt),
-      (f.documentation === undefined ? "\x01" : f.documentation), (f.docsUpdatedAt === undefined ? "\x01" : f.docsUpdatedAt),
-      (f.createdAt === undefined ? "\x01" : f.createdAt), (f.updatedAt === undefined ? "\x01" : f.updatedAt), (f.retiredAt === undefined ? "\x01" : f.retiredAt),
-      JSON.stringify(payload)
+      (f.aiUnderstanding === undefined ? "\x01" : f.aiUnderstanding),
+      (f.documentation === undefined ? "\x01" : f.documentation),
+      JSON.stringify(payload),
+      (f.createdAt === undefined ? "\x01" : f.createdAt),
+      (f.updatedAt === undefined ? "\x01" : f.updatedAt),
     );
-    for (const p of f.codeFiles ?? []) insFile.run(f.id, p);
-    for (const a of f.apis ?? []) {
-      if (typeof a === "string") { const m = a.match(/^(\S+)\s+(.+)$/); insApi.run(f.id, m ? m[1] : a, m ? m[2] : null, null); }
-      else insApi.run(f.id, a.method ?? null, a.path ?? null, a.file ?? null);
-    }
-    for (const t of f.tests ?? []) insTest.run(f.id, t);
-    for (const tag of f.tags ?? []) insTag.run(f.id, tag);
     n++;
   }
   return n;
