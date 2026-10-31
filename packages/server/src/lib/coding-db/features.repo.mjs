@@ -26,15 +26,18 @@ export function saveFeatures(ruRoot, features, ru = ruRoot.split("/").pop()) {
       const extra = {};
       for (const [k, v] of Object.entries(f)) if (!KNOWN_FEAT_COLS.has(k)) extra[k] = v;
       ins.run(
-        f.id, ru, f.name ?? f.id, f.description ?? null, f.status ?? null,
-        f.severity ?? null, f.severityComputed ?? null,
-        f.riskProfile ? JSON.stringify(f.riskProfile) : null,
-        f.riskProfileScannedAt ?? null, f.aiUnderstanding ?? null, f.aiUnderstandingAt ?? null,
-        f.documentation ?? null, f.docsUpdatedAt ?? null,
-        f.createdAt ?? null, f.updatedAt ?? null, f.retiredAt ?? null, JSON.stringify(extra)
+        f.id, ru, f.name ?? f.id, (f.description === undefined ? "\x01" : f.description), (f.status === undefined ? "\x01" : f.status),
+        (f.severity === undefined ? "\x01" : f.severity), (f.severityComputed === undefined ? "\x01" : f.severityComputed),
+        f.riskProfile === undefined ? "\x01" : JSON.stringify(f.riskProfile),
+        (f.riskProfileScannedAt === undefined ? "\x01" : f.riskProfileScannedAt), (f.aiUnderstanding === undefined ? "\x01" : f.aiUnderstanding), (f.aiUnderstandingAt === undefined ? "\x01" : f.aiUnderstandingAt),
+        (f.documentation === undefined ? "\x01" : f.documentation), (f.docsUpdatedAt === undefined ? "\x01" : f.docsUpdatedAt),
+        (f.createdAt === undefined ? "\x01" : f.createdAt), (f.updatedAt === undefined ? "\x01" : f.updatedAt), (f.retiredAt === undefined ? "\x01" : f.retiredAt), JSON.stringify(extra)
       );
       for (const p of f.codeFiles ?? []) insFile.run(f.id, p);
-      for (const a of f.apis ?? []) insApi.run(f.id, a.method ?? null, a.path ?? null, a.file ?? null);
+      for (const a of f.apis ?? []) {
+        if (typeof a === "string") { const m = a.match(/^(\S+)\s+(.+)$/); insApi.run(f.id, m ? m[1] : a, m ? m[2] : null, null); }
+        else insApi.run(f.id, a.method ?? null, a.path ?? null, a.file ?? null);
+      }
       for (const t of f.tests ?? []) insTest.run(f.id, t);
       for (const tag of f.tags ?? []) insTag.run(f.id, tag);
     }

@@ -13,7 +13,6 @@
 import { resolve } from "path";
 import { fileURLToPath } from "url";
 import { readBody } from "./shared.mjs";
-import { safeResolve } from "../lib/coding-security.mjs";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PAAW_ROOT = resolve(__dirname, "../../../..");
@@ -37,13 +36,10 @@ export default async function codingDbRoute(req, res) {
   };
 
   // ── helpers ──
+  // 與 coding.mjs 同規：localhost 單人工具，cwd 直接 resolve（@paaw = 全域）
   const root = async () => {
     if (q.cwd === "@paaw" || !q.cwd) return PAAW_ROOT;
-    try {
-      return safeResolve(PAAW_ROOT, q.cwd);
-    } catch {
-      return PAAW_ROOT;
-    }
+    return resolve(q.cwd);
   };
 
   const mod = () => import("../lib/coding-db/index.mjs");

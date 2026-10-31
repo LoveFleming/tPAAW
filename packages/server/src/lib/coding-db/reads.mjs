@@ -15,26 +15,34 @@ export function readFeatures(ruRoot) {
   if (!rows.length) return null; // fallback 信號
   const filesByFid = _group(db, "feature_files", "feature_id", "file_path");
   const apisByFid = _groupObjects(db, "feature_apis", "feature_id", ["method", "path", "file"]);
+  // string-form api（"GET /api/x"）reconstruct 回字串，維持原檔形狀
+  for (const arr of apisByFid.values()) {
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i] && !arr[i].path && arr[i].method && !/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$/.test(arr[i].method)) {
+        arr[i] = arr[i].method; // 原本就是完整字串 "GET /api/x"
+      }
+    }
+  }
   const testsByFid = _group(db, "feature_tests", "feature_id", "test_file");
   const tagsByFid = _group(db, "feature_tags", "feature_id", "tag");
   return rows.map(r => {
     const f = { ...JSON.parse(r.payload || "{}") };
     f.id = r.id; f.name = r.name;
-    f.description = r.description;
-    f.status = r.status;
-    f.severity = r.severity;
-    f.severityComputed = r.severity_computed;
-    if (r.risk_profile != null) f.riskProfile = JSON.parse(r.risk_profile); // 無值 = key 不存在（severity-auto-scan 測試依賴 undefined 語意）
-    f.riskProfileScannedAt = r.risk_scanned_at;
-    f.aiUnderstanding = r.ai_understanding;
-    f.aiUnderstandingAt = r.ai_understanding_at;
-    f.documentation = r.documentation;
-    f.docsUpdatedAt = r.docs_updated_at;
-    f.createdAt = r.created_at;
-    f.updatedAt = r.updated_at;
-    f.retiredAt = r.retired_at;
+    if (r.description !== "\x01") f.description = r.description; // \x01=無此欄，null/""原樣保留
+    if (r.status !== "\x01") f.status = r.status; // \x01=無此欄，null/""原樣保留
+    if (r.severity !== "\x01") f.severity = r.severity; // \x01=無此欄，null/""原樣保留
+    if (r.severity_computed !== "\x01") f.severityComputed = r.severity_computed; // \x01=無此欄，null/""原樣保留
+    if (r.risk_profile && r.risk_profile !== "\x01") f.riskProfile = JSON.parse(r.risk_profile); // \x01/null=無此欄（severity-auto-scan 依賴 undefined 語意）
+    if (r.risk_scanned_at !== "\x01") f.riskProfileScannedAt = r.risk_scanned_at; // \x01=無此欄，null/""原樣保留
+    if (r.ai_understanding !== "\x01") f.aiUnderstanding = r.ai_understanding; // \x01=無此欄，null/""原樣保留
+    if (r.ai_understanding_at !== "\x01") f.aiUnderstandingAt = r.ai_understanding_at; // \x01=無此欄，null/""原樣保留
+    if (r.documentation !== "\x01") f.documentation = r.documentation; // \x01=無此欄，null/""原樣保留
+    if (r.docs_updated_at !== "\x01") f.docsUpdatedAt = r.docs_updated_at; // \x01=無此欄，null/""原樣保留
+    if (r.created_at !== "\x01") f.createdAt = r.created_at; // \x01=無此欄，null/""原樣保留
+    if (r.updated_at !== "\x01") f.updatedAt = r.updated_at; // \x01=無此欄，null/""原樣保留
+    if (r.retired_at !== "\x01") f.retiredAt = r.retired_at; // \x01=無此欄，null/""原樣保留
     f.codeFiles = filesByFid.get(r.id) ?? [];
-    f.apis = apisByFid.get(r.id) ?? [];
+    if (!("apis" in f)) f.apis = apisByFid.get(r.id) ?? []; // payload 有原形（含 string-form）優先
     f.tests = testsByFid.get(r.id) ?? [];
     f.tags = tagsByFid.get(r.id) ?? [];
     return f;
@@ -50,8 +58,10 @@ export function readTasks(ruRoot) {
   const notesByTask = new Map();
   for (const n of db.prepare("SELECT * FROM task_notes ORDER BY rowid").all()) {
     if (!notesByTask.has(n.task_id)) notesByTask.set(n.task_id, []);
-    const note = { by: n.by, at: n.at, content: n.content };
-    if (n.payload) Object.assign(note, JSON.parse(n.payload));
+    const note = n.payload ? JSON.parse(n.payload) : {};
+    if (n.by != null) note.by = n.by;
+    if (n.at != null) note.at = n.at;
+    if (n.content != null) note.content = n.content; // 檔案缺的欄位不補 null，維持原形狀
     notesByTask.get(n.task_id).push(note);
   }
   const meta = db.prepare("SELECT value FROM kv WHERE key='tasks_meta'").get();
@@ -60,14 +70,14 @@ export function readTasks(ruRoot) {
   const tasks = rows.map(r => {
     const t = { ...JSON.parse(r.payload || "{}") };
     t.id = r.id;
-    t.featureId = r.feature_id;
+    if (r.feature_id !== "\x01") t.featureId = r.feature_id; // \x01=無此欄；null 原樣
     t.parentId = r.parent_id;
     t.type = r.type; t.title = r.title; t.status = r.status;
     t.priority = r.priority;
     t.labels = JSON.parse(r.labels || "[]");
     t.assignee = r.assignee;
     t.description = r.description;
-    t.relatedFiles = JSON.parse(r.related_files || "[]");
+    if (r.related_files !== "\x01" && r.related_files !== "") t.relatedFiles = JSON.parse(r.related_files); // \x01=無此欄；null/[]原樣
     if (r.pipeline_mode != null) t.pipelineMode = r.pipeline_mode;
     const ph = JSON.parse(r.pipeline_phases || "null");
     if (ph != null) t.pipelinePhases = ph;

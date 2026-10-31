@@ -100,10 +100,10 @@ function _importTasks(db, ruRoot, ru) {
       if (!KNOWN_TASK_COLS.has(k)) payload[k] = v;
     }
     ins.run(
-      t.id, ru, t.featureId ?? null, t.parentId ?? null, t.type ?? "dev", t.title ?? "",
+      t.id, ru, t.featureId === undefined ? "\x01" : t.featureId, t.parentId ?? null, t.type ?? "dev", t.title ?? "",
       t.status ?? "open", t.priority ?? null,
       JSON.stringify(t.labels ?? []), t.assignee ?? null, t.description ?? null,
-      JSON.stringify(t.relatedFiles ?? []), t.pipelineMode ?? null,
+      t.relatedFiles === undefined ? "\x01" : JSON.stringify(t.relatedFiles), t.pipelineMode ?? null,
       JSON.stringify(t.pipelinePhases ?? null), t.autoExecute ? 1 : 0,
       JSON.stringify(payload), t.createdAt ?? null, t.updatedAt ?? null
     );
@@ -137,16 +137,19 @@ function _importFeatures(db, ruRoot, ru) {
       if (!KNOWN_FEAT_COLS.has(k)) payload[k] = v;
     }
     ins.run(
-      f.id, ru, f.name ?? f.id, f.description ?? null, f.status ?? null,
-      f.severity ?? null, f.severityComputed ?? null,
-      f.riskProfile ? JSON.stringify(f.riskProfile) : null,
-      f.riskProfileScannedAt ?? null, f.aiUnderstanding ?? null, f.aiUnderstandingAt ?? null,
-      f.documentation ?? null, f.docsUpdatedAt ?? null,
-      f.createdAt ?? null, f.updatedAt ?? null, f.retiredAt ?? null,
+      f.id, ru, f.name ?? f.id, (f.description === undefined ? "\x01" : f.description), (f.status === undefined ? "\x01" : f.status),
+      (f.severity === undefined ? "\x01" : f.severity), (f.severityComputed === undefined ? "\x01" : f.severityComputed),
+      f.riskProfile === undefined ? "\x01" : JSON.stringify(f.riskProfile),
+      (f.riskProfileScannedAt === undefined ? "\x01" : f.riskProfileScannedAt), (f.aiUnderstanding === undefined ? "\x01" : f.aiUnderstanding), (f.aiUnderstandingAt === undefined ? "\x01" : f.aiUnderstandingAt),
+      (f.documentation === undefined ? "\x01" : f.documentation), (f.docsUpdatedAt === undefined ? "\x01" : f.docsUpdatedAt),
+      (f.createdAt === undefined ? "\x01" : f.createdAt), (f.updatedAt === undefined ? "\x01" : f.updatedAt), (f.retiredAt === undefined ? "\x01" : f.retiredAt),
       JSON.stringify(payload)
     );
     for (const p of f.codeFiles ?? []) insFile.run(f.id, p);
-    for (const a of f.apis ?? []) insApi.run(f.id, a.method ?? null, a.path ?? null, a.file ?? null);
+    for (const a of f.apis ?? []) {
+      if (typeof a === "string") { const m = a.match(/^(\S+)\s+(.+)$/); insApi.run(f.id, m ? m[1] : a, m ? m[2] : null, null); }
+      else insApi.run(f.id, a.method ?? null, a.path ?? null, a.file ?? null);
+    }
     for (const t of f.tests ?? []) insTest.run(f.id, t);
     for (const tag of f.tags ?? []) insTag.run(f.id, tag);
     n++;

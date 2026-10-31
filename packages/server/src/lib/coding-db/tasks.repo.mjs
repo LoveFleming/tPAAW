@@ -28,9 +28,9 @@ export function saveTasks(ruRoot, payload, ru = ruRoot.split("/").pop()) {
       const extra = {};
       for (const [k, v] of Object.entries(t)) if (!KNOWN_TASK_COLS.has(k)) extra[k] = v;
       ins.run(
-        t.id, ru, t.featureId ?? null, t.parentId ?? null, t.type ?? "dev", t.title ?? "",
+        t.id, ru, t.featureId === undefined ? "\x01" : t.featureId, t.parentId ?? null, t.type ?? "dev", t.title ?? "",
         t.status ?? "open", t.priority ?? null, JSON.stringify(t.labels ?? []),
-        t.assignee ?? null, t.description ?? null, JSON.stringify(t.relatedFiles ?? []),
+        t.assignee ?? null, t.description ?? null, t.relatedFiles === undefined ? "\x01" : JSON.stringify(t.relatedFiles),
         t.pipelineMode ?? null, JSON.stringify(t.pipelinePhases ?? null),
         t.autoExecute ? 1 : 0, JSON.stringify(extra), t.createdAt ?? null, t.updatedAt ?? null
       );
