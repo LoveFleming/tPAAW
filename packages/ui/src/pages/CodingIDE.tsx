@@ -2783,15 +2783,15 @@ const sendChat = useCallback(async () => {
 
                 {/* Description — what to build */}
                 <div>
-                  <label className="text-xs font-medium text-stone-500 mb-1 block">描述你想做什麼{newProjectTemplate.startsWith("kit:") || newProjectTemplate === "blank" ? "（選填）" : " *"}</label>
+                  <label className="text-xs font-medium text-stone-500 mb-1 block">{newProjectTemplate.startsWith("kit:") || newProjectTemplate === "blank" ? "📝 需求草稿（隨手寫就好，AI 會整理成正式需求）" : "描述你想做什麼 *"}</label>
                   <textarea
                     value={newProjectDesc}
                     onChange={e => { setNewProjectDesc(e.target.value); setNewProjectError(""); }}
-                    placeholder={"例：一個待辦事項 App，可以新增、完成、刪除任務，有登入功能"}
-                    rows={3}
+                    placeholder={newProjectTemplate.startsWith("kit:") || newProjectTemplate === "blank" ? "例：\n做一個 guardrail rules 的中心服務\n- 可以登記/查詢/版本管理規則\n- API 給其他服務查有效規則\n- 之後要接 policy engine" : "例：一個待辦事項 App，可以新增、完成、刪除任務，有登入功能"}
+                    rows={newProjectTemplate.startsWith("kit:") || newProjectTemplate === "blank" ? 6 : 3}
                     className="w-full text-sm px-3 py-2 border rounded-lg bg-stone-50 outline-none focus:border-emerald-400 resize-none"
                   />
-                  <p className="text-[10px] text-stone-400 mt-1">AI 會根據你的描述自動生成專案骨架和基本 UI</p>
+                  <p className="text-[10px] text-stone-400 mt-1">{newProjectTemplate.startsWith("kit:") || newProjectTemplate === "blank" ? "AI 會先把草稿整理成 REQUIREMENTS.md + PROJECT.md（專案資訊），再動手調整專案" : "AI 會根據你的描述自動生成專案骨架和基本 UI"}</p>
                 </div>
 
                 {/* Parent Directory */}
@@ -2894,9 +2894,29 @@ const sendChat = useCallback(async () => {
                           return;
                         }
                         const kitName = data.kit?.name || kitId;
-                        firstPrompt = `我剛用 Starter Kit「${kitName}」建立了新專案「${newProjectName.trim()}」，請幫我把專案調整到位。\n\n專案描述：${newProjectDesc.trim() || "（未填）"}\n\n請做以下事：\n1. 若根目錄有 KIT-ADAPT.md，先讀它照指引調整（那是這個 kit 的改寫說明）；沒有就自己判斷\n2. 把 package.json（或其他語言對應的）name/description 改成「${newProjectName.trim()}」\n3. README 標題與說明改成「${newProjectName.trim()}」，若有填描述則與描述一致\n4. 清理 kit 範例碼中與本專案無關的部分（依描述判斷，拿不準就保留）\n5. 安裝依賴並驗證可以 build（或跑起來），確認 OK 才回報\n\n完成後簡短回報改了什麼。`;
+                        firstPrompt = `我剛用 Starter Kit「${kitName}」建立了新專案「${newProjectName.trim()}」，請幫我把專案調整到位。\n\n需求草稿（我隨手寫的）：${newProjectDesc.trim() || "（未填 — 請先問我要做什麼再動手）"}\n\n請依序做以下事：\n1. 先在 repo 根目錄產出兩份文件（給之後的需求/專案維護用）：\n   - REQUIREMENTS.md：把我的草稿整理成編號需求列表（REQ-001…），每條一行描述 + 補充細節；草稿沒講到的合理推測要標 [推測]\n   - PROJECT.md：專案資訊 — 名稱、一句話定位、技術棧、目錄結構說明、現況（剛從 kit 建立）\n2. 若根目錄有 KIT-ADAPT.md，讀它照指引調整（那是這個 kit 的改寫說明）；沒有就自己判斷\n3. 把 package.json（或其他語言對應的）name/description 改成「${newProjectName.trim()}」\n3. README 標題與說明改成「${newProjectName.trim()}」，若有填描述則與描述一致\n4. 清理 kit 範例碼中與本專案無關的部分（依描述判斷，拿不準就保留）\n5. 安裝依賴並驗證可以 build（或跑起來），確認 OK 才回報\n\n完成後簡短回報改了什麼。`;
+                      } else if (isBlank) {
+                        // 空白專案：先需求後動工（REQ → 文件 → 骨架），不預設 react
+                        const r = await fetch(`${API_BASE}/api/coding-project/create`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            name: newProjectName.trim(),
+                            parentDir: newProjectParent.trim(),
+                            initGit: true,
+                            initPaaw: true,
+                          }),
+                        });
+                        data = await r.json();
+                        if (!r.ok) {
+                          setNewProjectError(data.error || `Error ${r.status}`);
+                          setNewProjectStep(2);
+                          setNewProjectCreating(false);
+                          return;
+                        }
+                        firstPrompt = `我剛建立了空白專案「${newProjectName.trim()}」，請依序做：\n\n1. 在 repo 根目錄產出：\n   - REQUIREMENTS.md：把我的需求草稿整理成編號需求列表（REQ-001…），每條一行描述 + 補充細節；草稿沒講到的合理推測標 [推測]\n   - PROJECT.md：專案資訊 — 名稱、一句話定位、技術棧（依需求建議）、目錄結構規劃、現況\n2. 需求草稿如下，若有重大不明確處先問我，不確定性小的就標 [推測] 繼續：\n${newProjectDesc.trim() || "（未填 — 請先問我要做什麼，不要自己猜方向）"}\n3. 文件確認方向沒問題後，搭最小可跑的專案骨架（技術選型依需求判斷，拿不準先問我），安裝依賴並驗證可以啟動\n\n完成後簡短回報：需求幾條、技術選型、下一步建議。`;
                       } else {
-                        // 內建 react-vite / 空白專案：原本流程
+                        // 內建 react-vite：原本流程
                         const res = await fetch(`${API_BASE}/api/coding-project/create`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
