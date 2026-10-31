@@ -1991,5 +1991,7 @@
   "toolbar.cat.quality": "Quality",
   "toolbar.cat.delivery": "Delivery",
   "coding.toolLogToggle": "Show / hide full command",
-  "coding.toolLogHiddenLines": "{n} lines hidden"
+  "coding.toolLogHiddenLines": "{n} lines hidden",
+  "vibe.projectInfo": "Project Info",
+  "vibe.aiAdjustPlaceholder": "AI instruction, e.g. \"read code and summarize\" / \"rewrite in English\" / \"clarify architecture\""
 }

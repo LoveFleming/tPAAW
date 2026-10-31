@@ -202,6 +202,17 @@ CREATE TABLE kv (
   value      TEXT NOT NULL,
   updated_at TEXT
 );
+
+CREATE TABLE ru_info (
+  ru              TEXT PRIMARY KEY,
+  name            TEXT,
+  repo_path       TEXT,
+  description     TEXT,
+  ai_overview     TEXT,
+  ai_architecture TEXT,
+  ai_updated_at   TEXT,
+  imported_at     TEXT
+);
 `,
   },
 ];

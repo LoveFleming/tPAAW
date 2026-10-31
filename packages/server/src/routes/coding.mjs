@@ -2372,6 +2372,9 @@ export default async function projectRoute(req, res) {
       }
     }
 
+    // ru_info：一 RU 一行基本資訊（description = 需求草稿）
+    try { const { upsertRuInfo } = await import("../lib/coding-db/ru-info.repo.mjs"); upsertRuInfo(projectDir, { name: projectName, description: body.description || null }); } catch {}
+
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, path: norm(projectDir), name: projectName }));
     return true;

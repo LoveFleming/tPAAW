@@ -1991,5 +1991,7 @@
   "toolbar.cat.quality": "品質",
   "toolbar.cat.delivery": "出荷",
   "coding.toolLogToggle": "コマンド全文の表示切替",
-  "coding.toolLogHiddenLines": "{n} 行を省略"
+  "coding.toolLogHiddenLines": "{n} 行を省略",
+  "vibe.projectInfo": "プロジェクト情報",
+  "vibe.aiAdjustPlaceholder": "AI指示の例：「コードを読んで要約」「英語で書き直す」「アーキテクチャを明確に」"
 }

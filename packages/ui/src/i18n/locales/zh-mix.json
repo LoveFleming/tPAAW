@@ -1991,5 +1991,7 @@
   "toolbar.cat.quality": "品管",
   "toolbar.cat.delivery": "出貨",
   "coding.toolLogToggle": "展開 / 收起完整指令",
-  "coding.toolLogHiddenLines": "{n} 行省略"
+  "coding.toolLogHiddenLines": "{n} 行省略",
+  "vibe.projectInfo": "專案資訊 Project Info",
+  "vibe.aiAdjustPlaceholder": "AI 調整指示：例「讀 code 產生摘要」「用英文重寫」「架構講清楚點」"
 }

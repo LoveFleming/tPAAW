@@ -20,7 +20,7 @@ const PAAW_ROOT = resolve(__dirname, "../../../..");
 const QUERY_TABLES = new Set([
   "tasks", "task_notes", "features", "feature_files", "feature_apis", "feature_tests", "feature_tags",
   "gates", "handover", "issues", "release_requests", "conversation_sessions",
-  "dispatch_log", "action_log", "qa_results", "exec_approvals", "kv",
+  "dispatch_log", "action_log", "qa_results", "exec_approvals", "kv", "ru_info",
 ]);
 
 const LIMIT_MAX = 500;
@@ -80,6 +80,73 @@ export default async function codingDbRoute(req, res) {
     } catch (err) {
       _json(500, { error: err.message });
     }
+    return true;
+  }
+
+  // ── ru_info：一 RU 一行專案基本資訊（Fleming 2026-10-31 極簡版）──
+  // GET /api/coding-db/ru-info?cwd=
+  if (url.startsWith("/api/coding-db/ru-info") && !url.includes("/ru-info/") && method === "GET") {
+    try {
+      const ruRoot = await root();
+      const { readRuInfo, upsertRuInfo } = await import("../lib/coding-db/ru-info.repo.mjs");
+      let info = readRuInfo(ruRoot);
+      if (!info) info = upsertRuInfo(ruRoot, {}); // 沒有就建（舊 RU 首次開卡）
+      _json(200, info);
+    } catch (err) { _json(500, { error: err.message }); }
+    return true;
+  }
+
+  // PUT /api/coding-db/ru-info?cwd= — 人寫欄位（name / description）
+  if (url.startsWith("/api/coding-db/ru-info") && !url.includes("/ru-info/") && method === "PUT") {
+    try {
+      const ruRoot = await root();
+      const body = JSON.parse(await readBody(req) || "{}");
+      const { saveRuInfoFields } = await import("../lib/coding-db/ru-info.repo.mjs");
+      _json(200, saveRuInfoFields(ruRoot, { name: body.name, description: body.description }));
+    } catch (err) { _json(400, { error: err.message }); }
+    return true;
+  }
+
+  // POST /api/coding-db/ru-info/ai-adjust?cwd= — AI 輔助調整 ai_* 欄（只碰 ai_*，蓋不到事實欄）
+  if (url.startsWith("/api/coding-db/ru-info/ai-adjust") && method === "POST") {
+    try {
+      const ruRoot = await root();
+      const body = JSON.parse(await readBody(req) || "{}");
+      const instruction = String(body.instruction || "").trim();
+      if (!instruction) { _json(400, { error: "Missing instruction" }); return true; }
+      const repo = await import("../lib/coding-db/ru-info.repo.mjs");
+      const info = repo.readRuInfo(ruRoot) || repo.upsertRuInfo(ruRoot, {});
+
+      // 讓 AI 有點上下文：package.json + 目錄一層 + README 開頭（夠用就好，不過度設計）
+      const { readFile, readdir } = await import("fs/promises");
+      let ctx = "";
+      try { ctx += "package.json:\n" + (await readFile(ruRoot + "/package.json", "utf-8")).slice(0, 2000) + "\n"; } catch {}
+      try { ctx += "頂層目錄: " + (await readdir(ruRoot)).filter(f => !f.startsWith(".")).slice(0, 30).join(", ") + "\n"; } catch {}
+      try { ctx += "README 開頭:\n" + (await readFile(ruRoot + "/README.md", "utf-8")).slice(0, 1500); } catch {}
+
+      const { resolveLLMConfig } = await import("../lib/paaw-agent-loop.mjs");
+      const { callLLMWithRetry } = await import("../lib/llm-utils.mjs");
+      const llm = resolveLLMConfig(ruRoot, undefined, []);
+      const r = await callLLMWithRetry(llm.apiUrl, llm.headers, {
+        model: llm.model,
+        messages: [
+          { role: "system", content: "你是專案資訊卡助理。根據現值、使用者的調整指示與 repo 上下文，重寫專案的 ai_overview（一段話：這是什麼、做什麼用）與 ai_architecture（架構摘要，可用短列點）。只輸出 JSON：{\"ai_overview\": \"...\", \"ai_architecture\": \"...\"}，不要其他文字。除非指示特別說只改一個，兩個欄位都要輸出（沒必要的就沿用現值）。" },
+          { role: "user", content: `現值：\nai_overview: ${info.ai_overview || "（空）"}\nai_architecture: ${info.ai_architecture || "（空）"}\ndescription（人寫的需求說明）: ${info.description || "（空）"}\n\nrepo 上下文：\n${ctx || "（無）"}\n\n調整指示：${instruction}` },
+        ],
+        temperature: 0.3,
+        max_tokens: 4096,
+      }, { maxRetries: 2, timeoutMs: 180000, caller: "ru-info-ai", agentId: "coding.developer", disableThinking: true });
+
+      const text = r?.content || "";
+      const jm = text.match(/\{[\s\S]*\}/);
+      if (!jm) { _json(502, { error: "AI 回覆不是 JSON", raw: text.slice(0, 300) }); return true; }
+      const parsed = JSON.parse(jm[0]);
+      const updated = repo.saveRuAiFields(ruRoot, {
+        ai_overview: parsed.ai_overview,
+        ai_architecture: parsed.ai_architecture,
+      });
+      _json(200, updated);
+    } catch (err) { _json(500, { error: err.message }); }
     return true;
   }
 

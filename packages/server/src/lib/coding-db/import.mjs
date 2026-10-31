@@ -1,5 +1,6 @@
 /**
  * coding-db import — 一次性把 .paaw 舊檔匯入 SQLite（Phase A）
+import { upsertRuInfo } from "./ru-info.repo.mjs";
  * Idempotent：schema_meta.import_done 已設則跳過。
  */
 import { join } from "path";
@@ -63,6 +64,8 @@ function readJsonl(p) {
 
 /** 匯入。回傳 { tables: {table: count} } */
 export function importCodingDb(ruRoot, ru = ruRoot.split("/").pop()) {
+  // ru_info：一 RU 一行基本資訊（程式寫 repo_path/imported_at；不覆蓋人的欄位）
+  try { upsertRuInfo(ruRoot, {}); } catch (e) { console.warn("[coding-db] ru_info upsert failed:", e.message); }
   const db = openCodingDb(ruRoot);
   const done = db.prepare("SELECT value FROM schema_meta WHERE key='import_done'").get();
   if (done) return { skipped: true };

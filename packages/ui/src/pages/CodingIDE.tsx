@@ -786,6 +786,51 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
   // Starter Kit（REQ-STARTER-KIT-001）：匯入的 kit 出現在版型選單
   const [starterKits, setStarterKits] = useState<any[]>([]);
   const [newProjectUseExistingDir, setNewProjectUseExistingDir] = useState(false); // kit/blank 模式：直接用已 clone 好的目錄
+  // ── 專案資訊卡（ru_info）state ──
+  const [showRuInfo, setShowRuInfo] = useState(false);
+  const [ruInfo, setRuInfo] = useState<any>(null);
+  const [ruInfoName, setRuInfoName] = useState("");
+  const [ruInfoDesc, setRuInfoDesc] = useState("");
+  const [ruInfoSaving, setRuInfoSaving] = useState(false);
+  const [ruInfoMsg, setRuInfoMsg] = useState("");
+  const [aiInstruction, setAiInstruction] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+
+  const loadRuInfo = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-db/ru-info?cwd=${encodeURIComponent(rootPath)}`).then(x => x.json());
+      setRuInfo(r); setRuInfoName(r.name || ""); setRuInfoDesc(r.description || ""); setRuInfoMsg("");
+    } catch { setRuInfo(null); }
+  }, [rootPath]);
+  useEffect(() => { if (showRuInfo) loadRuInfo(); }, [showRuInfo, loadRuInfo]);
+
+  const saveRuInfo = async () => {
+    setRuInfoSaving(true); setRuInfoMsg("");
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-db/ru-info?cwd=${encodeURIComponent(rootPath)}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: ruInfoName, description: ruInfoDesc }),
+      }).then(x => x.json());
+      if (r.error) throw new Error(r.error);
+      setRuInfo(r); setRuInfoMsg("✅ 已儲存");
+    } catch (e: any) { setRuInfoMsg(`❌ ${e.message}`); }
+    setRuInfoSaving(false);
+  };
+
+  const runAiAdjust = async () => {
+    if (!aiInstruction.trim()) return;
+    setAiBusy(true); setRuInfoMsg("");
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-db/ru-info/ai-adjust?cwd=${encodeURIComponent(rootPath)}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instruction: aiInstruction.trim() }),
+      }).then(x => x.json());
+      if (r.error) throw new Error(r.error);
+      setRuInfo(r); setAiInstruction(""); setRuInfoMsg("✨ AI 已更新");
+    } catch (e: any) { setRuInfoMsg(`❌ ${e.message}`); }
+    setAiBusy(false);
+  };
   useEffect(() => {
     if (!showNewProject) return;
     fetch(`${API_BASE}/api/starter-kits`).then(r => r.json()).then(d => setStarterKits(d.kits || [])).catch(() => {});
@@ -2659,6 +2704,76 @@ const sendChat = useCallback(async () => {
       />
     )}
 
+    {/* ── 專案資訊卡（ru_info）— 一張卡：人寫 name/description、AI 寫 ai_* ── */}
+    {showRuInfo && rootPath && (
+      <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40" onClick={() => setShowRuInfo(false)}>
+        <div className="bg-white rounded-2xl shadow-2xl w-[560px] max-h-[85vh] overflow-auto" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-3 border-b border-stone-100 sticky top-0 bg-white z-10">
+            <h3 className="text-base font-semibold text-stone-800">ℹ️ {tt("vibe.projectInfo", "專案資訊")}</h3>
+            <button onClick={() => setShowRuInfo(false)} className="text-stone-400 hover:text-stone-600 text-lg">✕</button>
+          </div>
+          <div className="p-5 space-y-4">
+            {/* 程式欄：唯讀 */}
+            <div className="text-[11px] text-stone-400 bg-stone-50 rounded-lg px-3 py-2 font-mono break-all">
+              📁 {ruInfo?.repo_path || rootPath}
+              {ruInfo?.imported_at && <span className="ml-2">· imported {new Date(ruInfo.imported_at).toLocaleDateString()}</span>}
+            </div>
+
+            {/* 人寫欄 */}
+            <div>
+              <label className="text-xs font-medium text-stone-500 mb-1 block">名稱</label>
+              <input value={ruInfoName} onChange={e => { setRuInfoName(e.target.value); setRuInfoMsg(""); }}
+                className="w-full text-sm px-3 py-2 border rounded-lg bg-stone-50 outline-none focus:border-emerald-400" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-stone-500 mb-1 block">📝 需求說明（high level，記下來就是歷程）</label>
+              <textarea value={ruInfoDesc} onChange={e => { setRuInfoDesc(e.target.value); setRuInfoMsg(""); }}
+                rows={4}
+                placeholder={"例：做一個 guardrail rules 的中心服務，API 給其他服務查有效規則，之後要接 policy engine"}
+                className="w-full text-sm px-3 py-2 border rounded-lg bg-stone-50 outline-none focus:border-emerald-400 resize-none" />
+            </div>
+
+            {/* AI 欄 */}
+            <div className="border-t border-stone-100 pt-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-stone-500">🤖 AI 摘要</span>
+                {ruInfo?.ai_updated_at && <span className="text-[10px] text-stone-400">更新於 {new Date(ruInfo.ai_updated_at).toLocaleString()}</span>}
+              </div>
+              <div>
+                <label className="text-[10px] text-stone-400 mb-0.5 block">這是什麼專案（ai_overview）</label>
+                <p className="text-sm text-stone-700 bg-emerald-50/40 border border-emerald-100 rounded-lg px-3 py-2 whitespace-pre-wrap min-h-[40px]">{ruInfo?.ai_overview || "（空 — 讓 AI 產生）"}</p>
+              </div>
+              <div>
+                <label className="text-[10px] text-stone-400 mb-0.5 block">架構摘要（ai_architecture）</label>
+                <p className="text-sm text-stone-700 bg-emerald-50/40 border border-emerald-100 rounded-lg px-3 py-2 whitespace-pre-wrap min-h-[40px]">{ruInfo?.ai_architecture || "（空 — 讓 AI 產生）"}</p>
+              </div>
+              {/* AI 調整 */}
+              <div className="flex gap-2">
+                <input value={aiInstruction} onChange={e => setAiInstruction(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing && !aiBusy) runAiAdjust(); }}
+                  disabled={aiBusy}
+                  placeholder={tt("vibe.aiAdjustPlaceholder", "AI 調整指示：例「讀 code 產生摘要」「用英文重寫」「架構講清楚點」")}
+                  className="flex-1 text-sm px-3 py-2 border rounded-lg bg-amber-50/50 outline-none focus:border-amber-400 disabled:opacity-50" />
+                <button onClick={runAiAdjust} disabled={aiBusy || !aiInstruction.trim()}
+                  className="text-sm px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-40 shrink-0">
+                  {aiBusy ? "✨ 生成中…" : "✨ AI 調整"}
+                </button>
+              </div>
+              <p className="text-[10px] text-stone-400">AI 只會改上面兩個摘要欄，碰不到你的名稱/需求說明</p>
+            </div>
+
+            {ruInfoMsg && <div className="text-xs text-center text-stone-600">{ruInfoMsg}</div>}
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={() => setShowRuInfo(false)} className="text-sm px-4 py-2 rounded-lg border text-stone-600 hover:bg-stone-50">關閉</button>
+              <button onClick={saveRuInfo} disabled={ruInfoSaving} className="text-sm px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50">
+                {ruInfoSaving ? "儲存中…" : "💾 儲存"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
     {/* New Project Dialog */}
     {showNewProject && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { if (!newProjectCreating) { setShowNewProject(false); setNewProjectStep(1); } }}>
@@ -2883,6 +2998,7 @@ const sendChat = useCallback(async () => {
                             ...(newProjectUseExistingDir
                               ? { targetDir: newProjectParent.trim() }
                               : { parentDir: newProjectParent.trim() }),
+                            description: newProjectDesc.trim() || null,
                             initPaaw: true,
                           }),
                         });
@@ -2903,6 +3019,7 @@ const sendChat = useCallback(async () => {
                           body: JSON.stringify({
                             name: newProjectName.trim(),
                             parentDir: newProjectParent.trim(),
+                            description: newProjectDesc.trim() || null,
                             initGit: true,
                             initPaaw: true,
                           }),
@@ -2923,6 +3040,7 @@ const sendChat = useCallback(async () => {
                           body: JSON.stringify({
                             name: newProjectName.trim(),
                             parentDir: newProjectParent.trim(),
+                            description: newProjectDesc.trim() || null,
                             initGit: true,
                             initPaaw: true,
                           }),
@@ -2991,6 +3109,12 @@ const sendChat = useCallback(async () => {
                 className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-stone-700 flex items-center gap-2">
                 <span>📂</span> {tt("vibe.importProject", "Import Project")}
               </button>
+              {rootPath && (
+                <button onClick={() => { setShowProjectMenu(false); setShowRuInfo(true); }}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 text-stone-700 flex items-center gap-2">
+                  <span>ℹ️</span> {tt("vibe.projectInfo", "專案資訊")}
+                </button>
+              )}
               {rootPath && (
                 <button onClick={() => { setShowProjectMenu(false); closeProject(); }}
                   className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2">

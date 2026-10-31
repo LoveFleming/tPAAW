@@ -232,6 +232,9 @@ export default async function starterKitsRoute(req, res) {
       await newPaaw.init();
     }
 
+    // ru_info：一 RU 一行基本資訊（description = 需求草稿）
+    try { const { upsertRuInfo } = await import("../lib/coding-db/ru-info.repo.mjs"); upsertRuInfo(projectDir, { name: projectName, description: body.description || null }); } catch {}
+
     const isGit = existsSync(join(projectDir, ".git"));
     _json(200, {
       ok: true,
