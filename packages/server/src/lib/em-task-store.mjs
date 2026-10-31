@@ -18,6 +18,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname, relative } from "path";
 import { saveTasks as dbSaveTasks } from "./coding-db/index.mjs"; // dual-write Phase A
+import { readTasks as dbReadTasks } from "./coding-db/reads.mjs"; // Phase B
 
 const MAX_PROGRESS_ENTRIES = 80; // 任務檔 progress log 上限（超過保留最新 + 前 10）
 
@@ -28,6 +29,14 @@ export function tasksFilePath(rootDir) {
 }
 
 export function loadTasksFile(rootDir) {
+  // Phase B：先讀 coding.db，無資料 fallback 檔案
+  try {
+    const fromDb = dbReadTasks(rootDir);
+    if (fromDb && fromDb.tasks.length) {
+      const data = { tasks: fromDb.tasks, updatedAt: null, loopMode: fromDb.loopMode };
+      return { data, tasks: fromDb.tasks, config: fromDb.loopMode ? { loopMode: fromDb.loopMode } : {} };
+    }
+  } catch { /* db 掛了走檔案 */ }
   const file = tasksFilePath(rootDir);
   if (!existsSync(file)) return { data: { tasks: [] }, tasks: [], config: {} };
   const data = JSON.parse(readFileSync(file, "utf-8"));

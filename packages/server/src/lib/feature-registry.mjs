@@ -11,6 +11,8 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, readdirSync, rmSync } from "fs";
 import { join } from "path";
+import { readFeatures as dbReadFeatures, readFileFeatures as dbReadFileFeatures } from "./coding-db/reads.mjs"; // Phase B
+import { saveFeatures as dbSaveFeatures } from "./coding-db/index.mjs"; // dual-write
 
 export const FEATURE_STATUSES = ["active", "deprecated", "planned", "retired"];
 
@@ -19,6 +21,11 @@ export function featuresFile(projRoot) {
 }
 
 export function loadFeatures(projRoot) {
+  // Phase B：先讀 coding.db（單一真相），無資料 fallback 檔案
+  try {
+    const fromDb = dbReadFeatures(projRoot);
+    if (fromDb && fromDb.length) return fromDb;
+  } catch { /* db 掛了走檔案 */ }
   const file = featuresFile(projRoot);
   if (!existsSync(file)) return [];
   try {
@@ -45,6 +52,7 @@ export function saveFeatures(projRoot, features) {
     }
   } catch { /* 備份失敗不擋寫入 */ }
   writeFileSync(file, JSON.stringify({ features, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+  try { dbSaveFeatures(projRoot, features); } catch (e) { console.error("[coding-db] dual-write features failed:", e.message); } // Phase B dual-write
 }
 
 // ── ID 規則：F + YYYYMMDD + 當日序號 ──

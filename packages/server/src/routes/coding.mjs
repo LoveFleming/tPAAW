@@ -1306,6 +1306,15 @@ export default async function projectRoute(req, res) {
     }
     const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
     const { activeFile } = getConvPaths(cwd, crewId);
+    // Phase B：先讀 coding.db，無資料 fallback 檔案
+    try {
+      const doc = codingDb.readConversation(cwd, crewId, "active");
+      if (doc && doc.messages.length) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ messages: doc.messages, crewId }));
+        return true;
+      }
+    } catch { /* db 掛了走檔案 */ }
     try {
       const data = await readConvFile(activeFile);
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -1428,6 +1437,26 @@ export default async function projectRoute(req, res) {
     }
     const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
     const { agentDir, activeFile } = getConvPaths(cwd, crewId);
+    // Phase B：先讀 coding.db，無資料 fallback 檔案
+    try {
+      const sessions = [];
+      for (const s of codingDb.readConversationSessions(cwd, crewId)) {
+        const doc = codingDb.readConversation(cwd, crewId, s.sessionId);
+        if (!doc || !doc.messages.length) continue;
+        sessions.push({
+          sessionId: s.sessionId,
+          title: doc._meta?.title || doc.messages.find(m => m.role === "user")?.content.slice(0, 60) || (s.active ? "目前對話" : "對話"),
+          messageCount: doc.messages.length,
+          lastUpdated: doc._meta?.lastUpdated || null,
+          isActive: s.active,
+        });
+      }
+      if (sessions.length) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ sessions }));
+        return true;
+      }
+    } catch { /* db 掛了走檔案 */ }
     try {
       const sessions = [];
       // Active session
@@ -1483,6 +1512,17 @@ export default async function projectRoute(req, res) {
     }
     const cwd = q.cwd === "@paaw" ? PAAW_ROOT : (q.cwd || PAAW_ROOT); // "@paaw" = 全域 chat（project-ai/notes-ai）的虛擬 cwd
     const { agentDir, activeFile } = getConvPaths(cwd, crewId);
+    // Phase B：先讀 coding.db，無資料 fallback 檔案
+    if (sessionId === "active" || sessionId.startsWith("s-")) {
+      try {
+        const doc = codingDb.readConversation(cwd, crewId, sessionId);
+        if (doc && doc.messages.length) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ messages: doc.messages, meta: doc._meta, crewId, sessionId }));
+          return true;
+        }
+      } catch { /* db 掛了走檔案 */ }
+    }
     try {
       const filePath = sessionId === "active" ? activeFile : join(agentDir, `${sessionId}.json`);
       const data = await readConvFile(filePath);
@@ -1519,6 +1559,7 @@ export default async function projectRoute(req, res) {
       }
       const filePath = join(agentDir, `${sessionId}.json`);
       if (existsSync(filePath)) { await unlink(filePath); } // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      try { codingDb.deleteConversationSession(cwd, crewId, sessionId); } catch {} // dual-write
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, crewId, sessionId }));
     } catch (err) {
@@ -1580,6 +1621,11 @@ export default async function projectRoute(req, res) {
       await writeFile(activeFile, JSON.stringify(srcData, null, 2), "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       // Remove old session file
       await unlink(srcFile); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      try {
+        if (activeData.messages.length > 0) codingDb.saveConversation(cwd, crewId, activeData, { session: activeData._meta.sessionId });
+        codingDb.saveConversation(cwd, crewId, srcData); // 寫成新 active（會自動把舊 active 歸零）
+        codingDb.deleteConversationSession(cwd, crewId, sessionId);
+      } catch {} // dual-write
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, crewId, switchedTo: "active", messageCount: srcData.messages.length }));
     } catch (err) {

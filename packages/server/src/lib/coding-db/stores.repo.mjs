@@ -130,3 +130,10 @@ export function archiveConversation(ruRoot, agentId, archiveSessionId) {
     throw err;
   }
 }
+
+/** 刪除某個歷史 session（DELETE /sessions/:sessionId 用） */
+export function deleteConversationSession(ruRoot, agentId, sessionId) {
+  const db = openCodingDb(ruRoot);
+  db.prepare("DELETE FROM conversation_messages WHERE session_id=?").run(`${agentId}:${sessionId}`);
+  db.prepare("DELETE FROM conversation_sessions WHERE session_id=?").run(`${agentId}:${sessionId}`);
+}

@@ -86,30 +86,45 @@ export async function addActionLog(entry, cwd) {
  * @param {number} [opts.maxChars] - max total chars (default 4000)
  * @returns {Promise<{ entries: Object[], text: string }>}
  */
-export async function listActionLog(opts = {}) {
-  const { cwd, agent, actions, limit = 20, maxChars = 4000 } = opts;
-  const logPath = getActionLogPath(cwd);
-
-  if (!existsSync(logPath)) return { entries: [], text: "" };
-
+async function _readActionLogFile(logPath, agent, actions) {
+  if (!existsSync(logPath)) return [];
   const raw = await readFile(logPath, "utf-8");
   const lines = raw.trim().split("\n").filter(Boolean);
-
-  let entries = [];
+  const entries = [];
   for (const line of lines) {
     try {
       const record = JSON.parse(line);
-      record.affectedFiles = normalizeAffectedFiles(record.affectedFiles); // 防舊爛資料（string/object）炸 join
-      // Filter
+      record.affectedFiles = normalizeAffectedFiles(record.affectedFiles);
       if (agent && record.agent !== agent) continue;
       if (actions && actions.length && !actions.includes(record.action)) continue;
       entries.push(record);
     } catch {}
   }
-
-  // Most recent first
   entries.reverse();
-  entries = entries.slice(0, limit);
+  return entries;
+}
+
+export async function listActionLog(opts = {}) {
+  const { cwd, agent, actions, limit = 20, maxChars = 4000 } = opts;
+  const logPath = getActionLogPath(cwd);
+
+  // Phase B：先讀 coding.db（單一真相），無資料 fallback 檔案
+  let entries;
+  try {
+    const { readActionLog } = await import("./coding-db/reads.mjs");
+    const root = cwd || resolve(__dirname, "../../../..");
+    let fromDb = readActionLog(root, { agent, actions, limit: limit * 3 });
+    if (!fromDb.length) fromDb = await _readActionLogFile(logPath, agent, actions);
+    if (fromDb.length) {
+      entries = fromDb.slice(0, limit);
+    }
+  } catch { /* db 掛了走檔案 */ }
+
+  if (!entries) {
+    if (!existsSync(logPath)) return { entries: [], text: "" };
+    entries = (await _readActionLogFile(logPath, agent, actions)).slice(0, limit);
+  }
+  if (!entries.length) return { entries: [], text: "" };
 
   // Build compact text for LLM context
   let totalChars = 0;

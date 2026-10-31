@@ -32,6 +32,7 @@ CREATE TABLE task_notes (
   by       TEXT,
   at       TEXT,
   content  TEXT,
+  payload  TEXT,
   FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
 );
 

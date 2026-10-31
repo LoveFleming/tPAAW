@@ -11,12 +11,19 @@ import {
 } from "./stores.repo.mjs";
 
 export {
-  saveTasks, saveFeatures,
   appendDispatchRecord, appendActionRecord, appendQaResult, appendExecApproval,
-  saveConversation, archiveConversation,
+  saveConversation, archiveConversation, deleteConversationSession,
   setKv, setGates, setHandover, saveIssue, saveReleaseRequest,
-  openCodingDb,
-};
+} from "./stores.repo.mjs";
+export { saveTasks } from "./tasks.repo.mjs";
+export { saveFeatures } from "./features.repo.mjs";
+export { openCodingDb } from "./connection.mjs";
+
+// Phase B 讀取函式
+export {
+  readFeatures, readTasks, readActionLog,
+  readConversationAgents, readConversationSessions, readConversation,
+} from "./reads.mjs";
 
 /** list 查詢範例：某 RU 最近 dispatch */
 export function recentDispatch(ruRoot, { limit = 50, taskId } = {}) {
