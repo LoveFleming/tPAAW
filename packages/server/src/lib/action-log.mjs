@@ -72,6 +72,7 @@ export async function addActionLog(entry, cwd) {
     priority: entry.priority || "medium",
   };
   await appendFile(logPath, JSON.stringify(record) + "\n");
+  try { (await import("./coding-db/index.mjs")).appendActionRecord(cwd || resolve(__dirname, "../../../.."), record); } catch {} // dual-write
   return record;
 }
 

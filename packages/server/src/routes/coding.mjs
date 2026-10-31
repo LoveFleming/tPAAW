@@ -43,6 +43,7 @@ import { callLLMWithRetry, dateTimeContextBlock, parseModelReference } from "../
 import { normalizePath, readBody } from "./shared.mjs";
 import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 import { logAuditEvent } from "../lib/audit-log.mjs"; // 審批決策審計（2026-10-10）
+import * as codingDb from "../lib/coding-db/index.mjs"; // dual-write Phase A（2026-10-31）
 import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-parser.mjs";
 import { runSemgrep } from "../lib/semgrep-runner.mjs";
 import { buildCodeIntelligence, buildContextPackage } from "../lib/code-intelligence.mjs";
@@ -709,6 +710,7 @@ export default async function projectRoute(req, res) {
           messagesSummary: finalMessages.map(m => ({ role: m.role, contentLength: m.content?.length || 0, preview: (m.content || "").slice(0, 120) })),
         };
         await appendFile(logPath, JSON.stringify(logEntry, null, 2) + "\n---\n");
+        try { codingDb.appendDispatchRecord(cwd || PAAW_ROOT, logEntry); } catch {} // dual-write
       } catch (logErr) {
         console.error("[dispatch-log] write failed:", logErr.message);
       }
@@ -1029,6 +1031,7 @@ export default async function projectRoute(req, res) {
               allData.tasks = allTasks;
               const { writeFileSync } = await import("node:fs");
               writeFileSync(tasksFile, JSON.stringify(allData, null, 2), "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+            try { codingDb.saveTasks(projRoot, allData); } catch {} // dual-write
             }
           }
         } catch (e) { console.error("post-dispatch task update error:", e.message); }
@@ -1068,6 +1071,7 @@ export default async function projectRoute(req, res) {
             allData.tasks = allTasks;
             const { writeFileSync } = await import("node:fs");
             writeFileSync(tasksFile, JSON.stringify(allData, null, 2), "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+            try { codingDb.saveTasks(projRoot, allData); } catch {} // dual-write
           }
         } catch (e) { console.error("sub-task completion update error:", e.message); }
       }
@@ -1102,6 +1106,7 @@ export default async function projectRoute(req, res) {
               allData.tasks = allTasks;
               const { writeFileSync } = await import("node:fs");
               writeFileSync(tasksFile, JSON.stringify(allData, null, 2), "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+            try { codingDb.saveTasks(projRoot, allData); } catch {} // dual-write
             }
           }
         } catch (e) { console.error("post-dispatch error task update:", e.message); }
@@ -1339,6 +1344,7 @@ export default async function projectRoute(req, res) {
         messages: body.messages || [],
       };
       await writeFile(activeFile, JSON.stringify(payload, null, 2), "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      try { codingDb.saveConversation(cwd || PAAW_ROOT, crewId, payload); } catch {} // dual-write
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, crewId, messageCount: payload.messages.length }));
     } catch (err) {
@@ -1399,6 +1405,7 @@ export default async function projectRoute(req, res) {
       data._meta.title = firstUser ? firstUser.content.slice(0, 60) : "對話";
       data._meta.sessionId = `s-${tsStr}`;
       await writeFile(sessionFile, JSON.stringify(data, null, 2), "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      try { codingDb.saveConversation(cwd || PAAW_ROOT, crewId, data, { session: `s-${tsStr}` }); } catch {} // dual-write
       // Clear active
       await unlink(activeFile); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
       res.writeHead(200, { "Content-Type": "application/json" });

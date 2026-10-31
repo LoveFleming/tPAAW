@@ -1180,6 +1180,7 @@ export default async function a2aRoutes(req, res) {
                 messagesSummary: finalMessages.map(m => ({ role: m.role, contentLength: m.content?.length || 0, preview: (m.content || "").slice(0, 120) })),
               };
               await appendFile(logPath, JSON.stringify(logEntry, null, 2) + "\n---\n");
+              try { (await import("../lib/coding-db/index.mjs")).appendDispatchRecord(rootDir, logEntry); } catch {} // dual-write
             } catch (_logErr) {}
 
             // SSE headers（CORS 依白名單；QA M3）

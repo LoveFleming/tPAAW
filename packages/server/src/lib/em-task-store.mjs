@@ -17,6 +17,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname, relative } from "path";
+import { saveTasks as dbSaveTasks } from "./coding-db/index.mjs"; // dual-write Phase A
 
 const MAX_PROGRESS_ENTRIES = 80; // 任務檔 progress log 上限（超過保留最新 + 前 10）
 
@@ -40,6 +41,7 @@ export function saveTasksFile(rootDir, data, tasks) {
   const now = new Date().toISOString();
   const payload = Array.isArray(data) ? tasks : { ...data, tasks, updatedAt: now };
   writeFileSync(file, JSON.stringify(payload, null, 2), "utf-8");
+  try { dbSaveTasks(rootDir, payload); } catch (e) { console.error("[coding-db] dual-write tasks failed:", e.message); }
   return true;
 }
 

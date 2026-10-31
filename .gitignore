@@ -119,6 +119,10 @@ data/**/.paaw/
 .paaw/staged-changes.json
 # ── PAAW runtime 層結束 ──
 
+# coding-db sidecar 永不進 git（2026-10-31 Phase A；coding.db 本體進版控，commit 前 checkpoint）
+.paaw/coding.db-wal
+.paaw/coding.db-shm
+
 # ── Test coverage output (TASK-041) ──
 coverage/
 

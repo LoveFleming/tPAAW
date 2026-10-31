@@ -12,6 +12,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from "fs";
 import { join } from "path";
+import { saveFeatures as dbSaveFeatures } from "./coding-db/index.mjs"; // dual-write Phase A
 
 const FID_RE = /^F\d{8}-\d{3}$/;
 
@@ -95,6 +96,7 @@ export function mergeFeatureMappings(projectRoot, entries = [], by = "human") {
   ff.updatedAt = now; reg.updatedAt = now;
   writeFileSync(ffPath, JSON.stringify(ff, null, 2) + "\n");
   writeFileSync(regPath, JSON.stringify(reg, null, 2) + "\n");
+  try { dbSaveFeatures(projectRoot, reg); } catch (e) { console.error("[coding-db] dual-write features failed:", e.message); }
 
   const featureIds = [...new Set([...changed].flatMap(f => (ff.files[f] || []).map(x => x.id)))];
   return {
