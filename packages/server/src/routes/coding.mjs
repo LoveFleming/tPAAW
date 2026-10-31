@@ -3898,6 +3898,19 @@ export default async function projectRoute(req, res) {
           sendEvent("info", { message: `💾 已匯入 SQLite：${total} rows（features/tasks/gates…）` });
         } catch (e) { cuLog("import", `coding-db import failed: ${e.message}`); }
 
+        // CU 收尾自動填 ru_info ai_*（2026-10-31 Fleming：CU 產 ru_info）— ai 欄空才填，不覆蓋既有
+        try {
+          const { readRuInfo, generateRuAiFields } = await import("../lib/coding-db/ru-info.repo.mjs");
+          const info = readRuInfo(root);
+          if (!info || !info.ai_overview || !info.ai_architecture) {
+            let projectCtx = "";
+            try { const { readFile: rf } = await import("fs/promises"); projectCtx = "PROJECT.md:\n" + (await rf(join(root, ".paaw", "PROJECT.md"), "utf-8")).slice(0, 6000); } catch {}
+            await generateRuAiFields(root, { instruction: "CU 初次掃描完成：請根據 repo 上下文與 PROJECT.md 產生兩個欄位（繁體中文）", extraContext: projectCtx });
+            cuLog("ru-info", "ai_overview/ai_architecture 已自動填寫");
+            sendEvent("info", { message: "🗂️ 專案資訊卡（ru_info）AI 摘要已自動填寫" });
+          }
+        } catch (e) { cuLog("ru-info", `ai fields generate failed: ${e.message}`); }
+
         sendEvent("done", { message: "Code Understanding complete" });
       } catch (err) {
         sendEvent("error", { error: err.message });
