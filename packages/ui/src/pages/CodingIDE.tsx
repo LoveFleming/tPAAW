@@ -2739,7 +2739,7 @@ const sendChat = useCallback(async () => {
                     className={`group flex items-start gap-3 p-3 rounded-lg border-2 transition-all text-left hover:shadow-md ${newProjectTemplate === "react-vite" ? "border-emerald-400 bg-emerald-50/50" : "border-stone-200 hover:border-stone-300"}`}
                   >
                     <div className="w-16 h-12 rounded bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shrink-0 text-white text-xl font-bold">⚛</div>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 min-h-[76px] flex flex-col">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-stone-800">⚡ React + Vite + Node.js</span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">Fullstack</span>
@@ -2782,7 +2782,7 @@ const sendChat = useCallback(async () => {
                   className="group flex items-start gap-3 p-3 rounded-lg border-2 border-stone-200 transition-all text-left hover:border-stone-300 hover:shadow-md"
                 >
                   <div className="w-16 h-12 rounded bg-gradient-to-br from-stone-400 to-stone-500 flex items-center justify-center shrink-0 text-white text-xl font-bold">▢</div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 min-h-[76px] flex flex-col">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-stone-800">空白專案</span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-medium">Empty</span>
