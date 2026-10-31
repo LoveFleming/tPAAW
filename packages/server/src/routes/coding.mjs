@@ -85,6 +85,8 @@ const STALE_TOLERANCE_MS = 2000; // 同步競態容差
 // 刷新全檔 mtime誤報（內容零變化也報「結構已變更」）。git repo 改看
 // watermark commit..HEAD 實際變更檔，只認 walker 同一套 source 規則（cu-source-scan 單一事實來源）；
 // 純 doc/圖/locale 變更不觸發。非 git / 無 watermark commit / git 失敗 → 逐步驟 fallback mtime。
+const _mechanicalRescanBusy = new Set(); // cu-status 觸發的背景機械層重掃（同 root 防重入）
+
 export async function computeCuStaleness(root, steps, codeLastModifiedMs) {
   // 逐步驟 git watermark（codeCommit）：所有 done step 取最大共用一次 git diff 快取
   const gitSteps = Object.entries(CU_STEP_FILES).filter(([id]) => steps[id]?.status === "done" && steps[id]?.codeCommit)
@@ -4076,6 +4078,23 @@ export default async function projectRoute(req, res) {
         const errorCount = Object.values(steps).filter(s => s?.status === "error").length;
         const { count: sourceFiles, lastModifiedMs } = countSourceFiles(root);
         const staleSteps = await computeCuStaleness(root, steps, lastModifiedMs);
+        // 機械層自動重掃（2026-10-31 Fleming）：純 fs 零 token — 偵測 stale 就背景掃，不勞人按鈕
+        const staleMechanical = staleSteps.filter(s => s.mechanical).length;
+        let mechanicalAutoRescan = false;
+        if (staleMechanical > 0 && !_mechanicalRescanBusy.has(root)) {
+          mechanicalAutoRescan = true;
+          _mechanicalRescanBusy.add(root);
+          (async () => {
+            try {
+              const { rescanMechanicalLayer } = await import("../lib/cu-mechanical.mjs");
+              await rescanMechanicalLayer(root, PAAW_ROOT);
+              const { importCodingDb } = await import("../lib/coding-db/import.mjs");
+              importCodingDb(root);
+            } catch (e) {
+              console.warn(`[cu] auto mechanical rescan failed (${root}):`, e.message);
+            } finally { _mechanicalRescanBusy.delete(root); }
+          })();
+        }
         res.writeHead(200, { "Content-Type": "application/json" });
         // CU lifecycle 原料：前端據此算 phase（missing/no-code/ready/partial/done/stale）
         res.end(JSON.stringify({
@@ -4087,6 +4106,7 @@ export default async function projectRoute(req, res) {
           codeLastModified: lastModifiedMs > 0 ? new Date(lastModifiedMs).toISOString() : null,
           staleSteps,
           staleCount: staleSteps.length,
+          mechanicalAutoRescan,
         }));
       } catch (err) {
         res.writeHead(500, { "Content-Type": "application/json" });

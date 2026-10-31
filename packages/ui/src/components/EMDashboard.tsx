@@ -362,7 +362,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   const [cuSkillNames, setCuSkillNames] = useState<Record<string, string>>({});
   const [cuSkillPickerStep, setCuSkillPickerStep] = useState<string | null>(null);
   // CU lifecycle 原料（cu-status 擴充回傳）— phase 派生用
-  const [cuMeta, setCuMeta] = useState<{ hasPaaw: boolean; sourceFiles: number; doneCount: number; codeLastModified?: string | null; staleSteps?: Array<{ id: string; mechanical: boolean; manual?: boolean }>; staleCount?: number } | null>(null);
+  const [cuMeta, setCuMeta] = useState<{ hasPaaw: boolean; sourceFiles: number; doneCount: number; codeLastModified?: string | null; staleSteps?: Array<{ id: string; mechanical: boolean; manual?: boolean }>; staleCount?: number; mechanicalAutoRescan?: boolean } | null>(null);
   const [cuInitBusy, setCuInitBusy] = useState(false);
   const [cuRescanBusy, setCuRescanBusy] = useState(false);
   const [cuRescanMsg, setCuRescanMsg] = useState<string>(""); // "" | "fail" | ✅ 摘要文字
@@ -1164,22 +1164,11 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                 {staleMechanical > 0 && <>，{staleMechanical} {t("cu.stale.mechanical")}</>}
                 {staleSmart > 0 && <>，{staleSmart} {t("cu.stale.smart")}</>}
               </span>
+              {/* 2026-10-31 Fleming：機械層改 server 背景自動重掃（cu-status 偵測 stale 即掃）— 按鈕退休 */}
               {staleMechanical > 0 && (
-                <button
-                  onClick={async () => {
-                    if (!rootPath || cuRescanBusy) return;
-                    setCuRescanBusy(true);
-                    try {
-                      try {
-                        const r = await fetch(`${API_BASE}/api/coding-project/cu-rescan-mechanical?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
-                        await reportRescan(r);
-                      } catch { setCuRescanMsg("fail"); setTimeout(() => setCuRescanMsg(""), 3000); }
-                      await loadPersistedSteps();
-                    } finally { setCuRescanBusy(false); }
-                  }}
-                  disabled={cuRescanBusy}
-                  className="shrink-0 px-2 py-0.5 rounded bg-orange-600 text-white hover:bg-orange-700 font-bold disabled:opacity-50"
-                >{cuRescanBusy ? "⏳ 重掃中..." : cuRescanMsg === "fail" ? "❌ 重掃失敗" : cuRescanMsg || "⚡ 重掃機械層"}</button>
+                <span className="shrink-0 px-2 py-0.5 rounded bg-orange-50 text-orange-500 text-xs">
+                  {cuMeta?.mechanicalAutoRescan ? "🔄 機械層自動重掃中（背景）" : "⚡ 機械層重掃排程中"}
+                </span>
               )}
               {staleSmart > 0 && (
                 <button onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
