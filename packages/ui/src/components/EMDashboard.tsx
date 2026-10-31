@@ -355,8 +355,9 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   // ── Load persisted step statuses when opening Modal ──
   const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number; error?: string; progress?: string }>>([]);
   // 2026-10-31 Fleming：從沒跑過 CU → 按鈕只顯示「開始掃描」一顆
-  // ⚠️ persistedSteps 開 panel 就會填滿 6 格（未跑=pending），要用 done/error 判斷真的跑過
-  const cuHasAnyRun = persistedSteps.some(s => s.status === "done" || s.status === "error");
+  // ⚠️ 機械層（code/test-intelligence）開專案就自動跑成 done — 不算「跑過」，否則 learning-space 這種新 import 還是彈兩顆按鈕
+  const CU_MECHANICAL_IDS = new Set(["code-intelligence", "test-intelligence"]);
+  const cuHasAnyRun = persistedSteps.some(s => (s.status === "done" || s.status === "error") && !CU_MECHANICAL_IDS.has(s.id));
   // ── CU step skill 綁定（PAAW skill 綁到 cu.<stepId>）──
   const [cuSkillBindings, setCuSkillBindings] = useState<Record<string, string[]>>({});
   const [cuSkillNames, setCuSkillNames] = useState<Record<string, string>>({});
