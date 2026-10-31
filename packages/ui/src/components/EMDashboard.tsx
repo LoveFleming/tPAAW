@@ -354,6 +354,8 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
 
   // ── Load persisted step statuses when opening Modal ──
   const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number; error?: string; progress?: string }>>([]);
+  // 2026-10-31 Fleming：從沒跑過 CU（無 persisted 結果）→ 按鈕只顯示「開始掃描」一顆
+  const cuHasAnyRun = persistedSteps.length > 0;
   // ── CU step skill 綁定（PAAW skill 綁到 cu.<stepId>）──
   const [cuSkillBindings, setCuSkillBindings] = useState<Record<string, string[]>>({});
   const [cuSkillNames, setCuSkillNames] = useState<Record<string, string>>({});
@@ -1482,27 +1484,35 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                 : `${persistedSteps.filter(s => s.status === "done").length}/${persistedSteps.length} 完成`}
             </span>
             <div className="flex gap-2">
-              {/* Run All button — always available when not bulk running */}
-              {!isBulkRunning && (
+              {/* 2026-10-31 Fleming：從沒跑過 → 只給一顆「開始掃描」；跑過才出現「重跑/增量」兩顆 */}
+              {!isBulkRunning && cuHasAnyRun ? (
+                <>
+                  <button
+                    onClick={() => { if (onStartCodeUnderstanding) { onStartCodeUnderstanding(true); } }}
+                    title="忽略 watermark，全部 step 重跑（會燒 token）"
+                    className="px-3 py-1.5 text-sm font-bold rounded-lg border transition-colors"
+                    style={{ borderColor: "#fde68a", color: "#b45309", backgroundColor: "#fffbeb" }}
+                  >
+                    🔄 全量重跑
+                  </button>
+                  <button
+                    onClick={() => { if (onStartCodeUnderstanding) { onStartCodeUnderstanding(false); } }} // 2026-09-06：增量模式 — server 只重跑有變更的步驟（watermark 比對）；force 全量留給特殊情況
+
+                    className="px-4 py-1.5 text-sm font-bold rounded-lg border transition-colors disabled:opacity-50"
+                    style={{ borderColor: "#bbf7d0", color: "#059669", backgroundColor: "#f0fdf4" }}
+                  >
+                    🚀 執行（增量）
+                  </button>
+                </>
+              ) : !isBulkRunning ? (
                 <button
-                  onClick={() => { if (onStartCodeUnderstanding) { onStartCodeUnderstanding(true); } }}
-                  title="忽略 watermark，全部 step 重跑（會燒 token）"
-                  className="px-3 py-1.5 text-sm font-bold rounded-lg border transition-colors"
-                  style={{ borderColor: "#fde68a", color: "#b45309", backgroundColor: "#fffbeb" }}
-                >
-                  🔄 全量重跑
-                </button>
-              )}
-              {!isBulkRunning && (
-                <button
-                  onClick={() => { if (onStartCodeUnderstanding) { onStartCodeUnderstanding(false); } }} // 2026-09-06：增量模式 — server 只重跑有變更的步驟（watermark 比對）；force 全量留給特殊情況
-                  
-                  className="px-4 py-1.5 text-sm font-bold rounded-lg border transition-colors disabled:opacity-50"
+                  onClick={() => { if (onStartCodeUnderstanding) { onStartCodeUnderstanding(false); } }}
+                  className="px-4 py-1.5 text-sm font-bold rounded-lg border transition-colors"
                   style={{ borderColor: "#bbf7d0", color: "#059669", backgroundColor: "#f0fdf4" }}
                 >
-                  🚀 執行（增量）
+                  🚀 開始掃描
                 </button>
-              )}
+              ) : null}
               {/* Close button — replaces 完成 ✅ */}
               {!isBulkRunning && (
                 <button onClick={() => { setShowCUModal(false); }} className="px-4 py-1.5 text-sm font-bold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">
