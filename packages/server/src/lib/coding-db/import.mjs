@@ -1,11 +1,11 @@
 /**
- * coding-db import — 一次性把 .paaw 舊檔匯入 SQLite（Phase A）
-import { upsertRuInfo } from "./ru-info.repo.mjs";
- * Idempotent：schema_meta.import_done 已設則跳過。
+ * coding-db import — 把 .paaw 檔案匯入 SQLite（CU 跑完/開專案 lazy 自動 re-import，2026-10-31）
+ * Refresh 語意：先清該 RU 舊 rows 再匯（INSERT OR REPLACE + DELETE per-ru）→ 檔案刪掉的 feature 不會殭屍
  */
 import { join } from "path";
 import { readFileSync, readdirSync, existsSync } from "fs";
 import { openCodingDb } from "./connection.mjs";
+import { upsertRuInfo } from "./ru-info.repo.mjs";
 
 const KNOWN_TASK_COLS = new Set([
   "id","featureId","parentId","type","title","status","priority","labels","assignee",
@@ -67,11 +67,14 @@ export function importCodingDb(ruRoot, ru = ruRoot.split("/").pop()) {
   // ru_info：一 RU 一行基本資訊（程式寫 repo_path/imported_at；不覆蓋人的欄位）
   try { upsertRuInfo(ruRoot, {}); } catch (e) { console.warn("[coding-db] ru_info upsert failed:", e.message); }
   const db = openCodingDb(ruRoot);
-  const done = db.prepare("SELECT value FROM schema_meta WHERE key='import_done'").get();
-  if (done) return { skipped: true };
-
   const counts = {};
   db.exec("BEGIN");
+  // per-ru 清舊（refresh 語意）：檔案來源刪掉的 row 不殘留
+  for (const t of ["tasks","features","feature_files","feature_apis","feature_tests","feature_tags","gates","handover","issues","error_codes"]) {
+    try { db.prepare(`DELETE FROM ${t} WHERE ru=?`).run(ru); } catch {}
+  }
+  try { db.prepare("DELETE FROM task_notes WHERE task_id IN (SELECT id FROM tasks WHERE ru=?)").run(ru); } catch {}
+  try { db.prepare("DELETE FROM tasks WHERE ru=?").run(ru); } catch {} // task_notes 清完才清 tasks（順序：先清 notes 再清 tasks）
   try {
     counts.tasks = _importTasks(db, ruRoot, ru);
     counts.features = _importFeatures(db, ruRoot, ru);

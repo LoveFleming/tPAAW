@@ -203,6 +203,12 @@ CREATE TABLE kv (
   updated_at TEXT
 );
 
+`,
+  },
+  {
+    // v2（2026-10-31）：ru_info 表獨立 migration — v1 blob 後補的表，既有 v1 db 吃不到（實測 tpaaw 自身 coding.db no such table）
+    version: 2,
+    sql: `
 CREATE TABLE ru_info (
   ru              TEXT PRIMARY KEY,
   name            TEXT,

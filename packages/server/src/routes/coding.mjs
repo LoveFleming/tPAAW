@@ -3887,6 +3887,15 @@ export default async function projectRoute(req, res) {
           }
         } catch (e) { cuLog("overview", `regenerate failed: ${e.message}`); }
 
+        // CU → SQLite：跑完自動 re-import（2026-10-31 Fleming：v2 全進 table，CU 產出即時落庫）
+        try {
+          const { importCodingDb } = await import("../lib/coding-db/import.mjs");
+          const counts = importCodingDb(root);
+          const total = Object.values(counts || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+          cuLog("import", `coding-db re-imported: ${total} rows (${Object.entries(counts || {}).map(([k, v]) => k + "=" + v).join(", ")})`);
+          sendEvent("info", { message: `💾 已匯入 SQLite：${total} rows（features/tasks/gates…）` });
+        } catch (e) { cuLog("import", `coding-db import failed: ${e.message}`); }
+
         sendEvent("done", { message: "Code Understanding complete" });
       } catch (err) {
         sendEvent("error", { error: err.message });
@@ -4051,6 +4060,16 @@ export default async function projectRoute(req, res) {
     // GET /api/coding-project/cu-status — CU step statuses
     if (url.startsWith("/api/coding-project/cu-status") && method === "GET") {
       try {
+        // 開專案 lazy re-import（2026-10-31 Fleming：v2 全進 SQLite）— FEATURES.json 有貨且比 db 新就同步
+        try {
+          const { openCodingDb } = await import("../lib/coding-db/connection.mjs");
+          const db = openCodingDb(root);
+          const inDb = db.prepare("SELECT COUNT(*) c FROM features WHERE ru=?").get(root.split("/").pop())?.c || 0;
+          if (inDb === 0 && existsSync(join(root, ".paaw", "features", "FEATURES.json"))) {
+            const { importCodingDb } = await import("../lib/coding-db/import.mjs");
+            importCodingDb(root);
+          }
+        } catch {}
         const cuStatus = await paaw.getCuStatus();
         const steps = cuStatus.steps || {};
         const doneCount = Object.values(steps).filter(s => s?.status === "done").length;
