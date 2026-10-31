@@ -142,7 +142,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "review-board" | "handover" | "troubleshooting" | "code-intel" | "tests" | "qa-records" | "dispatch-reports" | "project";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "review-board" | "handover" | "troubleshooting" | "code-intel" | "tests" | "qa-records" | "dispatch-reports" | "project" | "ru-info";
 
 interface MainTab {
   id: string;
@@ -787,7 +787,6 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
   const [starterKits, setStarterKits] = useState<any[]>([]);
   const [newProjectUseExistingDir, setNewProjectUseExistingDir] = useState(false); // kit/blank 模式：直接用已 clone 好的目錄
   // ── 專案資訊卡（ru_info）state ──
-  const [showRuInfo, setShowRuInfo] = useState(false);
   const [ruInfo, setRuInfo] = useState<any>(null);
   const [ruInfoName, setRuInfoName] = useState("");
   const [ruInfoDesc, setRuInfoDesc] = useState("");
@@ -803,7 +802,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
       setRuInfo(r); setRuInfoName(r.name || ""); setRuInfoDesc(r.description || ""); setRuInfoMsg("");
     } catch { setRuInfo(null); }
   }, [rootPath]);
-  useEffect(() => { if (showRuInfo) loadRuInfo(); }, [showRuInfo, loadRuInfo]);
+  useEffect(() => { if (activeMainTab?.type === "ru-info") loadRuInfo(); }, [activeMainTab, loadRuInfo]);
 
   const saveRuInfo = async () => {
     setRuInfoSaving(true); setRuInfoMsg("");
@@ -2704,76 +2703,6 @@ const sendChat = useCallback(async () => {
       />
     )}
 
-    {/* ── 專案資訊卡（ru_info）— 一張卡：人寫 name/description、AI 寫 ai_* ── */}
-    {showRuInfo && rootPath && (
-      <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40" onClick={() => setShowRuInfo(false)}>
-        <div className="bg-white rounded-2xl shadow-2xl w-[560px] max-h-[85vh] overflow-auto" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-5 py-3 border-b border-stone-100 sticky top-0 bg-white z-10">
-            <h3 className="text-base font-semibold text-stone-800">ℹ️ {tt("vibe.projectInfo", "專案資訊")}</h3>
-            <button onClick={() => setShowRuInfo(false)} className="text-stone-400 hover:text-stone-600 text-lg">✕</button>
-          </div>
-          <div className="p-5 space-y-4">
-            {/* 程式欄：唯讀 */}
-            <div className="text-[11px] text-stone-400 bg-stone-50 rounded-lg px-3 py-2 font-mono break-all">
-              📁 {ruInfo?.repo_path || rootPath}
-              {ruInfo?.imported_at && <span className="ml-2">· imported {new Date(ruInfo.imported_at).toLocaleDateString()}</span>}
-            </div>
-
-            {/* 人寫欄 */}
-            <div>
-              <label className="text-xs font-medium text-stone-500 mb-1 block">名稱</label>
-              <input value={ruInfoName} onChange={e => { setRuInfoName(e.target.value); setRuInfoMsg(""); }}
-                className="w-full text-sm px-3 py-2 border rounded-lg bg-stone-50 outline-none focus:border-emerald-400" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-stone-500 mb-1 block">📝 需求說明（high level，記下來就是歷程）</label>
-              <textarea value={ruInfoDesc} onChange={e => { setRuInfoDesc(e.target.value); setRuInfoMsg(""); }}
-                rows={4}
-                placeholder={"例：做一個 guardrail rules 的中心服務，API 給其他服務查有效規則，之後要接 policy engine"}
-                className="w-full text-sm px-3 py-2 border rounded-lg bg-stone-50 outline-none focus:border-emerald-400 resize-none" />
-            </div>
-
-            {/* AI 欄 */}
-            <div className="border-t border-stone-100 pt-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-stone-500">🤖 AI 摘要</span>
-                {ruInfo?.ai_updated_at && <span className="text-[10px] text-stone-400">更新於 {new Date(ruInfo.ai_updated_at).toLocaleString()}</span>}
-              </div>
-              <div>
-                <label className="text-[10px] text-stone-400 mb-0.5 block">這是什麼專案（ai_overview）</label>
-                <p className="text-sm text-stone-700 bg-emerald-50/40 border border-emerald-100 rounded-lg px-3 py-2 whitespace-pre-wrap min-h-[40px]">{ruInfo?.ai_overview || "（空 — 讓 AI 產生）"}</p>
-              </div>
-              <div>
-                <label className="text-[10px] text-stone-400 mb-0.5 block">架構摘要（ai_architecture）</label>
-                <p className="text-sm text-stone-700 bg-emerald-50/40 border border-emerald-100 rounded-lg px-3 py-2 whitespace-pre-wrap min-h-[40px]">{ruInfo?.ai_architecture || "（空 — 讓 AI 產生）"}</p>
-              </div>
-              {/* AI 調整 */}
-              <div className="flex gap-2">
-                <input value={aiInstruction} onChange={e => setAiInstruction(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing && !aiBusy) runAiAdjust(); }}
-                  disabled={aiBusy}
-                  placeholder={tt("vibe.aiAdjustPlaceholder", "AI 調整指示：例「讀 code 產生摘要」「用英文重寫」「架構講清楚點」")}
-                  className="flex-1 text-sm px-3 py-2 border rounded-lg bg-amber-50/50 outline-none focus:border-amber-400 disabled:opacity-50" />
-                <button onClick={runAiAdjust} disabled={aiBusy || !aiInstruction.trim()}
-                  className="text-sm px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-40 shrink-0">
-                  {aiBusy ? "✨ 生成中…" : "✨ AI 調整"}
-                </button>
-              </div>
-              <p className="text-[10px] text-stone-400">AI 只會改上面兩個摘要欄，碰不到你的名稱/需求說明</p>
-            </div>
-
-            {ruInfoMsg && <div className="text-xs text-center text-stone-600">{ruInfoMsg}</div>}
-            <div className="flex justify-end gap-2 pt-1">
-              <button onClick={() => setShowRuInfo(false)} className="text-sm px-4 py-2 rounded-lg border text-stone-600 hover:bg-stone-50">關閉</button>
-              <button onClick={saveRuInfo} disabled={ruInfoSaving} className="text-sm px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50">
-                {ruInfoSaving ? "儲存中…" : "💾 儲存"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
-
     {/* New Project Dialog */}
     {showNewProject && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { if (!newProjectCreating) { setShowNewProject(false); setNewProjectStep(1); } }}>
@@ -3110,7 +3039,7 @@ const sendChat = useCallback(async () => {
                 <span>📂</span> {tt("vibe.importProject", "Import Project")}
               </button>
               {rootPath && (
-                <button onClick={() => { setShowProjectMenu(false); setShowRuInfo(true); }}
+                <button onClick={() => { setShowProjectMenu(false); openMainTab({ id: "tool:ru-info", type: "ru-info", label: tt("vibe.projectInfo", "專案資訊"), icon: "ℹ️", closable: true }); }}
                   className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 text-stone-700 flex items-center gap-2">
                   <span>ℹ️</span> {tt("vibe.projectInfo", "專案資訊")}
                 </button>
@@ -4391,6 +4320,77 @@ const sendChat = useCallback(async () => {
             )}
 
             {/* === FEATURES TAB === (keep mounted, hide with CSS) */}
+            {/* === 專案資訊 Tab（ru_info）— 大欄位好讀好維護（2026-10-31 Fleming）=== */}
+            {mainTabs.some(t => t.type === "ru-info") && rootPath && (
+              <div key="tool:ru-info" className="flex-1 overflow-y-auto"
+                style={{ display: activeMainTab?.type === "ru-info" ? undefined : "none", backgroundColor: tk.bg }}>
+                <div className="max-w-4xl mx-auto px-8 py-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-stone-800">ℹ️ {tt("vibe.projectInfo", "專案資訊")}</h2>
+                    {ruInfo?.imported_at && <span className="text-xs text-stone-400">imported {new Date(ruInfo.imported_at).toLocaleString()}</span>}
+                  </div>
+
+                  {/* 程式欄：唯讀 */}
+                  <div className="text-xs text-stone-400 bg-stone-50 border border-stone-100 rounded-lg px-4 py-2.5 font-mono break-all">
+                    📁 {ruInfo?.repo_path || rootPath}
+                  </div>
+
+                  {/* 人寫欄 — 大欄位 */}
+                  <div className="grid grid-cols-[160px_1fr] gap-x-4 gap-y-2 items-start">
+                    <label className="text-sm text-stone-500 pt-2.5">名稱</label>
+                    <input value={ruInfoName} onChange={e => { setRuInfoName(e.target.value); setRuInfoMsg(""); }}
+                      className="w-full text-base px-4 py-2.5 border rounded-lg bg-stone-50 outline-none focus:border-emerald-400" />
+
+                    <label className="text-sm text-stone-500 pt-2.5">📝 需求說明</label>
+                    <div>
+                      <textarea value={ruInfoDesc} onChange={e => { setRuInfoDesc(e.target.value); setRuInfoMsg(""); }}
+                        rows={8}
+                        placeholder={"high level 需求說明，記下來就是歷程\n例：做一個 guardrail rules 的中心服務\n- 登記/查詢/版本管理規則\n- API 給其他服務查有效規則\n- 之後要接 policy engine"}
+                        className="w-full text-sm leading-relaxed px-4 py-3 border rounded-lg bg-stone-50 outline-none focus:border-emerald-400" />
+                      <p className="text-[11px] text-stone-400 mt-1">（想怎麼寫就怎麼寫，這是給人和 AI 看的專案說明）</p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 items-center">
+                    {ruInfoMsg && <span className="text-xs text-stone-600 mr-auto">{ruInfoMsg}</span>}
+                    <button onClick={saveRuInfo} disabled={ruInfoSaving}
+                      className="text-sm px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50">
+                      {ruInfoSaving ? "儲存中…" : "💾 儲存"}
+                    </button>
+                  </div>
+
+                  {/* AI 欄 — 大區塊 */}
+                  <div className="border-t border-stone-200 pt-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-base font-bold text-stone-700">🤖 AI 摘要</span>
+                      {ruInfo?.ai_updated_at && <span className="text-xs text-stone-400">更新於 {new Date(ruInfo.ai_updated_at).toLocaleString()}</span>}
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-stone-500 mb-1.5 block">這是什麼專案（ai_overview）</label>
+                      <p className="text-sm leading-relaxed text-stone-700 bg-emerald-50/40 border border-emerald-100 rounded-lg px-4 py-3 whitespace-pre-wrap min-h-[72px]">{ruInfo?.ai_overview || "（空 — 下面下一句指示讓 AI 產生）"}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-stone-500 mb-1.5 block">架構摘要（ai_architecture）</label>
+                      <p className="text-sm leading-relaxed text-stone-700 bg-emerald-50/40 border border-emerald-100 rounded-lg px-4 py-3 whitespace-pre-wrap min-h-[96px]">{ruInfo?.ai_architecture || "（空 — 讓 AI 讀 code 產生）"}</p>
+                    </div>
+                    {/* AI 調整 */}
+                    <div className="flex gap-2">
+                      <input value={aiInstruction} onChange={e => setAiInstruction(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing && !aiBusy) runAiAdjust(); }}
+                        disabled={aiBusy}
+                        placeholder={tt("vibe.aiAdjustPlaceholder", "AI 調整指示：例「讀 code 產生摘要」「用英文重寫」「架構講清楚點」")}
+                        className="flex-1 text-sm px-4 py-2.5 border rounded-lg bg-amber-50/50 outline-none focus:border-amber-400 disabled:opacity-50" />
+                      <button onClick={runAiAdjust} disabled={aiBusy || !aiInstruction.trim()}
+                        className="text-sm px-4 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-40 shrink-0">
+                        {aiBusy ? "✨ 生成中…" : "✨ AI 調整"}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-stone-400">AI 只會改上面兩個摘要欄，碰不到你的名稱/需求說明</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {mainTabs.some(t => t.type === "features") && rootPath && (
               <div key="tool:features" className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTab?.type === "features" ? undefined : "none" }}>
