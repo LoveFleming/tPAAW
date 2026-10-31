@@ -63,8 +63,8 @@ export async function generateRuAiFields(ruRoot, { instruction = "初次掃描�
     try { ctx += "頂層目錄: " + (await readdir(ruRoot)).filter(f => !f.startsWith(".")).slice(0, 30).join(", ") + "\n"; } catch {}
     try { ctx += "README 開頭:\n" + (await readFile(ruRoot + "/README.md", "utf-8")).slice(0, 1500); } catch {}
   } catch {}
-  const { resolveLLMConfig } = await import("../../paaw-agent-loop.mjs");
-  const { callLLMWithRetry } = await import("../../llm-utils.mjs");
+  const { resolveLLMConfig } = await import("../paaw-agent-loop.mjs");
+  const { callLLMWithRetry } = await import("../llm-utils.mjs");
   const llm = resolveLLMConfig(ruRoot, undefined, []);
   const r = await callLLMWithRetry(llm.apiUrl, llm.headers, {
     model: llm.model,

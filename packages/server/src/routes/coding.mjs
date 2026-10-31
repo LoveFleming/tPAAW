@@ -3893,8 +3893,9 @@ export default async function projectRoute(req, res) {
         try {
           const { importCodingDb } = await import("../lib/coding-db/import.mjs");
           const counts = importCodingDb(root);
-          const total = Object.values(counts || {}).reduce((a, b) => a + (Number(b) || 0), 0);
-          cuLog("import", `coding-db re-imported: ${total} rows (${Object.entries(counts || {}).map(([k, v]) => k + "=" + v).join(", ")})`);
+          const tables = (counts && counts.tables) || counts || {};
+          const total = Object.values(tables).reduce((a, b) => a + (Number(b) || 0), 0);
+          cuLog("import", `coding-db re-imported: ${total} rows (${Object.entries(tables).map(([k, v]) => k + "=" + v).join(", ")})`);
           sendEvent("info", { message: `💾 已匯入 SQLite：${total} rows（features/tasks/gates…）` });
         } catch (e) { cuLog("import", `coding-db import failed: ${e.message}`); }
 
