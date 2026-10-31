@@ -2736,7 +2736,7 @@ const sendChat = useCallback(async () => {
                   {/* React + Vite + Node.js Fullstack */}
                   <button
                     onClick={() => { setNewProjectTemplate("react-vite"); setNewProjectStep(2); }}
-                    className={`group flex items-start gap-3 p-3 rounded-lg border-2 transition-all text-left hover:shadow-md ${newProjectTemplate === "react-vite" ? "border-emerald-400 bg-emerald-50/50" : "border-stone-200 hover:border-stone-300"}`}
+                    className={`group flex items-start gap-3 p-3 min-h-[120px] items-center rounded-lg border-2 transition-all text-left hover:shadow-md ${newProjectTemplate === "react-vite" ? "border-emerald-400 bg-emerald-50/50" : "border-stone-200 hover:border-stone-300"}`}
                   >
                     <div className="w-16 h-12 rounded bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shrink-0 text-white text-xl font-bold">⚛</div>
                     <div className="flex-1 min-w-0 min-h-[76px] flex flex-col">
@@ -2761,7 +2761,7 @@ const sendChat = useCallback(async () => {
                       <button
                         key={k.id}
                         onClick={() => { setNewProjectTemplate(`kit:${k.id}`); setNewProjectStep(2); }}
-                        className="group flex items-start gap-3 p-3 rounded-lg border-2 border-stone-200 transition-all text-left hover:border-stone-300 hover:shadow-md"
+                        className="group flex items-start gap-3 p-3 min-h-[120px] items-center rounded-lg border-2 border-stone-200 transition-all text-left hover:border-stone-300 hover:shadow-md"
                       >
                         <div className="w-16 h-12 rounded bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 text-white text-xl font-bold">📦</div>
                         <div className="flex-1 min-w-0">
@@ -2779,7 +2779,7 @@ const sendChat = useCallback(async () => {
                 {/* 空白專案 */}
                 <button
                   onClick={() => { setNewProjectTemplate("blank"); setNewProjectStep(2); }}
-                  className="group flex items-start gap-3 p-3 rounded-lg border-2 border-stone-200 transition-all text-left hover:border-stone-300 hover:shadow-md"
+                  className="group flex items-start gap-3 p-3 min-h-[120px] items-center rounded-lg border-2 border-stone-200 transition-all text-left hover:border-stone-300 hover:shadow-md"
                 >
                   <div className="w-16 h-12 rounded bg-gradient-to-br from-stone-400 to-stone-500 flex items-center justify-center shrink-0 text-white text-xl font-bold">▢</div>
                   <div className="flex-1 min-w-0 min-h-[76px] flex flex-col">
