@@ -236,6 +236,105 @@ export default async function starterKitsRoute(req, res) {
     try { const { upsertRuInfo } = await import("../lib/coding-db/ru-info.repo.mjs"); upsertRuInfo(projectDir, { name: projectName, description: body.description || null }); } catch {}
 
     const isGit = existsSync(join(projectDir, ".git"));
+
+    // AI Adaptation — 建立時自動跑（2026-10-31 Fleming 定調：init 時做，不是丟給 developer chat）
+    // 兩段式（事實靠程式、理解靠 AI）：
+    //   段1 程式+單發 LLM（必成功）：package.json/README 改名 + REQUIREMENTS.md/PROJECT.md 產出
+    //   段2 developer agent（best-effort）：npm install + build 驗證 + KIT-ADAPT.md 特有調整
+    let adaptation = null;
+    if (body.runAdaptation !== false) {
+      const steps = [];
+      try {
+        const PAAW_ROOT = resolve(fileURLToPath(import.meta.url), "..", "..", "..", "..", "..");
+        const { writeFile: wf } = await import("fs/promises");
+
+        // ── 段1a：deterministic 改名 ──
+        const pkgPath = join(projectDir, "package.json");
+        if (existsSync(pkgPath)) {
+          try {
+            const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
+            pkg.name = projectName.toLowerCase().replace(/\s+/g, "-");
+            pkg.description = body.description ? String(body.description).slice(0, 200) : (pkg.description || "");
+            await wf(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf-8");
+            steps.push(`package.json name → ${pkg.name}`);
+          } catch {}
+        }
+        const readmePath = join(projectDir, "README.md");
+        if (existsSync(readmePath)) {
+          try {
+            let rm = await readFile(readmePath, "utf-8");
+            rm = rm.replace(/^#\s+.*$/m, `# ${projectName}`);
+            await wf(readmePath, rm, "utf-8");
+            steps.push("README 標題已改");
+          } catch {}
+        }
+
+        // ── 段1b：單發 LLM 產 REQUIREMENTS.md + PROJECT.md（無工具、快、必成功）──
+        try {
+          const { resolveLLMConfig } = await import("../lib/paaw-agent-loop.mjs");
+          const { callLLMWithRetry } = await import("../lib/llm-utils.mjs");
+          const llm = resolveLLMConfig(projectDir, undefined, []);
+          const r1 = await callLLMWithRetry(llm.apiUrl, llm.headers, {
+            model: llm.model,
+            messages: [
+              { role: "system", content: "你是專案初始化助理。輸出 JSON：{\"requirementsMd\": \"完整 REQUIREMENTS.md 內容\", \"projectMd\": \"完整 PROJECT.md 內容\"}，不要其他文字。" },
+              { role: "user", content: `新專案「${projectName}」剛從 Starter Kit「${kit.name}」建立。\n需求草稿：${body.description || "（未填 — REQUIREMENTS.md 只放標題與待補說明，不猜方向）"}\n\nREQUIREMENTS.md：編號需求列表（REQ-001…），每條一行描述+補充細節，推測標 [推測]。\nPROJECT.md：名稱、一句話定位、技術棧、目錄結構說明、現況（剛從 kit 建立）。\n技術棧參考 package.json：${existsSync(pkgPath) ? (await readFile(pkgPath, "utf-8")).slice(0, 1200) : "（無）"}` },
+            ],
+            temperature: 0.3,
+            max_tokens: 8192,
+          }, { maxRetries: 2, timeoutMs: 180000, caller: "kit-adapt-md", agentId: "coding.developer", disableThinking: true });
+          const jm = String(r1?.content || "").match(/\{[\s\S]*\}/);
+          if (jm) {
+            const md = JSON.parse(jm[0]);
+            if (md.requirementsMd) await wf(join(projectDir, "REQUIREMENTS.md"), String(md.requirementsMd), "utf-8");
+            if (md.projectMd) await wf(join(projectDir, "PROJECT.md"), String(md.projectMd), "utf-8");
+            steps.push("REQUIREMENTS.md + PROJECT.md 已產出");
+          }
+        } catch (e) { steps.push(`⚠️ 需求文件產出失敗：${String(e.message || e).slice(0, 100)}`); }
+
+        // ── 段2：developer agent — npm install + build 驗證 + KIT-ADAPT 特有調整（best-effort，不擋建立）──
+        let agentSummary = "";
+        let agentOk = true;
+        try {
+          const { dateTimeContextBlock } = await import("../lib/llm-utils.mjs");
+          const { runAgentLoop } = await import("../lib/paaw-agent-loop.mjs");
+          const crewFile = existsSync(join(DATA_HOME, "crews", "coding.developer.json"))
+            ? join(DATA_HOME, "crews", "coding.developer.json")
+            : resolve(PAAW_ROOT, "packages/modules/coding/crews/coding.developer.json");
+          const crewDef = JSON.parse(await readFile(crewFile, "utf-8"));
+          const adaptPrompt = `專案「${projectName}」剛從 Starter Kit「${kit.name}」建立，改名與需求文件已完成。請只做這兩件事（這是建立時的自動 adaptation，沒有其他人在場，做完就回報）：
+
+1. ${kit.hasAdapt ? "讀根目錄 KIT-ADAPT.md 照指引調整（這個 kit 的改寫說明）" : "快速看一下 repo 結構，刪掉明顯與需求無關的範例（拿不準就保留，不要大改）"}
+2. 安裝依賴（npm install 或偵測到的套件管理器）並驗證 build（package.json 的 build script；沒有就跑 type-check 或至少 node 能載入）
+
+需求：${body.description || "（未填 — 不猜方向，只做最小清理）"}
+完成後 3 行內回報：做了什麼、build 結果、（若有）遺留問題。`;
+
+          const r2 = await runAgentLoop({
+            cwd: projectDir,
+            rootDir: PAAW_ROOT,
+            systemPrompt: dateTimeContextBlock() + "\n" + (crewDef.rolePrompt || ""),
+            prompt: adaptPrompt,
+            agentId: "coding.developer",
+            maxTurns: 30,
+            timeout: 0,
+          });
+          agentOk = !!r2?.success && !r2?.partial;
+          agentSummary = String(r2?.content || "").slice(0, 2500);
+          steps.push(`agent 驗證 ${agentOk ? "✅" : "⚠️"}（${r2?.turns || 0} turns）`);
+        } catch (e) { agentOk = false; agentSummary = String(e.message || e).slice(0, 300); steps.push("⚠️ agent 驗證未跑成"); }
+
+        adaptation = {
+          success: true,
+          steps,
+          agentOk,
+          summary: `【程式段】\n${steps.map(x => "- " + x).join("\n")}\n\n【Agent 段】\n${agentSummary || "（無輸出）"}`,
+        };
+      } catch (err) {
+        adaptation = { success: false, error: String(err.message || err).slice(0, 500) };
+      }
+    }
+
     _json(200, {
       ok: true,
       path: projectDir,
@@ -244,6 +343,7 @@ export default async function starterKitsRoute(req, res) {
       projectNameReplaced: replaced,
       isGitRepo: isGit,
       hint: isGit ? null : "⚠️ 此目錄不是 git repo（不影響建立，僅提醒）",
+      adaptation,
     });
     return;
   }

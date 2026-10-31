@@ -786,6 +786,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
   // Starter Kit（REQ-STARTER-KIT-001）：匯入的 kit 出現在版型選單
   const [starterKits, setStarterKits] = useState<any[]>([]);
   const [newProjectUseExistingDir, setNewProjectUseExistingDir] = useState(false); // kit/blank 模式：直接用已 clone 好的目錄
+  const [newProjectAdaptation, setNewProjectAdaptation] = useState<any>(null); // init 時 AI adaptation 結果（step 4 顯示）
   // ── 專案資訊卡（ru_info）state ──
   const [ruInfo, setRuInfo] = useState<any>(null);
   const [ruInfoName, setRuInfoName] = useState("");
@@ -2891,13 +2892,29 @@ const sendChat = useCallback(async () => {
               <div className="py-6 flex flex-col items-center gap-3">
                 <div className="w-10 h-10 border-[3px] border-emerald-500 border-t-transparent rounded-full animate-spin" />
                 <p className="text-sm font-medium text-stone-700">AI 正在建立專案骨架...</p>
-                <p className="text-xs text-stone-400">這可能需要 1-2 分鐘</p>
+                <p className="text-xs text-stone-400">{newProjectTemplate.startsWith("kit:") ? "解壓 kit + 🤖 AI adaptation 自動調整中（改名/需求文件/清範例/驗證 build）— 可能需要數分鐘" : "這可能需要 1-2 分鐘"}</p>
+              </div>
+            )}
+
+            {/* Step 4：AI adaptation 結果（建立時自動跑，2026-10-31 Fleming）*/}
+            {newProjectStep === 4 && newProjectAdaptation && (
+              <div className="py-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{newProjectAdaptation.success ? "✅" : "⚠️"}</span>
+                  <p className="text-sm font-bold text-stone-800">{newProjectAdaptation.success ? "AI Adaptation 完成" : "AI Adaptation 未完成（專案已建立）"}</p>
+                </div>
+                <pre className="text-xs text-stone-600 whitespace-pre-wrap bg-stone-50 border border-stone-100 rounded-lg px-3 py-2.5 max-h-56 overflow-auto">{newProjectAdaptation.summary || newProjectAdaptation.error || "（無回報內容）"}</pre>
+                {newProjectAdaptation.turns ? <p className="text-[10px] text-stone-400">agent {newProjectAdaptation.turns} turns · {Math.round((newProjectAdaptation.durationMs || 0) / 1000)}s</p> : null}
+                <button
+                  onClick={() => { const p = newProjectAdaptation.path; setNewProjectAdaptation(null); setShowNewProject(false); setNewProjectStep(1); if (p) switchRu(p); }}
+                  className="w-full text-sm px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                >📂 開啟專案</button>
               </div>
             )}
           </div>
 
           {/* Footer buttons */}
-          {newProjectStep !== 3 && (
+          {newProjectStep !== 3 && newProjectStep !== 4 && (
             <div className="flex justify-end gap-2 px-5 pb-4 pt-2 border-t border-stone-100">
               <button
                 onClick={() => { setShowNewProject(false); setNewProjectStep(1); }}
@@ -2942,7 +2959,14 @@ const sendChat = useCallback(async () => {
                           return;
                         }
                         const kitName = data.kit?.name || kitId;
-                        firstPrompt = `我剛用 Starter Kit「${kitName}」建立了新專案「${newProjectName.trim()}」，請幫我把專案調整到位。\n\n需求草稿（我隨手寫的）：${newProjectDesc.trim() || "（未填 — 請先問我要做什麼再動手）"}\n\n請依序做以下事：\n1. 先在 repo 根目錄產出兩份文件（給之後的需求/專案維護用）：\n   - REQUIREMENTS.md：把我的草稿整理成編號需求列表（REQ-001…），每條一行描述 + 補充細節；草稿沒講到的合理推測要標 [推測]\n   - PROJECT.md：專案資訊 — 名稱、一句話定位、技術棧、目錄結構說明、現況（剛從 kit 建立）\n2. 若根目錄有 KIT-ADAPT.md，讀它照指引調整（那是這個 kit 的改寫說明）；沒有就自己判斷\n3. 把 package.json（或其他語言對應的）name/description 改成「${newProjectName.trim()}」\n3. README 標題與說明改成「${newProjectName.trim()}」，若有填描述則與描述一致\n4. 清理 kit 範例碼中與本專案無關的部分（依描述判斷，拿不準就保留）\n5. 安裝依賴並驗證可以 build（或跑起來），確認 OK 才回報\n\n完成後簡短回報改了什麼。`;
+                        // 2026-10-31 Fleming：AI adaptation 在 init 時 server 端自動跑，不派 developer chat
+                        if (data.adaptation) {
+                          setNewProjectAdaptation({ ...data.adaptation, path: data.path });
+                          setNewProjectStep(4);
+                          setNewProjectCreating(false);
+                          return;
+                        }
+                        firstPrompt = "";
                       } else if (isBlank) {
                         // 空白專案：先需求後動工（REQ → 文件 → 骨架），不預設 react
                         const r = await fetch(`${API_BASE}/api/coding-project/create`, {
@@ -2992,8 +3016,10 @@ const sendChat = useCallback(async () => {
                       setNewProjectStep(1);
                       switchRu(data.path);
 
-                      setChatMessages(prev => [...prev, { role: "user" as const, content: firstPrompt, ts: new Date().toISOString() }]);
-                      setTimeout(() => sendChatMessage(firstPrompt), 100);
+                      if (firstPrompt) {
+                        setChatMessages(prev => [...prev, { role: "user" as const, content: firstPrompt, ts: new Date().toISOString() }]);
+                        setTimeout(() => sendChatMessage(firstPrompt), 100);
+                      }
 
                     } catch (err: any) {
                       setNewProjectError(err.message || "Unknown error");
