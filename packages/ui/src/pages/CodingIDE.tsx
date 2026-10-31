@@ -783,6 +783,13 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
   const [newProjectParent, setNewProjectParent] = useState("");
   const [newProjectCreating, setNewProjectCreating] = useState(false);
   const [newProjectError, setNewProjectError] = useState("");
+  // Starter Kit（REQ-STARTER-KIT-001）：匯入的 kit 出現在版型選單
+  const [starterKits, setStarterKits] = useState<any[]>([]);
+  const [newProjectUseExistingDir, setNewProjectUseExistingDir] = useState(false); // kit/blank 模式：直接用已 clone 好的目錄
+  useEffect(() => {
+    if (!showNewProject) return;
+    fetch(`${API_BASE}/api/starter-kits`).then(r => r.json()).then(d => setStarterKits(d.kits || [])).catch(() => {});
+  }, [showNewProject]);
 
   // ── Project Menu State ──
   const [showProjectMenu, setShowProjectMenu] = useState(false);
@@ -2698,6 +2705,43 @@ const sendChat = useCallback(async () => {
                     </div>
                   </button>
                 </div>
+                {/* 匯入的 Starter Kits（REQ-STARTER-KIT-001）*/}
+                {starterKits.length > 0 && (
+                  <>
+                    <p className="text-[11px] text-stone-400 mt-3 mb-1">📦 匯入的 Starter Kit</p>
+                    {starterKits.map((k: any) => (
+                      <button
+                        key={k.id}
+                        onClick={() => { setNewProjectTemplate(`kit:${k.id}`); setNewProjectStep(2); }}
+                        className="group flex items-start gap-3 p-3 rounded-lg border-2 border-stone-200 transition-all text-left hover:border-stone-300 hover:shadow-md"
+                      >
+                        <div className="w-16 h-12 rounded bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 text-white text-xl font-bold">📦</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-stone-800">{k.name}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">匯入</span>
+                            {k.language && <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">{k.language}</span>}
+                          </div>
+                          <p className="text-xs text-stone-500 mt-0.5">{k.description || "（無描述）"} · {k.fileCount} 檔{k.hasAdapt ? " · 含 AI 改寫指引" : ""}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </>
+                )}
+                {/* 空白專案 */}
+                <button
+                  onClick={() => { setNewProjectTemplate("blank"); setNewProjectStep(2); }}
+                  className="group flex items-start gap-3 p-3 rounded-lg border-2 border-stone-200 transition-all text-left hover:border-stone-300 hover:shadow-md"
+                >
+                  <div className="w-16 h-12 rounded bg-gradient-to-br from-stone-400 to-stone-500 flex items-center justify-center shrink-0 text-white text-xl font-bold">▢</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-stone-800">空白專案</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-medium">Empty</span>
+                    </div>
+                    <p className="text-xs text-stone-500 mt-0.5">只建立目錄 + .paaw，從零開始（AI 之後照需求生成）</p>
+                  </div>
+                </button>
                 <p className="text-stone-400 text-xs mt-4">💡 選好版型後進入下一步描述你的專案需求</p>
               </div>
             )}
@@ -2707,10 +2751,22 @@ const sendChat = useCallback(async () => {
               <div className="space-y-3">
                 {/* Selected template badge */}
                 <div className="flex items-center gap-2 p-2 bg-stone-50 rounded-lg">
-                  <span className="text-sm">⚡</span>
-                  <span className="text-xs font-medium text-stone-600">React + Vite + Node.js</span>
+                  <span className="text-sm">{newProjectTemplate.startsWith("kit:") ? "📦" : newProjectTemplate === "blank" ? "▢" : "⚡"}</span>
+                  <span className="text-xs font-medium text-stone-600">
+                    {newProjectTemplate.startsWith("kit:")
+                      ? starterKits.find((k: any) => `kit:${k.id}` === newProjectTemplate)?.name || "Starter Kit"
+                      : newProjectTemplate === "blank" ? "空白專案" : "React + Vite + Node.js"}
+                  </span>
                   <button onClick={() => setNewProjectStep(1)} className="text-[10px] text-stone-400 hover:text-stone-600 ml-auto">換版型</button>
                 </div>
+
+                {/* kit/blank 模式：使用已 clone 好的目錄 */}
+                {newProjectTemplate.startsWith("kit:") && (
+                  <label className="flex items-center gap-2 text-xs text-stone-600 cursor-pointer">
+                    <input type="checkbox" checked={newProjectUseExistingDir} onChange={e => { setNewProjectUseExistingDir(e.target.checked); setNewProjectError(""); }} className="accent-emerald-500" />
+                    使用現有目錄（我已建好 repo 並 clone 到本地）
+                  </label>
+                )}
 
                 {/* Project Name */}
                 <div>
@@ -2727,7 +2783,7 @@ const sendChat = useCallback(async () => {
 
                 {/* Description — what to build */}
                 <div>
-                  <label className="text-xs font-medium text-stone-500 mb-1 block">描述你想做什麼 *</label>
+                  <label className="text-xs font-medium text-stone-500 mb-1 block">描述你想做什麼{newProjectTemplate.startsWith("kit:") || newProjectTemplate === "blank" ? "（選填）" : " *"}</label>
                   <textarea
                     value={newProjectDesc}
                     onChange={e => { setNewProjectDesc(e.target.value); setNewProjectError(""); }}
@@ -2739,6 +2795,20 @@ const sendChat = useCallback(async () => {
                 </div>
 
                 {/* Parent Directory */}
+                {/* Parent Directory / Target Dir */}
+                {newProjectUseExistingDir && newProjectTemplate.startsWith("kit:") ? (
+                  <div>
+                    <label className="text-xs font-medium text-stone-500 mb-1 block">專案目錄（已 clone 的 repo）*</label>
+                    <input
+                      value={newProjectParent}
+                      onChange={e => { setNewProjectParent(e.target.value); setNewProjectError(""); }}
+                      placeholder="/Users/you/App/guardrail-hub"
+                      className="w-full text-sm font-mono px-3 py-2 border rounded-lg bg-stone-50 outline-none focus:border-emerald-400"
+                      style={{ borderColor: newProjectError ? "#ef4444" : undefined }}
+                    />
+                    <p className="text-[10px] text-stone-400 mt-1">⚠️ 目錄需為空（只有 .git 可）；系統不碰 git</p>
+                  </div>
+                ) : (
                 <div>
                   <label className="text-xs font-medium text-stone-500 mb-1 block">存放目錄 *</label>
                   <input
@@ -2749,9 +2819,15 @@ const sendChat = useCallback(async () => {
                     style={{ borderColor: newProjectError ? "#ef4444" : undefined }}
                   />
                 </div>
+                )}
 
                 {/* Preview path */}
-                {newProjectParent && newProjectName.trim() && (
+                {newProjectParent && newProjectUseExistingDir && newProjectTemplate.startsWith("kit:") && (
+                  <div className="text-[10px] text-stone-400 font-mono bg-stone-50 rounded px-2 py-1.5 truncate">
+                    📁 {newProjectParent}（直接使用此目錄）
+                  </div>
+                )}
+                {newProjectParent && newProjectName.trim() && !newProjectUseExistingDir && (
                   <div className="text-[10px] text-stone-400 font-mono bg-stone-50 rounded px-2 py-1.5 truncate">
                     📁 {newProjectParent}/{newProjectName.trim()}
                   </div>
@@ -2783,7 +2859,9 @@ const sendChat = useCallback(async () => {
               {newProjectStep === 2 && (
                 <button
                   onClick={async () => {
-                    if (!newProjectName.trim() || !newProjectParent.trim() || !newProjectDesc.trim()) {
+                    const isKit = newProjectTemplate.startsWith("kit:");
+                    const isBlank = newProjectTemplate === "blank";
+                    if (!newProjectName.trim() || !newProjectParent.trim() || (!isKit && !isBlank && !newProjectDesc.trim())) {
                       setNewProjectError("請填寫所有欄位");
                       return;
                     }
@@ -2791,35 +2869,61 @@ const sendChat = useCallback(async () => {
                     setNewProjectError("");
                     setNewProjectStep(3);
                     try {
-                      // Step 1: Create project directory + .paaw/
-                      const res = await fetch(`${API_BASE}/api/coding-project/create`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          name: newProjectName.trim(),
-                          parentDir: newProjectParent.trim(),
-                          initGit: true,
-                          initPaaw: true,
-                        }),
-                      });
-                      const data = await res.json();
-                      if (!res.ok) {
-                        setNewProjectError(data.error || `Error ${res.status}`);
-                        setNewProjectStep(2);
-                        setNewProjectCreating(false);
-                        return;
+                      let data: any;
+                      let firstPrompt: string;
+                      if (isKit) {
+                        // Starter Kit 流程（REQ-STARTER-KIT-001）：解壓 + {{PROJECT_NAME}}，不碰 git
+                        const kitId = newProjectTemplate.slice(4);
+                        const r = await fetch(`${API_BASE}/api/coding-project/from-kit`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            kitId,
+                            name: newProjectName.trim(),
+                            ...(newProjectUseExistingDir
+                              ? { targetDir: newProjectParent.trim() }
+                              : { parentDir: newProjectParent.trim() }),
+                            initPaaw: true,
+                          }),
+                        });
+                        data = await r.json();
+                        if (!r.ok) {
+                          setNewProjectError(data.error || `Error ${r.status}`);
+                          setNewProjectStep(2);
+                          setNewProjectCreating(false);
+                          return;
+                        }
+                        const kitName = data.kit?.name || kitId;
+                        firstPrompt = `我剛用 Starter Kit「${kitName}」建立了新專案「${newProjectName.trim()}」，請幫我把專案調整到位。\n\n專案描述：${newProjectDesc.trim() || "（未填）"}\n\n請做以下事：\n1. 若根目錄有 KIT-ADAPT.md，先讀它照指引調整（那是這個 kit 的改寫說明）；沒有就自己判斷\n2. 把 package.json（或其他語言對應的）name/description 改成「${newProjectName.trim()}」\n3. README 標題與說明改成「${newProjectName.trim()}」，若有填描述則與描述一致\n4. 清理 kit 範例碼中與本專案無關的部分（依描述判斷，拿不準就保留）\n5. 安裝依賴並驗證可以 build（或跑起來），確認 OK 才回報\n\n完成後簡短回報改了什麼。`;
+                      } else {
+                        // 內建 react-vite / 空白專案：原本流程
+                        const res = await fetch(`${API_BASE}/api/coding-project/create`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            name: newProjectName.trim(),
+                            parentDir: newProjectParent.trim(),
+                            initGit: true,
+                            initPaaw: true,
+                          }),
+                        });
+                        data = await res.json();
+                        if (!res.ok) {
+                          setNewProjectError(data.error || `Error ${res.status}`);
+                          setNewProjectStep(2);
+                          setNewProjectCreating(false);
+                          return;
+                        }
+                        firstPrompt = `我剛建立了一個新的 Node.js + React + Vite 專案，請幫我搭建完整的專案骨架。\n\n專案名稱：${newProjectName.trim()}\n專案描述：${newProjectDesc.trim()}\n\n請建立以下結構：\n1. 前端：React + Vite + TypeScript + Tailwind CSS\n   - src/App.tsx — 主頁面，根據描述生成基本 UI\n   - src/main.tsx — 入口\n   - index.html\n2. 後端：Node.js + Express\n   - server/index.ts — API server，基本 health check endpoint\n3. 設定檔\n   - package.json（前後端 scripts）\n   - tsconfig.json\n   - vite.config.ts\n   - tailwind.config.js\n   - .gitignore\n4. 安裝依賴並確認可以啟動\n\n根據我的描述「${newProjectDesc.trim()}」生成對應的基本 UI 和 API。保持簡潔可用，不用完美。`;
                       }
 
-                      // Step 2: Open the new project
+                      // Open the new project
                       setShowNewProject(false);
                       setNewProjectStep(1);
                       switchRu(data.path);
 
-                      // Step 3: Send scaffold prompt to developer agent
-                      const scaffoldPrompt = `我剛建立了一個新的 Node.js + React + Vite 專案，請幫我搭建完整的專案骨架。\n\n專案名稱：${newProjectName.trim()}\n專案描述：${newProjectDesc.trim()}\n\n請建立以下結構：\n1. 前端：React + Vite + TypeScript + Tailwind CSS\n   - src/App.tsx — 主頁面，根據描述生成基本 UI\n   - src/main.tsx — 入口\n   - index.html\n2. 後端：Node.js + Express\n   - server/index.ts — API server，基本 health check endpoint\n3. 設定檔\n   - package.json（前後端 scripts）\n   - tsconfig.json\n   - vite.config.ts\n   - tailwind.config.js\n   - .gitignore\n4. 安裝依賴並確認可以啟動\n\n根據我的描述「${newProjectDesc.trim()}」生成對應的基本 UI 和 API。保持簡潔可用，不用完美。`;
-
-                      setChatMessages(prev => [...prev, { role: "user" as const, content: scaffoldPrompt, ts: new Date().toISOString() }]);
-                      setTimeout(() => sendChatMessage(scaffoldPrompt), 100);
+                      setChatMessages(prev => [...prev, { role: "user" as const, content: firstPrompt, ts: new Date().toISOString() }]);
+                      setTimeout(() => sendChatMessage(firstPrompt), 100);
 
                     } catch (err: any) {
                       setNewProjectError(err.message || "Unknown error");
@@ -2827,7 +2931,7 @@ const sendChat = useCallback(async () => {
                     }
                     setNewProjectCreating(false);
                   }}
-                  disabled={newProjectCreating || !newProjectName.trim() || !newProjectParent.trim() || !newProjectDesc.trim()}
+                  disabled={newProjectCreating || !newProjectName.trim() || !newProjectParent.trim() || (!newProjectTemplate.startsWith("kit:") && newProjectTemplate !== "blank" && !newProjectDesc.trim())}
                   className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   🤖 AI 建立專案

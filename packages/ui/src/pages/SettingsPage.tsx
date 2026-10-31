@@ -5,6 +5,7 @@ import { useI18n, LOCALE_LABELS, Locale } from "../i18n";
 import API_BASE from "../api";
 import { invalidateModelSelectorCache } from "../components/ModelSelector";
 import BackupSettings from "./BackupSettings";
+import StarterKitsSettings from "./StarterKitsSettings";
 import PluginManager from "./PluginManager";
 import { uiAlertError, uiConfirm } from "../components/ui/uiFeedback";
 import { cn } from "../utils";
@@ -40,7 +41,7 @@ interface SettingsPageProps {
 export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved }: SettingsPageProps = {}) {
   const { info: themeInfo } = useTheme();
   const { t, locale, setLocale } = useI18n();
-  const [tab, setTabState] = useState<"profile" | "providers" | "agentConfig" | "preferences" | "security" | "skill" | "language" | "backup" | "plugins">((initialTab as any) || "profile");
+  const [tab, setTabState] = useState<"profile" | "providers" | "agentConfig" | "preferences" | "security" | "skill" | "language" | "backup" | "starterKits" | "plugins">((initialTab as any) || "profile");
   // 🛡 網路白名單（2026-10-10；2026-10-13 起 MXC 單後端）：用於執行後輸出審計 + AI 放行紀錄
   const [wlBuiltin, setWlBuiltin] = useState<string[]>([]);
   const [wlCustom, setWlCustom] = useState<string[]>([]);
@@ -408,6 +409,9 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
           </button>
           <button onClick={() => setTab("backup")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "backup" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             💾 備份還原
+          </button>
+          <button onClick={() => setTab("starterKits")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "starterKits" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            📦 Starter Kit
           </button>
           <button onClick={() => setTab("plugins")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "plugins" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             🔌 Plugins
@@ -906,6 +910,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
 
         {/* Backup tab */}
         {tab === "backup" && <BackupSettings />}
+        {tab === "starterKits" && <StarterKitsSettings />}
 
         {/* Plugins tab */}
         {tab === "plugins" && (
