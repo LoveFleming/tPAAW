@@ -201,7 +201,7 @@
   "feature.searchPlaceholder": "Search features...",
   "feature.selectPrompt": "Select a feature to view details",
   "feature.tests": "Tests",
-  "feature.title": "Feature Map",
+  "feature.title": "API Map",
   "apiMap.title": "API Map",
   "apiMap.refresh": "Reload",
   "apiMap.loading": "Loading…",

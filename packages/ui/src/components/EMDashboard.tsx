@@ -345,7 +345,6 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   // ── CU step definitions (must match server) ──
   const CU_STEPS = [
     { id: "scan", name: "🔍 掃描專案結構", file: "scan.json" },
-    { id: "feature-map", name: "🗺️ Feature Map", file: "features/FEATURES.json" },
     { id: "api-map", name: "🌐 API Map", file: "api-map.json" }, // API-first（2026-11-01）：marker 檔 api-map.json
     { id: "code-intelligence", name: "🧠 Code Intelligence", file: "code-intelligence/summary.json" },
     { id: "test-intelligence", name: "🧪 Test Intelligence", file: "code-intelligence/test-intelligence.json" },

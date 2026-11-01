@@ -987,7 +987,6 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
     const currentModel = emModelRef.current || emModel;
     const steps = [
       { id: "scan", name: "🔍 掃描專案結構" },
-      { id: "feature-map", name: "🗺️ Feature Map" },
       { id: "api-map", name: "🌐 API Map" },
       { id: "code-intelligence", name: "🧠 Code Intelligence" },
       { id: "test-intelligence", name: "🧪 Test Intelligence" },
