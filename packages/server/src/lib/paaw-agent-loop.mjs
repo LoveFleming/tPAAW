@@ -52,6 +52,7 @@ import {
   assertSafeUrl, browserState, PLAYWRIGHT_INSTALL_HINT, resolveBrowserKey,
   recordBrowserAction, takeActionShot, browserShotDir, getVisualMode, visualClick,
 } from "./browser-session.mjs";
+import { readDoc as readDocDb } from "./coding-db/docs.repo.mjs"; // feature docs（2026-11-01 coding.db）
 
 // ── Types ──
 
@@ -693,7 +694,7 @@ export const PAAW_TOOLS = [
       type: "function",
       function: {
         name: "feature_map_update",
-        description: "Register file→feature mappings in THIS project's feature map (.paaw/features/). Use when RR feature-map check lists unmapped delta files, or after creating new files that belong to a feature. The server writes FILE-FEATURES.json + FEATURES.json (validated, backed up, idempotent) — never edit those files directly. featureId format F{YYYYMMDD}-{NNN} (get real ids from project_info(category=features)); new features are auto-registered. After mapping, rr_get to confirm the feature-map item turned green.",
+        description: "Register file→feature mappings in THIS project's feature map (.paaw/features/). Use when RR feature-map check lists unmapped delta files, or after creating new files that belong to a feature. The server writes the feature map into coding.db (validated, idempotent) — never edit feature data directly. featureId format F{YYYYMMDD}-{NNN} (get real ids from project_info(category=features)); new features are auto-registered. After mapping, rr_get to confirm the feature-map item turned green.",
         parameters: {
           type: "object",
           properties: {
@@ -2525,12 +2526,9 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         let out = `【Release Unit context】${cwd.split(/[\\/]/).pop()}\n技術桡：${tech.language} / ${tech.packageManager} / ${(tech.frameworks || []).join(", ") || "-"}\n人寫文件：${found.length ? found.join(", ") : "無"}\n`;
         // Feature Map 可用性提示 - CU 做完 agent 就該用它定位功能,不要從 raw code 開始讀
         try {
-          const fmPath = resolve(cwd, ".paaw", "features", "FEATURES.json");
-          if (existsSync(fmPath)) {
-            const fm = JSON.parse(readSync(fmPath, "utf-8"));
-            const n = (fm.features || []).length;
-            if (n > 0) out += `Feature Map:✅ 已建立(${n} features)- 用 project_info(category=context) 取得專案全貌(feature → files + file → feature),定位功能從這裡開始\n`;
-          }
+          const { loadFeatures: _lf } = await import("./feature-registry.mjs"); // coding.db
+          const n = (_lf(cwd) || []).length;
+          if (n > 0) out += `Feature Map:✅ 已建立(${n} features)- 用 project_info(category=context) 取得專案全貌(feature → files + file → feature),定位功能從這裡開始\n`;
         } catch {}
         if (args.withDocs) {
           for (const d of ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md"]) {
@@ -3185,11 +3183,9 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             } catch (err) { return `Error reading issues: ${err.message}`; }
           }
           case "features": {
-            const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
-            if (!existsSync(featuresFile)) return "(No features registered yet.)";
             try {
-              const data = JSON.parse(readSync(featuresFile, "utf-8"));
-              let features = data.features || [];
+              const { loadFeatures: _lf } = await import("./feature-registry.mjs"); // coding.db
+              let features = _lf(cwd) || [];
               if (args.search) { const s = args.search.toLowerCase(); features = features.filter(f => f.name?.toLowerCase().includes(s) || f.description?.toLowerCase().includes(s)); }
               if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${features.length} features` });
               if (features.length === 0) return "(No matching features found)";
@@ -3276,11 +3272,9 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
           }
           case "feature_detail": {
             if (!args.id) return "Error: 'id' parameter is required for feature_detail.";
-            const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
-            if (!existsSync(featuresFile)) return "(No features registered)";
             try {
-              const data = JSON.parse(readSync(featuresFile, "utf-8"));
-              const feature = (data.features || []).find(f => f.id === args.id);
+              const { loadFeatures: _lf } = await import("./feature-registry.mjs"); // coding.db
+              const feature = (_lf(cwd) || []).find(f => f.id === args.id);
               if (!feature) return `Feature ${args.id} not found`;
               if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: feature.name });
               const parts = [`# Feature: ${feature.name} (${feature.id})`, `Status: ${feature.status}`, ``, `## Description`, feature.description || "(no description)"];
@@ -3362,7 +3356,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
               if (findings.length === 0) { if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: "clean" }); return `No security findings${total ? " matching filter" : ""}. ✅`; }
               // feature 對照(開 task 單掛 featureId 用)- FILE-FEATURES.json repo-relative key
               let fileFeatures = {};
-              try { const ff = JSON.parse(readSync(join(cwd, ".paaw", "features", "FILE-FEATURES.json"), "utf-8")); fileFeatures = ff.files || {}; } catch {}
+              try { fileFeatures = readDocDb(cwd, "fileFeatures")?.files || {}; } catch {}
               const cwdN = cwd.replace(/\\/g, "/");
               const rel = (p) => { const n = String(p || "").replace(/\\/g, "/"); return n.startsWith(cwdN + "/") ? n.slice(cwdN.length + 1) : n; };
               const header = `Security Findings(${findings.length}/${total},scanned ${sec.scannedAt || "(unknown)"}${sec.stats?.bySeverity ? `,severity ${JSON.stringify(sec.stats.bySeverity)}` : ""})`;
@@ -4145,17 +4139,17 @@ baseline ${rr.baseline?.short}(${rr.baseline?.source})→ target ${rr.target?.sh
 
           case "feature_update_docs": {
             if (!args.id || !args.documentation) return "Error: id and documentation are required.";
-            const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
-            if (!existsSync(featuresFile)) return "Error: No features file found.";
-            let data;
-            try { data = JSON.parse(readSync(featuresFile, "utf-8")); } catch { return "Error: Could not parse features file."; }
-            const feature = (data.features || []).find(f => f.id === args.id);
-            if (!feature) return `Error: Feature ${args.id} not found.`;
-            feature.documentation = args.documentation;
-            feature.docsUpdatedAt = new Date().toISOString();
-            writeSync(featuresFile, JSON.stringify(data, null, 2));
-            if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
-            return `✅ Updated docs for ${args.id}: ${feature.name}`;
+            try {
+              const { loadFeatures: _lf, saveFeatures: _sf } = await import("./feature-registry.mjs"); // coding.db
+              const features = _lf(cwd) || [];
+              const feature = features.find(f => f.id === args.id);
+              if (!feature) return `Error: Feature ${args.id} not found.`;
+              feature.documentation = args.documentation;
+              feature.docsUpdatedAt = new Date().toISOString();
+              _sf(cwd, features);
+              if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
+              return `✅ Updated docs for ${args.id}: ${feature.name}`;
+            } catch (e) { return `Error: ${e.message}`; }
           }
 
           // ── feature_delete:移除 feature 記錄(2026-09-06 Fleming:刪 feature 走 agent tool,人不在 UI 手刪)──
@@ -4175,19 +4169,19 @@ baseline ${rr.baseline?.short}(${rr.baseline?.source})→ target ${rr.target?.sh
 
           case "feature_update_mapping": {
             if (!args.id) return "Error: id is required.";
-            const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
-            if (!existsSync(featuresFile)) return "Error: No features file found.";
-            let data;
-            try { data = JSON.parse(readSync(featuresFile, "utf-8")); } catch { return "Error: Could not parse features file."; }
-            const feature = (data.features || []).find(f => f.id === args.id);
-            if (!feature) return `Error: Feature ${args.id} not found.`;
-            if (args.codeFiles) feature.codeFiles = args.codeFiles;
-            if (args.apis) feature.apis = args.apis;
-            if (args.tests) feature.tests = args.tests;
-            if (args.runbooks) feature.runbooks = args.runbooks;
-            writeSync(featuresFile, JSON.stringify(data, null, 2));
-            if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
-            return `✅ Updated mapping for ${args.id}: ${feature.name}`;
+            try {
+              const { loadFeatures: _lf, saveFeatures: _sf } = await import("./feature-registry.mjs"); // coding.db
+              const features = _lf(cwd) || [];
+              const feature = features.find(f => f.id === args.id);
+              if (!feature) return `Error: Feature ${args.id} not found.`;
+              if (args.codeFiles) feature.codeFiles = args.codeFiles;
+              if (args.apis) feature.apis = args.apis;
+              if (args.tests) feature.tests = args.tests;
+              if (args.runbooks) feature.runbooks = args.runbooks;
+              _sf(cwd, features);
+              if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
+              return `✅ Updated mapping for ${args.id}: ${feature.name}`;
+            } catch (e) { return `Error: ${e.message}`; }
           }
 
           case "run_command": {

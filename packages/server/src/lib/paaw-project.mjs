@@ -22,6 +22,8 @@ import { resolve, join, dirname } from "path";
 import { exec as execCb } from "child_process";
 import { shellExec, IS_WIN } from "./shell-exec.mjs";
 import { countSourceFiles, getHeadCommit } from "./cu-source-scan.mjs";
+import { loadFeatures as registryLoadFeatures } from "./feature-registry.mjs";
+import { readDoc as readDocDb } from "./coding-db/docs.repo.mjs";
 
 // ── Helpers ──
 
@@ -197,23 +199,20 @@ export class PaawProject {
     let fileFeatureMap = null;
     // 實際檔案是 FEATURES.json（feature-map step 寫入）— feature-map.json 是舊/不存在的路徑
     try {
-      const fmRaw = await this.readFile("features/FEATURES.json");
-      if (fmRaw) {
-        const fm = JSON.parse(fmRaw);
-        // Compact summary: feature name → key files
-        featureMap = (fm.features || []).map(f => ({
-          id: f.id,
-          name: f.name,
-          codeFiles: (f.codeFiles || []).slice(0, 8),
-          apis: (f.apis || []).slice(0, 5).map(a => `${a.method} ${a.path}`),
-        }));
-      }
+      // coding.db（2026-11-01 單一真相）
+      const fm = { features: registryLoadFeatures(this.projectRoot) || [] };
+      // Compact summary: feature name → key files
+      featureMap = (fm.features || []).map(f => ({
+        id: f.id,
+        name: f.name,
+        codeFiles: (f.codeFiles || []).slice(0, 8),
+        apis: (f.apis || []).slice(0, 5).map(a => `${a.method} ${a.path}`),
+      }));
     } catch {}
-    // File → Feature mapping (reverse index from FILE-FEATURES.json — file→features，非 API routes)
+    // File → Feature mapping (reverse index — file→features，非 API routes；coding.db ru_docs)
     try {
-      const ffRaw = await this.readFile("features/FILE-FEATURES.json");
-      if (ffRaw) {
-        const ffm = JSON.parse(ffRaw);
+      const ffm = readDocDb(this.projectRoot, "fileFeatures");
+      if (ffm) {
         fileFeatureMap = Object.entries(ffm.files || {}).slice(0, 30).map(([file, feats]) => ({
           file,
           feature: (feats || []).map(f => f.name).join(", ") || "",
@@ -768,7 +767,7 @@ export class PaawProject {
       const checks = [
         { id: "scan", file: "scan.json" },
         { id: "architecture", file: "ARCHITECTURE.md" },
-        { id: "feature-map", file: "features/FEATURES.json" },
+        { id: "feature-map", db: "features" }, // coding.db
         { id: "api-spec", file: "specs/api-contract.md" },
         { id: "code-intelligence", file: "code-intelligence/summary.json" },
         { id: "test-intelligence", file: "code-intelligence/test-intelligence.json" },
@@ -778,6 +777,12 @@ export class PaawProject {
         { id: "change-intelligence", file: "changes/change-intelligence.json" },
       ];
       for (const c of checks) {
+        if (c.db === "features") {
+          // coding.db：有 features 就算 done（2026-11-01 單一真相）
+          const n = (registryLoadFeatures(this.projectRoot) || []).length;
+          steps[c.id] = { status: n > 0 ? "done" : "pending", size: n, updatedAt: null };
+          continue;
+        }
         const content = await this.readFile(c.file);
         if (content && content.length > 50 && !content.includes("(待補充)") && !content.includes("(auto-detect)")) {
           steps[c.id] = { status: "done", size: content.length, updatedAt: null };
@@ -916,9 +921,10 @@ export async function maybeWriteProjectDraft(root) {
   const readJson = async (rel) => {
     try { return JSON.parse(await paaw.readFile(rel) || "null"); } catch { return null; }
   };
-  const [fm, ffm, ti, ec] = await Promise.all([
-    readJson("features/FEATURES.json"),
-    readJson("features/FILE-FEATURES.json"),
+  // features / file→feature 對映來源 = coding.db（2026-11-01 單一真相）
+  const fm = { features: registryLoadFeatures(root) || [] };
+  const ffm = readDocDb(root, "fileFeatures");
+  const [ti, ec] = await Promise.all([
     readJson("code-intelligence/test-intelligence.json"),
     readJson("error-codes.json"),
   ]);

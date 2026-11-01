@@ -23,6 +23,8 @@ import { shellExec } from "./shell-exec.mjs";
 import { readLastTestRun } from "./test-runner.mjs";
 import { buildEvidenceMatrix, loadSecurityScan, loadReviewBoard } from "./release-evidence.mjs";
 import { resolveBaseline } from "./release-requests.mjs";
+import { loadFeatures } from "./feature-registry.mjs";
+import { readDoc } from "./coding-db/docs.repo.mjs";
 
 const _normPath = (p) => String(p || "").replace(/\\/g, "/").replace(/^\.\//, "");
 
@@ -71,8 +73,7 @@ async function loadModel(projectPath) {
     } catch { /* 走降級合成 */ }
   }
   try {
-    const feats = JSON.parse(readFileSync(join(projectPath, ".paaw", "features", "FEATURES.json"), "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
-    const list = Array.isArray(feats) ? feats : feats.features || [];
+    const list = loadFeatures(projectPath); // coding.db 單一真相
     return {
       degraded: true,
       model: { headSha: null, features: list.map((f) => ({ id: f.id, name: f.name || f.title || f.id, status: f.status || null, files: (f.codeFiles || f.files || []).map(_normPath), apis: [], tests: [], changes: [] })) },
@@ -119,7 +120,7 @@ function buildApiCoverageMatcher(projectPath) {
 // delta join 以對映表為主、model files 為輔（union）──
 function loadFileFeatureMap(projectPath) {
   try {
-    const d = JSON.parse(readFileSync(join(projectPath, ".paaw", "features", "FILE-FEATURES.json"), "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    const d = readDoc(projectPath, "fileFeatures"); // coding.db ru_docs
     const files = (d && typeof d === "object" && d.files) ? d.files : (d || {});
     const map = new Map(); // norm path -> [{id,name}]
     for (const [fp, feats] of Object.entries(files)) {

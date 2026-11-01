@@ -17,9 +17,10 @@
  * 不變式與誠實性：concept 永不宣稱 100% coverage；kind 一律 "overlay"；每條留 evidence。
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { stableStringify } from "./stable-stringify.mjs";
+import { readDoc, writeDoc } from "./coding-db/docs.repo.mjs";
 
 const norm = (p) => String(p).replace(/\\/g, "/");
 
@@ -246,15 +247,15 @@ export function computeCrosscutConcepts(projectRoot, parsed, dm, opts = {}) {
  */
 export async function enrichCrosscutConcepts(projectRoot, { callLLM, model, onProgress } = {}) {
   if (!callLLM) throw new Error("enrichCrosscutConcepts: callLLM required");
-  const p = join(projectRoot, ".paaw", "features", "CROSSCUT-CONCEPTS.json");
-  const cur = JSON.parse(readFileSync(p, "utf-8"));
+  const cur = readDoc(projectRoot, "crosscut");
+  if (!cur) throw new Error("CROSSCUT-CONCEPTS not found — run Code Understanding first");
   const concepts = cur.concepts || [];
   if (concepts.length === 0) return cur;
 
   const featName = new Map();
   try {
-    const fj = JSON.parse(readFileSync(join(projectRoot, ".paaw", "features", "FEATURES.json"), "utf-8"));
-    for (const f of fj.features || []) featName.set(f.id, f.name || "");
+    const { loadFeatures } = await import("./feature-registry.mjs");
+    for (const f of loadFeatures(projectRoot)) featName.set(f.id, f.name || "");
   } catch { /* 沒 FEATURES 也能跑 */ }
 
   const items = concepts.map((c) => {
@@ -317,15 +318,14 @@ export async function enrichCrosscutConcepts(projectRoot, { callLLM, model, onPr
     }));
 
   const out = { ...cur, concepts, gapReport, enrichedAt: now, stats: { ...(cur.stats || {}), aiEnriched: true, aiClipped: concepts.filter((c) => c.aiClipped).length, gaps: gapReport.length } };
-  writeFileSync(p, JSON.stringify(out, null, 2));
+  writeDoc(projectRoot, "crosscut", out);
 
   try {
-    const mp = join(projectRoot, ".paaw", "features", "FEATURE-MAP-META.json");
-    const meta = JSON.parse(readFileSync(mp, "utf-8"));
+    const meta = readDoc(projectRoot, "mapMeta", {});
     meta.crosscutConcepts = concepts;
     meta.crosscutStats = out.stats;
     meta.gapReport = gapReport;
-    writeFileSync(mp, JSON.stringify(meta, null, 2));
+    writeDoc(projectRoot, "mapMeta", meta);
   } catch { /* meta 可能不存在 */ }
 
   return out;

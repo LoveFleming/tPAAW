@@ -12,6 +12,8 @@
  */
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { loadFeatures as registryLoadFeatures } from "./feature-registry.mjs";
+import { readDoc } from "./coding-db/docs.repo.mjs";
 
 /**
  * Load FEATURES.json and FILE-FEATURES.json from .paaw/
@@ -19,20 +21,14 @@ import { join } from "node:path";
  * @returns {{ features: Array, fileFeatureMap: Object } | null}
  */
 export function loadFeatureData(rootDir) {
-  const featuresFile = join(rootDir, ".paaw", "features", "FEATURES.json");
-  const fileFeaturesFile = join(rootDir, ".paaw", "features", "FILE-FEATURES.json");
-
-  if (!existsSync(featuresFile)) return null;
-
+  // coding.db 單一真相（2026-11-01）
   try {
-    const fData = JSON.parse(readFileSync(featuresFile, "utf-8"));
-    const features = fData.features || (Array.isArray(fData) ? fData : []);
+    const features = registryLoadFeatures(rootDir);
+    if (!features?.length) return null;
 
     let fileFeatureMap = {};
-    if (existsSync(fileFeaturesFile)) {
-      const ffData = JSON.parse(readFileSync(fileFeaturesFile, "utf-8"));
-      fileFeatureMap = ffData.files || ffData;
-    }
+    const ff = readDoc(rootDir, "fileFeatures");
+    if (ff) fileFeatureMap = ff.files || ff;
 
     return { features, fileFeatureMap };
   } catch {

@@ -13,18 +13,13 @@
 import { readFile, writeFile } from "fs/promises";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
+import { loadFeatures as registryLoadFeatures } from "./feature-registry.mjs";
 
 function loadFeatures(cwd) {
-  const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
-  if (!existsSync(featuresFile)) return { error: "no-features-file" };
   try {
-    const fdata = JSON.parse(readFileSync(featuresFile, "utf-8"));
-    return {
-      features: (Array.isArray(fdata) ? fdata : fdata.features || []),
-      updatedAt: fdata?.updatedAt || null,
-    };
+    return { features: registryLoadFeatures(cwd) || [] }; // coding.db（2026-11-01 單一真相）
   } catch (e) {
-    return { error: `FEATURES.json parse 失敗: ${e.message}` };
+    return { error: `features 讀取失敗: ${e.message}` };
   }
 }
 
@@ -91,8 +86,8 @@ export async function qualityDebtSummary(cwd) {
  */
 export async function runTaskRetrofit(cwd, opts = {}) {
   const f = loadFeatures(cwd);
-  if (f.error === "no-features-file") {
-    return { ok: false, error: "找不到 .paaw/features/FEATURES.json — 先跑 feature map 掃描再補強。" };
+  if (f.error) {
+    return { ok: false, error: `${f.error} — 先跑 feature map 掃描再補強。` };
   }
   if (f.error) return { ok: false, error: f.error };
 
@@ -106,7 +101,7 @@ export async function runTaskRetrofit(cwd, opts = {}) {
   if (invalid.length) return { ok: false, error: `未知 feature id：${invalid.join(", ")}` };
   const features = f.features.filter(x => x.status !== "deprecated" && (!wanted || wanted.has(x.id)));
   if (features.length === 0) {
-    return { ok: false, error: `沒有符合條件的 feature（active${wanted ? " + featureIds 過濾" : ""}）。FEATURES.json 共 ${f.features.length} 個。` };
+    return { ok: false, error: `沒有符合條件的 feature（active${wanted ? " + featureIds 過濾" : ""}）。features 共 ${f.features.length} 個。` };
   }
 
   // 反查脈絡：哪些 task 動過這個 feature 的檔案（只當 description 脈絡，不是補強單位）

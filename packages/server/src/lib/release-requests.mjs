@@ -34,6 +34,7 @@ import { buildChangeIntelligence } from "./change-intelligence.mjs";
 import { checkGates } from "./release-unit/gates.mjs";
 import { readLastTestRun } from "./test-runner.mjs";
 import { listQaResults } from "./qa-results.mjs";
+import { readDoc } from "./coding-db/docs.repo.mjs";
 
 // ── Checklist 定義（四項，2026-09-17 Fleming 定案）──
 
@@ -435,9 +436,8 @@ export async function autoCheckAll(projectPath, scope, opts = {}) {
     // 歸類來源取聯集：FILE-FEATURES.json（coding app feature map）+ release-unit-model.json（RU model
     // 的 features[].files）— 兩邊都是合法歸類記錄，追任一邊都算可追溯
     const mapped = new Set();
-    const ffPath = join(projectPath, ".paaw", "features", "FILE-FEATURES.json");
-    if (existsSync(ffPath)) {
-      const ff = JSON.parse(readFileSync(ffPath, "utf-8"));
+    const ff = readDoc(projectPath, "fileFeatures"); // coding.db ru_docs
+    if (ff) {
       for (const k of Object.keys(ff.files || {})) mapped.add(String(k).replace(/\\/g, "/"));
     }
     try {
@@ -451,7 +451,7 @@ export async function autoCheckAll(projectPath, scope, opts = {}) {
     out["feature-map"] = {
       status: unmapped.length ? "fail" : "pass",
       detail: unmapped.length
-        ? `${unmapped.length} 個 delta 檔案未歸類到任何 feature：${unmapped.slice(0, 5).join("、")}${unmapped.length > 5 ? "…" : ""} — 更新 .paaw/features/FILE-FEATURES.json（新功能順勢登記新 feature）`
+        ? `${unmapped.length} 個 delta 檔案未歸類到任何 feature：${unmapped.slice(0, 5).join("、")}${unmapped.length > 5 ? "…" : ""} — 用 feature_map_update 工具歸類（新功能順勢登記新 feature，server 寫 coding.db）`
         : `delta ${attributable.length} 檔全部歸類完成`,
       checkedAt: at,
       ...(unmapped.length ? { unmapped } : {}),

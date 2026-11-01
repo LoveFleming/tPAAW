@@ -31,7 +31,8 @@
  */
 
 import { readFile, writeFile, readdir, mkdir, unlink, appendFile, stat as fsStat } from "fs/promises";
-import { nextFeatureIds } from "../lib/feature-registry.mjs"; // 2026-09-04：CU feature-map 產 F{YYYYMMDD}-{seq} 新格式 ID（原 F-001 舊格式的真正源頭）
+import { nextFeatureIds, loadFeatures } from "../lib/feature-registry.mjs"; // 2026-09-04：CU feature-map 產 F{YYYYMMDD}-{seq} 新格式 ID（原 F-001 舊格式的真正源頭）
+import { writeDoc, readDoc } from "../lib/coding-db/docs.repo.mjs"; // 2026-11-01：feature docs 進 coding.db
 import { existsSync, readFileSync as readSync, readdirSync, statSync, openSync, readSync as fsReadSync, closeSync as fsCloseSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -576,11 +577,9 @@ export default async function projectRoute(req, res) {
       if (actionLogText) extraContext.push(`\n## Recent Action Log (跨 Agent 交接紀錄)\n${actionLogText}`);
       if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
       // Inject feature map summary
-      const featuresFile = join(projRoot, ".paaw", "features", "FEATURES.json");
-      if (existsSync(featuresFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      {
         try {
-          const fData = JSON.parse(readSync(featuresFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
-          const feats = fData.features || [];
+          const feats = loadFeatures(projRoot);
           if (feats.length > 0) {
             const fLines = feats.map(f => {
               const p = [`- [${f.id}] ${f.name} (${f.status})`];
@@ -827,12 +826,10 @@ export default async function projectRoute(req, res) {
       const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
       const loadProviderConfig = (await import("../context-engine.mjs")).loadProviderConfig;
 
-      // Feature map
-      const fFile = join(projRoot, ".paaw", "features", "FEATURES.json");
-      if (existsSync(fFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      // Feature map（coding.db）
+      {
         try {
-          const fData = JSON.parse(readSync(fFile, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
-          const feats = fData.features || [];
+          const feats = loadFeatures(projRoot);
           if (feats.length > 0) {
             const fLines = feats.map(f => {
               const p = [`- [${f.id}] ${f.name} (${f.status})`];
@@ -3272,10 +3269,8 @@ export default async function projectRoute(req, res) {
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                   }));
-                  const featuresDir = join(root, ".paaw", "features");
-                  if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
-                  await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
-                  // Generate file→features reverse mapping (FILE-FEATURES.json)
+                  saveFeatures(root, featuresWithIds); // coding.db（2026-11-01 單一真相）
+                  // Generate file→features reverse mapping (ru_docs:fileFeatures)
                   const fileFeatureMap = {};
                   for (const feat of featuresWithIds) {
                     const allFiles = [...(feat.codeFiles || []), ...(feat.tests || []), ...(feat.runbooks || [])];
@@ -3295,7 +3290,7 @@ export default async function projectRoute(req, res) {
                       }
                     }
                   }
-                  await writeFile(join(featuresDir, "FILE-FEATURES.json"), JSON.stringify({ files: fileFeatureMap, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                  writeDoc(root, "fileFeatures", { files: fileFeatureMap, updatedAt: new Date().toISOString() });
                   cuLog(step.id, `Saved ${featuresWithIds.length} features + ${Object.keys(fileFeatureMap).length} file→feature mappings`);
                 }
               } catch (parseErr) {
@@ -3320,9 +3315,7 @@ export default async function projectRoute(req, res) {
                   if (Array.isArray(feats) && feats.length > 0) {
                     const featureIdBatch = nextFeatureIds(root, feats.length);
                     const featuresWithIds = feats.map(sanitizeFeature).filter(Boolean).map((f, i) => ({ ...f, id: featureIdBatch[i], issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
-                    const featuresDir = join(root, ".paaw", "features");
-                    if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
-                    await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                    saveFeatures(root, featuresWithIds); // coding.db
                     // Generate file→features reverse mapping
                     const fileFeatureMap = {};
                     for (const feat of featuresWithIds) {
@@ -3333,7 +3326,7 @@ export default async function projectRoute(req, res) {
                         fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
                       }
                     }
-                    await writeFile(join(featuresDir, "FILE-FEATURES.json"), JSON.stringify({ files: fileFeatureMap, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                    writeDoc(root, "fileFeatures", { files: fileFeatureMap, updatedAt: new Date().toISOString() });
                     cuLog(step.id, `Recovery: saved ${featuresWithIds.length} features + ${Object.keys(fileFeatureMap).length} file→feature mappings`);
                   } else throw new Error("recovered array is empty");
                 } catch (recoverErr) {
@@ -3760,9 +3753,7 @@ export default async function projectRoute(req, res) {
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
                     }));
-                    const featuresDir = join(root, ".paaw", "features");
-                    if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
-                    await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                    saveFeatures(root, featuresWithIds); // coding.db
                     // Generate file→features reverse mapping
                     const fileFeatureMap = {};
                     for (const feat of featuresWithIds) {
@@ -3782,7 +3773,7 @@ export default async function projectRoute(req, res) {
                         }
                       }
                     }
-                    await writeFile(join(featuresDir, "FILE-FEATURES.json"), JSON.stringify({ files: fileFeatureMap, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                    writeDoc(root, "fileFeatures", { files: fileFeatureMap, updatedAt: new Date().toISOString() });
                     featureMapOk = true;
                     cuLog(step.id, `[bulk] Saved ${featuresWithIds.length} features + ${Object.keys(fileFeatureMap).length} file→feature mappings`);
                   }
@@ -3810,7 +3801,7 @@ export default async function projectRoute(req, res) {
                     const featuresWithIds = feats.map(sanitizeFeature).filter(Boolean).map((f, i) => ({ ...f, id: featureIdBatch[i], issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
                       const featuresDir = join(root, ".paaw", "features");
                       if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
-                      await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                      saveFeatures(root, featuresWithIds); // coding.db
                       // Generate file→features reverse mapping
                       const fileFeatureMap = {};
                       for (const feat of featuresWithIds) {
@@ -3821,7 +3812,7 @@ export default async function projectRoute(req, res) {
                           fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
                         }
                       }
-                      await writeFile(join(featuresDir, "FILE-FEATURES.json"), JSON.stringify({ files: fileFeatureMap, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                      writeDoc(root, "fileFeatures", { files: fileFeatureMap, updatedAt: new Date().toISOString() });
                       cuLog(step.id, `[bulk] Recovery: saved ${featuresWithIds.length} features from truncated JSON`);
                       featureMapOk = true;
                     } else throw new Error("recovered array is empty");

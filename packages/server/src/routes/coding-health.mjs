@@ -13,6 +13,7 @@
 import { readFileSync as readSync, existsSync, statSync, readdirSync } from "fs";
 import { join, resolve, dirname, relative, isAbsolute } from "path";
 import { fileURLToPath } from "url";
+import { loadFeatures } from "../lib/feature-registry.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -92,10 +93,9 @@ export default async function codingHealthRoute(req, res) {
 
   // 2. Feature map
   try {
-    const featuresFile = join(projRoot, ".paaw", "features", "FEATURES.json");
-    if (existsSync(featuresFile)) {
-      const data = JSON.parse(readSync(featuresFile, "utf-8"));
-      const features = data.features || (Array.isArray(data) ? data : []);
+    {
+      const features = loadFeatures(projRoot); // coding.db（2026-11-01 單一真相）
+      const data = { updatedAt: null };
       const withUnderstanding = features.filter(f => f.aiUnderstanding).length;
       const withTests = features.filter(f => (f.tests || []).length > 0).length;
       checks.featureMap = {
@@ -129,8 +129,6 @@ export default async function codingHealthRoute(req, res) {
         checks.featureMap.missingFiles = missingFiles;
         checks.featureMap.message = `${missingFiles} mapped files not found on disk — feature map is stale`;
       }
-    } else {
-      checks.featureMap = { status: "warn", message: "FEATURES.json not found" };
     }
   } catch (err) {
     checks.featureMap = { status: "fail", message: err.message };

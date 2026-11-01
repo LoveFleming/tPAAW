@@ -23,6 +23,8 @@ import { join, dirname } from "path";
 import { shellExec } from "../shell-exec.mjs";
 import { hashObject } from "../stable-hash.mjs";
 import { stableStringify } from "../stable-stringify.mjs";
+import { loadFeatures } from "../feature-registry.mjs";
+import { readDoc, readDocUpdatedAt } from "../coding-db/docs.repo.mjs";
 
 // ── Content-addressed（2026-08-22）：entry 指紋 _h + table 指紋 + 寫檔 gate ──
 // 全量重建照舊（不漂保證）；落盤前比指紋 — 內容不變就不寫（git 零 diff）。
@@ -111,14 +113,13 @@ export async function buildReleaseUnitModel(root, opts = {}) {
   const save = opts.save !== false;
 
   const ciDir = join(root, ".paaw", "code-intelligence");
-  const featuresData = _readJson(join(root, ".paaw", "features", "FEATURES.json"), null);
-  const fileFeatures = _readJson(join(root, ".paaw", "features", "FILE-FEATURES.json"), {});
+  const features = loadFeatures(root); // coding.db 單一真相（2026-11-01）
+  const fileFeatures = readDoc(root, "fileFeatures", {}) ?? {};
   const apiMap = _readJson(join(ciDir, "api-function-map.json"), { routes: [] });
   const testMap = _readJson(join(ciDir, "test-code-map.json"), { mappings: [] });
   const tiData = _readJson(join(ciDir, "test-intelligence.json"), null); // classifyTestType 的 kind 在這
   const depGraph = _readJson(join(ciDir, "dependency-graph.json"), { files: [], edges: [] });
 
-  const features = (featuresData?.features || (Array.isArray(featuresData) ? featuresData : []));
   const fileToFeature = fileFeatures.files || fileFeatures; // { path: [{id,name}] }
 
   // file → feature ids（複來源：FILE-FEATURES 直查 + feature.codeFiles 成員）
@@ -368,11 +369,11 @@ function _ciSourcesNewer(root) {
     for (const f of ["test-code-map.json", "api-function-map.json", "test-intelligence.json"]) {
       try { if (statSync(join(ciDir, f)).mtimeMs > modelMtime) return true; } catch { /* 無此檔不算 */ }
     }
-    // 2026-10-28：feature 映射檔也是情報源 — agent 更新 FILE-FEATURES/FEATURES（不動 headSha、
-    // feature 數不變時）舊版照樣不重建 → 共同擁有權/新映射隐形。一併比 mtime。
-    for (const f of [join(root, ".paaw", "features", "FILE-FEATURES.json"), join(root, ".paaw", "features", "FEATURES.json")]) {
-      try { if (statSync(f).mtimeMs > modelMtime) return true; } catch { /* 無此檔不算 */ }
-    }
+    // 2026-11-01：feature 資料已進 coding.db — ru_docs updated_at 比模型檔新 = 情報源更新，重建
+    try {
+      const u = readDocUpdatedAt(root, "fileFeatures");
+      if (u && new Date(u).getTime() > modelMtime) return true;
+    } catch { /* db 無資料不算 */ }
   } catch { /* model 檔不存 → 本來就會重建 */ }
   return false;
 }
@@ -386,8 +387,7 @@ export async function loadReleaseUnitModel(root, { refresh = false } = {}) {
       if (head && m.headSha === head) {
         // 2026-09-04：FEATURES.json 是 .paaw 檔（不影響 headSha）— feature 數不一致 = 過期重建
         // 病例：CU 先建 RU model（0 features）後跑 feature-map → cockpit 永遠拿空 model
-        const cur = _readJson(join(root, ".paaw", "features", "FEATURES.json"), null);
-        const curCount = Array.isArray(cur?.features) ? cur.features.length : Array.isArray(cur) ? cur.length : 0;
+        const curCount = loadFeatures(root).length; // coding.db
         const modelCount = Array.isArray(m.features) ? m.features.length : 0;
         if (curCount === modelCount && !_ciSourcesNewer(root)) return { ...m, stale: false };
       }

@@ -20,6 +20,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { join, extname, relative, resolve } from "path";
 import { exec } from "child_process";
+import { loadFeatures } from "./feature-registry.mjs";
 
 // ── Source file extensions we care about ──
 const SOURCE_EXTS = new Set([".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".py", ".java", ".go", ".rb", ".php", ".c", ".cpp", ".cs", ".rs"]);
@@ -455,19 +456,12 @@ export function validateFeatureQuality(features) {
 }
 
 export async function runFullValidation(projectRoot, options = {}) {
-  const featuresFile = join(projectRoot, ".paaw", "features", "FEATURES.json");
-  if (!existsSync(featuresFile)) {
-    return { ok: false, error: "No FEATURES.json found" };
-  }
-
   let features;
   try {
-    const data = JSON.parse(readFileSync(featuresFile, "utf-8"));
-    features = data.features || (Array.isArray(data) ? data : []);
+    features = loadFeatures(projectRoot); // coding.db（2026-11-01 單一真相）
   } catch (err) {
     return { ok: false, error: `Failed to load features: ${err.message}` };
   }
-
   if (features.length === 0) {
     return { ok: false, error: "No features to validate" };
   }

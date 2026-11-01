@@ -65,11 +65,9 @@ import { stableStringify } from "../lib/stable-stringify.mjs";
 // ── Feature Map Summary (injected into system prompt) ──
 async function getFeatureSummary(cwd) {
   if (!cwd) return "";
-  const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
-  if (!existsSync(featuresFile)) return "";
   try {
-    const data = JSON.parse(readSync(featuresFile, "utf-8"));
-    const features = data.features || [];
+    const { loadFeatures } = await import("../lib/feature-registry.mjs"); // coding.db（2026-11-01 單一真相）
+    const features = loadFeatures(cwd);
     if (features.length === 0) return "";
     const lines = features.map(f => {
       const parts = [`- [${f.id}] ${f.name} (${f.status})`];

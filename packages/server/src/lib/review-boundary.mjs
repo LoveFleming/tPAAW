@@ -13,6 +13,7 @@ import { exec as _exec } from "child_process";
 import { promisify } from "util";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
+import { readDoc } from "./coding-db/docs.repo.mjs";
 
 const execAsync = promisify(_exec);
 
@@ -109,10 +110,9 @@ function _featureFor(path, fileFeatureMap) {
 }
 
 function _loadFileFeatureMap(projectPath) {
-  const ffFile = join(projectPath, ".paaw", "features", "FILE-FEATURES.json");
-  if (!existsSync(ffFile)) return {};
   try {
-    const data = JSON.parse(readFileSync(ffFile, "utf-8"));
+    const data = readDoc(projectPath, "fileFeatures"); // coding.db ru_docs
+    if (!data) return {};
     return data.files || data;
   } catch {
     return {};
@@ -124,9 +124,7 @@ function _loadFileFeatureMap(projectPath) {
 // evidence 是 file:line:symbol，檔案級比對（v1）；line 級留待 diff hunk 分析。
 /** 🧪 可信回歸清單：改動 feature → 它有那些測試、哪些真的跑得起來 */
 function _loadTestSignals(projectPath) {
-  const p = join(projectPath, ".paaw", "features", "TEST-SIGNALS.json");
-  if (!existsSync(p)) return null;
-  try { return JSON.parse(readFileSync(p, "utf-8")); } catch { return null; }
+  try { return readDoc(projectPath, "testSignals"); } catch { return null; } // coding.db
 }
 
 async function _regressionTests(changedPaths, projectPath, fileFeatureMap, featuresInTask) {
@@ -162,11 +160,10 @@ async function _regressionTests(changedPaths, projectPath, fileFeatureMap, featu
   return out;
 }
 
-function _loadCrosscut(projectPath) {  const p = join(projectPath, ".paaw", "features", "CROSSCUT-CONCEPTS.json");
-  if (!existsSync(p)) return [];
+function _loadCrosscut(projectPath) {
   try {
-    const d = JSON.parse(readFileSync(p, "utf-8"));
-    return (d.concepts || []).filter((c) => !c.aiClipped);
+    const d = readDoc(projectPath, "crosscut"); // coding.db
+    return ((d && d.concepts) || []).filter((c) => !c.aiClipped);
   } catch {
     return [];
   }

@@ -21,6 +21,7 @@ import { loadFeatureData, matchFeaturesForFiles, buildFeatureFileTree, buildCont
 import { PaawProject } from "./paaw-project.mjs";
 import { listActionLog } from "./action-log.mjs";
 import { stableStringify } from "./stable-stringify.mjs";
+import { loadFeatures, saveFeatures } from "./feature-registry.mjs";
 
 
 // ── Context Gathering（統一版） ──
@@ -250,11 +251,8 @@ function gatherSecuritySummary(rootDir) {
 // ── Helper: feature summary text ──
 
 function getFeatureSummaryText(rootDir) {
-  const featuresFile = join(rootDir, ".paaw", "features", "FEATURES.json");
-  if (!existsSync(featuresFile)) return "(no features registered)";
   try {
-    const data = JSON.parse(readFileSync(featuresFile, "utf-8"));
-    const features = Array.isArray(data) ? data : (data.features || []);
+    const features = loadFeatures(rootDir); // coding.db
     if (features.length === 0) return "(no features)";
     return features.map(f => `- [${f.id}] ${f.name} (${f.status}): ${f.codeFiles?.length || 0} files`).join("\n");
   } catch {
@@ -471,20 +469,12 @@ export async function refreshFeatureMapping(projRoot, modelOverride, fallbackMod
   const { resolveLLMConfig } = await import("./paaw-agent-loop.mjs");
   const { callLLMWithRetry } = await import("./llm-utils.mjs");
 
-  // Load existing features
-  const featuresFile = join(projRoot, ".paaw", "features", "FEATURES.json");
-  if (!existsSync(featuresFile)) {
-    return { ok: false, error: "No FEATURES.json found. Run Code Understanding first." };
-  }
-
+  // Load existing features（coding.db 單一真相）
   let features;
   try {
-    const data = JSON.parse(readFileSync(featuresFile, "utf-8"));
-    // 2026-08-29: CU 寫入的是 {features: [...], updatedAt} dict 形狀，其他讀取端（validator/tools）
-    // 都支援雙形狀，這裡之前只接 array → 誤報「No features to update」
-    features = data.features || (Array.isArray(data) ? data : []);
+    features = loadFeatures(projRoot);
     if (features.length === 0) {
-      return { ok: false, error: "No features to update." };
+      return { ok: false, error: "No features to update. Run Code Understanding first." };
     }
   } catch (err) {
     return { ok: false, error: `Failed to load features: ${err.message}` };
@@ -645,10 +635,8 @@ Output ONLY the JSON array, no markdown fences.`;
       updatedCount++;
     }
 
-    // Save features
-    const featuresDir = join(projRoot, ".paaw", "features");
-    if (!existsSync(featuresDir)) mkdirSync(featuresDir, { recursive: true });
-    writeFileSync(featuresFile, JSON.stringify(features, null, 2), "utf-8");
+    // Save features（coding.db 單一真相）
+    saveFeatures(projRoot, features);
 
     if (sendSSE) sendSSE("info", { message: `🗺️ Feature Map 已更新：${updatedCount}/${features.length} features` });
     return { ok: true, updated: updatedCount, total: features.length };

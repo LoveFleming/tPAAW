@@ -22,6 +22,7 @@ import { readFileSync, existsSync, readdirSync, statSync, mkdirSync } from "fs";
 import { diffWriteJson } from "./stable-hash.mjs";
 import { testReportSummary } from "./test-report-reader.mjs";
 import { parseProject } from "./tree-sitter-parser.mjs";
+import { loadFeatures } from "./feature-registry.mjs";
 
 // ── Test file patterns ──
 
@@ -296,12 +297,11 @@ export async function buildTestIntelligence(projectRoot, paawRoot, { persist = t
     .sort((a, b) => b.functionCount - a.functionCount);
 
   // Build feature → tests mapping
-  const featuresPath = join(projectRoot, ".paaw", "features", "FEATURES.json");
   const featureToTests = [];
-  if (existsSync(featuresPath)) {
+  {
     try {
-      const features = JSON.parse(readFileSync(featuresPath, "utf-8"));
-      for (const feature of features.features || []) {
+      const features = loadFeatures(projectRoot); // coding.db
+      for (const feature of features) {
         const tests = new Set();
         for (const codeFile of (feature.codeFiles || [])) {
           const testEntries = codeToTest[codeFile];

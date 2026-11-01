@@ -1,6 +1,5 @@
 /**
- * coding-db repos — dual-write（Phase A）+ 查詢入口
- * 全部 best-effort：db 掛了不能擋原檔案路徑（Phase B 切讀後才以 db 為準）
+ * coding-db repos — 查詢入口（2026-11-01 起 db 為單一真相，dual-write 過渡期結束）
  */
 import { openCodingDb } from "./connection.mjs";
 import { saveTasks } from "./tasks.repo.mjs";
@@ -18,6 +17,7 @@ export {
 export { saveTasks } from "./tasks.repo.mjs";
 export { saveFeatures } from "./features.repo.mjs";
 export { openCodingDb } from "./connection.mjs";
+export { readDoc, writeDoc, hasDoc, deleteDoc, readDocUpdatedAt, DOC_FILES } from "./docs.repo.mjs";
 
 // Phase B 讀取函式
 export {

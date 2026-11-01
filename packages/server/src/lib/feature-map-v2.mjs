@@ -31,6 +31,7 @@ import { nextFeatureIds, loadFeatures, saveFeatures, mergeFeaturesWithExisting }
 import { autoScanAllFeatureSeverities } from "./feature-risk-scan.mjs";
 import { DATA_HOME } from "../data-home.mjs";
 import { stableStringify } from "./stable-stringify.mjs";
+import { writeDoc, deleteDoc } from "./coding-db/docs.repo.mjs";
 
 const _str = (v, max = 300) => (typeof v === "string" ? v.slice(0, max) : "");
 const _arr = (v, max = 40) => (Array.isArray(v) ? v.filter(x => typeof x === "string").slice(0, max).map(x => x.slice(0, 160)) : []);
@@ -190,9 +191,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
 
   if (dm.features.length === 0 && dm.orphans.length === 0) {
     const meta = { method: "deterministic-v2", scannedAt: new Date().toISOString(), stats: dm.stats, shared: dm.shared, orphans: dm.orphans, note: "空 repo（無 source 檔可分析）— features 為空是正確結果" };
-    const featuresDir = join(projectRoot, ".paaw", "features");
-    mkdirSync(featuresDir, { recursive: true });
-    writeFileSync(join(featuresDir, "FEATURE-MAP-META.json"), JSON.stringify(meta, null, 2));
+    writeDoc(projectRoot, "mapMeta", meta);
     return { features: [], meta };
   }
   // 2026-10-23 Fleming 回報 Rust 專案「跑完但空 map」：舊版在 features=0（Rust 無 route/ui/pub 偵測時）
@@ -445,9 +444,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
     if (Array.isArray(feat.subFeatures)) for (const s of feat.subFeatures) s.id = `${feat.id}-${s.key}`;
   }
 
-  const featuresDir = join(projectRoot, ".paaw", "features");
-  mkdirSync(featuresDir, { recursive: true });
-  saveFeatures(projectRoot, features); // 走 registry（備份輪替 + 標準形狀）
+  saveFeatures(projectRoot, features); // 走 registry（db 單一真相）
 
   // ── 橫切關注點（Cross-cutting Concepts）— overlay 層，確定性、零 token ──
   // 解「Budget Control 找不到獨立 feature」這類先天盲區：L1 是檔案歸屬的分割（partition），
@@ -458,7 +455,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
     crosscut = computeCrosscutConcepts(projectRoot, parsed, { features: features.filter((f) => f.status !== "retired") });
     if (crosscut.concepts.length) {
       onProgress?.(`橫切概念 ${crosscut.stats.concepts} 條（缺口 ${crosscut.stats.gaps} 條）`);
-      writeFileSync(join(featuresDir, "CROSSCUT-CONCEPTS.json"), JSON.stringify({ scannedAt: new Date().toISOString(), ...crosscut }, null, 2));
+      writeDoc(projectRoot, "crosscut", { scannedAt: new Date().toISOString(), ...crosscut });
     }
   } catch (e) {
     console.error("[feature-map] crosscut concepts:", e?.message || e);
@@ -481,7 +478,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
       (fileFeatureMap[norm] ||= []).push(entry);
     }
   }
-  writeFileSync(join(featuresDir, "FILE-FEATURES.json"), JSON.stringify({ files: fileFeatureMap, updatedAt: now }, null, 2));
+  writeDoc(projectRoot, "fileFeatures", { files: fileFeatureMap, updatedAt: now });
 
   const orphanAssigned = new Set(orphanGroups.flatMap(g => g.files));
 
@@ -496,7 +493,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
       featureIds: features.map(f => f.id),
       featureTests: features.map(f => f.tests || []),
     });
-    writeFileSync(join(featuresDir, "TEST-SIGNALS.json"), JSON.stringify(testSignals, null, 2));
+    writeDoc(projectRoot, "testSignals", testSignals);
   } catch (e) {
     console.error("[feature-map] test signals:", e?.message || e);
   }
@@ -525,12 +522,13 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
     note: "骨架 = Tier 分流（source/example/tooling/docs）→ barrel 塌縮 → Label Propagation 社群（100% 覆蓋、無 shared 黑洞）→ 目錄切分/寬目錄 roll-up → 入口標註（數學決定論，重跑不變）；grade=deterministic。長肉 = 每 feature 一個獨立 agent loop（core-read，多輪讀 code）；大 feature 由 L2 內生判準拆穩定子群（subFeatures，grade=deterministic-sub）。",
     skeleton: "deterministic-v3（label-propagation, 語言無關：js/ts/tsx/py/java/go/rust）",
   };
-  writeFileSync(join(featuresDir, "FEATURE-MAP-META.json"), JSON.stringify(meta, null, 2));
+  writeDoc(projectRoot, "mapMeta", meta);
 
   // tree-sitter 完整分析留檔（debug 用，同 v1 行為）
   try {
     const { formatForAI } = await import("./tree-sitter-parser.mjs");
-    writeFileSync(join(featuresDir, "tree-sitter-analysis.txt"), formatForAI(parsed));
+    mkdirSync(join(projectRoot, ".paaw", "features"), { recursive: true });
+    writeFileSync(join(projectRoot, ".paaw", "features", "tree-sitter-analysis.txt"), formatForAI(parsed));
   } catch {}
 
   try { rmSync(partsDir, { recursive: true, force: true }); } catch {} // 全部完成 — parts 清場

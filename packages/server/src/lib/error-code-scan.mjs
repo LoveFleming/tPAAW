@@ -19,6 +19,7 @@ import { join, resolve, relative, extname } from "path";
 import { DATA_HOME } from "../data-home.mjs";
 import { loadProjectIgnore } from "./cu-source-scan.mjs";
 import { stableStringify } from "./stable-stringify.mjs";
+import { loadFeatures } from "./feature-registry.mjs";
 
 // ── 語言泛用的 error 訊號（不認任何命名慣例） ──
 const SIGNAL_RULES = [
@@ -74,8 +75,7 @@ export function collectErrorSignals(root) {
   const fileToFeatures = new Map();
   let featureOrder = [];
   try {
-    const fm = JSON.parse(readFileSync(join(projectRoot, ".paaw", "features", "FEATURES.json"), "utf-8"));
-    const features = Array.isArray(fm) ? fm : (fm.features || []);
+    const features = loadFeatures(projectRoot); // coding.db
     featureOrder = features.map(f => ({ id: f.id || f.name, name: f.name }));
     for (const f of features) {
       for (const cf of [...(f.codeFiles || []), ...(f.tests || [])]) {

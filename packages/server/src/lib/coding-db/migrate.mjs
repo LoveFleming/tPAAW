@@ -324,4 +324,19 @@ ALTER TABLE features_v2 RENAME TO features;
 CREATE INDEX idx_features_ru ON features(ru);
 `,
   },
+  {
+    // v4（2026-11-01 Fleming 定案：全部進 db、結束 dual-write 過渡期）
+    // feature tab 的文件型資料收進 ru_docs：FILE-FEATURES / CROSSCUT-CONCEPTS / TEST-SIGNALS / FEATURE-MAP-META
+    // （FEATURES 走 features 表；本表 = 文件型 JSON 的單一真相，舊 .json 只剩一次性 bootstrap 來源）
+    version: 4,
+    sql: `
+CREATE TABLE ru_docs (
+  ru         TEXT NOT NULL,
+  doc_key    TEXT NOT NULL,
+  payload    TEXT NOT NULL,
+  updated_at TEXT,
+  PRIMARY KEY (ru, doc_key)
+);
+`,
+  },
 ];

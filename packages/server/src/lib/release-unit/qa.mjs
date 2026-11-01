@@ -155,7 +155,7 @@ function _findFeature(model, feature) {
     evidence: [
       ...((q?.apis || []).slice(0, 3).map(a => EV.api(a, `${feature.id} 對應 API`))),
       ...(feature.files || []).slice(0, 3).map(f => EV.file(f, `${feature.id} 成員檔案`)),
-      EV.stat("FILE-FEATURES.json", `${feature.id} → ${feature.fileCount} files mapped`),
+      EV.stat("file→feature map (db)", `${feature.id} → ${feature.fileCount} files mapped`),
     ],
     followUps: [`${feature.name} 上次為什麼修改？`, `${feature.name} 有測試嗎？`],
   };
@@ -303,7 +303,7 @@ async function _fileImpact(root, model, q) {
   const bullets = [];
   if (fq.featureIds.length) {
     bullets.push(`屬於 features：${fq.featureIds.join("、")}`);
-    ev.push(EV.stat("FILE-FEATURES.json", `${file} → ${fq.featureIds.join(", ")}`));
+    ev.push(EV.stat("file→feature map (db)", `${file} → ${fq.featureIds.join(", ")}`));
   }
   if (fq.apis.length) {
     bullets.push(`承載 API：${fq.apis.slice(0, 4).join(" · ")}`);

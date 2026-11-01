@@ -10,15 +10,11 @@
  * 哲學同 qa-results：agent 提供判斷（哪個檔案屬於哪個功能），程式保證寫入安全。
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from "fs";
-import { join } from "path";
-import { saveFeatures as dbSaveFeatures } from "./coding-db/index.mjs"; // dual-write Phase A
+import { readDoc, writeDoc } from "./coding-db/docs.repo.mjs";
+import { saveFeatures as dbSaveFeatures } from "./coding-db/index.mjs"; // db 單一真相（2026-11-01）
+import { loadFeatures as registryLoadFeatures } from "./feature-registry.mjs";
 
 const FID_RE = /^F\d{8}-\d{3}$/;
-
-function _readJson(path, fallback) {
-  try { return JSON.parse(readFileSync(path, "utf-8")); } catch { return fallback; }
-}
 
 /** 相對路徑安全檢查：不吃絕對路徑、不吃 .. 逃逸 */
 function _safeRel(file) {
@@ -35,13 +31,10 @@ function _safeRel(file) {
  * @returns {{merged: number, files: string[], featureIds: string[], newFeatures: string[], backups: string[], skipped: Array<{file: string, reason: string}>}}
  */
 export function mergeFeatureMappings(projectRoot, entries = [], by = "human") {
-  const featsDir = join(projectRoot, ".paaw", "features");
-  mkdirSync(featsDir, { recursive: true });
-
-  const ffPath = join(featsDir, "FILE-FEATURES.json");
-  const regPath = join(featsDir, "FEATURES.json");
-  const ff = _readJson(ffPath, { files: {}, updatedAt: null });
-  const reg = _readJson(regPath, { features: [], updatedAt: null });
+  // 2026-11-01：讀寫全走 coding.db（ru_docs + features 表），不再碰 .paaw/features/*.json
+  const ff = readDoc(projectRoot, "fileFeatures", { files: {}, updatedAt: null });
+  const regFeatures = (() => { try { return registryLoadFeatures(projectRoot) ?? []; } catch { return []; } })();
+  const reg = { features: Array.isArray(regFeatures) ? regFeatures : [] };
   ff.files = ff.files && typeof ff.files === "object" ? ff.files : {};
   reg.features = Array.isArray(reg.features) ? reg.features : [];
 
@@ -80,23 +73,10 @@ export function mergeFeatureMappings(projectRoot, entries = [], by = "human") {
     return { merged: 0, files: [], featureIds: [], newFeatures, backups: [], skipped, already: [...already] };
   }
 
-  // 備份舊檔（存在才備）— backups/ 目錄模式沿 tpaaw-gateway 既有慣例
-  const backupsDir = join(featsDir, "backups");
-  mkdirSync(backupsDir, { recursive: true });
-  const stamp = now.replace(/[-:T.]/g, "").slice(0, 14);
-  const backups = [];
-  for (const p of [ffPath, regPath]) {
-    if (existsSync(p)) {
-      const b = join(backupsDir, `${stamp}-${p.split("/").pop()}`);
-      copyFileSync(p, b);
-      backups.push(b.replace(projectRoot.endsWith("/") ? projectRoot : projectRoot + "/", ""));
-    }
-  }
-
+  // 寫 db（交易式；saveFeatures 的全量替換即安全邊界，取代舊檔案備份）
   ff.updatedAt = now; reg.updatedAt = now;
-  writeFileSync(ffPath, JSON.stringify(ff, null, 2) + "\n");
-  writeFileSync(regPath, JSON.stringify(reg, null, 2) + "\n");
-  try { dbSaveFeatures(projectRoot, reg); } catch (e) { console.error("[coding-db] dual-write features failed:", e.message); }
+  writeDoc(projectRoot, "fileFeatures", ff);
+  dbSaveFeatures(projectRoot, reg.features);
 
   const featureIds = [...new Set([...changed].flatMap(f => (ff.files[f] || []).map(x => x.id)))];
   return {
@@ -104,7 +84,7 @@ export function mergeFeatureMappings(projectRoot, entries = [], by = "human") {
     files: [...changed].sort(),
     featureIds: [...featureIds].sort(),
     newFeatures,
-    backups,
+    backups: [], // db 制：備份概念由交易式寫入取代（2026-11-01）
     skipped,
     already: [...already],
     by,

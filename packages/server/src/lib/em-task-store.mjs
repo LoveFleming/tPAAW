@@ -19,6 +19,8 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname, relative } from "path";
 import { saveTasks as dbSaveTasks } from "./coding-db/index.mjs"; // dual-write Phase A
 import { readTasks as dbReadTasks } from "./coding-db/reads.mjs"; // Phase B
+import { loadFeatures as registryLoadFeatures } from "./feature-registry.mjs";
+import { readDoc } from "./coding-db/docs.repo.mjs";
 
 const MAX_PROGRESS_ENTRIES = 80; // 任務檔 progress log 上限（超過保留最新 + 前 10）
 
@@ -65,18 +67,15 @@ export function genTaskId(tasks) {
 // ── Feature 解析（開單需要 featureId — 一切以 feature 為主）──
 
 export function listFeatures(rootDir) {
-  try {
-    const f = JSON.parse(readFileSync(join(rootDir, ".paaw", "features", "FEATURES.json"), "utf-8"));
-    const feats = f.features || (Array.isArray(f) ? f : []);
-    return Array.isArray(feats) ? feats : [];
-  } catch { return []; }
+  try { return registryLoadFeatures(rootDir) ?? []; } catch { return []; } // coding.db 單一真相
 }
 
 /** 檔案 → featureId（FILE-FEATURES.json 查表；多 feature 命中取第一個） */
 export function resolveFeatureForFiles(rootDir, files = []) {
   if (!Array.isArray(files) || files.length === 0) return null;
   try {
-    const ff = JSON.parse(readFileSync(join(rootDir, ".paaw", "features", "FILE-FEATURES.json"), "utf-8"));
+    const ff = readDoc(rootDir, "fileFeatures");
+    if (!ff) return null;
     const map = ff.files || {};
     const counts = new Map();
     for (const raw of files) {

@@ -28,6 +28,7 @@ import { promisify } from "util";
 import { buildHandoverState, writeHandoverState, loadHandoverState } from "../lib/release-unit/handover-state.mjs";
 import { callProjectLLM } from "./coding.mjs";
 import { stableStringify } from "../lib/stable-stringify.mjs";
+import { loadFeatures } from "../lib/feature-registry.mjs";
 
 const execAsync = promisify(_exec);
 
@@ -207,8 +208,7 @@ async function saveJson(pathAbs, obj) {
 async function collectBriefFacts(projectPath) {
   const facts = { features: [], tasks: [], gitLog: [], scripts: {}, pkgName: "", engines: null, hasReadme: false, hasEnvExample: false };
   try {
-    const raw = JSON.parse(await readFile(join(projectPath, ".paaw", "features", "FEATURES.json"), "utf-8"));
-    const features = Array.isArray(raw) ? raw : (raw.features || []);
+    const features = loadFeatures(projectPath); // coding.db
     facts.features = features.map(f => ({ name: f.name, severity: f.severity || f.severitySuggested || null, desc: String(f.description || "").slice(0, 120) }));
   } catch { /* CU 未跑 */ }
   try {

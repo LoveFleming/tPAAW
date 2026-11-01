@@ -27,6 +27,7 @@ import { DATA_HOME } from "../data-home.mjs";
 import { nextFeatureId, inferFeatureType, touchFeature, ensureMiscFeature, featureExists } from "../lib/feature-registry.mjs";
 import { scanFeatureRisk, isValidSeverity } from "../lib/feature-risk-scan.mjs";
 import { stableStringify } from "../lib/stable-stringify.mjs";
+import { readDoc, hasDoc } from "../lib/coding-db/docs.repo.mjs";
 
 function getMaxTokens(providerConfig, providerId, model) {
   const provider = providerConfig.providers?.[providerId];
@@ -355,38 +356,35 @@ export default async function codingFeaturesRoute(req, res) {
   const projRoot = resolve(projectPath); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
   const providersFile = join(DATA_HOME, "config", "providers.json");
 
-  // ── GET /api/coding-features/file-map ──
+  // ── GET /api/coding-features/file-map ──（coding.db ru_docs — 2026-11-01 起單一真相）
   if (url === "/api/coding-features/file-map" && method === "GET") {
-    const fileMapPath = join(getFeaturesDir(projRoot), "FILE-FEATURES.json"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
-    if (!existsSync(fileMapPath)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    if (!hasDoc(projRoot, "fileFeatures")) {
       res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "FILE-FEATURES.json not found — run Code Understanding first" }));
+      res.end(JSON.stringify({ error: "FILE-FEATURES not found — run Code Understanding first" }));
       return true;
     }
-    try {
-      const data = JSON.parse(await readFile(fileMapPath, "utf-8")); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    const data = readDoc(projRoot, "fileFeatures");
+    if (!data) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Failed to read FILE-FEATURES from coding.db" }));
+    } else {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
-    } catch {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Failed to parse FILE-FEATURES.json" }));
     }
     return true;
   }
 
-  // ── GET /api/coding-features/crosscut — 橫切關注點（overlay）+ Gap Report ──
+  // ── GET /api/coding-features/crosscut — 橫切關注點（overlay）+ Gap Report ──（coding.db）
   if (url === "/api/coding-features/crosscut" && method === "GET") {
-    const p = join(getFeaturesDir(projRoot), "CROSSCUT-CONCEPTS.json"); // nosemgrep: detect-non-literal-fs-filename — local-first
-    const mp = join(getFeaturesDir(projRoot), "FEATURE-MAP-META.json");
     try {
-      if (existsSync(p)) { // nosemgrep
-        const data = JSON.parse(await readFile(p, "utf-8")); // nosemgrep
+      const data = readDoc(projRoot, "crosscut");
+      if (data) {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(data));
         return true;
       }
-      if (existsSync(mp)) { // nosemgrep
-        const meta = JSON.parse(await readFile(mp, "utf-8")); // nosemgrep
+      const meta = readDoc(projRoot, "mapMeta");
+      if (meta) {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ concepts: meta.crosscutConcepts || [], stats: meta.crosscutStats || {}, gapReport: meta.gapReport || [] }));
         return true;
@@ -403,14 +401,14 @@ export default async function codingFeaturesRoute(req, res) {
   // ── GET /api/coding-features/test-signals — 🧪 測試自足性（語言無關，確定性）──
   if (url === "/api/coding-features/test-signals" && method === "GET") {
     try {
-      const p = join(getFeaturesDir(projRoot), "TEST-SIGNALS.json"); // nosemgrep
-      if (!existsSync(p)) { // nosemgrep
+      const data = readDoc(projRoot, "testSignals");
+      if (!data) {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ byFile: {}, byFeature: {}, summary: null }));
         return true;
       }
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(readSync(p, "utf-8"));
+      res.end(JSON.stringify(data));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: `test-signals 讀取失敗：${err?.message || err}` }));
@@ -421,10 +419,9 @@ export default async function codingFeaturesRoute(req, res) {
   // ── POST /api/coding-features/test-signals/enrich — LLM 消歧模糊案件 ──
   if (url === "/api/coding-features/test-signals/enrich" && method === "POST") {
     try {
-      const p = join(getFeaturesDir(projRoot), "TEST-SIGNALS.json"); // nosemgrep
-      if (!existsSync(p)) { // nosemgrep
+      if (!hasDoc(projRoot, "testSignals")) {
         res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "TEST-SIGNALS.json not found — run Code Understanding first" }));
+        res.end(JSON.stringify({ error: "TEST-SIGNALS not found — run Code Understanding first" }));
         return true;
       }
       const { enrichTestSignals } = await import("../lib/test-signals.mjs");
@@ -444,10 +441,9 @@ export default async function codingFeaturesRoute(req, res) {
   // ── POST /api/coding-features/crosscut/enrich — ② LLM 消歧 + 命名 concept ──
   if (url === "/api/coding-features/crosscut/enrich" && method === "POST") {
     try {
-      const p = join(getFeaturesDir(projRoot), "CROSSCUT-CONCEPTS.json"); // nosemgrep
-      if (!existsSync(p)) { // nosemgrep
+      if (!hasDoc(projRoot, "crosscut")) {
         res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "CROSSCUT-CONCEPTS.json not found — run Code Understanding first" }));
+        res.end(JSON.stringify({ error: "CROSSCUT-CONCEPTS not found — run Code Understanding first" }));
         return true;
       }
       const { enrichCrosscutConcepts } = await import("../lib/crosscut-concepts.mjs");

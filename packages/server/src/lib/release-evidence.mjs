@@ -27,13 +27,13 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { listQaResults } from "./qa-results.mjs";
 import { scanFeatureRisk } from "./feature-risk-scan.mjs";
+import { loadFeatures } from "./feature-registry.mjs";
 
 // ── severity（FEATURES.json by feature id/name）──
 export async function loadSeverityMap(projectPath) {
   const map = new Map(); // key: feature id, value: { severity, source, raw }
   try {
-    const raw = JSON.parse(await readFile(join(projectPath, ".paaw", "features", "FEATURES.json"), "utf-8"));
-    const features = Array.isArray(raw) ? raw : (raw.features || []);
+    const features = loadFeatures(projectPath); // coding.db
     for (const f of features) {
       if (!f?.id) continue;
       const decisions = Array.isArray(f.severityDecisions) ? f.severityDecisions : [];

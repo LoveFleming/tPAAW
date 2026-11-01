@@ -20,6 +20,7 @@ import { fileURLToPath } from "url";
 import { shellExec } from "./shell-exec.mjs";
 import { createTicket, loadTasksFile } from "./em-task-store.mjs";
 import { stableStringify } from "./stable-stringify.mjs";
+import { loadFeatures } from "./feature-registry.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const PAAW_ROOT = resolve(__filename, "..", "..", "..", "..");
@@ -68,9 +69,9 @@ async function _entryCuScan(rootDir, opts) {
     }
   }
 
-  // 2. FEATURES.json：active feature 缺 tests / 缺 docs
-  const feats = _readJson(join(rootDir, ".paaw", "features", "FEATURES.json"));
-  const featureList = feats?.features || [];
+  // 2. features（coding.db 單一真相）：active feature 缺 tests / 缺 docs
+  let featureList = [];
+  try { featureList = loadFeatures(rootDir) ?? []; } catch { /* 未掃過 */ }
   let noTests = 0, noDocs = 0;
   for (const f of featureList) {
     if (f.status !== "active") continue;

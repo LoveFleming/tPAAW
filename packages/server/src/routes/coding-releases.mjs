@@ -39,6 +39,7 @@ import {
   baselineCandidates, refreshReleaseRequest, suggestVerdicts, createAutoRrForTaskApproval,
   setTargetLock,
 } from "../lib/release-requests.mjs";
+import { loadFeatures } from "../lib/feature-registry.mjs";
 
 const PHASES_BEFORE_COMMIT = ["spec", "implement", "review", "test", "qa", "docs"];
 
@@ -385,8 +386,7 @@ export default async function releaseRoutes(req, res, next) {
         if (!model) {
           modelDegraded = true;
           try {
-            const feats = JSON.parse(readFileSync(join(projectPath, ".paaw", "features", "FEATURES.json"), "utf-8"));
-            const list = Array.isArray(feats) ? feats : (feats.features || []);
+            const list = loadFeatures(projectPath); // coding.db
             model = { headSha: null, features: list.map(f => ({ id: f.id, name: f.name || f.title || f.id, status: f.status || null, files: (f.codeFiles || f.files || []).map(p => String(p).replace(/\\/g, "/").replace(/^\.\//, "")), apis: [], tests: [], changes: [] })) };
           } catch { model = { headSha: null, features: [], apis: [], tests: [], changes: [] }; }
         }

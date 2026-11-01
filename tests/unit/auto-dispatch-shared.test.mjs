@@ -70,6 +70,14 @@ vi.mock("../../packages/server/src/lib/paaw-project.mjs", () => ({
   PaawProject: mockPaawProject,
 }));
 
+// ── Mock feature-registry（2026-11-01：features 已進 coding.db，測試直接 mock registry）──
+const mockRegistryLoadFeatures = vi.fn();
+const mockRegistrySaveFeatures = vi.fn();
+vi.mock("../../packages/server/src/lib/feature-registry.mjs", () => ({
+  loadFeatures: mockRegistryLoadFeatures,
+  saveFeatures: mockRegistrySaveFeatures,
+}));
+
 // ── Mock action-log ──
 const mockListActionLog = vi.fn();
 vi.mock("../../packages/server/src/lib/action-log.mjs", () => ({
@@ -106,6 +114,12 @@ beforeEach(async () => {
     if (cmd.includes("origin/dev..HEAD")) return "def5678 WIP";
     return "";
   });
+
+  // Default mocks for feature registry（原 fs 讀 FEATURES.json 的位置）
+  mockRegistryLoadFeatures.mockReturnValue([
+    { id: "F-001", name: "Core", status: "active", codeFiles: ["src/a.mjs"] }
+  ]);
+  mockRegistrySaveFeatures.mockImplementation(() => {});
 
   // Default mocks for fs
   mockExistsSync.mockReturnValue(true);
@@ -277,11 +291,6 @@ describe("gatherContext()", () => {
   it("should include .paaw context content when files exist", async () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockImplementation(function mockReadFileSyncImpl(fp) {
-      if (fp.includes("FEATURES.json")) {
-        return JSON.stringify([
-          { id: "F-001", name: "Core", status: "active", codeFiles: ["src/a.mjs"] }
-        ]);
-      }
       return "# Project Info\nThis is the project.";
     });
     const ctx = await mod.gatherContext(rootDir);
@@ -546,31 +555,15 @@ describe("refreshFeatureMapping()", () => {
     });
   });
 
-  it("should return error when FEATURES.json does not exist", async () => {
-    mockExistsSync.mockImplementation(function mockExistsSyncImpl(fp) {
-      if (fp.includes("FEATURES.json")) return false;
-      return false;
-    });
-    const result = await mod.refreshFeatureMapping(rootDir);
-    expect(result.ok).toBe(false);
-    expect(result.error).toContain("No FEATURES.json found");
-  });
-
-  it("should return error when features array is empty", async () => {
-    mockReadFileSync.mockImplementation(function mockReadFileSyncImpl(fp) {
-      if (fp.includes("FEATURES.json")) return JSON.stringify([]);
-      return "";
-    });
+  it("should return error when no features in db（未跑 CU）", async () => {
+    mockRegistryLoadFeatures.mockReturnValue([]);
     const result = await mod.refreshFeatureMapping(rootDir);
     expect(result.ok).toBe(false);
     expect(result.error).toContain("No features to update");
   });
 
-  it("should return error when features file has invalid JSON", async () => {
-    mockReadFileSync.mockImplementation(function mockReadFileSyncImpl(fp) {
-      if (fp.includes("FEATURES.json")) throw new Error("Invalid JSON at line 3");
-      return "";
-    });
+  it("should return error when features load fails", async () => {
+    mockRegistryLoadFeatures.mockImplementation(() => { throw new Error("Invalid JSON at line 3"); });
     const result = await mod.refreshFeatureMapping(rootDir);
     expect(result.ok).toBe(false);
     expect(result.error).toContain("Failed to load features");
@@ -643,8 +636,9 @@ describe("validateFeatureMap()", () => {
     sendSSE = vi.fn();
   });
 
-  it("should return ok:false when feature-map-validator import fails", async () => {
+  it("should return ok:false when no features（驗證無料可驗）", async () => {
     mockExistsSync.mockReturnValue(false);
+    mockRegistryLoadFeatures.mockReturnValue([]);
     const result = await mod.validateFeatureMap(rootDir, sendSSE);
     expect(result.ok).toBe(false);
   });
@@ -652,6 +646,7 @@ describe("validateFeatureMap()", () => {
   it("should handle SSE callback errors gracefully", async () => {
     const badSSE = vi.fn(() => { throw new Error("SSE error"); });
     mockExistsSync.mockReturnValue(false);
+    mockRegistryLoadFeatures.mockReturnValue([]);
     const result = await mod.validateFeatureMap(rootDir, badSSE);
     expect(result.ok).toBe(false);
   });

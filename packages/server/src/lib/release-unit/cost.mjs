@@ -15,6 +15,8 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { getModelPricing, calcCostUsd } from "../ru-resolver.mjs";
+import { loadFeatures } from "../feature-registry.mjs";
+import { readDoc } from "../coding-db/docs.repo.mjs";
 
 // ── LLM logs ──
 
@@ -88,7 +90,7 @@ function _loadCodingTasks(root) {
 /** file → featureIds 索引（同 model.mjs 邏輯，獨立輕量版） */
 function _buildFileFeatureIndex(root) {
   const idx = new Map();
-  const ff = _readJsonSafe(join(root, ".paaw", "features", "FILE-FEATURES.json"), null);
+  const ff = readDoc(root, "fileFeatures"); // coding.db ru_docs
   const add = (file, id) => {
     const f = _norm(file);
     if (!f || !id) return;
@@ -100,8 +102,7 @@ function _buildFileFeatureIndex(root) {
       for (const ft of (Array.isArray(feats) ? feats : [])) add(p, ft.id || ft.name);
     }
   }
-  const features = _readJsonSafe(join(root, ".paaw", "features", "FEATURES.json"), null);
-  const list = features ? (features.features || (Array.isArray(features) ? features : [])) : [];
+  const list = loadFeatures(root); // coding.db
   for (const feat of list) {
     for (const cf of (feat.codeFiles || feat.files || [])) add(cf, feat.id);
   }
@@ -184,8 +185,7 @@ export function buildCostReport(paawRoot, opts = {}) {
     const tasks = _loadCodingTasks(projectRoot);
     const idx = _buildFileFeatureIndex(projectRoot);
     const featNames = new Map();
-    const featuresData = _readJsonSafe(join(projectRoot, ".paaw", "features", "FEATURES.json"), null);
-    for (const f of (featuresData?.features || (Array.isArray(featuresData) ? featuresData : []) || [])) {
+    for (const f of loadFeatures(projectRoot)) {
       featNames.set(f.id, f.name || f.title || f.id);
     }
     const taskRows = [];

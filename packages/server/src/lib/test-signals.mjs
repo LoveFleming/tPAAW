@@ -15,6 +15,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { join, dirname, resolve, extname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readDoc, writeDoc } from "./coding-db/docs.repo.mjs";
 import { stableStringify } from "./stable-stringify.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -442,13 +443,13 @@ export function ambiguousTestFiles(sig) {
 
 export async function enrichTestSignals(projectRoot, { callLLM, model, onProgress } = {}) {
   if (!callLLM) throw new Error("enrichTestSignals: callLLM required");
-  const p = join(projectRoot, ".paaw", "features", "TEST-SIGNALS.json");
-  const sig = JSON.parse(readFileSync(p, "utf-8"));
+  const sig = readDoc(projectRoot, "testSignals");
+  if (!sig) throw new Error("TEST-SIGNALS not found — run Code Understanding first");
   const amb = ambiguousTestFiles(sig);
   const now = new Date().toISOString();
   if (amb.length === 0) {
     sig.ai = { enriched: true, refined: 0, at: now, note: "無模糊案件（確定性判定全數成立）" };
-    writeFileSync(p, JSON.stringify(sig, null, 2));
+    writeDoc(projectRoot, "testSignals", sig);
     return sig;
   }
 
@@ -490,16 +491,15 @@ ${stableStringify(items)}`;
     if (effectiveHermeticity(e) !== e.hermeticity) refined += 1;
   }
   sig.ai = { enriched: true, refined, candidates: amb.length, at: now };
-  writeFileSync(p, JSON.stringify(sig, null, 2));
+  writeDoc(projectRoot, "testSignals", sig);
 
   // meta 同步 summary（用 effective label 重算）
   try {
-    const mp = join(projectRoot, ".paaw", "features", "FEATURE-MAP-META.json");
-    const meta = JSON.parse(readFileSync(mp, "utf-8"));
+    const meta = readDoc(projectRoot, "mapMeta", {});
     const s = { total: 0, hermetic: 0, "needs-key": 0, "needs-network": 0, "needs-service": 0, unknown: 0 };
     for (const e of Object.values(sig.byFile)) { const k = effectiveHermeticity(e); s[k] = (s[k] || 0) + 1; s.total += 1; }
     meta.testSignals = { summary: s, ai: sig.ai, note: sig.note };
-    writeFileSync(mp, JSON.stringify(meta, null, 2));
+    writeDoc(projectRoot, "mapMeta", meta);
   } catch { /* meta 可能不存在 */ }
   return sig;
 }

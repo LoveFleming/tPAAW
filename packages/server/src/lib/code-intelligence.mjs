@@ -21,6 +21,7 @@ import { resolve, join, extname, basename, relative, dirname } from "path";
 import { readFileSync, existsSync, mkdirSync, readdirSync, statSync } from "fs";
 import { diffWriteJson } from "./stable-hash.mjs";
 import { parseProject, formatForAI } from "./tree-sitter-parser.mjs";
+import { loadFeatures } from "./feature-registry.mjs";
 
 // ── 1. Call Graph ──
 
@@ -910,11 +911,10 @@ export async function buildContextPackage(projectRoot, paawRoot, query = {}) {
 
   // ── Query by feature name ──
   if (query.featureName) {
-    // Load FEATURES.json
-    const featuresPath = join(projectRoot, ".paaw", "features", "FEATURES.json");
-    if (existsSync(featuresPath)) {
-      const features = JSON.parse(readFileSync(featuresPath, "utf-8"));
-      const feature = features.features?.find(
+    // coding.db（2026-11-01 單一真相）
+    {
+      const features = loadFeatures(projectRoot);
+      const feature = features.find(
         f => f.name === query.featureName || f.id === query.featureName
       );
       if (feature) {

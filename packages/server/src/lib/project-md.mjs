@@ -12,6 +12,7 @@
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { createPaawProject } from "./paaw-project.mjs";
+import { loadFeatures as registryLoadFeatures } from "./feature-registry.mjs";
 
 export const USER_START = "<!-- USER:START — 人的區（AI 絕不覆蓋） -->";
 export const USER_END = "<!-- USER:END -->";
@@ -91,8 +92,9 @@ async function collectFacts(root) {
   const readJson = async (rel) => {
     try { return JSON.parse((await paaw.readFile(rel)) || "null"); } catch { return null; }
   };
-  const [fm, ti, ec, ciSum] = await Promise.all([
-    readJson("features/FEATURES.json"),
+  // features 來源 = coding.db（2026-11-01 單一真相）
+  const fm = { features: registryLoadFeatures(root) || [] };
+  const [ti, ec, ciSum] = await Promise.all([
     readJson("code-intelligence/test-intelligence.json"),
     readJson("error-codes.json"),
     readJson("code-intelligence/summary.json"),

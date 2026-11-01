@@ -9,10 +9,10 @@
  *  - 雜項 task 一定要掛 featureId — 沒有歸屬的用 "Utility & Platform Misc" 收容
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, readdirSync, rmSync } from "fs";
 import { join } from "path";
-import { readFeatures as dbReadFeatures, readFileFeatures as dbReadFileFeatures } from "./coding-db/reads.mjs"; // Phase B
-import { saveFeatures as dbSaveFeatures } from "./coding-db/index.mjs"; // dual-write
+import { existsSync } from "fs";
+import { readFeatures as dbReadFeatures, readFileFeatures as dbReadFileFeatures } from "./coding-db/reads.mjs";
+import { saveFeatures as dbSaveFeatures } from "./coding-db/index.mjs";
 
 export const FEATURE_STATUSES = ["active", "deprecated", "planned", "retired"];
 
@@ -20,39 +20,26 @@ export function featuresFile(projRoot) {
   return join(projRoot, ".paaw", "features", "FEATURES.json");
 }
 
+// 2026-11-01 Fleming 定案：coding.db 是唯一真相（結束 dual-write 過渡期）
+// 讀：db 為準；db 空且 FEATURES.json 存在 → 一次性 bootstrap 匯入，之後不再讀檔
+// 寫：只寫 db（saveFeatures 為交易式全量替換，安全性取代舊檔案備份輪替）
 export function loadFeatures(projRoot) {
-  // Phase B：先讀 coding.db（單一真相），無資料 fallback 檔案
   try {
     const fromDb = dbReadFeatures(projRoot);
     if (fromDb && fromDb.length) return fromDb;
-  } catch { /* db 掛了走檔案 */ }
-  const file = featuresFile(projRoot);
-  if (!existsSync(file)) return [];
-  try {
-    const data = JSON.parse(readFileSync(file, "utf-8"));
-    const feats = Array.isArray(data) ? data : (data.features || []);
-    return Object.values(feats); // 支援 dict 形狀
-  } catch {
-    return [];
+  } catch (e) { console.error("[coding-db] read features failed:", e.message); return []; }
+  // 一次性 bootstrap：舊檔案資料進 db
+  if (existsSync(featuresFile(projRoot))) {
+    const feats = dbReadFileFeatures(projRoot);
+    if (feats.length) {
+      try { dbSaveFeatures(projRoot, feats); return feats; } catch (e) { console.error("[coding-db] bootstrap features failed:", e.message); }
+    }
   }
+  return [];
 }
 
 export function saveFeatures(projRoot, features) {
-  const file = featuresFile(projRoot);
-  mkdirSync(join(projRoot, ".paaw", "features"), { recursive: true });
-  // 2026-09-05：寫入前自動輪替備份（教訓：architect 整頓 34→3 直接覆蓋，無法回復）
-  try {
-    if (existsSync(file)) {
-      const backupDir = join(projRoot, ".paaw", "features", "backups");
-      mkdirSync(backupDir, { recursive: true });
-      copyFileSync(file, join(backupDir, `FEATURES-${Date.now()}.json`));
-      // 只留最近 5 份
-      const olds = readdirSync(backupDir).filter(f => f.startsWith("FEATURES-")).sort();
-      while (olds.length > 5) rmSync(join(backupDir, olds.shift()), { force: true });
-    }
-  } catch { /* 備份失敗不擋寫入 */ }
-  writeFileSync(file, JSON.stringify({ features, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
-  try { dbSaveFeatures(projRoot, features); } catch (e) { console.error("[coding-db] dual-write features failed:", e.message); } // Phase B dual-write
+  dbSaveFeatures(projRoot, features); // 唯一寫入路徑（交易式）
 }
 
 // ── ID 規則：F + YYYYMMDD + 當日序號 ──

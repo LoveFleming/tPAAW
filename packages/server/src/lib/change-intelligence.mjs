@@ -21,6 +21,7 @@ import { diffWriteJson } from "./stable-hash.mjs";
 import { join, resolve } from "path";
 import { promisify } from "util";
 import { PaawProject } from "./paaw-project.mjs";
+import { readDoc } from "./coding-db/docs.repo.mjs";
 
 const exec = promisify(execCb);
 
@@ -105,14 +106,13 @@ export async function buildChangeIntelligence(projectRoot, options = {}, { persi
     }))
     .sort((a, b) => new Date(b.lastChanged) - new Date(a.lastChanged));
 
-  // ── 3. Recently modified features ──
-  const featuresPath = join(projectRoot, ".paaw", "features", "FEATURES.json");
-  const fileFeaturesPath = join(projectRoot, ".paaw", "features", "FILE-FEATURES.json");
+  // ── 3. Recently modified features ──（coding.db ru_docs）
   const recentFeatures = [];
 
-  if (existsSync(fileFeaturesPath)) {
+  {
     try {
-      const fileFeatureMap = JSON.parse(readFileSync(fileFeaturesPath, "utf-8"));
+      const fileFeatureMap = readDoc(projectRoot, "fileFeatures");
+      if (!fileFeatureMap) throw new Error("no fileFeatures doc");
       const featureCount = {};
 
       for (const { file } of recentFiles) {

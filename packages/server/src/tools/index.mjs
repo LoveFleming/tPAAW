@@ -856,11 +856,9 @@ function buildHandlers(apps) {
         } catch (err) { return `Error reading issues: ${err.message}`; }
       }
       case "features": {
-        const file = join(root, ".paaw", "features", "FEATURES.json");
-        if (!existsSync(file)) return "(No features registered)";
         try {
-          const data = JSON.parse(readFileSync(file, "utf-8"));
-          let features = data.features || [];
+          const { loadFeatures } = await import("../lib/feature-registry.mjs"); // coding.db（2026-11-01）
+          let features = loadFeatures(root);
           if (args.search) { const s = args.search.toLowerCase(); features = features.filter(f => f.name?.toLowerCase().includes(s) || f.description?.toLowerCase().includes(s)); }
           return "Features (" + features.length + "):\n" + features.map(f => `[${f.id}] ${f.name} (${f.status})`).join("\n");
         } catch (err) { return `Error: ${err.message}`; }

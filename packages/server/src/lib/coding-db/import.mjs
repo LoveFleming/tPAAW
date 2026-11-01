@@ -6,6 +6,7 @@ import { join } from "path";
 import { readFileSync, readdirSync, existsSync } from "fs";
 import { openCodingDb } from "./connection.mjs";
 import { upsertRuInfo } from "./ru-info.repo.mjs";
+import { readDoc } from "./docs.repo.mjs";
 
 const KNOWN_TASK_COLS = new Set([
   "id","featureId","parentId","type","title","status","priority","labels","assignee",
@@ -62,20 +63,38 @@ function readJsonl(p) {
   return out;
 }
 
-/** 匯入。回傳 { tables: {table: count} } */
+/**
+ * 匯入（2026-11-01 起改 bootstrap-only：coding.db 已是單一真相）
+ * - features / tasks / ru_docs：db 該 ru 已有資料就**絕不覆蓋**（舊 .json 只當首次來源）
+ * - gates/handover/issues/release_requests/kv/logs：這些檔案仍是 live 資料來源，維持 refresh 語意
+ * 回傳 { tables: {table: count} }
+ */
 export function importCodingDb(ruRoot, ru = ruRoot.split("/").pop()) {
   // ru_info：一 RU 一行基本資訊（程式寫 repo_path/imported_at；不覆蓋人的欄位）
   try { upsertRuInfo(ruRoot, {}); } catch (e) { console.warn("[coding-db] ru_info upsert failed:", e.message); }
   const db = openCodingDb(ruRoot);
   const counts = {};
+  const _n = (sql, ...args) => Number(db.prepare(sql).get(...args)?.c ?? 0);
+  const hasFeatures = _n("SELECT COUNT(*) c FROM features WHERE ru=?", ru) > 0;
+  const hasTasks = _n("SELECT COUNT(*) c FROM task WHERE ru=?", ru) > 0;
   db.exec("BEGIN");
-  // per-ru 清舊（refresh 語意）：檔案來源刪掉的 row 不殘留
-  for (const t of ["task","task_detail","features","gates","handover","issues","error_codes"]) {
+  // refresh 語意只留給檔案仍是 live 來源的表
+  for (const t of ["gates","handover","issues","error_codes"]) {
     try { db.prepare(`DELETE FROM ${t} WHERE ru=?`).run(ru); } catch {}
   }
   try {
-    counts.tasks = _importTasks(db, ruRoot, ru);
-    counts.features = _importFeatures(db, ruRoot, ru);
+    if (!hasTasks) {
+      try { db.prepare("DELETE FROM task WHERE ru=?").run(ru); } catch {}
+      counts.tasks = _importTasks(db, ruRoot, ru);
+    }
+    if (!hasFeatures) {
+      try { db.prepare("DELETE FROM features WHERE ru=?").run(ru); } catch {}
+      counts.features = _importFeatures(db, ruRoot, ru);
+      // ru_docs bootstrap：feature tab 文件型資料一次性進 db（之後讀寫全走 docs.repo）
+      try {
+        for (const key of ["fileFeatures", "crosscut", "testSignals", "mapMeta"]) readDoc(ruRoot, key);
+      } catch {}
+    }
     Object.assign(counts, _importStateJson(db, ruRoot, ru));
     Object.assign(counts, _importLogs(db, ruRoot, ru));
     Object.assign(counts, _importConversations(db, ruRoot, ru));
@@ -215,7 +234,6 @@ function _importStateJson(db, ruRoot, ru) {
     ["cu_status", "cu-status.json"],
     ["staged_changes", "staged-changes.json"],
     ["error_codes", "error-codes.json"],
-    ["feature_map_meta", "features/FEATURE-MAP-META.json"],
     ["release_unit_model", "release-unit-model.json"],
   ]) {
     const d = readJson(join(ruRoot, P, file));
