@@ -988,6 +988,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
     const steps = [
       { id: "scan", name: "🔍 掃描專案結構" },
       { id: "feature-map", name: "🗺️ Feature Map" },
+      { id: "api-map", name: "🌐 API Map" },
       { id: "code-intelligence", name: "🧠 Code Intelligence" },
       { id: "test-intelligence", name: "🧪 Test Intelligence" },
       // 2026-09-06 Fleming 回報：bulk 執行後 UI 少 2 項 — 此清單沒跟上 server 6 步
