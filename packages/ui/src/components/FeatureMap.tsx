@@ -67,6 +67,7 @@ interface Feature {
   docsUpdatedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  grade?: string;
   // 🧩 L2 子群（2026-10-23）：內生判準拆的穩定子結構；internalShared = 黏合橋接檔（不屬任何子群）
   subFeatures?: SubFeature[];
   internalShared?: string[];
@@ -1355,14 +1356,19 @@ function Section({ title, count, theme, children }: {
 
 /* ═══ 📊 Feature Table Grid（2026-11-01 Fleming：table grid 檢視大 feature / subFeatures）═══ */
 type SortKey = "id" | "name" | "status" | "severity" | "files" | "apis" | "tests" | "subs";
+/* Kind 分類軸（Feature First v2 2026-10-30 Fleming 定稿）：API / UI / Module / Utility
+ * deterministic 證據：evidence.kinds（http=API 入口、ui=UI 入口、orphan）+ grade=utility；不從路徑推導 */
 function featureKind(f: Feature): { label: string; emoji: string } {
-  const paths = (f.codeFiles || []).concat((f.subFeatures || []).flatMap(s => s.codeFiles || []));
-  if (paths.length === 0) return { label: "—", emoji: "❔" };
-  const hasUi = paths.some(p => /(^|\/)(ui|web|client|src\/components|packages\/ui)\//.test(p) || /\.(tsx|vue|svelte)$/.test(p));
-  const hasSrv = paths.some(p => /(^|\/)(server|api|packages\/server|routes)\//.test(p) || /\.(mjs|go|py)$/.test(p));
-  if (hasUi && hasSrv) return { label: "mixed", emoji: "🔀" };
-  if (hasUi) return { label: "frontend", emoji: "🎨" };
-  return { label: "backend", emoji: "⚙️" };
+  const ev = (f as any).evidence || {};
+  const kinds = Object.keys(ev.kinds || {});
+  const isUtility = f.grade === "utility" || kinds.includes("orphan");
+  const hasHttp = kinds.includes("http");
+  const hasUi = kinds.includes("ui");
+  if (isUtility) return { label: "Utility", emoji: "🔧" };
+  if (hasHttp && hasUi) return { label: "API+UI", emoji: "🌐🎨" };
+  if (hasHttp) return { label: "API", emoji: "🌐" };
+  if (hasUi) return { label: "UI", emoji: "🎨" };
+  return { label: "Module", emoji: "📦" };
 }
 function FeatureTableGrid({ features, theme, t, searchQuery, ecMap, onSelectFeature }: {
   features: Feature[];
