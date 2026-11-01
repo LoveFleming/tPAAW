@@ -2768,7 +2768,44 @@ export default async function projectRoute(req, res) {
           return true;
         }
 
-        // 2026-11-01 API-first：backfillFeatureTests 退役 → tests 回寫 api_features（副檔名配對：foo.ts ↔ foo.test.ts）
+        // 2026-11-01 API-first：LLM JSON array 解析（code fence 剝除 + 截斷修復）
+function _extractJsonArray(text) {
+  if (Array.isArray(text)) return text;
+  const raw = String(text || "").replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+  if (!raw) return null;
+  try { const v = JSON.parse(raw); return Array.isArray(v) ? v : null; } catch {}
+  // 取第一個 [ 起；結尾有 ] 用它，沒有（截斷）就取到尾
+  const i = raw.indexOf("[");
+  if (i === -1) return null;
+  const j = raw.lastIndexOf("]");
+  const slice = j > i ? raw.slice(i, j + 1) : raw.slice(i);
+  try { const v = JSON.parse(slice); return Array.isArray(v) ? v : null; } catch {}
+  // 截斷修復：補好未關閉的物件/字串/陣列
+  let t = slice, inStr = false, esc = false;
+  const stack = [];
+  for (let k = 0; k < t.length; k++) {
+    const c = t[k];
+    if (esc) { esc = false; continue; }
+    if (c === "\\") { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === "[" || c === "{") stack.push(c === "[" ? "]" : "}");
+    else if (c === "]" || c === "}") stack.pop();
+  }
+  if (inStr) t += '"';
+  while (stack.length) {
+    // 關閉前先剝掉懸掛逗號 / 半截 key-value（"key": → 整組丟）
+    t = t.replace(/,?\s*"[^"]*"\s*:\s*$/, "").replace(/,\s*$/, "");
+    const tail = t.slice(-1);
+    if (tail === "{" || tail === "[" || tail === ":") { t = t.slice(0, -1); continue; }
+    const closer = stack.pop();
+    if (tail === ":") t += "null"; // 半截 "key": → 補 null 值
+    t += closer;
+  }
+  try { const v = JSON.parse(t); return Array.isArray(v) ? v : null; } catch { return null; }
+}
+
+// 2026-11-01 API-first：backfillFeatureTests 退役 → tests 回寫 api_features（副檔名配對：foo.ts ↔ foo.test.ts）
 async function backfillApiTests(root) {
   try {
     const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
@@ -3042,8 +3079,7 @@ async function backfillApiTests(root) {
               try {
                 const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
                 if (!cleanJson) throw new Error("AI 回應為空，無法產生 API Map");
-                let apis = _extractJsonArray(content);
-                if (!Array.isArray(apis)) apis = repairLlmJsonArray(content);
+                const apis = _extractJsonArray(content);
                 if (!Array.isArray(apis) || apis.length === 0) throw new Error("API Map 解析失敗（非 JSON array）");
                 const { todayStamp } = await import("../lib/feature-registry.mjs");
                 const prefix = `A${todayStamp()}-`;
