@@ -26,8 +26,8 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, statSync } 
 import { parseProject } from "./tree-sitter-parser.mjs";
 import { buildDeterministicFeatureMap } from "./code-graph.mjs";
 import { computeSubFeatureRefinement, detectTemplateOrphans } from "./feature-subfeature.mjs";
-import { computeCrosscutConcepts } from "./crosscut-concepts.mjs";
-import { nextFeatureIds, loadFeatures, saveFeatures, mergeFeaturesWithExisting } from "./feature-registry.mjs";
+import { computeCrosscutConcepts, computeUtilityConsumers } from "./crosscut-concepts.mjs";
+import { nextFeatureIds, loadFeatures, saveFeatures, computeFeatureKind, mergeFeaturesWithIdentityReport } from "./feature-registry.mjs";
 import { autoScanAllFeatureSeverities } from "./feature-risk-scan.mjs";
 import { DATA_HOME } from "../data-home.mjs";
 import { stableStringify } from "./stable-stringify.mjs";
@@ -380,6 +380,15 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
   // （severityDecisions/severity/status/knowledgeGaps/documentation/…）。
   // 消失的舊 feature 標 retired 不刪。寫入走 saveFeatures（備份輪替生效）。
   const now = new Date().toISOString();
+  const _kindOf = (item) => {
+    if (item.grade === "utility") return "utility";
+    const ks = Object.keys(item.kinds || {});
+    const h = ks.includes("http"), u = ks.includes("ui");
+    if (h && u) return "api+ui";
+    if (h) return "api";
+    if (u) return "ui";
+    return "module";
+  };
   const _mkFeature = (item, fl, extra = {}) => ({
     name: _str(fl.name, 80) || `Feature ${item.kind}`,
     description: _str(fl.description),
@@ -391,6 +400,7 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
     runbooks: [],
     tags: _arr(fl.tags, 6),
     grade: item.grade,
+    kind: _kindOf(item),
     evidence: {
       kinds: item.kinds,
       entryCount: item.entryCount,
@@ -438,13 +448,32 @@ export async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot
 
   const existing = loadFeatures(projectRoot);
   const newIds = nextFeatureIds(projectRoot, fresh.length); // 惰性拿號：只有真的新 feature 用
-  const features = mergeFeaturesWithExisting(fresh, existing, (i) => newIds[i]);
+  const { features, report: migration } = mergeFeaturesWithIdentityReport(fresh, existing, (i) => newIds[i]);
+  // ── Identity 遷移報告（Phase C 2026-11-01 S8）— 人只處理「❓待歸屬」，其餘自動 ──
+  writeDoc(projectRoot, "migrationReport", {
+    ...migration,
+    summary: `繼承 ${migration.inherited.length} · 合併 ${migration.mergedFrom.length} · 新設 ${migration.created.length}（待歸屬 ${migration.pendingAssignment.length}）· retired ${migration.retired.length}`,
+  });
+  onProgress?.(`🔀 遷移報告：${migration.inherited.length} 繼承 / ${migration.mergedFrom.length} 合併 / ${migration.created.length} 新設（❓待歸屬 ${migration.pendingAssignment.length}）/ ${migration.retired.length} retired`);
   // 子群最終 ID = parent ID + SF 編號（parent ID 合併後才確定）
   for (const feat of features) {
     if (Array.isArray(feat.subFeatures)) for (const s of feat.subFeatures) s.id = `${feat.id}-${s.key}`;
   }
 
   saveFeatures(projectRoot, features); // 走 registry（db 單一真相）
+
+  // ── Utility 證據模型（Phase C 2026-11-01）：deterministic consumers — 誰 import 誰負責回歸 ──
+  try {
+    onProgress?.("Utility consumers（import graph 反向，零 token）...");
+    const uc = await computeUtilityConsumers(projectRoot, parsed, features);
+    for (const f of features) {
+      if (f.kind !== "utility") continue;
+      f.evidence = { ...(f.evidence || {}), consumers: uc.consumers[f.id] || [] };
+      f.updatedAt = now;
+    }
+    if (uc.stats.utilities > 0) onProgress?.(`🔧 ${uc.stats.utilities} 個 Utility — 消費者歸屬完成（${uc.stats.crossFeatureImportEdges} 條跨 feature import 邊）`);
+    saveFeatures(projectRoot, features); // 落 consumers 進 db
+  } catch (e) { onProgress?.(`Utility consumers 計算失敗（略過）: ${e.message}`); }
 
   // ── 橫切關注點（Cross-cutting Concepts）— overlay 層，確定性、零 token ──
   // 解「Budget Control 找不到獨立 feature」這類先天盲區：L1 是檔案歸屬的分割（partition），

@@ -341,3 +341,47 @@ function _extractJsonArray(text) {
   if (a < 0 || b <= a) return null;
   try { return JSON.parse(body.slice(a, b + 1)); } catch { return null; }
 }
+
+// ── Utility 證據模型（Feature First v2 Phase C，2026-11-01）：deterministic consumers ──
+// Utility kind 沒有自有 E2E — 證據模型 = unit tests + SG + 消費者回歸（哪些 feature 的測試/E2E 蓋到它）。
+// consumers = import graph 反向：誰 import 進 utility 的檔案，誰就是消費者。零 token、全程式判定。
+export async function computeUtilityConsumers(projectRoot, parsed, features, opts = {}) {
+  const maxConsumers = opts.maxConsumers ?? 12;
+  const utilities = (features || []).filter(f => (f.kind || f.grade) === "utility" || f.grade === "utility");
+  if (utilities.length === 0) return { consumers: {}, stats: { utilities: 0 } };
+
+  const ownerOf = new Map(); // file(normalized) → feature id
+  for (const f of features || []) {
+    for (const cf of f.codeFiles || []) {
+      const p = norm(cf);
+      if (!ownerOf.has(p)) ownerOf.set(p, f.id);
+    }
+  }
+  const utilIds = new Set(utilities.map(f => f.id));
+
+    // import 邊：重用 code-graph 的解析（suffix/同 package/java class）→ importer → imported 檔案路徑
+  const { buildCodeGraph } = await import("./code-graph.mjs");
+  const graph = buildCodeGraph(parsed);
+  const consumers = {}; // utilId → Map(consumerFid → count)
+  let edgeCount = 0;
+  for (const [importer, importedSet] of graph.edges || []) {
+    const srcId = ownerOf.get(norm(importer));
+    if (!srcId || utilIds.has(srcId)) continue; // 只看非 utility 的 importer
+    for (const target of importedSet || []) {
+      const tid = ownerOf.get(norm(target));
+      if (tid && utilIds.has(tid)) {
+        edgeCount++;
+        (consumers[tid] ||= new Map()).set(srcId, (consumers[tid].get(srcId) || 0) + 1);
+      }
+    }
+  }
+  const nameOf = new Map((features || []).map(f => [f.id, f.name || f.id]));
+  const out = {};
+  for (const u of utilities) {
+    const m = consumers[u.id] || new Map();
+    out[u.id] = [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, maxConsumers)
+      .map(([fid, imports]) => ({ featureId: fid, name: nameOf.get(fid) || fid, imports }));
+  }
+  return { consumers: out, stats: { utilities: utilities.length, crossFeatureImportEdges: edgeCount } };
+}

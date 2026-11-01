@@ -2010,5 +2010,14 @@
   "feature.colKind": "種類",
   "feature.colFiles": "ファイル",
   "feature.colApis": "API",
-  "feature.colTests": "テスト"
+  "feature.colTests": "テスト",
+  "feature.migrationTitle": "Identity 移行レポート",
+  "feature.migrationHint": "前回 CU 再スキャンの移行レポート",
+  "feature.migrationEmpty": "移行レポートなし",
+  "feature.migrationPending": "帰属未定（50% 未満 — 推測しない）",
+  "feature.migrationPartial": "部分的重複",
+  "feature.migrationInherited": "継承",
+  "feature.migrationMerged": "統合",
+  "feature.migrationCreated": "新設",
+  "feature.migrationRetired": "Retired"
 }
