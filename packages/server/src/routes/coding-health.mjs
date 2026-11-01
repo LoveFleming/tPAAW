@@ -57,6 +57,9 @@ function parsePath(req, roots) {
   const raw = url.searchParams.get("path");
   if (!raw) return PAAW_ROOT;
   const abs = resolve(raw);
+  // 2026-11-01：與 coding.mjs 對齊 — path 指向存在的目錄即用（coding 專案如 learning-space 不在 workspaces.json，
+  // 舊邏輯會靜默 fallback 回 PAAW_ROOT，導致 apiMap 讀錯專案的 coding.db）
+  try { if (statSync(abs).isDirectory()) return abs; } catch { /* fallthrough */ }
   return withinRoots(abs, roots) ? abs : PAAW_ROOT;
 }
 
