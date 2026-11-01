@@ -41,9 +41,9 @@ import { readDoc } from "./coding-db/docs.repo.mjs";
 const CHECKLIST_DEFS = [
   { id: "tests", label: "測試全過（unit + e2e）" },
   { id: "gates", label: "品質門檻（build / type-check / test）" },
-  { id: "feature-map", label: "Delta 檔案歸類（動到的都要對到功能）" },
+  { id: "api-map", label: "Delta 檔案歸類（動到的都要對到 API）" },
   { id: "qa-records", label: "QA 記錄無未解決 fail" },
-  { id: "qa-delta", label: "Delta features QA 覆蓋（本版樹上有證據）" },
+  { id: "qa-delta", label: "Delta APIs QA 覆蓋（本版樹上有證據）" },
   { id: "security", label: "Security scan（semgrep，scope 內）" },
   { id: "review-board", label: "Review 委員會（report 覆蓋放行範圍）" },
   { id: "risk", label: "風險評估（readiness heuristic）" },
@@ -172,7 +172,7 @@ export async function listReleaseRequests(projectPath) {
         baseline: { short: rr.baseline?.short, subject: rr.baseline?.subject, source: rr.baseline?.source },
         target: { short: rr.target?.short, subject: rr.target?.subject },
         targetLocked: !!rr.targetLocked, // 2026-10-22 lineage 制：鎖定後不自動前進
-        scope: { commits: rr.scope?.commits?.count ?? 0, files: (rr.scope?.files || []).length, features: (rr.scope?.features || []).length, apis: (rr.scope?.apis || []).length, tasks: (rr.scope?.taskIds || []).length },
+        scope: { commits: rr.scope?.commits?.count ?? 0, files: (rr.scope?.files || []).length, apis: (rr.scope?.impactedApis || rr.scope?.apis || []).length, tasks: (rr.scope?.taskIds || []).length },
         checklist: (rr.checklist || []).map(c => ({ id: c.id, verdict: c.verdict, auto: c.auto?.status || "unknown" })),
         // v3（2026-09-18）：RM agent 建議 verdict — 列表帶摘要，人在 UI 一鍵確認
         suggested: rr.suggested && Object.keys(rr.suggested).length
@@ -282,27 +282,41 @@ export async function computeScope(projectPath, baselineSha, targetSha, opts = {
   const recentFiles = ci?.recentFiles || [];
   const changedSet = new Set(recentFiles.map(f => f.file));
 
-  let model = null;
-  try { model = JSON.parse(readFileSync(join(projectPath, ".paaw", "release-unit-model.json"), "utf-8")); } catch { /* no model */ }
+  // 2026-11-01 API-first：impacted APIs 從 api_features + fileApiMap 反查（feature map / RU model 退役）
+  let apiFeatures = [];
+  let fileApiIndex = {}; // file → [{id, entry, name}]
+  try {
+    const { readApiFeatures } = await import("./coding-db/reads.mjs");
+    const { readDoc } = await import("./coding-db/docs.repo.mjs");
+    apiFeatures = readApiFeatures(projectPath) || [];
+    const fam = readDoc(projectPath, "fileApiMap");
+    if (fam?.files) fileApiIndex = fam.files;
+  } catch { /* db 未初始化 */ }
 
-  const changedApis = (model?.apis || [])
-    .filter(a => a.file && changedSet.has(a.file))
-    .map(a => ({ method: a.method, path: a.path, file: a.file, featureIds: a.featureIds || [] }));
-
-  const changedFeatures = [];
-  for (const f of model?.features || []) {
-    const files = (f.files || []).filter(x => changedSet.has(x));
-    if (!files.length) continue;
-    const fids = new Set([f.id]);
-    const apis = changedApis.filter(a => a.featureIds?.some(id => fids.has(id)));
-    changedFeatures.push({
-      id: f.id, name: f.name, status: f.status,
-      changedFiles: files,
-      apis: apis.map(a => `${a.method} ${a.path}`),
-      apiImpact: apis.length > 0,
-      hasTests: (f.tests || []).length > 0,
-    });
+  const impacted = new Map(); // apiId → { id, entry, name, category, changedFiles, hasTests }
+  for (const file of changedSet) {
+    const hits = fileApiIndex[file] || [];
+    for (const h of hits) {
+      if (!impacted.has(h.id)) {
+        const meta = apiFeatures.find(a => a.id === h.id) || {};
+        impacted.set(h.id, {
+          id: h.id, entry: h.entry || meta.entry, name: h.name || meta.name, category: meta.category || "",
+          changedFiles: [], hasTests: (meta.tests || []).length > 0,
+        });
+      }
+    }
   }
+  // api_features 直查（codeFiles 內含 changed file 但 fileApiMap 尚未收錄的）
+  for (const a of apiFeatures) {
+    const hitFiles = (a.codeFiles || []).filter(f => changedSet.has(String(f).replace(/\\/g, "/")));
+    if (hitFiles.length === 0) continue;
+    if (!impacted.has(a.id)) {
+      impacted.set(a.id, { id: a.id, entry: a.entry, name: a.name, category: a.category, changedFiles: [], hasTests: (a.tests || []).length > 0 });
+    }
+    const e = impacted.get(a.id);
+    for (const f of hitFiles) if (!e.changedFiles.includes(f)) e.changedFiles.push(f);
+  }
+  const impactedApis = [...impacted.values()];
 
   let taskIds = pendingReleaseTasks(projectPath); // pending = 未放行，定義上都在 baseline 之後
   // v3（2026-09-18）：per-task approve 自動建 RR 用 — scope 限定單一 task，避免誤放行其他 pending tasks
@@ -319,8 +333,8 @@ export async function computeScope(projectPath, baselineSha, targetSha, opts = {
       subjects: commits.slice(0, 30).map(c => `${c.short || (c.hash || "").slice(0, 8)} ${c.subject}`),
     },
     files: recentFiles,
-    features: changedFeatures,
-    apis: changedApis,
+    apis: impactedApis,
+    impactedApis,
     taskIds, // pending = 未放行，定義上都在 baseline 之後
   };
 }
@@ -330,10 +344,9 @@ export async function computeScope(projectPath, baselineSha, targetSha, opts = {
 function scopeRisk(scope, autoSoFar, opts = {}) {
   let score = 0;
   const reasons = [];
-  const feats = scope.features || [];
+  const apis = scope.impactedApis || scope.apis || [];
   const firstRelease = !!opts.firstRelease; // baseline=first-commit（或無歷史 release）→ volume 是全歷史，資訊性不計分（2026-09-19 v2 對齊）
-  if (feats.some(f => !f.hasTests && f.apiImpact)) { score += 2; reasons.push("API 變更的 feature 沒有測試"); }
-  else if (feats.some(f => !f.hasTests)) { score += 1; reasons.push("有 feature 沒有測試"); }
+  if (apis.some(a => !a.hasTests)) { score += 2; reasons.push("受影響的 API 沒有測試"); }
   if ((scope.files || []).length > 20) {
     if (firstRelease) reasons.push(`first release: ${scope.files.length} 檔（首發基準線，不計分）`);
     else { score += 1; reasons.push(`${scope.files.length} 個檔案變更`); }
@@ -428,54 +441,49 @@ export async function autoCheckAll(projectPath, scope, opts = {}) {
     };
   } catch { out["qa-records"] = { status: "unknown", detail: "QA 記錄讀取失敗", checkedAt: at }; }
 
-  // feature-map — delta 檔案歸類（2026-10-22 delta 制）：release 只看 delta，但 delta 裡每個檔案
-  // 都要能對到功能。新功能 = 新檔案對不到 feature map → 明確列出強制歸類（不靜默消失）。
-  // 歸類是純衛生動作：更新 .paaw/features/FILE-FEATURES.json → 下次 refresh 自動轉綠。
+  // api-map — delta 檔案歸類（2026-11-01 API-first）：release 只看 delta，但 delta 裡每個檔案
+  // 都要能對到 API。歸類是純衛生動作：api_map_update 工具更新 codeFiles + fileApiMap → 下次 refresh 自動轉綠。
   // .paaw/ = RU runtime 資料、lock 檔 = 環境產物 → 不要求歸類（2026-09-19 同哲學）。
   try {
-    // 歸類來源取聯集：FILE-FEATURES.json（coding app feature map）+ release-unit-model.json（RU model
-    // 的 features[].files）— 兩邊都是合法歸類記錄，追任一邊都算可追溯
     const mapped = new Set();
-    const ff = readDoc(projectPath, "fileFeatures"); // coding.db ru_docs
-    if (ff) {
-      for (const k of Object.keys(ff.files || {})) mapped.add(String(k).replace(/\\/g, "/"));
+    const fam = readDoc(projectPath, "fileApiMap"); // coding.db ru_docs（2026-11-01 唯一歸類記錄）
+    if (fam) {
+      for (const k of Object.keys(fam.files || {})) mapped.add(String(k).replace(/\\/g, "/"));
     }
-    try {
-      const model = JSON.parse(readFileSync(join(projectPath, ".paaw", "release-unit-model.json"), "utf-8"));
-      for (const f of model?.features || []) for (const x of f.files || []) mapped.add(String(x).replace(/\\/g, "/"));
-    } catch { /* 無 RU model — 只靠 feature map */ }
     const notTraceable = f => f.startsWith(".paaw/") || /(^|\/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|[^/]*\.lock)$/i.test(f);
     const deltaFiles = (scope.files || []).map(f => String(f?.file ?? f).replace(/\\/g, "/")).filter(Boolean);
     const attributable = deltaFiles.filter(f => !notTraceable(f));
     const unmapped = attributable.filter(f => !mapped.has(f));
-    out["feature-map"] = {
+    out["api-map"] = {
       status: unmapped.length ? "fail" : "pass",
       detail: unmapped.length
-        ? `${unmapped.length} 個 delta 檔案未歸類到任何 feature：${unmapped.slice(0, 5).join("、")}${unmapped.length > 5 ? "…" : ""} — 用 feature_map_update 工具歸類（新功能順勢登記新 feature，server 寫 coding.db）`
+        ? `${unmapped.length} 個 delta 檔案未歸類到任何 API：${unmapped.slice(0, 5).join("、")}${unmapped.length > 5 ? "…" : ""} — 用 api_map_update 工具歸類（server 寫 coding.db + 重建 fileApiMap）`
         : `delta ${attributable.length} 檔全部歸類完成`,
       checkedAt: at,
       ...(unmapped.length ? { unmapped } : {}),
     };
-  } catch { out["feature-map"] = { status: "unknown", detail: "feature map 檢查失敗", checkedAt: at }; }
+  } catch { out["api-map"] = { status: "unknown", detail: "api map 檢查失敗", checkedAt: at }; }
 
   // qa-delta — delta features 的 QA 覆蓋（2026-10-22 delta 制）：動到的功能要有「本 release 樹上」
   // 的 QA pass 證據；沒動到的功能不要求新證據，靠回歸保護（tests/gates 永遠全量，不縮 scope）。
   // 覆蓋 = 存在 verdict pass 記錄（open/resolved 皆算 — 證明測過）、feature 對得上、headSha ∈ (baseline, target]。
   // 缺覆蓋 → warn（人決定補測或 resolve 說明理由）；絕不虛構證據。
   try {
-    const feats = (scope.features || []).filter(f => f && f.id);
-    if (!feats.length) {
-      out["qa-delta"] = { status: "pass", detail: "delta 無 features（若 delta 有程式檔 → 見 feature-map 歸類）", checkedAt: at };
+    const apisList = (scope.impactedApis || scope.apis || []).filter(a => a && a.id);
+    if (!apisList.length) {
+      out["qa-delta"] = { status: "pass", detail: "delta 無 impacted APIs（若 delta 有程式檔 → 見 api-map 歸類）", checkedAt: at };
     } else {
-      const fidOf = s => { const m = String(s || "").match(/F\d{8}-\d{3}/); return m ? m[0] : null; };
-      // 記錄 join 兩條路：F-ID（新格式/帶 id 的自由文字）或功能名稱精確對上（qa_record_save 的規定
-      // 就是填 project_info 的 name 原文 — Evidence Matrix 也靠名稱 join，2026-10-22 EM 3 筆 pass
-      // 全是純名稱、抓不到 F-ID 導致 warn 不轉綠的教訓）
-      const nameToId = new Map(feats.map(f => [String(f.name || "").trim(), String(f.id)]));
+      const aidOf = s => { const m = String(s || "").match(/A\d{8}-\d{3}/); return m ? m[0] : null; };
+      // 記錄 join 兩條路：A-ID 或 entry/name 精確對上（qa_record_save 填 project_info(category=api_map) 的 entry/name 原文）
+      const nameToId = new Map();
+      for (const a of apisList) {
+        nameToId.set(String(a.name || "").trim(), String(a.id));
+        nameToId.set(String(a.entry || "").trim(), String(a.id));
+      }
       const covered = new Set();
       for (const r of listQaResults(projectPath, { limit: 500 })) {
-        const raw = String(r.feature || "").trim();
-        const rid = fidOf(raw) || nameToId.get(raw) || null;
+        const raw = String(r.feature || r.target || "").trim();
+        const rid = aidOf(raw) || nameToId.get(raw) || null;
         if (!rid || r.verdict !== "pass") continue;
         const h = /^[0-9a-f]{7,40}$/i.test(String(r.headSha || "")) ? String(r.headSha) : null;
         if (!h || !opts.baselineSha || !opts.targetSha) continue;
@@ -483,12 +491,12 @@ export async function autoCheckAll(projectPath, scope, opts = {}) {
         const withinTarget = h === opts.targetSha || (await gitIsAncestor(projectPath, h, opts.targetSha));
         if (afterBase && withinTarget) covered.add(rid);
       }
-      const missing = feats.filter(f => !covered.has(String(f.id)));
+      const missing = apisList.filter(a => !covered.has(String(a.id)));
       out["qa-delta"] = {
         status: missing.length === 0 ? "pass" : "warn",
         detail: missing.length === 0
-          ? `delta ${feats.length} 個 features QA 覆蓋完整（本版樹上 pass 記錄齊）`
-          : `${missing.length}/${feats.length} 個 delta features 尚無本版樹上的 QA pass：${missing.slice(0, 3).map(f => `${f.id} ${(f.name || "").slice(0, 24)}`.trim()).join("、")}${missing.length > 3 ? "…" : ""} — 跑 feature QA 落記錄（自動綁樹），或由人 resolve 附理由`,
+          ? `delta ${apisList.length} 個 APIs QA 覆蓋完整（本版樹上 pass 記錄齊）`
+          : `${missing.length}/${apisList.length} 個 delta APIs 尚無本版樹上的 QA pass：${missing.slice(0, 3).map(f => `${f.id} ${(f.name || "").slice(0, 24)}`.trim()).join("、")}${missing.length > 3 ? "…" : ""} — 跑 API QA 落記錄（自動綁樹），或由人 resolve 附理由`,
         checkedAt: at,
         ...(missing.length ? { missing: missing.map(f => String(f.id)) } : {}),
       };

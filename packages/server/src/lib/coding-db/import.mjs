@@ -9,7 +9,7 @@ import { upsertRuInfo } from "./ru-info.repo.mjs";
 import { readDoc } from "./docs.repo.mjs";
 
 const KNOWN_TASK_COLS = new Set([
-  "id","featureId","parentId","type","title","status","priority","labels","assignee",
+  "id","apiId","parentId","type","title","status","priority","labels","assignee",
   "description","relatedFiles","notes","pipelineMode","pipelinePhases","autoExecute",
   "createdAt","updatedAt"
 ]);
@@ -111,7 +111,7 @@ function _importTasks(db, ruRoot, ru) {
   const data = readJson(join(ruRoot, ".paaw", "tasks", "TASKS.json"));
   if (!data || !Array.isArray(data.tasks)) return 0;
   const ins = db.prepare(`INSERT OR REPLACE INTO task
-    (id, ru, parent_id, feature_id, type, title, status, priority, labels,
+    (id, ru, parent_id, api_id, type, title, status, priority, labels,
      description, related_files, payload, created_at, updated_at)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   const insDetail = db.prepare(`INSERT INTO task_detail (ru, task_id, kind, agent, ts, content, payload)
@@ -124,7 +124,7 @@ function _importTasks(db, ruRoot, ru) {
     if (t.pipelinePhases != null) payload.pipelinePhases = t.pipelinePhases;
     if (t.autoExecute != null) payload.autoExecute = t.autoExecute;
     ins.run(
-      t.id, ru, t.parentId ?? null, t.featureId === undefined ? "\x01" : t.featureId, t.type ?? "dev", t.title ?? "",
+      t.id, ru, t.parentId ?? null, t.apiId === undefined ? "\x01" : t.apiId, t.type ?? "dev", t.title ?? "",
       t.status ?? "open", t.priority ?? null,
       JSON.stringify(t.labels ?? []), t.description ?? null,
       t.relatedFiles === undefined ? "\x01" : JSON.stringify(t.relatedFiles),

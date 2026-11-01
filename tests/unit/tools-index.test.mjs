@@ -104,7 +104,7 @@ const noneApp = {
 
 let tmpRootDir, wsDir;
 
-function setupSandbox() {
+async function setupSandbox() {
   tmpRootDir = mkdtempSync(join(tmpdir(), "paaw-tools-test-"));
   dirs.dataHome = join(tmpRootDir, "data");
   dirs.root = join(tmpRootDir, "proj");
@@ -137,11 +137,11 @@ function setupSandbox() {
       { id: "ISS-002", title: "Second task", status: "resolved", priority: "low", labels: ["chore"] },
     ]})
   );
-  mkdirSync(join(dirs.root, ".paaw", "features"), { recursive: true });
-  writeFileSync(
-    join(dirs.root, ".paaw", "features", "FEATURES.json"),
-    JSON.stringify({ features: [{ id: "F-001", name: "Core", codeFiles: ["a.mjs"] }] })
-  );
+  // 2026-11-01 API-first：features → api_features（coding.db）
+  {
+    const { saveApiFeatures } = await import("../../packages/server/src/lib/coding-db/api-features.repo.mjs");
+    saveApiFeatures(dirs.root, [{ id: "A20261101-001", category: "core", entry: "GET /api/core", name: "Core", codeFiles: ["a.mjs"], tests: [] }]);
+  }
   writeFileSync(join(dirs.root, "PROJECT.md"), "# Project\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10");
   // Memory sections
   mkdirSync(join(dirs.dataHome, "config"), { recursive: true });
@@ -211,7 +211,7 @@ async function loadTools() {
 }
 
 beforeAll(async () => {
-  setupSandbox();
+  await setupSandbox();
   vi.stubGlobal("fetch", fetchStub);
   const mod = await import("@server/tools/index.mjs");
   getToolsAndHandlers = mod.getToolsAndHandlers;
@@ -297,10 +297,10 @@ describe("project_info (filesystem-backed)", () => {
     expect(String(miss)).toBeTruthy();
   });
 
-  it("reads features with keyword search", async () => {
+  it("reads api_map with keyword search", async () => {
     await loadTools();
-    const res = await currentHandlers.project_info({ category: "features", search: "Core" });
-    expect(String(res)).toContain("F-001");
+    const res = await currentHandlers.project_info({ category: "api_map", search: "Core" });
+    expect(String(res)).toContain("A20261101-001");
   });
 
   it("reads project context from PROJECT.md", async () => {

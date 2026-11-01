@@ -87,7 +87,7 @@ export function readTasks(ruRoot) {
   const tasks = rows.map(r => {
     const t = { ...JSON.parse(r.payload || "{}") };
     t.id = r.id;
-    if (r.feature_id !== "\x01") t.featureId = r.feature_id;
+    if (r.api_id !== "\x01") t.apiId = r.api_id;
     t.parentId = r.parent_id;
     t.type = r.type; t.title = r.title; t.status = r.status;
     t.priority = r.priority;

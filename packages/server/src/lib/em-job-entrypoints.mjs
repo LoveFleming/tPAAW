@@ -20,7 +20,7 @@ import { fileURLToPath } from "url";
 import { shellExec } from "./shell-exec.mjs";
 import { createTicket, loadTasksFile } from "./em-task-store.mjs";
 import { stableStringify } from "./stable-stringify.mjs";
-import { loadFeatures } from "./feature-registry.mjs";
+import { readApiFeatures } from "./coding-db/reads.mjs"; // API-first（2026-11-01）
 
 const __filename = fileURLToPath(import.meta.url);
 const PAAW_ROOT = resolve(__filename, "..", "..", "..", "..");
@@ -69,20 +69,19 @@ async function _entryCuScan(rootDir, opts) {
     }
   }
 
-  // 2. features（coding.db 單一真相）：active feature 缺 tests / 缺 docs
-  let featureList = [];
-  try { featureList = loadFeatures(rootDir) ?? []; } catch { /* 未掃過 */ }
-  let noTests = 0, noDocs = 0;
-  for (const f of featureList) {
-    if (f.status !== "active") continue;
-    const hasTests = Array.isArray(f.testFiles) && f.testFiles.length > 0;
-    const hasDocs = Array.isArray(f.docFiles) && f.docFiles.length > 0 || !!f.docFile;
-    if (!hasTests) { noTests++; if (findings.filter(x => x.kind === "feature-no-tests").length < 10) findings.push({ kind: "feature-no-tests", featureId: f.id, name: f.name, codeFiles: (f.codeFiles || []).length }); }
-    if (!hasDocs) { noDocs++; if (findings.filter(x => x.kind === "feature-no-docs").length < 8) findings.push({ kind: "feature-no-docs", featureId: f.id, name: f.name }); }
+  // 2. API features（coding.db api_features，2026-11-01 API-first）：缺 tests / 缺 process flow
+  let apiList = [];
+  try { apiList = readApiFeatures(rootDir) ?? []; } catch { /* 未掃過 */ }
+  let noTests = 0, noFlow = 0;
+  for (const a of apiList) {
+    const hasTests = Array.isArray(a.tests) && a.tests.length > 0;
+    const hasFlow = Array.isArray(a.processFlow) && a.processFlow.length > 0;
+    if (!hasTests) { noTests++; if (findings.filter(x => x.kind === "api-no-tests").length < 10) findings.push({ kind: "api-no-tests", apiId: a.id, name: a.name || a.entry, codeFiles: (a.codeFiles || []).length }); }
+    if (!hasFlow) { noFlow++; if (findings.filter(x => x.kind === "api-no-flow").length < 8) findings.push({ kind: "api-no-flow", apiId: a.id, name: a.name || a.entry }); }
   }
-  meta.activeFeatures = featureList.filter(f => f.status === "active").length;
-  meta.featuresNoTests = noTests;
-  meta.featuresNoDocs = noDocs;
+  meta.activeApis = apiList.length;
+  meta.apisNoTests = noTests;
+  meta.apisNoFlow = noFlow;
 
   // 3. CU status 過期步驟
   const cuStatus = _readJson(join(rootDir, ".paaw", "cu-status.json"));
@@ -98,7 +97,7 @@ async function _entryCuScan(rootDir, opts) {
   return {
     type: "cu-scan",
     ok: true,
-    summary: `CU 掃描：${meta.activeFeatures ?? 0} active features（缺測試 ${noTests}／缺文件 ${noDocs}）${meta.rescanError ? `；機械層重掃失敗：${meta.rescanError}` : ""}`,
+    summary: `CU 掃描：${meta.activeApis ?? 0} APIs（缺測試 ${noTests}／缺 process flow ${noFlow}）${meta.rescanError ? `；機械層重掃失敗：${meta.rescanError}` : ""}`,
     findings,
     meta,
   };

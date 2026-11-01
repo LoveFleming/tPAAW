@@ -30,8 +30,7 @@ import { join } from "path";
 import {
   gatherContext,
   buildSituationReport,
-  refreshFeatureMapping,
-  validateFeatureMap,
+  refreshApiMap,
   saveAutoDispatchReport,
   scanTasksForDispatch,
 } from "./auto-dispatch-shared.mjs";
@@ -501,29 +500,23 @@ ${requireEstimate ? '- 每項必須附預估 effort（' + defaultEffort + ' 为�
   }
 }
 
-// ── Phase 0: Feature Map Refresh + Validation（共用） ──
+// ── Phase 0: API Map Refresh（2026-11-01 API-first，feature map 退役） ──
 
 async function runPhase0(rootDir, modelOverride, fallbackModels, sendSSE) {
-  console.log("[AutoDispatch] ═══ Phase 0: Feature Map Refresh + Validation ═══");
-  // Feature Map refresh
-  sendSSE("info", { message: "🗺️ Phase 0: 更新 Feature Map..." });
+  console.log("[AutoDispatch] ═══ Phase 0: API Map Refresh ═══");
+  sendSSE("info", { message: "🌐 Phase 0: 更新 API Map..." });
   try {
-    const refreshed = await refreshFeatureMapping(rootDir, modelOverride, fallbackModels, sendSSE);
+    const refreshed = await refreshApiMap(rootDir, modelOverride, fallbackModels, sendSSE, process.env.PAAW_ROOT);
     if (refreshed.ok) {
-      console.log(`[AutoDispatch] Phase 0: Feature Map updated ${refreshed.updated}/${refreshed.total}`);
+      console.log(`[AutoDispatch] Phase 0: API Map updated ${refreshed.updated}/${refreshed.total}`);
     } else {
-      console.log(`[AutoDispatch] Phase 0: Feature Map failed: ${refreshed.error}`);
-      sendSSE("warning", { message: `🗺️ Feature Map 更新失敗：${refreshed.error || 'unknown'}` });
+      console.log(`[AutoDispatch] Phase 0: API Map failed: ${refreshed.error}`);
+      sendSSE("warning", { message: `🌐 API Map 更新失敗：${refreshed.error || 'unknown'}` });
     }
   } catch (err) {
-    console.log(`[AutoDispatch] Phase 0: Feature Map skipped: ${err.message}`);
-    sendSSE("warning", { message: `🗺️ Feature Map 更新略過：${err.message}` });
+    console.log(`[AutoDispatch] Phase 0: API Map skipped: ${err.message}`);
+    sendSSE("warning", { message: `🌐 API Map 更新略過：${err.message}` });
   }
-
-  // L3 Validation
-  console.log("[AutoDispatch] Phase 0: Validating Feature Map...");
-  sendSSE("info", { message: "🔍 Phase 0: 驗證 Feature Map..." });
-  await validateFeatureMap(rootDir, sendSSE);
   console.log("[AutoDispatch] Phase 0: Done ✓");
 }
 

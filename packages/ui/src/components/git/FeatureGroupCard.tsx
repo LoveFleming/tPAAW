@@ -30,6 +30,8 @@ interface FeatureGroupCardProps {
   crossPaths?: Set<string>;
   /** Phase D：scope 外（unexpected）檔案集合 */
   unexpectedPaths?: Set<string>;
+  /** api-first（2026-11-01）：此分組 touched files 對應到的 impacted APIs */
+  impactedApis?: { id?: string; entry: string; name?: string }[];
 }
 
 export default function FeatureGroupCard({
@@ -43,6 +45,7 @@ export default function FeatureGroupCard({
   onStageFile,
   crossPaths,
   unexpectedPaths,
+  impactedApis,
 }: FeatureGroupCardProps) {
   const [expanded, setExpanded] = useState(true);
 
@@ -78,8 +81,8 @@ export default function FeatureGroupCard({
         <span className={cn("text-xs font-bold", unmapped ? "text-amber-700" : "text-violet-700")}>
           {group.name}
         </span>
-        {!unmapped && group.featureId && (
-          <span className="text-[9px] text-violet-400 font-mono">{group.featureId}</span>
+        {!unmapped && group.apiId && (
+          <span className="text-[9px] text-violet-400 font-mono">🌐 {group.apiId}</span>
         )}
         <span className={cn(
           "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
@@ -118,6 +121,18 @@ export default function FeatureGroupCard({
           </button>
         )}
       </button>
+
+      {/* Impacted APIs（api-first 2026-11-01）：此分組檔案會影響到的 API 進入點 */}
+      {expanded && (impactedApis?.length || 0) > 0 && (
+        <div className="flex flex-wrap items-center gap-1 px-3 py-1.5 bg-violet-25 border-b border-violet-100">
+          <span className="text-[9px] font-bold text-violet-500 shrink-0">🌐 Impacted APIs</span>
+          {impactedApis!.map((a, i) => (
+            <span key={a.id || `${a.entry}-${i}`} className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-mono font-medium" title={a.name || a.entry}>
+              {a.entry}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* File List */}
       {expanded && (

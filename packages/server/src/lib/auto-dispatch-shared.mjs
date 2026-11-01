@@ -21,7 +21,7 @@ import { loadFeatureData, matchFeaturesForFiles, buildFeatureFileTree, buildCont
 import { PaawProject } from "./paaw-project.mjs";
 import { listActionLog } from "./action-log.mjs";
 import { stableStringify } from "./stable-stringify.mjs";
-import { loadFeatures, saveFeatures } from "./feature-registry.mjs";
+import { openCodingDb } from "./coding-db/connection.mjs";
 
 
 // ── Context Gathering（統一版） ──
@@ -251,12 +251,21 @@ function gatherSecuritySummary(rootDir) {
 // ── Helper: feature summary text ──
 
 function getFeatureSummaryText(rootDir) {
+  // 2026-11-01 API-first：feature map 退役，摘要改 api_features（category 分組）
   try {
-    const features = loadFeatures(rootDir); // coding.db
-    if (features.length === 0) return "(no features)";
-    return features.map(f => `- [${f.id}] ${f.name} (${f.status}): ${f.codeFiles?.length || 0} files`).join("\n");
+    const db = openCodingDb(rootDir);
+    const rows = db.prepare("SELECT id, category, entry, name, code_files FROM api_features ORDER BY category, rowid").all();
+    if (!rows.length) return "(no api features — 跑 CU api-map 步驟)";
+    const byCat = {};
+    for (const r of rows) (byCat[r.category] ??= []).push(r);
+    return Object.entries(byCat).map(([cat, list]) =>
+      `### ${cat} (${list.length})\n` + list.map(a => {
+        const n = a.code_files ? JSON.parse(a.code_files).length : 0;
+        return `- [${a.id}] ${a.entry} — ${a.name} (${n} files)`;
+      }).join("\n")
+    ).join("\n");
   } catch {
-    return "(error reading features)";
+    return "(error reading api features)";
   }
 }
 
@@ -458,188 +467,54 @@ export function scanTasksForDispatch(rootDir, opts = {}) {
 // ── Feature Map Refresh（統一版，不再兩邊複製） ──
 
 /**
- * Refresh feature mappings based on current codebase
- * @param {string} projRoot - Project root directory
- * @param {string} modelOverride - Optional model override
- * @param {string[]} fallbackModels - Optional fallback model list
- * @param {function} [sendSSE] - Optional SSE callback for progress
- * @returns {Promise<{ok: boolean, updated?: number, total?: number, error?: string}>}
+ * API Map Refresh（2026-11-01 API-first：接棒 refreshFeatureMapping）
+ * 重跑 CU api-map 產出 — tree-sitter + LLM → api_features 全量替換 + fileApiMap 重建
  */
-export async function refreshFeatureMapping(projRoot, modelOverride, fallbackModels = [], sendSSE) {
+export async function refreshApiMap(projRoot, modelOverride, fallbackModels = [], sendSSE, dataHome) {
   const { resolveLLMConfig } = await import("./paaw-agent-loop.mjs");
   const { callLLMWithRetry } = await import("./llm-utils.mjs");
+  const { generateApiMap } = await import("./api-map.mjs");
+  const { parseProject, formatCondensed, formatForAI } = await import("./tree-sitter-parser.mjs");
+  const { repairLlmJsonArray } = await import("../routes/coding-helpers.mjs").catch(() => ({}));
 
-  // Load existing features（coding.db 單一真相）
-  let features;
-  try {
-    features = loadFeatures(projRoot);
-    if (features.length === 0) {
-      return { ok: false, error: "No features to update. Run Code Understanding first." };
-    }
-  } catch (err) {
-    return { ok: false, error: `Failed to load features: ${err.message}` };
-  }
-
-  // Resolve LLM config
   let llm;
-  try {
-    llm = resolveLLMConfig(projRoot, modelOverride);
-  } catch (err) {
-    return { ok: false, error: `LLM config error: ${err.message}` };
-  }
+  try { llm = resolveLLMConfig(projRoot, modelOverride); } catch (err) { return { ok: false, error: `LLM config error: ${err.message}` }; }
 
-  // ── LLM call with model fallback ──
-  async function callWithFallback(body, opts = {}) {
+  async function callWithFallback(messages, opts = {}) {
+    const body = { model: llm.model, messages, temperature: 0, max_tokens: llm.maxTokens || 16384, stream: false };
     const models = [modelOverride, ...fallbackModels].filter(Boolean);
-    if (models.length === 0) {
-      // No override, use default
-      const result = await callLLMWithRetry(llm.apiUrl, llm.headers, body, {
-        maxRetries: 3,
-        timeoutMs: 300000,
-        validateContent: true,
-        sanitize: true,
-        caller: "auto-dispatch",
-        agentId: "auto-dispatch",
-        disableThinking: true, // 結構化輸出 — thinking 燒額度風險（2026-08-30）
-        ...opts,
-      });
-      return result;
-    }
+    const run = (cfg, m) => callLLMWithRetry(cfg.apiUrl, cfg.headers, { ...body, model: m || cfg.model || cfg.defaultModel }, {
+      maxRetries: 3, timeoutMs: 600000, validateContent: true, sanitize: true,
+      caller: "auto-dispatch", agentId: "auto-dispatch", disableThinking: true, ...opts,
+    });
+    if (models.length === 0) return run(llm);
     for (let i = 0; i < models.length; i++) {
       try {
-        const m = resolveLLMConfig(projRoot, models[i]);
-        const result = await callLLMWithRetry(m.apiUrl, m.headers, { ...body, model: m.model || m.defaultModel }, {
-          maxRetries: 2,
-          timeoutMs: 300000,
-          validateContent: true,
-          sanitize: true,
-          caller: "auto-dispatch",
-          agentId: "auto-dispatch",
-          disableThinking: true, // 結構化輸出 — thinking 燒額度風險（2026-08-30）
-          ...opts,
-        });
-        if (result) return result;
+        const cfg = resolveLLMConfig(projRoot, models[i]);
+        const r = await run(cfg, models[i]);
+        if (r) return r;
       } catch (err) {
-        console.log(`[FeatureMap] Model ${models[i]} failed: ${err.message.slice(0, 100)}`);
+        console.log(`[ApiMap] Model ${models[i]} failed: ${err.message.slice(0, 100)}`);
         if (i === models.length - 1) throw err;
       }
     }
     return null;
   }
 
-  // Scan ALL source files
-  const isWin = process.platform === "win32";
-  const scanCmd = isWin
-    ? `node -e "const{readdirSync:r,statSync:s}=require('fs');const{join:j}=require('path');function walk(d,a){for(const e of r(d)){const p=j(d,e);try{if(s(p).isDirectory()){if(!e.includes('node_modules')&&!e.includes('dist')&&!e.startsWith('.'))walk(p,a)}else if(/\\.(ts|tsx|mjs|js|jsx)$/.test(e))a.push(p.replace(/\\\\\\\\/g,'/'))}}catch{}}const f=[];walk('.',f);console.log(f.join('\\n'))"` // nosemgrep: missing-template-string-indicator
-    : "find . -type f \\( -name '*.ts' -o -name '*.tsx' -o -name '*.mjs' -o -name '*.js' -o -name '*.jsx' \\) -not -path '*/node_modules/*' -not -path '*/dist/*' -not -path '*/.paaw/*'";
-
-  const allFiles = await new Promise((resolve) => {
-    execCb(scanCmd, { cwd: projRoot, maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
-      resolve(stdout.trim().split("\n").filter(Boolean));
-    });
-  });
-
-  if (allFiles.length === 0) {
-    return { ok: false, error: "No source files found." };
-  }
-
-  // Read API contract if exists
-  let apiContract = "";
-  const apiSpecFile = join(projRoot, ".paaw", "specs", "api-contract.md");
-  if (existsSync(apiSpecFile)) {
-    try { apiContract = readFileSync(apiSpecFile, "utf-8").slice(0, 3000); } catch {}
-  }
-
-  const prompt = `You are a code analyst. Update the file mappings for existing features based on the current codebase.
-
-## Current Features
-${stableStringify(features.map(f => ({ id: f.id, name: f.name, description: f.description, currentCodeFiles: f.codeFiles, currentApis: f.apis, currentTests: f.tests, currentRunbooks: f.runbooks })))}
-
-## All Source Files in Codebase (${allFiles.length} files)
-${allFiles.join("\n")}
-
-## API Contract
-${apiContract || "(not available)"}
-
-## Task
-For EACH feature, review its current file mappings and update them based on what files actually exist now.
-
-Rules:
-1. If files were renamed/moved, update the paths
-2. If new files belong to this feature, add them
-3. If mapped files no longer exist, remove them
-4. Check API endpoints — add new ones, remove deleted ones
-5. Check test files — add new ones, remove deleted ones
-6. Check runbooks — same
-7. Do NOT change feature id, name, description, or status
-8. Do NOT invent files that don't exist in the file list above
-
-Output a JSON array with updated mappings. Each element:
-{ "id": "F20260904-001", "codeFiles": [...], "apis": [{"method":"GET","path":"/api/x","file":"src/x.mjs"}], "tests": [...], "runbooks": [...] }
-
-Output ONLY the JSON array, no markdown fences.`;
-
   try {
-    const body = {
-      model: llm.model,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.2,
-      max_tokens: llm.maxTokens || 16384,
-      stream: false,
-    };
-    const result = await callWithFallback(body);
-    const content = (result?.content || "").replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
-    if (!content) {
-      return { ok: false, error: "AI 回應為空" };
-    }
-
-    let updates;
-    try {
-      updates = JSON.parse(content);
-    } catch {
-      // Recovery: find last complete object
-      let lastComplete = 0, braceCount = 0, inStr = false, esc = false;
-      for (let i = 0; i < content.length; i++) {
-        const c = content[i];
-        if (esc) { esc = false; continue; }
-        if (c === '\\') { esc = true; continue; }
-        if (c === '"') { inStr = !inStr; continue; }
-        if (inStr) continue;
-        if (c === '{') braceCount++;
-        if (c === '}') { braceCount--; if (braceCount === 0) lastComplete = i; }
-      }
-      if (lastComplete === 0) {
-        return { ok: false, error: "No valid JSON in AI response" };
-      }
-      const recovered = content.substring(0, lastComplete + 1).trim() + '\n]';
-      try {
-        updates = JSON.parse(recovered);
-      } catch {
-        return { ok: false, error: "Truncated JSON, could not recover" };
-      }
-    }
-
-    if (!Array.isArray(updates)) throw new Error("AI did not return an array");
-
-    // Apply updates
-    let updatedCount = 0;
-    const now = new Date().toISOString();
-    for (const upd of updates) {
-      const idx = features.findIndex(f => f.id === upd.id);
-      if (idx < 0) continue;
-      if (upd.codeFiles) features[idx].codeFiles = upd.codeFiles;
-      if (upd.apis) features[idx].apis = upd.apis;
-      if (upd.tests) features[idx].tests = upd.tests;
-      if (upd.runbooks) features[idx].runbooks = upd.runbooks;
-      features[idx].updatedAt = now;
-      updatedCount++;
-    }
-
-    // Save features（coding.db 單一真相）
-    saveFeatures(projRoot, features);
-
-    if (sendSSE) sendSSE("info", { message: `🗺️ Feature Map 已更新：${updatedCount}/${features.length} features` });
-    return { ok: true, updated: updatedCount, total: features.length };
+    sendSSE?.("info", { message: "🌐 API Map 重掃中..." });
+    const { apis, stats } = await generateApiMap({
+      projRoot,
+      dataHome: dataHome || join(projRoot, "..", ".."), // 呼叫者沒給就用專案相對（實務由 manager 傳 PAAW_ROOT）
+      callLLM: callWithFallback,
+      parseProjectFn: (root) => parseProject(root, projRoot, { maxFiles: 0, maxBytes: 500_000 }),
+      formatCondensedFn: formatCondensed,
+      formatForAIFn: formatForAI,
+      repairJsonArrayFn: repairLlmJsonArray || null,
+      onProgress: (msg) => sendSSE?.("info", { message: `🌐 ${msg}` }),
+    });
+    sendSSE?.("info", { message: `🌐 API Map 已更新：${apis.length} 個後端進入點${stats ? `（${stats.parsedFiles} files parsed）` : ""}` });
+    return { ok: true, updated: apis.length, total: apis.length };
   } catch (err) {
     return { ok: false, error: err.message };
   }

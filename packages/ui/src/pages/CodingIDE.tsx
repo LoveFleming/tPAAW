@@ -57,7 +57,7 @@ import CodeReviewBoardPanel from "../components/CodeReviewBoardPanel";
 import HandoverPanel from "../components/HandoverPanel";
 import TroubleshootingPanel from "../components/TroubleshootingPanel";
 import TabErrorBoundary from "../components/TabErrorBoundary";
-import FeatureMap from "../components/FeatureMap";
+import ApiMapView from "../components/FeatureMap";
 import ApiMapSidebar from "../components/ApiMapSidebar";
 import ApiTesterTabs from "../components/ApiTesterTabs";
 import AgentSideChat, { type AgentSideChatHandle } from "../components/AgentSideChat";
@@ -849,7 +849,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
     { id: "engineering", icon: "📐", tools: [
       { id: "tool:code-intel", type: "code-intel", label: tt("codeIntel.toolbar"), icon: "🏛", closable: true },
       { id: "tool:decisions", type: "decisions", label: "Decisions", icon: "📜", closable: true },
-      { id: "tool:features", type: "features", label: "Features", icon: "🗺️", closable: true },
+      { id: "tool:features", type: "features", label: "API Map", icon: "🌐", closable: true },
       { id: "tool:project", type: "project", label: tt("projectMd.toolbar"), icon: "📖", closable: true },
     ]},
     { id: "production", icon: "👷", tools: [
@@ -1042,7 +1042,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
                   setPaawRefreshKey(k => k + 1);
                   // 2026-09-04 Fleming：CU 完成一律跳 Features tab（舊 2026-08-19「已開過不跳」邏輯移除）
                   // openMainTab 自带 dedup：已開過只 activate 不重開
-                  openMainTab({ id: "tool:features", type: "features", label: "Features", icon: "🗺️", closable: true });
+                  openMainTab({ id: "tool:features", type: "features", label: "API Map", icon: "🌐", closable: true });
                 }
               }
             } catch {}
@@ -4447,7 +4447,7 @@ const sendChat = useCallback(async () => {
             {mainTabs.some(t => t.type === "features") && rootPath && (
               <div key="tool:features" className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTab?.type === "features" ? undefined : "none" }}>
-                <FeatureMap
+                <ApiMapView
                   rootPath={rootPath}
                   refreshKey={paawRefreshKey}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}

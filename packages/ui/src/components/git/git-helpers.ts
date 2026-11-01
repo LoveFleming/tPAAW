@@ -253,8 +253,9 @@ export function featuresForPath(
  * - 沒有任何 feature 對應 → 進 unmapped（defensive，讓洞一眼可見）
  */
 export interface FeatureGroup {
-  featureId?: string;
-  /** 顯示名：feature name（缺則用 id） */
+  /** 歸屬 id（api-first 2026-11-01：API map entry id；仍相容舊 feature ref） */
+  apiId?: string;
+  /** 顯示名：API/feature name（缺則用 id） */
   name: string;
   files: GitFileStatus[];
 }
@@ -293,7 +294,7 @@ export function groupGitFilesByFeature(
       const key = ref.id || name;
       let g = groupByKey.get(key);
       if (!g) {
-        g = { featureId: ref.id, name, files: [] };
+        g = { apiId: ref.id, name, files: [] };
         groupByKey.set(key, g);
         groups.push(g);
       }

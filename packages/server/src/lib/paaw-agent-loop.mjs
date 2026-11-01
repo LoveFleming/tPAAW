@@ -689,12 +689,12 @@ export const PAAW_TOOLS = [
         },
       },
     },
-    // ── Feature Map 歸類（2026-10-22 delta 制）— EM release 準備受控工具：agent 給判斷，程式代寫 .paaw ──
+    // ── API Map 歸類（2026-11-01 API-first，接棒 feature_map_update）— agent 給判斷，程式代寫 db ──
     {
       type: "function",
       function: {
-        name: "feature_map_update",
-        description: "Register file→feature mappings in THIS project's feature map (.paaw/features/). Use when RR feature-map check lists unmapped delta files, or after creating new files that belong to a feature. The server writes the feature map into coding.db (validated, idempotent) — never edit feature data directly. featureId format F{YYYYMMDD}-{NNN} (get real ids from project_info(category=features)); new features are auto-registered. After mapping, rr_get to confirm the feature-map item turned green.",
+        name: "api_map_update",
+        description: "Register file→API mappings in THIS project's api_features table (API-first feature map). Use when RR api-map check lists unmapped delta files, or after creating files that belong to an API. The server writes coding.db (validated, idempotent) — never edit api data directly. apiId format A{YYYYMMDD}-{NNN} (get real ids from project_info(category=api_map)). After mapping, rr_get to confirm the api-map item turned green.",
         parameters: {
           type: "object",
           properties: {
@@ -704,11 +704,10 @@ export const PAAW_TOOLS = [
               items: {
                 type: "object",
                 properties: {
-                  file: { type: "string", description: "Project-relative path, e.g. 'tests/unit/auth.test.mjs'" },
-                  featureId: { type: "string", description: "F{YYYYMMDD}-{NNN} — real id from project_info, never invent" },
-                  featureName: { type: "string", description: "Display name (optional; kept if feature is new or unnamed)" },
+                  file: { type: "string", description: "Project-relative path, e.g. 'server.mjs'" },
+                  apiId: { type: "string", description: "A{YYYYMMDD}-{NNN} — real id from project_info(category=api_map), never invent" },
                 },
-                required: ["file", "featureId"],
+                required: ["file", "apiId"],
               },
             },
           },
@@ -1421,8 +1420,8 @@ const TOOL_GROUP_MAP = {
 
   // Release Prep - v4(2026-09-18):EM「準備 release」自動補證據(受控工具,不開 bash)
   release_prep_status: "release-prep", test_run: "release-prep", security_scan: "release-prep", handover_refresh: "release-prep", ru_model_refresh: "release-prep",
-  // Feature map 歸類（2026-10-22 delta 制）— 同 release-prep 哲學：受控寫入，不開直改檔案
-  feature_map_update: "release-prep",
+  // API map 歸類（2026-11-01 API-first）— 同 release-prep 哲學：受控寫入，不開直改檔案
+  api_map_update: "release-prep",
 
   // Staged summary (agents record why they staged files)
   staged_summary: "core",
@@ -3650,18 +3649,19 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         return `Unknown action '${action}'. Valid: changelog, write, append`;
       }
 
-      // ── QA Results Tools(2026-09-17:qa agent 留記錄、全 agent 讀寫)──
-      case "feature_map_update": {
-        const { mergeFeatureMappings } = await import("./feature-map-store.mjs");
+      // ── API Map 歸類（2026-11-01 API-first）──
+      case "api_map_update": {
+        const { mergeApiMappings } = await import("./coding-db/api-features.repo.mjs");
+        const { writeDoc } = await import("./coding-db/docs.repo.mjs");
         try {
-          const r = mergeFeatureMappings(cwd, args.entries || [], agentId || "human");
+          const r = mergeApiMappings(cwd, args.entries || [], writeDoc);
           if (r.merged === 0) {
             return `⚠ 0 筆合併（全部冪等或被跳過）。${r.skipped.length ? `跳過：${r.skipped.slice(0, 3).map(s => `${s.file}（${s.reason}）`).join("、")}${r.skipped.length > 3 ? "…" : ""}` : "（皆已歸類過）"}`;
           }
           const skipPart = r.skipped.length ? `；${r.skipped.length} 筆跳過（${r.skipped[0].reason}…）` : "";
-          return `✅ 歸類 ${r.merged} 檔 → ${r.featureIds.join(", ")}${r.newFeatures.length ? `（新登記 ${r.newFeatures.length} 功能）` : ""}${skipPart}\n寫入 .paaw/features/（server 代寫，備份 ${r.backups.length} 檔）。下一步：rr_get 確認 feature-map 轉綠。`;
+          return `✅ 歸類 ${r.merged} 檔 → api_features.codeFiles${skipPart}\ncoding.db 代寫 + fileApiMap 反向索引重建。下一步：rr_get 確認 api-map 轉綠。`;
         } catch (e) {
-          return `❌ feature_map_update failed: ${e.message}`;
+          return `❌ api_map_update failed: ${e.message}`;
         }
       }
 

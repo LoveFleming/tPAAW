@@ -139,6 +139,18 @@ export default function GitPanel(props: GitPanelProps) {
   const [unpushed, setUnpushed] = useState<{ ahead: number; behind: number; commits: { hash?: string; short: string; subject: string; author: string; date: string }[] } | null>(null);
   // ── Feature-first 分組（Phase A）：抓 FILE-FEATURES 反查表 ──
   const [featureMap, setFeatureMap] = useState<FeatureFileMap | null>(null);
+  // ── api-first（2026-11-01）：api_features 清單（impacted APIs 顯示用）──
+  const [apiFeatures, setApiFeatures] = useState<{ id: string; entry: string; name?: string; codeFiles?: string[]; tests?: string[] }[] | null>(null);
+
+  const fetchApiFeatures = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-project/api-features?path=${encodeURIComponent(rootPath)}`);
+      if (!r.ok) { setApiFeatures(null); return; }
+      const d = await r.json();
+      setApiFeatures(Array.isArray(d.apis) ? d.apis : []);
+    } catch { setApiFeatures(null); }
+  }, [rootPath, API_BASE]);
 
   // 抓 feature map（純查表，失敗不阻擋 git status 顯示）
   const fetchFeatureMap = useCallback(async () => {
@@ -153,7 +165,8 @@ export default function GitPanel(props: GitPanelProps) {
 
   useEffect(() => {
     fetchFeatureMap();
-  }, [fetchFeatureMap]);
+    fetchApiFeatures();
+  }, [fetchFeatureMap, fetchApiFeatures]);
 
   // ── Phase B：抓 active task 的證據決策卡資料 ──
   const [evidence, setEvidence] = useState<EvidenceDecisionCard | null>(null);
@@ -568,6 +581,7 @@ export default function GitPanel(props: GitPanelProps) {
             onSpecApprove={handleSpecApprove}
             onSpecReject={handleSpecReject}
             featureMap={featureMap}
+            apiFeatures={apiFeatures}
             evidence={evidence}
             evidenceLoading={evidenceLoading}
             onShowCode={(path?: string) => handleFileClick(path || "", false)}

@@ -21,6 +21,7 @@ import { saveTasks as dbSaveTasks } from "./coding-db/index.mjs"; // dual-write 
 import { readTasks as dbReadTasks } from "./coding-db/reads.mjs"; // Phase B
 import { loadFeatures as registryLoadFeatures } from "./feature-registry.mjs";
 import { readDoc } from "./coding-db/docs.repo.mjs";
+import { readApiFeatures } from "./coding-db/reads.mjs"; // API-first（2026-11-01）
 
 const MAX_PROGRESS_ENTRIES = 80; // 任務檔 progress log 上限（超過保留最新 + 前 10）
 
@@ -64,19 +65,20 @@ export function genTaskId(tasks) {
   return `TASK-${String(next).padStart(3, "0")}`;
 }
 
-// ── Feature 解析（開單需要 featureId — 一切以 feature 為主）──
+// ── API 解析（2026-11-01 API-first：開單歸屬 apiId — feature map 退役）──
 
 export function listFeatures(rootDir) {
-  try { return registryLoadFeatures(rootDir) ?? []; } catch { return []; } // coding.db 單一真相
+  // 函名保留（下游引用多），語意改 API features
+  try { return readApiFeatures(rootDir) ?? []; } catch { return []; }
 }
 
-/** 檔案 → featureId（FILE-FEATURES.json 查表；多 feature 命中取第一個） */
+/** 檔案 → apiId（fileApiMap 查表；多 API 命中取最高分） */
 export function resolveFeatureForFiles(rootDir, files = []) {
   if (!Array.isArray(files) || files.length === 0) return null;
   try {
-    const ff = readDoc(rootDir, "fileFeatures");
-    if (!ff) return null;
-    const map = ff.files || {};
+    const fam = readDoc(rootDir, "fileApiMap");
+    if (!fam) return null;
+    const map = fam.files || {};
     const counts = new Map();
     for (const raw of files) {
       const rel = String(raw).startsWith("/") ? relative(rootDir, raw) : String(raw);
@@ -94,7 +96,7 @@ export function resolveFeatureForFiles(rootDir, files = []) {
 
 /**
  * 開單（EM open_ticket action 與工作入口 triage 共用）
- * featureId 解析順序：明給（驗證存在）→ 檔案反查 → parent task → 第一個 feature
+ * apiId 解析順序：明給（驗證存在）→ 檔案反查（fileApiMap）→ parent task
  * @returns {{ok, task, error?}}
  */
 export function createTicket(rootDir, ticket = {}) {
@@ -105,22 +107,21 @@ export function createTicket(rootDir, ticket = {}) {
   if (!description) return { ok: false, error: "description 必填" };
   const acceptance = String(ticket.acceptance || "").trim() || "（開單未附驗收標準 — EM 補）";
 
-  const features = listFeatures(rootDir);
-  const featureIds = new Set(features.map(f => f.id));
-  let featureId = ticket.featureId && featureIds.has(ticket.featureId)
-    ? ticket.featureId
+  const apis = listFeatures(rootDir); // API features（函名歷史因素）
+  const apiIds = new Set(apis.map(a => a.id));
+  let apiId = (ticket.apiId || ticket.featureId) && apiIds.has(ticket.apiId || ticket.featureId)
+    ? (ticket.apiId || ticket.featureId)
     : resolveFeatureForFiles(rootDir, ticket.affectedFiles || []);
-  if (!featureId && ticket.parentId) {
+  if (!apiId && ticket.parentId) {
     const parent = tasks.find(t => String(t.id).toLowerCase() === String(ticket.parentId).toLowerCase());
-    if (parent?.featureId && featureIds.has(parent.featureId)) featureId = parent.featureId;
+    if (parent?.apiId && apiIds.has(parent.apiId)) apiId = parent.apiId;
   }
-  if (!featureId && features.length > 0) featureId = features[0].id;
 
   const type = ["dev", "test", "docs"].includes(ticket.type) ? ticket.type : "dev";
   const now = new Date().toISOString();
   const newTask = {
     id: genTaskId(tasks),
-    featureId: featureId || null,
+    apiId: apiId || null,
     type,
     title: title.slice(0, 200),
     parentId: ticket.parentId || null,
@@ -193,7 +194,7 @@ export function buildTaskDigest(task, opts = {}) {
     title: task.title,
     type: task.type,
     status: task.status,
-    featureId: task.featureId || null,
+    apiId: task.apiId || null,
     acceptance: (task.description || "").includes("## 驗收標準")
       ? String(task.description).split("## 驗收標準")[1]?.trim().slice(0, 400)
       : null,

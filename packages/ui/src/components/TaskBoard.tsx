@@ -19,11 +19,11 @@ import { uiAlertError, uiConfirm, uiPrompt } from "./ui/uiFeedback";
 // ── Feature-first Task Model (2026-09-01) ──
 // Status: open | close | pending | ignore
 // Type:   dev | test | docs
-// Every task has a featureId
+// Every task has an apiId
 
 interface Task {
   id: string;
-  featureId: string | null;
+  apiId: string | null;
   title: string;
   type: "dev" | "test" | "docs";
   parentId: string | null;
@@ -304,7 +304,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
     setEditing(true);
     setEditForm({
       title: task.title, status: task.status, priority: task.priority,
-      type: task.type, featureId: task.featureId, assignee: task.assignee, description: task.description,
+      type: task.type, apiId: task.apiId, assignee: task.assignee, description: task.description,
     });
   };
 
@@ -386,7 +386,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
                             <span className="text-xs font-mono shrink-0" style={{ color: theme.text, opacity: 0.5 }}>{task.id}</span>
                             <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: st.bg, color: st.text }}>{st.label}</span>
                             <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: ty.bg, color: ty.text }}>{ty.label}</span>
-                            {task.featureId && <span className="text-[10px] px-1 py-0.5 rounded shrink-0" style={{ background: theme.bgMuted, color: theme.text, opacity: 0.6 }}>{task.featureId}</span>}
+                            {task.apiId && <span className="text-[10px] px-1 py-0.5 rounded shrink-0" style={{ background: theme.bgMuted, color: theme.text, opacity: 0.6 }}>🌐 {task.apiId}</span>}
                             {task.assignee && <span className="text-[10px] shrink-0">👤{task.assignee}</span>}
                             {task.result && <span className="text-[10px] shrink-0" title={task.result}>⚡</span>}
                           </div>
@@ -429,8 +429,8 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
                 </select>
               </div>
               <div className="flex-1">
-                <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>Feature ID *</label>
-                <input value={editForm.featureId || ""} onChange={e => setEditForm({ ...editForm, featureId: e.target.value })} className="w-full text-sm px-2 py-1.5 rounded border" style={inputStyle} placeholder="F20260901-001" />
+                <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("task.apiId", "API")} *</label>
+                <input value={editForm.apiId || ""} onChange={e => setEditForm({ ...editForm, apiId: e.target.value })} className="w-full text-sm px-2 py-1.5 rounded border" style={inputStyle} placeholder="API id" />
               </div>
             </div>
             <div className="flex gap-3">
@@ -504,7 +504,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
             <div className="flex items-center gap-2 mb-3">
               <span className="text-lg font-bold" style={{ color: theme.text }}>{selected.id}</span>
               <span className="px-1.5 py-0.5 rounded text-xs" style={{ background: STATUS_STYLES[selected.status]?.bg, color: STATUS_STYLES[selected.status]?.text }}>{STATUS_STYLES[selected.status]?.label}</span>
-              {selected.featureId && <span className="px-1.5 py-0.5 rounded text-xs" style={{ background: theme.bgMuted, color: theme.text, opacity: 0.7 }}>📌 {selected.featureId}</span>}
+              {selected.apiId && <span className="px-1.5 py-0.5 rounded text-xs" style={{ background: theme.bgMuted, color: theme.text, opacity: 0.7 }}>🌐 {t("task.apiId", "API")} {selected.apiId}</span>}
             </div>
             <div className="text-base font-semibold mb-2" style={{ color: theme.text }}>{selected.title}</div>
             {selected.description && <div className="text-sm mb-3" style={{ color: theme.text, opacity: 0.8 }}><MarkdownText>{selected.description}</MarkdownText></div>}

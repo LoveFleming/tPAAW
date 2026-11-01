@@ -366,4 +366,13 @@ CREATE UNIQUE INDEX ux_api_entry   ON api_features(entry);
 CREATE INDEX        idx_api_category ON api_features(category);
 `,
   },
+  {
+    // v6（2026-11-01 Fleming API-first）：task 歸屬 feature→api。feature_id 清空（Fleming：清空舊值），api_id 接棒
+    version: 6,
+    sql: `
+ALTER TABLE task ADD COLUMN api_id TEXT;
+UPDATE task SET feature_id = NULL WHERE feature_id IS NOT NULL;
+CREATE INDEX idx_task_api ON task(api_id);
+`,
+  },
 ];

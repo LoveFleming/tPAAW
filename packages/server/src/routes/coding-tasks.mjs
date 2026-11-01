@@ -36,7 +36,7 @@ import { readBody } from "./shared.mjs";
 import { TaskGit } from "../lib/task-git.mjs";
 import { startTestRun } from "../lib/test-runner.mjs"; // 2026-10-27：commit 後自動重跑測試（證據保鮮）
 import { buildReviewBoundary } from "../lib/review-boundary.mjs";
-import { featureExists, touchFeature } from "../lib/feature-registry.mjs";
+import { apiExists } from "../lib/api-map.mjs"; // API-first（2026-11-01）
 import { stableStringify } from "../lib/stable-stringify.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -100,7 +100,7 @@ async function loadTasksAndConfig(projectPath) {
       if (Array.isArray(data.tasks)) {
         tasks = data.tasks.map(t => ({
           id: t.id || "",
-          featureId: t.featureId || null,
+          apiId: t.apiId || null,
           type: normalizeType(t.type),
           title: t.title || "",
           parentId: t.parentId || null,
@@ -141,12 +141,7 @@ async function saveTasks(projectPath, tasks, config) {
   const output = { tasks, updatedAt: now() };
   if (config?.loopMode) output.loopMode = config.loopMode;
   await writeFile(tasksFile, JSON.stringify(output, null, 2), "utf-8");
-  // task 結案 → touch feature updatedAt（UI by updatedAt 排序反映活動）
-  for (const t of tasks) {
-    if (t.status === "close" && t.featureId) {
-      try { touchFeature(projectPath, t.featureId, t.updatedAt || now()); } catch {}
-    }
-  }
+  // 2026-11-01 API-first：touchFeature 機制隨 feature map 退役移除（task 結案不再 touch feature updatedAt）
   // R4: task 變動 → debounced handover state 刷新
   import("../lib/release-unit/handover-state.mjs").then(m => m.scheduleHandoverRefresh(projectPath)).catch(() => {});
 }
@@ -235,7 +230,7 @@ export default async function codingTasksRoute(req, res) {
       const ts = now();
       created.push({
         id: genId(tasks.concat(created)),
-        featureId: sub.featureId || parent.featureId || null,
+        apiId: sub.apiId || parent.apiId || null,
         type: normalizeType(sub.type || parent.type),
         title: sub.title.trim(),
         parentId,
@@ -489,14 +484,14 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: `type must be one of: ${TASK_TYPES.join(", ")}` }));
       return true;
     }
-    if (body.featureId !== undefined && body.featureId && !featureExists(projRoot, body.featureId)) {
+    if (body.apiId !== undefined && body.apiId && !apiExists(projRoot, body.apiId)) {
       res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: `featureId '${body.featureId}' not found in FEATURES.json` }));
+      res.end(JSON.stringify({ error: `apiId '${body.apiId}' not found in api_features` }));
       return true;
     }
     const updated = {
       ...existing,
-      ...(body.featureId !== undefined ? { featureId: body.featureId } : {}),
+      ...(body.apiId !== undefined ? { apiId: body.apiId } : {}),
       ...(body.type !== undefined ? { type: normalizeType(body.type) } : {}),
       ...(body.title !== undefined ? { title: body.title } : {}),
       ...(body.description !== undefined ? { description: body.description } : {}),
@@ -575,7 +570,7 @@ export default async function codingTasksRoute(req, res) {
     if (q.type) { const s = q.type.split(",").map(normalizeType); tasks = tasks.filter(t => s.includes(t.type)); }
     if (q.assignee) { const s = q.assignee.split(","); tasks = tasks.filter(t => s.includes(t.assignee || "unassigned")); }
     if (q.parentId) { tasks = tasks.filter(t => t.parentId === q.parentId); }
-    if (q.featureId) { tasks = tasks.filter(t => t.featureId === q.featureId); }
+    if (q.apiId) { tasks = tasks.filter(t => t.apiId === q.apiId); }
     if (q.search) {
       const s = q.search.toLowerCase();
       tasks = tasks.filter(t =>
@@ -609,27 +604,23 @@ export default async function codingTasksRoute(req, res) {
       res.end(JSON.stringify({ error: "Title is required" }));
       return true;
     }
-    if (!body.featureId?.trim()) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "featureId is required（一切以 feature 為主 — 雜項掛 Utility & Platform Misc）" }));
-      return true;
-    }
+    // 2026-11-01 API-first：apiId 選填（可後補歸類；featureId 必填制隨 feature map 退役）
     const type = normalizeType(body.type);
     if (body.type && !TASK_TYPES.includes(type)) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: `type must be one of: ${TASK_TYPES.join(", ")}` }));
       return true;
     }
-    if (!featureExists(projRoot, body.featureId)) {
+    if (body.apiId && !apiExists(projRoot, body.apiId)) {
       res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: `featureId '${body.featureId}' not found in FEATURES.json` }));
+      res.end(JSON.stringify({ error: `apiId '${body.apiId}' not found in api_features` }));
       return true;
     }
     const { tasks, config } = await loadTasksAndConfig(projRoot);
     const ts = now();
     const newTask = {
       id: genId(tasks),
-      featureId: body.featureId.trim(),
+      apiId: body.apiId?.trim() || null,
       type,
       title: body.title.trim(),
       parentId: body.parentId || null,

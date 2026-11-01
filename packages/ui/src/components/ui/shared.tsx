@@ -33,6 +33,7 @@ export function Card({
 // ── Nav Icon helper ──
 // Match by page-type suffix so i18n label changes don't break icon lookup
 const NAV_EMOJI_PATTERNS: { match: RegExp; emoji: string }[] = [
+    { match: /api[\s_-]*map|api[\s_-]*地圖/i, emoji: "🌐" },
     { match: /constitution|憲法/i, emoji: "📜" },
     { match: /standards|規範|基準/i, emoji: "📏" },
     { match: /crew|成員|チーム/i, emoji: "👥" },

@@ -92,8 +92,9 @@ async function collectFacts(root) {
   const readJson = async (rel) => {
     try { return JSON.parse((await paaw.readFile(rel)) || "null"); } catch { return null; }
   };
-  // features 來源 = coding.db（2026-11-01 單一真相）
-  const fm = { features: registryLoadFeatures(root) || [] };
+  // 2026-11-01 API-first：API features 來源 = coding.db api_features（feature map 退役）
+  const { readApiFeatures } = await import("./coding-db/reads.mjs");
+  const apiFeats = readApiFeatures(root) || [];
   const [ti, ec, ciSum] = await Promise.all([
     readJson("code-intelligence/test-intelligence.json"),
     readJson("error-codes.json"),
@@ -110,7 +111,7 @@ async function collectFacts(root) {
     adrTitles = (md.match(/^##\s+(ADR-\d+):.*$/gm) || []).slice(-3).reverse().map(l => l.replace(/^##\s+/, ""));
   } catch {}
 
-  const features = fm?.features || [];
+  const features = apiFeats.map(a => ({ id: a.id, name: a.name, desc: a.description || "", codeFiles: (a.codeFiles || []).length, apis: 1 }));
   const deps = { ...(pkg?.dependencies || {}), ...(pkg?.devDependencies || {}) };
   const knownFw = [["next", "Next.js"], ["react", "React"], ["vue", "Vue"], ["svelte", "Svelte"], ["express", "Express"], ["fastify", "Fastify"], ["nestjs", "NestJS"], ["@nestjs/core", "NestJS"], ["electron", "Electron"], ["vite", "Vite"], ["tailwindcss", "Tailwind CSS"]];
   const frameworks = knownFw.filter(([k]) => deps[k]).map(([, n]) => n);

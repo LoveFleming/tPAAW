@@ -5,7 +5,7 @@
  * 同名檔案 staged vs unstaged 各自獨立
  */
 
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { cn } from "../../utils";
 import { groupGitFiles, GitFileStatus, classifyGitFile, fileKey, pathFromFileKey, FeatureFileMap, groupGitFilesByFeature, crossFeaturePaths, unexpectedOutOfScopePaths } from "./git-helpers";
 import GitFileGroupCard from "./GitFileGroup";
@@ -46,6 +46,8 @@ interface GitStatusViewProps {
   onStageFile: (path: string) => void;
   // ── Feature-first 分組（Phase A）──
   featureMap: FeatureFileMap | null;
+  // ── api-first（2026-11-01）：api_features 清單 → 各分組 impacted APIs ──
+  apiFeatures?: { id: string; entry: string; name?: string; codeFiles?: string[]; tests?: string[] }[] | null;
   // ── Phase B：證據決策卡 ──
   evidence: EvidenceDecisionCard | null;
   evidenceLoading: boolean;
@@ -76,6 +78,7 @@ export default function GitStatusView({
   onUnstageFile,
   onStageFile,
   featureMap,
+  apiFeatures,
   evidence,
   evidenceLoading,
   onShowCode,
@@ -145,6 +148,29 @@ export default function GitStatusView({
   // ── Phase D：cross-feature / unexpected 旗標（純查表，Change Boundary 視覺化）──
   const crossPaths = useMemo(() => crossFeaturePaths(allFiles, featureMap), [allFiles, featureMap]);
   const unexpectedPaths = useMemo(() => unexpectedOutOfScopePaths(allFiles, evidence), [allFiles, evidence]);
+
+  // ── api-first（2026-11-01）：file → impacted APIs 查表 → per group 清單 ──
+  const fileApiIndex = useMemo(() => {
+    const m = new Map<string, { id: string; entry: string; name?: string }[]>();
+    for (const a of apiFeatures || []) {
+      const ref = { id: a.id, entry: a.entry, name: a.name };
+      for (const f of [...(a.codeFiles || []), ...(a.tests || [])]) {
+        const norm = String(f).replace(/\\/g, "/").replace(/^\.\//, "");
+        if (!norm) continue;
+        if (!m.has(norm)) m.set(norm, []);
+        if (!m.get(norm)!.some(x => x.id === ref.id)) m.get(norm)!.push(ref);
+      }
+    }
+    return m;
+  }, [apiFeatures]);
+  const impactedApisOf = useCallback((files: GitFileStatus[]) => {
+    const seen = new Map<string, { id: string; entry: string; name?: string }>();
+    for (const f of files) {
+      const norm = f.path.replace(/\\/g, "/");
+      for (const a of fileApiIndex.get(norm) || []) seen.set(a.id, a);
+    }
+    return [...seen.values()];
+  }, [fileApiIndex]);
 
   if (!gitStatus) {
     return <div className="flex-1 flex items-center justify-center text-xs text-stone-400">Loading...</div>;
@@ -301,10 +327,11 @@ export default function GitStatusView({
           <div className="flex items-center gap-1.5 text-[10px] font-bold text-violet-600"><span>🎯</span>Feature Changes</div>
           {featureGroups.map((g, i) => (
             <FeatureGroupCard
-              key={`feat-${i}-${g.featureId || g.name}`}
+              key={`feat-${i}-${g.apiId || g.name}`}
               group={g}
               crossPaths={crossPaths}
               unexpectedPaths={unexpectedPaths}
+              impactedApis={impactedApisOf(g.files)}
               selectedKeys={selectedKeys}
               onToggleKey={onToggleKey}
               onSelectKeys={onSelectKeys}

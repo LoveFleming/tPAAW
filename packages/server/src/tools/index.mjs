@@ -787,7 +787,7 @@ async function buildToolDefinitions() {
       parameters: {
         type: "object",
         properties: {
-          category: { type: "string", enum: ["context", "decisions", "changelog", "issues", "features", "feature_detail", "api_map", "api_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "error_codes", "c4_model", "security", "ru_info"], description: "Category to read" },
+          category: { type: "string", enum: ["context", "decisions", "changelog", "issues", "api_map", "api_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "error_codes", "c4_model", "security", "ru_info"], description: "Category to read" },
           id: { type: "string", description: "Feature/issue ID for detail queries" },
           search: { type: "string", description: "Search term" },
           status: { type: "string", description: "Filter by status (comma-separated)" },
@@ -805,7 +805,7 @@ async function buildToolDefinitions() {
       parameters: {
         type: "object",
         properties: {
-          action: { type: "string", enum: ["issue_create", "issue_update", "issue_delete", "feature_update_docs", "feature_update_mapping", "ru_info_update", "run_command"], description: "Action" },
+          action: { type: "string", enum: ["issue_create", "issue_update", "issue_delete", "api_update_custom", "ru_info_update", "run_command"], description: "Action" },
           id: { type: "string", description: "Issue/feature ID" },
           title: { type: "string", description: "Title" },
           priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "Priority" },
@@ -854,14 +854,6 @@ function buildHandlers(apps) {
           if (issues.length === 0) return "(No matching issues found)";
           return "Issues (" + issues.length + "):\n" + issues.map(i => `[${i.id}] ${i.status} | ${i.priority} | ${i.title}${i.labels?.length ? ` [${i.labels.join(",")}]` : ""}`).join("\n");
         } catch (err) { return `Error reading issues: ${err.message}`; }
-      }
-      case "features": {
-        try {
-          const { loadFeatures } = await import("../lib/feature-registry.mjs"); // coding.db（2026-11-01）
-          let features = loadFeatures(root);
-          if (args.search) { const s = args.search.toLowerCase(); features = features.filter(f => f.name?.toLowerCase().includes(s) || f.description?.toLowerCase().includes(s)); }
-          return "Features (" + features.length + "):\n" + features.map(f => `[${f.id}] ${f.name} (${f.status})`).join("\n");
-        } catch (err) { return `Error: ${err.message}`; }
       }
       case "api_map": {
         try {

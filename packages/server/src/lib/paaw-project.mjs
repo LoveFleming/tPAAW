@@ -194,28 +194,26 @@ export class PaawProject {
 
     const recentSessions = await this.loadRecentSessions(3);
 
-    // Feature Map + File-to-Feature mapping
-    let featureMap = null;
-    let fileFeatureMap = null;
-    // 實際檔案是 FEATURES.json（feature-map step 寫入）— feature-map.json 是舊/不存在的路徑
+    // API Map + File-to-API mapping（2026-11-01 API-first：feature map 退役）
+    let apiMap = null;
+    let fileApiMap = null;
     try {
-      // coding.db（2026-11-01 單一真相）
-      const fm = { features: registryLoadFeatures(this.projectRoot) || [] };
-      // Compact summary: feature name → key files
-      featureMap = (fm.features || []).map(f => ({
-        id: f.id,
-        name: f.name,
-        codeFiles: (f.codeFiles || []).slice(0, 8),
-        apis: (f.apis || []).slice(0, 5).map(a => `${a.method} ${a.path}`),
+      const { readApiFeatures } = await import("./coding-db/reads.mjs");
+      const apis = readApiFeatures(this.projectRoot) || [];
+      apiMap = apis.map(a => ({
+        id: a.id,
+        category: a.category,
+        entry: a.entry,
+        name: a.name,
+        codeFiles: (a.codeFiles || []).slice(0, 8),
       }));
     } catch {}
-    // File → Feature mapping (reverse index — file→features，非 API routes；coding.db ru_docs)
     try {
-      const ffm = readDocDb(this.projectRoot, "fileFeatures");
-      if (ffm) {
-        fileFeatureMap = Object.entries(ffm.files || {}).slice(0, 30).map(([file, feats]) => ({
+      const fam = readDocDb(this.projectRoot, "fileApiMap");
+      if (fam) {
+        fileApiMap = Object.entries(fam.files || {}).slice(0, 30).map(([file, apis]) => ({
           file,
-          feature: (feats || []).map(f => f.name).join(", ") || "",
+          apis: (apis || []).map(a => a.name || a.entry).join(", ") || "",
         }));
       }
     } catch {}
@@ -223,8 +221,8 @@ export class PaawProject {
     return {
       project,
       recentSessions,
-      featureMap,
-      fileFeatureMap,
+      apiMap,
+      fileApiMap,
     };
   }
 
@@ -239,25 +237,22 @@ export class PaawProject {
     if (ctx.project) {
       // placeholder 不輸出內容（省 token、避免誤導）；auto-draft/人寫內容照常輸出（2026-09-20 Fleming：不想維護 PROJECT.md，專案知識主軸 = feature map）
       const isPlaceholder = ctx.project.includes("(待補充)") || ctx.project.trim().length < 400;
-      if (isPlaceholder) parts.push("\n=== 專案概覽 ===\n（PROJECT.md 未填寫 — 專案現況直接看下方 Feature Map）");
+      if (isPlaceholder) parts.push("\n=== 專案概覽 ===\n（PROJECT.md 未填寫 — 專案現況直接看下方 API Map）");
       else parts.push(`\n=== 專案概覽 (PROJECT.md${ctx.project.includes("🤖 CU 自動生成初稿") ? "，CU 自動生成" : "，人寫"}) ===\n${ctx.project}`);
     }
-    // Feature Map: feature → files（保留，加 Hint）
-    if (ctx.featureMap && ctx.featureMap.length > 0) {
-      const fmLines = ctx.featureMap.map(f => {
-        const files = f.codeFiles.length > 0 ? f.codeFiles.slice(0, 5).join(", ") : "(unmapped)";
-        const apis = f.apis.length > 0 ? ` | APIs: ${f.apis.slice(0, 3).join(", ")}` : "";
-        return `- ${f.name} (${f.id}): ${files}${apis}`;
-      });
-      parts.push(`\n=== Feature Map (${ctx.featureMap.length} features, 用 project_info(category=feature_detail, id=...) 查完整 detail) ===\n${fmLines.join("\n")}`);
+    // API Map: category → entries（API-first）
+    if (ctx.apiMap && ctx.apiMap.length > 0) {
+      const byCat = {};
+      for (const a of ctx.apiMap) (byCat[a.category] ??= []).push(a);
+      const lines = Object.entries(byCat).map(([cat, list]) =>
+        `## ${cat}\n` + list.map(a => `- [${a.id}] ${a.entry} — ${a.name} (${a.codeFiles.length} files)`).join("\n")
+      ).join("\n");
+      parts.push(`\n=== API Map (${ctx.apiMap.length} entries, 用 project_info(category=api_detail, entry=...) 查 process flow/validation) ===\n${lines}`);
     }
-    // File → Feature mapping (reverse index)
-    if (ctx.fileFeatureMap && ctx.fileFeatureMap.length > 0) {
-      const ffLines = ctx.fileFeatureMap.map(r => {
-        const feat = r.feature ? `[${r.feature}] ` : "";
-        return `- ${r.file}${feat}`;
-      });
-      parts.push(`\n=== File → Feature Map (${ctx.fileFeatureMap.length} files) ===\n${ffLines.join("\n")}`);
+    // File → API mapping (reverse index — release impact 分析用)
+    if (ctx.fileApiMap && ctx.fileApiMap.length > 0) {
+      const faLines = ctx.fileApiMap.map(r => `- ${r.file}${r.apis ? ` → ${r.apis}` : ""}`);
+      parts.push(`\n=== File → API Map (${ctx.fileApiMap.length} files) ===\n${faLines.join("\n")}`);
     }
     // Sessions: 只列 summary，不展開
     if (ctx.recentSessions && ctx.recentSessions.length > 0) {

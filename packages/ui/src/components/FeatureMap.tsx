@@ -1,119 +1,40 @@
 /**
- * FeatureMap — Feature-centric code understanding panel
+ * ApiMapView — API-first code understanding panel（原 FeatureMap，2026-11-01 改造）
  *
- * Left: Feature list with status badges and search
- * Right: Feature detail showing code files, APIs, tests, runbooks, issues,
- *        AI understanding, and editable documentation
+ * 資料源：GET /api/coding-project/api-features?path=<projRoot>
+ * 左：category 分組樹（每日練習/錯題本/…）→ entry（POST /api/attempt — 提交作答）
+ * 右：API detail — name/description/bizLogic + Process Flow + Validation + Data Touch
+ *     + codeFiles/tests + severity
  */
-import React, { useState, useEffect, useCallback, useMemo, Fragment } from "react";
-import { cn } from "../utils";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useI18n } from "../i18n";
-import MarkdownText from "./MarkdownText";
-import { FeatureCockpit } from "./FeatureCockpit";
 import API_BASE from "../api";
-import { uiAlertError } from "./ui/uiFeedback";
 
-interface ApiEntry {
-  method: string;
-  path: string;
-  file: string;
-}
+interface FlowStep { step?: number | string; action?: string; detail?: string; file?: string }
+interface ValidationRule { field?: string; rule?: string; on?: string; fail?: string }
+interface DataTouch { table?: string; ops?: string[] }
 
-interface IssueSummary {
+interface ApiFeature {
   id: string;
-  title: string;
-  status: string;
-  priority: string;
-}
-
-interface RiskProfile {
-  dataTouch: { target: string; ops: string[]; migration: boolean }[];
-  apiSurface: string[];
-  externalCalls: string[];
-  mutatingOutbound: boolean;
-  migration: boolean;
-  fileCount: number;
-  computedSeverity: string;
-  computedReason: string;
-}
-
-interface SubFeature {
-  id?: string;
-  key: string;
+  category: string;
+  entry: string;
   name: string;
-  description: string;
-  codeFiles: string[];
-  grade: string;
-  tags: string[];
-  evidence?: { method?: string; consensus?: number; vocabTop?: string[] };
-  aiUnderstanding?: string;
-  aiUnderstandingAt?: string | null;
+  description?: string;
+  bizLogic?: string;
+  processFlow?: FlowStep[];
+  validation?: ValidationRule[];
+  dataTouch?: DataTouch[];
+  codeFiles?: string[];
+  tests?: string[];
+  severity?: string | null;
+  aiUnderstanding?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
-
-interface Feature {
-  id: string;
-  name: string;
-  description: string;
-  status: "active" | "deprecated" | "planned";
-  codeFiles: string[];
-  apis: ApiEntry[];
-  tests: string[];
-  runbooks: string[];
-  issues: string[];
-  tags: string[];
-  aiUnderstanding: string;
-  aiUnderstandingAt: string | null;
-  documentation: string;
-  docsUpdatedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  grade?: string;
-  kind?: "api" | "ui" | "api+ui" | "module" | "utility"; // Phase C（2026-11-01）kind 分類軸
-  category?: string; // Category → Feature → Sub-feature 三層（LLM 命名，deterministic 分組）
-  // 🧩 L2 子群（2026-10-23）：內生判準拆的穩定子結構；internalShared = 黏合橋接檔（不屬任何子群）
-  subFeatures?: SubFeature[];
-  internalShared?: string[];
-  // 🛡 嚴重度（2026-10-10：by feature 標示 — deterministic 掃描 + AI 建議、人確認）
-  severity?: "S0" | "S1" | "S2" | null;
-  severityDecisions?: { id: string; by: string; at: string; severity: string; remark?: string }[];
-  severitySuggested?: string | null;
-  severitySuggestedReason?: string | null;
-  severitySuggestedNotes?: string | null;
-  severitySuggestedBy?: string | null; // "ai" | "scan"
-  severityComputed?: string | null;
-  severitySuggestedAt?: string | null;
-  severityConfirmedAt?: string | null;
-  riskProfile?: RiskProfile | null;
-  riskProfileScannedAt?: string | null;
-  _issueSummaries?: IssueSummary[];
-}
-
-// 🔀 橫切關注點（Cross-cutting Concern）— overlay 層，非檔案分割
-// 散在多條 feature、沒有獨立 feature 的能力（例：Budget Control 散在 rateLimiter/cache/adminAuth）
-interface CrosscutEvidence { file: string; line?: number; symbol?: string; feature?: string | null; featureName?: string }
-interface CrosscutConcept {
-  id: string;
-  key: string;
-  name: string;
-  kind: "overlay";
-  discovered?: boolean;
-  crossFeatureCount: number;
-  features: string[];
-  dominantFeature?: string | null;
-  dominantShare?: number | null;
-  hits?: number;
-  evidence: CrosscutEvidence[];
-  // ② LLM 長肉結果
-  aiName?: string;
-  aiDescription?: string;
-  aiClipped?: boolean;   // LLM 判定為假陽性/非真概念 → 從 gap 排除
-  aiAt?: string | null;
-}
-interface GapEntry { conceptId: string; name: string; crossFeatureCount: number; features: string[]; dominantShare?: number | null; reason: string }
 
 interface Props {
   rootPath: string;
-  refreshKey?: number; // 2026-09-04：外部資料更新訊號（CU 完成/掃描完成）→ 重新載入（tab 常駐 CSS hide 不會 remount，需要顯式刷新）
+  refreshKey?: number; // 外部資料更新訊號（CU 完成）→ 重新載入（tab 常駐 CSS hide 不會 remount）
   theme: {
     bg: string;
     bgMuted: string;
@@ -125,20 +46,16 @@ interface Props {
   onOpenFile?: (path: string) => void;
 }
 
-const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  active: { bg: "#f0fdf4", text: "#16a34a", label: "Active" },
-  deprecated: { bg: "#f5f5f4", text: "#78716c", label: "Deprecated" },
-  planned: { bg: "#eff6ff", text: "#2563eb", label: "Planned" },
+const SEV_STYLES: Record<string, { bg: string; text: string; dot: string; descKey: string }> = {
+  S0: { bg: "#f0fdf4", text: "#16a34a", dot: "🟢", descKey: "apiMap.sevS0" },
+  S1: { bg: "#fefce8", text: "#ca8a04", dot: "🟡", descKey: "apiMap.sevS1" },
+  S2: { bg: "#fef2f2", text: "#dc2626", dot: "🔴", descKey: "apiMap.sevS2" },
 };
 
-const SEV_STYLES: Record<string, { bg: string; text: string; dot: string; desc: string }> = {
-  S0: { bg: "#f0fdf4", text: "#16a34a", dot: "🟢", desc: "低風險（純讀取/UI）" },
-  S1: { bg: "#fefce8", text: "#ca8a04", dot: "🟡", desc: "中風險（INSERT/外部 mutating）" },
-  S2: { bg: "#fef2f2", text: "#dc2626", dot: "🔴", desc: "高風險（UPDATE/DELETE/migration）" },
-};
 const OP_COLOR: Record<string, string> = { select: "#16a34a", insert: "#2563eb", update: "#d97706", delete: "#dc2626" };
 
-const HTTP_COLORS: Record<string, string> = {
+const methodOf = (entry: string) => (entry.trim().split(/\s+/)[0] || "").toUpperCase();
+const METHOD_COLORS: Record<string, string> = {
   GET: "#16a34a",
   POST: "#2563eb",
   PUT: "#d97706",
@@ -146,319 +63,81 @@ const HTTP_COLORS: Record<string, string> = {
   DELETE: "#dc2626",
 };
 
-// 橫切概念 → emoji + 短名（chip 用）
-const CONCEPT_EMOJI: Record<string, string> = {
-  "rate-limit": "🚦",
-  "quota-budget": "💰",
-  auth: "🔐",
-  observability: "📊",
-  caching: "🗄️",
-  resilience: "🔁",
-  tenancy: "🏢",
-  guardrails: "🛡️",
-  "memory-context": "🧠",
-};
-const conceptEmoji = (c: CrosscutConcept) => c.discovered ? "❓" : (CONCEPT_EMOJI[c.key] || "🔀");
-const conceptShort = (c: CrosscutConcept) => (c.aiName || c.name || c.key).replace(/\s*\/.*$/, "").replace(/（待命名）/, "");
-
-// ── md-compact：FeatureMap 右側用 — 標題/行距縮到與左側列表一致（chat 的 MarkdownText 不受影響）──
-const MD_COMPACT_STYLE = `
-.md-content.md-compact { line-height: 1.5; }
-.md-content.md-compact h1 { font-size: 0.875rem; font-weight: 700; margin: 0.625rem 0 0.375rem; }
-.md-content.md-compact h2 { font-size: 0.875rem; font-weight: 600; margin: 0.5rem 0 0.25rem; }
-.md-content.md-compact h3 { font-size: 0.8125rem; font-weight: 600; margin: 0.375rem 0 0.25rem; }
-.md-content.md-compact h4 { font-size: 0.8125rem; font-weight: 600; margin: 0.375rem 0 0.25rem; }
-.md-content.md-compact p { margin: 0.25rem 0; }
-.md-content.md-compact ul, .md-content.md-compact ol { margin: 0.25rem 0; }
-`;
-
-export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: Props) {
+export default function ApiMapView({ rootPath, theme, onOpenFile, refreshKey }: Props) {
   const { t } = useI18n();
-  const [features, setFeatures] = useState<Feature[]>([]);
+  const [apis, setApis] = useState<ApiFeature[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
-  const [editingDocs, setEditingDocs] = useState(false);
-  const [docsContent, setDocsContent] = useState("");
-  const [savingDocs, setSavingDocs] = useState(false);
-  const [viewMode, setViewMode] = useState<"features" | "files" | "table">("features");
   const [fetchError, setFetchError] = useState<string | null>(null);
-  // RU model + callChain（Feature Cockpit 資料源 — deterministic，零 LLM）
-  const [ruModel, setRuModel] = useState<any>(null);
-  const [callChainMap, setCallChainMap] = useState<Map<string, any> | null>(null);
-  // Error codes by feature（2026-09-05 v2 — LLM 語意整理，不認命名慣例）
-  const [ecData, setEcData] = useState<any>(null);
-  const [ecBusy, setEcBusy] = useState(false);
-  // 🔀 橫切關注點（overlay）+ Gap Report
-  const [crosscut, setCrosscut] = useState<CrosscutConcept[]>([]);
-  const [gaps, setGaps] = useState<GapEntry[]>([]);
-  const [showCrosscut, setShowCrosscut] = useState(false);
-  const [ccBusy, setCcBusy] = useState(false);
-  // 🧪 測試自足性（deterministic，語言無關）
-  const [testSignals, setTestSignals] = useState<Record<string, { hermeticity: string; aiHermeticity?: string; aiConfidence?: number; aiReason?: string; evidence?: string[] }> | null>(null);
-  const [tsBusy, setTsBusy] = useState(false);
-  const loadErrorCodes = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-project/error-codes?path=${encodeURIComponent(rootPath)}`);
-      if (res.ok) {
-        const d = await res.json();
-        setEcData(d.missing ? null : d);
-      }
-    } catch { /* 缺檔 — silent */ }
-  }, [rootPath]);
-  useEffect(() => { loadErrorCodes(); }, [loadErrorCodes, refreshKey]);
-  const ecMap = React.useMemo(() => {
-    const m = new Map<string, { uniqueCount: number }>();
-    for (const g of ecData?.byFeature || []) m.set(g.featureId, { uniqueCount: g.uniqueCount || g.codes?.length || 0 });
-    return m;
-  }, [ecData]);
-  const ecRescan = async () => {
-    setEcBusy(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-project/error-codes/rescan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: rootPath }) });
-      if (res.ok) {
-        const d = await res.json();
-        setEcData(d.skipped || d.missing ? null : d);
-      }
-    } catch {} setEcBusy(false);
-  };
-  useEffect(() => {
-    let cancelled = false;
-    setRuModel(null); setCallChainMap(null);
-    (async () => {
-      try {
-        const [mRes, cRes] = await Promise.all([
-          fetch(`${API_BASE}/api/ru/model?path=${encodeURIComponent(rootPath)}`),
-          fetch(`${API_BASE}/api/ru/code-intel?path=${encodeURIComponent(rootPath)}`),
-        ]);
-        if (mRes.ok) { const m = await mRes.json(); if (!cancelled) setRuModel(m.model || m); }
-        if (cRes.ok) {
-          const c = await cRes.json();
-          const map = new Map<string, any>();
-          for (const r of c?.apiMap?.routes || []) {
-            if (r.callChain?.length) map.set(`${r.method} ${r.path}`, r.callChain);
-          }
-          if (!cancelled) setCallChainMap(map);
-        }
-      } catch { /* model 未建時 silent — detail fallback 舊 sections */ }
-    })();
-    return () => { cancelled = true; };
-  }, [rootPath, refreshKey]); // refreshKey：CU 重跑後 RU model / callChain 也要重抓
+  const [searchQuery, setSearchQuery] = useState("");
+  const [openCats, setOpenCats] = useState<Set<string>>(new Set());
 
-  const basePath = `${API_BASE}/api/coding-features?path=${encodeURIComponent(rootPath)}`;
+  const inputStyle = { background: theme.bg, color: theme.text, borderColor: theme.borderLight } as React.CSSProperties;
 
-  const fetchFeatures = useCallback(async () => {
+  const fetchApis = useCallback(async () => {
     setLoading(true);
     setFetchError(null);
     try {
-      const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : "";
-      const url = `${basePath}${searchParam}`;
-      console.log("[FeatureMap] fetching:", url);
-      const res = await fetch(url);
-      const text = await res.text();
-      console.log("[FeatureMap] status:", res.status, "body length:", text.length, "first 200:", text.slice(0, 200));
-      console.log("[FeatureMap] headers: X-Features-Path=", res.headers.get("X-Features-Path"), "X-Features-Count=", res.headers.get("X-Features-Count"), "X-Features-Exists=", res.headers.get("X-Features-Exists"));
-      try {
-        const data = JSON.parse(text);
-        const loaded = data.features || [];
-        console.log("[FeatureMap] loaded features:", loaded.length, loaded.length > 0 ? loaded[0]?.id : "(empty)");
-        if (loaded.length === 0 && data.error) {
-          console.error("[FeatureMap] API returned error:", data.error);
-          setFetchError(data.error);
-        }
-        setFeatures(loaded);
-      } catch (parseErr) {
-        console.error("[FeatureMap] JSON parse error:", parseErr instanceof Error ? parseErr.message : String(parseErr), "raw:", text.slice(0, 500));
-        setFetchError(`API 回應格式錯誤: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`);
-        setFeatures([]);
+      const res = await fetch(`${API_BASE}/api/coding-project/api-features?path=${encodeURIComponent(rootPath)}`);
+      const data = await res.json();
+      if (Array.isArray(data.apis)) {
+        setApis(data.apis);
+        // 預設全部 category 展開
+        setOpenCats(new Set(data.apis.map((a: ApiFeature) => a.category)));
+      } else {
+        setFetchError(data.error || `HTTP ${res.status}`);
+        setApis([]);
       }
     } catch (err) {
-      console.error("[FeatureMap] fetch error:", err);
       setFetchError(`連線失敗: ${err instanceof Error ? err.message : String(err)}`);
+      setApis([]);
     }
     setLoading(false);
-  }, [basePath, searchQuery, refreshKey]);
-
-  useEffect(() => { fetchFeatures(); }, [fetchFeatures]);
-
-  // 🔀 橫切關注點 + Gap Report（overlay 層）
-  const fetchCrosscut = useCallback(async () => {
-    try {
-      const r = await fetch(`${API_BASE}/api/coding-features/crosscut?path=${encodeURIComponent(rootPath)}`);
-      if (!r.ok) return;
-      const d = await r.json();
-      setCrosscut(Array.isArray(d.concepts) ? d.concepts : []);
-      setGaps(Array.isArray(d.gapReport) ? d.gapReport : []);
-    } catch { /* 尚無 crosscut 資料 → silent */ }
   }, [rootPath]);
-  useEffect(() => { fetchCrosscut(); }, [fetchCrosscut, refreshKey]);
 
-  const fetchTestSignals = useCallback(async () => {
-    try {
-      const r = await fetch(`${API_BASE}/api/coding-features/test-signals?path=${encodeURIComponent(rootPath)}`);
-      if (!r.ok) return;
-      const d = await r.json();
-      setTestSignals(d.byFile || null);
-    } catch { /* 尚無 test signals → silent */ }
-  }, [rootPath]);
-  useEffect(() => { fetchTestSignals(); }, [fetchTestSignals, refreshKey]);
+  useEffect(() => { fetchApis(); }, [fetchApis, refreshKey]);
 
-  const enrichTestSignalsUi = useCallback(async () => {
-    setTsBusy(true);
-    try {
-      const r = await fetch(`${API_BASE}/api/coding-features/test-signals/enrich?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
-      if (r.ok) await fetchTestSignals();
-      else uiAlertError(`測試自足性 AI 消歧失敗：${r.status}`);
-    } catch (e) {
-      uiAlertError(`測試自足性 AI 消歧失敗：${e instanceof Error ? e.message : String(e)}`);
-    }
-    setTsBusy(false);
-  }, [rootPath, fetchTestSignals]);
-
-  const enrichCrosscut = useCallback(async () => {
-    setCcBusy(true);
-    try {
-      const r = await fetch(`${API_BASE}/api/coding-features/crosscut/enrich?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
-      if (r.ok) await fetchCrosscut();
-      else uiAlertError(`橫切概念 AI 消歧失敗：${r.status}`);
-    } catch (e) {
-      uiAlertError(`橫切概念 AI 消歧失敗：${e instanceof Error ? e.message : String(e)}`);
-    }
-    setCcBusy(false);
-  }, [rootPath, fetchCrosscut]);
-
-  // featureId → 參與的橫切概念（chip 用）
-  const conceptByFeature = React.useMemo(() => {
-    const m = new Map<string, CrosscutConcept[]>();
-    for (const c of crosscut) {
-      if (c.aiClipped) continue;
-      for (const fid of c.features || []) {
-        if (!m.has(fid)) m.set(fid, []);
-        m.get(fid)!.push(c);
-      }
-    }
-    return m;
-  }, [crosscut]);
-
-  const selected = features.find(f => f.id === selectedId);
-
-  // 2026-09-06 Fleming 定調：要更新 feature 一律從 CU（Code Understanding）固定入口跑
-  // 原工具列「AI re-scan mapping」獨立入口已移除（API 保留供 EM/腳本用），避免多入口更新 feature map
-
-  // ── Save documentation ──
-  const handleSaveDocs = async () => {
-    if (!selectedId) return;
-    setSavingDocs(true);
-    try {
-      await fetch(`${API_BASE}/api/coding-features/${encodeURIComponent(selectedId)}/docs?path=${encodeURIComponent(rootPath)}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documentation: docsContent }),
-      });
-      setFeatures(prev => prev.map(f => f.id === selectedId ? { ...f, documentation: docsContent, docsUpdatedAt: new Date().toISOString() } : f));
-      setEditingDocs(false);
-    } catch (err) {
-      uiAlertError("Save failed: " + (err instanceof Error ? err.message : String(err)));
-    }
-    setSavingDocs(false);
-  };
-
-  // ── Create feature ──
-  const handleCreate = async (name: string, description: string) => {
-    try {
-      const res = await fetch(basePath, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description }),
-      });
-      if (res.ok) {
-        setShowCreate(false);
-        await fetchFeatures();
-      }
-    } catch (err) {
-      uiAlertError("Create failed: " + (err instanceof Error ? err.message : String(err)));
-    }
-  };
-
-  const inputStyle = {
-    background: theme.bg,
-    color: theme.text,
-    borderColor: theme.borderLight,
-  } as React.CSSProperties;
-
-  if ((viewMode as string) === "table") {
-    return (
-      <div className="h-full flex flex-col" style={{ background: theme.bg }}>
-        <style>{MD_COMPACT_STYLE}</style>
-        <FeatureTableGrid
-          features={features}
-          theme={theme}
-          t={t}
-          searchQuery={searchQuery}
-          ecMap={ecMap}
-          onSelectFeature={(id) => { setSelectedId(id); setEditingDocs(false); setViewMode("features"); }}
-        />
-      </div>
+  // 搜尋過濾（entry / name / category / description / id）
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return apis;
+    return apis.filter(a =>
+      `${a.entry} ${a.name} ${a.category} ${a.description || ""} ${a.id}`.toLowerCase().includes(q)
     );
-  }
+  }, [apis, searchQuery]);
+
+  // category 分組（維持 API 回傳順序）
+  const byCategory = useMemo(() => {
+    const m = new Map<string, ApiFeature[]>();
+    for (const a of filtered) {
+      if (!m.has(a.category)) m.set(a.category, []);
+      m.get(a.category)!.push(a);
+    }
+    return [...m.entries()];
+  }, [filtered]);
+
+  const selected = apis.find(a => a.id === selectedId) || null;
+
+  const toggleCat = (cat: string) => setOpenCats(prev => {
+    const n = new Set(prev);
+    if (n.has(cat)) n.delete(cat); else n.add(cat);
+    return n;
+  });
 
   return (
     <div className="flex h-full" style={{ background: theme.bg }}>
-      <style>{MD_COMPACT_STYLE}</style>
-      {/* === Left: Feature List === */}
+      {/* === Left: Category → Entry 樹 === */}
       <div className="w-80 flex flex-col border-r shrink-0" style={{ borderColor: theme.borderLight }}>
         {/* Header */}
-        <div className="px-3 py-2 flex flex-col gap-1.5" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold" style={{ color: theme.text }}>
-              🗺️ {t("feature.title")}
-            </span>
-            <div className="flex gap-1">
-              <button onClick={ecRescan} disabled={ecBusy} className="text-xs px-1.5 py-0.5 rounded" style={{ background: theme.accentBg, color: theme.accent, opacity: ecBusy ? 0.5 : 1 }} title={t("feature.ecRescan")}>
-                {ecBusy ? "⏳" : "🔢"}
-              </button>
-              {/* 2026-09-06：🔄 AI re-scan 按鈕移除 — feature 更新統一走 CU 入口（Fleming 定調） */}
-              <button onClick={() => setShowCreate(!showCreate)} className="text-xs px-1.5 py-0.5 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
-                +
-              </button>
-              <button onClick={() => fetchFeatures()} className="text-xs px-1.5 py-0.5 rounded" style={{ background: theme.bg, color: theme.text, opacity: 0.5 }}>
-                ↻
-              </button>
-            </div>
-          </div>
-          {/* View mode toggle */}
-          <div className="flex rounded overflow-hidden" style={{ border: `1px solid ${theme.borderLight}` }}>
-            <button
-              onClick={() => setViewMode("features")}
-              className="flex-1 text-xs py-0.5 transition-colors"
-              style={{ background: viewMode === "features" ? theme.accentBg : theme.bg, color: viewMode === "features" ? theme.accent : theme.text, opacity: viewMode === "features" ? 1 : 0.5 }}
-            >
-              🗺️ {t("feature.byFeature")}
-            </button>
-            <button
-              onClick={() => setViewMode("files")}
-              className="flex-1 text-xs py-0.5 transition-colors"
-              style={{ background: viewMode === "files" ? theme.accentBg : theme.bg, color: viewMode === "files" ? theme.accent : theme.text, opacity: viewMode === "files" ? 1 : 0.5 }}
-            >
-              📄 {t("feature.byFile")}
-            </button>
-            <button
-              onClick={() => setViewMode("table")}
-              className="flex-1 text-xs py-0.5 transition-colors"
-              style={{ background: viewMode === "table" ? theme.accentBg : theme.bg, color: viewMode === "table" ? theme.accent : theme.text, opacity: viewMode === "table" ? 1 : 0.5 }}
-            >
-              📊 {t("feature.byTable")}
-            </button>
-          </div>
-          {/* 🔀 橫切/缺口 面板開關 */}
-          <button
-            onClick={() => setShowCrosscut(v => !v)}
-            className="text-xs py-0.5 px-1.5 rounded shrink-0"
-            style={{ background: showCrosscut ? theme.accentBg : theme.bg, color: showCrosscut ? theme.accent : theme.text, border: `1px solid ${theme.borderLight}`, opacity: showCrosscut ? 1 : 0.6 }}
-            title={t("feature.crosscutHint")}
-          >
-            🔀 {gaps.length > 0 ? `⚠️ ${gaps.length}` : ""}
+        <div className="px-3 py-2 flex items-center justify-between gap-2" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
+          <span className="text-sm font-semibold truncate" style={{ color: theme.text }}>
+            🌐 {t("apiMap.title")}
+          </span>
+          <span className="text-[10px] shrink-0" style={{ color: theme.text, opacity: 0.5 }}>
+            {filtered.length}/{apis.length}
+          </span>
+          <button onClick={() => fetchApis()} className="text-xs px-1.5 py-0.5 rounded shrink-0" style={{ background: theme.bg, color: theme.text, opacity: 0.5 }} title={t("apiMap.refresh")}>
+            ↻
           </button>
         </div>
 
@@ -468,1087 +147,257 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder={t("feature.searchPlaceholder")}
+            placeholder={t("apiMap.searchPlaceholder")}
             className="w-full text-xs px-2 py-1 rounded border outline-none"
             style={inputStyle}
           />
         </div>
 
-        {/* Create form */}
-        {showCreate && (
-          <CreateFeatureForm onCreate={handleCreate} onCancel={() => setShowCreate(false)} theme={theme} t={t} />
-        )}
-
-        {/* List */}
+        {/* Tree */}
         <div className="flex-1 overflow-y-auto">
-          {showCrosscut ? (
-            <CrosscutPanel
-              concepts={crosscut}
-              gaps={gaps}
-              theme={theme}
-              t={t}
-              busy={ccBusy}
-              onEnrich={enrichCrosscut}
-              onPickFeature={(id) => { setSelectedId(id); setShowCrosscut(false); }}
-            />
-          ) : loading ? (
+          {loading ? (
             <div className="flex items-center justify-center h-full text-sm" style={{ color: theme.text, opacity: 0.4 }}>
-              {t("feature.loading")}
+              {t("apiMap.loading")}
             </div>
-          ) : features.length === 0 ? (
+          ) : apis.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-2 p-4 text-center" style={{ color: theme.text, opacity: 0.4 }}>
-              <div className="text-3xl">🗺️</div>
-              <div className="text-sm">{fetchError ? `❌ ${fetchError}` : t("feature.empty")}</div>
-              <div className="text-xs">{fetchError ? "請檢查 AI provider 設定或重新執行 Code Understanding" : t("feature.emptyHint")}</div>
+              <div className="text-3xl">🌐</div>
+              <div className="text-sm">{fetchError ? `❌ ${fetchError}` : t("apiMap.empty")}</div>
+              <div className="text-xs">{t("apiMap.emptyHint")}</div>
             </div>
-          ) : viewMode === "features" ? (
-            /* Feature list (original) */
-            features.map(f => {
-              const st = STATUS_STYLES[f.status] || STATUS_STYLES.active;
-              const isSelected = f.id === selectedId;
-              return (
-                <div
-                  key={f.id}
-                  onClick={() => { setSelectedId(f.id); setEditingDocs(false); }}
-                  className="px-3 py-2.5 cursor-pointer border-b transition-colors"
-                  style={{ borderColor: theme.borderLight, background: isSelected ? theme.accentBg : "transparent" }}
-                  onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = theme.bgMuted; }}
-                  onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+          ) : byCategory.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-sm" style={{ color: theme.text, opacity: 0.4 }}>
+              {t("apiMap.noMatch")}
+            </div>
+          ) : byCategory.map(([cat, list]) => {
+            const open = openCats.has(cat);
+            return (
+              <div key={cat} style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
+                {/* Category header */}
+                <button
+                  onClick={() => toggleCat(cat)}
+                  className="w-full flex items-center gap-1.5 px-3 py-2 text-left"
+                  style={{ background: theme.bgMuted }}
                 >
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-xs font-mono shrink-0" style={{ color: theme.text, opacity: 0.5 }}>{f.id}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: st.bg, color: st.text }}>{st.label}</span>
-                    {(f.severity || f.severitySuggested) && (() => {
-                      const sev = f.severity || f.severitySuggested!;
-                      const sv = SEV_STYLES[sev] || SEV_STYLES.S0;
-                      return <span title={sv.desc + (f.severity ? "" : `（${t("feature.severityAiDefault")}）`)} className="text-[10px] px-1.5 py-0.5 rounded shrink-0 font-bold" style={{ background: sv.bg, color: sv.text }}>{sv.dot} {sev}{f.severity ? "👤" : "🤖"}</span>;
-                    })()}
-                  </div>
-                  <div className="text-sm font-medium truncate" style={{ color: theme.text }}>{f.name}</div>
-                  {f.description && (
-                    <div className="text-xs truncate mt-0.5" style={{ color: theme.text, opacity: 0.4 }}>{f.description}</div>
-                  )}
-                  <div className="flex items-center gap-2 mt-1 text-[10px]" style={{ color: theme.text, opacity: 0.5 }}>
-                    {f.codeFiles.length > 0 && <span>📄 {f.codeFiles.length}</span>}
-                    {(f.subFeatures?.length || 0) > 0 && <span title={t("feature.subFeatures")}>🧩 {f.subFeatures!.length}</span>}
-                    {ecMap.get(f.id)?.uniqueCount ? <span>🔢 {ecMap.get(f.id)!.uniqueCount}</span> : null}
-                    {f.apis.length > 0 && <span>🌐 {f.apis.length}</span>}
-                    {f.tests.length > 0 && <span>🧪 {f.tests.length}</span>}
-                    {f.issues.length > 0 && <span>🐛 {f.issues.length}</span>}
-                    {f.aiUnderstanding && <span>🤖 ✅</span>}
-                    {f.documentation && <span>📖 ✅</span>}
-                  </div>
-                  {/* 🔀 橫切概念疊加 chip（overlay） */}
-                  {(conceptByFeature.get(f.id)?.length || 0) > 0 && (
-                    <div className="flex flex-wrap items-center gap-1 mt-1">
-                      {conceptByFeature.get(f.id)!.map(c => (
-                        <span
-                          key={c.id}
-                          title={`${t("feature.crosscutHint")}\n${c.aiName || c.name}（${c.crossFeatureCount} 條 feature 共享）`}
-                          className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0"
-                          style={{ background: theme.accentBg, color: theme.accent, border: `1px solid ${theme.borderLight}` }}
-                        >
-                          {conceptEmoji(c)} {conceptShort(c)}
-                        </span>
-                      ))}
+                  <span className="text-[10px]" style={{ color: theme.text, opacity: 0.5 }}>{open ? "▾" : "▸"}</span>
+                  <span className="text-xs font-bold truncate flex-1" style={{ color: theme.text }}>{cat}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0 font-bold" style={{ background: theme.accentBg, color: theme.accent }}>{list.length}</span>
+                </button>
+                {/* Entries */}
+                {open && list.map(a => {
+                  const method = methodOf(a.entry);
+                  const mColor = METHOD_COLORS[method] || theme.accent;
+                  const sv = a.severity ? (SEV_STYLES[a.severity] || null) : null;
+                  const isSelected = a.id === selectedId;
+                  return (
+                    <div
+                      key={a.id}
+                      onClick={() => setSelectedId(a.id)}
+                      className="px-3 py-2 cursor-pointer border-t transition-colors"
+                      style={{ borderColor: theme.borderLight, background: isSelected ? theme.accentBg : "transparent" }}
+                      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = theme.bgMuted; }}
+                      onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold font-mono shrink-0" style={{ background: theme.bg, color: mColor }}>{method}</span>
+                        <span className="text-xs font-mono truncate flex-1" style={{ color: theme.text }} title={a.entry}>{a.entry.replace(/^\w+\s+/, "")}</span>
+                        {sv && <span title={`${a.severity} — ${t(sv.descKey)}`} className="text-[10px] font-bold shrink-0" style={{ color: sv.text }}>{sv.dot}</span>}
+                      </div>
+                      <div className="text-xs truncate mt-0.5" style={{ color: theme.text, opacity: 0.6 }} title={a.name}>{a.name}</div>
                     </div>
-                  )}
-                </div>
-              );
-            })
-          ) : (
-            /* File → Feature list (reverse view) */
-            <FileToFeatureList features={features} theme={theme} t={t} searchQuery={searchQuery} onSelectFeature={(id) => { setSelectedId(id); setEditingDocs(false); }} onOpenFile={onOpenFile} />
-          )}
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* === Right: Feature Detail === */}
+      {/* === Right: API Detail === */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {!selected ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2" style={{ color: theme.text, opacity: 0.4 }}>
-            <div className="text-4xl">🗺️</div>
-            <div className="text-sm">{t("feature.selectPrompt")}</div>
+            <div className="text-4xl">🌐</div>
+            <div className="text-sm">{t("apiMap.selectPrompt")}</div>
           </div>
         ) : (
-          <FeatureDetail
-            feature={selected}
-            onFeatureUpdate={(f) => setFeatures(prev => prev.map(x => x.id === f.id ? f : x))}
-            ecData={ecData}
-            theme={theme}
-            t={t}
-            onOpenFile={onOpenFile}
-            ruModel={ruModel}
-            callChainMap={callChainMap}
-            editingDocs={editingDocs}
-            docsContent={docsContent}
-            setDocsContent={setDocsContent}
-            setEditingDocs={setEditingDocs}
-            onSaveDocs={handleSaveDocs}
-            savingDocs={savingDocs}
-            rootPath={rootPath}
-            testSignals={testSignals}
-            tsBusy={tsBusy}
-            onEnrichTestSignals={enrichTestSignalsUi}
-          />
+          <ApiDetail api={selected} theme={theme} t={t as (k: string) => string} onOpenFile={onOpenFile} />
         )}
       </div>
     </div>
   );
 }
 
-// ── Create Feature Form ──
-function CreateFeatureForm({ onCreate, onCancel, theme, t }: {
-  onCreate: (name: string, description: string) => void;
-  onCancel: () => void;
-  theme: any;
-  t: (k: string) => string;
+// ── 通用 Section ──
+function Section({ title, count, theme, children }: {
+  title: string;
+  count?: number;
+  theme: Props["theme"];
+  children?: React.ReactNode;
 }) {
-  const [name, setName] = useState("");
-  const [desc, setDesc] = useState("");
-  const inputStyle = { background: theme.bg, color: theme.text, borderColor: theme.borderLight } as React.CSSProperties;
-
-  return (
-    <div className="px-3 py-2 flex flex-col gap-2" style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
-      <input
-        type="text"
-        value={name}
-        onChange={e => setName(e.target.value)}
-        placeholder={t("feature.namePlaceholder")}
-        className="text-sm px-2 py-1 rounded border outline-none"
-        style={inputStyle}
-        autoFocus
-      />
-      <input
-        type="text"
-        value={desc}
-        onChange={e => setDesc(e.target.value)}
-        placeholder={t("feature.descPlaceholder")}
-        className="text-xs px-2 py-1 rounded border outline-none"
-        style={inputStyle}
-      />
-      <div className="flex gap-1">
-        <button onClick={() => name.trim() && onCreate(name, desc)} className="text-xs px-2 py-1 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
-          ✅ {t("feature.create")}
-        </button>
-        <button onClick={onCancel} className="text-xs px-2 py-1 rounded" style={{ background: theme.bgMuted, color: theme.text }}>
-          {t("feature.cancel")}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Feature Detail ──
-// ── 🛡 Severity Section：deterministic 構成面 + AI 建議 + 人員確認（2026-10-10）──
-function SeveritySection({ feature, theme, t, rootPath, onFeatureUpdate }: {
-  feature: Feature;
-  theme: any;
-  t: (k: string) => string;
-  rootPath: string;
-  onFeatureUpdate?: (f: Feature) => void;
-  testSignals?: Record<string, { hermeticity: string; aiHermeticity?: string; aiConfidence?: number; aiReason?: string; evidence?: string[] }> | null;
-  tsBusy?: boolean;
-  onEnrichTestSignals?: () => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [byName, setByName] = useState("human");
-  const [remark, setRemark] = useState("");
-  const rp = feature.riskProfile;
-  const decisions = feature.severityDecisions || [];
-  const latestHuman = decisions.length ? decisions[decisions.length - 1] : null;
-  const activeSev = latestHuman?.severity || feature.severity || null; // 生效 = 最新人判定（並存）
-  const suggested = feature.severitySuggested || null;
-
-  // 2026-10-10 Fleming：移除「↻ 重新分析 risk profile」按鈕 — CU 重掃後 severity 自動落地
-  // （autoScanAllFeatureSeverities），不需逐個 refresh
-  const confirm = async (sev: string) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-features/${encodeURIComponent(feature.id)}/severity?path=${encodeURIComponent(rootPath)}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ severity: sev, by: byName.trim() || "human", remark: remark.trim() }),
-      });
-      if (res.ok) {
-        const d = await res.json();
-        if (d.feature && onFeatureUpdate) onFeatureUpdate(d.feature as Feature);
-        setRemark("");
-      }
-    } catch { /* silent */ }
-    setBusy(false);
-  };
-  const removeDecision = async (did: string) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-features/${encodeURIComponent(feature.id)}/severity-decision/${encodeURIComponent(did)}?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" });
-      if (res.ok) {
-        const d = await res.json();
-        if (d.feature && onFeatureUpdate) onFeatureUpdate(d.feature as Feature);
-      }
-    } catch { /* silent */ }
-    setBusy(false);
-  };
-
-  const boxStyle = { border: `1px solid ${theme.borderLight}`, background: theme.bgMuted };
-
   return (
     <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${theme.borderLight}` }}>
-      <div className="px-3 py-1.5 flex items-center gap-2 flex-wrap" style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
-        <span className="text-sm font-semibold" style={{ color: theme.text, opacity: 0.55 }}>🛡 {t("feature.severity")}</span>
-        {/* AI 建議 */}
-        {suggested && (() => {
-          const sv = SEV_STYLES[suggested] || SEV_STYLES.S0;
-          return (
-            <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: sv.bg, color: sv.text }}>
-              {t("feature.severitySuggest")}：{sv.dot} {suggested}{feature.severity ? "" : `（${t("feature.severityAiDefault")}）`}
-            </span>
-          );
-        })()}
-        <span className="text-[10px]" style={{ color: theme.text, opacity: 0.45 }}>
-          {feature.severitySuggestedBy === "ai" ? t("feature.severityByAi") : feature.severitySuggestedBy === "scan" ? t("feature.severityByScan") : ""}
-        </span>
+      <div className="px-3 py-1.5 flex items-center gap-2" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
+        <span className="text-sm font-semibold" style={{ color: theme.text, opacity: 0.55 }}>{title}</span>
+        {count != null && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: theme.accentBg, color: theme.accent }}>{count}</span>}
       </div>
-
-      {/* 建議理由 */}
-      {(feature.severitySuggestedReason || rp?.computedReason) && (
-        <div className="px-3 py-1.5 text-xs" style={{ color: theme.text, opacity: 0.7 }}>
-          💬 {feature.severitySuggestedReason || rp?.computedReason}
-          {feature.severitySuggestedNotes ? <span style={{ opacity: 0.6 }}>（{feature.severitySuggestedNotes}）</span> : null}
-        </div>
-      )}
-
-      {/* 人員判定（append-only 並存 — 人跟 AI 判定都保留） */}
-      <div className="px-3 py-2 space-y-1.5">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs" style={{ color: theme.text, opacity: 0.55 }} title={t("feature.severityOverrideTip")}>{t("feature.severityConfirm")}：</span>
-          <input value={byName} onChange={e => setByName(e.target.value)} placeholder={t("feature.severityBy")}
-            className="text-[10px] px-1.5 py-0.5 rounded w-24" style={{ background: theme.bg, color: theme.text, border: `1px solid ${theme.borderLight}` }} data-testid="severity-by-input" />
-          <input value={remark} onChange={e => setRemark(e.target.value)} placeholder={t("feature.severityRemark")}
-            className="text-[10px] px-1.5 py-0.5 rounded flex-1 min-w-[120px]" style={{ background: theme.bg, color: theme.text, border: `1px solid ${theme.borderLight}` }} data-testid="severity-remark-input" />
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {(["S0", "S1", "S2"] as const).map(sev => {
-            const sv = SEV_STYLES[sev];
-            const active = activeSev === sev;
-            return (
-              <button key={sev} onClick={() => confirm(sev)} disabled={busy}
-                className={`text-xs px-2 py-0.5 rounded font-bold border ${active ? "" : "hover:opacity-80"}`}
-                style={{ background: active ? sv.bg : theme.bg, color: active ? sv.text : theme.text, borderColor: active ? sv.text : theme.borderLight, opacity: active ? 1 : 0.6 }}
-                data-testid={`severity-confirm-${sev}`}>
-                {sv.dot} {sev}
-              </button>
-            );
-          })}
-          <span className="text-[10px]" style={{ color: theme.text, opacity: 0.4 }}>{t("feature.severityAppendHint")}</span>
-        </div>
-        {/* 判定歷史（並存 — 全保留，新→舊） */}
-        {decisions.length > 0 && (
-          <div className="space-y-0.5" data-testid="severity-decisions">
-            {decisions.slice().reverse().map(d => {
-              const sv = SEV_STYLES[d.severity as "S0" | "S1" | "S2"] || SEV_STYLES.S0;
-              return (
-                <div key={d.id} className="flex items-center gap-1.5 text-[10px]" style={{ color: theme.text, opacity: 0.75 }}>
-                  <span className="px-1 py-0.5 rounded font-bold shrink-0" style={{ background: sv.bg, color: sv.text }}>{sv.dot} {d.severity}</span>
-                  <span className="font-bold shrink-0">👤 {d.by}</span>
-                  <span className="truncate" title={d.remark || ""}>{d.remark || "—"}</span>
-                  <span className="ml-auto shrink-0" style={{ opacity: 0.5 }}>{d.at?.slice(0, 16).replace("T", " ")}</span>
-                  <button onClick={() => removeDecision(d.id)} disabled={busy} className="shrink-0 hover:opacity-100" style={{ opacity: 0.5 }} title={t("feature.severityRemove")} data-testid={`severity-del-${d.id}`}>🗑</button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* 構成面（deterministic 掃描） */}
-      {!rp ? (
-        <div className="px-3 py-2 text-xs" style={{ color: theme.text, opacity: 0.4 }}>{t("feature.severityEmpty")}</div>
-      ) : (
-        <div className="grid grid-cols-3 gap-2 px-3 pb-2">
-          {/* 資料異動 */}
-          <div className="rounded p-2" style={boxStyle}>
-            <div className="text-[11px] font-bold mb-1" style={{ color: theme.text, opacity: 0.55 }}>🗄 {t("feature.severityData")} · {rp.dataTouch.length}</div>
-            {rp.migration && <div className="text-[10px] mb-1 font-bold" style={{ color: "#dc2626" }}>⚠ schema migration / DDL</div>}
-            <div className="space-y-0.5 max-h-40 overflow-y-auto">
-              {rp.dataTouch.map((d, i) => (
-                <div key={i} className="flex items-center gap-1 text-[10px]">
-                  <span className="font-mono truncate" style={{ color: theme.text }} title={d.target}>{d.target}</span>
-                  <span className="ml-auto flex gap-0.5">
-                    {d.ops.map(op => <span key={op} className="px-1 rounded font-bold font-mono" style={{ background: theme.bg, color: OP_COLOR[op] || "#a8a29e" }}>{op}</span>)}
-                  </span>
-                </div>
-              ))}
-              {rp.dataTouch.length === 0 && <div className="text-[10px]" style={{ color: theme.text, opacity: 0.35 }}>—</div>}
-            </div>
-          </div>
-          {/* API */}
-          <div className="rounded p-2" style={boxStyle}>
-            <div className="text-[11px] font-bold mb-1" style={{ color: theme.text, opacity: 0.55 }}>🌐 {t("feature.severityApi")} · {rp.apiSurface.length}</div>
-            <div className="space-y-0.5 max-h-40 overflow-y-auto">
-              {rp.apiSurface.map((a, i) => <div key={i} className="font-mono text-[10px] truncate" style={{ color: theme.text }} title={a}>{a}</div>)}
-              {rp.apiSurface.length === 0 && <div className="text-[10px]" style={{ color: theme.text, opacity: 0.35 }}>—</div>}
-            </div>
-          </div>
-          {/* 外部服務 */}
-          <div className="rounded p-2" style={boxStyle}>
-            <div className="text-[11px] font-bold mb-1" style={{ color: theme.text, opacity: 0.55 }}>📡 {t("feature.severityExt")} · {rp.externalCalls.length}{rp.mutatingOutbound ? " ⚠ mutating" : ""}</div>
-            <div className="space-y-0.5 max-h-40 overflow-y-auto">
-              {rp.externalCalls.map((h, i) => <div key={i} className="font-mono text-[10px] truncate" style={{ color: theme.text }} title={h}>{h}</div>)}
-              {rp.externalCalls.length === 0 && <div className="text-[10px]" style={{ color: theme.text, opacity: 0.35 }}>—</div>}
-            </div>
-          </div>
-        </div>
-      )}
-      {rp && (
-        <div className="px-3 pb-2 text-[10px]" style={{ color: theme.text, opacity: 0.35 }}>
-          {t("feature.severityScanAt")} {feature.riskProfileScannedAt?.slice(0, 16).replace("T", " ")} · {rp.fileCount} files · rule={rp.computedSeverity}
-        </div>
-      )}
+      <div className="p-2 flex flex-col gap-1">{children}</div>
     </div>
   );
 }
 
-// ── 🧩 Sub-Features 區（2026-10-23 ③：L2 穩定子群渲染 + per-sub AI 理解）──
-function SubFeaturesSection({ feature, theme, t, rootPath, onOpenFile, onFeatureUpdate }: {
-  feature: Feature;
-  theme: any;
-  t: (k: string) => string;
-  rootPath: string;
-  onOpenFile?: (p: string) => void;
-  onFeatureUpdate?: (f: Feature) => void;
-}) {
-  const [openSub, setOpenSub] = useState<string | null>(null);
-  const [undBusy, setUndBusy] = useState<string | null>(null);
-  const subs = feature.subFeatures || [];
-  if (subs.length === 0 && !(feature.internalShared || []).length) return null;
-
-  const runUnderstand = async (subKey: string) => {
-    setUndBusy(subKey);
-    try {
-      const r = await fetch(`${API_BASE}/api/coding-features/${encodeURIComponent(feature.id)}/understand?path=${encodeURIComponent(rootPath)}&sub=${encodeURIComponent(subKey)}`, { method: "POST" });
-      const data = await r.json();
-      if (data?.ok && data.feature) onFeatureUpdate?.(data.feature);
-      else uiAlertError(t("feature.understandFail"));
-    } catch (e) { uiAlertError(String(e)); }
-    setUndBusy(null);
-  };
-
+// ── 檔案 chip（點擊開 editor）──
+function FileChip({ file, theme, onOpenFile }: { file: string; theme: Props["theme"]; onOpenFile?: (p: string) => void }) {
   return (
-    <Section title={`🧩 ${t("feature.subFeatures")}`} count={subs.length} theme={theme}>
-      {subs.map(s => {
-        const isOpen = openSub === s.key;
-        return (
-          <div key={s.key} className="rounded" style={{ background: theme.bgMuted }}>
-            <button onClick={() => setOpenSub(isOpen ? null : s.key)} className="w-full text-left px-2 py-1.5 flex items-center gap-2">
-              <span className="text-xs" style={{ color: theme.text, opacity: 0.5 }}>{isOpen ? "▾" : "▸"}</span>
-              <span className="text-xs font-medium truncate" style={{ color: theme.text }}>{s.name}</span>
-              <span className="text-[10px] shrink-0" style={{ color: theme.text, opacity: 0.45 }}>📄 {s.codeFiles.length}</span>
-              {s.evidence?.consensus != null && <span className="text-[10px] px-1 rounded shrink-0 font-mono" title={t("feature.consensus")} style={{ background: theme.bg, color: theme.text, opacity: 0.6 }}>c={s.evidence.consensus}</span>}
-              {s.aiUnderstanding && <span className="text-[10px] shrink-0">🤖✅</span>}
-            </button>
-            {isOpen && (
-              <div className="px-3 pb-2 flex flex-col gap-2">
-                {s.description && <div className="text-xs" style={{ color: theme.text, opacity: 0.65 }}>{s.description}</div>}
-                {(s.tags || []).length > 0 && <div className="flex flex-wrap gap-1">{(s.tags || []).map(tg => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: theme.bg, color: theme.text, opacity: 0.6 }}>🏷️ {tg}</span>)}</div>}
-                <div className="flex flex-wrap gap-1">
-                  {(s.codeFiles || []).map(f => (
-                    <button key={f} onClick={() => onOpenFile?.(f)} className="text-[10px] font-mono px-1.5 py-0.5 rounded hover:underline" style={{ background: theme.bg, color: theme.accent }} title={f}>{f.split("/").pop()}</button>
-                  ))}
-                </div>
-                <div>
-                  <button onClick={() => runUnderstand(s.key)} disabled={undBusy !== null} className="text-xs px-2 py-1 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
-                    {undBusy === s.key ? t("feature.understandBusy") : `🤖 ${t("feature.understandSub")}`}
-                  </button>
-                </div>
-                {s.aiUnderstanding && (
-                  <div className="rounded p-2 text-xs" style={{ background: theme.bg, border: `1px solid ${theme.borderLight}` }}>
-                    <div className="mb-1 flex items-center justify-between">
-                      <span style={{ color: theme.text, opacity: 0.6 }}>🤖 {t("feature.aiUnderstanding")}</span>
-                      <span className="text-[10px]" style={{ color: theme.text, opacity: 0.4 }}>{s.aiUnderstandingAt ? new Date(s.aiUnderstandingAt).toLocaleString() : ""}</span>
-                    </div>
-                    <div style={{ color: theme.text }}><MarkdownText className="md-compact">{s.aiUnderstanding}</MarkdownText></div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-      {(feature.internalShared || []).length > 0 && (
-        <details className="rounded px-2 py-1.5" style={{ background: theme.bgMuted }}>
-          <summary className="text-xs cursor-pointer" style={{ color: theme.text, opacity: 0.6 }}>🔗 {t("feature.internalShared")} ({feature.internalShared!.length})</summary>
-          <div className="flex flex-wrap gap-1 mt-2">
-            {feature.internalShared!.map(f => (
-              <button key={f} onClick={() => onOpenFile?.(f)} className="text-[10px] font-mono px-1.5 py-0.5 rounded hover:underline" style={{ background: theme.bg, color: theme.text, opacity: 0.7 }} title={f}>{f.split("/").pop()}</button>
-            ))}
-          </div>
-        </details>
-      )}
-    </Section>
+    <button
+      onClick={() => onOpenFile?.(file)}
+      className="text-left text-xs px-2 py-1 rounded font-mono hover:underline break-all"
+      style={{ background: theme.bgMuted, color: theme.accent }}
+      title={file}
+    >
+      {file}
+    </button>
   );
 }
 
-function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callChainMap, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, rootPath, onFeatureUpdate, testSignals, tsBusy, onEnrichTestSignals }: {
-  feature: Feature;
-  ecData?: any;
-  theme: any;
+// ── API Detail ──
+function ApiDetail({ api, theme, t, onOpenFile }: {
+  api: ApiFeature;
+  theme: Props["theme"];
   t: (k: string) => string;
   onOpenFile?: (p: string) => void;
-  ruModel?: any;
-  callChainMap?: Map<string, any> | null;
-  editingDocs: boolean;
-  docsContent: string;
-  setDocsContent: (s: string) => void;
-  setEditingDocs: (b: boolean) => void;
-  onSaveDocs: () => void;
-  savingDocs: boolean;
-  rootPath: string;
-  onFeatureUpdate?: (f: Feature) => void;
-  testSignals?: Record<string, { hermeticity: string; aiHermeticity?: string; aiConfidence?: number; aiReason?: string; evidence?: string[] }> | null;
-  tsBusy?: boolean;
-  onEnrichTestSignals?: () => void;
 }) {
-  const st = STATUS_STYLES[feature.status] || STATUS_STYLES.active;
-  const [undBusy, setUndBusy] = useState<string | null>(null);
-  const runParentUnderstand = async () => {
-    setUndBusy("parent");
-    try {
-      const r = await fetch(`${API_BASE}/api/coding-features/${encodeURIComponent(feature.id)}/understand?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
-      const data = await r.json();
-      if (data?.ok && data.feature) onFeatureUpdate?.(data.feature);
-      else uiAlertError(t("feature.understandFail"));
-    } catch (e) { uiAlertError(String(e)); }
-    setUndBusy(null);
-  };
-
-  // RU model 對應的 deterministic feature（有 → 用 Feature Cockpit 呈現；無 → fallback 舊 sections）
-  const ruFeature = (ruModel?.features || []).find((x: any) => x.id === feature.id) || null;
-  // Cockpit 用 FileLink（點檔開 editor tab）
-  const CockpitFileLink = useCallback(({ file, children }: { file: string; children?: React.ReactNode }) => (
-    <button onClick={() => onOpenFile?.(file)} className="font-mono text-xs text-left hover:underline break-all" style={{ color: theme.accent }} title={file}>
-      {children ?? file}
-    </button>
-  ), [onOpenFile, theme.accent]);
+  const method = methodOf(api.entry);
+  const mColor = METHOD_COLORS[method] || theme.accent;
+  const sv = api.severity ? (SEV_STYLES[api.severity] || null) : null;
+  const flow = api.processFlow || [];
+  const validation = api.validation || [];
+  const dataTouch = api.dataTouch || [];
+  const codeFiles = api.codeFiles || [];
+  const tests = api.tests || [];
+  const thStyle: React.CSSProperties = { color: theme.text, opacity: 0.55, fontWeight: 600, textAlign: "left", padding: "4px 8px", whiteSpace: "nowrap" };
+  const tdStyle: React.CSSProperties = { color: theme.text, padding: "4px 8px", verticalAlign: "top" };
 
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
-      <div className="px-4 py-3 flex items-start justify-between gap-2" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-mono" style={{ color: theme.text, opacity: 0.5 }}>{feature.id}</span>
-            <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: st.bg, color: st.text }}>{st.label}</span>
-            {((feature.tags || [])).map(tag => (
-              <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: theme.bg, color: theme.text, opacity: 0.6 }}>🏷️ {tag}</span>
-            ))}
-          </div>
-          <h2 className="text-sm font-bold" style={{ color: theme.text }}>{feature.name}</h2>
-          {feature.description && <p className="text-xs mt-1 leading-relaxed" style={{ color: theme.text, opacity: 0.6 }}>{feature.description}</p>}
+      <div className="px-4 py-3" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <span className="text-[10px] px-2 py-0.5 rounded font-bold font-mono" style={{ background: theme.bg, color: mColor }}>{method}</span>
+          <span className="text-sm font-mono font-bold break-all" style={{ color: theme.text }}>{api.entry}</span>
+          {sv && <span className="text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0" style={{ background: sv.bg, color: sv.text }} title={t(sv.descKey)}>{sv.dot} {api.severity}</span>}
+          <span className="text-[10px] font-mono ml-auto shrink-0" style={{ color: theme.text, opacity: 0.4 }}>{api.id}</span>
         </div>
-        {/* 2026-09-06 Fleming：刪 feature 不從 UI 手删 — SA 開單叫 developer 刪碼後，
-            用 project_edit(action="feature_delete") tool 刪記錄，程式與 feature 才會同步 */}
+        <h2 className="text-sm font-bold" style={{ color: theme.text }}>{api.name}</h2>
+        {api.category && <div className="text-[10px] mt-0.5" style={{ color: theme.text, opacity: 0.45 }}>🏷️ {api.category}</div>}
+        {api.description && <p className="text-xs mt-1 leading-relaxed" style={{ color: theme.text, opacity: 0.6 }}>{api.description}</p>}
       </div>
 
       <div className="p-4 flex flex-col gap-4">
-        {/* 🛡 Severity（2026-10-10：構成面掃描 + AI 建議 + 人員確認）*/}
-        <SeveritySection feature={feature} theme={theme} t={t} rootPath={rootPath} onFeatureUpdate={onFeatureUpdate} />
+        {/* 商業邏輯 */}
+        {api.bizLogic && (
+          <Section title={`📖 ${t("apiMap.bizLogic")}`} theme={theme}>
+            <div className="text-xs whitespace-pre-wrap leading-relaxed" style={{ color: theme.text, opacity: 0.8 }}>{api.bizLogic}</div>
+          </Section>
+        )}
 
-        {/* 🧩 子群（2026-10-23 ③：L2 穩定子結構 + per-sub AI 理解）*/}
-        <SubFeaturesSection feature={feature} theme={theme} t={t} rootPath={rootPath} onOpenFile={onOpenFile} onFeatureUpdate={onFeatureUpdate} />
+        {/* Process Flow */}
+        {flow.length > 0 && (
+          <Section title={`🔀 ${t("apiMap.processFlow")}`} count={flow.length} theme={theme}>
+            <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
+                  <th style={{ ...thStyle, width: "2rem" }}>#</th>
+                  <th style={{ ...thStyle, width: "7rem" }}>{t("apiMap.colAction")}</th>
+                  <th style={thStyle}>{t("apiMap.colDetail")}</th>
+                  <th style={{ ...thStyle, width: "30%" }}>{t("apiMap.colFile")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {flow.map((s, i) => (
+                  <tr key={i} style={{ borderBottom: i < flow.length - 1 ? `1px solid ${theme.borderLight}` : undefined }}>
+                    <td style={{ ...tdStyle, opacity: 0.5, fontWeight: 700 }}>{s.step ?? i + 1}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{s.action || "—"}</td>
+                    <td style={{ ...tdStyle, opacity: 0.8 }}>{s.detail || "—"}</td>
+                    <td style={tdStyle}>
+                      {s.file ? <FileChip file={s.file} theme={theme} onOpenFile={onOpenFile} /> : <span style={{ opacity: 0.35 }}>—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Section>
+        )}
 
-        {/* 🔢 Error Codes by feature（v2 — LLM 語意整理，不認命名慣例；只讀掃描產物）*/}
-        {ecData && (() => {
-          const g = ecData.byFeature?.find((x: any) => x.featureId === feature.id);
-          const codes = g?.codes || [];
-          const summary = g?.summary;
-          const uniqueCount = g?.uniqueCount || codes.length;
-          return (
-            <Section title={`🔢 ${t("feature.ecTitle")}`} count={uniqueCount} theme={theme}>
-              {/* 2026-09-06：ecRecommend 建議導入 banner 移除（Fleming：這段拿掉）— registry 建議改由 error-codes step 產物自行承載 */}
-              {summary && <div className="px-2 py-1 text-xs" style={{ color: theme.text, opacity: 0.6 }}>{summary}</div>}
-              {codes.length === 0 && <div className="text-xs px-2 py-1" style={{ color: theme.text, opacity: 0.45 }}>{t("feature.ecEmpty")}</div>}
-              {codes.map((c: any, i: number) => (
-                <div key={`${c.code || c.message}-${c.file}-${c.line}-${i}`} className="flex items-center gap-2 text-xs px-2 py-1 rounded flex-wrap" style={{ background: theme.bgMuted }}>
-                  <span title={c.kind === "throw" ? "throw / raise 位置" : c.kind === "http" ? "HTTP status 回應" : "error 參考/調用"}>{c.kind === "throw" ? "🚨" : c.kind === "http" ? "🌐" : "📄"}</span>
-                  {c.code
-                    ? <span className="font-mono font-bold" style={{ color: theme.accent }}>{c.code}</span>
-                    : <span className="italic" style={{ color: theme.text }}>{c.message || "(no message)"}</span>}
-                  {c.code && c.message ? <span style={{ color: theme.text, opacity: 0.5 }}>{c.message}</span> : null}
-                  {c.httpStatus ? <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: theme.accentBg, color: theme.accent }}>{c.httpStatus}</span> : null}
-                  <button onClick={() => onOpenFile?.(c.file)} className="font-mono hover:underline truncate" style={{ color: theme.text, opacity: 0.55 }}>{c.file}{c.line ? `:${c.line}` : ""}</button>
-                  {c.note ? <span className="opacity-50" title={c.note}>💡</span> : null}
+        {/* Validation */}
+        {validation.length > 0 && (
+          <Section title={`✅ ${t("apiMap.validation")}`} count={validation.length} theme={theme}>
+            <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
+                  <th style={{ ...thStyle, width: "18%" }}>{t("apiMap.colField")}</th>
+                  <th style={{ ...thStyle, width: "34%" }}>{t("apiMap.colRule")}</th>
+                  <th style={{ ...thStyle, width: "18%" }}>{t("apiMap.colOn")}</th>
+                  <th style={thStyle}>{t("apiMap.colFail")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {validation.map((v, i) => (
+                  <tr key={i} style={{ borderBottom: i < validation.length - 1 ? `1px solid ${theme.borderLight}` : undefined }}>
+                    <td style={{ ...tdStyle, fontFamily: "ui-monospace, monospace", fontWeight: 600 }}>{v.field || "—"}</td>
+                    <td style={{ ...tdStyle, opacity: 0.8 }}>{v.rule || "—"}</td>
+                    <td style={{ ...tdStyle, opacity: 0.8 }}>{v.on || "—"}</td>
+                    <td style={{ ...tdStyle, opacity: 0.8 }}>{v.fail || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Section>
+        )}
+
+        {/* Data Touch */}
+        {dataTouch.length > 0 && (
+          <Section title={`🗄️ ${t("apiMap.dataTouch")}`} count={dataTouch.length} theme={theme}>
+            <div className="flex flex-col gap-1">
+              {dataTouch.map((d, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs px-2 py-1 rounded" style={{ background: theme.bgMuted }}>
+                  <span className="font-mono truncate" style={{ color: theme.text }} title={d.table}>{d.table}</span>
+                  <span className="ml-auto flex gap-0.5 shrink-0">
+                    {(d.ops || []).map(op => (
+                      <span key={op} className="text-[10px] px-1 rounded font-bold font-mono" style={{ background: theme.bg, color: OP_COLOR[op.toLowerCase()] || "#a8a29e" }}>{op}</span>
+                    ))}
+                  </span>
                 </div>
               ))}
-            </Section>
-          );
-        })()}
-
-        {/* 🛗 Feature Cockpit（RU model deterministic 全景 — Entry Points 調用鏈 / Code Structure / Tests kind / Changes）*/}
-        {ruFeature && ruModel && (
-          <FeatureCockpit
-            feature={ruFeature} model={ruModel} callChainMap={callChainMap}
-            t={t} accent={theme.accent} borderLight={theme.borderLight} accentText={theme.accent}
-            FileLink={CockpitFileLink}
-          />
+            </div>
+          </Section>
         )}
 
-        {/* fallback 舊 sections（RU model 沒資料時才顯示，避免跟 cockpit 重複）*/}
-        {!ruFeature && (<>
         {/* Code Files */}
-        <Section title={`📄 ${t("feature.codeFiles")}`} count={(feature.codeFiles || []).length} theme={theme}>
-          {(feature.codeFiles || []).map(f => (
-            <button key={f} onClick={() => onOpenFile?.(f)} className="block text-xs text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
-              {f}
-            </button>
-          ))}
-        </Section>
-
-        {/* API Endpoints */}
-        <Section title={`🌐 ${t("feature.apis")}`} count={(feature.apis || []).length} theme={theme}>
-          {(feature.apis || []).map((a, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs px-2 py-1 rounded" style={{ background: theme.bgMuted }}>
-              <span className="font-mono font-bold text-xs px-1.5 py-0.5 rounded" style={{ background: theme.bg, color: HTTP_COLORS[a.method] || theme.text }}>{a.method}</span>
-              <span className="font-mono" style={{ color: theme.text }}>{a.path}</span>
-              <span className="text-xs ml-auto" style={{ color: theme.text, opacity: 0.4 }}>{a.file}</span>
+        {codeFiles.length > 0 && (
+          <Section title={`📄 ${t("apiMap.codeFiles")}`} count={codeFiles.length} theme={theme}>
+            <div className="flex flex-col gap-1">
+              {codeFiles.map(f => <FileChip key={f} file={f} theme={theme} onOpenFile={onOpenFile} />)}
             </div>
-          ))}
-        </Section>
+          </Section>
+        )}
 
         {/* Tests */}
-        <Section title={`🧪 ${t("feature.tests")}`} count={(feature.tests || []).length} theme={theme}>
-          {(feature.tests || []).length > 0 && (
-            <div className="flex items-center gap-2 mb-1">
-              <div className="text-[10px] flex-1" style={{ color: theme.text, opacity: 0.55 }}>{t("feature.testsHint")}</div>
-              <button onClick={onEnrichTestSignals} disabled={tsBusy} className="text-[9px] px-1.5 py-0.5 rounded shrink-0 disabled:opacity-40" style={{ background: theme.accentBg, color: theme.accent, border: `1px solid ${theme.borderLight}` }} title={t("feature.testsEnrich")}>
-                {tsBusy ? "⏳" : "🤖"}
-              </button>
+        {tests.length > 0 && (
+          <Section title={`🧪 ${t("apiMap.tests")}`} count={tests.length} theme={theme}>
+            <div className="flex flex-col gap-1">
+              {tests.map(f => <FileChip key={f} file={f} theme={theme} onOpenFile={onOpenFile} />)}
             </div>
-          )}
-          {(feature.tests || []).map(f => {
-            const sig = testSignals?.[f] || testSignals?.[f.replace(/\\/g, "/")];
-            const h = sig ? (sig.aiHermeticity && (sig.aiConfidence ?? 1) >= 0.6 ? sig.aiHermeticity : sig.hermeticity) : null;
-            const ai = !!(sig?.aiHermeticity && h !== sig?.hermeticity);
-            return (
-              <button key={f} onClick={() => onOpenFile?.(f)} className="flex items-center gap-1.5 w-full text-xs text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }} title={[...(sig?.evidence || []), sig?.aiReason ? `AI：${sig.aiReason}` : ""].filter(Boolean).join("\n")}>
-                <span className="truncate flex-1">{f}</span>
-                {h && <span className="text-[9px] px-1 rounded shrink-0 font-sans" style={HERM_STYLE[h] || HERM_STYLE.unknown}>{ai ? "✨" : ""}{HERM_EMOJI[h] || "❔"} {t(`feature.herm.${h}`)}</span>}
-              </button>
-            );
-          })}
-        </Section>
-        </>)}
+          </Section>
+        )}
 
-        {/* Runbooks */}
-        <Section title={`📖 ${t("feature.runbooks")}`} count={(feature.runbooks || []).length} theme={theme}>
-          {(feature.runbooks || []).map(f => (
-            <button key={f} onClick={() => onOpenFile?.(f)} className="block text-xs text-left px-2 py-1 rounded font-mono hover:underline" style={{ background: theme.bgMuted, color: theme.accent }}>
-              {f}
-            </button>
-          ))}
-        </Section>
-
-        {/* Linked Issues */}
-        <Section title={`🐛 ${t("feature.issues")}`} count={(feature._issueSummaries || []).length} theme={theme}>
-          {(feature._issueSummaries || []).map(iss => {
-            const ist = { bg: iss.status === "open" ? "#fef2f2" : "#f0fdf4", text: iss.status === "open" ? "#dc2626" : "#16a34a" };
-            return (
-              <div key={iss.id} className="flex items-center gap-2 text-sm px-2 py-1 rounded" style={{ background: theme.bgMuted }}>
-                <span className="font-mono text-xs" style={{ color: theme.text, opacity: 0.5 }}>{iss.id}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: ist.bg, color: ist.text }}>{iss.status}</span>
-                <span style={{ color: theme.text }}>{iss.title}</span>
-              </div>
-            );
-          })}
-        </Section>
-
-        {/* AI Understanding（2026-10-23 ①：懒生成入口 — parent 吃子群摘要；無子群 = 全讀）*/}
-        <div className="rounded-lg p-4" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold" style={{ color: theme.text, opacity: 0.75 }}>🤖 {t("feature.aiUnderstanding")}</h3>
-            <div className="flex items-center gap-2">
-              {feature.aiUnderstandingAt && <span className="text-xs" style={{ color: theme.text, opacity: 0.4 }}>{new Date(feature.aiUnderstandingAt).toLocaleString()}</span>}
-              <button onClick={runParentUnderstand} disabled={undBusy !== null} className="text-xs px-2 py-1 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
-                {undBusy === "parent" ? t("feature.understandBusy") : `✨ ${feature.aiUnderstanding ? t("feature.understandRegen") : t("feature.understandGen")}`}
-              </button>
-            </div>
-          </div>
-          {feature.aiUnderstanding
-            ? <div className="text-sm" style={{ color: theme.text }}><MarkdownText className="md-compact">{feature.aiUnderstanding}</MarkdownText></div>
-            : <div className="text-xs" style={{ color: theme.text, opacity: 0.45 }}>{(feature.subFeatures?.length || 0) > 0 ? t("feature.understandHintComposite") : t("feature.understandHint")}</div>}
-        </div>
-
-        {/* Documentation */}
-        <div className="rounded-lg p-4" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold" style={{ color: theme.text, opacity: 0.75 }}>📖 {t("feature.documentation")}</h3>
-            <div className="flex items-center gap-2">
-              {feature.docsUpdatedAt && <span className="text-xs" style={{ color: theme.text, opacity: 0.4 }}>{new Date(feature.docsUpdatedAt).toLocaleString()}</span>}
-              {!editingDocs ? (
-                <button onClick={() => { setEditingDocs(true); setDocsContent(feature.documentation || ""); }} className="text-xs px-2 py-1 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
-                  ✏️ {t("feature.edit")}
-                </button>
-              ) : (
-                <>
-                  <button onClick={onSaveDocs} disabled={savingDocs} className="text-xs px-2 py-1 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
-                    {savingDocs ? "..." : `💾 ${t("feature.save")}`}
-                  </button>
-                  <button onClick={() => setEditingDocs(false)} className="text-xs px-2 py-1 rounded" style={{ background: theme.bg, color: theme.text }}>
-                    {t("feature.cancel")}
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-          {editingDocs ? (
-            <textarea
-              value={docsContent}
-              onChange={e => setDocsContent(e.target.value)}
-              rows={10}
-              className="w-full text-sm p-2 rounded border outline-none resize-y font-mono"
-              style={{ background: theme.bg, color: theme.text, borderColor: theme.borderLight }}
-              placeholder={t("feature.docsPlaceholder")}
-            />
-          ) : feature.documentation ? (
-            <div className="text-sm" style={{ color: theme.text }}><MarkdownText className="md-compact">{feature.documentation}</MarkdownText></div>
-          ) : (
-            <p className="text-sm" style={{ color: theme.text, opacity: 0.3 }}>{t("feature.noDocs")}</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── File → Feature reverse view ──
-function FileToFeatureList({ features, theme, t, searchQuery, onSelectFeature, onOpenFile }: {
-  features: Feature[];
-  theme: any;
-  t: (k: string) => string;
-  searchQuery: string;
-  onSelectFeature: (id: string) => void;
-  onOpenFile?: (p: string) => void;
-}) {
-  // Build file → [features] map（2026-10-23 ③：code 檔標 sub 歸屬 badge）
-  const fileMap: Record<string, { id: string; name: string; type: string; sub?: string }[]> = {};
-  for (const f of features) {
-    const subByFile = new Map<string, string>();
-    for (const s of f.subFeatures || []) for (const file of s.codeFiles || []) subByFile.set(file, s.name);
-    for (const file of f.codeFiles || []) {
-      if (!fileMap[file]) fileMap[file] = [];
-      fileMap[file].push({ id: f.id, name: f.name, type: "📄", sub: subByFile.get(file) });
-    }
-    for (const file of f.tests || []) {
-      if (!fileMap[file]) fileMap[file] = [];
-      fileMap[file].push({ id: f.id, name: f.name, type: "🧪" });
-    }
-    for (const file of f.runbooks || []) {
-      if (!fileMap[file]) fileMap[file] = [];
-      fileMap[file].push({ id: f.id, name: f.name, type: "📖" });
-    }
-    for (const a of f.apis || []) {
-      if (a.file && !fileMap[a.file]) fileMap[a.file] = [];
-      if (a.file) fileMap[a.file].push({ id: f.id, name: f.name, type: "🌐" });
-    }
-  }
-
-  const sortedFiles = Object.keys(fileMap).sort();
-  const filtered = searchQuery
-    ? sortedFiles.filter(f => f.toLowerCase().includes(searchQuery.toLowerCase()))
-    : sortedFiles;
-
-  // Group by directory
-  const grouped: Record<string, { file: string; features: { id: string; name: string; type: string; sub?: string }[] }[]> = {};
-  for (const file of filtered) {
-    const dir = file.split("/").slice(0, -1).join("/") || ".";
-    if (!grouped[dir]) grouped[dir] = [];
-    grouped[dir].push({ file, features: fileMap[file] });
-  }
-
-  if (filtered.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-2 p-4 text-center" style={{ color: theme.text, opacity: 0.4 }}>
-        <div className="text-3xl">📄</div>
-        <div className="text-sm">{t("feature.noFiles")}</div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <div className="px-3 py-1.5 text-xs" style={{ color: theme.text, opacity: 0.4, borderBottom: `1px solid ${theme.borderLight}` }}>
-        {filtered.length} {t("feature.filesMapped")}
-      </div>
-      {Object.entries(grouped).map(([dir, entries]) => (
-        <div key={dir}>
-          <div className="px-3 py-1 text-xs font-mono sticky top-0" style={{ color: theme.text, opacity: 0.3, background: theme.bgMuted, borderBottom: `1px solid ${theme.borderLight}` }}>
-            📁 {dir}/
-          </div>
-          {entries.map(({ file, features: feats }) => (
-            <div
-              key={file}
-              className="px-3 py-1.5 border-b flex items-center gap-2"
-              style={{ borderColor: theme.borderLight }}
-            >
-              <button
-                onClick={() => onOpenFile?.(file)}
-                className="text-sm font-mono truncate flex-1 text-left hover:underline"
-                style={{ color: theme.accent }}
-                title={file}
-              >
-                {file.split("/").pop()}
-              </button>
-              <div className="flex flex-wrap gap-1 shrink-0">
-                {feats.map((ft, i) => {
-                  const feat = features.find(f => f.id === ft.id);
-                  const st = feat ? STATUS_STYLES[feat.status] || STATUS_STYLES.active : null;
-                  return (
-                    <span key={i} className="flex items-center gap-0.5">
-                      {ft.sub && <span className="text-[10px] px-1 py-0.5 rounded font-medium" style={{ background: theme.bg, color: theme.text, opacity: 0.65 }} title={ft.sub}>🧩 {ft.sub.length > 10 ? ft.sub.slice(0, 10) + "…" : ft.sub}</span>}
-                      <button
-                        onClick={() => onSelectFeature(ft.id)}
-                        className="text-xs px-1.5 py-0.5 rounded transition-opacity hover:opacity-100"
-                        style={{ background: st?.bg || theme.bgMuted, color: st?.text || theme.text, opacity: 0.7 }}
-                        title={`${ft.type} ${ft.name}`}
-                      >
-                        {ft.type} {ft.id}
-                      </button>
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── 🧪 測試自足性徽章 ──
-const HERM_EMOJI: Record<string, string> = {
-  hermetic: "🟢",
-  "needs-key": "🔑",
-  "needs-network": "🌐",
-  "needs-service": "🐳",
-  unknown: "❔",
-};
-const HERM_STYLE: Record<string, React.CSSProperties> = {
-  hermetic: { background: "#dcfce7", color: "#15803d", border: "1px solid #bbf7d0" },
-  "needs-key": { background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a" },
-  "needs-network": { background: "#dbeafe", color: "#1d4ed8", border: "1px solid #bfdbfe" },
-  "needs-service": { background: "#f3e8ff", color: "#7e22ce", border: "1px solid #e9d5ff" },
-  unknown: { background: "#f5f5f4", color: "#57534e", border: "1px solid #e7e5e4" },
-};
-
-// ── 🔀 橫切關注點 / Gap Report 面板（overlay 層，非檔案分割）──
-function CrosscutPanel({ concepts, gaps, theme, t, busy, onEnrich, onPickFeature }: {
-  concepts: CrosscutConcept[];
-  gaps: GapEntry[];
-  theme: any;
-  t: (k: string) => string;
-  busy: boolean;
-  onEnrich: () => void;
-  onPickFeature: (id: string) => void;
-}) {
-  const active = concepts.filter(c => !c.aiClipped);
-  const clipped = concepts.filter(c => c.aiClipped);
-  const [openEv, setOpenEv] = React.useState<string | null>(null);
-  const chipStyle = { background: theme.accentBg, color: theme.accent, border: `1px solid ${theme.borderLight}` };
-  return (
-    <div className="p-3 flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <div className="text-sm font-semibold" style={{ color: theme.text }}>🔀 {t("feature.crosscut")}</div>
-          <div className="text-[10px] mt-0.5" style={{ color: theme.text, opacity: 0.5 }}>{t("feature.crosscutHint")}</div>
-        </div>
-        <button
-          onClick={onEnrich}
-          disabled={busy}
-          className="text-[10px] px-2 py-1 rounded shrink-0 disabled:opacity-40"
-          style={chipStyle}
-          title={t("feature.crosscutEnrich")}
-        >
-          {busy ? t("feature.crosscutEnriching") : `🤖 ${t("feature.crosscutEnrich")}`}
-        </button>
-      </div>
-
-      {/* 缺口（有能力但沒有家） */}
-      <div className="rounded p-2" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>
-        <div className="text-xs font-semibold mb-1" style={{ color: theme.text }}>🚨 {t("feature.gapReport")}</div>
-        {gaps.length === 0 ? (
-          <div className="text-[11px]" style={{ color: theme.text, opacity: 0.5 }}>{t("feature.gapReportEmpty")}</div>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            {gaps.map(g => (
-              <div key={g.conceptId} className="text-[11px]" style={{ color: theme.text }}>
-                <div className="font-medium">{conceptEmoji({ key: concepts.find(c => c.id === g.conceptId)?.key || "", discovered: concepts.find(c => c.id === g.conceptId)?.discovered } as any)}{conceptShort(concepts.find(c => c.id === g.conceptId) || ({ name: g.name, key: "" } as any))}</div>
-                <div style={{ opacity: 0.6 }}>{g.reason}</div>
-                <div className="flex flex-wrap gap-1 mt-0.5">
-                  {g.features.slice(0, 8).map(fid => (
-                    <button key={fid} onClick={() => onPickFeature(fid)} className="text-[10px] px-1 rounded" style={{ background: theme.bg, color: theme.accent, border: `1px solid ${theme.borderLight}` }}>{fid}</button>
-                  ))}
-                </div>
-              </div>
-            ))}
+        {/* Meta */}
+        {(api.createdAt || api.updatedAt) && (
+          <div className="text-[10px]" style={{ color: theme.text, opacity: 0.35 }}>
+            {api.createdAt ? `${t("apiMap.createdAt")} ${String(api.createdAt).slice(0, 16).replace("T", " ")}` : ""}
+            {api.updatedAt ? ` · ${t("apiMap.updatedAt")} ${String(api.updatedAt).slice(0, 16).replace("T", " ")}` : ""}
           </div>
         )}
-      </div>
-
-      {/* 全部概念 */}
-      <div>
-        <div className="text-xs font-semibold mb-1" style={{ color: theme.text, opacity: 0.75 }}>{t("feature.crosscut")} ({active.length})</div>
-        {active.length === 0 ? (
-          <div className="text-[11px]" style={{ color: theme.text, opacity: 0.5 }}>{t("feature.crosscutNone")}</div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {active.map(c => (
-              <div key={c.id} className="rounded p-2" style={{ background: theme.bg, border: `1px solid ${theme.borderLight}` }}>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-medium" style={{ color: theme.text }}>{conceptEmoji(c)} {c.aiName || c.name}</span>
-                  <span className="text-[10px] px-1 rounded shrink-0" style={chipStyle}>{c.crossFeatureCount} feat</span>
-                  {c.dominantShare != null && <span className="text-[10px]" style={{ color: theme.text, opacity: 0.5 }}>{t("feature.crosscutDominant")} {Math.round(c.dominantShare * 100)}%</span>}
-                </div>
-                {c.aiDescription && <div className="text-[11px] mt-0.5" style={{ color: theme.text, opacity: 0.7 }}>{c.aiDescription}</div>}
-                <button onClick={() => setOpenEv(openEv === c.id ? null : c.id)} className="text-[10px] mt-1" style={{ color: theme.accent }}>
-                  {t("feature.crosscutEvidence")} ({c.evidence.length}) {openEv === c.id ? "▾" : "▸"}
-                </button>
-                {openEv === c.id && (
-                  <div className="mt-1 flex flex-col gap-0.5">
-                    {c.evidence.slice(0, 25).map((e, i) => (
-                      <div key={i} className="text-[10px] font-mono truncate" style={{ color: theme.text, opacity: 0.6 }} title={e.file}>
-                        {e.file}{e.line ? `:${e.line}` : ""}{e.symbol ? `  ${e.symbol}` : ""}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      {clipped.length > 0 && (
-        <div className="text-[10px]" style={{ color: theme.text, opacity: 0.4 }}>
-          🤖 AI 判定非真概念（已排除於缺口）：{clipped.map(c => c.aiName || c.name).join("、")}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Section helper ──
-function Section({ title, count, theme, children }: {
-  title: string;
-  count: number;
-  theme: any;
-  children: React.ReactNode;
-}) {
-  if (count === 0) return null;
-  return (
-    <div>
-      <h3 className="text-sm font-semibold mb-2" style={{ color: theme.text, opacity: 0.75 }}>
-        {title} <span style={{ opacity: 0.5 }}>({count})</span>
-      </h3>
-      <div className="flex flex-col gap-1">{children}</div>
-    </div>
-  );
-}
-
-/* ═══ 📊 Feature Table Grid（2026-11-01 Fleming：table grid 檢視大 feature / subFeatures）═══ */
-type SortKey = "id" | "name" | "status" | "severity" | "files" | "apis" | "tests" | "subs";
-/* Kind 分類軸（Feature First v2 2026-10-30 Fleming 定稿）：API / UI / Module / Utility
- * deterministic 證據：evidence.kinds（http=API 入口、ui=UI 入口、orphan）+ grade=utility；不從路徑推導 */
-function featureKind(f: Feature): { label: string; emoji: string } {
-  const KIND_MAP: Record<string, { label: string; emoji: string }> = {
-    api: { label: "API", emoji: "🌐" },
-    ui: { label: "UI", emoji: "🎨" },
-    "api+ui": { label: "API+UI", emoji: "🌐🎨" },
-    module: { label: "Module", emoji: "📦" },
-    utility: { label: "Utility", emoji: "🔧" },
-  };
-  if (f.kind && KIND_MAP[f.kind]) return KIND_MAP[f.kind];
-  const ev = (f as any).evidence || {};
-  const kinds = Object.keys(ev.kinds || {});
-  const isUtility = f.grade === "utility" || kinds.includes("orphan");
-  const hasHttp = kinds.includes("http");
-  const hasUi = kinds.includes("ui");
-  if (isUtility) return { label: "Utility", emoji: "🔧" };
-  if (hasHttp && hasUi) return { label: "API+UI", emoji: "🌐🎨" };
-  if (hasHttp) return { label: "API", emoji: "🌐" };
-  if (hasUi) return { label: "UI", emoji: "🎨" };
-  return { label: "Module", emoji: "📦" };
-}
-function FeatureTableGrid({ features, theme, t, searchQuery, ecMap, onSelectFeature }: {
-  features: Feature[];
-  theme: any;
-  t: (k: string) => string;
-  searchQuery: string;
-  ecMap: Map<string, { uniqueCount: number }>;
-  onSelectFeature: (id: string) => void;
-}) {
-  const [sortKey, setSortKey] = useState<SortKey>("files");
-  const [sortAsc, setSortAsc] = useState(false);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
-
-  const q = searchQuery.trim().toLowerCase();
-  const rows = useMemo(() => {
-    let list = features.slice();
-    if (q) {
-      list = list.filter(f =>
-        f.id.toLowerCase().includes(q) || f.name.toLowerCase().includes(q) ||
-        (f.description || "").toLowerCase().includes(q) ||
-        (f.tags || []).some(tg => tg.toLowerCase().includes(q)) ||
-        (f.codeFiles || []).some(c => c.toLowerCase().includes(q))
-      );
-    }
-    const sevRank: Record<string, number> = { S0: 0, S1: 1, S2: 2 };
-    list.sort((a, b) => {
-      let d = 0;
-      switch (sortKey) {
-        case "id": d = a.id.localeCompare(b.id); break;
-        case "name": d = a.name.localeCompare(b.name); break;
-        case "status": d = a.status.localeCompare(b.status); break;
-        case "severity": d = (sevRank[a.severity || a.severitySuggested || "S9"] ?? 9) - (sevRank[b.severity || b.severitySuggested || "S9"] ?? 9); break;
-        case "apis": d = a.apis.length - b.apis.length; break;
-        case "tests": d = a.tests.length - b.tests.length; break;
-        case "subs": d = (a.subFeatures?.length || 0) - (b.subFeatures?.length || 0); break;
-        default: d = a.codeFiles.length - b.codeFiles.length;
-      }
-      return sortAsc ? d : -d;
-    });
-    return list;
-  }, [features, q, sortKey, sortAsc, searchQuery]);
-
-  const th = (key: SortKey): { onClick: () => void; className: string } => ({
-    onClick: () => { if (sortKey === key) setSortAsc(v => !v); else { setSortKey(key); setSortAsc(key === "id" || key === "name"); } },
-    className: "px-2 py-1.5 cursor-pointer select-none text-[10px] font-semibold uppercase tracking-wide text-left",
-  });
-
-  const thStyle = (key: SortKey): React.CSSProperties => ({ color: sortKey === key ? theme.accent : theme.text, opacity: sortKey === key ? 1 : 0.5, borderBottom: `1px solid ${theme.borderLight}`, whiteSpace: "nowrap" });
-  const tdStyle: React.CSSProperties = { color: theme.text, borderBottom: `1px solid ${theme.borderLight}`, padding: "4px 8px", verticalAlign: "middle" };
-
-  // Category 分組（2026-11-01 Fleming：Category → Feature → Sub-feature）
-  const groups = useMemo(() => {
-    const m = new Map<string, Feature[]>();
-    for (const f of rows) {
-      const cat = f.category || "（未分類）";
-      if (!m.has(cat)) m.set(cat, []);
-      m.get(cat)!.push(f);
-    }
-    return [...m.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
-  }, [rows]);
-
-  return (
-    <div className="flex-1 overflow-auto" data-testid="feature-table-grid">
-      <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
-        <thead className="sticky top-0 z-10" style={{ background: theme.bgMuted }}>
-          <tr>
-            <th {...th("id")} style={thStyle("id")}>F-id</th>
-            <th {...th("name")} style={thStyle("name")}>{t("feature.colName")}</th>
-            <th {...th("status")} style={thStyle("status")}>{t("feature.colStatus")}</th>
-            <th {...th("severity")} style={thStyle("severity")}>{t("feature.colSeverity")}</th>
-            <th style={{ ...{...thStyle("kind" as SortKey), cursor: "default"} }}>{t("feature.colKind")}</th>
-            <th {...th("files")} style={thStyle("files")}>📄 {t("feature.colFiles")}</th>
-            <th {...th("apis")} style={thStyle("apis")}>🌐 {t("feature.colApis")}</th>
-            <th {...th("tests")} style={thStyle("tests")}>🧪 {t("feature.colTests")}</th>
-            <th {...th("subs")} style={thStyle("subs")}>🧩 {t("feature.subFeatures")}</th>
-            <th style={{ ...thStyle("ai" as SortKey), cursor: "default" }}>🤖/📖</th>
-          </tr>
-        </thead>
-        <tbody>
-          {groups.map(([cat, feats]) => {
-            const collapsed = collapsedCats.has(cat);
-            return (
-              <Fragment key={cat}>
-                <tr
-                  className="cursor-pointer sticky top-[26px] z-[5]"
-                  style={{ background: theme.bgMuted }}
-                  onClick={() => setCollapsedCats(prev => { const n = new Set(prev); n.has(cat) ? n.delete(cat) : n.add(cat); return n; })}
-                >
-                  <td colSpan={10} className="px-2 py-1.5" style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
-                    <span className="text-xs font-semibold" style={{ color: theme.accent }}>
-                      {collapsed ? "▸" : "▾"} 🏷️ {cat}
-                    </span>
-                    <span className="ml-2 text-[10px]" style={{ color: theme.text, opacity: 0.5 }}>
-                      {feats.length} features · 📄 {feats.reduce((s, f) => s + f.codeFiles.length, 0)} · 🌐 {feats.reduce((s, f) => s + f.apis.length, 0)} · 🧪 {feats.reduce((s, f) => s + f.tests.length, 0)}
-                    </span>
-                  </td>
-                </tr>
-                {!collapsed && feats.map(f => {
-                  
-                    const st = STATUS_STYLES[f.status] || STATUS_STYLES.active;
-                    const sev = f.severity || f.severitySuggested;
-                    const kind = featureKind(f);
-                    const subs = f.subFeatures || [];
-                    const isOpen = expanded.has(f.id);
-                    return (
-                      <Fragment key={f.id}>
-                        <tr
-                          className="cursor-pointer"
-                          style={{ background: isOpen ? theme.accentBg : "transparent" }}
-                          onMouseEnter={e => { e.currentTarget.style.background = theme.bgMuted; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = isOpen ? theme.accentBg : "transparent"; }}
-                        >
-                          <td style={{ ...tdStyle, opacity: 0.6 }} className="font-mono text-[10px]">{f.id}</td>
-                          <td style={tdStyle} className="font-medium max-w-[260px] truncate" title={f.description || f.name}>{f.name}</td>
-                          <td style={tdStyle}><span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: st.bg, color: st.text }}>{st.label}</span></td>
-                          <td style={tdStyle}>{sev ? <span className="text-[10px] px-1 py-0.5 rounded font-bold" style={{ opacity: f.severity ? 1 : 0.6 }}>{sev}{f.severity ? "👤" : "🤖"}</span> : <span style={{ opacity: 0.3 }}>—</span>}</td>
-                          <td style={tdStyle}><span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>{kind.emoji} {kind.label}</span></td>
-                          <td style={tdStyle} className="text-right font-mono">{f.codeFiles.length}</td>
-                          <td style={tdStyle} className="text-right font-mono">{f.apis.length}</td>
-                          <td style={tdStyle} className="text-right font-mono">{f.tests.length}</td>
-                          <td style={tdStyle} className="text-right">
-                            {subs.length > 0 ? (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setExpanded(prev => { const n = new Set(prev); n.has(f.id) ? n.delete(f.id) : n.add(f.id); return n; }); }}
-                                className="text-[10px] px-1.5 py-0.5 rounded font-mono"
-                                style={{ background: theme.accentBg, color: theme.accent }}
-                              >
-                                {isOpen ? "▾" : "▸"} {subs.length}
-                              </button>
-                            ) : <span style={{ opacity: 0.3 }}>—</span>}
-                          </td>
-                          <td style={tdStyle} className="text-center text-[10px] whitespace-nowrap">
-                            {f.aiUnderstanding ? "🤖✅ " : ""}{f.documentation ? "📖✅" : ""}
-                          </td>
-                        </tr>
-                        {isOpen && subs.map((sf, i) => (
-                          <tr key={`${f.id}-sf-${sf.id || i}`} style={{ background: theme.bgMuted }}>
-                            <td style={{ ...tdStyle, opacity: 0.4 }} className="font-mono text-[10px] pl-6">{sf.id || `${f.id}-SF${i + 1}`}</td>
-                            <td style={tdStyle} className="pl-2">
-                              <span className="opacity-50 mr-1">└ 🧩</span>{sf.name}
-                              {sf.grade && <span className="ml-1.5 text-[10px] px-1 rounded" style={{ background: theme.bg, border: `1px solid ${theme.borderLight}`, opacity: 0.7 }}>{sf.grade}</span>}
-                            </td>
-                            <td style={{ ...tdStyle, opacity: 0.4 }} colSpan={2}>{sf.evidence?.consensus != null ? `consensus ${(sf.evidence.consensus * 100).toFixed(0)}%` : ""}</td>
-                            <td style={tdStyle} className="pl-2 opacity-50">sub</td>
-                            <td style={tdStyle} className="text-right font-mono">{(sf.codeFiles || []).length}</td>
-                            <td style={{ ...tdStyle, opacity: 0.3 }}>—</td>
-                            <td style={{ ...tdStyle, opacity: 0.3 }}>—</td>
-                            <td style={{ ...tdStyle, opacity: 0.3 }}>—</td>
-                            <td style={tdStyle} className="text-center text-[10px]">{sf.aiUnderstanding ? "🤖✅" : ""}</td>
-                          </tr>
-                        ))}
-                      </Fragment>
-                    );
-                  })}
-              </Fragment>
-            );
-          })}
-              {groups.length === 0 && (
-                <tr><td colSpan={10} style={{ ...tdStyle, textAlign: "center", padding: 24, opacity: 0.4 }}>{t("feature.empty")}</td></tr>
-              )}
-        </tbody>
-      </table>
-      {/* 檔尾統計 */}
-      <div className="px-3 py-1.5 text-[10px] flex gap-3 sticky bottom-0" style={{ color: theme.text, opacity: 0.5, background: theme.bgMuted, borderTop: `1px solid ${theme.borderLight}` }}>
-        <span>{rows.length} / {features.length} {t("feature.colName")}</span>
-        <span>📄 {rows.reduce((s, f) => s + f.codeFiles.length, 0)}</span>
-        <span>🌐 {rows.reduce((s, f) => s + f.apis.length, 0)}</span>
-        <span>🧪 {rows.reduce((s, f) => s + f.tests.length, 0)}</span>
-        <span>🧩 {rows.reduce((s, f) => s + (f.subFeatures?.length || 0), 0)}</span>
       </div>
     </div>
   );

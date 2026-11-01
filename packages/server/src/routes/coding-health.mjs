@@ -13,7 +13,6 @@
 import { readFileSync as readSync, existsSync, statSync, readdirSync } from "fs";
 import { join, resolve, dirname, relative, isAbsolute } from "path";
 import { fileURLToPath } from "url";
-import { loadFeatures } from "../lib/feature-registry.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -94,44 +93,36 @@ export default async function codingHealthRoute(req, res) {
   // 2. Feature map
   try {
     {
-      const features = loadFeatures(projRoot); // coding.db（2026-11-01 單一真相）
-      const data = { updatedAt: null };
-      const withUnderstanding = features.filter(f => f.aiUnderstanding).length;
-      const withTests = features.filter(f => (f.tests || []).length > 0).length;
-      checks.featureMap = {
-        status: features.length > 0 ? "ok" : "warn",
-        total: features.length,
-        withUnderstanding,
-        withTests,
-        updatedAt: data.updatedAt || "(unknown)",
-        message: features.length === 0 ? "No features defined — run Code Understanding" : undefined,
-      };
-      if (withUnderstanding === 0 && features.length > 0) {
-        checks.featureMap.status = "warn";
-        checks.featureMap.message = "No AI understanding generated for any feature";
-      }
-      // Quick validation: check if referenced files exist
+      // 2026-11-01 API-first：code health 檢查 api_features（feature map 退役）
+      const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
+      const apis = readApiFeatures(projRoot);
       let missingFiles = 0;
       const allSourceFiles = new Set();
       try {
         const { scanAllSourceFiles } = await import("../lib/feature-map-validator.mjs");
-        const files = scanAllSourceFiles(projRoot);
-        files.forEach(f => allSourceFiles.add(f));
-        for (const feat of features) {
-          for (const cf of feat.codeFiles || []) {
+        scanAllSourceFiles(projRoot).forEach(f => allSourceFiles.add(f));
+        for (const a of apis) {
+          for (const cf of a.codeFiles || []) {
             const norm = cf.replace(/^\.\//, "").replace(/\\/g, "/");
             if (!allSourceFiles.has(norm)) missingFiles++;
           }
         }
       } catch {}
+      checks.apiMap = {
+        status: apis.length > 0 ? "ok" : "warn",
+        total: apis.length,
+        withFlow: apis.filter(a => (a.processFlow || []).length > 0).length,
+        withValidation: apis.filter(a => (a.validation || []).length > 0).length,
+        missingFiles,
+        message: apis.length === 0 ? "No API features — run CU api-map step" : undefined,
+      };
       if (missingFiles > 0) {
-        checks.featureMap.status = "warn";
-        checks.featureMap.missingFiles = missingFiles;
-        checks.featureMap.message = `${missingFiles} mapped files not found on disk — feature map is stale`;
+        checks.apiMap.status = "warn";
+        checks.apiMap.message = `${missingFiles} mapped files not found on disk — api map is stale`;
       }
     }
   } catch (err) {
-    checks.featureMap = { status: "fail", message: err.message };
+    checks.apiMap = { status: "fail", message: err.message };
   }
 
   // 3. Issues

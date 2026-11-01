@@ -31,7 +31,7 @@
  */
 
 import { readFile, writeFile, readdir, mkdir, unlink, appendFile, stat as fsStat } from "fs/promises";
-import { nextFeatureIds, loadFeatures } from "../lib/feature-registry.mjs"; // 2026-09-04：CU feature-map 產 F{YYYYMMDD}-{seq} 新格式 ID（原 F-001 舊格式的真正源頭）
+import { todayStamp } from "../lib/feature-registry.mjs"; // API-first（2026-11-01）：todayStamp 給 api-map A-id 用
 import { writeDoc, readDoc } from "../lib/coding-db/docs.repo.mjs"; // 2026-11-01：feature docs 進 coding.db
 import { existsSync, readFileSync as readSync, readdirSync, statSync, openSync, readSync as fsReadSync, closeSync as fsCloseSync } from "fs";
 import { resolve, join, dirname } from "path";
@@ -71,7 +71,7 @@ import { countSourceFiles, walkSourceFiles, changedSourceFilesSince } from "../l
 // 與 UI CU_STEPS 的 file 對應（保持同步）— Slim CU：只保留 4 個 steps + 人寫檔案
 const CU_STEP_FILES = {
   scan: "scan.json",
-  "feature-map": "features/FEATURES.json",
+  "api-map": "api-map.json",
   "code-intelligence": "code-intelligence/summary.json",
   "test-intelligence": "code-intelligence/test-intelligence.json",
   "error-codes": "error-codes.json",
@@ -280,207 +280,6 @@ export async function callProjectLLM(body, opts = {}) {
 
 // ── Query parser ──
 
-/**
- * Feature Map chunked 產出（2026-09-03 Fleming 要求：不考慮成本，完整的 feature map）
- *
- * 大 release unit 單次呼叫塞不下 → map-reduce：
- *   map：把 tree-sitter 分析按檔案分塊，每塊一次 LLM 呼叫產 partial feature JSON
- *   reduce：合併去重（太大就 pairwise 合併）
- *   gap-fill：checkCoverage 找孤兒檔 → 補一輪歸屬
- */
-const FM_CHUNK_CHARS = 80_000;    // 每塊 source analysis（~23k tokens — fallback model 對大單發不可靠）
-const FM_MERGE_CHARS = 300_000;   // partials 超過就 pairwise 合併
-const FM_CONCURRENCY = 2;         // 平行度（避免 fallback provider 限流）
-
-function _extractJsonArray(text) {
-  if (!text) return null;
-  let t = text.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
-  try { const v = JSON.parse(t); return Array.isArray(v) ? v : null; } catch {}
-  const s = t.indexOf("["); const e = t.lastIndexOf("]");
-  if (s >= 0 && e > s) { try { const v = JSON.parse(t.slice(s, e + 1)); return Array.isArray(v) ? v : null; } catch {} }
-  return null;
-}
-
-/** LLM JSON 陣列修復（2026-09-04：實測 tpaaw-gateway feature-map 壞在 ["tags"]: 鬼 key）
- *  pass1 直接 parse → pass2 常見鬼格式修復（["key"]: → "key":、尾逗號）→ pass3 逐頂層物件 salvage（壞物件丟棄、好的保留，也涵蓋截斷）
- *  回傳 array 或 null */
-function repairLlmJsonArray(text) {
-  if (!text) return null;
-  const clean = String(text).replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
-  try { const v = JSON.parse(clean); if (Array.isArray(v)) return v; } catch {}
-  const repaired = clean
-    .replace(/\[\s*"([^"]*?)"\s*\]\s*:/g, '"$1":') // ["key"]: → "key":
-    .replace(/,(\s*[\]}])/g, "$1");                   // 尾逗號
-  try { const v = JSON.parse(repaired); if (Array.isArray(v)) return v; } catch {}
-  // 逐頂層物件 salvage
-  const out = [];
-  let depth = 0, start = -1, inStr = false, esc = false;
-  for (let i = 0; i < repaired.length; i++) {
-    const c = repaired[i];
-    if (esc) { esc = false; continue; }
-    if (c === "\\") { esc = true; continue; }
-    if (c === '"') { inStr = !inStr; continue; }
-    if (inStr) continue;
-    if (c === "{") { if (depth === 0) start = i; depth++; }
-    else if (c === "}") { depth--; if (depth === 0 && start >= 0) { try { out.push(JSON.parse(repaired.slice(start, i + 1))); } catch {} start = -1; } }
-  }
-  return out.length > 0 ? out : null;
-}
-
-/** Feature 物件白名單清洗（2026-09-04：防 LLM 幻覺欄位 tagsFinal/runbooksPlaceholder 進 FEATURES.json）
- *  只保留已知欄位並補預設值，多餘欄位丟棄；name 缺失回 null（呼叫端過濾） */
-function sanitizeFeature(f) {
-  if (!f || typeof f !== "object") return null;
-  const name = typeof f.name === "string" && f.name.trim() ? f.name.trim() : null;
-  if (!name) return null;
-  const strArr = (v) => Array.isArray(v) ? v.filter(x => typeof x === "string") : [];
-  const apis = Array.isArray(f.apis)
-    ? f.apis.filter(a => a && typeof a === "object" && typeof a.path === "string")
-        .map(a => ({ method: String(a.method || "GET"), path: a.path, file: String(a.file || "") }))
-    : [];
-  return {
-    name,
-    description: String(f.description || ""),
-    status: f.status === "deprecated" || f.status === "planned" ? f.status : "active",
-    codeFiles: strArr(f.codeFiles),
-    apis,
-    tests: strArr(f.tests),
-    runbooks: strArr(f.runbooks),
-    tags: strArr(f.tags).slice(0, 5),
-  };
-}
-
-/** TI 測試映射回寫 FEATURES.json（2026-09-04：LLM feature-map 常漏 tests → deterministic featureToTests 補齊）
- *  回傳補上的 feature 數 */
-async function backfillFeatureTests(root, featureToTests) {
-  try {
-    if (!Array.isArray(featureToTests) || featureToTests.length === 0) return 0;
-    const { loadFeatures, saveFeatures } = await import("../lib/feature-registry.mjs");
-    const features = loadFeatures(root);
-    if (!Array.isArray(features) || features.length === 0) return 0;
-    let changed = 0;
-    for (const m of featureToTests) {
-      const tests = (Array.isArray(m.tests) ? m.tests : []).filter(t => typeof t === "string" && t.trim());
-      if (tests.length === 0) continue;
-      const f = features.find(x => x.id === m.featureId) || features.find(x => x.name === m.featureName);
-      if (!f) continue;
-      const before = (f.tests || []).length;
-      f.tests = Array.from(new Set([...(Array.isArray(f.tests) ? f.tests : []), ...tests]));
-      if ((f.tests || []).length > before) changed++;
-    }
-    if (changed > 0) saveFeatures(root, features);
-    return changed;
-  } catch { return 0; }
-}
-
-function _chunkFiles(files, maxChars = FM_CHUNK_CHARS) {
-  const chunks = [];
-  let cur = [], curLen = 0;
-  for (const f of files) {
-    // 每檔估算長度：formatCondensed 一行一檔，粗估 300 字元 + signals
-    const est = 400 + (f.exports.length + f.imports.length + f.functions.length + f.classes.length + f.components.length + f.routes.length) * 40;
-    if (curLen + est > maxChars && cur.length > 0) { chunks.push(cur); cur = []; curLen = 0; }
-    cur.push(f); curLen += est;
-  }
-  if (cur.length > 0) chunks.push(cur);
-  return chunks;
-}
-
-async function _runPool(items, worker, concurrency = FM_CONCURRENCY) {
-  const results = new Array(items.length);
-  let idx = 0;
-  async function lane() {
-    while (idx < items.length) {
-      const i = idx++;
-      results[i] = await worker(items[i], i);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, lane));
-  return results;
-}
-
-async function _fmLLM(cuModelOverride, prompt, opts = {}) {
-  // 2026-10-23 修 a0cd2f56 回歸：此函式 scope 無 body（spec-miner/feature-map 步驟炸「body is not defined」）
-  const result = await callProjectLLM({
-    model: cuModelOverride || undefined,
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0,
-    thinking: { type: "disabled" },
-  }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3, ...opts });
-  return result.content || "";
-}
-
-async function generateFeatureMapChunked({ tsResult, basePrompt, projectRoot, cuModelOverride, cuLog, sendEvent, stepId, stepName }) {
-  const { formatCondensed } = await import("../lib/tree-sitter-parser.mjs");
-  const chunks = _chunkFiles(tsResult.files);
-  cuLog("feature-map", `Chunked mode: ${tsResult.files.length} files → ${chunks.length} chunks`);
-
-  // ── Map：每塊產 partial features ──
-  const subsetNote = `\n\n## CHUNKED ANALYSIS MODE\nThis is a SUBSET of the project's source analysis (chunk of ${chunks.length} total). Identify ALL features visible in this subset only — do not invent features for files not shown. Output the partial JSON feature array only.`;
-  const partials = await _runPool(chunks, async (chunkFiles, i) => {
-    const chunkCondensed = formatCondensed({ files: chunkFiles });
-    const prompt = basePrompt + `\n\n--- SOURCE ANALYSIS (Tree-sitter) — PART ${i + 1}/${chunks.length} ---\n${chunkCondensed}` + subsetNote;
-    sendEvent?.("step_progress", { step: stepId, name: stepName, message: `Map ${i + 1}/${chunks.length}（${chunkFiles.length} 檔）` });
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const raw = await _fmLLM(cuModelOverride, prompt);
-        const arr = _extractJsonArray(raw);
-        if (arr) { cuLog("feature-map", `Chunk ${i + 1}: ${arr.length} features`); return arr; }
-        cuLog("feature-map", `Chunk ${i + 1}: attempt ${attempt} — invalid JSON, retry`);
-      } catch (e) {
-        cuLog("feature-map", `Chunk ${i + 1}: attempt ${attempt} failed — ${e.message?.slice(0, 120)}`);
-      }
-    }
-    return [];
-  });
-  const allPartials = partials.flat();
-  if (allPartials.length === 0) throw new Error("All chunks failed — no partial features");
-
-  // ── Reduce：合併去重（太大就 pairwise）──
-  sendEvent?.("step_progress", { step: stepId, name: stepName, message: `合併 ${allPartials.length} 個 partial features` });
-  const mergePrompt = (lists, note) => `You are merging partial feature maps of the SAME project produced from different file chunks.\n${note}\n\nRules:\n- Features describing the same functional area (name/description overlap, shared files) MUST be merged into one\n- Keep the JSON structure exactly: name, description, status, codeFiles, apis, tests, runbooks, tags\n- Union their codeFiles/apis/tests/runbooks/tags; never drop files\n- Do NOT invent new features; do NOT drop any feature\n- Output ONLY the merged JSON array\n\n${lists.map((p, i) => `--- PARTIAL ${i + 1} (${p.length} features) ---\n${JSON.stringify(p, null, 1)}`).join("\n\n")}`;
-  let features = allPartials;
-  while (true) {
-    const total = JSON.stringify(features).length;
-    if (features.length === 1 || total <= FM_MERGE_CHARS) break;
-    const groups = [];
-    for (let i = 0; i < features.length; i += 2) groups.push(features.slice(i, i + 2));
-    features = (await _runPool(groups, async (g) => {
-      const raw = await _fmLLM(cuModelOverride, mergePrompt(g, "Merge these partial feature maps pairwise."));
-      return _extractJsonArray(raw) || g.flat();
-    })).flat();
-    cuLog("feature-map", `Pairwise merge → ${features.length} features (${JSON.stringify(features).length} chars)`);
-  }
-  if (features.length > 1) {
-    const raw = await _fmLLM(cuModelOverride, mergePrompt([features], "Produce the final complete feature map of the project."));
-    features = _extractJsonArray(raw) || features;
-  }
-  cuLog("feature-map", `After merge: ${features.length} features`);
-
-  // ── Gap-fill：孤兒檔歸屬 ──
-  try {
-    const { checkCoverage } = await import("../lib/feature-map-validator.mjs");
-    const { orphans } = checkCoverage(projectRoot, features);
-    const orphanSet = new Set(orphans);
-    const orphanFiles = tsResult.files.filter(f => orphanSet.has(f.file.replace(/^\.\//, "")));
-    if (orphanFiles.length > 0 && orphanFiles.length < tsResult.files.length) {
-      sendEvent?.("step_progress", { step: stepId, name: stepName, message: `Gap-fill：${orphanFiles.length} 個未歸屬檔案` });
-      cuLog("feature-map", `Gap-fill: ${orphanFiles.length} unmapped files`);
-      const orphanCondensed = formatCondensed({ files: orphanFiles });
-      const gapPrompt = basePrompt + `\n\n--- UNMAPPED FILES (Tree-sitter) ---\n${orphanCondensed}` + `\n\n## GAP-FILL MODE\nThese source files are not yet mapped to any feature. The current feature map follows. Assign each file to the most fitting existing feature (union the file into codeFiles), or create a new feature if none fits. Do NOT remove existing features or files. Output the complete updated JSON array only.\n\n--- CURRENT FEATURE MAP ---\n${JSON.stringify(features, null, 1)}`;
-      const raw = await _fmLLM(cuModelOverride, gapPrompt);
-      const filled = _extractJsonArray(raw);
-      if (filled && filled.length >= features.length) {
-        features = filled;
-        cuLog("feature-map", `Gap-fill done → ${features.length} features`);
-      }
-    }
-  } catch (e) {
-    cuLog("feature-map", `Gap-fill skipped (non-fatal): ${e.message?.slice(0, 120)}`);
-  }
-
-  return { features, chunkCount: chunks.length };
-}
 
 function parseQuery(url) {
   const u = new URL(url, "http://localhost");
@@ -590,45 +389,6 @@ export default async function projectRoute(req, res) {
       const extraContext = [];
       if (actionLogText) extraContext.push(`\n## Recent Action Log (跨 Agent 交接紀錄)\n${actionLogText}`);
       if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
-      // Inject feature map summary
-      {
-        try {
-          const feats = loadFeatures(projRoot);
-          if (feats.length > 0) {
-            const fLines = feats.map(f => {
-              const p = [`- [${f.id}] ${f.name} (${f.status})`];
-              if (f.description) p.push(`— ${f.description}`);
-              const m = [];
-              if (f.codeFiles?.length) m.push(`${f.codeFiles.length} code`);
-              if (f.apis?.length) m.push(`${f.apis.length} APIs`);
-              if (f.tests?.length) m.push(`${f.tests.length} tests`);
-              if (m.length) p.push(`→ ${m.join(", ")}`);
-              return p.join(" ");
-            }).join("\n");
-            // Build file→feature reverse index
-            const fileMap = {};
-            for (const f of feats) {
-              const allFiles = [
-                ...(f.codeFiles || []),
-                ...(f.tests || []),
-                ...(f.runbooks || []),
-                ...(f.apis || []).map(a => a.file).filter(Boolean),
-              ];
-              for (const file of allFiles) {
-                if (!fileMap[file]) fileMap[file] = [];
-                fileMap[file].push(`${f.id} ${f.name}`);
-              }
-            }
-            const sortedFiles = Object.keys(fileMap).sort();
-            // Cap at 50 files to keep prompt lean — rest are accessible via project_info
-            const cappedFiles = sortedFiles.slice(0, 50);
-            const fileLines = cappedFiles.map(f => `- ${f} → ${fileMap[f].join(", ")}`).join("\n");
-            const moreHint = sortedFiles.length > 50 ? ` (${sortedFiles.length - 50} more — use project_info(category=features) to see all)` : "";
-            extraContext.push(`\n## Feature Map (${feats.length} features)\nUse project_info(category=feature_detail, id=...) for full detail.\n${fLines}\n\n## File → Feature Index (${cappedFiles.length} files${moreHint})\n${fileLines}`);
-          }
-        } catch {}
-      }
-
       // Inject API Map（API-first，2026-11-01）：category 分組的後端進入點清單
       {
         try {
@@ -856,25 +616,6 @@ export default async function projectRoute(req, res) {
       // Load context helpers
       const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
       const loadProviderConfig = (await import("../context-engine.mjs")).loadProviderConfig;
-
-      // Feature map（coding.db）
-      {
-        try {
-          const feats = loadFeatures(projRoot);
-          if (feats.length > 0) {
-            const fLines = feats.map(f => {
-              const p = [`- [${f.id}] ${f.name} (${f.status})`];
-              const m = [];
-              if (f.codeFiles?.length) m.push(`${f.codeFiles.length} code`);
-              if (f.apis?.length) m.push(`${f.apis.length} APIs`);
-              if (f.tests?.length) m.push(`${f.tests.length} tests`);
-              if (m.length) p.push(`→ ${m.join(", ")}`);
-              return p.join(" ");
-            }).join("\n");
-            extraContext.push(`\n## Feature Map (${feats.length} features, 用 project_info(category=feature_detail) 查 detail)\n${fLines}`);
-          }
-        } catch {}
-      }
 
       // Context Boundary — inject feature file tree if task mentions features or files
       try {
@@ -2895,7 +2636,6 @@ export default async function projectRoute(req, res) {
 
       const ALL_STEPS = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
-        { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
         { id: "api-map", name: "🌐 產出 API Map（API-first）", promptFile: "gen-api-map.md" },
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
         { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
@@ -3165,13 +2905,13 @@ export default async function projectRoute(req, res) {
           if (step.id !== "scan" && step.id !== "architecture") {
             await loadCtx("ARCHITECTURE.md", "ARCHITECTURE");
           }
-          if (step.id === "test-payload" || step.id === "overview" || step.id === "feature-map" || step.id === "api-map") {
+          if (step.id === "test-payload" || step.id === "overview" || step.id === "api-map") {
             await loadCtx("specs/api-contract.md", "API SPEC");
           }
-          if (step.id === "overview" || step.id === "feature-map" || step.id === "api-map") {
+          if (step.id === "overview" || step.id === "api-map") {
             await loadCtx("specs/error-codes.md", "ERROR MAPPING");
           }
-          if (step.id === "overview" || step.id === "feature-map" || step.id === "api-map") {
+          if (step.id === "overview" || step.id === "api-map") {
             await loadCtx("DECISIONS.md", "DECISIONS", 2000);
           }
         }
@@ -3187,36 +2927,9 @@ export default async function projectRoute(req, res) {
             sendEvent?.("step_progress", { step: step.id, name: step.name, message: `套用 skill：${cuSkills.map(x => x.name).join("、")}` });
           }
 
-          // Tree-sitter source analysis for feature-map step
-          let chunkedFeatureMap = null;
-          if (step.id === "feature-map") {
-            // 2026-09-05 v2：骨架數學決定論（entry-reach-Jaccard）+ LLM 只長肉 — 取代 LLM 自由切分
-            try {
-              const { organizeFeatureMapV2 } = await import("../lib/feature-map-v2.mjs");
-              const { features, meta } = await organizeFeatureMapV2(root, {
-                model: body.model || cuModelOverride || undefined,
-                callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
-                onProgress: (msg) => { cuLog(step.id, msg); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
-                paawRoot: PAAW_ROOT,
-              });
-              cuLog(step.id, `v2: ${features.length} features (${meta.stats.clusters} deterministic + ${Math.max(0, features.length - meta.stats.clusters)} utility) / shared ${meta.stats.shared} / orphans ${meta.orphans.length}`);
-              sendEvent("step_done", { step: step.id, name: step.name, summary: `${features.length} features — ${meta.stats.clusters} deterministic` });
-              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${features.length} features (v2: ${meta.stats.clusters} 數學骨架)` }); } catch {}
-            } catch (err) {
-              cuLog(step.id, `feature-map v2 failed: ${err.message}`);
-              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
-              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
-            }
-            sendEvent("done", { message: "Feature map v2 complete" });
-            res.end();
-            return true;
-          }
-
         // Call LLM with longer timeout for single step
         try {
-          const result = chunkedFeatureMap
-            ? { content: chunkedFeatureMap, finishReason: "stop", attempts: 1 }
-            : await callProjectLLM({
+          const result = await callProjectLLM({
             model: body.model || cuModelOverride || undefined,
             messages: [{ role: "user", content: fullPrompt }],
             temperature: 0,
@@ -3280,95 +2993,51 @@ export default async function projectRoute(req, res) {
               } catch {}
             } else if (step.id === "overview") {
               await diffWriteFile(paaw, "PROJECT.md", sanitized);
-            } else if (step.id === "feature-map") {
-              // Parse AI output as JSON array and write to FEATURES.json
+            } else if (step.id === "api-map") {
+              // API-first（2026-11-01 Fleming）：LLM 輸出 → api_features 表 + fileApiMap + marker 檔
               try {
                 const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
-                if (!cleanJson) throw new Error("AI 回應為空，無法產生 Feature Map");
-                let features = _extractJsonArray(content);
-                if (!Array.isArray(features)) features = repairLlmJsonArray(content); // 2026-09-04：修 LLM JSON 鬼格式（["tags"]:、尾逗號、逐物件 salvage）
-                if (Array.isArray(features)) {
-                  const cleanFeatures = features.map(sanitizeFeature).filter(Boolean); // 2026-09-04：白名單清洗，洗掉幻覺欄位
-                  const featureIdBatch = nextFeatureIds(root, cleanFeatures.length);
-                  const featuresWithIds = cleanFeatures.map((f, i) => ({
-                    ...f,
-                    id: featureIdBatch[i],
-                    issues: [],
+                if (!cleanJson) throw new Error("AI 回應為空，無法產生 API Map");
+                let apis = _extractJsonArray(content);
+                if (!Array.isArray(apis)) apis = repairLlmJsonArray(content);
+                if (!Array.isArray(apis) || apis.length === 0) throw new Error("API Map 解析失敗（非 JSON array）");
+                const { todayStamp } = await import("../lib/feature-registry.mjs");
+                const prefix = `A${todayStamp()}-`;
+                const now = new Date().toISOString();
+                const seen = new Set();
+                const clean = [];
+                for (const a of apis) {
+                  if (!a || typeof a.entry !== "string" || !a.entry.trim()) continue;
+                  const entry = a.entry.trim();
+                  if (seen.has(entry)) continue;
+                  seen.add(entry);
+                  clean.push({
+                    id: `${prefix}${String(clean.length + 1).padStart(3, "0")}`,
+                    category: a.category || "uncategorized",
+                    entry, name: a.name || entry,
+                    description: a.description || null, bizLogic: a.bizLogic || null,
+                    processFlow: Array.isArray(a.processFlow) ? a.processFlow : [],
+                    validation: Array.isArray(a.validation) ? a.validation : [],
+                    dataTouch: Array.isArray(a.dataTouch) ? a.dataTouch : [],
                     aiUnderstanding: "",
-                    aiUnderstandingAt: null,
-                    documentation: "",
-                    docsUpdatedAt: null,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  }));
-                  saveFeatures(root, featuresWithIds); // coding.db（2026-11-01 單一真相）
-                  // Generate file→features reverse mapping (ru_docs:fileFeatures)
-                  const fileFeatureMap = {};
-                  for (const feat of featuresWithIds) {
-                    const allFiles = [...(feat.codeFiles || []), ...(feat.tests || []), ...(feat.runbooks || [])];
-                    for (const f of allFiles) {
-                      const norm = f.replace(/\\/g, "/");
-                      if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
-                      fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
-                    }
-                    // Also map API files
-                    for (const api of (feat.apis || [])) {
-                      if (api.file) {
-                        const norm = api.file.replace(/\\/g, "/");
-                        if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
-                        if (!fileFeatureMap[norm].some(f => f.id === feat.id)) {
-                          fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
-                        }
-                      }
-                    }
-                  }
-                  writeDoc(root, "fileFeatures", { files: fileFeatureMap, updatedAt: new Date().toISOString() });
-                  cuLog(step.id, `Saved ${featuresWithIds.length} features + ${Object.keys(fileFeatureMap).length} file→feature mappings`);
+                    codeFiles: Array.isArray(a.codeFiles) ? a.codeFiles : [],
+                    tests: Array.isArray(a.tests) ? a.tests : [],
+                    severity: a.severity || null, custom: {},
+                    createdAt: now, updatedAt: now,
+                  });
                 }
-              } catch (parseErr) {
-                cuLog(step.id, `Failed to parse feature JSON: ${parseErr.message}`);
-                // Try recovery: find last complete object
-                try {
-                  const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
-                  if (!cleanJson) throw new Error("empty content — cannot recover");
-                  let lastComplete = 0, braceCount = 0, inStr = false, esc = false;
-                  for (let i = 0; i < cleanJson.length; i++) {
-                    const c = cleanJson[i];
-                    if (esc) { esc = false; continue; }
-                    if (c === '\\') { esc = true; continue; }
-                    if (c === '"') { inStr = !inStr; continue; }
-                    if (inStr) continue;
-                    if (c === '{') braceCount++;
-                    if (c === '}') { braceCount--; if (braceCount === 0) lastComplete = i; }
-                  }
-                  if (lastComplete === 0) throw new Error("no complete JSON object found");
-                  const recovered = cleanJson.substring(0, lastComplete + 1).trim() + '\n]';
-                  const feats = JSON.parse(recovered);
-                  if (Array.isArray(feats) && feats.length > 0) {
-                    const featureIdBatch = nextFeatureIds(root, feats.length);
-                    const featuresWithIds = feats.map(sanitizeFeature).filter(Boolean).map((f, i) => ({ ...f, id: featureIdBatch[i], issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
-                    saveFeatures(root, featuresWithIds); // coding.db
-                    // Generate file→features reverse mapping
-                    const fileFeatureMap = {};
-                    for (const feat of featuresWithIds) {
-                      const allFiles = [...(feat.codeFiles || []), ...(feat.tests || []), ...(feat.runbooks || [])];
-                      for (const f of allFiles) {
-                        const norm = f.replace(/\\/g, "/");
-                        if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
-                        fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
-                      }
-                    }
-                    writeDoc(root, "fileFeatures", { files: fileFeatureMap, updatedAt: new Date().toISOString() });
-                    cuLog(step.id, `Recovery: saved ${featuresWithIds.length} features + ${Object.keys(fileFeatureMap).length} file→feature mappings`);
-                  } else throw new Error("recovered array is empty");
-                } catch (recoverErr) {
-                  cuLog(step.id, `Recovery also failed: ${recoverErr.message}`);
-                  await paaw.writeFile("features/raw-feature-map.txt", content);
-                  sendEvent("step_error", { step: step.id, name: step.name, error: `Feature Map 產生失敗：AI 回應無法解析為 JSON。已儲存原始內容到 raw-feature-map.txt，請重新執行此步驟。(${parseErr.message})` });
-                  // Don't continue to step_done — step failed
-                  res.end();
-                  return true;
-                }
+                if (!clean.length) throw new Error("API Map 無有效 entry");
+                const { saveApiFeatures, buildFileApiMap } = await import("../lib/coding-db/api-features.repo.mjs");
+                saveApiFeatures(root, clean);
+                writeDoc(root, "fileApiMap", { files: buildFileApiMap(clean), updatedAt: now });
+                await paaw.writeFile("api-map.json", JSON.stringify(clean, null, 2));
+                cuLog(step.id, `Saved ${clean.length} API features + file→API reverse index`);
+              } catch (apiErr) {
+                cuLog(step.id, `api-map failed: ${apiErr.message}`);
+                sendEvent("step_error", { step: step.id, name: step.name, error: apiErr.message });
+                try { await paaw.setCuStepStatus(step.id, "error", { error: apiErr.message }); } catch {}
+                res.end();
+                return true;
               }
             }
             cuLog(step.id, `wrote file OK (${content.length} chars)`);
@@ -3383,16 +3052,8 @@ export default async function projectRoute(req, res) {
           sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
           try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
         }
-        // If this was the feature-map step, run L3 validation
-        if (stepId === "feature-map") {
-          try {
-            const { runFullValidation } = await import("../lib/feature-map-validator.mjs");
-            const validation = await runFullValidation(root, { skipUnderstanding: true });
-            if (validation.ok) {
-              const s = validation.summary;
-              sendEvent("info", { message: `L3 validation: ${s.mappingErrors} errors, ${s.coveragePct}% coverage, ${s.orphanFiles} orphans` });
-            }
-          } catch {}
+        // CU 收尾：api-map 完成後 PROJECT.md 重生成（feature map 已退役，2026-11-01 Fleming API-first）
+        if (stepId === "api-map") {
           // CU 收尾：PROJECT.md 重生成（2026-10-09 Fleming — schema v2：AI 區每次重寫、USER 區絕不覆蓋）
           try {
             const draft = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: body.model || cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
@@ -3417,7 +3078,6 @@ export default async function projectRoute(req, res) {
       const forceRerun = q.force === "1" || q.force === "true";
       const steps = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
-        { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
         { id: "api-map", name: "🌐 產出 API Map（API-first）", promptFile: "gen-api-map.md" },
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
         { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
@@ -3615,27 +3275,6 @@ export default async function projectRoute(req, res) {
             continue;
           }
 
-          // Special handling: feature-map v2 — 骨架數學決定論 + LLM 只長肉（2026-09-05）
-          if (step.id === "feature-map") {
-            try {
-              cuLog(step.id, "[bulk] feature-map v2 (deterministic skeleton + LLM flesh)...");
-              const { organizeFeatureMapV2 } = await import("../lib/feature-map-v2.mjs");
-              const { features, meta } = await organizeFeatureMapV2(root, {
-                model: cuModelOverride || undefined, // 2026-10-23 修：bulk handler 無 body
-                callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 3 }),
-                onProgress: (msg) => { cuLog(step.id, `[bulk] ${msg}`); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
-                paawRoot: PAAW_ROOT,
-              });
-              cuLog(step.id, `[bulk] v2: ${features.length} features (${meta.stats.clusters} deterministic)`);
-              sendEvent("step_done", { step: step.id, name: step.name, summary: `${features.length} features — ${meta.stats.clusters} deterministic` });
-              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${features.length} features (v2)` }); } catch {}
-            } catch (err) {
-              cuLog(step.id, `[bulk] feature-map v2 failed: ${err.message}`);
-              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
-              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
-            }
-            continue;
-          }
 
           // Special handling: change-intelligence (no LLM)
           if (step.id === "change-intelligence") {
@@ -3663,17 +3302,17 @@ export default async function projectRoute(req, res) {
           let fullPrompt = promptTemplate;
           fullPrompt += `\n\n--- PROJECT CONTEXT ---\n${projectContext}`;
           if (scanResult) fullPrompt += `\n\n--- SCAN RESULTS ---\n${scanResult}`;
-          if (architectureResult && (step.id === "decisions" || step.id === "api-spec" || step.id === "overview" || step.id === "feature-map" || step.id === "api-map")) {
-            const archLimit = (step.id === "feature-map" || step.id === "api-map") ? 8000 : 3000;
+          if (architectureResult && (step.id === "decisions" || step.id === "api-spec" || step.id === "overview" || step.id === "api-map")) {
+            const archLimit = step.id === "api-map" ? 8000 : 3000;
             fullPrompt += `\n\n--- ARCHITECTURE ---\n${architectureResult.slice(0, archLimit)}`;
           }
-          if (apiSpecResult && (step.id === "test-payload" || step.id === "overview" || step.id === "feature-map" || step.id === "api-map")) {
+          if (apiSpecResult && (step.id === "test-payload" || step.id === "overview" || step.id === "api-map")) {
             fullPrompt += `\n\n--- API SPEC ---\n${apiSpecResult}`;
           }
-          if (errorMappingResult && (step.id === "overview" || step.id === "feature-map" || step.id === "api-map")) {
+          if (errorMappingResult && (step.id === "overview" || step.id === "api-map")) {
             fullPrompt += `\n\n--- ERROR MAPPING ---\n${errorMappingResult}`;
           }
-          if (decisionsResult && (step.id === "overview" || step.id === "feature-map" || step.id === "api-map")) {
+          if (decisionsResult && (step.id === "overview" || step.id === "api-map")) {
             fullPrompt += `\n\n--- DECISIONS ---\n${decisionsResult.slice(0, 2000)}`;
           }
 
@@ -3688,29 +3327,16 @@ export default async function projectRoute(req, res) {
             sendEvent?.("step_progress", { step: step.id, name: step.name, message: `套用 skill：${cuSkills.map(x => x.name).join("、")}` });
           }
 
-          // Tree-sitter source analysis for feature-map / api-map step
-          let chunkedFeatureMap = null;
-          if (step.id === "feature-map" || step.id === "api-map") {
+          // Tree-sitter source analysis for api-map step（API-first）
+          if (step.id === "api-map") {
             try {
               cuLog(step.id, "Running Tree-sitter source analysis...");
-              // 2026-09-03 Fleming：不設上限 — 大 release unit 也要完整 feature map
               const tsResult = await parseProject(root, PAAW_ROOT, { maxFiles: 0, maxBytes: 500_000 });
               cuLog(step.id, `Tree-sitter: ${tsResult.stats.parsedFiles}/${tsResult.stats.totalFiles} files parsed, ${tsResult.stats.errors} errors`);
               const condensed = formatCondensed(tsResult);
-              if (step.id === "api-map") {
-                // API-first：routes 是主信號；過大就載斷（route 定義在前端檔也掃到，但 prompt 已排除前端）
-                const trimmed = condensed.length > 80_000 ? condensed.slice(0, 80_000) + "\n... (truncated)" : condensed;
-                if (trimmed) fullPrompt += `\n\n--- SOURCE ANALYSIS (Tree-sitter) ---\n${trimmed}`;
-              } else if (condensed && condensed.length <= 80_000) {
-                fullPrompt += `\n\n--- SOURCE ANALYSIS (Tree-sitter) ---\n${condensed}`;
-              } else if (condensed) {
-                // 大 release unit：map-reduce 分塊產出完整 feature map
-                const { features } = await generateFeatureMapChunked({
-                  tsResult, basePrompt: fullPrompt, projectRoot: root,
-                  cuModelOverride, cuLog, sendEvent, stepId: step.id, stepName: step.name,
-                });
-                chunkedFeatureMap = JSON.stringify(features, null, 2);
-              }
+              // routes 是主信號；過大就截斷（前端 route 定義也掃到，prompt 已排除前端）
+              const trimmed = condensed.length > 80_000 ? condensed.slice(0, 80_000) + "\n... (truncated)" : condensed;
+              if (trimmed) fullPrompt += `\n\n--- SOURCE ANALYSIS (Tree-sitter) ---\n${trimmed}`;
               const fullAnalysis = formatForAI(tsResult);
               await paaw.writeFile("features/tree-sitter-analysis.txt", fullAnalysis);
             } catch (tsErr) {
@@ -3720,9 +3346,7 @@ export default async function projectRoute(req, res) {
 
           // Call LLM
           try {
-            const result = chunkedFeatureMap
-              ? { content: chunkedFeatureMap, finishReason: "stop", attempts: 1 }
-              : await callProjectLLM({
+            const result = await callProjectLLM({
               model: cuModelOverride || undefined, // 2026-10-23 修：bulk handler 無 body
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0,
@@ -3815,104 +3439,6 @@ export default async function projectRoute(req, res) {
                 }
               } else if (step.id === "overview") {
                 await diffWriteFile(paaw, "PROJECT.md", sanitized);
-              } else if (step.id === "feature-map") {
-                // Parse AI output as JSON array and write to FEATURES.json
-                let featureMapOk = false;
-                try {
-                  const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
-                  if (!cleanJson) throw new Error("AI 回應為空，無法產生 Feature Map");
-                  let features = null;
-                  try { features = JSON.parse(cleanJson); } catch {}
-                  if (!Array.isArray(features)) features = repairLlmJsonArray(content); // 2026-09-04：修 LLM JSON 鬼格式
-                  if (Array.isArray(features)) {
-                    const cleanFeatures = features.map(sanitizeFeature).filter(Boolean); // 2026-09-04：白名單清洗
-                    const featureIdBatch = nextFeatureIds(root, cleanFeatures.length);
-                    const featuresWithIds = cleanFeatures.map((f, i) => ({
-                      ...f,
-                      id: featureIdBatch[i],
-                      issues: [],
-                      aiUnderstanding: "",
-                      aiUnderstandingAt: null,
-                      documentation: "",
-                      docsUpdatedAt: null,
-                      createdAt: new Date().toISOString(),
-                      updatedAt: new Date().toISOString(),
-                    }));
-                    saveFeatures(root, featuresWithIds); // coding.db
-                    // Generate file→features reverse mapping
-                    const fileFeatureMap = {};
-                    for (const feat of featuresWithIds) {
-                      const allFiles = [...(feat.codeFiles || []), ...(feat.tests || []), ...(feat.runbooks || [])];
-                      for (const f of allFiles) {
-                        const norm = f.replace(/\\/g, "/");
-                        if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
-                        fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
-                      }
-                      for (const api of (feat.apis || [])) {
-                        if (api.file) {
-                          const norm = api.file.replace(/\\/g, "/");
-                          if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
-                          if (!fileFeatureMap[norm].some(f => f.id === feat.id)) {
-                            fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
-                          }
-                        }
-                      }
-                    }
-                    writeDoc(root, "fileFeatures", { files: fileFeatureMap, updatedAt: new Date().toISOString() });
-                    featureMapOk = true;
-                    cuLog(step.id, `[bulk] Saved ${featuresWithIds.length} features + ${Object.keys(fileFeatureMap).length} file→feature mappings`);
-                  }
-                } catch (parseErr) {
-                  cuLog(step.id, `[bulk] Failed to parse feature JSON: ${parseErr.message}`);
-                  // Try recovery: find last complete object
-                  try {
-                    const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
-                    if (!cleanJson) throw new Error("empty content — cannot recover");
-                    let lastComplete = 0, braceCount = 0, inStr = false, esc = false;
-                    for (let i = 0; i < cleanJson.length; i++) {
-                      const c = cleanJson[i];
-                      if (esc) { esc = false; continue; }
-                      if (c === '\\') { esc = true; continue; }
-                      if (c === '"') { inStr = !inStr; continue; }
-                      if (inStr) continue;
-                      if (c === '{') braceCount++;
-                      if (c === '}') { braceCount--; if (braceCount === 0) lastComplete = i; }
-                    }
-                    if (lastComplete === 0) throw new Error("no complete JSON object found");
-                    const recovered = cleanJson.substring(0, lastComplete + 1).trim() + '\n]';
-                    const feats = JSON.parse(recovered);
-                    if (Array.isArray(feats) && feats.length > 0) {
-                      const featureIdBatch = nextFeatureIds(root, feats.length);
-                    const featuresWithIds = feats.map(sanitizeFeature).filter(Boolean).map((f, i) => ({ ...f, id: featureIdBatch[i], issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
-                      const featuresDir = join(root, ".paaw", "features");
-                      if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
-                      saveFeatures(root, featuresWithIds); // coding.db
-                      // Generate file→features reverse mapping
-                      const fileFeatureMap = {};
-                      for (const feat of featuresWithIds) {
-                        const allFiles = [...(feat.codeFiles || []), ...(feat.tests || []), ...(feat.runbooks || [])];
-                        for (const f of allFiles) {
-                          const norm = f.replace(/\\/g, "/");
-                          if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
-                          fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
-                        }
-                      }
-                      writeDoc(root, "fileFeatures", { files: fileFeatureMap, updatedAt: new Date().toISOString() });
-                      cuLog(step.id, `[bulk] Recovery: saved ${featuresWithIds.length} features from truncated JSON`);
-                      featureMapOk = true;
-                    } else throw new Error("recovered array is empty");
-                  } catch (recoverErr) {
-                    cuLog(step.id, `[bulk] Recovery also failed: ${recoverErr.message}`);
-                    await paaw.writeFile("features/raw-feature-map.txt", content);
-                    failedSteps.push({ step: step.id, name: step.name, error: `Feature Map 產生失敗：${parseErr.message}` });
-                  }
-                }
-                if (!featureMapOk) {
-                  // Feature Map failed — send step_error instead of step_done
-                  sendEvent("step_error", { step: step.id, name: step.name, error: `Feature Map 產生失敗：AI 回應無法解析為 JSON。已儲存原始內容到 raw-feature-map.txt，請重新執行此步驟。` });
-                  // Skip step_done for this step
-                  continue;
-                }
               }
               cuLog(step.id, `[bulk] wrote file OK (${content.length} chars)`);
             } catch (writeErr) {
@@ -3932,28 +3458,6 @@ export default async function projectRoute(req, res) {
           }
         }
 
-        // ── L3 Validation after all steps complete ──
-        sendEvent("step_start", { step: "validate", name: "🔍 L3 驗證 Feature Map" });
-        try {
-          const { runFullValidation } = await import("../lib/feature-map-validator.mjs");
-          const validation = await runFullValidation(root, { skipUnderstanding: true });
-          if (validation.ok) {
-            const s = validation.summary;
-            sendEvent("step_done", {
-              step: "validate",
-              name: "🔍 L3 驗證 Feature Map",
-              summary: `${s.mappingErrors} errors, ${s.coveragePct}% coverage, ${s.orphanFiles} orphans`,
-              validation: s,
-            });
-            if (s.mappingErrors > 0) {
-              sendEvent("warning", { message: `Feature Map 有 ${s.mappingErrors} 個錯誤（檔案不存在），建議重新執行 Feature Map 步驟` });
-            }
-          } else {
-            sendEvent("step_done", { step: "validate", name: "🔍 L3 驗證", summary: validation.error || "Skipped" });
-          }
-        } catch (err) {
-          sendEvent("step_done", { step: "validate", name: "🔍 L3 驗證", summary: `Skipped: ${err.message}` });
-        }
 
         // CU 收尾：PROJECT.md 重生成（2026-10-09 Fleming — schema v2：AI 區每次重寫、USER 區絕不覆蓋）
         try {

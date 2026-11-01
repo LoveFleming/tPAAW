@@ -62,3 +62,36 @@ export function buildFileApiMap(list) {
   }
   return map;
 }
+
+/** API feature 歸類合併（agent 用 api_map_update 工具的唯一合法寫入路徑，同 feature-map-store 哲學）
+ * entries: [{file, apiId}] — 把 file 併入該 API 的 codeFiles，並重建 fileApiMap 反向索引。 */
+export function mergeApiMappings(ruRoot, entries = [], writeDoc) {
+  const db = openCodingDb(ruRoot);
+  const apis = db.prepare("SELECT id, code_files FROM api_features").all();
+  const byId = new Map(apis.map(r => [r.id, r.code_files ? JSON.parse(r.code_files) : []]));
+  let merged = 0;
+  const skipped = [];
+  for (const e of entries) {
+    const file = String(e.file || "").replace(/\\/g, "/").replace(/^\.\//, "");
+    if (!file || file.startsWith("/") || file.split("/").includes("..")) { skipped.push({ file: e.file, reason: "不合法路徑" }); continue; }
+    const cur = byId.get(e.apiId);
+    if (!cur) { skipped.push({ file, reason: `apiId 不存在：${e.apiId}` }); continue; }
+    if (cur.includes(file)) { skipped.push({ file, reason: "已歸類（冪等）" }); continue; }
+    cur.push(file); byId.set(e.apiId, cur); merged++;
+  }
+  if (merged > 0) {
+    const upd = db.prepare("UPDATE api_features SET code_files=?, updated_at=? WHERE id=?");
+    const now = new Date().toISOString();
+    for (const [id, files] of byId) {
+      if (apis.find(r => r.id === id) && JSON.stringify(files) !== (apis.find(r => r.id === id).code_files || "[]")) upd.run(JSON.stringify(files), now, id);
+    }
+    // 重建反向索引
+    const all = db.prepare("SELECT id, entry, name, code_files, tests FROM api_features").all().map(r => ({
+      id: r.id, entry: r.entry, name: r.name,
+      codeFiles: r.code_files ? JSON.parse(r.code_files) : [],
+      tests: r.tests ? JSON.parse(r.tests) : [],
+    }));
+    if (writeDoc) writeDoc(ruRoot, "fileApiMap", { files: buildFileApiMap(all), updatedAt: now });
+  }
+  return { merged, skipped };
+}

@@ -9,7 +9,7 @@
  *   "mode": "em",  // "em" = EM 智慧調度, "parallel" = 全員平行
  *   "schedule": { "enabled": true, "time": "22:00", "tz": "Asia/Taipei" },
  *   "model": { "primary": "zai/glm-5.1", "fallbacks": ["openrouter/z-ai/glm-5.1"] },
- *   "tasks": ["feature-map-refresh", "security-scan", "code-intelligence", "test-intelligence", "change-intelligence"]
+ *   "tasks": ["api-map-refresh", "security-scan", "code-intelligence", "test-intelligence", "change-intelligence"]
  * }
  */
 
@@ -39,7 +39,7 @@ const DEFAULT_CONFIG = {
     fallbacks: [],
   },
   tasks: [
-    'feature-map-refresh',
+    'api-map-refresh',
     'api-map-refresh',
     'security-scan',
     'code-intelligence',

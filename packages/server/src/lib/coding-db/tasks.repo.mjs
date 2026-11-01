@@ -4,7 +4,7 @@
 import { openCodingDb } from "./connection.mjs";
 
 const KNOWN_TASK_COLS = new Set([
-  "id","featureId","parentId","type","title","status","priority","labels","assignee",
+  "id","apiId","parentId","type","title","status","priority","labels","assignee",
   "description","relatedFiles","notes","pipelineMode","pipelinePhases","autoExecute",
   "createdAt","updatedAt",
 ]);
@@ -22,7 +22,7 @@ export function saveTasks(ruRoot, payload, ru = ruRoot.split("/").pop()) {
     db.prepare("DELETE FROM task_detail WHERE ru=?").run(ru);
     db.prepare("DELETE FROM task WHERE ru=?").run(ru);
     const ins = db.prepare(`INSERT OR REPLACE INTO task
-      (id, ru, parent_id, feature_id, type, title, status, priority, labels,
+      (id, ru, parent_id, api_id, type, title, status, priority, labels,
        description, related_files, payload, created_at, updated_at)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
     const insDetail = db.prepare(`INSERT INTO task_detail (ru, task_id, kind, agent, ts, content, payload, released_at)
@@ -34,7 +34,7 @@ export function saveTasks(ruRoot, payload, ru = ruRoot.split("/").pop()) {
       if (t.pipelinePhases != null) extra.pipelinePhases = t.pipelinePhases;
       if (t.autoExecute != null) extra.autoExecute = t.autoExecute;
       ins.run(
-        t.id, ru, t.parentId ?? null, t.featureId === undefined ? "\x01" : t.featureId,
+        t.id, ru, t.parentId ?? null, t.apiId === undefined ? "\x01" : t.apiId,
         t.type ?? "dev", t.title ?? "", t.status ?? "open", t.priority ?? null,
         JSON.stringify(t.labels ?? []), t.description ?? null,
         t.relatedFiles === undefined ? "\x01" : JSON.stringify(t.relatedFiles),

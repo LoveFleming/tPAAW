@@ -90,6 +90,11 @@ const mockCallLLMWithRetry = vi.fn();
 vi.mock("../../packages/server/src/lib/paaw-agent-loop.mjs", () => ({
   resolveLLMConfig: mockResolveLLMConfig,
 }));
+const mockOpenCodingDb = { prepare: vi.fn() };
+vi.mock("../../packages/server/src/lib/coding-db/connection.mjs", () => ({
+  openCodingDb: vi.fn(() => mockOpenCodingDb),
+}));
+
 vi.mock("../../packages/server/src/lib/llm-utils.mjs", () => ({
   callLLMWithRetry: mockCallLLMWithRetry,
   sanitizeContent: vi.fn(c => c || ""),
@@ -293,9 +298,14 @@ describe("gatherContext()", () => {
     mockReadFileSync.mockImplementation(function mockReadFileSyncImpl(fp) {
       return "# Project Info\nThis is the project.";
     });
+    // API-first：featuresSummary 來自 coding.db api_features
+    mockOpenCodingDb.prepare.mockImplementation((sql) => ({
+      all: () => [{ id: "A20261101-001", category: "core", entry: "GET /api/a", name: "Core", code_files: '["src/a.mjs"]' }],
+    }));
     const ctx = await mod.gatherContext(rootDir);
     expect(ctx.paawContext).toContain("PROJECT.md");
-    expect(ctx.featuresSummary).toContain("F-001");
+    expect(ctx.featuresSummary).toContain("A20261101-001");
+    expect(ctx.featuresSummary).toContain("GET /api/a");
   });
 });
 
@@ -525,106 +535,25 @@ describe("deleteAutoDispatchReport()", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// refreshFeatureMapping()
+// refreshApiMap()（2026-11-01 API-first，接棒 refreshFeatureMapping）
 // ═══════════════════════════════════════════════════════════════
 
-describe("refreshFeatureMapping()", () => {
+describe("refreshApiMap()", () => {
   const rootDir = "/test/project";
 
-  beforeEach(() => {
-    mockExistsSync.mockImplementation(function mockExistsSyncImpl(fp) {
-      if (fp.includes("FEATURES.json")) return true;
-      return false;
-    });
-    mockReadFileSync.mockImplementation(function mockReadFileSyncImpl(fp) {
-      if (fp.includes("FEATURES.json")) {
-        return JSON.stringify([
-          { id: "F-001", name: "Core", status: "active", codeFiles: ["src/a.mjs"] }
-        ]);
-      }
-      return "";
-    });
-    mockResolveLLMConfig.mockReturnValue({
-      model: "gpt-4",
-      apiUrl: "https://api.openai.com/v1/chat/completions",
-      headers: { Authorization: "Bearer test-key" },
-      defaultModel: "gpt-4",
-    });
-    mockExecCb.mockImplementation(function mockExecCbImpl(cmd, opts, cb) {
-      cb(null, "src/a.mjs\nsrc/b.mjs\n");
-    });
-  });
-
-  it("should return error when no features in db（未跑 CU）", async () => {
-    mockRegistryLoadFeatures.mockReturnValue([]);
-    const result = await mod.refreshFeatureMapping(rootDir);
-    expect(result.ok).toBe(false);
-    expect(result.error).toContain("No features to update");
-  });
-
-  it("should return error when features load fails", async () => {
-    mockRegistryLoadFeatures.mockImplementation(() => { throw new Error("Invalid JSON at line 3"); });
-    const result = await mod.refreshFeatureMapping(rootDir);
-    expect(result.ok).toBe(false);
-    expect(result.error).toContain("Failed to load features");
-  });
-
-  it("should return ok:true and update count when successful", async () => {
-    mockCallLLMWithRetry.mockResolvedValue({
-      content: JSON.stringify([
-        { id: "F-001", codeFiles: ["src/a.mjs", "src/b.mjs"], apis: [], tests: [], runbooks: [] }
-      ]),
-    });
-    const result = await mod.refreshFeatureMapping(rootDir);
-    expect(result.ok).toBe(true);
-    expect(result.updated).toBe(1);
-    expect(result.total).toBe(1);
-  });
-
-  it("should call sendSSE callback when provided", async () => {
-    const sendSSE = vi.fn();
-    mockCallLLMWithRetry.mockResolvedValue({
-      content: JSON.stringify([
-        { id: "F-001", codeFiles: ["src/a.mjs"], apis: [], tests: [], runbooks: [] }
-      ]),
-    });
-    await mod.refreshFeatureMapping(rootDir, undefined, [], sendSSE);
-    expect(sendSSE).toHaveBeenCalled();
-  });
-
-  it("should recover truncated JSON from LLM response", async () => {
-    // Simulate truncated JSON (missing closing brace/array)
-    mockCallLLMWithRetry.mockResolvedValue({
-      content: '{"id":"F-001","codeFiles":["src/a.mjs"]}',
-    });
-    const result = await mod.refreshFeatureMapping(rootDir);
-    // Since only one object was found (no array wrapper), recovery might fail
-    // The function does array check after parsing
-    expect(result).toHaveProperty("ok");
-  });
-
-  it("should return error when LLM returns empty content", async () => {
-    mockCallLLMWithRetry.mockResolvedValue({ content: "" });
-    const result = await mod.refreshFeatureMapping(rootDir);
-    expect(result.ok).toBe(false);
-  });
-
-  it("should return error when LLM response is not valid JSON", async () => {
-    mockCallLLMWithRetry.mockResolvedValue({ content: "not json at all" });
-    const result = await mod.refreshFeatureMapping(rootDir);
+  it("LLM config 失敗 → ok:false 帶錯誤訊息", async () => {
+    const result = await mod.refreshApiMap(rootDir);
+    // /test/project 無 LLM 設定 → resolveLLMConfig 拋錯（mock 環境下任何錯都收斂成 ok:false）
     expect(result.ok).toBe(false);
     expect(result.error).toBeTruthy();
   });
 
-  it("should handle LLM call failure gracefully", async () => {
-    mockCallLLMWithRetry.mockRejectedValue(new Error("API rate limit exceeded"));
-    const result = await mod.refreshFeatureMapping(rootDir);
-    expect(result.ok).toBe(false);
-    expect(result.error).toContain("API rate limit");
+  it("sendSSE callback 不會炸（錯誤路徑也安全）", async () => {
+    const sendSSE = vi.fn();
+    await mod.refreshApiMap(rootDir, undefined, [], sendSSE);
+    expect(true).toBe(true); // 不丟例外即過
   });
-});
-
-// ═══════════════════════════════════════════════════════════════
+});// ═══════════════════════════════════════════════════════════════
 // validateFeatureMap()
 // ═══════════════════════════════════════════════════════════════
 

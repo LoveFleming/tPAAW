@@ -37,7 +37,7 @@ let orchestrateTask, runJobEntrypoint, triageToTickets, readJobTypesConfig;
 
 // ── fixture helpers ──
 
-function makeFixture() {
+async function makeFixture() {
   const root = mkdtempSync(join(tmpdir(), "em-foreman-"));
   mkdirSync(join(root, ".paaw", "tasks"), { recursive: true });
   mkdirSync(join(root, ".paaw", "features"), { recursive: true });
@@ -45,16 +45,15 @@ function makeFixture() {
   mkdirSync(join(root, ".paaw", "code-intelligence"), { recursive: true });
   mkdirSync(join(root, ".paaw", "auto-dispatch"), { recursive: true });
 
-  writeFileSync(join(root, ".paaw", "features", "FEATURES.json"), JSON.stringify({
-    features: [
-      { id: "F-001", name: "Alpha", status: "active", codeFiles: ["src/a.ts"], testFiles: [], docFiles: [] },
-      { id: "F-002", name: "Beta", status: "active", codeFiles: ["src/b.ts"], testFiles: ["src/b.test.ts"], docFiles: ["docs/b.md"] },
-      { id: "F-003", name: "Gamma", status: "planned", codeFiles: [], testFiles: [], docFiles: [] },
-    ],
-  }));
-  writeFileSync(join(root, ".paaw", "features", "FILE-FEATURES.json"), JSON.stringify({
-    files: { "src/a.ts": [{ id: "F-001", name: "Alpha" }], "src/b.ts": [{ id: "F-002", name: "Beta" }] },
-  }));
+  // 2026-11-01 API-first：api_features + fileApiMap（coding.db）
+  const { saveApiFeatures } = await import("../../packages/server/src/lib/coding-db/api-features.repo.mjs");
+  const { writeDoc } = await import("../../packages/server/src/lib/coding-db/docs.repo.mjs");
+  saveApiFeatures(root, [
+    { id: "A20261101-001", category: "Alpha 域", entry: "GET /api/a", name: "Alpha", codeFiles: ["src/a.ts"], tests: [] },
+    { id: "A20261101-002", category: "Beta 域", entry: "POST /api/b", name: "Beta", codeFiles: ["src/b.ts"], tests: ["src/b.test.ts"], processFlow: ["驗 token", "寫 db"] },
+    { id: "A20261101-003", category: "Gamma 域", entry: "GET /api/c", name: "Gamma", codeFiles: [], tests: [] },
+  ]);
+  writeDoc(root, "fileApiMap", { files: { "src/a.ts": [{ id: "A20261101-001", entry: "GET /api/a", name: "Alpha" }], "src/b.ts": [{ id: "A20261101-002", entry: "POST /api/b", name: "Beta" }] } });
   writeFileSync(join(root, ".paaw", "tasks", "TASKS.json"), JSON.stringify({ tasks: [], updatedAt: new Date().toISOString() }));
   return root;
 }
@@ -62,7 +61,7 @@ function makeFixture() {
 function seedTask(root, overrides = {}) {
   const { data, tasks } = loadTasksFile(root);
   const task = {
-    id: "TASK-100", featureId: "F-001", type: "dev", title: "測試任務", parentId: null,
+    id: "TASK-100", apiId: "A20261101-001", type: "dev", title: "測試任務", parentId: null,
     status: "open", priority: "high", labels: [], assignee: null,
     description: "## 目標\n做某功能\n\n## 驗收標準\n1. 功能可用 2. 測試過",
     relatedFiles: [], notes: [], progressLog: [], result: null, git: null, timeoutSeconds: 0,
@@ -91,7 +90,7 @@ function seqDecisions(list) {
 
 describe("柱一：em-task-store 狀態機", () => {
   let root;
-  beforeEach(() => { root = makeFixture(); });
+  beforeEach(async () => { root = await makeFixture(); });
 
   it("genTaskId 遞增不重疊", () => {
     expect(genTaskId([])).toBe("TASK-001");
@@ -99,24 +98,24 @@ describe("柱一：em-task-store 狀態機", () => {
     expect(genTaskId([{ id: "TASK-999" }])).toBe("TASK-1000");
   });
 
-  it("createTicket：featureId 明給（存在）→ 直用", () => {
-    const r = createTicket(root, { title: "t", description: "d", acceptance: "a", featureId: "F-002" });
+  it("createTicket：apiId 明給（存在）→ 直用", () => {
+    const r = createTicket(root, { title: "t", description: "d", acceptance: "a", apiId: "A20261101-002" });
     expect(r.ok).toBe(true);
-    expect(r.task.featureId).toBe("F-002");
+    expect(r.task.apiId).toBe("A20261101-002");
     expect(r.task.status).toBe("open");
     expect(r.task.description).toContain("## 驗收標準");
   });
 
-  it("createTicket：featureId 不存在 → affectedFiles 反查 FILE-FEATURES", () => {
-    const r = createTicket(root, { title: "t", description: "d", featureId: "F-999", affectedFiles: ["src/b.ts"] });
+  it("createTicket：apiId 不存在 → affectedFiles 反查 fileApiMap", () => {
+    const r = createTicket(root, { title: "t", description: "d", apiId: "A99999999-999", affectedFiles: ["src/b.ts"] });
     expect(r.ok).toBe(true);
-    expect(r.task.featureId).toBe("F-002");
+    expect(r.task.apiId).toBe("A20261101-002");
   });
 
-  it("createTicket：無 featureId 無檔案 → fallback 第一個 feature（不擋開單）", () => {
+  it("createTicket：無 apiId 無檔案 → 不擋開單（apiId null）", () => {
     const r = createTicket(root, { title: "t", description: "d" });
     expect(r.ok).toBe(true);
-    expect(r.task.featureId).toBe("F-001");
+    expect(r.task.apiId).toBeNull();
   });
 
   it("createTicket：title/description 必填", () => {
@@ -124,8 +123,8 @@ describe("柱一：em-task-store 狀態機", () => {
     expect(createTicket(root, { title: "t", description: " " }).ok).toBe(false);
   });
 
-  it("resolveFeatureForFiles：絕對路徑轉相對後命中", () => {
-    expect(resolveFeatureForFiles(root, [join(root, "src/a.ts")])).toBe("F-001");
+  it("resolveFeatureForFiles：絕對路徑轉相對後命中（fileApiMap）", () => {
+    expect(resolveFeatureForFiles(root, [join(root, "src/a.ts")])).toBe("A20261101-001");
     expect(resolveFeatureForFiles(root, ["src/unknown.ts"])).toBeNull();
   });
 
@@ -208,7 +207,7 @@ describe("柱一：em-task-store 狀態機", () => {
 
 describe("柱二：em-orchestrator 工頭迴圈", () => {
   let root;
-  beforeEach(() => { root = makeFixture(); });
+  beforeEach(async () => { root = await makeFixture(); });
 
   it("驗收雙門檻：developer 成功後 complete 依序被攔 → 強制 qa → 強制 tester（UT+E2E）→ 才 complete", async () => {
     seedTask(root);
@@ -369,7 +368,7 @@ describe("柱二：em-orchestrator 工頭迴圈", () => {
 
 describe("柱三：em-job-entrypoints", () => {
   let root;
-  beforeEach(() => { root = makeFixture(); });
+  beforeEach(async () => { root = await makeFixture(); });
 
   it("未知 type → ok:false", async () => {
     const r = await runJobEntrypoint(root, "no-such");
@@ -418,10 +417,10 @@ describe("柱三：em-job-entrypoints", () => {
   it("cu-scan：feature 缺測試/文件 findings（skip 重掃）", async () => {
     const r = await runJobEntrypoint(root, "cu-scan", { runRescan: false });
     expect(r.ok).toBe(true);
-    expect(r.meta.activeFeatures).toBe(2); // planned 不算
-    expect(r.findings.some(f => f.kind === "feature-no-tests" && f.featureId === "F-001")).toBe(true);
-    expect(r.findings.some(f => f.kind === "feature-no-docs" && f.featureId === "F-001")).toBe(true);
-    expect(r.findings.some(f => f.featureId === "F-002")).toBe(false); // Beta 齊全
+    expect(r.meta.activeApis).toBe(3);
+    expect(r.findings.some(f => f.kind === "api-no-tests" && f.apiId === "A20261101-001")).toBe(true);
+    expect(r.findings.some(f => f.kind === "api-no-flow" && f.apiId === "A20261101-001")).toBe(true);
+    expect(r.findings.some(f => f.apiId === "A20261101-002")).toBe(false); // Beta 齊全
   });
 
   it("release-prep：無 RR → no-active-rr finding", async () => {
