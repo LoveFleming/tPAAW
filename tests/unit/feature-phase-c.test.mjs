@@ -97,3 +97,18 @@ describe("C4: mergeFeaturesWithIdentityReport — S8 全量重跑不失聯", () 
     expect(report.summary).toContain("retired 1");
   });
 });
+
+describe("C+: categoryKeyOf — deterministic 區域鍵（LLM 只命名）", () => {
+  it("packages/*、src/* 取前兩段；其他取頂層；多數決", async () => {
+    const { categoryKeyOf } = await import("../../packages/server/src/lib/feature-registry.mjs");
+    expect(categoryKeyOf(["packages/server/src/a.mjs", "packages/server/src/b.mjs"])).toBe("packages/server");
+    expect(categoryKeyOf(["packages/ui/src/x.tsx"])).toBe("packages/ui");
+    expect(categoryKeyOf(["server/routes/x.mjs"])).toBe("server");
+    expect(categoryKeyOf(["core/a.go", "core/b.go", "cmd/x.go"])).toBe("core"); // 2>1
+    expect(categoryKeyOf([])).toBe("(root)");
+  });
+  it("category 在 FEATURE_INHERIT_FIELDS — 重掃繼承不漂移", async () => {
+    const { FEATURE_INHERIT_FIELDS } = await import("../../packages/server/src/lib/feature-registry.mjs");
+    expect(FEATURE_INHERIT_FIELDS).toContain("category");
+  });
+});

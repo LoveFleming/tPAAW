@@ -69,6 +69,7 @@ interface Feature {
   updatedAt: string;
   grade?: string;
   kind?: "api" | "ui" | "api+ui" | "module" | "utility"; // Phase C（2026-11-01）kind 分類軸
+  category?: string; // Category → Feature → Sub-feature 三層（LLM 命名，deterministic 分組）
   // 🧩 L2 子群（2026-10-23）：內生判準拆的穩定子結構；internalShared = 黏合橋接檔（不屬任何子群）
   subFeatures?: SubFeature[];
   internalShared?: string[];
@@ -1390,6 +1391,7 @@ function FeatureTableGrid({ features, theme, t, searchQuery, ecMap, onSelectFeat
   const [sortKey, setSortKey] = useState<SortKey>("files");
   const [sortAsc, setSortAsc] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
 
   const q = searchQuery.trim().toLowerCase();
   const rows = useMemo(() => {
@@ -1428,6 +1430,17 @@ function FeatureTableGrid({ features, theme, t, searchQuery, ecMap, onSelectFeat
   const thStyle = (key: SortKey): React.CSSProperties => ({ color: sortKey === key ? theme.accent : theme.text, opacity: sortKey === key ? 1 : 0.5, borderBottom: `1px solid ${theme.borderLight}`, whiteSpace: "nowrap" });
   const tdStyle: React.CSSProperties = { color: theme.text, borderBottom: `1px solid ${theme.borderLight}`, padding: "4px 8px", verticalAlign: "middle" };
 
+  // Category 分組（2026-11-01 Fleming：Category → Feature → Sub-feature）
+  const groups = useMemo(() => {
+    const m = new Map<string, Feature[]>();
+    for (const f of rows) {
+      const cat = f.category || "（未分類）";
+      if (!m.has(cat)) m.set(cat, []);
+      m.get(cat)!.push(f);
+    }
+    return [...m.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+  }, [rows]);
+
   return (
     <div className="flex-1 overflow-auto" data-testid="feature-table-grid">
       <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
@@ -1446,65 +1459,87 @@ function FeatureTableGrid({ features, theme, t, searchQuery, ecMap, onSelectFeat
           </tr>
         </thead>
         <tbody>
-          {rows.map(f => {
-            const st = STATUS_STYLES[f.status] || STATUS_STYLES.active;
-            const sev = f.severity || f.severitySuggested;
-            const kind = featureKind(f);
-            const subs = f.subFeatures || [];
-            const isOpen = expanded.has(f.id);
+          {groups.map(([cat, feats]) => {
+            const collapsed = collapsedCats.has(cat);
             return (
-              <Fragment key={f.id}>
+              <Fragment key={cat}>
                 <tr
-                  className="cursor-pointer"
-                  style={{ background: isOpen ? theme.accentBg : "transparent" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = theme.bgMuted; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = isOpen ? theme.accentBg : "transparent"; }}
+                  className="cursor-pointer sticky top-[26px] z-[5]"
+                  style={{ background: theme.bgMuted }}
+                  onClick={() => setCollapsedCats(prev => { const n = new Set(prev); n.has(cat) ? n.delete(cat) : n.add(cat); return n; })}
                 >
-                  <td style={{ ...tdStyle, opacity: 0.6 }} className="font-mono text-[10px]">{f.id}</td>
-                  <td style={tdStyle} className="font-medium max-w-[260px] truncate" title={f.description || f.name}>{f.name}</td>
-                  <td style={tdStyle}><span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: st.bg, color: st.text }}>{st.label}</span></td>
-                  <td style={tdStyle}>{sev ? <span className="text-[10px] px-1 py-0.5 rounded font-bold" style={{ opacity: f.severity ? 1 : 0.6 }}>{sev}{f.severity ? "👤" : "🤖"}</span> : <span style={{ opacity: 0.3 }}>—</span>}</td>
-                  <td style={tdStyle}><span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>{kind.emoji} {kind.label}</span></td>
-                  <td style={tdStyle} className="text-right font-mono">{f.codeFiles.length}</td>
-                  <td style={tdStyle} className="text-right font-mono">{f.apis.length}</td>
-                  <td style={tdStyle} className="text-right font-mono">{f.tests.length}</td>
-                  <td style={tdStyle} className="text-right">
-                    {subs.length > 0 ? (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setExpanded(prev => { const n = new Set(prev); n.has(f.id) ? n.delete(f.id) : n.add(f.id); return n; }); }}
-                        className="text-[10px] px-1.5 py-0.5 rounded font-mono"
-                        style={{ background: theme.accentBg, color: theme.accent }}
-                      >
-                        {isOpen ? "▾" : "▸"} {subs.length}
-                      </button>
-                    ) : <span style={{ opacity: 0.3 }}>—</span>}
-                  </td>
-                  <td style={tdStyle} className="text-center text-[10px] whitespace-nowrap">
-                    {f.aiUnderstanding ? "🤖✅ " : ""}{f.documentation ? "📖✅" : ""}
+                  <td colSpan={10} className="px-2 py-1.5" style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
+                    <span className="text-xs font-semibold" style={{ color: theme.accent }}>
+                      {collapsed ? "▸" : "▾"} 🏷️ {cat}
+                    </span>
+                    <span className="ml-2 text-[10px]" style={{ color: theme.text, opacity: 0.5 }}>
+                      {feats.length} features · 📄 {feats.reduce((s, f) => s + f.codeFiles.length, 0)} · 🌐 {feats.reduce((s, f) => s + f.apis.length, 0)} · 🧪 {feats.reduce((s, f) => s + f.tests.length, 0)}
+                    </span>
                   </td>
                 </tr>
-                {isOpen && subs.map((sf, i) => (
-                  <tr key={`${f.id}-sf-${sf.id || i}`} style={{ background: theme.bgMuted }}>
-                    <td style={{ ...tdStyle, opacity: 0.4 }} className="font-mono text-[10px] pl-6">{sf.id || `${f.id}-SF${i + 1}`}</td>
-                    <td style={tdStyle} className="pl-2">
-                      <span className="opacity-50 mr-1">└ 🧩</span>{sf.name}
-                      {sf.grade && <span className="ml-1.5 text-[10px] px-1 rounded" style={{ background: theme.bg, border: `1px solid ${theme.borderLight}`, opacity: 0.7 }}>{sf.grade}</span>}
-                    </td>
-                    <td style={{ ...tdStyle, opacity: 0.4 }} colSpan={2}>{sf.evidence?.consensus != null ? `consensus ${(sf.evidence.consensus * 100).toFixed(0)}%` : ""}</td>
-                    <td style={tdStyle} className="pl-2 opacity-50">sub</td>
-                    <td style={tdStyle} className="text-right font-mono">{(sf.codeFiles || []).length}</td>
-                    <td style={{ ...tdStyle, opacity: 0.3 }}>—</td>
-                    <td style={{ ...tdStyle, opacity: 0.3 }}>—</td>
-                    <td style={{ ...tdStyle, opacity: 0.3 }}>—</td>
-                    <td style={tdStyle} className="text-center text-[10px]">{sf.aiUnderstanding ? "🤖✅" : ""}</td>
-                  </tr>
-                ))}
+                {!collapsed && feats.map(f => {
+                  
+                    const st = STATUS_STYLES[f.status] || STATUS_STYLES.active;
+                    const sev = f.severity || f.severitySuggested;
+                    const kind = featureKind(f);
+                    const subs = f.subFeatures || [];
+                    const isOpen = expanded.has(f.id);
+                    return (
+                      <Fragment key={f.id}>
+                        <tr
+                          className="cursor-pointer"
+                          style={{ background: isOpen ? theme.accentBg : "transparent" }}
+                          onMouseEnter={e => { e.currentTarget.style.background = theme.bgMuted; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = isOpen ? theme.accentBg : "transparent"; }}
+                        >
+                          <td style={{ ...tdStyle, opacity: 0.6 }} className="font-mono text-[10px]">{f.id}</td>
+                          <td style={tdStyle} className="font-medium max-w-[260px] truncate" title={f.description || f.name}>{f.name}</td>
+                          <td style={tdStyle}><span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: st.bg, color: st.text }}>{st.label}</span></td>
+                          <td style={tdStyle}>{sev ? <span className="text-[10px] px-1 py-0.5 rounded font-bold" style={{ opacity: f.severity ? 1 : 0.6 }}>{sev}{f.severity ? "👤" : "🤖"}</span> : <span style={{ opacity: 0.3 }}>—</span>}</td>
+                          <td style={tdStyle}><span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>{kind.emoji} {kind.label}</span></td>
+                          <td style={tdStyle} className="text-right font-mono">{f.codeFiles.length}</td>
+                          <td style={tdStyle} className="text-right font-mono">{f.apis.length}</td>
+                          <td style={tdStyle} className="text-right font-mono">{f.tests.length}</td>
+                          <td style={tdStyle} className="text-right">
+                            {subs.length > 0 ? (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setExpanded(prev => { const n = new Set(prev); n.has(f.id) ? n.delete(f.id) : n.add(f.id); return n; }); }}
+                                className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+                                style={{ background: theme.accentBg, color: theme.accent }}
+                              >
+                                {isOpen ? "▾" : "▸"} {subs.length}
+                              </button>
+                            ) : <span style={{ opacity: 0.3 }}>—</span>}
+                          </td>
+                          <td style={tdStyle} className="text-center text-[10px] whitespace-nowrap">
+                            {f.aiUnderstanding ? "🤖✅ " : ""}{f.documentation ? "📖✅" : ""}
+                          </td>
+                        </tr>
+                        {isOpen && subs.map((sf, i) => (
+                          <tr key={`${f.id}-sf-${sf.id || i}`} style={{ background: theme.bgMuted }}>
+                            <td style={{ ...tdStyle, opacity: 0.4 }} className="font-mono text-[10px] pl-6">{sf.id || `${f.id}-SF${i + 1}`}</td>
+                            <td style={tdStyle} className="pl-2">
+                              <span className="opacity-50 mr-1">└ 🧩</span>{sf.name}
+                              {sf.grade && <span className="ml-1.5 text-[10px] px-1 rounded" style={{ background: theme.bg, border: `1px solid ${theme.borderLight}`, opacity: 0.7 }}>{sf.grade}</span>}
+                            </td>
+                            <td style={{ ...tdStyle, opacity: 0.4 }} colSpan={2}>{sf.evidence?.consensus != null ? `consensus ${(sf.evidence.consensus * 100).toFixed(0)}%` : ""}</td>
+                            <td style={tdStyle} className="pl-2 opacity-50">sub</td>
+                            <td style={tdStyle} className="text-right font-mono">{(sf.codeFiles || []).length}</td>
+                            <td style={{ ...tdStyle, opacity: 0.3 }}>—</td>
+                            <td style={{ ...tdStyle, opacity: 0.3 }}>—</td>
+                            <td style={{ ...tdStyle, opacity: 0.3 }}>—</td>
+                            <td style={tdStyle} className="text-center text-[10px]">{sf.aiUnderstanding ? "🤖✅" : ""}</td>
+                          </tr>
+                        ))}
+                      </Fragment>
+                    );
+                  })}
               </Fragment>
             );
           })}
-          {rows.length === 0 && (
-            <tr><td colSpan={10} style={{ ...tdStyle, textAlign: "center", padding: 24, opacity: 0.4 }}>{t("feature.empty")}</td></tr>
-          )}
+              {groups.length === 0 && (
+                <tr><td colSpan={10} style={{ ...tdStyle, textAlign: "center", padding: 24, opacity: 0.4 }}>{t("feature.empty")}</td></tr>
+              )}
         </tbody>
       </table>
       {/* 檔尾統計 */}

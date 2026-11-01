@@ -87,7 +87,7 @@ export const FEATURE_INHERIT_FIELDS = [
   "severityDecisions", "severity", "severitySuggested", "severitySuggestedReason",
   "severitySuggestedNotes", "severitySuggestedBy", "severitySuggestedAt", "severityComputed",
   "severityConfirmedAt", "severityConfirmedBy", "riskProfile",
-  "status", "type", "knowledgeGaps", "runbooks", "documentation", "docsUpdatedAt",
+  "status", "type", "category", "knowledgeGaps", "runbooks", "documentation", "docsUpdatedAt",
   "aiUnderstanding", "aiUnderstandingAt", "createdAt", "createdBy", "assignee",
 ];
 
@@ -108,6 +108,26 @@ export function computeFeatureKind(f) {
   if (hasUi) return "ui";
   if ((f?.apis || []).length > 0 && !ev.method) return "api"; // legacy 手建帶 apis
   return "module";
+}
+
+// ── Category 歸類鍵（Phase C+ 2026-11-01 Fleming：Category → Feature → Sub-feature 三層）──
+// deterministic：同區域的 feature 歸同一 category；名字交 LLM。規則：
+// packages/*、src/*、app/* 取前兩段，其他取頂層目錄；root 檔 → "(root)"。
+export function categoryKeyOf(files = []) {
+  let best = null, bestN = 0;
+  const counts = new Map();
+  for (const f of files || []) {
+    const segs = String(f || "").replace(/\\/g, "/").split("/").filter(Boolean);
+    if (segs.length === 0) continue;
+    const key = ["packages", "src", "app", "libs", "modules"].includes(segs[0]) && segs.length > 1
+      ? segs.slice(0, 2).join("/")
+      : segs[0];
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  for (const [k, n] of [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
+    if (n > bestN) { best = k; bestN = n; }
+  }
+  return best || "(root)";
 }
 
 // 自癒回填：任何 saveFeatures 都保證每個 feature 有 kind（冪等）

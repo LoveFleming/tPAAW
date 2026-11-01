@@ -27,7 +27,7 @@ import { parseProject } from "./tree-sitter-parser.mjs";
 import { buildDeterministicFeatureMap } from "./code-graph.mjs";
 import { computeSubFeatureRefinement, detectTemplateOrphans } from "./feature-subfeature.mjs";
 import { computeCrosscutConcepts, computeUtilityConsumers } from "./crosscut-concepts.mjs";
-import { nextFeatureIds, loadFeatures, saveFeatures, computeFeatureKind, mergeFeaturesWithIdentityReport } from "./feature-registry.mjs";
+import { nextFeatureIds, loadFeatures, saveFeatures, computeFeatureKind, categoryKeyOf, mergeFeaturesWithIdentityReport } from "./feature-registry.mjs";
 import { autoScanAllFeatureSeverities } from "./feature-risk-scan.mjs";
 import { DATA_HOME } from "../data-home.mjs";
 import { stableStringify } from "./stable-stringify.mjs";
