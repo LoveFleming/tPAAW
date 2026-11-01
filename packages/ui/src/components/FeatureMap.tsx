@@ -193,8 +193,6 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
   const [crosscut, setCrosscut] = useState<CrosscutConcept[]>([]);
   const [gaps, setGaps] = useState<GapEntry[]>([]);
   const [showCrosscut, setShowCrosscut] = useState(false);
-  const [migration, setMigration] = useState<any>(null);
-  const [showMigration, setShowMigration] = useState(false);
   const [ccBusy, setCcBusy] = useState(false);
   // 🧪 測試自足性（deterministic，語言無關）
   const [testSignals, setTestSignals] = useState<Record<string, { hermeticity: string; aiHermeticity?: string; aiConfidence?: number; aiReason?: string; evidence?: string[] }> | null>(null);
@@ -292,10 +290,6 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
       setCrosscut(Array.isArray(d.concepts) ? d.concepts : []);
       setGaps(Array.isArray(d.gapReport) ? d.gapReport : []);
     } catch { /* 尚無 crosscut 資料 → silent */ }
-    try {
-      const r2 = await fetch(`${API_BASE}/api/coding-features/migration-report?path=${encodeURIComponent(rootPath)}`);
-      if (r2.ok) setMigration(await r2.json());
-    } catch { /* silent */ }
   }, [rootPath]);
   useEffect(() => { fetchCrosscut(); }, [fetchCrosscut, refreshKey]);
 
@@ -465,15 +459,6 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
           >
             🔀 {gaps.length > 0 ? `⚠️ ${gaps.length}` : ""}
           </button>
-          {/* 🧬 Identity 遷移報告（Phase C 2026-11-01 S8）*/}
-          <button
-            onClick={() => setShowMigration(v => !v)}
-            title={migration?.summary || t("feature.migrationHint")}
-            className="text-xs py-0.5 px-1.5 rounded shrink-0"
-            style={{ background: showMigration ? theme.accentBg : theme.bg, color: migration?.pendingAssignment?.length ? "#e67e22" : theme.text, border: `1px solid ${theme.borderLight}`, opacity: showMigration ? 1 : 0.6 }}
-          >
-            🧬{migration?.pendingAssignment?.length ? `❓${migration.pendingAssignment.length}` : ""}
-          </button>
         </div>
 
         {/* Search */}
@@ -577,40 +562,6 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
         </div>
       </div>
 
-      {/* 🧬 Identity 遷移報告面板（Phase C 2026-11-01 S8）*/}
-      {showMigration && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.45)" }} onClick={() => setShowMigration(false)}>
-          <div className="max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto rounded-lg p-4" style={{ background: theme.bg, border: `1px solid ${theme.borderLight}` }} onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-semibold" style={{ color: theme.text }}>🧬 {t("feature.migrationTitle")}</div>
-              <button onClick={() => setShowMigration(false)} className="text-xs px-2 py-0.5 rounded" style={{ color: theme.text, opacity: 0.6 }}>✕</button>
-            </div>
-            {!migration?.at ? (
-              <div className="text-xs" style={{ color: theme.text, opacity: 0.5 }}>{t("feature.migrationEmpty")}</div>
-            ) : (
-              <>
-                <div className="text-xs mb-3" style={{ color: theme.text, opacity: 0.7 }}>{migration.summary} · {new Date(migration.at).toLocaleString()}</div>
-                {migration.pendingAssignment?.length > 0 && (
-                  <div className="mb-3 p-2 rounded text-xs" style={{ background: "#fdf3e3", border: "1px solid #e67e22" }}>
-                    <div className="font-semibold mb-1">❓ {t("feature.migrationPending")}</div>
-                    {migration.pendingAssignment.map((p: any) => (
-                      <div key={p.featureId} className="font-mono cursor-pointer hover:underline" onClick={() => { setShowMigration(false); setSelectedId(p.featureId); setEditingDocs(false); }}>
-                        {p.featureId} — {Math.round(p.bestRatio * 100)}% {t("feature.migrationPartial")}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-2 text-[11px]" style={{ color: theme.text }}>
-                  <div><b>✅ {t("feature.migrationInherited")}</b><br />{migration.inherited?.map((x: any) => x.featureId).join(", ") || "—"}</div>
-                  <div><b>🔀 {t("feature.migrationMerged")}</b><br />{migration.mergedFrom?.map((x: any) => `${x.from.join("+")} → ${x.into}`).join("; ") || "—"}</div>
-                  <div><b>🆕 {t("feature.migrationCreated")}</b><br />{migration.created?.map((x: any) => x.featureId).join(", ") || "—"}</div>
-                  <div><b>📦 {t("feature.migrationRetired")}</b><br />{migration.retired?.join(", ") || "—"}</div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
       {/* === Right: Feature Detail === */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {!selected ? (

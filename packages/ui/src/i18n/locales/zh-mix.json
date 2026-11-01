@@ -2010,14 +2010,5 @@
   "feature.colKind": "Kind",
   "feature.colFiles": "Files 檔案",
   "feature.colApis": "APIs",
-  "feature.colTests": "Tests 測試",
-  "feature.migrationTitle": "Identity 遷移報告",
-  "feature.migrationHint": "上次 CU rescan 的遷移報告",
-  "feature.migrationEmpty": "尚無遷移報告",
-  "feature.migrationPending": "待歸屬（partial overlap < 50% — never guess）",
-  "feature.migrationPartial": "partial overlap",
-  "feature.migrationInherited": "Inherited 繼承",
-  "feature.migrationMerged": "Merged 合併",
-  "feature.migrationCreated": "Created 新設",
-  "feature.migrationRetired": "Retired"
+  "feature.colTests": "Tests 測試"
 }

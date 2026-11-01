@@ -2010,14 +2010,5 @@
   "feature.colKind": "Kind",
   "feature.colFiles": "Files",
   "feature.colApis": "APIs",
-  "feature.colTests": "Tests",
-  "feature.migrationTitle": "Identity Migration Report",
-  "feature.migrationHint": "Migration report from last CU rescan",
-  "feature.migrationEmpty": "No migration report yet (CU rescan not run)",
-  "feature.migrationPending": "Pending assignment (partial overlap < 50% — never guess)",
-  "feature.migrationPartial": "partial overlap",
-  "feature.migrationInherited": "Inherited",
-  "feature.migrationMerged": "Merged",
-  "feature.migrationCreated": "Created",
-  "feature.migrationRetired": "Retired"
+  "feature.colTests": "Tests"
 }
