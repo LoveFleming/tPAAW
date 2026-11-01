@@ -16,12 +16,13 @@ export {
 } from "./stores.repo.mjs";
 export { saveTasks } from "./tasks.repo.mjs";
 export { saveFeatures } from "./features.repo.mjs";
+export { saveApiFeatures, buildFileApiMap } from "./api-features.repo.mjs";
 export { openCodingDb } from "./connection.mjs";
 export { readDoc, writeDoc, hasDoc, deleteDoc, readDocUpdatedAt, DOC_FILES } from "./docs.repo.mjs";
 
 // Phase B 讀取函式
 export {
-  readFeatures, readTasks, readActionLog,
+  readFeatures, readApiFeatures, readTasks, readActionLog,
   readConversationAgents, readConversationSessions, readConversation,
 } from "./reads.mjs";
 

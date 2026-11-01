@@ -32,6 +32,34 @@ export function readFeatures(ruRoot) {
   });
 }
 
+/** api_features 讀回原形（API-first，2026-11-01）*/
+export function readApiFeatures(ruRoot) {
+  const db = openCodingDb(ruRoot);
+  let rows;
+  try {
+    rows = db.prepare("SELECT * FROM api_features ORDER BY category, rowid").all();
+  } catch { return []; } // 表還沒建（migration 未跑）
+  const parse = (s, d) => { if (s == null) return d; try { return JSON.parse(s); } catch { return d; } };
+  return rows.map(r => ({
+    id: r.id,
+    category: r.category,
+    entry: r.entry,
+    name: r.name,
+    description: r.description,
+    bizLogic: r.biz_logic,
+    processFlow: parse(r.process_flow),
+    validation: parse(r.validation),
+    dataTouch: parse(r.data_touch),
+    aiUnderstanding: r.ai_understanding,
+    codeFiles: parse(r.code_files, []),
+    tests: parse(r.tests, []),
+    severity: r.severity,
+    custom: parse(r.custom),
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }));
+}
+
 /** tasks 全量 reconstruct（v2：task + task_detail），回傳 { tasks, loopMode }（對應 TASKS.json wrapper） */
 export function readTasks(ruRoot) {
   const db = openCodingDb(ruRoot);

@@ -339,4 +339,31 @@ CREATE TABLE ru_docs (
 );
 `,
   },
+  {
+    // v5（2026-11-01 Fleming API-first 定案）：api_features — 一列 = 一個後端進入點（API 為主）
+    // 取代 feature-first 的 features 表成為掃描主目標；process flow / validation 一等公民欄位
+    version: 5,
+    sql: `
+CREATE TABLE api_features (
+  id               TEXT PRIMARY KEY,
+  category         TEXT NOT NULL,
+  entry            TEXT NOT NULL,
+  name             TEXT NOT NULL,
+  description      TEXT,
+  biz_logic        TEXT,
+  process_flow     TEXT,
+  validation       TEXT,
+  data_touch       TEXT,
+  ai_understanding TEXT,
+  code_files       TEXT,
+  tests            TEXT,
+  severity         TEXT,
+  custom           TEXT,
+  created_at       TEXT,
+  updated_at       TEXT
+);
+CREATE UNIQUE INDEX ux_api_entry   ON api_features(entry);
+CREATE INDEX        idx_api_category ON api_features(category);
+`,
+  },
 ];

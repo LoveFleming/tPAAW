@@ -503,6 +503,20 @@ export default async function projectRoute(req, res) {
 
   const projectPath = q.path;
 
+  // ── GET /api/coding-project/api-features — API-first feature map（api_features 表）──
+  if (url === "/api/coding-project/api-features" && method === "GET") {
+    try {
+      const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
+      const apis = readApiFeatures(projectPath ? resolve(projectPath) : PAAW_ROOT);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ apis, count: apis.length }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   // ── GET /api/coding-crew/:crewId — Load crew definition (no project required) ──
   // Exclude /running and /interrupt which are separate API endpoints
   const crewMatch = url.match(/^\/api\/coding-crew\/([^/?]+)$/);
@@ -611,6 +625,23 @@ export default async function projectRoute(req, res) {
             const fileLines = cappedFiles.map(f => `- ${f} → ${fileMap[f].join(", ")}`).join("\n");
             const moreHint = sortedFiles.length > 50 ? ` (${sortedFiles.length - 50} more — use project_info(category=features) to see all)` : "";
             extraContext.push(`\n## Feature Map (${feats.length} features)\nUse project_info(category=feature_detail, id=...) for full detail.\n${fLines}\n\n## File → Feature Index (${cappedFiles.length} files${moreHint})\n${fileLines}`);
+          }
+        } catch {}
+      }
+
+      // Inject API Map（API-first，2026-11-01）：category 分組的後端進入點清單
+      {
+        try {
+          const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
+          const apis = readApiFeatures(projRoot);
+          if (apis.length > 0) {
+            const byCat = {};
+            for (const a of apis) (byCat[a.category] ??= []).push(a);
+            const catLines = Object.entries(byCat).map(([cat, list]) => {
+              const rows = list.map(a => `  - [${a.id}] ${a.entry} — ${a.name}${a.codeFiles?.length ? ` (${a.codeFiles.length} files)` : ""}`).join("\n");
+              return `### ${cat} (${list.length})\n${rows}`;
+            }).join("\n");
+            extraContext.push(`\n## API Map（API-first，${apis.length} 個後端進入點）\nUse project_info(category=api_detail, entry=...) for process flow / validation.\n${catLines}`);
           }
         } catch {}
       }
@@ -2865,6 +2896,7 @@ export default async function projectRoute(req, res) {
       const ALL_STEPS = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
         { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
+        { id: "api-map", name: "🌐 產出 API Map（API-first）", promptFile: "gen-api-map.md" },
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
         { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
         { id: "error-codes", name: "🔢 Error Codes by Feature", promptFile: null },
@@ -3133,13 +3165,13 @@ export default async function projectRoute(req, res) {
           if (step.id !== "scan" && step.id !== "architecture") {
             await loadCtx("ARCHITECTURE.md", "ARCHITECTURE");
           }
-          if (step.id === "test-payload" || step.id === "overview" || step.id === "feature-map") {
+          if (step.id === "test-payload" || step.id === "overview" || step.id === "feature-map" || step.id === "api-map") {
             await loadCtx("specs/api-contract.md", "API SPEC");
           }
-          if (step.id === "overview" || step.id === "feature-map") {
+          if (step.id === "overview" || step.id === "feature-map" || step.id === "api-map") {
             await loadCtx("specs/error-codes.md", "ERROR MAPPING");
           }
-          if (step.id === "overview" || step.id === "feature-map") {
+          if (step.id === "overview" || step.id === "feature-map" || step.id === "api-map") {
             await loadCtx("DECISIONS.md", "DECISIONS", 2000);
           }
         }
@@ -3386,6 +3418,7 @@ export default async function projectRoute(req, res) {
       const steps = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
         { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
+        { id: "api-map", name: "🌐 產出 API Map（API-first）", promptFile: "gen-api-map.md" },
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
         { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
         { id: "error-codes", name: "🔢 Error Codes by Feature", promptFile: null },
@@ -3630,17 +3663,17 @@ export default async function projectRoute(req, res) {
           let fullPrompt = promptTemplate;
           fullPrompt += `\n\n--- PROJECT CONTEXT ---\n${projectContext}`;
           if (scanResult) fullPrompt += `\n\n--- SCAN RESULTS ---\n${scanResult}`;
-          if (architectureResult && (step.id === "decisions" || step.id === "api-spec" || step.id === "overview" || step.id === "feature-map")) {
-            const archLimit = step.id === "feature-map" ? 8000 : 3000;
+          if (architectureResult && (step.id === "decisions" || step.id === "api-spec" || step.id === "overview" || step.id === "feature-map" || step.id === "api-map")) {
+            const archLimit = (step.id === "feature-map" || step.id === "api-map") ? 8000 : 3000;
             fullPrompt += `\n\n--- ARCHITECTURE ---\n${architectureResult.slice(0, archLimit)}`;
           }
-          if (apiSpecResult && (step.id === "test-payload" || step.id === "overview" || step.id === "feature-map")) {
+          if (apiSpecResult && (step.id === "test-payload" || step.id === "overview" || step.id === "feature-map" || step.id === "api-map")) {
             fullPrompt += `\n\n--- API SPEC ---\n${apiSpecResult}`;
           }
-          if (errorMappingResult && (step.id === "overview" || step.id === "feature-map")) {
+          if (errorMappingResult && (step.id === "overview" || step.id === "feature-map" || step.id === "api-map")) {
             fullPrompt += `\n\n--- ERROR MAPPING ---\n${errorMappingResult}`;
           }
-          if (decisionsResult && (step.id === "overview" || step.id === "feature-map")) {
+          if (decisionsResult && (step.id === "overview" || step.id === "feature-map" || step.id === "api-map")) {
             fullPrompt += `\n\n--- DECISIONS ---\n${decisionsResult.slice(0, 2000)}`;
           }
 
@@ -3655,16 +3688,20 @@ export default async function projectRoute(req, res) {
             sendEvent?.("step_progress", { step: step.id, name: step.name, message: `套用 skill：${cuSkills.map(x => x.name).join("、")}` });
           }
 
-          // Tree-sitter source analysis for feature-map step
+          // Tree-sitter source analysis for feature-map / api-map step
           let chunkedFeatureMap = null;
-          if (step.id === "feature-map") {
+          if (step.id === "feature-map" || step.id === "api-map") {
             try {
               cuLog(step.id, "Running Tree-sitter source analysis...");
               // 2026-09-03 Fleming：不設上限 — 大 release unit 也要完整 feature map
               const tsResult = await parseProject(root, PAAW_ROOT, { maxFiles: 0, maxBytes: 500_000 });
               cuLog(step.id, `Tree-sitter: ${tsResult.stats.parsedFiles}/${tsResult.stats.totalFiles} files parsed, ${tsResult.stats.errors} errors`);
               const condensed = formatCondensed(tsResult);
-              if (condensed && condensed.length <= 80_000) {
+              if (step.id === "api-map") {
+                // API-first：routes 是主信號；過大就載斷（route 定義在前端檔也掃到，但 prompt 已排除前端）
+                const trimmed = condensed.length > 80_000 ? condensed.slice(0, 80_000) + "\n... (truncated)" : condensed;
+                if (trimmed) fullPrompt += `\n\n--- SOURCE ANALYSIS (Tree-sitter) ---\n${trimmed}`;
+              } else if (condensed && condensed.length <= 80_000) {
                 fullPrompt += `\n\n--- SOURCE ANALYSIS (Tree-sitter) ---\n${condensed}`;
               } else if (condensed) {
                 // 大 release unit：map-reduce 分塊產出完整 feature map
@@ -3728,6 +3765,54 @@ export default async function projectRoute(req, res) {
                     await paaw.writeFile(`test-payloads/${slug}.json`, JSON.stringify(payloads, null, 2));
                   }
                 } catch {}
+              } else if (step.id === "api-map") {
+                // API-first（2026-11-01 Fleming）：解析 LLM 輸出 → api_features 表 + file→API 反向索引
+                try {
+                  const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+                  if (!cleanJson) throw new Error("AI 回應為空，無法產生 API Map");
+                  let apis = null;
+                  try { apis = JSON.parse(cleanJson); } catch {}
+                  if (!Array.isArray(apis)) apis = repairLlmJsonArray(content);
+                  if (!Array.isArray(apis) || apis.length === 0) throw new Error("API Map 解析失敗（非 JSON array）");
+                  const { todayStamp } = await import("../lib/feature-registry.mjs");
+                  const prefix = `A${todayStamp()}-`;
+                  const now = new Date().toISOString();
+                  const seen = new Set();
+                  const clean = [];
+                  for (const a of apis) {
+                    if (!a || typeof a.entry !== "string" || !a.entry.trim()) continue;
+                    const entry = a.entry.trim();
+                    if (seen.has(entry)) continue; // entry 去重（unique index 同義）
+                    seen.add(entry);
+                    clean.push({
+                      id: `${prefix}${String(clean.length + 1).padStart(3, "0")}`,
+                      category: a.category || "uncategorized",
+                      entry,
+                      name: a.name || entry,
+                      description: a.description || null,
+                      bizLogic: a.bizLogic || null,
+                      processFlow: Array.isArray(a.processFlow) ? a.processFlow : [],
+                      validation: Array.isArray(a.validation) ? a.validation : [],
+                      dataTouch: Array.isArray(a.dataTouch) ? a.dataTouch : [],
+                      aiUnderstanding: "",
+                      codeFiles: Array.isArray(a.codeFiles) ? a.codeFiles : [],
+                      tests: Array.isArray(a.tests) ? a.tests : [],
+                      severity: a.severity || null,
+                      custom: {},
+                      createdAt: now,
+                      updatedAt: now,
+                    });
+                  }
+                  if (!clean.length) throw new Error("API Map 無有效 entry");
+                  const { saveApiFeatures, buildFileApiMap } = await import("../lib/coding-db/api-features.repo.mjs");
+                  saveApiFeatures(root, clean);
+                  writeDoc(root, "fileApiMap", { files: buildFileApiMap(clean), updatedAt: now });
+                  cuLog(step.id, `[bulk] Saved ${clean.length} API features + file→API reverse index`);
+                } catch (apiErr) {
+                  cuLog(step.id, `[bulk] api-map failed: ${apiErr.message}`);
+                  sendEvent("step_error", { step: step.id, name: step.name, error: apiErr.message });
+                  try { await paaw.setCuStepStatus(step.id, "error", { error: apiErr.message }); } catch {}
+                }
               } else if (step.id === "overview") {
                 await diffWriteFile(paaw, "PROJECT.md", sanitized);
               } else if (step.id === "feature-map") {

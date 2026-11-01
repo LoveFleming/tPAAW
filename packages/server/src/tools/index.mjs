@@ -787,7 +787,7 @@ async function buildToolDefinitions() {
       parameters: {
         type: "object",
         properties: {
-          category: { type: "string", enum: ["context", "decisions", "changelog", "issues", "features", "feature_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "error_codes", "c4_model", "security", "ru_info"], description: "Category to read" },
+          category: { type: "string", enum: ["context", "decisions", "changelog", "issues", "features", "feature_detail", "api_map", "api_detail", "runbook", "sessions", "test_map", "recent_changes", "api_history", "project_read", "error_codes", "c4_model", "security", "ru_info"], description: "Category to read" },
           id: { type: "string", description: "Feature/issue ID for detail queries" },
           search: { type: "string", description: "Search term" },
           status: { type: "string", description: "Filter by status (comma-separated)" },
@@ -861,6 +861,28 @@ function buildHandlers(apps) {
           let features = loadFeatures(root);
           if (args.search) { const s = args.search.toLowerCase(); features = features.filter(f => f.name?.toLowerCase().includes(s) || f.description?.toLowerCase().includes(s)); }
           return "Features (" + features.length + "):\n" + features.map(f => `[${f.id}] ${f.name} (${f.status})`).join("\n");
+        } catch (err) { return `Error: ${err.message}`; }
+      }
+      case "api_map": {
+        try {
+          const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
+          const apis = readApiFeatures(root);
+          if (!apis.length) return "(API Map 空 — 先跑 CU api-map 步驟)";
+          const byCat = {};
+          for (const a of apis) (byCat[a.category] ??= []).push(a);
+          return "API Map (" + apis.length + " entries):\n" + Object.entries(byCat).map(([cat, list]) =>
+            `## ${cat} (${list.length})\n` + list.map(a => `- [${a.id}] ${a.entry} — ${a.name}`).join("\n")
+          ).join("\n\n");
+        } catch (err) { return `Error: ${err.message}`; }
+      }
+      case "api_detail": {
+        try {
+          const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
+          const apis = readApiFeatures(root);
+          const key = String(args.entry || args.id || "").trim().toUpperCase();
+          const a = apis.find(x => x.id === args.id || x.entry.toUpperCase() === key || x.entry.toUpperCase().includes(key));
+          if (!a) return `找不到 API feature：${args.entry || args.id}（用 api_map 查清單）`;
+          return `## ${a.id} ${a.entry}\n分類: ${a.category} | ${a.name}\n${a.description ? `描述: ${a.description}\n` : ""}${a.bizLogic ? `業務邏輯: ${a.bizLogic}\n` : ""}${(a.processFlow?.length) ? `\n### Process Flow\n${a.processFlow.map(s => `${s.step}. ${s.action} — ${s.detail || ""}${s.file ? ` (${s.file})` : ""}`).join("\n")}\n` : ""}${(a.validation?.length) ? `\n### Validation\n${a.validation.map(v => `- ${v.field}: ${v.rule} (on ${v.on || "?"}, fail ${v.fail || "?"})`).join("\n")}\n` : ""}${(a.dataTouch?.length) ? `\n### Data Touch\n${a.dataTouch.map(d => `- ${d.table}: ${(d.ops || []).join(",")}`).join("\n")}\n` : ""}${(a.codeFiles?.length) ? `\n檔案: ${a.codeFiles.join(", ")}` : ""}`;
         } catch (err) { return `Error: ${err.message}`; }
       }
       case "context": {

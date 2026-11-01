@@ -40,6 +40,7 @@ const DEFAULT_CONFIG = {
   },
   tasks: [
     'feature-map-refresh',
+    'api-map-refresh',
     'security-scan',
     'code-intelligence',
     'test-intelligence',
