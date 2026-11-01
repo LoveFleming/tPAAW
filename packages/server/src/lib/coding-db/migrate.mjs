@@ -375,4 +375,30 @@ UPDATE task SET feature_id = NULL WHERE feature_id IS NOT NULL;
 CREATE INDEX idx_task_api ON task(api_id);
 `,
   },
+
+  {
+    // v7（2026-11-01 Fleming）：前端 route-first — ui_features 表（schema 與後端 api_features 不同，走前端語意）
+    version: 7,
+    sql: `
+CREATE TABLE IF NOT EXISTS ui_features (
+  id          TEXT PRIMARY KEY,
+  category    TEXT NOT NULL,
+  route       TEXT NOT NULL,
+  name        TEXT NOT NULL,
+  description TEXT,
+  ui_flow     TEXT,
+  components  TEXT,
+  state_mgmt  TEXT,
+  api_calls   TEXT,
+  code_files  TEXT,
+  tests       TEXT,
+  severity    TEXT,
+  custom      TEXT,
+  created_at  TEXT,
+  updated_at  TEXT
+);
+CREATE UNIQUE INDEX ux_ui_route ON ui_features(route);
+CREATE INDEX idx_ui_category ON ui_features(category);
+`,
+  },
 ];

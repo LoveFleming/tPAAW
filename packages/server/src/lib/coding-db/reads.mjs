@@ -59,6 +59,7 @@ export function readApiFeatures(ruRoot) {
     updatedAt: r.updated_at,
   }));
 }
+export { readUiFeatures, findUiByApiCall } from "./ui-features.repo.mjs";
 
 /** tasks 全量 reconstruct（v2：task + task_detail），回傳 { tasks, loopMode }（對應 TASKS.json wrapper） */
 export function readTasks(ruRoot) {

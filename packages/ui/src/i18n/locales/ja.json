@@ -2037,5 +2037,16 @@
   "feature.colKind": "種類",
   "feature.colFiles": "ファイル",
   "feature.colApis": "API",
-  "feature.colTests": "テスト"
+  "feature.colTests": "テスト",
+  "uiMap.title": "UI Map（フロント）",
+  "uiMap.modeApi": "API",
+  "uiMap.modeUi": "UI",
+  "uiMap.empty": "UI データなし",
+  "uiMap.emptyHint": "CU の ui-map ステップを実行してください（ルート起点）",
+  "uiMap.stateMgmt": "State 管理",
+  "uiMap.uiFlow": "画面フロー",
+  "uiMap.colAction": "操作 / 画面",
+  "uiMap.colComponent": "コンポーネント",
+  "uiMap.apiCalls": "呼び出し API",
+  "uiMap.components": "コンポーネント"
 }

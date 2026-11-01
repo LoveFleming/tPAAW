@@ -2037,5 +2037,16 @@
   "feature.colKind": "Kind",
   "feature.colFiles": "Files",
   "feature.colApis": "APIs",
-  "feature.colTests": "Tests"
+  "feature.colTests": "Tests",
+  "uiMap.title": "UI Map (Frontend)",
+  "uiMap.modeApi": "API",
+  "uiMap.modeUi": "UI",
+  "uiMap.empty": "No UI data yet",
+  "uiMap.emptyHint": "Run the CU ui-map step first (frontend route-first)",
+  "uiMap.stateMgmt": "State Management",
+  "uiMap.uiFlow": "UI Flow",
+  "uiMap.colAction": "Interaction / View",
+  "uiMap.colComponent": "Component",
+  "uiMap.apiCalls": "Backend API Calls",
+  "uiMap.components": "Components"
 }

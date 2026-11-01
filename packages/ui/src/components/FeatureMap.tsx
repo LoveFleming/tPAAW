@@ -32,6 +32,14 @@ interface ApiFeature {
   updatedAt?: string;
 }
 
+interface UiFlowStep { step?: number | string; action?: string; component?: string }
+interface UiFeature {
+  id: string; category: string; route: string; name: string; description?: string;
+  uiFlow?: UiFlowStep[]; components?: string[]; stateMgmt?: string;
+  apiCalls?: string[]; codeFiles?: string[]; tests?: string[]; severity?: string;
+  createdAt?: string; updatedAt?: string;
+}
+
 interface Props {
   rootPath: string;
   refreshKey?: number; // 外部資料更新訊號（CU 完成）→ 重新載入（tab 常駐 CSS hide 不會 remount）
@@ -66,6 +74,8 @@ const METHOD_COLORS: Record<string, string> = {
 export default function ApiMapView({ rootPath, theme, onOpenFile, refreshKey }: Props) {
   const { t } = useI18n();
   const [apis, setApis] = useState<ApiFeature[]>([]);
+  const [uis, setUis] = useState<UiFeature[]>([]);
+  const [mode, setMode] = useState<"api" | "ui">("api");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -80,10 +90,14 @@ export default function ApiMapView({ rootPath, theme, onOpenFile, refreshKey }: 
     try {
       const res = await fetch(`${API_BASE}/api/coding-project/api-features?path=${encodeURIComponent(rootPath)}`);
       const data = await res.json();
+      const resUi = await fetch(`${API_BASE}/api/coding-project/ui-features?path=${encodeURIComponent(rootPath)}`).catch(() => null);
+      const dataUi = resUi ? await resUi.json().catch(() => ({})) : {};
+      if (Array.isArray(dataUi.uis)) setUis(dataUi.uis);
+      else setUis([]);
       if (Array.isArray(data.apis)) {
         setApis(data.apis);
-        // 預設全部 category 展開
-        setOpenCats(new Set(data.apis.map((a: ApiFeature) => a.category)));
+        // 預設全部 category 展開（API + UI 兩邊）
+        setOpenCats(new Set([...data.apis.map((a: ApiFeature) => a.category), ...dataUi.uis.map((u: UiFeature) => u.category)]));
       } else {
         setFetchError(data.error || `HTTP ${res.status}`);
         setApis([]);
@@ -97,26 +111,31 @@ export default function ApiMapView({ rootPath, theme, onOpenFile, refreshKey }: 
 
   useEffect(() => { fetchApis(); }, [fetchApis, refreshKey]);
 
-  // 搜尋過濾（entry / name / category / description / id）
+  // 搜尋過濾（entry/route / name / category / description / id）
+  const items = useMemo(() => mode === "api"
+    ? apis.map(a => ({ id: a.id, category: a.category, entry: a.entry, name: a.name, description: a.description || "", severity: a.severity || undefined, raw: a as ApiFeature | UiFeature }))
+    : uis.map(u => ({ id: u.id, category: u.category, entry: u.route, name: u.name, description: u.description || "", severity: u.severity || undefined, raw: u as ApiFeature | UiFeature }))
+  , [mode, apis, uis]);
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return apis;
-    return apis.filter(a =>
-      `${a.entry} ${a.name} ${a.category} ${a.description || ""} ${a.id}`.toLowerCase().includes(q)
+    if (!q) return items;
+    return items.filter(it =>
+      `${it.entry} ${it.name} ${it.category} ${it.description} ${it.id}`.toLowerCase().includes(q)
     );
-  }, [apis, searchQuery]);
+  }, [items, searchQuery]);
 
-  // category 分組（維持 API 回傳順序）
+  // category 分組（維持回傳順序）
   const byCategory = useMemo(() => {
-    const m = new Map<string, ApiFeature[]>();
-    for (const a of filtered) {
-      if (!m.has(a.category)) m.set(a.category, []);
-      m.get(a.category)!.push(a);
+    const m = new Map<string, { id: string; category: string; entry: string; name: string; severity?: string | undefined; raw: ApiFeature | UiFeature }[]>();
+    for (const it of filtered) {
+      if (!m.has(it.category)) m.set(it.category, []);
+      m.get(it.category)!.push(it);
     }
     return [...m.entries()];
   }, [filtered]);
 
-  const selected = apis.find(a => a.id === selectedId) || null;
+  const selectedApi = mode === "api" ? apis.find(a => a.id === selectedId) || null : null;
+  const selectedUi = mode === "ui" ? uis.find(u => u.id === selectedId) || null : null;
 
   const toggleCat = (cat: string) => setOpenCats(prev => {
     const n = new Set(prev);
@@ -131,14 +150,32 @@ export default function ApiMapView({ rootPath, theme, onOpenFile, refreshKey }: 
         {/* Header */}
         <div className="px-3 py-2 flex items-center justify-between gap-2" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
           <span className="text-sm font-semibold truncate" style={{ color: theme.text }}>
-            🌐 {t("apiMap.title")}
+            {mode === "api" ? "🌐" : "🖥️"} {mode === "api" ? t("apiMap.title") : t("uiMap.title")}
           </span>
           <span className="text-[10px] shrink-0" style={{ color: theme.text, opacity: 0.5 }}>
-            {filtered.length}/{apis.length}
+            {filtered.length}/{items.length}
           </span>
           <button onClick={() => fetchApis()} className="text-xs px-1.5 py-0.5 rounded shrink-0" style={{ background: theme.bg, color: theme.text, opacity: 0.5 }} title={t("apiMap.refresh")}>
             ↻
           </button>
+        </div>
+
+        {/* Mode toggle：🌐 API / 🖥️ UI（前端 route-first） */}
+        <div className="px-3 pt-2 pb-1 flex gap-1">
+          {([["api", `🌐 ${t("uiMap.modeApi")}`], ["ui", `🖥️ ${t("uiMap.modeUi")}`]] as const).map(([m, label]) => (
+            <button
+              key={m}
+              onClick={() => { setMode(m); setSelectedId(null); }}
+              className="flex-1 text-xs px-2 py-1 rounded font-semibold"
+              style={{
+                background: mode === m ? theme.accentBg : theme.bg,
+                color: mode === m ? theme.accent : theme.text,
+                border: `1px solid ${mode === m ? theme.accent : theme.borderLight}`,
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Search */}
@@ -161,9 +198,9 @@ export default function ApiMapView({ rootPath, theme, onOpenFile, refreshKey }: 
             </div>
           ) : apis.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-2 p-4 text-center" style={{ color: theme.text, opacity: 0.4 }}>
-              <div className="text-3xl">🌐</div>
-              <div className="text-sm">{fetchError ? `❌ ${fetchError}` : t("apiMap.empty")}</div>
-              <div className="text-xs">{t("apiMap.emptyHint")}</div>
+              <div className="text-3xl">{mode === "api" ? "🌐" : "🖥️"}</div>
+              <div className="text-sm">{fetchError ? `❌ ${fetchError}` : mode === "api" ? t("apiMap.empty") : t("uiMap.empty")}</div>
+              <div className="text-xs">{mode === "api" ? t("apiMap.emptyHint") : t("uiMap.emptyHint")}</div>
             </div>
           ) : byCategory.length === 0 ? (
             <div className="flex items-center justify-center h-full text-sm" style={{ color: theme.text, opacity: 0.4 }}>
@@ -199,7 +236,9 @@ export default function ApiMapView({ rootPath, theme, onOpenFile, refreshKey }: 
                       onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
                     >
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold font-mono shrink-0" style={{ background: theme.bg, color: mColor }}>{method}</span>
+                        {mode === "api"
+                          ? <span className="text-[10px] px-1.5 py-0.5 rounded font-bold font-mono shrink-0" style={{ background: theme.bg, color: mColor }}>{method}</span>
+                          : <span className="text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0" style={{ background: theme.bg, color: theme.accent }}>🖥️</span>}
                         <span className="text-xs font-mono truncate flex-1" style={{ color: theme.text }} title={a.entry}>{a.entry.replace(/^\w+\s+/, "")}</span>
                         {sv && <span title={`${a.severity} — ${t(sv.descKey)}`} className="text-[10px] font-bold shrink-0" style={{ color: sv.text }}>{sv.dot}</span>}
                       </div>
@@ -215,13 +254,15 @@ export default function ApiMapView({ rootPath, theme, onOpenFile, refreshKey }: 
 
       {/* === Right: API Detail === */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {!selected ? (
+        {mode === "ui" && selectedUi ? (
+          <UiDetail ui={selectedUi} theme={theme} t={t as (k: string) => string} onOpenFile={onOpenFile} />
+        ) : !selectedApi ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2" style={{ color: theme.text, opacity: 0.4 }}>
-            <div className="text-4xl">🌐</div>
+            <div className="text-4xl">{mode === "api" ? "🌐" : "🖥️"}</div>
             <div className="text-sm">{t("apiMap.selectPrompt")}</div>
           </div>
         ) : (
-          <ApiDetail api={selected} theme={theme} t={t as (k: string) => string} onOpenFile={onOpenFile} />
+          <ApiDetail api={selectedApi} theme={theme} t={t as (k: string) => string} onOpenFile={onOpenFile} />
         )}
       </div>
     </div>
@@ -396,6 +437,121 @@ function ApiDetail({ api, theme, t, onOpenFile }: {
           <div className="text-[10px]" style={{ color: theme.text, opacity: 0.35 }}>
             {api.createdAt ? `${t("apiMap.createdAt")} ${String(api.createdAt).slice(0, 16).replace("T", " ")}` : ""}
             {api.updatedAt ? ` · ${t("apiMap.updatedAt")} ${String(api.updatedAt).slice(0, 16).replace("T", " ")}` : ""}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── UI Detail（前端 route-first，2026-11-01）──
+function UiDetail({ ui, theme, t, onOpenFile }: {
+  ui: UiFeature;
+  theme: Props["theme"];
+  t: (k: string) => string;
+  onOpenFile?: (p: string) => void;
+}) {
+  const sv = ui.severity ? (SEV_STYLES[ui.severity] || null) : null;
+  const flow = ui.uiFlow || [];
+  const components = ui.components || [];
+  const apiCalls = ui.apiCalls || [];
+  const codeFiles = ui.codeFiles || [];
+  const tests = ui.tests || [];
+  const thStyle: React.CSSProperties = { color: theme.text, opacity: 0.55, fontWeight: 600, textAlign: "left", padding: "4px 8px", whiteSpace: "nowrap" };
+  const tdStyle: React.CSSProperties = { color: theme.text, padding: "4px 8px", verticalAlign: "top" };
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      {/* Header */}
+      <div className="px-4 py-3" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <span className="text-[10px] px-2 py-0.5 rounded font-bold" style={{ background: theme.bg, color: theme.accent }}>🖥️ PAGE</span>
+          <span className="text-sm font-mono font-bold break-all" style={{ color: theme.text }}>{ui.route}</span>
+          {sv && <span className="text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0" style={{ background: sv.bg, color: sv.text }} title={t(sv.descKey)}>{sv.dot} {ui.severity}</span>}
+          <span className="text-[10px] font-mono ml-auto shrink-0" style={{ color: theme.text, opacity: 0.4 }}>{ui.id}</span>
+        </div>
+        <h2 className="text-sm font-bold" style={{ color: theme.text }}>{ui.name}</h2>
+        {ui.category && <div className="text-[10px] mt-0.5" style={{ color: theme.text, opacity: 0.45 }}>🏷️ {ui.category}</div>}
+        {ui.description && <p className="text-xs mt-1 leading-relaxed" style={{ color: theme.text, opacity: 0.6 }}>{ui.description}</p>}
+      </div>
+
+      <div className="p-4 flex flex-col gap-4">
+        {/* State 管理 */}
+        {ui.stateMgmt && (
+          <Section title={`⚙️ ${t("uiMap.stateMgmt")}`} theme={theme}>
+            <div className="text-xs leading-relaxed" style={{ color: theme.text, opacity: 0.8 }}>{ui.stateMgmt}</div>
+          </Section>
+        )}
+
+        {/* UI Flow */}
+        {flow.length > 0 && (
+          <Section title={`🔀 ${t("uiMap.uiFlow")}`} count={flow.length} theme={theme}>
+            <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${theme.borderLight}` }}>
+                  <th style={{ ...thStyle, width: "2rem" }}>#</th>
+                  <th style={thStyle}>{t("uiMap.colAction")}</th>
+                  <th style={{ ...thStyle, width: "30%" }}>{t("uiMap.colComponent")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {flow.map((f, i) => (
+                  <tr key={i} style={{ borderBottom: i < flow.length - 1 ? `1px solid ${theme.borderLight}` : undefined }}>
+                    <td style={{ ...tdStyle, opacity: 0.5, fontWeight: 700 }}>{f.step ?? i + 1}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{f.action || "—"}</td>
+                    <td style={tdStyle}>{f.component || <span style={{ opacity: 0.35 }}>—</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Section>
+        )}
+
+        {/* API Calls（前後端橋樑） */}
+        {apiCalls.length > 0 && (
+          <Section title={`🔗 ${t("uiMap.apiCalls")}`} count={apiCalls.length} theme={theme}>
+            <div className="flex flex-wrap gap-1">
+              {apiCalls.map((c, i) => {
+                const m = methodOf(c);
+                return (
+                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold" style={{ background: theme.bgMuted, color: METHOD_COLORS[m] || theme.accent }} title={c}>{c}</span>
+                );
+              })}
+            </div>
+          </Section>
+        )}
+
+        {/* Components */}
+        {components.length > 0 && (
+          <Section title={`🧩 ${t("uiMap.components")}`} count={components.length} theme={theme}>
+            <div className="flex flex-col gap-1">
+              {components.map(f => <FileChip key={f} file={f} theme={theme} onOpenFile={onOpenFile} />)}
+            </div>
+          </Section>
+        )}
+
+        {/* Code Files */}
+        {codeFiles.length > 0 && (
+          <Section title={`📄 ${t("apiMap.codeFiles")}`} count={codeFiles.length} theme={theme}>
+            <div className="flex flex-col gap-1">
+              {codeFiles.map(f => <FileChip key={f} file={f} theme={theme} onOpenFile={onOpenFile} />)}
+            </div>
+          </Section>
+        )}
+
+        {/* Tests */}
+        {tests.length > 0 && (
+          <Section title={`🧪 ${t("apiMap.tests")}`} count={tests.length} theme={theme}>
+            <div className="flex flex-col gap-1">
+              {tests.map(f => <FileChip key={f} file={f} theme={theme} onOpenFile={onOpenFile} />)}
+            </div>
+          </Section>
+        )}
+
+        {(ui.createdAt || ui.updatedAt) && (
+          <div className="text-[10px]" style={{ color: theme.text, opacity: 0.35 }}>
+            {ui.createdAt ? `${t("apiMap.createdAt")} ${String(ui.createdAt).slice(0, 16).replace("T", " ")}` : ""}
+            {ui.updatedAt ? ` · ${t("apiMap.updatedAt")} ${String(ui.updatedAt).slice(0, 16).replace("T", " ")}` : ""}
           </div>
         )}
       </div>

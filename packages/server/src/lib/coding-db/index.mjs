@@ -22,7 +22,7 @@ export { readDoc, writeDoc, hasDoc, deleteDoc, readDocUpdatedAt, DOC_FILES } fro
 
 // Phase B 讀取函式
 export {
-  readFeatures, readApiFeatures, readTasks, readActionLog,
+  readFeatures, readApiFeatures, readUiFeatures, readTasks, readActionLog,
   readConversationAgents, readConversationSessions, readConversation,
 } from "./reads.mjs";
 
@@ -42,3 +42,4 @@ export function taskHistory(ruRoot, taskId) {
     qa: db.prepare("SELECT * FROM qa_results WHERE task_id=? ORDER BY id").all(taskId),
   };
 }
+export { saveUiFeatures, findUiByApiCall } from "./ui-features.repo.mjs";

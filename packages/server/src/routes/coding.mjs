@@ -72,6 +72,7 @@ import { countSourceFiles, walkSourceFiles, changedSourceFilesSince } from "../l
 const CU_STEP_FILES = {
   scan: "scan.json",
   "api-map": "api-map.json",
+  "ui-map": "ui-map.json",
   "code-intelligence": "code-intelligence/summary.json",
   "test-intelligence": "code-intelligence/test-intelligence.json",
   "error-codes": "error-codes.json",
@@ -309,6 +310,20 @@ export default async function projectRoute(req, res) {
       const apis = readApiFeatures(projectPath ? resolve(projectPath) : PAAW_ROOT);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ apis, count: apis.length }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── GET /api/coding-project/ui-features — 前端 route-first feature map（ui_features 表）──
+  if (url === "/api/coding-project/ui-features" && method === "GET") {
+    try {
+      const { readUiFeatures } = await import("../lib/coding-db/reads.mjs");
+      const uis = readUiFeatures(projectPath ? resolve(projectPath) : PAAW_ROOT);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ uis, count: uis.length }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
@@ -2637,6 +2652,7 @@ export default async function projectRoute(req, res) {
       const ALL_STEPS = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
         { id: "api-map", name: "🌐 產出 API Map（API-first）", promptFile: "gen-api-map.md" },
+        { id: "ui-map", name: "🖥️ 產出 UI Map（前端 route-first）", promptFile: "gen-ui-map.md" },
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
         { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
         { id: "error-codes", name: "🔢 Error Codes by Feature", promptFile: null },
@@ -2986,13 +3002,13 @@ async function backfillApiTests(root) {
           if (step.id !== "scan" && step.id !== "architecture") {
             await loadCtx("ARCHITECTURE.md", "ARCHITECTURE");
           }
-          if (step.id === "test-payload" || step.id === "overview" || step.id === "api-map") {
+          if (step.id === "test-payload" || step.id === "overview" || step.id === "api-map" || step.id === "ui-map") {
             await loadCtx("specs/api-contract.md", "API SPEC");
           }
-          if (step.id === "overview" || step.id === "api-map") {
+          if (step.id === "overview" || step.id === "api-map" || step.id === "ui-map") {
             await loadCtx("specs/error-codes.md", "ERROR MAPPING");
           }
-          if (step.id === "overview" || step.id === "api-map") {
+          if (step.id === "overview" || step.id === "api-map" || step.id === "ui-map") {
             await loadCtx("DECISIONS.md", "DECISIONS", 2000);
           }
         }
@@ -3119,6 +3135,50 @@ async function backfillApiTests(root) {
                 res.end();
                 return true;
               }
+            } else if (step.id === "ui-map") {
+              // 前端 route-first（2026-11-01 Fleming）：LLM 輸出 → ui_features 表 + marker 檔
+              try {
+                const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+                if (!cleanJson) throw new Error("AI 回應為空，無法產生 UI Map");
+                const uis = _extractJsonArray(content);
+                if (!Array.isArray(uis) || uis.length === 0) throw new Error("UI Map 解析失敗（非 JSON array）");
+                const { todayStamp } = await import("../lib/feature-registry.mjs");
+                const prefix = `U${todayStamp()}-`;
+                const now = new Date().toISOString();
+                const seen = new Set();
+                const clean = [];
+                for (const u of uis) {
+                  if (!u || typeof u.route !== "string" || !u.route.trim()) continue;
+                  const route = u.route.trim();
+                  if (seen.has(route)) continue;
+                  seen.add(route);
+                  clean.push({
+                    id: `${prefix}${String(clean.length + 1).padStart(3, "0")}`,
+                    category: u.category || "uncategorized",
+                    route, name: u.name || route,
+                    description: u.description || null,
+                    uiFlow: Array.isArray(u.uiFlow) ? u.uiFlow : [],
+                    components: Array.isArray(u.components) ? u.components : [],
+                    stateMgmt: u.stateMgmt || null,
+                    apiCalls: Array.isArray(u.apiCalls) ? u.apiCalls : [],
+                    codeFiles: Array.isArray(u.codeFiles) ? u.codeFiles : [],
+                    tests: Array.isArray(u.tests) ? u.tests : [],
+                    severity: u.severity || null, custom: {},
+                    createdAt: now, updatedAt: now,
+                  });
+                }
+                if (!clean.length) throw new Error("UI Map 無有效 route");
+                const { saveUiFeatures } = await import("../lib/coding-db/ui-features.repo.mjs");
+                saveUiFeatures(root, clean);
+                await paaw.writeFile("ui-map.json", JSON.stringify(clean, null, 2));
+                cuLog(step.id, `Saved ${clean.length} UI features`);
+              } catch (uiErr) {
+                cuLog(step.id, `ui-map failed: ${uiErr.message}`);
+                sendEvent("step_error", { step: step.id, name: step.name, error: uiErr.message });
+                try { await paaw.setCuStepStatus(step.id, "error", { error: uiErr.message }); } catch {}
+                res.end();
+                return true;
+              }
             }
             cuLog(step.id, `wrote file OK (${content.length} chars)`);
           } catch (writeErr) {
@@ -3159,6 +3219,7 @@ async function backfillApiTests(root) {
       const steps = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
         { id: "api-map", name: "🌐 產出 API Map（API-first）", promptFile: "gen-api-map.md" },
+        { id: "ui-map", name: "🖥️ 產出 UI Map（前端 route-first）", promptFile: "gen-ui-map.md" },
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
         { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
         { id: "error-codes", name: "🔢 Error Codes by Feature", promptFile: null },
@@ -3382,8 +3443,8 @@ async function backfillApiTests(root) {
           let fullPrompt = promptTemplate;
           fullPrompt += `\n\n--- PROJECT CONTEXT ---\n${projectContext}`;
           if (scanResult) fullPrompt += `\n\n--- SCAN RESULTS ---\n${scanResult}`;
-          if (architectureResult && (step.id === "decisions" || step.id === "api-spec" || step.id === "overview" || step.id === "api-map")) {
-            const archLimit = step.id === "api-map" ? 8000 : 3000;
+          if (architectureResult && (step.id === "decisions" || step.id === "api-spec" || step.id === "overview" || step.id === "api-map" || step.id === "ui-map")) {
+            const archLimit = (step.id === "api-map" || step.id === "ui-map") ? 8000 : 3000;
             fullPrompt += `\n\n--- ARCHITECTURE ---\n${architectureResult.slice(0, archLimit)}`;
           }
           if (apiSpecResult && (step.id === "test-payload" || step.id === "overview" || step.id === "api-map")) {
@@ -3407,15 +3468,19 @@ async function backfillApiTests(root) {
             sendEvent?.("step_progress", { step: step.id, name: step.name, message: `套用 skill：${cuSkills.map(x => x.name).join("、")}` });
           }
 
-          // Tree-sitter source analysis for api-map step（API-first）
-          if (step.id === "api-map") {
+          // Tree-sitter source analysis for api-map / ui-map step（API-first / route-first）
+          if (step.id === "api-map" || step.id === "ui-map") {
             try {
               cuLog(step.id, "Running Tree-sitter source analysis...");
               const tsResult = await parseProject(root, PAAW_ROOT, { maxFiles: 0, maxBytes: 500_000 });
               cuLog(step.id, `Tree-sitter: ${tsResult.stats.parsedFiles}/${tsResult.stats.totalFiles} files parsed, ${tsResult.stats.errors} errors`);
               const condensed = formatCondensed(tsResult);
-              // routes 是主信號；過大就截斷（前端 route 定義也掃到，prompt 已排除前端）
-              const trimmed = condensed.length > 80_000 ? condensed.slice(0, 80_000) + "\n... (truncated)" : condensed;
+              // api-map：routes 是主信號（prompt 已排除前端）；ui-map：前端 route/元件是主信號（排除後端路由檔）
+              const isUi = step.id === "ui-map";
+              const filterSrc = isUi
+                ? condensed.split("\n").filter(l => !/packages\/server\/src\/routes\/|\.mjs \(/.test(l)).join("\n")
+                : condensed;
+              const trimmed = filterSrc.length > 80_000 ? filterSrc.slice(0, 80_000) + "\n... (truncated)" : filterSrc;
               if (trimmed) fullPrompt += `\n\n--- SOURCE ANALYSIS (Tree-sitter) ---\n${trimmed}`;
               const fullAnalysis = formatForAI(tsResult);
               await paaw.writeFile("features/tree-sitter-analysis.txt", fullAnalysis);
@@ -3474,9 +3539,7 @@ async function backfillApiTests(root) {
                 try {
                   const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
                   if (!cleanJson) throw new Error("AI 回應為空，無法產生 API Map");
-                  let apis = null;
-                  try { apis = JSON.parse(cleanJson); } catch {}
-                  if (!Array.isArray(apis)) apis = repairLlmJsonArray(content);
+                  const apis = _extractJsonArray(content);
                   if (!Array.isArray(apis) || apis.length === 0) throw new Error("API Map 解析失敗（非 JSON array）");
                   const { todayStamp } = await import("../lib/feature-registry.mjs");
                   const prefix = `A${todayStamp()}-`;
@@ -3516,6 +3579,51 @@ async function backfillApiTests(root) {
                   cuLog(step.id, `[bulk] api-map failed: ${apiErr.message}`);
                   sendEvent("step_error", { step: step.id, name: step.name, error: apiErr.message });
                   try { await paaw.setCuStepStatus(step.id, "error", { error: apiErr.message }); } catch {}
+                }
+              } else if (step.id === "ui-map") {
+                // 前端 route-first（2026-11-01 Fleming）：解析 LLM 輸出 → ui_features 表 + marker 檔
+                try {
+                  const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+                  if (!cleanJson) throw new Error("AI 回應為空，無法產生 UI Map");
+                  const uis = _extractJsonArray(content);
+                  if (!Array.isArray(uis) || uis.length === 0) throw new Error("UI Map 解析失敗（非 JSON array）");
+                  const { todayStamp } = await import("../lib/feature-registry.mjs");
+                  const prefix = `U${todayStamp()}-`;
+                  const now = new Date().toISOString();
+                  const seen = new Set();
+                  const clean = [];
+                  for (const u of uis) {
+                    if (!u || typeof u.route !== "string" || !u.route.trim()) continue;
+                    const route = u.route.trim();
+                    if (seen.has(route)) continue;
+                    seen.add(route);
+                    clean.push({
+                      id: `${prefix}${String(clean.length + 1).padStart(3, "0")}`,
+                      category: u.category || "uncategorized",
+                      route,
+                      name: u.name || route,
+                      description: u.description || null,
+                      uiFlow: Array.isArray(u.uiFlow) ? u.uiFlow : [],
+                      components: Array.isArray(u.components) ? u.components : [],
+                      stateMgmt: u.stateMgmt || null,
+                      apiCalls: Array.isArray(u.apiCalls) ? u.apiCalls : [],
+                      codeFiles: Array.isArray(u.codeFiles) ? u.codeFiles : [],
+                      tests: Array.isArray(u.tests) ? u.tests : [],
+                      severity: u.severity || null,
+                      custom: {},
+                      createdAt: now,
+                      updatedAt: now,
+                    });
+                  }
+                  if (!clean.length) throw new Error("UI Map 無有效 route");
+                  const { saveUiFeatures } = await import("../lib/coding-db/ui-features.repo.mjs");
+                  saveUiFeatures(root, clean);
+                  await paaw.writeFile("ui-map.json", JSON.stringify(clean, null, 2));
+                  cuLog(step.id, `[bulk] Saved ${clean.length} UI features`);
+                } catch (uiErr) {
+                  cuLog(step.id, `[bulk] ui-map failed: ${uiErr.message}`);
+                  sendEvent("step_error", { step: step.id, name: step.name, error: uiErr.message });
+                  try { await paaw.setCuStepStatus(step.id, "error", { error: uiErr.message }); } catch {}
                 }
               } else if (step.id === "overview") {
                 await diffWriteFile(paaw, "PROJECT.md", sanitized);

@@ -2037,5 +2037,16 @@
   "feature.colKind": "Kind",
   "feature.colFiles": "Files 檔案",
   "feature.colApis": "APIs",
-  "feature.colTests": "Tests 測試"
+  "feature.colTests": "Tests 測試",
+  "uiMap.title": "UI Map（前端）",
+  "uiMap.modeApi": "API",
+  "uiMap.modeUi": "UI",
+  "uiMap.empty": "尚無 UI 資料",
+  "uiMap.emptyHint": "請先執行 CU 的 ui-map 步驟（前端 route-first）",
+  "uiMap.stateMgmt": "State 管理",
+  "uiMap.uiFlow": "畫面流程",
+  "uiMap.colAction": "互動 / 畫面",
+  "uiMap.colComponent": "元件",
+  "uiMap.apiCalls": "呼叫的後端 API",
+  "uiMap.components": "元件"
 }
