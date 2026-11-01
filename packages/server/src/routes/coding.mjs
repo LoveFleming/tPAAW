@@ -2768,14 +2768,58 @@ export default async function projectRoute(req, res) {
           return true;
         }
 
-        // Special handling: test-intelligence runs static analysis (no LLM needed)
+        // 2026-11-01 API-first：backfillFeatureTests 退役 → tests 回寫 api_features（副檔名配對：foo.ts ↔ foo.test.ts）
+async function backfillApiTests(root) {
+  try {
+    const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
+    const { saveApiFeatures } = await import("../lib/coding-db/api-features.repo.mjs");
+    const { readDoc, writeDoc } = await import("../lib/coding-db/docs.repo.mjs");
+    const apis = readApiFeatures(root) || [];
+    if (!apis.length) return 0;
+    const fileApiMap = readDoc(root, "fileApiMap");
+    const testsByFile = {};
+    if (fileApiMap?.files) {
+      // 用 test-intelligence 的 file 層資訊不可得時退回副檔名配對；先建 code→test 對照
+    }
+    let enriched = 0;
+    for (const a of apis) {
+      if ((a.tests || []).length) continue;
+      const matched = new Set();
+      for (const cf of a.codeFiles || []) {
+        const base = String(cf).replace(/\.[tj]sx?$/, "");
+        for (const t of apis) for (const tt of t.tests || []) {
+          const tb = String(tt).replace(/\.(test|spec)\.[tj]sx?$/, "");
+          if (tb === base) matched.add(tt);
+        }
+      }
+      // 沒有跨 API 測試池：直接掃 .paaw/code-intelligence/test-intelligence.json
+      if (!matched.size) {
+        try {
+          const ti = JSON.parse(await (await import("../lib/paaw-project.mjs")).createPaawProject(root).readFile("code-intelligence/test-intelligence.json") || "null");
+          const pool = [];
+          const walk = (v) => { if (Array.isArray(v)) v.forEach(walk); else if (typeof v === "string" && /\.(test|spec)\.[tj]sx?$/.test(v)) pool.push(v); };
+          walk(ti);
+          for (const cf of a.codeFiles || []) {
+            const base = String(cf).replace(/\.[tj]sx?$/, "");
+            for (const t of pool) if (String(t).replace(/\.(test|spec)\.[tj]sx?$/, "") === base) matched.add(t);
+          }
+        } catch {}
+      }
+      if (matched.size) { a.tests = [...matched]; enriched++; }
+    }
+    if (enriched) { saveApiFeatures(root, apis); if (fileApiMap) writeDoc(root, "fileApiMap", fileApiMap); }
+    return enriched;
+  } catch { return 0; }
+}
+
+// Special handling: test-intelligence runs static analysis (no LLM needed)
         if (step.id === "test-intelligence") {
           try {
             cuLog(step.id, "Building test intelligence...");
             const { summary, data: tiData } = await buildTestIntelligence(root, PAAW_ROOT);
             cuLog(step.id, `Test intelligence done: ${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`);
-            const tiEnriched = await backfillFeatureTests(root, tiData?.featureToTests); // 2026-09-04：tests 回寫 FEATURES.json
-            if (tiEnriched > 0) cuLog(step.id, `Backfilled tests into ${tiEnriched} feature(s)`);
+            const tiEnriched = await backfillApiTests(root); // 2026-11-01 API-first：tests 回寫 api_features
+            if (tiEnriched > 0) cuLog(step.id, `Backfilled tests into ${tiEnriched} API(s)`);
             sendEvent("step_done", {
               step: step.id,
               name: step.name,
@@ -3218,8 +3262,8 @@ export default async function projectRoute(req, res) {
               cuLog(step.id, "[bulk] Building test intelligence...");
               const { summary, data: tiData } = await buildTestIntelligence(root, PAAW_ROOT);
               cuLog(step.id, `[bulk] Test intelligence: ${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`);
-              const tiEnriched = await backfillFeatureTests(root, tiData?.featureToTests); // 2026-09-04：tests 回寫 FEATURES.json
-              if (tiEnriched > 0) cuLog(step.id, `[bulk] Backfilled tests into ${tiEnriched} feature(s)`);
+              const tiEnriched = await backfillApiTests(root); // 2026-11-01 API-first：tests 回寫 api_features
+              if (tiEnriched > 0) cuLog(step.id, `[bulk] Backfilled tests into ${tiEnriched} API(s)`);
               sendEvent("step_done", { step: step.id, name: step.name, summary: `${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`, stats: summary });
               try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.totalTestFiles} tests` }); } catch {}
             } catch (err) {
