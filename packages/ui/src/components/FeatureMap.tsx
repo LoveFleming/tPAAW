@@ -36,7 +36,7 @@ interface UiFlowStep { step?: number | string; action?: string; component?: stri
 interface UiFeature {
   id: string; category: string; route: string; name: string; description?: string;
   uiFlow?: UiFlowStep[]; components?: string[]; stateMgmt?: string;
-  apiCalls?: string[]; codeFiles?: string[]; tests?: string[]; severity?: string;
+  apiCalls?: string[]; codeFiles?: string[]; backendFiles?: string[]; tests?: string[]; severity?: string; kind?: string;
   createdAt?: string; updatedAt?: string;
 }
 
@@ -466,6 +466,9 @@ function UiDetail({ ui, theme, t, onOpenFile }: {
       <div className="px-4 py-3" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <span className="text-[10px] px-2 py-0.5 rounded font-bold" style={{ background: theme.bg, color: theme.accent }}>🖥️ PAGE</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: theme.bg, color: ui.kind === "fullstack" ? theme.accent : theme.text, opacity: ui.kind === "fullstack" ? 1 : 0.5 }}>
+            {ui.kind === "fullstack" ? "🔗 前後端" : "🧼 純前端"}
+          </span>
           <span className="text-sm font-mono font-bold break-all" style={{ color: theme.text }}>{ui.route}</span>
           {sv && <span className="text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0" style={{ background: sv.bg, color: sv.text }} title={t(sv.descKey)}>{sv.dot} {ui.severity}</span>}
           <span className="text-[10px] font-mono ml-auto shrink-0" style={{ color: theme.text, opacity: 0.4 }}>{ui.id}</span>
@@ -530,11 +533,20 @@ function UiDetail({ ui, theme, t, onOpenFile }: {
           </Section>
         )}
 
-        {/* Code Files */}
+        {/* 前端檔案 */}
         {codeFiles.length > 0 && (
-          <Section title={`📄 ${t("apiMap.codeFiles")}`} count={codeFiles.length} theme={theme}>
+          <Section title={`📄 ${t("uiMap.frontendFiles")}`} count={codeFiles.length} theme={theme}>
             <div className="flex flex-col gap-1">
               {codeFiles.map(f => <FileChip key={f} file={f} theme={theme} onOpenFile={onOpenFile} />)}
+            </div>
+          </Section>
+        )}
+
+        {/* 後端檔案（前後端切片） */}
+        {(ui.backendFiles || []).length > 0 && (
+          <Section title={`⚙️ ${t("uiMap.backendFiles")}`} count={(ui.backendFiles || []).length} theme={theme}>
+            <div className="flex flex-col gap-1">
+              {(ui.backendFiles || []).map(f => <FileChip key={f} file={f} theme={theme} onOpenFile={onOpenFile} />)}
             </div>
           </Section>
         )}

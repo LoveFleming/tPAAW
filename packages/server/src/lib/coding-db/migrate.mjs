@@ -401,4 +401,11 @@ CREATE UNIQUE INDEX ux_ui_route ON ui_features(route);
 CREATE INDEX idx_ui_category ON ui_features(category);
 `,
   },
+
+  {
+    // v8（2026-11-01 Fleming）：UI feature 分前後端 — code_files=前端檔、backend_files=後端檔、kind（frontend|fullstack）
+    version: 8,
+    sql: `ALTER TABLE ui_features ADD COLUMN backend_files TEXT;
+ALTER TABLE ui_features ADD COLUMN kind TEXT;`,
+  },
 ];

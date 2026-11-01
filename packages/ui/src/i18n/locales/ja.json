@@ -2048,5 +2048,7 @@
   "uiMap.colAction": "操作 / 画面",
   "uiMap.colComponent": "コンポーネント",
   "uiMap.apiCalls": "呼び出し API",
-  "uiMap.components": "コンポーネント"
+  "uiMap.components": "コンポーネント",
+  "uiMap.frontendFiles": "フロントファイル",
+  "uiMap.backendFiles": "バックエンドファイル（フルスタック）"
 }

@@ -45,6 +45,20 @@ describe("ui-features.repo", () => {
     expect(u.apiCalls).toEqual(["POST /api/learning/practice/generate"]);
   });
 
+  it("v8 前後端分離：backendFiles/kind（有後端檔=fullstack，純前端=frontend）", () => {
+    saveUiFeatures(root, [
+      { id: "U1", route: "/chat", name: "AI 老師", backendFiles: ["packages/server/src/routes/a2a.mjs"] },
+      { id: "U2", route: "/about", name: "關於頁" },
+    ]);
+    const all = readUiFeatures(root);
+    const chat = all.find(u => u.route === "/chat");
+    const about = all.find(u => u.route === "/about");
+    expect(chat.kind).toBe("fullstack");
+    expect(chat.backendFiles).toEqual(["packages/server/src/routes/a2a.mjs"]);
+    expect(about.kind).toBe("frontend");
+    expect(about.backendFiles).toEqual([]);
+  });
+
   it("findUiByApiCall：後端 entry 反查前端 route（跨端 impact）", () => {
     saveUiFeatures(root, [
       { id: "U1", route: "/practice", name: "A", apiCalls: ["POST /api/learning/practice/generate"] },

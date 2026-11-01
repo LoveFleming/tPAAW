@@ -18,10 +18,14 @@ export function saveUiFeatures(ruRoot, list) {
     db.prepare("DELETE FROM ui_features").run();
     const ins = db.prepare(`INSERT INTO ui_features
       (id, category, route, name, description, ui_flow, components, state_mgmt,
-       api_calls, code_files, tests, severity, custom, created_at, updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+       api_calls, code_files, tests, severity, custom, created_at, updated_at, backend_files, kind)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
     for (const f of items) {
       if (!f.route) continue; // 沒有 route 就不是前端進入點
+      const backendFiles = Array.isArray(f.backendFiles) ? f.backendFiles : [];
+      const codeFiles = Array.isArray(f.codeFiles) ? f.codeFiles : [];
+      // kind：有後端檔就是 fullstack（前後端都有），否則純前端 — 沒給就決定性計算
+      const kind = f.kind || (backendFiles.length > 0 ? "fullstack" : "frontend");
       ins.run(
         f.id ?? null,
         f.category || "uncategorized",
@@ -32,12 +36,14 @@ export function saveUiFeatures(ruRoot, list) {
         f.components === undefined ? null : JSON.stringify(f.components),
         f.stateMgmt ?? null,
         f.apiCalls === undefined ? null : JSON.stringify(f.apiCalls),
-        f.codeFiles === undefined ? null : JSON.stringify(f.codeFiles),
+        JSON.stringify(codeFiles),
         f.tests === undefined ? null : JSON.stringify(f.tests),
         f.severity ?? null,
         f.custom === undefined ? null : JSON.stringify(f.custom),
         f.createdAt ?? _now(),
         _now(),
+        JSON.stringify(backendFiles),
+        kind,
       );
     }
     db.exec("COMMIT");
@@ -58,6 +64,8 @@ function _row(r) {
     apiCalls: r.api_calls ? JSON.parse(r.api_calls) : [],
     codeFiles: r.code_files ? JSON.parse(r.code_files) : [],
     tests: r.tests ? JSON.parse(r.tests) : [],
+    backendFiles: r.backend_files ? JSON.parse(r.backend_files) : [],
+    kind: r.kind || ((r.backend_files ? JSON.parse(r.backend_files) : []).length > 0 ? "fullstack" : "frontend"),
     severity: r.severity,
     custom: r.custom ? JSON.parse(r.custom) : {},
     createdAt: r.created_at, updatedAt: r.updated_at,

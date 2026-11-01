@@ -2048,5 +2048,7 @@
   "uiMap.colAction": "互動 / 畫面",
   "uiMap.colComponent": "元件",
   "uiMap.apiCalls": "呼叫的後端 API",
-  "uiMap.components": "元件"
+  "uiMap.components": "元件",
+  "uiMap.frontendFiles": "前端檔案",
+  "uiMap.backendFiles": "後端檔案（前後端切片）"
 }
