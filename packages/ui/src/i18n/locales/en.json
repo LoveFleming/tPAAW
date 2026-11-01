@@ -2001,5 +2001,14 @@
   "ruInfo.sugRefreshLabel": "Refresh architecture",
   "ruInfo.sugRefreshPrompt": "The project changed recently — re-read the repo and refresh ai_architecture to match reality",
   "ruInfo.sugDescLabel": "Organize requirements",
-  "ruInfo.sugDescPrompt": "Let's discuss the requirements, then update description via project_edit(action=ru_info_update)"
+  "ruInfo.sugDescPrompt": "Let's discuss the requirements, then update description via project_edit(action=ru_info_update)",
+  "feature.byTable": "Table",
+  "feature.colId": "F-id",
+  "feature.colName": "Name",
+  "feature.colStatus": "Status",
+  "feature.colSeverity": "Severity",
+  "feature.colKind": "Kind",
+  "feature.colFiles": "Files",
+  "feature.colApis": "APIs",
+  "feature.colTests": "Tests"
 }

@@ -2001,5 +2001,14 @@
   "ruInfo.sugRefreshLabel": "アーキテクチャ更新",
   "ruInfo.sugRefreshPrompt": "最近変更があったので、repo を読み直して ai_architecture を最新化してください",
   "ruInfo.sugDescLabel": "要件を整理",
-  "ruInfo.sugDescPrompt": "要件について話し合い、project_edit(action=ru_info_update) で description を更新してください"
+  "ruInfo.sugDescPrompt": "要件について話し合い、project_edit(action=ru_info_update) で description を更新してください",
+  "feature.byTable": "テーブル",
+  "feature.colId": "F-id",
+  "feature.colName": "名前",
+  "feature.colStatus": "状態",
+  "feature.colSeverity": "深刻度",
+  "feature.colKind": "種類",
+  "feature.colFiles": "ファイル",
+  "feature.colApis": "API",
+  "feature.colTests": "テスト"
 }

@@ -5,7 +5,7 @@
  * Right: Feature detail showing code files, APIs, tests, runbooks, issues,
  *        AI understanding, and editable documentation
  */
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import { cn } from "../utils";
 import { useI18n } from "../i18n";
 import MarkdownText from "./MarkdownText";
@@ -179,7 +179,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
   const [editingDocs, setEditingDocs] = useState(false);
   const [docsContent, setDocsContent] = useState("");
   const [savingDocs, setSavingDocs] = useState(false);
-  const [viewMode, setViewMode] = useState<"features" | "files">("features");
+  const [viewMode, setViewMode] = useState<"features" | "files" | "table">("features");
   const [fetchError, setFetchError] = useState<string | null>(null);
   // RU model + callChain（Feature Cockpit 資料源 — deterministic，零 LLM）
   const [ruModel, setRuModel] = useState<any>(null);
@@ -384,6 +384,22 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
     borderColor: theme.borderLight,
   } as React.CSSProperties;
 
+  if ((viewMode as string) === "table") {
+    return (
+      <div className="h-full flex flex-col" style={{ background: theme.bg }}>
+        <style>{MD_COMPACT_STYLE}</style>
+        <FeatureTableGrid
+          features={features}
+          theme={theme}
+          t={t}
+          searchQuery={searchQuery}
+          ecMap={ecMap}
+          onSelectFeature={(id) => { setSelectedId(id); setEditingDocs(false); setViewMode("features"); }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full" style={{ background: theme.bg }}>
       <style>{MD_COMPACT_STYLE}</style>
@@ -423,6 +439,13 @@ export default function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: 
               style={{ background: viewMode === "files" ? theme.accentBg : theme.bg, color: viewMode === "files" ? theme.accent : theme.text, opacity: viewMode === "files" ? 1 : 0.5 }}
             >
               📄 {t("feature.byFile")}
+            </button>
+            <button
+              onClick={() => setViewMode("table")}
+              className="flex-1 text-xs py-0.5 transition-colors"
+              style={{ background: viewMode === "table" ? theme.accentBg : theme.bg, color: viewMode === "table" ? theme.accent : theme.text, opacity: viewMode === "table" ? 1 : 0.5 }}
+            >
+              📊 {t("feature.byTable")}
             </button>
           </div>
           {/* 🔀 橫切/缺口 面板開關 */}
@@ -1326,6 +1349,157 @@ function Section({ title, count, theme, children }: {
         {title} <span style={{ opacity: 0.5 }}>({count})</span>
       </h3>
       <div className="flex flex-col gap-1">{children}</div>
+    </div>
+  );
+}
+
+/* ═══ 📊 Feature Table Grid（2026-11-01 Fleming：table grid 檢視大 feature / subFeatures）═══ */
+type SortKey = "id" | "name" | "status" | "severity" | "files" | "apis" | "tests" | "subs";
+function featureKind(f: Feature): { label: string; emoji: string } {
+  const paths = (f.codeFiles || []).concat((f.subFeatures || []).flatMap(s => s.codeFiles || []));
+  if (paths.length === 0) return { label: "—", emoji: "❔" };
+  const hasUi = paths.some(p => /(^|\/)(ui|web|client|src\/components|packages\/ui)\//.test(p) || /\.(tsx|vue|svelte)$/.test(p));
+  const hasSrv = paths.some(p => /(^|\/)(server|api|packages\/server|routes)\//.test(p) || /\.(mjs|go|py)$/.test(p));
+  if (hasUi && hasSrv) return { label: "mixed", emoji: "🔀" };
+  if (hasUi) return { label: "frontend", emoji: "🎨" };
+  return { label: "backend", emoji: "⚙️" };
+}
+function FeatureTableGrid({ features, theme, t, searchQuery, ecMap, onSelectFeature }: {
+  features: Feature[];
+  theme: any;
+  t: (k: string) => string;
+  searchQuery: string;
+  ecMap: Map<string, { uniqueCount: number }>;
+  onSelectFeature: (id: string) => void;
+}) {
+  const [sortKey, setSortKey] = useState<SortKey>("files");
+  const [sortAsc, setSortAsc] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const q = searchQuery.trim().toLowerCase();
+  const rows = useMemo(() => {
+    let list = features.slice();
+    if (q) {
+      list = list.filter(f =>
+        f.id.toLowerCase().includes(q) || f.name.toLowerCase().includes(q) ||
+        (f.description || "").toLowerCase().includes(q) ||
+        (f.tags || []).some(tg => tg.toLowerCase().includes(q)) ||
+        (f.codeFiles || []).some(c => c.toLowerCase().includes(q))
+      );
+    }
+    const sevRank: Record<string, number> = { S0: 0, S1: 1, S2: 2 };
+    list.sort((a, b) => {
+      let d = 0;
+      switch (sortKey) {
+        case "id": d = a.id.localeCompare(b.id); break;
+        case "name": d = a.name.localeCompare(b.name); break;
+        case "status": d = a.status.localeCompare(b.status); break;
+        case "severity": d = (sevRank[a.severity || a.severitySuggested || "S9"] ?? 9) - (sevRank[b.severity || b.severitySuggested || "S9"] ?? 9); break;
+        case "apis": d = a.apis.length - b.apis.length; break;
+        case "tests": d = a.tests.length - b.tests.length; break;
+        case "subs": d = (a.subFeatures?.length || 0) - (b.subFeatures?.length || 0); break;
+        default: d = a.codeFiles.length - b.codeFiles.length;
+      }
+      return sortAsc ? d : -d;
+    });
+    return list;
+  }, [features, q, sortKey, sortAsc, searchQuery]);
+
+  const th = (key: SortKey): { onClick: () => void; className: string } => ({
+    onClick: () => { if (sortKey === key) setSortAsc(v => !v); else { setSortKey(key); setSortAsc(key === "id" || key === "name"); } },
+    className: "px-2 py-1.5 cursor-pointer select-none text-[10px] font-semibold uppercase tracking-wide text-left",
+  });
+
+  const thStyle = (key: SortKey): React.CSSProperties => ({ color: sortKey === key ? theme.accent : theme.text, opacity: sortKey === key ? 1 : 0.5, borderBottom: `1px solid ${theme.borderLight}`, whiteSpace: "nowrap" });
+  const tdStyle: React.CSSProperties = { color: theme.text, borderBottom: `1px solid ${theme.borderLight}`, padding: "4px 8px", verticalAlign: "middle" };
+
+  return (
+    <div className="flex-1 overflow-auto" data-testid="feature-table-grid">
+      <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
+        <thead className="sticky top-0 z-10" style={{ background: theme.bgMuted }}>
+          <tr>
+            <th {...th("id")} style={thStyle("id")}>F-id</th>
+            <th {...th("name")} style={thStyle("name")}>{t("feature.colName")}</th>
+            <th {...th("status")} style={thStyle("status")}>{t("feature.colStatus")}</th>
+            <th {...th("severity")} style={thStyle("severity")}>{t("feature.colSeverity")}</th>
+            <th style={{ ...{...thStyle("kind" as SortKey), cursor: "default"} }}>{t("feature.colKind")}</th>
+            <th {...th("files")} style={thStyle("files")}>📄 {t("feature.colFiles")}</th>
+            <th {...th("apis")} style={thStyle("apis")}>🌐 {t("feature.colApis")}</th>
+            <th {...th("tests")} style={thStyle("tests")}>🧪 {t("feature.colTests")}</th>
+            <th {...th("subs")} style={thStyle("subs")}>🧩 {t("feature.subFeatures")}</th>
+            <th style={{ ...thStyle("ai" as SortKey), cursor: "default" }}>🤖/📖</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(f => {
+            const st = STATUS_STYLES[f.status] || STATUS_STYLES.active;
+            const sev = f.severity || f.severitySuggested;
+            const kind = featureKind(f);
+            const subs = f.subFeatures || [];
+            const isOpen = expanded.has(f.id);
+            return (
+              <Fragment key={f.id}>
+                <tr
+                  className="cursor-pointer"
+                  style={{ background: isOpen ? theme.accentBg : "transparent" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = theme.bgMuted; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = isOpen ? theme.accentBg : "transparent"; }}
+                >
+                  <td style={{ ...tdStyle, opacity: 0.6 }} className="font-mono text-[10px]">{f.id}</td>
+                  <td style={tdStyle} className="font-medium max-w-[260px] truncate" title={f.description || f.name}>{f.name}</td>
+                  <td style={tdStyle}><span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: st.bg, color: st.text }}>{st.label}</span></td>
+                  <td style={tdStyle}>{sev ? <span className="text-[10px] px-1 py-0.5 rounded font-bold" style={{ opacity: f.severity ? 1 : 0.6 }}>{sev}{f.severity ? "👤" : "🤖"}</span> : <span style={{ opacity: 0.3 }}>—</span>}</td>
+                  <td style={tdStyle}><span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: theme.bgMuted, border: `1px solid ${theme.borderLight}` }}>{kind.emoji} {kind.label}</span></td>
+                  <td style={tdStyle} className="text-right font-mono">{f.codeFiles.length}</td>
+                  <td style={tdStyle} className="text-right font-mono">{f.apis.length}</td>
+                  <td style={tdStyle} className="text-right font-mono">{f.tests.length}</td>
+                  <td style={tdStyle} className="text-right">
+                    {subs.length > 0 ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setExpanded(prev => { const n = new Set(prev); n.has(f.id) ? n.delete(f.id) : n.add(f.id); return n; }); }}
+                        className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+                        style={{ background: theme.accentBg, color: theme.accent }}
+                      >
+                        {isOpen ? "▾" : "▸"} {subs.length}
+                      </button>
+                    ) : <span style={{ opacity: 0.3 }}>—</span>}
+                  </td>
+                  <td style={tdStyle} className="text-center text-[10px] whitespace-nowrap">
+                    {f.aiUnderstanding ? "🤖✅ " : ""}{f.documentation ? "📖✅" : ""}
+                  </td>
+                </tr>
+                {isOpen && subs.map((sf, i) => (
+                  <tr key={`${f.id}-sf-${sf.id || i}`} style={{ background: theme.bgMuted }}>
+                    <td style={{ ...tdStyle, opacity: 0.4 }} className="font-mono text-[10px] pl-6">{sf.id || `${f.id}-SF${i + 1}`}</td>
+                    <td style={tdStyle} className="pl-2">
+                      <span className="opacity-50 mr-1">└ 🧩</span>{sf.name}
+                      {sf.grade && <span className="ml-1.5 text-[10px] px-1 rounded" style={{ background: theme.bg, border: `1px solid ${theme.borderLight}`, opacity: 0.7 }}>{sf.grade}</span>}
+                    </td>
+                    <td style={{ ...tdStyle, opacity: 0.4 }} colSpan={2}>{sf.evidence?.consensus != null ? `consensus ${(sf.evidence.consensus * 100).toFixed(0)}%` : ""}</td>
+                    <td style={tdStyle} className="pl-2 opacity-50">sub</td>
+                    <td style={tdStyle} className="text-right font-mono">{(sf.codeFiles || []).length}</td>
+                    <td style={{ ...tdStyle, opacity: 0.3 }}>—</td>
+                    <td style={{ ...tdStyle, opacity: 0.3 }}>—</td>
+                    <td style={{ ...tdStyle, opacity: 0.3 }}>—</td>
+                    <td style={tdStyle} className="text-center text-[10px]">{sf.aiUnderstanding ? "🤖✅" : ""}</td>
+                  </tr>
+                ))}
+              </Fragment>
+            );
+          })}
+          {rows.length === 0 && (
+            <tr><td colSpan={10} style={{ ...tdStyle, textAlign: "center", padding: 24, opacity: 0.4 }}>{t("feature.empty")}</td></tr>
+          )}
+        </tbody>
+      </table>
+      {/* 檔尾統計 */}
+      <div className="px-3 py-1.5 text-[10px] flex gap-3 sticky bottom-0" style={{ color: theme.text, opacity: 0.5, background: theme.bgMuted, borderTop: `1px solid ${theme.borderLight}` }}>
+        <span>{rows.length} / {features.length} {t("feature.colName")}</span>
+        <span>📄 {rows.reduce((s, f) => s + f.codeFiles.length, 0)}</span>
+        <span>🌐 {rows.reduce((s, f) => s + f.apis.length, 0)}</span>
+        <span>🧪 {rows.reduce((s, f) => s + f.tests.length, 0)}</span>
+        <span>🧩 {rows.reduce((s, f) => s + (f.subFeatures?.length || 0), 0)}</span>
+      </div>
     </div>
   );
 }

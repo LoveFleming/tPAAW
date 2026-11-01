@@ -2001,5 +2001,14 @@
   "ruInfo.sugRefreshLabel": "刷新架構",
   "ruInfo.sugRefreshPrompt": "最近專案有變動，請重新讀 repo 刷新 ai_architecture，保持跟現況一致",
   "ruInfo.sugDescLabel": "整理需求",
-  "ruInfo.sugDescPrompt": "跟我聊聊這個專案的需求，整理成清楚的 high level 需求說明後用 project_edit(action=ru_info_update) 更新 description"
+  "ruInfo.sugDescPrompt": "跟我聊聊這個專案的需求，整理成清楚的 high level 需求說明後用 project_edit(action=ru_info_update) 更新 description",
+  "feature.byTable": "Table 表格",
+  "feature.colId": "F-id",
+  "feature.colName": "Name 名稱",
+  "feature.colStatus": "Status 狀態",
+  "feature.colSeverity": "Severity 嚴重度",
+  "feature.colKind": "Kind",
+  "feature.colFiles": "Files 檔案",
+  "feature.colApis": "APIs",
+  "feature.colTests": "Tests 測試"
 }
