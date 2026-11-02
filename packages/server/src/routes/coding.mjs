@@ -291,6 +291,90 @@ function parseQuery(url) {
 
 // ── Route Handler ──
 
+// ── CU 共用 helpers（2026-11-02 修正：原宣告在 ai-initial-step 單步 route 的 block 內 →
+// block-scoped function declaration，bulk ai-initial 路徑看不到 → "X is not defined"。搬到 module top-level）──
+// 2026-11-01 API-first：LLM JSON array 解析（code fence 剝除 + 截斷修復）
+function _extractJsonArray(text) {
+  if (Array.isArray(text)) return text;
+  const raw = String(text || "").replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+  if (!raw) return null;
+  try { const v = JSON.parse(raw); return Array.isArray(v) ? v : null; } catch {}
+  // 取第一個 [ 起；結尾有 ] 用它，沒有（截斷）就取到尾
+  const i = raw.indexOf("[");
+  if (i === -1) return null;
+  const j = raw.lastIndexOf("]");
+  const slice = j > i ? raw.slice(i, j + 1) : raw.slice(i);
+  try { const v = JSON.parse(slice); return Array.isArray(v) ? v : null; } catch {}
+  // 截斷修復：補好未關閉的物件/字串/陣列
+  let t = slice, inStr = false, esc = false;
+  const stack = [];
+  for (let k = 0; k < t.length; k++) {
+    const c = t[k];
+    if (esc) { esc = false; continue; }
+    if (c === "\\") { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === "[" || c === "{") stack.push(c === "[" ? "]" : "}");
+    else if (c === "]" || c === "}") stack.pop();
+  }
+  if (inStr) t += '"';
+  while (stack.length) {
+    // 關閉前先剝掉懸掛逗號 / 半截 key-value（"key": → 整組丟）
+    t = t.replace(/,?\s*"[^"]*"\s*:\s*$/, "").replace(/,\s*$/, "");
+    const tail = t.slice(-1);
+    if (tail === "{" || tail === "[" || tail === ":") { t = t.slice(0, -1); continue; }
+    const closer = stack.pop();
+    if (tail === ":") t += "null"; // 半截 "key": → 補 null 值
+    t += closer;
+  }
+  try { const v = JSON.parse(t); return Array.isArray(v) ? v : null; } catch { return null; }
+}
+
+// 2026-11-01 API-first：backfillFeatureTests 退役 → tests 回寫 api_features（副檔名配對：foo.ts ↔ foo.test.ts）
+async function backfillApiTests(root) {
+  try {
+    const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
+    const { saveApiFeatures } = await import("../lib/coding-db/api-features.repo.mjs");
+    const { readDoc, writeDoc } = await import("../lib/coding-db/docs.repo.mjs");
+    const apis = readApiFeatures(root) || [];
+    if (!apis.length) return 0;
+    const fileApiMap = readDoc(root, "fileApiMap");
+    const testsByFile = {};
+    if (fileApiMap?.files) {
+      // 用 test-intelligence 的 file 層資訊不可得時退回副檔名配對；先建 code→test 對照
+    }
+    let enriched = 0;
+    for (const a of apis) {
+      if ((a.tests || []).length) continue;
+      const matched = new Set();
+      for (const cf of a.codeFiles || []) {
+        const base = String(cf).replace(/\.[tj]sx?$/, "");
+        for (const t of apis) for (const tt of t.tests || []) {
+          const tb = String(tt).replace(/\.(test|spec)\.[tj]sx?$/, "");
+          if (tb === base) matched.add(tt);
+        }
+      }
+      // 沒有跨 API 測試池：直接掃 .paaw/code-intelligence/test-intelligence.json
+      if (!matched.size) {
+        try {
+          const ti = JSON.parse(await (await import("../lib/paaw-project.mjs")).createPaawProject(root).readFile("code-intelligence/test-intelligence.json") || "null");
+          const pool = [];
+          const walk = (v) => { if (Array.isArray(v)) v.forEach(walk); else if (typeof v === "string" && /\.(test|spec)\.[tj]sx?$/.test(v)) pool.push(v); };
+          walk(ti);
+          for (const cf of a.codeFiles || []) {
+            const base = String(cf).replace(/\.[tj]sx?$/, "");
+            for (const t of pool) if (String(t).replace(/\.(test|spec)\.[tj]sx?$/, "") === base) matched.add(t);
+          }
+        } catch {}
+      }
+      if (matched.size) { a.tests = [...matched]; enriched++; }
+    }
+    if (enriched) { saveApiFeatures(root, apis); if (fileApiMap) writeDoc(root, "fileApiMap", fileApiMap); }
+    return enriched;
+  } catch { return 0; }
+}
+
+
 export default async function projectRoute(req, res) {
   const method = req.method;
   const rawUrl = req.url || "";
@@ -2784,88 +2868,7 @@ export default async function projectRoute(req, res) {
           return true;
         }
 
-        // 2026-11-01 API-first：LLM JSON array 解析（code fence 剝除 + 截斷修復）
-function _extractJsonArray(text) {
-  if (Array.isArray(text)) return text;
-  const raw = String(text || "").replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
-  if (!raw) return null;
-  try { const v = JSON.parse(raw); return Array.isArray(v) ? v : null; } catch {}
-  // 取第一個 [ 起；結尾有 ] 用它，沒有（截斷）就取到尾
-  const i = raw.indexOf("[");
-  if (i === -1) return null;
-  const j = raw.lastIndexOf("]");
-  const slice = j > i ? raw.slice(i, j + 1) : raw.slice(i);
-  try { const v = JSON.parse(slice); return Array.isArray(v) ? v : null; } catch {}
-  // 截斷修復：補好未關閉的物件/字串/陣列
-  let t = slice, inStr = false, esc = false;
-  const stack = [];
-  for (let k = 0; k < t.length; k++) {
-    const c = t[k];
-    if (esc) { esc = false; continue; }
-    if (c === "\\") { esc = true; continue; }
-    if (c === '"') { inStr = !inStr; continue; }
-    if (inStr) continue;
-    if (c === "[" || c === "{") stack.push(c === "[" ? "]" : "}");
-    else if (c === "]" || c === "}") stack.pop();
-  }
-  if (inStr) t += '"';
-  while (stack.length) {
-    // 關閉前先剝掉懸掛逗號 / 半截 key-value（"key": → 整組丟）
-    t = t.replace(/,?\s*"[^"]*"\s*:\s*$/, "").replace(/,\s*$/, "");
-    const tail = t.slice(-1);
-    if (tail === "{" || tail === "[" || tail === ":") { t = t.slice(0, -1); continue; }
-    const closer = stack.pop();
-    if (tail === ":") t += "null"; // 半截 "key": → 補 null 值
-    t += closer;
-  }
-  try { const v = JSON.parse(t); return Array.isArray(v) ? v : null; } catch { return null; }
-}
-
-// 2026-11-01 API-first：backfillFeatureTests 退役 → tests 回寫 api_features（副檔名配對：foo.ts ↔ foo.test.ts）
-async function backfillApiTests(root) {
-  try {
-    const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
-    const { saveApiFeatures } = await import("../lib/coding-db/api-features.repo.mjs");
-    const { readDoc, writeDoc } = await import("../lib/coding-db/docs.repo.mjs");
-    const apis = readApiFeatures(root) || [];
-    if (!apis.length) return 0;
-    const fileApiMap = readDoc(root, "fileApiMap");
-    const testsByFile = {};
-    if (fileApiMap?.files) {
-      // 用 test-intelligence 的 file 層資訊不可得時退回副檔名配對；先建 code→test 對照
-    }
-    let enriched = 0;
-    for (const a of apis) {
-      if ((a.tests || []).length) continue;
-      const matched = new Set();
-      for (const cf of a.codeFiles || []) {
-        const base = String(cf).replace(/\.[tj]sx?$/, "");
-        for (const t of apis) for (const tt of t.tests || []) {
-          const tb = String(tt).replace(/\.(test|spec)\.[tj]sx?$/, "");
-          if (tb === base) matched.add(tt);
-        }
-      }
-      // 沒有跨 API 測試池：直接掃 .paaw/code-intelligence/test-intelligence.json
-      if (!matched.size) {
-        try {
-          const ti = JSON.parse(await (await import("../lib/paaw-project.mjs")).createPaawProject(root).readFile("code-intelligence/test-intelligence.json") || "null");
-          const pool = [];
-          const walk = (v) => { if (Array.isArray(v)) v.forEach(walk); else if (typeof v === "string" && /\.(test|spec)\.[tj]sx?$/.test(v)) pool.push(v); };
-          walk(ti);
-          for (const cf of a.codeFiles || []) {
-            const base = String(cf).replace(/\.[tj]sx?$/, "");
-            for (const t of pool) if (String(t).replace(/\.(test|spec)\.[tj]sx?$/, "") === base) matched.add(t);
-          }
-        } catch {}
-      }
-      if (matched.size) { a.tests = [...matched]; enriched++; }
-    }
-    if (enriched) { saveApiFeatures(root, apis); if (fileApiMap) writeDoc(root, "fileApiMap", fileApiMap); }
-    return enriched;
-  } catch { return 0; }
-}
-
-// Special handling: test-intelligence runs static analysis (no LLM needed)
+        // Special handling: test-intelligence runs static analysis (no LLM needed)
         if (step.id === "test-intelligence") {
           try {
             cuLog(step.id, "Building test intelligence...");
@@ -3143,7 +3146,8 @@ async function backfillApiTests(root) {
                 const uis = _extractJsonArray(content);
                 // 2026-11-02：純後端專案（無前端 route）→ LLM 回非 JSON 說明文 → 合法結果：空 UI Map 標 done，不報錯（guardrail-hub 實案例）
                 if (!Array.isArray(uis) || uis.length === 0) {
-                  if (content.trim() === "[]" || /沒有|無|no\s+(frontend|ui|route|page)|backend[- ]?only|not found|純後端/i.test(content)) {
+                  const _bareUi = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+                  if (_bareUi === "[]" || /沒有|無|no\s+(frontend|ui|route|page)|backend[- ]?only|not found|純後端|後端(專案|項目|服務)/i.test(content)) {
                     const { saveUiFeatures } = await import("../lib/coding-db/ui-features.repo.mjs");
                     saveUiFeatures(root, []);
                     await paaw.writeFile("ui-map.json", "[]");
@@ -3602,7 +3606,8 @@ async function backfillApiTests(root) {
                   const uis = _extractJsonArray(content);
                   // 2026-11-02：純後端專案 → 空 UI Map 標 done（同單步版）
                   if (!Array.isArray(uis) || uis.length === 0) {
-                    if (content.trim() === "[]" || /沒有|無|no\s+(frontend|ui|route|page)|backend[- ]?only|not found|純後端/i.test(content)) {
+                    const _bareUi = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+                    if (_bareUi === "[]" || /沒有|無|no\s+(frontend|ui|route|page)|backend[- ]?only|not found|純後端|後端(專案|項目|服務)/i.test(content)) {
                       const { saveUiFeatures } = await import("../lib/coding-db/ui-features.repo.mjs");
                       saveUiFeatures(root, []);
                       await paaw.writeFile("ui-map.json", "[]");
