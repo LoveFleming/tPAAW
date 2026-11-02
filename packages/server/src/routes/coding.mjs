@@ -3141,7 +3141,20 @@ async function backfillApiTests(root) {
                 const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
                 if (!cleanJson) throw new Error("AI 回應為空，無法產生 UI Map");
                 const uis = _extractJsonArray(content);
-                if (!Array.isArray(uis) || uis.length === 0) throw new Error("UI Map 解析失敗（非 JSON array）");
+                // 2026-11-02：純後端專案（無前端 route）→ LLM 回非 JSON 說明文 → 合法結果：空 UI Map 標 done，不報錯（guardrail-hub 實案例）
+                if (!Array.isArray(uis) || uis.length === 0) {
+                  if (content.trim() === "[]" || /沒有|無|no\s+(frontend|ui|route|page)|backend[- ]?only|not found|純後端/i.test(content)) {
+                    const { saveUiFeatures } = await import("../lib/coding-db/ui-features.repo.mjs");
+                    saveUiFeatures(root, []);
+                    await paaw.writeFile("ui-map.json", "[]");
+                    cuLog(step.id, `Saved 0 UI features（backend-only 專案）`);
+                    sendEvent("step_done", { step: step.id, name: step.name, size: 2, preview: "[]" });
+                    try { await paaw.setCuStepStatus(step.id, "done", { size: 2, summary: "0 UI features（backend-only）" }); } catch {}
+                    res.end();
+                    return true;
+                  }
+                  throw new Error("UI Map 解析失敗（非 JSON array）");
+                }
                 const { todayStamp } = await import("../lib/feature-registry.mjs");
                 const prefix = `U${todayStamp()}-`;
                 const now = new Date().toISOString();
@@ -3587,7 +3600,19 @@ async function backfillApiTests(root) {
                   const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
                   if (!cleanJson) throw new Error("AI 回應為空，無法產生 UI Map");
                   const uis = _extractJsonArray(content);
-                  if (!Array.isArray(uis) || uis.length === 0) throw new Error("UI Map 解析失敗（非 JSON array）");
+                  // 2026-11-02：純後端專案 → 空 UI Map 標 done（同單步版）
+                  if (!Array.isArray(uis) || uis.length === 0) {
+                    if (content.trim() === "[]" || /沒有|無|no\s+(frontend|ui|route|page)|backend[- ]?only|not found|純後端/i.test(content)) {
+                      const { saveUiFeatures } = await import("../lib/coding-db/ui-features.repo.mjs");
+                      saveUiFeatures(root, []);
+                      await paaw.writeFile("ui-map.json", "[]");
+                      cuLog(step.id, `Saved 0 UI features（backend-only 專案）`);
+                      sendEvent("step_done", { step: step.id, name: step.name, size: 2, preview: "[]" });
+                      try { await paaw.setCuStepStatus(step.id, "done", { size: 2, summary: "0 UI features（backend-only）" }); } catch {}
+                      return;
+                    }
+                    throw new Error("UI Map 解析失敗（非 JSON array）");
+                  }
                   const { todayStamp } = await import("../lib/feature-registry.mjs");
                   const prefix = `U${todayStamp()}-`;
                   const now = new Date().toISOString();

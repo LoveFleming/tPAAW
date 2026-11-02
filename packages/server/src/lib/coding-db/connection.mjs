@@ -60,7 +60,20 @@ function _migrate(db) {
     if (m.version > current) {
       try {
         db.exec("BEGIN");
-        db.exec(m.sql);
+        try {
+          db.exec(m.sql);
+        } catch (ddlErr) {
+          // 2026-11-02：舊 db（v2 schema 落地前由各 repo 直接建表，如 guardrail-hub 實案例）
+          // 已有同名表 → CREATE TABLE 报 already exists。逐句重跑、容忍 already exists/duplicate column，
+          // 其餘錯誤照舊 bubble（不搞不清楚的靜默吞掉）。
+          if (!/already exists|duplicate column/i.test(ddlErr.message)) throw ddlErr;
+          for (const stmt of m.sql.split(";")) {
+            const s = stmt.trim();
+            if (!s) continue;
+            try { db.exec(s); }
+            catch (e) { if (!/already exists|duplicate column/i.test(e.message)) throw e; }
+          }
+        }
         db.prepare("INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('schema_version', ?)").run(String(m.version));
         db.exec("COMMIT");
         current = m.version;
