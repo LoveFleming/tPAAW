@@ -618,7 +618,7 @@ export default async function codingFeaturesRoute(req, res) {
   const understandMatch = url.match(/^\/api\/coding-features\/([^/?]+)\/understand$/);
   if (understandMatch && method === "POST") {
     const id = decodeURIComponent(understandMatch[1]);
-    const subKey = q.sub || null;
+    let subKey = q.sub || null;
     const features = await loadFeatures(projRoot);
     const idx = features.findIndex(f => f.id === id);
     if (idx < 0) {

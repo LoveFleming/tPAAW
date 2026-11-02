@@ -215,7 +215,7 @@ export default async function apiTesterRoute(req, res) {
     let body;
     try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
     const ru = body.path || null; // 2026-09-29：RU-scoped
-    const history = _loadHistoryFor(ru);
+    let history = _loadHistoryFor(ru);
     const { path: _ruPath, ...histItem } = body; // path 是路由參數，不存進 history item
     history.unshift({ ...histItem, id: `req-${Date.now()}`, ts: new Date().toISOString() });
     if (history.length > 100) history = history.slice(0, 100);

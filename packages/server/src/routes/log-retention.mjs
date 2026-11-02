@@ -147,8 +147,8 @@ export async function runLogPurge(options = {}) {
   }
   const agentDeleted = cfg.agentDays > 0 ? await cleanupOldAgentLogs(cfg.agentDays) : 0;
   const otherDeleted = await purgeOtherLogs(cfg.otherDays);
-  otherDeleted += await purgeAssetOtherLogs(cfg.otherDays); // log/logs 內非資產子目錄（cron 等）
-  return { cfg, llmDeleted, agentDeleted, otherDeleted };
+  const assetDeleted = await purgeAssetOtherLogs(cfg.otherDays); // log/logs 內非資產子目錄（cron 等）
+  return { cfg, llmDeleted, agentDeleted, otherDeleted: otherDeleted + assetDeleted };
 }
 
 export default async function logRetentionRoutes(req, res) {

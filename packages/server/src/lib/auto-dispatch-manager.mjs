@@ -1012,7 +1012,7 @@ export async function runParallelSession(opts = {}) {
     return { summary: `❌ Doc phase failed: ${err.message}`, reviewed: false, iterations: 0 };
   });
 
-  const report = generateParallelReport(agentResults, ctx, dynamicCrewLabels) +
+  let report = generateParallelReport(agentResults, ctx, dynamicCrewLabels) +
     (docResult.summary ? `\n\n---\n\n## 📝 文檔更新\n\n${docResult.summary}\n` : "");
 
   // ── Feature Boundary Violations Summary ──
