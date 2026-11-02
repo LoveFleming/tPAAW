@@ -3453,7 +3453,9 @@ export default async function projectRoute(req, res) {
 
           const promptTemplate = loadProjectPrompt(step.promptFile);
           if (!promptTemplate) {
-            sendEvent("step_skip", { step: step.id, name: step.name, reason: "Prompt template not found" });
+            // 2026-11-02：靜默 skip 是公司端大踩雷（UI 顯示 skip 但 log/console 完全無痕）→ 加 log
+            cuLog(step.id, `[bulk] SKIPPED: prompt template not found (data/prompts/code-understanding/${step.promptFile}) — deploy 包沒帶 data/ 或檔案遺失`);
+            sendEvent("step_skip", { step: step.id, name: step.name, reason: `Prompt template not found: ${step.promptFile}` });
             continue;
           }
 
