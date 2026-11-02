@@ -13,7 +13,7 @@
 //      runLogPurge 政策執行（llmDays 檔名日期 / agentDays mtime / otherDays 頂層散檔 /
 //      before 顯式日期）、POST /api/logs/purge 端點
 //
-// ⚠️ ISS-044（tester 發現，待 developer 修）：log-retention.mjs runLogPurge 內
+// ⚠️ ISS-044（tester 發現）：log-retention.mjs runLogPurge 內
 //    `const otherDeleted` 後 `+=` 重賦值 → TypeError，POST /api/logs/purge 必 500。
 //    政策測試以 try/catch 雙分支寫成自癒式（修復前釘 bug 形狀+驗副作用、修復後自動驗統計）；
 //    POST 端點測試用 it.fails 明確釘住 — 修復後該測試會轉紅，移除 .fails 即全綠。
@@ -416,7 +416,9 @@ describe("routes/log-retention — POST /api/logs/purge 端點", () => {
   // ⚠️ it.fails（ISS-044）：runLogPurge 的 const += bug 使此端點現況必 500。
   // developer 修復（log-retention.mjs L150 const → let）後本測試會「意外通過」而轉紅
   // — 移除 .fails 即全綠，屆時端點契約（200 + 三類統計）由本測試長期看守。
-  it.fails("POST /api/logs/purge 回 200 與三類刪除統計（ISS-044 修復後移除 .fails）", async () => {
+// ✅ ISS-044 已修（2026-11-02，commit 791ea99b：log-retention.mjs L150 const → 拆 assetDeleted）。
+// 端點契約（200 + 三類統計）由本測試長期看守。
+  it("POST /api/logs/purge 回 200 與三類刪除統計（ISS-044 已修復）", async () => {
     // 關閉 janitor（POST purge 連帶執行 runJanitor，避免掃真實 PAAW_ROOT）
     mkdirSync(join(TMP, "config"), { recursive: true });
     writeFileSync(join(TMP, "config", "janitor.json"), JSON.stringify({ enabled: false }));

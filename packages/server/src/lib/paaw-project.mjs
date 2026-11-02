@@ -813,8 +813,12 @@ export class PaawProject {
     if (status === "done" && patch.codeCommit === undefined) {
       try { patch.codeCommit = await getHeadCommit(this.root) || undefined; } catch {}
     }
+    // 2026-11-02：step 標 done 時清掉上一次失敗殘留的 error —
+    // 否則 UI 永遠顯示舊錯誤（learning-space 實案例：修復後重跑成功，error 欄位還在）
+    if (status === "done") delete patch.error;
     // merge 語意：保留先前欄位（如 codeMtime / summary）— 重複標 done 不會清掉寶貴 meta
     cuStatus.steps[stepId] = { ...cuStatus.steps[stepId], status, ...patch, updatedAt: new Date().toISOString() };
+    if (status === "done") delete cuStatus.steps[stepId].error; // 防禦：舊 steps 物件 merge 後仍可能帶舊 error
     await writeFile(join(this.paawDir, "cu-status.json"), JSON.stringify(cuStatus, null, 2), "utf-8");
   }
 
