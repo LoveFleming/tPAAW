@@ -55,7 +55,8 @@ function hostInfo() {
 // 2026-10-24（Fleming）：audit @timestamp 一律 Asia/Taipei +08:00（與本地日期檔名對齊；
 // 公司 Linux 主機時區不一也不飄）— ISO 8601 帶 offset，ES 仍可解析
 const _tpeTs = () => {
-  const t = new Date(Date.now() + (8 * 60 + new Date().getTimezoneOffset()) * 60000);
+  // 台北牆上時間 = 瞬間 +8h，與機器時區無關（原公式 +getTimezoneOffset 在非 UTC 機器上會寫成 UTC 牆上時間掛 +08:00 標籤）
+  const t = new Date(Date.now() + 8 * 3600 * 1000);
   return t.toISOString().replace("Z", "+08:00");
 };
 
