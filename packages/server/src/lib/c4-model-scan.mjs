@@ -12,6 +12,8 @@
  */
 import { existsSync, readFileSync, writeFileSync, readdirSync } from "fs";
 import { join, resolve, relative, extname } from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 import { DATA_HOME } from "../data-home.mjs";
 import { stableStringify } from "./stable-stringify.mjs";
 
@@ -259,7 +261,8 @@ export function collectExternalSignals(root) {
 function _loadTemplate(projectRoot) {
   const override = join(projectRoot, ".paaw", "prompts", "code-understanding", "c4-model.md");
   if (existsSync(override)) { try { return readFileSync(override, "utf-8"); } catch {} }
-  try { return readFileSync(join(DATA_HOME, "prompts", "code-understanding", "c4-model.md"), "utf-8"); } catch { return ""; }
+  try { return readFileSync(join(DATA_HOME, "prompts", "code-understanding", "c4-model.md"), "utf-8"); } catch {}
+  try { return readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../prompts/code-understanding/c4-model.md"), "utf-8"); } catch { return ""; } // 2026-11-02：packages 內建 fallback
 }
 
 const _str = (v, max = 200) => typeof v === "string" ? v.slice(0, max) : "";

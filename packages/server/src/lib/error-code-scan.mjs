@@ -16,6 +16,8 @@
  */
 import { existsSync, readFileSync, writeFileSync, readdirSync, mkdirSync } from "fs";
 import { join, resolve, relative, extname } from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 import { DATA_HOME } from "../data-home.mjs";
 import { loadProjectIgnore } from "./cu-source-scan.mjs";
 import { stableStringify } from "./stable-stringify.mjs";
@@ -153,7 +155,8 @@ const KIND_RANK = { throw: 0, http: 1, "error-call": 2, "error-ref": 3 };
 export function loadEcPromptTemplate(projectRoot) {
   const override = join(projectRoot, ".paaw", "prompts", "code-understanding", "error-codes.md");
   if (existsSync(override)) { try { return readFileSync(override, "utf-8"); } catch {} }
-  try { return readFileSync(join(DATA_HOME, "prompts", "code-understanding", "error-codes.md"), "utf-8"); } catch { return ""; }
+  try { return readFileSync(join(DATA_HOME, "prompts", "code-understanding", "error-codes.md"), "utf-8"); } catch {}
+  try { return readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../prompts/code-understanding/error-codes.md"), "utf-8"); } catch { return ""; } // 2026-11-02：packages 內建 fallback
 }
 
 function _normCode(c) {

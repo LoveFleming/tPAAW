@@ -59,6 +59,10 @@ import { rescanMechanicalLayer } from "../lib/cu-mechanical.mjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
+// 2026-11-02 Fleming：CU prompt 屬於程式的一部分 → 隨 packages 走（packages/server/src/prompts/）。
+// data/prompts/code-understanding/ 保留為向後相容的覆蓋點（舊安裝自訂過的還能用）。
+// 載入優先序：.paaw/prompts（RU 覆蓋） > ai-settings/coding > data/prompts（舊） > packages 內建
+const BUNDLED_PROMPTS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "prompts", "code-understanding");
 
 // ── CU lifecycle raw materials — 輕量掃 source file 數（純 node fs，跨平台，不碰 node_modules）──
 // 用途：判斷「代碼尚少（no-code）」— 剛建立/剛 import 的專案 code 還沒成形，
@@ -2782,7 +2786,8 @@ export default async function projectRoute(req, res) {
         const loadPrompt = (filename) => {
           // Priority: ai-settings/coding/ > prompts/code-understanding/
           try { return readSync(resolve(aiSettingsDir, filename), "utf-8"); } catch {}
-          try { return readSync(resolve(promptsDir, filename), "utf-8"); } catch { return ""; }
+          try { return readSync(resolve(promptsDir, filename), "utf-8"); } catch {}
+          try { return readSync(resolve(BUNDLED_PROMPTS_DIR, filename), "utf-8"); } catch { return ""; } // 2026-11-02：packages 內建 fallback
         };
         const loadProjectPrompt = (filename) => {
           // Priority: .paaw/prompts/ > ai-settings/coding/ > prompts/code-understanding/
@@ -3290,7 +3295,8 @@ export default async function projectRoute(req, res) {
         const loadPrompt = (filename) => {
           // Priority: ai-settings/coding/ > prompts/code-understanding/
           try { return readSync(resolve(aiSettingsDir, filename), "utf-8"); } catch {}
-          try { return readSync(resolve(promptsDir, filename), "utf-8"); } catch { return ""; }
+          try { return readSync(resolve(promptsDir, filename), "utf-8"); } catch {}
+          try { return readSync(resolve(BUNDLED_PROMPTS_DIR, filename), "utf-8"); } catch { return ""; } // 2026-11-02：packages 內建 fallback
         };
 
         // Check project-level overrides in .paaw/prompts/code-understanding/
@@ -3968,7 +3974,7 @@ export default async function projectRoute(req, res) {
     }
 
     if (url.startsWith("/api/coding-project/prompts") && method === "GET" && !url.includes("/prompts/")) {
-      const promptsDir = join(DATA_HOME, "prompts", "code-understanding");
+      const promptsDir = BUNDLED_PROMPTS_DIR; // 2026-11-02：prompt 內建於 packages（隨部署走）
       const projectPromptsDir = join(root, ".paaw", "prompts", "code-understanding");
       try {
         const files = existsSync(promptsDir) ? await readdir(promptsDir) : [];

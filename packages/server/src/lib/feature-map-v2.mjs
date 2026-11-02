@@ -21,7 +21,8 @@
  *
  * 決定論保證：2 是純數學；LLM 只長肉。骨架同 repo 重跑必相同。
  */
-import { join, resolve as resolvePath } from "path";
+import { join, resolve as resolvePath, dirname } from "path";
+import { fileURLToPath } from "url";
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, statSync } from "fs";
 import { parseProject } from "./tree-sitter-parser.mjs";
 import { buildDeterministicFeatureMap } from "./code-graph.mjs";
@@ -39,7 +40,8 @@ const _arr = (v, max = 40) => (Array.isArray(v) ? v.filter(x => typeof x === "st
 function _loadTemplate(projectRoot) {
   const override = join(projectRoot, ".paaw", "prompts", "code-understanding", "feature-map-v2.md");
   if (existsSync(override)) { try { return readFileSync(override, "utf-8"); } catch {} }
-  try { return readFileSync(join(DATA_HOME, "prompts", "code-understanding", "feature-map-v2.md"), "utf-8"); } catch { return ""; }
+  try { return readFileSync(join(DATA_HOME, "prompts", "code-understanding", "feature-map-v2.md"), "utf-8"); } catch {}
+  try { return readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../prompts/code-understanding/feature-map-v2.md"), "utf-8"); } catch { return ""; } // 2026-11-02：packages 內建 fallback
 }
 
 /** 從 agent 最終回覆抽 JSON（取最後一個 fence；沒 fence 就整段試 parse）
