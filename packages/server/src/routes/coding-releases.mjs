@@ -557,6 +557,73 @@ export default async function releaseRoutes(req, res, next) {
     }
   }
 
+  // ── api-status 共用計算（GET 直接回；POST api-summary 拿去給 AI 摘要）──
+  const _buildApiStatus = async (projectPath) => {
+    const root = resolve(projectPath);
+    const { readApiFeatures, readUiFeatures } = await import("../lib/coding-db/reads.mjs");
+    const apis = readApiFeatures(root);
+    const uis = readUiFeatures(root);
+    // baseline：上次 release（無 = 首發，全視為新）— 與 readiness 同邏輯但輕量（只拿檔案清單）
+    const releases = await listReleases(projectPath);
+    let changedSet = null;
+    try {
+      const since = releases[0]?.releasedAt || null;
+      const gitArgs = since ? `git log --since="${since}" --name-only --pretty=format: -- packages data server src web app` : `git log --name-only --pretty=format: -- packages data server src web app`;
+      const { stdout } = await shellExec(gitArgs, { cwd: root, timeout: 15000 });
+      changedSet = new Set(stdout.split("\n").map(l => l.trim()).filter(Boolean));
+    } catch { changedSet = null; } // 非 git / git 失敗 → 不標變更
+    const rows = apis.map(a => {
+      const refs = uis.filter(u => (u.apiCalls || []).some(c => String(c).toLowerCase() === String(a.entry).toLowerCase()));
+      const changed = changedSet ? (a.codeFiles || []).some(f => changedSet.has(String(f).replace(/\\/g, "/"))) : null;
+      return { entry: a.entry, name: a.name, category: a.category, tests: (a.tests || []).length, frontendRefs: refs.map(u => u.route), changed };
+    });
+    const withTests = rows.filter(r => r.tests > 0).length;
+    const changedCount = rows.filter(r => r.changed === true).length;
+    return {
+      ok: true,
+      backend: { total: rows.length, withTests },
+      frontend: {
+        pages: uis.length,
+        apiCallsTotal: new Set(uis.flatMap(u => u.apiCalls || []).map(c => String(c).toLowerCase())).size,
+        orphanCalls: [...new Set(uis.flatMap(u => u.apiCalls || []))].filter(c => !rows.some(r => r.entry.toLowerCase() === String(c).toLowerCase())).slice(0, 20),
+      },
+      changedSinceRelease: changedSet ? changedCount : null,
+      apis: rows,
+      generatedAt: new Date().toISOString(),
+    };
+  };
+
+  // ── GET api-status — 前後端 API 清點 + 測試狀態 + baseline 後變更（2026-11-03 Fleming：Release Manager 一鍵看現狀）──
+  if (url === "/api/coding-releases/api-status" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first
+    try {
+      return res.json(await _buildApiStatus(projectPath));
+    } catch (e) {
+      return res.status(500).json({ error: "api-status failed", detail: e.message });
+    }
+  }
+
+  // ── POST api-summary — AI 摘要（2026-11-03：api-status 數據 → 繁中幾句話現狀）──
+  if (url === "/api/coding-releases/api-summary" && method === "POST") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    try {
+      const status = await _buildApiStatus(projectPath);
+      const compact = {
+        backend: status.backend, frontend: status.frontend, changedSinceRelease: status.changedSinceRelease,
+        noTestApis: status.apis.filter(a => a.tests === 0).map(a => a.entry).slice(0, 30),
+        changedApis: status.apis.filter(a => a.changed).map(a => ({ entry: a.entry, tests: a.tests })).slice(0, 30),
+      };
+      const { callProjectLLM } = await import("./coding.mjs");
+      const result = await callProjectLLM({
+        messages: [{ role: "user", content: `你是 Release Manager 助理。以下是這個 Release Unit 的 API 現況（deterministic 統計，不是猜的）：\n${JSON.stringify(compact, null, 2)}\n\n請用繁體中文寫摘要（給老闆看，5 句以內）：1. 前後端 API 規模 2. 測試覆蓋狀況（沒測試的 API 列幾個代表）3. baseline 後有變更的 API 與其測試狀況 4. 一句風險判斷。只根據數據說話，不確定的就說不確定。` }],
+        temperature: 0.2,
+      }, { caller: "rm-api-summary", timeoutMs: 120_000, maxRetries: 2 });
+      return res.json({ ok: true, summary: result.content || "" });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   // GET quality-debt — 品質債現況（bootstrap 衝功能後，上線前看這頁）
   if (url === "/api/coding-releases/quality-debt" && method === "GET") {
     if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）

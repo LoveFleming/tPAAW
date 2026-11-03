@@ -115,6 +115,11 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const [evBusy, setEvBusy] = useState(false);
   const [gapTasks, setGapTasks] = useState<Record<string, string>>({}); // featureId → taskId（開單結果）
   const [testing, setTesting] = useState(false);
+  // 2026-11-03 Fleming：API 現況一鍵清點（前後端 + 測試 + baseline 變更）+ AI 摘要
+  const [apiStatus, setApiStatus] = useState<any | null>(null);
+  const [apiBusy, setApiBusy] = useState(false);
+  const [apiSummary, setApiSummary] = useState<string | null>(null);
+  const [apiSummaryBusy, setApiSummaryBusy] = useState(false);
   const [includeE2e, setIncludeE2e] = useState(false);
   const chatRef = useRef<AgentSideChatHandle>(null);
   // 2026-10-09 Fleming：RM side chat 左右 splitter + 對話持久化 + model selector（跟 QA browser 同款）
@@ -241,6 +246,26 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   }, [refresh, fetchReadiness, t]);
 
   // ▶ 執行測試：POST 背景跑 → 輪詢到結束 → 重抓 readiness（真實數字）
+    // 2026-11-03 Fleming：一鍵 API 現況（按鈕才算 — 不自動燒）
+  const loadApiStatus = async () => {
+    if (!rootPath || apiBusy) return;
+    setApiBusy(true); setApiSummary(null);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-releases/api-status?path=${encodeURIComponent(rootPath)}`).then(r => r.json());
+      if (r.ok) setApiStatus(r); else setToast({ ok: false, text: String(r.error || r.detail || "failed") });
+    } catch (e: any) { setToast({ ok: false, text: e.message }); }
+    finally { setApiBusy(false); }
+  };
+  const genApiSummary = async () => {
+    if (!rootPath || apiSummaryBusy) return;
+    setApiSummaryBusy(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-releases/api-summary?path=${encodeURIComponent(rootPath)}`, { method: "POST" }).then(r => r.json());
+      if (r.ok) setApiSummary(String(r.summary || "")); else setToast({ ok: false, text: String(r.error || "failed") });
+    } catch (e: any) { setToast({ ok: false, text: e.message }); }
+    finally { setApiSummaryBusy(false); }
+  };
+
   const runTests = async () => {
     if (!rootPath || testing) return;
     setTesting(true);
@@ -298,18 +323,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     );
   };
 
-  const askBoss = (topic: string) => {
-    const ev = readinessEvidence();
-    if (!ev) return;
-    const Q: Record<string, string> = {
-      risk: `老闆固定問題：「這次最大的風險是什麼？最壞情況？」\n請基於證據回答，並具體指出最壞情況下哪些功能會受影響、多快能察覺。`,
-      rollback: `老闆固定問題：「Rollback plan 是什麼？」\n請基於 changed features/APIs 說明：revert 哪些 commit、有沒有資料遷移問題、回滾需要多久。`,
-      impact: `老闆固定問題：「影響範圍？」\n請基於 changed features/APIs 列出：影響哪些功能、哪些 API 變了（breaking?）、哪些用戶流程會經過。`,
-      tests: `老闆固定問題：「測試涵蓋了什麼？沒測到什麼？」\n請誠實指出：changed features 有沒有測試、測了什麼層級、最該補但來不及補的是什麼、建議上線後先手動驗什麼。`,
-      why: `老闆固定問題：「為什麼現在要上？不上會怎樣？」\n請從這批 changed features 的價值與風險累積角度回答。`,
-    };
-    chatRef.current?.send(`Release 就緒證據：\n\n${ev}\n\n${Q[topic]}`);
-  };
+  // 2026-11-03：老闆五問快捷鈕移除（Fleming：過度設計）— generateReport 已涵蓋同內容
 
   const runRetrofit = async () => {
     if (!rootPath || retrofitting) return;
@@ -389,6 +403,12 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                   className="ml-auto text-xs px-3 py-1.5 rounded-lg text-white font-bold shrink-0 hover:opacity-90"
                   style={{ backgroundColor: "#7c3aed" }} data-testid="rm-gen-report">
                   📋 {t("rm.genReport")}
+                </button>
+                <button onClick={loadApiStatus} disabled={apiBusy}
+                  className="text-xs px-3 py-1.5 rounded-lg text-white font-bold shrink-0 hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
+                  style={{ backgroundColor: "#0369a1" }} data-testid="rm-api-status">
+                  {apiBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
+                  {t("rm.apiBtn")}
                 </button>
               </div>
 
@@ -487,6 +507,55 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                 </div>
               </div>
 
+                {/* ══ API 現況（2026-11-03 Fleming：一鍵清點前後端 API + 測試狀態 + AI 摘要）══ */}
+                {apiStatus && (
+                  <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight, background: "#f0f9ff" }} data-testid="rm-api-status-block">
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <span className="text-xs font-bold text-stone-700">{t("rm.apiTitle")}</span>
+                      <button onClick={genApiSummary} disabled={apiSummaryBusy}
+                        className="ml-auto text-[10px] px-2.5 py-1 rounded-full border font-bold text-violet-600 hover:bg-violet-50 disabled:opacity-50 flex items-center gap-1"
+                        style={{ borderColor: "#ddd6fe" }} data-testid="rm-api-summary-btn">
+                        {apiSummaryBusy && <span className="animate-spin inline-block w-2.5 h-2.5 border-[1.5px] border-current border-t-transparent rounded-full" />}
+                        {t("rm.apiGenSummary")}
+                      </button>
+                    </div>
+                    <div className="flex gap-2 flex-wrap text-[10px] font-bold mb-2">
+                      <span className="px-2 py-1 rounded-lg bg-white border" style={{ borderColor: tk.borderLight }}>
+                        {t("rm.apiBackend")} <span className="font-mono text-sky-700 text-xs">{apiStatus.backend.total}</span>
+                        <span className="text-stone-400 font-normal">（{apiStatus.backend.withTests} {t("rm.apiHasTest")} / {apiStatus.backend.total - apiStatus.backend.withTests} {t("rm.apiNoTest")}）</span>
+                      </span>
+                      <span className="px-2 py-1 rounded-lg bg-white border" style={{ borderColor: tk.borderLight }}>
+                        {t("rm.apiFrontend")} <span className="font-mono text-sky-700 text-xs">{apiStatus.frontend.pages}</span>
+                        <span className="text-stone-400 font-normal"> · {t("rm.apiCalls")} {apiStatus.frontend.apiCallsTotal}</span>
+                      </span>
+                      <span className="px-2 py-1 rounded-lg bg-white border" style={{ borderColor: tk.borderLight }}>
+                        {t("rm.apiChangedSince")} <span className={`font-mono text-xs ${apiStatus.changedSinceRelease > 0 ? "text-amber-600" : "text-green-600"}`}>{apiStatus.changedSinceRelease ?? "—"}</span>
+                        {apiStatus.changedSinceRelease == null && <span className="text-stone-400 font-normal">（{t("rm.apiFirstRelease")}）</span>}
+                      </span>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto rounded-lg border bg-white" style={{ borderColor: tk.borderLight }}>
+                      <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 py-1 sticky top-0 bg-white border-b" style={{ gridTemplateColumns: "1.8fr 1.6fr 0.9fr 0.6fr 0.6fr", borderColor: tk.borderLight }}>
+                        <span>{t("rm.apiColApi")}</span><span>{t("rm.apiColName")}</span><span>{t("rm.apiColFrontend")}</span><span>{t("rm.apiColTests")}</span><span>{t("rm.apiColChanged")}</span>
+                      </div>
+                      {(apiStatus.apis || []).map((a: any, i: number) => (
+                        <div key={i} className="grid gap-1 items-center px-2 py-1 text-[10px] hover:bg-stone-50" style={{ gridTemplateColumns: "1.8fr 1.6fr 0.9fr 0.6fr 0.6fr", background: a.changed ? "#fffbeb" : undefined }}>
+                          <span className="font-mono font-bold text-stone-700 truncate" title={a.entry}>{a.entry}</span>
+                          <span className="text-stone-500 truncate" title={a.name}>{a.name}</span>
+                          <span className="text-stone-500 truncate" title={(a.frontendRefs || []).join(", ")}>{a.frontendRefs?.length ? `${a.frontendRefs.length} ${t("rm.apiYes")}` : <span className="text-stone-300">—</span>}</span>
+                          <span className={`font-mono font-bold ${a.tests > 0 ? "text-green-600" : "text-red-500"}`}>{a.tests > 0 ? `✓${a.tests}` : "✗"}</span>
+                          <span className={`font-bold ${a.changed ? "text-amber-600" : "text-stone-300"}`}>{a.changed ? "●" : "—"}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {apiSummary && (
+                      <div className="mt-2 rounded-lg bg-violet-50 border px-3 py-2 text-[11px] text-stone-700 whitespace-pre-wrap" style={{ borderColor: "#ddd6fe" }} data-testid="rm-api-summary">
+                        <div className="text-[9px] font-bold text-violet-600 mb-0.5">{t("rm.apiSummaryTitle")}</div>
+                        {apiSummary}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {readiness.evidenceMatrix && (
                   <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight }} data-testid="rm-evidence-matrix">
                     <div className="flex items-center gap-2 flex-wrap mb-2">
@@ -506,8 +575,9 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                     {readiness.modelDegraded && (
                       <div className="mb-2 rounded-lg bg-orange-50 px-3 py-1.5 text-[10px] text-orange-700 font-bold">⚠️ {t("rm.ev.modelDegraded")}</div>
                     )}
-                    <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 pb-1" style={{ gridTemplateColumns: "1.6fr 0.6fr 0.8fr 0.9fr 0.8fr 0.8fr 1.5fr 1.2fr" }}>
-                      <span>{t("rm.ev.feature")}</span><span>Sev</span><span>Unit</span><span>E2E</span><span>SG</span><span>QA</span><span>{t("rm.ev.board")}</span><span>{t("rm.ev.human")}</span>
+                    <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 pb-1" style={{ gridTemplateColumns: "1.6fr 0.6fr 0.8fr 0.9fr 0.8fr 0.8fr 1.5fr" }}>
+                      {/* 2026-11-03 Fleming：Human 欄移除 — 簡化（人不逐 feature 簽核，看 AI 摘要與 QA 記錄即可）*/}
+                      <span>{t("rm.ev.feature")}</span><span>Sev</span><span>Unit</span><span>E2E</span><span>SG</span><span>QA</span><span>{t("rm.ev.board")}</span>
                     </div>
                     {readiness.evidenceMatrix.features.map(f => {
                       const ev = f.evidence;
@@ -515,7 +585,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                         <span className={`text-[10px] font-mono ${c.ok ? (c.note ? "text-amber-600 font-bold" : "text-green-600") : "text-red-500 font-bold"}`} title={String(c.note ? `${c.reason || "✓"}（${c.note}）` : (c.reason || (c.ok ? "✓" : "missing")))}>{label}</span>
                       );
                       return (
-                        <div key={f.id} className="grid gap-1 items-center px-2 py-1.5 rounded-lg hover:bg-stone-50" style={{ gridTemplateColumns: "1.6fr 0.6fr 0.8fr 0.9fr 0.8fr 0.8fr 1.5fr 1.2fr", background: f.gaps.missing.length ? "#fff7ed" : undefined }}>
+                        <div key={f.id} className="grid gap-1 items-center px-2 py-1.5 rounded-lg hover:bg-stone-50" style={{ gridTemplateColumns: "1.6fr 0.6fr 0.8fr 0.9fr 0.8fr 0.8fr 1.5fr", background: f.gaps.missing.length ? "#fff7ed" : undefined }}>
                           <span className="text-[10px] font-bold text-stone-700 truncate" title={f.name}>{f.name}</span>
                           <span className={`text-[10px] font-bold ${f.severity === "S2" ? "text-red-600" : f.severity === "S1" ? "text-amber-600" : f.severity === "S0" ? "text-green-600" : "text-stone-400"}`} title={[t("rm.ev.aiTip"), ...((f.severityDecisions || []).map(d => `👤${d.by}: ${d.severity}${d.remark ? `（${d.remark}）` : ""}`))].join("\n")}>
                             {f.severity}{f.severitySource === "human" ? "👤" : "🤖"}
@@ -532,14 +602,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                               : ev.aiReview.untouched
                                 ? <span className="text-[9px] text-amber-600 font-bold truncate" title={String(ev.aiReview.reason || "")}>✗ {t("rm.ev.notTouched")}</span>
                                 : <span className="text-[9px] text-red-500 font-bold truncate" title={String(ev.aiReview.reason || "")}>✗ {t("rm.ev.notRun")}</span>}
-                          {onOpenQaRecords
-                            ? (() => {
-                                const needsHuman = f.severity === "S2";
-                                return <button type="button" onClick={() => onOpenQaRecords(f.name)} className={`text-left text-[9px] font-mono truncate max-w-full underline decoration-dotted underline-offset-2 ${ev.human.ok ? "text-green-700 hover:text-green-800" : needsHuman ? "text-red-400 hover:text-red-500 font-bold" : "text-stone-400 hover:text-stone-600"}`} title={ev.human.ok ? `${String(ev.human.summary || "")}\n${t("rm.ev.humanGoTip")}` : (needsHuman ? t("rm.ev.humanGoTip") : t("rm.ev.humanNoneTip"))} data-testid="rm-ev-human">{ev.human.ok ? `✍ ${String(ev.human.summary || "").slice(0, 22)}` : (needsHuman ? `— ${t("rm.ev.humanSign")}` : `— ${t("rm.ev.humanNone")}`)}</button>;
-                              })()
-                            : ev.human.ok
-                              ? <span className="text-[9px] text-green-700 truncate" title={String(ev.human.summary || "")}>✍ {String(ev.human.summary || "").slice(0, 22)}</span>
-                              : <span className="text-[9px] text-stone-400">—</span>}
                         </div>
                       );
                     })}
@@ -580,16 +642,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
               )}
             </div>
 
-            {/* 老闆固定問題快捷鍵 */}
-            <div className="flex gap-1.5 flex-wrap mt-2" data-testid="rm-boss-questions">
-              {([["risk", "🎲", t("rm.bqRisk")], ["rollback", "↩️", t("rm.bqRollback")], ["impact", "🎯", t("rm.bqImpact")], ["tests", "🧪", t("rm.bqTests")], ["why", "❓", t("rm.bqWhy")]] as [string, string, string][]).map(([k, icon, label]) => (
-                <button key={k} onClick={() => askBoss(k)}
-                  className="text-[10px] px-2 py-1 rounded-full border bg-white hover:bg-stone-100 text-stone-600 font-medium"
-                  style={{ borderColor: tk.borderLight }} data-testid={`rm-boss-${k}`}>
-                  {icon} {label}
-                </button>
-              ))}
-            </div>
           </div>
         )}
 
