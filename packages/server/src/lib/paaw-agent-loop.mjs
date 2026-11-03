@@ -1050,7 +1050,7 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "reference_read",
-      description: "Browse and read reference files from knowledge/ and project workspace directories (read-only). Use this to find existing code examples, architecture docs, templates, and reference materials. knowledge = data/knowledge/ (shared docs), workspace = directories declared in this project's 📁 File Mounts (data/workspaces.json; falls back to PAAW global mounts). Cross-RU reference = declare it in File Mounts first.",
+      description: "Browse and read reference files from knowledge/ and project workspace directories (read-only). Use this to find existing code examples, architecture docs, templates, and reference materials. knowledge = data/knowledge/ (shared docs), workspace = directories declared in this project's 📁 File Mounts (data/workspaces.json; falls back to PAAW global mounts). Multi-mount supported: workspace list shows all mounts by directory name; read/list/search with '<mount-name>/' prefix targets a specific mount; without prefix, each mount is tried in order. Cross-RU reference = declare it in File Mounts first.",
       parameters: {
         type: "object",
         properties: {
@@ -2041,10 +2041,9 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         // Always use PAAW_ROOT for knowledge/workspace - not cwd/rootDir
         // because these directories live in the PAAW installation, not the project
         const paawRoot = _PAAW_ROOT;
-        let refBase = null;
         let configuredDirs = [];
         if (args.source === "knowledge") {
-          refBase = resolve(paawRoot, "data/knowledge");
+          configuredDirs = [resolve(paawRoot, "data/knowledge")];
         } else {
           // 2026-10-24（Fleming RU 隔離模型）：workspace 來源 = per-project workspaces.json
           // （RU 自己宣告的 📁 File Mounts）優先；沒有才 fallback PAAW 全域那份
@@ -2055,27 +2054,55 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
             const ws = JSON.parse(readSync(wsPath, "utf-8"));
             configuredDirs = Array.isArray(ws.directories) ? ws.directories : [];
           } catch { configuredDirs = []; }
-          refBase = configuredDirs.find((d) => {
-            try { return typeof d === "string" && existsSync(d); } catch { return false; }
-          }) || null;
         }
-        // 2026-10-13：沒掛載 → 講清楚（不再「does not exist yet」鬼打牆）。
-        // 常見原因：workspaces.json 被版控帶到別台機器（Mac /Users/... 在公司 Linux 不存在）。
-        if (!refBase) {
+        // 🔴 2026-11-03 Fleming bug 回報修復：原本 find(...) 只取第一個存在的目錄 → 多掛載時
+        // AI 只讀得到第一個 File Mount。改成 refBases 全部載入；path 可帶 <掛載目錄名>/ 前綴指定，
+        // 沒帶就逐一試（第一個存在的命中）。
+        const refBases = configuredDirs.filter((d) => { try { return typeof d === "string" && existsSync(d); } catch { return false; } });
+        const resolveInBases = (p) => {
+          if (!p) return null;
+          const norm = String(p).replace(/\\/g, "/").replace(/^\/+/, "");
+          const firstSeg = norm.split("/")[0].toLowerCase();
+          for (const b of refBases) { // ① <掛載目錄 basename>/... 前綴直接命中
+            const bn = _pathBasename(b).toLowerCase();
+            if (bn && bn === firstSeg) {
+              const rest = norm.slice(firstSeg.length).replace(/^\/+/, "");
+              return { base: b, path: rest ? resolve(b, rest) : resolve(b) };
+            }
+          }
+          for (const b of refBases) { // ② 沒帶前綴 → 逐一試，用第一個存在的
+            const fp = resolve(b, norm);
+            if (existsSync(fp)) return { base: b, path: fp };
+          }
+          return refBases.length ? { base: refBases[0], path: resolve(refBases[0], norm) } : null; // ③ 都不在 → 用第一個 base 報 not found
+        };
+        if (!refBases.length) {
           if (onEvent) onEvent({ type: "tool_end", name, result: `workspace not mounted` });
           const seen = configuredDirs.length
             ? `已設定但本機都不存在：${configuredDirs.join("、")}`
             : `尚未設定任何目錄`;
           return `(workspace/ 沒有可存取的掛載目錄 — ${seen}。請到「設定 → 📁 File Mounts」加入本機存在的資料夾後再試；knowledge/ 不受影響。)`;
         }
-        if (!existsSync(refBase)) {
-          if (onEvent) onEvent({ type: "tool_end", name, result: `${args.source}/ not found` });
-          return `(${args.source}/ directory does not exist yet)`;
-        }
 
         if (args.action === "list") {
-          const subDir = args.path ? resolve(refBase, args.path) : refBase;
-          if (!isPathAllowed(subDir) && !subDir.startsWith(refBase)) {
+          // 2026-11-03：多掛載支援 — 沒帶 path 列出所有掛載根；有帶 path 先解析到具體 base
+          if (!args.path) {
+            const mountLines = [];
+            for (const b of refBases) {
+              try {
+                const { readdirSync: rd, statSync: st } = await import("fs");
+                const n = rd(b).length;
+                mountLines.push(`📁 ${_pathBasename(b)}/ (${n} items) — ${b}`);
+              } catch (e) { mountLines.push(`📁 ${_pathBasename(b)}/ — ${e.message}`); }
+            }
+            const hdr = `${args.source}/ 共 ${refBases.length} 個掛載（list <掛載名>/ 看内容）`;
+            if (onEvent) onEvent({ type: "tool_end", name, result: `${refBases.length} mounts` });
+            return `${hdr}\n${mountLines.join("\n")}`;
+          }
+          const hit = resolveInBases(args.path);
+          if (!hit) return `Error: path '${args.path}' is outside ${args.source}/`;
+          const subDir = hit.path;
+          if (!subDir.startsWith(hit.base)) {
             return `Error: path '${args.path}' is outside ${args.source}/`;
           }
           try {
@@ -2099,15 +2126,20 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
 
         if (args.action === "read") {
           if (!args.path) return `Error: 'path' is required for read action.`;
-          const filePath = resolve(refBase, args.path);
-          if (!filePath.startsWith(refBase)) {
+          const hit = resolveInBases(args.path);
+          if (!hit) return `Error: path '${args.path}' is outside ${args.source}/`;
+          const filePath = hit.path;
+          if (!filePath.startsWith(hit.base)) {
             return `Error: path '${args.path}' is outside ${args.source}/`;
           }
-          if (!existsSync(filePath)) {
+          const _tryPaths = [filePath];
+          for (const b of refBases) if (b !== hit.base) _tryPaths.push(resolve(b, args.path)); // 同名檔在其他掛載也試
+          const filePathFinal = _tryPaths.find((p) => existsSync(p)) || filePath;
+          if (!existsSync(filePathFinal)) {
             return `Error: file not found: ${args.source}/${args.path}`;
           }
           try {
-            const content = await readFile(filePath, "utf-8");
+            const content = await readFile(filePathFinal, "utf-8");
             const maxLen = 100_000;
             // 2026-09-14: cutSafeStart 不切 surrogate pair(emoji 切半 → 孤兒 \ud83d → LLM 500)
             const result = content.length > maxLen
@@ -2153,7 +2185,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
               }
             }
           };
-          searchDir(refBase, "");
+          for (const b of refBases) searchDir(b, ""); // 2026-11-03：投逼所有掛載
           const header = `Search '${args.path}' in ${args.source}/ (${results.length} matches, max ${maxResults})`;
           if (onEvent) onEvent({ type: "tool_end", name, result: `${results.length} matches` });
           return results.length > 0 ? `${header}\n${results.join("\n")}` : `${header}\n(No matches found)`;
