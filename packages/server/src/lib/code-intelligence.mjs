@@ -719,9 +719,9 @@ export function buildSymbolIndex(parsedResult) {
  * @param {string} paawRoot - PAAW installation root
  * @returns {Promise<{ stats: object, files: string[] }>}
  */
-export async function buildCodeIntelligence(projectRoot, paawRoot, { persist = true } = {}) {
-  // Parse all source files
-  const parsedResult = await parseProject(projectRoot, paawRoot); // 無上限（2026-08-22 Fleming 要求）
+export async function buildCodeIntelligence(projectRoot, paawRoot, { persist = true, onProgress = null } = {}) {
+  // Parse all source files（2026-11-03：onProgress — bulk CU 期間 UI 顯示掃描進度；掃描本身每 100 檔讓出 event loop 防凍）
+  const parsedResult = await parseProject(projectRoot, paawRoot, { onProgress }); // 無上限（2026-08-22 Fleming 要求）
 
   // 2026-10-28 空掃防護：有檔可解析卻 0 解析成功（grammar 載不到/掃描器故障/並發異常）→ 一律不落盤。
   // 病例：paawRoot 傳錯（少一層目錄）→ tree-sitter grammar 全撈不到 → 173 檔全 parse error

@@ -2847,7 +2847,7 @@ export default async function projectRoute(req, res) {
         if (step.id === "code-intelligence") {
           try {
             cuLog(step.id, "Building code intelligence (call graph, dependency graph, etc.)...");
-            const { summary } = await buildCodeIntelligence(root, PAAW_ROOT);
+            const { summary } = await buildCodeIntelligence(root, PAAW_ROOT, { onProgress: (done, total) => { sendEvent("step_progress", { step: step.id, name: step.name, message: `Tree-sitter 分析中 ${done}/${total} 檔（無上限完整掃）` }); } });
             cuLog(step.id, `Code intelligence done: ${summary.callGraph.totalFunctions} functions, ${summary.callGraph.totalCalls} calls, ${summary.dependencyGraph.totalEdges} dependencies`);
             sendEvent("step_done", {
               step: step.id,
@@ -3151,8 +3151,8 @@ export default async function projectRoute(req, res) {
                 const uis = _extractJsonArray(content);
                 // 2026-11-02：純後端專案（無前端 route）→ LLM 回非 JSON 說明文 → 合法結果：空 UI Map 標 done，不報錯（guardrail-hub 實案例）
                 if (!Array.isArray(uis) || uis.length === 0) {
-                  const _bareUi = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
-                  if (_bareUi === "[]" || /沒有|無|no\s+(frontend|ui|route|page)|backend[- ]?only|not found|純後端|後端(專案|項目|服務)/i.test(content)) {
+                  const _bareUi = content.replace(/```(?:json)?/g, "").trim(); // 2026-11-03：剥所有 code fence 再比對（同 bulk 版）
+                  if (_bareUi === "[]" || !content.includes("[") && content.trim().length < 300 /* 2026-11-03 同 bulk：短回應且無 JSON 陣列 = backend-only */ || /沒有|無|no\s+(frontend|ui|route|page)|backend[- ]?only|not found|純後端|後端(專案|項目|服務)/i.test(content)) {
                     const { saveUiFeatures } = await import("../lib/coding-db/ui-features.repo.mjs");
                     saveUiFeatures(root, []);
                     await paaw.writeFile("ui-map.json", "[]");
@@ -3365,7 +3365,7 @@ export default async function projectRoute(req, res) {
           if (step.id === "code-intelligence") {
             try {
               cuLog(step.id, "[bulk] Building code intelligence...");
-              const { summary } = await buildCodeIntelligence(root, PAAW_ROOT);
+              const { summary } = await buildCodeIntelligence(root, PAAW_ROOT, { onProgress: (done, total) => { sendEvent("step_progress", { step: step.id, name: step.name, message: `Tree-sitter 分析中 ${done}/${total} 檔（無上限完整掃）` }); } });
               cuLog(step.id, `[bulk] Code intelligence done: ${summary.callGraph.totalFunctions} functions, ${summary.callGraph.totalCalls} calls`);
               sendEvent("step_done", { step: step.id, name: step.name, summary: `${summary.callGraph.totalFunctions} functions, ${summary.symbolIndex.total} symbols`, stats: summary });
               try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.callGraph.totalFunctions} functions` }); } catch {}
@@ -3612,6 +3612,7 @@ export default async function projectRoute(req, res) {
                   cuLog(step.id, `[bulk] api-map failed: ${apiErr.message}`);
                   sendEvent("step_error", { step: step.id, name: step.name, error: apiErr.message });
                   try { await paaw.setCuStepStatus(step.id, "error", { error: apiErr.message }); } catch {}
+                  continue; // 2026-11-03：失敗就結束此步 — 不要再落入下方通用 step_done（曾造成 error+done 雙事件）
                 }
               } else if (step.id === "ui-map") {
                 // 前端 route-first（2026-11-01 Fleming）：解析 LLM 輸出 → ui_features 表 + marker 檔
@@ -3621,15 +3622,15 @@ export default async function projectRoute(req, res) {
                   const uis = _extractJsonArray(content);
                   // 2026-11-02：純後端專案 → 空 UI Map 標 done（同單步版）
                   if (!Array.isArray(uis) || uis.length === 0) {
-                    const _bareUi = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
-                    if (_bareUi === "[]" || /沒有|無|no\s+(frontend|ui|route|page)|backend[- ]?only|not found|純後端|後端(專案|項目|服務)/i.test(content)) {
+                    const _bareUi = content.replace(/```(?:json)?/g, "").trim(); // 2026-11-03：剥掉所有 code fence 再比對（content="[]\n```json\n[]\n```" 應判定 backend-only）
+                    if (_bareUi === "[]" || content.trim().length < 300 /* 2026-11-03：解析失敗的短回應一律 backend-only（關鍵字/格式列舉不完；真 JSON 截斷必然 >300 字 */ || /沒有|無|no\s+(frontend|ui|route|page)|backend[- ]?only|not found|純後端|後端(專案|項目|服務)/i.test(content)) {
                       const { saveUiFeatures } = await import("../lib/coding-db/ui-features.repo.mjs");
                       saveUiFeatures(root, []);
                       await paaw.writeFile("ui-map.json", "[]");
                       cuLog(step.id, `Saved 0 UI features（backend-only 專案）`);
                       sendEvent("step_done", { step: step.id, name: step.name, size: 2, preview: "[]" });
                       try { await paaw.setCuStepStatus(step.id, "done", { size: 2, summary: "0 UI features（backend-only）" }); } catch {}
-                      return;
+                      continue; // 🔴 2026-11-03 真兇修正：原本寫 return — 直接結束整個 bulk CU run，code-intelligence/test-intelligence/error-codes/c4 全部不跑（公司端「api-map 綠燈後全部不動」根因）
                     }
                     throw new Error("UI Map 解析失敗（非 JSON array）");
                   }
@@ -3668,9 +3669,10 @@ export default async function projectRoute(req, res) {
                   await paaw.writeFile("ui-map.json", JSON.stringify(clean, null, 2));
                   cuLog(step.id, `[bulk] Saved ${clean.length} UI features`);
                 } catch (uiErr) {
-                  cuLog(step.id, `[bulk] ui-map failed: ${uiErr.message}`);
+                  cuLog(step.id, `[bulk] ui-map failed: ${uiErr.message} (content preview: ${String(content).slice(0, 120)})`);
                   sendEvent("step_error", { step: step.id, name: step.name, error: uiErr.message });
                   try { await paaw.setCuStepStatus(step.id, "error", { error: uiErr.message }); } catch {}
+                  continue; // 2026-11-03：同 api-map — 失敗不再落入通用 step_done（error+done 雙事件根因）
                 }
               } else if (step.id === "overview") {
                 await diffWriteFile(paaw, "PROJECT.md", sanitized);

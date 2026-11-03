@@ -880,6 +880,9 @@ export async function parseProject(projectRoot, paawRoot, options = {}) {
       console.log(`[tree-sitter] parsing ${i}/${sourceFiles.length} files...`);
       try { options.onProgress?.(i, sourceFiles.length); } catch {}
     }
+    // 2026-11-03：每 100 檔讓出 event loop — 無上限掃描大 repo 時 CPU 迴圈會把 Node event loop 卡死
+    // （SSE 全凍、UI 所有輪詬 a2a/stream-state timeout → console 灌爆錯誤）；保持 Fleming 的「無上限」要求但 server 不凍
+    if (i > 0 && i % 100 === 0) await new Promise((r) => setImmediate(r));
 
     const lang = await getLanguage(langName, paawRoot);
     if (!lang) {
