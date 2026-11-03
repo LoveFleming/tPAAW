@@ -3498,8 +3498,10 @@ export default async function projectRoute(req, res) {
           if (step.id === "api-map" || step.id === "ui-map") {
             try {
               cuLog(step.id, "Running Tree-sitter source analysis...");
-              const tsResult = await parseProject(root, PAAW_ROOT, { maxFiles: 0, maxBytes: 500_000 });
+              // 2026-11-03：加上限 5000 檔 + 進度 callback — 大 repo 無上限掃描在公司端像「卡死」；達上限時 walker 自動截斷並記錄
+              const tsResult = await parseProject(root, PAAW_ROOT, { maxFiles: 5000, maxBytes: 500_000, onProgress: (done, total) => { sendEvent?.("step_progress", { step: step.id, name: step.name, message: `Tree-sitter 分析中 ${done}/${total} 檔` }); } });
               cuLog(step.id, `Tree-sitter: ${tsResult.stats.parsedFiles}/${tsResult.stats.totalFiles} files parsed, ${tsResult.stats.errors} errors`);
+              if (tsResult.stats.totalFiles >= 5000) cuLog(step.id, `⚠️ 達 5000 檔上限，已截斷（其餘檔案未分析）`);
               const condensed = formatCondensed(tsResult);
               // api-map：routes 是主信號（prompt 已排除前端）；ui-map：前端 route/元件是主信號（排除後端路由檔）
               const isUi = step.id === "ui-map";
@@ -3517,12 +3519,17 @@ export default async function projectRoute(req, res) {
 
           // Call LLM
           try {
+            const _llmStart = Date.now();
+            // 2026-11-03：LLM 前先發進度事件（最長 10 分鐘，不發事件的話 UI 像卡死）；map 類步驟降 maxRetries=1 避免最壞 40 分鐘無回饋
+            const isMapStep = step.id === "api-map" || step.id === "ui-map";
+            if (isMapStep) sendEvent("step_progress", { step: step.id, name: step.name, message: "LLM 生成中（大專案最長 10 分鐘，請勿關閉）..." });
             const result = await callProjectLLM({
               model: cuModelOverride || undefined, // 2026-10-23 修：bulk handler 無 body
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0,
               thinking: { type: "disabled" }, // 關思考 — 實證必要：thinking 開著會燒光輸出額度
-            }, { ...CU_LLM_OPTS, timeoutMs: 600_000 }); // 10 min per step in bulk mode
+            }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: isMapStep ? 1 : undefined }); // 10 min per step in bulk mode
+            cuLog(step.id, `[bulk] LLM done in ${Math.round((Date.now() - _llmStart) / 1000)}s (${(result.content || "").length} chars)`);
 
             const content = result.content || "";
             const sanitized = _sanitizeMd(content);

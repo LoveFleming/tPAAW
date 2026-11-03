@@ -869,10 +869,17 @@ export async function parseProject(projectRoot, paawRoot, options = {}) {
   const errors = [];
   const langStats = {};
 
-  for (const filePath of sourceFiles) {
+  for (let i = 0; i < sourceFiles.length; i++) {
+    const filePath = sourceFiles[i];
     const ext = extname(filePath);
     const langName = LANG_MAP[ext];
     if (!langName) continue;
+
+    // 2026-11-03：進度回報 — 大 repo 每檔 parse 沒回饋，公司端看起來像「卡住」
+    if (i > 0 && i % 500 === 0) {
+      console.log(`[tree-sitter] parsing ${i}/${sourceFiles.length} files...`);
+      try { options.onProgress?.(i, sourceFiles.length); } catch {}
+    }
 
     const lang = await getLanguage(langName, paawRoot);
     if (!lang) {
