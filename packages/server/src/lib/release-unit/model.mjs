@@ -290,7 +290,7 @@ export async function buildReleaseUnitModel(root, opts = {}) {
       apiMapGeneratedAt: apiMap.generatedAt || null,
       testMapGeneratedAt: testMap.generatedAt || null,
       depGraphGeneratedAt: depGraph.generatedAt || null,
-      featuresUpdatedAt: featuresData?.updatedAt || null,
+      featuresUpdatedAt: features?.updatedAt || null,
     },
     features: featureViews,
     apis,
