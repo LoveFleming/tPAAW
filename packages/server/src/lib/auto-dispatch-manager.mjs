@@ -560,6 +560,7 @@ function _stopRequested(rootDir) {
 }
 
 export async function executeEMSession(opts = {}) {
+  const _startTime = Date.now(); // 2026-11-04：session 計時基準（rename 後遺漏 → _durationMs 曾 ReferenceError）
   const { rootDir, workList, situationReport = "", baseUrl = `http://127.0.0.1:${process.env.PAAW_PORT || 4097}`, modelOverride, fallbackModels = [], sendSSE = (() => {}), projectPhase = 'bootstrap', _removed = null /* existingPlanId removed */ } = opts;
 
   // ── Read EM config for execution behavior ──

@@ -377,7 +377,7 @@ export default async function codingFeaturesRoute(req, res) {
   // ── GET /api/coding-features/crosscut — 橫切關注點（overlay）+ Gap Report ──（coding.db）
   if (url === "/api/coding-features/migration-report" && method === "GET") {
       // Identity 遷移報告（Phase C 2026-11-01 S8）：上次 CU 重掃的繼承/合併/新設/retired/待歸屬
-      const projectRoot = resolve(searchParams.get("path") || ".");
+      const projectRoot = resolve(q.path || "."); // 2026-11-04 fix：searchParams 未定義（本檔用 parseQuery → q）
       const rep = readDoc(projectRoot, "migrationReport");
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
       res.end(JSON.stringify(rep || { at: null, summary: "尚無遷移報告（還沒跑過 CU 重掃）" }));

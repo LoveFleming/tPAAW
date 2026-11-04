@@ -1857,7 +1857,9 @@ async function runShell(command, cwd, timeoutMs = 30_000, opts = {}) {
           },
           network: needsNetworkAllow(command) ? "allow" : "deny",
           // 2026-10-24（RU 隔離模型）：File Mounts 宣告目錄 → MXC 唯讀掛載（bash 也能 RO 讀）
-          readonlyDirs: externalReadOnlyDirs,
+          // 2026-11-04 fix：runShell 是 module-level 函式看不到 runAgentLoop 的 externalReadOnlyDirs
+          //（原本 ReferenceError 被 catch 吃掉 → MXC 沙箱路徑整個靜默跳過）→ 改由 opts 傳入
+          readonlyDirs: opts.readonlyDirs || [],
         });
         let out = (r.stdout || "") + (r.stderr ? "\n" + r.stderr : "");
         if (r.timedOut) out += (out ? "\n" : "") + "⏱ 沙箱內逾時（MXC）";
@@ -2492,7 +2494,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId, featureB
         }
         const timeoutSec = Math.min(args.timeout || 120, _agentCfg.bashTimeoutSeconds || 300);
         const timeoutMs = timeoutSec * 1000;
-        const result = await runShell(args.command, cwd, timeoutMs, { marker: true });
+        const result = await runShell(args.command, cwd, timeoutMs, { marker: true, readonlyDirs: externalReadOnlyDirs });
         // ── 安全審計（2026-10-10 Fleming）：輸出掃描 — 白名單阻擋/沙箱拒絕 →
         //    agent 引導（去安全 tab 設定）+ 使用者 security_notice + ES paaw-audit-* ──
         let finalResult = result;
@@ -5314,7 +5316,7 @@ export async function runAgentLoop(config) {
         const _doomMsg = `🛑 doom_loop 攔截：工具「${_toolName}」以完全相同的參數重複呼叫第 ${_doomN} 次 — 你在原地打轉。停止重試同一個呼叫。改變做法：換參數、換工具、換路徑，或用 ask_user 向使用者說明卡住的原因。`;
         logAuditEvent({ kind: "doom_loop", severity: "block", tool: _toolName, command: (call.function?.arguments || "").slice(0, 2000), reason: `同參數重複呼叫第 ${_doomN} 次`, detail: { repeatCount: _doomN }, agentId, cwd });
         if (onEvent) onEvent({ type: "tool_end", name: _toolName, result: _doomMsg });
-        _loopMessages.push({ role: "tool", tool_call_id: call.id, content: _doomMsg });
+        messages.push({ role: "tool", tool_call_id: call.id, content: _doomMsg });
         continue;
       }
       const _ctx = { cwd, rootDir, onEvent, agentId };

@@ -41,7 +41,7 @@ import { shellExec, IS_WIN } from "../lib/shell-exec.mjs";
 import { createPaawProject, maybeWriteProjectDraft } from "../lib/paaw-project.mjs";
 import { parseProjectMd, buildProjectMd, regenerateProjectMd, USER_START, USER_END, AI_START, AI_END } from "../lib/project-md.mjs";
 import { callLLMWithRetry, dateTimeContextBlock, parseModelReference } from "../lib/llm-utils.mjs";
-import { normalizePath, readBody } from "./shared.mjs";
+import { normalizePath, readBody, PORT } from "./shared.mjs"; // 2026-11-04：PORT 供 localhost API 自呼（paawPort 未定義修復）
 import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
 import { logAuditEvent } from "../lib/audit-log.mjs"; // 審批決策審計（2026-10-10）
 import * as codingDb from "../lib/coding-db/index.mjs"; // dual-write Phase A（2026-10-31）
@@ -633,7 +633,7 @@ export default async function projectRoute(req, res) {
       let chatFeatureBoundary = null;
       try {
         const { buildContextBoundary } = await import("../lib/feature-boundary.mjs");
-        const stagedResp = await fetch(`http://localhost:${paawPort}/api/staged-changes?path=${encodeURIComponent(projRoot)}`).catch(() => null);
+        const stagedResp = await fetch(`http://localhost:${PORT}/api/staged-changes?path=${encodeURIComponent(projRoot)}`).catch(() => null);
         const stagedData = stagedResp?.ok ? await stagedResp.json() : null;
         const stagedPaths = stagedData?.files?.map(f => f.path) || [];
         if (stagedPaths.length > 0) {
@@ -809,7 +809,7 @@ export default async function projectRoute(req, res) {
       let dispatchFeatureBoundary = null;
       try {
         const { buildContextBoundary } = await import("../lib/feature-boundary.mjs");
-        const stagedResp2 = await fetch(`http://localhost:${paawPort}/api/staged-changes?path=${encodeURIComponent(projRoot)}`).catch(() => null);
+        const stagedResp2 = await fetch(`http://localhost:${PORT}/api/staged-changes?path=${encodeURIComponent(projRoot)}`).catch(() => null);
         const stagedData2 = stagedResp2?.ok ? await stagedResp2.json() : null;
         const stagedPaths2 = stagedData2?.files?.map(f => f.path) || [];
         if (stagedPaths2.length > 0) {
