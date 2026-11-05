@@ -183,6 +183,12 @@ async function diffWriteFile(paaw, filename, newContent) {
 }
 
 /** Sanitize LLM-produced markdown before saving to .paaw/ — prevents frontend render crashes */
+function _stripCodeFence(text) {
+  // LLM 偶爾把 JSON 輸出用 ```json 圍籬包住（2026-11-05 learning-space scan.json 實例）
+  // → JSON.parse 失敗 → features 匯入 0 筆 → Evidence Matrix 全空。寫 JSON 產出檔前一律剝圍籬。
+  const m = text.match(/^\s*```[a-zA-Z]*\s*\n([\s\S]*?)\n?\s*```\s*$/);
+  return m ? m[1] : text;
+}
 function _sanitizeMd(md) {
   if (!md || typeof md !== "string") return md || "";
   let out = md;
@@ -3059,7 +3065,7 @@ export default async function projectRoute(req, res) {
           // Save output to .paaw/
           try {
             if (step.id === "scan") {
-              await paaw.writeFile("scan.json", content);
+              await paaw.writeFile("scan.json", _stripCodeFence(content));
             } else if (step.id === "architecture") {
               await diffWriteFile(paaw, "ARCHITECTURE.md", sanitized);
             } else if (step.id === "api-spec") {
@@ -3536,7 +3542,7 @@ export default async function projectRoute(req, res) {
             try {
               if (step.id === "scan") {
                 scanResult = content;
-                await paaw.writeFile("scan.json", content);
+                await paaw.writeFile("scan.json", _stripCodeFence(content));
               } else if (step.id === "architecture") {
                 architectureResult = content;
                 await diffWriteFile(paaw, "ARCHITECTURE.md", sanitized);
