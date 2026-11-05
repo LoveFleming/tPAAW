@@ -362,6 +362,21 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
             <span className="text-lg">🚦</span>
             <h2 className="text-sm font-bold text-stone-800">{t("rm.title")}</h2>
             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">.paaw/releases/</span>
+            {readiness && (
+              <button onClick={generateReport}
+                className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90"
+                style={{ backgroundColor: "#7c3aed" }} data-testid="rm-gen-report">
+                📋 {t("rm.genReport")}
+              </button>
+            )}
+            {readiness && (
+              <button onClick={loadApiStatus} disabled={apiBusy}
+                className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
+                style={{ backgroundColor: "#0369a1" }} data-testid="rm-api-status">
+                {apiBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
+                {t("rm.apiBtn")}
+              </button>
+            )}
             <span className="flex-1" />
             <button onClick={refreshAll} disabled={refreshing}
               title={t("rm.refreshAll")}
@@ -384,130 +399,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
           <div className="px-5 pt-4" data-testid="rm-readiness">
             <div className="rounded-xl border overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
               {/* Header */}
-              <div className="px-4 py-3 flex items-center gap-3 flex-wrap" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: readiness.ready ? "#f0fdf4" : "#fff7ed" }}>
-                <div className="min-w-0">
-                  <div className="text-sm font-bold text-stone-800 flex items-center gap-2">
-                    📈 {t("rm.reportTitle")} #{readiness.releaseId}
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold"
-                      style={{ color: readiness.ready ? "#16a34a" : "#d97706", backgroundColor: readiness.ready ? "#dcfce7" : "#ffedd5" }}>
-                      {readiness.ready ? t("rm.ready") : t("rm.notReady")}
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-stone-400 mt-0.5" data-testid="rm-readiness-baseline">
-                    {readiness.firstRelease
-                      ? t("rm.firstRelease")
-                      : `${t("rm.since")} ${readiness.sinceRelease?.releasedAt?.slice(0, 16).replace("T", " ")} (${readiness.sinceRelease?.id})`}
-                  </div>
-                </div>
-                <button onClick={generateReport}
-                  className="ml-auto text-xs px-3 py-1.5 rounded-lg text-white font-bold shrink-0 hover:opacity-90"
-                  style={{ backgroundColor: "#7c3aed" }} data-testid="rm-gen-report">
-                  📋 {t("rm.genReport")}
-                </button>
-                <button onClick={loadApiStatus} disabled={apiBusy}
-                  className="text-xs px-3 py-1.5 rounded-lg text-white font-bold shrink-0 hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
-                  style={{ backgroundColor: "#0369a1" }} data-testid="rm-api-status">
-                  {apiBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
-                  {t("rm.apiBtn")}
-                </button>
-              </div>
-
-              {/* Stats row */}
-              <div className="grid grid-cols-3 md:grid-cols-6 divide-x" style={{ borderColor: tk.borderLight }} data-testid="rm-readiness-stats">
-                {([
-                  [t("rm.stFeatures"), String(readiness.changedFeatures.length), "#0369a1"],
-                  [t("rm.stApis"), String(readiness.changedApis.length), "#0369a1"],
-                  [t("rm.stFiles"), String(readiness.changedFiles.length), "#57534e"],
-                  [t("rm.stCommits"), String(readiness.commits.count), "#57534e"],
-                  [t("rm.stOpen"), String(readiness.openItems), readiness.openItems > 0 ? "#d97706" : "#16a34a"],
-                  [t("rm.stRisk"), readiness.risk, RISK_COLORS[readiness.risk] || "#57534e"],
-                ] as [string, string, string][]).map(([label, val, color]) => (
-                  <div key={label} className="px-3 py-2 text-center" style={{ borderColor: tk.borderLight }}>
-                    <div className="text-[9px] text-stone-400 font-bold">{label}</div>
-                    <div className="text-base font-bold font-mono" style={{ color }}>{val}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Tests + Gates（2026-10-21 Fleming：字太小不直覺 → 改兩行、加大、明確標 UT/E2E/行覆蓋率）*/}
-              <div className="px-4 py-2.5 space-y-2" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: "#fafaf9" }} data-testid="rm-tests-block">
-                <div className="flex items-center gap-x-3 gap-y-1.5 flex-wrap text-xs">
-                  <span className="font-bold text-stone-500">🧪 {t("rm.testsLine")}</span>
-                  {/* 單元測試 UT */}
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-stone-400 font-bold">{t("rm.utLabel")}</span>
-                    {readiness.lastTestRun ? (() => {
-                      const u = readiness.lastTestRun.byKind?.unit || readiness.lastTestRun.byKind?.mixed || null;
-                      if (!u) return <span className="font-mono text-stone-400">—</span>;
-                      return (
-                        <span className={`font-mono font-bold px-1.5 py-0.5 rounded ${u.failed > 0 ? "bg-red-50 text-red-600" : "bg-green-50 text-green-700"}`} data-testid="rm-ut">
-                          {u.passed}✓{u.failed > 0 ? ` ${u.failed}✗` : ""}{u.skipped ? ` ⏭${u.skipped}` : ""}
-                        </span>
-                      );
-                    })() : <span className="text-stone-400 italic">{t("rm.noTestRun")}</span>}
-                    {readiness.lastTestRun?.byKind && (() => { const u = readiness.lastTestRun.byKind.unit || readiness.lastTestRun.byKind.mixed; return u?.files ? <span className="text-[10px] text-stone-400">{u.files} {t("rm.filesShort")}</span> : null; })()}
-                  </span>
-                  {/* 行覆蓋率 */}
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-stone-400 font-bold">{t("rm.covLabel")}</span>
-                    {readiness.coverage?.measured ? (
-                      <span className="font-mono font-bold px-1.5 py-0.5 rounded" data-testid="rm-coverage"
-                        style={{ background: readiness.coverage.linePct! >= 80 ? "#f0fdf4" : readiness.coverage.linePct! >= 50 ? "#fffbeb" : "#fef2f2", color: readiness.coverage.linePct! >= 80 ? "#15803d" : readiness.coverage.linePct! >= 50 ? "#b45309" : "#b91c1c" }}>
-                        {readiness.coverage.linePct}%
-                      </span>
-                    ) : (
-                      <span className="font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-500" title={readiness.coverage?.reason || t("rm.covNotMeasuredTip")} data-testid="rm-coverage">{t("rm.notMeasured")}{readiness.coverage?.reason ? " ⓘ" : ""}</span>
-                    )}
-                    {readiness.coverage?.measured && readiness.coverage.runner && <span className="text-[10px] text-stone-400">{readiness.coverage.runner}</span>}
-                  </span>
-                  {/* E2E */}
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-stone-400 font-bold">{t("rm.e2eLabel")}</span>
-                    {(() => {
-                      const ltr = readiness.lastTestRun;
-                      const e = ltr?.byKind?.e2e || null;
-                      if (e) return <span className={`font-mono font-bold px-1.5 py-0.5 rounded ${e.failed > 0 ? "bg-red-50 text-red-600" : "bg-green-50 text-green-700"}`} data-testid="rm-e2e">{e.passed}✓{e.failed > 0 ? ` ${e.failed}✗` : ""}</span>;
-                      if (ltr && !ltr.includeE2e) return <span className="font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-400" title={t("rm.e2eNotRunTip")} data-testid="rm-e2e">{t("rm.e2eNotRun")}</span>;
-                      if (ltr?.includeE2e) return <span className="font-mono px-1.5 py-0.5 rounded bg-amber-50 text-amber-600" data-testid="rm-e2e">0</span>;
-                      return <span className="font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-400" data-testid="rm-e2e">—</span>;
-                    })()}
-                  </span>
-                  <span className={readiness.tests.changedFeaturesTotal === 0 ? "text-stone-400" : readiness.tests.changedFeaturesWithTests === readiness.tests.changedFeaturesTotal ? "text-green-600 font-bold" : "text-amber-600 font-bold"}>
-                    {t("rm.featureTests")} {readiness.tests.changedFeaturesWithTests}/{readiness.tests.changedFeaturesTotal}
-                  </span>
-                  {(readiness.gates?.gates || []).slice(0, 4).map(g => (
-                    <span key={g.gate} className={`font-mono ${g.status === "pass" ? "text-green-600" : g.status === "blocked" || g.status === "fail" ? "text-red-500 font-bold" : "text-stone-400"}`}>
-                      {g.gate} {g.status === "pass" ? "✓" : g.status === "blocked" || g.status === "fail" ? "✗" : "…"}
-                    </span>
-                  ))}
-                  <span className="ml-auto flex items-center gap-2">
-                    <button onClick={runTests} disabled={testing}
-                      className="text-[11px] px-2.5 py-1 rounded-full border font-bold disabled:opacity-50 hover:bg-stone-100 flex items-center gap-1"
-                      style={{ borderColor: testing ? tk.borderLight : "#0369a1", color: testing ? "#a8a29e" : "#0369a1" }}
-                      data-testid="rm-run-tests">
-                      {testing ? <span className="animate-spin inline-block w-2.5 h-2.5 border-[1.5px] border-current border-t-transparent rounded-full" /> : "▶"} {testing ? t("rm.testing") : t("rm.runTests")}
-                    </button>
-                    <label className="flex items-center gap-1 text-[10px] text-stone-400 cursor-pointer select-none" data-testid="rm-e2e-toggle">
-                      <input type="checkbox" checked={includeE2e} onChange={e => setIncludeE2e(e.target.checked)} className="accent-sky-600" />
-                      {t("rm.includeE2e")}
-                    </label>
-                  </span>
-                </div>
-                {/* 第二行：上次執行 meta + 風險因素（字大、可讀）*/}
-                <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-[10px]">
-                  {readiness.lastTestRun ? (<>
-                    <span className="text-stone-500">{t("rm.lastRunLabel")} <span className="font-mono">{readiness.lastTestRun.runId || readiness.lastTestRun.finishedAt?.slice(0, 16).replace("T", " ")}</span></span>
-                    <span className={readiness.lastTestRun.status === "pass" ? "text-green-600" : "text-red-500 font-bold"}>{readiness.lastTestRun.status === "pass" ? "✓ pass" : `✗ ${readiness.lastTestRun.status}`}</span>
-                    <span className="text-stone-400">⏱ {Math.round((readiness.lastTestRun.durationMs || 0) / 1000)}s</span>
-                    {readiness.lastTestRun.stale && <span className="text-amber-600 font-bold">⏰ {t("rm.staleN").replace("{n}", String(readiness.lastTestRun.staleCommits))}</span>}
-                  </>) : null}
-                  {readiness.riskReasons.length > 0 && (
-                    <span className="text-amber-600 truncate" title={readiness.riskReasons.join("; ")}>⚠ {t("rm.riskWhy")}: {readiness.riskReasons.join("; ")}</span>
-                  )}
-                </div>
-              </div>
-
-                {/* ══ API 現況（2026-11-03 Fleming：一鍵清點前後端 API + 測試狀態 + AI 摘要）══ */}
+              {/* ══ API 現況（2026-11-03 Fleming：一鍵清點前後端 API + 測試狀態 + AI 摘要）══ */}
                 {apiStatus && (
                   <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight, background: "#f0f9ff" }} data-testid="rm-api-status-block">
                     <div className="flex items-center gap-2 flex-wrap mb-2">
