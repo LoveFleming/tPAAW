@@ -75,6 +75,7 @@ import { countSourceFiles, walkSourceFiles, changedSourceFilesSince } from "../l
 // 與 UI CU_STEPS 的 file 對應（保持同步）— Slim CU：只保留 4 個 steps + 人寫檔案
 const CU_STEP_FILES = {
   scan: "scan.json",
+  "feature-map": "features/FEATURES.json", // 2026-11-05 復活：feature map 產出（staleness 增量判斷用）
   "api-map": "api-map.json",
   "ui-map": "ui-map.json",
   "code-intelligence": "code-intelligence/summary.json",
@@ -2745,6 +2746,7 @@ export default async function projectRoute(req, res) {
 
       const ALL_STEPS = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
+        { id: "feature-map", name: "🗺️ 產出 Feature Map v2（決定論骨架＋AI 長肉）", promptFile: null },
         { id: "api-map", name: "🌐 產出 API Map（API-first）", promptFile: "gen-api-map.md" },
         { id: "ui-map", name: "🖥️ 產出 UI Map（前端 route-first）", promptFile: "gen-ui-map.md" },
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
@@ -3247,6 +3249,7 @@ export default async function projectRoute(req, res) {
       const forceRerun = q.force === "1" || q.force === "true";
       const steps = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
+        { id: "feature-map", name: "🗺️ 產出 Feature Map v2（決定論骨架＋AI 長肉）", promptFile: null },
         { id: "api-map", name: "🌐 產出 API Map（API-first）", promptFile: "gen-api-map.md" },
         { id: "ui-map", name: "🖥️ 產出 UI Map（前端 route-first）", promptFile: "gen-ui-map.md" },
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
@@ -3361,6 +3364,30 @@ export default async function projectRoute(req, res) {
               try { await paaw.setCuStepStatus(step.id, "done", { summary: `${scanResult.stats.total} findings` }); } catch {}
             } catch (err) {
               cuLog(step.id, `[bulk] Semgrep failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+            }
+            continue;
+          }
+
+          // Special handling: feature-map v2 — 決定論骨架 + per-feature agent loop 長肉（2026-11-05 復活：
+          // Slim CU 拔掉 feature-map step 後 organizeFeatureMapV2 變死碼，新專案生不出 FEATURES.json
+          // → coding.db features 0 → RU model 0 → Evidence Matrix 永遠空。接回 pipeline）
+          if (step.id === "feature-map") {
+            try {
+              cuLog(step.id, "[bulk] Building feature map v2...");
+              const { organizeFeatureMapV2 } = await import("../lib/feature-map-v2.mjs");
+              const fmResult = await organizeFeatureMapV2(root, {
+                callLLM: (body) => callProjectLLM({ ...body, model: body.model || cuModelOverride || undefined }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 2 }),
+                onProgress: (msg) => { cuLog(step.id, `[bulk] ${msg}`); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
+                paawRoot: PAAW_ROOT,
+              });
+              const nFeatures = fmResult?.features || fmResult?.summary?.features || 0;
+              cuLog(step.id, `[bulk] Feature map done: ${nFeatures} features`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${nFeatures} features` });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${nFeatures} features (v2)` }); } catch {}
+            } catch (err) {
+              cuLog(step.id, `[bulk] Feature map failed: ${err.message}`);
               sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
               try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
             }
