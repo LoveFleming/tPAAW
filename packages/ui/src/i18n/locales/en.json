@@ -2093,5 +2093,7 @@
   "rm.ev.sinceHead": "HEAD (all APIs, no time filter)",
   "rm.ev.noTest": "no tests",
   "rm.ev.reviewCol": "Code Review",
-  "rm.ev.noReview": "no review records"
+  "rm.ev.noReview": "no review records",
+  "crb.viewApi": "By API",
+  "crb.viewMeetings": "By meeting"
 }

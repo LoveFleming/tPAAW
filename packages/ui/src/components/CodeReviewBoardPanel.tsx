@@ -60,6 +60,9 @@ export default function CodeReviewBoardPanel({ rootPath, theme: tk, onBackToRele
   const [content, setContent] = useState<string>("");
   const [loadingContent, setLoadingContent] = useState(false);
   const [busy, setBusy] = useState(false);
+  // 2026-11-07 Fleming：by API first — API 索引分組（可切回依會議時間序列）
+  const [apiIndex, setApiIndex] = useState<{ entry: string; name: string; reviewCount: number; meetings: { file: string; at: string | null; decision: string | null; findingsCount: number }[] }[]>([]);
+  const [view, setView] = useState<"api" | "meetings">("api");
 
   const fetchList = useCallback(async () => {
     if (!rootPath) { setExists(false); return; }
@@ -69,6 +72,7 @@ export default function CodeReviewBoardPanel({ rootPath, theme: tk, onBackToRele
       const d = await r.json();
       const list: ReportMeta[] = d.reports || [];
       setReports(list);
+      setApiIndex(d.apiIndex || []);
       setExists(!!d.exists && list.length > 0);
       setSelected(prev => (prev && list.some(x => x.file === prev)) ? prev : (list[0]?.file || null));
     } catch {
@@ -79,6 +83,8 @@ export default function CodeReviewBoardPanel({ rootPath, theme: tk, onBackToRele
   }, [rootPath]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
+  // API 索引空（coding.db 無 API 或會議没掃到 API 檔）→ fallback 依會議
+  useEffect(() => { if (reports.length > 0 && apiIndex.length === 0) setView("meetings"); }, [reports.length, apiIndex.length]);
 
   // 選定會議 → 讀全文
   useEffect(() => {
@@ -112,6 +118,10 @@ export default function CodeReviewBoardPanel({ rootPath, theme: tk, onBackToRele
           <div className="text-[11px] text-stone-400 truncate">{t("crb.subtitle")}</div>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <button onClick={() => setView(view === "api" ? "meetings" : "api")}
+            className="text-xs px-3 py-1.5 rounded-lg border font-bold hover:bg-stone-50" style={{ borderColor: borderLight, color: "#57534e" }} data-testid="crb-view-toggle">
+            ⇄ {view === "api" ? t("crb.viewMeetings") : t("crb.viewApi")}
+          </button>
           {onBackToReleaseManager && (
             <button onClick={onBackToReleaseManager}
               className="text-xs px-3 py-1.5 rounded-lg border font-medium hover:bg-stone-50"
@@ -137,31 +147,60 @@ export default function CodeReviewBoardPanel({ rootPath, theme: tk, onBackToRele
         </div>
       ) : (
         <div className="flex-1 flex min-h-0">
-          {/* 左：會議清單 */}
+          {/* 左：清單 — by API first（可切依會議）2026-11-07 Fleming */}
           <div className="w-[340px] shrink-0 border-r overflow-y-auto" style={{ borderColor: borderLight, backgroundColor: bgMuted }}>
-            {reports.map(m => {
-              const isSel = m.file === selected;
-              return (
-                <button key={m.file} onClick={() => setSelected(m.file)}
-                  className="w-full text-left px-3 py-2.5 border-b hover:bg-white transition-colors"
-                  style={{ borderColor: borderLight, backgroundColor: isSel ? "#fff" : undefined, borderLeft: isSel ? `3px solid ${accent}` : "3px solid transparent" }}>
-                  <div className="flex items-center gap-2 mb-1">
-                    {decisionBadge(m)}
-                    <span className="text-[10px] text-stone-400 ml-auto">{m.at ? String(m.at).slice(0, 16).replace("T", " ") : "—"}</span>
+            {(() => {
+              const meetingCard = (m: any) => {
+                const isSel = m.file === selected;
+                return (
+                  <button key={m.file} onClick={() => setSelected(m.file)}
+                    className="w-full text-left px-3 py-2.5 border-b hover:bg-white transition-colors"
+                    style={{ borderColor: borderLight, backgroundColor: isSel ? "#fff" : undefined, borderLeft: isSel ? `3px solid ${accent}` : "3px solid transparent" }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      {decisionBadge(m)}
+                      <span className="text-[10px] text-stone-400 ml-auto">{m.at ? String(m.at).slice(0, 16).replace("T", " ") : "—"}</span>
+                    </div>
+                    <div className="text-[11px] font-mono text-stone-600 truncate" title={m.range || ""}>{m.range || m.file}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-stone-400">
+                      <span title={m.reviewers.join("、")}>👥 {m.modelCount}</span>
+                      <span>🔎 {m.findingsCount}</span>
+                      {m.consensus > 0 && <span>🤝 {m.consensus}</span>}
+                      {m.disputes > 0 && <span className="text-red-500 font-bold">🚩 {m.disputes}</span>}
+                      {m.commitCount > 0 && <span>⎇ {m.commitCount}</span>}
+                      {m.pathFilter && <span className="text-amber-600">{t("crb.tag.pathFilter")}</span>}
+                    </div>
+                    <div className="mt-1 text-[9px] font-mono text-stone-300 truncate">{m.file}</div>
+                  </button>
+                );
+              };
+              if (view === "api" && apiIndex.length) {
+                return apiIndex.map((a) => (
+                  <div key={a.entry} className="border-b" style={{ borderColor: borderLight }}>
+                    <div className="px-3 py-2 bg-white/70 sticky top-0 backdrop-blur" style={{ borderBottom: `1px dashed ${borderLight}` }}>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-[10px] font-mono font-bold text-stone-700 truncate" title={`${a.entry}\n${a.name || ""}`}>{a.entry}</span>
+                        <span className="ml-auto text-[9px] font-bold text-violet-600 shrink-0">🏛 {a.reviewCount}</span>
+                      </div>
+                      {a.name && <div className="text-[9px] text-stone-400 truncate">{a.name}</div>}
+                    </div>
+                    {a.meetings.map((mt) => {
+                      const r = reports.find((x) => x.file === mt.file);
+                      return r ? meetingCard(r) : (
+                        <button key={mt.file} onClick={() => setSelected(mt.file)}
+                          className="w-full text-left px-3 py-2 border-b hover:bg-white" style={{ borderColor: borderLight }}>
+                          <div className="flex items-center gap-2">
+                            {decisionBadge({ decision: mt.decision, reviewers: [], modelCount: 0, findingsCount: mt.findingsCount } as any)}
+                            <span className="text-[10px] text-stone-400 ml-auto">{mt.at ? String(mt.at).slice(0, 16).replace("T", " ") : "—"}</span>
+                          </div>
+                          <div className="mt-1 text-[9px] font-mono text-stone-300 truncate">{mt.file}</div>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="text-[11px] font-mono text-stone-600 truncate" title={m.range || ""}>{m.range || m.file}</div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-stone-400">
-                    <span title={m.reviewers.join("、")}>👥 {m.modelCount}</span>
-                    <span>🔎 {m.findingsCount}</span>
-                    {m.consensus > 0 && <span>🤝 {m.consensus}</span>}
-                    {m.disputes > 0 && <span className="text-red-500 font-bold">🚩 {m.disputes}</span>}
-                    {m.commitCount > 0 && <span>⎇ {m.commitCount}</span>}
-                    {m.pathFilter && <span className="text-amber-600">{t("crb.tag.pathFilter")}</span>}
-                  </div>
-                  <div className="mt-1 text-[9px] font-mono text-stone-300 truncate">{m.file}</div>
-                </button>
-              );
-            })}
+                ));
+              }
+              return reports.map(meetingCard);
+            })()}
           </div>
 
           {/* 右：會議記錄全文 */}

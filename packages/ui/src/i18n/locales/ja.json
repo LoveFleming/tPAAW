@@ -2093,5 +2093,7 @@
   "rm.ev.sinceHead": "HEAD（全 API、時間フィルタなし）",
   "rm.ev.noTest": "テストなし",
   "rm.ev.reviewCol": "Code Review",
-  "rm.ev.noReview": "レビュー記録なし"
+  "rm.ev.noReview": "レビュー記録なし",
+  "crb.viewApi": "API 順",
+  "crb.viewMeetings": "会議順"
 }

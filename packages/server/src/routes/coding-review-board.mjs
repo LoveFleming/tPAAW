@@ -43,6 +43,16 @@ export function parseReport(file, md, mtimeMs) {
   const tdDropped = /## 退件的幻覺 findings/.test(md)
     ? (md.split("## 退件的幻覺 findings")[1] || "").split("\n").filter(l => l.startsWith("- [")).length
     : 0;
+  // 2026-11-07 Fleming：審查範圍/findings 檔案（by API 索引用 — 與 release-evidence loadReviewBoard 同手法）
+  const scopeStart = md.indexOf("## 審查範圍");
+  let scopeFiles = [];
+  if (scopeStart !== -1) {
+    const rest = md.slice(scopeStart);
+    const nextSec = rest.indexOf("\n## ", 1);
+    const section = nextSec === -1 ? rest : rest.slice(0, nextSec);
+    scopeFiles = [...section.matchAll(/- `([^`]+)`/g)].map(m => m[1].replace(/\\/g, "/").replace(/^\.\//, ""));
+  }
+  const findingFiles = [...md.matchAll(/^### .+?(\S+):\d+/gm)].map(m => m[1].replace(/\\/g, "/").replace(/^\.\//, ""));
   return {
     file,
     at,
@@ -60,6 +70,8 @@ export function parseReport(file, md, mtimeMs) {
     disputes,
     dropped: tdDropped,
     runnerFormat: !!(decision && range),
+    scopeFiles,
+    findingFiles,
   };
 }
 
@@ -90,7 +102,21 @@ export default async function reviewBoardRoutes(req, res) {
       } catch { /* skip unreadable */ }
     }
     reports.reverse(); // 新→舊（最新會議在前）
-    return json(200, { ok: true, exists: true, count: reports.length, reports, latest: reports[0] || null });
+    // 2026-11-07 Fleming：by API first — API → 審過它的會議清單（coding.db API 清單 × 會議審查範圍）
+    let apiIndex = [];
+    try {
+      const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
+      const apis = readApiFeatures(projectDir);
+      apiIndex = apis.map((a) => {
+        const files = (a.codeFiles || []).map((f) => String(f).replace(/\\/g, "/").replace(/^\.\//, ""));
+        const meetings = reports.filter((r) => {
+          const scope = (r.scopeFiles?.length ? r.scopeFiles : r.findingFiles || []).map((f) => String(f).replace(/\\/g, "/").replace(/^\.\//, ""));
+          return scope.some((f) => files.includes(f));
+        }).map((r) => ({ file: r.file, at: r.at, decision: r.decision, findingsCount: r.findingsCount }));
+        return { entry: a.entry, name: a.name, files, meetings, reviewCount: meetings.length };
+      }).filter((x) => x.reviewCount > 0);
+    } catch { /* coding.db 不可用 → 空索引，UI fallback 依會議 */ }
+    return json(200, { ok: true, exists: true, count: reports.length, reports, latest: reports[0] || null, apiIndex });
   }
 
   // ── GET /api/coding-review-board/report?file=... ──
