@@ -213,7 +213,14 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     ? [...readiness.evidenceMatrix.features].sort((a, b) => (SEV_ORDER[a.severity || ""] ?? 9) - (SEV_ORDER[b.severity || ""] ?? 9))
     : [];
   const featureById = new Map((readiness?.evidenceMatrix?.features || []).map(f => [f.id, f]));
-  const commitGroups = (readiness?.evidenceMatrix?.byCommit || []);
+  // 2026-11-07 Fleming v2：by commit line 只列到下拉選的基準 commit 為止（HEAD（目前）= 全部）— 不再每條 commit 都攤
+  const commitGroups = (() => {
+    const all = readiness?.evidenceMatrix?.byCommit || []; // 新 → 舊
+    const anchor = baselines.find(b => b.sha === selCommit);
+    if (!anchor) return all; // HEAD（目前）
+    const idx = all.findIndex(g => g.short === anchor.short);
+    return idx >= 0 ? all.slice(0, idx + 1) : all;
+  })();
 
   const matrixEvidenceText = (): string | null => {
     const m = readiness?.evidenceMatrix;
