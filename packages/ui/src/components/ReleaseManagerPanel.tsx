@@ -497,16 +497,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                         </div>
                       );
                     })}
-                    {readiness.evidenceMatrix.features.some(f => f.gaps.missing.length > 0) && (
-                      <div className="mt-2 rounded-lg bg-orange-50 px-3 py-2 space-y-0.5" data-testid="rm-evidence-gaps">
-                        <div className="text-[10px] font-bold text-orange-700">⚠️ {t("rm.ev.gapsTitle")}</div>
-                        {readiness.evidenceMatrix.features.filter(f => f.gaps.missing.length > 0).map(f => (
-                          <div key={f.id} className="text-[10px] text-orange-600">
-                            • {f.name}（{f.severity}{f.severitySource === "human" ? "👤" : "🤖"}）：缺 {f.gaps.missing.join("、")}
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 )}
 
