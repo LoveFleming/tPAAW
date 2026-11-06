@@ -2070,6 +2070,6 @@
   "rm.apiRunFirst": "Click \"API Status\" first",
   "rm.apiYes": "yes",
   "rm.apiFirstRelease": "first release (all new)",
-  "rm.aiVerify": "🔍 AI verify evidence",
+  "rm.aiVerify": "AI verify evidence",
   "rm.reportCommitTip": "Pick a commit as report baseline (default HEAD)"
 }
