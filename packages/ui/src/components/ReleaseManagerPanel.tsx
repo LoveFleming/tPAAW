@@ -336,22 +336,17 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                         {t("rm.apiFrontend")} <span className="font-mono text-sky-700 text-xs">{apiStatus.frontend.pages}</span>
                         <span className="text-stone-400 font-normal"> · {t("rm.apiCalls")} {apiStatus.frontend.apiCallsTotal}</span>
                       </span>
-                      <span className="px-2 py-1 rounded-lg bg-white border" style={{ borderColor: tk.borderLight }}>
-                        {t("rm.apiChangedSince")} <span className={`font-mono text-xs ${apiStatus.changedSinceRelease > 0 ? "text-amber-600" : "text-green-600"}`}>{apiStatus.changedSinceRelease ?? "—"}</span>
-                        {apiStatus.changedSinceRelease == null && <span className="text-stone-400 font-normal">（{t("rm.apiFirstRelease")}）</span>}
-                      </span>
                     </div>
                     <div className="max-h-64 overflow-y-auto rounded-lg border bg-white" style={{ borderColor: tk.borderLight }}>
-                      <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 py-1 sticky top-0 bg-white border-b" style={{ gridTemplateColumns: "1.8fr 1.6fr 0.9fr 0.6fr 0.6fr", borderColor: tk.borderLight }}>
-                        <span>{t("rm.apiColApi")}</span><span>{t("rm.apiColName")}</span><span>{t("rm.apiColFrontend")}</span><span>{t("rm.apiColTests")}</span><span>{t("rm.apiColChanged")}</span>
+                      <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 py-1 sticky top-0 bg-white border-b" style={{ gridTemplateColumns: "1.8fr 1.6fr 0.9fr 0.6fr", borderColor: tk.borderLight }}>
+                        <span>{t("rm.apiColApi")}</span><span>{t("rm.apiColName")}</span><span>{t("rm.apiColFrontend")}</span><span>{t("rm.apiColTests")}</span>
                       </div>
                       {(apiStatus.apis || []).map((a: any, i: number) => (
-                        <div key={i} className="grid gap-1 items-center px-2 py-1 text-[10px] hover:bg-stone-50" style={{ gridTemplateColumns: "1.8fr 1.6fr 0.9fr 0.6fr 0.6fr", background: a.changed ? "#fffbeb" : undefined }}>
+                        <div key={i} className="grid gap-1 items-center px-2 py-1 text-[10px] hover:bg-stone-50" style={{ gridTemplateColumns: "1.8fr 1.6fr 0.9fr 0.6fr" }}>
                           <span className="font-mono font-bold text-stone-700 truncate" title={a.entry}>{a.entry}</span>
                           <span className="text-stone-500 truncate" title={a.name}>{a.name}</span>
                           <span className="text-stone-500 truncate" title={(a.frontendRefs || []).join(", ")}>{a.frontendRefs?.length ? `${a.frontendRefs.length} ${t("rm.apiYes")}` : <span className="text-stone-300">—</span>}</span>
                           <span className={`font-mono font-bold ${a.tests > 0 ? "text-green-600" : "text-red-500"}`}>{a.tests > 0 ? `✓${a.tests}` : "✗"}</span>
-                          <span className={`font-bold ${a.changed ? "text-amber-600" : "text-stone-300"}`}>{a.changed ? "●" : "—"}</span>
                         </div>
                       ))}
                     </div>
