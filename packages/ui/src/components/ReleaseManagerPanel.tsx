@@ -38,7 +38,7 @@ interface EvFeature extends ReadinessFeature {
   evidence: { unit: EvCell; e2e: EvCell; sg: EvCell; qa: EvCell; aiReview: EvCell; human: EvCell };
   gaps: { missing: string[] };
 }
-interface EvidenceMatrix { features: EvFeature[]; summary: { features: number; bySeverity: Record<string, number>; withGaps: number; sgScan: { scannedAt: string | null; total: number; high: number } | null; reviewBoard: { latest: { at: string | null; decision: string | null; models: string[] }; total: number } | null } }
+interface EvidenceMatrix { features: EvFeature[]; byCommit?: { short: string; subject: string; at: string; author: string; featureIds: string[] }[]; /* 2026-11-07 Fleming：by commit line 分組 */ summary: { features: number; bySeverity: Record<string, number>; withGaps: number; sgScan: { scannedAt: string | null; total: number; high: number } | null; reviewBoard: { latest: { at: string | null; decision: string | null; models: string[] }; total: number } | null } }
 interface Readiness {
   releaseId: string; since: string; sinceRelease: { id: string; releasedAt: string; title: string } | null;
   firstRelease: boolean;
@@ -77,6 +77,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const [apiBusy, setApiBusy] = useState(false);
   const [apiSummary, setApiSummary] = useState<string | null>(null);
   const [apiSummaryBusy, setApiSummaryBusy] = useState(false);
+  // 2026-11-07 Fleming：Evidence Matrix 預設 by commit line（可切回 by feature）
+  const [evView, setEvView] = useState<"commit" | "feature">("commit");
   const [includeE2e, setIncludeE2e] = useState(false);
   const chatRef = useRef<AgentSideChatHandle>(null);
   // 2026-10-09 Fleming：RM side chat 左右 splitter + 對話持久化 + model selector（跟 QA browser 同款）
@@ -142,7 +144,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     setApiBusy(true); setApiSummary(null);
     try {
       const r = await fetch(`${API_BASE}/api/coding-releases/api-status?path=${encodeURIComponent(rootPath)}`).then(r => r.json());
-      if (r.ok) setApiStatus(r); else setToast({ ok: false, text: String(r.error || r.detail || "failed") });
+      if (r.ok) { setApiStatus(r); genApiSummary(); } // 2026-11-07 Fleming：看全貌同時自動出 AI 摘要
+      else setToast({ ok: false, text: String(r.error || r.detail || "failed") });
     } catch (e: any) { setToast({ ok: false, text: e.message }); }
     finally { setApiBusy(false); }
   };
@@ -204,19 +207,29 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   };
 
   // 2026-11-06 Fleming：Evidence Matrix 表格文字化（餵 AI 用）+ severity 排序
+  // 2026-11-07 Fleming：預設 by commit line（每條 commit 一組，下列 touched features 的證據）
   const SEV_ORDER: Record<string, number> = { S2: 0, S1: 1, S0: 2 };
   const sortedFeatures = readiness?.evidenceMatrix
     ? [...readiness.evidenceMatrix.features].sort((a, b) => (SEV_ORDER[a.severity || ""] ?? 9) - (SEV_ORDER[b.severity || ""] ?? 9))
     : [];
+  const featureById = new Map((readiness?.evidenceMatrix?.features || []).map(f => [f.id, f]));
+  const commitGroups = (readiness?.evidenceMatrix?.byCommit || []);
 
   const matrixEvidenceText = (): string | null => {
     const m = readiness?.evidenceMatrix;
     if (!m) return null;
-    const rows = sortedFeatures.map(f => {
+    const rowText = (f: EvFeature) => {
       const ev = f.evidence;
       const c = (x: EvCell, ok: string, bad: string) => x.ok ? ok : bad;
       return `● ${f.name}｜${f.severity}${f.severitySource === "human" ? "👤" : "🤖"}｜Unit ${c(ev.unit, `✓${ev.unit.tests || 0}t`, `✗（${ev.unit.reason || "無"}）`)}｜E2E ${c(ev.e2e, ev.e2e.total ? `${ev.e2e.covered}/${ev.e2e.total}` : "✓（無 e2e 需求）", `✗ ${ev.e2e.covered ?? 0}/${ev.e2e.total ?? 0}（${ev.e2e.reason || "無"}）`)}｜SG ${c(ev.sg, "✓", `✗${ev.sg.high ?? 0}hi（${ev.sg.reason || "無"}）`)}｜QA ${c(ev.qa, `✓${ev.qa.actor || ""}`, ev.qa.verdict ? `✗${ev.qa.verdict}` : "✗ 無記錄")}｜AI Review ${ev.aiReview.ok ? `✓${ev.aiReview.models?.length || 0}m ${ev.aiReview.decision || ""}` : `✗ ${ev.aiReview.touched ? "已審未過" : ev.aiReview.untouched ? "有跑未觸及" : "未跑"}（${ev.aiReview.reason || ""}）`}｜檔案 ${f.changedFiles.slice(0, 5).join(", ")}${f.changedFiles.length > 5 ? ` …共${f.changedFiles.length}` : ""}`;
-    }).join("\n");
+    };
+    if (commitGroups.length) {
+      const body = commitGroups.map(g =>
+        `▸ ${g.short} ${g.subject}（${String(g.at || "").slice(0, 10)}，${g.author}）\n${g.featureIds.map(id => featureById.get(id)).filter((f): f is EvFeature => !!f).map((f) => rowText(f)).join("\n")}`
+      ).join("\n\n");
+      return `Evidence Matrix（by commit，${commitGroups.length} commits / ${m.summary.features} features：S2 ${m.summary.bySeverity.S2 || 0} / S1 ${m.summary.bySeverity.S1 || 0} / S0 ${m.summary.bySeverity.S0 || 0}）\n\n${body}`;
+    }
+    const rows = sortedFeatures.map(rowText).join("\n");
     return `Evidence Matrix（${m.summary.features} features：S2 ${m.summary.bySeverity.S2 || 0} / S1 ${m.summary.bySeverity.S1 || 0} / S0 ${m.summary.bySeverity.S0 || 0}，按 severity 排序）\n\n${rows}`;
   };
 
@@ -260,7 +273,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-lg">🚦</span>
             <h2 className="text-sm font-bold text-stone-800">{t("rm.title")}</h2>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">.paaw/releases/</span>
             {readiness && (
               <select value={selCommit} onChange={(e) => setSelCommit(e.target.value)}
                 className="text-[11px] border rounded-lg px-1.5 py-1 bg-white min-w-0 max-w-[260px] shrink" style={{ borderColor: tk.borderLight }}
@@ -365,6 +377,11 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                       <span className="text-xs font-bold text-stone-700">⚖️ {t("rm.ev.title")}</span>
                       <span className="text-[10px] text-stone-400">{t("rm.ev.hint")}</span>
                       {onOpenReviewBoard && <button type="button" onClick={onOpenReviewBoard} className="text-[10px] px-2 py-0.5 rounded-full border font-bold text-violet-600 hover:bg-violet-50" style={{ borderColor: "#ddd6fe" }} data-testid="rm-open-review-board">{t("rm.ev.openBoard")} →</button>}
+                      {/* 2026-11-07 Fleming：by commit ⇄ by feature 切換 */}
+                      <button type="button" onClick={() => setEvView(evView === "commit" ? "feature" : "commit")}
+                        className="text-[10px] px-2 py-0.5 rounded-full border font-bold text-stone-500 hover:bg-stone-100" style={{ borderColor: tk.borderLight }} data-testid="rm-ev-view-toggle">
+                        ⇄ {evView === "commit" ? t("rm.ev.byFeature") : t("rm.ev.byCommit")}
+                      </button>
                       <span className="ml-auto flex gap-1.5 text-[10px] font-mono">
                         {readiness.evidenceMatrix.summary.bySeverity.S2 > 0 && <span className="px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-bold">S2 {readiness.evidenceMatrix.summary.bySeverity.S2}</span>}
                         {readiness.evidenceMatrix.summary.bySeverity.S1 > 0 && <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold">S1 {readiness.evidenceMatrix.summary.bySeverity.S1}</span>}
@@ -382,7 +399,9 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                       {/* 2026-11-03 Fleming：Human 欄移除 — 簡化（人不逐 feature 簽核，看 AI 摘要與 QA 記錄即可）*/}
                       <span>{t("rm.ev.feature")}</span><span>Sev</span><span>Unit</span><span>E2E</span><span>SG</span><span>QA</span><span>{t("rm.ev.board")}</span>
                     </div>
-                    {sortedFeatures.map(f => {
+                    {(() => {
+                      // 2026-11-07 Fleming：row renderer 共用 — by commit（commit line 帶 touched features）/ by feature 兩種分組
+                      const renderRow = (f: EvFeature) => {
                       const ev = f.evidence;
                       const cell = (c: EvCell, label: string) => (
                         <span className={`text-[10px] font-mono ${c.ok ? (c.note ? "text-amber-600 font-bold" : "text-green-600") : "text-red-500 font-bold"}`} title={String(c.note ? `${c.reason || "✓"}（${c.note}）` : (c.reason || (c.ok ? "✓" : "missing")))}>{label}</span>
@@ -407,7 +426,21 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                                 : <span className="text-[9px] text-red-500 font-bold truncate" title={String(ev.aiReview.reason || "")}>✗ {t("rm.ev.notRun")}</span>}
                         </div>
                       );
-                    })}
+                      };
+                      if (evView === "commit" && commitGroups.length) {
+                        return commitGroups.map((g) => (
+                          <div key={g.short} className="mb-1.5">
+                            <div className="flex items-baseline gap-1.5 px-2 py-1 rounded-lg bg-stone-50 border" style={{ borderColor: tk.borderLight }} data-testid="rm-ev-commit-line">
+                              <span className="text-[10px] font-mono font-bold text-violet-700 shrink-0">{g.short}</span>
+                              <span className="text-[10px] font-bold text-stone-700 truncate" title={g.subject}>{g.subject}</span>
+                              <span className="ml-auto text-[9px] text-stone-400 shrink-0">{String(g.at || "").slice(0, 10)} · {g.author} · {g.featureIds.length}f</span>
+                            </div>
+                            {g.featureIds.map((id: string) => featureById.get(id)).filter((f): f is EvFeature => !!f).map((f) => renderRow(f))}
+                          </div>
+                        ));
+                      }
+                      return sortedFeatures.map((f) => renderRow(f));
+                    })()}
                   </div>
                 )}
 

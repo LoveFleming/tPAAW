@@ -524,6 +524,23 @@ export default async function releaseRoutes(req, res, next) {
             if (!f.hasTests) f.evidence.unit = { ok: false, reason: "RU model 重建失敗 — 測試映射不可用（重新整理自動重試）" };
           }
         }
+        // 2026-11-07 Fleming：Evidence Matrix by commit line — 每條 commit 掛上 touched features（檔案→feature 反查）
+        if (evidenceMatrix) {
+          const fileToFeatureIds = new Map();
+          for (const f of changedFeatures) {
+            for (const fl of f.changedFiles) {
+              const arr = fileToFeatureIds.get(fl) || [];
+              arr.push(f.id);
+              fileToFeatureIds.set(fl, arr);
+            }
+          }
+          evidenceMatrix.byCommit = (commits || []) // git log 本身新 → 舊
+            .map((c) => {
+              const fids = [...new Set((c.files || []).flatMap((fl) => fileToFeatureIds.get(fl) || []))];
+              return fids.length ? { short: c.short, subject: c.subject, at: c.date, author: c.author, featureIds: fids } : null;
+            })
+            .filter(Boolean);
+        }
       } catch (e) { console.error("[readiness] evidence matrix:", e.message); } // nosemgrep: unsafe-formatstring
 
       const authors = [...new Set(commits.map(c => c.author))];
