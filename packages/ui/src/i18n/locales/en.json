@@ -2090,6 +2090,6 @@
   "rm.reportCommitTip": "Pick a commit as report baseline (default HEAD)",
   "rm.ev.loadBtn": "Evidence Matrix",
   "rm.ev.loadTip": "Load on demand: API-first evidence matrix (changes after selected commit)",
-  "rm.ev.sinceHead": "HEAD (since last release)",
+  "rm.ev.sinceHead": "HEAD (all APIs, no time filter)",
   "rm.ev.noTest": "no tests"
 }

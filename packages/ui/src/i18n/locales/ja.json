@@ -2090,6 +2090,6 @@
   "rm.reportCommitTip": "レポート基準の commit を選択（デフォルト HEAD）",
   "rm.ev.loadBtn": "Evidence Matrix",
   "rm.ev.loadTip": "オンデマンド読み込み：API ベース証拠マトリクス（選択 commit 以降の変更）",
-  "rm.ev.sinceHead": "HEAD（前回リリース以降）",
+  "rm.ev.sinceHead": "HEAD（全 API、時間フィルタなし）",
   "rm.ev.noTest": "テストなし"
 }

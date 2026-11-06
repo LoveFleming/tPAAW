@@ -2090,6 +2090,6 @@
   "rm.reportCommitTip": "選一個 commit 時間當報告基準（預設 HEAD）",
   "rm.ev.loadBtn": "Evidence Matrix",
   "rm.ev.loadTip": "按需載入：API-first 證據矩陣（窗口=下拉選的 commit 之後的變更）",
-  "rm.ev.sinceHead": "HEAD（上次 release 以來）",
+  "rm.ev.sinceHead": "HEAD（全部 API，不 by 時間）",
   "rm.ev.noTest": "無測試檔"
 }

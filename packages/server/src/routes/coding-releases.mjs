@@ -621,7 +621,7 @@ export default async function releaseRoutes(req, res, next) {
   }
 
   // ── GET evidence-by-api — API-first Evidence Matrix（2026-11-07 Fleming v3：審 API 不審 feature；按鈕才載入）──
-  // since=<sha>：只看該 baseline commit 之後（sha..HEAD）的變更；無 since = 上次 release 以來（HEAD 全量窗口）
+  // since=<sha>：只看該 baseline commit 之後（sha..HEAD）的變更；無 since = HEAD = 全部 API（不 by 時間 — 2026-11-07 Fleming v4：release record 已不需要，沒有「上次 release 以來」逼科）
   if (url === "/api/coding-releases/evidence-by-api" && method === "GET") {
     if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first
     try {
@@ -630,9 +630,7 @@ export default async function releaseRoutes(req, res, next) {
       const { loadSecurityScan, sgForFeature } = await import("../lib/release-evidence.mjs");
       const apis = readApiFeatures(root);
       const sinceSha = q.get("since");
-      let since = sinceSha || null;
-      if (!since) { const releases = await listReleases(projectPath); since = releases[0]?.releasedAt || null; }
-      const { data: ci } = await buildChangeIntelligence(projectPath, sinceSha ? { fromSha: sinceSha, maxCommits: 300 } : { since, maxCommits: 300 });
+      const { data: ci } = await buildChangeIntelligence(projectPath, sinceSha ? { fromSha: sinceSha, maxCommits: 300 } : { maxCommits: 300 });
       const commits = ci?.commits || []; // 新 → 舊，含 files（注意：此處 commit 只有完整 hash，short 自切）
       const fileCommits = new Map(); // file → [short...]（新→舊）
       for (const c of commits) {
@@ -680,7 +678,7 @@ export default async function releaseRoutes(req, res, next) {
       for (const a of apis) {
         const files = (a.codeFiles || []).map((f) => String(f).replace(/\\/g, "/"));
         const touched = [...new Set(files.flatMap((f) => fileCommits.get(f) || []))];
-        if (!touched.length) continue; // 只列窗口內有變更的 API（Fleming：by 選的 baseline commit 之後的 change）
+        if (sinceSha && !touched.length) continue; // 只有選 baseline commit 才過濾；HEAD = 全部 API 不 by 時間
         const sg = sgForFeature(scan, files);
         rows.push({
           entry: a.entry, name: a.name, category: a.category, files,
@@ -691,7 +689,7 @@ export default async function releaseRoutes(req, res, next) {
         });
       }
       return res.json({
-        ok: true, sinceSha: sinceSha || null, anchor: sinceSha ? `${sinceSha.slice(0, 7)}..HEAD` : "since-last-release",
+        ok: true, sinceSha: sinceSha || null, anchor: sinceSha ? `${sinceSha.slice(0, 7)}..HEAD` : "all",
         commitsInWindow: commits.length,
         summary: {
           changedApis: rows.length,

@@ -223,7 +223,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   // 2026-11-07 Fleming v3：Evidence Matrix 表格文字化（API-first，餵 AI 用；資料來源 = 按鈕載入的 evApi）
   const matrixEvidenceText = (): string | null => {
     if (!evApi) return null;
-    const anchorDesc = evApi.anchor === "since-last-release" ? "HEAD（上次 release 以來全部）" : `${evApi.anchor}（${evApi.commitsInWindow} commits）`;
+    const anchorDesc = evApi.anchor === "all" ? "HEAD（全部 API，不 by 時間）" : `${evApi.anchor}（${evApi.commitsInWindow} commits）`;
     const rows = evApi.apis.map((a: any) =>
       `● ${a.entry}｜${a.name || ""}｜commits ${a.commits.join(" ")}｜Tests ${a.tests.length ? `✓${a.tests.length}（${a.tests.join(", ")}）` : "✗ 無"}｜E2E ${a.e2eCovered ? "✓" : "—"}｜SG ${a.sg.ok ? `✓（${a.sg.total} findings）` : `✗${a.sg.high}hi`}｜檔案 ${a.files.join(", ")}`
     ).join("\n");
@@ -380,7 +380,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                   <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight }} data-testid="rm-evidence-matrix">
                     <div className="flex items-center gap-2 flex-wrap mb-2">
                       <span className="text-xs font-bold text-stone-700">⚖️ {t("rm.ev.title")}</span>
-                      <span className="text-[10px] text-stone-400">{evApi.anchor === "since-last-release" ? t("rm.ev.sinceHead") : `${evApi.anchor} · ${evApi.commitsInWindow} commits`}</span>
+                      <span className="text-[10px] text-stone-400">{evApi.anchor === "all" ? t("rm.ev.sinceHead") : `${evApi.anchor} · ${evApi.commitsInWindow} commits`}</span>
                       {onOpenReviewBoard && <button type="button" onClick={onOpenReviewBoard} className="text-[10px] px-2 py-0.5 rounded-full border font-bold text-violet-600 hover:bg-violet-50" style={{ borderColor: "#ddd6fe" }} data-testid="rm-open-review-board">{t("rm.ev.openBoard")} →</button>}
                       <span className="ml-auto flex gap-1.5 text-[10px] font-mono">
                         <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 font-bold">API {evApi.summary.changedApis}</span>
