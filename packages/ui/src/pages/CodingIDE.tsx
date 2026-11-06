@@ -60,6 +60,7 @@ import TabErrorBoundary from "../components/TabErrorBoundary";
 import ApiMapView from "../components/FeatureMap";
 import ApiMapSidebar from "../components/ApiMapSidebar";
 import ApiTesterTabs from "../components/ApiTesterTabs";
+import ApiRequestTabSheet, { type ApiRequestTabSheetHandle } from "../components/ApiRequestTabSheet";
 import AgentSideChat, { type AgentSideChatHandle } from "../components/AgentSideChat";
 import { useColResize, ColResizer } from "../components/ColResizer"; // 2026-10-09：side chat 左右 splitter
 import CrewManager from "../components/CrewManager";
@@ -186,7 +187,6 @@ interface ApiResponse { status: number; statusText: string; headers: Record<stri
 interface ApiHistoryItem { id: string; ts: string; method: string; url: string; status: number; elapsed: number; headers?: ApiHeader[]; body?: string; streamMode?: boolean; response?: ApiResponse; streamResponse?: string; source?: "agent" | "human"; agent?: string; }
 
 // ── Constants ──
-const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 
 // Chat scroll cache — crewId → scrollTop（FileViewer scroll cache 同款）
 // 切換 agent tab 時 remount（key={activeCrew}）會丟失捲動位置，用 cache 還原
@@ -195,11 +195,6 @@ const _chatScrollCache = new Map<string, number>();
 const EMPTY_TOOL_LOG: Array<{ name: string; args: string; result: string }> = [];
 // 2026-10-03：檔案樹 onOpenInBriefingPlayer 佔位 — 模組級常數避免每次 render 新身分打爆 memo
 const TREE_NOOP = () => {};
-const METHOD_COLORS: Record<string, string> = {
-  GET: "#10B981", POST: "#3B82F6", PUT: "#F59E0B", PATCH: "#8B5CF6",
-  DELETE: "#EF4444", HEAD: "#6B7280", OPTIONS: "#6B7280",
-};
-
 // ── Helpers ──
 function getFileIcon(name: string): string {
   if (name === "package.json") return "📦";
@@ -241,57 +236,6 @@ function fmtTime(iso: string) {
   if (diffMs < 3600_000) return `${Math.floor(diffMs / 60_000)}m ago`;
   if (diffMs < 86400_000) return `${Math.floor(diffMs / 3600_000)}h ago`;
   return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
-function fmtBytes(n: number) {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function tryFormatJson(str: string): string {
-  try { return JSON.stringify(JSON.parse(str), null, 2); } catch { return str; }
-}
-
-// ── API Tester response body：JSON 自動 pretty / 樹狀檢視，非 JSON 原樣顯示 ──
-function ApiResponseBody({ body }: { body: string }) {
-  const { t: tt } = useI18n();
-  const [view, setView] = useState<"tree" | "raw">("tree");
-  const [copied, setCopied] = useState(false);
-  let parsed: unknown = null;
-  try { parsed = JSON.parse(body); } catch { /* not JSON */ }
-  const isJson = parsed !== null && typeof parsed === "object"; // object/array 才進樹狀；純量/文字用 pretty raw
-  const pretty = tryFormatJson(body);
-  const copy = () => {
-    navigator.clipboard.writeText(pretty).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  const btn = "text-xs px-2 py-1 rounded-md border transition-colors";
-  return (
-    <div className="flex-1 min-h-0 flex flex-col gap-2">
-      {/* Toolbar: Tree/Raw 切換 + 複製 */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        {isJson && (
-          <>
-            <button onClick={() => setView("tree")} className={cn(btn, view === "tree" ? "bg-stone-800 text-white border-stone-800" : "bg-white text-stone-600 border-stone-300 hover:bg-stone-50")}>🌳 {tt("vibe.apiViewTree")}</button>
-            <button onClick={() => setView("raw")} className={cn(btn, view === "raw" ? "bg-stone-800 text-white border-stone-800" : "bg-white text-stone-600 border-stone-300 hover:bg-stone-50")}>📄 {tt("vibe.apiViewRaw")}</button>
-          </>
-        )}
-        <button onClick={copy} className={cn(btn, "ml-auto bg-white text-stone-600 border-stone-300 hover:bg-stone-50")}>{copied ? "✅" : "📋"} {tt("vibe.apiCopy")}</button>
-      </div>
-      {isJson && view === "tree" ? (
-        <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-stone-300 bg-white flex flex-col">
-          <JsonViewer data={parsed} compact />
-        </div>
-      ) : (
-        <pre className="flex-1 text-sm font-mono bg-stone-800 text-green-300 rounded-lg p-3 overflow-auto whitespace-pre-wrap break-words min-h-0">
-          {pretty}
-        </pre>
-      )}
-    </div>
-  );
 }
 
 // Safety: ensure value is a renderable string (not object/array/null)
@@ -1086,49 +1030,13 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
   const [activeTaskPipeline, setActiveTaskPipeline] = useState<Record<string, any> | null>(null);
   const [showStagedDetail, setShowStagedDetail] = useState(false);
 
-  // ── API Tester State ──
-  const [apiMethod, setApiMethod] = useState("GET");
-  const [apiUrl, setApiUrl] = useState("");
-  const [apiHeaders, setApiHeaders] = useState<ApiHeader[]>([
-    { key: "Content-Type", value: "application/json", enabled: true },
-  ]);
-  const [apiBody, setApiBody] = useState("");
-  const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
-  const [apiLoading, setApiLoading] = useState(false);
+  // ── API Tester State（2026-11-06：request builder 改 Postman 式多 tab → 抽到 ApiRequestTabSheet；
+  //    适里只留跨欄共享的 state：history / project API 清單）──
   const [apiHistory, setApiHistory] = useState<ApiHistoryItem[]>([]);
-  const [apiTab, setApiTab] = useState<"request" | "response" | "history">("request");
-  const [apiStreamMode, setApiStreamMode] = useState(false);
-  const [apiStreamContent, setApiStreamContent] = useState("");
-  const [apiStreamInfo, setApiStreamInfo] = useState<{ status: number; statusText: string; contentType: string } | null>(null);
   const [projectApis, setProjectApis] = useState<{ method: string; path: string; file: string }[]>([]);
   const [projectApiExamples, setProjectApiExamples] = useState<{ method: string; endpoint: string; description: string; request: any; response: any }[]>([]);
-  const [apiGroupCollapsed, setApiGroupCollapsed] = useState<Record<string, boolean>>({});
-  const apiStreamAbortRef = useRef<AbortController | null>(null);
   const a2aAbortRef = useRef<AbortController | null>(null); // for interrupting A2A agent streams
-
-  // ── API Tester Collections（2026-09-24 Fleming：payload 存入 collection，左欄 tab 顯示）──
-  const [saveColOpen, setSaveColOpen] = useState(false);
-  const [saveColName, setSaveColName] = useState("");
-  const [savePayloadName, setSavePayloadName] = useState("");
-  const saveColComposingRef = useRef(false); // IME 三層保護
-  const doSaveToCollection = async () => {
-    const col = saveColName.trim();
-    const pname = savePayloadName.trim();
-    if (!col || !pname || !apiUrl) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/api-tester/collections`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          collection: col,
-          path: rootPath, // 2026-09-29：RU-scoped collections
-          payload: { name: pname, method: apiMethod, url: apiUrl, headers: apiHeaders, body: apiBody, streamMode: apiStreamMode },
-        }),
-      });
-      if (res.ok) { setSaveColOpen(false); setSavePayloadName(""); uiAlert(tt("apiTester.saved")); }
-      else uiAlertError(tt("apiTester.saveFailed"));
-    } catch { uiAlertError(tt("apiTester.saveFailed")); }
-  };
+  const apiTabSheetRef = useRef<ApiRequestTabSheetHandle>(null); // 中欄 Postman 式 tab sheet（openTab 供左欄 onPick/onLoadPayload 用）
 
   // ── Coding Behavior Tracking ──
   const codingLogRef = useRef<CodingEvent[]>([]);
@@ -2520,93 +2428,10 @@ const sendChat = useCallback(async () => {
 
 
   // ═══════════════════════════════════════════════
-  // API Tester
+  // API Tester（2026-11-06：request builder 移入 ApiRequestTabSheet；這裡只留 history callback）
   // ═══════════════════════════════════════════════
-  const sendApiRequest = useCallback(async () => {
-    if (!apiUrl.trim() || apiLoading) return;
-
-    // ── Streaming mode ──
-    if (apiStreamMode) {
-      setApiLoading(true);
-      setApiTab("response");
-      setApiStreamContent("");
-      setApiStreamInfo(null);
-      const startTime = Date.now();
-      const ac = new AbortController();
-      apiStreamAbortRef.current = ac;
-      const headersObj: Record<string, string> = {};
-      apiHeaders.filter(h => h.enabled && h.key).forEach(h => { headersObj[h.key] = h.value; });
-      try {
-        const res = await fetch(`${API_BASE}/api/api-tester/stream`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ method: apiMethod, url: apiUrl.trim(), headers: headersObj, body: apiBody }),
-          signal: ac.signal,
-        });
-        const status = parseInt(res.headers.get("X-Response-Status") || "0", 10);
-        const statusText = res.headers.get("X-Response-Status-Text") || "";
-        const contentType = res.headers.get("Content-Type") || "";
-        setApiStreamInfo({ status, statusText, contentType });
-
-        const reader = res.body?.getReader();
-        if (!reader) { setApiStreamContent("No response body"); setApiLoading(false); return; }
-        const decoder = new TextDecoder();
-        let accumulated = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          accumulated += chunk;
-          setApiStreamContent(accumulated);
-        }
-
-        const elapsed = Date.now() - startTime;
-        const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: status || 200, elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode, streamResponse: accumulated, source: "human" };
-        setApiHistory(prev => [item, ...prev].slice(0, 50));
-        try { await fetch(`${API_BASE}/api/api-tester/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }); } catch {}
-      } catch (err: any) {
-        if (err.name === "AbortError") {
-          setApiStreamContent(prev => prev + "\n\n[⏹ Aborted by user]");
-        } else {
-          setApiStreamContent(`❌ Error: ${err.message}`);
-        }
-      }
-      apiStreamAbortRef.current = null;
-      setApiLoading(false);
-      return;
-    }
-
-    // ── Normal (non-streaming) mode ──
-    setApiLoading(true);
-    setApiResponse(null);
-    setApiTab("response");
-    const headersObj: Record<string, string> = {};
-    apiHeaders.filter(h => h.enabled && h.key).forEach(h => { headersObj[h.key] = h.value; });
-    try {
-      const res = await fetch(`${API_BASE}/api/api-tester/proxy`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ method: apiMethod, url: apiUrl.trim(), headers: headersObj, body: apiBody }),
-      });
-      const data = await res.json();
-      setApiResponse(data);
-      // Save to history
-      const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: data.status, elapsed: data.elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode, response: data, source: "human" };
-      setApiHistory(prev => [item, ...prev].slice(0, 50));
-      // Save to server
-      try { await fetch(`${API_BASE}/api/api-tester/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }); } catch {}
-    } catch (err: any) { setApiResponse({ status: 0, statusText: "Error", headers: {}, body: err.message, elapsed: 0, size: 0, error: true }); }
-    setApiLoading(false);
-  }, [apiMethod, apiUrl, apiHeaders, apiBody, apiLoading, apiStreamMode]);
-
-  const loadApiHistory = useCallback(async () => {
-    try { const res = await fetch(`${API_BASE}/api/api-tester/history?path=${encodeURIComponent(rootPath)}`); const data = await res.json(); if (data.history) setApiHistory(data.history); } catch {}
-  }, [rootPath]);
-
-  const addHeader = useCallback(() => setApiHeaders(prev => [...prev, { key: "", value: "", enabled: true }]), []);
-  const removeHeader = useCallback((i: number) => setApiHeaders(prev => prev.filter((_, idx) => idx !== i)), []);
-  const updateHeader = useCallback((i: number, field: "key" | "value" | "enabled", val: string | boolean) => {
-    setApiHeaders(prev => prev.map((h, idx) => idx === i ? { ...h, [field]: val } : h));
+  const addApiHistoryItem = useCallback((item: ApiHistoryItem) => {
+    setApiHistory(prev => [item, ...prev].slice(0, 50));
   }, []);
 
   // ═══════════════════════════════════════════════
@@ -3452,19 +3277,21 @@ const sendChat = useCallback(async () => {
                   <ApiTesterTabs
                     rootPath={rootPath}
                     onPick={(m, p) => {
+                      // Postman 行為：點 API = 開新 request tab（2026-11-06）
                       const base = rootPath ? `http://localhost:${new URL(API_BASE).port}` : API_BASE;
-                      setApiUrl(`${base}${p}`);
-                      setApiMethod(m || "GET");
-                      setApiStreamMode(false);
+                      apiTabSheetRef.current?.openTab({ method: m || "GET", url: `${base}${p}`, streamMode: false });
                     }}
                     onOpenFile={(abs) => { openFile(abs); }}
                     onAskAi={(prompt) => { apiDevChatRef.current?.send(prompt); }}
                     onLoadPayload={(p) => {
-                      setApiMethod(p.method || "GET");
-                      setApiUrl(p.url);
-                      setApiHeaders(Array.isArray(p.headers) && p.headers.length ? p.headers : [{ key: "Content-Type", value: "application/json", enabled: true }]);
-                      setApiBody(p.body ?? "");
-                      setApiStreamMode(!!p.streamMode);
+                      // Postman 行為：載入收藏/history = 開新 request tab（2026-11-06）
+                      apiTabSheetRef.current?.openTab({
+                        method: p.method || "GET",
+                        url: p.url,
+                        headers: Array.isArray(p.headers) && p.headers.length ? p.headers : [{ key: "Content-Type", value: "application/json", enabled: true }],
+                        body: p.body ?? "",
+                        streamMode: !!p.streamMode,
+                      });
                     }}
                     apiHistory={apiHistory}
                     onClearHistory={async () => {
@@ -3478,282 +3305,15 @@ const sendChat = useCallback(async () => {
                     borderInput={tk.borderInput}
                   />
                 </div>
-                {/* 中欄：request builder + response（原有）*/}
-                <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                {/* ── Top: Request Builder ── */}
-                <div data-api-panel="request" className="shrink-0 overflow-y-auto p-3 space-y-2 flex flex-col" style={{ flex: "0 0 50%", borderBottom: `1px solid ${tk.borderLight}`, maxHeight: "70%" }}>
-                  {/* Title bar + History dropdown */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-stone-500">🌐 API Tester</span>
-                    <span className="flex-1" />
-                    {rootPath && (
-                      <button onClick={async () => {
-                        try {
-                          const res = await fetch(`${API_BASE}/api/coding-project/file?path=${encodeURIComponent(rootPath)}&file=test-payloads/all-payloads.json`);
-                          if (res.ok) {
-                            const data = await res.json();
-                            if (data.content) {
-                              try {
-                                const payloads = JSON.parse(data.content);
-                                if (payloads.tests?.[0]?.request) {
-                                  const t = payloads.tests[0];
-                                  setApiMethod(t.request.method || "GET");
-                                  setApiUrl(t.request.path || "");
-                                  if (t.request.headers) setApiHeaders(Object.entries(t.request.headers).map(([k, v]) => ({ key: k, value: String(v), enabled: true })));
-                                  if (t.request.body) setApiBody(typeof t.request.body === "string" ? t.request.body : JSON.stringify(t.request.body, null, 2));
-                                  uiAlert(`已載入第 1 個 test payload（共 ${payloads.tests.length} 個）`);
-                                } else if (payloads.endpoint) {
-                                  setApiMethod(payloads.tests?.[0]?.request?.method || payloads.request?.method || "GET");
-                                  setApiUrl(payloads.endpoint.split(" ").pop() || payloads.request?.path || "");
-                                }
-                              } catch { uiAlertError("AI test payload 格式有誤，請在 .paaw/test-payloads/ 檢查"); }
-                            } else { uiAlert("尚未產出 API Test Payload。先點 🧠 Code Understanding"); }
-                          } else { uiAlert("尚未產出 API Test Payload。先點 🧠 Code Understanding"); }
-                        } catch { uiAlertError("載入失敗"); }
-                      }} className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 font-bold" title="載入 AI 產出的 test payload">
-                        🧪 AI
-                      </button>
-                    )}
-                    <div className="relative">
-                      <button onClick={() => setSaveColOpen(v => !v)} className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 hover:bg-amber-200 font-bold" title={tt("apiTester.saveToCollection")}>
-                        💾+
-                      </button>
-                      {/* 存入 Collection popover */}
-                      {saveColOpen && (
-                        <div className="absolute right-0 top-full mt-1 w-64 bg-white rounded-lg shadow-xl border p-2 space-y-1.5 z-50" style={{ borderColor: tk.borderInput }}>
-                        <div className="text-xs font-bold text-stone-500">{tt("apiTester.saveToCollection")}</div>
-                        <input value={saveColName} onChange={e => setSaveColName(e.target.value)}
-                          onCompositionStart={() => { saveColComposingRef.current = true; }}
-                          onCompositionEnd={() => { saveColComposingRef.current = false; }}
-                          placeholder={tt("apiTester.collectionNamePh")} className="w-full text-xs px-2 py-1 rounded border bg-transparent outline-none focus:border-amber-400" style={{ borderColor: tk.borderInput }} />
-                        <input value={savePayloadName} onChange={e => setSavePayloadName(e.target.value)}
-                          onCompositionStart={() => { saveColComposingRef.current = true; }}
-                          onCompositionEnd={() => { saveColComposingRef.current = false; }}
-                          onKeyDown={async (e) => {
-                            if (saveColComposingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
-                            if (e.key === "Enter") { e.preventDefault(); await doSaveToCollection(); }
-                          }}
-                          placeholder={tt("apiTester.payloadNamePh")} className="w-full text-xs px-2 py-1 rounded border bg-transparent outline-none focus:border-amber-400" style={{ borderColor: tk.borderInput }} />
-                        <div className="flex gap-1.5">
-                          <button onClick={doSaveToCollection} disabled={!saveColName.trim() || !savePayloadName.trim() || !apiUrl}
-                            className="flex-1 text-xs px-2 py-1 rounded bg-amber-500 text-white font-bold hover:bg-amber-600 disabled:opacity-40">{tt("apiTester.save")}</button>
-                          <button onClick={() => setSaveColOpen(false)} className="text-xs px-2 py-1 rounded text-stone-400 hover:text-stone-600">{tt("apiTester.cancel")}</button>
-                        </div>
-                        </div>
-                      )}
-                    </div>
-                        {/* Dropdown */}
-                  </div>
-                  {/* Quick URLs */}
-                  <div className="flex flex-wrap gap-1 mb-1">
-                    {/* Project APIs with payload examples */}
-                    {projectApiExamples.length > 0 && projectApiExamples.slice(0, 20).map((ex, i) => (
-                      <button key={`ex-${i}`} onClick={() => {
-                        const base = rootPath ? `http://localhost:${new URL(API_BASE).port}` : API_BASE;
-                        let url = `${base}${ex.endpoint}`;
-                        // Replace path params like {id} with example values
-                        if (ex.request?.params) {
-                          for (const [k, v] of Object.entries(ex.request.params)) {
-                            url = url.replace(`{${k}}`, String(v));
-                          }
-                        }
-                        setApiUrl(url);
-                        setApiMethod(ex.method || "GET");
-                        setApiStreamMode(false);
-                        if (ex.request?.headers) {
-                          setApiHeaders(Object.entries(ex.request.headers).map(([key, value]) => ({ key, value: String(value), enabled: true })));
-                        }
-                        if (ex.request?.body) {
-                          setApiBody(JSON.stringify(ex.request.body, null, 2));
-                        }
-                      }}
-                        className="text-xs px-2 py-0.5 rounded-full border border-emerald-200 text-emerald-600 hover:bg-emerald-50"
-                        title={`${ex.description}\n${JSON.stringify(ex.request?.body || {}, null, 2).slice(0, 200)}`}>
-                        {ex.method} {ex.endpoint.length > 22 ? `…${ex.endpoint.slice(-19)}` : ex.endpoint}
-                      </button>
-                    ))}
-                    {/* Fallback: project API routes grouped by path segment */}
-                    {projectApiExamples.length === 0 && projectApis.length > 0 && (() => {
-                      // Group APIs by first path segment
-                      const groups: Record<string, typeof projectApis> = {};
-                      for (const api of projectApis) {
-                        const parts = api.path.replace(/^\/+/, "").split("/");
-                        const group = parts.length > 1 ? parts[0] : "root";
-                        if (!groups[group]) groups[group] = [];
-                        groups[group].push(api);
-                      }
-                      const groupNames = Object.keys(groups).sort();
-                      return groupNames.map(gName => {
-                        const apis = groups[gName];
-                        const collapsed = apiGroupCollapsed[gName] !== false; // default collapsed
-                        return (
-                          <div key={`grp-${gName}`} className="mb-1">
-                            <button onClick={() => setApiGroupCollapsed(prev => ({ ...prev, [gName]: !collapsed }))}
-                              className="text-xs font-semibold text-stone-500 hover:text-stone-700 flex items-center gap-1 mb-0.5">
-                              <span className="text-[10px]">{collapsed ? "▸" : "▾"}</span>
-                              <span className="text-blue-500">/{gName}</span>
-                              <span className="text-stone-400 font-normal">({apis.length})</span>
-                            </button>
-                            {!collapsed && (
-                              <div className="flex flex-wrap gap-1 ml-3 mb-1">
-                                {apis.map((api, i) => (
-                                  <button key={`proj-${gName}-${i}`} onClick={() => {
-                                    const base = rootPath ? `http://localhost:${new URL(API_BASE).port}` : API_BASE;
-                                    setApiUrl(`${base}${api.path}`);
-                                    setApiMethod(api.method || "GET");
-                                    setApiStreamMode(false);
-                                  }}
-                                    className="text-xs px-2 py-0.5 rounded-full border border-blue-200 text-blue-600 hover:bg-blue-50"
-                                    title={api.file || api.path}>
-                                    {api.method} {api.path.length > 30 ? `…${api.path.slice(-27)}` : api.path}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      });
-                    })()}
-                    {/* Generic test endpoints */}
-                    {projectApiExamples.length === 0 && projectApis.length === 0 && (
-                      <span className="text-xs text-stone-400 italic">No project APIs found — agent 寫 API 時會自動產生 sample</span>
-                    )}
-                  </div>
-                  {/* URL bar */}
-                  <div className="flex items-center gap-2">
-                    <select value={apiMethod} onChange={e => setApiMethod(e.target.value)}
-                      className="text-sm font-bold px-2 py-1.5 border rounded-lg outline-none cursor-pointer"
-                      style={{ borderColor: "#ddd", color: METHOD_COLORS[apiMethod] }}>
-                      {HTTP_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                    <input value={apiUrl} onChange={e => setApiUrl(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) sendApiRequest(); }}
-                      placeholder="https://api.example.com/endpoint"
-                      className="flex-1 text-sm font-mono px-3 py-1.5 border rounded-lg outline-none focus:border-blue-400"
-                      style={{ borderColor: "#ddd" }} />
-                    <button
-                      onClick={() => setApiStreamMode(!apiStreamMode)}
-                      className={cn("text-xs px-2 py-1.5 rounded-lg border font-semibold transition-colors",
-                        apiStreamMode ? "bg-purple-600 text-white border-purple-600" : "text-stone-400 border-stone-200 hover:bg-stone-50")}
-                      title="Toggle streaming mode (for LLM SSE endpoints)">
-                      ⚡ Stream
-                    </button>
-                    {apiLoading && apiStreamMode ? (
-                      <button onClick={() => apiStreamAbortRef.current?.abort()}
-                        className="px-3 py-1.5 rounded-lg text-sm font-bold text-white bg-red-500 hover:bg-red-600 active:scale-95 transition-all">
-                        ⏹ Stop
-                      </button>
-                    ) : (
-                      <button onClick={sendApiRequest} disabled={apiLoading || !apiUrl.trim()}
-                        className="px-4 py-1.5 rounded-lg text-sm font-bold text-white disabled:opacity-40 active:scale-95 transition-transform"
-                        style={{ backgroundColor: tk.accent }}>
-                        {apiLoading ? "⏳" : "Send"}
-                      </button>
-                    )}
-                  </div>
-                  {/* Headers (collapsible) */}
-                  <details open>
-                    <summary className="flex items-center gap-2 cursor-pointer select-none">
-                      <span className="text-xs font-bold text-stone-500">{tt('vibe.apiHeaders')}</span>
-                      <button onClick={e => { e.stopPropagation(); addHeader(); }} className="text-xs text-blue-500 hover:text-blue-600">{tt("vibe.apiAddHeader")}</button>
-                      <span className="text-xs text-stone-400">{apiHeaders.filter(h => h.enabled).length}/{apiHeaders.length}</span>
-                    </summary>
-                    {apiHeaders.map((h, i) => (
-                      <div key={i} className="flex items-center gap-1.5 mb-1">
-                        <input type="checkbox" checked={h.enabled} onChange={e => updateHeader(i, "enabled", e.target.checked)} className="w-3 h-3" />
-                        <input value={h.key} onChange={e => updateHeader(i, "key", e.target.value)} placeholder="Key"
-                          className="flex-1 text-xs font-mono px-2 py-1 border rounded outline-none" style={{ borderColor: "#ddd" }} />
-                        <input value={h.value} onChange={e => updateHeader(i, "value", e.target.value)} placeholder="Value"
-                          className="flex-1 text-xs font-mono px-2 py-1 border rounded outline-none" style={{ borderColor: "#ddd" }} />
-                        <button onClick={() => removeHeader(i)} className="text-stone-300 hover:text-red-500 text-xs">✕</button>
-                      </div>
-                    ))}
-                  </details>
-                  {/* Body */}
-                  {apiMethod !== "GET" && apiMethod !== "HEAD" && (
-                    <div className="flex flex-col flex-1 min-h-0">
-                      <div className="flex items-center gap-2 mb-1 shrink-0">
-                        <span className="text-xs font-bold text-stone-500 shrink-0">{tt('vibe.apiBody')}</span>
-                        <button onClick={() => setApiBody(tryFormatJson(apiBody))}
-                          className="text-xs text-stone-400 hover:text-stone-600">📐 {tt("vibe.format")}</button>
-                      </div>
-                      <textarea value={apiBody} onChange={e => setApiBody(e.target.value)}
-                        placeholder='{"key": "value"}'
-                        className="w-full flex-1 min-h-0 text-sm font-mono px-3 py-2 border rounded-lg outline-none focus:border-blue-400 resize-none"
-                        style={{ borderColor: "#ddd" }} />
-                    </div>
-                  )}
-                </div>
-
-                {/* ── Splitter ── */}
-                <div className="h-px cursor-row-resize hover:h-1 hover:bg-blue-400 active:bg-blue-500 transition-all shrink-0"
-                  onMouseDown={e => {
-                    e.preventDefault();
-                    const container = e.currentTarget.parentElement;
-                    if (!container) return;
-                    const startY = e.clientY;
-                    const reqPanel = container.querySelector('[data-api-panel="request"]') as HTMLElement;
-                    const respPanel = container.querySelector('[data-api-panel="response"]') as HTMLElement;
-                    if (!reqPanel || !respPanel) return;
-                    const startReqH = reqPanel.offsetHeight;
-                    const totalH = container.offsetHeight;
-                    const onMove = (ev: MouseEvent) => {
-                      const delta = ev.clientY - startY;
-                      const newReqH = Math.max(120, Math.min(totalH - 120, startReqH + delta));
-                      const pct = (newReqH / totalH) * 100;
-                      reqPanel.style.flex = `0 0 ${pct}%`;
-                      respPanel.style.flex = `1 1 ${100 - pct}%`;
-                    };
-                    const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
-                    document.addEventListener("mousemove", onMove);
-                    document.addEventListener("mouseup", onUp);
-                  } } style={{ backgroundColor: tk.border }} />
-
-                {/* ── Bottom: Response Viewer ── */}
-                <div data-api-panel="response" className="flex-1 overflow-y-auto p-3 min-h-0">
-                  {/* ── Streaming response ── */}
-                  {apiStreamMode && (apiStreamContent || apiLoading) ? (
-                    <div className="flex flex-col h-full gap-2">
-                      <div className="flex items-center gap-2 shrink-0">
-                        {apiStreamInfo && (
-                          <span className="text-xs font-bold" style={{ color: apiStreamInfo.status < 300 ? "#10B981" : apiStreamInfo.status < 400 ? "#F59E0B" : "#EF4444" }}>
-                            {apiStreamInfo.status || "..."} {apiStreamInfo.statusText}
-                          </span>
-                        )}
-                        {apiLoading && <span className="text-xs text-purple-500 animate-pulse">⚡ streaming...</span>}
-                      </div>
-                      <pre className="flex-1 text-sm font-mono bg-stone-900 text-green-300 rounded-lg p-3 overflow-auto whitespace-pre-wrap break-words min-h-0">
-                        {apiStreamContent ? tryFormatJson(apiStreamContent) : "⏳ Waiting for response..."}
-                      </pre>
-                    </div>
-                  ) : /* ── Normal response ── */ apiResponse ? (
-                    <div className="flex flex-col h-full gap-2">
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs font-bold" style={{ color: apiResponse.status < 300 ? "#10B981" : apiResponse.status < 400 ? "#F59E0B" : "#EF4444" }}>
-                          {apiResponse.status} {apiResponse.statusText}
-                        </span>
-                        <span className="text-xs text-stone-400">{apiResponse.elapsed}ms · {fmtBytes(apiResponse.size)}</span>
-                      </div>
-                      {Object.keys(apiResponse.headers).length > 0 && (
-                        <details className="shrink-0">
-                          <summary className="text-xs font-bold text-stone-400 cursor-pointer hover:text-stone-600">{tt('vibe.apiRespHeaders')}</summary>
-                          <div className="text-xs font-mono bg-stone-50 rounded-lg p-2 space-y-0.5 mt-1">
-                            {Object.entries(apiResponse.headers).map(([k, v]) => (
-                              <div key={k}><span className="text-blue-600">{k}</span>: <span className="text-stone-600">{v}</span></div>
-                            ))}
-                          </div>
-                        </details>
-                      )}
-                      <ApiResponseBody body={apiResponse.body} />
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400 text-xs">
-                      <span className="text-2xl">📥</span>
-                      <p>{tt("vibe.apiNoResponse")}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
+                {/* 中欄：Postman 式多 request tab sheet（2026-11-06 Fleming，抽成 ApiRequestTabSheet）*/}
+                <ApiRequestTabSheet
+                  ref={apiTabSheetRef}
+                  rootPath={rootPath}
+                  theme={tk}
+                  projectApis={projectApis}
+                  projectApiExamples={projectApiExamples}
+                  onHistory={addApiHistoryItem}
+                />
                 {/* 右欄：Developer AI 助理 — 2026-10-23 Fleming：跟 architect/handover/qa-browser 同款
                     （splitter 可拖寬 + 三按鈕 + 上傳 + model selector + 對話持久化 + suggestions）*/}
                 <ColResizer onDown={apiDevPane.startDrag} className="hidden xl:block" />

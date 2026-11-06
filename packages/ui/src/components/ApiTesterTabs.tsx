@@ -2,7 +2,7 @@
  * ApiTesterTabs — API Tester 左欄 tab sheet（2026-09-24 Fleming）
  *
  * 三個 tab：
- *   1. 🗂 Feature    — 原 ApiMapSidebar（專案 API 地圖，by feature 分組）
+ *   1. 🌐 APIs     — 專案 API 地圖（平面列表，原 ApiMapSidebar — 2026-11-06 改版）
  *   2. 📁 Collection — api-tester collections（AI/人存的 payload，by collection 分組）
  *   3. 📜 History    — 執行歷史（取代原本標題列的 history dropdown button）
  *
@@ -54,7 +54,29 @@ export default function ApiTesterTabs({
   const [collections, setCollections] = useState<CollectionSummary[]>([]);
   const [openCols, setOpenCols] = useState<Record<string, boolean>>({});
   const [colQuery, setColQuery] = useState("");
+  const [aiPayloadName, setAiPayloadName] = useState("");
+  const [aiColName, setAiColName] = useState("");
   const composingRef = useRef(false); // IME 三層保護
+
+  // 🤖 AI 新增 payload：prompt 指引 agent 用 api_test tool（save=true）存入指定 collection
+  // （tool 定義在 packages/server/src/lib/paaw-agent-loop.mjs 的 api_test：save=true + collection + name + method + url + headers/body）
+  const sendAiAddPayload = () => {
+    const pname = aiPayloadName.trim();
+    if (!pname) return;
+    const col = aiColName.trim();
+    onAskAi(
+      `請在 API Tester 新增一個測試 payload：\n` +
+      `- payload 名稱：「${pname}」\n` +
+      (col ? `- 存入 collection：「${col}」\n` : `- collection 未指定，請自訂一個語意清楚的名稱\n`) +
+      `\n` +
+      `請依專案（${rootPath}）的 API 情境產生合适的 method / url / headers / body，然後用 api_test tool 儲存：\n` +
+      `save=true, collection=<collection 名>, name="${pname}", method=<HTTP method>, url=<完整 url>, headers=<JSON object>, body=<請求 body JSON 字串>, streamMode=false\n` +
+      `（api_test tool 的 save 用法：collection + name + method + url，選填 headers / body / streamMode）\n` +
+      `存完後請回報儲存結果（collection 名與 payload 名），我會在 Collection tab 查看。`
+    );
+    setAiPayloadName("");
+    setAiColName("");
+  };
 
   const loadCollections = useCallback(async () => {
     try {
@@ -123,7 +145,7 @@ export default function ApiTesterTabs({
     <div className="flex flex-col h-full min-h-0">
       {/* ── Tab bar ── */}
       <div className="flex shrink-0" style={{ borderBottom: `1px solid ${borderLight}` }}>
-        {tabBtn("feature", "🗂", t("apiTester.tabFeature"))}
+        {tabBtn("feature", "🌐", t("apiTester.tabApis"))}
         {tabBtn("collection", "📁", t("apiTester.tabCollection"), collections.reduce((s, c) => s + c.count, 0))}
         {tabBtn("history", "📜", t("apiTester.tabHistory"), apiHistory.length)}
       </div>
@@ -135,10 +157,10 @@ export default function ApiTesterTabs({
         </div>
       )}
 
-      {/* ── Tab 2: Collection ── */}
+      {/* ── Tab 2: Collection（collection → payloads 一層；🤖 AI 新增 payload — 2026-11-06 Fleming）── */}
       {tab === "collection" && (
         <div className="flex-1 min-h-0 flex flex-col">
-          <div className="p-1.5 shrink-0">
+          <div className="p-1.5 shrink-0 space-y-1.5">
             <input
               value={colQuery}
               onChange={e => setColQuery(e.target.value)}
@@ -148,6 +170,40 @@ export default function ApiTesterTabs({
               className="w-full text-xs px-2 py-1 rounded border bg-transparent outline-none focus:border-sky-400"
               style={{ borderColor: borderInput }}
             />
+            {/* 🤖 AI 新增 payload：輸入 payload 名（可選 collection 名）→ onAskAi 請 agent 用 api_test tool 存入 */}
+            <div className="rounded-lg border p-1.5 space-y-1" style={{ borderColor: borderInput }}>
+              <div className="text-[10px] font-bold text-violet-500">🤖 {t("apiTester.aiAddPayload")}</div>
+              <input
+                value={aiPayloadName}
+                onChange={e => setAiPayloadName(e.target.value)}
+                onCompositionStart={() => { composingRef.current = true; }}
+                onCompositionEnd={() => { composingRef.current = false; }}
+                onKeyDown={(e) => {
+                  // IME 三層保護：composing 中不送出
+                  if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
+                  if (e.key === "Enter") { e.preventDefault(); sendAiAddPayload(); }
+                }}
+                placeholder={t("apiTester.aiPayloadNamePh")}
+                className="w-full text-xs px-2 py-1 rounded border bg-transparent outline-none focus:border-violet-400"
+                style={{ borderColor: borderInput }} data-testid="api-ai-payload-name"
+              />
+              <input
+                value={aiColName}
+                onChange={e => setAiColName(e.target.value)}
+                onCompositionStart={() => { composingRef.current = true; }}
+                onCompositionEnd={() => { composingRef.current = false; }}
+                onKeyDown={(e) => {
+                  if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
+                  if (e.key === "Enter") { e.preventDefault(); sendAiAddPayload(); }
+                }}
+                placeholder={t("apiTester.aiCollectionPh")}
+                className="w-full text-xs px-2 py-1 rounded border bg-transparent outline-none focus:border-violet-400"
+                style={{ borderColor: borderInput }}
+              />
+              <button onClick={sendAiAddPayload} disabled={!aiPayloadName.trim()}
+                className="w-full text-xs px-2 py-1 rounded bg-violet-500 text-white font-bold hover:bg-violet-600 disabled:opacity-40"
+                data-testid="api-ai-payload-send">{t("apiTester.aiSend")}</button>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto px-1.5 pb-2">
             {filteredCols.length === 0 ? (

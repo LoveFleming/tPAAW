@@ -6,13 +6,15 @@
  *   2. /api/ru/code-intel — callChain（handler 調用鏈）
  *   3. /api/ru/model — featureIds（F-xxx chips）
  *
- * 點 row → onPick(method, path) 填入測試表單
+ * 2026-11-06 Fleming：拿掉 feature/prefix 分組 → 一層平面列表（method + path）
+ * 搜尋保留、method 色標保留、展開 call-chain 保留、「問 AI」與 onOpenFile 保留
+ *
+ * 點 row → onPick(method, path)
  * 「問 AI」→ onAskAi(prompt) 帶證據送右欄 Developer AI（No answer without evidence）
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../i18n";
-import { useRuModel, featureNameMap, type RuModelLite } from "./useRuModel";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4097";
 
@@ -39,11 +41,7 @@ interface Props {
 export default function ApiMapSidebar({ rootPath, onPick, onOpenFile, onAskAi, borderLight = "#f0f0f0", accentText = "#0369a1" }: Props) {
   const { t } = useI18n();
   const [apis, setApis] = useState<ApiEntry[]>([]);
-  const ruModel: RuModelLite | null = useRuModel(rootPath);
-  const featNames = useMemo(() => featureNameMap(ruModel), [ruModel]);
   const [query, setQuery] = useState("");
-  const [mode, setMode] = useState<"feature" | "prefix">("feature"); // feature 分組為主軸
-  const [openGroup, setOpenGroup] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<string | null>(null); // method+path
   const composingRef = useRef(false); // IME 三層保護
 
@@ -52,10 +50,11 @@ export default function ApiMapSidebar({ rootPath, onPick, onOpenFile, onAskAi, b
     let cancelled = false;
     (async () => {
       try {
+        const ruModelReq = fetch(`${API_BASE}/api/ru/model?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).catch(() => null);
         const [pr, ci, ru] = await Promise.all([
           fetch(`${API_BASE}/api/api-tester/project-apis?root=${encodeURIComponent(rootPath)}`).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/ru/code-intel?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).catch(() => null),
-          fetch(`${API_BASE}/api/ru/model?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).catch(() => null),
+          ruModelReq,
         ]);
         if (cancelled) return;
         const chainMap = new Map<string, ApiEntry["callChain"]>();
@@ -84,29 +83,15 @@ export default function ApiMapSidebar({ rootPath, onPick, onOpenFile, onAskAi, b
     return apis.filter(a => `${a.method} ${a.path}`.toLowerCase().includes(q));
   }, [apis, query]);
 
-  // 分組：feature（Release Unit 為主軸）或 prefix（技術結構）
-  const UNMAPPED_KEY = "__unmapped__";
-  const groups = useMemo(() => {
-    const g = new Map<string, ApiEntry[]>();
-    const push = (key: string, a: ApiEntry) => { if (!g.has(key)) g.set(key, []); g.get(key)!.push(a); };
-    if (mode === "feature") {
-      // 多歸屬誠實顯示：API 有幾個 featureIds 就出現在幾組
-      for (const a of filtered) {
-        const fids = (a.featureIds || []).filter(fid => featNames.has(fid));
-        if (fids.length === 0) push(UNMAPPED_KEY, a);
-        else fids.forEach(fid => push(fid, a));
-      }
-      // feature 依 F-id 排序，其他放最後
-      const featKeys = [...g.keys()].filter(k => k !== UNMAPPED_KEY).sort();
-      if (g.has(UNMAPPED_KEY)) featKeys.push(UNMAPPED_KEY);
-      return featKeys.map(k => [k, g.get(k)!] as [string, ApiEntry[]]);
-    }
-    for (const a of filtered) {
-      const parts = a.path.replace(/^\/+/, "").split("/");
-      push(parts.length > 1 ? `/${parts[0]}` : "/", a);
-    }
-    return [...g.entries()].sort((x, y) => x[0].localeCompare(y[0]));
-  }, [filtered, mode, featNames]);
+  // 2026-11-06：平面列表（不分組），method 排序後 path 排序
+  const sorted = useMemo(() => {
+    const order = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
+    return [...filtered].sort((a, b) => {
+      const ai = order.indexOf(a.method), bi = order.indexOf(b.method);
+      if (ai !== bi) return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+      return a.path.localeCompare(b.path);
+    });
+  }, [filtered]);
 
   const askAbout = (a: ApiEntry) => {
     const chain = (a.callChain || []).map(c => `${"  ".repeat(c.depth)}${c.function}${c.resolved === false ? " (unresolved)" : ""}`).join("\n");
@@ -141,89 +126,58 @@ export default function ApiMapSidebar({ rootPath, onPick, onOpenFile, onAskAi, b
           <div className="text-[10px] text-stone-400 font-medium px-0.5">
             ⚡ {filtered.length}/{apis.length} APIs
           </div>
-          <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: borderLight }} data-testid="api-map-mode">
-            {(["feature", "prefix"] as const).map(m => (
-              <button key={m} onClick={() => setMode(m)}
-                data-testid={`api-map-mode-${m}`}
-                className={`text-[10px] font-bold px-1.5 py-0.5 ${mode === m ? "bg-stone-800 text-white" : "text-stone-400 hover:bg-stone-100"}`}>
-                {m === "feature" ? "🧩 Feature" : "🔍 Prefix"}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
-      {/* 分組清單 */}
-      <div className="flex-1 overflow-y-auto p-1.5 space-y-1">
-        {groups.length === 0 && (
+      {/* 平面列表（2026-11-06：不分組）*/}
+      <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
+        {sorted.length === 0 && (
           <div className="text-xs text-stone-400 italic p-3 text-center">{t("apiMap.noApis")}</div>
         )}
-        {groups.map(([gName, list]) => {
-          const open = openGroup[gName] !== false; // 預設展開
+        {sorted.map(a => {
+          const key = `${a.method} ${a.path}`;
+          const isExpanded = expanded === key;
+          const color = METHOD_COLORS[a.method] || "#78716c";
           return (
-            <div key={gName}>
-              <button onClick={() => setOpenGroup(prev => ({ ...prev, [gName]: !open }))}
-                className="w-full flex items-center gap-1 text-xs font-bold text-stone-500 hover:text-stone-700 px-1 py-0.5">
-                <span className="text-[10px]">{open ? "▾" : "▸"}</span>
-                {mode === "feature" && gName !== UNMAPPED_KEY ? (
-                  <>
-                    <span className="font-mono shrink-0" style={{ color: accentText }}>{gName}</span>
-                    <span className="truncate">{featNames.get(gName) || "?"}</span>
-                  </>
-                ) : mode === "feature" ? (
-                  <span className="text-stone-400">📦 {t("apiMap.unmapped")}</span>
-                ) : (
-                  <span className="font-mono">{gName}</span>
-                )}
-                <span className="text-stone-400 font-normal shrink-0">({list.length})</span>
+            <div key={key} className="ml-1">
+              <button onClick={() => { setExpanded(isExpanded ? null : key); onPick(a.method, a.path); }}
+                className="w-full flex items-center gap-1.5 px-1.5 py-1 rounded text-left hover:bg-stone-50 group"
+                data-testid="api-map-row">
+                <span className="text-[9px] font-bold px-1 py-0.5 rounded shrink-0 w-11 text-center text-white" style={{ backgroundColor: color }}>{a.method}</span>
+                <span className="text-[11px] font-mono text-stone-700 truncate flex-1" title={a.path}>{a.path}</span>
+                {a.callChain?.length ? <span className="text-[9px] text-stone-400 shrink-0" title={`${a.callChain.length} call chain`}>⛓{a.callChain.length}</span> : null}
               </button>
-              {open && list.map(a => {
-                const key = `${a.method} ${a.path}`;
-                const isExpanded = expanded === key;
-                const color = METHOD_COLORS[a.method] || "#78716c";
-                return (
-                  <div key={key} className="ml-1">
-                    <button onClick={() => { setExpanded(isExpanded ? null : key); onPick(a.method, a.path); }}
-                      className="w-full flex items-center gap-1.5 px-1.5 py-1 rounded text-left hover:bg-stone-50 group"
-                      data-testid="api-map-row">
-                      <span className="text-[9px] font-bold px-1 py-0.5 rounded shrink-0 w-11 text-center text-white" style={{ backgroundColor: color }}>{a.method}</span>
-                      <span className="text-[11px] font-mono text-stone-700 truncate flex-1" title={a.path}>{a.path}</span>
-                      {a.callChain?.length ? <span className="text-[9px] text-stone-400 shrink-0" title={`${a.callChain.length} call chain`}>⛓{a.callChain.length}</span> : null}
+              {isExpanded && (
+                <div className="ml-4 mr-1 mb-1 p-2 rounded-lg border space-y-1.5" style={{ borderColor: borderLight, background: "#fafaf9" }}>
+                  {a.file && (
+                    <button onClick={() => onOpenFile(`${rootPath}/${a.file}`)}
+                      className="block text-[10px] font-mono text-left hover:underline break-all" style={{ color: accentText }}>
+                      📄 {a.file}
                     </button>
-                    {isExpanded && (
-                      <div className="ml-4 mr-1 mb-1 p-2 rounded-lg border space-y-1.5" style={{ borderColor: borderLight, background: "#fafaf9" }}>
-                        {a.file && (
-                          <button onClick={() => onOpenFile(`${rootPath}/${a.file}`)}
-                            className="block text-[10px] font-mono text-left hover:underline break-all" style={{ color: accentText }}>
-                            📄 {a.file}
-                          </button>
-                        )}
-                        {a.featureIds && a.featureIds.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {a.featureIds.map(fid => (
-                              <span key={fid} className="text-[9px] px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "#f0f9ff", color: accentText }}>{fid}</span>
-                            ))}
-                          </div>
-                        )}
-                        {a.callChain && a.callChain.length > 0 && (
-                          <div className="text-[10px] font-mono text-stone-500 space-y-0.5">
-                            {(a.callChain.slice(0, 12)).map((c, i) => (
-                              <div key={i} className={c.resolved === false ? "text-stone-400 italic" : ""} style={{ paddingLeft: c.depth * 10 }}>
-                                {c.depth === 0 ? "▸ " : "└ "}{c.function}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        <button onClick={() => askAbout(a)}
-                          className="text-[10px] px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 font-medium"
-                          data-testid="api-map-ask">
-                          💬 {t("apiMap.askAi")}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                  )}
+                  {a.featureIds && a.featureIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {a.featureIds.map(fid => (
+                        <span key={fid} className="text-[9px] px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "#f0f9ff", color: accentText }}>{fid}</span>
+                      ))}
+                    </div>
+                  )}
+                  {a.callChain && a.callChain.length > 0 && (
+                    <div className="text-[10px] font-mono text-stone-500 space-y-0.5">
+                      {(a.callChain.slice(0, 12)).map((c, i) => (
+                        <div key={i} className={c.resolved === false ? "text-stone-400 italic" : ""} style={{ paddingLeft: c.depth * 10 }}>
+                          {c.depth === 0 ? "▸ " : "└ "}{c.function}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button onClick={() => askAbout(a)}
+                    className="text-[10px] px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 font-medium"
+                    data-testid="api-map-ask">
+                    💬 {t("apiMap.askAi")}
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
