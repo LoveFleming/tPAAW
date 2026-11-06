@@ -627,7 +627,7 @@ export default async function releaseRoutes(req, res, next) {
     try {
       const root = resolve(projectPath);
       const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
-      const { loadSecurityScan, sgForFeature } = await import("../lib/release-evidence.mjs");
+      const { loadSecurityScan, sgForFeature, loadReviewBoard } = await import("../lib/release-evidence.mjs");
       const apis = readApiFeatures(root);
       const sinceSha = q.get("since");
       const { data: ci } = await buildChangeIntelligence(projectPath, sinceSha ? { fromSha: sinceSha, maxCommits: 300 } : { maxCommits: 300 });
@@ -643,6 +643,8 @@ export default async function releaseRoutes(req, res, next) {
       }
       // SG（file-level — 與 feature 版同掃描源）
       let scan = null; try { scan = await loadSecurityScan(projectPath); } catch { /* 未掃 → null 如實回 */ }
+      // Code Review 委員會紀錄（2026-11-07 Fleming：by API — 掃過該 API 檔案的會議次數 + 最新一次時間/結論）
+      let board = null; try { board = await loadReviewBoard(projectPath); } catch { /* 無紀錄 → null */ }
       // e2e 內容覆蓋（與 readiness 同手法：測試檔 corpus 內容含 API path = deterministic 覆蓋證據）
       const apiCovered = (() => {
         let corpus = null;
@@ -680,9 +682,14 @@ export default async function releaseRoutes(req, res, next) {
         const touched = [...new Set(files.flatMap((f) => fileCommits.get(f) || []))];
         if (sinceSha && !touched.length) continue; // 只有選 baseline commit 才過濾；HEAD = 全部 API 不 by 時間
         const sg = sgForFeature(scan, files);
+        const reviews = (board?.reports || []).filter((r) => {
+          const scope = (r.scopeFiles?.length ? r.scopeFiles : r.findingFiles || []).map((f) => String(f).replace(/\\/g, "/").replace(/^\.\//, ""));
+          return scope.some((f) => files.includes(f));
+        }).map((r) => ({ at: r.at, decision: r.decision }));
         rows.push({
           entry: a.entry, name: a.name, category: a.category, files,
           commits: touched, commitCount: touched.length,
+          reviews, reviewCount: reviews.length, latestReviewAt: reviews.filter((r) => r.at).map((r) => r.at).sort().pop() || null,
           tests: (a.tests || []).map((x) => (typeof x === "string" ? x : x?.file)).filter(Boolean),
           e2eCovered: apiCovered(a.entry),
           sg: { ok: sg.ok, high: sg.high ?? 0, total: sg.total ?? 0, reason: sg.reason || null },
@@ -696,6 +703,7 @@ export default async function releaseRoutes(req, res, next) {
           withTests: rows.filter((r) => r.tests.length > 0).length,
           e2eCovered: rows.filter((r) => r.e2eCovered).length,
           sgHigh: rows.filter((r) => !r.sg.ok).length,
+          withReview: rows.filter((r) => r.reviewCount > 0).length,
           sgScannedAt: scan?.scannedAt || null,
         },
         apis: rows, generatedAt: new Date().toISOString(),

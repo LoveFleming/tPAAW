@@ -2091,5 +2091,7 @@
   "rm.ev.loadBtn": "Evidence Matrix",
   "rm.ev.loadTip": "オンデマンド読み込み：API ベース証拠マトリクス（選択 commit 以降の変更）",
   "rm.ev.sinceHead": "HEAD（全 API、時間フィルタなし）",
-  "rm.ev.noTest": "テストなし"
+  "rm.ev.noTest": "テストなし",
+  "rm.ev.reviewCol": "Code Review",
+  "rm.ev.noReview": "レビュー記録なし"
 }

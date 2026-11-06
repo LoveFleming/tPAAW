@@ -225,7 +225,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     if (!evApi) return null;
     const anchorDesc = evApi.anchor === "all" ? "HEAD（全部 API，不 by 時間）" : `${evApi.anchor}（${evApi.commitsInWindow} commits）`;
     const rows = evApi.apis.map((a: any) =>
-      `● ${a.entry}｜${a.name || ""}｜commits ${a.commits.join(" ")}｜Tests ${a.tests.length ? `✓${a.tests.length}（${a.tests.join(", ")}）` : "✗ 無"}｜E2E ${a.e2eCovered ? "✓" : "—"}｜SG ${a.sg.ok ? `✓（${a.sg.total} findings）` : `✗${a.sg.high}hi`}｜檔案 ${a.files.join(", ")}`
+      `● ${a.entry}｜${a.name || ""}｜Tests ${a.tests.length ? `✓${a.tests.length}（${a.tests.join(", ")}）` : "✗ 無"}｜E2E ${a.e2eCovered ? "✓" : "—"}｜SG ${a.sg.ok ? `✓（${a.sg.total} findings）` : `✗${a.sg.high}hi`}｜Review ${a.reviewCount ? `✓${a.reviewCount}（最新 ${String(a.latestReviewAt || "").slice(0, 10)}）` : "✗ 未審"}｜檔案 ${a.files.join(", ")}`
     ).join("\n");
     return `Evidence Matrix by API（${anchorDesc}：${evApi.summary.changedApis} APIs changed / tests ✓${evApi.summary.withTests} / e2e ✓${evApi.summary.e2eCovered} / SG high ✗${evApi.summary.sgHigh}）\n\n${rows}`;
   };
@@ -387,22 +387,23 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                         <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 font-bold">Tests ✓{evApi.summary.withTests}</span>
                         <span className="px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 font-bold">E2E ✓{evApi.summary.e2eCovered}</span>
                         <span className={`px-1.5 py-0.5 rounded font-bold ${evApi.summary.sgHigh > 0 ? "bg-red-50 text-red-600" : "bg-stone-100 text-stone-500"}`}>SG ✗{evApi.summary.sgHigh}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 font-bold">🏛 {evApi.summary.withReview}</span>
                       </span>
                     </div>
-                    <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 pb-1" style={{ gridTemplateColumns: "1.7fr 1.2fr 1fr 0.7fr 0.7fr 0.7fr" }}>
-                      <span>API</span><span>{t("rm.apiColName")}</span><span>Commits</span><span>Tests</span><span>E2E</span><span>SG</span>
+                    <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 pb-1" style={{ gridTemplateColumns: "1.9fr 1.3fr 0.7fr 0.6fr 0.7fr 1.1fr" }}>
+                      <span>API</span><span>{t("rm.apiColName")}</span><span>Tests</span><span>E2E</span><span>SG</span><span>{t("rm.ev.reviewCol")}</span>
                     </div>
                     <div className="max-h-72 overflow-y-auto">
                       {evApi.apis.map((a: any, i: number) => {
                         const risky = !a.tests.length && !a.e2eCovered;
                         return (
-                          <div key={i} className="grid gap-1 items-center px-2 py-1.5 rounded-lg hover:bg-stone-50 text-[10px]" style={{ gridTemplateColumns: "1.7fr 1.2fr 1fr 0.7fr 0.7fr 0.7fr", background: risky ? "#fff7ed" : undefined }}>
+                          <div key={i} className="grid gap-1 items-center px-2 py-1.5 rounded-lg hover:bg-stone-50 text-[10px]" style={{ gridTemplateColumns: "1.9fr 1.3fr 0.7fr 0.6fr 0.7fr 1.1fr", background: risky ? "#fff7ed" : undefined }}>
                             <span className="font-mono font-bold text-stone-700 truncate" title={`${a.entry}\n${(a.files || []).join("\n")}`}>{a.entry}</span>
                             <span className="text-stone-500 truncate" title={a.name}>{a.name || "—"}</span>
-                            <span className="font-mono text-violet-700 truncate" title={(a.commits || []).join(" · ")}>{a.commitCount}c · {(a.commits || []).slice(0, 3).join(" ")}</span>
                             <span className={`font-mono font-bold ${a.tests.length ? "text-green-600" : "text-red-500"}`} title={(a.tests || []).join("\n") || t("rm.ev.noTest")}>{a.tests.length ? `✓${a.tests.length}` : "✗"}</span>
                             <span className={`font-mono font-bold ${a.e2eCovered ? "text-green-600" : "text-stone-300"}`}>{a.e2eCovered ? "✓" : "—"}</span>
                             <span className={`font-mono font-bold ${a.sg.ok ? ((a.sg.total ?? 0) > 0 ? "text-amber-600" : "text-green-600") : "text-red-500"}`} title={a.sg.reason || `${a.sg.total ?? 0} findings（high ${a.sg.high ?? 0}）@ ${evApi.summary.sgScannedAt || "—"}`}>{a.sg.ok ? ((a.sg.total ?? 0) > 0 ? `⚠${a.sg.total}` : "✓0") : `✗${a.sg.high}hi`}</span>
+                            <span className={`font-mono font-bold ${a.reviewCount ? "text-green-600" : "text-stone-300"}`} title={(a.reviews || []).map((r: any) => `${String(r.at || "").slice(0, 16)} ${r.decision || ""}`).join("\n") || t("rm.ev.noReview")}>{a.reviewCount ? `✓${a.reviewCount}（${String(a.latestReviewAt || "").slice(5, 10)}）` : "✗"}</span>
                           </div>
                         );
                       })}
