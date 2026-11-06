@@ -2069,5 +2069,7 @@
   "rm.apiLoading": "集計中…",
   "rm.apiRunFirst": "先に「API 現状」を押してください",
   "rm.apiYes": "有",
-  "rm.apiFirstRelease": "初回リリース（全て新規）"
+  "rm.apiFirstRelease": "初回リリース（全て新規）",
+  "rm.aiVerify": "🔍 AI に証拠を検証させる",
+  "rm.reportCommitTip": "レポート基準の commit を選択（デフォルト HEAD）"
 }

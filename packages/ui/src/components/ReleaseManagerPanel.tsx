@@ -17,17 +17,6 @@ import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
 import { useColResize, ColResizer } from "./ColResizer"; // 2026-10-09：side chat 左右 splitter
-import ReleaseRequests from "./ReleaseRequests";
-
-interface ReleaseRecord {
-  id: string;
-  releasedAt: string;
-  taskId: string;
-  title: string;
-  trustScore: number | null;
-  riskLevel: string | null;
-  note: string | null;
-}
 
 interface Props {
   rootPath: string;
@@ -35,17 +24,6 @@ interface Props {
   onOpenEMDashboard?: (prefill?: string) => void; // 2026-10-16：可帶預填訊息（補強 CTA → EM 輸入框直接有派工指令，使用者按送出即可）
   onOpenReviewBoard?: () => void;
   onOpenQaRecords?: (featureName: string) => void; // 2026-10-16：Human 欄點入 — 跳 QA 記錄並過濾該 feature（看/補人員簽核）
-}
-
-interface QualityDebt {
-  ok: boolean;
-  code?: string;
-  featuresUpdatedAt?: string | null;
-  totalFeatures?: number;
-  activeFeatures?: number;
-  noTests?: number;
-  noDocs?: number;
-  openRetrofitTasks?: number;
 }
 
 interface ReadinessFeature {
@@ -61,17 +39,6 @@ interface EvFeature extends ReadinessFeature {
   gaps: { missing: string[] };
 }
 interface EvidenceMatrix { features: EvFeature[]; summary: { features: number; bySeverity: Record<string, number>; withGaps: number; sgScan: { scannedAt: string | null; total: number; high: number } | null; reviewBoard: { latest: { at: string | null; decision: string | null; models: string[] }; total: number } | null } }
-// Phase A（2026-10-30）：baseline 錨點凍結快照（.paaw/release/evidence/）
-interface EvSnapshot {
-  id: string; frozen: boolean; generatedAt: string;
-  baseline: { sha: string; short: string; subject: string; at: string; source: string };
-  head: { sha: string; short: string; subject: string };
-  range: string;
-  commits: { count: number; authors: string[] };
-  modelDegraded?: boolean;
-  features: EvFeature[];
-  allGreen: boolean;
-}
 interface Readiness {
   releaseId: string; since: string; sinceRelease: { id: string; releasedAt: string; title: string } | null;
   firstRelease: boolean;
@@ -94,26 +61,16 @@ interface Readiness {
   openItems: number; risk: string; riskReasons: string[]; ready: boolean;
 }
 
-const RISK_COLORS: Record<string, string> = { LOW: "#16a34a", MEDIUM: "#d97706", HIGH: "#dc2626" };
-
 export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashboard, onOpenReviewBoard, onOpenQaRecords }: Props) {
   const { t } = useI18n();
-  const [releases, setReleases] = useState<ReleaseRecord[]>([]);
   const [initialized, setInitialized] = useState<boolean | null>(null); // null = loading
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
-  const [qd, setQd] = useState<QualityDebt | null>(null);
-  const [retrofitting, setRetrofitting] = useState(false);
-  // 2026-10-16：補強結果常駐顯示（取代只跳 toast 就消失）+ CTA 跳 EM 大總管
-  const [retrofitResult, setRetrofitResult] = useState<{ createdCount: number; skipped: number; scanned: number; created: { id: string; featureName?: string; needPhases?: string[] }[] } | null>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   // Phase A（2026-10-30）：baseline 錨點 Release Evidence 凍結快照
   const [baselines, setBaselines] = useState<{ sha: string; short: string; subject: string; at: string; isAuto: boolean }[]>([]);
   const [autoBaseline, setAutoBaseline] = useState<string>("");
-  const [selBaseline, setSelBaseline] = useState<string>("auto");
-  const [evSnaps, setEvSnaps] = useState<{ id: string; generatedAt: string; baseline: { short: string; subject: string } | null; head: { short: string } | null; features: number; withGaps: number; allGreen: boolean }[]>([]);
-  const [evSnap, setEvSnap] = useState<EvSnapshot | null>(null);
-  const [evBusy, setEvBusy] = useState(false);
-  const [gapTasks, setGapTasks] = useState<Record<string, string>>({}); // featureId → taskId（開單結果）
+  // 2026-11-06 Fleming：產 report 前選 commit 時間
+  const [selCommit, setSelCommit] = useState<string>("");
   const [testing, setTesting] = useState(false);
   // 2026-11-03 Fleming：API 現況一鍵清點（前後端 + 測試 + baseline 變更）+ AI 摘要
   const [apiStatus, setApiStatus] = useState<any | null>(null);
@@ -128,17 +85,9 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const refresh = useCallback(async () => {
     if (!rootPath) return;
     try {
-      const [pRes, lRes, qdRes] = await Promise.all([
-        fetch(`${API_BASE}/api/coding-releases/pending?path=${encodeURIComponent(rootPath)}`),
-        fetch(`${API_BASE}/api/coding-releases/list?path=${encodeURIComponent(rootPath)}`),
-        fetch(`${API_BASE}/api/coding-releases/quality-debt?path=${encodeURIComponent(rootPath)}`),
-      ]);
+      const pRes = await fetch(`${API_BASE}/api/coding-releases/pending?path=${encodeURIComponent(rootPath)}`);
       const pData = await pRes.json();
-      const lData = await lRes.json();
-      const qdData = await qdRes.json().catch(() => null);
       setInitialized(!!pData.initialized); // pending endpoint 只剩初始化偵測用途（待放行已移除）
-      setReleases(lData.releases || []);
-      setQd(qdData);
     } catch {
       setInitialized(false);
     }
@@ -170,73 +119,14 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
         setBaselines(b.recent);
         if (b.auto?.sha) setAutoBaseline(b.auto.sha);
       }
-      if (s?.snapshots) setEvSnaps(s.snapshots);
     } catch { /* 忽略 — 不擋主頁 */ }
   }, [rootPath]);
   useEffect(() => { fetchEvSnapshots(); }, [fetchEvSnapshots]);
 
-  const loadEvSnapshot = useCallback(async (id: string) => {
-    if (!rootPath) return;
-    try {
-      const r = await fetch(`${API_BASE}/api/coding-releases/evidence/${encodeURIComponent(id)}?path=${encodeURIComponent(rootPath)}`);
-      const d = await r.json();
-      if (d?.ok) setEvSnap(d.snapshot); else setEvSnap(null);
-    } catch { /* ignore */ }
-  }, [rootPath]);
-
-  const generateEvidence = async () => {
-    if (!rootPath || evBusy) return;
-    setEvBusy(true);
-    try {
-      const r = await fetch(`${API_BASE}/api/coding-releases/evidence`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: rootPath, baseline: selBaseline }),
-      });
-      const d = await r.json();
-      if (d?.ok) {
-        setEvSnap(d.snapshot);
-        setToast({ ok: true, text: t("rm.evSnap.done").replace("{id}", d.snapshot.id) });
-        await fetchEvSnapshots();
-      } else {
-        setToast({ ok: false, text: `❌ ${d?.error || t("rm.evSnap.fail")}` });
-      }
-    } catch (e: any) {
-      setToast({ ok: false, text: `❌ ${e?.message || t("rm.evSnap.fail")}` });
-    } finally {
-      setEvBusy(false);
-      setTimeout(() => setToast(null), 6000);
-    }
-  };
-
-  const openGapTask = async (featureId: string) => {
-    if (!rootPath || !evSnap || evBusy) return;
-    setEvBusy(true);
-    try {
-      const r = await fetch(`${API_BASE}/api/coding-releases/evidence/${encodeURIComponent(evSnap.id)}/gap-task`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: rootPath, featureId }),
-      });
-      const d = await r.json();
-      if (d?.ok && d.taskId) {
-        setGapTasks((g) => ({ ...g, [featureId]: d.taskId }));
-        setToast({ ok: true, text: `✅ ${t("rm.evSnap.taskOpened")} ${d.taskId}` });
-      } else {
-        setToast({ ok: false, text: `❌ ${d?.error || d?.reason || t("rm.evSnap.fail")}` });
-      }
-    } catch (e: any) {
-      setToast({ ok: false, text: `❌ ${e?.message || t("rm.evSnap.fail")}` });
-    } finally {
-      setEvBusy(false);
-      setTimeout(() => setToast(null), 6000);
-    }
-  };
-
-  // 整頁刷新（2026-09-19 Fleming）：現況報告 + RR 清單 + 品質債 + 歷史一次重讀；RR 用 key remount 重抓
-  const [rrRefreshKey, setRrRefreshKey] = useState(0);
+  // 整頁刷新（2026-09-19 Fleming）：現況報告一次重讀
   const [refreshing, setRefreshing] = useState(false);
   const refreshAll = useCallback(async () => {
     setRefreshing(true);
-    setRrRefreshKey((k) => k + 1);
     let ok = true;
     try { await Promise.all([refresh(), fetchReadiness()]); } catch { ok = false; }
     setRefreshing(false);
@@ -313,44 +203,52 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     ].join("\n");
   };
 
+  // 2026-11-06 Fleming：Evidence Matrix 表格文字化（餵 AI 用）+ severity 排序
+  const SEV_ORDER: Record<string, number> = { S2: 0, S1: 1, S0: 2 };
+  const sortedFeatures = readiness?.evidenceMatrix
+    ? [...readiness.evidenceMatrix.features].sort((a, b) => (SEV_ORDER[a.severity || ""] ?? 9) - (SEV_ORDER[b.severity || ""] ?? 9))
+    : [];
+
+  const matrixEvidenceText = (): string | null => {
+    const m = readiness?.evidenceMatrix;
+    if (!m) return null;
+    const rows = sortedFeatures.map(f => {
+      const ev = f.evidence;
+      const c = (x: EvCell, ok: string, bad: string) => x.ok ? ok : bad;
+      return `● ${f.name}｜${f.severity}${f.severitySource === "human" ? "👤" : "🤖"}｜Unit ${c(ev.unit, `✓${ev.unit.tests || 0}t`, `✗（${ev.unit.reason || "無"}）`)}｜E2E ${c(ev.e2e, ev.e2e.total ? `${ev.e2e.covered}/${ev.e2e.total}` : "✓（無 e2e 需求）", `✗ ${ev.e2e.covered ?? 0}/${ev.e2e.total ?? 0}（${ev.e2e.reason || "無"}）`)}｜SG ${c(ev.sg, "✓", `✗${ev.sg.high ?? 0}hi（${ev.sg.reason || "無"}）`)}｜QA ${c(ev.qa, `✓${ev.qa.actor || ""}`, ev.qa.verdict ? `✗${ev.qa.verdict}` : "✗ 無記錄")}｜AI Review ${ev.aiReview.ok ? `✓${ev.aiReview.models?.length || 0}m ${ev.aiReview.decision || ""}` : `✗ ${ev.aiReview.touched ? "已審未過" : ev.aiReview.untouched ? "有跑未觸及" : "未跑"}（${ev.aiReview.reason || ""}）`}｜檔案 ${f.changedFiles.slice(0, 5).join(", ")}${f.changedFiles.length > 5 ? ` …共${f.changedFiles.length}` : ""}`;
+    }).join("\n");
+    return `Evidence Matrix（${m.summary.features} features：S2 ${m.summary.bySeverity.S2 || 0} / S1 ${m.summary.bySeverity.S1 || 0} / S0 ${m.summary.bySeverity.S0 || 0}，按 severity 排序）\n\n${rows}`;
+  };
+
   const generateReport = () => {
     const ev = readinessEvidence();
+    const mx = matrixEvidenceText();
     if (!ev) return;
+    const cmt = baselines.find(b => b.sha === selCommit);
+    const anchor = cmt ? `\n報告基準 commit：${cmt.short}（${cmt.subject}，${cmt.at}）\n報告範圍：這個 commit 為止的狀態。` : `\n報告基準：目前 HEAD。`;
     chatRef.current?.send(
-      `以下是這次 release 的就緒證據（程式產生，deterministic）：\n\n${ev}\n\n` +
+      `以下是這次 release 的就緒證據（程式產生，deterministic）：\n\n${ev}\n\n${mx || ""}${anchor}\n\n` +
       `請以 Release Manager 角色產生一份「給老闆的上線報告」：\n` +
       `1) 一句話結論（能不能上）\n2) 這次改了什麼（人話，feature 導向）\n3) 風險與最壞情況\n4) 測試與驗證狀態\n5) rollback 考量\n6) 建議決策（上 / 不上 / 附條件上）`
     );
   };
 
-  // 2026-11-03：老闆五問快捷鈕移除（Fleming：過度設計）— generateReport 已涵蓋同內容
-
-  const runRetrofit = async () => {
-    if (!rootPath || retrofitting) return;
-    setRetrofitting(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-releases/retrofit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: rootPath }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setToast({ ok: true, text: t("rm.qd.done").replace("{n}", String(data.createdCount)).replace("{m}", String(data.scanned)) });
-        setRetrofitResult({ createdCount: data.createdCount || 0, skipped: data.skipped || 0, scanned: data.scanned || 0, created: Array.isArray(data.created) ? data.created.slice(0, 5) : [] });
-        refresh();
-      } else {
-        setToast({ ok: false, text: `❌ ${data.error || "補強失敗"}` });
-      }
-    } catch (e: any) {
-      setToast({ ok: false, text: `❌ ${e?.message || "連線失敗"}` });
-    } finally {
-      setRetrofitting(false);
-      setTimeout(() => setToast(null), 6000);
-    }
+  // 2026-11-06 Fleming：請 AI 實際去看證據（不只看表 — 讀 code/test 檔驗證）
+  const askAiVerify = () => {
+    const mx = matrixEvidenceText();
+    if (!mx) return;
+    chatRef.current?.send(
+      `以下是 Evidence Matrix 表格（deterministic 證據）：\n\n${mx}\n\n` +
+      `請不要只看表格 — 實際去 repo（cwd）查證據，回答：\n` +
+      `1) 測試為何沒有 100%？逐 feature 看單元測試檔，找出沒測到的部分\n` +
+      `2) S2（最嚴重）features 的 API：去看 code，確認哪些 API 沒測到、風險在哪\n` +
+      `3) SG ✗ 的原因是什麼（真的有 high finding 還是掃描没覆蓋）\n` +
+      `4) QA / AI Review 未跑的項目，實際看該 feature 的程式碼規模與風險，說明補齊的優先序\n` +
+      `結論要附實際檔案路徑與行號證據（No answer without evidence）。`
+    );
   };
 
-  const trustColor = (s: number | null) => s === null ? "#a8a29e" : s >= 80 ? "#16a34a" : s >= 60 ? "#d97706" : "#dc2626";
+  // 2026-11-03：老闆五問快捷鈕移除（Fleming：過度設計）— generateReport 已涵蓋同內容
 
   return (
     <div className="flex h-full min-h-0">
@@ -363,10 +261,27 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
             <h2 className="text-sm font-bold text-stone-800">{t("rm.title")}</h2>
             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">.paaw/releases/</span>
             {readiness && (
+              <select value={selCommit} onChange={(e) => setSelCommit(e.target.value)}
+                className="text-[11px] border rounded-lg px-1.5 py-1 bg-white max-w-[300px] shrink-0" style={{ borderColor: tk.borderLight }}
+                title={t("rm.reportCommitTip")} data-testid="rm-report-commit-select">
+                <option value="">HEAD（目前）</option>
+                {baselines.map((b) => (
+                  <option key={b.sha} value={b.sha}>{fmtShort(b.at)} {b.short} · {b.subject.slice(0, 40)}</option>
+                ))}
+              </select>
+            )}
+            {readiness && (
               <button onClick={generateReport}
                 className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90"
                 style={{ backgroundColor: "#7c3aed" }} data-testid="rm-gen-report">
                 📋 {t("rm.genReport")}
+              </button>
+            )}
+            {readiness?.evidenceMatrix && (
+              <button onClick={askAiVerify}
+                className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90"
+                style={{ backgroundColor: "#dc2626" }} data-testid="rm-ai-verify">
+                🔍 {t("rm.aiVerify")}
               </button>
             )}
             {readiness && (
@@ -471,7 +386,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                       {/* 2026-11-03 Fleming：Human 欄移除 — 簡化（人不逐 feature 簽核，看 AI 摘要與 QA 記錄即可）*/}
                       <span>{t("rm.ev.feature")}</span><span>Sev</span><span>Unit</span><span>E2E</span><span>SG</span><span>QA</span><span>{t("rm.ev.board")}</span>
                     </div>
-                    {readiness.evidenceMatrix.features.map(f => {
+                    {sortedFeatures.map(f => {
                       const ev = f.evidence;
                       const cell = (c: EvCell, label: string) => (
                         <span className={`text-[10px] font-mono ${c.ok ? (c.note ? "text-amber-600 font-bold" : "text-green-600") : "text-red-500 font-bold"}`} title={String(c.note ? `${c.reason || "✓"}（${c.note}）` : (c.reason || (c.ok ? "✓" : "missing")))}>{label}</span>
@@ -500,28 +415,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                   </div>
                 )}
 
-              {/* Changed Features */}
-              {readiness.changedFeatures.length > 0 && (
-                <div data-testid="rm-readiness-features">
-                  {(readiness.changedFeatures).map(f => (
-                    <div key={f.id} className="px-4 py-2.5 border-b last:border-0 hover:bg-stone-50" style={{ borderColor: tk.borderLight }} data-testid="rm-readiness-feature">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded" style={{ color: "#7c3aed", backgroundColor: "#f5f3ff" }}>{f.id}</span>
-                        <span className="text-xs font-bold text-stone-800">{f.name}</span>
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ color: RISK_COLORS[f.hasTests || !f.apiImpact ? "LOW" : "HIGH"], backgroundColor: f.hasTests || !f.apiImpact ? "#f0fdf4" : "#fef2f2" }}>
-                          risk {f.hasTests || !f.apiImpact ? "LOW" : "HIGH"}
-                        </span>
-                        <span className={`text-[9px] font-bold ${f.hasTests ? "text-green-600" : "text-red-500"}`}>tests {f.hasTests ? `✓ ${f.tests.length}` : "✗ none"}</span>
-                        <span className={`text-[9px] ${f.apiImpact ? "text-blue-600 font-bold" : "text-stone-400"}`}>{f.apiImpact ? `API impact: ${f.apis.length}` : "API impact: No"}</span>
-                      </div>
-                      <div className="text-[10px] text-stone-500 mt-1">
-                        Change: {f.recentSubjects.slice(0, 2).join(" / ") || `${f.changedFiles.length} files changed`}
-                        <span className="text-stone-400"> · {f.changedFiles.length} files · {f.changeCount} changes</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
           </div>
@@ -553,130 +446,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
 
         {/* ═══ 已初始化 ═══ */}
         {initialized === true && (
-          <div className="p-5 space-y-6">
-            {/* ══ Release Evidence 凍結快照（Phase A：baseline 錨點出貨檢查表 — 人選 baseline 生成，快照不可變）══ */}
-            <section data-testid="rm-ev-snapshot">
-              <h3 className="text-xs font-bold text-stone-600 mb-2 flex items-center gap-1.5">🧊 {t("rm.evSnap.title")}</h3>
-              <div className="border rounded-xl bg-white p-3.5" style={{ borderColor: tk.borderLight }}>
-                <p className="text-[11px] text-stone-400 mb-2.5">{t("rm.evSnap.hint")}</p>
-                <div className="flex items-center gap-2 flex-wrap mb-2">
-                  <span className="text-[11px] font-bold text-stone-500">{t("rm.evSnap.baseline")}</span>
-                  <select value={selBaseline} onChange={(e) => setSelBaseline(e.target.value)}
-                    className="text-xs border rounded-lg px-2 py-1.5 bg-white max-w-[340px]" style={{ borderColor: tk.borderLight }}
-                    data-testid="rm-ev-baseline-select">
-                    <option value="auto">⭐ auto{autoBaseline ? ` (${autoBaseline.slice(0, 8)})` : ""}</option>
-                    {baselines.map((b) => (
-                      <option key={b.sha} value={b.sha}>{b.short} · {b.subject.slice(0, 50)}{b.isAuto ? " ⭐" : ""}</option>
-                    ))}
-                  </select>
-                  <button onClick={generateEvidence} disabled={evBusy}
-                    className="text-xs px-3 py-1.5 rounded-lg text-white font-bold disabled:opacity-40"
-                    style={{ backgroundColor: tk.accent }} data-testid="rm-ev-generate">
-                    {evBusy ? t("rm.evSnap.generating") : `🧊 ${t("rm.evSnap.generate")}`}
-                  </button>
-                  <span className="text-[10px] font-mono text-stone-400">.paaw/release/evidence/</span>
-                </div>
-                {/* 快照清單（載入舊快照 — 凍結不可變）*/}
-                {evSnaps.length > 0 && (
-                  <div className="flex gap-1.5 flex-wrap mb-2" data-testid="rm-ev-snap-list">
-                    {evSnaps.slice(0, 8).map((s) => (
-                      <button key={s.id} onClick={() => loadEvSnapshot(s.id)}
-                        className={`text-[10px] font-mono px-2 py-1 rounded-full border ${evSnap?.id === s.id ? "bg-stone-800 text-white" : "bg-white hover:bg-stone-100"}`} style={{ borderColor: evSnap?.id === s.id ? "transparent" : tk.borderLight }}>
-                        {s.allGreen ? "✅" : "⚠️"} {s.id} · {s.withGaps}/{s.features}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {/* 快照表格 */}
-                {evSnap && (
-                  <div data-testid="rm-ev-snap-table">
-                    <div className="flex items-center gap-2 flex-wrap text-[10px] text-stone-500 mb-2">
-                      <span className="font-mono font-bold">{evSnap.id}</span>
-                      <span>{t("rm.evSnap.range")}: {evSnap.baseline?.short}…{evSnap.head?.short} · {evSnap.commits?.count} commits</span>
-                      <span>{t("rm.evSnap.frozenAt")} {fmtShort(evSnap.generatedAt)}</span>
-                      <span className={`font-bold px-1.5 py-0.5 rounded ${evSnap.allGreen ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-700"}`}>
-                        {evSnap.allGreen ? t("rm.evSnap.allGreen") : t("rm.evSnap.hasGaps")}
-                      </span>
-                      {evSnap.modelDegraded && <span className="text-orange-600">⚠ {t("rm.ev.modelDegraded")}</span>}
-                    </div>
-                    {evSnap.features.length === 0 ? (
-                      <div className="text-[11px] text-stone-400 border border-dashed rounded-lg px-3 py-2" style={{ borderColor: tk.borderLight }}>{t("rm.evSnap.noDelta")}</div>
-                    ) : (
-                      <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 pb-1" style={{ gridTemplateColumns: "1.6fr 0.5fr 0.8fr 0.8fr 0.7fr 1.1fr 1.1fr 1.3fr" }}>
-                        <span>{t("rm.ev.feature")}</span><span>Sev</span><span>Unit</span><span>E2E</span><span>SG</span><span>{t("rm.ev.board")}</span><span>{t("rm.ev.human")}</span><span>{t("rm.evSnap.action")}</span>
-                      </div>
-                    )}
-                    {evSnap.features.map((f) => {
-                      const ev = f.evidence;
-                      const cell = (c: EvCell, okLabel: string) => (
-                        <span className={`text-[10px] font-mono ${c.ok ? "text-green-600" : "text-red-500 font-bold"}`} title={String(c.reason || c.source || (c.ok ? "✓" : "missing"))}>{c.ok ? okLabel : "✗"}</span>
-                      );
-                      return (
-                        <div key={f.id} className="grid gap-1 items-center px-2 py-1.5 rounded-lg hover:bg-stone-50" style={{ gridTemplateColumns: "1.6fr 0.5fr 0.8fr 0.8fr 0.7fr 1.1fr 1.1fr 1.3fr", background: f.gaps.missing.length ? "#fff7ed" : undefined }} data-testid="rm-ev-snap-row">
-                          <span className="text-[10px] font-bold text-stone-700 truncate" title={`${f.id} · ${f.name}`}>{f.name}</span>
-                          <span className={`text-[10px] font-bold ${f.severity === "S2" ? "text-red-600" : f.severity === "S1" ? "text-amber-600" : "text-green-600"}`}>{f.severity || "?"}</span>
-                          {cell(ev.unit, ev.unit.ok ? `✓${ev.unit.tests || 0}t` : "✗")}
-                          {cell(ev.e2e, ev.e2e.ok ? (ev.e2e.total ? `${ev.e2e.covered}/${ev.e2e.total}` : "—") : "✗")}
-                          {cell(ev.sg, ev.sg.ok ? "✓" : `✗${ev.sg.high ?? 0}hi`)}
-                          {ev.aiReview.ok
-                            ? <span className="text-[9px] text-green-600 font-mono truncate" title={String(ev.aiReview.source || "")}>✓{ev.aiReview.models?.length || ""}m</span>
-                            : <span className="text-[9px] text-red-500 font-bold truncate" title={String(ev.aiReview.reason || "")}>✗ {t("rm.ev.notRun")}</span>}
-                          {ev.human.ok
-                            ? <span className="text-[9px] text-green-700 truncate" title={String(ev.human.source || ev.human.summary || "")}>✍</span>
-                            : <span className="text-[9px] text-stone-400">—</span>}
-                          {f.gaps.missing.length > 0 ? (
-                            gapTasks[f.id]
-                              ? <span className="text-[9px] text-green-700 font-bold truncate" data-testid="rm-ev-gap-tasked">✅ {gapTasks[f.id]}</span>
-                              : <button type="button" onClick={() => openGapTask(f.id)} disabled={evBusy}
-                                  className="text-[9px] px-2 py-0.5 rounded-full border font-bold text-orange-600 hover:bg-orange-50 disabled:opacity-40"
-                                  style={{ borderColor: "#fed7aa" }} title={t("rm.evSnap.openTaskTip")} data-testid="rm-ev-open-gap-task">
-                                  🛠 {t("rm.evSnap.openTask")}（缺 {f.gaps.missing.join("/")}）
-                                </button>
-                          ) : <span className="text-[9px] text-green-600 font-bold">✓ {t("rm.evSnap.rowGreen")}</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* Release Requests — 正式批次放行（v2 2026-09-18；v3：AI 建議 verdict）*/}
-            <ReleaseRequests
-              key={rrRefreshKey}
-              rootPath={rootPath}
-              theme={{ borderLight: tk.borderLight, accent: tk.accent, accentHover: tk.accentHover || tk.accent }}
-              notify={(ok, text) => { setToast({ ok, text }); setTimeout(() => setToast(null), 6000); }}
-              chatRef={chatRef}
-            />
-
-            
-
-            {/* Release 歷史 */}
-            <section>
-              <h3 className="text-xs font-bold text-stone-600 mb-2 flex items-center gap-1.5">📜 {t("rm.history.title")}</h3>
-              {releases.length === 0 ? (
-                <div className="border border-dashed rounded-lg p-4 text-center text-xs text-stone-400" style={{ borderColor: tk.borderLight }}>
-                  {t("rm.history.empty")}
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  {releases.map(r => (
-                    <div key={r.id} className="flex items-center gap-2.5 border rounded-lg px-3 py-2 bg-white text-xs" style={{ borderColor: tk.borderLight }}>
-                      <span className="shrink-0">{r.riskLevel === "high" ? "🔴" : r.riskLevel === "medium" ? "🟡" : "🟢"}</span>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-bold text-stone-700 truncate">{r.title}</div>
-                        <div className="text-[10px] font-mono text-stone-400">{r.id} · {fmtShort(r.releasedAt)}</div>
-                      </div>
-                      {r.trustScore != null && (
-                        <span className="font-mono font-bold shrink-0" style={{ color: trustColor(r.trustScore) }}>{r.trustScore}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
+          <div className="p-5" />
         )}
       </div>
 

@@ -2069,5 +2069,7 @@
   "rm.apiLoading": "統計中…",
   "rm.apiRunFirst": "先按「API 現況」取得數據",
   "rm.apiYes": "有",
-  "rm.apiFirstRelease": "首發（全部視為新）"
+  "rm.apiFirstRelease": "首發（全部視為新）",
+  "rm.aiVerify": "🔍 AI 實際查證據",
+  "rm.reportCommitTip": "選一個 commit 時間當報告基準（預設 HEAD）"
 }
