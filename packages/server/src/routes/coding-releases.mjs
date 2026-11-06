@@ -620,6 +620,93 @@ export default async function releaseRoutes(req, res, next) {
     }
   }
 
+  // ── GET evidence-by-api — API-first Evidence Matrix（2026-11-07 Fleming v3：審 API 不審 feature；按鈕才載入）──
+  // since=<sha>：只看該 baseline commit 之後（sha..HEAD）的變更；無 since = 上次 release 以來（HEAD 全量窗口）
+  if (url === "/api/coding-releases/evidence-by-api" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first
+    try {
+      const root = resolve(projectPath);
+      const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
+      const { loadSecurityScan, sgForFeature } = await import("../lib/release-evidence.mjs");
+      const apis = readApiFeatures(root);
+      const sinceSha = q.get("since");
+      let since = sinceSha || null;
+      if (!since) { const releases = await listReleases(projectPath); since = releases[0]?.releasedAt || null; }
+      const { data: ci } = await buildChangeIntelligence(projectPath, sinceSha ? { fromSha: sinceSha, maxCommits: 300 } : { since, maxCommits: 300 });
+      const commits = ci?.commits || []; // 新 → 舊，含 files（注意：此處 commit 只有完整 hash，short 自切）
+      const fileCommits = new Map(); // file → [short...]（新→舊）
+      for (const c of commits) {
+        const short = String(c.hash || "").slice(0, 7);
+        for (const f of c.files || []) {
+          const norm = String(f).replace(/\\/g, "/");
+          if (!fileCommits.has(norm)) fileCommits.set(norm, []);
+          fileCommits.get(norm).push(short);
+        }
+      }
+      // SG（file-level — 與 feature 版同掃描源）
+      let scan = null; try { scan = await loadSecurityScan(projectPath); } catch { /* 未掃 → null 如實回 */ }
+      // e2e 內容覆蓋（與 readiness 同手法：測試檔 corpus 內容含 API path = deterministic 覆蓋證據）
+      const apiCovered = (() => {
+        let corpus = null;
+        const build = () => {
+          let buf = "";
+          const TEST_DIR = new Set(["tests", "test", "e2e", "__tests__"]);
+          const SKIP = new Set(["node_modules", "dist", "build", "coverage", "versions", "raw", "crops", ".paaw"]);
+          const isTestFile = (n) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(n) || /^test[-_]/.test(n);
+          const walk = (dir, depth) => {
+            if (depth > 5) return;
+            let ents; try { ents = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+            for (const e of ents) {
+              if (e.name.startsWith(".") || SKIP.has(e.name)) continue;
+              const p2 = join(dir, e.name);
+              if (e.isDirectory()) walk(p2, depth + 1);
+              else if (isTestFile(e.name) || dir.split(/[\\/]/).some((seg2) => TEST_DIR.has(seg2))) {
+                try { const c = readFileSync(p2, "utf-8"); if (c.length < 500000) buf += "\n" + c; } catch {}
+              }
+            }
+          };
+          walk(root, 0);
+          return buf;
+        };
+        return (apiPath) => {
+          if (!apiPath) return false;
+          if (corpus === null) corpus = build();
+          const norm = apiPath.replace(/\/<[^/>]+>/g, "/__P__").replace(/\/:[A-Za-z0-9_]+/g, "/__P__");
+          const re = new RegExp(norm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/__P__/g, "[^/]+")); // nosemgrep: detect-non-literal-regexp
+          return re.test(corpus);
+        };
+      })();
+      const rows = [];
+      for (const a of apis) {
+        const files = (a.codeFiles || []).map((f) => String(f).replace(/\\/g, "/"));
+        const touched = [...new Set(files.flatMap((f) => fileCommits.get(f) || []))];
+        if (!touched.length) continue; // 只列窗口內有變更的 API（Fleming：by 選的 baseline commit 之後的 change）
+        const sg = sgForFeature(scan, files);
+        rows.push({
+          entry: a.entry, name: a.name, category: a.category, files,
+          commits: touched, commitCount: touched.length,
+          tests: (a.tests || []).map((x) => (typeof x === "string" ? x : x?.file)).filter(Boolean),
+          e2eCovered: apiCovered(a.entry),
+          sg: { ok: sg.ok, high: sg.high ?? 0, total: sg.total ?? 0, reason: sg.reason || null },
+        });
+      }
+      return res.json({
+        ok: true, sinceSha: sinceSha || null, anchor: sinceSha ? `${sinceSha.slice(0, 7)}..HEAD` : "since-last-release",
+        commitsInWindow: commits.length,
+        summary: {
+          changedApis: rows.length,
+          withTests: rows.filter((r) => r.tests.length > 0).length,
+          e2eCovered: rows.filter((r) => r.e2eCovered).length,
+          sgHigh: rows.filter((r) => !r.sg.ok).length,
+          sgScannedAt: scan?.scannedAt || null,
+        },
+        apis: rows, generatedAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      return res.status(500).json({ error: "evidence-by-api failed", detail: e.message });
+    }
+  }
+
   // ── POST api-summary — AI 摘要（2026-11-03：api-status 數據 → 繁中幾句話現狀）──
   if (url === "/api/coding-releases/api-summary" && method === "POST") {
     if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });

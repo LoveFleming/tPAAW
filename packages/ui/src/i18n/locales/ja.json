@@ -2087,5 +2087,9 @@
   "rm.apiYes": "有",
   "rm.apiFirstRelease": "初回リリース（全て新規）",
   "rm.aiVerify": "AI に証拠を検証させる",
-  "rm.reportCommitTip": "レポート基準の commit を選択（デフォルト HEAD）"
+  "rm.reportCommitTip": "レポート基準の commit を選択（デフォルト HEAD）",
+  "rm.ev.loadBtn": "Evidence Matrix",
+  "rm.ev.loadTip": "オンデマンド読み込み：API ベース証拠マトリクス（選択 commit 以降の変更）",
+  "rm.ev.sinceHead": "HEAD（前回リリース以降）",
+  "rm.ev.noTest": "テストなし"
 }

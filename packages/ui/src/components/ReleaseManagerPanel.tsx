@@ -77,8 +77,9 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const [apiBusy, setApiBusy] = useState(false);
   const [apiSummary, setApiSummary] = useState<string | null>(null);
   const [apiSummaryBusy, setApiSummaryBusy] = useState(false);
-  // 2026-11-07 Fleming：Evidence Matrix 預設 by commit line（可切回 by feature）
-  const [evView, setEvView] = useState<"commit" | "feature">("commit");
+  // 2026-11-07 Fleming v3：Evidence Matrix API-first、按鈕才載入（不随 readiness 自動出現）
+  const [evApi, setEvApi] = useState<any | null>(null);
+  const [evApiBusy, setEvApiBusy] = useState(false);
   const [includeE2e, setIncludeE2e] = useState(false);
   const chatRef = useRef<AgentSideChatHandle>(null);
   // 2026-10-09 Fleming：RM side chat 左右 splitter + 對話持久化 + model selector（跟 QA browser 同款）
@@ -136,6 +137,19 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     setToast({ ok, text: `${ok ? t("rm.refreshDone") : t("rm.refreshFail")} · ${now}` });
     setTimeout(() => setToast(null), 4000);
   }, [refresh, fetchReadiness, t]);
+
+  // 2026-11-07 Fleming v3：Evidence Matrix API-first — 按鈕載入（/evidence-by-api），窗口 = 選的 baseline commit 之後；api 現況另顆按鈕看全貌
+  const loadEvApi = async (sha?: string) => {
+    if (!rootPath || evApiBusy) return;
+    const since = sha !== undefined ? sha : selCommit;
+    setEvApiBusy(true);
+    try {
+      const p = `${API_BASE}/api/coding-releases/evidence-by-api?path=${encodeURIComponent(rootPath)}${since ? `&since=${encodeURIComponent(since)}` : ""}`;
+      const r = await fetch(p).then(r => r.json());
+      if (r.ok) setEvApi(r); else setToast({ ok: false, text: String(r.error || r.detail || "failed") });
+    } catch (e: any) { setToast({ ok: false, text: e.message }); }
+    finally { setEvApiBusy(false); }
+  };
 
   // ▶ 執行測試：POST 背景跑 → 輪詢到結束 → 重抓 readiness（真實數字）
     // 2026-11-03 Fleming：一鍵 API 現況（按鈕才算 — 不自動燒）
@@ -206,38 +220,14 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     ].join("\n");
   };
 
-  // 2026-11-06 Fleming：Evidence Matrix 表格文字化（餵 AI 用）+ severity 排序
-  // 2026-11-07 Fleming：預設 by commit line（每條 commit 一組，下列 touched features 的證據）
-  const SEV_ORDER: Record<string, number> = { S2: 0, S1: 1, S0: 2 };
-  const sortedFeatures = readiness?.evidenceMatrix
-    ? [...readiness.evidenceMatrix.features].sort((a, b) => (SEV_ORDER[a.severity || ""] ?? 9) - (SEV_ORDER[b.severity || ""] ?? 9))
-    : [];
-  const featureById = new Map((readiness?.evidenceMatrix?.features || []).map(f => [f.id, f]));
-  // 2026-11-07 Fleming v2：by commit line 只列到下拉選的基準 commit 為止（HEAD（目前）= 全部）— 不再每條 commit 都攤
-  const commitGroups = (() => {
-    const all = readiness?.evidenceMatrix?.byCommit || []; // 新 → 舊
-    const anchor = baselines.find(b => b.sha === selCommit);
-    if (!anchor) return all; // HEAD（目前）
-    const idx = all.findIndex(g => g.short === anchor.short);
-    return idx >= 0 ? all.slice(0, idx + 1) : all;
-  })();
-
+  // 2026-11-07 Fleming v3：Evidence Matrix 表格文字化（API-first，餵 AI 用；資料來源 = 按鈕載入的 evApi）
   const matrixEvidenceText = (): string | null => {
-    const m = readiness?.evidenceMatrix;
-    if (!m) return null;
-    const rowText = (f: EvFeature) => {
-      const ev = f.evidence;
-      const c = (x: EvCell, ok: string, bad: string) => x.ok ? ok : bad;
-      return `● ${f.name}｜${f.severity}${f.severitySource === "human" ? "👤" : "🤖"}｜Unit ${c(ev.unit, `✓${ev.unit.tests || 0}t`, `✗（${ev.unit.reason || "無"}）`)}｜E2E ${c(ev.e2e, ev.e2e.total ? `${ev.e2e.covered}/${ev.e2e.total}` : "✓（無 e2e 需求）", `✗ ${ev.e2e.covered ?? 0}/${ev.e2e.total ?? 0}（${ev.e2e.reason || "無"}）`)}｜SG ${c(ev.sg, "✓", `✗${ev.sg.high ?? 0}hi（${ev.sg.reason || "無"}）`)}｜QA ${c(ev.qa, `✓${ev.qa.actor || ""}`, ev.qa.verdict ? `✗${ev.qa.verdict}` : "✗ 無記錄")}｜AI Review ${ev.aiReview.ok ? `✓${ev.aiReview.models?.length || 0}m ${ev.aiReview.decision || ""}` : `✗ ${ev.aiReview.touched ? "已審未過" : ev.aiReview.untouched ? "有跑未觸及" : "未跑"}（${ev.aiReview.reason || ""}）`}｜檔案 ${f.changedFiles.slice(0, 5).join(", ")}${f.changedFiles.length > 5 ? ` …共${f.changedFiles.length}` : ""}`;
-    };
-    if (commitGroups.length) {
-      const body = commitGroups.map(g =>
-        `▸ ${g.short} ${g.subject}（${String(g.at || "").slice(0, 10)}，${g.author}）\n${g.featureIds.map(id => featureById.get(id)).filter((f): f is EvFeature => !!f).map((f) => rowText(f)).join("\n")}`
-      ).join("\n\n");
-      return `Evidence Matrix（by commit，${commitGroups.length} commits / ${m.summary.features} features：S2 ${m.summary.bySeverity.S2 || 0} / S1 ${m.summary.bySeverity.S1 || 0} / S0 ${m.summary.bySeverity.S0 || 0}）\n\n${body}`;
-    }
-    const rows = sortedFeatures.map(rowText).join("\n");
-    return `Evidence Matrix（${m.summary.features} features：S2 ${m.summary.bySeverity.S2 || 0} / S1 ${m.summary.bySeverity.S1 || 0} / S0 ${m.summary.bySeverity.S0 || 0}，按 severity 排序）\n\n${rows}`;
+    if (!evApi) return null;
+    const anchorDesc = evApi.anchor === "since-last-release" ? "HEAD（上次 release 以來全部）" : `${evApi.anchor}（${evApi.commitsInWindow} commits）`;
+    const rows = evApi.apis.map((a: any) =>
+      `● ${a.entry}｜${a.name || ""}｜commits ${a.commits.join(" ")}｜Tests ${a.tests.length ? `✓${a.tests.length}（${a.tests.join(", ")}）` : "✗ 無"}｜E2E ${a.e2eCovered ? "✓" : "—"}｜SG ${a.sg.ok ? `✓（${a.sg.total} findings）` : `✗${a.sg.high}hi`}｜檔案 ${a.files.join(", ")}`
+    ).join("\n");
+    return `Evidence Matrix by API（${anchorDesc}：${evApi.summary.changedApis} APIs changed / tests ✓${evApi.summary.withTests} / e2e ✓${evApi.summary.e2eCovered} / SG high ✗${evApi.summary.sgHigh}）\n\n${rows}`;
   };
 
   const generateReport = () => {
@@ -258,12 +248,11 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     const mx = matrixEvidenceText();
     if (!mx) return;
     chatRef.current?.send(
-      `以下是 Evidence Matrix 表格（deterministic 證據）：\n\n${mx}\n\n` +
+      `以下是 Evidence Matrix 表格（by API，deterministic 證據）：\n\n${mx}\n\n` +
       `請不要只看表格 — 實際去 repo（cwd）查證據，回答：\n` +
-      `1) 測試為何沒有 100%？逐 feature 看單元測試檔，找出沒測到的部分\n` +
-      `2) S2（最嚴重）features 的 API：去看 code，確認哪些 API 沒測到、風險在哪\n` +
-      `3) SG ✗ 的原因是什麼（真的有 high finding 還是掃描没覆蓋）\n` +
-      `4) QA / AI Review 未跑的項目，實際看該 feature 的程式碼規模與風險，說明補齊的優先序\n` +
+      `1) Tests ✗ 的 API：去看該 API 的 code 與現有測試，找出沒測到的部分\n` +
+      `2) 哪些 API 變更風險最高（無測試 + 無 e2e 覆蓋 + 高 commit 數），實際讀 code 說明風險\n` +
+      `3) SG ✗ 的原因是什麼（真的有 high finding 還是掃描沒覆蓋）\n` +
       `結論要附實際檔案路徑與行號證據（No answer without evidence）。`
     );
   };
@@ -281,7 +270,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
             <span className="text-lg">🚦</span>
             <h2 className="text-sm font-bold text-stone-800">{t("rm.title")}</h2>
             {readiness && (
-              <select value={selCommit} onChange={(e) => setSelCommit(e.target.value)}
+              <select value={selCommit} onChange={(e) => { const v = e.target.value; setSelCommit(v); if (evApi) loadEvApi(v); }}
                 className="text-[11px] border rounded-lg px-1.5 py-1 bg-white min-w-0 max-w-[260px] shrink" style={{ borderColor: tk.borderLight }}
                 title={t("rm.reportCommitTip")} data-testid="rm-report-commit-select">
                 <option value="">HEAD（目前）</option>
@@ -297,7 +286,15 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                 📋 {t("rm.genReport")}
               </button>
             )}
-            {readiness?.evidenceMatrix && (
+            {readiness && (
+              <button onClick={() => loadEvApi()} disabled={evApiBusy}
+                className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
+                style={{ backgroundColor: "#b45309" }} data-testid="rm-ev-load" title={t("rm.ev.loadTip")}>
+                {evApiBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
+                ⚖️ {t("rm.ev.loadBtn")}
+              </button>
+            )}
+            {evApi && (
               <button onClick={askAiVerify}
                 className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90"
                 style={{ backgroundColor: "#dc2626" }} data-testid="rm-ai-verify">
@@ -378,76 +375,38 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                   </div>
                 )}
 
-                {readiness.evidenceMatrix && (
+                {/* ⚖️ Evidence Matrix（2026-11-07 Fleming v3：API-first，按鈕才載入；窗口 = 下拉選的 baseline commit 之後的 change）*/}
+                {evApi && (
                   <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight }} data-testid="rm-evidence-matrix">
                     <div className="flex items-center gap-2 flex-wrap mb-2">
                       <span className="text-xs font-bold text-stone-700">⚖️ {t("rm.ev.title")}</span>
-                      <span className="text-[10px] text-stone-400">{t("rm.ev.hint")}</span>
+                      <span className="text-[10px] text-stone-400">{evApi.anchor === "since-last-release" ? t("rm.ev.sinceHead") : `${evApi.anchor} · ${evApi.commitsInWindow} commits`}</span>
                       {onOpenReviewBoard && <button type="button" onClick={onOpenReviewBoard} className="text-[10px] px-2 py-0.5 rounded-full border font-bold text-violet-600 hover:bg-violet-50" style={{ borderColor: "#ddd6fe" }} data-testid="rm-open-review-board">{t("rm.ev.openBoard")} →</button>}
-                      {/* 2026-11-07 Fleming：by commit ⇄ by feature 切換 */}
-                      <button type="button" onClick={() => setEvView(evView === "commit" ? "feature" : "commit")}
-                        className="text-[10px] px-2 py-0.5 rounded-full border font-bold text-stone-500 hover:bg-stone-100" style={{ borderColor: tk.borderLight }} data-testid="rm-ev-view-toggle">
-                        ⇄ {evView === "commit" ? t("rm.ev.byFeature") : t("rm.ev.byCommit")}
-                      </button>
                       <span className="ml-auto flex gap-1.5 text-[10px] font-mono">
-                        {readiness.evidenceMatrix.summary.bySeverity.S2 > 0 && <span className="px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-bold">S2 {readiness.evidenceMatrix.summary.bySeverity.S2}</span>}
-                        {readiness.evidenceMatrix.summary.bySeverity.S1 > 0 && <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold">S1 {readiness.evidenceMatrix.summary.bySeverity.S1}</span>}
-                        {readiness.evidenceMatrix.summary.bySeverity.S0 > 0 && <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 font-bold">S0 {readiness.evidenceMatrix.summary.bySeverity.S0}</span>}
-                        {readiness.evidenceMatrix.summary.bySeverity.humanOverride > 0 && <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 font-bold" title={t("rm.ev.humanTip")}>👤 {readiness.evidenceMatrix.summary.bySeverity.humanOverride}</span>}
-                        {readiness.evidenceMatrix.summary.bySeverity.aiDefault > 0 && <span className="px-1.5 py-0.5 rounded bg-sky-50 text-sky-600 font-bold" title={t("rm.ev.aiTip")}>🤖 {readiness.evidenceMatrix.summary.bySeverity.aiDefault}</span>}
-                        {readiness.evidenceMatrix.summary.reviewBoard && <button type="button" onClick={onOpenReviewBoard} disabled={!onOpenReviewBoard} className="px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 enabled:hover:bg-violet-100 disabled:cursor-default" title={readiness.evidenceMatrix.summary.reviewBoard.latest.models.join("、")}>🏛 {readiness.evidenceMatrix.summary.reviewBoard.latest.models.length}m</button>}
-                        {readiness.evidenceMatrix.summary.sgScan && <span className={`px-1.5 py-0.5 rounded ${readiness.evidenceMatrix.summary.sgScan.high > 0 ? "bg-red-50 text-red-600 font-bold" : "bg-green-50 text-green-700"}`}>🛡 {readiness.evidenceMatrix.summary.sgScan.total}·{readiness.evidenceMatrix.summary.sgScan.high}hi</span>}
+                        <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 font-bold">API {evApi.summary.changedApis}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 font-bold">Tests ✓{evApi.summary.withTests}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 font-bold">E2E ✓{evApi.summary.e2eCovered}</span>
+                        <span className={`px-1.5 py-0.5 rounded font-bold ${evApi.summary.sgHigh > 0 ? "bg-red-50 text-red-600" : "bg-stone-100 text-stone-500"}`}>SG ✗{evApi.summary.sgHigh}</span>
                       </span>
                     </div>
-                    {readiness.modelDegraded && (
-                      <div className="mb-2 rounded-lg bg-orange-50 px-3 py-1.5 text-[10px] text-orange-700 font-bold">⚠️ {t("rm.ev.modelDegraded")}</div>
-                    )}
-                    <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 pb-1" style={{ gridTemplateColumns: "1.6fr 0.6fr 0.8fr 0.9fr 0.8fr 0.8fr 1.5fr" }}>
-                      {/* 2026-11-03 Fleming：Human 欄移除 — 簡化（人不逐 feature 簽核，看 AI 摘要與 QA 記錄即可）*/}
-                      <span>{t("rm.ev.feature")}</span><span>Sev</span><span>Unit</span><span>E2E</span><span>SG</span><span>QA</span><span>{t("rm.ev.board")}</span>
+                    <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 pb-1" style={{ gridTemplateColumns: "1.7fr 1.2fr 1fr 0.7fr 0.7fr 0.7fr" }}>
+                      <span>API</span><span>{t("rm.apiColName")}</span><span>Commits</span><span>Tests</span><span>E2E</span><span>SG</span>
                     </div>
-                    {(() => {
-                      // 2026-11-07 Fleming：row renderer 共用 — by commit（commit line 帶 touched features）/ by feature 兩種分組
-                      const renderRow = (f: EvFeature) => {
-                      const ev = f.evidence;
-                      const cell = (c: EvCell, label: string) => (
-                        <span className={`text-[10px] font-mono ${c.ok ? (c.note ? "text-amber-600 font-bold" : "text-green-600") : "text-red-500 font-bold"}`} title={String(c.note ? `${c.reason || "✓"}（${c.note}）` : (c.reason || (c.ok ? "✓" : "missing")))}>{label}</span>
-                      );
-                      return (
-                        <div key={f.id} className="grid gap-1 items-center px-2 py-1.5 rounded-lg hover:bg-stone-50" style={{ gridTemplateColumns: "1.6fr 0.6fr 0.8fr 0.9fr 0.8fr 0.8fr 1.5fr", background: f.gaps.missing.length ? "#fff7ed" : undefined }}>
-                          <span className="text-[10px] font-bold text-stone-700 truncate" title={f.name}>{f.name}</span>
-                          <span className={`text-[10px] font-bold ${f.severity === "S2" ? "text-red-600" : f.severity === "S1" ? "text-amber-600" : f.severity === "S0" ? "text-green-600" : "text-stone-400"}`} title={[t("rm.ev.aiTip"), ...((f.severityDecisions || []).map(d => `👤${d.by}: ${d.severity}${d.remark ? `（${d.remark}）` : ""}`))].join("\n")}>
-                            {f.severity}{f.severitySource === "human" ? "👤" : "🤖"}
-                          </span>
-                          {cell(ev.unit, ev.unit.ok ? `✓${ev.unit.tests || 0}t${ev.unit.note ? " ⚣" : ""}` : "✗")}
-                          {cell(ev.e2e, ev.e2e.ok ? (ev.e2e.total ? `${ev.e2e.covered}/${ev.e2e.total}` : "—") : `✗${ev.e2e.covered ?? 0}/${ev.e2e.total ?? 0}`)}
-                          {cell(ev.sg, ev.sg.ok ? ((ev.sg.total ?? 0) > 0 ? `⚠${ev.sg.total}` : "✓0") : `✗${ev.sg.high ?? 0}hi`)}
-                          {cell(ev.qa, ev.qa.ok ? `✓${String(ev.qa.actor || "").slice(0, 4)}` : ev.qa.verdict ? `✗${ev.qa.verdict}` : "✗")}
-                          {ev.aiReview.ok
-                            ? <span className="text-[9px] text-green-600 font-mono truncate" title={`${ev.aiReview.models?.join("、")} @ ${String(ev.aiReview.at || "").slice(0, 10)}`}>✓{ev.aiReview.models?.length}m {String(ev.aiReview.decision || "").slice(0, 8)}</span>
-                            // 2026-10-20：區分「已審未過」vs「未跑」；2026-10-21 再分「有跑但未觸及」— 三態不誤導
-                            : ev.aiReview.touched
-                              ? <span className="text-[9px] text-amber-600 font-bold truncate" title={String(ev.aiReview.reason || "")}>✗ {t("rm.ev.reviewedNotApproved")}{ev.aiReview.decision ? `（${String(ev.aiReview.decision).slice(0, 14)}）` : ""}</span>
-                              : ev.aiReview.untouched
-                                ? <span className="text-[9px] text-amber-600 font-bold truncate" title={String(ev.aiReview.reason || "")}>✗ {t("rm.ev.notTouched")}</span>
-                                : <span className="text-[9px] text-red-500 font-bold truncate" title={String(ev.aiReview.reason || "")}>✗ {t("rm.ev.notRun")}</span>}
-                        </div>
-                      );
-                      };
-                      if (evView === "commit" && commitGroups.length) {
-                        return commitGroups.map((g) => (
-                          <div key={g.short} className="mb-1.5">
-                            <div className="flex items-baseline gap-1.5 px-2 py-1 rounded-lg bg-stone-50 border" style={{ borderColor: tk.borderLight }} data-testid="rm-ev-commit-line">
-                              <span className="text-[10px] font-mono font-bold text-violet-700 shrink-0">{g.short}</span>
-                              <span className="text-[10px] font-bold text-stone-700 truncate" title={g.subject}>{g.subject}</span>
-                              <span className="ml-auto text-[9px] text-stone-400 shrink-0">{String(g.at || "").slice(0, 10)} · {g.author} · {g.featureIds.length}f</span>
-                            </div>
-                            {g.featureIds.map((id: string) => featureById.get(id)).filter((f): f is EvFeature => !!f).map((f) => renderRow(f))}
+                    <div className="max-h-72 overflow-y-auto">
+                      {evApi.apis.map((a: any, i: number) => {
+                        const risky = !a.tests.length && !a.e2eCovered;
+                        return (
+                          <div key={i} className="grid gap-1 items-center px-2 py-1.5 rounded-lg hover:bg-stone-50 text-[10px]" style={{ gridTemplateColumns: "1.7fr 1.2fr 1fr 0.7fr 0.7fr 0.7fr", background: risky ? "#fff7ed" : undefined }}>
+                            <span className="font-mono font-bold text-stone-700 truncate" title={`${a.entry}\n${(a.files || []).join("\n")}`}>{a.entry}</span>
+                            <span className="text-stone-500 truncate" title={a.name}>{a.name || "—"}</span>
+                            <span className="font-mono text-violet-700 truncate" title={(a.commits || []).join(" · ")}>{a.commitCount}c · {(a.commits || []).slice(0, 3).join(" ")}</span>
+                            <span className={`font-mono font-bold ${a.tests.length ? "text-green-600" : "text-red-500"}`} title={(a.tests || []).join("\n") || t("rm.ev.noTest")}>{a.tests.length ? `✓${a.tests.length}` : "✗"}</span>
+                            <span className={`font-mono font-bold ${a.e2eCovered ? "text-green-600" : "text-stone-300"}`}>{a.e2eCovered ? "✓" : "—"}</span>
+                            <span className={`font-mono font-bold ${a.sg.ok ? ((a.sg.total ?? 0) > 0 ? "text-amber-600" : "text-green-600") : "text-red-500"}`} title={a.sg.reason || `${a.sg.total ?? 0} findings（high ${a.sg.high ?? 0}）@ ${evApi.summary.sgScannedAt || "—"}`}>{a.sg.ok ? ((a.sg.total ?? 0) > 0 ? `⚠${a.sg.total}` : "✓0") : `✗${a.sg.high}hi`}</span>
                           </div>
-                        ));
-                      }
-                      return sortedFeatures.map((f) => renderRow(f));
-                    })()}
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
