@@ -256,13 +256,14 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
       <div className="flex-1 min-w-0 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
         {/* Header */}
         <div className="px-5 py-3 border-b sticky top-0 bg-white/95 backdrop-blur z-10" style={{ borderColor: tk.borderLight }}>
-          <div className="flex items-center gap-2">
+          {/* 2026-11-06 Fleming：按鈕多，允许換行避免遮住 */}
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-lg">🚦</span>
             <h2 className="text-sm font-bold text-stone-800">{t("rm.title")}</h2>
             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">.paaw/releases/</span>
             {readiness && (
               <select value={selCommit} onChange={(e) => setSelCommit(e.target.value)}
-                className="text-[11px] border rounded-lg px-1.5 py-1 bg-white max-w-[300px] shrink-0" style={{ borderColor: tk.borderLight }}
+                className="text-[11px] border rounded-lg px-1.5 py-1 bg-white min-w-0 max-w-[260px] shrink" style={{ borderColor: tk.borderLight }}
                 title={t("rm.reportCommitTip")} data-testid="rm-report-commit-select">
                 <option value="">HEAD（目前）</option>
                 {baselines.map((b) => (
@@ -292,7 +293,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                 {t("rm.apiBtn")}
               </button>
             )}
-            <span className="flex-1" />
+            <span className="flex-1 min-w-[8px]" />
             <button onClick={refreshAll} disabled={refreshing}
               title={t("rm.refreshAll")}
               className="text-xs px-2.5 py-1 rounded-lg border font-semibold transition-colors disabled:opacity-40"
