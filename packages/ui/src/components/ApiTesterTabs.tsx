@@ -42,13 +42,14 @@ interface Props {
   refreshHistory: () => void;
   borderLight?: string;
   borderInput?: string;
+  /** 2026-11-07 修：中欄存入 collection 後 bump → 這裡重抓清單（原本要 reload 才看得到） */
+  refreshSignal?: number;
 }
 
 export default function ApiTesterTabs({
   rootPath, onPick, onOpenFile, onAskAi, onLoadPayload,
   apiHistory, onClearHistory, refreshHistory,
-  borderLight = "#f0f0f0", borderInput = "#e5e5e5",
-}: Props) {
+  borderLight = "#f0f0f0", borderInput = "#e5e5e5", refreshSignal }: Props) {
   const { t } = useI18n();
   const [tab, setTab] = useState<"feature" | "collection" | "history">("feature");
   const [collections, setCollections] = useState<CollectionSummary[]>([]);
@@ -89,6 +90,11 @@ export default function ApiTesterTabs({
   useEffect(() => {
     if (tab === "collection") loadCollections();
   }, [tab, loadCollections]);
+
+  // 2026-11-07 修：中欄存入 collection → bump refreshSignal → 立即重抓（不用切 tab/reload）
+  useEffect(() => {
+    if (refreshSignal) loadCollections();
+  }, [refreshSignal, loadCollections]);
 
   // 切到 collection tab 時順便刷新 history（agent 存的 payload 跑完會進 history）
   useEffect(() => {

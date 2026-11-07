@@ -1037,6 +1037,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
   const [projectApiExamples, setProjectApiExamples] = useState<{ method: string; endpoint: string; description: string; request: any; response: any }[]>([]);
   const a2aAbortRef = useRef<AbortController | null>(null); // for interrupting A2A agent streams
   const apiTabSheetRef = useRef<ApiRequestTabSheetHandle>(null); // 中欄 Postman 式 tab sheet（openTab 供左欄 onPick/onLoadPayload 用）
+  const [collectionsRefresh, setCollectionsRefresh] = useState(0); // 2026-11-07 修：存入 collection → 左欄即時刷新
 
   // ── Coding Behavior Tracking ──
   const codingLogRef = useRef<CodingEvent[]>([]);
@@ -3301,6 +3302,7 @@ const sendChat = useCallback(async () => {
                     refreshHistory={async () => {
                       try { const res = await fetch(`${API_BASE}/api/api-tester/history?path=${encodeURIComponent(rootPath)}`); const data = await res.json(); if (data.history) setApiHistory(data.history); } catch {}
                     }}
+                    refreshSignal={collectionsRefresh}
                     borderLight={tk.borderLight}
                     borderInput={tk.borderInput}
                   />

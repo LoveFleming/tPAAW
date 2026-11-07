@@ -117,10 +117,12 @@ interface Props {
   projectApiExamples: { method: string; endpoint: string; description: string; request: any; response: any }[];
   /** 跑完 request → 回報 parent 存進 apiHistory */
   onHistory: (item: ApiHistoryItemLike) => void;
+  /** 2026-11-07 修：存入 collection 成功 → 通知 parent 刷新 collection 清單（原本存完不刷新，要 reload 才看得到） */
+  onCollectionsSaved?: () => void;
 }
 
 const ApiRequestTabSheet = forwardRef<ApiRequestTabSheetHandle, Props>(function ApiRequestTabSheet({
-  rootPath, theme: tk, projectApis, projectApiExamples, onHistory,
+  rootPath, theme: tk, projectApis, projectApiExamples, onHistory, onCollectionsSaved,
 }, ref) {
   const { t: tt } = useI18n();
   const [tabs, setTabs] = useState<ApiTab[]>([emptyTab()]);
@@ -192,7 +194,7 @@ const ApiRequestTabSheet = forwardRef<ApiRequestTabSheetHandle, Props>(function 
           payload: { name: pname, method: active.method, url: active.url, headers: active.headers, body: active.body, streamMode: active.streamMode },
         }),
       });
-      if (res.ok) { setSaveColOpen(false); setSavePayloadName(""); uiAlert(tt("apiTester.saved")); }
+      if (res.ok) { setSaveColOpen(false); setSavePayloadName(""); uiAlert(tt("apiTester.saved")); onCollectionsSaved?.(); }
       else uiAlertError(tt("apiTester.saveFailed"));
     } catch { uiAlertError(tt("apiTester.saveFailed")); }
   };
