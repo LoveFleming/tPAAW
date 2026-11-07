@@ -18,6 +18,10 @@ import { rescanMechanicalLayer } from "../lib/cu-mechanical.mjs";
 import { countSourceFiles, walkSourceFiles, changedSourceFilesSince } from "../lib/cu-source-scan.mjs";
 import { appendFileSync, existsSync as existsSyncSync, mkdirSync } from "fs";
 import { PAAW_ROOT } from "./coding-helpers.mjs";
+import { normalizePath, readBody, PORT } from "./shared.mjs"; // 2026-11-04：PORT 供 localhost API 自呼（paawPort 未定義修復）
+import * as codingDb from "../lib/coding-db/index.mjs"; // dual-write Phase A（2026-10-31）
+import { saveQaResult, listQaResults, getQaResult, updateQaResult, deleteQaResult, qaStats } from "../lib/qa-results.mjs"; // QA 記錄共享存儲（2026-09-17 Fleming）
+import { cuLog, diffWriteFile, _stripCodeFence, _sanitizeMd, cuStepSkillKey, loadCuStepSkills, parseQuery, _extractJsonArray, backfillApiTests, _buildManifestContext } from "./coding-helpers.mjs"; // 2026-11-07 抽出
 import { AGENT_RULES } from "../lib/agent-rules.mjs";
 import { SECURITY_RULES } from "../lib/security-rules.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
