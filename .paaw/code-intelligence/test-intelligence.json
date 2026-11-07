@@ -130,7 +130,7 @@
     {
       "file": "tests/unit/coding-auto-dispatch.test.mjs",
       "type": "unit",
-      "functionCount": 9,
+      "functionCount": 17,
       "functionNames": [
         "fakeReq",
         "fakeRes",
@@ -139,6 +139,14 @@
         "pathUrl",
         "writeStatus",
         "readStatus",
+        "release",
+        "release",
+        "writeRun",
+        "runsDir",
+        "listRuns",
+        "release",
+        "release",
+        "release",
         "release",
         "release"
       ]
@@ -495,6 +503,16 @@
       "type": "unit",
       "functionCount": 0,
       "functionNames": []
+    },
+    {
+      "file": "tests/unit/page-inventory.test.mjs",
+      "type": "unit",
+      "functionCount": 3,
+      "functionNames": [
+        "mkProject",
+        "mk",
+        "mk2"
+      ]
     },
     {
       "file": "tests/unit/parse-model-reference.test.mjs",
@@ -1258,7 +1276,7 @@
     {
       "testFile": "tests/unit/coding-auto-dispatch.test.mjs",
       "testType": "unit",
-      "functionCount": 9,
+      "functionCount": 17,
       "matches": [
         {
           "productionFile": "packages/server/src/routes/coding-auto-dispatch.mjs",
@@ -1808,6 +1826,19 @@
         {
           "productionFile": "packages/server/src/lib/paaw-sandbox.mjs",
           "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/page-inventory.test.mjs",
+      "testType": "unit",
+      "functionCount": 3,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/page-inventory.mjs",
+          "matchType": "naming",
           "testedFunctions": [],
           "confidence": "high"
         }
@@ -3041,6 +3072,13 @@
         "testedFunctions": []
       }
     ],
+    "packages/server/src/lib/page-inventory.mjs": [
+      {
+        "testFile": "tests/unit/page-inventory.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
     "packages/server/src/lib/release-evidence-snapshot.mjs": [
       {
         "testFile": "tests/unit/release-evidence-snapshot.test.mjs",
@@ -3803,6 +3841,13 @@
         "reason": "Tests this file"
       }
     ],
+    "packages/server/src/lib/page-inventory.mjs": [
+      {
+        "testFile": "tests/unit/page-inventory.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
     "packages/server/src/lib/release-evidence-snapshot.mjs": [
       {
         "testFile": "tests/unit/release-evidence-snapshot.test.mjs",
@@ -4072,9 +4117,9 @@
   },
   "coverageGaps": [
     {
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "functionCount": 72,
-      "exportCount": 13
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "functionCount": 46,
+      "exportCount": 22
     },
     {
       "file": "packages/ui/src/components/browser/BrowserPanel.tsx",
@@ -4090,6 +4135,11 @@
       "file": "packages/server/src/lib/project-crew.mjs",
       "functionCount": 28,
       "exportCount": 18
+    },
+    {
+      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "functionCount": 26,
+      "exportCount": 15
     },
     {
       "file": "packages/ui/src/pages/ProjectBoard.tsx",
@@ -4120,11 +4170,6 @@
       "file": "packages/server/src/lib/dev-server.mjs",
       "functionCount": 22,
       "exportCount": 7
-    },
-    {
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "functionCount": 20,
-      "exportCount": 1
     },
     {
       "file": "packages/server/src/lib/release-unit/qa.mjs",
@@ -4262,6 +4307,11 @@
       "exportCount": 1
     },
     {
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "functionCount": 12,
+      "exportCount": 1
+    },
+    {
       "file": "packages/ui/src/components/SidebarFileTree.tsx",
       "functionCount": 12,
       "exportCount": 1
@@ -4275,6 +4325,11 @@
       "file": "packages/server/src/routes/coding-features.mjs",
       "functionCount": 12,
       "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "functionCount": 12,
+      "exportCount": 13
     },
     {
       "file": "packages/server/src/routes/mindmap.mjs",
@@ -4297,14 +4352,14 @@
       "exportCount": 5
     },
     {
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "functionCount": 11,
+      "exportCount": 26
+    },
+    {
       "file": "packages/ui/src/components/ChatMessages.tsx",
       "functionCount": 11,
       "exportCount": 12
-    },
-    {
-      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
-      "functionCount": 11,
-      "exportCount": 1
     },
     {
       "file": "packages/server/src/lib/em-config.mjs",
@@ -4330,6 +4385,11 @@
       "file": "packages/ui/src/components/ui/uiFeedback.ts",
       "functionCount": 10,
       "exportCount": 4
+    },
+    {
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "functionCount": 10,
+      "exportCount": 1
     },
     {
       "file": "packages/server/src/routes/log-retention.mjs",
@@ -4368,6 +4428,11 @@
     },
     {
       "file": "packages/ui/src/pages/BackupSettings.tsx",
+      "functionCount": 9,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/pages/CodingIDE.tsx",
       "functionCount": 9,
       "exportCount": 1
     },
@@ -4557,11 +4622,6 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/coding-health.mjs",
-      "functionCount": 5,
-      "exportCount": 1
-    },
-    {
       "file": "packages/server/src/routes/skill.mjs",
       "functionCount": 5,
       "exportCount": 1
@@ -4690,6 +4750,11 @@
       "file": "packages/server/src/routes/coding-db.mjs",
       "functionCount": 4,
       "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "functionCount": 4,
+      "exportCount": 3
     },
     {
       "file": "packages/server/src/routes/coding-memory.mjs",
@@ -4900,6 +4965,11 @@
       "file": "packages/ui/src/components/ApiMapSidebar.tsx",
       "functionCount": 2,
       "exportCount": 2
+    },
+    {
+      "file": "packages/ui/src/components/DispatchWizard.tsx",
+      "functionCount": 2,
+      "exportCount": 1
     },
     {
       "file": "packages/ui/src/components/MermaidBlock.tsx",
@@ -5210,6 +5280,11 @@
       "file": "packages/server/src/lib/overnight-runner.mjs",
       "functionCount": 0,
       "exportCount": 2
+    },
+    {
+      "file": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "functionCount": 0,
+      "exportCount": 1
     },
     {
       "file": "packages/server/src/lib/running-agents.mjs",
@@ -5814,30 +5889,30 @@
   "testReports": {
     "found": 2,
     "mergedCoverage": {
-      "totalLinePct": 44.92,
-      "linesCovered": 10559,
-      "linesTotal": 23503,
+      "totalLinePct": 45.32,
+      "linesCovered": 10823,
+      "linesTotal": 23881,
       "sources": [
         {
           "runner": "vitest/jest (istanbul 格式)",
-          "at": "2026-11-05T12:23:13.705Z",
-          "totalLinePct": 44.92,
+          "at": "2026-11-07T13:37:32.064Z",
+          "totalLinePct": 45.32,
           "file": null
         }
       ],
       "merged": false,
-      "at": "2026-11-05T12:23:13.705Z"
+      "at": "2026-11-07T13:37:32.064Z"
     },
     "reports": [
       {
         "runner": "vitest/jest (istanbul 格式)",
         "kind": "coverage",
-        "at": "2026-11-05T12:23:13.705Z",
+        "at": "2026-11-07T13:37:32.064Z",
         "total": null,
         "passed": null,
         "failed": null,
         "skipped": null,
-        "totalLinePct": 44.92,
+        "totalLinePct": 45.32,
         "status": null,
         "durationMs": null,
         "id": null,
@@ -5849,26 +5924,26 @@
       {
         "runner": "PAAW test-run",
         "kind": "run",
-        "at": "2026-11-05T12:23:13.833Z",
-        "total": 1768,
-        "passed": 1768,
+        "at": "2026-11-07T13:37:32.153Z",
+        "total": 1795,
+        "passed": 1795,
         "failed": 0,
         "skipped": 0,
         "totalLinePct": null,
         "status": "pass",
-        "durationMs": 7195,
-        "id": "RUN-20261105-001",
-        "headSha": "05af648",
+        "durationMs": 8793,
+        "id": "RUN-20261107-006",
+        "headSha": "1e9bb05",
         "includeE2e": false,
         "commands": [
           "npx vitest run --reporter=json --outputFile=.paaw/test-runs/.vitest.json --coverage --coverage.reporter=json-summary --coverage.reporter=text --coverage.reportsDirectory=coverage --coverage.reportOnFailure=true"
         ],
         "byKind": {
           "unit": {
-            "passed": 1768,
+            "passed": 1795,
             "failed": 0,
             "skipped": 10,
-            "files": 92
+            "files": 93
           }
         }
       }
@@ -5877,22 +5952,22 @@
       {
         "runner": "PAAW test-run",
         "kind": "run",
-        "at": "2026-11-05T12:23:13.833Z",
+        "at": "2026-11-07T13:37:32.153Z",
         "status": "pass",
-        "total": 1768,
-        "passed": 1768,
+        "total": 1795,
+        "passed": 1795,
         "failed": 0,
         "skipped": 0,
-        "durationMs": 7195,
-        "id": "RUN-20261105-001",
-        "headSha": "05af648",
+        "durationMs": 8793,
+        "id": "RUN-20261107-006",
+        "headSha": "1e9bb05",
         "includeE2e": false,
         "byKind": {
           "unit": {
-            "passed": 1768,
+            "passed": 1795,
             "failed": 0,
             "skipped": 10,
-            "files": 92
+            "files": 93
           }
         },
         "commands": [
@@ -5904,7 +5979,7 @@
       {
         "runner": "vitest/jest (istanbul 格式)",
         "kind": "coverage",
-        "at": "2026-11-05T12:23:13.705Z",
+        "at": "2026-11-07T13:37:32.064Z",
         "fileCoverage": {
           "data/skills/physical-skill/nextjs-backend-best-practices/templates/async-params-page.tsx": 50,
           "packages/db/src/connection.ts": 60,
@@ -5935,7 +6010,7 @@
           "packages/server/src/lib/context-truncation.mjs": 98.07,
           "packages/server/src/lib/crosscut-concepts.mjs": 62.2,
           "packages/server/src/lib/cu-mechanical.mjs": 3.44,
-          "packages/server/src/lib/cu-source-scan.mjs": 87.03,
+          "packages/server/src/lib/cu-source-scan.mjs": 87.15,
           "packages/server/src/lib/dependency-context.mjs": 100,
           "packages/server/src/lib/dev-server.mjs": 11.24,
           "packages/server/src/lib/dispatch-stream-state.mjs": 15.62,
@@ -5958,25 +6033,28 @@
           "packages/server/src/lib/janitor.mjs": 9.3,
           "packages/server/src/lib/llm-utils.mjs": 23.73,
           "packages/server/src/lib/module-registry.mjs": 55.12,
-          "packages/server/src/lib/paaw-agent-loop.mjs": 2.33,
+          "packages/server/src/lib/paaw-agent-exec.mjs": 0.79,
+          "packages/server/src/lib/paaw-agent-loop.mjs": 5.31,
+          "packages/server/src/lib/paaw-agent-tools.mjs": 100,
           "packages/server/src/lib/paaw-project.mjs": 22.99,
           "packages/server/src/lib/paaw-sandbox.mjs": 77.77,
           "packages/server/src/lib/paaw-snapshot.mjs": 0,
+          "packages/server/src/lib/page-inventory.mjs": 83.4,
           "packages/server/src/lib/proc-ledger.mjs": 16.17,
           "packages/server/src/lib/project-crew.mjs": 47.07,
           "packages/server/src/lib/project-md.mjs": 4,
-          "packages/server/src/lib/qa-results.mjs": 72.89,
+          "packages/server/src/lib/qa-results.mjs": 68.69,
           "packages/server/src/lib/release-evidence-snapshot.mjs": 75.14,
           "packages/server/src/lib/release-evidence.mjs": 90.83,
           "packages/server/src/lib/release-requests.mjs": 50.47,
-          "packages/server/src/lib/review-boundary.mjs": 57.85,
+          "packages/server/src/lib/review-boundary.mjs": 78.51,
           "packages/server/src/lib/ru-resolver.mjs": 70.31,
           "packages/server/src/lib/ru-skills.mjs": 98.42,
           "packages/server/src/lib/running-agents.mjs": 100,
           "packages/server/src/lib/script-guard.mjs": 91.72,
           "packages/server/src/lib/security-mode.mjs": 100,
           "packages/server/src/lib/security-rules.mjs": 100,
-          "packages/server/src/lib/semgrep-runner.mjs": 2.74,
+          "packages/server/src/lib/semgrep-runner.mjs": 2.73,
           "packages/server/src/lib/shell-exec.mjs": 68.42,
           "packages/server/src/lib/shell-guard.mjs": 100,
           "packages/server/src/lib/stable-hash.mjs": 95.23,
@@ -5990,7 +6068,7 @@
           "packages/server/src/lib/test-signals.mjs": 93.66,
           "packages/server/src/lib/tool-registry-init.mjs": 100,
           "packages/server/src/lib/tool-registry.mjs": 73.8,
-          "packages/server/src/lib/tree-sitter-parser.mjs": 49.48,
+          "packages/server/src/lib/tree-sitter-parser.mjs": 49.31,
           "packages/server/src/lib/vision-content.mjs": 10.09,
           "packages/server/src/lib/coding-db/api-features.repo.mjs": 52.38,
           "packages/server/src/lib/coding-db/connection.mjs": 61.9,
@@ -6022,15 +6100,18 @@
           "packages/server/src/routes/agent-logs.mjs": 73.64,
           "packages/server/src/routes/audit-log.mjs": 98.11,
           "packages/server/src/routes/chat.mjs": 55.93,
-          "packages/server/src/routes/coding-auto-dispatch.mjs": 84.73,
+          "packages/server/src/routes/coding-auto-dispatch.mjs": 93.51,
+          "packages/server/src/routes/coding-crew-routes.mjs": 0,
           "packages/server/src/routes/coding-evidence.mjs": 56.52,
           "packages/server/src/routes/coding-handover.mjs": 34.48,
+          "packages/server/src/routes/coding-health.mjs": 0,
+          "packages/server/src/routes/coding-helpers.mjs": 2.39,
           "packages/server/src/routes/coding-issues.mjs": 97.11,
           "packages/server/src/routes/coding-ops.mjs": 75.39,
-          "packages/server/src/routes/coding-review-board.mjs": 96.15,
+          "packages/server/src/routes/coding-review-board.mjs": 81.94,
           "packages/server/src/routes/coding-ru-skills.mjs": 93.44,
           "packages/server/src/routes/coding-trouble.mjs": 78.94,
-          "packages/server/src/routes/coding.mjs": 1.42,
+          "packages/server/src/routes/coding.mjs": 2.8,
           "packages/server/src/routes/context.mjs": 41.79,
           "packages/server/src/routes/helpdesk.mjs": 66.02,
           "packages/server/src/routes/llm-logs.mjs": 59.58,
@@ -6047,9 +6128,9 @@
           "packages/ui/src/utils/index.ts": 100,
           "packages/ui/src/utils/stableStringify.ts": 100
         },
-        "totalLinePct": 44.92,
-        "linesCovered": 10559,
-        "linesTotal": 23503
+        "totalLinePct": 45.32,
+        "linesCovered": 10823,
+        "linesTotal": 23881
       }
     ],
     "e2e": [],
@@ -6057,16 +6138,16 @@
     "_note": "真實工具 report（deterministic 讀取）。啟發式檔案對映為獨立欄位，不冒充真實覆蓋。"
   },
   "stats": {
-    "totalTestFiles": 113,
+    "totalTestFiles": 114,
     "byType": {
-      "unit": 102,
+      "unit": 103,
       "integration": 0,
       "contract": 0,
       "e2e": 11
     },
-    "totalMappings": 118,
-    "coverageGapFiles": 243,
-    "estimatedCoverageRate": "25.9%",
+    "totalMappings": 119,
+    "coverageGapFiles": 249,
+    "estimatedCoverageRate": "25.7%",
     "featureTestCoverage": 61
   }
 }

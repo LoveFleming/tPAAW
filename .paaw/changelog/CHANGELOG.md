@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-07
+
+
+### changed
+- code changes
+
 ## 2026-10-18
 ### fixed
 - fix(learning): ExamVault 與 LearningSpace 修復 4 項 QA Major（TASK-168/TASK-051，commit 2219de72，QA qr-20261017-162804-uvyl）— api() 呼叫全面加 AbortController timeout（預設 30s、upload/backup 120s，逾時顯示在地化訊息、busy 不再永久卡死）；課程樹鍵盤可達（role/tabIndex/Enter/Space + IME guard）；原圖對照 modal 與教師對話面板 Escape 關閉＋焦點歸還、7 顆 emoji 按鈕補 aria-label（i18n 四檔）；對話存檔錯誤不再靜默吞掉、開新對話三步驟原子化（任一步失敗不清 UI）

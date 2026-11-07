@@ -832,6 +832,70 @@
           "params": "()",
           "callCount": 0,
           "calls": []
+        },
+        {
+          "name": "writeRun",
+          "kind": "function",
+          "async": false,
+          "params": "(id, obj)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "runsDir",
+          "kind": "function",
+          "async": false,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "listRuns",
+          "kind": "function",
+          "async": false,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "release",
+          "kind": "arrow",
+          "async": false,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "release",
+          "kind": "arrow",
+          "async": false,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "release",
+          "kind": "arrow",
+          "async": false,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "release",
+          "kind": "arrow",
+          "async": false,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "release",
+          "kind": "arrow",
+          "async": false,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
         }
       ],
       "classes": [],
@@ -2817,6 +2881,71 @@
         }
       ],
       "functions": [],
+      "classes": [],
+      "routes": [],
+      "components": []
+    },
+    {
+      "file": "tests/unit/page-inventory.test.mjs",
+      "language": "javascript",
+      "exports": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "names": []
+        },
+        {
+          "source": "assert",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "os",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "../../packages/server/src/lib/page-inventory.mjs",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "mkProject",
+          "kind": "function",
+          "async": false,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "mk",
+          "kind": "arrow",
+          "async": false,
+          "params": "(p, c)",
+          "callCount": 4,
+          "calls": [
+            "join",
+            "mkdirSync",
+            "join",
+            "writeFileSync"
+          ]
+        },
+        {
+          "name": "mk2",
+          "kind": "function",
+          "async": false,
+          "params": "(root, p, c)",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
       "classes": [],
       "routes": [],
       "components": []
@@ -7898,91 +8027,13 @@
         {
           "source": "../components/ui/uiFeedback",
           "names": []
+        },
+        {
+          "source": "./coding-ide-helpers",
+          "names": []
         }
       ],
       "functions": [
-        {
-          "name": "ToolLogRow",
-          "kind": "function",
-          "async": false,
-          "params": "({ name, args, running }: { name: string; args: string; running: boolean })",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "crewToAgentId",
-          "kind": "arrow",
-          "async": false,
-          "params": "(crewId: string)",
-          "callCount": 1,
-          "calls": [
-            "crewId.replace"
-          ]
-        },
-        {
-          "name": "TREE_NOOP",
-          "kind": "arrow",
-          "async": false,
-          "params": "()",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "getFileIcon",
-          "kind": "function",
-          "async": false,
-          "params": "(name: string)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "getLanguage",
-          "kind": "function",
-          "async": false,
-          "params": "(name: string)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "getHljsLang",
-          "kind": "function",
-          "async": false,
-          "params": "(name: string)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "escapeHtml",
-          "kind": "function",
-          "async": false,
-          "params": "(str: string)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "fmtTime",
-          "kind": "function",
-          "async": false,
-          "params": "(iso: string)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "safeStr",
-          "kind": "function",
-          "async": false,
-          "params": "(v: any)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "EditorTabContent",
-          "kind": "function",
-          "async": false,
-          "params": "({ tabId, filePath, tabData, isActive, isEditing, textareaRef, lineNumWidth, handleContentChange, stopEditing, handleCodeViewClick, startEditing, tk, tt, openFile }: {\n  tabId: string;\n  filePath: string;\n  tabData: OpenTab | undefined;\n  isActive: boolean;\n  isEditing: boolean;\n  textareaRef: React.RefObject<HTMLTextAreaElement | null>;\n  lineNumWidth: number;\n  handleContentChange: (v: string) => void;\n  stopEditing: () => void;\n  handleCodeViewClick: (e: React.MouseEvent) => void;\n  startEditing: () => void;\n  tk: any;\n  tt: (k: string) => string;\n  openFile: (path: string) => void;\n})",
-          "callCount": 0,
-          "calls": []
-        },
         {
           "name": "CodingIDE",
           "kind": "function",
@@ -8160,31 +8211,11 @@
             "document.removeEventListener",
             "document.removeEventListener"
           ]
-        },
-        {
-          "name": "highlightMatch",
-          "kind": "function",
-          "async": false,
-          "params": "(text: string, query: string, caseSensitive: boolean)",
-          "callCount": 0,
-          "calls": []
         }
       ],
       "classes": [],
       "routes": [],
       "components": [
-        {
-          "name": "ToolLogRow",
-          "kind": "function"
-        },
-        {
-          "name": "TREE_NOOP",
-          "kind": "arrow"
-        },
-        {
-          "name": "EditorTabContent",
-          "kind": "function"
-        },
         {
           "name": "CodingIDE",
           "kind": "function"
@@ -10787,6 +10818,444 @@
       ]
     },
     {
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "language": "tsx",
+      "exports": [
+        {
+          "kind": "named",
+          "name": "ApiHeader",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "ApiHistoryItem",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "ApiResponse",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "BlameLine",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "ChatMessage",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "CodingEvent",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "FsItem",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "GitCommit",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "GitFileStatus",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "MainTab",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "MainTabType",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "OpenTab",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "CREW_TO_AGENT",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "EMPTY_TOOL_LOG",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "EditorTabContent",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "TREE_NOOP",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "ToolLogRow",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "_chatScrollCache",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "crewToAgentId",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "escapeHtml",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "fmtTime",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "getFileIcon",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "getHljsLang",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "getLanguage",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "highlightMatch",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "safeStr",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "react",
+          "names": []
+        },
+        {
+          "source": "../theme",
+          "names": []
+        },
+        {
+          "source": "../i18n",
+          "names": []
+        },
+        {
+          "source": "../utils",
+          "names": []
+        },
+        {
+          "source": "../components/ShellTerminal",
+          "names": []
+        },
+        {
+          "source": "../components/Icon",
+          "names": []
+        },
+        {
+          "source": "../components/ConsoleLogView",
+          "names": []
+        },
+        {
+          "source": "../components/JanitorPanel",
+          "names": []
+        },
+        {
+          "source": "../components/JsonViewer",
+          "names": []
+        },
+        {
+          "source": "../components/FileEmoji",
+          "names": []
+        },
+        {
+          "source": "highlight.js",
+          "names": []
+        },
+        {
+          "source": "highlight.js/styles/github.css",
+          "names": []
+        },
+        {
+          "source": "../api",
+          "names": []
+        },
+        {
+          "source": "../components/DirectoryExplorer",
+          "names": []
+        },
+        {
+          "source": "../components/SidebarFileTree",
+          "names": []
+        },
+        {
+          "source": "../components/CodeIntelPage",
+          "names": []
+        },
+        {
+          "source": "../components/TestsPage",
+          "names": []
+        },
+        {
+          "source": "../components/EMDashboard",
+          "names": []
+        },
+        {
+          "source": "../components/RuCloneModal",
+          "names": []
+        },
+        {
+          "source": "../components/RuOnboardingModal",
+          "names": []
+        },
+        {
+          "source": "../components/git",
+          "names": []
+        },
+        {
+          "source": "../components/browser/BrowserPanel",
+          "names": []
+        },
+        {
+          "source": "../components/DiffViewer",
+          "names": []
+        },
+        {
+          "source": "../components/SessionHistory",
+          "names": []
+        },
+        {
+          "source": "../components/DecisionLog",
+          "names": []
+        },
+        {
+          "source": "../components/ProjectMdPage",
+          "names": []
+        },
+        {
+          "source": "../components/ModelSelector",
+          "names": []
+        },
+        {
+          "source": "../components/ChatMessages",
+          "names": []
+        },
+        {
+          "source": "../components/IssueTracker",
+          "names": []
+        },
+        {
+          "source": "../components/QaRecords",
+          "names": []
+        },
+        {
+          "source": "../components/DispatchReports",
+          "names": []
+        },
+        {
+          "source": "../components/TaskBoard",
+          "names": []
+        },
+        {
+          "source": "../components/ReleaseManagerPanel",
+          "names": []
+        },
+        {
+          "source": "../components/CodeReviewBoardPanel",
+          "names": []
+        },
+        {
+          "source": "../components/HandoverPanel",
+          "names": []
+        },
+        {
+          "source": "../components/TroubleshootingPanel",
+          "names": []
+        },
+        {
+          "source": "../components/TabErrorBoundary",
+          "names": []
+        },
+        {
+          "source": "../components/FeatureMap",
+          "names": []
+        },
+        {
+          "source": "../components/ApiMapSidebar",
+          "names": []
+        },
+        {
+          "source": "../components/ApiTesterTabs",
+          "names": []
+        },
+        {
+          "source": "../components/ApiRequestTabSheet",
+          "names": []
+        },
+        {
+          "source": "../components/AgentSideChat",
+          "names": []
+        },
+        {
+          "source": "../components/ColResizer",
+          "names": []
+        },
+        {
+          "source": "../components/CrewManager",
+          "names": []
+        },
+        {
+          "source": "../components/SecurityTab",
+          "names": []
+        },
+        {
+          "source": "../utils/pasteFiles",
+          "names": []
+        },
+        {
+          "source": "../pages/FileViewer",
+          "names": []
+        },
+        {
+          "source": "../components/ui/uiFeedback",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "ToolLogRow",
+          "kind": "function",
+          "async": false,
+          "params": "({ name, args, running }: { name: string; args: string; running: boolean })",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "crewToAgentId",
+          "kind": "arrow",
+          "async": false,
+          "params": "(crewId: string)",
+          "callCount": 1,
+          "calls": [
+            "crewId.replace"
+          ]
+        },
+        {
+          "name": "TREE_NOOP",
+          "kind": "arrow",
+          "async": false,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "getFileIcon",
+          "kind": "function",
+          "async": false,
+          "params": "(name: string)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "getLanguage",
+          "kind": "function",
+          "async": false,
+          "params": "(name: string)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "getHljsLang",
+          "kind": "function",
+          "async": false,
+          "params": "(name: string)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "escapeHtml",
+          "kind": "function",
+          "async": false,
+          "params": "(str: string)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "fmtTime",
+          "kind": "function",
+          "async": false,
+          "params": "(iso: string)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "safeStr",
+          "kind": "function",
+          "async": false,
+          "params": "(v: any)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "EditorTabContent",
+          "kind": "function",
+          "async": false,
+          "params": "({ tabId, filePath, tabData, isActive, isEditing, textareaRef, lineNumWidth, handleContentChange, stopEditing, handleCodeViewClick, startEditing, tk, tt, openFile }: {\n  tabId: string;\n  filePath: string;\n  tabData: OpenTab | undefined;\n  isActive: boolean;\n  isEditing: boolean;\n  textareaRef: React.RefObject<HTMLTextAreaElement | null>;\n  lineNumWidth: number;\n  handleContentChange: (v: string) => void;\n  stopEditing: () => void;\n  handleCodeViewClick: (e: React.MouseEvent) => void;\n  startEditing: () => void;\n  tk: any;\n  tt: (k: string) => string;\n  openFile: (path: string) => void;\n})",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "highlightMatch",
+          "kind": "function",
+          "async": false,
+          "params": "(text: string, query: string, caseSensitive: boolean)",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "routes": [],
+      "components": [
+        {
+          "name": "ToolLogRow",
+          "kind": "function"
+        },
+        {
+          "name": "TREE_NOOP",
+          "kind": "arrow"
+        },
+        {
+          "name": "EditorTabContent",
+          "kind": "function"
+        }
+      ]
+    },
+    {
       "file": "packages/ui/src/i18n/index.tsx",
       "language": "tsx",
       "exports": [
@@ -12994,6 +13463,61 @@
       ]
     },
     {
+      "file": "packages/ui/src/components/DispatchWizard.tsx",
+      "language": "tsx",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "DispatchWizard",
+          "isDefault": true
+        }
+      ],
+      "imports": [
+        {
+          "source": "react",
+          "names": []
+        },
+        {
+          "source": "../api",
+          "names": []
+        },
+        {
+          "source": "../i18n",
+          "names": []
+        },
+        {
+          "source": "./ui/shared",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "DispatchWizard",
+          "kind": "function",
+          "async": false,
+          "params": "({ rootPath, theme: tk, onClose }: Props)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "submit",
+          "kind": "function",
+          "async": true,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "routes": [],
+      "components": [
+        {
+          "name": "DispatchWizard",
+          "kind": "function"
+        }
+      ]
+    },
+    {
       "file": "packages/ui/src/components/EMDashboard.tsx",
       "language": "tsx",
       "exports": [
@@ -13010,6 +13534,10 @@
         },
         {
           "source": "../api",
+          "names": []
+        },
+        {
+          "source": "./DispatchWizard",
           "names": []
         },
         {
@@ -15081,6 +15609,25 @@
             "String",
             "setToast",
             "setE2eInvBusy"
+          ]
+        },
+        {
+          "name": "loadPageInv",
+          "kind": "arrow",
+          "async": true,
+          "params": "()",
+          "callCount": 10,
+          "calls": [
+            "setPageInvBusy",
+            "fetch(`${API_BASE}/api/coding-releases/page-inventory?path=${encodeURIComponent(rootPath)}`).then",
+            "fetch",
+            "encodeURIComponent",
+            "r.json",
+            "setPageInv",
+            "setToast",
+            "String",
+            "setToast",
+            "setPageInvBusy"
           ]
         },
         {
@@ -22208,6 +22755,328 @@
       "components": []
     },
     {
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "crewRoutes",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "fs/promises",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "url",
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "names": []
+        },
+        {
+          "source": "../lib/shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/project-md.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/coding-security.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/tree-sitter-parser.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/semgrep-runner.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/code-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/test-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/change-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/cu-mechanical.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/cu-source-scan.mjs",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "./coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "./shared.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/coding-db/index.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/qa-results.mjs",
+          "names": []
+        },
+        {
+          "source": "./coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/agent-rules.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/security-rules.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/running-agents.mjs",
+          "names": []
+        },
+        {
+          "source": "../data-home.mjs",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "crewRoutes",
+          "kind": "function",
+          "async": true,
+          "params": "({ req, res, method, url, q, projectPath })",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "cleanupChatAgent",
+          "kind": "arrow",
+          "async": false,
+          "params": "()",
+          "callCount": 1,
+          "calls": [
+            "runningCodingAgents.delete"
+          ]
+        },
+        {
+          "name": "cleanupDispatch",
+          "kind": "arrow",
+          "async": false,
+          "params": "()",
+          "callCount": 1,
+          "calls": [
+            "runningCodingAgents.delete"
+          ]
+        },
+        {
+          "name": "verifyWork",
+          "kind": "arrow",
+          "async": false,
+          "params": "()",
+          "callCount": 1,
+          "calls": [
+            "verifyDispatchWork"
+          ]
+        },
+        {
+          "name": "getConvPaths",
+          "kind": "function",
+          "async": false,
+          "params": "(cwd, crewId)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "readConvFile",
+          "kind": "function",
+          "async": true,
+          "params": "(filePath)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "migrateFlatConversations",
+          "kind": "function",
+          "async": true,
+          "params": "(cwd)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "estimateTokens",
+          "kind": "arrow",
+          "async": false,
+          "params": "(text)",
+          "callCount": 1,
+          "calls": [
+            "Math.ceil"
+          ]
+        },
+        {
+          "name": "sendSSE",
+          "kind": "arrow",
+          "async": false,
+          "params": "(type, data)",
+          "callCount": 3,
+          "calls": [
+            "res.write",
+            "res.write",
+            "JSON.stringify"
+          ]
+        },
+        {
+          "name": "sendSSE",
+          "kind": "arrow",
+          "async": false,
+          "params": "(type, data)",
+          "callCount": 3,
+          "calls": [
+            "res.write",
+            "res.write",
+            "JSON.stringify"
+          ]
+        }
+      ],
+      "classes": [],
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/api/coding-crew/chat",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-crew/dispatch",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-crew/qa-results",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-crew/qa-results",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-crew/context-window",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-project/ru-log",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-crew/action-log/*",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-crew/em-job",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-crew/em-plan",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-crew/em-execute",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-crew/interrupt",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-crew/running",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-project/cu-skills/*",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-project/skills/*",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-project/agent-memory/*",
+          "handler": ""
+        },
+        {
+          "method": "PUT",
+          "path": "/api/coding-project/agent-memory/*",
+          "handler": ""
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/coding-project/agent-memory/*",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-project/crew-export/*",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-project/crew-import/*",
+          "handler": ""
+        }
+      ],
+      "components": []
+    },
+    {
       "file": "packages/server/src/routes/coding-db.mjs",
       "language": "javascript",
       "exports": [
@@ -23074,12 +23943,26 @@
       "language": "javascript",
       "exports": [
         {
-          "kind": "function",
-          "name": "codingHealthRoute",
-          "isDefault": true
+          "kind": "named",
+          "name": "runShellCmd",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "scanProjectFiles",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "collectProjectHealth",
+          "isDefault": false
         }
       ],
       "imports": [
+        {
+          "source": "fs/promises",
+          "names": []
+        },
         {
           "source": "fs",
           "names": []
@@ -23091,46 +23974,388 @@
         {
           "source": "url",
           "names": []
+        },
+        {
+          "source": "child_process",
+          "names": []
+        },
+        {
+          "source": "../lib/shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/project-md.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/coding-security.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/tree-sitter-parser.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/semgrep-runner.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/code-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/test-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/change-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/cu-mechanical.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/cu-source-scan.mjs",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "../lib/agent-rules.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/security-rules.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/running-agents.mjs",
+          "names": []
+        },
+        {
+          "source": "../data-home.mjs",
+          "names": []
         }
       ],
       "functions": [
         {
-          "name": "sendJSON",
-          "kind": "function",
-          "async": false,
-          "params": "(res, code, data)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "getAllowedRoots",
+          "name": "runShellCmd",
           "kind": "function",
           "async": true,
-          "params": "()",
+          "params": "(command, cwd, timeoutMs = 10_000)",
           "callCount": 0,
           "calls": []
         },
         {
-          "name": "withinRoots",
-          "kind": "function",
-          "async": false,
-          "params": "(absPath, roots)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "parsePath",
-          "kind": "function",
-          "async": false,
-          "params": "(req, roots)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "codingHealthRoute",
+          "name": "scanProjectFiles",
           "kind": "function",
           "async": true,
-          "params": "(req, res)",
+          "params": "(cwd, maxFiles = 0)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "collectProjectHealth",
+          "kind": "function",
+          "async": true,
+          "params": "(root, paaw)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "fixId",
+          "kind": "arrow",
+          "async": false,
+          "params": "(cat, name)",
+          "callCount": 2,
+          "calls": [
+            "name.toLowerCase().replace",
+            "name.toLowerCase"
+          ]
+        }
+      ],
+      "classes": [],
+      "routes": [],
+      "components": []
+    },
+    {
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "variable",
+          "name": "CU_LLM_OPTS",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "callProjectLLM",
+          "isDefault": false
+        },
+        {
+          "kind": "variable",
+          "name": "PAAW_ROOT",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "cuLog",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "diffWriteFile",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "_stripCodeFence",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "_sanitizeMd",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "cuStepSkillKey",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "loadCuStepSkills",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "parseQuery",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "_extractJsonArray",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "backfillApiTests",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "_buildManifestContext",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "fs/promises",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "url",
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "names": []
+        },
+        {
+          "source": "../lib/shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/project-md.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/coding-security.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/tree-sitter-parser.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/semgrep-runner.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/code-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/test-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/change-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/cu-mechanical.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/cu-source-scan.mjs",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "../lib/agent-rules.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/security-rules.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/running-agents.mjs",
+          "names": []
+        },
+        {
+          "source": "../data-home.mjs",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "cuLog",
+          "kind": "function",
+          "async": false,
+          "params": "(step, msg)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "diffWriteFile",
+          "kind": "function",
+          "async": true,
+          "params": "(paaw, filename, newContent)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_stripCodeFence",
+          "kind": "function",
+          "async": false,
+          "params": "(text)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_sanitizeMd",
+          "kind": "function",
+          "async": false,
+          "params": "(md)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "cuStepSkillKey",
+          "kind": "function",
+          "async": false,
+          "params": "(stepId)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "loadCuStepSkills",
+          "kind": "function",
+          "async": true,
+          "params": "(root, stepId)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "callProjectLLM",
+          "kind": "function",
+          "async": true,
+          "params": "(body, opts = {})",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "parseQuery",
+          "kind": "function",
+          "async": false,
+          "params": "(url)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_extractJsonArray",
+          "kind": "function",
+          "async": false,
+          "params": "(text)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "backfillApiTests",
+          "kind": "function",
+          "async": true,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "walk",
+          "kind": "arrow",
+          "async": false,
+          "params": "(v)",
+          "callCount": 4,
+          "calls": [
+            "Array.isArray",
+            "v.forEach",
+            "/\\.(test|spec)\\.[tj]sx?$/.test",
+            "pool.push"
+          ]
+        },
+        {
+          "name": "_buildManifestContext",
+          "kind": "function",
+          "async": false,
+          "params": "(root)",
           "callCount": 0,
           "calls": []
         }
@@ -23972,6 +25197,11 @@
         {
           "method": "GET",
           "path": "/api/coding-releases/e2e-inventory",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-releases/page-inventory",
           "handler": ""
         },
         {
@@ -24836,11 +26066,6 @@
         },
         {
           "kind": "function",
-          "name": "callProjectLLM",
-          "isDefault": false
-        },
-        {
-          "kind": "function",
           "name": "projectRoute",
           "isDefault": true
         }
@@ -24939,27 +26164,23 @@
           "names": []
         },
         {
+          "source": "./coding-crew-routes.mjs",
+          "names": []
+        },
+        {
           "source": "fs",
           "names": []
         },
         {
-          "source": "../lib/agent-rules.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/security-rules.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/llm-utils.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/running-agents.mjs",
+          "source": "./coding-helpers.mjs",
           "names": []
         },
         {
           "source": "../data-home.mjs",
+          "names": []
+        },
+        {
+          "source": "./coding-health.mjs",
           "names": []
         }
       ],
@@ -24985,201 +26206,12 @@
           ]
         },
         {
-          "name": "cuLog",
-          "kind": "function",
-          "async": false,
-          "params": "(step, msg)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "diffWriteFile",
-          "kind": "function",
-          "async": true,
-          "params": "(paaw, filename, newContent)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "_stripCodeFence",
-          "kind": "function",
-          "async": false,
-          "params": "(text)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "_sanitizeMd",
-          "kind": "function",
-          "async": false,
-          "params": "(md)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "cuStepSkillKey",
-          "kind": "function",
-          "async": false,
-          "params": "(stepId)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "loadCuStepSkills",
-          "kind": "function",
-          "async": true,
-          "params": "(root, stepId)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "callProjectLLM",
-          "kind": "function",
-          "async": true,
-          "params": "(body, opts = {})",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "parseQuery",
-          "kind": "function",
-          "async": false,
-          "params": "(url)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "_extractJsonArray",
-          "kind": "function",
-          "async": false,
-          "params": "(text)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "backfillApiTests",
-          "kind": "function",
-          "async": true,
-          "params": "(root)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "walk",
-          "kind": "arrow",
-          "async": false,
-          "params": "(v)",
-          "callCount": 4,
-          "calls": [
-            "Array.isArray",
-            "v.forEach",
-            "/\\.(test|spec)\\.[tj]sx?$/.test",
-            "pool.push"
-          ]
-        },
-        {
-          "name": "_buildManifestContext",
-          "kind": "function",
-          "async": false,
-          "params": "(root)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
           "name": "projectRoute",
           "kind": "function",
           "async": true,
           "params": "(req, res)",
           "callCount": 0,
           "calls": []
-        },
-        {
-          "name": "cleanupChatAgent",
-          "kind": "arrow",
-          "async": false,
-          "params": "()",
-          "callCount": 1,
-          "calls": [
-            "runningCodingAgents.delete"
-          ]
-        },
-        {
-          "name": "cleanupDispatch",
-          "kind": "arrow",
-          "async": false,
-          "params": "()",
-          "callCount": 1,
-          "calls": [
-            "runningCodingAgents.delete"
-          ]
-        },
-        {
-          "name": "verifyWork",
-          "kind": "arrow",
-          "async": false,
-          "params": "()",
-          "callCount": 1,
-          "calls": [
-            "verifyDispatchWork"
-          ]
-        },
-        {
-          "name": "getConvPaths",
-          "kind": "function",
-          "async": false,
-          "params": "(cwd, crewId)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "readConvFile",
-          "kind": "function",
-          "async": true,
-          "params": "(filePath)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "migrateFlatConversations",
-          "kind": "function",
-          "async": true,
-          "params": "(cwd)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "estimateTokens",
-          "kind": "arrow",
-          "async": false,
-          "params": "(text)",
-          "callCount": 1,
-          "calls": [
-            "Math.ceil"
-          ]
-        },
-        {
-          "name": "sendSSE",
-          "kind": "arrow",
-          "async": false,
-          "params": "(type, data)",
-          "callCount": 3,
-          "calls": [
-            "res.write",
-            "res.write",
-            "JSON.stringify"
-          ]
-        },
-        {
-          "name": "sendSSE",
-          "kind": "arrow",
-          "async": false,
-          "params": "(type, data)",
-          "callCount": 3,
-          "calls": [
-            "res.write",
-            "res.write",
-            "JSON.stringify"
-          ]
         },
         {
           "name": "respond",
@@ -25293,41 +26325,6 @@
             "res.write",
             "JSON.stringify"
           ]
-        },
-        {
-          "name": "runShellCmd",
-          "kind": "function",
-          "async": true,
-          "params": "(command, cwd, timeoutMs = 10_000)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "scanProjectFiles",
-          "kind": "function",
-          "async": true,
-          "params": "(cwd, maxFiles = 0)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "collectProjectHealth",
-          "kind": "function",
-          "async": true,
-          "params": "(root, paaw)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "fixId",
-          "kind": "arrow",
-          "async": false,
-          "params": "(cat, name)",
-          "callCount": 2,
-          "calls": [
-            "name.toLowerCase().replace",
-            "name.toLowerCase"
-          ]
         }
       ],
       "classes": [],
@@ -25340,96 +26337,6 @@
         {
           "method": "GET",
           "path": "/api/coding-project/ui-features",
-          "handler": ""
-        },
-        {
-          "method": "POST",
-          "path": "/api/coding-crew/chat",
-          "handler": ""
-        },
-        {
-          "method": "POST",
-          "path": "/api/coding-crew/dispatch",
-          "handler": ""
-        },
-        {
-          "method": "GET",
-          "path": "/api/coding-crew/qa-results",
-          "handler": ""
-        },
-        {
-          "method": "POST",
-          "path": "/api/coding-crew/qa-results",
-          "handler": ""
-        },
-        {
-          "method": "POST",
-          "path": "/api/coding-crew/context-window",
-          "handler": ""
-        },
-        {
-          "method": "GET",
-          "path": "/api/coding-project/ru-log",
-          "handler": ""
-        },
-        {
-          "method": "GET",
-          "path": "/api/coding-crew/action-log/*",
-          "handler": ""
-        },
-        {
-          "method": "POST",
-          "path": "/api/coding-crew/em-plan",
-          "handler": ""
-        },
-        {
-          "method": "POST",
-          "path": "/api/coding-crew/em-execute",
-          "handler": ""
-        },
-        {
-          "method": "POST",
-          "path": "/api/coding-crew/interrupt",
-          "handler": ""
-        },
-        {
-          "method": "GET",
-          "path": "/api/coding-crew/running",
-          "handler": ""
-        },
-        {
-          "method": "POST",
-          "path": "/api/coding-project/cu-skills/*",
-          "handler": ""
-        },
-        {
-          "method": "GET",
-          "path": "/api/coding-project/skills/*",
-          "handler": ""
-        },
-        {
-          "method": "GET",
-          "path": "/api/coding-project/agent-memory/*",
-          "handler": ""
-        },
-        {
-          "method": "PUT",
-          "path": "/api/coding-project/agent-memory/*",
-          "handler": ""
-        },
-        {
-          "method": "DELETE",
-          "path": "/api/coding-project/agent-memory/*",
-          "handler": ""
-        },
-        {
-          "method": "GET",
-          "path": "/api/coding-project/crew-export/*",
-          "handler": ""
-        },
-        {
-          "method": "POST",
-          "path": "/api/coding-project/crew-import/*",
           "handler": ""
         },
         {
@@ -36986,76 +37893,125 @@
       "components": []
     },
     {
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
       "language": "javascript",
       "exports": [
         {
-          "kind": "function",
-          "name": "resolveLLMConfig",
+          "kind": "variable",
+          "name": "_crewGroupCache",
           "isDefault": false
         },
         {
           "kind": "variable",
-          "name": "PAAW_TOOLS",
+          "name": "DEFAULT_CONTEXT_WINDOW",
           "isDefault": false
         },
         {
-          "kind": "function",
-          "name": "clearCrewGroupCache",
+          "kind": "named",
+          "name": "TOOL_GROUP_MAP",
           "isDefault": false
         },
         {
-          "kind": "function",
-          "name": "getToolsForAgent",
+          "kind": "named",
+          "name": "CORE_READ_TOOLS",
           "isDefault": false
         },
         {
-          "kind": "function",
-          "name": "getToolGroupInfo",
+          "kind": "named",
+          "name": "AGENT_FALLBACK_GROUPS",
           "isDefault": false
         },
         {
-          "kind": "function",
-          "name": "getAgentGroups",
+          "kind": "named",
+          "name": "_crewDenyCache",
           "isDefault": false
         },
         {
-          "kind": "function",
-          "name": "setAgentConfig",
+          "kind": "named",
+          "name": "CONTEXT_SAFETY_MARGIN",
           "isDefault": false
         },
         {
-          "kind": "function",
+          "kind": "named",
+          "name": "LLM_CALL_TIMEOUT_MS",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
           "name": "executeTool",
           "isDefault": false
         },
         {
-          "kind": "function",
-          "name": "trimMessagesToFit",
+          "kind": "named",
+          "name": "toolExecTimeoutMs",
           "isDefault": false
         },
         {
-          "kind": "function",
-          "name": "callLLM",
+          "kind": "named",
+          "name": "raceAbortTool",
           "isDefault": false
         },
         {
-          "kind": "function",
-          "name": "appendSkillBindings",
+          "kind": "named",
+          "name": "setAgentConfig",
           "isDefault": false
         },
         {
-          "kind": "function",
-          "name": "runAgentLoop",
+          "kind": "named",
+          "name": "_agentCfg",
           "isDefault": false
         },
         {
-          "kind": "function",
-          "name": "runAgentLoopStream",
+          "kind": "named",
+          "name": "_agentCfgDefaults",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "APPROVAL_WAIT_BUDGET_MS",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "runShell",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "_nativeGlob",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "_nativeGrep",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "_buildTestCommand",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "_parseTestResult",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "_findConventionTests",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "LOG",
           "isDefault": false
         }
       ],
       "imports": [
+        {
+          "source": "./paaw-agent-loop.mjs",
+          "names": []
+        },
         {
           "source": "fs/promises",
           "names": []
@@ -37082,10 +38038,6 @@
         },
         {
           "source": "./proc-ledger.mjs",
-          "names": []
-        },
-        {
-          "source": "./audit-log.mjs",
           "names": []
         },
         {
@@ -37159,29 +38111,9 @@
         {
           "source": "./browser-session.mjs",
           "names": []
-        },
-        {
-          "source": "./coding-db/docs.repo.mjs",
-          "names": []
         }
       ],
       "functions": [
-        {
-          "name": "loadProviderConfig",
-          "kind": "function",
-          "async": false,
-          "params": "()",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "resolveLLMConfig",
-          "kind": "function",
-          "async": false,
-          "params": "(_rootDir, modelOverride, fallbackModels)",
-          "callCount": 0,
-          "calls": []
-        },
         {
           "name": "toolExecTimeoutMs",
           "kind": "function",
@@ -37218,62 +38150,6 @@
             "reject",
             "mk"
           ]
-        },
-        {
-          "name": "resolveCrewId",
-          "kind": "function",
-          "async": false,
-          "params": "(agentId)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "getAgentToolsDeny",
-          "kind": "function",
-          "async": false,
-          "params": "(agentId, cwd = null)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "getAgentGroupsFromConfig",
-          "kind": "function",
-          "async": false,
-          "params": "(agentId, cwd = null)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "clearCrewGroupCache",
-          "kind": "function",
-          "async": false,
-          "params": "()",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "getToolsForAgent",
-          "kind": "function",
-          "async": false,
-          "params": "(agentId, extraGroups = [], cwd = null)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "getToolGroupInfo",
-          "kind": "function",
-          "async": false,
-          "params": "()",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "getAgentGroups",
-          "kind": "function",
-          "async": false,
-          "params": "(agentId)",
-          "callCount": 0,
-          "calls": []
         },
         {
           "name": "LOG",
@@ -37796,6 +38672,287 @@
             "String(t||\"\").toLowerCase",
             "String"
           ]
+        }
+      ],
+      "classes": [],
+      "routes": [],
+      "components": [
+        {
+          "name": "LOG",
+          "kind": "arrow"
+        }
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "variable",
+          "name": "_PAAW_ROOT",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "resolveLLMConfig",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "PAAW_TOOLS",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "executeTool",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "_setAgentConfig",
+          "isDefault": false
+        },
+        {
+          "kind": "named",
+          "name": "LOG",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "clearCrewGroupCache",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "getToolsForAgent",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "getToolGroupInfo",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "getAgentGroups",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "trimMessagesToFit",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "callLLM",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "appendSkillBindings",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "runAgentLoop",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "runAgentLoopStream",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "fs/promises",
+          "names": []
+        },
+        {
+          "source": "./temp-janitor.mjs",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "./module-registry.mjs",
+          "names": []
+        },
+        {
+          "source": "./feature-boundary.mjs",
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "names": []
+        },
+        {
+          "source": "./proc-ledger.mjs",
+          "names": []
+        },
+        {
+          "source": "./audit-log.mjs",
+          "names": []
+        },
+        {
+          "source": "./shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "./dependency-context.mjs",
+          "names": []
+        },
+        {
+          "source": "./task-retrofit.mjs",
+          "names": []
+        },
+        {
+          "source": "url",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "./llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "./context-truncation.mjs",
+          "names": []
+        },
+        {
+          "source": "./context-compaction.mjs",
+          "names": []
+        },
+        {
+          "source": "./vision-content.mjs",
+          "names": []
+        },
+        {
+          "source": "./agent-exec-logger.mjs",
+          "names": []
+        },
+        {
+          "source": "./paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "./paaw-snapshot.mjs",
+          "names": []
+        },
+        {
+          "source": "./llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "./tool-registry.mjs",
+          "names": []
+        },
+        {
+          "source": "../data-home.mjs",
+          "names": []
+        },
+        {
+          "source": "./browser-session.mjs",
+          "names": []
+        },
+        {
+          "source": "./coding-db/docs.repo.mjs",
+          "names": []
+        },
+        {
+          "source": "./paaw-agent-tools.mjs",
+          "names": []
+        },
+        {
+          "source": "./paaw-agent-exec.mjs",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "loadProviderConfig",
+          "kind": "function",
+          "async": false,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "resolveLLMConfig",
+          "kind": "function",
+          "async": false,
+          "params": "(_rootDir, modelOverride, fallbackModels)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "resolveCrewId",
+          "kind": "function",
+          "async": false,
+          "params": "(agentId)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "getAgentToolsDeny",
+          "kind": "function",
+          "async": false,
+          "params": "(agentId, cwd = null)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "getAgentGroupsFromConfig",
+          "kind": "function",
+          "async": false,
+          "params": "(agentId, cwd = null)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "clearCrewGroupCache",
+          "kind": "function",
+          "async": false,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "getToolsForAgent",
+          "kind": "function",
+          "async": false,
+          "params": "(agentId, extraGroups = [], cwd = null)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "getToolGroupInfo",
+          "kind": "function",
+          "async": false,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "getAgentGroups",
+          "kind": "function",
+          "async": false,
+          "params": "(agentId)",
+          "callCount": 0,
+          "calls": []
         },
         {
           "name": "trimMessagesToFit",
@@ -37977,12 +39134,124 @@
       ],
       "classes": [],
       "routes": [],
-      "components": [
+      "components": []
+    },
+    {
+      "file": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "language": "javascript",
+      "exports": [
         {
-          "name": "LOG",
-          "kind": "arrow"
+          "kind": "named",
+          "name": "PAAW_TOOLS",
+          "isDefault": false
         }
-      ]
+      ],
+      "imports": [
+        {
+          "source": "fs/promises",
+          "names": []
+        },
+        {
+          "source": "./temp-janitor.mjs",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "./module-registry.mjs",
+          "names": []
+        },
+        {
+          "source": "./feature-boundary.mjs",
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "names": []
+        },
+        {
+          "source": "./proc-ledger.mjs",
+          "names": []
+        },
+        {
+          "source": "./shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "./dependency-context.mjs",
+          "names": []
+        },
+        {
+          "source": "./task-retrofit.mjs",
+          "names": []
+        },
+        {
+          "source": "url",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "./llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "./context-truncation.mjs",
+          "names": []
+        },
+        {
+          "source": "./context-compaction.mjs",
+          "names": []
+        },
+        {
+          "source": "./vision-content.mjs",
+          "names": []
+        },
+        {
+          "source": "./agent-exec-logger.mjs",
+          "names": []
+        },
+        {
+          "source": "./paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "./paaw-snapshot.mjs",
+          "names": []
+        },
+        {
+          "source": "./llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "./tool-registry.mjs",
+          "names": []
+        },
+        {
+          "source": "../data-home.mjs",
+          "names": []
+        },
+        {
+          "source": "./browser-session.mjs",
+          "names": []
+        }
+      ],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "components": []
     },
     {
       "file": "packages/server/src/lib/paaw-project.mjs",
@@ -38501,6 +39770,266 @@
           ]
         }
       ],
+      "routes": [],
+      "components": []
+    },
+    {
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "buildPageInventory",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "./cu-source-scan.mjs",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "isParamSeg",
+          "kind": "function",
+          "async": false,
+          "params": "(seg)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "normRoute",
+          "kind": "function",
+          "async": false,
+          "params": "(p)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "esc",
+          "kind": "function",
+          "async": false,
+          "params": "(s)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "validRouteStr",
+          "kind": "function",
+          "async": false,
+          "params": "(p)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "urlMatchesRoute",
+          "kind": "function",
+          "async": false,
+          "params": "(url, route)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "segEq",
+          "kind": "arrow",
+          "async": false,
+          "params": "(u, r)",
+          "callCount": 2,
+          "calls": [
+            "isParamSeg",
+            "isParamSeg"
+          ]
+        },
+        {
+          "name": "extractApiCallUrls",
+          "kind": "function",
+          "async": false,
+          "params": "(src)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "urlMatchesApiEntry",
+          "kind": "function",
+          "async": false,
+          "params": "(url, entry)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "segEq",
+          "kind": "arrow",
+          "async": false,
+          "params": "(u, a)",
+          "callCount": 2,
+          "calls": [
+            "isParamSeg",
+            "isParamSeg"
+          ]
+        },
+        {
+          "name": "walkSrc",
+          "kind": "function",
+          "async": false,
+          "params": "(root, maxDepth = 10)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "walk",
+          "kind": "arrow",
+          "async": false,
+          "params": "(dir, depth, prefix)",
+          "callCount": 11,
+          "calls": [
+            "readdirSync",
+            "e.name.startsWith",
+            "SKIP_DIR.has",
+            "join",
+            "e.isDirectory",
+            "walk",
+            "e.isFile",
+            "rel.slice",
+            "rel.lastIndexOf",
+            "SRC_EXT.has",
+            "out.push"
+          ]
+        },
+        {
+          "name": "readSafe",
+          "kind": "function",
+          "async": false,
+          "params": "(full)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "extractRoutesFromCode",
+          "kind": "function",
+          "async": false,
+          "params": "(src, kind)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "add",
+          "kind": "arrow",
+          "async": false,
+          "params": "(p)",
+          "callCount": 3,
+          "calls": [
+            "validRouteStr",
+            "normRoute",
+            "routes.add"
+          ]
+        },
+        {
+          "name": "tanstackRoutes",
+          "kind": "function",
+          "async": false,
+          "params": "(files)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "fileBasedRoutes",
+          "kind": "function",
+          "async": false,
+          "params": "(files)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "findRouterFiles",
+          "kind": "function",
+          "async": false,
+          "params": "(files)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "resolveImport",
+          "kind": "function",
+          "async": false,
+          "params": "(fromRel, spec, filesByRel)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "resolveAlias",
+          "kind": "function",
+          "async": false,
+          "params": "(spec, filesByRel)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "importGraph",
+          "kind": "function",
+          "async": false,
+          "params": "(rel, filesByRel, cache, depth = 0)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "unitTestFor",
+          "kind": "function",
+          "async": false,
+          "params": "(relFile, testIndex)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "collectE2eUrls",
+          "kind": "function",
+          "async": false,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "walk",
+          "kind": "arrow",
+          "async": false,
+          "params": "(dir, depth, prefix)",
+          "callCount": 15,
+          "calls": [
+            "readdirSync",
+            "e.name.startsWith",
+            "SKIP_DIR.has",
+            "join",
+            "e.isDirectory",
+            "walk",
+            "e.isFile",
+            "isTestFileName",
+            "rel.split(\"/\").slice(0, -1).some",
+            "rel.split(\"/\").slice",
+            "rel.split",
+            "[\"e2e\", \"tests\", \"test\", \"spec\", \"__tests__\"].includes",
+            "readSafe",
+            "c.matchAll",
+            "urls.push"
+          ]
+        },
+        {
+          "name": "buildPageInventory",
+          "kind": "function",
+          "async": false,
+          "params": "(root, apis = [], opts = {})",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [],
       "routes": [],
       "components": []
     },
@@ -49706,13 +51235,13 @@
     }
   ],
   "stats": {
-    "totalFiles": 447,
-    "parsedFiles": 441,
+    "totalFiles": 455,
+    "parsedFiles": 449,
     "errors": 0,
     "languages": {
       "typescript": 57,
-      "javascript": 291,
-      "tsx": 99
+      "javascript": 297,
+      "tsx": 101
     }
   }
 }

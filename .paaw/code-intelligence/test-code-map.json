@@ -111,7 +111,7 @@
       "productionFile": "packages/server/src/routes/coding-auto-dispatch.mjs",
       "matchType": "naming",
       "testedFunctions": [],
-      "testCount": 9,
+      "testCount": 17,
       "featureIds": [
         "F20261016-030"
       ]
@@ -473,6 +473,13 @@
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 0
+    },
+    {
+      "testFile": "tests/unit/page-inventory.test.mjs",
+      "productionFile": "packages/server/src/lib/page-inventory.mjs",
+      "matchType": "naming",
+      "testedFunctions": [],
+      "testCount": 3
     },
     {
       "testFile": "tests/unit/parse-model-reference.test.mjs",
@@ -918,8 +925,8 @@
     }
   ],
   "stats": {
-    "totalTestFiles": 113,
-    "matchedTests": 120,
+    "totalTestFiles": 114,
+    "matchedTests": 121,
     "totalTestedFunctions": 1
   }
 }

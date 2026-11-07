@@ -713,6 +713,18 @@
           "names": []
         },
         {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/routes/coding-memory.mjs",
           "names": []
         },
@@ -1581,7 +1593,15 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         }
       ],
@@ -1722,7 +1742,15 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         },
         {
@@ -3344,6 +3372,18 @@
           "names": []
         },
         {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/routes/coding.mjs",
           "names": []
         },
@@ -3622,11 +3662,31 @@
           "names": []
         },
         {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/routes/coding-features.mjs",
           "names": []
         },
         {
-          "source": "packages/server/src/routes/coding.mjs",
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
           "names": []
         },
         {
@@ -3674,11 +3734,27 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
           "names": []
         },
         {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         },
         {
@@ -4042,6 +4118,83 @@
         "needsNetworkAllow",
         "buildMxcFsPolicy",
         "execSandboxed"
+      ]
+    },
+    "tests/unit/page-inventory.test.mjs": {
+      "path": "tests/unit/page-inventory.test.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "vitest",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "assert",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "os",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../../packages/server/src/lib/page-inventory.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/page-inventory.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "packages/server/src/lib/page-inventory.mjs": {
+      "path": "packages/server/src/lib/page-inventory.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./cu-source-scan.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/cu-source-scan.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "tests/unit/page-inventory.test.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "buildPageInventory"
       ]
     },
     "tests/unit/parse-model-reference.test.mjs": {
@@ -4499,6 +4652,10 @@
       "importedBy": [
         {
           "source": "tests/unit/release-requests-delta.test.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
           "names": []
         },
         {
@@ -5487,6 +5644,18 @@
           "names": []
         },
         {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/routes/coding-releases.mjs",
           "names": []
         },
@@ -5523,7 +5692,15 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         },
         {
@@ -6429,6 +6606,10 @@
           "names": []
         },
         {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
+        },
+        {
           "source": "packages/ui/src/components/AgentBuilder.tsx",
           "names": []
         },
@@ -6964,7 +7145,19 @@
           "names": []
         },
         {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/routes/coding-features.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
           "names": []
         },
         {
@@ -7100,7 +7293,15 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         },
         {
@@ -7553,6 +7754,10 @@
           "names": []
         },
         {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
+        },
+        {
           "source": "packages/ui/src/components/ui/shared.tsx",
           "names": []
         }
@@ -7594,6 +7799,10 @@
         },
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         }
       ],
@@ -8283,6 +8492,12 @@
           "resolved": true,
           "targetFile": "packages/ui/src/components/ui/uiFeedback.ts",
           "names": []
+        },
+        {
+          "source": "./coding-ide-helpers",
+          "resolved": true,
+          "targetFile": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "importedBy": [
@@ -8708,6 +8923,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": []
@@ -8778,6 +8997,10 @@
         },
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         }
       ],
@@ -9262,6 +9485,10 @@
         {
           "source": "packages/ui/src/App.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/components/DispatchWizard.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -9395,6 +9622,10 @@
           "names": []
         },
         {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
+        },
+        {
           "source": "packages/ui/src/components/DirectoryExplorer.tsx",
           "names": []
         },
@@ -9514,6 +9745,10 @@
           "names": []
         },
         {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
+        },
+        {
           "source": "packages/ui/src/components/AgentBuilder.tsx",
           "names": []
         },
@@ -9559,6 +9794,10 @@
         },
         {
           "source": "packages/ui/src/components/DispatchReports.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/components/DispatchWizard.tsx",
           "names": []
         },
         {
@@ -9722,6 +9961,10 @@
           "names": []
         },
         {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
+        },
+        {
           "source": "packages/ui/src/components/ChatInputBar.tsx",
           "names": []
         }
@@ -9795,6 +10038,10 @@
         },
         {
           "source": "packages/ui/src/pages/StarterKitsSettings.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         },
         {
@@ -9959,6 +10206,10 @@
         },
         {
           "source": "packages/ui/src/pages/SkillBuilder.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         },
         {
@@ -10185,6 +10436,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -10218,6 +10473,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -10250,6 +10509,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         }
       ],
@@ -10290,6 +10553,10 @@
           "names": []
         },
         {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
+        },
+        {
           "source": "packages/ui/src/components/ApiRequestTabSheet.tsx",
           "names": []
         }
@@ -10313,6 +10580,10 @@
         },
         {
           "source": "packages/ui/src/pages/FileViewer.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         },
         {
@@ -10360,6 +10631,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         }
       ],
@@ -10412,6 +10687,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -10432,6 +10711,12 @@
           "source": "../api",
           "resolved": true,
           "targetFile": "packages/ui/src/api.ts",
+          "names": []
+        },
+        {
+          "source": "./DispatchWizard",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/DispatchWizard.tsx",
           "names": []
         },
         {
@@ -10481,6 +10766,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -10513,6 +10802,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         }
       ],
@@ -10553,6 +10846,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -10566,6 +10863,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         }
       ],
@@ -10616,6 +10917,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -10637,6 +10942,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         },
         {
@@ -10670,6 +10979,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -10696,6 +11009,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         }
       ],
@@ -10741,6 +11058,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         }
       ],
@@ -10798,6 +11119,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         },
         {
@@ -10873,6 +11198,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -10917,6 +11246,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         }
       ],
@@ -10963,6 +11296,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -11007,6 +11344,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         }
       ],
@@ -11053,6 +11394,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -11091,6 +11436,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         }
       ],
@@ -11143,6 +11492,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -11188,6 +11541,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -11208,6 +11565,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         }
       ],
@@ -11242,6 +11603,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -11268,6 +11633,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         },
         {
@@ -11323,6 +11692,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -11374,6 +11747,10 @@
       "importedBy": [
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         }
       ],
@@ -11450,6 +11827,10 @@
           "names": []
         },
         {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
+        },
+        {
           "source": "packages/ui/src/components/CodeIntelPage.tsx",
           "names": []
         },
@@ -11511,6 +11892,10 @@
         },
         {
           "source": "packages/ui/src/pages/ProjectBoard.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
           "names": []
         },
         {
@@ -11596,6 +11981,10 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
@@ -11635,10 +12024,342 @@
         {
           "source": "packages/ui/src/pages/CodingIDE.tsx",
           "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/coding-ide-helpers.tsx",
+          "names": []
         }
       ],
       "exports": [
         "SecurityTab"
+      ]
+    },
+    "packages/ui/src/pages/coding-ide-helpers.tsx": {
+      "path": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "language": "tsx",
+      "imports": [
+        {
+          "source": "react",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../theme",
+          "resolved": true,
+          "targetFile": "packages/ui/src/theme.tsx",
+          "names": []
+        },
+        {
+          "source": "../i18n",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../utils",
+          "resolved": true,
+          "targetFile": "packages/ui/src/utils/index.ts",
+          "names": []
+        },
+        {
+          "source": "../components/ShellTerminal",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ShellTerminal.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/Icon",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/Icon.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/ConsoleLogView",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ConsoleLogView.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/JanitorPanel",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/JanitorPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/JsonViewer",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/JsonViewer.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/FileEmoji",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/FileEmoji.tsx",
+          "names": []
+        },
+        {
+          "source": "highlight.js",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "highlight.js/styles/github.css",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../api",
+          "resolved": true,
+          "targetFile": "packages/ui/src/api.ts",
+          "names": []
+        },
+        {
+          "source": "../components/DirectoryExplorer",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/DirectoryExplorer.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/SidebarFileTree",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/SidebarFileTree.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/CodeIntelPage",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/CodeIntelPage.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/TestsPage",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/TestsPage.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/EMDashboard",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/EMDashboard.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/RuCloneModal",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/RuCloneModal.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/RuOnboardingModal",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/RuOnboardingModal.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/git",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/git/index.ts",
+          "names": []
+        },
+        {
+          "source": "../components/browser/BrowserPanel",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/browser/BrowserPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/DiffViewer",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/DiffViewer.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/SessionHistory",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/SessionHistory.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/DecisionLog",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/DecisionLog.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/ProjectMdPage",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ProjectMdPage.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/ModelSelector",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ModelSelector.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/ChatMessages",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ChatMessages.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/IssueTracker",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/IssueTracker.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/QaRecords",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/QaRecords.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/DispatchReports",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/DispatchReports.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/TaskBoard",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/TaskBoard.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/ReleaseManagerPanel",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/CodeReviewBoardPanel",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/CodeReviewBoardPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/HandoverPanel",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/HandoverPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/TroubleshootingPanel",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/TroubleshootingPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/TabErrorBoundary",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/TabErrorBoundary.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/FeatureMap",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/FeatureMap.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/ApiMapSidebar",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ApiMapSidebar.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/ApiTesterTabs",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ApiTesterTabs.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/ApiRequestTabSheet",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ApiRequestTabSheet.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/AgentSideChat",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/AgentSideChat.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/ColResizer",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ColResizer.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/CrewManager",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/CrewManager.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/SecurityTab",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/SecurityTab.tsx",
+          "names": []
+        },
+        {
+          "source": "../utils/pasteFiles",
+          "resolved": true,
+          "targetFile": "packages/ui/src/utils/pasteFiles.ts",
+          "names": []
+        },
+        {
+          "source": "../pages/FileViewer",
+          "resolved": true,
+          "targetFile": "packages/ui/src/pages/FileViewer.tsx",
+          "names": []
+        },
+        {
+          "source": "../components/ui/uiFeedback",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ui/uiFeedback.ts",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/pages/CodingIDE.tsx",
+          "names": []
+        }
+      ],
+      "exports": [
+        "ApiHeader",
+        "ApiHistoryItem",
+        "ApiResponse",
+        "BlameLine",
+        "ChatMessage",
+        "CodingEvent",
+        "FsItem",
+        "GitCommit",
+        "GitFileStatus",
+        "MainTab",
+        "MainTabType",
+        "OpenTab",
+        "CREW_TO_AGENT",
+        "EMPTY_TOOL_LOG",
+        "EditorTabContent",
+        "TREE_NOOP",
+        "ToolLogRow",
+        "_chatScrollCache",
+        "crewToAgentId",
+        "escapeHtml",
+        "fmtTime",
+        "getFileIcon",
+        "getHljsLang",
+        "getLanguage",
+        "highlightMatch",
+        "safeStr"
       ]
     },
     "packages/ui/src/pages/GanttChart.tsx": {
@@ -12015,6 +12736,45 @@
       ],
       "exports": [
         "SkillPicker"
+      ]
+    },
+    "packages/ui/src/components/DispatchWizard.tsx": {
+      "path": "packages/ui/src/components/DispatchWizard.tsx",
+      "language": "tsx",
+      "imports": [
+        {
+          "source": "react",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../api",
+          "resolved": true,
+          "targetFile": "packages/ui/src/api.ts",
+          "names": []
+        },
+        {
+          "source": "../i18n",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./ui/shared",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ui/shared.tsx",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/components/EMDashboard.tsx",
+          "names": []
+        }
+      ],
+      "exports": [
+        "DispatchWizard"
       ]
     },
     "packages/ui/src/components/FeatureCockpit.tsx": {
@@ -12792,7 +13552,15 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         },
         {
@@ -12940,7 +13708,15 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         }
       ],
@@ -13187,6 +13963,10 @@
         },
         {
           "source": "packages/server/src/routes/coding-auto-dispatch-prompts.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
           "names": []
         },
         {
@@ -13584,6 +14364,18 @@
           "resolved": true,
           "targetFile": "packages/server/src/lib/coding-db/docs.repo.mjs",
           "names": []
+        },
+        {
+          "source": "./paaw-agent-tools.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-agent-tools.mjs",
+          "names": []
+        },
+        {
+          "source": "./paaw-agent-exec.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
         }
       ],
       "importedBy": [
@@ -13604,19 +14396,25 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/tool-registry-init.mjs",
           "names": []
         }
       ],
       "exports": [
+        "_PAAW_ROOT",
         "resolveLLMConfig",
         "PAAW_TOOLS",
+        "executeTool",
+        "_setAgentConfig",
+        "LOG",
         "clearCrewGroupCache",
         "getToolsForAgent",
         "getToolGroupInfo",
         "getAgentGroups",
-        "setAgentConfig",
-        "executeTool",
         "trimMessagesToFit",
         "callLLM",
         "appendSkillBindings",
@@ -13778,7 +14576,15 @@
           "names": []
         },
         {
-          "source": "packages/server/src/routes/coding.mjs",
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
           "names": []
         }
       ],
@@ -13889,7 +14695,15 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         }
       ],
@@ -15032,6 +15846,990 @@
           "names": []
         },
         {
+          "source": "./coding-crew-routes.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./coding-helpers.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "../data-home.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/data-home.mjs",
+          "names": []
+        },
+        {
+          "source": "./coding-health.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding-c4-model.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-error-codes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-features.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-handover.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-skill-suggest.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-trouble.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "computeCuStaleness",
+        "projectRoute"
+      ]
+    },
+    "packages/server/src/routes/coding-crew-routes.mjs": {
+      "path": "packages/server/src/routes/coding-crew-routes.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs/promises",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "url",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../lib/shell-exec.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/paaw-project.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/project-md.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/project-md.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/llm-utils.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/coding-security.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/coding-security.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/tree-sitter-parser.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/tree-sitter-parser.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/semgrep-runner.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/semgrep-runner.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/code-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/code-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/test-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/test-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/change-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/change-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/cu-mechanical.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/cu-mechanical.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/cu-source-scan.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/cu-source-scan.mjs",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./coding-helpers.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "./shared.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/routes/shared.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/coding-db/index.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/coding-db/index.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/qa-results.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/qa-results.mjs",
+          "names": []
+        },
+        {
+          "source": "./coding-helpers.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/agent-rules.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/agent-rules.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/security-rules.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/security-rules.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/llm-utils.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/running-agents.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/running-agents.mjs",
+          "names": []
+        },
+        {
+          "source": "../data-home.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/data-home.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "crewRoutes"
+      ]
+    },
+    "packages/server/src/lib/paaw-project.mjs": {
+      "path": "packages/server/src/lib/paaw-project.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs/promises",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./shell-exec.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "./cu-source-scan.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/cu-source-scan.mjs",
+          "names": []
+        },
+        {
+          "source": "./feature-registry.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/feature-registry.mjs",
+          "names": []
+        },
+        {
+          "source": "./coding-db/docs.repo.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/coding-db/docs.repo.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-issues.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/starter-kits.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/auto-dispatch-shared.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/change-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/context-providers.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/cu-mechanical.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/project-md.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "PaawProject",
+        "createPaawProject",
+        "maybeWriteProjectDraft"
+      ]
+    },
+    "packages/server/src/lib/project-md.mjs": {
+      "path": "packages/server/src/lib/project-md.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "node:path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "node:fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./paaw-project.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "./feature-registry.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/feature-registry.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "USER_START",
+        "USER_END",
+        "AI_START",
+        "AI_END",
+        "parseProjectMd",
+        "buildProjectMd",
+        "regenerateProjectMd"
+      ]
+    },
+    "packages/server/src/lib/semgrep-runner.mjs": {
+      "path": "packages/server/src/lib/semgrep-runner.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "util",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "url",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "crypto",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "os",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./shell-exec.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "../data-home.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/data-home.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "detectRulePacks",
+        "buildFullScanCommand",
+        "isSemgrepAvailable",
+        "diagnoseSemgrep",
+        "runSemgrep",
+        "formatForAI",
+        "formatCondensed"
+      ]
+    },
+    "packages/server/src/lib/code-intelligence.mjs": {
+      "path": "packages/server/src/lib/code-intelligence.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./stable-hash.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/stable-hash.mjs",
+          "names": []
+        },
+        {
+          "source": "./tree-sitter-parser.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/tree-sitter-parser.mjs",
+          "names": []
+        },
+        {
+          "source": "./feature-registry.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/feature-registry.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-releases.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/cu-mechanical.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "buildCallGraph",
+        "buildApiFunctionMap",
+        "buildDependencyGraph",
+        "buildTestCodeMap",
+        "buildSymbolIndex",
+        "buildCodeIntelligence",
+        "buildContextPackage"
+      ]
+    },
+    "packages/server/src/lib/test-intelligence.mjs": {
+      "path": "packages/server/src/lib/test-intelligence.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./stable-hash.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/stable-hash.mjs",
+          "names": []
+        },
+        {
+          "source": "./test-report-reader.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/test-report-reader.mjs",
+          "names": []
+        },
+        {
+          "source": "./tree-sitter-parser.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/tree-sitter-parser.mjs",
+          "names": []
+        },
+        {
+          "source": "./feature-registry.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/feature-registry.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/cu-mechanical.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/test-runner.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "classifyTestType",
+        "buildTestIntelligence"
+      ]
+    },
+    "packages/server/src/lib/change-intelligence.mjs": {
+      "path": "packages/server/src/lib/change-intelligence.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./shell-exec.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./stable-hash.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/stable-hash.mjs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "util",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./paaw-project.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "./coding-db/docs.repo.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/coding-db/docs.repo.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-releases.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/cu-mechanical.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/release-requests.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "buildChangeIntelligence"
+      ]
+    },
+    "packages/server/src/lib/cu-mechanical.mjs": {
+      "path": "packages/server/src/lib/cu-mechanical.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./paaw-project.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "./code-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/code-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "./test-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/test-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "./change-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/change-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "./feature-risk-scan.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/feature-risk-scan.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "rescanMechanicalLayer"
+      ]
+    },
+    "packages/server/src/lib/cu-source-scan.mjs": {
+      "path": "packages/server/src/lib/cu-source-scan.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-features.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-releases.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/e2e-inventory.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/error-code-scan.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/page-inventory.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "getHeadCommit",
+        "isSourceFilePath",
+        "changedSourceFilesSince",
+        "CU_SOURCE_EXTS",
+        "CU_SKIP_DIRS",
+        "parseGitignore",
+        "loadProjectIgnore",
+        "clearIgnoreCache",
+        "isTestFileName",
+        "walkSourceFiles",
+        "countSourceFiles"
+      ]
+    },
+    "packages/server/src/routes/coding-helpers.mjs": {
+      "path": "packages/server/src/routes/coding-helpers.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs/promises",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "url",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../lib/shell-exec.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/paaw-project.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/project-md.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/project-md.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/llm-utils.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/coding-security.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/coding-security.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/tree-sitter-parser.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/tree-sitter-parser.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/semgrep-runner.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/semgrep-runner.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/code-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/code-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/test-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/test-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/change-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/change-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/cu-mechanical.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/cu-mechanical.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/cu-source-scan.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/cu-source-scan.mjs",
+          "names": []
+        },
+        {
           "source": "fs",
           "resolved": false,
           "targetFile": null,
@@ -15070,34 +16868,169 @@
       ],
       "importedBy": [
         {
-          "source": "packages/server/src/routes/coding-c4-model.mjs",
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
           "names": []
         },
         {
-          "source": "packages/server/src/routes/coding-error-codes.mjs",
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
           "names": []
         },
         {
-          "source": "packages/server/src/routes/coding-features.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/routes/coding-handover.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/routes/coding-skill-suggest.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/routes/coding-trouble.mjs",
+          "source": "packages/server/src/routes/coding.mjs",
           "names": []
         }
       ],
       "exports": [
-        "computeCuStaleness",
+        "CU_LLM_OPTS",
         "callProjectLLM",
-        "projectRoute"
+        "PAAW_ROOT",
+        "cuLog",
+        "diffWriteFile",
+        "_stripCodeFence",
+        "_sanitizeMd",
+        "cuStepSkillKey",
+        "loadCuStepSkills",
+        "parseQuery",
+        "_extractJsonArray",
+        "backfillApiTests",
+        "_buildManifestContext"
+      ]
+    },
+    "packages/server/src/lib/coding-db/index.mjs": {
+      "path": "packages/server/src/lib/coding-db/index.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "./connection.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/coding-db/connection.mjs",
+          "names": []
+        },
+        {
+          "source": "./tasks.repo.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/coding-db/tasks.repo.mjs",
+          "names": []
+        },
+        {
+          "source": "./features.repo.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/coding-db/features.repo.mjs",
+          "names": []
+        },
+        {
+          "source": "./stores.repo.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/coding-db/stores.repo.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/em-task-store.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/feature-map-store.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/feature-registry.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "appendDispatchRecord",
+        "appendActionRecord",
+        "appendQaResult",
+        "appendExecApproval",
+        "saveConversation",
+        "archiveConversation",
+        "deleteConversationSession",
+        "setKv",
+        "setGates",
+        "setHandover",
+        "saveIssue",
+        "saveReleaseRequest",
+        "saveTasks",
+        "saveFeatures",
+        "saveApiFeatures",
+        "buildFileApiMap",
+        "openCodingDb",
+        "readDoc",
+        "writeDoc",
+        "hasDoc",
+        "deleteDoc",
+        "readDocUpdatedAt",
+        "DOC_FILES",
+        "readFeatures",
+        "readApiFeatures",
+        "readUiFeatures",
+        "readTasks",
+        "readActionLog",
+        "readConversationAgents",
+        "readConversationSessions",
+        "readConversation",
+        "recentDispatch",
+        "taskHistory",
+        "saveUiFeatures",
+        "findUiByApiCall"
+      ]
+    },
+    "packages/server/src/lib/security-rules.mjs": {
+      "path": "packages/server/src/lib/security-rules.mjs",
+      "language": "javascript",
+      "imports": [],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/domain-agent-registry.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "SECURITY_RULES"
+      ]
+    },
+    "packages/server/src/lib/running-agents.mjs": {
+      "path": "packages/server/src/lib/running-agents.mjs",
+      "language": "javascript",
+      "imports": [],
+      "importedBy": [
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "runningCodingAgents"
       ]
     },
     "packages/server/src/routes/coding-db.mjs": {
@@ -15435,69 +17368,6 @@
         "codingFeaturesRoute"
       ]
     },
-    "packages/server/src/lib/cu-source-scan.mjs": {
-      "path": "packages/server/src/lib/cu-source-scan.mjs",
-      "language": "javascript",
-      "imports": [
-        {
-          "source": "fs",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "path",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "child_process",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        }
-      ],
-      "importedBy": [
-        {
-          "source": "packages/server/src/routes/coding-features.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/routes/coding-releases.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/routes/coding.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/e2e-inventory.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/error-code-scan.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/paaw-project.mjs",
-          "names": []
-        }
-      ],
-      "exports": [
-        "getHeadCommit",
-        "isSourceFilePath",
-        "changedSourceFilesSince",
-        "CU_SOURCE_EXTS",
-        "CU_SKIP_DIRS",
-        "parseGitignore",
-        "loadProjectIgnore",
-        "clearIgnoreCache",
-        "isTestFileName",
-        "walkSourceFiles",
-        "countSourceFiles"
-      ]
-    },
     "packages/server/src/lib/release-unit/handover-state.mjs": {
       "path": "packages/server/src/lib/release-unit/handover-state.mjs",
       "language": "javascript",
@@ -15540,34 +17410,6 @@
       "language": "javascript",
       "imports": [
         {
-          "source": "fs",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "path",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "url",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        }
-      ],
-      "importedBy": [],
-      "exports": [
-        "codingHealthRoute"
-      ]
-    },
-    "packages/server/src/lib/paaw-project.mjs": {
-      "path": "packages/server/src/lib/paaw-project.mjs",
-      "language": "javascript",
-      "imports": [
-        {
           "source": "fs/promises",
           "resolved": false,
           "targetFile": null,
@@ -15586,78 +17428,136 @@
           "names": []
         },
         {
+          "source": "url",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
           "source": "child_process",
           "resolved": false,
           "targetFile": null,
           "names": []
         },
         {
-          "source": "./shell-exec.mjs",
+          "source": "../lib/shell-exec.mjs",
           "resolved": true,
           "targetFile": "packages/server/src/lib/shell-exec.mjs",
           "names": []
         },
         {
-          "source": "./cu-source-scan.mjs",
+          "source": "../lib/paaw-project.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/project-md.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/project-md.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/llm-utils.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/coding-security.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/coding-security.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/tree-sitter-parser.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/tree-sitter-parser.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/semgrep-runner.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/semgrep-runner.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/code-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/code-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/test-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/test-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/change-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/change-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/cu-mechanical.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/cu-mechanical.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/cu-source-scan.mjs",
           "resolved": true,
           "targetFile": "packages/server/src/lib/cu-source-scan.mjs",
           "names": []
         },
         {
-          "source": "./feature-registry.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/feature-registry.mjs",
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
           "names": []
         },
         {
-          "source": "./coding-db/docs.repo.mjs",
+          "source": "../lib/agent-rules.mjs",
           "resolved": true,
-          "targetFile": "packages/server/src/lib/coding-db/docs.repo.mjs",
+          "targetFile": "packages/server/src/lib/agent-rules.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/security-rules.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/security-rules.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/llm-utils.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/running-agents.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/running-agents.mjs",
+          "names": []
+        },
+        {
+          "source": "../data-home.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/data-home.mjs",
           "names": []
         }
       ],
       "importedBy": [
         {
-          "source": "packages/server/src/routes/coding-issues.mjs",
-          "names": []
-        },
-        {
           "source": "packages/server/src/routes/coding.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/routes/starter-kits.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/auto-dispatch-shared.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/change-intelligence.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/context-providers.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/cu-mechanical.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/project-md.mjs",
           "names": []
         }
       ],
       "exports": [
-        "PaawProject",
-        "createPaawProject",
-        "maybeWriteProjectDraft"
+        "runShellCmd",
+        "scanProjectFiles",
+        "collectProjectHealth"
       ]
     },
     "packages/server/src/routes/coding-memory.mjs": {
@@ -15765,7 +17665,15 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         },
         {
@@ -15985,88 +17893,21 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         }
       ],
       "exports": [
         "qualityDebtSummary",
         "runTaskRetrofit"
-      ]
-    },
-    "packages/server/src/lib/change-intelligence.mjs": {
-      "path": "packages/server/src/lib/change-intelligence.mjs",
-      "language": "javascript",
-      "imports": [
-        {
-          "source": "child_process",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "./shell-exec.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/shell-exec.mjs",
-          "names": []
-        },
-        {
-          "source": "fs",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "./stable-hash.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/stable-hash.mjs",
-          "names": []
-        },
-        {
-          "source": "path",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "util",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "./paaw-project.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/paaw-project.mjs",
-          "names": []
-        },
-        {
-          "source": "./coding-db/docs.repo.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/coding-db/docs.repo.mjs",
-          "names": []
-        }
-      ],
-      "importedBy": [
-        {
-          "source": "packages/server/src/routes/coding-releases.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/routes/coding.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/cu-mechanical.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/release-requests.mjs",
-          "names": []
-        }
-      ],
-      "exports": [
-        "buildChangeIntelligence"
       ]
     },
     "packages/server/src/lib/release-unit/gates.mjs": {
@@ -16121,65 +17962,6 @@
       "exports": [
         "loadGates",
         "checkGates"
-      ]
-    },
-    "packages/server/src/lib/code-intelligence.mjs": {
-      "path": "packages/server/src/lib/code-intelligence.mjs",
-      "language": "javascript",
-      "imports": [
-        {
-          "source": "path",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "fs",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "./stable-hash.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/stable-hash.mjs",
-          "names": []
-        },
-        {
-          "source": "./tree-sitter-parser.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/tree-sitter-parser.mjs",
-          "names": []
-        },
-        {
-          "source": "./feature-registry.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/feature-registry.mjs",
-          "names": []
-        }
-      ],
-      "importedBy": [
-        {
-          "source": "packages/server/src/routes/coding-releases.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/routes/coding.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/cu-mechanical.mjs",
-          "names": []
-        }
-      ],
-      "exports": [
-        "buildCallGraph",
-        "buildApiFunctionMap",
-        "buildDependencyGraph",
-        "buildTestCodeMap",
-        "buildSymbolIndex",
-        "buildCodeIntelligence",
-        "buildContextPackage"
       ]
     },
     "packages/server/src/routes/coding-reports.mjs": {
@@ -16732,354 +18514,6 @@
         "loadApiMapPrompt",
         "normalizeApiFeatures",
         "generateApiMap"
-      ]
-    },
-    "packages/server/src/lib/project-md.mjs": {
-      "path": "packages/server/src/lib/project-md.mjs",
-      "language": "javascript",
-      "imports": [
-        {
-          "source": "node:path",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "node:fs",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "./paaw-project.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/paaw-project.mjs",
-          "names": []
-        },
-        {
-          "source": "./feature-registry.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/feature-registry.mjs",
-          "names": []
-        }
-      ],
-      "importedBy": [
-        {
-          "source": "packages/server/src/routes/coding.mjs",
-          "names": []
-        }
-      ],
-      "exports": [
-        "USER_START",
-        "USER_END",
-        "AI_START",
-        "AI_END",
-        "parseProjectMd",
-        "buildProjectMd",
-        "regenerateProjectMd"
-      ]
-    },
-    "packages/server/src/lib/coding-db/index.mjs": {
-      "path": "packages/server/src/lib/coding-db/index.mjs",
-      "language": "javascript",
-      "imports": [
-        {
-          "source": "./connection.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/coding-db/connection.mjs",
-          "names": []
-        },
-        {
-          "source": "./tasks.repo.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/coding-db/tasks.repo.mjs",
-          "names": []
-        },
-        {
-          "source": "./features.repo.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/coding-db/features.repo.mjs",
-          "names": []
-        },
-        {
-          "source": "./stores.repo.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/coding-db/stores.repo.mjs",
-          "names": []
-        }
-      ],
-      "importedBy": [
-        {
-          "source": "packages/server/src/routes/coding.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/em-task-store.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/feature-map-store.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/feature-registry.mjs",
-          "names": []
-        }
-      ],
-      "exports": [
-        "appendDispatchRecord",
-        "appendActionRecord",
-        "appendQaResult",
-        "appendExecApproval",
-        "saveConversation",
-        "archiveConversation",
-        "deleteConversationSession",
-        "setKv",
-        "setGates",
-        "setHandover",
-        "saveIssue",
-        "saveReleaseRequest",
-        "saveTasks",
-        "saveFeatures",
-        "saveApiFeatures",
-        "buildFileApiMap",
-        "openCodingDb",
-        "readDoc",
-        "writeDoc",
-        "hasDoc",
-        "deleteDoc",
-        "readDocUpdatedAt",
-        "DOC_FILES",
-        "readFeatures",
-        "readApiFeatures",
-        "readUiFeatures",
-        "readTasks",
-        "readActionLog",
-        "readConversationAgents",
-        "readConversationSessions",
-        "readConversation",
-        "recentDispatch",
-        "taskHistory",
-        "saveUiFeatures",
-        "findUiByApiCall"
-      ]
-    },
-    "packages/server/src/lib/semgrep-runner.mjs": {
-      "path": "packages/server/src/lib/semgrep-runner.mjs",
-      "language": "javascript",
-      "imports": [
-        {
-          "source": "child_process",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "fs",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "path",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "util",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "url",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "crypto",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "os",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "./shell-exec.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/shell-exec.mjs",
-          "names": []
-        },
-        {
-          "source": "../data-home.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/data-home.mjs",
-          "names": []
-        }
-      ],
-      "importedBy": [
-        {
-          "source": "packages/server/src/routes/coding.mjs",
-          "names": []
-        }
-      ],
-      "exports": [
-        "detectRulePacks",
-        "buildFullScanCommand",
-        "isSemgrepAvailable",
-        "diagnoseSemgrep",
-        "runSemgrep",
-        "formatForAI",
-        "formatCondensed"
-      ]
-    },
-    "packages/server/src/lib/test-intelligence.mjs": {
-      "path": "packages/server/src/lib/test-intelligence.mjs",
-      "language": "javascript",
-      "imports": [
-        {
-          "source": "path",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "fs",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "./stable-hash.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/stable-hash.mjs",
-          "names": []
-        },
-        {
-          "source": "./test-report-reader.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/test-report-reader.mjs",
-          "names": []
-        },
-        {
-          "source": "./tree-sitter-parser.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/tree-sitter-parser.mjs",
-          "names": []
-        },
-        {
-          "source": "./feature-registry.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/feature-registry.mjs",
-          "names": []
-        }
-      ],
-      "importedBy": [
-        {
-          "source": "packages/server/src/routes/coding.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/cu-mechanical.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/test-runner.mjs",
-          "names": []
-        }
-      ],
-      "exports": [
-        "classifyTestType",
-        "buildTestIntelligence"
-      ]
-    },
-    "packages/server/src/lib/cu-mechanical.mjs": {
-      "path": "packages/server/src/lib/cu-mechanical.mjs",
-      "language": "javascript",
-      "imports": [
-        {
-          "source": "path",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "./paaw-project.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/paaw-project.mjs",
-          "names": []
-        },
-        {
-          "source": "./code-intelligence.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/code-intelligence.mjs",
-          "names": []
-        },
-        {
-          "source": "./test-intelligence.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/test-intelligence.mjs",
-          "names": []
-        },
-        {
-          "source": "./change-intelligence.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/change-intelligence.mjs",
-          "names": []
-        },
-        {
-          "source": "./feature-risk-scan.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/feature-risk-scan.mjs",
-          "names": []
-        }
-      ],
-      "importedBy": [
-        {
-          "source": "packages/server/src/routes/coding.mjs",
-          "names": []
-        }
-      ],
-      "exports": [
-        "rescanMechanicalLayer"
-      ]
-    },
-    "packages/server/src/lib/security-rules.mjs": {
-      "path": "packages/server/src/lib/security-rules.mjs",
-      "language": "javascript",
-      "imports": [],
-      "importedBy": [
-        {
-          "source": "packages/server/src/routes/coding.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/domain-agent-registry.mjs",
-          "names": []
-        }
-      ],
-      "exports": [
-        "SECURITY_RULES"
-      ]
-    },
-    "packages/server/src/lib/running-agents.mjs": {
-      "path": "packages/server/src/lib/running-agents.mjs",
-      "language": "javascript",
-      "imports": [],
-      "importedBy": [
-        {
-          "source": "packages/server/src/routes/coding.mjs",
-          "names": []
-        }
-      ],
-      "exports": [
-        "runningCodingAgents"
       ]
     },
     "packages/server/src/routes/crew.mjs": {
@@ -18830,7 +20264,15 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         }
       ],
@@ -18948,7 +20390,15 @@
           "names": []
         },
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         }
       ],
@@ -19179,7 +20629,15 @@
       ],
       "importedBy": [
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         }
       ],
@@ -19665,6 +21123,198 @@
         "OvernightRunner"
       ]
     },
+    "packages/server/src/lib/paaw-agent-exec.mjs": {
+      "path": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "./paaw-agent-loop.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "fs/promises",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./temp-janitor.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/temp-janitor.mjs",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./module-registry.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/module-registry.mjs",
+          "names": []
+        },
+        {
+          "source": "./feature-boundary.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/feature-boundary.mjs",
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./proc-ledger.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/proc-ledger.mjs",
+          "names": []
+        },
+        {
+          "source": "./shell-exec.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./dependency-context.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/dependency-context.mjs",
+          "names": []
+        },
+        {
+          "source": "./task-retrofit.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/task-retrofit.mjs",
+          "names": []
+        },
+        {
+          "source": "url",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./llm-utils.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "./context-truncation.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/context-truncation.mjs",
+          "names": []
+        },
+        {
+          "source": "./context-compaction.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/context-compaction.mjs",
+          "names": []
+        },
+        {
+          "source": "./vision-content.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/vision-content.mjs",
+          "names": []
+        },
+        {
+          "source": "./agent-exec-logger.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/agent-exec-logger.mjs",
+          "names": []
+        },
+        {
+          "source": "./paaw-project.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "./paaw-snapshot.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-snapshot.mjs",
+          "names": []
+        },
+        {
+          "source": "./llm-utils.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "./tool-registry.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/tool-registry.mjs",
+          "names": []
+        },
+        {
+          "source": "../data-home.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/data-home.mjs",
+          "names": []
+        },
+        {
+          "source": "./browser-session.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/browser-session.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "_crewGroupCache",
+        "DEFAULT_CONTEXT_WINDOW",
+        "TOOL_GROUP_MAP",
+        "CORE_READ_TOOLS",
+        "AGENT_FALLBACK_GROUPS",
+        "_crewDenyCache",
+        "CONTEXT_SAFETY_MARGIN",
+        "LLM_CALL_TIMEOUT_MS",
+        "executeTool",
+        "toolExecTimeoutMs",
+        "raceAbortTool",
+        "setAgentConfig",
+        "_agentCfg",
+        "_agentCfgDefaults",
+        "APPROVAL_WAIT_BUDGET_MS",
+        "runShell",
+        "_nativeGlob",
+        "_nativeGrep",
+        "_buildTestCommand",
+        "_parseTestResult",
+        "_findConventionTests",
+        "LOG"
+      ]
+    },
     "packages/server/src/lib/temp-janitor.mjs": {
       "path": "packages/server/src/lib/temp-janitor.mjs",
       "language": "javascript",
@@ -19690,7 +21340,15 @@
       ],
       "importedBy": [
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         }
       ],
@@ -19744,7 +21402,15 @@
       ],
       "importedBy": [
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         }
       ],
@@ -19758,7 +21424,15 @@
       "imports": [],
       "importedBy": [
         {
+          "source": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/paaw-agent-tools.mjs",
           "names": []
         },
         {
@@ -19768,6 +21442,171 @@
       ],
       "exports": [
         "toolRegistry"
+      ]
+    },
+    "packages/server/src/lib/paaw-agent-tools.mjs": {
+      "path": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs/promises",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./temp-janitor.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/temp-janitor.mjs",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./module-registry.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/module-registry.mjs",
+          "names": []
+        },
+        {
+          "source": "./feature-boundary.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/feature-boundary.mjs",
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./proc-ledger.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/proc-ledger.mjs",
+          "names": []
+        },
+        {
+          "source": "./shell-exec.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./dependency-context.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/dependency-context.mjs",
+          "names": []
+        },
+        {
+          "source": "./task-retrofit.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/task-retrofit.mjs",
+          "names": []
+        },
+        {
+          "source": "url",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./llm-utils.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "./context-truncation.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/context-truncation.mjs",
+          "names": []
+        },
+        {
+          "source": "./context-compaction.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/context-compaction.mjs",
+          "names": []
+        },
+        {
+          "source": "./vision-content.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/vision-content.mjs",
+          "names": []
+        },
+        {
+          "source": "./agent-exec-logger.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/agent-exec-logger.mjs",
+          "names": []
+        },
+        {
+          "source": "./paaw-project.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "./paaw-snapshot.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-snapshot.mjs",
+          "names": []
+        },
+        {
+          "source": "./llm-utils.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "./tool-registry.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/tool-registry.mjs",
+          "names": []
+        },
+        {
+          "source": "../data-home.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/data-home.mjs",
+          "names": []
+        },
+        {
+          "source": "./browser-session.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/browser-session.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "PAAW_TOOLS"
       ]
     },
     "packages/server/src/lib/security-mode.mjs": {
@@ -21126,6 +22965,11 @@
       "names": []
     },
     {
+      "from": "tests/unit/page-inventory.test.mjs",
+      "to": "packages/server/src/lib/page-inventory.mjs",
+      "names": []
+    },
+    {
       "from": "tests/unit/parse-model-reference.test.mjs",
       "to": "packages/server/src/lib/llm-utils.mjs",
       "names": []
@@ -21856,6 +23700,11 @@
       "names": []
     },
     {
+      "from": "packages/ui/src/pages/CodingIDE.tsx",
+      "to": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "names": []
+    },
+    {
       "from": "packages/ui/src/pages/CronJobsPage.tsx",
       "to": "packages/ui/src/theme.tsx",
       "names": []
@@ -22131,6 +23980,226 @@
       "names": []
     },
     {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/theme.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/utils/index.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/ShellTerminal.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/Icon.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/ConsoleLogView.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/JanitorPanel.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/JsonViewer.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/FileEmoji.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/api.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/DirectoryExplorer.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/SidebarFileTree.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/CodeIntelPage.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/TestsPage.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/EMDashboard.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/RuCloneModal.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/RuOnboardingModal.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/git/index.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/browser/BrowserPanel.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/DiffViewer.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/SessionHistory.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/DecisionLog.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/ProjectMdPage.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/ModelSelector.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/ChatMessages.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/IssueTracker.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/QaRecords.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/DispatchReports.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/TaskBoard.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/CodeReviewBoardPanel.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/HandoverPanel.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/TroubleshootingPanel.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/TabErrorBoundary.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/FeatureMap.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/ApiMapSidebar.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/ApiTesterTabs.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/ApiRequestTabSheet.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/AgentSideChat.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/ColResizer.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/CrewManager.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/SecurityTab.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/utils/pasteFiles.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/pages/FileViewer.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "to": "packages/ui/src/components/ui/uiFeedback.ts",
+      "names": []
+    },
+    {
       "from": "packages/ui/src/components/AgentBuilder.tsx",
       "to": "packages/ui/src/utils/index.ts",
       "names": []
@@ -22346,8 +24415,23 @@
       "names": []
     },
     {
+      "from": "packages/ui/src/components/DispatchWizard.tsx",
+      "to": "packages/ui/src/api.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/DispatchWizard.tsx",
+      "to": "packages/ui/src/components/ui/shared.tsx",
+      "names": []
+    },
+    {
       "from": "packages/ui/src/components/EMDashboard.tsx",
       "to": "packages/ui/src/api.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/EMDashboard.tsx",
+      "to": "packages/ui/src/components/DispatchWizard.tsx",
       "names": []
     },
     {
@@ -23206,6 +25290,116 @@
       "names": []
     },
     {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/shell-exec.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/paaw-project.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/project-md.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/llm-utils.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/coding-security.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/tree-sitter-parser.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/semgrep-runner.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/code-intelligence.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/test-intelligence.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/change-intelligence.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/cu-mechanical.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/cu-source-scan.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/routes/coding-helpers.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/routes/shared.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/coding-db/index.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/qa-results.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/routes/coding-helpers.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/agent-rules.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/security-rules.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/llm-utils.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/lib/running-agents.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-crew-routes.mjs",
+      "to": "packages/server/src/data-home.mjs",
+      "names": []
+    },
+    {
       "from": "packages/server/src/routes/coding-db.mjs",
       "to": "packages/server/src/routes/shared.mjs",
       "names": []
@@ -23308,6 +25502,176 @@
     {
       "from": "packages/server/src/routes/coding-handover.mjs",
       "to": "packages/server/src/lib/feature-registry.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/shell-exec.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/paaw-project.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/project-md.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/llm-utils.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/coding-security.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/tree-sitter-parser.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/semgrep-runner.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/code-intelligence.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/test-intelligence.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/change-intelligence.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/cu-mechanical.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/cu-source-scan.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/agent-rules.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/security-rules.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/llm-utils.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/lib/running-agents.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-health.mjs",
+      "to": "packages/server/src/data-home.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/shell-exec.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/paaw-project.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/project-md.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/llm-utils.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/coding-security.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/tree-sitter-parser.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/semgrep-runner.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/code-intelligence.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/test-intelligence.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/change-intelligence.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/cu-mechanical.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/cu-source-scan.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/agent-rules.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/security-rules.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/llm-utils.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/lib/running-agents.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-helpers.mjs",
+      "to": "packages/server/src/data-home.mjs",
       "names": []
     },
     {
@@ -23587,27 +25951,22 @@
     },
     {
       "from": "packages/server/src/routes/coding.mjs",
-      "to": "packages/server/src/lib/agent-rules.mjs",
+      "to": "packages/server/src/routes/coding-crew-routes.mjs",
       "names": []
     },
     {
       "from": "packages/server/src/routes/coding.mjs",
-      "to": "packages/server/src/lib/security-rules.mjs",
-      "names": []
-    },
-    {
-      "from": "packages/server/src/routes/coding.mjs",
-      "to": "packages/server/src/lib/llm-utils.mjs",
-      "names": []
-    },
-    {
-      "from": "packages/server/src/routes/coding.mjs",
-      "to": "packages/server/src/lib/running-agents.mjs",
+      "to": "packages/server/src/routes/coding-helpers.mjs",
       "names": []
     },
     {
       "from": "packages/server/src/routes/coding.mjs",
       "to": "packages/server/src/data-home.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/routes/coding-health.mjs",
       "names": []
     },
     {
@@ -24521,6 +26880,101 @@
       "names": []
     },
     {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/temp-janitor.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/module-registry.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/feature-boundary.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/proc-ledger.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/shell-exec.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/dependency-context.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/task-retrofit.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/llm-utils.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/context-truncation.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/context-compaction.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/vision-content.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/agent-exec-logger.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/paaw-project.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/paaw-snapshot.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/llm-utils.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/tool-registry.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/data-home.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "to": "packages/server/src/lib/browser-session.mjs",
+      "names": []
+    },
+    {
       "from": "packages/server/src/lib/paaw-agent-loop.mjs",
       "to": "packages/server/src/lib/temp-janitor.mjs",
       "names": []
@@ -24621,6 +27075,106 @@
       "names": []
     },
     {
+      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "to": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "to": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/temp-janitor.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/module-registry.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/feature-boundary.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/proc-ledger.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/shell-exec.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/dependency-context.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/task-retrofit.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/llm-utils.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/context-truncation.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/context-compaction.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/vision-content.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/agent-exec-logger.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/paaw-project.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/paaw-snapshot.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/llm-utils.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/tool-registry.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/data-home.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "to": "packages/server/src/lib/browser-session.mjs",
+      "names": []
+    },
+    {
       "from": "packages/server/src/lib/paaw-project.mjs",
       "to": "packages/server/src/lib/shell-exec.mjs",
       "names": []
@@ -24658,6 +27212,11 @@
     {
       "from": "packages/server/src/lib/paaw-snapshot.mjs",
       "to": "packages/server/src/lib/shell-exec.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/page-inventory.mjs",
+      "to": "packages/server/src/lib/cu-source-scan.mjs",
       "names": []
     },
     {
@@ -25297,9 +27856,9 @@
     }
   ],
   "stats": {
-    "totalFiles": 441,
-    "totalEdges": 877,
-    "resolvedImports": 877,
-    "unresolvedImports": 1135
+    "totalFiles": 449,
+    "totalEdges": 1021,
+    "resolvedImports": 1021,
+    "unresolvedImports": 1177
   }
 }

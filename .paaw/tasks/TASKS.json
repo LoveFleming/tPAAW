@@ -3469,12 +3469,32 @@
         ]
       },
       "reviewBoundary": null,
+      "progressLog": [
+        {
+          "at": "2026-11-07T11:59:59.987Z",
+          "round": 1,
+          "agent": "qa",
+          "action": "dispatch",
+          "outcome": "✅ # Code Review 報告 — TASK-059 / F20261016-016 Auto Dispatch 控制端點 **Gate 結論：⚠️ CONDITIONAL**（不阻擋上線，附條件追蹤）— 已落地 `qr-20261107-115922-az6g` --- ## ⚠️ 範圍校正（重要） 指定目標檔 `installed-apps/sre/ui/components/SheetPreview.tsx` **不存在於版控**（glob / rg 全無命中；File→Feature Index 中該 mapping 亦屬亂接：secret/sre 路徑交叉錯置）。F20261016",
+          "durationMs": 180711,
+          "tokens": 1006566
+        },
+        {
+          "at": "2026-11-07T12:50:54.073Z",
+          "round": 2,
+          "agent": "tester",
+          "action": "dispatch",
+          "outcome": "✅ TASK-059 品質補強完成，已 commit `1e9bb050`。摘要如下： ## 完成內容 **範圍確認**：fileScope 指到的 `SheetPreview.tsx` 是 mapping 錯靶（QA 已認定非阻擋），真受測對象為 `packages/server/src/routes/coding-auto-dispatch.mjs`（7 端點）＋被 mock 的 `lib/auto-dispatch-manager.mjs` / `lib/auto-dispatch-shared.mjs`。 **新增測試**：`tests/unit/coding-auto-dispatch.",
+          "durationMs": 3040115,
+          "tokens": 22439824
+        }
+      ],
       "id": "TASK-059",
       "apiId": null,
       "parentId": null,
       "type": "test",
       "title": "【品質補強】F20261016-016 自動派工控制端點（Auto Dispatch 啟停與狀態）",
-      "status": "open",
+      "status": "pending",
       "priority": "high",
       "labels": [
         "release-retrofit",
@@ -3488,7 +3508,7 @@
       "description": "Release retrofit — 上線前品質補強（從 feature map 建立）。\nFeature：F20261016-016 自動派工控制端點（Auto Dispatch 啟停與狀態） — 這個 feature 是 Auto Dispatch（夜班自動派工）系統的 HTTP 控制面，由單一路由檔提供 7 個端點：start/stop/reset/preview 與 status/report/last-run。它只負責觸發、中斷、查詢與狀態檔管理，真正的多 agent 派工編排邏輯委派給 lib/auto-dispatch-manager.mjs（EM 模式）與 lib/auto-dispatch-shared.mjs（共用 context/task 掃描/報告），本身不執行派工。\n代碼檔案：\n- installed-apps/sre/ui/components/SheetPreview.tsx\n需補階段：review → test → qa → docs\n驗收：review 看現況代碼問題、關鍵路徑補測試、qa 驗收、docs 補文件。不重做實作。",
       "relatedFiles": [],
       "createdAt": "2026-10-16T13:48:03.736Z",
-      "updatedAt": "2026-11-07T11:59:59.987Z",
+      "updatedAt": "2026-11-07T12:50:54.096Z",
       "notes": [
         {
           "text": "由 task_retrofit 自動生成，來源 feature F20261016-016",
@@ -3571,38 +3591,28 @@
           "at": "2026-10-18T02:34:23.033Z"
         },
         {
-          "at": "2026-11-07T12:00:00.002Z",
+          "at": "2026-11-07T12:50:54.087Z",
           "agent": "em",
-          "note": "✅ R1 qa 完成：# Code Review 報告 — TASK-059 / F20261016-016 Auto Dispatch 控制端點 **Gate 結論：⚠️ CONDITIONAL**（不阻擋上線，附條件追蹤）— 已落地 `qr-20261107-115922-az6g` --- ## ⚠️ 範圍校正（重要） 指定目標檔 `"
+          "note": "✅ R2 tester 完成：TASK-059 品質補強完成，已 commit `1e9bb050`。摘要如下： ## 完成內容 **範圍確認**：fileScope 指到的 `SheetPreview.tsx` 是 mapping 錯靶（QA 已認定非阻擋），真受測對象為 `packages/server/src/routes/coding-au"
         },
         {
-          "at": "2026-11-07T12:00:13.946Z",
+          "at": "2026-11-07T12:50:54.092Z",
           "agent": "em",
-          "note": "▶️ R2 派工 tester#1：QA 已過（conditional），test 型補強任務下一步是 tester 補關鍵路徑測試"
-        }
-      ],
-      "progressLog": [
+          "note": "⏹️ 使用者中斷 — EM 協調停止"
+        },
         {
-          "at": "2026-11-07T11:59:59.987Z",
-          "round": 1,
-          "agent": "qa",
-          "action": "dispatch",
-          "outcome": "✅ # Code Review 報告 — TASK-059 / F20261016-016 Auto Dispatch 控制端點 **Gate 結論：⚠️ CONDITIONAL**（不阻擋上線，附條件追蹤）— 已落地 `qr-20261107-115922-az6g` --- ## ⚠️ 範圍校正（重要） 指定目標檔 `installed-apps/sre/ui/components/SheetPreview.tsx` **不存在於版控**（glob / rg 全無命中；File→Feature Index 中該 mapping 亦屬亂接：secret/sre 路徑交叉錯置）。F20261016",
-          "durationMs": 180711,
-          "tokens": 1006566
+          "by": "em",
+          "at": "2026-11-07T12:50:54.096Z",
+          "content": "⚠️ EM dispatch 失敗：EM 協調完成（em）：stopped (qa→tester)。Task 已標 pending，等人處理。"
         }
       ],
       "orchestration": {
         "agents": {
           "qa": "done",
-          "tester": "running"
+          "tester": "done"
         },
-        "updatedAt": "2026-11-07T12:00:13.946Z",
-        "runs": {
-          "qa": 1,
-          "tester": 1
-        },
-        "currentStep": "tester",
+        "updatedAt": "2026-11-07T12:50:54.092Z",
+        "status": "stopped",
         "loopCount": 2
       }
     },
@@ -14133,6 +14143,6 @@
       "notes": []
     }
   ],
-  "updatedAt": "2026-11-07T11:59:59.987Z",
+  "updatedAt": "2026-11-07T12:50:54.096Z",
   "loopMode": "mini"
 }

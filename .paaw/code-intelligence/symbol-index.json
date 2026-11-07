@@ -389,6 +389,78 @@
     },
     {
       "type": "function",
+      "name": "writeRun",
+      "file": "tests/unit/coding-auto-dispatch.test.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(id, obj)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "runsDir",
+      "file": "tests/unit/coding-auto-dispatch.test.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "listRuns",
+      "file": "tests/unit/coding-auto-dispatch.test.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "release",
+      "file": "tests/unit/coding-auto-dispatch.test.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "release",
+      "file": "tests/unit/coding-auto-dispatch.test.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "release",
+      "file": "tests/unit/coding-auto-dispatch.test.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "release",
+      "file": "tests/unit/coding-auto-dispatch.test.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "release",
+      "file": "tests/unit/coding-auto-dispatch.test.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
       "name": "mockReq",
       "file": "tests/unit/coding-handover.test.mjs",
       "kind": "function",
@@ -1258,6 +1330,33 @@
       "kind": "function",
       "async": false,
       "params": "(s)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "mkProject",
+      "file": "tests/unit/page-inventory.test.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "mk",
+      "file": "tests/unit/page-inventory.test.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(p, c)",
+      "callCount": 4
+    },
+    {
+      "type": "function",
+      "name": "mk2",
+      "file": "tests/unit/page-inventory.test.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root, p, c)",
       "callCount": 0
     },
     {
@@ -3909,96 +4008,6 @@
     },
     {
       "type": "function",
-      "name": "ToolLogRow",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ name, args, running }: { name: string; args: string; running: boolean })",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "crewToAgentId",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "(crewId: string)",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "TREE_NOOP",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "getFileIcon",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "(name: string)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "getLanguage",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "(name: string)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "getHljsLang",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "(name: string)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "escapeHtml",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "(str: string)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "fmtTime",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "(iso: string)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "safeStr",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "(v: any)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "EditorTabContent",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ tabId, filePath, tabData, isActive, isEditing, textareaRef, lineNumWidth, handleContentChange, stopEditing, handleCodeViewClick, startEditing, tk, tt, openFile }: {\n  tabId: string;\n  filePath: string;\n  tabData: OpenTab | undefined;\n  isActive: boolean;\n  isEditing: boolean;\n  textareaRef: React.RefObject<HTMLTextAreaElement | null>;\n  lineNumWidth: number;\n  handleContentChange: (v: string) => void;\n  stopEditing: () => void;\n  handleCodeViewClick: (e: React.MouseEvent) => void;\n  startEditing: () => void;\n  tk: any;\n  tt: (k: string) => string;\n  openFile: (path: string) => void;\n})",
-      "callCount": 0
-    },
-    {
-      "type": "function",
       "name": "CodingIDE",
       "file": "packages/ui/src/pages/CodingIDE.tsx",
       "kind": "function",
@@ -4079,38 +4088,11 @@
       "callCount": 2
     },
     {
-      "type": "function",
-      "name": "highlightMatch",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "(text: string, query: string, caseSensitive: boolean)",
-      "callCount": 0
-    },
-    {
       "type": "export",
       "name": "CodingIDE",
       "file": "packages/ui/src/pages/CodingIDE.tsx",
       "kind": "function",
       "isDefault": true
-    },
-    {
-      "type": "component",
-      "name": "ToolLogRow",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "component",
-      "name": "TREE_NOOP",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "kind": "arrow"
-    },
-    {
-      "type": "component",
-      "name": "EditorTabContent",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "kind": "function"
     },
     {
       "type": "component",
@@ -5663,6 +5645,305 @@
     },
     {
       "type": "function",
+      "name": "ToolLogRow",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "({ name, args, running }: { name: string; args: string; running: boolean })",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "crewToAgentId",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "arrow",
+      "async": false,
+      "params": "(crewId: string)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "TREE_NOOP",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "arrow",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "getFileIcon",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "(name: string)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "getLanguage",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "(name: string)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "getHljsLang",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "(name: string)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "escapeHtml",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "(str: string)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "fmtTime",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "(iso: string)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "safeStr",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "(v: any)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "EditorTabContent",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "({ tabId, filePath, tabData, isActive, isEditing, textareaRef, lineNumWidth, handleContentChange, stopEditing, handleCodeViewClick, startEditing, tk, tt, openFile }: {\n  tabId: string;\n  filePath: string;\n  tabData: OpenTab | undefined;\n  isActive: boolean;\n  isEditing: boolean;\n  textareaRef: React.RefObject<HTMLTextAreaElement | null>;\n  lineNumWidth: number;\n  handleContentChange: (v: string) => void;\n  stopEditing: () => void;\n  handleCodeViewClick: (e: React.MouseEvent) => void;\n  startEditing: () => void;\n  tk: any;\n  tt: (k: string) => string;\n  openFile: (path: string) => void;\n})",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "highlightMatch",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "(text: string, query: string, caseSensitive: boolean)",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "ApiHeader",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "ApiHistoryItem",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "ApiResponse",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "BlameLine",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "ChatMessage",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "CodingEvent",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "FsItem",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "GitCommit",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "GitFileStatus",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "MainTab",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "MainTabType",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "OpenTab",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "CREW_TO_AGENT",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "EMPTY_TOOL_LOG",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "EditorTabContent",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "TREE_NOOP",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "ToolLogRow",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "_chatScrollCache",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "crewToAgentId",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "escapeHtml",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "fmtTime",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "getFileIcon",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "getHljsLang",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "getLanguage",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "highlightMatch",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "safeStr",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "component",
+      "name": "ToolLogRow",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "function"
+    },
+    {
+      "type": "component",
+      "name": "TREE_NOOP",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "arrow"
+    },
+    {
+      "type": "component",
+      "name": "EditorTabContent",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "kind": "function"
+    },
+    {
+      "type": "function",
       "name": "getStoredLocale",
       "file": "packages/ui/src/i18n/index.tsx",
       "kind": "function",
@@ -7071,6 +7352,37 @@
     },
     {
       "type": "function",
+      "name": "DispatchWizard",
+      "file": "packages/ui/src/components/DispatchWizard.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "({ rootPath, theme: tk, onClose }: Props)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "submit",
+      "file": "packages/ui/src/components/DispatchWizard.tsx",
+      "kind": "function",
+      "async": true,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "DispatchWizard",
+      "file": "packages/ui/src/components/DispatchWizard.tsx",
+      "kind": "function",
+      "isDefault": true
+    },
+    {
+      "type": "component",
+      "name": "DispatchWizard",
+      "file": "packages/ui/src/components/DispatchWizard.tsx",
+      "kind": "function"
+    },
+    {
+      "type": "function",
       "name": "fmtChatTs",
       "file": "packages/ui/src/components/EMDashboard.tsx",
       "kind": "arrow",
@@ -8412,6 +8724,15 @@
     {
       "type": "function",
       "name": "loadE2eInv",
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "kind": "arrow",
+      "async": true,
+      "params": "()",
+      "callCount": 10
+    },
+    {
+      "type": "function",
+      "name": "loadPageInv",
       "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
       "kind": "arrow",
       "async": true,
@@ -13896,6 +14217,236 @@
     },
     {
       "type": "function",
+      "name": "crewRoutes",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "({ req, res, method, url, q, projectPath })",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "cleanupChatAgent",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "()",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "cleanupDispatch",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "()",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "verifyWork",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "()",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "getConvPaths",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(cwd, crewId)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "readConvFile",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(filePath)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "migrateFlatConversations",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(cwd)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "estimateTokens",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(text)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "sendSSE",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(type, data)",
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "sendSSE",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(type, data)",
+      "callCount": 3
+    },
+    {
+      "type": "export",
+      "name": "crewRoutes",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-crew/chat",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "POST",
+      "path": "/api/coding-crew/chat"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-crew/dispatch",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "POST",
+      "path": "/api/coding-crew/dispatch"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-crew/qa-results",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "GET",
+      "path": "/api/coding-crew/qa-results"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-crew/qa-results",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "POST",
+      "path": "/api/coding-crew/qa-results"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-crew/context-window",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "POST",
+      "path": "/api/coding-crew/context-window"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-project/ru-log",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "GET",
+      "path": "/api/coding-project/ru-log"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-crew/action-log/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "GET",
+      "path": "/api/coding-crew/action-log/*"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-crew/em-job",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "POST",
+      "path": "/api/coding-crew/em-job"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-crew/em-plan",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "POST",
+      "path": "/api/coding-crew/em-plan"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-crew/em-execute",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "POST",
+      "path": "/api/coding-crew/em-execute"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-crew/interrupt",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "POST",
+      "path": "/api/coding-crew/interrupt"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-crew/running",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "GET",
+      "path": "/api/coding-crew/running"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-project/cu-skills/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "POST",
+      "path": "/api/coding-project/cu-skills/*"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-project/skills/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "GET",
+      "path": "/api/coding-project/skills/*"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-project/agent-memory/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "GET",
+      "path": "/api/coding-project/agent-memory/*"
+    },
+    {
+      "type": "route",
+      "name": "PUT /api/coding-project/agent-memory/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "PUT",
+      "path": "/api/coding-project/agent-memory/*"
+    },
+    {
+      "type": "route",
+      "name": "DELETE /api/coding-project/agent-memory/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "DELETE",
+      "path": "/api/coding-project/agent-memory/*"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-project/crew-export/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "GET",
+      "path": "/api/coding-project/crew-export/*"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-project/crew-import/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "POST",
+      "path": "/api/coding-project/crew-import/*"
+    },
+    {
+      "type": "function",
       "name": "codingDbRoute",
       "file": "packages/server/src/routes/coding-db.mjs",
       "kind": "function",
@@ -14629,55 +15180,259 @@
     },
     {
       "type": "function",
-      "name": "sendJSON",
-      "file": "packages/server/src/routes/coding-health.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(res, code, data)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "getAllowedRoots",
+      "name": "runShellCmd",
       "file": "packages/server/src/routes/coding-health.mjs",
       "kind": "function",
       "async": true,
-      "params": "()",
+      "params": "(command, cwd, timeoutMs = 10_000)",
       "callCount": 0
     },
     {
       "type": "function",
-      "name": "withinRoots",
-      "file": "packages/server/src/routes/coding-health.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(absPath, roots)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "parsePath",
-      "file": "packages/server/src/routes/coding-health.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(req, roots)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "codingHealthRoute",
+      "name": "scanProjectFiles",
       "file": "packages/server/src/routes/coding-health.mjs",
       "kind": "function",
       "async": true,
-      "params": "(req, res)",
+      "params": "(cwd, maxFiles = 0)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "collectProjectHealth",
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(root, paaw)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "fixId",
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(cat, name)",
+      "callCount": 2
+    },
+    {
+      "type": "export",
+      "name": "runShellCmd",
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "scanProjectFiles",
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "collectProjectHealth",
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "function",
+      "name": "cuLog",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(step, msg)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "diffWriteFile",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(paaw, filename, newContent)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_stripCodeFence",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(text)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_sanitizeMd",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(md)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "cuStepSkillKey",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(stepId)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "loadCuStepSkills",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(root, stepId)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "callProjectLLM",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(body, opts = {})",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "parseQuery",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(url)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_extractJsonArray",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(text)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "backfillApiTests",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "walk",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(v)",
+      "callCount": 4
+    },
+    {
+      "type": "function",
+      "name": "_buildManifestContext",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root)",
       "callCount": 0
     },
     {
       "type": "export",
-      "name": "codingHealthRoute",
-      "file": "packages/server/src/routes/coding-health.mjs",
+      "name": "CU_LLM_OPTS",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "variable",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "callProjectLLM",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
       "kind": "function",
-      "isDefault": true
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "PAAW_ROOT",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "variable",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "cuLog",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "diffWriteFile",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "_stripCodeFence",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "_sanitizeMd",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "cuStepSkillKey",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "loadCuStepSkills",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "parseQuery",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "_extractJsonArray",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "backfillApiTests",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "_buildManifestContext",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "kind": "named",
+      "isDefault": false
     },
     {
       "type": "function",
@@ -15248,6 +16003,13 @@
       "file": "packages/server/src/routes/coding-releases.mjs",
       "method": "GET",
       "path": "/api/coding-releases/e2e-inventory"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-releases/page-inventory",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "method": "GET",
+      "path": "/api/coding-releases/page-inventory"
     },
     {
       "type": "route",
@@ -15854,201 +16616,12 @@
     },
     {
       "type": "function",
-      "name": "cuLog",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(step, msg)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "diffWriteFile",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(paaw, filename, newContent)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "_stripCodeFence",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(text)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "_sanitizeMd",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(md)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "cuStepSkillKey",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(stepId)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "loadCuStepSkills",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(root, stepId)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "callProjectLLM",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(body, opts = {})",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "parseQuery",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(url)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "_extractJsonArray",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(text)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "backfillApiTests",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(root)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "walk",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(v)",
-      "callCount": 4
-    },
-    {
-      "type": "function",
-      "name": "_buildManifestContext",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(root)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
       "name": "projectRoute",
       "file": "packages/server/src/routes/coding.mjs",
       "kind": "function",
       "async": true,
       "params": "(req, res)",
       "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "cleanupChatAgent",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "cleanupDispatch",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "verifyWork",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "getConvPaths",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(cwd, crewId)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "readConvFile",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(filePath)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "migrateFlatConversations",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(cwd)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "estimateTokens",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(text)",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "sendSSE",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(type, data)",
-      "callCount": 3
-    },
-    {
-      "type": "function",
-      "name": "sendSSE",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(type, data)",
-      "callCount": 3
     },
     {
       "type": "function",
@@ -16132,51 +16705,8 @@
       "callCount": 2
     },
     {
-      "type": "function",
-      "name": "runShellCmd",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(command, cwd, timeoutMs = 10_000)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "scanProjectFiles",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(cwd, maxFiles = 0)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "collectProjectHealth",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(root, paaw)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "fixId",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(cat, name)",
-      "callCount": 2
-    },
-    {
       "type": "export",
       "name": "computeCuStaleness",
-      "file": "packages/server/src/routes/coding.mjs",
-      "kind": "function",
-      "isDefault": false
-    },
-    {
-      "type": "export",
-      "name": "callProjectLLM",
       "file": "packages/server/src/routes/coding.mjs",
       "kind": "function",
       "isDefault": false
@@ -16201,132 +16731,6 @@
       "file": "packages/server/src/routes/coding.mjs",
       "method": "GET",
       "path": "/api/coding-project/ui-features"
-    },
-    {
-      "type": "route",
-      "name": "POST /api/coding-crew/chat",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "POST",
-      "path": "/api/coding-crew/chat"
-    },
-    {
-      "type": "route",
-      "name": "POST /api/coding-crew/dispatch",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "POST",
-      "path": "/api/coding-crew/dispatch"
-    },
-    {
-      "type": "route",
-      "name": "GET /api/coding-crew/qa-results",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "GET",
-      "path": "/api/coding-crew/qa-results"
-    },
-    {
-      "type": "route",
-      "name": "POST /api/coding-crew/qa-results",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "POST",
-      "path": "/api/coding-crew/qa-results"
-    },
-    {
-      "type": "route",
-      "name": "POST /api/coding-crew/context-window",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "POST",
-      "path": "/api/coding-crew/context-window"
-    },
-    {
-      "type": "route",
-      "name": "GET /api/coding-project/ru-log",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "GET",
-      "path": "/api/coding-project/ru-log"
-    },
-    {
-      "type": "route",
-      "name": "GET /api/coding-crew/action-log/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "GET",
-      "path": "/api/coding-crew/action-log/*"
-    },
-    {
-      "type": "route",
-      "name": "POST /api/coding-crew/em-plan",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "POST",
-      "path": "/api/coding-crew/em-plan"
-    },
-    {
-      "type": "route",
-      "name": "POST /api/coding-crew/em-execute",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "POST",
-      "path": "/api/coding-crew/em-execute"
-    },
-    {
-      "type": "route",
-      "name": "POST /api/coding-crew/interrupt",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "POST",
-      "path": "/api/coding-crew/interrupt"
-    },
-    {
-      "type": "route",
-      "name": "GET /api/coding-crew/running",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "GET",
-      "path": "/api/coding-crew/running"
-    },
-    {
-      "type": "route",
-      "name": "POST /api/coding-project/cu-skills/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "POST",
-      "path": "/api/coding-project/cu-skills/*"
-    },
-    {
-      "type": "route",
-      "name": "GET /api/coding-project/skills/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "GET",
-      "path": "/api/coding-project/skills/*"
-    },
-    {
-      "type": "route",
-      "name": "GET /api/coding-project/agent-memory/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "GET",
-      "path": "/api/coding-project/agent-memory/*"
-    },
-    {
-      "type": "route",
-      "name": "PUT /api/coding-project/agent-memory/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "PUT",
-      "path": "/api/coding-project/agent-memory/*"
-    },
-    {
-      "type": "route",
-      "name": "DELETE /api/coding-project/agent-memory/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "DELETE",
-      "path": "/api/coding-project/agent-memory/*"
-    },
-    {
-      "type": "route",
-      "name": "GET /api/coding-project/crew-export/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "GET",
-      "path": "/api/coding-project/crew-export/*"
-    },
-    {
-      "type": "route",
-      "name": "POST /api/coding-project/crew-import/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "method": "POST",
-      "path": "/api/coding-project/crew-import/*"
     },
     {
       "type": "route",
@@ -26742,6 +27146,580 @@
     },
     {
       "type": "function",
+      "name": "toolExecTimeoutMs",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(toolName, args, agentCfg)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "raceAbortTool",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(promise, abortSignal, toolName)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "mk",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "()",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "onAbort",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "()",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "LOG",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(...args)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "setAgentConfig",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(cfg)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_buildTestCommand",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(cwd, testFiles)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_parseTestResult",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(output)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_findConventionTests",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(cwd, changedFiles)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_nativeGlob",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(basePath, pattern, maxResults = 100, cwd = basePath)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "walk",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(dir, depth)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_nativeGrep",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(searchPath, pattern, include, maxResults = 50, ignoreCase = true, cwd = searchPath)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "walk",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(dir, depth)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "runShell",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(command, cwd, timeoutMs = 30_000, opts = {})",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "executeTool",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(call, cwd, rootDir, onEvent, agentId, featureBoundary = null)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "resolvePath",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(p)",
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "writeDenialReason",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(p)",
+      "callCount": 23
+    },
+    {
+      "type": "function",
+      "name": "norm",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(s)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "startsWith",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(target, prefix)",
+      "callCount": 5
+    },
+    {
+      "type": "function",
+      "name": "isPathAllowed",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(p, write = false)",
+      "callCount": 18
+    },
+    {
+      "type": "function",
+      "name": "norm",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(s)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "startsWith",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(target, prefix)",
+      "callCount": 5
+    },
+    {
+      "type": "function",
+      "name": "_checkBoundary",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(filePath)",
+      "callCount": 7
+    },
+    {
+      "type": "function",
+      "name": "_recordViolation",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(file, tool)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "resolveInBases",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(p)",
+      "callCount": 14
+    },
+    {
+      "type": "function",
+      "name": "searchDir",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(dir, relBase)",
+      "callCount": 16
+    },
+    {
+      "type": "function",
+      "name": "readDoc",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": true,
+      "params": "(rel)",
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "fmt",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(list, label)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "git",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(c)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "evPush",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(label, ok, note)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "_collectionsFile",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "()",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "_loadCols",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "()",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "hit",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(c)",
+      "callCount": 6
+    },
+    {
+      "type": "function",
+      "name": "fmt",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(c)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "hit",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(c)",
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "rel",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(p)",
+      "callCount": 4
+    },
+    {
+      "type": "function",
+      "name": "_loadProject",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(pid)",
+      "callCount": 4
+    },
+    {
+      "type": "function",
+      "name": "_saveProject",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(p)",
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "safe",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(s)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "readSess",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(dir, f)",
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "fmtTime",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(t)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "norm",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "",
+      "callCount": 7
+    },
+    {
+      "type": "function",
+      "name": "normType",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "normType",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "normStatus",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "",
+      "callCount": 7
+    },
+    {
+      "type": "function",
+      "name": "normType",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "",
+      "callCount": 2
+    },
+    {
+      "type": "export",
+      "name": "_crewGroupCache",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "variable",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "DEFAULT_CONTEXT_WINDOW",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "variable",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "TOOL_GROUP_MAP",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "CORE_READ_TOOLS",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "AGENT_FALLBACK_GROUPS",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "_crewDenyCache",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "CONTEXT_SAFETY_MARGIN",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "LLM_CALL_TIMEOUT_MS",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "executeTool",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "toolExecTimeoutMs",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "raceAbortTool",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "setAgentConfig",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "_agentCfg",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "_agentCfgDefaults",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "APPROVAL_WAIT_BUDGET_MS",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "runShell",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "_nativeGlob",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "_nativeGrep",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "_buildTestCommand",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "_parseTestResult",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "_findConventionTests",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "LOG",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "component",
+      "name": "LOG",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "kind": "arrow"
+    },
+    {
+      "type": "function",
       "name": "loadProviderConfig",
       "file": "packages/server/src/lib/paaw-agent-loop.mjs",
       "kind": "function",
@@ -26757,42 +27735,6 @@
       "async": false,
       "params": "(_rootDir, modelOverride, fallbackModels)",
       "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "toolExecTimeoutMs",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(toolName, args, agentCfg)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "raceAbortTool",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(promise, abortSignal, toolName)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "mk",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "onAbort",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 2
     },
     {
       "type": "function",
@@ -26856,384 +27798,6 @@
       "async": false,
       "params": "(agentId)",
       "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "LOG",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(...args)",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "setAgentConfig",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(cfg)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "_buildTestCommand",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(cwd, testFiles)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "_parseTestResult",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(output)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "_findConventionTests",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(cwd, changedFiles)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "_nativeGlob",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(basePath, pattern, maxResults = 100, cwd = basePath)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "walk",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(dir, depth)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "_nativeGrep",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(searchPath, pattern, include, maxResults = 50, ignoreCase = true, cwd = searchPath)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "walk",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(dir, depth)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "runShell",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(command, cwd, timeoutMs = 30_000, opts = {})",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "executeTool",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(call, cwd, rootDir, onEvent, agentId, featureBoundary = null)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "resolvePath",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(p)",
-      "callCount": 3
-    },
-    {
-      "type": "function",
-      "name": "writeDenialReason",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(p)",
-      "callCount": 23
-    },
-    {
-      "type": "function",
-      "name": "norm",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(s)",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "startsWith",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(target, prefix)",
-      "callCount": 5
-    },
-    {
-      "type": "function",
-      "name": "isPathAllowed",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(p, write = false)",
-      "callCount": 18
-    },
-    {
-      "type": "function",
-      "name": "norm",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(s)",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "startsWith",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(target, prefix)",
-      "callCount": 5
-    },
-    {
-      "type": "function",
-      "name": "_checkBoundary",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(filePath)",
-      "callCount": 7
-    },
-    {
-      "type": "function",
-      "name": "_recordViolation",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(file, tool)",
-      "callCount": 2
-    },
-    {
-      "type": "function",
-      "name": "resolveInBases",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(p)",
-      "callCount": 14
-    },
-    {
-      "type": "function",
-      "name": "searchDir",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(dir, relBase)",
-      "callCount": 16
-    },
-    {
-      "type": "function",
-      "name": "readDoc",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": true,
-      "params": "(rel)",
-      "callCount": 3
-    },
-    {
-      "type": "function",
-      "name": "fmt",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(list, label)",
-      "callCount": 2
-    },
-    {
-      "type": "function",
-      "name": "git",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(c)",
-      "callCount": 2
-    },
-    {
-      "type": "function",
-      "name": "evPush",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(label, ok, note)",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "_collectionsFile",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "_loadCols",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "hit",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(c)",
-      "callCount": 6
-    },
-    {
-      "type": "function",
-      "name": "fmt",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(c)",
-      "callCount": 2
-    },
-    {
-      "type": "function",
-      "name": "hit",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(c)",
-      "callCount": 3
-    },
-    {
-      "type": "function",
-      "name": "rel",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(p)",
-      "callCount": 4
-    },
-    {
-      "type": "function",
-      "name": "_loadProject",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(pid)",
-      "callCount": 4
-    },
-    {
-      "type": "function",
-      "name": "_saveProject",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(p)",
-      "callCount": 3
-    },
-    {
-      "type": "function",
-      "name": "safe",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(s)",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "readSess",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(dir, f)",
-      "callCount": 3
-    },
-    {
-      "type": "function",
-      "name": "fmtTime",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(t)",
-      "callCount": 2
-    },
-    {
-      "type": "function",
-      "name": "norm",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "",
-      "callCount": 7
-    },
-    {
-      "type": "function",
-      "name": "normType",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "",
-      "callCount": 2
-    },
-    {
-      "type": "function",
-      "name": "normType",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "",
-      "callCount": 2
-    },
-    {
-      "type": "function",
-      "name": "normStatus",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "",
-      "callCount": 7
-    },
-    {
-      "type": "function",
-      "name": "normType",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "",
-      "callCount": 2
     },
     {
       "type": "function",
@@ -27390,6 +27954,13 @@
     },
     {
       "type": "export",
+      "name": "_PAAW_ROOT",
+      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "kind": "variable",
+      "isDefault": false
+    },
+    {
+      "type": "export",
       "name": "resolveLLMConfig",
       "file": "packages/server/src/lib/paaw-agent-loop.mjs",
       "kind": "function",
@@ -27399,7 +27970,28 @@
       "type": "export",
       "name": "PAAW_TOOLS",
       "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "variable",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "executeTool",
+      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "_setAgentConfig",
+      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "LOG",
+      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "kind": "named",
       "isDefault": false
     },
     {
@@ -27426,20 +28018,6 @@
     {
       "type": "export",
       "name": "getAgentGroups",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "isDefault": false
-    },
-    {
-      "type": "export",
-      "name": "setAgentConfig",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "isDefault": false
-    },
-    {
-      "type": "export",
-      "name": "executeTool",
       "file": "packages/server/src/lib/paaw-agent-loop.mjs",
       "kind": "function",
       "isDefault": false
@@ -27480,10 +28058,11 @@
       "isDefault": false
     },
     {
-      "type": "component",
-      "name": "LOG",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow"
+      "type": "export",
+      "name": "PAAW_TOOLS",
+      "file": "packages/server/src/lib/paaw-agent-tools.mjs",
+      "kind": "named",
+      "isDefault": false
     },
     {
       "type": "function",
@@ -27913,6 +28492,229 @@
       "name": "PaawSnapshot",
       "file": "packages/server/src/lib/paaw-snapshot.mjs",
       "kind": "class",
+      "isDefault": false
+    },
+    {
+      "type": "function",
+      "name": "isParamSeg",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(seg)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "normRoute",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(p)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "esc",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(s)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "validRouteStr",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(p)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "urlMatchesRoute",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(url, route)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "segEq",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(u, r)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "extractApiCallUrls",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(src)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "urlMatchesApiEntry",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(url, entry)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "segEq",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(u, a)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "walkSrc",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root, maxDepth = 10)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "walk",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(dir, depth, prefix)",
+      "callCount": 11
+    },
+    {
+      "type": "function",
+      "name": "readSafe",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(full)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "extractRoutesFromCode",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(src, kind)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "add",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(p)",
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "tanstackRoutes",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(files)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "fileBasedRoutes",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(files)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "findRouterFiles",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(files)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "resolveImport",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(fromRel, spec, filesByRel)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "resolveAlias",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(spec, filesByRel)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "importGraph",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(rel, filesByRel, cache, depth = 0)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "unitTestFor",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(relFile, testIndex)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "collectE2eUrls",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "walk",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(dir, depth, prefix)",
+      "callCount": 15
+    },
+    {
+      "type": "function",
+      "name": "buildPageInventory",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root, apis = [], opts = {})",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "buildPageInventory",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
       "isDefault": false
     },
     {
@@ -38471,6 +39273,15 @@
       {
         "type": "function",
         "name": "mk",
+        "file": "tests/unit/page-inventory.test.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(p, c)",
+        "callCount": 4
+      },
+      {
+        "type": "function",
+        "name": "mk",
         "file": "tests/unit/subfeature-refine.test.mjs",
         "kind": "arrow",
         "async": false,
@@ -38489,7 +39300,7 @@
       {
         "type": "function",
         "name": "mk",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
         "kind": "arrow",
         "async": false,
         "params": "()",
@@ -38623,7 +39434,7 @@
       {
         "type": "function",
         "name": "git",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
         "kind": "arrow",
         "async": false,
         "params": "(c)",
@@ -38896,6 +39707,84 @@
         "name": "release",
         "file": "tests/unit/coding-auto-dispatch.test.mjs",
         "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "release",
+        "file": "tests/unit/coding-auto-dispatch.test.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "release",
+        "file": "tests/unit/coding-auto-dispatch.test.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "release",
+        "file": "tests/unit/coding-auto-dispatch.test.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "release",
+        "file": "tests/unit/coding-auto-dispatch.test.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "release",
+        "file": "tests/unit/coding-auto-dispatch.test.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      }
+    ],
+    "writeRun": [
+      {
+        "type": "function",
+        "name": "writeRun",
+        "file": "tests/unit/coding-auto-dispatch.test.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(id, obj)",
+        "callCount": 0
+      }
+    ],
+    "runsDir": [
+      {
+        "type": "function",
+        "name": "runsDir",
+        "file": "tests/unit/coding-auto-dispatch.test.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      }
+    ],
+    "listRuns": [
+      {
+        "type": "function",
+        "name": "listRuns",
+        "file": "tests/unit/coding-auto-dispatch.test.mjs",
+        "kind": "function",
         "async": false,
         "params": "()",
         "callCount": 0
@@ -39822,6 +40711,37 @@
         "callCount": 0
       }
     ],
+    "mkProject": [
+      {
+        "type": "function",
+        "name": "mkProject",
+        "file": "tests/unit/page-inventory.test.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "mkProject",
+        "file": "tests/unit/ru-skills.test.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      }
+    ],
+    "mk2": [
+      {
+        "type": "function",
+        "name": "mk2",
+        "file": "tests/unit/page-inventory.test.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root, p, c)",
+        "callCount": 0
+      }
+    ],
     "loadProviders": [
       {
         "type": "function",
@@ -40149,17 +41069,6 @@
         "kind": "function",
         "async": false,
         "params": "(dataHome, id, { kind = \"physical-skill\", name, body = \"hello template\", extraFiles = {} } = {})",
-        "callCount": 0
-      }
-    ],
-    "mkProject": [
-      {
-        "type": "function",
-        "name": "mkProject",
-        "file": "tests/unit/ru-skills.test.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "()",
         "callCount": 0
       }
     ],
@@ -40925,6 +41834,15 @@
         "async": false,
         "params": "(u)",
         "callCount": 2
+      },
+      {
+        "type": "function",
+        "name": "add",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(p)",
+        "callCount": 3
       },
       {
         "type": "function",
@@ -41843,6 +42761,15 @@
       {
         "type": "function",
         "name": "walk",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(v)",
+        "callCount": 4
+      },
+      {
+        "type": "function",
+        "name": "walk",
         "file": "packages/server/src/routes/coding-releases.mjs",
         "kind": "arrow",
         "async": false,
@@ -41866,15 +42793,6 @@
         "async": false,
         "params": "(dir, depth)",
         "callCount": 11
-      },
-      {
-        "type": "function",
-        "name": "walk",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(v)",
-        "callCount": 4
       },
       {
         "type": "function",
@@ -41906,7 +42824,7 @@
       {
         "type": "function",
         "name": "walk",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
         "kind": "function",
         "async": true,
         "params": "(dir, depth)",
@@ -41915,7 +42833,7 @@
       {
         "type": "function",
         "name": "walk",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
         "kind": "function",
         "async": true,
         "params": "(dir, depth)",
@@ -41929,6 +42847,24 @@
         "async": true,
         "params": "(dirPath, parentNode, depth = 0)",
         "callCount": 9
+      },
+      {
+        "type": "function",
+        "name": "walk",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(dir, depth, prefix)",
+        "callCount": 11
+      },
+      {
+        "type": "function",
+        "name": "walk",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(dir, depth, prefix)",
+        "callCount": 15
       },
       {
         "type": "function",
@@ -42475,11 +43411,18 @@
       {
         "type": "function",
         "name": "fmtTime",
-        "file": "packages/ui/src/pages/CodingIDE.tsx",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
         "kind": "function",
         "async": false,
         "params": "(iso: string)",
         "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "fmtTime",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
       },
       {
         "type": "function",
@@ -42502,7 +43445,7 @@
       {
         "type": "function",
         "name": "fmtTime",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
         "kind": "arrow",
         "async": false,
         "params": "(t)",
@@ -43443,11 +44386,18 @@
       {
         "type": "function",
         "name": "getHljsLang",
-        "file": "packages/ui/src/pages/CodingIDE.tsx",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
         "kind": "function",
         "async": false,
         "params": "(name: string)",
         "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "getHljsLang",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
       }
     ],
     "normalizePath": [
@@ -43955,130 +44905,6 @@
         "callCount": 5
       }
     ],
-    "ToolLogRow": [
-      {
-        "type": "function",
-        "name": "ToolLogRow",
-        "file": "packages/ui/src/pages/CodingIDE.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ name, args, running }: { name: string; args: string; running: boolean })",
-        "callCount": 0
-      },
-      {
-        "type": "component",
-        "name": "ToolLogRow",
-        "file": "packages/ui/src/pages/CodingIDE.tsx",
-        "kind": "function"
-      }
-    ],
-    "crewToAgentId": [
-      {
-        "type": "function",
-        "name": "crewToAgentId",
-        "file": "packages/ui/src/pages/CodingIDE.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "(crewId: string)",
-        "callCount": 1
-      }
-    ],
-    "TREE_NOOP": [
-      {
-        "type": "function",
-        "name": "TREE_NOOP",
-        "file": "packages/ui/src/pages/CodingIDE.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 0
-      },
-      {
-        "type": "component",
-        "name": "TREE_NOOP",
-        "file": "packages/ui/src/pages/CodingIDE.tsx",
-        "kind": "arrow"
-      }
-    ],
-    "getFileIcon": [
-      {
-        "type": "function",
-        "name": "getFileIcon",
-        "file": "packages/ui/src/pages/CodingIDE.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(name: string)",
-        "callCount": 0
-      }
-    ],
-    "getLanguage": [
-      {
-        "type": "function",
-        "name": "getLanguage",
-        "file": "packages/ui/src/pages/CodingIDE.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(name: string)",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "getLanguage",
-        "file": "packages/server/src/lib/tree-sitter-parser.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(lang, paawRoot)",
-        "callCount": 0
-      }
-    ],
-    "escapeHtml": [
-      {
-        "type": "function",
-        "name": "escapeHtml",
-        "file": "packages/ui/src/pages/CodingIDE.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(str: string)",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "escapeHtml",
-        "file": "packages/ui/src/pages/FileViewer.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(str: string)",
-        "callCount": 0
-      }
-    ],
-    "safeStr": [
-      {
-        "type": "function",
-        "name": "safeStr",
-        "file": "packages/ui/src/pages/CodingIDE.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(v: any)",
-        "callCount": 0
-      }
-    ],
-    "EditorTabContent": [
-      {
-        "type": "function",
-        "name": "EditorTabContent",
-        "file": "packages/ui/src/pages/CodingIDE.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ tabId, filePath, tabData, isActive, isEditing, textareaRef, lineNumWidth, handleContentChange, stopEditing, handleCodeViewClick, startEditing, tk, tt, openFile }: {\n  tabId: string;\n  filePath: string;\n  tabData: OpenTab | undefined;\n  isActive: boolean;\n  isEditing: boolean;\n  textareaRef: React.RefObject<HTMLTextAreaElement | null>;\n  lineNumWidth: number;\n  handleContentChange: (v: string) => void;\n  stopEditing: () => void;\n  handleCodeViewClick: (e: React.MouseEvent) => void;\n  startEditing: () => void;\n  tk: any;\n  tt: (k: string) => string;\n  openFile: (path: string) => void;\n})",
-        "callCount": 0
-      },
-      {
-        "type": "component",
-        "name": "EditorTabContent",
-        "file": "packages/ui/src/pages/CodingIDE.tsx",
-        "kind": "function"
-      }
-    ],
     "CodingIDE": [
       {
         "type": "function",
@@ -44172,17 +44998,6 @@
         "async": true,
         "params": "()",
         "callCount": 7
-      }
-    ],
-    "highlightMatch": [
-      {
-        "type": "function",
-        "name": "highlightMatch",
-        "file": "packages/ui/src/pages/CodingIDE.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(text: string, query: string, caseSensitive: boolean)",
-        "callCount": 0
       }
     ],
     "CronJobsPage": [
@@ -44459,6 +45274,33 @@
         "name": "MarkdownView",
         "file": "packages/ui/src/pages/FileViewer.tsx",
         "kind": "function"
+      }
+    ],
+    "escapeHtml": [
+      {
+        "type": "function",
+        "name": "escapeHtml",
+        "file": "packages/ui/src/pages/FileViewer.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(str: string)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "escapeHtml",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(str: string)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "escapeHtml",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
       }
     ],
     "CodeView": [
@@ -45902,6 +46744,396 @@
         "callCount": 13
       }
     ],
+    "ToolLogRow": [
+      {
+        "type": "function",
+        "name": "ToolLogRow",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "({ name, args, running }: { name: string; args: string; running: boolean })",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "ToolLogRow",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "component",
+        "name": "ToolLogRow",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "function"
+      }
+    ],
+    "crewToAgentId": [
+      {
+        "type": "function",
+        "name": "crewToAgentId",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(crewId: string)",
+        "callCount": 1
+      },
+      {
+        "type": "export",
+        "name": "crewToAgentId",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "TREE_NOOP": [
+      {
+        "type": "function",
+        "name": "TREE_NOOP",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "TREE_NOOP",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "component",
+        "name": "TREE_NOOP",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "arrow"
+      }
+    ],
+    "getFileIcon": [
+      {
+        "type": "function",
+        "name": "getFileIcon",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(name: string)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "getFileIcon",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "getLanguage": [
+      {
+        "type": "function",
+        "name": "getLanguage",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(name: string)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "getLanguage",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "function",
+        "name": "getLanguage",
+        "file": "packages/server/src/lib/tree-sitter-parser.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(lang, paawRoot)",
+        "callCount": 0
+      }
+    ],
+    "safeStr": [
+      {
+        "type": "function",
+        "name": "safeStr",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(v: any)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "safeStr",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "EditorTabContent": [
+      {
+        "type": "function",
+        "name": "EditorTabContent",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "({ tabId, filePath, tabData, isActive, isEditing, textareaRef, lineNumWidth, handleContentChange, stopEditing, handleCodeViewClick, startEditing, tk, tt, openFile }: {\n  tabId: string;\n  filePath: string;\n  tabData: OpenTab | undefined;\n  isActive: boolean;\n  isEditing: boolean;\n  textareaRef: React.RefObject<HTMLTextAreaElement | null>;\n  lineNumWidth: number;\n  handleContentChange: (v: string) => void;\n  stopEditing: () => void;\n  handleCodeViewClick: (e: React.MouseEvent) => void;\n  startEditing: () => void;\n  tk: any;\n  tt: (k: string) => string;\n  openFile: (path: string) => void;\n})",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "EditorTabContent",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "component",
+        "name": "EditorTabContent",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "function"
+      }
+    ],
+    "highlightMatch": [
+      {
+        "type": "function",
+        "name": "highlightMatch",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(text: string, query: string, caseSensitive: boolean)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "highlightMatch",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "ApiHeader": [
+      {
+        "type": "export",
+        "name": "ApiHeader",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "export",
+        "name": "ApiHeader",
+        "file": "packages/ui/src/components/ApiRequestTabSheet.tsx",
+        "kind": "type",
+        "isDefault": false
+      }
+    ],
+    "ApiHistoryItem": [
+      {
+        "type": "export",
+        "name": "ApiHistoryItem",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "export",
+        "name": "ApiHistoryItem",
+        "file": "packages/ui/src/components/ApiTesterTabs.tsx",
+        "kind": "type",
+        "isDefault": false
+      }
+    ],
+    "ApiResponse": [
+      {
+        "type": "export",
+        "name": "ApiResponse",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "export",
+        "name": "ApiResponse",
+        "file": "packages/ui/src/components/ApiRequestTabSheet.tsx",
+        "kind": "type",
+        "isDefault": false
+      }
+    ],
+    "BlameLine": [
+      {
+        "type": "export",
+        "name": "BlameLine",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "ChatMessage": [
+      {
+        "type": "export",
+        "name": "ChatMessage",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "export",
+        "name": "ChatMessage",
+        "file": "packages/shared/src/schemas/index.ts",
+        "kind": "variable",
+        "isDefault": false
+      },
+      {
+        "type": "export",
+        "name": "ChatMessage",
+        "file": "packages/shared/src/schemas/index.ts",
+        "kind": "type",
+        "isDefault": false
+      },
+      {
+        "type": "export",
+        "name": "ChatMessage",
+        "file": "packages/engine/src/index.ts",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "export",
+        "name": "ChatMessage",
+        "file": "packages/engine/src/tool-engine/index.ts",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "export",
+        "name": "ChatMessage",
+        "file": "packages/engine/src/tool-engine/types.ts",
+        "kind": "type",
+        "isDefault": false
+      }
+    ],
+    "CodingEvent": [
+      {
+        "type": "export",
+        "name": "CodingEvent",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "FsItem": [
+      {
+        "type": "export",
+        "name": "FsItem",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "GitCommit": [
+      {
+        "type": "export",
+        "name": "GitCommit",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "export",
+        "name": "GitCommit",
+        "file": "packages/ui/src/components/git/git-helpers.ts",
+        "kind": "type",
+        "isDefault": false
+      },
+      {
+        "type": "export",
+        "name": "GitCommit",
+        "file": "packages/ui/src/components/git/index.ts",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "GitFileStatus": [
+      {
+        "type": "export",
+        "name": "GitFileStatus",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "export",
+        "name": "GitFileStatus",
+        "file": "packages/ui/src/components/git/git-helpers.ts",
+        "kind": "type",
+        "isDefault": false
+      },
+      {
+        "type": "export",
+        "name": "GitFileStatus",
+        "file": "packages/ui/src/components/git/index.ts",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "MainTab": [
+      {
+        "type": "export",
+        "name": "MainTab",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "MainTabType": [
+      {
+        "type": "export",
+        "name": "MainTabType",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "OpenTab": [
+      {
+        "type": "export",
+        "name": "OpenTab",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "CREW_TO_AGENT": [
+      {
+        "type": "export",
+        "name": "CREW_TO_AGENT",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "EMPTY_TOOL_LOG": [
+      {
+        "type": "export",
+        "name": "EMPTY_TOOL_LOG",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "_chatScrollCache": [
+      {
+        "type": "export",
+        "name": "_chatScrollCache",
+        "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
     "getStoredLocale": [
       {
         "type": "function",
@@ -46318,24 +47550,6 @@
         "callCount": 0
       }
     ],
-    "ApiHeader": [
-      {
-        "type": "export",
-        "name": "ApiHeader",
-        "file": "packages/ui/src/components/ApiRequestTabSheet.tsx",
-        "kind": "type",
-        "isDefault": false
-      }
-    ],
-    "ApiResponse": [
-      {
-        "type": "export",
-        "name": "ApiResponse",
-        "file": "packages/ui/src/components/ApiRequestTabSheet.tsx",
-        "kind": "type",
-        "isDefault": false
-      }
-    ],
     "ApiHistoryItemLike": [
       {
         "type": "export",
@@ -46449,15 +47663,6 @@
         "async": false,
         "params": "(key: typeof tab, emoji: string, label: string, count?: number)",
         "callCount": 1
-      }
-    ],
-    "ApiHistoryItem": [
-      {
-        "type": "export",
-        "name": "ApiHistoryItem",
-        "file": "packages/ui/src/components/ApiTesterTabs.tsx",
-        "kind": "type",
-        "isDefault": false
       }
     ],
     "Badge": [
@@ -46937,7 +48142,7 @@
       {
         "type": "function",
         "name": "fmt",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
         "kind": "arrow",
         "async": false,
         "params": "(list, label)",
@@ -46946,7 +48151,7 @@
       {
         "type": "function",
         "name": "fmt",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
         "kind": "arrow",
         "async": false,
         "params": "(c)",
@@ -47474,6 +48679,50 @@
         "name": "DispatchReports",
         "file": "packages/ui/src/components/DispatchReports.tsx",
         "kind": "function"
+      }
+    ],
+    "DispatchWizard": [
+      {
+        "type": "function",
+        "name": "DispatchWizard",
+        "file": "packages/ui/src/components/DispatchWizard.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "({ rootPath, theme: tk, onClose }: Props)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "DispatchWizard",
+        "file": "packages/ui/src/components/DispatchWizard.tsx",
+        "kind": "function",
+        "isDefault": true
+      },
+      {
+        "type": "component",
+        "name": "DispatchWizard",
+        "file": "packages/ui/src/components/DispatchWizard.tsx",
+        "kind": "function"
+      }
+    ],
+    "submit": [
+      {
+        "type": "function",
+        "name": "submit",
+        "file": "packages/ui/src/components/DispatchWizard.tsx",
+        "kind": "function",
+        "async": true,
+        "params": "()",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "submit",
+        "file": "packages/ui/src/components/RuCloneModal.tsx",
+        "kind": "arrow",
+        "async": true,
+        "params": "()",
+        "callCount": 18
       }
     ],
     "fmtChatTs": [
@@ -48912,6 +50161,17 @@
         "callCount": 10
       }
     ],
+    "loadPageInv": [
+      {
+        "type": "function",
+        "name": "loadPageInv",
+        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+        "kind": "arrow",
+        "async": true,
+        "params": "()",
+        "callCount": 10
+      }
+    ],
     "loadApiStatus": [
       {
         "type": "function",
@@ -49305,17 +50565,6 @@
         "name": "RuCloneModal",
         "file": "packages/ui/src/components/RuCloneModal.tsx",
         "kind": "function"
-      }
-    ],
-    "submit": [
-      {
-        "type": "function",
-        "name": "submit",
-        "file": "packages/ui/src/components/RuCloneModal.tsx",
-        "kind": "arrow",
-        "async": true,
-        "params": "()",
-        "callCount": 18
       }
     ],
     "RuOnboardingModal": [
@@ -50471,7 +51720,7 @@
       {
         "type": "function",
         "name": "norm",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
         "kind": "arrow",
         "async": false,
         "params": "(s)",
@@ -50480,7 +51729,7 @@
       {
         "type": "function",
         "name": "norm",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
         "kind": "arrow",
         "async": false,
         "params": "(s)",
@@ -50489,7 +51738,7 @@
       {
         "type": "function",
         "name": "norm",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
         "kind": "arrow",
         "async": false,
         "params": "",
@@ -51010,38 +52259,6 @@
       {
         "type": "export",
         "name": "getStatusColorClass",
-        "file": "packages/ui/src/components/git/index.ts",
-        "kind": "named",
-        "isDefault": false
-      }
-    ],
-    "GitFileStatus": [
-      {
-        "type": "export",
-        "name": "GitFileStatus",
-        "file": "packages/ui/src/components/git/git-helpers.ts",
-        "kind": "type",
-        "isDefault": false
-      },
-      {
-        "type": "export",
-        "name": "GitFileStatus",
-        "file": "packages/ui/src/components/git/index.ts",
-        "kind": "named",
-        "isDefault": false
-      }
-    ],
-    "GitCommit": [
-      {
-        "type": "export",
-        "name": "GitCommit",
-        "file": "packages/ui/src/components/git/git-helpers.ts",
-        "kind": "type",
-        "isDefault": false
-      },
-      {
-        "type": "export",
-        "name": "GitCommit",
         "file": "packages/ui/src/components/git/index.ts",
         "kind": "named",
         "isDefault": false
@@ -51860,43 +53077,6 @@
         "type": "export",
         "name": "CronDefinition",
         "file": "packages/shared/src/schemas/index.ts",
-        "kind": "type",
-        "isDefault": false
-      }
-    ],
-    "ChatMessage": [
-      {
-        "type": "export",
-        "name": "ChatMessage",
-        "file": "packages/shared/src/schemas/index.ts",
-        "kind": "variable",
-        "isDefault": false
-      },
-      {
-        "type": "export",
-        "name": "ChatMessage",
-        "file": "packages/shared/src/schemas/index.ts",
-        "kind": "type",
-        "isDefault": false
-      },
-      {
-        "type": "export",
-        "name": "ChatMessage",
-        "file": "packages/engine/src/index.ts",
-        "kind": "named",
-        "isDefault": false
-      },
-      {
-        "type": "export",
-        "name": "ChatMessage",
-        "file": "packages/engine/src/tool-engine/index.ts",
-        "kind": "named",
-        "isDefault": false
-      },
-      {
-        "type": "export",
-        "name": "ChatMessage",
-        "file": "packages/engine/src/tool-engine/types.ts",
         "kind": "type",
         "isDefault": false
       }
@@ -53187,15 +54367,6 @@
         "async": false,
         "params": "(res, code, data)",
         "callCount": 3
-      },
-      {
-        "type": "function",
-        "name": "sendJSON",
-        "file": "packages/server/src/routes/coding-health.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(res, code, data)",
-        "callCount": 0
       },
       {
         "type": "function",
@@ -55193,7 +56364,7 @@
       {
         "type": "function",
         "name": "sendSSE",
-        "file": "packages/server/src/routes/coding.mjs",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
         "kind": "arrow",
         "async": false,
         "params": "(type, data)",
@@ -55202,7 +56373,7 @@
       {
         "type": "function",
         "name": "sendSSE",
-        "file": "packages/server/src/routes/coding.mjs",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
         "kind": "arrow",
         "async": false,
         "params": "(type, data)",
@@ -55398,6 +56569,297 @@
         "file": "packages/server/src/routes/coding-c4-model.mjs",
         "method": "POST",
         "path": "/api/coding-project/c4-model/rescan"
+      }
+    ],
+    "crewRoutes": [
+      {
+        "type": "function",
+        "name": "crewRoutes",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "({ req, res, method, url, q, projectPath })",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "crewRoutes",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "cleanupChatAgent": [
+      {
+        "type": "function",
+        "name": "cleanupChatAgent",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 1
+      }
+    ],
+    "cleanupDispatch": [
+      {
+        "type": "function",
+        "name": "cleanupDispatch",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 1
+      }
+    ],
+    "verifyWork": [
+      {
+        "type": "function",
+        "name": "verifyWork",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 1
+      }
+    ],
+    "getConvPaths": [
+      {
+        "type": "function",
+        "name": "getConvPaths",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(cwd, crewId)",
+        "callCount": 0
+      }
+    ],
+    "readConvFile": [
+      {
+        "type": "function",
+        "name": "readConvFile",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(filePath)",
+        "callCount": 0
+      }
+    ],
+    "migrateFlatConversations": [
+      {
+        "type": "function",
+        "name": "migrateFlatConversations",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(cwd)",
+        "callCount": 0
+      }
+    ],
+    "estimateTokens": [
+      {
+        "type": "function",
+        "name": "estimateTokens",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(text)",
+        "callCount": 1
+      },
+      {
+        "type": "function",
+        "name": "estimateTokens",
+        "file": "packages/server/src/lib/context-truncation.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(text)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "estimateTokens",
+        "file": "packages/server/src/lib/context-truncation.mjs",
+        "kind": "function",
+        "isDefault": false
+      },
+      {
+        "type": "function",
+        "name": "estimateTokens",
+        "file": "packages/context/src/assembler.ts",
+        "kind": "function",
+        "async": false,
+        "params": "(text: string)",
+        "callCount": 0
+      }
+    ],
+    "POST /api/coding-crew/chat": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-crew/chat",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "POST",
+        "path": "/api/coding-crew/chat"
+      }
+    ],
+    "POST /api/coding-crew/dispatch": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-crew/dispatch",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "POST",
+        "path": "/api/coding-crew/dispatch"
+      }
+    ],
+    "GET /api/coding-crew/qa-results": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-crew/qa-results",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "GET",
+        "path": "/api/coding-crew/qa-results"
+      }
+    ],
+    "POST /api/coding-crew/qa-results": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-crew/qa-results",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "POST",
+        "path": "/api/coding-crew/qa-results"
+      }
+    ],
+    "POST /api/coding-crew/context-window": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-crew/context-window",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "POST",
+        "path": "/api/coding-crew/context-window"
+      }
+    ],
+    "GET /api/coding-project/ru-log": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-project/ru-log",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "GET",
+        "path": "/api/coding-project/ru-log"
+      }
+    ],
+    "GET /api/coding-crew/action-log/*": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-crew/action-log/*",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "GET",
+        "path": "/api/coding-crew/action-log/*"
+      }
+    ],
+    "POST /api/coding-crew/em-job": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-crew/em-job",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "POST",
+        "path": "/api/coding-crew/em-job"
+      }
+    ],
+    "POST /api/coding-crew/em-plan": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-crew/em-plan",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "POST",
+        "path": "/api/coding-crew/em-plan"
+      }
+    ],
+    "POST /api/coding-crew/em-execute": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-crew/em-execute",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "POST",
+        "path": "/api/coding-crew/em-execute"
+      }
+    ],
+    "POST /api/coding-crew/interrupt": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-crew/interrupt",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "POST",
+        "path": "/api/coding-crew/interrupt"
+      }
+    ],
+    "GET /api/coding-crew/running": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-crew/running",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "GET",
+        "path": "/api/coding-crew/running"
+      }
+    ],
+    "POST /api/coding-project/cu-skills/*": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-project/cu-skills/*",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "POST",
+        "path": "/api/coding-project/cu-skills/*"
+      }
+    ],
+    "GET /api/coding-project/skills/*": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-project/skills/*",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "GET",
+        "path": "/api/coding-project/skills/*"
+      }
+    ],
+    "GET /api/coding-project/agent-memory/*": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-project/agent-memory/*",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "GET",
+        "path": "/api/coding-project/agent-memory/*"
+      }
+    ],
+    "PUT /api/coding-project/agent-memory/*": [
+      {
+        "type": "route",
+        "name": "PUT /api/coding-project/agent-memory/*",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "PUT",
+        "path": "/api/coding-project/agent-memory/*"
+      }
+    ],
+    "DELETE /api/coding-project/agent-memory/*": [
+      {
+        "type": "route",
+        "name": "DELETE /api/coding-project/agent-memory/*",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "DELETE",
+        "path": "/api/coding-project/agent-memory/*"
+      }
+    ],
+    "GET /api/coding-project/crew-export/*": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-project/crew-export/*",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "GET",
+        "path": "/api/coding-project/crew-export/*"
+      }
+    ],
+    "POST /api/coding-project/crew-import/*": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-project/crew-import/*",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "POST",
+        "path": "/api/coding-project/crew-import/*"
       }
     ],
     "codingDbRoute": [
@@ -55780,6 +57242,22 @@
       {
         "type": "function",
         "name": "parseQuery",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(url)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "parseQuery",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "function",
+        "name": "parseQuery",
         "file": "packages/server/src/routes/coding-issues.mjs",
         "kind": "function",
         "async": false,
@@ -55802,15 +57280,6 @@
         "kind": "function",
         "async": false,
         "params": "(rawUrl)",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "parseQuery",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(url)",
         "callCount": 0
       }
     ],
@@ -56399,55 +57868,292 @@
         "path": "/api/coding-handover/generate"
       }
     ],
-    "getAllowedRoots": [
+    "runShellCmd": [
       {
         "type": "function",
-        "name": "getAllowedRoots",
+        "name": "runShellCmd",
         "file": "packages/server/src/routes/coding-health.mjs",
         "kind": "function",
         "async": true,
-        "params": "()",
-        "callCount": 0
-      }
-    ],
-    "withinRoots": [
-      {
-        "type": "function",
-        "name": "withinRoots",
-        "file": "packages/server/src/routes/coding-health.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(absPath, roots)",
-        "callCount": 0
-      }
-    ],
-    "parsePath": [
-      {
-        "type": "function",
-        "name": "parsePath",
-        "file": "packages/server/src/routes/coding-health.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(req, roots)",
-        "callCount": 0
-      }
-    ],
-    "codingHealthRoute": [
-      {
-        "type": "function",
-        "name": "codingHealthRoute",
-        "file": "packages/server/src/routes/coding-health.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(req, res)",
+        "params": "(command, cwd, timeoutMs = 10_000)",
         "callCount": 0
       },
       {
         "type": "export",
-        "name": "codingHealthRoute",
+        "name": "runShellCmd",
+        "file": "packages/server/src/routes/coding-health.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "scanProjectFiles": [
+      {
+        "type": "function",
+        "name": "scanProjectFiles",
         "file": "packages/server/src/routes/coding-health.mjs",
         "kind": "function",
-        "isDefault": true
+        "async": true,
+        "params": "(cwd, maxFiles = 0)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "scanProjectFiles",
+        "file": "packages/server/src/routes/coding-health.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "collectProjectHealth": [
+      {
+        "type": "function",
+        "name": "collectProjectHealth",
+        "file": "packages/server/src/routes/coding-health.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(root, paaw)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "collectProjectHealth",
+        "file": "packages/server/src/routes/coding-health.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "fixId": [
+      {
+        "type": "function",
+        "name": "fixId",
+        "file": "packages/server/src/routes/coding-health.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(cat, name)",
+        "callCount": 2
+      }
+    ],
+    "cuLog": [
+      {
+        "type": "function",
+        "name": "cuLog",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(step, msg)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "cuLog",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "diffWriteFile": [
+      {
+        "type": "function",
+        "name": "diffWriteFile",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(paaw, filename, newContent)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "diffWriteFile",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "_stripCodeFence": [
+      {
+        "type": "function",
+        "name": "_stripCodeFence",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(text)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "_stripCodeFence",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "_sanitizeMd": [
+      {
+        "type": "function",
+        "name": "_sanitizeMd",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(md)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "_sanitizeMd",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "cuStepSkillKey": [
+      {
+        "type": "function",
+        "name": "cuStepSkillKey",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(stepId)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "cuStepSkillKey",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "loadCuStepSkills": [
+      {
+        "type": "function",
+        "name": "loadCuStepSkills",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(root, stepId)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "loadCuStepSkills",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "callProjectLLM": [
+      {
+        "type": "function",
+        "name": "callProjectLLM",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(body, opts = {})",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "callProjectLLM",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "_extractJsonArray": [
+      {
+        "type": "function",
+        "name": "_extractJsonArray",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(text)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "_extractJsonArray",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "function",
+        "name": "_extractJsonArray",
+        "file": "packages/server/src/lib/crosscut-concepts.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(text)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "_extractJsonArray",
+        "file": "packages/server/src/lib/test-signals.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(text)",
+        "callCount": 0
+      }
+    ],
+    "backfillApiTests": [
+      {
+        "type": "function",
+        "name": "backfillApiTests",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(root)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "backfillApiTests",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "_buildManifestContext": [
+      {
+        "type": "function",
+        "name": "_buildManifestContext",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "_buildManifestContext",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "CU_LLM_OPTS": [
+      {
+        "type": "export",
+        "name": "CU_LLM_OPTS",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "variable",
+        "isDefault": false
+      }
+    ],
+    "PAAW_ROOT": [
+      {
+        "type": "export",
+        "name": "PAAW_ROOT",
+        "file": "packages/server/src/routes/coding-helpers.mjs",
+        "kind": "variable",
+        "isDefault": false
+      },
+      {
+        "type": "export",
+        "name": "PAAW_ROOT",
+        "file": "packages/server/src/routes/shared.mjs",
+        "kind": "named",
+        "isDefault": false
       }
     ],
     "loadIssues": [
@@ -57131,6 +58837,15 @@
         "path": "/api/coding-releases/e2e-inventory"
       }
     ],
+    "GET /api/coding-releases/page-inventory": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-releases/page-inventory",
+        "file": "packages/server/src/routes/coding-releases.mjs",
+        "method": "GET",
+        "path": "/api/coding-releases/page-inventory"
+      }
+    ],
     "GET /api/coding-releases/evidence-by-api": [
       {
         "type": "route",
@@ -57784,141 +59499,6 @@
         "callCount": 3
       }
     ],
-    "cuLog": [
-      {
-        "type": "function",
-        "name": "cuLog",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(step, msg)",
-        "callCount": 0
-      }
-    ],
-    "diffWriteFile": [
-      {
-        "type": "function",
-        "name": "diffWriteFile",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(paaw, filename, newContent)",
-        "callCount": 0
-      }
-    ],
-    "_stripCodeFence": [
-      {
-        "type": "function",
-        "name": "_stripCodeFence",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(text)",
-        "callCount": 0
-      }
-    ],
-    "_sanitizeMd": [
-      {
-        "type": "function",
-        "name": "_sanitizeMd",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(md)",
-        "callCount": 0
-      }
-    ],
-    "cuStepSkillKey": [
-      {
-        "type": "function",
-        "name": "cuStepSkillKey",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(stepId)",
-        "callCount": 0
-      }
-    ],
-    "loadCuStepSkills": [
-      {
-        "type": "function",
-        "name": "loadCuStepSkills",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(root, stepId)",
-        "callCount": 0
-      }
-    ],
-    "callProjectLLM": [
-      {
-        "type": "function",
-        "name": "callProjectLLM",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(body, opts = {})",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "callProjectLLM",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "isDefault": false
-      }
-    ],
-    "_extractJsonArray": [
-      {
-        "type": "function",
-        "name": "_extractJsonArray",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(text)",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "_extractJsonArray",
-        "file": "packages/server/src/lib/crosscut-concepts.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(text)",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "_extractJsonArray",
-        "file": "packages/server/src/lib/test-signals.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(text)",
-        "callCount": 0
-      }
-    ],
-    "backfillApiTests": [
-      {
-        "type": "function",
-        "name": "backfillApiTests",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(root)",
-        "callCount": 0
-      }
-    ],
-    "_buildManifestContext": [
-      {
-        "type": "function",
-        "name": "_buildManifestContext",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(root)",
-        "callCount": 0
-      }
-    ],
     "projectRoute": [
       {
         "type": "function",
@@ -57935,108 +59515,6 @@
         "file": "packages/server/src/routes/coding.mjs",
         "kind": "function",
         "isDefault": true
-      }
-    ],
-    "cleanupChatAgent": [
-      {
-        "type": "function",
-        "name": "cleanupChatAgent",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 1
-      }
-    ],
-    "cleanupDispatch": [
-      {
-        "type": "function",
-        "name": "cleanupDispatch",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 1
-      }
-    ],
-    "verifyWork": [
-      {
-        "type": "function",
-        "name": "verifyWork",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 1
-      }
-    ],
-    "getConvPaths": [
-      {
-        "type": "function",
-        "name": "getConvPaths",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(cwd, crewId)",
-        "callCount": 0
-      }
-    ],
-    "readConvFile": [
-      {
-        "type": "function",
-        "name": "readConvFile",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(filePath)",
-        "callCount": 0
-      }
-    ],
-    "migrateFlatConversations": [
-      {
-        "type": "function",
-        "name": "migrateFlatConversations",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(cwd)",
-        "callCount": 0
-      }
-    ],
-    "estimateTokens": [
-      {
-        "type": "function",
-        "name": "estimateTokens",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(text)",
-        "callCount": 1
-      },
-      {
-        "type": "function",
-        "name": "estimateTokens",
-        "file": "packages/server/src/lib/context-truncation.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(text)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "estimateTokens",
-        "file": "packages/server/src/lib/context-truncation.mjs",
-        "kind": "function",
-        "isDefault": false
-      },
-      {
-        "type": "function",
-        "name": "estimateTokens",
-        "file": "packages/context/src/assembler.ts",
-        "kind": "function",
-        "async": false,
-        "params": "(text: string)",
-        "callCount": 0
       }
     ],
     "respond": [
@@ -58139,50 +59617,6 @@
         "callCount": 3
       }
     ],
-    "runShellCmd": [
-      {
-        "type": "function",
-        "name": "runShellCmd",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(command, cwd, timeoutMs = 10_000)",
-        "callCount": 0
-      }
-    ],
-    "scanProjectFiles": [
-      {
-        "type": "function",
-        "name": "scanProjectFiles",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(cwd, maxFiles = 0)",
-        "callCount": 0
-      }
-    ],
-    "collectProjectHealth": [
-      {
-        "type": "function",
-        "name": "collectProjectHealth",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(root, paaw)",
-        "callCount": 0
-      }
-    ],
-    "fixId": [
-      {
-        "type": "function",
-        "name": "fixId",
-        "file": "packages/server/src/routes/coding.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(cat, name)",
-        "callCount": 2
-      }
-    ],
     "GET /api/coding-project/api-features": [
       {
         "type": "route",
@@ -58199,168 +59633,6 @@
         "file": "packages/server/src/routes/coding.mjs",
         "method": "GET",
         "path": "/api/coding-project/ui-features"
-      }
-    ],
-    "POST /api/coding-crew/chat": [
-      {
-        "type": "route",
-        "name": "POST /api/coding-crew/chat",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "POST",
-        "path": "/api/coding-crew/chat"
-      }
-    ],
-    "POST /api/coding-crew/dispatch": [
-      {
-        "type": "route",
-        "name": "POST /api/coding-crew/dispatch",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "POST",
-        "path": "/api/coding-crew/dispatch"
-      }
-    ],
-    "GET /api/coding-crew/qa-results": [
-      {
-        "type": "route",
-        "name": "GET /api/coding-crew/qa-results",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "GET",
-        "path": "/api/coding-crew/qa-results"
-      }
-    ],
-    "POST /api/coding-crew/qa-results": [
-      {
-        "type": "route",
-        "name": "POST /api/coding-crew/qa-results",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "POST",
-        "path": "/api/coding-crew/qa-results"
-      }
-    ],
-    "POST /api/coding-crew/context-window": [
-      {
-        "type": "route",
-        "name": "POST /api/coding-crew/context-window",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "POST",
-        "path": "/api/coding-crew/context-window"
-      }
-    ],
-    "GET /api/coding-project/ru-log": [
-      {
-        "type": "route",
-        "name": "GET /api/coding-project/ru-log",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "GET",
-        "path": "/api/coding-project/ru-log"
-      }
-    ],
-    "GET /api/coding-crew/action-log/*": [
-      {
-        "type": "route",
-        "name": "GET /api/coding-crew/action-log/*",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "GET",
-        "path": "/api/coding-crew/action-log/*"
-      }
-    ],
-    "POST /api/coding-crew/em-plan": [
-      {
-        "type": "route",
-        "name": "POST /api/coding-crew/em-plan",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "POST",
-        "path": "/api/coding-crew/em-plan"
-      }
-    ],
-    "POST /api/coding-crew/em-execute": [
-      {
-        "type": "route",
-        "name": "POST /api/coding-crew/em-execute",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "POST",
-        "path": "/api/coding-crew/em-execute"
-      }
-    ],
-    "POST /api/coding-crew/interrupt": [
-      {
-        "type": "route",
-        "name": "POST /api/coding-crew/interrupt",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "POST",
-        "path": "/api/coding-crew/interrupt"
-      }
-    ],
-    "GET /api/coding-crew/running": [
-      {
-        "type": "route",
-        "name": "GET /api/coding-crew/running",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "GET",
-        "path": "/api/coding-crew/running"
-      }
-    ],
-    "POST /api/coding-project/cu-skills/*": [
-      {
-        "type": "route",
-        "name": "POST /api/coding-project/cu-skills/*",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "POST",
-        "path": "/api/coding-project/cu-skills/*"
-      }
-    ],
-    "GET /api/coding-project/skills/*": [
-      {
-        "type": "route",
-        "name": "GET /api/coding-project/skills/*",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "GET",
-        "path": "/api/coding-project/skills/*"
-      }
-    ],
-    "GET /api/coding-project/agent-memory/*": [
-      {
-        "type": "route",
-        "name": "GET /api/coding-project/agent-memory/*",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "GET",
-        "path": "/api/coding-project/agent-memory/*"
-      }
-    ],
-    "PUT /api/coding-project/agent-memory/*": [
-      {
-        "type": "route",
-        "name": "PUT /api/coding-project/agent-memory/*",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "PUT",
-        "path": "/api/coding-project/agent-memory/*"
-      }
-    ],
-    "DELETE /api/coding-project/agent-memory/*": [
-      {
-        "type": "route",
-        "name": "DELETE /api/coding-project/agent-memory/*",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "DELETE",
-        "path": "/api/coding-project/agent-memory/*"
-      }
-    ],
-    "GET /api/coding-project/crew-export/*": [
-      {
-        "type": "route",
-        "name": "GET /api/coding-project/crew-export/*",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "GET",
-        "path": "/api/coding-project/crew-export/*"
-      }
-    ],
-    "POST /api/coding-project/crew-import/*": [
-      {
-        "type": "route",
-        "name": "POST /api/coding-project/crew-import/*",
-        "file": "packages/server/src/routes/coding.mjs",
-        "method": "POST",
-        "path": "/api/coding-project/crew-import/*"
       }
     ],
     "POST /api/coding-project/create/*": [
@@ -60181,7 +61453,7 @@
       {
         "type": "function",
         "name": "readDoc",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
         "kind": "arrow",
         "async": true,
         "params": "(rel)",
@@ -60675,15 +61947,6 @@
       {
         "type": "export",
         "name": "DASHBOARD_ROOT",
-        "file": "packages/server/src/routes/shared.mjs",
-        "kind": "named",
-        "isDefault": false
-      }
-    ],
-    "PAAW_ROOT": [
-      {
-        "type": "export",
-        "name": "PAAW_ROOT",
         "file": "packages/server/src/routes/shared.mjs",
         "kind": "named",
         "isDefault": false
@@ -66438,6 +67701,15 @@
         "async": false,
         "params": "(seg)",
         "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "isParamSeg",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(seg)",
+        "callCount": 0
       }
     ],
     "esc": [
@@ -66445,6 +67717,15 @@
         "type": "function",
         "name": "esc",
         "file": "packages/server/src/lib/e2e-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(s)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "esc",
+        "file": "packages/server/src/lib/page-inventory.mjs",
         "kind": "function",
         "async": false,
         "params": "(s)",
@@ -66471,6 +67752,24 @@
         "async": false,
         "params": "(u, a)",
         "callCount": 3
+      },
+      {
+        "type": "function",
+        "name": "segEq",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(u, r)",
+        "callCount": 2
+      },
+      {
+        "type": "function",
+        "name": "segEq",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(u, a)",
+        "callCount": 2
       }
     ],
     "buildE2EInventory": [
@@ -70123,6 +71422,621 @@
         "isDefault": true
       }
     ],
+    "toolExecTimeoutMs": [
+      {
+        "type": "function",
+        "name": "toolExecTimeoutMs",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(toolName, args, agentCfg)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "toolExecTimeoutMs",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "raceAbortTool": [
+      {
+        "type": "function",
+        "name": "raceAbortTool",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(promise, abortSignal, toolName)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "raceAbortTool",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "onAbort": [
+      {
+        "type": "function",
+        "name": "onAbort",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 2
+      }
+    ],
+    "LOG": [
+      {
+        "type": "function",
+        "name": "LOG",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(...args)",
+        "callCount": 1
+      },
+      {
+        "type": "export",
+        "name": "LOG",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "component",
+        "name": "LOG",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow"
+      },
+      {
+        "type": "export",
+        "name": "LOG",
+        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "function",
+        "name": "LOG",
+        "file": "packages/server/src/lib/semgrep-runner.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(...args)",
+        "callCount": 3
+      },
+      {
+        "type": "component",
+        "name": "LOG",
+        "file": "packages/server/src/lib/semgrep-runner.mjs",
+        "kind": "arrow"
+      }
+    ],
+    "setAgentConfig": [
+      {
+        "type": "function",
+        "name": "setAgentConfig",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(cfg)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "setAgentConfig",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "_buildTestCommand": [
+      {
+        "type": "function",
+        "name": "_buildTestCommand",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(cwd, testFiles)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "_buildTestCommand",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "_parseTestResult": [
+      {
+        "type": "function",
+        "name": "_parseTestResult",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(output)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "_parseTestResult",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "_findConventionTests": [
+      {
+        "type": "function",
+        "name": "_findConventionTests",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(cwd, changedFiles)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "_findConventionTests",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "_nativeGlob": [
+      {
+        "type": "function",
+        "name": "_nativeGlob",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(basePath, pattern, maxResults = 100, cwd = basePath)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "_nativeGlob",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "_nativeGrep": [
+      {
+        "type": "function",
+        "name": "_nativeGrep",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(searchPath, pattern, include, maxResults = 50, ignoreCase = true, cwd = searchPath)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "_nativeGrep",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "runShell": [
+      {
+        "type": "function",
+        "name": "runShell",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(command, cwd, timeoutMs = 30_000, opts = {})",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "runShell",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "function",
+        "name": "runShell",
+        "file": "packages/server/src/lib/paaw-project.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(command, cwd, timeoutMs = 10_000)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "runShell",
+        "file": "packages/server/src/lib/paaw-snapshot.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(command, cwd, timeoutMs = 10_000)",
+        "callCount": 0
+      }
+    ],
+    "executeTool": [
+      {
+        "type": "function",
+        "name": "executeTool",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(call, cwd, rootDir, onEvent, agentId, featureBoundary = null)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "executeTool",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "export",
+        "name": "executeTool",
+        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "resolvePath": [
+      {
+        "type": "function",
+        "name": "resolvePath",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(p)",
+        "callCount": 3
+      }
+    ],
+    "writeDenialReason": [
+      {
+        "type": "function",
+        "name": "writeDenialReason",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(p)",
+        "callCount": 23
+      }
+    ],
+    "startsWith": [
+      {
+        "type": "function",
+        "name": "startsWith",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(target, prefix)",
+        "callCount": 5
+      },
+      {
+        "type": "function",
+        "name": "startsWith",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(target, prefix)",
+        "callCount": 5
+      }
+    ],
+    "isPathAllowed": [
+      {
+        "type": "function",
+        "name": "isPathAllowed",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(p, write = false)",
+        "callCount": 18
+      }
+    ],
+    "_checkBoundary": [
+      {
+        "type": "function",
+        "name": "_checkBoundary",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(filePath)",
+        "callCount": 7
+      }
+    ],
+    "_recordViolation": [
+      {
+        "type": "function",
+        "name": "_recordViolation",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(file, tool)",
+        "callCount": 2
+      }
+    ],
+    "resolveInBases": [
+      {
+        "type": "function",
+        "name": "resolveInBases",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(p)",
+        "callCount": 14
+      }
+    ],
+    "searchDir": [
+      {
+        "type": "function",
+        "name": "searchDir",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(dir, relBase)",
+        "callCount": 16
+      }
+    ],
+    "evPush": [
+      {
+        "type": "function",
+        "name": "evPush",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(label, ok, note)",
+        "callCount": 1
+      }
+    ],
+    "_collectionsFile": [
+      {
+        "type": "function",
+        "name": "_collectionsFile",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 1
+      }
+    ],
+    "_loadCols": [
+      {
+        "type": "function",
+        "name": "_loadCols",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 1
+      }
+    ],
+    "hit": [
+      {
+        "type": "function",
+        "name": "hit",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(c)",
+        "callCount": 6
+      },
+      {
+        "type": "function",
+        "name": "hit",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(c)",
+        "callCount": 3
+      }
+    ],
+    "rel": [
+      {
+        "type": "function",
+        "name": "rel",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(p)",
+        "callCount": 4
+      },
+      {
+        "type": "function",
+        "name": "rel",
+        "file": "packages/server/src/lib/release-requests.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "",
+        "callCount": 5
+      }
+    ],
+    "_loadProject": [
+      {
+        "type": "function",
+        "name": "_loadProject",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(pid)",
+        "callCount": 4
+      }
+    ],
+    "_saveProject": [
+      {
+        "type": "function",
+        "name": "_saveProject",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(p)",
+        "callCount": 3
+      }
+    ],
+    "safe": [
+      {
+        "type": "function",
+        "name": "safe",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(s)",
+        "callCount": 1
+      }
+    ],
+    "readSess": [
+      {
+        "type": "function",
+        "name": "readSess",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(dir, f)",
+        "callCount": 3
+      }
+    ],
+    "normType": [
+      {
+        "type": "function",
+        "name": "normType",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "",
+        "callCount": 2
+      },
+      {
+        "type": "function",
+        "name": "normType",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "",
+        "callCount": 2
+      },
+      {
+        "type": "function",
+        "name": "normType",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "",
+        "callCount": 2
+      }
+    ],
+    "normStatus": [
+      {
+        "type": "function",
+        "name": "normStatus",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "",
+        "callCount": 7
+      }
+    ],
+    "_crewGroupCache": [
+      {
+        "type": "export",
+        "name": "_crewGroupCache",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "variable",
+        "isDefault": false
+      }
+    ],
+    "DEFAULT_CONTEXT_WINDOW": [
+      {
+        "type": "export",
+        "name": "DEFAULT_CONTEXT_WINDOW",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "variable",
+        "isDefault": false
+      }
+    ],
+    "TOOL_GROUP_MAP": [
+      {
+        "type": "export",
+        "name": "TOOL_GROUP_MAP",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "CORE_READ_TOOLS": [
+      {
+        "type": "export",
+        "name": "CORE_READ_TOOLS",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "AGENT_FALLBACK_GROUPS": [
+      {
+        "type": "export",
+        "name": "AGENT_FALLBACK_GROUPS",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "_crewDenyCache": [
+      {
+        "type": "export",
+        "name": "_crewDenyCache",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "CONTEXT_SAFETY_MARGIN": [
+      {
+        "type": "export",
+        "name": "CONTEXT_SAFETY_MARGIN",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "LLM_CALL_TIMEOUT_MS": [
+      {
+        "type": "export",
+        "name": "LLM_CALL_TIMEOUT_MS",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "_agentCfg": [
+      {
+        "type": "export",
+        "name": "_agentCfg",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "_agentCfgDefaults": [
+      {
+        "type": "export",
+        "name": "_agentCfgDefaults",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "APPROVAL_WAIT_BUDGET_MS": [
+      {
+        "type": "export",
+        "name": "APPROVAL_WAIT_BUDGET_MS",
+        "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
     "resolveLLMConfig": [
       {
         "type": "function",
@@ -70139,39 +72053,6 @@
         "file": "packages/server/src/lib/paaw-agent-loop.mjs",
         "kind": "function",
         "isDefault": false
-      }
-    ],
-    "toolExecTimeoutMs": [
-      {
-        "type": "function",
-        "name": "toolExecTimeoutMs",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(toolName, args, agentCfg)",
-        "callCount": 0
-      }
-    ],
-    "raceAbortTool": [
-      {
-        "type": "function",
-        "name": "raceAbortTool",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(promise, abortSignal, toolName)",
-        "callCount": 0
-      }
-    ],
-    "onAbort": [
-      {
-        "type": "function",
-        "name": "onAbort",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 2
       }
     ],
     "resolveCrewId": [
@@ -70277,412 +72158,6 @@
         "file": "packages/server/src/lib/paaw-agent-loop.mjs",
         "kind": "function",
         "isDefault": false
-      }
-    ],
-    "LOG": [
-      {
-        "type": "function",
-        "name": "LOG",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(...args)",
-        "callCount": 1
-      },
-      {
-        "type": "component",
-        "name": "LOG",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow"
-      },
-      {
-        "type": "function",
-        "name": "LOG",
-        "file": "packages/server/src/lib/semgrep-runner.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(...args)",
-        "callCount": 3
-      },
-      {
-        "type": "component",
-        "name": "LOG",
-        "file": "packages/server/src/lib/semgrep-runner.mjs",
-        "kind": "arrow"
-      }
-    ],
-    "setAgentConfig": [
-      {
-        "type": "function",
-        "name": "setAgentConfig",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(cfg)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "setAgentConfig",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "isDefault": false
-      }
-    ],
-    "_buildTestCommand": [
-      {
-        "type": "function",
-        "name": "_buildTestCommand",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(cwd, testFiles)",
-        "callCount": 0
-      }
-    ],
-    "_parseTestResult": [
-      {
-        "type": "function",
-        "name": "_parseTestResult",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(output)",
-        "callCount": 0
-      }
-    ],
-    "_findConventionTests": [
-      {
-        "type": "function",
-        "name": "_findConventionTests",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(cwd, changedFiles)",
-        "callCount": 0
-      }
-    ],
-    "_nativeGlob": [
-      {
-        "type": "function",
-        "name": "_nativeGlob",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(basePath, pattern, maxResults = 100, cwd = basePath)",
-        "callCount": 0
-      }
-    ],
-    "_nativeGrep": [
-      {
-        "type": "function",
-        "name": "_nativeGrep",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(searchPath, pattern, include, maxResults = 50, ignoreCase = true, cwd = searchPath)",
-        "callCount": 0
-      }
-    ],
-    "runShell": [
-      {
-        "type": "function",
-        "name": "runShell",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(command, cwd, timeoutMs = 30_000, opts = {})",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "runShell",
-        "file": "packages/server/src/lib/paaw-project.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(command, cwd, timeoutMs = 10_000)",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "runShell",
-        "file": "packages/server/src/lib/paaw-snapshot.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(command, cwd, timeoutMs = 10_000)",
-        "callCount": 0
-      }
-    ],
-    "executeTool": [
-      {
-        "type": "function",
-        "name": "executeTool",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(call, cwd, rootDir, onEvent, agentId, featureBoundary = null)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "executeTool",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "isDefault": false
-      }
-    ],
-    "resolvePath": [
-      {
-        "type": "function",
-        "name": "resolvePath",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(p)",
-        "callCount": 3
-      }
-    ],
-    "writeDenialReason": [
-      {
-        "type": "function",
-        "name": "writeDenialReason",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(p)",
-        "callCount": 23
-      }
-    ],
-    "startsWith": [
-      {
-        "type": "function",
-        "name": "startsWith",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(target, prefix)",
-        "callCount": 5
-      },
-      {
-        "type": "function",
-        "name": "startsWith",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(target, prefix)",
-        "callCount": 5
-      }
-    ],
-    "isPathAllowed": [
-      {
-        "type": "function",
-        "name": "isPathAllowed",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(p, write = false)",
-        "callCount": 18
-      }
-    ],
-    "_checkBoundary": [
-      {
-        "type": "function",
-        "name": "_checkBoundary",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(filePath)",
-        "callCount": 7
-      }
-    ],
-    "_recordViolation": [
-      {
-        "type": "function",
-        "name": "_recordViolation",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(file, tool)",
-        "callCount": 2
-      }
-    ],
-    "resolveInBases": [
-      {
-        "type": "function",
-        "name": "resolveInBases",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(p)",
-        "callCount": 14
-      }
-    ],
-    "searchDir": [
-      {
-        "type": "function",
-        "name": "searchDir",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(dir, relBase)",
-        "callCount": 16
-      }
-    ],
-    "evPush": [
-      {
-        "type": "function",
-        "name": "evPush",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(label, ok, note)",
-        "callCount": 1
-      }
-    ],
-    "_collectionsFile": [
-      {
-        "type": "function",
-        "name": "_collectionsFile",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 1
-      }
-    ],
-    "_loadCols": [
-      {
-        "type": "function",
-        "name": "_loadCols",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 1
-      }
-    ],
-    "hit": [
-      {
-        "type": "function",
-        "name": "hit",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(c)",
-        "callCount": 6
-      },
-      {
-        "type": "function",
-        "name": "hit",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(c)",
-        "callCount": 3
-      }
-    ],
-    "rel": [
-      {
-        "type": "function",
-        "name": "rel",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(p)",
-        "callCount": 4
-      },
-      {
-        "type": "function",
-        "name": "rel",
-        "file": "packages/server/src/lib/release-requests.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "",
-        "callCount": 5
-      }
-    ],
-    "_loadProject": [
-      {
-        "type": "function",
-        "name": "_loadProject",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(pid)",
-        "callCount": 4
-      }
-    ],
-    "_saveProject": [
-      {
-        "type": "function",
-        "name": "_saveProject",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(p)",
-        "callCount": 3
-      }
-    ],
-    "safe": [
-      {
-        "type": "function",
-        "name": "safe",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(s)",
-        "callCount": 1
-      }
-    ],
-    "readSess": [
-      {
-        "type": "function",
-        "name": "readSess",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(dir, f)",
-        "callCount": 3
-      }
-    ],
-    "normType": [
-      {
-        "type": "function",
-        "name": "normType",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "",
-        "callCount": 2
-      },
-      {
-        "type": "function",
-        "name": "normType",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "",
-        "callCount": 2
-      },
-      {
-        "type": "function",
-        "name": "normType",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "",
-        "callCount": 2
-      }
-    ],
-    "normStatus": [
-      {
-        "type": "function",
-        "name": "normStatus",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "",
-        "callCount": 7
       }
     ],
     "trimMessagesToFit": [
@@ -70867,12 +72342,37 @@
         "isDefault": false
       }
     ],
+    "_PAAW_ROOT": [
+      {
+        "type": "export",
+        "name": "_PAAW_ROOT",
+        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "kind": "variable",
+        "isDefault": false
+      }
+    ],
     "PAAW_TOOLS": [
       {
         "type": "export",
         "name": "PAAW_TOOLS",
         "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "variable",
+        "kind": "named",
+        "isDefault": false
+      },
+      {
+        "type": "export",
+        "name": "PAAW_TOOLS",
+        "file": "packages/server/src/lib/paaw-agent-tools.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "_setAgentConfig": [
+      {
+        "type": "export",
+        "name": "_setAgentConfig",
+        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "kind": "named",
         "isDefault": false
       }
     ],
@@ -71314,6 +72814,209 @@
         "name": "PaawSnapshot",
         "file": "packages/server/src/lib/paaw-snapshot.mjs",
         "kind": "class",
+        "isDefault": false
+      }
+    ],
+    "normRoute": [
+      {
+        "type": "function",
+        "name": "normRoute",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(p)",
+        "callCount": 0
+      }
+    ],
+    "validRouteStr": [
+      {
+        "type": "function",
+        "name": "validRouteStr",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(p)",
+        "callCount": 0
+      }
+    ],
+    "urlMatchesRoute": [
+      {
+        "type": "function",
+        "name": "urlMatchesRoute",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(url, route)",
+        "callCount": 0
+      }
+    ],
+    "extractApiCallUrls": [
+      {
+        "type": "function",
+        "name": "extractApiCallUrls",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(src)",
+        "callCount": 0
+      }
+    ],
+    "urlMatchesApiEntry": [
+      {
+        "type": "function",
+        "name": "urlMatchesApiEntry",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(url, entry)",
+        "callCount": 0
+      }
+    ],
+    "walkSrc": [
+      {
+        "type": "function",
+        "name": "walkSrc",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root, maxDepth = 10)",
+        "callCount": 0
+      }
+    ],
+    "readSafe": [
+      {
+        "type": "function",
+        "name": "readSafe",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(full)",
+        "callCount": 0
+      }
+    ],
+    "extractRoutesFromCode": [
+      {
+        "type": "function",
+        "name": "extractRoutesFromCode",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(src, kind)",
+        "callCount": 0
+      }
+    ],
+    "tanstackRoutes": [
+      {
+        "type": "function",
+        "name": "tanstackRoutes",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(files)",
+        "callCount": 0
+      }
+    ],
+    "fileBasedRoutes": [
+      {
+        "type": "function",
+        "name": "fileBasedRoutes",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(files)",
+        "callCount": 0
+      }
+    ],
+    "findRouterFiles": [
+      {
+        "type": "function",
+        "name": "findRouterFiles",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(files)",
+        "callCount": 0
+      }
+    ],
+    "resolveImport": [
+      {
+        "type": "function",
+        "name": "resolveImport",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(fromRel, spec, filesByRel)",
+        "callCount": 0
+      }
+    ],
+    "resolveAlias": [
+      {
+        "type": "function",
+        "name": "resolveAlias",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(spec, filesByRel)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "resolveAlias",
+        "file": "packages/server/src/lib/release-unit/dependencies.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(spec, aliases)",
+        "callCount": 0
+      }
+    ],
+    "importGraph": [
+      {
+        "type": "function",
+        "name": "importGraph",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(rel, filesByRel, cache, depth = 0)",
+        "callCount": 0
+      }
+    ],
+    "unitTestFor": [
+      {
+        "type": "function",
+        "name": "unitTestFor",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(relFile, testIndex)",
+        "callCount": 0
+      }
+    ],
+    "collectE2eUrls": [
+      {
+        "type": "function",
+        "name": "collectE2eUrls",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root)",
+        "callCount": 0
+      }
+    ],
+    "buildPageInventory": [
+      {
+        "type": "function",
+        "name": "buildPageInventory",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root, apis = [], opts = {})",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "buildPageInventory",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
         "isDefault": false
       }
     ],
@@ -76775,17 +78478,6 @@
         "isDefault": false
       }
     ],
-    "resolveAlias": [
-      {
-        "type": "function",
-        "name": "resolveAlias",
-        "file": "packages/server/src/lib/release-unit/dependencies.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(spec, aliases)",
-        "callCount": 0
-      }
-    ],
     "candidateRels": [
       {
         "type": "function",
@@ -82088,11 +83780,11 @@
     ]
   },
   "stats": {
-    "total": 4657,
-    "functions": 2749,
+    "total": 4762,
+    "functions": 2783,
     "classes": 32,
-    "exports": 1282,
-    "routes": 378,
-    "components": 216
+    "exports": 1350,
+    "routes": 380,
+    "components": 217
   }
 }

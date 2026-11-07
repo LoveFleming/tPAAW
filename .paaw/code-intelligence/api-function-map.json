@@ -1328,6 +1328,842 @@
       "callChain": []
     },
     {
+      "method": "POST",
+      "path": "/api/coding-crew/chat",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-crew/dispatch",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-crew/qa-results",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-crew/qa-results",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-crew/context-window",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/ru-log",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-crew/action-log/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-crew/em-job",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-crew/em-plan",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-crew/em-execute",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-crew/interrupt",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-crew/running",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/cu-skills/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/skills/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/agent-memory/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/coding-project/agent-memory/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/coding-project/agent-memory/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/crew-export/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-project/crew-import/*",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
       "method": "GET",
       "path": "/api/coding-release/evidence/*",
       "file": "packages/server/src/routes/coding-db.mjs",
@@ -1735,7 +2571,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -1831,7 +2667,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -1933,7 +2769,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -1981,7 +2817,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -2101,7 +2937,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -2199,7 +3035,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -2295,7 +3131,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -2397,7 +3233,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -2445,7 +3281,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -2565,7 +3401,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -2663,7 +3499,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -2759,7 +3595,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -2861,7 +3697,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -2909,7 +3745,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -3029,7 +3865,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -3127,7 +3963,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -3223,7 +4059,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -3325,7 +4161,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -3373,7 +4209,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -3493,7 +4329,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -3591,7 +4427,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -3687,7 +4523,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -3789,7 +4625,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -3837,7 +4673,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -3957,7 +4793,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -4055,7 +4891,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -4151,7 +4987,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -4253,7 +5089,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -4301,7 +5137,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -4421,7 +5257,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -4519,7 +5355,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -4615,7 +5451,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -4717,7 +5553,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -4765,7 +5601,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -4885,7 +5721,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -4983,7 +5819,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -5079,7 +5915,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -5181,7 +6017,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -5229,7 +6065,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -5349,7 +6185,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -5447,7 +6283,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -5543,7 +6379,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -5645,7 +6481,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -5693,7 +6529,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -5813,7 +6649,471 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-releases/page-inventory",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "handler": "build",
+      "callChain": [
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "resolved": true
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -5911,7 +7211,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -6007,7 +7307,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -6109,7 +7409,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -6157,7 +7457,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -6277,7 +7577,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -6375,7 +7675,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -6471,7 +7771,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -6573,7 +7873,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -6621,7 +7921,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -6741,7 +8041,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -6839,7 +8139,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -6935,7 +8235,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -7037,7 +8337,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -7085,7 +8385,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -7205,7 +8505,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -7303,7 +8603,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -7399,7 +8699,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -7501,7 +8801,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -7549,7 +8849,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -7669,7 +8969,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -7767,7 +9067,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -7863,7 +9163,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -7965,7 +9265,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -8013,7 +9313,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -8133,7 +9433,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -8231,7 +9531,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -8327,7 +9627,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -8429,7 +9729,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -8477,7 +9777,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -8597,7 +9897,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -8695,7 +9995,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -8791,7 +10091,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -8893,7 +10193,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -8941,7 +10241,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -9061,7 +10361,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -9159,7 +10459,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -9255,7 +10555,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -9357,7 +10657,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -9405,7 +10705,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -9525,7 +10825,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -9623,7 +10923,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -9719,7 +11019,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -9821,7 +11121,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -9869,7 +11169,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -9989,7 +11289,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -10087,7 +11387,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -10183,7 +11483,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -10285,7 +11585,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -10333,7 +11633,7 @@
         {
           "function": "startsWith",
           "depth": 1,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -10453,7 +11753,7 @@
         {
           "function": "startsWith",
           "depth": 0,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "file": "packages/server/src/lib/paaw-agent-exec.mjs",
           "resolved": true
         },
         {
@@ -16097,34 +17397,16 @@
       "method": "GET",
       "path": "/api/coding-project/api-features",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -16141,826 +17423,16 @@
       "method": "GET",
       "path": "/api/coding-project/ui-features",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/api/coding-crew/chat",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/api/coding-crew/dispatch",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/api/coding-crew/qa-results",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/api/coding-crew/qa-results",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/api/coding-crew/context-window",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/api/coding-project/ru-log",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/api/coding-crew/action-log/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/api/coding-crew/em-plan",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/api/coding-crew/em-execute",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/api/coding-crew/interrupt",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/api/coding-crew/running",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/api/coding-project/cu-skills/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/api/coding-project/skills/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/api/coding-project/agent-memory/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "PUT",
-      "path": "/api/coding-project/agent-memory/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "DELETE",
-      "path": "/api/coding-project/agent-memory/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/api/coding-project/crew-export/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        }
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/api/coding-project/crew-import/*",
-      "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
-      "callChain": [
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -16977,34 +17449,16 @@
       "method": "POST",
       "path": "/api/coding-project/create/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17021,34 +17475,16 @@
       "method": "POST",
       "path": "/api/coding-project/exec-approval/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17065,34 +17501,16 @@
       "method": "GET",
       "path": "/api/coding-project/context/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17109,34 +17527,16 @@
       "method": "POST",
       "path": "/api/coding-project/initial/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17153,34 +17553,16 @@
       "method": "GET",
       "path": "/api/coding-project/dev-config/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17197,34 +17579,16 @@
       "method": "GET",
       "path": "/api/coding-project/tree/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17241,34 +17605,16 @@
       "method": "GET",
       "path": "/api/coding-project/sessions/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17285,34 +17631,16 @@
       "method": "GET",
       "path": "/api/coding-project/decisions/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17329,34 +17657,16 @@
       "method": "POST",
       "path": "/api/coding-project/decisions/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17373,34 +17683,16 @@
       "method": "GET",
       "path": "/api/coding-project/changelog/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17417,34 +17709,16 @@
       "method": "GET",
       "path": "/api/coding-project/file/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17461,34 +17735,16 @@
       "method": "PUT",
       "path": "/api/coding-project/file/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17505,34 +17761,16 @@
       "method": "GET",
       "path": "/api/coding-project/security-scan/results/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17549,34 +17787,16 @@
       "method": "GET",
       "path": "/api/coding-project/security-scan/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17593,34 +17813,16 @@
       "method": "GET",
       "path": "/api/coding-project/test-intelligence/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17637,34 +17839,16 @@
       "method": "GET",
       "path": "/api/coding-project/change-intelligence/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17681,34 +17865,16 @@
       "method": "GET",
       "path": "/api/coding-project/code-intelligence/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17725,34 +17891,16 @@
       "method": "GET",
       "path": "/api/coding-project/code-intelligence/context-package/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17769,34 +17917,16 @@
       "method": "GET",
       "path": "/api/coding-project/project-md/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17813,34 +17943,16 @@
       "method": "POST",
       "path": "/api/coding-project/project-md/regenerate/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17857,34 +17969,16 @@
       "method": "POST",
       "path": "/api/coding-project/project-md/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17901,34 +17995,16 @@
       "method": "POST",
       "path": "/api/coding-project/generate-overview/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17945,34 +18021,16 @@
       "method": "GET",
       "path": "/api/coding-project/all/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -17989,34 +18047,16 @@
       "method": "GET",
       "path": "/api/coding-project/health/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -18033,34 +18073,16 @@
       "method": "POST",
       "path": "/api/coding-project/snapshot/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -18077,34 +18099,16 @@
       "method": "GET",
       "path": "/api/coding-project/snapshots/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -18121,34 +18125,16 @@
       "method": "POST",
       "path": "/api/coding-project/snapshot/restore/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -18165,34 +18151,16 @@
       "method": "GET",
       "path": "/api/coding-project/git-strategy/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -18209,34 +18177,16 @@
       "method": "PUT",
       "path": "/api/coding-project/git-strategy/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -18253,34 +18203,16 @@
       "method": "POST",
       "path": "/api/coding-project/ai-initial-step/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -18297,34 +18229,16 @@
       "method": "POST",
       "path": "/api/coding-project/ai-initial/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -18341,34 +18255,16 @@
       "method": "POST",
       "path": "/api/coding-project/domain-ai/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -18385,34 +18281,16 @@
       "method": "GET",
       "path": "/api/coding-project/cu-status/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -18429,34 +18307,16 @@
       "method": "POST",
       "path": "/api/coding-project/cu-rescan-mechanical/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -18473,34 +18333,16 @@
       "method": "GET",
       "path": "/api/coding-project/prompts/*",
       "file": "packages/server/src/routes/coding.mjs",
-      "handler": "sendSSE",
+      "handler": "respond",
       "callChain": [
         {
-          "function": "res.write",
+          "function": "res.writeHead",
           "depth": 5,
           "file": "",
           "resolved": false
         },
         {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "JSON.stringify",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
-          "depth": 5,
-          "file": "",
-          "resolved": false
-        },
-        {
-          "function": "res.write",
+          "function": "res.end",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -20321,8 +20163,8 @@
     }
   ],
   "stats": {
-    "totalRoutes": 378,
-    "withHandler": 141,
+    "totalRoutes": 380,
+    "withHandler": 143,
     "withoutHandler": 237
   }
 }

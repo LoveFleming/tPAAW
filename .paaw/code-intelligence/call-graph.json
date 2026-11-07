@@ -305,6 +305,30 @@
       "async": false
     },
     {
+      "id": "tests/unit/coding-auto-dispatch.test.mjs:writeRun",
+      "name": "writeRun",
+      "file": "tests/unit/coding-auto-dispatch.test.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "tests/unit/coding-auto-dispatch.test.mjs:runsDir",
+      "name": "runsDir",
+      "file": "tests/unit/coding-auto-dispatch.test.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "tests/unit/coding-auto-dispatch.test.mjs:listRuns",
+      "name": "listRuns",
+      "file": "tests/unit/coding-auto-dispatch.test.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
       "id": "tests/unit/coding-handover.test.mjs:mockReq",
       "name": "mockReq",
       "file": "tests/unit/coding-handover.test.mjs",
@@ -996,6 +1020,30 @@
       "id": "tests/unit/notes.test.mjs:tryJson",
       "name": "tryJson",
       "file": "tests/unit/notes.test.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "tests/unit/page-inventory.test.mjs:mkProject",
+      "name": "mkProject",
+      "file": "tests/unit/page-inventory.test.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "tests/unit/page-inventory.test.mjs:mk",
+      "name": "mk",
+      "file": "tests/unit/page-inventory.test.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "tests/unit/page-inventory.test.mjs:mk2",
+      "name": "mk2",
+      "file": "tests/unit/page-inventory.test.mjs",
       "line": 0,
       "kind": "function",
       "async": false
@@ -2769,86 +2817,6 @@
       "async": true
     },
     {
-      "id": "packages/ui/src/pages/CodingIDE.tsx:ToolLogRow",
-      "name": "ToolLogRow",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/ui/src/pages/CodingIDE.tsx:crewToAgentId",
-      "name": "crewToAgentId",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/ui/src/pages/CodingIDE.tsx:TREE_NOOP",
-      "name": "TREE_NOOP",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/ui/src/pages/CodingIDE.tsx:getFileIcon",
-      "name": "getFileIcon",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/ui/src/pages/CodingIDE.tsx:getLanguage",
-      "name": "getLanguage",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/ui/src/pages/CodingIDE.tsx:getHljsLang",
-      "name": "getHljsLang",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/ui/src/pages/CodingIDE.tsx:escapeHtml",
-      "name": "escapeHtml",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/ui/src/pages/CodingIDE.tsx:fmtTime",
-      "name": "fmtTime",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/ui/src/pages/CodingIDE.tsx:safeStr",
-      "name": "safeStr",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/ui/src/pages/CodingIDE.tsx:EditorTabContent",
-      "name": "EditorTabContent",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
       "id": "packages/ui/src/pages/CodingIDE.tsx:CodingIDE",
       "name": "CodingIDE",
       "file": "packages/ui/src/pages/CodingIDE.tsx",
@@ -2910,14 +2878,6 @@
       "file": "packages/ui/src/pages/CodingIDE.tsx",
       "line": 0,
       "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/ui/src/pages/CodingIDE.tsx:highlightMatch",
-      "name": "highlightMatch",
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "line": 0,
-      "kind": "function",
       "async": false
     },
     {
@@ -4017,6 +3977,94 @@
       "async": true
     },
     {
+      "id": "packages/ui/src/pages/coding-ide-helpers.tsx:ToolLogRow",
+      "name": "ToolLogRow",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/ui/src/pages/coding-ide-helpers.tsx:crewToAgentId",
+      "name": "crewToAgentId",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/ui/src/pages/coding-ide-helpers.tsx:TREE_NOOP",
+      "name": "TREE_NOOP",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/ui/src/pages/coding-ide-helpers.tsx:getFileIcon",
+      "name": "getFileIcon",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/ui/src/pages/coding-ide-helpers.tsx:getLanguage",
+      "name": "getLanguage",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/ui/src/pages/coding-ide-helpers.tsx:getHljsLang",
+      "name": "getHljsLang",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/ui/src/pages/coding-ide-helpers.tsx:escapeHtml",
+      "name": "escapeHtml",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/ui/src/pages/coding-ide-helpers.tsx:fmtTime",
+      "name": "fmtTime",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/ui/src/pages/coding-ide-helpers.tsx:safeStr",
+      "name": "safeStr",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/ui/src/pages/coding-ide-helpers.tsx:EditorTabContent",
+      "name": "EditorTabContent",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/ui/src/pages/coding-ide-helpers.tsx:highlightMatch",
+      "name": "highlightMatch",
+      "file": "packages/ui/src/pages/coding-ide-helpers.tsx",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
       "id": "packages/ui/src/i18n/index.tsx:getStoredLocale",
       "name": "getStoredLocale",
       "file": "packages/ui/src/i18n/index.tsx",
@@ -4782,6 +4830,22 @@
       "file": "packages/ui/src/components/DispatchReports.tsx",
       "line": 0,
       "kind": "arrow",
+      "async": true
+    },
+    {
+      "id": "packages/ui/src/components/DispatchWizard.tsx:DispatchWizard",
+      "name": "DispatchWizard",
+      "file": "packages/ui/src/components/DispatchWizard.tsx",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/ui/src/components/DispatchWizard.tsx:submit",
+      "name": "submit",
+      "file": "packages/ui/src/components/DispatchWizard.tsx",
+      "line": 0,
+      "kind": "function",
       "async": true
     },
     {
@@ -5595,6 +5659,14 @@
     {
       "id": "packages/ui/src/components/ReleaseManagerPanel.tsx:loadE2eInv",
       "name": "loadE2eInv",
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "line": 0,
+      "kind": "arrow",
+      "async": true
+    },
+    {
+      "id": "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
+      "name": "loadPageInv",
       "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
       "line": 0,
       "kind": "arrow",
@@ -8497,6 +8569,78 @@
       "async": true
     },
     {
+      "id": "packages/server/src/routes/coding-crew-routes.mjs:crewRoutes",
+      "name": "crewRoutes",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/routes/coding-crew-routes.mjs:cleanupChatAgent",
+      "name": "cleanupChatAgent",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-crew-routes.mjs:cleanupDispatch",
+      "name": "cleanupDispatch",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-crew-routes.mjs:verifyWork",
+      "name": "verifyWork",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-crew-routes.mjs:getConvPaths",
+      "name": "getConvPaths",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-crew-routes.mjs:readConvFile",
+      "name": "readConvFile",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/routes/coding-crew-routes.mjs:migrateFlatConversations",
+      "name": "migrateFlatConversations",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/routes/coding-crew-routes.mjs:estimateTokens",
+      "name": "estimateTokens",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-crew-routes.mjs:sendSSE",
+      "name": "sendSSE",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
       "id": "packages/server/src/routes/coding-db.mjs:codingDbRoute",
       "name": "codingDbRoute",
       "file": "packages/server/src/routes/coding-db.mjs",
@@ -8881,44 +9025,132 @@
       "async": false
     },
     {
-      "id": "packages/server/src/routes/coding-health.mjs:sendJSON",
-      "name": "sendJSON",
-      "file": "packages/server/src/routes/coding-health.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding-health.mjs:getAllowedRoots",
-      "name": "getAllowedRoots",
+      "id": "packages/server/src/routes/coding-health.mjs:runShellCmd",
+      "name": "runShellCmd",
       "file": "packages/server/src/routes/coding-health.mjs",
       "line": 0,
       "kind": "function",
       "async": true
     },
     {
-      "id": "packages/server/src/routes/coding-health.mjs:withinRoots",
-      "name": "withinRoots",
-      "file": "packages/server/src/routes/coding-health.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding-health.mjs:parsePath",
-      "name": "parsePath",
-      "file": "packages/server/src/routes/coding-health.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding-health.mjs:codingHealthRoute",
-      "name": "codingHealthRoute",
+      "id": "packages/server/src/routes/coding-health.mjs:scanProjectFiles",
+      "name": "scanProjectFiles",
       "file": "packages/server/src/routes/coding-health.mjs",
       "line": 0,
       "kind": "function",
       "async": true
+    },
+    {
+      "id": "packages/server/src/routes/coding-health.mjs:collectProjectHealth",
+      "name": "collectProjectHealth",
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/routes/coding-health.mjs:fixId",
+      "name": "fixId",
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-helpers.mjs:cuLog",
+      "name": "cuLog",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-helpers.mjs:diffWriteFile",
+      "name": "diffWriteFile",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/routes/coding-helpers.mjs:_stripCodeFence",
+      "name": "_stripCodeFence",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-helpers.mjs:_sanitizeMd",
+      "name": "_sanitizeMd",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-helpers.mjs:cuStepSkillKey",
+      "name": "cuStepSkillKey",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-helpers.mjs:loadCuStepSkills",
+      "name": "loadCuStepSkills",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/routes/coding-helpers.mjs:callProjectLLM",
+      "name": "callProjectLLM",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/routes/coding-helpers.mjs:parseQuery",
+      "name": "parseQuery",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-helpers.mjs:_extractJsonArray",
+      "name": "_extractJsonArray",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-helpers.mjs:backfillApiTests",
+      "name": "backfillApiTests",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/routes/coding-helpers.mjs:walk",
+      "name": "walk",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-helpers.mjs:_buildManifestContext",
+      "name": "_buildManifestContext",
+      "file": "packages/server/src/routes/coding-helpers.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
     },
     {
       "id": "packages/server/src/routes/coding-issues.mjs:parseQuery",
@@ -9521,172 +9753,12 @@
       "async": false
     },
     {
-      "id": "packages/server/src/routes/coding.mjs:cuLog",
-      "name": "cuLog",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:diffWriteFile",
-      "name": "diffWriteFile",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:_stripCodeFence",
-      "name": "_stripCodeFence",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:_sanitizeMd",
-      "name": "_sanitizeMd",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:cuStepSkillKey",
-      "name": "cuStepSkillKey",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:loadCuStepSkills",
-      "name": "loadCuStepSkills",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:callProjectLLM",
-      "name": "callProjectLLM",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:parseQuery",
-      "name": "parseQuery",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:_extractJsonArray",
-      "name": "_extractJsonArray",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:backfillApiTests",
-      "name": "backfillApiTests",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:walk",
-      "name": "walk",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:_buildManifestContext",
-      "name": "_buildManifestContext",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
       "id": "packages/server/src/routes/coding.mjs:projectRoute",
       "name": "projectRoute",
       "file": "packages/server/src/routes/coding.mjs",
       "line": 0,
       "kind": "function",
       "async": true
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:cleanupChatAgent",
-      "name": "cleanupChatAgent",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:cleanupDispatch",
-      "name": "cleanupDispatch",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:verifyWork",
-      "name": "verifyWork",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:getConvPaths",
-      "name": "getConvPaths",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:readConvFile",
-      "name": "readConvFile",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:migrateFlatConversations",
-      "name": "migrateFlatConversations",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:estimateTokens",
-      "name": "estimateTokens",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:sendSSE",
-      "name": "sendSSE",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
     },
     {
       "id": "packages/server/src/routes/coding.mjs:respond",
@@ -9727,38 +9799,6 @@
       "line": 0,
       "kind": "arrow",
       "async": true
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:runShellCmd",
-      "name": "runShellCmd",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:scanProjectFiles",
-      "name": "scanProjectFiles",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:collectProjectHealth",
-      "name": "collectProjectHealth",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/routes/coding.mjs:fixId",
-      "name": "fixId",
-      "file": "packages/server/src/routes/coding.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
     },
     {
       "id": "packages/server/src/routes/context.mjs:readBody",
@@ -15593,6 +15633,310 @@
       "async": false
     },
     {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:toolExecTimeoutMs",
+      "name": "toolExecTimeoutMs",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:raceAbortTool",
+      "name": "raceAbortTool",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:mk",
+      "name": "mk",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:onAbort",
+      "name": "onAbort",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:LOG",
+      "name": "LOG",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:setAgentConfig",
+      "name": "setAgentConfig",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:_buildTestCommand",
+      "name": "_buildTestCommand",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:_parseTestResult",
+      "name": "_parseTestResult",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:_findConventionTests",
+      "name": "_findConventionTests",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:_nativeGlob",
+      "name": "_nativeGlob",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:walk",
+      "name": "walk",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:_nativeGrep",
+      "name": "_nativeGrep",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:runShell",
+      "name": "runShell",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:executeTool",
+      "name": "executeTool",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:resolvePath",
+      "name": "resolvePath",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "name": "writeDenialReason",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
+      "name": "norm",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
+      "name": "startsWith",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "name": "isPathAllowed",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary",
+      "name": "_checkBoundary",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:_recordViolation",
+      "name": "_recordViolation",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
+      "name": "resolveInBases",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
+      "name": "searchDir",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:readDoc",
+      "name": "readDoc",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:fmt",
+      "name": "fmt",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:git",
+      "name": "git",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:evPush",
+      "name": "evPush",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:_collectionsFile",
+      "name": "_collectionsFile",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:_loadCols",
+      "name": "_loadCols",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:hit",
+      "name": "hit",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:rel",
+      "name": "rel",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:_loadProject",
+      "name": "_loadProject",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:_saveProject",
+      "name": "_saveProject",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:safe",
+      "name": "safe",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:readSess",
+      "name": "readSess",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:fmtTime",
+      "name": "fmtTime",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:normType",
+      "name": "normType",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/paaw-agent-exec.mjs:normStatus",
+      "name": "normStatus",
+      "file": "packages/server/src/lib/paaw-agent-exec.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
       "id": "packages/server/src/lib/paaw-agent-loop.mjs:loadProviderConfig",
       "name": "loadProviderConfig",
       "file": "packages/server/src/lib/paaw-agent-loop.mjs",
@@ -15606,38 +15950,6 @@
       "file": "packages/server/src/lib/paaw-agent-loop.mjs",
       "line": 0,
       "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:toolExecTimeoutMs",
-      "name": "toolExecTimeoutMs",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:raceAbortTool",
-      "name": "raceAbortTool",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:mk",
-      "name": "mk",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:onAbort",
-      "name": "onAbort",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
       "async": false
     },
     {
@@ -15694,278 +16006,6 @@
       "file": "packages/server/src/lib/paaw-agent-loop.mjs",
       "line": 0,
       "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:LOG",
-      "name": "LOG",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:setAgentConfig",
-      "name": "setAgentConfig",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:_buildTestCommand",
-      "name": "_buildTestCommand",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:_parseTestResult",
-      "name": "_parseTestResult",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:_findConventionTests",
-      "name": "_findConventionTests",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:_nativeGlob",
-      "name": "_nativeGlob",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:walk",
-      "name": "walk",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:_nativeGrep",
-      "name": "_nativeGrep",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:runShell",
-      "name": "runShell",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:executeTool",
-      "name": "executeTool",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
-      "name": "resolvePath",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "name": "writeDenialReason",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
-      "name": "norm",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "name": "startsWith",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "name": "isPathAllowed",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary",
-      "name": "_checkBoundary",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:_recordViolation",
-      "name": "_recordViolation",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
-      "name": "resolveInBases",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
-      "name": "searchDir",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:readDoc",
-      "name": "readDoc",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:fmt",
-      "name": "fmt",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:git",
-      "name": "git",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:evPush",
-      "name": "evPush",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:_collectionsFile",
-      "name": "_collectionsFile",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:_loadCols",
-      "name": "_loadCols",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:hit",
-      "name": "hit",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:rel",
-      "name": "rel",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:_loadProject",
-      "name": "_loadProject",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:_saveProject",
-      "name": "_saveProject",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:safe",
-      "name": "safe",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:readSess",
-      "name": "readSess",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:fmtTime",
-      "name": "fmtTime",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:normType",
-      "name": "normType",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:normStatus",
-      "name": "normStatus",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
       "async": false
     },
     {
@@ -16351,6 +16391,182 @@
       "line": 0,
       "kind": "function",
       "async": true
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:isParamSeg",
+      "name": "isParamSeg",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:normRoute",
+      "name": "normRoute",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:esc",
+      "name": "esc",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:validRouteStr",
+      "name": "validRouteStr",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:urlMatchesRoute",
+      "name": "urlMatchesRoute",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:segEq",
+      "name": "segEq",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:extractApiCallUrls",
+      "name": "extractApiCallUrls",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:urlMatchesApiEntry",
+      "name": "urlMatchesApiEntry",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:walkSrc",
+      "name": "walkSrc",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:walk",
+      "name": "walk",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:readSafe",
+      "name": "readSafe",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:extractRoutesFromCode",
+      "name": "extractRoutesFromCode",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:add",
+      "name": "add",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:tanstackRoutes",
+      "name": "tanstackRoutes",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:fileBasedRoutes",
+      "name": "fileBasedRoutes",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:findRouterFiles",
+      "name": "findRouterFiles",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:resolveImport",
+      "name": "resolveImport",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:resolveAlias",
+      "name": "resolveAlias",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:importGraph",
+      "name": "importGraph",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:unitTestFor",
+      "name": "unitTestFor",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:collectE2eUrls",
+      "name": "collectE2eUrls",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/page-inventory.mjs:buildPageInventory",
+      "name": "buildPageInventory",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
     },
     {
       "id": "packages/server/src/lib/proc-ledger.mjs:_saveState",
@@ -21901,6 +22117,26 @@
       "resolved": false
     },
     {
+      "caller": "tests/unit/page-inventory.test.mjs:mk",
+      "callee": "packages/server/src/routes/shared.mjs:join",
+      "type": "direct"
+    },
+    {
+      "caller": "tests/unit/page-inventory.test.mjs:mk",
+      "callee": "packages/server/src/routes/shared.mjs:mkdirSync",
+      "type": "direct"
+    },
+    {
+      "caller": "tests/unit/page-inventory.test.mjs:mk",
+      "callee": "packages/server/src/routes/shared.mjs:join",
+      "type": "direct"
+    },
+    {
+      "caller": "tests/unit/page-inventory.test.mjs:mk",
+      "callee": "packages/server/src/routes/shared.mjs:writeFileSync",
+      "type": "direct"
+    },
+    {
       "caller": "tests/unit/release-evidence-snapshot.test.mjs:G",
       "callee": "execSync",
       "type": "direct",
@@ -22370,12 +22606,12 @@
     },
     {
       "caller": "scripts/check-sandbox.mjs:inside",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
       "caller": "scripts/check-sandbox.mjs:inside",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -22527,7 +22763,7 @@
     },
     {
       "caller": "scripts/pack.mjs:skipAsset",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -24601,7 +24837,7 @@
     },
     {
       "caller": "packages/ui/src/pages/ChatView.tsx:handleSend",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -24897,12 +25133,6 @@
     {
       "caller": "packages/ui/src/pages/ChatView.tsx:switchModel",
       "callee": "localStorage.setItem",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/ui/src/pages/CodingIDE.tsx:crewToAgentId",
-      "callee": "crewId.replace",
       "type": "method",
       "resolved": false
     },
@@ -28206,7 +28436,7 @@
     },
     {
       "caller": "packages/ui/src/pages/SkillBuilder.tsx:handleTest",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -28639,7 +28869,7 @@
     },
     {
       "caller": "packages/ui/src/pages/SkillsPage.tsx:updateInput",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "chained"
     },
     {
@@ -29260,6 +29490,12 @@
       "caller": "packages/ui/src/pages/StarterKitsSettings.tsx:toggleFiles",
       "callee": "setAdaptContent",
       "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/pages/coding-ide-helpers.tsx:crewToAgentId",
+      "callee": "crewId.replace",
+      "type": "method",
       "resolved": false
     },
     {
@@ -30217,7 +30453,7 @@
     },
     {
       "caller": "packages/ui/src/components/ChatMessages.tsx:markdownComponents",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -30246,7 +30482,7 @@
     },
     {
       "caller": "packages/ui/src/components/ChatMessages.tsx:markdownComponents",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -31561,7 +31797,7 @@
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -31578,7 +31814,7 @@
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -33397,6 +33633,66 @@
     {
       "caller": "packages/ui/src/components/ReleaseManagerPanel.tsx:loadE2eInv",
       "callee": "setE2eInvBusy",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
+      "callee": "setPageInvBusy",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
+      "callee": "fetch(`${API_BASE}/api/coding-releases/page-inventory?path=${encodeURIComponent(rootPath)}`).then",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
+      "callee": "fetch",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
+      "callee": "encodeURIComponent",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
+      "callee": "r.json",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
+      "callee": "setPageInv",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
+      "callee": "setToast",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
+      "callee": "String",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
+      "callee": "setToast",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
+      "callee": "setPageInvBusy",
       "type": "direct",
       "resolved": false
     },
@@ -36106,7 +36402,7 @@
     },
     {
       "caller": "packages/ui/src/components/git/GitDiffView.tsx:isRu",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -37191,7 +37487,7 @@
     },
     {
       "caller": "packages/server/src/tools/index.mjs:isAbsPath",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -37563,6 +37859,66 @@
       "resolved": false
     },
     {
+      "caller": "packages/server/src/routes/coding-crew-routes.mjs:cleanupChatAgent",
+      "callee": "runningCodingAgents.delete",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-crew-routes.mjs:cleanupDispatch",
+      "callee": "runningCodingAgents.delete",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-crew-routes.mjs:verifyWork",
+      "callee": "verifyDispatchWork",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-crew-routes.mjs:estimateTokens",
+      "callee": "Math.ceil",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-crew-routes.mjs:sendSSE",
+      "callee": "res.write",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-crew-routes.mjs:sendSSE",
+      "callee": "res.write",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-crew-routes.mjs:sendSSE",
+      "callee": "JSON.stringify",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-crew-routes.mjs:sendSSE",
+      "callee": "res.write",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-crew-routes.mjs:sendSSE",
+      "callee": "res.write",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-crew-routes.mjs:sendSSE",
+      "callee": "JSON.stringify",
+      "type": "method",
+      "resolved": false
+    },
+    {
       "caller": "packages/server/src/routes/coding-db.mjs:_json",
       "callee": "res.writeHead",
       "type": "method",
@@ -37584,6 +37940,42 @@
       "caller": "packages/server/src/routes/coding-db.mjs:root",
       "callee": "packages/server/src/routes/shared.mjs:resolve",
       "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/routes/coding-health.mjs:fixId",
+      "callee": "name.toLowerCase().replace",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-health.mjs:fixId",
+      "callee": "name.toLowerCase",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-helpers.mjs:walk",
+      "callee": "Array.isArray",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-helpers.mjs:walk",
+      "callee": "v.forEach",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-helpers.mjs:walk",
+      "callee": "/\\.(test|spec)\\.[tj]sx?$/.test",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-helpers.mjs:walk",
+      "callee": "pool.push",
+      "type": "method",
+      "resolved": false
     },
     {
       "caller": "packages/server/src/routes/coding-releases.mjs:build",
@@ -37610,7 +38002,7 @@
     },
     {
       "caller": "packages/server/src/routes/coding-releases.mjs:build",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "chained"
     },
     {
@@ -37693,7 +38085,7 @@
     },
     {
       "caller": "packages/server/src/routes/coding-releases.mjs:walk",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "chained"
     },
     {
@@ -37748,7 +38140,7 @@
     },
     {
       "caller": "packages/server/src/routes/coding-releases.mjs:segPattern",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -37783,7 +38175,7 @@
     },
     {
       "caller": "packages/server/src/routes/coding-releases.mjs:tryMatch",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -37822,7 +38214,7 @@
     },
     {
       "caller": "packages/server/src/routes/coding-releases.mjs:walk",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "chained"
     },
     {
@@ -37884,7 +38276,7 @@
     },
     {
       "caller": "packages/server/src/routes/coding-releases.mjs:build",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "chained"
     },
     {
@@ -37967,7 +38359,7 @@
     },
     {
       "caller": "packages/server/src/routes/coding-releases.mjs:walk",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "chained"
     },
     {
@@ -39130,90 +39522,6 @@
       "resolved": false
     },
     {
-      "caller": "packages/server/src/routes/coding.mjs:walk",
-      "callee": "Array.isArray",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/routes/coding.mjs:walk",
-      "callee": "v.forEach",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/routes/coding.mjs:walk",
-      "callee": "/\\.(test|spec)\\.[tj]sx?$/.test",
-      "type": "chained",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/routes/coding.mjs:walk",
-      "callee": "pool.push",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/routes/coding.mjs:cleanupChatAgent",
-      "callee": "runningCodingAgents.delete",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/routes/coding.mjs:cleanupDispatch",
-      "callee": "runningCodingAgents.delete",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/routes/coding.mjs:verifyWork",
-      "callee": "verifyDispatchWork",
-      "type": "direct",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/routes/coding.mjs:estimateTokens",
-      "callee": "Math.ceil",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/routes/coding.mjs:sendSSE",
-      "callee": "res.write",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/routes/coding.mjs:sendSSE",
-      "callee": "res.write",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/routes/coding.mjs:sendSSE",
-      "callee": "JSON.stringify",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/routes/coding.mjs:sendSSE",
-      "callee": "res.write",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/routes/coding.mjs:sendSSE",
-      "callee": "res.write",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/routes/coding.mjs:sendSSE",
-      "callee": "JSON.stringify",
-      "type": "method",
-      "resolved": false
-    },
-    {
       "caller": "packages/server/src/routes/coding.mjs:respond",
       "callee": "res.writeHead",
       "type": "method",
@@ -39393,18 +39701,6 @@
       "resolved": false
     },
     {
-      "caller": "packages/server/src/routes/coding.mjs:fixId",
-      "callee": "name.toLowerCase().replace",
-      "type": "chained",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/routes/coding.mjs:fixId",
-      "callee": "name.toLowerCase",
-      "type": "method",
-      "resolved": false
-    },
-    {
       "caller": "packages/server/src/routes/crew.mjs:sendEvent",
       "callee": "res.write",
       "type": "method",
@@ -39567,7 +39863,7 @@
     },
     {
       "caller": "packages/server/src/routes/release-unit.mjs:withinDir",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -40135,7 +40431,7 @@
     },
     {
       "caller": "packages/server/src/lib/c4-model-scan.mjs:scanDirForEnv",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "chained"
     },
     {
@@ -40174,7 +40470,7 @@
     },
     {
       "caller": "packages/server/src/lib/c4-model-scan.mjs:scanDirForEnv",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "chained"
     },
     {
@@ -40930,7 +41226,7 @@
     },
     {
       "caller": "packages/server/src/lib/e2e-inventory.mjs:walk",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "chained"
     },
     {
@@ -41351,898 +41647,898 @@
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:mk",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:mk",
       "callee": "Object.assign",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:onAbort",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:onAbort",
       "callee": "reject",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:onAbort",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:mk",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:onAbort",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:mk",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:LOG",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:LOG",
       "callee": "console.log",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolvePath",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolvePath",
       "callee": "/^[A-Za-z]:[\\\\/]/.test",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolvePath",
       "callee": "packages/server/src/routes/shared.mjs:resolve",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "callee": "s.replace",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:resolvePath",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "callee": "target.split",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "callee": "prefix.split",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "callee": "p2.every",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "callee": "seg.toLowerCase",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "callee": "t[i].toLowerCase",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "callee": "abs.slice",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "chained"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "callee": "relToPaaw.toLowerCase",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "callee": "bl.toLowerCase",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "callee": "(p.match(/\\.([^.]+)$/) || [])[1].toLowerCase",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "callee": "p.match",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "callee": "relToPaaw.slice(1).includes",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "callee": "relToPaaw.slice",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "callee": "WRITE_BLACKLIST_EXTS.has",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "callee": "s.replace",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "callee": "target.split",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "callee": "prefix.split",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "callee": "p2.every",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "callee": "seg.toLowerCase",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "callee": "t[i].toLowerCase",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
       "callee": "s.replace",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:resolvePath",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
       "callee": "target.split",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
       "callee": "prefix.split",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
       "callee": "p2.every",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
       "callee": "seg.toLowerCase",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
       "callee": "t[i].toLowerCase",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
       "callee": "workspaceDirs.some",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "callee": "s.replace",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "callee": "target.split",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "callee": "prefix.split",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "callee": "p2.every",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "callee": "seg.toLowerCase",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "callee": "t[i].toLowerCase",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary",
       "callee": "filePath.replace(/\\\\/g, \"/\").replace",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary",
       "callee": "filePath.replace",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary",
       "callee": "cwd.replace(/\\\\/g, \"/\").replace",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary",
       "callee": "cwd.replace",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary",
       "callee": "packages/server/src/routes/shared.mjs:existsSync",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary",
       "callee": "featureBoundary.allowedFiles.some",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary",
       "callee": "f.replace",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_recordViolation",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_recordViolation",
       "callee": "featureBoundary._violations.push",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_recordViolation",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_recordViolation",
       "callee": "new Date().toISOString",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
       "callee": "String(p).replace(/\\\\/g, \"/\").replace",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
       "callee": "String(p).replace",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
       "callee": "String",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
       "callee": "norm.split(\"/\")[0].toLowerCase",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
       "callee": "norm.split",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
       "callee": "_pathBasename(b).toLowerCase",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
       "callee": "_pathBasename",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
       "callee": "norm.slice(firstSeg.length).replace",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
       "callee": "norm.slice",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
       "callee": "packages/server/src/routes/shared.mjs:resolve",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
       "callee": "packages/server/src/routes/shared.mjs:resolve",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
       "callee": "packages/server/src/routes/shared.mjs:resolve",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
       "callee": "packages/server/src/routes/shared.mjs:existsSync",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
       "callee": "packages/server/src/routes/shared.mjs:resolve",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "callee": "packages/server/src/routes/shared.mjs:readdirSync",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "callee": "packages/server/src/routes/shared.mjs:join",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "callee": "packages/server/src/routes/shared.mjs:statSync",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "callee": "stat.isDirectory",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "callee": "(e.match(/\\.([^.]+)$/) || [])[1].toLowerCase",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "callee": "e.match",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "callee": "[\"png\", \"jpg\", \"jpeg\", \"gif\", \"webp\", \"ico\", \"pdf\", \"zip\"].includes",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "callee": "readSync2(fp, \"utf-8\").toLowerCase",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "callee": "readSync2",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "callee": "content.includes",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "callee": "content.indexOf",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "callee": "Math.max",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "callee": "content.slice(start, idx + query.length + 50).replace",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "callee": "content.slice",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "callee": "results.push",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:readDoc",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:readDoc",
       "callee": "packages/server/src/routes/shared.mjs:resolve",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:readDoc",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:readDoc",
       "callee": "packages/server/src/routes/shared.mjs:existsSync",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:readDoc",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:readDoc",
       "callee": "readSync",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:fmt",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:fmt",
       "callee": "packages/server/src/routes/shared.mjs:join",
       "type": "chained"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:fmt",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:fmt",
       "callee": "list.map",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:git",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:git",
       "callee": "execSync(`git ${c}`, { cwd, encoding: \"utf-8\", timeout: 15000 }).trim",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:git",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:git",
       "callee": "execSync",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:evPush",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:evPush",
       "callee": "ev.push",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_collectionsFile",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_collectionsFile",
       "callee": "_atHelpers._collectionsFileFor",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_loadCols",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_loadCols",
       "callee": "_atHelpers._loadCollectionsFor",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:hit",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:hit",
       "callee": "(c.code || \"\").toLowerCase().includes",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:hit",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:hit",
       "callee": "(c.code || \"\").toLowerCase",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:hit",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:hit",
       "callee": "(c.message || \"\").toLowerCase().includes",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:hit",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:hit",
       "callee": "(c.message || \"\").toLowerCase",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:hit",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:hit",
       "callee": "(c.file || \"\").toLowerCase().includes",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:hit",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:hit",
       "callee": "(c.file || \"\").toLowerCase",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:fmt",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:fmt",
       "callee": "packages/server/src/routes/shared.mjs:join",
       "type": "chained"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:fmt",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:fmt",
       "callee": "c.evidence.slice",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:hit",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:hit",
       "callee": "[c.name, c.type, c.technology, c.description, ...(c.evidence || [])].join(\" \").toLowerCase().includes",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:hit",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:hit",
       "callee": "[c.name, c.type, c.technology, c.description, ...(c.evidence || [])].join(\" \").toLowerCase",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:hit",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:hit",
       "callee": "packages/server/src/routes/shared.mjs:join",
       "type": "chained"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:rel",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:rel",
       "callee": "String(p || \"\").replace",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:rel",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:rel",
       "callee": "String",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:rel",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:rel",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:rel",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:rel",
       "callee": "n.slice",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_loadProject",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_loadProject",
       "callee": "packages/server/src/routes/shared.mjs:join",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_loadProject",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_loadProject",
       "callee": "packages/server/src/routes/shared.mjs:existsSync",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_loadProject",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_loadProject",
       "callee": "packages/server/src/lib/coding-db/reads.mjs:parse",
       "type": "method"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_loadProject",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_loadProject",
       "callee": "readSync",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_saveProject",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_saveProject",
       "callee": "writeSync",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_saveProject",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_saveProject",
       "callee": "packages/server/src/routes/shared.mjs:join",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:_saveProject",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:_saveProject",
       "callee": "JSON.stringify",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:safe",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:safe",
       "callee": "/^[a-zA-Z0-9._-]+$/.test",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:readSess",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:readSess",
       "callee": "packages/server/src/lib/coding-db/reads.mjs:parse",
       "type": "method"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:readSess",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:readSess",
       "callee": "readSync",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:readSess",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:readSess",
       "callee": "packages/server/src/routes/shared.mjs:join",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:fmtTime",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:fmtTime",
       "callee": "(t || \"\").slice(0, 16).replace",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:fmtTime",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:fmtTime",
       "callee": "(t || \"\").slice",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "callee": "String(s||\"\").trim().toLowerCase().replace",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "callee": "String(s||\"\").trim().toLowerCase",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "callee": "String(s||\"\").trim",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "callee": "String",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "callee": "[\"in_progress\",\"review\",\"testing\",\"pending\",\"awaiting_human\"].includes",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "callee": "[\"done\",\"completed\",\"resolved\",\"closed\",\"close\"].includes",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "callee": "[\"skipped\",\"wontfix\",\"ignore\"].includes",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:normType",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:normType",
       "callee": "String(t||\"\").toLowerCase",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:normType",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:normType",
       "callee": "String",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:normType",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:normType",
       "callee": "String(t||\"\").toLowerCase",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:normType",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:normType",
       "callee": "String",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:normStatus",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:normStatus",
       "callee": "String(s||\"\").trim().toLowerCase().replace",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:normStatus",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:normStatus",
       "callee": "String(s||\"\").trim().toLowerCase",
       "type": "chained",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:normStatus",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:normStatus",
       "callee": "String(s||\"\").trim",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:normStatus",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:normStatus",
       "callee": "String",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:normStatus",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:normStatus",
       "callee": "[\"in_progress\",\"review\",\"testing\",\"pending\",\"awaiting_human\"].includes",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:normStatus",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:normStatus",
       "callee": "[\"done\",\"completed\",\"resolved\",\"closed\",\"close\"].includes",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:normStatus",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:normStatus",
       "callee": "[\"skipped\",\"wontfix\",\"ignore\"].includes",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:normType",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:normType",
       "callee": "String(t||\"\").toLowerCase",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:normType",
+      "caller": "packages/server/src/lib/paaw-agent-exec.mjs:normType",
       "callee": "String",
       "type": "direct",
       "resolved": false
@@ -42532,7 +42828,7 @@
     },
     {
       "caller": "packages/server/src/lib/paaw-sandbox.mjs:inside",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -42583,6 +42879,188 @@
       "caller": "packages/server/src/lib/paaw-sandbox.mjs:overlapsRw",
       "callee": "packages/server/src/lib/paaw-sandbox.mjs:inside",
       "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:segEq",
+      "callee": "packages/server/src/lib/page-inventory.mjs:isParamSeg",
+      "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:segEq",
+      "callee": "packages/server/src/lib/page-inventory.mjs:isParamSeg",
+      "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:segEq",
+      "callee": "packages/server/src/lib/page-inventory.mjs:isParamSeg",
+      "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:segEq",
+      "callee": "packages/server/src/lib/page-inventory.mjs:isParamSeg",
+      "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "packages/server/src/routes/shared.mjs:readdirSync",
+      "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
+      "type": "chained"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "SKIP_DIR.has",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "packages/server/src/routes/shared.mjs:join",
+      "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "e.isDirectory",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "packages/server/src/lib/page-inventory.mjs:walk",
+      "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "e.isFile",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "rel.slice",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "rel.lastIndexOf",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "SRC_EXT.has",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "out.push",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:add",
+      "callee": "packages/server/src/lib/page-inventory.mjs:validRouteStr",
+      "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:add",
+      "callee": "packages/server/src/lib/page-inventory.mjs:normRoute",
+      "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:add",
+      "callee": "packages/server/src/lib/page-inventory.mjs:add",
+      "type": "method"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "packages/server/src/routes/shared.mjs:readdirSync",
+      "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
+      "type": "chained"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "SKIP_DIR.has",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "packages/server/src/routes/shared.mjs:join",
+      "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "e.isDirectory",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "packages/server/src/lib/page-inventory.mjs:walk",
+      "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "e.isFile",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "isTestFileName",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "rel.split(\"/\").slice(0, -1).some",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "rel.split(\"/\").slice",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "rel.split",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "[\"e2e\", \"tests\", \"test\", \"spec\", \"__tests__\"].includes",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "packages/server/src/lib/page-inventory.mjs:readSafe",
+      "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "c.matchAll",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/page-inventory.mjs:walk",
+      "callee": "urls.push",
+      "type": "method",
+      "resolved": false
     },
     {
       "caller": "packages/server/src/lib/proc-ledger.mjs:_now",
@@ -42813,7 +43291,7 @@
     },
     {
       "caller": "packages/server/src/lib/release-evidence-snapshot.mjs:build",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "chained"
     },
     {
@@ -42890,7 +43368,7 @@
     },
     {
       "caller": "packages/server/src/lib/release-evidence-snapshot.mjs:walk",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "chained"
     },
     {
@@ -42993,7 +43471,7 @@
     },
     {
       "caller": "packages/server/src/lib/release-requests.mjs:notTraceable",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -43138,7 +43616,7 @@
     },
     {
       "caller": "packages/server/src/lib/skill-suggest.mjs:walk",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "chained"
     },
     {
@@ -43243,7 +43721,7 @@
     },
     {
       "caller": "packages/server/src/lib/temp-janitor.mjs:walk",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "chained"
     },
     {
@@ -43381,7 +43859,7 @@
     },
     {
       "caller": "packages/server/src/lib/test-runner.mjs:skip",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "callee": "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "type": "method"
     },
     {
@@ -43916,6 +44394,8 @@
       "tests/unit/cu-staleness.test.mjs:artifact",
       "tests/unit/cu-staleness.test.mjs:artifact",
       "tests/unit/llm-logs.test.mjs:w",
+      "tests/unit/page-inventory.test.mjs:mk",
+      "tests/unit/page-inventory.test.mjs:mk",
       "tests/unit/release-requests-delta.test.mjs:commitFile",
       "tests/unit/release-requests-delta.test.mjs:commitFile",
       "tests/unit/rust-feature-map.test.mjs:w",
@@ -43982,13 +44462,13 @@
       "packages/server/src/lib/e2e-inventory.mjs:walk",
       "packages/server/src/lib/feature-map-v2.mjs:_topDirs",
       "packages/server/src/lib/feature-map-v2.mjs:partPath",
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
-      "packages/server/src/lib/paaw-agent-loop.mjs:fmt",
-      "packages/server/src/lib/paaw-agent-loop.mjs:fmt",
-      "packages/server/src/lib/paaw-agent-loop.mjs:hit",
-      "packages/server/src/lib/paaw-agent-loop.mjs:_loadProject",
-      "packages/server/src/lib/paaw-agent-loop.mjs:_saveProject",
-      "packages/server/src/lib/paaw-agent-loop.mjs:readSess",
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
+      "packages/server/src/lib/paaw-agent-exec.mjs:fmt",
+      "packages/server/src/lib/paaw-agent-exec.mjs:fmt",
+      "packages/server/src/lib/paaw-agent-exec.mjs:hit",
+      "packages/server/src/lib/paaw-agent-exec.mjs:_loadProject",
+      "packages/server/src/lib/paaw-agent-exec.mjs:_saveProject",
+      "packages/server/src/lib/paaw-agent-exec.mjs:readSess",
       "packages/server/src/lib/paaw-agent-loop.mjs:_previewMsg",
       "packages/server/src/lib/paaw-agent-loop.mjs:_logStreamRequest",
       "packages/server/src/lib/paaw-agent-loop.mjs:_logStreamRequest",
@@ -43996,6 +44476,8 @@
       "packages/server/src/lib/paaw-agent-loop.mjs:_logStreamResponse",
       "packages/server/src/lib/paaw-project.mjs:walk",
       "packages/server/src/lib/paaw-sandbox.mjs:expandRo",
+      "packages/server/src/lib/page-inventory.mjs:walk",
+      "packages/server/src/lib/page-inventory.mjs:walk",
       "packages/server/src/lib/project-md.mjs:stripSkeleton",
       "packages/server/src/lib/release-evidence-snapshot.mjs:build",
       "packages/server/src/lib/release-evidence-snapshot.mjs:walk",
@@ -44103,11 +44585,11 @@
       "packages/server/src/routes/audit-log.mjs:json",
       "packages/server/src/routes/coding-auto-dispatch.mjs:sendJSON",
       "packages/server/src/routes/coding-auto-dispatch.mjs:sendSSE",
+      "packages/server/src/routes/coding-crew-routes.mjs:sendSSE",
+      "packages/server/src/routes/coding-crew-routes.mjs:sendSSE",
       "packages/server/src/routes/coding-db.mjs:_json",
       "packages/server/src/routes/coding-reports.mjs:sendJSON",
       "packages/server/src/routes/coding-review-board.mjs:json",
-      "packages/server/src/routes/coding.mjs:sendSSE",
-      "packages/server/src/routes/coding.mjs:sendSSE",
       "packages/server/src/routes/coding.mjs:respond",
       "packages/server/src/routes/coding.mjs:sendEvent",
       "packages/server/src/routes/coding.mjs:sendEvent",
@@ -44120,7 +44602,7 @@
       "packages/server/src/routes/skills-api.mjs:scanSkillsDir",
       "packages/server/src/routes/starter-kits.mjs:_json",
       "packages/server/src/lib/agent-exec-logger.mjs:log",
-      "packages/server/src/lib/paaw-agent-loop.mjs:_saveProject",
+      "packages/server/src/lib/paaw-agent-exec.mjs:_saveProject",
       "packages/server/src/lib/paaw-agent-loop.mjs:_logStreamRequest",
       "packages/server/src/lib/paaw-agent-loop.mjs:_logStreamResponse",
       "packages/server/src/lib/paaw-agent-loop.mjs:sendSSE"
@@ -44155,8 +44637,8 @@
       "packages/server/src/routes/release-unit.mjs:_loadRuRegistry",
       "packages/server/src/routes/skills-api.mjs:scanSkillsDir",
       "packages/server/src/lib/code-intelligence.mjs:loadJson",
-      "packages/server/src/lib/paaw-agent-loop.mjs:_loadProject",
-      "packages/server/src/lib/paaw-agent-loop.mjs:readSess",
+      "packages/server/src/lib/paaw-agent-exec.mjs:_loadProject",
+      "packages/server/src/lib/paaw-agent-exec.mjs:readSess",
       "packages/server/src/lib/paaw-project.mjs:readJson",
       "packages/server/src/lib/project-md.mjs:readJson",
       "packages/server/src/lib/coding-db/reads.mjs:parse"
@@ -44217,6 +44699,7 @@
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadEvApi",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadEvApi",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadE2eInv",
+      "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadApiStatus",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:genApiSummary",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:runTests",
@@ -44236,7 +44719,7 @@
     ],
     "Math.ceil": [
       "tests/unit/context-compaction.test.mjs:TOKEN_APPROX",
-      "packages/server/src/routes/coding.mjs:estimateTokens"
+      "packages/server/src/routes/coding-crew-routes.mjs:estimateTokens"
     ],
     "\"m\".repeat": [
       "tests/unit/context-compaction.test.mjs:mk"
@@ -44254,6 +44737,7 @@
     ],
     "packages/server/src/routes/shared.mjs:mkdirSync": [
       "tests/unit/cu-staleness.test.mjs:artifact",
+      "tests/unit/page-inventory.test.mjs:mk",
       "tests/unit/release-requests-delta.test.mjs:commitFile",
       "tests/unit/rust-feature-map.test.mjs:w",
       "tests/unit/test-signals.test.mjs:w",
@@ -44264,6 +44748,7 @@
     ],
     "packages/server/src/routes/shared.mjs:writeFileSync": [
       "tests/unit/cu-staleness.test.mjs:artifact",
+      "tests/unit/page-inventory.test.mjs:mk",
       "tests/unit/release-requests-delta.test.mjs:commitFile",
       "tests/unit/rust-feature-map.test.mjs:w",
       "tests/unit/skill-engagement.test.mjs:w",
@@ -44275,7 +44760,7 @@
       "tests/unit/release-evidence-snapshot.test.mjs:G",
       "tests/unit/release-requests-delta.test.mjs:git",
       "tests/unit/release-requests-delta.test.mjs:head",
-      "packages/server/src/lib/paaw-agent-loop.mjs:git",
+      "packages/server/src/lib/paaw-agent-exec.mjs:git",
       "packages/server/src/lib/proc-ledger.mjs:killAll"
     ],
     "calls.push": [
@@ -44308,6 +44793,7 @@
       "packages/ui/src/components/QaRecords.tsx:openSignForm",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadEvApi",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadE2eInv",
+      "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadApiStatus",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:genApiSummary",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:genApiSummary",
@@ -44373,13 +44859,13 @@
       "packages/server/src/lib/env-exec-tool.mjs:tail",
       "packages/server/src/lib/feature-map-v2.mjs:partPath",
       "packages/server/src/lib/feature-registry.mjs:_norm",
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
-      "packages/server/src/lib/paaw-agent-loop.mjs:rel",
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm",
-      "packages/server/src/lib/paaw-agent-loop.mjs:normType",
-      "packages/server/src/lib/paaw-agent-loop.mjs:normType",
-      "packages/server/src/lib/paaw-agent-loop.mjs:normStatus",
-      "packages/server/src/lib/paaw-agent-loop.mjs:normType",
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
+      "packages/server/src/lib/paaw-agent-exec.mjs:rel",
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm",
+      "packages/server/src/lib/paaw-agent-exec.mjs:normType",
+      "packages/server/src/lib/paaw-agent-exec.mjs:normType",
+      "packages/server/src/lib/paaw-agent-exec.mjs:normStatus",
+      "packages/server/src/lib/paaw-agent-exec.mjs:normType",
       "packages/server/src/lib/qa-results.mjs:p",
       "packages/server/src/lib/release-evidence-snapshot.mjs:_normPath",
       "packages/server/src/lib/release-evidence.mjs:_normEvPath",
@@ -44582,7 +45068,7 @@
       "packages/ui/src/components/browser/BrowserPanel.tsx:onScrollbarTrack",
       "packages/ui/src/components/browser/BrowserPanel.tsx:onScrollbarGrab",
       "packages/ui/src/components/browser/BrowserPanel.tsx:onMove",
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir"
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir"
     ],
     "tests/unit/subfeature-refine.test.mjs:infoOf": [
       "tests/unit/subfeature-refine.test.mjs:twoDoms",
@@ -44653,9 +45139,9 @@
       "scripts/check-sandbox.mjs:skip",
       "scripts/check-sandbox.mjs:info",
       "packages/server/src/lib/browser-executor.mjs:step",
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir"
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:startsWith": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:startsWith": [
       "scripts/check-sandbox.mjs:inside",
       "scripts/check-sandbox.mjs:inside",
       "scripts/pack.mjs:skipAsset",
@@ -44679,18 +45165,20 @@
       "packages/server/src/lib/c4-model-scan.mjs:scanDirForEnv",
       "packages/server/src/lib/c4-model-scan.mjs:scanDirForEnv",
       "packages/server/src/lib/e2e-inventory.mjs:walk",
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:rel",
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolvePath",
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "packages/server/src/lib/paaw-agent-exec.mjs:rel",
       "packages/server/src/lib/paaw-sandbox.mjs:inside",
+      "packages/server/src/lib/page-inventory.mjs:walk",
+      "packages/server/src/lib/page-inventory.mjs:walk",
       "packages/server/src/lib/release-evidence-snapshot.mjs:build",
       "packages/server/src/lib/release-evidence-snapshot.mjs:walk",
       "packages/server/src/lib/release-requests.mjs:notTraceable",
@@ -44724,7 +45212,7 @@
       "packages/server/src/routes/coding-auto-dispatch.mjs:sendSSE",
       "packages/server/src/lib/browser-executor.mjs:step",
       "packages/server/src/lib/em-orchestrator.mjs:_log",
-      "packages/server/src/lib/paaw-agent-loop.mjs:LOG",
+      "packages/server/src/lib/paaw-agent-exec.mjs:LOG",
       "packages/server/src/lib/semgrep-runner.mjs:LOG"
     ],
     "c.cyan": [
@@ -44747,8 +45235,10 @@
       "packages/server/src/routes/coding-releases.mjs:walk",
       "packages/server/src/lib/c4-model-scan.mjs:scanDirForEnv",
       "packages/server/src/lib/e2e-inventory.mjs:walk",
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "packages/server/src/lib/paaw-sandbox.mjs:expandRo",
+      "packages/server/src/lib/page-inventory.mjs:walk",
+      "packages/server/src/lib/page-inventory.mjs:walk",
       "packages/server/src/lib/release-evidence-snapshot.mjs:build",
       "packages/server/src/lib/release-evidence-snapshot.mjs:walk",
       "packages/server/src/lib/skill-suggest.mjs:walk",
@@ -44777,6 +45267,8 @@
       "packages/server/src/routes/coding-releases.mjs:walk",
       "packages/server/src/lib/c4-model-scan.mjs:scanDirForEnv",
       "packages/server/src/lib/e2e-inventory.mjs:walk",
+      "packages/server/src/lib/page-inventory.mjs:walk",
+      "packages/server/src/lib/page-inventory.mjs:walk",
       "packages/server/src/lib/release-evidence-snapshot.mjs:build",
       "packages/server/src/lib/release-evidence-snapshot.mjs:walk",
       "packages/server/src/lib/skill-suggest.mjs:walk",
@@ -44802,6 +45294,7 @@
       "scripts/pack.mjs:walk",
       "scripts/pack.mjs:walk",
       "packages/server/src/routes/coding-releases.mjs:walk",
+      "packages/server/src/lib/page-inventory.mjs:walk",
       "packages/engine/src/tool-engine/provider.ts:collectToolCalls"
     ],
     "scripts/pack.mjs:walk": [
@@ -45099,6 +45592,7 @@
       "packages/ui/src/components/QaRecords.tsx:submitSignOff",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadEvApi",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadE2eInv",
+      "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadApiStatus",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:genApiSummary",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:runTests",
@@ -45387,6 +45881,7 @@
       "packages/ui/src/components/ProjectMdPage.tsx:regenerate",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadEvApi",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadE2eInv",
+      "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadApiStatus",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:genApiSummary",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:runTests",
@@ -45777,7 +46272,7 @@
       "packages/server/src/routes/coding-trouble.mjs:handle",
       "packages/server/src/routes/coding-trouble.mjs:handle",
       "packages/server/src/lib/flight-recorder.mjs:mark",
-      "packages/server/src/lib/paaw-agent-loop.mjs:_recordViolation",
+      "packages/server/src/lib/paaw-agent-exec.mjs:_recordViolation",
       "packages/server/src/lib/paaw-agent-loop.mjs:_logStreamRequest",
       "packages/server/src/lib/paaw-agent-loop.mjs:_logStreamResponse",
       "packages/server/src/lib/paaw-agent-loop.mjs:_logStreamResponse",
@@ -46007,9 +46502,6 @@
     "setShowModelPicker": [
       "packages/ui/src/pages/ChatView.tsx:switchModel"
     ],
-    "crewId.replace": [
-      "packages/ui/src/pages/CodingIDE.tsx:crewToAgentId"
-    ],
     "setRuInfoSaving": [
       "packages/ui/src/pages/CodingIDE.tsx:saveRuInfo",
       "packages/ui/src/pages/CodingIDE.tsx:saveRuInfo"
@@ -46092,7 +46584,7 @@
     "content.slice": [
       "packages/ui/src/pages/CodingIDE.tsx:poll",
       "packages/server/src/routes/coding.mjs:loadCtx",
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir"
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir"
     ],
     "String(st.error).slice": [
       "packages/ui/src/pages/CodingIDE.tsx:poll"
@@ -46606,10 +47098,10 @@
       "packages/ui/src/pages/SettingsPage.tsx:loadAlwaysApprovals",
       "packages/ui/src/components/ApiTesterTabs.tsx:loadPayloadDetail",
       "packages/server/src/tools/index.mjs:_secOnEvent",
+      "packages/server/src/routes/coding-helpers.mjs:walk",
       "packages/server/src/routes/coding-trouble.mjs:handle",
       "packages/server/src/routes/coding-trouble.mjs:handle",
       "packages/server/src/routes/coding-trouble.mjs:handle",
-      "packages/server/src/routes/coding.mjs:walk",
       "packages/server/src/routes/release-unit.mjs:_loadRuRegistry",
       "packages/server/src/routes/skills-api.mjs:scanSkillsDir",
       "packages/server/src/routes/skills-api.mjs:scanSkillsDir",
@@ -46952,6 +47444,8 @@
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadEvApi",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadE2eInv",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadE2eInv",
+      "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
+      "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadApiStatus",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadApiStatus",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:genApiSummary",
@@ -47131,12 +47625,12 @@
       "packages/server/src/routes/coding.mjs:loadPrompt",
       "packages/server/src/routes/coding.mjs:loadPrompt",
       "packages/server/src/routes/release-unit.mjs:withinDir",
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
-      "packages/server/src/lib/paaw-agent-loop.mjs:readDoc",
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolvePath",
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
+      "packages/server/src/lib/paaw-agent-exec.mjs:readDoc",
       "packages/server/src/lib/proc-ledger.mjs:finish",
       "packages/server/src/lib/test-signals.mjs:norm"
     ],
@@ -47193,6 +47687,9 @@
     ],
     "fetch(`${API_BASE}/api/starter-kits/${encodeURIComponent(id)}/files`).then": [
       "packages/ui/src/pages/StarterKitsSettings.tsx:toggleFiles"
+    ],
+    "crewId.replace": [
+      "packages/ui/src/pages/coding-ide-helpers.tsx:crewToAgentId"
     ],
     "setSelectedTools": [
       "packages/ui/src/components/AgentBuilder.tsx:toggleTool"
@@ -47999,6 +48496,16 @@
     "setE2eInv": [
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadE2eInv"
     ],
+    "setPageInvBusy": [
+      "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv",
+      "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv"
+    ],
+    "fetch(`${API_BASE}/api/coding-releases/page-inventory?path=${encodeURIComponent(rootPath)}`).then": [
+      "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv"
+    ],
+    "setPageInv": [
+      "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv"
+    ],
     "setApiBusy": [
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadApiStatus",
       "packages/ui/src/components/ReleaseManagerPanel.tsx:loadApiStatus"
@@ -48496,7 +49003,7 @@
     "Object.assign": [
       "packages/ui/src/components/ui/uiFeedback.ts:mkBtn",
       "packages/ui/src/components/ui/uiFeedback.ts:mkBtn",
-      "packages/server/src/lib/paaw-agent-loop.mjs:mk"
+      "packages/server/src/lib/paaw-agent-exec.mjs:mk"
     ],
     "onClick": [
       "packages/ui/src/components/ui/uiFeedback.ts:mkBtn",
@@ -48724,10 +49231,10 @@
     "s.replace": [
       "packages/server/src/websocket/ws-handler.mjs:stripAnsiForLog",
       "packages/server/src/websocket/ws-handler.mjs:stripAnsi",
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm"
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm"
     ],
     "new Date(ts).toLocaleTimeString": [
       "packages/server/src/tools/index.mjs:fmtT"
@@ -48816,10 +49323,10 @@
     "res.write": [
       "packages/server/src/routes/api-tester.mjs:pump",
       "packages/server/src/routes/api-tester.mjs:pump",
-      "packages/server/src/routes/coding.mjs:sendSSE",
-      "packages/server/src/routes/coding.mjs:sendSSE",
-      "packages/server/src/routes/coding.mjs:sendSSE",
-      "packages/server/src/routes/coding.mjs:sendSSE",
+      "packages/server/src/routes/coding-crew-routes.mjs:sendSSE",
+      "packages/server/src/routes/coding-crew-routes.mjs:sendSSE",
+      "packages/server/src/routes/coding-crew-routes.mjs:sendSSE",
+      "packages/server/src/routes/coding-crew-routes.mjs:sendSSE",
       "packages/server/src/routes/coding.mjs:sendEvent",
       "packages/server/src/routes/coding.mjs:sendEvent",
       "packages/server/src/routes/coding.mjs:sendEvent",
@@ -48862,6 +49369,32 @@
     ],
     "[...(current.events || []), { ts: new Date().toISOString(), type, message: msg, ...(meta ? { meta } : {}) }].slice": [
       "packages/server/src/routes/coding-auto-dispatch.mjs:sendSSE"
+    ],
+    "runningCodingAgents.delete": [
+      "packages/server/src/routes/coding-crew-routes.mjs:cleanupChatAgent",
+      "packages/server/src/routes/coding-crew-routes.mjs:cleanupDispatch"
+    ],
+    "verifyDispatchWork": [
+      "packages/server/src/routes/coding-crew-routes.mjs:verifyWork"
+    ],
+    "name.toLowerCase().replace": [
+      "packages/server/src/routes/coding-health.mjs:fixId"
+    ],
+    "name.toLowerCase": [
+      "packages/server/src/routes/coding-health.mjs:fixId",
+      "packages/server/src/lib/c4-model-scan.mjs:pyPush",
+      "packages/server/src/lib/c4-model-scan.mjs:pyPush",
+      "packages/server/src/lib/c4-model-scan.mjs:pyPush",
+      "packages/server/src/lib/c4-model-scan.mjs:pyPush"
+    ],
+    "v.forEach": [
+      "packages/server/src/routes/coding-helpers.mjs:walk"
+    ],
+    "/\\.(test|spec)\\.[tj]sx?$/.test": [
+      "packages/server/src/routes/coding-helpers.mjs:walk"
+    ],
+    "pool.push": [
+      "packages/server/src/routes/coding-helpers.mjs:walk"
     ],
     "isTestFileNameM": [
       "packages/server/src/routes/coding-releases.mjs:build",
@@ -49096,10 +49629,10 @@
       "packages/server/src/routes/coding.mjs:loadProjectPrompt",
       "packages/server/src/routes/coding.mjs:loadProjectPrompt",
       "packages/server/src/lib/code-intelligence.mjs:loadJson",
-      "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary",
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases",
-      "packages/server/src/lib/paaw-agent-loop.mjs:readDoc",
-      "packages/server/src/lib/paaw-agent-loop.mjs:_loadProject",
+      "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary",
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases",
+      "packages/server/src/lib/paaw-agent-exec.mjs:readDoc",
+      "packages/server/src/lib/paaw-agent-exec.mjs:_loadProject",
       "packages/server/src/lib/paaw-sandbox.mjs:keep",
       "packages/server/src/lib/test-signals.mjs:norm",
       "packages/server/src/lib/test-signals.mjs:norm"
@@ -49282,22 +49815,6 @@
     "CU_MANUAL_STEPS.has": [
       "packages/server/src/routes/coding.mjs:flag"
     ],
-    "v.forEach": [
-      "packages/server/src/routes/coding.mjs:walk"
-    ],
-    "/\\.(test|spec)\\.[tj]sx?$/.test": [
-      "packages/server/src/routes/coding.mjs:walk"
-    ],
-    "pool.push": [
-      "packages/server/src/routes/coding.mjs:walk"
-    ],
-    "runningCodingAgents.delete": [
-      "packages/server/src/routes/coding.mjs:cleanupChatAgent",
-      "packages/server/src/routes/coding.mjs:cleanupDispatch"
-    ],
-    "verifyDispatchWork": [
-      "packages/server/src/routes/coding.mjs:verifyWork"
-    ],
     "readSync": [
       "packages/server/src/routes/coding.mjs:loadPrompt",
       "packages/server/src/routes/coding.mjs:loadPrompt",
@@ -49307,9 +49824,9 @@
       "packages/server/src/routes/coding.mjs:loadPrompt",
       "packages/server/src/routes/coding.mjs:loadPrompt",
       "packages/server/src/routes/coding.mjs:loadProjectPrompt",
-      "packages/server/src/lib/paaw-agent-loop.mjs:readDoc",
-      "packages/server/src/lib/paaw-agent-loop.mjs:_loadProject",
-      "packages/server/src/lib/paaw-agent-loop.mjs:readSess"
+      "packages/server/src/lib/paaw-agent-exec.mjs:readDoc",
+      "packages/server/src/lib/paaw-agent-exec.mjs:_loadProject",
+      "packages/server/src/lib/paaw-agent-exec.mjs:readSess"
     ],
     "packages/server/src/routes/coding.mjs:loadPrompt": [
       "packages/server/src/routes/coding.mjs:loadProjectPrompt",
@@ -49321,16 +49838,6 @@
       "packages/server/src/routes/skills-api.mjs:scanSkillsDir",
       "packages/server/src/lib/paaw-project.mjs:readJson",
       "packages/server/src/lib/project-md.mjs:readJson"
-    ],
-    "name.toLowerCase().replace": [
-      "packages/server/src/routes/coding.mjs:fixId"
-    ],
-    "name.toLowerCase": [
-      "packages/server/src/routes/coding.mjs:fixId",
-      "packages/server/src/lib/c4-model-scan.mjs:pyPush",
-      "packages/server/src/lib/c4-model-scan.mjs:pyPush",
-      "packages/server/src/lib/c4-model-scan.mjs:pyPush",
-      "packages/server/src/lib/c4-model-scan.mjs:pyPush"
     ],
     "packages/server/src/routes/shared.mjs:stat": [
       "packages/server/src/routes/crew.mjs:serveAsset",
@@ -49400,7 +49907,7 @@
     ],
     "content.includes": [
       "packages/server/src/routes/starter-kits.mjs:_walk",
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir"
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir"
     ],
     "wf": [
       "packages/server/src/routes/starter-kits.mjs:_walk"
@@ -49651,7 +50158,7 @@
     "String(p).replace": [
       "packages/server/src/lib/code-graph.mjs:isBarrel",
       "packages/server/src/lib/crosscut-concepts.mjs:norm",
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases"
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases"
     ],
     "edges.get": [
       "packages/server/src/lib/code-graph.mjs:effTargets",
@@ -49695,7 +50202,8 @@
       "packages/server/src/lib/code-graph.mjs:_childUnder"
     ],
     "rel.split": [
-      "packages/server/src/lib/code-graph.mjs:_childUnder"
+      "packages/server/src/lib/code-graph.mjs:_childUnder",
+      "packages/server/src/lib/page-inventory.mjs:walk"
     ],
     "a.split": [
       "packages/server/src/lib/code-graph.mjs:_commonPrefixLen"
@@ -49848,13 +50356,17 @@
       "packages/server/src/lib/e2e-inventory.mjs:segEq"
     ],
     "SKIP_DIR.has": [
-      "packages/server/src/lib/e2e-inventory.mjs:walk"
+      "packages/server/src/lib/e2e-inventory.mjs:walk",
+      "packages/server/src/lib/page-inventory.mjs:walk",
+      "packages/server/src/lib/page-inventory.mjs:walk"
     ],
     "packages/server/src/lib/e2e-inventory.mjs:walk": [
       "packages/server/src/lib/e2e-inventory.mjs:walk"
     ],
     "e.isFile": [
-      "packages/server/src/lib/e2e-inventory.mjs:walk"
+      "packages/server/src/lib/e2e-inventory.mjs:walk",
+      "packages/server/src/lib/page-inventory.mjs:walk",
+      "packages/server/src/lib/page-inventory.mjs:walk"
     ],
     "packages/server/src/lib/e2e-inventory.mjs:isTestFilePath": [
       "packages/server/src/lib/e2e-inventory.mjs:walk"
@@ -49979,7 +50491,7 @@
     ],
     "f.replace": [
       "packages/server/src/lib/janitor.mjs:strip",
-      "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary",
+      "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary",
       "packages/server/src/lib/test-signals.mjs:mentions"
     ],
     "controller.abort": [
@@ -49989,249 +50501,249 @@
       "packages/server/src/lib/llm-utils.mjs:resetReadTimer"
     ],
     "reject": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:onAbort"
+      "packages/server/src/lib/paaw-agent-exec.mjs:onAbort"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:mk": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:onAbort"
+    "packages/server/src/lib/paaw-agent-exec.mjs:mk": [
+      "packages/server/src/lib/paaw-agent-exec.mjs:onAbort"
     ],
     "/^[A-Za-z]:[\\\\/]/.test": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath"
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolvePath"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:norm": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed"
+    "packages/server/src/lib/paaw-agent-exec.mjs:norm": [
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed"
+    "packages/server/src/lib/paaw-agent-exec.mjs:resolvePath": [
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed"
     ],
     "target.split": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith"
     ],
     "prefix.split": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith"
     ],
     "p2.every": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith"
     ],
     "seg.toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith"
     ],
     "t[i].toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith"
     ],
     "abs.slice": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason"
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason"
     ],
     "relToPaaw.toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason"
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason"
     ],
     "bl.toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason"
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason"
     ],
     "(p.match(/\\.([^.]+)$/) || [])[1].toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason"
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason"
     ],
     "p.match": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason"
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason"
     ],
     "relToPaaw.slice(1).includes": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason"
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason"
     ],
     "relToPaaw.slice": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason"
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason"
     ],
     "WRITE_BLACKLIST_EXTS.has": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason"
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed"
+    "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason": [
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed"
     ],
     "workspaceDirs.some": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed"
+      "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed"
     ],
     "filePath.replace(/\\\\/g, \"/\").replace": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary"
+      "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary"
     ],
     "filePath.replace": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary"
+      "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary"
     ],
     "cwd.replace(/\\\\/g, \"/\").replace": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary"
+      "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary"
     ],
     "cwd.replace": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary"
+      "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary"
     ],
     "featureBoundary.allowedFiles.some": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary"
+      "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary"
     ],
     "featureBoundary._violations.push": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:_recordViolation"
+      "packages/server/src/lib/paaw-agent-exec.mjs:_recordViolation"
     ],
     "String(p).replace(/\\\\/g, \"/\").replace": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases"
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases"
     ],
     "norm.split(\"/\")[0].toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases"
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases"
     ],
     "norm.split": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases"
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases"
     ],
     "_pathBasename(b).toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases"
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases"
     ],
     "_pathBasename": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases"
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases"
     ],
     "norm.slice(firstSeg.length).replace": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases"
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases"
     ],
     "norm.slice": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases"
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases"
     ],
     "packages/server/src/routes/shared.mjs:statSync": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "packages/server/src/lib/temp-janitor.mjs:walk"
     ],
     "stat.isDirectory": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir"
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:searchDir": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir"
+    "packages/server/src/lib/paaw-agent-exec.mjs:searchDir": [
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir"
     ],
     "(e.match(/\\.([^.]+)$/) || [])[1].toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir"
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir"
     ],
     "e.match": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir"
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir"
     ],
     "[\"png\", \"jpg\", \"jpeg\", \"gif\", \"webp\", \"ico\", \"pdf\", \"zip\"].includes": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir"
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir"
     ],
     "readSync2(fp, \"utf-8\").toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir"
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir"
     ],
     "readSync2": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir"
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir"
     ],
     "content.indexOf": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir"
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir"
     ],
     "content.slice(start, idx + query.length + 50).replace": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir"
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir"
     ],
     "list.map": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:fmt"
+      "packages/server/src/lib/paaw-agent-exec.mjs:fmt"
     ],
     "execSync(`git ${c}`, { cwd, encoding: \"utf-8\", timeout: 15000 }).trim": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:git"
+      "packages/server/src/lib/paaw-agent-exec.mjs:git"
     ],
     "ev.push": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:evPush"
+      "packages/server/src/lib/paaw-agent-exec.mjs:evPush"
     ],
     "_atHelpers._collectionsFileFor": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:_collectionsFile"
+      "packages/server/src/lib/paaw-agent-exec.mjs:_collectionsFile"
     ],
     "_atHelpers._loadCollectionsFor": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:_loadCols"
+      "packages/server/src/lib/paaw-agent-exec.mjs:_loadCols"
     ],
     "(c.code || \"\").toLowerCase().includes": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:hit"
+      "packages/server/src/lib/paaw-agent-exec.mjs:hit"
     ],
     "(c.code || \"\").toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:hit"
+      "packages/server/src/lib/paaw-agent-exec.mjs:hit"
     ],
     "(c.message || \"\").toLowerCase().includes": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:hit"
+      "packages/server/src/lib/paaw-agent-exec.mjs:hit"
     ],
     "(c.message || \"\").toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:hit"
+      "packages/server/src/lib/paaw-agent-exec.mjs:hit"
     ],
     "(c.file || \"\").toLowerCase().includes": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:hit"
+      "packages/server/src/lib/paaw-agent-exec.mjs:hit"
     ],
     "(c.file || \"\").toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:hit"
+      "packages/server/src/lib/paaw-agent-exec.mjs:hit"
     ],
     "c.evidence.slice": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:fmt"
+      "packages/server/src/lib/paaw-agent-exec.mjs:fmt"
     ],
     "[c.name, c.type, c.technology, c.description, ...(c.evidence || [])].join(\" \").toLowerCase().includes": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:hit"
+      "packages/server/src/lib/paaw-agent-exec.mjs:hit"
     ],
     "[c.name, c.type, c.technology, c.description, ...(c.evidence || [])].join(\" \").toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:hit"
+      "packages/server/src/lib/paaw-agent-exec.mjs:hit"
     ],
     "String(p || \"\").replace": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:rel",
+      "packages/server/src/lib/paaw-agent-exec.mjs:rel",
       "packages/server/src/lib/release-evidence-snapshot.mjs:_normPath",
       "packages/server/src/lib/release-evidence.mjs:_normEvPath",
       "packages/server/src/lib/release-requests.mjs:rel"
     ],
     "n.slice": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:rel"
+      "packages/server/src/lib/paaw-agent-exec.mjs:rel"
     ],
     "writeSync": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:_saveProject"
+      "packages/server/src/lib/paaw-agent-exec.mjs:_saveProject"
     ],
     "/^[a-zA-Z0-9._-]+$/.test": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:safe"
+      "packages/server/src/lib/paaw-agent-exec.mjs:safe"
     ],
     "(t || \"\").slice(0, 16).replace": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:fmtTime"
+      "packages/server/src/lib/paaw-agent-exec.mjs:fmtTime"
     ],
     "(t || \"\").slice": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:fmtTime"
+      "packages/server/src/lib/paaw-agent-exec.mjs:fmtTime"
     ],
     "String(s||\"\").trim().toLowerCase().replace": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm",
-      "packages/server/src/lib/paaw-agent-loop.mjs:normStatus"
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm",
+      "packages/server/src/lib/paaw-agent-exec.mjs:normStatus"
     ],
     "String(s||\"\").trim().toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm",
-      "packages/server/src/lib/paaw-agent-loop.mjs:normStatus"
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm",
+      "packages/server/src/lib/paaw-agent-exec.mjs:normStatus"
     ],
     "String(s||\"\").trim": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm",
-      "packages/server/src/lib/paaw-agent-loop.mjs:normStatus"
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm",
+      "packages/server/src/lib/paaw-agent-exec.mjs:normStatus"
     ],
     "[\"in_progress\",\"review\",\"testing\",\"pending\",\"awaiting_human\"].includes": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm",
-      "packages/server/src/lib/paaw-agent-loop.mjs:normStatus"
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm",
+      "packages/server/src/lib/paaw-agent-exec.mjs:normStatus"
     ],
     "[\"done\",\"completed\",\"resolved\",\"closed\",\"close\"].includes": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm",
-      "packages/server/src/lib/paaw-agent-loop.mjs:normStatus"
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm",
+      "packages/server/src/lib/paaw-agent-exec.mjs:normStatus"
     ],
     "[\"skipped\",\"wontfix\",\"ignore\"].includes": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm",
-      "packages/server/src/lib/paaw-agent-loop.mjs:normStatus"
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm",
+      "packages/server/src/lib/paaw-agent-exec.mjs:normStatus"
     ],
     "String(t||\"\").toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:normType",
-      "packages/server/src/lib/paaw-agent-loop.mjs:normType",
-      "packages/server/src/lib/paaw-agent-loop.mjs:normType"
+      "packages/server/src/lib/paaw-agent-exec.mjs:normType",
+      "packages/server/src/lib/paaw-agent-exec.mjs:normType",
+      "packages/server/src/lib/paaw-agent-exec.mjs:normType"
     ],
     "(msgs || []).reduce": [
       "packages/server/src/lib/paaw-agent-loop.mjs:_countImages"
@@ -50318,6 +50830,55 @@
     ],
     "readdirSync(dir).map": [
       "packages/server/src/lib/paaw-sandbox.mjs:expandRo"
+    ],
+    "packages/server/src/lib/page-inventory.mjs:isParamSeg": [
+      "packages/server/src/lib/page-inventory.mjs:segEq",
+      "packages/server/src/lib/page-inventory.mjs:segEq",
+      "packages/server/src/lib/page-inventory.mjs:segEq",
+      "packages/server/src/lib/page-inventory.mjs:segEq"
+    ],
+    "packages/server/src/lib/page-inventory.mjs:walk": [
+      "packages/server/src/lib/page-inventory.mjs:walk",
+      "packages/server/src/lib/page-inventory.mjs:walk"
+    ],
+    "rel.slice": [
+      "packages/server/src/lib/page-inventory.mjs:walk"
+    ],
+    "rel.lastIndexOf": [
+      "packages/server/src/lib/page-inventory.mjs:walk"
+    ],
+    "SRC_EXT.has": [
+      "packages/server/src/lib/page-inventory.mjs:walk"
+    ],
+    "packages/server/src/lib/page-inventory.mjs:validRouteStr": [
+      "packages/server/src/lib/page-inventory.mjs:add"
+    ],
+    "packages/server/src/lib/page-inventory.mjs:normRoute": [
+      "packages/server/src/lib/page-inventory.mjs:add"
+    ],
+    "packages/server/src/lib/page-inventory.mjs:add": [
+      "packages/server/src/lib/page-inventory.mjs:add"
+    ],
+    "isTestFileName": [
+      "packages/server/src/lib/page-inventory.mjs:walk"
+    ],
+    "rel.split(\"/\").slice(0, -1).some": [
+      "packages/server/src/lib/page-inventory.mjs:walk"
+    ],
+    "rel.split(\"/\").slice": [
+      "packages/server/src/lib/page-inventory.mjs:walk"
+    ],
+    "[\"e2e\", \"tests\", \"test\", \"spec\", \"__tests__\"].includes": [
+      "packages/server/src/lib/page-inventory.mjs:walk"
+    ],
+    "packages/server/src/lib/page-inventory.mjs:readSafe": [
+      "packages/server/src/lib/page-inventory.mjs:walk"
+    ],
+    "c.matchAll": [
+      "packages/server/src/lib/page-inventory.mjs:walk"
+    ],
+    "urls.push": [
+      "packages/server/src/lib/page-inventory.mjs:walk"
     ],
     "_entries.delete": [
       "packages/server/src/lib/proc-ledger.mjs:finish"
@@ -50753,6 +51314,12 @@
       "seen.push",
       "reset"
     ],
+    "tests/unit/page-inventory.test.mjs:mk": [
+      "packages/server/src/routes/shared.mjs:join",
+      "packages/server/src/routes/shared.mjs:mkdirSync",
+      "packages/server/src/routes/shared.mjs:join",
+      "packages/server/src/routes/shared.mjs:writeFileSync"
+    ],
     "tests/unit/release-evidence-snapshot.test.mjs:G": [
       "execSync"
     ],
@@ -50899,8 +51466,8 @@
       "results.push"
     ],
     "scripts/check-sandbox.mjs:inside": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith"
     ],
     "scripts/check-sandbox.mjs:run": [
       "execSandboxed"
@@ -50943,7 +51510,7 @@
       "sub.split",
       "seg.some",
       "seg.some",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "sub.endsWith"
     ],
     "scripts/pack.mjs:walk": [
@@ -51384,7 +51951,7 @@
       "buffer.split",
       "lines.pop",
       "line.trim",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "trimmed.slice",
       "packages/server/src/lib/coding-db/reads.mjs:parse",
       "console.debug",
@@ -51439,9 +52006,6 @@
       "setShowModelPicker",
       "localStorage.setItem",
       "localStorage.setItem"
-    ],
-    "packages/ui/src/pages/CodingIDE.tsx:crewToAgentId": [
-      "crewId.replace"
     ],
     "packages/ui/src/pages/CodingIDE.tsx:saveRuInfo": [
       "setRuInfoSaving",
@@ -52152,7 +52716,7 @@
       "decoder.decode",
       "buffer.split",
       "lines.pop",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "packages/server/src/lib/coding-db/reads.mjs:parse",
       "line.slice",
       "clearInterval",
@@ -52243,7 +52807,7 @@
       "fUserInputs.filter"
     ],
     "packages/ui/src/pages/SkillsPage.tsx:updateInput": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "value.toLowerCase().replace(/[^a-z0-9]+/g, \"-\").replace",
       "value.toLowerCase().replace",
       "value.toLowerCase",
@@ -52363,6 +52927,9 @@
       "x.json",
       "setFiles",
       "setAdaptContent"
+    ],
+    "packages/ui/src/pages/coding-ide-helpers.tsx:crewToAgentId": [
+      "crewId.replace"
     ],
     "packages/ui/src/components/AgentBuilder.tsx:toggleTool": [
       "setSelectedTools",
@@ -52569,12 +53136,12 @@
       "setSaving"
     ],
     "packages/ui/src/components/ChatMessages.tsx:markdownComponents": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "href.slice",
       "u.searchParams.forEach",
       "e.preventDefault",
       "onDeepLink",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "href.slice",
       "e.preventDefault",
       "onDeepLink"
@@ -52863,10 +53430,10 @@
       "decoder.decode",
       "buffer.split",
       "lines.pop",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "line.slice(7).trim",
       "line.slice",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "packages/server/src/lib/coding-db/reads.mjs:parse",
       "line.slice",
       "setEmAction",
@@ -53243,6 +53810,18 @@
       "String",
       "setToast",
       "setE2eInvBusy"
+    ],
+    "packages/ui/src/components/ReleaseManagerPanel.tsx:loadPageInv": [
+      "setPageInvBusy",
+      "fetch(`${API_BASE}/api/coding-releases/page-inventory?path=${encodeURIComponent(rootPath)}`).then",
+      "fetch",
+      "encodeURIComponent",
+      "r.json",
+      "setPageInv",
+      "setToast",
+      "String",
+      "setToast",
+      "setPageInvBusy"
     ],
     "packages/ui/src/components/ReleaseManagerPanel.tsx:loadApiStatus": [
       "setApiBusy",
@@ -53822,7 +54401,7 @@
       "p.replace"
     ],
     "packages/ui/src/components/git/GitDiffView.tsx:isRu": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith"
     ],
     "packages/ui/src/components/git/GitDiffView.tsx:dirOf": [
       "p.lastIndexOf",
@@ -54086,7 +54665,7 @@
     ],
     "packages/server/src/tools/index.mjs:isAbsPath": [
       "packages/server/src/routes/shared.mjs:isAbsolute",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith"
     ],
     "packages/server/src/scheduler/cron-jobs.mjs:check": [
       "spec.split",
@@ -54182,6 +54761,26 @@
       "[...(current.events || []), { ts: new Date().toISOString(), type, message: msg, ...(meta ? { meta } : {}) }].slice",
       "new Date().toISOString"
     ],
+    "packages/server/src/routes/coding-crew-routes.mjs:cleanupChatAgent": [
+      "runningCodingAgents.delete"
+    ],
+    "packages/server/src/routes/coding-crew-routes.mjs:cleanupDispatch": [
+      "runningCodingAgents.delete"
+    ],
+    "packages/server/src/routes/coding-crew-routes.mjs:verifyWork": [
+      "verifyDispatchWork"
+    ],
+    "packages/server/src/routes/coding-crew-routes.mjs:estimateTokens": [
+      "Math.ceil"
+    ],
+    "packages/server/src/routes/coding-crew-routes.mjs:sendSSE": [
+      "res.write",
+      "res.write",
+      "JSON.stringify",
+      "res.write",
+      "res.write",
+      "JSON.stringify"
+    ],
     "packages/server/src/routes/coding-db.mjs:_json": [
       "res.writeHead",
       "res.end",
@@ -54190,12 +54789,22 @@
     "packages/server/src/routes/coding-db.mjs:root": [
       "packages/server/src/routes/shared.mjs:resolve"
     ],
+    "packages/server/src/routes/coding-health.mjs:fixId": [
+      "name.toLowerCase().replace",
+      "name.toLowerCase"
+    ],
+    "packages/server/src/routes/coding-helpers.mjs:walk": [
+      "Array.isArray",
+      "v.forEach",
+      "/\\.(test|spec)\\.[tj]sx?$/.test",
+      "pool.push"
+    ],
     "packages/server/src/routes/coding-releases.mjs:build": [
       "isTestFileNameM",
       "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
       "/^test[-_]/.test",
       "packages/server/src/routes/shared.mjs:readdirSync",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "SKIP.has",
       "packages/server/src/routes/shared.mjs:join",
       "e.isDirectory",
@@ -54210,7 +54819,7 @@
       "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
       "/^test[-_]/.test",
       "packages/server/src/routes/shared.mjs:readdirSync",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "SKIP.has",
       "packages/server/src/routes/shared.mjs:join",
       "e.isDirectory",
@@ -54232,7 +54841,7 @@
     ],
     "packages/server/src/routes/coding-releases.mjs:walk": [
       "packages/server/src/routes/shared.mjs:readdirSync",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "SKIP.has",
       "packages/server/src/routes/shared.mjs:join",
       "e.isDirectory",
@@ -54243,7 +54852,7 @@
       "TEST_DIR.has",
       "packages/server/src/routes/shared.mjs:readFileSync",
       "packages/server/src/routes/shared.mjs:readdirSync",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "packages/server/src/routes/shared.mjs:join",
       "e.isDirectory",
       "skip.has",
@@ -54251,7 +54860,7 @@
       "_TEST_FILE_RE.test",
       "out.push",
       "packages/server/src/routes/shared.mjs:readdirSync",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "SKIP.has",
       "packages/server/src/routes/shared.mjs:join",
       "e.isDirectory",
@@ -54263,7 +54872,7 @@
       "packages/server/src/routes/shared.mjs:readFileSync"
     ],
     "packages/server/src/routes/coding-releases.mjs:segPattern": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "/^\\{[^}/]+\\}$/.test",
       "/^<[^/>]+>$/.test",
       "seg.replace"
@@ -54271,7 +54880,7 @@
     "packages/server/src/routes/coding-releases.mjs:tryMatch": [
       "segs.slice",
       "suffix.some",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "/^\\{[^}/]+\\}$/.test",
       "/^<[^/>]+>$/.test",
       "packages/server/src/routes/shared.mjs:join",
@@ -54487,32 +55096,6 @@
       "CU_MECHANICAL_STEPS.has",
       "CU_MANUAL_STEPS.has"
     ],
-    "packages/server/src/routes/coding.mjs:walk": [
-      "Array.isArray",
-      "v.forEach",
-      "/\\.(test|spec)\\.[tj]sx?$/.test",
-      "pool.push"
-    ],
-    "packages/server/src/routes/coding.mjs:cleanupChatAgent": [
-      "runningCodingAgents.delete"
-    ],
-    "packages/server/src/routes/coding.mjs:cleanupDispatch": [
-      "runningCodingAgents.delete"
-    ],
-    "packages/server/src/routes/coding.mjs:verifyWork": [
-      "verifyDispatchWork"
-    ],
-    "packages/server/src/routes/coding.mjs:estimateTokens": [
-      "Math.ceil"
-    ],
-    "packages/server/src/routes/coding.mjs:sendSSE": [
-      "res.write",
-      "res.write",
-      "JSON.stringify",
-      "res.write",
-      "res.write",
-      "JSON.stringify"
-    ],
     "packages/server/src/routes/coding.mjs:respond": [
       "res.writeHead",
       "res.end",
@@ -54554,10 +55137,6 @@
       "packages/server/src/routes/shared.mjs:readFile",
       "content.trim",
       "content.slice"
-    ],
-    "packages/server/src/routes/coding.mjs:fixId": [
-      "name.toLowerCase().replace",
-      "name.toLowerCase"
     ],
     "packages/server/src/routes/crew.mjs:sendEvent": [
       "res.write",
@@ -54602,7 +55181,7 @@
     ],
     "packages/server/src/routes/release-unit.mjs:withinDir": [
       "packages/server/src/routes/shared.mjs:resolve",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith"
     ],
     "packages/server/src/routes/shared.mjs:send": [
       "sseRes.write",
@@ -54737,14 +55316,14 @@
     ],
     "packages/server/src/lib/c4-model-scan.mjs:scanDirForEnv": [
       "packages/server/src/routes/shared.mjs:readdirSync",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "packages/server/src/routes/shared.mjs:join",
       "e.isDirectory",
       "[\"node_modules\", \"dist\", \"build\", \".paaw\", \"vendor\"].includes",
       "packages/server/src/lib/c4-model-scan.mjs:scanDirForEnv",
       "envFiles.has",
       "e.name.endsWith",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "relative(projectRoot, p).replace",
       "relative",
       "readFileSync(p, \"utf-8\").split(\"\\n\").slice",
@@ -54934,7 +55513,7 @@
     ],
     "packages/server/src/lib/e2e-inventory.mjs:walk": [
       "packages/server/src/routes/shared.mjs:readdirSync",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "SKIP_DIR.has",
       "packages/server/src/routes/shared.mjs:join",
       "e.isDirectory",
@@ -55050,47 +55629,47 @@
       "setTimeout",
       "origBody.cancel"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:mk": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:mk": [
       "Object.assign"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:onAbort": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:onAbort": [
       "reject",
-      "packages/server/src/lib/paaw-agent-loop.mjs:mk"
+      "packages/server/src/lib/paaw-agent-exec.mjs:mk"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:LOG": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:LOG": [
       "console.log"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+    "packages/server/src/lib/paaw-agent-exec.mjs:resolvePath": [
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "/^[A-Za-z]:[\\\\/]/.test",
       "packages/server/src/routes/shared.mjs:resolve"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason": [
       "s.replace",
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm",
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm",
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolvePath",
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "target.split",
       "prefix.split",
       "p2.every",
       "seg.toLowerCase",
       "t[i].toLowerCase",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "abs.slice",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "relToPaaw.toLowerCase",
       "bl.toLowerCase",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "(p.match(/\\.([^.]+)$/) || [])[1].toLowerCase",
       "p.match",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "relToPaaw.slice(1).includes",
       "relToPaaw.slice",
       "WRITE_BLACKLIST_EXTS.has"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:norm": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:norm": [
       "s.replace",
       "s.replace",
       "String(s||\"\").trim().toLowerCase().replace",
@@ -55101,7 +55680,7 @@
       "[\"done\",\"completed\",\"resolved\",\"closed\",\"close\"].includes",
       "[\"skipped\",\"wontfix\",\"ignore\"].includes"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:startsWith": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:startsWith": [
       "target.split",
       "prefix.split",
       "p2.every",
@@ -55113,27 +55692,27 @@
       "seg.toLowerCase",
       "t[i].toLowerCase"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:writeDenialReason",
+    "packages/server/src/lib/paaw-agent-exec.mjs:isPathAllowed": [
+      "packages/server/src/lib/paaw-agent-exec.mjs:writeDenialReason",
       "s.replace",
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm",
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm",
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm",
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm",
+      "packages/server/src/lib/paaw-agent-exec.mjs:resolvePath",
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm",
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm",
       "target.split",
       "prefix.split",
       "p2.every",
       "seg.toLowerCase",
       "t[i].toLowerCase",
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "workspaceDirs.some",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "packages/server/src/lib/paaw-agent-loop.mjs:norm"
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:norm"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:_checkBoundary": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:_checkBoundary": [
       "filePath.replace(/\\\\/g, \"/\").replace",
       "filePath.replace",
       "cwd.replace(/\\\\/g, \"/\").replace",
@@ -55142,11 +55721,11 @@
       "featureBoundary.allowedFiles.some",
       "f.replace"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:_recordViolation": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:_recordViolation": [
       "featureBoundary._violations.push",
       "new Date().toISOString"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:resolveInBases": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:resolveInBases": [
       "String(p).replace(/\\\\/g, \"/\").replace",
       "String(p).replace",
       "String",
@@ -55162,12 +55741,12 @@
       "packages/server/src/routes/shared.mjs:existsSync",
       "packages/server/src/routes/shared.mjs:resolve"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:searchDir": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:searchDir": [
       "packages/server/src/routes/shared.mjs:readdirSync",
       "packages/server/src/routes/shared.mjs:join",
       "packages/server/src/routes/shared.mjs:statSync",
       "stat.isDirectory",
-      "packages/server/src/lib/paaw-agent-loop.mjs:searchDir",
+      "packages/server/src/lib/paaw-agent-exec.mjs:searchDir",
       "(e.match(/\\.([^.]+)$/) || [])[1].toLowerCase",
       "e.match",
       "[\"png\", \"jpg\", \"jpeg\", \"gif\", \"webp\", \"ico\", \"pdf\", \"zip\"].includes",
@@ -55180,31 +55759,31 @@
       "content.slice",
       "results.push"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:readDoc": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:readDoc": [
       "packages/server/src/routes/shared.mjs:resolve",
       "packages/server/src/routes/shared.mjs:existsSync",
       "readSync"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:fmt": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:fmt": [
       "packages/server/src/routes/shared.mjs:join",
       "list.map",
       "packages/server/src/routes/shared.mjs:join",
       "c.evidence.slice"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:git": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:git": [
       "execSync(`git ${c}`, { cwd, encoding: \"utf-8\", timeout: 15000 }).trim",
       "execSync"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:evPush": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:evPush": [
       "ev.push"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:_collectionsFile": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:_collectionsFile": [
       "_atHelpers._collectionsFileFor"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:_loadCols": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:_loadCols": [
       "_atHelpers._loadCollectionsFor"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:hit": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:hit": [
       "(c.code || \"\").toLowerCase().includes",
       "(c.code || \"\").toLowerCase",
       "(c.message || \"\").toLowerCase().includes",
@@ -55215,36 +55794,36 @@
       "[c.name, c.type, c.technology, c.description, ...(c.evidence || [])].join(\" \").toLowerCase",
       "packages/server/src/routes/shared.mjs:join"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:rel": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:rel": [
       "String(p || \"\").replace",
       "String",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "n.slice"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:_loadProject": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:_loadProject": [
       "packages/server/src/routes/shared.mjs:join",
       "packages/server/src/routes/shared.mjs:existsSync",
       "packages/server/src/lib/coding-db/reads.mjs:parse",
       "readSync"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:_saveProject": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:_saveProject": [
       "writeSync",
       "packages/server/src/routes/shared.mjs:join",
       "JSON.stringify"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:safe": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:safe": [
       "/^[a-zA-Z0-9._-]+$/.test"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:readSess": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:readSess": [
       "packages/server/src/lib/coding-db/reads.mjs:parse",
       "readSync",
       "packages/server/src/routes/shared.mjs:join"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:fmtTime": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:fmtTime": [
       "(t || \"\").slice(0, 16).replace",
       "(t || \"\").slice"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:normType": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:normType": [
       "String(t||\"\").toLowerCase",
       "String",
       "String(t||\"\").toLowerCase",
@@ -55252,7 +55831,7 @@
       "String(t||\"\").toLowerCase",
       "String"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:normStatus": [
+    "packages/server/src/lib/paaw-agent-exec.mjs:normStatus": [
       "String(s||\"\").trim().toLowerCase().replace",
       "String(s||\"\").trim().toLowerCase",
       "String(s||\"\").trim",
@@ -55328,7 +55907,7 @@
       "packages/server/src/routes/shared.mjs:existsSync"
     ],
     "packages/server/src/lib/paaw-sandbox.mjs:inside": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "parent.endsWith"
     ],
     "packages/server/src/lib/paaw-sandbox.mjs:expandRo": [
@@ -55342,6 +55921,45 @@
       "readwritePaths.some",
       "packages/server/src/lib/paaw-sandbox.mjs:inside",
       "packages/server/src/lib/paaw-sandbox.mjs:inside"
+    ],
+    "packages/server/src/lib/page-inventory.mjs:segEq": [
+      "packages/server/src/lib/page-inventory.mjs:isParamSeg",
+      "packages/server/src/lib/page-inventory.mjs:isParamSeg",
+      "packages/server/src/lib/page-inventory.mjs:isParamSeg",
+      "packages/server/src/lib/page-inventory.mjs:isParamSeg"
+    ],
+    "packages/server/src/lib/page-inventory.mjs:walk": [
+      "packages/server/src/routes/shared.mjs:readdirSync",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
+      "SKIP_DIR.has",
+      "packages/server/src/routes/shared.mjs:join",
+      "e.isDirectory",
+      "packages/server/src/lib/page-inventory.mjs:walk",
+      "e.isFile",
+      "rel.slice",
+      "rel.lastIndexOf",
+      "SRC_EXT.has",
+      "out.push",
+      "packages/server/src/routes/shared.mjs:readdirSync",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
+      "SKIP_DIR.has",
+      "packages/server/src/routes/shared.mjs:join",
+      "e.isDirectory",
+      "packages/server/src/lib/page-inventory.mjs:walk",
+      "e.isFile",
+      "isTestFileName",
+      "rel.split(\"/\").slice(0, -1).some",
+      "rel.split(\"/\").slice",
+      "rel.split",
+      "[\"e2e\", \"tests\", \"test\", \"spec\", \"__tests__\"].includes",
+      "packages/server/src/lib/page-inventory.mjs:readSafe",
+      "c.matchAll",
+      "urls.push"
+    ],
+    "packages/server/src/lib/page-inventory.mjs:add": [
+      "packages/server/src/lib/page-inventory.mjs:validRouteStr",
+      "packages/server/src/lib/page-inventory.mjs:normRoute",
+      "packages/server/src/lib/page-inventory.mjs:add"
     ],
     "packages/server/src/lib/proc-ledger.mjs:_now": [
       "Date.now"
@@ -55401,7 +56019,7 @@
       "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
       "/^test[-_]/.test",
       "packages/server/src/routes/shared.mjs:readdirSync",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "SKIP.has",
       "packages/server/src/routes/shared.mjs:join",
       "e.isDirectory",
@@ -55419,7 +56037,7 @@
     ],
     "packages/server/src/lib/release-evidence-snapshot.mjs:walk": [
       "packages/server/src/routes/shared.mjs:readdirSync",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "SKIP.has",
       "packages/server/src/routes/shared.mjs:join",
       "e.isDirectory",
@@ -55447,7 +56065,7 @@
       "String"
     ],
     "packages/server/src/lib/release-requests.mjs:notTraceable": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "/(^|\\/)(package-lock\\.json|pnpm-lock\\.yaml|yarn\\.lock|[^/]*\\.lock)$/i.test"
     ],
     "packages/server/src/lib/release-requests.mjs:aidOf": [
@@ -55484,7 +56102,7 @@
       "packages/server/src/routes/shared.mjs:join",
       "e.isDirectory",
       "SKIP_DIRS.has",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "packages/server/src/lib/skill-suggest.mjs:walk",
       "e.name.lastIndexOf",
       "e.name.slice(dot).toLowerCase",
@@ -55506,7 +56124,7 @@
     ],
     "packages/server/src/lib/temp-janitor.mjs:walk": [
       "packages/server/src/routes/shared.mjs:readdirSync",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith",
       "packages/server/src/routes/shared.mjs:join",
       "e.isDirectory",
       "PROTECTED_DIRS.has",
@@ -55541,7 +56159,7 @@
       "packages/server/src/routes/shared.mjs:join"
     ],
     "packages/server/src/lib/test-runner.mjs:skip": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
+      "packages/server/src/lib/paaw-agent-exec.mjs:startsWith"
     ],
     "packages/server/src/lib/test-runner.mjs:walk": [
       "(spec.file || s.file || \"\").replace",
@@ -55685,9 +56303,9 @@
     ]
   },
   "stats": {
-    "totalFunctions": 2704,
-    "totalCalls": 3807,
-    "resolvedCalls": 575,
-    "unresolvedCalls": 3232
+    "totalFunctions": 2731,
+    "totalCalls": 3854,
+    "resolvedCalls": 595,
+    "unresolvedCalls": 3259
   }
 }

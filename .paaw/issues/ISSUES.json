@@ -978,8 +978,19 @@
       "featureId": "F20261016-012",
       "createdAt": "2026-10-17T21:56:11.388Z",
       "notes": []
+    },
+    {
+      "id": "ISS-051",
+      "title": "stop 端點救援分支 dead code：status=interrupted 且 runner 活著時無法下停",
+      "priority": "medium",
+      "status": "open",
+      "labels": [],
+      "description": "packages/server/src/routes/coding-auto-dispatch.mjs：updateStatusFile 開頭的 `if (current.status === \"interrupted\") return null` 守衛在 mutator 之前短路，導致 stop 端點內的救援分支（route L346-351，註解「status 拉回 running」）為 dead code。情境：status 檔被（誤）標為 interrupted 但 runner pid 還活著 → POST /stop 回 {ok:false, message:\"Not running\"}，無法對活著的 runner 下中斷。QA 報告 qr-20261107-115922-az6g（TASK-059 review）已指出 reset 誤導性中斷陷阱族群，此為同族且更具體的缺陷。已以 it(\"DEFECT-STOP-INTERRUPTED\") 釘住現況行為（tests/unit/coding-auto-dispatch.test.mjs，RUN-20261107-005 全綠 1788 pass）。修復建議：守衛放行 runner 仍活著（_pidAlive）的 interrupted 狀態給 mutator，或 stop 端點在救援路徑直接 writeFileSync。修復後需將 DEFECT 測試斷言改回期望 ok:true。",
+      "featureId": "F20261016-016",
+      "createdAt": "2026-11-07T12:50:15.080Z",
+      "notes": []
     }
   ],
   "updatedAt": "2026-07-22T13:37:37.561Z",
-  "nextId": 51
+  "nextId": 52
 }
