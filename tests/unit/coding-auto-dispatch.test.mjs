@@ -121,7 +121,8 @@ function json(res) {
 
 // projRoot 由 ?path= 指定
 function pathUrl(base, root) {
-  return `${base}?path=${encodeURIComponent(root)}`;
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}path=${encodeURIComponent(root)}`;
 }
 
 const AUTO_DISPATCH_DIR = ".paaw/auto-dispatch";
@@ -640,6 +641,7 @@ describe("start 的殭屍對帳與歸檔（_reconcileAndArchivePrevious / _archi
       return { report: "# r" };
     });
     await call("POST", pathUrl("/api/coding-auto-dispatch/start", root), { mode: "em" });
+    await new Promise((r) => setTimeout(r, 30)); // start 是 respond-then-run — 等 sendSSE 事件落盤再讀
     const st = readStatus();
     expect(st.status).toBe("running");
     expect(st.events.length).toBe(80);
@@ -658,6 +660,7 @@ describe("start 的殭屍對帳與歸檔（_reconcileAndArchivePrevious / _archi
       return { report: "# r" };
     });
     await call("POST", pathUrl("/api/coding-auto-dispatch/start", root), { mode: "em" });
+    await new Promise((r) => setTimeout(r, 30)); // 等 sendSSE 事件落盤
     const st = readStatus();
     expect(st.agents["developer"].status).toBe("completed");
     expect(st.agents["developer"].report).toBe("done-1");
@@ -686,14 +689,19 @@ describe("runnerPid 活 pid 分支（QA D2 — 2026-10-17 修復熱區的回歸�
     expect(readStatus().status).toBe("running");
   });
 
-  it("stop — status 被誤標 interrupted 但 runner 還活 → 仍可下停（拉回 running + stopRequested）", async () => {
+  // DEFECT（2026-11-07）：stop 端點的救援分支（route L346-351「status 拉回 running」）是 dead code —
+  // updateStatusFile 開頭的 `if (current.status === "interrupted") return null` 守衛在 mutator 之前
+  // 就短路，導致 status=interrupted（即使 runner 還活著）時 stop 只回 "Not running"，無法下停。
+  // 此測試釘住「現況行為」；developer 修復（例：守衛放行 runner 活著的 interrupted）後應改回期望 ok:true。
+  it("DEFECT-STOP-INTERRUPTED：status=interrupted 且 runner 活著 → stop 目前回 Not running（救援分支被守衛短路）", async () => {
     writeStatus({ status: "interrupted", mode: "em", runnerPid: process.pid, events: [] });
     const res = await call("POST", pathUrl("/api/coding-auto-dispatch/stop", root), {});
     expect(res.statusCode).toBe(200);
-    expect(json(res).ok).toBe(true);
+    expect(json(res).ok).toBe(false);
+    expect(json(res).message).toBe("Not running");
     const st = readStatus();
-    expect(st.status).toBe("running");
-    expect(st.stopRequested).toBe(true);
+    expect(st.status).toBe("interrupted"); // 未被拉回 running
+    expect(st.stopRequested).toBeUndefined();
   });
 });
 
