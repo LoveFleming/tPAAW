@@ -2134,5 +2134,19 @@
   "dw.situation": "現況報告（situation report）",
   "dw.autoHint": "自動調度 = Night Shift 系全自動循環（plan → dispatch → verify）。按「🚀 派工」會先 stop 清殭屍再 start。進度看 🎖️ EM 自動調度面板。",
   "dw.cancel": "取消",
-  "dw.go": "派工"
+  "dw.go": "派工",
+  "rm.pageInvBtn": "📄 Page 盤點",
+  "rm.pageInvTitle": "📄 Page Route 盤點",
+  "rm.pageFullstack": "全棧",
+  "rm.pageFrontendOnly": "純前端",
+  "rm.pageRoutes": "Routes",
+  "rm.pageUnitTest": "有 Unit",
+  "rm.pageE2e": "有 E2E",
+  "rm.pageApiLinked": "接 API",
+  "rm.pageComponents": "組件數",
+  "rm.pageColRoute": "Route",
+  "rm.pageColPage": "Page 檔",
+  "rm.pageColComponents": "組件",
+  "rm.pageColUnit": "Unit Test",
+  "rm.pageNoRoutes": "沒偵測到 route（tab-based UI 或非支援框架 — React Router / Next / TanStack / Vue Router）"
 }

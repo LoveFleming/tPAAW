@@ -155,6 +155,18 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     } catch (e: any) { setToast({ ok: false, text: e.message }); }
     finally { setE2eInvBusy(false); }
   };
+    // 2026-11-07 Fleming：Page 盤點（前端 API-first 同款骨架 — route 錨點 + unit/e2e/API 關聯）
+  const [pageInv, setPageInv] = useState<any | null>(null);
+  const [pageInvBusy, setPageInvBusy] = useState(false);
+  const loadPageInv = async () => {
+    if (!rootPath || pageInvBusy) return;
+    setPageInvBusy(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-releases/page-inventory?path=${encodeURIComponent(rootPath)}`).then(r => r.json());
+      if (r.ok) setPageInv(r); else setToast({ ok: false, text: String(r.error || r.detail || "failed") });
+    } catch (e: any) { setToast({ ok: false, text: e.message }); }
+    finally { setPageInvBusy(false); }
+  };
     // 2026-11-03 Fleming：一鍵 API 現況（按鈕才算 — 不自動燒）
   const loadApiStatus = async () => {
     if (!rootPath || apiBusy) return;
@@ -314,6 +326,14 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
               </button>
             )}
             {readiness && (
+              <button onClick={loadPageInv} disabled={pageInvBusy}
+                className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
+                style={{ backgroundColor: "#7c3aed" }} data-testid="rm-page-inv">
+                {pageInvBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
+                {t("rm.pageInvBtn")}
+              </button>
+            )}
+            {readiness && (
               <button onClick={loadApiStatus} disabled={apiBusy}
                 className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
                 style={{ backgroundColor: "#0369a1" }} data-testid="rm-api-status">
@@ -382,6 +402,59 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                       </tbody>
                     </table>
                   </div>
+                </div>
+              )}
+
+              {/* ══ Page 盤點（2026-11-07 Fleming：前端 API-first — route 錨點 + components/unit/e2e/API 關聯）══ */}
+              {pageInv && (
+                <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight, background: "#f5f3ff" }} data-testid="rm-page-inv-block">
+                  <div className="flex items-center gap-2 flex-wrap mb-2">
+                    <span className="text-xs font-bold text-stone-700">{t("rm.pageInvTitle")}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-100 text-violet-700">{pageInv.frontendType === "fullstack" ? t("rm.pageFullstack") : t("rm.pageFrontendOnly")}</span>
+                    <button onClick={() => setPageInv(null)} className="ml-auto text-stone-400 hover:text-stone-600 text-xs">✕</button>
+                  </div>
+                  <div className="flex gap-2 flex-wrap text-[10px] font-bold mb-2">
+                    <span className="px-2 py-1 rounded-lg bg-white border" style={{ borderColor: tk.borderLight }}>{t("rm.pageRoutes")} <span className="font-mono text-violet-700 text-xs">{pageInv.summary.totalRoutes}</span></span>
+                    <span className="px-1.5 py-1 rounded bg-violet-50 text-violet-700">{t("rm.pageUnitTest")} {pageInv.summary.pagesWithUnitTest}/{pageInv.summary.totalRoutes}</span>
+                    <span className="px-1.5 py-1 rounded bg-teal-50 text-teal-700">{t("rm.pageE2e")} {pageInv.summary.pagesWithE2e}/{pageInv.summary.totalRoutes}</span>
+                    <span className="px-1.5 py-1 rounded bg-sky-50 text-sky-700">{t("rm.pageApiLinked")} {pageInv.summary.apiLinkedRoutes}</span>
+                    <span className="px-1.5 py-1 rounded bg-stone-100 text-stone-500">{t("rm.pageComponents")} {pageInv.summary.componentTotal}</span>
+                  </div>
+                  <div className="max-h-72 overflow-auto rounded-lg border bg-white text-[10px]" style={{ borderColor: tk.borderLight }}>
+                    <table className="w-full">
+                      <thead className="sticky top-0 bg-stone-50 text-stone-500">
+                        <tr>
+                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.pageColRoute")}</th>
+                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.pageColPage")}</th>
+                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.pageColComponents")}</th>
+                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.pageColUnit")}</th>
+                          <th className="text-left px-2 py-1.5 font-bold">E2E</th>
+                          <th className="text-left px-2 py-1.5 font-bold">API</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pageInv.rows.slice(0, 200).map((r: any, i: number) => (
+                          <tr key={i} className="border-t hover:bg-violet-50/40" style={{ borderColor: tk.borderLight }}>
+                            <td className="px-2 py-1 font-mono text-violet-700 whitespace-nowrap">{r.route}<span className="text-stone-400 ml-1">{r.kind}</span></td>
+                            <td className="px-2 py-1 font-mono text-stone-600 max-w-[200px] truncate" title={r.page}>{r.page}</td>
+                            <td className="px-2 py-1 text-center text-stone-600" title={r.components?.slice(0, 20).join("\n")}>{r.componentCount}</td>
+                            <td className="px-2 py-1 text-center">{r.unitTestedCount > 0
+                              ? <span className="text-green-700 font-mono">{r.unitTestedCount}/{r.componentCount}</span>
+                              : <span className="text-amber-600">0</span>}</td>
+                            <td className="px-2 py-1 text-center">{r.e2eFiles.length
+                              ? <span className="text-teal-700 font-mono" title={r.e2eFiles.join("\n")}>✓ {r.e2eFiles.length}</span>
+                              : <span className="text-amber-600">—</span>}</td>
+                            <td className="px-2 py-1 font-mono text-sky-700 max-w-[220px] truncate" title={r.apiCalls?.join("\n")}>
+                              {r.apiCalls?.length ? r.apiCalls.slice(0, 2).map((a: string) => a.length > 36 ? a.slice(0, 36) + "…" : a).join(", ") + (r.apiCalls.length > 2 ? ` +${r.apiCalls.length - 2}` : "") : <span className="text-stone-400">—</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {pageInv.summary.totalRoutes === 0 && (
+                    <div className="mt-2 text-[10px] text-stone-400">{t("rm.pageNoRoutes")}</div>
+                  )}
                 </div>
               )}
 

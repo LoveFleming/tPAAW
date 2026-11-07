@@ -2134,5 +2134,19 @@
   "dw.situation": "Situation report",
   "dw.autoHint": "Auto dispatch = Night Shift loop (plan → dispatch → verify). Button stops zombie runs then starts. Watch 🎖️ panel for progress.",
   "dw.cancel": "Cancel",
-  "dw.go": "Dispatch"
+  "dw.go": "Dispatch",
+  "rm.pageInvBtn": "📄 Page Inventory",
+  "rm.pageInvTitle": "📄 Page Route Inventory",
+  "rm.pageFullstack": "fullstack",
+  "rm.pageFrontendOnly": "frontend-only",
+  "rm.pageRoutes": "Routes",
+  "rm.pageUnitTest": "Unit-tested",
+  "rm.pageE2e": "E2E",
+  "rm.pageApiLinked": "API-linked",
+  "rm.pageComponents": "components",
+  "rm.pageColRoute": "Route",
+  "rm.pageColPage": "Page file",
+  "rm.pageColComponents": "Comps",
+  "rm.pageColUnit": "Unit Test",
+  "rm.pageNoRoutes": "No routes detected (tab-based UI or unsupported framework — React Router / Next / TanStack / Vue Router)"
 }

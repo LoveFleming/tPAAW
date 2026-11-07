@@ -2134,5 +2134,19 @@
   "dw.situation": "Situation report",
   "dw.autoHint": "Auto dispatch = Night Shift loop (plan → dispatch → verify). Button stops zombie runs then starts. Watch 🎖️ panel for progress.",
   "dw.cancel": "Cancel",
-  "dw.go": "Dispatch"
+  "dw.go": "Dispatch",
+  "rm.pageInvBtn": "📄 ページ棚卸",
+  "rm.pageInvTitle": "📄 ページルート棚卸",
+  "rm.pageFullstack": "フルスタック",
+  "rm.pageFrontendOnly": "フロントのみ",
+  "rm.pageRoutes": "ルート",
+  "rm.pageUnitTest": "Unit あり",
+  "rm.pageE2e": "E2E あり",
+  "rm.pageApiLinked": "API 連携",
+  "rm.pageComponents": "コンポーネント",
+  "rm.pageColRoute": "ルート",
+  "rm.pageColPage": "ページファイル",
+  "rm.pageColComponents": "コンポ",
+  "rm.pageColUnit": "Unit Test",
+  "rm.pageNoRoutes": "ルート未検出（タブ型 UI または未対応フレームワーク — React Router / Next / TanStack / Vue Router）"
 }
