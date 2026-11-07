@@ -71,9 +71,28 @@ function _apiE2eCoverageChecker(root) {
   return (apiPath) => {
     if (!apiPath) return false;
     if (corpus === null) corpus = build();
-    const norm = apiPath.replace(/\/<[^/>]+>/g, "/__P__").replace(/\/:[A-Za-z0-9_]+/g, "/__P__");
-    const re = new RegExp(norm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/__P__/g, "[^/]+")); // nosemgrep: detect-non-literal-regexp
-    return re.test(corpus);
+    const segs = apiPath.replace(/\/+$/, "").split("/").filter(Boolean);
+    // 路徑參數段：支援三種寫法 — :id（Express）、<id>（Flask）、{id}（Java MockMvc/JAX-RS 字面 placeholder）
+    // 2026-11-07 修：corpus 裡的 {ownerId} 字面 placeholder 也算命中（[^/]+ 匹配不到大括號字面值，petclinic E2E 全滅的根因）
+    const segPattern = (seg) => {
+      if (seg.startsWith(":") || /^\{[^}/]+\}$/.test(seg) || /^<[^/>]+>$/.test(seg)) return "(?:[^/\"'`{}]|\\{[^}/]+\\})+"; // 實值 或 字面 {param}
+      return seg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    };
+    const tryMatch = (k) => {
+      const suffix = segs.slice(-k);
+      if (suffix.some((s) => s.startsWith(":") || /^\{[^}/]+\}$/.test(s) || /^<[^/>]+>$/.test(s))) return false; // 含參數段的後綴不做降級比對（[^/]+ 太寬會誤中）
+      const re = new RegExp("(?:^|[\\/\"'`\\s({])" + suffix.map(segPattern).join("/") + "(?:/|\\b)"); // nosemgrep: detect-non-literal-regexp
+      return re.test(corpus);
+    };
+    // 1) 全路徑比對（參數段接受實值或字面 placeholder）
+    const fullRe = new RegExp("^/?" + segs.map(segPattern).join("/") + "/?$"); // nosemgrep: detect-non-literal-regexp
+    // 全路徑需在 corpus 中以片段出現（非行首），改用無錨點版本
+    const fullRe2 = new RegExp("(?:^|[\\/\"'`\\s({])" + segs.map(segPattern).join("/") + "/?(?:$|[\\s\"'`})]|\\b)"); // nosemgrep: detect-non-literal-regexp
+    if (fullRe2.test(corpus) || fullRe.test(corpus)) return true;
+    // 2) 2026-11-07 修：變數組路徑（FastAPI f"{settings.API_V1_STR}/items/"）— 字面前綴不在 corpus，
+    //    降級用「後綴」比對（最長 2+ 段、全字面），例如 /items/、users/me
+    for (let k = segs.length - 1; k >= 2; k--) if (tryMatch(k)) return true;
+    return false;
   };
 }
 
