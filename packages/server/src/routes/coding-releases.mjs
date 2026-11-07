@@ -691,6 +691,10 @@ export default async function releaseRoutes(req, res, next) {
       let scan = null; try { scan = await loadSecurityScan(projectPath); } catch { /* 未掃 → null 如實回 */ }
       // Code Review 委員會紀錄（2026-11-07 Fleming：by API — 掃過該 API 檔案的會議次數 + 最新一次時間/結論）
       let board = null; try { board = await loadReviewBoard(projectPath); } catch { /* 無紀錄 → null */ }
+      // QA 記錄（2026-11-07 Fleming：by API — apis[] 明標優先，fallback target/url/summary 文字含 API path）
+      let qaAll = []; try { const { listQaResults } = await import("../lib/qa-results.mjs"); qaAll = listQaResults(projectPath, { limit: 500 }); } catch { /* 無 → 空 */ }
+      const _pathOf = (entry) => String(entry).trim().split(/\s+/).pop() || String(entry).trim();
+      const _normLower = (s) => String(s).replace(/\\/g, "/").toLowerCase();
       // e2e 內容覆蓋（共用 helper）
       const apiCovered = _apiE2eCoverageChecker(root);
       const rows = [];
@@ -703,10 +707,26 @@ export default async function releaseRoutes(req, res, next) {
           const scope = (r.scopeFiles?.length ? r.scopeFiles : r.findingFiles || []).map((f) => String(f).replace(/\\/g, "/").replace(/^\.\//, ""));
           return scope.some((f) => files.includes(f));
         }).map((r) => ({ at: r.at, decision: r.decision }));
+        // QA 記錄 by API（新→舊，取前 5 筆明細；count 為全部）
+        const apiPathLower = _normLower(_pathOf(a.entry));
+        const qaHits = qaAll.filter((r) => {
+          if ((r.apis || []).some((x) => _normLower(x) === _normLower(a.entry) || _normLower(_pathOf(x)) === apiPathLower)) return true;
+          if (apiPathLower.length < 3) return false; // 太短（如 "/"）不做文字比對，免全match
+          const hay = `${r.target || ""} ${r.url || ""} ${r.summary || ""} ${(r.evidence || []).join(" ")}`.toLowerCase();
+          return hay.includes(apiPathLower);
+        });
+        const qaLatest = qaHits[0] || null;
         rows.push({
           entry: a.entry, name: a.name, category: a.category, files,
           commits: touched, commitCount: touched.length,
           reviews, reviewCount: reviews.length, latestReviewAt: reviews.filter((r) => r.at).map((r) => r.at).sort().pop() || null,
+          qa: {
+            count: qaHits.length,
+            latestAt: qaLatest?.ts || null,
+            latestVerdict: qaLatest?.verdict || null,
+            latestActor: qaLatest?.actor || null,
+            items: qaHits.slice(0, 5).map((r) => ({ at: r.ts, verdict: r.verdict, actor: r.actor, summary: String(r.summary || "").slice(0, 80), id: r.id })),
+          },
           tests: (a.tests || []).map((x) => (typeof x === "string" ? x : x?.file)).filter(Boolean),
           e2eCovered: apiCovered(a.entry),
           sg: { ok: sg.ok, high: sg.high ?? 0, total: sg.total ?? 0, reason: sg.reason || null },
@@ -721,6 +741,8 @@ export default async function releaseRoutes(req, res, next) {
           e2eCovered: rows.filter((r) => r.e2eCovered).length,
           sgHigh: rows.filter((r) => !r.sg.ok).length,
           withReview: rows.filter((r) => r.reviewCount > 0).length,
+          withQa: rows.filter((r) => r.qa.count > 0).length,
+          qaLatestFail: rows.filter((r) => r.qa.latestVerdict && r.qa.latestVerdict !== "pass").length,
           sgScannedAt: scan?.scannedAt || null,
         },
         apis: rows, generatedAt: new Date().toISOString(),

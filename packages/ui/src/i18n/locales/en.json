@@ -2096,5 +2096,10 @@
   "rm.ev.noReview": "no review records",
   "crb.viewApi": "By API",
   "crb.viewMeetings": "By meeting",
-  "rm.reportGenerating": "Generating…"
+  "rm.reportGenerating": "Generating…",
+  "rm.ev.noQa": "no QA records",
+  "qaRecords.apiFilterPh": "API filter (e.g. GET /api/x)",
+  "qaRecords.apiFilterTip": "Filter QA records by API",
+  "qaRecords.signApiPh": "API (e.g. GET /api/x, optional)",
+  "qaRecords.signApiTip": "Tag the sign-off with an API entry"
 }

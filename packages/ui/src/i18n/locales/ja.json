@@ -2096,5 +2096,10 @@
   "rm.ev.noReview": "レビュー記録なし",
   "crb.viewApi": "API 順",
   "crb.viewMeetings": "会議順",
-  "rm.reportGenerating": "生成中…"
+  "rm.reportGenerating": "生成中…",
+  "rm.ev.noQa": "QA 記録なし",
+  "qaRecords.apiFilterPh": "API フィルタ（例: GET /api/x）",
+  "qaRecords.apiFilterTip": "API で QA 記録をフィルタ",
+  "qaRecords.signApiPh": "API（例: GET /api/x、任意）",
+  "qaRecords.signApiTip": "API エントリを直接タグ付け"
 }

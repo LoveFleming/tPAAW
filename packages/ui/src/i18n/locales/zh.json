@@ -2096,5 +2096,10 @@
   "rm.ev.noReview": "無 Code Review 紀錄",
   "crb.viewApi": "依 API",
   "crb.viewMeetings": "依會議",
-  "rm.reportGenerating": "AI 產生中…"
+  "rm.reportGenerating": "AI 產生中…",
+  "rm.ev.noQa": "無 QA 記錄",
+  "qaRecords.apiFilterPh": "API 過濾（如 GET /api/x）",
+  "qaRecords.apiFilterTip": "以 API 過濾 QA 記錄（記錄標了 apis 優先命中，否則比對 target/摘要文字）",
+  "qaRecords.signApiPh": "API（如 GET /api/x，選填）",
+  "qaRecords.signApiTip": "簽核直接標 API entry — Evidence Matrix QA 欄靠它命中"
 }

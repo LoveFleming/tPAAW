@@ -109,6 +109,8 @@ export function saveQaResult(cwd, rec = {}) {
     url: rec.url ? String(rec.url).slice(0, 300) : null,
     taskId: rec.taskId ? String(rec.taskId).slice(0, 60) : null,
     feature: rec.feature ? String(rec.feature).slice(0, 120) : null,
+    // 2026-11-07 Fleming：API-first 關聯 — QA 記錄直接標 API entries（如 "GET /api/x"）；存了優先用，没存則消費端 fallback 文字比對
+    apis: (Array.isArray(rec.apis) ? rec.apis : []).map((x) => String(x).slice(0, 200)).filter(Boolean).slice(0, 10),
     headSha: /^[0-9a-f]{7,40}$/i.test(String(rec.headSha || "")) ? String(rec.headSha) : null, // 測試樹綁定（7-40 hex；branch 名等其他字串不收）
     rrId: rec.rrId ? String(rec.rrId).slice(0, 60) : null,
     verdict,
@@ -139,6 +141,17 @@ export function listQaResults(cwd, opts = {}) {
   if (opts.type) list = list.filter(r => r.type === opts.type);
   if (opts.taskId) list = list.filter(r => r.taskId === opts.taskId);
   if (opts.feature) list = list.filter(r => r.feature === opts.feature);
+  // 2026-11-07 Fleming：API-first 關聯 — api 過濾（apis[] 明標優先，fallback target/url/summary 文字含 path）
+  if (opts.api) {
+    const needle = String(opts.api).trim().toLowerCase().replace(/\/+$/, "");
+    const path = needle.split(/\s+/).pop();
+    list = list.filter(r =>
+      (r.apis || []).some(x => {
+        const xl = String(x).trim().toLowerCase();
+        return xl === needle || xl.split(/\s+/).pop() === path;
+      }) || (path && path.length >= 3 && `${r.target || ""} ${r.url || ""} ${r.summary || ""}`.toLowerCase().includes(path))
+    );
+  }
   if (opts.q) {
     const needle = String(opts.q).toLowerCase();
     list = list.filter(r =>

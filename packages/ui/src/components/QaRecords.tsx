@@ -97,11 +97,13 @@ export default function QaRecords({ rootPath, theme, initialFeature }: Props) {
   const [typeFilter, setTypeFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [featureFilter, setFeatureFilter] = useState(initialFeature || ""); // Release Manager Human 欄點入用
+  const [apiFilter, setApiFilter] = useState(""); // 2026-11-07 Fleming：API-first — QA 記錄頁直接以 API 過濾
   const [busy, setBusy] = useState(false);
   // ── ✍ 人工簽核（2026-10-21 Fleming：QA 記錄頁人類入口 — 補記/簽核直接落地 qa-results，RM Human 欄採計）──
   const [signOpen, setSignOpen] = useState(false);
   const [signFeatures, setSignFeatures] = useState<string[] | null>(null); // null = 未載入；[] = 載不到（fallback 自由輸入）
   const [signFeature, setSignFeature] = useState("");
+  const [signApi, setSignApi] = useState(""); // 2026-11-07 Fleming：API-first — 簽核直接標 API entry
   const [signVerdict, setSignVerdict] = useState<"pass" | "fail" | "warn" | "blocked">("pass");
   const [signSummary, setSignSummary] = useState("");
   const [signBusy, setSignBusy] = useState(false);
@@ -120,13 +122,14 @@ export default function QaRecords({ rootPath, theme, initialFeature }: Props) {
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (typeFilter !== "all") params.set("type", typeFilter);
       if (featureFilter) params.set("feature", featureFilter);
+      if (apiFilter.trim()) params.set("api", apiFilter.trim());
       if (searchQuery.trim()) params.set("q", searchQuery.trim());
       const res = await fetch(`${base}?${params}`);
       const data = await res.json();
       setRecords(data.results || []);
     } catch (err) { console.error("[QaRecords] fetch error:", err); }
     setLoading(false);
-  }, [base, rootPath, verdictFilter, statusFilter, typeFilter, searchQuery, featureFilter]);
+  }, [base, rootPath, verdictFilter, statusFilter, typeFilter, searchQuery, featureFilter, apiFilter]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -193,6 +196,7 @@ export default function QaRecords({ rootPath, theme, initialFeature }: Props) {
           actor: "human",
           type: "manual",
           feature: signFeature || undefined, // 不指定就不帶 — 空字串會 join 不到任何 feature
+          apis: signApi.trim() ? [signApi.trim()] : undefined, // API-first：標了這個，Evidence Matrix QA 欄直接命中
           verdict: signVerdict,
           summary,
           target: signFeature ? `人工簽核：${signFeature}` : summary.slice(0, 40),
@@ -201,7 +205,8 @@ export default function QaRecords({ rootPath, theme, initialFeature }: Props) {
       if (res.ok) {
         setSignOpen(false);
         setSignSummary("");
-        if (signFeature) setFeatureFilter(signFeature); // 切到該 feature 過濾 — 新記錄立刻看得到
+        if (signApi.trim()) { setApiFilter(signApi.trim()); setFeatureFilter(""); } // 切到 API 過濾 — 新記錄立刻看得到
+        else if (signFeature) setFeatureFilter(signFeature);
         await fetchRecords();
         await fetchStats();
       } else { console.error("[QaRecords] sign-off POST failed:", res.status); }
@@ -251,6 +256,7 @@ export default function QaRecords({ rootPath, theme, initialFeature }: Props) {
             {Object.keys(TYPE_ICONS).map(v => <option key={v} value={v}>{TYPE_ICONS[v]} {v}</option>)}
           </select>
           <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={t("qaRecords.search")} className="flex-1 text-xs px-2 py-1 rounded border outline-none min-w-0" style={inputStyle} />
+          <input type="text" value={apiFilter} onChange={e => setApiFilter(e.target.value)} placeholder={t("qaRecords.apiFilterPh")} title={t("qaRecords.apiFilterTip")} className="w-40 text-xs px-2 py-1 rounded border outline-none font-mono shrink-0" style={inputStyle} />
           {featureFilter && (
             <button type="button" onClick={() => setFeatureFilter("")} className="text-[10px] px-1.5 py-1 rounded shrink-0 flex items-center gap-1" style={{ background: theme.accentBg, color: theme.accent }} title={t("qaRecords.featureChipTip")} data-testid="qa-feature-chip">
               🗺️ {featureFilter} ✕
@@ -266,6 +272,7 @@ export default function QaRecords({ rootPath, theme, initialFeature }: Props) {
         {signOpen && (
           <div className="px-3 py-2.5 flex flex-col gap-1.5" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }} data-testid="qa-sign-off-form">
             <div className="flex items-center gap-1.5">
+              <input type="text" value={signApi} onChange={e => setSignApi(e.target.value)} placeholder={t("qaRecords.signApiPh")} className="flex-1 text-xs px-2 py-1.5 rounded border outline-none font-mono min-w-0" style={inputStyle} title={t("qaRecords.signApiTip")} />
               {/* feature 下拉（名稱=FEATURES.json 原文 — 證據矩陣靠它 join）；載不到清單 fallback 自由輸入 */}
               {signFeatures && signFeatures.length > 0 ? (
                 <select value={signFeature} onChange={e => setSignFeature(e.target.value)} className="flex-1 text-xs px-2 py-1.5 rounded border outline-none min-w-0" style={inputStyle} title={t("qaRecords.signTarget")}>
