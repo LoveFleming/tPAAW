@@ -8,7 +8,7 @@ import { getModuleCrew } from "./module-registry.mjs";
 import { loadFeatureData, matchFeaturesForFiles, buildContextBoundary } from "./feature-boundary.mjs";
 import { exec as execCb } from "child_process";
 import { runShellGrouped, runContextALS, sweepRunProcesses } from "./proc-ledger.mjs";
-import { shellExec, IS_WIN as IS_WIN_SHARED } from "./shell-exec.mjs";
+import { shellExec, IS_WIN, IS_WIN as IS_WIN_SHARED } from "./shell-exec.mjs";
 import { resolve, join, dirname, relative } from "path";
 import { getDependencyContext, getAffectedTests } from "./dependency-context.mjs";
 import { runTaskRetrofit } from "./task-retrofit.mjs";
