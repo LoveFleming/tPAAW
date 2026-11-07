@@ -425,6 +425,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                       <thead className="sticky top-0 bg-stone-50 text-stone-500">
                         <tr>
                           <th className="text-left px-2 py-1.5 font-bold">{t("rm.pageColRoute")}</th>
+                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.pageColName")}</th>
                           <th className="text-left px-2 py-1.5 font-bold">{t("rm.pageColPage")}</th>
                           <th className="text-left px-2 py-1.5 font-bold">{t("rm.pageColComponents")}</th>
                           <th className="text-left px-2 py-1.5 font-bold">{t("rm.pageColUnit")}</th>
@@ -436,6 +437,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                         {pageInv.rows.slice(0, 200).map((r: any, i: number) => (
                           <tr key={i} className="border-t hover:bg-violet-50/40" style={{ borderColor: tk.borderLight }}>
                             <td className="px-2 py-1 font-mono text-violet-700 whitespace-nowrap">{r.route}<span className="text-stone-400 ml-1">{r.kind}</span></td>
+                            <td className="px-2 py-1 text-stone-700 max-w-[140px] truncate" title={`${r.category || ""}${r.name ? " · " + r.name : ""}`}>{r.name ? <span><span className="text-stone-400">{r.category} · </span>{r.name}</span> : <span className="text-stone-300">—</span>}</td>
                             <td className="px-2 py-1 font-mono text-stone-600 max-w-[200px] truncate" title={r.page}>{r.page}</td>
                             <td className="px-2 py-1 text-center text-stone-600" title={r.components?.slice(0, 20).join("\n")}>{r.componentCount}</td>
                             <td className="px-2 py-1 text-center">{r.unitTestedCount > 0

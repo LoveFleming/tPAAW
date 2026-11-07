@@ -2148,5 +2148,6 @@
   "rm.pageColPage": "ページファイル",
   "rm.pageColComponents": "コンポ",
   "rm.pageColUnit": "Unit Test",
-  "rm.pageNoRoutes": "ルート未検出（タブ型 UI または未対応フレームワーク — React Router / Next / TanStack / Vue Router）"
+  "rm.pageNoRoutes": "ルート未検出（タブ型 UI または未対応フレームワーク — React Router / Next / TanStack / Vue Router）",
+  "rm.pageColName": "ページ"
 }

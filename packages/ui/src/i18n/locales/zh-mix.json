@@ -2148,5 +2148,6 @@
   "rm.pageColPage": "Page 檔",
   "rm.pageColComponents": "組件",
   "rm.pageColUnit": "Unit Test",
-  "rm.pageNoRoutes": "沒偵測到 route（tab-based UI 或非支援框架 — React Router / Next / TanStack / Vue Router）"
+  "rm.pageNoRoutes": "沒偵測到 route（tab-based UI 或非支援框架 — React Router / Next / TanStack / Vue Router）",
+  "rm.pageColName": "頁面"
 }

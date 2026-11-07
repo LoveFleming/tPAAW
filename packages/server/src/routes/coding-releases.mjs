@@ -712,9 +712,18 @@ export default async function releaseRoutes(req, res, next) {
     }
     try {
       const { buildPageInventory } = await import("../lib/page-inventory.mjs");
-      const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
+      const { readApiFeatures, readUiFeatures } = await import("../lib/coding-db/reads.mjs");
       const apis = readApiFeatures(projectPath);
       const inv = buildPageInventory(projectPath, apis);
+      // join CU UI Map 的語意（頁面名稱/分類）— CU 沒跑過就純 deterministic 呈現
+      try {
+        const uis = readUiFeatures(projectPath) || [];
+        const byRoute = new Map(uis.map((u) => [u.route, u]));
+        for (const r of inv.rows) {
+          const u = byRoute.get(r.route);
+          if (u) { r.name = u.name; r.category = u.category; }
+        }
+      } catch {}
       res.json({ ok: true, ...inv, generatedAt: new Date().toISOString() });
     } catch (err) {
       res.status(500).json({ error: err.message });

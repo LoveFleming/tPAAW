@@ -2148,5 +2148,6 @@
   "rm.pageColPage": "Page file",
   "rm.pageColComponents": "Comps",
   "rm.pageColUnit": "Unit Test",
-  "rm.pageNoRoutes": "No routes detected (tab-based UI or unsupported framework — React Router / Next / TanStack / Vue Router)"
+  "rm.pageNoRoutes": "No routes detected (tab-based UI or unsupported framework — React Router / Next / TanStack / Vue Router)",
+  "rm.pageColName": "Page"
 }

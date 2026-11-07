@@ -991,6 +991,19 @@ export default async function projectRoute(req, res) {
           // Load accumulated context from existing .paaw/ files (unless skipContext)
         let fullPrompt = promptTemplate;
         fullPrompt += `\n\n--- PROJECT CONTEXT ---\n${projectContext}`;
+        // 2026-11-07：ui-map 前置 deterministic route 盤點（page-inventory 引擎）— LLM 不可發明 route，只能補語意
+        if (step.id === "ui-map") {
+          try {
+            const { buildPageInventory } = await import("../lib/page-inventory.mjs");
+            const inv = buildPageInventory(root, [], {});
+            if (inv.summary.totalRoutes > 0) {
+              const lines = inv.rows.slice(0, 80).map((r) => `- ${r.route}（${r.kind} · page: ${r.page} · 組件 ${r.componentCount} 檔 · unit ${r.unitTestedCount}）`).join("\n");
+              fullPrompt += `\n\n--- DETERMINISTIC PAGE ROUTES（程式已 parse，以這些為準 — 不可發明不存在的 route；每筆都要產出；tab/無 route 的進入點可另補）---\n${lines}`;
+            } else {
+              fullPrompt += `\n\n--- DETERMINISTIC PAGE ROUTES ---\n（程式 parse 到 0 條 router route — 本專案可能是 tab-based UI：以主要 view/tabs 當進入點，route 欄填主要檔案路徑）`;
+            }
+          } catch (e) { cuLog("ui-map", `page-inventory 失敗（略過注入）: ${e.message}`); }
+        }
         if (!skipContext) {
           const loadCtx = async (file, label, maxLen = 3000) => {
             try {
@@ -1188,6 +1201,18 @@ export default async function projectRoute(req, res) {
                   });
                 }
                 if (!clean.length) throw new Error("UI Map 無有效 route");
+                // 2026-11-07：merge deterministic page evidence（unit/e2e/API/components）進 custom.pageEvidence
+                try {
+                  const { buildPageInventory } = await import("../lib/page-inventory.mjs");
+                  const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
+                  const inv = buildPageInventory(root, readApiFeatures(root), {});
+                  const byRoute = new Map(inv.rows.map((r) => [r.route, r]));
+                  for (const c of clean) {
+                    const hit = byRoute.get(c.route);
+                    if (hit) c.custom = { ...(c.custom || {}), pageEvidence: { kind: hit.kind, page: hit.page, componentCount: hit.componentCount, unitTestedCount: hit.unitTestedCount, e2eFiles: hit.e2eFiles, apiCalls: hit.apiCalls } };
+                  }
+                  cuLog(step.id, `pageEvidence merged: ${clean.filter((c) => c.custom?.pageEvidence).length}/${clean.length}`);
+                } catch (peErr) { cuLog(step.id, `pageEvidence merge failed（不影響 UI Map）: ${peErr.message}`); }
                 const { saveUiFeatures } = await import("../lib/coding-db/ui-features.repo.mjs");
                 saveUiFeatures(root, clean);
                 await paaw.writeFile("ui-map.json", JSON.stringify(clean, null, 2));
