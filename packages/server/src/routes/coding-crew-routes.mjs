@@ -314,7 +314,12 @@ if (url === "/api/coding-crew/dispatch" && method === "POST") {
     helpdesk: "coding.helpdesk",
   };
   const crewId = agentMap[agentId] || agentId;
-  const crewFile = join(DATA_HOME, "crews", `${crewId}.json`);
+  // 2026-11-07 修：coding.* crew 定義在 packages/modules/coding/crews/（data/crews 只有 sre.*）→ 兩處都要找
+  let crewFile = join(DATA_HOME, "crews", `${crewId}.json`);
+  if (!existsSync(crewFile)) {
+    const moduleCrew = join(PAAW_ROOT, "packages", "modules", "coding", "crews", `${crewId}.json`);
+    if (existsSync(moduleCrew)) crewFile = moduleCrew;
+  }
   if (!existsSync(crewFile)) {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: `Agent '${agentId}' not found` }));

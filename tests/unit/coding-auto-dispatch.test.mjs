@@ -17,7 +17,7 @@
  *     不在此修改；若為缺陷會於報告中標明並回報。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -469,6 +469,251 @@ describe("GET /api/coding-auto-dispatch/last-run", () => {
     expect(data.hasRun).toBe(true);
     expect(data.lastRunBy).toBe("auto-dispatch-reports");
     expect(data.since).toBe("2026-05-10");
+  });
+});
+
+// ============================================================================
+// TASK-059（2026-11-07）補強：Run History / 對帳歸檔 / interrupted 契約 / 活 runnerPid / body.cwd
+// 依 QA 報告 qr-20261107-115922-az6g：L1（/runs /run 零測試）、M3/M1（interrupted 覆寫契約）、
+// D2（runnerPid 活 pid 分支）、L2（preview body.cwd）、M4（歸檔路徑）。
+// ============================================================================
+describe("GET /api/coding-auto-dispatch/runs 與 /run — run history 查詢", () => {
+  function writeRun(id, obj) {
+    mkdirSync(join(root, AUTO_DISPATCH_DIR, "runs"), { recursive: true });
+    writeFileSync(join(root, AUTO_DISPATCH_DIR, "runs", `${id}.json`), JSON.stringify(obj, null, 2));
+  }
+
+  it("無 runs 目錄 — 回空清單", async () => {
+    const res = await call("GET", pathUrl("/api/coding-auto-dispatch/runs", root));
+    expect(res.statusCode).toBe(200);
+    expect(json(res).runs).toEqual([]);
+  });
+
+  it("列出 runs — 每筆帶 id/status/mode 摘要欄位", async () => {
+    writeRun("2026-06-01T10-00-00-000Z-em", { startedAt: "2026-06-01T10:00:00.000Z", completedAt: "2026-06-01T11:00:00.000Z", status: "completed", mode: "em", completedAgents: 3, totalAgents: 0 });
+    writeRun("2026-06-02T10-00-00-000Z-parallel", { startedAt: "2026-06-02T10:00:00.000Z", completedAt: "2026-06-02T12:00:00.000Z", status: "failed", mode: "parallel", completedAgents: 1, totalAgents: 6, error: "boom" });
+    const res = await call("GET", pathUrl("/api/coding-auto-dispatch/runs", root));
+    expect(res.statusCode).toBe(200);
+    const runs = json(res).runs;
+    expect(runs).toHaveLength(2);
+    // 檔名倒序（新→舊）
+    expect(runs[0].id).toBe("2026-06-02T10-00-00-000Z-parallel");
+    expect(runs[0].status).toBe("failed");
+    expect(runs[0].error).toBe("boom");
+    expect(runs[1].id).toBe("2026-06-01T10-00-00-000Z-em");
+    expect(runs[1].completedAgents).toBe(3);
+  });
+
+  it("runs 目錄有壞 JSON — 該筆被過濾不影響其他", async () => {
+    writeRun("good-1", { startedAt: "2026-06-01T10:00:00.000Z", status: "completed", mode: "em" });
+    writeFileSync(join(root, AUTO_DISPATCH_DIR, "runs", "bad.json"), "{ not json");
+    const res = await call("GET", pathUrl("/api/coding-auto-dispatch/runs", root));
+    expect(res.statusCode).toBe(200);
+    expect(json(res).runs).toHaveLength(1);
+    expect(json(res).runs[0].id).toBe("good-1");
+  });
+
+  it("GET /run — 非法 id（路徑字元）回 400", async () => {
+    const res = await call("GET", pathUrl("/api/coding-auto-dispatch/run?id=../evil", root));
+    expect(res.statusCode).toBe(400);
+    expect(json(res).error).toBe("Invalid run id");
+  });
+
+  it("GET /run — 不存在的 id 回 404", async () => {
+    const res = await call("GET", pathUrl("/api/coding-auto-dispatch/run?id=nope-1", root));
+    expect(res.statusCode).toBe(404);
+    expect(json(res).error).toBe("Run not found");
+  });
+
+  it("GET /run — 回完整 run 快照", async () => {
+    writeRun("run-x", { startedAt: "2026-06-01T10:00:00.000Z", status: "interrupted", mode: "em", events: [{ type: "info" }] });
+    const res = await call("GET", pathUrl("/api/coding-auto-dispatch/run?id=run-x", root));
+    expect(res.statusCode).toBe(200);
+    expect(json(res).status).toBe("interrupted");
+    expect(json(res).events).toHaveLength(1);
+  });
+
+  it("L1 現況釘樁 — reset 後 status=interrupted 但 runs/ 快照不變（兩處 view 可能矛盾，QA L1）", async () => {
+    writeRun("r-live", { startedAt: "2026-06-01T10:00:00.000Z", status: "running", mode: "em" });
+    writeStatus({ status: "running", mode: "em" });
+    await call("POST", pathUrl("/api/coding-auto-dispatch/reset", root), {});
+    expect(readStatus().status).toBe("interrupted");
+    const res = await call("GET", pathUrl("/api/coding-auto-dispatch/run?id=r-live", root));
+    expect(json(res).status).toBe("running"); // append-only：歷史快照不隨 reset 改
+  });
+});
+
+describe("start 的殭屍對帳與歸檔（_reconcileAndArchivePrevious / _archiveRun）", () => {
+  const DEAD_PID = 2147483647; // 超出 pid 範圍 → ESRCH，保證不活
+  function runsDir() { return join(root, AUTO_DISPATCH_DIR, "runs"); }
+  function listRuns() {
+    return readdirSync(runsDir()).filter(f => f.endsWith(".json"));
+  }
+
+  it("上一輪殭屍 running（runnerPid 已死）— 開新輪前標 interrupted 並歸檔", async () => {
+    writeStatus({ status: "running", mode: "em", runnerPid: DEAD_PID, startedAt: "2026-06-01T09:00:00.000Z" });
+    let release = () => {};
+    const gate = new Promise((r) => { release = r; });
+    mockRunAutoDispatch.mockImplementation(() => gate.then(() => ({ report: "x" })));
+    const res = await call("POST", pathUrl("/api/coding-auto-dispatch/start", root), { mode: "em" });
+    expect(res.statusCode).toBe(200);
+    // 舊輪已歸檔為 interrupted
+    const files = listRuns();
+    expect(files).toHaveLength(1);
+    const archived = JSON.parse(readFileSync(join(runsDir(), files[0]), "utf-8"));
+    expect(archived.status).toBe("interrupted");
+    expect(archived.error).toContain("no longer alive");
+    // status.json 是新輪的 running（非殭屍殘留）
+    const st = readStatus();
+    expect(st.status).toBe("running");
+    expect(st.startedAt).not.toBe("2026-06-01T09:00:00.000Z");
+    release();
+  });
+
+  it("上一輪正常結束（completed）— 直接歸檔不改狀態", async () => {
+    writeStatus({ status: "completed", mode: "parallel", startedAt: "2026-06-01T09:00:00.000Z", runnerPid: process.pid });
+    await call("POST", pathUrl("/api/coding-auto-dispatch/start", root), { mode: "em" });
+    await new Promise((r) => setTimeout(r, 30));
+    const files = listRuns();
+    // 至少兩份：上一輪 completed 快照 + 本輪 completed 快照
+    const statuses = files.map(f => JSON.parse(readFileSync(join(runsDir(), f), "utf-8")).status);
+    expect(statuses).toContain("completed");
+    expect(files.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("委派層成功 — final 完成態快照落地 runs/（append-only）", async () => {
+    mockRunAutoDispatch.mockResolvedValue({ report: "# ok" });
+    await call("POST", pathUrl("/api/coding-auto-dispatch/start", root), { mode: "em" });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(readStatus().status).toBe("completed");
+    const files = listRuns();
+    expect(files.length).toBeGreaterThanOrEqual(1);
+    const snap = JSON.parse(readFileSync(join(runsDir(), files[0]), "utf-8"));
+    expect(snap.status).toBe("completed");
+    expect(snap.archivedAt).toBeTruthy();
+  });
+
+  it("委派層失敗 — failed 快照落地 runs/", async () => {
+    mockRunAutoDispatch.mockRejectedValue(new Error("kaboom"));
+    await call("POST", pathUrl("/api/coding-auto-dispatch/start", root), { mode: "em" });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(readStatus().status).toBe("failed");
+    const files = listRuns();
+    const snap = JSON.parse(readFileSync(join(runsDir(), files[0]), "utf-8"));
+    expect(snap.status).toBe("failed");
+    expect(snap.error).toContain("kaboom");
+  });
+
+  it("interrupted 契約（QA M3）— reset 後委派層完成，final 更新被跳過，狀態保持 interrupted", async () => {
+    let release = () => {};
+    const gate = new Promise((r) => { release = r; });
+    mockRunAutoDispatch.mockImplementation(() => gate.then(() => ({ report: "# late" })));
+    await call("POST", pathUrl("/api/coding-auto-dispatch/start", root), { mode: "em" });
+    // 派工進行中使用者 reset → interrupted
+    await call("POST", pathUrl("/api/coding-auto-dispatch/reset", root), {});
+    expect(readStatus().status).toBe("interrupted");
+    release();
+    await new Promise((r) => setTimeout(r, 30));
+    // 委派層「完成」不可覆寫使用者的 reset（updateStatusFile L50 契約）
+    expect(readStatus().status).toBe("interrupted");
+  });
+
+  it("M4 現況釘樁 — final 歸檔在 mutator 內：interrupted skip 時完成態快照不落地", async () => {
+    let release = () => {};
+    const gate = new Promise((r) => { release = r; });
+    mockRunAutoDispatch.mockImplementation(() => gate.then(() => ({ report: "# late" })));
+    await call("POST", pathUrl("/api/coding-auto-dispatch/start", root), { mode: "em" });
+    await call("POST", pathUrl("/api/coding-auto-dispatch/reset", root), {});
+    release();
+    await new Promise((r) => setTimeout(r, 30));
+    // 歸檔在 mutator 內 → 被 interrupted skip 一併吞掉（QA M4：完成態快照永久丟失）
+    const files = existsSync(runsDir()) ? listRuns() : [];
+    expect(files).toHaveLength(0);
+  });
+
+  it("sendSSE 事件寫入 events ring buffer 並截斷至 80 筆", async () => {
+    let release = () => {};
+    const gate = new Promise((r) => { release = r; });
+    mockRunAutoDispatch.mockImplementation(async (opts) => {
+      for (let i = 0; i < 90; i++) opts.sendSSE("info", `event-${i}`);
+      await gate;
+      return { report: "# r" };
+    });
+    await call("POST", pathUrl("/api/coding-auto-dispatch/start", root), { mode: "em" });
+    const st = readStatus();
+    expect(st.status).toBe("running");
+    expect(st.events.length).toBe(80);
+    expect(st.events[st.events.length - 1].message).toBe("event-89");
+    expect(st.lastEvent.message).toBe("event-89");
+    release();
+  });
+
+  it("task_done 事件更新 agents map 與 completedAgents", async () => {
+    let release = () => {};
+    const gate = new Promise((r) => { release = r; });
+    mockRunAutoDispatch.mockImplementation(async (opts) => {
+      opts.sendSSE("task_start", { index: 1, total: 2, agent: "developer", message: "go" });
+      opts.sendSSE("task_done", { index: 1, total: 2, agent: "developer", preview: "done-1" });
+      await gate;
+      return { report: "# r" };
+    });
+    await call("POST", pathUrl("/api/coding-auto-dispatch/start", root), { mode: "em" });
+    const st = readStatus();
+    expect(st.agents["developer"].status).toBe("completed");
+    expect(st.agents["developer"].report).toBe("done-1");
+    expect(st.completedAgents).toBe(1);
+    release();
+  });
+});
+
+describe("runnerPid 活 pid 分支（QA D2 — 2026-10-17 修復熱區的回歸保護）", () => {
+  it("stop — runnerPid 為本 process（活）→ 走 stopRequested 路徑而非殭屍路徑", async () => {
+    writeStatus({ status: "running", mode: "em", runnerPid: process.pid, events: [] });
+    const res = await call("POST", pathUrl("/api/coding-auto-dispatch/stop", root), {});
+    expect(res.statusCode).toBe(200);
+    expect(json(res).ok).toBe(true);
+    expect(json(res).message).toContain("Interrupt requested");
+    const st = readStatus();
+    expect(st.status).toBe("running");
+    expect(st.stopRequested).toBe(true);
+  });
+
+  it("status — runnerPid 為本 process（活）且 running → 不誤觸發孤兒偵測", async () => {
+    writeStatus({ status: "running", mode: "em", runnerPid: process.pid });
+    const res = await call("GET", pathUrl("/api/coding-auto-dispatch/status", root));
+    expect(res.statusCode).toBe(200);
+    expect(json(res).status).toBe("running"); // 不可被降級為 interrupted
+    expect(readStatus().status).toBe("running");
+  });
+
+  it("stop — status 被誤標 interrupted 但 runner 還活 → 仍可下停（拉回 running + stopRequested）", async () => {
+    writeStatus({ status: "interrupted", mode: "em", runnerPid: process.pid, events: [] });
+    const res = await call("POST", pathUrl("/api/coding-auto-dispatch/stop", root), {});
+    expect(res.statusCode).toBe(200);
+    expect(json(res).ok).toBe(true);
+    const st = readStatus();
+    expect(st.status).toBe("running");
+    expect(st.stopRequested).toBe(true);
+  });
+});
+
+describe("preview 的 root 解析（QA L2 — body.cwd 分支）", () => {
+  it("無 ?path 但 body.cwd 指定 → 掃描以 cwd 為 root", async () => {
+    mockScanTasksForDispatch.mockReturnValue({ workList: [], stats: {}, excluded: [], openCount: 0 });
+    const res = await call("POST", "/api/coding-auto-dispatch/preview", { cwd: root });
+    expect(res.statusCode).toBe(200);
+    expect(mockScanTasksForDispatch).toHaveBeenCalledWith(root, expect.anything());
+  });
+
+  it("?path 優先於 body.cwd", async () => {
+    mockScanTasksForDispatch.mockReturnValue({ workList: [], stats: {}, excluded: [], openCount: 0 });
+    const other = mkdtempSync(join(tmpdir(), "adr-alt-"));
+    try {
+      await call("POST", pathUrl("/api/coding-auto-dispatch/preview", other), { cwd: root });
+      expect(mockScanTasksForDispatch).toHaveBeenCalledWith(other, expect.anything());
+    } finally {
+      rmSync(other, { recursive: true, force: true });
+    }
   });
 });
 

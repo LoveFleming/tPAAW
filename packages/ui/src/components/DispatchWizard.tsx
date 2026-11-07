@@ -72,12 +72,37 @@ export default function DispatchWizard({ rootPath, theme: tk, onClose }: Props) 
     try {
       if (kind === "direct") {
         if (!task.trim()) { setResult("❌ 請填任務描述"); setBusy(false); return; }
-        const r = await fetch(`${API_BASE}/api/coding-crew/dispatch`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agentId, task, cwd: rootPath, priority }),
-        });
-        const d = await r.json().catch(() => ({}));
-        setResult(d.error ? `❌ ${d.error}` : "✅ 已派工（進度見 Running / 派工報告）");
+        // 2026-11-07 修：dispatch 是 SSE 串流，不能 await r.json()（會卡死）→ 邊讀邊回報
+        try {
+          const r = await fetch(`${API_BASE}/api/coding-crew/dispatch`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ agentId, task, cwd: rootPath, priority }),
+          });
+          if (!r.ok || !r.body) {
+            const d = await r.json().catch(() => ({}));
+            setResult(`❌ ${d.error || r.status}`); setBusy(false); return;
+          }
+          setResult("✅ 已派工，串流執行中…");
+          const reader = r.body.getReader();
+          const dec = new TextDecoder();
+          let buf = ""; let finished = false;
+          while (!finished) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            const events = buf.split("\n\n"); buf = events.pop() || "";
+            for (const ev of events) {
+              const line = ev.split("\n").find(l => l.startsWith("data: "));
+              if (!line) continue;
+              try {
+                const d = JSON.parse(line.slice(6));
+                if (d.error) { setResult(`❌ ${d.error}`); finished = true; }
+                else if (d.event === "done" || d.done) { finished = true; setResult("✅ 已派工並執行完成（詳情見派工報告）"); }
+              } catch {}
+            }
+          }
+          if (!finished) setResult("✅ 已派工（連線結束，詳情見派工報告）");
+        } catch (err: any) { setResult(`❌ ${err.message}`); }
       } else if (kind === "emjob") {
         const r = await fetch(`${API_BASE}/api/coding-crew/em-job`, {
           method: "POST", headers: { "Content-Type": "application/json" },
