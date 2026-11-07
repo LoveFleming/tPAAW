@@ -409,13 +409,20 @@ function _buildManifestContext(root) {
     parts.push(`Language: Go (go.mod)`, `Module: ${module}`);
     if (reqs.length) parts.push(`Requires: ${reqs.slice(0, 40).join(", ")}${reqs.length > 40 ? " …" : ""}`);
   } catch {}
-  // Rust
+  // Rust（2026-11-07 複查：workspace 根目錄的 [workspace]/[profile]/[lints] 區段鍵會被當依賴 → 改區段感知，只收集 dependencies 區段）
   try {
     const cargo = readSync(join(root, "Cargo.toml"), "utf-8");
-    const cname = (cargo.match(/^name\s*=\s*"([^"]+)"/m) || [])[1] || "unknown";
-    const cdeps = [...cargo.matchAll(/^([\w-]+)\s*=/gm)].map((m) => m[1]).filter((k) => !["package", "name", "version", "edition", "authors", "description", "license", "workspace", "members"].includes(k));
-    parts.push(`Language: Rust (Cargo.toml)`, `Crate: ${cname}`);
-    if (cdeps.length) parts.push(`Dependencies: ${cdeps.slice(0, 40).join(", ")}${cdeps.length > 40 ? " …" : ""}`);
+    const pkgName = (cargo.match(/^\[package\]\s*[\s\S]*?^name\s*=\s*"([^"]+)"/m) || [])[1]
+      || (cargo.match(/^name\s*=\s*"([^"]+)"/m) || [])[1] || "unknown";
+    const depSections = /\[workspace\.dependencies\]|\[dependencies\]|\[dev-dependencies\]|\[build-dependencies\]/;
+    const cdeps = [];
+    let inDeps = false;
+    for (const line of cargo.split("\n")) {
+      if (/^\s*\[/.test(line)) { inDeps = depSections.test(line.trim()); continue; }
+      if (inDeps) { const km = line.match(/^([\w-]+)\s*=/); if (km) cdeps.push(km[1]); }
+    }
+    parts.push(`Language: Rust (Cargo.toml)`, `Crate: ${pkgName}`);
+    if (cdeps.length) parts.push(`Dependencies: ${[...new Set(cdeps)].slice(0, 40).join(", ")}${cdeps.length > 40 ? " …" : ""}`);
   } catch {}
   // Java (Maven)
   try {
