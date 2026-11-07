@@ -329,4 +329,9 @@ function _buildManifestContext(root) {
   return parts.join("\n");
 }
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+/** repo root（routes/ 往上四層）— 2026-11-07 從 coding.mjs 移入共用 */
+export const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
+
 export { cuLog, diffWriteFile, _stripCodeFence, _sanitizeMd, cuStepSkillKey, loadCuStepSkills, parseQuery, _extractJsonArray, backfillApiTests, _buildManifestContext };

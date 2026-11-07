@@ -1,5 +1,7 @@
 // coding-crew-routes.mjs — 2026-11-07 從 routes/coding.mjs 機械抽取（不改行為）
 // /api/coding-crew/* 子分派：crew 定義/chat/EM dispatch/會話持久化/action-log/em-plan/em-execute/interrupt/running/memory/export-import
+import { PAAW_ROOT } from "./coding-helpers.mjs";
+
 export async function crewRoutes({ req, res, method, url, q, projectPath }) {
 
 
