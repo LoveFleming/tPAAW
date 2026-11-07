@@ -166,7 +166,7 @@ const AGENT_FALLBACK_GROUPS = {
 };
 
 // ── Cache for crew toolGroups loaded from JSON ──
-const _crewGroupCache = new Map();
+export const _crewGroupCache = new Map();
 // ── Cache for crew toolsDeny（2026-10-09：per-crew 工具黑名單 — 代碼保證，不靠 prompt 自律）──
 const _crewDenyCache = new Map();
 /** agentId → crewId。2026-10-13：未註冊的 `<module>.<name>` 動態 agent（如 sre.*）視為同名 crew。 */

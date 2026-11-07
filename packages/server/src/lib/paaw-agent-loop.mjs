@@ -220,7 +220,7 @@ export function resolveLLMConfig(_rootDir, modelOverride, fallbackModels) {
 
 export { PAAW_TOOLS } from "./paaw-agent-tools.mjs"; // 2026-11-07 抽出（re-export 保相容）
 import { PAAW_TOOLS } from "./paaw-agent-tools.mjs";
-import { DEFAULT_CONTEXT_WINDOW, executeTool, toolExecTimeoutMs, raceAbortTool, setAgentConfig as _setAgentConfig, _agentCfg, _agentCfgDefaults, LOG } from "./paaw-agent-exec.mjs"; // 2026-11-07 抽出
+import { DEFAULT_CONTEXT_WINDOW, _crewGroupCache, executeTool, toolExecTimeoutMs, raceAbortTool, setAgentConfig as _setAgentConfig, _agentCfg, _agentCfgDefaults, LOG } from "./paaw-agent-exec.mjs"; // 2026-11-07 抽出
 export { executeTool, _setAgentConfig as setAgentConfig, LOG }; // re-export 保相容
 
 function resolveCrewId(agentId) {
