@@ -1020,8 +1020,9 @@ export function formatCondensed(parsedResult) {
       parts.push("↓" + file.imports.map(i => i.source).join(","));
     }
 
-    // Routes
-    if (file.routes.length > 0) {
+    // Routes（2026-11-07：測試檔的 routes 是假訊號 — gin/express 測試會 new router 注册假路由，不能讓 api-map 當 ground truth）
+    const isTestFile = /(^|\/)(?:[\w.-]*_test\.(?:go|py|rs|java|[cm]?[jt]sx?)|[\w.-]*\.(?:test|spec)\.[cm]?[jt]sx?|test_[\w.-]*\.py|test[-_][\w.-]*)$/.test(file.file || "");
+    if (file.routes.length > 0 && !isTestFile) {
       parts.push("⚡" + file.routes.map(r => `${r.method} ${r.path}`).join(" | "));
     }
 

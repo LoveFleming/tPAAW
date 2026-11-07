@@ -149,6 +149,17 @@ export function clearIgnoreCache(root) {
 }
 
 /**
+ * 多語言測試檔判定（2026-11-07 Fleming：api-first 要支援多語言）—
+ * JS/TS `x.test.ts`、Go `x_test.go`、Python `test_x.py` / `x_test.py`、Rust `x_test.rs`、泛 `test-*` 前綴
+ */
+export function isTestFileName(name) {
+  return /\.(test|spec)\.[cm]?[jt]sx?$/.test(name)
+    || /_test\.(go|py|rs|java)$/.test(name)
+    || /^test_.*\.py$/.test(name)
+    || /^test[-_]/.test(name);
+}
+
+/**
  * 共用 walker — 列 source 檔（相對路徑、`/` 分隔）
  * 排除：隱藏檔/目錄、CU_SKIP_DIRS、.gitignore 規則
  * @param {string} root 專案根

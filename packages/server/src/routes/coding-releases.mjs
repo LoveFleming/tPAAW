@@ -26,6 +26,7 @@ import { join, resolve, dirname } from "path";
 import { gatherTaskEvidence } from "./coding-evidence.mjs";
 import { runTaskRetrofit, qualityDebtSummary } from "../lib/task-retrofit.mjs";
 import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
+import { isTestFileName as isTestFileNameM } from "../lib/cu-source-scan.mjs"; // 2026-11-07：多語言測試檔判定（_test.go / test_*.py）
 import { checkGates } from "../lib/release-unit/gates.mjs";
 import { shellExec } from "../lib/shell-exec.mjs";
 import { startTestRun, getRunState, readLastTestRun, detectTestGroups } from "../lib/test-runner.mjs";
@@ -51,7 +52,7 @@ function _apiE2eCoverageChecker(root) {
     let buf = "";
     const TEST_DIR = new Set(["tests", "test", "e2e", "__tests__"]);
     const SKIP = new Set(["node_modules", "dist", "build", "coverage", "versions", "raw", "crops", ".paaw"]);
-    const isTestFile = (n) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(n) || /^test[-_]/.test(n);
+    const isTestFile = (n) => { try { return isTestFileNameM(n); } catch { return /\.(test|spec)\.[cm]?[jt]sx?$/.test(n) || /^test[-_]/.test(n); } };
     const walk = (dir, depth) => {
       if (depth > 5) return;
       let ents; try { ents = readdirSync(dir, { withFileTypes: true }); } catch { return; }
@@ -443,7 +444,7 @@ export default async function releaseRoutes(req, res, next) {
           let buf = "";
           const TEST_DIR = new Set(["tests", "test", "e2e", "__tests__"]);
           const SKIP = new Set(["node_modules", "dist", "build", "coverage", "versions", "raw", "crops", ".paaw"]);
-          const isTestFile = (n) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(n) || /^test[-_]/.test(n);
+          const isTestFile = (n) => { try { return isTestFileNameM(n); } catch { return /\.(test|spec)\.[cm]?[jt]sx?$/.test(n) || /^test[-_]/.test(n); } };
           const walk = (dir, depth) => {
             if (depth > 5) return;
             let ents; try { ents = readdirSync(dir, { withFileTypes: true }); } catch { return; }
