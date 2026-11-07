@@ -678,6 +678,10 @@ export default async function releaseRoutes(req, res, next) {
       const sinceSha = q.get("since");
       const { data: ci } = await buildChangeIntelligence(projectPath, sinceSha ? { fromSha: sinceSha, maxCommits: 300 } : { maxCommits: 300 });
       const commits = ci?.commits || []; // 新 → 舊，含 files（注意：此處 commit 只有完整 hash，short 自切）
+      // 2026-11-07 smoke：壞 sha 不得靜默回空矩陣（會誤導成「無變更」）— 明確報錯
+      if (sinceSha && commits.length === 0) {
+        return res.status(400).json({ error: `since commit 無效或之後沒有 commit：${sinceSha.slice(0, 10)}` });
+      }
       const fileCommits = new Map(); // file → [short...]（新→舊）
       for (const c of commits) {
         const short = String(c.hash || "").slice(0, 7);
