@@ -157,7 +157,8 @@ describe("execSandboxed（有 SDK 才跑 — live 煙霧）", () => {
 // 2026-10-13 bug #4 回歸守門：沙箱標記不得污染結構化工具輸出
 describe("runShell 沙箱標記守門", () => {
   it("標記只在 opts.marker（bash tool）分支出現", async () => {
-    const src = await readFile(new URL("../../packages/server/src/lib/paaw-agent-loop.mjs", import.meta.url), "utf8");
+    // 2026-11-07 Phase 3 拆分：runShell 從 paaw-agent-loop.mjs 移到 paaw-agent-exec.mjs（機械搬移，行為不變）
+    const src = await readFile(new URL("../../packages/server/src/lib/paaw-agent-exec.mjs", import.meta.url), "utf8");
     assert.match(src, /opts\.marker \?/, "runShell 應有 opts.marker 守門");
     const hits = [...src.matchAll(/🛡沙箱[內内]（MXC）/g)];
     assert.ok(hits.length <= 2, `標記字串出現 ${hits.length} 次，疑似又加回到共用路徑`);
